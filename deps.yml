@@ -1,0 +1,10 @@
+name: utaha
+os: posix
+repository:
+deps:
+    - gflags:
+        version: '2.1.2'
+    - gtest:
+        version: '1.7.0'
+    - glog:
+        version: '0.3.4'
