@@ -16,7 +16,12 @@
 		23B0E0F12187FBDB00F9E855 /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0F02187FBDB00F9E855 /* test-main.cc */; };
 		23B0E0F52187FF8500F9E855 /* error-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0F42187FF8500F9E855 /* error-test.cc */; };
 		23B0E0F7218830D600F9E855 /* error.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0F6218830D600F9E855 /* error.cc */; };
-		23B0E0FB2188359D00F9E855 /* key-boundle-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0FA2188359D00F9E855 /* key-boundle-test.cc */; };
+		23B0E0FF218841C500F9E855 /* spin-locking.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0FE218841C500F9E855 /* spin-locking.cc */; };
+		23B0E100218841C500F9E855 /* spin-locking.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0FE218841C500F9E855 /* spin-locking.cc */; };
+		23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1012188421400F9E855 /* spin-locking-test.cc */; };
+		23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1012188421400F9E855 /* spin-locking-test.cc */; };
+		23B0E1052188429700F9E855 /* hash-map-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1042188429700F9E855 /* hash-map-test.cc */; };
+		23B0E107218842C400F9E855 /* key-boundle-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E106218842C400F9E855 /* key-boundle-test.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -54,7 +59,12 @@
 		23B0E0F42187FF8500F9E855 /* error-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "error-test.cc"; path = "src/error-test.cc"; sourceTree = "<group>"; };
 		23B0E0F6218830D600F9E855 /* error.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = error.cc; sourceTree = "<group>"; };
 		23B0E0F9218833A600F9E855 /* key-boundle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-boundle.h"; sourceTree = "<group>"; };
-		23B0E0FA2188359D00F9E855 /* key-boundle-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "key-boundle-test.cc"; sourceTree = "<group>"; };
+		23B0E0FC218840EC00F9E855 /* hash-map.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map.h"; sourceTree = "<group>"; };
+		23B0E0FD218841C500F9E855 /* spin-locking.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "spin-locking.h"; sourceTree = "<group>"; };
+		23B0E0FE218841C500F9E855 /* spin-locking.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "spin-locking.cc"; sourceTree = "<group>"; };
+		23B0E1012188421400F9E855 /* spin-locking-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "spin-locking-test.cc"; path = "src/base/spin-locking-test.cc"; sourceTree = "<group>"; };
+		23B0E1042188429700F9E855 /* hash-map-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "hash-map-test.cc"; path = "src/core/hash-map-test.cc"; sourceTree = "<group>"; };
+		23B0E106218842C400F9E855 /* key-boundle-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "key-boundle-test.cc"; path = "src/core/key-boundle-test.cc"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -102,6 +112,8 @@
 		23B0E0D32187F8CF00F9E855 /* base */ = {
 			isa = PBXGroup;
 			children = (
+				23B0E0FE218841C500F9E855 /* spin-locking.cc */,
+				23B0E0FD218841C500F9E855 /* spin-locking.h */,
 				23B0E0D82187F90400F9E855 /* base.cc */,
 				23B0E0D72187F90400F9E855 /* base.h */,
 			);
@@ -112,10 +124,12 @@
 		23B0E0E52187F9EC00F9E855 /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				23B0E106218842C400F9E855 /* key-boundle-test.cc */,
+				23B0E1012188421400F9E855 /* spin-locking-test.cc */,
 				23B0E0EE2187FB1400F9E855 /* base-test.cc */,
 				23B0E0F02187FBDB00F9E855 /* test-main.cc */,
 				23B0E0F42187FF8500F9E855 /* error-test.cc */,
-				23B0E0FA2188359D00F9E855 /* key-boundle-test.cc */,
+				23B0E1042188429700F9E855 /* hash-map-test.cc */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -144,6 +158,7 @@
 			isa = PBXGroup;
 			children = (
 				23B0E0F9218833A600F9E855 /* key-boundle.h */,
+				23B0E0FC218840EC00F9E855 /* hash-map.h */,
 			);
 			name = core;
 			path = src/core;
@@ -226,7 +241,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E0D92187F90400F9E855 /* base.cc in Sources */,
+				23B0E0FF218841C500F9E855 /* spin-locking.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -234,11 +251,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
+				23B0E107218842C400F9E855 /* key-boundle-test.cc in Sources */,
+				23B0E1052188429700F9E855 /* hash-map-test.cc in Sources */,
 				23B0E0F52187FF8500F9E855 /* error-test.cc in Sources */,
-				23B0E0FB2188359D00F9E855 /* key-boundle-test.cc in Sources */,
 				23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */,
 				23B0E0F12187FBDB00F9E855 /* test-main.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,
+				23B0E100218841C500F9E855 /* spin-locking.cc in Sources */,
 				23B0E0F7218830D600F9E855 /* error.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
