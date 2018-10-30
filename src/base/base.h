@@ -39,7 +39,7 @@ template <class T, size_t N>
 char (&ArraySizeHelper(const T (&array)[N]))[N];
 #endif
 
-#define arraysize(array) (sizeof(::nyaa::ArraySizeHelper(array)))
+#define arraysize(array) (sizeof(::mai::ArraySizeHelper(array)))
 
 /**
  * Safaty down cast

@@ -14,6 +14,9 @@
 		23B0E0ED2187FAF200F9E855 /* libgtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0EA2187FAF200F9E855 /* libgtest.a */; };
 		23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0EE2187FB1400F9E855 /* base-test.cc */; };
 		23B0E0F12187FBDB00F9E855 /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0F02187FBDB00F9E855 /* test-main.cc */; };
+		23B0E0F52187FF8500F9E855 /* error-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0F42187FF8500F9E855 /* error-test.cc */; };
+		23B0E0F7218830D600F9E855 /* error.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0F6218830D600F9E855 /* error.cc */; };
+		23B0E0FB2188359D00F9E855 /* key-boundle-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0FA2188359D00F9E855 /* key-boundle-test.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -47,6 +50,11 @@
 		23B0E0EA2187FAF200F9E855 /* libgtest.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libgtest.a; path = "third-party/libs/libgtest.a"; sourceTree = "<group>"; };
 		23B0E0EE2187FB1400F9E855 /* base-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "base-test.cc"; path = "src/base/base-test.cc"; sourceTree = "<group>"; };
 		23B0E0F02187FBDB00F9E855 /* test-main.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "test-main.cc"; path = "src/test-main.cc"; sourceTree = "<group>"; };
+		23B0E0F32187FE2D00F9E855 /* error.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = error.h; sourceTree = "<group>"; };
+		23B0E0F42187FF8500F9E855 /* error-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "error-test.cc"; path = "src/error-test.cc"; sourceTree = "<group>"; };
+		23B0E0F6218830D600F9E855 /* error.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = error.cc; sourceTree = "<group>"; };
+		23B0E0F9218833A600F9E855 /* key-boundle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-boundle.h"; sourceTree = "<group>"; };
+		23B0E0FA2188359D00F9E855 /* key-boundle-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "key-boundle-test.cc"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,6 +81,7 @@
 		23B0E0C0217D7DA000F9E855 = {
 			isa = PBXGroup;
 			children = (
+				23B0E0F82188337D00F9E855 /* core */,
 				23B0E0F22187FC9400F9E855 /* mai */,
 				23B0E0E52187F9EC00F9E855 /* tests */,
 				23B0E0D32187F8CF00F9E855 /* base */,
@@ -105,6 +114,8 @@
 			children = (
 				23B0E0EE2187FB1400F9E855 /* base-test.cc */,
 				23B0E0F02187FBDB00F9E855 /* test-main.cc */,
+				23B0E0F42187FF8500F9E855 /* error-test.cc */,
+				23B0E0FA2188359D00F9E855 /* key-boundle-test.cc */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -122,9 +133,20 @@
 		23B0E0F22187FC9400F9E855 /* mai */ = {
 			isa = PBXGroup;
 			children = (
+				23B0E0F32187FE2D00F9E855 /* error.h */,
+				23B0E0F6218830D600F9E855 /* error.cc */,
 			);
 			name = mai;
 			path = src;
+			sourceTree = "<group>";
+		};
+		23B0E0F82188337D00F9E855 /* core */ = {
+			isa = PBXGroup;
+			children = (
+				23B0E0F9218833A600F9E855 /* key-boundle.h */,
+			);
+			name = core;
+			path = src/core;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -212,9 +234,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23B0E0F52187FF8500F9E855 /* error-test.cc in Sources */,
+				23B0E0FB2188359D00F9E855 /* key-boundle-test.cc in Sources */,
 				23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */,
 				23B0E0F12187FBDB00F9E855 /* test-main.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,
+				23B0E0F7218830D600F9E855 /* error.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
