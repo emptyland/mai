@@ -13,9 +13,6 @@
 		23B0E0EC2187FAF200F9E855 /* libgflags.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E92187FAF200F9E855 /* libgflags.a */; };
 		23B0E0ED2187FAF200F9E855 /* libgtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0EA2187FAF200F9E855 /* libgtest.a */; };
 		23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0EE2187FB1400F9E855 /* base-test.cc */; };
-		23B0E0F12187FBDB00F9E855 /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0F02187FBDB00F9E855 /* test-main.cc */; };
-		23B0E0F52187FF8500F9E855 /* error-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0F42187FF8500F9E855 /* error-test.cc */; };
-		23B0E0F7218830D600F9E855 /* error.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0F6218830D600F9E855 /* error.cc */; };
 		23B0E0FF218841C500F9E855 /* spin-locking.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0FE218841C500F9E855 /* spin-locking.cc */; };
 		23B0E100218841C500F9E855 /* spin-locking.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0FE218841C500F9E855 /* spin-locking.cc */; };
 		23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1012188421400F9E855 /* spin-locking-test.cc */; };
@@ -23,6 +20,17 @@
 		23B0E1052188429700F9E855 /* hash-map-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1042188429700F9E855 /* hash-map-test.cc */; };
 		23B0E107218842C400F9E855 /* key-boundle-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E106218842C400F9E855 /* key-boundle-test.cc */; };
 		23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */; };
+		23B0E10F2189A6A500F9E855 /* error-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E10D2189A6A500F9E855 /* error-test.cc */; };
+		23B0E1102189A6A500F9E855 /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E10E2189A6A500F9E855 /* test-main.cc */; };
+		23B0E1152189A6BF00F9E855 /* error.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1112189A6BF00F9E855 /* error.cc */; };
+		23B0E1162189A6BF00F9E855 /* error.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1112189A6BF00F9E855 /* error.cc */; };
+		23B0E1182189A71F00F9E855 /* writable-file-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1172189A71F00F9E855 /* writable-file-test.cc */; };
+		23B0E11A2189A94F00F9E855 /* env.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1192189A94F00F9E855 /* env.cc */; };
+		23B0E11B2189A94F00F9E855 /* env.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1192189A94F00F9E855 /* env.cc */; };
+		23B0E11E2189A9CE00F9E855 /* env-posix.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E11D2189A9CE00F9E855 /* env-posix.cc */; };
+		23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E11D2189A9CE00F9E855 /* env-posix.cc */; };
+		23B0E1222189ABE800F9E855 /* file-posix.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1212189ABE800F9E855 /* file-posix.cc */; };
+		23B0E1232189ABE800F9E855 /* file-posix.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1212189ABE800F9E855 /* file-posix.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -55,10 +63,6 @@
 		23B0E0E92187FAF200F9E855 /* libgflags.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libgflags.a; path = "third-party/libs/libgflags.a"; sourceTree = "<group>"; };
 		23B0E0EA2187FAF200F9E855 /* libgtest.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libgtest.a; path = "third-party/libs/libgtest.a"; sourceTree = "<group>"; };
 		23B0E0EE2187FB1400F9E855 /* base-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "base-test.cc"; path = "src/base/base-test.cc"; sourceTree = "<group>"; };
-		23B0E0F02187FBDB00F9E855 /* test-main.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "test-main.cc"; path = "src/test-main.cc"; sourceTree = "<group>"; };
-		23B0E0F32187FE2D00F9E855 /* error.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = error.h; sourceTree = "<group>"; };
-		23B0E0F42187FF8500F9E855 /* error-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "error-test.cc"; path = "src/error-test.cc"; sourceTree = "<group>"; };
-		23B0E0F6218830D600F9E855 /* error.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = error.cc; sourceTree = "<group>"; };
 		23B0E0F9218833A600F9E855 /* key-boundle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-boundle.h"; sourceTree = "<group>"; };
 		23B0E0FC218840EC00F9E855 /* hash-map.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map.h"; sourceTree = "<group>"; };
 		23B0E0FD218841C500F9E855 /* spin-locking.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "spin-locking.h"; sourceTree = "<group>"; };
@@ -67,8 +71,18 @@
 		23B0E1042188429700F9E855 /* hash-map-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "hash-map-test.cc"; path = "src/core/hash-map-test.cc"; sourceTree = "<group>"; };
 		23B0E106218842C400F9E855 /* key-boundle-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "key-boundle-test.cc"; path = "src/core/key-boundle-test.cc"; sourceTree = "<group>"; };
 		23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "unordered-memory-table-test.cc"; path = "src/core/unordered-memory-table-test.cc"; sourceTree = "<group>"; };
-		23B0E10A2189809C00F9E855 /* allocator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = allocator.h; sourceTree = "<group>"; };
 		23B0E10B2189816300F9E855 /* allocators.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = allocators.h; sourceTree = "<group>"; };
+		23B0E10D2189A6A500F9E855 /* error-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "error-test.cc"; path = "src/mai/error-test.cc"; sourceTree = "<group>"; };
+		23B0E10E2189A6A500F9E855 /* test-main.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "test-main.cc"; path = "src/mai/test-main.cc"; sourceTree = "<group>"; };
+		23B0E1112189A6BF00F9E855 /* error.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = error.cc; sourceTree = "<group>"; };
+		23B0E1122189A6BF00F9E855 /* allocator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = allocator.h; sourceTree = "<group>"; };
+		23B0E1132189A6BF00F9E855 /* error.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = error.h; sourceTree = "<group>"; };
+		23B0E1142189A6BF00F9E855 /* env.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = env.h; sourceTree = "<group>"; };
+		23B0E1172189A71F00F9E855 /* writable-file-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "writable-file-test.cc"; path = "src/mai/writable-file-test.cc"; sourceTree = "<group>"; };
+		23B0E1192189A94F00F9E855 /* env.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = env.cc; sourceTree = "<group>"; };
+		23B0E11D2189A9CE00F9E855 /* env-posix.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "env-posix.cc"; sourceTree = "<group>"; };
+		23B0E1202189A9F300F9E855 /* file-posix.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "file-posix.h"; sourceTree = "<group>"; };
+		23B0E1212189ABE800F9E855 /* file-posix.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "file-posix.cc"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -95,6 +109,7 @@
 		23B0E0C0217D7DA000F9E855 = {
 			isa = PBXGroup;
 			children = (
+				23B0E11C2189A98D00F9E855 /* port */,
 				23B0E0F82188337D00F9E855 /* core */,
 				23B0E0F22187FC9400F9E855 /* mai */,
 				23B0E0E52187F9EC00F9E855 /* tests */,
@@ -129,13 +144,14 @@
 		23B0E0E52187F9EC00F9E855 /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				23B0E10D2189A6A500F9E855 /* error-test.cc */,
+				23B0E10E2189A6A500F9E855 /* test-main.cc */,
 				23B0E106218842C400F9E855 /* key-boundle-test.cc */,
 				23B0E1012188421400F9E855 /* spin-locking-test.cc */,
 				23B0E0EE2187FB1400F9E855 /* base-test.cc */,
-				23B0E0F02187FBDB00F9E855 /* test-main.cc */,
-				23B0E0F42187FF8500F9E855 /* error-test.cc */,
 				23B0E1042188429700F9E855 /* hash-map-test.cc */,
 				23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */,
+				23B0E1172189A71F00F9E855 /* writable-file-test.cc */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -153,12 +169,14 @@
 		23B0E0F22187FC9400F9E855 /* mai */ = {
 			isa = PBXGroup;
 			children = (
-				23B0E0F32187FE2D00F9E855 /* error.h */,
-				23B0E0F6218830D600F9E855 /* error.cc */,
-				23B0E10A2189809C00F9E855 /* allocator.h */,
+				23B0E1122189A6BF00F9E855 /* allocator.h */,
+				23B0E1142189A6BF00F9E855 /* env.h */,
+				23B0E1192189A94F00F9E855 /* env.cc */,
+				23B0E1112189A6BF00F9E855 /* error.cc */,
+				23B0E1132189A6BF00F9E855 /* error.h */,
 			);
 			name = mai;
-			path = src;
+			path = src/mai;
 			sourceTree = "<group>";
 		};
 		23B0E0F82188337D00F9E855 /* core */ = {
@@ -169,6 +187,17 @@
 			);
 			name = core;
 			path = src/core;
+			sourceTree = "<group>";
+		};
+		23B0E11C2189A98D00F9E855 /* port */ = {
+			isa = PBXGroup;
+			children = (
+				23B0E11D2189A9CE00F9E855 /* env-posix.cc */,
+				23B0E1202189A9F300F9E855 /* file-posix.h */,
+				23B0E1212189ABE800F9E855 /* file-posix.cc */,
+			);
+			name = port;
+			path = src/port;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -248,8 +277,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23B0E11A2189A94F00F9E855 /* env.cc in Sources */,
 				23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E0D92187F90400F9E855 /* base.cc in Sources */,
+				23B0E11E2189A9CE00F9E855 /* env-posix.cc in Sources */,
+				23B0E1152189A6BF00F9E855 /* error.cc in Sources */,
+				23B0E1222189ABE800F9E855 /* file-posix.cc in Sources */,
 				23B0E0FF218841C500F9E855 /* spin-locking.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -258,16 +291,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23B0E10F2189A6A500F9E855 /* error-test.cc in Sources */,
+				23B0E1182189A71F00F9E855 /* writable-file-test.cc in Sources */,
+				23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */,
+				23B0E1102189A6A500F9E855 /* test-main.cc in Sources */,
+				23B0E11B2189A94F00F9E855 /* env.cc in Sources */,
+				23B0E1232189ABE800F9E855 /* file-posix.cc in Sources */,
 				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E107218842C400F9E855 /* key-boundle-test.cc in Sources */,
+				23B0E1162189A6BF00F9E855 /* error.cc in Sources */,
 				23B0E1052188429700F9E855 /* hash-map-test.cc in Sources */,
-				23B0E0F52187FF8500F9E855 /* error-test.cc in Sources */,
 				23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */,
-				23B0E0F12187FBDB00F9E855 /* test-main.cc in Sources */,
 				23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,
 				23B0E100218841C500F9E855 /* spin-locking.cc in Sources */,
-				23B0E0F7218830D600F9E855 /* error.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -67,6 +67,13 @@ public:
     
     std::string ToString() const;
     
+    void operator = (const Error other) {
+        filename_ = other.filename_;
+        fileline_ = other.fileline_;
+        delete [] state_;
+        state_ = MakeState(other.code(), other.message());
+    }
+    
 private:
     enum Code: int {
         kOk,
@@ -98,13 +105,15 @@ private:
         return state;
     }
     
-    const char * const filename_;
-    const int          fileline_;
-    const char        *state_ = nullptr;
+    const char * filename_;
+    int          fileline_;
+    const char  *state_ = nullptr;
 }; // class Error
     
 #define MAI_NOT_FOUND(...) ::mai::Error::NotFound(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_CORRUPTION(...) ::mai::Error::Corruption(__FILE__, __LINE__, __VA_ARGS__)
+#define MAI_IO_ERROR(...) ::mai::Error::IOError(__FILE__, __LINE__, __VA_ARGS__)
+#define MAI_NOT_SUPPORTED(...) ::mai::Error::NotSupported(__FILE__, __LINE__, __VA_ARGS__)
     
 } // namespace mai
 

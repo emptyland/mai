@@ -48,10 +48,17 @@ class KeyBoundle final {
 public:
     size_t size() const { return size_; }
     size_t key_size() const { return key_size_; }
+    size_t tagged_key_size() const { return key_size_ + Tag::kSize; }
     size_t value_size() const { return size_ - key_size_ - Tag::kSize; }
     
+    // user key
     std::string_view key() const {
         return std::string_view(key_, key_size());
+    }
+    
+    // user key with tag
+    std::string_view tagged_key() const {
+        return std::string_view(key_, tagged_key_size());
     }
     
     std::string_view value() const {

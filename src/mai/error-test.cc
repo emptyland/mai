@@ -1,4 +1,4 @@
-#include "error.h"
+#include "mai/error.h"
 #include "gtest/gtest.h"
 
 namespace mai {
