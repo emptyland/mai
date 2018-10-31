@@ -22,6 +22,7 @@
 		23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1012188421400F9E855 /* spin-locking-test.cc */; };
 		23B0E1052188429700F9E855 /* hash-map-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1042188429700F9E855 /* hash-map-test.cc */; };
 		23B0E107218842C400F9E855 /* key-boundle-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E106218842C400F9E855 /* key-boundle-test.cc */; };
+		23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -65,6 +66,9 @@
 		23B0E1012188421400F9E855 /* spin-locking-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "spin-locking-test.cc"; path = "src/base/spin-locking-test.cc"; sourceTree = "<group>"; };
 		23B0E1042188429700F9E855 /* hash-map-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "hash-map-test.cc"; path = "src/core/hash-map-test.cc"; sourceTree = "<group>"; };
 		23B0E106218842C400F9E855 /* key-boundle-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "key-boundle-test.cc"; path = "src/core/key-boundle-test.cc"; sourceTree = "<group>"; };
+		23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "unordered-memory-table-test.cc"; path = "src/core/unordered-memory-table-test.cc"; sourceTree = "<group>"; };
+		23B0E10A2189809C00F9E855 /* allocator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = allocator.h; sourceTree = "<group>"; };
+		23B0E10B2189816300F9E855 /* allocators.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = allocators.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -116,6 +120,7 @@
 				23B0E0FD218841C500F9E855 /* spin-locking.h */,
 				23B0E0D82187F90400F9E855 /* base.cc */,
 				23B0E0D72187F90400F9E855 /* base.h */,
+				23B0E10B2189816300F9E855 /* allocators.h */,
 			);
 			name = base;
 			path = src/base;
@@ -130,6 +135,7 @@
 				23B0E0F02187FBDB00F9E855 /* test-main.cc */,
 				23B0E0F42187FF8500F9E855 /* error-test.cc */,
 				23B0E1042188429700F9E855 /* hash-map-test.cc */,
+				23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -149,6 +155,7 @@
 			children = (
 				23B0E0F32187FE2D00F9E855 /* error.h */,
 				23B0E0F6218830D600F9E855 /* error.cc */,
+				23B0E10A2189809C00F9E855 /* allocator.h */,
 			);
 			name = mai;
 			path = src;
@@ -257,6 +264,7 @@
 				23B0E0F52187FF8500F9E855 /* error-test.cc in Sources */,
 				23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */,
 				23B0E0F12187FBDB00F9E855 /* test-main.cc in Sources */,
+				23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,
 				23B0E100218841C500F9E855 /* spin-locking.cc in Sources */,
 				23B0E0F7218830D600F9E855 /* error.cc in Sources */,

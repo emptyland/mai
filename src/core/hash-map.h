@@ -3,6 +3,7 @@
 
 #include "base/spin-locking.h"
 #include "base/base.h"
+#include "glog/logging.h"
 #include <memory>
 #include <tuple>
 
@@ -26,6 +27,16 @@ public:
         , n_items_(0)
         , slots_(new Slot[initial_slots]) {
     }
+    
+    ~HashMap() {
+        for (size_t i = 0; i < n_slots_; ++i) {
+            if (slots_[i].head) {
+                Node *p = slots_[i].head;
+                slots_[i].head = p->next;
+                delete p;
+            }
+        }
+    }
 
     void Put(Key key) {
         int hash = comparator_.Hash(key);
@@ -35,7 +46,7 @@ public:
         base::WriterSpinLock socpe_lock(&slot->mutex);
 
         Node *pp = reinterpret_cast<Node *>(slot);
-        Node *p = slot->head_;
+        Node *p = slot->head;
         while (p) {
             if (comparator_.Equals(key, p->key)) {
                 break;
@@ -47,36 +58,84 @@ public:
         n_items_.fetch_add(1);
     }
     
-    std::tuple<int, Node *> Seek(Key key) const {
+    std::tuple<size_t, Node *> Seek(Key key) const {
         int hash = comparator_.Hash(key);
         int index = hash % n_slots_;
         Slot *slot = (slots_.get() + index);
      
         base::ReaderSpinLock socpe_lock(&slot->mutex);
-        Node *p = slot->head_;
+        Node *p = slot->head;
         while (p) {
             if (comparator_.Equals(key, p->key)) {
                 return std::make_tuple(index, p);
             }
             p = p->next;
         }
-        return std::make_tuple(-1, nullptr);
+        return std::make_tuple(n_slots_, nullptr);
     }
     
+    size_t items_count() const { return n_items_.load(); }
 private:
     Comparator const comparator_;
     
     struct Slot {
         Slot() : mutex(base::RWSpinLocking::kLockBais) {}
         
-        Node *head_ = nullptr;
+        Node *head = nullptr;
         base::SpinMutex mutex;
     };
     
     size_t n_slots_;
     std::atomic<size_t> n_items_;
-    std::unique_ptr<Slot[]> slots_;
+    std::unique_ptr<Slot[]> slots_; // Slots is fixed!
 }; // class HashMap
+    
+    
+template<class Key, class Comparator>
+class HashMap<Key, Comparator>::Iterator {
+public:
+    Iterator(HashMap<Key, Comparator> *map)
+        : map_(map)
+        , slot_(map->n_slots_) {}
+    
+    bool Valid() const {
+        return slot_ < map_->n_slots_ && node_ != nullptr;
+    }
+    
+    Key key() const { return DCHECK_NOTNULL(node_)->key; }
+    
+    void Next() {
+        base::ReaderSpinLock socpe_lock(&map_->slots_[slot_].mutex);
+        node_ = node_->next;
+        if (!node_) {
+            while (++slot_ < map_->n_slots_) {
+                base::ReaderSpinLock socpe_lock(&map_->slots_[slot_].mutex);
+                if (map_->slots_[slot_].head) {
+                    node_ = map_->slots_[slot_].head;
+                    break;
+                }
+            }
+        }
+    }
+    
+    void Seek(Key key) { std::tie(slot_, node_) = map_->Seek(key); }
+    
+    void SeekToFirst() {
+        for (size_t i = 0; i < map_->n_slots_; ++i) {
+            base::ReaderSpinLock socpe_lock(&map_->slots_[i].mutex);
+            if (map_->slots_[i].head) {
+                node_ = map_->slots_[i].head;
+                slot_ = i;
+                break;
+            }
+        }
+    }
+    
+private:
+    HashMap<Key, Comparator> *map_;
+    size_t slot_;
+    Node *node_ = nullptr;
+}; // class HashMap<Key, Comparator>::Iterator
     
 } // namespace core
     

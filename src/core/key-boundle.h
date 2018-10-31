@@ -1,6 +1,7 @@
 #ifndef MAI_CORE_KEY_BOUNDLE_H_
 #define MAI_CORE_KEY_BOUNDLE_H_
 
+#include "base/allocators.h"
 #include "base/base.h"
 #include "glog/logging.h"
 #include <stdint.h>
@@ -62,12 +63,21 @@ public:
                                                                + key_size()));
     }
     
+    template<class Allocator = base::MallocAllocator>
     static KeyBoundle *New(std::string_view key,
                            std::string_view value,
                            Version version,
-                           uint8_t flags) {
-        void *raw = ::malloc(sizeof(KeyBoundle) + key.size() + value.size());
+                           uint8_t flags,
+                           Allocator allocator = base::MallocAllocator{}) {
+        void *raw = allocator.Allocate(sizeof(KeyBoundle) + key.size() + value.size());
         return new (raw) KeyBoundle(key, value, version, flags);
+    }
+    
+    template<class Allocator = base::MallocAllocator>
+    static KeyBoundle *New(std::string_view key, Version version,
+                           Allocator allocator = base::MallocAllocator{}) {
+        void *raw = allocator.Allocate(sizeof(KeyBoundle) + key.size());
+        return new (raw) KeyBoundle(key, "", version, 0);
     }
 
 private:

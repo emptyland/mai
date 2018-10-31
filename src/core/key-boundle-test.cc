@@ -21,6 +21,17 @@ TEST(KeyBoundleTest, New) {
     ASSERT_EQ(Tag::kFlagValue, tag.flags());
 }
     
+TEST(KeyBoundleTest, TempAllocate) {
+    auto boundle = KeyBoundle::New("100", 0, base::NewAllocator{});
+    ASSERT_NE(nullptr, boundle);
+    base::NewAllocator{}.Free(boundle);
+    
+    base::ScopedMemory scope_memory;
+    
+    boundle = KeyBoundle::New("100", 0, base::ScopedAllocator{&scope_memory});
+    ASSERT_NE(nullptr, boundle);
+}
+    
 } // namespace core
     
 } // namespace mai
