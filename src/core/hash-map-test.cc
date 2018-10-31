@@ -4,6 +4,11 @@
 namespace {
 
 struct TestComparator {
+    
+    bool EqualsKeyVersionLessThan(int lhs, int rhs) const {
+        return lhs == rhs;
+    }
+    
     bool Equals(int lhs, int rhs) const {
         return lhs == rhs;
     }

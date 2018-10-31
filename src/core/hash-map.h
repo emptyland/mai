@@ -55,6 +55,7 @@ public:
             p = p->next;
         }
         pp->next = node;
+        node->next = p;
         n_items_.fetch_add(1);
     }
     
@@ -66,7 +67,7 @@ public:
         base::ReaderSpinLock socpe_lock(&slot->mutex);
         Node *p = slot->head;
         while (p) {
-            if (comparator_.Equals(key, p->key)) {
+            if (comparator_.EqualsKeyVersionLessThan(p->key, key)) {
                 return std::make_tuple(index, p);
             }
             p = p->next;
