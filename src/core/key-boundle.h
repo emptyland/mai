@@ -22,6 +22,8 @@ public:
         kFlagValue = 0,
         kFlagDeletion = 1
     };
+    
+    Tag() : Tag(0, 0) {}
 
     Tag(Version version, uint8_t flags)
         : version_(version)
@@ -39,10 +41,15 @@ public:
     DEF_VAL_GETTER(Version, version);
     DEF_VAL_GETTER(uint8_t, flags);
 private:
-    const Version version_;
-    const uint8_t flags_;
+    Version version_;
+    uint8_t flags_;
 }; // class Tag
 
+    
+struct ParsedTaggedKey {
+    std::string_view user_key;
+    Tag tag;
+}; // class ParsedTaggedKey
     
 class KeyBoundle final {
 public:
@@ -85,6 +92,15 @@ public:
                            Allocator allocator = base::MallocAllocator{}) {
         void *raw = allocator.Allocate(sizeof(KeyBoundle) + key.size());
         return new (raw) KeyBoundle(key, "", version, 0);
+    }
+    
+    static void ParseTaggedKey(std::string_view tagged_key,
+                               ParsedTaggedKey *parsed) {
+        parsed->user_key = tagged_key;
+        parsed->user_key.remove_suffix(Tag::kSize);
+        parsed->tag = Tag::Decode(
+                *reinterpret_cast<const uint64_t *>(tagged_key.data()
+                                                    + parsed->user_key.size()));
     }
 
 private:

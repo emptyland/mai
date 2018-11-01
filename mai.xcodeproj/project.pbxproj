@@ -31,6 +31,13 @@
 		23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E11D2189A9CE00F9E855 /* env-posix.cc */; };
 		23B0E1222189ABE800F9E855 /* file-posix.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1212189ABE800F9E855 /* file-posix.cc */; };
 		23B0E1232189ABE800F9E855 /* file-posix.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1212189ABE800F9E855 /* file-posix.cc */; };
+		23B0E128218AD33300F9E855 /* hash-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E127218AD33300F9E855 /* hash-table-builder.cc */; };
+		23B0E129218AD33300F9E855 /* hash-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E127218AD33300F9E855 /* hash-table-builder.cc */; };
+		23B0E12D218AF97A00F9E855 /* hash-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12C218AF97A00F9E855 /* hash-table-builder-test.cc */; };
+		23B0E130218AFBCC00F9E855 /* hash.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12F218AFBCC00F9E855 /* hash.cc */; };
+		23B0E131218AFBCC00F9E855 /* hash.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12F218AFBCC00F9E855 /* hash.cc */; };
+		23B0E133218AFD4E00F9E855 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
+		23B0E134218AFD4E00F9E855 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -83,6 +90,14 @@
 		23B0E11D2189A9CE00F9E855 /* env-posix.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "env-posix.cc"; sourceTree = "<group>"; };
 		23B0E1202189A9F300F9E855 /* file-posix.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "file-posix.h"; sourceTree = "<group>"; };
 		23B0E1212189ABE800F9E855 /* file-posix.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "file-posix.cc"; sourceTree = "<group>"; };
+		23B0E126218AD2D100F9E855 /* hash-table-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-table-builder.h"; sourceTree = "<group>"; };
+		23B0E127218AD33300F9E855 /* hash-table-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hash-table-builder.cc"; sourceTree = "<group>"; };
+		23B0E12A218AD41300F9E855 /* table-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-builder.h"; sourceTree = "<group>"; };
+		23B0E12B218AED2E00F9E855 /* slice.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = slice.h; sourceTree = "<group>"; };
+		23B0E12C218AF97A00F9E855 /* hash-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "hash-table-builder-test.cc"; path = "src/table/hash-table-builder-test.cc"; sourceTree = "<group>"; };
+		23B0E12E218AFB8400F9E855 /* hash.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = hash.h; sourceTree = "<group>"; };
+		23B0E12F218AFBCC00F9E855 /* hash.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = hash.cc; sourceTree = "<group>"; };
+		23B0E132218AFD4E00F9E855 /* crc32.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = crc32.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,6 +124,7 @@
 		23B0E0C0217D7DA000F9E855 = {
 			isa = PBXGroup;
 			children = (
+				23B0E125218AD1E300F9E855 /* table */,
 				23B0E11C2189A98D00F9E855 /* port */,
 				23B0E0F82188337D00F9E855 /* core */,
 				23B0E0F22187FC9400F9E855 /* mai */,
@@ -136,6 +152,10 @@
 				23B0E0D82187F90400F9E855 /* base.cc */,
 				23B0E0D72187F90400F9E855 /* base.h */,
 				23B0E10B2189816300F9E855 /* allocators.h */,
+				23B0E12B218AED2E00F9E855 /* slice.h */,
+				23B0E12E218AFB8400F9E855 /* hash.h */,
+				23B0E12F218AFBCC00F9E855 /* hash.cc */,
+				23B0E132218AFD4E00F9E855 /* crc32.c */,
 			);
 			name = base;
 			path = src/base;
@@ -152,6 +172,7 @@
 				23B0E1042188429700F9E855 /* hash-map-test.cc */,
 				23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */,
 				23B0E1172189A71F00F9E855 /* file-test.cc */,
+				23B0E12C218AF97A00F9E855 /* hash-table-builder-test.cc */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -198,6 +219,17 @@
 			);
 			name = port;
 			path = src/port;
+			sourceTree = "<group>";
+		};
+		23B0E125218AD1E300F9E855 /* table */ = {
+			isa = PBXGroup;
+			children = (
+				23B0E126218AD2D100F9E855 /* hash-table-builder.h */,
+				23B0E127218AD33300F9E855 /* hash-table-builder.cc */,
+				23B0E12A218AD41300F9E855 /* table-builder.h */,
+			);
+			name = table;
+			path = src/table;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -280,9 +312,12 @@
 				23B0E11A2189A94F00F9E855 /* env.cc in Sources */,
 				23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E0D92187F90400F9E855 /* base.cc in Sources */,
+				23B0E133218AFD4E00F9E855 /* crc32.c in Sources */,
+				23B0E130218AFBCC00F9E855 /* hash.cc in Sources */,
 				23B0E11E2189A9CE00F9E855 /* env-posix.cc in Sources */,
 				23B0E1152189A6BF00F9E855 /* error.cc in Sources */,
 				23B0E1222189ABE800F9E855 /* file-posix.cc in Sources */,
+				23B0E128218AD33300F9E855 /* hash-table-builder.cc in Sources */,
 				23B0E0FF218841C500F9E855 /* spin-locking.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -291,13 +326,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23B0E131218AFBCC00F9E855 /* hash.cc in Sources */,
 				23B0E10F2189A6A500F9E855 /* error-test.cc in Sources */,
 				23B0E1182189A71F00F9E855 /* file-test.cc in Sources */,
+				23B0E134218AFD4E00F9E855 /* crc32.c in Sources */,
 				23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */,
 				23B0E1102189A6A500F9E855 /* test-main.cc in Sources */,
 				23B0E11B2189A94F00F9E855 /* env.cc in Sources */,
+				23B0E129218AD33300F9E855 /* hash-table-builder.cc in Sources */,
 				23B0E1232189ABE800F9E855 /* file-posix.cc in Sources */,
 				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
+				23B0E12D218AF97A00F9E855 /* hash-table-builder-test.cc in Sources */,
 				23B0E107218842C400F9E855 /* key-boundle-test.cc in Sources */,
 				23B0E1162189A6BF00F9E855 /* error.cc in Sources */,
 				23B0E1052188429700F9E855 /* hash-map-test.cc in Sources */,

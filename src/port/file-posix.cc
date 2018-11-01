@@ -78,6 +78,15 @@ namespace port {
     return Error::OK();
 }
     
+/*virtual*/ Error WritableFilePosix::GetFileSize(uint64_t *size)  {
+    struct stat s;
+    if (::fstat(fd_, &s) < 0) {
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    *size = s.st_size;
+    return Error::OK();
+}
+    
 ////////////////////////////////////////////////////////////////////////////////
 /// class MemRandomAccessFilePosix
 ////////////////////////////////////////////////////////////////////////////////
