@@ -1,6 +1,8 @@
 #include "port/file-posix.h"
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
 namespace mai {
     
@@ -76,8 +78,71 @@ namespace port {
     return Error::OK();
 }
     
+////////////////////////////////////////////////////////////////////////////////
+/// class MemRandomAccessFilePosix
+////////////////////////////////////////////////////////////////////////////////
+    
 MemRandomAccessFilePosix::~MemRandomAccessFilePosix() {}
     
+/*static*/ Error
+MemRandomAccessFilePosix::Open(const std::string &file_name,
+                               std::unique_ptr<RandomAccessFile> *file) {
+    int fd = ::open(file_name.c_str(), O_RDONLY);
+    if (fd < 0) {
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    
+    struct stat s;
+    if (::fstat(fd, &s) < 0) {
+        close(fd);
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    
+    void *mapped = ::mmap(nullptr, s.st_size, PROT_READ, MAP_FILE|MAP_PRIVATE,
+                          fd, 0);
+    if (mapped == MAP_FAILED) {
+        close(fd);
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    
+    file->reset(new MemRandomAccessFilePosix(fd, s.st_size,
+                                             static_cast<char *>(mapped)));
+    return Error::OK();
+}
+
+/*virtual*/ Error MemRandomAccessFilePosix::Read(uint64_t offset, size_t n,
+                                                 std::string_view *result,
+                                                 std::string */*scratch*/) {
+    if (offset > file_size_) {
+        return MAI_IO_ERROR("offset out of range!");
+    }
+    n = (file_size_ - offset < n ? file_size_ - offset : n);
+    *result = std::string_view(mapped_ + offset, n);
+    return Error::OK();
+}
+
+/*virtual*/ Error MemRandomAccessFilePosix::GetFileSize(uint64_t *size) {
+    *size = file_size_;
+    return Error::OK();
+}
+    
+/*virtual*/ Error MemRandomAccessFilePosix::Close() {
+    if (static_cast<void *>(mapped_) != MAP_FAILED) {
+        if (::munmap(mapped_, file_size_) < 0) {
+            return MAI_IO_ERROR(strerror(errno));
+        }
+        mapped_ = nullptr;
+    }
+    
+    if (fd_ != -1) {
+        if (::close(fd_) < 0) {
+            return MAI_IO_ERROR(strerror(errno));
+        }
+        fd_ = -1;
+    }
+    return Error::OK();
+}
+
 } // namespace port
     
 } // namespace mai

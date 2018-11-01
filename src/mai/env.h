@@ -49,6 +49,8 @@ public:
                        std::string *scratch) = 0;
     
     virtual Error GetFileSize(uint64_t *size) = 0;
+    
+    virtual Error Close() = 0;
 }; // class RandomAccessFile
     
 } // namespace mai

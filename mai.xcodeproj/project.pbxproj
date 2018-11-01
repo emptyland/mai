@@ -24,7 +24,7 @@
 		23B0E1102189A6A500F9E855 /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E10E2189A6A500F9E855 /* test-main.cc */; };
 		23B0E1152189A6BF00F9E855 /* error.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1112189A6BF00F9E855 /* error.cc */; };
 		23B0E1162189A6BF00F9E855 /* error.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1112189A6BF00F9E855 /* error.cc */; };
-		23B0E1182189A71F00F9E855 /* writable-file-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1172189A71F00F9E855 /* writable-file-test.cc */; };
+		23B0E1182189A71F00F9E855 /* file-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1172189A71F00F9E855 /* file-test.cc */; };
 		23B0E11A2189A94F00F9E855 /* env.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1192189A94F00F9E855 /* env.cc */; };
 		23B0E11B2189A94F00F9E855 /* env.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1192189A94F00F9E855 /* env.cc */; };
 		23B0E11E2189A9CE00F9E855 /* env-posix.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E11D2189A9CE00F9E855 /* env-posix.cc */; };
@@ -78,7 +78,7 @@
 		23B0E1122189A6BF00F9E855 /* allocator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = allocator.h; sourceTree = "<group>"; };
 		23B0E1132189A6BF00F9E855 /* error.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = error.h; sourceTree = "<group>"; };
 		23B0E1142189A6BF00F9E855 /* env.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = env.h; sourceTree = "<group>"; };
-		23B0E1172189A71F00F9E855 /* writable-file-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "writable-file-test.cc"; path = "src/mai/writable-file-test.cc"; sourceTree = "<group>"; };
+		23B0E1172189A71F00F9E855 /* file-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "file-test.cc"; path = "src/mai/file-test.cc"; sourceTree = "<group>"; };
 		23B0E1192189A94F00F9E855 /* env.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = env.cc; sourceTree = "<group>"; };
 		23B0E11D2189A9CE00F9E855 /* env-posix.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "env-posix.cc"; sourceTree = "<group>"; };
 		23B0E1202189A9F300F9E855 /* file-posix.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "file-posix.h"; sourceTree = "<group>"; };
@@ -151,7 +151,7 @@
 				23B0E0EE2187FB1400F9E855 /* base-test.cc */,
 				23B0E1042188429700F9E855 /* hash-map-test.cc */,
 				23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */,
-				23B0E1172189A71F00F9E855 /* writable-file-test.cc */,
+				23B0E1172189A71F00F9E855 /* file-test.cc */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -292,7 +292,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				23B0E10F2189A6A500F9E855 /* error-test.cc in Sources */,
-				23B0E1182189A71F00F9E855 /* writable-file-test.cc in Sources */,
+				23B0E1182189A71F00F9E855 /* file-test.cc in Sources */,
 				23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */,
 				23B0E1102189A6A500F9E855 /* test-main.cc in Sources */,
 				23B0E11B2189A94F00F9E855 /* env.cc in Sources */,

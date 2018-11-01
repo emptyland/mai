@@ -17,8 +17,11 @@ public:
     virtual Error NewRandomAccessFile(const std::string &file_name,
                                       std::unique_ptr<RandomAccessFile> *file,
                                       bool use_mem_file) override {
-        // TODO:
-        return MAI_NOT_SUPPORTED("TODO:");
+        if (use_mem_file) {
+            return MemRandomAccessFilePosix::Open(file_name, file);
+        } else {
+            return MAI_NOT_SUPPORTED("TODO:");
+        }
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(EnvPosix);
