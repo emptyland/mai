@@ -87,6 +87,13 @@ namespace port {
     return Error::OK();
 }
     
+/*virtual*/ Error WritableFilePosix::Truncate(uint64_t size) {
+    if (::ftruncate(fd_, size) < 0) {
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    return Error::OK();
+}
+    
 ////////////////////////////////////////////////////////////////////////////////
 /// class MemRandomAccessFilePosix
 ////////////////////////////////////////////////////////////////////////////////

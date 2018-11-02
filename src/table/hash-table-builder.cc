@@ -1,4 +1,5 @@
 #include "table/hash-table-builder.h"
+#include "table/table.h"
 #include "core/key-boundle.h"
 #include "base/slice.h"
 #include "mai/env.h"
@@ -167,7 +168,7 @@ void HashTableBuilder::Add(std::string_view key, std::string_view value) {
         return rv;
     }
     // hmt
-    rv = file_->Append(base::Slice::GetU32(0x746d6800, &scope));
+    rv = file_->Append(base::Slice::GetU32(Table::kHmtMagicNumber, &scope));
     if (!rv.ok()) {
         return rv;
     }

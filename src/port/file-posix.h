@@ -22,6 +22,7 @@ public:
     virtual Error Flush() override;
     virtual Error Sync() override;
     virtual Error GetFileSize(uint64_t *size) override;
+    virtual Error Truncate(uint64_t size) override;
     
     DISALLOW_ALL_CONSTRUCTORS(WritableFilePosix);
 private:

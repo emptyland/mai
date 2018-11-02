@@ -1,8 +1,11 @@
 #include "table/hash-table-builder.h"
+#include "table/hash-table-reader.h"
 #include "core/key-boundle.h"
 #include "base/hash.h"
 #include "base/allocators.h"
 #include "mai/env.h"
+#include "mai/options.h"
+#include "mai/comparator.h"
 #include "gtest/gtest.h"
 
 namespace mai {
@@ -14,6 +17,9 @@ TEST(HashTableBuilderTest, Sanity) {
     
     std::unique_ptr<WritableFile> file;
     auto rs = env->NewWritableFile("tests/02-hash-table-file.tmp", &file);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = file->Truncate(0);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     base::ScopedMemory scope;
@@ -36,6 +42,38 @@ TEST(HashTableBuilderTest, Sanity) {
     
     rs = builder.Finish();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    file->Close();
+}
+    
+TEST(HashTableBuilderTest, Reading) {
+    auto env = Env::Default();
+    
+    std::unique_ptr<RandomAccessFile> file;
+    auto rs = env->NewRandomAccessFile("tests/02-hash-table-file.tmp", &file);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    uint64_t file_size;
+    rs = file->GetFileSize(&file_size);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    
+    HashTableReader reader(file.get(), file_size, &base::Hash::Js);
+    rs = reader.Prepare();
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    base::ScopedMemory scope;
+    auto key = core::KeyBoundle::New("aaaa", 1, base::ScopedAllocator{&scope});
+    std::string_view value;
+    std::string scratch;
+    core::Tag tag;
+    reader.TableReader::Prepare(key->tagged_key());
+    rs = reader.Get(ReadOptions{}, Comparator::Bytewise(), key->tagged_key(),
+                    &tag, &value, &scratch);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("a11111", value);
+    ASSERT_EQ(1, tag.version());
+    ASSERT_EQ(core::Tag::kFlagValue, tag.flags());
     
     file->Close();
 }

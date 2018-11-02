@@ -38,6 +38,7 @@ public:
     virtual Error Flush() = 0;
     virtual Error Sync() = 0;
     virtual Error GetFileSize(uint64_t *size) = 0;
+    virtual Error Truncate(uint64_t size) = 0;
     
 }; // class WritableFile
     

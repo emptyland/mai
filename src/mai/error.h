@@ -48,6 +48,8 @@ public:
         return Error(filename, fileline, kIOError, message);
     }
     
+    operator bool () const { return ok(); }
+    
     bool ok() const { return code() == kOk; }
     
     bool IsNotFound() const { return code() == kNotFound; }

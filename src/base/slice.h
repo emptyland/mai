@@ -2,6 +2,7 @@
 #define MAI_BASE_SLICE_H_
 
 #include "base/allocators.h"
+#include "glog/logging.h"
 #include <string_view>
 
 namespace mai {
@@ -26,6 +27,11 @@ struct Slice {
         char *p = static_cast<char *>(scope->New(size));
         ::memset(p, 0, size);
         return std::string_view(p, size);
+    }
+    
+    static uint32_t SetU32(std::string_view slice) {
+        DCHECK_EQ(sizeof(uint32_t), slice.size());
+        return *reinterpret_cast<const uint32_t *>(slice.data());
     }
     
 }; // struct Slice
