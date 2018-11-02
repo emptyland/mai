@@ -41,6 +41,11 @@ private:
         uint32_t size;
     };
     
+    class Iterator;
+    
+    Error ReadLengthItem(uint64_t offset, std::string_view *item,
+                         std::string *scratch);
+    
     RandomAccessFile *file_;
     uint64_t file_size_;
     hash_func_t hash_func_;

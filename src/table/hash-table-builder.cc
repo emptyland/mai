@@ -126,7 +126,7 @@ void HashTableBuilder::Add(std::string_view key, std::string_view value) {
         }
         if (latest_slot_ != -1) {
             index_buckets_[latest_slot_].size =
-                static_cast<uint32_t>(current_position)
+                static_cast<uint32_t>(start_position)
                 - index_buckets_[latest_slot_].offset;
         }
         latest_slot_ = slot;
@@ -141,6 +141,10 @@ void HashTableBuilder::Add(std::string_view key, std::string_view value) {
     Error rv = file_->GetFileSize(&index_position);
     if (!rv.ok()) {
         return rv;
+    }
+    if (latest_slot_ != -1) {
+        index_buckets_[latest_slot_].size = static_cast<uint32_t>(index_position)
+            - index_buckets_[latest_slot_].offset;
     }
     
     base::ScopedMemory scope;

@@ -1,6 +1,7 @@
 #include "table/hash-table-builder.h"
 #include "table/hash-table-reader.h"
 #include "core/key-boundle.h"
+#include "core/internal-iterator.h"
 #include "base/hash.h"
 #include "base/allocators.h"
 #include "mai/env.h"
@@ -57,7 +58,6 @@ TEST(HashTableBuilderTest, Reading) {
     rs = file->GetFileSize(&file_size);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    
     HashTableReader reader(file.get(), file_size, &base::Hash::Js);
     rs = reader.Prepare();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
@@ -76,6 +76,29 @@ TEST(HashTableBuilderTest, Reading) {
     ASSERT_EQ(core::Tag::kFlagValue, tag.flags());
     
     file->Close();
+}
+    
+TEST(HashTableBuilderTest, Iterating) {
+    auto env = Env::Default();
+    
+    std::unique_ptr<RandomAccessFile> file;
+    auto rs = env->NewRandomAccessFile("tests/02-hash-table-file.tmp", &file);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    uint64_t file_size;
+    rs = file->GetFileSize(&file_size);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    HashTableReader reader(file.get(), file_size, &base::Hash::Js);
+    rs = reader.Prepare();
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    std::unique_ptr<core::InternalIterator>
+    iter(reader.NewIterator(ReadOptions{}, Comparator::Bytewise()));
+    
+    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+        printf("%s:%s\n", iter->key().data(), iter->value().data());
+    }
 }
 
 } // namespace table

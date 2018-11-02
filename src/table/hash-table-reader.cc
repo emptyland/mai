@@ -1,6 +1,7 @@
 #include "table/hash-table-reader.h"
 #include "table/table.h"
 #include "core/key-boundle.h"
+#include "core/internal-iterator.h"
 #include "base/slice.h"
 #include "mai/env.h"
 #include "mai/comparator.h"
@@ -8,6 +9,135 @@
 namespace mai {
     
 namespace table {
+
+////////////////////////////////////////////////////////////////////////////////
+/// class HashTableReader::Iterator
+////////////////////////////////////////////////////////////////////////////////
+
+class HashTableReader::Iterator : public core::InternalIterator {
+public:
+    Iterator(const Comparator *ucmp, HashTableReader *reader)
+        : ucmp_(DCHECK_NOTNULL(ucmp))
+        , reader_(DCHECK_NOTNULL(reader))
+        , slot_(reader->index_.size()) {
+        DCHECK_GT(reader_->index_.size(), 0);
+    }
+    virtual ~Iterator() {}
+    
+    virtual bool Valid() const override {
+        return slot_ < reader_->index_.size();
+    }
+    virtual void SeekToFirst() override {
+        for (size_t i = 0; i < reader_->index_.size(); ++i) {
+            if (reader_->index_[i].size != 0) {
+                slot_ = i;
+                offset_ = reader_->index_[i].offset;
+                break;
+            }
+        }
+        if (Valid()) {
+            next_offset_ = SetUpKV(offset_);
+        }
+    }
+    virtual void SeekToLast() override { DLOG(FATAL) << "Not Supported"; }
+    
+    virtual void Seek(std::string_view target) override {
+        core::ParsedTaggedKey tk;
+        core::KeyBoundle::ParseTaggedKey(target, &tk);
+        
+        hash_func_t hash = reader_->hash_func_;
+        uint32_t hash_val = hash(tk.user_key.data(), tk.user_key.size())
+            & 0x7fffffff;
+        slot_ = hash_val % reader_->index_.size();
+        Index index = reader_->index_[slot_];
+        if (index.size == 0) {
+            latest_error_ = MAI_NOT_FOUND("Key not seek.");
+            slot_ = reader_->index_.size();
+            return;
+        }
+        
+        core::ParsedTaggedKey lk;
+        do {
+            offset_ = index.offset;
+            next_offset_ = SetUpKV(offset_);
+            
+            core::KeyBoundle::ParseTaggedKey(key(), &lk);
+            if (ucmp_->Equals(tk.user_key, lk.user_key) &&
+                tk.tag.version() >= lk.tag.version()) {
+                break;
+            }
+            offset_ = next_offset_;
+        } while (offset_ < index.offset + index.size);
+    }
+    
+    virtual void Next() override {
+        DCHECK(Valid());
+        Index index = reader_->index_[slot_];
+        if (next_offset_ >= index.offset + index.size) {
+            while (++slot_ < reader_->index_.size()) {
+                if (reader_->index_[slot_].size > 0) {
+                    next_offset_ = reader_->index_[slot_].offset;
+                    break;
+                }
+            }
+            if (!Valid()) {
+                return;
+            }
+        }
+        offset_ = next_offset_;
+        next_offset_ = SetUpKV(offset_);
+    }
+    virtual void Prev() override { DLOG(FATAL) << "Not Supported"; }
+    
+    virtual std::string_view key() const override {
+        DCHECK(Valid()); return key_;
+    }
+    virtual std::string_view value() const override {
+        DCHECK(Valid()); return value_;
+    }
+    
+    virtual Error error() const override { return latest_error_; }
+    
+private:
+    uint32_t SetUpKV(uint32_t initial) {
+        DCHECK(Valid());
+        std::string scratch;
+        std::string_view key;
+        
+        uint32_t offset = initial;
+        latest_error_ = reader_->ReadLengthItem(offset, &key, &scratch);
+        if (!latest_error_) {
+            return 0;
+        }
+        offset += 4 + key.size();
+        if (!key.empty()) {
+            key_ = key;
+        }
+        
+        std::string_view value;
+        latest_error_ = reader_->ReadLengthItem(offset, &value, &scratch);
+        if (!latest_error_) {
+            return 0;
+        }
+        offset += 4 + value.size();
+        value_ = value;
+        return offset;
+    }
+    
+    const Comparator *const ucmp_;
+    HashTableReader *reader_;
+    size_t slot_;
+    
+    uint32_t offset_ = 0;
+    uint32_t next_offset_ = 0;
+    std::string key_;
+    std::string value_;
+    Error latest_error_;
+}; // class HashTableReader::Iterator
+    
+////////////////////////////////////////////////////////////////////////////////
+/// class HashTableReader
+////////////////////////////////////////////////////////////////////////////////
 
 /*virtual*/ HashTableReader::~HashTableReader() {}
     
@@ -46,11 +176,9 @@ Error HashTableReader::Prepare() {
     
 
 /*virtual*/ core::InternalIterator *
-HashTableReader::NewIterator(const ReadOptions &read_opts,
+HashTableReader::NewIterator(const ReadOptions &,
                              const Comparator *ucmp) {
-    
-    // TODO:
-    return nullptr;
+    return new Iterator(ucmp, this);
 }
 
 /*virtual*/ Error
@@ -71,21 +199,14 @@ HashTableReader::Get(const ReadOptions &, const Comparator *ucmp,
     std::string_view data;
     uint32_t end = slot.offset + slot.size;
     while(slot.offset < end) {
-        auto rs = file_->Read(slot.offset, 4, &data, &buf);
+        auto rs = ReadLengthItem(slot.offset, &data, &buf);
         if (!rs) {
             return rs;
         }
-        uint32_t key_size = base::Slice::SetU32(data);
-        slot.offset += data.size();
+        slot.offset += 4 + data.size();
         
         core::ParsedTaggedKey lk;
-        if (key_size > 0) {
-            rs = file_->Read(slot.offset, key_size, &data, &buf);
-            if (!rs) {
-                return rs;
-            }
-            slot.offset += data.size();
-            
+        if (data.size() > 0) {
             if (data != latest_key) {
                 latest_key = data;
                 core::KeyBoundle::ParseTaggedKey(data, &lk);
@@ -120,6 +241,21 @@ HashTableReader::Get(const ReadOptions &, const Comparator *ucmp,
 /*virtual*/ size_t HashTableReader::ApproximateMemoryUsage() const {
     // TODO:
     return 0;
+}
+    
+Error HashTableReader::ReadLengthItem(uint64_t offset, std::string_view *item,
+                                std::string *scratch) {
+    auto rs = file_->Read(offset, 4, item, scratch);
+    if (!rs) {
+        return rs;
+    }
+    uint32_t length = base::Slice::SetU32(*item);
+    if (length > 0) {
+        return file_->Read(offset + 4, length, item, scratch);
+    } else {
+        *item = "";
+    }
+    return Error::OK();
 }
     
 } // namespace table
