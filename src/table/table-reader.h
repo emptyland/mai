@@ -4,6 +4,7 @@
 #include "base/base.h"
 #include "mai/error.h"
 #include <string_view>
+#include <memory>
 
 namespace mai {
     
@@ -16,6 +17,8 @@ class Tag;
 } // namespace core
     
 namespace table {
+    
+struct TableProperties;
 
 class TableReader {
 public:
@@ -23,19 +26,21 @@ public:
     virtual ~TableReader() {}
     
     virtual core::InternalIterator *NewIterator(const ReadOptions &read_opts,
-                                                const Comparator *ucmp) = 0;
+                                                const Comparator *cmp) = 0;
     
     // Prepare for Get()
     virtual void Prepare(std::string_view /*target*/) {}
     
     virtual Error Get(const ReadOptions &read_opts,
-                      const Comparator *ucmp,
+                      const Comparator *cmp,
                       std::string_view key,
                       core::Tag *tag,
                       std::string_view *value,
                       std::string *scratch) = 0;
     
     virtual size_t ApproximateMemoryUsage() const = 0;
+    
+    virtual std::shared_ptr<TableProperties> GetTableProperties() const = 0;
 }; // class TableReader
 
 } // namespace table

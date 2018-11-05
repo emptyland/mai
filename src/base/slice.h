@@ -53,6 +53,11 @@ struct Slice {
         return *reinterpret_cast<const uint32_t *>(slice.data());
     }
     
+    static uint64_t SetU64(std::string_view slice) {
+        DCHECK_EQ(sizeof(uint64_t), slice.size());
+        return *reinterpret_cast<const uint64_t *>(slice.data());
+    }
+    
 }; // struct Slice
     
 } // namespace base

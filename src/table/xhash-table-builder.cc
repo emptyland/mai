@@ -52,19 +52,21 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
     if (largest_key_.empty() || ikcmp_->Compare(key, largest_key_) > 0) {
         largest_key_ = key;
     }
+    if (ikey.tag.version() > max_version_) {
+        max_version_ = ikey.tag.version();
+    }
     
     bucket->kv.append(base::Slice::GetV64(value.size(), &scope));
     bucket->kv.append(value);
     num_entries_++;
 }
     
-/*virtual*/ Error XhashTableBuilder::error() {
-    return last_error_;
-}
+/*virtual*/ Error XhashTableBuilder::error() { return last_error_; }
 
 /*virtual*/ Error XhashTableBuilder::Finish() {
-    std::vector<std::tuple<uint64_t, uint64_t>> indexs;
+    using base::Slice;
     
+    std::vector<std::tuple<uint64_t, uint64_t>> indexs;
     base::ScopedMemory scope;
     for (const Bucket &bucket : buckets_) {
         if (bucket.kv.empty()) {
@@ -72,19 +74,19 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
             continue;
         }
         uint64_t position = 0;
-        Error rs = file_->GetFileSize(&position);
-        if (!rs) {
-            return rs;
+        last_error_ = file_->GetFileSize(&position);
+        if (!last_error_) {
+            return last_error_;
         }
         
         uint32_t checksum = ::crc32(0, bucket.kv.data(), bucket.kv.size());
-        rs = file_->Append(base::Slice::GetU32(checksum, &scope));
-        if (!rs) {
-            return rs;
+        last_error_ = file_->Append(Slice::GetU32(checksum, &scope));
+        if (!last_error_) {
+            return last_error_;
         }
-        rs = file_->Append(bucket.kv);
-        if (!rs) {
-            return rs;
+        last_error_ = file_->Append(bucket.kv);
+        if (!last_error_) {
+            return last_error_;
         }
         indexs.push_back(std::make_tuple(position, bucket.kv.size() + 4));
     }
@@ -94,15 +96,34 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
         return last_error_;
     }
     
-    properties_position_ = WriteFileProperties();
+    TableProperties props;
+    props.unordered = true;
+    props.last_level = is_last_level_;
+    props.block_size = static_cast<uint32_t>(block_size_);
+    props.index_position = index_position_;
+    props.index_count = indexs.size();
+    props.last_version = max_version_;
+    props.num_entries = num_entries_;
+    props.smallest_key = smallest_key_;
+    props.largest_key = largest_key_;
+    properties_position_ = AlignmentToBlock();
     if (!last_error_) {
         return last_error_;
     }
-    Error rs = file_->Append(base::Slice::GetU64(properties_position_, &scope));
-    if (!rs) {
-        return rs;
+    last_error_ = Table::WriteProperties(props, file_);
+    if (!last_error_) {
+        return last_error_;
     }
-    return file_->Append(base::Slice::GetU32(Table::kXmtMagicNumber, &scope));
+    
+    last_error_ = file_->Append(Slice::GetU64(properties_position_, &scope));
+    if (!last_error_) {
+        return last_error_;
+    }
+    last_error_ = file_->Append(Slice::GetU32(Table::kXmtMagicNumber, &scope));
+    if (!last_error_) {
+        return last_error_;
+    }
+    return Error::OK();
 }
     
 /*virtual*/ void XhashTableBuilder::Abandon() {
@@ -128,7 +149,7 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
 /*virtual*/ uint64_t XhashTableBuilder::FileSize() const {
     uint64_t size = 0;
     last_error_ = file_->GetFileSize(&size);
-    return last_error_;
+    return size;
 }
     
 uint64_t XhashTableBuilder::AlignmentToBlock() {
@@ -161,71 +182,14 @@ XhashTableBuilder::WriteIndexs(const std::vector<std::tuple<uint64_t,
     for (const auto &index : indexs) {
         uint64_t position, size;
         std::tie(position, size) = index;
-        Error rs = file_->Append(base::Slice::GetV64(position, &scope));
-        if (!rs) {
+        last_error_ = file_->Append(base::Slice::GetV64(position, &scope));
+        if (!last_error_) {
             return 0;
         }
-        rs = file_->Append(base::Slice::GetV64(size, &scope));
-        if (!rs) {
+        last_error_ = file_->Append(base::Slice::GetV64(size, &scope));
+        if (!last_error_) {
             return 0;
         }
-    }
-    return begin_position;
-}
-
-// ordered/unordered
-// block-size
-// num-entries
-// index-position
-// smallest-key
-// largest-key
-// others...
-uint64_t XhashTableBuilder::WriteFileProperties() {
-    using base::Slice;
-    DCHECK(last_error_.ok());
-    
-    uint64_t begin_position = AlignmentToBlock();
-    if (!last_error_) {
-        return 0;
-    }
-    const char unordered = 1;
-    last_error_ = file_->Append(std::string_view(&unordered, 1));
-    if (!last_error_) {
-        return 0;
-    }
-    
-    base::ScopedMemory scope;
-    last_error_ = file_->Append(Slice::GetU32(static_cast<uint32_t>(block_size_),
-                                              &scope));
-    if (!last_error_) {
-        return 0;
-    }
-    last_error_ = file_->Append(Slice::GetU32(static_cast<uint32_t>(num_entries_),
-                                              &scope));
-    if (!last_error_) {
-        return 0;
-    }
-    last_error_ = file_->Append(Slice::GetU64(index_position_, &scope));
-    if (!last_error_) {
-        return 0;
-    }
-    
-    last_error_ = file_->Append(Slice::GetV64(smallest_key_.size(), &scope));
-    if (!last_error_) {
-        return 0;
-    }
-    last_error_ = file_->Append(smallest_key_);
-    if (!last_error_) {
-        return 0;
-    }
-
-    last_error_ = file_->Append(Slice::GetV64(largest_key_.size(), &scope));
-    if (!last_error_) {
-        return 0;
-    }
-    last_error_ = file_->Append(largest_key_);
-    if (!last_error_) {
-        return 0;
     }
     return begin_position;
 }

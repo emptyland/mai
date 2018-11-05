@@ -52,6 +52,11 @@
 		23B0E151218FE03600F9E855 /* varint-encoding-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E14F218FE03600F9E855 /* varint-encoding-test.cc */; };
 		23B0E1552190215C00F9E855 /* internal-key-comparator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1542190215C00F9E855 /* internal-key-comparator.cc */; };
 		23B0E1562190215C00F9E855 /* internal-key-comparator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1542190215C00F9E855 /* internal-key-comparator.cc */; };
+		23B0E1592190298D00F9E855 /* xhash-table-reader.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1582190298D00F9E855 /* xhash-table-reader.cc */; };
+		23B0E15A2190298D00F9E855 /* xhash-table-reader.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1582190298D00F9E855 /* xhash-table-reader.cc */; };
+		23B0E15C2190318000F9E855 /* table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E15B2190318000F9E855 /* table.cc */; };
+		23B0E15D2190318000F9E855 /* table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E15B2190318000F9E855 /* table.cc */; };
+		23B0E15F21903C1900F9E855 /* xhash-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E15E21903C1900F9E855 /* xhash-table-builder-test.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -129,6 +134,10 @@
 		23B0E152218FE12000F9E855 /* bit-ops.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "bit-ops.h"; sourceTree = "<group>"; };
 		23B0E1532190211200F9E855 /* internal-key-comparator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "internal-key-comparator.h"; sourceTree = "<group>"; };
 		23B0E1542190215C00F9E855 /* internal-key-comparator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "internal-key-comparator.cc"; sourceTree = "<group>"; };
+		23B0E1572190293D00F9E855 /* xhash-table-reader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "xhash-table-reader.h"; sourceTree = "<group>"; };
+		23B0E1582190298D00F9E855 /* xhash-table-reader.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "xhash-table-reader.cc"; sourceTree = "<group>"; };
+		23B0E15B2190318000F9E855 /* table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = table.cc; sourceTree = "<group>"; };
+		23B0E15E21903C1900F9E855 /* xhash-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "xhash-table-builder-test.cc"; path = "src/table/xhash-table-builder-test.cc"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -208,6 +217,7 @@
 				23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */,
 				23B0E1172189A71F00F9E855 /* file-test.cc */,
 				23B0E12C218AF97A00F9E855 /* hash-table-builder-test.cc */,
+				23B0E15E21903C1900F9E855 /* xhash-table-builder-test.cc */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -268,6 +278,8 @@
 			children = (
 				23B0E147218C512800F9E855 /* xhash-table-builder.h */,
 				23B0E148218C51E000F9E855 /* xhash-table-builder.cc */,
+				23B0E1572190293D00F9E855 /* xhash-table-reader.h */,
+				23B0E1582190298D00F9E855 /* xhash-table-reader.cc */,
 				23B0E126218AD2D100F9E855 /* hash-table-builder.h */,
 				23B0E127218AD33300F9E855 /* hash-table-builder.cc */,
 				23B0E143218BF80F00F9E855 /* hash-table-reader.h */,
@@ -275,6 +287,7 @@
 				23B0E12A218AD41300F9E855 /* table-builder.h */,
 				23B0E13A218B077100F9E855 /* table-reader.h */,
 				23B0E135218B026400F9E855 /* table.h */,
+				23B0E15B2190318000F9E855 /* table.cc */,
 			);
 			name = table;
 			path = src/table;
@@ -363,10 +376,12 @@
 				23B0E14D218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
 				23B0E11A2189A94F00F9E855 /* env.cc in Sources */,
 				23B0E145218BF93B00F9E855 /* hash-table-reader.cc in Sources */,
+				23B0E15C2190318000F9E855 /* table.cc in Sources */,
 				23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E0D92187F90400F9E855 /* base.cc in Sources */,
 				23B0E1552190215C00F9E855 /* internal-key-comparator.cc in Sources */,
 				23B0E133218AFD4E00F9E855 /* crc32.c in Sources */,
+				23B0E1592190298D00F9E855 /* xhash-table-reader.cc in Sources */,
 				23B0E149218C51E000F9E855 /* xhash-table-builder.cc in Sources */,
 				23B0E130218AFBCC00F9E855 /* hash.cc in Sources */,
 				23B0E11E2189A9CE00F9E855 /* env-posix.cc in Sources */,
@@ -386,11 +401,14 @@
 				23B0E10F2189A6A500F9E855 /* error-test.cc in Sources */,
 				23B0E14E218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
 				23B0E1182189A71F00F9E855 /* file-test.cc in Sources */,
+				23B0E15F21903C1900F9E855 /* xhash-table-builder-test.cc in Sources */,
 				23B0E134218AFD4E00F9E855 /* crc32.c in Sources */,
 				23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */,
 				23B0E1102189A6A500F9E855 /* test-main.cc in Sources */,
 				23B0E11B2189A94F00F9E855 /* env.cc in Sources */,
 				23B0E129218AD33300F9E855 /* hash-table-builder.cc in Sources */,
+				23B0E15A2190298D00F9E855 /* xhash-table-reader.cc in Sources */,
+				23B0E15D2190318000F9E855 /* table.cc in Sources */,
 				23B0E1232189ABE800F9E855 /* file-posix.cc in Sources */,
 				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E12D218AF97A00F9E855 /* hash-table-builder-test.cc in Sources */,

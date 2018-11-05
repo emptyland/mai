@@ -26,7 +26,7 @@ public:
         , buckets_(max_hash_slots)
         , hash_func_(DCHECK_NOTNULL(hash_func))
         , block_size_(block_size) {
-        DCHECK_GT(7, max_hash_slots) << "Max slots too small!";
+        DCHECK_LE(7, max_hash_slots) << "Max slots too small!";
     }
     
     virtual ~XhashTableBuilder();
@@ -47,7 +47,6 @@ private:
     
     uint64_t AlignmentToBlock();
     uint64_t WriteIndexs(const std::vector<std::tuple<uint64_t, uint64_t>> &indexs);
-    uint64_t WriteFileProperties();
     
     const core::InternalKeyComparator *ikcmp_;
     WritableFile *file_;
@@ -61,6 +60,7 @@ private:
     mutable Error last_error_;
     std::string smallest_key_;
     std::string largest_key_;
+    uint64_t max_version_ = 0;
     uint64_t index_position_ = 0;
     uint64_t properties_position_ = 0;
 }; // public XhashTableBuilder
