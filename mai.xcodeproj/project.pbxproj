@@ -44,6 +44,14 @@
 		23B0E142218BEAA900F9E855 /* bytewise-comparator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E140218BEAA900F9E855 /* bytewise-comparator.cc */; };
 		23B0E145218BF93B00F9E855 /* hash-table-reader.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E144218BF93B00F9E855 /* hash-table-reader.cc */; };
 		23B0E146218BF93B00F9E855 /* hash-table-reader.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E144218BF93B00F9E855 /* hash-table-reader.cc */; };
+		23B0E149218C51E000F9E855 /* xhash-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E148218C51E000F9E855 /* xhash-table-builder.cc */; };
+		23B0E14A218C51E000F9E855 /* xhash-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E148218C51E000F9E855 /* xhash-table-builder.cc */; };
+		23B0E14D218FDFEE00F9E855 /* varint-encoding.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E14B218FDFED00F9E855 /* varint-encoding.cc */; };
+		23B0E14E218FDFEE00F9E855 /* varint-encoding.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E14B218FDFED00F9E855 /* varint-encoding.cc */; };
+		23B0E150218FE03600F9E855 /* varint-encoding-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E14F218FE03600F9E855 /* varint-encoding-test.cc */; };
+		23B0E151218FE03600F9E855 /* varint-encoding-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E14F218FE03600F9E855 /* varint-encoding-test.cc */; };
+		23B0E1552190215C00F9E855 /* internal-key-comparator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1542190215C00F9E855 /* internal-key-comparator.cc */; };
+		23B0E1562190215C00F9E855 /* internal-key-comparator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1542190215C00F9E855 /* internal-key-comparator.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -113,6 +121,14 @@
 		23B0E140218BEAA900F9E855 /* bytewise-comparator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bytewise-comparator.cc"; sourceTree = "<group>"; };
 		23B0E143218BF80F00F9E855 /* hash-table-reader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-table-reader.h"; sourceTree = "<group>"; };
 		23B0E144218BF93B00F9E855 /* hash-table-reader.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hash-table-reader.cc"; sourceTree = "<group>"; };
+		23B0E147218C512800F9E855 /* xhash-table-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "xhash-table-builder.h"; sourceTree = "<group>"; };
+		23B0E148218C51E000F9E855 /* xhash-table-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "xhash-table-builder.cc"; sourceTree = "<group>"; };
+		23B0E14B218FDFED00F9E855 /* varint-encoding.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "varint-encoding.cc"; sourceTree = "<group>"; };
+		23B0E14C218FDFEE00F9E855 /* varint-encoding.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "varint-encoding.h"; sourceTree = "<group>"; };
+		23B0E14F218FE03600F9E855 /* varint-encoding-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "varint-encoding-test.cc"; path = "src/base/varint-encoding-test.cc"; sourceTree = "<group>"; };
+		23B0E152218FE12000F9E855 /* bit-ops.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "bit-ops.h"; sourceTree = "<group>"; };
+		23B0E1532190211200F9E855 /* internal-key-comparator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "internal-key-comparator.h"; sourceTree = "<group>"; };
+		23B0E1542190215C00F9E855 /* internal-key-comparator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "internal-key-comparator.cc"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -162,8 +178,11 @@
 		23B0E0D32187F8CF00F9E855 /* base */ = {
 			isa = PBXGroup;
 			children = (
+				23B0E14B218FDFED00F9E855 /* varint-encoding.cc */,
+				23B0E14C218FDFEE00F9E855 /* varint-encoding.h */,
 				23B0E0FE218841C500F9E855 /* spin-locking.cc */,
 				23B0E0FD218841C500F9E855 /* spin-locking.h */,
+				23B0E152218FE12000F9E855 /* bit-ops.h */,
 				23B0E0D82187F90400F9E855 /* base.cc */,
 				23B0E0D72187F90400F9E855 /* base.h */,
 				23B0E10B2189816300F9E855 /* allocators.h */,
@@ -179,6 +198,7 @@
 		23B0E0E52187F9EC00F9E855 /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				23B0E14F218FE03600F9E855 /* varint-encoding-test.cc */,
 				23B0E10D2189A6A500F9E855 /* error-test.cc */,
 				23B0E10E2189A6A500F9E855 /* test-main.cc */,
 				23B0E106218842C400F9E855 /* key-boundle-test.cc */,
@@ -225,6 +245,8 @@
 				23B0E0FC218840EC00F9E855 /* hash-map.h */,
 				23B0E136218B05E200F9E855 /* internal-iterator.h */,
 				23B0E137218B05F500F9E855 /* internal-iterator.cc */,
+				23B0E1532190211200F9E855 /* internal-key-comparator.h */,
+				23B0E1542190215C00F9E855 /* internal-key-comparator.cc */,
 			);
 			name = core;
 			path = src/core;
@@ -244,6 +266,8 @@
 		23B0E125218AD1E300F9E855 /* table */ = {
 			isa = PBXGroup;
 			children = (
+				23B0E147218C512800F9E855 /* xhash-table-builder.h */,
+				23B0E148218C51E000F9E855 /* xhash-table-builder.cc */,
 				23B0E126218AD2D100F9E855 /* hash-table-builder.h */,
 				23B0E127218AD33300F9E855 /* hash-table-builder.cc */,
 				23B0E143218BF80F00F9E855 /* hash-table-reader.h */,
@@ -333,13 +357,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23B0E150218FE03600F9E855 /* varint-encoding-test.cc in Sources */,
 				23B0E138218B05F500F9E855 /* internal-iterator.cc in Sources */,
 				23B0E141218BEAA900F9E855 /* bytewise-comparator.cc in Sources */,
+				23B0E14D218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
 				23B0E11A2189A94F00F9E855 /* env.cc in Sources */,
 				23B0E145218BF93B00F9E855 /* hash-table-reader.cc in Sources */,
 				23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E0D92187F90400F9E855 /* base.cc in Sources */,
+				23B0E1552190215C00F9E855 /* internal-key-comparator.cc in Sources */,
 				23B0E133218AFD4E00F9E855 /* crc32.c in Sources */,
+				23B0E149218C51E000F9E855 /* xhash-table-builder.cc in Sources */,
 				23B0E130218AFBCC00F9E855 /* hash.cc in Sources */,
 				23B0E11E2189A9CE00F9E855 /* env-posix.cc in Sources */,
 				23B0E1152189A6BF00F9E855 /* error.cc in Sources */,
@@ -356,6 +384,7 @@
 				23B0E131218AFBCC00F9E855 /* hash.cc in Sources */,
 				23B0E139218B05F500F9E855 /* internal-iterator.cc in Sources */,
 				23B0E10F2189A6A500F9E855 /* error-test.cc in Sources */,
+				23B0E14E218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
 				23B0E1182189A71F00F9E855 /* file-test.cc in Sources */,
 				23B0E134218AFD4E00F9E855 /* crc32.c in Sources */,
 				23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */,
@@ -366,8 +395,11 @@
 				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E12D218AF97A00F9E855 /* hash-table-builder-test.cc in Sources */,
 				23B0E107218842C400F9E855 /* key-boundle-test.cc in Sources */,
+				23B0E1562190215C00F9E855 /* internal-key-comparator.cc in Sources */,
 				23B0E142218BEAA900F9E855 /* bytewise-comparator.cc in Sources */,
 				23B0E1162189A6BF00F9E855 /* error.cc in Sources */,
+				23B0E151218FE03600F9E855 /* varint-encoding-test.cc in Sources */,
+				23B0E14A218C51E000F9E855 /* xhash-table-builder.cc in Sources */,
 				23B0E1052188429700F9E855 /* hash-map-test.cc in Sources */,
 				23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */,
 				23B0E146218BF93B00F9E855 /* hash-table-reader.cc in Sources */,
