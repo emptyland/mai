@@ -1,7 +1,7 @@
 #ifndef MAI_TABLE_HASH_TABLE_READER_H_
 #define MAI_TABLE_HASH_TABLE_READER_H_
 
-#include "table-reader.h"
+#include "table/table-reader.h"
 #include "glog/logging.h"
 #include <vector>
 
@@ -25,8 +25,8 @@ public:
     
     Error Prepare();
     
-    virtual core::InternalIterator *NewIterator(const ReadOptions &read_opts,
-                                                const Comparator *ucmp) override;
+    virtual Iterator *NewIterator(const ReadOptions &read_opts,
+                                  const Comparator *ucmp) override;
     virtual Error Get(const ReadOptions &read_opts,
                       const Comparator *ucmp,
                       std::string_view key,
@@ -44,7 +44,7 @@ private:
         uint32_t size;
     };
     
-    class Iterator;
+    class IteratorImpl;
     
     Error ReadLengthItem(uint64_t offset, std::string_view *item,
                          std::string *scratch);

@@ -33,6 +33,28 @@ public:
         ASSERT_TRUE(builder->error().ok()) << builder->error().ToString();
     }
     
+    void BuildTable(const std::vector<std::string> &kvs,
+                    const std::string &file_name) {
+        std::unique_ptr<WritableFile> file;
+        auto rs = env_->NewWritableFile(file_name, &file);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        
+        file->Truncate(0);
+        XhashTableBuilder builder(ikcmp_, file.get(), 23, &base::Hash::Js, 512);
+        ASSERT_GE(kvs.size(), 3);
+        for (int i = 0; i < kvs.size(); i += 3) {
+            auto k = kvs[i];
+            auto v = kvs[i + 1];
+            auto s = ::atoi(kvs[i + 2].c_str());
+            
+            Add(&builder, k, v, s, core::Tag::kFlagValue);
+        }
+        
+        rs = builder.Finish();
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        file->Close();
+    }
+    
     Env *env_ = Env::Default();
     core::InternalKeyComparator *ikcmp_ = new core::InternalKeyComparator(Comparator::Bytewise());
 };
@@ -120,6 +142,19 @@ TEST_F(XhashTableBuilderTest, Properties) {
     core::KeyBoundle::ParseTaggedKey(props.largest_key, &ikey);
     EXPECT_EQ("gggg", ikey.user_key);
     EXPECT_EQ(7, ikey.tag.version());
+}
+    
+TEST_F(XhashTableBuilderTest, LastLevelBuild) {
+    const auto kFileName = "tests/08-xhash-table-last-level.tmp";
+    
+    BuildTable({
+        "aaaa", "a", "0",
+        "bbbb", "b", "0",
+        "cccc", "c", "0",
+        "dddd", "d", "0",
+        "eeee", "e", "0",
+    }, kFileName);
+    
     
 }
 

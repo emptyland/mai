@@ -2,11 +2,11 @@
 #include "table/xhash-table-builder.h"
 #include "table/table.h"
 #include "core/key-boundle.h"
-#include "core/internal-iterator.h"
 #include "core/internal-key-comparator.h"
 #include "base/slice.h"
 #include "base/hash.h"
 #include "mai/env.h"
+#include "mai/iterator.h"
 #include "mai/options.h"
 #include "gtest/gtest.h"
 #include <map>
@@ -202,7 +202,7 @@ TEST_F(XhashTableReaderTest, Iterator) {
     rs = reader.Prepare();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    std::unique_ptr<core::InternalIterator> iter(reader.NewIterator(ReadOptions{}, ikcmp_));
+    std::unique_ptr<Iterator> iter(reader.NewIterator(ReadOptions{}, ikcmp_));
     ASSERT_TRUE(iter->error().ok()) << iter->error().ToString();
 
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {

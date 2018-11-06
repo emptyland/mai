@@ -38,8 +38,8 @@
 		23B0E131218AFBCC00F9E855 /* hash.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12F218AFBCC00F9E855 /* hash.cc */; };
 		23B0E133218AFD4E00F9E855 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
 		23B0E134218AFD4E00F9E855 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
-		23B0E138218B05F500F9E855 /* internal-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E137218B05F500F9E855 /* internal-iterator.cc */; };
-		23B0E139218B05F500F9E855 /* internal-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E137218B05F500F9E855 /* internal-iterator.cc */; };
+		23B0E138218B05F500F9E855 /* iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E137218B05F500F9E855 /* iterator.cc */; };
+		23B0E139218B05F500F9E855 /* iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E137218B05F500F9E855 /* iterator.cc */; };
 		23B0E141218BEAA900F9E855 /* bytewise-comparator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E140218BEAA900F9E855 /* bytewise-comparator.cc */; };
 		23B0E142218BEAA900F9E855 /* bytewise-comparator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E140218BEAA900F9E855 /* bytewise-comparator.cc */; };
 		23B0E145218BF93B00F9E855 /* hash-table-reader.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E144218BF93B00F9E855 /* hash-table-reader.cc */; };
@@ -119,8 +119,8 @@
 		23B0E12F218AFBCC00F9E855 /* hash.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = hash.cc; sourceTree = "<group>"; };
 		23B0E132218AFD4E00F9E855 /* crc32.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = crc32.c; sourceTree = "<group>"; };
 		23B0E135218B026400F9E855 /* table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = table.h; sourceTree = "<group>"; };
-		23B0E136218B05E200F9E855 /* internal-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "internal-iterator.h"; sourceTree = "<group>"; };
-		23B0E137218B05F500F9E855 /* internal-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "internal-iterator.cc"; sourceTree = "<group>"; };
+		23B0E136218B05E200F9E855 /* iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = iterator.h; sourceTree = "<group>"; };
+		23B0E137218B05F500F9E855 /* iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iterator.cc; sourceTree = "<group>"; };
 		23B0E13A218B077100F9E855 /* table-reader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-reader.h"; sourceTree = "<group>"; };
 		23B0E13B218BE69C00F9E855 /* options.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = options.h; sourceTree = "<group>"; };
 		23B0E13C218BE93D00F9E855 /* comparator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = comparator.h; sourceTree = "<group>"; };
@@ -244,6 +244,7 @@
 				23B0E1112189A6BF00F9E855 /* error.cc */,
 				23B0E1132189A6BF00F9E855 /* error.h */,
 				23B0E13B218BE69C00F9E855 /* options.h */,
+				23B0E136218B05E200F9E855 /* iterator.h */,
 				23B0E13C218BE93D00F9E855 /* comparator.h */,
 			);
 			name = mai;
@@ -256,8 +257,7 @@
 				23B0E140218BEAA900F9E855 /* bytewise-comparator.cc */,
 				23B0E0F9218833A600F9E855 /* key-boundle.h */,
 				23B0E0FC218840EC00F9E855 /* hash-map.h */,
-				23B0E136218B05E200F9E855 /* internal-iterator.h */,
-				23B0E137218B05F500F9E855 /* internal-iterator.cc */,
+				23B0E137218B05F500F9E855 /* iterator.cc */,
 				23B0E1532190211200F9E855 /* internal-key-comparator.h */,
 				23B0E1542190215C00F9E855 /* internal-key-comparator.cc */,
 			);
@@ -374,7 +374,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				23B0E150218FE03600F9E855 /* varint-encoding-test.cc in Sources */,
-				23B0E138218B05F500F9E855 /* internal-iterator.cc in Sources */,
+				23B0E138218B05F500F9E855 /* iterator.cc in Sources */,
 				23B0E141218BEAA900F9E855 /* bytewise-comparator.cc in Sources */,
 				23B0E14D218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
 				23B0E11A2189A94F00F9E855 /* env.cc in Sources */,
@@ -400,7 +400,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				23B0E131218AFBCC00F9E855 /* hash.cc in Sources */,
-				23B0E139218B05F500F9E855 /* internal-iterator.cc in Sources */,
+				23B0E139218B05F500F9E855 /* iterator.cc in Sources */,
 				23B0E10F2189A6A500F9E855 /* error-test.cc in Sources */,
 				23B0E14E218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
 				23B0E1182189A71F00F9E855 /* file-test.cc in Sources */,

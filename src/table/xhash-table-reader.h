@@ -22,8 +22,8 @@ public:
     
     Error Prepare();
     
-    virtual core::InternalIterator *NewIterator(const ReadOptions &read_opts,
-                                                const Comparator *cmp) override;
+    virtual Iterator *NewIterator(const ReadOptions &read_opts,
+                                  const Comparator *cmp) override;
     virtual Error Get(const ReadOptions &read_opts,
                       const Comparator *cmp,
                       std::string_view key,
@@ -32,14 +32,15 @@ public:
                       std::string *scratch) override;
     virtual size_t ApproximateMemoryUsage() const override;
     virtual std::shared_ptr<TableProperties> GetTableProperties() const override;
-    
-    class Iterator;
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(XhashTableReader);
 private:
     struct Index {
         uint64_t offset;
         uint64_t size;
     };
+    
+    class IteratorImpl;
     
     Error ReadKey(uint64_t *offset, std::string_view *result,
                   std::string *scratch);

@@ -1,9 +1,9 @@
 #include "table/hash-table-reader.h"
 #include "table/table.h"
 #include "core/key-boundle.h"
-#include "core/internal-iterator.h"
 #include "base/slice.h"
 #include "mai/env.h"
+#include "mai/iterator.h"
 #include "mai/comparator.h"
 
 namespace mai {
@@ -14,15 +14,15 @@ namespace table {
 /// class HashTableReader::Iterator
 ////////////////////////////////////////////////////////////////////////////////
 
-class HashTableReader::Iterator : public core::InternalIterator {
+class HashTableReader::IteratorImpl : public Iterator {
 public:
-    Iterator(const Comparator *ucmp, HashTableReader *reader)
+    IteratorImpl(const Comparator *ucmp, HashTableReader *reader)
         : ucmp_(DCHECK_NOTNULL(ucmp))
         , reader_(DCHECK_NOTNULL(reader))
         , slot_(reader->index_.size()) {
         DCHECK_GT(reader_->index_.size(), 0);
     }
-    virtual ~Iterator() {}
+    virtual ~IteratorImpl() {}
     
     virtual bool Valid() const override {
         return slot_ < reader_->index_.size();
@@ -175,10 +175,10 @@ Error HashTableReader::Prepare() {
 }
     
 
-/*virtual*/ core::InternalIterator *
+/*virtual*/ Iterator *
 HashTableReader::NewIterator(const ReadOptions &,
                              const Comparator *ucmp) {
-    return new Iterator(ucmp, this);
+    return new IteratorImpl(ucmp, this);
 }
 
 /*virtual*/ Error

@@ -10,9 +10,9 @@ namespace mai {
     
 struct ReadOptions;
 class Comparator;
+class Iterator;
     
 namespace core {
-class InternalIterator;
 class Tag;
 } // namespace core
     
@@ -25,9 +25,9 @@ public:
     TableReader() {}
     virtual ~TableReader() {}
     
-    virtual core::InternalIterator *NewIterator(const ReadOptions &read_opts,
-                                                const Comparator *cmp) = 0;
-    
+    virtual Iterator *NewIterator(const ReadOptions &read_opts,
+                                  const Comparator *cmp) = 0;
+
     // Prepare for Get()
     virtual void Prepare(std::string_view /*target*/) {}
     

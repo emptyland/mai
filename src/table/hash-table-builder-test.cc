@@ -1,11 +1,11 @@
 #include "table/hash-table-builder.h"
 #include "table/hash-table-reader.h"
 #include "core/key-boundle.h"
-#include "core/internal-iterator.h"
 #include "base/hash.h"
 #include "base/allocators.h"
 #include "mai/env.h"
 #include "mai/options.h"
+#include "mai/iterator.h"
 #include "mai/comparator.h"
 #include "gtest/gtest.h"
 
@@ -93,7 +93,7 @@ TEST(HashTableBuilderTest, Iterating) {
     rs = reader.Prepare();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    std::unique_ptr<core::InternalIterator>
+    std::unique_ptr<Iterator>
     iter(reader.NewIterator(ReadOptions{}, Comparator::Bytewise()));
     
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {

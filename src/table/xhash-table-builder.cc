@@ -33,13 +33,9 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
     uint32_t hash_val = hash_func_(ikey.user_key.data(), ikey.user_key.size());
     Bucket *bucket = &buckets_[hash_val % buckets_.size()];
     if (is_last_level_) {
-        if (ikey.user_key == bucket->last_user_key) {
-            bucket->kv.append(kZeroBytesStub, 1);
-        } else {
-            bucket->kv.append(Slice::GetV64(ikey.user_key.size(), &scope));
-            bucket->kv.append(ikey.user_key);
-            bucket->last_user_key = ikey.user_key;
-        }
+        bucket->kv.append(Slice::GetV64(ikey.user_key.size(), &scope));
+        bucket->kv.append(ikey.user_key);
+        bucket->last_user_key = ikey.user_key;
     } else {
         if (ikey.user_key == bucket->last_user_key) {
             bucket->kv.append(Slice::GetV64(core::KeyBoundle::kMinSize, &scope));
@@ -82,12 +78,7 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
         if (!last_error_) {
             return last_error_;
         }
-        
-//        uint32_t checksum = ::crc32(0, bucket.kv.data(), bucket.kv.size());
-//        last_error_ = file_->Append(Slice::GetU32(checksum, &scope));
-//        if (!last_error_) {
-//            return last_error_;
-//        }
+
         last_error_ = file_->Append(bucket.kv);
         if (!last_error_) {
             return last_error_;

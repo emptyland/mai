@@ -1,23 +1,23 @@
 #include "table/xhash-table-reader.h"
 #include "table/table.h"
 #include "core/key-boundle.h"
-#include "core/internal-iterator.h"
 #include "base/slice.h"
 #include "mai/env.h"
+#include "mai/iterator.h"
 #include "mai/comparator.h"
 
 namespace mai {
     
 namespace table {
     
-class XhashTableReader::Iterator : public core::InternalIterator {
+class XhashTableReader::IteratorImpl : public Iterator {
 public:
-    Iterator(const Comparator *ikcmp, XhashTableReader *reader)
+    IteratorImpl(const Comparator *ikcmp, XhashTableReader *reader)
         : ikcmp_(DCHECK_NOTNULL(ikcmp))
         , reader_(DCHECK_NOTNULL(reader))
         , slot_(reader->indexs_.size()) {}
     
-    virtual ~Iterator() {}
+    virtual ~IteratorImpl() {}
     
     virtual bool Valid() const override {
         return slot_ < reader_->indexs_.size();
@@ -99,7 +99,7 @@ public:
     }
     virtual Error error() const override { return error_; }
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(Iterator);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(IteratorImpl);
 private:
     void Noreached() const {
         DLOG(FATAL) << "Noreached! " << error_.ToString();
@@ -116,9 +116,7 @@ private:
             return 0;
         }
         if (reader_->table_props_->last_level) {
-            if (!result.empty()) {
-                key_ = result;
-            }
+            key_ = result;
         } else {
             if (result.size() == core::KeyBoundle::kMinSize) {
                 key_.assign(core::KeyBoundle::ExtractUserKey(key_));
@@ -215,7 +213,7 @@ Error XhashTableReader::Prepare() {
     return Error::OK();
 }
 
-/*virtual*/ core::InternalIterator *
+/*virtual*/ Iterator *
 XhashTableReader::NewIterator(const ReadOptions &, const Comparator *ikcmp) {
     Error err;
     if (!table_props_) {
@@ -225,9 +223,9 @@ XhashTableReader::NewIterator(const ReadOptions &, const Comparator *ikcmp) {
         err = MAI_CORRUPTION("Table reader not prepared! Can not find any index.");
     }
     if (err.fail()) {
-        return core::InternalIterator::AsError(err);
+        return Iterator::AsError(err);
     }
-    return new Iterator(ikcmp, this);
+    return new IteratorImpl(ikcmp, this);
 }
 /*virtual*/ Error XhashTableReader::Get(const ReadOptions &,
                   const Comparator *ikcmp,
@@ -263,13 +261,13 @@ XhashTableReader::NewIterator(const ReadOptions &, const Comparator *ikcmp) {
 
         std::string key;
         if (table_props_->last_level) {
-            if (result.size() == 0) {
-                DCHECK(!last_key.empty());
-                key = last_key;
-            } else if (result != last_key) {
-                key = result;
-                last_key = result;
-            }
+//            if (result.size() == 0) {
+//                DCHECK(!last_key.empty());
+//                key = last_key;
+//            } else if (result != last_key) {
+            key = result;
+            last_key = result;
+//            }
         } else {
             if (result.size() == core::KeyBoundle::kMinSize) {
                 DCHECK(!last_key.empty());

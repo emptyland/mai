@@ -1,15 +1,14 @@
-#include "core/internal-iterator.h"
+#include "mai/iterator.h"
+#include "base/base.h"
 #include "glog/logging.h"
 
 namespace mai {
     
 namespace core {
-    
-/*virtual*/ InternalIterator::~InternalIterator() {}
 
 namespace {
 
-class ErrorInternalIterator : public InternalIterator {
+class ErrorInternalIterator : public Iterator {
 public:
     ErrorInternalIterator(Error error) : error_(error) {}
     virtual ~ErrorInternalIterator() {}
@@ -39,11 +38,13 @@ private:
 
 } // namespace
 
-/*static*/ InternalIterator *InternalIterator::AsError(Error error) {
-    DCHECK(error.fail());
-    return new ErrorInternalIterator(error);
-}
-
 } // namespace core
+    
+/*virtual*/ Iterator::~Iterator() { DoCleanup(); }
+    
+/*static*/ Iterator *Iterator::AsError(Error error) {
+    DCHECK(error.fail());
+    return new core::ErrorInternalIterator(error);
+}
     
 } // namespace mai
