@@ -1,6 +1,7 @@
 #include "table/xhash-table-reader.h"
 #include "table/table.h"
 #include "core/key-boundle.h"
+#include "core/internal-iterator.h"
 #include "base/slice.h"
 #include "mai/env.h"
 #include "mai/comparator.h"
@@ -8,6 +9,149 @@
 namespace mai {
     
 namespace table {
+    
+class XhashTableReader::Iterator : public core::InternalIterator {
+public:
+    Iterator(const Comparator *ikcmp, XhashTableReader *reader)
+        : ikcmp_(DCHECK_NOTNULL(ikcmp))
+        , reader_(DCHECK_NOTNULL(reader))
+        , slot_(reader->indexs_.size()) {}
+    
+    virtual ~Iterator() {}
+    
+    virtual bool Valid() const override {
+        return slot_ < reader_->indexs_.size();
+    }
+    
+    virtual void SeekToFirst() override {
+        for (size_t i = 0; i < reader_->indexs_.size(); ++i) {
+            if (reader_->indexs_[i].size != 0) {
+                slot_ = i;
+                offset_ = reader_->indexs_[i].offset;
+                break;
+            }
+        }
+        if (Valid()) {
+            key_.clear();
+            next_offset_ = SetUpKV(offset_);
+        }
+    }
+    
+    virtual void SeekToLast() override { Noreached(); }
+    
+    virtual void Seek(std::string_view target) override {
+        core::ParsedTaggedKey tk;
+        core::KeyBoundle::ParseTaggedKey(target, &tk);
+        
+        hash_func_t hash = reader_->hash_func_;
+        uint32_t hash_val = hash(tk.user_key.data(), tk.user_key.size());
+        slot_ = hash_val % reader_->indexs_.size();
+        Index index = reader_->indexs_[slot_];
+        if (index.size == 0) {
+            error_ = MAI_NOT_FOUND("Key not seek.");
+            slot_ = reader_->indexs_.size();
+            return;
+        }
+        
+        key_.clear();
+        do {
+            offset_ = index.offset;
+            next_offset_ = SetUpKV(offset_);
+
+            if (reader_->table_props_->last_level) {
+                if (ikcmp_->Compare(key_, tk.user_key) >= 0) {
+                    break;
+                }
+            } else {
+                if (ikcmp_->Compare(key_, target) >= 0) {
+                    break;
+                }
+            }
+            offset_ = next_offset_;
+        } while (offset_ < index.offset + index.size);
+    }
+    
+    virtual void Next() override {
+        DCHECK(Valid());
+        Index index = reader_->indexs_[slot_];
+        if (next_offset_ >= index.offset + index.size) {
+            while (++slot_ < reader_->indexs_.size()) {
+                if (reader_->indexs_[slot_].size > 0) {
+                    next_offset_ = reader_->indexs_[slot_].offset;
+                    break;
+                }
+            }
+            if (!Valid()) {
+                return;
+            }
+        }
+        offset_ = next_offset_;
+        next_offset_ = SetUpKV(offset_);
+    }
+    
+    virtual void Prev() override { Noreached(); }
+    
+    virtual std::string_view key() const override {
+        DCHECK(Valid()); return key_;
+    }
+    virtual std::string_view value() const override {
+        DCHECK(Valid()); return value_;
+    }
+    virtual Error error() const override { return error_; }
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Iterator);
+private:
+    void Noreached() const {
+        DLOG(FATAL) << "Noreached! " << error_.ToString();
+    }
+    
+    uint64_t SetUpKV(uint64_t initial) {
+        DCHECK(Valid());
+        std::string scratch;
+        std::string_view result;
+        
+        uint64_t offset = initial;
+        error_ = reader_->ReadKey(&offset, &result, &scratch);
+        if (!error_) {
+            return 0;
+        }
+        if (reader_->table_props_->last_level) {
+            if (!result.empty()) {
+                key_ = result;
+            }
+        } else {
+            if (result.size() == core::KeyBoundle::kMinSize) {
+                key_.assign(core::KeyBoundle::ExtractUserKey(key_));
+                key_.append(result);
+            } else {
+                key_.assign(result);
+            }
+        }
+        
+        uint64_t value_len;
+        error_ = reader_->ReadLength(&offset, &value_len);
+        if (!error_) {
+            return 0;
+        }
+        error_ = reader_->file_->Read(offset, value_len, &result, &scratch);
+        if (!error_) {
+            return 0;
+        }
+        value_ = result;
+        offset += result.size();
+        return offset;
+    }
+    
+    const Comparator *ikcmp_;
+    XhashTableReader *reader_;
+    size_t slot_;
+    
+    uint64_t offset_ = 0;
+    uint64_t next_offset_ = 0;
+    std::string key_;
+    std::string value_;
+    Error error_;
+}; // class XhashTableReader::Iterator
 
 /*virtual*/ XhashTableReader::~XhashTableReader() {}
 
@@ -72,10 +216,18 @@ Error XhashTableReader::Prepare() {
 }
 
 /*virtual*/ core::InternalIterator *
-XhashTableReader::NewIterator(const ReadOptions &read_opts,
-                              const Comparator *cmp) {
-    // TODO:
-    return nullptr;
+XhashTableReader::NewIterator(const ReadOptions &, const Comparator *ikcmp) {
+    Error err;
+    if (!table_props_) {
+        err = MAI_CORRUPTION("Table reader not prepared!");
+    }
+    if (err.ok() && indexs_.empty()) {
+        err = MAI_CORRUPTION("Table reader not prepared! Can not find any index.");
+    }
+    if (err.fail()) {
+        return core::InternalIterator::AsError(err);
+    }
+    return new Iterator(ikcmp, this);
 }
 /*virtual*/ Error XhashTableReader::Get(const ReadOptions &,
                   const Comparator *ikcmp,
@@ -134,16 +286,24 @@ XhashTableReader::NewIterator(const ReadOptions &read_opts,
         if (!rs) {
             return rs;
         }
-        if (ikcmp->Compare(key, target) >= 0) {
+        
+        bool found = false;
+        if (table_props_->last_level) {
+            if (ikcmp->Compare(key, tk.user_key) >= 0) {
+                found = true;
+            }
+        } else {
+            if (ikcmp->Compare(key, target) >= 0) {
+                found = true;
+            }
+        }
+        if (found) {
             rs = file_->Read(slot.offset, value_len, value, scratch);
             if (!rs) {
                 return rs;
             }
-            core::ParsedTaggedKey lk;
-            core::KeyBoundle::ParseTaggedKey(key, &lk);
-            
-            if (tag) {
-                *tag = lk.tag;
+            if (!table_props_->last_level && tag) {
+                *tag = core::KeyBoundle::ExtractTag(key);
             }
             return Error::OK();
         }

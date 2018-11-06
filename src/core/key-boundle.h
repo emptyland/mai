@@ -105,10 +105,25 @@ public:
                                                     + parsed->user_key.size()));
     }
     
+    static std::string MakeKey(std::string_view user_key, Version version) {
+        std::string key;
+        key.append(user_key);
+        
+        uint64_t tag = Tag(version, Tag::kFlagValue).Encode();
+        key.append(reinterpret_cast<const char *>(&tag), sizeof(tag));
+        return key;
+    }
+    
     static std::string_view ExtractUserKey(std::string_view key) {
         DCHECK_GE(key.size(), kMinSize);
         key.remove_suffix(Tag::kSize);
         return key;
+    }
+    
+    static Tag ExtractTag(std::string_view key) {
+        DCHECK_GE(key.size(), kMinSize);
+        key.remove_prefix(key.size() - Tag::kSize);
+        return Tag::Decode(*reinterpret_cast<const uint64_t *>(key.data()));
     }
 
 private:

@@ -33,6 +33,7 @@ public:
     virtual size_t ApproximateMemoryUsage() const override;
     virtual std::shared_ptr<TableProperties> GetTableProperties() const override;
     
+    class Iterator;
     DISALLOW_IMPLICIT_CONSTRUCTORS(XhashTableReader);
 private:
     struct Index {

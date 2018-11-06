@@ -12,7 +12,7 @@ namespace core {
 class InternalIterator {
 public:
     InternalIterator() {}
-    virtual ~InternalIterator() {} // TODO:
+    virtual ~InternalIterator();
     
     virtual bool Valid() const = 0;
     virtual void SeekToFirst() = 0;
@@ -26,6 +26,8 @@ public:
     virtual std::string_view value() const = 0;
     
     virtual Error error() const = 0;
+    
+    static InternalIterator *AsError(Error error);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(InternalIterator);
 }; // class InternalIterator

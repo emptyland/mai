@@ -2,6 +2,7 @@
 #include "table/xhash-table-builder.h"
 #include "table/table.h"
 #include "core/key-boundle.h"
+#include "core/internal-iterator.h"
 #include "core/internal-key-comparator.h"
 #include "base/slice.h"
 #include "base/hash.h"
@@ -174,6 +175,55 @@ TEST_F(XhashTableReaderTest, MutilVersion) {
     rs = Get(&reader, "aaaa", 1, &value, nullptr);
     ASSERT_TRUE(rs.IsNotFound());
     
+    file->Close();
+}
+    
+TEST_F(XhashTableReaderTest, Iterator) {
+    using core::KeyBoundle;
+    
+    const auto kFileName = "tests/07-xhash-table-reader-iterate.tmp";
+    
+    BuildTable({
+        "aaaa", "v5", "5",
+        "aaaa", "v4", "4",
+        "aaaa", "v3", "3",
+        "bbbb", "v2", "2",
+        "bbbb", "v1", "1",
+    }, kFileName);
+    
+    std::unique_ptr<RandomAccessFile> file;
+    auto rs = env_->NewRandomAccessFile(kFileName, &file);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    uint64_t file_size;
+    rs = file->GetFileSize(&file_size);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    XhashTableReader reader(file.get(), file_size, &base::Hash::Js);
+    rs = reader.Prepare();
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    std::unique_ptr<core::InternalIterator> iter(reader.NewIterator(ReadOptions{}, ikcmp_));
+    ASSERT_TRUE(iter->error().ok()) << iter->error().ToString();
+
+    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+        auto user_key = KeyBoundle::ExtractUserKey(iter->key());
+        ASSERT_EQ(4, user_key.size()) << user_key.data();
+    }
+    
+    iter->Seek(KeyBoundle::MakeKey("aaaa", 5));
+    ASSERT_TRUE(iter->Valid());
+    ASSERT_EQ("aaaa", KeyBoundle::ExtractUserKey(iter->key()));
+    ASSERT_EQ(5, KeyBoundle::ExtractTag(iter->key()).version());
+    
+    iter->Next();
+    ASSERT_TRUE(iter->Valid());
+    ASSERT_EQ("aaaa", KeyBoundle::ExtractUserKey(iter->key()));
+    ASSERT_EQ(4, KeyBoundle::ExtractTag(iter->key()).version());
+
+    iter->Next();
+    ASSERT_TRUE(iter->Valid());
+    ASSERT_EQ("aaaa", KeyBoundle::ExtractUserKey(iter->key()));
+    ASSERT_EQ(3, KeyBoundle::ExtractTag(iter->key()).version());
     file->Close();
 }
     

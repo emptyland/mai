@@ -37,6 +37,7 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
             bucket->kv.append(kZeroBytesStub, 1);
         } else {
             bucket->kv.append(Slice::GetV64(ikey.user_key.size(), &scope));
+            bucket->kv.append(ikey.user_key);
             bucket->last_user_key = ikey.user_key;
         }
     } else {
