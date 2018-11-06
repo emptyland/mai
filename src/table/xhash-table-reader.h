@@ -40,6 +40,10 @@ private:
         uint64_t size;
     };
     
+    Error ReadKey(uint64_t *offset, std::string_view *result,
+                  std::string *scratch);
+    Error ReadLength(uint64_t *offset, uint64_t *len);
+    
     RandomAccessFile *file_;
     uint64_t file_size_;
     hash_func_t hash_func_;

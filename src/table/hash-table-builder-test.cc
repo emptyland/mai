@@ -27,19 +27,19 @@ TEST(HashTableBuilderTest, Sanity) {
     HashTableBuilder builder(file.get(), 103, &base::Hash::Js, 512);
     auto key = core::KeyBoundle::New("aaaa", "a11111", 1, core::Tag::kFlagValue,
                                      base::ScopedAllocator{&scope});
-    builder.Add(key->tagged_key(), key->value());
+    builder.Add(key->key(), key->value());
     
     key = core::KeyBoundle::New("bbbb", "a22222", 2, core::Tag::kFlagValue,
                                 base::ScopedAllocator{&scope});
-    builder.Add(key->tagged_key(), key->value());
+    builder.Add(key->key(), key->value());
     
     key = core::KeyBoundle::New("cccc", "a33333", 3, core::Tag::kFlagValue,
                                 base::ScopedAllocator{&scope});
-    builder.Add(key->tagged_key(), key->value());
+    builder.Add(key->key(), key->value());
     
     key = core::KeyBoundle::New("dddd", "a44444", 4, core::Tag::kFlagValue,
                                 base::ScopedAllocator{&scope});
-    builder.Add(key->tagged_key(), key->value());
+    builder.Add(key->key(), key->value());
     
     rs = builder.Finish();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
@@ -67,8 +67,8 @@ TEST(HashTableBuilderTest, Reading) {
     std::string_view value;
     std::string scratch;
     core::Tag tag;
-    reader.TableReader::Prepare(key->tagged_key());
-    rs = reader.Get(ReadOptions{}, Comparator::Bytewise(), key->tagged_key(),
+    reader.TableReader::Prepare(key->key());
+    rs = reader.Get(ReadOptions{}, Comparator::Bytewise(), key->key(),
                     &tag, &value, &scratch);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ("a11111", value);

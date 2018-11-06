@@ -16,6 +16,8 @@ static const char kZeroBytesStub[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 /*virtual*/
 void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
+    using base::Slice;
+
     core::ParsedTaggedKey ikey;
     core::KeyBoundle::ParseTaggedKey(key, &ikey);
     
@@ -34,14 +36,15 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
         if (ikey.user_key == bucket->last_user_key) {
             bucket->kv.append(kZeroBytesStub, 1);
         } else {
-            bucket->kv.append(base::Slice::GetV64(ikey.user_key.size(), &scope));
+            bucket->kv.append(Slice::GetV64(ikey.user_key.size(), &scope));
             bucket->last_user_key = ikey.user_key;
         }
     } else {
         if (ikey.user_key == bucket->last_user_key) {
-            bucket->kv.append(kZeroBytesStub, 1);
+            bucket->kv.append(Slice::GetV64(core::KeyBoundle::kMinSize, &scope));
+            bucket->kv.append(Slice::GetU64(ikey.tag.Encode(), &scope));
         } else {
-            bucket->kv.append(base::Slice::GetV64(key.size(), &scope));
+            bucket->kv.append(Slice::GetV64(key.size(), &scope));
             bucket->kv.append(key);
             bucket->last_user_key = ikey.user_key;
         }
@@ -56,7 +59,7 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
         max_version_ = ikey.tag.version();
     }
     
-    bucket->kv.append(base::Slice::GetV64(value.size(), &scope));
+    bucket->kv.append(Slice::GetV64(value.size(), &scope));
     bucket->kv.append(value);
     num_entries_++;
 }
@@ -79,16 +82,16 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
             return last_error_;
         }
         
-        uint32_t checksum = ::crc32(0, bucket.kv.data(), bucket.kv.size());
-        last_error_ = file_->Append(Slice::GetU32(checksum, &scope));
-        if (!last_error_) {
-            return last_error_;
-        }
+//        uint32_t checksum = ::crc32(0, bucket.kv.data(), bucket.kv.size());
+//        last_error_ = file_->Append(Slice::GetU32(checksum, &scope));
+//        if (!last_error_) {
+//            return last_error_;
+//        }
         last_error_ = file_->Append(bucket.kv);
         if (!last_error_) {
             return last_error_;
         }
-        indexs.push_back(std::make_tuple(position, bucket.kv.size() + 4));
+        indexs.push_back(std::make_tuple(position, bucket.kv.size()));
     }
     
     index_position_ = WriteIndexs(indexs);

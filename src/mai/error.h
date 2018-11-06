@@ -48,9 +48,11 @@ public:
         return Error(filename, fileline, kIOError, message);
     }
     
-    operator bool () const { return ok(); }
+    bool operator !() const { return fail(); }
     
     bool ok() const { return code() == kOk; }
+    
+    bool fail() const { return !ok(); }
     
     bool IsNotFound() const { return code() == kNotFound; }
     
@@ -99,7 +101,7 @@ private:
         if (code == kOk) {
             return nullptr;
         }
-        size_t len = message.length() + sizeof(code);
+        size_t len = message.length() + sizeof(code) + sizeof(int);
         char *state = new char[len];
         *reinterpret_cast<int *>(state) = static_cast<int>(message.length());
         *reinterpret_cast<Code *>(state + 4) = code;

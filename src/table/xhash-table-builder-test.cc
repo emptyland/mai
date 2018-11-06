@@ -29,7 +29,7 @@ public:
         base::ScopedMemory scope;
         auto ikey = core::KeyBoundle::New(key, value, version, flag,
                                          base::ScopedAllocator{&scope});
-        builder->Add(ikey->tagged_key(), ikey->value());
+        builder->Add(ikey->key(), ikey->value());
         ASSERT_TRUE(builder->error().ok()) << builder->error().ToString();
     }
     
@@ -53,6 +53,26 @@ TEST_F(XhashTableBuilderTest, Sanity) {
     Add(&builder, "eeee", "e1111", 5, core::Tag::kFlagValue);
     Add(&builder, "ffff", "f1111", 6, core::Tag::kFlagValue);
     Add(&builder, "gggg", "g1111", 7, core::Tag::kFlagValue);
+    
+    rs = builder.Finish();
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    file->Close();
+}
+    
+TEST_F(XhashTableBuilderTest, KeyReplaced) {
+    
+    std::unique_ptr<WritableFile> file;
+    auto rs = env_->NewWritableFile("tests/04-xhash-table-key-replaced.tmp", &file);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    file->Truncate(0);
+    XhashTableBuilder builder(ikcmp_, file.get(), 13, &base::Hash::Js, 512);
+    
+    Add(&builder, "aaaa", "a1111", 5, core::Tag::kFlagValue);
+    Add(&builder, "aaaa", "b1111", 4, core::Tag::kFlagValue);
+    Add(&builder, "aaaa", "c1111", 3, core::Tag::kFlagValue);
+    Add(&builder, "bbbb", "d1111", 2, core::Tag::kFlagValue);
+    Add(&builder, "bbbb", "e1111", 1, core::Tag::kFlagValue);
     
     rs = builder.Finish();
     ASSERT_TRUE(rs.ok()) << rs.ToString();

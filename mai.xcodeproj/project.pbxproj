@@ -57,6 +57,7 @@
 		23B0E15C2190318000F9E855 /* table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E15B2190318000F9E855 /* table.cc */; };
 		23B0E15D2190318000F9E855 /* table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E15B2190318000F9E855 /* table.cc */; };
 		23B0E15F21903C1900F9E855 /* xhash-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E15E21903C1900F9E855 /* xhash-table-builder-test.cc */; };
+		23B0E16121913F5900F9E855 /* xhash-table-reader-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16021913F5900F9E855 /* xhash-table-reader-test.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -138,6 +139,7 @@
 		23B0E1582190298D00F9E855 /* xhash-table-reader.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "xhash-table-reader.cc"; sourceTree = "<group>"; };
 		23B0E15B2190318000F9E855 /* table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = table.cc; sourceTree = "<group>"; };
 		23B0E15E21903C1900F9E855 /* xhash-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "xhash-table-builder-test.cc"; path = "src/table/xhash-table-builder-test.cc"; sourceTree = "<group>"; };
+		23B0E16021913F5900F9E855 /* xhash-table-reader-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "xhash-table-reader-test.cc"; path = "src/table/xhash-table-reader-test.cc"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -214,10 +216,11 @@
 				23B0E1012188421400F9E855 /* spin-locking-test.cc */,
 				23B0E0EE2187FB1400F9E855 /* base-test.cc */,
 				23B0E1042188429700F9E855 /* hash-map-test.cc */,
-				23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */,
 				23B0E1172189A71F00F9E855 /* file-test.cc */,
+				23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */,
 				23B0E12C218AF97A00F9E855 /* hash-table-builder-test.cc */,
 				23B0E15E21903C1900F9E855 /* xhash-table-builder-test.cc */,
+				23B0E16021913F5900F9E855 /* xhash-table-reader-test.cc */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -422,6 +425,7 @@
 				23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */,
 				23B0E146218BF93B00F9E855 /* hash-table-reader.cc in Sources */,
 				23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */,
+				23B0E16121913F5900F9E855 /* xhash-table-reader-test.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,
 				23B0E100218841C500F9E855 /* spin-locking.cc in Sources */,
 			);

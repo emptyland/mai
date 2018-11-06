@@ -20,12 +20,12 @@ struct TestComparator {
         if (lhs == rhs) {
             return true;
         }
-        return ::memcmp(lhs->key().data(), rhs->key().data(), lhs->key().size()) == 0;
+        return ::memcmp(lhs->user_key().data(), rhs->user_key().data(), lhs->user_key().size()) == 0;
     }
     
     int Hash(const KeyBoundle *key) const {
         int hash = 1315423911;
-        for (auto s = key->key().begin(); s < key->key().end(); s++) {
+        for (auto s = key->user_key().begin(); s < key->user_key().end(); s++) {
             hash ^= ((hash << 5) + (*s) + (hash >> 2));
         }
         return hash;

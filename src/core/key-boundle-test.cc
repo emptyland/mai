@@ -8,11 +8,11 @@ namespace core {
 TEST(KeyBoundleTest, New) {
     auto boundle = KeyBoundle::New("key", "value", 1, Tag::kFlagValue);
     ASSERT_EQ(16, boundle->size());
-    ASSERT_EQ(3, boundle->key_size());
+    ASSERT_EQ(3, boundle->user_key_size());
     ASSERT_EQ(5, boundle->value_size());
     
-    ASSERT_EQ(0, ::strncmp("key", boundle->key().data(),
-                           boundle->key().size()));
+    ASSERT_EQ(0, ::strncmp("key", boundle->user_key().data(),
+                           boundle->user_key().size()));
     ASSERT_EQ(0, ::strncmp("value", boundle->value().data(),
                            boundle->value().size()));
     

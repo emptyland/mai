@@ -1,7 +1,9 @@
 #include "table/xhash-table-reader.h"
 #include "table/table.h"
+#include "core/key-boundle.h"
 #include "base/slice.h"
 #include "mai/env.h"
+#include "mai/comparator.h"
 
 namespace mai {
     
@@ -75,23 +77,145 @@ XhashTableReader::NewIterator(const ReadOptions &read_opts,
     // TODO:
     return nullptr;
 }
-/*virtual*/ Error XhashTableReader::Get(const ReadOptions &read_opts,
-                  const Comparator *cmp,
-                  std::string_view key,
+/*virtual*/ Error XhashTableReader::Get(const ReadOptions &,
+                  const Comparator *ikcmp,
+                  std::string_view target,
                   core::Tag *tag,
                   std::string_view *value,
                   std::string *scratch) {
-    // TODO:
-    return MAI_NOT_SUPPORTED("TODO:");
+    using base::Slice;
+    using base::Varint32;
+    using base::Varint64;
+    
+    if (!table_props_) {
+        return MAI_CORRUPTION("Table reader not prepared!");
+    }
+    if (indexs_.empty()) {
+        return MAI_CORRUPTION("Table reader not prepared! Can not find any index.");
+    }
+    
+    core::ParsedTaggedKey tk;
+    core::KeyBoundle::ParseTaggedKey(target, &tk);
+    
+    uint32_t hash_val = hash_func_(tk.user_key.data(), tk.user_key.size());
+    Index slot = indexs_[hash_val % indexs_.size()];
+    
+    std::string_view result;
+    std::string last_key;
+    uint64_t end = slot.offset + slot.size;
+    while(slot.offset < end) {
+        auto rs = ReadKey(&slot.offset, &result, scratch);
+        if (!rs) {
+            return rs;
+        }
+
+        std::string key;
+        if (table_props_->last_level) {
+            if (result.size() == 0) {
+                DCHECK(!last_key.empty());
+                key = last_key;
+            } else if (result != last_key) {
+                key = result;
+                last_key = result;
+            }
+        } else {
+            if (result.size() == core::KeyBoundle::kMinSize) {
+                DCHECK(!last_key.empty());
+                key.append(core::KeyBoundle::ExtractUserKey(last_key));
+                key.append(result);
+            } else if (result != last_key) {
+                key = result;
+                last_key = result;
+            }
+        }
+        
+        uint64_t value_len;
+        rs = ReadLength(&slot.offset, &value_len);
+        if (!rs) {
+            return rs;
+        }
+        if (ikcmp->Compare(key, target) >= 0) {
+            rs = file_->Read(slot.offset, value_len, value, scratch);
+            if (!rs) {
+                return rs;
+            }
+            core::ParsedTaggedKey lk;
+            core::KeyBoundle::ParseTaggedKey(key, &lk);
+            
+            if (tag) {
+                *tag = lk.tag;
+            }
+            return Error::OK();
+        }
+        slot.offset += value_len;
+    }
+    
+    return MAI_NOT_FOUND("Not Found");
 }
     
 /*virtual*/ size_t XhashTableReader::ApproximateMemoryUsage() const {
-    // TODO:
-    return 0;
+    const size_t kPageSize = 4 * base::kKB;
+
+    size_t size = sizeof(*this);
+    size += sizeof(Index) * indexs_.size();
+    size += RoundUp(file_size_, kPageSize);
+    return size;
 }
     
 /*virtual*/ std::shared_ptr<TableProperties>
 XhashTableReader::GetTableProperties() const { return table_props_; }
+
+
+Error XhashTableReader::ReadKey(uint64_t *offset, std::string_view *result,
+                                std::string *scratch) {
+    using base::Slice;
+    using base::Varint32;
+    using base::Varint64;
+    
+    uint64_t key_len;
+    Error rs = ReadLength(offset, &key_len);
+    if (!rs) {
+        return rs;
+    }
+    
+    if (table_props_->last_level) {
+        if (key_len == 0) {
+            *result = "";
+        } else {
+            rs = file_->Read(*offset, key_len, result, scratch);
+            if (!rs) {
+                return rs;
+            }
+            (*offset) += result->size();
+        }
+    } else {
+        DCHECK_GE(key_len, core::KeyBoundle::kMinSize);
+        rs = file_->Read(*offset, key_len, result, scratch);
+        if (!rs) {
+            return rs;
+        }
+        (*offset) += result->size();
+    }
+    return Error::OK();
+}
+    
+Error XhashTableReader::ReadLength(uint64_t *offset, uint64_t *len) {
+    using base::Slice;
+    using base::Varint32;
+    using base::Varint64;
+    
+    std::string_view result;
+    std::string scratch;
+    
+    Error rs = file_->Read(*offset, Varint64::kMaxLen, &result, &scratch);
+    if (!rs) {
+        return rs;
+    }
+    size_t varint_len = 0;
+    *len = Varint64::Decode(result.data(), &varint_len);
+    (*offset) += varint_len;
+    return Error::OK();
+}
     
 } // namespace table
     

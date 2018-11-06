@@ -53,28 +53,30 @@ struct ParsedTaggedKey {
     
 class KeyBoundle final {
 public:
+    static const int kMinSize = sizeof(Version);
+    
     size_t size() const { return size_; }
-    size_t key_size() const { return key_size_; }
-    size_t tagged_key_size() const { return key_size_ + Tag::kSize; }
-    size_t value_size() const { return size_ - key_size_ - Tag::kSize; }
+    size_t user_key_size() const { return user_key_size_; }
+    size_t key_size() const { return user_key_size_ + Tag::kSize; }
+    size_t value_size() const { return size_ - user_key_size_ - Tag::kSize; }
     
     // user key
+    std::string_view user_key() const {
+        return std::string_view(key_, user_key_size());
+    }
+    
+    // user key with tag
     std::string_view key() const {
         return std::string_view(key_, key_size());
     }
     
-    // user key with tag
-    std::string_view tagged_key() const {
-        return std::string_view(key_, tagged_key_size());
-    }
-    
     std::string_view value() const {
-        return std::string_view(key_ + key_size() + Tag::kSize, value_size());
+        return std::string_view(key_ + user_key_size() + Tag::kSize, value_size());
     }
     
     Tag tag() const {
         return Tag::Decode(*reinterpret_cast<const uint64_t *>(key_
-                                                               + key_size()));
+                                                               + user_key_size()));
     }
     
     template<class Allocator = base::MallocAllocator>
@@ -102,20 +104,26 @@ public:
                 *reinterpret_cast<const uint64_t *>(tagged_key.data()
                                                     + parsed->user_key.size()));
     }
+    
+    static std::string_view ExtractUserKey(std::string_view key) {
+        DCHECK_GE(key.size(), kMinSize);
+        key.remove_suffix(Tag::kSize);
+        return key;
+    }
 
 private:
     KeyBoundle(std::string_view key, std::string_view value,
                Version version, uint8_t flags)
         : size_(key.size() + value.size() + Tag::kSize)
-        , key_size_(static_cast<int>(key.size())) {
+        , user_key_size_(static_cast<int>(key.size())) {
         ::memcpy(key_, key.data(), key.size());
         uint64_t tag = Tag(version, flags).Encode();
-        *reinterpret_cast<uint64_t *>(key_ + key_size_) = tag;
-        ::memcpy(key_ + key_size_ + Tag::kSize, value.data(), value.size());
+        *reinterpret_cast<uint64_t *>(key_ + user_key_size_) = tag;
+        ::memcpy(key_ + user_key_size_ + Tag::kSize, value.data(), value.size());
     }
     
     const uint64_t size_;
-    const uint32_t key_size_;
+    const uint32_t user_key_size_;
     char           key_[Tag::kSize];
 }; // class KeyBoundle
     
