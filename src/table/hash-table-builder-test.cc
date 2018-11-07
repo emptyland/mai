@@ -1,6 +1,7 @@
 #include "table/hash-table-builder.h"
 #include "table/hash-table-reader.h"
 #include "core/key-boundle.h"
+#include "core/internal-key-comparator.h"
 #include "base/hash.h"
 #include "base/allocators.h"
 #include "mai/env.h"
@@ -49,6 +50,7 @@ TEST(HashTableBuilderTest, Sanity) {
     
 TEST(HashTableBuilderTest, Reading) {
     auto env = Env::Default();
+    std::unique_ptr<core::InternalKeyComparator> ikcmp(new core::InternalKeyComparator(Comparator::Bytewise()));
     
     std::unique_ptr<RandomAccessFile> file;
     auto rs = env->NewRandomAccessFile("tests/02-hash-table-file.tmp", &file);
@@ -68,7 +70,7 @@ TEST(HashTableBuilderTest, Reading) {
     std::string scratch;
     core::Tag tag;
     reader.TableReader::Prepare(key->key());
-    rs = reader.Get(ReadOptions{}, Comparator::Bytewise(), key->key(),
+    rs = reader.Get(ReadOptions{}, ikcmp.get(), key->key(),
                     &tag, &value, &scratch);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ("a11111", value);
@@ -80,6 +82,7 @@ TEST(HashTableBuilderTest, Reading) {
     
 TEST(HashTableBuilderTest, Iterating) {
     auto env = Env::Default();
+    std::unique_ptr<core::InternalKeyComparator> ikcmp(new core::InternalKeyComparator(Comparator::Bytewise()));
     
     std::unique_ptr<RandomAccessFile> file;
     auto rs = env->NewRandomAccessFile("tests/02-hash-table-file.tmp", &file);
@@ -94,7 +97,7 @@ TEST(HashTableBuilderTest, Iterating) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     std::unique_ptr<Iterator>
-    iter(reader.NewIterator(ReadOptions{}, Comparator::Bytewise()));
+    iter(reader.NewIterator(ReadOptions{}, ikcmp.get()));
     
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
         printf("%s:%s\n", iter->key().data(), iter->value().data());

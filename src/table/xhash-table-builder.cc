@@ -10,7 +10,7 @@ namespace mai {
 
 namespace table {
     
-static const char kZeroBytesStub[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+//static const char kZeroBytesStub[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 /*virtual*/ XhashTableBuilder::~XhashTableBuilder() {}
 

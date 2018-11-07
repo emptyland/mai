@@ -154,8 +154,6 @@ TEST_F(XhashTableBuilderTest, LastLevelBuild) {
         "dddd", "d", "0",
         "eeee", "e", "0",
     }, kFileName);
-    
-    
 }
 
 } // namespace table

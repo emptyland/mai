@@ -11,9 +11,10 @@ namespace mai {
 struct ReadOptions;
 class Comparator;
 class Iterator;
-    
+
 namespace core {
 class Tag;
+class InternalKeyComparator;
 } // namespace core
     
 namespace table {
@@ -26,13 +27,13 @@ public:
     virtual ~TableReader() {}
     
     virtual Iterator *NewIterator(const ReadOptions &read_opts,
-                                  const Comparator *cmp) = 0;
+                                  const core::InternalKeyComparator *ikcmp) = 0;
 
     // Prepare for Get()
     virtual void Prepare(std::string_view /*target*/) {}
     
     virtual Error Get(const ReadOptions &read_opts,
-                      const Comparator *cmp,
+                      const core::InternalKeyComparator *ikcmp,
                       std::string_view key,
                       core::Tag *tag,
                       std::string_view *value,

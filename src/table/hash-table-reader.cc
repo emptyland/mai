@@ -1,6 +1,7 @@
 #include "table/hash-table-reader.h"
 #include "table/table.h"
 #include "core/key-boundle.h"
+#include "core/internal-key-comparator.h"
 #include "base/slice.h"
 #include "mai/env.h"
 #include "mai/iterator.h"
@@ -16,8 +17,8 @@ namespace table {
 
 class HashTableReader::IteratorImpl : public Iterator {
 public:
-    IteratorImpl(const Comparator *ucmp, HashTableReader *reader)
-        : ucmp_(DCHECK_NOTNULL(ucmp))
+    IteratorImpl(const core::InternalKeyComparator *ucmp, HashTableReader *reader)
+        : ikcmp_(DCHECK_NOTNULL(ucmp))
         , reader_(DCHECK_NOTNULL(reader))
         , slot_(reader->index_.size()) {
         DCHECK_GT(reader_->index_.size(), 0);
@@ -62,7 +63,7 @@ public:
             next_offset_ = SetUpKV(offset_);
             
             core::KeyBoundle::ParseTaggedKey(key(), &lk);
-            if (ucmp_->Equals(tk.user_key, lk.user_key) &&
+            if (ikcmp_->ucmp()->Equals(tk.user_key, lk.user_key) &&
                 tk.tag.version() >= lk.tag.version()) {
                 break;
             }
@@ -124,7 +125,7 @@ private:
         return offset;
     }
     
-    const Comparator *const ucmp_;
+    const core::InternalKeyComparator *const ikcmp_;
     HashTableReader *reader_;
     size_t slot_;
     
@@ -177,12 +178,13 @@ Error HashTableReader::Prepare() {
 
 /*virtual*/ Iterator *
 HashTableReader::NewIterator(const ReadOptions &,
-                             const Comparator *ucmp) {
-    return new IteratorImpl(ucmp, this);
+                             const core::InternalKeyComparator *ikcmp) {
+    return new IteratorImpl(ikcmp, this);
 }
 
 /*virtual*/ Error
-HashTableReader::Get(const ReadOptions &, const Comparator *ucmp,
+HashTableReader::Get(const ReadOptions &,
+                     const core::InternalKeyComparator *ikcmp,
                      std::string_view key, core::Tag *tag,
                      std::string_view *value, std::string *scratch) {
     if (index_.empty()) {
@@ -220,7 +222,7 @@ HashTableReader::Get(const ReadOptions &, const Comparator *ucmp,
         uint32_t val_size = base::Slice::SetU32(data);
         slot.offset += data.size();
         
-        if (ucmp->Equals(tk.user_key, lk.user_key) &&
+        if (ikcmp->ucmp()->Equals(tk.user_key, lk.user_key) &&
             tk.tag.version() >= lk.tag.version()) {
             rs = file_->Read(slot.offset, val_size, value, scratch);
             if (!rs) {

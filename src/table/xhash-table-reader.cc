@@ -1,6 +1,7 @@
 #include "table/xhash-table-reader.h"
 #include "table/table.h"
 #include "core/key-boundle.h"
+#include "core/internal-key-comparator.h"
 #include "base/slice.h"
 #include "mai/env.h"
 #include "mai/iterator.h"
@@ -12,7 +13,8 @@ namespace table {
     
 class XhashTableReader::IteratorImpl : public Iterator {
 public:
-    IteratorImpl(const Comparator *ikcmp, XhashTableReader *reader)
+    IteratorImpl(const core::InternalKeyComparator *ikcmp,
+                 XhashTableReader *reader)
         : ikcmp_(DCHECK_NOTNULL(ikcmp))
         , reader_(DCHECK_NOTNULL(reader))
         , slot_(reader->indexs_.size()) {}
@@ -59,7 +61,7 @@ public:
             next_offset_ = SetUpKV(offset_);
 
             if (reader_->table_props_->last_level) {
-                if (ikcmp_->Compare(key_, tk.user_key) >= 0) {
+                if (ikcmp_->ucmp()->Compare(key_, tk.user_key) >= 0) {
                     break;
                 }
             } else {
@@ -140,7 +142,7 @@ private:
         return offset;
     }
     
-    const Comparator *ikcmp_;
+    const core::InternalKeyComparator *ikcmp_;
     XhashTableReader *reader_;
     size_t slot_;
     
@@ -214,7 +216,8 @@ Error XhashTableReader::Prepare() {
 }
 
 /*virtual*/ Iterator *
-XhashTableReader::NewIterator(const ReadOptions &, const Comparator *ikcmp) {
+XhashTableReader::NewIterator(const ReadOptions &,
+                              const core::InternalKeyComparator *ikcmp) {
     Error err;
     if (!table_props_) {
         err = MAI_CORRUPTION("Table reader not prepared!");
@@ -227,12 +230,13 @@ XhashTableReader::NewIterator(const ReadOptions &, const Comparator *ikcmp) {
     }
     return new IteratorImpl(ikcmp, this);
 }
-/*virtual*/ Error XhashTableReader::Get(const ReadOptions &,
-                  const Comparator *ikcmp,
-                  std::string_view target,
-                  core::Tag *tag,
-                  std::string_view *value,
-                  std::string *scratch) {
+/*virtual*/ Error
+XhashTableReader::Get(const ReadOptions &,
+                      const core::InternalKeyComparator *ikcmp,
+                      std::string_view target,
+                      core::Tag *tag,
+                      std::string_view *value,
+                      std::string *scratch) {
     using base::Slice;
     using base::Varint32;
     using base::Varint64;
@@ -261,13 +265,8 @@ XhashTableReader::NewIterator(const ReadOptions &, const Comparator *ikcmp) {
 
         std::string key;
         if (table_props_->last_level) {
-//            if (result.size() == 0) {
-//                DCHECK(!last_key.empty());
-//                key = last_key;
-//            } else if (result != last_key) {
             key = result;
             last_key = result;
-//            }
         } else {
             if (result.size() == core::KeyBoundle::kMinSize) {
                 DCHECK(!last_key.empty());
@@ -287,7 +286,7 @@ XhashTableReader::NewIterator(const ReadOptions &, const Comparator *ikcmp) {
         
         bool found = false;
         if (table_props_->last_level) {
-            if (ikcmp->Compare(key, tk.user_key) >= 0) {
+            if (ikcmp->ucmp()->Compare(key, tk.user_key) >= 0) {
                 found = true;
             }
         } else {

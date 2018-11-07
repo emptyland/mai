@@ -22,10 +22,11 @@ public:
     
     Error Prepare();
     
-    virtual Iterator *NewIterator(const ReadOptions &read_opts,
-                                  const Comparator *cmp) override;
+    virtual Iterator *
+    NewIterator(const ReadOptions &read_opts,
+                const core::InternalKeyComparator *ikcmp) override;
     virtual Error Get(const ReadOptions &read_opts,
-                      const Comparator *cmp,
+                      const core::InternalKeyComparator *ikcmp,
                       std::string_view key,
                       core::Tag *tag,
                       std::string_view *value,
