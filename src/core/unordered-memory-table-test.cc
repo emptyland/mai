@@ -1,34 +1,26 @@
 #include "core/key-boundle.h"
 #include "core/hash-map.h"
+#include "core/internal-key-comparator.h"
+#include "core/unordered-memory-table.h"
+#include "base/hash.h"
+#include "mai/env.h"
+#include "mai/iterator.h"
 #include "gtest/gtest.h"
 
 namespace {
     
 using ::mai::core::KeyBoundle;
+using ::mai::core::InternalKeyComparator;
+using ::mai::base::Hash;
     
 struct TestComparator {
-    
-    bool EqualsKeyVersionLessThan(const KeyBoundle *lhs,
-                                  const KeyBoundle *rhs) const {
-        if (!Equals(lhs, rhs)) {
-            return false;
-        }
-        return lhs->tag().version() <= rhs->tag().version();
+    const InternalKeyComparator *ikcmp_;
+    int operator ()(const KeyBoundle *lhs, const KeyBoundle *rhs) const {
+        return ikcmp_->Compare(lhs->key(), rhs->key());
     }
-    
-    bool Equals(const KeyBoundle *lhs, const KeyBoundle *rhs) const {
-        if (lhs == rhs) {
-            return true;
-        }
-        return ::memcmp(lhs->user_key().data(), rhs->user_key().data(), lhs->user_key().size()) == 0;
-    }
-    
-    int Hash(const KeyBoundle *key) const {
-        int hash = 1315423911;
-        for (auto s = key->user_key().begin(); s < key->user_key().end(); s++) {
-            hash ^= ((hash << 5) + (*s) + (hash >> 2));
-        }
-        return hash;
+    int operator ()(const KeyBoundle *key) const {
+        return Hash::Js(key->user_key().data(),
+                        key->user_key().size()) & 0x7fffffff;
     }
 };
     
@@ -37,9 +29,20 @@ struct TestComparator {
 namespace mai {
     
 namespace core {
+    
+class UnorderedMemoryTableTest : public ::testing::Test {
+public:
+    UnorderedMemoryTableTest()
+        : ikcmp_(new core::InternalKeyComparator(Comparator::Bytewise())) {}
+    void SetUp() override {}
+    void TearDown() override {}
+    
+    Env *env_ = Env::Default();
+    std::unique_ptr<InternalKeyComparator> ikcmp_;
+};
 
-TEST(UnorderedMemoryTableTest, KeyBoundleMap) {
-    HashMap<KeyBoundle *, TestComparator> map(8, TestComparator{});
+TEST_F(UnorderedMemoryTableTest, KeyBoundleMap) {
+    HashMap<KeyBoundle *, TestComparator> map(8, TestComparator{ikcmp_.get()});
     map.Put(KeyBoundle::New("k1", "v1", 1, Tag::kFlagValue));
     map.Put(KeyBoundle::New("k1", "v2", 2, Tag::kFlagValue));
     map.Put(KeyBoundle::New("k2", "v2", 3, Tag::kFlagValue));
@@ -61,6 +64,77 @@ TEST(UnorderedMemoryTableTest, KeyBoundleMap) {
     ASSERT_TRUE(iter.Valid());
     ASSERT_EQ(0, ::strncmp(iter.key()->value().data(),
                            "v1", iter.key()->value().size()));
+}
+    
+TEST_F(UnorderedMemoryTableTest, MemoryTable) {
+    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
+    table->Put("k1", "v1", 1, Tag::kFlagValue);
+    table->Put("k1", "v3", 3, Tag::kFlagValue);
+    table->Put("k1", "v5", 5, Tag::kFlagValue);
+    
+    std::string value;
+    auto rs = table->Get("k1", 2, nullptr, &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("v1", value);
+    
+    rs = table->Get("k1", 5, nullptr, &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("v5", value);
+    
+    rs = table->Get("k2", 5, nullptr, &value);
+    ASSERT_TRUE(rs.IsNotFound());
+}
+    
+TEST_F(UnorderedMemoryTableTest, Iterate) {
+    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
+    table->Put("k1", "v1", 1, Tag::kFlagValue);
+    table->Put("k1", "v3", 3, Tag::kFlagValue);
+    table->Put("k1", "v5", 5, Tag::kFlagValue);
+    ASSERT_EQ(1, table->ref_count());
+    
+    std::unique_ptr<Iterator> iter(table->NewIterator());
+    ASSERT_EQ(2, table->ref_count());
+    
+    ASSERT_TRUE(iter->error().ok()) << iter->error().ToString();
+    ASSERT_FALSE(iter->Valid());
+    
+    iter->SeekToFirst();
+    ASSERT_TRUE(iter->Valid());
+    ASSERT_EQ("v5", iter->value());
+    
+    iter->Next();
+    ASSERT_TRUE(iter->Valid());
+    ASSERT_EQ("v3", iter->value());
+    
+    iter->Next();
+    ASSERT_TRUE(iter->Valid());
+    ASSERT_EQ("v1", iter->value());
+    
+    iter->Next();
+    ASSERT_FALSE(iter->Valid());
+    
+    iter.reset();
+    ASSERT_EQ(1, table->ref_count());
+}
+
+TEST_F(UnorderedMemoryTableTest, Deletion) {
+    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
+    table->Put("k1", "v1", 1, Tag::kFlagValue);
+    table->Put("k1", "v3", 3, Tag::kFlagValue);
+    table->Put("k1", "v5", 5, Tag::kFlagValue);
+    table->Put("k1", "", 2, Tag::kFlagDeletion);
+    
+    std::string value;
+    auto rs = table->Get("k1", 6, nullptr, &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("v5", value);
+    
+    rs = table->Get("k1", 2, nullptr, &value);
+    ASSERT_TRUE(rs.IsNotFound());
+    
+    rs = table->Get("k1", 1, nullptr, &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("v1", value);
 }
 
 } // namespace core

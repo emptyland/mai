@@ -39,7 +39,7 @@ public:
     }
 
     void Put(Key key) {
-        int hash = comparator_.Hash(key);
+        int hash = comparator_(key);
         Slot *slot = (slots_.get() + hash % n_slots_);
         Node *node = new Node;
         node->key = key;
@@ -48,7 +48,7 @@ public:
         Node *pp = reinterpret_cast<Node *>(slot);
         Node *p = slot->head;
         while (p) {
-            if (comparator_.Equals(key, p->key)) {
+            if (comparator_(p->key, key) >= 0) {
                 break;
             }
             pp = p;
@@ -58,16 +58,16 @@ public:
         node->next = p;
         n_items_.fetch_add(1);
     }
-    
+
     std::tuple<size_t, Node *> Seek(Key key) const {
-        int hash = comparator_.Hash(key);
+        int hash = comparator_(key);
         int index = hash % n_slots_;
         Slot *slot = (slots_.get() + index);
      
         base::ReaderSpinLock socpe_lock(&slot->mutex);
         Node *p = slot->head;
         while (p) {
-            if (comparator_.EqualsKeyVersionLessThan(p->key, key)) {
+            if (comparator_(p->key, key) >= 0) {
                 return std::make_tuple(index, p);
             }
             p = p->next;
@@ -95,7 +95,7 @@ private:
 template<class Key, class Comparator>
 class HashMap<Key, Comparator>::Iterator {
 public:
-    Iterator(HashMap<Key, Comparator> *map)
+    Iterator(const HashMap<Key, Comparator> *map)
         : map_(map)
         , slot_(map->n_slots_) {}
     
@@ -133,7 +133,7 @@ public:
     }
     
 private:
-    HashMap<Key, Comparator> *map_;
+    const HashMap<Key, Comparator> *map_;
     size_t slot_;
     Node *node_ = nullptr;
 }; // class HashMap<Key, Comparator>::Iterator

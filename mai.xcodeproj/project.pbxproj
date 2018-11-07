@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		237CE4BC2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */; };
+		237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */; };
 		23B0E0D92187F90400F9E855 /* base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0D82187F90400F9E855 /* base.cc */; };
 		23B0E0E62187FA2200F9E855 /* base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0D82187F90400F9E855 /* base.cc */; };
 		23B0E0EB2187FAF200F9E855 /* libglog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E82187FAF200F9E855 /* libglog.a */; };
@@ -84,6 +86,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		237CE4B72192CD16004FB9BF /* memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "memory-table.h"; sourceTree = "<group>"; };
+		237CE4B82192D00B004FB9BF /* unordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "unordered-memory-table.h"; sourceTree = "<group>"; };
+		237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "unordered-memory-table.cc"; sourceTree = "<group>"; };
 		23B0E0C9217D7DA000F9E855 /* mai */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mai; sourceTree = BUILT_PRODUCTS_DIR; };
 		23B0E0D72187F90400F9E855 /* base.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = base.h; sourceTree = "<group>"; };
 		23B0E0D82187F90400F9E855 /* base.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = base.cc; sourceTree = "<group>"; };
@@ -266,6 +271,9 @@
 				23B0E137218B05F500F9E855 /* iterator.cc */,
 				23B0E1532190211200F9E855 /* internal-key-comparator.h */,
 				23B0E1542190215C00F9E855 /* internal-key-comparator.cc */,
+				237CE4B72192CD16004FB9BF /* memory-table.h */,
+				237CE4B82192D00B004FB9BF /* unordered-memory-table.h */,
+				237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */,
 			);
 			name = core;
 			path = src/core;
@@ -390,6 +398,7 @@
 				23B0E0D92187F90400F9E855 /* base.cc in Sources */,
 				23B0E1552190215C00F9E855 /* internal-key-comparator.cc in Sources */,
 				23B0E133218AFD4E00F9E855 /* crc32.c in Sources */,
+				237CE4BC2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,
 				23B0E1592190298D00F9E855 /* xhash-table-reader.cc in Sources */,
 				23B0E149218C51E000F9E855 /* xhash-table-builder.cc in Sources */,
 				23B0E16421927F6C00F9E855 /* reference-count-test.cc in Sources */,
@@ -434,6 +443,7 @@
 				23B0E146218BF93B00F9E855 /* hash-table-reader.cc in Sources */,
 				23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */,
 				23B0E16121913F5900F9E855 /* xhash-table-reader-test.cc in Sources */,
+				237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,
 				23B0E100218841C500F9E855 /* spin-locking.cc in Sources */,
 			);

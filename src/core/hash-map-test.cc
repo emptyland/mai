@@ -4,17 +4,14 @@
 namespace {
 
 struct TestComparator {
-    
-    bool EqualsKeyVersionLessThan(int lhs, int rhs) const {
-        return lhs == rhs;
-    }
-    
-    bool Equals(int lhs, int rhs) const {
-        return lhs == rhs;
-    }
-    
-    int Hash(int key) const {
-        return key;
+    int operator ()(int key) const { return key; }
+    int operator ()(int lhs, int rhs) const {
+        if (lhs < rhs) {
+            return -1;
+        } else if (lhs > rhs) {
+            return 1;
+        }
+        return 0;
     }
 };
     
