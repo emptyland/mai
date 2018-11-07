@@ -76,6 +76,7 @@ public:
     }
     
     size_t items_count() const { return n_items_.load(); }
+    DEF_VAL_GETTER(size_t, n_slots);
 private:
     Comparator const comparator_;
     

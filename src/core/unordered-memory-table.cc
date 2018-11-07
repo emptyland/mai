@@ -52,7 +52,8 @@ private:
 UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
                                            int initial_slot)
     : ikcmp_(DCHECK_NOTNULL(ikcmp))
-    , table_(initial_slot, KeyComparator{ikcmp}) {
+    , table_(initial_slot, KeyComparator{ikcmp})
+    , mem_usage_(sizeof(*this)) {
 }
 
 /*virtual*/ UnorderedMemoryTable::~UnorderedMemoryTable() {
@@ -69,6 +70,7 @@ UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
     const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
     DCHECK_NOTNULL(ikey);
     table_.Put(ikey);
+    mem_usage_.fetch_add(ikey->size(), std::memory_order_acq_rel);
 }
     
 /*virtual*/ Error UnorderedMemoryTable::Get(std::string_view key,
@@ -110,7 +112,7 @@ UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
 }
     
 /*virtual*/ size_t UnorderedMemoryTable::ApproximateMemoryUsage() const {
-    return 0;
+    return mem_usage_.load(std::memory_order_acquire);
 }
     
 } // namespace core

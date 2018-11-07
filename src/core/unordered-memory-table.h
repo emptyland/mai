@@ -6,6 +6,7 @@
 #include "core/internal-key-comparator.h"
 #include "base/hash.h"
 #include "glog/logging.h"
+#include <atomic>
 
 namespace mai {
     
@@ -43,6 +44,7 @@ private:
 
     const InternalKeyComparator *const ikcmp_;
     Table table_;
+    std::atomic<size_t> mem_usage_;
 };
     
 } // namespace core
