@@ -100,7 +100,7 @@ TEST(HashTableBuilderTest, Iterating) {
     iter(reader.NewIterator(ReadOptions{}, ikcmp.get()));
     
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
-        printf("%s:%s\n", iter->key().data(), iter->value().data());
+//        printf("%s:%s\n", iter->key().data(), iter->value().data());
     }
 }
 

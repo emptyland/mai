@@ -47,7 +47,7 @@ TEST(HashMapTest, Iterator) {
     
     HashMap<int, TestComparator>::Iterator iter(&map);
     for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
-        printf("%d\n", iter.key());
+        //printf("%d\n", iter.key());
     }
 }
     
