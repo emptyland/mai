@@ -29,16 +29,12 @@ TEST(HashMapTest, Sanity) {
     map.Put(2);
     map.Put(1024);
     
-    int index;
-    HashMap<int, TestComparator>::Node *node;
-    std::tie(index, node) = map.Seek(0);
+    HashMap<int, TestComparator>::Iterator iter(&map);
+    iter.Seek(0);
+    ASSERT_EQ(0, iter.key());
     
-    ASSERT_EQ(0, index);
-    ASSERT_EQ(0, node->key);
-    
-    std::tie(index, node) = map.Seek(1);
-    ASSERT_EQ(1, index);
-    ASSERT_EQ(1, node->key);
+    iter.Seek(1);
+    ASSERT_EQ(1, iter.key());
 }
     
 TEST(HashMapTest, Iterator) {

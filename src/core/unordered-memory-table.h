@@ -26,6 +26,7 @@ public:
                       std::string *value) const override;
     virtual Iterator *NewIterator() override;
     virtual size_t ApproximateMemoryUsage() const override;
+    virtual float ApproximateConflictFactor() const override;
     
 private:
     struct KeyComparator {

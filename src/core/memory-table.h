@@ -25,6 +25,8 @@ public:
     virtual Iterator *NewIterator() = 0;
     
     virtual size_t ApproximateMemoryUsage() const = 0;
+    
+    virtual float ApproximateConflictFactor() const = 0;
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(MemoryTable);
 }; // class MemoryTable

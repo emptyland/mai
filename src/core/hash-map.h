@@ -58,22 +58,6 @@ public:
         node->next = p;
         n_items_.fetch_add(1);
     }
-
-    std::tuple<size_t, Node *> Seek(Key key) const {
-        int hash = comparator_(key);
-        int index = hash % n_slots_;
-        Slot *slot = (slots_.get() + index);
-     
-        base::ReaderSpinLock socpe_lock(&slot->mutex);
-        Node *p = slot->head;
-        while (p) {
-            if (comparator_(p->key, key) >= 0) {
-                return std::make_tuple(index, p);
-            }
-            p = p->next;
-        }
-        return std::make_tuple(n_slots_, nullptr);
-    }
     
     size_t items_count() const { return n_items_.load(); }
     DEF_VAL_GETTER(size_t, n_slots);
@@ -86,6 +70,22 @@ private:
         Node *head = nullptr;
         base::SpinMutex mutex;
     };
+    
+    std::tuple<size_t, Node *> FindGreaterOrEqual(Key key) const {
+        int hash = comparator_(key);
+        int index = hash % n_slots_;
+        Slot *slot = (slots_.get() + index);
+        
+        base::ReaderSpinLock socpe_lock(&slot->mutex);
+        Node *p = slot->head;
+        while (p) {
+            if (comparator_(p->key, key) >= 0) {
+                return std::make_tuple(index, p);
+            }
+            p = p->next;
+        }
+        return std::make_tuple(n_slots_, nullptr);
+    }
     
     size_t n_slots_;
     std::atomic<size_t> n_items_;
@@ -120,7 +120,9 @@ public:
         }
     }
     
-    void Seek(Key key) { std::tie(slot_, node_) = map_->Seek(key); }
+    void Seek(Key key) {
+        std::tie(slot_, node_) = map_->FindGreaterOrEqual(key);
+    }
     
     void SeekToFirst() {
         for (size_t i = 0; i < map_->n_slots_; ++i) {

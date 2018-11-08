@@ -1,4 +1,4 @@
-#include "core/unordered-memory-table.h"
+#include "core/ordered-memory-table.h"
 #include "base/reference-count.h"
 #include "mai/iterator.h"
 
@@ -6,14 +6,14 @@ namespace mai {
     
 namespace core {
     
-class UnorderedMemoryTable::IteratorImpl final : public Iterator {
+class OrderedMemoryTable::IteratorImpl final : public Iterator {
 public:
-    IteratorImpl(UnorderedMemoryTable *umt)
-        : iter_(&umt->table_) {}
+    IteratorImpl(OrderedMemoryTable *omt)
+        : iter_(&omt->table_) {}
     
     virtual bool Valid() const override { return iter_.Valid(); }
     virtual void SeekToFirst() override { iter_.SeekToFirst(); }
-    virtual void SeekToLast() override { Noreached(); }
+    virtual void SeekToLast() override { iter_.SeekToLast(); }
     virtual void Seek(std::string_view target) override {
         std::string_view user_key = KeyBoundle::ExtractUserKey(target);
         Tag tag = KeyBoundle::ExtractTag(target);
@@ -25,7 +25,7 @@ public:
     }
     
     virtual void Next() override { iter_.Next(); }
-    virtual void Prev() override { Noreached(); }
+    virtual void Prev() override { iter_.Prev(); }
     
     virtual std::string_view key() const override {
         return iter_.key()->key();
@@ -36,27 +36,24 @@ public:
     virtual Error error() const override { return error_; }
     
     static void Cleanup(void *arg1, void */*arg2*/) {
-        DCHECK_NOTNULL(static_cast<UnorderedMemoryTable *>(arg1))->ReleaseRef();
+        DCHECK_NOTNULL(static_cast<OrderedMemoryTable *>(arg1))->ReleaseRef();
     }
 private:
     void Noreached() {
         error_ = MAI_CORRUPTION("Noreached!");
         DLOG(FATAL) << "Noreached!";
     }
-
+    
     Table::Iterator iter_;
     Error error_;
 }; // class UnorderedMemoryTable::IteratorImpl
     
-
-UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
-                                           int initial_slot)
-    : ikcmp_(DCHECK_NOTNULL(ikcmp))
-    , table_(initial_slot, KeyComparator{ikcmp})
+OrderedMemoryTable::OrderedMemoryTable(const InternalKeyComparator *ikcmp)
+    : table_(KeyComparator{ikcmp})
     , mem_usage_(sizeof(*this)) {
 }
 
-/*virtual*/ UnorderedMemoryTable::~UnorderedMemoryTable() {
+/*virtual*/ OrderedMemoryTable::~OrderedMemoryTable() {
     // TODO: user class Area
     Table::Iterator iter(&table_);
     for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
@@ -64,18 +61,18 @@ UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
     }
 }
 
-/*virtual*/ void UnorderedMemoryTable::Put(std::string_view key,
-                                           std::string_view value,
-                                           Version version, uint8_t flag) {
+/*virtual*/ void
+OrderedMemoryTable::Put(std::string_view key, std::string_view value,
+                        Version version, uint8_t flag) {
     const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
     DCHECK_NOTNULL(ikey);
     table_.Put(ikey);
     mem_usage_.fetch_add(ikey->size(), std::memory_order_acq_rel);
 }
     
-/*virtual*/ Error UnorderedMemoryTable::Get(std::string_view key,
-                                            Version version, Tag *tag,
-                                            std::string *value) const {
+/*virtual*/ Error
+OrderedMemoryTable::Get(std::string_view key, Version version, Tag *tag,
+                        std::string *value) const {
     base::ScopedMemory scope;
     const KeyBoundle *ikey = KeyBoundle::New(key, version,
                                              base::ScopedAllocator{&scope});
@@ -104,23 +101,21 @@ UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
     return Error::OK();
 }
     
-/*virtual*/ Iterator *UnorderedMemoryTable::NewIterator() {
+/*virtual*/ Iterator *OrderedMemoryTable::NewIterator() {
     Iterator *iter = new IteratorImpl(this);
     AddRef();
     iter->RegisterCleanup(&IteratorImpl::Cleanup, this);
     return iter;
 }
     
-/*virtual*/ size_t UnorderedMemoryTable::ApproximateMemoryUsage() const {
+/*virtual*/ size_t OrderedMemoryTable::ApproximateMemoryUsage() const {
     return mem_usage_.load(std::memory_order_acquire);
 }
-    
-/*virtual*/ float UnorderedMemoryTable::ApproximateConflictFactor() const {
-    DCHECK_GT(table_.n_slots(), 0);
-    
-    float n_slots = static_cast<float>(table_.n_slots());
-    float n_items = static_cast<float>(table_.items_count());
-    return n_items / n_slots;
+
+/*virtual*/ float OrderedMemoryTable::ApproximateConflictFactor() const {
+    // Skip List has no Conflict Factor.
+    // Equlas 0 forever.
+    return 0;
 }
     
 } // namespace core
