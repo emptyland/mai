@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		232AA2312193D786007EF228 /* merging-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA2302193D786007EF228 /* merging-test.cc */; };
+		232AA2322193D786007EF228 /* merging-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA2302193D786007EF228 /* merging-test.cc */; };
 		237CE4BC2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */; };
 		237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */; };
 		237CE4C02192EABD004FB9BF /* iterator-warpper.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */; };
@@ -90,6 +92,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		232AA2302193D786007EF228 /* merging-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "merging-test.cc"; path = "src/core/merging-test.cc"; sourceTree = "<group>"; };
 		237CE4B72192CD16004FB9BF /* memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "memory-table.h"; sourceTree = "<group>"; };
 		237CE4B82192D00B004FB9BF /* unordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "unordered-memory-table.h"; sourceTree = "<group>"; };
 		237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "unordered-memory-table.cc"; sourceTree = "<group>"; };
@@ -240,6 +243,7 @@
 				23B0E15E21903C1900F9E855 /* xhash-table-builder-test.cc */,
 				23B0E16021913F5900F9E855 /* xhash-table-reader-test.cc */,
 				23B0E16321927F6C00F9E855 /* reference-count-test.cc */,
+				232AA2302193D786007EF228 /* merging-test.cc */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -408,6 +412,7 @@
 				23B0E15C2190318000F9E855 /* table.cc in Sources */,
 				23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E0D92187F90400F9E855 /* base.cc in Sources */,
+				232AA2312193D786007EF228 /* merging-test.cc in Sources */,
 				23B0E1552190215C00F9E855 /* internal-key-comparator.cc in Sources */,
 				237CE4C42192EE17004FB9BF /* merging.cc in Sources */,
 				23B0E133218AFD4E00F9E855 /* crc32.c in Sources */,
@@ -434,6 +439,7 @@
 				23B0E139218B05F500F9E855 /* iterator.cc in Sources */,
 				23B0E10F2189A6A500F9E855 /* error-test.cc in Sources */,
 				23B0E14E218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
+				232AA2322193D786007EF228 /* merging-test.cc in Sources */,
 				23B0E1182189A71F00F9E855 /* file-test.cc in Sources */,
 				23B0E15F21903C1900F9E855 /* xhash-table-builder-test.cc in Sources */,
 				23B0E134218AFD4E00F9E855 /* crc32.c in Sources */,

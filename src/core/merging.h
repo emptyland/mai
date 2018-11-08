@@ -19,6 +19,9 @@ struct Merging final {
     
     static Iterator *NewTempTableMergingIteraotr(MemoryTable *tmp_table,
                                                  Iterator **children, size_t n);
+    
+    static Iterator *NewMergingIterator(const Comparator *cmp,
+                                        Iterator **children, size_t n);
                                                       
 
     DISALLOW_ALL_CONSTRUCTORS(Merging);

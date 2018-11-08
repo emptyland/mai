@@ -6,6 +6,11 @@
 
 namespace mai {
     
+enum Direction {
+    kForward,
+    kReserve
+};
+    
 class Iterator {
 public:
     Iterator() {}
