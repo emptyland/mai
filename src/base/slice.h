@@ -58,6 +58,7 @@ struct Slice {
         return *reinterpret_cast<const uint64_t *>(slice.data());
     }
     
+    static std::string ToReadable(std::string_view raw);
 }; // struct Slice
     
 } // namespace base

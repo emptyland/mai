@@ -12,7 +12,7 @@ namespace table {
 class TableBuilder {
 public:
     TableBuilder() {}
-    virtual ~TableBuilder() {} // TODO:
+    virtual ~TableBuilder() {}
     
     virtual void Add(std::string_view key, std::string_view value) = 0;
     
@@ -26,6 +26,7 @@ public:
     
     virtual uint64_t FileSize() const = 0;
     
+    DISALLOW_IMPLICIT_CONSTRUCTORS(TableBuilder);
 }; // class TableBuilder
     
 } // namespace table

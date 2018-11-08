@@ -14,6 +14,16 @@
 		232AA2392193E780007EF228 /* ordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA2382193E780007EF228 /* ordered-memory-table.cc */; };
 		232AA23A2193E780007EF228 /* ordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA2382193E780007EF228 /* ordered-memory-table.cc */; };
 		232AA23C2194161A007EF228 /* ordered-memory-table-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA23B2194161A007EF228 /* ordered-memory-table-test.cc */; };
+		232AA23F21942412007EF228 /* sst-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA23E21942412007EF228 /* sst-table-builder.cc */; };
+		232AA24021942412007EF228 /* sst-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA23E21942412007EF228 /* sst-table-builder.cc */; };
+		232AA24321943066007EF228 /* data-block-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA24221943066007EF228 /* data-block-builder.cc */; };
+		232AA24421943066007EF228 /* data-block-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA24221943066007EF228 /* data-block-builder.cc */; };
+		232AA24621943100007EF228 /* data-block-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA24521943100007EF228 /* data-block-builder-test.cc */; };
+		232AA24721943100007EF228 /* data-block-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA24521943100007EF228 /* data-block-builder-test.cc */; };
+		232AA249219432BB007EF228 /* slice.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA248219432BB007EF228 /* slice.cc */; };
+		232AA24A219432BB007EF228 /* slice.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA248219432BB007EF228 /* slice.cc */; };
+		232AA24D219440F5007EF228 /* filter-block-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA24C219440F5007EF228 /* filter-block-builder-test.cc */; };
+		232AA24E219440F5007EF228 /* filter-block-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA24C219440F5007EF228 /* filter-block-builder-test.cc */; };
 		237CE4BC2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */; };
 		237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */; };
 		237CE4C02192EABD004FB9BF /* iterator-warpper.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */; };
@@ -103,6 +113,14 @@
 		232AA2372193E754007EF228 /* ordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ordered-memory-table.h"; sourceTree = "<group>"; };
 		232AA2382193E780007EF228 /* ordered-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "ordered-memory-table.cc"; sourceTree = "<group>"; };
 		232AA23B2194161A007EF228 /* ordered-memory-table-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "ordered-memory-table-test.cc"; path = "src/core/ordered-memory-table-test.cc"; sourceTree = "<group>"; };
+		232AA23D21941F64007EF228 /* sst-table-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "sst-table-builder.h"; sourceTree = "<group>"; };
+		232AA23E21942412007EF228 /* sst-table-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "sst-table-builder.cc"; sourceTree = "<group>"; };
+		232AA241219426D2007EF228 /* data-block-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "data-block-builder.h"; sourceTree = "<group>"; };
+		232AA24221943066007EF228 /* data-block-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "data-block-builder.cc"; sourceTree = "<group>"; };
+		232AA24521943100007EF228 /* data-block-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "data-block-builder-test.cc"; path = "src/table/data-block-builder-test.cc"; sourceTree = "<group>"; };
+		232AA248219432BB007EF228 /* slice.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = slice.cc; sourceTree = "<group>"; };
+		232AA24B21943B88007EF228 /* filter-block-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "filter-block-builder.h"; sourceTree = "<group>"; };
+		232AA24C219440F5007EF228 /* filter-block-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "filter-block-builder-test.cc"; path = "src/table/filter-block-builder-test.cc"; sourceTree = "<group>"; };
 		237CE4B72192CD16004FB9BF /* memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "memory-table.h"; sourceTree = "<group>"; };
 		237CE4B82192D00B004FB9BF /* unordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "unordered-memory-table.h"; sourceTree = "<group>"; };
 		237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "unordered-memory-table.cc"; sourceTree = "<group>"; };
@@ -229,6 +247,7 @@
 				23B0E0D72187F90400F9E855 /* base.h */,
 				23B0E10B2189816300F9E855 /* allocators.h */,
 				23B0E12B218AED2E00F9E855 /* slice.h */,
+				232AA248219432BB007EF228 /* slice.cc */,
 				23B0E12E218AFB8400F9E855 /* hash.h */,
 				23B0E12F218AFBCC00F9E855 /* hash.cc */,
 				23B0E132218AFD4E00F9E855 /* crc32.c */,
@@ -256,6 +275,8 @@
 				23B0E16021913F5900F9E855 /* xhash-table-reader-test.cc */,
 				23B0E16321927F6C00F9E855 /* reference-count-test.cc */,
 				232AA2302193D786007EF228 /* merging-test.cc */,
+				232AA24521943100007EF228 /* data-block-builder-test.cc */,
+				232AA24C219440F5007EF228 /* filter-block-builder-test.cc */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -324,6 +345,8 @@
 		23B0E125218AD1E300F9E855 /* table */ = {
 			isa = PBXGroup;
 			children = (
+				232AA23D21941F64007EF228 /* sst-table-builder.h */,
+				232AA23E21942412007EF228 /* sst-table-builder.cc */,
 				23B0E147218C512800F9E855 /* xhash-table-builder.h */,
 				23B0E148218C51E000F9E855 /* xhash-table-builder.cc */,
 				23B0E1572190293D00F9E855 /* xhash-table-reader.h */,
@@ -332,6 +355,9 @@
 				23B0E127218AD33300F9E855 /* hash-table-builder.cc */,
 				23B0E143218BF80F00F9E855 /* hash-table-reader.h */,
 				23B0E144218BF93B00F9E855 /* hash-table-reader.cc */,
+				232AA241219426D2007EF228 /* data-block-builder.h */,
+				232AA24221943066007EF228 /* data-block-builder.cc */,
+				232AA24B21943B88007EF228 /* filter-block-builder.h */,
 				23B0E12A218AD41300F9E855 /* table-builder.h */,
 				23B0E13A218B077100F9E855 /* table-reader.h */,
 				23B0E135218B026400F9E855 /* table.h */,
@@ -424,7 +450,9 @@
 				232AA2392193E780007EF228 /* ordered-memory-table.cc in Sources */,
 				23B0E141218BEAA900F9E855 /* bytewise-comparator.cc in Sources */,
 				23B0E14D218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
+				232AA24621943100007EF228 /* data-block-builder-test.cc in Sources */,
 				23B0E11A2189A94F00F9E855 /* env.cc in Sources */,
+				232AA24321943066007EF228 /* data-block-builder.cc in Sources */,
 				23B0E145218BF93B00F9E855 /* hash-table-reader.cc in Sources */,
 				23B0E15C2190318000F9E855 /* table.cc in Sources */,
 				23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */,
@@ -440,10 +468,13 @@
 				23B0E130218AFBCC00F9E855 /* hash.cc in Sources */,
 				23B0E11E2189A9CE00F9E855 /* env-posix.cc in Sources */,
 				23B0E1152189A6BF00F9E855 /* error.cc in Sources */,
+				232AA24D219440F5007EF228 /* filter-block-builder-test.cc in Sources */,
 				23B0E1222189ABE800F9E855 /* file-posix.cc in Sources */,
 				23B0E128218AD33300F9E855 /* hash-table-builder.cc in Sources */,
+				232AA249219432BB007EF228 /* slice.cc in Sources */,
 				23B0E0FF218841C500F9E855 /* spin-locking.cc in Sources */,
 				237CE4C02192EABD004FB9BF /* iterator-warpper.cc in Sources */,
+				232AA23F21942412007EF228 /* sst-table-builder.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -457,6 +488,7 @@
 				23B0E10F2189A6A500F9E855 /* error-test.cc in Sources */,
 				23B0E14E218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
 				232AA2322193D786007EF228 /* merging-test.cc in Sources */,
+				232AA24A219432BB007EF228 /* slice.cc in Sources */,
 				23B0E1182189A71F00F9E855 /* file-test.cc in Sources */,
 				23B0E15F21903C1900F9E855 /* xhash-table-builder-test.cc in Sources */,
 				23B0E134218AFD4E00F9E855 /* crc32.c in Sources */,
@@ -464,16 +496,19 @@
 				23B0E1102189A6A500F9E855 /* test-main.cc in Sources */,
 				23B0E11B2189A94F00F9E855 /* env.cc in Sources */,
 				23B0E129218AD33300F9E855 /* hash-table-builder.cc in Sources */,
+				232AA24721943100007EF228 /* data-block-builder-test.cc in Sources */,
 				23B0E15A2190298D00F9E855 /* xhash-table-reader.cc in Sources */,
 				23B0E15D2190318000F9E855 /* table.cc in Sources */,
 				232AA23A2193E780007EF228 /* ordered-memory-table.cc in Sources */,
 				23B0E1232189ABE800F9E855 /* file-posix.cc in Sources */,
+				232AA24E219440F5007EF228 /* filter-block-builder-test.cc in Sources */,
 				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E12D218AF97A00F9E855 /* hash-table-builder-test.cc in Sources */,
 				23B0E107218842C400F9E855 /* key-boundle-test.cc in Sources */,
 				23B0E1562190215C00F9E855 /* internal-key-comparator.cc in Sources */,
 				232AA2362193E5E6007EF228 /* skip-list-test.cc in Sources */,
 				23B0E142218BEAA900F9E855 /* bytewise-comparator.cc in Sources */,
+				232AA24421943066007EF228 /* data-block-builder.cc in Sources */,
 				23B0E1162189A6BF00F9E855 /* error.cc in Sources */,
 				23B0E151218FE03600F9E855 /* varint-encoding-test.cc in Sources */,
 				23B0E14A218C51E000F9E855 /* xhash-table-builder.cc in Sources */,
@@ -482,6 +517,7 @@
 				232AA23C2194161A007EF228 /* ordered-memory-table-test.cc in Sources */,
 				23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */,
 				23B0E146218BF93B00F9E855 /* hash-table-reader.cc in Sources */,
+				232AA24021942412007EF228 /* sst-table-builder.cc in Sources */,
 				23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */,
 				23B0E16121913F5900F9E855 /* xhash-table-reader-test.cc in Sources */,
 				237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,

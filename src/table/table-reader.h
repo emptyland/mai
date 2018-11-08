@@ -42,6 +42,8 @@ public:
     virtual size_t ApproximateMemoryUsage() const = 0;
     
     virtual std::shared_ptr<TableProperties> GetTableProperties() const = 0;
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(TableReader);
 }; // class TableReader
 
 } // namespace table
