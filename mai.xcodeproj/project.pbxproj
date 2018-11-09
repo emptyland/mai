@@ -218,7 +218,7 @@
 				23B0E11C2189A98D00F9E855 /* port */,
 				23B0E0F82188337D00F9E855 /* core */,
 				23B0E0F22187FC9400F9E855 /* mai */,
-				23B0E0E52187F9EC00F9E855 /* tests */,
+				23B0E0E52187F9EC00F9E855 /* unit-tests */,
 				23B0E0D32187F8CF00F9E855 /* base */,
 				23B0E0CA217D7DA000F9E855 /* Products */,
 				23B0E0E72187FAF200F9E855 /* Frameworks */,
@@ -256,7 +256,7 @@
 			path = src/base;
 			sourceTree = "<group>";
 		};
-		23B0E0E52187F9EC00F9E855 /* tests */ = {
+		23B0E0E52187F9EC00F9E855 /* unit-tests */ = {
 			isa = PBXGroup;
 			children = (
 				232AA2342193E5E5007EF228 /* skip-list-test.cc */,
@@ -278,7 +278,7 @@
 				232AA24521943100007EF228 /* data-block-builder-test.cc */,
 				232AA24C219440F5007EF228 /* filter-block-builder-test.cc */,
 			);
-			name = tests;
+			name = "unit-tests";
 			sourceTree = "<group>";
 		};
 		23B0E0E72187FAF200F9E855 /* Frameworks */ = {

@@ -28,6 +28,9 @@ public:
     std::string_view Finish() {
         using ::mai::base::Slice;
         
+        if (buf_.empty()) {
+            return "";
+        }
         base::ScopedMemory scope;
         for (uint32_t offset : restarts_) {
             buf_.append(Slice::GetU32(offset, &scope));

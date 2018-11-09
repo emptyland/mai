@@ -53,6 +53,8 @@ public:
     
     uint64_t n_bits() const { return block_size_ * 8; }
     
+    uint64_t n_bytes() const { return block_size_; }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(FilterBlockBuilder);
 private:
     void set_bit(uint64_t i) { bits_[i / 32] |= (1u << (i % 32)); }

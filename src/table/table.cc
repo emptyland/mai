@@ -7,8 +7,9 @@ namespace mai {
     
 namespace table {
     
-/*static*/ const int Table::kHmtMagicNumber = 0x746d6800;
-/*static*/ const int Table::kXmtMagicNumber = 0x746d7800;
+/*static*/ const uint32_t Table::kHmtMagicNumber = 0x746d6800;
+/*static*/ const uint32_t Table::kXmtMagicNumber = 0x746d7800;
+/*static*/ const uint32_t Table::kSstMagicNumber = 0x74737300;
     
 /*static*/
 Error Table::WriteProperties(const TableProperties &props, WritableFile *file) {
@@ -40,6 +41,15 @@ Error Table::WriteProperties(const TableProperties &props, WritableFile *file) {
         return rs;
     }
     rs = file->Append(Slice::GetU32(static_cast<uint32_t>(props.index_count),
+                                    &scope));
+    if (!rs) {
+        return rs;
+    }
+    rs = file->Append(Slice::GetU64(props.filter_position, &scope));
+    if (!rs) {
+        return rs;
+    }
+    rs = file->Append(Slice::GetU32(static_cast<uint32_t>(props.filter_size),
                                     &scope));
     if (!rs) {
         return rs;
@@ -125,6 +135,20 @@ Error Table::WriteProperties(const TableProperties &props, WritableFile *file) {
         return rs;
     }
     (*position) += result.size();
+    props->filter_position = Slice::SetU64(result);
+    
+    rs = file->Read(*position, 4, &result, &scratch);
+    if (!rs) {
+        return rs;
+    }
+    (*position) += result.size();
+    props->filter_size = Slice::SetU32(result);
+    
+    rs = file->Read(*position, 8, &result, &scratch);
+    if (!rs) {
+        return rs;
+    }
+    (*position) += result.size();
     props->last_version = Slice::SetU64(result);
     
     rs = file->Read(*position, Varint64::kMaxLen, &result, &scratch);
@@ -156,6 +180,15 @@ Error Table::WriteProperties(const TableProperties &props, WritableFile *file) {
     props->largest_key = result;
     
     return Error::OK();
+}
+    
+void BlockHandle::Encode(std::string *buf) const {
+    using ::mai::base::Slice;
+    using ::mai::base::ScopedMemory;
+    
+    ScopedMemory scope;
+    buf->append(Slice::GetV64(offset_, &scope));
+    buf->append(Slice::GetV64(size_, &scope));
 }
     
 } // namespace table

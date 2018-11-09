@@ -2,6 +2,8 @@
 #define MAI_TABLE_SST_TABLE_BUILDER_H_
 
 #include "table/table-builder.h"
+#include "table/table.h"
+#include <vector>
 
 namespace mai {
 class WritableFile;
@@ -27,6 +29,12 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(SstTableBuilder);
 private:
+    BlockHandle WriteBlock(std::string_view block);
+    BlockHandle WriteFilter();
+    BlockHandle WriteIndexs();
+    BlockHandle WriteProps(BlockHandle indexs, BlockHandle filter);
+    uint64_t AlignmentToBlock();
+    
     const core::InternalKeyComparator *ikcmp_;
     WritableFile *file_;
     uint64_t block_size_;
@@ -41,6 +49,7 @@ private:
     uint64_t max_version_ = 0;
     std::unique_ptr<DataBlockBuilder> block_builder_;
     std::unique_ptr<FilterBlockBuilder> filter_builder_;
+    std::vector<BlockHandle> indexs_;
 }; // class SSTTableBuilder
     
 } // namespace table

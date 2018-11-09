@@ -97,6 +97,8 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
     props.block_size = static_cast<uint32_t>(block_size_);
     props.index_position = index_position_;
     props.index_count = indexs.size();
+    props.filter_position = 0;
+    props.filter_size = 0;
     props.last_version = max_version_;
     props.num_entries = num_entries_;
     props.smallest_key = smallest_key_;
