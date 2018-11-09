@@ -2,12 +2,14 @@
 #define MAI_TEST_TABLE_TEST_H_
 
 #include "table/table-builder.h"
+#include "table/table-reader.h"
 #include "core/key-boundle.h"
 #include "core/internal-key-comparator.h"
 #include "base/slice.h"
 #include "base/hash.h"
 #include "mai/comparator.h"
 #include "mai/env.h"
+#include "mai/options.h"
 #include "gtest/gtest.h"
 #include <functional>
 
@@ -19,7 +21,11 @@ class TableTest : public ::testing::Test {
 public:
     typedef
     std::function<table::TableBuilder *(const core::InternalKeyComparator *,
-                                        WritableFile *file)> TableFactory;
+                                        WritableFile *file)> TableBuilderFactory;
+    
+    typedef
+    std::function<table::TableReader *(RandomAccessFile *,
+                                       uint64_t)> TableReaderFactory;
     
     TableTest()
         : ikcmp_(new core::InternalKeyComparator(Comparator::Bytewise())) {}
@@ -36,9 +42,25 @@ public:
         ASSERT_TRUE(builder->error().ok()) << builder->error().ToString();
     }
     
+    Error Get(table::TableReader *reader,
+              std::string_view key,
+              core::Version version,
+              std::string *value,
+              core::Tag *tag) {
+        base::ScopedMemory scope;
+        auto ikey = core::KeyBoundle::New(key, version);
+        
+        std::string_view result;
+        std::string scratch;
+        auto rs = reader->Get(ReadOptions{}, ikcmp_.get(), ikey->key(), tag,
+                              &result, &scratch);
+        *value = result;
+        return rs;
+    }
+    
     void BuildTable(const std::vector<std::string> &kvs,
                     const std::string &file_name,
-                    TableFactory factory) {
+                    TableBuilderFactory factory) {
         std::unique_ptr<WritableFile> file;
         auto rs = env_->NewWritableFile(file_name, &file);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
@@ -57,6 +79,20 @@ public:
         rs = builder->Finish();
         ASSERT_TRUE(rs.ok()) << rs.ToString();
         file->Close();
+    }
+    
+    void NewReader(const std::string &file_name,
+                   std::unique_ptr<RandomAccessFile> *file,
+                   std::unique_ptr<table::TableReader> *reader,
+                   TableReaderFactory factory) {
+        auto rs = env_->NewRandomAccessFile(file_name, file);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        
+        uint64_t file_size;
+        rs = (*file)->GetFileSize(&file_size);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        reader->reset(factory((*file).get(), file_size));
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
     }
     
     void ReadProperties(const char *file_name,

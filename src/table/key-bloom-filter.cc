@@ -48,7 +48,7 @@ KeyBloomFilter::KeyBloomFilter(const uint32_t *buckets, size_t n_buckets,
     return count / n_hashs_;
 }
 
-/*virtual*/ size_t KeyBloomFilter::memory_usage() {
+/*virtual*/ size_t KeyBloomFilter::memory_usage() const {
     return sizeof(*this) + n_buckets_ * sizeof(uint32_t);
 }
     

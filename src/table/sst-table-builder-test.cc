@@ -11,12 +11,12 @@ class SstTableBuilderTest : public test::TableTest {
 public:
     SstTableBuilderTest() {}
     
-    TableFactory default_factory_ = [](const core::InternalKeyComparator *ikcmp,
+    TableBuilderFactory default_factory_ = [](const core::InternalKeyComparator *ikcmp,
                                        WritableFile *file) {
         return new SstTableBuilder(ikcmp, file, 512, 3);
     };
     
-    TableFactory k13_restart_factory_ = [](const core::InternalKeyComparator *ikcmp,
+    TableBuilderFactory k13_restart_factory_ = [](const core::InternalKeyComparator *ikcmp,
                                        WritableFile *file) {
         return new SstTableBuilder(ikcmp, file, 512, 13);
     };

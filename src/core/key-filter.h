@@ -22,7 +22,7 @@ public:
     
     virtual size_t ApproximateCount() const = 0;
     
-    virtual size_t memory_usage() = 0;
+    virtual size_t memory_usage() const = 0;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(KeyFilter);
 }; // class KeyFilter

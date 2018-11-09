@@ -18,7 +18,7 @@ public:
     virtual bool MayExists(std::string_view key) const override;
     virtual bool EnsureNotExists(std::string_view key) const override;
     virtual size_t ApproximateCount() const override;
-    virtual size_t memory_usage() override;
+    virtual size_t memory_usage() const override;
     
     uint64_t n_bits() const { return n_buckets_ * 32; }
     uint64_t n_bytes() const { return n_buckets_ * 4; }

@@ -86,6 +86,9 @@
 		23FB4B52219570CD00B2829B /* sst-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */; };
 		23FB4B5621957EFA00B2829B /* key-bloom-filter.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */; };
 		23FB4B5721957EFA00B2829B /* key-bloom-filter.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */; };
+		23FB4B5A21958A7A00B2829B /* sst-table-reader.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5921958A7A00B2829B /* sst-table-reader.cc */; };
+		23FB4B5B21958A7A00B2829B /* sst-table-reader.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5921958A7A00B2829B /* sst-table-reader.cc */; };
+		23FB4B5D219597C000B2829B /* sst-table-reader-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5C219597C000B2829B /* sst-table-reader-test.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -196,6 +199,9 @@
 		23FB4B5321957CDF00B2829B /* key-filter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-filter.h"; sourceTree = "<group>"; };
 		23FB4B5421957E7800B2829B /* key-bloom-filter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-bloom-filter.h"; sourceTree = "<group>"; };
 		23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "key-bloom-filter.cc"; sourceTree = "<group>"; };
+		23FB4B58219589E000B2829B /* sst-table-reader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "sst-table-reader.h"; sourceTree = "<group>"; };
+		23FB4B5921958A7A00B2829B /* sst-table-reader.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "sst-table-reader.cc"; sourceTree = "<group>"; };
+		23FB4B5C219597C000B2829B /* sst-table-reader-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "sst-table-reader-test.cc"; path = "src/table/sst-table-reader-test.cc"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -287,6 +293,7 @@
 				232AA24521943100007EF228 /* data-block-builder-test.cc */,
 				232AA24C219440F5007EF228 /* filter-block-builder-test.cc */,
 				23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */,
+				23FB4B5C219597C000B2829B /* sst-table-reader-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -358,6 +365,8 @@
 			children = (
 				232AA23D21941F64007EF228 /* sst-table-builder.h */,
 				232AA23E21942412007EF228 /* sst-table-builder.cc */,
+				23FB4B58219589E000B2829B /* sst-table-reader.h */,
+				23FB4B5921958A7A00B2829B /* sst-table-reader.cc */,
 				23B0E147218C512800F9E855 /* xhash-table-builder.h */,
 				23B0E148218C51E000F9E855 /* xhash-table-builder.cc */,
 				23B0E1572190293D00F9E855 /* xhash-table-reader.h */,
@@ -487,6 +496,7 @@
 				237CE4BC2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,
 				23B0E1592190298D00F9E855 /* xhash-table-reader.cc in Sources */,
 				23B0E149218C51E000F9E855 /* xhash-table-builder.cc in Sources */,
+				23FB4B5A21958A7A00B2829B /* sst-table-reader.cc in Sources */,
 				23B0E16421927F6C00F9E855 /* reference-count-test.cc in Sources */,
 				23B0E130218AFBCC00F9E855 /* hash.cc in Sources */,
 				23B0E11E2189A9CE00F9E855 /* env-posix.cc in Sources */,
@@ -505,6 +515,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23FB4B5B21958A7A00B2829B /* sst-table-reader.cc in Sources */,
 				237CE4C52192EE17004FB9BF /* merging.cc in Sources */,
 				23B0E131218AFBCC00F9E855 /* hash.cc in Sources */,
 				23B0E139218B05F500F9E855 /* iterator.cc in Sources */,
@@ -526,6 +537,7 @@
 				232AA23A2193E780007EF228 /* ordered-memory-table.cc in Sources */,
 				23B0E1232189ABE800F9E855 /* file-posix.cc in Sources */,
 				232AA24E219440F5007EF228 /* filter-block-builder-test.cc in Sources */,
+				23FB4B5D219597C000B2829B /* sst-table-reader-test.cc in Sources */,
 				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E12D218AF97A00F9E855 /* hash-table-builder-test.cc in Sources */,
 				23B0E107218842C400F9E855 /* key-boundle-test.cc in Sources */,

@@ -215,7 +215,7 @@ BlockHandle SstTableBuilder::WriteProps(BlockHandle indexs, BlockHandle filter) 
     props.num_entries     = n_entries_;
     props.block_size      = static_cast<uint32_t>(block_size_);
     props.index_position  = indexs.offset();
-    props.index_count     = indexs.size();
+    props.index_count     = indexs_.size();
     props.filter_position = filter.offset();
     props.filter_size     = filter.size();
     props.smallest_key    = smallest_key_;
