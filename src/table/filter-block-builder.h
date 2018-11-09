@@ -16,12 +16,8 @@ public:
     FilterBlockBuilder(const uint64_t block_size,
                        const base::hash_func_t *hashs, size_t n)
         : block_size_(block_size)
-        , hashs_(new base::hash_func_t[n])
+        , hashs_(DCHECK_NOTNULL(hashs))
         , n_hashs_(n) {
-            
-        for (size_t i = 0; i < n; ++i) {
-            hashs_[i] = hashs[i];
-        }
         DCHECK_EQ(0, block_size_ % sizeof(uint32_t));
         bits_.reset(new uint32_t[block_size/sizeof(uint32_t)]);
         Reset();
@@ -63,7 +59,7 @@ private:
     }
     
     const uint64_t block_size_;
-    std::unique_ptr<base::hash_func_t[]> hashs_;
+    const base::hash_func_t *hashs_;
     const size_t n_hashs_;
     
     std::unique_ptr<uint32_t[]> bits_;

@@ -33,6 +33,7 @@ public:
                       std::string *scratch) override;
     virtual size_t ApproximateMemoryUsage() const override;
     virtual std::shared_ptr<TableProperties> GetTableProperties() const override;
+    virtual std::shared_ptr<core::KeyFilter> GetKeyFilter() const override;
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(XhashTableReader);
 private:

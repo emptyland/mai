@@ -15,6 +15,7 @@ class Iterator;
 namespace core {
 class Tag;
 class InternalKeyComparator;
+class KeyFilter;
 } // namespace core
     
 namespace table {
@@ -42,6 +43,8 @@ public:
     virtual size_t ApproximateMemoryUsage() const = 0;
     
     virtual std::shared_ptr<TableProperties> GetTableProperties() const = 0;
+    
+    virtual std::shared_ptr<core::KeyFilter> GetKeyFilter() const = 0;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(TableReader);
 }; // class TableReader

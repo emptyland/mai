@@ -38,6 +38,9 @@ public:
     virtual std::shared_ptr<TableProperties> GetTableProperties() const override {
         return std::shared_ptr<TableProperties>(nullptr);
     }
+    virtual std::shared_ptr<core::KeyFilter> GetKeyFilter() const override {
+        return std::shared_ptr<core::KeyFilter>(nullptr);
+    }
 private:
     struct Index {
         uint32_t offset;

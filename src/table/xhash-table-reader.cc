@@ -321,7 +321,12 @@ XhashTableReader::Get(const ReadOptions &,
     
 /*virtual*/ std::shared_ptr<TableProperties>
 XhashTableReader::GetTableProperties() const { return table_props_; }
-
+    
+/*virtual*/ std::shared_ptr<core::KeyFilter>
+XhashTableReader::GetKeyFilter() const {
+    // TODO:
+    return std::shared_ptr<core::KeyFilter>(nullptr);
+}
 
 Error XhashTableReader::ReadKey(uint64_t *offset, std::string_view *result,
                                 std::string *scratch) {

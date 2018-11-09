@@ -84,6 +84,8 @@
 		23B0E16421927F6C00F9E855 /* reference-count-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16321927F6C00F9E855 /* reference-count-test.cc */; };
 		23B0E16521927F6C00F9E855 /* reference-count-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16321927F6C00F9E855 /* reference-count-test.cc */; };
 		23FB4B52219570CD00B2829B /* sst-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */; };
+		23FB4B5621957EFA00B2829B /* key-bloom-filter.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */; };
+		23FB4B5721957EFA00B2829B /* key-bloom-filter.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -191,6 +193,9 @@
 		23B0E16321927F6C00F9E855 /* reference-count-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "reference-count-test.cc"; path = "src/base/reference-count-test.cc"; sourceTree = "<group>"; };
 		23FB4B502195708900B2829B /* table-test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-test.h"; sourceTree = "<group>"; };
 		23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "sst-table-builder-test.cc"; path = "src/table/sst-table-builder-test.cc"; sourceTree = "<group>"; };
+		23FB4B5321957CDF00B2829B /* key-filter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-filter.h"; sourceTree = "<group>"; };
+		23FB4B5421957E7800B2829B /* key-bloom-filter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-bloom-filter.h"; sourceTree = "<group>"; };
+		23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "key-bloom-filter.cc"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -331,6 +336,7 @@
 				237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */,
 				237CE4C22192EDE4004FB9BF /* merging.h */,
 				237CE4C32192EE17004FB9BF /* merging.cc */,
+				23FB4B5321957CDF00B2829B /* key-filter.h */,
 			);
 			name = core;
 			path = src/core;
@@ -367,6 +373,8 @@
 				23B0E13A218B077100F9E855 /* table-reader.h */,
 				23B0E135218B026400F9E855 /* table.h */,
 				23B0E15B2190318000F9E855 /* table.cc */,
+				23FB4B5421957E7800B2829B /* key-bloom-filter.h */,
+				23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */,
 			);
 			name = table;
 			path = src/table;
@@ -467,6 +475,7 @@
 				232AA24621943100007EF228 /* data-block-builder-test.cc in Sources */,
 				23B0E11A2189A94F00F9E855 /* env.cc in Sources */,
 				232AA24321943066007EF228 /* data-block-builder.cc in Sources */,
+				23FB4B5621957EFA00B2829B /* key-bloom-filter.cc in Sources */,
 				23B0E145218BF93B00F9E855 /* hash-table-reader.cc in Sources */,
 				23B0E15C2190318000F9E855 /* table.cc in Sources */,
 				23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */,
@@ -537,6 +546,7 @@
 				23B0E16121913F5900F9E855 /* xhash-table-reader-test.cc in Sources */,
 				237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,
+				23FB4B5721957EFA00B2829B /* key-bloom-filter.cc in Sources */,
 				23B0E100218841C500F9E855 /* spin-locking.cc in Sources */,
 				237CE4C12192EABD004FB9BF /* iterator-warpper.cc in Sources */,
 			);
