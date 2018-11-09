@@ -211,6 +211,7 @@ BlockHandle SstTableBuilder::WriteProps(BlockHandle indexs, BlockHandle filter) 
     
     props.unordered       = false;
     props.last_level      = is_last_level_;
+    props.last_version    = max_version_;
     props.num_entries     = n_entries_;
     props.block_size      = static_cast<uint32_t>(block_size_);
     props.index_position  = indexs.offset();

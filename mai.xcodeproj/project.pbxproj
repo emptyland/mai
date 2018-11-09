@@ -83,6 +83,7 @@
 		23B0E16121913F5900F9E855 /* xhash-table-reader-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16021913F5900F9E855 /* xhash-table-reader-test.cc */; };
 		23B0E16421927F6C00F9E855 /* reference-count-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16321927F6C00F9E855 /* reference-count-test.cc */; };
 		23B0E16521927F6C00F9E855 /* reference-count-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16321927F6C00F9E855 /* reference-count-test.cc */; };
+		23FB4B52219570CD00B2829B /* sst-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -188,6 +189,8 @@
 		23B0E16021913F5900F9E855 /* xhash-table-reader-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "xhash-table-reader-test.cc"; path = "src/table/xhash-table-reader-test.cc"; sourceTree = "<group>"; };
 		23B0E16221927E7400F9E855 /* reference-count.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "reference-count.h"; sourceTree = "<group>"; };
 		23B0E16321927F6C00F9E855 /* reference-count-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "reference-count-test.cc"; path = "src/base/reference-count-test.cc"; sourceTree = "<group>"; };
+		23FB4B502195708900B2829B /* table-test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-test.h"; sourceTree = "<group>"; };
+		23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "sst-table-builder-test.cc"; path = "src/table/sst-table-builder-test.cc"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -214,6 +217,7 @@
 		23B0E0C0217D7DA000F9E855 = {
 			isa = PBXGroup;
 			children = (
+				23FB4B4F2195706100B2829B /* test */,
 				23B0E125218AD1E300F9E855 /* table */,
 				23B0E11C2189A98D00F9E855 /* port */,
 				23B0E0F82188337D00F9E855 /* core */,
@@ -277,6 +281,7 @@
 				232AA2302193D786007EF228 /* merging-test.cc */,
 				232AA24521943100007EF228 /* data-block-builder-test.cc */,
 				232AA24C219440F5007EF228 /* filter-block-builder-test.cc */,
+				23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -365,6 +370,15 @@
 			);
 			name = table;
 			path = src/table;
+			sourceTree = "<group>";
+		};
+		23FB4B4F2195706100B2829B /* test */ = {
+			isa = PBXGroup;
+			children = (
+				23FB4B502195708900B2829B /* table-test.h */,
+			);
+			name = test;
+			path = src/test;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -492,6 +506,7 @@
 				23B0E1182189A71F00F9E855 /* file-test.cc in Sources */,
 				23B0E15F21903C1900F9E855 /* xhash-table-builder-test.cc in Sources */,
 				23B0E134218AFD4E00F9E855 /* crc32.c in Sources */,
+				23FB4B52219570CD00B2829B /* sst-table-builder-test.cc in Sources */,
 				23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */,
 				23B0E1102189A6A500F9E855 /* test-main.cc in Sources */,
 				23B0E11B2189A94F00F9E855 /* env.cc in Sources */,
