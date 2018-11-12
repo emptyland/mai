@@ -20,6 +20,7 @@ public:
     virtual Iterator *
     NewIterator(const ReadOptions &read_opts,
                 const core::InternalKeyComparator *ikcmp) override;
+    
     virtual Error Get(const ReadOptions &read_opts,
                       const core::InternalKeyComparator *ikcmp,
                       std::string_view key,
@@ -30,7 +31,16 @@ public:
     virtual std::shared_ptr<TableProperties> GetTableProperties() const override;
     virtual std::shared_ptr<core::KeyFilter> GetKeyFilter() const override;
     
+    void TEST_PrintAll(const core::InternalKeyComparator *ikcmp);
 private:
+    class IteratorImpl;
+    
+    Error GetFirstKey(BlockHandle handle, std::string_view *result,
+                      std::string *scratch);
+    Error GetKey(std::string_view prev_key, uint64_t *offset,
+                 std::string_view *result, std::string *scratch);
+    
+    
     RandomAccessFile *file_;
     uint64_t file_size_;
     bool checksum_verify_;
