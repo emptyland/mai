@@ -264,7 +264,7 @@ public:
             BlockHandle entry = reader_->indexs_[i];
             error_ = reader_->GetFirstKey(entry, &result, &scratch);
             if (error_.fail()) {
-                break;
+                return;
             }
             int rv = ikcmp_->Compare(result, target);
             if (rv < 0) {
@@ -273,7 +273,7 @@ public:
             }
         }
         
-        for (int64_t i = 0; i < reader_->indexs_.size(); ++i) {
+        for (int64_t i = found_idx; i < reader_->indexs_.size(); ++i) {
             
             BlockHandle entry = reader_->indexs_[i];
             error_ = reader_->GetFirstKey(entry, &result, &scratch);
