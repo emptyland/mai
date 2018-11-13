@@ -12,6 +12,12 @@ namespace base {
     
 struct Slice {
     
+    static std::string_view GetU16(uint16_t value, ScopedMemory *scope) {
+        char *p = static_cast<char *>(scope->New(sizeof(value)));
+        *reinterpret_cast<uint16_t *>(p) = value;
+        return std::string_view(p, sizeof(value));
+    }
+    
     static std::string_view GetU32(uint32_t value, ScopedMemory *scope) {
         char *p = static_cast<char *>(scope->New(sizeof(value)));
         *reinterpret_cast<uint32_t *>(p) = value;
@@ -46,6 +52,11 @@ struct Slice {
         char *p = static_cast<char *>(scope->New(Varint64::kMaxLen));
         size_t n = Varint64::Encode(p, value);
         return std::string_view(p, n);
+    }
+    
+    static uint16_t SetU16(std::string_view slice) {
+        DCHECK_EQ(sizeof(uint16_t), slice.size());
+        return *reinterpret_cast<const uint16_t *>(slice.data());
     }
     
     static uint32_t SetU32(std::string_view slice) {

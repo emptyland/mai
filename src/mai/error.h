@@ -48,6 +48,11 @@ public:
         return Error(filename, fileline, kIOError, message);
     }
     
+    static Error Eof(const char *filename, int fileline,
+                         std::string_view message = "") {
+        return Error(filename, fileline, kEOF, message);
+    }
+    
     bool operator !() const { return fail(); }
     
     bool ok() const { return code() == kOk; }
@@ -63,6 +68,8 @@ public:
     bool IsInvalidArgument() const { return code() == kInvalidArgument; }
     
     bool IsIOError() const { return code() == kIOError; }
+    
+    bool IsEof() const { return code() == kEOF; }
     
     std::string_view message() const {
         return ok() ? ""
@@ -85,7 +92,8 @@ private:
         kCorruption,
         kNotSupported,
         kInvalidArgument,
-        kIOError
+        kIOError,
+        kEOF,
     };
     
     Error(const char *filename, int fileline, Code code, std::string_view message)
@@ -117,6 +125,7 @@ private:
 #define MAI_NOT_FOUND(...) ::mai::Error::NotFound(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_CORRUPTION(...) ::mai::Error::Corruption(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_IO_ERROR(...) ::mai::Error::IOError(__FILE__, __LINE__, __VA_ARGS__)
+#define MAI_EOF(...) ::mai::Error::Eof(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_NOT_SUPPORTED(...) ::mai::Error::NotSupported(__FILE__, __LINE__, __VA_ARGS__)
     
 } // namespace mai

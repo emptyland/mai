@@ -9,6 +9,16 @@ public:
     EnvPosix() {}
     virtual ~EnvPosix() {}
     
+    virtual Error NewSequentialFile(const std::string &file_name,
+                                    std::unique_ptr<SequentialFile> *file,
+                                    bool use_mem_file) override {
+        if (use_mem_file) {
+            return MemSequentialFilePosix::Open(file_name, file);
+        } else {
+            return MAI_NOT_SUPPORTED("TODO:");
+        }
+    }
+    
     virtual Error NewWritableFile(const std::string &file_name,
                                   std::unique_ptr<WritableFile> *file) override {
         return WritableFilePosix::Open(file_name, file);

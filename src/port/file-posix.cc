@@ -3,12 +3,106 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <algorithm>
 
 namespace mai {
     
 namespace port {
+    
+////////////////////////////////////////////////////////////////////////////////
+/// class MemSequentialFilePosix
+////////////////////////////////////////////////////////////////////////////////
+    
+/*virtual*/ MemSequentialFilePosix::~MemSequentialFilePosix() {
+    if (static_cast<void *>(mapped_mem_) != MAP_FAILED) {
+        if (::munmap(mapped_mem_, file_size_) < 0) {
+            LOG(ERROR) << "munmap() fail: " << strerror(errno);
+        }
+        mapped_mem_ = nullptr;
+    }
+    
+    if (fd_ != -1) {
+        if (::close(fd_) < 0) {
+            LOG(ERROR) << "close() fail: " << strerror(errno);
+        }
+        fd_ = -1;
+    }
+}
+    
+/*static*/ Error MemSequentialFilePosix::Open(const std::string &file_name,
+                                              std::unique_ptr<SequentialFile> *file) {
+    int fd = ::open(file_name.c_str(), O_RDONLY);
+    if (fd < 0) {
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    
+    struct stat s;
+    if (::fstat(fd, &s) < 0) {
+        close(fd);
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    
+    void *mapped = ::mmap(nullptr, s.st_size, PROT_READ, MAP_FILE|MAP_PRIVATE,
+                          fd, 0);
+    if (mapped == MAP_FAILED) {
+        close(fd);
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    
+    file->reset(new MemSequentialFilePosix(fd, s.st_size,
+                                           static_cast<char *>(mapped)));
+    return Error::OK();
+}
 
-/*virtual*/ WritableFilePosix::~WritableFilePosix() {}
+/*virtual*/ Error MemSequentialFilePosix::Read(size_t n, std::string_view *result,
+                                               std::string */*scratch*/) {
+    size_t old_pos = position_.load(std::memory_order_relaxed);
+    if (old_pos >= file_size_) {
+        return MAI_EOF("Skip()");
+    }
+    size_t read_size = n < file_size_ - old_pos ? n : file_size_ - old_pos;
+    
+    *result = std::string_view(mapped_mem_ + old_pos, read_size);
+    
+    size_t new_pos = old_pos + read_size;
+    size_t e;
+    do {
+        e = old_pos;
+    } while(!position_.compare_exchange_weak(e, new_pos));
+    return Error::OK();
+}
+
+/*virtual*/ Error MemSequentialFilePosix::Skip(size_t n) {
+    size_t old_pos = position_.load(std::memory_order_relaxed);
+    if (old_pos >= file_size_) {
+        return MAI_EOF("Skip()");
+    }
+    size_t new_pos = old_pos + n;
+    if (new_pos > file_size_) {
+        new_pos = file_size_;
+    }
+    size_t e;
+    do {
+        e = old_pos;
+    } while(!position_.compare_exchange_weak(e, new_pos));
+    return Error::OK();
+}
+
+/*virtual*/ Error MemSequentialFilePosix::GetFileSize(uint64_t *size) {
+    *size = file_size_;
+    return Error::OK();
+}
+    
+////////////////////////////////////////////////////////////////////////////////
+/// class WritableFilePosix
+////////////////////////////////////////////////////////////////////////////////
+    
+/*virtual*/ WritableFilePosix::~WritableFilePosix() {
+    if (::close(fd_) < 0) {
+        LOG(ERROR) << "close() fail: " << strerror(errno);
+    }
+    fd_ = -1;
+}
 
 /*static*/ Error WritableFilePosix::Open(const std::string &file_name,
                                          std::unique_ptr<WritableFile> *file) {
@@ -59,14 +153,6 @@ namespace port {
     return Error::OK();
 }
     
-/*virtual*/ Error WritableFilePosix::Close() {
-    if (::close(fd_) < 0) {
-        return MAI_IO_ERROR(strerror(errno));
-    }
-    fd_ = -1;
-    return Error::OK();
-}
-    
 /*virtual*/ Error WritableFilePosix::Flush() {
     return Error::OK();
 }
@@ -98,7 +184,21 @@ namespace port {
 /// class MemRandomAccessFilePosix
 ////////////////////////////////////////////////////////////////////////////////
     
-MemRandomAccessFilePosix::~MemRandomAccessFilePosix() {}
+MemRandomAccessFilePosix::~MemRandomAccessFilePosix() {
+    if (static_cast<void *>(mapped_mem_) != MAP_FAILED) {
+        if (::munmap(mapped_mem_, file_size_) < 0) {
+            LOG(ERROR) << "munmap() fail: " << strerror(errno);
+        }
+        mapped_mem_ = nullptr;
+    }
+    
+    if (fd_ != -1) {
+        if (::close(fd_) < 0) {
+            LOG(ERROR) << "close() fail: " << strerror(errno);
+        }
+        fd_ = -1;
+    }
+}
     
 /*static*/ Error
 MemRandomAccessFilePosix::Open(const std::string &file_name,
@@ -133,29 +233,12 @@ MemRandomAccessFilePosix::Open(const std::string &file_name,
         return MAI_IO_ERROR("offset out of range!");
     }
     n = (file_size_ - offset < n ? file_size_ - offset : n);
-    *result = std::string_view(mapped_ + offset, n);
+    *result = std::string_view(mapped_mem_ + offset, n);
     return Error::OK();
 }
 
 /*virtual*/ Error MemRandomAccessFilePosix::GetFileSize(uint64_t *size) {
     *size = file_size_;
-    return Error::OK();
-}
-    
-/*virtual*/ Error MemRandomAccessFilePosix::Close() {
-    if (static_cast<void *>(mapped_) != MAP_FAILED) {
-        if (::munmap(mapped_, file_size_) < 0) {
-            return MAI_IO_ERROR(strerror(errno));
-        }
-        mapped_ = nullptr;
-    }
-    
-    if (fd_ != -1) {
-        if (::close(fd_) < 0) {
-            return MAI_IO_ERROR(strerror(errno));
-        }
-        fd_ = -1;
-    }
     return Error::OK();
 }
 

@@ -31,96 +31,78 @@ public:
     virtual ~IteratorImpl() {}
     
     virtual bool Valid() const override {
-//        return error_.ok() &&
-//        (block_idx_ >= 0 && block_idx_ < reader_->indexs_.size()) &&
-//        block_iter_ && block_iter_->Valid();
-        return false;
+        return error_.ok() && reader_->index_iter_ &&
+        reader_->index_iter_->Valid() && block_iter_ && block_iter_->Valid();
     }
     
     virtual void SeekToFirst() override {
-//        block_idx_ = 0;
-//        direction_ = kForward;
-//        Seek(reader_->indexs_[block_idx_], true);
+        reader_->index_iter_->SeekToFirst();
+        direction_ = kForward;
+        
+        if (reader_->index_iter_->Valid()) {
+            BlockHandle bh;
+            bh.Decode(reader_->index_iter_->value());
+            Seek(bh, true);
+        }
     }
     
     virtual void SeekToLast() override {
-//        block_idx_ = reader_->indexs_.size() - 1;
-//        direction_ = kReserve;
-//        if (block_idx_ >= 0) {
-//            Seek(reader_->indexs_[block_idx_], false);
-//        }
+        reader_->index_iter_->SeekToLast();
+        direction_ = kReserve;
+        
+        if (reader_->index_iter_->Valid()) {
+            BlockHandle bh;
+            bh.Decode(reader_->index_iter_->value());
+            Seek(bh, false);
+        }
     }
     
     virtual void Seek(std::string_view target) override {
-//        direction_ = kForward;
-//        block_idx_ = -1;
-//
-//        int64_t found_idx = 0;
-//        std::string scratch;
-//        std::string_view result;
-//        for (int64_t i = reader_->indexs_.size() - 1; i >= 0; --i) {
-//            BlockHandle entry = reader_->indexs_[i];
-//            error_ = reader_->GetFirstKey(entry, &result, &scratch);
-//            if (error_.fail()) {
-//                return;
-//            }
-//            int rv = ikcmp_->Compare(result, target);
-//            if (rv < 0) {
-//                found_idx = (i <= 0) ? 0 : i - 1;
-//                break;
-//            }
-//        }
-//
-//        for (int64_t i = found_idx; i < reader_->indexs_.size(); ++i) {
-//
-//            BlockHandle entry = reader_->indexs_[i];
-//            error_ = reader_->GetFirstKey(entry, &result, &scratch);
-//            if (error_.fail()) {
-//                return;
-//            }
-//            Seek(entry, true);
-//            block_idx_ = i;
-//            block_iter_->Seek(target);
-//            if (block_iter_->Valid()) {
-//                return;
-//            }
-//        }
-//        error_ = MAI_NOT_FOUND("Seek()");
+        direction_ = kForward;
+        reader_->index_iter_->Seek(target);
+        if (!reader_->index_iter_->Valid()) {
+            return;
+        }
+        
+        BlockHandle bh;
+        bh.Decode(reader_->index_iter_->value());
+        Seek(bh, true);
+        block_iter_->Seek(target);
+        if (!block_iter_->Valid()) {
+            error_ = MAI_NOT_FOUND("Seek()");
+        }
     }
     
     virtual void Next() override {
-//        DCHECK(Valid());
-//
-//        direction_ = kForward;
-//        block_iter_->Next();
-//
-//        if (!block_iter_->Valid()) {
-//
-//            // test not eof
-//            if (block_idx_ < reader_->indexs_.size() - 1) {
-//                BlockHandle handle = reader_->indexs_[++block_idx_];
-//                Seek(handle, true);
-//            } else {
-//                block_idx_++;
-//            }
-//        }
+        DCHECK(Valid());
+
+        direction_ = kForward;
+        block_iter_->Next();
+
+        if (!block_iter_->Valid()) {
+            reader_->index_iter_->Next();
+            if (reader_->index_iter_->Valid()) {
+                BlockHandle bh;
+                bh.Decode(reader_->index_iter_->value());
+                Seek(bh, true);
+            }
+        }
     }
     
     virtual void Prev() override {
-//        DCHECK(Valid());
-//        
-//        direction_ = kReserve;
-//        block_iter_->Prev();
-//        
-//        if (!block_iter_->Valid()) {
-//            
-//            if (block_idx_ > 0) {
-//                BlockHandle handle = reader_->indexs_[--block_idx_];
-//                Seek(handle, false);
-//            } else {
-//                block_idx_--;
-//            }
-//        }
+        DCHECK(Valid());
+        
+        direction_ = kReserve;
+        block_iter_->Prev();
+        
+        if (!block_iter_->Valid()) {
+            reader_->index_iter_->Prev();
+            if (reader_->index_iter_->Valid()) {
+                BlockHandle bh;
+                bh.Decode(reader_->index_iter_->value());
+                Seek(bh, true);
+            }
+        }
     }
     
     virtual std::string_view key() const override {
@@ -156,7 +138,6 @@ private:
     const bool verify_checksums_;
     SstTableReader *reader_;
     std::unique_ptr<Iterator> block_iter_;
-    int64_t block_idx_;
     Error error_;
     Direction direction_ = kForward;
 }; // class SstTableReader::IteratorImpl
