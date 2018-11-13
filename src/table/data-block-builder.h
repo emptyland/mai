@@ -47,6 +47,7 @@ public:
     }
     
     DEF_VAL_GETTER(bool, has_finish);
+    DEF_VAL_GETTER(std::string, last_key);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(DataBlockBuilder);
 private:

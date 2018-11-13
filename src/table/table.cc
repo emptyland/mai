@@ -191,6 +191,17 @@ void BlockHandle::Encode(std::string *buf) const {
     buf->append(Slice::GetV64(size_, &scope));
 }
     
+void BlockHandle::Decode(std::string_view buf) {
+    using ::mai::base::Slice;
+    using ::mai::base::Varint32;
+    using ::mai::base::Varint64;
+    
+    size_t varint_len;
+    offset_ = Varint64::Decode(buf.data(), &varint_len);
+    buf.remove_prefix(varint_len);
+    size_   = Varint64::Decode(buf.data(), &varint_len);
+}
+    
 } // namespace table
     
 } // namespace mai

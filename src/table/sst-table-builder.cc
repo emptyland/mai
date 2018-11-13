@@ -32,6 +32,9 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
     if (!block_builder_) {
         block_builder_.reset(new DataBlockBuilder(n_restart_));
     }
+    if (!index_builder_) {
+        index_builder_.reset(new DataBlockBuilder(n_restart_));
+    }
     if (!filter_builder_) {
         filter_builder_.reset(
             new FilterBlockBuilder(block_size_ * 2 - 4, // 4 == ignore crc32
@@ -65,7 +68,9 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
         if (error_.fail()) {
             return;
         }
-        indexs_.push_back(handle);
+        std::string buf;
+        handle.Encode(&buf);
+        index_builder_->Add(block_builder_->last_key(), buf);
         block_builder_->Reset();
     }
 
@@ -96,7 +101,9 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
         if (error_.fail()) {
             return error_;
         }
-        indexs_.push_back(handle);
+        std::string buf;
+        handle.Encode(&buf);
+        index_builder_->Add(block_builder_->last_key(), buf);
     }
     
     BlockHandle filter = WriteFilter();
@@ -133,7 +140,9 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
     if (filter_builder_) {
         filter_builder_->Reset();
     }
-    indexs_.clear();
+    if (index_builder_) {
+        index_builder_->Reset();
+    }
     smallest_key_.clear();
     largest_key_.clear();
     has_seen_first_key_ = false;
@@ -189,16 +198,7 @@ BlockHandle SstTableBuilder::WriteFilter() {
 }
     
 BlockHandle SstTableBuilder::WriteIndexs() {
-    using ::mai::base::Slice;
-    using ::mai::base::ScopedMemory;
-    
-    std::string block;
-    
-    ScopedMemory scope;
-    for (BlockHandle idx : indexs_) {
-        idx.Encode(&block);
-    }
-
+    std::string_view block = index_builder_->Finish();
     AlignmentToBlock();
     if (error_.fail()) {
         return BlockHandle{};
@@ -215,7 +215,7 @@ BlockHandle SstTableBuilder::WriteProps(BlockHandle indexs, BlockHandle filter) 
     props.num_entries     = n_entries_;
     props.block_size      = static_cast<uint32_t>(block_size_);
     props.index_position  = indexs.offset();
-    props.index_count     = indexs_.size();
+    props.index_count     = indexs.size();
     props.filter_position = filter.offset();
     props.filter_size     = filter.size();
     props.smallest_key    = smallest_key_;

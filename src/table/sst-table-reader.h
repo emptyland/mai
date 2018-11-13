@@ -9,6 +9,8 @@ namespace mai {
     
 namespace table {
     
+class BlockIterator;
+    
 class SstTableReader final : public TableReader {
 public:
     SstTableReader(RandomAccessFile *file, uint64_t file_size,
@@ -31,7 +33,12 @@ public:
     virtual std::shared_ptr<TableProperties> GetTableProperties() const override;
     virtual std::shared_ptr<core::KeyFilter> GetKeyFilter() const override;
     
+    void EnsureIndexReady(const core::InternalKeyComparator *ikcmp);
+    
     void TEST_PrintAll(const core::InternalKeyComparator *ikcmp);
+    Iterator *TEST_IndexIter() const {
+        return reinterpret_cast<Iterator *>(index_iter_.get());
+    }
 private:
     class IteratorImpl;
     
@@ -45,7 +52,7 @@ private:
     uint64_t file_size_;
     bool checksum_verify_;
     
-    std::vector<BlockHandle> indexs_;
+    std::unique_ptr<BlockIterator> index_iter_;
     std::shared_ptr<TableProperties> table_props_;
     std::shared_ptr<core::KeyFilter> bloom_filter_;
 }; // class SstTableReader

@@ -48,8 +48,8 @@ private:
     std::string largest_key_;
     uint64_t max_version_ = 0;
     std::unique_ptr<DataBlockBuilder> block_builder_;
+    std::unique_ptr<DataBlockBuilder> index_builder_;
     std::unique_ptr<FilterBlockBuilder> filter_builder_;
-    std::vector<BlockHandle> indexs_;
 }; // class SSTTableBuilder
     
 } // namespace table

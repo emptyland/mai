@@ -64,6 +64,7 @@ public:
     bool empty() const { return offset_ == 0 && size_ == 0; }
     
     void Encode(std::string *buf) const;
+    void Decode(std::string_view buf);
     
 private:
     uint64_t offset_;

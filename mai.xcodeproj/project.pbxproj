@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		231C61F3219A6D54001A95C1 /* block-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F2219A6D54001A95C1 /* block-iterator.cc */; };
+		231C61F4219A6D54001A95C1 /* block-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F2219A6D54001A95C1 /* block-iterator.cc */; };
 		232AA2312193D786007EF228 /* merging-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA2302193D786007EF228 /* merging-test.cc */; };
 		232AA2322193D786007EF228 /* merging-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA2302193D786007EF228 /* merging-test.cc */; };
 		232AA2352193E5E6007EF228 /* skip-list-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA2342193E5E5007EF228 /* skip-list-test.cc */; };
@@ -113,6 +115,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
+		231C61F2219A6D54001A95C1 /* block-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-iterator.cc"; sourceTree = "<group>"; };
 		232AA2302193D786007EF228 /* merging-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "merging-test.cc"; path = "src/core/merging-test.cc"; sourceTree = "<group>"; };
 		232AA2332193E506007EF228 /* skip-list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "skip-list.h"; sourceTree = "<group>"; };
 		232AA2342193E5E5007EF228 /* skip-list-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "skip-list-test.cc"; path = "src/core/skip-list-test.cc"; sourceTree = "<group>"; };
@@ -127,6 +131,7 @@
 		232AA248219432BB007EF228 /* slice.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = slice.cc; sourceTree = "<group>"; };
 		232AA24B21943B88007EF228 /* filter-block-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "filter-block-builder.h"; sourceTree = "<group>"; };
 		232AA24C219440F5007EF228 /* filter-block-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "filter-block-builder-test.cc"; path = "src/table/filter-block-builder-test.cc"; sourceTree = "<group>"; };
+		234372C921998C0A00427E83 /* write-ahead-log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-ahead-log.h"; sourceTree = "<group>"; };
 		237CE4B72192CD16004FB9BF /* memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "memory-table.h"; sourceTree = "<group>"; };
 		237CE4B82192D00B004FB9BF /* unordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "unordered-memory-table.h"; sourceTree = "<group>"; };
 		237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "unordered-memory-table.cc"; sourceTree = "<group>"; };
@@ -225,9 +230,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		234372C821998BE200427E83 /* db */ = {
+			isa = PBXGroup;
+			children = (
+				234372C921998C0A00427E83 /* write-ahead-log.h */,
+			);
+			name = db;
+			path = src/db;
+			sourceTree = "<group>";
+		};
 		23B0E0C0217D7DA000F9E855 = {
 			isa = PBXGroup;
 			children = (
+				234372C821998BE200427E83 /* db */,
 				23FB4B4F2195706100B2829B /* test */,
 				23B0E125218AD1E300F9E855 /* table */,
 				23B0E11C2189A98D00F9E855 /* port */,
@@ -384,6 +399,8 @@
 				23B0E15B2190318000F9E855 /* table.cc */,
 				23FB4B5421957E7800B2829B /* key-bloom-filter.h */,
 				23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */,
+				231C61F1219A6D0A001A95C1 /* block-iterator.h */,
+				231C61F2219A6D54001A95C1 /* block-iterator.cc */,
 			);
 			name = table;
 			path = src/table;
@@ -490,6 +507,7 @@
 				23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E0D92187F90400F9E855 /* base.cc in Sources */,
 				232AA2312193D786007EF228 /* merging-test.cc in Sources */,
+				231C61F3219A6D54001A95C1 /* block-iterator.cc in Sources */,
 				23B0E1552190215C00F9E855 /* internal-key-comparator.cc in Sources */,
 				237CE4C42192EE17004FB9BF /* merging.cc in Sources */,
 				23B0E133218AFD4E00F9E855 /* crc32.c in Sources */,
@@ -547,6 +565,7 @@
 				232AA24421943066007EF228 /* data-block-builder.cc in Sources */,
 				23B0E1162189A6BF00F9E855 /* error.cc in Sources */,
 				23B0E151218FE03600F9E855 /* varint-encoding-test.cc in Sources */,
+				231C61F4219A6D54001A95C1 /* block-iterator.cc in Sources */,
 				23B0E14A218C51E000F9E855 /* xhash-table-builder.cc in Sources */,
 				23B0E1052188429700F9E855 /* hash-map-test.cc in Sources */,
 				23B0E16521927F6C00F9E855 /* reference-count-test.cc in Sources */,
