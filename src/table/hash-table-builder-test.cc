@@ -44,8 +44,6 @@ TEST(HashTableBuilderTest, Sanity) {
     
     rs = builder.Finish();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    
-    file->Close();
 }
     
 TEST(HashTableBuilderTest, Reading) {
@@ -76,8 +74,6 @@ TEST(HashTableBuilderTest, Reading) {
     ASSERT_EQ("a11111", value);
     ASSERT_EQ(1, tag.version());
     ASSERT_EQ(core::Tag::kFlagValue, tag.flags());
-    
-    file->Close();
 }
     
 TEST(HashTableBuilderTest, Iterating) {

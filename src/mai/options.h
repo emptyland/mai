@@ -5,6 +5,15 @@ namespace mai {
     
 class Snapshot;
     
+    
+struct Options {
+    
+}; // struct Options
+    
+struct ColumnFamilyOptions {
+    
+}; // struct ColumnFamilyOptions
+    
 struct ReadOptions {
 
     const Snapshot* snapshot = nullptr;
@@ -12,6 +21,10 @@ struct ReadOptions {
     bool verify_checksums = true;
     
 }; // struct ReadOptions
+    
+struct WriteOptions {
+    
+}; // struct WriteOptions
     
 } // namespace mai
 

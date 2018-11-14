@@ -55,8 +55,6 @@ TEST_F(SstTableReaderTest, Sanity) {
     EXPECT_TRUE(rd->GetKeyFilter()->MayExists("aaac"));
     EXPECT_TRUE(rd->GetKeyFilter()->MayExists("aaad"));
     EXPECT_TRUE(rd->GetKeyFilter()->EnsureNotExists("aaae"));
-
-    file->Close();
 }
     
 size_t Binsearch(std::vector<int> vals, int target) {

@@ -88,6 +88,10 @@
 		23B0E16121913F5900F9E855 /* xhash-table-reader-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16021913F5900F9E855 /* xhash-table-reader-test.cc */; };
 		23B0E16421927F6C00F9E855 /* reference-count-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16321927F6C00F9E855 /* reference-count-test.cc */; };
 		23B0E16521927F6C00F9E855 /* reference-count-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16321927F6C00F9E855 /* reference-count-test.cc */; };
+		23F60602219BBE9600CE12D9 /* write-batch.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60601219BBE9600CE12D9 /* write-batch.cc */; };
+		23F60603219BBE9600CE12D9 /* write-batch.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60601219BBE9600CE12D9 /* write-batch.cc */; };
+		23F60606219BC40E00CE12D9 /* db-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60605219BC40E00CE12D9 /* db-impl.cc */; };
+		23F60607219BC40E00CE12D9 /* db-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60605219BC40E00CE12D9 /* db-impl.cc */; };
 		23FB4B52219570CD00B2829B /* sst-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */; };
 		23FB4B5621957EFA00B2829B /* key-bloom-filter.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */; };
 		23FB4B5721957EFA00B2829B /* key-bloom-filter.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */; };
@@ -205,6 +209,11 @@
 		23B0E16021913F5900F9E855 /* xhash-table-reader-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "xhash-table-reader-test.cc"; path = "src/table/xhash-table-reader-test.cc"; sourceTree = "<group>"; };
 		23B0E16221927E7400F9E855 /* reference-count.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "reference-count.h"; sourceTree = "<group>"; };
 		23B0E16321927F6C00F9E855 /* reference-count-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "reference-count-test.cc"; path = "src/base/reference-count-test.cc"; sourceTree = "<group>"; };
+		23F605FF219BB2C700CE12D9 /* db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = db.h; sourceTree = "<group>"; };
+		23F60600219BBB8800CE12D9 /* write-batch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-batch.h"; sourceTree = "<group>"; };
+		23F60601219BBE9600CE12D9 /* write-batch.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch.cc"; sourceTree = "<group>"; };
+		23F60604219BC3DA00CE12D9 /* db-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-impl.h"; sourceTree = "<group>"; };
+		23F60605219BC40E00CE12D9 /* db-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "db-impl.cc"; sourceTree = "<group>"; };
 		23FB4B502195708900B2829B /* table-test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-test.h"; sourceTree = "<group>"; };
 		23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "sst-table-builder-test.cc"; path = "src/table/sst-table-builder-test.cc"; sourceTree = "<group>"; };
 		23FB4B5321957CDF00B2829B /* key-filter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-filter.h"; sourceTree = "<group>"; };
@@ -241,6 +250,9 @@
 			children = (
 				234372C921998C0A00427E83 /* write-ahead-log.h */,
 				231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */,
+				23F60601219BBE9600CE12D9 /* write-batch.cc */,
+				23F60604219BC3DA00CE12D9 /* db-impl.h */,
+				23F60605219BC40E00CE12D9 /* db-impl.cc */,
 			);
 			name = db;
 			path = src/db;
@@ -337,12 +349,12 @@
 			children = (
 				23B0E1122189A6BF00F9E855 /* allocator.h */,
 				23B0E1142189A6BF00F9E855 /* env.h */,
-				23B0E1192189A94F00F9E855 /* env.cc */,
-				23B0E1112189A6BF00F9E855 /* error.cc */,
 				23B0E1132189A6BF00F9E855 /* error.h */,
 				23B0E13B218BE69C00F9E855 /* options.h */,
 				23B0E136218B05E200F9E855 /* iterator.h */,
 				23B0E13C218BE93D00F9E855 /* comparator.h */,
+				23F605FF219BB2C700CE12D9 /* db.h */,
+				23F60600219BBB8800CE12D9 /* write-batch.h */,
 			);
 			name = mai;
 			path = src/mai;
@@ -367,6 +379,8 @@
 				237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */,
 				237CE4C22192EDE4004FB9BF /* merging.h */,
 				237CE4C32192EE17004FB9BF /* merging.cc */,
+				23B0E1192189A94F00F9E855 /* env.cc */,
+				23B0E1112189A6BF00F9E855 /* error.cc */,
 				23FB4B5321957CDF00B2829B /* key-filter.h */,
 			);
 			name = core;
@@ -525,6 +539,8 @@
 				23B0E1592190298D00F9E855 /* xhash-table-reader.cc in Sources */,
 				23B0E149218C51E000F9E855 /* xhash-table-builder.cc in Sources */,
 				23FB4B5A21958A7A00B2829B /* sst-table-reader.cc in Sources */,
+				23F60606219BC40E00CE12D9 /* db-impl.cc in Sources */,
+				23F60602219BBE9600CE12D9 /* write-batch.cc in Sources */,
 				23B0E16421927F6C00F9E855 /* reference-count-test.cc in Sources */,
 				23B0E130218AFBCC00F9E855 /* hash.cc in Sources */,
 				23B0E11E2189A9CE00F9E855 /* env-posix.cc in Sources */,
@@ -559,6 +575,7 @@
 				23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */,
 				23B0E1102189A6A500F9E855 /* test-main.cc in Sources */,
 				23B0E11B2189A94F00F9E855 /* env.cc in Sources */,
+				23F60603219BBE9600CE12D9 /* write-batch.cc in Sources */,
 				23B0E129218AD33300F9E855 /* hash-table-builder.cc in Sources */,
 				232AA24721943100007EF228 /* data-block-builder-test.cc in Sources */,
 				23B0E15A2190298D00F9E855 /* xhash-table-reader.cc in Sources */,
@@ -569,6 +586,7 @@
 				23FB4B5D219597C000B2829B /* sst-table-reader-test.cc in Sources */,
 				231C61F8219AA67C001A95C1 /* io-utils-test.cc in Sources */,
 				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
+				23F60607219BC40E00CE12D9 /* db-impl.cc in Sources */,
 				23B0E12D218AF97A00F9E855 /* hash-table-builder-test.cc in Sources */,
 				23B0E107218842C400F9E855 /* key-boundle-test.cc in Sources */,
 				23B0E1562190215C00F9E855 /* internal-key-comparator.cc in Sources */,

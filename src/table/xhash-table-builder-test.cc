@@ -52,7 +52,6 @@ public:
         
         rs = builder.Finish();
         ASSERT_TRUE(rs.ok()) << rs.ToString();
-        file->Close();
     }
     
     Env *env_ = Env::Default();
@@ -78,7 +77,6 @@ TEST_F(XhashTableBuilderTest, Sanity) {
     
     rs = builder.Finish();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    file->Close();
 }
     
 TEST_F(XhashTableBuilderTest, KeyReplaced) {
@@ -98,7 +96,6 @@ TEST_F(XhashTableBuilderTest, KeyReplaced) {
     
     rs = builder.Finish();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    file->Close();
 }
     
 TEST_F(XhashTableBuilderTest, Properties) {

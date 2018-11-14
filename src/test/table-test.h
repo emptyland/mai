@@ -78,7 +78,6 @@ public:
         
         rs = builder->Finish();
         ASSERT_TRUE(rs.ok()) << rs.ToString();
-        file->Close();
     }
     
     void NewReader(const std::string &file_name,

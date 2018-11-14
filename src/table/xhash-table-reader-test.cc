@@ -63,7 +63,6 @@ public:
         }
         rs = builder.Finish();
         ASSERT_TRUE(rs.ok()) << rs.ToString();
-        file->Close();
     }
     
     void BuildTable(const std::vector<std::string> &kvs,
@@ -85,7 +84,6 @@ public:
         
         rs = builder.Finish();
         ASSERT_TRUE(rs.ok()) << rs.ToString();
-        file->Close();
     }
 
     Env *env_ = Env::Default();
@@ -135,7 +133,6 @@ TEST_F(XhashTableReaderTest, Sanity) {
     rs = Get(&reader, "ffff", 6, &value, &tag);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ("f1111", value);
-    file->Close();
 }
     
 TEST_F(XhashTableReaderTest, MutilVersion) {
@@ -174,8 +171,6 @@ TEST_F(XhashTableReaderTest, MutilVersion) {
     
     rs = Get(&reader, "aaaa", 1, &value, nullptr);
     ASSERT_TRUE(rs.IsNotFound());
-    
-    file->Close();
 }
     
 TEST_F(XhashTableReaderTest, Iterator) {
@@ -224,7 +219,6 @@ TEST_F(XhashTableReaderTest, Iterator) {
     ASSERT_TRUE(iter->Valid());
     ASSERT_EQ("aaaa", KeyBoundle::ExtractUserKey(iter->key()));
     ASSERT_EQ(3, KeyBoundle::ExtractTag(iter->key()).version());
-    file->Close();
 }
     
 } // namespace table
