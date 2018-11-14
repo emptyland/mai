@@ -12,6 +12,8 @@ namespace base {
 template<class T>
 class Handle final {
 public:
+    Handle() : Handle(nullptr) {}
+    
     Handle(T *naked)
         : naked_(naked) {
         if (naked_) { naked_->AddRef(); }

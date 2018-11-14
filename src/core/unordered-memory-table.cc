@@ -66,7 +66,7 @@ UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
 
 /*virtual*/ void UnorderedMemoryTable::Put(std::string_view key,
                                            std::string_view value,
-                                           Version version, uint8_t flag) {
+                                           SequenceNumber version, uint8_t flag) {
     const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
     DCHECK_NOTNULL(ikey);
     table_.Put(ikey);
@@ -74,7 +74,7 @@ UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
 }
     
 /*virtual*/ Error UnorderedMemoryTable::Get(std::string_view key,
-                                            Version version, Tag *tag,
+                                            SequenceNumber version, Tag *tag,
                                             std::string *value) const {
     base::ScopedMemory scope;
     const KeyBoundle *ikey = KeyBoundle::New(key, version,

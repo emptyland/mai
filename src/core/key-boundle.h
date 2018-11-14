@@ -12,7 +12,7 @@ namespace mai {
     
 namespace core {
     
-typedef uint64_t Version;
+typedef uint64_t SequenceNumber;
     
 class Tag {
 public:
@@ -25,7 +25,7 @@ public:
     
     Tag() : Tag(0, 0) {}
 
-    Tag(Version version, uint8_t flags)
+    Tag(SequenceNumber version, uint8_t flags)
         : version_(version)
         , flags_(flags) {}
     
@@ -38,10 +38,10 @@ public:
         return Tag(tag >> 8, tag & 0xffULL);
     }
     
-    DEF_VAL_GETTER(Version, version);
+    DEF_VAL_GETTER(SequenceNumber, version);
     DEF_VAL_GETTER(uint8_t, flags);
 private:
-    Version version_;
+    SequenceNumber version_;
     uint8_t flags_;
 }; // class Tag
 
@@ -53,7 +53,7 @@ struct ParsedTaggedKey {
     
 class KeyBoundle final {
 public:
-    static const int kMinSize = sizeof(Version);
+    static const int kMinSize = sizeof(SequenceNumber);
     
     size_t size() const { return size_; }
     size_t user_key_size() const { return user_key_size_; }
@@ -82,7 +82,7 @@ public:
     template<class Allocator = base::MallocAllocator>
     static KeyBoundle *New(std::string_view key,
                            std::string_view value,
-                           Version version,
+                           SequenceNumber version,
                            uint8_t flags,
                            Allocator allocator = base::MallocAllocator{}) {
         void *raw = allocator.Allocate(sizeof(KeyBoundle) + key.size() + value.size());
@@ -90,7 +90,7 @@ public:
     }
     
     template<class Allocator = base::MallocAllocator>
-    static KeyBoundle *New(std::string_view key, Version version,
+    static KeyBoundle *New(std::string_view key, SequenceNumber version,
                            Allocator allocator = base::MallocAllocator{}) {
         void *raw = allocator.Allocate(sizeof(KeyBoundle) + key.size());
         return new (raw) KeyBoundle(key, "", version, 0);
@@ -105,7 +105,7 @@ public:
                                                     + parsed->user_key.size()));
     }
     
-    static std::string MakeKey(std::string_view user_key, Version version) {
+    static std::string MakeKey(std::string_view user_key, SequenceNumber version) {
         std::string key;
         key.append(user_key);
         
@@ -128,7 +128,7 @@ public:
 
 private:
     KeyBoundle(std::string_view key, std::string_view value,
-               Version version, uint8_t flags)
+               SequenceNumber version, uint8_t flags)
         : size_(key.size() + value.size() + Tag::kSize)
         , user_key_size_(static_cast<int>(key.size())) {
         ::memcpy(key_, key.data(), key.size());

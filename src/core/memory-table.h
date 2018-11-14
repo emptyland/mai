@@ -17,9 +17,9 @@ public:
     virtual ~MemoryTable() {}
     
     virtual void Put(std::string_view key, std::string_view value,
-                     Version version, uint8_t flag) = 0;
+                     SequenceNumber version, uint8_t flag) = 0;
 
-    virtual Error Get(std::string_view key, Version version, Tag *tag,
+    virtual Error Get(std::string_view key, SequenceNumber version, Tag *tag,
                       std::string *value) const = 0;
     
     virtual Iterator *NewIterator() = 0;

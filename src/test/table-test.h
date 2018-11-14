@@ -33,7 +33,7 @@ public:
     void Add(table::TableBuilder *builder,
              std::string_view key,
              std::string_view value,
-             core::Version version,
+             core::SequenceNumber version,
              uint8_t flag) {
         base::ScopedMemory scope;
         auto ikey = core::KeyBoundle::New(key, value, version, flag,
@@ -44,7 +44,7 @@ public:
     
     Error Get(table::TableReader *reader,
               std::string_view key,
-              core::Version version,
+              core::SequenceNumber version,
               std::string *value,
               core::Tag *tag) {
         base::ScopedMemory scope;

@@ -23,7 +23,7 @@ public:
     void Add(XhashTableBuilder *builder,
              std::string_view key,
              std::string_view value,
-             core::Version version,
+             core::SequenceNumber version,
              uint8_t flag) {
         base::ScopedMemory scope;
         auto ikey = core::KeyBoundle::New(key, value, version, flag,
@@ -34,7 +34,7 @@ public:
     
     Error Get(XhashTableReader *reader,
              std::string_view key,
-             core::Version version,
+             core::SequenceNumber version,
              std::string *value,
              core::Tag *tag) {
         base::ScopedMemory scope;
@@ -57,7 +57,7 @@ public:
         file->Truncate(0);
         XhashTableBuilder builder(ikcmp_, file.get(), 23, &base::Hash::Js, 512);
         
-        core::Version version = kvs.size();
+        core::SequenceNumber version = kvs.size();
         for (const auto &kv : kvs) {
             Add(&builder, kv.first, kv.second, version--, core::Tag::kFlagValue);
         }

@@ -59,9 +59,6 @@
 		23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E11D2189A9CE00F9E855 /* env-posix.cc */; };
 		23B0E1222189ABE800F9E855 /* file-posix.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1212189ABE800F9E855 /* file-posix.cc */; };
 		23B0E1232189ABE800F9E855 /* file-posix.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E1212189ABE800F9E855 /* file-posix.cc */; };
-		23B0E128218AD33300F9E855 /* hash-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E127218AD33300F9E855 /* hash-table-builder.cc */; };
-		23B0E129218AD33300F9E855 /* hash-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E127218AD33300F9E855 /* hash-table-builder.cc */; };
-		23B0E12D218AF97A00F9E855 /* hash-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12C218AF97A00F9E855 /* hash-table-builder-test.cc */; };
 		23B0E130218AFBCC00F9E855 /* hash.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12F218AFBCC00F9E855 /* hash.cc */; };
 		23B0E131218AFBCC00F9E855 /* hash.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12F218AFBCC00F9E855 /* hash.cc */; };
 		23B0E133218AFD4E00F9E855 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
@@ -70,8 +67,6 @@
 		23B0E139218B05F500F9E855 /* iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E137218B05F500F9E855 /* iterator.cc */; };
 		23B0E141218BEAA900F9E855 /* bytewise-comparator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E140218BEAA900F9E855 /* bytewise-comparator.cc */; };
 		23B0E142218BEAA900F9E855 /* bytewise-comparator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E140218BEAA900F9E855 /* bytewise-comparator.cc */; };
-		23B0E145218BF93B00F9E855 /* hash-table-reader.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E144218BF93B00F9E855 /* hash-table-reader.cc */; };
-		23B0E146218BF93B00F9E855 /* hash-table-reader.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E144218BF93B00F9E855 /* hash-table-reader.cc */; };
 		23B0E149218C51E000F9E855 /* xhash-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E148218C51E000F9E855 /* xhash-table-builder.cc */; };
 		23B0E14A218C51E000F9E855 /* xhash-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E148218C51E000F9E855 /* xhash-table-builder.cc */; };
 		23B0E14D218FDFEE00F9E855 /* varint-encoding.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E14B218FDFED00F9E855 /* varint-encoding.cc */; };
@@ -92,6 +87,12 @@
 		23F60603219BBE9600CE12D9 /* write-batch.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60601219BBE9600CE12D9 /* write-batch.cc */; };
 		23F60606219BC40E00CE12D9 /* db-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60605219BC40E00CE12D9 /* db-impl.cc */; };
 		23F60607219BC40E00CE12D9 /* db-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60605219BC40E00CE12D9 /* db-impl.cc */; };
+		23F6060A219BCBD800CE12D9 /* column-family.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60609219BCBD800CE12D9 /* column-family.cc */; };
+		23F6060B219BCBD800CE12D9 /* column-family.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60609219BCBD800CE12D9 /* column-family.cc */; };
+		23F6060E219BF8C800CE12D9 /* version.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6060D219BF8C800CE12D9 /* version.cc */; };
+		23F6060F219BF8C800CE12D9 /* version.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6060D219BF8C800CE12D9 /* version.cc */; };
+		23F60612219C22AE00CE12D9 /* files.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60611219C22AE00CE12D9 /* files.cc */; };
+		23F60613219C22AE00CE12D9 /* files.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60611219C22AE00CE12D9 /* files.cc */; };
 		23FB4B52219570CD00B2829B /* sst-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */; };
 		23FB4B5621957EFA00B2829B /* key-bloom-filter.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */; };
 		23FB4B5721957EFA00B2829B /* key-bloom-filter.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */; };
@@ -177,11 +178,8 @@
 		23B0E11D2189A9CE00F9E855 /* env-posix.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "env-posix.cc"; sourceTree = "<group>"; };
 		23B0E1202189A9F300F9E855 /* file-posix.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "file-posix.h"; sourceTree = "<group>"; };
 		23B0E1212189ABE800F9E855 /* file-posix.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "file-posix.cc"; sourceTree = "<group>"; };
-		23B0E126218AD2D100F9E855 /* hash-table-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-table-builder.h"; sourceTree = "<group>"; };
-		23B0E127218AD33300F9E855 /* hash-table-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hash-table-builder.cc"; sourceTree = "<group>"; };
 		23B0E12A218AD41300F9E855 /* table-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-builder.h"; sourceTree = "<group>"; };
 		23B0E12B218AED2E00F9E855 /* slice.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = slice.h; sourceTree = "<group>"; };
-		23B0E12C218AF97A00F9E855 /* hash-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "hash-table-builder-test.cc"; path = "src/table/hash-table-builder-test.cc"; sourceTree = "<group>"; };
 		23B0E12E218AFB8400F9E855 /* hash.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = hash.h; sourceTree = "<group>"; };
 		23B0E12F218AFBCC00F9E855 /* hash.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = hash.cc; sourceTree = "<group>"; };
 		23B0E132218AFD4E00F9E855 /* crc32.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = crc32.c; sourceTree = "<group>"; };
@@ -192,8 +190,6 @@
 		23B0E13B218BE69C00F9E855 /* options.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = options.h; sourceTree = "<group>"; };
 		23B0E13C218BE93D00F9E855 /* comparator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = comparator.h; sourceTree = "<group>"; };
 		23B0E140218BEAA900F9E855 /* bytewise-comparator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bytewise-comparator.cc"; sourceTree = "<group>"; };
-		23B0E143218BF80F00F9E855 /* hash-table-reader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-table-reader.h"; sourceTree = "<group>"; };
-		23B0E144218BF93B00F9E855 /* hash-table-reader.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hash-table-reader.cc"; sourceTree = "<group>"; };
 		23B0E147218C512800F9E855 /* xhash-table-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "xhash-table-builder.h"; sourceTree = "<group>"; };
 		23B0E148218C51E000F9E855 /* xhash-table-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "xhash-table-builder.cc"; sourceTree = "<group>"; };
 		23B0E14B218FDFED00F9E855 /* varint-encoding.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "varint-encoding.cc"; sourceTree = "<group>"; };
@@ -214,6 +210,12 @@
 		23F60601219BBE9600CE12D9 /* write-batch.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch.cc"; sourceTree = "<group>"; };
 		23F60604219BC3DA00CE12D9 /* db-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-impl.h"; sourceTree = "<group>"; };
 		23F60605219BC40E00CE12D9 /* db-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "db-impl.cc"; sourceTree = "<group>"; };
+		23F60608219BCB6C00CE12D9 /* column-family.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "column-family.h"; sourceTree = "<group>"; };
+		23F60609219BCBD800CE12D9 /* column-family.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "column-family.cc"; sourceTree = "<group>"; };
+		23F6060C219BF8BF00CE12D9 /* version.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = version.h; sourceTree = "<group>"; };
+		23F6060D219BF8C800CE12D9 /* version.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = version.cc; sourceTree = "<group>"; };
+		23F60610219C1F6D00CE12D9 /* files.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = files.h; sourceTree = "<group>"; };
+		23F60611219C22AE00CE12D9 /* files.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = files.cc; sourceTree = "<group>"; };
 		23FB4B502195708900B2829B /* table-test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-test.h"; sourceTree = "<group>"; };
 		23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "sst-table-builder-test.cc"; path = "src/table/sst-table-builder-test.cc"; sourceTree = "<group>"; };
 		23FB4B5321957CDF00B2829B /* key-filter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-filter.h"; sourceTree = "<group>"; };
@@ -253,6 +255,12 @@
 				23F60601219BBE9600CE12D9 /* write-batch.cc */,
 				23F60604219BC3DA00CE12D9 /* db-impl.h */,
 				23F60605219BC40E00CE12D9 /* db-impl.cc */,
+				23F60608219BCB6C00CE12D9 /* column-family.h */,
+				23F60609219BCBD800CE12D9 /* column-family.cc */,
+				23F6060C219BF8BF00CE12D9 /* version.h */,
+				23F6060D219BF8C800CE12D9 /* version.cc */,
+				23F60610219C1F6D00CE12D9 /* files.h */,
+				23F60611219C22AE00CE12D9 /* files.cc */,
 			);
 			name = db;
 			path = src/db;
@@ -320,7 +328,6 @@
 				23B0E1172189A71F00F9E855 /* file-test.cc */,
 				23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */,
 				232AA23B2194161A007EF228 /* ordered-memory-table-test.cc */,
-				23B0E12C218AF97A00F9E855 /* hash-table-builder-test.cc */,
 				23B0E15E21903C1900F9E855 /* xhash-table-builder-test.cc */,
 				23B0E16021913F5900F9E855 /* xhash-table-reader-test.cc */,
 				23B0E16321927F6C00F9E855 /* reference-count-test.cc */,
@@ -409,10 +416,6 @@
 				23B0E148218C51E000F9E855 /* xhash-table-builder.cc */,
 				23B0E1572190293D00F9E855 /* xhash-table-reader.h */,
 				23B0E1582190298D00F9E855 /* xhash-table-reader.cc */,
-				23B0E126218AD2D100F9E855 /* hash-table-builder.h */,
-				23B0E127218AD33300F9E855 /* hash-table-builder.cc */,
-				23B0E143218BF80F00F9E855 /* hash-table-reader.h */,
-				23B0E144218BF93B00F9E855 /* hash-table-reader.cc */,
 				232AA241219426D2007EF228 /* data-block-builder.h */,
 				232AA24221943066007EF228 /* data-block-builder.cc */,
 				232AA24B21943B88007EF228 /* filter-block-builder.h */,
@@ -526,13 +529,13 @@
 				23B0E11A2189A94F00F9E855 /* env.cc in Sources */,
 				232AA24321943066007EF228 /* data-block-builder.cc in Sources */,
 				23FB4B5621957EFA00B2829B /* key-bloom-filter.cc in Sources */,
-				23B0E145218BF93B00F9E855 /* hash-table-reader.cc in Sources */,
 				23B0E15C2190318000F9E855 /* table.cc in Sources */,
 				23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E0D92187F90400F9E855 /* base.cc in Sources */,
 				232AA2312193D786007EF228 /* merging-test.cc in Sources */,
 				231C61F3219A6D54001A95C1 /* block-iterator.cc in Sources */,
 				23B0E1552190215C00F9E855 /* internal-key-comparator.cc in Sources */,
+				23F6060A219BCBD800CE12D9 /* column-family.cc in Sources */,
 				237CE4C42192EE17004FB9BF /* merging.cc in Sources */,
 				23B0E133218AFD4E00F9E855 /* crc32.c in Sources */,
 				237CE4BC2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,
@@ -547,8 +550,9 @@
 				23B0E1152189A6BF00F9E855 /* error.cc in Sources */,
 				232AA24D219440F5007EF228 /* filter-block-builder-test.cc in Sources */,
 				23B0E1222189ABE800F9E855 /* file-posix.cc in Sources */,
-				23B0E128218AD33300F9E855 /* hash-table-builder.cc in Sources */,
 				232AA249219432BB007EF228 /* slice.cc in Sources */,
+				23F60612219C22AE00CE12D9 /* files.cc in Sources */,
+				23F6060E219BF8C800CE12D9 /* version.cc in Sources */,
 				23B0E0FF218841C500F9E855 /* spin-locking.cc in Sources */,
 				237CE4C02192EABD004FB9BF /* iterator-warpper.cc in Sources */,
 				232AA23F21942412007EF228 /* sst-table-builder.cc in Sources */,
@@ -560,6 +564,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				23FB4B5B21958A7A00B2829B /* sst-table-reader.cc in Sources */,
+				23F60613219C22AE00CE12D9 /* files.cc in Sources */,
 				237CE4C52192EE17004FB9BF /* merging.cc in Sources */,
 				23B0E131218AFBCC00F9E855 /* hash.cc in Sources */,
 				23B0E139218B05F500F9E855 /* iterator.cc in Sources */,
@@ -567,6 +572,7 @@
 				231C61FB219AA9CF001A95C1 /* write-ahead-log.cc in Sources */,
 				23B0E14E218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
 				232AA2322193D786007EF228 /* merging-test.cc in Sources */,
+				23F6060F219BF8C800CE12D9 /* version.cc in Sources */,
 				232AA24A219432BB007EF228 /* slice.cc in Sources */,
 				23B0E1182189A71F00F9E855 /* file-test.cc in Sources */,
 				23B0E15F21903C1900F9E855 /* xhash-table-builder-test.cc in Sources */,
@@ -576,7 +582,6 @@
 				23B0E1102189A6A500F9E855 /* test-main.cc in Sources */,
 				23B0E11B2189A94F00F9E855 /* env.cc in Sources */,
 				23F60603219BBE9600CE12D9 /* write-batch.cc in Sources */,
-				23B0E129218AD33300F9E855 /* hash-table-builder.cc in Sources */,
 				232AA24721943100007EF228 /* data-block-builder-test.cc in Sources */,
 				23B0E15A2190298D00F9E855 /* xhash-table-reader.cc in Sources */,
 				23B0E15D2190318000F9E855 /* table.cc in Sources */,
@@ -587,7 +592,6 @@
 				231C61F8219AA67C001A95C1 /* io-utils-test.cc in Sources */,
 				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
 				23F60607219BC40E00CE12D9 /* db-impl.cc in Sources */,
-				23B0E12D218AF97A00F9E855 /* hash-table-builder-test.cc in Sources */,
 				23B0E107218842C400F9E855 /* key-boundle-test.cc in Sources */,
 				23B0E1562190215C00F9E855 /* internal-key-comparator.cc in Sources */,
 				232AA2362193E5E6007EF228 /* skip-list-test.cc in Sources */,
@@ -601,9 +605,9 @@
 				23B0E16521927F6C00F9E855 /* reference-count-test.cc in Sources */,
 				232AA23C2194161A007EF228 /* ordered-memory-table-test.cc in Sources */,
 				23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */,
-				23B0E146218BF93B00F9E855 /* hash-table-reader.cc in Sources */,
 				232AA24021942412007EF228 /* sst-table-builder.cc in Sources */,
 				23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */,
+				23F6060B219BCBD800CE12D9 /* column-family.cc in Sources */,
 				23B0E16121913F5900F9E855 /* xhash-table-reader-test.cc in Sources */,
 				237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,

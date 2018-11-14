@@ -18,8 +18,8 @@ public:
     virtual ~OrderedMemoryTable();
     
     virtual void Put(std::string_view key, std::string_view value,
-                     Version version, uint8_t flag) override;
-    virtual Error Get(std::string_view key, Version version, Tag *tag,
+                     SequenceNumber version, uint8_t flag) override;
+    virtual Error Get(std::string_view key, SequenceNumber version, Tag *tag,
                       std::string *value) const override;
     virtual Iterator *NewIterator() override;
     virtual size_t ApproximateMemoryUsage() const override;
