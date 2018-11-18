@@ -12,6 +12,12 @@ namespace base {
     
 struct Slice {
     
+    static std::string_view GetByte(char value, ScopedMemory *scope) {
+        char *p = static_cast<char *>(scope->New(sizeof(value)));
+        *p = value;
+        return std::string_view(p, sizeof(value));
+    }
+    
     static std::string_view GetU16(uint16_t value, ScopedMemory *scope) {
         char *p = static_cast<char *>(scope->New(sizeof(value)));
         *reinterpret_cast<uint16_t *>(p) = value;
@@ -28,6 +34,14 @@ struct Slice {
         char *p = static_cast<char *>(scope->New(sizeof(value)));
         *reinterpret_cast<uint64_t *>(p) = value;
         return std::string_view(p, sizeof(value));
+    }
+    
+    static std::string_view GetString(std::string_view value, ScopedMemory *scope) {
+        const size_t size = Varint64::Sizeof(value.size()) + value.size();
+        char *const buf = static_cast<char *>(scope->New(size));
+        char *s = buf + Varint64::Encode(buf, value.size());
+        ::memcpy(s, value.data(), value.size());
+        return std::string_view(buf, size);
     }
     
     template<class T>
@@ -71,6 +85,46 @@ struct Slice {
     
     static std::string ToReadable(std::string_view raw);
 }; // struct Slice
+
+class BufferReader final {
+public:
+    BufferReader(std::string_view buf) : buf_(buf) {}
+    
+    char ReadByte() {
+        DCHECK(!Eof());
+        return buf_[position_++];
+    }
+    
+    uint32_t ReadVarint32() {
+        size_t varint_len;
+        DCHECK(!Eof());
+        uint32_t value = Varint32::Decode(&buf_[position_], &varint_len);
+        position_ += varint_len;
+        return value;
+    }
+    
+    uint64_t ReadVarint64() {
+        size_t varint_len;
+        DCHECK(!Eof());
+        uint64_t value = Varint64::Decode(&buf_[position_], &varint_len);
+        position_ += varint_len;
+        return value;
+    }
+    
+    std::string_view ReadString() {
+        uint64_t len = ReadVarint64();
+        DCHECK(!Eof());
+        std::string_view result = buf_.substr(position_, len);
+        position_ += len;
+        return result;
+    }
+    
+    bool Eof() { return position_ >= buf_.length(); }
+    
+private:
+    size_t position_ = 0;
+    const std::string_view buf_;
+}; // class BufferReader
     
 } // namespace base
     

@@ -41,7 +41,7 @@ struct FileMetadata final : public base::ReferenceCounted<FileMetadata> {
 
 class VersionPatch final {
 public:
-    enum Field {
+    enum Field : int8_t {
         kComparator,
         kLastSequenceNumber,
         kNextFileNumber,
@@ -50,7 +50,7 @@ public:
         kCompactionPoint,
         kDeletion,
         kCreation,
-        kSetMaxColumnFamily,
+        kMaxColumnFamily,
         kAddCloumnFamily,
         kDropCloumnFamily,
         kMaxFields,
@@ -62,7 +62,7 @@ public:
     void set_comparator(uint32_t cfid, const std::string &name) {
         set_field(kComparator);
         column_family_id_ = cfid;
-        comparator_.assign(name);
+        comparator_name_.assign(name);
     }
     
     void set_last_sequence_number(core::SequenceNumber version) {
@@ -86,8 +86,15 @@ public:
     }
     
     void set_max_column_faimly(uint32_t max_column_family) {
-        set_field(kSetMaxColumnFamily);
+        set_field(kMaxColumnFamily);
         max_column_family_ = max_column_family;
+    }
+    
+    void set_compaction_point(uint32_t cfid, int level, std::string_view key) {
+        set_field(kCompactionPoint);
+        column_family_id_ = cfid;
+        compaction_level_ = level;
+        compaction_key_ = key;
     }
     
     void DeleteFile(uint32_t cfid, int level, uint64_t number) {
@@ -110,11 +117,11 @@ public:
         set_field(kAddCloumnFamily);
         column_family_id_ = cfid;
         column_family_name_.assign(name);
-        comparator_.assign(comparator_name);
+        comparator_name_.assign(comparator_name);
     }
     
     void Encode(std::string *buf) const;
-    void Decode(const std::string_view buf);
+    void Decode(std::string_view buf);
     
     bool has_field(Field field) const {
         int i = static_cast<int>(field);
@@ -151,7 +158,7 @@ private:
     std::string column_family_name_;
     uint32_t max_column_family_;
     
-    std::string comparator_;
+    std::string comparator_name_;
     
     core::SequenceNumber last_sequence_number_;
     uint64_t next_file_number_;
