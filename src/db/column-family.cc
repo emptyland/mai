@@ -46,7 +46,34 @@ void ColumnFamilyImpl::SetDropped() {
         owner_->RemoveColumnFamily(this);
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+/// class ColumnFamilyHandle
+////////////////////////////////////////////////////////////////////////////////
     
+/*virtual*/ ColumnFamilyHandle::~ColumnFamilyHandle() {}
+
+/*virtual*/ std::string ColumnFamilyHandle::name() {
+    return impl_->name();
+}
+
+/*virtual*/ uint32_t ColumnFamilyHandle::id() {
+    return impl_->id();
+}
+
+/*virtual*/ const Comparator *ColumnFamilyHandle::comparator() {
+    return impl_->options().comparator;
+}
+    
+/*virtual*/ Error
+ColumnFamilyHandle::GetDescriptor(ColumnFamilyDescriptor *desc) {
+    if (impl_->IsDropped()) {
+        return MAI_CORRUPTION("Column family has dropped!");
+    }
+    desc->name    = impl_->name();
+    desc->options = impl_->options();
+    return Error::OK();
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class ColumnFamilySet

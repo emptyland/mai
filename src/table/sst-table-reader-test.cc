@@ -127,8 +127,9 @@ TEST_F(SstTableReaderTest, Index) {
     Error rs = srd->Prepare();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
 
-    srd->TEST_PrintAll(ikcmp_.get());
+    //srd->TEST_PrintAll(ikcmp_.get());
     
+    srd->EnsureIndexReady(ikcmp_.get());
     auto index_iter = srd->TEST_IndexIter();
     
     index_iter->Seek(core::KeyBoundle::MakeKey("k001", 100));
@@ -175,7 +176,7 @@ TEST_F(SstTableReaderTest, Get) {
     Error rs = static_cast<SstTableReader *>(rd.get())->Prepare();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    static_cast<SstTableReader *>(rd.get())->TEST_PrintAll(ikcmp_.get());
+    //static_cast<SstTableReader *>(rd.get())->TEST_PrintAll(ikcmp_.get());
     
     std::string_view value;
     std::string scratch;

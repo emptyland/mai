@@ -93,6 +93,8 @@
 		23F6060F219BF8C800CE12D9 /* version.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6060D219BF8C800CE12D9 /* version.cc */; };
 		23F60612219C22AE00CE12D9 /* files.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60611219C22AE00CE12D9 /* files.cc */; };
 		23F60613219C22AE00CE12D9 /* files.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60611219C22AE00CE12D9 /* files.cc */; };
+		23F60615219C283E00CE12D9 /* files-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60614219C283E00CE12D9 /* files-test.cc */; };
+		23F60616219C283E00CE12D9 /* files-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60614219C283E00CE12D9 /* files-test.cc */; };
 		23FB4B52219570CD00B2829B /* sst-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */; };
 		23FB4B5621957EFA00B2829B /* key-bloom-filter.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */; };
 		23FB4B5721957EFA00B2829B /* key-bloom-filter.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */; };
@@ -216,6 +218,7 @@
 		23F6060D219BF8C800CE12D9 /* version.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = version.cc; sourceTree = "<group>"; };
 		23F60610219C1F6D00CE12D9 /* files.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = files.h; sourceTree = "<group>"; };
 		23F60611219C22AE00CE12D9 /* files.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = files.cc; sourceTree = "<group>"; };
+		23F60614219C283E00CE12D9 /* files-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "files-test.cc"; path = "src/db/files-test.cc"; sourceTree = "<group>"; };
 		23FB4B502195708900B2829B /* table-test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-test.h"; sourceTree = "<group>"; };
 		23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "sst-table-builder-test.cc"; path = "src/table/sst-table-builder-test.cc"; sourceTree = "<group>"; };
 		23FB4B5321957CDF00B2829B /* key-filter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-filter.h"; sourceTree = "<group>"; };
@@ -337,6 +340,7 @@
 				23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */,
 				23FB4B5C219597C000B2829B /* sst-table-reader-test.cc */,
 				231C61F7219AA67C001A95C1 /* io-utils-test.cc */,
+				23F60614219C283E00CE12D9 /* files-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -519,6 +523,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				232AA2352193E5E6007EF228 /* skip-list-test.cc in Sources */,
+				23F60615219C283E00CE12D9 /* files-test.cc in Sources */,
 				23B0E150218FE03600F9E855 /* varint-encoding-test.cc in Sources */,
 				23B0E138218B05F500F9E855 /* iterator.cc in Sources */,
 				232AA2392193E780007EF228 /* ordered-memory-table.cc in Sources */,
@@ -564,6 +569,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				23FB4B5B21958A7A00B2829B /* sst-table-reader.cc in Sources */,
+				23F60616219C283E00CE12D9 /* files-test.cc in Sources */,
 				23F60613219C22AE00CE12D9 /* files.cc in Sources */,
 				237CE4C52192EE17004FB9BF /* merging.cc in Sources */,
 				23B0E131218AFBCC00F9E855 /* hash.cc in Sources */,

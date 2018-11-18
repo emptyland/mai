@@ -53,9 +53,9 @@ static bool IsNumber(const std::string &maybe) {
     
     std::tuple<Files::Kind, uint64_t> rv = std::make_tuple(kUnknown, -1);
     
-    if (name == kLockName) {
+    if (name.compare(kLockName) == 0) {
         rv = std::make_tuple(kLock, -1);
-    } else if (name == kCurrentName) {
+    } else if (name.compare(kCurrentName) == 0) {
         rv = std::make_tuple(kCurrent, -1);
     } else if (name.find(kManifestPrefix) == 0) {
         // MANIFEST-1
