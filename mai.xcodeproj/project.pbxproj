@@ -29,6 +29,8 @@
 		232AA24A219432BB007EF228 /* slice.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA248219432BB007EF228 /* slice.cc */; };
 		232AA24D219440F5007EF228 /* filter-block-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA24C219440F5007EF228 /* filter-block-builder-test.cc */; };
 		232AA24E219440F5007EF228 /* filter-block-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA24C219440F5007EF228 /* filter-block-builder-test.cc */; };
+		232E1E6E21A2578000F408D7 /* version-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232E1E6D21A2578000F408D7 /* version-test.cc */; };
+		232E1E6F21A2578000F408D7 /* version-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232E1E6D21A2578000F408D7 /* version-test.cc */; };
 		237CE4BC2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */; };
 		237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */; };
 		237CE4C02192EABD004FB9BF /* iterator-warpper.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */; };
@@ -144,6 +146,7 @@
 		232AA248219432BB007EF228 /* slice.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = slice.cc; sourceTree = "<group>"; };
 		232AA24B21943B88007EF228 /* filter-block-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "filter-block-builder.h"; sourceTree = "<group>"; };
 		232AA24C219440F5007EF228 /* filter-block-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "filter-block-builder-test.cc"; path = "src/table/filter-block-builder-test.cc"; sourceTree = "<group>"; };
+		232E1E6D21A2578000F408D7 /* version-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "version-test.cc"; path = "src/db/version-test.cc"; sourceTree = "<group>"; };
 		234372C921998C0A00427E83 /* write-ahead-log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-ahead-log.h"; sourceTree = "<group>"; };
 		237CE4B72192CD16004FB9BF /* memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "memory-table.h"; sourceTree = "<group>"; };
 		237CE4B82192D00B004FB9BF /* unordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "unordered-memory-table.h"; sourceTree = "<group>"; };
@@ -341,6 +344,7 @@
 				23FB4B5C219597C000B2829B /* sst-table-reader-test.cc */,
 				231C61F7219AA67C001A95C1 /* io-utils-test.cc */,
 				23F60614219C283E00CE12D9 /* files-test.cc */,
+				232E1E6D21A2578000F408D7 /* version-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -528,6 +532,7 @@
 				23B0E138218B05F500F9E855 /* iterator.cc in Sources */,
 				232AA2392193E780007EF228 /* ordered-memory-table.cc in Sources */,
 				23B0E141218BEAA900F9E855 /* bytewise-comparator.cc in Sources */,
+				232E1E6E21A2578000F408D7 /* version-test.cc in Sources */,
 				231C61FA219AA9CF001A95C1 /* write-ahead-log.cc in Sources */,
 				23B0E14D218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
 				232AA24621943100007EF228 /* data-block-builder-test.cc in Sources */,
@@ -617,6 +622,7 @@
 				23B0E16121913F5900F9E855 /* xhash-table-reader-test.cc in Sources */,
 				237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,
+				232E1E6F21A2578000F408D7 /* version-test.cc in Sources */,
 				23FB4B5721957EFA00B2829B /* key-bloom-filter.cc in Sources */,
 				23B0E100218841C500F9E855 /* spin-locking.cc in Sources */,
 				237CE4C12192EABD004FB9BF /* iterator-warpper.cc in Sources */,

@@ -26,10 +26,10 @@ class ColumnFamily {
 public:
     ColumnFamily() {}
     virtual ~ColumnFamily() {}
-    virtual std::string name() = 0;
-    virtual uint32_t id() = 0;
-    virtual const Comparator *comparator() = 0;
-    virtual Error GetDescriptor(ColumnFamilyDescriptor *desc) = 0;
+    virtual std::string name() const = 0;
+    virtual uint32_t id() const = 0;
+    virtual const Comparator *comparator() const = 0;
+    virtual Error GetDescriptor(ColumnFamilyDescriptor *desc) const = 0;
 
     ColumnFamily(const ColumnFamily &) = delete;
     ColumnFamily(ColumnFamily &&) = delete;

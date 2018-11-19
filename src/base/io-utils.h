@@ -109,6 +109,12 @@ public:
     
     void Flush() { error_ = file_->Flush(); }
     
+    void Sync(bool doit) {
+        if (doit) {
+            error_ = file_->Sync();
+        }
+    }
+    
     DEF_VAL_GETTER(size_t, written_size);
     
 private:

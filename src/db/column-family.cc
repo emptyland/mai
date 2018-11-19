@@ -11,16 +11,20 @@ namespace db {
     
 ColumnFamilyImpl::ColumnFamilyImpl(const std::string &name, uint32_t id,
                                    const ColumnFamilyOptions &options,
-                                   Version *dummy_versions,
+                                   VersionSet *versions,
                                    ColumnFamilySet *owner)
     : name_(name)
     , id_(id)
     , options_(options)
-    , dummy_versions_(dummy_versions)
+    , dummy_versions_(new Version(this))
+    , current_(dummy_versions_)
+    , ikcmp_(DCHECK_NOTNULL(options.comparator))
     , owner_(owner)
     , ref_count_(0)
     , dropped_(false) {
     AddRef();
+    dummy_versions_->next_ = dummy_versions_;
+    dummy_versions_->prev_ = dummy_versions_;
 }
     
 /*virtual*/ ColumnFamilyImpl::~ColumnFamilyImpl() {
@@ -35,6 +39,14 @@ ColumnFamilyImpl::ColumnFamilyImpl(const std::string &name, uint32_t id,
         owner_->RemoveColumnFamily(this);
     }
     
+    while (dummy_versions_->next() != dummy_versions_) {
+        Version *x = dummy_versions_->next();
+        Version *prev = x->prev();
+        Version *next = x->next();
+        prev->next_ = next;
+        next->prev_ = prev;
+        delete x;
+    }
     // TODO:
 }
     
@@ -46,6 +58,16 @@ void ColumnFamilyImpl::SetDropped() {
         owner_->RemoveColumnFamily(this);
     }
 }
+    
+void ColumnFamilyImpl::Append(Version *version) {
+    // add linked list
+    version->next_ = dummy_versions_;
+    Version *prev = dummy_versions_->prev_;
+    version->prev_ = prev;
+    prev->next_ = version;
+    dummy_versions_->prev_ = version;
+    current_ = version;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class ColumnFamilyHandle
@@ -53,20 +75,20 @@ void ColumnFamilyImpl::SetDropped() {
     
 /*virtual*/ ColumnFamilyHandle::~ColumnFamilyHandle() {}
 
-/*virtual*/ std::string ColumnFamilyHandle::name() {
+/*virtual*/ std::string ColumnFamilyHandle::name() const {
     return impl_->name();
 }
 
-/*virtual*/ uint32_t ColumnFamilyHandle::id() {
+/*virtual*/ uint32_t ColumnFamilyHandle::id() const {
     return impl_->id();
 }
 
-/*virtual*/ const Comparator *ColumnFamilyHandle::comparator() {
-    return impl_->options().comparator;
+/*virtual*/ const Comparator *ColumnFamilyHandle::comparator() const {
+    return impl_->ikcmp()->ucmp();
 }
     
 /*virtual*/ Error
-ColumnFamilyHandle::GetDescriptor(ColumnFamilyDescriptor *desc) {
+ColumnFamilyHandle::GetDescriptor(ColumnFamilyDescriptor *desc) const {
     if (impl_->IsDropped()) {
         return MAI_CORRUPTION("Column family has dropped!");
     }
@@ -103,12 +125,11 @@ ColumnFamilySet::~ColumnFamilySet() {
 ColumnFamilyImpl *ColumnFamilySet::NewColumnFamily(const ColumnFamilyOptions opts,
                                                    const std::string &name,
                                                    uint32_t id,
-                                                   Version *dummy_versions) {
+                                                   VersionSet *versions) {
     DCHECK(column_families_.find(name) == column_families_.end());
     DCHECK(column_family_impls_.find(id) == column_family_impls_.end());
     
-    ColumnFamilyImpl *cfd = new ColumnFamilyImpl(name, id, opts, dummy_versions,
-                                                 this);
+    ColumnFamilyImpl *cfd = new ColumnFamilyImpl(name, id, opts, versions, this);
     
     column_families_.insert({name, id});
     column_family_impls_.insert({id, cfd});

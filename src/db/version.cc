@@ -6,7 +6,101 @@
 namespace mai {
     
 namespace db {
+
+////////////////////////////////////////////////////////////////////////////////
+/// class VersionBuilder
+////////////////////////////////////////////////////////////////////////////////
     
+class VersionBuilder final {
+public:
+    VersionBuilder(VersionSet *versions)
+        : owns_(DCHECK_NOTNULL(versions)) {
+    }
+    
+    ColumnFamilyImpl *column_family() const { return cf_.get(); }
+    
+    void Apply(const VersionPatch &patch) {
+        for (const auto &d : patch.file_deletion()) {
+            levels_[d.level].deletion.insert(d.number);
+        }
+        
+        for (const auto &c : patch.file_creation()) {
+            levels_[c.level].deletion.erase(c.file_metadata->number);
+            levels_[c.level].creation.emplace(c.file_metadata.get());
+        }
+    }
+    
+    Version *Build() {
+        std::unique_ptr<Version> version(new Version(cf_.get()));
+        
+        for (auto i = 0; i < kMaxLevel; i++) {
+            
+            auto level = cf_->current()->level_files(i);
+            
+            for (auto fmd : level) {
+                
+                if (levels_[i].deletion.find(fmd->number) ==
+                    levels_[i].deletion.end()) {
+                    version->files_[i].push_back(fmd);
+                }
+            }
+            levels_[i].deletion.clear();
+            
+            for (auto fmd : levels_[i].creation) {
+                version->files_[i].push_back(fmd);
+            }
+            levels_[i].creation.clear();
+        }
+        return version.release();
+    }
+    
+    void Prepare(const VersionPatch &patch) {
+        for (const auto &c : patch.file_creation()) {
+            if (!cf_) {
+                cf_ = owns_->column_families()->GetColumnFamily(c.cfid);
+            } else {
+                DCHECK_EQ(cf_->id(), c.cfid);
+            }
+        }
+        for (const auto &d : patch.file_deletion()) {
+            if (!cf_) {
+                cf_ = owns_->column_families()->GetColumnFamily(d.cfid);
+            } else {
+                DCHECK_EQ(cf_->id(), d.cfid);
+            }
+        }
+        BySmallestKey cmp{cf_->ikcmp()};
+        for (auto i = 0; i < kMaxLevel; i++) {
+            levels_[i].creation = std::set<base::Handle<FileMetadata>,
+            BySmallestKey>(cmp);
+        }
+    }
+    
+private:
+    struct BySmallestKey {
+        
+        const core::InternalKeyComparator *ikcmp;
+        
+        bool operator ()(const base::Handle<FileMetadata> &a,
+                         const base::Handle<FileMetadata> &b) const {
+            int rv = ikcmp->Compare(a->smallest_key, b->smallest_key);
+            if (rv != 0) {
+                return rv < 0;
+            } else {
+                return a->number < b->number;
+            }
+        }
+    };
+    
+    struct FileEntry {
+        std::set<uint64_t> deletion;
+        std::set<base::Handle<FileMetadata>, BySmallestKey> creation;
+    };
+    
+    VersionSet *owns_;
+    FileEntry levels_[kMaxLevel];
+    base::Handle<ColumnFamilyImpl> cf_;
+}; // class VersionBuilder
     
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -18,49 +112,44 @@ void VersionPatch::Encode(std::string *buf) const {
     using ::mai::base::ScopedMemory;
     
     ScopedMemory scope;
-    if (has_field(kComparator)) {
-        buf->append(Slice::GetByte(kComparator, &scope));
-        buf->append(Slice::GetV32(column_family_id_, &scope));
-        buf->append(Slice::GetString(comparator_name_, &scope));
-    }
-    if (has_field(kPrevLogNumber)) {
+    if (has_prev_log_number()) {
         buf->append(Slice::GetByte(kPrevLogNumber, &scope));
         buf->append(Slice::GetV64(prev_log_number_, &scope));
     }
-    if (has_field(kRedoLogNumber)) {
+    if (has_redo_log_number()) {
         buf->append(Slice::GetByte(kRedoLogNumber, &scope));
         buf->append(Slice::GetV64(redo_log_number_, &scope));
     }
-    if (has_field(kNextFileNumber)) {
+    if (has_next_file_number()) {
         buf->append(Slice::GetByte(kNextFileNumber, &scope));
         buf->append(Slice::GetV64(next_file_number_, &scope));
     }
-    if (has_field(kLastSequenceNumber)) {
+    if (has_last_sequence_number()) {
         buf->append(Slice::GetByte(kLastSequenceNumber, &scope));
         buf->append(Slice::GetV64(last_sequence_number_, &scope));
     }
-    if (has_field(kMaxColumnFamily)) {
+    if (has_max_column_family()) {
         buf->append(Slice::GetByte(kMaxColumnFamily, &scope));
         buf->append(Slice::GetV32(max_column_family_, &scope));
     }
-    if (has_field(kAddCloumnFamily)) {
-        buf->append(Slice::GetByte(kAddCloumnFamily, &scope));
-        buf->append(Slice::GetV32(column_family_id_, &scope));
-        buf->append(Slice::GetString(column_family_name_, &scope));
-        buf->append(Slice::GetString(comparator_name_, &scope));
+    if (has_add_column_family()) {
+        buf->append(Slice::GetByte(kAddColumnFamily, &scope));
+        buf->append(Slice::GetV32(cf_creation_.cfid, &scope));
+        buf->append(Slice::GetString(cf_creation_.name, &scope));
+        buf->append(Slice::GetString(cf_creation_.comparator_name, &scope));
     }
-    if (has_field(kDropCloumnFamily)) {
-        buf->append(Slice::GetByte(kDropCloumnFamily, &scope));
-        buf->append(Slice::GetV64(column_family_id_, &scope));
+    if (has_drop_column_family()) {
+        buf->append(Slice::GetByte(kDropColumnFamily, &scope));
+        buf->append(Slice::GetV64(cf_deletion_, &scope));
     }
-    if (has_field(kCompactionPoint)) {
+    if (has_compaction_point()) {
         buf->append(Slice::GetByte(kCompactionPoint, &scope));
-        buf->append(Slice::GetV32(column_family_id_, &scope));
-        buf->append(Slice::GetV32(compaction_level_, &scope));
-        buf->append(Slice::GetString(compaction_key_, &scope));
+        buf->append(Slice::GetV32(compaction_point_.cfid, &scope));
+        buf->append(Slice::GetV32(compaction_point_.level, &scope));
+        buf->append(Slice::GetString(compaction_point_.key, &scope));
     }
-    if (has_field(kCreation)) {
-        for (const auto &c : creation_) {
+    if (has_creation()) {
+        for (const auto &c : file_creation_) {
             buf->append(Slice::GetByte(kCreation, &scope));
             buf->append(Slice::GetV32(c.cfid, &scope));
             buf->append(Slice::GetV32(c.level, &scope));
@@ -71,8 +160,8 @@ void VersionPatch::Encode(std::string *buf) const {
             buf->append(Slice::GetV64(c.file_metadata->ctime, &scope));
         }
     }
-    if (has_field(kDeletion)) {
-        for (const auto &d : deletion_) {
+    if (has_deletion()) {
+        for (const auto &d : file_deletion_) {
             buf->append(Slice::GetByte(kDeletion, &scope));
             buf->append(Slice::GetV32(d.cfid, &scope));
             buf->append(Slice::GetV32(d.level, &scope));
@@ -86,12 +175,6 @@ void VersionPatch::Decode(std::string_view buf) {
     
     while (!reader.Eof()) {
         switch (static_cast<Field>(reader.ReadByte())) {
-            case kComparator: {
-                uint32_t cfid = reader.ReadVarint32();
-                std::string name(reader.ReadString());
-                set_comparator(cfid, name);
-            } break;
-                
             case kPrevLogNumber: {
                 uint64_t number = reader.ReadVarint64();
                 set_prev_log_number(number);
@@ -124,14 +207,14 @@ void VersionPatch::Decode(std::string_view buf) {
                 set_compaction_point(cfid, level, key);
             } break;
                 
-            case kAddCloumnFamily: {
+            case kAddColumnFamily: {
                 uint32_t cfid = reader.ReadVarint32();
                 std::string name(reader.ReadString());
                 std::string comparator(reader.ReadString());
                 AddColumnFamily(name, cfid, comparator);
             } break;
                 
-            case kDropCloumnFamily: {
+            case kDropColumnFamily: {
                 uint32_t cfid = reader.ReadVarint32();
                 DropColumnFamily(cfid);
             } break;
@@ -170,19 +253,130 @@ VersionSet::VersionSet(const std::string db_name, const Options &options)
     : db_name_(db_name)
     , env_(DCHECK_NOTNULL(options.env))
     , column_families_(new ColumnFamilySet(db_name))
-    , ikcmp_(DCHECK_NOTNULL(options.comparator))
     , block_size_(options.block_size) {
 }
 
 VersionSet::~VersionSet() {    
 }
     
-Error VersionSet::LogAndApply(VersionPatch *patch, std::mutex *mutex) {
-    if (patch->has_field(VersionPatch::kRedoLogNumber)) {
-        
+Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &desc,
+                           uint64_t file_number,
+                           std::vector<uint64_t> *logs) {
+    
+    std::string file_name = Files::ManifestFileName(db_name_, file_number);
+    std::unique_ptr<SequentialFile> file;
+    
+    Error rs = env_->NewSequentialFile(file_name, &file);
+    if (!rs) {
+        return rs;
     }
     
-    return MAI_NOT_SUPPORTED("TODO:");
+    VersionPatch patch;
+    std::string_view record;
+    std::string scratch;
+    LogReader reader(file.get(), true, WAL::kDefaultBlockSize);
+    while (reader.Read(&record, &scratch)) {
+        patch.Reset();
+        patch.Decode(record);
+        
+        if (patch.has_add_column_family()) {
+            auto iter = desc.find(patch.cf_creation().name);
+            if (iter == desc.end()) {
+                return MAI_CORRUPTION(std::string("Column family options not found: ")
+                                      + patch.cf_creation().name);
+            }
+            if (patch.cf_creation().comparator_name
+                .compare(iter->second.comparator->Name()) != 0) {
+                return MAI_CORRUPTION("Incorrect comparator name!");
+            }
+            column_families_->NewColumnFamily(iter->second,
+                                              patch.cf_creation().name,
+                                              patch.cf_creation().cfid, this);
+        }
+        if (patch.has_deletion() || patch.has_creation()) {
+            VersionBuilder builder(this);
+            builder.Prepare(patch);
+            builder.Apply(patch);
+            builder.column_family()->Append(builder.Build());
+        }
+        if (patch.has_last_sequence_number()) {
+            logs->push_back(patch.last_sequence_number());
+        }
+        if (patch.has_redo_log_number()) {
+            redo_log_number_ = patch.redo_log_number();
+        }
+        if (patch.has_prev_log_number()) {
+            prev_log_number_ = patch.prev_log_number();
+        }
+        if (patch.has_next_file_number()) {
+            next_file_number_ = patch.next_file_number();
+        }
+        if (patch.has_last_sequence_number()) {
+            last_sequence_number_ = patch.last_sequence_number();
+        }
+        if (patch.has_max_column_family()) {
+            column_families_->UpdateColumnFamilyId(patch.max_column_family());
+        }
+    }
+    if (!reader.error().ok() && !reader.error().IsEof()) {
+        return reader.error();
+    }
+    
+    return Error::OK();
+}
+    
+Error VersionSet::LogAndApply(const ColumnFamilyOptions &cf_opts,
+                              VersionPatch *patch,
+                              std::mutex *mutex) {
+    Error rs;
+    
+    if (patch->has_redo_log_number()) {
+        DCHECK_GE(patch->redo_log_number(), redo_log_number_);
+        DCHECK_LT(patch->redo_log_number(), next_file_number_);
+    } else {
+        patch->set_redo_log_number(redo_log_number_);
+    }
+    
+    if (!patch->has_prev_log_number()) {
+        patch->set_prev_log_number(prev_log_number_);
+    }
+    
+    patch->set_last_sequence_number(last_sequence_number_);
+    patch->set_next_file_number(next_file_number_);
+    
+    if (patch->has_add_column_family()) {
+        column_families_->NewColumnFamily(cf_opts,
+                                          patch->cf_creation().name,
+                                          patch->cf_creation().cfid, this);
+        patch->set_max_column_faimly(column_families_->max_column_family());
+    }
+    
+    if (patch->has_drop_column_family()) {
+        // TODO:
+    }
+    
+    if (log_file_.get() == nullptr) {
+        rs = CreateManifestFile();
+        if (!rs) {
+            return rs;
+        }
+        patch->set_next_file_number(next_file_number_);
+    }
+    rs = WritePatch(*patch);
+    if (!rs) {
+        return rs;
+    }
+    
+    if (patch->has_deletion() || patch->has_creation()) {
+        VersionBuilder builder(this);
+        builder.Prepare(*patch);
+        builder.Apply(*patch);
+        builder.column_family()->Append(builder.Build());
+    }
+    
+    redo_log_number_ = patch->redo_log_number();
+    prev_log_number_ = patch->prev_log_number();
+    return Error::OK();
 }
     
 Error VersionSet::CreateManifestFile() {
@@ -195,6 +389,7 @@ Error VersionSet::CreateManifestFile() {
     if (!rs) {
         return rs;
     }
+    //log_file_->Truncate(0);
     logger_.reset(new LogWriter(log_file_.get(), block_size_));
     
     return WriteCurrentSnapshot();
@@ -205,7 +400,17 @@ Error VersionSet::WriteCurrentSnapshot() {
     
     for (ColumnFamilyImpl *cf : *column_families_) {
         patch.Reset();
-        patch.AddColumnFamily(cf->name(), cf->id(), cf->comparator()->Name());
+        patch.AddColumnFamily(cf->name(), cf->id(), cf->ikcmp()->ucmp()->Name());
+        
+        for (int i = 0; i < kMaxLevel; ++i) {
+            for (auto fmd : cf->current()->level_files(i)) {
+                patch.CreaetFile(cf->id(), i, fmd.get());
+            }
+        }
+        Error rs = WritePatch(patch);
+        if (!rs) {
+            return rs;
+        }
     }
     
     patch.Reset();
@@ -215,12 +420,19 @@ Error VersionSet::WriteCurrentSnapshot() {
     patch.set_prev_log_number(prev_log_number_);
     patch.set_redo_log_number(redo_log_number_);
     
-
-    return MAI_NOT_SUPPORTED("TODO:");
+    return WritePatch(patch);
 }
     
-Error VersionSet::LogPatch(const VersionPatch &patch) {
-    return MAI_NOT_SUPPORTED("TODO:");
+Error VersionSet::WritePatch(const VersionPatch &patch) {
+    std::string buf;
+    
+    patch.Encode(&buf);
+    
+    Error rs = logger_->Append(buf);
+    if (!rs) {
+        return rs;
+    }
+    return logger_->Sync(true);
 }
     
 } // namespace db

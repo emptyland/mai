@@ -6,22 +6,25 @@
 #include "base/reference-count.h"
 #include "base/base.h"
 #include "mai/error.h"
+#include "mai/options.h"
 #include <vector>
 #include <set>
 #include <mutex>
+#include <map>
 
 namespace mai {
 class Env;
 class SequentialFile;
 class WritableFile;
-struct Options;
 namespace db {
     
-class ColumnFamilySet;
 struct FileMetadata;
+class ColumnFamilySet;
+class ColumnFamilyImpl;
+class VersionBuilder;
 class VersionPatch;
-class Version;
 class VersionSet;
+class Version;
 class LogWriter;
     
 static const int kMaxLevel = 4;
@@ -38,32 +41,30 @@ struct FileMetadata final : public base::ReferenceCounted<FileMetadata> {
     
     FileMetadata(uint64_t file_number) : number(file_number) {}
 }; // struct FileMetadata
-
+    
+#define VERSION_FIELDS(V) \
+    V(LastSequenceNumber, last_sequence_number) \
+    V(NextFileNumber, next_file_number) \
+    V(RedoLogNumber, redo_log_number) \
+    V(PrevLogNumber, prev_log_number) \
+    V(CompactionPoint, compaction_point) \
+    V(Deletion, deletion) \
+    V(Creation, creation) \
+    V(MaxColumnFamily, max_column_family) \
+    V(AddColumnFamily, add_column_family) \
+    V(DropColumnFamily, drop_column_family)
+    
 class VersionPatch final {
 public:
+    #define DEFINE_ENUM(field, name) k##field,
     enum Field : int8_t {
-        kComparator,
-        kLastSequenceNumber,
-        kNextFileNumber,
-        kRedoLogNumber,
-        kPrevLogNumber,
-        kCompactionPoint,
-        kDeletion,
-        kCreation,
-        kMaxColumnFamily,
-        kAddCloumnFamily,
-        kDropCloumnFamily,
+        VERSION_FIELDS(DEFINE_ENUM)
         kMaxFields,
     };
+    #undef DEFINE_ENUM
     
     VersionPatch() { Reset(); }
     ~VersionPatch() {}
-    
-    void set_comparator(uint32_t cfid, const std::string &name) {
-        set_field(kComparator);
-        column_family_id_ = cfid;
-        comparator_name_.assign(name);
-    }
     
     void set_last_sequence_number(core::SequenceNumber version) {
         set_field(kLastSequenceNumber);
@@ -92,36 +93,50 @@ public:
     
     void set_compaction_point(uint32_t cfid, int level, std::string_view key) {
         set_field(kCompactionPoint);
-        column_family_id_ = cfid;
-        compaction_level_ = level;
-        compaction_key_ = key;
+        compaction_point_.cfid = cfid;
+        compaction_point_.level = level;
+        compaction_point_.key   = key;
     }
     
     void DeleteFile(uint32_t cfid, int level, uint64_t number) {
         set_field(kDeletion);
-        deletion_.push_back({cfid, level, number});
+        file_deletion_.push_back({cfid, level, number});
+    }
+
+    void CreateFile(uint32_t cfid, int level, uint64_t file_number,
+                    std::string smallest_key, std::string largest_key,
+                    uint64_t file_size, uint64_t ctime) {
+        FileMetadata *fmd = new FileMetadata{file_number};
+        fmd->smallest_key = smallest_key;
+        fmd->largest_key  = largest_key;
+        fmd->size         = file_size;
+        fmd->ctime        = ctime;
+        CreaetFile(cfid, level, fmd);
     }
     
     void CreaetFile(uint32_t cfid, int level, FileMetadata *fmd) {
         set_field(kCreation);
-        creation_.push_back({cfid, level, base::MakeRef(fmd)});
+        file_creation_.push_back({cfid, level, base::MakeRef(fmd)});
     }
     
     void DropColumnFamily(const uint32_t cfid) {
-        set_field(kDropCloumnFamily);
-        column_family_id_ = cfid;
+        set_field(kDropColumnFamily);
+        cf_deletion_ = cfid;
     }
     
     void AddColumnFamily(const std::string name, uint32_t cfid,
                          const std::string comparator_name) {
-        set_field(kAddCloumnFamily);
-        column_family_id_ = cfid;
-        column_family_name_.assign(name);
-        comparator_name_.assign(comparator_name);
+        set_field(kAddColumnFamily);
+        cf_creation_.cfid = cfid;
+        cf_creation_.name = name;
+        cf_creation_.comparator_name    = comparator_name;
+        
     }
     
-    void Encode(std::string *buf) const;
-    void Decode(std::string_view buf);
+    #define DEFINE_TEST_FIELD(field, name) \
+        bool has_##name() const { return has_field(k##field); }
+    VERSION_FIELDS(DEFINE_TEST_FIELD)
+    #undef DEFINE_TEST_FIELD
     
     bool has_field(Field field) const {
         int i = static_cast<int>(field);
@@ -129,47 +144,75 @@ public:
         return fields_[i / 32] & (1 << (i % 32));
     }
     
-    void Reset() { ::memset(fields_, 0, arraysize(fields_) * sizeof(uint32_t)); }
+    struct CompactionPoint {
+        uint32_t    cfid;
+        int         level;
+        std::string key;
+    };
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(VersionPatch);
-private:
-    struct Deletion {
+    struct CFCreation {
+        uint32_t    cfid;
+        std::string name;
+        std::string comparator_name;
+    };
+    
+    struct FileDeletion {
         uint32_t cfid;
         int      level;
         uint64_t number;
     };
     
-    struct Creation {
+    struct FileCreation {
         uint32_t cfid;
         int      level;
         base::Handle<FileMetadata> file_metadata;
     };
     
-    typedef std::vector<Creation> CreationCollection;
-    typedef std::vector<Deletion> DeletionCollection;
-
+    typedef std::vector<FileCreation> FileCreationCollection;
+    typedef std::vector<FileDeletion> FileDeletionCollection;
+    
+    DEF_VAL_GETTER(uint32_t, max_column_family);
+    DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
+    DEF_VAL_GETTER(uint64_t, next_file_number);
+    DEF_VAL_GETTER(uint64_t, redo_log_number);
+    DEF_VAL_GETTER(uint64_t, prev_log_number);
+    DEF_VAL_GETTER(CompactionPoint, compaction_point);
+    DEF_VAL_GETTER(CFCreation, cf_creation);
+    DEF_VAL_GETTER(uint32_t, cf_deletion);
+    DEF_VAL_GETTER(FileCreationCollection, file_creation);
+    DEF_VAL_GETTER(FileDeletionCollection, file_deletion);
+    
+    void Reset() {
+        ::memset(fields_, 0, arraysize(fields_) * sizeof(uint32_t));
+        file_creation_.clear();
+        file_deletion_.clear();
+    }
+    
+    void Encode(std::string *buf) const;
+    void Decode(std::string_view buf);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(VersionPatch);
+private:
     void set_field(Field field) {
         int i = static_cast<int>(field);
         DCHECK_GE(i, 0); DCHECK_LT(i, kMaxFields);
         fields_[i / 32] |= (1 << (i % 32));
     }
     
-    uint32_t column_family_id_;
-    std::string column_family_name_;
     uint32_t max_column_family_;
     
-    std::string comparator_name_;
+    uint32_t cf_deletion_;
+    CFCreation cf_creation_;
     
     core::SequenceNumber last_sequence_number_;
     uint64_t next_file_number_;
     uint64_t redo_log_number_;
     uint64_t prev_log_number_;
     
-    int compaction_level_;
-    std::string compaction_key_;
+    CompactionPoint compaction_point_;
     
-    CreationCollection creation_;
-    DeletionCollection deletion_;
+    FileCreationCollection file_creation_;
+    FileDeletionCollection file_deletion_;
     
     uint32_t fields_[(kMaxFields + 31) / 32];
 }; // class VersionPatch
@@ -177,9 +220,9 @@ private:
     
 class Version final {
 public:
-    explicit Version(VersionSet *owner) : owner_(owner) {}
+    explicit Version(ColumnFamilyImpl *owner) : owner_(owner) {}
     
-    DEF_PTR_GETTER_NOTNULL(VersionSet, owner);
+    DEF_PTR_GETTER_NOTNULL(ColumnFamilyImpl, owner);
     DEF_PTR_GETTER(Version, next);
     DEF_PTR_GETTER(Version, prev);
     
@@ -191,9 +234,10 @@ public:
     
     friend class ColumnFamilyImpl;
     friend class VersionSet;
+    friend class VersionBuilder;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Version);
 private:
-    VersionSet *owner_;
+    ColumnFamilyImpl *owner_;
     Version *next_ = nullptr;
     Version *prev_ = nullptr;
     std::vector<base::Handle<FileMetadata>> files_[kMaxLevel];
@@ -205,9 +249,20 @@ public:
     VersionSet(const std::string db_name, const Options &options);
     ~VersionSet();
     
+    core::SequenceNumber AddSequenceNumber(core::SequenceNumber add) {
+        last_sequence_number_ += add;
+        return last_sequence_number_;
+    }
+    
     uint64_t GenerateFileNumber() { return next_file_number_++; }
     
-    Error LogAndApply(VersionPatch *patch, std::mutex *mutex);
+    Error Recovery(const std::map<std::string, ColumnFamilyOptions> &desc,
+                   uint64_t file_number,
+                   std::vector<uint64_t> *logs);
+    
+    Error LogAndApply(const ColumnFamilyOptions &cf_opts,
+                      VersionPatch *patch,
+                      std::mutex *mutex);
     
     Error CreateManifestFile();
     Error WriteCurrentSnapshot();
@@ -216,12 +271,11 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(VersionSet);
 private:
-    Error LogPatch(const VersionPatch &patch);
+    Error WritePatch(const VersionPatch &patch);
     
     const std::string db_name_;
     Env *const env_;
     std::unique_ptr<ColumnFamilySet> column_families_;
-    const core::InternalKeyComparator ikcmp_;
     const uint64_t block_size_;
 
     core::SequenceNumber last_sequence_number_ = 0;

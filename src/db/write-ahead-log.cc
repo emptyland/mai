@@ -134,7 +134,7 @@ bool LogReader::Read(std::string_view *result, std::string* scratch) {
         scratch->append(result->data(), result->size());
         *result = *scratch;
     }
-    return true;
+    return error_.ok();
 }
     
 #define TRY_RUN(expr) \

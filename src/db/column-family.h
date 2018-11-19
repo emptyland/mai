@@ -4,6 +4,7 @@
 #include "base/reference-count.h"
 #include "base/base.h"
 #include "core/memory-table.h"
+#include "core/internal-key-comparator.h"
 #include "mai/db.h"
 #include "glog/logging.h"
 #include <unordered_map>
@@ -23,7 +24,7 @@ class ColumnFamilyImpl final {
 public:
     ColumnFamilyImpl(const std::string &name, uint32_t id,
                      const ColumnFamilyOptions &options,
-                     Version *dummy_versions,
+                     VersionSet *versions,
                      ColumnFamilySet *onwer);
     ~ColumnFamilyImpl();
     
@@ -46,10 +47,11 @@ public:
     DEF_PTR_GETTER(ColumnFamilyImpl, prev);
     DEF_VAL_GETTER(ColumnFamilyOptions, options);
     DEF_PTR_GETTER_NOTNULL(ColumnFamilySet, owner);
+    DEF_PTR_GETTER_NOTNULL(Version, current);
     
-    const Comparator *comparator() const {
-        return DCHECK_NOTNULL(options_.comparator);
-    }
+    void Append(Version *version);
+    
+    const core::InternalKeyComparator *ikcmp() const { return &ikcmp_; }
 
     friend class ColumnFamilySet;
     DISALLOW_IMPLICIT_CONSTRUCTORS(ColumnFamilyImpl);
@@ -60,16 +62,16 @@ private:
     ColumnFamilySet *const owner_;
     mutable std::atomic<int> ref_count_;
     std::atomic<bool> dropped_;
-    Version *dummy_versions_;
     
+    Version *dummy_versions_;
     Version *current_ = nullptr;
     
+    const core::InternalKeyComparator ikcmp_;
     base::Handle<core::MemoryTable> mutable_;
     base::Handle<core::MemoryTable> immutable_;
     
     ColumnFamilyImpl *next_ = nullptr;
     ColumnFamilyImpl *prev_ = nullptr;
-    
 }; // class ColumnFamilyImpl
     
 class ColumnFamilyHandle final : public ColumnFamily {
@@ -79,12 +81,13 @@ public:
         , impl_(DCHECK_NOTNULL(impl)) {}
     virtual ~ColumnFamilyHandle();
     
-    virtual std::string name() override;
-    virtual uint32_t id() override;
-    virtual const Comparator *comparator() override;
-    virtual Error GetDescriptor(ColumnFamilyDescriptor *desc) override;
+    virtual std::string name() const override;
+    virtual uint32_t id() const override;
+    virtual const Comparator *comparator() const override;
+    virtual Error GetDescriptor(ColumnFamilyDescriptor *desc) const override;
     
     DEF_PTR_GETTER_NOTNULL(DBImpl, db);
+    ColumnFamilyImpl *impl() const { return impl_.get(); }
 private:
     DBImpl *const db_;
     base::Handle<ColumnFamilyImpl> impl_;
@@ -122,7 +125,7 @@ public:
 
     ColumnFamilyImpl *NewColumnFamily(const ColumnFamilyOptions opts,
                                       const std::string &name, uint32_t id,
-                                      Version *dummy_versions);
+                                      VersionSet *versions);
     
     void RemoveColumnFamily(ColumnFamilyImpl *cfd) {
         auto iter = column_family_impls_.find(cfd->id());

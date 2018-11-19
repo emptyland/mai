@@ -45,6 +45,11 @@ public:
     
     Error Append(std::string_view data);
     
+    Error Sync(bool doit) {
+        writer_.Sync(doit);
+        return writer_.error();
+    }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(LogWriter);
 private:
     Error EmitPhysicalRecord(const void *buf, size_t len, WAL::RecordType type);
