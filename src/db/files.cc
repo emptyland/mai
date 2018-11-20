@@ -48,6 +48,27 @@ static bool IsNumber(const std::string &maybe) {
     return buf;
 }
     
+/*static*/ std::string Files::TableFileName(const std::string &cf_path,
+                                            Kind table_kind, uint64_t number) {
+    const char *ext = ".ERROR";
+    switch (table_kind) {
+        case kSST_Table:
+            ext = kSstTablePostfix;
+            break;
+        case kXMT_Table:
+            ext = kXmtTablePostfix;
+            break;
+        case kS1T_Table:
+            ext = kS1tTablePostfix;
+            break;
+        default:
+            break;
+    }
+    char buf[260];
+    ::snprintf(buf, arraysize(buf), "%s/%llu%s", cf_path.c_str(), number, ext);
+    return buf;
+}
+    
 /*static*/ std::tuple<Files::Kind, uint64_t>
     Files::ParseName(const std::string &name) {
     

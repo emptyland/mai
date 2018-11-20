@@ -1,5 +1,7 @@
 #include "db/column-family.h"
 #include "db/version.h"
+#include "db/files.h"
+#include "db/factory.h"
 
 namespace mai {
     
@@ -67,6 +69,24 @@ void ColumnFamilyImpl::Append(Version *version) {
     prev->next_ = version;
     dummy_versions_->prev_ = version;
     current_ = version;
+}
+    
+Error ColumnFamilyImpl::Install(Factory *factory, Env *env) {
+    // TODO:
+    mutable_ = factory->NewMemoryTable(&ikcmp_, options_.use_unordered_table,
+                                       options_.number_of_hash_slots);
+    
+    return MAI_NOT_SUPPORTED("TODO");
+}
+
+std::string ColumnFamilyImpl::GetDir() const {
+    return owner_->db_name() + "/" + name_;
+}
+    
+std::string ColumnFamilyImpl::GetTableFileName(uint64_t file_number) const {
+    return Files::TableFileName(GetDir(), options_.use_unordered_table ?
+                                Files::kXMT_Table : Files::kSST_Table,
+                                file_number);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

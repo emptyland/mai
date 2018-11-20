@@ -13,7 +13,7 @@ public:
     typedef uint32_t (*hash_func_t)(const char *, size_t);
     
     XhashTableReader(RandomAccessFile *file, uint64_t file_size,
-                    hash_func_t hash_func)
+                     hash_func_t hash_func)
         : file_(DCHECK_NOTNULL(file))
         , file_size_(file_size)
         , hash_func_(DCHECK_NOTNULL(hash_func)) {}

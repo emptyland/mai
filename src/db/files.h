@@ -47,6 +47,9 @@ struct Files final {
                                      const std::string &cf_name,
                                      Kind table_kind, uint64_t number);
     
+    static std::string TableFileName(const std::string &cf_path,
+                                     Kind table_kind, uint64_t number);
+    
     // MANIFEST
     static std::string ManifestFileName(const std::string &db_name,
                                         uint64_t number) {

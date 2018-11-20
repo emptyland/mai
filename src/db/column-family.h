@@ -16,6 +16,7 @@ namespace db {
 class DBImpl;
 class Version;
 class VersionSet;
+class Factory;
 class ColumnFamilySet;
 class ColumnFamilyImpl;
 class ColumnFamilyHandle;
@@ -37,6 +38,11 @@ public:
     }
     
     int ref_count() const { return ref_count_.load(std::memory_order_relaxed); }
+    
+    Error Install(Factory *factory, Env *env);
+    
+    std::string GetDir() const;
+    std::string GetTableFileName(uint64_t file_number) const;
     
     void SetDropped();
     bool IsDropped() const { return dropped_.load(); }
@@ -97,6 +103,8 @@ class ColumnFamilySet final {
 public:
     ColumnFamilySet(const std::string &db_name);
     ~ColumnFamilySet();
+    
+    DEF_VAL_GETTER(std::string, db_name);
     
     ColumnFamilyImpl *GetDefault() const { return DCHECK_NOTNULL(default_cfd_); }
     

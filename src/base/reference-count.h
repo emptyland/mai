@@ -32,7 +32,7 @@ public:
     
     void operator = (const Handle &other) {
         if (naked_) { naked_->ReleaseRef(); }
-        naked_ = other->naked_;
+        naked_ = other.naked_;
         if (naked_) { naked_->AddRef(); }
     }
     

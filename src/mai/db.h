@@ -64,6 +64,8 @@ public:
     virtual Error
     DropColumnFamilies(const std::vector<ColumnFamily *> &column_families) = 0;
     
+    //virtual Error ReleaseColumnFamily(ColumnFamily *column_family) = 0;
+    
     virtual Error GetAllColumnFamilies(std::vector<ColumnFamily *> *result) = 0;
     
     virtual Error Put(const WriteOptions &opts, ColumnFamily *cf,

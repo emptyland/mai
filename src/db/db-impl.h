@@ -5,14 +5,18 @@
 #include "mai/db.h"
 #include "mai/options.h"
 #include "mai/write-batch.h"
+#include "db/snapshot-impl.h"
+#include <mutex>
 
 namespace mai {
-    
+class WritableFile;
+class Env;
 namespace db {
+class LogWriter;
 
 class DBImpl final : public DB {
 public:
-    DBImpl();
+    DBImpl(const std::string &db_name, Env *env);
     virtual ~DBImpl();
     
     virtual Error
@@ -37,7 +41,14 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(DBImpl);
 private:
+    const std::string db_name_;
+    Env *const env_;
     
+    SnapshotList snapshots_;
+    std::unique_ptr<WritableFile> log_file_;
+    std::unique_ptr<LogWriter> logger_;
+    uint64_t log_file_number_ = 0;
+    std::mutex mutex_; // DB lock
 }; // class DBImpl
 
 } // namespace db

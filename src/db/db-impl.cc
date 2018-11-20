@@ -1,12 +1,21 @@
 #include "db/db-impl.h"
+#include "db/write-ahead-log.h"
+#include "core/key-boundle.h"
+#include "mai/env.h"
+#include "glog/logging.h"
 
 namespace mai {
     
 namespace db {
     
     
-DBImpl::DBImpl() {}
-DBImpl::~DBImpl() {}
+DBImpl::DBImpl(const std::string &db_name, Env *env)
+    : db_name_(db_name)
+    , env_(DCHECK_NOTNULL(env)) {}
+
+DBImpl::~DBImpl() {
+    
+}
 
 /*virtual*/ Error
 DBImpl::NewColumnFamilies(const std::vector<std::string> &names,
