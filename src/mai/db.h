@@ -85,6 +85,8 @@ public:
     
     virtual void ReleaseSnapshot(const Snapshot *snapshot) = 0;
     
+    virtual ColumnFamily *DefaultColumnFamily() = 0;
+    
     DB(const DB &) = delete;
     DB(DB &&) = delete;
     void operator = (const DB &) = delete;

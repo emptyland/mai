@@ -75,12 +75,22 @@ Error ColumnFamilyImpl::Install(Factory *factory, Env *env) {
     // TODO:
     mutable_ = factory->NewMemoryTable(&ikcmp_, options_.use_unordered_table,
                                        options_.number_of_hash_slots);
+    std::string cfdir = GetDir();
+    Error rs = env->MakeDirectory(cfdir, false);
+    if (!rs) {
+        return rs;
+    }
     
-    return MAI_NOT_SUPPORTED("TODO");
+    initialized_ = true;
+    return Error::OK();
 }
 
 std::string ColumnFamilyImpl::GetDir() const {
-    return owner_->db_name() + "/" + name_;
+    if (options().dir.empty()) {
+        return owner_->db_name() + "/" + name_;
+    } else {
+        return options().dir + "/" + name_;
+    }
 }
     
 std::string ColumnFamilyImpl::GetTableFileName(uint64_t file_number) const {
@@ -123,6 +133,7 @@ ColumnFamilyHandle::GetDescriptor(ColumnFamilyDescriptor *desc) const {
 
 ColumnFamilySet::ColumnFamilySet(const std::string &db_name)
     : db_name_(db_name)
+    , rw_mutex_(RW_SPIN_LOCK_INIT)
     , dummy_cfd_(new ColumnFamilyImpl("", 0, ColumnFamilyOptions{}, nullptr,
                                       nullptr)) {
     dummy_cfd_->prev_ = dummy_cfd_;

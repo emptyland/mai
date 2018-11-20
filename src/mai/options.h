@@ -24,6 +24,8 @@ struct ColumnFamilyOptions {
     
     int block_restart_interval = 16;
     
+    std::string dir;
+    
     const Comparator* comparator = Comparator::Bytewise();
 }; // struct ColumnFamilyOptions
     

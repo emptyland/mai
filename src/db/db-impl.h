@@ -13,11 +13,25 @@ class WritableFile;
 class Env;
 namespace db {
 class LogWriter;
+class TableCache;
+class VersionSet;
+class Factory;
+class ColumnFamilyImpl;
 
 class DBImpl final : public DB {
 public:
     DBImpl(const std::string &db_name, Env *env);
     virtual ~DBImpl();
+    
+    Error Open(const Options &opts,
+               const std::vector<ColumnFamilyDescriptor> &descriptors,
+               std::vector<ColumnFamily *> *column_families);
+    
+    Error NewDB(const Options &opts,
+                const std::vector<ColumnFamilyDescriptor> &desc);
+    
+    Error Recovery(const Options &opts,
+                   const std::vector<ColumnFamilyDescriptor> &desc);
     
     virtual Error
     NewColumnFamilies(const std::vector<std::string> &names,
@@ -38,13 +52,20 @@ public:
     NewIterator(const ReadOptions &opts, ColumnFamily *cf) override;
     virtual const Snapshot *GetSnapshot() override;
     virtual void ReleaseSnapshot(const Snapshot *snapshot) override;
+    virtual ColumnFamily *DefaultColumnFamily() override;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(DBImpl);
 private:
+    Error MakeRoomForWrite(ColumnFamilyImpl *cf, bool force);
+    
     const std::string db_name_;
     Env *const env_;
     
     SnapshotList snapshots_;
+    std::unique_ptr<ColumnFamily> default_cf_;
+    std::unique_ptr<Factory> factory_;
+    std::unique_ptr<VersionSet> versions_;
+    std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<WritableFile> log_file_;
     std::unique_ptr<LogWriter> logger_;
     uint64_t log_file_number_ = 0;

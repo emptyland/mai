@@ -5,6 +5,7 @@
 #include "base/base.h"
 #include "core/memory-table.h"
 #include "core/internal-key-comparator.h"
+#include "base/spin-locking.h"
 #include "mai/db.h"
 #include "glog/logging.h"
 #include <unordered_map>
@@ -54,6 +55,9 @@ public:
     DEF_VAL_GETTER(ColumnFamilyOptions, options);
     DEF_PTR_GETTER_NOTNULL(ColumnFamilySet, owner);
     DEF_PTR_GETTER_NOTNULL(Version, current);
+    DEF_VAL_GETTER(bool, initialized);
+    
+    core::MemoryTable *mutable_table() const { return mutable_.get(); }
     
     void Append(Version *version);
     
@@ -68,9 +72,10 @@ private:
     ColumnFamilySet *const owner_;
     mutable std::atomic<int> ref_count_;
     std::atomic<bool> dropped_;
-    
     Version *dummy_versions_;
+    
     Version *current_ = nullptr;
+    bool initialized_ = false;
     
     const core::InternalKeyComparator ikcmp_;
     base::Handle<core::MemoryTable> mutable_;
@@ -162,6 +167,8 @@ public:
     iterator begin() const { return iterator(dummy_cfd_->next()); }
     iterator end() const { return iterator(dummy_cfd_); }
     
+    base::SpinRwMutex *rw_mutex() { return &rw_mutex_; }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(ColumnFamilySet);
 private:
     const std::string db_name_;
@@ -170,6 +177,7 @@ private:
     ColumnFamilyImpl *default_cfd_ = nullptr;
     std::unordered_map<std::string, uint32_t> column_families_;
     std::unordered_map<uint32_t, ColumnFamilyImpl *> column_family_impls_;
+    base::SpinRwMutex rw_mutex_;
 }; // class ColumnFamilySet
     
 } // namespace db

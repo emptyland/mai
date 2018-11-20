@@ -1,6 +1,7 @@
 #ifndef MAI_DB_TABLE_CACHE_H_
 #define MAI_DB_TABLE_CACHE_H_
 
+#include "table/table-reader.h"
 #include "base/base.h"
 #include "base/reference-count.h"
 #include "mai/error.h"

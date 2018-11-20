@@ -1,4 +1,6 @@
 #include "port/file-posix.h"
+#include <sys/stat.h>
+#include <dirent.h>
 
 namespace mai {
     
@@ -32,6 +34,85 @@ public:
         } else {
             return MAI_NOT_SUPPORTED("TODO:");
         }
+    }
+    
+    virtual Error MakeDirectory(const std::string &name,
+                                bool create_if_missing) override {
+        int rv = ::mkdir(name.c_str(), S_IRUSR|S_IWUSR|S_IXUSR|
+                         S_IRGRP|S_IWGRP|S_IXGRP|
+                         S_IROTH|S_IXOTH);
+        if (rv < 0) {
+            if (create_if_missing) {
+                return MAI_IO_ERROR(strerror(errno));
+            } else if (errno != EEXIST) {
+                return MAI_IO_ERROR(strerror(errno));
+            }
+        }
+        return Error::OK();
+    }
+    
+    virtual Error FileExists(const std::string &file_name) override {
+        struct stat s;
+        if (::stat(file_name.c_str(), &s) < 0) {
+            return MAI_IO_ERROR(strerror(errno));
+        } else {
+            return Error::OK();
+        }
+    }
+    
+    virtual Error GetChildren(const std::string &dir_name,
+                              std::vector<std::string> *children) override {
+        DIR *d = ::opendir(dir_name.c_str());
+        if (!d) {
+            return MAI_IO_ERROR(strerror(errno));
+        }
+        children->clear();
+        struct dirent entry, *e;
+        int rv = 0;
+        while ((rv = ::readdir_r(d, &entry, &e)) == 0 && e != nullptr) {
+            // Ignore "." and ".."
+            if (e->d_namlen == 1 && e->d_name[0] == '.') {
+                continue;
+            }
+            if (e->d_namlen == 2 && e->d_name[0] == '.' && e->d_name[1] == '.') {
+                continue;
+            }
+            std::string child(e->d_name, e->d_namlen);
+            children->push_back(child);
+        }
+        if (rv != 0) {
+            return MAI_IO_ERROR(strerror(errno));
+        }
+        ::closedir(d);
+        return Error::OK();
+    }
+    
+    virtual Error DeleteFile(const std::string &name, bool force) override {
+        if (!force) {
+            if (::unlink(name.c_str()) < 0) {
+                return MAI_IO_ERROR(strerror(errno));
+            }
+            return Error::OK();
+        }
+        
+        struct stat s;
+        if (::stat(name.c_str(), &s) < 0) {
+            return MAI_IO_ERROR(strerror(errno));
+        }
+        if (s.st_mode & S_IFDIR) { // is dir
+            std::vector<std::string> children;
+            Error rs = GetChildren(name, &children);
+            if (!rs) {
+                return rs;
+            }
+            for (auto child : children) {
+                rs = DeleteFile(name + "/" + child, true);
+                if (!rs) {
+                    return rs;
+                }
+            }
+        }
+        return Error::OK();
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(EnvPosix);

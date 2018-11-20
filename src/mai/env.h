@@ -1,10 +1,11 @@
 #ifndef MAI_ENV_H_
 #define MAI_ENV_H_
 
+#include "mai/error.h"
 #include <string_view>
 #include <string>
 #include <memory>
-#include "mai/error.h"
+#include <vector>
 
 namespace mai {
     
@@ -29,6 +30,16 @@ public:
     virtual Error NewRandomAccessFile(const std::string &file_name,
                                       std::unique_ptr<RandomAccessFile> *file,
                                       bool mem_file = true) = 0;
+    
+    virtual Error MakeDirectory(const std::string &name,
+                                bool create_if_missing) = 0;
+    
+    virtual Error FileExists(const std::string &file_name) = 0;
+    
+    virtual Error GetChildren(const std::string &dir_name,
+                              std::vector<std::string> *children) = 0;
+    
+    virtual Error DeleteFile(const std::string &name, bool force) = 0;
     
 }; // class Env
     

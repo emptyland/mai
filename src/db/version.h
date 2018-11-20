@@ -249,6 +249,8 @@ public:
     VersionSet(const std::string db_name, const Options &options);
     ~VersionSet();
     
+    DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
+    
     core::SequenceNumber AddSequenceNumber(core::SequenceNumber add) {
         last_sequence_number_ += add;
         return last_sequence_number_;

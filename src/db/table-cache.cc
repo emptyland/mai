@@ -2,7 +2,6 @@
 #include "db/column-family.h"
 #include "db/factory.h"
 #include "db/version.h"
-#include "table/table-reader.h"
 #include "table/table.h"
 #include "core/key-filter.h"
 #include "mai/iterator.h"

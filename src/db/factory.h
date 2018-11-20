@@ -28,7 +28,7 @@ public:
                    size_t initial_slots) = 0;
     
     virtual Error
-    NewTableReader(RandomAccessFile *file, uint64_t file_size,
+    NewTableReader(bool unordered, RandomAccessFile *file, uint64_t file_size,
                    bool checksum_verify, base::hash_func_t hash_func,
                    std::unique_ptr<table::TableReader> *result) = 0;
     
@@ -36,6 +36,8 @@ public:
     NewTableBuilder(const core::InternalKeyComparator *ikcmp, bool unordered,
                     WritableFile *file, uint64_t block_size, int n_restart,
                     size_t max_hash_slots, base::hash_func_t hash_func) = 0;
+    
+    static Factory *Default();
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Factory);
 }; // class Factory
