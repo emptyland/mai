@@ -20,7 +20,8 @@ public:
     
     enum Flag: uint8_t {
         kFlagValue = 0,
-        kFlagDeletion = 1
+        kFlagDeletion = 1,
+        kFlagValueForSeek = 2,
     };
     
     Tag() : Tag(0, 0) {}
@@ -93,7 +94,7 @@ public:
     static KeyBoundle *New(std::string_view key, SequenceNumber version,
                            Allocator allocator = base::MallocAllocator{}) {
         void *raw = allocator.Allocate(sizeof(KeyBoundle) + key.size());
-        return new (raw) KeyBoundle(key, "", version, 0);
+        return new (raw) KeyBoundle(key, "", version, Tag::kFlagValueForSeek);
     }
     
     static void ParseTaggedKey(std::string_view tagged_key,
@@ -125,6 +126,9 @@ public:
         key.remove_prefix(key.size() - Tag::kSize);
         return Tag::Decode(*reinterpret_cast<const uint64_t *>(key.data()));
     }
+    
+    static void MakeRedo(std::string_view key, std::string_view value,
+                         uint32_t cfid, uint8_t flags, std::string *redo);
 
 private:
     KeyBoundle(std::string_view key, std::string_view value,

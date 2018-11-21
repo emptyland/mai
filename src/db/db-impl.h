@@ -17,6 +17,8 @@ class TableCache;
 class VersionSet;
 class Factory;
 class ColumnFamilyImpl;
+    
+struct GetContext;
 
 class DBImpl final : public DB {
 public:
@@ -56,6 +58,10 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(DBImpl);
 private:
+    Error PrepareForGet(const ReadOptions &opts, ColumnFamily *cf,
+                        GetContext *ctx);
+    Error Write(const WriteOptions &opts, ColumnFamily *cf,
+                std::string_view key, std::string_view value, uint8_t flag);
     Error MakeRoomForWrite(ColumnFamilyImpl *cf, bool force);
     
     const std::string db_name_;

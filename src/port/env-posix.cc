@@ -112,6 +112,9 @@ public:
                 }
             }
         }
+        if (::unlink(name.c_str()) < 0) {
+            return MAI_IO_ERROR(strerror(errno));
+        }
         return Error::OK();
     }
     

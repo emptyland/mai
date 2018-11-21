@@ -2,6 +2,8 @@
 #include "db/version.h"
 #include "db/files.h"
 #include "db/factory.h"
+#include "db/table-cache.h"
+#include "mai/iterator.h"
 
 namespace mai {
     
@@ -21,7 +23,7 @@ ColumnFamilyImpl::ColumnFamilyImpl(const std::string &name, uint32_t id,
     , dummy_versions_(new Version(this))
     , current_(dummy_versions_)
     , ikcmp_(DCHECK_NOTNULL(options.comparator))
-    , owner_(owner)
+    , owns_(owner)
     , ref_count_(0)
     , dropped_(false) {
     AddRef();
@@ -37,8 +39,8 @@ ColumnFamilyImpl::ColumnFamilyImpl(const std::string &name, uint32_t id,
     prev->next_ = next;
     next->prev_ = prev;
     
-    if (!dropped_ && owner_) {
-        owner_->RemoveColumnFamily(this);
+    if (!dropped_ && owns_) {
+        owns_->RemoveColumnFamily(this);
     }
     
     while (dummy_versions_->next() != dummy_versions_) {
@@ -56,8 +58,8 @@ void ColumnFamilyImpl::SetDropped() {
     DCHECK_NE(id_, 0) << "Can not drop default column family!";
     dropped_ = true;
     
-    if (owner_) {
-        owner_->RemoveColumnFamily(this);
+    if (owns_) {
+        owns_->RemoveColumnFamily(this);
     }
 }
     
@@ -87,7 +89,7 @@ Error ColumnFamilyImpl::Install(Factory *factory, Env *env) {
 
 std::string ColumnFamilyImpl::GetDir() const {
     if (options().dir.empty()) {
-        return owner_->db_name() + "/" + name_;
+        return owns_->db_name() + "/" + name_;
     } else {
         return options().dir + "/" + name_;
     }
@@ -97,6 +99,23 @@ std::string ColumnFamilyImpl::GetTableFileName(uint64_t file_number) const {
     return Files::TableFileName(GetDir(), options_.use_unordered_table ?
                                 Files::kXMT_Table : Files::kSST_Table,
                                 file_number);
+}
+    
+Error ColumnFamilyImpl::AddIterators(const ReadOptions &opts,
+                                    std::vector<Iterator *> *result) {
+    Error rs;
+    for (int i = 0; i < kMaxLevel; ++i) {
+        for (const auto &fmd : current()->level_files(i)) {
+            std::unique_ptr<Iterator>
+                iter(owns_->table_cache()->NewIterator(opts, this, fmd->number,
+                                                       fmd->size));
+            if (iter->error().fail()) {
+                return iter->error();
+            }
+            result->push_back(iter.release());
+        }
+    }
+    return rs;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -131,8 +150,10 @@ ColumnFamilyHandle::GetDescriptor(ColumnFamilyDescriptor *desc) const {
 /// class ColumnFamilySet
 ////////////////////////////////////////////////////////////////////////////////
 
-ColumnFamilySet::ColumnFamilySet(const std::string &db_name)
+ColumnFamilySet::ColumnFamilySet(const std::string &db_name,
+                                 TableCache *table_cache)
     : db_name_(db_name)
+    , table_cache_(DCHECK_NOTNULL(table_cache))
     , rw_mutex_(RW_SPIN_LOCK_INIT)
     , dummy_cfd_(new ColumnFamilyImpl("", 0, ColumnFamilyOptions{}, nullptr,
                                       nullptr)) {

@@ -2,6 +2,10 @@
 #include "db/column-family.h"
 #include "db/files.h"
 #include "db/write-ahead-log.h"
+#include "db/table-cache.h"
+#include "core/merging.h"
+#include "base/io-utils.h"
+#include "mai/iterator.h"
 
 namespace mai {
     
@@ -247,12 +251,95 @@ void VersionPatch::Decode(std::string_view buf) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+/// class Version
+////////////////////////////////////////////////////////////////////////////////
+Error Version::Get(const ReadOptions &opts, std::string_view key,
+                   core::SequenceNumber version, core::Tag *tag,
+                   std::string *value) {
+    const core::InternalKeyComparator *const ikcmp = owns_->ikcmp();
+    
+    base::ScopedMemory scope;
+    const core::KeyBoundle *const ikey
+        = core::KeyBoundle::New(key, version, base::ScopedAllocator{&scope});
+    
+    std::vector<base::Handle<FileMetadata>> maybe_files;
+    for (const auto &metadata : level_files(0)) {
+        if (ikcmp->Compare(ikey->key(), metadata->smallest_key) >= 0 ||
+            ikcmp->Compare(ikey->key(), metadata->largest_key) <= 0) {
+            maybe_files.push_back(metadata);
+        }
+    }
+    // The newest file should be first.
+    std::sort(maybe_files.begin(), maybe_files.end(),
+              [](const base::Handle<FileMetadata> &a,
+                 const base::Handle<FileMetadata> &b) {
+                  return a->ctime > b->ctime;
+              });
+    
+    for (int i = 1; i < kMaxLevel; ++i) {
+        if (level_files(i).empty()) {
+            continue;
+        }
+        
+        for (const auto &metadata : level_files(i)) {
+            if (ikcmp->Compare(ikey->key(), metadata->smallest_key) >= 0 ||
+                ikcmp->Compare(ikey->key(), metadata->largest_key) <= 0) {
+                maybe_files.push_back(metadata);
+            }
+        }
+    }
+    if (maybe_files.empty()) {
+        return MAI_NOT_FOUND("No files");
+    }
+    
+    std::vector<Iterator*> iters;
+    for (const auto &fmd : maybe_files) {
+        Iterator *iter =
+            owns_->owns()->table_cache()->NewIterator(opts, owns_, fmd->number,
+                                                      fmd->size);
+        if (iter->error().fail()) {
+            delete iter;
+            for (auto i : iters) {
+                delete i;
+            }
+            return iter->error();
+        }
+        iters.push_back(iter);
+    }
+    
+    std::unique_ptr<Iterator>
+        merger(core::Merging::NewMergingIterator(ikcmp, iters.data(),
+                                                 iters.size()));
+    if (merger->error().fail()) {
+        return merger->error();
+    }
+    merger->Seek(ikey->key());
+    if (!merger->Valid()) {
+        return MAI_NOT_FOUND("Seek()");
+    }
+    
+    core::ParsedTaggedKey tkey;
+    core::KeyBoundle::ParseTaggedKey(merger->key(), &tkey);
+    if (!ikcmp->ucmp()->Equals(tkey.user_key, ikey->user_key())) {
+        return MAI_NOT_FOUND("Target not found");
+    }
+    if (tkey.tag.flags() == core::Tag::kFlagDeletion) {
+        return MAI_NOT_FOUND("Deleted");
+    }
+    
+    value->assign(merger->value());
+    if (tag) { *tag = tkey.tag; }
+    return Error::OK();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 /// class VersionSet
 ////////////////////////////////////////////////////////////////////////////////
-VersionSet::VersionSet(const std::string db_name, const Options &options)
+VersionSet::VersionSet(const std::string db_name, const Options &options,
+                       TableCache *table_cache)
     : db_name_(db_name)
     , env_(DCHECK_NOTNULL(options.env))
-    , column_families_(new ColumnFamilySet(db_name))
+    , column_families_(new ColumnFamilySet(db_name, table_cache))
     , block_size_(options.block_size) {
 }
 
@@ -420,6 +507,13 @@ Error VersionSet::WriteCurrentSnapshot() {
     patch.set_prev_log_number(prev_log_number_);
     patch.set_redo_log_number(redo_log_number_);
     
+    char manifest[64];
+    ::snprintf(manifest, arraysize(manifest), "%llu", manifest_file_number_);
+    Error rs = base::FileWriter::WriteAll(Files::CurrentFileName(db_name_),
+                                          manifest, env_);
+    if (!rs) {
+        return rs;
+    }
     return WritePatch(patch);
 }
     

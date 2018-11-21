@@ -15,26 +15,11 @@ using ::mai::core::KeyBoundle;
 WriteBatch::~WriteBatch() {}
     
 void WriteBatch::Put(ColumnFamily *cf, std::string_view key, std::string_view value) {
-    ScopedMemory scope;
-    
-    redo_.append(1, Tag::kFlagValue);
-    redo_.append(Slice::GetU32(cf->id(), &scope));
-    
-    redo_.append(Slice::GetU64(key.size(), &scope));
-    redo_.append(key);
-    
-    redo_.append(Slice::GetU64(value.size(), &scope));
-    redo_.append(value);
+    KeyBoundle::MakeRedo(key, value, cf->id(), Tag::kFlagValue, &redo_);
 }
 
 void WriteBatch::Delete(ColumnFamily *cf, std::string_view key) {
-    ScopedMemory scope;
-    
-    redo_.append(1, Tag::kFlagDeletion);
-    redo_.append(Slice::GetU32(cf->id(), &scope));
-    
-    redo_.append(Slice::GetU64(key.size(), &scope));
-    redo_.append(key);
+    KeyBoundle::MakeRedo(key, "", cf->id(), Tag::kFlagDeletion, &redo_);
 }
 
 /*static*/ Error WriteBatch::Iterate(const char *buf, size_t len, Stub *handler) {

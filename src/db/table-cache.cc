@@ -91,7 +91,8 @@ Error TableCache::EnsureTableCached(const ColumnFamilyImpl *cf,
             return rs;
         }
     }
-    rs = factory_->NewTableReader(entry->file.get(), file_size, true,
+    rs = factory_->NewTableReader(cf->options().use_unordered_table,
+                                  entry->file.get(), file_size, true,
                                   &base::Hash::Js, &entry->table);
     if (!rs) {
         return rs;

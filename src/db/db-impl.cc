@@ -8,7 +8,9 @@
 #include "db/table-cache.h"
 #include "core/key-boundle.h"
 #include "core/memory-table.h"
+#include "base/slice.h"
 #include "mai/env.h"
+#include "mai/iterator.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -64,6 +66,15 @@ private:
 }; // class WritingHnalder
     
     
+    
+struct GetContext {
+    std::vector<base::Handle<core::MemoryTable>> in_mem;
+    core::SequenceNumber last_sequence_number;
+    ColumnFamilyImpl *cfd;
+}; // struct ReadContext
+
+    
+
 DBImpl::DBImpl(const std::string &db_name, Env *env)
     : db_name_(db_name)
     , env_(DCHECK_NOTNULL(env))
@@ -100,7 +111,10 @@ Error DBImpl::Open(const Options &opts,
             DCHECK_NOTNULL(impl);
             column_families->push_back(new ColumnFamilyHandle(this, impl));
         }
-        default_cf_.reset(new ColumnFamilyHandle(this, versions_->column_families()->GetDefault()));
+        ColumnFamily *handle =
+            new ColumnFamilyHandle(this,
+                                   versions_->column_families()->GetDefault());
+        default_cf_.reset(handle);
     }
     return rs;
 }
@@ -109,7 +123,7 @@ Error DBImpl::NewDB(const Options &opts,
                     const std::vector<ColumnFamilyDescriptor> &desc) {
     table_cache_.reset(new TableCache(db_name_, opts.env, factory_.get(),
                                       opts.allow_mmap_reads));
-    versions_.reset(new VersionSet(db_name_, opts));
+    versions_.reset(new VersionSet(db_name_, opts, table_cache_.get()));
     
     
     Error rs = env_->MakeDirectory(db_name_, true);
@@ -185,12 +199,12 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     
 /*virtual*/ Error DBImpl::Put(const WriteOptions &opts, ColumnFamily *cf,
                   std::string_view key, std::string_view value) {
-    return MAI_NOT_SUPPORTED("TODO:");
+    return Write(opts, cf, key, value, core::Tag::kFlagValue);
 }
     
 /*virtual*/ Error DBImpl::Delete(const WriteOptions &opts, ColumnFamily *cf,
                      std::string_view key) {
-    return MAI_NOT_SUPPORTED("TODO:");
+    return Write(opts, cf, key, "", core::Tag::kFlagDeletion);
 }
     
 /*virtual*/ Error DBImpl::Write(const WriteOptions& opts, WriteBatch* updates) {
@@ -231,12 +245,45 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     
 /*virtual*/ Error DBImpl::Get(const ReadOptions &opts, ColumnFamily *cf,
                   std::string_view key, std::string *value) {
-    return MAI_NOT_SUPPORTED("TODO:");
+    
+    using core::Tag;
+    
+    GetContext ctx;
+    Error rs = PrepareForGet(opts, cf, &ctx);
+    for (const auto &table : ctx.in_mem) {
+        rs = table->Get(key, ctx.last_sequence_number, nullptr, value);
+        if (rs.ok()) {
+            return rs;
+        }
+    }
+    
+    std::unique_lock<std::mutex> lock(mutex_);
+    return ctx.cfd->current()->Get(opts, key, ctx.last_sequence_number, nullptr,
+                                   value);
 }
     
 /*virtual*/ Iterator *
 DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
-    return nullptr;
+    GetContext ctx;
+    Error rs = PrepareForGet(opts, cf, &ctx);
+    if (!rs) {
+        return Iterator::AsError(rs);
+    }
+    
+    std::vector<Iterator *> iters;
+    for (const auto &table : ctx.in_mem) {
+        iters.push_back(table->NewIterator());
+    }
+    rs = ctx.cfd->AddIterators(opts, &iters);
+    if (!rs) {
+        for (auto iter : iters) {
+            delete iter;
+        }
+        return Iterator::AsError(rs);
+    }
+
+    // TODO:
+    return Iterator::AsError(MAI_NOT_SUPPORTED("TODO:"));
 }
     
 /*virtual*/ const Snapshot *DBImpl::GetSnapshot() {
@@ -250,11 +297,93 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
     return default_cf_.get();
 }
     
+Error DBImpl::PrepareForGet(const ReadOptions &opts, ColumnFamily *cf,
+                            GetContext *ctx) {
+    if (cf == nullptr) {
+        return MAI_CORRUPTION("NULL column family.");
+    }
+    ColumnFamilyHandle *handle = static_cast<ColumnFamilyHandle *>(cf);
+    if (this != handle->db()) {
+        return MAI_CORRUPTION("Use difference db column family.");
+    }
+    ColumnFamilyImpl *cfd = handle->impl();
+    if (cfd->IsDropped()) {
+        return MAI_CORRUPTION("Column family has been dropped.");
+    }
+    
+    core::SequenceNumber last_sequence_number = 0;
+    mutex_.lock(); // Locking versions------------------------------------------
+    if (opts.snapshot) {
+        last_sequence_number =
+            static_cast<const SnapshotImpl *>(opts.snapshot)->sequence_number();
+    } else {
+        last_sequence_number = versions_->last_sequence_number();
+    }
+    
+    std::vector<base::Handle<core::MemoryTable>> mem_tables;
+    mem_tables.push_back(base::MakeRef(cfd->mutable_table()));
+    if (cfd->immutable_table()) {
+        mem_tables.push_back(base::MakeRef(cfd->immutable_table()));
+    }
+    mutex_.unlock(); // Unlocking versions--------------------------------------
+    
+    return Error::OK();
+}
+    
+Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
+                    std::string_view key, std::string_view value, uint8_t flag) {
+    using core::Tag;
+    
+    ColumnFamilyHandle *handle = static_cast<ColumnFamilyHandle *>(cf);
+    if (this != handle->db()) {
+        return MAI_CORRUPTION("Use difference db column family.");
+    }
+    ColumnFamilyImpl *cfd = handle->impl();
+    if (cfd->IsDropped()) {
+        return MAI_CORRUPTION("Column family has been dropped.");
+    }
+    
+    core::SequenceNumber last_sequence_number = 0;
+    Error rs;
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        last_sequence_number = versions_->last_sequence_number();
+        
+        rs = MakeRoomForWrite(cfd, false);
+        if (!rs) {
+            return rs;
+        }
+    }
+    
+    std::string redo;
+    core::KeyBoundle::MakeRedo(key, value, cfd->id(), flag, &redo);
+    rs = logger_->Append(redo);
+    if (!rs) {
+        return rs;
+    }
+    if (opts.sync) {
+        rs = log_file_->Sync();
+        if (!rs) {
+            return rs;
+        }
+    }
+    
+    cfd->mutable_table()->Put(key, value, last_sequence_number, flag);
+    
+    mutex_.lock();
+    versions_->AddSequenceNumber(1);
+    mutex_.unlock();
+    
+    return Error::OK();
+}
+    
 Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cf, bool force) {
     return MAI_NOT_SUPPORTED("TODO:");
 }
     
-} // namespace db    
+} // namespace db
+    
+const char kDefaultColumnFamilyName[] = "default";
     
 /*static*/ Error DB::Open(const Options &opts,
                           const std::string name,

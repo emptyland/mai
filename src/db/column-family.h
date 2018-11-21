@@ -18,6 +18,7 @@ class DBImpl;
 class Version;
 class VersionSet;
 class Factory;
+class TableCache;
 class ColumnFamilySet;
 class ColumnFamilyImpl;
 class ColumnFamilyHandle;
@@ -48,16 +49,19 @@ public:
     void SetDropped();
     bool IsDropped() const { return dropped_.load(); }
     
+    Error AddIterators(const ReadOptions &opts, std::vector<Iterator *> *result);
+    
     DEF_VAL_GETTER(std::string, name);
     DEF_VAL_GETTER(uint32_t, id);
     DEF_PTR_GETTER(ColumnFamilyImpl, next);
     DEF_PTR_GETTER(ColumnFamilyImpl, prev);
     DEF_VAL_GETTER(ColumnFamilyOptions, options);
-    DEF_PTR_GETTER_NOTNULL(ColumnFamilySet, owner);
+    DEF_PTR_GETTER_NOTNULL(ColumnFamilySet, owns);
     DEF_PTR_GETTER_NOTNULL(Version, current);
     DEF_VAL_GETTER(bool, initialized);
     
     core::MemoryTable *mutable_table() const { return mutable_.get(); }
+    core::MemoryTable *immutable_table() const { return immutable_.get(); }
     
     void Append(Version *version);
     
@@ -69,7 +73,7 @@ private:
     const std::string name_;
     const uint32_t id_;
     const ColumnFamilyOptions options_;
-    ColumnFamilySet *const owner_;
+    ColumnFamilySet *const owns_;
     mutable std::atomic<int> ref_count_;
     std::atomic<bool> dropped_;
     Version *dummy_versions_;
@@ -106,10 +110,11 @@ private:
 
 class ColumnFamilySet final {
 public:
-    ColumnFamilySet(const std::string &db_name);
+    ColumnFamilySet(const std::string &db_name, TableCache *table_cache);
     ~ColumnFamilySet();
     
     DEF_VAL_GETTER(std::string, db_name);
+    DEF_PTR_GETTER_NOTNULL(TableCache, table_cache);
     
     ColumnFamilyImpl *GetDefault() const { return DCHECK_NOTNULL(default_cfd_); }
     
@@ -172,6 +177,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(ColumnFamilySet);
 private:
     const std::string db_name_;
+    TableCache *const table_cache_;
     ColumnFamilyImpl *dummy_cfd_;
     uint32_t max_column_family_ = 0;
     ColumnFamilyImpl *default_cfd_ = nullptr;

@@ -25,6 +25,7 @@ class VersionBuilder;
 class VersionPatch;
 class VersionSet;
 class Version;
+class TableCache;
 class LogWriter;
     
 static const int kMaxLevel = 4;
@@ -220,9 +221,9 @@ private:
     
 class Version final {
 public:
-    explicit Version(ColumnFamilyImpl *owner) : owner_(owner) {}
+    explicit Version(ColumnFamilyImpl *owner) : owns_(owner) {}
     
-    DEF_PTR_GETTER_NOTNULL(ColumnFamilyImpl, owner);
+    DEF_PTR_GETTER_NOTNULL(ColumnFamilyImpl, owns);
     DEF_PTR_GETTER(Version, next);
     DEF_PTR_GETTER(Version, prev);
     
@@ -232,12 +233,15 @@ public:
         return files_[level];
     }
     
+    Error Get(const ReadOptions &opts, std::string_view key,
+              core::SequenceNumber version, core::Tag *tag, std::string *value);
+    
     friend class ColumnFamilyImpl;
     friend class VersionSet;
     friend class VersionBuilder;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Version);
 private:
-    ColumnFamilyImpl *owner_;
+    ColumnFamilyImpl *owns_;
     Version *next_ = nullptr;
     Version *prev_ = nullptr;
     std::vector<base::Handle<FileMetadata>> files_[kMaxLevel];
@@ -246,7 +250,8 @@ private:
 
 class VersionSet final {
 public:
-    VersionSet(const std::string db_name, const Options &options);
+    VersionSet(const std::string db_name, const Options &options,
+               TableCache *table_cache);
     ~VersionSet();
     
     DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);

@@ -1,6 +1,9 @@
 #include "db/version.h"
 #include "db/column-family.h"
+#include "db/table-cache.h"
+#include "db/factory.h"
 #include "mai/options.h"
+#include "mai/env.h"
 #include "gtest/gtest.h"
 
 namespace mai {
@@ -10,7 +13,9 @@ namespace db {
 class VersionTest : public ::testing::Test {
 public:
     void SetUp() override {
-        versions_.reset(new VersionSet("tests/demo", Options{}));
+        table_cache_.reset(new TableCache("tests/demo", Env::Default(),
+                                          Factory::Default(), true));
+        versions_.reset(new VersionSet("tests/demo", Options{}, table_cache_.get()));
         versions_->column_families()->NewColumnFamily(ColumnFamilyOptions{},
                                                       "default", 0,
                                                       versions_.get());
@@ -20,6 +25,7 @@ public:
         versions_.reset();
     }
 
+    std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<VersionSet> versions_;
 };
 
@@ -107,7 +113,7 @@ TEST_F(VersionTest, LogAndApply) {
 }
 
 TEST_F(VersionTest, Recovery) {
-    VersionSet versions("tests/demo",  Options{});
+    VersionSet versions("tests/demo",  Options{}, table_cache_.get());
     std::map<std::string, ColumnFamilyOptions> opts;
     std::vector<uint64_t> logs;
 

@@ -47,6 +47,21 @@ public:
             read_size_ += n;
         }
     }
+    
+    static Error ReadAll(const std::string &file_name, std::string_view *result,
+                         std::string *scatch, Env *env) {
+        std::unique_ptr<RandomAccessFile> file;
+        Error rs = env->NewRandomAccessFile(file_name, &file);
+        if (!rs) {
+            return rs;
+        }
+        uint64_t file_size;
+        rs = file->GetFileSize(&file_size);
+        if (!rs) {
+            return rs;
+        }
+        return file->Read(0, file_size, result, scatch);
+    }
 
 private:
     bool ownership_;
@@ -116,6 +131,16 @@ public:
     }
     
     DEF_VAL_GETTER(size_t, written_size);
+    
+    static Error WriteAll(const std::string &file_name, std::string_view data,
+                          Env *env) {
+        std::unique_ptr<WritableFile> file;
+        Error rs = env->NewWritableFile(file_name, &file);
+        if (!rs) {
+            return rs;
+        }
+        return file->Append(data);
+    }
     
 private:
     bool ownership_;
