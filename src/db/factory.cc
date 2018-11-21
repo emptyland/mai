@@ -67,9 +67,8 @@ public:
     
 }; // class FactoryImpl
     
-/*static*/ Factory *Factory::Default() {
-    static FactoryImpl impl;
-    return &impl;
+/*static*/ Factory *Factory::NewDefault() {
+    return new FactoryImpl();
 }
     
 } // namespace db

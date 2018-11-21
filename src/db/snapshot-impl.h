@@ -19,6 +19,16 @@ public:
     
     DEF_VAL_GETTER(core::SequenceNumber, sequence_number);
     
+    static SnapshotImpl *Cast(Snapshot *s) {
+        if (!s) { return nullptr; }
+        return down_cast<SnapshotImpl>(s);
+    }
+    
+    static const SnapshotImpl *Cast(const Snapshot *s) {
+        if (!s) { return nullptr; }
+        return down_cast<const SnapshotImpl>(s);
+    }
+    
     friend class SnapshotList;
 private:
     core::SequenceNumber sequence_number_;

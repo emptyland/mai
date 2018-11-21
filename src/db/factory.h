@@ -37,7 +37,7 @@ public:
                     WritableFile *file, uint64_t block_size, int n_restart,
                     size_t max_hash_slots, base::hash_func_t hash_func) = 0;
     
-    static Factory *Default();
+    static Factory *NewDefault();
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Factory);
 }; // class Factory

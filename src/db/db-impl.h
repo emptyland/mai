@@ -41,6 +41,7 @@ public:
                       std::vector<ColumnFamily *> *result) override;
     virtual Error
     DropColumnFamilies(const std::vector<ColumnFamily *> &column_families) override;
+    virtual Error ReleaseColumnFamily(ColumnFamily *column_family) override;
     virtual Error
     GetAllColumnFamilies(std::vector<ColumnFamily *> *result) override;
     virtual Error Put(const WriteOptions &opts, ColumnFamily *cf,

@@ -14,6 +14,7 @@
 		231C61FB219AA9CF001A95C1 /* write-ahead-log.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */; };
 		2326A42B21A507590040BE53 /* key-boundle.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326A42A21A507590040BE53 /* key-boundle.cc */; };
 		2326A42C21A507590040BE53 /* key-boundle.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326A42A21A507590040BE53 /* key-boundle.cc */; };
+		2326A42E21A54A740040BE53 /* db-impl-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326A42D21A54A740040BE53 /* db-impl-test.cc */; };
 		232AA2312193D786007EF228 /* merging-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA2302193D786007EF228 /* merging-test.cc */; };
 		232AA2322193D786007EF228 /* merging-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA2302193D786007EF228 /* merging-test.cc */; };
 		232AA2352193E5E6007EF228 /* skip-list-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA2342193E5E5007EF228 /* skip-list-test.cc */; };
@@ -140,6 +141,7 @@
 		231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-ahead-log.cc"; sourceTree = "<group>"; };
 		2326A42921A3A1740040BE53 /* snapshot-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "snapshot-impl.h"; sourceTree = "<group>"; };
 		2326A42A21A507590040BE53 /* key-boundle.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "key-boundle.cc"; sourceTree = "<group>"; };
+		2326A42D21A54A740040BE53 /* db-impl-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "db-impl-test.cc"; path = "src/db/db-impl-test.cc"; sourceTree = "<group>"; };
 		232AA2302193D786007EF228 /* merging-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "merging-test.cc"; path = "src/core/merging-test.cc"; sourceTree = "<group>"; };
 		232AA2332193E506007EF228 /* skip-list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "skip-list.h"; sourceTree = "<group>"; };
 		232AA2342193E5E5007EF228 /* skip-list-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "skip-list-test.cc"; path = "src/core/skip-list-test.cc"; sourceTree = "<group>"; };
@@ -362,6 +364,7 @@
 				231C61F7219AA67C001A95C1 /* io-utils-test.cc */,
 				23F60614219C283E00CE12D9 /* files-test.cc */,
 				232E1E6D21A2578000F408D7 /* version-test.cc */,
+				2326A42D21A54A740040BE53 /* db-impl-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -611,6 +614,7 @@
 				23B0E1182189A71F00F9E855 /* file-test.cc in Sources */,
 				23B0E15F21903C1900F9E855 /* xhash-table-builder-test.cc in Sources */,
 				23B0E134218AFD4E00F9E855 /* crc32.c in Sources */,
+				2326A42E21A54A740040BE53 /* db-impl-test.cc in Sources */,
 				2326A42C21A507590040BE53 /* key-boundle.cc in Sources */,
 				23FB4B52219570CD00B2829B /* sst-table-builder-test.cc in Sources */,
 				23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */,

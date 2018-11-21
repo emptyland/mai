@@ -13,8 +13,9 @@ namespace db {
 class VersionTest : public ::testing::Test {
 public:
     void SetUp() override {
+        factory_.reset(Factory::NewDefault());
         table_cache_.reset(new TableCache("tests/demo", Env::Default(),
-                                          Factory::Default(), true));
+                                          factory_.get(), true));
         versions_.reset(new VersionSet("tests/demo", Options{}, table_cache_.get()));
         versions_->column_families()->NewColumnFamily(ColumnFamilyOptions{},
                                                       "default", 0,
@@ -25,6 +26,7 @@ public:
         versions_.reset();
     }
 
+    std::unique_ptr<Factory> factory_;
     std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<VersionSet> versions_;
 };

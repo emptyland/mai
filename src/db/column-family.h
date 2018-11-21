@@ -103,6 +103,11 @@ public:
     
     DEF_PTR_GETTER_NOTNULL(DBImpl, db);
     ColumnFamilyImpl *impl() const { return impl_.get(); }
+    
+    static ColumnFamilyHandle *Cast(ColumnFamily *cf) {
+        if (!cf) { return nullptr; }
+        return down_cast<ColumnFamilyHandle>(cf);
+    }
 private:
     DBImpl *const db_;
     base::Handle<ColumnFamilyImpl> impl_;

@@ -111,9 +111,13 @@ public:
                     return rs;
                 }
             }
-        }
-        if (::unlink(name.c_str()) < 0) {
-            return MAI_IO_ERROR(strerror(errno));
+            if (::rmdir(name.c_str()) < 0) {
+                return MAI_IO_ERROR(strerror(errno));
+            }
+        } else {
+            if (::unlink(name.c_str()) < 0) {
+                return MAI_IO_ERROR(strerror(errno));
+            }
         }
         return Error::OK();
     }

@@ -78,12 +78,12 @@ struct GetContext {
 DBImpl::DBImpl(const std::string &db_name, Env *env)
     : db_name_(db_name)
     , env_(DCHECK_NOTNULL(env))
-    , factory_(Factory::Default())
+    , factory_(Factory::NewDefault())
 {
 }
 
 DBImpl::~DBImpl() {
-    
+    default_cf_.reset(); // Release default column family handle first.
 }
     
 Error DBImpl::Open(const Options &opts,
@@ -184,7 +184,40 @@ Error DBImpl::Recovery(const Options &opts,
 DBImpl::NewColumnFamilies(const std::vector<std::string> &names,
                   const ColumnFamilyOptions &options,
                   std::vector<ColumnFamily *> *result) {
-    return MAI_NOT_SUPPORTED("TODO:");
+    DCHECK_NOTNULL(result)->clear();
+    
+    Error rs;
+    VersionPatch patch;
+    std::set<uint32_t> succ;
+    
+    // Locking versions---------------------------------------------------------
+    std::unique_lock<std::mutex> lock(mutex_);
+    for (const auto &name : names) {
+        if (versions_->column_families()->GetColumnFamily(name) != nullptr) {
+            rs = MAI_CORRUPTION("Duplicated column family name: " + name);
+            break;
+        }
+        
+        uint32_t new_id = versions_->column_families()->NextColumnFamilyId();
+        patch.AddColumnFamily(name, new_id, options.comparator->Name());
+        rs = versions_->LogAndApply(options, &patch, &mutex_);
+        if (!rs) {
+            break;
+        }
+        succ.insert(new_id);
+        patch.Reset();
+    }
+    for (uint32_t cfid : succ) {
+        ColumnFamilyImpl *cfd =
+            versions_->column_families()->GetColumnFamily(cfid);
+        Error install_rs = cfd->Install(factory_.get(), env_);
+        if (install_rs.ok()) {
+            ColumnFamily *handle = new ColumnFamilyHandle(this, DCHECK_NOTNULL(cfd));
+            result->push_back(handle);
+        }
+    }
+    return rs;
+    // Unlocking versions-------------------------------------------------------
 }
     
 /*virtual*/ Error
@@ -192,9 +225,32 @@ DBImpl::DropColumnFamilies(const std::vector<ColumnFamily *> &column_families) {
     return MAI_NOT_SUPPORTED("TODO:");
 }
     
+/*virtual*/ Error DBImpl::ReleaseColumnFamily(ColumnFamily *cf) {
+    if (cf == nullptr) {
+        return Error::OK();
+    }
+    ColumnFamilyHandle *handle = ColumnFamilyHandle::Cast(cf);
+    if (this != handle->db()) {
+        return MAI_CORRUPTION("Use difference db column family.");
+    }
+    delete handle;
+    return Error::OK();
+}
+    
 /*virtual*/ Error
 DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
-    return MAI_NOT_SUPPORTED("TODO:");
+    DCHECK_NOTNULL(result)->clear();
+    
+    // Locking versions---------------------------------------------------------
+    std::unique_lock<std::mutex> lock(mutex_);
+    for (auto impl : *versions_->column_families()) {
+        if (!impl->IsDropped()) { // No dropped!
+            ColumnFamily *handle = new ColumnFamilyHandle(this, impl);
+            result->push_back(handle);
+        }
+    }
+    return Error::OK();
+    // Unlocking versions-------------------------------------------------------
 }
     
 /*virtual*/ Error DBImpl::Put(const WriteOptions &opts, ColumnFamily *cf,
@@ -302,7 +358,7 @@ Error DBImpl::PrepareForGet(const ReadOptions &opts, ColumnFamily *cf,
     if (cf == nullptr) {
         return MAI_CORRUPTION("NULL column family.");
     }
-    ColumnFamilyHandle *handle = static_cast<ColumnFamilyHandle *>(cf);
+    ColumnFamilyHandle *handle = ColumnFamilyHandle::Cast(cf);
     if (this != handle->db()) {
         return MAI_CORRUPTION("Use difference db column family.");
     }
@@ -315,7 +371,7 @@ Error DBImpl::PrepareForGet(const ReadOptions &opts, ColumnFamily *cf,
     mutex_.lock(); // Locking versions------------------------------------------
     if (opts.snapshot) {
         last_sequence_number =
-            static_cast<const SnapshotImpl *>(opts.snapshot)->sequence_number();
+            SnapshotImpl::Cast(opts.snapshot)->sequence_number();
     } else {
         last_sequence_number = versions_->last_sequence_number();
     }
@@ -378,7 +434,8 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
 }
     
 Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cf, bool force) {
-    return MAI_NOT_SUPPORTED("TODO:");
+    // TODO:
+    return Error::OK();
 }
     
 } // namespace db
