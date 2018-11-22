@@ -29,10 +29,10 @@ void WriteBatch::Delete(ColumnFamily *cf, std::string_view key) {
     const char *p = buf, *const end = p + len;
     while (p < end) {
         Tag::Flag flag = static_cast<Tag::Flag>(*p++);
-        uint32_t  cfid = *reinterpret_cast<const uint32_t *>(p);
-        p += 4;
-        
         size_t varint_len;
+        uint32_t cfid = Varint32::Decode(p, &varint_len);
+        p += varint_len;
+
         size_t key_size = Varint64::Decode(p, &varint_len);
         p += varint_len;
         std::string_view key(p, key_size);
@@ -45,7 +45,7 @@ void WriteBatch::Delete(ColumnFamily *cf, std::string_view key) {
                 value_size = Varint64::Decode(p, &varint_len);
                 p += varint_len;
                 value = std::string_view(p, value_size);
-                p += varint_len;
+                p += value_size;
                 handler->Put(cfid, key, value);
                 break;
                 

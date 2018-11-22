@@ -27,9 +27,12 @@ private:
     MemSequentialFilePosix(int fd, uint64_t file_size, char *mapped_mem)
         : fd_(fd)
         , file_size_(file_size)
-        , mapped_mem_(DCHECK_NOTNULL(mapped_mem))
+        , mapped_mem_(mapped_mem)
         , position_(0) {
         DCHECK_GE(fd_, 0);
+        if (file_size > 0) {
+            DCHECK_NOTNULL(mapped_mem_);
+        }
     }
 
     int fd_ = -1;
@@ -42,7 +45,7 @@ class WritableFilePosix final : public WritableFile {
 public:
     virtual ~WritableFilePosix();
     
-    static Error Open(const std::string &file_name,
+    static Error Open(const std::string &file_name, bool append,
                       std::unique_ptr<WritableFile> *file);
     
     virtual Error Append(std::string_view data) override;

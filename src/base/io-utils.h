@@ -48,8 +48,8 @@ public:
         }
     }
     
-    static Error ReadAll(const std::string &file_name, std::string_view *result,
-                         std::string *scatch, Env *env) {
+    static Error ReadAll(const std::string &file_name, std::string *result,
+                         Env *env) {
         std::unique_ptr<RandomAccessFile> file;
         Error rs = env->NewRandomAccessFile(file_name, &file);
         if (!rs) {
@@ -60,7 +60,13 @@ public:
         if (!rs) {
             return rs;
         }
-        return file->Read(0, file_size, result, scatch);
+        std::string_view slice;
+        rs = file->Read(0, file_size, &slice, result);
+        if (!rs) {
+            return rs;
+        }
+        result->assign(slice);
+        return Error::OK();
     }
 
 private:
@@ -135,7 +141,7 @@ public:
     static Error WriteAll(const std::string &file_name, std::string_view data,
                           Env *env) {
         std::unique_ptr<WritableFile> file;
-        Error rs = env->NewWritableFile(file_name, &file);
+        Error rs = env->NewWritableFile(file_name, false, &file);
         if (!rs) {
             return rs;
         }

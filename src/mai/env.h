@@ -22,14 +22,15 @@ public:
     
     virtual Error NewSequentialFile(const std::string &file_name,
                                     std::unique_ptr<SequentialFile> *file,
-                                    bool mem_file = true) = 0;
+                                    bool use_mmap = true) = 0;
     
     virtual Error NewWritableFile(const std::string &file_name,
+                                  bool append,
                                   std::unique_ptr<WritableFile> *file) = 0;
     
     virtual Error NewRandomAccessFile(const std::string &file_name,
                                       std::unique_ptr<RandomAccessFile> *file,
-                                      bool mem_file = true) = 0;
+                                      bool usd_mmap = true) = 0;
     
     virtual Error MakeDirectory(const std::string &name,
                                 bool create_if_missing) = 0;
@@ -39,7 +40,11 @@ public:
     virtual Error GetChildren(const std::string &dir_name,
                               std::vector<std::string> *children) = 0;
     
-    virtual Error DeleteFile(const std::string &name, bool force) = 0;
+    virtual Error DeleteFile(const std::string &name, bool recursive) = 0;
+    
+    virtual std::string GetWorkDirectory() = 0;
+    
+    virtual std::string GetAbsolutePath(const std::string &file_name) = 0;
     
 }; // class Env
     

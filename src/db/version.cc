@@ -472,7 +472,7 @@ Error VersionSet::CreateManifestFile() {
     manifest_file_number_ = GenerateFileNumber();
     std::string file_name = Files::ManifestFileName(db_name_,
                                                     manifest_file_number_);
-    Error rs = env_->NewWritableFile(file_name, &log_file_);
+    Error rs = env_->NewWritableFile(file_name, true, &log_file_);
     if (!rs) {
         return rs;
     }

@@ -5,7 +5,8 @@ namespace mai {
     
 TEST(WritableFileTest, Sanity) {
     std::unique_ptr<WritableFile> file;
-    auto rv = Env::Default()->NewWritableFile("tests/00-writable-file.tmp", &file);
+    auto rv = Env::Default()->NewWritableFile("tests/00-writable-file.tmp",
+                                              false, &file);
     ASSERT_TRUE(rv.ok()) << rv.ToString();
     
     rv = file->Append("Hello, World!\n");
@@ -19,7 +20,8 @@ TEST(WritableFileTest, Sanity) {
 
 TEST(RandomAccessFileTest, Sanity) {
     std::unique_ptr<WritableFile> wf;
-    auto rv = Env::Default()->NewWritableFile("tests/01-random-access-file.tmp", &wf);
+    auto rv = Env::Default()->NewWritableFile("tests/01-random-access-file.tmp",
+                                              false, &wf);
     ASSERT_TRUE(rv.ok()) << rv.ToString();
     
     rv = wf->Append("Hello, World!\n");
@@ -27,7 +29,8 @@ TEST(RandomAccessFileTest, Sanity) {
     wf.reset();
     
     std::unique_ptr<RandomAccessFile> rf;
-    rv = Env::Default()->NewRandomAccessFile("tests/01-random-access-file.tmp", &rf);
+    rv = Env::Default()->NewRandomAccessFile("tests/01-random-access-file.tmp",
+                                             &rf);
     ASSERT_TRUE(rv.ok()) << rv.ToString();
     
     std::string_view data;

@@ -62,7 +62,7 @@ public:
                     const std::string &file_name,
                     TableBuilderFactory factory) {
         std::unique_ptr<WritableFile> file;
-        auto rs = env_->NewWritableFile(file_name, &file);
+        auto rs = env_->NewWritableFile(file_name, false, &file);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
         
         file->Truncate(0);

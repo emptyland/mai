@@ -29,8 +29,9 @@ namespace port {
     }
 }
     
-/*static*/ Error MemSequentialFilePosix::Open(const std::string &file_name,
-                                              std::unique_ptr<SequentialFile> *file) {
+/*static*/ Error
+MemSequentialFilePosix::Open(const std::string &file_name,
+                             std::unique_ptr<SequentialFile> *file) {
     int fd = ::open(file_name.c_str(), O_RDONLY);
     if (fd < 0) {
         return MAI_IO_ERROR(strerror(errno));
@@ -40,6 +41,10 @@ namespace port {
     if (::fstat(fd, &s) < 0) {
         close(fd);
         return MAI_IO_ERROR(strerror(errno));
+    }
+    if (s.st_size == 0) {
+        file->reset(new MemSequentialFilePosix(fd, s.st_size, nullptr));
+        return Error::OK();
     }
     
     void *mapped = ::mmap(nullptr, s.st_size, PROT_READ, MAP_FILE|MAP_PRIVATE,
@@ -104,9 +109,15 @@ namespace port {
     fd_ = -1;
 }
 
-/*static*/ Error WritableFilePosix::Open(const std::string &file_name,
-                                         std::unique_ptr<WritableFile> *file) {
-    int fd = ::open(file_name.c_str(), O_WRONLY|O_CREAT,
+/*static*/ Error
+WritableFilePosix::Open(const std::string &file_name, bool append,
+                        std::unique_ptr<WritableFile> *file) {
+    int flags = O_WRONLY|O_CREAT;
+    if (append) {
+        flags |= O_APPEND;
+    }
+    
+    int fd = ::open(file_name.c_str(), flags,
                     S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
     if (fd < 0) {
         return MAI_IO_ERROR(strerror(errno));

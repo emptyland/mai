@@ -57,6 +57,8 @@ public:
     virtual void ReleaseSnapshot(const Snapshot *snapshot) override;
     virtual ColumnFamily *DefaultColumnFamily() override;
     
+    Error Redo(uint64_t log_file_number,
+               core::SequenceNumber last_sequence_number);
     DISALLOW_IMPLICIT_CONSTRUCTORS(DBImpl);
 private:
     Error PrepareForGet(const ReadOptions &opts, ColumnFamily *cf,
@@ -64,8 +66,12 @@ private:
     Error Write(const WriteOptions &opts, ColumnFamily *cf,
                 std::string_view key, std::string_view value, uint8_t flag);
     Error MakeRoomForWrite(ColumnFamilyImpl *cf, bool force);
+    Error InternalNewColumnFamily(const std::string &name,
+                                  const ColumnFamilyOptions &opts,
+                                  uint32_t *cfid);
     
     const std::string db_name_;
+    const std::string abs_db_path_;
     Env *const env_;
     
     SnapshotList snapshots_;

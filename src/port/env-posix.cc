@@ -1,5 +1,6 @@
 #include "port/file-posix.h"
 #include <sys/stat.h>
+#include <sys/param.h>
 #include <dirent.h>
 
 namespace mai {
@@ -21,9 +22,9 @@ public:
         }
     }
     
-    virtual Error NewWritableFile(const std::string &file_name,
+    virtual Error NewWritableFile(const std::string &file_name, bool append,
                                   std::unique_ptr<WritableFile> *file) override {
-        return WritableFilePosix::Open(file_name, file);
+        return WritableFilePosix::Open(file_name, append, file);
     }
     
     virtual Error NewRandomAccessFile(const std::string &file_name,
@@ -87,8 +88,8 @@ public:
         return Error::OK();
     }
     
-    virtual Error DeleteFile(const std::string &name, bool force) override {
-        if (!force) {
+    virtual Error DeleteFile(const std::string &name, bool recursive) override {
+        if (!recursive) {
             if (::unlink(name.c_str()) < 0) {
                 return MAI_IO_ERROR(strerror(errno));
             }
@@ -120,6 +121,18 @@ public:
             }
         }
         return Error::OK();
+    }
+    
+    virtual std::string GetWorkDirectory() override {
+        char dir[MAXPATHLEN];
+        return ::getcwd(dir, arraysize(dir));
+    }
+    
+    virtual std::string GetAbsolutePath(const std::string &file_name) override {
+        if (file_name.empty() || file_name[0] == '/') {
+            return file_name;
+        }
+        return GetWorkDirectory() + "/" + file_name;
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(EnvPosix);

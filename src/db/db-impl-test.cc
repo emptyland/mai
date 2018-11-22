@@ -34,6 +34,8 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/02-db-add-err-cfs",
     "tests/03-db-mem-put-key",
     "tests/04-db-all-cfs",
+    "tests/05-db-recovery-manifest",
+    "tests/06-db-recovery-data",
     nullptr,
 };
     
@@ -147,6 +149,75 @@ TEST_F(DBImplTest, AllColumnFamilies) {
     EXPECT_EQ(4, cfs.size());
     EXPECT_EQ(0, cfs[0]->id());
     EXPECT_EQ("default", cfs[0]->name());
+    
+    for (auto cf : cfs) {
+        impl->ReleaseColumnFamily(cf);
+    }
+}
+    
+TEST_F(DBImplTest, RecoveryManifest) {
+    std::vector<ColumnFamily *> cfs;
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[5], env_));
+    
+    Options opts;
+    opts.create_if_missing = true;
+    Error rs = impl->Open(opts, descs_, &cfs);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    for (auto cf : cfs) {
+        impl->ReleaseColumnFamily(cf);
+    }
+    
+    impl.reset(new DBImpl(tmp_dirs[5], env_));
+    rs = impl->Open(opts, descs_, &cfs);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ(1, cfs.size());
+    ASSERT_EQ(0, cfs[0]->id());
+    ASSERT_EQ(kDefaultColumnFamilyName, cfs[0]->name());
+    
+    for (auto cf : cfs) {
+        impl->ReleaseColumnFamily(cf);
+    }
+}
+    
+TEST_F(DBImplTest, RecoveryData) {
+    std::vector<ColumnFamily *> cfs;
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[5], env_));
+    
+    Options opts;
+    opts.create_if_missing = true;
+    Error rs = impl->Open(opts, descs_, &cfs);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    auto cf0 = cfs[0];
+    
+    WriteOptions wr_opts;
+    rs = impl->Put(wr_opts, cf0, "aaaa", "100");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    rs = impl->Put(wr_opts, cf0, "bbbb", "200");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    rs = impl->Put(wr_opts, cf0, "cccc", "300");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    rs = impl->Put(wr_opts, cf0, "dddd", "400");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    rs = impl->Put(wr_opts, cf0, "eeee", "500");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    for (auto cf : cfs) {
+        impl->ReleaseColumnFamily(cf);
+    }
+    
+    impl.reset(new DBImpl(tmp_dirs[5], env_));
+    rs = impl->Open(opts, descs_, &cfs);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    cf0 = cfs[0];
+    
+    std::string value;
+    ReadOptions rd_opts;
+    rs = impl->Get(rd_opts, cf0, "aaaa", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("100", value);
+    rs = impl->Get(rd_opts, cf0, "eeee", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("500", value);
     
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);

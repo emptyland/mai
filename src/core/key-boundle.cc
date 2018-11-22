@@ -14,12 +14,12 @@ namespace core {
     ScopedMemory scope;
     redo->append(1, flag);
     
-    redo->append(Slice::GetU32(cfid, &scope));
-    redo->append(Slice::GetU64(key.size(), &scope));
+    redo->append(Slice::GetV32(cfid, &scope));
+    redo->append(Slice::GetV64(key.size(), &scope));
     redo->append(key);
     
     if (flag != Tag::kFlagDeletion) {
-        redo->append(Slice::GetU64(value.size(), &scope));
+        redo->append(Slice::GetV64(value.size(), &scope));
         redo->append(value);
     }
 }

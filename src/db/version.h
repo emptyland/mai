@@ -255,6 +255,7 @@ public:
     ~VersionSet();
     
     DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
+    DEF_VAL_GETTER(uint64_t, redo_log_number);
     
     core::SequenceNumber AddSequenceNumber(core::SequenceNumber add) {
         last_sequence_number_ += add;

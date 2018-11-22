@@ -51,7 +51,7 @@ public:
     void BuildTable(const std::map<std::string, std::string> &kvs,
                     const std::string &file_name) {
         std::unique_ptr<WritableFile> file;
-        auto rs = env_->NewWritableFile(file_name, &file);
+        auto rs = env_->NewWritableFile(file_name, false, &file);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
         
         file->Truncate(0);
@@ -68,7 +68,7 @@ public:
     void BuildTable(const std::vector<std::string> &kvs,
                     const std::string &file_name) {
         std::unique_ptr<WritableFile> file;
-        auto rs = env_->NewWritableFile(file_name, &file);
+        auto rs = env_->NewWritableFile(file_name, false, &file);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
         
         file->Truncate(0);

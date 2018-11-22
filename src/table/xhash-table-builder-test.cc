@@ -36,7 +36,7 @@ public:
     void BuildTable(const std::vector<std::string> &kvs,
                     const std::string &file_name) {
         std::unique_ptr<WritableFile> file;
-        auto rs = env_->NewWritableFile(file_name, &file);
+        auto rs = env_->NewWritableFile(file_name, false, &file);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
         
         file->Truncate(0);
@@ -61,7 +61,7 @@ public:
 TEST_F(XhashTableBuilderTest, Sanity) {
 
     std::unique_ptr<WritableFile> file;
-    auto rs = env_->NewWritableFile("tests/03-xhash-table-file.tmp", &file);
+    auto rs = env_->NewWritableFile("tests/03-xhash-table-file.tmp", false, &file);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     file->Truncate(0);
@@ -82,7 +82,8 @@ TEST_F(XhashTableBuilderTest, Sanity) {
 TEST_F(XhashTableBuilderTest, KeyReplaced) {
     
     std::unique_ptr<WritableFile> file;
-    auto rs = env_->NewWritableFile("tests/04-xhash-table-key-replaced.tmp", &file);
+    auto rs = env_->NewWritableFile("tests/04-xhash-table-key-replaced.tmp",
+                                    false, &file);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     file->Truncate(0);
