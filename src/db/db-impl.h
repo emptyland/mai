@@ -39,13 +39,11 @@ public:
     
     Error Recovery(const Options &opts,
                    const std::vector<ColumnFamilyDescriptor> &desc);
-    
-    virtual Error
-    NewColumnFamilies(const std::vector<std::string> &names,
-                      const ColumnFamilyOptions &options,
-                      std::vector<ColumnFamily *> *result) override;
-    virtual Error
-    DropColumnFamilies(const std::vector<ColumnFamily *> &column_families) override;
+
+    virtual Error NewColumnFamily(const std::string &name,
+                                  const ColumnFamilyOptions &options,
+                                  ColumnFamily **result) override;
+    virtual Error DropColumnFamily(ColumnFamily *column_family) override;
     virtual Error ReleaseColumnFamily(ColumnFamily *column_family) override;
     virtual Error
     GetAllColumnFamilies(std::vector<ColumnFamily *> *result) override;

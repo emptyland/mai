@@ -59,10 +59,16 @@ public:
     
     virtual Error NewColumnFamilies(const std::vector<std::string> &names,
                                     const ColumnFamilyOptions &options,
-                                    std::vector<ColumnFamily *> *result) = 0;
+                                    std::vector<ColumnFamily *> *result);
+    
+    virtual Error NewColumnFamily(const std::string &name,
+                                  const ColumnFamilyOptions &options,
+                                  ColumnFamily **result) = 0;
     
     virtual Error
-    DropColumnFamilies(const std::vector<ColumnFamily *> &column_families) = 0;
+    DropColumnFamilies(const std::vector<ColumnFamily *> &column_families);
+    
+    virtual Error DropColumnFamily(ColumnFamily *column_family) = 0;
     
     virtual Error ReleaseColumnFamily(ColumnFamily *column_family) = 0;
     

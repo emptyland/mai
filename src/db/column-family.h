@@ -48,12 +48,13 @@ public:
     int ref_count() const { return ref_count_.load(std::memory_order_relaxed); }
     
     Error Install(Factory *factory, Env *env);
+    Error Uninstall(Env *env);
     
     std::string GetDir() const;
     std::string GetTableFileName(uint64_t file_number) const;
     
-    void SetDropped();
-    bool IsDropped() const { return dropped_.load(); }
+    void Drop();
+    bool dropped() const { return dropped_.load(); }
     
     Error AddIterators(const ReadOptions &opts, std::vector<Iterator *> *result);
     

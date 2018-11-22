@@ -36,6 +36,8 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/04-db-all-cfs",
     "tests/05-db-recovery-manifest",
     "tests/06-db-recovery-data",
+    // 07
+    "tests/08-db-drop-cfs",
     nullptr,
 };
     
@@ -254,6 +256,31 @@ TEST_F(DBImplTest, WriteLevel0Table) {
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
     }
+}
+
+TEST_F(DBImplTest, DropColumnFamily) {
+    std::vector<ColumnFamily *> cfs;
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[7], env_));
+    
+    Options opts;
+    opts.create_if_missing = true;
+    std::vector<ColumnFamilyDescriptor> descs = {
+        {kDefaultColumnFamilyName, ColumnFamilyOptions{}},
+        {"cf1", ColumnFamilyOptions{}}
+    };
+    Error rs = impl->Open(opts, descs, &cfs);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    auto cf0 = cfs[0];
+    auto cf1 = cfs[1];
+    
+    rs = impl->DropColumnFamily(cf0);
+    ASSERT_TRUE(rs.fail());
+    ASSERT_TRUE(rs.IsCorruption());
+    
+    rs = impl->DropColumnFamily(cf1);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    impl->ReleaseColumnFamily(cf0);
 }
     
 } // namespace db

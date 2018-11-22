@@ -380,6 +380,13 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
                                               patch.cf_creation().name,
                                               patch.cf_creation().cfid, this);
         }
+        if (patch.has_drop_column_family()) {
+            uint32_t id = patch.cf_deletion();
+            DCHECK_NE(0, id);
+            ColumnFamilyImpl *cfd = column_families_->GetColumnFamily(id);
+            DCHECK_NOTNULL(cfd);
+            cfd->Drop();
+        }
         if (patch.has_deletion() || patch.has_creation()) {
             VersionBuilder builder(this);
             builder.Prepare(patch);
@@ -439,7 +446,11 @@ Error VersionSet::LogAndApply(const ColumnFamilyOptions &cf_opts,
     }
     
     if (patch->has_drop_column_family()) {
-        // TODO:
+        uint32_t id = patch->cf_deletion();
+        DCHECK_NE(0, id);
+        ColumnFamilyImpl *cfd = column_families_->GetColumnFamily(id);
+        DCHECK_NOTNULL(cfd);
+        cfd->Drop();
     }
     
     if (log_file_.get() == nullptr) {

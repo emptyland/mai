@@ -125,7 +125,7 @@ DBImpl::~DBImpl() {
     
 Error DBImpl::Open(const Options &opts,
                    const std::vector<ColumnFamilyDescriptor> &desc,
-                   std::vector<ColumnFamily *> *column_families) {
+                   std::vector<ColumnFamily *> *result) {
     Error rs;
 
     rs = env_->FileExists(Files::CurrentFileName(db_name_));
@@ -140,18 +140,18 @@ Error DBImpl::Open(const Options &opts,
         }
         rs = Recovery(opts, desc);
     }
-    if (rs.ok()) {
-        DCHECK_NOTNULL(column_families)->clear();
+    if (rs.ok() && result) {
+        ColumnFamilySet *column_familes = versions_->column_families();
+        
+        result->clear();
         for (const auto &d : desc) {
-            ColumnFamilyImpl *impl =
-                versions_->column_families()->GetColumnFamily(d.name);
-            DCHECK_NOTNULL(impl);
-            column_families->push_back(new ColumnFamilyHandle(this, impl));
+            ColumnFamilyImpl *cfd = column_familes->GetColumnFamily(d.name);
+            DCHECK_NOTNULL(cfd);
+            result->push_back(new ColumnFamilyHandle(this, cfd));
         }
-        ColumnFamily *handle =
-            new ColumnFamilyHandle(this,
-                                   versions_->column_families()->GetDefault());
-        default_cf_.reset(handle);
+        ColumnFamily *cf =
+            new ColumnFamilyHandle(this, column_familes->GetDefault());
+        default_cf_.reset(cf);
     }
     return rs;
 }
@@ -200,8 +200,7 @@ Error DBImpl::NewDB(const Options &opts,
             continue;
         }
         uint32_t cfid = versions_->column_families()->NextColumnFamilyId();
-        versions_->column_families()->NewColumnFamily(opt.second,
-                                                      kDefaultColumnFamilyName,
+        versions_->column_families()->NewColumnFamily(opt.second, opt.first,
                                                       cfid, versions_.get());
     }
     for (ColumnFamilyImpl *impl : *versions_->column_families()) {
@@ -287,43 +286,58 @@ Error DBImpl::Recovery(const Options &opts,
     
     return Error::OK();
 }
-
-/*virtual*/ Error
-DBImpl::NewColumnFamilies(const std::vector<std::string> &names,
-                  const ColumnFamilyOptions &options,
-                  std::vector<ColumnFamily *> *result) {
-    DCHECK_NOTNULL(result)->clear();
     
-    Error rs;
-    VersionPatch patch;
-    std::set<uint32_t> succ;
-    
+/*virtual*/ Error DBImpl::NewColumnFamily(const std::string &name,
+                                          const ColumnFamilyOptions &options,
+                                          ColumnFamily **result) {
     // Locking versions---------------------------------------------------------
     std::unique_lock<std::mutex> lock(mutex_);
-    for (const auto &name : names) {
-        uint32_t cfid;
-        rs = InternalNewColumnFamily(name, options, &cfid);
-        if (!rs) {
-            break;
-        }
-        succ.insert(cfid);
+    uint32_t cfid;
+    Error rs = InternalNewColumnFamily(name, options, &cfid);
+    if (!rs) {
+        return rs;
     }
-    for (uint32_t cfid : succ) {
-        ColumnFamilyImpl *cfd =
-            versions_->column_families()->GetColumnFamily(cfid);
-        Error install_rs = cfd->Install(factory_.get(), env_);
-        if (install_rs.ok()) {
-            ColumnFamily *handle = new ColumnFamilyHandle(this, DCHECK_NOTNULL(cfd));
-            result->push_back(handle);
-        }
-    }
+    ColumnFamilySet *cfs = versions_->column_families();
+    *result = new ColumnFamilyHandle(this,
+                                     DCHECK_NOTNULL(cfs->GetColumnFamily(cfid)));
     return rs;
     // Unlocking versions-------------------------------------------------------
 }
     
-/*virtual*/ Error
-DBImpl::DropColumnFamilies(const std::vector<ColumnFamily *> &column_families) {
-    return MAI_NOT_SUPPORTED("TODO:");
+/*virtual*/ Error DBImpl::DropColumnFamily(ColumnFamily *cf) {
+    if (!cf) {
+        return MAI_CORRUPTION("NULL column family.");
+    }
+    if (cf->id() == 0) { // TODO: focre delete default column family.
+        return MAI_CORRUPTION("default column family can no be delete.");
+    }
+    ColumnFamilyHandle *handle = ColumnFamilyHandle::Cast(cf);
+    if (this != handle->db()) {
+        return MAI_CORRUPTION("Use difference db column family.");
+    }
+    ColumnFamilyImpl *cfd = handle->impl();
+    if (cfd->dropped()) {
+        return MAI_CORRUPTION("Column family has been dropped.");
+    }
+    
+    std::unique_lock<std::mutex> lock(mutex_);
+    while (cfd->background_progress()) {
+        // Waiting for all background progress done
+        cfd->mutable_background_cv()->wait(lock);
+    }
+    VersionPatch patch;
+    patch.DropColumnFamily(cfd->id());
+    Error rs = versions_->LogAndApply(cfd->options(), &patch, &mutex_);
+    if (!rs) {
+        return rs;
+    }
+    rs = cfd->Uninstall(env_);
+    if (!rs) {
+        return rs;
+    }
+    
+    delete handle;
+    return Error::OK();
 }
     
 /*virtual*/ Error DBImpl::ReleaseColumnFamily(ColumnFamily *cf) {
@@ -345,7 +359,7 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     // Locking versions---------------------------------------------------------
     std::unique_lock<std::mutex> lock(mutex_);
     for (auto impl : *versions_->column_families()) {
-        if (!impl->IsDropped()) { // No dropped!
+        if (!impl->dropped()) { // No dropped!
             ColumnFamily *handle = new ColumnFamilyHandle(this, impl);
             result->push_back(handle);
         }
@@ -527,7 +541,7 @@ Error DBImpl::PrepareForGet(const ReadOptions &opts, ColumnFamily *cf,
         return MAI_CORRUPTION("Use difference db column family.");
     }
     ctx->cfd = handle->impl();
-    if (ctx->cfd->IsDropped()) {
+    if (ctx->cfd->dropped()) {
         return MAI_CORRUPTION("Column family has been dropped.");
     }
     
@@ -557,7 +571,7 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
         return MAI_CORRUPTION("Use difference db column family.");
     }
     ColumnFamilyImpl *cfd = handle->impl();
-    if (cfd->IsDropped()) {
+    if (cfd->dropped()) {
         return MAI_CORRUPTION("Column family has been dropped.");
     }
     
@@ -742,7 +756,7 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
     LOG(INFO) << "Level0 table compaction start, target file number: "
               << fmd->number;
     
-    mutex_.unlock(); // DB lock no need ----------------------------------------
+    mutex_.unlock(); // Do not need DB lock -------------------------------------
     
     std::unique_ptr<WritableFile> file;
     std::string table_file_name = current->owns()->GetTableFileName(fmd->number);
@@ -786,7 +800,65 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
 }
     
 void DBImpl::DeleteObsoleteFiles(ColumnFamilyImpl *cfd) {
-    // TODO:
+    std::vector<std::string> children;
+    
+    Error rs = env_->GetChildren(abs_db_path_, &children);
+    if (!rs) {
+        DLOG(ERROR) << "Can not get children, cause: " << rs.ToString();
+        return;
+    }
+    
+    std::map<uint64_t, std::string> cleanup;
+    for (const auto &name : children) {
+        uint64_t number;
+        Files::Kind kind;
+        std::tie(kind, number) = Files::ParseName(name);
+        switch (kind) {
+            case Files::kLog:
+            case Files::kManifest:
+                cleanup[number] = abs_db_path_ + "/" + name;
+                break;
+                
+            default:
+                break;
+        }
+    }
+    cleanup.erase(log_file_number_);
+    cleanup.erase(versions_->redo_log_number());
+    cleanup.erase(versions_->manifest_file_number());
+    
+    rs = env_->GetChildren(cfd->GetDir(), &children);
+    for (const auto &name : children) {
+        uint64_t number;
+        Files::Kind kind;
+        std::tie(kind, number) = Files::ParseName(name);
+        switch (kind) {
+            case Files::kSST_Table:
+            case Files::kS1T_Table:
+            case Files::kXMT_Table:
+                cleanup[number] = cfd->GetDir() + "/" + name;
+                break;
+
+            default:
+                break;
+        }
+    }
+    for (int i = 0; i < kMaxLevel; ++i) {
+        for (auto fmd : cfd->current()->level_files(i)) {
+            cleanup.erase(fmd->number);
+        }
+    }
+    
+    for (const auto &pair : cleanup) {
+        rs = env_->DeleteFile(pair.second, false);
+        if (!rs) {
+            DLOG(ERROR) << "Delete obsolete file: " << pair.second << " fail!"
+                        << " cause: " << rs.ToString();
+        } else {
+            DLOG(INFO) << "Delete obsolete file: " << pair.second;
+        }
+        table_cache_->Invalidate(pair.first);
+    }
 }
     
 } // namespace db
@@ -809,6 +881,38 @@ const char kDefaultColumnFamilyName[] = "default";
     
     *result = impl;
     return Error::OK();
+}
+    
+/*virtual*/ Error
+DB::NewColumnFamilies(const std::vector<std::string> &names,
+                      const ColumnFamilyOptions &options,
+                      std::vector<ColumnFamily *> *result) {
+    DCHECK_NOTNULL(result)->clear();
+    Error rs;
+    for (const std::string &name : names) {
+        ColumnFamily *cf;
+        rs = NewColumnFamily(name, options, &cf);
+        if (!rs) {
+            for (auto handle : *result) {
+                ReleaseColumnFamily(handle);
+            }
+            break;
+        }
+        result->push_back(cf);
+    }
+    return rs;
+}
+    
+/*virtual*/ Error
+DB::DropColumnFamilies(const std::vector<ColumnFamily *> &column_families) {
+    Error rs;
+    for (auto cf : column_families) {
+        rs = ReleaseColumnFamily(cf);
+        if (!rs) {
+            break;
+        }
+    }
+    return rs;
 }
     
 } // namespace mai

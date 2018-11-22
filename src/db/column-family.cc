@@ -55,7 +55,7 @@ ColumnFamilyImpl::ColumnFamilyImpl(const std::string &name, uint32_t id,
     // TODO:
 }
     
-void ColumnFamilyImpl::SetDropped() {
+void ColumnFamilyImpl::Drop() {
     DCHECK_NE(id_, 0) << "Can not drop default column family!";
     dropped_ = true;
     
@@ -91,6 +91,20 @@ Error ColumnFamilyImpl::Install(Factory *factory, Env *env) {
     }
     
     initialized_ = true;
+    return Error::OK();
+}
+    
+Error ColumnFamilyImpl::Uninstall(Env *env) {
+    DCHECK(initialized());
+    DCHECK(!background_progress());
+    DCHECK(dropped());
+    
+    std::string cfdir = GetDir();
+    Error rs = env->DeleteFile(cfdir, true);
+    if (!rs) {
+        return rs;
+    }
+    initialized_ = false;
     return Error::OK();
 }
 
@@ -145,7 +159,7 @@ Error ColumnFamilyImpl::AddIterators(const ReadOptions &opts,
     
 /*virtual*/ Error
 ColumnFamilyHandle::GetDescriptor(ColumnFamilyDescriptor *desc) const {
-    if (impl_->IsDropped()) {
+    if (impl_->dropped()) {
         return MAI_CORRUPTION("Column family has dropped!");
     }
     desc->name    = impl_->name();

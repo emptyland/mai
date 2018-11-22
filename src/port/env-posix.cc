@@ -68,7 +68,7 @@ public:
         if (!d) {
             return MAI_IO_ERROR(strerror(errno));
         }
-        children->clear();
+        DCHECK_NOTNULL(children)->clear();
         struct dirent entry, *e;
         int rv = 0;
         while ((rv = ::readdir_r(d, &entry, &e)) == 0 && e != nullptr) {

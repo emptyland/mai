@@ -50,6 +50,8 @@ public:
     Error GetFileMetadata(const ColumnFamilyImpl *cf, uint64_t file_number,
                           FileMetadata *fmd);
     
+    void Invalidate(uint64_t file_number) { cached_.erase(file_number); }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(TableCache);
 private:
     struct Entry : public base::ReferenceCounted<Entry> {
