@@ -4,6 +4,7 @@
 #include "table/table-reader.h"
 #include "base/base.h"
 #include "base/reference-count.h"
+#include "mai/options.h"
 #include "mai/error.h"
 #include "glog/logging.h"
 #include <string>
@@ -29,12 +30,12 @@ class Factory;
     
 class TableCache final {
 public:
-    TableCache(const std::string &db_name, Env *env, Factory *factory,
-               bool allow_mmap_reads)
-        : db_name_(db_name)
-        , env_(DCHECK_NOTNULL(env))
+    TableCache(const std::string &abs_db_path, const Options &opts,
+               Factory *factory)
+        : abs_db_path_(abs_db_path)
+        , env_(DCHECK_NOTNULL(opts.env))
         , factory_(DCHECK_NOTNULL(factory))
-        , allow_mmap_reads_(allow_mmap_reads) {}
+        , allow_mmap_reads_(opts.allow_mmap_reads) {}
     ~TableCache();
     
     Iterator *NewIterator(const ReadOptions &read_opts,
@@ -66,7 +67,7 @@ private:
     
     static void EntryCleanup(void *arg1, void *arg2);
     
-    const std::string db_name_;
+    const std::string abs_db_path_;
     Env *const env_;
     Factory *const factory_;
     const bool allow_mmap_reads_;

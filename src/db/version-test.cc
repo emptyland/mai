@@ -12,11 +12,13 @@ namespace db {
 
 class VersionTest : public ::testing::Test {
 public:
+    VersionTest()
+        : abs_db_path_(env_->GetAbsolutePath("tests/demo")) {}
+    
     void SetUp() override {
         factory_.reset(Factory::NewDefault());
-        table_cache_.reset(new TableCache("tests/demo", Env::Default(),
-                                          factory_.get(), true));
-        versions_.reset(new VersionSet("tests/demo", Options{}, table_cache_.get()));
+        table_cache_.reset(new TableCache(abs_db_path_, options_, factory_.get()));
+        versions_.reset(new VersionSet(abs_db_path_, Options{}, table_cache_.get()));
         versions_->column_families()->NewColumnFamily(ColumnFamilyOptions{},
                                                       "default", 0,
                                                       versions_.get());
@@ -26,6 +28,9 @@ public:
         versions_.reset();
     }
 
+    Env *const env_ = Env::Default();
+    std::string abs_db_path_;
+    Options options_;
     std::unique_ptr<Factory> factory_;
     std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<VersionSet> versions_;
@@ -115,7 +120,7 @@ TEST_F(VersionTest, LogAndApply) {
 }
 
 TEST_F(VersionTest, Recovery) {
-    VersionSet versions("tests/demo",  Options{}, table_cache_.get());
+    VersionSet versions(abs_db_path_,  Options{}, table_cache_.get());
     std::map<std::string, ColumnFamilyOptions> opts;
     std::vector<uint64_t> logs;
 

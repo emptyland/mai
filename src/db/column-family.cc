@@ -110,9 +110,9 @@ Error ColumnFamilyImpl::Uninstall(Env *env) {
 
 std::string ColumnFamilyImpl::GetDir() const {
     if (options().dir.empty()) {
-        return owns_->db_name() + "/" + name_;
+        return owns_->abs_db_path() + "/" + name_;
     } else {
-        return options().dir + "/" + name_;
+        return owns_->env()->GetAbsolutePath(options().dir) + "/" + name_;
     }
 }
     
@@ -171,11 +171,10 @@ ColumnFamilyHandle::GetDescriptor(ColumnFamilyDescriptor *desc) const {
 /// class ColumnFamilySet
 ////////////////////////////////////////////////////////////////////////////////
 
-ColumnFamilySet::ColumnFamilySet(const std::string &db_name,
+ColumnFamilySet::ColumnFamilySet(VersionSet *owns,
                                  TableCache *table_cache)
-    : db_name_(db_name)
+    : owns_(DCHECK_NOTNULL(owns))
     , table_cache_(DCHECK_NOTNULL(table_cache))
-    , rw_mutex_(RW_SPIN_LOCK_INIT)
     , dummy_cfd_(new ColumnFamilyImpl("", 0, ColumnFamilyOptions{}, nullptr,
                                       nullptr)) {
     dummy_cfd_->prev_ = dummy_cfd_;
@@ -193,6 +192,14 @@ ColumnFamilySet::~ColumnFamilySet() {
     bool dummy_last_ref = dummy_cfd_->ReleaseRef();
     DCHECK(dummy_last_ref); (void)dummy_last_ref;
     delete dummy_cfd_;
+}
+    
+const std::string &ColumnFamilySet::abs_db_path() const {
+    return owns_->abs_db_path();
+}
+    
+Env *ColumnFamilySet::env() const {
+    return owns_->env();
 }
 
 ColumnFamilyImpl *ColumnFamilySet::NewColumnFamily(const ColumnFamilyOptions opts,

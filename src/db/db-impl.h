@@ -27,7 +27,7 @@ struct GetContext;
 
 class DBImpl final : public DB {
 public:
-    DBImpl(const std::string &db_name, Env *env);
+    DBImpl(const std::string &db_name, const Options &opts);
     virtual ~DBImpl();
     
     Error Open(const Options &opts,
@@ -85,16 +85,16 @@ private:
                                   uint32_t *cfid);
     
     const std::string db_name_;
-    const std::string abs_db_path_;
     Env *const env_;
+    const std::string abs_db_path_;
     std::unique_ptr<Factory> factory_;
     std::atomic<int> background_active_;
     std::atomic<bool> shutting_down_;
+    std::unique_ptr<TableCache> table_cache_;
+    std::unique_ptr<VersionSet> versions_;
     
     SnapshotList snapshots_;
     std::unique_ptr<ColumnFamily> default_cf_;
-    std::unique_ptr<VersionSet> versions_;
-    std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<WritableFile> log_file_;
     std::unique_ptr<LogWriter> logger_;
     uint64_t log_file_number_ = 0;

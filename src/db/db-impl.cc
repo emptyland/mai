@@ -93,13 +93,15 @@ struct GetContext {
 
     
 
-DBImpl::DBImpl(const std::string &db_name, Env *env)
+DBImpl::DBImpl(const std::string &db_name, const Options &opts)
     : db_name_(db_name)
-    , abs_db_path_(env->GetAbsolutePath(db_name))
-    , env_(DCHECK_NOTNULL(env))
+    , env_(DCHECK_NOTNULL(opts.env))
+    , abs_db_path_(env_->GetAbsolutePath(db_name))
     , factory_(Factory::NewDefault())
     , background_active_(0)
-    , shutting_down_(false) {
+    , shutting_down_(false)
+    , table_cache_(new TableCache(abs_db_path_, opts, factory_.get()))
+    , versions_(new VersionSet(abs_db_path_, opts, table_cache_.get())) {
 }
 
 DBImpl::~DBImpl() {
@@ -120,7 +122,7 @@ DBImpl::~DBImpl() {
         }
     }
     
-    
+    // TODO: clean others
 }
     
 Error DBImpl::Open(const Options &opts,
@@ -128,7 +130,7 @@ Error DBImpl::Open(const Options &opts,
                    std::vector<ColumnFamily *> *result) {
     Error rs;
 
-    rs = env_->FileExists(Files::CurrentFileName(db_name_));
+    rs = env_->FileExists(Files::CurrentFileName(abs_db_path_));
     if (rs.fail()) { // Not exists
         if (!opts.create_if_missing) {
             return MAI_CORRUPTION("db miss and create_if_missing is false.");
@@ -158,22 +160,10 @@ Error DBImpl::Open(const Options &opts,
     
 Error DBImpl::NewDB(const Options &opts,
                     const std::vector<ColumnFamilyDescriptor> &desc) {
-    table_cache_.reset(new TableCache(db_name_, opts.env, factory_.get(),
-                                      opts.allow_mmap_reads));
-    versions_.reset(new VersionSet(db_name_, opts, table_cache_.get()));
-    
-    
-    Error rs = env_->MakeDirectory(db_name_, true);
+    Error rs = env_->MakeDirectory(abs_db_path_, true);
     if (!rs) {
         return rs;
     }
-//    log_file_number_ = versions_->GenerateFileNumber();
-//    std::string log_file_name = Files::LogFileName(db_name_, log_file_number_);
-//    rs = env_->NewWritableFile(log_file_name, true, &log_file_);
-//    if (!rs) {
-//        return rs;
-//    }
-//    logger_.reset(new LogWriter(log_file_.get(), WAL::kDefaultBlockSize));
     rs = RenewLogger();
     if (!rs) {
         return rs;
@@ -217,12 +207,7 @@ Error DBImpl::NewDB(const Options &opts,
 
 Error DBImpl::Recovery(const Options &opts,
                        const std::vector<ColumnFamilyDescriptor> &desc) {
-    table_cache_.reset(new TableCache(db_name_, opts.env, factory_.get(),
-                                      opts.allow_mmap_reads));
-    versions_.reset(new VersionSet(db_name_, opts, table_cache_.get()));
-    
-    
-    std::string current_file_name = Files::CurrentFileName(db_name_);
+    std::string current_file_name = Files::CurrentFileName(abs_db_path_);
     std::string result;
     Error rs = base::FileReader::ReadAll(current_file_name, &result, env_);
     if (!rs) {
@@ -249,24 +234,26 @@ Error DBImpl::Recovery(const Options &opts,
     }
     DCHECK_GE(logs.size(), 2);
 
-    for (ColumnFamilyImpl *impl : *versions_->column_families()) {
-        cf_opts.erase(impl->name());
-    }
-    for (const auto &remain : cf_opts) {
-        uint32_t cfid;
-        rs = InternalNewColumnFamily(remain.first, remain.second, &cfid);
-        if (!rs) {
-            return rs;
+    if (opts.create_missing_column_families) {
+        for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
+            cf_opts.erase(cfd->name());
         }
-    }
-    for (ColumnFamilyImpl *impl : *versions_->column_families()) {
-        if (!impl->initialized()) {
-            rs = impl->Install(factory_.get(), env_);
+        for (const auto &remain : cf_opts) {
+            uint32_t cfid;
+            rs = InternalNewColumnFamily(remain.first, remain.second, &cfid);
             if (!rs) {
                 return rs;
             }
         }
-        DLOG(INFO) << "Column family: " << impl->name() << " installed.";
+    }
+    for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
+        if (!cfd->initialized()) {
+            rs = cfd->Install(factory_.get(), env_);
+            if (!rs) {
+                return rs;
+            }
+        }
+        DLOG(INFO) << "Column family: " << cfd->name() << " installed.";
     }
     
     rs = Redo(versions_->redo_log_number(), logs[logs.size() - 2]);
@@ -277,8 +264,9 @@ Error DBImpl::Recovery(const Options &opts,
                << versions_->last_sequence_number();
     
     log_file_number_ = versions_->redo_log_number();
-    rs = env_->NewWritableFile(Files::LogFileName(db_name_, log_file_number_),
-                               true, &log_file_);
+    rs = env_->NewWritableFile(Files::LogFileName(abs_db_path_,
+                                                  log_file_number_), true,
+                               &log_file_);
     if (!rs) {
         return rs;
     }
@@ -493,7 +481,7 @@ Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
     
 Error DBImpl::RenewLogger() {
     uint64_t new_log_number = versions_->GenerateFileNumber();
-    std::string log_file_name = Files::LogFileName(db_name_,
+    std::string log_file_name = Files::LogFileName(abs_db_path_,
                                                    new_log_number);
     Error rs = env_->NewWritableFile(log_file_name, true, &log_file_);
     if (!rs) {
@@ -507,7 +495,7 @@ Error DBImpl::RenewLogger() {
 Error DBImpl::Redo(uint64_t log_file_number,
                    core::SequenceNumber last_sequence_number) {
     std::unique_ptr<SequentialFile> file;
-    std::string log_file_name = Files::LogFileName(db_name_, log_file_number);
+    std::string log_file_name = Files::LogFileName(abs_db_path_, log_file_number);
     Error rs = env_->NewSequentialFile(log_file_name, &file);
     if (!rs) {
         return rs;
@@ -873,7 +861,7 @@ const char kDefaultColumnFamilyName[] = "default";
     if (name.empty()) {
         return MAI_CORRUPTION("Empty db name.");
     }
-    db::DBImpl *impl = new db::DBImpl(name, opts.env);
+    db::DBImpl *impl = new db::DBImpl(name, opts);
     Error rs = impl->Open(opts, descriptors, column_families);
     if (!rs) {
         return rs;

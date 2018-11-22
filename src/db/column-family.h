@@ -139,10 +139,13 @@ private:
 
 class ColumnFamilySet final {
 public:
-    ColumnFamilySet(const std::string &db_name, TableCache *table_cache);
+    ColumnFamilySet(VersionSet *owns, TableCache *table_cache);
     ~ColumnFamilySet();
     
-    DEF_VAL_GETTER(std::string, db_name);
+    const std::string &abs_db_path() const;
+    Env *env() const;
+    
+    DEF_PTR_GETTER_NOTNULL(VersionSet, owns);
     DEF_PTR_GETTER_NOTNULL(TableCache, table_cache);
     
     ColumnFamilyImpl *GetDefault() const { return DCHECK_NOTNULL(default_cfd_); }
@@ -201,18 +204,16 @@ public:
     iterator begin() const { return iterator(dummy_cfd_->next()); }
     iterator end() const { return iterator(dummy_cfd_); }
     
-    base::SpinRwMutex *rw_mutex() { return &rw_mutex_; }
-    
     DISALLOW_IMPLICIT_CONSTRUCTORS(ColumnFamilySet);
 private:
-    const std::string db_name_;
+    VersionSet *const owns_;
     TableCache *const table_cache_;
+
     ColumnFamilyImpl *dummy_cfd_;
     uint32_t max_column_family_ = 0;
     ColumnFamilyImpl *default_cfd_ = nullptr;
     std::unordered_map<std::string, uint32_t> column_families_;
     std::unordered_map<uint32_t, ColumnFamilyImpl *> column_family_impls_;
-    base::SpinRwMutex rw_mutex_;
 }; // class ColumnFamilySet
     
 } // namespace db

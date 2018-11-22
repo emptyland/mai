@@ -13,6 +13,7 @@ public:
         ColumnFamilyDescriptor desc;
         desc.name = kDefaultColumnFamilyName;
         descs_.push_back(desc);
+        options_.create_if_missing = true;
     }
     
     void TearDown() override {
@@ -25,6 +26,7 @@ public:
     
     Env *env_ = Env::Default();
     std::vector<ColumnFamilyDescriptor> descs_;
+    Options options_;
     static const char *tmp_dirs[];
 };
     
@@ -43,11 +45,9 @@ const char *DBImplTest::tmp_dirs[] = {
     
 TEST_F(DBImplTest, Sanity) {
     std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[0], env_));
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[0], options_));
     
-    Options opts;
-    opts.create_if_missing = true;
-    Error rs = impl->Open(opts, descs_, &cfs);
+    Error rs = impl->Open(options_, descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     auto cf = cfs[0];
@@ -63,11 +63,9 @@ TEST_F(DBImplTest, Sanity) {
     
 TEST_F(DBImplTest, AddColumnFamilies) {
     std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[1], env_));
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[1], options_));
     
-    Options opts;
-    opts.create_if_missing = true;
-    Error rs = impl->Open(opts, descs_, &cfs);
+    Error rs = impl->Open(options_, descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
@@ -90,11 +88,8 @@ TEST_F(DBImplTest, AddColumnFamilies) {
     
 TEST_F(DBImplTest, AddErrorColumnFamilies) {
     std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[2], env_));
-    
-    Options opts;
-    opts.create_if_missing = true;
-    Error rs = impl->Open(opts, descs_, &cfs);
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[2], options_));
+    Error rs = impl->Open(options_, descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
@@ -107,11 +102,8 @@ TEST_F(DBImplTest, AddErrorColumnFamilies) {
     
 TEST_F(DBImplTest, PutKey) {
     std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[3], env_));
-    
-    Options opts;
-    opts.create_if_missing = true;
-    Error rs = impl->Open(opts, descs_, &cfs);
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[3], options_));
+    Error rs = impl->Open(options_, descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
@@ -130,11 +122,8 @@ TEST_F(DBImplTest, PutKey) {
     
 TEST_F(DBImplTest, AllColumnFamilies) {
     std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[4], env_));
-    
-    Options opts;
-    opts.create_if_missing = true;
-    Error rs = impl->Open(opts, descs_, &cfs);
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[4], options_));
+    Error rs = impl->Open(options_, descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
@@ -159,18 +148,15 @@ TEST_F(DBImplTest, AllColumnFamilies) {
     
 TEST_F(DBImplTest, RecoveryManifest) {
     std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[5], env_));
-    
-    Options opts;
-    opts.create_if_missing = true;
-    Error rs = impl->Open(opts, descs_, &cfs);
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[5], options_));
+    Error rs = impl->Open(options_, descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
     }
     
-    impl.reset(new DBImpl(tmp_dirs[5], env_));
-    rs = impl->Open(opts, descs_, &cfs);
+    impl.reset(new DBImpl(tmp_dirs[5], options_));
+    rs = impl->Open(options_, descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ(1, cfs.size());
     ASSERT_EQ(0, cfs[0]->id());
@@ -183,11 +169,8 @@ TEST_F(DBImplTest, RecoveryManifest) {
     
 TEST_F(DBImplTest, RecoveryData) {
     std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[5], env_));
-    
-    Options opts;
-    opts.create_if_missing = true;
-    Error rs = impl->Open(opts, descs_, &cfs);
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[5], options_));
+    Error rs = impl->Open(options_, descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     auto cf0 = cfs[0];
     
@@ -207,8 +190,8 @@ TEST_F(DBImplTest, RecoveryData) {
         impl->ReleaseColumnFamily(cf);
     }
     
-    impl.reset(new DBImpl(tmp_dirs[5], env_));
-    rs = impl->Open(opts, descs_, &cfs);
+    impl.reset(new DBImpl(tmp_dirs[5], options_));
+    rs = impl->Open(options_, descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     cf0 = cfs[0];
     
@@ -231,11 +214,8 @@ TEST_F(DBImplTest, WriteLevel0Table) {
     env_->DeleteFile(kName, true);
     
     std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(kName, env_));
-    
-    Options opts;
-    opts.create_if_missing = true;
-    Error rs = impl->Open(opts, descs_, &cfs);
+    std::unique_ptr<DBImpl> impl(new DBImpl(kName, options_));
+    Error rs = impl->Open(options_, descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     auto cf0 = cfs[0];
     
@@ -260,15 +240,12 @@ TEST_F(DBImplTest, WriteLevel0Table) {
 
 TEST_F(DBImplTest, DropColumnFamily) {
     std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[7], env_));
-    
-    Options opts;
-    opts.create_if_missing = true;
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[7], options_));
     std::vector<ColumnFamilyDescriptor> descs = {
         {kDefaultColumnFamilyName, ColumnFamilyOptions{}},
         {"cf1", ColumnFamilyOptions{}}
     };
-    Error rs = impl->Open(opts, descs, &cfs);
+    Error rs = impl->Open(options_, descs, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     auto cf0 = cfs[0];
     auto cf1 = cfs[1];

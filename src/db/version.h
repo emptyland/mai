@@ -252,10 +252,12 @@ private:
 
 class VersionSet final {
 public:
-    VersionSet(const std::string db_name, const Options &options,
+    VersionSet(const std::string &abs_db_path, const Options &options,
                TableCache *table_cache);
     ~VersionSet();
     
+    DEF_VAL_GETTER(std::string, abs_db_path);
+    DEF_PTR_GETTER_NOTNULL(Env, env);
     DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
     DEF_VAL_GETTER(uint64_t, next_file_number);
     DEF_VAL_GETTER(uint64_t, redo_log_number);
@@ -285,8 +287,8 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(VersionSet);
 private:
     Error WritePatch(const VersionPatch &patch);
-    
-    const std::string db_name_;
+
+    const std::string abs_db_path_;
     Env *const env_;
     std::unique_ptr<ColumnFamilySet> column_families_;
     const uint64_t block_size_;

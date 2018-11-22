@@ -335,11 +335,11 @@ Error Version::Get(const ReadOptions &opts, std::string_view key,
 ////////////////////////////////////////////////////////////////////////////////
 /// class VersionSet
 ////////////////////////////////////////////////////////////////////////////////
-VersionSet::VersionSet(const std::string db_name, const Options &options,
+VersionSet::VersionSet(const std::string &abs_db_path, const Options &options,
                        TableCache *table_cache)
-    : db_name_(db_name)
+    : abs_db_path_(abs_db_path)
     , env_(DCHECK_NOTNULL(options.env))
-    , column_families_(new ColumnFamilySet(db_name, table_cache))
+    , column_families_(new ColumnFamilySet(this, table_cache))
     , block_size_(options.block_size) {
 }
 
@@ -350,7 +350,7 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
                            uint64_t file_number,
                            std::vector<uint64_t> *logs) {
     
-    std::string file_name = Files::ManifestFileName(db_name_, file_number);
+    std::string file_name = Files::ManifestFileName(abs_db_path_, file_number);
     std::unique_ptr<SequentialFile> file;
     
     Error rs = env_->NewSequentialFile(file_name, &file);
@@ -481,7 +481,7 @@ Error VersionSet::CreateManifestFile() {
     DCHECK(!log_file_);
     
     manifest_file_number_ = GenerateFileNumber();
-    std::string file_name = Files::ManifestFileName(db_name_,
+    std::string file_name = Files::ManifestFileName(abs_db_path_,
                                                     manifest_file_number_);
     Error rs = env_->NewWritableFile(file_name, true, &log_file_);
     if (!rs) {
@@ -520,7 +520,7 @@ Error VersionSet::WriteCurrentSnapshot() {
     
     char manifest[64];
     ::snprintf(manifest, arraysize(manifest), "%llu", manifest_file_number_);
-    Error rs = base::FileWriter::WriteAll(Files::CurrentFileName(db_name_),
+    Error rs = base::FileWriter::WriteAll(Files::CurrentFileName(abs_db_path_),
                                           manifest, env_);
     if (!rs) {
         return rs;
