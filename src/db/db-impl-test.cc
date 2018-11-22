@@ -224,6 +224,38 @@ TEST_F(DBImplTest, RecoveryData) {
     }
 }
     
+TEST_F(DBImplTest, WriteLevel0Table) {
+    const char kName[] = "tests/07-db-write-lv0";
+    env_->DeleteFile(kName, true);
+    
+    std::vector<ColumnFamily *> cfs;
+    std::unique_ptr<DBImpl> impl(new DBImpl(kName, env_));
+    
+    Options opts;
+    opts.create_if_missing = true;
+    Error rs = impl->Open(opts, descs_, &cfs);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    auto cf0 = cfs[0];
+    
+    WriteOptions wr_opts;
+    impl->Put(wr_opts, cf0, "aaaa", "100");
+    impl->Put(wr_opts, cf0, "aaab", "200");
+    impl->Put(wr_opts, cf0, "aaac", "300");
+    impl->Put(wr_opts, cf0, "aaad", "400");
+    impl->Put(wr_opts, cf0, "aaae", "500");
+    impl->TEST_MakeImmutablePipeline(cf0);
+    impl->Put(wr_opts, cf0, "bbbb", "1000");
+    impl->Put(wr_opts, cf0, "bbbb", "2000");
+    impl->Put(wr_opts, cf0, "bbbb", "3000");
+    impl->TEST_MakeImmutablePipeline(cf0);
+    rs = impl->TEST_ForceDumpImmutableTable(cf0, true);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    for (auto cf : cfs) {
+        impl->ReleaseColumnFamily(cf);
+    }
+}
+    
 } // namespace db
     
 } // namespace mai

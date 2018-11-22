@@ -1,14 +1,17 @@
 #ifndef MAI_DB_COLUMN_FAMILY_H_
 #define MAI_DB_COLUMN_FAMILY_H_
 
-#include "base/reference-count.h"
-#include "base/base.h"
 #include "core/memory-table.h"
 #include "core/internal-key-comparator.h"
+#include "core/pipeline-queue.h"
+#include "base/reference-count.h"
 #include "base/spin-locking.h"
+#include "base/base.h"
 #include "mai/db.h"
 #include "glog/logging.h"
 #include <unordered_map>
+#include <condition_variable>
+#include <atomic>
 
 namespace mai {
     
@@ -25,6 +28,9 @@ class ColumnFamilyHandle;
 
 class ColumnFamilyImpl final {
 public:
+    typedef core::PipelineQueue<base::Handle<core::MemoryTable>>
+        ImmutablePipeline;
+    
     ColumnFamilyImpl(const std::string &name, uint32_t id,
                      const ColumnFamilyOptions &options,
                      VersionSet *versions,
@@ -59,11 +65,23 @@ public:
     DEF_PTR_GETTER_NOTNULL(ColumnFamilySet, owns);
     DEF_PTR_GETTER_NOTNULL(Version, current);
     DEF_VAL_GETTER(bool, initialized);
+    DEF_VAL_PROP_RW(Error, background_error);
+    DEF_VAL_MUTABLE_GETTER(std::condition_variable, background_cv);
+    
+    void set_background_progress(bool value) {
+        background_progress_.store(value);
+    }
+    
+    bool background_progress() const {
+        return background_progress_.load();
+    }
     
     core::MemoryTable *mutable_table() const { return mutable_.get(); }
-    core::MemoryTable *immutable_table() const { return immutable_.get(); }
+    ImmutablePipeline *immutable_pipeline() { return &immutable_pipeline_; }
     
+    void MakeImmutablePipeline(Factory *factory);
     void Append(Version *version);
+    bool NeedsCompaction() { /*TODO:*/ return false; }
     
     const core::InternalKeyComparator *ikcmp() const { return &ikcmp_; }
 
@@ -77,14 +95,19 @@ private:
     mutable std::atomic<int> ref_count_;
     std::atomic<bool> dropped_;
     Version *dummy_versions_;
+    std::atomic<bool> background_progress_;
     
     Version *current_ = nullptr;
     bool initialized_ = false;
     
     const core::InternalKeyComparator ikcmp_;
     base::Handle<core::MemoryTable> mutable_;
-    base::Handle<core::MemoryTable> immutable_;
+    core::PipelineQueue<base::Handle<core::MemoryTable>> immutable_pipeline_;
     
+    Error background_error_;
+    std::condition_variable background_cv_;
+    
+
     ColumnFamilyImpl *next_ = nullptr;
     ColumnFamilyImpl *prev_ = nullptr;
 }; // class ColumnFamilyImpl

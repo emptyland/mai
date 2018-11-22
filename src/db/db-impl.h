@@ -11,10 +11,15 @@
 namespace mai {
 class WritableFile;
 class Env;
+namespace core {
+class MemoryTable;
+} // namespace core
 namespace db {
 class LogWriter;
 class TableCache;
 class VersionSet;
+class Version;
+class VersionPatch;
 class Factory;
 class ColumnFamilyImpl;
     
@@ -57,15 +62,26 @@ public:
     virtual void ReleaseSnapshot(const Snapshot *snapshot) override;
     virtual ColumnFamily *DefaultColumnFamily() override;
     
-    Error Redo(uint64_t log_file_number,
-               core::SequenceNumber last_sequence_number);
+    void TEST_MakeImmutablePipeline(ColumnFamily *cf);
+    Error TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync);
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(DBImpl);
 private:
+    Error RenewLogger();
+    Error Redo(uint64_t log_file_number,
+               core::SequenceNumber last_sequence_number);
     Error PrepareForGet(const ReadOptions &opts, ColumnFamily *cf,
                         GetContext *ctx);
     Error Write(const WriteOptions &opts, ColumnFamily *cf,
                 std::string_view key, std::string_view value, uint8_t flag);
-    Error MakeRoomForWrite(ColumnFamilyImpl *cf, bool force);
+    Error MakeRoomForWrite(ColumnFamilyImpl *cfd, bool force);
+    void MaybeScheduleCompaction(ColumnFamilyImpl *cfd);
+    void BackgroundWork(ColumnFamilyImpl *cfd);
+    void BackgroundCompaction(ColumnFamilyImpl *cfd);
+    Error CompactMemoryTable(ColumnFamilyImpl *cfd);
+    Error WriteLevel0Table(Version *current, VersionPatch *patch,
+                           core::MemoryTable *imm);
+    void DeleteObsoleteFiles(ColumnFamilyImpl *cfd);
     Error InternalNewColumnFamily(const std::string &name,
                                   const ColumnFamilyOptions &opts,
                                   uint32_t *cfid);
@@ -73,10 +89,12 @@ private:
     const std::string db_name_;
     const std::string abs_db_path_;
     Env *const env_;
+    std::unique_ptr<Factory> factory_;
+    std::atomic<int> background_active_;
+    std::atomic<bool> shutting_down_;
     
     SnapshotList snapshots_;
     std::unique_ptr<ColumnFamily> default_cf_;
-    std::unique_ptr<Factory> factory_;
     std::unique_ptr<VersionSet> versions_;
     std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<WritableFile> log_file_;

@@ -29,6 +29,8 @@ class TableCache;
 class LogWriter;
     
 static const int kMaxLevel = 4;
+static const int kMaxNumberLevel0File = 10; // the max of level0 file num
+static const int kMaxSizeLevel0File   = 80 * base::kMB;
     
 struct FileMetadata final : public base::ReferenceCounted<FileMetadata> {
     
@@ -255,7 +257,10 @@ public:
     ~VersionSet();
     
     DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
+    DEF_VAL_GETTER(uint64_t, next_file_number);
     DEF_VAL_GETTER(uint64_t, redo_log_number);
+    DEF_VAL_GETTER(uint64_t, prev_log_number);
+    DEF_VAL_GETTER(uint64_t, manifest_file_number);
     
     core::SequenceNumber AddSequenceNumber(core::SequenceNumber add) {
         last_sequence_number_ += add;

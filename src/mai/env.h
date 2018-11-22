@@ -46,6 +46,8 @@ public:
     
     virtual std::string GetAbsolutePath(const std::string &file_name) = 0;
     
+    virtual uint64_t CurrentTimeMicros();
+    
 }; // class Env
     
 class SequentialFile {

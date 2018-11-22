@@ -25,7 +25,8 @@ ColumnFamilyImpl::ColumnFamilyImpl(const std::string &name, uint32_t id,
     , ikcmp_(DCHECK_NOTNULL(options.comparator))
     , owns_(owner)
     , ref_count_(0)
-    , dropped_(false) {
+    , dropped_(false)
+    , background_progress_(false) {
     AddRef();
     dummy_versions_->next_ = dummy_versions_;
     dummy_versions_->prev_ = dummy_versions_;
@@ -61,6 +62,12 @@ void ColumnFamilyImpl::SetDropped() {
     if (owns_) {
         owns_->RemoveColumnFamily(this);
     }
+}
+    
+void ColumnFamilyImpl::MakeImmutablePipeline(Factory *factory) {
+    immutable_pipeline_.Add(mutable_);
+    mutable_ = factory->NewMemoryTable(&ikcmp_, options_.use_unordered_table,
+                                       options_.number_of_hash_slots);
 }
     
 void ColumnFamilyImpl::Append(Version *version) {

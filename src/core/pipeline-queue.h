@@ -38,6 +38,11 @@ public:
         std::copy(queue_.begin(), queue_.end(), result->begin() + old_size);
     }
     
+    bool InProgress() const {
+        std::unique_lock<std::mutex> lock(mutex_);
+        return !queue_.empty();
+    }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(PipelineQueue);
 private:
     std::deque<T> queue_;

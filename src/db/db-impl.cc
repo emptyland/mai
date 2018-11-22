@@ -6,12 +6,14 @@
 #include "db/files.h"
 #include "db/factory.h"
 #include "db/table-cache.h"
+#include "table/table-builder.h"
 #include "core/key-boundle.h"
 #include "core/memory-table.h"
 #include "base/slice.h"
 #include "mai/env.h"
 #include "mai/iterator.h"
 #include "glog/logging.h"
+#include <thread>
 
 namespace mai {
     
@@ -95,18 +97,36 @@ DBImpl::DBImpl(const std::string &db_name, Env *env)
     : db_name_(db_name)
     , abs_db_path_(env->GetAbsolutePath(db_name))
     , env_(DCHECK_NOTNULL(env))
-    , factory_(Factory::NewDefault()) {
+    , factory_(Factory::NewDefault())
+    , background_active_(0)
+    , shutting_down_(false) {
 }
 
 DBImpl::~DBImpl() {
     default_cf_.reset(); // Release default column family handle first.
+    
+    DLOG(INFO) << "Shutting down, last_version: "
+               << versions_->last_sequence_number();
+    {
+        shutting_down_.store(true);
+        
+        std::unique_lock<std::mutex> lock(mutex_);
+        while (background_active_.load() > 0) {
+            for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
+                if (cfd->background_progress()) {
+                    cfd->mutable_background_cv()->wait(lock);
+                }
+            }
+        }
+    }
+    
+    
 }
     
 Error DBImpl::Open(const Options &opts,
                    const std::vector<ColumnFamilyDescriptor> &desc,
                    std::vector<ColumnFamily *> *column_families) {
     Error rs;
-    //shutting_down_.store(nullptr, std::memory_order_release);
 
     rs = env_->FileExists(Files::CurrentFileName(db_name_));
     if (rs.fail()) { // Not exists
@@ -147,13 +167,17 @@ Error DBImpl::NewDB(const Options &opts,
     if (!rs) {
         return rs;
     }
-    log_file_number_ = versions_->GenerateFileNumber();
-    std::string log_file_name = Files::LogFileName(db_name_, log_file_number_);
-    rs = env_->NewWritableFile(log_file_name, true, &log_file_);
+//    log_file_number_ = versions_->GenerateFileNumber();
+//    std::string log_file_name = Files::LogFileName(db_name_, log_file_number_);
+//    rs = env_->NewWritableFile(log_file_name, true, &log_file_);
+//    if (!rs) {
+//        return rs;
+//    }
+//    logger_.reset(new LogWriter(log_file_.get(), WAL::kDefaultBlockSize));
+    rs = RenewLogger();
     if (!rs) {
         return rs;
     }
-    logger_.reset(new LogWriter(log_file_.get(), WAL::kDefaultBlockSize));
 
     std::map<std::string, ColumnFamilyOptions> cf_opts;
     for (const auto &d : desc) {
@@ -347,9 +371,11 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
         std::unique_lock<std::mutex> lock(mutex_);
         last_version = versions_->last_sequence_number();
         
-        rs = MakeRoomForWrite(nullptr, false);
-        if (!rs) {
-            return rs;
+        for (auto cfd : *versions_->column_families()) {
+            rs = MakeRoomForWrite(cfd, false);
+            if (!rs) {
+                return rs;
+            }
         }
     }
     rs = logger_->Append(updates->redo());
@@ -418,14 +444,50 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
 }
     
 /*virtual*/ const Snapshot *DBImpl::GetSnapshot() {
+    // TODO:
     return nullptr;
 }
     
 /*virtual*/ void DBImpl::ReleaseSnapshot(const Snapshot *snapshot) {
+    // TODO:
 }
     
 /*virtual*/ ColumnFamily *DBImpl::DefaultColumnFamily() {
     return default_cf_.get();
+}
+    
+void DBImpl::TEST_MakeImmutablePipeline(ColumnFamily *cf) {
+    ColumnFamilyImpl *cfd = DCHECK_NOTNULL(ColumnFamilyHandle::Cast(cf)->impl());
+    cfd->MakeImmutablePipeline(factory_.get());
+}
+
+Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
+    ColumnFamilyImpl *cfd = DCHECK_NOTNULL(ColumnFamilyHandle::Cast(cf)->impl());
+    DCHECK_EQ(0, versions_->prev_log_number());
+    Error rs = RenewLogger();
+    if (!rs) {
+        return rs;
+    }
+    MaybeScheduleCompaction(cfd);
+    
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (sync && cfd->background_progress()) {
+        cfd->mutable_background_cv()->wait(lock);
+    }
+    return Error::OK();
+}
+    
+Error DBImpl::RenewLogger() {
+    uint64_t new_log_number = versions_->GenerateFileNumber();
+    std::string log_file_name = Files::LogFileName(db_name_,
+                                                   new_log_number);
+    Error rs = env_->NewWritableFile(log_file_name, true, &log_file_);
+    if (!rs) {
+        return rs;
+    }
+    log_file_number_ = new_log_number;
+    logger_.reset(new LogWriter(log_file_.get(), WAL::kDefaultBlockSize));
+    return Error::OK();
 }
     
 Error DBImpl::Redo(uint64_t log_file_number,
@@ -480,7 +542,7 @@ Error DBImpl::PrepareForGet(const ReadOptions &opts, ColumnFamily *cf,
     
     ctx->in_mem.clear();
     ctx->in_mem.push_back(base::MakeRef(ctx->cfd->mutable_table()));
-    // TODO:
+    ctx->cfd->immutable_pipeline()->PeekAll(&ctx->in_mem);
     mutex_.unlock(); // Unlocking versions--------------------------------------
     
     return Error::OK();
@@ -551,9 +613,180 @@ Error DBImpl::InternalNewColumnFamily(const std::string &name,
     return Error::OK();
 }
     
-Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cf, bool force) {
-    // TODO:
+// REQUIRES mutex_.lock()
+Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd, bool force) {
+    Error rs;
+    
+    while (true) {
+        
+        if (cfd->background_error().fail()) {
+            rs = cfd->background_error();
+            //cfd->set_background_error(Error::OK());
+            break;
+        } else if (cfd->mutable_table()->ApproximateMemoryUsage() <
+                   cfd->options().write_buffer_size) {
+            // Memory table usage samll than write buffer, Ignore it.
+            break;
+        } else if (cfd->immutable_pipeline()->InProgress()) {
+            // Immutable table pipeline in progress.
+            break;
+        } else if (cfd->background_progress() &&
+                   cfd->current()->level_files(0).size() > kMaxNumberLevel0File) {
+            // TODO:
+            break;
+        } else {
+            DCHECK_EQ(0, versions_->prev_log_number());
+            rs = RenewLogger();
+            if (!rs) {
+                break;
+            }
+            cfd->MakeImmutablePipeline(factory_.get());
+            MaybeScheduleCompaction(cfd);
+        }
+        
+        // TODO:
+    }
+    return rs;
+}
+
+// REQUIRES mutex_.lock()
+void DBImpl::MaybeScheduleCompaction(ColumnFamilyImpl *cfd) {
+    if (background_active_.load() > 0) {
+        return; // Compaction is running.
+    }
+    
+    if (shutting_down_.load()) {
+        return; // Is shutting down, ignore schedule
+    }
+    
+    if (!cfd->immutable_pipeline()->InProgress() &&
+        !cfd->NeedsCompaction()) {
+        return; // Compaction is no need
+    }
+    
+    background_active_.fetch_add(1);
+    cfd->set_background_progress(true);
+    std::thread([this](auto cfd) {
+        this->BackgroundWork(cfd);
+    }, cfd).detach();
+}
+    
+void DBImpl::BackgroundWork(ColumnFamilyImpl *cfd) {
+    DLOG(INFO) << "Background work on. " << cfd->name();
+    
+    DCHECK_GT(background_active_.load(), 0);
+    if (!shutting_down_.load()) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        BackgroundCompaction(cfd);
+    }
+    background_active_.fetch_sub(1);
+    cfd->set_background_progress(false);
+    
+    MaybeScheduleCompaction(cfd);
+    cfd->mutable_background_cv()->notify_all();
+}
+
+// REQUIRES mutex_.lock()
+void DBImpl::BackgroundCompaction(ColumnFamilyImpl *cfd) {
+    
+    if (cfd->immutable_pipeline()->InProgress()) {
+        Error rs = CompactMemoryTable(cfd);
+        if (rs.fail()) {
+            DLOG(INFO) << "Compact memory table fail! column family: "
+                       << cfd->name() << " cause: " << rs.ToString();
+        }
+        cfd->set_background_error(rs);
+    }
+
+    if (cfd->NeedsCompaction()) {
+        // TODO: Compaction!
+    }
+}
+
+// REQUIRES mutex_.lock()
+Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
+    DCHECK(cfd->immutable_pipeline()->InProgress());
+    
+    Error rs;
+    VersionPatch patch;
+    base::Handle<core::MemoryTable> imm;
+    while (cfd->immutable_pipeline()->Take(&imm)) {
+        DCHECK(!imm.is_null());
+        rs = WriteLevel0Table(cfd->current(), &patch, imm.get());
+        if (!rs) {
+            return rs;
+        }
+        if (shutting_down_.load()) {
+            return MAI_IO_ERROR("Deleting DB during memtable compaction");
+        }
+    }
+
+    patch.set_prev_log_number(0);
+    patch.set_redo_log_number(log_file_number_);
+    rs = versions_->LogAndApply(ColumnFamilyOptions{}, &patch, &mutex_);
+    if (!rs) {
+        return rs;
+    }
+    DeleteObsoleteFiles(cfd);
     return Error::OK();
+}
+    
+Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
+                               core::MemoryTable *table) {
+    base::Handle<FileMetadata>
+        fmd(new FileMetadata(versions_->GenerateFileNumber()));
+    std::unique_ptr<Iterator> iter(table->NewIterator());
+    if (iter->error().fail()) {
+        return iter->error();
+    }
+    LOG(INFO) << "Level0 table compaction start, target file number: "
+              << fmd->number;
+    
+    mutex_.unlock(); // DB lock no need ----------------------------------------
+    
+    std::unique_ptr<WritableFile> file;
+    std::string table_file_name = current->owns()->GetTableFileName(fmd->number);
+    Error rs = env_->NewWritableFile(table_file_name, false, &file);
+    if (!rs) {
+        return rs;
+    }
+    ColumnFamilyImpl *cfd = current->owns();
+    std::unique_ptr<table::TableBuilder>
+        builder(factory_->NewTableBuilder(cfd->ikcmp(),
+                                          cfd->options().use_unordered_table,
+                                          file.get(), cfd->options().block_size,
+                                          cfd->options().block_restart_interval,
+                                          cfd->options().number_of_hash_slots,
+                                          &base::Hash::Js));
+    std::string largest_key, smallest_key;
+    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+        builder->Add(iter->key(), iter->value());
+        rs = builder->error();
+        if (!rs) {
+            builder->Abandon();
+            return rs;
+        }
+        if (largest_key.empty() ||
+            cfd->ikcmp()->Compare(iter->key(), largest_key) > 0) {
+            largest_key = iter->key();
+        }
+        if (smallest_key.empty() ||
+            cfd->ikcmp()->Compare(iter->key(), smallest_key) < 0) {
+            smallest_key = iter->key();
+        }
+    }
+    builder->Finish();
+    
+    fmd->ctime        = env_->CurrentTimeMicros();
+    fmd->size         = builder->FileSize();
+    fmd->largest_key  = largest_key;
+    fmd->smallest_key = smallest_key;
+    patch->CreaetFile(cfd->id(), 0, fmd.get());
+    return Error::OK();
+}
+    
+void DBImpl::DeleteObsoleteFiles(ColumnFamilyImpl *cfd) {
+    // TODO:
 }
     
 } // namespace db
