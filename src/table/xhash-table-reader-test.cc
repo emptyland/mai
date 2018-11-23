@@ -122,8 +122,8 @@ TEST_F(XhashTableReaderTest, Sanity) {
     core::Tag tag;
     rs = Get(&reader, "aaaa", 6, &value, &tag);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    ASSERT_EQ(6, tag.version());
-    ASSERT_EQ(core::Tag::kFlagValue, tag.flags());
+    ASSERT_EQ(6, tag.sequence_number());
+    ASSERT_EQ(core::Tag::kFlagValue, tag.flag());
     ASSERT_EQ("a1111", value);
     
     rs = Get(&reader, "bbbb", 6, &value, &tag);
@@ -160,14 +160,14 @@ TEST_F(XhashTableReaderTest, MutilVersion) {
     rs = Get(&reader, "aaaa", 6, &value, &tag);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ("v5", value);
-    ASSERT_EQ(core::Tag::kFlagValue, tag.flags());
-    ASSERT_EQ(5, tag.version());
+    ASSERT_EQ(core::Tag::kFlagValue, tag.flag());
+    ASSERT_EQ(5, tag.sequence_number());
     
     rs = Get(&reader, "aaaa", 4, &value, &tag);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ("v4", value);
-    ASSERT_EQ(core::Tag::kFlagValue, tag.flags());
-    ASSERT_EQ(4, tag.version());
+    ASSERT_EQ(core::Tag::kFlagValue, tag.flag());
+    ASSERT_EQ(4, tag.sequence_number());
     
     rs = Get(&reader, "aaaa", 1, &value, nullptr);
     ASSERT_TRUE(rs.IsNotFound());
@@ -208,17 +208,17 @@ TEST_F(XhashTableReaderTest, Iterator) {
     iter->Seek(KeyBoundle::MakeKey("aaaa", 5));
     ASSERT_TRUE(iter->Valid());
     ASSERT_EQ("aaaa", KeyBoundle::ExtractUserKey(iter->key()));
-    ASSERT_EQ(5, KeyBoundle::ExtractTag(iter->key()).version());
+    ASSERT_EQ(5, KeyBoundle::ExtractTag(iter->key()).sequence_number());
     
     iter->Next();
     ASSERT_TRUE(iter->Valid());
     ASSERT_EQ("aaaa", KeyBoundle::ExtractUserKey(iter->key()));
-    ASSERT_EQ(4, KeyBoundle::ExtractTag(iter->key()).version());
+    ASSERT_EQ(4, KeyBoundle::ExtractTag(iter->key()).sequence_number());
 
     iter->Next();
     ASSERT_TRUE(iter->Valid());
     ASSERT_EQ("aaaa", KeyBoundle::ExtractUserKey(iter->key()));
-    ASSERT_EQ(3, KeyBoundle::ExtractTag(iter->key()).version());
+    ASSERT_EQ(3, KeyBoundle::ExtractTag(iter->key()).sequence_number());
 }
     
 } // namespace table

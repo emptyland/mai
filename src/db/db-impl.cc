@@ -6,6 +6,7 @@
 #include "db/files.h"
 #include "db/factory.h"
 #include "db/table-cache.h"
+#include "db/config.h"
 #include "table/table-builder.h"
 #include "core/key-boundle.h"
 #include "core/memory-table.h"
@@ -193,8 +194,8 @@ Error DBImpl::NewDB(const Options &opts,
         versions_->column_families()->NewColumnFamily(opt.second, opt.first,
                                                       cfid, versions_.get());
     }
-    for (ColumnFamilyImpl *impl : *versions_->column_families()) {
-        rs = impl->Install(factory_.get(), env_);
+    for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
+        rs = cfd->Install(factory_.get());
         if (!rs) {
             return rs;
         }
@@ -248,7 +249,7 @@ Error DBImpl::Recovery(const Options &opts,
     }
     for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
         if (!cfd->initialized()) {
-            rs = cfd->Install(factory_.get(), env_);
+            rs = cfd->Install(factory_.get());
             if (!rs) {
                 return rs;
             }
@@ -319,7 +320,7 @@ Error DBImpl::Recovery(const Options &opts,
     if (!rs) {
         return rs;
     }
-    rs = cfd->Uninstall(env_);
+    rs = cfd->Uninstall();
     if (!rs) {
         return rs;
     }
@@ -633,7 +634,8 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd, bool force) {
             // Immutable table pipeline in progress.
             break;
         } else if (cfd->background_progress() &&
-                   cfd->current()->level_files(0).size() > kMaxNumberLevel0File) {
+                   cfd->current()->level_files(0).size() >
+                   Config::kMaxNumberLevel0File) {
             // TODO:
             break;
         } else {
@@ -831,7 +833,7 @@ void DBImpl::DeleteObsoleteFiles(ColumnFamilyImpl *cfd) {
                 break;
         }
     }
-    for (int i = 0; i < kMaxLevel; ++i) {
+    for (int i = 0; i < Config::kMaxLevel; ++i) {
         for (auto fmd : cfd->current()->level_files(i)) {
             cleanup.erase(fmd->number);
         }

@@ -19,7 +19,7 @@ public:
         Tag tag = KeyBoundle::ExtractTag(target);
         
         base::ScopedMemory scope;
-        const KeyBoundle *ikey = KeyBoundle::New(user_key, tag.version(),
+        const KeyBoundle *ikey = KeyBoundle::New(user_key, tag.sequence_number(),
                                                  base::ScopedAllocator{&scope});
         iter_.Seek(ikey);
     }
@@ -85,7 +85,7 @@ OrderedMemoryTable::Get(std::string_view key, SequenceNumber version, Tag *tag,
     if (iter.key()->user_key() != key) {
         return MAI_NOT_FOUND("Key not equals target.");
     }
-    switch (iter.key()->tag().flags()) {
+    switch (iter.key()->tag().flag()) {
         case Tag::kFlagValue:
             value->assign(iter.key()->value());
             if (tag) {
@@ -95,7 +95,7 @@ OrderedMemoryTable::Get(std::string_view key, SequenceNumber version, Tag *tag,
         case Tag::kFlagDeletion:
             return MAI_NOT_FOUND("Deleted key.");
         default:
-            DLOG(FATAL) << "Incorrect tag type: " << iter.key()->tag().flags();
+            DLOG(FATAL) << "Incorrect tag type: " << iter.key()->tag().flag();
             break;
     }
     return Error::OK();

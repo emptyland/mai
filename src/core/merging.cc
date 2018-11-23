@@ -192,8 +192,8 @@ Merging::NewTempTableMergingIteraotr(MemoryTable *tmp_table,
         for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
             KeyBoundle::ParseTaggedKey(iter->key(), &ikey);
             
-            tmp_table->Put(ikey.user_key, iter->value(), ikey.tag.version(),
-                           ikey.tag.flags());
+            tmp_table->Put(ikey.user_key, iter->value(), ikey.tag.sequence_number(),
+                           ikey.tag.flag());
         }
     }
     return tmp_table->NewIterator();

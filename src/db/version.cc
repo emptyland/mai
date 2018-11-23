@@ -10,6 +10,17 @@
 namespace mai {
     
 namespace db {
+    
+uint64_t MaxSizeForLevel(int level) {
+    DCHECK_GT(level, 0);
+    DCHECK_LT(level, Config::kMaxLevel);
+    
+    uint64_t size = 10 * static_cast<uint64_t>(base::kGB);
+    for (int i = 1; i < level + 1; ++i) {
+        size = size * 10;
+    }
+    return size;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class VersionBuilder
@@ -37,7 +48,7 @@ public:
     Version *Build() {
         std::unique_ptr<Version> version(new Version(cf_.get()));
         
-        for (auto i = 0; i < kMaxLevel; i++) {
+        for (auto i = 0; i < Config::kMaxLevel; i++) {
             
             auto level = cf_->current()->level_files(i);
             
@@ -74,7 +85,7 @@ public:
             }
         }
         BySmallestKey cmp{cf_->ikcmp()};
-        for (auto i = 0; i < kMaxLevel; i++) {
+        for (auto i = 0; i < Config::kMaxLevel; i++) {
             levels_[i].creation = std::set<base::Handle<FileMetadata>,
             BySmallestKey>(cmp);
         }
@@ -102,7 +113,7 @@ private:
     };
     
     VersionSet *owns_;
-    FileEntry levels_[kMaxLevel];
+    FileEntry levels_[Config::kMaxLevel];
     base::Handle<ColumnFamilyImpl> cf_;
 }; // class VersionBuilder
     
@@ -276,7 +287,7 @@ Error Version::Get(const ReadOptions &opts, std::string_view key,
                   return a->ctime > b->ctime;
               });
     
-    for (int i = 1; i < kMaxLevel; ++i) {
+    for (int i = 1; i < Config::kMaxLevel; ++i) {
         if (level_files(i).empty()) {
             continue;
         }
@@ -323,13 +334,55 @@ Error Version::Get(const ReadOptions &opts, std::string_view key,
     if (!ikcmp->ucmp()->Equals(tkey.user_key, ikey->user_key())) {
         return MAI_NOT_FOUND("Target not found");
     }
-    if (tkey.tag.flags() == core::Tag::kFlagDeletion) {
+    if (tkey.tag.flag() == core::Tag::kFlagDeletion) {
         return MAI_NOT_FOUND("Deleted");
     }
     
     value->assign(merger->value());
     if (tag) { *tag = tkey.tag; }
     return Error::OK();
+}
+    
+void
+Version::GetOverlappingInputs(int level, std::string_view begin,
+                              std::string_view end,
+                              std::vector<base::Handle<FileMetadata>> *inputs) {
+    DCHECK_GE(level, 0);
+    DCHECK_LT(level, Config::kMaxLevel);
+    
+    std::string_view user_begin = core::KeyBoundle::ExtractUserKey(begin);
+    std::string_view user_end   = core::KeyBoundle::ExtractUserKey(end);
+    
+    DCHECK_NOTNULL(inputs)->clear();
+    const Comparator *ucmp = owns_->ikcmp()->ucmp();
+    for (size_t i = 0; i < files_[level].size(); ++i) {
+        base::Handle<FileMetadata> fmd = files_[level][i];
+        const std::string_view file_start =
+            core::KeyBoundle::ExtractUserKey(fmd->smallest_key);
+        const std::string_view file_limit =
+            core::KeyBoundle::ExtractUserKey(fmd->largest_key);
+        
+        if (ucmp->Compare(file_limit, user_begin) < 0) {
+            // skip it
+        } else if (ucmp->Compare(file_start, user_end) > 0) {
+            // skip it
+        } else {
+            inputs->push_back(fmd);
+            if (level == 0) {
+                // Level-0 files may overlap each other.  So check if the newly
+                // added file has expanded the range.  If so, restart search.
+                if (ucmp->Compare(file_start, user_begin) < 0) {
+                    user_begin = file_start;
+                    inputs->clear();
+                    i = 0;
+                } else if (ucmp->Compare(file_limit, user_end) > 0) {
+                    user_end = file_limit;
+                    inputs->clear();
+                    i = 0;
+                }
+            }
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -392,6 +445,13 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
             builder.Prepare(patch);
             builder.Apply(patch);
             builder.column_family()->Append(builder.Build());
+        }
+        if (patch.has_compaction_point()) {
+            uint32_t id = patch.compaction_point().cfid;
+            int lv = patch.compaction_point().level;
+            std::string point = patch.compaction_point().key;
+            ColumnFamilyImpl *cfd = column_families_->GetColumnFamily(id);
+            DCHECK_NOTNULL(cfd)->compaction_point_[lv] = point;
         }
         if (patch.has_last_sequence_number()) {
             logs->push_back(patch.last_sequence_number());
@@ -469,7 +529,9 @@ Error VersionSet::LogAndApply(const ColumnFamilyOptions &cf_opts,
         VersionBuilder builder(this);
         builder.Prepare(*patch);
         builder.Apply(*patch);
-        builder.column_family()->Append(builder.Build());
+        Version *version = builder.Build();
+        Finalize(version);
+        builder.column_family()->Append(version);
     }
     
     redo_log_number_ = patch->redo_log_number();
@@ -500,7 +562,7 @@ Error VersionSet::WriteCurrentSnapshot() {
         patch.Reset();
         patch.AddColumnFamily(cf->name(), cf->id(), cf->ikcmp()->ucmp()->Name());
         
-        for (int i = 0; i < kMaxLevel; ++i) {
+        for (int i = 0; i < Config::kMaxLevel; ++i) {
             for (auto fmd : cf->current()->level_files(i)) {
                 patch.CreaetFile(cf->id(), i, fmd.get());
             }
@@ -538,6 +600,42 @@ Error VersionSet::WritePatch(const VersionPatch &patch) {
         return rs;
     }
     return logger_->Sync(true);
+}
+    
+void VersionSet::Finalize(Version *version) {
+    // Precomputed best level for next compaction
+    int best_level = -1;
+    double best_score = -1;
+    
+    for (int level = 0; level < Config::kMaxLevel - 1; level++) {
+        double score;
+        if (level == 0) {
+            // We treat level-0 specially by bounding the number of files
+            // instead of number of bytes for two reasons:
+            //
+            // (1) With larger write-buffer sizes, it is nice not to do too
+            // many level-0 compactions.
+            //
+            // (2) The files in level-0 are merged on every read and
+            // therefore we wish to avoid too many files when the individual
+            // file size is small (perhaps because of a small write-buffer
+            // setting, or very high compression ratios, or lots of
+            // overwrites/deletions).
+            score = version->files_[level].size() /
+                static_cast<double>(Config::kMaxNumberLevel0File);
+        } else {
+            // Compute the ratio of current size to size limit.
+            const uint64_t level_size = version->SizeLevelFiles(level);
+            score = static_cast<double>(level_size) / MaxSizeForLevel(level);
+        }
+        if (score > best_score) {
+            best_level = level;
+            best_score = score;
+        }
+    }
+
+    version->compaction_level_ = best_level;
+    version->compaction_score_ = best_score;
 }
     
 } // namespace db

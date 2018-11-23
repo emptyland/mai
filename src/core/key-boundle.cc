@@ -5,7 +5,10 @@ namespace mai {
     
 namespace core {
     
-/*static*/ void KeyBoundle::MakeRedo(std::string_view key, std::string_view value,
+/*static*/ const SequenceNumber Tag::kMaxSequenceNumber = 0x00ffffffffffffffULL;
+    
+/*static*/ void KeyBoundle::MakeRedo(std::string_view key,
+                                     std::string_view value,
                                      uint32_t cfid, uint8_t flag,
                                      std::string *redo) {
     using ::mai::base::ScopedMemory;

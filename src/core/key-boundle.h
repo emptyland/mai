@@ -18,6 +18,8 @@ class Tag {
 public:
     static const int kSize = sizeof(uint64_t);
     
+    static const SequenceNumber kMaxSequenceNumber;
+    
     enum Flag: uint8_t {
         kFlagValue = 0,
         kFlagDeletion = 1,
@@ -26,24 +28,24 @@ public:
     
     Tag() : Tag(0, 0) {}
 
-    Tag(SequenceNumber version, uint8_t flags)
-        : version_(version)
-        , flags_(flags) {}
+    Tag(SequenceNumber version, uint8_t flag)
+        : sequence_number_(version)
+        , flag_(flag) {}
     
     uint64_t Encode() const {
-        DCHECK_LT(version_, 1ULL << 57);
-        return (version_ << 8) | flags_;
+        DCHECK_LT(sequence_number_, 1ULL << 57);
+        return (sequence_number_ << 8) | flag_;
     }
     
     static Tag Decode(uint64_t tag) {
         return Tag(tag >> 8, tag & 0xffULL);
     }
     
-    DEF_VAL_GETTER(SequenceNumber, version);
-    DEF_VAL_GETTER(uint8_t, flags);
+    DEF_VAL_GETTER(SequenceNumber, sequence_number);
+    DEF_VAL_GETTER(uint8_t, flag);
 private:
-    SequenceNumber version_;
-    uint8_t flags_;
+    SequenceNumber sequence_number_;
+    uint8_t flag_;
 }; // class Tag
 
     

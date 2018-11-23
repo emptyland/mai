@@ -22,7 +22,7 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
     core::KeyBoundle::ParseTaggedKey(key, &ikey);
     
     if (!has_seen_first_key_) {
-        if (ikey.tag.version() == 0) {
+        if (ikey.tag.sequence_number() == 0) {
             is_last_level_ = true;
         }
         has_seen_first_key_ = true;
@@ -52,8 +52,8 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
     if (largest_key_.empty() || ikcmp_->Compare(key, largest_key_) > 0) {
         largest_key_ = key;
     }
-    if (ikey.tag.version() > max_version_) {
-        max_version_ = ikey.tag.version();
+    if (ikey.tag.sequence_number() > max_version_) {
+        max_version_ = ikey.tag.sequence_number();
     }
     
     bucket->kv.append(Slice::GetV64(value.size(), &scope));

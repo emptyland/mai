@@ -3,11 +3,50 @@
 #include "db/files.h"
 #include "db/factory.h"
 #include "db/table-cache.h"
+#include "db/compaction.h"
+#include "db/config.h"
 #include "mai/iterator.h"
 
 namespace mai {
     
 namespace db {
+    
+// Stores the minimal range that covers all entries in inputs in
+// *smallest, *largest.
+// REQUIRES: inputs is not empty
+void GetRange(const std::vector<base::Handle<FileMetadata>> &inputs,
+              const core::InternalKeyComparator *ikcmp,
+              std::string *smallest, std::string *largest) {
+    DCHECK(!inputs.empty());
+    smallest->clear();
+    largest->clear();
+    for (size_t i = 0; i < inputs.size(); i++) {
+        base::Handle<FileMetadata> fmd = inputs[i];
+        if (i == 0) {
+            *smallest = fmd->smallest_key;
+            *largest = fmd->largest_key;
+        } else {
+            if (ikcmp->Compare(fmd->smallest_key, *smallest) < 0) {
+                *smallest = fmd->smallest_key;
+            }
+            if (ikcmp->Compare(fmd->largest_key, *largest) > 0) {
+                *largest = fmd->largest_key;
+            }
+        }
+    }
+}
+
+// Stores the minimal range that covers all entries in inputs1 and inputs2
+// in *smallest, *largest.
+// REQUIRES: inputs is not empty
+    void GetRange2(const std::vector<base::Handle<FileMetadata>> &inputs1,
+                   const std::vector<base::Handle<FileMetadata>> &inputs2,
+                   const core::InternalKeyComparator *ikcmp,
+                   std::string *smallest, std::string *largest) {
+    std::vector<base::Handle<FileMetadata>> all = inputs1;
+    all.insert(all.end(), inputs2.begin(), inputs2.end());
+    GetRange(all, ikcmp, smallest, largest);
+}
     
 ////////////////////////////////////////////////////////////////////////////////
 /// class ColumnFamilyImpl
@@ -80,12 +119,98 @@ void ColumnFamilyImpl::Append(Version *version) {
     current_ = version;
 }
     
-Error ColumnFamilyImpl::Install(Factory *factory, Env *env) {
+bool ColumnFamilyImpl::NeedsCompaction() const {
+//    if (current()->NumberLevelFiles(0) > Config::kMaxNumberLevel0File) {
+//        return true;
+//    }
+//
+//    if (current()->SizeLevelFiles(0) > Config::kMaxSizeLevel0File) {
+//        return true;
+//    }
+//
+//    for (auto i = 1; i < Config::kMaxLevel; i++) {
+//        if (current()->SizeLevelFiles(i) > Config::kMaxSizeLevel0File * (i + 1)) {
+//            return true;
+//        }
+//    }
+//    return false;
+    return current()->compaction_score_ >= 1.0;
+}
+    
+bool ColumnFamilyImpl::PickCompaction(CompactionContext *ctx) {
+    if (!NeedsCompaction()) {
+        return false;
+    }
+
+    bool size_compaction = (current()->compaction_score_ >= 1.0);
+    DCHECK_NOTNULL(ctx);
+    if (size_compaction) {
+        ctx->level = current_->compaction_level_;
+        DCHECK_GE(ctx->level, 0);
+        DCHECK_LT(ctx->level + 1, Config::kMaxLevel);
+
+        for (auto fmd : current_->level_files(ctx->level)) {
+            if (compaction_point_[ctx->level].empty() ||
+                ikcmp_.Compare(compaction_point_[ctx->level],
+                               fmd->largest_key) < 0) {
+                ctx->inputs[0].push_back(fmd);
+                break;
+            }
+        }
+        
+        if (ctx->inputs[0].empty()) {
+            ctx->inputs[0].push_back(current_->files_[ctx->level][0]);
+        }
+    } else {
+        return false;
+    }
+    
+    ctx->input_version = current_;
+    
+    // Files in level 0 may overlap each other, so pick up all overlapping ones
+    if (ctx->level == 0) {
+        std::string smallest, largest;
+        GetRange(ctx->inputs[0], &ikcmp_, &smallest, &largest);
+        // Note that the next call will discard the file we placed in
+        // c->inputs_[0] earlier and replace it with an overlapping set
+        // which will include the picked file.
+        current_->GetOverlappingInputs(0, smallest, largest, &ctx->inputs[0]);
+        DCHECK(!ctx->inputs[0].empty());
+    }
+    
+    SetupOtherInputs(ctx);
+    return true;
+}
+    
+void ColumnFamilyImpl::SetupOtherInputs(CompactionContext *ctx) {
+    const int level = ctx->level;
+    std::string smallest, largest;
+    GetRange(ctx->inputs[0], ikcmp(), &smallest, &largest);
+    
+    current_->GetOverlappingInputs(level + 1, smallest, largest,
+                                   &ctx->inputs[1]);
+    
+    // Get entire range covered by compaction
+    std::string all_start, all_limit;
+    GetRange2(ctx->inputs[0], ctx->inputs[1], ikcmp(), &all_start, &all_limit);
+    
+    // TODO:
+    
+    // Update the place where we will do the next compaction for this level.
+    // We update this immediately instead of waiting for the VersionEdit
+    // to be applied so that if the compaction fails, we will try a different
+    // key range next time.
+    //compaction_pointer_[level] = largest;
+    compaction_point_[level] = largest;
+    ctx->version_patch.set_compaction_point(id(), level, largest);
+}
+
+Error ColumnFamilyImpl::Install(Factory *factory) {
     // TODO:
     mutable_ = factory->NewMemoryTable(&ikcmp_, options_.use_unordered_table,
                                        options_.number_of_hash_slots);
     std::string cfdir = GetDir();
-    Error rs = env->MakeDirectory(cfdir, false);
+    Error rs = owns_->env()->MakeDirectory(cfdir, false);
     if (!rs) {
         return rs;
     }
@@ -94,13 +219,13 @@ Error ColumnFamilyImpl::Install(Factory *factory, Env *env) {
     return Error::OK();
 }
     
-Error ColumnFamilyImpl::Uninstall(Env *env) {
+Error ColumnFamilyImpl::Uninstall() {
     DCHECK(initialized());
     DCHECK(!background_progress());
     DCHECK(dropped());
     
     std::string cfdir = GetDir();
-    Error rs = env->DeleteFile(cfdir, true);
+    Error rs = owns_->env()->DeleteFile(cfdir, true);
     if (!rs) {
         return rs;
     }
@@ -125,7 +250,7 @@ std::string ColumnFamilyImpl::GetTableFileName(uint64_t file_number) const {
 Error ColumnFamilyImpl::AddIterators(const ReadOptions &opts,
                                     std::vector<Iterator *> *result) {
     Error rs;
-    for (int i = 0; i < kMaxLevel; ++i) {
+    for (int i = 0; i < Config::kMaxLevel; ++i) {
         for (const auto &fmd : current()->level_files(i)) {
             std::unique_ptr<Iterator>
                 iter(owns_->table_cache()->NewIterator(opts, this, fmd->number,

@@ -19,6 +19,7 @@ public:
     virtual ~Env();
     
     static Env *Default();
+    static Env *NewChrootEnv(const std::string root, Env *delegated);
     
     virtual Error NewSequentialFile(const std::string &file_name,
                                     std::unique_ptr<SequentialFile> *file,
@@ -30,7 +31,7 @@ public:
     
     virtual Error NewRandomAccessFile(const std::string &file_name,
                                       std::unique_ptr<RandomAccessFile> *file,
-                                      bool usd_mmap = true) = 0;
+                                      bool use_mmap = true) = 0;
     
     virtual Error MakeDirectory(const std::string &name,
                                 bool create_if_missing) = 0;

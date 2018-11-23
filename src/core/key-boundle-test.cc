@@ -17,8 +17,8 @@ TEST(KeyBoundleTest, New) {
                            boundle->value().size()));
     
     auto tag = boundle->tag();
-    ASSERT_EQ(1, tag.version());
-    ASSERT_EQ(Tag::kFlagValue, tag.flags());
+    ASSERT_EQ(1, tag.sequence_number());
+    ASSERT_EQ(Tag::kFlagValue, tag.flag());
 }
     
 TEST(KeyBoundleTest, TempAllocate) {

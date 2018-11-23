@@ -17,9 +17,9 @@ namespace core {
     if (rv != 0) {
         return rv;
     }
-    if (lkey.tag.version() < rkey.tag.version()) {
+    if (lkey.tag.sequence_number() < rkey.tag.sequence_number()) {
         return 1;
-    } else if (lkey.tag.version() > rkey.tag.version()) {
+    } else if (lkey.tag.sequence_number() > rkey.tag.sequence_number()) {
         return -1;
     }
     return 0;

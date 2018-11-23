@@ -136,10 +136,10 @@ TEST_F(XhashTableBuilderTest, Properties) {
     core::ParsedTaggedKey ikey;
     core::KeyBoundle::ParseTaggedKey(props.smallest_key, &ikey);
     EXPECT_EQ("aaaa", ikey.user_key);
-    EXPECT_EQ(1, ikey.tag.version());
+    EXPECT_EQ(1, ikey.tag.sequence_number());
     core::KeyBoundle::ParseTaggedKey(props.largest_key, &ikey);
     EXPECT_EQ("gggg", ikey.user_key);
-    EXPECT_EQ(7, ikey.tag.version());
+    EXPECT_EQ(7, ikey.tag.sequence_number());
 }
     
 TEST_F(XhashTableBuilderTest, LastLevelBuild) {

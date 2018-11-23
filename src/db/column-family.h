@@ -1,6 +1,7 @@
 #ifndef MAI_DB_COLUMN_FAMILY_H_
 #define MAI_DB_COLUMN_FAMILY_H_
 
+#include "db/config.h"
 #include "core/memory-table.h"
 #include "core/internal-key-comparator.h"
 #include "core/pipeline-queue.h"
@@ -25,6 +26,7 @@ class TableCache;
 class ColumnFamilySet;
 class ColumnFamilyImpl;
 class ColumnFamilyHandle;
+struct CompactionContext;
 
 class ColumnFamilyImpl final {
 public:
@@ -47,8 +49,8 @@ public:
     
     int ref_count() const { return ref_count_.load(std::memory_order_relaxed); }
     
-    Error Install(Factory *factory, Env *env);
-    Error Uninstall(Env *env);
+    Error Install(Factory *factory);
+    Error Uninstall();
     
     std::string GetDir() const;
     std::string GetTableFileName(uint64_t file_number) const;
@@ -82,13 +84,17 @@ public:
     
     void MakeImmutablePipeline(Factory *factory);
     void Append(Version *version);
-    bool NeedsCompaction() { /*TODO:*/ return false; }
+    bool NeedsCompaction() const;
+    bool PickCompaction(CompactionContext *ctx);
     
     const core::InternalKeyComparator *ikcmp() const { return &ikcmp_; }
 
     friend class ColumnFamilySet;
+    friend class VersionSet;
     DISALLOW_IMPLICIT_CONSTRUCTORS(ColumnFamilyImpl);
 private:
+    void SetupOtherInputs(CompactionContext *ctx);
+    
     const std::string name_;
     const uint32_t id_;
     const ColumnFamilyOptions options_;
@@ -107,7 +113,8 @@ private:
     
     Error background_error_;
     std::condition_variable background_cv_;
-    
+
+    std::string compaction_point_[Config::kMaxLevel];
 
     ColumnFamilyImpl *next_ = nullptr;
     ColumnFamilyImpl *prev_ = nullptr;

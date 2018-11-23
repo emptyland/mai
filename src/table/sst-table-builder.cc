@@ -46,7 +46,7 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
     KeyBoundle::ParseTaggedKey(key, &ikey);
     
     if (!has_seen_first_key_) {
-        if (ikey.tag.version() == 0) {
+        if (ikey.tag.sequence_number() == 0) {
             is_last_level_ = true;
         }
         
@@ -80,11 +80,11 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
     if (ikcmp_->Compare(key, largest_key_) > 0) {
         largest_key_ = key;
     }
-    if (ikey.tag.version() > max_version_) {
-        max_version_ = ikey.tag.version();
+    if (ikey.tag.sequence_number() > max_version_) {
+        max_version_ = ikey.tag.sequence_number();
     }
-    if (ikey.tag.version() > max_version_) {
-        max_version_ = ikey.tag.version();
+    if (ikey.tag.sequence_number() > max_version_) {
+        max_version_ = ikey.tag.sequence_number();
     }
     n_entries_++;
 }

@@ -1,6 +1,7 @@
 #ifndef MAI_DB_VERSION_H_
 #define MAI_DB_VERSION_H_
 
+#include "db/config.h"
 #include "core/key-boundle.h"
 #include "core/internal-key-comparator.h"
 #include "base/reference-count.h"
@@ -11,6 +12,7 @@
 #include <set>
 #include <mutex>
 #include <map>
+#include <numeric>
 
 namespace mai {
 class Env;
@@ -27,10 +29,6 @@ class VersionSet;
 class Version;
 class TableCache;
 class LogWriter;
-    
-static const int kMaxLevel = 4;
-static const int kMaxNumberLevel0File = 10; // the max of level0 file num
-static const int kMaxSizeLevel0File   = 80 * base::kMB;
     
 struct FileMetadata final : public base::ReferenceCounted<FileMetadata> {
     
@@ -225,13 +223,35 @@ class Version final {
 public:
     explicit Version(ColumnFamilyImpl *owner) : owns_(owner) {}
     
+    size_t NumberLevelFiles(int level) {
+        DCHECK_GE(level, 0);
+        DCHECK_LT(level, Config::kMaxLevel);
+        return files_[level].size();
+    }
+    
+    size_t SizeLevelFiles(int level) {
+        DCHECK_GE(level, 0);
+        DCHECK_LT(level, Config::kMaxLevel);
+        size_t size = 0;
+        for (auto fmd : files_[level]) {
+            size += fmd->size;
+        }
+        return size;
+    }
+    
+    void GetOverlappingInputs(int level, std::string_view begin,
+                              std::string_view end,
+                              std::vector<base::Handle<FileMetadata>> *inputs);
+    
     DEF_PTR_GETTER_NOTNULL(ColumnFamilyImpl, owns);
     DEF_PTR_GETTER(Version, next);
     DEF_PTR_GETTER(Version, prev);
+    DEF_VAL_GETTER(int, compaction_level);
+    DEF_VAL_GETTER(double, compaction_score);
     
     const std::vector<base::Handle<FileMetadata>> &level_files(int level) {
         DCHECK_GE(level, 0);
-        DCHECK_LT(level, kMaxLevel);
+        DCHECK_LT(level, Config::kMaxLevel);
         return files_[level];
     }
     
@@ -243,10 +263,12 @@ public:
     friend class VersionBuilder;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Version);
 private:
-    ColumnFamilyImpl *owns_;
+    ColumnFamilyImpl *const owns_;
     Version *next_ = nullptr;
     Version *prev_ = nullptr;
-    std::vector<base::Handle<FileMetadata>> files_[kMaxLevel];
+    int      compaction_level_ = -1;
+    double   compaction_score_ = -1;
+    std::vector<base::Handle<FileMetadata>> files_[Config::kMaxLevel];
 }; // class Version
     
 
@@ -287,6 +309,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(VersionSet);
 private:
     Error WritePatch(const VersionPatch &patch);
+    void Finalize(Version *version);
 
     const std::string abs_db_path_;
     Env *const env_;
@@ -294,7 +317,6 @@ private:
     const uint64_t block_size_;
 
     core::SequenceNumber last_sequence_number_ = 0;
-    
     uint64_t next_file_number_ = 0;
     uint64_t redo_log_number_ = 0;
     uint64_t prev_log_number_ = 0;
