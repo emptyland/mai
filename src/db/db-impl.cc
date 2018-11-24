@@ -8,6 +8,7 @@
 #include "db/table-cache.h"
 #include "db/config.h"
 #include "db/compaction.h"
+#include "db/snapshot-impl.h"
 #include "table/table-builder.h"
 #include "core/key-boundle.h"
 #include "core/memory-table.h"
@@ -448,12 +449,14 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
 }
     
 /*virtual*/ const Snapshot *DBImpl::GetSnapshot() {
-    // TODO:
-    return nullptr;
+    std::unique_lock<std::mutex> lock(mutex_);
+    return snapshots_.NewSnapshot(versions_->last_sequence_number());
 }
     
 /*virtual*/ void DBImpl::ReleaseSnapshot(const Snapshot *snapshot) {
-    // TODO:
+    std::unique_lock<std::mutex> lock(mutex_);
+    const SnapshotImpl *impl = SnapshotImpl::Cast(snapshot);
+    snapshots_.DeleteSnapshot(const_cast<SnapshotImpl *>(impl));
 }
     
 /*virtual*/ ColumnFamily *DBImpl::DefaultColumnFamily() {

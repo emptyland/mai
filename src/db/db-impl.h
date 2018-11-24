@@ -31,6 +31,9 @@ public:
     DBImpl(const std::string &db_name, const Options &opts);
     virtual ~DBImpl();
     
+    DEF_VAL_GETTER(std::string, db_name);
+    DEF_VAL_GETTER(std::string, abs_db_path);
+    
     Error Open(const Options &opts,
                const std::vector<ColumnFamilyDescriptor> &descriptors,
                std::vector<ColumnFamily *> *column_families);
