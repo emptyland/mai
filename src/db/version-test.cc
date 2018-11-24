@@ -2,6 +2,8 @@
 #include "db/column-family.h"
 #include "db/table-cache.h"
 #include "db/factory.h"
+#include "db/compaction.h"
+#include "db/config.h"
 #include "mai/options.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
@@ -13,11 +15,24 @@ namespace db {
 class VersionTest : public ::testing::Test {
 public:
     VersionTest()
-        : abs_db_path_(env_->GetAbsolutePath("tests/demo")) {}
+        : abs_db_path_(env_->GetAbsolutePath("tests/demo"))
+        , factory_(Factory::NewDefault())
+        , table_cache_(new TableCache(abs_db_path_, options_, factory_.get()))
+    {
+        int i = 0;
+        while (tmp_dirs[i]) {
+            env_->MakeDirectory(tmp_dirs[i++], false);
+        }
+    }
+    
+    virtual ~VersionTest() {
+        int i = 0;
+        while (tmp_dirs[i]) {
+            env_->DeleteFile(tmp_dirs[i++], true);
+        }
+    }
     
     void SetUp() override {
-        factory_.reset(Factory::NewDefault());
-        table_cache_.reset(new TableCache(abs_db_path_, options_, factory_.get()));
         versions_.reset(new VersionSet(abs_db_path_, Options{}, table_cache_.get()));
         versions_->column_families()->NewColumnFamily(ColumnFamilyOptions{},
                                                       "default", 0,
@@ -34,6 +49,14 @@ public:
     std::unique_ptr<Factory> factory_;
     std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<VersionSet> versions_;
+    
+    static const char *tmp_dirs[];
+};
+    
+const char *VersionTest::tmp_dirs[] = {
+    "tests/00-ves-pick-compaction-l0",
+    "tests/01-ves-pick-compaction-l0-v2",
+    nullptr,
 };
 
 TEST_F(VersionTest, VersionPatchEncodeDecode1) {
@@ -120,7 +143,7 @@ TEST_F(VersionTest, LogAndApply) {
 }
 
 TEST_F(VersionTest, Recovery) {
-    VersionSet versions(abs_db_path_,  Options{}, table_cache_.get());
+    VersionSet versions(abs_db_path_, Options{}, table_cache_.get());
     std::map<std::string, ColumnFamilyOptions> opts;
     std::vector<uint64_t> logs;
 
@@ -138,6 +161,76 @@ TEST_F(VersionTest, Recovery) {
     auto cf1 = versions.column_families()->GetColumnFamily("d");
     ASSERT_NE(nullptr, cf1);
     ASSERT_EQ(1, cf1->id());
+}
+    
+TEST_F(VersionTest, PickCompactionL0) {
+    VersionSet vets(tmp_dirs[0], Options{}, table_cache_.get());
+    
+    VersionPatch patch;
+    patch.AddColumnFamily(kDefaultColumnFamilyName, 0, "cc");
+    for (int i = 0; i < Config::kMaxNumberLevel0File; ++i) {
+        auto smallest = core::KeyBoundle::MakeKey("aaaa", 1);
+        auto largest  = core::KeyBoundle::MakeKey("bbbb", 2);
+        patch.CreateFile(0, 0, i + 1, smallest, largest, 40 * base::kMB,
+                         env_->CurrentTimeMicros());
+        
+    }
+    vets.LogAndApply(options_, &patch, nullptr);
+    patch.Reset();
+    
+    CompactionContext ctx;
+    auto cfd = vets.column_families()->GetDefault();
+    ASSERT_TRUE(cfd->NeedsCompaction());
+    ASSERT_TRUE(cfd->PickCompaction(&ctx));
+    ASSERT_EQ(0, ctx.level);
+    ASSERT_EQ(cfd->current(), ctx.input_version);
+    ASSERT_EQ(10, ctx.inputs[0].size());
+}
+
+TEST_F(VersionTest, PickCompactionL0_V2) {
+    VersionSet vets(tmp_dirs[1], Options{}, table_cache_.get());
+    
+    std::string keys[Config::kMaxNumberLevel0File * 2] = {
+        core::KeyBoundle::MakeKey("aaaa", 1),
+        core::KeyBoundle::MakeKey("aaab", 2),
+        core::KeyBoundle::MakeKey("aaac", 3),
+        core::KeyBoundle::MakeKey("aaad", 4),
+        core::KeyBoundle::MakeKey("aaae", 5),
+        core::KeyBoundle::MakeKey("aaaf", 6),
+        core::KeyBoundle::MakeKey("aaag", 7),
+        core::KeyBoundle::MakeKey("aaah", 8),
+        core::KeyBoundle::MakeKey("aaai", 9),
+        core::KeyBoundle::MakeKey("aaaj", 10),
+        core::KeyBoundle::MakeKey("aaak", 11),
+        core::KeyBoundle::MakeKey("aaal", 12),
+        core::KeyBoundle::MakeKey("aaam", 13),
+        core::KeyBoundle::MakeKey("aaan", 14),
+        core::KeyBoundle::MakeKey("aaao", 15),
+        core::KeyBoundle::MakeKey("aaap", 16),
+        core::KeyBoundle::MakeKey("aaaq", 17),
+        core::KeyBoundle::MakeKey("aaar", 18),
+        core::KeyBoundle::MakeKey("aaas", 19),
+        core::KeyBoundle::MakeKey("aaat", 20),
+    };
+    
+    VersionPatch patch;
+    patch.AddColumnFamily(kDefaultColumnFamilyName, 0, "cc");
+    for (int i = 0; i < Config::kMaxNumberLevel0File; ++i) {
+        patch.CreateFile(0, 0, i + 1, keys[i * 2], keys[i * 2 + 1],
+                         80 * base::kMB,
+                         env_->CurrentTimeMicros());
+        
+    }
+    vets.LogAndApply(options_, &patch, nullptr);
+    patch.Reset();
+    
+    CompactionContext ctx;
+    auto cfd = vets.column_families()->GetDefault();
+    ASSERT_TRUE(cfd->NeedsCompaction());
+    ASSERT_TRUE(cfd->PickCompaction(&ctx));
+    ASSERT_EQ(0, ctx.level);
+    ASSERT_EQ(cfd->current(), ctx.input_version);
+    ASSERT_EQ(10, ctx.inputs[0].size());
 }
 
 } // namespace db
