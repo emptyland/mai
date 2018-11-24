@@ -52,7 +52,10 @@ public:
     Error GetFileMetadata(const ColumnFamilyImpl *cf, uint64_t file_number,
                           FileMetadata *fmd);
     
-    void Invalidate(uint64_t file_number) { cached_.erase(file_number); }
+    void Invalidate(uint64_t file_number) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        cached_.erase(file_number);
+    }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(TableCache);
 private:
