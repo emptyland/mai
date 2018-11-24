@@ -16,13 +16,16 @@ public:
         options_.create_if_missing = true;
     }
     
-    void TearDown() override {
+    ~DBImplTest() override {
         int i = 0;
         while (tmp_dirs[i]) {
             env_->DeleteFile(tmp_dirs[i++], true);
-            //ASSERT_TRUE(rs.ok()) << rs.ToString();
         }
     }
+    
+//    void TearDown() override {
+//
+//    }
     
     Env *env_ = Env::Default();
     std::vector<ColumnFamilyDescriptor> descs_;

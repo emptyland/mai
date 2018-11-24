@@ -22,6 +22,7 @@ class Version;
 class VersionPatch;
 class Factory;
 class ColumnFamilyImpl;
+struct CompactionContext;
     
 struct GetContext;
 
@@ -77,6 +78,7 @@ private:
     void BackgroundWork(ColumnFamilyImpl *cfd);
     void BackgroundCompaction(ColumnFamilyImpl *cfd);
     Error CompactMemoryTable(ColumnFamilyImpl *cfd);
+    Error CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx);
     Error WriteLevel0Table(Version *current, VersionPatch *patch,
                            core::MemoryTable *imm);
     void DeleteObsoleteFiles(ColumnFamilyImpl *cfd);

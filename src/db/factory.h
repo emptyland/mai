@@ -17,6 +17,9 @@ class TableReader;
 class TableBuilder;
 } // namespace table
 namespace db {
+class Compaction;
+class TableCache;
+class ColumnFamilyImpl;
 
 class Factory {
 public:
@@ -36,6 +39,11 @@ public:
     NewTableBuilder(const core::InternalKeyComparator *ikcmp, bool unordered,
                     WritableFile *file, uint64_t block_size, int n_restart,
                     size_t max_hash_slots, base::hash_func_t hash_func) = 0;
+    
+    virtual Compaction *
+    NewCompaction(const std::string abs_db_path,
+                  const core::InternalKeyComparator *ikcmp,
+                  TableCache *table_cache, ColumnFamilyImpl *cfd) = 0;
     
     static Factory *NewDefault();
     

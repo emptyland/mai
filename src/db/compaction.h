@@ -16,13 +16,15 @@ class TableBuilder;
 namespace db {
 
 class ColumnFamilyImpl;
+struct CompactionContext;
+struct CompactionResult;
    
 class Compaction {
 public:
-    explicit Compaction(ColumnFamilyImpl *cfd) : cfd_(DCHECK_NOTNULL(cfd)) {}
+    explicit Compaction(const ColumnFamilyImpl *cfd) : cfd_(DCHECK_NOTNULL(cfd)) {}
     virtual ~Compaction() {}
     
-    DEF_PTR_GETTER_NOTNULL(ColumnFamilyImpl, cfd);
+    DEF_PTR_GETTER_NOTNULL(const ColumnFamilyImpl, cfd);
     DEF_VAL_PROP_RW(int, target_level);
     DEF_VAL_PROP_RW(uint64_t, target_file_number);
     DEF_VAL_PROP_RW(core::SequenceNumber, oldest_sequence_number);
@@ -32,23 +34,31 @@ public:
     
     void AddInput(Iterator *iter) { original_input_.push_back(iter); }
     
-    virtual Error Run(table::TableBuilder *builder) = 0;
+    virtual Error Run(table::TableBuilder *builder, CompactionResult *result) = 0;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Compaction);
 private:
-    ColumnFamilyImpl *cfd_;
+    const ColumnFamilyImpl *const cfd_;
     int target_level_;
     uint64_t target_file_number_;
     core::SequenceNumber oldest_sequence_number_;
     std::string compaction_point_;
     std::vector<Iterator *> original_input_;
 }; // class Compaction
-
+    
+struct CompactionResult {
+    std::string smallest_key;
+    std::string largest_key;
+    size_t      deletion_keys = 0;
+    uint64_t    deletion_size = 0;
+    uint64_t    compacted_size = 0;
+    size_t      compacted_n_entries = 0;
+}; // struct CompactionResult
     
 struct CompactionContext {
     int level = -1;
     Version *input_version = nullptr;
-    VersionPatch version_patch;
+    VersionPatch patch;
     std::vector<base::Handle<FileMetadata>> inputs[2];
 }; // struct CompactionContext
     

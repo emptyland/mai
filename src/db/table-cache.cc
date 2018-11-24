@@ -14,14 +14,14 @@ namespace db {
 TableCache::~TableCache() {}
 
 Iterator *TableCache::NewIterator(const ReadOptions &read_opts,
-                                  const ColumnFamilyImpl *cf,
+                                  const ColumnFamilyImpl *cfd,
                                   uint64_t file_number, uint64_t file_size) {
     base::Handle<Entry> entry;
-    Error rs = EnsureTableCached(cf, file_number, file_size, &entry);
+    Error rs = EnsureTableCached(cfd, file_number, file_size, &entry);
     if (!rs) {
         return Iterator::AsError(rs);
     }
-    Iterator *iter = entry->table->NewIterator(read_opts, cf->ikcmp());
+    Iterator *iter = entry->table->NewIterator(read_opts, cfd->ikcmp());
     if (iter->error().ok()) {
         entry->AddRef();
         iter->RegisterCleanup(&EntryCleanup, entry.get());
@@ -69,9 +69,10 @@ Error TableCache::GetKeyFilter(const ColumnFamilyImpl *cf, uint64_t file_number,
     return Error::OK();
 }
     
-Error TableCache::EnsureTableCached(const ColumnFamilyImpl *cf,
+Error TableCache::EnsureTableCached(const ColumnFamilyImpl *cfd,
                                     uint64_t file_number, uint64_t file_size,
                                     base::Handle<Entry> *result) {
+    std::unique_lock<std::mutex> lock(mutex_);
     auto iter = cached_.find(file_number);
     if (iter != cached_.end()) {
         *result = iter->second;
@@ -79,7 +80,7 @@ Error TableCache::EnsureTableCached(const ColumnFamilyImpl *cf,
     }
     
     base::Handle<Entry> entry(new Entry);
-    entry->file_name = cf->GetTableFileName(file_number);
+    entry->file_name = cfd->GetTableFileName(file_number);
     Error rs = env_->NewRandomAccessFile(entry->file_name, &entry->file,
                                          allow_mmap_reads_);
     if (!rs) {
@@ -91,14 +92,16 @@ Error TableCache::EnsureTableCached(const ColumnFamilyImpl *cf,
             return rs;
         }
     }
-    rs = factory_->NewTableReader(cf->options().use_unordered_table,
+    mutex_.unlock();
+    rs = factory_->NewTableReader(cfd->options().use_unordered_table,
                                   entry->file.get(), file_size, true,
                                   &base::Hash::Js, &entry->table);
+    mutex_.lock();
     if (!rs) {
         return rs;
     }
     
-    entry->cfid = cf->id();
+    entry->cfid = cfd->id();
     *result = entry;
     cached_[file_number] = entry;
     return Error::OK();

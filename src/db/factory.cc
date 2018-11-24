@@ -1,4 +1,5 @@
 #include "db/factory.h"
+#include "db/compaction-impl.h"
 #include "table/xhash-table-reader.h"
 #include "table/xhash-table-builder.h"
 #include "table/sst-table-reader.h"
@@ -63,6 +64,13 @@ public:
         } else {
             return new table::SstTableBuilder(ikcmp, file, block_size, n_restart);
         }
+    }
+    
+    virtual Compaction *
+    NewCompaction(const std::string abs_db_path,
+                  const core::InternalKeyComparator *ikcmp,
+                  TableCache *table_cache, ColumnFamilyImpl *cfd) override {
+        return new CompactionImpl(abs_db_path, ikcmp, table_cache, cfd);
     }
     
 }; // class FactoryImpl

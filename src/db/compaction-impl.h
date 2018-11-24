@@ -19,10 +19,11 @@ public:
                    TableCache *table_cache, ColumnFamilyImpl *cfd);
     virtual ~CompactionImpl();
     
-    virtual Error Run(table::TableBuilder *builder) override;
+    virtual Error Run(table::TableBuilder *builder,
+                      CompactionResult *result) override;
     
 private:
-    bool EnsureKeyNotExists(int start_level, std::string_view key);
+    Error EnsureKeyNotExists(int start_level, std::string_view key, bool *drop);
     
     const std::string abs_db_path_;
     const core::InternalKeyComparator *const ikcmp_;

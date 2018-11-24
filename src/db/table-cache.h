@@ -10,6 +10,7 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
+#include <mutex>
 
 namespace mai {
 class Env;
@@ -73,6 +74,7 @@ private:
     const bool allow_mmap_reads_;
     
     std::unordered_map<uint64_t, base::Handle<Entry>> cached_;
+    std::mutex mutex_;
 }; // class TableCache
     
 } // namespace db

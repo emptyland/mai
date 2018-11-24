@@ -7,6 +7,7 @@
 #include "db/factory.h"
 #include "db/table-cache.h"
 #include "db/config.h"
+#include "db/compaction.h"
 #include "table/table-builder.h"
 #include "core/key-boundle.h"
 #include "core/memory-table.h"
@@ -698,13 +699,28 @@ void DBImpl::BackgroundCompaction(ColumnFamilyImpl *cfd) {
         if (rs.fail()) {
             DLOG(INFO) << "Compact memory table fail! column family: "
                        << cfd->name() << " cause: " << rs.ToString();
+            cfd->set_background_error(rs);
+            return;
         }
-        cfd->set_background_error(rs);
     }
 
-    if (cfd->NeedsCompaction()) {
-        // TODO: Compaction!
+    CompactionContext ctx;
+    if (cfd->PickCompaction(&ctx)) {
+        Error rs = CompactFileTable(cfd, &ctx);
+        if (rs.fail()) {
+            DLOG(INFO) << "Compact file table fail! column family: "
+                       << cfd->name() << " cause: " << rs.ToString();
+            cfd->set_background_error(rs);
+            return;
+        }
+        rs = versions_->LogAndApply(ColumnFamilyOptions{}, &ctx.patch, &mutex_);
+        if (!rs) {
+            cfd->set_background_error(rs);
+            return;
+        }
     }
+    
+    DeleteObsoleteFiles(cfd);
 }
 
 // REQUIRES mutex_.lock()
@@ -731,7 +747,82 @@ Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
     if (!rs) {
         return rs;
     }
-    DeleteObsoleteFiles(cfd);
+    return Error::OK();
+}
+
+// REQUIRES mutex_.lock()
+Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
+    DCHECK_GE(ctx->level, 0);
+    DCHECK_LT(ctx->level, Config::kMaxLevel - 1);
+    
+    std::unique_ptr<Compaction>
+    job(factory_->NewCompaction(abs_db_path_, cfd->ikcmp(),
+                                table_cache_.get(), cfd));
+    job->set_target_level(ctx->level + 1);
+    job->set_compaction_point(cfd->compaction_point(ctx->level));
+    job->set_oldest_sequence_number(versions_->last_sequence_number());
+    job->set_target_file_number(versions_->GenerateFileNumber());
+    
+    for (auto fmd : ctx->inputs[0]) {
+        Iterator *iter = table_cache_->NewIterator(ReadOptions{}, cfd,
+                                                   fmd->number, fmd->size);
+        Error rs = iter->error();
+        if (!rs) {
+            delete iter;
+            return rs;
+        }
+        job->AddInput(iter);
+        ctx->patch.DeleteFile(cfd->id(), ctx->level, fmd->number);
+    }
+    for (auto fmd : ctx->inputs[1]) {
+        Iterator *iter = table_cache_->NewIterator(ReadOptions{}, cfd,
+                                                   fmd->number, fmd->size);
+        Error rs = iter->error();
+        if (!rs) {
+            delete iter;
+            return rs;
+        }
+        job->AddInput(iter);
+        ctx->patch.DeleteFile(cfd->id(), ctx->level + 1, fmd->number);
+    }
+    
+    std::unique_ptr<WritableFile> file;
+    Error rs =
+        env_->NewWritableFile(cfd->GetTableFileName(job->target_file_number()),
+                              false, &file);
+    if (!rs) {
+        return rs;
+    }
+    std::unique_ptr<table::TableBuilder>
+    builder(factory_->NewTableBuilder(cfd->ikcmp(),
+                                      cfd->options().use_unordered_table,
+                                      file.get(),
+                                      cfd->options().block_size,
+                                      cfd->options().block_restart_interval,
+                                      cfd->options().number_of_hash_slots,
+                                      &base::Hash::Js));
+    CompactionResult result;
+    mutex_.unlock();
+    rs = job->Run(builder.get(), &result);
+    mutex_.lock();
+    if (!rs) {
+        builder->Abandon();
+        return rs;
+    }
+    mutex_.unlock();
+    rs = builder->Finish();
+    mutex_.lock();
+    if (!rs) {
+        builder->Abandon();
+        return rs;
+    }
+    
+    FileMetadata *fmd = new FileMetadata(job->target_file_number());
+    fmd->ctime        = env_->CurrentTimeMicros();
+    fmd->size         = builder->FileSize();
+    fmd->largest_key  = result.largest_key;
+    fmd->smallest_key = result.smallest_key;
+    ctx->patch.CreaetFile(cfd->id(), job->target_level(), fmd);
     return Error::OK();
 }
     
@@ -779,7 +870,10 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
             smallest_key = iter->key();
         }
     }
-    builder->Finish();
+    rs = builder->Finish();
+    if (!rs) {
+        return rs;
+    }
     
     fmd->ctime        = env_->CurrentTimeMicros();
     fmd->size         = builder->FileSize();

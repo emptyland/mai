@@ -82,6 +82,12 @@ public:
     core::MemoryTable *mutable_table() const { return mutable_.get(); }
     ImmutablePipeline *immutable_pipeline() { return &immutable_pipeline_; }
     
+    std::string compaction_point(int level) const {
+        DCHECK_GE(level, 0);
+        DCHECK_LT(level, Config::kMaxLevel);
+        return compaction_point_[level];
+    }
+    
     void MakeImmutablePipeline(Factory *factory);
     void Append(Version *version);
     bool NeedsCompaction() const;

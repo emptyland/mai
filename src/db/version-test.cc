@@ -168,9 +168,9 @@ TEST_F(VersionTest, PickCompactionL0) {
     
     VersionPatch patch;
     patch.AddColumnFamily(kDefaultColumnFamilyName, 0, "cc");
+    auto smallest = core::KeyBoundle::MakeKey("aaaa", 1);
+    auto largest  = core::KeyBoundle::MakeKey("bbbb", 2);
     for (int i = 0; i < Config::kMaxNumberLevel0File; ++i) {
-        auto smallest = core::KeyBoundle::MakeKey("aaaa", 1);
-        auto largest  = core::KeyBoundle::MakeKey("bbbb", 2);
         patch.CreateFile(0, 0, i + 1, smallest, largest, 40 * base::kMB,
                          env_->CurrentTimeMicros());
         
@@ -185,6 +185,7 @@ TEST_F(VersionTest, PickCompactionL0) {
     ASSERT_EQ(0, ctx.level);
     ASSERT_EQ(cfd->current(), ctx.input_version);
     ASSERT_EQ(10, ctx.inputs[0].size());
+    ASSERT_EQ(largest, cfd->compaction_point(0));
 }
 
 TEST_F(VersionTest, PickCompactionL0_V2) {
@@ -230,7 +231,8 @@ TEST_F(VersionTest, PickCompactionL0_V2) {
     ASSERT_TRUE(cfd->PickCompaction(&ctx));
     ASSERT_EQ(0, ctx.level);
     ASSERT_EQ(cfd->current(), ctx.input_version);
-    ASSERT_EQ(10, ctx.inputs[0].size());
+    ASSERT_EQ(1, ctx.inputs[0].size());
+    ASSERT_EQ(keys[1], cfd->compaction_point(0));
 }
 
 } // namespace db
