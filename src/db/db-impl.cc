@@ -868,6 +868,7 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
     std::string table_file_name = current->owns()->GetTableFileName(fmd->number);
     Error rs = env_->NewWritableFile(table_file_name, false, &file);
     if (!rs) {
+        mutex_.lock();
         return rs;
     }
     ColumnFamilyImpl *cfd = current->owns();
@@ -883,6 +884,7 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
         rs = builder->error();
         if (!rs) {
             builder->Abandon();
+            mutex_.lock();
             return rs;
         }
         if (largest_key.empty() ||
@@ -896,6 +898,7 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
     }
     rs = builder->Finish();
     if (!rs) {
+        mutex_.lock();
         return rs;
     }
     
@@ -904,6 +907,7 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
     fmd->largest_key  = largest_key;
     fmd->smallest_key = smallest_key;
     patch->CreaetFile(cfd->id(), 0, fmd.get());
+    mutex_.lock();
     return Error::OK();
 }
     
