@@ -10,9 +10,9 @@ namespace mai {
     
 namespace port {
     
-class MemSequentialFilePosix final : public SequentialFile {
+class MemPosixSequentialFile final : public SequentialFile {
 public:
-    virtual ~MemSequentialFilePosix();
+    virtual ~MemPosixSequentialFile();
     
     static Error Open(const std::string &file_name,
                       std::unique_ptr<SequentialFile> *file);
@@ -22,9 +22,9 @@ public:
     virtual Error Skip(size_t n) override;
     virtual Error GetFileSize(uint64_t *size) override;
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(MemSequentialFilePosix);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(MemPosixSequentialFile);
 private:
-    MemSequentialFilePosix(int fd, uint64_t file_size, char *mapped_mem)
+    MemPosixSequentialFile(int fd, uint64_t file_size, char *mapped_mem)
         : fd_(fd)
         , file_size_(file_size)
         , mapped_mem_(mapped_mem)
@@ -39,11 +39,30 @@ private:
     uint64_t file_size_ = 0;
     char *mapped_mem_ = nullptr;
     std::atomic<size_t> position_;
-}; // class MemSequentialFilePosix
+}; // class MemPosixSequentialFile
     
-class WritableFilePosix final : public WritableFile {
+class PosixSequentialFile final : public SequentialFile {
 public:
-    virtual ~WritableFilePosix();
+    virtual ~PosixSequentialFile();
+    
+    static Error Open(const std::string &file_name,
+                      std::unique_ptr<SequentialFile> *file);
+    
+    virtual Error Read(size_t n, std::string_view *result,
+                       std::string *scratch) override;
+    virtual Error Skip(size_t n) override;
+    virtual Error GetFileSize(uint64_t *size) override;
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(PosixSequentialFile);
+private:
+    PosixSequentialFile(int fd) : fd_(fd) { DCHECK_GE(fd_, 0); }
+    
+    int fd_ = -1;
+}; // class PosixSequentialFile
+    
+class PosixWritableFile final : public WritableFile {
+public:
+    virtual ~PosixWritableFile();
     
     static Error Open(const std::string &file_name, bool append,
                       std::unique_ptr<WritableFile> *file);
@@ -55,20 +74,20 @@ public:
     virtual Error GetFileSize(uint64_t *size) override;
     virtual Error Truncate(uint64_t size) override;
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(WritableFilePosix);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(PosixWritableFile);
 private:
-    WritableFilePosix(int fd) : fd_(fd) {
+    PosixWritableFile(int fd) : fd_(fd) {
         DCHECK_GE(fd, 0) << "Invalid fd!";
     }
     
     int fd_ = -1;
     size_t filesize_ = 0;
-}; // class WritableFilePosix
+}; // class PosixWritableFile
 
 
-class MemRandomAccessFilePosix final : public RandomAccessFile {
+class MemPosixRandomAccessFile final : public RandomAccessFile {
 public:
-    virtual ~MemRandomAccessFilePosix();
+    virtual ~MemPosixRandomAccessFile();
     
     static Error Open(const std::string &file_name,
                       std::unique_ptr<RandomAccessFile> *file);
@@ -77,9 +96,9 @@ public:
                        std::string *scratch) override;
     virtual Error GetFileSize(uint64_t *size) override;
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(MemRandomAccessFilePosix);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(MemPosixRandomAccessFile);
 private:
-    MemRandomAccessFilePosix(int fd, uint64_t file_size, char *mapped)
+    MemPosixRandomAccessFile(int fd, uint64_t file_size, char *mapped)
         : fd_(fd)
         , file_size_(file_size)
         , mapped_mem_(DCHECK_NOTNULL(mapped)) {
@@ -89,8 +108,27 @@ private:
     int fd_ = -1;
     uint64_t file_size_ = 0;
     char *mapped_mem_ = nullptr;
-}; // class MemRandomAccessFilePosix
+}; // class MemPosixRandomAccessFile
+
     
+class PosixRandomAccessFile final : public RandomAccessFile {
+public:
+    virtual ~PosixRandomAccessFile();
+    
+    static Error Open(const std::string &file_name,
+                      std::unique_ptr<RandomAccessFile> *file);
+    
+    virtual Error Read(uint64_t offset, size_t n, std::string_view *result,
+                       std::string *scratch) override;
+    virtual Error GetFileSize(uint64_t *size) override;
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(PosixRandomAccessFile);
+private:
+    PosixRandomAccessFile(int fd) : fd_(fd) { DCHECK_GE(fd_, 0); }
+    
+    int fd_ = -1;
+}; // class PosixRandomAccessFile
+
 } // namespace port
     
 } // namespace mai

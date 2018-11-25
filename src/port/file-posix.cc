@@ -13,7 +13,7 @@ namespace port {
 /// class MemSequentialFilePosix
 ////////////////////////////////////////////////////////////////////////////////
     
-/*virtual*/ MemSequentialFilePosix::~MemSequentialFilePosix() {
+/*virtual*/ MemPosixSequentialFile::~MemPosixSequentialFile() {
     if (static_cast<void *>(mapped_mem_) != MAP_FAILED) {
         if (::munmap(mapped_mem_, file_size_) < 0) {
             LOG(ERROR) << "munmap() fail: " << strerror(errno);
@@ -30,7 +30,7 @@ namespace port {
 }
     
 /*static*/ Error
-MemSequentialFilePosix::Open(const std::string &file_name,
+MemPosixSequentialFile::Open(const std::string &file_name,
                              std::unique_ptr<SequentialFile> *file) {
     int fd = ::open(file_name.c_str(), O_RDONLY);
     if (fd < 0) {
@@ -43,7 +43,7 @@ MemSequentialFilePosix::Open(const std::string &file_name,
         return MAI_IO_ERROR(strerror(errno));
     }
     if (s.st_size == 0) {
-        file->reset(new MemSequentialFilePosix(fd, s.st_size, nullptr));
+        file->reset(new MemPosixSequentialFile(fd, s.st_size, nullptr));
         return Error::OK();
     }
     
@@ -54,12 +54,12 @@ MemSequentialFilePosix::Open(const std::string &file_name,
         return MAI_IO_ERROR(strerror(errno));
     }
     
-    file->reset(new MemSequentialFilePosix(fd, s.st_size,
+    file->reset(new MemPosixSequentialFile(fd, s.st_size,
                                            static_cast<char *>(mapped)));
     return Error::OK();
 }
 
-/*virtual*/ Error MemSequentialFilePosix::Read(size_t n, std::string_view *result,
+/*virtual*/ Error MemPosixSequentialFile::Read(size_t n, std::string_view *result,
                                                std::string */*scratch*/) {
     size_t old_pos = position_.load(std::memory_order_relaxed);
     if (old_pos >= file_size_) {
@@ -77,7 +77,7 @@ MemSequentialFilePosix::Open(const std::string &file_name,
     return Error::OK();
 }
 
-/*virtual*/ Error MemSequentialFilePosix::Skip(size_t n) {
+/*virtual*/ Error MemPosixSequentialFile::Skip(size_t n) {
     size_t old_pos = position_.load(std::memory_order_relaxed);
     if (old_pos >= file_size_) {
         return MAI_EOF("Skip()");
@@ -93,8 +93,80 @@ MemSequentialFilePosix::Open(const std::string &file_name,
     return Error::OK();
 }
 
-/*virtual*/ Error MemSequentialFilePosix::GetFileSize(uint64_t *size) {
+/*virtual*/ Error MemPosixSequentialFile::GetFileSize(uint64_t *size) {
     *size = file_size_;
+    return Error::OK();
+}
+
+    
+////////////////////////////////////////////////////////////////////////////////
+/// class PosixSequentialFile
+////////////////////////////////////////////////////////////////////////////////
+
+/*virtual*/ PosixSequentialFile::~PosixSequentialFile() {
+    if (fd_ != -1) {
+        if (::close(fd_) < 0) {
+            LOG(ERROR) << "close() fail: " << strerror(errno);
+        }
+        fd_ = -1;
+    }
+}
+
+/*static*/ Error PosixSequentialFile::Open(const std::string &file_name,
+                                           std::unique_ptr<SequentialFile> *file) {
+    int fd = ::open(file_name.c_str(), O_RDONLY);
+    if (fd < 0) {
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    file->reset(new PosixSequentialFile(fd));
+    return Error::OK();
+}
+
+/*virtual*/ Error PosixSequentialFile::Read(size_t n, std::string_view *result,
+                   std::string *scratch) {
+#if defined(DEBUG) || defined(_DEBUG)
+    scratch->resize(n, 0xcc);
+#else
+    scratch->resize(n);
+#endif
+    Error rs;
+    char *dst = &(*scratch)[0];
+    size_t left = n;
+    while (left != 0) {
+        ssize_t done = read(fd_, dst, left);
+        if (done < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            rs = MAI_IO_ERROR(strerror(errno));
+            break;
+        } else if (done == 0) {
+            rs = MAI_EOF("read()");
+            break;
+        }
+        left -= done;
+        dst  += done;
+    }
+    *result = std::string_view(scratch->data(), n - left);
+    if (rs.IsEof() && left < n) {
+        rs = Error::OK();
+    }
+    return rs;
+}
+    
+/*virtual*/ Error PosixSequentialFile::Skip(size_t n) {
+    if (::lseek(fd_, n, SEEK_CUR) < 0) {
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    return Error::OK();
+}
+    
+/*virtual*/ Error PosixSequentialFile::GetFileSize(uint64_t *size) {
+    struct stat s;
+    if (::fstat(fd_, &s) < 0) {
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    *size = s.st_size;
     return Error::OK();
 }
     
@@ -102,7 +174,7 @@ MemSequentialFilePosix::Open(const std::string &file_name,
 /// class WritableFilePosix
 ////////////////////////////////////////////////////////////////////////////////
     
-/*virtual*/ WritableFilePosix::~WritableFilePosix() {
+/*virtual*/ PosixWritableFile::~PosixWritableFile() {
     if (::close(fd_) < 0) {
         LOG(ERROR) << "close() fail: " << strerror(errno);
     }
@@ -110,7 +182,7 @@ MemSequentialFilePosix::Open(const std::string &file_name,
 }
 
 /*static*/ Error
-WritableFilePosix::Open(const std::string &file_name, bool append,
+PosixWritableFile::Open(const std::string &file_name, bool append,
                         std::unique_ptr<WritableFile> *file) {
     int flags = O_WRONLY|O_CREAT;
     if (append) {
@@ -122,11 +194,11 @@ WritableFilePosix::Open(const std::string &file_name, bool append,
     if (fd < 0) {
         return MAI_IO_ERROR(strerror(errno));
     }
-    file->reset(new WritableFilePosix(fd));
+    file->reset(new PosixWritableFile(fd));
     return Error::OK();
 }
 
-/*virtual*/ Error WritableFilePosix::Append(std::string_view data) {
+/*virtual*/ Error PosixWritableFile::Append(std::string_view data) {
     const char* src = data.data();
     size_t left = data.size();
     while (left != 0) {
@@ -144,7 +216,7 @@ WritableFilePosix::Open(const std::string &file_name, bool append,
     return Error::OK();
 }
     
-/*virtual*/ Error WritableFilePosix::PositionedAppend(std::string_view data,
+/*virtual*/ Error PosixWritableFile::PositionedAppend(std::string_view data,
                                                       uint64_t offset) {
     const char* src = data.data();
     size_t left = data.size();
@@ -164,18 +236,18 @@ WritableFilePosix::Open(const std::string &file_name, bool append,
     return Error::OK();
 }
     
-/*virtual*/ Error WritableFilePosix::Flush() {
+/*virtual*/ Error PosixWritableFile::Flush() {
     return Error::OK();
 }
     
-/*virtual*/ Error WritableFilePosix::Sync() {
+/*virtual*/ Error PosixWritableFile::Sync() {
     if (::fsync(fd_) < 0) {
         return MAI_IO_ERROR(strerror(errno));
     }
     return Error::OK();
 }
     
-/*virtual*/ Error WritableFilePosix::GetFileSize(uint64_t *size)  {
+/*virtual*/ Error PosixWritableFile::GetFileSize(uint64_t *size)  {
     struct stat s;
     if (::fstat(fd_, &s) < 0) {
         return MAI_IO_ERROR(strerror(errno));
@@ -184,7 +256,7 @@ WritableFilePosix::Open(const std::string &file_name, bool append,
     return Error::OK();
 }
     
-/*virtual*/ Error WritableFilePosix::Truncate(uint64_t size) {
+/*virtual*/ Error PosixWritableFile::Truncate(uint64_t size) {
     if (::ftruncate(fd_, size) < 0) {
         return MAI_IO_ERROR(strerror(errno));
     }
@@ -192,10 +264,10 @@ WritableFilePosix::Open(const std::string &file_name, bool append,
 }
     
 ////////////////////////////////////////////////////////////////////////////////
-/// class MemRandomAccessFilePosix
+/// class MemPosixRandomAccessFile
 ////////////////////////////////////////////////////////////////////////////////
-    
-MemRandomAccessFilePosix::~MemRandomAccessFilePosix() {
+
+MemPosixRandomAccessFile::~MemPosixRandomAccessFile() {
     if (static_cast<void *>(mapped_mem_) != MAP_FAILED) {
         if (::munmap(mapped_mem_, file_size_) < 0) {
             LOG(ERROR) << "munmap() fail: " << strerror(errno);
@@ -212,7 +284,7 @@ MemRandomAccessFilePosix::~MemRandomAccessFilePosix() {
 }
     
 /*static*/ Error
-MemRandomAccessFilePosix::Open(const std::string &file_name,
+MemPosixRandomAccessFile::Open(const std::string &file_name,
                                std::unique_ptr<RandomAccessFile> *file) {
     int fd = ::open(file_name.c_str(), O_RDONLY);
     if (fd < 0) {
@@ -232,12 +304,12 @@ MemRandomAccessFilePosix::Open(const std::string &file_name,
         return MAI_IO_ERROR(strerror(errno));
     }
     
-    file->reset(new MemRandomAccessFilePosix(fd, s.st_size,
+    file->reset(new MemPosixRandomAccessFile(fd, s.st_size,
                                              static_cast<char *>(mapped)));
     return Error::OK();
 }
 
-/*virtual*/ Error MemRandomAccessFilePosix::Read(uint64_t offset, size_t n,
+/*virtual*/ Error MemPosixRandomAccessFile::Read(uint64_t offset, size_t n,
                                                  std::string_view *result,
                                                  std::string */*scratch*/) {
     if (offset > file_size_) {
@@ -248,8 +320,75 @@ MemRandomAccessFilePosix::Open(const std::string &file_name,
     return Error::OK();
 }
 
-/*virtual*/ Error MemRandomAccessFilePosix::GetFileSize(uint64_t *size) {
+/*virtual*/ Error MemPosixRandomAccessFile::GetFileSize(uint64_t *size) {
     *size = file_size_;
+    return Error::OK();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// class PosixRandomAccessFile
+////////////////////////////////////////////////////////////////////////////////
+
+/*virtual*/ PosixRandomAccessFile::~PosixRandomAccessFile() {
+    if (fd_ != -1) {
+        if (::close(fd_) < 0) {
+            LOG(ERROR) << "close() fail: " << strerror(errno);
+        }
+        fd_ = -1;
+    }
+}
+
+/*static*/ Error
+PosixRandomAccessFile::Open(const std::string &file_name,
+                            std::unique_ptr<RandomAccessFile> *file) {
+    int fd = ::open(file_name.c_str(), O_RDONLY);
+    if (fd < 0) {
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    file->reset(new PosixRandomAccessFile(fd));
+    return Error::OK();
+}
+
+/*virtual*/ Error PosixRandomAccessFile::Read(uint64_t offset, size_t n,
+                                              std::string_view *result,
+                                              std::string *scratch) {
+#if defined(DEBUG) || defined(_DEBUG)
+    scratch->resize(n, 0xcc);
+#else
+    scratch->resize(n);
+#endif
+    Error rs;
+    char *dst = &(*scratch)[0];
+    size_t left = n;
+    while (left != 0) {
+        ssize_t done = ::pread(fd_, dst, left, offset);
+        if (done < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            rs = MAI_IO_ERROR(strerror(errno));
+            break;
+        } else if (done == 0) {
+            rs = MAI_EOF("read()");
+            break;
+        }
+        left -= done;
+        dst  += done;
+    }
+    *result = std::string_view(scratch->data(), n - left);
+    if (rs.IsEof() && !result->empty()) {
+        rs = Error::OK();
+    }
+    return rs;
+}
+    
+/*virtual*/ Error PosixRandomAccessFile::GetFileSize(uint64_t *size) {
+    struct stat s;
+    if (::fstat(fd_, &s) < 0) {
+        return MAI_IO_ERROR(strerror(errno));
+    }
+    *size = s.st_size;
     return Error::OK();
 }
 
