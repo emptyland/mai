@@ -9,9 +9,11 @@
 #include "db/config.h"
 #include "db/compaction.h"
 #include "db/snapshot-impl.h"
+#include "db/db-iterator.h"
 #include "table/table-builder.h"
 #include "core/key-boundle.h"
 #include "core/memory-table.h"
+#include "core/merging.h"
 #include "base/slice.h"
 #include "mai/env.h"
 #include "mai/iterator.h"
@@ -432,20 +434,14 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
         return Iterator::AsError(rs);
     }
     
-    std::vector<Iterator *> iters;
-    for (const auto &table : ctx.in_mem) {
-        iters.push_back(table->NewIterator());
+    std::unique_lock<std::mutex> lock(mutex_);
+    std::unique_ptr<Iterator> internal(NewInternalIterator(opts, ctx.cfd));
+    if (internal->error().fail()) {
+        return internal.release();
     }
-    rs = ctx.cfd->AddIterators(opts, &iters);
-    if (!rs) {
-        for (auto iter : iters) {
-            delete iter;
-        }
-        return Iterator::AsError(rs);
-    }
-
-    // TODO:
-    return Iterator::AsError(MAI_NOT_SUPPORTED("TODO:"));
+    
+    return new DBIterator(ctx.cfd->ikcmp()->ucmp(), internal.release(),
+                          ctx.last_sequence_number);
 }
     
 /*virtual*/ const Snapshot *DBImpl::GetSnapshot() {
@@ -461,6 +457,33 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
     
 /*virtual*/ ColumnFamily *DBImpl::DefaultColumnFamily() {
     return default_cf_.get();
+}
+    
+Iterator *DBImpl::NewInternalIterator(const ReadOptions &opts,
+                                      ColumnFamilyImpl *cfd) {
+    std::vector<Iterator *> iters;
+    iters.push_back(cfd->mutable_table()->NewIterator());
+    
+    std::vector<base::Handle<core::MemoryTable>> in_mem;
+    cfd->immutable_pipeline()->PeekAll(&in_mem);
+    for (auto memtable : in_mem) {
+        iters.push_back(memtable->NewIterator());
+    }
+
+    Error rs = cfd->AddIterators(opts, &iters);
+    if (!rs) {
+        for (auto clean : iters) {
+            delete clean;
+        }
+        return Iterator::AsError(rs);
+    }
+
+    Iterator *internal = core::Merging::NewMergingIterator(cfd->ikcmp(),
+                                                           &iters[0],
+                                                           iters.size());
+    // No need register cleanup:
+    // Memory table's iterator can cleanup itself reference count.
+    return internal;
 }
     
 void DBImpl::TEST_MakeImmutablePipeline(ColumnFamily *cf) {

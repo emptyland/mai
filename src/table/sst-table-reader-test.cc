@@ -132,19 +132,19 @@ TEST_F(SstTableReaderTest, Index) {
     srd->EnsureIndexReady(ikcmp_.get());
     auto index_iter = srd->TEST_IndexIter();
     
-    index_iter->Seek(core::KeyBoundle::MakeKey("k001", 100));
+    index_iter->Seek(core::KeyBoundle::MakeKey("k001", 100, core::Tag::kFlagValueForSeek));
     ASSERT_TRUE(index_iter->Valid());
     ASSERT_EQ("k030", core::KeyBoundle::ExtractUserKey(index_iter->key()));
     
-    index_iter->Seek(core::KeyBoundle::MakeKey("k030", 100));
+    index_iter->Seek(core::KeyBoundle::MakeKey("k030", 100, core::Tag::kFlagValueForSeek));
     ASSERT_TRUE(index_iter->Valid());
     ASSERT_EQ("k030", core::KeyBoundle::ExtractUserKey(index_iter->key()));
     
-    index_iter->Seek(core::KeyBoundle::MakeKey("k031", 100));
+    index_iter->Seek(core::KeyBoundle::MakeKey("k031", 100, core::Tag::kFlagValueForSeek));
     ASSERT_TRUE(index_iter->Valid());
     ASSERT_EQ("k060", core::KeyBoundle::ExtractUserKey(index_iter->key()));
     
-    index_iter->Seek(core::KeyBoundle::MakeKey("k060", 100));
+    index_iter->Seek(core::KeyBoundle::MakeKey("k060", 100, core::Tag::kFlagValueForSeek));
     ASSERT_TRUE(index_iter->Valid());
     ASSERT_EQ("k060", core::KeyBoundle::ExtractUserKey(index_iter->key()));
 }
@@ -189,8 +189,8 @@ TEST_F(SstTableReaderTest, Get) {
         snprintf(uval, arraysize(uval), "v%d", i + 1);
 
         rs = rd->Get(ReadOptions{}, ikcmp_.get(),
-                     core::KeyBoundle::MakeKey(ukey, 100), nullptr, &value,
-                     &scratch);
+                     core::KeyBoundle::MakeKey(ukey, 100, core::Tag::kFlagValueForSeek),
+                     nullptr, &value, &scratch);
         EXPECT_TRUE(rs.ok()) << rs.ToString() << " key:" << ukey;
     }
 }

@@ -66,33 +66,33 @@ const char *VersionTest::tmp_dirs[] = {
 };
     
 std::string VersionTest::l0_range_v1[Config::kMaxNumberLevel0File * 2] = {
-    core::KeyBoundle::MakeKey("aaaa", 1),
-    core::KeyBoundle::MakeKey("aaab", 2),
-    core::KeyBoundle::MakeKey("aaac", 3),
-    core::KeyBoundle::MakeKey("aaad", 4),
-    core::KeyBoundle::MakeKey("aaae", 5),
-    core::KeyBoundle::MakeKey("aaaf", 6),
-    core::KeyBoundle::MakeKey("aaag", 7),
-    core::KeyBoundle::MakeKey("aaah", 8),
-    core::KeyBoundle::MakeKey("aaai", 9),
-    core::KeyBoundle::MakeKey("aaaj", 10),
-    core::KeyBoundle::MakeKey("aaak", 11),
-    core::KeyBoundle::MakeKey("aaal", 12),
-    core::KeyBoundle::MakeKey("aaam", 13),
-    core::KeyBoundle::MakeKey("aaan", 14),
-    core::KeyBoundle::MakeKey("aaao", 15),
-    core::KeyBoundle::MakeKey("aaap", 16),
-    core::KeyBoundle::MakeKey("aaaq", 17),
-    core::KeyBoundle::MakeKey("aaar", 18),
-    core::KeyBoundle::MakeKey("aaas", 19),
-    core::KeyBoundle::MakeKey("aaat", 20),
+    core::KeyBoundle::MakeKey("aaaa", 1, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaab", 2, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaac", 3, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaad", 4, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaae", 5, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaaf", 6, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaag", 7, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaah", 8, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaai", 9, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaaj", 10, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaak", 11, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaal", 12, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaam", 13, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaan", 14, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaao", 15, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaap", 16, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaaq", 17, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaar", 18, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaas", 19, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaat", 20, core::Tag::kFlagValue),
 };
     
 std::string VersionTest::l1_range_v1[4] = {
-    core::KeyBoundle::MakeKey("aaab", 21),
-    core::KeyBoundle::MakeKey("aaac", 22),
-    core::KeyBoundle::MakeKey("aaau", 23),
-    core::KeyBoundle::MakeKey("aaav", 24),
+    core::KeyBoundle::MakeKey("aaab", 21, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaac", 22, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaau", 23, core::Tag::kFlagValue),
+    core::KeyBoundle::MakeKey("aaav", 24, core::Tag::kFlagValue),
 };
 
 TEST_F(VersionTest, VersionPatchEncodeDecode1) {
@@ -204,8 +204,8 @@ TEST_F(VersionTest, PickCompactionL0) {
     
     VersionPatch patch;
     patch.AddColumnFamily(kDefaultColumnFamilyName, 0, "cc");
-    auto smallest = core::KeyBoundle::MakeKey("aaaa", 1);
-    auto largest  = core::KeyBoundle::MakeKey("bbbb", 2);
+    auto smallest = core::KeyBoundle::MakeKey("aaaa", 1, core::Tag::kFlagValue);
+    auto largest  = core::KeyBoundle::MakeKey("bbbb", 2, core::Tag::kFlagValue);
     for (int i = 0; i < Config::kMaxNumberLevel0File; ++i) {
         patch.CreateFile(0, 0, i + 1, smallest, largest, 40 * base::kMB,
                          env_->CurrentTimeMicros());

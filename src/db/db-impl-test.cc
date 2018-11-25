@@ -1,4 +1,6 @@
 #include "db/db-impl.h"
+#include "db/column-family.h"
+#include "mai/iterator.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 #include <vector>
@@ -14,6 +16,7 @@ public:
         desc.name = kDefaultColumnFamilyName;
         descs_.push_back(desc);
         options_.create_if_missing = true;
+        options_.allow_mmap_reads = true;
     }
     
     ~DBImplTest() override {
@@ -235,6 +238,27 @@ TEST_F(DBImplTest, WriteLevel0Table) {
     impl->TEST_MakeImmutablePipeline(cf0);
     rs = impl->TEST_ForceDumpImmutableTable(cf0, true);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    static const char *kv[] = {
+        "aaaa", "100",
+        "aaab", "200",
+        "aaac", "300",
+        "aaad", "400",
+        "aaae", "500",
+        "bbbb", "3000",
+    };
+    
+    int i = 0;
+    std::unique_ptr<Iterator> iter(impl->NewIterator(ReadOptions{}, cf0));
+    ASSERT_TRUE(iter->error().ok()) << iter->error().ToString();
+    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+        std::string k(iter->key());
+        std::string v(iter->value());
+        
+        EXPECT_EQ(kv[i++], k) << i;
+        EXPECT_EQ(kv[i++], v) << i;
+    }
+    ASSERT_TRUE(iter->error().ok()) << iter->error().ToString();
     
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);

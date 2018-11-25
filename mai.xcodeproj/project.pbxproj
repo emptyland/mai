@@ -44,6 +44,8 @@
 		237CE4C12192EABD004FB9BF /* iterator-warpper.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */; };
 		237CE4C42192EE17004FB9BF /* merging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4C32192EE17004FB9BF /* merging.cc */; };
 		237CE4C52192EE17004FB9BF /* merging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4C32192EE17004FB9BF /* merging.cc */; };
+		23AE732521AAABC60065725A /* db-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AE732421AAABC60065725A /* db-iterator.cc */; };
+		23AE732621AAABC60065725A /* db-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AE732421AAABC60065725A /* db-iterator.cc */; };
 		23B0E0D92187F90400F9E855 /* base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0D82187F90400F9E855 /* base.cc */; };
 		23B0E0E62187FA2200F9E855 /* base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0D82187F90400F9E855 /* base.cc */; };
 		23B0E0EB2187FAF200F9E855 /* libglog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E82187FAF200F9E855 /* libglog.a */; };
@@ -175,6 +177,8 @@
 		237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "iterator-warpper.cc"; sourceTree = "<group>"; };
 		237CE4C22192EDE4004FB9BF /* merging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = merging.h; sourceTree = "<group>"; };
 		237CE4C32192EE17004FB9BF /* merging.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = merging.cc; sourceTree = "<group>"; };
+		23AE732321AAAB870065725A /* db-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-iterator.h"; sourceTree = "<group>"; };
+		23AE732421AAABC60065725A /* db-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "db-iterator.cc"; sourceTree = "<group>"; };
 		23B0E0C9217D7DA000F9E855 /* mai */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mai; sourceTree = BUILT_PRODUCTS_DIR; };
 		23B0E0D72187F90400F9E855 /* base.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = base.h; sourceTree = "<group>"; };
 		23B0E0D82187F90400F9E855 /* base.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = base.cc; sourceTree = "<group>"; };
@@ -303,6 +307,8 @@
 				23B4E01621A7A233007A4533 /* compaction.h */,
 				23B4E01A21A7AB3E007A4533 /* compaction-impl.h */,
 				23B4E01B21A7AD48007A4533 /* compaction-impl.cc */,
+				23AE732321AAAB870065725A /* db-iterator.h */,
+				23AE732421AAABC60065725A /* db-iterator.cc */,
 			);
 			name = db;
 			path = src/db;
@@ -611,6 +617,7 @@
 				23F60612219C22AE00CE12D9 /* files.cc in Sources */,
 				23F6060E219BF8C800CE12D9 /* version.cc in Sources */,
 				23B0E0FF218841C500F9E855 /* spin-locking.cc in Sources */,
+				23AE732521AAABC60065725A /* db-iterator.cc in Sources */,
 				237CE4C02192EABD004FB9BF /* iterator-warpper.cc in Sources */,
 				232AA23F21942412007EF228 /* sst-table-builder.cc in Sources */,
 			);
@@ -627,6 +634,7 @@
 				23B0E131218AFBCC00F9E855 /* hash.cc in Sources */,
 				23B0E139218B05F500F9E855 /* iterator.cc in Sources */,
 				23B0E10F2189A6A500F9E855 /* error-test.cc in Sources */,
+				23AE732621AAABC60065725A /* db-iterator.cc in Sources */,
 				231C61FB219AA9CF001A95C1 /* write-ahead-log.cc in Sources */,
 				23B0E14E218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
 				23D70EEF21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */,

@@ -316,7 +316,7 @@ private:
     std::unique_ptr<ColumnFamilySet> column_families_;
     const uint64_t block_size_;
 
-    core::SequenceNumber last_sequence_number_ = 0;
+    core::SequenceNumber last_sequence_number_ = 1;
     uint64_t next_file_number_ = 0;
     uint64_t redo_log_number_ = 0;
     uint64_t prev_log_number_ = 0;

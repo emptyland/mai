@@ -44,6 +44,7 @@ public:
             bh.Decode(reader_->index_iter_->value());
             Seek(bh, true);
         }
+        SaveKeyIfNeed();
     }
     
     virtual void SeekToLast() override {
@@ -55,6 +56,7 @@ public:
             bh.Decode(reader_->index_iter_->value());
             Seek(bh, false);
         }
+        SaveKeyIfNeed();
     }
     
     virtual void Seek(std::string_view target) override {
@@ -71,6 +73,7 @@ public:
         if (!block_iter_->Valid()) {
             error_ = MAI_NOT_FOUND("Seek()");
         }
+        SaveKeyIfNeed();
     }
     
     virtual void Next() override {
@@ -87,6 +90,7 @@ public:
                 Seek(bh, true);
             }
         }
+        SaveKeyIfNeed();
     }
     
     virtual void Prev() override {
@@ -103,11 +107,13 @@ public:
                 Seek(bh, true);
             }
         }
+        SaveKeyIfNeed();
     }
     
     virtual std::string_view key() const override {
         DCHECK(Valid());
-        return block_iter_->key();
+        return reader_->table_props_->last_level ?
+            saved_key_ : block_iter_->key();
     }
     
     virtual std::string_view value() const override {
@@ -133,11 +139,18 @@ private:
         }
     }
     
+    void SaveKeyIfNeed() {
+        if (Valid() && reader_->table_props_->last_level) {
+            saved_key_ = KeyBoundle::MakeKey(block_iter_->key(), 0,
+                                             Tag::kFlagValue);
+        }
+    }
     
     const core::InternalKeyComparator *const ikcmp_;
     const bool verify_checksums_;
     SstTableReader *reader_;
     std::unique_ptr<Iterator> block_iter_;
+    std::string saved_key_; // For last level sst table.
     Error error_;
     Direction direction_ = kForward;
 }; // class SstTableReader::IteratorImpl

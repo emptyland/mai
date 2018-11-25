@@ -99,20 +99,24 @@ public:
         return new (raw) KeyBoundle(key, "", version, Tag::kFlagValueForSeek);
     }
     
-    static void ParseTaggedKey(std::string_view tagged_key,
+    static bool ParseTaggedKey(std::string_view tagged_key,
                                ParsedTaggedKey *parsed) {
+        if (tagged_key.size() < Tag::kSize) {
+            return false;
+        }
         parsed->user_key = tagged_key;
         parsed->user_key.remove_suffix(Tag::kSize);
         parsed->tag = Tag::Decode(
                 *reinterpret_cast<const uint64_t *>(tagged_key.data()
                                                     + parsed->user_key.size()));
+        return true;
     }
     
-    static std::string MakeKey(std::string_view user_key, SequenceNumber version) {
+    static std::string MakeKey(std::string_view user_key, SequenceNumber version,
+                               uint8_t flag) {
         std::string key;
         key.append(user_key);
-        
-        uint64_t tag = Tag(version, Tag::kFlagValue).Encode();
+        uint64_t tag = Tag(version, flag).Encode();
         key.append(reinterpret_cast<const char *>(&tag), sizeof(tag));
         return key;
     }

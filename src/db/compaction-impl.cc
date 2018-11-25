@@ -72,7 +72,8 @@ CompactionImpl::CompactionImpl(const std::string abs_db_path,
                 result->deletion_size += merger->key().size();
                 result->deletion_size += merger->value().size();
             } else {
-                std::string key = core::KeyBoundle::MakeKey(ikey.user_key, 0);
+                std::string key = core::KeyBoundle::MakeKey(ikey.user_key, 0,
+                                                            core::Tag::kFlagValue);
                 builder->Add(key, merger->value());
                 result->compacted_size += (key.size() + merger->value().size());
             }

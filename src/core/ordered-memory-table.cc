@@ -64,6 +64,7 @@ OrderedMemoryTable::OrderedMemoryTable(const InternalKeyComparator *ikcmp)
 /*virtual*/ void
 OrderedMemoryTable::Put(std::string_view key, std::string_view value,
                         SequenceNumber version, uint8_t flag) {
+    // TODO:
     const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
     DCHECK_NOTNULL(ikey);
     table_.Put(ikey);

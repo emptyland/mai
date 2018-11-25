@@ -95,18 +95,18 @@ TEST_F(MergingTest, UnorderedToMergingIterator) {
     }
     ASSERT_EQ(6, n);
     
-    merger->Seek(KeyBoundle::MakeKey("k1", 3));
+    merger->Seek(KeyBoundle::MakeKey("k1", 3, Tag::kFlagValueForSeek));
     ASSERT_TRUE(merger->Valid());
     ASSERT_EQ("v3", merger->value());
     
-    merger->Seek(KeyBoundle::MakeKey("k1", 5));
+    merger->Seek(KeyBoundle::MakeKey("k1", 5, Tag::kFlagValueForSeek));
     ASSERT_TRUE(merger->Valid());
     ASSERT_EQ("v4", merger->value());
     
-    merger->Seek(KeyBoundle::MakeKey("k3", 1));
+    merger->Seek(KeyBoundle::MakeKey("k3", 1, Tag::kFlagValueForSeek));
     ASSERT_FALSE(merger->Valid());
     
-    merger->Seek(KeyBoundle::MakeKey("k3", 6));
+    merger->Seek(KeyBoundle::MakeKey("k3", 6, Tag::kFlagValueForSeek));
     ASSERT_TRUE(merger->Valid());
     ASSERT_EQ("v6", merger->value());
 }

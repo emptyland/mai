@@ -175,6 +175,7 @@ TEST_F(XhashTableReaderTest, MutilVersion) {
     
 TEST_F(XhashTableReaderTest, Iterator) {
     using core::KeyBoundle;
+    using core::Tag;
     
     const auto kFileName = "tests/07-xhash-table-reader-iterate.tmp";
     
@@ -205,7 +206,7 @@ TEST_F(XhashTableReaderTest, Iterator) {
         ASSERT_EQ(4, user_key.size()) << user_key.data();
     }
     
-    iter->Seek(KeyBoundle::MakeKey("aaaa", 5));
+    iter->Seek(KeyBoundle::MakeKey("aaaa", 5, Tag::kFlagValueForSeek));
     ASSERT_TRUE(iter->Valid());
     ASSERT_EQ("aaaa", KeyBoundle::ExtractUserKey(iter->key()));
     ASSERT_EQ(5, KeyBoundle::ExtractTag(iter->key()).sequence_number());

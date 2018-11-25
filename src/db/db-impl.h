@@ -64,6 +64,8 @@ public:
     virtual void ReleaseSnapshot(const Snapshot *snapshot) override;
     virtual ColumnFamily *DefaultColumnFamily() override;
     
+    Iterator *NewInternalIterator(const ReadOptions &opts, ColumnFamilyImpl *cfd);
+    
     void TEST_MakeImmutablePipeline(ColumnFamily *cf);
     Error TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync);
     
