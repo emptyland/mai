@@ -30,7 +30,7 @@ void XhashTableBuilder::Add(std::string_view key, std::string_view value) {
     
     base::ScopedMemory scope;
     
-    uint32_t hash_val = hash_func_(ikey.user_key.data(), ikey.user_key.size());
+    uint32_t hash_val = ikcmp_->Hash(key);
     Bucket *bucket = &buckets_[hash_val % buckets_.size()];
     if (is_last_level_) {
         bucket->kv.append(Slice::GetV64(ikey.user_key.size(), &scope));

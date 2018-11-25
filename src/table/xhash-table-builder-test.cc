@@ -40,7 +40,7 @@ public:
         ASSERT_TRUE(rs.ok()) << rs.ToString();
         
         file->Truncate(0);
-        XhashTableBuilder builder(ikcmp_, file.get(), 23, &base::Hash::Js, 512);
+        XhashTableBuilder builder(ikcmp_, file.get(), 23, 512);
         ASSERT_GE(kvs.size(), 3);
         for (int i = 0; i < kvs.size(); i += 3) {
             auto k = kvs[i];
@@ -65,7 +65,7 @@ TEST_F(XhashTableBuilderTest, Sanity) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     file->Truncate(0);
-    XhashTableBuilder builder(ikcmp_, file.get(), 13, &base::Hash::Js, 512);
+    XhashTableBuilder builder(ikcmp_, file.get(), 13, 512);
     
     Add(&builder, "aaaa", "a1111", 1, core::Tag::kFlagValue);
     Add(&builder, "bbbb", "b1111", 2, core::Tag::kFlagValue);
@@ -87,7 +87,7 @@ TEST_F(XhashTableBuilderTest, KeyReplaced) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     file->Truncate(0);
-    XhashTableBuilder builder(ikcmp_, file.get(), 13, &base::Hash::Js, 512);
+    XhashTableBuilder builder(ikcmp_, file.get(), 13, 512);
     
     Add(&builder, "aaaa", "a1111", 5, core::Tag::kFlagValue);
     Add(&builder, "aaaa", "b1111", 4, core::Tag::kFlagValue);

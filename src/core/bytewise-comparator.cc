@@ -1,4 +1,5 @@
 #include "mai/comparator.h"
+#include "base/hash.h"
 #include "base/base.h"
 #include "glog/logging.h"
 
@@ -14,6 +15,10 @@ public:
     virtual
     int Compare(std::string_view lhs, std::string_view rhs) const override {
         return lhs.compare(rhs);
+    }
+    
+    virtual uint32_t Hash(std::string_view value) const override {
+        return base::Hash::Js(value.data(), value.size());
     }
     
     virtual const char* Name() const override {

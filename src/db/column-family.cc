@@ -14,14 +14,14 @@ namespace db {
 // Stores the minimal range that covers all entries in inputs in
 // *smallest, *largest.
 // REQUIRES: inputs is not empty
-void GetRange(const std::vector<base::Handle<FileMetadata>> &inputs,
+void GetRange(const std::vector<base::Handle<FileMetaData>> &inputs,
               const core::InternalKeyComparator *ikcmp,
               std::string *smallest, std::string *largest) {
     DCHECK(!inputs.empty());
     smallest->clear();
     largest->clear();
     for (size_t i = 0; i < inputs.size(); i++) {
-        base::Handle<FileMetadata> fmd = inputs[i];
+        base::Handle<FileMetaData> fmd = inputs[i];
         if (i == 0) {
             *smallest = fmd->smallest_key;
             *largest = fmd->largest_key;
@@ -39,11 +39,11 @@ void GetRange(const std::vector<base::Handle<FileMetadata>> &inputs,
 // Stores the minimal range that covers all entries in inputs1 and inputs2
 // in *smallest, *largest.
 // REQUIRES: inputs is not empty
-    void GetRange2(const std::vector<base::Handle<FileMetadata>> &inputs1,
-                   const std::vector<base::Handle<FileMetadata>> &inputs2,
+    void GetRange2(const std::vector<base::Handle<FileMetaData>> &inputs1,
+                   const std::vector<base::Handle<FileMetaData>> &inputs2,
                    const core::InternalKeyComparator *ikcmp,
                    std::string *smallest, std::string *largest) {
-    std::vector<base::Handle<FileMetadata>> all = inputs1;
+    std::vector<base::Handle<FileMetaData>> all = inputs1;
     all.insert(all.end(), inputs2.begin(), inputs2.end());
     GetRange(all, ikcmp, smallest, largest);
 }

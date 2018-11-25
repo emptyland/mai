@@ -28,12 +28,13 @@ public:
     }
     
     virtual Error
-    NewTableReader(bool unordered, RandomAccessFile *file, uint64_t file_size,
-                   bool checksum_verify, base::hash_func_t hash_func,
+    NewTableReader(const core::InternalKeyComparator *ikcmp, bool unordered,
+                   RandomAccessFile *file, uint64_t file_size,
+                   bool checksum_verify,
                    std::unique_ptr<table::TableReader> *result) override {
         if (unordered) {
             table::XhashTableReader *reader =
-                new table::XhashTableReader(file, file_size, hash_func);
+                new table::XhashTableReader(file, file_size);
             Error rs = reader->Prepare();
             if (!rs) {
                 delete reader;
@@ -56,9 +57,9 @@ public:
     virtual table::TableBuilder *
     NewTableBuilder(const core::InternalKeyComparator *ikcmp, bool unordered,
                     WritableFile *file, uint64_t block_size, int n_restart,
-                    size_t max_hash_slots, base::hash_func_t hash_func) override {
+                    size_t max_hash_slots) override {
         if (unordered) {
-            return new table::XhashTableBuilder(ikcmp, file, max_hash_slots, hash_func,
+            return new table::XhashTableBuilder(ikcmp, file, max_hash_slots,
                                                 static_cast<uint32_t>(block_size));
             
         } else {

@@ -98,13 +98,15 @@ CompactionImpl::CompactionImpl(const std::string abs_db_path,
             }
         }
         
-        if (result->smallest_key.empty() ||
-            ikcmp_->Compare(merger->key(), result->smallest_key) < 0) {
-            result->smallest_key = merger->key();
-        }
-        if (result->largest_key.empty() ||
-            ikcmp_->Compare(merger->key(), result->largest_key) > 0) {
-            result->largest_key = merger->key();
+        if (!drop) {
+            if (result->smallest_key.empty() ||
+                ikcmp_->Compare(merger->key(), result->smallest_key) < 0) {
+                result->smallest_key = merger->key();
+            }
+            if (result->largest_key.empty() ||
+                ikcmp_->Compare(merger->key(), result->largest_key) > 0) {
+                result->largest_key = merger->key();
+            }
         }
     }
     

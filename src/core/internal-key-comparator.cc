@@ -25,6 +25,10 @@ namespace core {
     return 0;
 }
 
+/*virtual*/ uint32_t InternalKeyComparator::Hash(std::string_view value) const {
+    return ucmp_->Hash(KeyBoundle::ExtractUserKey(value));
+}
+
 /*virtual*/ const char* InternalKeyComparator::Name() const {
     return "::mai::core::InternalKeyComparator";
 }

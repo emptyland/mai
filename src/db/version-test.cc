@@ -11,6 +11,9 @@
 namespace mai {
     
 namespace db {
+    
+using ::mai::core::KeyBoundle;
+using ::mai::core::ParsedTaggedKey;
 
 class VersionTest : public ::testing::Test {
 public:
@@ -50,13 +53,46 @@ public:
     std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<VersionSet> versions_;
     
+    static std::string l0_range_v1[];
+    static std::string l1_range_v1[];
     static const char *tmp_dirs[];
 };
     
 const char *VersionTest::tmp_dirs[] = {
     "tests/00-ves-pick-compaction-l0",
     "tests/01-ves-pick-compaction-l0-v2",
+    "tests/02-ves-pick-compaction-l0l1",
     nullptr,
+};
+    
+std::string VersionTest::l0_range_v1[Config::kMaxNumberLevel0File * 2] = {
+    core::KeyBoundle::MakeKey("aaaa", 1),
+    core::KeyBoundle::MakeKey("aaab", 2),
+    core::KeyBoundle::MakeKey("aaac", 3),
+    core::KeyBoundle::MakeKey("aaad", 4),
+    core::KeyBoundle::MakeKey("aaae", 5),
+    core::KeyBoundle::MakeKey("aaaf", 6),
+    core::KeyBoundle::MakeKey("aaag", 7),
+    core::KeyBoundle::MakeKey("aaah", 8),
+    core::KeyBoundle::MakeKey("aaai", 9),
+    core::KeyBoundle::MakeKey("aaaj", 10),
+    core::KeyBoundle::MakeKey("aaak", 11),
+    core::KeyBoundle::MakeKey("aaal", 12),
+    core::KeyBoundle::MakeKey("aaam", 13),
+    core::KeyBoundle::MakeKey("aaan", 14),
+    core::KeyBoundle::MakeKey("aaao", 15),
+    core::KeyBoundle::MakeKey("aaap", 16),
+    core::KeyBoundle::MakeKey("aaaq", 17),
+    core::KeyBoundle::MakeKey("aaar", 18),
+    core::KeyBoundle::MakeKey("aaas", 19),
+    core::KeyBoundle::MakeKey("aaat", 20),
+};
+    
+std::string VersionTest::l1_range_v1[4] = {
+    core::KeyBoundle::MakeKey("aaab", 21),
+    core::KeyBoundle::MakeKey("aaac", 22),
+    core::KeyBoundle::MakeKey("aaau", 23),
+    core::KeyBoundle::MakeKey("aaav", 24),
 };
 
 TEST_F(VersionTest, VersionPatchEncodeDecode1) {
@@ -190,34 +226,11 @@ TEST_F(VersionTest, PickCompactionL0) {
 
 TEST_F(VersionTest, PickCompactionL0_V2) {
     VersionSet vets(tmp_dirs[1], Options{}, table_cache_.get());
-    
-    std::string keys[Config::kMaxNumberLevel0File * 2] = {
-        core::KeyBoundle::MakeKey("aaaa", 1),
-        core::KeyBoundle::MakeKey("aaab", 2),
-        core::KeyBoundle::MakeKey("aaac", 3),
-        core::KeyBoundle::MakeKey("aaad", 4),
-        core::KeyBoundle::MakeKey("aaae", 5),
-        core::KeyBoundle::MakeKey("aaaf", 6),
-        core::KeyBoundle::MakeKey("aaag", 7),
-        core::KeyBoundle::MakeKey("aaah", 8),
-        core::KeyBoundle::MakeKey("aaai", 9),
-        core::KeyBoundle::MakeKey("aaaj", 10),
-        core::KeyBoundle::MakeKey("aaak", 11),
-        core::KeyBoundle::MakeKey("aaal", 12),
-        core::KeyBoundle::MakeKey("aaam", 13),
-        core::KeyBoundle::MakeKey("aaan", 14),
-        core::KeyBoundle::MakeKey("aaao", 15),
-        core::KeyBoundle::MakeKey("aaap", 16),
-        core::KeyBoundle::MakeKey("aaaq", 17),
-        core::KeyBoundle::MakeKey("aaar", 18),
-        core::KeyBoundle::MakeKey("aaas", 19),
-        core::KeyBoundle::MakeKey("aaat", 20),
-    };
-    
+
     VersionPatch patch;
     patch.AddColumnFamily(kDefaultColumnFamilyName, 0, "cc");
     for (int i = 0; i < Config::kMaxNumberLevel0File; ++i) {
-        patch.CreateFile(0, 0, i + 1, keys[i * 2], keys[i * 2 + 1],
+        patch.CreateFile(0, 0, i + 1, l0_range_v1[i * 2], l0_range_v1[i * 2 + 1],
                          80 * base::kMB,
                          env_->CurrentTimeMicros());
         
@@ -232,7 +245,36 @@ TEST_F(VersionTest, PickCompactionL0_V2) {
     ASSERT_EQ(0, ctx.level);
     ASSERT_EQ(cfd->current(), ctx.input_version);
     ASSERT_EQ(1, ctx.inputs[0].size());
-    ASSERT_EQ(keys[1], cfd->compaction_point(0));
+    ASSERT_EQ(0, ctx.inputs[1].size());
+    ASSERT_EQ(l0_range_v1[1], cfd->compaction_point(0));
+}
+
+TEST_F(VersionTest, PickCompactionL0L1) {
+    VersionSet vets(tmp_dirs[1], Options{}, table_cache_.get());
+    
+    VersionPatch patch;
+    patch.AddColumnFamily(kDefaultColumnFamilyName, 0, "cc");
+    for (int i = 0; i < Config::kMaxNumberLevel0File; ++i) {
+        patch.CreateFile(0, 0, i + 1, l0_range_v1[i * 2], l0_range_v1[i * 2 + 1],
+                         80 * base::kMB,
+                         env_->CurrentTimeMicros());
+        
+    }
+    patch.CreateFile(0, 1, 22, l1_range_v1[0], l1_range_v1[1], base::kGB,
+                     env_->CurrentTimeMicros());
+    vets.LogAndApply(options_, &patch, nullptr);
+    patch.Reset();
+    
+    CompactionContext ctx;
+    auto cfd = vets.column_families()->GetDefault();
+    ASSERT_TRUE(cfd->NeedsCompaction());
+    ASSERT_TRUE(cfd->PickCompaction(&ctx));
+    ASSERT_EQ(0, ctx.level);
+    ASSERT_EQ(cfd->current(), ctx.input_version);
+    ASSERT_EQ(1, ctx.inputs[0].size());
+    ASSERT_EQ(1, ctx.inputs[1].size());
+    ASSERT_EQ(22, ctx.inputs[1][0]->number);
+    ASSERT_EQ(l0_range_v1[1], cfd->compaction_point(0));
 }
 
 } // namespace db

@@ -30,7 +30,7 @@ Iterator *TableCache::NewIterator(const ReadOptions &read_opts,
 }
 
 Error TableCache::GetFileMetadata(const ColumnFamilyImpl *cf,
-                                  uint64_t file_number, FileMetadata *fmd) {
+                                  uint64_t file_number, FileMetaData *fmd) {
     base::Handle<Entry> entry;
     Error rs = EnsureTableCached(cf, file_number, 0, &entry);
     if (!rs) {
@@ -93,9 +93,10 @@ Error TableCache::EnsureTableCached(const ColumnFamilyImpl *cfd,
         }
     }
     mutex_.unlock();
-    rs = factory_->NewTableReader(cfd->options().use_unordered_table,
+    rs = factory_->NewTableReader(cfd->ikcmp(),
+                                  cfd->options().use_unordered_table,
                                   entry->file.get(), file_size, true,
-                                  &base::Hash::Js, &entry->table);
+                                  &entry->table);
     mutex_.lock();
     if (!rs) {
         return rs;

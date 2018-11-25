@@ -12,11 +12,9 @@ class XhashTableReader final : public TableReader {
 public:
     typedef uint32_t (*hash_func_t)(const char *, size_t);
     
-    XhashTableReader(RandomAccessFile *file, uint64_t file_size,
-                     hash_func_t hash_func)
+    XhashTableReader(RandomAccessFile *file, uint64_t file_size)
         : file_(DCHECK_NOTNULL(file))
-        , file_size_(file_size)
-        , hash_func_(DCHECK_NOTNULL(hash_func)) {}
+        , file_size_(file_size) {}
     
     virtual ~XhashTableReader();
     
@@ -47,10 +45,9 @@ private:
     Error ReadKey(uint64_t *offset, std::string_view *result,
                   std::string *scratch);
     Error ReadLength(uint64_t *offset, uint64_t *len);
-    
+
     RandomAccessFile *file_;
     uint64_t file_size_;
-    hash_func_t hash_func_;
     
     std::shared_ptr<TableProperties> table_props_;
     std::vector<Index> indexs_;

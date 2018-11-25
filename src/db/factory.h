@@ -31,14 +31,15 @@ public:
                    size_t initial_slots) = 0;
     
     virtual Error
-    NewTableReader(bool unordered, RandomAccessFile *file, uint64_t file_size,
-                   bool checksum_verify, base::hash_func_t hash_func,
+    NewTableReader(const core::InternalKeyComparator *ikcmp, bool unordered,
+                   RandomAccessFile *file, uint64_t file_size,
+                   bool checksum_verify,
                    std::unique_ptr<table::TableReader> *result) = 0;
     
     virtual table::TableBuilder *
     NewTableBuilder(const core::InternalKeyComparator *ikcmp, bool unordered,
                     WritableFile *file, uint64_t block_size, int n_restart,
-                    size_t max_hash_slots, base::hash_func_t hash_func) = 0;
+                    size_t max_hash_slots) = 0;
     
     virtual Compaction *
     NewCompaction(const std::string abs_db_path,

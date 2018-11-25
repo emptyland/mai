@@ -20,7 +20,7 @@ class SequentialFile;
 class WritableFile;
 namespace db {
     
-struct FileMetadata;
+struct FileMetaData;
 class ColumnFamilySet;
 class ColumnFamilyImpl;
 class VersionBuilder;
@@ -30,7 +30,7 @@ class Version;
 class TableCache;
 class LogWriter;
     
-struct FileMetadata final : public base::ReferenceCounted<FileMetadata> {
+struct FileMetaData final : public base::ReferenceCounted<FileMetaData> {
     
     uint64_t number;
     
@@ -40,7 +40,7 @@ struct FileMetadata final : public base::ReferenceCounted<FileMetadata> {
     uint64_t size = 0;
     uint64_t ctime = 0;
     
-    FileMetadata(uint64_t file_number) : number(file_number) {}
+    FileMetaData(uint64_t file_number) : number(file_number) {}
 }; // struct FileMetadata
     
 #define VERSION_FIELDS(V) \
@@ -107,7 +107,7 @@ public:
     void CreateFile(uint32_t cfid, int level, uint64_t file_number,
                     std::string smallest_key, std::string largest_key,
                     uint64_t file_size, uint64_t ctime) {
-        FileMetadata *fmd = new FileMetadata{file_number};
+        FileMetaData *fmd = new FileMetaData{file_number};
         fmd->smallest_key = smallest_key;
         fmd->largest_key  = largest_key;
         fmd->size         = file_size;
@@ -115,7 +115,7 @@ public:
         CreaetFile(cfid, level, fmd);
     }
     
-    void CreaetFile(uint32_t cfid, int level, FileMetadata *fmd) {
+    void CreaetFile(uint32_t cfid, int level, FileMetaData *fmd) {
         set_field(kCreation);
         file_creation_.push_back({cfid, level, base::MakeRef(fmd)});
     }
@@ -166,7 +166,7 @@ public:
     struct FileCreation {
         uint32_t cfid;
         int      level;
-        base::Handle<FileMetadata> file_metadata;
+        base::Handle<FileMetaData> file_metadata;
     };
     
     typedef std::vector<FileCreation> FileCreationCollection;
@@ -241,7 +241,7 @@ public:
     
     void GetOverlappingInputs(int level, std::string_view begin,
                               std::string_view end,
-                              std::vector<base::Handle<FileMetadata>> *inputs);
+                              std::vector<base::Handle<FileMetaData>> *inputs);
     
     DEF_PTR_GETTER_NOTNULL(ColumnFamilyImpl, owns);
     DEF_PTR_GETTER(Version, next);
@@ -249,7 +249,7 @@ public:
     DEF_VAL_GETTER(int, compaction_level);
     DEF_VAL_GETTER(double, compaction_score);
     
-    const std::vector<base::Handle<FileMetadata>> &level_files(int level) {
+    const std::vector<base::Handle<FileMetaData>> &level_files(int level) {
         DCHECK_GE(level, 0);
         DCHECK_LT(level, Config::kMaxLevel);
         return files_[level];
@@ -268,7 +268,7 @@ private:
     Version *prev_ = nullptr;
     int      compaction_level_ = -1;
     double   compaction_score_ = -1;
-    std::vector<base::Handle<FileMetadata>> files_[Config::kMaxLevel];
+    std::vector<base::Handle<FileMetaData>> files_[Config::kMaxLevel];
 }; // class Version
     
 

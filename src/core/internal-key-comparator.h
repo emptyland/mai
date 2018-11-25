@@ -17,6 +17,7 @@ public:
     
     virtual int Compare(std::string_view lhs,
                         std::string_view rhs) const override;
+    virtual uint32_t Hash(std::string_view value) const override;
     virtual const char* Name() const override;
     virtual void FindShortestSeparator(std::string* start,
                                        std::string_view limit) const override;

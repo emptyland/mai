@@ -1,6 +1,7 @@
 #ifndef MAI_COMPARATOR_H_
 #define MAI_COMPARATOR_H_
 
+#include <stdint.h>
 #include <string_view>
 #include <string>
 
@@ -12,6 +13,8 @@ public:
     virtual ~Comparator() {}
     
     virtual int Compare(std::string_view lhs, std::string_view rhs) const = 0;
+    
+    virtual uint32_t Hash(std::string_view value) const = 0;
     
     virtual bool Equals(std::string_view lhs, std::string_view rhs) const {
         return Compare(lhs, rhs) == 0;

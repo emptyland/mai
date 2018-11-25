@@ -26,7 +26,7 @@ class KeyFilter;
 } // namespace core
 namespace db {
 class ColumnFamilyImpl;
-class FileMetadata;
+class FileMetaData;
 class Factory;
     
 class TableCache final {
@@ -50,7 +50,7 @@ public:
                        std::shared_ptr<core::KeyFilter> *filter);
     
     Error GetFileMetadata(const ColumnFamilyImpl *cf, uint64_t file_number,
-                          FileMetadata *fmd);
+                          FileMetaData *fmd);
     
     void Invalidate(uint64_t file_number) {
         std::unique_lock<std::mutex> lock(mutex_);

@@ -802,8 +802,7 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
                                       file.get(),
                                       cfd->options().block_size,
                                       cfd->options().block_restart_interval,
-                                      cfd->options().number_of_hash_slots,
-                                      &base::Hash::Js));
+                                      cfd->options().number_of_hash_slots));
     CompactionResult result;
     mutex_.unlock();
     rs = job->Run(builder.get(), &result);
@@ -820,7 +819,7 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
         return rs;
     }
     
-    FileMetadata *fmd = new FileMetadata(job->target_file_number());
+    FileMetaData *fmd = new FileMetaData(job->target_file_number());
     fmd->ctime        = env_->CurrentTimeMicros();
     fmd->size         = builder->FileSize();
     fmd->largest_key  = result.largest_key;
@@ -831,8 +830,8 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
     
 Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
                                core::MemoryTable *table) {
-    base::Handle<FileMetadata>
-        fmd(new FileMetadata(versions_->GenerateFileNumber()));
+    base::Handle<FileMetaData>
+        fmd(new FileMetaData(versions_->GenerateFileNumber()));
     std::unique_ptr<Iterator> iter(table->NewIterator());
     if (iter->error().fail()) {
         return iter->error();
@@ -854,8 +853,7 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
                                           cfd->options().use_unordered_table,
                                           file.get(), cfd->options().block_size,
                                           cfd->options().block_restart_interval,
-                                          cfd->options().number_of_hash_slots,
-                                          &base::Hash::Js));
+                                          cfd->options().number_of_hash_slots));
     std::string largest_key, smallest_key;
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
         builder->Add(iter->key(), iter->value());

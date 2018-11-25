@@ -59,7 +59,7 @@ struct CompactionContext {
     int level = -1;
     Version *input_version = nullptr;
     VersionPatch patch;
-    std::vector<base::Handle<FileMetadata>> inputs[2];
+    std::vector<base::Handle<FileMetaData>> inputs[2];
 }; // struct CompactionContext
     
 } // namespace db

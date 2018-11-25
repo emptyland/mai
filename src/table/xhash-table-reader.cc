@@ -45,8 +45,7 @@ public:
         core::ParsedTaggedKey tk;
         core::KeyBoundle::ParseTaggedKey(target, &tk);
         
-        hash_func_t hash = reader_->hash_func_;
-        uint32_t hash_val = hash(tk.user_key.data(), tk.user_key.size());
+        uint32_t hash_val = ikcmp_->Hash(target);
         slot_ = hash_val % reader_->indexs_.size();
         Index index = reader_->indexs_[slot_];
         if (index.size == 0) {
@@ -251,7 +250,7 @@ XhashTableReader::Get(const ReadOptions &,
     core::ParsedTaggedKey tk;
     core::KeyBoundle::ParseTaggedKey(target, &tk);
     
-    uint32_t hash_val = hash_func_(tk.user_key.data(), tk.user_key.size());
+    uint32_t hash_val = ikcmp->Hash(target);
     Index slot = indexs_[hash_val % indexs_.size()];
     
     std::string_view result;

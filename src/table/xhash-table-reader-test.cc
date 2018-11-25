@@ -55,7 +55,7 @@ public:
         ASSERT_TRUE(rs.ok()) << rs.ToString();
         
         file->Truncate(0);
-        XhashTableBuilder builder(ikcmp_, file.get(), 23, &base::Hash::Js, 512);
+        XhashTableBuilder builder(ikcmp_, file.get(), 23, 512);
         
         core::SequenceNumber version = kvs.size();
         for (const auto &kv : kvs) {
@@ -72,7 +72,7 @@ public:
         ASSERT_TRUE(rs.ok()) << rs.ToString();
         
         file->Truncate(0);
-        XhashTableBuilder builder(ikcmp_, file.get(), 23, &base::Hash::Js, 512);
+        XhashTableBuilder builder(ikcmp_, file.get(), 23, 512);
         ASSERT_GE(kvs.size(), 3);
         for (int i = 0; i < kvs.size(); i += 3) {
             auto k = kvs[i];
@@ -108,7 +108,7 @@ TEST_F(XhashTableReaderTest, Sanity) {
     uint64_t file_size;
     rs = file->GetFileSize(&file_size);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    XhashTableReader reader(file.get(), file_size, &base::Hash::Js);
+    XhashTableReader reader(file.get(), file_size);
     rs = reader.Prepare();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
@@ -151,7 +151,7 @@ TEST_F(XhashTableReaderTest, MutilVersion) {
     uint64_t file_size;
     rs = file->GetFileSize(&file_size);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    XhashTableReader reader(file.get(), file_size, &base::Hash::Js);
+    XhashTableReader reader(file.get(), file_size);
     rs = reader.Prepare();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
@@ -193,7 +193,7 @@ TEST_F(XhashTableReaderTest, Iterator) {
     uint64_t file_size;
     rs = file->GetFileSize(&file_size);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    XhashTableReader reader(file.get(), file_size, &base::Hash::Js);
+    XhashTableReader reader(file.get(), file_size);
     rs = reader.Prepare();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     

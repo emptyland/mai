@@ -14,17 +14,13 @@ namespace table {
 
 class XhashTableBuilder final : public TableBuilder {
 public:
-    typedef uint32_t (*hash_func_t)(const char *, size_t);
-    
     XhashTableBuilder(const core::InternalKeyComparator *ikcmp,
                       WritableFile *file,
                       size_t max_hash_slots,
-                      hash_func_t hash_func,
                       uint32_t block_size)
         : ikcmp_(DCHECK_NOTNULL(ikcmp))
         , file_(DCHECK_NOTNULL(file))
         , buckets_(max_hash_slots)
-        , hash_func_(DCHECK_NOTNULL(hash_func))
         , block_size_(block_size) {
         DCHECK_LE(7, max_hash_slots) << "Max slots too small!";
     }
@@ -48,10 +44,9 @@ private:
     uint64_t AlignmentToBlock();
     uint64_t WriteIndexs(const std::vector<std::tuple<uint64_t, uint64_t>> &indexs);
     
-    const core::InternalKeyComparator *ikcmp_;
+    const core::InternalKeyComparator *const ikcmp_;
     WritableFile *file_;
     std::vector<Bucket> buckets_;
-    hash_func_t hash_func_;
     uint64_t block_size_;
     
     bool has_seen_first_key_ = false;

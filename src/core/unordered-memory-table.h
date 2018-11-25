@@ -34,9 +34,8 @@ private:
         int operator ()(const KeyBoundle *lhs, const KeyBoundle *rhs) const {
             return ikcmp_->Compare(lhs->key(), rhs->key());
         }
-        int operator ()(const KeyBoundle *key) const {
-            return base::Hash::Js(key->user_key().data(),
-                                  key->user_key().size()) & 0x7fffffff;
+        uint32_t operator ()(const KeyBoundle *key) const {
+            return ikcmp_->Hash(key->key());
         }
     };
     class IteratorImpl;
