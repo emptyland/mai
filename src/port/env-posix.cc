@@ -1,16 +1,55 @@
 #include "port/file-posix.h"
+#include "mai/allocator.h"
 #include <chrono>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/param.h>
 #include <dirent.h>
+#include <unistd.h>
 
 namespace mai {
     
 namespace port {
     
+class PosixMmapAllocator final : public Allocator {
+public:
+    PosixMmapAllocator(size_t page_size)
+        : page_size_(page_size) {}
+    virtual ~PosixMmapAllocator() {}
+    
+    virtual void *Allocate(size_t size, size_t /*alignment*/) override {
+        size_t alloc_size = RoundUp(size, page_size_);
+        if (alloc_size == 0) {
+            return nullptr;
+        }
+        void *block = ::mmap(nullptr, alloc_size, PROT_READ|PROT_WRITE,
+                             MAP_ANON|MAP_PRIVATE, -1, 0);
+        if (block == MAP_FAILED) {
+            return nullptr;
+        }
+        return block;
+    }
+    
+    virtual void Free(const void *chunk, size_t size) override {
+        void *block = const_cast<void *>(chunk);
+        if (!block) {
+            return;
+        }
+        int rv = ::munmap(block, size);
+        if (rv < 0) {
+            PLOG(ERROR) << "munmap() fail!";
+        }
+    }
+    
+private:
+    const size_t page_size_;
+}; // class PosixMmapAllocator
+    
 class PosixEnv final : public Env {
 public:
-    PosixEnv() {}
+    PosixEnv()
+        : low_level_alloc_(new PosixMmapAllocator(::getpagesize())) {}
+
     virtual ~PosixEnv() {}
     
     virtual Error NewSequentialFile(const std::string &file_name,
@@ -135,10 +174,14 @@ public:
         }
         return GetWorkDirectory() + "/" + file_name;
     }
+    
+    virtual Allocator *GetLowLevelAllocator() override {
+        return low_level_alloc_.get();
+    }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(PosixEnv);
 private:
-    
+    std::unique_ptr<Allocator> low_level_alloc_;
 }; // class EnvPosix
     
 } // namespace port

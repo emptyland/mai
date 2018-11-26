@@ -12,6 +12,10 @@
 		231C61F8219AA67C001A95C1 /* io-utils-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F7219AA67C001A95C1 /* io-utils-test.cc */; };
 		231C61FA219AA9CF001A95C1 /* write-ahead-log.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */; };
 		231C61FB219AA9CF001A95C1 /* write-ahead-log.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */; };
+		2326026321ABE80D003F434C /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* arena.cc */; };
+		2326026421ABE80D003F434C /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* arena.cc */; };
+		2326026621ABF614003F434C /* arena-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026521ABF614003F434C /* arena-test.cc */; };
+		2326026721ABF614003F434C /* arena-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026521ABF614003F434C /* arena-test.cc */; };
 		2326A42B21A507590040BE53 /* key-boundle.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326A42A21A507590040BE53 /* key-boundle.cc */; };
 		2326A42C21A507590040BE53 /* key-boundle.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326A42A21A507590040BE53 /* key-boundle.cc */; };
 		2326A42E21A54A740040BE53 /* db-impl-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326A42D21A54A740040BE53 /* db-impl-test.cc */; };
@@ -147,6 +151,9 @@
 		231C61F5219AA5EE001A95C1 /* io-utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "io-utils.h"; sourceTree = "<group>"; };
 		231C61F7219AA67C001A95C1 /* io-utils-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "io-utils-test.cc"; path = "src/base/io-utils-test.cc"; sourceTree = "<group>"; };
 		231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-ahead-log.cc"; sourceTree = "<group>"; };
+		2326026121ABE7D8003F434C /* arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arena.h; sourceTree = "<group>"; };
+		2326026221ABE80D003F434C /* arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = arena.cc; sourceTree = "<group>"; };
+		2326026521ABF614003F434C /* arena-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "arena-test.cc"; path = "src/base/arena-test.cc"; sourceTree = "<group>"; };
 		2326A42921A3A1740040BE53 /* snapshot-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "snapshot-impl.h"; sourceTree = "<group>"; };
 		2326A42A21A507590040BE53 /* key-boundle.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "key-boundle.cc"; sourceTree = "<group>"; };
 		2326A42D21A54A740040BE53 /* db-impl-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "db-impl-test.cc"; path = "src/db/db-impl-test.cc"; sourceTree = "<group>"; };
@@ -357,6 +364,8 @@
 				23B0E12F218AFBCC00F9E855 /* hash.cc */,
 				23B0E132218AFD4E00F9E855 /* crc32.c */,
 				231C61F5219AA5EE001A95C1 /* io-utils.h */,
+				2326026121ABE7D8003F434C /* arena.h */,
+				2326026221ABE80D003F434C /* arena.cc */,
 			);
 			name = base;
 			path = src/base;
@@ -390,6 +399,7 @@
 				2326A42D21A54A740040BE53 /* db-impl-test.cc */,
 				23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */,
 				23B4E01721A7A292007A4533 /* compaction-test.cc */,
+				2326026521ABF614003F434C /* arena-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -595,6 +605,7 @@
 				23B0E15C2190318000F9E855 /* table.cc in Sources */,
 				23B0E1022188421400F9E855 /* spin-locking-test.cc in Sources */,
 				23B0E0D92187F90400F9E855 /* base.cc in Sources */,
+				2326026621ABF614003F434C /* arena-test.cc in Sources */,
 				232AA2312193D786007EF228 /* merging-test.cc in Sources */,
 				231C61F3219A6D54001A95C1 /* block-iterator.cc in Sources */,
 				23B0E1552190215C00F9E855 /* internal-key-comparator.cc in Sources */,
@@ -609,6 +620,7 @@
 				23F60602219BBE9600CE12D9 /* write-batch.cc in Sources */,
 				23B0E16421927F6C00F9E855 /* reference-count-test.cc in Sources */,
 				23B0E130218AFBCC00F9E855 /* hash.cc in Sources */,
+				2326026321ABE80D003F434C /* arena.cc in Sources */,
 				23B0E11E2189A9CE00F9E855 /* env-posix.cc in Sources */,
 				23B0E1152189A6BF00F9E855 /* error.cc in Sources */,
 				232AA24D219440F5007EF228 /* filter-block-builder-test.cc in Sources */,
@@ -647,6 +659,7 @@
 				23B0E15F21903C1900F9E855 /* xhash-table-builder-test.cc in Sources */,
 				23B0E134218AFD4E00F9E855 /* crc32.c in Sources */,
 				23B4E01D21A7AD48007A4533 /* compaction-impl.cc in Sources */,
+				2326026421ABE80D003F434C /* arena.cc in Sources */,
 				23B4E01921A7A292007A4533 /* compaction-test.cc in Sources */,
 				2326A42E21A54A740040BE53 /* db-impl-test.cc in Sources */,
 				2326A42C21A507590040BE53 /* key-boundle.cc in Sources */,
@@ -662,6 +675,7 @@
 				23B0E1232189ABE800F9E855 /* file-posix.cc in Sources */,
 				232AA24E219440F5007EF228 /* filter-block-builder-test.cc in Sources */,
 				23FB4B5D219597C000B2829B /* sst-table-reader-test.cc in Sources */,
+				2326026721ABF614003F434C /* arena-test.cc in Sources */,
 				231C61F8219AA67C001A95C1 /* io-utils-test.cc in Sources */,
 				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
 				23F60607219BC40E00CE12D9 /* db-impl.cc in Sources */,

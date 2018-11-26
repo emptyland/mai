@@ -45,7 +45,7 @@ public:
     virtual Error DeleteFile(const std::string &name, bool recursive) = 0;
     
     // Get a OS level memory allocator
-    // virtual Allocator *GetLowLevelAllocator() = 0;
+    virtual Allocator *GetLowLevelAllocator() = 0;
     
     virtual std::string GetWorkDirectory() = 0;
     
