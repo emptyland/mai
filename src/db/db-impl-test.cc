@@ -16,7 +16,7 @@ public:
         desc.name = kDefaultColumnFamilyName;
         descs_.push_back(desc);
         options_.create_if_missing = true;
-        options_.allow_mmap_reads = true;
+        //options_.allow_mmap_reads = true;
     }
     
     ~DBImplTest() override {
@@ -44,8 +44,9 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/04-db-all-cfs",
     "tests/05-db-recovery-manifest",
     "tests/06-db-recovery-data",
-    // 07
+    "tests/07-db-write-lv0",
     "tests/08-db-drop-cfs",
+    "tests/09-db-mutil-cf-recovery",
     nullptr,
 };
     
@@ -216,11 +217,8 @@ TEST_F(DBImplTest, RecoveryData) {
 }
     
 TEST_F(DBImplTest, WriteLevel0Table) {
-    const char kName[] = "tests/07-db-write-lv0";
-    env_->DeleteFile(kName, true);
-    
     std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(kName, options_));
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[7], options_));
     Error rs = impl->Open(descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     auto cf0 = cfs[0];
@@ -263,11 +261,15 @@ TEST_F(DBImplTest, WriteLevel0Table) {
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
     }
+    
+    ASSERT_TRUE(env_->FileExists(impl->abs_db_path() + "/default/3.sst").ok());
+    ASSERT_TRUE(env_->FileExists(impl->abs_db_path() + "/default/4.sst").ok());
+    ASSERT_TRUE(env_->FileExists(impl->abs_db_path() + "/0.log").fail());
 }
 
 TEST_F(DBImplTest, DropColumnFamily) {
     std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[7], options_));
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[8], options_));
     std::vector<ColumnFamilyDescriptor> descs = {
         {kDefaultColumnFamilyName, ColumnFamilyOptions{}},
         {"cf1", ColumnFamilyOptions{}}
@@ -285,6 +287,95 @@ TEST_F(DBImplTest, DropColumnFamily) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
 
     impl->ReleaseColumnFamily(cf0);
+}
+    
+TEST_F(DBImplTest, MutilCFRecovery) {
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[9], options_));
+    Error rs = impl->Open(descs_, nullptr);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ColumnFamily *cf1;
+    rs = impl->NewColumnFamily("cf1", ColumnFamilyOptions{}, &cf1);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    static const char *kv1[] = {
+        "aaaa", "100",
+        "aaab", "200",
+        "aaac", "300",
+        "aaad", "400",
+        "aaae", "500",
+        "bbbb", "3000",
+    };
+    for (int i = 0; i < arraysize(kv1); i += 2) {
+        rs = impl->Put(WriteOptions{}, cf1, kv1[i], kv1[i + 1]);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+    }
+    
+    static const char *kv2[] = {
+        "bbba", "100",
+        "bbbb", "200",
+        "bbbc", "300",
+        "bbbd", "400",
+        "bbbe", "500",
+        "cccc", "3000",
+    };
+    auto cf0 = impl->DefaultColumnFamily();
+    for (int i = 0; i < arraysize(kv2); i += 2) {
+        rs = impl->Put(WriteOptions{}, cf0, kv2[i], kv2[i + 1]);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+    }
+    impl->TEST_MakeImmutablePipeline(cf0);
+    rs = impl->TEST_ForceDumpImmutableTable(cf0, true);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    impl->ReleaseColumnFamily(cf1);
+    
+    std::string value;
+    rs = impl->GetProperty("db.versions.last-sequence-number", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("13", value);
+    
+    rs = impl->GetProperty("db.log.active", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("2,0", value);
+    
+    
+    //---------------Recovery---------------------------------------------------
+    std::vector<ColumnFamilyDescriptor> descs;
+    ColumnFamilyDescriptor desc;
+    desc.name = "default";
+    descs.push_back(desc);
+    desc.name = "cf1";
+    descs.push_back(desc);
+    
+    std::vector<ColumnFamily *> cfs;
+    impl.reset(new DBImpl(tmp_dirs[9], options_));
+    rs = impl->Open(descs, &cfs);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    int i = 0;
+    std::unique_ptr<Iterator> iter(impl->NewIterator(ReadOptions{}, cfs[0]));
+    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+        std::string k(iter->key());
+        std::string v(iter->value());
+        
+        EXPECT_EQ(kv2[i++], k) << i / 2;
+        EXPECT_EQ(kv2[i++], v) << i / 2;
+    }
+    
+    i = 0;
+    iter.reset(impl->NewIterator(ReadOptions{}, cfs[1]));
+    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+        std::string k(iter->key());
+        std::string v(iter->value());
+        
+        EXPECT_EQ(kv1[i++], k) << i / 2;
+        EXPECT_EQ(kv1[i++], v) << i / 2;
+    }
+    
+    for (auto cf : cfs) {
+        impl->ReleaseColumnFamily(cf);
+    }
 }
     
 } // namespace db

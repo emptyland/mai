@@ -94,6 +94,7 @@ private:
         kInvalidArgument,
         kIOError,
         kEOF,
+        kBusy,
     };
     
     Error(const char *filename, int fileline, Code code, std::string_view message)

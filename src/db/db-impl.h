@@ -60,6 +60,8 @@ public:
     virtual const Snapshot *GetSnapshot() override;
     virtual void ReleaseSnapshot(const Snapshot *snapshot) override;
     virtual ColumnFamily *DefaultColumnFamily() override;
+    virtual Error GetProperty(std::string_view property,
+                              std::string *value) override;
     
     Iterator *NewInternalIterator(const ReadOptions &opts, ColumnFamilyImpl *cfd);
     

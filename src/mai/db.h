@@ -93,6 +93,11 @@ public:
     
     virtual ColumnFamily *DefaultColumnFamily() = 0;
     
+    // db.log.current-name: The path of the WAL rodo log file.
+    // db.log.active: All active redo log file ids.
+    // db.bkg.jobs: Background running jobs.
+    virtual Error GetProperty(std::string_view property, std::string *value) = 0;
+    
     DB(const DB &) = delete;
     DB(DB &&) = delete;
     void operator = (const DB &) = delete;

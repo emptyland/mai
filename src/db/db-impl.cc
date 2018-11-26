@@ -160,18 +160,17 @@ Error DBImpl::Open(const std::vector<ColumnFamilyDescriptor> &desc,
         }
         rs = Recovery(desc);
     }
+    ColumnFamilySet *column_familes = versions_->column_families();
     if (rs.ok() && result) {
-        ColumnFamilySet *column_familes = versions_->column_families();
-        
         result->clear();
         for (const auto &d : desc) {
             ColumnFamilyImpl *cfd = column_familes->GetColumnFamily(d.name);
             result->push_back(new ColumnFamilyHandle(this, DCHECK_NOTNULL(cfd)));
         }
-        ColumnFamily *cf =
-            new ColumnFamilyHandle(this, column_familes->GetDefault());
-        default_cf_.reset(cf);
     }
+    ColumnFamily *cf = new ColumnFamilyHandle(this,
+                                              column_familes->GetDefault());
+    default_cf_.reset(cf);
     return rs;
 }
     
@@ -218,6 +217,7 @@ Error DBImpl::NewDB(const std::vector<ColumnFamilyDescriptor> &desc) {
     }
     VersionPatch patch;
     patch.set_prev_log_number(0);
+    versions_->AddSequenceNumber(1); // Begin with 1
     return versions_->LogAndApply(options_, &patch, &mutex_);
 }
 
@@ -312,8 +312,14 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
         return rs;
     }
     ColumnFamilySet *cfs = versions_->column_families();
-    *result = new ColumnFamilyHandle(this,
-                                     DCHECK_NOTNULL(cfs->GetColumnFamily(cfid)));
+    ColumnFamilyImpl *cfd = DCHECK_NOTNULL(cfs->GetColumnFamily(cfid));
+    rs = cfd->Install(factory_.get());
+    if (!rs) {
+        return rs;
+    }
+    cfd->set_redo_log_number(log_file_number_);
+    DCHECK(cfd->initialized());
+    *result = new ColumnFamilyHandle(this, cfd);
     return rs;
     // Unlocking versions-------------------------------------------------------
 }
@@ -477,6 +483,37 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
     return default_cf_.get();
 }
     
+/*virtual*/ Error DBImpl::GetProperty(std::string_view property,
+                                      std::string *value) {
+    using base::Slice;
+    DCHECK_NOTNULL(value)->clear();
+    
+    if (property == "db.log.current-name") {
+        std::unique_lock<std::mutex> lock(mutex_);
+        *value = Files::LogFileName(abs_db_path_, log_file_number_);
+    } else if (property == "db.log.active") {
+        std::unique_lock<std::mutex> lock(mutex_);
+        for (auto cfd : *versions_->column_families()) {
+            if (cfd->dropped()) {
+                continue;
+            }
+            value->append(Slice::Sprintf("%llu,", cfd->redo_log_number()));
+        }
+        value->erase(value->size() - 1, 1);
+    } else if (property == "db.bkg.jobs") {
+        *value = Slice::Sprintf("%d", background_active_.load());
+    } else if (property == "db.versions.last-sequence-number") {
+        std::unique_lock<std::mutex> lock(mutex_);
+        *value = Slice::Sprintf("%llu", versions_->last_sequence_number());
+    } else {
+        return MAI_CORRUPTION(Slice::Sprintf("Incorrect property name: %.*s",
+                                             int(property.size()),
+                                             property.data()));
+    }
+
+    return Error::OK();
+}
+    
 Iterator *DBImpl::NewInternalIterator(const ReadOptions &opts,
                                       ColumnFamilyImpl *cfd) {
     std::vector<Iterator *> iters;
@@ -568,7 +605,8 @@ Error DBImpl::Redo(uint64_t log_file_number,
     if (!logger.error().ok() && !logger.error().IsEof()) {
         return logger.error();
     }
-    *update_sequence_number = last_sequence_number + handler.sequence_number();
+    *update_sequence_number = last_sequence_number
+                            + handler.sequence_number_count();
     return Error::OK();
 }
     

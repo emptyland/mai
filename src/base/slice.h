@@ -4,6 +4,7 @@
 #include "base/varint-encoding.h"
 #include "base/allocators.h"
 #include "glog/logging.h"
+#include <stdarg.h>
 #include <string_view>
 
 namespace mai {
@@ -84,6 +85,13 @@ struct Slice {
     }
     
     static std::string ToReadable(std::string_view raw);
+    
+    __attribute__ (( __format__ (__printf__, 1, 2)))
+    static std::string Sprintf(const char *fmt, ...);
+    
+    static std::string Vsprintf(const char *fmt, va_list ap);
+    
+    DISALLOW_ALL_CONSTRUCTORS(Slice);
 }; // struct Slice
 
 class BufferReader final {

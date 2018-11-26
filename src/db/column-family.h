@@ -124,7 +124,7 @@ private:
     std::string compaction_point_[Config::kMaxLevel];
     
     // log file number
-    uint64_t redo_log_number_;
+    uint64_t redo_log_number_ = 0;
 
     ColumnFamilyImpl *next_ = nullptr;
     ColumnFamilyImpl *prev_ = nullptr;
