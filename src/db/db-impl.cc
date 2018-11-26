@@ -26,10 +26,13 @@ namespace db {
     
 class WritingHandler final : public WriteBatch::Stub {
 public:
-    WritingHandler(core::SequenceNumber sequence_number,
+    WritingHandler(uint64_t redo_log_number, bool filter,
+                   core::SequenceNumber sequence_number,
                    ColumnFamilySet *column_families,
                    std::mutex *db_mutex)
-        : last_sequence_number_(sequence_number)
+        : redo_log_number_(redo_log_number)
+        , filter_(filter)
+        , last_sequence_number_(sequence_number)
         , column_families_(DCHECK_NOTNULL(column_families))
         , db_mutex_(DCHECK_NOTNULL(db_mutex)) {}
     
@@ -39,11 +42,13 @@ public:
                      std::string_view value) override {
         base::Handle<core::MemoryTable> table;
         EnsureGetTable(cfid, &table);
-
-        table->Put(key, value, sequence_number(), core::Tag::kFlagValue);
         
-        size_count_ += key.size() + sizeof(uint32_t) + sizeof(uint64_t);
-        size_count_ += value.size();
+        if (!table.is_null()) {
+            table->Put(key, value, sequence_number(), core::Tag::kFlagValue);
+            
+            size_count_ += key.size() + sizeof(uint32_t) + sizeof(uint64_t);
+            size_count_ += value.size();
+        }
         sequence_number_count_ ++;
     }
     
@@ -51,8 +56,10 @@ public:
         base::Handle<core::MemoryTable> table;
         EnsureGetTable(cfid, &table);
 
-        table->Put(key, "", sequence_number(), core::Tag::kFlagDeletion);
-        size_count_ += key.size() + sizeof(uint32_t) + sizeof(uint64_t);
+        if (!table.is_null()) {
+            table->Put(key, "", sequence_number(), core::Tag::kFlagDeletion);
+            size_count_ += key.size() + sizeof(uint32_t) + sizeof(uint64_t);
+        }
         sequence_number_count_ ++;
     }
     
@@ -60,26 +67,33 @@ public:
         return last_sequence_number_ + sequence_number_count_;
     }
     
-    void EnsureGetTable(uint32_t cfid, base::Handle<core::MemoryTable> *table) {
+    bool EnsureGetTable(uint32_t cfid, base::Handle<core::MemoryTable> *table) {
+        // Locking DB ----------------------------------------------------------
+        std::unique_lock<std::mutex> lock(*db_mutex_);
         ColumnFamilyImpl *impl = (cfid == 0) ? column_families_->GetDefault() :
             EnsureGetColumnFamily(cfid);
-        *table = impl->mutable_table();
+        if (filter_ && impl->redo_log_number() < redo_log_number_) {
+            *table = nullptr;
+        } else {
+            *table = impl->mutable_table();
+        }
+        return true;
+        // Unlocking DB --------------------------------------------------------
     }
     
     ColumnFamilyImpl *EnsureGetColumnFamily(uint32_t cfid) {
-        // Locking DB ----------------------------------------------------------
-        std::unique_lock<std::mutex> lock(*db_mutex_);
         ColumnFamilyImpl *impl = (cfid == 0) ? column_families_->GetDefault() :
             column_families_->GetColumnFamily(cfid);
         DCHECK_NOTNULL(impl);
         DCHECK(impl->initialized());
         return impl;
-        // Unlocking DB --------------------------------------------------------
     }
     
     DEF_VAL_GETTER(uint64_t, size_count);
     DEF_VAL_GETTER(uint64_t, sequence_number_count);
 private:
+    const uint64_t redo_log_number_;
+    const bool filter_;
     const core::SequenceNumber last_sequence_number_;
     ColumnFamilySet *const column_families_;
     std::mutex *const db_mutex_;
@@ -87,7 +101,6 @@ private:
     uint64_t size_count_ = 0;
     uint64_t sequence_number_count_ = 0;
 }; // class WritingHnalder
-    
     
     
 struct GetContext {
@@ -100,6 +113,7 @@ struct GetContext {
 
 DBImpl::DBImpl(const std::string &db_name, const Options &opts)
     : db_name_(db_name)
+    , options_(opts)
     , env_(DCHECK_NOTNULL(opts.env))
     , abs_db_path_(env_->GetAbsolutePath(db_name))
     , factory_(Factory::NewDefault())
@@ -130,22 +144,21 @@ DBImpl::~DBImpl() {
     // TODO: clean others
 }
     
-Error DBImpl::Open(const Options &opts,
-                   const std::vector<ColumnFamilyDescriptor> &desc,
+Error DBImpl::Open(const std::vector<ColumnFamilyDescriptor> &desc,
                    std::vector<ColumnFamily *> *result) {
     Error rs;
 
     rs = env_->FileExists(Files::CurrentFileName(abs_db_path_));
     if (rs.fail()) { // Not exists
-        if (!opts.create_if_missing) {
+        if (!options_.create_if_missing) {
             return MAI_CORRUPTION("db miss and create_if_missing is false.");
         }
-        rs = NewDB(opts, desc);
+        rs = NewDB(desc);
     } else {
-        if (opts.error_if_exists) {
+        if (options_.error_if_exists) {
             return MAI_CORRUPTION("db exists and error_if_exists is true.");
         }
-        rs = Recovery(opts, desc);
+        rs = Recovery(desc);
     }
     if (rs.ok() && result) {
         ColumnFamilySet *column_familes = versions_->column_families();
@@ -153,8 +166,7 @@ Error DBImpl::Open(const Options &opts,
         result->clear();
         for (const auto &d : desc) {
             ColumnFamilyImpl *cfd = column_familes->GetColumnFamily(d.name);
-            DCHECK_NOTNULL(cfd);
-            result->push_back(new ColumnFamilyHandle(this, cfd));
+            result->push_back(new ColumnFamilyHandle(this, DCHECK_NOTNULL(cfd)));
         }
         ColumnFamily *cf =
             new ColumnFamilyHandle(this, column_familes->GetDefault());
@@ -163,8 +175,7 @@ Error DBImpl::Open(const Options &opts,
     return rs;
 }
     
-Error DBImpl::NewDB(const Options &opts,
-                    const std::vector<ColumnFamilyDescriptor> &desc) {
+Error DBImpl::NewDB(const std::vector<ColumnFamilyDescriptor> &desc) {
     Error rs = env_->MakeDirectory(abs_db_path_, true);
     if (!rs) {
         return rs;
@@ -182,7 +193,7 @@ Error DBImpl::NewDB(const Options &opts,
     // No default column family
     auto iter = cf_opts.find(kDefaultColumnFamilyName);
     if (iter == cf_opts.end()) {
-        versions_->column_families()->NewColumnFamily(opts,
+        versions_->column_families()->NewColumnFamily(options_,
                                                       kDefaultColumnFamilyName,
                                                       0, versions_.get());
     } else {
@@ -203,15 +214,14 @@ Error DBImpl::NewDB(const Options &opts,
         if (!rs) {
             return rs;
         }
+        cfd->set_redo_log_number(log_file_number_);
     }
     VersionPatch patch;
     patch.set_prev_log_number(0);
-    patch.set_redo_log_number(log_file_number_);
-    return versions_->LogAndApply(opts, &patch, &mutex_);
+    return versions_->LogAndApply(options_, &patch, &mutex_);
 }
 
-Error DBImpl::Recovery(const Options &opts,
-                       const std::vector<ColumnFamilyDescriptor> &desc) {
+Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
     std::string current_file_name = Files::CurrentFileName(abs_db_path_);
     std::string result;
     Error rs = base::FileReader::ReadAll(current_file_name, &result, env_);
@@ -228,18 +238,18 @@ Error DBImpl::Recovery(const Options &opts,
     }
     
     uint64_t manifest_file_number = ::atoll(result.c_str());
-    std::vector<uint64_t> logs;
+    std::vector<uint64_t> history;
     std::map<std::string, ColumnFamilyOptions> cf_opts;
     for (const auto &d : desc) {
         cf_opts[d.name] = d.options;
     }
-    rs = versions_->Recovery(cf_opts, manifest_file_number, &logs);
+    rs = versions_->Recovery(cf_opts, manifest_file_number, &history);
     if (!rs) {
         return rs;
     }
-    DCHECK_GE(logs.size(), 2);
+    DCHECK_GE(history.size(), 1);
 
-    if (opts.create_missing_column_families) {
+    if (options_.create_missing_column_families) {
         for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
             cf_opts.erase(cfd->name());
         }
@@ -251,6 +261,8 @@ Error DBImpl::Recovery(const Options &opts,
             }
         }
     }
+    
+    std::set<uint64_t> numbers;
     for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
         if (!cfd->initialized()) {
             rs = cfd->Install(factory_.get());
@@ -259,16 +271,25 @@ Error DBImpl::Recovery(const Options &opts,
             }
         }
         DLOG(INFO) << "Column family: " << cfd->name() << " installed.";
+        numbers.insert(cfd->redo_log_number());
     }
     
-    rs = Redo(versions_->redo_log_number(), logs[logs.size() - 2]);
-    if (!rs) {
-        return rs;
+    DCHECK_GE(history.size(), numbers.size());
+    core::SequenceNumber last = history[history.size() - numbers.size()];
+    core::SequenceNumber update = 0;
+    for (uint64_t number: numbers) {
+        rs = Redo(number, last, &update);
+        if (!rs) {
+            return rs;
+        }
+        last = update;
+        log_file_number_ = number; // The last one is biggest(new) number
     }
+    DCHECK_GE(last, versions_->last_sequence_number());
+    versions_->AddSequenceNumber(last - versions_->last_sequence_number());
     DLOG(INFO) << "Replay ok, last version: "
                << versions_->last_sequence_number();
-    
-    log_file_number_ = versions_->redo_log_number();
+
     rs = env_->NewWritableFile(Files::LogFileName(abs_db_path_,
                                                   log_file_number_), true,
                                &log_file_);
@@ -391,14 +412,11 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     }
     
     if (opts.sync) {
-        rs = log_file_->Sync();
-        if (!rs) {
-            return rs;
-        }
+        // TODO:
     }
     
-    WritingHandler handler(last_version + 1, versions_->column_families(),
-                           &mutex_);
+    WritingHandler handler(0, false, last_version + 1,
+                           versions_->column_families(), &mutex_);
     updates->Iterate(&handler); // Internal locking
     
     mutex_.lock();
@@ -506,6 +524,12 @@ Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
     }
     return Error::OK();
 }
+
+// REQUIRES: mutex_.lock()
+Error DBImpl::SwitchMemoryTable(ColumnFamilyImpl *column_family) {
+    // TODO:
+    return Error::OK();
+}
     
 Error DBImpl::RenewLogger() {
     uint64_t new_log_number = versions_->GenerateFileNumber();
@@ -521,7 +545,8 @@ Error DBImpl::RenewLogger() {
 }
     
 Error DBImpl::Redo(uint64_t log_file_number,
-                   core::SequenceNumber last_sequence_number) {
+                   core::SequenceNumber last_sequence_number,
+                   core::SequenceNumber *update_sequence_number) {
     std::unique_ptr<SequentialFile> file;
     std::string log_file_name = Files::LogFileName(abs_db_path_, log_file_number);
     Error rs = env_->NewSequentialFile(log_file_name, &file);
@@ -532,7 +557,7 @@ Error DBImpl::Redo(uint64_t log_file_number,
     
     std::string_view result;
     std::string scatch;
-    WritingHandler handler(last_sequence_number + 1,
+    WritingHandler handler(log_file_number, true, last_sequence_number + 1,
                            versions_->column_families(), &mutex_);
     while (logger.Read(&result, &scatch)) {
         rs = WriteBatch::Iterate(result.data(), result.size(), &handler);
@@ -543,7 +568,7 @@ Error DBImpl::Redo(uint64_t log_file_number,
     if (!logger.error().ok() && !logger.error().IsEof()) {
         return logger.error();
     }
-    versions_->AddSequenceNumber(handler.sequence_number_count());
+    *update_sequence_number = last_sequence_number + handler.sequence_number();
     return Error::OK();
 }
     
@@ -610,10 +635,7 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
         return rs;
     }
     if (opts.sync) {
-        rs = log_file_->Sync();
-        if (!rs) {
-            return rs;
-        }
+        // TODO: background sync
     }
     
     cfd->mutable_table()->Put(key, value, last_sequence_number, flag);
@@ -646,7 +668,7 @@ Error DBImpl::InternalNewColumnFamily(const std::string &name,
 // REQUIRES mutex_.lock()
 Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd, bool force) {
     Error rs;
-    
+
     while (true) {
         
         if (cfd->background_error().fail()) {
@@ -768,7 +790,7 @@ Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
     }
 
     patch.set_prev_log_number(0);
-    patch.set_redo_log_number(log_file_number_);
+    patch.set_redo_log(cfd->id(), log_file_number_);
     rs = versions_->LogAndApply(ColumnFamilyOptions{}, &patch, &mutex_);
     if (!rs) {
         return rs;
@@ -936,8 +958,11 @@ void DBImpl::DeleteObsoleteFiles(ColumnFamilyImpl *cfd) {
         }
     }
     cleanup.erase(log_file_number_);
-    cleanup.erase(versions_->redo_log_number());
     cleanup.erase(versions_->manifest_file_number());
+    
+    for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
+        cleanup.erase(cfd->redo_log_number());
+    }
     
     rs = env_->GetChildren(cfd->GetDir(), &children);
     for (const auto &name : children) {
@@ -986,7 +1011,7 @@ const char kDefaultColumnFamilyName[] = "default";
         return MAI_CORRUPTION("Empty db name.");
     }
     db::DBImpl *impl = new db::DBImpl(name, opts);
-    Error rs = impl->Open(opts, descriptors, column_families);
+    Error rs = impl->Open(descriptors, column_families);
     if (!rs) {
         return rs;
     }

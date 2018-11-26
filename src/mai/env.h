@@ -12,6 +12,7 @@ namespace mai {
 class SequentialFile;
 class WritableFile;
 class RandomAccessFile;
+class Allocator;
     
 class Env {
 public:
@@ -42,6 +43,9 @@ public:
                               std::vector<std::string> *children) = 0;
     
     virtual Error DeleteFile(const std::string &name, bool recursive) = 0;
+    
+    // Get a OS level memory allocator
+    // virtual Allocator *GetLowLevelAllocator() = 0;
     
     virtual std::string GetWorkDirectory() = 0;
     

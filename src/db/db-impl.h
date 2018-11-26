@@ -34,15 +34,12 @@ public:
     DEF_VAL_GETTER(std::string, db_name);
     DEF_VAL_GETTER(std::string, abs_db_path);
     
-    Error Open(const Options &opts,
-               const std::vector<ColumnFamilyDescriptor> &descriptors,
+    Error Open(const std::vector<ColumnFamilyDescriptor> &descriptors,
                std::vector<ColumnFamily *> *column_families);
     
-    Error NewDB(const Options &opts,
-                const std::vector<ColumnFamilyDescriptor> &desc);
+    Error NewDB(const std::vector<ColumnFamilyDescriptor> &desc);
     
-    Error Recovery(const Options &opts,
-                   const std::vector<ColumnFamilyDescriptor> &desc);
+    Error Recovery(const std::vector<ColumnFamilyDescriptor> &desc);
 
     virtual Error NewColumnFamily(const std::string &name,
                                   const ColumnFamilyOptions &options,
@@ -71,9 +68,11 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(DBImpl);
 private:
+    Error SwitchMemoryTable(ColumnFamilyImpl *cfd);
     Error RenewLogger();
     Error Redo(uint64_t log_file_number,
-               core::SequenceNumber last_sequence_number);
+               core::SequenceNumber last_sequence_number,
+               core::SequenceNumber *update_sequence_number);
     Error PrepareForGet(const ReadOptions &opts, ColumnFamily *cf,
                         GetContext *ctx);
     Error Write(const WriteOptions &opts, ColumnFamily *cf,
@@ -92,6 +91,7 @@ private:
                                   uint32_t *cfid);
     
     const std::string db_name_;
+    const Options options_;
     Env *const env_;
     const std::string abs_db_path_;
     std::unique_ptr<Factory> factory_;

@@ -55,6 +55,9 @@ struct Options final : public ColumnFamilyOptions {
     
     int max_open_files = 1000;
     
+    // 80 MB
+    size_t max_total_wal_size = 80 * 1024 * 1024;
+    
     bool allow_mmap_reads = false;
     
     bool allow_mmap_writes = false;

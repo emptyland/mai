@@ -178,6 +178,7 @@ TEST_F(VersionTest, LogAndApply) {
     ASSERT_EQ(1, cf1->id());
 }
 
+#if 0
 TEST_F(VersionTest, Recovery) {
     VersionSet versions(abs_db_path_, Options{}, table_cache_.get());
     std::map<std::string, ColumnFamilyOptions> opts;
@@ -198,6 +199,7 @@ TEST_F(VersionTest, Recovery) {
     ASSERT_NE(nullptr, cf1);
     ASSERT_EQ(1, cf1->id());
 }
+#endif
     
 TEST_F(VersionTest, PickCompactionL0) {
     VersionSet vets(tmp_dirs[0], Options{}, table_cache_.get());

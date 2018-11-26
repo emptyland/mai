@@ -10,9 +10,9 @@ public:
     Allocator() {}
     virtual ~Allocator() {}
     
-    virtual void *Allocate(size_t size) = 0;
+    virtual void *Allocate(size_t size, size_t alignment) = 0;
     
-    virtual void Free(const void *chunk) = 0;
+    virtual void Free(const void *chunk, size_t size) = 0;
 } // class Allocator
     
 } // namespace mai

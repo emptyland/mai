@@ -46,7 +46,7 @@ struct FileMetaData final : public base::ReferenceCounted<FileMetaData> {
 #define VERSION_FIELDS(V) \
     V(LastSequenceNumber, last_sequence_number) \
     V(NextFileNumber, next_file_number) \
-    V(RedoLogNumber, redo_log_number) \
+    V(RedoLog, redo_log) \
     V(PrevLogNumber, prev_log_number) \
     V(CompactionPoint, compaction_point) \
     V(Deletion, deletion) \
@@ -77,9 +77,10 @@ public:
         next_file_number_ = number;
     }
     
-    void set_redo_log_number(uint64_t number) {
-        set_field(kRedoLogNumber);
-        redo_log_number_ = number;
+    void set_redo_log(uint32_t cfid, uint64_t number) {
+        set_field(kRedoLog);
+        redo_log_.cfid = cfid;
+        redo_log_.number = number;
     }
     
     void set_prev_log_number(uint64_t number) {
@@ -145,6 +146,11 @@ public:
         return fields_[i / 32] & (1 << (i % 32));
     }
     
+    struct RedoLog {
+        uint32_t  cfid;
+        uint64_t  number;
+    };
+    
     struct CompactionPoint {
         uint32_t    cfid;
         int         level;
@@ -175,7 +181,7 @@ public:
     DEF_VAL_GETTER(uint32_t, max_column_family);
     DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
     DEF_VAL_GETTER(uint64_t, next_file_number);
-    DEF_VAL_GETTER(uint64_t, redo_log_number);
+    DEF_VAL_GETTER(RedoLog, redo_log);
     DEF_VAL_GETTER(uint64_t, prev_log_number);
     DEF_VAL_GETTER(CompactionPoint, compaction_point);
     DEF_VAL_GETTER(CFCreation, cf_creation);
@@ -207,7 +213,7 @@ private:
     
     core::SequenceNumber last_sequence_number_;
     uint64_t next_file_number_;
-    uint64_t redo_log_number_;
+    RedoLog redo_log_;
     uint64_t prev_log_number_;
     
     CompactionPoint compaction_point_;
@@ -282,7 +288,6 @@ public:
     DEF_PTR_GETTER_NOTNULL(Env, env);
     DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
     DEF_VAL_GETTER(uint64_t, next_file_number);
-    DEF_VAL_GETTER(uint64_t, redo_log_number);
     DEF_VAL_GETTER(uint64_t, prev_log_number);
     DEF_VAL_GETTER(uint64_t, manifest_file_number);
     
@@ -295,7 +300,7 @@ public:
     
     Error Recovery(const std::map<std::string, ColumnFamilyOptions> &desc,
                    uint64_t file_number,
-                   std::vector<uint64_t> *logs);
+                   std::vector<uint64_t> *history);
     
     Error LogAndApply(const ColumnFamilyOptions &cf_opts,
                       VersionPatch *patch,
@@ -318,7 +323,6 @@ private:
 
     core::SequenceNumber last_sequence_number_ = 1;
     uint64_t next_file_number_ = 0;
-    uint64_t redo_log_number_ = 0;
     uint64_t prev_log_number_ = 0;
     uint64_t manifest_file_number_ = 0;
     

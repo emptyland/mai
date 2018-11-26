@@ -53,7 +53,7 @@ TEST_F(DBImplTest, Sanity) {
     std::vector<ColumnFamily *> cfs;
     std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[0], options_));
     
-    Error rs = impl->Open(options_, descs_, &cfs);
+    Error rs = impl->Open(descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     auto cf = cfs[0];
@@ -71,7 +71,7 @@ TEST_F(DBImplTest, AddColumnFamilies) {
     std::vector<ColumnFamily *> cfs;
     std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[1], options_));
     
-    Error rs = impl->Open(options_, descs_, &cfs);
+    Error rs = impl->Open(descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
@@ -95,7 +95,7 @@ TEST_F(DBImplTest, AddColumnFamilies) {
 TEST_F(DBImplTest, AddErrorColumnFamilies) {
     std::vector<ColumnFamily *> cfs;
     std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[2], options_));
-    Error rs = impl->Open(options_, descs_, &cfs);
+    Error rs = impl->Open(descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
@@ -109,7 +109,7 @@ TEST_F(DBImplTest, AddErrorColumnFamilies) {
 TEST_F(DBImplTest, PutKey) {
     std::vector<ColumnFamily *> cfs;
     std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[3], options_));
-    Error rs = impl->Open(options_, descs_, &cfs);
+    Error rs = impl->Open(descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
@@ -129,7 +129,7 @@ TEST_F(DBImplTest, PutKey) {
 TEST_F(DBImplTest, AllColumnFamilies) {
     std::vector<ColumnFamily *> cfs;
     std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[4], options_));
-    Error rs = impl->Open(options_, descs_, &cfs);
+    Error rs = impl->Open(descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
@@ -155,14 +155,14 @@ TEST_F(DBImplTest, AllColumnFamilies) {
 TEST_F(DBImplTest, RecoveryManifest) {
     std::vector<ColumnFamily *> cfs;
     std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[5], options_));
-    Error rs = impl->Open(options_, descs_, &cfs);
+    Error rs = impl->Open(descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     for (auto cf : cfs) {
         impl->ReleaseColumnFamily(cf);
     }
     
     impl.reset(new DBImpl(tmp_dirs[5], options_));
-    rs = impl->Open(options_, descs_, &cfs);
+    rs = impl->Open(descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ(1, cfs.size());
     ASSERT_EQ(0, cfs[0]->id());
@@ -176,7 +176,7 @@ TEST_F(DBImplTest, RecoveryManifest) {
 TEST_F(DBImplTest, RecoveryData) {
     std::vector<ColumnFamily *> cfs;
     std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[5], options_));
-    Error rs = impl->Open(options_, descs_, &cfs);
+    Error rs = impl->Open(descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     auto cf0 = cfs[0];
     
@@ -197,7 +197,7 @@ TEST_F(DBImplTest, RecoveryData) {
     }
     
     impl.reset(new DBImpl(tmp_dirs[5], options_));
-    rs = impl->Open(options_, descs_, &cfs);
+    rs = impl->Open(descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     cf0 = cfs[0];
     
@@ -221,7 +221,7 @@ TEST_F(DBImplTest, WriteLevel0Table) {
     
     std::vector<ColumnFamily *> cfs;
     std::unique_ptr<DBImpl> impl(new DBImpl(kName, options_));
-    Error rs = impl->Open(options_, descs_, &cfs);
+    Error rs = impl->Open(descs_, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     auto cf0 = cfs[0];
     
@@ -272,7 +272,7 @@ TEST_F(DBImplTest, DropColumnFamily) {
         {kDefaultColumnFamilyName, ColumnFamilyOptions{}},
         {"cf1", ColumnFamilyOptions{}}
     };
-    Error rs = impl->Open(options_, descs, &cfs);
+    Error rs = impl->Open(descs, &cfs);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     auto cf0 = cfs[0];
     auto cf1 = cfs[1];

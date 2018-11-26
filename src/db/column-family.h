@@ -70,6 +70,7 @@ public:
     DEF_VAL_GETTER(bool, initialized);
     DEF_VAL_PROP_RW(Error, background_error);
     DEF_VAL_MUTABLE_GETTER(std::condition_variable, background_cv);
+    DEF_VAL_PROP_RW(uint64_t, redo_log_number);
     
     void set_background_progress(bool value) {
         background_progress_.store(value);
@@ -121,6 +122,9 @@ private:
     std::condition_variable background_cv_;
 
     std::string compaction_point_[Config::kMaxLevel];
+    
+    // log file number
+    uint64_t redo_log_number_;
 
     ColumnFamilyImpl *next_ = nullptr;
     ColumnFamilyImpl *prev_ = nullptr;
