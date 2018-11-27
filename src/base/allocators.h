@@ -1,6 +1,7 @@
 #ifndef MAI_BASE_ALLOCATORS_H_
 #define MAI_BASE_ALLOCATORS_H_
 
+#include "mai/allocator.h"
 #include "glog/logging.h"
 #include <stdlib.h>
 #include <memory>
@@ -18,6 +19,12 @@ struct NewAllocator {
     void *Allocate(size_t size) const { return new char[size]; }
     void Free(void *chunk) const { delete[] static_cast<char *>(chunk); }
 }; // struct NewAllocator
+    
+struct DelegatedAllocator {
+    Allocator *allocator;
+    void *Allocate(size_t size) const { return allocator->Allocate(size, 4); }
+    void Free(void *chunk) const { allocator->Free(chunk, 0); }
+}; // struct DelegatedAllocator
 
 class ScopedMemory {
 public:

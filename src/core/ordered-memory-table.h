@@ -4,6 +4,7 @@
 #include "core/memory-table.h"
 #include "core/skip-list.h"
 #include "core/internal-key-comparator.h"
+#include "base/arena.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -14,7 +15,8 @@ class InternalKeyComparator;
 
 class OrderedMemoryTable final : public MemoryTable {
 public:
-    OrderedMemoryTable(const InternalKeyComparator *ikcmp);
+    OrderedMemoryTable(const InternalKeyComparator *ikcmp,
+                       Allocator *low_level_alloc);
     virtual ~OrderedMemoryTable();
     
     virtual void Put(std::string_view key, std::string_view value,
@@ -39,6 +41,7 @@ private:
     
     Table table_;
     std::atomic<size_t> mem_usage_;
+    base::Arena arena_;
 }; // class OrderedMemoryTable
     
 } // namespace core

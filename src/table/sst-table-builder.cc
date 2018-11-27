@@ -95,15 +95,17 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
     using ::mai::base::Slice;
     using ::mai::base::ScopedMemory;
     
-    std::string_view last_block = block_builder_->Finish();
-    if (!last_block.empty()) {
-        BlockHandle handle = WriteBlock(last_block);
-        if (error_.fail()) {
-            return error_;
+    if (block_builder_) {
+        std::string_view last_block = block_builder_->Finish();
+        if (!last_block.empty()) {
+            BlockHandle handle = WriteBlock(last_block);
+            if (error_.fail()) {
+                return error_;
+            }
+            std::string buf;
+            handle.Encode(&buf);
+            index_builder_->Add(block_builder_->last_key(), buf);
         }
-        std::string buf;
-        handle.Encode(&buf);
-        index_builder_->Add(block_builder_->last_key(), buf);
     }
     
     BlockHandle filter = WriteFilter();

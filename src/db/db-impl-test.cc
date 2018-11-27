@@ -1,9 +1,11 @@
 #include "db/db-impl.h"
 #include "db/column-family.h"
+#include "base/slice.h"
 #include "mai/iterator.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 #include <vector>
+#include <thread>
 
 namespace mai {
     
@@ -47,6 +49,7 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/07-db-write-lv0",
     "tests/08-db-drop-cfs",
     "tests/09-db-mutil-cf-recovery",
+    "tests/10-db-cocurrent-putting",
     nullptr,
 };
     
@@ -377,6 +380,37 @@ TEST_F(DBImplTest, MutilCFRecovery) {
         impl->ReleaseColumnFamily(cf);
     }
 }
+    
+TEST_F(DBImplTest, CocurrentPutting) {
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[10], options_));
+    Error rs = impl->Open(descs_, nullptr);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    std::atomic<size_t> written(0);
+    
+    auto cf0 = impl->DefaultColumnFamily();
+    WriteOptions wr{};
+    std::thread worker_thrds[8];
+    for (int i = 0; i < arraysize(worker_thrds); ++i) {
+        worker_thrds[i] = std::thread([&] (auto slot) {
+            for (int j = 0; j < 10240; ++j) {
+                std::string key = base::Slice::Sprintf("k.%d.%d", slot, j);
+                std::string value(10240, 0);
+                
+                rs = impl->Put(wr, cf0, key, value);
+                EXPECT_TRUE(rs.ok()) << rs.ToString();
+                
+                written.fetch_add(key.size() + value.size());
+            }
+        }, i);
+    }
+    
+    for (int i = 0; i < arraysize(worker_thrds); ++i) {
+        worker_thrds[i].join();
+    }
+    printf("total: %lu\n", written.load());
+}
+    
     
 } // namespace db
     

@@ -74,14 +74,12 @@ TEST_F(SkipListTest, Seek) {
 
 TEST_F(SkipListTest, ThreadingPut) {
     IntSkipList list([](int a, int b) { return a - b; });
-    std::condition_variable cv;
     std::mutex m;
 
     auto Putter = [&] (SkipListTest::IntSkipList *list, int start, int end) {
-        std::unique_lock<std::mutex> lock(m);
-        cv.wait(lock);
 
         for (auto i = start; i < end; ++i) {
+            std::unique_lock<std::mutex> lock(m);
             list->Put(std::move(i));
         }
     };
@@ -92,10 +90,6 @@ TEST_F(SkipListTest, ThreadingPut) {
         std::thread(Putter, &list, 20000, 30000),
         std::thread(Putter, &list, 30000, 40000),
     };
-
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    cv.notify_all();
 
     for (auto &thread : threads) {
         thread.join();

@@ -28,13 +28,11 @@ class WritingHandler final : public WriteBatch::Stub {
 public:
     WritingHandler(uint64_t redo_log_number, bool filter,
                    core::SequenceNumber sequence_number,
-                   ColumnFamilySet *column_families,
-                   std::mutex *db_mutex)
+                   ColumnFamilySet *column_families)
         : redo_log_number_(redo_log_number)
         , filter_(filter)
         , last_sequence_number_(sequence_number)
-        , column_families_(DCHECK_NOTNULL(column_families))
-        , db_mutex_(DCHECK_NOTNULL(db_mutex)) {}
+        , column_families_(DCHECK_NOTNULL(column_families)) {}
     
     virtual ~WritingHandler() {}
     
@@ -68,8 +66,6 @@ public:
     }
     
     bool EnsureGetTable(uint32_t cfid, base::Handle<core::MemoryTable> *table) {
-        // Locking DB ----------------------------------------------------------
-        std::unique_lock<std::mutex> lock(*db_mutex_);
         ColumnFamilyImpl *impl = (cfid == 0) ? column_families_->GetDefault() :
             EnsureGetColumnFamily(cfid);
         if (filter_ && impl->redo_log_number() < redo_log_number_) {
@@ -78,7 +74,6 @@ public:
             *table = impl->mutable_table();
         }
         return true;
-        // Unlocking DB --------------------------------------------------------
     }
     
     ColumnFamilyImpl *EnsureGetColumnFamily(uint32_t cfid) {
@@ -96,7 +91,6 @@ private:
     const bool filter_;
     const core::SequenceNumber last_sequence_number_;
     ColumnFamilySet *const column_families_;
-    std::mutex *const db_mutex_;
     
     uint64_t size_count_ = 0;
     uint64_t sequence_number_count_ = 0;
@@ -422,12 +416,10 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     }
     
     WritingHandler handler(0, false, last_version + 1,
-                           versions_->column_families(), &mutex_);
+                           versions_->column_families());
     updates->Iterate(&handler); // Internal locking
     
-    mutex_.lock();
     versions_->AddSequenceNumber(handler.sequence_number_count());
-    mutex_.unlock();
     return Error::OK();
 }
     
@@ -595,7 +587,7 @@ Error DBImpl::Redo(uint64_t log_file_number,
     std::string_view result;
     std::string scatch;
     WritingHandler handler(log_file_number, true, last_sequence_number + 1,
-                           versions_->column_families(), &mutex_);
+                           versions_->column_families());
     while (logger.Read(&result, &scatch)) {
         rs = WriteBatch::Iterate(result.data(), result.size(), &handler);
         if (!rs) {
@@ -654,16 +646,11 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
         return MAI_CORRUPTION("Column family has been dropped.");
     }
     
-    core::SequenceNumber last_sequence_number = 0;
-    Error rs;
-    {
-        std::unique_lock<std::mutex> lock(mutex_);
-        last_sequence_number = versions_->last_sequence_number();
-        
-        rs = MakeRoomForWrite(cfd, false);
-        if (!rs) {
-            return rs;
-        }
+    std::unique_lock<std::mutex> lock(mutex_);
+    core::SequenceNumber last_sequence_number = versions_->last_sequence_number();
+    Error rs = MakeRoomForWrite(cfd, false);
+    if (!rs) {
+        return rs;
     }
     
     std::string redo;
@@ -676,12 +663,10 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
         // TODO: background sync
     }
     
+    // TODO: thiny locking
     cfd->mutable_table()->Put(key, value, last_sequence_number, flag);
     
-    mutex_.lock();
     versions_->AddSequenceNumber(1);
-    mutex_.unlock();
-    
     return Error::OK();
 }
     
@@ -887,16 +872,16 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
                                       cfd->options().block_restart_interval,
                                       cfd->options().number_of_hash_slots));
     CompactionResult result;
-    mutex_.unlock();
-    rs = job->Run(builder.get(), &result);
-    mutex_.lock();
+    //mutex_.unlock();
+    rs = job->Run(builder.get(), &result); // FIXME:
+    //mutex_.lock();
     if (!rs) {
         builder->Abandon();
         return rs;
     }
-    mutex_.unlock();
+    //mutex_.unlock();
     rs = builder->Finish();
-    mutex_.lock();
+    //mutex_.lock();
     if (!rs) {
         builder->Abandon();
         return rs;

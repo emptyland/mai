@@ -200,13 +200,11 @@ public:
 
     Node *next(int n) {
         DCHECK_GE(n, 0);
-
         return next_[n].load(std::memory_order_acquire);
     }
 
     void set_next(int n, Node *x) {
         DCHECK_GE(n, 0);
-
         next_[n].store(x, std::memory_order_release);
     }
 

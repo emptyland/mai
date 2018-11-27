@@ -105,7 +105,9 @@ void ColumnFamilyImpl::Drop() {
     
 void ColumnFamilyImpl::MakeImmutablePipeline(Factory *factory) {
     immutable_pipeline_.Add(mutable_);
-    mutable_ = factory->NewMemoryTable(&ikcmp_, options_.use_unordered_table,
+    mutable_ = factory->NewMemoryTable(&ikcmp_,
+                                       owns_->env()->GetLowLevelAllocator(),
+                                       options_.use_unordered_table,
                                        options_.number_of_hash_slots);
 }
     
@@ -207,7 +209,9 @@ void ColumnFamilyImpl::SetupOtherInputs(CompactionContext *ctx) {
 
 Error ColumnFamilyImpl::Install(Factory *factory) {
     // TODO:
-    mutable_ = factory->NewMemoryTable(&ikcmp_, options_.use_unordered_table,
+    mutable_ = factory->NewMemoryTable(&ikcmp_,
+                                       owns_->env()->GetLowLevelAllocator(),
+                                       options_.use_unordered_table,
                                        options_.number_of_hash_slots);
     std::string cfdir = GetDir();
     Error rs = owns_->env()->MakeDirectory(cfdir, false);

@@ -48,24 +48,27 @@ private:
     Error error_;
 }; // class UnorderedMemoryTable::IteratorImpl
     
-OrderedMemoryTable::OrderedMemoryTable(const InternalKeyComparator *ikcmp)
+OrderedMemoryTable::OrderedMemoryTable(const InternalKeyComparator *ikcmp,
+                                       Allocator *low_level_alloc)
     : table_(KeyComparator{ikcmp})
-    , mem_usage_(sizeof(*this)) {
+    , mem_usage_(sizeof(*this))
+    , arena_(low_level_alloc) {
 }
 
 /*virtual*/ OrderedMemoryTable::~OrderedMemoryTable() {
-    // TODO: user class Area
-    Table::Iterator iter(&table_);
-    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
-        base::MallocAllocator{}.Free(const_cast<KeyBoundle *>(iter.key()));
-    }
+    // arena_ can free all keys.
+//    Table::Iterator iter(&table_);
+//    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+//        base::MallocAllocator{}.Free(const_cast<KeyBoundle *>(iter.key()));
+//    }
 }
 
 /*virtual*/ void
 OrderedMemoryTable::Put(std::string_view key, std::string_view value,
                         SequenceNumber version, uint8_t flag) {
-    // TODO:
-    const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
+    const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag,
+                                             base::DelegatedAllocator{&arena_});
+    //const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
     DCHECK_NOTNULL(ikey);
     table_.Put(ikey);
     mem_usage_.fetch_add(ikey->size(), std::memory_order_acq_rel);
