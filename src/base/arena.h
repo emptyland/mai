@@ -5,10 +5,13 @@
 #include "mai/allocator.h"
 #include "glog/logging.h"
 #include <atomic>
+#include <thread>
 
 namespace mai {
     
 namespace base {
+    
+struct ArenaStatistics;
     
 class Arena final : public Allocator {
 public:
@@ -37,32 +40,27 @@ public:
         return static_cast<void *>(page + 1);
     }
     
-    void *NewNormal(size_t size, size_t alignment) {
-        size_t alloc_size = RoundUp(size, alignment);
-        PageHead *page = current_.load(std::memory_order_acquire);
-        if (TestFull(page, alloc_size)) {
-            page = NewPage(kPageSize);
-            if (!page) {
-                return nullptr;
-            }
-            Link(&current_, page);
-        }
-        return page->u.alloc.fetch_add(alloc_size);
-    }
+    void *NewNormal(size_t size, size_t alignment);
 
+    typedef ArenaStatistics Statistics;
+    
+    void GetUsageStatistics(std::vector<Statistics> *normal,
+                            std::vector<Statistics> *large) const;
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(Arena);
 private:
     struct PageHead {
-        std::atomic<PageHead*> next;
+        PageHead *next;
         union {
             size_t size;
-            std::atomic<char*> alloc;
+            std::atomic<char*> free;
         } u;
     };
     
+    static PageHead *const kBusyFlag;
+    
     void Link(std::atomic<PageHead*> *head, PageHead *page) {
-        PageHead *stub = head->load(std::memory_order_acquire);
-        page->next.store(stub, std::memory_order_relaxed);
+        page->next = head->load(std::memory_order_acquire);
         head->store(page, std::memory_order_release);
     }
 
@@ -71,13 +69,13 @@ private:
             static_cast<PageHead *>(low_level_alloc_->Allocate(page_size,
                                                                kAlignment));
         page->next = nullptr;
-        page->u.alloc = reinterpret_cast<char *>(page + 1);
+        page->u.free = reinterpret_cast<char *>(page + 1);
         return page;
     }
     
     bool TestFull(PageHead *page, size_t size) {
         char *limit = reinterpret_cast<char *>(page) + kPageSize;
-        if (page->u.alloc + size > limit) {
+        if (page->u.free + size > limit) {
             return true;
         } else {
             return false;
@@ -88,6 +86,14 @@ private:
     std::atomic<PageHead*> current_;
     std::atomic<PageHead*> large_;
 }; // class Arena
+    
+struct ArenaStatistics {
+    const char *addr;
+    const char *bound_begin;
+    const char *bound_end;
+    size_t      usage;
+    double      used_rate;
+}; // struct ArenaStatistics
     
 } // namespace base
     

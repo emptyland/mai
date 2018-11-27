@@ -446,7 +446,9 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
             VersionBuilder builder(this);
             builder.Prepare(patch);
             builder.Apply(patch);
-            builder.column_family()->Append(builder.Build());
+            Version *version = builder.Build();
+            Finalize(version);
+            builder.column_family()->Append(version);
         }
         if (patch.has_compaction_point()) {
             uint32_t id = patch.compaction_point().cfid;
