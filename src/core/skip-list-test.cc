@@ -1,4 +1,5 @@
 #include "core/skip-list.h"
+#include "mai/env.h"
 #include "gtest/gtest.h"
 #include <stdio.h>
 #include <functional>
@@ -14,14 +15,9 @@ namespace core {
 class SkipListTest : public ::testing::Test {
 public:
     typedef SkipList<int, std::function<int (int, int)>> IntSkipList;
-
-    SkipListTest () {
-    }
-
-    virtual void SetUp() override {
-    }
-
-    virtual void TearDown() override {
+    
+    void SetUp() override {
+        arena_.reset(new base::Arena(Env::Default()->GetLowLevelAllocator()));
     }
 
     void Fill(int k, IntSkipList *list) {
@@ -29,11 +25,13 @@ public:
             list->Put(std::move(k));
         }
     }
+
+    std::unique_ptr<base::Arena> arena_;
 };
 
 TEST_F(SkipListTest, Sanity) {
 
-    IntSkipList list([](int a, int b) { return a - b; });
+    IntSkipList list([](int a, int b) { return a - b; }, arena_.get());
 
     static const auto k = 100;
     Fill(k, &list);
@@ -45,7 +43,7 @@ TEST_F(SkipListTest, Sanity) {
 }
 
 TEST_F(SkipListTest, Sequence) {
-    IntSkipList list([](int a, int b) { return a - b; });
+    IntSkipList list([](int a, int b) { return a - b; }, arena_.get());
 
     static const auto k = 100;
     Fill(k, &list);
@@ -58,7 +56,7 @@ TEST_F(SkipListTest, Sequence) {
 }
 
 TEST_F(SkipListTest, Seek) {
-    IntSkipList list([](int a, int b) { return a - b; });
+    IntSkipList list([](int a, int b) { return a - b; }, arena_.get());
 
     static const auto k = 100;
     Fill(k, &list);
@@ -73,7 +71,7 @@ TEST_F(SkipListTest, Seek) {
 }
 
 TEST_F(SkipListTest, ThreadingPut) {
-    IntSkipList list([](int a, int b) { return a - b; });
+    IntSkipList list([](int a, int b) { return a - b; }, arena_.get());
     std::mutex m;
 
     auto Putter = [&] (SkipListTest::IntSkipList *list, int start, int end) {

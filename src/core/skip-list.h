@@ -1,6 +1,7 @@
 #ifndef MAI_CORE_SKIP_LIST_H_
 #define MAI_CORE_SKIP_LIST_H_
 
+#include "base/arena.h"
 #include "glog/logging.h"
 #include <stdint.h>
 #include <random>
@@ -14,11 +15,11 @@ template <class Key, class Comparator>
 class SkipList {
 public:
     struct Node;
-
     class Iterator;
 
-    SkipList(Comparator compare)
+    SkipList(Comparator compare, base::Arena *arena)
         : compare_(compare)
+        , arena_(DCHECK_NOTNULL(arena))
         , head_(NewNode(Key(), kMaxHeight))
         , max_height_(1) {
 
@@ -31,13 +32,7 @@ public:
         rand_ = std::bind(distribution, engine);
     }
 
-    ~SkipList() {
-        auto p = head_;
-        for (auto i = head_->next(0); i != nullptr; i = i->next(0)) {
-            DeleteNode(p);
-            p = i;
-        }
-    }
+    ~SkipList() { /* area_ can free all allocated memory. */ }
 
     void Put(Key key) {
         // TODO(opt): We can use a barrier-free variant of FindGreaterOrEqual()
@@ -85,17 +80,15 @@ public:
 
     static const intptr_t kMaxHeight = 12;
     static const intptr_t kBranching = 4;
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(SkipList);
 private:
 
     Node *NewNode(Key key, uintptr_t height) {
-        auto chunk = new char[sizeof(Node) +
-                              sizeof(std::atomic<Node *>) * (height - 1)];
+        size_t required_size = sizeof(Node) +
+                               sizeof(std::atomic<Node *>) * (height - 1);
+        void *chunk = arena_->Allocate(required_size, 4);
         return new (chunk) Node(key);
-    }
-
-    void DeleteNode(Node *node) {
-        node->~Node();
-        delete[] reinterpret_cast<char*>(node);
     }
 
     Node *FindGreaterOrEqual(Key key, Node** prev) const {
@@ -182,6 +175,7 @@ private:
     }
 
     Comparator const compare_;
+    base::Arena *const arena_;
     Node *const head_;
 
     std::atomic<intptr_t> max_height_;

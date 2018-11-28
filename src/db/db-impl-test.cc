@@ -388,15 +388,16 @@ TEST_F(DBImplTest, CocurrentPutting) {
     
     std::atomic<size_t> written(0);
     
+    auto jiffies = env_->CurrentTimeMicros();
     auto cf0 = impl->DefaultColumnFamily();
     WriteOptions wr{};
     std::thread worker_thrds[8];
+    std::string value(10240, 'A');
     for (int i = 0; i < arraysize(worker_thrds); ++i) {
         worker_thrds[i] = std::thread([&] (auto slot) {
             for (int j = 0; j < 10240; ++j) {
                 std::string key = base::Slice::Sprintf("k.%d.%d", slot, j);
-                std::string value(10240, 0);
-                
+
                 rs = impl->Put(wr, cf0, key, value);
                 EXPECT_TRUE(rs.ok()) << rs.ToString();
                 
@@ -408,7 +409,8 @@ TEST_F(DBImplTest, CocurrentPutting) {
     for (int i = 0; i < arraysize(worker_thrds); ++i) {
         worker_thrds[i].join();
     }
-    printf("total: %lu\n", written.load());
+    printf("total: %lu cost: %f ms\n", written.load(),
+           (env_->CurrentTimeMicros() - jiffies) / 1000.0);
 }
     
     

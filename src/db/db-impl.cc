@@ -872,16 +872,17 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
                                       cfd->options().block_restart_interval,
                                       cfd->options().number_of_hash_slots));
     CompactionResult result;
-    //mutex_.unlock();
+    mutex_.unlock();
     rs = job->Run(builder.get(), &result); // FIXME:
-    //mutex_.lock();
+    mutex_.lock();
     if (!rs) {
         builder->Abandon();
         return rs;
     }
-    //mutex_.unlock();
+    DCHECK_GT(builder->NumEntries(), 0) << "Empty compaction!";
+    mutex_.unlock();
     rs = builder->Finish();
-    //mutex_.lock();
+    mutex_.lock();
     if (!rs) {
         builder->Abandon();
         return rs;
@@ -908,6 +909,7 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
               << fmd->number;
     
     mutex_.unlock(); // Do not need DB lock -------------------------------------
+    uint64_t jiffies = env_->CurrentTimeMicros();
     
     std::unique_ptr<WritableFile> file;
     std::string table_file_name = current->owns()->GetTableFileName(fmd->number);
@@ -952,6 +954,11 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
     fmd->largest_key  = largest_key;
     fmd->smallest_key = smallest_key;
     patch->CreaetFile(cfd->id(), 0, fmd.get());
+    
+    DLOG(INFO) << "Cost: " << (env_->CurrentTimeMicros() - jiffies) / 1000.0 << " ms "
+               << "[" << core::KeyBoundle::ExtractUserKey(fmd->smallest_key)
+               << "," << core::KeyBoundle::ExtractUserKey(fmd->largest_key)
+               << "]";
     mutex_.lock();
     return Error::OK();
 }

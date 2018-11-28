@@ -50,17 +50,13 @@ private:
     
 OrderedMemoryTable::OrderedMemoryTable(const InternalKeyComparator *ikcmp,
                                        Allocator *low_level_alloc)
-    : table_(KeyComparator{ikcmp})
-    , mem_usage_(sizeof(*this))
-    , arena_(low_level_alloc) {
+    : mem_usage_(sizeof(*this))
+    , arena_(low_level_alloc)
+    , table_(KeyComparator{ikcmp}, &arena_) {
 }
 
 /*virtual*/ OrderedMemoryTable::~OrderedMemoryTable() {
     // arena_ can free all keys.
-//    Table::Iterator iter(&table_);
-//    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
-//        base::MallocAllocator{}.Free(const_cast<KeyBoundle *>(iter.key()));
-//    }
 }
 
 /*virtual*/ void

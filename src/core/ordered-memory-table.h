@@ -39,9 +39,9 @@ private:
     
     class IteratorImpl;
     
-    Table table_;
     std::atomic<size_t> mem_usage_;
     base::Arena arena_;
+    Table table_;
 }; // class OrderedMemoryTable
     
 } // namespace core

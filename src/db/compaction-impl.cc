@@ -51,7 +51,7 @@ CompactionImpl::CompactionImpl(const std::string abs_db_path,
     for (;merger->Valid(); merger->Next()) {
         core::KeyBoundle::ParseTaggedKey(merger->key(), &ikey);
         
-        if (ikey.tag.sequence_number() < oldest_sequence_number()) {
+        if (ikey.tag.sequence_number() >= oldest_sequence_number()) {
             continue; // Too old sequence number shoud be drop.
         }
         
