@@ -160,7 +160,7 @@ public:
     Error Write(std::string_view buf) {
         Error rs = file_->Append(buf);
         if (rs.ok()) {
-            written_size_ += buf.size();
+            written_position_ += buf.size();
         }
         return rs;
     }
@@ -207,7 +207,16 @@ public:
         }
     }
     
-    DEF_VAL_GETTER(size_t, written_size);
+    Error Truncate(uint64_t size) {
+        Error rs = file_->Truncate(size);
+        if (!rs) {
+            return rs;
+        }
+        written_position_ = size;
+        return Error::OK();
+    }
+    
+    DEF_VAL_GETTER(size_t, written_position);
     DEF_PTR_GETTER_NOTNULL(WritableFile, file);
     
     static Error WriteAll(const std::string &file_name, std::string_view data,
@@ -225,7 +234,7 @@ private:
     WritableFile *file_;
     
     ScopedMemory scope_;
-    size_t written_size_ = 0;
+    size_t written_position_ = 0;
 }; // class FileWriter
 
     

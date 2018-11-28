@@ -123,13 +123,10 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
         return error_;
     }
     
-    ScopedMemory scope;
-    //error_ = file_->Append(Slice::GetU64(props.offset(), &scope));
     error_ = writer_.WriteFixed64(props.offset());
     if (error_.fail()) {
         return error_;
     }
-    //error_ = file_->Append(Slice::GetU32(Table::kSstMagicNumber, &scope));
     error_ = writer_.WriteFixed32(Table::kSstMagicNumber);
     if (error_.fail()) {
         return error_;
@@ -172,22 +169,13 @@ BlockHandle SstTableBuilder::WriteBlock(std::string_view block) {
     using ::mai::base::ScopedMemory;
     
     uint32_t checksum = ::crc32(0, block.data(), block.size());
-    
-//    uint64_t offset;
-//    error_ = writer_.file()->GetFileSize(&offset);
-//    if (error_.fail()) {
-//        return BlockHandle{};
-//    }
-    uint64_t offset = writer_.written_size();
+    uint64_t offset = writer_.written_position();
     BlockHandle handle(offset, 4 + block.size());
-    
-    //ScopedMemory scope;
-    //error_ = file_->Append(Slice::GetU32(checksum, &scope));
+
     error_ = writer_.WriteFixed32(checksum);
     if (error_.fail()) {
         return BlockHandle{};
     }
-    //error_ = file_->Append(block);
     error_ = writer_.Write(block);
     if (error_.fail()) {
         return BlockHandle{};

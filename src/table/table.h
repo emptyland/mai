@@ -17,11 +17,16 @@ struct Table final {
     static const uint32_t kHmtMagicNumber;
     static const uint32_t kXmtMagicNumber;
     static const uint32_t kSstMagicNumber;
+    static const uint32_t kS1tMagicNumber;
     
     static Error WriteProperties(const TableProperties &prop, WritableFile *file);
     
+    static void WriteProperties(const TableProperties &prop, std::string *buf);
+    
     static Error ReadProperties(RandomAccessFile *file, uint64_t *position,
                                 TableProperties *props);
+    
+    static Error ReadProperties(std::string_view buf, TableProperties *props);
     
     DISALLOW_ALL_CONSTRUCTORS(Table);
 }; // struct Table
@@ -36,15 +41,15 @@ struct Table final {
 // smallest-key
 // largest-key
 struct TableProperties final {
-    bool        unordered;
-    bool        last_level;
-    uint32_t    block_size;
-    size_t      num_entries;
-    uint64_t    index_position;
-    size_t      index_count;
-    uint64_t    filter_position;
-    size_t      filter_size;
-    uint64_t    last_version;
+    bool        unordered       = false;
+    bool        last_level      = false;
+    uint32_t    block_size      = 0;
+    size_t      num_entries     = 0;
+    uint64_t    index_position  = 0;
+    size_t      index_count     = 0;
+    uint64_t    filter_position = 0;
+    size_t      filter_size     = 0;
+    uint64_t    last_version    = 0;
     std::string smallest_key;
     std::string largest_key;
 }; // struct FileProperties

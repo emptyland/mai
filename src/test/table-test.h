@@ -28,7 +28,7 @@ public:
                                        uint64_t)> TableReaderFactory;
     
     TableTest()
-        : ikcmp_(new core::InternalKeyComparator(Comparator::Bytewise())) {}
+        : ikcmp_(Comparator::Bytewise()) {}
     
     void Add(table::TableBuilder *builder,
              std::string_view key,
@@ -36,9 +36,8 @@ public:
              core::SequenceNumber version,
              uint8_t flag) {
         base::ScopedMemory scope;
-        auto ikey = core::KeyBoundle::New(key, value, version, flag,
-                                          base::ScopedAllocator{&scope});
-        builder->Add(ikey->key(), ikey->value());
+        auto ikey = core::KeyBoundle::MakeKey(key, version, flag);
+        builder->Add(ikey, value);
         ASSERT_TRUE(builder->error().ok()) << builder->error().ToString();
     }
     
@@ -52,7 +51,7 @@ public:
         
         std::string_view result;
         std::string scratch;
-        auto rs = reader->Get(ReadOptions{}, ikcmp_.get(), ikey->key(), tag,
+        auto rs = reader->Get(ReadOptions{}, &ikcmp_, ikey->key(), tag,
                               &result, &scratch);
         *value = result;
         return rs;
@@ -66,7 +65,7 @@ public:
         ASSERT_TRUE(rs.ok()) << rs.ToString();
         
         file->Truncate(0);
-        std::unique_ptr<table::TableBuilder> builder(factory(ikcmp_.get(), file.get()));
+        std::unique_ptr<table::TableBuilder> builder(factory(&ikcmp_, file.get()));
         ASSERT_GE(kvs.size(), 3);
         for (int i = 0; i < kvs.size(); i += 3) {
             auto k = kvs[i];
@@ -125,7 +124,7 @@ public:
     }
     
     Env *env_ = Env::Default();
-    std::unique_ptr<core::InternalKeyComparator> ikcmp_;
+    core::InternalKeyComparator ikcmp_;
 }; // class TableTest
     
 } // namespace test

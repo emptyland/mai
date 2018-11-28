@@ -2,6 +2,7 @@
 #include "base/hash.h"
 #include "base/base.h"
 #include "glog/logging.h"
+#include <string.h>
 
 namespace mai {
     
@@ -14,7 +15,17 @@ public:
     
     virtual
     int Compare(std::string_view lhs, std::string_view rhs) const override {
-        return lhs.compare(rhs);
+        const size_t min_len = std::min(lhs.size(), rhs.size());
+        int r = ::memcmp(lhs.data(), rhs.data(), min_len);
+        if (r == 0) {
+            if (lhs.size() < rhs.size()) {
+                r = -1;
+            }
+            else if (lhs.size() > rhs.size()) {
+                r = +1;
+            }
+        }
+        return r;
     }
     
     virtual uint32_t Hash(std::string_view value) const override {

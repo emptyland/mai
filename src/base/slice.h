@@ -103,6 +103,20 @@ public:
         return buf_[position_++];
     }
     
+    uint32_t ReadFixed32() {
+        DCHECK(!Eof());
+        std::string_view result = buf_.substr(position_, 4);
+        position_ += 4;
+        return Slice::SetU32(result);
+    }
+    
+    uint64_t ReadFixed64() {
+        DCHECK(!Eof());
+        std::string_view result = buf_.substr(position_, 8);
+        position_ += 8;
+        return Slice::SetU64(result);
+    }
+    
     uint32_t ReadVarint32() {
         size_t varint_len;
         DCHECK(!Eof());

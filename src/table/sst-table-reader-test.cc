@@ -129,7 +129,7 @@ TEST_F(SstTableReaderTest, Index) {
 
     //srd->TEST_PrintAll(ikcmp_.get());
     
-    srd->EnsureIndexReady(ikcmp_.get());
+    srd->EnsureIndexReady(&ikcmp_);
     auto index_iter = srd->TEST_IndexIter();
     
     index_iter->Seek(core::KeyBoundle::MakeKey("k001", 100, core::Tag::kFlagValueForSeek));
@@ -150,7 +150,7 @@ TEST_F(SstTableReaderTest, Index) {
 }
     
 TEST_F(SstTableReaderTest, Get) {
-    const char *kFileName = "tests/12-sst-table-reader-get.tmp";
+    const char *kFileName = "tests/13-sst-table-reader-get.tmp";
     
     std::vector<std::string> kvs;
     for (int i = 0; i < 100; ++i) {
@@ -188,7 +188,7 @@ TEST_F(SstTableReaderTest, Get) {
         char uval[64];
         snprintf(uval, arraysize(uval), "v%d", i + 1);
 
-        rs = rd->Get(ReadOptions{}, ikcmp_.get(),
+        rs = rd->Get(ReadOptions{}, &ikcmp_,
                      core::KeyBoundle::MakeKey(ukey, 100, core::Tag::kFlagValueForSeek),
                      nullptr, &value, &scratch);
         EXPECT_TRUE(rs.ok()) << rs.ToString() << " key:" << ukey;

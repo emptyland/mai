@@ -7,6 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2302F6B021AE3FA700AE0309 /* s1-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6AF21AE3FA700AE0309 /* s1-table-builder.cc */; };
+		2302F6B121AE3FA700AE0309 /* s1-table-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6AF21AE3FA700AE0309 /* s1-table-builder.cc */; };
+		2302F6B421AE4C9B00AE0309 /* plain-block-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6B321AE4C9B00AE0309 /* plain-block-builder.cc */; };
+		2302F6B521AE4C9B00AE0309 /* plain-block-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6B321AE4C9B00AE0309 /* plain-block-builder.cc */; };
+		2302F6B721AE795E00AE0309 /* s1-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6B621AE795E00AE0309 /* s1-table-builder-test.cc */; };
+		2302F6B821AE795E00AE0309 /* s1-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6B621AE795E00AE0309 /* s1-table-builder-test.cc */; };
+		2302F6BB21AE80AB00AE0309 /* s1-table-reader.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6BA21AE80AB00AE0309 /* s1-table-reader.cc */; };
+		2302F6BC21AE80AB00AE0309 /* s1-table-reader.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6BA21AE80AB00AE0309 /* s1-table-reader.cc */; };
+		2302F6BE21AE961200AE0309 /* s1-table-reader-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6BD21AE961200AE0309 /* s1-table-reader-test.cc */; };
+		2302F6BF21AE961200AE0309 /* s1-table-reader-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6BD21AE961200AE0309 /* s1-table-reader-test.cc */; };
 		231C61F3219A6D54001A95C1 /* block-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F2219A6D54001A95C1 /* block-iterator.cc */; };
 		231C61F4219A6D54001A95C1 /* block-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F2219A6D54001A95C1 /* block-iterator.cc */; };
 		231C61F8219AA67C001A95C1 /* io-utils-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F7219AA67C001A95C1 /* io-utils-test.cc */; };
@@ -146,6 +156,14 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2302F6AE21AE3F6800AE0309 /* s1-table-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "s1-table-builder.h"; sourceTree = "<group>"; };
+		2302F6AF21AE3FA700AE0309 /* s1-table-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "s1-table-builder.cc"; sourceTree = "<group>"; };
+		2302F6B221AE473000AE0309 /* plain-block-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "plain-block-builder.h"; sourceTree = "<group>"; };
+		2302F6B321AE4C9B00AE0309 /* plain-block-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "plain-block-builder.cc"; sourceTree = "<group>"; };
+		2302F6B621AE795E00AE0309 /* s1-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "s1-table-builder-test.cc"; path = "src/table/s1-table-builder-test.cc"; sourceTree = "<group>"; };
+		2302F6B921AE803700AE0309 /* s1-table-reader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "s1-table-reader.h"; sourceTree = "<group>"; };
+		2302F6BA21AE80AB00AE0309 /* s1-table-reader.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "s1-table-reader.cc"; sourceTree = "<group>"; };
+		2302F6BD21AE961200AE0309 /* s1-table-reader-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "s1-table-reader-test.cc"; path = "src/table/s1-table-reader-test.cc"; sourceTree = "<group>"; };
 		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
 		231C61F2219A6D54001A95C1 /* block-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-iterator.cc"; sourceTree = "<group>"; };
 		231C61F5219AA5EE001A95C1 /* io-utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "io-utils.h"; sourceTree = "<group>"; };
@@ -400,6 +418,8 @@
 				23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */,
 				23B4E01721A7A292007A4533 /* compaction-test.cc */,
 				2326026521ABF614003F434C /* arena-test.cc */,
+				2302F6B621AE795E00AE0309 /* s1-table-builder-test.cc */,
+				2302F6BD21AE961200AE0309 /* s1-table-reader-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -477,6 +497,10 @@
 				232AA23E21942412007EF228 /* sst-table-builder.cc */,
 				23FB4B58219589E000B2829B /* sst-table-reader.h */,
 				23FB4B5921958A7A00B2829B /* sst-table-reader.cc */,
+				2302F6AE21AE3F6800AE0309 /* s1-table-builder.h */,
+				2302F6AF21AE3FA700AE0309 /* s1-table-builder.cc */,
+				2302F6B921AE803700AE0309 /* s1-table-reader.h */,
+				2302F6BA21AE80AB00AE0309 /* s1-table-reader.cc */,
 				23B0E147218C512800F9E855 /* xhash-table-builder.h */,
 				23B0E148218C51E000F9E855 /* xhash-table-builder.cc */,
 				23B0E1572190293D00F9E855 /* xhash-table-reader.h */,
@@ -492,6 +516,8 @@
 				23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */,
 				231C61F1219A6D0A001A95C1 /* block-iterator.h */,
 				231C61F2219A6D54001A95C1 /* block-iterator.cc */,
+				2302F6B221AE473000AE0309 /* plain-block-builder.h */,
+				2302F6B321AE4C9B00AE0309 /* plain-block-builder.cc */,
 			);
 			name = table;
 			path = src/table;
@@ -584,6 +610,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				232AA2352193E5E6007EF228 /* skip-list-test.cc in Sources */,
+				2302F6BB21AE80AB00AE0309 /* s1-table-reader.cc in Sources */,
 				232E1E7221A2C0FC00F408D7 /* factory.cc in Sources */,
 				23B4E01821A7A292007A4533 /* compaction-test.cc in Sources */,
 				2326A42B21A507590040BE53 /* key-boundle.cc in Sources */,
@@ -593,6 +620,8 @@
 				232AA2392193E780007EF228 /* ordered-memory-table.cc in Sources */,
 				23B0E141218BEAA900F9E855 /* bytewise-comparator.cc in Sources */,
 				232E1E6E21A2578000F408D7 /* version-test.cc in Sources */,
+				2302F6B721AE795E00AE0309 /* s1-table-builder-test.cc in Sources */,
+				2302F6B021AE3FA700AE0309 /* s1-table-builder.cc in Sources */,
 				231C61FA219AA9CF001A95C1 /* write-ahead-log.cc in Sources */,
 				23B0E14D218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
 				23D70EEE21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */,
@@ -608,6 +637,7 @@
 				2326026621ABF614003F434C /* arena-test.cc in Sources */,
 				232AA2312193D786007EF228 /* merging-test.cc in Sources */,
 				231C61F3219A6D54001A95C1 /* block-iterator.cc in Sources */,
+				2302F6B421AE4C9B00AE0309 /* plain-block-builder.cc in Sources */,
 				23B0E1552190215C00F9E855 /* internal-key-comparator.cc in Sources */,
 				23F6060A219BCBD800CE12D9 /* column-family.cc in Sources */,
 				237CE4C42192EE17004FB9BF /* merging.cc in Sources */,
@@ -624,6 +654,7 @@
 				23B0E11E2189A9CE00F9E855 /* env-posix.cc in Sources */,
 				23B0E1152189A6BF00F9E855 /* error.cc in Sources */,
 				232AA24D219440F5007EF228 /* filter-block-builder-test.cc in Sources */,
+				2302F6BE21AE961200AE0309 /* s1-table-reader-test.cc in Sources */,
 				23B0E1222189ABE800F9E855 /* file-posix.cc in Sources */,
 				232AA249219432BB007EF228 /* slice.cc in Sources */,
 				23F60612219C22AE00CE12D9 /* files.cc in Sources */,
@@ -640,6 +671,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				23FB4B5B21958A7A00B2829B /* sst-table-reader.cc in Sources */,
+				2302F6BF21AE961200AE0309 /* s1-table-reader-test.cc in Sources */,
 				23F60616219C283E00CE12D9 /* files-test.cc in Sources */,
 				23F60613219C22AE00CE12D9 /* files.cc in Sources */,
 				237CE4C52192EE17004FB9BF /* merging.cc in Sources */,
@@ -658,6 +690,7 @@
 				23B0E1182189A71F00F9E855 /* file-test.cc in Sources */,
 				23B0E15F21903C1900F9E855 /* xhash-table-builder-test.cc in Sources */,
 				23B0E134218AFD4E00F9E855 /* crc32.c in Sources */,
+				2302F6BC21AE80AB00AE0309 /* s1-table-reader.cc in Sources */,
 				23B4E01D21A7AD48007A4533 /* compaction-impl.cc in Sources */,
 				2326026421ABE80D003F434C /* arena.cc in Sources */,
 				23B4E01921A7A292007A4533 /* compaction-test.cc in Sources */,
@@ -665,6 +698,7 @@
 				2326A42C21A507590040BE53 /* key-boundle.cc in Sources */,
 				23FB4B52219570CD00B2829B /* sst-table-builder-test.cc in Sources */,
 				23B0E11F2189A9CE00F9E855 /* env-posix.cc in Sources */,
+				2302F6B821AE795E00AE0309 /* s1-table-builder-test.cc in Sources */,
 				23B0E1102189A6A500F9E855 /* test-main.cc in Sources */,
 				23B0E11B2189A94F00F9E855 /* env.cc in Sources */,
 				23F60603219BBE9600CE12D9 /* write-batch.cc in Sources */,
@@ -691,10 +725,12 @@
 				23B0E1052188429700F9E855 /* hash-map-test.cc in Sources */,
 				23B0E16521927F6C00F9E855 /* reference-count-test.cc in Sources */,
 				232AA23C2194161A007EF228 /* ordered-memory-table-test.cc in Sources */,
+				2302F6B121AE3FA700AE0309 /* s1-table-builder.cc in Sources */,
 				23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */,
 				232AA24021942412007EF228 /* sst-table-builder.cc in Sources */,
 				23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */,
 				23F6060B219BCBD800CE12D9 /* column-family.cc in Sources */,
+				2302F6B521AE4C9B00AE0309 /* plain-block-builder.cc in Sources */,
 				23B0E16121913F5900F9E855 /* xhash-table-reader-test.cc in Sources */,
 				237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,
