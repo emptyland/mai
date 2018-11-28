@@ -18,6 +18,9 @@ public:
     static const int kPageSize = 4 * base::kKB;
     static const int kAlignment = sizeof(void *);
     
+    static const uint32_t kInitZag;
+    static const uint32_t kFreeZag;
+    
     Arena(Allocator *low_level)
         : low_level_alloc_(DCHECK_NOTNULL(low_level))
         , current_(NewPage(kPageSize))

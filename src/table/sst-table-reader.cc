@@ -4,6 +4,7 @@
 #include "core/internal-key-comparator.h"
 #include "core/key-boundle.h"
 #include "base/slice.h"
+#include "base/io-utils.h"
 #include "mai/env.h"
 #include "mai/iterator.h"
 #include "mai/options.h"
@@ -163,70 +164,58 @@ SstTableReader::SstTableReader(RandomAccessFile *file, uint64_t file_size,
     , checksum_verify_(checksum_verify) {}
     
 /*virtual*/ SstTableReader::~SstTableReader() {}
+    
+#define TRY_RUN(expr) \
+    (expr); \
+    if (!reader.error()) { \
+        return reader.error(); \
+    } (void)0
 
 Error SstTableReader::Prepare() {
     if (file_size_ < 12) {
         return MAI_CORRUPTION("Incorrect file type. File too small.");
     }
-    
-    std::string_view result;
-    std::string scratch;
-    
-    Error rs = file_->Read(file_size_ - 4, 4, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    if (Slice::SetU32(result) != Table::kSstMagicNumber) {
+
+    base::RandomAccessFileReader reader(file_);
+    uint32_t magic_num = 0;
+    TRY_RUN(magic_num = reader.ReadFixed32(file_size_ - 4));
+    if (magic_num != Table::kSstMagicNumber) {
         return MAI_CORRUPTION("Incorrect file type, required: sst");
     }
-    
-    rs = file_->Read(file_size_ - 12, 8, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    uint64_t position = Slice::SetU64(result);
+
+    uint64_t position = 0;
+    TRY_RUN(position = reader.ReadFixed64(file_size_ - 12));
     if (position >= file_size_ - 12) {
         return MAI_CORRUPTION("Incorrect table properties position.");
     }
     
     table_props_.reset(new TableProperties{});
-    rs = Table::ReadProperties(file_, &position, table_props_.get());
+    Error rs = Table::ReadProperties(file_, &position, table_props_.get());
     if (!rs) {
         return rs;
     }
     
     // Indexs:
-    rs = file_->Read(table_props_->index_position, 4, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
+    uint32_t index_checksum = 0;
+    TRY_RUN(index_checksum = reader.ReadFixed32(table_props_->index_position));
     BlockHandle index_handle(table_props_->index_position + 4,
                              table_props_->index_count - 4);
-    const uint32_t index_checksum = Slice::SetU32(result);
     if (checksum_verify_) {
-        rs = file_->Read(index_handle.offset(), index_handle.size(),
-                         &result, &scratch);
-        if (!rs) {
-            return rs;
-        }
+        std::string_view result;
+        TRY_RUN(result = reader.Read(index_handle.offset(), index_handle.size()));
+        
         uint32_t checksum = ::crc32(0, result.data(), result.size());
         if (checksum != index_checksum) {
             return MAI_IO_ERROR("Incorrect index block checksum!");
         }
     }
     
-    
     // Filter:
-    rs = file_->Read(table_props_->filter_position, 4, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    const uint32_t filter_checksum = Slice::SetU32(result);
-    rs = file_->Read(table_props_->filter_position + 4,
-                     table_props_->filter_size - 4, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
+    uint32_t filter_checksum = 0;
+    TRY_RUN(filter_checksum = reader.ReadFixed32(table_props_->filter_position));
+    std::string_view result;
+    TRY_RUN(result = reader.Read(table_props_->filter_position + 4,
+                                 table_props_->filter_size - 4));
     if (checksum_verify_) {   
         uint32_t checksum = ::crc32(0, result.data(), result.size());
         if (filter_checksum != checksum) {

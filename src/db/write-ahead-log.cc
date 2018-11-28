@@ -15,9 +15,9 @@ LogWriter::LogWriter(WritableFile *file, size_t block_size)
 }
     
 #define TRY_RUN(expr) \
-    expr; \
-    if (writer_.error().fail()) { \
-        return writer_.error(); \
+    rs = (expr); \
+    if (rs.fail()) { \
+        rs; \
     } (void)0
     
 LogWriter::~LogWriter() {}
@@ -70,6 +70,7 @@ Error LogWriter::EmitPhysicalRecord(const void *buf, size_t len,
                                     WAL::RecordType type) {
     DCHECK_LE(len, UINT16_MAX);
     DCHECK_LE(block_offset_ + WAL::kHeaderSize + len, block_size_);
+    Error rs;
     
     uint32_t checksum = ::crc32(typed_checksums_[type], buf, len);
     TRY_RUN(writer_.WriteFixed32(checksum));

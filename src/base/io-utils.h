@@ -77,7 +77,76 @@ private:
     size_t read_size_ = 0;
     Error error_;
 }; // class FileReader
+
+
+class RandomAccessFileReader final {
+public:
+    RandomAccessFileReader(RandomAccessFile *file, bool ownership = false)
+        : file_(DCHECK_NOTNULL(file))
+        , ownership_(ownership) {}
     
+    ~RandomAccessFileReader() {
+        if (ownership_) { delete file_; }
+    }
+    
+    DEF_VAL_GETTER(Error, error);
+    DEF_PTR_GETTER_NOTNULL(RandomAccessFile, file);
+    
+    std::string_view Read(uint64_t offset, size_t n, std::string *scratch) {
+        std::string_view result;
+        error_ = file_->Read(offset, n, &result, scratch);
+        if (error_.IsEof()) {
+            read_size_ += result.size();
+        } else if (error_.fail()) {
+            scratch->resize(n, '\0');
+            result = *scratch;
+        } else if (error_.ok()) {
+            read_size_ += result.size();
+        }
+        return result;
+    }
+    
+    std::string_view Read(uint64_t offset, size_t n) {
+        return Read(offset, n, &scratch_);
+    }
+    uint8_t ReadByte(uint64_t offset) {
+        std::string_view result = Read(offset, 1, &scratch_);
+        return result[0];
+    }
+    uint16_t ReadFixed16(uint64_t offset) {
+        return Slice::SetU16(Read(offset, 2, &scratch_));
+    }
+    uint32_t ReadFixed32(uint64_t offset) {
+        return Slice::SetU32(Read(offset, 4, &scratch_));
+    }
+    uint64_t ReadFixed64(uint64_t offset) {
+        return Slice::SetU64(Read(offset, 8, &scratch_));
+    }
+    uint32_t ReadVarint32(uint64_t offset, size_t *len = nullptr) {
+        std::string_view result = Read(offset, Varint32::kMaxLen, &scratch_);
+        size_t varint_len;
+        uint32_t value = Varint32::Decode(result.data(), &varint_len);
+        if (len) { *len = varint_len; }
+        return value;
+    }
+    uint64_t ReadVarint64(uint64_t offset, size_t *len = nullptr) {
+        std::string_view result = Read(offset, Varint64::kMaxLen, &scratch_);
+        size_t varint_len;
+        uint64_t value = Varint64::Decode(result.data(), &varint_len);
+        if (len) { *len = varint_len; }
+        return value;
+    }
+    
+private:
+    bool ownership_;
+    RandomAccessFile *file_;
+
+    std::string scratch_;
+    size_t read_size_ = 0;
+    Error error_;
+}; // class RandomAccessFileReader
+
+
 class FileWriter final {
 public:
     FileWriter(WritableFile *file, bool ownership = false)
@@ -88,55 +157,58 @@ public:
         if (ownership_) { delete file_; }
     }
     
-    Error error() const { return error_; }
-    
-    void Write(std::string_view buf) {
-        error_ = file_->Append(buf);
-        written_size_ += buf.size();
+    Error Write(std::string_view buf) {
+        Error rs = file_->Append(buf);
+        if (rs.ok()) {
+            written_size_ += buf.size();
+        }
+        return rs;
     }
     
-    void Write(const void *p, size_t n) {
+    Error WritePad(size_t n) { return Write(Slice::GetPad(n, &scope_)); }
+    
+    Error Write(const void *p, size_t n) {
         return Write(std::string_view(static_cast<const char *>(p), n));
     }
     
-    void WriteByte(char b) { Write(std::string_view(&b, 1)); }
+    Error WriteByte(char b) { return Write(std::string_view(&b, 1)); }
     
-    void WriteFixed16(uint16_t value) {
-        error_ = file_->Append(Slice::GetU16(value, &scope_));
-        written_size_ += 2;
+    Error WriteFixed16(uint16_t value) {
+        return Write(Slice::GetU16(value, &scope_));
     }
     
-    void WriteFixed32(uint32_t value) {
-        error_ = file_->Append(Slice::GetU32(value, &scope_));
-        written_size_ += 4;
+    Error WriteFixed32(uint32_t value) {
+        return Write(Slice::GetU32(value, &scope_));
     }
     
-    void WriteFixed64(uint64_t value) {
-        error_ = file_->Append(Slice::GetU64(value, &scope_));
-        written_size_ += 8;
+    Error WriteFixed64(uint64_t value) {
+        return Write(Slice::GetU64(value, &scope_));
     }
     
-    void WriteVarint32(uint32_t value) {
+    Error WriteVarint32(uint32_t value) {
         char *p = static_cast<char *>(scope_.New(Varint32::kMaxLen));
         size_t n = Varint32::Encode(p, value);
-        Write(std::string_view(p, n));
+        return Write(std::string_view(p, n));
     }
     
-    void WriteVarint64(uint64_t value) {
+    Error WriteVarint64(uint64_t value) {
         char *p = static_cast<char *>(scope_.New(Varint64::kMaxLen));
         size_t n = Varint64::Encode(p, value);
-        Write(std::string_view(p, n));
+        return Write(std::string_view(p, n));
     }
     
-    void Flush() { error_ = file_->Flush(); }
+    Error Flush() { return file_->Flush(); }
     
-    void Sync(bool doit) {
+    Error Sync(bool doit) {
         if (doit) {
-            error_ = file_->Sync();
+            return file_->Sync();
+        } else {
+            return Error::OK();
         }
     }
     
     DEF_VAL_GETTER(size_t, written_size);
+    DEF_PTR_GETTER_NOTNULL(WritableFile, file);
     
     static Error WriteAll(const std::string &file_name, std::string_view data,
                           Env *env) {
@@ -154,7 +226,6 @@ private:
     
     ScopedMemory scope_;
     size_t written_size_ = 0;
-    Error error_;
 }; // class FileWriter
 
     

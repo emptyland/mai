@@ -1,5 +1,6 @@
 #include "table/block-iterator.h"
 #include "core/internal-key-comparator.h"
+#include "base/io-utils.h"
 #include "base/slice.h"
 #include "mai/env.h"
 #include "glog/logging.h"

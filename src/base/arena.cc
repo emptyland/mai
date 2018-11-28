@@ -4,8 +4,8 @@ namespace mai {
     
 namespace base {
     
-static uint32_t kInitZag = 0xcccccccc;
-static uint32_t kFreeZag = 0xfeedfeed;
+/*static*/ const uint32_t Arena::kInitZag = 0xcccccccc;
+/*static*/ const uint32_t Arena::kFreeZag = 0xfeedfeed;
     
 /*static*/ Arena::PageHead *const Arena::kBusyFlag
     = reinterpret_cast<Arena::PageHead *>(0x1);

@@ -3,6 +3,7 @@
 
 #include "table/table-builder.h"
 #include "table/table.h"
+#include "base/io-utils.h"
 #include <vector>
 
 namespace mai {
@@ -35,8 +36,8 @@ private:
     BlockHandle WriteProps(BlockHandle indexs, BlockHandle filter);
     uint64_t AlignmentToBlock();
     
-    const core::InternalKeyComparator *ikcmp_;
-    WritableFile *file_;
+    const core::InternalKeyComparator *const ikcmp_;
+    base::FileWriter writer_;
     uint64_t block_size_;
     int n_restart_;
     

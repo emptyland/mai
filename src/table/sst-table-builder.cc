@@ -14,7 +14,7 @@ SstTableBuilder::SstTableBuilder(const core::InternalKeyComparator *ikcmp,
                                  WritableFile *file, uint64_t block_size,
                                  int n_restart)
     : ikcmp_(DCHECK_NOTNULL(ikcmp))
-    , file_(DCHECK_NOTNULL(file))
+    , writer_(DCHECK_NOTNULL(file))
     , block_size_(block_size)
     , n_restart_(n_restart) {
     DCHECK_GT(n_restart_, 1);
@@ -124,11 +124,13 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
     }
     
     ScopedMemory scope;
-    error_ = file_->Append(Slice::GetU64(props.offset(), &scope));
+    //error_ = file_->Append(Slice::GetU64(props.offset(), &scope));
+    error_ = writer_.WriteFixed64(props.offset());
     if (error_.fail()) {
         return error_;
     }
-    error_ = file_->Append(Slice::GetU32(Table::kSstMagicNumber, &scope));
+    //error_ = file_->Append(Slice::GetU32(Table::kSstMagicNumber, &scope));
+    error_ = writer_.WriteFixed32(Table::kSstMagicNumber);
     if (error_.fail()) {
         return error_;
     }
@@ -151,14 +153,14 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
     is_last_level_ = false;
     n_entries_ = 0;
     
-    error_ = file_->Truncate(0);
+    error_ = writer_.file()->Truncate(0);
 }
     
 /*virtual*/ uint64_t SstTableBuilder::NumEntries() const { return n_entries_; }
 
 /*virtual*/ uint64_t SstTableBuilder::FileSize() const {
     uint64_t size;
-    Error rs = file_->GetFileSize(&size);
+    Error rs = writer_.file()->GetFileSize(&size);
     if (!rs) {
         return 0;
     }
@@ -171,19 +173,22 @@ BlockHandle SstTableBuilder::WriteBlock(std::string_view block) {
     
     uint32_t checksum = ::crc32(0, block.data(), block.size());
     
-    uint64_t offset;
-    error_ = file_->GetFileSize(&offset);
-    if (error_.fail()) {
-        return BlockHandle{};
-    }
+//    uint64_t offset;
+//    error_ = writer_.file()->GetFileSize(&offset);
+//    if (error_.fail()) {
+//        return BlockHandle{};
+//    }
+    uint64_t offset = writer_.written_size();
     BlockHandle handle(offset, 4 + block.size());
     
-    ScopedMemory scope;
-    error_ = file_->Append(Slice::GetU32(checksum, &scope));
+    //ScopedMemory scope;
+    //error_ = file_->Append(Slice::GetU32(checksum, &scope));
+    error_ = writer_.WriteFixed32(checksum);
     if (error_.fail()) {
         return BlockHandle{};
     }
-    error_ = file_->Append(block);
+    //error_ = file_->Append(block);
+    error_ = writer_.Write(block);
     if (error_.fail()) {
         return BlockHandle{};
     }
@@ -226,7 +231,7 @@ BlockHandle SstTableBuilder::WriteProps(BlockHandle indexs, BlockHandle filter) 
     if (error_.fail()) {
         return BlockHandle{};
     }
-    error_ = Table::WriteProperties(props, file_);
+    error_ = Table::WriteProperties(props, writer_.file());
     if (error_.fail()) {
         return BlockHandle{};
     }
@@ -242,7 +247,7 @@ uint64_t SstTableBuilder::AlignmentToBlock() {
     base::ScopedMemory scope;
     if (position % block_size_) {
         size_t pad_size = block_size_ - position % block_size_;
-        error_ = file_->Append(base::Slice::GetPad(pad_size, &scope));
+        error_ = writer_.WritePad(pad_size);
         if (error_.fail()) {
             return position;
         }
