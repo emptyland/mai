@@ -19,6 +19,9 @@ SstTableBuilder::SstTableBuilder(const core::InternalKeyComparator *ikcmp,
     , n_restart_(n_restart) {
     DCHECK_GT(n_restart_, 1);
     DCHECK_GE(block_size_, 512);
+        
+    props_.block_size = static_cast<uint32_t>(block_size_);
+    props_.unordered  = false;
 }
 
 /*virtual*/ SstTableBuilder::~SstTableBuilder() {}
@@ -50,8 +53,8 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
             is_last_level_ = true;
         }
         
-        smallest_key_.assign(key);
-        largest_key_.assign(key);
+        props_.smallest_key = key;
+        props_.largest_key  = key;
         has_seen_first_key_ = true;
     }
     
@@ -74,19 +77,16 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
         block_builder_->Reset();
     }
 
-    if (ikcmp_->Compare(key, smallest_key_) < 0) {
-        smallest_key_ = key;
+    if (ikcmp_->Compare(key, props_.smallest_key) < 0) {
+        props_.smallest_key = key;
     }
-    if (ikcmp_->Compare(key, largest_key_) > 0) {
-        largest_key_ = key;
+    if (ikcmp_->Compare(key, props_.largest_key) > 0) {
+        props_.largest_key = key;
     }
-    if (ikey.tag.sequence_number() > max_version_) {
-        max_version_ = ikey.tag.sequence_number();
+    if (ikey.tag.sequence_number() > props_.last_version) {
+        props_.last_version = ikey.tag.sequence_number();
     }
-    if (ikey.tag.sequence_number() > max_version_) {
-        max_version_ = ikey.tag.sequence_number();
-    }
-    n_entries_++;
+    props_.num_entries++;
 }
 
 /*virtual*/ Error SstTableBuilder::error() { return error_; }
@@ -118,11 +118,12 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
         return error_;
     }
     
-    BlockHandle props = WriteProps(index, filter);
+    BlockHandle props = WriteProperties(index, filter);
     if (error_.fail()) {
         return error_;
     }
     
+    // Footer
     error_ = writer_.WriteFixed64(props.offset());
     if (error_.fail()) {
         return error_;
@@ -135,25 +136,22 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
 }
 
 /*virtual*/ void SstTableBuilder::Abandon() {
-    if (block_builder_) {
-        block_builder_->Reset();
-    }
-    if (filter_builder_) {
-        filter_builder_->Reset();
-    }
-    if (index_builder_) {
-        index_builder_->Reset();
-    }
-    smallest_key_.clear();
-    largest_key_.clear();
+    block_builder_.reset();
+    filter_builder_.reset();
+    index_builder_.reset();
+    
+    props_ = TableProperties{};
+    props_.block_size = static_cast<uint32_t>(block_size_);
+    props_.unordered = false;
+    
     has_seen_first_key_ = false;
     is_last_level_ = false;
-    n_entries_ = 0;
-    
     error_ = writer_.file()->Truncate(0);
 }
     
-/*virtual*/ uint64_t SstTableBuilder::NumEntries() const { return n_entries_; }
+/*virtual*/ uint64_t SstTableBuilder::NumEntries() const {
+    return props_.num_entries;
+}
 
 /*virtual*/ uint64_t SstTableBuilder::FileSize() const {
     uint64_t size;
@@ -201,29 +199,20 @@ BlockHandle SstTableBuilder::WriteIndexs() {
     return WriteBlock(block);
 }
 
-BlockHandle SstTableBuilder::WriteProps(BlockHandle indexs, BlockHandle filter) {
-    TableProperties props;
-    
-    props.unordered       = false;
-    props.last_level      = is_last_level_;
-    props.last_version    = max_version_;
-    props.num_entries     = n_entries_;
-    props.block_size      = static_cast<uint32_t>(block_size_);
-    props.index_position  = indexs.offset();
-    props.index_count     = indexs.size();
-    props.filter_position = filter.offset();
-    props.filter_size     = filter.size();
-    props.smallest_key    = smallest_key_;
-    props.largest_key     = largest_key_;
-    uint64_t offset = AlignmentToBlock();
+BlockHandle SstTableBuilder::WriteProperties(BlockHandle indexs, BlockHandle filter) {
+    AlignmentToBlock();
     if (error_.fail()) {
         return BlockHandle{};
     }
-    error_ = Table::WriteProperties(props, writer_.file());
-    if (error_.fail()) {
-        return BlockHandle{};
-    }
-    return BlockHandle{offset, FileSize()};
+    props_.index_position  = indexs.offset();
+    props_.index_count     = indexs.size();
+
+    props_.filter_position = filter.offset();
+    props_.filter_size     = filter.size();
+
+    std::string block;
+    Table::WriteProperties(props_, &block);
+    return WriteBlock(block);
 }
     
 uint64_t SstTableBuilder::AlignmentToBlock() {

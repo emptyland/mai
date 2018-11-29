@@ -142,7 +142,7 @@ void S1TableBuilder::Add(std::string_view key, std::string_view value) {
     buckets_.reset(new std::vector<Index>[max_buckets_]);
     unbound_index_.clear();
 
-    writer_.Truncate(0);
+    error_ = writer_.file()->Truncate(0);
 }
     
 /*virtual*/ uint64_t S1TableBuilder::NumEntries() const {

@@ -19,8 +19,7 @@ class SstTableBuilder final : public TableBuilder {
 public:
     SstTableBuilder(const core::InternalKeyComparator *ikcmp, WritableFile *file,
                     uint64_t block_size, int n_restart);
-    virtual ~SstTableBuilder();
-    
+    virtual ~SstTableBuilder() override;
     virtual void Add(std::string_view key, std::string_view value) override;
     virtual Error error() override;
     virtual Error Finish() override;
@@ -33,21 +32,18 @@ private:
     BlockHandle WriteBlock(std::string_view block);
     BlockHandle WriteFilter();
     BlockHandle WriteIndexs();
-    BlockHandle WriteProps(BlockHandle indexs, BlockHandle filter);
+    BlockHandle WriteProperties(BlockHandle indexs, BlockHandle filter);
     uint64_t AlignmentToBlock();
     
     const core::InternalKeyComparator *const ikcmp_;
     base::FileWriter writer_;
-    uint64_t block_size_;
-    int n_restart_;
+    const uint64_t block_size_;
+    const int n_restart_;
     
     Error error_;
-    uint64_t n_entries_ = 0;
     bool has_seen_first_key_ = false;
     bool is_last_level_ = false;
-    std::string smallest_key_;
-    std::string largest_key_;
-    uint64_t max_version_ = 0;
+    TableProperties props_;
     std::unique_ptr<DataBlockBuilder> block_builder_;
     std::unique_ptr<DataBlockBuilder> index_builder_;
     std::unique_ptr<FilterBlockBuilder> filter_builder_;

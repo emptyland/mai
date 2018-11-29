@@ -13,14 +13,6 @@ namespace table {
     
 class XhashTableBuilderTest : public ::testing::Test {
 public:
-    void SetUp() override {
-        
-    }
-    
-    void TearDown() override {
-        
-    }
-    
     void Add(XhashTableBuilder *builder,
              std::string_view key,
              std::string_view value,
@@ -124,7 +116,8 @@ TEST_F(XhashTableBuilderTest, Properties) {
     ASSERT_NE(0, props_pos);
     
     TableProperties props;
-    rs = Table::ReadProperties(file.get(), &props_pos, &props);
+    rs = Table::ReadProperties(file.get(), props_pos, file_size - 12 - props_pos,
+                               &props);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     EXPECT_TRUE(props.unordered);

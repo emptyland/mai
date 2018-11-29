@@ -17,9 +17,6 @@ namespace table {
     
 class XhashTableReaderTest : public ::testing::Test {
 public:
-    void SetUp() override {}
-    void TearDown() override {}
-    
     void Add(XhashTableBuilder *builder,
              std::string_view key,
              std::string_view value,

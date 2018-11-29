@@ -41,11 +41,11 @@ private:
     class IteratorImpl;
     class KeyFilterImpl;
     
-    Error ReadBlock(const BlockHandle &bh, std::string_view *result,
-                    std::string *scatch) const;
     Error ReadKey(uint64_t *offset, uint64_t *shared_len, uint64_t *private_len,
                   std::string_view *result, std::string *scatch) const;
     Error ReadValue(uint64_t *offset, std::string_view *result,
+                    std::string *scatch) const;
+    Error ReadBlock(const BlockHandle &bh, std::string_view *result,
                     std::string *scatch) const;
     
     RandomAccessFile *const file_;

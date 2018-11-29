@@ -118,7 +118,9 @@ public:
         auto props_pos = Slice::SetU64(result);
         
         std::unique_ptr<table::TableProperties> rv(new table::TableProperties{});
-        rs = table::Table::ReadProperties(file.get(), &props_pos, rv.get());
+        rs = table::Table::ReadProperties(file.get(), props_pos + 4,
+                                          file_size - 12 - props_pos - 4,
+                                          rv.get());
         ASSERT_TRUE(rs.ok()) << rs.ToString();
         props->reset(rv.release());
     }

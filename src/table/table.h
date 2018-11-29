@@ -23,8 +23,8 @@ struct Table final {
     
     static void WriteProperties(const TableProperties &prop, std::string *buf);
     
-    static Error ReadProperties(RandomAccessFile *file, uint64_t *position,
-                                TableProperties *props);
+    static Error ReadProperties(RandomAccessFile *file, uint64_t position,
+                                uint64_t size, TableProperties *props);
     
     static Error ReadProperties(std::string_view buf, TableProperties *props);
     

@@ -184,7 +184,8 @@ Error XhashTableReader::Prepare() {
     }
     
     table_props_.reset(new TableProperties{});
-    rs = Table::ReadProperties(file_, &position, table_props_.get());
+    rs = Table::ReadProperties(file_, position, file_size_ - 12 - position,
+                               table_props_.get());
     if (!rs) {
         return rs;
     }

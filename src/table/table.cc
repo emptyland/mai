@@ -70,107 +70,16 @@ void Table::WriteProperties(const TableProperties &props, std::string *buf) {
     
 #undef TRY_RUN
     
-/*static*/ Error Table::ReadProperties(RandomAccessFile *file, uint64_t *position,
-                                       TableProperties *props) {
-    using base::Slice;
-    using base::Varint32;
-    using base::Varint64;
-    
+/*static*/ Error Table::ReadProperties(RandomAccessFile *file, uint64_t position,
+                                       uint64_t size, TableProperties *props) {
     std::string_view result;
     std::string scratch;
     
-    Error rs = file->Read(*position, 1, &result, &scratch);
+    Error rs = file->Read(position, size, &result, &scratch);
     if (!rs) {
         return rs;
     }
-    (*position) += result.size();
-    props->unordered = result[0];
-    
-    rs = file->Read(*position, 1, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    (*position) += result.size();
-    props->last_level = result[0];
-    
-    rs = file->Read(*position, 4, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    (*position) += result.size();
-    props->block_size = Slice::SetU32(result);
-    
-    rs = file->Read(*position, 4, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    (*position) += result.size();
-    props->num_entries = Slice::SetU32(result);
-    
-    rs = file->Read(*position, 8, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    (*position) += result.size();
-    props->index_position = Slice::SetU64(result);
-    
-    rs = file->Read(*position, 4, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    (*position) += result.size();
-    props->index_count = Slice::SetU32(result);
-    
-    rs = file->Read(*position, 8, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    (*position) += result.size();
-    props->filter_position = Slice::SetU64(result);
-    
-    rs = file->Read(*position, 4, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    (*position) += result.size();
-    props->filter_size = Slice::SetU32(result);
-    
-    rs = file->Read(*position, 8, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    (*position) += result.size();
-    props->last_version = Slice::SetU64(result);
-    
-    rs = file->Read(*position, Varint64::kMaxLen, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    size_t varint_len = 0;
-    uint64_t key_size = Varint64::Decode(result.data(), &varint_len);
-    (*position) += varint_len;
-    rs = file->Read(*position, key_size, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    (*position) += result.size();
-    props->smallest_key = result;
-    
-    rs = file->Read(*position, Varint64::kMaxLen, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    varint_len = 0;
-    key_size = Varint64::Decode(result.data(), &varint_len);
-    (*position) += varint_len;
-    rs = file->Read(*position, key_size, &result, &scratch);
-    if (!rs) {
-        return rs;
-    }
-    (*position) += result.size();
-    props->largest_key = result;
-    
-    return Error::OK();
+    return ReadProperties(result, props);
 }
     
 void BlockHandle::Encode(std::string *buf) const {

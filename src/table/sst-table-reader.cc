@@ -165,10 +165,16 @@ SstTableReader::SstTableReader(RandomAccessFile *file, uint64_t file_size,
     
 /*virtual*/ SstTableReader::~SstTableReader() {}
     
-#define TRY_RUN(expr) \
+#define TRY_RUN0(expr) \
     (expr); \
     if (!reader.error()) { \
         return reader.error(); \
+    } (void)0
+    
+#define TRY_RUN1(expr) \
+    rs = (expr); \
+    if (!rs) { \
+        return rs; \
     } (void)0
 
 Error SstTableReader::Prepare() {
@@ -178,50 +184,34 @@ Error SstTableReader::Prepare() {
 
     base::RandomAccessFileReader reader(file_);
     uint32_t magic_num = 0;
-    TRY_RUN(magic_num = reader.ReadFixed32(file_size_ - 4));
+    TRY_RUN0(magic_num = reader.ReadFixed32(file_size_ - 4));
     if (magic_num != Table::kSstMagicNumber) {
         return MAI_CORRUPTION("Incorrect file type, required: sst");
     }
 
     uint64_t position = 0;
-    TRY_RUN(position = reader.ReadFixed64(file_size_ - 12));
+    TRY_RUN0(position = reader.ReadFixed64(file_size_ - 12));
     if (position >= file_size_ - 12) {
         return MAI_CORRUPTION("Incorrect table properties position.");
     }
     
-    table_props_.reset(new TableProperties{});
-    Error rs = Table::ReadProperties(file_, &position, table_props_.get());
-    if (!rs) {
-        return rs;
-    }
+    std::string_view result;
+    std::string scatch;
+    Error rs;
+    TRY_RUN0(ReadBlock({position, file_size_ - 12 - position}, &result, &scatch));
+    
+    table_props_.reset(new TableProperties);
+    TRY_RUN1(Table::ReadProperties(result, table_props_.get()));
     
     // Indexs:
-    uint32_t index_checksum = 0;
-    TRY_RUN(index_checksum = reader.ReadFixed32(table_props_->index_position));
-    BlockHandle index_handle(table_props_->index_position + 4,
-                             table_props_->index_count - 4);
     if (checksum_verify_) {
-        std::string_view result;
-        TRY_RUN(result = reader.Read(index_handle.offset(), index_handle.size()));
-        
-        uint32_t checksum = ::crc32(0, result.data(), result.size());
-        if (checksum != index_checksum) {
-            return MAI_IO_ERROR("Incorrect index block checksum!");
-        }
+        TRY_RUN1(ReadBlock({table_props_->index_position,
+                            table_props_->index_count}, &result, &scatch));
     }
     
     // Filter:
-    uint32_t filter_checksum = 0;
-    TRY_RUN(filter_checksum = reader.ReadFixed32(table_props_->filter_position));
-    std::string_view result;
-    TRY_RUN(result = reader.Read(table_props_->filter_position + 4,
-                                 table_props_->filter_size - 4));
-    if (checksum_verify_) {   
-        uint32_t checksum = ::crc32(0, result.data(), result.size());
-        if (filter_checksum != checksum) {
-            return MAI_IO_ERROR("Incorrect filter block checksum!");
-        }
-    }
+    TRY_RUN1(ReadBlock({table_props_->filter_position,
+                        table_props_->filter_size}, &result, &scatch));
     core::KeyFilter *filter
         = new KeyBloomFilter(reinterpret_cast<const uint32_t *>(result.data()),
                              result.size() / 4,
@@ -322,6 +312,23 @@ void SstTableReader::TEST_PrintAll(const core::InternalKeyComparator *ikcmp) {
             printf("key: %s\n", key.c_str());
         }
     }
+}
+    
+Error SstTableReader::ReadBlock(const BlockHandle &bh, std::string_view *result,
+                                std::string *scatch) const {
+    Error rs = file_->Read(bh.offset(), bh.size(), result, scatch);
+    if (!rs) {
+        return rs;
+    }
+    if (checksum_verify_) {
+        uint32_t checksum = *reinterpret_cast<const uint32_t *>(result->data());
+        
+        if (checksum != ::crc32(0, result->data() + 4, result->size() - 4)) {
+            return MAI_IO_ERROR("CRC32 checksum fail!");
+        }
+    }
+    result->remove_prefix(4); // remove crc32 checksum.
+    return Error::OK();
 }
 
 } // namespace table

@@ -36,6 +36,7 @@ public:
     void EnsureIndexReady(const core::InternalKeyComparator *ikcmp);
     
     void TEST_PrintAll(const core::InternalKeyComparator *ikcmp);
+    
     Iterator *TEST_IndexIter() const {
         return reinterpret_cast<Iterator *>(index_iter_.get());
     }
@@ -46,7 +47,8 @@ private:
                       std::string *scratch);
     Error GetKey(std::string_view prev_key, uint64_t *offset,
                  std::string_view *result, std::string *scratch);
-    
+    Error ReadBlock(const BlockHandle &bh, std::string_view *result,
+                    std::string *scatch) const;
     
     RandomAccessFile *file_;
     uint64_t file_size_;

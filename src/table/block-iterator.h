@@ -2,6 +2,7 @@
 #define MAI_TABLE_BLOCK_ITERATOR_H_
 
 #include "table/table.h"
+#include "base/io-utils.h"
 #include "mai/iterator.h"
 #include <vector>
 #include <tuple>
@@ -39,7 +40,8 @@ private:
                   std::tuple<std::string, std::string> *kv);
     
     const core::InternalKeyComparator *ikcmp_;
-    RandomAccessFile *file_;
+    //RandomAccessFile *file_;
+    base::RandomAccessFileReader reader_;
     uint64_t data_base_;
     uint64_t data_end_;
     std::unique_ptr<uint32_t[]> restarts_;

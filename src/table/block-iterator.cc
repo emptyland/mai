@@ -1,6 +1,5 @@
 #include "table/block-iterator.h"
 #include "core/internal-key-comparator.h"
-#include "base/io-utils.h"
 #include "base/slice.h"
 #include "mai/env.h"
 #include "glog/logging.h"
@@ -9,31 +8,33 @@ namespace mai {
 
 namespace table {
     
-using ::mai::base::Slice;
-using ::mai::base::Varint32;
-using ::mai::base::Varint64;
+#define TRY_RUN0(expr) \
+    (expr); \
+    if (reader_.error().fail()) { \
+        error_ = reader_.error(); \
+        return 0; \
+    } (void)0
     
 BlockIterator::BlockIterator(const core::InternalKeyComparator *ikcmp,
               RandomAccessFile *file,
               uint64_t block_offset, uint64_t block_size)
-: ikcmp_(DCHECK_NOTNULL(ikcmp))
-, file_(DCHECK_NOTNULL(file))
-, data_base_(block_offset) {
-    std::string_view result;
-    std::string scratch;
-    
+    : ikcmp_(DCHECK_NOTNULL(ikcmp))
+    , reader_(DCHECK_NOTNULL(file))
+    , data_base_(block_offset) {
+
     uint64_t offset = block_offset + block_size - 4;
-    error_ = file_->Read(offset, 4, &result, &scratch);
-    if (error_.fail()) {
+    n_restarts_ = reader_.ReadFixed32(offset);
+    if (reader_.error().fail()) {
+        error_ = reader_.error();
         return;
     }
-    n_restarts_ = Slice::SetU32(result);
     DCHECK_GT(n_restarts_, 0);
     
     restarts_.reset(new uint32_t[n_restarts_]);
     offset -= n_restarts_ * 4;
-    error_ = file_->Read(offset, n_restarts_ * 4, &result, &scratch);
-    if (error_.fail()) {
+    std::string_view result = reader_.Read(offset, n_restarts_ * 4);
+    if (reader_.error().fail()) {
+        error_ = reader_.error();
         return;
     }
     data_end_ = offset;
@@ -150,9 +151,31 @@ uint64_t BlockIterator::PrepareRead(uint64_t i) {
 
 uint64_t BlockIterator::Read(std::string_view prev_key, uint64_t offset,
                              std::tuple<std::string, std::string> *kv) {
+
+    
+    size_t len = 0;
+    uint64_t shared_len, private_len;
+    TRY_RUN0(shared_len = reader_.ReadVarint64(offset, &len));
+    offset += len;
+    TRY_RUN0(private_len = reader_.ReadVarint64(offset, &len));
+    offset += len;
+    
+    std::string key(prev_key.substr(0, shared_len));
+    
     std::string_view result;
     std::string scratch;
+    TRY_RUN0(result = reader_.Read(offset, private_len, &scratch));
+    offset += result.size();
     
+    key.append(result);
+    
+    uint64_t value_len;
+    TRY_RUN0(value_len = reader_.ReadVarint64(offset, &len));
+    offset += len;
+    TRY_RUN0(result = reader_.Read(offset, value_len, &scratch));
+    offset += result.size();
+    
+#if 0
     // shared len
     error_ = file_->Read(offset, Varint64::kMaxLen, &result, &scratch);
     if (error_.fail()) {
@@ -194,9 +217,11 @@ uint64_t BlockIterator::Read(std::string_view prev_key, uint64_t offset,
         return 0;
     }
     offset += result.size();
+#endif
     
-    std::get<0>(*kv) = key;
-    std::get<1>(*kv) = result;
+//    std::get<0>(*kv) = key;
+//    std::get<1>(*kv) = result;
+    *kv = std::make_tuple(key, result);
     return offset;
 }
 

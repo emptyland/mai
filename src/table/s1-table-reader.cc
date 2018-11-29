@@ -30,6 +30,11 @@ using ::mai::base::Slice;
         return rs; \
     } (void)0
     
+    
+////////////////////////////////////////////////////////////////////////////////
+/// class S1TableReader::IteratorImpl
+////////////////////////////////////////////////////////////////////////////////
+    
 class S1TableReader::IteratorImpl final : public Iterator {
 public:
     IteratorImpl(const core::InternalKeyComparator *ikcmp, S1TableReader *owns)
@@ -190,33 +195,31 @@ private:
     Error error_;
 }; // class S1TableReader::IteratorImpl
     
+////////////////////////////////////////////////////////////////////////////////
+/// class S1TableReader::KeyFilterImpl
+////////////////////////////////////////////////////////////////////////////////
     
 class S1TableReader::KeyFilterImpl final : public core::KeyFilter {
 public:
-    KeyFilterImpl(const S1TableReader *owns)
-        : owns_(DCHECK_NOTNULL(owns)) {}
+    KeyFilterImpl(const S1TableReader *owns) : owns_(DCHECK_NOTNULL(owns)) {}
 
     virtual ~KeyFilterImpl() override {}
     
-    virtual bool MayExists(std::string_view key) const override {
-        return true;
-    }
-    
-//    virtual bool EnsureNotExists(std::string_view key) const override {
-//        return !MayExists(key);
-//    }
-    
+    virtual bool MayExists(std::string_view key) const override { return true; }
+
     virtual size_t ApproximateCount() const override {
         return owns_->table_props_->num_entries;
     }
     
-    virtual size_t memory_usage() const override {
-        return sizeof(*this);
-    }
+    virtual size_t memory_usage() const override { return sizeof(*this); }
     
 private:
     const S1TableReader *const owns_;
 }; // class S1TableReader::KeyFilterImpl
+    
+////////////////////////////////////////////////////////////////////////////////
+/// class S1TableReader
+////////////////////////////////////////////////////////////////////////////////
     
 S1TableReader::S1TableReader(RandomAccessFile *file, uint64_t file_size,
                              bool checksum_verify)
