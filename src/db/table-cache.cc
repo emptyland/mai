@@ -93,8 +93,9 @@ Error TableCache::EnsureTableCached(const ColumnFamilyImpl *cfd,
         }
     }
     mutex_.unlock();
-    rs = factory_->NewTableReader(cfd->ikcmp(),
-                                  cfd->options().use_unordered_table,
+    rs = factory_->NewTableReader(cfd->options().use_unordered_table ?
+                                  "s1t" : "sst",
+                                  cfd->ikcmp(),
                                   entry->file.get(), file_size, true,
                                   &entry->table);
     mutex_.lock();

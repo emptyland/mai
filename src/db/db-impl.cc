@@ -865,8 +865,9 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
         return rs;
     }
     std::unique_ptr<table::TableBuilder>
-    builder(factory_->NewTableBuilder(cfd->ikcmp(),
-                                      cfd->options().use_unordered_table,
+    builder(factory_->NewTableBuilder(cfd->options().use_unordered_table ?
+                                      "s1t" : "sst",
+                                      cfd->ikcmp(),
                                       file.get(),
                                       cfd->options().block_size,
                                       cfd->options().block_restart_interval,
@@ -920,8 +921,9 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
     }
     ColumnFamilyImpl *cfd = current->owns();
     std::unique_ptr<table::TableBuilder>
-        builder(factory_->NewTableBuilder(cfd->ikcmp(),
-                                          cfd->options().use_unordered_table,
+        builder(factory_->NewTableBuilder(cfd->options().use_unordered_table ?
+                                          "s1t" : "sst",
+                                          cfd->ikcmp(),
                                           file.get(), cfd->options().block_size,
                                           cfd->options().block_restart_interval,
                                           cfd->options().number_of_hash_slots));

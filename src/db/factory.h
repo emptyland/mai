@@ -32,18 +32,20 @@ public:
                    Allocator *allocator, bool unordered, size_t initial_slots) = 0;
     
     virtual Error
-    NewTableReader(const core::InternalKeyComparator *ikcmp, bool unordered,
+    NewTableReader(const std::string &name,
+                   const core::InternalKeyComparator *ikcmp,
                    RandomAccessFile *file, uint64_t file_size,
                    bool checksum_verify,
                    std::unique_ptr<table::TableReader> *result) = 0;
     
     virtual table::TableBuilder *
-    NewTableBuilder(const core::InternalKeyComparator *ikcmp, bool unordered,
+    NewTableBuilder(const std::string &name,
+                    const core::InternalKeyComparator *ikcmp,
                     WritableFile *file, uint64_t block_size, int n_restart,
                     size_t max_hash_slots) = 0;
     
     virtual Compaction *
-    NewCompaction(const std::string abs_db_path,
+    NewCompaction(const std::string &abs_db_path,
                   const core::InternalKeyComparator *ikcmp,
                   TableCache *table_cache, ColumnFamilyImpl *cfd) = 0;
     

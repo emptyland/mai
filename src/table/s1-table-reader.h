@@ -39,6 +39,7 @@ public:
     
 private:
     class IteratorImpl;
+    class KeyFilterImpl;
     
     Error ReadBlock(const BlockHandle &bh, std::string_view *result,
                     std::string *scatch) const;

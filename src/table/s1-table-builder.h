@@ -15,13 +15,13 @@ class InternalKeyComparator;
 namespace table {
     
 class PlainBlockBuilder;
+class FilterBlockBuilder;
     
 class S1TableBuilder final : public TableBuilder {
 public:
     S1TableBuilder(const core::InternalKeyComparator *ikcmp, WritableFile *file,
                   size_t max_hash_slots, uint32_t block_size);
-    virtual ~S1TableBuilder();
-    
+    virtual ~S1TableBuilder() override;
     virtual void Add(std::string_view key, std::string_view value) override;
     virtual Error error() override;
     virtual Error Finish() override;
@@ -38,12 +38,12 @@ private:
     static const uint64_t kInvalidOffset;
     
     BlockHandle WriteIndex();
+    BlockHandle WriteFilter();
     BlockHandle WriteProperties();
     BlockHandle FlushBlock();
     BlockHandle WriteBlock(std::string_view block);
     uint64_t AlignmentToBlock();
-    
-    
+
     const core::InternalKeyComparator *const ikcmp_;
     base::FileWriter writer_;
     const size_t max_buckets_;
@@ -56,6 +56,7 @@ private:
     TableProperties props_;
     
     std::unique_ptr<PlainBlockBuilder> block_builder_;
+    std::unique_ptr<FilterBlockBuilder> filter_builder_;
     std::set<uint64_t> unbound_index_;
 }; // class S1TableReader
     

@@ -1,5 +1,6 @@
 #include "table/s1-table-builder.h"
 #include "table/plain-block-builder.h"
+#include "table/filter-block-builder.h"
 #include "core/key-boundle.h"
 #include "core/internal-key-comparator.h"
 #include "base/slice.h"
@@ -52,6 +53,11 @@ void S1TableBuilder::Add(std::string_view key, std::string_view value) {
         block_builder_.reset(new PlainBlockBuilder(ikcmp_->ucmp(),
                                                    props_.last_level));
     }
+    if (!filter_builder_) {
+        filter_builder_.reset(new FilterBlockBuilder(block_size_ * 2 - 4, // 4 == ignore crc32
+                                                     base::Hash::kBloomFilterHashs,
+                                                     base::Hash::kNumberBloomFilterHashs));
+    }
     
     uint32_t offset;
     if (props_.last_level) {
@@ -59,6 +65,8 @@ void S1TableBuilder::Add(std::string_view key, std::string_view value) {
     } else {
         offset = block_builder_->Add(key, value);
     }
+    filter_builder_->AddKey(ikey.user_key);
+    
     size_t slot = ikcmp_->Hash(key) % max_buckets_;
     buckets_[slot].push_back({kInvalidOffset, offset});
     unbound_index_.insert(slot);
@@ -94,9 +102,21 @@ void S1TableBuilder::Add(std::string_view key, std::string_view value) {
     BlockHandle index = WriteIndex();
     props_.index_position = index.offset();
     props_.index_count    = index.size();
+
+    DCHECK_NE(0, max_buckets_);
+    float conflict_factor = static_cast<float>(props_.num_entries) /
+                            static_cast<float>(max_buckets_);
+    if (conflict_factor > 3) { // Too much conflict buckets, need bloom filter.
+        BlockHandle filter = WriteFilter();
+        props_.filter_position = filter.offset();
+        props_.filter_size     = filter.size();
+    }
     
     BlockHandle props = WriteProperties();
-    
+    if (error_.fail()) {
+        return error_;
+    }
+
     error_ = writer_.WriteFixed64(props.offset());
     if (error_.fail()) {
         return error_;
@@ -109,9 +129,8 @@ void S1TableBuilder::Add(std::string_view key, std::string_view value) {
 }
     
 /*virtual*/ void S1TableBuilder::Abandon() {
-    if (block_builder_) {
-        block_builder_.reset();
-    }
+    block_builder_.reset();
+    filter_builder_.reset();
     
     props_ = TableProperties{};
     props_.block_size = static_cast<uint32_t>(block_size_);
@@ -154,6 +173,16 @@ BlockHandle S1TableBuilder::WriteIndex() {
             block.append(Slice::GetV32(index.offset, &scope));
         }
     }
+    return WriteBlock(block);
+}
+    
+BlockHandle S1TableBuilder::WriteFilter() {
+    AlignmentToBlock();
+    if (!filter_builder_) {
+        return BlockHandle{};
+    }
+    
+    std::string_view block = filter_builder_->Finish();
     return WriteBlock(block);
 }
     

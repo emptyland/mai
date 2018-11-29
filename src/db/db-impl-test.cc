@@ -28,10 +28,6 @@ public:
         }
     }
     
-//    void TearDown() override {
-//
-//    }
-    
     Env *env_ = Env::Default();
     std::vector<ColumnFamilyDescriptor> descs_;
     Options options_;

@@ -1,7 +1,9 @@
 #include "table/s1-table-reader.h"
+#include "table/key-bloom-filter.h"
 #include "table/table.h"
 #include "core/key-boundle.h"
 #include "core/internal-key-comparator.h"
+#include "core/key-filter.h"
 #include "base/io-utils.h"
 #include "base/slice.h"
 #include "base/hash.h"
@@ -188,6 +190,34 @@ private:
     Error error_;
 }; // class S1TableReader::IteratorImpl
     
+    
+class S1TableReader::KeyFilterImpl final : public core::KeyFilter {
+public:
+    KeyFilterImpl(const S1TableReader *owns)
+        : owns_(DCHECK_NOTNULL(owns)) {}
+
+    virtual ~KeyFilterImpl() override {}
+    
+    virtual bool MayExists(std::string_view key) const override {
+        return true;
+    }
+    
+//    virtual bool EnsureNotExists(std::string_view key) const override {
+//        return !MayExists(key);
+//    }
+    
+    virtual size_t ApproximateCount() const override {
+        return owns_->table_props_->num_entries;
+    }
+    
+    virtual size_t memory_usage() const override {
+        return sizeof(*this);
+    }
+    
+private:
+    const S1TableReader *const owns_;
+}; // class S1TableReader::KeyFilterImpl
+    
 S1TableReader::S1TableReader(RandomAccessFile *file, uint64_t file_size,
                              bool checksum_verify)
     : file_(DCHECK_NOTNULL(file))
@@ -236,6 +266,20 @@ Error S1TableReader::Prepare() {
         }
         index_.push_back(n);
     }
+    
+    // Filter:
+    if (table_props_->filter_size == 0) {
+        filter_.reset(new KeyFilterImpl(this));
+        return Error::OK();
+    }
+    TRY_RUN1(ReadBlock({table_props_->filter_position, table_props_->filter_size},
+                       &result, &scatch));
+    core::KeyFilter *filter
+        = new KeyBloomFilter(reinterpret_cast<const uint32_t *>(result.data()),
+                             result.size() / 4,
+                             base::Hash::kBloomFilterHashs,
+                             base::Hash::kNumberBloomFilterHashs);
+    filter_.reset(filter);
     return Error::OK();
 }
 
@@ -312,6 +356,12 @@ S1TableReader::NewIterator(const ReadOptions &read_opts,
     size_t usage = sizeof(*this);
     for (const auto &n : index_) {
         usage += (sizeof(index_[0]) + n.size() * sizeof(Index));
+    }
+    if (filter_) {
+        usage += filter_->memory_usage();
+    }
+    if (table_props_) {
+        usage += sizeof(*table_props_);
     }
     return usage;
 }

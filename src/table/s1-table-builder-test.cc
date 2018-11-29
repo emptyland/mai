@@ -12,6 +12,11 @@ public:
                                               WritableFile *file) {
         return new S1TableBuilder(ikcmp, file, 17, 512);
     };
+    
+    TableBuilderFactory v2_factory_ = [](const core::InternalKeyComparator *ikcmp,
+                                         WritableFile *file) {
+        return new S1TableBuilder(ikcmp, file, 1024, 4096);
+    };
 
     static const char *tmp_dirs[];
 }; // class S1TableBuilder
