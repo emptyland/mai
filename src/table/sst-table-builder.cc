@@ -19,6 +19,7 @@ SstTableBuilder::SstTableBuilder(const core::InternalKeyComparator *ikcmp,
     , n_restart_(n_restart) {
     DCHECK_GT(n_restart_, 1);
     DCHECK_GE(block_size_, 512);
+    DCHECK_EQ(0, block_size_ % 4);
         
     props_.block_size = static_cast<uint32_t>(block_size_);
     props_.unordered  = false;

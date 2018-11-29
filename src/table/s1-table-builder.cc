@@ -23,9 +23,10 @@ S1TableBuilder::S1TableBuilder(const core::InternalKeyComparator *ikcmp,
     , block_size_(block_size)
     , buckets_(new std::vector<Index>[max_hash_slots]) {
     DCHECK_GE(block_size_, 512);
+    DCHECK_EQ(0, block_size_ % 4);
 
     props_.block_size = static_cast<uint32_t>(block_size_);
-    props_.unordered = true;
+    props_.unordered  = true;
 }
 
 /*virtual*/ S1TableBuilder::~S1TableBuilder() {

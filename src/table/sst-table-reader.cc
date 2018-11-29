@@ -24,37 +24,41 @@ using core::Tag;
 class SstTableReader::IteratorImpl : public Iterator {
 public:
     IteratorImpl(const core::InternalKeyComparator *ikcmp, bool verify_checksums,
-                 SstTableReader *reader)
-    : ikcmp_(DCHECK_NOTNULL(ikcmp))
-    , verify_checksums_(verify_checksums)
-    , reader_(DCHECK_NOTNULL(reader)) {}
+                 Iterator *index_iter, RandomAccessFile *file,
+                 bool last_level)
+        : ikcmp_(DCHECK_NOTNULL(ikcmp))
+        , verify_checksums_(verify_checksums)
+        , index_iter_(DCHECK_NOTNULL(index_iter))
+        , file_(DCHECK_NOTNULL(file))
+        , last_level_(last_level) {
+    }
     
     virtual ~IteratorImpl() {}
     
     virtual bool Valid() const override {
-        return error_.ok() && reader_->index_iter_ &&
-        reader_->index_iter_->Valid() && block_iter_ && block_iter_->Valid();
+        return error_.ok() && index_iter_ &&
+            index_iter_->Valid() && block_iter_ && block_iter_->Valid();
     }
     
     virtual void SeekToFirst() override {
-        reader_->index_iter_->SeekToFirst();
+        index_iter_->SeekToFirst();
         direction_ = kForward;
         
-        if (reader_->index_iter_->Valid()) {
+        if (index_iter_->Valid()) {
             BlockHandle bh;
-            bh.Decode(reader_->index_iter_->value());
+            bh.Decode(index_iter_->value());
             Seek(bh, true);
         }
         SaveKeyIfNeed();
     }
     
     virtual void SeekToLast() override {
-        reader_->index_iter_->SeekToLast();
+        index_iter_->SeekToLast();
         direction_ = kReserve;
         
-        if (reader_->index_iter_->Valid()) {
+        if (index_iter_->Valid()) {
             BlockHandle bh;
-            bh.Decode(reader_->index_iter_->value());
+            bh.Decode(index_iter_->value());
             Seek(bh, false);
         }
         SaveKeyIfNeed();
@@ -62,13 +66,13 @@ public:
     
     virtual void Seek(std::string_view target) override {
         direction_ = kForward;
-        reader_->index_iter_->Seek(target);
-        if (!reader_->index_iter_->Valid()) {
+        index_iter_->Seek(target);
+        if (!index_iter_->Valid()) {
             return;
         }
         
         BlockHandle bh;
-        bh.Decode(reader_->index_iter_->value());
+        bh.Decode(index_iter_->value());
         Seek(bh, true);
         block_iter_->Seek(target);
         if (!block_iter_->Valid()) {
@@ -84,10 +88,10 @@ public:
         block_iter_->Next();
 
         if (!block_iter_->Valid()) {
-            reader_->index_iter_->Next();
-            if (reader_->index_iter_->Valid()) {
+            index_iter_->Next();
+            if (index_iter_->Valid()) {
                 BlockHandle bh;
-                bh.Decode(reader_->index_iter_->value());
+                bh.Decode(index_iter_->value());
                 Seek(bh, true);
             }
         }
@@ -101,10 +105,10 @@ public:
         block_iter_->Prev();
         
         if (!block_iter_->Valid()) {
-            reader_->index_iter_->Prev();
-            if (reader_->index_iter_->Valid()) {
+            index_iter_->Prev();
+            if (index_iter_->Valid()) {
                 BlockHandle bh;
-                bh.Decode(reader_->index_iter_->value());
+                bh.Decode(index_iter_->value());
                 Seek(bh, true);
             }
         }
@@ -113,8 +117,7 @@ public:
     
     virtual std::string_view key() const override {
         DCHECK(Valid());
-        return reader_->table_props_->last_level ?
-            saved_key_ : block_iter_->key();
+        return last_level_ ? saved_key_ : block_iter_->key();
     }
     
     virtual std::string_view value() const override {
@@ -129,7 +132,7 @@ private:
     void Seek(BlockHandle handle, bool to_first) {
         
         std::unique_ptr<Iterator>
-        block_iter(new BlockIterator(ikcmp_, reader_->file_, handle.offset() + 4,
+        block_iter(new BlockIterator(ikcmp_, file_, handle.offset() + 4,
                                      handle.size() - 4));
         block_iter_.swap(block_iter);
         
@@ -141,7 +144,7 @@ private:
     }
     
     void SaveKeyIfNeed() {
-        if (Valid() && reader_->table_props_->last_level) {
+        if (Valid() && last_level_) {
             saved_key_ = KeyBoundle::MakeKey(block_iter_->key(), 0,
                                              Tag::kFlagValue);
         }
@@ -149,7 +152,10 @@ private:
     
     const core::InternalKeyComparator *const ikcmp_;
     const bool verify_checksums_;
-    SstTableReader *reader_;
+    const std::unique_ptr<Iterator> index_iter_;
+    RandomAccessFile *const file_;
+    const bool last_level_;
+    
     std::unique_ptr<Iterator> block_iter_;
     std::string saved_key_; // For last level sst table.
     Error error_;
@@ -202,7 +208,10 @@ Error SstTableReader::Prepare() {
     
     table_props_.reset(new TableProperties);
     TRY_RUN1(Table::ReadProperties(result, table_props_.get()));
-    
+    if (table_props_->unordered) {
+        return MAI_CORRUPTION("SST table can not be unordered.");
+    }
+
     // Indexs:
     if (checksum_verify_) {
         TRY_RUN1(ReadBlock({table_props_->index_position,
@@ -227,9 +236,9 @@ SstTableReader::NewIterator(const ReadOptions &read_opts,
     if (!table_props_) {
         return Iterator::AsError(MAI_CORRUPTION("Table reader not prepared!"));
     }
-    EnsureIndexReady(ikcmp);
-    
-    return new IteratorImpl(ikcmp, read_opts.verify_checksums, this);
+    return new IteratorImpl(ikcmp, read_opts.verify_checksums,
+                            NewIndexIterator(ikcmp), file_,
+                            table_props_->last_level);
 }
 
 /*virtual*/ Error SstTableReader::Get(const ReadOptions &read_opts,
@@ -241,15 +250,15 @@ SstTableReader::NewIterator(const ReadOptions &read_opts,
     if (!table_props_) {
         return MAI_CORRUPTION("Table reader not prepared!");
     }
-    EnsureIndexReady(ikcmp);
+    std::unique_ptr<Iterator> index_iter(NewIndexIterator(ikcmp));
     
-    index_iter_->Seek(target);
-    if (!index_iter_->Valid()) {
+    index_iter->Seek(target);
+    if (!index_iter->Valid()) {
         return MAI_NOT_FOUND("Index Seek()");
     }
     
     BlockHandle bh;
-    bh.Decode(index_iter_->value());
+    bh.Decode(index_iter->value());
 
     BlockIterator iter(ikcmp, file_, bh.offset() + 4, bh.size() - 4);
     iter.Seek(target);
@@ -285,26 +294,25 @@ SstTableReader::GetTableProperties() const { return table_props_; }
 
 /*virtual*/ std::shared_ptr<core::KeyFilter>
 SstTableReader::GetKeyFilter() const { return bloom_filter_; }
-
-void SstTableReader::EnsureIndexReady(const core::InternalKeyComparator *ikcmp) {
-    if (!index_iter_) {
-        index_iter_.reset(new BlockIterator(ikcmp, file_,
-                                            table_props_->index_position + 4,
-                                            table_props_->index_count - 4));
-    } else {
-        index_iter_->set_ikcmp(ikcmp);
+    
+Iterator *
+SstTableReader::NewIndexIterator(const core::InternalKeyComparator *ikcmp) {
+    if (!table_props_) {
+        return Iterator::AsError(MAI_CORRUPTION("Table reader not prepared!"));
     }
+    return new BlockIterator(ikcmp, file_, table_props_->index_position + 4,
+                             table_props_->index_count - 4);
 }
     
 void SstTableReader::TEST_PrintAll(const core::InternalKeyComparator *ikcmp) {
-    EnsureIndexReady(ikcmp);
+    std::unique_ptr<Iterator> index_iter(NewIndexIterator(ikcmp));
     
     int index = 0;
-    for (index_iter_->SeekToFirst(); index_iter_->Valid(); index_iter_->Next()) {
+    for (index_iter->SeekToFirst(); index_iter->Valid(); index_iter->Next()) {
         printf("----------index:[%d]---------\n", index++);
         
         BlockHandle bh;
-        bh.Decode(index_iter_->value());
+        bh.Decode(index_iter->value());
         
         BlockIterator iter(ikcmp, file_, bh.offset() + 4, bh.size() - 4);
         for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {

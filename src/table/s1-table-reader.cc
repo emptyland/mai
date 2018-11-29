@@ -253,6 +253,9 @@ Error S1TableReader::Prepare() {
     
     table_props_.reset(new TableProperties);
     TRY_RUN1(Table::ReadProperties(result, table_props_.get()));
+    if (!table_props_->unordered) {
+        return MAI_CORRUPTION("S1 table can not be ordered.");
+    }
     
     TRY_RUN1(ReadBlock({table_props_->index_position, table_props_->index_count},
                        &result, &scatch));

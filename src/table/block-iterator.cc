@@ -174,53 +174,7 @@ uint64_t BlockIterator::Read(std::string_view prev_key, uint64_t offset,
     offset += len;
     TRY_RUN0(result = reader_.Read(offset, value_len, &scratch));
     offset += result.size();
-    
-#if 0
-    // shared len
-    error_ = file_->Read(offset, Varint64::kMaxLen, &result, &scratch);
-    if (error_.fail()) {
-        return 0;
-    }
-    size_t varint_len;
-    uint64_t shared_len = Varint64::Decode(result.data(), &varint_len);
-    offset += varint_len;
-    
-    std::string key(prev_key.substr(0, shared_len));
-    
-    // private len
-    error_ = file_->Read(offset, Varint64::kMaxLen, &result, &scratch);
-    if (error_.fail()) {
-        return 0;
-    }
-    uint64_t private_len = Varint64::Decode(result.data(), &varint_len);
-    offset += varint_len;
-    
-    // key body
-    error_ = file_->Read(offset, private_len, &result, &scratch);
-    if (error_.fail()) {
-        return 0;
-    }
-    offset += result.size();
-    key.append(result);
-    
-    // value len
-    error_ = file_->Read(offset, Varint64::kMaxLen, &result, &scratch);
-    if (error_.fail()) {
-        return 0;
-    }
-    uint64_t value_len = Varint64::Decode(result.data(), &varint_len);
-    offset += varint_len;
-    
-    // value body
-    error_ = file_->Read(offset, value_len, &result, &scratch);
-    if (error_.fail()) {
-        return 0;
-    }
-    offset += result.size();
-#endif
-    
-//    std::get<0>(*kv) = key;
-//    std::get<1>(*kv) = result;
+
     *kv = std::make_tuple(key, result);
     return offset;
 }
