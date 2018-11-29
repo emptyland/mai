@@ -5,7 +5,7 @@ namespace mai {
 
 namespace db {
 
-TEST(FileTest, Sanity) {
+TEST(FilesTest, Sanity) {
     EXPECT_EQ("demo/MANIFEST-1", Files::ManifestFileName("demo", 1));
     EXPECT_EQ("demo/1.log", Files::LogFileName("demo", 1));
     
@@ -13,7 +13,7 @@ TEST(FileTest, Sanity) {
                                                          Files::kSST_Table, 1));
 }
     
-TEST(FileTest, ParseName) {
+TEST(FilesTest, ParseName) {
     Files::Kind kind;
     uint64_t number;
     std::tie(kind, number) = Files::ParseName("1.sst");

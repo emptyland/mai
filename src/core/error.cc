@@ -1,3 +1,4 @@
+#include "base/slice.h"
 #include "base/base.h"
 #include "error.h"
 
@@ -6,9 +7,19 @@ namespace mai {
 std::string Error::ToString() const {
     std::string s;
     if (filename_) {
-        char buf[260];
-        snprintf(buf, arraysize(buf), "[%s:%d] ", filename_, fileline_);
-        s.append(buf);
+        int n = 0;
+        const char *x = nullptr;
+        size_t len = ::strlen(filename_);
+        for (x = filename_ + len; x > filename_; --x) {
+            if (*x == '/' || *x == '\\') {
+                ++n;
+            }
+            if (n == 2) {
+                x++;
+                break;
+            }
+        }
+        s = base::Slice::Sprintf("[%s:%d] ", x, fileline_);
     }
     
     switch (code()) {
