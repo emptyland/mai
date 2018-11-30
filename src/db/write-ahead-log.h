@@ -68,7 +68,7 @@ public:
     
     Error error() const { return error_; }
 private:
-    WAL::RecordType ReadPhysicalRecord(std::string_view *result, int *fail);
+    WAL::RecordType ReadPhysicalRecord(std::string* result, int *fail);
     
     base::FileReader reader_;
     bool verify_checksum_;

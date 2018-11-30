@@ -97,6 +97,7 @@ bool LogReader::Read(std::string_view *result, std::string* scratch) {
         return false;
     }
     
+    std::string buf;
     auto fail = 0, segment = 0;
     WAL::RecordType type = WAL::kZeroType;
     do {
@@ -114,10 +115,11 @@ bool LogReader::Read(std::string_view *result, std::string* scratch) {
             if (segment == 1) {
                 scratch->clear();
             }
-            scratch->append(result->data(), result->size());
+            //scratch->append(result->data(), result->size());
+            scratch->append(buf);
         }
         
-        type = ReadPhysicalRecord(result, &fail);
+        type = ReadPhysicalRecord(&buf, &fail);
         segment++;
     } while (type == WAL::kMiddleType || type == WAL::kFirstType);
     
@@ -134,6 +136,9 @@ bool LogReader::Read(std::string_view *result, std::string* scratch) {
     if (segment > 1) {
         scratch->append(result->data(), result->size());
         *result = *scratch;
+    } else {
+        *scratch = buf;
+        *result  = *scratch;
     }
     return error_.ok();
 }
@@ -145,7 +150,7 @@ bool LogReader::Read(std::string_view *result, std::string* scratch) {
         return static_cast<WAL::RecordType>(0); \
     }(void)0
 
-WAL::RecordType LogReader::ReadPhysicalRecord(std::string_view *result,
+WAL::RecordType LogReader::ReadPhysicalRecord(std::string *result,
                                               int *fail) {
     uint32_t record_checksum;
     uint16_t len;

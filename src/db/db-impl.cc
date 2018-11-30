@@ -581,7 +581,7 @@ Error DBImpl::Redo(uint64_t log_file_number,
                    core::SequenceNumber *update_sequence_number) {
     std::unique_ptr<SequentialFile> file;
     std::string log_file_name = Files::LogFileName(abs_db_path_, log_file_number);
-    Error rs = env_->NewSequentialFile(log_file_name, &file/*, options_.allow_mmap_reads*/);
+    Error rs = env_->NewSequentialFile(log_file_name, &file, options_.allow_mmap_reads);
     if (!rs) {
         return rs;
     }
@@ -706,10 +706,10 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd, bool force) {
             //cfd->set_background_error(Error::OK());
             break;
         } else if (cfd->mutable_table()->ApproximateMemoryUsage() <
-                   cfd->options().write_buffer_size) {
+                   cfd->options().write_buffer_size &&
+                   cfd->mutable_table()->ApproximateConflictFactor() <
+                   cfd->options().conflict_factor_limit) {
             // Memory table usage samll than write buffer. Ignore it.
-            break;
-        } else if (cfd->mutable_table()->ApproximateConflictFactor() < 3.0) {
             // Memory table conflict-factor too small. Ignore it.
             break;
         } else if (cfd->immutable_pipeline()->InProgress()) {
