@@ -96,11 +96,12 @@ private:
     uint64_t sequence_number_count_ = 0;
 }; // class WritingHnalder
     
-    
+
 struct GetContext {
     std::vector<base::Handle<core::MemoryTable>> in_mem;
-    core::SequenceNumber last_sequence_number;
-    ColumnFamilyImpl *cfd;
+    core::SequenceNumber                         last_sequence_number;
+    base::Handle<ColumnFamilyImpl>               cfd;
+    Version                                     *current;
 }; // struct ReadContext
 
     
@@ -111,10 +112,11 @@ DBImpl::DBImpl(const std::string &db_name, const Options &opts)
     , env_(DCHECK_NOTNULL(opts.env))
     , abs_db_path_(env_->GetAbsolutePath(db_name))
     , factory_(Factory::NewDefault())
-    , background_active_(0)
+    , bkg_active_(0)
     , shutting_down_(false)
     , table_cache_(new TableCache(abs_db_path_, opts, factory_.get()))
-    , versions_(new VersionSet(abs_db_path_, opts, table_cache_.get())) {
+    , versions_(new VersionSet(abs_db_path_, opts, table_cache_.get()))
+    , flush_request_(0) {
 }
 
 DBImpl::~DBImpl() {
@@ -126,7 +128,7 @@ DBImpl::~DBImpl() {
         shutting_down_.store(true);
         
         std::unique_lock<std::mutex> lock(mutex_);
-        while (background_active_.load() > 0) {
+        while (bkg_active_.load() > 0) {
             for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
                 if (cfd->background_progress()) {
                     cfd->mutable_background_cv()->wait(lock);
@@ -135,6 +137,9 @@ DBImpl::~DBImpl() {
         }
     }
     
+    bkg_cv_.notify_all();
+    flush_worker_.join();
+
     // TODO: clean others
 }
     
@@ -165,6 +170,8 @@ Error DBImpl::Open(const std::vector<ColumnFamilyDescriptor> &desc,
     ColumnFamily *cf = new ColumnFamilyHandle(this,
                                               column_familes->GetDefault());
     default_cf_.reset(cf);
+    
+    flush_worker_ = std::thread([&](){ this->FlushWork(); });
     return rs;
 }
     
@@ -393,26 +400,25 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
 }
     
 /*virtual*/ Error DBImpl::Write(const WriteOptions& opts, WriteBatch* updates) {
-    core::SequenceNumber last_version = 0;
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (bkg_error_.fail()) {
+        return bkg_error_;
+    }
+    
+    core::SequenceNumber last_version = versions_->last_sequence_number();
     Error rs;
-    {
-        std::unique_lock<std::mutex> lock(mutex_);
-        last_version = versions_->last_sequence_number();
-        
-        for (auto cfd : *versions_->column_families()) {
-            rs = MakeRoomForWrite(cfd, false);
-            if (!rs) {
-                return rs;
-            }
+    for (auto cfd : *versions_->column_families()) {
+        rs = MakeRoomForWrite(cfd, false);
+        if (!rs) {
+            return rs;
         }
     }
     rs = logger_->Append(updates->redo());
     if (!rs) {
         return rs;
     }
-    
     if (opts.sync) {
-        // TODO:
+        flush_request_.fetch_add(1);
     }
     
     WritingHandler handler(0, false, last_version + 1,
@@ -436,10 +442,7 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
             return rs;
         }
     }
-    
-    std::unique_lock<std::mutex> lock(mutex_);
-    return ctx.cfd->current()->Get(opts, key, ctx.last_sequence_number, nullptr,
-                                   value);
+    return ctx.current->Get(opts, key, ctx.last_sequence_number, nullptr, value);
 }
     
 /*virtual*/ Iterator *
@@ -451,7 +454,7 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
     }
     
     std::unique_lock<std::mutex> lock(mutex_);
-    std::unique_ptr<Iterator> internal(NewInternalIterator(opts, ctx.cfd));
+    std::unique_ptr<Iterator> internal(NewInternalIterator(opts, ctx.cfd.get()));
     if (internal->error().fail()) {
         return internal.release();
     }
@@ -493,7 +496,7 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
         }
         value->erase(value->size() - 1, 1);
     } else if (property == "db.bkg.jobs") {
-        *value = Slice::Sprintf("%d", background_active_.load());
+        *value = Slice::Sprintf("%d", bkg_active_.load());
     } else if (property == "db.versions.last-sequence-number") {
         std::unique_lock<std::mutex> lock(mutex_);
         *value = Slice::Sprintf("%llu", versions_->last_sequence_number());
@@ -578,7 +581,7 @@ Error DBImpl::Redo(uint64_t log_file_number,
                    core::SequenceNumber *update_sequence_number) {
     std::unique_ptr<SequentialFile> file;
     std::string log_file_name = Files::LogFileName(abs_db_path_, log_file_number);
-    Error rs = env_->NewSequentialFile(log_file_name, &file);
+    Error rs = env_->NewSequentialFile(log_file_name, &file/*, options_.allow_mmap_reads*/);
     if (!rs) {
         return rs;
     }
@@ -628,6 +631,7 @@ Error DBImpl::PrepareForGet(const ReadOptions &opts, ColumnFamily *cf,
     ctx->in_mem.clear();
     ctx->in_mem.push_back(base::MakeRef(ctx->cfd->mutable_table()));
     ctx->cfd->immutable_pipeline()->PeekAll(&ctx->in_mem);
+    ctx->current = ctx->cfd->current();
     mutex_.unlock(); // Unlocking versions--------------------------------------
     
     return Error::OK();
@@ -647,6 +651,9 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
     }
     
     std::unique_lock<std::mutex> lock(mutex_);
+    if (bkg_error_.fail()) {
+        return bkg_error_;
+    }
     core::SequenceNumber last_sequence_number = versions_->last_sequence_number();
     Error rs = MakeRoomForWrite(cfd, false);
     if (!rs) {
@@ -660,7 +667,7 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
         return rs;
     }
     if (opts.sync) {
-        // TODO: background sync
+        flush_request_.fetch_add(1);
     }
     
     // TODO: thiny locking
@@ -700,7 +707,10 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd, bool force) {
             break;
         } else if (cfd->mutable_table()->ApproximateMemoryUsage() <
                    cfd->options().write_buffer_size) {
-            // Memory table usage samll than write buffer, Ignore it.
+            // Memory table usage samll than write buffer. Ignore it.
+            break;
+        } else if (cfd->mutable_table()->ApproximateConflictFactor() < 3.0) {
+            // Memory table conflict-factor too small. Ignore it.
             break;
         } else if (cfd->immutable_pipeline()->InProgress()) {
             // Immutable table pipeline in progress.
@@ -725,9 +735,42 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd, bool force) {
     return rs;
 }
 
+void DBImpl::FlushWork() {
+    DLOG(INFO) << "Flush thread start...";
+    
+    std::unique_lock<std::mutex> lock(bkg_mutex_);
+    while (!shutting_down_.load()) {
+        bkg_cv_.wait_for(lock, std::chrono::milliseconds(100));
+        
+        int n_reqs = flush_request_.load();
+        if (n_reqs > 0) {
+            mutex_.lock();
+            bkg_error_ = log_file_->Flush();
+            if (bkg_error_.ok()) {
+                bkg_error_ = log_file_->Sync();
+            }
+            if (bkg_error_.fail()) {
+                mutex_.unlock();
+                continue;
+            }
+            mutex_.unlock();
+            DLOG(INFO) << "Flush ok.";
+            
+            int e;
+            do {
+                e = n_reqs;
+            } while (flush_request_.compare_exchange_strong(e, 0));
+        }
+        
+        // Count log file size
+    }
+    
+    DLOG(INFO) << "Flush thread stopped...";
+}
+
 // REQUIRES mutex_.lock()
 void DBImpl::MaybeScheduleCompaction(ColumnFamilyImpl *cfd) {
-    if (background_active_.load() > 0) {
+    if (bkg_active_.load() > 0) {
         return; // Compaction is running.
     }
     
@@ -740,7 +783,7 @@ void DBImpl::MaybeScheduleCompaction(ColumnFamilyImpl *cfd) {
         return; // Compaction is no need
     }
     
-    background_active_.fetch_add(1);
+    bkg_active_.fetch_add(1);
     cfd->set_background_progress(true);
     std::thread([this](auto cfd) {
         this->BackgroundWork(cfd);
@@ -750,12 +793,12 @@ void DBImpl::MaybeScheduleCompaction(ColumnFamilyImpl *cfd) {
 void DBImpl::BackgroundWork(ColumnFamilyImpl *cfd) {
     DLOG(INFO) << "Background work on. " << cfd->name();
     
-    DCHECK_GT(background_active_.load(), 0);
+    DCHECK_GT(bkg_active_.load(), 0);
     if (!shutting_down_.load()) {
         std::unique_lock<std::mutex> lock(mutex_);
         BackgroundCompaction(cfd);
     }
-    background_active_.fetch_sub(1);
+    bkg_active_.fetch_sub(1);
     cfd->set_background_progress(false);
     
     MaybeScheduleCompaction(cfd);

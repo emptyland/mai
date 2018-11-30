@@ -6,6 +6,7 @@
 #include "mai/options.h"
 #include "mai/write-batch.h"
 #include "db/snapshot-impl.h"
+#include <thread>
 #include <mutex>
 
 namespace mai {
@@ -83,6 +84,7 @@ private:
     void MaybeScheduleCompaction(ColumnFamilyImpl *cfd);
     void BackgroundWork(ColumnFamilyImpl *cfd);
     void BackgroundCompaction(ColumnFamilyImpl *cfd);
+    void FlushWork();
     Error CompactMemoryTable(ColumnFamilyImpl *cfd);
     Error CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx);
     Error WriteLevel0Table(Version *current, VersionPatch *patch,
@@ -97,7 +99,7 @@ private:
     Env *const env_;
     const std::string abs_db_path_;
     std::unique_ptr<Factory> factory_;
-    std::atomic<int> background_active_;
+    std::atomic<int> bkg_active_;
     std::atomic<bool> shutting_down_;
     std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<VersionSet> versions_;
@@ -107,6 +109,11 @@ private:
     std::unique_ptr<WritableFile> log_file_;
     std::unique_ptr<LogWriter> logger_;
     uint64_t log_file_number_ = 0;
+    std::atomic<int> flush_request_;
+    std::thread flush_worker_;
+    Error bkg_error_;
+    std::condition_variable bkg_cv_;
+    std::mutex bkg_mutex_; // Only for bkg_cv_
     std::mutex mutex_; // DB lock
 }; // class DBImpl
 

@@ -14,7 +14,11 @@ struct ColumnFamilyOptions {
     bool use_unordered_table = false;
     
     // Only use for hash table
-    size_t number_of_hash_slots = 1024 * 2;
+    size_t number_of_hash_slots = 1024 * 2 + 1;
+    
+    // Only use for hash table: Dump l0 table if
+    // conflict-factor > conflict_factor_limit
+    float conflict_factor_limit = 3.0;
     
     // 40MB
     size_t write_buffer_size = 40 * 1024 * 1024;
@@ -22,6 +26,7 @@ struct ColumnFamilyOptions {
     // 4KB
     size_t block_size = 4 * 1024;
     
+    // Only use for sst table
     int block_restart_interval = 16;
     
     std::string dir;

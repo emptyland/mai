@@ -46,7 +46,7 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/08-db-drop-cfs",
     "tests/09-db-mutil-cf-recovery",
     "tests/10-db-cocurrent-putting",
-    "tests/11-db-unordered-keys",
+    "tests/11-db-unordered-cf",
     nullptr,
 };
     
@@ -411,7 +411,35 @@ TEST_F(DBImplTest, CocurrentPutting) {
 }
     
 TEST_F(DBImplTest, UnorderedColumnFamily) {
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[11], options_));
+    Error rs = impl->Open(descs_, nullptr);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
     
+    ColumnFamilyOptions opts;
+    opts.use_unordered_table = true;
+    ColumnFamily *cf0;
+    rs = impl->NewColumnFamily("cf1", opts, &cf0);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    for (int i = 0; i < opts.number_of_hash_slots; ++i) {
+        std::string key = base::Slice::Sprintf("k.%03d", i);
+        std::string val = base::Slice::Sprintf("v.%03d", i);
+        
+        rs = impl->Put(WriteOptions{}, cf0, key, val);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+    }
+    
+    for (int i = 0; i < opts.number_of_hash_slots; ++i) {
+        std::string key = base::Slice::Sprintf("k.%03d", i);
+        std::string val = base::Slice::Sprintf("v.%03d", i);
+        
+        std::string value;
+        rs = impl->Get(ReadOptions{}, cf0, key, &value);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        EXPECT_EQ(val, value) << i;
+    }
+
+    impl->ReleaseColumnFamily(cf0);
 }
     
     
