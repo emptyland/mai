@@ -77,8 +77,7 @@ Error LogWriter::EmitPhysicalRecord(const void *buf, size_t len,
     TRY_RUN(writer_.WriteFixed16(static_cast<uint16_t>(len)));
     TRY_RUN(writer_.WriteByte(static_cast<uint8_t>(type)));
     TRY_RUN(writer_.Write(buf, len));
-    TRY_RUN(writer_.Flush());
-    
+
     block_offset_ += (WAL::kHeaderSize + len);
     return Error::OK();
 }
@@ -115,11 +114,11 @@ bool LogReader::Read(std::string_view *result, std::string* scratch) {
             if (segment == 1) {
                 scratch->clear();
             }
-            //scratch->append(result->data(), result->size());
-            scratch->append(buf);
+            scratch->append(result->data(), result->size());
+            //scratch->append(buf);
         }
         
-        type = ReadPhysicalRecord(&buf, &fail);
+        type = ReadPhysicalRecord(result, &fail);
         segment++;
     } while (type == WAL::kMiddleType || type == WAL::kFirstType);
     
@@ -136,9 +135,6 @@ bool LogReader::Read(std::string_view *result, std::string* scratch) {
     if (segment > 1) {
         scratch->append(result->data(), result->size());
         *result = *scratch;
-    } else {
-        *scratch = buf;
-        *result  = *scratch;
     }
     return error_.ok();
 }
@@ -150,7 +146,7 @@ bool LogReader::Read(std::string_view *result, std::string* scratch) {
         return static_cast<WAL::RecordType>(0); \
     }(void)0
 
-WAL::RecordType LogReader::ReadPhysicalRecord(std::string *result,
+WAL::RecordType LogReader::ReadPhysicalRecord(std::string_view *result,
                                               int *fail) {
     uint32_t record_checksum;
     uint16_t len;
@@ -160,8 +156,7 @@ WAL::RecordType LogReader::ReadPhysicalRecord(std::string *result,
     TRY_RUN(len = reader_.ReadFixed16());
     TRY_RUN(type = reader_.ReadByte());
     
-    std::string scratch;
-    TRY_RUN(*result = reader_.Read(len, &scratch));
+    TRY_RUN(*result = reader_.Read(len));
     
     if (verify_checksum_) {
         uint32_t checksum = ::crc32(0, &type, 1);

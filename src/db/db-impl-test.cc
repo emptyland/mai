@@ -47,7 +47,53 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/09-db-mutil-cf-recovery",
     "tests/10-db-cocurrent-putting",
     "tests/11-db-unordered-cf",
+    "tests/12-db-unordered-cf-recovery",
     nullptr,
+};
+    
+class ColumnFamilyCollection {
+public:
+    ColumnFamilyCollection(DB *owns) : owns_(owns) {}
+    ~ColumnFamilyCollection() { ReleaseAll(); }
+    
+    void ReleaseAll() {
+        for (auto cf : handles_) {
+            owns_->ReleaseColumnFamily(cf);
+        }
+        handles_.clear();
+    }
+    
+    std::vector<ColumnFamily *> *ReceiveAll() {
+        ReleaseAll();
+        return &handles_;
+    }
+    
+    ColumnFamily **Receive() {
+        handles_.push_back(nullptr);
+        return &handles_.back();
+    }
+
+    ColumnFamily *newest() const { return handles_.back(); }
+    
+    ColumnFamily *GetOrNull(const std::string &name) {
+        for (auto cf : handles_) {
+            if (cf->name().compare(name) == 0) {
+                return cf;
+            }
+        }
+        return nullptr;
+    }
+    
+    void Reset(DB *owns) {
+        ReleaseAll();
+        owns_ = owns;
+    }
+    
+    
+
+private:
+    DB *owns_;
+    std::vector<ColumnFamily *> handles_;
 };
     
 TEST_F(DBImplTest, Sanity) {
@@ -412,15 +458,18 @@ TEST_F(DBImplTest, CocurrentPutting) {
     
 TEST_F(DBImplTest, UnorderedColumnFamily) {
     std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[11], options_));
+    ColumnFamilyCollection scope(impl.get());
+    
     Error rs = impl->Open(descs_, nullptr);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     ColumnFamilyOptions opts;
     opts.use_unordered_table = true;
-    ColumnFamily *cf0;
-    rs = impl->NewColumnFamily("cf1", opts, &cf0);
+
+    rs = impl->NewColumnFamily("cf1", opts, scope.Receive());
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
+    ColumnFamily *cf0 = scope.newest();
     for (int i = 0; i < opts.number_of_hash_slots; ++i) {
         std::string key = base::Slice::Sprintf("k.%03d", i);
         std::string val = base::Slice::Sprintf("v.%03d", i);
@@ -438,10 +487,54 @@ TEST_F(DBImplTest, UnorderedColumnFamily) {
         ASSERT_TRUE(rs.ok()) << rs.ToString();
         EXPECT_EQ(val, value) << i;
     }
-
-    impl->ReleaseColumnFamily(cf0);
 }
+
+TEST_F(DBImplTest, UnorderedColumnFamilyRecovery) {
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[12], options_));
+    ColumnFamilyCollection scope(impl.get());
     
+    Error rs = impl->Open(descs_, nullptr);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ColumnFamilyOptions opts;
+    opts.use_unordered_table = true;
+    
+    rs = impl->NewColumnFamily("unordered", opts, scope.Receive());
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ColumnFamily *cf0 = scope.newest();
+    
+    size_t total_size = 0;
+    uint64_t jiffies = env_->CurrentTimeMicros();
+    WriteOptions wr;
+    static const auto kN = 1024 * 1024;
+    for (int i = 0; i < kN; ++i) {
+        std::string key = base::Slice::Sprintf("k.%d", i);
+        std::string val = base::Slice::Sprintf("v.%d", i);
+
+        rs = impl->Put(wr, cf0, key, val);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        total_size += key.size() + val.size();
+    }
+    printf("total size: %lu cost: %f ms\n", total_size,
+           (env_->CurrentTimeMicros() - jiffies) / 1000.0f);
+    
+    scope.ReleaseAll();
+    impl.reset(new DBImpl(tmp_dirs[12], options_));
+    scope.Reset(impl.get());
+    
+    std::vector<ColumnFamilyDescriptor> descs;
+    ColumnFamilyDescriptor desc;
+    desc.name = kDefaultColumnFamilyName;
+    desc.options.use_unordered_table = false;
+    descs.push_back(desc);
+    desc.name = "unordered";
+    desc.options.use_unordered_table = true;
+    descs.push_back(desc);
+    
+    rs = impl->Open(descs, scope.ReceiveAll());
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+}
     
 } // namespace db
     

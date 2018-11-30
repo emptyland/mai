@@ -20,6 +20,8 @@ public:
     
     Error error() const { return error_; }
     
+    std::string_view Read(size_t n) { return Read(n, &scratch_); }
+    
     std::string_view Read(size_t n, std::string *scratch) {
         std::string_view result;
         error_ = file_->Read(n, &result, scratch);

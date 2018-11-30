@@ -562,12 +562,18 @@ Error DBImpl::SwitchMemoryTable(ColumnFamilyImpl *column_family) {
     // TODO:
     return Error::OK();
 }
-    
+
+// REQUIRES: mutex_.lock()
 Error DBImpl::RenewLogger() {
+    if (log_file_) {
+        log_file_->Flush();
+        log_file_->Sync();
+    }
+    
     uint64_t new_log_number = versions_->GenerateFileNumber();
     std::string log_file_name = Files::LogFileName(abs_db_path_,
                                                    new_log_number);
-    Error rs = env_->NewWritableFile(log_file_name, true, &log_file_);
+    Error rs = env_->NewWritableFile(log_file_name, false, &log_file_);
     if (!rs) {
         return rs;
     }
@@ -756,10 +762,11 @@ void DBImpl::FlushWork() {
             mutex_.unlock();
             DLOG(INFO) << "Flush ok.";
             
-            int e;
-            do {
-                e = n_reqs;
-            } while (flush_request_.compare_exchange_strong(e, 0));
+//            int e;
+//            do {
+//                e = n_reqs;
+//            } while (flush_request_.compare_exchange_strong(e, 0));
+            flush_request_.store(0);
         }
         
         // Count log file size

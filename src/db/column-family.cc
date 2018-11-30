@@ -247,7 +247,7 @@ std::string ColumnFamilyImpl::GetDir() const {
     
 std::string ColumnFamilyImpl::GetTableFileName(uint64_t file_number) const {
     return Files::TableFileName(GetDir(), options_.use_unordered_table ?
-                                Files::kXMT_Table : Files::kSST_Table,
+                                Files::kS1T_Table : Files::kSST_Table,
                                 file_number);
 }
     

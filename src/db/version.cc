@@ -483,7 +483,7 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
     if (!reader.error().ok() && !reader.error().IsEof()) {
         return reader.error();
     }
-    
+    manifest_file_number_ = file_number;
     return Error::OK();
 }
     
