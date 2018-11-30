@@ -1,4 +1,4 @@
-#include "core/hash-map.h"
+#include "core/hash-map-v1.h"
 #include "gtest/gtest.h"
 
 namespace {

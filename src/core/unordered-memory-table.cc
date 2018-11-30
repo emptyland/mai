@@ -50,10 +50,12 @@ private:
     
 
 UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
-                                           int initial_slot)
+                                           int initial_slot,
+                                           Allocator *low_level_allocator)
     : ikcmp_(DCHECK_NOTNULL(ikcmp))
-    , table_(initial_slot, KeyComparator{ikcmp})
-    , mem_usage_(sizeof(*this)) {
+    , mem_usage_(sizeof(*this))
+    , arena_(DCHECK_NOTNULL(low_level_allocator))
+    , table_(initial_slot, KeyComparator{ikcmp}, &arena_) {
 }
 
 /*virtual*/ UnorderedMemoryTable::~UnorderedMemoryTable() {
@@ -119,8 +121,8 @@ UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
     DCHECK_GT(table_.n_slots(), 0);
     
     float n_slots = static_cast<float>(table_.n_slots());
-    float n_items = static_cast<float>(table_.items_count());
-    return n_items / n_slots;
+    float n_entries = static_cast<float>(table_.n_entries());
+    return n_entries / n_slots;
 }
     
 } // namespace core

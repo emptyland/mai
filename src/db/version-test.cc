@@ -18,7 +18,7 @@ using ::mai::core::ParsedTaggedKey;
 class VersionTest : public ::testing::Test {
 public:
     VersionTest()
-        : abs_db_path_(env_->GetAbsolutePath("tests/demo"))
+        : abs_db_path_(env_->GetAbsolutePath("tests/ff-ves-tmp"))
         , factory_(Factory::NewDefault())
         , table_cache_(new TableCache(abs_db_path_, options_, factory_.get()))
     {
@@ -62,6 +62,7 @@ const char *VersionTest::tmp_dirs[] = {
     "tests/00-ves-pick-compaction-l0",
     "tests/01-ves-pick-compaction-l0-v2",
     "tests/02-ves-pick-compaction-l0l1",
+    "tests/ff-ves-tmp",
     nullptr,
 };
     
@@ -142,7 +143,7 @@ TEST_F(VersionTest, VersionPatchEncodeDecode3) {
     std::string buf;
     patch.Encode(&buf);
     ASSERT_EQ(21, buf.size());
-    
+
     VersionPatch restore;
     restore.Decode(buf);
     
@@ -177,29 +178,6 @@ TEST_F(VersionTest, LogAndApply) {
     ASSERT_NE(nullptr, cf1);
     ASSERT_EQ(1, cf1->id());
 }
-
-#if 0
-TEST_F(VersionTest, Recovery) {
-    VersionSet versions(abs_db_path_, Options{}, table_cache_.get());
-    std::map<std::string, ColumnFamilyOptions> opts;
-    std::vector<uint64_t> logs;
-
-    opts["default"] = ColumnFamilyOptions{};
-    opts["d"] = ColumnFamilyOptions{};
-    
-    Error rs = versions.Recovery(opts, 99, &logs);
-    ASSERT_TRUE(rs.ok()) << rs.ToString();
-    
-    ASSERT_EQ(1, versions.column_families()->max_column_family());
-    
-    auto cf0 = versions.column_families()->GetColumnFamily("default");
-    ASSERT_NE(nullptr, cf0);
-    ASSERT_EQ(0, cf0->id());
-    auto cf1 = versions.column_families()->GetColumnFamily("d");
-    ASSERT_NE(nullptr, cf1);
-    ASSERT_EQ(1, cf1->id());
-}
-#endif
     
 TEST_F(VersionTest, PickCompactionL0) {
     VersionSet vets(tmp_dirs[0], Options{}, table_cache_.get());

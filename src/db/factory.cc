@@ -27,7 +27,8 @@ public:
                    size_t initial_slots) override {
         if (unordered) {
             return new core::UnorderedMemoryTable(ikcmp,
-                                                  static_cast<int>(initial_slots));
+                                                  static_cast<int>(initial_slots),
+                                                  allocator);
         } else {
             return new core::OrderedMemoryTable(ikcmp, allocator);
         }

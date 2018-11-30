@@ -62,8 +62,6 @@ public:
     size_t items_count() const { return n_items_.load(); }
     DEF_VAL_GETTER(size_t, n_slots);
 private:
-    Comparator const comparator_;
-    
     struct Slot {
         Slot() : mutex(base::RWSpinLocking::kLockBais) {}
         
@@ -87,6 +85,7 @@ private:
         return std::make_tuple(n_slots_, nullptr);
     }
     
+    Comparator const comparator_;
     size_t n_slots_;
     std::atomic<size_t> n_items_;
     std::unique_ptr<Slot[]> slots_; // Slots is fixed!

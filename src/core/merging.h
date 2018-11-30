@@ -6,6 +6,7 @@
 namespace mai {
 class Iterator;
 class Comparator;
+class Allocator;
 namespace core {
 
 class InternalKeyComparator;
@@ -15,7 +16,8 @@ struct Merging final {
     
     static Iterator *NewUnorderedMergingIterator(const InternalKeyComparator *ikmp,
                                                  int tmp_initial_slots,
-                                                 Iterator **children, size_t n);
+                                                 Iterator **children, size_t n,
+                                                 Allocator *low_level_allocator);
     
     static Iterator *NewTempTableMergingIteraotr(MemoryTable *tmp_table,
                                                  Iterator **children, size_t n);

@@ -2,7 +2,7 @@
 #define MAI_CORE_UNORDERED_MEMORY_TABLE_H_
 
 #include "core/memory-table.h"
-#include "core/hash-map.h"
+#include "core/hash-map-v2.h"
 #include "core/internal-key-comparator.h"
 #include "base/hash.h"
 #include "glog/logging.h"
@@ -17,7 +17,8 @@ class InternalKeyComparator;
 class UnorderedMemoryTable final : public MemoryTable {
 public:
     UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
-                         int initial_slot);
+                         int initial_slot,
+                         Allocator *low_level_alloc);
     virtual ~UnorderedMemoryTable();
     
     virtual void Put(std::string_view key, std::string_view value,
@@ -43,8 +44,9 @@ private:
     typedef HashMap<const KeyBoundle *, KeyComparator> Table;
 
     const InternalKeyComparator *const ikcmp_;
-    Table table_;
     std::atomic<size_t> mem_usage_;
+    base::Arena arena_;
+    Table table_;
 };
     
 } // namespace core

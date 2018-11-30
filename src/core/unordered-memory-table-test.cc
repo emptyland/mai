@@ -1,5 +1,4 @@
 #include "core/key-boundle.h"
-#include "core/hash-map.h"
 #include "core/internal-key-comparator.h"
 #include "core/unordered-memory-table.h"
 #include "base/hash.h"
@@ -34,21 +33,28 @@ class UnorderedMemoryTableTest : public ::testing::Test {
 public:
     UnorderedMemoryTableTest()
         : ikcmp_(new core::InternalKeyComparator(Comparator::Bytewise())) {}
-    void SetUp() override {}
-    void TearDown() override {}
+    
+    void SetUp() override {
+        arena_ = new base::Arena(env_->GetLowLevelAllocator());
+    }
+    
+    void TearDown() override {
+        delete arena_;
+    }
     
     Env *env_ = Env::Default();
     std::unique_ptr<InternalKeyComparator> ikcmp_;
+    base::Arena *arena_ = nullptr;
 };
 
 TEST_F(UnorderedMemoryTableTest, KeyBoundleMap) {
-    HashMap<KeyBoundle *, TestComparator> map(8, TestComparator{ikcmp_.get()});
+    HashMap<KeyBoundle *, TestComparator> map(8, TestComparator{ikcmp_.get()}, arena_);
     map.Put(KeyBoundle::New("k1", "v1", 1, Tag::kFlagValue));
     map.Put(KeyBoundle::New("k1", "v2", 2, Tag::kFlagValue));
     map.Put(KeyBoundle::New("k2", "v2", 3, Tag::kFlagValue));
     map.Put(KeyBoundle::New("k3", "v3", 4, Tag::kFlagValue));
     map.Put(KeyBoundle::New("k4", "v4", 5, Tag::kFlagValue));
-    ASSERT_EQ(5, map.items_count());
+    ASSERT_EQ(5, map.n_entries());
     
     base::ScopedMemory scope_memory;
     HashMap<KeyBoundle *, TestComparator>::Iterator iter(&map);
@@ -67,7 +73,7 @@ TEST_F(UnorderedMemoryTableTest, KeyBoundleMap) {
 }
     
 TEST_F(UnorderedMemoryTableTest, MemoryTable) {
-    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
+    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13, arena_));
     table->Put("k1", "v1", 1, Tag::kFlagValue);
     table->Put("k1", "v3", 3, Tag::kFlagValue);
     table->Put("k1", "v5", 5, Tag::kFlagValue);
@@ -86,7 +92,7 @@ TEST_F(UnorderedMemoryTableTest, MemoryTable) {
 }
     
 TEST_F(UnorderedMemoryTableTest, Iterate) {
-    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
+    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13, arena_));
     table->Put("k1", "v1", 1, Tag::kFlagValue);
     table->Put("k1", "v3", 3, Tag::kFlagValue);
     table->Put("k1", "v5", 5, Tag::kFlagValue);
@@ -118,7 +124,7 @@ TEST_F(UnorderedMemoryTableTest, Iterate) {
 }
 
 TEST_F(UnorderedMemoryTableTest, Deletion) {
-    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
+    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13, arena_));
     table->Put("k1", "v1", 1, Tag::kFlagValue);
     table->Put("k1", "v3", 3, Tag::kFlagValue);
     table->Put("k1", "v5", 5, Tag::kFlagValue);

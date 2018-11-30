@@ -46,6 +46,7 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/08-db-drop-cfs",
     "tests/09-db-mutil-cf-recovery",
     "tests/10-db-cocurrent-putting",
+    "tests/11-db-unordered-keys",
     nullptr,
 };
     
@@ -407,6 +408,10 @@ TEST_F(DBImplTest, CocurrentPutting) {
     }
     printf("total: %lu cost: %f ms\n", written.load(),
            (env_->CurrentTimeMicros() - jiffies) / 1000.0);
+}
+    
+TEST_F(DBImplTest, UnorderedColumnFamily) {
+    
 }
     
     
