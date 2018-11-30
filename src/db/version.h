@@ -46,6 +46,7 @@ struct FileMetaData final : public base::ReferenceCounted<FileMetaData> {
 #define VERSION_FIELDS(V) \
     V(LastSequenceNumber, last_sequence_number) \
     V(NextFileNumber, next_file_number) \
+    V(PrepareRedoLog, prepare_redo_log) \
     V(RedoLog, redo_log) \
     V(PrevLogNumber, prev_log_number) \
     V(CompactionPoint, compaction_point) \
@@ -67,9 +68,15 @@ public:
     VersionPatch() { Reset(); }
     ~VersionPatch() {}
     
-    void set_last_sequence_number(core::SequenceNumber version) {
-        set_field(kLastSequenceNumber);
-        last_sequence_number_ = version;
+//    void set_last_sequence_number(core::SequenceNumber version) {
+//        set_field(kLastSequenceNumber);
+//        last_sequence_number_ = version;
+//    }
+    
+    void set_prepare_redo_log(uint64_t number, core::SequenceNumber sn) {
+        set_field(kPrepareRedoLog);
+        prepare_redo_log_.number = number;
+        prepare_redo_log_.last_sequence_number = sn;
     }
     
     void set_next_file_number(uint64_t number) {
@@ -131,8 +138,7 @@ public:
         set_field(kAddColumnFamily);
         cf_creation_.cfid = cfid;
         cf_creation_.name = name;
-        cf_creation_.comparator_name    = comparator_name;
-        
+        cf_creation_.comparator_name = comparator_name;
     }
     
     #define DEFINE_TEST_FIELD(field, name) \
@@ -145,6 +151,11 @@ public:
         DCHECK_GE(i, 0); DCHECK_LT(i, kMaxFields);
         return fields_[i / 32] & (1 << (i % 32));
     }
+    
+    struct PrepareRedoLog {
+        uint64_t number;
+        core::SequenceNumber last_sequence_number;
+    };
     
     struct RedoLog {
         uint32_t  cfid;
@@ -179,7 +190,8 @@ public:
     typedef std::vector<FileDeletion> FileDeletionCollection;
     
     DEF_VAL_GETTER(uint32_t, max_column_family);
-    DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
+    //DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
+    DEF_VAL_GETTER(PrepareRedoLog, prepare_redo_log);
     DEF_VAL_GETTER(uint64_t, next_file_number);
     DEF_VAL_GETTER(RedoLog, redo_log);
     DEF_VAL_GETTER(uint64_t, prev_log_number);
@@ -211,13 +223,13 @@ private:
     uint32_t cf_deletion_;
     CFCreation cf_creation_;
     
-    core::SequenceNumber last_sequence_number_;
+    //core::SequenceNumber last_sequence_number_;
     uint64_t next_file_number_;
     RedoLog redo_log_;
     uint64_t prev_log_number_;
     
     CompactionPoint compaction_point_;
-    
+    PrepareRedoLog prepare_redo_log_;
     FileCreationCollection file_creation_;
     FileDeletionCollection file_deletion_;
     
@@ -300,7 +312,7 @@ public:
     
     Error Recovery(const std::map<std::string, ColumnFamilyOptions> &desc,
                    uint64_t file_number,
-                   std::vector<uint64_t> *history);
+                   std::map<uint64_t, uint64_t> *history);
     
     Error LogAndApply(const ColumnFamilyOptions &cf_opts,
                       VersionPatch *patch,

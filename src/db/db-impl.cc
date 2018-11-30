@@ -239,7 +239,7 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
     }
     
     uint64_t manifest_file_number = ::atoll(result.c_str());
-    std::vector<uint64_t> history;
+    std::map<uint64_t, uint64_t> history;
     std::map<std::string, ColumnFamilyOptions> cf_opts;
     for (const auto &d : desc) {
         cf_opts[d.name] = d.options;
@@ -276,18 +276,18 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
     }
     
     DCHECK_GE(history.size(), numbers.size());
-    core::SequenceNumber last = history[history.size() - numbers.size()];
-    core::SequenceNumber update = 0;
+    core::SequenceNumber last = 0, update = 0;
     for (uint64_t number: numbers) {
+        last = history[number];
         rs = Redo(number, last, &update);
         if (!rs) {
             return rs;
         }
-        last = update;
+        //last = update;
         log_file_number_ = number; // The last one is biggest(new) number
     }
-    DCHECK_GE(last, versions_->last_sequence_number());
-    versions_->AddSequenceNumber(last - versions_->last_sequence_number());
+    DCHECK_GE(update, versions_->last_sequence_number());
+    versions_->AddSequenceNumber(update - versions_->last_sequence_number());
     DLOG(INFO) << "Replay ok, last version: "
                << versions_->last_sequence_number();
 
@@ -408,7 +408,7 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     core::SequenceNumber last_version = versions_->last_sequence_number();
     Error rs;
     for (auto cfd : *versions_->column_families()) {
-        rs = MakeRoomForWrite(cfd, false);
+        rs = MakeRoomForWrite(cfd, &lock);
         if (!rs) {
             return rs;
         }
@@ -661,7 +661,7 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
         return bkg_error_;
     }
     core::SequenceNumber last_sequence_number = versions_->last_sequence_number();
-    Error rs = MakeRoomForWrite(cfd, false);
+    Error rs = MakeRoomForWrite(cfd, &lock);
     if (!rs) {
         return rs;
     }
@@ -702,7 +702,8 @@ Error DBImpl::InternalNewColumnFamily(const std::string &name,
 }
     
 // REQUIRES mutex_.lock()
-Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd, bool force) {
+Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd,
+                               std::unique_lock<std::mutex> *lock) {
     Error rs;
 
     while (true) {
@@ -724,11 +725,18 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd, bool force) {
         } else if (cfd->background_progress() &&
                    cfd->current()->level_files(0).size() >
                    Config::kMaxNumberLevel0File) {
-            // TODO:
+            //cfd->mutable_background_cv()->wait(*lock);
             break;
         } else {
             DCHECK_EQ(0, versions_->prev_log_number());
             rs = RenewLogger();
+            if (!rs) {
+                break;
+            }
+            VersionPatch patch;
+            patch.set_prepare_redo_log(log_file_number_,
+                                       versions_->last_sequence_number());
+            rs = versions_->LogAndApply(options_, &patch, &mutex_);
             if (!rs) {
                 break;
             }
@@ -761,11 +769,7 @@ void DBImpl::FlushWork() {
             }
             mutex_.unlock();
             DLOG(INFO) << "Flush ok.";
-            
-//            int e;
-//            do {
-//                e = n_reqs;
-//            } while (flush_request_.compare_exchange_strong(e, 0));
+
             flush_request_.store(0);
         }
         

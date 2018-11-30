@@ -80,7 +80,8 @@ private:
                         GetContext *ctx);
     Error Write(const WriteOptions &opts, ColumnFamily *cf,
                 std::string_view key, std::string_view value, uint8_t flag);
-    Error MakeRoomForWrite(ColumnFamilyImpl *cfd, bool force);
+    Error MakeRoomForWrite(ColumnFamilyImpl *cfd,
+                           std::unique_lock<std::mutex> *lock);
     void MaybeScheduleCompaction(ColumnFamilyImpl *cfd);
     void BackgroundWork(ColumnFamilyImpl *cfd);
     void BackgroundCompaction(ColumnFamilyImpl *cfd);

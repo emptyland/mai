@@ -96,21 +96,21 @@ std::string VersionTest::l1_range_v1[4] = {
     core::KeyBoundle::MakeKey("aaav", 24, core::Tag::kFlagValue),
 };
 
-TEST_F(VersionTest, VersionPatchEncodeDecode1) {
-    VersionPatch patch;
-    patch.set_last_sequence_number(100);
-    patch.set_max_column_faimly(99);
-    
-    std::string buf;
-    patch.Encode(&buf);
-    ASSERT_EQ(4, buf.size());
-    
-    VersionPatch restore;
-    restore.Decode(buf);
-    
-    EXPECT_EQ(patch.last_sequence_number() , restore.last_sequence_number());
-    EXPECT_EQ(patch.max_column_family(), restore.max_column_family());
-}
+//TEST_F(VersionTest, VersionPatchEncodeDecode1) {
+//    VersionPatch patch;
+//    patch.set_last_sequence_number(100);
+//    patch.set_max_column_faimly(99);
+//    
+//    std::string buf;
+//    patch.Encode(&buf);
+//    ASSERT_EQ(4, buf.size());
+//    
+//    VersionPatch restore;
+//    restore.Decode(buf);
+//    
+//    EXPECT_EQ(patch.last_sequence_number() , restore.last_sequence_number());
+//    EXPECT_EQ(patch.max_column_family(), restore.max_column_family());
+//}
     
 TEST_F(VersionTest, VersionPatchEncodeDecode2) {
     VersionPatch patch;

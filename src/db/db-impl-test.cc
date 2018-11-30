@@ -492,18 +492,18 @@ TEST_F(DBImplTest, UnorderedColumnFamily) {
 TEST_F(DBImplTest, UnorderedColumnFamilyRecovery) {
     std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[12], options_));
     ColumnFamilyCollection scope(impl.get());
-    
+
     Error rs = impl->Open(descs_, nullptr);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    
+
     ColumnFamilyOptions opts;
     opts.use_unordered_table = true;
-    
+
     rs = impl->NewColumnFamily("unordered", opts, scope.Receive());
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    
+
     ColumnFamily *cf0 = scope.newest();
-    
+
     size_t total_size = 0;
     uint64_t jiffies = env_->CurrentTimeMicros();
     WriteOptions wr;
@@ -523,6 +523,9 @@ TEST_F(DBImplTest, UnorderedColumnFamilyRecovery) {
     impl.reset(new DBImpl(tmp_dirs[12], options_));
     scope.Reset(impl.get());
     
+//    std::unique_ptr<DBImpl> impl(new DBImpl("tests/12-db-unordered-cf-recovery", options_));
+//    ColumnFamilyCollection scope(impl.get());
+    
     std::vector<ColumnFamilyDescriptor> descs;
     ColumnFamilyDescriptor desc;
     desc.name = kDefaultColumnFamilyName;
@@ -532,6 +535,7 @@ TEST_F(DBImplTest, UnorderedColumnFamilyRecovery) {
     desc.options.use_unordered_table = true;
     descs.push_back(desc);
     
+    // 1048577
     rs = impl->Open(descs, scope.ReceiveAll());
     ASSERT_TRUE(rs.ok()) << rs.ToString();
 }

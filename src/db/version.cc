@@ -140,9 +140,14 @@ void VersionPatch::Encode(std::string *buf) const {
         buf->append(Slice::GetByte(kNextFileNumber, &scope));
         buf->append(Slice::GetV64(next_file_number_, &scope));
     }
-    if (has_last_sequence_number()) {
-        buf->append(Slice::GetByte(kLastSequenceNumber, &scope));
-        buf->append(Slice::GetV64(last_sequence_number_, &scope));
+//    if (has_last_sequence_number()) {
+//        buf->append(Slice::GetByte(kLastSequenceNumber, &scope));
+//        buf->append(Slice::GetV64(last_sequence_number_, &scope));
+//    }
+    if (has_prepare_redo_log()) {
+        buf->append(Slice::GetByte(kPrepareRedoLog, &scope));
+        buf->append(Slice::GetV64(prepare_redo_log_.number, &scope));
+        buf->append(Slice::GetV64(prepare_redo_log_.last_sequence_number, &scope));
     }
     if (has_max_column_family()) {
         buf->append(Slice::GetByte(kMaxColumnFamily, &scope));
@@ -212,9 +217,14 @@ void VersionPatch::Decode(std::string_view buf) {
                 set_max_column_faimly(max_cf);
             } break;
                 
-            case kLastSequenceNumber: {
+//            case kLastSequenceNumber: {
+//                uint64_t number = reader.ReadVarint64();
+//                set_last_sequence_number(number);
+//            } break;
+            case kPrepareRedoLog: {
                 uint64_t number = reader.ReadVarint64();
-                set_last_sequence_number(number);
+                uint64_t sn = reader.ReadVarint64();
+                set_prepare_redo_log(number, sn);
             } break;
                 
             case kCompactionPoint: {
@@ -403,7 +413,7 @@ VersionSet::~VersionSet() {
     
 Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &desc,
                            uint64_t file_number,
-                           std::vector<uint64_t> *history) {
+                           std::map<uint64_t, uint64_t> *history) {
     
     std::string file_name = Files::ManifestFileName(abs_db_path_, file_number);
     std::unique_ptr<SequentialFile> file;
@@ -463,12 +473,12 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
             DCHECK_NOTNULL(cfd);
             cfd->redo_log_number_ = patch.redo_log().number;
         }
-        if (patch.has_last_sequence_number()) {
-            if (history->empty() ||
-                patch.last_sequence_number() > history->back()) {
-                history->push_back(patch.last_sequence_number());
-            }
-            last_sequence_number_ = patch.last_sequence_number();
+//        if (patch.has_last_sequence_number()) {
+//            last_sequence_number_ = patch.last_sequence_number();
+//        }
+        if (patch.has_prepare_redo_log()) {
+            last_sequence_number_ = patch.prepare_redo_log().last_sequence_number;
+            history->emplace(patch.prepare_redo_log().number, last_sequence_number_);
         }
         if (patch.has_prev_log_number()) {
             prev_log_number_ = patch.prev_log_number();
@@ -496,8 +506,8 @@ Error VersionSet::LogAndApply(const ColumnFamilyOptions &cf_opts,
         patch->set_prev_log_number(prev_log_number_);
     }
     
-    patch->set_last_sequence_number(last_sequence_number_);
     patch->set_next_file_number(next_file_number_);
+    //patch->set_last_sequence_number(last_sequence_number_);
     
     if (patch->has_add_column_family()) {
         column_families_->NewColumnFamily(cf_opts,
@@ -572,6 +582,7 @@ Error VersionSet::WriteCurrentSnapshot() {
         patch.Reset();
         patch.AddColumnFamily(cfd->name(), cfd->id(), cfd->ikcmp()->ucmp()->Name());
         patch.set_redo_log(cfd->id(), cfd->redo_log_number());
+        patch.set_prepare_redo_log(cfd->redo_log_number(), last_sequence_number_);
         
         for (int i = 0; i < Config::kMaxLevel; ++i) {
             for (auto fmd : cfd->current()->level_files(i)) {
@@ -586,10 +597,9 @@ Error VersionSet::WriteCurrentSnapshot() {
     
     patch.Reset();
     patch.set_max_column_faimly(column_families_->max_column_family());
-    patch.set_last_sequence_number(last_sequence_number_);
+    //patch.set_last_sequence_number(last_sequence_number_);
     patch.set_next_file_number(next_file_number_);
     patch.set_prev_log_number(prev_log_number_);
-    //patch.set_redo_log_number(redo_log_number_);
     
     char manifest[64];
     ::snprintf(manifest, arraysize(manifest), "%llu", manifest_file_number_);
