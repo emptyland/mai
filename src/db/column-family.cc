@@ -103,7 +103,9 @@ void ColumnFamilyImpl::Drop() {
     }
 }
     
-void ColumnFamilyImpl::MakeImmutablePipeline(Factory *factory) {
+void ColumnFamilyImpl::MakeImmutablePipeline(Factory *factory,
+                                             uint64_t redo_log_number) {
+    mutable_->set_associated_file_number(redo_log_number);
     immutable_pipeline_.Add(mutable_);
     mutable_ = factory->NewMemoryTable(&ikcmp_,
                                        owns_->env()->GetLowLevelAllocator(),

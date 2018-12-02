@@ -89,7 +89,7 @@ public:
         return compaction_point_[level];
     }
     
-    void MakeImmutablePipeline(Factory *factory);
+    void MakeImmutablePipeline(Factory *factory, uint64_t redo_log_number);
     void Append(Version *version);
     bool NeedsCompaction() const;
     bool PickCompaction(CompactionContext *ctx);

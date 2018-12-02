@@ -224,11 +224,11 @@ TEST_F(DBImplTest, RecoveryManifest) {
 }
     
 TEST_F(DBImplTest, RecoveryData) {
-    std::vector<ColumnFamily *> cfs;
-    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[5], options_));
-    Error rs = impl->Open(descs_, &cfs);
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[6], options_));
+    ColumnFamilyCollection scope(impl.get());
+    Error rs = impl->Open(descs_, scope.ReceiveAll());
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    auto cf0 = cfs[0];
+    auto cf0 = scope.newest();
     
     WriteOptions wr_opts;
     rs = impl->Put(wr_opts, cf0, "aaaa", "100");
@@ -242,14 +242,13 @@ TEST_F(DBImplTest, RecoveryData) {
     rs = impl->Put(wr_opts, cf0, "eeee", "500");
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    for (auto cf : cfs) {
-        impl->ReleaseColumnFamily(cf);
-    }
+    scope.ReleaseAll();
     
-    impl.reset(new DBImpl(tmp_dirs[5], options_));
-    rs = impl->Open(descs_, &cfs);
+    impl.reset(new DBImpl(tmp_dirs[6], options_));
+    scope.Reset(impl.get());
+    rs = impl->Open(descs_, scope.ReceiveAll());
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    cf0 = cfs[0];
+    cf0 = scope.newest();
     
     std::string value;
     ReadOptions rd_opts;
@@ -259,10 +258,6 @@ TEST_F(DBImplTest, RecoveryData) {
     rs = impl->Get(rd_opts, cf0, "eeee", &value);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ("500", value);
-    
-    for (auto cf : cfs) {
-        impl->ReleaseColumnFamily(cf);
-    }
 }
     
 TEST_F(DBImplTest, WriteLevel0Table) {
@@ -278,11 +273,12 @@ TEST_F(DBImplTest, WriteLevel0Table) {
     impl->Put(wr_opts, cf0, "aaac", "300");
     impl->Put(wr_opts, cf0, "aaad", "400");
     impl->Put(wr_opts, cf0, "aaae", "500");
-    impl->TEST_MakeImmutablePipeline(cf0);
+    rs = impl->TEST_ForceDumpImmutableTable(cf0, true);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
     impl->Put(wr_opts, cf0, "bbbb", "1000");
     impl->Put(wr_opts, cf0, "bbbb", "2000");
     impl->Put(wr_opts, cf0, "bbbb", "3000");
-    impl->TEST_MakeImmutablePipeline(cf0);
+    //impl->TEST_MakeImmutablePipeline(cf0);
     rs = impl->TEST_ForceDumpImmutableTable(cf0, true);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
@@ -312,8 +308,10 @@ TEST_F(DBImplTest, WriteLevel0Table) {
     }
     
     ASSERT_TRUE(env_->FileExists(impl->abs_db_path() + "/default/3.sst").ok());
-    ASSERT_TRUE(env_->FileExists(impl->abs_db_path() + "/default/4.sst").ok());
-    ASSERT_TRUE(env_->FileExists(impl->abs_db_path() + "/0.log").fail());
+    ASSERT_TRUE(env_->FileExists(impl->abs_db_path() + "/default/5.sst").ok());
+    //ASSERT_TRUE(env_->FileExists(impl->abs_db_path() + "/default/4.sst").ok());
+    //ASSERT_TRUE(env_->FileExists(impl->abs_db_path() + "/0.log").ok());
+    ASSERT_TRUE(env_->FileExists(impl->abs_db_path() + "/4.log").ok());
 }
 
 TEST_F(DBImplTest, DropColumnFamily) {
@@ -373,7 +371,7 @@ TEST_F(DBImplTest, MutilCFRecovery) {
         rs = impl->Put(WriteOptions{}, cf0, kv2[i], kv2[i + 1]);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
     }
-    impl->TEST_MakeImmutablePipeline(cf0);
+    //impl->TEST_MakeImmutablePipeline(cf0);
     rs = impl->TEST_ForceDumpImmutableTable(cf0, true);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
@@ -551,9 +549,21 @@ TEST_F(DBImplTest, UnorderedColumnFamilyRecovery) {
     impl->TEST_PrintFiles(cf0);
     
     std::string value;
-    for (int i = 0; i < kN / 100; ++i) {
+    rs = impl->Get(ReadOptions{}, cf0, "k.1000000", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = impl->Get(ReadOptions{}, cf0, "k.0999999", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = impl->Get(ReadOptions{}, cf0, "k.0000000", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = impl->Get(ReadOptions{}, cf0, base::Slice::Sprintf("k.%d", kN - 1),
+                   &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    for (int i = 0; i < 1000; ++i) {
         std::string key = base::Slice::Sprintf("k.%07d", rand() % kN);
-        //std::string val = base::Slice::Sprintf("v.%d", i);
 
         rs = impl->Get(ReadOptions{}, cf0, key, &value);
         ASSERT_TRUE(rs.ok()) << rs.ToString() << " : " << key;

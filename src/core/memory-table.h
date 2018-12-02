@@ -27,8 +27,12 @@ public:
     virtual size_t ApproximateMemoryUsage() const = 0;
     
     virtual float ApproximateConflictFactor() const = 0;
+    
+    DEF_VAL_PROP_RW(uint64_t, associated_file_number);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(MemoryTable);
+private:
+    uint64_t associated_file_number_ = 0;
 }; // class MemoryTable
     
 } // namespace core

@@ -538,10 +538,10 @@ Iterator *DBImpl::NewInternalIterator(const ReadOptions &opts,
     return internal;
 }
     
-void DBImpl::TEST_MakeImmutablePipeline(ColumnFamily *cf) {
-    ColumnFamilyImpl *cfd = DCHECK_NOTNULL(ColumnFamilyHandle::Cast(cf)->impl());
-    cfd->MakeImmutablePipeline(factory_.get());
-}
+//void DBImpl::TEST_MakeImmutablePipeline(ColumnFamily *cf) {
+//    ColumnFamilyImpl *cfd = DCHECK_NOTNULL(ColumnFamilyHandle::Cast(cf)->impl());
+//    cfd->MakeImmutablePipeline(factory_.get(), log_file_number_);
+//}
     
 void DBImpl::TEST_PrintFiles(ColumnFamily *cf) {
     GetContext ctx;
@@ -579,6 +579,7 @@ Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
     if (!rs) {
         return rs;
     }
+    cfd->MakeImmutablePipeline(factory_.get(), log_file_number_);
     MaybeScheduleCompaction(cfd);
     
     std::unique_lock<std::mutex> lock(mutex_);
@@ -772,7 +773,7 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd,
             if (!rs) {
                 break;
             }
-            cfd->MakeImmutablePipeline(factory_.get());
+            cfd->MakeImmutablePipeline(factory_.get(), log_file_number_);
             MaybeScheduleCompaction(cfd);
         }
         
@@ -888,7 +889,6 @@ Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
     VersionPatch patch;
     base::Handle<core::MemoryTable> imm;
     while (cfd->immutable_pipeline()->Peek(&imm)) {
-        patch.Reset();
         DCHECK(!imm.is_null());
         rs = WriteLevel0Table(cfd->current(), &patch, imm.get());
         if (!rs) {
@@ -897,21 +897,25 @@ Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
         if (shutting_down_.load()) {
             return MAI_IO_ERROR("Deleting DB during memtable compaction");
         }
+        patch.set_prev_log_number(0);
+        patch.set_redo_log(cfd->id(), imm->associated_file_number());
         rs = versions_->LogAndApply(ColumnFamilyOptions{}, &patch, &mutex_);
         if (!rs) {
             return rs;
         }
+
         cfd->immutable_pipeline()->Take(&imm);
+        patch.Reset();
     }
 
     // FIXME:
-    patch.Reset();
-    patch.set_prev_log_number(0);
-    patch.set_redo_log(cfd->id(), log_file_number_);
-    rs = versions_->LogAndApply(ColumnFamilyOptions{}, &patch, &mutex_);
-    if (!rs) {
-        return rs;
-    }
+//    patch.Reset();
+//    patch.set_prev_log_number(0);
+//    patch.set_redo_log(cfd->id(), log_file_number_);
+//    rs = versions_->LogAndApply(ColumnFamilyOptions{}, &patch, &mutex_);
+//    if (!rs) {
+//        return rs;
+//    }
     return Error::OK();
 }
 
