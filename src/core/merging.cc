@@ -130,6 +130,8 @@ private:
                 } else if (cmp_->Compare(child->key(), smallest->key()) < 0) {
                     smallest = child;
                 }
+//                std::string k(KeyBoundle::ExtractUserKey(child->key()));
+//                printf("child key: %s\n", k.c_str());
             }
         }
         current_ = smallest;

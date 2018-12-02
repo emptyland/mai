@@ -67,6 +67,7 @@ public:
     Iterator *NewInternalIterator(const ReadOptions &opts, ColumnFamilyImpl *cfd);
     
     void TEST_MakeImmutablePipeline(ColumnFamily *cf);
+    void TEST_PrintFiles(ColumnFamily *cf);
     Error TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(DBImpl);

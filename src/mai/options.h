@@ -14,7 +14,7 @@ struct ColumnFamilyOptions {
     bool use_unordered_table = false;
     
     // Only use for hash table
-    size_t number_of_hash_slots = 1024 * 2 + 1;
+    size_t number_of_hash_slots = 1024 * 100 + 1;
     
     // Only use for hash table: Dump l0 table if
     // conflict-factor > conflict_factor_limit
