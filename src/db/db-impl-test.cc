@@ -1,5 +1,6 @@
 #include "db/db-impl.h"
 #include "db/column-family.h"
+#include "db/table-cache.h"
 #include "base/slice.h"
 #include "mai/iterator.h"
 #include "mai/env.h"
@@ -49,6 +50,7 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/11-db-unordered-cf",
     "tests/12-db-unordered-cf-recovery",
     "tests/13-db-ordered-cf-recovery",
+    "tests/14-db-unordered-put-unordered-cf",
     nullptr,
 };
     
@@ -588,6 +590,58 @@ TEST_F(DBImplTest, OrderedColumnFamilyRecovery) {
     printf("total size: %lu cost: %f ms\n", total_size,
            (env_->CurrentTimeMicros() - jiffies) / 1000.0f);
     impl->TEST_PrintFiles(cf0);
+}
+    
+TEST_F(DBImplTest, UnorderedPutUnorderedCF) {
+    static const auto kN = 1024 * 1024;
+    
+    Options options;
+    options.number_of_hash_slots = 1024 * 2 + 1;
+    options.use_unordered_table = true;
+    options.allow_mmap_reads = true;
+    options.create_if_missing = true;
+    
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[14], options));
+    ColumnFamilyCollection scope(impl.get());
+    
+    Error rs = impl->Open({}, nullptr);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    auto cf0 = impl->DefaultColumnFamily();
+    
+    size_t total_size = 0;
+    uint64_t jiffies = env_->CurrentTimeMicros();
+    WriteOptions wr;
+    for (int i = 0; i < kN; ++i) {
+        std::string key = base::Slice::Sprintf("k.%d", i);
+        std::string val = base::Slice::Sprintf("v.%d", i);
+        
+        rs = impl->Put(wr, cf0, key, val);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        total_size += key.size() + val.size();
+    }
+    printf("total size: %lu cost: %f ms\n", total_size,
+           (env_->CurrentTimeMicros() - jiffies) / 1000.0f);
+    impl->TEST_PrintFiles(cf0);
+    
+    std::string value;
+    rs = impl->Get(ReadOptions{}, cf0, "k.1000000", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = impl->Get(ReadOptions{}, cf0, "k.999999", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = impl->Get(ReadOptions{}, cf0, "k.0", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = impl->Get(ReadOptions{}, cf0, base::Slice::Sprintf("k.%d", kN - 1),
+                   &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    for (int i = 0; i < 1000; ++i) {
+        std::string key = base::Slice::Sprintf("k.%d", rand() % kN);
+        rs = impl->Get(ReadOptions{}, cf0, key, &value);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+    }
 }
     
 } // namespace db

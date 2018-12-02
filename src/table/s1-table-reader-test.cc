@@ -259,7 +259,43 @@ TEST_F(S1TableReaderTest, BloomFilter) {
     ASSERT_TRUE(reader->GetKeyFilter()->EnsureNotExists("ddd"));
     ASSERT_TRUE(reader->GetKeyFilter()->EnsureNotExists("ensure not exists!"));
 }
+
+#if 0
+TEST_F(S1TableReaderTest, RealFile) {
+    std::unique_ptr<RandomAccessFile> file;
+    env_->NewRandomAccessFile("tests/179.s1t", &file);
     
+    uint64_t size;
+    file->GetFileSize(&size);
+    S1TableReader reader(file.get(), size, true);
+    reader.Prepare();
+    
+    std::unique_ptr<Iterator> iter(reader.NewIterator(ReadOptions{}, &ikcmp_));
+    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+        std::string k(core::KeyBoundle::ExtractUserKey(iter->key()));
+        if (k.length() >= 9) {
+            printf("hit! %s\n", k.c_str());
+        }
+        //printf("%s\n", k.c_str());
+    }
+    auto prop = reader.GetTableProperties();
+    
+    std::string_view value;
+    std::string scatch;
+    std::string lookup_key(core::KeyBoundle::MakeKey("k.1000000",
+                                                     core::Tag::kMaxSequenceNumber,
+                                                     core::Tag::kFlagValueForSeek));
+    Error rs = reader.Get(ReadOptions{}, &ikcmp_, lookup_key,
+                          nullptr, &value, &scatch);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    auto k1 = core::KeyBoundle::MakeKey("k.1000000", core::Tag::kMaxSequenceNumber, core::Tag::kFlagValueForSeek);
+    printf("%d, %d\n", ikcmp_.Compare(k1, prop->smallest_key),
+           ikcmp_.Compare(k1, prop->largest_key));
+}
+#endif
+    
+
 } // namespace table
     
 } // namespace mai

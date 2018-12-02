@@ -31,6 +31,15 @@ public:
         return true;
     }
     
+    bool Peek(T *result) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (queue_.empty()) {
+            return false;
+        }
+        *result = queue_.front();
+        return true;
+    }
+    
     void PeekAll(std::vector<T> *result) const {
         std::unique_lock<std::mutex> lock(mutex_);
         size_t old_size = result->size();

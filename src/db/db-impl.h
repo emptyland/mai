@@ -69,6 +69,7 @@ public:
     void TEST_MakeImmutablePipeline(ColumnFamily *cf);
     void TEST_PrintFiles(ColumnFamily *cf);
     Error TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync);
+    TableCache *TEST_GetTableCache() { return table_cache_.get(); }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(DBImpl);
 private:

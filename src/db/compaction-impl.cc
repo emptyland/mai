@@ -78,13 +78,13 @@ CompactionImpl::CompactionImpl(const std::string abs_db_path,
                 result->compacted_size += (key.size() + merger->value().size());
             }
         } else {
-            if (drop) {
-                Error rs = EnsureKeyNotExists(target_level(), merger->key(),
-                                              &drop);
-                if (!rs) {
-                    return rs;
-                }
-            }
+//            if (drop) {
+//                Error rs = EnsureKeyNotExists(target_level(), merger->key(),
+//                                              &drop);
+//                if (!rs) {
+//                    return rs;
+//                }
+//            }
             
             // TODO:
             

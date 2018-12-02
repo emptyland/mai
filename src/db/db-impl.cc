@@ -752,11 +752,12 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd,
             break;
         } else if (cfd->immutable_pipeline()->InProgress()) {
             // Immutable table pipeline in progress.
+            //cfd->mutable_background_cv()->wait(*lock);
             break;
         } else if (cfd->background_progress() &&
                    cfd->current()->level_files(0).size() >
                    Config::kMaxNumberLevel0File) {
-            //cfd->mutable_background_cv()->wait(*lock);
+            cfd->mutable_background_cv()->wait(*lock);
             break;
         } else {
             DCHECK_EQ(0, versions_->prev_log_number());
@@ -886,7 +887,8 @@ Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
     Error rs;
     VersionPatch patch;
     base::Handle<core::MemoryTable> imm;
-    while (cfd->immutable_pipeline()->Take(&imm)) {
+    while (cfd->immutable_pipeline()->Peek(&imm)) {
+        patch.Reset();
         DCHECK(!imm.is_null());
         rs = WriteLevel0Table(cfd->current(), &patch, imm.get());
         if (!rs) {
@@ -895,9 +897,15 @@ Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
         if (shutting_down_.load()) {
             return MAI_IO_ERROR("Deleting DB during memtable compaction");
         }
+        rs = versions_->LogAndApply(ColumnFamilyOptions{}, &patch, &mutex_);
+        if (!rs) {
+            return rs;
+        }
+        cfd->immutable_pipeline()->Take(&imm);
     }
 
     // FIXME:
+    patch.Reset();
     patch.set_prev_log_number(0);
     patch.set_redo_log(cfd->id(), log_file_number_);
     rs = versions_->LogAndApply(ColumnFamilyOptions{}, &patch, &mutex_);
@@ -986,20 +994,20 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
     
 Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
                                core::MemoryTable *table) {
-    base::Handle<FileMetaData>
-        fmd(new FileMetaData(versions_->GenerateFileNumber()));
+    
     std::unique_ptr<Iterator> iter(table->NewIterator());
     if (iter->error().fail()) {
         return iter->error();
     }
+    uint64_t file_number = versions_->GenerateFileNumber();
     LOG(INFO) << "Level0 table compaction start, target file number: "
-              << fmd->number;
-    
+        << file_number;
     mutex_.unlock(); // Do not need DB lock -------------------------------------
+    
     uint64_t jiffies = env_->CurrentTimeMicros();
     
     std::unique_ptr<WritableFile> file;
-    std::string table_file_name = current->owns()->GetTableFileName(fmd->number);
+    std::string table_file_name = current->owns()->GetTableFileName(file_number);
     Error rs = env_->NewWritableFile(table_file_name, false, &file);
     if (!rs) {
         mutex_.lock();
@@ -1037,11 +1045,12 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
         return rs;
     }
     
+    FileMetaData *fmd = new FileMetaData(file_number);
     fmd->ctime        = env_->CurrentTimeMicros();
     fmd->size         = builder->FileSize();
     fmd->largest_key  = largest_key;
     fmd->smallest_key = smallest_key;
-    patch->CreaetFile(cfd->id(), 0, fmd.get());
+    patch->CreaetFile(cfd->id(), 0, fmd);
     
     DLOG(INFO) << "Cost: " << (env_->CurrentTimeMicros() - jiffies) / 1000.0 << " ms "
                << "[" << core::KeyBoundle::ExtractUserKey(fmd->smallest_key)

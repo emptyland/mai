@@ -79,8 +79,8 @@ public:
     virtual void Seek(std::string_view target) override {
         slot_ = -1;
         current_ = -1;
-        ParsedTaggedKey ikey;
-        if (!KeyBoundle::ParseTaggedKey(target, &ikey)) {
+        ParsedTaggedKey lookup;
+        if (!KeyBoundle::ParseTaggedKey(target, &lookup)) {
             error_ = MAI_CORRUPTION("Bad target key!");
             return;
         }
@@ -109,11 +109,14 @@ public:
             saved_key_.append(result);
             
             if (owns_->table_props_->last_level) {
-                if (ikcmp_->ucmp()->Compare(saved_key_, ikey.user_key) >= 0) {
+                if (ikcmp_->ucmp()->Equals(saved_key_, lookup.user_key)) {
                     found = true;
                 }
             } else {
-                if (ikcmp_->Compare(saved_key_, target) >= 0) {
+                ParsedTaggedKey ikey;
+                KeyBoundle::ParseTaggedKey(saved_key_, &ikey);
+                if (ikcmp_->ucmp()->Equals(ikey.user_key, lookup.user_key) &&
+                    ikey.tag.sequence_number() <= lookup.tag.sequence_number()) {
                     found = true;
                 }
             }
@@ -304,8 +307,8 @@ S1TableReader::NewIterator(const ReadOptions &read_opts,
                   core::Tag *tag,
                   std::string_view *value,
                   std::string *scratch) {
-    ParsedTaggedKey ikey;
-    KeyBoundle::ParseTaggedKey(key, &ikey);
+    ParsedTaggedKey lookup;
+    KeyBoundle::ParseTaggedKey(key, &lookup);
     
     size_t slot = ikcmp->Hash(key) % index_.size();
     if (index_[slot].empty()) {
@@ -315,6 +318,7 @@ S1TableReader::NewIterator(const ReadOptions &read_opts,
     Error rs;
     std::string_view result;
     std::string saved_key;
+    ParsedTaggedKey ikey;
     bool found = false;
     for (const auto &idx : index_[slot]) {
         uint64_t offset = idx.block_offset + idx.offset + 4;
@@ -324,13 +328,14 @@ S1TableReader::NewIterator(const ReadOptions &read_opts,
         saved_key = saved_key.substr(0, shared_len);
         saved_key.append(result);
     
-        
         if (table_props_->last_level) {
-            if (ikcmp->ucmp()->Compare(saved_key, ikey.user_key) >= 0) {
+            if (ikcmp->ucmp()->Equals(saved_key, lookup.user_key)) {
                 found = true;
             }
         } else {
-            if (ikcmp->Compare(saved_key, key) >= 0) {
+            KeyBoundle::ParseTaggedKey(saved_key, &ikey);
+            if (ikcmp->ucmp()->Equals(ikey.user_key, lookup.user_key) &&
+                lookup.tag.sequence_number() >= ikey.tag.sequence_number()) {
                 found = true;
             }
         }
@@ -342,15 +347,7 @@ S1TableReader::NewIterator(const ReadOptions &read_opts,
     if (!found) {
         return MAI_NOT_FOUND("Key not exists.");
     }
-    if (table_props_->last_level) {
-        if (!ikcmp->ucmp()->Equals(saved_key, ikey.user_key)) {
-            return MAI_NOT_FOUND("Key not exists.");
-        }
-    } else {
-        if (!ikcmp->ucmp()->Equals(KeyBoundle::ExtractUserKey(saved_key),
-                                   ikey.user_key)) {
-            return MAI_NOT_FOUND("Key not exists.");
-        }
+    if (!table_props_->last_level) {
         if (tag) {
             *tag = KeyBoundle::ExtractTag(saved_key);
         }
