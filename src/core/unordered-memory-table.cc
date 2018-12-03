@@ -113,6 +113,10 @@ UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
     return iter;
 }
     
+/*virtual*/ size_t UnorderedMemoryTable::NumEntries() const {
+    return table_.n_entries();
+}
+    
 /*virtual*/ size_t UnorderedMemoryTable::ApproximateMemoryUsage() const {
     return mem_usage_.load(std::memory_order_acquire);
 }

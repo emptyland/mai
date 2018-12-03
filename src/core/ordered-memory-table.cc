@@ -52,7 +52,8 @@ OrderedMemoryTable::OrderedMemoryTable(const InternalKeyComparator *ikcmp,
                                        Allocator *low_level_alloc)
     : mem_usage_(sizeof(*this))
     , arena_(low_level_alloc)
-    , table_(KeyComparator{ikcmp}, &arena_) {
+    , table_(KeyComparator{ikcmp}, &arena_)
+    , n_entries_(0) {
 }
 
 /*virtual*/ OrderedMemoryTable::~OrderedMemoryTable() {
@@ -67,7 +68,8 @@ OrderedMemoryTable::Put(std::string_view key, std::string_view value,
     //const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
     DCHECK_NOTNULL(ikey);
     table_.Put(ikey);
-    mem_usage_.fetch_add(ikey->size(), std::memory_order_acq_rel);
+    mem_usage_.fetch_add(ikey->size()); // TODO: use arean size
+    n_entries_.fetch_add(1);
 }
     
 /*virtual*/ Error
@@ -106,6 +108,10 @@ OrderedMemoryTable::Get(std::string_view key, SequenceNumber version, Tag *tag,
     AddRef();
     iter->RegisterCleanup(&IteratorImpl::Cleanup, this);
     return iter;
+}
+    
+/*virtual*/ size_t OrderedMemoryTable::NumEntries() const {
+    return n_entries_.load(std::memory_order_acquire);
 }
     
 /*virtual*/ size_t OrderedMemoryTable::ApproximateMemoryUsage() const {

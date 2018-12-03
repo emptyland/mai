@@ -11,6 +11,7 @@
 #include "db/snapshot-impl.h"
 #include "db/db-iterator.h"
 #include "table/table-builder.h"
+#include "table/table.h"
 #include "core/key-boundle.h"
 #include "core/memory-table.h"
 #include "core/merging.h"
@@ -902,15 +903,6 @@ Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
         cfd->immutable_pipeline()->Take(&imm);
         patch.Reset();
     }
-
-    // FIXME:
-//    patch.Reset();
-//    patch.set_prev_log_number(0);
-//    patch.set_redo_log(cfd->id(), log_file_number_);
-//    rs = versions_->LogAndApply(ColumnFamilyOptions{}, &patch, &mutex_);
-//    if (!rs) {
-//        return rs;
-//    }
     return Error::OK();
 }
 
@@ -918,6 +910,28 @@ Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
 Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
     DCHECK_GE(ctx->level, 0);
     DCHECK_LT(ctx->level, Config::kMaxLevel - 1);
+    
+    size_t new_num_slots = cfd->options().number_of_hash_slots;
+    if (!cfd->options().fixed_number_of_slots) {
+        base::intrusive_ptr<table::TablePropsBoundle> boundle;
+        size_t n_entries = 0;
+        for (auto fmd : ctx->inputs[0]) {
+            Error rs = table_cache_->GetTableProperties(cfd, fmd->number, &boundle);
+            if (!rs) {
+                return rs;
+            }
+            n_entries += boundle->data().num_entries;
+        }
+        for (auto fmd : ctx->inputs[1]) {
+            Error rs = table_cache_->GetTableProperties(cfd, fmd->number, &boundle);
+            if (!rs) {
+                return rs;
+            }
+            n_entries += boundle->data().num_entries;
+        }
+        new_num_slots = Config::ComputeNumSlots(ctx->level + 1, n_entries,
+                                                Config::kLimitMinNumberSlots);
+    }
     
     std::unique_ptr<Compaction>
     job(factory_->NewCompaction(abs_db_path_, cfd->ikcmp(),
@@ -970,7 +984,7 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
                                       file.get(),
                                       cfd->options().block_size,
                                       cfd->options().block_restart_interval,
-                                      cfd->options().number_of_hash_slots));
+                                      new_num_slots));
     CompactionResult result;
     mutex_.unlock();
     rs = job->Run(builder.get(), &result); // FIXME:
@@ -1018,14 +1032,20 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
         mutex_.lock();
         return rs;
     }
+    
     ColumnFamilyImpl *cfd = current->owns();
+    size_t new_num_slots = cfd->options().number_of_hash_slots;
+    if (!cfd->options().fixed_number_of_slots) {
+        new_num_slots = Config::ComputeNumSlots(0, table->NumEntries(),
+                                                Config::kLimitMinNumberSlots);
+    }
     std::unique_ptr<table::TableBuilder>
         builder(factory_->NewTableBuilder(cfd->options().use_unordered_table ?
                                           "s1t" : "sst",
                                           cfd->ikcmp(),
                                           file.get(), cfd->options().block_size,
                                           cfd->options().block_restart_interval,
-                                          cfd->options().number_of_hash_slots));
+                                          new_num_slots));
     std::string largest_key, smallest_key;
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
         builder->Add(iter->key(), iter->value());

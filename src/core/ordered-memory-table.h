@@ -24,6 +24,7 @@ public:
     virtual Error Get(std::string_view key, SequenceNumber version, Tag *tag,
                       std::string *value) const override;
     virtual Iterator *NewIterator() override;
+    virtual size_t NumEntries() const override;
     virtual size_t ApproximateMemoryUsage() const override;
     virtual float ApproximateConflictFactor() const override;
     
@@ -42,6 +43,7 @@ private:
     std::atomic<size_t> mem_usage_;
     base::Arena arena_;
     Table table_;
+    std::atomic<size_t> n_entries_;
 }; // class OrderedMemoryTable
     
 } // namespace core

@@ -16,6 +16,15 @@ struct Config final {
     static const int kMaxNumberLevel0File = 10; // the max of level0 file num
     static const int kMaxSizeLevel0File   = 400 * base::kMB;
     
+    static const int kLimitMinNumberSlots = 17;
+    
+    static size_t ComputeNumSlots(int level, size_t old_num_slots,
+                                  float conflict_factor,
+                                  size_t limit_min_num_slots);
+    
+    static size_t ComputeNumSlots(int level, size_t n_entries,
+                                  size_t limit_min_num_slots);
+    
     DISALLOW_ALL_CONSTRUCTORS(Config);
 }; // struct Config
     

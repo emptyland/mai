@@ -26,6 +26,7 @@ public:
     virtual Error Get(std::string_view key, SequenceNumber version, Tag *tag,
                       std::string *value) const override;
     virtual Iterator *NewIterator() override;
+    virtual size_t NumEntries() const override;
     virtual size_t ApproximateMemoryUsage() const override;
     virtual float ApproximateConflictFactor() const override;
     

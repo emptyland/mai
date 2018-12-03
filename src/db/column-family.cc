@@ -65,7 +65,8 @@ ColumnFamilyImpl::ColumnFamilyImpl(const std::string &name, uint32_t id,
     , owns_(owner)
     , ref_count_(0)
     , dropped_(false)
-    , background_progress_(false) {
+    , background_progress_(false)
+    , last_num_slots_(options.number_of_hash_slots) {
     AddRef();
     dummy_versions_->next_ = dummy_versions_;
     dummy_versions_->prev_ = dummy_versions_;
@@ -107,10 +108,20 @@ void ColumnFamilyImpl::MakeImmutablePipeline(Factory *factory,
                                              uint64_t redo_log_number) {
     mutable_->set_associated_file_number(redo_log_number);
     immutable_pipeline_.Add(mutable_);
+    
+    size_t new_num_slots = options_.number_of_hash_slots;
+    if (options().fixed_number_of_slots) {
+        new_num_slots =
+            Config::ComputeNumSlots(0, last_num_slots_,
+                                    mutable_->ApproximateConflictFactor(),
+                                    Config::kLimitMinNumberSlots);
+    }
+    DCHECK_GE(new_num_slots, Config::kLimitMinNumberSlots);
     mutable_ = factory->NewMemoryTable(&ikcmp_,
                                        owns_->env()->GetLowLevelAllocator(),
                                        options_.use_unordered_table,
-                                       options_.number_of_hash_slots);
+                                       new_num_slots);
+    last_num_slots_ = new_num_slots;
 }
     
 void ColumnFamilyImpl::Append(Version *version) {

@@ -28,6 +28,8 @@ public:
     
     virtual float ApproximateConflictFactor() const = 0;
     
+    virtual size_t NumEntries() const = 0;
+    
     virtual bool KeyExists(std::string_view key, SequenceNumber version) const;
     
     DEF_VAL_PROP_RW(uint64_t, associated_file_number);

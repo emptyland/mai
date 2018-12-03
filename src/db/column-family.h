@@ -110,6 +110,7 @@ private:
     std::atomic<bool> dropped_;
     Version *dummy_versions_;
     std::atomic<bool> background_progress_;
+    size_t last_num_slots_;
     
     Version *current_ = nullptr;
     bool initialized_ = false;

@@ -54,7 +54,7 @@ struct TableProperties final {
     std::string smallest_key;
     std::string largest_key;
 }; // struct FileProperties
-    
+
 
 class TablePropsBoundle final
     : public base::ReferenceCounted<TablePropsBoundle> {
