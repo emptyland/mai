@@ -214,7 +214,7 @@ TEST_F(S1TableReaderTest, Properties) {
     auto rs = rd->Prepare();
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    auto props = reader->GetTableProperties();
+    auto props = reader->GetTableProperties()->mutable_data();
     ASSERT_EQ(4096, props->block_size);
     ASSERT_EQ(1024 * 2, props->num_entries);
     ASSERT_TRUE(props->unordered);

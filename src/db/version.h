@@ -183,7 +183,7 @@ public:
     struct FileCreation {
         uint32_t cfid;
         int      level;
-        base::Handle<FileMetaData> file_metadata;
+        base::intrusive_ptr<FileMetaData> file_metadata;
     };
     
     typedef std::vector<FileCreation> FileCreationCollection;
@@ -259,7 +259,7 @@ public:
     
     void GetOverlappingInputs(int level, std::string_view begin,
                               std::string_view end,
-                              std::vector<base::Handle<FileMetaData>> *inputs);
+                              std::vector<base::intrusive_ptr<FileMetaData>> *inputs);
     
     DEF_PTR_GETTER_NOTNULL(ColumnFamilyImpl, owns);
     DEF_PTR_GETTER(Version, next);
@@ -267,7 +267,7 @@ public:
     DEF_VAL_GETTER(int, compaction_level);
     DEF_VAL_GETTER(double, compaction_score);
     
-    const std::vector<base::Handle<FileMetaData>> &level_files(int level) {
+    const std::vector<base::intrusive_ptr<FileMetaData>> &level_files(int level) {
         DCHECK_GE(level, 0);
         DCHECK_LT(level, Config::kMaxLevel);
         return files_[level];
@@ -286,7 +286,7 @@ private:
     Version *prev_ = nullptr;
     int      compaction_level_ = -1;
     double   compaction_score_ = -1;
-    std::vector<base::Handle<FileMetaData>> files_[Config::kMaxLevel];
+    std::vector<base::intrusive_ptr<FileMetaData>> files_[Config::kMaxLevel];
 }; // class Version
     
 

@@ -30,7 +30,7 @@ struct CompactionContext;
 
 class ColumnFamilyImpl final {
 public:
-    typedef core::PipelineQueue<base::Handle<core::MemoryTable>>
+    typedef core::PipelineQueue<base::intrusive_ptr<core::MemoryTable>>
         ImmutablePipeline;
     
     ColumnFamilyImpl(const std::string &name, uint32_t id,
@@ -115,8 +115,8 @@ private:
     bool initialized_ = false;
     
     const core::InternalKeyComparator ikcmp_;
-    base::Handle<core::MemoryTable> mutable_;
-    core::PipelineQueue<base::Handle<core::MemoryTable>> immutable_pipeline_;
+    base::intrusive_ptr<core::MemoryTable> mutable_;
+    core::PipelineQueue<base::intrusive_ptr<core::MemoryTable>> immutable_pipeline_;
     
     Error background_error_;
     std::condition_variable background_cv_;
@@ -151,7 +151,7 @@ public:
     }
 private:
     DBImpl *const db_;
-    base::Handle<ColumnFamilyImpl> impl_;
+    base::intrusive_ptr<ColumnFamilyImpl> impl_;
 }; // class ColumnFamilyHandle
 
 class ColumnFamilySet final {

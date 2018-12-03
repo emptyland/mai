@@ -19,7 +19,8 @@ class Iterator;
 class ReadOptions;
 namespace table {
 class TableReader;
-class TableProperties;
+struct TableProperties;
+class TablePropsBoundle;
 } // namespace table
 namespace core {
 class KeyFilter;
@@ -40,17 +41,14 @@ public:
     ~TableCache();
     
     Iterator *NewIterator(const ReadOptions &read_opts,
-                          const ColumnFamilyImpl *cf, uint64_t file_number,
+                          const ColumnFamilyImpl *cfd, uint64_t file_number,
                           uint64_t file_size);
     
-    Error GetTableProperties(const ColumnFamilyImpl *cf, uint64_t file_number,
-                             std::shared_ptr<table::TableProperties> *props);
+    Error GetTableProperties(const ColumnFamilyImpl *cfd, uint64_t file_number,
+                             base::intrusive_ptr<table::TablePropsBoundle> *props);
     
-    Error GetKeyFilter(const ColumnFamilyImpl *cf, uint64_t file_number,
-                       std::shared_ptr<core::KeyFilter> *filter);
-    
-    Error GetFileMetadata(const ColumnFamilyImpl *cf, uint64_t file_number,
-                          FileMetaData *fmd);
+    Error GetKeyFilter(const ColumnFamilyImpl *cfd, uint64_t file_number,
+                       base::intrusive_ptr<core::KeyFilter> *filter);
     
     void Invalidate(uint64_t file_number) {
         std::unique_lock<std::mutex> lock(mutex_);
@@ -67,7 +65,7 @@ private:
     };
     
     Error EnsureTableCached(const ColumnFamilyImpl *cf, uint64_t file_number,
-                            uint64_t file_size, base::Handle<Entry> *result);
+                            uint64_t file_size, base::intrusive_ptr<Entry> *result);
     
     static void EntryCleanup(void *arg1, void *arg2);
     
@@ -76,7 +74,7 @@ private:
     Factory *const factory_;
     const bool allow_mmap_reads_;
     
-    std::unordered_map<uint64_t, base::Handle<Entry>> cached_;
+    std::unordered_map<uint64_t, base::intrusive_ptr<Entry>> cached_;
     std::mutex mutex_;
 }; // class TableCache
     

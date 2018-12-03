@@ -14,6 +14,7 @@ namespace mai {
     
 namespace table {
 
+using ::mai::core::Tag;
 using ::mai::core::KeyBoundle;
 using ::mai::core::ParsedTaggedKey;
 using ::mai::base::Slice;
@@ -111,6 +112,10 @@ public:
             if (owns_->table_props_->last_level) {
                 if (ikcmp_->ucmp()->Equals(saved_key_, lookup.user_key)) {
                     found = true;
+                    // fill fake tag for last level key.
+                    uint64_t tag_stub = Tag(0, Tag::kFlagValue).Encode();
+                    saved_key_.append(reinterpret_cast<const char *>(&tag_stub),
+                                      8);
                 }
             } else {
                 ParsedTaggedKey ikey;
@@ -254,12 +259,13 @@ Error S1TableReader::Prepare() {
     Error rs;
     TRY_RUN1(ReadBlock({position, file_size_ - 12 - position}, &result, &scatch));
     
-    table_props_.reset(new TableProperties);
-    TRY_RUN1(Table::ReadProperties(result, table_props_.get()));
-    if (!table_props_->unordered) {
+    table_props_boundle_.reset(new TablePropsBoundle);
+    TRY_RUN1(Table::ReadProperties(result, table_props_boundle_->mutable_data()));
+    if (!table_props_boundle_->data().unordered) {
         return MAI_CORRUPTION("S1 table can not be ordered.");
     }
-    
+    table_props_ = table_props_boundle_->mutable_data();
+
     TRY_RUN1(ReadBlock({table_props_->index_position, table_props_->index_count},
                        &result, &scatch));
     
@@ -360,24 +366,22 @@ S1TableReader::NewIterator(const ReadOptions &read_opts,
     for (const auto &n : index_) {
         usage += (sizeof(index_[0]) + n.size() * sizeof(Index));
     }
-    if (filter_) {
+    if (!filter_.is_null()) {
         usage += filter_->memory_usage();
     }
-    if (table_props_) {
+    if (!table_props_boundle_.is_null()) {
         usage += sizeof(*table_props_);
     }
     return usage;
 }
 
 /*virtual*/
-std::shared_ptr<TableProperties> S1TableReader::GetTableProperties() const {
-    return table_props_;
-}
+base::intrusive_ptr<TablePropsBoundle>
+S1TableReader::GetTableProperties() const { return table_props_boundle_; }
 
 /*virtual*/
-std::shared_ptr<core::KeyFilter> S1TableReader::GetKeyFilter() const {
-    return filter_;
-}
+base::intrusive_ptr<core::KeyFilter>
+S1TableReader::GetKeyFilter() const { return filter_; }
     
 Error S1TableReader::ReadBlock(const BlockHandle &bh, std::string_view *result,
                                std::string *scatch) const {

@@ -10,33 +10,35 @@ namespace mai {
 namespace base {
     
 template<class T>
-class Handle final {
+class intrusive_ptr final {
 public:
-    Handle() : Handle(nullptr) {}
+    intrusive_ptr() : intrusive_ptr(nullptr) {}
     
-    Handle(T *naked)
+    intrusive_ptr(T *naked)
         : naked_(naked) {
         if (naked_) { naked_->AddRef(); }
     }
     
-    Handle(const Handle &other) : Handle(other.naked_) {}
+    intrusive_ptr(const intrusive_ptr &other) : intrusive_ptr(other.naked_) {}
     
-    Handle(Handle &&other)
+    intrusive_ptr(intrusive_ptr &&other)
         : naked_(other.naked_) {
         other.naked_ = nullptr;
     }
     
-    ~Handle() {
+    ~intrusive_ptr() {
         if (naked_) { naked_->ReleaseRef(); }
     }
     
-    void operator = (const Handle &other) {
+    void reset(T *naked) {
         if (naked_) { naked_->ReleaseRef(); }
-        naked_ = other.naked_;
+        naked_ = naked;
         if (naked_) { naked_->AddRef(); }
     }
     
-    void operator = (Handle &&other) {
+    void operator = (const intrusive_ptr &other) { reset(other.naked_); }
+    
+    void operator = (intrusive_ptr &&other) {
         naked_ = other.naked_;
         other.naked_ = nullptr;
     }
@@ -45,27 +47,44 @@ public:
 
     bool operator ! () const { return !naked_; }
     
+    T &operator * () const { return *naked_; }
+    
     T *get() const { return naked_; }
     
     bool is_null() const { return naked_ == nullptr; }
     
     template<class S>
-    static Handle Make(S *naked) { return Handle<T>(naked); }
+    static intrusive_ptr Make(S *naked) { return intrusive_ptr<T>(naked); }
     
-    static Handle Null() { return Handle<T>(nullptr); }
+    static intrusive_ptr Null() { return intrusive_ptr<T>(nullptr); }
     
 private:
     T *naked_;
-}; // class Handle
+}; // class intrusive_ptr
     
 
 template<class T>
-inline bool operator == (const Handle<T> &lhs, const Handle<T> &rhs) {
+class atomic_intrusive_ptr final {
+public:
+    atomic_intrusive_ptr() : atomic_intrusive_ptr(nullptr) {}
+    
+    atomic_intrusive_ptr(T *naked)
+        : naked_(naked) {
+        if (naked_) { naked_->AddRef(); }
+    }
+    
+private:
+    std::atomic<T *> naked_;
+}; // class
+    
+
+template<class T>
+inline bool operator == (const intrusive_ptr<T> &lhs, const intrusive_ptr<T> &rhs) {
     return lhs.get() == rhs.get();
 }
     
 template<class T>
-inline Handle<T> MakeRef(T *naked) { return Handle<T>(naked); }
+inline intrusive_ptr<T> MakeRef(T *naked) { return intrusive_ptr<T>(naked); }
     
 class ReferenceCountable {
 public:

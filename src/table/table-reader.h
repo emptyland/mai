@@ -1,6 +1,7 @@
 #ifndef MAI_TABLE_TABLE_READER_H_
 #define MAI_TABLE_TABLE_READER_H_
 
+#include "reference-count.h"
 #include "base/base.h"
 #include "mai/error.h"
 #include <string_view>
@@ -21,6 +22,7 @@ class KeyFilter;
 namespace table {
     
 struct TableProperties;
+class  TablePropsBoundle;
 
 class TableReader {
 public:
@@ -42,9 +44,9 @@ public:
     
     virtual size_t ApproximateMemoryUsage() const = 0;
     
-    virtual std::shared_ptr<TableProperties> GetTableProperties() const = 0;
+    virtual base::intrusive_ptr<TablePropsBoundle> GetTableProperties() const = 0;
     
-    virtual std::shared_ptr<core::KeyFilter> GetKeyFilter() const = 0;
+    virtual base::intrusive_ptr<core::KeyFilter> GetKeyFilter() const = 0;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(TableReader);
 }; // class TableReader

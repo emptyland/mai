@@ -1,6 +1,7 @@
 #ifndef MAI_CORE_KEY_FILTER_H_
 #define MAI_CORE_KEY_FILTER_H_
 
+#include "reference-count.h"
 #include "base/base.h"
 #include <string>
 #include <string_view>
@@ -9,7 +10,7 @@ namespace mai {
     
 namespace core {
     
-class KeyFilter {
+class KeyFilter : public base::ReferenceCountable {
 public:
     KeyFilter() {}
     virtual ~KeyFilter() {}

@@ -30,8 +30,8 @@ public:
                       std::string_view *value,
                       std::string *scratch) override;
     virtual size_t ApproximateMemoryUsage() const override;
-    virtual std::shared_ptr<TableProperties> GetTableProperties() const override;
-    virtual std::shared_ptr<core::KeyFilter> GetKeyFilter() const override;
+    virtual base::intrusive_ptr<TablePropsBoundle> GetTableProperties() const override;
+    virtual base::intrusive_ptr<core::KeyFilter> GetKeyFilter() const override;
     
     Iterator *NewIndexIterator(const core::InternalKeyComparator *ikcmp);
     
@@ -50,9 +50,9 @@ private:
     uint64_t file_size_;
     bool checksum_verify_;
     
-    //std::unique_ptr<BlockIterator> index_iter_;
-    std::shared_ptr<TableProperties> table_props_;
-    std::shared_ptr<core::KeyFilter> bloom_filter_;
+    base::intrusive_ptr<TablePropsBoundle> table_props_boundle_;
+    const TableProperties *table_props_ = nullptr;
+    base::intrusive_ptr<core::KeyFilter> bloom_filter_;
 }; // class SstTableReader
     
 } // namespace table

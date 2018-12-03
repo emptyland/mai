@@ -1,6 +1,7 @@
 #ifndef MAI_TABLE_TABLE_H_
 #define MAI_TABLE_TABLE_H_
 
+#include "base/reference-count.h"
 #include "base/base.h"
 #include "mai/error.h"
 #include <stdint.h>
@@ -53,6 +54,20 @@ struct TableProperties final {
     std::string smallest_key;
     std::string largest_key;
 }; // struct FileProperties
+    
+
+class TablePropsBoundle final
+    : public base::ReferenceCounted<TablePropsBoundle> {
+public:
+    TablePropsBoundle() {}
+        
+    DEF_VAL_GETTER(TableProperties, data);
+    DEF_VAL_MUTABLE_GETTER(TableProperties, data);
+
+    DISALLOW_IMPLICIT_CONSTRUCTORS(TablePropsBoundle);
+private:
+    TableProperties data_;
+}; // class TablePropsBoundle
     
 
 class BlockHandle {

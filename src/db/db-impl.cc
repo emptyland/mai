@@ -38,7 +38,7 @@ public:
     
     virtual void Put(uint32_t cfid, std::string_view key,
                      std::string_view value) override {
-        base::Handle<core::MemoryTable> table;
+        base::intrusive_ptr<core::MemoryTable> table;
         EnsureGetTable(cfid, &table);
         
         if (!table.is_null()) {
@@ -51,7 +51,7 @@ public:
     }
     
     virtual void Delete(uint32_t cfid, std::string_view key) override {
-        base::Handle<core::MemoryTable> table;
+        base::intrusive_ptr<core::MemoryTable> table;
         EnsureGetTable(cfid, &table);
 
         if (!table.is_null()) {
@@ -65,7 +65,7 @@ public:
         return last_sequence_number_ + sequence_number_count_;
     }
     
-    bool EnsureGetTable(uint32_t cfid, base::Handle<core::MemoryTable> *table) {
+    bool EnsureGetTable(uint32_t cfid, base::intrusive_ptr<core::MemoryTable> *table) {
         ColumnFamilyImpl *impl = (cfid == 0) ? column_families_->GetDefault() :
             EnsureGetColumnFamily(cfid);
         if (filter_ && impl->redo_log_number() < redo_log_number_) {
@@ -98,9 +98,9 @@ private:
     
 
 struct GetContext {
-    std::vector<base::Handle<core::MemoryTable>> in_mem;
+    std::vector<base::intrusive_ptr<core::MemoryTable>> in_mem;
     core::SequenceNumber                         last_sequence_number;
-    base::Handle<ColumnFamilyImpl>               cfd;
+    base::intrusive_ptr<ColumnFamilyImpl>               cfd;
     Version                                     *current;
 }; // struct ReadContext
 
@@ -516,7 +516,7 @@ Iterator *DBImpl::NewInternalIterator(const ReadOptions &opts,
     std::vector<Iterator *> iters;
     iters.push_back(cfd->mutable_table()->NewIterator());
     
-    std::vector<base::Handle<core::MemoryTable>> in_mem;
+    std::vector<base::intrusive_ptr<core::MemoryTable>> in_mem;
     cfd->immutable_pipeline()->PeekAll(&in_mem);
     for (auto memtable : in_mem) {
         iters.push_back(memtable->NewIterator());
@@ -537,11 +537,6 @@ Iterator *DBImpl::NewInternalIterator(const ReadOptions &opts,
     // Memory table's iterator can cleanup itself reference count.
     return internal;
 }
-    
-//void DBImpl::TEST_MakeImmutablePipeline(ColumnFamily *cf) {
-//    ColumnFamilyImpl *cfd = DCHECK_NOTNULL(ColumnFamilyHandle::Cast(cf)->impl());
-//    cfd->MakeImmutablePipeline(factory_.get(), log_file_number_);
-//}
     
 void DBImpl::TEST_PrintFiles(ColumnFamily *cf) {
     GetContext ctx;
@@ -887,7 +882,7 @@ Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
     
     Error rs;
     VersionPatch patch;
-    base::Handle<core::MemoryTable> imm;
+    base::intrusive_ptr<core::MemoryTable> imm;
     while (cfd->immutable_pipeline()->Peek(&imm)) {
         DCHECK(!imm.is_null());
         rs = WriteLevel0Table(cfd->current(), &patch, imm.get());
@@ -929,8 +924,14 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
                                 table_cache_.get(), cfd));
     job->set_target_level(ctx->level + 1);
     job->set_compaction_point(cfd->compaction_point(ctx->level));
-    job->set_oldest_sequence_number(versions_->last_sequence_number());
+    job->set_input_version(ctx->input_version);
     job->set_target_file_number(versions_->GenerateFileNumber());
+    
+    if (snapshots_.empty()) {
+        job->set_smallest_snapshot(versions_->last_sequence_number());
+    } else {
+        job->set_smallest_snapshot(snapshots_.oldest()->sequence_number());
+    }
     
     for (auto fmd : ctx->inputs[0]) {
         Iterator *iter = table_cache_->NewIterator(ReadOptions{}, cfd,

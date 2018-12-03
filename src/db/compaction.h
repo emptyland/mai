@@ -27,10 +27,11 @@ public:
     DEF_PTR_GETTER_NOTNULL(const ColumnFamilyImpl, cfd);
     DEF_VAL_PROP_RW(int, target_level);
     DEF_VAL_PROP_RW(uint64_t, target_file_number);
-    DEF_VAL_PROP_RW(core::SequenceNumber, oldest_sequence_number);
+    DEF_VAL_PROP_RW(core::SequenceNumber, smallest_snapshot);
     DEF_VAL_PROP_RW(std::string, compaction_point)
     DEF_VAL_GETTER(std::vector<Iterator *>, original_input);
     DEF_VAL_MUTABLE_GETTER(std::vector<Iterator *>, original_input);
+    DEF_PTR_PROP_RW_NOTNULL2(Version, input_version);
     
     void AddInput(Iterator *iter) { original_input_.push_back(iter); }
     
@@ -41,9 +42,10 @@ private:
     const ColumnFamilyImpl *const cfd_;
     int target_level_;
     uint64_t target_file_number_;
-    core::SequenceNumber oldest_sequence_number_;
+    core::SequenceNumber smallest_snapshot_;
     std::string compaction_point_;
     std::vector<Iterator *> original_input_;
+    Version *input_version_;
 }; // class Compaction
     
 struct CompactionResult {
@@ -59,7 +61,7 @@ struct CompactionContext {
     int level = -1;
     Version *input_version = nullptr;
     VersionPatch patch;
-    std::vector<base::Handle<FileMetaData>> inputs[2];
+    std::vector<base::intrusive_ptr<FileMetaData>> inputs[2];
 }; // struct CompactionContext
     
 } // namespace db

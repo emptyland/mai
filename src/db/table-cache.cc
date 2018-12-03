@@ -16,7 +16,7 @@ TableCache::~TableCache() {}
 Iterator *TableCache::NewIterator(const ReadOptions &read_opts,
                                   const ColumnFamilyImpl *cfd,
                                   uint64_t file_number, uint64_t file_size) {
-    base::Handle<Entry> entry;
+    base::intrusive_ptr<Entry> entry;
     Error rs = EnsureTableCached(cfd, file_number, file_size, &entry);
     if (!rs) {
         return Iterator::AsError(rs);
@@ -28,28 +28,11 @@ Iterator *TableCache::NewIterator(const ReadOptions &read_opts,
     }
     return iter;
 }
-
-Error TableCache::GetFileMetadata(const ColumnFamilyImpl *cf,
-                                  uint64_t file_number, FileMetaData *fmd) {
-    base::Handle<Entry> entry;
-    Error rs = EnsureTableCached(cf, file_number, 0, &entry);
-    if (!rs) {
-        return rs;
-    }
-    fmd->number = file_number;
-    rs = entry->file->GetFileSize(&fmd->size);
-    if (!rs) {
-        return rs;
-    }
-    fmd->largest_key  = entry->table->GetTableProperties()->largest_key;
-    fmd->smallest_key = entry->table->GetTableProperties()->smallest_key;
-    return Error::OK();
-}
     
 Error
 TableCache::GetTableProperties(const ColumnFamilyImpl *cf, uint64_t file_number,
-                               std::shared_ptr<table::TableProperties> *props) {
-    base::Handle<Entry> entry;
+                               base::intrusive_ptr<table::TablePropsBoundle> *props) {
+    base::intrusive_ptr<Entry> entry;
     Error rs = EnsureTableCached(cf, file_number, 0, &entry);
     if (!rs) {
         return rs;
@@ -59,8 +42,8 @@ TableCache::GetTableProperties(const ColumnFamilyImpl *cf, uint64_t file_number,
 }
 
 Error TableCache::GetKeyFilter(const ColumnFamilyImpl *cf, uint64_t file_number,
-                               std::shared_ptr<core::KeyFilter> *filter) {
-    base::Handle<Entry> entry;
+                               base::intrusive_ptr<core::KeyFilter> *filter) {
+    base::intrusive_ptr<Entry> entry;
     Error rs = EnsureTableCached(cf, file_number, 0, &entry);
     if (!rs) {
         return rs;
@@ -71,7 +54,7 @@ Error TableCache::GetKeyFilter(const ColumnFamilyImpl *cf, uint64_t file_number,
     
 Error TableCache::EnsureTableCached(const ColumnFamilyImpl *cfd,
                                     uint64_t file_number, uint64_t file_size,
-                                    base::Handle<Entry> *result) {
+                                    base::intrusive_ptr<Entry> *result) {
     std::unique_lock<std::mutex> lock(mutex_);
     auto iter = cached_.find(file_number);
     if (iter != cached_.end()) {
@@ -79,7 +62,7 @@ Error TableCache::EnsureTableCached(const ColumnFamilyImpl *cfd,
         return Error::OK();
     }
     
-    base::Handle<Entry> entry(new Entry);
+    base::intrusive_ptr<Entry> entry(new Entry);
     entry->file_name = cfd->GetTableFileName(file_number);
     Error rs = env_->NewRandomAccessFile(entry->file_name, &entry->file,
                                          allow_mmap_reads_);

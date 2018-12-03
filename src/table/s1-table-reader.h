@@ -34,8 +34,8 @@ public:
                       std::string_view *value,
                       std::string *scratch) override;
     virtual size_t ApproximateMemoryUsage() const override;
-    virtual std::shared_ptr<TableProperties> GetTableProperties() const override;
-    virtual std::shared_ptr<core::KeyFilter> GetKeyFilter() const override;
+    virtual base::intrusive_ptr<TablePropsBoundle> GetTableProperties() const override;
+    virtual base::intrusive_ptr<core::KeyFilter> GetKeyFilter() const override;
     
 private:
     class IteratorImpl;
@@ -53,8 +53,9 @@ private:
     const bool checksum_verify_;
     
     std::vector<std::vector<Index>> index_;
-    std::shared_ptr<TableProperties> table_props_;
-    std::shared_ptr<core::KeyFilter> filter_;
+    base::intrusive_ptr<TablePropsBoundle> table_props_boundle_;
+    const TableProperties *table_props_ = nullptr;
+    base::intrusive_ptr<core::KeyFilter> filter_;
 }; // class S1TableReader
     
 } // namespace table

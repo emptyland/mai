@@ -206,11 +206,12 @@ Error SstTableReader::Prepare() {
     Error rs;
     TRY_RUN0(ReadBlock({position, file_size_ - 12 - position}, &result, &scatch));
     
-    table_props_.reset(new TableProperties);
-    TRY_RUN1(Table::ReadProperties(result, table_props_.get()));
-    if (table_props_->unordered) {
+    table_props_boundle_.reset(new TablePropsBoundle);
+    TRY_RUN1(Table::ReadProperties(result, table_props_boundle_->mutable_data()));
+    if (table_props_boundle_->data().unordered) {
         return MAI_CORRUPTION("SST table can not be unordered.");
     }
+    table_props_ = table_props_boundle_->mutable_data();
 
     // Indexs:
     if (checksum_verify_) {
@@ -283,16 +284,16 @@ SstTableReader::NewIterator(const ReadOptions &read_opts,
 
 /*virtual*/ size_t SstTableReader::ApproximateMemoryUsage() const {
     size_t usage = sizeof(*this);
-    usage += (table_props_ ? sizeof(TableProperties) : 0);
-    usage += (bloom_filter_ ? bloom_filter_->memory_usage() : 0);
+    usage += (!table_props_boundle_.is_null() ? sizeof(TablePropsBoundle) : 0);
+    usage += (!bloom_filter_.is_null() ? bloom_filter_->memory_usage() : 0);
     // TODO:
     return usage;
 }
 
-/*virtual*/ std::shared_ptr<TableProperties>
-SstTableReader::GetTableProperties() const { return table_props_; }
+/*virtual*/ base::intrusive_ptr<TablePropsBoundle>
+SstTableReader::GetTableProperties() const { return table_props_boundle_; }
 
-/*virtual*/ std::shared_ptr<core::KeyFilter>
+/*virtual*/ base::intrusive_ptr<core::KeyFilter>
 SstTableReader::GetKeyFilter() const { return bloom_filter_; }
     
 Iterator *

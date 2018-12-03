@@ -86,7 +86,7 @@ public:
         }
         BySmallestKey cmp{cf_->ikcmp()};
         for (auto i = 0; i < Config::kMaxLevel; i++) {
-            levels_[i].creation = std::set<base::Handle<FileMetaData>,
+            levels_[i].creation = std::set<base::intrusive_ptr<FileMetaData>,
             BySmallestKey>(cmp);
         }
     }
@@ -96,8 +96,8 @@ private:
         
         const core::InternalKeyComparator *ikcmp;
         
-        bool operator ()(const base::Handle<FileMetaData> &a,
-                         const base::Handle<FileMetaData> &b) const {
+        bool operator ()(const base::intrusive_ptr<FileMetaData> &a,
+                         const base::intrusive_ptr<FileMetaData> &b) const {
             int rv = ikcmp->Compare(a->smallest_key, b->smallest_key);
             if (rv != 0) {
                 return rv < 0;
@@ -109,12 +109,12 @@ private:
     
     struct FileEntry {
         std::set<uint64_t> deletion;
-        std::set<base::Handle<FileMetaData>, BySmallestKey> creation;
+        std::set<base::intrusive_ptr<FileMetaData>, BySmallestKey> creation;
     };
     
     VersionSet *owns_;
     FileEntry levels_[Config::kMaxLevel];
-    base::Handle<ColumnFamilyImpl> cf_;
+    base::intrusive_ptr<ColumnFamilyImpl> cf_;
 }; // class VersionBuilder
     
 
@@ -285,7 +285,7 @@ Error Version::Get(const ReadOptions &opts, std::string_view key,
     const core::KeyBoundle *const ikey
         = core::KeyBoundle::New(key, version, base::ScopedAllocator{&scope});
     
-    std::vector<base::Handle<FileMetaData>> maybe_files;
+    std::vector<base::intrusive_ptr<FileMetaData>> maybe_files;
     for (const auto &metadata : level_files(0)) {
         if (ikcmp->Compare(ikey->key(), metadata->smallest_key) >= 0 ||
             ikcmp->Compare(ikey->key(), metadata->largest_key) <= 0) {
@@ -294,8 +294,8 @@ Error Version::Get(const ReadOptions &opts, std::string_view key,
     }
     // The newest file should be first.
     std::sort(maybe_files.begin(), maybe_files.end(),
-              [](const base::Handle<FileMetaData> &a,
-                 const base::Handle<FileMetaData> &b) {
+              [](const base::intrusive_ptr<FileMetaData> &a,
+                 const base::intrusive_ptr<FileMetaData> &b) {
                   return a->ctime > b->ctime;
               });
     
@@ -358,7 +358,7 @@ Error Version::Get(const ReadOptions &opts, std::string_view key,
 void
 Version::GetOverlappingInputs(int level, std::string_view begin,
                               std::string_view end,
-                              std::vector<base::Handle<FileMetaData>> *inputs) {
+                              std::vector<base::intrusive_ptr<FileMetaData>> *inputs) {
     DCHECK_GE(level, 0);
     DCHECK_LT(level, Config::kMaxLevel);
     
@@ -368,7 +368,7 @@ Version::GetOverlappingInputs(int level, std::string_view begin,
     DCHECK_NOTNULL(inputs)->clear();
     const Comparator *ucmp = owns_->ikcmp()->ucmp();
     for (size_t i = 0; i < files_[level].size(); ++i) {
-        base::Handle<FileMetaData> fmd = files_[level][i];
+        base::intrusive_ptr<FileMetaData> fmd = files_[level][i];
         const std::string_view file_start =
             core::KeyBoundle::ExtractUserKey(fmd->smallest_key);
         const std::string_view file_limit =

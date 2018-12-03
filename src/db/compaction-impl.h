@@ -23,7 +23,8 @@ public:
                       CompactionResult *result) override;
     
 private:
-    Error EnsureKeyNotExists(int start_level, std::string_view key, bool *drop);
+    Error IsBaseLevelForKey(int start_level, std::string_view key,
+                            bool *may_exists);
     
     const std::string abs_db_path_;
     const core::InternalKeyComparator *const ikcmp_;

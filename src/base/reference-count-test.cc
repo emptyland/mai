@@ -28,7 +28,7 @@ public:
 } // namespace
     
 TEST(ReferenceCountTest, Sanity) {
-    auto h1 = Handle<RefTestStub>::Null();
+    auto h1 = intrusive_ptr<RefTestStub>::Null();
     ASSERT_TRUE(h1.is_null());
     ASSERT_TRUE(!h1);
 }
@@ -38,19 +38,19 @@ TEST(ReferenceCountTest, StaticRefCount) {
     
     ASSERT_FALSE(has_deleted);
     {
-        Handle<RefTestStub> stub(new RefTestStub{&has_deleted});
+        intrusive_ptr<RefTestStub> stub(new RefTestStub{&has_deleted});
         ASSERT_EQ(1, stub->ref_count());
         
-        Handle<RefTestStub> h1(stub);
+        intrusive_ptr<RefTestStub> h1(stub);
         ASSERT_EQ(2, stub->ref_count());
         ASSERT_EQ(2, h1->ref_count());
         ASSERT_TRUE(h1 == stub);
         
         bool has_deleted_stub = false;
-        auto h2 = Handle<RefTestStub>::Make(new RefTestStub{&has_deleted_stub});
+        auto h2 = intrusive_ptr<RefTestStub>::Make(new RefTestStub{&has_deleted_stub});
         ASSERT_FALSE(h2 == h1);
         
-        Handle<RefTestStub> h3 = std::move(h2);
+        intrusive_ptr<RefTestStub> h3 = std::move(h2);
         ASSERT_EQ(1, h3->ref_count());
     }
     ASSERT_TRUE(has_deleted);

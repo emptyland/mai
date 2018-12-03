@@ -30,6 +30,7 @@ public:
     }
     
     friend class SnapshotList;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(SnapshotImpl);
 private:
     core::SequenceNumber sequence_number_;
     SnapshotList *owns_;
@@ -67,6 +68,11 @@ public:
         delete x;
     }
     
+    SnapshotImpl *oldest() const { return dummy_->next_; }
+    
+    bool empty() const { return dummy_->next_ == dummy_; }
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(SnapshotList);
 private:
     static void Remove(SnapshotImpl *x) {
         x->prev_->next_ = x->next_;
