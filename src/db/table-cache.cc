@@ -29,11 +29,29 @@ Iterator *TableCache::NewIterator(const ReadOptions &read_opts,
     return iter;
 }
     
+Error TableCache::Get(const ReadOptions &read_opts, const ColumnFamilyImpl *cfd,
+                      uint64_t file_number, std::string_view key, core::Tag *tag,
+                      std::string *value) {
+    base::intrusive_ptr<Entry> entry;
+    Error rs = EnsureTableCached(cfd, file_number, 0, &entry);
+    if (!rs) {
+        return rs;
+    }
+    std::string_view result;
+    std::string scatch;
+    rs = entry->table->Get(read_opts, cfd->ikcmp(), key, tag, &result, &scatch);
+    if (!rs) {
+        return rs;
+    }
+    value->assign(result.data(), result.size());
+    return Error::OK();
+}
+    
 Error
-TableCache::GetTableProperties(const ColumnFamilyImpl *cf, uint64_t file_number,
+TableCache::GetTableProperties(const ColumnFamilyImpl *cfd, uint64_t file_number,
                                base::intrusive_ptr<table::TablePropsBoundle> *props) {
     base::intrusive_ptr<Entry> entry;
-    Error rs = EnsureTableCached(cf, file_number, 0, &entry);
+    Error rs = EnsureTableCached(cfd, file_number, 0, &entry);
     if (!rs) {
         return rs;
     }
@@ -41,10 +59,10 @@ TableCache::GetTableProperties(const ColumnFamilyImpl *cf, uint64_t file_number,
     return Error::OK();
 }
 
-Error TableCache::GetKeyFilter(const ColumnFamilyImpl *cf, uint64_t file_number,
+Error TableCache::GetKeyFilter(const ColumnFamilyImpl *cfd, uint64_t file_number,
                                base::intrusive_ptr<core::KeyFilter> *filter) {
     base::intrusive_ptr<Entry> entry;
-    Error rs = EnsureTableCached(cf, file_number, 0, &entry);
+    Error rs = EnsureTableCached(cfd, file_number, 0, &entry);
     if (!rs) {
         return rs;
     }

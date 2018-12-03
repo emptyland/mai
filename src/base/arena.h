@@ -45,7 +45,7 @@ public:
     
     void *NewNormal(size_t size, size_t alignment);
 
-    typedef ArenaStatistics Statistics;
+    using Statistics = ArenaStatistics;
     
     void GetUsageStatistics(std::vector<Statistics> *normal,
                             std::vector<Statistics> *large) const;

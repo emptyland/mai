@@ -280,7 +280,52 @@ Error Version::Get(const ReadOptions &opts, std::string_view key,
                    core::SequenceNumber version, core::Tag *tag,
                    std::string *value) {
     const core::InternalKeyComparator *const ikcmp = owns_->ikcmp();
+    std::string ikey = core::KeyBoundle::MakeKey(key, version,
+                                                 core::Tag::kFlagValueForSeek);
     
+    std::vector<base::intrusive_ptr<FileMetaData>> l0_files;
+    for (const auto &fmd : level_files(0)) {
+        if (ikcmp->Compare(ikey, fmd->smallest_key) >= 0 ||
+            ikcmp->Compare(ikey, fmd->largest_key) <= 0) {
+            l0_files.push_back(fmd);
+        }
+    }
+    // The newest file should be first.
+    std::sort(l0_files.begin(), l0_files.end(),
+              [](const auto &a, const auto &b) {
+                  return a->ctime > b->ctime;
+              });
+    
+    TableCache *const table_cache = owns_->owns()->table_cache();
+    for (const auto &fmd : l0_files) {
+        Error rs = table_cache->Get(opts, owns_, fmd->number, ikey, tag, value);
+        if (rs.ok()) {
+            return rs;
+        } else if (!rs.IsNotFound()) {
+            return rs;
+        }
+    }
+    for (int i = 1; i < Config::kMaxLevel; ++i) {
+        if (level_files(i).empty()) {
+            continue;
+        }
+        
+        for (const auto &fmd : level_files(i)) {
+            if (ikcmp->Compare(ikey, fmd->smallest_key) >= 0 ||
+                ikcmp->Compare(ikey, fmd->largest_key) <= 0) {
+                Error rs = table_cache->Get(opts, owns_, fmd->number, ikey, tag,
+                                            value);
+                if (rs.ok()) {
+                    return rs;
+                } else if (!rs.IsNotFound()) {
+                    return rs;
+                }
+            }
+        }
+    }
+    return MAI_NOT_FOUND("No any file has key.");
+    
+#if 0
     base::ScopedMemory scope;
     const core::KeyBoundle *const ikey
         = core::KeyBoundle::New(key, version, base::ScopedAllocator{&scope});
@@ -314,7 +359,7 @@ Error Version::Get(const ReadOptions &opts, std::string_view key,
     if (maybe_files.empty()) {
         return MAI_NOT_FOUND("No files");
     }
-    
+
     std::vector<Iterator*> iters;
     for (const auto &fmd : maybe_files) {
         Iterator *iter =
@@ -353,6 +398,7 @@ Error Version::Get(const ReadOptions &opts, std::string_view key,
     value->assign(merger->value());
     if (tag) { *tag = tkey.tag; }
     return Error::OK();
+#endif
 }
     
 void

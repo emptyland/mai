@@ -19,13 +19,13 @@ namespace test {
     
 class TableTest : public ::testing::Test {
 public:
-    typedef
-    std::function<table::TableBuilder *(const core::InternalKeyComparator *,
-                                        WritableFile *file)> TableBuilderFactory;
-    
-    typedef
-    std::function<table::TableReader *(RandomAccessFile *,
-                                       uint64_t)> TableReaderFactory;
+    using TableBuilderFactory =
+        std::function<table::TableBuilder *(const core::InternalKeyComparator *,
+                                            WritableFile *file)>;
+
+    using TableReaderFactory =
+        std::function<table::TableReader *(RandomAccessFile *,
+                                           uint64_t)>;
     
     TableTest()
         : ikcmp_(Comparator::Bytewise()) {}

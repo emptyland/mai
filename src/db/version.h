@@ -186,8 +186,8 @@ public:
         base::intrusive_ptr<FileMetaData> file_metadata;
     };
     
-    typedef std::vector<FileCreation> FileCreationCollection;
-    typedef std::vector<FileDeletion> FileDeletionCollection;
+    using FileCreationCollection = std::vector<FileCreation>;
+    using FileDeletionCollection = std::vector<FileDeletion>;
     
     DEF_VAL_GETTER(uint32_t, max_column_family);
     //DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);

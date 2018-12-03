@@ -30,8 +30,8 @@ struct CompactionContext;
 
 class ColumnFamilyImpl final {
 public:
-    typedef core::PipelineQueue<base::intrusive_ptr<core::MemoryTable>>
-        ImmutablePipeline;
+    using ImmutablePipeline =
+        core::PipelineQueue<base::intrusive_ptr<core::MemoryTable>>;
     
     ColumnFamilyImpl(const std::string &name, uint32_t id,
                      const ColumnFamilyOptions &options,

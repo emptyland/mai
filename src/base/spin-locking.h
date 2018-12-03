@@ -11,8 +11,8 @@ namespace base {
 #define SPIN_LOCK_INIT 0
 #define RW_SPIN_LOCK_INIT (::mai::base::RWSpinLocking::kLockBais)
 
-typedef std::atomic<int> SpinMutex;
-typedef std::atomic<int> SpinRwMutex;
+using SpinMutex = std::atomic<int>;
+using SpinRwMutex = std::atomic<int>;
 
 struct SpinLocking final {
     constexpr static const int kSpinCount = 2 * 1024;

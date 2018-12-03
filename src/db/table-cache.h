@@ -44,6 +44,10 @@ public:
                           const ColumnFamilyImpl *cfd, uint64_t file_number,
                           uint64_t file_size);
     
+    Error Get(const ReadOptions &read_opts, const ColumnFamilyImpl *cfd,
+              uint64_t file_number, std::string_view key, core::Tag *tag,
+              std::string *value);
+    
     Error GetTableProperties(const ColumnFamilyImpl *cfd, uint64_t file_number,
                              base::intrusive_ptr<table::TablePropsBoundle> *props);
     

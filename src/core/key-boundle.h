@@ -12,7 +12,7 @@ namespace mai {
     
 namespace core {
     
-typedef uint64_t SequenceNumber;
+using SequenceNumber = uint64_t;
     
 class Tag {
 public:

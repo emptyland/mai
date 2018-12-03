@@ -41,7 +41,7 @@ private:
     };
     class IteratorImpl;
     
-    typedef HashMap<const KeyBoundle *, KeyComparator> Table;
+    using Table = HashMap<const KeyBoundle *, KeyComparator>;
 
     const InternalKeyComparator *const ikcmp_;
     std::atomic<size_t> mem_usage_;

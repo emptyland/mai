@@ -35,7 +35,7 @@ private:
             return ikcmp->Compare(lhs->key(), rhs->key());
         }
     }; // struct KeyComparator
-    typedef SkipList<const KeyBoundle *, KeyComparator> Table;
+    using Table = SkipList<const KeyBoundle *, KeyComparator>;
     
     class IteratorImpl;
     

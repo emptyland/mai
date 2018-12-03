@@ -14,7 +14,7 @@ namespace core {
 
 class SkipListTest : public ::testing::Test {
 public:
-    typedef SkipList<int, std::function<int (int, int)>> IntSkipList;
+    using IntSkipList = SkipList<int, std::function<int (int, int)>>;
     
     void SetUp() override {
         arena_.reset(new base::Arena(Env::Default()->GetLowLevelAllocator()));
