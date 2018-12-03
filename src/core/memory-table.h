@@ -14,7 +14,7 @@ namespace core {
 class MemoryTable : public base::ReferenceCountable {
 public:
     MemoryTable() {}
-    virtual ~MemoryTable() {}
+    virtual ~MemoryTable();
     
     virtual void Put(std::string_view key, std::string_view value,
                      SequenceNumber version, uint8_t flag) = 0;
@@ -27,6 +27,8 @@ public:
     virtual size_t ApproximateMemoryUsage() const = 0;
     
     virtual float ApproximateConflictFactor() const = 0;
+    
+    virtual bool KeyExists(std::string_view key, SequenceNumber version) const;
     
     DEF_VAL_PROP_RW(uint64_t, associated_file_number);
 

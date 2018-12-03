@@ -19,14 +19,19 @@ using ::mai::core::ParsedTaggedKey;
 using ::mai::core::Merging;
 using ::mai::core::SequenceNumber;
     
-    
+
+// REQUIRED: External lock
 CompactionImpl::CompactionImpl(const std::string abs_db_path,
                                const core::InternalKeyComparator *ikcmp,
                                TableCache *table_cache, ColumnFamilyImpl *cfd)
     : Compaction(cfd)
     , abs_db_path_(abs_db_path)
     , ikcmp_(DCHECK_NOTNULL(ikcmp))
-    , table_cache_(DCHECK_NOTNULL(table_cache)) {}
+    , table_cache_(DCHECK_NOTNULL(table_cache)) {
+
+    in_mem_.push_back(cfd->mutable_table());
+    cfd->immutable_pipeline()->PeekAll(&in_mem_);
+}
     
 /*virtual*/ CompactionImpl::~CompactionImpl() {
     for (auto iter : original_input()) {
@@ -65,13 +70,11 @@ CompactionImpl::CompactionImpl(const std::string abs_db_path,
             last_sequence_for_key = Tag::kMaxSequenceNumber;
         }
 
-        if (last_sequence_for_key <= smallest_snapshot()) {
+        if (IsBaseMemoryForKey(ikey.user_key)) {
+            // Has newner versions, can drop old versions.
             drop = true;
-        } else if (ikey.tag.flag() == Tag::kFlagValue &&
-                   ikey.tag.sequence_number() <= smallest_snapshot()) {
-            // TODO:
-            // If key flag is value and has new version in memory table,
-            // Can drop it.
+        } else if (last_sequence_for_key <= smallest_snapshot()) {
+            drop = true;
         } else if (ikey.tag.flag() == Tag::kFlagDeletion &&
             ikey.tag.sequence_number() <= smallest_snapshot()) {
             // If key flag is deletion and has no oldest versions,
@@ -153,6 +156,15 @@ Error CompactionImpl::IsBaseLevelForKey(int start_level, std::string_view key,
         }
     }
     return Error::OK();
+}
+    
+bool CompactionImpl::IsBaseMemoryForKey(std::string_view key) const {
+    for (const auto &table : in_mem_) {
+        if (table->KeyExists(key, Tag::kMaxSequenceNumber)) {
+            return true;
+        }
+    }
+    return false;
 }
     
 } // namespace db

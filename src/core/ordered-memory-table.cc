@@ -8,7 +8,7 @@ namespace core {
     
 class OrderedMemoryTable::IteratorImpl final : public Iterator {
 public:
-    IteratorImpl(OrderedMemoryTable *omt)
+    IteratorImpl(const OrderedMemoryTable *omt)
         : iter_(&omt->table_) {}
     
     virtual bool Valid() const override { return iter_.Valid(); }
