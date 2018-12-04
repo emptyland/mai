@@ -20,9 +20,6 @@ struct ColumnFamilyOptions {
     // conflict-factor > conflict_factor_limit
     float conflict_factor_limit = 3.0;
     
-    // Should fixed the hash table slots size?
-    bool fixed_number_of_slots = false;
-    
     // 40MB
     size_t write_buffer_size = 40 * 1024 * 1024;
     

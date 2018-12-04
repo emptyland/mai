@@ -77,7 +77,8 @@ private:
     Error RenewLogger();
     Error Redo(uint64_t log_file_number,
                core::SequenceNumber last_sequence_number,
-               core::SequenceNumber *update_sequence_number);
+               core::SequenceNumber *update_sequence_number,
+               bool filter);
     Error PrepareForGet(const ReadOptions &opts, ColumnFamily *cf,
                         GetContext *ctx);
     Error Write(const WriteOptions &opts, ColumnFamily *cf,

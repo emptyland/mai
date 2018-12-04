@@ -99,7 +99,7 @@ ColumnFamilyImpl::ColumnFamilyImpl(const std::string &name, uint32_t id,
         DCHECK_EQ(1, mutable_->ref_count());
     }
     immutable_pipeline_.Foreach([](const auto &table) {
-        DCHECK_EQ(1, table->ref_count());
+        //DCHECK_EQ(1, table->ref_count());
     });
 #endif
 
@@ -120,13 +120,10 @@ void ColumnFamilyImpl::MakeImmutablePipeline(Factory *factory,
     mutable_->set_associated_file_number(redo_log_number);
     immutable_pipeline_.Add(mutable_);
     
-    size_t new_num_slots = options_.number_of_hash_slots;
-    if (options().fixed_number_of_slots) {
-        new_num_slots =
+    size_t new_num_slots =
             Config::ComputeNumSlots(0, last_num_slots_,
                                     mutable_->ApproximateConflictFactor(),
                                     Config::kLimitMinNumberSlots);
-    }
     DCHECK_GE(new_num_slots, Config::kLimitMinNumberSlots);
     mutable_ = factory->NewMemoryTable(&ikcmp_,
                                        owns_->env()->GetLowLevelAllocator(),

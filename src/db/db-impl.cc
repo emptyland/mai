@@ -266,7 +266,9 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
         }
     }
     
+    // Should replay all column families's redo log file.
     std::set<uint64_t> numbers;
+    uint64_t max_number = 0;
     for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
         if (!cfd->initialized()) {
             rs = cfd->Install(factory_.get());
@@ -276,26 +278,36 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
         }
         DLOG(INFO) << "Column family: " << cfd->name() << " installed.";
         numbers.insert(cfd->redo_log_number());
+        if (cfd->redo_log_number() > max_number) {
+            max_number = cfd->redo_log_number();
+        }
+    }
+    // Add undumped log files.
+    for (auto iter = history.upper_bound(max_number); iter != history.end();
+         iter++) {
+        numbers.insert(iter->first);
+        max_number = iter->first;
     }
     
     DCHECK_GE(history.size(), numbers.size());
     core::SequenceNumber last = 0, update = 0;
     for (uint64_t number: numbers) {
         last = history[number];
-        rs = Redo(number, last, &update);
+        // The newest redo log file filter is not need.
+        rs = Redo(number, last, &update, max_number != number);
         if (!rs) {
             return rs;
         }
-        //last = update;
-        log_file_number_ = number; // The last one is biggest(new) number
     }
+    log_file_number_ = max_number; // The max one is newest file.
     DCHECK_GE(update, versions_->last_sequence_number());
     versions_->AddSequenceNumber(update - versions_->last_sequence_number());
     DLOG(INFO) << "Replay ok, last version: "
                << versions_->last_sequence_number();
 
     rs = env_->NewWritableFile(Files::LogFileName(abs_db_path_,
-                                                  log_file_number_), true,
+                                                  log_file_number_),
+                               true,
                                &log_file_);
     if (!rs) {
         return rs;
@@ -612,7 +624,8 @@ Error DBImpl::RenewLogger() {
     
 Error DBImpl::Redo(uint64_t log_file_number,
                    core::SequenceNumber last_sequence_number,
-                   core::SequenceNumber *update_sequence_number) {
+                   core::SequenceNumber *update_sequence_number,
+                   bool filter) {
     std::unique_ptr<SequentialFile> file;
     std::string log_file_name = Files::LogFileName(abs_db_path_, log_file_number);
     Error rs = env_->NewSequentialFile(log_file_name, &file, options_.allow_mmap_reads);
@@ -623,7 +636,7 @@ Error DBImpl::Redo(uint64_t log_file_number,
     
     std::string_view result;
     std::string scatch;
-    WritingHandler handler(log_file_number, true, last_sequence_number + 1,
+    WritingHandler handler(log_file_number, filter, last_sequence_number + 1,
                            versions_->column_families());
     while (logger.Read(&result, &scatch)) {
         rs = WriteBatch::Iterate(result.data(), result.size(), &handler);
@@ -911,27 +924,24 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
     DCHECK_GE(ctx->level, 0);
     DCHECK_LT(ctx->level, Config::kMaxLevel - 1);
     
-    size_t new_num_slots = cfd->options().number_of_hash_slots;
-    if (!cfd->options().fixed_number_of_slots) {
-        base::intrusive_ptr<table::TablePropsBoundle> boundle;
-        size_t n_entries = 0;
-        for (auto fmd : ctx->inputs[0]) {
-            Error rs = table_cache_->GetTableProperties(cfd, fmd->number, &boundle);
-            if (!rs) {
-                return rs;
-            }
-            n_entries += boundle->data().num_entries;
+    base::intrusive_ptr<table::TablePropsBoundle> boundle;
+    size_t n_entries = 0;
+    for (auto fmd : ctx->inputs[0]) {
+        Error rs = table_cache_->GetTableProperties(cfd, fmd->number, &boundle);
+        if (!rs) {
+            return rs;
         }
-        for (auto fmd : ctx->inputs[1]) {
-            Error rs = table_cache_->GetTableProperties(cfd, fmd->number, &boundle);
-            if (!rs) {
-                return rs;
-            }
-            n_entries += boundle->data().num_entries;
-        }
-        new_num_slots = Config::ComputeNumSlots(ctx->level + 1, n_entries,
-                                                Config::kLimitMinNumberSlots);
+        n_entries += boundle->data().num_entries;
     }
+    for (auto fmd : ctx->inputs[1]) {
+        Error rs = table_cache_->GetTableProperties(cfd, fmd->number, &boundle);
+        if (!rs) {
+            return rs;
+        }
+        n_entries += boundle->data().num_entries;
+    }
+    size_t new_num_slots = Config::ComputeNumSlots(ctx->level + 1, n_entries,
+                                                   Config::kLimitMinNumberSlots);
     
     std::unique_ptr<Compaction>
     job(factory_->NewCompaction(abs_db_path_, cfd->ikcmp(),
@@ -984,7 +994,8 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
                                       file.get(),
                                       cfd->options().block_size,
                                       cfd->options().block_restart_interval,
-                                      new_num_slots));
+                                      new_num_slots,
+                                      n_entries));
     CompactionResult result;
     mutex_.unlock();
     rs = job->Run(builder.get(), &result); // FIXME:
@@ -1034,18 +1045,17 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
     }
     
     ColumnFamilyImpl *cfd = current->owns();
-    size_t new_num_slots = cfd->options().number_of_hash_slots;
-    if (!cfd->options().fixed_number_of_slots) {
-        new_num_slots = Config::ComputeNumSlots(0, table->NumEntries(),
-                                                Config::kLimitMinNumberSlots);
-    }
+    size_t new_num_slots = Config::ComputeNumSlots(0, table->NumEntries(),
+                                                   Config::kLimitMinNumberSlots);
+
     std::unique_ptr<table::TableBuilder>
         builder(factory_->NewTableBuilder(cfd->options().use_unordered_table ?
                                           "s1t" : "sst",
                                           cfd->ikcmp(),
                                           file.get(), cfd->options().block_size,
                                           cfd->options().block_restart_interval,
-                                          new_num_slots));
+                                          new_num_slots,
+                                          table->NumEntries()));
     std::string largest_key, smallest_key;
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
         builder->Add(iter->key(), iter->value());

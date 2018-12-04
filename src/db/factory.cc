@@ -67,7 +67,8 @@ public:
     NewTableBuilder(const std::string &name,
                     const core::InternalKeyComparator *ikcmp,
                     WritableFile *file, uint64_t block_size, int n_restart,
-                    size_t max_hash_slots) override {
+                    size_t max_hash_slots,
+                    size_t approximated_n_entries) override {
         if (name.compare("s1t") == 0) {
             return new table::S1TableBuilder(ikcmp, file, max_hash_slots,
                                              static_cast<uint32_t>(block_size));

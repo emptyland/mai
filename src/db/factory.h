@@ -42,7 +42,8 @@ public:
     NewTableBuilder(const std::string &name,
                     const core::InternalKeyComparator *ikcmp,
                     WritableFile *file, uint64_t block_size, int n_restart,
-                    size_t max_hash_slots) = 0;
+                    size_t max_hash_slots,
+                    size_t approximated_n_entries) = 0;
     
     virtual Compaction *
     NewCompaction(const std::string &abs_db_path,
