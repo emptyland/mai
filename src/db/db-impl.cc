@@ -438,7 +438,7 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     
     WritingHandler handler(0, false, last_version + 1,
                            versions_->column_families());
-    updates->Iterate(&handler); // Internal locking
+    updates->Iterate(&handler);
     
     versions_->AddSequenceNumber(handler.sequence_number_count());
     return Error::OK();

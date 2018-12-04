@@ -52,6 +52,8 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/13-db-ordered-cf-recovery",
     "tests/14-db-unordered-put-unordered-cf",
     "tests/15-db-snapshot-get",
+    "tests/16-db-two-cf-write",
+    "tests/17-db-cocurrent-get",
     nullptr,
 };
     
@@ -721,6 +723,147 @@ TEST_F(DBImplTest, SnapshotGetting) {
             ASSERT_TRUE(rs.IsNotFound());
         }
     }
+}
+    
+TEST_F(DBImplTest, TwoCFWriting) {
+    std::vector<ColumnFamilyDescriptor> descs;
+    ColumnFamilyDescriptor desc;
+    desc.name = kDefaultColumnFamilyName;
+    //desc.options.use_unordered_table = true;
+    descs.push_back(desc);
+    desc.name = "cf1";
+    //desc.options.use_unordered_table = true;
+    descs.push_back(desc);
+    
+    Options options;
+    options.create_if_missing = true;
+    
+    static const auto kN = 1024 * 100 ;
+    
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[16], options_));
+    ColumnFamilyCollection scope(impl.get());
+    auto rs = impl->Open(descs, scope.ReceiveAll());
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    auto jiffies = env_->CurrentTimeMicros();
+    auto cf0 = scope.GetOrNull(kDefaultColumnFamilyName);
+    auto cf1 = scope.GetOrNull("cf1");
+    WriteBatch batch;
+    for (int i = 0; i < kN; ++i) {
+        std::string key,val;
+        if (i < kN / 2) {
+            key = base::Slice::Sprintf("cf0.key.%d", i);
+            val = base::Slice::Sprintf("cf0.val.%d", i);
+
+            batch.Put(cf0, key, val);
+        }
+
+        key = base::Slice::Sprintf("cf1.key.%d", i);
+        val = base::Slice::Sprintf("cf1.val.%d", i);
+        
+        batch.Put(cf1, key, val);
+        
+        if (batch.redo().size() > 10 * base::kMB) {
+            rs = impl->Write(WriteOptions{}, &batch);
+            ASSERT_TRUE(rs.ok()) << rs.ToString();
+            batch.Clear();
+        }
+    }
+    if (batch.redo().size() > 0) {
+        rs = impl->Write(WriteOptions{}, &batch);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+    }
+    printf("Putting cost: %f ms\n",
+           (env_->CurrentTimeMicros() - jiffies) / 1000.0f);
+    
+    //----------------Recovery--------------------------------------------------
+    
+    scope.ReleaseAll();
+    impl.reset(new DBImpl(tmp_dirs[16], options));
+    scope.Reset(impl.get());
+    
+    rs = impl->Open(descs, scope.ReceiveAll());
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    jiffies = env_->CurrentTimeMicros();
+    cf0 = scope.GetOrNull(kDefaultColumnFamilyName);
+    cf1 = scope.GetOrNull("cf1");
+    std::string value;
+    for (int i = 0; i < kN; ++i) {
+        std::string key,val;
+        if (i < kN / 2) {
+            key = base::Slice::Sprintf("cf0.key.%d", i);
+            val = base::Slice::Sprintf("cf0.val.%d", i);
+            
+            rs = impl->Get(ReadOptions{}, cf0, key, &value);
+            ASSERT_TRUE(rs.ok()) << rs.ToString();
+            ASSERT_EQ(val, value);
+        }
+        
+        key = base::Slice::Sprintf("cf1.key.%d", i);
+        val = base::Slice::Sprintf("cf1.val.%d", i);
+        
+        rs = impl->Get(ReadOptions{}, cf1, key, &value);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        ASSERT_EQ(val, value);
+    }
+    printf("getting cost: %f ms\n",
+           (env_->CurrentTimeMicros() - jiffies) / 1000.0f);
+}
+    
+TEST_F(DBImplTest, CocurrentGetting) {
+    static const auto kN = 1024 * 102;
+    
+    std::vector<ColumnFamilyDescriptor> descs;
+    ColumnFamilyDescriptor desc;
+    desc.name = kDefaultColumnFamilyName;
+    //desc.options.use_unordered_table = true;
+    descs.push_back(desc);
+    //desc.name = "cf1";
+    //desc.options.use_unordered_table = true;
+    //descs.push_back(desc);
+    
+    Options options;
+    options.create_if_missing = true;
+    
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[17], options_));
+    ColumnFamilyCollection scope(impl.get());
+    auto rs = impl->Open(descs, scope.ReceiveAll());
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    std::string val(10240, 'F');
+    auto cf0 = impl->DefaultColumnFamily();
+    std::atomic<int> current_n(0);
+    std::thread wr_thrd([&] () {
+        for (int i = 0; i < kN; ++i) {
+            std::string key = base::Slice::Sprintf("key.%d", i);
+
+            Error rs = impl->Put(WriteOptions{}, cf0, key, val);
+            ASSERT_TRUE(rs.ok()) << rs.ToString();
+            
+            current_n.store(i, std::memory_order_release);
+        }
+    });
+    
+    std::string value;
+    while (true) {
+        auto n = current_n.load(std::memory_order_acquire);
+        if (n == 0) {
+            continue;
+        }
+
+        for (int i = 0; i < 10; i++) {
+            std::string key = base::Slice::Sprintf("key.%d", rand() % n);
+            Error rs = impl->Get(ReadOptions{}, cf0, key, &value);
+            ASSERT_TRUE(rs.ok()) << rs.ToString();
+        }
+        if (n >= kN - 1) {
+            break;
+        }
+    }
+    wr_thrd.join();
+    
+    impl->TEST_PrintFiles(cf0);
 }
     
 } // namespace db
