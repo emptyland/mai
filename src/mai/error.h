@@ -14,7 +14,14 @@ public:
         : Error(other.filename_, other.fileline_, other.code(), other.message()) {
     }
     
-    Error(Error &&other) : state_(other.state_) { other.state_ = nullptr; }
+    Error(Error &&other)
+        : filename_(other.filename_)
+        , fileline_(other.fileline_)
+        , state_(other.state_) {
+        other.filename_ = nullptr;
+        other.fileline_ = 0;
+        other.state_ = nullptr;
+    }
     
     ~Error() { delete [] state_; }
     

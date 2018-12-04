@@ -601,6 +601,37 @@ TEST_F(DBImplTest, OrderedColumnFamilyRecovery) {
     printf("total size: %lu cost: %f ms\n", total_size,
            (env_->CurrentTimeMicros() - jiffies) / 1000.0f);
     impl->TEST_PrintFiles(cf0);
+    
+    //----------------Recovery--------------------------------------------------
+    
+    scope.ReleaseAll();
+    impl.reset(new DBImpl(tmp_dirs[13], options));
+    scope.Reset(impl.get());
+    
+    rs = impl->Open(descs_, scope.ReceiveAll());
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    cf0 = impl->DefaultColumnFamily();
+    
+    std::string value;
+    rs = impl->Get(ReadOptions{}, cf0, "k.1000000", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = impl->Get(ReadOptions{}, cf0, "k.999999", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = impl->Get(ReadOptions{}, cf0, "k.0", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = impl->Get(ReadOptions{}, cf0, base::Slice::Sprintf("k.%d", kN - 1),
+                   &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    for (int i = 0; i < 1000; ++i) {
+        std::string key = base::Slice::Sprintf("k.%d", rand() % kN);
+        
+        rs = impl->Get(ReadOptions{}, cf0, key, &value);
+        ASSERT_TRUE(rs.ok()) << rs.ToString() << " : " << key;
+    }
 }
     
 TEST_F(DBImplTest, UnorderedPutUnorderedCF) {
