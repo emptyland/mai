@@ -13,7 +13,7 @@ namespace base {
 /*virtual*/ Arena::~Arena() {
     while (current_) {
         PageHead *x = current_;
-        current_ = x->next;
+        current_ = x->next.load(std::memory_order_relaxed);
 #if defined(DEBUG) || defined(_DEBUG)
         Round32BytesFill(kFreeZag, x, kPageSize);
 #endif
@@ -21,7 +21,7 @@ namespace base {
     }
     while (large_) {
         PageHead *x = large_;
-        large_ = x->next;
+        large_ = x->next.load(std::memory_order_relaxed);
         size_t page_size = x->u.size;
 #if defined(DEBUG) || defined(_DEBUG)
         Round32BytesFill(kFreeZag, x, page_size);
@@ -62,10 +62,12 @@ void *Arena::NewNormal(size_t size, size_t alignment) {
         result = page->u.free.fetch_add(alloc_size);
         current_.store(page, std::memory_order_relaxed);
         root->u.free -= alloc_size;
+        
+        memory_usage_.fetch_add(kPageSize);
     }
     return result;
 }
-    
+
 void Arena::GetUsageStatistics(std::vector<Statistics> *normal,
                                std::vector<Statistics> *large) const {
     

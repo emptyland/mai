@@ -113,7 +113,7 @@ private:
 template<class T>
 class ReferenceCounted {
 public:
-    ReferenceCounted() {}
+    ReferenceCounted() : ref_count_(0) {}
     ~ReferenceCounted() {}
     
     void AddRef() const {

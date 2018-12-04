@@ -81,6 +81,10 @@ TEST_F(ArenaTest, CocurrentFuzzAllocation) {
             }
         });
     }
+    for (int i = 0; i < 1024; ++i) {
+        auto memory_usage = arena.memory_usage();
+        DCHECK_EQ(0, memory_usage % Arena::kPageSize);
+    }
     for (int i = 0; i < arraysize(worker_thrds); ++i) {
         worker_thrds[i].join();
     }

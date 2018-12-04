@@ -14,10 +14,7 @@ public:
         : Error(other.filename_, other.fileline_, other.code(), other.message()) {
     }
     
-    Error(Error &&other)
-        : Error(other.filename_, other.fileline_, other.code(), other.message()) {
-        other.state_ = nullptr;
-    }
+    Error(Error &&other) : state_(other.state_) { other.state_ = nullptr; }
     
     ~Error() { delete [] state_; }
     
@@ -71,6 +68,8 @@ public:
     
     bool IsEof() const { return code() == kEOF; }
     
+    bool IsBusy() const { return code() == kBusy; }
+    
     std::string_view message() const {
         return ok() ? ""
         : std::string_view(state_ + 8, *reinterpret_cast<const int *>(state_));
@@ -84,6 +83,15 @@ public:
         delete [] state_;
         state_ = MakeState(other.code(), other.message());
     }
+    
+//    void operator = (Error &&other) {
+//        filename_ = other.filename_;
+//        other.filename_ = nullptr;
+//        fileline_ = other.fileline_;
+//        other.fileline_ = 0;
+//        state_ = other.state_;
+//        other.state_ = nullptr;
+//    }
     
 private:
     enum Code: int {

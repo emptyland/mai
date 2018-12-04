@@ -13,9 +13,10 @@ namespace base {
     
 struct ArenaStatistics;
     
+// All methods is thread safe and lock-free
 class Arena final : public Allocator {
 public:
-    static const int kPageSize = 4 * base::kKB;
+    static const int kPageSize = 16 * base::kKB;
     static const int kAlignment = sizeof(void *);
     
     static const uint32_t kInitZag;
@@ -24,11 +25,14 @@ public:
     Arena(Allocator *low_level)
         : low_level_alloc_(DCHECK_NOTNULL(low_level))
         , current_(NewPage(kPageSize))
-        , large_(nullptr) {}
+        , large_(nullptr)
+        , memory_usage_(kPageSize) // The initialize size is one page.
+    {
+    }
     
     virtual ~Arena() override;
     
-    virtual void *Allocate(size_t size, size_t alignment) override;
+    virtual void *Allocate(size_t size, size_t alignment = sizeof(max_align_t)) override;
     
     virtual void Free(const void */*chunk*/, size_t /*size*/) override {}
     
@@ -40,12 +44,13 @@ public:
         }
         page->u.size = alloc_size;
         Link(&large_, page);
+        memory_usage_.fetch_add(alloc_size);
         return static_cast<void *>(page + 1);
     }
     
     void *NewNormal(size_t size, size_t alignment);
     
-    size_t ApproximateMemoryUsage(); // TODO:
+    size_t memory_usage() const { return memory_usage_.load(); }
 
     using Statistics = ArenaStatistics;
     
@@ -55,7 +60,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(Arena);
 private:
     struct PageHead {
-        PageHead *next;
+        std::atomic<PageHead*> next;
         union {
             size_t size;
             std::atomic<char*> free;
@@ -65,7 +70,8 @@ private:
     static PageHead *const kBusyFlag;
     
     void Link(std::atomic<PageHead*> *head, PageHead *page) {
-        page->next = head->load(std::memory_order_acquire);
+        page->next.store(head->load(std::memory_order_acquire),
+                         std::memory_order_relaxed);
         head->store(page, std::memory_order_release);
     }
 
@@ -90,6 +96,7 @@ private:
     Allocator *const low_level_alloc_;
     std::atomic<PageHead*> current_;
     std::atomic<PageHead*> large_;
+    std::atomic<size_t> memory_usage_;
 }; // class Arena
     
 struct ArenaStatistics {

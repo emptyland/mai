@@ -30,7 +30,7 @@ TEST_F(OrderedMemoryTableTest, Sanity) {
     h1->Put("aaac", "v3", 3, Tag::kFlagValue);
     h1->Put("aaad", "v4", 4, Tag::kFlagValue);
     
-    ASSERT_EQ(216, h1->ApproximateMemoryUsage());
+    ASSERT_EQ(16 * base::kKB, h1->ApproximateMemoryUsage());
     
     std::string value;
     auto rs = h1->Get("aaaa", 5, nullptr, &value);

@@ -59,20 +59,17 @@ UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
 }
 
 /*virtual*/ UnorderedMemoryTable::~UnorderedMemoryTable() {
-    // TODO: user class Area
-    Table::Iterator iter(&table_);
-    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
-        base::MallocAllocator{}.Free(const_cast<KeyBoundle *>(iter.key()));
-    }
+    // arena_ can free all keys.
 }
 
 /*virtual*/ void UnorderedMemoryTable::Put(std::string_view key,
                                            std::string_view value,
                                            SequenceNumber version, uint8_t flag) {
-    const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
+    const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag,
+                                             base::DelegatedAllocator{&arena_});
     DCHECK_NOTNULL(ikey);
     table_.Put(ikey);
-    mem_usage_.fetch_add(ikey->size(), std::memory_order_acq_rel);
+    //mem_usage_.fetch_add(ikey->size(), std::memory_order_acq_rel);
 }
     
 /*virtual*/ Error UnorderedMemoryTable::Get(std::string_view key,
@@ -118,7 +115,9 @@ UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
 }
     
 /*virtual*/ size_t UnorderedMemoryTable::ApproximateMemoryUsage() const {
-    return mem_usage_.load(std::memory_order_acquire);
+    //return mem_usage_.load(std::memory_order_acquire);
+    //return arena_.MemoryUsage();
+    return arena_.memory_usage();
 }
     
 /*virtual*/ float UnorderedMemoryTable::ApproximateConflictFactor() const {

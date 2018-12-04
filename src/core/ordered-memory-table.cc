@@ -68,7 +68,7 @@ OrderedMemoryTable::Put(std::string_view key, std::string_view value,
     //const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
     DCHECK_NOTNULL(ikey);
     table_.Put(ikey);
-    mem_usage_.fetch_add(ikey->size()); // TODO: use arean size
+    //mem_usage_.fetch_add(ikey->size()); // TODO: use arean size
     n_entries_.fetch_add(1);
 }
     
@@ -115,7 +115,9 @@ OrderedMemoryTable::Get(std::string_view key, SequenceNumber version, Tag *tag,
 }
     
 /*virtual*/ size_t OrderedMemoryTable::ApproximateMemoryUsage() const {
-    return mem_usage_.load(std::memory_order_acquire);
+    //return mem_usage_.load(std::memory_order_acquire);
+    //return arena_.MemoryUsage();
+    return arena_.memory_usage();
 }
 
 /*virtual*/ float OrderedMemoryTable::ApproximateConflictFactor() const {
