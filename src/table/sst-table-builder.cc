@@ -12,11 +12,12 @@ namespace table {
     
 SstTableBuilder::SstTableBuilder(const core::InternalKeyComparator *ikcmp,
                                  WritableFile *file, uint64_t block_size,
-                                 int n_restart)
+                                 int n_restart, size_t approximated_n_entries)
     : ikcmp_(DCHECK_NOTNULL(ikcmp))
     , writer_(DCHECK_NOTNULL(file))
     , block_size_(block_size)
-    , n_restart_(n_restart) {
+    , n_restart_(n_restart)
+    , approximated_n_entries_(approximated_n_entries) {
     DCHECK_GT(n_restart_, 1);
     DCHECK_GE(block_size_, 512);
     DCHECK_EQ(0, block_size_ % 4);
@@ -40,8 +41,12 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
         index_builder_.reset(new DataBlockBuilder(n_restart_));
     }
     if (!filter_builder_) {
+        size_t bloom_filter_size =
+            FilterBlockBuilder::ComputeBoomFilterSize(approximated_n_entries_,
+                                                      block_size_,
+                                                      base::Hash::kNumberBloomFilterHashs);
         filter_builder_.reset(
-            new FilterBlockBuilder(block_size_ * 2 - 4, // 4 == ignore crc32
+            new FilterBlockBuilder(bloom_filter_size - 4, // 4 == ignore crc32
                                    base::Hash::kBloomFilterHashs,
                                    base::Hash::kNumberBloomFilterHashs));
     }

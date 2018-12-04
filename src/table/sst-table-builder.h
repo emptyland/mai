@@ -18,7 +18,8 @@ class FilterBlockBuilder;
 class SstTableBuilder final : public TableBuilder {
 public:
     SstTableBuilder(const core::InternalKeyComparator *ikcmp, WritableFile *file,
-                    uint64_t block_size, int n_restart);
+                    uint64_t block_size, int n_restart,
+                    size_t approximated_n_entries = 0);
     virtual ~SstTableBuilder() override;
     virtual void Add(std::string_view key, std::string_view value) override;
     virtual Error error() override;
@@ -39,6 +40,7 @@ private:
     base::FileWriter writer_;
     const uint64_t block_size_;
     const int n_restart_;
+    const size_t approximated_n_entries_;
     
     Error error_;
     bool has_seen_first_key_ = false;

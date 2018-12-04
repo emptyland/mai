@@ -20,7 +20,8 @@ class FilterBlockBuilder;
 class S1TableBuilder final : public TableBuilder {
 public:
     S1TableBuilder(const core::InternalKeyComparator *ikcmp, WritableFile *file,
-                  size_t max_hash_slots, uint32_t block_size);
+                  size_t max_hash_slots, uint32_t block_size,
+                  size_t approximated_n_entries = 0);
     virtual ~S1TableBuilder() override;
     virtual void Add(std::string_view key, std::string_view value) override;
     virtual Error error() override;
@@ -48,6 +49,7 @@ private:
     base::FileWriter writer_;
     const size_t max_buckets_;
     const uint64_t block_size_;
+    const uint64_t approximated_n_entries_;
     
     Error error_;
     bool has_seen_first_key_ = false;

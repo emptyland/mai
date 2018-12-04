@@ -13,17 +13,19 @@ namespace table {
     
 class FilterBlockBuilder final {
 public:
-    FilterBlockBuilder(const uint64_t block_size,
+    static const size_t kBloomFilterSizeLimit = 10 * base::kMB;
+    
+    FilterBlockBuilder(const uint64_t data_bytes,
                        const base::hash_func_t *hashs, size_t n)
-        : block_size_(block_size)
+        : data_bytes_(data_bytes)
         , hashs_(DCHECK_NOTNULL(hashs))
         , n_hashs_(n) {
-        DCHECK_EQ(0, block_size_ % sizeof(uint32_t));
-        bits_.reset(new uint32_t[block_size/sizeof(uint32_t)]);
+        DCHECK_EQ(0, data_bytes_ % sizeof(uint32_t));
+        bits_.reset(new uint32_t[data_bytes/sizeof(uint32_t)]);
         Reset();
     }
     
-    void Reset() { memset(bits_.get(), 0, block_size_); }
+    void Reset() { memset(bits_.get(), 0, data_bytes_); }
     
     void AddKey(std::string_view key) {
         for (size_t i = 0; i < n_hashs_; ++i) {
@@ -33,7 +35,7 @@ public:
 
     std::string_view Finish() {
         return std::string_view(reinterpret_cast<const char *>(bits_.get()),
-                                block_size_);
+                                data_bytes_);
     }
     
     bool MayExist(std::string_view key) const {
@@ -47,9 +49,20 @@ public:
     
     bool EnsureNotExist(std::string_view key) const { return !MayExist(key); }
     
-    uint64_t n_bits() const { return block_size_ * 8; }
+    uint64_t n_bits() const { return data_bytes_ * 8; }
     
-    uint64_t n_bytes() const { return block_size_; }
+    uint64_t n_bytes() const { return data_bytes_; }
+    
+    static size_t ComputeBoomFilterSize(size_t approximated_n_entries,
+                                        size_t alignment,
+                                        size_t bits) {
+        if (approximated_n_entries == 0) {
+            return alignment * 2;
+        }
+        size_t result = (approximated_n_entries * (bits * 2) + 7) / 8;
+        result = RoundUp(result, alignment) + alignment;
+        return result;
+    }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(FilterBlockBuilder);
 private:
@@ -58,7 +71,7 @@ private:
         return bits_[i / 32] & (1u << (i % 32));
     }
     
-    const uint64_t block_size_;
+    const uint64_t data_bytes_;
     const base::hash_func_t *hashs_;
     const size_t n_hashs_;
     

@@ -16,11 +16,13 @@ namespace table {
     
 S1TableBuilder::S1TableBuilder(const core::InternalKeyComparator *ikcmp,
                              WritableFile *file,
-                             size_t max_hash_slots, uint32_t block_size)
+                             size_t max_hash_slots, uint32_t block_size,
+                             size_t approximated_n_entries)
     : ikcmp_(DCHECK_NOTNULL(ikcmp))
     , writer_(DCHECK_NOTNULL(file))
     , max_buckets_(max_hash_slots)
     , block_size_(block_size)
+    , approximated_n_entries_(approximated_n_entries)
     , buckets_(new std::vector<Index>[max_hash_slots]) {
     DCHECK_GE(block_size_, 512);
     DCHECK_EQ(0, block_size_ % 4);
@@ -55,7 +57,12 @@ void S1TableBuilder::Add(std::string_view key, std::string_view value) {
                                                    props_.last_level));
     }
     if (!filter_builder_) {
-        filter_builder_.reset(new FilterBlockBuilder(block_size_ * 2 - 4, // 4 == ignore crc32
+        size_t bloom_filter_size =
+            FilterBlockBuilder::ComputeBoomFilterSize(approximated_n_entries_,
+                                                      block_size_,
+                                                      base::Hash::kNumberBloomFilterHashs);
+        
+        filter_builder_.reset(new FilterBlockBuilder(bloom_filter_size - 4, // 4 == ignore crc32
                                                      base::Hash::kBloomFilterHashs,
                                                      base::Hash::kNumberBloomFilterHashs));
     }

@@ -71,9 +71,11 @@ public:
                     size_t approximated_n_entries) override {
         if (name.compare("s1t") == 0) {
             return new table::S1TableBuilder(ikcmp, file, max_hash_slots,
-                                             static_cast<uint32_t>(block_size));
+                                             static_cast<uint32_t>(block_size),
+                                             approximated_n_entries);
         } else if (name.compare("sst") == 0) {
-            return new table::SstTableBuilder(ikcmp, file, block_size, n_restart);
+            return new table::SstTableBuilder(ikcmp, file, block_size, n_restart,
+                                              approximated_n_entries);
         }
         return nullptr;
     }
