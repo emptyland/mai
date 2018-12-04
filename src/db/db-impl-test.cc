@@ -51,6 +51,7 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/12-db-unordered-cf-recovery",
     "tests/13-db-ordered-cf-recovery",
     "tests/14-db-unordered-put-unordered-cf",
+    "tests/15-db-snapshot-get",
     nullptr,
 };
     
@@ -651,6 +652,43 @@ TEST_F(DBImplTest, UnorderedPutUnorderedCF) {
         std::string key = base::Slice::Sprintf("k.%d", rand() % kN);
         rs = impl->Get(ReadOptions{}, cf0, key, &value);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
+    }
+}
+    
+TEST_F(DBImplTest, SnapshotGetting) {
+    static const auto kN = 1024;
+    
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[15], options_));
+    ColumnFamilyCollection scope(impl.get());
+    impl->Open({}, scope.ReceiveAll());
+    
+    auto cf0 = impl->DefaultColumnFamily();
+    const Snapshot *snapshot = nullptr;
+    for (int i = 0; i < kN; ++i) {
+        std::string key = base::Slice::Sprintf("key.%d", i);
+        std::string val = base::Slice::Sprintf("val.%d", i);
+        if (i == kN / 2) {
+            snapshot = impl->GetSnapshot();
+        }
+        Error rs = impl->Put(WriteOptions{}, cf0, key, val);
+    }
+    ASSERT_NE(nullptr, snapshot);
+    
+    ReadOptions rd;
+    rd.snapshot = snapshot;
+    std::string value;
+    for (int i = 0; i < kN; ++i) {
+        std::string key = base::Slice::Sprintf("key.%d", i);
+        std::string val = base::Slice::Sprintf("val.%d", i);
+        
+        Error rs = impl->Get(rd, cf0, key, &value);
+        if (i <= kN / 2) {
+            ASSERT_TRUE(rs.ok()) << rs.ToString();
+            ASSERT_EQ(val, value);
+        } else {
+            ASSERT_TRUE(rs.fail());
+            ASSERT_TRUE(rs.IsNotFound());
+        }
     }
 }
     

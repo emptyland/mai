@@ -52,6 +52,12 @@ public:
         return !queue_.empty();
     }
     
+    template<class Callbale>
+    void Foreach(Callbale closure) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        std::for_each(queue_.begin(), queue_.end(), closure);
+    }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(PipelineQueue);
 private:
     std::deque<T> queue_;

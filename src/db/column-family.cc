@@ -92,6 +92,17 @@ ColumnFamilyImpl::ColumnFamilyImpl(const std::string &name, uint32_t id,
         next->prev_ = prev;
         delete x;
     }
+    delete dummy_versions_;
+    
+#if defined(DEBUG) || (_DEBUG)
+    if (!mutable_.is_null()) {
+        DCHECK_EQ(1, mutable_->ref_count());
+    }
+    immutable_pipeline_.Foreach([](const auto &table) {
+        DCHECK_EQ(1, table->ref_count());
+    });
+#endif
+
     // TODO:
 }
     
