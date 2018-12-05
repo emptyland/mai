@@ -97,6 +97,7 @@ private:
     Error InternalNewColumnFamily(const std::string &name,
                                   const ColumnFamilyOptions &opts,
                                   uint32_t *cfid);
+    Error GetTotalWalSize(uint64_t *size);
     
     const std::string db_name_;
     const Options options_;
@@ -107,6 +108,7 @@ private:
     std::atomic<bool> shutting_down_;
     std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<VersionSet> versions_;
+    std::atomic<uint64_t> total_wal_size_;
     
     SnapshotList snapshots_;
     std::unique_ptr<ColumnFamily> default_cf_;

@@ -44,6 +44,8 @@ public:
     
     virtual Error DeleteFile(const std::string &name, bool recursive) = 0;
     
+    virtual Error GetFileSize(const std::string &name, uint64_t *size) = 0;
+    
     // Get a OS level memory allocator
     virtual Allocator *GetLowLevelAllocator() = 0;
     

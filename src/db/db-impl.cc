@@ -117,7 +117,8 @@ DBImpl::DBImpl(const std::string &db_name, const Options &opts)
     , shutting_down_(false)
     , table_cache_(new TableCache(abs_db_path_, opts, factory_.get()))
     , versions_(new VersionSet(abs_db_path_, opts, table_cache_.get()))
-    , flush_request_(0) {
+    , flush_request_(0)
+    , total_wal_size_(0) {
 }
 
 DBImpl::~DBImpl() {
@@ -314,6 +315,12 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
     }
     logger_.reset(new LogWriter(log_file_.get(), WAL::kDefaultBlockSize));
     
+    uint64_t wal_size = 0;
+    rs = GetTotalWalSize(&wal_size);
+    if (!rs) {
+        return rs;
+    }
+    total_wal_size_.store(wal_size, std::memory_order_release);
     return Error::OK();
 }
     
@@ -416,9 +423,6 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     
 /*virtual*/ Error DBImpl::Write(const WriteOptions& opts, WriteBatch* updates) {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (bkg_error_.fail()) {
-        return bkg_error_;
-    }
     
     core::SequenceNumber last_version = versions_->last_sequence_number();
     Error rs;
@@ -698,9 +702,6 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
     }
     
     std::unique_lock<std::mutex> lock(mutex_);
-    if (bkg_error_.fail()) {
-        return bkg_error_;
-    }
     core::SequenceNumber last_sequence_number = versions_->last_sequence_number();
     Error rs = MakeRoomForWrite(cfd, &lock);
     if (!rs) {
@@ -742,10 +743,36 @@ Error DBImpl::InternalNewColumnFamily(const std::string &name,
     return Error::OK();
 }
     
+Error DBImpl::GetTotalWalSize(uint64_t *size) {
+    std::vector<std::string> children;
+    Error rs = env_->GetChildren(abs_db_path_, &children);
+    if (!rs) {
+        return rs;
+    }
+    size_t new_total_size = 0;
+    for (auto name : children) {
+        Files::Kind kind;
+        uint64_t number;
+        std::tie(kind, number) = Files::ParseName(name);
+        
+        uint64_t file_size = 0;
+        rs = env_->GetFileSize(abs_db_path_ + "/" + name, &file_size);
+        if (!rs) {
+            return rs;
+        }
+        new_total_size += file_size;
+    }
+    *size = new_total_size;
+    return Error::OK();
+}
+    
 // REQUIRES mutex_.lock()
 Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd,
                                std::unique_lock<std::mutex> *lock) {
     Error rs;
+    if (bkg_error_.fail()) {
+        return bkg_error_;
+    }
 
     while (true) {
         
@@ -793,13 +820,17 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd,
 
 void DBImpl::FlushWork() {
     DLOG(INFO) << "Flush thread start...";
+    uint64_t last_sync_jiffy = env_->CurrentTimeMicros();
     
     std::unique_lock<std::mutex> lock(bkg_mutex_);
     while (!shutting_down_.load()) {
-        bkg_cv_.wait_for(lock, std::chrono::milliseconds(100));
+        bkg_cv_.wait_for(lock, std::chrono::milliseconds(200));
         
         int n_reqs = flush_request_.load();
-        if (n_reqs > 0) {
+        if (n_reqs > 0 ||
+            (env_->CurrentTimeMicros() - last_sync_jiffy) / 1000 >
+            Config::kMaxWalSyncMills) {
+
             mutex_.lock();
             bkg_error_ = log_file_->Flush();
             if (bkg_error_.ok()) {
@@ -811,11 +842,17 @@ void DBImpl::FlushWork() {
             }
             mutex_.unlock();
             DLOG(INFO) << "Flush ok.";
-
+            last_sync_jiffy = env_->CurrentTimeMicros();
             flush_request_.store(0);
         }
         
-        // Count log file size
+        // Compute all wal log file size
+        uint64_t wal_size = 0;
+        bkg_error_ = GetTotalWalSize(&wal_size);
+        if (bkg_error_.fail()) {
+            continue;
+        }
+        total_wal_size_.store(wal_size, std::memory_order_release);
     }
     
     DLOG(INFO) << "Flush thread stopped...";

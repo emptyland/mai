@@ -18,6 +18,8 @@ struct Config final {
     
     static const int kLimitMinNumberSlots = 17;
     
+    static const int kMaxWalSyncMills = 1000; // 1 seconds
+    
     static size_t ComputeNumSlots(int level, size_t old_num_slots,
                                   float conflict_factor,
                                   size_t limit_min_num_slots);

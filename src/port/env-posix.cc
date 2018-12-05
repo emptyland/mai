@@ -101,6 +101,15 @@ public:
         }
     }
     
+    virtual Error GetFileSize(const std::string &file_name, uint64_t *size) override {
+        struct stat s;
+        if (::stat(file_name.c_str(), &s) < 0) {
+            return MAI_IO_ERROR(strerror(errno));
+        }
+        *size = s.st_size;
+        return Error::OK();
+    }
+    
     virtual Error GetChildren(const std::string &dir_name,
                               std::vector<std::string> *children) override {
         DIR *d = ::opendir(dir_name.c_str());
