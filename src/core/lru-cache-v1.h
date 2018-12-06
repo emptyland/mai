@@ -65,6 +65,12 @@ public:
                     LRUHandle::Loader *loader,
                     void *arg0, void *arg1 = nullptr);
     
+    template<class Callable>
+    inline Error GetOrLoad(std::string_view key,
+                           base::intrusive_ptr<LRUHandle> *result,
+                           LRUHandle::Deleter *deleter,
+                           Callable &&loader);
+    
     void Insert(std::string_view key, LRUHandle *handle,
                 LRUHandle::Deleter *deleter);
     
@@ -108,6 +114,8 @@ private:
         LRUTable table;
     }; // struct TableBoundle
     
+    struct LookupHandle;
+    
     void LRU_Remove(LRUHandle *handle) {
         LRUHandle *prev = handle->prev;
         LRUHandle *next = handle->next;
@@ -140,6 +148,28 @@ private:
     LRUHandle *in_use_ = &in_use_dummy_;
     std::mutex mutex_;
 }; // class LRUCache
+    
+    
+template<class Callable>
+inline Error LRUCache::GetOrLoad(std::string_view key,
+                                 base::intrusive_ptr<LRUHandle> *result,
+                                 LRUHandle::Deleter *deleter,
+                                 Callable &&loader) {
+    LRUHandle *handle = Get(key);
+    if (handle) {
+        result->reset(handle);
+        return Error::OK();
+    }
+    Error rs = loader(key, &handle);
+    if (!rs) {
+        return rs;
+    }
+    handle->AddRef();
+    Insert(key, handle, deleter);
+    PurgeIfNeeded(false);
+    result->reset(handle);
+    return Error::OK();
+}
     
 } // inline namespace v1
     

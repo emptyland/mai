@@ -6,25 +6,71 @@
 #include "core/key-filter.h"
 #include "mai/iterator.h"
 #include "mai/options.h"
+#include <tuple>
 
 namespace mai {
     
 namespace db {
+    
+using Args = std::tuple<const ColumnFamilyImpl *, uint64_t, uint64_t>;
+    
+/*static*/ void TableCache::EntryDeleter(std::string_view, void *value) {
+    static_cast<Entry *>(value)->~Entry();
+}
+    
+/*static*/ Error TableCache::EntryLoader(std::string_view key,
+                                         core::LRUHandle **result,
+                                         void *arg0, void *arg1) {
+    const ColumnFamilyImpl *cfd;
+    uint64_t file_number;
+    uint64_t file_size;
+    std::tie(cfd, file_number, file_size) = *static_cast<Args *>(arg1);
+    
+    core::LRUHandle *handle = core::LRUHandle::New(key, sizeof(Entry));
+    if (!handle) {
+        return MAI_CORRUPTION("Out of memory!");
+    }
+    
+    TableCache *self = static_cast<TableCache *>(DCHECK_NOTNULL(arg0));
+    Entry *entry = new (handle->value) Entry;
+    Error rs = self->LoadTable(cfd, file_number, file_size, entry);
+    if (!rs) {
+        entry->~Entry();
+        core::LRUHandle::Free(handle);
+        return rs;
+    }
+    *result = handle;
+    return Error::OK();
+}
+    
+static void HandleCleanup(void *arg1, void *arg2) {
+    static_cast<core::LRUHandle *>(arg1)->ReleaseRef();
+}
+    
+TableCache::TableCache(const std::string &abs_db_path, const Options &opts,
+                       Factory *factory)
+    : abs_db_path_(abs_db_path)
+    , env_(DCHECK_NOTNULL(opts.env))
+    , factory_(DCHECK_NOTNULL(factory))
+    , allow_mmap_reads_(opts.allow_mmap_reads)
+    , cache_(env_->GetLowLevelAllocator(), opts.max_open_files) {}
     
 TableCache::~TableCache() {}
 
 Iterator *TableCache::NewIterator(const ReadOptions &read_opts,
                                   const ColumnFamilyImpl *cfd,
                                   uint64_t file_number, uint64_t file_size) {
-    base::intrusive_ptr<Entry> entry;
-    Error rs = EnsureTableCached(cfd, file_number, file_size, &entry);
+    base::intrusive_ptr<core::LRUHandle> handle;
+    Error rs = GetOrLoadTable(cfd, file_number, file_size, &handle);
     if (!rs) {
         return Iterator::AsError(rs);
     }
-    Iterator *iter = entry->table->NewIterator(read_opts, cfd->ikcmp());
+    
+    Iterator *iter = GetEntry(handle.get())->table->NewIterator(read_opts,
+                                                                cfd->ikcmp());
     if (iter->error().ok()) {
-        entry->AddRef();
-        iter->RegisterCleanup(&EntryCleanup, entry.get());
+        handle->AddRef();
+        iter->RegisterCleanup(&HandleCleanup, handle.get());
     }
     return iter;
 }
@@ -32,14 +78,15 @@ Iterator *TableCache::NewIterator(const ReadOptions &read_opts,
 Error TableCache::Get(const ReadOptions &read_opts, const ColumnFamilyImpl *cfd,
                       uint64_t file_number, std::string_view key, core::Tag *tag,
                       std::string *value) {
-    base::intrusive_ptr<Entry> entry;
-    Error rs = EnsureTableCached(cfd, file_number, 0, &entry);
+    base::intrusive_ptr<core::LRUHandle> handle;
+    Error rs = GetOrLoadTable(cfd, file_number, 0, &handle);
     if (!rs) {
         return rs;
     }
     std::string_view result;
     std::string scatch;
-    rs = entry->table->Get(read_opts, cfd->ikcmp(), key, tag, &result, &scatch);
+    rs = GetEntry(handle.get())->table->Get(read_opts, cfd->ikcmp(), key, tag,
+                                            &result, &scatch);
     if (!rs) {
         return rs;
     }
@@ -50,68 +97,60 @@ Error TableCache::Get(const ReadOptions &read_opts, const ColumnFamilyImpl *cfd,
 Error
 TableCache::GetTableProperties(const ColumnFamilyImpl *cfd, uint64_t file_number,
                                base::intrusive_ptr<table::TablePropsBoundle> *props) {
-    base::intrusive_ptr<Entry> entry;
-    Error rs = EnsureTableCached(cfd, file_number, 0, &entry);
+    base::intrusive_ptr<core::LRUHandle> handle;
+    Error rs = GetOrLoadTable(cfd, file_number, 0, &handle);
     if (!rs) {
         return rs;
     }
-    *props = entry->table->GetTableProperties();
+    *props = GetEntry(handle.get())->table->GetTableProperties();
     return Error::OK();
 }
 
 Error TableCache::GetKeyFilter(const ColumnFamilyImpl *cfd, uint64_t file_number,
                                base::intrusive_ptr<core::KeyFilter> *filter) {
-    base::intrusive_ptr<Entry> entry;
-    Error rs = EnsureTableCached(cfd, file_number, 0, &entry);
+    base::intrusive_ptr<core::LRUHandle> handle;
+    Error rs = GetOrLoadTable(cfd, file_number, 0, &handle);
     if (!rs) {
         return rs;
     }
-    *filter = entry->table->GetKeyFilter();
+    *filter = GetEntry(handle.get())->table->GetKeyFilter();
     return Error::OK();
 }
     
-Error TableCache::EnsureTableCached(const ColumnFamilyImpl *cfd,
-                                    uint64_t file_number, uint64_t file_size,
-                                    base::intrusive_ptr<Entry> *result) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    auto iter = cached_.find(file_number);
-    if (iter != cached_.end()) {
-        *result = iter->second;
-        return Error::OK();
-    }
+Error TableCache::GetOrLoadTable(const ColumnFamilyImpl *cfd,
+                                 uint64_t file_number, uint64_t file_size,
+                                 base::intrusive_ptr<core::LRUHandle> *result) {
+    Args args = std::make_tuple(cfd, file_number, file_size);
+    return cache_.GetOrLoad(GetKey(&file_number), result, &EntryDeleter,
+                            &EntryLoader, this, &args);
+}
     
-    base::intrusive_ptr<Entry> entry(new Entry);
-    entry->file_name = cfd->GetTableFileName(file_number);
-    Error rs = env_->NewRandomAccessFile(entry->file_name, &entry->file,
+Error TableCache::LoadTable(const ColumnFamilyImpl *cfd,
+                            uint64_t file_number, uint64_t file_size,
+                            Entry *result) {
+    
+    result->file_name = cfd->GetTableFileName(file_number);
+    Error rs = env_->NewRandomAccessFile(result->file_name, &result->file,
                                          allow_mmap_reads_);
     if (!rs) {
         return rs;
     }
     if (file_size == 0) {
-        rs = entry->file->GetFileSize(&file_size);
+        rs = result->file->GetFileSize(&file_size);
         if (!rs) {
             return rs;
         }
     }
-    mutex_.unlock();
     rs = factory_->NewTableReader(cfd->options().use_unordered_table ?
                                   "s1t" : "sst",
                                   cfd->ikcmp(),
-                                  entry->file.get(), file_size, true,
-                                  &entry->table);
-    mutex_.lock();
+                                  result->file.get(), file_size, true,
+                                  &result->table);
     if (!rs) {
         return rs;
     }
-    
-    entry->cfid = cfd->id();
-    *result = entry;
-    cached_[file_number] = entry;
+    result->cfid = cfd->id();
     return Error::OK();
-}
-    
-/*static*/ void TableCache::EntryCleanup(void *arg1, void *arg2) {
-    static_cast<Entry *>(arg1)->ReleaseRef();
 }
     
 } // namespace db

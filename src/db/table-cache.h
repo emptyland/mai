@@ -2,15 +2,13 @@
 #define MAI_DB_TABLE_CACHE_H_
 
 #include "table/table-reader.h"
-#include "base/base.h"
+#include "core/lru-cache-v1.h"
 #include "base/reference-count.h"
 #include "mai/options.h"
 #include "mai/error.h"
 #include "glog/logging.h"
 #include <string>
 #include <memory>
-#include <unordered_map>
-#include <mutex>
 
 namespace mai {
 class Env;
@@ -33,11 +31,7 @@ class Factory;
 class TableCache final {
 public:
     TableCache(const std::string &abs_db_path, const Options &opts,
-               Factory *factory)
-        : abs_db_path_(abs_db_path)
-        , env_(DCHECK_NOTNULL(opts.env))
-        , factory_(DCHECK_NOTNULL(factory))
-        , allow_mmap_reads_(opts.allow_mmap_reads) {}
+               Factory *factory);
     ~TableCache();
     
     Iterator *NewIterator(const ReadOptions &read_opts,
@@ -55,31 +49,44 @@ public:
                        base::intrusive_ptr<core::KeyFilter> *filter);
     
     void Invalidate(uint64_t file_number) {
-        std::unique_lock<std::mutex> lock(mutex_);
-        cached_.erase(file_number);
+        cache_.Remove(GetKey(&file_number));
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(TableCache);
 private:
-    struct Entry : public base::ReferenceCounted<Entry> {
+    struct Entry final {
         uint32_t    cfid;
         std::string file_name;
         std::unique_ptr<RandomAccessFile> file;
         std::unique_ptr<table::TableReader> table;
     };
     
-    Error EnsureTableCached(const ColumnFamilyImpl *cf, uint64_t file_number,
-                            uint64_t file_size, base::intrusive_ptr<Entry> *result);
+    Error GetOrLoadTable(const ColumnFamilyImpl *cfd,
+                         uint64_t file_number, uint64_t file_size,
+                         base::intrusive_ptr<core::LRUHandle> *result);
     
-    static void EntryCleanup(void *arg1, void *arg2);
+    Error LoadTable(const ColumnFamilyImpl *cfd,
+                    uint64_t file_number, uint64_t file_size,
+                    Entry *result);
     
+    static std::string_view GetKey(const uint64_t *file_number) {
+        return std::string_view(reinterpret_cast<const char *>(file_number),
+                                sizeof(*file_number));
+    }
+    
+    static Entry *GetEntry(core::LRUHandle *handle) {
+        return static_cast<Entry *>(DCHECK_NOTNULL(handle->value));
+    }
+    
+    static void EntryDeleter(std::string_view, void *value);
+    static Error EntryLoader(std::string_view key, core::LRUHandle **result,
+                             void *arg0, void *arg1);
+
     const std::string abs_db_path_;
     Env *const env_;
     Factory *const factory_;
     const bool allow_mmap_reads_;
-    
-    std::unordered_map<uint64_t, base::intrusive_ptr<Entry>> cached_;
-    std::mutex mutex_;
+    core::LRUCache cache_;
 }; // class TableCache
     
 } // namespace db

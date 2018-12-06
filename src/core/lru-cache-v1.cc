@@ -1,10 +1,15 @@
 #include "core/lru-cache-v1.h"
+#include "base/allocators.h"
 
 namespace mai {
     
 namespace core {
     
 inline namespace v1 {
+    
+////////////////////////////////////////////////////////////////////////////////
+/// struct LRUHandle
+////////////////////////////////////////////////////////////////////////////////
     
 void LRUHandle::set_flags(bool val, uint32_t bits) {
     if (val) {
@@ -17,6 +22,8 @@ void LRUHandle::set_flags(bool val, uint32_t bits) {
 /*static*/ LRUHandle *LRUHandle::New(std::string_view key, size_t value_size,
                                      uint64_t id) {
     size_t total_size = sizeof(LRUHandle) + key.size() + value_size;
+    total_size = RoundUp(total_size, sizeof(max_align_t));
+
     LRUHandle *h = static_cast<LRUHandle *>(::malloc(total_size));
     if (!h) {
         return h;
@@ -25,13 +32,29 @@ void LRUHandle::set_flags(bool val, uint32_t bits) {
     ::memcpy(h->data, key.data(), key.size());
     h->id       = id;
     h->key_size = key.size();
-    h->value    = h->data + key.size();
+    h->value    = h->data + h->key_size; // RoundUp(key.size(), sizeof(max_align_t));
     return h;
 }
 
 /*static*/ void LRUHandle::Free(LRUHandle *handle) {
     ::free(handle);
 }
+    
+////////////////////////////////////////////////////////////////////////////////
+/// class LRUCache
+////////////////////////////////////////////////////////////////////////////////
+    
+struct LRUCache::LookupHandle final {
+    LookupHandle(std::string_view key, const Comparator *cmp) {
+        handle = static_cast<LRUHandle *>(memory.New(sizeof(LRUHandle) + key.size()));
+        handle->key_size = key.size();
+        handle->hash_val = cmp->Hash(key);
+        ::memcpy(handle->data, key.data(), key.size());
+    }
+    
+    LRUHandle *handle;
+    base::ScopedMemory memory;
+}; // struct LRUCache::LookupHandle
     
 LRUCache::LRUCache(Allocator *low_level_allocator, size_t capacity)
     : cmp_(Comparator::Bytewise())
@@ -52,7 +75,7 @@ LRUCache::LRUCache(Allocator *low_level_allocator, size_t capacity)
 LRUCache::~LRUCache() {
     while (in_use_->next != in_use_) {
         LRUHandle *x = in_use_->next;
-        DCHECK_EQ(1, x->refs.load());
+        DCHECK_EQ(1, x->ref_count());
         
         if (x->deleter) { x->deleter(x->key(), x->value); }
         LRU_Remove(x);
@@ -61,7 +84,7 @@ LRUCache::~LRUCache() {
 
     while (lru_->next != lru_) {
         LRUHandle *x = lru_->next;
-        DCHECK_EQ(1, x->refs.load());
+        DCHECK_EQ(1, x->ref_count());
 
         if (x->deleter) { x->deleter(x->key(), x->value); }
         LRU_Remove(x);
@@ -69,9 +92,10 @@ LRUCache::~LRUCache() {
     }
 }
     
-Error LRUCache::GetOrLoad(std::string_view key, base::intrusive_ptr<LRUHandle> *result,
-                    LRUHandle::Deleter *deleter, LRUHandle::Loader *loader,
-                    void *arg0, void *arg1) {
+Error LRUCache::GetOrLoad(std::string_view key,
+                          base::intrusive_ptr<LRUHandle> *result,
+                          LRUHandle::Deleter *deleter, LRUHandle::Loader *loader,
+                          void *arg0, void *arg1) {
     LRUHandle *handle = Get(key);
     if (handle) {
         result->reset(handle);
@@ -81,6 +105,7 @@ Error LRUCache::GetOrLoad(std::string_view key, base::intrusive_ptr<LRUHandle> *
     if (!rs) {
         return rs;
     }
+    handle->AddRef();
     Insert(key, handle, deleter);
     PurgeIfNeeded(false);
     result->reset(handle);
@@ -107,16 +132,12 @@ void LRUCache::Insert(std::string_view key, LRUHandle *handle,
 }
 
 LRUHandle *LRUCache::Get(std::string_view key) {
-    std::unique_ptr<char[]> buf(new char[sizeof(LRUHandle) + key.size()]);
-    LRUHandle *lookup_key = reinterpret_cast<LRUHandle *>(buf.get());
-    memcpy(lookup_key->data, key.data(), key.size());
-    lookup_key->key_size = key.size();
-    lookup_key->hash_val = cmp_->Hash(key);
+    LookupHandle lookup(key, cmp_);
     
     base::intrusive_ptr<TableBoundle> boundle(boundle_.get());
     
     LRUTable::Iterator iter(&boundle->table);
-    iter.Seek2(lookup_key);
+    iter.Seek2(lookup.handle);
     if (!iter.Valid() || iter.key()->is_deletion()) {
         return nullptr;
     }

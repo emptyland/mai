@@ -17,7 +17,6 @@ public:
         if (!h) {
             return MAI_CORRUPTION("Out of memory!");
         }
-        h->AddRef();
         *result = h;
         return Error::OK();
     }
