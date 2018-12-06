@@ -80,6 +80,10 @@ public:
         LRUHandle *x = Get(key);
         if (x && x->ref_count() == 1) {
             x->set_deletion(true);
+            if (x->deleter) {
+                x->deleter(x->key(), x->value);
+            }
+            LRU_Remove(x);
         }
     }
 

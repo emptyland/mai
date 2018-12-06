@@ -173,7 +173,7 @@ TEST_F(LRUCacheTest, ConcurrentGetOrLoadV2) {
     
     std::thread work_thrd([&cache] () {
         for (int i = 0; i < 40000; ++i) {
-            auto id = rand() % 1237;
+            auto id = rand() % 2000;
             std::string key(Slice::Sprintf("k.%d", id));
             base::intrusive_ptr<LRUHandle> h;
             Error rs = cache.GetOrLoad(key, &h, nullptr, &Load,
@@ -184,7 +184,7 @@ TEST_F(LRUCacheTest, ConcurrentGetOrLoadV2) {
         }
     });
     for (int i = 0; i < 40000; ++i) {
-        auto id = rand() % 1237;
+        auto id = rand() % 2000;
         std::string key(Slice::Sprintf("k.%d", id));
         base::intrusive_ptr<LRUHandle> h;
         Error rs = cache.GetOrLoad(key, &h, nullptr, &Load,

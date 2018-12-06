@@ -73,11 +73,21 @@ LRUCache::LRUCache(Allocator *low_level_allocator, size_t capacity)
 }
     
 LRUCache::~LRUCache() {
+    LRUTable::Iterator iter(&boundle_->table);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        LRUHandle *x = iter.key();
+        if (x->is_deletion()) {
+            LRUHandle::Free(x);
+        }
+    }
+    
     while (in_use_->next != in_use_) {
         LRUHandle *x = in_use_->next;
         DCHECK_EQ(1, x->ref_count());
         
-        if (x->deleter) { x->deleter(x->key(), x->value); }
+        if (!x->is_deletion() && x->deleter) {
+            x->deleter(x->key(), x->value);
+        }
         LRU_Remove(x);
         LRUHandle::Free(x);
     }
@@ -86,7 +96,9 @@ LRUCache::~LRUCache() {
         LRUHandle *x = lru_->next;
         DCHECK_EQ(1, x->ref_count());
 
-        if (x->deleter) { x->deleter(x->key(), x->value); }
+        if (!x->is_deletion() && x->deleter) {
+            x->deleter(x->key(), x->value);
+        }
         LRU_Remove(x);
         LRUHandle::Free(x);
     }
@@ -172,9 +184,11 @@ void LRUCache::PurgeIfNeeded(bool force) {
     LRUHandle *inv = lru_->next;
     int refs = inv->ref_count();
     if (refs == 1) {
-        LRU_Remove(inv);
         inv->set_deletion(true);
-        if (inv->deleter) { inv->deleter(inv->key(), inv->value); }
+        if (inv->deleter) {
+            inv->deleter(inv->key(), inv->value);
+        }
+        LRU_Remove(inv);
         --size_;
     } else if (refs >= 2) {
         LRU_Remove(inv);
@@ -186,9 +200,11 @@ void LRUCache::PurgeIfNeeded(bool force) {
         int refs = inv->ref_count();
         if (refs == 1) {
             LRUHandle *next = inv->next;
-            LRU_Remove(inv);
             inv->set_deletion(true);
-            if (inv->deleter) { inv->deleter(inv->key(), inv->value); }
+            if (inv->deleter) {
+                inv->deleter(inv->key(), inv->value);
+            }
+            LRU_Remove(inv);
             --size_;
             inv = next;
         } else {
