@@ -499,13 +499,17 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
     
 /*virtual*/ Error DBImpl::GetProperty(std::string_view property,
                                       std::string *value) {
-    using base::Slice;
+    using ::mai::base::Slice;
+    using ::mai::core::KeyBoundle;
+    
     DCHECK_NOTNULL(value)->clear();
     
     if (property == "db.log.current-name") {
+        
         std::unique_lock<std::mutex> lock(mutex_);
         *value = Files::LogFileName(abs_db_path_, log_file_number_);
     } else if (property == "db.log.active") {
+        
         std::unique_lock<std::mutex> lock(mutex_);
         for (auto cfd : *versions_->column_families()) {
             if (cfd->dropped()) {
@@ -514,11 +518,48 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
             value->append(Slice::Sprintf("%llu,", cfd->redo_log_number()));
         }
         value->erase(value->size() - 1, 1);
+    } else if (property == "db.log.total-size") {
+        
+        *value = Slice::Sprintf("%" PRIu64,
+                                total_wal_size_.load(std::memory_order_acquire));
     } else if (property == "db.bkg.jobs") {
+        
         *value = Slice::Sprintf("%d", bkg_active_.load());
     } else if (property == "db.versions.last-sequence-number") {
+        
         std::unique_lock<std::mutex> lock(mutex_);
-        *value = Slice::Sprintf("%llu", versions_->last_sequence_number());
+        *value = Slice::Sprintf("%" PRIu64,
+                                versions_->last_sequence_number());
+    } else if (property.find("db.cf.") == 0) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        
+        property.remove_prefix(6);
+        size_t n = property.find('.');
+        std::string cf_name(property.substr(0, n));
+        ColumnFamilyImpl *cfd =
+            versions_->column_families()->GetColumnFamily(cf_name);
+        if (!cfd) {
+            return MAI_CORRUPTION(Slice::Sprintf("Column family: %s not found.",
+                                                 cf_name.c_str()));
+        }
+        property.remove_prefix(cf_name.size() + 1);
+        
+        if (property == "levels") {
+            for (int i = 0; i < Config::kMaxLevel; ++i) {
+                value->append("+--------------------------------------------+\n");
+                value->append(Slice::Sprintf("|== Level: %d ==\n", i));
+                for (auto fmd : cfd->current()->level_files(i)) {
+                    value->append(Slice::Sprintf("+- Number: [%" PRIu64 "]\n", fmd->number));
+                    value->append("|---- Smallest : ");
+                    value->append(KeyBoundle::ToString(fmd->smallest_key));
+                    value->append("\n");
+                    value->append("|---- Largest  : ");
+                    value->append(KeyBoundle::ToString(fmd->largest_key));
+                    value->append("\n");
+                }
+            }
+            value->append("+--------------------------------------------+\n");
+        }
     } else {
         return MAI_CORRUPTION(Slice::Sprintf("Incorrect property name: %.*s",
                                              int(property.size()),
@@ -555,27 +596,27 @@ Iterator *DBImpl::NewInternalIterator(const ReadOptions &opts,
     return internal;
 }
     
-void DBImpl::TEST_PrintFiles(ColumnFamily *cf) {
-    GetContext ctx;
-    Error rs = PrepareForGet(ReadOptions{}, cf, &ctx);
-    if (!rs) {
-        return;
-    }
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (ctx.cfd->background_progress()) {
-        ctx.cfd->mutable_background_cv()->wait(lock);
-    }
-    for (int i = 0; i < Config::kMaxLevel; ++i) {
-        printf("level: %d\n", i);
-        for (auto fmd : ctx.cfd->current()->level_files(i)) {
-            std::string smallest(core::KeyBoundle::ExtractUserKey(fmd->smallest_key));
-            std::string largest(core::KeyBoundle::ExtractUserKey(fmd->largest_key));
-            
-            printf("file[%llu] [%s, %s]\n", fmd->number, smallest.c_str(),
-                   largest.c_str());
-        }
-    }
-}
+//void DBImpl::TEST_PrintFiles(ColumnFamily *cf) {
+//    GetContext ctx;
+//    Error rs = PrepareForGet(ReadOptions{}, cf, &ctx);
+//    if (!rs) {
+//        return;
+//    }
+//    std::unique_lock<std::mutex> lock(mutex_);
+//    if (ctx.cfd->background_progress()) {
+//        ctx.cfd->mutable_background_cv()->wait(lock);
+//    }
+//    for (int i = 0; i < Config::kMaxLevel; ++i) {
+//        printf("level: %d\n", i);
+//        for (auto fmd : ctx.cfd->current()->level_files(i)) {
+//            std::string smallest(core::KeyBoundle::ExtractUserKey(fmd->smallest_key));
+//            std::string largest(core::KeyBoundle::ExtractUserKey(fmd->largest_key));
+//            
+//            printf("file[%llu] [%s, %s]\n", fmd->number, smallest.c_str(),
+//                   largest.c_str());
+//        }
+//    }
+//}
 
 Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
     ColumnFamilyImpl *cfd = DCHECK_NOTNULL(ColumnFamilyHandle::Cast(cf)->impl());
@@ -619,6 +660,7 @@ Error DBImpl::RenewLogger() {
                                                    new_log_number);
     Error rs = env_->NewWritableFile(log_file_name, false, &log_file_);
     if (!rs) {
+        versions_->ReuseFileNumber(new_log_number);
         return rs;
     }
     log_file_number_ = new_log_number;
@@ -796,7 +838,11 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd,
                    Config::kMaxNumberLevel0File) {
             cfd->mutable_background_cv()->wait(*lock);
             break;
-        } else {
+        } /*else if (total_wal_size_.load(std::memory_order_acquire) <
+                   options_.max_total_wal_size) {
+            // Wal file size checking.
+            break;
+        } */ else {
             DCHECK_EQ(0, versions_->prev_log_number());
             rs = RenewLogger();
             if (!rs) {
@@ -809,6 +855,7 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd,
             if (!rs) {
                 break;
             }
+
             cfd->MakeImmutablePipeline(factory_.get(), log_file_number_);
             MaybeScheduleCompaction(cfd);
         }
@@ -925,6 +972,12 @@ void DBImpl::BackgroundCompaction(ColumnFamilyImpl *cfd) {
     }
     
     DeleteObsoleteFiles(cfd);
+
+    uint64_t wal_size = 0;
+    bkg_error_ = GetTotalWalSize(&wal_size);
+    if (bkg_error_.ok()) {
+        total_wal_size_.store(wal_size, std::memory_order_release);
+    }
 }
 
 // REQUIRES mutex_.lock()
@@ -1022,6 +1075,7 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
         env_->NewWritableFile(cfd->GetTableFileName(job->target_file_number()),
                               false, &file);
     if (!rs) {
+        versions_->ReuseFileNumber(job->target_file_number());
         return rs;
     }
     std::unique_ptr<table::TableBuilder>
@@ -1077,6 +1131,7 @@ Error DBImpl::WriteLevel0Table(Version *current, VersionPatch *patch,
     std::string table_file_name = current->owns()->GetTableFileName(file_number);
     Error rs = env_->NewWritableFile(table_file_name, false, &file);
     if (!rs) {
+        versions_->ReuseFileNumber(file_number);
         mutex_.lock();
         return rs;
     }

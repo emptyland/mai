@@ -310,6 +310,12 @@ public:
     
     uint64_t GenerateFileNumber() { return next_file_number_++; }
     
+    void ReuseFileNumber(uint64_t file_number) {
+        if (file_number + 1 == next_file_number_) {
+            next_file_number_ = file_number;
+        }
+    }
+    
     Error Recovery(const std::map<std::string, ColumnFamilyOptions> &desc,
                    uint64_t file_number,
                    std::map<uint64_t, uint64_t> *history);

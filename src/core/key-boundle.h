@@ -135,6 +135,8 @@ public:
     
     static void MakeRedo(std::string_view key, std::string_view value,
                          uint32_t cfid, uint8_t flags, std::string *redo);
+    
+    static std::string ToString(std::string_view key);
 
 private:
     KeyBoundle(std::string_view key, std::string_view value,

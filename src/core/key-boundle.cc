@@ -27,6 +27,21 @@ namespace core {
     }
 }
     
+/*static*/ std::string KeyBoundle::ToString(std::string_view key) {
+    using ::mai::base::Slice;
+    
+    ParsedTaggedKey ikey;
+    if (!ParseTaggedKey(key, &ikey)) {
+        return "ERROR!";
+    }
+    std::string buf;
+    
+    buf.append(Slice::ToReadable(ikey.user_key));
+    buf.append(Slice::Sprintf("(%" PRIu64 ")", ikey.tag.sequence_number()));
+    
+    return buf;
+}
+    
 } // namespace core
     
 } // namespace mai

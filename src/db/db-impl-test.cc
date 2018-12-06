@@ -29,6 +29,14 @@ public:
         }
     }
     
+    void PrintFiles(DB *db, ColumnFamily *cf) {
+        std::string key(base::Slice::Sprintf("db.cf.%s.levels",
+                                             cf->name().c_str()));
+        std::string value;
+        Error rs = db->GetProperty(key, &value);
+        printf("%s\n", value.c_str());
+    }
+    
     Env *env_ = Env::Default();
     std::vector<ColumnFamilyDescriptor> descs_;
     Options options_;
@@ -54,6 +62,7 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/15-db-snapshot-get",
     "tests/16-db-two-cf-write",
     "tests/17-db-concurrent-get",
+    "tests/18-db-get-properties",
     nullptr,
 };
     
@@ -549,7 +558,7 @@ TEST_F(DBImplTest, UnorderedColumnFamilyRecovery) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     cf0 = scope.GetOrNull("unordered");
-    impl->TEST_PrintFiles(cf0);
+    PrintFiles(impl.get(), cf0);
     
     std::string value;
     rs = impl->Get(ReadOptions{}, cf0, "k.1000000", &value);
@@ -602,7 +611,7 @@ TEST_F(DBImplTest, OrderedColumnFamilyRecovery) {
     }
     printf("total size: %lu cost: %f ms\n", total_size,
            (env_->CurrentTimeMicros() - jiffies) / 1000.0f);
-    impl->TEST_PrintFiles(cf0);
+    PrintFiles(impl.get(), cf0);
     
     //----------------Recovery--------------------------------------------------
     
@@ -665,7 +674,7 @@ TEST_F(DBImplTest, UnorderedPutUnorderedCF) {
     }
     printf("total size: %lu cost: %f ms\n", total_size,
            (env_->CurrentTimeMicros() - jiffies) / 1000.0f);
-    impl->TEST_PrintFiles(cf0);
+    PrintFiles(impl.get(), cf0);
     
     std::string value;
     rs = impl->Get(ReadOptions{}, cf0, "k.1000000", &value);
@@ -862,8 +871,21 @@ TEST_F(DBImplTest, ConcurrentGetting) {
         }
     }
     wr_thrd.join();
+    PrintFiles(impl.get(), cf0);
+}
     
-    impl->TEST_PrintFiles(cf0);
+TEST_F(DBImplTest, GetProperties) {
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[18], options_));
+    ColumnFamilyCollection scope(impl.get());
+    auto rs = impl->Open(descs_, scope.ReceiveAll());
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    std::string value;
+    rs = impl->GetProperty("db.cf.default.levels", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = impl->GetProperty("db.log.total-size", &value);
+    ASSERT_EQ("0", value);
 }
     
 } // namespace db

@@ -519,9 +519,6 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
             DCHECK_NOTNULL(cfd);
             cfd->redo_log_number_ = patch.redo_log().number;
         }
-//        if (patch.has_last_sequence_number()) {
-//            last_sequence_number_ = patch.last_sequence_number();
-//        }
         if (patch.has_prepare_redo_log()) {
             last_sequence_number_ = patch.prepare_redo_log().last_sequence_number;
             history->emplace(patch.prepare_redo_log().number, last_sequence_number_);
@@ -539,7 +536,13 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
     if (!reader.error().ok() && !reader.error().IsEof()) {
         return reader.error();
     }
+
     manifest_file_number_ = file_number;
+//    rs = env_->NewWritableFile(file_name, true, &log_file_);
+//    if (!rs) {
+//        return rs;
+//    }
+//    logger_.reset(new LogWriter(log_file_.get(), block_size_));
     return Error::OK();
 }
     
@@ -613,9 +616,9 @@ Error VersionSet::CreateManifestFile() {
                                                     manifest_file_number_);
     Error rs = env_->NewWritableFile(file_name, true, &log_file_);
     if (!rs) {
+        ReuseFileNumber(manifest_file_number_);
         return rs;
     }
-    //log_file_->Truncate(0);
     logger_.reset(new LogWriter(log_file_.get(), block_size_));
     
     return WriteCurrentSnapshot();

@@ -65,9 +65,8 @@ public:
                               std::string *value) override;
     
     Iterator *NewInternalIterator(const ReadOptions &opts, ColumnFamilyImpl *cfd);
-    
-    //void TEST_MakeImmutablePipeline(ColumnFamily *cf);
-    void TEST_PrintFiles(ColumnFamily *cf);
+
+    //void TEST_PrintFiles(ColumnFamily *cf);
     Error TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync);
     TableCache *TEST_GetTableCache() { return table_cache_.get(); }
     
