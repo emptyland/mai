@@ -54,6 +54,10 @@
 		232E1E7321A2C0FC00F408D7 /* factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232E1E7121A2C0FC00F408D7 /* factory.cc */; };
 		232E1E7621A2C47B00F408D7 /* table-cache.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232E1E7521A2C47B00F408D7 /* table-cache.cc */; };
 		232E1E7721A2C47B00F408D7 /* table-cache.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232E1E7521A2C47B00F408D7 /* table-cache.cc */; };
+		236AC67721B7692B0069A17B /* lru-cache-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236AC67621B7692B0069A17B /* lru-cache-v1.cc */; };
+		236AC67821B7692B0069A17B /* lru-cache-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236AC67621B7692B0069A17B /* lru-cache-v1.cc */; };
+		236AC67A21B769900069A17B /* lru-cache-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236AC67921B769900069A17B /* lru-cache-test.cc */; };
+		236AC67B21B769900069A17B /* lru-cache-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236AC67921B769900069A17B /* lru-cache-test.cc */; };
 		237CE4BC2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */; };
 		237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */; };
 		237CE4C02192EABD004FB9BF /* iterator-warpper.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */; };
@@ -200,6 +204,9 @@
 		232E1E7421A2C42800F408D7 /* table-cache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-cache.h"; sourceTree = "<group>"; };
 		232E1E7521A2C47B00F408D7 /* table-cache.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "table-cache.cc"; sourceTree = "<group>"; };
 		234372C921998C0A00427E83 /* write-ahead-log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-ahead-log.h"; sourceTree = "<group>"; };
+		236AC67521B768E60069A17B /* lru-cache-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lru-cache-v1.h"; sourceTree = "<group>"; };
+		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
+		236AC67921B769900069A17B /* lru-cache-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "lru-cache-test.cc"; path = "src/core/lru-cache-test.cc"; sourceTree = "<group>"; };
 		237CE4B72192CD16004FB9BF /* memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "memory-table.h"; sourceTree = "<group>"; };
 		237CE4B82192D00B004FB9BF /* unordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "unordered-memory-table.h"; sourceTree = "<group>"; };
 		237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "unordered-memory-table.cc"; sourceTree = "<group>"; };
@@ -425,6 +432,7 @@
 				2302F6BD21AE961200AE0309 /* s1-table-reader-test.cc */,
 				23C54E0F21B527DB0078E77A /* lambda-test.cc */,
 				23C54E1221B52EBA0078E77A /* config-test.cc */,
+				236AC67921B769900069A17B /* lru-cache-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -481,6 +489,8 @@
 				23B0E1112189A6BF00F9E855 /* error.cc */,
 				23FB4B5321957CDF00B2829B /* key-filter.h */,
 				23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */,
+				236AC67521B768E60069A17B /* lru-cache-v1.h */,
+				236AC67621B7692B0069A17B /* lru-cache-v1.cc */,
 			);
 			name = core;
 			path = src/core;
@@ -613,6 +623,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				232AA2352193E5E6007EF228 /* skip-list-test.cc in Sources */,
+				236AC67721B7692B0069A17B /* lru-cache-v1.cc in Sources */,
 				2302F6BB21AE80AB00AE0309 /* s1-table-reader.cc in Sources */,
 				232E1E7221A2C0FC00F408D7 /* factory.cc in Sources */,
 				23B4E01821A7A292007A4533 /* compaction-test.cc in Sources */,
@@ -641,6 +652,7 @@
 				23B0E0D92187F90400F9E855 /* base.cc in Sources */,
 				23C54E1021B527DB0078E77A /* lambda-test.cc in Sources */,
 				2326026621ABF614003F434C /* arena-test.cc in Sources */,
+				236AC67A21B769900069A17B /* lru-cache-test.cc in Sources */,
 				23C54E0D21B5263B0078E77A /* config.cc in Sources */,
 				232AA2312193D786007EF228 /* merging-test.cc in Sources */,
 				231C61F3219A6D54001A95C1 /* block-iterator.cc in Sources */,
@@ -677,6 +689,7 @@
 			files = (
 				23FB4B5B21958A7A00B2829B /* sst-table-reader.cc in Sources */,
 				2302F6BF21AE961200AE0309 /* s1-table-reader-test.cc in Sources */,
+				236AC67821B7692B0069A17B /* lru-cache-v1.cc in Sources */,
 				23F60613219C22AE00CE12D9 /* files.cc in Sources */,
 				237CE4C52192EE17004FB9BF /* merging.cc in Sources */,
 				23B0E131218AFBCC00F9E855 /* hash.cc in Sources */,
@@ -712,6 +725,7 @@
 				232AA24E219440F5007EF228 /* filter-block-builder-test.cc in Sources */,
 				23FB4B5D219597C000B2829B /* sst-table-reader-test.cc in Sources */,
 				2326026721ABF614003F434C /* arena-test.cc in Sources */,
+				236AC67B21B769900069A17B /* lru-cache-test.cc in Sources */,
 				231C61F8219AA67C001A95C1 /* io-utils-test.cc in Sources */,
 				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
 				23F60607219BC40E00CE12D9 /* db-impl.cc in Sources */,

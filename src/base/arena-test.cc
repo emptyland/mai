@@ -34,7 +34,7 @@ TEST_F(ArenaTest, FuzzAllocation) {
     }
 }
     
-TEST_F(ArenaTest, CocurrentLargeAllocation) {
+TEST_F(ArenaTest, ConcurrentLargeAllocation) {
     Arena arena(env_->GetLowLevelAllocator());
     
     std::thread worker_thrds[4];
@@ -51,7 +51,7 @@ TEST_F(ArenaTest, CocurrentLargeAllocation) {
     }
 }
     
-TEST_F(ArenaTest, CocurrentNormalAllocation) {
+TEST_F(ArenaTest, ConcurrentNormalAllocation) {
     Arena arena(env_->GetLowLevelAllocator());
     
     std::thread worker_thrds[4];

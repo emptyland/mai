@@ -102,7 +102,7 @@ TEST_F(OrderedMemoryTableTest, IterateReserve) {
     ASSERT_FALSE(iter->Valid());
 }
     
-TEST_F(OrderedMemoryTableTest, CocurrentPutting) {
+TEST_F(OrderedMemoryTableTest, ConcurrentPutting) {
     static const int kN = 10240;
     
     std::thread worker_thrds[8];

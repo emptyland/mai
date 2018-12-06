@@ -46,14 +46,14 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/07-db-write-lv0",
     "tests/08-db-drop-cfs",
     "tests/09-db-mutil-cf-recovery",
-    "tests/10-db-cocurrent-putting",
+    "tests/10-db-concurrent-putting",
     "tests/11-db-unordered-cf",
     "tests/12-db-unordered-cf-recovery",
     "tests/13-db-ordered-cf-recovery",
     "tests/14-db-unordered-put-unordered-cf",
     "tests/15-db-snapshot-get",
     "tests/16-db-two-cf-write",
-    "tests/17-db-cocurrent-get",
+    "tests/17-db-concurrent-get",
     nullptr,
 };
     
@@ -428,7 +428,7 @@ TEST_F(DBImplTest, MutilCFRecovery) {
     }
 }
     
-TEST_F(DBImplTest, CocurrentPutting) {
+TEST_F(DBImplTest, ConcurrentPutting) {
     std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[10], options_));
     Error rs = impl->Open(descs_, nullptr);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
@@ -811,7 +811,7 @@ TEST_F(DBImplTest, TwoCFWriting) {
            (env_->CurrentTimeMicros() - jiffies) / 1000.0f);
 }
     
-TEST_F(DBImplTest, CocurrentGetting) {
+TEST_F(DBImplTest, ConcurrentGetting) {
     static const auto kN = 1024 * 102;
     
     std::vector<ColumnFamilyDescriptor> descs;

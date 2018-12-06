@@ -74,6 +74,21 @@ private:
         return std::make_tuple(n_slots_, nullptr);
     }
     
+    std::tuple<size_t, Node *> FindEqual(Key key) const {
+        uint32_t hash = cmp_(key);
+        size_t index = hash % n_slots_;
+        Node *slot = buckets_ + index;
+        
+        Node *p = slot->next();
+        while (p) {
+            if (cmp_(p->key_, key) == 0) {
+                return std::make_tuple(index, p);
+            }
+            p = p->next();
+        }
+        return std::make_tuple(n_slots_, nullptr);
+    }
+    
     Node *NewNode(Key key) {
         void *chunk = arena_->Allocate(sizeof(Node), 4);
         return new (chunk) Node{key};
@@ -141,6 +156,10 @@ public:
     
     void Seek(Key key) {
         std::tie(slot_, node_) = owns_->FindGreaterOrEqual(key);
+    }
+    
+    void Seek2(Key key) {
+        std::tie(slot_, node_) = owns_->FindEqual(key);
     }
     
     void SeekToFirst() {

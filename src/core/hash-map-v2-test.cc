@@ -42,7 +42,7 @@ TEST_F(HashMapV2Test, Sanity) {
     ASSERT_EQ(3, iter.key());
 }
     
-TEST_F(HashMapV2Test, CocurrentGet) {
+TEST_F(HashMapV2Test, ConcurrentGet) {
     static const auto kN = 100000;
     std::atomic<int> current(0);
     

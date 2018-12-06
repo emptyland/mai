@@ -187,7 +187,7 @@ Merging::NewTempTableMergingIteraotr(MemoryTable *tmp_table,
             break;
     }
     
-    // TODO: cocurrent merging.
+    // TODO: concurrent merging.
     ParsedTaggedKey ikey;
     for (int i = 0; i < n; ++i) {
         Iterator *iter = children[i];

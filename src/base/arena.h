@@ -57,6 +57,8 @@ public:
     void GetUsageStatistics(std::vector<Statistics> *normal,
                             std::vector<Statistics> *large) const;
     
+    Allocator *low_level_allocator() const { return low_level_alloc_; }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(Arena);
 private:
     struct PageHead {

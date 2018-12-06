@@ -38,10 +38,7 @@ public:
     
     void operator = (const intrusive_ptr &other) { reset(other.naked_); }
     
-    void operator = (intrusive_ptr &&other) {
-        naked_ = other.naked_;
-        other.naked_ = nullptr;
-    }
+    void operator = (T *naked) { reset(naked); }
     
     T *operator -> () const { return DCHECK_NOTNULL(naked_); }
 
@@ -71,7 +68,7 @@ public:
     
     atomic_intrusive_ptr(T *naked)
         : naked_(naked) {
-        if (naked_) { naked_->AddRef(); }
+        if (naked) { naked->AddRef(); }
     }
     
     atomic_intrusive_ptr(const atomic_intrusive_ptr &other) {
@@ -97,10 +94,10 @@ public:
     
     void operator = (const atomic_intrusive_ptr &other) { reset(other.naked_); }
     
-    void operator = (atomic_intrusive_ptr &&other) {
-        reset(other.naked_);
-        other.naked_.store(nullptr, std::memory_order_release);
-    }
+//    void operator = (atomic_intrusive_ptr &&other) {
+//        reset(other.naked_);
+//        other.naked_.store(nullptr, std::memory_order_release);
+//    }
     
     void reset(T *naked) {
         auto old_val = get();
