@@ -3,7 +3,7 @@
 
 int main(int argc, char *argv[]) {
     FLAGS_logtostderr = true;
-    FLAGS_minloglevel = 3;
+    FLAGS_minloglevel = 0;
     
     ::google::InitGoogleLogging(argv[0]);
     ::testing::InitGoogleTest(&argc, argv);

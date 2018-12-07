@@ -16,10 +16,12 @@ WriteBatch::~WriteBatch() {}
     
 void WriteBatch::Put(ColumnFamily *cf, std::string_view key, std::string_view value) {
     KeyBoundle::MakeRedo(key, value, cf->id(), Tag::kFlagValue, &redo_);
+    ++n_entries_;
 }
 
 void WriteBatch::Delete(ColumnFamily *cf, std::string_view key) {
     KeyBoundle::MakeRedo(key, "", cf->id(), Tag::kFlagDeletion, &redo_);
+    ++n_entries_;
 }
 
 /*static*/ Error WriteBatch::Iterate(const char *buf, size_t len, Stub *handler) {

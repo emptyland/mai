@@ -28,11 +28,9 @@ namespace db {
 class WritingHandler final : public WriteBatch::Stub {
 public:
     WritingHandler(uint64_t redo_log_number, bool filter,
-                   core::SequenceNumber sequence_number,
                    ColumnFamilySet *column_families)
         : redo_log_number_(redo_log_number)
         , filter_(filter)
-        , last_sequence_number_(sequence_number)
         , column_families_(DCHECK_NOTNULL(column_families)) {}
     
     virtual ~WritingHandler() {}
@@ -87,12 +85,18 @@ public:
     
     DEF_VAL_GETTER(uint64_t, size_count);
     DEF_VAL_GETTER(uint64_t, sequence_number_count);
+    
+    void ResetLastSequenceNumber(core::SequenceNumber sn) {
+        last_sequence_number_  = sn;
+        sequence_number_count_ = 0;
+    }
+
 private:
     const uint64_t redo_log_number_;
     const bool filter_;
-    const core::SequenceNumber last_sequence_number_;
     ColumnFamilySet *const column_families_;
     
+    core::SequenceNumber last_sequence_number_;
     uint64_t size_count_ = 0;
     uint64_t sequence_number_count_ = 0;
 }; // class WritingHnalder
@@ -100,12 +104,17 @@ private:
 
 struct GetContext {
     std::vector<base::intrusive_ptr<core::MemoryTable>> in_mem;
-    core::SequenceNumber                         last_sequence_number;
-    base::intrusive_ptr<ColumnFamilyImpl>               cfd;
-    Version                                     *current;
+    core::SequenceNumber                  last_sequence_number;
+    base::intrusive_ptr<ColumnFamilyImpl> cfd;
+    Version                              *current;
 }; // struct ReadContext
 
-    
+
+static inline void MakeRedo(std::string *buf, core::SequenceNumber sn,
+                            uint32_t n_entries) {
+    buf->append(reinterpret_cast<const char *>(&sn), sizeof(sn));
+    buf->append(reinterpret_cast<const char *>(&n_entries), sizeof(n_entries));
+}
 
 DBImpl::DBImpl(const std::string &db_name, const Options &opts)
     : db_name_(db_name)
@@ -221,7 +230,8 @@ Error DBImpl::NewDB(const std::vector<ColumnFamilyDescriptor> &desc) {
         cfd->set_redo_log_number(log_file_number_);
     }
     VersionPatch patch;
-    patch.set_prev_log_number(0);
+    patch.SetPrevLogNumber(0);
+    patch.SetRedoLogNumber(log_file_number_);
     versions_->AddSequenceNumber(1); // Begin with 1
     return versions_->LogAndApply(options_, &patch, &mutex_);
 }
@@ -243,11 +253,11 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
     }
     
     uint64_t manifest_file_number = ::atoll(result.c_str());
-    std::map<uint64_t, uint64_t> history;
     std::map<std::string, ColumnFamilyOptions> cf_opts;
     for (const auto &d : desc) {
         cf_opts[d.name] = d.options;
     }
+    std::set<uint64_t> history;
     rs = versions_->Recovery(cf_opts, manifest_file_number, &history);
     if (!rs) {
         return rs;
@@ -286,23 +296,27 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
     // Add undumped log files.
     for (auto iter = history.upper_bound(max_number); iter != history.end();
          iter++) {
-        numbers.insert(iter->first);
-        max_number = iter->first;
+        numbers.insert(*iter);
+        max_number = *iter;
     }
     
     DCHECK_GE(history.size(), numbers.size());
     core::SequenceNumber last = 0, update = 0;
     for (uint64_t number: numbers) {
-        last = history[number];
+        //last = history[number];
         // The newest redo log file filter is not need.
         rs = Redo(number, last, &update, max_number != number);
         if (!rs) {
             return rs;
         }
     }
-    log_file_number_ = max_number; // The max one is newest file.
-    DCHECK_GE(update, versions_->last_sequence_number());
-    versions_->AddSequenceNumber(update - versions_->last_sequence_number());
+    // The max one is newest file.
+    DCHECK_EQ(max_number, versions_->redo_log_number());
+    
+    log_file_number_ = versions_->redo_log_number();
+    //DCHECK_GE(update, versions_->last_sequence_number());
+    
+    versions_->UpdateSequenceNumber(update);
     DLOG(INFO) << "Replay ok, last version: "
                << versions_->last_sequence_number();
 
@@ -432,16 +446,19 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
             return rs;
         }
     }
-    rs = logger_->Append(updates->redo());
+
+    rs = logger_->Append(updates->redo(last_version + 1));
     if (!rs) {
         return rs;
     }
+    flush_request_.fetch_add(1);
+    
     if (opts.sync) {
-        flush_request_.fetch_add(1);
+        // TODO:
     }
     
-    WritingHandler handler(0, false, last_version + 1,
-                           versions_->column_families());
+    WritingHandler handler(0, false, versions_->column_families());
+    handler.ResetLastSequenceNumber(last_version + 1);
     updates->Iterate(&handler);
     
     versions_->AddSequenceNumber(handler.sequence_number_count());
@@ -626,8 +643,7 @@ Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
         return rs;
     }
     VersionPatch patch;
-    patch.set_prepare_redo_log(log_file_number_,
-                               versions_->last_sequence_number());
+    patch.SetRedoLogNumber(log_file_number_);
     rs = versions_->LogAndApply(options_, &patch, &mutex_);
     if (!rs) {
         return rs;
@@ -674,7 +690,8 @@ Error DBImpl::Redo(uint64_t log_file_number,
                    bool filter) {
     std::unique_ptr<SequentialFile> file;
     std::string log_file_name = Files::LogFileName(abs_db_path_, log_file_number);
-    Error rs = env_->NewSequentialFile(log_file_name, &file, options_.allow_mmap_reads);
+    Error rs = env_->NewSequentialFile(log_file_name, &file,
+                                       options_.allow_mmap_reads);
     if (!rs) {
         return rs;
     }
@@ -682,19 +699,23 @@ Error DBImpl::Redo(uint64_t log_file_number,
     
     std::string_view result;
     std::string scatch;
-    WritingHandler handler(log_file_number, filter, last_sequence_number + 1,
-                           versions_->column_families());
+    WritingHandler handler(log_file_number, filter, versions_->column_families());
     while (logger.Read(&result, &scatch)) {
+        core::SequenceNumber sn = base::Slice::SetU64(result.substr(0, 8));
+        uint32_t n_entries = base::Slice::SetU32(result.substr(8, 4));
+        result.remove_prefix(WriteBatch::kHeaderSize);
+
+        handler.ResetLastSequenceNumber(sn);
         rs = WriteBatch::Iterate(result.data(), result.size(), &handler);
         if (!rs) {
             return rs;
         }
+        DCHECK_EQ(n_entries, handler.sequence_number_count());
+        *update_sequence_number = sn + handler.sequence_number_count();
     }
     if (!logger.error().ok() && !logger.error().IsEof()) {
         return logger.error();
     }
-    *update_sequence_number = last_sequence_number
-                            + handler.sequence_number_count();
     return Error::OK();
 }
     
@@ -751,13 +772,15 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
     }
     
     std::string redo;
+    MakeRedo(&redo, last_sequence_number, 1);
     core::KeyBoundle::MakeRedo(key, value, cfd->id(), flag, &redo);
     rs = logger_->Append(redo);
     if (!rs) {
         return rs;
     }
+    flush_request_.fetch_add(1);
     if (opts.sync) {
-        flush_request_.fetch_add(1);
+        // TODO:
     }
     
     // TODO: thiny locking
@@ -849,8 +872,7 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd,
                 break;
             }
             VersionPatch patch;
-            patch.set_prepare_redo_log(log_file_number_,
-                                       versions_->last_sequence_number());
+            patch.SetRedoLogNumber(log_file_number_);
             rs = versions_->LogAndApply(options_, &patch, &mutex_);
             if (!rs) {
                 break;
@@ -874,7 +896,7 @@ void DBImpl::FlushWork() {
         bkg_cv_.wait_for(lock, std::chrono::milliseconds(200));
         
         int n_reqs = flush_request_.load();
-        if (n_reqs > 0 ||
+        if (n_reqs > 0 &&
             (env_->CurrentTimeMicros() - last_sync_jiffy) / 1000 >
             Config::kMaxWalSyncMills) {
 
@@ -996,8 +1018,8 @@ Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
         if (shutting_down_.load()) {
             return MAI_IO_ERROR("Deleting DB during memtable compaction");
         }
-        patch.set_prev_log_number(0);
-        patch.set_redo_log(cfd->id(), imm->associated_file_number());
+        patch.SetPrevLogNumber(0);
+        patch.SetRedoLog(cfd->id(), imm->associated_file_number());
         rs = versions_->LogAndApply(ColumnFamilyOptions{}, &patch, &mutex_);
         if (!rs) {
             return rs;

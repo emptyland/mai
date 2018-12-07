@@ -32,7 +32,7 @@ public:
         : owns_(DCHECK_NOTNULL(versions)) {
     }
     
-    ColumnFamilyImpl *column_family() const { return cf_.get(); }
+    ColumnFamilyImpl *cfd() const { return cfd_.get(); }
     
     void Apply(const VersionPatch &patch) {
         for (const auto &d : patch.file_deletion()) {
@@ -46,21 +46,17 @@ public:
     }
     
     Version *Build() {
-        std::unique_ptr<Version> version(new Version(cf_.get()));
+        std::unique_ptr<Version> version(new Version(cfd_.get()));
         
         for (auto i = 0; i < Config::kMaxLevel; i++) {
-            
-            auto level = cf_->current()->level_files(i);
-            
-            for (auto fmd : level) {
-                
+            for (auto fmd : cfd_->current()->level_files(i)) {
                 if (levels_[i].deletion.find(fmd->number) ==
                     levels_[i].deletion.end()) {
                     version->files_[i].push_back(fmd);
                 }
             }
             levels_[i].deletion.clear();
-            
+
             for (auto fmd : levels_[i].creation) {
                 version->files_[i].push_back(fmd);
             }
@@ -71,20 +67,20 @@ public:
     
     void Prepare(const VersionPatch &patch) {
         for (const auto &c : patch.file_creation()) {
-            if (!cf_) {
-                cf_ = owns_->column_families()->GetColumnFamily(c.cfid);
+            if (!cfd_) {
+                cfd_ = owns_->column_families()->GetColumnFamily(c.cfid);
             } else {
-                DCHECK_EQ(cf_->id(), c.cfid);
+                DCHECK_EQ(cfd_->id(), c.cfid);
             }
         }
         for (const auto &d : patch.file_deletion()) {
-            if (!cf_) {
-                cf_ = owns_->column_families()->GetColumnFamily(d.cfid);
+            if (!cfd_) {
+                cfd_ = owns_->column_families()->GetColumnFamily(d.cfid);
             } else {
-                DCHECK_EQ(cf_->id(), d.cfid);
+                DCHECK_EQ(cfd_->id(), d.cfid);
             }
         }
-        BySmallestKey cmp{cf_->ikcmp()};
+        BySmallestKey cmp{cfd_->ikcmp()};
         for (auto i = 0; i < Config::kMaxLevel; i++) {
             levels_[i].creation = std::set<base::intrusive_ptr<FileMetaData>,
             BySmallestKey>(cmp);
@@ -114,7 +110,7 @@ private:
     
     VersionSet *owns_;
     FileEntry levels_[Config::kMaxLevel];
-    base::intrusive_ptr<ColumnFamilyImpl> cf_;
+    base::intrusive_ptr<ColumnFamilyImpl> cfd_;
 }; // class VersionBuilder
     
 
@@ -140,14 +136,13 @@ void VersionPatch::Encode(std::string *buf) const {
         buf->append(Slice::GetByte(kNextFileNumber, &scope));
         buf->append(Slice::GetV64(next_file_number_, &scope));
     }
-//    if (has_last_sequence_number()) {
-//        buf->append(Slice::GetByte(kLastSequenceNumber, &scope));
-//        buf->append(Slice::GetV64(last_sequence_number_, &scope));
-//    }
-    if (has_prepare_redo_log()) {
-        buf->append(Slice::GetByte(kPrepareRedoLog, &scope));
-        buf->append(Slice::GetV64(prepare_redo_log_.number, &scope));
-        buf->append(Slice::GetV64(prepare_redo_log_.last_sequence_number, &scope));
+    if (has_last_sequence_number()) {
+        buf->append(Slice::GetByte(kLastSequenceNumber, &scope));
+        buf->append(Slice::GetV64(last_sequence_number_, &scope));
+    }
+    if (has_redo_log_number()) {
+        buf->append(Slice::GetByte(kRedoLogNumber, &scope));
+        buf->append(Slice::GetV64(redo_log_number_, &scope));
     }
     if (has_max_column_family()) {
         buf->append(Slice::GetByte(kMaxColumnFamily, &scope));
@@ -198,40 +193,40 @@ void VersionPatch::Decode(std::string_view buf) {
         switch (static_cast<Field>(reader.ReadByte())) {
             case kPrevLogNumber: {
                 uint64_t number = reader.ReadVarint64();
-                set_prev_log_number(number);
+                SetPrevLogNumber(number);
             } break;
                 
             case kRedoLog: {
                 uint32_t cfid   = reader.ReadVarint32();
                 uint64_t number = reader.ReadVarint64();
-                set_redo_log(cfid, number);
+                SetRedoLog(cfid, number);
             } break;
                 
             case kNextFileNumber: {
                 uint64_t number = reader.ReadVarint64();
-                set_next_file_number(number);
+                SetNextFileNumber(number);
             } break;
                 
             case kMaxColumnFamily: {
                 uint32_t max_cf = reader.ReadVarint32();
-                set_max_column_faimly(max_cf);
+                SetMaxColumnFaimly(max_cf);
             } break;
                 
-//            case kLastSequenceNumber: {
-//                uint64_t number = reader.ReadVarint64();
-//                set_last_sequence_number(number);
-//            } break;
-            case kPrepareRedoLog: {
+            case kLastSequenceNumber: {
                 uint64_t number = reader.ReadVarint64();
-                uint64_t sn = reader.ReadVarint64();
-                set_prepare_redo_log(number, sn);
+                SetLastSequenceNumber(number);
+            } break;
+                
+            case kRedoLogNumber: {
+                uint64_t number = reader.ReadVarint64();
+                SetRedoLogNumber(number);
             } break;
                 
             case kCompactionPoint: {
                 uint32_t cfid = reader.ReadVarint32();
                 int level = reader.ReadVarint32();
                 std::string key(reader.ReadString());
-                set_compaction_point(cfid, level, key);
+                SetCompactionPoint(cfid, level, key);
             } break;
                 
             case kAddColumnFamily: {
@@ -459,7 +454,7 @@ VersionSet::~VersionSet() {
     
 Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &desc,
                            uint64_t file_number,
-                           std::map<uint64_t, uint64_t> *history) {
+                           std::set<uint64_t> *history) {
     
     std::string file_name = Files::ManifestFileName(abs_db_path_, file_number);
     std::unique_ptr<SequentialFile> file;
@@ -504,7 +499,7 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
             builder.Apply(patch);
             Version *version = builder.Build();
             Finalize(version);
-            builder.column_family()->Append(version);
+            builder.cfd()->Append(version);
         }
         if (patch.has_compaction_point()) {
             uint32_t id = patch.compaction_point().cfid;
@@ -519,9 +514,12 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
             DCHECK_NOTNULL(cfd);
             cfd->redo_log_number_ = patch.redo_log().number;
         }
-        if (patch.has_prepare_redo_log()) {
-            last_sequence_number_ = patch.prepare_redo_log().last_sequence_number;
-            history->emplace(patch.prepare_redo_log().number, last_sequence_number_);
+        if (patch.has_last_sequence_number()) {
+            last_sequence_number_ = patch.last_sequence_number();
+        }
+        if (patch.has_redo_log_number()) {
+            redo_log_number_ = patch.redo_log_number();
+            history->insert(redo_log_number_);
         }
         if (patch.has_prev_log_number()) {
             prev_log_number_ = patch.prev_log_number();
@@ -538,11 +536,6 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
     }
 
     manifest_file_number_ = file_number;
-//    rs = env_->NewWritableFile(file_name, true, &log_file_);
-//    if (!rs) {
-//        return rs;
-//    }
-//    logger_.reset(new LogWriter(log_file_.get(), block_size_));
     return Error::OK();
 }
     
@@ -550,19 +543,26 @@ Error VersionSet::LogAndApply(const ColumnFamilyOptions &cf_opts,
                               VersionPatch *patch,
                               std::mutex *mutex) {
     Error rs;
+    
+    if (patch->has_redo_log_number()) {
+        DCHECK_GE(patch->redo_log_number(), redo_log_number_);
+        DCHECK_LT(patch->redo_log_number(), next_file_number_);
+    } else {
+        patch->SetRedoLogNumber(redo_log_number_);
+    }
 
     if (!patch->has_prev_log_number()) {
-        patch->set_prev_log_number(prev_log_number_);
+        patch->SetPrevLogNumber(prev_log_number_);
     }
     
-    patch->set_next_file_number(next_file_number_);
-    //patch->set_last_sequence_number(last_sequence_number_);
+    patch->SetNextFileNumber(next_file_number_);
+    patch->SetLastSequenceNumber(last_sequence_number_);
     
     if (patch->has_add_column_family()) {
         column_families_->NewColumnFamily(cf_opts,
                                           patch->cf_creation().name,
                                           patch->cf_creation().cfid, this);
-        patch->set_max_column_faimly(column_families_->max_column_family());
+        patch->SetMaxColumnFaimly(column_families_->max_column_family());
     }
     
     if (patch->has_redo_log()) {
@@ -587,7 +587,7 @@ Error VersionSet::LogAndApply(const ColumnFamilyOptions &cf_opts,
         if (!rs) {
             return rs;
         }
-        patch->set_next_file_number(next_file_number_);
+        patch->SetNextFileNumber(next_file_number_);
     }
     rs = WritePatch(*patch);
     if (!rs) {
@@ -600,10 +600,10 @@ Error VersionSet::LogAndApply(const ColumnFamilyOptions &cf_opts,
         builder.Apply(*patch);
         Version *version = builder.Build();
         Finalize(version);
-        builder.column_family()->Append(version);
+        builder.cfd()->Append(version);
     }
     
-    //redo_log_number_ = patch->redo_log_number();
+    redo_log_number_ = patch->redo_log_number();
     prev_log_number_ = patch->prev_log_number();
     return Error::OK();
 }
@@ -630,8 +630,7 @@ Error VersionSet::WriteCurrentSnapshot() {
     for (ColumnFamilyImpl *cfd : *column_families_) {
         patch.Reset();
         patch.AddColumnFamily(cfd->name(), cfd->id(), cfd->ikcmp()->ucmp()->Name());
-        patch.set_redo_log(cfd->id(), cfd->redo_log_number());
-        patch.set_prepare_redo_log(cfd->redo_log_number(), last_sequence_number_);
+        patch.SetRedoLog(cfd->id(), cfd->redo_log_number());
         
         for (int i = 0; i < Config::kMaxLevel; ++i) {
             for (auto fmd : cfd->current()->level_files(i)) {
@@ -645,13 +644,14 @@ Error VersionSet::WriteCurrentSnapshot() {
     }
     
     patch.Reset();
-    patch.set_max_column_faimly(column_families_->max_column_family());
-    //patch.set_last_sequence_number(last_sequence_number_);
-    patch.set_next_file_number(next_file_number_);
-    patch.set_prev_log_number(prev_log_number_);
+    patch.SetMaxColumnFaimly(column_families_->max_column_family());
+    patch.SetLastSequenceNumber(last_sequence_number_);
+    patch.SetNextFileNumber(next_file_number_);
+    patch.SetRedoLogNumber(redo_log_number_);
+    patch.SetPrevLogNumber(prev_log_number_);
     
     char manifest[64];
-    ::snprintf(manifest, arraysize(manifest), "%llu", manifest_file_number_);
+    ::snprintf(manifest, arraysize(manifest), "%llu" , manifest_file_number_);
     Error rs = base::FileWriter::WriteAll(Files::CurrentFileName(abs_db_path_),
                                           manifest, env_);
     if (!rs) {

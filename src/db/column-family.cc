@@ -225,7 +225,7 @@ void ColumnFamilyImpl::SetupOtherInputs(CompactionContext *ctx) {
     // key range next time.
     //compaction_pointer_[level] = largest;
     compaction_point_[level] = largest;
-    ctx->patch.set_compaction_point(id(), level, largest);
+    ctx->patch.SetCompactionPoint(id(), level, largest);
 }
 
 Error ColumnFamilyImpl::Install(Factory *factory) {
