@@ -138,6 +138,12 @@ void SstTableBuilder::Add(std::string_view key, std::string_view value) {
     if (error_.fail()) {
         return error_;
     }
+    
+    // Flush All
+    error_ = writer_.Flush();
+    if (error_.fail()) {
+        return error_;
+    }
     return Error::OK();
 }
 

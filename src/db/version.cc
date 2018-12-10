@@ -669,9 +669,13 @@ Error VersionSet::WritePatch(const VersionPatch &patch) {
     if (!rs) {
         return rs;
     }
+    rs = logger_->Flush();
+    if (!rs) {
+        return rs;
+    }
     return logger_->Sync(true);
 }
-    
+
 void VersionSet::Finalize(Version *version) {
     // Precomputed best level for next compaction
     int best_level = -1;

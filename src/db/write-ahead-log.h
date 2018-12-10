@@ -45,6 +45,7 @@ public:
     
     Error Append(std::string_view data);
     
+    Error Flush() { return writer_.Flush(); }
     Error Sync(bool doit) { return writer_.Sync(doit); }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(LogWriter);

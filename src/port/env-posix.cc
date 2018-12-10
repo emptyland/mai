@@ -1,4 +1,5 @@
 #include "port/file-posix.h"
+#include "base/io-utils.h"
 #include "mai/allocator.h"
 #include <chrono>
 #include <sys/mman.h>
@@ -64,7 +65,15 @@ public:
     
     virtual Error NewWritableFile(const std::string &file_name, bool append,
                                   std::unique_ptr<WritableFile> *file) override {
-        return PosixWritableFile::Open(file_name, append, file);
+        Error rs = PosixWritableFile::Open(file_name, append, file);
+        if (!rs) {
+            return rs;
+        }
+        WritableFile *buffered = new base::BufferedWritableFile(file->release(),
+                                                                true);
+        file->reset(buffered);
+        return Error::OK();
+        //return PosixWritableFile::Open(file_name, append, file);
     }
     
     virtual Error NewRandomAccessFile(const std::string &file_name,

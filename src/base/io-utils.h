@@ -240,9 +240,83 @@ private:
 }; // class FileWriter
 
     
-class BufferedWritableFile : public WritableFile {
+class BufferedWritableFile final : public WritableFile {
 public:
+    static const int kBufferSize = 16 * base::kKB;
     
+    BufferedWritableFile(WritableFile *file, bool ownership)
+        : file_(DCHECK_NOTNULL(file))
+        , ownership_(ownership) {}
+    
+    virtual ~BufferedWritableFile() {
+        if (!buf_.empty()) {
+            Error rs = file_->Append(buf_);
+            if (!rs) {
+                LOG(ERROR) << "Flush file fail!";
+            }
+        }
+        if (ownership_) { delete file_; }
+    }
+    
+    virtual Error Append(std::string_view data) override {
+        Error rs;
+        if (data.size() >= kBufferSize) {
+            rs = Flush();
+            if (rs.ok()) {
+                rs = file_->Append(data);
+            }
+        } else {
+            if (buf_.size() + data.size() > kBufferSize) {
+                rs = Flush();
+            }
+            if (rs.ok()) {
+                buf_.append(data);
+            }
+        }
+        return rs;
+    }
+    
+    virtual Error PositionedAppend(std::string_view data,
+                                   uint64_t offset) override {
+        Error rs = Flush();
+        if (!rs) {
+            return rs;
+        }
+        return file_->PositionedAppend(data, offset);
+    }
+    
+    virtual Error Flush() override {
+        Error rs;
+        if (!buf_.empty()) {
+            rs = file_->Append(buf_);
+            buf_.clear();
+        }
+        return rs;
+    }
+    
+    virtual Error Sync() override { return file_->Sync(); }
+    
+    virtual Error GetFileSize(uint64_t *size) override {
+        Error rs = file_->GetFileSize(size);
+        if (!rs) {
+            return rs;
+        }
+        *size += buf_.size();
+        return Error::OK();
+    }
+    
+    virtual Error Truncate(uint64_t size) override {
+        Error rs = Flush();
+        if (!rs) {
+            return rs;
+        }
+        return file_->Truncate(size);
+    }
+
+private:
+    WritableFile *const file_;
+    const bool ownership_;
+    std::string buf_;
 }; // class BufferedWritableFile
     
 } // namespace base

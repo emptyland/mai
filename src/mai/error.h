@@ -23,7 +23,10 @@ public:
         other.state_ = nullptr;
     }
     
-    ~Error() { delete [] state_; }
+    ~Error() {
+        delete [] state_;
+        state_ = nullptr;
+    }
     
     static Error OK() { return Error(); }
     
@@ -84,7 +87,7 @@ public:
     
     std::string ToString() const;
     
-    void operator = (const Error other) {
+    void operator = (const Error &other) {
         filename_ = other.filename_;
         fileline_ = other.fileline_;
         delete [] state_;
