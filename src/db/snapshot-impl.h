@@ -12,8 +12,11 @@ class SnapshotList;
     
 class SnapshotImpl final : public Snapshot {
 public:
-    SnapshotImpl(core::SequenceNumber sequence_number, SnapshotList *owns)
+    SnapshotImpl(core::SequenceNumber sequence_number,
+                 uint64_t unix_time,
+                 SnapshotList *owns)
         : sequence_number_(sequence_number)
+        , unix_time_(unix_time)
         , owns_(owns) {}
     virtual ~SnapshotImpl() {}
     
@@ -33,6 +36,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(SnapshotImpl);
 private:
     core::SequenceNumber sequence_number_;
+    uint64_t unix_time_;
     SnapshotList *owns_;
     
     SnapshotImpl *next_ = this;
@@ -42,7 +46,7 @@ private:
 
 class SnapshotList final {
 public:
-    SnapshotList() : dummy_(new SnapshotImpl(0, this)) {}
+    SnapshotList() : dummy_(new SnapshotImpl(0, 0, this)) {}
     
     ~SnapshotList() {
         while (dummy_->next_ != dummy_) {
@@ -53,8 +57,9 @@ public:
         delete dummy_;
     }
     
-    SnapshotImpl *NewSnapshot(core::SequenceNumber sequence_number) {
-        SnapshotImpl *x = new SnapshotImpl(sequence_number, this);
+    SnapshotImpl *NewSnapshot(core::SequenceNumber sequence_number,
+                              uint64_t unix_time) {
+        SnapshotImpl *x = new SnapshotImpl(sequence_number, unix_time, this);
         x->next_ = dummy_;
         SnapshotImpl *prev = dummy_->prev_;
         x->prev_ = prev;

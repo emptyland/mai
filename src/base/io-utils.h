@@ -240,6 +240,11 @@ private:
 }; // class FileWriter
 
     
+class BufferedWritableFile : public WritableFile {
+public:
+    
+}; // class BufferedWritableFile
+    
 } // namespace base
     
 } // namespace mai

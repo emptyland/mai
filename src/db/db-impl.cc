@@ -501,7 +501,8 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
     
 /*virtual*/ const Snapshot *DBImpl::GetSnapshot() {
     std::unique_lock<std::mutex> lock(mutex_);
-    return snapshots_.NewSnapshot(versions_->last_sequence_number());
+    return snapshots_.NewSnapshot(versions_->last_sequence_number(),
+                                  env_->CurrentTimeMicros() / 1000);
 }
     
 /*virtual*/ void DBImpl::ReleaseSnapshot(const Snapshot *snapshot) {
@@ -1118,13 +1119,6 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
         return rs;
     }
     DCHECK_GT(builder->NumEntries(), 0) << "Empty compaction!";
-    mutex_.unlock();
-    rs = builder->Finish();
-    mutex_.lock();
-    if (!rs) {
-        builder->Abandon();
-        return rs;
-    }
     
     FileMetaData *fmd = new FileMetaData(job->target_file_number());
     fmd->ctime        = env_->CurrentTimeMicros();
