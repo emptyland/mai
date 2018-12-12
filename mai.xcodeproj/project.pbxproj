@@ -24,6 +24,10 @@
 		231C61F8219AA67C001A95C1 /* io-utils-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F7219AA67C001A95C1 /* io-utils-test.cc */; };
 		231C61FA219AA9CF001A95C1 /* write-ahead-log.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */; };
 		231C61FB219AA9CF001A95C1 /* write-ahead-log.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */; };
+		231F33FD21BE546C00A994A8 /* mapping-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231F33FC21BE546C00A994A8 /* mapping-table.cc */; };
+		231F33FE21BE546C00A994A8 /* mapping-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231F33FC21BE546C00A994A8 /* mapping-table.cc */; };
+		231F340021BE54D700A994A8 /* bw-nodes.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231F33FF21BE54D700A994A8 /* bw-nodes.cc */; };
+		231F340121BE54D700A994A8 /* bw-nodes.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231F33FF21BE54D700A994A8 /* bw-nodes.cc */; };
 		2326026321ABE80D003F434C /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* arena.cc */; };
 		2326026421ABE80D003F434C /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* arena.cc */; };
 		2326026621ABF614003F434C /* arena-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026521ABF614003F434C /* arena-test.cc */; };
@@ -64,6 +68,7 @@
 		237CE4C12192EABD004FB9BF /* iterator-warpper.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */; };
 		237CE4C42192EE17004FB9BF /* merging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4C32192EE17004FB9BF /* merging.cc */; };
 		237CE4C52192EE17004FB9BF /* merging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4C32192EE17004FB9BF /* merging.cc */; };
+		23AD6D5F21BF5B5300F8F4C5 /* bw-tree-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */; };
 		23AE732521AAABC60065725A /* db-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AE732421AAABC60065725A /* db-iterator.cc */; };
 		23AE732621AAABC60065725A /* db-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AE732421AAABC60065725A /* db-iterator.cc */; };
 		23B0E0D92187F90400F9E855 /* base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0D82187F90400F9E855 /* base.cc */; };
@@ -178,6 +183,11 @@
 		231C61F5219AA5EE001A95C1 /* io-utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "io-utils.h"; sourceTree = "<group>"; };
 		231C61F7219AA67C001A95C1 /* io-utils-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "io-utils-test.cc"; path = "src/base/io-utils-test.cc"; sourceTree = "<group>"; };
 		231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-ahead-log.cc"; sourceTree = "<group>"; };
+		231F33F821BE49B900A994A8 /* bw-nodes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-nodes.h"; sourceTree = "<group>"; };
+		231F33FB21BE4F2D00A994A8 /* mapping-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "mapping-table.h"; sourceTree = "<group>"; };
+		231F33FC21BE546C00A994A8 /* mapping-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "mapping-table.cc"; sourceTree = "<group>"; };
+		231F33FF21BE54D700A994A8 /* bw-nodes.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-nodes.cc"; sourceTree = "<group>"; };
+		231F340221BE665A00A994A8 /* bw-tree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree.h"; sourceTree = "<group>"; };
 		2326026121ABE7D8003F434C /* arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arena.h; sourceTree = "<group>"; };
 		2326026221ABE80D003F434C /* arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = arena.cc; sourceTree = "<group>"; };
 		2326026521ABF614003F434C /* arena-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "arena-test.cc"; path = "src/base/arena-test.cc"; sourceTree = "<group>"; };
@@ -214,6 +224,8 @@
 		237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "iterator-warpper.cc"; sourceTree = "<group>"; };
 		237CE4C22192EDE4004FB9BF /* merging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = merging.h; sourceTree = "<group>"; };
 		237CE4C32192EE17004FB9BF /* merging.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = merging.cc; sourceTree = "<group>"; };
+		23AD6D5D21BF53CF00F8F4C5 /* bw-tree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree.h"; sourceTree = "<group>"; };
+		23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "bw-tree-test.cc"; path = "src/core/bw-tree-test.cc"; sourceTree = "<group>"; };
 		23AE732321AAAB870065725A /* db-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-iterator.h"; sourceTree = "<group>"; };
 		23AE732421AAABC60065725A /* db-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "db-iterator.cc"; sourceTree = "<group>"; };
 		23B0E0C9217D7DA000F9E855 /* mai */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mai; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -319,6 +331,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		231F33F721BE490F00A994A8 /* bw */ = {
+			isa = PBXGroup;
+			children = (
+				231F33F821BE49B900A994A8 /* bw-nodes.h */,
+				231F33FF21BE54D700A994A8 /* bw-nodes.cc */,
+				231F33FB21BE4F2D00A994A8 /* mapping-table.h */,
+				231F33FC21BE546C00A994A8 /* mapping-table.cc */,
+				231F340221BE665A00A994A8 /* bw-tree.h */,
+			);
+			name = bw;
+			path = src/bw;
+			sourceTree = "<group>";
+		};
 		234372C821998BE200427E83 /* db */ = {
 			isa = PBXGroup;
 			children = (
@@ -353,6 +378,7 @@
 		23B0E0C0217D7DA000F9E855 = {
 			isa = PBXGroup;
 			children = (
+				231F33F721BE490F00A994A8 /* bw */,
 				234372C821998BE200427E83 /* db */,
 				23FB4B4F2195706100B2829B /* test */,
 				23B0E125218AD1E300F9E855 /* table */,
@@ -433,6 +459,7 @@
 				23C54E0F21B527DB0078E77A /* lambda-test.cc */,
 				23C54E1221B52EBA0078E77A /* config-test.cc */,
 				236AC67921B769900069A17B /* lru-cache-test.cc */,
+				23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -469,6 +496,7 @@
 				232AA2332193E506007EF228 /* skip-list.h */,
 				23B0E0FC218840EC00F9E855 /* hash-map-v1.h */,
 				230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */,
+				23AD6D5D21BF53CF00F8F4C5 /* bw-tree.h */,
 				237CE4B72192CD16004FB9BF /* memory-table.h */,
 				23C54E0921B517AB0078E77A /* memory-table.cc */,
 				232AA2372193E754007EF228 /* ordered-memory-table.h */,
@@ -636,6 +664,7 @@
 				23B0E141218BEAA900F9E855 /* bytewise-comparator.cc in Sources */,
 				232E1E6E21A2578000F408D7 /* version-test.cc in Sources */,
 				2302F6B721AE795E00AE0309 /* s1-table-builder-test.cc in Sources */,
+				231F340021BE54D700A994A8 /* bw-nodes.cc in Sources */,
 				23C54E0A21B517AB0078E77A /* memory-table.cc in Sources */,
 				2302F6B021AE3FA700AE0309 /* s1-table-builder.cc in Sources */,
 				231C61FA219AA9CF001A95C1 /* write-ahead-log.cc in Sources */,
@@ -677,6 +706,7 @@
 				23F60612219C22AE00CE12D9 /* files.cc in Sources */,
 				23F6060E219BF8C800CE12D9 /* version.cc in Sources */,
 				23B0E0FF218841C500F9E855 /* spin-locking.cc in Sources */,
+				231F33FD21BE546C00A994A8 /* mapping-table.cc in Sources */,
 				23AE732521AAABC60065725A /* db-iterator.cc in Sources */,
 				237CE4C02192EABD004FB9BF /* iterator-warpper.cc in Sources */,
 				232AA23F21942412007EF228 /* sst-table-builder.cc in Sources */,
@@ -733,6 +763,7 @@
 				23C54E1121B527DB0078E77A /* lambda-test.cc in Sources */,
 				23B0E1562190215C00F9E855 /* internal-key-comparator.cc in Sources */,
 				23C1163221AFECBB00DE7321 /* error-test.cc in Sources */,
+				23AD6D5F21BF5B5300F8F4C5 /* bw-tree-test.cc in Sources */,
 				232AA2362193E5E6007EF228 /* skip-list-test.cc in Sources */,
 				23B0E142218BEAA900F9E855 /* bytewise-comparator.cc in Sources */,
 				232AA24421943066007EF228 /* data-block-builder.cc in Sources */,
@@ -750,12 +781,14 @@
 				23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */,
 				23F6060B219BCBD800CE12D9 /* column-family.cc in Sources */,
 				2302F6B521AE4C9B00AE0309 /* plain-block-builder.cc in Sources */,
+				231F340121BE54D700A994A8 /* bw-nodes.cc in Sources */,
 				237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,
 				23C1163621AFED1B00DE7321 /* file-test.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,
 				23C1163521AFED1B00DE7321 /* files-test.cc in Sources */,
 				232E1E6F21A2578000F408D7 /* version-test.cc in Sources */,
 				23FB4B5721957EFA00B2829B /* key-bloom-filter.cc in Sources */,
+				231F33FE21BE546C00A994A8 /* mapping-table.cc in Sources */,
 				23B0E100218841C500F9E855 /* spin-locking.cc in Sources */,
 				237CE4C12192EABD004FB9BF /* iterator-warpper.cc in Sources */,
 			);
