@@ -30,18 +30,31 @@ TEST_F(BwTreeTest, Sanity) {
     ASSERT_NE(nullptr, root);
     ASSERT_EQ(3, root->largest_key);
     ASSERT_EQ(3, root->smallest_key);
+    ASSERT_EQ(1, root->size);
     
     IntTree::View view =tree.TEST_GetView(root, nullptr);
     ASSERT_EQ(root->size, view.size());
 }
     
 TEST_F(BwTreeTest, BaseLayout) {
-    BwTree<int, IntComparator> tree(IntComparator{}, 3, 6, &arena_);
+    IntTree tree(IntComparator{}, 3, 6, &arena_);
     
     auto n = tree.NewBaseLine(0, 0, 0);
     ASSERT_EQ(n->pid, 0);
     ASSERT_EQ(n->size, 0);
     ASSERT_EQ(n->sibling, 0);
+}
+    
+TEST_F(BwTreeTest, Iterator) {
+    IntTree tree(IntComparator{}, 3, 6, &arena_);
+    for (int i = 0; i < 8; ++i) {
+        tree.Put(i);
+    }
+    
+    IntTree::Iterator iter(&tree);
+    iter.Seek(4);
+    ASSERT_TRUE(iter.Valid());
+    ASSERT_EQ(4, iter.key());
 }
     
 } // namespace core

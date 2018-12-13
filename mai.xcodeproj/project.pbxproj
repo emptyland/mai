@@ -68,6 +68,8 @@
 		237CE4C12192EABD004FB9BF /* iterator-warpper.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */; };
 		237CE4C42192EE17004FB9BF /* merging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4C32192EE17004FB9BF /* merging.cc */; };
 		237CE4C52192EE17004FB9BF /* merging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4C32192EE17004FB9BF /* merging.cc */; };
+		2399D20921C247B100C8D5B1 /* tls-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20821C247B100C8D5B1 /* tls-test.cc */; };
+		2399D20C21C249E300C8D5B1 /* ebr-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20B21C249E300C8D5B1 /* ebr-test.cc */; };
 		23AD6D5F21BF5B5300F8F4C5 /* bw-tree-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */; };
 		23AE732521AAABC60065725A /* db-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AE732421AAABC60065725A /* db-iterator.cc */; };
 		23AE732621AAABC60065725A /* db-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AE732421AAABC60065725A /* db-iterator.cc */; };
@@ -224,6 +226,10 @@
 		237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "iterator-warpper.cc"; sourceTree = "<group>"; };
 		237CE4C22192EDE4004FB9BF /* merging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = merging.h; sourceTree = "<group>"; };
 		237CE4C32192EE17004FB9BF /* merging.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = merging.cc; sourceTree = "<group>"; };
+		2399D20721C2433500C8D5B1 /* tls-posix.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "tls-posix.h"; sourceTree = "<group>"; };
+		2399D20821C247B100C8D5B1 /* tls-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "tls-test.cc"; path = "src/base/tls-test.cc"; sourceTree = "<group>"; };
+		2399D20A21C2496D00C8D5B1 /* ebr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ebr.h; sourceTree = "<group>"; };
+		2399D20B21C249E300C8D5B1 /* ebr-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "ebr-test.cc"; path = "src/base/ebr-test.cc"; sourceTree = "<group>"; };
 		23AD6D5D21BF53CF00F8F4C5 /* bw-tree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree.h"; sourceTree = "<group>"; };
 		23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "bw-tree-test.cc"; path = "src/core/bw-tree-test.cc"; sourceTree = "<group>"; };
 		23AE732321AAAB870065725A /* db-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-iterator.h"; sourceTree = "<group>"; };
@@ -421,6 +427,7 @@
 				231C61F5219AA5EE001A95C1 /* io-utils.h */,
 				2326026121ABE7D8003F434C /* arena.h */,
 				2326026221ABE80D003F434C /* arena.cc */,
+				2399D20A21C2496D00C8D5B1 /* ebr.h */,
 			);
 			name = base;
 			path = src/base;
@@ -460,6 +467,8 @@
 				23C54E1221B52EBA0078E77A /* config-test.cc */,
 				236AC67921B769900069A17B /* lru-cache-test.cc */,
 				23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */,
+				2399D20821C247B100C8D5B1 /* tls-test.cc */,
+				2399D20B21C249E300C8D5B1 /* ebr-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -530,6 +539,7 @@
 				23B0E11D2189A9CE00F9E855 /* env-posix.cc */,
 				23B0E1202189A9F300F9E855 /* file-posix.h */,
 				23B0E1212189ABE800F9E855 /* file-posix.cc */,
+				2399D20721C2433500C8D5B1 /* tls-posix.h */,
 			);
 			name = port;
 			path = src/port;
@@ -731,6 +741,7 @@
 				232AA2322193D786007EF228 /* merging-test.cc in Sources */,
 				23F6060F219BF8C800CE12D9 /* version.cc in Sources */,
 				232AA24A219432BB007EF228 /* slice.cc in Sources */,
+				2399D20921C247B100C8D5B1 /* tls-test.cc in Sources */,
 				232E1E7321A2C0FC00F408D7 /* factory.cc in Sources */,
 				232E1E7721A2C47B00F408D7 /* table-cache.cc in Sources */,
 				23C54E1421B52EBA0078E77A /* config-test.cc in Sources */,
@@ -789,6 +800,7 @@
 				232E1E6F21A2578000F408D7 /* version-test.cc in Sources */,
 				23FB4B5721957EFA00B2829B /* key-bloom-filter.cc in Sources */,
 				231F33FE21BE546C00A994A8 /* mapping-table.cc in Sources */,
+				2399D20C21C249E300C8D5B1 /* ebr-test.cc in Sources */,
 				23B0E100218841C500F9E855 /* spin-locking.cc in Sources */,
 				237CE4C12192EABD004FB9BF /* iterator-warpper.cc in Sources */,
 			);

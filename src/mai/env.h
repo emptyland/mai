@@ -13,6 +13,7 @@ class SequentialFile;
 class WritableFile;
 class RandomAccessFile;
 class Allocator;
+class ThreadLocalSlot;
     
 class Env {
 public:
@@ -55,6 +56,11 @@ public:
     
     virtual uint64_t CurrentTimeMicros();
     
+    // TLS
+    virtual Error NewThreadLocalSlot(const std::string &name,
+                                     void (*dtor)(void *),
+                                     std::unique_ptr<ThreadLocalSlot> *slot) = 0;
+    
 }; // class Env
     
 class SequentialFile {
@@ -92,6 +98,16 @@ public:
     
     virtual Error GetFileSize(uint64_t *size) = 0;
 }; // class RandomAccessFile
+    
+class ThreadLocalSlot {
+public:
+    ThreadLocalSlot() {};
+    virtual ~ThreadLocalSlot();
+    
+    virtual std::string name() = 0;
+    virtual void *Get() = 0;
+    virtual void Set(void *value) = 0;
+}; // class ThreadLocalSlot
     
 } // namespace mai
 

@@ -1,4 +1,5 @@
 #include "port/file-posix.h"
+#include "port/tls-posix.h"
 #include "base/io-utils.h"
 #include "mai/allocator.h"
 #include <chrono>
@@ -195,6 +196,12 @@ public:
     
     virtual Allocator *GetLowLevelAllocator() override {
         return low_level_alloc_.get();
+    }
+    
+    virtual Error NewThreadLocalSlot(const std::string &name,
+                                     void (*dtor)(void *),
+                                     std::unique_ptr<ThreadLocalSlot> *result) override {
+        return PosixThreadLocalSlot::New(name, dtor, result);
     }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(PosixEnv);
