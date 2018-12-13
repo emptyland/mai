@@ -70,6 +70,8 @@
 		237CE4C52192EE17004FB9BF /* merging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4C32192EE17004FB9BF /* merging.cc */; };
 		2399D20921C247B100C8D5B1 /* tls-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20821C247B100C8D5B1 /* tls-test.cc */; };
 		2399D20C21C249E300C8D5B1 /* ebr-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20B21C249E300C8D5B1 /* ebr-test.cc */; };
+		2399D20E21C264B100C8D5B1 /* ebr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20D21C264B100C8D5B1 /* ebr.cc */; };
+		2399D20F21C264B100C8D5B1 /* ebr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20D21C264B100C8D5B1 /* ebr.cc */; };
 		23AD6D5F21BF5B5300F8F4C5 /* bw-tree-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */; };
 		23AE732521AAABC60065725A /* db-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AE732421AAABC60065725A /* db-iterator.cc */; };
 		23AE732621AAABC60065725A /* db-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AE732421AAABC60065725A /* db-iterator.cc */; };
@@ -230,6 +232,7 @@
 		2399D20821C247B100C8D5B1 /* tls-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "tls-test.cc"; path = "src/base/tls-test.cc"; sourceTree = "<group>"; };
 		2399D20A21C2496D00C8D5B1 /* ebr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ebr.h; sourceTree = "<group>"; };
 		2399D20B21C249E300C8D5B1 /* ebr-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "ebr-test.cc"; path = "src/base/ebr-test.cc"; sourceTree = "<group>"; };
+		2399D20D21C264B100C8D5B1 /* ebr.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ebr.cc; sourceTree = "<group>"; };
 		23AD6D5D21BF53CF00F8F4C5 /* bw-tree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree.h"; sourceTree = "<group>"; };
 		23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "bw-tree-test.cc"; path = "src/core/bw-tree-test.cc"; sourceTree = "<group>"; };
 		23AE732321AAAB870065725A /* db-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-iterator.h"; sourceTree = "<group>"; };
@@ -428,6 +431,7 @@
 				2326026121ABE7D8003F434C /* arena.h */,
 				2326026221ABE80D003F434C /* arena.cc */,
 				2399D20A21C2496D00C8D5B1 /* ebr.h */,
+				2399D20D21C264B100C8D5B1 /* ebr.cc */,
 			);
 			name = base;
 			path = src/base;
@@ -679,6 +683,7 @@
 				2302F6B021AE3FA700AE0309 /* s1-table-builder.cc in Sources */,
 				231C61FA219AA9CF001A95C1 /* write-ahead-log.cc in Sources */,
 				23B0E14D218FDFEE00F9E855 /* varint-encoding.cc in Sources */,
+				2399D20E21C264B100C8D5B1 /* ebr.cc in Sources */,
 				23D70EEE21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */,
 				232AA24621943100007EF228 /* data-block-builder-test.cc in Sources */,
 				23B0E11A2189A94F00F9E855 /* env.cc in Sources */,
@@ -745,6 +750,7 @@
 				232E1E7321A2C0FC00F408D7 /* factory.cc in Sources */,
 				232E1E7721A2C47B00F408D7 /* table-cache.cc in Sources */,
 				23C54E1421B52EBA0078E77A /* config-test.cc in Sources */,
+				2399D20F21C264B100C8D5B1 /* ebr.cc in Sources */,
 				23B0E134218AFD4E00F9E855 /* crc32.c in Sources */,
 				2302F6BC21AE80AB00AE0309 /* s1-table-reader.cc in Sources */,
 				23C1163821AFED5E00DE7321 /* test-main.cc in Sources */,

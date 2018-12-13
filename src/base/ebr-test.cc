@@ -38,9 +38,6 @@ struct TestNode {
     
 static void Delete1(void *chunk, void *) {
     auto n = static_cast<TestNode *>(chunk);
-//    if (n) {
-//        printf("delete: %d\n", n->val);
-//    }
     delete n;
 }
     
@@ -76,7 +73,6 @@ TEST(EbrTest, ConcurrentReadWrite) {
                     n = head->next;
                 } while (!list.compare_exchange_weak(head, n));
                 gc->Limbo(head);
-                //printf("limbo: %d\n", head->val);
             }
             gc->Cycle();
             trigger = current.load(std::memory_order_acquire);
@@ -90,7 +86,6 @@ TEST(EbrTest, ConcurrentReadWrite) {
             TestNode *head = list.load(std::memory_order_acquire);
             ASSERT_NE(nullptr, head);
             ASSERT_GE(head->val, 1);
-            //printf("read: %d, %s\n", head->val, head->val % 3 ? "true": "false");
             gc->Exit();
             trigger = current.load(std::memory_order_acquire);
         }
@@ -99,6 +94,13 @@ TEST(EbrTest, ConcurrentReadWrite) {
     writer.join();
     deleter.join();
     reader.join();
+    
+    auto head = list.load(std::memory_order_relaxed);
+    while (head) {
+        auto prev = head;
+        head = head->next;
+        delete prev;
+    }
 }
     
 } // namespace base

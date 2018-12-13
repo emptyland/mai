@@ -28,19 +28,7 @@ public:
         return env->NewThreadLocalSlot("ebr", ::free, &tls_slot_);
     }
     
-    void Register() {
-        auto node = static_cast<Tls *>(tls_slot_->Get());
-        if (!node) {
-            node = static_cast<Tls *>(::malloc(sizeof(Tls)));
-            ::memset(node, 0, sizeof(*node));
-            tls_slot_->Set(node);
-        }
-        Tls *head;
-        do {
-            head = tls_list_.load(std::memory_order_relaxed);
-            node->next = head;
-        } while (!tls_list_.compare_exchange_weak(head, node));
-    }
+    void Register();
     
     void Enter() {
         Tls *n = DCHECK_NOTNULL(static_cast<Tls *>(tls_slot_->Get()));
@@ -56,26 +44,7 @@ public:
         n->local_epoch = 0;
     }
     
-    bool Sync(uint32_t *gc_epoch) {
-        auto epoch = global_epoch_.load(std::memory_order_relaxed);
-        std::atomic_thread_fence(std::memory_order_seq_cst);
-        
-        auto n = tls_list_.load();
-        while (n) {
-            const uint32_t local_epoch = n->local_epoch;
-            const bool active = (local_epoch & kActiveFlag) != 0;
-            
-            if (active && (local_epoch != (epoch | kActiveFlag))) {
-                *gc_epoch = GetGcEpoch();
-                return false;
-            }
-            n = n->next;
-        }
-        global_epoch_.store((epoch + 1) % kNumberEpochs,
-                            std::memory_order_release);
-        *gc_epoch = GetGcEpoch();
-        return true;
-    }
+    bool Sync(uint32_t *gc_epoch);
     
     uint32_t GetGcEpoch() const {
         return (global_epoch_.load(std::memory_order_acquire) + 1) % kNumberEpochs;
@@ -88,8 +57,8 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(Ebr);
 private:
     std::atomic<Tls *> tls_list_;
-    std::unique_ptr<ThreadLocalSlot> tls_slot_;
     std::atomic<uint32_t> global_epoch_;
+    std::unique_ptr<ThreadLocalSlot> tls_slot_;
 }; // class Ebr
 
 
@@ -132,44 +101,17 @@ public:
     }
     
     // WARNING: Not thread safe
-    void CycleNoLock() {
-        uint32_t gc_epoch = 0;
-        Entry *gc_list = nullptr;
-
-        for (int i = 0; i < Ebr::kNumberEpochs; ++i) {
-            if (!ebr_.Sync(&gc_epoch)) {
-                return;
-            }
-            uint32_t staging_epoch = ebr_.GetStagingEpoch();
-            DCHECK(epoch_list_[staging_epoch] == nullptr);
-            epoch_list_[staging_epoch] = limbo_.exchange(nullptr);
-            
-            gc_list = epoch_list_[gc_epoch];
-            if (gc_list) {
-                break;
-            }
-        }
-        Reclaim(gc_list);
-        epoch_list_[gc_epoch] = nullptr;
-    }
+    void CycleNoLock();
     
     void Cycle() {
         std::lock_guard<std::mutex> lock(mutex_);
         CycleNoLock();
     }
-    
-    void Reclaim(Entry *entry) {
-        while (entry) {
-            auto obj = entry->obj;
-            auto prev = entry;
-            entry = entry->next;
-            deleter_(obj, arg0_);
-            delete prev;
-        }
-    }
-    
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(EbrGC);
 private:
+    void Reclaim(Entry *entry);
+    
     Ebr ebr_;
     Deleter deleter_;
     void *arg0_;
