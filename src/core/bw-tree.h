@@ -1,8 +1,9 @@
 #ifndef MAI_CORE_BW_TREE_H_
 #define MAI_CORE_BW_TREE_H_
 
-#include "base/arena.h"
 #include "base/base.h"
+#include "base/ebr.h"
+#include "mai/env.h"
 #include "glog/logging.h"
 #include <atomic>
 #include <map>
@@ -25,6 +26,16 @@ static const Pid kInvalidPid = -1;
     V(SplitNode) \
     V(MergeNode) \
     V(RemoveNode)
+    
+#define DEFINE_CASTS(name) \
+    static name *Cast(Node *x) { \
+        DCHECK_EQ(x->kind, Node::k##name); \
+        return static_cast<name *>(x); \
+    } \
+    static const name *Cast(const Node *x) { \
+        DCHECK_EQ(x->kind, Node::k##name); \
+        return static_cast<const name *>(x); \
+    }
 
 struct Node {
     enum Kind : int {
@@ -60,6 +71,8 @@ template<class T>
 struct SplitNode final : public DeltaNode<T> {
     SplitNode() : DeltaNode<T>(Node::kSplitNode) {}
     
+    DEFINE_CASTS(SplitNode);
+    
     T separator;
     Pid splited = kInvalidPid;
 }; // struct SplitNode
@@ -69,6 +82,8 @@ template<class T>
 struct MergeNode final : public DeltaNode<T> {
     MergeNode() : DeltaNode<T>(Node::kMergeNode) {}
     
+    DEFINE_CASTS(MergeNode);
+    
     Node *merged = nullptr;
 }; // struct MergeNode
 
@@ -76,6 +91,8 @@ struct MergeNode final : public DeltaNode<T> {
 template<class T>
 struct RemoveNode final : public DeltaNode<T> {
     RemoveNode() : DeltaNode<T>(Node::kRemoveNode) {}
+    
+    DEFINE_CASTS(RemoveNode);
 }; // struct RemoveNode
     
 template<class T>
@@ -89,12 +106,16 @@ struct DeltaKey : public DeltaNode<T> {
     DeltaKey() : DeltaNode<T>(Node::kDeltaKey) {}
     DeltaKey(Node::Kind akind) : DeltaNode<T>(akind) {}
     
+    DEFINE_CASTS(DeltaKey);
+    
     T key;
 }; // struct DeltaKeyNode
     
 template<class T>
 struct DeltaIndex final : public DeltaKey<T> {
     DeltaIndex() : DeltaKey<T>(Node::kDeltaIndex) {}
+    
+    DEFINE_CASTS(DeltaIndex);
     
     Pid lhs = 0;
     Pid rhs = 0;
@@ -105,10 +126,32 @@ struct BaseLine final : public DeltaNode<T> {
     BaseLine(size_t n)
         : DeltaNode<T>(Node::kBaseLine) { DeltaNode<T>::size = n; }
     
+    Pair<T> entry(size_t i) const {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, DeltaNode<T>::size);
+        return entries[i];
+    }
+    
+    void set_entry(size_t i, const Pair<T> &pair) {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, DeltaNode<T>::size);
+        entries[i] = pair;
+    }
+    
+    void UpdateBound() {
+        DeltaNode<T>::smallest_key = entries[0].key;
+        DeltaNode<T>::largest_key  = entries[DeltaNode<T>::size - 1].key;
+    }
+    
+    DEFINE_CASTS(BaseLine);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(BaseLine);
+    
     Pid overflow = 0;
     Pair<T> entries[1];
 }; // struct BaseLineNode
     
+    
+#undef DEFINE_CASTS
 
 } // namespace bw
     
@@ -116,22 +159,36 @@ struct BaseLine final : public DeltaNode<T> {
 template<class T, class Comparator>
 class BwTreeBase {
 public:
-    using Pid  = bw::Pid;
-    using Node = bw::Node;
-    using Pair = bw::Pair<T>;
-    using DeltaNode = bw::DeltaNode<T>;
-    using BaseLine = bw::BaseLine<T>;
-    using DeltaKey = bw::DeltaKey<T>;
+    using Pid        = bw::Pid;
+    using Node       = bw::Node;
+    using Pair       = bw::Pair<T>;
+    using DeltaNode  = bw::DeltaNode<T>;
+    using BaseLine   = bw::BaseLine<T>;
+    using DeltaKey   = bw::DeltaKey<T>;
     using DeltaIndex = bw::DeltaIndex<T>;
-    using SplitNode = bw::SplitNode<T>;
+    using SplitNode  = bw::SplitNode<T>;
     
-    BwTreeBase(Comparator cmp, base::Arena *arena, size_t max_pages)
+    BwTreeBase(Comparator cmp, Env *env, size_t max_pages)
         : cmp_(cmp)
-        , arena_(DCHECK_NOTNULL(arena))
+        , gc_(&Deleter, this)
         , max_pages_(max_pages)
-        , next_pid_(1) {
-        pages_ = static_cast<PageSlot *>(arena_->Allocate(max_pages_ * sizeof(PageSlot)));
+        , next_pid_(1)
+        , pages_(new PageSlot[max_pages_]) {
         ::memset(pages_, 0, max_pages_ * sizeof(PageSlot));
+        Error rs = gc_.Init(env);
+        DCHECK(rs.ok()) << rs.ToString();
+    }
+    
+    ~BwTreeBase() {
+        for (Pid i = 1; i < next_pid_.load(); ++i) {
+            auto x = pages_[i].address.load();
+            while (x) {
+                auto prev = x;
+                x = x->base;
+                Deleter(prev, this);
+            }
+        }
+        delete[] pages_;
     }
 
     BaseLine *NewBaseLine(Pid pid, size_t n_entries, Pid sibling) {
@@ -206,7 +263,6 @@ public:
         do {
             e = node->base;
         } while (!slot->address.compare_exchange_strong(e, node));
-//        slot->address.store(node);
     }
     
     void ReplacePid(Pid pid, Node *old, Node *node) {
@@ -216,6 +272,14 @@ public:
         do {
             e = old;
         } while (!slot->address.compare_exchange_strong(e, node));
+        
+        // Limbo all nodes
+        auto x = old;
+        while (x) {
+            gc_.Limbo(x);
+            x = x->base;
+        }
+        gc_.Cycle();
     }
     
     Pid GeneratePid() { return next_pid_.fetch_add(1); }
@@ -229,6 +293,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(BwTreeBase);
 protected:
     Comparator const cmp_;
+    base::EbrGC gc_;
 
 private:
     void SetBase(DeltaNode *delta, DeltaNode *base) {
@@ -246,36 +311,49 @@ private:
         }
     }
     
+    static void Deleter(void *chunk, void *arg0) {
+        auto self = static_cast<BwTreeBase *>(arg0);
+        DCHECK(self != nullptr);
+        auto n = static_cast<Node *>(chunk);
+        ::free(n);
+    }
+    
     struct PageSlot {
         std::atomic<Node *> address;
     }; // struct PageSlot
-    
-    base::Arena *const arena_;
+
     size_t const max_pages_;
-    PageSlot *pages_;
     std::atomic<Pid> next_pid_;
+    PageSlot *pages_;
 }; // template<class T> class BwTreeBase
     
 
 template<class Key, class Comparator>
 class BwTree final : public BwTreeBase<Key, Comparator> {
 public:
-    using Pid       = bw::Pid;
-    using Node      = bw::Node;
-    using BaseLine  = bw::BaseLine<Key>;
-    using DeltaKey  = bw::DeltaKey<Key>;
+    using Pid        = bw::Pid;
+    using Node       = bw::Node;
+    using BaseLine   = bw::BaseLine<Key>;
+    using DeltaKey   = bw::DeltaKey<Key>;
     using DeltaIndex = bw::DeltaIndex<Key>;
-    using DeltaNode = bw::DeltaNode<Key>;
-    using SplitNode = bw::SplitNode<Key>;
-    using Pair      = bw::Pair<Key>;
-    using Base      = BwTreeBase<Key, Comparator>;
-    using View      = std::map<Key, Pid>;
+    using DeltaNode  = bw::DeltaNode<Key>;
+    using SplitNode  = bw::SplitNode<Key>;
+    using Pair       = bw::Pair<Key>;
+    using Base       = BwTreeBase<Key, Comparator>;
+    
+    struct ComparatorLess {
+        Comparator cmp;
+        bool operator () (Key lhs, Key rhs) const {
+            return cmp(lhs, rhs) < 0;
+        }
+    };
+    using View = std::map<Key, Pid, ComparatorLess>;
     
     class Iterator;
 
     BwTree(Comparator cmp, size_t consolidate_trigger,
-           size_t split_trigger, base::Arena *arena)
-        : BwTreeBase<Key, Comparator>(cmp, DCHECK_NOTNULL(arena), 1024)
+           size_t split_trigger, Env *env)
+        : BwTreeBase<Key, Comparator>(cmp, env, 1024)
         , consolidate_trigger_(consolidate_trigger)
         , split_trigger_(split_trigger)
         , level_(0) {
@@ -285,6 +363,8 @@ public:
     }
     
     Pid GetRootId() const { return root_.load(); }
+    
+    int GetLevel() const { return level_.load(); }
     
     void Put(Key key) {
         Pid parent_id;
@@ -297,41 +377,164 @@ public:
             SplitLeaf(p, parent_id);
         }
     }
-    
-    void SplitLeaf(DeltaNode *p, Pid parent_id) {
 
-        auto n_entries = p->size - p->size / 2;
+    View TEST_MakeView(const DeltaNode *node, Pid *result) const {
+        return MakeView(node, result);
+    }
+    BaseLine *TEST_Consolidate(const DeltaNode *node) {
+        return Consolidate(node);
+    }
+    size_t TEST_FindGreaterOrEqual(const BaseLine *base_line, Key key) const {
+        return FindGreaterOrEqual(base_line, key);
+    }
+    SplitNode *TEST_SplitLeaf(DeltaNode *p, Pid parent_id) {
+        return SplitLeaf(p, parent_id);
+    }
+    SplitNode *TEST_SpliInnter(DeltaNode *p, Pid parent_id) {
+        return SplitInner(p, parent_id);
+    }
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(BwTree);
+private:
+    SplitNode *SplitLeaf(DeltaNode *p, Pid parent_id) {
+        DCHECK_GT(p->size, 2);
+        
+        size_t n_entries, sep;
+        if (p->size % 2) {
+            sep = p->size / 2;
+            n_entries = p->size - p->size / 2 - 1;
+        } else {
+            sep = p->size / 2 - 1;
+            n_entries = p->size - p->size / 2;
+        }
         auto pid = Base::GeneratePid();
         BaseLine *q = Base::NewBaseLine(pid, n_entries, p->sibling);
-        View view = GetView(p, nullptr);
+        View view = MakeView(p, nullptr);
         size_t n = 0, i = 0;
+        Key kp{};
         for (auto pair : view) {
-            if (i++ >= p->size / 2) {
-                q->entries[n++] = {pair.first, pair.second};
+            if (i == sep) {
+                kp = pair.first;
+            } else if (i > sep) {
+                q->set_entry(n++, {pair.first, pair.second});
+                DCHECK_EQ(0, pair.second);
             }
+            ++i;
         }
-        Key kp = q->entries[0].key;
-        q->smallest_key = q->entries[0].key;
-        q->largest_key  = q->entries[q->size - 1].key;
+        DCHECK_EQ(n, n_entries);
+        q->UpdateBound();
+        
         SplitNode *split = Base::NewSplitNode(0, kp, q->pid, p);
         split->sibling = q->pid;
+        // FIXME: Update bound
         Base::UpdatePid(p->pid, split);
         
         if (parent_id) {
-            DeltaKey *term = Base::NewDeltaIndex(parent_id, kp, p->pid, q->pid,
-                                                 Base::GetNode(parent_id));
-            (void)term;
+            DeltaKey *parent = Base::NewDeltaIndex(parent_id, kp, p->pid, q->pid,
+                                                   Base::GetNode(parent_id));
+            if (NeedsSplit(parent)) {
+                SplitInner(parent, FindParent(parent, kp));
+            }
         } else {
             BaseLine *root = Base::NewBaseLine(0, 1, 0);
-            root->entries[0] = {kp, p->pid};
+            root->set_entry(0, {kp, p->pid});
             root->overflow   = q->pid;
-            root->smallest_key = kp;
-            root->largest_key  = kp;
+            root->UpdateBound();
             pid = Base::GeneratePid();
             Base::UpdatePid(pid, root);
             root_.store(pid);
             level_.fetch_add(1);
         }
+        return split;
+    }
+    
+    SplitNode *SplitInner(DeltaNode *p, Pid parent_id) {
+        DCHECK_GT(p->size, 2);
+        
+        size_t n_entries, sep;
+        if (p->size % 2) {
+            sep = p->size / 2;
+            n_entries = p->size - p->size / 2 - 1;
+        } else {
+            sep = p->size / 2 - 1;
+            n_entries = p->size - p->size / 2;
+        }
+        auto pid = Base::GeneratePid();
+        BaseLine *q = Base::NewBaseLine(pid, n_entries, p->sibling);
+        View view = MakeView(p, nullptr);
+        size_t n = 0, i = 0;
+        Key kp{}, sp{};
+        for (auto pair : view) {
+            if (i < sep) {
+                sp = pair.first;
+            } else if (i == sep) {
+                kp = pair.first;
+            } else if (i > sep) {
+                q->set_entry(n++, {pair.first, pair.second});
+                DCHECK_NE(0, pair.second);
+            }
+            ++i;
+        }
+        DCHECK_EQ(n, n_entries);
+        q->UpdateBound();
+        
+        SplitNode *split = Base::NewSplitNode(0, sp, q->pid, p);
+        split->sibling = q->pid;
+        // FIXME: Update bound
+        Base::UpdatePid(p->pid, split);
+        
+        if (parent_id) {
+            DeltaKey *parent = Base::NewDeltaIndex(parent_id, kp, p->pid, q->pid,
+                                                   Base::GetNode(parent_id));
+            if (NeedsSplit(parent)) {
+                SplitInner(parent, FindParent(parent, kp));
+            }
+        } else {
+            BaseLine *root = Base::NewBaseLine(0, 1, 0);
+            root->set_entry(0, {kp, p->pid});
+            root->overflow   = q->pid;
+            root->UpdateBound();
+            pid = Base::GeneratePid();
+            Base::UpdatePid(pid, root);
+            root_.store(pid);
+            level_.fetch_add(1);
+        }
+        return split;
+    }
+    
+    Pid FindParent(const DeltaNode *node, Key key) const {
+        Pid parent_id = 0;
+        const DeltaNode *x = Base::GetNode(root_.load());
+        DCHECK_NOTNULL(x);
+        
+        Pid overflow = 0;
+        while (x != node) {
+            Pid pid = 0;
+            if (x->IsBaseLine()) {
+                auto base_line = BaseLine::Cast(x);
+                size_t i = FindGreaterOrEqual(base_line, key);
+                if (i == base_line->size) {
+                    pid = base_line->overflow;
+                } else{
+                    pid = base_line->entry(i).value;
+                }
+            } else {
+                View view = MakeView(x, &overflow);
+                auto iter = view.upper_bound(key);
+                if (iter == view.end()) {
+                    pid = overflow;
+                } else {
+                    pid = iter->second;
+                }
+            }
+            
+            if (pid == 0) {
+                break;
+            }
+            parent_id = x->pid;
+            x = Base::GetNode(pid);
+        }
+        return parent_id;
     }
     
     DeltaNode *FindGreaterOrEqual(Key key, Pid *parent_id, bool trigger = false) {
@@ -345,34 +548,49 @@ public:
                 x = Consolidate(x);
             }
             
-            View view = GetView(x, &overflow);
-            Pid pid = 0 ;
-            auto iter = view.upper_bound(key);
-            if (iter == view.end()) {
-                pid = overflow;
+            Pid pid = 0;
+            if (x->IsBaseLine()) {
+                auto base_line = BaseLine::Cast(x);
+                size_t i = FindGreaterOrEqual(base_line, key);
+                if (i == base_line->size) {
+                    pid = base_line->overflow;
+                } else{
+                    pid = base_line->entry(i).value;
+                }
             } else {
-                pid = iter->second;
+                View view = MakeView(x, &overflow);
+                auto iter = view.upper_bound(key);
+                if (iter == view.end()) {
+                    pid = overflow;
+                } else {
+                    pid = iter->second;
+                }
             }
             
             if (pid == 0) {
                 return x;
-            } else {
-                *parent_id = x->pid;
-                x = Base::GetNode(pid);
             }
+            *parent_id = x->pid;
+            x = Base::GetNode(pid);
         }
         return nullptr;
     }
 
-    View TEST_GetView(const DeltaNode *node, Pid *result) {
-        return GetView(node, result);
+    size_t FindGreaterOrEqual(const BaseLine *base_line, Key key) const {
+        size_t count = base_line->size, first = 0;
+        while (count > 0) {
+            auto i = first;
+            auto step = count / 2;
+            i += step;
+            if (Base::cmp_(base_line->entry(i).key, key) < 0) {
+                first = ++i;
+                count -= step + 1;
+            } else {
+                count = step;
+            }
+        }
+        return first;
     }
-    BaseLine *TEST_Consolidate(const DeltaNode *node) {
-        return Consolidate(node);
-    }
-    
-    DISALLOW_IMPLICIT_CONSTRUCTORS(BwTree);
-private:
     
     Pid GetRightChildId(const DeltaNode *node) const {
         DCHECK_GT(node->size, 0);
@@ -381,7 +599,7 @@ private:
             return n->overflow;
         } else {
             Pid overflow = 0;
-            View view = GetView(node, &overflow);
+            View view = MakeView(node, &overflow);
             return overflow;
         }
     }
@@ -390,10 +608,10 @@ private:
         DCHECK_GT(node->size, 0);
         if (node->IsBaseLine()) {
             const BaseLine *n = static_cast<const BaseLine *>(node);
-            return n->entries[0].value;
+            return n->entry(0).value;
         } else {
             Pid overflow = 0;
-            View view = GetView(node, &overflow);
+            View view = MakeView(node, &overflow);
             return view.begin()->second;
         }
     }
@@ -408,26 +626,25 @@ private:
     
     BaseLine *Consolidate(const DeltaNode *node) {
         Pid overflow = 0;
-        View view = GetView(node, &overflow);
+        View view = MakeView(node, &overflow);
         BaseLine *n = Base::NewBaseLine(0, view.size(), node->sibling);
         DCHECK_NOTNULL(n);
         
         size_t i = 0;
         for (auto pair : view) {
-            n->entries[i++] = {pair.first, pair.second};
+            n->set_entry(i++, {pair.first, pair.second});
         }
         n->overflow = overflow;
-        n->smallest_key = n->entries[0].key;
-        n->smallest_key = n->entries[n->size - 1].key;
-        
-        //Base::UpdatePid(node->pid, n);
+        n->UpdateBound();
+
         Base::ReplacePid(node->pid,
                          const_cast<DeltaNode *>(node), n);
+        // Should GC replaced linked-nodes.
         return n;
     }
     
-    View GetView(const DeltaNode *node, Pid *result) const {
-        View view;
+    View MakeView(const DeltaNode *node, Pid *result) const {
+        View view(ComparatorLess{Base::cmp_});
         std::deque<const DeltaNode *> records;
         
         auto x = node;
@@ -440,28 +657,32 @@ private:
         if (x) {
             const BaseLine *base_line = static_cast<const BaseLine *>(x);
             for (size_t i = 0; i < base_line->size; ++i) {
-                view[base_line->entries[i].key] = base_line->entries[i].value;
+                view.emplace(base_line->entry(i).key,
+                             base_line->entry(i).value);
             }
             overflow = base_line->overflow;
         }
         
         for (auto x : records) {
             if (x->IsDeltaKey()) {
-                auto d = static_cast<const DeltaKey *>(x);
-                view[d->key] = 0;
+                auto d = DeltaKey::Cast(x);
+                view.emplace(d->key, 0);
             } else if (x->IsDeltaIndex()) {
-                auto d = static_cast<const DeltaIndex *>(x);
-                view[d->key] = d->lhs;
+                auto d = DeltaIndex::Cast(x);
+                view.emplace(d->key, d->lhs);
                 // TODO: Adjust rhs
                 auto iter = view.upper_bound(d->key);
                 if (iter == view.end()) {
                     overflow = d->rhs;
                 } else {
-                    view[iter->first] = d->rhs;
+                    view.emplace(iter->first, d->rhs);
                 }
             } else if (x->IsSplitNode()) {
-                auto d = static_cast<const SplitNode *>(x);
-                view.erase(view.find(d->separator), view.end());
+                auto d = SplitNode::Cast(x);
+                auto iter = view.upper_bound(d->separator);
+                DCHECK(iter != view.end());
+                overflow = iter->second;
+                view.erase(iter, view.end());
             }
         }
         if (result) {
@@ -483,7 +704,13 @@ class BwTree<Key, Comparator>::Iterator {
 public:
     using Owns = BwTree<Key, Comparator>;
     
-    Iterator(Owns *owns) : owns_(DCHECK_NOTNULL(owns)) {}
+    Iterator(Owns *owns)
+        : owns_(DCHECK_NOTNULL(owns)) {
+        owns_->gc_.Register();
+        owns_->gc_.Enter();
+    }
+    
+    ~Iterator() { owns_->gc_.Exit(); }
     
     void SeekToFirst() {
         page_id_ = 0;
@@ -528,16 +755,9 @@ public:
             return;
         }
         if (x->IsBaseLine()) {
-            const BaseLine *n = static_cast<const BaseLine *>(x);
-            for (ssize_t i = n->size - 1; i >= 0; i--) {
-                if (owns_->cmp_(key, n->entries[i].key) >= 0) {
-                    page_id_ = x->pid;
-                    current_ = i;
-                    break;
-                }
-            }
+            current_ = owns_->FindGreaterOrEqual(BaseLine::Cast(x), key);
         } else {
-            View view = owns_->GetView(x, nullptr);
+            View view = owns_->MakeView(x, nullptr);
             auto iter = view.lower_bound(key);
             if (iter == view.end()){
                 return;
@@ -590,10 +810,10 @@ public:
         DCHECK(Valid());
         const DeltaNode *x = owns_->GetNode(page_id_);
         if (x->IsBaseLine()) {
-            const BaseLine *n = static_cast<const BaseLine *>(x);
+            const BaseLine *n = BaseLine::Cast(x);
             return n->entries[current_].key;
         } else {
-            View view = owns_->GetView(x, nullptr);
+            View view = owns_->MakeView(x, nullptr);
             int i = 0;
             for (auto pair : view) {
                 if (i++ == current_) {
