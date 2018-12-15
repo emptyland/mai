@@ -198,7 +198,7 @@ public:
         n->pid = pid;
         n->base    = nullptr;
         n->sibling = sibling;
-        n->size    = n_entries;
+        //n->size    = n_entries;
         n->depth   = 0;
         if (pid) {
             UpdatePid(pid, n);
@@ -209,11 +209,11 @@ public:
     DeltaKey *NewDeltaKey(Pid pid, T key, DeltaNode *base) {
         void *chunk = ::malloc(sizeof(DeltaKey));
         DeltaKey *n = new (chunk) DeltaKey;
-        n->pid     = pid;
-        n->key     = key;
+        n->pid          = pid;
+        n->key          = key;
         n->smallest_key = key;
         n->largest_key  = key;
-        n->size = base->size + 1;
+        n->size         = base->size + 1;
         SetBase(n, base);
         if (pid) {
             UpdatePid(pid, n);
@@ -228,9 +228,9 @@ public:
         n->key     = key;
         n->lhs     = lhs;
         n->rhs     = rhs;
+        n->size    = base->size + 1;
         n->smallest_key = key;
         n->largest_key  = key;
-        n->size = base->size + 1;
         SetBase(n, base);
         if (pid) {
             UpdatePid(pid, n);
@@ -238,7 +238,8 @@ public:
         return n;
     }
     
-    SplitNode *NewSplitNode(Pid pid, T separator, Pid splited, DeltaNode *base) {
+    SplitNode *NewSplitNode(Pid pid, size_t size, T separator, Pid splited,
+                            DeltaNode *base) {
         void *chunk = ::malloc(sizeof(SplitNode));
         SplitNode *n = new (chunk) SplitNode;
         n->pid       = pid;
@@ -246,7 +247,7 @@ public:
         n->splited   = splited;
         n->smallest_key = base->smallest_key;
         n->largest_key  = separator;
-        n->size = base->size - base->size / 2;
+        n->size = size;
         SetBase(n, base);
         if (pid) {
             UpdatePid(pid, n);
@@ -397,21 +398,22 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(BwTree);
 private:
     SplitNode *SplitLeaf(DeltaNode *p, Pid parent_id) {
-        DCHECK_GT(p->size, 2);
+        const size_t page_sie = p->size;
+        DCHECK_GT(page_sie, 2);
         
         size_t n_entries, sep;
-        if (p->size % 2) {
-            sep = p->size / 2;
-            n_entries = p->size - p->size / 2 - 1;
+        if (page_sie % 2) {
+            sep = page_sie / 2;
+            n_entries = page_sie - page_sie / 2 - 1;
         } else {
-            sep = p->size / 2 - 1;
-            n_entries = p->size - p->size / 2;
+            sep = page_sie / 2 - 1;
+            n_entries = page_sie - page_sie / 2;
         }
         auto pid = Base::GeneratePid();
         BaseLine *q = Base::NewBaseLine(pid, n_entries, p->sibling);
-        View view = MakeView(p, nullptr);
         size_t n = 0, i = 0;
         Key kp{};
+        View view = MakeView(p, nullptr);
         for (auto pair : view) {
             if (i == sep) {
                 kp = pair.first;
@@ -421,17 +423,21 @@ private:
             }
             ++i;
         }
+        if (kp == 32) {
+            printf("hit 32!\n");
+        }
         DCHECK_EQ(n, n_entries);
         q->UpdateBound();
         
-        SplitNode *split = Base::NewSplitNode(0, kp, q->pid, p);
+        SplitNode *split = Base::NewSplitNode(0, page_sie - n_entries, kp, q->pid, p);
         split->sibling = q->pid;
-        // FIXME: Update bound
         Base::UpdatePid(p->pid, split);
         
         if (parent_id) {
-            DeltaKey *parent = Base::NewDeltaIndex(parent_id, kp, p->pid, q->pid,
-                                                   Base::GetNode(parent_id));
+            DeltaNode *parent = Base::GetNode(parent_id);
+            auto v2 = MakeView(parent, nullptr);
+            DCHECK(v2.find(kp) == v2.end());
+            parent = Base::NewDeltaIndex(parent_id, kp, p->pid, q->pid, parent);
             if (NeedsSplit(parent)) {
                 SplitInner(parent, FindParent(parent, kp));
             }
@@ -449,21 +455,24 @@ private:
     }
     
     SplitNode *SplitInner(DeltaNode *p, Pid parent_id) {
-        DCHECK_GT(p->size, 2);
-        
+        const size_t page_size = p->size;
+        DCHECK_GT(page_size, 2);
+    
         size_t n_entries, sep;
-        if (p->size % 2) {
-            sep = p->size / 2;
-            n_entries = p->size - p->size / 2 - 1;
+        if (page_size % 2) {
+            sep = page_size / 2;
+            n_entries = page_size - page_size / 2 - 1;
         } else {
-            sep = p->size / 2 - 1;
-            n_entries = p->size - p->size / 2;
+            sep = page_size / 2 - 1;
+            n_entries = page_size - page_size / 2;
         }
         auto pid = Base::GeneratePid();
         BaseLine *q = Base::NewBaseLine(pid, n_entries, p->sibling);
-        View view = MakeView(p, nullptr);
+
         size_t n = 0, i = 0;
         Key kp{}, sp{};
+        Pid overflow = 0;
+        View view = MakeView(p, &overflow);
         for (auto pair : view) {
             if (i < sep) {
                 sp = pair.first;
@@ -471,21 +480,24 @@ private:
                 kp = pair.first;
             } else if (i > sep) {
                 q->set_entry(n++, {pair.first, pair.second});
-                DCHECK_NE(0, pair.second);
+                //DCHECK_NE(0, pair.second);
             }
             ++i;
         }
         DCHECK_EQ(n, n_entries);
+        q->overflow = overflow;
         q->UpdateBound();
-        
-        SplitNode *split = Base::NewSplitNode(0, sp, q->pid, p);
+
+        SplitNode *split = Base::NewSplitNode(0, page_size - n_entries - 1, sp,
+                                              q->pid, p);
         split->sibling = q->pid;
-        // FIXME: Update bound
         Base::UpdatePid(p->pid, split);
         
         if (parent_id) {
-            DeltaKey *parent = Base::NewDeltaIndex(parent_id, kp, p->pid, q->pid,
-                                                   Base::GetNode(parent_id));
+            DeltaNode *parent = Base::GetNode(parent_id);
+            view = MakeView(parent, nullptr);
+            DCHECK(view.find(kp) == view.end());
+            parent = Base::NewDeltaIndex(parent_id, kp, p->pid, q->pid, parent);
             if (NeedsSplit(parent)) {
                 SplitInner(parent, FindParent(parent, kp));
             }
@@ -559,7 +571,7 @@ private:
                 }
             } else {
                 View view = MakeView(x, &overflow);
-                auto iter = view.upper_bound(key);
+                auto iter = view.lower_bound(key);
                 if (iter == view.end()) {
                     pid = overflow;
                 } else {
@@ -653,10 +665,12 @@ private:
             x = static_cast<DeltaNode *>(x->base);
         }
 
+        //printf("--------------------\n");
         Pid overflow = 0;
         if (x) {
             const BaseLine *base_line = static_cast<const BaseLine *>(x);
             for (size_t i = 0; i < base_line->size; ++i) {
+                //printf("%d\n", base_line->entry(i).key);
                 view.emplace(base_line->entry(i).key,
                              base_line->entry(i).value);
             }
@@ -666,9 +680,11 @@ private:
         for (auto x : records) {
             if (x->IsDeltaKey()) {
                 auto d = DeltaKey::Cast(x);
+                //printf("%d\n", d->key);
                 view.emplace(d->key, 0);
             } else if (x->IsDeltaIndex()) {
                 auto d = DeltaIndex::Cast(x);
+                //printf("%d\n", d->key);
                 view.emplace(d->key, d->lhs);
                 // TODO: Adjust rhs
                 auto iter = view.upper_bound(d->key);
@@ -683,11 +699,13 @@ private:
                 DCHECK(iter != view.end());
                 overflow = iter->second;
                 view.erase(iter, view.end());
+                //printf("remove: %d\n", iter->first);
             }
         }
         if (result) {
             *result = overflow;
         }
+        DCHECK_EQ(node->size, view.size());
         return view;
     }
 
