@@ -17,7 +17,17 @@ public:
         int operator () (int a, int b) const { return a - b; }
     };
     
-    using IntTree = BwTree<int, IntComparator>;
+    struct FloatComparator {
+        int operator () (float a, float b) const {
+            if (a == b) {
+                return 0;
+            }
+            return a < b ? -1 : 1;
+        }
+    };
+    
+    using IntTree   = BwTree<int, IntComparator>;
+    using FloatTree = BwTree<float, FloatComparator>;
 
     Env *env_ = Env::Default();
 };
@@ -158,12 +168,12 @@ TEST_F(BwTreeTest, MakeView4) {
     EXPECT_EQ(3, view[300]);
     EXPECT_EQ(4, view[400]);
     
-    n = tree.NewSplitNode(pid, 2, 200, 0, n);
+    n = tree.NewSplitNode(pid, 1, 200, 0, n);
     view = tree.TEST_MakeView(n, &overflow);
-    EXPECT_EQ(3, overflow);
-    ASSERT_EQ(2, view.size());
+    EXPECT_EQ(2, overflow);
+    ASSERT_EQ(1, view.size());
     EXPECT_EQ(1, view[100]);
-    EXPECT_EQ(2, view[200]);
+    //EXPECT_EQ(2, view[200]);
 }
 
 TEST_F(BwTreeTest, MakeView5) {
@@ -182,13 +192,12 @@ TEST_F(BwTreeTest, MakeView5) {
     bl->UpdateBound();
     
     bw::Pid overflow;
-    n = tree.NewSplitNode(pid, 3, 300, 0, n);
+    n = tree.NewSplitNode(pid, 2, 300, 0, n);
     auto view = tree.TEST_MakeView(n, &overflow);
-    EXPECT_EQ(4, overflow);
-    ASSERT_EQ(3, view.size());
+    EXPECT_EQ(3, overflow);
+    ASSERT_EQ(2, view.size());
     EXPECT_EQ(1, view[100]);
     EXPECT_EQ(2, view[200]);
-    EXPECT_EQ(3, view[300]);
 }
     
 TEST_F(BwTreeTest, SplitNode) {
@@ -204,7 +213,7 @@ TEST_F(BwTreeTest, SplitNode) {
     
     auto s = tree.TEST_SpliInnter(n, 0);
     ASSERT_NE(nullptr, s);
-    EXPECT_EQ(100, s->separator);
+    EXPECT_EQ(200, s->separator);
     EXPECT_EQ(1, s->size);
  
     // Left child node:
@@ -247,7 +256,7 @@ TEST_F(BwTreeTest, SplitNode2) {
     auto s = tree.TEST_SpliInnter(n, 0);
     ASSERT_NE(nullptr, s);
     EXPECT_EQ(2, s->size);
-    EXPECT_EQ(200, s->separator);
+    EXPECT_EQ(300, s->separator);
     
     
     // Left child node:
@@ -413,15 +422,6 @@ TEST_F(BwTreeTest, FuzzPut) {
     std::mt19937 g(rd());
     std::shuffle(nums.begin(), nums.end(), g);
 
-    std::unique_ptr<WritableFile> file;
-    Error rs = env_->NewWritableFile("tests/bw-fuzz-numbers", false, &file);
-    ASSERT_TRUE(rs.ok()) << rs.ToString();
-    file->Truncate(0);
-    for (auto val : nums) {
-        file->Append(base::Slice::Sprintf("%d\n", val));
-    }
-    file.reset();
-
     IntTree tree(IntComparator{}, 5, 64, env_);
     for (auto val : nums) {
         tree.Put(val);
@@ -441,6 +441,66 @@ TEST_F(BwTreeTest, FuzzPut) {
         iter.Seek(i);
         ASSERT_TRUE(iter.Valid());
         EXPECT_EQ(i, iter.key()) << "key: " << i;
+    }
+}
+    
+TEST_F(BwTreeTest, UpperBound) {
+    static const auto kN = 1000;
+    
+    std::vector<float> nums;
+    for (int i = 0; i < kN; ++i) {
+        nums.push_back(i);
+    }
+    
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(nums.begin(), nums.end(), g);
+    
+    FloatTree tree(FloatComparator{}, 5, 64, env_);
+    for (auto val : nums) {
+        tree.Put(val);
+    }
+    
+    FloatTree::Iterator iter(&tree);
+    iter.Seek(0.0);
+    ASSERT_TRUE(iter.Valid());
+    EXPECT_EQ(0.0, iter.key());
+    
+    iter.Seek(0.5);
+    ASSERT_TRUE(iter.Valid());
+    EXPECT_EQ(1.0, iter.key());
+    
+    iter.Seek(99.9);
+    ASSERT_TRUE(iter.Valid());
+    EXPECT_EQ(100.0, iter.key());
+    
+    iter.Seek(100);
+    ASSERT_TRUE(iter.Valid());
+    EXPECT_EQ(100.0, iter.key());
+    
+    iter.Seek(999.9);
+    ASSERT_FALSE(iter.Valid());
+}
+    
+TEST_F(BwTreeTest, IteratorNext) {
+    static const auto kN = 100;
+    
+    IntTree tree(IntComparator{}, 3, 5, env_);
+    
+    for (int i = 0; i < kN; ++i) {
+        tree.Put(i);
+    }
+    ASSERT_EQ(3, tree.GetLevel());
+    
+    IntTree::Iterator iter(&tree);
+    iter.Seek(8);
+    iter.Next();
+    ASSERT_TRUE(iter.Valid());
+    EXPECT_EQ(9, iter.key());
+    
+    int n = 0;
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        EXPECT_EQ(n++, iter.key());
     }
 }
     
