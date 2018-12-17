@@ -900,7 +900,52 @@ public:
 
     void Prev() {
         DCHECK(Valid());
-        // TODO:
+        
+        bool is_leaf = false;
+        size_t n_entries = 0;
+        const DeltaNode *x = owns_->GetNode(page_id_);
+        if (x->IsBaseLine()) {
+            const BaseLine *n = BaseLine::Cast(x);
+            is_leaf = (n->size == 0) || (n->entry(0).value == 0);
+            n_entries = n->size;
+        } else {
+            View view = owns_->MakeView(x, nullptr);
+            is_leaf = (view.empty()) || (view.begin()->second == 0);
+            n_entries = view.size();
+        }
+        DCHECK_EQ(x->size, n_entries);
+        
+        auto next_key = key();
+        if (is_leaf) {
+            if (current_ > 0) { // not first one
+                --current_;
+            } else { // first one
+                bool found = false;
+                do {
+                    page_id_ = owns_->FindParent(page_id_, next_key);
+                    if (page_id_ == 0) {
+                        return;
+                    }
+                    x = DCHECK_NOTNULL(owns_->GetNode(page_id_));
+                    
+                    std::tie(current_, std::ignore) =
+                        owns_->FindGreaterOrEqual(x, next_key, &found);
+                } while (current_ == 0);
+                --current_;
+            }
+        } else {
+//            size_t idx;
+//            if (current_ > 0) {
+//                idx = current_ - 1;
+//            } else {
+//                idx = 0;
+//            }
+            
+            std::tie(std::ignore, page_id_) = owns_->NodeAt(x, current_);
+            x = owns_->GetNode(page_id_);
+            page_id_ = owns_->FindLargestChild(x);
+            current_ = owns_->GetEntriesSize(owns_->GetNode(page_id_)) - 1;
+        }
     }
     
     Key key() const {

@@ -411,8 +411,6 @@ TEST_F(BwTreeTest, PutMakeMoreSplit) {
 TEST_F(BwTreeTest, FuzzPut) {
     static const auto kN = 2000;
     
-//    static const int kVals[] = {53, 14, 86, 105, 141, 109, 183, 35, 58, 92, 170, 138, 55, 12, 188, 44, 73, 191, 91, 167, 111, 160, 7, 99, 6, 5, 199, 173, 134, 149, 114, 116, 19, 187, 172, 192, 108, 24, 68, 34, 57, 122, 15, 127, 143, 190, 90, 93, 176, 164, 16, 46, 23, 72, 168, 102, 117, 195, 196, 186, 29, 128, 56, 180, 71, 101, 60, 50, 198, 189, 171, 31, 94, 185, 22, 193, 33, 132, 121, 65, 81, 59, 126, 80, 165, 66, 142, 26, 146, 139, 89, 100, 3, 54, 158, 38, 79, 78, 119, 104, 153, 8, 140, 32, 106, 151, 98, 27, 118, 40, 75, 181, 163, 63, 174, 69, 110, 113, 18, 88, 162, 156, 39, 129, 131, 42, 96, 159, 144, 124, 120, 152, 11, 130, 4, 112, 67, 166, 103, 84, 115, 123, 45, 36, 37, 21, 184, 133, 43, 135, 83, 97, 182, 28, 77, 194, 76, 150, 154, 20, 87, 95, 178, 125, 61, 62, 48, 17, 157, 179, 49, 70, 41, 137, 155, 47, 175, 145, 2, 13, 74, 52, 85, 197, 25, 169, 147, 10, 1, 30, 0, 64, 82, 136, 161, 148, 107, 177, 9, 51};
-    
     std::vector<int> nums;
     for (int i = 0; i < kN; ++i) {
         nums.push_back(i);
@@ -499,6 +497,67 @@ TEST_F(BwTreeTest, IteratorNext) {
     EXPECT_EQ(9, iter.key());
     
     int n = 0;
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        EXPECT_EQ(n++, iter.key());
+    }
+}
+    
+TEST_F(BwTreeTest, IteratorPrev) {
+    static const auto kN = 100;
+    
+    IntTree tree(IntComparator{}, 3, 5, env_);
+    
+    for (int i = 0; i < kN; ++i) {
+        tree.Put(i);
+    }
+    ASSERT_EQ(3, tree.GetLevel());
+
+    IntTree::Iterator iter(&tree);
+    iter.Seek(96);
+    iter.Prev();
+    ASSERT_TRUE(iter.Valid());
+    EXPECT_EQ(95, iter.key());
+    
+    iter.Seek(95);
+    iter.Prev();
+    ASSERT_TRUE(iter.Valid());
+    EXPECT_EQ(94, iter.key());
+    
+    iter.Seek(89);
+    iter.Prev();
+    ASSERT_TRUE(iter.Valid());
+    EXPECT_EQ(88, iter.key());
+    
+    int n = kN;
+    for (iter.SeekToLast(); iter.Valid(); iter.Prev()) {
+        EXPECT_EQ(--n, iter.key());
+    }
+}
+    
+TEST_F(BwTreeTest, FuzzIterator) {
+    static const auto kN = 2000;
+    
+    std::vector<int> nums;
+    for (int i = 0; i < kN; ++i) {
+        nums.push_back(i);
+    }
+    
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(nums.begin(), nums.end(), g);
+    
+    IntTree tree(IntComparator{}, 3, 64, env_);
+    for (auto val : nums) {
+        tree.Put(val);
+    }
+    
+    int n = kN;
+    IntTree::Iterator iter(&tree);
+    for (iter.SeekToLast(); iter.Valid(); iter.Prev()) {
+        EXPECT_EQ(--n, iter.key());
+    }
+    
+    n = 0;
     for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
         EXPECT_EQ(n++, iter.key());
     }
