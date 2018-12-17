@@ -80,9 +80,9 @@ public:
     
     ~EbrGC() {
         for (int i = 0; i < Ebr::kNumberEpochs; ++i) {
-            DCHECK(epoch_list_[i] == nullptr);
+            //DCHECK(epoch_list_[i] == nullptr);
         }
-        DCHECK(limbo_.load() == nullptr);
+        //DCHECK(limbo_.load() == nullptr);
     }
     
     Error Init(Env *env) { return ebr_.Init(env); }

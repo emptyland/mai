@@ -180,6 +180,7 @@ public:
     }
     
     ~BwTreeBase() {
+        gc_.Cycle();
         for (Pid i = 1; i < next_pid_.load(); ++i) {
             auto x = pages_[i].address.load();
             while (x) {
@@ -369,13 +370,13 @@ public:
     
     void Put(Key key) {
         Pid parent_id;
-        DeltaNode *leaf = FindGreaterOrEqual(key, &parent_id, true);
+        DeltaNode *leaf = FindRoomFor(key, &parent_id, true);
         DCHECK_NOTNULL(leaf);
         DeltaKey *p = Base::NewDeltaKey(leaf->pid, key, leaf);
         DCHECK_NOTNULL(p);
 
         if (NeedsSplit(p)) {
-            SplitLeaf(p, parent_id);
+            SplitInner(p, parent_id);
         }
     }
 
@@ -385,8 +386,9 @@ public:
     BaseLine *TEST_Consolidate(const DeltaNode *node) {
         return Consolidate(node);
     }
-    size_t TEST_FindGreaterOrEqual(const BaseLine *base_line, Key key) const {
-        return FindGreaterOrEqual(base_line, key);
+    size_t TEST_FindGreaterOrEqual(const DeltaNode *node, Key key) const {
+        bool found = false;
+        return std::get<0>(FindGreaterOrEqual(node, key, &found));
     }
     SplitNode *TEST_SplitLeaf(DeltaNode *p, Pid parent_id) {
         return SplitLeaf(p, parent_id);
@@ -398,60 +400,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(BwTree);
 private:
     SplitNode *SplitLeaf(DeltaNode *p, Pid parent_id) {
-        const size_t page_sie = p->size;
-        DCHECK_GT(page_sie, 2);
-        
-        size_t n_entries, sep;
-        if (page_sie % 2) {
-            sep = page_sie / 2;
-            n_entries = page_sie - page_sie / 2 - 1;
-        } else {
-            sep = page_sie / 2 - 1;
-            n_entries = page_sie - page_sie / 2;
-        }
-        auto pid = Base::GeneratePid();
-        BaseLine *q = Base::NewBaseLine(pid, n_entries, p->sibling);
-        size_t n = 0, i = 0;
-        Key kp{};
-        View view = MakeView(p, nullptr);
-        for (auto pair : view) {
-            if (i == sep) {
-                kp = pair.first;
-            } else if (i > sep) {
-                q->set_entry(n++, {pair.first, pair.second});
-                DCHECK_EQ(0, pair.second);
-            }
-            ++i;
-        }
-        if (kp == 32) {
-            printf("hit 32!\n");
-        }
-        DCHECK_EQ(n, n_entries);
-        q->UpdateBound();
-        
-        SplitNode *split = Base::NewSplitNode(0, page_sie - n_entries, kp, q->pid, p);
-        split->sibling = q->pid;
-        Base::UpdatePid(p->pid, split);
-        
-        if (parent_id) {
-            DeltaNode *parent = Base::GetNode(parent_id);
-            auto v2 = MakeView(parent, nullptr);
-            DCHECK(v2.find(kp) == v2.end());
-            parent = Base::NewDeltaIndex(parent_id, kp, p->pid, q->pid, parent);
-            if (NeedsSplit(parent)) {
-                SplitInner(parent, FindParent(parent, kp));
-            }
-        } else {
-            BaseLine *root = Base::NewBaseLine(0, 1, 0);
-            root->set_entry(0, {kp, p->pid});
-            root->overflow   = q->pid;
-            root->UpdateBound();
-            pid = Base::GeneratePid();
-            Base::UpdatePid(pid, root);
-            root_.store(pid);
-            level_.fetch_add(1);
-        }
-        return split;
+        return SplitInner(p, parent_id);
     }
     
     SplitNode *SplitInner(DeltaNode *p, Pid parent_id) {
@@ -488,15 +437,31 @@ private:
         q->overflow = overflow;
         q->UpdateBound();
 
-        SplitNode *split = Base::NewSplitNode(0, page_size - n_entries - 1, sp,
+        SplitNode *split = Base::NewSplitNode(0, page_size - n_entries - 1, kp,
                                               q->pid, p);
         split->sibling = q->pid;
+        split->largest_key = sp;
         Base::UpdatePid(p->pid, split);
-        
+
+#if 0
+        {
+            view = MakeView(split, nullptr);
+            printf("<%llu>[%d]======P========\n", split->pid, kp);
+            for (const auto &pair : view) {
+                printf("%d, ", pair.first);
+            }
+            printf("\n");
+            
+            view = MakeView(q, nullptr);
+            printf("<%llu>++++======Q========\n", q->pid);
+            for (const auto &pair : view) {
+                printf("%d, ", pair.first);
+            }
+            printf("\n");
+        }
+#endif
         if (parent_id) {
             DeltaNode *parent = Base::GetNode(parent_id);
-            view = MakeView(parent, nullptr);
-            DCHECK(view.find(kp) == view.end());
             parent = Base::NewDeltaIndex(parent_id, kp, p->pid, q->pid, parent);
             if (NeedsSplit(parent)) {
                 SplitInner(parent, FindParent(parent, kp));
@@ -518,27 +483,10 @@ private:
         Pid parent_id = 0;
         const DeltaNode *x = Base::GetNode(root_.load());
         DCHECK_NOTNULL(x);
-        
-        Pid overflow = 0;
+
         while (x != node) {
-            Pid pid = 0;
-            if (x->IsBaseLine()) {
-                auto base_line = BaseLine::Cast(x);
-                size_t i = FindGreaterOrEqual(base_line, key);
-                if (i == base_line->size) {
-                    pid = base_line->overflow;
-                } else{
-                    pid = base_line->entry(i).value;
-                }
-            } else {
-                View view = MakeView(x, &overflow);
-                auto iter = view.upper_bound(key);
-                if (iter == view.end()) {
-                    pid = overflow;
-                } else {
-                    pid = iter->second;
-                }
-            }
+            bool found = false;
+            Pid pid = std::get<1>(FindGreaterOrEqual(x, key, &found));
             
             if (pid == 0) {
                 break;
@@ -549,36 +497,18 @@ private:
         return parent_id;
     }
     
-    DeltaNode *FindGreaterOrEqual(Key key, Pid *parent_id, bool trigger = false) {
+    DeltaNode *FindRoomFor(Key key, Pid *parent_id, bool trigger = false) {
         *parent_id = 0;
         DeltaNode *x = Base::GetNode(root_.load());
         DCHECK_NOTNULL(x);
-        
-        Pid overflow = 0;
+
         while (x) {
             if (trigger && NeedsConsolidate(x)) {
                 x = Consolidate(x);
             }
-            
-            Pid pid = 0;
-            if (x->IsBaseLine()) {
-                auto base_line = BaseLine::Cast(x);
-                size_t i = FindGreaterOrEqual(base_line, key);
-                if (i == base_line->size) {
-                    pid = base_line->overflow;
-                } else{
-                    pid = base_line->entry(i).value;
-                }
-            } else {
-                View view = MakeView(x, &overflow);
-                auto iter = view.lower_bound(key);
-                if (iter == view.end()) {
-                    pid = overflow;
-                } else {
-                    pid = iter->second;
-                }
-            }
-            
+
+            bool found = false;
+            Pid pid = std::get<1>(FindGreaterOrEqual(x, key, &found));
             if (pid == 0) {
                 return x;
             }
@@ -587,21 +517,117 @@ private:
         }
         return nullptr;
     }
-
-    size_t FindGreaterOrEqual(const BaseLine *base_line, Key key) const {
-        size_t count = base_line->size, first = 0;
-        while (count > 0) {
-            auto i = first;
-            auto step = count / 2;
-            i += step;
-            if (Base::cmp_(base_line->entry(i).key, key) < 0) {
-                first = ++i;
-                count -= step + 1;
-            } else {
-                count = step;
+    
+    std::tuple<DeltaNode *, size_t>
+    FindGreaterOrEqual(Key key, bool trigger = false) {
+        DeltaNode *x = Base::GetNode(root_.load());
+        DCHECK_NOTNULL(x);
+        while (x) {
+            if (trigger && NeedsConsolidate(x)) {
+                x = Consolidate(x);
             }
+#if 0
+            View view = MakeView(x, nullptr);
+            printf("-------------\n");
+            for (const auto &pair : view) {
+                printf(" %d", pair.first);
+            }
+            printf("\n");
+#endif
+            bool found = false;
+            size_t idx;
+            Pid pid;
+            std::tie(idx, pid) = FindGreaterOrEqual(x, key, &found);
+            if (pid == 0) {
+                return std::make_tuple(x, idx);
+            }
+            if (found) {
+                auto largestKey = GetLargestKey(Base::GetNode(pid));
+                if (Base::cmp_(key, largestKey) > 0) {
+                    return std::make_tuple(x, idx);
+                }
+            }
+            x = Base::GetNode(pid);
         }
-        return first;
+        
+        return std::make_tuple(nullptr, 0);
+    }
+
+    std::tuple<size_t, Pid>
+    FindGreaterOrEqual(const DeltaNode *node, Key key, bool *found) const {
+        *found = false;
+        if (node->IsBaseLine()) {
+            auto base_line = BaseLine::Cast(node);
+            size_t count = base_line->size, first = 0;
+            while (count > 0) {
+                auto i = first;
+                auto step = count / 2;
+                i += step;
+                if (Base::cmp_(base_line->entry(i).key, key) < 0) {
+                    first = ++i;
+                    count -= step + 1;
+                } else {
+                    count = step;
+                }
+            }
+            *found = first < base_line->size;
+            if (*found) {
+                return std::make_tuple(first, base_line->entry(first).value);
+            }
+            return std::make_tuple(base_line->size, base_line->overflow);
+        } else {
+            Pid overflow;
+            View view = MakeView(node, &overflow);
+            auto iter = view.lower_bound(key);
+            *found = iter != view.end();
+            if (*found) {
+                size_t idx = std::distance(view.begin(), iter);
+                return std::make_tuple(idx, iter->second);
+            }
+            return std::make_tuple(view.size(), overflow);
+        }
+    }
+    
+    std::tuple<Key, Pid> NodeAt(const DeltaNode *node, size_t idx) const {
+        DCHECK_GE(idx, 0);
+        DCHECK_LT(idx, node->size);
+        
+        if (node->IsBaseLine()) {
+            auto base_line = BaseLine::Cast(node);
+            return std::make_tuple(base_line->entry(idx).key,
+                                   base_line->entry(idx).value);
+        } else {
+            View view = MakeView(node, nullptr);
+            DCHECK_EQ(node->size, view.size());
+            auto iter = view.begin();
+            std::advance(iter, idx);
+            return *iter;
+        }
+    }
+    
+    Key GetLargestKey(const DeltaNode *x) const {
+        DCHECK_NOTNULL(x);
+        
+        const DeltaNode *t;
+        Key largest_key{};
+        Pid child = 0;
+        do {
+            if (x->IsBaseLine()) {
+                auto base_line = BaseLine::Cast(x);
+                child = base_line->overflow;
+                largest_key = base_line->entry(base_line->size - 1).key;
+            } else {
+                View view = MakeView(x, &child);
+                for (const auto &pair : view) {
+                    largest_key = pair.first;
+                }
+            }
+            t = x;
+            x = Base::GetNode(child);
+        } while (child != 0);
+        //DCHECK_EQ(Base::cmp_(t->largest_key, largest_key), 0);
+        //return t->largest_key;
+        return largest_key;
     }
     
     Pid GetRightChildId(const DeltaNode *node) const {
@@ -665,12 +691,10 @@ private:
             x = static_cast<DeltaNode *>(x->base);
         }
 
-        //printf("--------------------\n");
         Pid overflow = 0;
         if (x) {
             const BaseLine *base_line = static_cast<const BaseLine *>(x);
             for (size_t i = 0; i < base_line->size; ++i) {
-                //printf("%d\n", base_line->entry(i).key);
                 view.emplace(base_line->entry(i).key,
                              base_line->entry(i).value);
             }
@@ -680,26 +704,23 @@ private:
         for (auto x : records) {
             if (x->IsDeltaKey()) {
                 auto d = DeltaKey::Cast(x);
-                //printf("%d\n", d->key);
                 view.emplace(d->key, 0);
             } else if (x->IsDeltaIndex()) {
                 auto d = DeltaIndex::Cast(x);
-                //printf("%d\n", d->key);
                 view.emplace(d->key, d->lhs);
-                // TODO: Adjust rhs
+
                 auto iter = view.upper_bound(d->key);
                 if (iter == view.end()) {
                     overflow = d->rhs;
                 } else {
-                    view.emplace(iter->first, d->rhs);
+                    view[iter->first] = d->rhs;
                 }
             } else if (x->IsSplitNode()) {
                 auto d = SplitNode::Cast(x);
-                auto iter = view.upper_bound(d->separator);
+                auto iter = view.find(d->separator);
                 DCHECK(iter != view.end());
                 overflow = iter->second;
                 view.erase(iter, view.end());
-                //printf("remove: %d\n", iter->first);
             }
         }
         if (result) {
@@ -767,61 +788,22 @@ public:
     void Seek(Key key) {
         page_id_ = 0;
         current_ = -1;
-        Pid parent_id = 0;
-        const DeltaNode *x = owns_->FindGreaterOrEqual(key, &parent_id);
-        if (!x) {
-            return;
-        }
-        if (x->IsBaseLine()) {
-            current_ = owns_->FindGreaterOrEqual(BaseLine::Cast(x), key);
-        } else {
-            View view = owns_->MakeView(x, nullptr);
-            auto iter = view.lower_bound(key);
-            if (iter == view.end()){
-                return;
-            }
-            page_id_ = x->pid;
-            current_ = std::distance(view.begin(), iter);
-        }
+
+        DeltaNode *x;
+        std::tie(x, current_) = owns_->FindGreaterOrEqual(key, true);
+        page_id_ = (!x) ? 0 : x->pid;
     }
     
     bool Valid() const { return page_id_ != 0 && current_ >= 0; }
 
     void Next() {
         DCHECK(Valid());
-        const DeltaNode *x = owns_->GetNode(page_id_);
-        if (current_ < x->size - 1) {
-            ++current_;
-        } else {
-            page_id_ = x->sibling;
-            current_ = 0;
-        }
+        // TODO:
     }
 
     void Prev() {
         DCHECK(Valid());
-        const DeltaNode *x = owns_->GetNode(page_id_);
-        if (current_ > 0) {
-            --current_;
-        } else {
-            const Pid saved_pid = page_id_;
-            SeekToFirst();
-            if (!Valid()) {
-                return;
-            }
-            if (saved_pid == page_id_) {
-                current_ = -1;
-                page_id_ = 0;
-                return;
-            }
-
-            x = owns_->GetNode(page_id_);
-            while (x->sibling != saved_pid) {
-                x = owns_->GetNode(x->sibling);
-            }
-            page_id_ = x->pid;
-            current_ = x->size - 1;
-        }
+        // TODO:
     }
     
     Key key() const {
@@ -832,13 +814,10 @@ public:
             return n->entries[current_].key;
         } else {
             View view = owns_->MakeView(x, nullptr);
-            int i = 0;
-            for (auto pair : view) {
-                if (i++ == current_) {
-                    return pair.first;
-                }
-            }
-            return Key();
+            auto iter = view.begin();
+            std::advance(iter, current_);
+            DCHECK(iter != view.end());
+            return iter->first;
         }
     }
     
