@@ -380,7 +380,7 @@ public:
     
     void Put(Key key) {
         Pid parent_id;
-        DeltaNode *leaf = FindRoomFor(key, &parent_id, true);
+        DeltaNode *leaf = FindRoomFor(key, &parent_id, false);
         DCHECK_NOTNULL(leaf);
         DeltaKey *p = Base::NewDeltaKey(leaf->pid, key, leaf);
         DCHECK_NOTNULL(p);
@@ -389,6 +389,10 @@ public:
             SplitInner(p, parent_id);
         }
         Base::gc_.Cycle();
+        
+        if (NeedsConsolidate(p)) {
+            Consolidate(p);
+        }
     }
 
     View TEST_MakeView(const DeltaNode *node, Pid *result) const {
@@ -462,23 +466,6 @@ private:
         split->largest_key = sp;
         Base::UpdatePid(p->pid, split, p);
 
-#if 0
-        {
-            view = MakeView(split, nullptr);
-            printf("<%llu>[%d]======P========\n", split->pid, kp);
-            for (const auto &pair : view) {
-                printf("%d, ", pair.first);
-            }
-            printf("\n");
-            
-            view = MakeView(q, nullptr);
-            printf("<%llu>++++======Q========\n", q->pid);
-            for (const auto &pair : view) {
-                printf("%d, ", pair.first);
-            }
-            printf("\n");
-        }
-#endif
         if (parent_id) {
             DeltaNode *parent = Base::GetNode(parent_id);
             parent = Base::NewDeltaIndex(parent_id, kp, p->pid, q->pid, parent);
@@ -516,7 +503,7 @@ private:
         return parent_id;
     }
     
-    DeltaNode *FindRoomFor(Key key, Pid *parent_id, bool trigger = false) {
+    DeltaNode *FindRoomFor(Key key, Pid *parent_id, bool trigger) {
         *parent_id = 0;
         DeltaNode *x = Base::GetNode(root_.load());
         DCHECK_NOTNULL(x);
@@ -529,7 +516,7 @@ private:
             }
             *parent_id = x->pid;
 
-            if (trigger && NeedsConsolidate(x)) {
+            if (trigger || NeedsConsolidate(x)) {
                 Consolidate(x);
             }
             x = Base::GetNode(pid);
@@ -537,19 +524,10 @@ private:
         return nullptr;
     }
     
-    std::tuple<DeltaNode *, size_t> FindGreaterOrEqual(Key key,
-                                                       bool trigger = false) {
+    std::tuple<DeltaNode *, size_t> FindGreaterOrEqual(Key key, bool trigger) {
         DeltaNode *x = Base::GetNode(root_.load());
         DCHECK_NOTNULL(x);
         while (x) {
-#if 0
-            View view = MakeView(x, nullptr);
-            printf("-------------\n");
-            for (const auto &pair : view) {
-                printf(" %d", pair.first);
-            }
-            printf("\n");
-#endif
             bool found = false;
             size_t idx;
             Pid pid;
@@ -558,12 +536,12 @@ private:
                 return std::make_tuple(x, idx);
             }
             if (found) {
-                auto largestKey = GetLargestKey(Base::GetNode(pid));
+                auto largestKey = GetLargestKey(Base::GetNode(pid), trigger);
                 if (Base::cmp_(key, largestKey) > 0) {
                     return std::make_tuple(x, idx);
                 }
             }
-            if (trigger && NeedsConsolidate(x)) {
+            if (trigger || NeedsConsolidate(x)) {
                 Consolidate(x);
             }
             x = Base::GetNode(pid);
@@ -631,12 +609,13 @@ private:
         }
     }
     
-    Key GetLargestKey(const DeltaNode *x) const {
+    Key GetLargestKey(const DeltaNode *x, bool trigger) {
         DCHECK_NOTNULL(x);
         
         const DeltaNode *t;
-        Key largest_key{};
         Pid child = 0;
+#if defined(DEBUG) || defined(_DEBUG)
+        Key largest_key{};
         do {
             if (x->IsBaseLine()) {
                 auto base_line = BaseLine::Cast(x);
@@ -649,11 +628,29 @@ private:
                 }
             }
             t = x;
+            if (trigger || NeedsConsolidate(x)) {
+                Consolidate(const_cast<DeltaNode *>(x));
+            }
             x = Base::GetNode(child);
         } while (child != 0);
-        //DCHECK_EQ(Base::cmp_(t->largest_key, largest_key), 0);
-        //return t->largest_key;
+        DCHECK_EQ(Base::cmp_(t->largest_key, largest_key), 0);
         return largest_key;
+#else
+        do {
+            if (x->IsBaseLine()) {
+                auto base_line = BaseLine::Cast(x);
+                child = base_line->overflow;
+            } else {
+                MakeView(x, &child);
+            }
+            t = x;
+            if (trigger || NeedsConsolidate(x)) {
+                Consolidate(const_cast<DeltaNode *>(x));
+            }
+            x = Base::GetNode(child);
+        } while (child != 0);
+        return t->largest_key;
+#endif
     }
     
     inline size_t GetEntriesSize(const DeltaNode *x) const {
@@ -722,6 +719,9 @@ private:
     }
     
     DeltaNode *Consolidate(DeltaNode *old) {
+        if (old->depth < 1) {
+            return old;
+        }
         Pid overflow = 0;
         View view = MakeView(old, &overflow);
         BaseLine *n = Base::NewBaseLine(0, view.size(), old->sibling);
@@ -840,7 +840,6 @@ public:
     }
     
     void Seek(Key key) {
-        current_ = -1;
         std::tie(node_, current_) = owns_->FindGreaterOrEqual(key, true);
     }
     

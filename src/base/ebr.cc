@@ -11,13 +11,13 @@ void Ebr::Register() {
         node = static_cast<Tls *>(::malloc(sizeof(Tls)));
         ::memset(node, 0, sizeof(*node));
         tls_slot_->Set(node);
+        
+        Tls *head;
+        do {
+            head = tls_list_.load(std::memory_order_relaxed);
+            node->next = head;
+        } while (!tls_list_.compare_exchange_weak(head, node));
     }
-
-    Tls *head;
-    do {
-        head = tls_list_.load(std::memory_order_relaxed);
-        node->next = head;
-    } while (!tls_list_.compare_exchange_weak(head, node));
 }
     
 bool Ebr::Sync(uint32_t *gc_epoch) {

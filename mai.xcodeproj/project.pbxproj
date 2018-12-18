@@ -132,6 +132,8 @@
 		23C54E1421B52EBA0078E77A /* config-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54E1221B52EBA0078E77A /* config-test.cc */; };
 		23C54F9921C8D225001C8262 /* bw-tree-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */; };
 		23C54F9A21C8D225001C8262 /* bw-tree-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */; };
+		23C54F9C21C8DD89001C8262 /* bw-tree-memory-table-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54F9B21C8DD89001C8262 /* bw-tree-memory-table-test.cc */; };
+		23C54F9D21C8DD89001C8262 /* bw-tree-memory-table-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54F9B21C8DD89001C8262 /* bw-tree-memory-table-test.cc */; };
 		23D70EEE21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */; };
 		23D70EEF21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */; };
 		23F60602219BBE9600CE12D9 /* write-batch.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60601219BBE9600CE12D9 /* write-batch.cc */; };
@@ -300,6 +302,7 @@
 		23C54E1221B52EBA0078E77A /* config-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "config-test.cc"; path = "src/db/config-test.cc"; sourceTree = "<group>"; };
 		23C54F9721C8D13F001C8262 /* bw-tree-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree-memory-table.h"; sourceTree = "<group>"; };
 		23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-tree-memory-table.cc"; sourceTree = "<group>"; };
+		23C54F9B21C8DD89001C8262 /* bw-tree-memory-table-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "bw-tree-memory-table-test.cc"; path = "src/core/bw-tree-memory-table-test.cc"; sourceTree = "<group>"; };
 		23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pipeline-queue.h"; sourceTree = "<group>"; };
 		23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "pipeline-queue-test.cc"; path = "src/core/pipeline-queue-test.cc"; sourceTree = "<group>"; };
 		23F605FF219BB2C700CE12D9 /* db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = db.h; sourceTree = "<group>"; };
@@ -457,6 +460,7 @@
 				230DDD3021B00BAE00A5CC2A /* hash-map-v2-test.cc */,
 				23B0E108218957F500F9E855 /* unordered-memory-table-test.cc */,
 				232AA23B2194161A007EF228 /* ordered-memory-table-test.cc */,
+				23C54F9B21C8DD89001C8262 /* bw-tree-memory-table-test.cc */,
 				23B0E16321927F6C00F9E855 /* reference-count-test.cc */,
 				232AA2302193D786007EF228 /* merging-test.cc */,
 				232AA24521943100007EF228 /* data-block-builder-test.cc */,
@@ -673,6 +677,7 @@
 				232AA2352193E5E6007EF228 /* skip-list-test.cc in Sources */,
 				236AC67721B7692B0069A17B /* lru-cache-v1.cc in Sources */,
 				2302F6BB21AE80AB00AE0309 /* s1-table-reader.cc in Sources */,
+				23C54F9C21C8DD89001C8262 /* bw-tree-memory-table-test.cc in Sources */,
 				232E1E7221A2C0FC00F408D7 /* factory.cc in Sources */,
 				23B4E01821A7A292007A4533 /* compaction-test.cc in Sources */,
 				2326A42B21A507590040BE53 /* key-boundle.cc in Sources */,
@@ -805,6 +810,7 @@
 				232AA24021942412007EF228 /* sst-table-builder.cc in Sources */,
 				23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */,
 				23F6060B219BCBD800CE12D9 /* column-family.cc in Sources */,
+				23C54F9D21C8DD89001C8262 /* bw-tree-memory-table-test.cc in Sources */,
 				2302F6B521AE4C9B00AE0309 /* plain-block-builder.cc in Sources */,
 				231F340121BE54D700A994A8 /* bw-nodes.cc in Sources */,
 				237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,

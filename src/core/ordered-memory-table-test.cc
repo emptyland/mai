@@ -20,11 +20,12 @@ public:
         : ikcmp_(Comparator::Bytewise()) {}
 
     InternalKeyComparator ikcmp_;
-    Allocator *low_level_alloc_ = Env::Default()->GetLowLevelAllocator();
+    Env *env_ = Env::Default();
+    Allocator *ll_allocator_ = Env::Default()->GetLowLevelAllocator();
 };
 
 TEST_F(OrderedMemoryTableTest, Sanity) {
-    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_, low_level_alloc_));
+    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_, ll_allocator_));
     h1->Put("aaaa", "v1", 1, Tag::kFlagValue);
     h1->Put("aaab", "v2", 2, Tag::kFlagValue);
     h1->Put("aaac", "v3", 3, Tag::kFlagValue);
@@ -56,7 +57,7 @@ TEST_F(OrderedMemoryTableTest, IterateFarward) {
         "aaae", "v5",
         "aaaf", "v6",
     };
-    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_, low_level_alloc_));
+    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_, ll_allocator_));
     for (size_t i = 0; i < arraysize(kv) / 2; i += 2) {
         h1->Put(kv[i], kv[i + 1], i / 2 + 1, Tag::kFlagValue);
     }
@@ -84,7 +85,7 @@ TEST_F(OrderedMemoryTableTest, IterateReserve) {
         "aaae", "v5",
         "aaaf", "v6",
     };
-    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_, low_level_alloc_));
+    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_, ll_allocator_));
     for (size_t i = 0; i < arraysize(kv) / 2; i += 2) {
         h1->Put(kv[i], kv[i + 1], i / 2 + 1, Tag::kFlagValue);
     }
@@ -109,7 +110,7 @@ TEST_F(OrderedMemoryTableTest, ConcurrentPutting) {
     std::atomic<core::SequenceNumber> sn(1);
     std::mutex mutex;
     
-    auto table = base::MakeRef(new OrderedMemoryTable(&ikcmp_, low_level_alloc_));
+    auto table = base::MakeRef(new OrderedMemoryTable(&ikcmp_, ll_allocator_));
     for (int i = 0; i < arraysize(worker_thrds); ++i) {
         worker_thrds[i] = std::thread([&](auto slot) {
             for (int j = 0; j < kN; ++j) {
@@ -141,6 +142,35 @@ TEST_F(OrderedMemoryTableTest, ConcurrentPutting) {
             EXPECT_EQ(value, result) << key;
         }
     }
+}
+    
+TEST_F(OrderedMemoryTableTest, BatchPut) {
+    static const int kN = 10000;
+    
+    base::intrusive_ptr<MemoryTable>
+        table(new OrderedMemoryTable(&ikcmp_, ll_allocator_));
+    
+    SequenceNumber sn = 1;
+    auto jiffy = env_->CurrentTimeMicros();
+    for (int i = 0; i < kN; ++i) {
+        std::string k = base::Slice::Sprintf("k.%05d", i);
+        std::string v = base::Slice::Sprintf("v.%05d", i);
+        table->Put(k, v, sn++, Tag::kFlagValue);
+    }
+    auto cost = (env_->CurrentTimeMicros() - jiffy) / 1000.0;
+    
+    printf("put cost: %f\n", cost);
+    
+    std::string value;
+    
+    jiffy = env_->CurrentTimeMicros();
+    for (int i = 0; i < kN; ++i) {
+        std::string k = base::Slice::Sprintf("k.%05d", i);
+        table->Get(k, sn, nullptr, &value);
+    }
+    cost = (env_->CurrentTimeMicros() - jiffy) / 1000.0;
+    
+    printf("get cost: %f\n", cost);
 }
     
 } // namespace core
