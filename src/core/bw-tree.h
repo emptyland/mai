@@ -180,14 +180,10 @@ public:
     }
     
     ~BwTreeBase() {
-        //gc_.Full(1); // Waiting for free all nodes.
+        gc_.Full(1); // Waiting for free all nodes.
         for (Pid i = 1; i < next_pid_.load(); ++i) {
             auto x = pages_[i].address.load();
-            while (x) {
-                auto prev = x;
-                x = x->base;
-                Deleter(prev, this);
-            }
+            Deleter(x, this);
         }
         delete[] pages_;
     }
@@ -266,10 +262,9 @@ public:
     void UpdatePid(Pid pid, Node *node, Node *base) {
         node->pid = pid;
         auto slot = pages_ + pid;
-        // TODO:
         Node *head;
         do {
-            head = slot->address.load(std::memory_order_relaxed);
+            head = base;
             node->base = base;
         } while (!slot->address.compare_exchange_weak(head, node));
     }
@@ -277,29 +272,17 @@ public:
     bool ReplacePid(Pid pid, Node *old, Node *node) {
         node->pid = pid;
         auto slot = pages_ + pid;
-        int retry = 17;
-        Node *head;
-        do {
-            head = old;
-        } while (retry-- > 0 &&
-                 !slot->address.compare_exchange_weak(head, node));
-        if (retry <= 0) {
+        Node *head = old;
+        // Retry is not necessary. Other thread(s) can be succsee.
+        if (!slot->address.compare_exchange_strong(head, node)) {
             // Delete new node if replace fail!
-            auto x = node;
-            while (x) {
-                auto prev = x;
-                x = x->base;
-                Deleter(prev, this);
-            }
+            Deleter(node, this);
             return false;
         }
 
         // Limbo all nodes
-        auto x = old;
-        while (x) {
-            gc_.Limbo(x);
-            x = x->base;
-        }
+        //printf("limbo: %p(%d)\n", old, old->kind);
+        gc_.Limbo(old);
         return true;
     }
     
@@ -311,15 +294,12 @@ public:
         return static_cast<DeltaNode *>(pages_[pid].address.load());
     }
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(BwTreeBase);
-protected:
-    void ReaderEnter() {
-        gc_.Register();
-        gc_.Enter();
-    }
-    
+    void ReaderRegister() { gc_.Register(); }
+    void ReaderEnter() { gc_.Enter(); }
     void ReaderExit() { gc_.Exit(); }
     
+    DISALLOW_IMPLICIT_CONSTRUCTORS(BwTreeBase);
+protected:
     Comparator const cmp_;
     base::EbrGC gc_;
 
@@ -341,8 +321,14 @@ private:
     static void Deleter(void *chunk, void *arg0) {
         auto self = static_cast<BwTreeBase *>(arg0);
         DCHECK(self != nullptr);
-        auto n = static_cast<Node *>(chunk);
-        ::free(n);
+        auto x = static_cast<Node *>(chunk);
+        //printf("head delete: %p(%d)\n", x, x->kind);
+        while (x) {
+            auto prev = x;
+            x = x->base;
+            //printf("delete: %p(%d)\n", prev, prev->kind);
+            ::free(prev);
+        }
     }
     
     struct PageSlot {
@@ -543,11 +529,11 @@ private:
                 return x;
             }
             *parent_id = x->pid;
-            x = Base::GetNode(pid);
 
             if (trigger && NeedsConsolidate(x)) {
-                x = Consolidate(x);
+                Consolidate(x);
             }
+            x = Base::GetNode(pid);
         }
         return nullptr;
     }
@@ -557,9 +543,6 @@ private:
         DeltaNode *x = Base::GetNode(root_.load());
         DCHECK_NOTNULL(x);
         while (x) {
-            if (trigger && NeedsConsolidate(x)) {
-                x = Consolidate(x);
-            }
 #if 0
             View view = MakeView(x, nullptr);
             printf("-------------\n");
@@ -580,6 +563,9 @@ private:
                 if (Base::cmp_(key, largestKey) > 0) {
                     return std::make_tuple(x, idx);
                 }
+            }
+            if (trigger && NeedsConsolidate(x)) {
+                Consolidate(x);
             }
             x = Base::GetNode(pid);
         }
@@ -750,8 +736,10 @@ private:
         n->UpdateBound();
 
         if (Base::ReplacePid(old->pid, old, n)) {
+            //printf("Consolidated ok: %p\n", old);
             return n;
         } else {
+            //printf("Consolidated fail: %p\n", old);
             return old;
         }
     }
@@ -820,6 +808,7 @@ public:
     
     Iterator(Owns *owns)
         : owns_(DCHECK_NOTNULL(owns)) {
+        owns_->ReaderRegister();
         owns_->ReaderEnter();
     }
     

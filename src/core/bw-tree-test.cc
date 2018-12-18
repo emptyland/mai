@@ -535,7 +535,7 @@ TEST_F(BwTreeTest, IteratorPrev) {
     
     int n = kN;
     for (iter.SeekToLast(); iter.Valid(); iter.Prev()) {
-        EXPECT_EQ(--n, iter.key());
+        ASSERT_EQ(--n, iter.key());
     }
 }
     
@@ -559,7 +559,7 @@ TEST_F(BwTreeTest, FuzzIterator) {
     int n = kN;
     IntTree::Iterator iter(&tree);
     for (iter.SeekToLast(); iter.Valid(); iter.Prev()) {
-        EXPECT_EQ(--n, iter.key());
+        ASSERT_EQ(--n, iter.key());
     }
     
     n = 0;
@@ -574,6 +574,7 @@ TEST_F(BwTreeTest, ConcurrentPutGet) {
     std::atomic<int> current(0);
     
     IntTree tree(IntComparator{}, 3, 128, env_);
+    //tree.ReaderRegister();
     
     std::thread wr_thrd([&current, &tree]() {
         for (int i = 0; i < kN; ++i) {
@@ -583,15 +584,17 @@ TEST_F(BwTreeTest, ConcurrentPutGet) {
     });
     
     IntTree::Iterator iter(&tree);
+    
     while (true) {
         auto n = current.load(std::memory_order_acquire);
         if (n > 0) {
+
             iter.Seek(n);
             EXPECT_TRUE(iter.Valid()) << n;
             if (iter.Valid()) {
                 EXPECT_EQ(n, iter.key());
             }
-            
+
             for (int i = 0; i < 10; ++i) {
                 auto k = rand() % n;
                 iter.Seek(k);

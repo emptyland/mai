@@ -12,6 +12,7 @@ void Ebr::Register() {
         ::memset(node, 0, sizeof(*node));
         tls_slot_->Set(node);
     }
+
     Tls *head;
     do {
         head = tls_list_.load(std::memory_order_relaxed);
@@ -64,7 +65,7 @@ void EbrGC::CycleNoLock() {
 void EbrGC::Full(uint64_t ms_for_retry) {
     bool done = false;
     
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
     do {
         CycleNoLock();
         

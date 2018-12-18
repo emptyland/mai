@@ -77,14 +77,16 @@ public:
         : deleter_(DCHECK_NOTNULL(deleter))
         , arg0_(arg0)
         , limbo_(nullptr) {
-        ::memset(epoch_list_, 0, sizeof(Entry *) * Ebr::kNumberEpochs);
+        for (int i = 0; i < Ebr::kNumberEpochs; ++i) {
+            epoch_list_[i] = nullptr;
+        }
     }
     
     ~EbrGC() {
         for (int i = 0; i < Ebr::kNumberEpochs; ++i) {
-            //DCHECK(epoch_list_[i] == nullptr);
+            DCHECK(epoch_list_[i] == nullptr);
         }
-        //DCHECK(limbo_.load() == nullptr);
+        DCHECK(limbo_.load() == nullptr);
     }
     
     Error Init(Env *env) { return ebr_.Init(env); }
@@ -106,7 +108,7 @@ public:
     void CycleNoLock();
     
     void Cycle() {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::unique_lock<std::mutex> lock(mutex_);
         CycleNoLock();
     }
     
