@@ -130,6 +130,8 @@
 		23C54E1121B527DB0078E77A /* lambda-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54E0F21B527DB0078E77A /* lambda-test.cc */; };
 		23C54E1321B52EBA0078E77A /* config-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54E1221B52EBA0078E77A /* config-test.cc */; };
 		23C54E1421B52EBA0078E77A /* config-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54E1221B52EBA0078E77A /* config-test.cc */; };
+		23C54F9921C8D225001C8262 /* bw-tree-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */; };
+		23C54F9A21C8D225001C8262 /* bw-tree-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */; };
 		23D70EEE21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */; };
 		23D70EEF21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */; };
 		23F60602219BBE9600CE12D9 /* write-batch.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60601219BBE9600CE12D9 /* write-batch.cc */; };
@@ -296,6 +298,8 @@
 		23C54E0C21B5263B0078E77A /* config.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = config.cc; sourceTree = "<group>"; };
 		23C54E0F21B527DB0078E77A /* lambda-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "lambda-test.cc"; path = "src/test/lambda-test.cc"; sourceTree = "<group>"; };
 		23C54E1221B52EBA0078E77A /* config-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "config-test.cc"; path = "src/db/config-test.cc"; sourceTree = "<group>"; };
+		23C54F9721C8D13F001C8262 /* bw-tree-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree-memory-table.h"; sourceTree = "<group>"; };
+		23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-tree-memory-table.cc"; sourceTree = "<group>"; };
 		23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pipeline-queue.h"; sourceTree = "<group>"; };
 		23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "pipeline-queue-test.cc"; path = "src/core/pipeline-queue-test.cc"; sourceTree = "<group>"; };
 		23F605FF219BB2C700CE12D9 /* db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = db.h; sourceTree = "<group>"; };
@@ -512,6 +516,8 @@
 				23AD6D5D21BF53CF00F8F4C5 /* bw-tree.h */,
 				237CE4B72192CD16004FB9BF /* memory-table.h */,
 				23C54E0921B517AB0078E77A /* memory-table.cc */,
+				23C54F9721C8D13F001C8262 /* bw-tree-memory-table.h */,
+				23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */,
 				232AA2372193E754007EF228 /* ordered-memory-table.h */,
 				232AA2382193E780007EF228 /* ordered-memory-table.cc */,
 				237CE4B82192D00B004FB9BF /* unordered-memory-table.h */,
@@ -686,6 +692,7 @@
 				2399D20E21C264B100C8D5B1 /* ebr.cc in Sources */,
 				23D70EEE21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */,
 				232AA24621943100007EF228 /* data-block-builder-test.cc in Sources */,
+				23C54F9921C8D225001C8262 /* bw-tree-memory-table.cc in Sources */,
 				23B0E11A2189A94F00F9E855 /* env.cc in Sources */,
 				232AA24321943066007EF228 /* data-block-builder.cc in Sources */,
 				232E1E7621A2C47B00F408D7 /* table-cache.cc in Sources */,
@@ -752,6 +759,7 @@
 				23C54E1421B52EBA0078E77A /* config-test.cc in Sources */,
 				2399D20F21C264B100C8D5B1 /* ebr.cc in Sources */,
 				23B0E134218AFD4E00F9E855 /* crc32.c in Sources */,
+				23C54F9A21C8D225001C8262 /* bw-tree-memory-table.cc in Sources */,
 				2302F6BC21AE80AB00AE0309 /* s1-table-reader.cc in Sources */,
 				23C1163821AFED5E00DE7321 /* test-main.cc in Sources */,
 				23B4E01D21A7AD48007A4533 /* compaction-impl.cc in Sources */,

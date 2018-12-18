@@ -281,7 +281,6 @@ public:
         }
 
         // Limbo all nodes
-        //printf("limbo: %p(%d)\n", old, old->kind);
         gc_.Limbo(old);
         return true;
     }
@@ -736,10 +735,8 @@ private:
         n->UpdateBound();
 
         if (Base::ReplacePid(old->pid, old, n)) {
-            //printf("Consolidated ok: %p\n", old);
             return n;
         } else {
-            //printf("Consolidated fail: %p\n", old);
             return old;
         }
     }
@@ -877,10 +874,10 @@ public:
                 bool found = false;
                 do {
                     auto pid = owns_->FindParent(node_->pid, prev_key);
-                    if (pid == 0) {
+                    node_ = owns_->GetNode(pid);
+                    if (!node_) {
                         return;
                     }
-                    node_ = DCHECK_NOTNULL(owns_->GetNode(pid));
                     
                     std::tie(current_, std::ignore) =
                         owns_->FindGreaterOrEqual(node_, prev_key, &found);
@@ -927,10 +924,10 @@ public:
                 bool found = false;
                 do {
                     auto pid = owns_->FindParent(node_->pid, next_key);
-                    if (pid == 0) {
+                    node_ = owns_->GetNode(pid);
+                    if (!node_) {
                         return;
                     }
-                    node_ = owns_->GetNode(pid);
                     
                     std::tie(current_, std::ignore) =
                         owns_->FindGreaterOrEqual(node_, next_key, &found);

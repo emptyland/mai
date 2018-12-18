@@ -1,23 +1,20 @@
-#ifndef MAI_CORE_ORDERED_MEMORY_TABLE_H_
-#define MAI_CORE_ORDERED_MEMORY_TABLE_H_
+#ifndef MAI_CORE_BW_TREE_MEMORY_TABLE_H_
+#define MAI_CORE_BW_TREE_MEMORY_TABLE_H_
 
 #include "core/memory-table.h"
-#include "core/skip-list.h"
+#include "core/bw-tree.h"
 #include "core/internal-key-comparator.h"
 #include "base/arena.h"
-#include "glog/logging.h"
 
 namespace mai {
-    
+class Env;
 namespace core {
     
-class InternalKeyComparator;
-
-class OrderedMemoryTable final : public MemoryTable {
+class BwTreeMemoryTable final : public MemoryTable {
 public:
-    OrderedMemoryTable(const InternalKeyComparator *ikcmp,
-                       Allocator *low_level_alloc);
-    virtual ~OrderedMemoryTable();
+    BwTreeMemoryTable(const InternalKeyComparator *ikcmp, Env *env,
+                      Allocator *ll_allocator);
+    virtual ~BwTreeMemoryTable();
     
     virtual void Put(std::string_view key, std::string_view value,
                      SequenceNumber version, uint8_t flag) override;
@@ -28,7 +25,7 @@ public:
     virtual size_t ApproximateMemoryUsage() const override;
     virtual float ApproximateConflictFactor() const override;
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(OrderedMemoryTable);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(BwTreeMemoryTable);
 private:
     struct KeyComparator final {
         const InternalKeyComparator *ikcmp;
@@ -36,17 +33,20 @@ private:
             return ikcmp->Compare(lhs->key(), rhs->key());
         }
     }; // struct KeyComparator
-    using Table = SkipList<const KeyBoundle *, KeyComparator>;
+    using Table = BwTree<const KeyBoundle *, KeyComparator>;
     
     class IteratorImpl;
 
-    base::Arena arena_;
-    Table table_;
     std::atomic<size_t> n_entries_;
-}; // class OrderedMemoryTable
+
+    base::Arena arena_;
+    mutable Table table_;
+}; // class BwTreeMemoryTable
     
 } // namespace core
     
 } // namespace mai
 
-#endif // MAI_CORE_ORDERED_MEMORY_TABLE_H_
+
+
+#endif // MAI_CORE_BW_TREE_MEMORY_TABLE_H_

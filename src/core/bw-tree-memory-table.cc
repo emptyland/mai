@@ -1,15 +1,16 @@
-#include "core/ordered-memory-table.h"
-#include "base/reference-count.h"
+#include "core/bw-tree-memory-table.h"
+#include "mai/env.h"
 #include "mai/iterator.h"
+
 
 namespace mai {
     
 namespace core {
     
-class OrderedMemoryTable::IteratorImpl final : public Iterator {
+class BwTreeMemoryTable::IteratorImpl final : public Iterator {
 public:
-    IteratorImpl(const OrderedMemoryTable *omt)
-        : iter_(&omt->table_) {}
+    IteratorImpl(const BwTreeMemoryTable *bmt)
+        : iter_(&bmt->table_) {}
     
     virtual bool Valid() const override { return iter_.Valid(); }
     virtual void SeekToFirst() override { iter_.SeekToFirst(); }
@@ -36,43 +37,36 @@ public:
     virtual Error error() const override { return error_; }
     
     static void Cleanup(void *arg1, void */*arg2*/) {
-        DCHECK_NOTNULL(static_cast<OrderedMemoryTable *>(arg1))->ReleaseRef();
+        DCHECK_NOTNULL(static_cast<BwTreeMemoryTable *>(arg1))->ReleaseRef();
     }
 private:
-    void Noreached() {
-        error_ = MAI_CORRUPTION("Noreached!");
-        DLOG(FATAL) << "Noreached!";
-    }
-    
     Table::Iterator iter_;
     Error error_;
-}; // class UnorderedMemoryTable::IteratorImpl
+}; // class BwTreeMemoryTable::IteratorImpl
     
-OrderedMemoryTable::OrderedMemoryTable(const InternalKeyComparator *ikcmp,
-                                       Allocator *ll_allocator)
-    : arena_(ll_allocator)
-    , table_(KeyComparator{ikcmp}, &arena_)
-    , n_entries_(0) {
+BwTreeMemoryTable::BwTreeMemoryTable(const InternalKeyComparator *ikcmp, Env *env,
+                                     Allocator *ll_allocator)
+    : n_entries_(0)
+    , arena_(ll_allocator)
+    , table_(KeyComparator{ikcmp}, 5, 127, env) {
 }
 
-/*virtual*/ OrderedMemoryTable::~OrderedMemoryTable() {
-    // arena_ can free all keys.
+/*virtual*/ BwTreeMemoryTable::~BwTreeMemoryTable() {
 }
 
-/*virtual*/ void
-OrderedMemoryTable::Put(std::string_view key, std::string_view value,
-                        SequenceNumber version, uint8_t flag) {
+/*virtual*/
+void BwTreeMemoryTable::Put(std::string_view key, std::string_view value,
+                            SequenceNumber version, uint8_t flag) {
     const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag,
                                              base::DelegatedAllocator{&arena_});
-    //const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
     DCHECK_NOTNULL(ikey);
     table_.Put(ikey);
     n_entries_.fetch_add(1);
 }
-    
-/*virtual*/ Error
-OrderedMemoryTable::Get(std::string_view key, SequenceNumber version, Tag *tag,
-                        std::string *value) const {
+
+/*virtual*/
+Error BwTreeMemoryTable::Get(std::string_view key, SequenceNumber version,
+                             Tag *tag, std::string *value) const {
     base::ScopedMemory scope;
     const KeyBoundle *ikey = KeyBoundle::New(key, version,
                                              base::ScopedAllocator{&scope});
@@ -100,26 +94,24 @@ OrderedMemoryTable::Get(std::string_view key, SequenceNumber version, Tag *tag,
     }
     return Error::OK();
 }
-    
-/*virtual*/ Iterator *OrderedMemoryTable::NewIterator() {
+
+/*virtual*/ Iterator *BwTreeMemoryTable::NewIterator() {
     Iterator *iter = new IteratorImpl(this);
     AddRef();
     iter->RegisterCleanup(&IteratorImpl::Cleanup, this);
     return iter;
 }
-    
-/*virtual*/ size_t OrderedMemoryTable::NumEntries() const {
+
+/*virtual*/ size_t BwTreeMemoryTable::NumEntries() const {
     return n_entries_.load(std::memory_order_acquire);
 }
-    
-/*virtual*/ size_t OrderedMemoryTable::ApproximateMemoryUsage() const {
+
+/*virtual*/ size_t BwTreeMemoryTable::ApproximateMemoryUsage() const {
     return arena_.memory_usage();
 }
 
-/*virtual*/ float OrderedMemoryTable::ApproximateConflictFactor() const {
-    // Skip List has no Conflict Factor.
-    // Equlas 0 forever.
-    return 0;
+/*virtual*/ float BwTreeMemoryTable::ApproximateConflictFactor() const {
+    return 0.0f;
 }
     
 } // namespace core

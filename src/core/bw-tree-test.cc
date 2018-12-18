@@ -533,9 +533,13 @@ TEST_F(BwTreeTest, IteratorPrev) {
     ASSERT_TRUE(iter.Valid());
     EXPECT_EQ(88, iter.key());
     
+    iter.Seek(0);
+    iter.Prev();
+    ASSERT_FALSE(iter.Valid());
+    
     int n = kN;
     for (iter.SeekToLast(); iter.Valid(); iter.Prev()) {
-        ASSERT_EQ(--n, iter.key());
+        EXPECT_EQ(--n, iter.key());
     }
 }
     
