@@ -10,7 +10,9 @@
 namespace mai {
     
 namespace base {
-    
+
+// Base libqsbr in github.
+// sources: https://github.com/rmind/libqsbr
 class Ebr final {
 public:
     struct Tls {
@@ -107,6 +109,8 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         CycleNoLock();
     }
+    
+    void Full(uint64_t ms_for_retry);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(EbrGC);
 private:

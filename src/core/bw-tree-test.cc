@@ -4,6 +4,7 @@
 #include "gtest/gtest.h"
 #include <random>
 #include <algorithm>
+#include <thread>
 
 namespace mai {
     
@@ -478,6 +479,10 @@ TEST_F(BwTreeTest, UpperBound) {
     
     iter.Seek(999.9);
     ASSERT_FALSE(iter.Valid());
+    
+    iter.Seek(998.9);
+    ASSERT_TRUE(iter.Valid());
+    EXPECT_EQ(999.0, iter.key());
 }
     
 TEST_F(BwTreeTest, IteratorNext) {
@@ -560,6 +565,51 @@ TEST_F(BwTreeTest, FuzzIterator) {
     n = 0;
     for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
         EXPECT_EQ(n++, iter.key());
+    }
+}
+    
+TEST_F(BwTreeTest, ConcurrentPutGet) {
+    static const auto kN = 1000;
+    
+    std::atomic<int> current(0);
+    
+    IntTree tree(IntComparator{}, 3, 128, env_);
+    
+    std::thread wr_thrd([&current, &tree]() {
+        for (int i = 0; i < kN; ++i) {
+            tree.Put(i);
+            current.store(i, std::memory_order_release);
+        }
+    });
+    
+    IntTree::Iterator iter(&tree);
+    while (true) {
+        auto n = current.load(std::memory_order_acquire);
+        if (n > 0) {
+            iter.Seek(n);
+            EXPECT_TRUE(iter.Valid()) << n;
+            if (iter.Valid()) {
+                EXPECT_EQ(n, iter.key());
+            }
+            
+            for (int i = 0; i < 10; ++i) {
+                auto k = rand() % n;
+                iter.Seek(k);
+                EXPECT_TRUE(iter.Valid()) << n << "," << k;
+            }
+        }
+        
+        if (n == kN - 1) {
+            break;
+        }
+    }
+
+    wr_thrd.join();
+    
+    for (int i = 0; i < kN; ++i) {
+        iter.Seek(i);
+        ASSERT_TRUE(iter.Valid());
+        EXPECT_EQ(i, iter.key());
     }
 }
     

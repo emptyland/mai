@@ -180,7 +180,7 @@ public:
     }
     
     ~BwTreeBase() {
-        gc_.Cycle();
+        //gc_.Full(1); // Waiting for free all nodes.
         for (Pid i = 1; i < next_pid_.load(); ++i) {
             auto x = pages_[i].address.load();
             while (x) {
@@ -196,13 +196,14 @@ public:
         size_t size = sizeof(BaseLine) + n_entries * sizeof(Pair);
         void *chunk = ::malloc(size);
         BaseLine *n = new (chunk) BaseLine(n_entries);
-        n->pid = pid;
+        n->pid     = pid;
         n->base    = nullptr;
         n->sibling = sibling;
-        //n->size    = n_entries;
         n->depth   = 0;
         if (pid) {
-            UpdatePid(pid, n);
+            UpdatePid(pid, n, nullptr);
+        } else {
+            n->base = nullptr;
         }
         return n;
     }
@@ -215,9 +216,11 @@ public:
         n->smallest_key = key;
         n->largest_key  = key;
         n->size         = base->size + 1;
-        SetBase(n, base);
+        UpdateByBase(n, base);
         if (pid) {
-            UpdatePid(pid, n);
+            UpdatePid(pid, n, base);
+        } else {
+            n->base = base;
         }
         return n;
     }
@@ -232,9 +235,11 @@ public:
         n->size    = base->size + 1;
         n->smallest_key = key;
         n->largest_key  = key;
-        SetBase(n, base);
+        UpdateByBase(n, base);
         if (pid) {
-            UpdatePid(pid, n);
+            UpdatePid(pid, n, base);
+        } else {
+            n->base = base;
         }
         return n;
     }
@@ -249,39 +254,53 @@ public:
         n->smallest_key = base->smallest_key;
         n->largest_key  = separator;
         n->size = size;
-        SetBase(n, base);
+        UpdateByBase(n, base);
         if (pid) {
-            UpdatePid(pid, n);
+            UpdatePid(pid, n, base);
+        } else {
+            n->base = base;
         }
         return n;
     }
-    
     // Atomic update node
-    void UpdatePid(Pid pid, Node *node) {
+    void UpdatePid(Pid pid, Node *node, Node *base) {
         node->pid = pid;
         auto slot = pages_ + pid;
         // TODO:
-        Node *e;
+        Node *head;
         do {
-            e = node->base;
-        } while (!slot->address.compare_exchange_strong(e, node));
+            head = slot->address.load(std::memory_order_relaxed);
+            node->base = base;
+        } while (!slot->address.compare_exchange_weak(head, node));
     }
     
-    void ReplacePid(Pid pid, Node *old, Node *node) {
+    bool ReplacePid(Pid pid, Node *old, Node *node) {
         node->pid = pid;
         auto slot = pages_ + pid;
-        Node *e;
+        int retry = 17;
+        Node *head;
         do {
-            e = old;
-        } while (!slot->address.compare_exchange_strong(e, node));
-        
+            head = old;
+        } while (retry-- > 0 &&
+                 !slot->address.compare_exchange_weak(head, node));
+        if (retry <= 0) {
+            // Delete new node if replace fail!
+            auto x = node;
+            while (x) {
+                auto prev = x;
+                x = x->base;
+                Deleter(prev, this);
+            }
+            return false;
+        }
+
         // Limbo all nodes
         auto x = old;
         while (x) {
             gc_.Limbo(x);
             x = x->base;
         }
-        gc_.Cycle();
+        return true;
     }
     
     Pid GeneratePid() { return next_pid_.fetch_add(1); }
@@ -305,8 +324,7 @@ protected:
     base::EbrGC gc_;
 
 private:
-    void SetBase(DeltaNode *delta, DeltaNode *base) {
-        delta->base    = base;
+    void UpdateByBase(DeltaNode *delta, DeltaNode *base) {
         delta->sibling = base->sibling;
         delta->depth   = base->depth + 1;
         
@@ -385,12 +403,13 @@ public:
         if (NeedsSplit(p)) {
             SplitInner(p, parent_id);
         }
+        Base::gc_.Cycle();
     }
 
     View TEST_MakeView(const DeltaNode *node, Pid *result) const {
         return MakeView(node, result);
     }
-    BaseLine *TEST_Consolidate(const DeltaNode *node) {
+    DeltaNode *TEST_Consolidate(DeltaNode *node) {
         return Consolidate(node);
     }
     size_t TEST_FindGreaterOrEqual(const DeltaNode *node, Key key) const {
@@ -456,7 +475,7 @@ private:
                                               q->pid, p);
         split->sibling = q->pid;
         split->largest_key = sp;
-        Base::UpdatePid(p->pid, split);
+        Base::UpdatePid(p->pid, split, p);
 
 #if 0
         {
@@ -487,7 +506,7 @@ private:
             root->overflow   = q->pid;
             root->UpdateBound();
             pid = Base::GeneratePid();
-            Base::UpdatePid(pid, root);
+            Base::UpdatePid(pid, root, nullptr);
             root_.store(pid);
             level_.fetch_add(1);
         }
@@ -518,10 +537,6 @@ private:
         DCHECK_NOTNULL(x);
 
         while (x) {
-            if (trigger && NeedsConsolidate(x)) {
-                x = Consolidate(x);
-            }
-
             bool found = false;
             Pid pid = std::get<1>(FindGreaterOrEqual(x, key, &found));
             if (pid == 0) {
@@ -529,6 +544,10 @@ private:
             }
             *parent_id = x->pid;
             x = Base::GetNode(pid);
+
+            if (trigger && NeedsConsolidate(x)) {
+                x = Consolidate(x);
+            }
         }
         return nullptr;
     }
@@ -717,10 +736,10 @@ private:
         }
     }
     
-    BaseLine *Consolidate(const DeltaNode *node) {
+    DeltaNode *Consolidate(DeltaNode *old) {
         Pid overflow = 0;
-        View view = MakeView(node, &overflow);
-        BaseLine *n = Base::NewBaseLine(0, view.size(), node->sibling);
+        View view = MakeView(old, &overflow);
+        BaseLine *n = Base::NewBaseLine(0, view.size(), old->sibling);
         DCHECK_NOTNULL(n);
         
         size_t i = 0;
@@ -730,10 +749,11 @@ private:
         n->overflow = overflow;
         n->UpdateBound();
 
-        Base::ReplacePid(node->pid,
-                         const_cast<DeltaNode *>(node), n);
-        // Should GC replaced linked-nodes.
-        return n;
+        if (Base::ReplacePid(old->pid, old, n)) {
+            return n;
+        } else {
+            return old;
+        }
     }
     
     View MakeView(const DeltaNode *node, Pid *result) const {
@@ -806,47 +826,42 @@ public:
     ~Iterator() { owns_->ReaderExit(); }
     
     void SeekToFirst() {
-        page_id_ = 0;
+        node_    = nullptr;
         current_ = -1;
         const DeltaNode *x = owns_->GetNode(owns_->GetRootId());
         if (x->size == 0) {
             return;
         }
-        page_id_ = owns_->FindSmallestChild(x);
+        auto pid = owns_->FindSmallestChild(x);
+        node_    = owns_->GetNode(pid);
         current_ = 0;
     }
 
     void SeekToLast() {
-        page_id_ = 0;
         current_ = -1;
-        const DeltaNode *x = owns_->GetNode(owns_->GetRootId());
-        if (x->size == 0) {
+        node_    = owns_->GetNode(owns_->GetRootId());
+        if (node_->size == 0) {
             return;
         }
         while (true) {
-            Pid pid = owns_->GetRightChild(x);
+            Pid pid = owns_->GetRightChild(node_);
             if (pid == 0) {
-                page_id_ = x->pid;
-                current_ = owns_->GetEntriesSize(x) - 1;
+                current_ = owns_->GetEntriesSize(node_) - 1;
                 break;
             }
-            x = owns_->GetNode(pid);
+            node_ = owns_->GetNode(pid);
         }
     }
     
     void Seek(Key key) {
-        page_id_ = 0;
         current_ = -1;
-
-        DeltaNode *x;
-        std::tie(x, current_) = owns_->FindGreaterOrEqual(key, true);
-        page_id_ = (!x) ? 0 : x->pid;
+        std::tie(node_, current_) = owns_->FindGreaterOrEqual(key, true);
     }
     
     bool Valid() const {
-        return page_id_ != 0 &&
+        return node_ != nullptr &&
                current_ >= 0 &&
-               current_ < owns_->GetEntriesSize(owns_->GetNode(page_id_));
+               current_ < owns_->GetEntriesSize(node_);
     }
 
     void Next() {
@@ -854,17 +869,16 @@ public:
         
         bool is_leaf = false;
         size_t n_entries = 0;
-        const DeltaNode *x = owns_->GetNode(page_id_);
-        if (x->IsBaseLine()) {
-            const BaseLine *n = BaseLine::Cast(x);
+        if (node_->IsBaseLine()) {
+            const BaseLine *n = BaseLine::Cast(node_);
             is_leaf = (n->size == 0) || (n->entry(0).value == 0);
             n_entries = n->size;
         } else {
-            View view = owns_->MakeView(x, nullptr);
+            View view = owns_->MakeView(node_, nullptr);
             is_leaf = (view.empty()) || (view.begin()->second == 0);
             n_entries = view.size();
         }
-        DCHECK_EQ(x->size, n_entries);
+        DCHECK_EQ(node_->size, n_entries);
         
         auto prev_key = key();
         if (is_leaf) {
@@ -873,14 +887,14 @@ public:
             } else { // last one
                 bool found = false;
                 do {
-                    page_id_ = owns_->FindParent(page_id_, prev_key);
-                    if (page_id_ == 0) {
+                    auto pid = owns_->FindParent(node_->pid, prev_key);
+                    if (pid == 0) {
                         return;
                     }
-                    x = DCHECK_NOTNULL(owns_->GetNode(page_id_));
+                    node_ = DCHECK_NOTNULL(owns_->GetNode(pid));
                     
                     std::tie(current_, std::ignore) =
-                        owns_->FindGreaterOrEqual(x, prev_key, &found);
+                        owns_->FindGreaterOrEqual(node_, prev_key, &found);
                 } while (!found);
             }
         } else {
@@ -891,9 +905,10 @@ public:
                 idx = n_entries;
             }
             
-            std::tie(std::ignore, page_id_) = owns_->NodeAt(x, idx);
-            x = owns_->GetNode(page_id_);
-            page_id_ = owns_->FindSmallestChild(x);
+            Pid pid = std::get<1>(owns_->NodeAt(node_, idx));
+            node_ = owns_->GetNode(pid);
+            pid = owns_->FindSmallestChild(node_);
+            node_ = owns_->GetNode(pid);
             current_ = 0;
         }
     }
@@ -903,17 +918,17 @@ public:
         
         bool is_leaf = false;
         size_t n_entries = 0;
-        const DeltaNode *x = owns_->GetNode(page_id_);
-        if (x->IsBaseLine()) {
-            const BaseLine *n = BaseLine::Cast(x);
+
+        if (node_->IsBaseLine()) {
+            const BaseLine *n = BaseLine::Cast(node_);
             is_leaf = (n->size == 0) || (n->entry(0).value == 0);
             n_entries = n->size;
         } else {
-            View view = owns_->MakeView(x, nullptr);
+            View view = owns_->MakeView(node_, nullptr);
             is_leaf = (view.empty()) || (view.begin()->second == 0);
             n_entries = view.size();
         }
-        DCHECK_EQ(x->size, n_entries);
+        DCHECK_EQ(node_->size, n_entries);
         
         auto next_key = key();
         if (is_leaf) {
@@ -922,50 +937,35 @@ public:
             } else { // first one
                 bool found = false;
                 do {
-                    page_id_ = owns_->FindParent(page_id_, next_key);
-                    if (page_id_ == 0) {
+                    auto pid = owns_->FindParent(node_->pid, next_key);
+                    if (pid == 0) {
                         return;
                     }
-                    x = DCHECK_NOTNULL(owns_->GetNode(page_id_));
+                    node_ = owns_->GetNode(pid);
                     
                     std::tie(current_, std::ignore) =
-                        owns_->FindGreaterOrEqual(x, next_key, &found);
+                        owns_->FindGreaterOrEqual(node_, next_key, &found);
                 } while (current_ == 0);
                 --current_;
             }
         } else {
-//            size_t idx;
-//            if (current_ > 0) {
-//                idx = current_ - 1;
-//            } else {
-//                idx = 0;
-//            }
-            
-            std::tie(std::ignore, page_id_) = owns_->NodeAt(x, current_);
-            x = owns_->GetNode(page_id_);
-            page_id_ = owns_->FindLargestChild(x);
-            current_ = owns_->GetEntriesSize(owns_->GetNode(page_id_)) - 1;
+            auto pid = std::get<1>(owns_->NodeAt(node_, current_));
+            node_ = owns_->GetNode(pid);
+            pid = owns_->FindLargestChild(node_);
+            node_ = owns_->GetNode(pid);
+            current_ = owns_->GetEntriesSize(node_) - 1;
         }
     }
     
     Key key() const {
         DCHECK(Valid());
-        const DeltaNode *x = owns_->GetNode(page_id_);
-        if (x->IsBaseLine()) {
-            const BaseLine *n = BaseLine::Cast(x);
-            return n->entries[current_].key;
-        } else {
-            View view = owns_->MakeView(x, nullptr);
-            auto iter = view.begin();
-            std::advance(iter, current_);
-            DCHECK(iter != view.end());
-            return iter->first;
-        }
+        return std::get<0>(owns_->NodeAt(node_, current_));
     }
     
 private:
     Owns *const owns_;
-    Pid page_id_ = 0;
+    
+    DeltaNode *node_ = nullptr;
     ssize_t current_ = -1;
 }; // template<class Key, class Comparator> class BwTree::Iterator
     

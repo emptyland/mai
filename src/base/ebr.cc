@@ -1,4 +1,5 @@
 #include "base/ebr.h"
+#include <thread>
 
 namespace mai {
     
@@ -58,6 +59,26 @@ void EbrGC::CycleNoLock() {
     }
     Reclaim(gc_list);
     epoch_list_[gc_epoch] = nullptr;
+}
+    
+void EbrGC::Full(uint64_t ms_for_retry) {
+    bool done = false;
+    
+    std::lock_guard<std::mutex> lock(mutex_);
+    do {
+        CycleNoLock();
+        
+        done = true;
+        for (int i = 0; i < Ebr::kNumberEpochs; ++i) {
+            if (epoch_list_[i]) {
+                done = false;
+                break;
+            }
+        }
+        if (!done || limbo_.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(ms_for_retry));
+        }
+    } while (!done || limbo_.load());
 }
 
 void EbrGC::Reclaim(Entry *entry) {
