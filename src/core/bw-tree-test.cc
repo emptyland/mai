@@ -323,6 +323,115 @@ TEST_F(BwTreeTest, LowerBoundBaseLine2) {
     ::free(node);
 }
     
+//TEST_F(BwTreeTest, InnerLowerBound) {
+//    IntTree tree(IntComparator{}, 3, 6, env_);
+//
+//    auto node = tree.NewBaseLine(0, 8, 0);
+//    for (int i = 0; i < node->size; ++i) {
+//        node->set_entry(i, {i, static_cast<bw::Pid>((i + 1) * 10)});
+//    }
+//    node->overflow = 77;
+//    bw::DeltaNode<int> *n = tree.NewDeltaIndex(0, 100, 11, 33, node);
+//    n = tree.NewDeltaIndex(0, 99, 22, 33, n);
+//
+//    bool found = false;
+//    bw::Pid value = tree.TEST_InnerFindGreaterOrEqual(n, 100, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(11, value);
+//
+//    value = tree.TEST_InnerFindGreaterOrEqual(n, 0, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(10, value);
+//
+//    value = tree.TEST_InnerFindGreaterOrEqual(n, 99, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(22, value);
+//
+//    value = tree.TEST_InnerFindGreaterOrEqual(n, 101, &found);
+//    EXPECT_FALSE(found);
+//    EXPECT_EQ(33, value);
+//}
+//
+//TEST_F(BwTreeTest, InnerLowerBound_V2) {
+//    IntTree tree(IntComparator{}, 3, 6, env_);
+//
+//    auto node = tree.NewBaseLine(0, 3, 0);
+//    node->set_entry(0, {1, 10});
+//    node->set_entry(1, {3, 30});
+//    node->set_entry(2, {5, 50});
+//    node->overflow = 60;
+//
+//    auto n = tree.NewDeltaIndex(0, 2, 20, 31, node);
+//    n = tree.NewDeltaIndex(0, 4, 40, 51, n);
+//    n = tree.NewDeltaIndex(0, 6, 60, 71, n);
+//
+//    bool found = false;
+//    bw::Pid value = tree.TEST_InnerFindGreaterOrEqual(n, 0, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(10, value);
+//
+//    value = tree.TEST_InnerFindGreaterOrEqual(n, 1, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(10, value);
+//
+//    value = tree.TEST_InnerFindGreaterOrEqual(n, 2, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(20, value);
+//
+//    value = tree.TEST_InnerFindGreaterOrEqual(n, 5, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(51, value);
+//
+//    value = tree.TEST_InnerFindGreaterOrEqual(n, 6, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(60, value);
+//
+//    value = tree.TEST_InnerFindGreaterOrEqual(n, 7, &found);
+//    EXPECT_FALSE(found);
+//    EXPECT_EQ(71, value);
+//}
+    
+//TEST_F(BwTreeTest, InnerLowerBound_V3) {
+//    IntTree tree(IntComparator{}, 3, 6, env_);
+//    
+//    auto node = tree.NewBaseLine(0, 3, 0);
+//    node->set_entry(0, {3, 30});
+//    node->set_entry(1, {4, 40});
+//    node->set_entry(2, {5, 50});
+//    node->overflow = 61;
+//    
+//    auto n = tree.NewDeltaIndex(0, 7, 70, 81, node);
+//    n = tree.NewDeltaIndex(0, 6, 60, 71, n);
+//    n = tree.NewDeltaIndex(0, 2, 20, 31, n);
+//    n = tree.NewDeltaIndex(0, 1, 10, 21, n);
+//    
+//    bw::Pid overflow;
+//    auto view = tree.TEST_MakeView(n, &overflow);
+//    
+//    bool found = false;
+//    bw::Pid value = tree.TEST_InnerFindGreaterOrEqual(n, 0, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(view.lower_bound(0)->second, value);
+//    
+//    value = tree.TEST_InnerFindGreaterOrEqual(n, 2, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(21, value);
+//    
+//    value = tree.TEST_InnerFindGreaterOrEqual(n, 3, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(31, value);
+//    
+//    value = tree.TEST_InnerFindGreaterOrEqual(n, 4, &found);
+//    EXPECT_TRUE(found);
+//    EXPECT_EQ(40, value);
+//    
+//    for (int i = 1; i < 8; ++i) {
+//        value = tree.TEST_InnerFindGreaterOrEqual(n, i, &found);
+//        EXPECT_TRUE(found) << i;
+//        EXPECT_EQ(view[i], value) << i;
+//    }
+//}
+    
 TEST_F(BwTreeTest, Iterator) {
     IntTree tree(IntComparator{}, 3, 6, env_);
     for (int i = 0; i < 8; ++i) {

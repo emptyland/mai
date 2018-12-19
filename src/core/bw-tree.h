@@ -380,7 +380,7 @@ public:
     
     void Put(Key key) {
         Pid parent_id;
-        DeltaNode *leaf = FindRoomFor(key, &parent_id, false);
+        DeltaNode *leaf = FindRoomFor(key, &parent_id, true);
         DCHECK_NOTNULL(leaf);
         DeltaKey *p = Base::NewDeltaKey(leaf->pid, key, leaf);
         DCHECK_NOTNULL(p);
@@ -411,7 +411,10 @@ public:
     SplitNode *TEST_SpliInnter(DeltaNode *p, Pid parent_id) {
         return SplitInner(p, parent_id);
     }
-    
+    Pid TEST_InnerFindGreaterOrEqual(const DeltaNode *node, Key key,
+                                     bool *found) const {
+        return InnerFindGreaterOrEqual(node, key, found);
+    }
     DISALLOW_IMPLICIT_CONSTRUCTORS(BwTree);
 private:
     bool NeedsSplit(const DeltaNode *node) const {
@@ -509,8 +512,9 @@ private:
         DCHECK_NOTNULL(x);
 
         while (x) {
-            bool found = false;
-            Pid pid = std::get<1>(FindGreaterOrEqual(x, key, &found));
+            bool has_overflow = false;
+            auto pid = std::get<1>(FindGreaterOrEqual(x, key, &has_overflow));
+            //auto pid = InnerFindGreaterOrEqual(x, key, &has_overflow);
             if (pid == 0) {
                 return x;
             }
@@ -522,6 +526,53 @@ private:
             x = Base::GetNode(pid);
         }
         return nullptr;
+    }
+    
+    Pid InnerFindGreaterOrEqual(const DeltaNode *node, Key key,
+                                bool *found) const {
+        *found = false;
+        if (node->IsDeltaKey()) {
+            return 0;
+        }
+        if (node->IsBaseLine()) {
+            return std::get<1>(LowerBound(BaseLine::Cast(node), key,
+                                          found));
+        }
+
+        std::vector<const DeltaIndex *> delta;
+        auto cmp = [this](auto lhs, auto rhs) {
+            return Base::cmp_(lhs->key, rhs->key) < 0;
+        };
+        
+        const Node *x = node;
+        while (!x->IsBaseLine()) {
+            if (!x->IsDeltaIndex()) {
+                return std::get<1>(FindGreaterOrEqual(node, key, found));
+            }
+            delta.push_back(DeltaIndex::Cast(x));
+            x = x->base;
+        }
+        std::sort(delta.begin(), delta.end(), cmp);
+        
+        auto base_line = BaseLine::Cast(x);
+        size_t idx;
+        Pid pid;
+        std::tie(idx, pid) = LowerBound(base_line, key, found);
+        
+        DeltaIndex lookup_key;
+        lookup_key.key = key;
+        auto iter = std::lower_bound(delta.begin(), delta.end(), &lookup_key,
+                                     cmp);
+        if (!*found && iter == delta.end()) {
+
+        } else if (!*found && iter != delta.end()) {
+
+        } else if (*found && iter == delta.end()) {
+            
+        } else if (*found && iter != delta.end()) {
+            
+        }
+        return 0;
     }
     
     std::tuple<DeltaNode *, size_t> FindGreaterOrEqual(Key key, bool trigger) {
@@ -554,35 +605,39 @@ private:
     FindGreaterOrEqual(const DeltaNode *node, Key key, bool *found) const {
         *found = false;
         if (node->IsBaseLine()) {
-            auto base_line = BaseLine::Cast(node);
-            size_t count = base_line->size, first = 0;
-            while (count > 0) {
-                auto i = first;
-                auto step = count / 2;
-                i += step;
-                if (Base::cmp_(base_line->entry(i).key, key) < 0) {
-                    first = ++i;
-                    count -= step + 1;
-                } else {
-                    count = step;
-                }
-            }
-            *found = first < base_line->size;
-            if (*found) {
-                return std::make_tuple(first, base_line->entry(first).value);
-            }
-            return std::make_tuple(base_line->size, base_line->overflow);
-        } else {
-            Pid overflow;
-            View view = MakeView(node, &overflow);
-            auto iter = view.lower_bound(key);
-            *found = iter != view.end();
-            if (*found) {
-                size_t idx = std::distance(view.begin(), iter);
-                return std::make_tuple(idx, iter->second);
-            }
-            return std::make_tuple(view.size(), overflow);
+            return LowerBound(BaseLine::Cast(node), key, found);
         }
+        
+        Pid overflow;
+        View view = MakeView(node, &overflow);
+        auto iter = view.lower_bound(key);
+        *found = iter != view.end();
+        if (*found) {
+            size_t idx = std::distance(view.begin(), iter);
+            return std::make_tuple(idx, iter->second);
+        }
+        return std::make_tuple(view.size(), overflow);
+    }
+    
+    std::tuple<size_t, Pid> LowerBound(const BaseLine *base_line, Key key,
+                                       bool *found) const {
+        size_t count = base_line->size, first = 0;
+        while (count > 0) {
+            auto i = first;
+            auto step = count / 2;
+            i += step;
+            if (Base::cmp_(base_line->entry(i).key, key) < 0) {
+                first = ++i;
+                count -= step + 1;
+            } else {
+                count = step;
+            }
+        }
+        *found = first < base_line->size;
+        if (*found) {
+            return std::make_tuple(first, base_line->entry(first).value);
+        }
+        return std::make_tuple(base_line->size, base_line->overflow);
     }
     
     std::tuple<Key, Pid> NodeAt(const DeltaNode *node, size_t idx) const {

@@ -40,7 +40,6 @@ private:
                   std::tuple<std::string, std::string> *kv);
     
     const core::InternalKeyComparator *ikcmp_;
-    //RandomAccessFile *file_;
     base::RandomAccessFileReader reader_;
     uint64_t data_base_;
     uint64_t data_end_;
