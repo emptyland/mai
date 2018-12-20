@@ -6,6 +6,7 @@
 #include "db/column-family.h"
 #include "table/sst-table-reader.h"
 #include "table/sst-table-builder.h"
+#include "table/block-cache.h"
 #include "mai/iterator.h"
 #include "test/table-test.h"
 #include "gtest/gtest.h"
@@ -20,7 +21,8 @@ public:
     CompactionImplTest()
         : abs_db_path_(env_->GetAbsolutePath("tests/99-compaction-tmp"))
         , factory_(Factory::NewDefault())
-        , table_cache_(new TableCache(abs_db_path_, options_, factory_.get()))
+        , table_cache_(new TableCache(abs_db_path_, options_, &block_cache_,
+                                      factory_.get()))
         , versions_(new VersionSet(abs_db_path_, Options{}, table_cache_.get())) {
 
         versions_->column_families()->NewColumnFamily(ColumnFamilyOptions{},
@@ -106,8 +108,8 @@ public:
     };
     
     TableReaderFactory default_tr_factory_
-        = [](RandomAccessFile *file, uint64_t file_size) {
-        return new table::SstTableReader(file, file_size, true);
+        = [](RandomAccessFile *file, uint64_t file_size, table::BlockCache *cache) {
+        return new table::SstTableReader(file, file_size, true, cache);
     };
     
     std::string abs_db_path_;

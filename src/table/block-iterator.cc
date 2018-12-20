@@ -8,37 +8,22 @@ namespace mai {
 
 namespace table {
     
-#define TRY_RUN0(expr) \
-    (expr); \
-    if (reader_.error().fail()) { \
-        error_ = reader_.error(); \
-        return 0; \
-    } (void)0
+using ::mai::base::Slice;
     
 BlockIterator::BlockIterator(const core::InternalKeyComparator *ikcmp,
-              RandomAccessFile *file,
-              uint64_t block_offset, uint64_t block_size)
+                             const void *block,
+                             uint64_t block_size)
     : ikcmp_(DCHECK_NOTNULL(ikcmp))
-    , reader_(DCHECK_NOTNULL(file))
-    , data_base_(block_offset) {
+    , data_base_(static_cast<const char *>(block))
+    , data_end_(data_base_ + block_size) {
 
-    uint64_t offset = block_offset + block_size - 4;
-    n_restarts_ = reader_.ReadFixed32(offset);
-    if (reader_.error().fail()) {
-        error_ = reader_.error();
-        return;
-    }
+    n_restarts_ = Slice::SetU32(std::string_view(data_end_ - 4, 4));
     DCHECK_GT(n_restarts_, 0);
     
-    restarts_.reset(new uint32_t[n_restarts_]);
-    offset -= n_restarts_ * 4;
-    std::string_view result = reader_.Read(offset, n_restarts_ * 4);
-    if (reader_.error().fail()) {
-        error_ = reader_.error();
-        return;
-    }
-    data_end_ = offset;
-    memcpy(restarts_.get(), result.data(), result.size());
+    auto idx = data_end_ - 4 - n_restarts_ * 4;
+    restarts_ = reinterpret_cast<const uint32_t *>(idx);
+
+    data_end_ = idx;
 }
 
 /*virtual*/ BlockIterator::~BlockIterator() {}
@@ -65,10 +50,8 @@ BlockIterator::BlockIterator(const core::InternalKeyComparator *ikcmp,
     bool found = false;
     int32_t i;
     std::tuple<std::string, std::string> kv;
-    for (i = static_cast<int32_t>(n_restarts_) - 1; i >= 0; i--) {
-        uint64_t offset = data_base_ + restarts_[i];
-        
-        Read("", offset, &kv);
+    for (i = static_cast<int32_t>(n_restarts_) - 1; i >= 0; i--) {        
+        Read("", data_base_ + restarts_[i], &kv);
         if (ikcmp_->Compare(target, std::get<0>(kv)) >= 0) {
             found = true;
             break;
@@ -129,54 +112,44 @@ BlockIterator::BlockIterator(const core::InternalKeyComparator *ikcmp,
 
 /*virtual*/ Error BlockIterator::error() const { return error_; }
     
-uint64_t BlockIterator::PrepareRead(uint64_t i) {
+const char *BlockIterator::PrepareRead(uint64_t i) {
     DCHECK_LT(i, n_restarts_);
     
-    uint64_t offset = data_base_ + restarts_[i];
-    uint64_t end    = (i == n_restarts_ - 1) ? data_end_ : data_base_ + restarts_[i + 1];
+    const char *p   = data_base_ + restarts_[i];
+    const char *end = (i == n_restarts_ - 1) ? data_end_ : data_base_ + restarts_[i + 1];
     
     std::tuple<std::string, std::string> kv;
     std::string last_key;
     local_.clear();
-    while (offset < end) {
-        offset = Read(last_key, offset, &kv);
+    while (p < end) {
+        p = Read(last_key, p, &kv);
         if (error_.fail()) {
-            return 0;
+            return nullptr;
         }
         last_key = std::get<0>(kv);
         local_.push_back(kv);
     }
-    return offset;
+    return p;
 }
 
-uint64_t BlockIterator::Read(std::string_view prev_key, uint64_t offset,
-                             std::tuple<std::string, std::string> *kv) {
+const char *BlockIterator::Read(std::string_view prev_key, const char *start,
+                                std::tuple<std::string, std::string> *kv) {
+    base::BufferReader reader(std::string_view(start, data_end_ - start));
+    uint64_t shared_len = reader.ReadVarint64();
+    uint64_t private_len = reader.ReadVarint64();
 
-    
-    size_t len = 0;
-    uint64_t shared_len, private_len;
-    TRY_RUN0(shared_len = reader_.ReadVarint64(offset, &len));
-    offset += len;
-    TRY_RUN0(private_len = reader_.ReadVarint64(offset, &len));
-    offset += len;
-    
     std::string key(prev_key.substr(0, shared_len));
     
-    std::string_view result;
-    std::string scratch;
-    TRY_RUN0(result = reader_.Read(offset, private_len, &scratch));
-    offset += result.size();
+    // Key: private part
+    std::string_view result = reader.ReadString(private_len);
     
     key.append(result);
     
-    uint64_t value_len;
-    TRY_RUN0(value_len = reader_.ReadVarint64(offset, &len));
-    offset += len;
-    TRY_RUN0(result = reader_.Read(offset, value_len, &scratch));
-    offset += result.size();
-
+    // Value
+    result = reader.ReadString();
+    
     *kv = std::make_tuple(key, result);
-    return offset;
+    return start + reader.position();
 }
 
 } // namespace table

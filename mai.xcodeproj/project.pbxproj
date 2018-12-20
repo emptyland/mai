@@ -136,6 +136,8 @@
 		23C54F9D21C8DD89001C8262 /* bw-tree-memory-table-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54F9B21C8DD89001C8262 /* bw-tree-memory-table-test.cc */; };
 		23D70EEE21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */; };
 		23D70EEF21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */; };
+		23E40C0C21CB416600B04858 /* block-cache.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E40C0B21CB416600B04858 /* block-cache.cc */; };
+		23E40C0D21CB416600B04858 /* block-cache.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E40C0B21CB416600B04858 /* block-cache.cc */; };
 		23F60602219BBE9600CE12D9 /* write-batch.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60601219BBE9600CE12D9 /* write-batch.cc */; };
 		23F60603219BBE9600CE12D9 /* write-batch.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60601219BBE9600CE12D9 /* write-batch.cc */; };
 		23F60606219BC40E00CE12D9 /* db-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60605219BC40E00CE12D9 /* db-impl.cc */; };
@@ -305,6 +307,8 @@
 		23C54F9B21C8DD89001C8262 /* bw-tree-memory-table-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "bw-tree-memory-table-test.cc"; path = "src/core/bw-tree-memory-table-test.cc"; sourceTree = "<group>"; };
 		23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pipeline-queue.h"; sourceTree = "<group>"; };
 		23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "pipeline-queue-test.cc"; path = "src/core/pipeline-queue-test.cc"; sourceTree = "<group>"; };
+		23E40C0A21CB3C3A00B04858 /* block-cache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-cache.h"; sourceTree = "<group>"; };
+		23E40C0B21CB416600B04858 /* block-cache.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-cache.cc"; sourceTree = "<group>"; };
 		23F605FF219BB2C700CE12D9 /* db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = db.h; sourceTree = "<group>"; };
 		23F60600219BBB8800CE12D9 /* write-batch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-batch.h"; sourceTree = "<group>"; };
 		23F60601219BBE9600CE12D9 /* write-batch.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch.cc"; sourceTree = "<group>"; };
@@ -581,6 +585,8 @@
 				23FB4B5521957EFA00B2829B /* key-bloom-filter.cc */,
 				231C61F1219A6D0A001A95C1 /* block-iterator.h */,
 				231C61F2219A6D54001A95C1 /* block-iterator.cc */,
+				23E40C0A21CB3C3A00B04858 /* block-cache.h */,
+				23E40C0B21CB416600B04858 /* block-cache.cc */,
 				2302F6B221AE473000AE0309 /* plain-block-builder.h */,
 				2302F6B321AE4C9B00AE0309 /* plain-block-builder.cc */,
 			);
@@ -720,6 +726,7 @@
 				237CE4BC2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,
 				23FB4B5A21958A7A00B2829B /* sst-table-reader.cc in Sources */,
 				23F60606219BC40E00CE12D9 /* db-impl.cc in Sources */,
+				23E40C0C21CB416600B04858 /* block-cache.cc in Sources */,
 				23F60602219BBE9600CE12D9 /* write-batch.cc in Sources */,
 				23B0E16421927F6C00F9E855 /* reference-count-test.cc in Sources */,
 				23B0E130218AFBCC00F9E855 /* hash.cc in Sources */,
@@ -822,6 +829,7 @@
 				231F33FE21BE546C00A994A8 /* mapping-table.cc in Sources */,
 				2399D20C21C249E300C8D5B1 /* ebr-test.cc in Sources */,
 				23B0E100218841C500F9E855 /* spin-locking.cc in Sources */,
+				23E40C0D21CB416600B04858 /* block-cache.cc in Sources */,
 				237CE4C12192EABD004FB9BF /* iterator-warpper.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

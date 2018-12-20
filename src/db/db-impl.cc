@@ -12,6 +12,7 @@
 #include "db/db-iterator.h"
 #include "table/table-builder.h"
 #include "table/table.h"
+#include "table/block-cache.h"
 #include "core/key-boundle.h"
 #include "core/memory-table.h"
 #include "core/merging.h"
@@ -124,7 +125,9 @@ DBImpl::DBImpl(const std::string &db_name, const Options &opts)
     , factory_(Factory::NewDefault())
     , bkg_active_(0)
     , shutting_down_(false)
-    , table_cache_(new TableCache(abs_db_path_, opts, factory_.get()))
+    , block_cache_(new table::BlockCache(env_->GetLowLevelAllocator(), 1000))
+    , table_cache_(new TableCache(abs_db_path_, opts, block_cache_.get(),
+                                  factory_.get()))
     , versions_(new VersionSet(abs_db_path_, opts, table_cache_.get()))
     , flush_request_(0)
     , total_wal_size_(0) {

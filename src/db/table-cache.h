@@ -19,6 +19,7 @@ namespace table {
 class TableReader;
 struct TableProperties;
 class TablePropsBoundle;
+class BlockCache;
 } // namespace table
 namespace core {
 class KeyFilter;
@@ -31,7 +32,7 @@ class Factory;
 class TableCache final {
 public:
     TableCache(const std::string &abs_db_path, const Options &opts,
-               Factory *factory);
+               table::BlockCache *block_cache, Factory *factory);
     ~TableCache();
     
     Iterator *NewIterator(const ReadOptions &read_opts,
@@ -84,6 +85,7 @@ private:
 
     const std::string abs_db_path_;
     Env *const env_;
+    table::BlockCache *const block_cache_;
     Factory *const factory_;
     const bool allow_mmap_reads_;
     core::LRUCacheShard cache_;

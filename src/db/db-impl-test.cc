@@ -860,11 +860,15 @@ TEST_F(DBImplTest, ConcurrentGetting) {
         if (n == 0) {
             continue;
         }
+        
+        std::string key = base::Slice::Sprintf("key.%d", n);
+        Error rs = impl->Get(ReadOptions{}, cf0, key, &value);
+        EXPECT_TRUE(rs.ok()) << rs.ToString() << ":" << key;
 
         for (int i = 0; i < 10; i++) {
-            std::string key = base::Slice::Sprintf("key.%d", rand() % n);
-            Error rs = impl->Get(ReadOptions{}, cf0, key, &value);
-            ASSERT_TRUE(rs.ok()) << rs.ToString();
+            key = base::Slice::Sprintf("key.%d", rand() % n);
+            rs = impl->Get(ReadOptions{}, cf0, key, &value);
+            EXPECT_TRUE(rs.ok()) << rs.ToString() << ":" << key;
         }
         if (n >= kN - 1) {
             break;

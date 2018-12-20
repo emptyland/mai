@@ -15,6 +15,9 @@ class Env;
 namespace core {
 class MemoryTable;
 } // namespace core
+namespace table {
+class BlockCache;
+} // namespace table
 namespace db {
 class LogWriter;
 class TableCache;
@@ -105,6 +108,7 @@ private:
     std::unique_ptr<Factory> factory_;
     std::atomic<int> bkg_active_;
     std::atomic<bool> shutting_down_;
+    std::unique_ptr<table::BlockCache> block_cache_;
     std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<VersionSet> versions_;
     std::atomic<uint64_t> total_wal_size_;

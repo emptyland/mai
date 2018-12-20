@@ -16,6 +16,7 @@ class InternalKeyComparator;
 namespace table {
 class TableReader;
 class TableBuilder;
+class BlockCache;
 } // namespace table
 namespace db {
 class Compaction;
@@ -35,7 +36,7 @@ public:
     NewTableReader(const std::string &name,
                    const core::InternalKeyComparator *ikcmp,
                    RandomAccessFile *file, uint64_t file_size,
-                   bool checksum_verify,
+                   bool checksum_verify, table::BlockCache *cache,
                    std::unique_ptr<table::TableReader> *result) = 0;
     
     virtual table::TableBuilder *

@@ -41,7 +41,7 @@ struct LRUHandle {
     LRUHandle *prev;
     Deleter *deleter;
     std::atomic<int> refs;
-    uint64_t id; // User defined id
+    uintptr_t id; // User defined id
     void *value;
     size_t key_size;
     uint32_t hash_val;
@@ -91,7 +91,6 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(LRUCacheShard);
 private:
-    
     struct KeyComparator {
         const Comparator *cmp;
         int operator () (LRUHandle *lhs, LRUHandle *rhs) const {
@@ -160,6 +159,8 @@ public:
     LRUCache(size_t max_shards, Allocator *ll_allocator, size_t capacity);
     ~LRUCache();
     
+    DEF_VAL_GETTER(size_t, max_shards);
+    
     Error GetOrLoad(std::string_view key, base::intrusive_ptr<LRUHandle> *result,
                     LRUHandle::Deleter *deleter,
                     LRUHandle::Loader *loader,
@@ -195,7 +196,8 @@ public:
     size_t HashNumber(uint64_t n) const { return n % max_shards_; }
     size_t HashKey(std::string_view key) const;
     
-    DEF_VAL_GETTER(size_t, max_shards);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(LRUCache);
+
 private:
     static const uintptr_t kPendingMask = 1u;
     static const uintptr_t kCreatedMask = ~kPendingMask;

@@ -36,7 +36,7 @@ public:
     NewTableReader(const std::string &name,
                    const core::InternalKeyComparator *ikcmp,
                    RandomAccessFile *file, uint64_t file_size,
-                   bool checksum_verify,
+                   bool checksum_verify, table::BlockCache *cache,
                    std::unique_ptr<table::TableReader> *result) override {
         if (name.compare("s1t") == 0) {
             table::S1TableReader *reader =
@@ -49,7 +49,8 @@ public:
             result->reset(reader);
         } else if (name.compare("sst") == 0) {
             table::SstTableReader *reader =
-                new table::SstTableReader(file, file_size, checksum_verify);
+                new table::SstTableReader(file, file_size, checksum_verify,
+                                          cache);
             Error rs = reader->Prepare();
             if (!rs) {
                 delete reader;

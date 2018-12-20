@@ -98,6 +98,8 @@ class BufferReader final {
 public:
     BufferReader(std::string_view buf) : buf_(buf) {}
     
+    DEF_VAL_GETTER(size_t, position);
+    
     char ReadByte() {
         DCHECK(!Eof());
         return buf_[position_++];
@@ -135,6 +137,10 @@ public:
     
     std::string_view ReadString() {
         uint64_t len = ReadVarint64();
+        return ReadString(len);
+    }
+    
+    std::string_view ReadString(uint64_t len) {
         DCHECK(!Eof());
         std::string_view result = buf_.substr(position_, len);
         position_ += len;

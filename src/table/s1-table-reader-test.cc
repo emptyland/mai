@@ -29,7 +29,8 @@ public:
         return new S1TableBuilder(ikcmp, file, 1024, 4096);
     };
     
-    TableReaderFactory default_tr_factory_ = [](RandomAccessFile *file, uint64_t file_size) {
+    TableReaderFactory default_tr_factory_ = [](RandomAccessFile *file, uint64_t file_size,
+                                                table::BlockCache *cache) {
         return new S1TableReader(file, file_size, true);
     };
     

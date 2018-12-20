@@ -1,6 +1,7 @@
 #include "table/sst-table-reader.h"
 #include "table/block-iterator.h"
 #include "table/key-bloom-filter.h"
+#include "table/block-cache.h"
 #include "core/internal-key-comparator.h"
 #include "core/key-boundle.h"
 #include "base/slice.h"
@@ -21,16 +22,19 @@ using core::KeyBoundle;
 using core::ParsedTaggedKey;
 using core::Tag;
     
+static void LRUHandleCleanup(void *arg0, void */*arg1*/) {
+    static_cast<core::LRUHandle *>(arg0)->ReleaseRef();
+}
+    
 class SstTableReader::IteratorImpl : public Iterator {
 public:
-    IteratorImpl(const core::InternalKeyComparator *ikcmp, bool verify_checksums,
-                 Iterator *index_iter, RandomAccessFile *file,
-                 bool last_level)
+    IteratorImpl(const core::InternalKeyComparator *ikcmp,
+                 Iterator *index_iter, bool checksum_verify,
+                 SstTableReader *owns)
         : ikcmp_(DCHECK_NOTNULL(ikcmp))
-        , verify_checksums_(verify_checksums)
         , index_iter_(DCHECK_NOTNULL(index_iter))
-        , file_(DCHECK_NOTNULL(file))
-        , last_level_(last_level) {
+        , checksum_verify_(checksum_verify)
+        , owns_(DCHECK_NOTNULL(owns)) {
     }
     
     virtual ~IteratorImpl() {}
@@ -117,7 +121,7 @@ public:
     
     virtual std::string_view key() const override {
         DCHECK(Valid());
-        return last_level_ ? saved_key_ : block_iter_->key();
+        return owns_->table_props_->last_level ? saved_key_ : block_iter_->key();
     }
     
     virtual std::string_view value() const override {
@@ -130,10 +134,18 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(IteratorImpl);
 private:
     void Seek(BlockHandle handle, bool to_first) {
+        base::intrusive_ptr<core::LRUHandle> ch;
+        error_ = owns_->cache_->GetOrLoad(owns_->file_, handle.offset(),
+                                          handle.size(), checksum_verify_, &ch);
+        if (error_.fail()) {
+            return;
+        }
         
         std::unique_ptr<Iterator>
-        block_iter(new BlockIterator(ikcmp_, file_, handle.offset() + 4,
-                                     handle.size() - 4));
+            block_iter(new BlockIterator(ikcmp_, ch->value, handle.size() - 4));
+        ch->AddRef();
+        block_iter->RegisterCleanup(LRUHandleCleanup, ch.get());
+        
         block_iter_.swap(block_iter);
         
         if (to_first) {
@@ -144,17 +156,16 @@ private:
     }
     
     void SaveKeyIfNeed() {
-        if (Valid() && last_level_) {
+        if (Valid() && owns_->table_props_->last_level) {
             saved_key_ = KeyBoundle::MakeKey(block_iter_->key(), 0,
                                              Tag::kFlagValue);
         }
     }
     
     const core::InternalKeyComparator *const ikcmp_;
-    const bool verify_checksums_;
     const std::unique_ptr<Iterator> index_iter_;
-    RandomAccessFile *const file_;
-    const bool last_level_;
+    const bool checksum_verify_;
+    SstTableReader *const owns_;
     
     std::unique_ptr<Iterator> block_iter_;
     std::string saved_key_; // For last level sst table.
@@ -164,12 +175,15 @@ private:
     
     
 SstTableReader::SstTableReader(RandomAccessFile *file, uint64_t file_size,
-                               bool checksum_verify)
+                               bool checksum_verify, BlockCache *cache)
     : file_(DCHECK_NOTNULL(file))
     , file_size_(file_size)
-    , checksum_verify_(checksum_verify) {}
+    , checksum_verify_(checksum_verify)
+    , cache_(DCHECK_NOTNULL(cache)) {}
     
-/*virtual*/ SstTableReader::~SstTableReader() {}
+/*virtual*/ SstTableReader::~SstTableReader() {
+    cache_->Purge(file_);
+}
     
 #define TRY_RUN0(expr) \
     (expr); \
@@ -237,9 +251,8 @@ SstTableReader::NewIterator(const ReadOptions &read_opts,
     if (!table_props_) {
         return Iterator::AsError(MAI_CORRUPTION("Table reader not prepared!"));
     }
-    return new IteratorImpl(ikcmp, read_opts.verify_checksums,
-                            NewIndexIterator(ikcmp), file_,
-                            table_props_->last_level);
+    return new IteratorImpl(ikcmp, NewIndexIterator(ikcmp),
+                            read_opts.verify_checksums, this);
 }
 
 /*virtual*/ Error SstTableReader::Get(const ReadOptions &read_opts,
@@ -261,14 +274,15 @@ SstTableReader::NewIterator(const ReadOptions &read_opts,
     BlockHandle bh;
     bh.Decode(index_iter->value());
 
-    BlockIterator iter(ikcmp, file_, bh.offset() + 4, bh.size() - 4);
-    iter.Seek(target);
-    if (!iter.Valid()) {
+    std::unique_ptr<Iterator> iter(NewBlockIterator(ikcmp, bh,
+                                                    read_opts.verify_checksums));
+    iter->Seek(target);
+    if (!iter->Valid()) {
         return MAI_NOT_FOUND("Data block Seek()");
     }
 
     ParsedTaggedKey ikey;
-    KeyBoundle::ParseTaggedKey(iter.key(), &ikey);
+    KeyBoundle::ParseTaggedKey(iter->key(), &ikey);
     if (!ikcmp->ucmp()->Equals(ikey.user_key,
                                KeyBoundle::ExtractUserKey(target))) {
         return MAI_NOT_FOUND("Key not seeked!");
@@ -276,7 +290,7 @@ SstTableReader::NewIterator(const ReadOptions &read_opts,
     if (tag) {
         *tag = ikey.tag;
     }
-    *scratch = iter.value();
+    *scratch = iter->value();
     *value = *scratch;
 
     return Error::OK();
@@ -301,8 +315,40 @@ SstTableReader::NewIndexIterator(const core::InternalKeyComparator *ikcmp) {
     if (!table_props_) {
         return Iterator::AsError(MAI_CORRUPTION("Table reader not prepared!"));
     }
-    return new BlockIterator(ikcmp, file_, table_props_->index_position + 4,
-                             table_props_->index_count - 4);
+    
+    base::intrusive_ptr<core::LRUHandle> handle;
+    Error rs = cache_->GetOrLoad(file_, table_props_->index_position,
+                                 table_props_->index_count, checksum_verify_,
+                                 &handle);
+    if (!rs) {
+        return Iterator::AsError(rs);
+    }
+    
+    auto iter = new BlockIterator(ikcmp, handle->value,
+                                  table_props_->index_count - 4);
+    handle->AddRef();
+    iter->RegisterCleanup(LRUHandleCleanup, handle.get());
+    return iter;
+}
+    
+Iterator *
+SstTableReader::NewBlockIterator(const core::InternalKeyComparator *ikcmp,
+                                 BlockHandle bh, bool checksum_verify) {
+    if (!table_props_) {
+        return Iterator::AsError(MAI_CORRUPTION("Table reader not prepared!"));
+    }
+    
+    base::intrusive_ptr<core::LRUHandle> handle;
+    Error rs = cache_->GetOrLoad(file_, bh.offset(), bh.size(), checksum_verify,
+                                 &handle);
+    if (!rs) {
+        return Iterator::AsError(rs);
+    }
+    
+    auto iter = new BlockIterator(ikcmp, handle->value, bh.size() - 4);
+    handle->AddRef();
+    iter->RegisterCleanup(LRUHandleCleanup, handle.get());
+    return iter;
 }
     
 void SstTableReader::TEST_PrintAll(const core::InternalKeyComparator *ikcmp) {
@@ -315,11 +361,12 @@ void SstTableReader::TEST_PrintAll(const core::InternalKeyComparator *ikcmp) {
         BlockHandle bh;
         bh.Decode(index_iter->value());
         
-        BlockIterator iter(ikcmp, file_, bh.offset() + 4, bh.size() - 4);
-        for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
-            std::string key(KeyBoundle::ExtractUserKey(iter.key()));
+        Iterator *iter = NewBlockIterator(ikcmp, bh, true);
+        for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+            std::string key(KeyBoundle::ExtractUserKey(iter->key()));
             printf("key: %s\n", key.c_str());
         }
+        delete iter;
     }
 }
     

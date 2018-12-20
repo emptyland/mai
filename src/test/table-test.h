@@ -3,6 +3,7 @@
 
 #include "table/table-builder.h"
 #include "table/table-reader.h"
+#include "table/block-cache.h"
 #include "core/key-boundle.h"
 #include "core/internal-key-comparator.h"
 #include "base/slice.h"
@@ -25,10 +26,12 @@ public:
 
     using TableReaderFactory =
         std::function<table::TableReader *(RandomAccessFile *,
-                                           uint64_t)>;
+                                           uint64_t,
+                                           table::BlockCache *)>;
     
     TableTest()
-        : ikcmp_(Comparator::Bytewise()) {}
+        : ikcmp_(Comparator::Bytewise())
+        , block_cache_(env_->GetLowLevelAllocator(), 1000) {}
     
     void Add(table::TableBuilder *builder,
              std::string_view key,
@@ -89,7 +92,7 @@ public:
         uint64_t file_size;
         rs = (*file)->GetFileSize(&file_size);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
-        reader->reset(factory((*file).get(), file_size));
+        reader->reset(factory((*file).get(), file_size, &block_cache_));
         ASSERT_TRUE(rs.ok()) << rs.ToString();
     }
     
@@ -127,6 +130,7 @@ public:
     
     Env *env_ = Env::Default();
     core::InternalKeyComparator ikcmp_;
+    table::BlockCache block_cache_;
 }; // class TableTest
     
 } // namespace test
