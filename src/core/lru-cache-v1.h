@@ -50,12 +50,12 @@ struct LRUHandle {
     char data[1];
 }; // struct LRUHandle
 
-class LRUCache final {
+class LRUCacheShard final {
 public:
     static const size_t kMinLRUTableSlots = 1237;
     
-    LRUCache(Allocator *low_level_allocator, size_t capacity);
-    ~LRUCache();
+    LRUCacheShard(Allocator *ll_allocator, size_t capacity);
+    ~LRUCacheShard();
     
     DEF_VAL_GETTER(size_t, capacity);
     DEF_VAL_GETTER(size_t, size);
@@ -89,7 +89,7 @@ public:
 
     void PurgeIfNeeded(bool force);
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(LRUCache);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(LRUCacheShard);
 private:
     
     struct KeyComparator {
@@ -153,9 +153,86 @@ private:
     std::mutex mutex_;
 }; // class LRUCache
     
+
+
+class LRUCache final {
+public:
+    LRUCache(size_t max_shards, Allocator *ll_allocator, size_t capacity);
+    ~LRUCache();
+    
+    Error GetOrLoad(std::string_view key, base::intrusive_ptr<LRUHandle> *result,
+                    LRUHandle::Deleter *deleter,
+                    LRUHandle::Loader *loader,
+                    void *arg0, void *arg1 = nullptr) {
+        return GetShard(HashKey(key))->GetOrLoad(key, result, deleter, loader,
+                                                 arg0, arg1);
+    }
+    
+    void Insert(std::string_view key, LRUHandle *handle,
+                LRUHandle::Deleter *deleter) {
+        GetShard(HashKey(key))->Insert(key, handle, deleter);
+    }
+    
+    LRUHandle *Get(std::string_view key) {
+        return GetShard(HashKey(key))->Get(key);
+    }
+    
+    void Remove(std::string_view key) {
+        return GetShard(HashKey(key))->Remove(key);
+    }
+    
+    // Get or new a cache shard
+    LRUCacheShard *GetShard(size_t idx);
+    
+    // Just get a cache shard
+    const LRUCacheShard *GetShard(size_t idx) const;
+    
+    // Delete a cache shard by shard index
+    bool Delete(size_t shard);
+
+    void Purge(size_t idx);
+    
+    size_t HashNumber(uint64_t n) const { return n % max_shards_; }
+    size_t HashKey(std::string_view key) const;
+    
+    DEF_VAL_GETTER(size_t, max_shards);
+private:
+    static const uintptr_t kPendingMask = 1u;
+    static const uintptr_t kCreatedMask = ~kPendingMask;
+    
+    static LRUCacheShard *Get(const std::atomic<uintptr_t> *shard) {
+        auto val = shard->load();
+        return reinterpret_cast<LRUCacheShard *>(val);
+    }
+    
+    static bool NeedInit(std::atomic<uintptr_t> *shard) {
+        uintptr_t exp = 0;
+        if (shard->compare_exchange_strong(exp, kPendingMask)) {
+            return true;
+        }
+        while (shard->load(std::memory_order_acquire) == kPendingMask) {
+            std::this_thread::yield();
+        }
+        return false;
+    }
+    
+    void Install(std::atomic<uintptr_t> *shard) {
+        auto inst = new LRUCacheShard(ll_allocator_, capacity_);
+        auto val = reinterpret_cast<uintptr_t>(inst);
+        shard->store(val, std::memory_order_release);
+        
+    }
+
+    const size_t max_shards_;
+    Allocator *const ll_allocator_;
+    const size_t capacity_;
+    std::atomic<uintptr_t> *shards_;
+    
+}; // class LRUCache
+    
     
 template<class Callable>
-inline Error LRUCache::GetOrLoad(std::string_view key,
+inline Error LRUCacheShard::GetOrLoad(std::string_view key,
                                  base::intrusive_ptr<LRUHandle> *result,
                                  LRUHandle::Deleter *deleter,
                                  Callable &&loader) {

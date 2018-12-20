@@ -86,7 +86,7 @@ private:
     Env *const env_;
     Factory *const factory_;
     const bool allow_mmap_reads_;
-    core::LRUCache cache_;
+    core::LRUCacheShard cache_;
 }; // class TableCache
     
 } // namespace db

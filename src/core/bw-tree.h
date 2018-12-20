@@ -538,40 +538,73 @@ private:
             return std::get<1>(LowerBound(BaseLine::Cast(node), key,
                                           found));
         }
-
-        std::vector<const DeltaIndex *> delta;
-        auto cmp = [this](auto lhs, auto rhs) {
-            return Base::cmp_(lhs->key, rhs->key) < 0;
-        };
         
+        std::deque<const DeltaIndex *> records;
         const Node *x = node;
         while (!x->IsBaseLine()) {
             if (!x->IsDeltaIndex()) {
                 return std::get<1>(FindGreaterOrEqual(node, key, found));
             }
-            delta.push_back(DeltaIndex::Cast(x));
+            records.push_front(DeltaIndex::Cast(x));
             x = x->base;
         }
-        std::sort(delta.begin(), delta.end(), cmp);
+        
         
         auto base_line = BaseLine::Cast(x);
+        View partial_view(ComparatorLess{Base::cmp_});
+        Pair partial_pair = {Key{}, base_line->overflow};
+        
+        for (auto rd : records) {
+            partial_view[rd->key] = rd->lhs;
+            
+            auto iter = partial_view.upper_bound(rd->key);
+            if (iter != partial_view.end()) {
+                partial_view[iter->first] = rd->rhs;
+            } else {
+                bool inner_found = false;
+                size_t idx;
+                Pid pid;
+                std::tie(idx, pid) = UpperBound(base_line, rd->key, &inner_found);
+                if (inner_found) {
+                    partial_view[base_line->entry(idx).key] = rd->rhs;
+                }
+                partial_pair.key   = rd->key;
+                partial_pair.value = rd->rhs;
+            }
+        }
+        
+        bool inner_found = false;
         size_t idx;
         Pid pid;
-        std::tie(idx, pid) = LowerBound(base_line, key, found);
+        std::tie(idx, pid) = LowerBound(base_line, key, &inner_found);
+        auto iter = partial_view.lower_bound(key);
         
-        DeltaIndex lookup_key;
-        lookup_key.key = key;
-        auto iter = std::lower_bound(delta.begin(), delta.end(), &lookup_key,
-                                     cmp);
-        if (!*found && iter == delta.end()) {
-
-        } else if (!*found && iter != delta.end()) {
-
-        } else if (*found && iter == delta.end()) {
+        
+        if (inner_found && iter != partial_view.end()) {
+            auto base_key = base_line->entry(idx).key;
+            *found = true;
             
-        } else if (*found && iter != delta.end()) {
-            
+            int rv = Base::cmp_(base_key, iter->first);
+            if (rv < 0) {
+                return pid;
+            } else {
+                return iter->second;
+            }
+        } else if (inner_found && iter == partial_view.end()) {
+            *found = true;
+            return pid;
+        } else if (!inner_found && iter != partial_view.end()) {
+            *found = true;
+            return iter->second;
+        } else { // !inner_found && iter == partial_view.end()
+            int rv = Base::cmp_(partial_pair.key, base_line->largest_key);
+            if (rv > 0) {
+                return partial_pair.value;
+            } else {
+                return base_line->overflow;
+            }
         }
+        
         return 0;
     }
     
@@ -627,6 +660,27 @@ private:
             auto step = count / 2;
             i += step;
             if (Base::cmp_(base_line->entry(i).key, key) < 0) {
+                first = ++i;
+                count -= step + 1;
+            } else {
+                count = step;
+            }
+        }
+        *found = first < base_line->size;
+        if (*found) {
+            return std::make_tuple(first, base_line->entry(first).value);
+        }
+        return std::make_tuple(base_line->size, base_line->overflow);
+    }
+    
+    std::tuple<size_t, Pid> UpperBound(const BaseLine *base_line, Key key,
+                                       bool *found) const {
+        size_t count = base_line->size, first = 0;
+        while (count > 0) {
+            auto i = first;
+            auto step = count / 2;
+            i += step;
+            if (!(Base::cmp_(base_line->entry(i).key, key) < 0)) {
                 first = ++i;
                 count -= step + 1;
             } else {
