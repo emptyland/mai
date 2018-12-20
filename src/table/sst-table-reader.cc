@@ -134,18 +134,8 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(IteratorImpl);
 private:
     void Seek(BlockHandle handle, bool to_first) {
-        base::intrusive_ptr<core::LRUHandle> ch;
-        error_ = owns_->cache_->GetOrLoad(owns_->file_, handle.offset(),
-                                          handle.size(), checksum_verify_, &ch);
-        if (error_.fail()) {
-            return;
-        }
-        
         std::unique_ptr<Iterator>
-            block_iter(new BlockIterator(ikcmp_, ch->value, handle.size() - 4));
-        ch->AddRef();
-        block_iter->RegisterCleanup(LRUHandleCleanup, ch.get());
-        
+            block_iter(owns_->NewBlockIterator(ikcmp_, handle, checksum_verify_));
         block_iter_.swap(block_iter);
         
         if (to_first) {
