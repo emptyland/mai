@@ -47,10 +47,11 @@ BlockIterator::BlockIterator(const core::InternalKeyComparator *ikcmp,
 }
 
 /*virtual*/ void BlockIterator::Seek(std::string_view target) {
+    /*
     bool found = false;
     int32_t i;
     std::tuple<std::string, std::string> kv;
-    for (i = static_cast<int32_t>(n_restarts_) - 1; i >= 0; i--) {        
+    for (i = static_cast<int32_t>(n_restarts_) - 1; i >= 0; i--) {
         Read("", data_base_ + restarts_[i], &kv);
         if (ikcmp_->Compare(target, std::get<0>(kv)) >= 0) {
             found = true;
@@ -60,7 +61,7 @@ BlockIterator::BlockIterator(const core::InternalKeyComparator *ikcmp,
     if (!found) {
         i = 0;
     }
-    
+
     for (; i < static_cast<int32_t>(n_restarts_); i++) {
         PrepareRead(i);
         for (auto j = 0; j < local_.size(); j++) {
@@ -71,7 +72,50 @@ BlockIterator::BlockIterator(const core::InternalKeyComparator *ikcmp,
             }
         }
     }
+    error_ = MAI_NOT_FOUND("Seek()");
+    */
     
+    std::tuple<std::string, std::string> kv;
+    int rv = 0;
+    int64_t count = n_restarts_, first = 0;
+    while (count > 0) {
+        auto it = first;
+        auto step = count / 2;
+        it += step;
+        
+        Read("", data_base_ + restarts_[it], &kv);
+        rv = ikcmp_->Compare(target, std::get<0>(kv));
+        if (!(rv < 0)) {
+            first = ++it;
+            count -= step + 1;
+        } else {
+            count = step;
+        }
+    }
+    if (first != 0) {
+        first--;
+    } if (first >= n_restarts_) {
+        first = 0;
+    }
+
+    kv = std::make_tuple(target, "");
+    for (int64_t i = first; i < n_restarts_; ++i) {
+        if (i > first + 1) {
+            break;
+        }
+        PrepareRead(i);
+        
+        auto iter = std::lower_bound(local_.begin(), local_.end(), kv,
+        [this](const auto &lhs, const auto &rhs) {
+            return ikcmp_->Compare(std::get<0>(lhs), std::get<0>(rhs)) < 0;
+        });
+        if (iter != local_.end()) {
+            
+            curr_local_   = std::distance(local_.begin(), iter);
+            curr_restart_ = first;
+            return;
+        }
+    }
     error_ = MAI_NOT_FOUND("Seek()");
 }
 

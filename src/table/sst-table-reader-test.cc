@@ -176,6 +176,11 @@ TEST_F(SstTableReaderTest, Get) {
     
     std::string_view value;
     std::string scratch;
+    
+    rs = rd->Get(ReadOptions{}, &ikcmp_,
+                 core::KeyBoundle::MakeKey("k004", 100, core::Tag::kFlagValueForSeek),
+                 nullptr, &value, &scratch);
+    EXPECT_TRUE(rs.ok()) << rs.ToString();
 
     for (int i = 0; i < 100; ++i) {
         char ukey[64];

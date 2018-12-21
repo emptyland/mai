@@ -680,7 +680,7 @@ private:
             auto i = first;
             auto step = count / 2;
             i += step;
-            if (!(Base::cmp_(base_line->entry(i).key, key) < 0)) {
+            if (!(Base::cmp_(key, base_line->entry(i).key) < 0)) {
                 first = ++i;
                 count -= step + 1;
             } else {
