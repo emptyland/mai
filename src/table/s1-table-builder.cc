@@ -12,7 +12,7 @@ namespace mai {
     
 namespace table {
     
-/*static*/ const uint64_t S1TableBuilder::kInvalidOffset = -1;
+/*static*/ const uint64_t S1TableBuilder::kInvalidIdx = -1;
     
 S1TableBuilder::S1TableBuilder(const core::InternalKeyComparator *ikcmp,
                              WritableFile *file,
@@ -76,7 +76,7 @@ void S1TableBuilder::Add(std::string_view key, std::string_view value) {
     filter_builder_->AddKey(ikey.user_key);
     
     size_t slot = ikcmp_->Hash(key) % max_buckets_;
-    buckets_[slot].push_back({kInvalidOffset, offset});
+    buckets_[slot].push_back({kInvalidIdx, offset});
     unbound_index_.insert(slot);
     
     if (block_builder_->CurrentSizeEstimate() >= block_size_) {
@@ -109,7 +109,7 @@ void S1TableBuilder::Add(std::string_view key, std::string_view value) {
     }
     BlockHandle index = WriteIndex();
     props_.index_position = index.offset();
-    props_.index_count    = index.size();
+    props_.index_size     = index.size();
 
     DCHECK_NE(0, max_buckets_);
     float conflict_factor = static_cast<float>(props_.num_entries) /
@@ -155,6 +155,7 @@ void S1TableBuilder::Add(std::string_view key, std::string_view value) {
     is_last_level_ = false;
     buckets_.reset(new std::vector<Index>[max_buckets_]);
     unbound_index_.clear();
+    block_map_.clear();
 
     error_ = writer_.file()->Truncate(0);
 }
@@ -172,18 +173,20 @@ void S1TableBuilder::Add(std::string_view key, std::string_view value) {
 BlockHandle S1TableBuilder::WriteIndex() {
     using ::mai::base::Slice;
     using ::mai::base::ScopedMemory;
-    AlignmentToBlock();
-    if (!error_) {
-        return BlockHandle{};
-    }
     
     ScopedMemory scope;
     std::string block;
+    block.append(Slice::GetV64(block_map_.size(), &scope));
+    for (const auto &bh : block_map_) {
+        bh.Encode(&block);
+    }
+    
+    block.append(Slice::GetV64(max_buckets_, &scope));
     for (size_t i = 0; i < max_buckets_; ++i) {
         block.append(Slice::GetV64(buckets_[i].size(), &scope));
         
         for (const auto &index : buckets_[i]) {
-            block.append(Slice::GetV64(index.block_offset, &scope));
+            block.append(Slice::GetV64(index.block_idx, &scope));
             block.append(Slice::GetV32(index.offset, &scope));
         }
     }
@@ -191,21 +194,11 @@ BlockHandle S1TableBuilder::WriteIndex() {
 }
     
 BlockHandle S1TableBuilder::WriteFilter() {
-    AlignmentToBlock();
-    if (!filter_builder_) {
-        return BlockHandle{};
-    }
-    
     std::string_view block = filter_builder_->Finish();
     return WriteBlock(block);
 }
     
 BlockHandle S1TableBuilder::WriteProperties() {
-    AlignmentToBlock();
-    if (!error_) {
-        return BlockHandle{};
-    }
-    
     std::string block;
     Table::WriteProperties(props_, &block);
     return WriteBlock(block);
@@ -219,11 +212,13 @@ BlockHandle S1TableBuilder::FlushBlock() {
     if (error_.fail()) {
         return BlockHandle{};
     }
+    auto idx = block_map_.size();
+    block_map_.push_back(bh);
     
     for (size_t unbound : unbound_index_) {
         for (int i = 0; i < buckets_[unbound].size(); ++i) {
-            if (buckets_[unbound][i].block_offset == kInvalidOffset) {
-                buckets_[unbound][i].block_offset = bh.offset();
+            if (buckets_[unbound][i].block_idx == kInvalidIdx) {
+                buckets_[unbound][i].block_idx = idx;
             }
         }
     }
@@ -251,14 +246,14 @@ BlockHandle S1TableBuilder::WriteBlock(std::string_view block) {
     return handle;
 }
     
-uint64_t S1TableBuilder::AlignmentToBlock() {
-    uint64_t current = writer_.written_position();
-    uint64_t want = RoundUp(current, block_size_);
-    if (want - current > 0) {
-        error_ = writer_.WritePad(want - current);
-    }
-    return want;
-}
+//uint64_t S1TableBuilder::AlignmentToBlock() {
+//    uint64_t current = writer_.written_position();
+//    uint64_t want = RoundUp(current, block_size_);
+//    if (want - current > 0) {
+//        error_ = writer_.WritePad(want - current);
+//    }
+//    return want;
+//}
     
 } // namespace table
 

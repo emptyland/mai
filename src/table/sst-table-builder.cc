@@ -217,7 +217,7 @@ BlockHandle SstTableBuilder::WriteProperties(BlockHandle indexs, BlockHandle fil
         return BlockHandle{};
     }
     props_.index_position  = indexs.offset();
-    props_.index_count     = indexs.size();
+    props_.index_size      = indexs.size();
 
     props_.filter_position = filter.offset();
     props_.filter_size     = filter.size();

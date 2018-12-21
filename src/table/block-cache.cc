@@ -2,12 +2,13 @@
 #include "base/slice.h"
 #include "base/hash.h"
 #include "mai/env.h"
+#include <thread>
 
 namespace mai {
     
 namespace table {
 
-static const size_t kKeySize = sizeof(uintptr_t) + sizeof(uint64_t);
+static const size_t kKeySize = sizeof(uint64_t) + sizeof(uint64_t);
     
 using Args = std::tuple<RandomAccessFile *, uint64_t, uint64_t, bool>;
     
@@ -18,18 +19,19 @@ BlockCache::BlockCache(Allocator *ll_allocator, size_t capacity)
 BlockCache::~BlockCache() {
 }
 
-Error BlockCache::GetOrLoad(RandomAccessFile *file, uint64_t offset,
+Error BlockCache::GetOrLoad(RandomAccessFile *file,
+                            uint64_t file_number,
+                            uint64_t offset,
                             uint64_t size,
                             bool checksum_verify,
                             base::intrusive_ptr<core::LRUHandle> *result) {
     char key[kKeySize];
-    ::memcpy(key, &file, sizeof(file));
-    ::memcpy(key + sizeof(uintptr_t), &offset, sizeof(offset));
+    ::memcpy(key, &file_number, sizeof(file_number));
+    ::memcpy(key + sizeof(file_number), &offset, sizeof(offset));
     
-    auto idx = GetShardIdx(file);
-    auto shard = cache_.GetShard(idx);
+    auto shard = GetShard(file_number);
     auto args = std::make_tuple(file, offset, size, checksum_verify);
-    return shard->GetOrLoad(std::string_view(key, kKeySize), result, &Deleter,
+    return shard->GetOrLoad(std::string_view(key, kKeySize), result, nullptr,
                             &Loader, this, &args);
 }
     
@@ -66,6 +68,11 @@ Error BlockCache::GetOrLoad(RandomAccessFile *file, uint64_t offset,
     
     *result = handle;
     return Error::OK();
+}
+    
+size_t BlockCache::GetShardIdx(uint64_t file_number) {
+    //std::this_thread::get_id()
+    return cache_.HashNumber(file_number);
 }
     
 } // namespace table

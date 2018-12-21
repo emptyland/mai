@@ -35,8 +35,11 @@ public:
     virtual Error
     NewTableReader(const std::string &name,
                    const core::InternalKeyComparator *ikcmp,
-                   RandomAccessFile *file, uint64_t file_size,
-                   bool checksum_verify, table::BlockCache *cache,
+                   RandomAccessFile *file,
+                   uint64_t file_number,
+                   uint64_t file_size,
+                   bool checksum_verify,
+                   table::BlockCache *cache,
                    std::unique_ptr<table::TableReader> *result) = 0;
     
     virtual table::TableBuilder *

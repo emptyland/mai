@@ -14,8 +14,8 @@ class BlockCache;
     
 class SstTableReader final : public TableReader {
 public:
-    SstTableReader(RandomAccessFile *file, uint64_t file_size,
-                   bool checksum_verify, BlockCache *cache);
+    SstTableReader(RandomAccessFile *file, uint64_t file_number,
+                   uint64_t file_size, bool checksum_verify, BlockCache *cache);
     virtual ~SstTableReader();
     
     Error Prepare();
@@ -49,9 +49,10 @@ private:
     Error ReadBlock(const BlockHandle &bh, std::string_view *result,
                     std::string *scatch) const;
     
-    RandomAccessFile *file_;
-    uint64_t file_size_;
-    bool checksum_verify_;
+    RandomAccessFile *const file_;
+    const uint64_t file_number_;
+    const uint64_t file_size_;
+    const bool checksum_verify_;
     BlockCache *const cache_;
     
     base::intrusive_ptr<TablePropsBoundle> table_props_boundle_;

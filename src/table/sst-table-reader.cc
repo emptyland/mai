@@ -164,15 +164,17 @@ private:
 }; // class SstTableReader::IteratorImpl
     
     
-SstTableReader::SstTableReader(RandomAccessFile *file, uint64_t file_size,
-                               bool checksum_verify, BlockCache *cache)
+SstTableReader::SstTableReader(RandomAccessFile *file, uint64_t file_number,
+                               uint64_t file_size, bool checksum_verify,
+                               BlockCache *cache)
     : file_(DCHECK_NOTNULL(file))
+    , file_number_(file_number)
     , file_size_(file_size)
     , checksum_verify_(checksum_verify)
     , cache_(DCHECK_NOTNULL(cache)) {}
     
 /*virtual*/ SstTableReader::~SstTableReader() {
-    cache_->Purge(file_);
+    cache_->Purge(file_number_);
 }
     
 #define TRY_RUN0(expr) \
@@ -220,7 +222,7 @@ Error SstTableReader::Prepare() {
     // Indexs:
     if (checksum_verify_) {
         TRY_RUN1(ReadBlock({table_props_->index_position,
-                            table_props_->index_count}, &result, &scatch));
+                            table_props_->index_size }, &result, &scatch));
     }
     
     // Filter:
@@ -307,15 +309,16 @@ SstTableReader::NewIndexIterator(const core::InternalKeyComparator *ikcmp) {
     }
     
     base::intrusive_ptr<core::LRUHandle> handle;
-    Error rs = cache_->GetOrLoad(file_, table_props_->index_position,
-                                 table_props_->index_count, checksum_verify_,
+    Error rs = cache_->GetOrLoad(file_, file_number_,
+                                 table_props_->index_position,
+                                 table_props_->index_size , checksum_verify_,
                                  &handle);
     if (!rs) {
         return Iterator::AsError(rs);
     }
     
     auto iter = new BlockIterator(ikcmp, handle->value,
-                                  table_props_->index_count - 4);
+                                  table_props_->index_size  - 4);
     handle->AddRef();
     iter->RegisterCleanup(LRUHandleCleanup, handle.get());
     return iter;
@@ -329,8 +332,8 @@ SstTableReader::NewBlockIterator(const core::InternalKeyComparator *ikcmp,
     }
     
     base::intrusive_ptr<core::LRUHandle> handle;
-    Error rs = cache_->GetOrLoad(file_, bh.offset(), bh.size(), checksum_verify,
-                                 &handle);
+    Error rs = cache_->GetOrLoad(file_, file_number_, bh.offset(), bh.size(),
+                                 checksum_verify, &handle);
     if (!rs) {
         return Iterator::AsError(rs);
     }

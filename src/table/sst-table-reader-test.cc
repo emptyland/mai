@@ -32,8 +32,9 @@ public:
         };
     
     TableReaderFactory default_tr_factory_
-        = [](RandomAccessFile *file, uint64_t file_size, table::BlockCache *cache) {
-            return new SstTableReader(file, file_size, true, cache);
+        = [](RandomAccessFile *file, uint64_t file_number, uint64_t file_size,
+             table::BlockCache *cache) {
+            return new SstTableReader(file, file_number, file_size, true, cache);
         };
     
     static const char *tmp_dirs[];

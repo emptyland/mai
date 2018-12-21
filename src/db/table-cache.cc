@@ -145,7 +145,9 @@ Error TableCache::LoadTable(const ColumnFamilyImpl *cfd,
     rs = factory_->NewTableReader(cfd->options().use_unordered_table ?
                                   "s1t" : "sst",
                                   cfd->ikcmp(),
-                                  result->file.get(), file_size, true,
+                                  result->file.get(),
+                                  file_number,
+                                  file_size, true,
                                   block_cache_,
                                   &result->table);
     if (!rs) {

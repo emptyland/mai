@@ -72,6 +72,7 @@
 		2399D20C21C249E300C8D5B1 /* ebr-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20B21C249E300C8D5B1 /* ebr-test.cc */; };
 		2399D20E21C264B100C8D5B1 /* ebr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20D21C264B100C8D5B1 /* ebr.cc */; };
 		2399D20F21C264B100C8D5B1 /* ebr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20D21C264B100C8D5B1 /* ebr.cc */; };
+		23A265D421CCC42700EB5CAA /* table-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23A265D321CCC42700EB5CAA /* table-test.cc */; };
 		23AD6D5F21BF5B5300F8F4C5 /* bw-tree-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */; };
 		23AE732521AAABC60065725A /* db-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AE732421AAABC60065725A /* db-iterator.cc */; };
 		23AE732621AAABC60065725A /* db-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AE732421AAABC60065725A /* db-iterator.cc */; };
@@ -239,6 +240,7 @@
 		2399D20A21C2496D00C8D5B1 /* ebr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ebr.h; sourceTree = "<group>"; };
 		2399D20B21C249E300C8D5B1 /* ebr-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "ebr-test.cc"; path = "src/base/ebr-test.cc"; sourceTree = "<group>"; };
 		2399D20D21C264B100C8D5B1 /* ebr.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ebr.cc; sourceTree = "<group>"; };
+		23A265D321CCC42700EB5CAA /* table-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "table-test.cc"; sourceTree = "<group>"; };
 		23AD6D5D21BF53CF00F8F4C5 /* bw-tree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree.h"; sourceTree = "<group>"; };
 		23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "bw-tree-test.cc"; path = "src/core/bw-tree-test.cc"; sourceTree = "<group>"; };
 		23AE732321AAAB870065725A /* db-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-iterator.h"; sourceTree = "<group>"; };
@@ -598,6 +600,7 @@
 			isa = PBXGroup;
 			children = (
 				23FB4B502195708900B2829B /* table-test.h */,
+				23A265D321CCC42700EB5CAA /* table-test.cc */,
 			);
 			name = test;
 			path = src/test;
@@ -831,6 +834,7 @@
 				23B0E100218841C500F9E855 /* spin-locking.cc in Sources */,
 				23E40C0D21CB416600B04858 /* block-cache.cc in Sources */,
 				237CE4C12192EABD004FB9BF /* iterator-warpper.cc in Sources */,
+				23A265D421CCC42700EB5CAA /* table-test.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
