@@ -176,6 +176,17 @@ LRUHandle *LRUCacheShard::Get(std::string_view key) {
     return iter.key();
 }
     
+void LRUCacheShard::Remove(std::string_view key) {
+    LRUHandle *x = Get(key);
+    if (x && x->ref_count() == 1) {
+        x->set_deletion(true);
+        if (x->deleter) {
+            x->deleter(x->key(), x->value);
+        }
+        LRU_Remove(x);
+    }
+}
+    
 void LRUCacheShard::PurgeIfNeeded(bool force) {
     std::unique_lock<std::mutex> lock(mutex_);
     if (size_ <= capacity_ && !force) {

@@ -118,7 +118,7 @@ public:
     
     virtual Error error() const override { return error_; }
     
-private:    
+private:
     Error UpdateEntry();
     
     const S1TableReader *const owns_;
@@ -202,7 +202,8 @@ Error S1TableReader::IteratorImpl::UpdateEntry() {
     
     base::intrusive_ptr<core::LRUHandle> handle;
     std::string_view buf;
-    rs = owns_->PrepareRead(owns_->index_[slot_][current_], read_opts_, &buf, &handle);
+    rs = owns_->PrepareRead(owns_->index_[slot_][current_], read_opts_, &buf,
+                            &handle);
     if (!rs) {
         return rs;
     }
@@ -389,29 +390,6 @@ S1TableReader::NewIterator(const ReadOptions &read_opts,
             ReadValue(buf, value, scratch);
             break;
         }
-
-//        uint64_t offset = idx.block_offset + idx.offset + 4;
-//        uint64_t shared_len, private_len;
-//
-//        TRY_RUN1(ReadKey(&offset, &shared_len, &private_len, &result, scratch));
-//        saved_key = saved_key.substr(0, shared_len);
-//        saved_key.append(result);
-//
-//        if (table_props_->last_level) {
-//            if (ikcmp->ucmp()->Equals(saved_key, lookup.user_key)) {
-//                found = true;
-//            }
-//        } else {
-//            KeyBoundle::ParseTaggedKey(saved_key, &ikey);
-//            if (ikcmp->ucmp()->Equals(ikey.user_key, lookup.user_key) &&
-//                lookup.tag.sequence_number() >= ikey.tag.sequence_number()) {
-//                found = true;
-//            }
-//        }
-//        if (found) {
-//            TRY_RUN1(ReadValue(&offset, value, scratch));
-//            break;
-//        }
     }
     if (!found) {
         return MAI_NOT_FOUND("Key not exists.");
@@ -499,34 +477,6 @@ Error S1TableReader::PrepareRead(const Index &idx, const ReadOptions &read_opts,
     // Ignore crc32 checksum
     *buf = std::string_view(static_cast<char *>(handle->get()->value) + idx.offset,
                             bh.size() - 4 - idx.offset);
-    return Error::OK();
-}
-    
-Error S1TableReader::ReadKey(uint64_t *offset, uint64_t *shared_len,
-                             uint64_t *private_len, std::string_view *result,
-                             std::string *scatch) const {
-    base::RandomAccessFileReader reader(file_);
-    size_t len = 0;
-    
-    TRY_RUN0(*shared_len = reader.ReadVarint64(*offset, &len));
-    *offset += len;
-    TRY_RUN0(*private_len = reader.ReadVarint64(*offset, &len));
-    *offset += len;
-    TRY_RUN0(*result = reader.Read(*offset, *private_len, scatch));
-    *offset += result->size();
-    return Error::OK();
-}
-    
-Error S1TableReader::ReadValue(uint64_t *offset, std::string_view *result,
-                               std::string *scatch) const {
-    base::RandomAccessFileReader reader(file_);
-    size_t len = 0;
-
-    uint64_t value_len;
-    TRY_RUN0(value_len = reader.ReadVarint64(*offset, &len));
-    *offset += len;
-    TRY_RUN0(*result = reader.Read(*offset, value_len, scatch));
-    *offset += result->size();
     return Error::OK();
 }
     

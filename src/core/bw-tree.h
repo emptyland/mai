@@ -380,7 +380,7 @@ public:
     
     void Put(Key key) {
         Pid parent_id;
-        DeltaNode *leaf = FindRoomFor(key, &parent_id, true);
+        DeltaNode *leaf = FindRoomFor(key, &parent_id, false);
         DCHECK_NOTNULL(leaf);
         DeltaKey *p = Base::NewDeltaKey(leaf->pid, key, leaf);
         DCHECK_NOTNULL(p);
@@ -513,8 +513,8 @@ private:
 
         while (x) {
             bool has_overflow = false;
-            auto pid = std::get<1>(FindGreaterOrEqual(x, key, &has_overflow));
-            //auto pid = InnerFindGreaterOrEqual(x, key, &has_overflow);
+            //auto pid = std::get<1>(FindGreaterOrEqual(x, key, &has_overflow));
+            auto pid = InnerFindGreaterOrEqual(x, key, &has_overflow);
             if (pid == 0) {
                 return x;
             }
@@ -557,14 +557,25 @@ private:
         for (auto rd : records) {
             partial_view[rd->key] = rd->lhs;
             
+            bool inner_found = false;
+            size_t idx;
+            Pid pid;
+            std::tie(idx, pid) = UpperBound(base_line, rd->key, &inner_found);
+            
             auto iter = partial_view.upper_bound(rd->key);
             if (iter != partial_view.end()) {
-                partial_view[iter->first] = rd->rhs;
+                if (inner_found) {
+                    auto base_key = base_line->entry(idx).key;
+                    if (Base::cmp_(base_key, iter->first) < 0) {
+                        partial_view[base_line->entry(idx).key] = rd->rhs;
+                    } else {
+                        partial_view[iter->first] = rd->rhs;
+                    }
+                } else {
+                    partial_view[iter->first] = rd->rhs;
+                }
+                
             } else {
-                bool inner_found = false;
-                size_t idx;
-                Pid pid;
-                std::tie(idx, pid) = UpperBound(base_line, rd->key, &inner_found);
                 if (inner_found) {
                     partial_view[base_line->entry(idx).key] = rd->rhs;
                 }
@@ -604,7 +615,7 @@ private:
                 return base_line->overflow;
             }
         }
-        
+        DLOG(FATAL) << "Noreached!";
         return 0;
     }
     

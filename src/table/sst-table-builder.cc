@@ -195,27 +195,15 @@ BlockHandle SstTableBuilder::WriteBlock(std::string_view block) {
     
 BlockHandle SstTableBuilder::WriteFilter() {
     std::string_view block = filter_builder_->Finish();
-    AlignmentToBlock();
-    if (error_.fail()) {
-        return BlockHandle{};
-    }
     return WriteBlock(block);
 }
     
 BlockHandle SstTableBuilder::WriteIndexs() {
     std::string_view block = index_builder_->Finish();
-    AlignmentToBlock();
-    if (error_.fail()) {
-        return BlockHandle{};
-    }
     return WriteBlock(block);
 }
 
 BlockHandle SstTableBuilder::WriteProperties(BlockHandle indexs, BlockHandle filter) {
-    AlignmentToBlock();
-    if (error_.fail()) {
-        return BlockHandle{};
-    }
     props_.index_position  = indexs.offset();
     props_.index_size      = indexs.size();
 
@@ -225,24 +213,6 @@ BlockHandle SstTableBuilder::WriteProperties(BlockHandle indexs, BlockHandle fil
     std::string block;
     Table::WriteProperties(props_, &block);
     return WriteBlock(block);
-}
-    
-uint64_t SstTableBuilder::AlignmentToBlock() {
-    uint64_t position = FileSize();
-    if (error_.fail()) {
-        return position;
-    }
-    
-    base::ScopedMemory scope;
-    if (position % block_size_) {
-        size_t pad_size = block_size_ - position % block_size_;
-        error_ = writer_.WritePad(pad_size);
-        if (error_.fail()) {
-            return position;
-        }
-        position = RoundUp(position, block_size_);
-    }
-    return position;
 }
     
 } // namespace table

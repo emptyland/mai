@@ -17,13 +17,6 @@ public:
                   uint64_t file_size, bool checksum_verify, BlockCache *cache);
     virtual ~S1TableReader();
     
-    struct Index {
-        uint64_t block_idx;
-        uint32_t offset;
-    };
-    
-    //DEF_VAL_GETTER(std::vector<std::vector<Index>>, index);
-    
     Error Prepare();
     
     virtual Iterator *
@@ -43,20 +36,18 @@ private:
     class IteratorImpl;
     class KeyFilterImpl;
     
+    struct Index {
+        uint64_t block_idx;
+        uint32_t offset;
+    };
+    
     uint64_t ReadKey(std::string_view buf, uint64_t *shared_len,
                      uint64_t *private_len, std::string_view *result) const;
-    
     uint64_t ReadValue(std::string_view buf, std::string_view *result,
                        std::string *scatch) const;
-    
     Error PrepareRead(const Index &idx, const ReadOptions &read_opts,
                       std::string_view *buf,
                       base::intrusive_ptr<core::LRUHandle> *handle) const;
-    
-    Error ReadKey(uint64_t *offset, uint64_t *shared_len, uint64_t *private_len,
-                  std::string_view *result, std::string *scatch) const;
-    Error ReadValue(uint64_t *offset, std::string_view *result,
-                    std::string *scatch) const;
     Error ReadBlock(const BlockHandle &bh, std::string_view *result,
                     std::string *scatch) const;
     

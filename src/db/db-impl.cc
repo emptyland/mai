@@ -457,7 +457,14 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     flush_request_.fetch_add(1);
     
     if (opts.sync) {
-        // TODO:
+        rs = logger_->Flush();
+        if (!rs) {
+            return rs;
+        }
+        rs = logger_->Sync(true);
+        if (!rs) {
+            return rs;
+        }
     }
     
     WritingHandler handler(0, false, versions_->column_families());
@@ -784,7 +791,14 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
     }
     flush_request_.fetch_add(1);
     if (opts.sync) {
-        // TODO:
+        rs = logger_->Flush();
+        if (!rs) {
+            return rs;
+        }
+        rs = logger_->Sync(true);
+        if (!rs) {
+            return rs;
+        }
     }
     
     // TODO: thiny locking
@@ -865,11 +879,7 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd,
                    Config::kMaxNumberLevel0File) {
             cfd->mutable_background_cv()->wait(*lock);
             break;
-        } /*else if (total_wal_size_.load(std::memory_order_acquire) <
-                   options_.max_total_wal_size) {
-            // Wal file size checking.
-            break;
-        } */ else {
+        } else {
             DCHECK_EQ(0, versions_->prev_log_number());
             rs = RenewLogger();
             if (!rs) {
