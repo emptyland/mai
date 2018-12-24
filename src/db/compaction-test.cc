@@ -21,8 +21,7 @@ public:
     CompactionImplTest()
         : abs_db_path_(env_->GetAbsolutePath("tests/99-compaction-tmp"))
         , factory_(Factory::NewDefault())
-        , table_cache_(new TableCache(abs_db_path_, options_, &block_cache_,
-                                      factory_.get()))
+        , table_cache_(new TableCache(abs_db_path_, options_, factory_.get()))
         , versions_(new VersionSet(abs_db_path_, Options{}, table_cache_.get())) {
 
         versions_->column_families()->NewColumnFamily(ColumnFamilyOptions{},

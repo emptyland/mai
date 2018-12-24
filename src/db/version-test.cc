@@ -21,9 +21,7 @@ public:
     VersionTest()
         : abs_db_path_(env_->GetAbsolutePath("tests/ff-ves-tmp"))
         , factory_(Factory::NewDefault())
-        , block_cache_(new table::BlockCache(env_->GetLowLevelAllocator(), 1000))
-        , table_cache_(new TableCache(abs_db_path_, options_,
-                                      block_cache_.get(), factory_.get()))
+        , table_cache_(new TableCache(abs_db_path_, options_, factory_.get()))
     {
         int i = 0;
         while (tmp_dirs[i]) {
@@ -53,7 +51,6 @@ public:
     std::string abs_db_path_;
     Options options_;
     std::unique_ptr<Factory> factory_;
-    std::unique_ptr<table::BlockCache> block_cache_;
     std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<VersionSet> versions_;
     
