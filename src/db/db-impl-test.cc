@@ -4,6 +4,7 @@
 #include "base/slice.h"
 #include "mai/iterator.h"
 #include "mai/env.h"
+#include "mai/helper.h"
 #include "gtest/gtest.h"
 #include <vector>
 #include <thread>
@@ -64,51 +65,6 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/17-db-concurrent-get",
     "tests/18-db-get-properties",
     nullptr,
-};
-    
-class ColumnFamilyCollection {
-public:
-    ColumnFamilyCollection(DB *owns) : owns_(owns) {}
-    ~ColumnFamilyCollection() { ReleaseAll(); }
-    
-    void ReleaseAll() {
-        for (auto cf : handles_) {
-            owns_->ReleaseColumnFamily(cf);
-        }
-        handles_.clear();
-    }
-    
-    std::vector<ColumnFamily *> *ReceiveAll() {
-        ReleaseAll();
-        return &handles_;
-    }
-    
-    ColumnFamily **Receive() {
-        handles_.push_back(nullptr);
-        return &handles_.back();
-    }
-
-    ColumnFamily *newest() const { return handles_.back(); }
-    
-    ColumnFamily *GetOrNull(const std::string &name) {
-        for (auto cf : handles_) {
-            if (cf->name().compare(name) == 0) {
-                return cf;
-            }
-        }
-        return nullptr;
-    }
-    
-    void Reset(DB *owns) {
-        ReleaseAll();
-        owns_ = owns;
-    }
-    
-    
-
-private:
-    DB *owns_;
-    std::vector<ColumnFamily *> handles_;
 };
     
 TEST_F(DBImplTest, Sanity) {
