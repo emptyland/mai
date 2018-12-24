@@ -66,6 +66,8 @@ struct Options final : public ColumnFamilyOptions {
     bool allow_mmap_reads = false;
     
     bool allow_mmap_writes = false;
+    
+    size_t block_cache_capacity = 10240;
 }; // struct Options
     
 } // namespace mai

@@ -303,7 +303,6 @@
 		23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pipeline-queue.h"; sourceTree = "<group>"; };
 		23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "pipeline-queue-test.cc"; path = "src/core/pipeline-queue-test.cc"; sourceTree = "<group>"; };
 		23DE17A521D07CD200479C23 /* benchmark */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = benchmark; sourceTree = BUILT_PRODUCTS_DIR; };
-		23DE17A721D07CD200479C23 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		23DE17F021D07D9400479C23 /* benchmark-main.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "benchmark-main.cc"; sourceTree = "<group>"; };
 		23DE17F221D0817A00479C23 /* helper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = helper.h; sourceTree = "<group>"; };
 		23DE17F821D0887700479C23 /* mai.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = mai.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -420,7 +419,6 @@
 				23B0E0F22187FC9400F9E855 /* mai */,
 				23B0E0E52187F9EC00F9E855 /* unit-tests */,
 				23B0E0D32187F8CF00F9E855 /* base */,
-				23DE17A621D07CD200479C23 /* benchmark */,
 				23DE17F921D0887700479C23 /* mai-framework */,
 				23B0E0CA217D7DA000F9E855 /* Products */,
 				23B0E0E72187FAF200F9E855 /* Frameworks */,
@@ -615,14 +613,6 @@
 			isa = PBXGroup;
 			children = (
 				23DE17F021D07D9400479C23 /* benchmark-main.cc */,
-			);
-			path = benchmark;
-			sourceTree = "<group>";
-		};
-		23DE17A621D07CD200479C23 /* benchmark */ = {
-			isa = PBXGroup;
-			children = (
-				23DE17A721D07CD200479C23 /* main.cpp */,
 			);
 			path = benchmark;
 			sourceTree = "<group>";
@@ -975,7 +965,7 @@
 					"third-party/include",
 				);
 				LIBRARY_SEARCH_PATHS = "third-party/libs";
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
@@ -1032,7 +1022,7 @@
 					"third-party/include",
 				);
 				LIBRARY_SEARCH_PATHS = "third-party/libs";
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = macosx;
 			};
@@ -1073,6 +1063,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/third-party/libs",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1086,6 +1077,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/third-party/libs",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -1098,7 +1090,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEFINES_MODULE = YES;
+				DEFINES_MODULE = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
@@ -1131,7 +1123,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEFINES_MODULE = YES;
+				DEFINES_MODULE = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";

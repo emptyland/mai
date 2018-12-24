@@ -125,9 +125,7 @@ DBImpl::DBImpl(const std::string &db_name, const Options &opts)
     , factory_(Factory::NewDefault())
     , bkg_active_(0)
     , shutting_down_(false)
-    , block_cache_(new table::BlockCache(env_->GetLowLevelAllocator(), 1000))
-    , table_cache_(new TableCache(abs_db_path_, opts, block_cache_.get(),
-                                  factory_.get()))
+    , table_cache_(new TableCache(abs_db_path_, opts, factory_.get()))
     , versions_(new VersionSet(abs_db_path_, opts, table_cache_.get()))
     , flush_request_(0)
     , total_wal_size_(0) {
