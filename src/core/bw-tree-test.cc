@@ -693,6 +693,26 @@ TEST_F(BwTreeTest, ConcurrentPutGet) {
         EXPECT_EQ(i, iter.key());
     }
 }
+//
+//TEST_F(BwTreeTest, ConcurrentPut) {
+//    static const auto kN = 10000;
+//    std::thread wr_thrds[4];
+//    std::mutex mutex;
+//
+//    IntTree tree(IntComparator{}, 5, 31, env_);
+//
+//    for (int i = 0; i < arraysize(wr_thrds); ++i) {
+//        wr_thrds[i] = std::thread([&mutex] (auto tree, auto slot) {
+//            for (int i = slot * kN; i < (slot + 1) * kN; ++i) {
+//                std::unique_lock<std::mutex> lock(mutex);
+//                tree->Put(i);
+//            }
+//        }, &tree, i);
+//    }
+//    for (int i = 0; i < arraysize(wr_thrds); ++i) {
+//        wr_thrds[i].join();
+//    }
+//}
     
 } // namespace core
     

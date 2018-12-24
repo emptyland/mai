@@ -262,11 +262,14 @@ public:
     void UpdatePid(Pid pid, Node *node, Node *base) {
         node->pid = pid;
         auto slot = pages_ + pid;
-        Node *head;
-        do {
-            head = base;
-            node->base = base;
-        } while (!slot->address.compare_exchange_weak(head, node));
+        //Node *head;
+        //DCHECK_NE(0xf7, reinterpret_cast<uintptr_t>(node));
+//        do {
+//            head = base;
+//            node->base = base;
+//        } while (!slot->address.compare_exchange_weak(head, node));
+        node->base = base;
+        slot->address.store(node);
     }
     
     bool ReplacePid(Pid pid, Node *old, Node *node) {
@@ -321,11 +324,9 @@ private:
         auto self = static_cast<BwTreeBase *>(arg0);
         DCHECK(self != nullptr);
         auto x = static_cast<Node *>(chunk);
-        //printf("head delete: %p(%d)\n", x, x->kind);
         while (x) {
             auto prev = x;
             x = x->base;
-            //printf("delete: %p(%d)\n", prev, prev->kind);
             ::free(prev);
         }
     }
@@ -734,28 +735,28 @@ private:
         
         const DeltaNode *t;
         Pid child = 0;
-#if defined(DEBUG) || defined(_DEBUG)
-        Key largest_key{};
-        do {
-            if (x->IsBaseLine()) {
-                auto base_line = BaseLine::Cast(x);
-                child = base_line->overflow;
-                largest_key = base_line->entry(base_line->size - 1).key;
-            } else {
-                View view = MakeView(x, &child);
-                for (const auto &pair : view) {
-                    largest_key = pair.first;
-                }
-            }
-            t = x;
-            if (trigger || NeedsConsolidate(x)) {
-                Consolidate(const_cast<DeltaNode *>(x));
-            }
-            x = Base::GetNode(child);
-        } while (child != 0);
-        DCHECK_EQ(Base::cmp_(t->largest_key, largest_key), 0);
-        return largest_key;
-#else
+//#if defined(DEBUG) || defined(_DEBUG)
+//        Key largest_key{};
+//        do {
+//            if (x->IsBaseLine()) {
+//                auto base_line = BaseLine::Cast(x);
+//                child = base_line->overflow;
+//                largest_key = base_line->entry(base_line->size - 1).key;
+//            } else {
+//                View view = MakeView(x, &child);
+//                for (const auto &pair : view) {
+//                    largest_key = pair.first;
+//                }
+//            }
+//            t = x;
+//            if (trigger || NeedsConsolidate(x)) {
+//                Consolidate(const_cast<DeltaNode *>(x));
+//            }
+//            x = Base::GetNode(child);
+//        } while (child != 0);
+//        DCHECK_EQ(Base::cmp_(t->largest_key, largest_key), 0);
+//        return largest_key;
+//#else
         do {
             if (x->IsBaseLine()) {
                 auto base_line = BaseLine::Cast(x);
@@ -770,27 +771,27 @@ private:
             x = Base::GetNode(child);
         } while (child != 0);
         return t->largest_key;
-#endif
+//#endif
     }
     
     inline size_t GetEntriesSize(const DeltaNode *x) const {
         if (!x) {
             return 0;
         }
-#if defined(DEBUG) || defined(_DEBUG)
-        size_t n_entries = 0;
-        if (x->IsBaseLine()) {
-            const BaseLine *n = BaseLine::Cast(x);
-            n_entries = n->size;
-        } else {
-            View view = MakeView(x, nullptr);
-            n_entries = view.size();
-            DCHECK_EQ(n_entries, x->size);
-        }
-        return n_entries;
-#else
+//#if defined(DEBUG) || defined(_DEBUG)
+//        size_t n_entries = 0;
+//        if (x->IsBaseLine()) {
+//            const BaseLine *n = BaseLine::Cast(x);
+//            n_entries = n->size;
+//        } else {
+//            View view = MakeView(x, nullptr);
+//            n_entries = view.size();
+//            DCHECK_EQ(n_entries, x->size);
+//        }
+//        return n_entries;
+//#else
         return x->size;
-#endif
+//#endif
     }
     
     Pid FindSmallestChild(const DeltaNode *x) const {
