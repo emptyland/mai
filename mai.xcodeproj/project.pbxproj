@@ -41,7 +41,12 @@
 		235C1CD321D206F10070A049 /* optimism-transaction.h in Headers */ = {isa = PBXBuildFile; fileRef = 235C1CD221D206F10070A049 /* optimism-transaction.h */; };
 		235C1CD521D210520070A049 /* optimism-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CD421D210520070A049 /* optimism-transaction.cc */; };
 		235C1CD621D210520070A049 /* optimism-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CD421D210520070A049 /* optimism-transaction.cc */; };
-		235C1CD821D2166B0070A049 /* write-batch-with-index.h in Headers */ = {isa = PBXBuildFile; fileRef = 235C1CD721D2166B0070A049 /* write-batch-with-index.h */; };
+		235C1CD921D21C1C0070A049 /* write-batch-with-index.h in Headers */ = {isa = PBXBuildFile; fileRef = 235C1CD721D2166B0070A049 /* write-batch-with-index.h */; };
+		235C1CDB21D223BF0070A049 /* write-batch-with-index.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */; };
+		235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */; };
+		235C1CDE21D22EDD0070A049 /* write-batch-with-index-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDD21D22EDD0070A049 /* write-batch-with-index-test.cc */; };
+		235C1CDF21D22EDD0070A049 /* write-batch-with-index-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDD21D22EDD0070A049 /* write-batch-with-index-test.cc */; };
+		235C1CE121D22F550070A049 /* mock-column-family.h in Headers */ = {isa = PBXBuildFile; fileRef = 235C1CE021D22F550070A049 /* mock-column-family.h */; };
 		236AC67821B7692B0069A17B /* lru-cache-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236AC67621B7692B0069A17B /* lru-cache-v1.cc */; };
 		236AC67B21B769900069A17B /* lru-cache-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236AC67921B769900069A17B /* lru-cache-test.cc */; };
 		237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */; };
@@ -236,6 +241,9 @@
 		235C1CD221D206F10070A049 /* optimism-transaction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "optimism-transaction.h"; sourceTree = "<group>"; };
 		235C1CD421D210520070A049 /* optimism-transaction.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "optimism-transaction.cc"; sourceTree = "<group>"; };
 		235C1CD721D2166B0070A049 /* write-batch-with-index.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-batch-with-index.h"; sourceTree = "<group>"; };
+		235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch-with-index.cc"; sourceTree = "<group>"; };
+		235C1CDD21D22EDD0070A049 /* write-batch-with-index-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "write-batch-with-index-test.cc"; path = "src/db/write-batch-with-index-test.cc"; sourceTree = "<group>"; };
+		235C1CE021D22F550070A049 /* mock-column-family.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "mock-column-family.h"; sourceTree = "<group>"; };
 		236AC67521B768E60069A17B /* lru-cache-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lru-cache-v1.h"; sourceTree = "<group>"; };
 		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
 		236AC67921B769900069A17B /* lru-cache-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "lru-cache-test.cc"; path = "src/core/lru-cache-test.cc"; sourceTree = "<group>"; };
@@ -400,7 +408,6 @@
 			children = (
 				234372C921998C0A00427E83 /* write-ahead-log.h */,
 				231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */,
-				23F60601219BBE9600CE12D9 /* write-batch.cc */,
 				23F60604219BC3DA00CE12D9 /* db-impl.h */,
 				23F60605219BC40E00CE12D9 /* db-impl.cc */,
 				23F60608219BCB6C00CE12D9 /* column-family.h */,
@@ -426,6 +433,8 @@
 				235C1CD221D206F10070A049 /* optimism-transaction.h */,
 				235C1CD421D210520070A049 /* optimism-transaction.cc */,
 				235C1CD721D2166B0070A049 /* write-batch-with-index.h */,
+				235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */,
+				23F60601219BBE9600CE12D9 /* write-batch.cc */,
 			);
 			name = db;
 			path = src/db;
@@ -525,6 +534,7 @@
 				2399D20821C247B100C8D5B1 /* tls-test.cc */,
 				2399D20B21C249E300C8D5B1 /* ebr-test.cc */,
 				23F0742521D1D209009D8EAA /* transaction-db-test.cc */,
+				235C1CDD21D22EDD0070A049 /* write-batch-with-index-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -659,6 +669,7 @@
 			children = (
 				23FB4B502195708900B2829B /* table-test.h */,
 				23A265D321CCC42700EB5CAA /* table-test.cc */,
+				235C1CE021D22F550070A049 /* mock-column-family.h */,
 			);
 			name = test;
 			path = src/test;
@@ -674,7 +685,7 @@
 				23DE183B21D0897E00479C23 /* allocator.h in Headers */,
 				235C1CD321D206F10070A049 /* optimism-transaction.h in Headers */,
 				23F0742421D1D187009D8EAA /* proxied-db.h in Headers */,
-				235C1CD821D2166B0070A049 /* write-batch-with-index.h in Headers */,
+				235C1CD921D21C1C0070A049 /* write-batch-with-index.h in Headers */,
 				23DE183C21D0897E00479C23 /* env.h in Headers */,
 				235C1CD121D1D82D0070A049 /* transaction.h in Headers */,
 				23DE183D21D0897E00479C23 /* error.h in Headers */,
@@ -685,6 +696,7 @@
 				23DE184021D0897E00479C23 /* comparator.h in Headers */,
 				23DE184121D0897E00479C23 /* db.h in Headers */,
 				23DE184221D0897E00479C23 /* write-batch.h in Headers */,
+				235C1CE121D22F550070A049 /* mock-column-family.h in Headers */,
 				23DE184321D0897E00479C23 /* helper.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -827,6 +839,7 @@
 				23C54E0B21B517AB0078E77A /* memory-table.cc in Sources */,
 				2326026421ABE80D003F434C /* arena.cc in Sources */,
 				23B4E01921A7A292007A4533 /* compaction-test.cc in Sources */,
+				235C1CDE21D22EDD0070A049 /* write-batch-with-index-test.cc in Sources */,
 				2326A42E21A54A740040BE53 /* db-impl-test.cc in Sources */,
 				2326A42C21A507590040BE53 /* key-boundle.cc in Sources */,
 				23FB4B52219570CD00B2829B /* sst-table-builder-test.cc in Sources */,
@@ -842,6 +855,7 @@
 				23FB4B5D219597C000B2829B /* sst-table-reader-test.cc in Sources */,
 				2326026721ABF614003F434C /* arena-test.cc in Sources */,
 				236AC67B21B769900069A17B /* lru-cache-test.cc in Sources */,
+				235C1CDB21D223BF0070A049 /* write-batch-with-index.cc in Sources */,
 				231C61F8219AA67C001A95C1 /* io-utils-test.cc in Sources */,
 				23B0E1032188424700F9E855 /* spin-locking-test.cc in Sources */,
 				23F60607219BC40E00CE12D9 /* db-impl.cc in Sources */,
@@ -898,11 +912,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				23DE184421D08A3600479C23 /* crc32.c in Sources */,
+				235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */,
 				23DE183321D088D000479C23 /* varint-encoding.cc in Sources */,
 				23DE183421D088D000479C23 /* spin-locking.cc in Sources */,
 				23DE183521D088D000479C23 /* base.cc in Sources */,
 				23DE183621D088D000479C23 /* slice.cc in Sources */,
 				23DE183721D088D000479C23 /* hash.cc in Sources */,
+				235C1CDF21D22EDD0070A049 /* write-batch-with-index-test.cc in Sources */,
 				23DE183821D088D000479C23 /* arena.cc in Sources */,
 				23DE183921D088D000479C23 /* ebr.cc in Sources */,
 				23DE182621D088C300479C23 /* memory-table.cc in Sources */,

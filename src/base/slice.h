@@ -69,6 +69,26 @@ struct Slice {
         return std::string_view(p, n);
     }
     
+    static void WriteFixed32(std::string *buf, uint32_t value) {
+        buf->append(reinterpret_cast<const char *>(&value), sizeof(value));
+    }
+    
+    static void WriteFixed64(std::string *buf, uint64_t value) {
+        buf->append(reinterpret_cast<const char *>(&value), sizeof(value));
+    }
+    
+    static void WriteVarint32(std::string *buf, uint32_t value) {
+        char tmp[Varint32::kMaxLen];
+        auto n = Varint32::Encode(tmp, value);
+        buf->append(tmp, n);
+    }
+
+    static void WriteVarint64(std::string *buf, uint64_t value) {
+        char tmp[Varint64::kMaxLen];
+        auto n = Varint64::Encode(tmp, value);
+        buf->append(tmp, n);
+    }
+    
     static uint16_t SetU16(std::string_view slice) {
         DCHECK_EQ(sizeof(uint16_t), slice.size());
         return *reinterpret_cast<const uint16_t *>(slice.data());

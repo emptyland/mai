@@ -1,6 +1,7 @@
 #include "db/optimism-transaction.h"
 #include "db/optimism-transaction-db.h"
 #include "db/db-impl.h"
+#include "db/write-batch-with-index.h"
 #include "mai/iterator.h"
 #include "glog/logging.h"
 

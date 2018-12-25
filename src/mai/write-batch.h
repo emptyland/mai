@@ -12,7 +12,7 @@ class ColumnFamily;
 class WriteBatch {
 public:
     // Header: sequence number + number of entries
-    static const int kHeaderSize = sizeof(uint64_t) + sizeof(uint32_t);
+    static const size_t kHeaderSize;
     
     WriteBatch() { redo_.resize(kHeaderSize, 0); }
     ~WriteBatch();
@@ -57,6 +57,7 @@ public:
     void operator = (const WriteBatch &) = delete;
 protected:
     std::string_view raw_buf() const { return redo_; }
+    std::string *mutable_raw_buf() { return &redo_; }
     
 private:
     std::string redo_;
