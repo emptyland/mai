@@ -9,7 +9,7 @@ namespace mai {
     
 class ColumnFamily;
     
-class WriteBatch final {
+class WriteBatch {
 public:
     // Header: sequence number + number of entries
     static const int kHeaderSize = sizeof(uint64_t) + sizeof(uint32_t);
@@ -55,6 +55,9 @@ public:
     WriteBatch(const WriteBatch &) = delete;
     WriteBatch(WriteBatch &&) = delete;
     void operator = (const WriteBatch &) = delete;
+protected:
+    std::string_view raw_buf() const { return redo_; }
+    
 private:
     std::string redo_;
     uint32_t n_entries_ = 0;

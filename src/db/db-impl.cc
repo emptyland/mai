@@ -621,28 +621,6 @@ Iterator *DBImpl::NewInternalIterator(const ReadOptions &opts,
     // Memory table's iterator can cleanup itself reference count.
     return internal;
 }
-    
-//void DBImpl::TEST_PrintFiles(ColumnFamily *cf) {
-//    GetContext ctx;
-//    Error rs = PrepareForGet(ReadOptions{}, cf, &ctx);
-//    if (!rs) {
-//        return;
-//    }
-//    std::unique_lock<std::mutex> lock(mutex_);
-//    if (ctx.cfd->background_progress()) {
-//        ctx.cfd->mutable_background_cv()->wait(lock);
-//    }
-//    for (int i = 0; i < Config::kMaxLevel; ++i) {
-//        printf("level: %d\n", i);
-//        for (auto fmd : ctx.cfd->current()->level_files(i)) {
-//            std::string smallest(core::KeyBoundle::ExtractUserKey(fmd->smallest_key));
-//            std::string largest(core::KeyBoundle::ExtractUserKey(fmd->largest_key));
-//            
-//            printf("file[%llu] [%s, %s]\n", fmd->number, smallest.c_str(),
-//                   largest.c_str());
-//        }
-//    }
-//}
 
 Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
     ColumnFamilyImpl *cfd = DCHECK_NOTNULL(ColumnFamilyHandle::Cast(cf)->impl());

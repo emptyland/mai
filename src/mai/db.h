@@ -68,9 +68,9 @@ public:
     virtual Error
     DropColumnFamilies(const std::vector<ColumnFamily *> &column_families);
     
-    virtual Error DropColumnFamily(ColumnFamily *column_family) = 0;
+    virtual Error DropColumnFamily(ColumnFamily *cf) = 0;
     
-    virtual Error ReleaseColumnFamily(ColumnFamily *column_family) = 0;
+    virtual Error ReleaseColumnFamily(ColumnFamily *cf) = 0;
     
     virtual Error GetAllColumnFamilies(std::vector<ColumnFamily *> *result) = 0;
     
