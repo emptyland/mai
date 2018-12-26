@@ -36,6 +36,8 @@ public:
     
     virtual void Free(const void */*chunk*/, size_t /*size*/) override {}
     
+    void Purge(bool reinit);
+    
     void *NewLarge(size_t size, size_t alignment) {
         size_t alloc_size = RoundUp(sizeof(PageHead) + size, kPageSize);
         PageHead *page = NewPage(alloc_size);
@@ -49,8 +51,6 @@ public:
     }
     
     void *NewNormal(size_t size, size_t alignment);
-    
-    size_t memory_usage() const { return memory_usage_.load(); }
 
     using Statistics = ArenaStatistics;
     
@@ -58,6 +58,8 @@ public:
                             std::vector<Statistics> *large) const;
     
     Allocator *low_level_allocator() const { return low_level_alloc_; }
+    
+    size_t memory_usage() const { return memory_usage_.load(); }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Arena);
 private:

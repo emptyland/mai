@@ -20,10 +20,17 @@ public:
     WriteBatchWithIndex(Allocator *ll_allocator);
     ~WriteBatchWithIndex();
     
+    void Clear();
+    
     void AddOrUpdate(ColumnFamily *cf, uint8_t flag,
                      std::string_view key, std::string_view value);
     
     Error Get(ColumnFamily *cf, std::string_view key, std::string *value) const;
+    
+    struct SavePoint {
+        size_t redo_size;
+        size_t n_entries;
+    };
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(WriteBatchWithIndex);
 private:

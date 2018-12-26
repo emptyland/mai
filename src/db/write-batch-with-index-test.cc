@@ -35,6 +35,34 @@ TEST_F(WriteBatchWithIndexTest, AddOrUpdate) {
     batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaac", "bbbb");
     
     ASSERT_GT(batch.redo().size(), WriteBatch::kHeaderSize);
+    
+    std::string value;
+    auto rs = batch.Get(mock_cf0_, "aaaa", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("bbbb", value);
+}
+    
+TEST_F(WriteBatchWithIndexTest, DeletionEntries) {
+    WriteBatchWithIndex batch(env_->GetLowLevelAllocator());
+    
+    batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaaa", "bbbb");
+    batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaab", "bbbb");
+    batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaac", "bbbb");
+    
+    std::string value;
+    auto rs = batch.Get(mock_cf0_, "aaaa", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("bbbb", value);
+    
+    batch.AddOrUpdate(mock_cf0_, Tag::kFlagDeletion, "aaaa", "");
+    rs = batch.Get(mock_cf0_, "aaaa", &value);
+    ASSERT_FALSE(rs.ok());
+    ASSERT_TRUE(rs.IsNotFound());
+    
+    batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaaa", "xxxx");
+    rs = batch.Get(mock_cf0_, "aaaa", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ("xxxx", value);
 }
     
 } // namespace db

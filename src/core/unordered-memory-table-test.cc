@@ -135,8 +135,10 @@ TEST_F(UnorderedMemoryTableTest, Deletion) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ("v5", value);
     
-    rs = table->Get("k1", 2, nullptr, &value);
-    ASSERT_TRUE(rs.IsNotFound());
+    core::Tag tag;
+    rs = table->Get("k1", 2, &tag, &value);
+    ASSERT_TRUE(rs.ok());
+    ASSERT_EQ(core::Tag::kFlagDeletion, tag.flag());
     
     rs = table->Get("k1", 1, nullptr, &value);
     ASSERT_TRUE(rs.ok()) << rs.ToString();

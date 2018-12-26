@@ -30,41 +30,7 @@ void WriteBatch::Delete(ColumnFamily *cf, std::string_view key) {
 /*static*/ Error WriteBatch::Iterate(const char *buf, size_t len, Stub *handler) {
     if (len == 0) {
         return Error::OK();
-    }
-//    const char *p = buf, *const end = p + len;
-//    while (p < end) {
-//        size_t varint_len;
-//        uint32_t cfid = Varint32::Decode(p, &varint_len);
-//        p += varint_len;
-//
-//        Tag::Flag flag = static_cast<Tag::Flag>(*p++);
-//
-//        size_t key_size = Varint64::Decode(p, &varint_len);
-//        p += varint_len;
-//        std::string_view key(p, key_size);
-//        p += key_size;
-//
-//        size_t value_size = 0;
-//        std::string_view value;
-//        switch (flag) {
-//            case Tag::kFlagValue:
-//                value_size = Varint64::Decode(p, &varint_len);
-//                p += varint_len;
-//                value = std::string_view(p, value_size);
-//                p += value_size;
-//                handler->Put(cfid, key, value);
-//                break;
-//
-//            case Tag::kFlagDeletion:
-//                handler->Delete(cfid, key);
-//                break;
-//
-//            default:
-//                DLOG(FATAL) << "Noreached!";
-//                break;
-//        }
-//    }
-    
+    }    
     BufferReader rd(std::string_view(buf, len));
     while (!rd.Eof()) {
         uint32_t cfid = rd.ReadVarint32();

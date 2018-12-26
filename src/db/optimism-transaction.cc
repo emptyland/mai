@@ -1,65 +1,242 @@
 #include "db/optimism-transaction.h"
 #include "db/optimism-transaction-db.h"
 #include "db/db-impl.h"
+#include "db/column-family.h"
 #include "db/write-batch-with-index.h"
+#include "base/slice.h"
 #include "mai/iterator.h"
 #include "glog/logging.h"
 
 namespace mai {
     
 namespace db {
+    
+class OptimismTransaction::Callback final : public WriteCallback {
+public:
+    Callback(OptimismTransaction *owns) : owns_(DCHECK_NOTNULL(owns)) {}
+    
+    // Thie callback has been acquired db mutex_ !
+    virtual Error Prepare(DBImpl *db) override {
+        return owns_->CheckTransactionForConflicts(db);
+    }
+private:
+    OptimismTransaction *const owns_;
+};
 
 OptimismTransaction::OptimismTransaction(const WriteOptions &opts,
-                                         OptimismTransactionDB *db) {
+                                         OptimismTransactionDB *db)
+    : write_batch_(db->impl()->env()->GetLowLevelAllocator()) {
     Reinitialize(opts, db);
 }
 
 /*virtual*/ OptimismTransaction::~OptimismTransaction() {
+    if (snapshot_) {
+        db_->impl()->ReleaseSnapshot(snapshot_);
+    }
 }
 
 void OptimismTransaction::Reinitialize(const WriteOptions &opts,
                                        OptimismTransactionDB *db) {
-    options_ = opts;
-    db_      = DCHECK_NOTNULL(db);
+    options_  = opts;
+    db_       = DCHECK_NOTNULL(db);
+    snapshot_ = nullptr;
+    write_batch_.Clear();
+    txn_keys_.clear();
+    state_.store(Transaction::STARTED, std::memory_order_release);
 }
 
 /*virtual*/ Error OptimismTransaction::Rollback() {
-    return MAI_NOT_SUPPORTED("TODO:");
+    Clear();
+    state_.store(Transaction::ROLLEDBACK, std::memory_order_release);
+    return Error::OK();
 }
 
 /*virtual*/ Error OptimismTransaction::Commit() {
-    return MAI_NOT_SUPPORTED("TODO:");
+    auto db = db_->impl();
+    
+    Callback callback(this);
+    
+    Error rs = db->WriteImpl(options_, &write_batch_, &callback);
+    if (rs.ok()) {
+        Clear();
+        state_.store(Transaction::COMMITED, std::memory_order_release);
+    }
+    return rs;
 }
 
 /*virtual*/ Error
 OptimismTransaction::Put(const WriteOptions &opts, ColumnFamily *cf,
                          std::string_view key, std::string_view value) {
-    return MAI_NOT_SUPPORTED("TODO:");
+    Error rs = TryLock(cf, key, false /* read_only */, true /* exclusive */,
+                       true);
+    if (rs.ok()) {
+        write_batch_.AddOrUpdate(cf, core::Tag::kFlagValue, key, value);
+    }
+    return rs;
 }
     
 /*virtual*/ Error
 OptimismTransaction::Delete(const WriteOptions &opts, ColumnFamily *cf,
                             std::string_view key) {
-    return MAI_NOT_SUPPORTED("TODO:");
+    Error rs = TryLock(cf, key, false /* read_only */, true /* exclusive */,
+                       true);
+    if (rs.ok()) {
+        write_batch_.AddOrUpdate(cf, core::Tag::kFlagDeletion, key, "");
+    }
+    return rs;
 }
     
 /*virtual*/ Error OptimismTransaction::Get(const ReadOptions &opts,
                                            ColumnFamily *cf,
                                            std::string_view key,
                                            std::string *value) {
-    return MAI_NOT_SUPPORTED("TODO:");
+    Error rs = write_batch_.Get(cf, key, value);
+    if (rs.fail() && !rs.IsNotFound()) {
+        return rs;
+    }
+    return db_->impl()->Get(opts, cf, key, value);
 }
     
 /*virtual*/ Error
 OptimismTransaction::GetForUpdate(const ReadOptions &opts, ColumnFamily *cf,
                                   std::string_view key, std::string *value,
                                   bool exclusive, const bool do_validate) {
-    return MAI_NOT_SUPPORTED("TODO:");
+    if (!do_validate && opts.snapshot != nullptr) {
+        return MAI_CORRUPTION("If do_validate is false then GetForUpdate with "
+                              "snapshot is not defined.");
+    }
+    
+    Error rs = TryLock(cf, key, true /* read_only */, exclusive, do_validate);
+    if (rs.ok()) {
+        rs = Get(opts, cf, key, value);
+    }
+    return rs;
 }
     
 /*virtual*/ Iterator *OptimismTransaction::GetIterator(const ReadOptions& opts,
                                                        ColumnFamily* cf)  {
     return Iterator::AsError(MAI_NOT_SUPPORTED("TODO:"));
+}
+    
+Error OptimismTransaction::TryLock(ColumnFamily* cf, std::string_view key,
+                                   bool read_only, bool exclusive,
+                                   const bool do_validate) {
+    if (!do_validate) {
+        return Error::OK();
+    }
+    
+    SetSnapshotIfNeeded();
+    
+    core::SequenceNumber seq;
+    if (snapshot_) {
+        seq = SnapshotImpl::Cast(snapshot_)->sequence_number();
+    } else {
+        seq = db_->impl()->GetLatestSequenceNumber();
+    }
+    std::string hold_key(key);
+    
+    TrackKey(cf->id(), hold_key, seq, read_only, exclusive);
+    return Error::OK();
+}
+    
+void OptimismTransaction::TrackKey(uint32_t cfid, const std::string& key,
+                                    core::SequenceNumber seq, bool read_only,
+                                    bool exclusive) {
+    auto &keys = txn_keys_[cfid];
+    auto iter  = keys.find(key);
+    if (iter == keys.end()) {
+        std::tie(iter, std::ignore) = keys.insert({key, TxnKeyInfo(seq)});
+    } else if (seq < iter->second.seq) {
+        iter->second.seq = seq;
+    }
+    
+    if (read_only) {
+        iter->second.n_reads++;
+    } else {
+        iter->second.n_writes++;
+    }
+    iter->second.exclusive |= exclusive;
+}
+    
+Error OptimismTransaction::CheckTransactionForConflicts(DBImpl *db) {
+    Error rs;
+    for (const auto &keys_iter : txn_keys_) {
+        uint32_t cfid = keys_iter.first;
+        const TxnKeyMap &keys = keys_iter.second;
+        
+        base::intrusive_ptr<ColumnFamilyImpl> impl;
+        rs = db->GetColumnFamilyImpl(cfid, &impl);
+        if (!rs) {
+            break;
+        }
+        
+        // TODO: use memory-table earliest_seq
+        core::SequenceNumber earliest_seq = core::Tag::kMaxSequenceNumber;
+        for (const auto &key_iter : keys) {
+            const std::string &key = key_iter.first;
+            const core::SequenceNumber key_seq = key_iter.second.seq;
+            
+            rs = CheckKey(db, impl.get(), earliest_seq, key_seq, key, false);
+            if (!rs) {
+                break;
+            }
+        }
+        if (!rs) {
+            break;
+        }
+    }
+    return rs;
+}
+    
+Error OptimismTransaction::CheckKey(DBImpl *db, ColumnFamilyImpl *impl,
+                                    core::SequenceNumber earliest_seq,
+                                    core::SequenceNumber key_seq,
+                                    std::string_view key, bool cache_only) {
+    Error rs;
+    bool need_to_read_sst = false;
+    if (earliest_seq == core::Tag::kMaxSequenceNumber) {
+        need_to_read_sst = true;
+        
+        if (cache_only) {
+            auto m = base::Slice::Sprintf("Transaction only check memory-table "
+                                          "at SequenceNumber: %" PRIu64,
+                                          key_seq);
+            rs = MAI_TRY_AGAIN(m);
+        }
+    } else if (key_seq < earliest_seq) {
+        need_to_read_sst = true;
+        
+        if (cache_only) {
+            auto m = base::Slice::Sprintf("Transaction only check memory-table "
+                                          "at SequenceNumber: %" PRIu64,
+                                          key_seq);
+            rs = MAI_TRY_AGAIN(m);
+        }
+    }
+    
+    if (rs.ok()) {
+        auto seq = core::Tag::kMaxSequenceNumber;
+        
+        rs = db->GetLatestSequenceForKey(impl, !need_to_read_sst, key, &seq);
+        if (!(rs.ok() || rs.IsNotFound())) {
+            return rs;
+        } else {
+            if (key_seq < seq) {
+                rs = MAI_BUSY("Transaction write conflict");
+            }
+        }
+    }
+    return rs;
+}
+    
+void OptimismTransaction::Clear() {
+    snapshot_ = nullptr;
+    write_batch_.Clear();
+    txn_keys_.clear();
+}
+    
+void OptimismTransaction::SetSnapshotIfNeeded() {
+    // TODO:
 }
 
 } // namespace db

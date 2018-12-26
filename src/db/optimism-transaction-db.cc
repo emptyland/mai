@@ -1,4 +1,5 @@
 #include "db/optimism-transaction-db.h"
+#include "db/optimism-transaction.h"
 #include "db/db-impl.h"
 
 namespace mai {
@@ -31,14 +32,21 @@ OptimismTransactionDB::Delete(const WriteOptions &opts, ColumnFamily *cf,
     
 /*virtual*/ Error
 OptimismTransactionDB::Write(const WriteOptions& opts, WriteBatch* updates) {
-    return MAI_NOT_SUPPORTED("");
+    return GetDB()->Write(opts, updates);
 }
     
 /*virtual*/ Transaction *
 OptimismTransactionDB::BeginTransaction(const WriteOptions &wr_opts,
                                         const TransactionOptions &txn_opts,
                                         Transaction *old_txn) {
-    return nullptr;
+    Transaction *txn = nullptr;
+    if (old_txn) {
+        down_cast<OptimismTransaction>(old_txn)->Reinitialize(wr_opts, this);
+        txn = old_txn;
+    } else {
+        txn = new OptimismTransaction(wr_opts, this);
+    }
+    return txn;
 }
 
 DBImpl *OptimismTransactionDB::impl() const {

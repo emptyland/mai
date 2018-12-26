@@ -60,6 +60,16 @@ public:
         return Error(filename, fileline, kEOF, message);
     }
     
+    static Error TryAgain(const char *filename, int fileline,
+                          std::string_view message = "") {
+        return Error(filename, fileline, kTryAgain, message);
+    }
+    
+    static Error Busy(const char *filename, int fileline,
+                      std::string_view message = "") {
+        return Error(filename, fileline, kBusy, message);
+    }
+    
     bool operator !() const { return fail(); }
     
     bool ok() const { return code() == kOk; }
@@ -77,6 +87,8 @@ public:
     bool IsIOError() const { return code() == kIOError; }
     
     bool IsEof() const { return code() == kEOF; }
+    
+    bool IsTryAgain() const { return code() == kTryAgain; }
     
     bool IsBusy() const { return code() == kBusy; }
     
@@ -112,6 +124,7 @@ private:
         kInvalidArgument,
         kIOError,
         kEOF,
+        kTryAgain,
         kBusy,
     };
     
@@ -145,6 +158,8 @@ private:
 #define MAI_CORRUPTION(...) ::mai::Error::Corruption(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_IO_ERROR(...) ::mai::Error::IOError(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_EOF(...) ::mai::Error::Eof(__FILE__, __LINE__, __VA_ARGS__)
+#define MAI_TRY_AGAIN(...) ::mai::Error::TryAgain(__FILE__, __LINE__, __VA_ARGS__)
+#define MAI_BUSY(...) ::mai::Error::Busy(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_NOT_SUPPORTED(...) ::mai::Error::NotSupported(__FILE__, __LINE__, __VA_ARGS__)
     
 } // namespace mai

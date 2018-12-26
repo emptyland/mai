@@ -88,15 +88,15 @@ OrderedMemoryTable::Get(std::string_view key, SequenceNumber version, Tag *tag,
     switch (iter.key()->tag().flag()) {
         case Tag::kFlagValue:
             value->assign(iter.key()->value());
-            if (tag) {
-                *tag = iter.key()->tag();
-            }
             break;
         case Tag::kFlagDeletion:
-            return MAI_NOT_FOUND("Deleted key.");
+            break;
         default:
             DLOG(FATAL) << "Incorrect tag type: " << iter.key()->tag().flag();
             break;
+    }
+    if (tag) {
+        *tag = iter.key()->tag();
     }
     return Error::OK();
 }

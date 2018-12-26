@@ -11,6 +11,23 @@ namespace base {
     = reinterpret_cast<Arena::PageHead *>(0x1);
     
 /*virtual*/ Arena::~Arena() {
+    Purge(false);
+}
+
+/*virtual*/ void *Arena::Allocate(size_t size, size_t alignment) {
+    void *chunk;
+    if (size >  kPageSize - sizeof(PageHead)) {
+        chunk = NewLarge(size, alignment);
+    } else {
+        chunk = NewNormal(size, alignment);
+    }
+#if defined(DEBUG) || defined(_DEBUG)
+    Round32BytesFill(kInitZag, chunk, size);
+#endif
+    return chunk;
+}
+    
+void Arena::Purge(bool reinit) {
     while (current_) {
         PageHead *x = current_;
         current_ = x->next.load(std::memory_order_relaxed);
@@ -28,19 +45,12 @@ namespace base {
 #endif
         low_level_alloc_->Free(x, page_size);
     }
-}
-
-/*virtual*/ void *Arena::Allocate(size_t size, size_t alignment) {
-    void *chunk;
-    if (size >  kPageSize - sizeof(PageHead)) {
-        chunk = NewLarge(size, alignment);
+    if (reinit) {
+        current_.store(NewPage(kPageSize), std::memory_order_relaxed);
+        memory_usage_.store(kPageSize, std::memory_order_relaxed);
     } else {
-        chunk = NewNormal(size, alignment);
+        memory_usage_.store(0, std::memory_order_relaxed);
     }
-#if defined(DEBUG) || defined(_DEBUG)
-    Round32BytesFill(kInitZag, chunk, size);
-#endif
-    return chunk;
 }
     
 void *Arena::NewNormal(size_t size, size_t alignment) {

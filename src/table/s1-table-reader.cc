@@ -398,6 +398,10 @@ S1TableReader::NewIterator(const ReadOptions &read_opts,
         if (tag) {
             *tag = KeyBoundle::ExtractTag(saved_key);
         }
+    } else {
+        if (tag) {
+            *tag = Tag(0, Tag::kFlagValue);
+        }
     }
     return Error::OK();
 }

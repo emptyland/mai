@@ -58,6 +58,7 @@ public:
 protected:
     std::string_view raw_buf() const { return redo_; }
     std::string *mutable_raw_buf() { return &redo_; }
+    void set_n_entries(uint32_t n_entries) { n_entries_ = n_entries; }
     
 private:
     std::string redo_;

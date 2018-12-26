@@ -8,7 +8,7 @@
 #include <string_view>
 
 namespace mai {
-    
+
 class ColumnFamily;
 class Iterator;
     

@@ -437,40 +437,7 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
 }
     
 /*virtual*/ Error DBImpl::Write(const WriteOptions& opts, WriteBatch* updates) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    
-    core::SequenceNumber last_version = versions_->last_sequence_number();
-    Error rs;
-    for (auto cfd : *versions_->column_families()) {
-        rs = MakeRoomForWrite(cfd, &lock);
-        if (!rs) {
-            return rs;
-        }
-    }
-
-    rs = logger_->Append(updates->redo(last_version + 1));
-    if (!rs) {
-        return rs;
-    }
-    flush_request_.fetch_add(1);
-    
-    if (opts.sync) {
-        rs = logger_->Flush();
-        if (!rs) {
-            return rs;
-        }
-        rs = logger_->Sync(true);
-        if (!rs) {
-            return rs;
-        }
-    }
-    
-    WritingHandler handler(0, false, versions_->column_families());
-    handler.ResetLastSequenceNumber(last_version + 1);
-    updates->Iterate(&handler);
-    
-    versions_->AddSequenceNumber(handler.sequence_number_count());
-    return Error::OK();
+    return WriteImpl(opts, updates, nullptr);
 }
     
 /*virtual*/ Error DBImpl::Get(const ReadOptions &opts, ColumnFamily *cf,
@@ -481,8 +448,9 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     GetContext ctx;
     Error rs = PrepareForGet(opts, cf, &ctx);
     for (const auto &table : ctx.in_mem) {
-        rs = table->Get(key, ctx.last_sequence_number, nullptr, value);
-        if (rs.ok()) {
+        core::Tag tag;
+        rs = table->Get(key, ctx.last_sequence_number, &tag, value);
+        if (rs.ok() && tag.flag() == core::Tag::kFlagValue) {
             return rs;
         }
     }
@@ -595,6 +563,57 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
     return Error::OK();
 }
     
+Error DBImpl::WriteImpl(const WriteOptions& opts, WriteBatch* batch,
+                        WriteCallback *callback) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    
+    core::SequenceNumber last_version = versions_->last_sequence_number();
+    Error rs;
+    for (auto cfd : *versions_->column_families()) {
+        rs = MakeRoomForWrite(cfd, &lock);
+        if (!rs) {
+            return rs;
+        }
+    }
+    if (callback) {
+        rs = callback->Prepare(this);
+        if (!rs) {
+            return rs;
+        }
+    }
+    
+    rs = logger_->Append(batch->redo(last_version + 1));
+    if (!rs) {
+        return rs;
+    }
+    flush_request_.fetch_add(1);
+    
+    if (opts.sync) {
+        rs = logger_->Flush();
+        if (!rs) {
+            return rs;
+        }
+        rs = logger_->Sync(true);
+        if (!rs) {
+            return rs;
+        }
+    }
+    if (callback) {
+        callback->WALDone(this);
+    }
+    
+    WritingHandler handler(0, false, versions_->column_families());
+    handler.ResetLastSequenceNumber(last_version + 1);
+    batch->Iterate(&handler);
+    
+    versions_->AddSequenceNumber(handler.sequence_number_count());
+    
+    if (callback) {
+        callback->Done(this);
+    }
+    return Error::OK();
+}
+    
 Iterator *DBImpl::NewInternalIterator(const ReadOptions &opts,
                                       ColumnFamilyImpl *cfd) {
     std::vector<Iterator *> iters;
@@ -621,6 +640,56 @@ Iterator *DBImpl::NewInternalIterator(const ReadOptions &opts,
     // Memory table's iterator can cleanup itself reference count.
     return internal;
 }
+    
+core::SequenceNumber DBImpl::GetLatestSequenceNumber() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    return versions_->last_sequence_number();
+}
+    
+Error DBImpl::GetColumnFamilyImpl(uint32_t cfid,
+                                  base::intrusive_ptr<ColumnFamilyImpl> *result) {
+    
+    auto impl = versions_->column_families()->GetColumnFamily(cfid);
+    if (!impl) {
+        return MAI_CORRUPTION("Column family not found!");
+    }
+    result->reset(impl);
+    return Error::OK();
+}
+    
+Error DBImpl::GetLatestSequenceForKey(ColumnFamilyImpl *impl, bool cache_only,
+                              std::string_view key, core::SequenceNumber *seq) {
+    auto curr_seq = versions_->last_sequence_number();
+    *seq = core::Tag::kMaxSequenceNumber;
+    
+    std::string value;
+    core::Tag tag;
+    Error rs = impl->mutable_table()->Get(key, curr_seq, &tag, &value);
+    if (rs.ok()) {
+        *seq = tag.sequence_number();
+        return Error::OK();
+    }
+    
+    std::vector<base::intrusive_ptr<core::MemoryTable>> imm;
+    impl->immutable_pipeline()->PeekAll(&imm);
+    for (const auto &table : imm) {
+        rs = table->Get(key, curr_seq, &tag, &value);
+        if (rs.ok()) {
+            *seq = tag.sequence_number();
+            return Error::OK();
+        }
+    }
+    if (cache_only) {
+        return MAI_NOT_FOUND("No any key in memory tables!");
+    }
+    
+    rs = impl->current()->Get(ReadOptions{}, key, curr_seq, &tag, &value);
+    if (rs.ok()) {
+        *seq = tag.sequence_number();
+        return Error::OK();
+    }
+    return rs;
+}
 
 Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
     ColumnFamilyImpl *cfd = DCHECK_NOTNULL(ColumnFamilyHandle::Cast(cf)->impl());
@@ -642,12 +711,6 @@ Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
     if (sync && cfd->background_progress()) {
         cfd->mutable_background_cv()->wait(lock);
     }
-    return Error::OK();
-}
-
-// REQUIRES: mutex_.lock()
-Error DBImpl::SwitchMemoryTable(ColumnFamilyImpl *column_family) {
-    // TODO:
     return Error::OK();
 }
 

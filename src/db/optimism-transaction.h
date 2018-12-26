@@ -2,14 +2,30 @@
 #define MAI_DB_OPTIMISM_TRANSACTION_H_
 
 #include "db/write-batch-with-index.h"
+#include "core/key-boundle.h"
 #include "base/base.h"
 #include "mai/transaction.h"
+#include <unordered_map>
 
 namespace mai {
     
 namespace db {
 
+class DBImpl;
+class ColumnFamilyImpl;
 class OptimismTransactionDB;
+    
+struct TxnKeyInfo {
+    core::SequenceNumber seq;
+    
+    uint32_t n_writes = 0;
+    uint32_t n_reads = 0;
+    bool exclusive = false;
+    
+    TxnKeyInfo(core::SequenceNumber aseq) : seq(aseq) {}
+};
+    
+using TxnKeyMap = std::unordered_map<std::string, TxnKeyInfo>;
     
 class OptimismTransaction final : public Transaction {
 public:
@@ -35,8 +51,26 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(OptimismTransaction);
 private:
+    class Callback;
+    
+    // OptimismTransaction never real lock
+    Error TryLock(ColumnFamily* cf, std::string_view key, bool read_only,
+                  bool exclusive, const bool do_validate);
+    void TrackKey(uint32_t cfid, const std::string& key,
+                  core::SequenceNumber seq, bool read_only, bool exclusive);
+    Error CheckTransactionForConflicts(DBImpl *db);
+    Error CheckKey(DBImpl *db, ColumnFamilyImpl *impl,
+                   core::SequenceNumber earliest_seq,
+                   core::SequenceNumber key_seq,
+                   std::string_view key, bool cache_only);
+    void Clear();
+    void SetSnapshotIfNeeded();
+    
     WriteOptions options_;
     OptimismTransactionDB *db_;
+    WriteBatchWithIndex write_batch_;
+    const Snapshot *snapshot_ = nullptr;
+    std::unordered_map<uint32_t, TxnKeyMap> txn_keys_;
 }; // class OptimismTransaction
     
 } // namespace db

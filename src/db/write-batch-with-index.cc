@@ -40,7 +40,7 @@ int WriteBatchWithIndex::KeyComparator::operator () (const WriteBatchEntry *lhs,
         auto p = buf->data() + rhs->offset + 1;
         auto s = Varint64::Decode(p, &n);
         DCHECK_EQ(s, rhs->key_size);
-        b = std::string_view(buf->data() + n, rhs->key_size);
+        b = std::string_view(p + n, rhs->key_size);
     } else {
         b = std::string_view(rhs->lookup_key, rhs->size);
     }
@@ -52,6 +52,12 @@ WriteBatchWithIndex::WriteBatchWithIndex(Allocator *ll_allocator)
 }
 
 WriteBatchWithIndex::~WriteBatchWithIndex() {
+}
+    
+void WriteBatchWithIndex::Clear() {
+    WriteBatch::Clear();
+    tables_.clear();
+    arena_.Purge(true);
 }
 
 void WriteBatchWithIndex::AddOrUpdate(ColumnFamily *cf,
@@ -116,7 +122,7 @@ Error WriteBatchWithIndex::Get(ColumnFamily *cf, std::string_view key,
     if (!table_iter.Valid()) {
         return MAI_NOT_FOUND("Not found!");
     }
-    
+
     const auto entry = table_iter.key();
     base::BufferReader rd(raw_buf().substr(entry->offset, entry->size));
     switch (rd.ReadByte()) {
@@ -131,7 +137,10 @@ Error WriteBatchWithIndex::Get(ColumnFamily *cf, std::string_view key,
     
     auto n = rd.ReadVarint64();
     DCHECK_EQ(entry->key_size, n);
-    rd.ReadString(n);
+    auto found_key = rd.ReadString(n);
+    if (cf->comparator()->Compare(key, found_key) != 0) {
+        return MAI_NOT_FOUND("Not found!");
+    }
 
     *value = rd.ReadString();
     return Error::OK();
