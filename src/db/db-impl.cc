@@ -428,12 +428,18 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     
 /*virtual*/ Error DBImpl::Put(const WriteOptions &opts, ColumnFamily *cf,
                   std::string_view key, std::string_view value) {
-    return Write(opts, cf, key, value, core::Tag::kFlagValue);
+    WriteBatch batch;
+    batch.Put(cf, key, value);
+    return Write(opts, &batch);
+    //return Write(opts, cf, key, value, core::Tag::kFlagValue);
 }
     
 /*virtual*/ Error DBImpl::Delete(const WriteOptions &opts, ColumnFamily *cf,
                      std::string_view key) {
-    return Write(opts, cf, key, "", core::Tag::kFlagDeletion);
+    WriteBatch batch;
+    batch.Delete(cf, key);
+    return Write(opts, &batch);
+    //return Write(opts, cf, key, "", core::Tag::kFlagDeletion);
 }
     
 /*virtual*/ Error DBImpl::Write(const WriteOptions& opts, WriteBatch* updates) {
@@ -446,15 +452,25 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     using core::Tag;
     
     GetContext ctx;
+    core::Tag tag;
     Error rs = PrepareForGet(opts, cf, &ctx);
     for (const auto &table : ctx.in_mem) {
-        core::Tag tag;
         rs = table->Get(key, ctx.last_sequence_number, &tag, value);
-        if (rs.ok() && tag.flag() == core::Tag::kFlagValue) {
+        if (rs.ok()) {
+            if (tag.flag() == core::Tag::kFlagDeletion) {
+                rs = MAI_NOT_FOUND("Deleted.");
+            }
             return rs;
         }
     }
-    return ctx.current->Get(opts, key, ctx.last_sequence_number, nullptr, value);
+    rs = ctx.current->Get(opts, key, ctx.last_sequence_number, &tag, value);
+    if (!rs) {
+        return rs;
+    }
+    if (tag.flag() == core::Tag::kFlagDeletion) {
+        return MAI_NOT_FOUND("Deleted.");
+    }
+    return rs;
 }
     
 /*virtual*/ Iterator *

@@ -64,6 +64,7 @@ const char *DBImplTest::tmp_dirs[] = {
     "tests/16-db-two-cf-write",
     "tests/17-db-concurrent-get",
     "tests/18-db-get-properties",
+    "tests/19-db-deletion",
     nullptr,
 };
     
@@ -680,8 +681,8 @@ TEST_F(DBImplTest, SnapshotGetting) {
         std::string val = base::Slice::Sprintf("val.%d", i);
         
         Error rs = impl->Get(rd, cf0, key, &value);
-        if (i <= kN / 2) {
-            ASSERT_TRUE(rs.ok()) << rs.ToString();
+        if (i < kN / 2) {
+            ASSERT_TRUE(rs.ok()) << rs.ToString() << " key: " << key;
             ASSERT_EQ(val, value);
         } else {
             ASSERT_TRUE(rs.fail());
@@ -848,6 +849,46 @@ TEST_F(DBImplTest, GetProperties) {
     ASSERT_EQ("0", value);
 }
     
+TEST_F(DBImplTest, Deletion) {
+    std::unique_ptr<DBImpl> impl(new DBImpl(tmp_dirs[19], options_));
+    ColumnFamilyCollection scope(impl.get());
+    auto rs = impl->Open(descs_, scope.ReceiveAll());
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    static const auto kN = 1024 * 1024;
+    auto cf0 = impl->DefaultColumnFamily();
+    for (int i = 0; i < kN; ++i) {
+        std::string key = base::Slice::Sprintf("k.%d", i);
+        std::string val = base::Slice::Sprintf("v.%d", i);
+        
+        rs = impl->Put(WriteOptions{}, cf0, key, val);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+    }
+    
+    for (int i = 0; i < kN / 2; ++i) {
+        std::string key = base::Slice::Sprintf("k.%d", i);
+        
+        rs = impl->Delete(WriteOptions{}, cf0, key);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+    }
+    
+    std::string value;
+    //rs = impl->Get(ReadOptions{}, cf0, "k.0", &value);
+    
+    for (int i = 0; i < kN; ++i) {
+        std::string key = base::Slice::Sprintf("k.%d", i);
+        
+        rs = impl->Get(ReadOptions{}, cf0, key, &value);
+        if (i < kN / 2) {
+            EXPECT_TRUE(rs.fail()) << key << " hint: " << kN / 2;
+            EXPECT_TRUE(rs.IsNotFound()) << rs.ToString();
+        } else {
+            ASSERT_TRUE(rs.ok());
+            ASSERT_EQ(value, base::Slice::Sprintf("v.%d", i));
+        }
+    }
+}
+
 } // namespace db
     
 } // namespace mai

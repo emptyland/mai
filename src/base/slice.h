@@ -157,6 +157,9 @@ public:
     
     std::string_view ReadString() {
         uint64_t len = ReadVarint64();
+        if (len == 0) {
+            return "";
+        }
         return ReadString(len);
     }
     

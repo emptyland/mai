@@ -1,4 +1,5 @@
 #include "table/block-iterator.h"
+#include "core/key-boundle.h"
 #include "core/internal-key-comparator.h"
 #include "base/slice.h"
 #include "mai/env.h"
@@ -189,7 +190,13 @@ const char *BlockIterator::Read(std::string_view prev_key, const char *start,
     
     key.append(result);
     
-    // Value
+//    core::Tag tag = core::KeyBoundle::ExtractTag(key);
+//    if (tag.flag() == core::Tag::kFlagValue) {
+//        // Value
+//        result = reader.ReadString();
+//    } else {
+//        result = "";
+//    }
     result = reader.ReadString();
     
     *kv = std::make_tuple(key, result);

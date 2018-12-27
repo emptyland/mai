@@ -45,7 +45,6 @@
 		235C1CDB21D223BF0070A049 /* write-batch-with-index.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */; };
 		235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */; };
 		235C1CDE21D22EDD0070A049 /* write-batch-with-index-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDD21D22EDD0070A049 /* write-batch-with-index-test.cc */; };
-		235C1CDF21D22EDD0070A049 /* write-batch-with-index-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDD21D22EDD0070A049 /* write-batch-with-index-test.cc */; };
 		235C1CE121D22F550070A049 /* mock-column-family.h in Headers */ = {isa = PBXBuildFile; fileRef = 235C1CE021D22F550070A049 /* mock-column-family.h */; };
 		236AC67821B7692B0069A17B /* lru-cache-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236AC67621B7692B0069A17B /* lru-cache-v1.cc */; };
 		236AC67B21B769900069A17B /* lru-cache-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236AC67921B769900069A17B /* lru-cache-test.cc */; };
@@ -918,7 +917,6 @@
 				23DE183521D088D000479C23 /* base.cc in Sources */,
 				23DE183621D088D000479C23 /* slice.cc in Sources */,
 				23DE183721D088D000479C23 /* hash.cc in Sources */,
-				235C1CDF21D22EDD0070A049 /* write-batch-with-index-test.cc in Sources */,
 				23DE183821D088D000479C23 /* arena.cc in Sources */,
 				23DE183921D088D000479C23 /* ebr.cc in Sources */,
 				23DE182621D088C300479C23 /* memory-table.cc in Sources */,
