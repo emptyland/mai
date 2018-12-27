@@ -41,11 +41,10 @@ public:
     
     virtual Error Commit() = 0;
     
-    virtual Error Put(const WriteOptions &opts, ColumnFamily *cf,
-                      std::string_view key, std::string_view value) = 0;
-    
-    virtual Error Delete(const WriteOptions &opts, ColumnFamily *cf,
-                         std::string_view key) = 0;
+    virtual Error Put(ColumnFamily *cf, std::string_view key,
+                      std::string_view value) = 0;
+
+    virtual Error Delete(ColumnFamily *cf, std::string_view key) = 0;
     
     virtual Error Get(const ReadOptions &opts, ColumnFamily *cf,
                       std::string_view key, std::string *value) = 0;

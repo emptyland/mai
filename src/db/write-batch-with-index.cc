@@ -107,6 +107,20 @@ void WriteBatchWithIndex::AddOrUpdate(ColumnFamily *cf,
     
 Error WriteBatchWithIndex::Get(ColumnFamily *cf, std::string_view key,
                                std::string *value) const {
+    uint8_t flag;
+    Error rs = RawGet(cf, key, &flag, value);
+    if (!rs) {
+        return rs;
+    }
+    if (flag == core::Tag::kFlagDeletion) {
+        return MAI_NOT_FOUND("Deleted.");
+    }
+    return rs;
+}
+    
+Error WriteBatchWithIndex::RawGet(ColumnFamily *cf, std::string_view key,
+                                  uint8_t *flag,
+                                  std::string *value) const {
     auto iter = tables_.find(cf->id());
     if (iter == tables_.end()) {
         return MAI_NOT_FOUND("No any write.");
@@ -122,14 +136,18 @@ Error WriteBatchWithIndex::Get(ColumnFamily *cf, std::string_view key,
     if (!table_iter.Valid()) {
         return MAI_NOT_FOUND("Not found!");
     }
-
+    
     const auto entry = table_iter.key();
     base::BufferReader rd(raw_buf().substr(entry->offset, entry->size));
-    switch (rd.ReadByte()) {
+    *flag = rd.ReadByte();
+    
+    bool should_read_value = false;
+    switch (*flag) {
         case core::Tag::kFlagValue:
+            should_read_value = true;
             break;
         case core::Tag::kFlagDeletion:
-            return MAI_NOT_FOUND("Not found!");
+            break;
         default:
             DLOG(FATAL) << "Noreached!";
             break;
@@ -142,7 +160,9 @@ Error WriteBatchWithIndex::Get(ColumnFamily *cf, std::string_view key,
         return MAI_NOT_FOUND("Not found!");
     }
 
-    *value = rd.ReadString();
+    if (should_read_value) {
+        *value = rd.ReadString();
+    }
     return Error::OK();
 }
     

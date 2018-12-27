@@ -40,6 +40,15 @@ std::string Error::ToString() const {
         case kIOError:
             s.append("IO Error: ");
             break;
+        case kEOF:
+            s.append("EOF: ");
+            break;
+        case kBusy:
+            s.append("Busy: ");
+            break;
+        case kTryAgain:
+            s.append("Try Again: ");
+            break;
         default:
             break;
     }

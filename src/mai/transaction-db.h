@@ -10,7 +10,8 @@ struct WriteOptions;
     
 struct TransactionDBOptions final {
     
-};
+    bool optimism = true;
+}; // struct TransactionDBOptions
     
 struct TransactionOptions final {
     

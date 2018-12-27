@@ -37,10 +37,9 @@ public:
     
     virtual Error Rollback() override;
     virtual Error Commit() override;
-    virtual Error Put(const WriteOptions &opts, ColumnFamily *cf,
-                      std::string_view key, std::string_view value) override;
-    virtual Error Delete(const WriteOptions &opts, ColumnFamily *cf,
-                         std::string_view key) override;
+    virtual Error Put(ColumnFamily *cf, std::string_view key,
+                      std::string_view value) override;
+    virtual Error Delete(ColumnFamily *cf, std::string_view key) override;
     virtual Error Get(const ReadOptions &opts, ColumnFamily *cf,
                       std::string_view key, std::string *value) override;
     virtual Error GetForUpdate(const ReadOptions &opts, ColumnFamily *cf,

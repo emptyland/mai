@@ -65,8 +65,8 @@ void OptimismTransaction::Reinitialize(const WriteOptions &opts,
 }
 
 /*virtual*/ Error
-OptimismTransaction::Put(const WriteOptions &opts, ColumnFamily *cf,
-                         std::string_view key, std::string_view value) {
+OptimismTransaction::Put(ColumnFamily *cf, std::string_view key,
+                         std::string_view value) {
     Error rs = TryLock(cf, key, false /* read_only */, true /* exclusive */,
                        true);
     if (rs.ok()) {
@@ -76,8 +76,7 @@ OptimismTransaction::Put(const WriteOptions &opts, ColumnFamily *cf,
 }
     
 /*virtual*/ Error
-OptimismTransaction::Delete(const WriteOptions &opts, ColumnFamily *cf,
-                            std::string_view key) {
+OptimismTransaction::Delete(ColumnFamily *cf, std::string_view key) {
     Error rs = TryLock(cf, key, false /* read_only */, true /* exclusive */,
                        true);
     if (rs.ok()) {
@@ -90,8 +89,12 @@ OptimismTransaction::Delete(const WriteOptions &opts, ColumnFamily *cf,
                                            ColumnFamily *cf,
                                            std::string_view key,
                                            std::string *value) {
-    Error rs = write_batch_.Get(cf, key, value);
-    if (rs.fail() && !rs.IsNotFound()) {
+    uint8_t flag;
+    Error rs = write_batch_.RawGet(cf, key, &flag, value);
+    if (rs.ok()) {
+        if (flag == core::Tag::kFlagDeletion) {
+            return MAI_NOT_FOUND("Deleted.");
+        }
         return rs;
     }
     return db_->impl()->Get(opts, cf, key, value);
@@ -218,7 +221,9 @@ Error OptimismTransaction::CheckKey(DBImpl *db, ColumnFamilyImpl *impl,
         auto seq = core::Tag::kMaxSequenceNumber;
         
         rs = db->GetLatestSequenceForKey(impl, !need_to_read_sst, key, &seq);
-        if (!(rs.ok() || rs.IsNotFound())) {
+        if (rs.IsNotFound()) {
+            return Error::OK();
+        } else if (rs.fail()) {
             return rs;
         } else {
             if (key_seq < seq) {

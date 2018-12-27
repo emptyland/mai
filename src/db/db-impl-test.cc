@@ -214,7 +214,7 @@ TEST_F(DBImplTest, RecoveryData) {
     scope.ReleaseAll();
     
     impl.reset(new DBImpl(tmp_dirs[6], options_));
-    scope.Reset(impl.get());
+    scope.Attach(impl.get());
     rs = impl->Open(descs_, scope.ReceiveAll());
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     cf0 = scope.newest();
@@ -493,7 +493,7 @@ TEST_F(DBImplTest, UnorderedColumnFamilyRecovery) {
 
     scope.ReleaseAll();
     impl.reset(new DBImpl(tmp_dirs[12], options_));
-    scope.Reset(impl.get());
+    scope.Attach(impl.get());
     
 //    Error rs;
 //    ColumnFamily *cf0;
@@ -574,7 +574,7 @@ TEST_F(DBImplTest, OrderedColumnFamilyRecovery) {
     
     scope.ReleaseAll();
     impl.reset(new DBImpl(tmp_dirs[13], options));
-    scope.Reset(impl.get());
+    scope.Attach(impl.get());
     
     rs = impl->Open(descs_, scope.ReceiveAll());
     ASSERT_TRUE(rs.ok()) << rs.ToString();
@@ -746,7 +746,7 @@ TEST_F(DBImplTest, TwoCFWriting) {
     
     scope.ReleaseAll();
     impl.reset(new DBImpl(tmp_dirs[16], options));
-    scope.Reset(impl.get());
+    scope.Attach(impl.get());
     
     rs = impl->Open(descs, scope.ReceiveAll());
     ASSERT_TRUE(rs.ok()) << rs.ToString();

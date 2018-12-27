@@ -27,6 +27,9 @@ public:
     
     Error Get(ColumnFamily *cf, std::string_view key, std::string *value) const;
     
+    Error RawGet(ColumnFamily *cf, std::string_view key, uint8_t *flag,
+                 std::string *value) const;
+    
     struct SavePoint {
         size_t redo_size;
         size_t n_entries;
