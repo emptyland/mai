@@ -1,4 +1,4 @@
-#include "db/write-batch-with-index.h"
+#include "txn/write-batch-with-index.h"
 #include "db/column-family.h"
 #include "core/internal-key-comparator.h"
 #include "core/delta-amend-iterator.h"
@@ -8,7 +8,7 @@
 
 namespace mai {
     
-namespace db {
+namespace txn {
     
 using ::mai::base::Slice;
 using ::mai::base::Varint32;
@@ -269,6 +269,6 @@ Iterator *WriteBatchWithIndex::NewIteratorWithBase(ColumnFamily *cf,
     return new core::DeltaAmendIterator(cf->comparator(), base, delta);
 }
     
-} // namespace db
+} // namespace txn
     
 } // namespace mai

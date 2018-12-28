@@ -1,22 +1,22 @@
-#include "db/optimism-transaction.h"
-#include "db/optimism-transaction-db.h"
+#include "txn/optimism-transaction.h"
+#include "txn/optimism-transaction-db.h"
+#include "txn/write-batch-with-index.h"
 #include "db/db-impl.h"
 #include "db/column-family.h"
-#include "db/write-batch-with-index.h"
 #include "base/slice.h"
 #include "mai/iterator.h"
 #include "glog/logging.h"
 
 namespace mai {
     
-namespace db {
+namespace txn {
     
-class OptimismTransaction::Callback final : public WriteCallback {
+class OptimismTransaction::Callback final : public db::WriteCallback {
 public:
     Callback(OptimismTransaction *owns) : owns_(DCHECK_NOTNULL(owns)) {}
     
     // Thie callback has been acquired db mutex_ !
-    virtual Error Prepare(DBImpl *db) override {
+    virtual Error Prepare(db::DBImpl *db) override {
         return owns_->CheckTransactionForConflicts(db);
     }
 private:
@@ -136,7 +136,7 @@ Error OptimismTransaction::TryLock(ColumnFamily* cf, std::string_view key,
     
     core::SequenceNumber seq;
     if (snapshot_) {
-        seq = SnapshotImpl::Cast(snapshot_)->sequence_number();
+        seq = db::SnapshotImpl::Cast(snapshot_)->sequence_number();
     } else {
         seq = db_->impl()->GetLatestSequenceNumber();
     }
@@ -165,13 +165,13 @@ void OptimismTransaction::TrackKey(uint32_t cfid, const std::string& key,
     iter->second.exclusive |= exclusive;
 }
     
-Error OptimismTransaction::CheckTransactionForConflicts(DBImpl *db) {
+Error OptimismTransaction::CheckTransactionForConflicts(db::DBImpl *db) {
     Error rs;
     for (const auto &keys_iter : txn_keys_) {
         uint32_t cfid = keys_iter.first;
         const TxnKeyMap &keys = keys_iter.second;
         
-        base::intrusive_ptr<ColumnFamilyImpl> impl;
+        base::intrusive_ptr<db::ColumnFamilyImpl> impl;
         rs = db->GetColumnFamilyImpl(cfid, &impl);
         if (!rs) {
             break;
@@ -195,7 +195,7 @@ Error OptimismTransaction::CheckTransactionForConflicts(DBImpl *db) {
     return rs;
 }
     
-Error OptimismTransaction::CheckKey(DBImpl *db, ColumnFamilyImpl *impl,
+Error OptimismTransaction::CheckKey(db::DBImpl *db, db::ColumnFamilyImpl *impl,
                                     core::SequenceNumber earliest_seq,
                                     core::SequenceNumber key_seq,
                                     std::string_view key, bool cache_only) {
@@ -248,6 +248,6 @@ void OptimismTransaction::SetSnapshotIfNeeded() {
     // TODO:
 }
 
-} // namespace db
+} // namespace txn
     
 } // namespace mai

@@ -1,5 +1,5 @@
-#include "db/optimism-transaction-db.h"
-#include "db/optimism-transaction.h"
+#include "txn/optimism-transaction-db.h"
+#include "txn/optimism-transaction.h"
 #include "mai/db.h"
 
 namespace mai {
@@ -18,7 +18,7 @@ TransactionDB::Open(const Options &opts,
     }
 
     if (txn_db_opts.optimism) {
-        *result = new db::OptimismTransactionDB(txn_db_opts, db);
+        *result = new txn::OptimismTransactionDB(txn_db_opts, db);
     } else {
         delete db;
         return MAI_NOT_SUPPORTED("TODO:");

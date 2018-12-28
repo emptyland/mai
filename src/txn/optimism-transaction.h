@@ -1,18 +1,19 @@
-#ifndef MAI_DB_OPTIMISM_TRANSACTION_H_
-#define MAI_DB_OPTIMISM_TRANSACTION_H_
+#ifndef MAI_TXN_OPTIMISM_TRANSACTION_H_
+#define MAI_TXN_OPTIMISM_TRANSACTION_H_
 
-#include "db/write-batch-with-index.h"
+#include "txn/write-batch-with-index.h"
 #include "core/key-boundle.h"
 #include "base/base.h"
 #include "mai/transaction.h"
 #include <unordered_map>
 
 namespace mai {
-    
 namespace db {
-
 class DBImpl;
 class ColumnFamilyImpl;
+} // namespace db
+namespace txn {
+
 class OptimismTransactionDB;
     
 struct TxnKeyInfo {
@@ -57,8 +58,8 @@ private:
                   bool exclusive, const bool do_validate);
     void TrackKey(uint32_t cfid, const std::string& key,
                   core::SequenceNumber seq, bool read_only, bool exclusive);
-    Error CheckTransactionForConflicts(DBImpl *db);
-    Error CheckKey(DBImpl *db, ColumnFamilyImpl *impl,
+    Error CheckTransactionForConflicts(db::DBImpl *db);
+    Error CheckKey(db::DBImpl *db, db::ColumnFamilyImpl *impl,
                    core::SequenceNumber earliest_seq,
                    core::SequenceNumber key_seq,
                    std::string_view key, bool cache_only);
@@ -72,11 +73,8 @@ private:
     std::unordered_map<uint32_t, TxnKeyMap> txn_keys_;
 }; // class OptimismTransaction
     
-} // namespace db
+} // namespace txn
     
 } // namespace mai
 
-//OptimismTransaction
-
-
-#endif // MAI_DB_OPTIMISM_TRANSACTION_H_
+#endif // MAI_TXN_OPTIMISM_TRANSACTION_H_

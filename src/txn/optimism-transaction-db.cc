@@ -1,10 +1,10 @@
-#include "db/optimism-transaction-db.h"
-#include "db/optimism-transaction.h"
+#include "txn/optimism-transaction-db.h"
+#include "txn/optimism-transaction.h"
 #include "db/db-impl.h"
 
 namespace mai {
     
-namespace db {
+namespace txn {
     
 OptimismTransactionDB::OptimismTransactionDB(const TransactionDBOptions &opts,
                                              DB *db)
@@ -49,10 +49,10 @@ OptimismTransactionDB::BeginTransaction(const WriteOptions &wr_opts,
     return txn;
 }
 
-DBImpl *OptimismTransactionDB::impl() const {
-    return down_cast<DBImpl>(GetDB());
+db::DBImpl *OptimismTransactionDB::impl() const {
+    return down_cast<db::DBImpl>(GetDB());
 }
     
-} // namespace db
+} // namespace txn
     
 } // namespace mai

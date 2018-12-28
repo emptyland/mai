@@ -1,5 +1,5 @@
-#ifndef MAI_DB_WRITE_BATCH_WITH_INDEX_H_
-#define MAI_DB_WRITE_BATCH_WITH_INDEX_H_
+#ifndef MAI_TXN_WRITE_BATCH_WITH_INDEX_H_
+#define MAI_TXN_WRITE_BATCH_WITH_INDEX_H_
 
 #include "core/skip-list.h"
 #include "base/arena.h"
@@ -14,7 +14,7 @@ class Iterator;
 namespace core {
 class InternalKeyComparator;
 } // namespace core
-namespace db {
+namespace txn {
     
 class WriteBatchWithIndex final : public WriteBatch {
 public:
@@ -59,8 +59,8 @@ private:
     //std::unique_ptr<Table> table_;
 }; // class WriteBatchWithIndex
     
-} // namespace db
+} // namespace txn
     
 } // namespace mai
 
-#endif // MAI_DB_WRITE_BATCH_WITH_INDEX_H_
+#endif // MAI_TXN_WRITE_BATCH_WITH_INDEX_H_
