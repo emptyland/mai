@@ -1,5 +1,6 @@
 #include "mai/transaction-db.h"
 #include "mai/transaction.h"
+#include "mai/iterator.h"
 #include "gtest/gtest.h"
 
 namespace mai {
@@ -33,6 +34,7 @@ const char *TransactionDBTest::tmp_dirs[] = {
     "tests/01-txn-db-put-without-txn",
     "tests/02-txn-db-optimism-put-with-txn",
     "tests/03-txn-db-optimism-write-conflict",
+    "tests/04-txn-db-iterate",
     nullptr,
 };
     
@@ -224,4 +226,57 @@ TEST_F(TransactionDBTest, TransactionGet) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
 }
 
+TEST_F(TransactionDBTest, TransactionIterate) {
+    std::unique_ptr<TransactionDB> db;
+    TransactionDB *result = nullptr;
+    Error rs = TransactionDB::Open(options_, txn_db_opts_, tmp_dirs[2], {},
+                                   nullptr, &result);
+    db.reset(result);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    auto cf0 = db->DefaultColumnFamily();
+    
+    WriteOptions wr_opts;
+    wr_opts.sync = true;
+    std::unique_ptr<Transaction> txn(db->BeginTransaction(wr_opts));
+    
+    db->Put(wr_opts, cf0, "aaad", "v4");
+    db->Put(wr_opts, cf0, "aaae", "v5");
+    
+    txn->Put(cf0, "aaaa", "v1");
+    txn->Put(cf0, "aaab", "v2");
+    txn->Put(cf0, "aaac", "v3");
+    
+    ReadOptions rd_opts;
+    std::unique_ptr<Iterator> iter(txn->GetIterator(rd_opts, cf0));
+    
+    iter->SeekToFirst();
+    ASSERT_TRUE(iter->Valid());
+    ASSERT_EQ("aaaa", iter->key());
+    ASSERT_EQ("v1", iter->value());
+    
+    iter->Next();
+    ASSERT_TRUE(iter->Valid());
+    ASSERT_EQ("aaab", iter->key());
+    ASSERT_EQ("v2", iter->value());
+    
+    iter->Next();
+    ASSERT_TRUE(iter->Valid());
+    ASSERT_EQ("aaac", iter->key());
+    ASSERT_EQ("v3", iter->value());
+    
+    iter->Next();
+    ASSERT_TRUE(iter->Valid());
+    ASSERT_EQ("aaad", iter->key());
+    ASSERT_EQ("v4", iter->value());
+    
+    iter->Next();
+    ASSERT_TRUE(iter->Valid());
+    ASSERT_EQ("aaae", iter->key());
+    ASSERT_EQ("v5", iter->value());
+    
+    iter->Next();
+    ASSERT_FALSE(iter->Valid());
 }
+    
+} // namespace mai

@@ -84,6 +84,9 @@
 		23B4E01D21A7AD48007A4533 /* compaction-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B4E01B21A7AD48007A4533 /* compaction-impl.cc */; };
 		23BF17E521D4A96D00A722B9 /* transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E421D4A96D00A722B9 /* transaction-db.cc */; };
 		23BF17E621D4A96D00A722B9 /* transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E421D4A96D00A722B9 /* transaction-db.cc */; };
+		23BF17E821D4C1A500A722B9 /* delta-amend-iterator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23BF17E721D4C1A500A722B9 /* delta-amend-iterator.h */; };
+		23BF17EA21D4C1D100A722B9 /* delta-amend-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */; };
+		23BF17EB21D4C1D100A722B9 /* delta-amend-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */; };
 		23C1163221AFECBB00DE7321 /* error-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163121AFECBA00DE7321 /* error-test.cc */; };
 		23C1163521AFED1B00DE7321 /* files-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163321AFED1B00DE7321 /* files-test.cc */; };
 		23C1163621AFED1B00DE7321 /* file-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163421AFED1B00DE7321 /* file-test.cc */; };
@@ -316,6 +319,8 @@
 		23B4E01A21A7AB3E007A4533 /* compaction-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "compaction-impl.h"; sourceTree = "<group>"; };
 		23B4E01B21A7AD48007A4533 /* compaction-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "compaction-impl.cc"; sourceTree = "<group>"; };
 		23BF17E421D4A96D00A722B9 /* transaction-db.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db.cc"; sourceTree = "<group>"; };
+		23BF17E721D4C1A500A722B9 /* delta-amend-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "delta-amend-iterator.h"; sourceTree = "<group>"; };
+		23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "delta-amend-iterator.cc"; sourceTree = "<group>"; };
 		23C1163121AFECBA00DE7321 /* error-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "error-test.cc"; path = "src/core/error-test.cc"; sourceTree = "<group>"; };
 		23C1163321AFED1B00DE7321 /* files-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "files-test.cc"; path = "src/db/files-test.cc"; sourceTree = "<group>"; };
 		23C1163421AFED1B00DE7321 /* file-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "file-test.cc"; path = "src/db/file-test.cc"; sourceTree = "<group>"; };
@@ -603,6 +608,8 @@
 				23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */,
 				236AC67521B768E60069A17B /* lru-cache-v1.h */,
 				236AC67621B7692B0069A17B /* lru-cache-v1.cc */,
+				23BF17E721D4C1A500A722B9 /* delta-amend-iterator.h */,
+				23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */,
 			);
 			name = core;
 			path = src/core;
@@ -689,6 +696,7 @@
 				235C1CD321D206F10070A049 /* optimism-transaction.h in Headers */,
 				23F0742421D1D187009D8EAA /* proxied-db.h in Headers */,
 				235C1CD921D21C1C0070A049 /* write-batch-with-index.h in Headers */,
+				23BF17E821D4C1A500A722B9 /* delta-amend-iterator.h in Headers */,
 				23DE183C21D0897E00479C23 /* env.h in Headers */,
 				235C1CD121D1D82D0070A049 /* transaction.h in Headers */,
 				23DE183D21D0897E00479C23 /* error.h in Headers */,
@@ -827,6 +835,7 @@
 				23D70EEF21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */,
 				232AA2322193D786007EF228 /* merging-test.cc in Sources */,
 				23F6060F219BF8C800CE12D9 /* version.cc in Sources */,
+				23BF17EA21D4C1D100A722B9 /* delta-amend-iterator.cc in Sources */,
 				232AA24A219432BB007EF228 /* slice.cc in Sources */,
 				2399D20921C247B100C8D5B1 /* tls-test.cc in Sources */,
 				232E1E7321A2C0FC00F408D7 /* factory.cc in Sources */,
@@ -928,6 +937,7 @@
 				23DE182721D088C300479C23 /* bw-tree-memory-table.cc in Sources */,
 				23DE182821D088C300479C23 /* ordered-memory-table.cc in Sources */,
 				23DE182921D088C300479C23 /* unordered-memory-table.cc in Sources */,
+				23BF17EB21D4C1D100A722B9 /* delta-amend-iterator.cc in Sources */,
 				23DE182A21D088C300479C23 /* bytewise-comparator.cc in Sources */,
 				23DE182B21D088C300479C23 /* key-boundle.cc in Sources */,
 				23DE182C21D088C300479C23 /* iterator.cc in Sources */,

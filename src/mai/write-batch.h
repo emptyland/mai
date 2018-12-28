@@ -56,7 +56,7 @@ public:
     WriteBatch(WriteBatch &&) = delete;
     void operator = (const WriteBatch &) = delete;
 protected:
-    std::string_view raw_buf() const { return redo_; }
+    const std::string *raw_buf() const { return &redo_; }
     std::string *mutable_raw_buf() { return &redo_; }
     void set_n_entries(uint32_t n_entries) { n_entries_ = n_entries; }
     

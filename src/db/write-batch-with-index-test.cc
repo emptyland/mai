@@ -1,11 +1,15 @@
 #include "db/write-batch-with-index.h"
 #include "core/key-boundle.h"
+#include "mai/iterator.h"
 #include "test/mock-column-family.h"
 #include "gtest/gtest.h"
 
 namespace mai {
     
 namespace db {
+    
+using namespace ::mai::core;
+    
     
 class WriteBatchWithIndexTest : public ::testing::Test {
 public:
@@ -63,6 +67,34 @@ TEST_F(WriteBatchWithIndexTest, DeletionEntries) {
     rs = batch.Get(mock_cf0_, "aaaa", &value);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ("xxxx", value);
+}
+    
+TEST_F(WriteBatchWithIndexTest, Iterate) {
+    WriteBatchWithIndex batch(env_->GetLowLevelAllocator());
+    
+    batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaaa", "bbbb");
+    batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaab", "bbbb");
+    batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaac", "bbbb");
+    
+    std::unique_ptr<Iterator> iter(batch.NewIterator(mock_cf0_));
+    iter->SeekToFirst();
+    ASSERT_TRUE(iter->Valid());
+    ParsedTaggedKey ikey;
+    KeyBoundle::ParseTaggedKey(iter->key(), &ikey);
+    ASSERT_EQ("aaaa", ikey.user_key);
+    ASSERT_EQ(Tag::kFlagValue, ikey.tag.flag());
+    
+    iter->Next();
+    ASSERT_TRUE(iter->Valid());
+    KeyBoundle::ParseTaggedKey(iter->key(), &ikey);
+    ASSERT_EQ("aaab", ikey.user_key);
+    ASSERT_EQ(Tag::kFlagValue, ikey.tag.flag());
+    
+    iter->Next();
+    ASSERT_TRUE(iter->Valid());
+    KeyBoundle::ParseTaggedKey(iter->key(), &ikey);
+    ASSERT_EQ("aaac", ikey.user_key);
+    ASSERT_EQ(Tag::kFlagValue, ikey.tag.flag());
 }
     
 } // namespace db

@@ -1,9 +1,10 @@
 #include "db/write-batch-with-index.h"
 #include "db/column-family.h"
 #include "core/internal-key-comparator.h"
+#include "core/delta-amend-iterator.h"
 #include "base/slice.h"
+#include "mai/iterator.h"
 #include "glog/logging.h"
-
 
 namespace mai {
     
@@ -22,6 +23,90 @@ struct WriteBatchWithIndex::WriteBatchEntry {
     };
 }; // struct WriteBatchWithIndex::KeyComparator::WriteBatchEntry
     
+    
+class WriteBatchWithIndex::IteratorImpl : public Iterator {
+public:
+    IteratorImpl(const Table *table, const std::string *batch)
+        : iter_(table)
+        , batch_(DCHECK_NOTNULL(batch)) {}
+    virtual ~IteratorImpl() override {}
+    
+    virtual bool Valid() const override { return iter_.Valid(); }
+    virtual void SeekToFirst() override {
+        iter_.SeekToFirst();
+        Update();
+    }
+    virtual void SeekToLast() override {
+        iter_.SeekToLast();
+        Update();
+    }
+    virtual void Seek(std::string_view target) override {
+        WriteBatchEntry lookup;
+        lookup.key_size = target.size();
+        lookup.lookup_key = target.data();
+        iter_.Seek(&lookup);
+    }
+    virtual void Next() override {
+        iter_.Next();
+        if (Valid()) {
+            Update();
+        }
+    }
+    virtual void Prev() override {
+        iter_.Prev();
+        if (Valid()) {
+            Update();
+        }
+    }
+    virtual std::string_view key() const override {
+        DCHECK(Valid());
+        return saved_key_;
+    }
+    virtual std::string_view value() const override {
+        DCHECK(Valid());
+        return saved_value_;
+    }
+    virtual Error error() const override { return error_; }
+private:
+    void Update();
+    
+    Table::Iterator iter_;
+    const std::string *batch_;
+    std::string saved_key_;
+    std::string saved_value_;
+    Error error_;
+}; // class WriteBatchWithIndex::IteratorImpl
+
+void WriteBatchWithIndex::IteratorImpl::Update() {
+    const auto entry = iter_.key();
+    base::BufferReader rd(batch_->substr(entry->offset, entry->size));
+    auto flag = rd.ReadByte();
+    
+    bool should_read_value = false;
+    switch (flag) {
+        case core::Tag::kFlagValue:
+            should_read_value = true;
+            break;
+        case core::Tag::kFlagDeletion:
+            break;
+        default:
+            DLOG(FATAL) << "Noreached!";
+            break;
+    }
+
+    auto n = rd.ReadVarint64();
+    DCHECK_EQ(entry->key_size, n);
+    saved_key_ = rd.ReadString(n);
+    auto tag = core::Tag::Encode(core::Tag::kMaxSequenceNumber, flag);
+    base::Slice::WriteFixed64(&saved_key_, tag);
+    
+    if (should_read_value) {
+        saved_value_ = rd.ReadString();
+    } else {
+        saved_value_ = "";
+    }
+}
+
 int WriteBatchWithIndex::KeyComparator::operator () (const WriteBatchEntry *lhs,
                                                      const WriteBatchEntry *rhs) const {
     size_t n = 0;
@@ -76,7 +161,7 @@ void WriteBatchWithIndex::AddOrUpdate(ColumnFamily *cf,
     lookup.size   = key.size();
     lookup.lookup_key = key.data();
     
-    auto pos = raw_buf().size();
+    auto pos = raw_buf()->size();
     switch (flag) {
         case core::Tag::kFlagValue:
             Put(cf, key, value);
@@ -91,7 +176,7 @@ void WriteBatchWithIndex::AddOrUpdate(ColumnFamily *cf,
     WriteBatchEntry put;
     put.offset   = pos + Varint32::Sizeof(cf->id());
     put.key_size = key.size();
-    put.size     = raw_buf().size() - put.offset;
+    put.size     = raw_buf()->size() - put.offset;
     
     Table::Iterator table_iter(iter->second.get());
     table_iter.Seek(&lookup);
@@ -138,7 +223,7 @@ Error WriteBatchWithIndex::RawGet(ColumnFamily *cf, std::string_view key,
     }
     
     const auto entry = table_iter.key();
-    base::BufferReader rd(raw_buf().substr(entry->offset, entry->size));
+    base::BufferReader rd(raw_buf()->substr(entry->offset, entry->size));
     *flag = rd.ReadByte();
     
     bool should_read_value = false;
@@ -164,6 +249,24 @@ Error WriteBatchWithIndex::RawGet(ColumnFamily *cf, std::string_view key,
         *value = rd.ReadString();
     }
     return Error::OK();
+}
+    
+Iterator *WriteBatchWithIndex::NewIterator(ColumnFamily *cf) const {
+    auto iter = tables_.find(cf->id());
+    if (iter == tables_.cend()) {
+        return Iterator::AsError(MAI_NOT_FOUND("No any write in this column "
+                                               "family."));
+    }
+    return new IteratorImpl(iter->second.get(), raw_buf());
+}
+
+Iterator *WriteBatchWithIndex::NewIteratorWithBase(ColumnFamily *cf,
+                                                   Iterator *base) const {
+    auto delta = NewIterator(cf);
+    if (delta->error().fail()) {
+        return delta;
+    }
+    return new core::DeltaAmendIterator(cf->comparator(), base, delta);
 }
     
 } // namespace db

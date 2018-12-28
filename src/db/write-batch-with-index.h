@@ -10,6 +10,7 @@
 namespace mai {
 class Allocator;
 class Comparator;
+class Iterator;
 namespace core {
 class InternalKeyComparator;
 } // namespace core
@@ -30,6 +31,10 @@ public:
     Error RawGet(ColumnFamily *cf, std::string_view key, uint8_t *flag,
                  std::string *value) const;
     
+    Iterator *NewIterator(ColumnFamily *cf) const;
+    
+    Iterator *NewIteratorWithBase(ColumnFamily *cf, Iterator *base) const;
+    
     struct SavePoint {
         size_t redo_size;
         size_t n_entries;
@@ -38,6 +43,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(WriteBatchWithIndex);
 private:
     struct WriteBatchEntry;
+    class IteratorImpl;
     
     struct KeyComparator final {
         const Comparator  *cmp;
@@ -50,6 +56,7 @@ private:
     
     base::Arena arena_;
     std::unordered_map<uint32_t, std::shared_ptr<Table>> tables_;
+    //std::unique_ptr<Table> table_;
 }; // class WriteBatchWithIndex
     
 } // namespace db

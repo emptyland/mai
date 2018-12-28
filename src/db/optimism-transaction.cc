@@ -118,7 +118,11 @@ OptimismTransaction::GetForUpdate(const ReadOptions &opts, ColumnFamily *cf,
     
 /*virtual*/ Iterator *OptimismTransaction::GetIterator(const ReadOptions& opts,
                                                        ColumnFamily* cf)  {
-    return Iterator::AsError(MAI_NOT_SUPPORTED("TODO:"));
+    auto base = db_->NewIterator(opts, cf);
+    if (base->error().fail()) {
+        return base;
+    }
+    return write_batch_.NewIteratorWithBase(cf, base);
 }
     
 Error OptimismTransaction::TryLock(ColumnFamily* cf, std::string_view key,
