@@ -14,12 +14,7 @@ class OptimismTransactionDB final : public TransactionDB {
 public:
     OptimismTransactionDB(const TransactionDBOptions &opts, DB *db);
     virtual ~OptimismTransactionDB() override;
-    
-    virtual Error Put(const WriteOptions &opts, ColumnFamily *cf,
-                      std::string_view key, std::string_view value) override;
-    virtual Error Delete(const WriteOptions &opts, ColumnFamily *cf,
-                         std::string_view key) override;
-    virtual Error Write(const WriteOptions& opts, WriteBatch* updates) override;
+
     virtual Transaction *BeginTransaction(const WriteOptions &wr_opts,
                                           const TransactionOptions &txn_opts,
                                           Transaction *old_txn) override;

@@ -13,27 +13,6 @@ OptimismTransactionDB::OptimismTransactionDB(const TransactionDBOptions &opts,
     
 /*virtual*/ OptimismTransactionDB::~OptimismTransactionDB() {
 }
-
-/*virtual*/ Error
-OptimismTransactionDB::Put(const WriteOptions &opts, ColumnFamily *cf,
-                           std::string_view key, std::string_view value) {
-    WriteBatch batch;
-    batch.Put(cf, key, value);
-    return Write(opts, &batch);
-}
-    
-/*virtual*/ Error
-OptimismTransactionDB::Delete(const WriteOptions &opts, ColumnFamily *cf,
-                              std::string_view key) {
-    WriteBatch batch;
-    batch.Delete(cf, key);
-    return Write(opts, &batch);
-}
-    
-/*virtual*/ Error
-OptimismTransactionDB::Write(const WriteOptions& opts, WriteBatch* updates) {
-    return GetDB()->Write(opts, updates);
-}
     
 /*virtual*/ Transaction *
 OptimismTransactionDB::BeginTransaction(const WriteOptions &wr_opts,

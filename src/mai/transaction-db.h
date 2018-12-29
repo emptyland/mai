@@ -11,9 +11,26 @@ struct WriteOptions;
 struct TransactionDBOptions final {
     
     bool optimism = true;
+    
+    int64_t max_num_locks = -1;
+    
+    int64_t transaction_lock_timeout = 1000;  // 1 second
+    
+    int64_t default_lock_timeout = 1000;  // 1 second
+    
 }; // struct TransactionDBOptions
     
 struct TransactionOptions final {
+    
+    bool deadlock_detect = false;
+    
+    int64_t lock_timeout = -1;
+    
+    int64_t expiration = -1;
+    
+    int64_t deadlock_detect_depth = 50;
+    
+    size_t max_write_batch_size = 0;
     
 }; // struct TransactionOptions
     

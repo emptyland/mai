@@ -29,12 +29,12 @@ public:
 
     virtual ~Transaction() {}
     
-    std::string name() const { return name_; }
+    virtual std::string name() = 0;
     
-    void set_name(const std::string &name) { name_ = name; }
+    virtual Error SetName(const std::string &name) = 0;
     
-    TxnID id() const { return id_; }
-    
+    virtual TxnID id() const = 0;
+
     State state() const { return state_.load(); }
     
     virtual Error Rollback() = 0;
@@ -64,8 +64,6 @@ protected:
     Transaction() : state_(STARTED) {}
     
     std::atomic<State> state_;
-    std::string name_;
-    TxnID id_;
 }; // class Transaction
     
 } // namespace mai

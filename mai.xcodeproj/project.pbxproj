@@ -57,6 +57,12 @@
 		239B2A6E21D614920088F382 /* write-batch-with-index-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A6D21D614910088F382 /* write-batch-with-index-test.cc */; };
 		239B2A7021D615890088F382 /* pessimistic-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A6F21D615890088F382 /* pessimistic-transaction-db.cc */; };
 		239B2A7121D615890088F382 /* pessimistic-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A6F21D615890088F382 /* pessimistic-transaction-db.cc */; };
+		239B2A7321D6170B0088F382 /* pessimistic-transaction.h in Headers */ = {isa = PBXBuildFile; fileRef = 239B2A7221D6170B0088F382 /* pessimistic-transaction.h */; };
+		239B2A7521D6171E0088F382 /* pessimistic-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7421D6171E0088F382 /* pessimistic-transaction.cc */; };
+		239B2A7621D6171E0088F382 /* pessimistic-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7421D6171E0088F382 /* pessimistic-transaction.cc */; };
+		239B2A7821D61A680088F382 /* transaction-base.h in Headers */ = {isa = PBXBuildFile; fileRef = 239B2A7721D61A680088F382 /* transaction-base.h */; };
+		239B2A7A21D61BE10088F382 /* transaction-base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7921D61BE10088F382 /* transaction-base.cc */; };
+		239B2A7B21D61BE10088F382 /* transaction-base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7921D61BE10088F382 /* transaction-base.cc */; };
 		23A265D421CCC42700EB5CAA /* table-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23A265D321CCC42700EB5CAA /* table-test.cc */; };
 		23AD6D5F21BF5B5300F8F4C5 /* bw-tree-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */; };
 		23AE732621AAABC60065725A /* db-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AE732421AAABC60065725A /* db-iterator.cc */; };
@@ -268,6 +274,10 @@
 		2399D20D21C264B100C8D5B1 /* ebr.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ebr.cc; sourceTree = "<group>"; };
 		239B2A6D21D614910088F382 /* write-batch-with-index-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "write-batch-with-index-test.cc"; path = "src/txn/write-batch-with-index-test.cc"; sourceTree = "<group>"; };
 		239B2A6F21D615890088F382 /* pessimistic-transaction-db.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "pessimistic-transaction-db.cc"; sourceTree = "<group>"; };
+		239B2A7221D6170B0088F382 /* pessimistic-transaction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pessimistic-transaction.h"; sourceTree = "<group>"; };
+		239B2A7421D6171E0088F382 /* pessimistic-transaction.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "pessimistic-transaction.cc"; sourceTree = "<group>"; };
+		239B2A7721D61A680088F382 /* transaction-base.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "transaction-base.h"; sourceTree = "<group>"; };
+		239B2A7921D61BE10088F382 /* transaction-base.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-base.cc"; sourceTree = "<group>"; };
 		23A265D321CCC42700EB5CAA /* table-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "table-test.cc"; sourceTree = "<group>"; };
 		23AD6D5D21BF53CF00F8F4C5 /* bw-tree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree.h"; sourceTree = "<group>"; };
 		23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "bw-tree-test.cc"; path = "src/core/bw-tree-test.cc"; sourceTree = "<group>"; };
@@ -420,10 +430,14 @@
 			children = (
 				23283B6B21D612560011D680 /* pessimistic-transaction-db.h */,
 				239B2A6F21D615890088F382 /* pessimistic-transaction-db.cc */,
+				239B2A7221D6170B0088F382 /* pessimistic-transaction.h */,
+				239B2A7421D6171E0088F382 /* pessimistic-transaction.cc */,
 				235C1CCB21D1D5F70070A049 /* optimism-transaction-db.h */,
 				235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */,
 				235C1CD221D206F10070A049 /* optimism-transaction.h */,
 				235C1CD421D210520070A049 /* optimism-transaction.cc */,
+				239B2A7721D61A680088F382 /* transaction-base.h */,
+				239B2A7921D61BE10088F382 /* transaction-base.cc */,
 				235C1CD721D2166B0070A049 /* write-batch-with-index.h */,
 				235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */,
 				23BF17E421D4A96D00A722B9 /* transaction-db.cc */,
@@ -715,12 +729,14 @@
 				235C1CD921D21C1C0070A049 /* write-batch-with-index.h in Headers */,
 				23BF17E821D4C1A500A722B9 /* delta-amend-iterator.h in Headers */,
 				23DE183C21D0897E00479C23 /* env.h in Headers */,
+				239B2A7321D6170B0088F382 /* pessimistic-transaction.h in Headers */,
 				235C1CD121D1D82D0070A049 /* transaction.h in Headers */,
 				23DE183D21D0897E00479C23 /* error.h in Headers */,
 				23F0742221D1CEAA009D8EAA /* transaction-db.h in Headers */,
 				23DE183E21D0897E00479C23 /* options.h in Headers */,
 				23DE183F21D0897E00479C23 /* iterator.h in Headers */,
 				235C1CCC21D1D5F70070A049 /* optimism-transaction-db.h in Headers */,
+				239B2A7821D61A680088F382 /* transaction-base.h in Headers */,
 				23DE184021D0897E00479C23 /* comparator.h in Headers */,
 				23DE184121D0897E00479C23 /* db.h in Headers */,
 				23DE184221D0897E00479C23 /* write-batch.h in Headers */,
@@ -884,6 +900,7 @@
 				232AA24E219440F5007EF228 /* filter-block-builder-test.cc in Sources */,
 				23FB4B5D219597C000B2829B /* sst-table-reader-test.cc in Sources */,
 				2326026721ABF614003F434C /* arena-test.cc in Sources */,
+				239B2A7521D6171E0088F382 /* pessimistic-transaction.cc in Sources */,
 				236AC67B21B769900069A17B /* lru-cache-test.cc in Sources */,
 				235C1CDB21D223BF0070A049 /* write-batch-with-index.cc in Sources */,
 				231C61F8219AA67C001A95C1 /* io-utils-test.cc in Sources */,
@@ -910,6 +927,7 @@
 				230DDD3221B00BAE00A5CC2A /* hash-map-v2-test.cc in Sources */,
 				23B0E0EF2187FB1400F9E855 /* base-test.cc in Sources */,
 				232AA24021942412007EF228 /* sst-table-builder.cc in Sources */,
+				239B2A7A21D61BE10088F382 /* transaction-base.cc in Sources */,
 				23B0E109218957F500F9E855 /* unordered-memory-table-test.cc in Sources */,
 				23F6060B219BCBD800CE12D9 /* column-family.cc in Sources */,
 				23C54F9D21C8DD89001C8262 /* bw-tree-memory-table-test.cc in Sources */,
@@ -963,6 +981,7 @@
 				23DE182E21D088C300479C23 /* iterator-warpper.cc in Sources */,
 				23DE182F21D088C300479C23 /* merging.cc in Sources */,
 				239B2A7121D615890088F382 /* pessimistic-transaction-db.cc in Sources */,
+				239B2A7B21D61BE10088F382 /* transaction-base.cc in Sources */,
 				23DE183021D088C300479C23 /* env.cc in Sources */,
 				235C1CCF21D1D63F0070A049 /* optimism-transaction-db.cc in Sources */,
 				23DE183121D088C300479C23 /* error.cc in Sources */,
@@ -973,6 +992,7 @@
 				23DE181221D088B000479C23 /* column-family.cc in Sources */,
 				23DE181321D088B000479C23 /* version.cc in Sources */,
 				23DE181421D088B000479C23 /* files.cc in Sources */,
+				239B2A7621D6171E0088F382 /* pessimistic-transaction.cc in Sources */,
 				23DE181521D088B000479C23 /* factory.cc in Sources */,
 				23BF17E621D4A96D00A722B9 /* transaction-db.cc in Sources */,
 				23DE181621D088B000479C23 /* table-cache.cc in Sources */,
