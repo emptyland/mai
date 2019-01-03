@@ -60,6 +60,11 @@ public:
         return Error(filename, fileline, kEOF, message);
     }
     
+    static Error Timeout(const char *filename, int fileline,
+                         std::string_view message = "") {
+        return Error(filename, fileline, kTimeout, message);
+    }
+    
     static Error TryAgain(const char *filename, int fileline,
                           std::string_view message = "") {
         return Error(filename, fileline, kTryAgain, message);
@@ -87,6 +92,8 @@ public:
     bool IsIOError() const { return code() == kIOError; }
     
     bool IsEof() const { return code() == kEOF; }
+    
+    bool IsTimeout() const { return code() == kTimeout; }
     
     bool IsTryAgain() const { return code() == kTryAgain; }
     
@@ -124,6 +131,7 @@ private:
         kInvalidArgument,
         kIOError,
         kEOF,
+        kTimeout,
         kTryAgain,
         kBusy,
     };
@@ -158,6 +166,7 @@ private:
 #define MAI_CORRUPTION(...) ::mai::Error::Corruption(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_IO_ERROR(...) ::mai::Error::IOError(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_EOF(...) ::mai::Error::Eof(__FILE__, __LINE__, __VA_ARGS__)
+#define MAI_TIMEOUT(...) ::mai::Error::Timeout(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_TRY_AGAIN(...) ::mai::Error::TryAgain(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_BUSY(...) ::mai::Error::Busy(__FILE__, __LINE__, __VA_ARGS__)
 #define MAI_NOT_SUPPORTED(...) ::mai::Error::NotSupported(__FILE__, __LINE__, __VA_ARGS__)

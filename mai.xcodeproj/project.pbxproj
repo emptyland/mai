@@ -106,6 +106,9 @@
 		23C54E1421B52EBA0078E77A /* config-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54E1221B52EBA0078E77A /* config-test.cc */; };
 		23C54F9A21C8D225001C8262 /* bw-tree-memory-table.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */; };
 		23C54F9D21C8DD89001C8262 /* bw-tree-memory-table-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C54F9B21C8DD89001C8262 /* bw-tree-memory-table-test.cc */; };
+		23CC114C21D71EB1001665AC /* transaction-lock-mgr.h in Headers */ = {isa = PBXBuildFile; fileRef = 23CC114B21D71EB1001665AC /* transaction-lock-mgr.h */; };
+		23CC114E21D71F49001665AC /* transaction-lock-mgr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */; };
+		23CC114F21D71F49001665AC /* transaction-lock-mgr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */; };
 		23D70EEF21A6597300F6E7FC /* pipeline-queue-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */; };
 		23DE17EE21D07D6800479C23 /* libgflags.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E92187FAF200F9E855 /* libgflags.a */; };
 		23DE17EF21D07D6800479C23 /* libglog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E82187FAF200F9E855 /* libglog.a */; };
@@ -347,6 +350,8 @@
 		23C54F9721C8D13F001C8262 /* bw-tree-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree-memory-table.h"; sourceTree = "<group>"; };
 		23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-tree-memory-table.cc"; sourceTree = "<group>"; };
 		23C54F9B21C8DD89001C8262 /* bw-tree-memory-table-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "bw-tree-memory-table-test.cc"; path = "src/core/bw-tree-memory-table-test.cc"; sourceTree = "<group>"; };
+		23CC114B21D71EB1001665AC /* transaction-lock-mgr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "transaction-lock-mgr.h"; sourceTree = "<group>"; };
+		23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-lock-mgr.cc"; sourceTree = "<group>"; };
 		23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pipeline-queue.h"; sourceTree = "<group>"; };
 		23D70EED21A6597300F6E7FC /* pipeline-queue-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "pipeline-queue-test.cc"; path = "src/core/pipeline-queue-test.cc"; sourceTree = "<group>"; };
 		23DE17A521D07CD200479C23 /* benchmark */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = benchmark; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -441,6 +446,8 @@
 				235C1CD721D2166B0070A049 /* write-batch-with-index.h */,
 				235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */,
 				23BF17E421D4A96D00A722B9 /* transaction-db.cc */,
+				23CC114B21D71EB1001665AC /* transaction-lock-mgr.h */,
+				23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */,
 			);
 			name = txn;
 			path = src/txn;
@@ -732,6 +739,7 @@
 				239B2A7321D6170B0088F382 /* pessimistic-transaction.h in Headers */,
 				235C1CD121D1D82D0070A049 /* transaction.h in Headers */,
 				23DE183D21D0897E00479C23 /* error.h in Headers */,
+				23CC114C21D71EB1001665AC /* transaction-lock-mgr.h in Headers */,
 				23F0742221D1CEAA009D8EAA /* transaction-db.h in Headers */,
 				23DE183E21D0897E00479C23 /* options.h in Headers */,
 				23DE183F21D0897E00479C23 /* iterator.h in Headers */,
@@ -936,6 +944,7 @@
 				237CE4BD2192D3C3004FB9BF /* unordered-memory-table.cc in Sources */,
 				23C1163621AFED1B00DE7321 /* file-test.cc in Sources */,
 				23B0E0E62187FA2200F9E855 /* base.cc in Sources */,
+				23CC114E21D71F49001665AC /* transaction-lock-mgr.cc in Sources */,
 				23C1163521AFED1B00DE7321 /* files-test.cc in Sources */,
 				232E1E6F21A2578000F408D7 /* version-test.cc in Sources */,
 				23FB4B5721957EFA00B2829B /* key-bloom-filter.cc in Sources */,
@@ -992,6 +1001,7 @@
 				23DE181221D088B000479C23 /* column-family.cc in Sources */,
 				23DE181321D088B000479C23 /* version.cc in Sources */,
 				23DE181421D088B000479C23 /* files.cc in Sources */,
+				23CC114F21D71F49001665AC /* transaction-lock-mgr.cc in Sources */,
 				239B2A7621D6171E0088F382 /* pessimistic-transaction.cc in Sources */,
 				23DE181521D088B000479C23 /* factory.cc in Sources */,
 				23BF17E621D4A96D00A722B9 /* transaction-db.cc in Sources */,

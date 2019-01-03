@@ -18,6 +18,10 @@ struct TransactionDBOptions final {
     
     int64_t default_lock_timeout = 1000;  // 1 second
     
+    size_t num_stripes = 16;
+    
+    uint32_t max_num_deadlocks = 50;
+    
 }; // struct TransactionDBOptions
     
 struct TransactionOptions final {

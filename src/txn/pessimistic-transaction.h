@@ -22,6 +22,7 @@ public:
     }
     
     DEF_VAL_PROP_RW(int64_t, lock_timeout);
+    DEF_VAL_GETTER(uint64_t, expiration_time);
     
     void Initialize(const TransactionOptions &options);
     void Reinitialize(const TransactionOptions &options,
@@ -38,13 +39,18 @@ public:
     virtual Error TryLock(ColumnFamily* cf, std::string_view key, bool read_only,
                           bool exclusive, const bool do_validate) override;
     
+    bool TryStealingLocks() {
+        DCHECK(IsExpired());
+        return update_state(STARTED, LOCKS_STOLEN);
+    }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(PessimisticTransaction);
 private:
     TxnID txn_id_ = 0;
     std::string name_;
     std::vector<TxnID> waiting_txn_ids_;
     mutable std::mutex mutex_;
-    int64_t lock_timeout_ = - 1;
+    int64_t lock_timeout_ = -1;
     uint64_t expiration_time_ = 0;
     bool deadlock_detect_ = false;
     int64_t deadlock_detect_depth_ = 50;

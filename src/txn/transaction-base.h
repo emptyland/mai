@@ -25,7 +25,8 @@ struct TxnKeyInfo {
     TxnKeyInfo(core::SequenceNumber aseq) : seq(aseq) {}
 };
 
-using TxnKeyMap = std::unordered_map<std::string, TxnKeyInfo>;
+using TxnKeyMap  = std::unordered_map<std::string, TxnKeyInfo>;
+using TxnKeyMaps = std::unordered_map<uint32_t, TxnKeyMap>;
 
 class TransactionBase : public Transaction {
 public:
@@ -37,7 +38,7 @@ public:
     DEF_PTR_GETTER_NOTNULL(TransactionDB, db);
     DEF_VAL_MUTABLE_GETTER(WriteBatchWithIndex, write_batch);
 
-    const std::unordered_map<uint32_t, TxnKeyMap> &tracked_keys() const {
+    const TxnKeyMaps &tracked_keys() const {
         return txn_keys_;
     }
     

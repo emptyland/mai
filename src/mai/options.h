@@ -10,7 +10,7 @@ class Snapshot;
     
 struct ColumnFamilyOptions {
     
-    // Can use hash table?
+    // Should use hash table?
     bool use_unordered_table = false;
     
     // Only use for hash table
