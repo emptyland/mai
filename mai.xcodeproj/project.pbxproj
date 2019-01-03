@@ -91,6 +91,7 @@
 		23B0E16521927F6C00F9E855 /* reference-count-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16321927F6C00F9E855 /* reference-count-test.cc */; };
 		23B4E01921A7A292007A4533 /* compaction-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B4E01721A7A292007A4533 /* compaction-test.cc */; };
 		23B4E01D21A7AD48007A4533 /* compaction-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B4E01B21A7AD48007A4533 /* compaction-impl.cc */; };
+		23B7155921DDEEBB0054FCB0 /* pessimistic-transaction-db-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B7155821DDEEBB0054FCB0 /* pessimistic-transaction-db-test.cc */; };
 		23BF17E521D4A96D00A722B9 /* transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E421D4A96D00A722B9 /* transaction-db.cc */; };
 		23BF17E621D4A96D00A722B9 /* transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E421D4A96D00A722B9 /* transaction-db.cc */; };
 		23BF17E821D4C1A500A722B9 /* delta-amend-iterator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23BF17E721D4C1A500A722B9 /* delta-amend-iterator.h */; };
@@ -336,6 +337,7 @@
 		23B4E01721A7A292007A4533 /* compaction-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "compaction-test.cc"; path = "src/db/compaction-test.cc"; sourceTree = "<group>"; };
 		23B4E01A21A7AB3E007A4533 /* compaction-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "compaction-impl.h"; sourceTree = "<group>"; };
 		23B4E01B21A7AD48007A4533 /* compaction-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "compaction-impl.cc"; sourceTree = "<group>"; };
+		23B7155821DDEEBB0054FCB0 /* pessimistic-transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "pessimistic-transaction-db-test.cc"; path = "src/txn/pessimistic-transaction-db-test.cc"; sourceTree = "<group>"; };
 		23BF17E421D4A96D00A722B9 /* transaction-db.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db.cc"; sourceTree = "<group>"; };
 		23BF17E721D4C1A500A722B9 /* delta-amend-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "delta-amend-iterator.h"; sourceTree = "<group>"; };
 		23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "delta-amend-iterator.cc"; sourceTree = "<group>"; };
@@ -580,6 +582,7 @@
 				2326A42D21A54A740040BE53 /* db-impl-test.cc */,
 				239B2A6D21D614910088F382 /* write-batch-with-index-test.cc */,
 				23F0742521D1D209009D8EAA /* transaction-db-test.cc */,
+				23B7155821DDEEBB0054FCB0 /* pessimistic-transaction-db-test.cc */,
 			);
 			name = "unit-tests";
 			sourceTree = "<group>";
@@ -926,6 +929,7 @@
 				232AA24421943066007EF228 /* data-block-builder.cc in Sources */,
 				23B0E1162189A6BF00F9E855 /* error.cc in Sources */,
 				23C54E0E21B5263B0078E77A /* config.cc in Sources */,
+				23B7155921DDEEBB0054FCB0 /* pessimistic-transaction-db-test.cc in Sources */,
 				23B0E151218FE03600F9E855 /* varint-encoding-test.cc in Sources */,
 				231C61F4219A6D54001A95C1 /* block-iterator.cc in Sources */,
 				23B0E1052188429700F9E855 /* hash-map-v1-test.cc in Sources */,

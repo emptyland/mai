@@ -51,13 +51,17 @@ public:
     
     TxnID GenerateTxnID() { return next_txn_id_.fetch_add(1); }
     
+    void AddColumnFamily(uint32_t cfid) {
+        lock_mgr_.AddColumnFamily(cfid);
+    }
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(PessimisticTransactionDB);
 private:
     PessimisticTransaction *NewAutoTransaction(const WriteOptions &wr_opts);
     
     TransactionDBOptions const options_;
     TransactionLockMgr lock_mgr_;
-    std::atomic<TxnID> next_txn_id_{0};
+    std::atomic<TxnID> next_txn_id_;
     std::mutex cf_mutex_;
     std::mutex map_mutex_;
     std::unordered_map<TxnID, PessimisticTransaction *> expirable_txns_;

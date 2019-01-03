@@ -11,7 +11,8 @@ PessimisticTransactionDB::PessimisticTransactionDB(const TransactionDBOptions &o
     : TransactionDB(db)
     , options_(opts)
     , lock_mgr_(this, opts.num_stripes, opts.max_num_locks,
-                opts.max_num_deadlocks) {
+                opts.max_num_deadlocks)
+    , next_txn_id_(1) { // Initialize txn id
 }
     
 /*virtual*/ PessimisticTransactionDB::~PessimisticTransactionDB() {
@@ -69,7 +70,8 @@ PessimisticTransactionDB::Delete(const WriteOptions &opts, ColumnFamily *cf,
 
 /*virtual*/ Error
 PessimisticTransactionDB::Write(const WriteOptions& opts, WriteBatch* updates) {
-    return TransactionDB::Write(opts, updates);
+    // TODO:
+    return MAI_NOT_SUPPORTED("TODO:");
 }
 
 /*virtual*/ Transaction *

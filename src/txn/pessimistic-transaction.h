@@ -29,6 +29,7 @@ public:
                       const WriteOptions &wr_opts, TransactionDB *db);
     
     bool IsExpired() const;
+    virtual void Clear() override;
     
     virtual std::string name() override { return name_; }
     virtual TxnID id() const override { return txn_id_; }

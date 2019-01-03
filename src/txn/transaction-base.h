@@ -51,7 +51,7 @@ public:
     }
     
     void Reinitialize(const WriteOptions &opts, TransactionDB *db);
-    void Clear();
+    virtual void Clear();
     
     virtual std::string name() override { return ""; }
     virtual TxnID id() const override { return 0; }

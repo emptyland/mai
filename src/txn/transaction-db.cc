@@ -1,5 +1,7 @@
 #include "txn/optimism-transaction-db.h"
 #include "txn/optimism-transaction.h"
+#include "txn/pessimistic-transaction-db.h"
+#include "txn/pessimistic-transaction.h"
 #include "mai/db.h"
 
 namespace mai {
@@ -16,12 +18,28 @@ TransactionDB::Open(const Options &opts,
     if (!rs) {
         return rs;
     }
-
     if (txn_db_opts.optimism) {
         *result = new txn::OptimismTransactionDB(txn_db_opts, db);
     } else {
-        delete db;
-        return MAI_NOT_SUPPORTED("TODO:");
+        auto txn_db = new txn::PessimisticTransactionDB(txn_db_opts, db);
+        if (column_families && !column_families->empty()) {
+            for (auto cf : *column_families) {
+                txn_db->AddColumnFamily(cf->id());
+            }
+        } else {
+            std::vector<ColumnFamily *> cfs;
+            rs = db->GetAllColumnFamilies(&cfs);
+            if (!rs) {
+                delete txn_db;
+                delete db;
+                return rs;
+            }
+            for (auto cf : cfs) {
+                txn_db->AddColumnFamily(cf->id());
+                db->ReleaseColumnFamily(cf);
+            }
+        }
+        *result =txn_db;
     }
     return Error::OK();
 }

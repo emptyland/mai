@@ -65,6 +65,11 @@ bool PessimisticTransaction::IsExpired() const {
     return false;
 }
     
+/*virtual*/ void PessimisticTransaction::Clear() {
+    owns()->UnLock(this, &tracked_keys());
+    TransactionBase::Clear();
+}
+    
 /*virtual*/ Error PessimisticTransaction::SetName(const std::string &name) {
     if (state() == STARTED) {
         if (!name_.empty()) {
@@ -102,7 +107,6 @@ bool PessimisticTransaction::IsExpired() const {
 }
 
 /*virtual*/ Error PessimisticTransaction::Commit() {
-    
     if (IsExpired()) {
         return MAI_CORRUPTION("This transaction has been expired.");
     }

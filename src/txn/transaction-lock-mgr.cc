@@ -87,9 +87,8 @@ void TransactionLockMgr::AddColumnFamily(uint32_t cfid) {
     std::lock_guard<std::mutex> lock(lock_map_mutex_);
     DCHECK(lock_maps_.find(cfid) == lock_maps_.end());
 
-    lock_maps_.emplace(cfid,
-                       std::shared_ptr<LockMap>(
-                        new LockMap(default_num_stripes_)));
+    lock_maps_.insert({cfid,
+                       std::shared_ptr<LockMap>(new LockMap(default_num_stripes_))});
 }
 
 void TransactionLockMgr::RemoveColumnFamily(uint32_t cfid) {
@@ -226,7 +225,7 @@ std::shared_ptr<LockMap> TransactionLockMgr::GetLockMap(uint32_t cfid) {
     
     std::lock_guard<std::mutex> lock(lock_map_mutex_);
     iter = lock_maps_.find(cfid);
-    if (iter == lock_maps_.find(cfid)) {
+    if (iter == lock_maps_.end()) {
         return std::shared_ptr<LockMap>(nullptr);
     }
     
@@ -240,10 +239,12 @@ TransactionLockMgr::AcquireWithTimeout(PessimisticTransaction *txn,
                                        LockMapStripe *stripe, uint32_t cfid,
                                        const std::string &key, int64_t timeout,
                                        const LockInfo &lock_info) {
+    uint64_t end_time = timeout > 0 ? env_->CurrentTimeMicros() + timeout : 0;
+    
     if (timeout < 0) {
         stripe->strip_mutex.lock();
     } else {
-        bool locked = false;
+        bool locked = true;
         if (timeout == 0) {
             locked = stripe->strip_mutex.try_lock();
         } else {
@@ -259,12 +260,11 @@ TransactionLockMgr::AcquireWithTimeout(PessimisticTransaction *txn,
     std::vector<TxnID> wait_ids;
     Error rs = AcquireLocked(lock_map, stripe, key, lock_info,
                              &expire_time_hint, &wait_ids);
-    if (rs.ok() || timeout > 0) {
+    if (rs.ok() || timeout == 0) {
         stripe->strip_mutex.unlock();
         return rs;
     }
-        
-    uint64_t end_time = 0;
+    
     bool timed_out = false;
     do {
         int64_t cv_end_time = -1;
@@ -272,7 +272,7 @@ TransactionLockMgr::AcquireWithTimeout(PessimisticTransaction *txn,
         if (expire_time_hint > 0 &&
             (timeout < 0 || (timeout > 0 && expire_time_hint < end_time))) {
             cv_end_time = expire_time_hint;
-        } else {
+        } else if (timeout >= 0) {
             cv_end_time = end_time;
         }
         
