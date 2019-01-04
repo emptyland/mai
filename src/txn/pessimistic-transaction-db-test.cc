@@ -48,10 +48,10 @@ public:
     Env *env_ = Env::Default();
     PessimisticTransactionDB *txn_db_ = nullptr;
     std::vector<ColumnFamily *> cfs_;
+    TransactionDBOptions txn_db_opts_;
 private:
     std::vector<ColumnFamilyDescriptor> descs_;
     Options options_;
-    TransactionDBOptions txn_db_opts_;
     static const char *tmp_dirs[];
 };
 
@@ -117,7 +117,7 @@ TEST_F(PessimisticTransactionDBTest, PutWait) {
     
     WriteOptions wr_opts;
     TransactionOptions txn_opts;
-    txn_opts.lock_timeout = 1000; // 1s
+    txn_opts.lock_timeout = 100; // 1s
     std::unique_ptr<Transaction> txn1(txn_db_->BeginTransaction(wr_opts, txn_opts, nullptr));
     std::unique_ptr<Transaction> txn2(txn_db_->BeginTransaction(wr_opts, txn_opts, nullptr));
     
@@ -199,6 +199,27 @@ TEST_F(PessimisticTransactionDBTest, WriteCommit) {
     
     rs = txn_db_->Get(rd_opts, cf, "cccc", &value);
     ASSERT_TRUE(rs.IsNotFound()) << rs.ToString();
+}
+    
+TEST_F(PessimisticTransactionDBTest, WriteWait) {
+    txn_db_opts_.transaction_lock_timeout = 100;
+    txn_db_opts_.default_lock_timeout = 100;
+    Open(5);
+    
+    WriteOptions wr_opts;
+    wr_opts.sync = true;
+    TransactionOptions txn_opts;
+    std::unique_ptr<Transaction> txn(txn_db_->BeginTransaction(wr_opts, txn_opts, nullptr));
+    
+    auto cf = cfs_[0];
+    auto rs = txn->Put(cf, "aaaa", "0000");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    WriteBatch updates;
+    updates.Put(cf, "aaaa", "----");
+    
+    rs = txn_db_->Write(wr_opts, &updates);
+    ASSERT_TRUE(rs.IsTimeout()) << rs.ToString();
 }
     
 } // namespace txn

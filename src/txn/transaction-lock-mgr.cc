@@ -276,7 +276,7 @@ TransactionLockMgr::AcquireWithTimeout(PessimisticTransaction *txn,
             cv_end_time = end_time;
         }
         
-        DCHECK(rs.IsBusy() || wait_ids.size() != 0);
+        DCHECK(rs.IsBusy() || !wait_ids.empty());
         
         if (!wait_ids.empty()) {
             // TODO: dead lock check

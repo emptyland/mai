@@ -147,7 +147,7 @@ PessimisticTransaction *
 PessimisticTransactionDB::NewAutoTransaction(const WriteOptions &wr_opts) {
     Transaction *x = BeginTransaction(wr_opts, TransactionOptions{}, nullptr);
     PessimisticTransaction *txn = down_cast<PessimisticTransaction>(x);
-    txn->set_lock_timeout(options_.default_lock_timeout);
+    txn->set_lock_timeout(options_.default_lock_timeout * 1000L);
     return txn;
 }
     

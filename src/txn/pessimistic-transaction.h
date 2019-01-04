@@ -23,6 +23,30 @@ public:
     
     DEF_VAL_PROP_RW(int64_t, lock_timeout);
     DEF_VAL_GETTER(uint64_t, expiration_time);
+    DEF_VAL_GETTER(bool, deadlock_detect);
+    DEF_VAL_GETTER(int64_t, deadlock_detect_depth)
+    
+    std::vector<TxnID> GetWaitingTxn(uint32_t *cfid, std::string *key) {
+        std::lock_guard<std::mutex> lock(wait_mutex_);
+        *cfid = waiting_cfid_;
+        *key  = waiting_key_ ? *waiting_key_ : "";
+        return waiting_txn_ids_;
+    }
+    
+    void SetWaitingTxn(const std::vector<TxnID> &ids, uint32_t cfid,
+                       const std::string *key) {
+        std::lock_guard<std::mutex> lock(wait_mutex_);
+        waiting_txn_ids_ = ids;
+        waiting_cfid_    = cfid;
+        waiting_key_     = key;
+    }
+    
+    void ClearWaitingTxn() {
+        std::lock_guard<std::mutex> lock(wait_mutex_);
+        waiting_txn_ids_.clear();
+        waiting_cfid_ = 0;
+        waiting_key_  = nullptr;
+    }
     
     void Initialize(const TransactionOptions &options);
     void Reinitialize(const TransactionOptions &options,
@@ -53,6 +77,9 @@ private:
     TxnID txn_id_ = 0;
     std::string name_;
     std::vector<TxnID> waiting_txn_ids_;
+    uint32_t waiting_cfid_ = 0;
+    const std::string *waiting_key_ = nullptr;
+    std::mutex wait_mutex_;
     mutable std::mutex mutex_;
     int64_t lock_timeout_ = -1;
     uint64_t expiration_time_ = 0;

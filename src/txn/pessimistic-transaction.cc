@@ -44,11 +44,11 @@ void PessimisticTransaction::Initialize(const TransactionOptions &options) {
     deadlock_detect_depth_ = options.deadlock_detect_depth;
     lock_timeout_ = options.lock_timeout * 1000L;
     if (lock_timeout_ < 0) {
-        lock_timeout_ = owns()->options().transaction_lock_timeout * 1000;
+        lock_timeout_ = owns()->options().transaction_lock_timeout * 1000L;
     }
     
     if (options.expiration >= 0) {
-        expiration_time_ = start_time_ + options.expiration * 1000;
+        expiration_time_ = start_time_ + options.expiration * 1000L;
     } else {
         expiration_time_ = 0;
     }

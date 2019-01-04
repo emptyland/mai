@@ -28,7 +28,7 @@ struct TransactionOptions final {
     
     bool deadlock_detect = false;
     
-    int64_t lock_timeout = -1;
+    int64_t lock_timeout = 1000;
     
     int64_t expiration = -1;
     
