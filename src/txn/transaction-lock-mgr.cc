@@ -18,7 +18,7 @@ struct LockInfo {
         , expiration_time(time) {
         txn_ids.push_back(id);
     }
-};
+}; // struct LockInfo
     
 struct LockMapStripe {
     std::mutex strip_mutex;
@@ -39,7 +39,7 @@ struct LockMapStripe {
         return rv == std::cv_status::timeout ?
                MAI_TIMEOUT("CV timeout.") : Error::OK();
     }
-};
+}; // struct LockMapStripe
     
 struct LockMap {
     const size_t n_stripes;
@@ -63,7 +63,92 @@ struct LockMap {
     size_t GetStripe(const std::string &key) const {
         return base::Hash::Js(key.data(), key.size()) % n_stripes;
     }
-};
+}; // struct LockMap
+    
+struct DeadLockInfo {
+    TxnID txn_id;
+    uint32_t cfid;
+    bool exclusive;
+    std::string waiting_key;
+}; // struct DeadLockInfo
+
+struct DeadLockPath {
+    std::vector<DeadLockInfo> path;
+    int64_t deadlock_time;
+    bool limit_exceeded;
+    
+    DeadLockPath(const std::vector<DeadLockInfo> &entry, int64_t dl_time)
+    : path(entry)
+    , deadlock_time(dl_time) {}
+    
+    DeadLockPath(int64_t dl_time = 0, bool limit = false)
+    : path(0)
+    , limit_exceeded(limit)
+    , deadlock_time(dl_time) {}
+    
+    bool empty() { return path.empty() && !limit_exceeded; }
+}; // struct DeadLockPath
+    
+class DeadLockInfoBuffer {
+public:
+    explicit DeadLockInfoBuffer(uint32_t n_latest_dlocks)
+        : paths_buffer_(n_latest_dlocks)
+        , buffer_idx_(0) {}
+    
+    void AddNewPath(const DeadLockPath &path) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (paths_buffer_.empty()) {
+            return;
+        }
+        
+        paths_buffer_[buffer_idx_] = std::move(path);
+        buffer_idx_ = (buffer_idx_ + 1) % paths_buffer_.size();
+    }
+    
+    void Resize(uint32_t size) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        
+        paths_buffer_ = Normalize();
+        
+        if (size < paths_buffer_.size()) {
+            paths_buffer_.erase(paths_buffer_.begin(),
+                                paths_buffer_.begin() +
+                                (paths_buffer_.size() - size));
+            buffer_idx_ = 0;
+        } else {
+            auto prev_size = paths_buffer_.size();
+            paths_buffer_.resize(size);
+            buffer_idx_ = static_cast<uint32_t>(prev_size);
+        }
+    }
+    
+    std::vector<DeadLockPath> PrepareBuffer() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto working(Normalize());
+        std::reverse(working.begin(), working.end());
+        return working;
+    }
+    
+private:
+    std::vector<DeadLockPath> Normalize() {
+        if (paths_buffer_.empty()) {
+            return paths_buffer_;
+        }
+        
+        auto working(paths_buffer_);
+        if (paths_buffer_[buffer_idx_].empty()) {
+            working.resize(buffer_idx_);
+        } else {
+            std::rotate(working.begin(), working.begin() + buffer_idx_,
+                        working.end());
+        }
+        return working;
+    }
+    
+    std::vector<DeadLockPath> paths_buffer_;
+    uint32_t buffer_idx_;
+    std::mutex mutex_;
+}; // class DeadLockInfoBuffer
     
 TransactionLockMgr::TransactionLockMgr(PessimisticTransactionDB *owns,
                                        size_t default_num_stripes,
@@ -72,7 +157,8 @@ TransactionLockMgr::TransactionLockMgr(PessimisticTransactionDB *owns,
     : owns_(DCHECK_NOTNULL(owns))
     , default_num_stripes_(default_num_stripes)
     , max_num_locks_(max_num_locks)
-    , env_(down_cast<db::DBImpl>(owns->GetDB())->env()) {
+    , env_(down_cast<db::DBImpl>(owns->GetDB())->env())
+    , dlock_buffer_(new DeadLockInfoBuffer(max_num_deadlocks)) {
 
     Error rs = env_->NewThreadLocalSlot("lock-mgr", LockMapsDeleter,
                                                &lock_maps_cache_);
@@ -279,7 +365,14 @@ TransactionLockMgr::AcquireWithTimeout(PessimisticTransaction *txn,
         DCHECK(rs.IsBusy() || !wait_ids.empty());
         
         if (!wait_ids.empty()) {
-            // TODO: dead lock check
+            if (txn->deadlock_detect()) {
+                if (IncrementWaiters(txn, wait_ids, key, cfid,
+                                     lock_info.exclusive)) {
+                    stripe->strip_mutex.unlock();
+                    return MAI_BUSY("Dead lock.");
+                }
+            }
+            txn->SetWaitingTxn(wait_ids, cfid, &key);
         }
         
         if (cv_end_time < 0) {
@@ -292,7 +385,10 @@ TransactionLockMgr::AcquireWithTimeout(PessimisticTransaction *txn,
         }
         
         if (!wait_ids.empty()) {
-            // TODO: dead lock check
+            txn->ClearWaitingTxn();
+            if (txn->deadlock_detect()) {
+                DecrementWaiters(txn, wait_ids);
+            }
         }
         
         if (rs.IsTimeout()) {
@@ -360,6 +456,106 @@ Error TransactionLockMgr::AcquireLocked(LockMap *lock_map, LockMapStripe *stripe
         }
     }
     return rs;
+}
+    
+bool TransactionLockMgr::IncrementWaiters(const PessimisticTransaction *txn,
+                                          const std::vector<TxnID> &wait_ids,
+                                          const std::string &key, uint32_t cfid,
+                                          bool exclusive) {
+    TxnID txn_id = txn->id();
+    
+    std::vector<int> queue_parents(txn->deadlock_detect_depth());
+    std::vector<TxnID> queue_values(txn->deadlock_detect_depth());
+    
+    std::lock_guard<std::mutex> lock(wait_txn_map_mutex_);
+    DCHECK(wait_txn_map_.find(txn_id) == wait_txn_map_.end());
+    
+    wait_txn_map_.insert({txn_id, {wait_ids, cfid, key, exclusive}});
+    
+    for (auto wid : wait_ids) {
+        if (rev_wait_txn_map_.find(wid) != rev_wait_txn_map_.end()) {
+            rev_wait_txn_map_[wid]++;
+        } else {
+            rev_wait_txn_map_[wid] = 1;
+        }
+    }
+    if (rev_wait_txn_map_.find(txn_id) == rev_wait_txn_map_.end()) {
+        return false;
+    }
+    
+    const auto *next_ids = &wait_ids;
+    int parent = -1;
+    int64_t dlock_time = 0;
+    for (int tail = 0, head = 0; head < txn->deadlock_detect_depth(); head++) {
+        int i = 0;
+        if (next_ids) {
+            for (; i < next_ids->size() &&
+                 tail + i < txn->deadlock_detect_depth(); ++i) {
+                queue_values[tail + i] = next_ids->at(i);
+                queue_parents[tail + i] = parent;
+            }
+            tail += i;
+        }
+        
+        if (tail == head) {
+            return false;
+        }
+        
+        TxnID next = queue_values[head];
+        if (next == txn_id) {
+            std::vector<DeadLockInfo> path;
+            while (head != -1) {
+                DCHECK(wait_txn_map_.find(queue_values[head])
+                       != wait_txn_map_.end());
+                TrackedTxnInfo extracted_info
+                    = wait_txn_map_[queue_values[head]];
+                path.push_back({
+                    queue_values[head],
+                    extracted_info.cfid,
+                    extracted_info.exclusive,
+                    extracted_info.waiting_key
+                });
+                head = queue_parents[head];
+            }
+            dlock_time = env_->CurrentTimeMicros();
+            std::reverse(path.begin(), path.end());
+            dlock_buffer_->AddNewPath(DeadLockPath(path, dlock_time));
+            dlock_time = 0;
+            DecrementWaitersLockless(txn, wait_ids);
+            return true;
+        } else if (wait_txn_map_.find(next) == wait_txn_map_.end()) {
+            next_ids = nullptr;
+            continue;
+        } else {
+            parent = head;
+            next_ids = &wait_txn_map_[next].neighbors;
+        }
+    }
+    
+    dlock_time = env_->CurrentTimeMicros();
+    dlock_buffer_->AddNewPath(DeadLockPath(dlock_time, true));
+    DecrementWaitersLockless(txn, wait_ids);
+    return true;
+}
+    
+void TransactionLockMgr::DecrementWaiters(const PessimisticTransaction *txn,
+                                          const std::vector<TxnID> &wait_ids) {
+    std::lock_guard<std::mutex> lock(wait_txn_map_mutex_);
+    DecrementWaitersLockless(txn, wait_ids);
+}
+
+void
+TransactionLockMgr::DecrementWaitersLockless(const PessimisticTransaction *txn,
+                                             const std::vector<TxnID> &wait_ids) {
+    DCHECK(wait_txn_map_.find(txn->id()) != wait_txn_map_.end());
+    wait_txn_map_.erase(txn->id());
+    
+    for (auto wid : wait_ids) {
+        rev_wait_txn_map_[wid]--;
+        if (rev_wait_txn_map_[wid] == 0) {
+            rev_wait_txn_map_.erase(wid);
+        }
+    }
 }
     
 /*static*/ void TransactionLockMgr::LockMapsDeleter(void *d) {

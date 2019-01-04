@@ -16,10 +16,18 @@ namespace txn {
 struct LockInfo;
 struct LockMap;
 struct LockMapStripe;
-    
+class DeadLockInfoBuffer;
+
 class PessimisticTransactionDB;
 class PessimisticTransaction;
     
+struct TrackedTxnInfo {
+    std::vector<TxnID> neighbors;
+    uint32_t cfid;
+    std::string waiting_key;
+    bool exclusive;
+}; // struct TrackedTxnInfo
+
 class TransactionLockMgr final {
 public:
     TransactionLockMgr(PessimisticTransactionDB *owns,
@@ -53,6 +61,14 @@ private:
                         const std::string &key, const LockInfo &lock_info,
                         uint64_t *expire_time,
                         std::vector<TxnID> *txn_ids);
+    bool IncrementWaiters(const PessimisticTransaction *txn,
+                          const std::vector<TxnID> &wait_ids,
+                          const std::string &key, uint32_t cfid,
+                          bool exclusive);
+    void DecrementWaiters(const PessimisticTransaction *txn,
+                          const std::vector<TxnID> &wait_ids);
+    void DecrementWaitersLockless(const PessimisticTransaction *txn,
+                                  const std::vector<TxnID> &wait_ids);
     
     static void LockMapsDeleter(void *d);
     
@@ -60,12 +76,15 @@ private:
     const size_t default_num_stripes_;
     const int64_t max_num_locks_;
     Env *const env_;
+    std::unique_ptr<DeadLockInfoBuffer> dlock_buffer_;
     
     std::mutex lock_map_mutex_;
     LockMaps lock_maps_;
     std::unique_ptr<ThreadLocalSlot> lock_maps_cache_;
     std::mutex wait_txn_map_mutex_;
     std::unordered_map<TxnID, int> rev_wait_txn_map_;
+    std::unordered_map<TxnID, TrackedTxnInfo> wait_txn_map_;
+    
 }; // class TransactionLockMgr
 
 } // namespace txn
