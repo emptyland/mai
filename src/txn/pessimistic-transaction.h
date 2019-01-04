@@ -45,6 +45,9 @@ public:
         return update_state(STARTED, LOCKS_STOLEN);
     }
     
+    Error CommitBatch(WriteBatch *updates);
+    Error LockBatch(WriteBatch *updates, TxnKeyMaps *keys_to_unlock);
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(PessimisticTransaction);
 private:
     TxnID txn_id_ = 0;

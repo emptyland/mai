@@ -49,7 +49,7 @@ PessimisticTransactionDB::NewColumnFamily(const std::string &name,
 /*virtual*/ Error
 PessimisticTransactionDB::Put(const WriteOptions &opts, ColumnFamily *cf,
                             std::string_view key, std::string_view value) {
-    PessimisticTransaction *txn = NewAutoTransaction(opts);
+    std::unique_ptr<PessimisticTransaction> txn(NewAutoTransaction(opts));
     auto rs = txn->PutUntracked(cf, key, value);
     if (rs.ok()) {
         rs = txn->Commit();
@@ -60,7 +60,7 @@ PessimisticTransactionDB::Put(const WriteOptions &opts, ColumnFamily *cf,
 /*virtual*/ Error
 PessimisticTransactionDB::Delete(const WriteOptions &opts, ColumnFamily *cf,
                      std::string_view key) {
-    PessimisticTransaction *txn = NewAutoTransaction(opts);
+    std::unique_ptr<PessimisticTransaction> txn(NewAutoTransaction(opts));
     auto rs = txn->DeleteUntracked(cf, key);
     if (rs.ok()) {
         rs = txn->Commit();
@@ -70,8 +70,8 @@ PessimisticTransactionDB::Delete(const WriteOptions &opts, ColumnFamily *cf,
 
 /*virtual*/ Error
 PessimisticTransactionDB::Write(const WriteOptions& opts, WriteBatch* updates) {
-    // TODO:
-    return MAI_NOT_SUPPORTED("TODO:");
+    std::unique_ptr<PessimisticTransaction> txn(NewAutoTransaction(opts));
+    return txn->CommitBatch(updates);
 }
 
 /*virtual*/ Transaction *

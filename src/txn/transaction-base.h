@@ -77,7 +77,14 @@ public:
                        std::string_view value);
     Error DeleteUntracked(ColumnFamily *cf, std::string_view key);
     
+    DISALLOW_IMPLICIT_CONSTRUCTORS(TransactionBase);
+protected:
     void TrackKey(uint32_t cfid, const std::string& key,
+                  core::SequenceNumber seq, bool read_only, bool exclusive) {
+        TrackKey(&txn_keys_, cfid, key, seq, read_only, exclusive);
+    }
+    
+    void TrackKey(TxnKeyMaps *key_map, uint32_t cfid, const std::string& key,
                   core::SequenceNumber seq, bool read_only, bool exclusive);
     Error CheckTransactionForConflicts(db::DBImpl *db);
     Error CheckKey(db::DBImpl *db, db::ColumnFamilyImpl *impl,
@@ -85,8 +92,6 @@ public:
                    core::SequenceNumber key_seq,
                    std::string_view key, bool cache_only);
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(TransactionBase);
-protected:
     uint64_t start_time_ = 0;
     const Snapshot *snapshot_ = nullptr;
 

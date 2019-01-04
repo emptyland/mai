@@ -124,11 +124,10 @@ TransactionBase::GetForUpdate(const ReadOptions &opts, ColumnFamily *cf,
     }
     return write_batch_.NewIteratorWithBase(cf, base);
 }
-
-void TransactionBase::TrackKey(uint32_t cfid, const std::string& key,
-                               core::SequenceNumber seq, bool read_only,
-                               bool exclusive) {
-    auto &keys = txn_keys_[cfid];
+    
+void TransactionBase::TrackKey(TxnKeyMaps *key_map, uint32_t cfid, const std::string& key,
+              core::SequenceNumber seq, bool read_only, bool exclusive) {
+    auto &keys = (*key_map)[cfid];
     auto iter  = keys.find(key);
     if (iter == keys.end()) {
         std::tie(iter, std::ignore) = keys.insert({key, TxnKeyInfo(seq)});

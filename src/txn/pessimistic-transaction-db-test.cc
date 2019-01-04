@@ -60,6 +60,9 @@ const char *PessimisticTransactionDBTest::tmp_dirs[] = {
     "tests/00-pessimistic-txn-db-sanity",
     "tests/01-pessimistic-txn-db-put",
     "tests/02-pessimistic-txn-db-put-wait",
+    "tests/03-pessimistic-txn-db-put-commit",
+    "tests/04-pessimistic-txn-db-write",
+    "tests/05-pessimistic-txn-db-write-wait",
     nullptr,
 };
     
@@ -127,6 +130,75 @@ TEST_F(PessimisticTransactionDBTest, PutWait) {
     rs = txn2->Put(cf, "aaaa", "cccc");
     ASSERT_TRUE(rs.fail());
     EXPECT_TRUE(rs.IsTimeout());
+}
+    
+TEST_F(PessimisticTransactionDBTest, PutCommit) {
+    Open(3);
+    
+    WriteOptions wr_opts;
+    wr_opts.sync = true;
+    TransactionOptions txn_opts;
+    std::unique_ptr<Transaction> txn(txn_db_->BeginTransaction(wr_opts, txn_opts, nullptr));
+
+    auto cf = cfs_[0];
+    auto rs = txn->Put(cf, "aaaa", "1111");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = txn->Put(cf, "bbbb", "2222");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = txn->Put(cf, "aaaa", "0000");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = txn->Put(cf, "cccc", "3333");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = txn->Commit();
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ReadOptions rd_opts;
+    std::string value;
+    rs = txn_db_->Get(rd_opts, cf, "aaaa", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    EXPECT_EQ("0000", value);
+}
+    
+TEST_F(PessimisticTransactionDBTest, WriteCommit) {
+    Open(4);
+    
+    WriteOptions wr_opts;
+    wr_opts.sync = true;
+    TransactionOptions txn_opts;
+    std::unique_ptr<Transaction> txn(txn_db_->BeginTransaction(wr_opts, txn_opts, nullptr));
+    
+    auto cf = cfs_[0];
+    auto rs = txn->Put(cf, "aaaa", "0000");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = txn->Put(cf, "bbbb", "1111");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = txn->Put(cf, "cccc", "2222");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = txn->Commit();
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    WriteBatch updates;
+    updates.Put(cf, "bbbb", "----");
+    updates.Delete(cf, "cccc");
+    
+    rs = txn_db_->Write(wr_opts, &updates);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    ReadOptions rd_opts;
+    std::string value;
+    rs = txn_db_->Get(rd_opts, cf, "bbbb", &value);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    EXPECT_EQ("----", value);
+    
+    rs = txn_db_->Get(rd_opts, cf, "cccc", &value);
+    ASSERT_TRUE(rs.IsNotFound()) << rs.ToString();
 }
     
 } // namespace txn

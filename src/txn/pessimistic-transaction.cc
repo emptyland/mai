@@ -2,6 +2,8 @@
 #include "db/db-impl.h"
 #include "db/column-family.h"
 #include "mai/transaction-db.h"
+#include <map>
+#include <set>
 
 namespace mai {
     
@@ -182,6 +184,91 @@ PessimisticTransaction::TryLock(ColumnFamily* cf, std::string_view key,
     
     if (rs.ok()) {
         TrackKey(cfid, hold_key, tracked_at_seq, read_only, exclusive);
+    }
+    return rs;
+}
+    
+Error PessimisticTransaction::CommitBatch(WriteBatch *updates) {
+    TxnKeyMaps keys_to_unlock;
+    Error rs = LockBatch(updates, &keys_to_unlock);
+    if (!rs) {
+        return rs;
+    }
+    bool can_commit = false;
+
+    if (IsExpired()) {
+        rs = MAI_CORRUPTION("Expired.");
+    } else if (expiration_time_ > 0) {
+        can_commit = update_state(STARTED, AWAITING_COMMIT);
+    } else if (state() == STARTED) {
+        can_commit = true;
+    }
+
+    if (can_commit) {
+        rs = impl()->WriteImpl(write_opts(), updates, nullptr);
+        if (rs.ok()) {
+            set_state(COMMITED);
+        }
+    } else if (state() == LOCKS_STOLEN) {
+        rs = MAI_CORRUPTION("Expired.");
+    } else {
+        rs = MAI_CORRUPTION("Bad transaction state");
+    }
+    
+    owns()->UnLock(this, &keys_to_unlock);
+    return rs;
+}
+    
+class RecordHandler : public WriteBatch::Stub {
+public:
+    RecordHandler() {}
+    virtual ~RecordHandler() override {}
+
+    virtual void Put(uint32_t cfid, std::string_view key,
+                     std::string_view /*value*/) override {
+        RecordKey(cfid, key);
+    }
+    
+    virtual void Delete(uint32_t cfid, std::string_view key) override {
+        RecordKey(cfid, key);
+    }
+    
+    void RecordKey(uint32_t cfid, std::string_view key) {
+        std::string hold_key(key);
+        
+        auto iter = keys_[cfid].find(hold_key);
+        if (iter == keys_[cfid].end()) {
+            keys_[cfid].insert(std::move(hold_key));
+        }
+    }
+    
+    std::map<uint32_t, std::set<std::string>> keys_;
+}; // class RecordHandler
+    
+Error PessimisticTransaction::LockBatch(WriteBatch *updates,
+                                        TxnKeyMaps *keys_to_unlock) {
+    RecordHandler handler;
+    updates->Iterate(&handler);
+    
+    Error rs;
+    for (const auto &cf : handler.keys_) {
+        uint32_t cfid = cf.first;
+        
+        for (const auto &key : cf.second) {
+            rs = owns()->TryLock(this, cfid, key, true);
+            if (!rs) {
+                break;
+            }
+            TrackKey(keys_to_unlock, cfid, std::move(key),
+                     core::Tag::kMaxSequenceNumber, false, true);
+        }
+        if (!rs) {
+            break;
+        }
+    }
+    
+    if (!rs) {
+        owns()->UnLock(this, keys_to_unlock);
     }
     return rs;
 }
