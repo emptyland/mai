@@ -1,4 +1,4 @@
-#include "sql/ast-nodes.h"
+#include "sql/ast.h"
 
 namespace mai {
 

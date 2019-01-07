@@ -45,9 +45,7 @@ Error BlockCache::GetOrLoad(RandomAccessFile *file,
     bool checksum_verify;
     
     std::tie(file, offset, size, checksum_verify) = *static_cast<Args *>(arg1);
-    
-    //printf("read: %s\n", base::Slice::ToReadable(key).c_str());
-    
+
     std::string_view buf;
     std::string scratch;
     Error rs = file->Read(offset, size, &buf, &scratch);
