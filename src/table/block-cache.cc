@@ -29,9 +29,8 @@ Error BlockCache::GetOrLoad(RandomAccessFile *file,
     ::memcpy(key, &file_number, sizeof(file_number));
     ::memcpy(key + sizeof(file_number), &offset, sizeof(offset));
     
-    auto shard = GetShard(file_number);
     auto args = std::make_tuple(file, offset, size, checksum_verify);
-    return shard->GetOrLoad(std::string_view(key, kKeySize), result, nullptr,
+    return cache_.GetOrLoad(std::string_view(key, kKeySize), result, nullptr,
                             &Loader, this, &args);
 }
     

@@ -11,7 +11,9 @@
 #include <mutex>
 
 namespace mai {
-    
+namespace base {
+class LockGroup;
+} // namespace base
 namespace core {
     
 inline namespace v1 {
@@ -54,7 +56,8 @@ class LRUCacheShard final {
 public:
     static const size_t kMinLRUTableSlots = 1237;
     
-    LRUCacheShard(Allocator *ll_allocator, size_t capacity);
+    LRUCacheShard(Allocator *ll_allocator, size_t capacity,
+                  base::LockGroup *locks = nullptr);
     ~LRUCacheShard();
     
     DEF_VAL_GETTER(size_t, capacity);
@@ -127,8 +130,9 @@ private:
     const Comparator *const cmp_;
     base::atomic_intrusive_ptr<TableBoundle> boundle_;
     size_t capacity_;
-    std::atomic<int> in_ordered_;
-    
+    base::LockGroup *const locks_;
+    const bool locks_ownership_;
+
     size_t size_ = 0;
     LRUHandle lru_dummy_;
     LRUHandle *lru_ = &lru_dummy_;
@@ -204,7 +208,7 @@ private:
     }
     
     void Install(std::atomic<uintptr_t> *shard) {
-        auto inst = new LRUCacheShard(ll_allocator_, capacity_);
+        auto inst = new LRUCacheShard(ll_allocator_, capacity_, locks_.get());
         auto val = reinterpret_cast<uintptr_t>(inst);
         shard->store(val, std::memory_order_release);
         
@@ -213,6 +217,7 @@ private:
     const size_t max_shards_;
     Allocator *const ll_allocator_;
     const size_t capacity_;
+    std::unique_ptr<base::LockGroup> locks_;
     std::atomic<uintptr_t> *shards_;
     
 }; // class LRUCache

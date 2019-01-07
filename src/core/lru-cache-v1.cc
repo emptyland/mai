@@ -1,6 +1,7 @@
 #include "core/lru-cache-v1.h"
 #include "base/allocators.h"
 #include "base/hash.h"
+#include "base/lock-group.h"
 
 namespace mai {
     
@@ -57,12 +58,14 @@ struct LRUCacheShard::LookupHandle final {
     base::ScopedMemory memory;
 }; // struct LRUCache::LookupHandle
     
-LRUCacheShard::LRUCacheShard(Allocator *low_level_allocator, size_t capacity)
+LRUCacheShard::LRUCacheShard(Allocator *low_level_allocator, size_t capacity,
+                             base::LockGroup *locks)
     : cmp_(Comparator::Bytewise())
     , boundle_(new TableBoundle(low_level_allocator, kMinLRUTableSlots,
                                 KeyComparator{cmp_}))
     , capacity_(capacity)
-    , in_ordered_(17) {
+    , locks_(!locks ? new base::LockGroup(16) : locks)
+    , locks_ownership_(locks == nullptr) {
 #if defined(DEBUG) || defined(_DEBUG)
     ::memset(&lru_dummy_, 0, sizeof(lru_dummy_));
     ::memset(&in_use_dummy_, 0, sizeof(in_use_dummy_));
@@ -103,12 +106,47 @@ LRUCacheShard::~LRUCacheShard() {
         LRU_Remove(x);
         LRUHandle::Free(x);
     }
+    
+    if (locks_ownership_) {
+        delete locks_;
+    }
 }
     
 Error LRUCacheShard::GetOrLoad(std::string_view key,
                           base::intrusive_ptr<LRUHandle> *result,
                           LRUHandle::Deleter *deleter, LRUHandle::Loader *loader,
                           void *arg0, void *arg1) {
+    auto stripe = DCHECK_NOTNULL(locks_->GetByKey(key));
+
+    LRUHandle *handle = nullptr;
+    int retry_factor = 1;
+    while (true) {
+        handle = Get(key);
+        if (handle) {
+            result->reset(handle);
+            return Error::OK();
+        }
+        if (stripe->TryLock()) {
+            Error rs = loader(key, &handle, arg0, arg1);
+            if (!rs) {
+                return rs;
+            }
+            break;
+        }
+        for (int i = 0; i < retry_factor; ++i) {
+            std::this_thread::yield();
+        }
+        retry_factor = (retry_factor << 1) % (1024 * 1024);
+    }
+    
+    handle->AddRef();
+    Insert(key, handle, deleter);
+    PurgeIfNeeded(false);
+    result->reset(handle);
+
+    stripe->Unlock();
+    return Error::OK();
+#if 0
     LRUHandle *handle = Get(key);
     if (handle) {
         result->reset(handle);
@@ -118,11 +156,13 @@ Error LRUCacheShard::GetOrLoad(std::string_view key,
     if (!rs) {
         return rs;
     }
+
     handle->AddRef();
     Insert(key, handle, deleter);
     PurgeIfNeeded(false);
     result->reset(handle);
     return Error::OK();
+#endif
 }
     
 void LRUCacheShard::Insert(std::string_view key, LRUHandle *handle,
@@ -257,19 +297,22 @@ LRUCache::LRUCache(size_t max_shards, Allocator *ll_allocator, size_t capacity)
     : max_shards_(max_shards)
     , ll_allocator_(DCHECK_NOTNULL(ll_allocator))
     , capacity_(capacity)
-    , shards_(new std::atomic<uintptr_t>[max_shards]) {
+    , shards_(new std::atomic<uintptr_t>[max_shards])
+    , locks_(new base::LockGroup(max_shards * 8, false)) {
     for (int i = 0; i < max_shards_; ++i) {
         shards_[i].store(0, std::memory_order_relaxed);
     }
 }
 
 LRUCache::~LRUCache() {
-    for (int i = 0; i < max_shards_; ++i) {
-        auto val = shards_[i].load();
-        DCHECK_NE(kPendingMask, val);
-        delete reinterpret_cast<const LRUCacheShard *>(val);
+    if (shards_) {
+        for (int i = 0; i < max_shards_; ++i) {
+            auto val = shards_[i].load();
+            DCHECK_NE(kPendingMask, val);
+            delete reinterpret_cast<const LRUCacheShard *>(val);
+        }
+        delete[] shards_;
     }
-    delete[] shards_;
 }
     
 LRUCacheShard *LRUCache::GetShard(size_t idx) {
