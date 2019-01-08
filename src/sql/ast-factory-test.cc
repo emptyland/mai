@@ -19,9 +19,11 @@ public:
 };
     
 TEST_F(AstFactoryTest, Sanity) {
-    auto node = factory_.NewCreateTable();
+    auto name = factory_.NewString("t1");
+    auto node = factory_.NewCreateTable(name);
     ASSERT_NE(nullptr, node);
     ASSERT_TRUE(node->is_ddl());
+    ASSERT_EQ(name, node->schema_name());
 }
 
 } // namespace sql

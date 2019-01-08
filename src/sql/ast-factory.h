@@ -12,8 +12,16 @@ public:
     AstFactory(base::Arena *arena) : arena_(arena) {}
     ~AstFactory() {}
 
-    CreateTable *NewCreateTable() {
-        return new (arena_) CreateTable();
+    CreateTable *NewCreateTable(const AstString *schema_name) {
+        return new (arena_) CreateTable(schema_name);
+    }
+    
+    const AstString *NewString(const char *s, size_t n) {
+        return AstString::New(arena_, s, n);
+    }
+    
+    const AstString *NewString(const char *s) {
+        return AstString::New(arena_, s);
     }
     
     DEF_PTR_GETTER_NOTNULL(base::Arena, arena);

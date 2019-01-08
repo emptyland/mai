@@ -1,0 +1,5 @@
+#!/bin/bash
+
+lex sql.l
+#mv lex.yy.c sql.yy.cc
+bison -d sql.y -o sql.cc

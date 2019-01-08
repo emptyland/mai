@@ -1,7 +1,7 @@
 #ifndef MAI_SQL_AST_NODES_H_
 #define MAI_SQL_AST_NODES_H_
 
-#include "base/arena.h"
+#include "base/arena-utils.h"
 #include "base/base.h"
 
 namespace mai {
@@ -52,8 +52,8 @@ protected:
 }; // class AstNode
     
 #define DEF_AST_NODE(clazz) \
-    virtual void Accept(AstVisitor *v) { v->Visit##clazz(this); } \
-    virtual Kind kind() const { return k##clazz; } \
+    virtual void Accept(AstVisitor *v) override { v->Visit##clazz(this); } \
+    virtual Kind kind() const override { return k##clazz; } \
     static const clazz *Cast(const AstNode *n) { \
         return n->kind() == k##clazz ? down_cast<const clazz>(n) : nullptr; \
     } \
@@ -62,7 +62,8 @@ protected:
     } \
     friend class AstFactory;
 
-    
+using AstString = base::ArenaString;
+
 ////////////////////////////////////////////////////////////////////////////////
 /// class AstVisitor
 ////////////////////////////////////////////////////////////////////////////////
@@ -83,7 +84,7 @@ public:
 
 class DDLStatement : public AstNode {
 public:
-    virtual bool is_ddl() const { return true; }
+    virtual bool is_ddl() const override { return true; }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(DDLStatement);
 protected:
@@ -93,12 +94,17 @@ protected:
     
 class CreateTable final : public DDLStatement {
 public:
-    virtual bool is_command() const { return true; }
+    virtual bool is_command() const override { return true; }
+    
+    DEF_PTR_GETTER_NOTNULL(const AstString, schema_name);
     
     DEF_AST_NODE(CreateTable);
     DISALLOW_IMPLICIT_CONSTRUCTORS(CreateTable);
 private:
-    CreateTable() {}
+    CreateTable(const AstString *schema_name)
+        : schema_name_(DCHECK_NOTNULL(schema_name)) {}
+
+    const AstString *schema_name_;
 }; // class CreateTable
 
     
