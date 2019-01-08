@@ -32,6 +32,12 @@ public:
     
     virtual ~Arena() override;
     
+    template<class T> T *New() { new (Allocate(sizeof(T))) T(); }
+    
+    template<class T> T *NewArray(size_t n) {
+        return static_cast<T *>(Allocate(sizeof(T) * n));
+    }
+    
     virtual void *Allocate(size_t size, size_t alignment = sizeof(max_align_t)) override;
     
     virtual void Free(const void */*chunk*/, size_t /*size*/) override {}
