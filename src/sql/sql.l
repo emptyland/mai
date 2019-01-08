@@ -15,17 +15,26 @@ digit [0-9]
 delim [ \f\r\t\v]
 
 %%
-SELECT return TOK_SELECT;
-FROM return TOK_FROM;
+NULL return NULL_VAL;
+SELECT return SELECT;
+FROM return FROM;
+BEGIN return TXN_BEGIN;
 
 `[A-Za-z_][A-Za-z_0-9]+` {
     yylval->text.buf = yytext + 1;
     yylval->text.len = strlen(yytext) - 2;
+    return ID;
+}
+
+digit+ {
+	return INTEGRAL_VAL;
 }
 
 "(" { return '('; }
 ")" { return ')'; }
 "*" { return '*'; }
+"." { return '.'; }
+"," { return ','; }
 
 %%
 

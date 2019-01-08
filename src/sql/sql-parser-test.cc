@@ -1,8 +1,8 @@
-#include "sql/parser-ctx.h"
-#include "sql/sql.hh"
-extern "C" {
-#include "sql/sql.yy.h"
-}
+#include "sql/parser.h"
+#include "sql/ast.h"
+#include "sql/ast-factory.h"
+#include "base/arena.h"
+#include "mai/env.h"
 #include "gtest/gtest.h"
 
 namespace mai {
@@ -11,17 +11,19 @@ namespace sql {
 
 class SQLParserTest : public ::testing::Test {
 public:
+    SQLParserTest()
+        : arena_(env_->GetLowLevelAllocator())
+        , factory_(&arena_) {}
     
+    Env *env_ = Env::Default();
+    base::Arena arena_;
+    AstFactory factory_;
 };
     
 TEST_F(SQLParserTest, YaccTest) {
-//    parser_ctx ctx;
-//    yylex_init(&ctx.lex);
-//    yyset_in(stdin, ctx.lex);
-//
-//    yyparse(&ctx);
-//
-//    yylex_destroy(ctx.lex);
+    Parser::Result result;
+    auto rs = Parser::Parse("()", &factory_, &result);
+    ASSERT_FALSE(rs.ok()) <<  rs.ToString();
 }
 
 } // namespace sql

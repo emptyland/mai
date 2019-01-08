@@ -9,6 +9,8 @@
 %lex-param {void *YYLEX_PARAM}
 
 %{
+#include "sql/ast.h"
+#include "sql/ast-factory.h"
 #include "sql/parser-ctx.h"
 #include "sql/sql.hh"
 #if defined(__cplusplus)
@@ -30,71 +32,71 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
         const char *buf;
         size_t      len;
     } text;
+    int int_val;
 }
-%token TOK_SELECT TOK_STAR TOK_FROM TOK_CREATE TOK_TABLE TOK_DROP
-%token TOK_UNIQUE TOK_PRIMARY TOK_KEY TOK_ENGINE TOK_BEGIN TOK_TRANSACTION
-%token TOK_COMMIT TOK_ROLLBACK
 
-%token TOK_LPAREN TOK_RPAREN TOK_COMMA
+%token SELECT FROM CREATE TABLE DROP
+%token UNIQUE PRIMARY KEY ENGINE TXN_BEGIN TRANSACTION
+%token COMMIT ROLLBACK
 
-%token TOK_ID TOK_NULL TOK_INTEGRAL_VAL TOK_STRING_VAL
+%token ID NULL_VAL INTEGRAL_VAL STRING_VAL
 
-%token TOK_EQ TOK_NOT
+%token EQ NOT
 
-%token TOK_BIGINT TOK_INT TOK_SMALLINT TOK_TINYINT TOK_DECIMAL TOK_NUMERIC
-%token TOK_CHAR TOK_VARCHAR TOK_DATE TOK_DATETIME TOK_TIMESTMAP
+%token BIGINT INT SMALLINT TINYINT DECIMAL NUMERIC
+%token CHAR VARCHAR DATE DATETIME TIMESTMAP
 
 //%type column
 %%
 Command: DDL
-| TOK_BEGIN TOK_TRANSACTION
-| TOK_COMMIT
-| TOK_ROLLBACK
+| TXN_BEGIN TRANSACTION
+| COMMIT
+| ROLLBACK
 
 // CREATE DROP
-DDL: TOK_CREATE TOK_TABLE TOK_LPAREN ColumnDeclarationList TOK_RPAREN EngineDeclaration
-| TOK_DROP TOK_TABLE TOK_ID
+DDL: CREATE TABLE '(' ColumnDeclarationList ')'
+| DROP TABLE ID
 
 ColumnDeclarationList: ColumnDeclaration
-| ColumnDeclaration TOK_COMMA ColumnDeclarationList
+| ColumnDeclaration ',' ColumnDeclarationList
 
-ColumnDeclaration: TOK_ID TypeDeclaration NullDeclaration UniqueDeclaration PrimaryKeyDeclaration
+ColumnDeclaration: ID TypeDeclaration NullDeclaration UniqueDeclaration PrimaryKeyDeclaration
 
-TypeDeclaration: TOK_BIGINT FixedSizeDescription
-| TOK_INT FixedSizeDescription
-| TOK_SMALLINT FixedSizeDescription
-| TOK_TINYINT FixedSizeDescription
-| TOK_DECIMAL FloatingSizeDescription
-| TOK_NUMERIC FloatingSizeDescription
-| TOK_CHAR FixedSizeDescription
-| TOK_VARCHAR FixedSizeDescription
-| TOK_DATE
-| TOK_DATETIME
-| TOK_TIMESTMAP
+TypeDeclaration: BIGINT FixedSizeDescription
+| INT FixedSizeDescription
+| SMALLINT FixedSizeDescription
+| TINYINT FixedSizeDescription
+| DECIMAL FloatingSizeDescription
+| NUMERIC FloatingSizeDescription
+| CHAR FixedSizeDescription
+| VARCHAR FixedSizeDescription
+| DATE
+| DATETIME
+| TIMESTMAP
 
-FixedSizeDescription: TOK_LPAREN TOK_INTEGRAL_VAL TOK_RPAREN
+FixedSizeDescription: '(' INTEGRAL_VAL ')'
 |
 
-FloatingSizeDescription: TOK_LPAREN TOK_INTEGRAL_VAL TOK_COMMA TOK_INTEGRAL_VAL TOK_RPAREN
+FloatingSizeDescription: '(' INTEGRAL_VAL '.' INTEGRAL_VAL ')'
 |
 
-NullDeclaration: TOK_NOT TOK_NULL
-| TOK_NULL
+NullDeclaration: NOT NULL_VAL
+| NULL_VAL
 |
 
-UniqueDeclaration: TOK_UNIQUE
+UniqueDeclaration: UNIQUE
 |
 
-PrimaryKeyDeclaration: TOK_PRIMARY TOK_KEY
+PrimaryKeyDeclaration: PRIMARY KEY
 |
 
-EngineDeclaration: TOK_ENGINE TOK_EQ TOK_STRING_VAL
-|
 
 // INSERT UPDATE DELETE
 // DML:
 
 %%
-void yyerror(YYLTYPE *, parser_ctx *, const char *msg) {
-    printf("Err: %s\n", msg);
+void yyerror(YYLTYPE *yyl, parser_ctx *ctx, const char *msg) {
+    ctx->err_line   = yyl->first_line;
+    ctx->err_column = yyl->first_column;
+    ctx->err_msg    = ctx->factory->NewString(msg);
 }

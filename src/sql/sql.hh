@@ -48,40 +48,36 @@ extern int yydebug;
 # define YYTOKENTYPE
   enum yytokentype
   {
-    TOK_SELECT = 258,
-    TOK_STAR = 259,
-    TOK_FROM = 260,
-    TOK_CREATE = 261,
-    TOK_TABLE = 262,
-    TOK_DROP = 263,
-    TOK_UNIQUE = 264,
-    TOK_PRIMARY = 265,
-    TOK_KEY = 266,
-    TOK_ENGINE = 267,
-    TOK_BEGIN = 268,
-    TOK_TRANSACTION = 269,
-    TOK_COMMIT = 270,
-    TOK_ROLLBACK = 271,
-    TOK_LPAREN = 272,
-    TOK_RPAREN = 273,
-    TOK_COMMA = 274,
-    TOK_ID = 275,
-    TOK_NULL = 276,
-    TOK_INTEGRAL_VAL = 277,
-    TOK_STRING_VAL = 278,
-    TOK_EQ = 279,
-    TOK_NOT = 280,
-    TOK_BIGINT = 281,
-    TOK_INT = 282,
-    TOK_SMALLINT = 283,
-    TOK_TINYINT = 284,
-    TOK_DECIMAL = 285,
-    TOK_NUMERIC = 286,
-    TOK_CHAR = 287,
-    TOK_VARCHAR = 288,
-    TOK_DATE = 289,
-    TOK_DATETIME = 290,
-    TOK_TIMESTMAP = 291
+    SELECT = 258,
+    FROM = 259,
+    CREATE = 260,
+    TABLE = 261,
+    DROP = 262,
+    UNIQUE = 263,
+    PRIMARY = 264,
+    KEY = 265,
+    ENGINE = 266,
+    TXN_BEGIN = 267,
+    TRANSACTION = 268,
+    COMMIT = 269,
+    ROLLBACK = 270,
+    ID = 271,
+    NULL_VAL = 272,
+    INTEGRAL_VAL = 273,
+    STRING_VAL = 274,
+    EQ = 275,
+    NOT = 276,
+    BIGINT = 277,
+    INT = 278,
+    SMALLINT = 279,
+    TINYINT = 280,
+    DECIMAL = 281,
+    NUMERIC = 282,
+    CHAR = 283,
+    VARCHAR = 284,
+    DATE = 285,
+    DATETIME = 286,
+    TIMESTMAP = 287
   };
 #endif
 
@@ -90,14 +86,15 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 28 "sql.y" /* yacc.c:1912  */
+#line 30 "sql.y" /* yacc.c:1912  */
 
     struct {
         const char *buf;
         size_t      len;
     } text;
+    int int_val;
 
-#line 101 "sql.hh" /* yacc.c:1912  */
+#line 98 "sql.hh" /* yacc.c:1912  */
 };
 
 typedef union YYSTYPE YYSTYPE;

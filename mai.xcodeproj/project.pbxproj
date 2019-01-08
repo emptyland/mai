@@ -109,6 +109,7 @@
 		237B0C0B21E4869400F3A099 /* sql.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C0821E4869400F3A099 /* sql.cc */; };
 		237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */; };
 		237B0C1B21E4A25E00F3A099 /* lex.yy.c in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1A21E4A25E00F3A099 /* lex.yy.c */; };
+		237B0C1E21E4A9C100F3A099 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1D21E4A9C100F3A099 /* parser.cc */; };
 		239B2A7121D615890088F382 /* pessimistic-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A6F21D615890088F382 /* pessimistic-transaction-db.cc */; };
 		239B2A7621D6171E0088F382 /* pessimistic-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7421D6171E0088F382 /* pessimistic-transaction.cc */; };
 		239B2A7B21D61BE10088F382 /* transaction-base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7921D61BE10088F382 /* transaction-base.cc */; };
@@ -274,6 +275,8 @@
 		237B0C1121E4942300F3A099 /* sql.l */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.lex; path = sql.l; sourceTree = "<group>"; };
 		237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "sql-parser-test.cc"; sourceTree = "<group>"; };
 		237B0C1A21E4A25E00F3A099 /* lex.yy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lex.yy.c; sourceTree = "<group>"; };
+		237B0C1C21E4A9B400F3A099 /* parser.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = parser.h; sourceTree = "<group>"; };
+		237B0C1D21E4A9C100F3A099 /* parser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = parser.cc; sourceTree = "<group>"; };
 		237CE4B72192CD16004FB9BF /* memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "memory-table.h"; sourceTree = "<group>"; };
 		237CE4B82192D00B004FB9BF /* unordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "unordered-memory-table.h"; sourceTree = "<group>"; };
 		237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "unordered-memory-table.cc"; sourceTree = "<group>"; };
@@ -708,6 +711,8 @@
 				23B8E68121E05FEC0001096E /* ast.cc */,
 				23B8E68821E32D070001096E /* ast-factory.h */,
 				237B0C0F21E4924900F3A099 /* parser-ctx.h */,
+				237B0C1C21E4A9B400F3A099 /* parser.h */,
+				237B0C1D21E4A9C100F3A099 /* parser.cc */,
 			);
 			name = sql;
 			path = src/sql;
@@ -976,6 +981,7 @@
 				2364B2C121E451F9008519AE /* write-ahead-log.cc in Sources */,
 				2364B2C321E451F9008519AE /* db-impl.cc in Sources */,
 				2364B2C521E451F9008519AE /* column-family.cc in Sources */,
+				237B0C1E21E4A9C100F3A099 /* parser.cc in Sources */,
 				2364B2C721E451F9008519AE /* version.cc in Sources */,
 				2364B2C921E451F9008519AE /* files.cc in Sources */,
 				2364B2CB21E451F9008519AE /* factory.cc in Sources */,
