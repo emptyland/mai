@@ -20,11 +20,25 @@ public:
     // DDL
     ////////////////////////////////////////////////////////////////////////////
     CreateTable *NewCreateTable(const AstString *schema_name) {
-        return new (arena_) CreateTable(schema_name);
+        return new (arena_) CreateTable(schema_name, arena_);
     }
     
     DropTable *NewDropTable(const AstString *schema_name) {
         return new (arena_) DropTable(schema_name);
+    }
+    
+    ColumnDefinition *NewColumnDefinition(const AstString *name,
+                                            TypeDefinition *type,
+                                            bool is_not_null,
+                                            bool auto_increment,
+                                            SQLKeyType key) {
+        return new (arena_) ColumnDefinition(name, type, is_not_null,
+                                              auto_increment, key);
+    }
+    
+    TypeDefinition *NewTypeDefinition(SQLType type, int fixed_size = 0,
+                                        int float_size = 0) {
+        return new (arena_) TypeDefinition(type, fixed_size, float_size);
     }
     
     ////////////////////////////////////////////////////////////////////////////

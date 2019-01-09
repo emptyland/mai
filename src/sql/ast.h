@@ -1,6 +1,7 @@
 #ifndef MAI_SQL_AST_NODES_H_
 #define MAI_SQL_AST_NODES_H_
 
+#include "sql/types.h"
 #include "base/arena-utils.h"
 #include "base/base.h"
 
@@ -16,7 +17,10 @@ namespace sql {
     
 #define DEFINE_DDL_NODES(V) \
     V(CreateTable) \
-    V(DropTable)
+    V(DropTable) \
+    V(ColumnDefinition) \
+    V(TypeDefinition) \
+    V(AlterTableColumn)
     
 #define DEFINE_DML_NODES(V) \
     V(Query)
@@ -159,20 +163,81 @@ protected:
     
 class CreateTable final : public DDLStatement {
 public:
+    using Columns = base::ArenaVector<ColumnDefinition *>;
+    
     virtual bool is_command() const override { return true; }
     
-    DEF_PTR_GETTER_NOTNULL(const AstString, schema_name);
+    void AddColumn(ColumnDefinition *column) {
+        columns_.push_back(column);
+    }
+    
+    size_t columns_size() const { return columns_.size(); }
+    ColumnDefinition *column(size_t i) { return columns_[i]; }
+
+    Columns::const_iterator begin() const { return columns_.begin(); }
+    Columns::const_iterator end() const { return columns_.end(); }
+
+    DEF_PTR_PROP_RW_NOTNULL2(const AstString, schema_name);
     
     DEF_AST_NODE(CreateTable);
     DISALLOW_IMPLICIT_CONSTRUCTORS(CreateTable);
 private:
-    CreateTable(const AstString *schema_name)
-        : schema_name_(DCHECK_NOTNULL(schema_name)) {}
+    CreateTable(const AstString *schema_name, base::Arena *arena)
+        : schema_name_(schema_name)
+        , columns_(arena) {}
 
     const AstString *schema_name_;
+    Columns columns_;
 }; // class CreateTable
     
+    
+class AlterTable : public DDLStatement {
+public:
+    virtual bool is_command() const override { return true; }
+    virtual bool alter_column() const { return false; }
+    virtual bool alter_index() const { return false; }
+    
+    DEF_PTR_GETTER_NOTNULL(const AstString, table_name);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(AlterTable);
+protected:
+    AlterTable(const AstString *table_name)
+        : table_name_(table_name) {}
+    
+    const AstString *table_name_;
+}; // class AlterTable
 
+
+class AlterTableColumn : public AlterTable {
+public:
+    using Columns = base::ArenaVector<ColumnDefinition *>;
+    
+    virtual bool alter_column() const override { return true; }
+    bool add() const { return add_; }
+    bool drop() const { return !add_; }
+    
+    bool add_after() const { return add() && after_; }
+    bool add_first() const { return add() && !after_; }
+    
+    void AddColumn(ColumnDefinition *column) {
+        columns_.push_back(column);
+    }
+    
+    size_t columns_size() const { return columns_.size(); }
+    ColumnDefinition *column(size_t i) { return columns_[i]; }
+    
+    Columns::const_iterator begin() const { return columns_.begin(); }
+    Columns::const_iterator end() const { return columns_.end(); }
+    
+private:
+    Columns columns_;
+    const AstString *column_name_;
+    bool add_;
+    bool after_;
+}; // class AlterTableColumn
+    
+
+    
 class DropTable final : public DDLStatement {
 public:
     virtual bool is_command() const override { return true; }
@@ -187,6 +252,63 @@ private:
     
     const AstString *schema_name_;
 }; // class DropTable
+    
+    
+class ColumnDefinition final : public AstNode {
+public:
+    DEF_PTR_GETTER_NOTNULL(const AstString, name);
+    DEF_PTR_GETTER_NOTNULL(TypeDefinition, type);
+    DEF_VAL_GETTER(bool, is_not_null);
+    DEF_VAL_GETTER(bool, auto_increment);
+    DEF_VAL_GETTER(SQLKeyType, key);
+    DEF_PTR_PROP_RW_NOTNULL2(const AstString, comment);
+    
+    bool is_key() const { return key_ == SQL_KEY; }
+    bool is_unique_key() const { return key_ == SQL_UNIQUE_KEY; }
+    bool is_primary_key() const { return key_ == SQL_PRIMARY_KEY; }
+    bool is_not_key() const { return key_ == SQL_NOT_KEY; }
+    
+    DEF_AST_NODE(ColumnDefinition);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(ColumnDefinition);
+private:
+    ColumnDefinition(const AstString *name,
+                      TypeDefinition *type,
+                      bool is_not_null,
+                      bool auto_increment,
+                      SQLKeyType key)
+        : name_(name)
+        , type_(type)
+        , is_not_null_(is_not_null)
+        , key_(key) {}
+    
+    const AstString *name_;
+    TypeDefinition *type_;
+    bool is_not_null_ = false;
+    bool auto_increment_ = false;
+    SQLKeyType key_ = SQL_NOT_KEY;
+    const AstString *comment_ = AstString::kEmpty;
+}; // class ColumnDeclaration
+
+    
+class TypeDefinition final : public AstNode {
+public:
+    DEF_VAL_GETTER(SQLType, code);
+    DEF_VAL_GETTER(int, fixed_size);
+    DEF_VAL_GETTER(int, float_size);
+    
+    DEF_AST_NODE(TypeDefinition);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(TypeDefinition);
+    
+private:
+    TypeDefinition(SQLType code, int fixed_size, int float_size)
+        : code_(code)
+        , fixed_size_(fixed_size)
+        , float_size_(float_size) {}
+
+    SQLType code_;
+    int fixed_size_;
+    int float_size_;
+}; // class TypeDeclaration
 
     
 ////////////////////////////////////////////////////////////////////////////////

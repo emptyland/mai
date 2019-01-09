@@ -2,14 +2,20 @@
 #include "sql/ast.h"
 #include "sql/parser-ctx.h"
 #include "sql/sql.hh"
-//extern "C" {
 #include "sql/sql.yy.h"
-//}
 #include "base/arena-utils.h"
+#include "base/slice.h"
 
 namespace mai {
     
 namespace sql {
+    
+std::string Parser::Result::FormatError() {
+    if (!error || error == AstString::kEmpty) {
+        return "";
+    }
+    return base::Slice::Sprintf("[%d,%d] %s", line, column, error->data());
+}
 
 
 /*static*/ Error

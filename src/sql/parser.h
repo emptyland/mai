@@ -22,6 +22,8 @@ public:
         int column;
         AstNode *ast;
         Block *block;
+        
+        std::string FormatError();
     };
 
     static Error Parse(const char *s, AstFactory *factory, Result *result);

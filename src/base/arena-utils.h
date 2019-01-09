@@ -25,6 +25,7 @@ public:
     };
     
     static const int kMinLargetSize = 0x8000;
+    static const ArenaString *const kEmpty;
     
     DEF_VAL_GETTER(uint32_t, hash_val);
     

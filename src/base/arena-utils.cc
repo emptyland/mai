@@ -4,6 +4,11 @@ namespace mai {
     
 namespace base {
     
+static const char empty_arean_string_stub[sizeof(ArenaString)] = {0};
+    
+/*static*/ const ArenaString *const ArenaString::kEmpty =
+    reinterpret_cast<const ArenaString *>(empty_arean_string_stub);
+    
 static inline void Encode16(void *x, uint16_t val) {
     uint8_t *buf = static_cast<uint8_t *>(x);
     buf[0] = static_cast<uint8_t>((0xff00 & val) >> 8);

@@ -79,7 +79,9 @@ extern int yydebug;
     VARCHAR = 286,
     DATE = 287,
     DATETIME = 288,
-    TIMESTMAP = 289
+    TIMESTMAP = 289,
+    AUTO_INCREMENT = 290,
+    COMMENT = 291
   };
 #endif
 
@@ -94,12 +96,21 @@ union YYSTYPE
         const char *buf;
         size_t      len;
     } text;
+    struct {
+        int fixed_size;
+        int float_size;
+    } size;
     int int_val;
+    bool bool_val;
+    ::mai::sql::SQLKeyType key_type;
     ::mai::sql::Block *block;
     ::mai::sql::Statement *stmt;
+    ::mai::sql::TypeDefinition *type_def;
+    ::mai::sql::ColumnDefinition *col_def;
+    ::mai::sql::CreateTable *create_table_stmt;
     const ::mai::sql::AstString *str;
 
-#line 103 "sql.hh" /* yacc.c:1912  */
+#line 114 "sql.hh" /* yacc.c:1912  */
 };
 
 typedef union YYSTYPE YYSTYPE;

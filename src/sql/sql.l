@@ -9,6 +9,7 @@
 #include "sql/ast.h"
 #include "sql/sql.hh"
 #include <string.h>
+#include <stdlib.h>
 
 void yyerror(YYLTYPE *yyl, parser_ctx *ctx, const char *msg);
 
@@ -19,6 +20,8 @@ digit [0-9]
 delim [ \f\r\t\v]
 
 %%
+ADD { return ADD; }
+ALTER { return ALTER; }
 NULL { return NULL_VAL; }
 SELECT { return SELECT; }
 FROM { return FROM; }
@@ -28,22 +31,46 @@ COMMIT { return TXN_COMMIT; }
 ROLLBACK { return TXN_ROLLBACK; }
 SHOW { return SHOW; }
 DROP { return DROP; }
+CREATE { return CREATE; }
 TABLE { return TABLE; }
 TABLES { return TABLES; }
+BIGINT { return BIGINT; }
+INT { return INT; }
+SMALLINT { return SMALLINT; }
+TINYINT { return TINYINT; }
+DECIMAL { return DECIMAL; }
+NUMERIC { return NUMERIC; }
+CHAR { return CHAR; }
+VARCHAR { return VARCHAR; }
+DATE { return DATE; }
+DATETIME { return DATETIME; }
+PRIMARY { return PRIMARY; }
+KEY { return KEY; }
+UNIQUE { return UNIQUE; }
+AUTO_INCREMENT { return AUTO_INCREMENT; }
+COMMENT { return COMMENT; }
 
-[A-Za-z_][A-Za-z_0-9]+ {
+[A-Za-z_][A-Za-z_0-9]* {
     yylval->text.buf = yytext;
     yylval->text.len = strlen(yytext);
     return ID;
 }
 
-`[A-Za-z_][A-Za-z_0-9]+` {
+`[A-Za-z_][A-Za-z_0-9]*` {
     yylval->text.buf = yytext + 1;
     yylval->text.len = strlen(yytext) - 2;
     return ID;
 }
 
-[0-9]+ {
+'(\\.|''|[^'\n'])*' |
+\"(\\.|\"\"|[^"\n])*\" {
+    yylval->text.buf = yytext + 1;
+    yylval->text.len = strlen(yytext) - 2;
+    return STRING_VAL;	
+}
+
+-?[0-9]+ {
+	yylval->int_val = atoi(yytext);
 	return INTEGRAL_VAL;
 }
 

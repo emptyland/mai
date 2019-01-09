@@ -223,6 +223,7 @@
 		2302F6BD21AE961200AE0309 /* s1-table-reader-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "s1-table-reader-test.cc"; sourceTree = "<group>"; };
 		230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map-v2.h"; sourceTree = "<group>"; };
 		2317596821E5933F0025685F /* sql.yy.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sql.yy.cc; sourceTree = "<group>"; };
+		2317596A21E5A1BA0025685F /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
 		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
 		231C61F2219A6D54001A95C1 /* block-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-iterator.cc"; sourceTree = "<group>"; };
 		231C61F5219AA5EE001A95C1 /* io-utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "io-utils.h"; sourceTree = "<group>"; };
@@ -713,6 +714,7 @@
 				237B0C0F21E4924900F3A099 /* parser-ctx.h */,
 				237B0C1C21E4A9B400F3A099 /* parser.h */,
 				237B0C1D21E4A9C100F3A099 /* parser.cc */,
+				2317596A21E5A1BA0025685F /* types.h */,
 			);
 			name = sql;
 			path = src/sql;
