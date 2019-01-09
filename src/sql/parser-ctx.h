@@ -12,12 +12,13 @@ namespace sql {
     
 class AstFactory;
 class AstNode;
-
+class Block;
 
 struct parser_ctx {
     void *lex = nullptr;
     AstFactory *factory = nullptr;
     AstNode *ast = nullptr;
+    Block *block = nullptr;
     
     const base::ArenaString *err_msg = nullptr;
     int err_line = 0;

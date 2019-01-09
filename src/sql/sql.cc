@@ -71,20 +71,22 @@
 #include "sql/ast-factory.h"
 #include "sql/parser-ctx.h"
 #include "sql/sql.hh"
-#if defined(__cplusplus)
-extern "C" {
-#endif
+//#if defined(__cplusplus)
+//extern "C" {
+//#endif
 #include "sql/sql.yy.h"
-#if defined(__cplusplus)
-}
-#endif
+//#if defined(__cplusplus)
+//}
+//#endif
 #include <string.h>
+
+using namespace ::mai::sql;
 
 #define YYLEX_PARAM ctx->lex
 
 void yyerror(YYLTYPE *, parser_ctx *, const char *);
 
-#line 88 "sql.cc" /* yacc.c:338  */
+#line 90 "sql.cc" /* yacc.c:338  */
 # ifndef YY_NULLPTR
 #  if defined __cplusplus
 #   if 201103L <= __cplusplus
@@ -126,32 +128,34 @@ extern int yydebug;
     FROM = 259,
     CREATE = 260,
     TABLE = 261,
-    DROP = 262,
-    UNIQUE = 263,
-    PRIMARY = 264,
-    KEY = 265,
-    ENGINE = 266,
-    TXN_BEGIN = 267,
-    TRANSACTION = 268,
-    COMMIT = 269,
-    ROLLBACK = 270,
-    ID = 271,
-    NULL_VAL = 272,
-    INTEGRAL_VAL = 273,
-    STRING_VAL = 274,
-    EQ = 275,
-    NOT = 276,
-    BIGINT = 277,
-    INT = 278,
-    SMALLINT = 279,
-    TINYINT = 280,
-    DECIMAL = 281,
-    NUMERIC = 282,
-    CHAR = 283,
-    VARCHAR = 284,
-    DATE = 285,
-    DATETIME = 286,
-    TIMESTMAP = 287
+    TABLES = 262,
+    DROP = 263,
+    SHOW = 264,
+    UNIQUE = 265,
+    PRIMARY = 266,
+    KEY = 267,
+    ENGINE = 268,
+    TXN_BEGIN = 269,
+    TRANSACTION = 270,
+    TXN_COMMIT = 271,
+    TXN_ROLLBACK = 272,
+    ID = 273,
+    NULL_VAL = 274,
+    INTEGRAL_VAL = 275,
+    STRING_VAL = 276,
+    EQ = 277,
+    NOT = 278,
+    BIGINT = 279,
+    INT = 280,
+    SMALLINT = 281,
+    TINYINT = 282,
+    DECIMAL = 283,
+    NUMERIC = 284,
+    CHAR = 285,
+    VARCHAR = 286,
+    DATE = 287,
+    DATETIME = 288,
+    TIMESTMAP = 289
   };
 #endif
 
@@ -160,15 +164,18 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 30 "sql.y" /* yacc.c:353  */
+#line 32 "sql.y" /* yacc.c:353  */
 
     struct {
         const char *buf;
         size_t      len;
     } text;
     int int_val;
+    ::mai::sql::Block *block;
+    ::mai::sql::Statement *stmt;
+    const ::mai::sql::AstString *str;
 
-#line 172 "sql.cc" /* yacc.c:353  */
+#line 179 "sql.cc" /* yacc.c:353  */
 };
 
 typedef union YYSTYPE YYSTYPE;
@@ -429,23 +436,23 @@ union yyalloc
 #endif /* !YYCOPY_NEEDED */
 
 /* YYFINAL -- State number of the termination state.  */
-#define YYFINAL  11
+#define YYFINAL  15
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   45
+#define YYLAST   55
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  37
+#define YYNTOKENS  40
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  11
+#define YYNNTS  14
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  32
+#define YYNRULES  37
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  57
+#define YYNSTATES  64
 
 /* YYTRANSLATE[YYX] -- Symbol number corresponding to YYX as returned
    by yylex, with out-of-bounds checking.  */
 #define YYUNDEFTOK  2
-#define YYMAXUTOK   287
+#define YYMAXUTOK   289
 
 #define YYTRANSLATE(YYX)                                                \
   ((unsigned) (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
@@ -458,8 +465,8 @@ static const yytype_uint8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-      33,    34,     2,     2,    35,     2,    36,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+      36,    37,     2,     2,    38,     2,    39,     2,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     2,     2,    35,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -482,17 +489,17 @@ static const yytype_uint8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
        5,     6,     7,     8,     9,    10,    11,    12,    13,    14,
       15,    16,    17,    18,    19,    20,    21,    22,    23,    24,
-      25,    26,    27,    28,    29,    30,    31,    32
+      25,    26,    27,    28,    29,    30,    31,    32,    33,    34
 };
 
 #if YYDEBUG
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,    51,    51,    52,    53,    54,    57,    58,    60,    61,
-      63,    65,    66,    67,    68,    69,    70,    71,    72,    73,
-      74,    75,    77,    78,    80,    81,    83,    84,    85,    87,
-      88,    90,    91
+       0,    61,    61,    66,    71,    73,    74,    77,    80,    83,
+      88,    91,    95,    96,    98,   100,   101,   102,   103,   104,
+     105,   106,   107,   108,   109,   110,   112,   113,   115,   116,
+     118,   119,   120,   122,   123,   125,   126,   128
 };
 #endif
 
@@ -502,14 +509,15 @@ static const yytype_uint8 yyrline[] =
 static const char *const yytname[] =
 {
   "$end", "error", "$undefined", "SELECT", "FROM", "CREATE", "TABLE",
-  "DROP", "UNIQUE", "PRIMARY", "KEY", "ENGINE", "TXN_BEGIN", "TRANSACTION",
-  "COMMIT", "ROLLBACK", "ID", "NULL_VAL", "INTEGRAL_VAL", "STRING_VAL",
-  "EQ", "NOT", "BIGINT", "INT", "SMALLINT", "TINYINT", "DECIMAL",
-  "NUMERIC", "CHAR", "VARCHAR", "DATE", "DATETIME", "TIMESTMAP", "'('",
-  "')'", "','", "'.'", "$accept", "Command", "DDL",
-  "ColumnDeclarationList", "ColumnDeclaration", "TypeDeclaration",
-  "FixedSizeDescription", "FloatingSizeDescription", "NullDeclaration",
-  "UniqueDeclaration", "PrimaryKeyDeclaration", YY_NULLPTR
+  "TABLES", "DROP", "SHOW", "UNIQUE", "PRIMARY", "KEY", "ENGINE",
+  "TXN_BEGIN", "TRANSACTION", "TXN_COMMIT", "TXN_ROLLBACK", "ID",
+  "NULL_VAL", "INTEGRAL_VAL", "STRING_VAL", "EQ", "NOT", "BIGINT", "INT",
+  "SMALLINT", "TINYINT", "DECIMAL", "NUMERIC", "CHAR", "VARCHAR", "DATE",
+  "DATETIME", "TIMESTMAP", "';'", "'('", "')'", "','", "'.'", "$accept",
+  "Block", "Statement", "Command", "DDL", "ColumnDeclarationList",
+  "ColumnDeclaration", "TypeDeclaration", "FixedSizeDescription",
+  "FloatingSizeDescription", "NullDeclaration", "UniqueDeclaration",
+  "PrimaryKeyDeclaration", "Identifier", YY_NULLPTR
 };
 #endif
 
@@ -521,14 +529,14 @@ static const yytype_uint16 yytoknum[] =
        0,   256,   257,   258,   259,   260,   261,   262,   263,   264,
      265,   266,   267,   268,   269,   270,   271,   272,   273,   274,
      275,   276,   277,   278,   279,   280,   281,   282,   283,   284,
-     285,   286,   287,    40,    41,    44,    46
+     285,   286,   287,   288,   289,    59,    40,    41,    44,    46
 };
 # endif
 
-#define YYPACT_NINF -23
+#define YYPACT_NINF -27
 
 #define yypact_value_is_default(Yystate) \
-  (!!((Yystate) == (-23)))
+  (!!((Yystate) == (-27)))
 
 #define YYTABLE_NINF -1
 
@@ -539,12 +547,13 @@ static const yytype_uint16 yytoknum[] =
      STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-       6,     8,     9,    12,   -23,   -23,    17,   -23,   -14,    10,
-     -23,   -23,    13,   -23,   -22,    -4,    -3,    -2,    -2,    -2,
-      -2,     0,     0,    -2,    -2,   -23,   -23,   -23,    -5,   -23,
-      13,    16,   -23,   -23,   -23,   -23,    18,   -23,   -23,   -23,
-     -23,   -23,    20,    27,   -23,     5,     2,   -23,   -23,    31,
-     -23,    23,    32,   -23,    11,   -23,   -23
+      10,    -2,     5,     3,    -3,   -27,   -27,     0,   -27,   -22,
+     -27,   -16,    21,   -27,   -27,   -27,   -27,   -27,    21,   -27,
+     -27,   -15,     6,     4,   -27,    21,   -13,   -13,   -13,   -13,
+       7,     7,   -13,   -13,   -27,   -27,   -27,     2,   -27,    20,
+     -27,   -27,   -27,   -27,    22,   -27,   -27,   -27,   -27,   -27,
+      26,    31,     9,     8,   -27,   -27,    37,   -27,    29,    38,
+     -27,    14,   -27,   -27
 };
 
   /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -552,26 +561,27 @@ static const yytype_int8 yypact[] =
      means the default is an error.  */
 static const yytype_uint8 yydefact[] =
 {
-       0,     0,     0,     0,     4,     5,     0,     2,     0,     0,
-       3,     1,     0,     7,     0,     0,     8,    23,    23,    23,
-      23,    25,    25,    23,    23,    19,    20,    21,    28,     6,
-       0,     0,    11,    12,    13,    14,     0,    15,    16,    17,
-      18,    27,     0,    30,     9,     0,     0,    26,    29,    32,
-      22,     0,     0,    10,     0,    31,    24
+       0,     0,     0,     0,     0,     7,     8,     0,     2,     0,
+       5,     0,     0,     9,     6,     1,     3,     4,     0,    37,
+      11,     0,    12,     0,    10,     0,    27,    27,    27,    27,
+      29,    29,    27,    27,    23,    24,    25,    32,    13,     0,
+      15,    16,    17,    18,     0,    19,    20,    21,    22,    31,
+       0,    34,     0,     0,    30,    33,    36,    26,     0,     0,
+      14,     0,    35,    28
 };
 
   /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -23,   -23,   -23,    14,   -23,   -23,     4,    21,   -23,   -23,
-     -23
+     -27,   -27,    45,   -27,   -27,    28,   -27,   -27,   -26,    23,
+     -27,   -27,   -27,    43
 };
 
   /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-      -1,     6,     7,    15,    16,    28,    32,    37,    43,    49,
-      53
+      -1,     7,     8,     9,    10,    21,    22,    37,    40,    45,
+      51,    56,    60,    23
 };
 
   /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -579,50 +589,53 @@ static const yytype_int8 yydefgoto[] =
      number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_uint8 yytable[] =
 {
-      17,    18,    19,    20,    21,    22,    23,    24,    25,    26,
-      27,     1,    41,     2,     8,     9,    42,    11,     3,    12,
-       4,     5,    33,    34,    35,    10,    13,    39,    40,    14,
-      29,    31,    30,    36,    45,    48,    46,    47,    51,    50,
-      52,    54,    55,    38,    44,    56
+      15,    41,    42,    43,    11,     1,    47,    48,     2,     3,
+      13,    12,    14,    17,     4,     1,     5,     6,     2,     3,
+      18,    49,    24,    39,     4,    50,     5,     6,    26,    27,
+      28,    29,    30,    31,    32,    33,    34,    35,    36,    19,
+      52,    55,    53,    44,    25,    54,    57,    58,    59,    61,
+      62,    63,    16,    38,    46,    20
 };
 
 static const yytype_uint8 yycheck[] =
 {
-      22,    23,    24,    25,    26,    27,    28,    29,    30,    31,
-      32,     5,    17,     7,     6,     6,    21,     0,    12,    33,
-      14,    15,    18,    19,    20,    13,    16,    23,    24,    16,
-      34,    33,    35,    33,    18,     8,    18,    17,    36,    34,
-       9,    18,    10,    22,    30,    34
+       0,    27,    28,    29,     6,     5,    32,    33,     8,     9,
+       7,     6,    15,    35,    14,     5,    16,    17,     8,     9,
+      36,    19,    37,    36,    14,    23,    16,    17,    24,    25,
+      26,    27,    28,    29,    30,    31,    32,    33,    34,    18,
+      20,    10,    20,    36,    38,    19,    37,    39,    11,    20,
+      12,    37,     7,    25,    31,    12
 };
 
   /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
      symbol of state STATE-NUM.  */
 static const yytype_uint8 yystos[] =
 {
-       0,     5,     7,    12,    14,    15,    38,    39,     6,     6,
-      13,     0,    33,    16,    16,    40,    41,    22,    23,    24,
-      25,    26,    27,    28,    29,    30,    31,    32,    42,    34,
-      35,    33,    43,    43,    43,    43,    33,    44,    44,    43,
-      43,    17,    21,    45,    40,    18,    18,    17,     8,    46,
-      34,    36,     9,    47,    18,    10,    34
+       0,     5,     8,     9,    14,    16,    17,    41,    42,    43,
+      44,     6,     6,     7,    15,     0,    42,    35,    36,    18,
+      53,    45,    46,    53,    37,    38,    24,    25,    26,    27,
+      28,    29,    30,    31,    32,    33,    34,    47,    45,    36,
+      48,    48,    48,    48,    36,    49,    49,    48,    48,    19,
+      23,    50,    20,    20,    19,    10,    51,    37,    39,    11,
+      52,    20,    12,    37
 };
 
   /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
 static const yytype_uint8 yyr1[] =
 {
-       0,    37,    38,    38,    38,    38,    39,    39,    40,    40,
-      41,    42,    42,    42,    42,    42,    42,    42,    42,    42,
-      42,    42,    43,    43,    44,    44,    45,    45,    45,    46,
-      46,    47,    47
+       0,    40,    41,    41,    42,    43,    43,    43,    43,    43,
+      44,    44,    45,    45,    46,    47,    47,    47,    47,    47,
+      47,    47,    47,    47,    47,    47,    48,    48,    49,    49,
+      50,    50,    50,    51,    51,    52,    52,    53
 };
 
   /* YYR2[YYN] -- Number of symbols on the right hand side of rule YYN.  */
 static const yytype_uint8 yyr2[] =
 {
-       0,     2,     1,     2,     1,     1,     5,     3,     1,     3,
-       5,     2,     2,     2,     2,     2,     2,     2,     2,     1,
-       1,     1,     3,     0,     5,     0,     2,     1,     0,     1,
-       0,     2,     0
+       0,     2,     1,     2,     2,     1,     2,     1,     1,     2,
+       5,     3,     1,     3,     5,     2,     2,     2,     2,     2,
+       2,     2,     2,     1,     1,     1,     3,     0,     5,     0,
+       2,     1,     0,     1,     0,     2,     0,     1
 };
 
 
@@ -1400,8 +1413,83 @@ yyreduce:
   YY_REDUCE_PRINT (yyn);
   switch (yyn)
     {
-      
-#line 1405 "sql.cc" /* yacc.c:1660  */
+        case 2:
+#line 61 "sql.y" /* yacc.c:1660  */
+    {
+    (yyval.block) = ctx->factory->NewBlock();
+    (yyval.block)->AddStmt((yyvsp[0].stmt));
+    ctx->block = (yyval.block);
+}
+#line 1424 "sql.cc" /* yacc.c:1660  */
+    break;
+
+  case 3:
+#line 66 "sql.y" /* yacc.c:1660  */
+    {
+    (yyval.block)->AddStmt((yyvsp[0].stmt));
+    ctx->block = (yyval.block);
+}
+#line 1433 "sql.cc" /* yacc.c:1660  */
+    break;
+
+  case 6:
+#line 74 "sql.y" /* yacc.c:1660  */
+    {
+    (yyval.stmt) = ctx->factory->NewTCLStatement(TCLStatement::TXN_BEGIN);
+}
+#line 1441 "sql.cc" /* yacc.c:1660  */
+    break;
+
+  case 7:
+#line 77 "sql.y" /* yacc.c:1660  */
+    {
+    (yyval.stmt) = ctx->factory->NewTCLStatement(TCLStatement::TXN_COMMIT);
+}
+#line 1449 "sql.cc" /* yacc.c:1660  */
+    break;
+
+  case 8:
+#line 80 "sql.y" /* yacc.c:1660  */
+    {
+    (yyval.stmt) = ctx->factory->NewTCLStatement(TCLStatement::TXN_ROLLBACK);
+}
+#line 1457 "sql.cc" /* yacc.c:1660  */
+    break;
+
+  case 9:
+#line 83 "sql.y" /* yacc.c:1660  */
+    {
+    (yyval.stmt) = ctx->factory->NewShowTables();
+}
+#line 1465 "sql.cc" /* yacc.c:1660  */
+    break;
+
+  case 10:
+#line 88 "sql.y" /* yacc.c:1660  */
+    {
+    (yyval.stmt) = NULL;
+}
+#line 1473 "sql.cc" /* yacc.c:1660  */
+    break;
+
+  case 11:
+#line 91 "sql.y" /* yacc.c:1660  */
+    {
+    (yyval.stmt) = ctx->factory->NewDropTable((yyvsp[0].str));
+}
+#line 1481 "sql.cc" /* yacc.c:1660  */
+    break;
+
+  case 37:
+#line 128 "sql.y" /* yacc.c:1660  */
+    {
+    (yyval.str) = ctx->factory->NewString((yyvsp[0].text).buf, (yyvsp[0].text).len);
+}
+#line 1489 "sql.cc" /* yacc.c:1660  */
+    break;
+
+
+#line 1493 "sql.cc" /* yacc.c:1660  */
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -1634,7 +1722,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 97 "sql.y" /* yacc.c:1903  */
+#line 136 "sql.y" /* yacc.c:1903  */
 
 void yyerror(YYLTYPE *yyl, parser_ctx *ctx, const char *msg) {
     ctx->err_line   = yyl->first_line;

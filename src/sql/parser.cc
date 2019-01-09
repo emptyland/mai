@@ -1,16 +1,17 @@
 #include "sql/parser.h"
+#include "sql/ast.h"
 #include "sql/parser-ctx.h"
 #include "sql/sql.hh"
-extern "C" {
+//extern "C" {
 #include "sql/sql.yy.h"
-}
+//}
 #include "base/arena-utils.h"
 
 namespace mai {
     
 namespace sql {
-    
-    
+
+
 /*static*/ Error
 Parser::Parse(const char *s, AstFactory *factory, Parser::Result *result) {
     parser_ctx ctx;
@@ -26,6 +27,7 @@ Parser::Parse(const char *s, AstFactory *factory, Parser::Result *result) {
     yylex_destroy(ctx.lex);
     
     result->ast    = ctx.ast;
+    result->block  = ctx.block;
     result->error  = ctx.err_msg;
     result->line   = ctx.err_line;
     result->column = ctx.err_column;

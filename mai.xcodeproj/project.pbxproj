@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2317596921E5933F0025685F /* sql.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2317596821E5933F0025685F /* sql.yy.cc */; };
 		235C1CCF21D1D63F0070A049 /* optimism-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */; };
 		235C1CD621D210520070A049 /* optimism-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CD421D210520070A049 /* optimism-transaction.cc */; };
 		235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */; };
@@ -108,7 +109,6 @@
 		2364B35A21E451F9008519AE /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163721AFED5E00DE7321 /* test-main.cc */; };
 		237B0C0B21E4869400F3A099 /* sql.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C0821E4869400F3A099 /* sql.cc */; };
 		237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */; };
-		237B0C1B21E4A25E00F3A099 /* lex.yy.c in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1A21E4A25E00F3A099 /* lex.yy.c */; };
 		237B0C1E21E4A9C100F3A099 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1D21E4A9C100F3A099 /* parser.cc */; };
 		239B2A7121D615890088F382 /* pessimistic-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A6F21D615890088F382 /* pessimistic-transaction-db.cc */; };
 		239B2A7621D6171E0088F382 /* pessimistic-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7421D6171E0088F382 /* pessimistic-transaction.cc */; };
@@ -222,6 +222,7 @@
 		2302F6BA21AE80AB00AE0309 /* s1-table-reader.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "s1-table-reader.cc"; sourceTree = "<group>"; };
 		2302F6BD21AE961200AE0309 /* s1-table-reader-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "s1-table-reader-test.cc"; sourceTree = "<group>"; };
 		230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map-v2.h"; sourceTree = "<group>"; };
+		2317596821E5933F0025685F /* sql.yy.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sql.yy.cc; sourceTree = "<group>"; };
 		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
 		231C61F2219A6D54001A95C1 /* block-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-iterator.cc"; sourceTree = "<group>"; };
 		231C61F5219AA5EE001A95C1 /* io-utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "io-utils.h"; sourceTree = "<group>"; };
@@ -274,7 +275,6 @@
 		237B0C1021E4942300F3A099 /* sql.y */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.yacc; path = sql.y; sourceTree = "<group>"; };
 		237B0C1121E4942300F3A099 /* sql.l */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.lex; path = sql.l; sourceTree = "<group>"; };
 		237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "sql-parser-test.cc"; sourceTree = "<group>"; };
-		237B0C1A21E4A25E00F3A099 /* lex.yy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lex.yy.c; sourceTree = "<group>"; };
 		237B0C1C21E4A9B400F3A099 /* parser.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = parser.h; sourceTree = "<group>"; };
 		237B0C1D21E4A9C100F3A099 /* parser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = parser.cc; sourceTree = "<group>"; };
 		237CE4B72192CD16004FB9BF /* memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "memory-table.h"; sourceTree = "<group>"; };
@@ -706,7 +706,7 @@
 				237B0C0521E4869400F3A099 /* sql.hh */,
 				237B0C0821E4869400F3A099 /* sql.cc */,
 				237B0C0621E4869400F3A099 /* sql.yy.h */,
-				237B0C1A21E4A25E00F3A099 /* lex.yy.c */,
+				2317596821E5933F0025685F /* sql.yy.cc */,
 				23B8E68021E05FC80001096E /* ast.h */,
 				23B8E68121E05FEC0001096E /* ast.cc */,
 				23B8E68821E32D070001096E /* ast-factory.h */,
@@ -1018,7 +1018,6 @@
 				2364B31021E451F9008519AE /* lru-cache-v1.cc in Sources */,
 				2364B31221E451F9008519AE /* delta-amend-iterator.cc in Sources */,
 				2364B31F21E451F9008519AE /* varint-encoding.cc in Sources */,
-				237B0C1B21E4A25E00F3A099 /* lex.yy.c in Sources */,
 				2364B32221E451F9008519AE /* spin-locking.cc in Sources */,
 				2364B32521E451F9008519AE /* base.cc in Sources */,
 				2364B32921E451F9008519AE /* slice.cc in Sources */,
@@ -1065,6 +1064,7 @@
 				2364B35621E451F9008519AE /* write-batch-with-index-test.cc in Sources */,
 				2364B35721E451F9008519AE /* transaction-db-test.cc in Sources */,
 				2364B35821E451F9008519AE /* pessimistic-transaction-db-test.cc in Sources */,
+				2317596921E5933F0025685F /* sql.yy.cc in Sources */,
 				2364B35921E451F9008519AE /* ast-factory-test.cc in Sources */,
 				2364B35A21E451F9008519AE /* test-main.cc in Sources */,
 			);

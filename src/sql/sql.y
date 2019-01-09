@@ -13,14 +13,16 @@
 #include "sql/ast-factory.h"
 #include "sql/parser-ctx.h"
 #include "sql/sql.hh"
-#if defined(__cplusplus)
-extern "C" {
-#endif
+//#if defined(__cplusplus)
+//extern "C" {
+//#endif
 #include "sql/sql.yy.h"
-#if defined(__cplusplus)
-}
-#endif
+//#if defined(__cplusplus)
+//}
+//#endif
 #include <string.h>
+
+using namespace ::mai::sql;
 
 #define YYLEX_PARAM ctx->lex
 
@@ -33,11 +35,14 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
         size_t      len;
     } text;
     int int_val;
+    ::mai::sql::Block *block;
+    ::mai::sql::Statement *stmt;
+    const ::mai::sql::AstString *str;
 }
 
-%token SELECT FROM CREATE TABLE DROP
+%token SELECT FROM CREATE TABLE TABLES DROP SHOW
 %token UNIQUE PRIMARY KEY ENGINE TXN_BEGIN TRANSACTION
-%token COMMIT ROLLBACK
+%token TXN_COMMIT TXN_ROLLBACK
 
 %token ID NULL_VAL INTEGRAL_VAL STRING_VAL
 
@@ -46,21 +51,51 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %token BIGINT INT SMALLINT TINYINT DECIMAL NUMERIC
 %token CHAR VARCHAR DATE DATETIME TIMESTMAP
 
+%type <block> Block
+%type <stmt> Statement Command DDL
+%type <text> ID
+%type <str> Identifier
+
 //%type column
 %%
+Block: Statement {
+    $$ = ctx->factory->NewBlock();
+    $$->AddStmt($1);
+    ctx->block = $$;
+}
+| Block Statement {
+    $$->AddStmt($2);
+    ctx->block = $$;
+}
+
+Statement: Command ';'
+
 Command: DDL
-| TXN_BEGIN TRANSACTION
-| COMMIT
-| ROLLBACK
+| TXN_BEGIN TRANSACTION {
+    $$ = ctx->factory->NewTCLStatement(TCLStatement::TXN_BEGIN);
+}
+| TXN_COMMIT {
+    $$ = ctx->factory->NewTCLStatement(TCLStatement::TXN_COMMIT);
+}
+| TXN_ROLLBACK {
+    $$ = ctx->factory->NewTCLStatement(TCLStatement::TXN_ROLLBACK);
+}
+| SHOW TABLES {
+    $$ = ctx->factory->NewShowTables();
+}
 
 // CREATE DROP
-DDL: CREATE TABLE '(' ColumnDeclarationList ')'
-| DROP TABLE ID
+DDL: CREATE TABLE '(' ColumnDeclarationList ')' {
+    $$ = NULL;
+}
+| DROP TABLE Identifier {
+    $$ = ctx->factory->NewDropTable($3);
+}
 
 ColumnDeclarationList: ColumnDeclaration
 | ColumnDeclaration ',' ColumnDeclarationList
 
-ColumnDeclaration: ID TypeDeclaration NullDeclaration UniqueDeclaration PrimaryKeyDeclaration
+ColumnDeclaration: Identifier TypeDeclaration NullDeclaration UniqueDeclaration PrimaryKeyDeclaration
 
 TypeDeclaration: BIGINT FixedSizeDescription
 | INT FixedSizeDescription
@@ -89,6 +124,10 @@ UniqueDeclaration: UNIQUE
 
 PrimaryKeyDeclaration: PRIMARY KEY
 |
+
+Identifier : ID {
+    $$ = ctx->factory->NewString($1.buf, $1.len);
+}
 
 
 // INSERT UPDATE DELETE

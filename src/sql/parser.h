@@ -12,6 +12,7 @@ namespace sql {
     
 class AstFactory;
 class AstNode;
+class Block;
     
 class Parser final {
 public:
@@ -20,6 +21,7 @@ public:
         int line;
         int column;
         AstNode *ast;
+        Block *block;
     };
 
     static Error Parse(const char *s, AstFactory *factory, Result *result);

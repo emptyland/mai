@@ -25,6 +25,32 @@ TEST_F(SQLParserTest, YaccTest) {
     auto rs = Parser::Parse("()", &factory_, &result);
     ASSERT_FALSE(rs.ok()) <<  rs.ToString();
 }
+    
+TEST_F(SQLParserTest, TCLStatement) {
+    Parser::Result result;
+    auto rs = Parser::Parse("BEGIN TRANSACTION;", &factory_, &result);
+    ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.error->ToString();
+    
+    auto block = result.block;
+    ASSERT_NE(nullptr, block);
+    ASSERT_EQ(1, block->stmts_size());
+    
+    auto stmt = block->stmt(0);
+    ASSERT_NE(nullptr, stmt);
+    ASSERT_TRUE(stmt->is_statement());
+    ASSERT_EQ(AstNode::kTCLStatement, stmt->kind());
+}
+    
+TEST_F(SQLParserTest, DropTable) {
+    Parser::Result result;
+    auto rs = Parser::Parse("DROP TABLE t1;", &factory_, &result);
+    ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.error->ToString();
+    
+    auto stmt = DropTable::Cast(result.block->stmt(0));
+    ASSERT_NE(nullptr, stmt);
+    ASSERT_NE(nullptr, stmt->schema_name());
+    EXPECT_EQ("t1", stmt->schema_name()->ToString());
+}
 
 } // namespace sql
     

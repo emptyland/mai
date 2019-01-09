@@ -13,10 +13,31 @@ class AstFactory final {
 public:
     AstFactory(base::Arena *arena) : arena_(arena) {}
     ~AstFactory() {}
+    
+    Block *NewBlock() { return new (arena_) Block(arena_); }
 
+    ////////////////////////////////////////////////////////////////////////////
+    // DDL
+    ////////////////////////////////////////////////////////////////////////////
     CreateTable *NewCreateTable(const AstString *schema_name) {
         return new (arena_) CreateTable(schema_name);
     }
+    
+    DropTable *NewDropTable(const AstString *schema_name) {
+        return new (arena_) DropTable(schema_name);
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // TCL
+    ////////////////////////////////////////////////////////////////////////////
+    TCLStatement *NewTCLStatement(TCLStatement::Txn cmd) {
+        return new (arena_) TCLStatement(cmd);
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Utils
+    ////////////////////////////////////////////////////////////////////////////
+    ShowTables *NewShowTables() { return new (arena_) ShowTables(); }
     
     const AstString *NewString(const char *s, size_t n) {
         return AstString::New(arena_, s, n);

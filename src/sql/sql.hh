@@ -52,32 +52,34 @@ extern int yydebug;
     FROM = 259,
     CREATE = 260,
     TABLE = 261,
-    DROP = 262,
-    UNIQUE = 263,
-    PRIMARY = 264,
-    KEY = 265,
-    ENGINE = 266,
-    TXN_BEGIN = 267,
-    TRANSACTION = 268,
-    COMMIT = 269,
-    ROLLBACK = 270,
-    ID = 271,
-    NULL_VAL = 272,
-    INTEGRAL_VAL = 273,
-    STRING_VAL = 274,
-    EQ = 275,
-    NOT = 276,
-    BIGINT = 277,
-    INT = 278,
-    SMALLINT = 279,
-    TINYINT = 280,
-    DECIMAL = 281,
-    NUMERIC = 282,
-    CHAR = 283,
-    VARCHAR = 284,
-    DATE = 285,
-    DATETIME = 286,
-    TIMESTMAP = 287
+    TABLES = 262,
+    DROP = 263,
+    SHOW = 264,
+    UNIQUE = 265,
+    PRIMARY = 266,
+    KEY = 267,
+    ENGINE = 268,
+    TXN_BEGIN = 269,
+    TRANSACTION = 270,
+    TXN_COMMIT = 271,
+    TXN_ROLLBACK = 272,
+    ID = 273,
+    NULL_VAL = 274,
+    INTEGRAL_VAL = 275,
+    STRING_VAL = 276,
+    EQ = 277,
+    NOT = 278,
+    BIGINT = 279,
+    INT = 280,
+    SMALLINT = 281,
+    TINYINT = 282,
+    DECIMAL = 283,
+    NUMERIC = 284,
+    CHAR = 285,
+    VARCHAR = 286,
+    DATE = 287,
+    DATETIME = 288,
+    TIMESTMAP = 289
   };
 #endif
 
@@ -86,15 +88,18 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 30 "sql.y" /* yacc.c:1912  */
+#line 32 "sql.y" /* yacc.c:1912  */
 
     struct {
         const char *buf;
         size_t      len;
     } text;
     int int_val;
+    ::mai::sql::Block *block;
+    ::mai::sql::Statement *stmt;
+    const ::mai::sql::AstString *str;
 
-#line 98 "sql.hh" /* yacc.c:1912  */
+#line 103 "sql.hh" /* yacc.c:1912  */
 };
 
 typedef union YYSTYPE YYSTYPE;
