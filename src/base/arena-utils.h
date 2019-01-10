@@ -274,6 +274,8 @@ public:
     template <class InputIt>
     ArenaVector(InputIt first, InputIt last, Arena* zone)
     : std::vector<T, ArenaAllocator<T>>(first, last, ArenaAllocator<T>(zone)) {}
+    
+    void *operator new (size_t n, Arena *arena) { return arena->Allocate(n); }
 }; // class ZoneVector
 
 ////////////////////////////////////////////////////////////////////////////////

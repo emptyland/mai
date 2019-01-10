@@ -19,10 +19,54 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // DDL
     ////////////////////////////////////////////////////////////////////////////
-    CreateTable *NewCreateTable(const AstString *schema_name) {
-        return new (arena_) CreateTable(schema_name, arena_);
+    CreateTable *NewCreateTable(const AstString *schema_name,
+                                ColumnDefinitionList *cols) {
+        return new (arena_) CreateTable(schema_name, cols);
     }
     
+    AlterTable *NewAlterTable(const AstString *table_name,
+                              AlterTableSpecList *spces) {
+        return new (arena_) AlterTable(table_name, spces);
+    }
+    
+    AlterTableSpecList *NewAlterTableSpecList(AlterTableSpec *spec) {
+        auto specs =  new (arena_) AlterTableSpecList(arena_);
+        specs->reserve(8);
+        if (spec) {
+            specs->push_back(spec);
+        }
+        return specs;
+    }
+
+    AlterTableColumn *NewAlterTableAddColumn(ColumnDefinitionList *cols) {
+        return new (arena_) AlterTableColumn(cols, false, AstString::kEmpty);
+    }
+    
+    AlterTableColumn *NewAlterTableAddColumn(ColumnDefinition *col,
+                                             bool after,
+                                             const AstString *col_name) {
+        auto cols = NewColumnDefinitionList(col);
+        return new (arena_) AlterTableColumn(cols, after, col_name);
+    }
+    
+    AlterTableColumn *NewAlterTableChangeColumn(const AstString *old_col_name,
+                                                ColumnDefinition *col,
+                                                bool after,
+                                                const AstString *col_name) {
+        auto cols = NewColumnDefinitionList(col);
+        return new (arena_) AlterTableColumn(old_col_name, cols, after,
+                                             col_name);
+    }
+    
+    AlterTableColumn *NewAlterTableRenameColumn(const AstString *from_col_name,
+                                                const AstString *to_col_name) {
+        return new (arena_) AlterTableColumn(from_col_name, to_col_name);
+    }
+    
+    AlterTableColumn *NewAlterTableDropColumn(const AstString *drop_col_name) {
+        return new (arena_) AlterTableColumn(drop_col_name);
+    }
+
     DropTable *NewDropTable(const AstString *schema_name) {
         return new (arena_) DropTable(schema_name);
     }
@@ -34,6 +78,15 @@ public:
                                             SQLKeyType key) {
         return new (arena_) ColumnDefinition(name, type, is_not_null,
                                               auto_increment, key);
+    }
+    
+    ColumnDefinitionList *NewColumnDefinitionList(ColumnDefinition *def = nullptr) {
+        auto defs = new (arena_) ColumnDefinitionList(arena_);
+        defs->reserve(8);
+        if (def) {
+            defs->push_back(def);
+        }
+        return defs;
     }
     
     TypeDefinition *NewTypeDefinition(SQLType type, int fixed_size = 0,

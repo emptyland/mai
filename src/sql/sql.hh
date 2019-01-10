@@ -55,33 +55,41 @@ extern int yydebug;
     TABLES = 262,
     DROP = 263,
     SHOW = 264,
-    UNIQUE = 265,
-    PRIMARY = 266,
-    KEY = 267,
-    ENGINE = 268,
-    TXN_BEGIN = 269,
-    TRANSACTION = 270,
-    TXN_COMMIT = 271,
-    TXN_ROLLBACK = 272,
-    ID = 273,
-    NULL_VAL = 274,
-    INTEGRAL_VAL = 275,
-    STRING_VAL = 276,
-    EQ = 277,
-    NOT = 278,
-    BIGINT = 279,
-    INT = 280,
-    SMALLINT = 281,
-    TINYINT = 282,
-    DECIMAL = 283,
-    NUMERIC = 284,
-    CHAR = 285,
-    VARCHAR = 286,
-    DATE = 287,
-    DATETIME = 288,
-    TIMESTMAP = 289,
-    AUTO_INCREMENT = 290,
-    COMMENT = 291
+    ALTER = 265,
+    ADD = 266,
+    RENAME = 267,
+    UNIQUE = 268,
+    PRIMARY = 269,
+    KEY = 270,
+    ENGINE = 271,
+    TXN_BEGIN = 272,
+    TRANSACTION = 273,
+    COLUMN = 274,
+    AFTER = 275,
+    TXN_COMMIT = 276,
+    TXN_ROLLBACK = 277,
+    FIRST = 278,
+    CHANGE = 279,
+    TO = 280,
+    ID = 281,
+    NULL_VAL = 282,
+    INTEGRAL_VAL = 283,
+    STRING_VAL = 284,
+    EQ = 285,
+    NOT = 286,
+    BIGINT = 287,
+    INT = 288,
+    SMALLINT = 289,
+    TINYINT = 290,
+    DECIMAL = 291,
+    NUMERIC = 292,
+    CHAR = 293,
+    VARCHAR = 294,
+    DATE = 295,
+    DATETIME = 296,
+    TIMESTMAP = 297,
+    AUTO_INCREMENT = 298,
+    COMMENT = 299
   };
 #endif
 
@@ -100,6 +108,10 @@ union YYSTYPE
         int fixed_size;
         int float_size;
     } size;
+    struct {
+        const ::mai::sql::AstString *name;
+        bool after;
+    } col_pos;
     int int_val;
     bool bool_val;
     ::mai::sql::SQLKeyType key_type;
@@ -107,10 +119,12 @@ union YYSTYPE
     ::mai::sql::Statement *stmt;
     ::mai::sql::TypeDefinition *type_def;
     ::mai::sql::ColumnDefinition *col_def;
-    ::mai::sql::CreateTable *create_table_stmt;
+    ::mai::sql::ColumnDefinitionList *col_def_list;
+    ::mai::sql::AlterTableSpecList *alter_table_spce_list;
+    ::mai::sql::AlterTableSpec *alter_table_spce;
     const ::mai::sql::AstString *str;
 
-#line 114 "sql.hh" /* yacc.c:1912  */
+#line 128 "sql.hh" /* yacc.c:1912  */
 };
 
 typedef union YYSTYPE YYSTYPE;

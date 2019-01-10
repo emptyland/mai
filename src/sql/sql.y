@@ -38,6 +38,10 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
         int fixed_size;
         int float_size;
     } size;
+    struct {
+        const ::mai::sql::AstString *name;
+        bool after;
+    } col_pos;
     int int_val;
     bool bool_val;
     ::mai::sql::SQLKeyType key_type;
@@ -45,13 +49,15 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::sql::Statement *stmt;
     ::mai::sql::TypeDefinition *type_def;
     ::mai::sql::ColumnDefinition *col_def;
-    ::mai::sql::CreateTable *create_table_stmt;
+    ::mai::sql::ColumnDefinitionList *col_def_list;
+    ::mai::sql::AlterTableSpecList *alter_table_spce_list;
+    ::mai::sql::AlterTableSpec *alter_table_spce;
     const ::mai::sql::AstString *str;
 }
 
-%token SELECT FROM CREATE TABLE TABLES DROP SHOW ALTER ADD
-%token UNIQUE PRIMARY KEY ENGINE TXN_BEGIN TRANSACTION
-%token TXN_COMMIT TXN_ROLLBACK
+%token SELECT FROM CREATE TABLE TABLES DROP SHOW ALTER ADD RENAME
+%token UNIQUE PRIMARY KEY ENGINE TXN_BEGIN TRANSACTION COLUMN AFTER
+%token TXN_COMMIT TXN_ROLLBACK FIRST CHANGE TO
 
 %token ID NULL_VAL INTEGRAL_VAL STRING_VAL
 
@@ -61,16 +67,19 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %token CHAR VARCHAR DATE DATETIME TIMESTMAP AUTO_INCREMENT COMMENT
 
 %type <block> Block
-%type <stmt> Statement Command DDL
+%type <stmt> Statement Command DDL CreateTableStmt AlterTableStmt
 %type <text> ID STRING_VAL
 %type <str> Identifier CommentOption
 %type <bool_val> NullOption AutoIncrementOption
 %type <size> FixedSizeDescription FloatingSizeDescription
 %type <type_def> TypeDefinition
-%type <col_def> ColumnDefinition
-%type <create_table_stmt> CreateTableStmt ColumnDefinitionList
 %type <int_val> INTEGRAL_VAL
 %type <key_type> KeyOption
+%type <col_def_list> ColumnDefinitionList
+%type <col_def> ColumnDefinition
+%type <col_pos> AlterColPosOption
+%type <alter_table_spce> AlterTableSpec
+%type <alter_table_spce_list> AlterTableSpecList
 
 //%type column
 %%
@@ -107,18 +116,19 @@ DDL: CreateTableStmt {
 | DROP TABLE Identifier {
     $$ = ctx->factory->NewDropTable($3);
 }
+| AlterTableStmt {
+    $$ = $1;
+}
 
 CreateTableStmt : CREATE TABLE Identifier '(' ColumnDefinitionList ')' {
-    $$ = $5;
-    $$->set_schema_name($3);
+    $$ = ctx->factory->NewCreateTable($3, $5);
 }
 
 ColumnDefinitionList: ColumnDefinition {
-    $$ = ctx->factory->NewCreateTable(NULL);
-    $$->AddColumn($1);
+    $$ = ctx->factory->NewColumnDefinitionList($1);
 }
 | ColumnDefinitionList ',' ColumnDefinition {
-    $$->AddColumn($3);
+    $$->push_back($3);
 }
 
 ColumnDefinition: Identifier TypeDefinition NullOption AutoIncrementOption KeyOption CommentOption {
@@ -217,6 +227,59 @@ CommentOption: COMMENT STRING_VAL {
 | {
     $$ = AstString::kEmpty;
 }
+
+AlterTableStmt : ALTER TABLE Identifier AlterTableSpecList {
+    $$ = ctx->factory->NewAlterTable($3, $4);
+}
+
+AlterTableSpecList : AlterTableSpec {
+    $$ = ctx->factory->NewAlterTableSpecList($1);
+}
+| AlterTableSpecList ',' AlterTableSpec {
+    $$->push_back($3);
+}
+
+AlterTableSpec : ADD ColumnDefinition AlterColPosOption {
+    $$ = ctx->factory->NewAlterTableAddColumn($2, $3.after, $3.name);
+}
+| ADD COLUMN ColumnDefinition AlterColPosOption {
+    $$ = ctx->factory->NewAlterTableAddColumn($3, $4.after, $4.name);
+}
+| ADD '(' ColumnDefinitionList ')' {
+    $$ = ctx->factory->NewAlterTableAddColumn($3);
+}
+| ADD COLUMN '(' ColumnDefinitionList ')' {
+    $$ = ctx->factory->NewAlterTableAddColumn($4);
+}
+| CHANGE Identifier ColumnDefinition AlterColPosOption {
+    $$ = ctx->factory->NewAlterTableChangeColumn($2, $3, $4.after, $4.name);
+}
+| CHANGE COLUMN Identifier ColumnDefinition AlterColPosOption {
+    $$ = ctx->factory->NewAlterTableChangeColumn($3, $4, $5.after, $5.name);
+}
+| RENAME COLUMN Identifier TO Identifier {
+    $$ = ctx->factory->NewAlterTableRenameColumn($3, $5);
+}
+| DROP COLUMN Identifier {
+    $$ = ctx->factory->NewAlterTableDropColumn($3);
+}
+| DROP Identifier {
+    $$ = ctx->factory->NewAlterTableDropColumn($2);
+}
+
+AlterColPosOption : FIRST Identifier {
+    $$.name  = $2;
+    $$.after = false;
+}
+| AFTER Identifier {
+    $$.name  = $2;
+    $$.after = true;
+}
+| {
+    $$.name  = AstString::kEmpty;
+    $$.after = false;
+}
+
 
 Identifier : ID {
     $$ = ctx->factory->NewString($1.buf, $1.len);

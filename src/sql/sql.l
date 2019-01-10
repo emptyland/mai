@@ -21,7 +21,13 @@ delim [ \f\r\t\v]
 
 %%
 ADD { return ADD; }
+AUTO_INCREMENT { return AUTO_INCREMENT; }
 ALTER { return ALTER; }
+AFTER { return AFTER; }
+CHANGE { return CHANGE; }
+FIRST { return FIRST; }
+RENAME { return RENAME; }
+COLUMN { return COLUMN; }
 NULL { return NULL_VAL; }
 SELECT { return SELECT; }
 FROM { return FROM; }
@@ -34,6 +40,7 @@ DROP { return DROP; }
 CREATE { return CREATE; }
 TABLE { return TABLE; }
 TABLES { return TABLES; }
+TO { return TO; }
 BIGINT { return BIGINT; }
 INT { return INT; }
 SMALLINT { return SMALLINT; }
@@ -47,7 +54,6 @@ DATETIME { return DATETIME; }
 PRIMARY { return PRIMARY; }
 KEY { return KEY; }
 UNIQUE { return UNIQUE; }
-AUTO_INCREMENT { return AUTO_INCREMENT; }
 COMMENT { return COMMENT; }
 
 [A-Za-z_][A-Za-z_0-9]* {

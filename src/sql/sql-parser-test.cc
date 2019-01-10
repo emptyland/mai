@@ -104,6 +104,41 @@ TEST_F(SQLParserTest, CreateTableDetail1) {
     EXPECT_EQ(SQL_KEY, col->key());
     EXPECT_EQ("k2", col->comment()->ToString());
 }
+    
+TEST_F(SQLParserTest, AlterTableAddColumn) {
+    static const char *const kX =
+    "ALTER TABLE t1 ADD COLUMN d SMALLINT KEY COMMENT 'new column' AFTER b;";
+    
+    Parser::Result result;
+    auto rs = Parser::Parse(kX, &factory_, &result);
+    ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
+    
+//    auto stmt = AlterTableColumn::Cast(result.block->stmt(0));
+//    ASSERT_NE(nullptr, stmt);
+//    ASSERT_TRUE(stmt->is_add());
+//    ASSERT_EQ(1, stmt->columns_size());
+//    
+//    auto col = stmt->column(0);
+//    ASSERT_NE(nullptr, col);
+//    EXPECT_EQ(SQL_SMALLINT, col->type()->code());
+//    EXPECT_EQ(0, col->type()->fixed_size());
+//    EXPECT_EQ(SQL_KEY, col->key());
+//    EXPECT_EQ("new column", col->comment()->ToString());
+}
+    
+TEST_F(SQLParserTest, AlterTableAddColumns) {
+    static const char *const kX =
+    "ALTER TABLE t1 ADD COLUMN ("
+    "   d SMALLINT KEY COMMENT 'new column',"
+    "   e VARCHAR(255) COMMENT 'new varchar'"
+    ");";
+    
+    Parser::Result result;
+    auto rs = Parser::Parse(kX, &factory_, &result);
+    ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
+    
+    
+}
 
 } // namespace sql
     

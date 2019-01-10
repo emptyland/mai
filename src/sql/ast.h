@@ -20,7 +20,9 @@ namespace sql {
     V(DropTable) \
     V(ColumnDefinition) \
     V(TypeDefinition) \
-    V(AlterTableColumn)
+    V(AlterTable) \
+    V(AlterTableColumn) \
+    V(AlterTableIndex)
     
 #define DEFINE_DML_NODES(V) \
     V(Query)
@@ -39,6 +41,7 @@ DEFINE_AST_NODES(PRE_DECLARE_NODE)
     
 class Block;
 class Statement;
+class AlterTableSpec;
     
 class AstNode {
 public:
@@ -84,6 +87,8 @@ protected:
     friend class AstFactory;
 
 using AstString = base::ArenaString;
+using ColumnDefinitionList = base::ArenaVector<ColumnDefinition *>;
+using AlterTableSpecList = base::ArenaVector<AlterTableSpec *>;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class AstVisitor
@@ -163,80 +168,166 @@ protected:
     
 class CreateTable final : public DDLStatement {
 public:
-    using Columns = base::ArenaVector<ColumnDefinition *>;
-    
     virtual bool is_command() const override { return true; }
     
-    void AddColumn(ColumnDefinition *column) {
-        columns_.push_back(column);
-    }
-    
-    size_t columns_size() const { return columns_.size(); }
-    ColumnDefinition *column(size_t i) { return columns_[i]; }
+    size_t columns_size() const { return columns_->size(); }
+    ColumnDefinition *column(size_t i) { return columns_->at(i); }
 
-    Columns::const_iterator begin() const { return columns_.begin(); }
-    Columns::const_iterator end() const { return columns_.end(); }
+    ColumnDefinitionList::const_iterator begin() const { return columns_->begin(); }
+    ColumnDefinitionList::const_iterator end() const { return columns_->end(); }
 
     DEF_PTR_PROP_RW_NOTNULL2(const AstString, schema_name);
     
     DEF_AST_NODE(CreateTable);
     DISALLOW_IMPLICIT_CONSTRUCTORS(CreateTable);
 private:
-    CreateTable(const AstString *schema_name, base::Arena *arena)
+    CreateTable(const AstString *schema_name, ColumnDefinitionList *columns)
         : schema_name_(schema_name)
-        , columns_(arena) {}
+        , columns_(columns) {}
 
     const AstString *schema_name_;
-    Columns columns_;
+    ColumnDefinitionList *const columns_;
 }; // class CreateTable
     
-    
-class AlterTable : public DDLStatement {
+
+class AlterTable final : public DDLStatement {
 public:
     virtual bool is_command() const override { return true; }
-    virtual bool alter_column() const { return false; }
-    virtual bool alter_index() const { return false; }
     
-    DEF_PTR_GETTER_NOTNULL(const AstString, table_name);
+    size_t spces_size() const { return specs_->size(); }
+    AlterTableSpec *column(size_t i) { return specs_->at(i); }
     
+    AlterTableSpecList::const_iterator begin() const {
+        return specs_->begin();
+    }
+    AlterTableSpecList::const_iterator end() const {
+        return specs_->end();
+    }
+    
+    DEF_AST_NODE(AlterTable);
     DISALLOW_IMPLICIT_CONSTRUCTORS(AlterTable);
-protected:
-    AlterTable(const AstString *table_name)
-        : table_name_(table_name) {}
+private:
+    AlterTable(const AstString *table_name, AlterTableSpecList *specs)
+        : table_name_(DCHECK_NOTNULL(table_name))
+        , specs_(DCHECK_NOTNULL(specs)) {}
     
     const AstString *table_name_;
+    AlterTableSpecList *specs_;
+}; // class AlterTable
+    
+class AlterTableSpec : public AstNode {
+public:
+    virtual bool alter_column() const { return false; }
+    virtual bool alter_index() const { return false; }
+
+    bool is_add() const { return action_ == ADD; }
+    bool is_drop() const { return action_ == DROP; }
+    bool is_change() const { return action_ == CHANGE; }
+    bool is_rename() const { return action_ == DROP; }
+
+    //DEF_PTR_PROP_RW_NOTNULL2(AlterTable, owns);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(AlterTableSpec);
+protected:
+    enum Action {
+        ADD,
+        CHANGE,
+        DROP,
+        RENAME,
+    };
+
+    AlterTableSpec(Action action)
+        : action_(action) {}
+    
+    const Action action_;
+    //AlterTable *owns_ = nullptr;
 }; // class AlterTable
 
 
-class AlterTableColumn : public AlterTable {
+class AlterTableColumn final : public AlterTableSpec {
 public:
-    using Columns = base::ArenaVector<ColumnDefinition *>;
-    
     virtual bool alter_column() const override { return true; }
-    bool add() const { return add_; }
-    bool drop() const { return !add_; }
     
-    bool add_after() const { return add() && after_; }
-    bool add_first() const { return add() && !after_; }
+    bool add_after() const { return is_add() && after_; }
+    bool add_first() const { return is_add() && !after_; }
     
-    void AddColumn(ColumnDefinition *column) {
-        columns_.push_back(column);
+    const AstString *from_col_name() const {
+        return is_rename() ? old_name_ : AstString::kEmpty;
+    }
+
+    const AstString *to_col_name() const {
+        return is_rename() ? new_name_ : AstString::kEmpty;
     }
     
-    size_t columns_size() const { return columns_.size(); }
-    ColumnDefinition *column(size_t i) { return columns_[i]; }
+    const AstString *pos_col_name() const {
+        return is_add() || is_change() ? new_name_ : AstString::kEmpty;
+    }
     
-    Columns::const_iterator begin() const { return columns_.begin(); }
-    Columns::const_iterator end() const { return columns_.end(); }
+    DEF_PTR_GETTER_NOTNULL(const AstString, old_name);
+    DEF_PTR_GETTER_NOTNULL(const AstString, new_name);
     
+    size_t columns_size() const { return columns_->size(); }
+    ColumnDefinition *column(size_t i) { return columns_->at(i); }
+    
+    ColumnDefinitionList::const_iterator begin() const {
+        return columns_->begin();
+    }
+    ColumnDefinitionList::const_iterator end() const {
+        return columns_->end();
+    }
+    
+    DEF_AST_NODE(AlterTableColumn);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(AlterTableColumn);
 private:
-    Columns columns_;
-    const AstString *column_name_;
-    bool add_;
-    bool after_;
+    AlterTableColumn(ColumnDefinitionList *columns,
+                     bool after, const AstString *col_name)
+        : AlterTableSpec(ADD)
+        , columns_(DCHECK_NOTNULL(columns))
+        , after_(after)
+        , new_name_(col_name) {}
+    
+    AlterTableColumn(const AstString *old_col_name,
+                     ColumnDefinitionList *columns,
+                     bool after, const AstString *col_name)
+        : AlterTableSpec(CHANGE)
+        , columns_(DCHECK_NOTNULL(columns))
+        , old_name_(old_col_name)
+        , new_name_(col_name)
+        , after_(after) {}
+    
+    AlterTableColumn(const AstString *from_col_name,
+                     const AstString *to_col_name)
+        : AlterTableSpec(RENAME)
+        , old_name_(from_col_name)
+        , new_name_(to_col_name) {}
+    
+    AlterTableColumn(const AstString *drop_col_name)
+        : AlterTableSpec(DROP)
+        , old_name_(drop_col_name) {}
+    
+    ColumnDefinitionList *columns_ = nullptr;
+    const AstString *old_name_ = AstString::kEmpty;
+    const AstString *new_name_ = AstString::kEmpty;
+    bool after_ = false;
 }; // class AlterTableColumn
     
 
+class AlterTableIndex final : public AlterTableSpec {
+public:
+    virtual bool alter_index() const override { return true; }
+    
+    DEF_PTR_GETTER_NOTNULL(const AstString, old_name);
+    DEF_PTR_GETTER_NOTNULL(const AstString, new_name);
+    DEF_VAL_GETTER(SQLKeyType, key);
+    
+    DEF_AST_NODE(AlterTableIndex);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(AlterTableIndex);
+private:
+    const AstString *old_name_ = AstString::kEmpty;
+    const AstString *new_name_ = AstString::kEmpty;
+    SQLKeyType key_;
+    Action action_;
+};
     
 class DropTable final : public DDLStatement {
 public:
