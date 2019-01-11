@@ -24,6 +24,7 @@ ADD { return ADD; }
 AUTO_INCREMENT { return AUTO_INCREMENT; }
 ALTER { return ALTER; }
 AFTER { return AFTER; }
+AS { return AS; }
 CHANGE { return CHANGE; }
 FIRST { return FIRST; }
 RENAME { return RENAME; }
@@ -52,6 +53,7 @@ VARCHAR { return VARCHAR; }
 DATE { return DATE; }
 DATETIME { return DATETIME; }
 PRIMARY { return PRIMARY; }
+INDEX { return INDEX; }
 KEY { return KEY; }
 UNIQUE { return UNIQUE; }
 COMMENT { return COMMENT; }

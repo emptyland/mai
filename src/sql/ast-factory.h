@@ -66,6 +66,26 @@ public:
     AlterTableColumn *NewAlterTableDropColumn(const AstString *drop_col_name) {
         return new (arena_) AlterTableColumn(drop_col_name);
     }
+    
+    AlterTableIndex *NewAlterTableAddIndex(const AstString *index_name,
+                                           SQLKeyType key,
+                                           NameList *col_names) {
+        return new (arena_) AlterTableIndex(index_name, key, col_names);
+    }
+    
+    AlterTableIndex *NewAlterTableDropIndex(const AstString *drop_idx_name,
+                                            bool primary_key) {
+        return new (arena_) AlterTableIndex(drop_idx_name, primary_key);
+    }
+    
+    AlterTableIndex *NewAlterTableRenameIndex(const AstString *from_idx_name,
+                                              const AstString *to_idx_name) {
+        return new (arena_) AlterTableIndex(from_idx_name, to_idx_name);
+    }
+    
+    AlterTableName *NewAlterTableRename(const AstString *new_table_name) {
+        return new (arena_) AlterTableName(new_table_name);
+    }
 
     DropTable *NewDropTable(const AstString *schema_name) {
         return new (arena_) DropTable(schema_name);
@@ -80,7 +100,8 @@ public:
                                               auto_increment, key);
     }
     
-    ColumnDefinitionList *NewColumnDefinitionList(ColumnDefinition *def = nullptr) {
+    ColumnDefinitionList *
+    NewColumnDefinitionList(ColumnDefinition *def = nullptr) {
         auto defs = new (arena_) ColumnDefinitionList(arena_);
         defs->reserve(8);
         if (def) {
@@ -105,6 +126,15 @@ public:
     // Utils
     ////////////////////////////////////////////////////////////////////////////
     ShowTables *NewShowTables() { return new (arena_) ShowTables(); }
+    
+    NameList *NewNameList(const AstString *name) {
+        NameList *names = new (arena_) NameList(arena_);
+        names->reserve(8);
+        if (name) {
+            names->push_back(name);
+        }
+        return names;
+    }
     
     const AstString *NewString(const char *s, size_t n) {
         return AstString::New(arena_, s, n);

@@ -49,6 +49,8 @@ public:
         }
     }
     
+    bool empty() const { return buf_[0] == 0 && buf_[1] == 0; }
+    
     std::string ToString() const { return std::string(data(), size()); }
     
     std::string_view ToStringView() const {

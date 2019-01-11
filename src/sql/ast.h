@@ -22,7 +22,8 @@ namespace sql {
     V(TypeDefinition) \
     V(AlterTable) \
     V(AlterTableColumn) \
-    V(AlterTableIndex)
+    V(AlterTableIndex) \
+    V(AlterTableName)
     
 #define DEFINE_DML_NODES(V) \
     V(Query)
@@ -86,9 +87,10 @@ protected:
     } \
     friend class AstFactory;
 
-using AstString = base::ArenaString;
+using AstString            = base::ArenaString;
 using ColumnDefinitionList = base::ArenaVector<ColumnDefinition *>;
-using AlterTableSpecList = base::ArenaVector<AlterTableSpec *>;
+using AlterTableSpecList   = base::ArenaVector<AlterTableSpec *>;
+using NameList             = base::ArenaVector<const AstString *>;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class AstVisitor
@@ -194,8 +196,8 @@ class AlterTable final : public DDLStatement {
 public:
     virtual bool is_command() const override { return true; }
     
-    size_t spces_size() const { return specs_->size(); }
-    AlterTableSpec *column(size_t i) { return specs_->at(i); }
+    size_t specs_size() const { return specs_->size(); }
+    AlterTableSpec *spec(size_t i) { return specs_->at(i); }
     
     AlterTableSpecList::const_iterator begin() const {
         return specs_->begin();
@@ -320,15 +322,69 @@ public:
     DEF_PTR_GETTER_NOTNULL(const AstString, new_name);
     DEF_VAL_GETTER(SQLKeyType, key);
     
+    bool drop_primary_key() const {
+        return is_drop() && key_ == SQL_PRIMARY_KEY;
+    }
+    
+    const AstString *drop_idx_name() const {
+        return is_drop() ? old_name() : AstString::kEmpty;
+    }
+    
+    const AstString *from_idx_name() const {
+        return is_rename() ? old_name() : AstString::kEmpty;
+    }
+    
+    const AstString *to_idx_name() const {
+        return is_rename() ? new_name() : AstString::kEmpty;
+    }
+    
+    size_t col_names_size() const { return col_names_->size(); }
+    const AstString *col_name(size_t i) { return col_names_->at(i); }
+    
     DEF_AST_NODE(AlterTableIndex);
     DISALLOW_IMPLICIT_CONSTRUCTORS(AlterTableIndex);
 private:
+    AlterTableIndex(const AstString *index_name, SQLKeyType key_type,
+                    NameList *col_names)
+        : AlterTableSpec(ADD)
+        , col_names_(DCHECK_NOTNULL(col_names))
+        , new_name_(index_name)
+        , key_(key_type) {}
+    
+    AlterTableIndex(const AstString *from_idx_name,
+                    const AstString *to_idx_name)
+        : AlterTableSpec(RENAME)
+        , old_name_(from_idx_name)
+        , new_name_(to_idx_name) {}
+    
+    AlterTableIndex(const AstString *drop_idx_name, bool primary_key)
+        : AlterTableSpec(DROP)
+        , old_name_(drop_idx_name)
+        , key_(primary_key ? SQL_PRIMARY_KEY : SQL_NOT_KEY) {
+    }
+    
+    NameList *col_names_ = nullptr;
     const AstString *old_name_ = AstString::kEmpty;
     const AstString *new_name_ = AstString::kEmpty;
-    SQLKeyType key_;
-    Action action_;
-};
+    SQLKeyType key_ = SQL_NOT_KEY;
+}; // class AlterTableIndex
+
+
+class AlterTableName final : public AlterTableSpec {
+public:
+    DEF_PTR_GETTER_NOTNULL(const AstString, new_name);
     
+    DEF_AST_NODE(AlterTableName);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(AlterTableName);
+private:
+    AlterTableName(const AstString *new_table_name)
+        : AlterTableSpec(RENAME)
+        , new_name_(new_table_name) {}
+    
+    const AstString *new_name_ = AstString::kEmpty;
+}; // class AlterTableName
+
+
 class DropTable final : public DDLStatement {
 public:
     virtual bool is_command() const override { return true; }

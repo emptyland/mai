@@ -52,12 +52,13 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::sql::ColumnDefinitionList *col_def_list;
     ::mai::sql::AlterTableSpecList *alter_table_spce_list;
     ::mai::sql::AlterTableSpec *alter_table_spce;
-    const ::mai::sql::AstString *str;
+    ::mai::sql::NameList *name_list;
+    const ::mai::sql::AstString *name;
 }
 
 %token SELECT FROM CREATE TABLE TABLES DROP SHOW ALTER ADD RENAME
 %token UNIQUE PRIMARY KEY ENGINE TXN_BEGIN TRANSACTION COLUMN AFTER
-%token TXN_COMMIT TXN_ROLLBACK FIRST CHANGE TO
+%token TXN_COMMIT TXN_ROLLBACK FIRST CHANGE TO AS INDEX
 
 %token ID NULL_VAL INTEGRAL_VAL STRING_VAL
 
@@ -69,7 +70,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <block> Block
 %type <stmt> Statement Command DDL CreateTableStmt AlterTableStmt
 %type <text> ID STRING_VAL
-%type <str> Identifier CommentOption
+%type <name> Identifier CommentOption
 %type <bool_val> NullOption AutoIncrementOption
 %type <size> FixedSizeDescription FloatingSizeDescription
 %type <type_def> TypeDefinition
@@ -80,6 +81,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <col_pos> AlterColPosOption
 %type <alter_table_spce> AlterTableSpec
 %type <alter_table_spce_list> AlterTableSpecList
+%type <name_list> NameList;
 
 //%type column
 %%
@@ -251,6 +253,14 @@ AlterTableSpec : ADD ColumnDefinition AlterColPosOption {
 | ADD COLUMN '(' ColumnDefinitionList ')' {
     $$ = ctx->factory->NewAlterTableAddColumn($4);
 }
+| ADD INDEX Identifier KeyOption '(' NameList ')' {
+    $$ = ctx->factory->NewAlterTableAddIndex($3, $4 == SQL_NOT_KEY ? SQL_KEY : $4,
+                                             $6);
+}
+| ADD KEY Identifier KeyOption '(' NameList ')' {
+    $$ = ctx->factory->NewAlterTableAddIndex($3, $4 == SQL_NOT_KEY ? SQL_KEY : $4,
+                                             $6);
+}
 | CHANGE Identifier ColumnDefinition AlterColPosOption {
     $$ = ctx->factory->NewAlterTableChangeColumn($2, $3, $4.after, $4.name);
 }
@@ -260,11 +270,35 @@ AlterTableSpec : ADD ColumnDefinition AlterColPosOption {
 | RENAME COLUMN Identifier TO Identifier {
     $$ = ctx->factory->NewAlterTableRenameColumn($3, $5);
 }
+| RENAME INDEX Identifier TO Identifier {
+    $$ = ctx->factory->NewAlterTableRenameIndex($3, $5);
+}
+| RENAME KEY Identifier TO Identifier {
+    $$ = ctx->factory->NewAlterTableRenameIndex($3, $5);
+}
+| RENAME Identifier {
+    $$ = ctx->factory->NewAlterTableRename($2);
+}
+| RENAME TO Identifier {
+    $$ = ctx->factory->NewAlterTableRename($3);
+}
+| RENAME AS Identifier {
+    $$ = ctx->factory->NewAlterTableRename($3);
+}
 | DROP COLUMN Identifier {
     $$ = ctx->factory->NewAlterTableDropColumn($3);
 }
 | DROP Identifier {
     $$ = ctx->factory->NewAlterTableDropColumn($2);
+}
+| DROP INDEX Identifier {
+    $$ = ctx->factory->NewAlterTableDropIndex($3, false);
+}
+| DROP KEY Identifier {
+    $$ = ctx->factory->NewAlterTableDropIndex($3, false);
+}
+| DROP PRIMARY KEY {
+    $$ = ctx->factory->NewAlterTableDropIndex(AstString::kEmpty, true);
 }
 
 AlterColPosOption : FIRST Identifier {
@@ -280,6 +314,12 @@ AlterColPosOption : FIRST Identifier {
     $$.after = false;
 }
 
+NameList : Identifier {
+    $$ = ctx->factory->NewNameList($1);
+}
+| NameList ',' Identifier {
+    $$->push_back($3);
+}
 
 Identifier : ID {
     $$ = ctx->factory->NewString($1.buf, $1.len);

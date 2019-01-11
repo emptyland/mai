@@ -71,25 +71,27 @@ extern int yydebug;
     FIRST = 278,
     CHANGE = 279,
     TO = 280,
-    ID = 281,
-    NULL_VAL = 282,
-    INTEGRAL_VAL = 283,
-    STRING_VAL = 284,
-    EQ = 285,
-    NOT = 286,
-    BIGINT = 287,
-    INT = 288,
-    SMALLINT = 289,
-    TINYINT = 290,
-    DECIMAL = 291,
-    NUMERIC = 292,
-    CHAR = 293,
-    VARCHAR = 294,
-    DATE = 295,
-    DATETIME = 296,
-    TIMESTMAP = 297,
-    AUTO_INCREMENT = 298,
-    COMMENT = 299
+    AS = 281,
+    INDEX = 282,
+    ID = 283,
+    NULL_VAL = 284,
+    INTEGRAL_VAL = 285,
+    STRING_VAL = 286,
+    EQ = 287,
+    NOT = 288,
+    BIGINT = 289,
+    INT = 290,
+    SMALLINT = 291,
+    TINYINT = 292,
+    DECIMAL = 293,
+    NUMERIC = 294,
+    CHAR = 295,
+    VARCHAR = 296,
+    DATE = 297,
+    DATETIME = 298,
+    TIMESTMAP = 299,
+    AUTO_INCREMENT = 300,
+    COMMENT = 301
   };
 #endif
 
@@ -122,9 +124,10 @@ union YYSTYPE
     ::mai::sql::ColumnDefinitionList *col_def_list;
     ::mai::sql::AlterTableSpecList *alter_table_spce_list;
     ::mai::sql::AlterTableSpec *alter_table_spce;
-    const ::mai::sql::AstString *str;
+    ::mai::sql::NameList *name_list;
+    const ::mai::sql::AstString *name;
 
-#line 128 "sql.hh" /* yacc.c:1912  */
+#line 131 "sql.hh" /* yacc.c:1912  */
 };
 
 typedef union YYSTYPE YYSTYPE;
