@@ -25,6 +25,11 @@ AUTO_INCREMENT { return AUTO_INCREMENT; }
 ALTER { return ALTER; }
 AFTER { return AFTER; }
 AS { return AS; }
+AND { return OP_AND; }
+BETWEEN { return BETWEEN; }
+DISTINCT { return DISTINCT; }
+OR { return OP_OR; }
+NOT { return NOT; }
 CHANGE { return CHANGE; }
 FIRST { return FIRST; }
 RENAME { return RENAME; }
@@ -52,11 +57,17 @@ CHAR { return CHAR; }
 VARCHAR { return VARCHAR; }
 DATE { return DATE; }
 DATETIME { return DATETIME; }
+IN { return IN; }
+IS { return IS; }
+LIKE { return LIKE; }
+REGEXP { return REGEXP; }
+MOD { return MOD; }
 PRIMARY { return PRIMARY; }
 INDEX { return INDEX; }
 KEY { return KEY; }
 UNIQUE { return UNIQUE; }
 COMMENT { return COMMENT; }
+XOR { return XOR; }
 
 [A-Za-z_][A-Za-z_0-9]* {
     yylval->text.buf = yytext;
@@ -82,12 +93,47 @@ COMMENT { return COMMENT; }
 	return INTEGRAL_VAL;
 }
 
-"(" { return '('; }
-")" { return ')'; }
-"*" { return '*'; }
-"." { return '.'; }
-"," { return ','; }
-";" { return ';'; }
+-?[0-9]+"."[0-9]* |
+-?"."[0-9]+ |
+-?[0-9]+E[-+]?[0-9]+ |
+-?"."[0-9]+E[-+]?[0-9]+ {
+	yylval->approx_val = atof(yytext);
+	return APPROX_VAL;
+}
+
+"=" {
+	yylval->op = ::mai::sql::SQL_CMP_EQ;
+	return COMPARISON;
+}
+"!=" |
+"<>" {
+	yylval->op = ::mai::sql::SQL_CMP_NE;
+	return COMPARISON;	
+}
+">" {
+	yylval->op = ::mai::sql::SQL_CMP_GT;
+	return COMPARISON;		
+}
+">=" {
+	yylval->op = ::mai::sql::SQL_CMP_GE;
+	return COMPARISON;		
+}
+"<" {
+	yylval->op = ::mai::sql::SQL_CMP_LT;
+	return COMPARISON;		
+}
+"<=" {
+	yylval->op = ::mai::sql::SQL_CMP_LE;
+	return COMPARISON;		
+}
+"&&" { return OP_AND; }
+"||" { return OP_OR; }
+"<<" { return LSHIFT; }
+">>" { return RSHIFT; }
+":=" { return ASSIGN; }
+
+[-+&~|^/%!()*.,;] { return yytext[0]; }
+
 
 [ \t\n]
 

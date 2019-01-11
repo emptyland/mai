@@ -13,6 +13,7 @@ namespace sql {
     DEFINE_DDL_NODES(V) \
     DEFINE_DML_NODES(V) \
     DEFINE_TCL_NODES(V) \
+    DEFINE_EXPR_NODES(V) \
     DEFINE_UTIL_NODES(V)
     
 #define DEFINE_DDL_NODES(V) \
@@ -26,7 +27,17 @@ namespace sql {
     V(AlterTableName)
     
 #define DEFINE_DML_NODES(V) \
-    V(Query)
+    V(Select) \
+    V(NameRelation) \
+    V(JoinRelation)
+    
+#define DEFINE_EXPR_NODES(V) \
+    V(ProjectionColumn) \
+    V(Identifier) \
+    V(Literal) \
+    V(UnaryExpression) \
+    V(BinaryExpression) \
+    V(Comparison)
     
 #define DEFINE_UTIL_NODES(V) \
     V(ShowTables)
@@ -43,6 +54,7 @@ DEFINE_AST_NODES(PRE_DECLARE_NODE)
 class Block;
 class Statement;
 class AlterTableSpec;
+class Expression;
     
 class AstNode {
 public:
@@ -60,6 +72,7 @@ public:
     virtual bool is_util() const { return false; }
     virtual bool is_statement() const { return false; }
     virtual bool is_command() const { return false; }
+    virtual bool is_expression() const { return false; }
     
 #define DECL_TESTER(name) bool Is##name() const { return kind() == k##name; }
     DEFINE_AST_NODES(DECL_TESTER)
@@ -91,6 +104,8 @@ using AstString            = base::ArenaString;
 using ColumnDefinitionList = base::ArenaVector<ColumnDefinition *>;
 using AlterTableSpecList   = base::ArenaVector<AlterTableSpec *>;
 using NameList             = base::ArenaVector<const AstString *>;
+using ExpressionList       = base::ArenaVector<Expression *>;
+using ProjectionColumnList = base::ArenaVector<ProjectionColumn *>;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class AstVisitor
@@ -445,7 +460,6 @@ public:
     
     DEF_AST_NODE(TypeDefinition);
     DISALLOW_IMPLICIT_CONSTRUCTORS(TypeDefinition);
-    
 private:
     TypeDefinition(SQLType code, int fixed_size, int float_size)
         : code_(code)
@@ -464,10 +478,106 @@ private:
     
 class DMLStatement : public Statement {
 public:
-    virtual bool is_dml() const { return true; }
+    virtual bool is_dml() const override { return true; }
+    virtual bool is_query() const { return false; }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(DMLStatement);
+protected:
+    DMLStatement() {}
 }; // class DMLStatement
+    
+
+class Query : public DMLStatement {
+public:
+    virtual bool is_query() const override { return true; }
+    virtual bool is_select() const { return false; }
+    virtual bool is_join() const { return false; }
+    virtual bool is_name() const { return false; }
+    
+    DEF_PTR_GETTER_NOTNULL(const AstString, alias);
+
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Query);
+protected:
+    Query(const AstString *alias) : alias_(DCHECK_NOTNULL(alias)) {}
+    
+    const AstString *alias_;
+}; // class Query
+    
+    
+class Select final : public Query {
+public:
+    virtual bool is_select() const override { return true; }
+    
+    DEF_PTR_PROP_RW_NOTNULL1(Query, from);
+    DEF_PTR_PROP_RW_NOTNULL1(Expression, where);
+    DEF_VAL_PROP_RW(bool, order_by_desc);
+    DEF_PTR_PROP_RW_NOTNULL1(ExpressionList, order_by);
+    DEF_PTR_PROP_RW_NOTNULL1(ExpressionList, group_by);
+    
+    DEF_AST_NODE(Select);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Select);
+private:
+    Select(bool distinct, ProjectionColumnList *columns, const AstString *alias)
+        : Query(alias)
+        , distinct_(distinct)
+        , columns_(DCHECK_NOTNULL(columns)) {}
+
+    bool distinct_ = false;
+    ProjectionColumnList *columns_;
+    Query *from_ = nullptr;
+    Expression *where_ = nullptr;
+    bool order_by_desc_ = false;
+    ExpressionList *order_by_;
+    ExpressionList *group_by_;
+}; // class Select
+
+
+class NameRelation final : public Query {
+public:
+    virtual bool is_statement() const override { return false; }
+    virtual bool is_command() const override { return false; }
+    virtual bool is_name() const override { return true; }
+    
+    inline const AstString *prefix() const;
+    inline const AstString *name() const;
+    
+    DEF_AST_NODE(NameRelation);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NameRelation);
+private:
+    NameRelation(Identifier *ref_name, const AstString *alias)
+        : Query(alias)
+        , ref_name_(DCHECK_NOTNULL(ref_name)) {}
+    
+    Identifier *ref_name_;
+}; // class NameRelation
+    
+    
+class JoinRelation final : public Query {
+public:
+    virtual bool is_statement() const override { return false; }
+    virtual bool is_command() const override { return false; }
+    virtual bool is_join() const override { return true; }
+    
+    DEF_VAL_GETTER(SQLJoinKind, join_kind);
+    DEF_PTR_GETTER_NOTNULL(Query, lhs);
+    DEF_PTR_GETTER_NOTNULL(Query, rhs);
+    
+    DEF_AST_NODE(JoinRelation);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(JoinRelation);
+private:
+    JoinRelation(SQLJoinKind join_kind, Query *lhs, Query *rhs, Expression *on,
+                 const AstString *alias)
+        : Query(alias)
+        , join_kind_(join_kind)
+        , lhs_(DCHECK_NOTNULL(lhs))
+        , rhs_(DCHECK_NOTNULL(rhs))
+        , on_(on) {}
+    
+    SQLJoinKind join_kind_;
+    Query *lhs_;
+    Query *rhs_;
+    Expression *on_;
+}; // class JoinRelation
     
 ////////////////////////////////////////////////////////////////////////////////
 /// TCL
@@ -492,6 +602,208 @@ private:
 
     Txn cmd_;
 }; // class TCLStatement
+    
+////////////////////////////////////////////////////////////////////////////////
+/// Expressions
+////////////////////////////////////////////////////////////////////////////////
+    
+class Expression : public AstNode {
+public:
+    virtual bool is_expression() const override { return true; }
+    
+    bool is_unary() const { return operands_count() == 1; }
+    bool is_binary() const { return operands_count() == 2; }
+    
+    virtual int operands_count() const { return 0; }
+    
+    virtual bool is_literal() const { return false; }
+    virtual bool is_comparison() const { return false; }
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Expression);
+protected:
+    Expression() {}
+}; // class Expression
+    
+    
+class ProjectionColumn final : public Expression {
+public:
+    virtual int operands_count() const override {
+        return expr_->operands_count();
+    }
+    
+    DEF_PTR_GETTER_NOTNULL(const AstString, alias);
+    DEF_PTR_GETTER_NOTNULL(Expression, expr);
+    
+    DEF_AST_NODE(ProjectionColumn);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(ProjectionColumn);
+private:
+    ProjectionColumn(const AstString *alias, Expression *expr)
+        : alias_(DCHECK_NOTNULL(alias))
+        , expr_(DCHECK_NOTNULL(expr)) {}
+
+    const AstString *alias_;
+    Expression *expr_;
+}; // class ProjectionColumn
+
+
+class Identifier final : public Expression {
+public:
+    virtual int operands_count() const override { return 1; }
+    
+    DEF_PTR_GETTER_NOTNULL(const AstString, prefix_name);
+    DEF_PTR_GETTER_NOTNULL(const AstString, name);
+
+    DEF_AST_NODE(Identifier);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Identifier);
+private:
+    Identifier(const AstString *prefix, const AstString *name)
+        : prefix_name_(prefix)
+        , name_(name) {}
+    
+    const AstString *prefix_name_;
+    const AstString *name_;
+}; // class Identifier
+    
+    
+class Literal final : public Expression {
+public:
+    enum Type {
+        STRING,
+        INTEGER,
+        APPROX,
+    };
+    virtual int operands_count() const override { return 1; }
+    virtual bool is_literal() const override { return true; }
+    
+    bool is_string_val() const { return type_ == STRING; }
+    bool is_integer_val() const { return type_ == INTEGER; }
+    bool is_approx_val() const { return type_ == APPROX; }
+    
+    int64_t integer_val() const {
+        DCHECK(is_integer_val()); return int_val_;
+    }
+    
+    double approx_val() const {
+        DCHECK(is_approx_val()); return approx_val_;
+    }
+    
+    const AstString *string_val() const {
+        DCHECK(is_string_val()); return str_val_;
+    }
+
+    DEF_AST_NODE(Literal);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Literal);
+private:
+    Literal(int64_t val)
+        : type_(INTEGER), int_val_(val) {}
+    
+    Literal(double val)
+        : type_(APPROX), approx_val_(val) {}
+    
+    Literal(const AstString *val)
+        : type_(STRING), str_val_(val) {}
+    
+    Type type_;
+    union {
+        int64_t int_val_;
+        double  approx_val_;
+        const AstString *str_val_;
+    };
+}; // class Literal
+
+
+template<int N>
+class FixedOperand : public Expression {
+public:
+    virtual int operands_count() const override { return N; }
+    
+    SQLOperator op() const { return op_; }
+    
+    Expression *operand(int i) const {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, N);
+        return operands_[i];
+    }
+    
+    Expression *rhs() const {
+        DCHECK_EQ(2, N);
+        return operands_[1];
+    }
+    
+    Expression *lhs() const {
+        DCHECK_EQ(2, N);
+        return operands_[0];
+    }
+    
+protected:
+    FixedOperand(SQLOperator op) : op_(op) {
+        for (int i = 0; i < N; ++i) {
+            operands_[i] = nullptr;
+        }
+    }
+    
+    void set_lhs(Expression *expr) { set_operand(0, expr); }
+    void set_rhs(Expression *expr) { set_operand(1, expr); }
+    
+    void set_operand(int i, Expression *expr) {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, N);
+        operands_[i] = DCHECK_NOTNULL(expr);
+    }
+
+    SQLOperator op_;
+    Expression *operands_[N];
+}; // template<int N> class OperandExpr
+    
+
+class UnaryExpression final : public FixedOperand<1> {
+public:
+    static bool IsUnaryOperator(SQLOperator op);
+
+    DEF_AST_NODE(UnaryExpression);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(UnaryExpression);
+private:
+    UnaryExpression(SQLOperator op, Expression *operand)
+        : FixedOperand(op) {
+        DCHECK(IsUnaryOperator(op));
+        set_operand(0, operand);
+    }
+}; // class UnaryExpression
+    
+    
+class BinaryExpression final : public FixedOperand<2> {
+public:
+    static bool IsBinaryOperator(SQLOperator op);
+    
+    DEF_AST_NODE(BinaryExpression);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(BinaryExpression);
+private:
+    BinaryExpression(SQLOperator op, Expression *lhs, Expression *rhs)
+        : FixedOperand(op) {
+        DCHECK(IsBinaryOperator(op));
+        set_lhs(lhs);
+        set_rhs(rhs);
+    }
+}; // class BinaryExpression
+    
+    
+class Comparison final : public FixedOperand<2> {
+public:
+    virtual bool is_comparison() const override { return true; }
+    
+    static bool IsComparisonOperator(SQLOperator op);
+    
+    DEF_AST_NODE(Comparison);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Comparison);
+private:
+    Comparison(SQLOperator op, Expression *lhs, Expression *rhs)
+        : FixedOperand(op) {
+        DCHECK(IsComparisonOperator(op));
+        set_lhs(lhs);
+        set_rhs(rhs);
+    }
+}; // class Comparison
+
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Utils
@@ -513,6 +825,14 @@ public:
 private:
     ShowTables() {}
 }; // class ShowTables
+    
+    
+////////////////////////////////////////////////////////////////////////////////
+/// Inlines
+////////////////////////////////////////////////////////////////////////////////
+    
+inline const AstString *NameRelation::prefix() const { return ref_name_->prefix_name(); }
+inline const AstString *NameRelation::name() const { return ref_name_->name(); }
     
 } // namespace sql
     

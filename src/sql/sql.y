@@ -43,8 +43,10 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
         bool after;
     } col_pos;
     int int_val;
+    double approx_val;
     bool bool_val;
     ::mai::sql::SQLKeyType key_type;
+    ::mai::sql::SQLOperator op;
     ::mai::sql::Block *block;
     ::mai::sql::Statement *stmt;
     ::mai::sql::TypeDefinition *type_def;
@@ -53,28 +55,33 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::sql::AlterTableSpecList *alter_table_spce_list;
     ::mai::sql::AlterTableSpec *alter_table_spce;
     ::mai::sql::NameList *name_list;
+    ::mai::sql::Expression *expr;
+    ::mai::sql::ExpressionList *expr_list;
+    ::mai::sql::ProjectionColumn *proj_col;
+    ::mai::sql::ProjectionColumnList *proj_col_list;
     const ::mai::sql::AstString *name;
 }
 
 %token SELECT FROM CREATE TABLE TABLES DROP SHOW ALTER ADD RENAME
 %token UNIQUE PRIMARY KEY ENGINE TXN_BEGIN TRANSACTION COLUMN AFTER
-%token TXN_COMMIT TXN_ROLLBACK FIRST CHANGE TO AS INDEX
+%token TXN_COMMIT TXN_ROLLBACK FIRST CHANGE TO AS INDEX DISTINCT
 
-%token ID NULL_VAL INTEGRAL_VAL STRING_VAL
+%token ID NULL_VAL INTEGRAL_VAL STRING_VAL APPROX_VAL
 
-%token EQ NOT
+%token EQ NOT OP_AND
 
 %token BIGINT INT SMALLINT TINYINT DECIMAL NUMERIC
 %token CHAR VARCHAR DATE DATETIME TIMESTMAP AUTO_INCREMENT COMMENT
 
 %type <block> Block
-%type <stmt> Statement Command DDL CreateTableStmt AlterTableStmt
+%type <stmt> Statement Command DDL DML CreateTableStmt AlterTableStmt
 %type <text> ID STRING_VAL
-%type <name> Identifier CommentOption
-%type <bool_val> NullOption AutoIncrementOption
+%type <name> Identifier CommentOption AliasOption
+%type <bool_val> NullOption AutoIncrementOption DistinctOption
 %type <size> FixedSizeDescription FloatingSizeDescription
 %type <type_def> TypeDefinition
 %type <int_val> INTEGRAL_VAL
+%type <approx_val> APPROX_VAL
 %type <key_type> KeyOption
 %type <col_def_list> ColumnDefinitionList
 %type <col_def> ColumnDefinition
@@ -82,6 +89,26 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <alter_table_spce> AlterTableSpec
 %type <alter_table_spce_list> AlterTableSpecList
 %type <name_list> NameList;
+%type <expr> Expression
+//%type <expr_list> ExpressionList
+%type <proj_col> ProjectionColumn
+%type <proj_col_list> ProjectionColumnList
+
+%right ASSIGN
+%left OP_OR
+%left XOR
+%left OP_AND
+%nonassoc IN IS LIKE REGEXP
+%left NOT '!'
+%left BETWEEN
+%left <op> COMPARISON
+%left '|'
+%left '&'
+%left LSHIFT RSHIFT
+%left '+' '-'
+%left '*' '/' '%' MOD
+%left '^'
+%nonassoc UMINUS
 
 //%type column
 %%
@@ -98,6 +125,7 @@ Block: Statement {
 Statement: Command ';'
 
 Command: DDL
+| DML
 | TXN_BEGIN TRANSACTION {
     $$ = ctx->factory->NewTCLStatement(TCLStatement::TXN_BEGIN);
 }
@@ -321,13 +349,68 @@ NameList : Identifier {
     $$->push_back($3);
 }
 
+// INSERT UPDATE DELETE
+// DML:
+DML : SELECT DistinctOption ProjectionColumnList AliasOption {
+    $$ = ctx->factory->NewSelect($2, $3, $4);
+}
+
+DistinctOption : DISTINCT {
+    $$ = true;
+}
+| {
+    $$ = false;
+}
+
+ProjectionColumnList : ProjectionColumn {
+    $$ = ctx->factory->NewProjectionColumnList($1);
+}
+| ProjectionColumnList ',' ProjectionColumn {
+    $$->push_back($3);
+}
+
+ProjectionColumn : Expression {
+    $$ = ctx->factory->NewProjectionColumn($1, AstString::kEmpty);
+}
+| Expression AS Identifier {
+    $$ = ctx->factory->NewProjectionColumn($1, $3);
+}
+
+AliasOption : AS Identifier {
+    $$ = $2;
+}
+| Identifier
+| {
+    $$ = AstString::kEmpty;
+}
+
+// Expressions:
+//ExpressionList: Expression {
+//    $$ = ctx->factory->NewExpressionList($1);
+//}
+//| ExpressionList ',' Expression {
+//    $$->push_back($3);
+//}
+
+Expression: Identifier {
+    $$ = ctx->factory->NewIdentifier(AstString::kEmpty, $1);
+}
+| Identifier '.' Identifier {
+    $$ = ctx->factory->NewIdentifier($1, $3);   
+}
+| STRING_VAL {
+    $$ = ctx->factory->NewStringLiteral($1.buf, $1.len);
+}
+| INTEGRAL_VAL {
+    $$ = ctx->factory->NewIntegerLiteral($1);
+}
+| APPROX_VAL {
+    $$ = ctx->factory->NewApproxLiteral($1);
+}
+
 Identifier : ID {
     $$ = ctx->factory->NewString($1.buf, $1.len);
 }
-
-
-// INSERT UPDATE DELETE
-// DML:
 
 %%
 void yyerror(YYLTYPE *yyl, parser_ctx *ctx, const char *msg) {

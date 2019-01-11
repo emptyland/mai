@@ -123,9 +123,90 @@ public:
     }
     
     ////////////////////////////////////////////////////////////////////////////
+    // DML
+    ////////////////////////////////////////////////////////////////////////////
+    Select *NewSelect(bool distinct, ProjectionColumnList *cols,
+                      const AstString *alias) {
+        return new (arena_) Select(distinct, cols, alias);
+    }
+    
+    NameRelation *NewNameRelation(Identifier *name, const AstString *alias) {
+        return new (arena_) NameRelation(name, alias);
+    }
+    
+    JoinRelation *NewJoinRelation(Query *lhs, SQLJoinKind join, Query *rhs,
+                                  Expression *on_expr,
+                                  const AstString *alias) {
+        return new (arena_) JoinRelation(join, lhs, rhs, on_expr, alias);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Expressions
+    ////////////////////////////////////////////////////////////////////////////
+    ProjectionColumn *NewProjectionColumn(Expression *expr,
+                                          const AstString *alias) {
+        return new (arena_) ProjectionColumn(alias, expr);
+    }
+    
+    Identifier *NewIdentifier(const AstString *prefix, const AstString *name) {
+        return new (arena_) Identifier(prefix, name);
+    }
+    
+    Literal *NewIntegerLiteral(int64_t val) {
+        return new (arena_) Literal(val);
+    }
+    
+    Literal *NewStringLiteral(const AstString *val) {
+        return new (arena_) Literal(val);
+    }
+    
+    Literal *NewStringLiteral(const char *s, size_t n) {
+        return new (arena_) Literal(NewString(s, n));
+    }
+    
+    Literal *NewApproxLiteral(double val) {
+        return new (arena_) Literal(val);
+    }
+    
+    Comparison *NewComparison(Expression *lhs, SQLOperator op,
+                              Expression *rhs) {
+        DCHECK(Comparison::IsComparisonOperator(op));
+        return new (arena_) Comparison(op, lhs, rhs);
+    }
+    
+    BinaryExpression *NewBinaryExpression(Expression *lhs, SQLOperator op,
+                                          Expression *rhs) {
+        DCHECK(BinaryExpression::IsBinaryOperator(op));
+        return new (arena_) BinaryExpression(op, lhs, rhs);
+    }
+    
+    UnaryExpression *NewUnaryExpression(SQLOperator op, Expression *operand) {
+        DCHECK(UnaryExpression::IsUnaryOperator(op));
+        return new (arena_) UnaryExpression(op, operand);
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////
     // Utils
     ////////////////////////////////////////////////////////////////////////////
     ShowTables *NewShowTables() { return new (arena_) ShowTables(); }
+    
+    ProjectionColumnList *NewProjectionColumnList(ProjectionColumn *col) {
+        ProjectionColumnList *cols = new (arena_) ProjectionColumnList(arena_);
+        cols->reserve(8);
+        if (col) {
+            cols->push_back(col);
+        }
+        return cols;
+    }
+    
+    ExpressionList *NewExpressionList(Expression *expr) {
+        ExpressionList *exprs = new (arena_) ExpressionList(arena_);
+        exprs->reserve(8);
+        if (expr) {
+            exprs->push_back(expr);
+        }
+        return exprs;
+    }
     
     NameList *NewNameList(const AstString *name) {
         NameList *names = new (arena_) NameList(arena_);

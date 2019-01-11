@@ -73,25 +73,41 @@ extern int yydebug;
     TO = 280,
     AS = 281,
     INDEX = 282,
-    ID = 283,
-    NULL_VAL = 284,
-    INTEGRAL_VAL = 285,
-    STRING_VAL = 286,
-    EQ = 287,
-    NOT = 288,
-    BIGINT = 289,
-    INT = 290,
-    SMALLINT = 291,
-    TINYINT = 292,
-    DECIMAL = 293,
-    NUMERIC = 294,
-    CHAR = 295,
-    VARCHAR = 296,
-    DATE = 297,
-    DATETIME = 298,
-    TIMESTMAP = 299,
-    AUTO_INCREMENT = 300,
-    COMMENT = 301
+    DISTINCT = 283,
+    ID = 284,
+    NULL_VAL = 285,
+    INTEGRAL_VAL = 286,
+    STRING_VAL = 287,
+    APPROX_VAL = 288,
+    EQ = 289,
+    NOT = 290,
+    OP_AND = 291,
+    BIGINT = 292,
+    INT = 293,
+    SMALLINT = 294,
+    TINYINT = 295,
+    DECIMAL = 296,
+    NUMERIC = 297,
+    CHAR = 298,
+    VARCHAR = 299,
+    DATE = 300,
+    DATETIME = 301,
+    TIMESTMAP = 302,
+    AUTO_INCREMENT = 303,
+    COMMENT = 304,
+    ASSIGN = 305,
+    OP_OR = 306,
+    XOR = 307,
+    IN = 308,
+    IS = 309,
+    LIKE = 310,
+    REGEXP = 311,
+    BETWEEN = 312,
+    COMPARISON = 313,
+    LSHIFT = 314,
+    RSHIFT = 315,
+    MOD = 316,
+    UMINUS = 317
   };
 #endif
 
@@ -115,8 +131,10 @@ union YYSTYPE
         bool after;
     } col_pos;
     int int_val;
+    double approx_val;
     bool bool_val;
     ::mai::sql::SQLKeyType key_type;
+    ::mai::sql::SQLOperator op;
     ::mai::sql::Block *block;
     ::mai::sql::Statement *stmt;
     ::mai::sql::TypeDefinition *type_def;
@@ -125,9 +143,13 @@ union YYSTYPE
     ::mai::sql::AlterTableSpecList *alter_table_spce_list;
     ::mai::sql::AlterTableSpec *alter_table_spce;
     ::mai::sql::NameList *name_list;
+    ::mai::sql::Expression *expr;
+    ::mai::sql::ExpressionList *expr_list;
+    ::mai::sql::ProjectionColumn *proj_col;
+    ::mai::sql::ProjectionColumnList *proj_col_list;
     const ::mai::sql::AstString *name;
 
-#line 131 "sql.hh" /* yacc.c:1912  */
+#line 153 "sql.hh" /* yacc.c:1912  */
 };
 
 typedef union YYSTYPE YYSTYPE;
