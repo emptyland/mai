@@ -25,7 +25,8 @@ public:
     size_t GetCacheSize() const;
     size_t GetTotalMameoryUsage() const;
     
-    virtual void *Allocate(size_t size, size_t alignment) override;
+    virtual void *Allocate(size_t size,
+                           size_t alignment = sizeof(max_align_t)) override;
     virtual size_t granularity() override;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Zone);

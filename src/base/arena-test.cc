@@ -1,4 +1,5 @@
 #include "base/standalone-arena.h"
+#include "base/zone.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 #include <thread>
@@ -9,9 +10,11 @@ namespace base {
     
 class ArenaTest : public ::testing::Test {
 public:
-    
+    ArenaTest()
+        : zone_(env_->GetLowLevelAllocator(), 1 * base::kMB) {}
 
     Env *env_ = Env::Default();
+    Zone zone_;
 }; // class ArenaTest
 
 TEST_F(ArenaTest, Sanity) {
@@ -99,6 +102,34 @@ TEST_F(ArenaTest, CocurrentFuzzAllocation) {
 //    for (const auto &s : r2) {
 //        printf("%lu %f\n", s.usage, s.used_rate);
 //    }
+}
+    
+TEST_F(ArenaTest, ZoneSanity) {
+    auto p = zone_.Allocate(4);
+    *static_cast<int32_t *>(p) = 991;
+}
+
+    
+TEST_F(ArenaTest, ZoneNewArena) {
+    std::unique_ptr<Arena> arena(zone_.NewArena(0));
+    ASSERT_NE(nullptr, arena.get());
+    
+    auto p = arena->Allocate(4, 8);
+    *static_cast<int32_t *>(p) = 991;
+    ASSERT_EQ(0, reinterpret_cast<uintptr_t>(p) % 8);
+    
+    auto x = static_cast<char *>(arena->Allocate(3, 8));
+    x[0] = 1;
+    x[1] = 2;
+    x[2] = 3;
+    ASSERT_EQ(x, static_cast<char *>(p) + 8);
+    ASSERT_EQ(0, reinterpret_cast<uintptr_t>(x) % 8);
+    
+    p = x;
+    x = static_cast<char *>(arena->Allocate(1, 8));
+    x[0] = 4;
+    ASSERT_EQ(x, static_cast<char *>(p) + 8);
+    ASSERT_EQ(0, reinterpret_cast<uintptr_t>(x) % 8);
 }
     
 } // namespace base

@@ -24,6 +24,12 @@ struct Zone::ShadowPage {
     };
 };
 
+template<class T>
+static inline T *Align(T *x, size_t alignment) {
+    return reinterpret_cast<T *>(RoundUp(reinterpret_cast<uintptr_t>(x),
+                                         alignment));
+}
+
 class Zone::Core final {
 public:
     static const size_t kHeaderSize = sizeof(Page);
@@ -49,38 +55,17 @@ public:
         return page;
     }
 
-    ShadowPage *NewSmallPage() {
-        auto page = cache_.load(std::memory_order_acquire);
-        if (!page) {
-            return AllocSmallPage();
-        }
-        auto expected = page;
-        if (cache_.compare_exchange_strong(expected, page->next)) {
-            cache_size_.fetch_sub(page_size());
-            return reinterpret_cast<ShadowPage *>(page);
-        } else {
-            return AllocSmallPage();
-        }
-    }
+    ShadowPage *NewSmallPage();
     
     void FreeLargePage(ShadowPage *page) {
-        ll_allocator_->Free(page, page->size);
+        auto size = page->size;
+    #if defined(DEBUG) || defined(_DEBUG)
+        Round32BytesFill(Arena::kFreeZag, page, size);
+    #endif
+        ll_allocator_->Free(page, size);
     }
-    
-    void ReclaimSmallPage(ShadowPage *page) {
-        if (cache_size_.load() >= owns_->max_cache_size_) {
-            ll_allocator_->Free(page, page_size());
-            return;
-        }
-        Page *shadow = reinterpret_cast<Page *>(page);
-        Page *head;
-        do {
-            head = cache_.load(std::memory_order_relaxed);
-            shadow->next = head;
-        } while (!cache_.compare_exchange_weak(head, shadow));
-        
-        cache_size_.fetch_add(page_size());
-    }
+
+    void ReclaimSmallPage(ShadowPage *page);
     
     inline void InsertArena(ArenaImpl *x);
     inline void RemoveArena(ArenaImpl *x);
@@ -117,79 +102,28 @@ public:
     
     virtual ~ArenaImpl() {
         Purge(false);
-        owns_->RemoveArena(this);
+        if (this != owns_->dummy()) {
+            owns_->RemoveArena(this);
+        }
     }
     
     DEF_PTR_GETTER_NOTNULL(Core, owns);
     DEF_VAL_PROP_RW(size_t, limit_size);
     
-    virtual void Purge(bool /*reinit*/) override {
-        ShadowPage *x = large_;
-        while (x) {
-            auto p = x;
-            x = x->next;
-            owns_->FreeLargePage(p);
-        }
-        large_ = nullptr;
-        
-        x = current_;
-        while (x) {
-            auto p = x;
-            x = x->next;
-            owns_->ReclaimSmallPage(p);
-        }
-        current_ = nullptr;
-        memory_usage_ = 0;
-    }
-    
-    virtual void *Allocate(size_t size, size_t alignment) override {
-        alignment = std::max(granularity(), alignment);
-        size_t alloc_size = RoundUp(size, alignment);
-        
-        void *result = nullptr;
-        if (alloc_size < owns_->page_size() - kHeaderSize) {
-            result = AllocateSmall(alloc_size);
-        } else {
-            result = AllocateLarge(alloc_size);
-        }
-    #if defined(DEBUG) || defined(_DEBUG)
-        Round32BytesFill(kInitZag, result, alloc_size);
-    #endif
-        return result;
-    }
-    
+    virtual void Purge(bool /*reinit*/) override;
+    virtual void *Allocate(size_t size, size_t alignment) override;
     virtual size_t memory_usage() const override { return memory_usage_; }
     
     ArenaImpl *next_ = this;
     ArenaImpl *prev_ = this;
 private:
-    void *AllocateSmall(size_t size) {
-        bool need_new_page = false;
-        if (!current_) {
-            need_new_page = true;
-        } else {
-            auto end = reinterpret_cast<char *>(current_) + owns_->page_size();
-            if (current_->free + size > end) {
-                need_new_page = true;
-            }
-        }
-        
-        if (need_new_page) {
-            ShadowPage *page = owns_->NewSmallPage();
-            page->next = current_;
-            current_ = page;
-            memory_usage_ += owns_->page_size();
-        }
-        void *result = static_cast<void *>(current_->free);
-        current_->free += size;
-        return result;
-    }
+    void *AllocateSmall(size_t size, size_t alignment);
     
-    void *AllocateLarge(size_t size) {
-        ShadowPage *page = owns_->NewLargePage(size);
+    void *AllocateLarge(size_t size, size_t alignment) {
+        ShadowPage *page = owns_->NewLargePage(size + alignment);
         page->next = large_;
         large_ = page;
-        return static_cast<void *>(page + 1);
+        return Align(static_cast<void *>(page + 1), alignment);
     }
     
     Zone::Core *const owns_;
@@ -240,11 +174,104 @@ inline void Zone::Core::RemoveArena(ArenaImpl *x) {
     x->prev_ = nullptr;
 #endif
 }
+    
+Zone::ShadowPage *Zone::Core::NewSmallPage() {
+    auto page = cache_.load(std::memory_order_acquire);
+    if (!page) {
+        return AllocSmallPage();
+    }
+    auto expected = page;
+    if (cache_.compare_exchange_strong(expected, page->next)) {
+        cache_size_.fetch_sub(page_size());
+        return reinterpret_cast<ShadowPage *>(page);
+    } else {
+        return AllocSmallPage();
+    }
+}
+    
+void Zone::Core::ReclaimSmallPage(ShadowPage *page) {
+    if (cache_size_.load() >= owns_->max_cache_size_) {
+#if defined(DEBUG) || defined(_DEBUG)
+        Round32BytesFill(Arena::kFreeZag, page, page_size());
+#endif
+        ll_allocator_->Free(page, page_size());
+        return;
+    }
+    Page *shadow = reinterpret_cast<Page *>(page);
+    Page *head;
+    do {
+        head = cache_.load(std::memory_order_relaxed);
+        shadow->next = head;
+    } while (!cache_.compare_exchange_weak(head, shadow));
+    
+    cache_size_.fetch_add(page_size());
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class Zone::ArenaImpl
 ////////////////////////////////////////////////////////////////////////////////
+
+/*virtual*/ void Zone::ArenaImpl::Purge(bool /*reinit*/) {
+    ShadowPage *x = large_;
+    while (x) {
+        auto p = x;
+        x = x->next;
+        owns_->FreeLargePage(p);
+    }
+    large_ = nullptr;
     
+    x = current_;
+    while (x) {
+        auto p = x;
+        x = x->next;
+        owns_->ReclaimSmallPage(p);
+    }
+    current_ = nullptr;
+    memory_usage_ = 0;
+}
+
+/*virtual*/ void *Zone::ArenaImpl::Allocate(size_t size, size_t alignment) {
+    alignment = std::max(granularity(), alignment);
+    //size_t alloc_size = RoundUp(size, alignment);
+    
+    void *result = nullptr;
+    if (size + alignment < owns_->page_size() - kHeaderSize) {
+        result = AllocateSmall(size, alignment);
+    } else {
+        result = AllocateLarge(size, alignment);
+    }
+#if defined(DEBUG) || defined(_DEBUG)
+    Round32BytesFill(kInitZag, result, size);
+#endif
+    return result;
+}
+    
+void *Zone::ArenaImpl::AllocateSmall(size_t size, size_t alignment) {
+    bool need_new_page = false;
+    if (!current_) {
+        need_new_page = true;
+    } else {
+        auto end = reinterpret_cast<char *>(current_) + owns_->page_size();
+        
+        current_->free = Align(current_->free, alignment);
+        if (current_->free + size > end) {
+            need_new_page = true;
+        }
+    }
+    
+    if (need_new_page) {
+        ShadowPage *page = owns_->NewSmallPage();
+        page->free = Align(page->free, alignment);
+        page->next = current_;
+        current_ = page;
+        memory_usage_ += owns_->page_size();
+    }
+    
+    DCHECK_EQ(0, reinterpret_cast<uintptr_t>(current_->free) % alignment);
+    void *result = static_cast<void *>(current_->free);
+    current_->free += size;
+    return result;
+}
     
     
 ////////////////////////////////////////////////////////////////////////////////
