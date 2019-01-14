@@ -1,4 +1,5 @@
 #include "core/hash-map-v2.h"
+#include "base/standalone-arena.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 #include <thread>
@@ -22,7 +23,7 @@ public:
         }
     };
     
-    base::Arena arena_;
+    base::StandaloneArena arena_;
 };
     
 TEST_F(HashMapV2Test, Sanity) {

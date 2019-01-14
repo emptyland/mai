@@ -43,6 +43,8 @@ public:
         }
     }
     
+    virtual size_t granularity() override { return page_size_; }
+    
 private:
     const size_t page_size_;
 }; // class PosixMmapAllocator

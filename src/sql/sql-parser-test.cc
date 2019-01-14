@@ -1,7 +1,7 @@
 #include "sql/parser.h"
 #include "sql/ast.h"
 #include "sql/ast-factory.h"
-#include "base/arena.h"
+#include "base/standalone-arena.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 
@@ -16,7 +16,7 @@ public:
         , factory_(&arena_) {}
     
     Env *env_ = Env::Default();
-    base::Arena arena_;
+    base::StandaloneArena arena_;
     AstFactory factory_;
 };
     

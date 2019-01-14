@@ -1,6 +1,7 @@
 #include "core/key-boundle.h"
 #include "core/internal-key-comparator.h"
 #include "core/unordered-memory-table.h"
+#include "base/standalone-arena.h"
 #include "base/hash.h"
 #include "mai/env.h"
 #include "mai/iterator.h"
@@ -35,7 +36,7 @@ public:
         : ikcmp_(new core::InternalKeyComparator(Comparator::Bytewise())) {}
     
     void SetUp() override {
-        arena_ = new base::Arena(env_->GetLowLevelAllocator());
+        arena_ = new base::StandaloneArena(env_->GetLowLevelAllocator());
     }
     
     void TearDown() override {

@@ -1,4 +1,5 @@
 #include "core/skip-list.h"
+#include "base/standalone-arena.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 #include <stdio.h>
@@ -17,7 +18,7 @@ public:
     using IntSkipList = SkipList<int, std::function<int (int, int)>>;
     
     void SetUp() override {
-        arena_.reset(new base::Arena(Env::Default()->GetLowLevelAllocator()));
+        arena_.reset(new base::StandaloneArena(Env::Default()->GetLowLevelAllocator()));
     }
 
     void Fill(int k, IntSkipList *list) {

@@ -2,7 +2,7 @@
 #define MAI_CORE_LRU_CACHE_V1_H_
 
 #include "core/hash-map-v2.h"
-#include "base/arena.h"
+#include "base/standalone-arena.h"
 #include "base/reference-count.h"
 #include "mai/allocator.h"
 #include "mai/error.h"
@@ -90,7 +90,7 @@ private:
     }; // struct Comparator
     
     using LRUTable = HashMap<LRUHandle *, KeyComparator>;
-    using Arena = ::mai::base::Arena;
+    using StandaloneArena = ::mai::base::StandaloneArena;
     
     struct TableBoundle : public base::ReferenceCounted<TableBoundle> {
         TableBoundle(Allocator *low_level_allocator,
@@ -101,7 +101,7 @@ private:
             return static_cast<float>(table.n_entries()) /
                    static_cast<float>(table.n_slots());
         }
-        Arena    arena;
+        StandaloneArena arena;
         LRUTable table;
     }; // struct TableBoundle
     

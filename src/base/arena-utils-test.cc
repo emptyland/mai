@@ -1,4 +1,5 @@
 #include "base/arena-utils.h"
+#include "base/standalone-arena.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 
@@ -12,7 +13,7 @@ public:
         : arena_(env_->GetLowLevelAllocator()) {}
     
     Env *env_ = Env::Default();
-    base::Arena arena_;
+    base::StandaloneArena arena_;
 };
     
 TEST_F(ArenaUtilsTest, ArenaString) {

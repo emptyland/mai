@@ -4,7 +4,7 @@
 #include "core/memory-table.h"
 #include "core/bw-tree.h"
 #include "core/internal-key-comparator.h"
-#include "base/arena.h"
+#include "base/standalone-arena.h"
 
 namespace mai {
 class Env;
@@ -39,7 +39,7 @@ private:
 
     std::atomic<size_t> n_entries_;
 
-    base::Arena arena_;
+    base::StandaloneArena arena_;
     mutable Table table_;
 }; // class BwTreeMemoryTable
     

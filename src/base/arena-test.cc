@@ -1,4 +1,4 @@
-#include "base/arena.h"
+#include "base/standalone-arena.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 #include <thread>
@@ -20,14 +20,14 @@ TEST_F(ArenaTest, Sanity) {
     memset(raw, 0xcc, 4096);
     allocator->Free(raw, 4096);
     
-    Arena arena(allocator);
+    StandaloneArena arena(allocator);
     
     ASSERT_NE(nullptr, arena.Allocate(1024, 4));
     ASSERT_NE(nullptr, arena.Allocate(1024, 4));
 }
     
 TEST_F(ArenaTest, FuzzAllocation) {
-    Arena arena(env_->GetLowLevelAllocator());
+    StandaloneArena arena(env_->GetLowLevelAllocator());
     for (int i = 0; i < 10240; ++i) {
         size_t size = abs(::rand()) % base::kKB;
         arena.Allocate(size, 4);
@@ -35,7 +35,7 @@ TEST_F(ArenaTest, FuzzAllocation) {
 }
     
 TEST_F(ArenaTest, ConcurrentLargeAllocation) {
-    Arena arena(env_->GetLowLevelAllocator());
+    StandaloneArena arena(env_->GetLowLevelAllocator());
     
     std::thread worker_thrds[4];
     
@@ -52,7 +52,7 @@ TEST_F(ArenaTest, ConcurrentLargeAllocation) {
 }
     
 TEST_F(ArenaTest, ConcurrentNormalAllocation) {
-    Arena arena(env_->GetLowLevelAllocator());
+    StandaloneArena arena(env_->GetLowLevelAllocator());
     
     std::thread worker_thrds[4];
     
@@ -69,7 +69,7 @@ TEST_F(ArenaTest, ConcurrentNormalAllocation) {
 }
     
 TEST_F(ArenaTest, CocurrentFuzzAllocation) {
-    Arena arena(env_->GetLowLevelAllocator());
+    StandaloneArena arena(env_->GetLowLevelAllocator());
     
     std::thread worker_thrds[8];
     
@@ -83,7 +83,7 @@ TEST_F(ArenaTest, CocurrentFuzzAllocation) {
     }
     for (int i = 0; i < 1024; ++i) {
         auto memory_usage = arena.memory_usage();
-        DCHECK_EQ(0, memory_usage % Arena::kPageSize);
+        DCHECK_EQ(0, memory_usage % StandaloneArena::kPageSize);
     }
     for (int i = 0; i < arraysize(worker_thrds); ++i) {
         worker_thrds[i].join();

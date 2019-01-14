@@ -3,6 +3,7 @@
 
 #include "base/arena.h"
 #include "base/base.h"
+#include "glog/logging.h"
 #include <atomic>
 
 namespace mai {

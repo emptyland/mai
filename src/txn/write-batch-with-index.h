@@ -2,7 +2,7 @@
 #define MAI_TXN_WRITE_BATCH_WITH_INDEX_H_
 
 #include "core/skip-list.h"
-#include "base/arena.h"
+#include "base/standalone-arena.h"
 #include "base/base.h"
 #include "mai/write-batch.h"
 #include <unordered_map>
@@ -54,7 +54,7 @@ private:
     
     using Table = core::SkipList<WriteBatchEntry *, KeyComparator>;
     
-    base::Arena arena_;
+    base::StandaloneArena arena_;
     std::unordered_map<uint32_t, std::shared_ptr<Table>> tables_;
     //std::unique_ptr<Table> table_;
 }; // class WriteBatchWithIndex

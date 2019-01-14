@@ -67,7 +67,7 @@
 		2364B32B21E451F9008519AE /* hash.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12F218AFBCC00F9E855 /* hash.cc */; };
 		2364B32C21E451F9008519AE /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
 		2364B33021E451F9008519AE /* arena-utils.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239E483A21E4403400F2FD48 /* arena-utils.cc */; };
-		2364B33121E451F9008519AE /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* arena.cc */; };
+		2364B33121E451F9008519AE /* standalone-arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* standalone-arena.cc */; };
 		2364B33321E451F9008519AE /* ebr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20D21C264B100C8D5B1 /* ebr.cc */; };
 		2364B33521E451F9008519AE /* lock-group.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B8E68521E2E50F0001096E /* lock-group.cc */; };
 		2364B33621E451F9008519AE /* bw-tree-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */; };
@@ -110,6 +110,10 @@
 		237B0C0B21E4869400F3A099 /* sql.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C0821E4869400F3A099 /* sql.cc */; };
 		237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */; };
 		237B0C1E21E4A9C100F3A099 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1D21E4A9C100F3A099 /* parser.cc */; };
+		237F504D21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
+		237F504E21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
+		237F505121EB74390069075D /* zone.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F505021EB74390069075D /* zone.cc */; };
+		237F505221EB74390069075D /* zone.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F505021EB74390069075D /* zone.cc */; };
 		239B2A7121D615890088F382 /* pessimistic-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A6F21D615890088F382 /* pessimistic-transaction-db.cc */; };
 		239B2A7621D6171E0088F382 /* pessimistic-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7421D6171E0088F382 /* pessimistic-transaction.cc */; };
 		239B2A7B21D61BE10088F382 /* transaction-base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7921D61BE10088F382 /* transaction-base.cc */; };
@@ -164,7 +168,7 @@
 		23DE183521D088D000479C23 /* base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0D82187F90400F9E855 /* base.cc */; };
 		23DE183621D088D000479C23 /* slice.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA248219432BB007EF228 /* slice.cc */; };
 		23DE183721D088D000479C23 /* hash.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12F218AFBCC00F9E855 /* hash.cc */; };
-		23DE183821D088D000479C23 /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* arena.cc */; };
+		23DE183821D088D000479C23 /* standalone-arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* standalone-arena.cc */; };
 		23DE183921D088D000479C23 /* ebr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20D21C264B100C8D5B1 /* ebr.cc */; };
 		23DE183A21D0896A00479C23 /* libglog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E82187FAF200F9E855 /* libglog.a */; };
 		23DE183B21D0897E00479C23 /* allocator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23B0E1122189A6BF00F9E855 /* allocator.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -234,8 +238,8 @@
 		231F33FC21BE546C00A994A8 /* mapping-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "mapping-table.cc"; sourceTree = "<group>"; };
 		231F33FF21BE54D700A994A8 /* bw-nodes.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-nodes.cc"; sourceTree = "<group>"; };
 		231F340221BE665A00A994A8 /* bw-tree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree.h"; sourceTree = "<group>"; };
-		2326026121ABE7D8003F434C /* arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arena.h; sourceTree = "<group>"; };
-		2326026221ABE80D003F434C /* arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = arena.cc; sourceTree = "<group>"; };
+		2326026121ABE7D8003F434C /* standalone-arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "standalone-arena.h"; sourceTree = "<group>"; };
+		2326026221ABE80D003F434C /* standalone-arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "standalone-arena.cc"; sourceTree = "<group>"; };
 		2326026521ABF614003F434C /* arena-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "arena-test.cc"; sourceTree = "<group>"; };
 		2326A42921A3A1740040BE53 /* snapshot-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "snapshot-impl.h"; sourceTree = "<group>"; };
 		2326A42A21A507590040BE53 /* key-boundle.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "key-boundle.cc"; sourceTree = "<group>"; };
@@ -285,6 +289,10 @@
 		237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "iterator-warpper.cc"; sourceTree = "<group>"; };
 		237CE4C22192EDE4004FB9BF /* merging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = merging.h; sourceTree = "<group>"; };
 		237CE4C32192EE17004FB9BF /* merging.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = merging.cc; sourceTree = "<group>"; };
+		237F504A21EB6DA90069075D /* arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arena.h; sourceTree = "<group>"; };
+		237F504C21EB72C90069075D /* arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = arena.cc; sourceTree = "<group>"; };
+		237F504F21EB73BE0069075D /* zone.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = zone.h; sourceTree = "<group>"; };
+		237F505021EB74390069075D /* zone.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = zone.cc; sourceTree = "<group>"; };
 		2399D20721C2433500C8D5B1 /* tls-posix.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "tls-posix.h"; sourceTree = "<group>"; };
 		2399D20821C247B100C8D5B1 /* tls-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "tls-test.cc"; sourceTree = "<group>"; };
 		2399D20A21C2496D00C8D5B1 /* ebr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ebr.h; sourceTree = "<group>"; };
@@ -560,10 +568,14 @@
 				23B0E12F218AFBCC00F9E855 /* hash.cc */,
 				23B0E132218AFD4E00F9E855 /* crc32.c */,
 				231C61F5219AA5EE001A95C1 /* io-utils.h */,
-				2326026121ABE7D8003F434C /* arena.h */,
+				2326026121ABE7D8003F434C /* standalone-arena.h */,
+				2326026221ABE80D003F434C /* standalone-arena.cc */,
+				237F504A21EB6DA90069075D /* arena.h */,
+				237F504C21EB72C90069075D /* arena.cc */,
+				237F504F21EB73BE0069075D /* zone.h */,
+				237F505021EB74390069075D /* zone.cc */,
 				239E483821E43B8F00F2FD48 /* arena-utils.h */,
 				239E483A21E4403400F2FD48 /* arena-utils.cc */,
-				2326026221ABE80D003F434C /* arena.cc */,
 				2399D20A21C2496D00C8D5B1 /* ebr.h */,
 				2399D20D21C264B100C8D5B1 /* ebr.cc */,
 				23B8E68321E2E4FF0001096E /* lock-group.h */,
@@ -981,6 +993,7 @@
 				2364B2BC21E451F8008519AE /* bw-nodes.cc in Sources */,
 				2364B2BE21E451F9008519AE /* mapping-table.cc in Sources */,
 				2364B2C121E451F9008519AE /* write-ahead-log.cc in Sources */,
+				237F504D21EB72C90069075D /* arena.cc in Sources */,
 				2364B2C321E451F9008519AE /* db-impl.cc in Sources */,
 				2364B2C521E451F9008519AE /* column-family.cc in Sources */,
 				237B0C1E21E4A9C100F3A099 /* parser.cc in Sources */,
@@ -1019,6 +1032,7 @@
 				2364B30C21E451F9008519AE /* error.cc in Sources */,
 				2364B31021E451F9008519AE /* lru-cache-v1.cc in Sources */,
 				2364B31221E451F9008519AE /* delta-amend-iterator.cc in Sources */,
+				237F505121EB74390069075D /* zone.cc in Sources */,
 				2364B31F21E451F9008519AE /* varint-encoding.cc in Sources */,
 				2364B32221E451F9008519AE /* spin-locking.cc in Sources */,
 				2364B32521E451F9008519AE /* base.cc in Sources */,
@@ -1026,7 +1040,7 @@
 				2364B32B21E451F9008519AE /* hash.cc in Sources */,
 				2364B32C21E451F9008519AE /* crc32.c in Sources */,
 				2364B33021E451F9008519AE /* arena-utils.cc in Sources */,
-				2364B33121E451F9008519AE /* arena.cc in Sources */,
+				2364B33121E451F9008519AE /* standalone-arena.cc in Sources */,
 				2364B33321E451F9008519AE /* ebr.cc in Sources */,
 				2364B33521E451F9008519AE /* lock-group.cc in Sources */,
 				2364B33621E451F9008519AE /* bw-tree-test.cc in Sources */,
@@ -1091,7 +1105,7 @@
 				23DE183521D088D000479C23 /* base.cc in Sources */,
 				23DE183621D088D000479C23 /* slice.cc in Sources */,
 				23DE183721D088D000479C23 /* hash.cc in Sources */,
-				23DE183821D088D000479C23 /* arena.cc in Sources */,
+				23DE183821D088D000479C23 /* standalone-arena.cc in Sources */,
 				23DE183921D088D000479C23 /* ebr.cc in Sources */,
 				23DE182621D088C300479C23 /* memory-table.cc in Sources */,
 				23DE182721D088C300479C23 /* bw-tree-memory-table.cc in Sources */,
@@ -1114,6 +1128,7 @@
 				23DE181021D088B000479C23 /* write-batch.cc in Sources */,
 				23DE181121D088B000479C23 /* db-impl.cc in Sources */,
 				23DE181221D088B000479C23 /* column-family.cc in Sources */,
+				237F505221EB74390069075D /* zone.cc in Sources */,
 				23DE181321D088B000479C23 /* version.cc in Sources */,
 				23DE181421D088B000479C23 /* files.cc in Sources */,
 				23CC114F21D71F49001665AC /* transaction-lock-mgr.cc in Sources */,
@@ -1135,6 +1150,7 @@
 				23DE182021D088B000479C23 /* key-bloom-filter.cc in Sources */,
 				235C1CD621D210520070A049 /* optimism-transaction.cc in Sources */,
 				23DE182121D088B000479C23 /* block-iterator.cc in Sources */,
+				237F504E21EB72C90069075D /* arena.cc in Sources */,
 				23DE182221D088B000479C23 /* block-cache.cc in Sources */,
 				23DE182321D088B000479C23 /* plain-block-builder.cc in Sources */,
 				23DE182421D088B000479C23 /* env-posix.cc in Sources */,
