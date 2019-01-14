@@ -189,6 +189,62 @@ TEST_F(SQLParserTest, AlterTableAddIndex) {
     EXPECT_EQ("id", spec->col_name(0)->ToString());
     EXPECT_EQ(SQL_UNIQUE_KEY, spec->key());
 }
+    
+TEST_F(SQLParserTest, SampleSelect) {
+    static const char *kX = "SELECT * FROM t1;";
+    
+    Parser::Result result;
+    auto rs = Parser::Parse(kX, &factory_, &result);
+    ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
+    
+    auto stmt = Select::Cast(result.block->stmt(0));
+    ASSERT_NE(nullptr, stmt->columns());
+    ASSERT_EQ(1, stmt->columns()->size());
+    
+    auto column = stmt->columns()->at(0);
+    ASSERT_TRUE(column->alias()->empty());
+    ASSERT_TRUE(column->expr()->IsPlaceholder());
+    ASSERT_TRUE(Placeholder::Cast(column->expr())->is_star());
+    
+    auto from = NameRelation::Cast(stmt->from_clause());
+    ASSERT_NE(nullptr, from);
+    ASSERT_STREQ("t1", from->name()->data());
+    ASSERT_TRUE(from->prefix()->empty());
+}
+    
+TEST_F(SQLParserTest, WhereClause) {
+    static const char *kX = "SELECT * FROM t1 WHERE a > 0 AND a < 100;";
+    
+    Parser::Result result;
+    auto rs = Parser::Parse(kX, &factory_, &result);
+    ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
+    
+    auto stmt = Select::Cast(result.block->stmt(0));
+    ASSERT_NE(nullptr, stmt);
+    
+    auto where = stmt->where_clause();
+    ASSERT_NE(nullptr, where);
+    ASSERT_TRUE(where->is_binary());
+    
+    auto top = BinaryExpression::Cast(where);
+    ASSERT_NE(nullptr, top);
+    EXPECT_EQ(SQL_AND, top->op());
+    
+    auto child = Comparison::Cast(top->lhs());
+    ASSERT_NE(nullptr, child);
+    EXPECT_EQ(SQL_CMP_GT, child->op());
+    
+    auto id = Identifier::Cast(child->lhs());
+    ASSERT_NE(nullptr, id);
+    EXPECT_STREQ("a", id->name()->data());
+    auto n = Literal::Cast(child->rhs());
+    ASSERT_NE(nullptr, n);
+    EXPECT_EQ(0, n->integer_val());
+    
+    child = Comparison::Cast(top->rhs());
+    ASSERT_NE(nullptr, child);
+    EXPECT_EQ(SQL_CMP_LT, child->op());
+}
 
 } // namespace sql
     

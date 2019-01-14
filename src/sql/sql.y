@@ -39,14 +39,23 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
         int float_size;
     } size;
     struct {
+        int limit_val;
+        int offset_val;
+    } limit;
+    struct {
         const ::mai::sql::AstString *name;
         bool after;
     } col_pos;
+    struct {
+        ::mai::sql::ExpressionList *expr_list;
+        bool desc;
+    } order_by;
     int int_val;
     double approx_val;
     bool bool_val;
     ::mai::sql::SQLKeyType key_type;
     ::mai::sql::SQLOperator op;
+    ::mai::sql::SQLJoinKind join_kind;
     ::mai::sql::Block *block;
     ::mai::sql::Statement *stmt;
     ::mai::sql::TypeDefinition *type_def;
@@ -59,12 +68,15 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::sql::ExpressionList *expr_list;
     ::mai::sql::ProjectionColumn *proj_col;
     ::mai::sql::ProjectionColumnList *proj_col_list;
+    ::mai::sql::Query *query;
     const ::mai::sql::AstString *name;
 }
 
 %token SELECT FROM CREATE TABLE TABLES DROP SHOW ALTER ADD RENAME
 %token UNIQUE PRIMARY KEY ENGINE TXN_BEGIN TRANSACTION COLUMN AFTER
-%token TXN_COMMIT TXN_ROLLBACK FIRST CHANGE TO AS INDEX DISTINCT
+%token TXN_COMMIT TXN_ROLLBACK FIRST CHANGE TO AS INDEX DISTINCT HAVING
+%token WHERE JOIN ON INNER OUTTER LEFT RIGHT ALL CROSS ORDER BY ASC DESC
+%token GROUP FOR UPDATE LIMIT OFFSET INSERT OVERWRITE DELETE VALUES SET
 
 %token ID NULL_VAL INTEGRAL_VAL STRING_VAL APPROX_VAL
 
@@ -74,25 +86,30 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %token CHAR VARCHAR DATE DATETIME TIMESTMAP AUTO_INCREMENT COMMENT
 
 %type <block> Block
-%type <stmt> Statement Command DDL DML CreateTableStmt AlterTableStmt
+%type <stmt> Statement Command DDL DML CreateTableStmt AlterTableStmt SelectStmt
 %type <text> ID STRING_VAL
-%type <name> Identifier CommentOption AliasOption
-%type <bool_val> NullOption AutoIncrementOption DistinctOption
+%type <name> Identifier CommentOption Alias AliasOption
+%type <bool_val> NullOption AutoIncrementOption DistinctOption ForUpdateOption
 %type <size> FixedSizeDescription FloatingSizeDescription
 %type <type_def> TypeDefinition
 %type <int_val> INTEGRAL_VAL
 %type <approx_val> APPROX_VAL
 %type <key_type> KeyOption
+%type <join_kind> JoinOp
 %type <col_def_list> ColumnDefinitionList
 %type <col_def> ColumnDefinition
 %type <col_pos> AlterColPosOption
 %type <alter_table_spce> AlterTableSpec
 %type <alter_table_spce_list> AlterTableSpecList
 %type <name_list> NameList;
-%type <expr> Expression
-//%type <expr_list> ExpressionList
+%type <expr> Expression OnClause WhereClause HavingClause
+%type <expr_list> ExpressionList GroupByClause
 %type <proj_col> ProjectionColumn
 %type <proj_col_list> ProjectionColumnList
+%type <query> Relation FromClause
+%type <order_by> OrderByClause
+%type <limit> LimitOffsetClause
+
 
 %right ASSIGN
 %left OP_OR
@@ -351,12 +368,27 @@ NameList : Identifier {
 
 // INSERT UPDATE DELETE
 // DML:
-DML : SELECT DistinctOption ProjectionColumnList AliasOption {
-    $$ = ctx->factory->NewSelect($2, $3, $4);
+DML : SelectStmt 
+
+SelectStmt : SELECT DistinctOption ProjectionColumnList FromClause WhereClause OrderByClause GroupByClause HavingClause LimitOffsetClause ForUpdateOption{
+    Select *stmt = ctx->factory->NewSelect($2, $3, AstString::kEmpty);
+    stmt->set_from_clause($4);
+    stmt->set_where_clause($5);
+    stmt->set_order_by_desc($6.desc);
+    stmt->set_order_by_clause($6.expr_list);
+    stmt->set_group_by_clause($7);
+    stmt->set_having_clause($8);
+    stmt->set_limit_val($9.limit_val);
+    stmt->set_offset_val($9.offset_val);
+    stmt->set_for_update($10);
+    $$ = stmt;
 }
 
 DistinctOption : DISTINCT {
     $$ = true;
+}
+| ALL {
+    $$ = false;
 }
 | {
     $$ = false;
@@ -369,43 +401,239 @@ ProjectionColumnList : ProjectionColumn {
     $$->push_back($3);
 }
 
-ProjectionColumn : Expression {
-    $$ = ctx->factory->NewProjectionColumn($1, AstString::kEmpty);
+ProjectionColumn : Expression AliasOption {
+    $$ = ctx->factory->NewProjectionColumn($1, $2,
+                                           Location::Concat(@1, @2));
 }
-| Expression AS Identifier {
-    $$ = ctx->factory->NewProjectionColumn($1, $3);
+| Identifier '.' '*' {
+    Identifier *id = ctx->factory->NewIdentifierWithPlaceholder($1,
+        ctx->factory->NewStarPlaceholder(@3),
+        Location::Concat(@1, @3));
+    $$ = ctx->factory->NewProjectionColumn(id, AstString::kEmpty,
+        Location::Concat(@1, @3));
+}
+| '*' {
+    Placeholder *ph = ctx->factory->NewStarPlaceholder(@1);
+    $$ = ctx->factory->NewProjectionColumn(ph, AstString::kEmpty, @1);
 }
 
-AliasOption : AS Identifier {
-    $$ = $2;
-}
-| Identifier
+
+AliasOption : Alias 
 | {
     $$ = AstString::kEmpty;
 }
 
+Alias : AS Identifier {
+    $$ = $2;
+}
+| Identifier {
+    $$ = $1;
+}
+
+FromClause : FROM Relation {
+    $$ = $2;
+}
+| {
+    $$ = nullptr;
+}
+
+Relation : '(' SelectStmt ')' Alias {
+    Query *query = ::mai::down_cast<Query>($2);
+    query->set_alias($4);
+    $$ = query;
+}
+| Relation Alias ',' Relation Alias OnClause {
+    $1->set_alias($2);
+    $4->set_alias($5);
+    $$ = ctx->factory->NewJoinRelation($1, SQL_CROSS_JOIN, $4, $6,
+        AstString::kEmpty);
+}
+| Relation Alias JoinOp Relation Alias OnClause {
+    $1->set_alias($2);
+    $4->set_alias($5);
+    $$ = ctx->factory->NewJoinRelation($1, $3, $4, $6, AstString::kEmpty);
+}
+| Identifier AliasOption {
+    Identifier *id = ctx->factory->NewIdentifier(AstString::kEmpty, $1, @1);
+    $$ = ctx->factory->NewNameRelation(id, $2);
+}
+| Identifier '.' Identifier AliasOption {
+    Identifier *id = ctx->factory->NewIdentifier($1, $3, @1);
+    $$ = ctx->factory->NewNameRelation(id, $4);
+}
+
+OnClause : ON '(' Expression ')' {
+    $$ = $3;
+}
+| {
+    $$ = nullptr;
+}
+
+JoinOp : JOIN {
+    $$ = SQL_CROSS_JOIN;
+}
+| CROSS JOIN {
+    $$ = SQL_CROSS_JOIN;
+}
+| LEFT JOIN {
+    $$ = SQL_LEFT_OUTTER_JOIN;
+}
+| LEFT OUTTER JOIN {
+    $$ = SQL_LEFT_OUTTER_JOIN;
+}
+| RIGHT JOIN {
+    $$ = SQL_RIGHT_OUTTER_JOIN;
+}
+| RIGHT OUTTER JOIN {
+    $$ = SQL_RIGHT_OUTTER_JOIN;
+}
+
+WhereClause : WHERE Expression {
+    $$ = $2;
+}
+| {
+    $$ = nullptr;
+}
+
+HavingClause : HAVING '(' Expression ')' {
+    $$ = $3;
+}
+| {
+    $$ = nullptr;
+}
+
+OrderByClause : ORDER BY ExpressionList ASC {
+    $$.expr_list = $3;
+    $$.desc = false;
+}
+| ORDER BY ExpressionList DESC {
+    $$.expr_list = $3;
+    $$.desc = true;
+}
+| ORDER BY ExpressionList {
+    $$.expr_list = $3;
+    $$.desc = false;
+}
+| {
+    $$.expr_list = nullptr;
+    $$.desc = false;
+}
+
+GroupByClause : GROUP BY ExpressionList {
+    $$ = $3;
+}
+| {
+    $$ = nullptr;
+}
+
+LimitOffsetClause : LIMIT INTEGRAL_VAL {
+    $$.limit_val  = $2;
+    $$.offset_val = 0;
+}
+| LIMIT INTEGRAL_VAL ',' INTEGRAL_VAL {
+    $$.offset_val = $2;
+    $$.limit_val  = $4;
+}
+| LIMIT INTEGRAL_VAL OFFSET INTEGRAL_VAL {
+    $$.limit_val  = $2;
+    $$.offset_val = $4;
+}
+| {
+    $$.limit_val  = 0;
+    $$.offset_val = 0;
+}
+
+
+ForUpdateOption : FOR UPDATE {
+    $$ = true;
+}
+| {
+    $$ = false;
+}
+
+
 // Expressions:
-//ExpressionList: Expression {
-//    $$ = ctx->factory->NewExpressionList($1);
-//}
-//| ExpressionList ',' Expression {
-//    $$->push_back($3);
-//}
+ExpressionList: Expression {
+    $$ = ctx->factory->NewExpressionList($1);
+}
+| ExpressionList ',' Expression {
+    $$->push_back($3);
+}
 
 Expression: Identifier {
-    $$ = ctx->factory->NewIdentifier(AstString::kEmpty, $1);
+    $$ = ctx->factory->NewIdentifier(AstString::kEmpty, $1, @1);
 }
 | Identifier '.' Identifier {
-    $$ = ctx->factory->NewIdentifier($1, $3);   
+    $$ = ctx->factory->NewIdentifier($1, $3, Location::Concat(@1, @3));
 }
 | STRING_VAL {
-    $$ = ctx->factory->NewStringLiteral($1.buf, $1.len);
+    $$ = ctx->factory->NewStringLiteral($1.buf, $1.len, @1);
 }
 | INTEGRAL_VAL {
-    $$ = ctx->factory->NewIntegerLiteral($1);
+    $$ = ctx->factory->NewIntegerLiteral($1, @1);
 }
 | APPROX_VAL {
-    $$ = ctx->factory->NewApproxLiteral($1);
+    $$ = ctx->factory->NewApproxLiteral($1, @1);
+}
+| '?' {
+    $$ = ctx->factory->NewParamPlaceholder(@1);
+}
+| Expression COMPARISON Expression {
+    $$ = ctx->factory->NewComparison($1, $2, $3, Location::Concat(@1, @3));
+}
+| Expression '+' Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_PLUS, $3, Location::Concat(@1, @3));
+}
+| Expression '-' Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_SUB, $3, Location::Concat(@1, @3));
+}
+| Expression '*' Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_MUL, $3, Location::Concat(@1, @3));
+}
+| Expression '/' Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_DIV, $3, Location::Concat(@1, @3));
+}
+| Expression '%' Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_MOD, $3, Location::Concat(@1, @3));
+}
+| Expression '^' Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_BIT_XOR, $3, Location::Concat(@1, @3));
+}
+| Expression '&' Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_BIT_AND, $3, Location::Concat(@1, @3));
+}
+| Expression '|' Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_BIT_OR, $3, Location::Concat(@1, @3));
+}
+| Expression LSHIFT Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_LSHIFT, $3, Location::Concat(@1, @3));
+}
+| Expression RSHIFT Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_RSHIFT, $3, Location::Concat(@1, @3));
+}
+| Expression OP_AND Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_AND, $3, Location::Concat(@1, @3));
+}
+| Expression OP_OR Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_OR, $3, Location::Concat(@1, @3));
+}
+| '-' Expression {
+    $$ = ctx->factory->NewUnaryExpression(SQL_MINUS, $2, Location::Concat(@1, @2));
+}
+| NOT Expression {
+    $$ = ctx->factory->NewUnaryExpression(SQL_NOT, $2, Location::Concat(@1, @2));
+}
+| '~' Expression {
+    $$ = ctx->factory->NewUnaryExpression(SQL_BIT_INV, $2, Location::Concat(@1, @2));
+}
+| Expression IS NOT NULL_VAL {
+    $$ = ctx->factory->NewUnaryExpression(SQL_IS_NOT_NULL, $1, Location::Concat(@1, @2));
+}
+| Expression IS NULL_VAL {
+    $$ = ctx->factory->NewUnaryExpression(SQL_IS_NULL, $1, Location::Concat(@1, @2));
+}
+| '(' Expression ')' {
+    $$ =$2;
 }
 
 Identifier : ID {

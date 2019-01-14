@@ -74,40 +74,64 @@ extern int yydebug;
     AS = 281,
     INDEX = 282,
     DISTINCT = 283,
-    ID = 284,
-    NULL_VAL = 285,
-    INTEGRAL_VAL = 286,
-    STRING_VAL = 287,
-    APPROX_VAL = 288,
-    EQ = 289,
-    NOT = 290,
-    OP_AND = 291,
-    BIGINT = 292,
-    INT = 293,
-    SMALLINT = 294,
-    TINYINT = 295,
-    DECIMAL = 296,
-    NUMERIC = 297,
-    CHAR = 298,
-    VARCHAR = 299,
-    DATE = 300,
-    DATETIME = 301,
-    TIMESTMAP = 302,
-    AUTO_INCREMENT = 303,
-    COMMENT = 304,
-    ASSIGN = 305,
-    OP_OR = 306,
-    XOR = 307,
-    IN = 308,
-    IS = 309,
-    LIKE = 310,
-    REGEXP = 311,
-    BETWEEN = 312,
-    COMPARISON = 313,
-    LSHIFT = 314,
-    RSHIFT = 315,
-    MOD = 316,
-    UMINUS = 317
+    HAVING = 284,
+    WHERE = 285,
+    JOIN = 286,
+    ON = 287,
+    INNER = 288,
+    OUTTER = 289,
+    LEFT = 290,
+    RIGHT = 291,
+    ALL = 292,
+    CROSS = 293,
+    ORDER = 294,
+    BY = 295,
+    ASC = 296,
+    DESC = 297,
+    GROUP = 298,
+    FOR = 299,
+    UPDATE = 300,
+    LIMIT = 301,
+    OFFSET = 302,
+    INSERT = 303,
+    OVERWRITE = 304,
+    DELETE = 305,
+    VALUES = 306,
+    SET = 307,
+    ID = 308,
+    NULL_VAL = 309,
+    INTEGRAL_VAL = 310,
+    STRING_VAL = 311,
+    APPROX_VAL = 312,
+    EQ = 313,
+    NOT = 314,
+    OP_AND = 315,
+    BIGINT = 316,
+    INT = 317,
+    SMALLINT = 318,
+    TINYINT = 319,
+    DECIMAL = 320,
+    NUMERIC = 321,
+    CHAR = 322,
+    VARCHAR = 323,
+    DATE = 324,
+    DATETIME = 325,
+    TIMESTMAP = 326,
+    AUTO_INCREMENT = 327,
+    COMMENT = 328,
+    ASSIGN = 329,
+    OP_OR = 330,
+    XOR = 331,
+    IN = 332,
+    IS = 333,
+    LIKE = 334,
+    REGEXP = 335,
+    BETWEEN = 336,
+    COMPARISON = 337,
+    LSHIFT = 338,
+    RSHIFT = 339,
+    MOD = 340,
+    UMINUS = 341
   };
 #endif
 
@@ -127,14 +151,23 @@ union YYSTYPE
         int float_size;
     } size;
     struct {
+        int limit_val;
+        int offset_val;
+    } limit;
+    struct {
         const ::mai::sql::AstString *name;
         bool after;
     } col_pos;
+    struct {
+        ::mai::sql::ExpressionList *expr_list;
+        bool desc;
+    } order_by;
     int int_val;
     double approx_val;
     bool bool_val;
     ::mai::sql::SQLKeyType key_type;
     ::mai::sql::SQLOperator op;
+    ::mai::sql::SQLJoinKind join_kind;
     ::mai::sql::Block *block;
     ::mai::sql::Statement *stmt;
     ::mai::sql::TypeDefinition *type_def;
@@ -147,9 +180,10 @@ union YYSTYPE
     ::mai::sql::ExpressionList *expr_list;
     ::mai::sql::ProjectionColumn *proj_col;
     ::mai::sql::ProjectionColumnList *proj_col_list;
+    ::mai::sql::Query *query;
     const ::mai::sql::AstString *name;
 
-#line 153 "sql.hh" /* yacc.c:1912  */
+#line 187 "sql.hh" /* yacc.c:1912  */
 };
 
 typedef union YYSTYPE YYSTYPE;

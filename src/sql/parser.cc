@@ -10,6 +10,20 @@ namespace mai {
     
 namespace sql {
     
+Location::Location(const YYLTYPE &yyl)
+    : begin_line(yyl.first_line)
+    , begin_column(yyl.first_column)
+    , end_line(yyl.last_line)
+    , end_column(yyl.last_column) {
+}
+    
+/*static*/ Location Location::Concat(const YYLTYPE &first, const YYLTYPE &last) {
+    Location result(first);
+    result.end_line   = last.last_line;
+    result.end_column = last.last_column;
+    return result;
+}
+    
 std::string Parser::Result::FormatError() {
     if (!error || error == AstString::kEmpty) {
         return "";

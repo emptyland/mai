@@ -5,6 +5,8 @@
 #include "base/arena-utils.h"
 #include "base/base.h"
 
+struct YYLTYPE;
+
 namespace mai {
     
 namespace sql {
@@ -35,6 +37,7 @@ namespace sql {
     V(ProjectionColumn) \
     V(Identifier) \
     V(Literal) \
+    V(Placeholder) \
     V(UnaryExpression) \
     V(BinaryExpression) \
     V(Comparison)
@@ -55,6 +58,17 @@ class Block;
 class Statement;
 class AlterTableSpec;
 class Expression;
+    
+struct Location {
+    int begin_line = 0;
+    int begin_column = 0;
+    int end_line = 0;
+    int end_column = 0;
+    
+    Location(const YYLTYPE &yyl);
+    
+    static Location Concat(const YYLTYPE &first, const YYLTYPE &last);
+};
     
 class AstNode {
 public:
@@ -493,8 +507,8 @@ public:
     virtual bool is_select() const { return false; }
     virtual bool is_join() const { return false; }
     virtual bool is_name() const { return false; }
-    
-    DEF_PTR_GETTER_NOTNULL(const AstString, alias);
+
+    DEF_PTR_PROP_RW_NOTNULL2(const AstString, alias);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Query);
 protected:
@@ -508,11 +522,16 @@ class Select final : public Query {
 public:
     virtual bool is_select() const override { return true; }
     
-    DEF_PTR_PROP_RW_NOTNULL1(Query, from);
-    DEF_PTR_PROP_RW_NOTNULL1(Expression, where);
+    DEF_PTR_GETTER_NOTNULL(ProjectionColumnList, columns);
+    DEF_PTR_PROP_RW(Query, from_clause);
+    DEF_PTR_PROP_RW(Expression, where_clause);
+    DEF_PTR_PROP_RW(Expression, having_clause);
     DEF_VAL_PROP_RW(bool, order_by_desc);
-    DEF_PTR_PROP_RW_NOTNULL1(ExpressionList, order_by);
-    DEF_PTR_PROP_RW_NOTNULL1(ExpressionList, group_by);
+    DEF_PTR_PROP_RW(ExpressionList, order_by_clause);
+    DEF_PTR_PROP_RW(ExpressionList, group_by_clause);
+    DEF_VAL_PROP_RW(bool, for_update);
+    DEF_VAL_PROP_RW(int, limit_val);
+    DEF_VAL_PROP_RW(int, offset_val);
     
     DEF_AST_NODE(Select);
     DISALLOW_IMPLICIT_CONSTRUCTORS(Select);
@@ -522,13 +541,17 @@ private:
         , distinct_(distinct)
         , columns_(DCHECK_NOTNULL(columns)) {}
 
-    bool distinct_ = false;
+    bool distinct_;
     ProjectionColumnList *columns_;
-    Query *from_ = nullptr;
-    Expression *where_ = nullptr;
+    Query *from_clause_ = nullptr;
+    Expression *where_clause_ = nullptr;
+    Expression *having_clause_ = nullptr;
     bool order_by_desc_ = false;
-    ExpressionList *order_by_;
-    ExpressionList *group_by_;
+    ExpressionList *order_by_clause_ = nullptr;
+    ExpressionList *group_by_clause_ = nullptr;
+    int limit_val_ = 0;
+    int offset_val_ = 0;
+    bool for_update_ = false;
 }; // class Select
 
 
@@ -611,6 +634,8 @@ class Expression : public AstNode {
 public:
     virtual bool is_expression() const override { return true; }
     
+    DEF_VAL_GETTER(Location, location);
+    
     bool is_unary() const { return operands_count() == 1; }
     bool is_binary() const { return operands_count() == 2; }
     
@@ -621,7 +646,10 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Expression);
 protected:
-    Expression() {}
+    Expression(const Location &location)
+        : location_(location) {}
+    
+    Location location_;
 }; // class Expression
     
     
@@ -637,13 +665,36 @@ public:
     DEF_AST_NODE(ProjectionColumn);
     DISALLOW_IMPLICIT_CONSTRUCTORS(ProjectionColumn);
 private:
-    ProjectionColumn(const AstString *alias, Expression *expr)
-        : alias_(DCHECK_NOTNULL(alias))
+    ProjectionColumn(const AstString *alias, Expression *expr,
+                     const Location &location)
+        : Expression(location)
+        , alias_(DCHECK_NOTNULL(alias))
         , expr_(DCHECK_NOTNULL(expr)) {}
 
     const AstString *alias_;
     Expression *expr_;
 }; // class ProjectionColumn
+    
+    
+class Placeholder final : public Expression {
+public:
+    enum Type {
+        STAR,
+        PARAM,
+    };
+    
+    bool is_star() const { return type_ == STAR; }
+    bool is_param() const { return type_ == PARAM; }
+    
+    DEF_AST_NODE(Placeholder);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Placeholder);
+private:
+    Placeholder(Type type, const Location &location)
+        : Expression(location)
+        , type_(type) {}
+    
+    Type type_;
+}; // class Placeholder
 
 
 class Identifier final : public Expression {
@@ -652,16 +703,26 @@ public:
     
     DEF_PTR_GETTER_NOTNULL(const AstString, prefix_name);
     DEF_PTR_GETTER_NOTNULL(const AstString, name);
+    DEF_PTR_GETTER(Placeholder, placeholder);
 
     DEF_AST_NODE(Identifier);
     DISALLOW_IMPLICIT_CONSTRUCTORS(Identifier);
 private:
-    Identifier(const AstString *prefix, const AstString *name)
-        : prefix_name_(prefix)
+    Identifier(const AstString *prefix, const AstString *name,
+               const Location &location)
+        : Expression(location)
+        , prefix_name_(prefix)
         , name_(name) {}
     
+    Identifier(const AstString *prefix, Placeholder *placeholder,
+               const Location &location)
+        : Expression(location)
+        , prefix_name_(prefix)
+        , placeholder_(placeholder) {}
+    
     const AstString *prefix_name_;
-    const AstString *name_;
+    const AstString *name_ = AstString::kEmpty;
+    Placeholder *placeholder_ = nullptr;
 }; // class Identifier
     
     
@@ -694,14 +755,20 @@ public:
     DEF_AST_NODE(Literal);
     DISALLOW_IMPLICIT_CONSTRUCTORS(Literal);
 private:
-    Literal(int64_t val)
-        : type_(INTEGER), int_val_(val) {}
+    Literal(int64_t val, const Location &location)
+        : Expression(location)
+        , type_(INTEGER)
+        , int_val_(val) {}
     
-    Literal(double val)
-        : type_(APPROX), approx_val_(val) {}
+    Literal(double val, const Location &location)
+        : Expression(location)
+        , type_(APPROX)
+        , approx_val_(val) {}
     
-    Literal(const AstString *val)
-        : type_(STRING), str_val_(val) {}
+    Literal(const AstString *val, const Location &location)
+        : Expression(location)
+        , type_(STRING)
+        , str_val_(val) {}
     
     Type type_;
     union {
@@ -736,7 +803,9 @@ public:
     }
     
 protected:
-    FixedOperand(SQLOperator op) : op_(op) {
+    FixedOperand(SQLOperator op, const Location &location)
+        : Expression(location)
+        , op_(op) {
         for (int i = 0; i < N; ++i) {
             operands_[i] = nullptr;
         }
@@ -763,8 +832,9 @@ public:
     DEF_AST_NODE(UnaryExpression);
     DISALLOW_IMPLICIT_CONSTRUCTORS(UnaryExpression);
 private:
-    UnaryExpression(SQLOperator op, Expression *operand)
-        : FixedOperand(op) {
+    UnaryExpression(SQLOperator op, Expression *operand,
+                    const Location &location)
+        : FixedOperand(op, location) {
         DCHECK(IsUnaryOperator(op));
         set_operand(0, operand);
     }
@@ -778,8 +848,9 @@ public:
     DEF_AST_NODE(BinaryExpression);
     DISALLOW_IMPLICIT_CONSTRUCTORS(BinaryExpression);
 private:
-    BinaryExpression(SQLOperator op, Expression *lhs, Expression *rhs)
-        : FixedOperand(op) {
+    BinaryExpression(SQLOperator op, Expression *lhs, Expression *rhs,
+                     const Location &location)
+        : FixedOperand(op, location) {
         DCHECK(IsBinaryOperator(op));
         set_lhs(lhs);
         set_rhs(rhs);
@@ -796,8 +867,9 @@ public:
     DEF_AST_NODE(Comparison);
     DISALLOW_IMPLICIT_CONSTRUCTORS(Comparison);
 private:
-    Comparison(SQLOperator op, Expression *lhs, Expression *rhs)
-        : FixedOperand(op) {
+    Comparison(SQLOperator op, Expression *lhs, Expression *rhs,
+               const Location &location)
+        : FixedOperand(op, location) {
         DCHECK(IsComparisonOperator(op));
         set_lhs(lhs);
         set_rhs(rhs);

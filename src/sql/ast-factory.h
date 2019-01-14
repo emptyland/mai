@@ -144,45 +144,64 @@ public:
     // Expressions
     ////////////////////////////////////////////////////////////////////////////
     ProjectionColumn *NewProjectionColumn(Expression *expr,
-                                          const AstString *alias) {
-        return new (arena_) ProjectionColumn(alias, expr);
+                                          const AstString *alias,
+                                          const Location &location) {
+        return new (arena_) ProjectionColumn(alias, expr, location);
     }
     
-    Identifier *NewIdentifier(const AstString *prefix, const AstString *name) {
-        return new (arena_) Identifier(prefix, name);
+    Identifier *NewIdentifier(const AstString *prefix, const AstString *name,
+                              const Location &location) {
+        return new (arena_) Identifier(prefix, name, location);
     }
     
-    Literal *NewIntegerLiteral(int64_t val) {
-        return new (arena_) Literal(val);
+    Identifier *NewIdentifierWithPlaceholder(const AstString *prefix,
+                                             Placeholder *placeholder,
+                                             const Location &location) {
+        return new (arena_) Identifier(prefix, placeholder, location);
     }
     
-    Literal *NewStringLiteral(const AstString *val) {
-        return new (arena_) Literal(val);
+    Placeholder *NewStarPlaceholder(const Location &location) {
+        return new (arena_) Placeholder(Placeholder::STAR, location);
     }
     
-    Literal *NewStringLiteral(const char *s, size_t n) {
-        return new (arena_) Literal(NewString(s, n));
+    Placeholder *NewParamPlaceholder(const Location &location) {
+        return new (arena_) Placeholder(Placeholder::PARAM, location);
     }
     
-    Literal *NewApproxLiteral(double val) {
-        return new (arena_) Literal(val);
+    Literal *NewIntegerLiteral(int64_t val, const Location &location) {
+        return new (arena_) Literal(val, location);
+    }
+    
+    Literal *NewStringLiteral(const AstString *val, const Location &location) {
+        return new (arena_) Literal(val, location);
+    }
+    
+    Literal *NewStringLiteral(const char *s, size_t n,
+                              const Location &location) {
+        return new (arena_) Literal(NewString(s, n), location);
+    }
+    
+    Literal *NewApproxLiteral(double val, const Location &location) {
+        return new (arena_) Literal(val, location);
     }
     
     Comparison *NewComparison(Expression *lhs, SQLOperator op,
-                              Expression *rhs) {
+                              Expression *rhs, const Location &location) {
         DCHECK(Comparison::IsComparisonOperator(op));
-        return new (arena_) Comparison(op, lhs, rhs);
+        return new (arena_) Comparison(op, lhs, rhs, location);
     }
     
     BinaryExpression *NewBinaryExpression(Expression *lhs, SQLOperator op,
-                                          Expression *rhs) {
+                                          Expression *rhs,
+                                          const Location &location) {
         DCHECK(BinaryExpression::IsBinaryOperator(op));
-        return new (arena_) BinaryExpression(op, lhs, rhs);
+        return new (arena_) BinaryExpression(op, lhs, rhs, location);
     }
     
-    UnaryExpression *NewUnaryExpression(SQLOperator op, Expression *operand) {
+    UnaryExpression *NewUnaryExpression(SQLOperator op, Expression *operand,
+                                        const Location &location) {
         DCHECK(UnaryExpression::IsUnaryOperator(op));
-        return new (arena_) UnaryExpression(op, operand);
+        return new (arena_) UnaryExpression(op, operand, location);
     }
     
     ////////////////////////////////////////////////////////////////////////////
