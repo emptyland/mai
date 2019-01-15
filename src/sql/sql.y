@@ -54,6 +54,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     int int_val;
     double approx_val;
     bool bool_val;
+    const ::mai::sql::AstString *name;
     ::mai::sql::SQLKeyType key_type;
     ::mai::sql::SQLOperator op;
     ::mai::sql::SQLJoinKind join_kind;
@@ -70,14 +71,18 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::sql::ProjectionColumn *proj_col;
     ::mai::sql::ProjectionColumnList *proj_col_list;
     ::mai::sql::Query *query;
-    const ::mai::sql::AstString *name;
+    ::mai::sql::RowValuesList *row_vals_list;
+    ::mai::sql::Assignment *assignment;
+    ::mai::sql::AssignmentList *assignment_list;
+    ::mai::sql::Identifier *id;
 }
 
 %token SELECT FROM CREATE TABLE TABLES DROP SHOW ALTER ADD RENAME ANY DIV
 %token UNIQUE PRIMARY KEY ENGINE TXN_BEGIN TRANSACTION COLUMN AFTER
 %token TXN_COMMIT TXN_ROLLBACK FIRST CHANGE TO AS INDEX DISTINCT HAVING
 %token WHERE JOIN ON INNER OUTTER LEFT RIGHT ALL CROSS ORDER BY ASC DESC
-%token GROUP FOR UPDATE LIMIT OFFSET INSERT OVERWRITE DELETE VALUES SET IN
+%token GROUP FOR UPDATE LIMIT OFFSET INSERT OVERWRITE DELETE VALUES VALUE SET IN
+%token INTO DUPLICATE DEFAULT
 
 %token ID NULL_VAL INTEGRAL_VAL STRING_VAL APPROX_VAL DATE_VAL DATETIME_VAL
 
@@ -88,10 +93,10 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %token TOKEN_ERROR
 
 %type <block> Block
-%type <stmt> Statement Command DDL DML CreateTableStmt AlterTableStmt SelectStmt
+%type <stmt> Statement Command DDL DML CreateTableStmt AlterTableStmt SelectStmt InsertStmt UpdateStmt
 %type <text> ID STRING_VAL
-%type <name> Identifier CommentOption Alias AliasOption
-%type <bool_val> NullOption AutoIncrementOption DistinctOption ForUpdateOption
+%type <name> Name CommentOption Alias AliasOption
+%type <bool_val> NullOption AutoIncrementOption DistinctOption ForUpdateOption OverwriteOption
 %type <size> FixedSizeDescription FloatingSizeDescription
 %type <type_def> TypeDefinition
 %type <int_val> INTEGRAL_VAL
@@ -103,14 +108,18 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <col_pos> AlterColPosOption
 %type <alter_table_spce> AlterTableSpec
 %type <alter_table_spce_list> AlterTableSpecList
-%type <name_list> NameList;
-%type <expr> Expression BoolPrimary Predicate BitExpression Simple OnClause WhereClause HavingClause Subquery
-%type <expr_list> ExpressionList GroupByClause
+%type <name_list> NameList NameListOption
+%type <expr> Expression BoolPrimary Predicate BitExpression Simple OnClause WhereClause HavingClause Subquery Value
+%type <expr_list> ExpressionList GroupByClause ValueList RowValues
 %type <proj_col> ProjectionColumn
 %type <proj_col_list> ProjectionColumnList
 %type <query> Relation FromClause
 %type <order_by> OrderByClause
-%type <limit> LimitOffsetClause
+%type <limit> LimitOffsetClause UpdateLimitOption
+%type <row_vals_list> RowValuesList
+%type <assignment> Assignment
+%type <assignment_list> AssignmentList OnDuplicateClause
+%type <id> Identifier
 
 
 %right ASSIGN
@@ -162,14 +171,14 @@ Command: DDL
 DDL: CreateTableStmt {
     $$ = $1;
 }
-| DROP TABLE Identifier {
+| DROP TABLE Name {
     $$ = ctx->factory->NewDropTable($3);
 }
 | AlterTableStmt {
     $$ = $1;
 }
 
-CreateTableStmt : CREATE TABLE Identifier '(' ColumnDefinitionList ')' {
+CreateTableStmt : CREATE TABLE Name '(' ColumnDefinitionList ')' {
     $$ = ctx->factory->NewCreateTable($3, $5);
 }
 
@@ -180,7 +189,7 @@ ColumnDefinitionList: ColumnDefinition {
     $$->push_back($3);
 }
 
-ColumnDefinition: Identifier TypeDefinition NullOption AutoIncrementOption KeyOption CommentOption {
+ColumnDefinition: Name TypeDefinition NullOption AutoIncrementOption KeyOption CommentOption {
     $$ = ctx->factory->NewColumnDefinition($1, $2, $3, $4, $5);
     $$->set_comment($6);
 }
@@ -277,7 +286,7 @@ CommentOption: COMMENT STRING_VAL {
     $$ = AstString::kEmpty;
 }
 
-AlterTableStmt : ALTER TABLE Identifier AlterTableSpecList {
+AlterTableStmt : ALTER TABLE Name AlterTableSpecList {
     $$ = ctx->factory->NewAlterTable($3, $4);
 }
 
@@ -300,59 +309,59 @@ AlterTableSpec : ADD ColumnDefinition AlterColPosOption {
 | ADD COLUMN '(' ColumnDefinitionList ')' {
     $$ = ctx->factory->NewAlterTableAddColumn($4);
 }
-| ADD INDEX Identifier KeyOption '(' NameList ')' {
+| ADD INDEX Name KeyOption '(' NameList ')' {
     $$ = ctx->factory->NewAlterTableAddIndex($3, $4 == SQL_NOT_KEY ? SQL_KEY : $4,
                                              $6);
 }
-| ADD KEY Identifier KeyOption '(' NameList ')' {
+| ADD KEY Name KeyOption '(' NameList ')' {
     $$ = ctx->factory->NewAlterTableAddIndex($3, $4 == SQL_NOT_KEY ? SQL_KEY : $4,
                                              $6);
 }
-| CHANGE Identifier ColumnDefinition AlterColPosOption {
+| CHANGE Name ColumnDefinition AlterColPosOption {
     $$ = ctx->factory->NewAlterTableChangeColumn($2, $3, $4.after, $4.name);
 }
-| CHANGE COLUMN Identifier ColumnDefinition AlterColPosOption {
+| CHANGE COLUMN Name ColumnDefinition AlterColPosOption {
     $$ = ctx->factory->NewAlterTableChangeColumn($3, $4, $5.after, $5.name);
 }
-| RENAME COLUMN Identifier TO Identifier {
+| RENAME COLUMN Name TO Name {
     $$ = ctx->factory->NewAlterTableRenameColumn($3, $5);
 }
-| RENAME INDEX Identifier TO Identifier {
+| RENAME INDEX Name TO Name {
     $$ = ctx->factory->NewAlterTableRenameIndex($3, $5);
 }
-| RENAME KEY Identifier TO Identifier {
+| RENAME KEY Name TO Name {
     $$ = ctx->factory->NewAlterTableRenameIndex($3, $5);
 }
-| RENAME Identifier {
+| RENAME Name {
     $$ = ctx->factory->NewAlterTableRename($2);
 }
-| RENAME TO Identifier {
+| RENAME TO Name {
     $$ = ctx->factory->NewAlterTableRename($3);
 }
-| RENAME AS Identifier {
+| RENAME AS Name {
     $$ = ctx->factory->NewAlterTableRename($3);
 }
-| DROP COLUMN Identifier {
+| DROP COLUMN Name {
     $$ = ctx->factory->NewAlterTableDropColumn($3);
 }
-| DROP Identifier {
+| DROP Name {
     $$ = ctx->factory->NewAlterTableDropColumn($2);
 }
-| DROP INDEX Identifier {
+| DROP INDEX Name {
     $$ = ctx->factory->NewAlterTableDropIndex($3, false);
 }
-| DROP KEY Identifier {
+| DROP KEY Name {
     $$ = ctx->factory->NewAlterTableDropIndex($3, false);
 }
 | DROP PRIMARY KEY {
     $$ = ctx->factory->NewAlterTableDropIndex(AstString::kEmpty, true);
 }
 
-AlterColPosOption : FIRST Identifier {
+AlterColPosOption : FIRST Name {
     $$.name  = $2;
     $$.after = false;
 }
-| AFTER Identifier {
+| AFTER Name {
     $$.name  = $2;
     $$.after = true;
 }
@@ -361,18 +370,21 @@ AlterColPosOption : FIRST Identifier {
     $$.after = false;
 }
 
-NameList : Identifier {
+NameList : Name {
     $$ = ctx->factory->NewNameList($1);
 }
-| NameList ',' Identifier {
+| NameList ',' Name {
     $$->push_back($3);
 }
 
-// INSERT UPDATE DELETE
-// DML:
+//-----------------------------------------------------------------------------
+// DML: INSERT UPDATE DELETE
+//-----------------------------------------------------------------------------
 DML : SelectStmt 
+| InsertStmt
+| UpdateStmt
 
-SelectStmt : SELECT DistinctOption ProjectionColumnList FromClause WhereClause OrderByClause GroupByClause HavingClause LimitOffsetClause ForUpdateOption{
+SelectStmt : SELECT DistinctOption ProjectionColumnList FromClause WhereClause OrderByClause GroupByClause HavingClause LimitOffsetClause ForUpdateOption {
     Select *stmt = ctx->factory->NewSelect($2, $3, AstString::kEmpty);
     stmt->set_from_clause($4);
     stmt->set_where_clause($5);
@@ -407,7 +419,7 @@ ProjectionColumn : Expression AliasOption {
     $$ = ctx->factory->NewProjectionColumn($1, $2,
                                            Location::Concat(@1, @2));
 }
-| Identifier '.' '*' {
+| Name '.' '*' {
     Identifier *id = ctx->factory->NewIdentifierWithPlaceholder($1,
         ctx->factory->NewStarPlaceholder(@3),
         Location::Concat(@1, @3));
@@ -425,10 +437,10 @@ AliasOption : Alias
     $$ = AstString::kEmpty;
 }
 
-Alias : AS Identifier {
+Alias : AS Name {
     $$ = $2;
 }
-| Identifier {
+| Name {
     $$ = $1;
 }
 
@@ -456,12 +468,7 @@ Relation : '(' SelectStmt ')' Alias {
     $$ = ctx->factory->NewJoinRelation($1, $3, $4, $6, AstString::kEmpty);
 }
 | Identifier AliasOption {
-    Identifier *id = ctx->factory->NewIdentifier(AstString::kEmpty, $1, @1);
-    $$ = ctx->factory->NewNameRelation(id, $2);
-}
-| Identifier '.' Identifier AliasOption {
-    Identifier *id = ctx->factory->NewIdentifier($1, $3, @1);
-    $$ = ctx->factory->NewNameRelation(id, $4);
+    $$ = ctx->factory->NewNameRelation($1, $2);
 }
 
 OnClause : ON '(' Expression ')' {
@@ -552,6 +559,103 @@ ForUpdateOption : FOR UPDATE {
 | {
     $$ = false;
 }
+
+InsertStmt : INSERT OverwriteOption INTO Identifier NameListOption ValueToken RowValuesList OnDuplicateClause {
+    Insert *stmt = ctx->factory->NewInsert($2, $4);
+    stmt->set_col_names($5);
+    stmt->set_row_values_list($7);
+    stmt->set_on_duplicate_clause($8);
+    $$ = stmt;
+}
+| INSERT OverwriteOption INTO Identifier SET AssignmentList OnDuplicateClause {
+    Insert *stmt = ctx->factory->NewInsert($2, $4);
+    stmt->SetAssignmentList($6, ctx->factory->arena());
+    stmt->set_on_duplicate_clause($7);
+    $$ = stmt;
+}
+| INSERT OverwriteOption INTO Identifier NameListOption SelectStmt OnDuplicateClause {
+    Insert *stmt = ctx->factory->NewInsert($2, $4);
+    stmt->set_col_names($5);
+    stmt->set_select_clause(::mai::down_cast<Query>($6));
+    stmt->set_on_duplicate_clause($7);
+    $$ = stmt;
+}
+
+NameListOption : NameList
+| {
+    $$ = nullptr;
+}
+
+OverwriteOption : OVERWRITE {
+    $$ = true;
+}
+| {
+    $$ = false;
+}
+
+ValueToken : VALUE
+| VALUES
+
+RowValuesList : RowValues {
+    $$ = ctx->factory->NewRowValuesList($1);
+}
+| RowValuesList ',' RowValues {
+    $$->push_back($3);
+}
+
+RowValues : '(' ValueList ')' {
+    $$ = $2;
+}
+
+ValueList : Value {
+    $$ = ctx->factory->NewExpressionList($1);
+}
+| ValueList ',' Value {
+    $$->push_back($3);
+}
+
+Value : Simple
+| DEFAULT {
+    $$ = ctx->factory->NewDefaultPlaceholderLiteral(@1);
+}
+
+OnDuplicateClause : ON DUPLICATE KEY UPDATE AssignmentList {
+    $$ = $5;
+} 
+| {
+    $$ = nullptr;
+}
+
+AssignmentList : Assignment {
+    $$ = ctx->factory->NewAssignmentList($1);
+}
+| AssignmentList ',' Assignment {
+    $$->push_back($3);
+}
+
+Assignment : Name COMPARISON Value {
+    if ($2 != SQL_CMP_EQ) {
+        yyerror(&@1, ctx, "incorrect assignment.");
+        YYERROR;
+    }
+}
+
+
+UpdateStmt : UPDATE Identifier SET AssignmentList WhereClause OrderByClause UpdateLimitOption {
+    // TODO:
+    $$ = nullptr;
+}
+
+UpdateLimitOption : LIMIT INTEGRAL_VAL {
+    $$.limit_val  = $2;
+    $$.offset_val = 0;
+}
+| {
+    $$.limit_val  = 0;
+    $$.offset_val = 0;
+}
+
+
 
 //-----------------------------------------------------------------------------
 // Expressions:
@@ -682,10 +786,7 @@ BitExpression : BitExpression '|' BitExpression {
 // Simple
 //-----------------------------------------------------------------------------
 Simple : Identifier {
-    $$ = ctx->factory->NewIdentifier(AstString::kEmpty, $1, @1);
-}
-| Identifier '.' Identifier {
-    $$ = ctx->factory->NewIdentifier($1, $3, Location::Concat(@1, @3));
+    $$ = $1;
 }
 | STRING_VAL {
     $$ = ctx->factory->NewStringLiteral($1.buf, $1.len, @1);
@@ -711,7 +812,14 @@ Subquery : '(' SelectStmt ')' {
     $$ = ctx->factory->NewSubquery(true, ::mai::down_cast<Query>($2), @2);
 }
 
-Identifier : ID {
+Identifier : Name {
+    $$ = ctx->factory->NewIdentifier(AstString::kEmpty, $1, @1);
+}
+| Name '.' Name {
+    $$ = ctx->factory->NewIdentifier($1, $3, Location::Concat(@1, @3));
+}
+
+Name : ID {
     $$ = ctx->factory->NewString($1.buf, $1.len);
 }
 

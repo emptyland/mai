@@ -47,6 +47,7 @@ DATETIME { return DATETIME; }
 DELETE { return DELETE; }
 DECIMAL { return DECIMAL; }
 DIV { return DIV; }
+DUPLICATE { return DUPLICATE; }
 FROM { return FROM; }
 FIRST { return FIRST; }
 FOR { return FOR; }
@@ -54,6 +55,7 @@ GROUP { return GROUP; }
 HAVING { return HAVING; }
 INDEX { return INDEX; }
 INT { return INT; }
+INTO { return INTO; }
 IN { return IN; }
 IS { return IS; }
 INNER { return INNER; }
@@ -91,10 +93,9 @@ UPDATE { return UPDATE; }
 UNIQUE { return UNIQUE; }
 VARCHAR { return VARCHAR; }
 VALUES { return VALUES; }
+VALUE { return VALUE; }
 WHERE { return WHERE; }
 XOR { return XOR; }
-
-
 
 [A-Za-z_][A-Za-z_0-9]* {
     yylval->text.buf = yytext;

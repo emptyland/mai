@@ -139,6 +139,10 @@ public:
                                   const AstString *alias) {
         return new (arena_) JoinRelation(join, lhs, rhs, on_expr, alias);
     }
+    
+    Insert *NewInsert(bool overwrite, const Identifier *table_name) {
+        return new (arena_) Insert(table_name, overwrite);
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     // Expressions
@@ -183,6 +187,14 @@ public:
     
     Literal *NewApproxLiteral(double val, const Location &location) {
         return new (arena_) Literal(val, location);
+    }
+    
+    Literal *NewNullLiteral(const Location &location) {
+        return new (arena_) Literal(Literal::NULL_VAL, location);
+    }
+    
+    Literal *NewDefaultPlaceholderLiteral(const Location &location) {
+        return new (arena_) Literal(Literal::DEFAULT_PLACEHOLDER, location);
     }
     
     Subquery *NewSubquery(bool match_all, Query *query,
@@ -231,37 +243,31 @@ public:
         return new (arena_) UnaryExpression(op, operand, location);
     }
     
+    Assignment *NewAssignment(const AstString *name, Expression *rval,
+                              const Location &location) {
+        return new (arena_) Assignment(name, rval, location);
+    }
+    
     ////////////////////////////////////////////////////////////////////////////
     // Utils
     ////////////////////////////////////////////////////////////////////////////
     ShowTables *NewShowTables() { return new (arena_) ShowTables(); }
     
+    RowValuesList *NewRowValuesList(ExpressionList *values) {
+        return NewList(values);
+    }
+    
+    AssignmentList *NewAssignmentList(Assignment *a) { return NewList(a); }
+    
     ProjectionColumnList *NewProjectionColumnList(ProjectionColumn *col) {
-        ProjectionColumnList *cols = new (arena_) ProjectionColumnList(arena_);
-        cols->reserve(8);
-        if (col) {
-            cols->push_back(col);
-        }
-        return cols;
+        return NewList(col);
     }
     
     ExpressionList *NewExpressionList(Expression *expr) {
-        ExpressionList *exprs = new (arena_) ExpressionList(arena_);
-        exprs->reserve(8);
-        if (expr) {
-            exprs->push_back(expr);
-        }
-        return exprs;
+        return NewList(expr);
     }
     
-    NameList *NewNameList(const AstString *name) {
-        NameList *names = new (arena_) NameList(arena_);
-        names->reserve(8);
-        if (name) {
-            names->push_back(name);
-        }
-        return names;
-    }
+    NameList *NewNameList(const AstString *name) { return NewList(name); }
     
     const AstString *NewString(const char *s, size_t n) {
         return AstString::New(arena_, s, n);
@@ -281,6 +287,16 @@ public:
     
     DEF_PTR_GETTER_NOTNULL(base::Arena, arena);
 private:
+    template<class T>
+    base::ArenaVector<T> *NewList(T first) {
+        base::ArenaVector<T> *list = new (arena_) base::ArenaVector<T>(arena_);
+        list->reserve(8);
+        if (first) {
+            list->push_back(first);
+        }
+        return list;
+    }
+    
     base::Arena *const arena_;
 }; // class AstFactory
     

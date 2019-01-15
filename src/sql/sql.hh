@@ -99,44 +99,48 @@ extern int yydebug;
     OVERWRITE = 306,
     DELETE = 307,
     VALUES = 308,
-    SET = 309,
-    IN = 310,
-    ID = 311,
-    NULL_VAL = 312,
-    INTEGRAL_VAL = 313,
-    STRING_VAL = 314,
-    APPROX_VAL = 315,
-    DATE_VAL = 316,
-    DATETIME_VAL = 317,
-    EQ = 318,
-    NOT = 319,
-    OP_AND = 320,
-    BIGINT = 321,
-    INT = 322,
-    SMALLINT = 323,
-    TINYINT = 324,
-    DECIMAL = 325,
-    NUMERIC = 326,
-    CHAR = 327,
-    VARCHAR = 328,
-    DATE = 329,
-    DATETIME = 330,
-    TIMESTMAP = 331,
-    AUTO_INCREMENT = 332,
-    COMMENT = 333,
-    TOKEN_ERROR = 334,
-    ASSIGN = 335,
-    OP_OR = 336,
-    XOR = 337,
-    IS = 338,
-    LIKE = 339,
-    REGEXP = 340,
-    BETWEEN = 341,
-    COMPARISON = 342,
-    LSHIFT = 343,
-    RSHIFT = 344,
-    MOD = 345,
-    UMINUS = 346
+    VALUE = 309,
+    SET = 310,
+    IN = 311,
+    INTO = 312,
+    DUPLICATE = 313,
+    DEFAULT = 314,
+    ID = 315,
+    NULL_VAL = 316,
+    INTEGRAL_VAL = 317,
+    STRING_VAL = 318,
+    APPROX_VAL = 319,
+    DATE_VAL = 320,
+    DATETIME_VAL = 321,
+    EQ = 322,
+    NOT = 323,
+    OP_AND = 324,
+    BIGINT = 325,
+    INT = 326,
+    SMALLINT = 327,
+    TINYINT = 328,
+    DECIMAL = 329,
+    NUMERIC = 330,
+    CHAR = 331,
+    VARCHAR = 332,
+    DATE = 333,
+    DATETIME = 334,
+    TIMESTMAP = 335,
+    AUTO_INCREMENT = 336,
+    COMMENT = 337,
+    TOKEN_ERROR = 338,
+    ASSIGN = 339,
+    OP_OR = 340,
+    XOR = 341,
+    IS = 342,
+    LIKE = 343,
+    REGEXP = 344,
+    BETWEEN = 345,
+    COMPARISON = 346,
+    LSHIFT = 347,
+    RSHIFT = 348,
+    MOD = 349,
+    UMINUS = 350
   };
 #endif
 
@@ -170,6 +174,7 @@ union YYSTYPE
     int int_val;
     double approx_val;
     bool bool_val;
+    const ::mai::sql::AstString *name;
     ::mai::sql::SQLKeyType key_type;
     ::mai::sql::SQLOperator op;
     ::mai::sql::SQLJoinKind join_kind;
@@ -186,9 +191,12 @@ union YYSTYPE
     ::mai::sql::ProjectionColumn *proj_col;
     ::mai::sql::ProjectionColumnList *proj_col_list;
     ::mai::sql::Query *query;
-    const ::mai::sql::AstString *name;
+    ::mai::sql::RowValuesList *row_vals_list;
+    ::mai::sql::Assignment *assignment;
+    ::mai::sql::AssignmentList *assignment_list;
+    ::mai::sql::Identifier *id;
 
-#line 192 "sql.hh" /* yacc.c:1912  */
+#line 200 "sql.hh" /* yacc.c:1912  */
 };
 
 typedef union YYSTYPE YYSTYPE;

@@ -30,6 +30,7 @@ namespace sql {
     
 #define DEFINE_DML_NODES(V) \
     V(Select) \
+    V(Insert) \
     V(NameRelation) \
     V(JoinRelation)
     
@@ -41,6 +42,7 @@ namespace sql {
     V(Placeholder) \
     V(UnaryExpression) \
     V(BinaryExpression) \
+    V(Assignment) \
     V(Comparison) \
     V(MultiExpression)
     
@@ -122,6 +124,8 @@ using AlterTableSpecList   = base::ArenaVector<AlterTableSpec *>;
 using NameList             = base::ArenaVector<const AstString *>;
 using ExpressionList       = base::ArenaVector<Expression *>;
 using ProjectionColumnList = base::ArenaVector<ProjectionColumn *>;
+using AssignmentList       = base::ArenaVector<Assignment *>;
+using RowValuesList        = base::ArenaVector<ExpressionList *>;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class AstVisitor
@@ -604,6 +608,34 @@ private:
     Expression *on_;
 }; // class JoinRelation
     
+    
+class Insert final : public DMLStatement {
+public:
+    
+    DEF_VAL_GETTER(bool, overwrite);
+    DEF_PTR_GETTER_NOTNULL(const Identifier, table_name);
+    DEF_PTR_PROP_RW(NameList, col_names);
+    DEF_PTR_PROP_RW(RowValuesList, row_values_list);
+    DEF_PTR_PROP_RW(AssignmentList, on_duplicate_clause);
+    DEF_PTR_PROP_RW(Query, select_clause);
+    
+    inline void SetAssignmentList(AssignmentList *a, base::Arena *arena);
+
+    DEF_AST_NODE(Insert);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Insert);
+private:
+    Insert(const Identifier *table_name, bool overwrite)
+        : overwrite_(overwrite)
+        , table_name_(table_name) {}
+    
+    bool overwrite_;
+    const Identifier *table_name_;
+    NameList *col_names_ = nullptr;
+    RowValuesList *row_values_list_ = nullptr;
+    AssignmentList *on_duplicate_clause_ = nullptr;
+    Query *select_clause_ = nullptr;
+}; // class Insert
+    
 ////////////////////////////////////////////////////////////////////////////////
 /// TCL
 ////////////////////////////////////////////////////////////////////////////////
@@ -735,6 +767,8 @@ public:
         STRING,
         INTEGER,
         APPROX,
+        NULL_VAL,
+        DEFAULT_PLACEHOLDER,
     };
     virtual int operands_count() const override { return 1; }
     virtual bool is_literal() const override { return true; }
@@ -742,6 +776,8 @@ public:
     bool is_string_val() const { return type_ == STRING; }
     bool is_integer_val() const { return type_ == INTEGER; }
     bool is_approx_val() const { return type_ == APPROX; }
+    bool is_null_val() const { return type_ == NULL_VAL; }
+    bool is_default_placeholder() const { return type_ == DEFAULT_PLACEHOLDER; }
     
     int64_t integer_val() const {
         DCHECK(is_integer_val()); return int_val_;
@@ -772,6 +808,13 @@ private:
         : Expression(location)
         , type_(STRING)
         , str_val_(val) {}
+    
+    Literal(Type type, const Location &location)
+        : Expression(location)
+        , type_(type) {
+        DCHECK_EQ(type, NULL_VAL);
+        DCHECK_EQ(type, DEFAULT_PLACEHOLDER);
+    }
     
     Type type_;
     union {
@@ -914,6 +957,25 @@ private:
 }; // class BinaryExpression
     
     
+class Assignment final : public FixedOperand<1> {
+public:
+    virtual int operands_count() const override { return 2; }
+    
+    DEF_PTR_GETTER_NOTNULL(const AstString, name);
+    Expression *rval() const { return operand(0); }
+
+    DEF_AST_NODE(Assignment);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Assignment);
+private:
+    Assignment(const AstString *name, Expression *rval,
+               const Location &location)
+        : FixedOperand(SQL_ASSIGN, location)
+        , name_(name) { set_operand(0, rval); }
+
+    const AstString *name_;
+}; // class Assignment
+    
+    
 class Comparison final : public FixedOperand<2> {
 public:
     virtual bool is_comparison() const override { return true; }
@@ -972,6 +1034,19 @@ private:
     
 inline const AstString *NameRelation::prefix() const { return ref_name_->prefix_name(); }
 inline const AstString *NameRelation::name() const { return ref_name_->name(); }
+    
+    
+inline void Insert::SetAssignmentList(AssignmentList *a, base::Arena *arena) {
+    col_names_ = new (arena) NameList(a->size(), arena);
+    row_values_list_ = new (arena) RowValuesList(1, arena);
+    auto values = new (arena) ExpressionList(a->size(), arena);
+    for (int i = 0; i < a->size(); ++i) {
+        (*values)[i]     = a->at(i)->rval();
+        (*col_names_)[i] = a->at(i)->name();
+    }
+    
+    (*row_values_list_)[0] = values;
+}
     
 } // namespace sql
     
