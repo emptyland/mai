@@ -7,6 +7,7 @@
 //%lex-param {void *ctx}
 %parse-param {parser_ctx *ctx}
 %lex-param {void *YYLEX_PARAM}
+%error-verbose
 
 %{
 #include "sql/ast.h"
@@ -72,18 +73,19 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     const ::mai::sql::AstString *name;
 }
 
-%token SELECT FROM CREATE TABLE TABLES DROP SHOW ALTER ADD RENAME
+%token SELECT FROM CREATE TABLE TABLES DROP SHOW ALTER ADD RENAME ANY DIV
 %token UNIQUE PRIMARY KEY ENGINE TXN_BEGIN TRANSACTION COLUMN AFTER
 %token TXN_COMMIT TXN_ROLLBACK FIRST CHANGE TO AS INDEX DISTINCT HAVING
 %token WHERE JOIN ON INNER OUTTER LEFT RIGHT ALL CROSS ORDER BY ASC DESC
-%token GROUP FOR UPDATE LIMIT OFFSET INSERT OVERWRITE DELETE VALUES SET
+%token GROUP FOR UPDATE LIMIT OFFSET INSERT OVERWRITE DELETE VALUES SET IN
 
-%token ID NULL_VAL INTEGRAL_VAL STRING_VAL APPROX_VAL
+%token ID NULL_VAL INTEGRAL_VAL STRING_VAL APPROX_VAL DATE_VAL DATETIME_VAL
 
 %token EQ NOT OP_AND
 
 %token BIGINT INT SMALLINT TINYINT DECIMAL NUMERIC
 %token CHAR VARCHAR DATE DATETIME TIMESTMAP AUTO_INCREMENT COMMENT
+%token TOKEN_ERROR
 
 %type <block> Block
 %type <stmt> Statement Command DDL DML CreateTableStmt AlterTableStmt SelectStmt
@@ -102,7 +104,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <alter_table_spce> AlterTableSpec
 %type <alter_table_spce_list> AlterTableSpecList
 %type <name_list> NameList;
-%type <expr> Expression OnClause WhereClause HavingClause
+%type <expr> Expression BoolPrimary Predicate BitExpression Simple OnClause WhereClause HavingClause Subquery
 %type <expr_list> ExpressionList GroupByClause
 %type <proj_col> ProjectionColumn
 %type <proj_col_list> ProjectionColumnList
@@ -551,8 +553,9 @@ ForUpdateOption : FOR UPDATE {
     $$ = false;
 }
 
-
+//-----------------------------------------------------------------------------
 // Expressions:
+//-----------------------------------------------------------------------------
 ExpressionList: Expression {
     $$ = ctx->factory->NewExpressionList($1);
 }
@@ -560,7 +563,125 @@ ExpressionList: Expression {
     $$->push_back($3);
 }
 
-Expression: Identifier {
+//-----------------------------------------------------------------------------
+// Expressions
+//-----------------------------------------------------------------------------
+Expression : Expression OP_OR Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_OR, $3, Location::Concat(@1, @3));
+}
+| Expression XOR Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_XOR, $3, Location::Concat(@1, @3));
+}
+| Expression OP_AND Expression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_AND, $3, Location::Concat(@1, @3));
+}
+| NOT Expression {
+    $$ = ctx->factory->NewUnaryExpression(SQL_NOT, $2, Location::Concat(@1, @2));
+}
+| '!' Expression {
+    $$ = ctx->factory->NewUnaryExpression(SQL_NOT, $2, Location::Concat(@1, @2));
+}
+| '(' Expression ')' {
+    $$ = $2;
+}
+| BoolPrimary
+
+//-----------------------------------------------------------------------------
+// BoolPrimary
+//-----------------------------------------------------------------------------
+BoolPrimary : BoolPrimary IS NULL_VAL {
+    $$ = ctx->factory->NewUnaryExpression(SQL_IS_NULL, $1, Location::Concat(@1, @3));
+}
+| BoolPrimary IS NOT NULL_VAL {
+    $$ = ctx->factory->NewUnaryExpression(SQL_IS_NOT_NULL, $1, Location::Concat(@1, @4));
+}
+| BoolPrimary COMPARISON Predicate {
+    $$ = ctx->factory->NewComparison($1, $2, $3, Location::Concat(@1, @3));
+}
+| Expression COMPARISON ALL Subquery {
+    $$ = ctx->factory->NewComparison($1, $2, $4, Location::Concat(@1, @4));
+}
+| Expression COMPARISON ANY Subquery {
+    $$ = ctx->factory->NewComparison($1, $2, $4, Location::Concat(@1, @4));
+}
+| Predicate
+
+//-----------------------------------------------------------------------------
+// Predicate
+//-----------------------------------------------------------------------------
+Predicate : BitExpression NOT IN Subquery {
+    $$ = ctx->factory->NewMultiExpression($1, SQL_NOT_IN, $4, Location::Concat(@1, @4));
+}
+| BitExpression IN Subquery {
+    $$ = ctx->factory->NewMultiExpression($1, SQL_IN, $3, Location::Concat(@1, @3));
+}
+| BitExpression NOT IN '(' ExpressionList ')' {
+    $$ = ctx->factory->NewMultiExpression($1, SQL_NOT_IN, $5, Location::Concat(@1, @6));
+}
+| BitExpression IN '(' ExpressionList ')' {
+    $$ = ctx->factory->NewMultiExpression($1, SQL_IN, $4, Location::Concat(@1, @5));
+}
+| BitExpression NOT BETWEEN BitExpression OP_AND Predicate {
+    $$ = ctx->factory->NewMultiExpression($1, SQL_NOT_BETWEEN, $4, $6, Location::Concat(@1, @6));
+}
+| BitExpression BETWEEN BitExpression OP_AND Predicate {
+    $$ = ctx->factory->NewMultiExpression($1, SQL_BETWEEN, $3, $5, Location::Concat(@1, @5));
+}
+| BitExpression NOT LIKE BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_NOT_LIKE, $4, Location::Concat(@1, @4));
+}
+| BitExpression LIKE BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_LIKE, $3, Location::Concat(@1, @3));
+} 
+| BitExpression
+
+
+//-----------------------------------------------------------------------------
+// BitExpression
+//-----------------------------------------------------------------------------
+BitExpression : BitExpression '|' BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_BIT_OR, $3, Location::Concat(@1, @3));
+}
+| BitExpression '&' BitExpression  {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_BIT_AND, $3, Location::Concat(@1, @3));
+}
+| BitExpression LSHIFT BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_LSHIFT, $3, Location::Concat(@1, @3));
+}
+| BitExpression RSHIFT BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_RSHIFT, $3, Location::Concat(@1, @3));
+}
+| BitExpression '+' BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_PLUS, $3, Location::Concat(@1, @3));
+}
+| BitExpression '-' BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_SUB, $3, Location::Concat(@1, @3));
+}
+| BitExpression '*' BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_MUL, $3, Location::Concat(@1, @3));
+}
+| BitExpression '/' BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_DIV, $3, Location::Concat(@1, @3));
+}
+| BitExpression DIV BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_DIV, $3, Location::Concat(@1, @3));
+}
+| BitExpression '%' BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_MOD, $3, Location::Concat(@1, @3));
+}
+| BitExpression MOD BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_MOD, $3, Location::Concat(@1, @3));
+}
+| BitExpression '^' BitExpression {
+    $$ = ctx->factory->NewBinaryExpression($1, SQL_BIT_XOR, $3, Location::Concat(@1, @3));
+}
+| Simple
+
+
+//-----------------------------------------------------------------------------
+// Simple
+//-----------------------------------------------------------------------------
+Simple : Identifier {
     $$ = ctx->factory->NewIdentifier(AstString::kEmpty, $1, @1);
 }
 | Identifier '.' Identifier {
@@ -578,62 +699,16 @@ Expression: Identifier {
 | '?' {
     $$ = ctx->factory->NewParamPlaceholder(@1);
 }
-| Expression COMPARISON Expression {
-    $$ = ctx->factory->NewComparison($1, $2, $3, Location::Concat(@1, @3));
-}
-| Expression '+' Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_PLUS, $3, Location::Concat(@1, @3));
-}
-| Expression '-' Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_SUB, $3, Location::Concat(@1, @3));
-}
-| Expression '*' Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_MUL, $3, Location::Concat(@1, @3));
-}
-| Expression '/' Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_DIV, $3, Location::Concat(@1, @3));
-}
-| Expression '%' Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_MOD, $3, Location::Concat(@1, @3));
-}
-| Expression '^' Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_BIT_XOR, $3, Location::Concat(@1, @3));
-}
-| Expression '&' Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_BIT_AND, $3, Location::Concat(@1, @3));
-}
-| Expression '|' Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_BIT_OR, $3, Location::Concat(@1, @3));
-}
-| Expression LSHIFT Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_LSHIFT, $3, Location::Concat(@1, @3));
-}
-| Expression RSHIFT Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_RSHIFT, $3, Location::Concat(@1, @3));
-}
-| Expression OP_AND Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_AND, $3, Location::Concat(@1, @3));
-}
-| Expression OP_OR Expression {
-    $$ = ctx->factory->NewBinaryExpression($1, SQL_OR, $3, Location::Concat(@1, @3));
-}
-| '-' Expression {
+| '-' Simple {
     $$ = ctx->factory->NewUnaryExpression(SQL_MINUS, $2, Location::Concat(@1, @2));
 }
-| NOT Expression {
-    $$ = ctx->factory->NewUnaryExpression(SQL_NOT, $2, Location::Concat(@1, @2));
-}
-| '~' Expression {
+| '~' Simple {
     $$ = ctx->factory->NewUnaryExpression(SQL_BIT_INV, $2, Location::Concat(@1, @2));
 }
-| Expression IS NOT NULL_VAL {
-    $$ = ctx->factory->NewUnaryExpression(SQL_IS_NOT_NULL, $1, Location::Concat(@1, @2));
-}
-| Expression IS NULL_VAL {
-    $$ = ctx->factory->NewUnaryExpression(SQL_IS_NULL, $1, Location::Concat(@1, @2));
-}
-| '(' Expression ')' {
-    $$ =$2;
+
+
+Subquery : '(' SelectStmt ')' {
+    $$ = ctx->factory->NewSubquery(true, ::mai::down_cast<Query>($2), @2);
 }
 
 Identifier : ID {

@@ -1,5 +1,6 @@
 %option noyywrap reentrant bison-bridge yylineno bison-locations
 %option header-file="sql.yy.h"
+%option extra-type="::mai::sql::lexer_extra *"
 
 %{
 // lex --header-file=sql.yy.h sql.l
@@ -15,9 +16,7 @@ void yyerror(YYLTYPE *yyl, parser_ctx *ctx, const char *msg);
 
 #define register
 %}
-chars [A-Za-z_$0-9]
-digit [0-9]
-delim [ \f\r\t\v]
+%x COMMENT_MOD
 
 %%
 ADD { return ADD; }
@@ -28,6 +27,7 @@ AS { return AS; }
 ASC { return ASC; }
 AND { return OP_AND; }
 ALL { return ALL; }
+ANY { return ANY; }
 BETWEEN { return BETWEEN; }
 BY { return BY; }
 BEGIN { return TXN_BEGIN; }
@@ -46,6 +46,7 @@ DATE { return DATE; }
 DATETIME { return DATETIME; }
 DELETE { return DELETE; }
 DECIMAL { return DECIMAL; }
+DIV { return DIV; }
 FROM { return FROM; }
 FIRST { return FIRST; }
 FOR { return FOR; }
@@ -136,6 +137,10 @@ XOR { return XOR; }
 	yylval->op = ::mai::sql::SQL_CMP_NE;
 	return COMPARISON;	
 }
+"<=>" {
+	yylval->op = ::mai::sql::SQL_CMP_STRICT_EQ;
+	return COMPARISON;	
+}
 ">" {
 	yylval->op = ::mai::sql::SQL_CMP_GT;
 	return COMPARISON;		
@@ -160,8 +165,14 @@ XOR { return XOR; }
 
 [-+&~|^/%!()*.,;] { return yytext[0]; }
 
+"--"[ \t].* ;
 
-[ \t\n]
+"/*"          { yyextra->old_state = YY_START; BEGIN COMMENT_MOD; }
+<COMMENT_MOD>"*/" { BEGIN yyextra->old_state; }
+<COMMENT_MOD>.|\n ;
+<COMMENT_MOD><<EOF>> { return TOKEN_ERROR; }
+
+[ \t\n] ;
 
 %%
 

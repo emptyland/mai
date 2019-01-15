@@ -185,10 +185,37 @@ public:
         return new (arena_) Literal(val, location);
     }
     
+    Subquery *NewSubquery(bool match_all, Query *query,
+                          const Location &location) {
+        return new (arena_) Subquery(match_all, query, location);
+    }
+    
     Comparison *NewComparison(Expression *lhs, SQLOperator op,
                               Expression *rhs, const Location &location) {
         DCHECK(Comparison::IsComparisonOperator(op));
         return new (arena_) Comparison(op, lhs, rhs, location);
+    }
+    
+    MultiExpression *NewMultiExpression(Expression *lhs, SQLOperator op,
+                                        ExpressionList *rhs,
+                                        const Location &location) {
+        return new (arena_) MultiExpression(op, lhs, rhs, location);
+    }
+    
+    MultiExpression *NewMultiExpression(Expression *lhs, SQLOperator op,
+                                        Expression *rhs,
+                                        const Location &location) {
+        ExpressionList *stub = NewExpressionList(rhs);
+        return NewMultiExpression(lhs, op, stub, location);
+    }
+    
+    MultiExpression *NewMultiExpression(Expression *lhs, SQLOperator op,
+                                        Expression *operand1,
+                                        Expression *operand2,
+                                        const Location &location) {
+        ExpressionList *stub = NewExpressionList(operand1);
+        stub->push_back(operand2);
+        return NewMultiExpression(lhs, op, stub, location);
     }
     
     BinaryExpression *NewBinaryExpression(Expression *lhs, SQLOperator op,

@@ -33,40 +33,51 @@ enum SQLKeyType : int {
 };
     
 #define DEFINE_SQL_CMP_OPS(V) \
-    V(CMP_EQ, "=",  "%s = %s" ) \
-    V(CMP_NE, "<>", "%s <> %s") \
-    V(CMP_GT, ">",  "%s > %s" ) \
-    V(CMP_GE, ">=", "%s >= %s") \
-    V(CMP_LT, "<",  "%s < %s" ) \
-    V(CMP_LE, "<=", "%s <= %s")
+    V(CMP_EQ, "=",  0) \
+    V(CMP_STRICT_EQ, "<=>", 0) \
+    V(CMP_NE, "<>", 0) \
+    V(CMP_GT, ">",  0) \
+    V(CMP_GE, ">=", 0) \
+    V(CMP_LT, "<",  0) \
+    V(CMP_LE, "<=", 0)
     
 #define DEFINE_SQL_UNARY_OPS(V) \
-    V(MINUS,       "-",           "-%s") \
-    V(NOT,         "NOT",         "NOT %s") \
-    V(BIT_INV,     "~",           "~%s") \
-    V(IS_NOT_NULL, "IS NOT NULL", "%s IS NOT NULL") \
-    V(IS_NULL,     "IS NULL",     "%s IS NULL")
+    V(MINUS,       "-",           1) \
+    V(NOT,         "NOT",         0) \
+    V(BIT_INV,     "~",           1) \
+    V(IS_NOT_NULL, "IS NOT NULL", 0) \
+    V(IS_NULL,     "IS NULL",     0)
 
 #define DEFINE_SQL_BINARY_OPS(V) \
-    V(ASSIGN,  ":=",  "%s := %s") \
-    V(PLUS,    "+",   "%s + %s") \
-    V(SUB,     "-",   "%s - %s") \
-    V(MUL,     "*",   "%s * %s") \
-    V(DIV,     "/",   "%s / %s") \
-    V(MOD,     "%",   "%s % %s") \
-    V(BIT_XOR, "^",   "%s ^ %s") \
-    V(BIT_OR,  "|",   "%s | %s") \
-    V(BIT_AND, "&",   "%s & %s") \
-    V(LSHIFT,  "<<",  "%s << %s") \
-    V(RSHIFT,  ">>",  "%s >> %s") \
-    V(AND,     "AND", "%s AND %s") \
-    V(OR,      "OR",  "%s OR %s")
+    V(ASSIGN,  ":=", -1) \
+    V(PLUS,    "+",   1) \
+    V(SUB,     "-",   1) \
+    V(MUL,     "*",   1) \
+    V(DIV,     "/",   1) \
+    V(MOD,     "%",   1) \
+    V(BIT_XOR, "^",   1) \
+    V(BIT_OR,  "|",   1) \
+    V(BIT_AND, "&",   1) \
+    V(LSHIFT,  "<<",  1) \
+    V(RSHIFT,  ">>",  1) \
+    V(AND,     "AND", 0) \
+    V(XOR,     "XOR", 0) \
+    V(OR,      "OR",  0) \
+    V(LIKE,    "LIKE", 0) \
+    V(NOT_LIKE, "NOT LIKE", 0)
+    
+#define DEFINE_SQL_MULTI_OPS(V) \
+    V(IN,      "IN",      0) \
+    V(NOT_IN,  "NOT IN",  0) \
+    V(BETWEEN, "BETWEEN", 0) \
+    V(NOT_BETWEEN, "NOT BETWEEN", 0)
     
 enum SQLOperator : int {
 #define DECL_ENUM(name, op, fmt) SQL_##name,
     DEFINE_SQL_CMP_OPS(DECL_ENUM)
     DEFINE_SQL_UNARY_OPS(DECL_ENUM)
     DEFINE_SQL_BINARY_OPS(DECL_ENUM)
+    DEFINE_SQL_MULTI_OPS(DECL_ENUM)
     SQL_MAX_OP,
 #undef  DECL_ENUM
 };

@@ -37,10 +37,12 @@ namespace sql {
     V(ProjectionColumn) \
     V(Identifier) \
     V(Literal) \
+    V(Subquery) \
     V(Placeholder) \
     V(UnaryExpression) \
     V(BinaryExpression) \
-    V(Comparison)
+    V(Comparison) \
+    V(MultiExpression)
     
 #define DEFINE_UTIL_NODES(V) \
     V(ShowTables)
@@ -642,6 +644,7 @@ public:
     virtual int operands_count() const { return 0; }
     
     virtual bool is_literal() const { return false; }
+    virtual bool is_subquery() const { return false; }
     virtual bool is_comparison() const { return false; }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Expression);
@@ -779,6 +782,26 @@ private:
 }; // class Literal
 
 
+class Subquery final : public Expression {
+public:
+    DEF_PTR_GETTER_NOTNULL(Query, query);
+    
+    bool match_any() const { return !match_all_; }
+    bool match_all() const { return  match_all_; }
+    
+    DEF_AST_NODE(Subquery);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Subquery);
+private:
+    Subquery(bool match_all, Query *query, const Location &location)
+        : Expression(location)
+        , match_all_(match_all)
+        , query_(DCHECK_NOTNULL(query)) {}
+    
+    bool match_all_;
+    Query *query_;
+}; // class Subquery
+    
+    
 template<int N>
 class FixedOperand : public Expression {
 public:
@@ -791,7 +814,7 @@ public:
         DCHECK_LT(i, N);
         return operands_[i];
     }
-    
+
     Expression *rhs() const {
         DCHECK_EQ(2, N);
         return operands_[1];
@@ -823,6 +846,39 @@ protected:
     SQLOperator op_;
     Expression *operands_[N];
 }; // template<int N> class OperandExpr
+    
+    
+class MultiOperand : public Expression {
+public:
+    virtual int operands_count() const override {
+        return rhs_ ? 1 + static_cast<int>(rhs_->size()) : 1;
+    }
+    
+    DEF_PTR_GETTER_NOTNULL(Expression, lhs);
+    DEF_PTR_GETTER(ExpressionList, rhs);
+    
+    Expression *operand(int i) const {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, operands_count());
+        return i == 0 ? lhs_ : rhs_->at(1 + i);
+    }
+    
+    SQLOperator op() const { return op_; }
+protected:
+    MultiOperand(SQLOperator op, Expression *lhs, ExpressionList *rhs,
+                 const Location &location)
+        : Expression(location)
+        , op_(op)
+        , lhs_(DCHECK_NOTNULL(lhs))
+        , rhs_(rhs) {}
+    
+    void set_lhs(Expression *expr) { lhs_ = DCHECK_NOTNULL(expr); }
+    void set_rhs(ExpressionList *expr_list) { rhs_ = expr_list; }
+    
+    SQLOperator op_;
+    Expression *lhs_;
+    ExpressionList *rhs_;
+}; // class MultiOperand
     
 
 class UnaryExpression final : public FixedOperand<1> {
@@ -875,6 +931,17 @@ private:
         set_rhs(rhs);
     }
 }; // class Comparison
+    
+    
+class MultiExpression final : public MultiOperand {
+public:
+    DEF_AST_NODE(MultiExpression);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(MultiExpression);
+private:
+    MultiExpression(SQLOperator op, Expression *lhs, ExpressionList *rhs,
+                    const Location &location)
+        : MultiOperand(op, lhs, rhs, location) {}
+}; // class MultiExpression
 
 
 ////////////////////////////////////////////////////////////////////////////////

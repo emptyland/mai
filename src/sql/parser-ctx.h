@@ -24,7 +24,11 @@ struct parser_ctx {
     int err_line = 0;
     int err_column = 0;
 }; // struct parser_ctx
-        
+    
+struct lexer_extra {
+    int old_state = 0;
+};
+
 } // namespace sql
     
 } // namespace mai

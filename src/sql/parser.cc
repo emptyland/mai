@@ -37,7 +37,8 @@ Parser::Parse(const char *s, AstFactory *factory, Parser::Result *result) {
     parser_ctx ctx;
     ctx.factory = factory;
     
-    yylex_init(&ctx.lex);
+    lexer_extra extra;
+    yylex_init_extra(&extra, &ctx.lex);
     auto buf = yy_scan_string(s, ctx.lex);
     yy_switch_to_buffer(buf, ctx.lex);
     

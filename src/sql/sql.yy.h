@@ -219,6 +219,7 @@ void yyfree (void * ,yyscan_t yyscanner );
 
 #ifdef YY_HEADER_EXPORT_START_CONDITIONS
 #define INITIAL 0
+#define COMMENT_MOD 1
 
 #endif
 
@@ -230,9 +231,7 @@ void yyfree (void * ,yyscan_t yyscanner );
 #include <unistd.h>
 #endif
 
-#ifndef YY_EXTRA_TYPE
-#define YY_EXTRA_TYPE void *
-#endif
+#define YY_EXTRA_TYPE ::mai::sql::lexer_extra *
 
 int yylex_init (yyscan_t* scanner);
 
@@ -336,9 +335,9 @@ extern int yylex \
 #undef YY_DECL
 #endif
 
-#line 159 "sql.l"
+#line 177 "sql.l"
 
 
-#line 343 "sql.yy.h"
+#line 342 "sql.yy.h"
 #undef yyIN_HEADER
 #endif /* yyHEADER_H */

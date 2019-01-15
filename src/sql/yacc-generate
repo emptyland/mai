@@ -2,4 +2,4 @@
 
 lex sql.l
 mv lex.yy.c sql.yy.cc
-bison -d sql.y -o sql.cc
+bison -v -d sql.y -o sql.cc
