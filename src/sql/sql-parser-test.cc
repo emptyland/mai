@@ -48,8 +48,8 @@ TEST_F(SQLParserTest, DropTable) {
     
     auto stmt = DropTable::Cast(result.block->stmt(0));
     ASSERT_NE(nullptr, stmt);
-    ASSERT_NE(nullptr, stmt->schema_name());
-    EXPECT_EQ("t1", stmt->schema_name()->ToString());
+    ASSERT_NE(nullptr, stmt->table_name());
+    EXPECT_EQ("t1", stmt->table_name()->ToString());
 }
     
 TEST_F(SQLParserTest, CreateTable) {
@@ -59,9 +59,9 @@ TEST_F(SQLParserTest, CreateTable) {
     
     auto stmt = CreateTable::Cast(result.block->stmt(0));
     ASSERT_NE(nullptr, stmt);
-    ASSERT_NE(nullptr, stmt->schema_name());
+    ASSERT_NE(nullptr, stmt->table_name());
     
-    EXPECT_EQ("t1", stmt->schema_name()->ToString());
+    EXPECT_EQ("t1", stmt->table_name()->ToString());
     ASSERT_EQ(1, stmt->columns_size());
     
     auto col = stmt->column(0);
@@ -85,9 +85,9 @@ TEST_F(SQLParserTest, CreateTableDetail1) {
     
     auto stmt = CreateTable::Cast(result.block->stmt(0));
     ASSERT_NE(nullptr, stmt);
-    ASSERT_NE(nullptr, stmt->schema_name());
+    ASSERT_NE(nullptr, stmt->table_name());
     
-    EXPECT_EQ("t1", stmt->schema_name()->ToString());
+    EXPECT_EQ("t1", stmt->table_name()->ToString());
     ASSERT_EQ(3, stmt->columns_size());
     
     auto col = stmt->column(0);

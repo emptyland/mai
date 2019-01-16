@@ -109,7 +109,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <alter_table_spce> AlterTableSpec
 %type <alter_table_spce_list> AlterTableSpecList
 %type <name_list> NameList NameListOption
-%type <expr> Expression BoolPrimary Predicate BitExpression Simple OnClause WhereClause HavingClause Subquery Value
+%type <expr> Expression BoolPrimary Predicate BitExpression Simple OnClause WhereClause HavingClause Subquery Value DefaultOption
 %type <expr_list> ExpressionList GroupByClause ValueList RowValues
 %type <proj_col> ProjectionColumn
 %type <proj_col_list> ProjectionColumnList
@@ -171,14 +171,14 @@ Command: DDL
 DDL: CreateTableStmt {
     $$ = $1;
 }
-| DROP TABLE Name {
+| DROP TABLE Identifier {
     $$ = ctx->factory->NewDropTable($3);
 }
 | AlterTableStmt {
     $$ = $1;
 }
 
-CreateTableStmt : CREATE TABLE Name '(' ColumnDefinitionList ')' {
+CreateTableStmt : CREATE TABLE Identifier '(' ColumnDefinitionList ')' {
     $$ = ctx->factory->NewCreateTable($3, $5);
 }
 
@@ -189,9 +189,14 @@ ColumnDefinitionList: ColumnDefinition {
     $$->push_back($3);
 }
 
-ColumnDefinition: Name TypeDefinition NullOption AutoIncrementOption KeyOption CommentOption {
-    $$ = ctx->factory->NewColumnDefinition($1, $2, $3, $4, $5);
-    $$->set_comment($6);
+ColumnDefinition: Name TypeDefinition NullOption AutoIncrementOption DefaultOption KeyOption CommentOption {
+    ColumnDefinition *def = ctx->factory->NewColumnDefinition($1, $2);
+    def->set_is_not_null($3);
+    def->set_auto_increment($4);
+    def->set_default_value($5);
+    def->set_key($6);
+    def->set_comment($7);
+    $$ = def;
 }
 
 TypeDefinition: BIGINT FixedSizeDescription {
@@ -243,6 +248,13 @@ FloatingSizeDescription: '(' INTEGRAL_VAL '.' INTEGRAL_VAL ')' {
     $$.float_size = 0;
 }
 
+DefaultOption : DEFAULT Expression {
+    $$ = $2;
+}
+| {
+    $$ = nullptr;
+}
+
 AutoIncrementOption: AUTO_INCREMENT {
     $$ = true;
 }
@@ -286,7 +298,7 @@ CommentOption: COMMENT STRING_VAL {
     $$ = AstString::kEmpty;
 }
 
-AlterTableStmt : ALTER TABLE Name AlterTableSpecList {
+AlterTableStmt : ALTER TABLE Identifier AlterTableSpecList {
     $$ = ctx->factory->NewAlterTable($3, $4);
 }
 
@@ -638,12 +650,17 @@ Assignment : Name COMPARISON Value {
         yyerror(&@1, ctx, "incorrect assignment.");
         YYERROR;
     }
+    $$ = ctx->factory->NewAssignment($1, $3, Location::Concat(@1, @3));
 }
 
 
 UpdateStmt : UPDATE Identifier SET AssignmentList WhereClause OrderByClause UpdateLimitOption {
-    // TODO:
-    $$ = nullptr;
+    Update *stmt = ctx->factory->NewUpdate($2, $4);
+    stmt->set_where_clause($5);
+    stmt->set_order_by_desc($6.desc);
+    stmt->set_order_by_clause($6.expr_list);
+    stmt->set_limit_val($7.limit_val);
+    $$ = stmt;
 }
 
 UpdateLimitOption : LIMIT INTEGRAL_VAL {

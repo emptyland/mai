@@ -31,6 +31,7 @@ namespace sql {
 #define DEFINE_DML_NODES(V) \
     V(Select) \
     V(Insert) \
+    V(Update) \
     V(NameRelation) \
     V(JoinRelation)
     
@@ -213,16 +214,16 @@ public:
     ColumnDefinitionList::const_iterator begin() const { return columns_->begin(); }
     ColumnDefinitionList::const_iterator end() const { return columns_->end(); }
 
-    DEF_PTR_PROP_RW_NOTNULL2(const AstString, schema_name);
+    DEF_PTR_PROP_RW_NOTNULL2(const Identifier, table_name);
     
     DEF_AST_NODE(CreateTable);
     DISALLOW_IMPLICIT_CONSTRUCTORS(CreateTable);
 private:
-    CreateTable(const AstString *schema_name, ColumnDefinitionList *columns)
-        : schema_name_(schema_name)
+    CreateTable(const Identifier *table_name, ColumnDefinitionList *columns)
+        : table_name_(table_name)
         , columns_(columns) {}
 
-    const AstString *schema_name_;
+    const Identifier *table_name_;
     ColumnDefinitionList *const columns_;
 }; // class CreateTable
     
@@ -241,14 +242,16 @@ public:
         return specs_->end();
     }
     
+    DEF_PTR_GETTER_NOTNULL(const Identifier, table_name);
+    
     DEF_AST_NODE(AlterTable);
     DISALLOW_IMPLICIT_CONSTRUCTORS(AlterTable);
 private:
-    AlterTable(const AstString *table_name, AlterTableSpecList *specs)
+    AlterTable(const Identifier *table_name, AlterTableSpecList *specs)
         : table_name_(DCHECK_NOTNULL(table_name))
         , specs_(DCHECK_NOTNULL(specs)) {}
     
-    const AstString *table_name_;
+    const Identifier *table_name_;
     AlterTableSpecList *specs_;
 }; // class AlterTable
     
@@ -424,15 +427,15 @@ class DropTable final : public DDLStatement {
 public:
     virtual bool is_command() const override { return true; }
     
-    DEF_PTR_GETTER_NOTNULL(const AstString, schema_name);
+    DEF_PTR_GETTER_NOTNULL(const Identifier, table_name);
     
     DEF_AST_NODE(DropTable);
     DISALLOW_IMPLICIT_CONSTRUCTORS(DropTable);
 private:
-    DropTable(const AstString *schema_name)
-        : schema_name_(DCHECK_NOTNULL(schema_name)) {}
+    DropTable(const Identifier *table_name)
+        : table_name_(DCHECK_NOTNULL(table_name)) {}
     
-    const AstString *schema_name_;
+    const Identifier *table_name_;
 }; // class DropTable
     
     
@@ -440,9 +443,10 @@ class ColumnDefinition final : public AstNode {
 public:
     DEF_PTR_GETTER_NOTNULL(const AstString, name);
     DEF_PTR_GETTER_NOTNULL(TypeDefinition, type);
-    DEF_VAL_GETTER(bool, is_not_null);
-    DEF_VAL_GETTER(bool, auto_increment);
-    DEF_VAL_GETTER(SQLKeyType, key);
+    DEF_VAL_PROP_RW(bool, is_not_null);
+    DEF_VAL_PROP_RW(bool, auto_increment);
+    DEF_VAL_PROP_RW(SQLKeyType, key);
+    DEF_PTR_PROP_RW(Expression, default_value);
     DEF_PTR_PROP_RW_NOTNULL2(const AstString, comment);
     
     bool is_key() const { return key_ == SQL_KEY; }
@@ -454,20 +458,16 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(ColumnDefinition);
 private:
     ColumnDefinition(const AstString *name,
-                      TypeDefinition *type,
-                      bool is_not_null,
-                      bool auto_increment,
-                      SQLKeyType key)
+                      TypeDefinition *type)
         : name_(name)
-        , type_(type)
-        , is_not_null_(is_not_null)
-        , key_(key) {}
+        , type_(type) {}
     
     const AstString *name_;
     TypeDefinition *type_;
     bool is_not_null_ = false;
     bool auto_increment_ = false;
     SQLKeyType key_ = SQL_NOT_KEY;
+    Expression *default_value_;
     const AstString *comment_ = AstString::kEmpty;
 }; // class ColumnDeclaration
 
@@ -636,6 +636,32 @@ private:
     Query *select_clause_ = nullptr;
 }; // class Insert
     
+    
+class Update final : public DMLStatement {
+public:
+
+    DEF_PTR_GETTER_NOTNULL(const Identifier, table_name);
+    DEF_PTR_GETTER_NOTNULL(AssignmentList, assignments);
+    DEF_VAL_PROP_RW(bool, order_by_desc);
+    DEF_PTR_PROP_RW(ExpressionList, order_by_clause);
+    DEF_PTR_PROP_RW(Expression, where_clause);
+    DEF_VAL_PROP_RW(int, limit_val);
+
+    DEF_AST_NODE(Update);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Update);
+private:
+    Update(const Identifier *table_name, AssignmentList *assignments)
+        : table_name_(DCHECK_NOTNULL(table_name))
+        , assignments_(DCHECK_NOTNULL(assignments)) {}
+    
+    const Identifier *table_name_;
+    AssignmentList *assignments_;
+    Expression *where_clause_ = nullptr;
+    bool order_by_desc_ = false;
+    ExpressionList *order_by_clause_ = nullptr;
+    int limit_val_ = 0;
+}; // class Update
+    
 ////////////////////////////////////////////////////////////////////////////////
 /// TCL
 ////////////////////////////////////////////////////////////////////////////////
@@ -739,6 +765,13 @@ public:
     DEF_PTR_GETTER_NOTNULL(const AstString, prefix_name);
     DEF_PTR_GETTER_NOTNULL(const AstString, name);
     DEF_PTR_GETTER(Placeholder, placeholder);
+    
+    std::string ToString() const {
+        if (prefix_name_->empty()) {
+            return name_->ToString();
+        }
+        return prefix_name_->ToString() + "." + name_->ToString();
+    }
 
     DEF_AST_NODE(Identifier);
     DISALLOW_IMPLICIT_CONSTRUCTORS(Identifier);

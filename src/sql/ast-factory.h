@@ -19,23 +19,14 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // DDL
     ////////////////////////////////////////////////////////////////////////////
-    CreateTable *NewCreateTable(const AstString *schema_name,
+    CreateTable *NewCreateTable(const Identifier *table_name,
                                 ColumnDefinitionList *cols) {
-        return new (arena_) CreateTable(schema_name, cols);
+        return new (arena_) CreateTable(table_name, cols);
     }
     
-    AlterTable *NewAlterTable(const AstString *table_name,
+    AlterTable *NewAlterTable(const Identifier *table_name,
                               AlterTableSpecList *spces) {
         return new (arena_) AlterTable(table_name, spces);
-    }
-    
-    AlterTableSpecList *NewAlterTableSpecList(AlterTableSpec *spec) {
-        auto specs =  new (arena_) AlterTableSpecList(arena_);
-        specs->reserve(8);
-        if (spec) {
-            specs->push_back(spec);
-        }
-        return specs;
     }
 
     AlterTableColumn *NewAlterTableAddColumn(ColumnDefinitionList *cols) {
@@ -87,31 +78,17 @@ public:
         return new (arena_) AlterTableName(new_table_name);
     }
 
-    DropTable *NewDropTable(const AstString *schema_name) {
-        return new (arena_) DropTable(schema_name);
+    DropTable *NewDropTable(const Identifier *table_name) {
+        return new (arena_) DropTable(table_name);
     }
     
     ColumnDefinition *NewColumnDefinition(const AstString *name,
-                                            TypeDefinition *type,
-                                            bool is_not_null,
-                                            bool auto_increment,
-                                            SQLKeyType key) {
-        return new (arena_) ColumnDefinition(name, type, is_not_null,
-                                              auto_increment, key);
-    }
-    
-    ColumnDefinitionList *
-    NewColumnDefinitionList(ColumnDefinition *def = nullptr) {
-        auto defs = new (arena_) ColumnDefinitionList(arena_);
-        defs->reserve(8);
-        if (def) {
-            defs->push_back(def);
-        }
-        return defs;
+                                            TypeDefinition *type) {
+        return new (arena_) ColumnDefinition(name, type);
     }
     
     TypeDefinition *NewTypeDefinition(SQLType type, int fixed_size = 0,
-                                        int float_size = 0) {
+                                      int float_size = 0) {
         return new (arena_) TypeDefinition(type, fixed_size, float_size);
     }
     
@@ -142,6 +119,11 @@ public:
     
     Insert *NewInsert(bool overwrite, const Identifier *table_name) {
         return new (arena_) Insert(table_name, overwrite);
+    }
+    
+    Update *NewUpdate(const Identifier *table_name,
+                      AssignmentList *assignments) {
+        return new (arena_) Update(table_name, assignments);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -252,6 +234,14 @@ public:
     // Utils
     ////////////////////////////////////////////////////////////////////////////
     ShowTables *NewShowTables() { return new (arena_) ShowTables(); }
+    
+    AlterTableSpecList *NewAlterTableSpecList(AlterTableSpec *spec) {
+        return NewList(spec);
+    }
+    
+    ColumnDefinitionList *NewColumnDefinitionList(ColumnDefinition *def) {
+        return NewList(def);
+    }
     
     RowValuesList *NewRowValuesList(ExpressionList *values) {
         return NewList(values);
