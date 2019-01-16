@@ -240,7 +240,7 @@ TEST_F(SQLParserTest, WhereClause) {
     auto n = Literal::Cast(child->rhs());
     ASSERT_NE(nullptr, n);
     EXPECT_EQ(0, n->integer_val());
-    
+
     child = Comparison::Cast(top->rhs());
     ASSERT_NE(nullptr, child);
     EXPECT_EQ(SQL_CMP_LT, child->op());
