@@ -1,5 +1,8 @@
 #include "sql/mai-sql-connection-impl.h"
 #include "sql/mai-sql-impl.h"
+#include "sql/form-schema.h"
+#include "sql/parser.h"
+#include "sql/ast-factory.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -41,6 +44,15 @@ MaiSQLConnectionImpl::MaiSQLConnectionImpl(const std::string &conn_str,
 }
 
 /*virtual*/ Error MaiSQLConnectionImpl::Execute(const std::string &sql) {
+    AstFactory factory(arena_);
+    Parser::Result result;
+    
+    Error rs = Parser::Parse(sql.c_str(), &factory, &result);
+    if (!rs) {
+        return MAI_CORRUPTION(result.FormatError());
+    }
+    
+    
     return MAI_NOT_SUPPORTED("TODO:");
 }
     

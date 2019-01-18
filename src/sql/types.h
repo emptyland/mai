@@ -8,28 +8,33 @@ namespace mai {
 namespace sql {
 
 #define DEFINE_SQL_TYPES(V) \
-    V(BIGINT) \
-    V(INT) \
-    V(SMALLINT) \
-    V(TINYINT) \
-    V(DECIMAL) \
-    V(NUMERIC) \
-    V(CHAR) \
-    V(VARCHAR) \
-    V(DATE) \
-    V(DATETIME)
+    V(BIGINT,   1, 12, 0) \
+    V(INT,      1, 12, 0) \
+    V(SMALLINT, 1, 12, 0) \
+    V(TINYINT,  1, 12, 0) \
+    V(DECIMAL,  1, 12, 12) \
+    V(NUMERIC,  1, 12, 12) \
+    V(CHAR,     0, 0, 0) \
+    V(VARCHAR,  1, 1024, 0) \
+    V(DATE,     0, 0, 0) \
+    V(DATETIME, 0, 0, 0)
     
 enum SQLType : int {
-#define DECL_ENUM(name) SQL_##name,
+#define DECL_ENUM(name, a1, a2, a3) SQL_##name,
     DEFINE_SQL_TYPES(DECL_ENUM)
 #undef  DECL_ENUM
 };
+    
+#define DEFINE_SQL_KEYS(V) \
+    V(NOT_KEY,     "") \
+    V(KEY,         "KEY") \
+    V(UNIQUE_KEY,  "UNIQUE KEY") \
+    V(PRIMARY_KEY, "PRIMARY KEY")
 
 enum SQLKeyType : int {
-    SQL_NOT_KEY,
-    SQL_KEY,
-    SQL_UNIQUE_KEY,
-    SQL_PRIMARY_KEY,
+#define DECL_ENUM(name, txt) SQL_##name,
+    DEFINE_SQL_KEYS(DECL_ENUM)
+#undef  DECL_ENUM
 };
     
 #define DEFINE_SQL_CMP_OPS(V) \
@@ -89,6 +94,17 @@ enum SQLJoinKind : int {
     SQL_LEFT_OUTTER_JOIN,
     SQL_RIGHT_OUTTER_JOIN,
 };
+    
+
+struct SQLTypeDescEntry {
+    const char *name;
+    int size_kind;
+    int max_fixed_size;
+    int max_float_size;
+};
+
+extern const SQLTypeDescEntry kSQLTypeDesc[];
+extern const char *kSQLKeyText[];
 
 } // namespace sql
     

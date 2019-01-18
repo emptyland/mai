@@ -39,7 +39,7 @@ Error MaiSQLImpl::Open(bool init) {
     
     Error rs;
     if (init) {
-        rs = form_schema_->NewDatabase(kPrimaryDatabaseName);
+        rs = form_schema_->NewDatabase(kPrimaryDatabaseName, "maidb.column");
         if (!rs) {
             return rs;
         }

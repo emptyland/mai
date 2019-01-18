@@ -85,6 +85,8 @@ public:
     
     int refs() const { return refs_.load(); }
     
+    void ToCreateTable(std::string *buf) const;
+    
     friend class FormBuilder;
     friend class FormSchemaSet;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Form);
@@ -134,8 +136,8 @@ public:
     DEF_VAL_GETTER(Kind, kind);
     
     void AddColumn(const FormColumn &col) {
-        DCHECK_EQ(kCreatTable, kind_);
-        DCHECK_EQ(kAddColumn, kind_);
+        DCHECK(kCreatTable == kind_ ||
+               kAddColumn == kind_);
         columns_.emplace_back(new FormColumn(col));
     }
     
@@ -149,30 +151,26 @@ public:
     
     void SetColumn(const std::string &name, const FormColumn &new_def,
                    bool after, std::string &hint) {
-        DCHECK_EQ(kAddColumn, kind_);
-        DCHECK_EQ(kChangeColumn, kind_);
+        DCHECK(kAddColumn == kind_ || kChangeColumn == kind_);
         name_ = name;
         column_.after = after;
         column_.data.reset(new FormColumn(new_def));
     }
     
     void Rename(const std::string &old_name, const std::string &new_name) {
-        DCHECK_EQ(kRenameIndex, kind_);
-        DCHECK_EQ(kRenameColumn, kind_);
-        DCHECK_EQ(kRenameTable, kind_);
+        DCHECK(kRenameIndex == kind_ || kRenameColumn == kind_ ||
+               kRenameTable == kind_);
         name_     = old_name;
         new_name_ = new_name;
     }
     
     void SetName(const std::string &name) {
-        DCHECK_EQ(kDropIndex, kind_);
-        DCHECK_EQ(kDropColumn, kind_);
+        DCHECK(kDropIndex == kind_ || kDropColumn == kind_);
         name_ = name;
     }
     
     const std::vector<std::shared_ptr<FormColumn>> &GetColumns() const {
-        DCHECK_EQ(kCreatTable, kind_);
-        DCHECK_EQ(kAddColumn, kind_);
+        DCHECK(kCreatTable == kind_|| kAddColumn == kind_);
         return columns_;
     }
     
@@ -182,25 +180,20 @@ public:
     }
     
     const FormColumnPatch &GetColumn() const {
-        DCHECK_EQ(kAddColumn, kind_);
-        DCHECK_EQ(kChangeColumn, kind_);
+        DCHECK(kAddColumn == kind_ || kChangeColumn == kind_);
         return column_;
     }
     
     const std::string &GetName() const {
-        DCHECK_EQ(kAddIndex, kind_);
-        DCHECK_EQ(kAddColumn, kind_);
-        DCHECK_EQ(kChangeColumn, kind_);
-        DCHECK_EQ(kRenameIndex, kind_);
-        DCHECK_EQ(kRenameColumn, kind_);
-        DCHECK_EQ(kRenameTable, kind_);
+        DCHECK(kAddIndex == kind_ || kAddColumn == kind_ ||
+               kChangeColumn == kind_ || kRenameIndex == kind_ ||
+               kRenameColumn == kind_ || kRenameTable == kind_);
         return name_;
     }
     
     const std::string &GetNewName() const {
-        DCHECK_EQ(kRenameIndex, kind_);
-        DCHECK_EQ(kRenameColumn, kind_);
-        DCHECK_EQ(kRenameTable, kind_);
+        DCHECK(kRenameIndex == kind_ || kRenameColumn == kind_ ||
+               kRenameTable == kind_);
         return new_name_;
     }
     
@@ -236,7 +229,7 @@ public:
 
     void AddSpec(FormSpecPatch *spec) { specs_.emplace_back(spec); }
     
-    void PartialEncode(bool add, std::string *buf) const;
+    void PartialEncode(const std::string &new_name, std::string *buf) const;
     
     friend class FormSchemaSet;
     DISALLOW_IMPLICIT_CONSTRUCTORS(FormSchemaPatch);
@@ -260,6 +253,8 @@ public:
     
     DEF_VAL_GETTER(uint64_t, next_file_number);
     
+    Error Recovery(uint64_t file_number);
+    
     uint64_t GenerateFileNumber() { return next_file_number_++; }
     
     void ReuseFileNumber(uint64_t fn) {
@@ -270,10 +265,18 @@ public:
 
     Error LogAndApply(FormSchemaPatch *patch);
     
-    Error NewDatabase(const std::string &name);
+    Error NewDatabase(const std::string &name,
+                      const std::string &engine_name);
     
     using TableSlot = std::unordered_map<std::string, Form *>;
 private:
+    enum RecoredKind : uint8_t {
+        kUpdateDatabase,
+        kDropDatabase,
+        kUpdateTable,
+        kDropTable,
+    };
+    
     Error BuildNewForm(TableSlot *db, FormSchemaPatch *patch,
                        FormSpecPatch *spec,
                        FormBuilder *builder);
@@ -283,7 +286,10 @@ private:
     
     Error CreateMetaFile();
     Error WriteSnapshot();
-    Error LogAndSnync(const Form *form, FormSchemaPatch *patch);
+    
+    Error LogForm(const Form *form, FormSchemaPatch *patch);
+    
+    Error EnsureWrite(std::string_view data);
     
     std::string const abs_meta_dir_;
     std::string const abs_data_dir_;

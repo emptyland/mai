@@ -8,6 +8,8 @@ namespace mai {
     
 namespace sql {
     
+using ::mai::base::Slice;
+    
 class FormBuilder final {
 public:
     using Column = Form::Column;
@@ -109,8 +111,10 @@ public:
     DEF_VAL_PROP_RW(std::string, engine_name);
     
     void SetOlder(Form *older) {
-        version_ = older->version_ + 1;
-        older_   = older;
+        if (older) {
+            version_ = older->version_ + 1;
+            older_   = older;
+        }
     }
     
     Form *Build() {
@@ -182,18 +186,71 @@ private:
     int version_ = 0;
     Form *older_ = nullptr;
 }; // class FormBuilder
+    
+
+////////////////////////////////////////////////////////////////////////////////
+/// class Form
+////////////////////////////////////////////////////////////////////////////////
+    
+void Form::ToCreateTable(std::string *buf) const {
+    buf->append("CREATE TABLE (\n");
+    
+    bool first = true;
+    for (auto col : columns_) {
+        if (!first) {
+            buf->append(",\n");
+        }
+
+        const auto &desc = kSQLTypeDesc[col->type];
+        buf->append("    ").append(col->name).append(" ").append(desc.name);
+        switch (desc.size_kind) {
+        case 0:
+            buf->append(" ");
+            break;
+        case 1:
+            buf->append(Slice::Sprintf("(%d) ", col->fixed_size));
+            break;
+        case 2:
+            buf->append(Slice::Sprintf("(%d, %d) ", col->fixed_size,
+                                       col->float_size));
+            break;
+        default:
+            break;
+        }
+        if (col->not_null) {
+            buf->append("NOT NULL ");
+        } else {
+            buf->append("NULL ");
+        }
+        if (col->auto_increment) {
+            buf->append("AUTO_INCREMENT ");
+        }
+        if (!col->default_val.empty()) {
+            buf->append("\'").append(col->default_val).append("\' ");
+        }
+        if (col->key != SQL_NOT_KEY) {
+            buf->append(kSQLKeyText[col->key]).append(" ");
+        }
+        if (!col->comment.empty()) {
+            buf->append("COMMENT \"").append(col->comment).append("\"");
+        }
+        first = false;
+    }
+    
+    //buf->append(") ENGINE \"").append(engine_name_).append("\";\n");
+    buf->append(");\n");
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
 /// class FormSchemaPatch
 ////////////////////////////////////////////////////////////////////////////////
     
-void FormSchemaPatch::PartialEncode(bool add, std::string *buf) const {
-    using ::mai::base::Slice;
-
-    buf->append(1, add ? 0 : 1);
+void FormSchemaPatch::PartialEncode(const std::string &new_name,
+                                    std::string *buf) const {
     Slice::WriteString(buf, db_name_);
     Slice::WriteString(buf, table_name_);
+    Slice::WriteString(buf, new_name);
     Slice::WriteFixed32(buf, version_);
     Slice::WriteString(buf, engine_name_);
     Slice::WriteVarint64(buf, next_file_number_);
@@ -294,11 +351,11 @@ Error FormSchemaSet::LogAndApply(FormSchemaPatch *patch) {
         }
     }
 
-    builder.SetOlder(it->second);
+    builder.SetOlder(it == db->end() ? nullptr : it->second);
     
     patch->set_next_file_number(next_file_number_);
     std::unique_ptr<Form> form(builder.Build());
-    rs = LogAndSnync(form.get(), patch);
+    rs = LogForm(form.get(), patch);
     if (!rs) {
         return rs;
     }
@@ -314,21 +371,45 @@ Error FormSchemaSet::LogAndApply(FormSchemaPatch *patch) {
     return Error::OK();
 }
 
-Error FormSchemaSet::NewDatabase(const std::string &name) {
+Error FormSchemaSet::NewDatabase(const std::string &name,
+                                 const std::string &engine_name) {
+    Error rs;
     auto iter = dbs_.find(name);
     if (iter != dbs_.end()) {
         return MAI_CORRUPTION("Database has exists. " + name);
     }
+    
     std::string dir(abs_data_dir_);
     dir.append("/").append(name);
-    Error rs = env_->MakeDirectory(dir, true);
+    rs = env_->MakeDirectory(dir, true);
+    if (!rs) {
+        return rs;
+    }
+    dir = abs_meta_dir_;
+    dir.append("/").append(name);
+    if (!env_->FileExists(dir)) {
+        rs = env_->MakeDirectory(dir, true);
+    }
     if (!rs) {
         return rs;
     }
 
-    // TODO:
-    
-    dbs_.insert({name, {}});
+    if (!log_file_) {
+        rs = CreateMetaFile();
+        if (!rs) {
+            return rs;
+        }
+    }
+
+    std::string buf;
+    buf.append(1, kUpdateDatabase);
+    Slice::WriteString(&buf, name);
+    Slice::WriteString(&buf, engine_name);
+    rs = EnsureWrite(buf);
+    if (!rs) {
+        return rs;
+    }
+    dbs_.insert({name, TableSlot()});
     return Error::OK();
 }
     
@@ -341,13 +422,14 @@ Error FormSchemaSet::BuildNewForm(TableSlot *db, FormSchemaPatch *patch,
                               patch->table_name());
     }
 
+    builder->set_table_name(patch->table_name());
+    builder->set_engine_name(patch->engine_name());
     for (auto column : spec->GetColumns()) {
         Error rs = builder->AddColumn(column);
         if (!rs) {
             return rs;
         }
     }
-    db->insert({patch->table_name(), nullptr});
     return Error::OK();
 }
     
@@ -403,15 +485,21 @@ Error FormSchemaSet::CreateMetaFile() {
 Error FormSchemaSet::WriteSnapshot() {
     std::string buf;
     for (const auto &db_pair : dbs_) {
+        buf.append(1, kUpdateDatabase);
+        Slice::WriteString(&buf, db_pair.first);
+        Slice::WriteString(&buf, "");
+
         for (const auto &table_pair : db_pair.second) {
             FormSchemaPatch patch(db_pair.first, table_pair.first);
             patch.set_version(table_pair.second->version());
             patch.set_engine_name(table_pair.second->engine_name());
             patch.set_next_file_number(next_file_number_);
-            patch.PartialEncode(true, &buf);
+            
+            buf.append(1, kUpdateTable);
+            patch.PartialEncode(patch.table_name(), &buf);
         }
     }
-    Error rs = logger_->Append(buf);
+    Error rs = EnsureWrite(buf);
     if (!rs) {
         return rs;
     }
@@ -423,9 +511,49 @@ Error FormSchemaSet::WriteSnapshot() {
     return base::FileWriter::WriteAll(file_name, content, env_);
 }
 
-Error FormSchemaSet::LogAndSnync(const Form *form, FormSchemaPatch *patch) {
+Error FormSchemaSet::LogForm(const Form *form, FormSchemaPatch *patch) {
+    std::string buf;
+    Slice::WriteString(&buf, patch->db_name());
+    Slice::WriteFixed32(&buf, form->version());
+    form->ToCreateTable(&buf);
     
-    return MAI_NOT_SUPPORTED("TODO:");
+    std::string file_name(abs_meta_dir_);
+    file_name
+        .append("/")
+        .append(patch->db_name())
+        .append("/")
+        .append(patch->table_name())
+        .append(".frm");
+    env_->DeleteFile(file_name, false);
+    
+    file_name = abs_meta_dir_;
+    file_name
+        .append("/")
+        .append(patch->db_name())
+        .append("/")
+        .append(form->table_name())
+        .append(".frm");
+    Error rs = base::FileWriter::WriteAll(file_name, buf, env_);
+    if (!rs) {
+        return rs;
+    }
+    
+    buf.clear();
+    buf.append(1, kUpdateTable);
+    patch->PartialEncode(form->table_name(), &buf);
+    return EnsureWrite(buf);
+}
+    
+Error FormSchemaSet::EnsureWrite(std::string_view data) {
+    Error rs =  logger_->Append(data);
+    if (!rs) {
+        return rs;
+    }
+    rs = log_file_->Flush();
+    if (!rs) {
+        return rs;
+    }
+    return log_file_->Sync();
 }
 
 } // namespace sql
