@@ -89,6 +89,11 @@ struct Slice {
         buf->append(tmp, n);
     }
     
+    static void WriteString(std::string *buf, std::string_view str) {
+        WriteVarint64(buf, str.size());
+        buf->append(str);
+    }
+    
     static uint16_t SetU16(std::string_view slice) {
         DCHECK_EQ(sizeof(uint16_t), slice.size());
         return *reinterpret_cast<const uint16_t *>(slice.data());

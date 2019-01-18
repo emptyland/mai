@@ -20,6 +20,10 @@
 		23344CE521EF0764006BC6E4 /* transaction-db.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD721EF0751006BC6E4 /* transaction-db.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		23344CE621EF0764006BC6E4 /* transaction.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD321EF0751006BC6E4 /* transaction.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		23344CE721EF0764006BC6E4 /* write-batch.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CDB21EF0751006BC6E4 /* write-batch.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		23344CE921EF082D006BC6E4 /* mai-sql-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CE821EF082D006BC6E4 /* mai-sql-test.cc */; };
+		23344CEC21EF0B5F006BC6E4 /* mai-sql-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CEB21EF0B5F006BC6E4 /* mai-sql-impl.cc */; };
+		23344CEF21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CEE21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc */; };
+		23344CF321EF1C05006BC6E4 /* form-schema.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CF221EF1C05006BC6E4 /* form-schema.cc */; };
 		235C1CCF21D1D63F0070A049 /* optimism-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */; };
 		235C1CD621D210520070A049 /* optimism-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CD421D210520070A049 /* optimism-transaction.cc */; };
 		235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */; };
@@ -277,6 +281,14 @@
 		23344CD921EF0751006BC6E4 /* db.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = db.h; sourceTree = "<group>"; };
 		23344CDA21EF0751006BC6E4 /* comparator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = comparator.h; sourceTree = "<group>"; };
 		23344CDB21EF0751006BC6E4 /* write-batch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "write-batch.h"; sourceTree = "<group>"; };
+		23344CE821EF082D006BC6E4 /* mai-sql-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "mai-sql-test.cc"; sourceTree = "<group>"; };
+		23344CEA21EF0B09006BC6E4 /* mai-sql-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "mai-sql-impl.h"; sourceTree = "<group>"; };
+		23344CEB21EF0B5F006BC6E4 /* mai-sql-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "mai-sql-impl.cc"; sourceTree = "<group>"; };
+		23344CED21EF0D8E006BC6E4 /* mai-sql-connection-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "mai-sql-connection-impl.h"; sourceTree = "<group>"; };
+		23344CEE21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "mai-sql-connection-impl.cc"; sourceTree = "<group>"; };
+		23344CF021EF15AD006BC6E4 /* options.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = options.h; sourceTree = "<group>"; };
+		23344CF121EF1BB7006BC6E4 /* form-schema.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "form-schema.h"; sourceTree = "<group>"; };
+		23344CF221EF1C05006BC6E4 /* form-schema.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "form-schema.cc"; sourceTree = "<group>"; };
 		234372C921998C0A00427E83 /* write-ahead-log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-ahead-log.h"; sourceTree = "<group>"; };
 		235C1CCB21D1D5F70070A049 /* optimism-transaction-db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "optimism-transaction-db.h"; sourceTree = "<group>"; };
 		235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "optimism-transaction-db.cc"; sourceTree = "<group>"; };
@@ -505,6 +517,7 @@
 			isa = PBXGroup;
 			children = (
 				23344CCE21EF06C1006BC6E4 /* mai-sql.h */,
+				23344CF021EF15AD006BC6E4 /* options.h */,
 			);
 			path = "mai-sql";
 			sourceTree = "<group>";
@@ -747,6 +760,12 @@
 				237B0C1C21E4A9B400F3A099 /* parser.h */,
 				237B0C1D21E4A9C100F3A099 /* parser.cc */,
 				2317596A21E5A1BA0025685F /* types.h */,
+				23344CEA21EF0B09006BC6E4 /* mai-sql-impl.h */,
+				23344CEB21EF0B5F006BC6E4 /* mai-sql-impl.cc */,
+				23344CED21EF0D8E006BC6E4 /* mai-sql-connection-impl.h */,
+				23344CEE21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc */,
+				23344CF121EF1BB7006BC6E4 /* form-schema.h */,
+				23344CF221EF1C05006BC6E4 /* form-schema.cc */,
 			);
 			name = sql;
 			path = src/sql;
@@ -757,6 +776,7 @@
 			children = (
 				23B8E68A21E32D8A0001096E /* ast-factory-test.cc */,
 				237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */,
+				23344CE821EF082D006BC6E4 /* mai-sql-test.cc */,
 			);
 			name = sql;
 			path = src/sql;
@@ -1053,6 +1073,7 @@
 				2364B30A21E451F9008519AE /* merging.cc in Sources */,
 				2364B30B21E451F9008519AE /* env.cc in Sources */,
 				2364B30C21E451F9008519AE /* error.cc in Sources */,
+				23344CF321EF1C05006BC6E4 /* form-schema.cc in Sources */,
 				2364B31021E451F9008519AE /* lru-cache-v1.cc in Sources */,
 				2364B31221E451F9008519AE /* delta-amend-iterator.cc in Sources */,
 				237F505121EB74390069075D /* zone.cc in Sources */,
@@ -1063,6 +1084,7 @@
 				2364B32B21E451F9008519AE /* hash.cc in Sources */,
 				2364B32C21E451F9008519AE /* crc32.c in Sources */,
 				2364B33021E451F9008519AE /* arena-utils.cc in Sources */,
+				23344CEF21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc in Sources */,
 				2364B33121E451F9008519AE /* standalone-arena.cc in Sources */,
 				2364B33321E451F9008519AE /* ebr.cc in Sources */,
 				2364B33521E451F9008519AE /* lock-group.cc in Sources */,
@@ -1096,7 +1118,9 @@
 				2364B34F21E451F9008519AE /* ebr-test.cc in Sources */,
 				2364B35021E451F9008519AE /* arena-utils-test.cc in Sources */,
 				2364B35121E451F9008519AE /* config-test.cc in Sources */,
+				23344CE921EF082D006BC6E4 /* mai-sql-test.cc in Sources */,
 				2364B35221E451F9008519AE /* compaction-test.cc in Sources */,
+				23344CEC21EF0B5F006BC6E4 /* mai-sql-impl.cc in Sources */,
 				2364B35321E451F9008519AE /* files-test.cc in Sources */,
 				2364B35421E451F9008519AE /* version-test.cc in Sources */,
 				2364B35521E451F9008519AE /* db-impl-test.cc in Sources */,
