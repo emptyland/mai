@@ -339,7 +339,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
     
 void Form::ToCreateTable(std::string *buf) const {
-    buf->append("CREATE TABLE (\n");
+    buf->append("CREATE TABLE `").append(table_name()).append("` (\n");
     
     bool first = true;
     for (auto col : columns_) {
@@ -348,7 +348,8 @@ void Form::ToCreateTable(std::string *buf) const {
         }
 
         const auto &desc = kSQLTypeDesc[col->type];
-        buf->append("    ").append(col->name).append(" ").append(desc.name);
+        buf->append("    `").append(col->name).append("` ").append(desc.name)
+            .append(" ");
         switch (desc.size_kind) {
         case 0:
             buf->append(" ");
@@ -536,13 +537,14 @@ Error FormSchemaSet::ReadForms(std::map<std::string, DbSlot> *dbs) {
             rs = Parser::Parse(sql.data(), sql.size(), &arena, &result);
             if (!rs) {
                 return MAI_IO_ERROR("Incorrect table schema. " +
-                                    result.FormatError());
+                                    result.FormatError() + "\n" + std::string(sql));
             }
             
             auto ast = CreateTable::Cast(result.block->stmt(0));
             auto form = Ast2Form(inner.first, outter.second.engine_name,
                                  DCHECK_NOTNULL(ast));
             form->version_ = version;
+            form->AddRef();
             inner.second = form;
         }
     }
@@ -586,13 +588,11 @@ Error FormSchemaSet::ReadBuffer(std::string_view buf,
                 
                 auto db = &iter->second.tables;
                 auto it = db->find(patch.table_name());
-                if (!new_name.empty()) {
+                if (new_name != patch.table_name()) {
                     if (it == db->end()) {
                         return MAI_IO_ERROR("Incorrect data, table name not found!");
                     }
                     db->erase(it);
-                } else {
-                    new_name = patch.table_name();
                 }
                 db->insert({new_name, nullptr});
                 iter->second.version = patch.version();
@@ -759,6 +759,23 @@ Error FormSchemaSet::NewDatabase(const std::string &name,
         return rs;
     }
     dbs_.insert({name, DbSlot(engine_name)});
+    return Error::OK();
+}
+    
+Error FormSchemaSet::AcquireFormSchema(const std::string &db_name,
+                                       const std::string &table_name,
+                                       base::intrusive_ptr<Form> *result) const {
+    auto iter = dbs_.find(db_name);
+    if (iter == dbs_.end()) {
+        return MAI_CORRUPTION("Database not found.");
+    }
+    
+    auto it = iter->second.tables.find(table_name);
+    if (it == iter->second.tables.end()) {
+        return MAI_CORRUPTION("Table not found.");
+    }
+
+    result->reset(it->second);
     return Error::OK();
 }
     

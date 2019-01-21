@@ -226,7 +226,7 @@ private:
 
     const Identifier *table_name_;
     ColumnDefinitionList *const columns_;
-    const AstString *engine_name_;
+    const AstString *engine_name_ = AstString::kEmpty;
 }; // class CreateTable
     
 

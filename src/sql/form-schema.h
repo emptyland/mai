@@ -2,6 +2,7 @@
 #define MAI_SQL_FORM_SCHEMA_SET_H_
 
 #include "sql/types.h"
+#include "base/reference-count.h"
 #include "base/base.h"
 #include "mai/error.h"
 #include "glog/logging.h"
@@ -54,6 +55,11 @@ public:
     DEF_VAL_GETTER(int, version);
     DEF_VAL_GETTER(std::string, table_name);
     DEF_VAL_GETTER(std::string, engine_name);
+    
+    const Column *column(size_t i) const {
+        DCHECK_LT(i, columns_.size());
+        return columns_[i].get();
+    }
     
     // TODO:
     Column *FindColumnOrNull(const std::string &name) const {
@@ -282,7 +288,10 @@ public:
                   const std::string &abs_data_dir, Env *env);
     ~FormSchemaSet();
     
+    DEF_VAL_GETTER(uint64_t, meta_file_number);
     DEF_VAL_GETTER(uint64_t, next_file_number);
+    DEF_VAL_GETTER(std::string, abs_meta_dir);
+    DEF_VAL_GETTER(std::string, abs_data_dir);
     
     Error Recovery(uint64_t file_number);
     
@@ -298,6 +307,10 @@ public:
     
     Error NewDatabase(const std::string &name,
                       const std::string &engine_name);
+    
+    Error AcquireFormSchema(const std::string &db_name,
+                            const std::string &table_name,
+                            base::intrusive_ptr<Form> *result) const;
     
     struct DbSlot {
         DbSlot(const std::string &e) : engine_name(e) {}

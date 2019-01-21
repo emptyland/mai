@@ -14,7 +14,7 @@ namespace sql {
     V(TINYINT,  1, 12, 0) \
     V(DECIMAL,  1, 12, 12) \
     V(NUMERIC,  1, 12, 12) \
-    V(CHAR,     0, 0, 0) \
+    V(CHAR,     1, 256, 0) \
     V(VARCHAR,  1, 1024, 0) \
     V(DATE,     0, 0, 0) \
     V(DATETIME, 0, 0, 0)
