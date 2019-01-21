@@ -7,6 +7,7 @@
 namespace mai {
 namespace base {
 class ArenaString;
+class Arena;
 } // namespace base
 namespace sql {
     
@@ -27,6 +28,9 @@ public:
     };
 
     static Error Parse(const char *s, AstFactory *factory, Result *result);
+    
+    static Error Parse(const char *s, size_t n, base::Arena *arena,
+                       Result *result);
     
     DISALLOW_ALL_CONSTRUCTORS(Parser);
 }; // class Parser

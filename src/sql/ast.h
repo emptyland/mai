@@ -215,6 +215,7 @@ public:
     ColumnDefinitionList::const_iterator end() const { return columns_->end(); }
 
     DEF_PTR_PROP_RW_NOTNULL2(const Identifier, table_name);
+    DEF_PTR_PROP_RW_NOTNULL2(const AstString, engine_name);
     
     DEF_AST_NODE(CreateTable);
     DISALLOW_IMPLICIT_CONSTRUCTORS(CreateTable);
@@ -225,6 +226,7 @@ private:
 
     const Identifier *table_name_;
     ColumnDefinitionList *const columns_;
+    const AstString *engine_name_;
 }; // class CreateTable
     
 

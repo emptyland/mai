@@ -11,8 +11,8 @@ namespace mai {
     
 namespace base {
     
-struct Slice {
-    
+class Slice final {
+public:
     static std::string_view GetByte(char value, ScopedMemory *scope) {
         char *p = static_cast<char *>(scope->New(sizeof(value)));
         *p = value;
@@ -121,7 +121,8 @@ struct Slice {
 
 class BufferReader final {
 public:
-    BufferReader(std::string_view buf) : buf_(buf) {}
+    explicit BufferReader(std::string_view buf) : buf_(buf) {}
+    BufferReader(const char *s, size_t n) : buf_(s, n) {}
     
     DEF_VAL_GETTER(size_t, position);
     
@@ -176,6 +177,12 @@ public:
     }
     
     bool Eof() { return position_ >= buf_.length(); }
+    
+    std::string_view Remaining() const {
+        std::string_view buf(buf_);
+        buf.remove_prefix(position_);
+        return buf;
+    }
     
 private:
     size_t position_ = 0;

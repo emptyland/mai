@@ -13,11 +13,16 @@ namespace mai {
 class Env;
 class WritableFile;
 class SequentialFile;
+namespace base {
+class BufferReader;
+}
 namespace db {
 class LogWriter;
 } // namespace db
 namespace sql {
 
+class CreateTable;
+class ColumnDefinition;
 class FormBuilder;
 class FormSchemaSet;
     
@@ -103,6 +108,7 @@ private:
     std::unordered_map<std::string, size_t> column_names_;
     std::vector<std::shared_ptr<Index>>  indices_;
     std::unordered_map<std::string, size_t> index_names_;
+    std::vector<size_t> column_assoc_index_;
     int primary_key_ = -1;
     int version_ = 0;
     Form *older_ = nullptr;
@@ -213,7 +219,6 @@ private:
     SQLKeyType key_;
 }; // class FormSpecPatch
     
-    
 class FormSchemaPatch final {
 public:
     FormSchemaPatch(const std::string &db_name,
@@ -225,24 +230,50 @@ public:
     DEF_VAL_GETTER(std::string, table_name);
     DEF_VAL_PROP_RW(std::string, engine_name);
     DEF_VAL_PROP_RW(uint32_t, version);
-    DEF_VAL_PROP_RW(uint64_t, next_file_number);
+    //DEF_VAL_PROP_RW(uint64_t, next_file_number);
 
     void AddSpec(FormSpecPatch *spec) { specs_.emplace_back(spec); }
     
     void PartialEncode(const std::string &new_name, std::string *buf) const;
+    void PartialDecode(std::string_view buf, std::string *new_name);
     
     friend class FormSchemaSet;
     DISALLOW_IMPLICIT_CONSTRUCTORS(FormSchemaPatch);
 private:
+    FormSchemaPatch() {}
+    void PartialDecode(base::BufferReader *rd, std::string *new_name);
+    
     std::string db_name_;
     std::string table_name_;
     std::string engine_name_;
     
     uint32_t version_ = 0;
-    uint64_t next_file_number_ = 0;
+    //uint64_t next_file_number_ = 0;
     
     std::vector<std::shared_ptr<FormSpecPatch>> specs_;
 }; // class FormSchemaPatch
+    
+    
+class MetadataPatch final {
+public:
+    MetadataPatch() {}
+    
+    DEF_VAL_PROP_RW(uint32_t, next_index_id);
+    DEF_VAL_PROP_RW(uint32_t, next_table_id);
+    DEF_VAL_PROP_RW(uint64_t, next_file_number);
+    
+    void Encode(std::string *buf) const;
+    void Decode(std::string_view buf);
+    
+    friend class FormSchemaSet;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(MetadataPatch);
+private:
+    void Decode(base::BufferReader *rd);
+    
+    uint32_t next_index_id_ = 0;
+    uint32_t next_table_id_ = 0;
+    uint64_t next_file_number_ = 0;
+}; // class MetadataPatch
     
     
 class FormSchemaSet final {
@@ -268,19 +299,33 @@ public:
     Error NewDatabase(const std::string &name,
                       const std::string &engine_name);
     
-    using TableSlot = std::unordered_map<std::string, Form *>;
+    struct DbSlot {
+        DbSlot(const std::string &e) : engine_name(e) {}
+        std::string engine_name;
+        uint32_t version = 0;
+        std::unordered_map<std::string, Form *> tables;
+    };
+    
+    static Form *Ast2Form(const std::string &table_name,
+                          const std::string &engine_name,
+                          const CreateTable *ast);
+    static Form::Column *Ast2Column(const ColumnDefinition *ast);
 private:
     enum RecoredKind : uint8_t {
         kUpdateDatabase,
         kDropDatabase,
         kUpdateTable,
         kDropTable,
+        kUpdateMetadata,
     };
     
-    Error BuildNewForm(TableSlot *db, FormSchemaPatch *patch,
+    Error ReadBuffer(std::string_view buf, std::map<std::string, DbSlot> *dbs);
+    Error ReadForms(std::map<std::string, DbSlot> *dbs);
+    
+    Error BuildNewForm(DbSlot *db, FormSchemaPatch *patch,
                        FormSpecPatch *spec,
                        FormBuilder *builder);
-    Error BuildAddColumn(TableSlot *db, FormSchemaPatch *patch,
+    Error BuildAddColumn(DbSlot *db, FormSchemaPatch *patch,
                          FormSpecPatch *spec,
                          FormBuilder *builder);
     
@@ -291,12 +336,21 @@ private:
     
     Error EnsureWrite(std::string_view data);
     
+    void AppendMetadata(std::string *buf) const {
+        buf->append(1, kUpdateMetadata);
+        MetadataPatch patch;
+        patch.set_next_index_id(0); // TODO;
+        patch.set_next_table_id(0); // TODO;
+        patch.set_next_file_number(next_file_number_);
+        patch.Encode(buf);
+    }
+    
     std::string const abs_meta_dir_;
     std::string const abs_data_dir_;
     Env *const env_;
     uint64_t meta_file_number_ = 0;
     uint64_t next_file_number_ = 0;
-    std::map<std::string, TableSlot> dbs_;
+    std::map<std::string, DbSlot> dbs_;
     std::unique_ptr<WritableFile> log_file_;
     std::unique_ptr<db::LogWriter> logger_;
 }; // class FormSchemaSet
