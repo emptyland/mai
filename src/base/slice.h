@@ -94,17 +94,17 @@ public:
         buf->append(str);
     }
     
-    static uint16_t SetU16(std::string_view slice) {
+    static uint16_t SetFixed16(std::string_view slice) {
         DCHECK_EQ(sizeof(uint16_t), slice.size());
         return *reinterpret_cast<const uint16_t *>(slice.data());
     }
     
-    static uint32_t SetU32(std::string_view slice) {
+    static uint32_t SetFixed32(std::string_view slice) {
         DCHECK_EQ(sizeof(uint32_t), slice.size());
         return *reinterpret_cast<const uint32_t *>(slice.data());
     }
     
-    static uint64_t SetU64(std::string_view slice) {
+    static uint64_t SetFixed64(std::string_view slice) {
         DCHECK_EQ(sizeof(uint64_t), slice.size());
         return *reinterpret_cast<const uint64_t *>(slice.data());
     }
@@ -135,14 +135,14 @@ public:
         DCHECK(!Eof());
         std::string_view result = buf_.substr(position_, 4);
         position_ += 4;
-        return Slice::SetU32(result);
+        return Slice::SetFixed32(result);
     }
     
     uint64_t ReadFixed64() {
         DCHECK(!Eof());
         std::string_view result = buf_.substr(position_, 8);
         position_ += 8;
-        return Slice::SetU64(result);
+        return Slice::SetFixed64(result);
     }
     
     uint32_t ReadVarint32() {

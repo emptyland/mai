@@ -87,6 +87,11 @@ enum SQLOperator : int {
 #undef  DECL_ENUM
 };
     
+enum StorageKind : int {
+    SQL_ROW_STORE,
+    SQL_COLUMN_STORE,
+};
+    
 enum SQLJoinKind : int {
     SQL_CROSS_JOIN,
     SQL_INNER_JOIN,

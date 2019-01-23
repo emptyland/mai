@@ -39,9 +39,9 @@ public:
         return result[0];
     }
     
-    uint16_t ReadFixed16() { return Slice::SetU16(Read(2, &scratch_)); }
-    uint32_t ReadFixed32() { return Slice::SetU32(Read(4, &scratch_)); }
-    uint64_t ReadFixed64() { return Slice::SetU64(Read(8, &scratch_)); }
+    uint16_t ReadFixed16() { return Slice::SetFixed16(Read(2, &scratch_)); }
+    uint32_t ReadFixed32() { return Slice::SetFixed32(Read(4, &scratch_)); }
+    uint64_t ReadFixed64() { return Slice::SetFixed64(Read(8, &scratch_)); }
     
     void Skip(size_t n) {
         error_ = file_->Skip(n);
@@ -116,13 +116,13 @@ public:
         return result[0];
     }
     uint16_t ReadFixed16(uint64_t offset) {
-        return Slice::SetU16(Read(offset, 2, &scratch_));
+        return Slice::SetFixed16(Read(offset, 2, &scratch_));
     }
     uint32_t ReadFixed32(uint64_t offset) {
-        return Slice::SetU32(Read(offset, 4, &scratch_));
+        return Slice::SetFixed32(Read(offset, 4, &scratch_));
     }
     uint64_t ReadFixed64(uint64_t offset) {
-        return Slice::SetU64(Read(offset, 8, &scratch_));
+        return Slice::SetFixed64(Read(offset, 8, &scratch_));
     }
     uint32_t ReadVarint32(uint64_t offset, size_t *len = nullptr) {
         std::string_view result = Read(offset, Varint32::kMaxLen, &scratch_);

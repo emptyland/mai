@@ -23,7 +23,8 @@ public:
             ASSERT_TRUE(rs.ok()) << rs.ToString();
         }
         
-        rs = schema_->NewDatabase(kPrimaryDatabaseName, "ColumnMaiDB");
+        rs = schema_->NewDatabase(kPrimaryDatabaseName, kPrimaryDatabaseName,
+                                  SQL_COLUMN_STORE);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
     }
 
@@ -36,7 +37,7 @@ public:
     
     void BuildBaseTable() {
         FormSchemaPatch patch(kPrimaryDatabaseName, "t1");
-        patch.set_engine_name("ColumnMaiDB");
+        patch.set_engine_name("MaiDB");
         
         auto spec = new FormSpecPatch(FormSpecPatch::kCreatTable);
         FormColumn col;
@@ -145,7 +146,6 @@ TEST_F(FormSchemaTest, CreateTable) {
     EXPECT_EQ("a", form->column(0)->name);
     EXPECT_EQ(SQL_BIGINT, form->column(0)->type);
     EXPECT_EQ(SQL_PRIMARY_KEY, form->column(0)->key);
-    
 }
     
 } // namespace sql

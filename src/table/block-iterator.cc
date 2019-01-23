@@ -18,7 +18,7 @@ BlockIterator::BlockIterator(const core::InternalKeyComparator *ikcmp,
     , data_base_(static_cast<const char *>(block))
     , data_end_(data_base_ + block_size) {
 
-    n_restarts_ = Slice::SetU32(std::string_view(data_end_ - 4, 4));
+    n_restarts_ = Slice::SetFixed32(std::string_view(data_end_ - 4, 4));
     DCHECK_GT(n_restarts_, 0);
     
     auto idx = data_end_ - 4 - n_restarts_ * 4;

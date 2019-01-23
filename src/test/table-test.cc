@@ -62,11 +62,11 @@ void TableTest::ReadProperties(const char *file_name, uint32_t *magic_number,
     rs = file->Read(file_size - 4, 4, &result, &scratch);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    *magic_number = Slice::SetU32(result);
+    *magic_number = Slice::SetFixed32(result);
     
     rs = file->Read(file_size - 12, 8, &result, &scratch);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    auto props_pos = Slice::SetU64(result);
+    auto props_pos = Slice::SetFixed64(result);
     
     std::unique_ptr<table::TableProperties> rv(new table::TableProperties{});
     rs = table::Table::ReadProperties(file.get(), props_pos + 4,

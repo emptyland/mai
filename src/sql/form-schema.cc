@@ -560,10 +560,11 @@ Error FormSchemaSet::ReadBuffer(std::string_view buf,
             case kUpdateDatabase: {
                 std::string name(rd.ReadString());
                 std::string engine_name(rd.ReadString());
+                StorageKind kind = static_cast<StorageKind>(rd.ReadFixed32());
                 
                 auto iter = dbs->find(name);
                 if (iter == dbs->end()) {
-                    dbs->insert({name, DbSlot(engine_name)});
+                    dbs->insert({name, DbSlot(engine_name, kind)});
                 } else {
                     iter->second.engine_name = std::move(engine_name);
                 }
@@ -718,9 +719,68 @@ Error FormSchemaSet::LogAndApply(FormSchemaPatch *patch) {
 
     return Error::OK();
 }
+    
+Error FormSchemaSet::LogAndApply(const std::string &db_name,
+                                 const std::string &table_name,
+                                 Form *form) {
+    FormSchemaPatch patch(db_name, table_name);
+    
+    auto iter = dbs_.find(db_name);
+    if (iter == dbs_.end()) {
+        return MAI_CORRUPTION("Database: " + db_name + " not found!");
+    }
+    auto db = &iter->second.tables;
+    
+    patch.set_engine_name(iter->second.engine_name);
+    patch.set_version(form->version());
+    
+    Error rs = LogForm(form, &patch);
+    if (!rs) {
+        return rs;
+    }
+    // TODO:
+    
+    form->AddRef();
+    if (form->table_name() != table_name) {
+        // Renamed:
+        db->erase(table_name);
+    }
+    iter->second.version = form->version();
+    db->insert({table_name, form});
+    return Error::OK();
+}
+    
+Error FormSchemaSet::BuildForm(const std::string &db_name,
+                               const CreateTable *ast, Form **result) {
+    auto table_name = ast->table_name()->name()->ToString();
+    
+    auto iter = dbs_.find(db_name);
+    if (iter == dbs_.end()) {
+        return MAI_CORRUPTION("Database: " + db_name + " not found!");
+    }
+    auto db = &iter->second.tables;
+    auto it = db->find(table_name);
+    
+    FormBuilder builder(it == db->end() ? nullptr : it->second);
+    builder.set_table_name(table_name);
+    builder.set_engine_name(iter->second.engine_name);
+    builder.SetOlder(it == db->end() ? nullptr : it->second);
+
+    Error rs;
+    for (auto col_ast : *ast) {
+        std::shared_ptr<FormColumn> col(Ast2Column(col_ast));
+        rs = builder.AddColumn(col);
+        if (!rs) {
+            return rs;
+        }
+    }
+    *result = builder.Build();
+    return Error::OK();
+}
 
 Error FormSchemaSet::NewDatabase(const std::string &name,
-                                 const std::string &engine_name) {
+                                 const std::string &engine_name,
+                                 StorageKind kind) {
     Error rs;
     auto iter = dbs_.find(name);
     if (iter != dbs_.end()) {
@@ -753,12 +813,13 @@ Error FormSchemaSet::NewDatabase(const std::string &name,
     buf.append(1, kUpdateDatabase);
     Slice::WriteString(&buf, name);
     Slice::WriteString(&buf, engine_name);
+    Slice::WriteFixed32(&buf, kind);
     AppendMetadata(&buf);
     rs = EnsureWrite(buf);
     if (!rs) {
         return rs;
     }
-    dbs_.insert({name, DbSlot(engine_name)});
+    dbs_.insert({name, DbSlot(engine_name, kind)});
     return Error::OK();
 }
     

@@ -54,7 +54,7 @@ Error BlockCache::GetOrLoad(RandomAccessFile *file,
     }
     
     if (checksum_verify) {
-        auto checksum = base::Slice::SetU32(buf.substr(0, 4));
+        auto checksum = base::Slice::SetFixed32(buf.substr(0, 4));
         if (checksum != base::Hash::Crc32(buf.data() + 4, buf.size() - 4)) {
             return MAI_IO_ERROR("Checksum fail!");
         }

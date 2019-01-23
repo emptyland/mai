@@ -10,6 +10,8 @@ class Arena;
 } // namespace base
 
 class MaiSQLConnection;
+class PreparedStatement;
+class ResultSet;
     
 extern const char kPrimaryDatabaseName[];
 
@@ -50,6 +52,10 @@ public:
     virtual Error SwitchDB(const std::string &name) = 0;
 
     virtual Error Execute(const std::string &sql) = 0;
+    
+    virtual ResultSet *Query(const std::string &sql) = 0;
+    
+    virtual PreparedStatement *Prepare(const std::string &sql) = 0;
 
     MaiSQLConnection(const MaiSQLConnection &) = delete;
     void operator = (const MaiSQLConnection &) = delete;
@@ -62,6 +68,56 @@ protected:
     std::string conn_str_;
     uint32_t thread_id_ = 0;
 };
+    
+class PreparedStatement {
+public:
+    PreparedStatement() {}
+    virtual ~PreparedStatement() {}
+    
+    virtual uint32_t stmt_id() const = 0;
+    
+    virtual int parameters_count() = 0;
+    
+    virtual Error error() = 0;
+    
+    virtual Error Bind(int idx, int64_t value) = 0;
+    
+    virtual Error Bind(int idx, double value) = 0;
+    
+    virtual Error Bind(int idx, std::string_view value) = 0;
+    
+    virtual ResultSet *Execute() = 0;
+    
+    PreparedStatement(const PreparedStatement &) = delete;
+    void operator = (const PreparedStatement &) = delete;
+}; // class PreparedStatement
+    
+    
+class ResultSet {
+public:
+    ResultSet() {}
+    virtual ~ResultSet() {}
+    
+    virtual Error error() = 0;
+    
+    virtual int errors() = 0;
+    
+    virtual int warnings() = 0;
+    
+    // Number of affected rows.
+    virtual int affects() = 0;
+    
+    virtual int64_t latest_id() = 0;
+    
+    virtual int columns_count() = 0;
+    
+    virtual bool Valid() = 0;
+    
+    virtual void Next() = 0;
+
+    ResultSet(const ResultSet &) = delete;
+    void operator = (const ResultSet &) = delete;
+}; // class ResultSet
 
 } // namespace mai
 

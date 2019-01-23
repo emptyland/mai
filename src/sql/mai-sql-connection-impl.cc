@@ -1,8 +1,9 @@
 #include "sql/mai-sql-connection-impl.h"
 #include "sql/mai-sql-impl.h"
 #include "sql/form-schema.h"
+#include "sql/storage-engine.h"
 #include "sql/parser.h"
-#include "sql/ast-factory.h"
+#include "sql/ast.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -25,6 +26,20 @@ MaiSQLConnectionImpl::MaiSQLConnectionImpl(const std::string &conn_str,
     if (arena_ownership_) {
         delete arena_;
     }
+    
+    owns_impl_->RemoveConnection(this);
+}
+    
+Error MaiSQLConnectionImpl::Reinitialize(const std::string &init_db_name,
+                                        base::Arena *arena,
+                                        bool arena_ownership) {
+    engine_ = nullptr;
+    if (arena_ownership_) {
+        delete arena_;
+    }
+    arena_  = DCHECK_NOTNULL(arena);
+    arena_ownership_ = arena_ownership;
+    return SwitchDB(init_db_name);
 }
 
 /*virtual*/ uint32_t MaiSQLConnectionImpl::conn_id() const {
@@ -36,24 +51,80 @@ MaiSQLConnectionImpl::MaiSQLConnectionImpl(const std::string &conn_str,
 }
 
 /*virtual*/ std::string MaiSQLConnectionImpl::GetDB() const {
-    return "";
+    return db_name_;
 }
     
 /*virtual*/ Error MaiSQLConnectionImpl::SwitchDB(const std::string &name) {
-    return MAI_NOT_SUPPORTED("TODO:");
+    engine_ = owns_impl_->GetDatabaseEngineOrNull(name);
+    if (!engine_) {
+        return MAI_CORRUPTION("Database name: " + name + " not found.");
+    }
+    db_name_ = name;
+    return Error::OK();
 }
 
 /*virtual*/ Error MaiSQLConnectionImpl::Execute(const std::string &sql) {
-    AstFactory factory(arena_);
     Parser::Result result;
-    
-    Error rs = Parser::Parse(sql.c_str(), &factory, &result);
+    Error rs = Parser::Parse(sql.data(), sql.size(), arena_, &result);
     if (!rs) {
         return MAI_CORRUPTION(result.FormatError());
     }
     
+    std::unique_ptr<ResultSet> stub;
+    for (auto stmt : *result.block) {
+        stub.reset(ExecuteStatement(stmt));
+        
+        if (stub->error().fail()) {
+            return stub->error();
+        }
+        
+        while (stub->Valid()) {
+            stub->Next();
+        }
+    }
+    return Error::OK();
+}
     
-    return MAI_NOT_SUPPORTED("TODO:");
+/*virtual*/
+ResultSet *MaiSQLConnectionImpl::Query(const std::string &sql) {
+    // TODO:
+    return nullptr;
+}
+    
+/*virtual*/ PreparedStatement *MaiSQLConnectionImpl::Prepare(const std::string &sql) {
+    // TODO:
+    return nullptr;
+}
+    
+ResultSet *MaiSQLConnectionImpl::ExecuteStatement(const Statement *stmt) {
+    if (stmt->is_ddl()) { // execute utils command
+        switch (stmt->kind()) {
+            case AstNode::kCreateTable: {
+                auto ast = CreateTable::Cast(stmt);
+                Form *frm = nullptr;
+                std::lock_guard<std::mutex> lock(owns_impl_->form_schema_mutex_);
+                Error rs = owns_impl_->form_schema_->BuildForm(db_name_, ast, &frm);
+                if (!rs) {
+                    return nullptr;
+                }
+                rs = engine_->NewTable(db_name_, frm);
+                if (!rs) {
+                    return nullptr;
+                }
+                rs = owns_impl_->form_schema_->LogAndApply(db_name_,
+                                                           frm->table_name(),
+                                                           frm);
+                if (!rs) {
+                    return nullptr;
+                }
+            } break;
+                
+            default:
+                break;
+        }
+    }
+
+    return nullptr;
 }
     
 } // namespace sql

@@ -305,19 +305,49 @@ public:
 
     Error LogAndApply(FormSchemaPatch *patch);
     
-    Error NewDatabase(const std::string &name,
-                      const std::string &engine_name);
+    Error LogAndApply(const std::string &db_name, const std::string &table_name,
+                      Form *form);
     
+    Error NewDatabase(const std::string &name,
+                      const std::string &engine_name,
+                      StorageKind kind);
+    
+    Error GetDatabaseEngineName(const std::string &db_name,
+                                std::string *engine_name) const {
+        auto iter = dbs_.find(db_name);
+        if (iter == dbs_.end()) {
+            return MAI_CORRUPTION("Database not found.");
+        }
+        *engine_name = iter->second.engine_name;
+        return Error::OK();
+    }
+    
+    void
+    GetDatabaseEngineName(std::map<std::string, std::string> *profiles) const {
+        profiles->clear();
+        for (const auto &pair : dbs_) {
+            profiles->insert({pair.first, pair.second.engine_name});
+        }
+    }
+
     Error AcquireFormSchema(const std::string &db_name,
                             const std::string &table_name,
                             base::intrusive_ptr<Form> *result) const;
     
     struct DbSlot {
-        DbSlot(const std::string &e) : engine_name(e) {}
+        DbSlot(const std::string &e, StorageKind k)
+            : engine_name(e)
+            , storage_kind(k) {}
         std::string engine_name;
+        StorageKind storage_kind = SQL_ROW_STORE;
         uint32_t version = 0;
         std::unordered_map<std::string, Form *> tables;
     };
+    
+    const std::map<std::string, DbSlot> &GetDatabases() const { return dbs_; }
+    
+    Error BuildForm(const std::string &db_name, const CreateTable *ast,
+                    Form **result);
     
     static Form *Ast2Form(const std::string &table_name,
                           const std::string &engine_name,

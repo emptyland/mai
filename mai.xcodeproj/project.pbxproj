@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2303D93221F808C500075A99 /* storage-engine.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2303D93121F808C500075A99 /* storage-engine.cc */; };
 		2317596921E5933F0025685F /* sql.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2317596821E5933F0025685F /* sql.yy.cc */; };
 		23344CDC21EF0764006BC6E4 /* allocator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD621EF0751006BC6E4 /* allocator.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		23344CDD21EF0764006BC6E4 /* comparator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CDA21EF0751006BC6E4 /* comparator.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -137,6 +138,7 @@
 		23B0E0EB2187FAF200F9E855 /* libglog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E82187FAF200F9E855 /* libglog.a */; };
 		23B0E0EC2187FAF200F9E855 /* libgflags.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E92187FAF200F9E855 /* libgflags.a */; };
 		23B0E0ED2187FAF200F9E855 /* libgtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0EA2187FAF200F9E855 /* libgtest.a */; };
+		23B2C90B21F6C64600DF609E /* storage-engine-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B2C90A21F6C64600DF609E /* storage-engine-factory.cc */; };
 		23B8E68721E2E50F0001096E /* lock-group.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B8E68521E2E50F0001096E /* lock-group.cc */; };
 		23BF17E621D4A96D00A722B9 /* transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E421D4A96D00A722B9 /* transaction-db.cc */; };
 		23BF17EB21D4C1D100A722B9 /* delta-amend-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */; };
@@ -234,6 +236,8 @@
 		2302F6B921AE803700AE0309 /* s1-table-reader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "s1-table-reader.h"; sourceTree = "<group>"; };
 		2302F6BA21AE80AB00AE0309 /* s1-table-reader.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "s1-table-reader.cc"; sourceTree = "<group>"; };
 		2302F6BD21AE961200AE0309 /* s1-table-reader-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "s1-table-reader-test.cc"; sourceTree = "<group>"; };
+		2303D93021F8087A00075A99 /* storage-engine.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "storage-engine.h"; sourceTree = "<group>"; };
+		2303D93121F808C500075A99 /* storage-engine.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "storage-engine.cc"; sourceTree = "<group>"; };
 		230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map-v2.h"; sourceTree = "<group>"; };
 		2317596821E5933F0025685F /* sql.yy.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sql.yy.cc; sourceTree = "<group>"; };
 		2317596A21E5A1BA0025685F /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
@@ -376,6 +380,8 @@
 		23B0E15B2190318000F9E855 /* table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = table.cc; sourceTree = "<group>"; };
 		23B0E16221927E7400F9E855 /* reference-count.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "reference-count.h"; sourceTree = "<group>"; };
 		23B0E16321927F6C00F9E855 /* reference-count-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "reference-count-test.cc"; sourceTree = "<group>"; };
+		23B2C90921F6C62300DF609E /* storage-engine-factory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "storage-engine-factory.h"; sourceTree = "<group>"; };
+		23B2C90A21F6C64600DF609E /* storage-engine-factory.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "storage-engine-factory.cc"; sourceTree = "<group>"; };
 		23B4E01521A79C0D007A4533 /* config.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
 		23B4E01621A7A233007A4533 /* compaction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = compaction.h; sourceTree = "<group>"; };
 		23B4E01721A7A292007A4533 /* compaction-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "compaction-test.cc"; sourceTree = "<group>"; };
@@ -773,6 +779,10 @@
 				23344CF121EF1BB7006BC6E4 /* form-schema.h */,
 				23344CF221EF1C05006BC6E4 /* form-schema.cc */,
 				23DB849E21F55D4B003AEDCB /* config.h */,
+				2303D93021F8087A00075A99 /* storage-engine.h */,
+				2303D93121F808C500075A99 /* storage-engine.cc */,
+				23B2C90921F6C62300DF609E /* storage-engine-factory.h */,
+				23B2C90A21F6C64600DF609E /* storage-engine-factory.cc */,
 			);
 			name = sql;
 			path = src/sql;
@@ -1081,6 +1091,7 @@
 				2364B30821E451F9008519AE /* iterator-warpper.cc in Sources */,
 				2364B30A21E451F9008519AE /* merging.cc in Sources */,
 				2364B30B21E451F9008519AE /* env.cc in Sources */,
+				23B2C90B21F6C64600DF609E /* storage-engine-factory.cc in Sources */,
 				23D2F6BE21F1CC2300A49B1A /* types.cc in Sources */,
 				2364B30C21E451F9008519AE /* error.cc in Sources */,
 				23344CF321EF1C05006BC6E4 /* form-schema.cc in Sources */,
@@ -1120,6 +1131,7 @@
 				2364B34821E451F9008519AE /* file-test.cc in Sources */,
 				2364B34921E451F9008519AE /* arena-test.cc in Sources */,
 				2364B34A21E451F9008519AE /* tls-test.cc in Sources */,
+				2303D93221F808C500075A99 /* storage-engine.cc in Sources */,
 				2364B34B21E451F9008519AE /* reference-count-test.cc in Sources */,
 				2364B34C21E451F9008519AE /* varint-encoding-test.cc in Sources */,
 				237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */,

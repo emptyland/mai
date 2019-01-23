@@ -767,8 +767,8 @@ Error DBImpl::Redo(uint64_t log_file_number,
     std::string scatch;
     WritingHandler handler(log_file_number, filter, versions_->column_families());
     while (logger.Read(&result, &scatch)) {
-        core::SequenceNumber sn = base::Slice::SetU64(result.substr(0, 8));
-        uint32_t n_entries = base::Slice::SetU32(result.substr(8, 4));
+        core::SequenceNumber sn = base::Slice::SetFixed64(result.substr(0, 8));
+        uint32_t n_entries = base::Slice::SetFixed32(result.substr(8, 4));
         result.remove_prefix(WriteBatch::kHeaderSize);
 
         handler.ResetLastSequenceNumber(sn);

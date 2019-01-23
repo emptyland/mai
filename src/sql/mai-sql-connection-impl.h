@@ -10,6 +10,8 @@ namespace mai {
 namespace sql {
     
 class MaiSQLImpl;
+class Statement;
+class StorageEngine;
     
 class MaiSQLConnectionImpl final : public MaiSQLConnection {
 public:
@@ -20,20 +22,30 @@ public:
                          bool arena_ownership);
     virtual ~MaiSQLConnectionImpl() override;
     
-    void Reinitialize(base::Arena *arena);
+    //DEF_PTR_GETTER(MaiSQLImpl, owns_impl);
+    
+    Error Reinitialize(const std::string &init_db_name, base::Arena *arena,
+                       bool arena_ownership);
     
     virtual uint32_t conn_id() const override;
     virtual base::Arena *arena() const override;
     virtual std::string GetDB() const override;
     virtual Error SwitchDB(const std::string &name) override;
     virtual Error Execute(const std::string &sql) override;
+    virtual ResultSet *Query(const std::string &sql) override;
+    virtual PreparedStatement *Prepare(const std::string &sql) override;
 
     friend class MaiSQLImpl;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(MaiSQLConnectionImpl);
 private:
+    ResultSet *ExecuteStatement(const Statement *stmt);
+    
     const uint32_t conn_id_;
     MaiSQLImpl *const owns_impl_;
-    base::Arena *const arena_;
-    bool const arena_ownership_;
+    base::Arena *arena_;
+    bool arena_ownership_;
+    std::string db_name_;
+    StorageEngine *engine_ = nullptr;
 
     MaiSQLConnectionImpl *next_ = this;
     MaiSQLConnectionImpl *prev_ = this;
