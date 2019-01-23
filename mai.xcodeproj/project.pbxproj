@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		2303D93221F808C500075A99 /* storage-engine.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2303D93121F808C500075A99 /* storage-engine.cc */; };
+		2303D93521F84EF700075A99 /* result-set-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2303D93421F84EF700075A99 /* result-set-impl.cc */; };
+		2303D93721F863F300075A99 /* storage-engine-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2303D93621F863F300075A99 /* storage-engine-test.cc */; };
 		2317596921E5933F0025685F /* sql.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2317596821E5933F0025685F /* sql.yy.cc */; };
 		23344CDC21EF0764006BC6E4 /* allocator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD621EF0751006BC6E4 /* allocator.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		23344CDD21EF0764006BC6E4 /* comparator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CDA21EF0751006BC6E4 /* comparator.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -238,6 +240,9 @@
 		2302F6BD21AE961200AE0309 /* s1-table-reader-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "s1-table-reader-test.cc"; sourceTree = "<group>"; };
 		2303D93021F8087A00075A99 /* storage-engine.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "storage-engine.h"; sourceTree = "<group>"; };
 		2303D93121F808C500075A99 /* storage-engine.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "storage-engine.cc"; sourceTree = "<group>"; };
+		2303D93321F84E9800075A99 /* result-set-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "result-set-impl.h"; sourceTree = "<group>"; };
+		2303D93421F84EF700075A99 /* result-set-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "result-set-impl.cc"; sourceTree = "<group>"; };
+		2303D93621F863F300075A99 /* storage-engine-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "storage-engine-test.cc"; sourceTree = "<group>"; };
 		230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map-v2.h"; sourceTree = "<group>"; };
 		2317596821E5933F0025685F /* sql.yy.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sql.yy.cc; sourceTree = "<group>"; };
 		2317596A21E5A1BA0025685F /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
@@ -783,6 +788,8 @@
 				2303D93121F808C500075A99 /* storage-engine.cc */,
 				23B2C90921F6C62300DF609E /* storage-engine-factory.h */,
 				23B2C90A21F6C64600DF609E /* storage-engine-factory.cc */,
+				2303D93321F84E9800075A99 /* result-set-impl.h */,
+				2303D93421F84EF700075A99 /* result-set-impl.cc */,
 			);
 			name = sql;
 			path = src/sql;
@@ -795,6 +802,7 @@
 				237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */,
 				23344CE821EF082D006BC6E4 /* mai-sql-test.cc */,
 				23D2F6BB21F1C0A300A49B1A /* form-schema-test.cc */,
+				2303D93621F863F300075A99 /* storage-engine-test.cc */,
 			);
 			name = sql;
 			path = src/sql;
@@ -1137,6 +1145,7 @@
 				237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */,
 				2364B34D21E451F9008519AE /* base-test.cc in Sources */,
 				2364B34E21E451F9008519AE /* io-utils-test.cc in Sources */,
+				2303D93721F863F300075A99 /* storage-engine-test.cc in Sources */,
 				2364B34F21E451F9008519AE /* ebr-test.cc in Sources */,
 				2364B35021E451F9008519AE /* arena-utils-test.cc in Sources */,
 				2364B35121E451F9008519AE /* config-test.cc in Sources */,
@@ -1146,6 +1155,7 @@
 				2364B35321E451F9008519AE /* files-test.cc in Sources */,
 				2364B35421E451F9008519AE /* version-test.cc in Sources */,
 				2364B35521E451F9008519AE /* db-impl-test.cc in Sources */,
+				2303D93521F84EF700075A99 /* result-set-impl.cc in Sources */,
 				2364B35621E451F9008519AE /* write-batch-with-index-test.cc in Sources */,
 				2364B35721E451F9008519AE /* transaction-db-test.cc in Sources */,
 				2364B35821E451F9008519AE /* pessimistic-transaction-db-test.cc in Sources */,

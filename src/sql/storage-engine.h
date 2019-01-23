@@ -35,8 +35,26 @@ public:
         return column_families_[def_cf_idx_];
     }
     
+    struct Column {
+        ColumnFamily *owns_cf;
+        uint32_t      col_id;
+    };
+    
+    struct Index {
+        ColumnFamily *owns_cf;
+        uint32_t      idx_id;
+    };
+    
+    enum Flag : uint32_t {
+        kIds = 1,
+        kColumns = 1u << 1,
+        kIndices = 1u << 2,
+    };
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(StorageEngine);
 private:
+    Error SyncMetadata(const std::string &arg, uint32_t flags);
+    
     TransactionDB *trx_db_;
     const StorageKind kind_;
     std::atomic<uint32_t> next_column_id_;
@@ -47,9 +65,14 @@ private:
     size_t sys_cf_idx_ = 0; // __system__
     size_t def_cf_idx_ = 0; // default
     
+    std::unordered_map<std::string, std::shared_ptr<Column>> columns_;
+    std::unordered_map<std::string, std::shared_ptr<Index>> indices_;
+
     static const char kSysCfName[];
     static const char kSysNextIndexIdKey[];
     static const char kSysNextColumnIdKey[];
+    static const char kSysColumnsKey[];
+    static const char kSysIndicesKey[];
 }; // class StorageEngine
 
 } // namespace sql

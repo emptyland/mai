@@ -61,7 +61,15 @@ public:
         return columns_[i].get();
     }
     
-    // TODO:
+    size_t columns_size() const { return columns_.size(); }
+    
+    const Index *index(size_t i) const {
+        DCHECK_LT(i, indices_.size());
+        return indices_[i].get();
+    }
+
+    size_t indices_size() const { return indices_.size(); }
+
     Column *FindColumnOrNull(const std::string &name) const {
         auto iter = column_names_.find(name);
         if (iter == column_names_.end()) {

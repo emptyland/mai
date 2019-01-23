@@ -98,6 +98,9 @@ public:
     ResultSet() {}
     virtual ~ResultSet() {}
     
+    static ResultSet *AsError(Error err);
+    static ResultSet *AsNone();
+    
     virtual Error error() = 0;
     
     virtual int errors() = 0;

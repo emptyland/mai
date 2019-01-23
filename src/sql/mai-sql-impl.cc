@@ -18,7 +18,7 @@ namespace sql {
     
 MaiSQLImpl::MaiSQLImpl(const MaiSQLOptions &opts)
     : conn_zone_(opts.env->GetLowLevelAllocator(), opts.zone_max_cache_size)
-    , dummy_(new MaiSQLConnectionImpl("", 0, this, nullptr, false))
+    , dummy_(new MaiSQLConnectionImpl("", 0, this, nullptr, nullptr, false))
     , next_conn_id_(1)
     , env_(opts.env) {
     if (!opts.data_dir.empty()) {
@@ -111,13 +111,20 @@ MaiSQLImpl::GetConnection(const std::string &conn_str,
             result->reset(old);
         }
     } else {
-        auto conn = new MaiSQLConnectionImpl(conn_str,
-                                             next_conn_id_.fetch_add(1),
-                                             this, arena, ownership);
-        rs = conn->SwitchDB(kPrimaryDatabaseName);
-        if (rs.ok()) {
-            result->reset(conn);
+        std::string init_db(conn_str);
+        if (init_db.empty()) {
+            init_db = kPrimaryDatabaseName;
         }
+
+        auto iter = dbs_.find(init_db);
+        if (iter == dbs_.end()) {
+            return MAI_CORRUPTION("Database: " + init_db + " not found.");
+        }
+        auto conn = new MaiSQLConnectionImpl(init_db,
+                                             next_conn_id_.fetch_add(1),
+                                             this, iter->second, arena,
+                                             ownership);
+        result->reset(conn);
         InsertConnection(conn);
     }
     return rs;

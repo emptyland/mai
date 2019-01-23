@@ -10,14 +10,17 @@ namespace mai {
 namespace sql {
     
 class MaiSQLImpl;
-class Statement;
 class StorageEngine;
+
+class Statement;
+class CreateTable;
     
 class MaiSQLConnectionImpl final : public MaiSQLConnection {
 public:
     MaiSQLConnectionImpl(const std::string &conn_str,
                          const uint32_t conn_id,
                          MaiSQLImpl *owns,
+                         StorageEngine *engine,
                          base::Arena *arena,
                          bool arena_ownership);
     virtual ~MaiSQLConnectionImpl() override;
@@ -39,13 +42,16 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(MaiSQLConnectionImpl);
 private:
     ResultSet *ExecuteStatement(const Statement *stmt);
-    
+    Error ExecuteCreateTable(const CreateTable *ast);
+
+    std::string db_name_;
     const uint32_t conn_id_;
     MaiSQLImpl *const owns_impl_;
+    StorageEngine *engine_;
     base::Arena *arena_;
     bool arena_ownership_;
-    std::string db_name_;
-    StorageEngine *engine_ = nullptr;
+    
+    
 
     MaiSQLConnectionImpl *next_ = this;
     MaiSQLConnectionImpl *prev_ = this;

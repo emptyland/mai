@@ -32,17 +32,20 @@ Error StorageEngineFactory::NewEngine(const std::string &abs_data_dir,
     name.append("/").append(db_name);
     TransactionDB *db = nullptr;
     
+    opts.env = env_;
     Error rs = env_->FileExists(test_name);
     if (!rs) {
         // Not exist
-        opts.error_if_exists = true;
+        opts.create_if_missing = true;
         rs = TransactionDB::Open(opts, trx_opts, name, {}, nullptr, &db);
     } else {
         // Exist
         opts.create_if_missing = false;
         rs = TransactionDB::Open(opts, trx_opts, name, {}, nullptr, &db);
     }
-    *result = new StorageEngine(db, kind);
+    if (rs.ok()) {
+        *result = new StorageEngine(db, kind);
+    }
     return rs;
 }
     

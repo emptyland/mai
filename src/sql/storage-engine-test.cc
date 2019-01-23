@@ -1,3 +1,5 @@
+#include "sql/storage-engine.h"
+#include "sql/storage-engine-factory.h"
 #include "sql/form-schema.h"
 #include "mai-sql/mai-sql.h"
 #include "mai/env.h"
@@ -7,12 +9,13 @@ namespace mai {
     
 namespace sql {
     
-class FormSchemaTest : public ::testing::Test {
+class StorageEngineTest : public ::testing::Test {
 public:
-    FormSchemaTest() {
+    StorageEngineTest() {
         auto abs_meta_dir = env_->GetAbsolutePath(tmp_dirs[0]);
         auto abs_data_dir = env_->GetAbsolutePath(tmp_dirs[1]);
         schema_.reset(new FormSchemaSet(abs_meta_dir, abs_data_dir, env_));
+        factory_.reset(new StorageEngineFactory(abs_meta_dir, env_));
     }
     
     void SetUp() override {
@@ -27,16 +30,16 @@ public:
                                   SQL_COLUMN_STORE);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
     }
-
-    ~FormSchemaTest() override {
+    
+    ~StorageEngineTest() override {
         int i = 0;
         while (tmp_dirs[i]) {
             env_->DeleteFile(tmp_dirs[i++], true);
         }
     }
     
-    void BuildBaseTable() {
-        FormSchemaPatch patch(kPrimaryDatabaseName, "t1");
+    void BuildBaseTable(const std::string &table_name) {
+        FormSchemaPatch patch(kPrimaryDatabaseName, table_name);
         patch.set_engine_name("MaiDB");
         
         auto spec = new FormSpecPatch(FormSpecPatch::kCreatTable);
@@ -73,81 +76,65 @@ public:
         ASSERT_TRUE(rs.ok()) << rs.ToString();
     }
     
+    void BuildBaseEngine(const std::string &table_name,
+                         base::intrusive_ptr<Form> *frm,
+                         std::unique_ptr<StorageEngine> *holder) {
+        BuildBaseTable("t1");
+
+        Error rs = schema_->AcquireFormSchema(kPrimaryDatabaseName, "t1", frm);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        
+        StorageEngine *engine;
+        rs = factory_->NewEngine(schema_->abs_data_dir(), kPrimaryDatabaseName,
+                                 "MaiDB", SQL_COLUMN_STORE, &engine);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        holder->reset(engine);
+        
+        rs = engine->Prepare(true);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+    }
+    
     Env *env_ = Env::Default();
     std::unique_ptr<FormSchemaSet> schema_;
-    
+    std::unique_ptr<StorageEngineFactory> factory_;
+
     static const char *tmp_dirs[];
 };
 
-const char *FormSchemaTest::tmp_dirs[] = {
-    "tests/00-form-schema-meta",
-    "tests/01-form-schema-data",
+const char *StorageEngineTest::tmp_dirs[] = {
+    "tests/00-storage-engine-meta",
+    "tests/01-storage-engine-data",
     nullptr,
 };
-    
-TEST_F(FormSchemaTest, Sanity) {
-    FormSchemaPatch patch(kPrimaryDatabaseName, "t1");
-    patch.set_engine_name("ColumnMaiDB");
-    
-    auto spec = new FormSpecPatch(FormSpecPatch::kCreatTable);
-    FormColumn col;
-    col.name = "a";
-    col.type = SQL_BIGINT;
-    col.key  = SQL_PRIMARY_KEY;
-    spec->AddColumn(col);
-    
-    col.name = "b";
-    col.type = SQL_VARCHAR;
-    col.fixed_size = 255;
-    col.key  = SQL_KEY;
-    spec->AddColumn(col);
 
-    patch.AddSpec(spec);
+
+TEST_F(StorageEngineTest, Sanity) {
+    BuildBaseTable("t1");
     
-    Error rs = schema_->LogAndApply(&patch);
+    base::intrusive_ptr<Form> frm;
+    Error rs = schema_->AcquireFormSchema(kPrimaryDatabaseName, "t1", &frm);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    StorageEngine *engine;
+    std::unique_ptr<StorageEngine> holder;
+    rs = factory_->NewEngine(schema_->abs_data_dir(), kPrimaryDatabaseName,
+                             "MaiDB", SQL_COLUMN_STORE, &engine);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    holder.reset(engine);
+    
+    rs = engine->Prepare(true);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
 }
     
-TEST_F(FormSchemaTest, CreateTable) {
-    FormSchemaPatch patch(kPrimaryDatabaseName, "t1");
-    patch.set_engine_name("ColumnMaiDB");
+TEST_F(StorageEngineTest, NewTable) {
+    base::intrusive_ptr<Form> frm;
+    std::unique_ptr<StorageEngine> holder;
+    BuildBaseEngine("t1", &frm, &holder);
     
-    auto spec = new FormSpecPatch(FormSpecPatch::kCreatTable);
-    FormColumn col;
-    col.name = "a";
-    col.type = SQL_BIGINT;
-    col.key  = SQL_PRIMARY_KEY;
-    spec->AddColumn(col);
-    
-    col.name = "b";
-    col.type = SQL_VARCHAR;
-    col.fixed_size = 255;
-    col.key  = SQL_KEY;
-    col.comment = "this is b column";
-    spec->AddColumn(col);
-    
-    patch.AddSpec(spec);
-    
-    Error rs = schema_->LogAndApply(&patch);
+    Error rs = holder->NewTable(kPrimaryDatabaseName, frm.get());
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    
-    FormSchemaSet schema(schema_->abs_meta_dir(), schema_->abs_data_dir(),
-                         env_);
-    auto fn = schema_->meta_file_number();
-    schema_.reset();
-    
-    rs = schema.Recovery(fn);
-    ASSERT_TRUE(rs.ok()) << rs.ToString();
-    
-    base::intrusive_ptr<Form> form;
-    rs = schema.AcquireFormSchema("primary", "t1", &form);
-    ASSERT_TRUE(rs.ok()) << rs.ToString();
-    
-    EXPECT_EQ("a", form->column(0)->name);
-    EXPECT_EQ(SQL_BIGINT, form->column(0)->type);
-    EXPECT_EQ(SQL_PRIMARY_KEY, form->column(0)->key);
 }
-    
+
 } // namespace sql
-    
+
 } // namespace mai

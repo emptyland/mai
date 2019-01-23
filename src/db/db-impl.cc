@@ -190,7 +190,10 @@ Error DBImpl::Open(const std::vector<ColumnFamilyDescriptor> &desc,
 }
     
 Error DBImpl::NewDB(const std::vector<ColumnFamilyDescriptor> &desc) {
-    Error rs = env_->MakeDirectory(abs_db_path_, true);
+    Error rs = env_->FileExists(abs_db_path_);
+    if (!rs) {
+        rs = env_->MakeDirectory(abs_db_path_, true);
+    }
     if (!rs) {
         return rs;
     }

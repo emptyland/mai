@@ -13,11 +13,14 @@ namespace sql {
 MaiSQLConnectionImpl::MaiSQLConnectionImpl(const std::string &conn_str,
                                            const uint32_t conn_id,
                                            MaiSQLImpl *owns,
+                                           StorageEngine *engine,
                                            base::Arena *arena,
                                            bool arena_ownership)
     : MaiSQLConnection(conn_str, DCHECK_NOTNULL(owns))
+    , db_name_(conn_str)
     , conn_id_(conn_id)
     , owns_impl_(owns)
+    , engine_(engine)
     , arena_(arena)
     , arena_ownership_(arena_ownership) {
 }
@@ -101,30 +104,50 @@ ResultSet *MaiSQLConnectionImpl::ExecuteStatement(const Statement *stmt) {
         switch (stmt->kind()) {
             case AstNode::kCreateTable: {
                 auto ast = CreateTable::Cast(stmt);
-                Form *frm = nullptr;
-                std::lock_guard<std::mutex> lock(owns_impl_->form_schema_mutex_);
-                Error rs = owns_impl_->form_schema_->BuildForm(db_name_, ast, &frm);
+                Error rs = ExecuteCreateTable(ast);
                 if (!rs) {
-                    return nullptr;
-                }
-                rs = engine_->NewTable(db_name_, frm);
-                if (!rs) {
-                    return nullptr;
-                }
-                rs = owns_impl_->form_schema_->LogAndApply(db_name_,
-                                                           frm->table_name(),
-                                                           frm);
-                if (!rs) {
-                    return nullptr;
+                    return ResultSet::AsError(rs);
                 }
             } break;
+                
+            // TODO:
+
+            default:
+                break;
+        }
+    }
+    
+    if (stmt->is_dml()) {
+        switch (stmt->kind()) {
+            case AstNode::kInsert:
+                break;
+                
+            // TODO:
                 
             default:
                 break;
         }
     }
-
-    return nullptr;
+    return ResultSet::AsError(Error::OK());
+}
+    
+Error MaiSQLConnectionImpl::ExecuteCreateTable(const CreateTable *ast) {
+    Form *frm = nullptr;
+    std::lock_guard<std::mutex> lock(owns_impl_->form_schema_mutex_);
+    Error rs = owns_impl_->form_schema_->BuildForm(db_name_, ast, &frm);
+    if (!rs) {
+        return rs;
+    }
+    rs = engine_->NewTable(db_name_, frm);
+    if (!rs) {
+        return rs;
+    }
+    rs = owns_impl_->form_schema_->LogAndApply(db_name_, frm->table_name(),
+                                               frm);
+    if (!rs) {
+        return rs;
+    }
+    return Error::OK();
 }
     
 } // namespace sql
