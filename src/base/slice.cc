@@ -44,6 +44,38 @@ namespace base {
     //buf[rv] = 0;
     return std::string(buf.get());
 }
+    
+/*static*/ bool Slice::LikeFloating(const char *s, size_t n) {
+    // 0 : begin
+    // 1 : signe -/+
+    // 2 : digit [0-9]
+    // 3 : dot   .
+    // 4 : float
+    int state = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (s[i] == '-' || s[i] == '+') {
+            if (state != 0) {
+                return false;
+            }
+            state = 1;
+        } else if (::isdigit(s[i])) {
+            if (state == 3 || state == 4) {
+                state = 4;
+            } else {
+                state = 2;
+            }
+        } else if (s[i] == '.') {
+            if (state == 0 || state == 1 || state == 2) {
+                state = 3;
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+    return state == 4;
+}
 
 } // namespace base
     

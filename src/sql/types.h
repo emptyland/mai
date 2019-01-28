@@ -10,12 +10,13 @@ namespace sql {
 #define DEFINE_SQL_TYPES(V) \
     V(BIGINT,   1, 12, 0) \
     V(INT,      1, 12, 0) \
+    V(MEDIUMINT, 1, 12, 0) \
     V(SMALLINT, 1, 12, 0) \
     V(TINYINT,  1, 12, 0) \
-    V(DECIMAL,  1, 12, 12) \
-    V(NUMERIC,  1, 12, 12) \
-    V(CHAR,     1, 256, 0) \
-    V(VARCHAR,  1, 1024, 0) \
+    V(DECIMAL,  1, 64, 30) \
+    V(NUMERIC,  1, 64, 30) \
+    V(CHAR,     1, 255, 0) \
+    V(VARCHAR,  1, 65535, 0) \
     V(DATE,     0, 0, 0) \
     V(DATETIME, 0, 0, 0)
     
@@ -100,6 +101,28 @@ enum SQLJoinKind : int {
     SQL_RIGHT_OUTTER_JOIN,
 };
     
+struct SQLTime {
+    uint32_t  hour    : 8;
+    uint32_t  minute  : 8;
+    uint32_t  second  : 8;
+    uint32_t  padding : 8;
+};
+    
+static_assert(sizeof(SQLTime) == sizeof(uint32_t), "SQLTime too large.");
+    
+struct SQLDate {
+    uint32_t  year  : 16;
+    uint32_t  month : 8;
+    uint32_t  day   : 8;
+};
+    
+static_assert(sizeof(SQLDate) == sizeof(uint32_t), "SQLDate too large.");
+    
+struct SQLDateTime {
+    SQLDate date;
+    SQLTime time;
+    uint32_t micros;
+};
 
 struct SQLTypeDescEntry {
     const char *name;

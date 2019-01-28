@@ -116,6 +116,8 @@ public:
     
     static std::string Vsprintf(const char *fmt, va_list ap);
     
+    static bool LikeFloating(const char *s, size_t n);
+    
     DISALLOW_ALL_CONSTRUCTORS(Slice);
 }; // struct Slice
 
