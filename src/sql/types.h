@@ -2,23 +2,26 @@
 #define MAI_SQL_TYPES_H_
 
 #include <stdint.h>
+#include <time.h>
 
 namespace mai {
     
 namespace sql {
 
 #define DEFINE_SQL_TYPES(V) \
-    V(BIGINT,   1, 12, 0) \
-    V(INT,      1, 12, 0) \
+    V(BIGINT,    1, 12, 0) \
+    V(INT,       1, 12, 0) \
     V(MEDIUMINT, 1, 12, 0) \
-    V(SMALLINT, 1, 12, 0) \
-    V(TINYINT,  1, 12, 0) \
-    V(DECIMAL,  1, 64, 30) \
-    V(NUMERIC,  1, 64, 30) \
-    V(CHAR,     1, 255, 0) \
-    V(VARCHAR,  1, 65535, 0) \
-    V(DATE,     0, 0, 0) \
-    V(DATETIME, 0, 0, 0)
+    V(SMALLINT,  1, 12, 0) \
+    V(TINYINT,   1, 12, 0) \
+    V(DECIMAL,   1, 64, 30) \
+    V(NUMERIC,   1, 64, 30) \
+    V(CHAR,      1, 255, 0) \
+    V(VARCHAR,   1, 65535, 0) \
+    V(BINARY,    1, 255, 0) \
+    V(VARBINARY, 1, 65535, 0) \
+    V(DATE,      0, 0, 0) \
+    V(DATETIME,  0, 0, 0)
     
 enum SQLType : int {
 #define DECL_ENUM(name, a1, a2, a3) SQL_##name,
@@ -102,18 +105,55 @@ enum SQLJoinKind : int {
 };
     
 struct SQLTime {
-    uint32_t  hour    : 8;
-    uint32_t  minute  : 8;
-    uint32_t  second  : 8;
-    uint32_t  padding : 8;
+    uint32_t  hour      : 8;
+    uint32_t  minute    : 8;
+    uint32_t  second    : 8;
+    uint32_t  precision : 8;
+    uint32_t  micros;
+    
+    // 17:08:14 -> 170814
+    uint64_t ToU64() const {
+        return static_cast<uint64_t>(second) +
+               static_cast<uint64_t>(minute) * 100 +
+               static_cast<uint64_t>(hour) * 10000;
+    }
+    
+    static SQLTime Now(uint32_t precision) {
+        ::time_t t = ::time(nullptr);
+        ::tm m;
+        ::localtime_r(&t, &m);
+        return {
+            static_cast<uint32_t>(m.tm_hour),
+            static_cast<uint32_t>(m.tm_min),
+            static_cast<uint32_t>(m.tm_sec), precision, 0
+        };
+    }
 };
     
-static_assert(sizeof(SQLTime) == sizeof(uint32_t), "SQLTime too large.");
+static_assert(sizeof(SQLTime) == sizeof(uint64_t), "SQLTime too large.");
     
 struct SQLDate {
     uint32_t  year  : 16;
     uint32_t  month : 8;
     uint32_t  day   : 8;
+
+    // 1999-01-01 -> 19990101
+    uint64_t ToU64() const {
+        return static_cast<uint64_t>(day) +
+               static_cast<uint64_t>(month) * 100 +
+               static_cast<uint64_t>(year) * 10000;
+    }
+    
+    static SQLDate Now() {
+        ::time_t t = ::time(nullptr);
+        ::tm m;
+        ::localtime_r(&t, &m);
+        return {
+            static_cast<uint32_t>(m.tm_year),
+            static_cast<uint32_t>(m.tm_mon),
+            static_cast<uint32_t>(m.tm_mday)
+        };
+    }
 };
     
 static_assert(sizeof(SQLDate) == sizeof(uint32_t), "SQLDate too large.");
@@ -121,7 +161,31 @@ static_assert(sizeof(SQLDate) == sizeof(uint32_t), "SQLDate too large.");
 struct SQLDateTime {
     SQLDate date;
     SQLTime time;
-    uint32_t micros;
+    
+    uint64_t ToU64() const { return time.ToU64() + date.ToU64() * 1000000; }
+    
+    static SQLDateTime Now(uint32_t precision);
+};
+    
+struct SQLTimeUtils {
+    
+    static uint64_t ToU64(const SQLTime &value) { return value.ToU64(); }
+    static uint64_t ToU64(const SQLDate &value) { return value.ToU64(); }
+    static uint64_t ToU64(const SQLDateTime &value) { return value.ToU64(); }
+    
+    static SQLTime ConvertToTime(const SQLDate &value) { return {0,0,0,0,0}; }
+    static SQLDateTime ConvertToDateTime(const SQLDate &value) {
+        return {value, {0,0,0,0,0}};
+    }
+    static SQLDate ConvertToDate(const SQLDateTime &value) { return value.date; }
+    static SQLTime ConvertToTime(const SQLDateTime &value) { return value.time; }
+    
+    static SQLDate ConvertToDate(const SQLTime &value) {
+        return SQLDate::Now();
+    }
+    static SQLDateTime ConvertToDateTime(const SQLTime &value) {
+        return {SQLDate::Now(), value};
+    }
 };
 
 struct SQLTypeDescEntry {

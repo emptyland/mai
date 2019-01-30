@@ -57,6 +57,19 @@ TEST_F(EvaluationTest, MinusF64) {
     ASSERT_EQ(1.99, ctx.result().f64_val);
 }
     
+TEST_F(EvaluationTest, PlusInt) {
+    auto lhs = factory_.NewConstStr("-1.99");
+    auto rhs = factory_.NewConstI64(2);
+    auto expr = factory_.NewBinary(SQL_PLUS, lhs, rhs);
+    
+    eval::Context ctx(&arena_);
+    auto rs = expr->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ASSERT_EQ(eval::Value::kF64, ctx.result().kind);
+    ASSERT_NEAR(0.01, ctx.result().f64_val, 0.0000001);
+}
+    
 } // namespace eval
 
 } // namespace sql

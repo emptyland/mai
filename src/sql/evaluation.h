@@ -22,6 +22,7 @@ struct Value {
     enum Kind : int {
         kNull,
         kString,
+        kU64,
         kI64,
         kF64,
         kDate,
@@ -33,15 +34,20 @@ struct Value {
     union {
         const AstString *str_val;
         double  f64_val;
+        uint64_t u64_val;
         int64_t i64_val;
         SQLDate date_val;
         SQLTime time_val;
         SQLDateTime dt_val;
     };
     
-    Value ToNumeric() const;
-    Value ToIntegral() const;
-    Value ToFloating() const;
+    bool is_floating() const { return kind == kF64; }
+    bool is_integral() const { return kind == kI64 || kind == kU64; }
+    bool is_number() const { return is_floating() || is_integral(); }
+    
+    Value ToNumeric(Kind hint = kNull) const;
+    Value ToIntegral(Kind hint = kNull) const;
+    Value ToFloating(Kind hint = kNull) const;
     
     bool StrictEquals(const Value &rhs) const;
     int Compare(const Value &rhs) const;

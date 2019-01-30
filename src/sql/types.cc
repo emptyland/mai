@@ -16,6 +16,23 @@ const char *kSQLKeyText[] = {
 };
 #undef  DECL_TEXT
     
+/*static*/ SQLDateTime SQLDateTime::Now(uint32_t precision) {
+    ::time_t t = ::time(nullptr);
+    ::tm m;
+    ::localtime_r(&t, &m);
+    return {
+        {
+            static_cast<uint32_t>(m.tm_year),
+            static_cast<uint32_t>(m.tm_mon),
+            static_cast<uint32_t>(m.tm_mday)
+        }, {
+            static_cast<uint32_t>(m.tm_hour),
+            static_cast<uint32_t>(m.tm_min),
+            static_cast<uint32_t>(m.tm_sec), precision, 0
+        }
+    };
+}
+    
 } // namespace sql
     
 } // namespace mai

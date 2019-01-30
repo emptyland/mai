@@ -118,6 +118,27 @@ public:
     
     static bool LikeFloating(const char *s, size_t n);
     
+    // return:
+    // 0 = not a integral
+    // 'h' = hex
+    // 'o' = otc
+    // 'd' = dec
+    // 's' = signed dec
+    static int LikeIntegral(const char *s, size_t n);
+    
+    // return:
+    // 0 = not a number
+    // 'o' = octal
+    // 'd' = decimal
+    // 's' = signed decimal
+    // 'h' = hexadecimal
+    // 'f' = float
+    static int LikeNumber(const char *s) {
+        return LikeNumber(s, !s ? 0 : strlen(s));
+    }
+    
+    static int LikeNumber(const char *s, size_t n);
+    
     DISALLOW_ALL_CONSTRUCTORS(Slice);
 }; // struct Slice
 
