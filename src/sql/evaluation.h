@@ -12,6 +12,9 @@ namespace mai {
 namespace sql {
 class EvalFactory;
 using AstString = base::ArenaString;
+class HeapTuple;
+class ColumnDescriptor;
+class VirtualSchema;
 namespace eval {
     
 class EvalNode;
@@ -36,8 +39,6 @@ struct Value {
         double  f64_val;
         uint64_t u64_val;
         int64_t i64_val;
-        SQLDate date_val;
-        SQLTime time_val;
         SQLDateTime dt_val;
     };
     
@@ -66,6 +67,7 @@ public:
     bool is_not_null() const { return !is_null(); }
     
     void set_null() { result_.kind = Value::kNull; }
+    
     void set_bool(bool value) {
         result_.kind    = Value::kI64;
         result_.i64_val = value;
@@ -73,10 +75,14 @@ public:
     
     DEF_VAL_PROP_RW(Value, result);
     DEF_PTR_GETTER_NOTNULL(base::Arena, arena);
+    DEF_PTR_PROP_RW(const VirtualSchema, schema);
+    DEF_PTR_PROP_RW(const HeapTuple, input);
     
 private:
     base::Arena *const arena_; // arena for values
     Value result_;
+    const VirtualSchema *schema_;
+    const HeapTuple *input_;
 }; // class Context
     
 class EvalNode {

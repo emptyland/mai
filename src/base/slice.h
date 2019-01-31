@@ -116,16 +116,6 @@ public:
     
     static std::string Vsprintf(const char *fmt, va_list ap);
     
-    static bool LikeFloating(const char *s, size_t n);
-    
-    // return:
-    // 0 = not a integral
-    // 'h' = hex
-    // 'o' = otc
-    // 'd' = dec
-    // 's' = signed dec
-    static int LikeIntegral(const char *s, size_t n);
-    
     // return:
     // 0 = not a number
     // 'o' = octal
@@ -138,6 +128,17 @@ public:
     }
     
     static int LikeNumber(const char *s, size_t n);
+    
+    // return:
+    // 0 = not a date/date-time/time
+    // 'c' = date-time : 0000-00-00 00:00:00
+    // 'd' = date      : 0000-00-00
+    // 't' = time      : 00:00:00
+    static int LikeDateTime(const char *s) {
+        return LikeDateTime(s, !s ? 0 : strlen(s));
+    }
+    
+    static int LikeDateTime(const char *s, size_t n) { return 0; }
     
     DISALLOW_ALL_CONSTRUCTORS(Slice);
 }; // struct Slice

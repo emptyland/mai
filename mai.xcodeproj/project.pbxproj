@@ -14,6 +14,8 @@
 		230D7ACC21FDE8890019F7BB /* evaluation-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230D7ACB21FDE8890019F7BB /* evaluation-test.cc */; };
 		2317596921E5933F0025685F /* sql.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2317596821E5933F0025685F /* sql.yy.cc */; };
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
+		23216A272201A2F900E1B816 /* types-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A262201A2F900E1B816 /* types-test.cc */; };
+		23216A2A2201BC8600E1B816 /* heap-tuple.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A292201BC8600E1B816 /* heap-tuple.cc */; };
 		23344CDC21EF0764006BC6E4 /* allocator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD621EF0751006BC6E4 /* allocator.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		23344CDD21EF0764006BC6E4 /* comparator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CDA21EF0751006BC6E4 /* comparator.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		23344CDE21EF0764006BC6E4 /* db.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD921EF0751006BC6E4 /* db.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -265,6 +267,9 @@
 		231F33FF21BE54D700A994A8 /* bw-nodes.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-nodes.cc"; sourceTree = "<group>"; };
 		231F340221BE665A00A994A8 /* bw-tree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree.h"; sourceTree = "<group>"; };
 		23216A242201561B00E1B816 /* slice-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "slice-test.cc"; sourceTree = "<group>"; };
+		23216A262201A2F900E1B816 /* types-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "types-test.cc"; sourceTree = "<group>"; };
+		23216A282201AD1A00E1B816 /* heap-tuple.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "heap-tuple.h"; sourceTree = "<group>"; };
+		23216A292201BC8600E1B816 /* heap-tuple.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "heap-tuple.cc"; sourceTree = "<group>"; };
 		2326026121ABE7D8003F434C /* standalone-arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "standalone-arena.h"; sourceTree = "<group>"; };
 		2326026221ABE80D003F434C /* standalone-arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "standalone-arena.cc"; sourceTree = "<group>"; };
 		2326026521ABF614003F434C /* arena-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "arena-test.cc"; sourceTree = "<group>"; };
@@ -814,6 +819,8 @@
 				2343978821F9609300512A37 /* evaluation.h */,
 				2343978921F960A400512A37 /* evaluation.cc */,
 				230D7ACA21FDE8290019F7BB /* eval-factory.h */,
+				23216A282201AD1A00E1B816 /* heap-tuple.h */,
+				23216A292201BC8600E1B816 /* heap-tuple.cc */,
 			);
 			name = sql;
 			path = src/sql;
@@ -829,6 +836,7 @@
 				2303D93621F863F300075A99 /* storage-engine-test.cc */,
 				2303D93821F8757500075A99 /* heap-tuple-test.cc */,
 				230D7ACB21FDE8890019F7BB /* evaluation-test.cc */,
+				23216A262201A2F900E1B816 /* types-test.cc */,
 			);
 			name = sql;
 			path = src/sql;
@@ -1103,6 +1111,7 @@
 				2364B2D521E451F9008519AE /* db-iterator.cc in Sources */,
 				2364B2D621E451F9008519AE /* write-batch.cc in Sources */,
 				2364B2D821E451F9008519AE /* table-test.cc in Sources */,
+				23216A2A2201BC8600E1B816 /* heap-tuple.cc in Sources */,
 				2364B2DB21E451F9008519AE /* sst-table-builder.cc in Sources */,
 				2364B2DD21E451F9008519AE /* sst-table-reader.cc in Sources */,
 				2364B2DF21E451F9008519AE /* s1-table-builder.cc in Sources */,
@@ -1120,6 +1129,7 @@
 				2364B2FE21E451F9008519AE /* ordered-memory-table.cc in Sources */,
 				2364B30021E451F9008519AE /* unordered-memory-table.cc in Sources */,
 				2364B30121E451F9008519AE /* bytewise-comparator.cc in Sources */,
+				23216A272201A2F900E1B816 /* types-test.cc in Sources */,
 				23D2F6BC21F1C0A300A49B1A /* form-schema-test.cc in Sources */,
 				2364B30321E451F9008519AE /* key-boundle.cc in Sources */,
 				2364B30421E451F9008519AE /* iterator.cc in Sources */,

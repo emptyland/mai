@@ -1,12 +1,10 @@
-#ifndef NYAA_BASE_BASE_H_
-#define NYAA_BASE_BASE_H_
+#ifndef MAI_BASE_BASE_H_
+#define MAI_BASE_BASE_H_
 
 #include <stddef.h>
 #include <assert.h>
 
 namespace mai {
-
-//namespace base {
 
 #define DISALLOW_IMPLICIT_CONSTRUCTORS(clazz_name) \
     clazz_name (const clazz_name &) = delete;      \
@@ -93,7 +91,7 @@ inline T AddressFrom(intptr_t x) {
 // Return the largest multiple of m which is <= x.
 template <typename T>
 inline T RoundDown(T x, intptr_t m) {
-    //DCHECK(IsPowerOf2(m));
+    assert(IsPowerOf2(m));
     return AddressFrom<T>(OffsetFrom(x) & -m);
 }
 
@@ -175,23 +173,23 @@ void *Round64BytesFill(const uint64_t zag, void *chunk, size_t n);
 
 // OS platform macros
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64)
-#   define NYAA_OS_WINDOWS 1
-#   define NYAA_OS_POSIX   0
+#   define MAI_OS_WINDOWS 1
+#   define MAI_OS_POSIX   0
 #endif
 
 #if defined(unix) || defined(__unix) || defined(__unix__)
-#   define NYAA_OS_UNIX   1
-#   define NYAA_OS_POSIX  1
+#   define MAI_OS_UNIX   1
+#   define MAI_OS_POSIX  1
 #endif
 
 #if defined(linux) || defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
-#   define NYAA_OS_LINUX  1
-#   define NYAA_OS_POSIX  1
+#   define MAI_OS_LINUX  1
+#   define MAI_OS_POSIX  1
 #endif
 
 #if defined(__APPLE__)
-#   define NYAA_OS_DARWIN 1
-#   define NYAA_OS_POSIX  1
+#   define MAI_OS_DARWIN 1
+#   define MAI_OS_POSIX  1
 #endif
 
 // CPU Arch macros
@@ -215,4 +213,4 @@ constexpr static const int kGB = 1024 * kMB;
 
 } // namespace mai
 
-#endif // NYAA_BASE_BASE_H_
+#endif // MAI_BASE_BASE_H_

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <time.h>
+#include <string.h>
 
 namespace mai {
     
@@ -16,14 +17,18 @@ namespace sql {
     V(TINYINT,   1, 12, 0) \
     V(DECIMAL,   1, 64, 30) \
     V(NUMERIC,   1, 64, 30) \
+    V(FLOAT,     1, 64, 30) \
+    V(DOUBLE,    1, 64, 30) \
     V(CHAR,      1, 255, 0) \
     V(VARCHAR,   1, 65535, 0) \
     V(BINARY,    1, 255, 0) \
     V(VARBINARY, 1, 65535, 0) \
     V(DATE,      0, 0, 0) \
+    V(TIME,      0, 0, 0) \
     V(DATETIME,  0, 0, 0)
     
 enum SQLType : int {
+    SQL_TY_NULL,
 #define DECL_ENUM(name, a1, a2, a3) SQL_##name,
     DEFINE_SQL_TYPES(DECL_ENUM)
 #undef  DECL_ENUM
@@ -186,6 +191,17 @@ struct SQLTimeUtils {
     static SQLDateTime ConvertToDateTime(const SQLTime &value) {
         return {SQLDate::Now(), value};
     }
+    
+    // return:
+    // 0 = not a date/date-time/time
+    // 'c' = date-time : 0000-00-00 00:00:00
+    // 'd' = date      : 0000-00-00
+    // 't' = time      : 00:00:00
+    static int Parse(const char *s, SQLDateTime *result) {
+        return Parse(s, !s ? 0 : strlen(s), result);
+    }
+    
+    static int Parse(const char *s, size_t n, SQLDateTime *result);
 };
 
 struct SQLTypeDescEntry {

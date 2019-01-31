@@ -70,6 +70,10 @@ TEST_F(EvaluationTest, PlusInt) {
     ASSERT_NEAR(0.01, ctx.result().f64_val, 0.0000001);
 }
     
+TEST_F(EvaluationTest, PlusDateTime) {
+    
+}
+    
 } // namespace eval
 
 } // namespace sql

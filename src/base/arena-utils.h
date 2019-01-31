@@ -53,7 +53,7 @@ public:
     
     std::string ToString() const { return std::string(data(), size()); }
     
-    std::string_view ToStringView() const {
+    std::string_view ToSlice() const {
         return std::string_view(data(), size());
     }
     

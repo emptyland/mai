@@ -44,6 +44,29 @@ Value Value::ToNumeric(Kind hint) const {
         case kI64:
             return *this;
         case kString:
+            switch (hint) {
+                case kDate:
+                case kTime:
+                case kDateTime:
+                    rv = SQLTimeUtils::Parse(str_val->data(), str_val->size(),
+                                             &v.dt_val);
+                    if (rv == 'd') {
+                        v.kind = kDate;
+                    } else if (rv == 't') {
+                        v.kind = kTime;
+                    } else if (rv == 'c') {
+                        v.kind = kDateTime;
+                    }
+                    if (rv) {
+                        v = v.ToNumeric(hint);
+                    }
+                    break;
+                default:
+                    break;
+            }
+            if (rv) {
+                break;
+            }
             rv = base::Slice::LikeNumber(str_val->data(), str_val->size());
             switch (rv) {
                 case 'd':
@@ -86,13 +109,13 @@ Value Value::ToNumeric(Kind hint) const {
             v.kind = Value::kU64;
             switch (hint) {
                 case kDateTime:
-                    v.u64_val = SQLTimeUtils::ConvertToDateTime(date_val).ToU64();
+                    v.u64_val = SQLTimeUtils::ConvertToDateTime(dt_val.date).ToU64();
                     break;
                 case kTime:
-                    v.u64_val = SQLTimeUtils::ConvertToTime(date_val).ToU64();
+                    v.u64_val = SQLTimeUtils::ConvertToTime(dt_val.date).ToU64();
                     break;
                 default:
-                    v.u64_val = date_val.ToU64();
+                    v.u64_val = dt_val.date.ToU64();
                     break;
             }
             break;
@@ -100,13 +123,13 @@ Value Value::ToNumeric(Kind hint) const {
             v.kind = Value::kU64;
             switch (hint) {
                 case kDateTime:
-                    v.u64_val = SQLTimeUtils::ConvertToDateTime(time_val).ToU64();
+                    v.u64_val = SQLTimeUtils::ConvertToDateTime(dt_val.time).ToU64();
                     break;
                 case kDate:
-                    v.u64_val = SQLTimeUtils::ConvertToDate(time_val).ToU64();
+                    v.u64_val = SQLTimeUtils::ConvertToDate(dt_val.time).ToU64();
                     break;
                 default:
-                    v.u64_val = time_val.ToU64();
+                    v.u64_val = dt_val.time.ToU64();
                     break;
             }
             break;
@@ -184,9 +207,9 @@ bool Value::StrictEquals(const Value &v) const {
                                                str_val->data(),
                                                str_val->size()) == 0;
         case Value::kDate:
-            return v.kind == kind && v.date_val.ToU64() == date_val.ToU64();
+            return v.kind == kind && v.dt_val.date.ToU64() == dt_val.date.ToU64();
         case Value::kTime:
-            return v.kind == kind && v.time_val.ToU64() == time_val.ToU64();
+            return v.kind == kind && v.dt_val.time.ToU64() == dt_val.time.ToU64();
         case Value::kDateTime:
             return v.kind == kind && v.dt_val.ToU64() == dt_val.ToU64();
         default:
@@ -237,10 +260,10 @@ int Value::Compare(const Value &rhs) const {
             return -rhs.Compare(*this);
         case kTime:
             r = rhs.ToIntegral(Value::kTime);
-            return COMPARE_VAL(time_val.ToU64(), r.u64_val);
+            return COMPARE_VAL(dt_val.time.ToU64(), r.u64_val);
         case kDate:
             r = rhs.ToIntegral(Value::kDate);
-            return COMPARE_VAL(date_val.ToU64(), r.u64_val);
+            return COMPARE_VAL(dt_val.date.ToU64(), r.u64_val);
         case kDateTime:
             r = rhs.ToIntegral(Value::kDateTime);
             return COMPARE_VAL(dt_val.ToU64(), r.u64_val);
