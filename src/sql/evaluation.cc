@@ -1,4 +1,5 @@
 #include "sql/evaluation.h"
+#include "sql/heap-tuple.h"
 #include "base/slice.h"
 
 namespace mai {
@@ -41,8 +42,26 @@ Value Value::ToNumeric(Kind hint) const {
     switch (kind) {
         case kNull:
         case kF64:
-        case kI64:
             return *this;
+            
+        case kI64:
+            if (hint == Value::kU64) {
+                v.kind    = Value::kU64;
+                v.u64_val = static_cast<uint64_t>(i64_val);
+            } else {
+                return *this;
+            }
+            break;
+            
+        case kU64:
+            if (hint == Value::kI64) {
+                v.kind    = Value::kI64;
+                v.i64_val = static_cast<int64_t>(u64_val);
+            } else {
+                return *this;
+            }
+            break;
+            
         case kString:
             switch (hint) {
                 case kDate:
@@ -420,14 +439,14 @@ Operation::Operation(SQLOperator op, Expression *lhs,
                         break; \
                 } \
                 rv.kind = lhs.kind; \
-                ctx->set_result(lhs)
+                ctx->set_result(rv)
 
 #define DEF_REAL_ARITH(op) \
                 TO_REAL_NUMBER \
                 DO_REAL_NUMBER(op)
                 
 #define DO_PLUS(lval, rval) ((lval) + (rval))
-#define DO_SUB(lval, rval)  ((lval) + (rval))
+#define DO_SUB(lval, rval)  ((lval) - (rval))
 #define DO_MUL(lval, rval)  ((lval) * (rval))
 #define DO_DIV(lval, rval)  ((lval) / (rval))
 #define DO_MOD(lval, rval)  DoArithMod(lval, rval)
@@ -478,7 +497,7 @@ Operation::Operation(SQLOperator op, Expression *lhs,
                         break; \
                 } \
                 rv.kind = lhs.kind; \
-                ctx->set_result(lhs)
+                ctx->set_result(rv)
                 
 #define DO_BIT_XOR(lval, rval) ((lval) ^ (rval))
 #define DO_BIT_AND(lval, rval) ((lval) & (rval))
@@ -523,6 +542,54 @@ Operation::Operation(SQLOperator op, Expression *lhs,
         }
     }
     return rs;
+}
+    
+/*virtual*/ Error Variable::Evaluate(Context *ctx) {
+    DCHECK_NOTNULL(ctx->input());
+    DCHECK_NOTNULL(ctx->schema());
+    
+    auto cd = ctx->schema()->column(entry_idx_);
+    
+    if (ctx->input()->IsNull(cd)) {
+        ctx->set_null();
+        return Error::OK();
+    }
+    
+    Value v;
+    if (cd->CoverU64()) {
+        v.kind = Value::kU64;
+        v.u64_val = ctx->input()->GetU64(cd);
+    } else if (cd->CoverI64()) {
+        v.kind = Value::kI64;
+        v.i64_val = ctx->input()->GetI64(cd);
+    } else if (cd->CoverF64()) {
+        v.kind = Value::kF64;
+        v.f64_val = ctx->input()->GetF64(cd);
+    } else if (cd->CoverString()) {
+        v.kind = Value::kString;
+        v.str_val = ctx->input()->GetRawString(cd);
+    } else if (cd->CoverDateTime()) {
+        switch (cd->type()) {
+            case SQL_TIME:
+                v.kind = Value::kTime;
+                break;
+            case SQL_DATE:
+                v.kind = Value::kDate;
+                break;
+            case SQL_DATETIME:
+                v.kind = Value::kDateTime;
+                break;
+            default:
+                DLOG(FATAL) << "noreached";
+                break;
+        }
+        v.dt_val = ctx->input()->GetDateTime(cd);
+    } else {
+        DLOG(FATAL) << "noreached";
+    }
+    
+    ctx->set_result(v);
+    return Error::OK();
 }
 
 } // namespace eval

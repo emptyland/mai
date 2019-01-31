@@ -12,6 +12,7 @@ public:
     using Operation = eval::Operation;
     using Expression = eval::Expression;
     using Constant = eval::Constant;
+    using Variable = eval::Variable;
     
     EvalFactory(base::Arena *arena) : arena_(arena) {}
     
@@ -38,6 +39,10 @@ public:
     
     Constant *NewConstStr(const char *s) {
         return NewConstStr(s, !s ? 0 : strlen(s));
+    }
+    
+    Variable *NewVariable(const VirtualSchema *schema, size_t entry_idx) {
+        return new (arena_) Variable(schema, entry_idx);
     }
     
     Operation *NewUnary(SQLOperator op, Expression *operand) {

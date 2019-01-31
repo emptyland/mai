@@ -152,7 +152,14 @@ void VirtualSchemaBuilder::AddColumn(const InnerBuilder &inner) {
     if (error_.fail()) {
         return;
     }
-    auto iter = column_names_.find(inner.name_);
+    std::string full_name;
+    if (inner.table_name_.empty()) {
+        full_name = inner.name_;
+    } else {
+        full_name = inner.table_name_ + "." + inner.name_;
+    }
+    
+    auto iter = column_names_.find(full_name);
     if (iter != column_names_.end()) {
         error_ = MAI_CORRUPTION("Duplicated column name: " + inner.name_);
         return;
@@ -162,16 +169,12 @@ void VirtualSchemaBuilder::AddColumn(const InnerBuilder &inner) {
     cd->origin_ = inner.origin_;
     cd->origin_table_ = inner.origin_table_;
     cd->name_ = std::move(inner.name_);
-    if (inner.table_name_.empty()) {
-        cd->table_name_ = name_;
-    } else {
-        cd->table_name_ = std::move(inner.table_name_);
-    }
+    cd->table_name_ = std::move(inner.table_name_);
     cd->is_unsigned_ = inner.is_unsigned_;
     cd->type_ = inner.type_;
     cd->index_ = static_cast<int>(columns_.size());
-    
-    column_names_.insert({cd->name_, columns_.size()});
+
+    column_names_.insert({std::move(full_name), columns_.size()});
     columns_.push_back(cd);
 }
 
@@ -225,6 +228,7 @@ HeapTuple *HeapTupleBuilder::Build() {
             continue;
         }
         
+        void *addr = tuple->address(offset);
         switch (schema_->column(i)->type()) {
             case SQL_BIGINT:
             case SQL_MEDIUMINT:
@@ -232,11 +236,9 @@ HeapTuple *HeapTupleBuilder::Build() {
             case SQL_SMALLINT:
             case SQL_TINYINT:
                 if (schema_->column(i)->is_unsigned()) {
-                    *static_cast<uint64_t *>(tuple->address(offset))
-                        = unpacked_[i].u64;
+                    *static_cast<uint64_t *>(addr) = unpacked_[i].u64;
                 } else {
-                    *static_cast<int64_t *>(tuple->address(offset))
-                        = unpacked_[i].i64;
+                    *static_cast<int64_t *>(addr)  = unpacked_[i].i64;
                 }
                 offset += sizeof(uint64_t);
                 break;

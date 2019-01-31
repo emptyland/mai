@@ -117,17 +117,16 @@ public:
     SQLDateTime GetDateTime(const ColumnDescriptor *cd) const;
     
     std::string_view GetSlice(const ColumnDescriptor *cd) const {
-        if (IsNull(cd) || !cd->CoverString()) {
-            return "";
-        }
-        return (*address<base::ArenaString *>(cd))->ToSlice();
+        return GetRawString(cd)->ToSlice();
     }
 
     std::string GetString(const ColumnDescriptor *cd) const {
-        if (IsNull(cd) || !cd->CoverString()) {
-            return "";
-        }
-        return (*address<base::ArenaString *>(cd))->ToString();
+        return GetRawString(cd)->ToString();
+    }
+    
+    const base::ArenaString *GetRawString(const ColumnDescriptor *cd) const {
+        return IsNull(cd) || !cd->CoverString()
+               ? base::ArenaString::kEmpty : *address<base::ArenaString *>(cd);
     }
     
     bool IsNull(const ColumnDescriptor *cd) const {
@@ -150,8 +149,8 @@ private:
 
     void *address(size_t offset) {
         DCHECK_LT(offset, size_);
-        return reinterpret_cast<char *>(this) +
-               (null_bitmap_size_ - 1) * sizeof(uint32_t);
+        return reinterpret_cast<char *>(this + 1) +
+               (null_bitmap_size_ - 1) * sizeof(uint32_t) + offset;
     }
     
     template<class T>
@@ -161,8 +160,8 @@ private:
     
     const void *address(size_t offset) const {
         DCHECK_LT(offset, size_);
-        return reinterpret_cast<const char *>(this) +
-               (null_bitmap_size_ - 1) * sizeof(uint32_t);
+        return reinterpret_cast<const char *>(this + 1) +
+               (null_bitmap_size_ - 1) * sizeof(uint32_t) + offset;
     }
     
     size_t GetOffset(const ColumnDescriptor *cd) const;

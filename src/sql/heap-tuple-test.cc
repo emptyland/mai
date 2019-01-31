@@ -69,6 +69,7 @@ TEST_F(HeapTupleTest, BuildHeapTuple) {
     ASSERT_EQ(1, tuple->null_bitmap_size());
     ASSERT_EQ(8, tuple->size());
     ASSERT_TRUE(tuple->IsNotNull(a));
+    ASSERT_EQ(100, tuple->GetU64(a));
     ASSERT_TRUE(tuple->IsNull(b));
     
     tuple = bd.Build();

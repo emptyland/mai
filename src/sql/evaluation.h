@@ -140,7 +140,27 @@ private:
     
     Data data_;
 }; // class Constant
+
+
+class Variable : public Expression {
+public:
+    DEF_PTR_GETTER_NOTNULL(const VirtualSchema, schema);
+    DEF_VAL_GETTER(size_t, entry_idx);
     
+    virtual Error Evaluate(Context *ctx) override;
+    
+    friend class ::mai::sql::EvalFactory;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Variable);
+private:
+    Variable(const VirtualSchema *schema, size_t entry_idx)
+        : schema_(DCHECK_NOTNULL(schema))
+        , entry_idx_(entry_idx) {}
+    
+    const VirtualSchema *const schema_;
+    size_t entry_idx_;
+}; // class Identifier
+
+
 class Operation : public Expression {
 public:
     DEF_VAL_GETTER(size_t, operands_count);
