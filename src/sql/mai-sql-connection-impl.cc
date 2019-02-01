@@ -4,6 +4,7 @@
 #include "sql/storage-engine.h"
 #include "sql/parser.h"
 #include "sql/ast.h"
+#include "mai-sql/result-set.h"
 #include "glog/logging.h"
 
 namespace mai {

@@ -110,10 +110,10 @@ enum SQLJoinKind : int {
 };
     
 struct SQLTime {
-    uint32_t  hour      : 8;
-    uint32_t  minute    : 8;
-    uint32_t  second    : 8;
-    uint32_t  precision : 8;
+    uint32_t  hour      : 16;
+    uint32_t  minute    : 6;
+    uint32_t  second    : 6;
+    uint32_t  negative  : 4;
     uint32_t  micros;
     
     // 17:08:14 -> 170814
@@ -123,16 +123,20 @@ struct SQLTime {
                static_cast<uint64_t>(hour) * 10000;
     }
     
-    static SQLTime Now(uint32_t precision) {
+    int64_t ToI64() const { return negative ? -ToU64() : ToU64(); }
+    
+    static SQLTime Now(bool negative) {
         ::time_t t = ::time(nullptr);
         ::tm m;
         ::localtime_r(&t, &m);
         return {
             static_cast<uint32_t>(m.tm_hour),
             static_cast<uint32_t>(m.tm_min),
-            static_cast<uint32_t>(m.tm_sec), precision, 0
+            static_cast<uint32_t>(m.tm_sec), negative, 0
         };
     }
+    
+    static SQLTime Zero() { return {0, 0, 0, 0, 0}; }
 };
     
 static_assert(sizeof(SQLTime) == sizeof(uint64_t), "SQLTime too large.");
@@ -159,6 +163,8 @@ struct SQLDate {
             static_cast<uint32_t>(m.tm_mday)
         };
     }
+    
+    static SQLDate Zero() { return {0, 0, 0}; }
 };
     
 static_assert(sizeof(SQLDate) == sizeof(uint32_t), "SQLDate too large.");
@@ -169,7 +175,8 @@ struct SQLDateTime {
     
     uint64_t ToU64() const { return time.ToU64() + date.ToU64() * 1000000; }
     
-    static SQLDateTime Now(uint32_t precision);
+    static SQLDateTime Now();
+    static SQLDateTime Zero() { return {SQLDate::Zero(), SQLTime::Zero()}; }
 };
     
 struct SQLTimeUtils {

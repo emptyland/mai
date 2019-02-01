@@ -18,7 +18,7 @@ const char *kSQLKeyText[] = {
 };
 #undef  DECL_TEXT
     
-/*static*/ SQLDateTime SQLDateTime::Now(uint32_t precision) {
+/*static*/ SQLDateTime SQLDateTime::Now() {
     ::time_t t = ::time(nullptr);
     ::tm m;
     ::localtime_r(&t, &m);
@@ -30,7 +30,7 @@ const char *kSQLKeyText[] = {
         }, {
             static_cast<uint32_t>(m.tm_hour),
             static_cast<uint32_t>(m.tm_min),
-            static_cast<uint32_t>(m.tm_sec), precision, 0
+            static_cast<uint32_t>(m.tm_sec), true, 0
         }
     };
 }
@@ -39,14 +39,13 @@ const char *kSQLKeyText[] = {
 SQLTimeUtils::Parse(const char *s, size_t n, SQLDateTime *result) {
     enum State : int {
         kInit,
+        kPrefixNegative,
         kPrefixNum,
-        //kYear,
         kBeginMonth,
         kMonth,
         kBeginDay,
         kDay,
         kDate,
-        //kBeginHour,
         kHour,
         kBeginMinute,
         kMinute,
@@ -74,9 +73,11 @@ SQLTimeUtils::Parse(const char *s, size_t n, SQLDateTime *result) {
                 state = kPrefixNum;
             } else if (state == kPrefixNum) {
                 // ignore
+            } else if (state == kPrefixNegative) {
+                result->time.negative = true;
+                state = kPrefixNum;
             } else if (state == kBeginMonth ||
                        state == kBeginDay ||
-                       //state == kBeginHour ||
                        state == kBeginMinute ||
                        state == kBeginSecond ||
                        state == kBeginMicroSecond) {
@@ -95,8 +96,10 @@ SQLTimeUtils::Parse(const char *s, size_t n, SQLDateTime *result) {
         } else if (c == '-') {
             num[i] = 0;
             i = 0;
-            
-            if (state == kPrefixNum) {
+
+            if (state == kInit) {
+                state = kPrefixNegative;
+            } else if (state == kPrefixNum) {
                 auto y = atoi(num);
                 if (y < 1000 || y > 9999) {
                     return 0;
@@ -119,8 +122,14 @@ SQLTimeUtils::Parse(const char *s, size_t n, SQLDateTime *result) {
             
             if (state == kPrefixNum) {
                 auto h = atoi(num);
-                if (h < 0 || h > 23) {
-                    return 0;
+                if (has_date) {
+                    if (h < 0 || h > 23) {
+                        return 0;
+                    }
+                } else {
+                    if (h < 0 || h > 999) {
+                        return 0;
+                    }
                 }
                 result->time.hour = h;
                 state = kBeginMinute;

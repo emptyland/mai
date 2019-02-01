@@ -111,7 +111,7 @@ bool ColumnDescriptor::CoverString() const {
 }
     
 SQLDateTime HeapTuple::GetDateTime(const ColumnDescriptor *cd) const {
-    SQLDateTime dt;
+    SQLDateTime dt = SQLDateTime::Zero();
     if (IsNull(cd) || !cd->CoverDateTime()) {
         return dt;
     }

@@ -139,16 +139,24 @@ Value Value::ToNumeric(Kind hint) const {
             }
             break;
         case kTime:
-            v.kind = Value::kU64;
+            
             switch (hint) {
                 case kDateTime:
+                    v.kind = Value::kU64;
                     v.u64_val = SQLTimeUtils::ConvertToDateTime(dt_val.time).ToU64();
                     break;
                 case kDate:
+                    v.kind = Value::kU64;
                     v.u64_val = SQLTimeUtils::ConvertToDate(dt_val.time).ToU64();
                     break;
                 default:
-                    v.u64_val = dt_val.time.ToU64();
+                    if (dt_val.time.negative) {
+                        v.kind = Value::kI64;
+                        v.i64_val = dt_val.time.ToI64();
+                    } else {
+                        v.kind = Value::kU64;
+                        v.u64_val = dt_val.time.ToU64();
+                    }
                     break;
             }
             break;

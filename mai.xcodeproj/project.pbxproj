@@ -270,6 +270,7 @@
 		23216A262201A2F900E1B816 /* types-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "types-test.cc"; sourceTree = "<group>"; };
 		23216A282201AD1A00E1B816 /* heap-tuple.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "heap-tuple.h"; sourceTree = "<group>"; };
 		23216A292201BC8600E1B816 /* heap-tuple.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "heap-tuple.cc"; sourceTree = "<group>"; };
+		23216A2B2203FC1800E1B816 /* result-set.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "result-set.h"; sourceTree = "<group>"; };
 		2326026121ABE7D8003F434C /* standalone-arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "standalone-arena.h"; sourceTree = "<group>"; };
 		2326026221ABE80D003F434C /* standalone-arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "standalone-arena.cc"; sourceTree = "<group>"; };
 		2326026521ABF614003F434C /* arena-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "arena-test.cc"; sourceTree = "<group>"; };
@@ -500,15 +501,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		2303D93A21F8765800075A99 /* my */ = {
-			isa = PBXGroup;
-			children = (
-				2303D93B21F8768F00075A99 /* types.h */,
-			);
-			name = my;
-			path = src/my;
-			sourceTree = "<group>";
-		};
 		231F33F721BE490F00A994A8 /* bw */ = {
 			isa = PBXGroup;
 			children = (
@@ -520,6 +512,14 @@
 			);
 			name = bw;
 			path = src/bw;
+			sourceTree = "<group>";
+		};
+		23216A2C2203FC2900E1B816 /* my */ = {
+			isa = PBXGroup;
+			children = (
+				2303D93B21F8768F00075A99 /* types.h */,
+			);
+			path = my;
 			sourceTree = "<group>";
 		};
 		23283B6E21D612DE0011D680 /* txn */ = {
@@ -548,6 +548,7 @@
 		23344CCC21EF065C006BC6E4 /* include */ = {
 			isa = PBXGroup;
 			children = (
+				23216A2C2203FC2900E1B816 /* my */,
 				23344CCF21EF06E2006BC6E4 /* mai */,
 				23344CCD21EF066C006BC6E4 /* mai-sql */,
 			);
@@ -558,6 +559,7 @@
 			isa = PBXGroup;
 			children = (
 				23344CCE21EF06C1006BC6E4 /* mai-sql.h */,
+				23216A2B2203FC1800E1B816 /* result-set.h */,
 				23344CF021EF15AD006BC6E4 /* options.h */,
 			);
 			path = "mai-sql";
@@ -617,7 +619,6 @@
 			isa = PBXGroup;
 			children = (
 				23344CCC21EF065C006BC6E4 /* include */,
-				2303D93A21F8765800075A99 /* my */,
 				23B8E67F21E05F280001096E /* sql */,
 				23283B6E21D612DE0011D680 /* txn */,
 				231F33F721BE490F00A994A8 /* bw */,

@@ -91,38 +91,7 @@ public:
     PreparedStatement(const PreparedStatement &) = delete;
     void operator = (const PreparedStatement &) = delete;
 }; // class PreparedStatement
-    
-    
-class ResultSet {
-public:
-    ResultSet() {}
-    virtual ~ResultSet() {}
-    
-    static ResultSet *AsError(Error err);
-    static ResultSet *AsNone();
-    
-    virtual Error error() = 0;
-    
-    virtual int errors() = 0;
-    
-    virtual int warnings() = 0;
-    
-    // Number of affected rows.
-    virtual int affects() = 0;
-    
-    virtual int64_t latest_id() = 0;
-    
-    virtual int columns_count() = 0;
-    
-    virtual bool Valid() = 0;
-    
-    virtual void Next() = 0;
-
-    ResultSet(const ResultSet &) = delete;
-    void operator = (const ResultSet &) = delete;
-}; // class ResultSet
 
 } // namespace mai
-
 
 #endif // MAI_MAI_SQL_H_
