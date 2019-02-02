@@ -773,6 +773,9 @@ public:
     DEF_PTR_GETTER(Placeholder, placeholder);
     
     std::string ToString() const {
+        if (placeholder_) {
+            return "?";
+        }
         if (prefix_name_->empty()) {
             return name_->ToString();
         }
@@ -817,6 +820,8 @@ public:
     bool is_approx_val() const { return type_ == APPROX; }
     bool is_null_val() const { return type_ == NULL_VAL; }
     bool is_default_placeholder() const { return type_ == DEFAULT_PLACEHOLDER; }
+    
+    DEF_VAL_GETTER(Type, type);
     
     int64_t integer_val() const {
         DCHECK(is_integer_val()); return int_val_;

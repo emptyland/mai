@@ -14,23 +14,22 @@ using namespace ast;
 class SQLParserTest : public ::testing::Test {
 public:
     SQLParserTest()
-        : arena_(env_->GetLowLevelAllocator())
-        , factory_(&arena_) {}
+        : arena_(env_->GetLowLevelAllocator()) {}
     
     Env *env_ = Env::Default();
     base::StandaloneArena arena_;
-    Factory factory_;
+    //Factory factory_;
 };
     
 TEST_F(SQLParserTest, YaccTest) {
     Parser::Result result;
-    auto rs = Parser::Parse("()", &factory_, &result);
+    auto rs = Parser::Parse("()", &arena_, &result);
     ASSERT_FALSE(rs.ok()) <<  rs.ToString();
 }
     
 TEST_F(SQLParserTest, TCLStatement) {
     Parser::Result result;
-    auto rs = Parser::Parse("BEGIN TRANSACTION;", &factory_, &result);
+    auto rs = Parser::Parse("BEGIN TRANSACTION;", &arena_, &result);
     ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
     
     auto block = result.block;
@@ -45,7 +44,7 @@ TEST_F(SQLParserTest, TCLStatement) {
     
 TEST_F(SQLParserTest, DropTable) {
     Parser::Result result;
-    auto rs = Parser::Parse("DROP TABLE t1;", &factory_, &result);
+    auto rs = Parser::Parse("DROP TABLE t1;", &arena_, &result);
     ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
     
     auto stmt = DropTable::Cast(result.block->stmt(0));
@@ -56,7 +55,7 @@ TEST_F(SQLParserTest, DropTable) {
     
 TEST_F(SQLParserTest, CreateTable) {
     Parser::Result result;
-    auto rs = Parser::Parse("CREATE TABLE t1 (a INT);", &factory_, &result);
+    auto rs = Parser::Parse("CREATE TABLE t1 (a INT);", &arena_, &result);
     ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
     
     auto stmt = CreateTable::Cast(result.block->stmt(0));
@@ -82,7 +81,7 @@ TEST_F(SQLParserTest, CreateTableDetail1) {
     ");";
     
     Parser::Result result;
-    auto rs = Parser::Parse(kT, &factory_, &result);
+    auto rs = Parser::Parse(kT, &arena_, &result);
     ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
     
     auto stmt = CreateTable::Cast(result.block->stmt(0));
@@ -112,7 +111,7 @@ TEST_F(SQLParserTest, AlterTableAddColumn) {
     "ALTER TABLE t1 ADD COLUMN d SMALLINT KEY COMMENT 'new column' AFTER b;";
     
     Parser::Result result;
-    auto rs = Parser::Parse(kX, &factory_, &result);
+    auto rs = Parser::Parse(kX, &arena_, &result);
     ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
     
     auto stmt = AlterTable::Cast(result.block->stmt(0));
@@ -139,7 +138,7 @@ TEST_F(SQLParserTest, AlterTableAddColumns) {
     ");";
     
     Parser::Result result;
-    auto rs = Parser::Parse(kX, &factory_, &result);
+    auto rs = Parser::Parse(kX, &arena_, &result);
     ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
     
     auto stmt = AlterTable::Cast(result.block->stmt(0));
@@ -170,7 +169,7 @@ TEST_F(SQLParserTest, AlterTableAddIndex) {
     "ALTER TABLE t1 ADD INDEX name (name), ADD KEY id UNIQUE KEY (id);";
     
     Parser::Result result;
-    auto rs = Parser::Parse(kX, &factory_, &result);
+    auto rs = Parser::Parse(kX, &arena_, &result);
     ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
     
     auto stmt = AlterTable::Cast(result.block->stmt(0));
@@ -196,7 +195,7 @@ TEST_F(SQLParserTest, SampleSelect) {
     static const char *kX = "SELECT * FROM t1;";
     
     Parser::Result result;
-    auto rs = Parser::Parse(kX, &factory_, &result);
+    auto rs = Parser::Parse(kX, &arena_, &result);
     ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
     
     auto stmt = Select::Cast(result.block->stmt(0));
@@ -218,7 +217,7 @@ TEST_F(SQLParserTest, WhereClause) {
     static const char *kX = "SELECT * FROM t1 WHERE a > 0 AND a < 100;";
     
     Parser::Result result;
-    auto rs = Parser::Parse(kX, &factory_, &result);
+    auto rs = Parser::Parse(kX, &arena_, &result);
     ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
     
     auto stmt = Select::Cast(result.block->stmt(0));

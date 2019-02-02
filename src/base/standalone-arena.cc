@@ -31,7 +31,7 @@ void StandaloneArena::Purge(bool reinit) {
 #if defined(DEBUG) || defined(_DEBUG)
         Round32BytesFill(kFreeZag, x, kPageSize);
 #endif
-        low_level_alloc_->Free(x, kPageSize);
+        ll_allocator_->Free(x, kPageSize);
     }
     while (large_) {
         PageHead *x = large_;
@@ -40,7 +40,7 @@ void StandaloneArena::Purge(bool reinit) {
 #if defined(DEBUG) || defined(_DEBUG)
         Round32BytesFill(kFreeZag, x, page_size);
 #endif
-        low_level_alloc_->Free(x, page_size);
+        ll_allocator_->Free(x, page_size);
     }
     if (reinit) {
         current_.store(NewPage(kPageSize), std::memory_order_relaxed);

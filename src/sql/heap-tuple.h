@@ -60,9 +60,7 @@ class VirtualSchema final {
 public:
     using Builder = VirtualSchemaBuilder;
     
-    ~VirtualSchema() {
-        for (auto col : columns_) { delete col; }
-    }
+    ~VirtualSchema() { for (auto col : columns_) { delete col; } }
     
     DEF_VAL_GETTER(std::string, name);
     DEF_PTR_GETTER(const Form, origin_table);

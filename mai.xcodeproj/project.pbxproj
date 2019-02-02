@@ -271,6 +271,7 @@
 		23216A282201AD1A00E1B816 /* heap-tuple.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "heap-tuple.h"; sourceTree = "<group>"; };
 		23216A292201BC8600E1B816 /* heap-tuple.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "heap-tuple.cc"; sourceTree = "<group>"; };
 		23216A2B2203FC1800E1B816 /* result-set.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "result-set.h"; sourceTree = "<group>"; };
+		23216A2D2205511F00E1B816 /* ast-visitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ast-visitor.h"; sourceTree = "<group>"; };
 		2326026121ABE7D8003F434C /* standalone-arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "standalone-arena.h"; sourceTree = "<group>"; };
 		2326026221ABE80D003F434C /* standalone-arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "standalone-arena.cc"; sourceTree = "<group>"; };
 		2326026521ABF614003F434C /* arena-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "arena-test.cc"; sourceTree = "<group>"; };
@@ -798,6 +799,7 @@
 				2317596821E5933F0025685F /* sql.yy.cc */,
 				23B8E68021E05FC80001096E /* ast.h */,
 				23B8E68121E05FEC0001096E /* ast.cc */,
+				23216A2D2205511F00E1B816 /* ast-visitor.h */,
 				23B8E68821E32D070001096E /* ast-factory.h */,
 				237B0C0F21E4924900F3A099 /* parser-ctx.h */,
 				237B0C1C21E4A9B400F3A099 /* parser.h */,

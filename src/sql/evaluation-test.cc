@@ -1,6 +1,8 @@
 #include "sql/evaluation.h"
 #include "sql/eval-factory.h"
 #include "sql/heap-tuple.h"
+#include "sql/parser.h"
+#include "sql/ast.h"
 #include "base/standalone-arena.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
@@ -39,6 +41,27 @@ public:
         ASSERT_TRUE(builder.error().ok()) << builder.error().ToString();
         ASSERT_NE(nullptr, vs);
         result->reset(vs);
+    }
+    
+    void ParseExpressions(const char *s, std::vector<ast::Expression *> *rv) {
+        Parser::Result result;
+        auto rs = Parser::Parse(s, &arena_, &result);
+        ASSERT_TRUE(rs.ok()) << result.FormatError();
+        
+        auto columns = PeekColumns(result.block);
+        
+        rv->clear();
+        for (auto col : *columns) {
+            rv->push_back(col);
+        }
+    }
+    
+    ast::ProjectionColumnList *PeekColumns(const ast::Block *block) {
+        auto stmt = ast::Select::Cast(block->stmt(0));
+        if (!stmt) {
+            return nullptr;
+        }
+        return stmt->columns();
     }
     
     Env *env_ = Env::Default();
@@ -126,6 +149,45 @@ TEST_F(EvaluationTest, VariableReading) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ(eval::Value::kU64, ctx.result().kind);
     ASSERT_EQ(0, ctx.result().i64_val);
+}
+    
+TEST_F(EvaluationTest, BuildEvalExpression) {
+    static const char *kX = "SELECT 1 + (1 + 200) / 2;";
+    
+    Parser::Result result;
+    auto rs = Parser::Parse(kX, &arena_, &result);
+    ASSERT_TRUE(rs.ok()) << result.FormatError();
+    
+    auto columns = PeekColumns(result.block);
+    auto expr = Evaluation::BuildExpression(nullptr, columns->at(0), &arena_);
+    ASSERT_NE(nullptr, expr);
+    ASSERT_NE(nullptr, dynamic_cast<eval::Operation *>(expr));
+    
+    eval::Context ctx(&arena_);
+    rs = expr->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ASSERT_EQ(Value::kI64, ctx.result().kind);
+    ASSERT_EQ(101, ctx.result().i64_val);
+    
+}
+    
+TEST_F(EvaluationTest, BuildEvalStringExpression) {
+    static const char *kX = "SELECT 1 + (1 + 200) / '1.2';";
+    
+    std::vector<ast::Expression *> columns;
+    ParseExpressions(kX, &columns);
+    
+    auto expr = Evaluation::BuildExpression(nullptr, columns[0], &arena_);
+    ASSERT_NE(nullptr, expr);
+    ASSERT_NE(nullptr, dynamic_cast<eval::Operation *>(expr));
+    
+    eval::Context ctx(&arena_);
+    auto rs = expr->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ASSERT_EQ(Value::kF64, ctx.result().kind);
+    ASSERT_NEAR(168.5, ctx.result().f64_val, 0.0000001);
 }
     
 } // namespace eval

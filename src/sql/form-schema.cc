@@ -2,12 +2,13 @@
 #include "sql/ast.h"
 #include "sql/config.h"
 #include "sql/parser.h"
-//#include "sql/heap-tuple.h"
+#include "sql/evaluation.h"
 #include "db/write-ahead-log.h"
 #include "base/standalone-arena.h"
 #include "base/hash.h"
 #include "base/slice.h"
 #include "base/io-utils.h"
+#include "base/standalone-arena.h"
 #include "mai/env.h"
 
 namespace mai {
@@ -478,7 +479,8 @@ FormSchemaSet::FormSchemaSet(const std::string &abs_meta_dir,
                              const std::string &abs_data_dir, Env *env)
     : abs_meta_dir_(abs_meta_dir)
     , abs_data_dir_(abs_data_dir)
-    , env_(DCHECK_NOTNULL(env)) {
+    , env_(DCHECK_NOTNULL(env))
+    , arena_(new base::StandaloneArena(env->GetLowLevelAllocator())) {
     DCHECK(!abs_meta_dir.empty());
 }
 
@@ -495,6 +497,8 @@ FormSchemaSet::~FormSchemaSet() {
             }
         }
     }
+    
+    delete arena_;
 }
     
 Error FormSchemaSet::Recovery(uint64_t file_number) {
@@ -567,10 +571,14 @@ Error FormSchemaSet::ReadForms(std::map<std::string, DbSlot> *dbs) {
                 return MAI_IO_ERROR("Incorrect table schema. " +
                                     result.FormatError() + "\n" + std::string(sql));
             }
-            
+
+            Form *form;
             auto ast = ast::CreateTable::Cast(result.block->stmt(0));
-            auto form = Ast2Form(inner.first, outter.second.engine_name,
-                                 DCHECK_NOTNULL(ast));
+            rs = Ast2Form(inner.first, outter.second.engine_name,
+                          DCHECK_NOTNULL(ast), &form);
+            if (!rs) {
+                return rs;
+            }
             form->version_ = version;
             form->AddRef();
             inner.second = form;
@@ -796,8 +804,12 @@ Error FormSchemaSet::BuildForm(const std::string &db_name,
 
     Error rs;
     for (auto col_ast : *ast) {
-        std::shared_ptr<FormColumn> col(Ast2Column(col_ast));
-        rs = builder.AddColumn(col);
+        Form::Column *raw;
+        rs = Ast2Column(col_ast, &raw);
+        if (!rs) {
+            return rs;
+        }
+        rs = builder.AddColumn(std::shared_ptr<Form::Column>(raw));
         if (!rs) {
             return rs;
         }
@@ -868,9 +880,10 @@ Error FormSchemaSet::AcquireFormSchema(const std::string &db_name,
     return Error::OK();
 }
     
-/*static*/ Form *FormSchemaSet::Ast2Form(const std::string &table_name,
-                                         const std::string &engine_name,
-                                         const ast::CreateTable *ast) {
+Error FormSchemaSet::Ast2Form(const std::string &table_name,
+                              const std::string &engine_name,
+                              const ast::CreateTable *ast,
+                              Form **result) {
     FormBuilder builder(nullptr);
     builder.set_table_name(table_name);
     builder.set_engine_name(engine_name);
@@ -878,17 +891,26 @@ Error FormSchemaSet::AcquireFormSchema(const std::string &db_name,
     if (!ast->engine_name()->empty()) {
         DCHECK_EQ(engine_name, ast->engine_name()->ToString());
     }
-    
+
     for (auto col_ast : *ast) {
-        std::shared_ptr<FormColumn> col(Ast2Column(col_ast));
-        builder.AddColumn(col);
+        Form::Column *raw;
+        auto rs = Ast2Column(col_ast, &raw);
+        if (!rs) {
+            return rs;
+        }
+        rs = builder.AddColumn(std::shared_ptr<Form::Column>(raw));
+        if (!rs) {
+            return rs;
+        }
     }
-    return builder.Build();
+    
+    *result = builder.Build();
+    return Error::OK();
 }
     
-/*static*/ Form::Column *
-FormSchemaSet::Ast2Column(const ast::ColumnDefinition *ast) {
-    Form::Column *col = new FormColumn();
+Error FormSchemaSet::Ast2Column(const ast::ColumnDefinition *ast,
+                                Form::Column **result) {
+    std::unique_ptr<Form::Column> col(new FormColumn());
     col->name = ast->name()->ToString();
     col->type = ast->type()->code();
     col->m_size = ast->type()->fixed_size();
@@ -896,9 +918,17 @@ FormSchemaSet::Ast2Column(const ast::ColumnDefinition *ast) {
     col->auto_increment = ast->auto_increment();
     col->not_null = ast->is_not_null();
     col->key = ast->key();
-    //col->default_val = ""; // TODO:
     col->comment = ast->comment()->ToString();
-    return col;
+
+    Error rs;
+    if (ast->default_value()) {
+        rs = Evaluation::BuildExpression(nullptr, ast->default_value(),
+                                         arena_, &col->default_val);
+    }
+    if (rs.ok()) {
+        *result = col.release();
+    }
+    return rs;
 }
     
 Error FormSchemaSet::BuildNewForm(DbSlot *db, FormSchemaPatch *patch,

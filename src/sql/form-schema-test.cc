@@ -1,4 +1,5 @@
 #include "sql/form-schema.h"
+#include "sql/heap-tuple.h"
 #include "mai-sql/mai-sql.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
@@ -23,7 +24,7 @@ public:
             ASSERT_TRUE(rs.ok()) << rs.ToString();
         }
         
-        rs = schema_->NewDatabase(kPrimaryDatabaseName, kPrimaryDatabaseName,
+        rs = schema_->NewDatabase(kPrimaryDatabaseName, "MaiDB",
                                   SQL_COLUMN_STORE);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
     }
@@ -87,7 +88,7 @@ const char *FormSchemaTest::tmp_dirs[] = {
     
 TEST_F(FormSchemaTest, Sanity) {
     FormSchemaPatch patch(kPrimaryDatabaseName, "t1");
-    patch.set_engine_name("ColumnMaiDB");
+    patch.set_engine_name("MaiDB");
     
     auto spec = new FormSpecPatch(FormSpecPatch::kCreatTable);
     FormColumn col;
@@ -110,7 +111,7 @@ TEST_F(FormSchemaTest, Sanity) {
     
 TEST_F(FormSchemaTest, CreateTable) {
     FormSchemaPatch patch(kPrimaryDatabaseName, "t1");
-    patch.set_engine_name("ColumnMaiDB");
+    patch.set_engine_name("MaiDB");
     
     auto spec = new FormSpecPatch(FormSpecPatch::kCreatTable);
     FormColumn col;
@@ -146,6 +147,27 @@ TEST_F(FormSchemaTest, CreateTable) {
     EXPECT_EQ("a", form->column(0)->name);
     EXPECT_EQ(SQL_BIGINT, form->column(0)->type);
     EXPECT_EQ(SQL_PRIMARY_KEY, form->column(0)->key);
+}
+    
+TEST_F(FormSchemaTest, VirtualSchema) {
+    BuildBaseTable();
+    
+    base::intrusive_ptr<Form> form;
+    auto rs = schema_->AcquireFormSchema(kPrimaryDatabaseName, "t1", &form);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    auto vs = form->virtual_schema();
+    
+    ASSERT_EQ(vs->columns_size(), form->columns_size());
+    
+    for (size_t i = 0; i < form->columns_size(); ++i) {
+        EXPECT_EQ(vs->column(i)->origin(), form->column(i));
+        EXPECT_EQ(vs->column(i)->origin_table(), form.get());
+        EXPECT_EQ(vs->column(i)->name(), form->column(i)->name);
+        EXPECT_EQ(vs->column(i)->table_name(), "");
+        EXPECT_EQ(vs->column(i)->type(), form->column(i)->type);
+    }
+    
 }
     
 } // namespace sql

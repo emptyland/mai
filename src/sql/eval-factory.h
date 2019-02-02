@@ -2,6 +2,7 @@
 #define MAI_SQL_EVAL_FACTORY_H_
 
 #include "sql/evaluation.h"
+#include "glog/logging.h"
 
 namespace mai {
     
@@ -11,7 +12,7 @@ namespace eval {
     
 class Factory final {
 public:    
-    Factory(base::Arena *arena) : arena_(arena) {}
+    Factory(base::Arena *arena) : arena_(DCHECK_NOTNULL(arena)) {}
     
     Constant *NewConstI64(int64_t value) {
         return new (arena_) Constant(value);

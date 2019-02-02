@@ -1,5 +1,7 @@
 #include "sql/evaluation.h"
+#include "sql/eval-factory.h"
 #include "sql/heap-tuple.h"
+#include "sql/ast-visitor.h"
 #include "sql/ast.h"
 #include "base/slice.h"
 
@@ -606,35 +608,138 @@ Operation::Operation(SQLOperator op, Expression *lhs,
 ////////////////////////////////////////////////////////////////////////////////
 /// Evaluation
 ////////////////////////////////////////////////////////////////////////////////
-/*
-    V(ProjectionColumn) \
-    V(Identifier) \
-    V(Literal) \
-    V(Subquery) \
-    V(Placeholder) \
-    V(UnaryExpression) \
-    V(BinaryExpression) \
-    V(Assignment) \
-    V(Comparison) \
-    V(MultiExpression)
-*/
-class EvalExpressionBuilder : public ast::Visitor {
+
+class EvalExpressionBuilder : public ast::VisitorWithStack<eval::Expression *> {
 public:
-    EvalExpressionBuilder(const VirtualSchema *env) : env_(env) {}
+    EvalExpressionBuilder(const VirtualSchema *env,
+                          ast::ErrorBreakListener *listener,
+                          eval::Factory *factory)
+        : ast::VisitorWithStack<eval::Expression *>(DCHECK_NOTNULL(listener))
+        , env_(env)
+        , factory_(DCHECK_NOTNULL(factory)) {}
+    
+    virtual void VisitProjectionColumn(ast::ProjectionColumn *node) override {
+        node->expr()->Accept(this);
+    }
+    
+    virtual void VisitIdentifier(ast::Identifier *node) override {
+        if (node->placeholder()) {
+             Raise(MAI_CORRUPTION("Placeholder: ?"));
+            return;
+        }
+        if (!env_) {
+            Raise(MAI_CORRUPTION("Name: " + node->ToString() + " not in "
+                                 "envirenment"));
+            return;
+        }
+        auto col = env_->FindOrNull(node->ToString());
+        if (!col) {
+            Raise(MAI_CORRUPTION("Name: " + node->ToString() + " not found"));
+            return;
+        }
+        Push(factory_->NewVariable(env_, col->index()));
+    }
+    
+    virtual void VisitPlaceholder(ast::Placeholder *node) override {
+        Raise(MAI_CORRUPTION("Placeholder: ?"));
+    }
+    
+    virtual void VisitSubquery(ast::Subquery *node) override {
+        Raise(MAI_CORRUPTION("Subquery"));
+    }
+    
+    virtual void VisitLiteral(ast::Literal *node) override {
+        switch (node->type()) {
+            case ast::Literal::APPROX:
+                Push(factory_->NewConstF64(node->approx_val()));
+                break;
+            case ast::Literal::INTEGER:
+                Push(factory_->NewConstI64(node->integer_val()));
+                break;
+            case ast::Literal::STRING:
+                Push(factory_->NewConstStr(node->string_val()));
+                break;
+            case ast::Literal::NULL_VAL:
+                Push(factory_->NewConstNull());
+                break;
+            case ast::Literal::DEFAULT_PLACEHOLDER:
+                Raise(MAI_CORRUPTION("Placeholder: DEFAULT"));
+                break;
+            default:
+                DLOG(FATAL) << "noreached";
+                break;
+        }
+    }
+    
+    virtual void VisitUnaryExpression(ast::UnaryExpression *node) override {
+        node->operand(0)->Accept(this);
+        auto operand = Pop();
+        Push(factory_->NewUnary(node->op(), operand));
+    }
+    
+    virtual void VisitBinaryExpression(ast::BinaryExpression *node) override {
+        ProcessBinaryExpression(node);
+    }
+    
+    virtual void VisitAssignment(ast::Assignment *node) override {
+        // TODO:
+        Raise(MAI_NOT_SUPPORTED("TODO:"));
+    }
+    
+    virtual void VisitComparison(ast::Comparison *node) override {
+        ProcessBinaryExpression(node);
+    }
+    
+    virtual void VisitMultiExpression(ast::MultiExpression *node) override {
+        std::vector<eval::Expression *> rhs;
+        node->lhs()->Accept(this);
+        auto lhs = Pop();
+        
+        for (auto expr : *node->rhs()) {
+            expr->Accept(this);
+            rhs.push_back(Pop());
+        }
+        Push(factory_->NewMulti(node->op(), lhs, rhs));
+    }
     
 private:
+    void ProcessBinaryExpression(ast::FixedOperand<2> *node) {
+        node->lhs()->Accept(this);
+        auto lhs = Pop();
+        
+        node->rhs()->Accept(this);
+        auto rhs = Pop();
+        
+        Push(factory_->NewBinary(node->op(), lhs, rhs));
+    }
+    
     const VirtualSchema *const env_;
+    eval::Factory *factory_;
 }; // class EvalExpressionBuilder
     
 /*static*/ eval::Expression *
 Evaluation::BuildExpression(const VirtualSchema *env, ast::Expression *ast,
                             base::Arena *arena) {
-    EvalExpressionBuilder builder(env);
+    eval::Expression *result = nullptr;
+    auto rs = BuildExpression(env, ast, arena, &result);
+    return !rs ? nullptr : result;
+}
+    
+/*static*/ Error
+Evaluation::BuildExpression(const VirtualSchema *env, ast::Expression *ast,
+                            base::Arena *arena, eval::Expression **result) {
+    
+    eval::Factory factory(arena);
+    ast::ErrorBreakVisitor box;
+    EvalExpressionBuilder builder(env, &box, &factory);
+    box.set_delegated(&builder);
+    
+    ast->Accept(&box);
+    if (box.error().ok()) {
+        *result = builder.Take(nullptr);
+    }
 
-    ast->Accept(&builder);
-    
-    
-    return nullptr;
+    return box.error();
 }
 
 } // namespace sql

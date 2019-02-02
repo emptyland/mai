@@ -214,8 +214,8 @@ struct SQLTimeUtils {
 struct SQLTypeDescEntry {
     const char *name;
     int size_kind;
-    int max_fixed_size;
-    int max_float_size;
+    int max_m_size;
+    int max_d_size;
 };
 
 extern const SQLTypeDescEntry kSQLTypeDesc[];

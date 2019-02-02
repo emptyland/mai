@@ -274,7 +274,7 @@ void LRUCacheShard::PurgeIfNeeded(bool force) {
         }
         
         TableBoundle *new_boundle =
-            new TableBoundle(boundle->arena.low_level_allocator(), new_slots,
+            new TableBoundle(boundle->arena.ll_allocator(), new_slots,
                              KeyComparator{cmp_});
 
         LRUTable::Iterator iter(&boundle->table);

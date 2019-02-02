@@ -38,9 +38,10 @@ std::string Parser::Result::FormatError() {
 
 
 /*static*/ Error
-Parser::Parse(const char *s, ast::Factory *factory, Parser::Result *result) {
+Parser::Parse(const char *s, base::Arena *arena, Parser::Result *result) {
+    ast::Factory factory(arena);
     parser_ctx ctx;
-    ctx.factory = factory;
+    ctx.factory = &factory;
     
     lexer_extra extra;
     yylex_init_extra(&extra, &ctx.lex);

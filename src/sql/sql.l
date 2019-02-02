@@ -14,6 +14,12 @@
 
 void yyerror(YYLTYPE *yyl, parser_ctx *ctx, const char *msg);
 
+#define YY_USER_ACTION \
+	yylloc->first_line = yylloc->last_line = yylineno; \
+	yylloc->first_column = yyextra->column;            \
+	yylloc->last_column = (int)(yyextra->column + yyleng - 1);    \
+	yyextra->column += (int)yyleng;
+
 #define register
 %}
 %x COMMENT_MOD
@@ -32,6 +38,7 @@ BETWEEN { return BETWEEN; }
 BY { return BY; }
 BEGIN { return TXN_BEGIN; }
 BIGINT { return BIGINT; }
+BINARY { return BINARY; }
 COLUMN { return COLUMN; }
 CHANGE { return CHANGE; }
 COMMIT { return TXN_COMMIT; }
@@ -92,6 +99,7 @@ TINYINT { return TINYINT; }
 UPDATE { return UPDATE; }
 UNIQUE { return UNIQUE; }
 VARCHAR { return VARCHAR; }
+VARBINARY { return VARBINARY; }
 VALUES { return VALUES; }
 VALUE { return VALUE; }
 WHERE { return WHERE; }
@@ -173,7 +181,8 @@ XOR { return XOR; }
 <COMMENT_MOD>.|\n ;
 <COMMENT_MOD><<EOF>> { return TOKEN_ERROR; }
 
-[ \t\n] ;
+[ \t] ;
+[\r\n] { yyextra->column = 1; }
 
 %%
 

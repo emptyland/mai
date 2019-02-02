@@ -228,6 +228,9 @@ struct Evaluation final {
     BuildExpression(const VirtualSchema *env, ast::Expression *ast,
                     base::Arena *arena);
     
+    static Error BuildExpression(const VirtualSchema *env, ast::Expression *ast,
+                                 base::Arena *arena, eval::Expression **result);
+    
 }; // struct Evaluation
     
 } // namespace sql

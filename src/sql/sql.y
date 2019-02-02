@@ -83,7 +83,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %token TXN_COMMIT TXN_ROLLBACK FIRST CHANGE TO AS INDEX DISTINCT HAVING
 %token WHERE JOIN ON INNER OUTTER LEFT RIGHT ALL CROSS ORDER BY ASC DESC
 %token GROUP FOR UPDATE LIMIT OFFSET INSERT OVERWRITE DELETE VALUES VALUE SET IN
-%token INTO DUPLICATE DEFAULT
+%token INTO DUPLICATE DEFAULT BINARY VARBINARY
 
 %token ID NULL_VAL INTEGRAL_VAL STRING_VAL APPROX_VAL DATE_VAL DATETIME_VAL
 
@@ -223,6 +223,12 @@ TypeDefinition: BIGINT FixedSizeDescription {
 }
 | VARCHAR FixedSizeDescription {
     $$ = ctx->factory->NewTypeDefinition(SQL_VARCHAR, $2.fixed_size);
+}
+| BINARY FixedSizeDescription {
+    $$ = ctx->factory->NewTypeDefinition(SQL_BINARY, $2.fixed_size);
+}
+| VARBINARY FixedSizeDescription {
+    $$ = ctx->factory->NewTypeDefinition(SQL_VARBINARY, $2.fixed_size);
 }
 | DATE {
     $$ = ctx->factory->NewTypeDefinition(SQL_DATE);
@@ -726,7 +732,11 @@ BoolPrimary : BoolPrimary IS NULL_VAL {
 | Expression COMPARISON ANY Subquery {
     $$ = ctx->factory->NewComparison($1, $2, $4, Location::Concat(@1, @4));
 }
+| '(' BoolPrimary ')' {
+    $$ = $2;
+}
 | Predicate
+
 
 //-----------------------------------------------------------------------------
 // Predicate
@@ -755,6 +765,9 @@ Predicate : BitExpression NOT IN Subquery {
 | BitExpression LIKE BitExpression {
     $$ = ctx->factory->NewBinaryExpression($1, SQL_LIKE, $3, Location::Concat(@1, @3));
 } 
+| '(' Predicate ')' {
+    $$ = $2;
+}
 | BitExpression
 
 
@@ -797,6 +810,9 @@ BitExpression : BitExpression '|' BitExpression {
 | BitExpression '^' BitExpression {
     $$ = ctx->factory->NewBinaryExpression($1, SQL_BIT_XOR, $3, Location::Concat(@1, @3));
 }
+| '(' BitExpression ')' {
+    $$ = $2;
+}
 | Simple
 
 
@@ -823,6 +839,9 @@ Simple : Identifier {
 }
 | '~' Simple {
     $$ = ctx->factory->NewUnaryExpression(SQL_BIT_INV, $2, Location::Concat(@1, @2));
+}
+| '(' Simple ')' {
+    $$ = $2;
 }
 
 

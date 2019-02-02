@@ -28,6 +28,7 @@ struct parser_ctx {
     
 struct lexer_extra {
     int old_state = 0;
+    int column    = 1;
 };
 
 } // namespace sql

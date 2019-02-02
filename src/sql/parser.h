@@ -11,7 +11,6 @@ class Arena;
 } // namespace base
 namespace sql {
 namespace ast {
-class Factory;
 class AstNode;
 class Block;
 } // namespace ast
@@ -28,7 +27,7 @@ public:
         std::string FormatError();
     };
 
-    static Error Parse(const char *s, ast::Factory *factory, Result *result);
+    static Error Parse(const char *s, base::Arena *arena, Result *result);
     
     static Error Parse(const char *s, size_t n, base::Arena *arena,
                        Result *result);

@@ -18,19 +18,22 @@ public:
     static const int kPageSize = 16 * base::kKB;
     static const int kAlignment = sizeof(void *);
     
-    StandaloneArena(Allocator *low_level)
-        : low_level_alloc_(DCHECK_NOTNULL(low_level))
+    StandaloneArena(Allocator *ll_allocator)
+        : ll_allocator_(DCHECK_NOTNULL(ll_allocator))
         , current_(NewPage(kPageSize))
         , large_(nullptr)
-        , memory_usage_(kPageSize) // The initialize size is one page.
-    {
+        , memory_usage_(kPageSize) /* The initialize size is one page.*/ {
     }
     
     virtual ~StandaloneArena() override;
     
-    virtual void *Allocate(size_t size, size_t alignment = sizeof(max_align_t)) override;
-    
+    virtual void *Allocate(size_t size, size_t alignment = 4) override;
+
     virtual void Purge(bool reinit) override;
+
+    virtual size_t memory_usage() const override {
+        return memory_usage_.load();
+    }
     
     void *NewLarge(size_t size, size_t alignment) {
         size_t alloc_size = RoundUp(sizeof(PageHead) + size, kPageSize);
@@ -51,9 +54,7 @@ public:
     void GetUsageStatistics(std::vector<Statistics> *normal,
                             std::vector<Statistics> *large) const;
     
-    Allocator *low_level_allocator() const { return low_level_alloc_; }
-    
-    virtual size_t memory_usage() const override { return memory_usage_.load(); }
+    Allocator *ll_allocator() const { return ll_allocator_; }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(StandaloneArena);
 private:
@@ -75,8 +76,8 @@ private:
 
     PageHead *NewPage(size_t page_size) {
         PageHead *page =
-            static_cast<PageHead *>(low_level_alloc_->Allocate(page_size,
-                                                               kAlignment));
+            static_cast<PageHead *>(ll_allocator_->Allocate(page_size,
+                                                            kAlignment));
         page->next = nullptr;
         page->u.free = reinterpret_cast<char *>(page + 1);
         return page;
@@ -91,7 +92,7 @@ private:
         }
     }
     
-    Allocator *const low_level_alloc_;
+    Allocator *const ll_allocator_;
     std::atomic<PageHead*> current_;
     std::atomic<PageHead*> large_;
     std::atomic<size_t> memory_usage_;

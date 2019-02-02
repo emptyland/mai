@@ -8,6 +8,7 @@ namespace sql {
 
 #define DECL_DESC(name, a1, a2, a3) {#name, a1, a2, a3},
 const SQLTypeDescEntry kSQLTypeDesc[] = {
+    {"NULL", 0, 0, 0},
     DEFINE_SQL_TYPES(DECL_DESC)
 };
 #undef  DECL_DESC

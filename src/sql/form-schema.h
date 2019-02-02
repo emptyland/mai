@@ -17,7 +17,8 @@ class WritableFile;
 class SequentialFile;
 namespace base {
 class BufferReader;
-}
+class Arena;
+} // namespace base
 namespace db {
 class LogWriter;
 } // namespace db
@@ -370,10 +371,10 @@ public:
     Error BuildForm(const std::string &db_name, const ast::CreateTable *ast,
                     Form **result);
     
-    static Form *Ast2Form(const std::string &table_name,
-                          const std::string &engine_name,
-                          const ast::CreateTable *ast);
-    static Form::Column *Ast2Column(const ast::ColumnDefinition *ast);
+    Error Ast2Form(const std::string &table_name,
+                   const std::string &engine_name,
+                   const ast::CreateTable *ast, Form **result);
+    Error Ast2Column(const ast::ColumnDefinition *ast, Form::Column **result);
 private:
     enum RecoredKind : uint8_t {
         kUpdateDatabase,
@@ -412,6 +413,7 @@ private:
     std::string const abs_meta_dir_;
     std::string const abs_data_dir_;
     Env *const env_;
+    base::Arena *arena_;
     uint64_t meta_file_number_ = 0;
     uint64_t next_file_number_ = 0;
     std::map<std::string, DbSlot> dbs_;

@@ -11,7 +11,7 @@
 namespace mai {
     
 const char kPrimaryDatabaseName[] = "primary";
-const char kPrimaryDatabaseEngine[] = "ColumnMaiDB";
+const char kPrimaryDatabaseEngine[] = "MaiDB";
 static const sql::StorageKind kPrimaryDatabaseKind = sql::SQL_COLUMN_STORE;
     
 namespace sql {
