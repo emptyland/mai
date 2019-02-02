@@ -149,7 +149,7 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 33 "sql.y" /* yacc.c:1912  */
+#line 34 "sql.y" /* yacc.c:1912  */
 
     struct {
         const char *buf;
@@ -168,7 +168,7 @@ union YYSTYPE
         bool after;
     } col_pos;
     struct {
-        ::mai::sql::ExpressionList *expr_list;
+        ::mai::sql::ast::ExpressionList *expr_list;
         bool desc;
     } order_by;
     int int_val;
@@ -178,23 +178,23 @@ union YYSTYPE
     ::mai::sql::SQLKeyType key_type;
     ::mai::sql::SQLOperator op;
     ::mai::sql::SQLJoinKind join_kind;
-    ::mai::sql::Block *block;
-    ::mai::sql::Statement *stmt;
-    ::mai::sql::TypeDefinition *type_def;
-    ::mai::sql::ColumnDefinition *col_def;
-    ::mai::sql::ColumnDefinitionList *col_def_list;
-    ::mai::sql::AlterTableSpecList *alter_table_spce_list;
-    ::mai::sql::AlterTableSpec *alter_table_spce;
-    ::mai::sql::NameList *name_list;
-    ::mai::sql::Expression *expr;
-    ::mai::sql::ExpressionList *expr_list;
-    ::mai::sql::ProjectionColumn *proj_col;
-    ::mai::sql::ProjectionColumnList *proj_col_list;
-    ::mai::sql::Query *query;
-    ::mai::sql::RowValuesList *row_vals_list;
-    ::mai::sql::Assignment *assignment;
-    ::mai::sql::AssignmentList *assignment_list;
-    ::mai::sql::Identifier *id;
+    ::mai::sql::ast::Block *block;
+    ::mai::sql::ast::Statement *stmt;
+    ::mai::sql::ast::TypeDefinition *type_def;
+    ::mai::sql::ast::ColumnDefinition *col_def;
+    ::mai::sql::ast::ColumnDefinitionList *col_def_list;
+    ::mai::sql::ast::AlterTableSpecList *alter_table_spce_list;
+    ::mai::sql::ast::AlterTableSpec *alter_table_spce;
+    ::mai::sql::ast::NameList *name_list;
+    ::mai::sql::ast::Expression *expr;
+    ::mai::sql::ast::ExpressionList *expr_list;
+    ::mai::sql::ast::ProjectionColumn *proj_col;
+    ::mai::sql::ast::ProjectionColumnList *proj_col_list;
+    ::mai::sql::ast::Query *query;
+    ::mai::sql::ast::RowValuesList *row_vals_list;
+    ::mai::sql::ast::Assignment *assignment;
+    ::mai::sql::ast::AssignmentList *assignment_list;
+    ::mai::sql::ast::Identifier *id;
 
 #line 200 "sql.hh" /* yacc.c:1912  */
 };

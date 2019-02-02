@@ -52,13 +52,16 @@ namespace sql {
     
 #define DEFINE_TCL_NODES(V) V(TCLStatement)
     
-class AstVisitor;
-class AstFactory;
+using AstString = base::ArenaString;
+    
+namespace ast {
     
 #define PRE_DECLARE_NODE(name) class name;
 DEFINE_AST_NODES(PRE_DECLARE_NODE)
 #undef PRE_DECLARE_NODE
-    
+
+class Factory;
+class Visitor;
 class Block;
 class Statement;
 class AlterTableSpec;
@@ -83,7 +86,7 @@ public:
     #undef  DECL_ENUM
     }; // enum Kind
     
-    virtual void Accept(AstVisitor *v) = 0;
+    virtual void Accept(Visitor *v) = 0;
     virtual Kind kind() const = 0;
     virtual bool is_ddl() const { return false; }
     virtual bool is_dml() const { return false; }
@@ -109,7 +112,7 @@ protected:
 }; // class AstNode
     
 #define DEF_AST_NODE(clazz) \
-    virtual void Accept(AstVisitor *v) override { v->Visit##clazz(this); } \
+    virtual void Accept(Visitor *v) override { v->Visit##clazz(this); } \
     virtual Kind kind() const override { return k##clazz; } \
     static const clazz *Cast(const AstNode *n) { \
         return n->kind() == k##clazz ? down_cast<const clazz>(n) : nullptr; \
@@ -117,9 +120,8 @@ protected:
     static clazz *Cast(AstNode *n) { \
         return n->kind() == k##clazz ? down_cast<clazz>(n) : nullptr; \
     } \
-    friend class AstFactory;
+    friend class Factory;
 
-using AstString            = base::ArenaString;
 using ColumnDefinitionList = base::ArenaVector<ColumnDefinition *>;
 using AlterTableSpecList   = base::ArenaVector<AlterTableSpec *>;
 using NameList             = base::ArenaVector<const AstString *>;
@@ -127,19 +129,21 @@ using ExpressionList       = base::ArenaVector<Expression *>;
 using ProjectionColumnList = base::ArenaVector<ProjectionColumn *>;
 using AssignmentList       = base::ArenaVector<Assignment *>;
 using RowValuesList        = base::ArenaVector<ExpressionList *>;
-
+    
 ////////////////////////////////////////////////////////////////////////////////
-/// class AstVisitor
+/// class Visitor
 ////////////////////////////////////////////////////////////////////////////////
 
-class AstVisitor {
+class Visitor {
 public:
-    AstVisitor() {}
-    virtual ~AstVisitor() {}
+    Visitor() {}
+    virtual ~Visitor() {}
     
 #define DECL_METHOD(name) virtual void Visit##name(name *node) {}
     DEFINE_AST_NODES(DECL_METHOD)
 #undef DECL_METHOD
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Visitor);
 }; // class AstVisitor
     
 ////////////////////////////////////////////////////////////////////////////////
@@ -163,7 +167,7 @@ public:
     
     void operator delete (void *p) = delete;
     
-    friend class AstFactory;
+    friend class Factory;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Block);
 private:
     Block(base::Arena *arena)
@@ -380,7 +384,7 @@ public:
     
     size_t col_names_size() const { return col_names_->size(); }
     const AstString *col_name(size_t i) { return col_names_->at(i); }
-    
+
     DEF_AST_NODE(AlterTableIndex);
     DISALLOW_IMPLICIT_CONSTRUCTORS(AlterTableIndex);
 private:
@@ -1082,6 +1086,8 @@ inline void Insert::SetAssignmentList(AssignmentList *a, base::Arena *arena) {
     
     (*row_values_list_)[0] = values;
 }
+    
+} // namespace ast
     
 } // namespace sql
     

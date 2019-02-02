@@ -8,6 +8,8 @@
 namespace mai {
     
 namespace sql {
+    
+using namespace ast;
 
 class SQLParserTest : public ::testing::Test {
 public:
@@ -17,7 +19,7 @@ public:
     
     Env *env_ = Env::Default();
     base::StandaloneArena arena_;
-    AstFactory factory_;
+    Factory factory_;
 };
     
 TEST_F(SQLParserTest, YaccTest) {

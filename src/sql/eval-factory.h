@@ -7,14 +7,11 @@ namespace mai {
     
 namespace sql {
     
-class EvalFactory final {
-public:
-    using Operation = eval::Operation;
-    using Expression = eval::Expression;
-    using Constant = eval::Constant;
-    using Variable = eval::Variable;
+namespace eval {
     
-    EvalFactory(base::Arena *arena) : arena_(arena) {}
+class Factory final {
+public:    
+    Factory(base::Arena *arena) : arena_(arena) {}
     
     Constant *NewConstI64(int64_t value) {
         return new (arena_) Constant(value);
@@ -41,6 +38,8 @@ public:
         return NewConstStr(s, !s ? 0 : strlen(s));
     }
     
+    Constant *NewConstNull() { return new (arena_) Constant(); }
+    
     Variable *NewVariable(const VirtualSchema *schema, size_t entry_idx) {
         return new (arena_) Variable(schema, entry_idx);
     }
@@ -58,9 +57,12 @@ public:
         return new (arena_) Operation(op, lhs, rhs, arena_);
     }
     
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Factory);
 private:
     base::Arena *arena_;
 }; // class EvalFactory
+    
+} // namespace eval
     
 } // namespace sql
     

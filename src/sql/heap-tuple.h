@@ -29,6 +29,8 @@ public:
     DEF_VAL_GETTER(std::string, name);
     DEF_VAL_GETTER(SQLType, type);
     DEF_VAL_GETTER(bool, is_unsigned);
+    DEF_VAL_GETTER(int, m_size);
+    DEF_VAL_GETTER(int, d_size);
     
     bool CoverU64() const;
     bool CoverI64() const;
@@ -49,6 +51,8 @@ private:
     std::string name_;
     SQLType type_;
     bool is_unsigned_;
+    int m_size_;
+    int d_size_;
 }; // class ColumnDesc
     
     
@@ -206,6 +210,16 @@ public:
             is_unsigned_ = un;
             return *this;
         }
+        
+        InnerBuilder &m_size(int m) {
+            m_size_ = m;
+            return *this;
+        }
+        
+        InnerBuilder &d_size(int d) {
+            d_size_ = d;
+            return *this;
+        }
 
         VirtualSchemaBuilder &EndColumn() {
             owns_->AddColumn(*this);
@@ -227,6 +241,8 @@ public:
         const Form *origin_table_ = nullptr;
         const FormColumn *origin_ = nullptr;
         bool is_unsigned_ = false;
+        int m_size_ = 0;
+        int d_size_ = 0;
     };
     
     VirtualSchemaBuilder(const std::string &name) : name_(name) {}

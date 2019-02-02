@@ -51,7 +51,7 @@ public:
         
         col.name = "b";
         col.type = SQL_VARCHAR;
-        col.fixed_size = 255;
+        col.m_size = 255;
         col.key = SQL_KEY;
         col.auto_increment = false;
         col.not_null = false;
@@ -60,7 +60,7 @@ public:
         
         col.name = "c";
         col.type = SQL_CHAR;
-        col.fixed_size = 16;
+        col.m_size = 16;
         col.key = SQL_KEY;
         col.auto_increment = false;
         col.not_null = true;
@@ -98,7 +98,7 @@ TEST_F(FormSchemaTest, Sanity) {
     
     col.name = "b";
     col.type = SQL_VARCHAR;
-    col.fixed_size = 255;
+    col.m_size = 255;
     col.key  = SQL_KEY;
     spec->AddColumn(col);
 
@@ -121,7 +121,7 @@ TEST_F(FormSchemaTest, CreateTable) {
     
     col.name = "b";
     col.type = SQL_VARCHAR;
-    col.fixed_size = 255;
+    col.m_size = 255;
     col.key  = SQL_KEY;
     col.comment = "this is b column";
     spec->AddColumn(col);

@@ -24,6 +24,7 @@
 #include <string.h>
 
 using namespace ::mai::sql;
+using namespace ::mai::sql::ast;
 
 #define YYLEX_PARAM ctx->lex
 
@@ -48,7 +49,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
         bool after;
     } col_pos;
     struct {
-        ::mai::sql::ExpressionList *expr_list;
+        ::mai::sql::ast::ExpressionList *expr_list;
         bool desc;
     } order_by;
     int int_val;
@@ -58,23 +59,23 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::sql::SQLKeyType key_type;
     ::mai::sql::SQLOperator op;
     ::mai::sql::SQLJoinKind join_kind;
-    ::mai::sql::Block *block;
-    ::mai::sql::Statement *stmt;
-    ::mai::sql::TypeDefinition *type_def;
-    ::mai::sql::ColumnDefinition *col_def;
-    ::mai::sql::ColumnDefinitionList *col_def_list;
-    ::mai::sql::AlterTableSpecList *alter_table_spce_list;
-    ::mai::sql::AlterTableSpec *alter_table_spce;
-    ::mai::sql::NameList *name_list;
-    ::mai::sql::Expression *expr;
-    ::mai::sql::ExpressionList *expr_list;
-    ::mai::sql::ProjectionColumn *proj_col;
-    ::mai::sql::ProjectionColumnList *proj_col_list;
-    ::mai::sql::Query *query;
-    ::mai::sql::RowValuesList *row_vals_list;
-    ::mai::sql::Assignment *assignment;
-    ::mai::sql::AssignmentList *assignment_list;
-    ::mai::sql::Identifier *id;
+    ::mai::sql::ast::Block *block;
+    ::mai::sql::ast::Statement *stmt;
+    ::mai::sql::ast::TypeDefinition *type_def;
+    ::mai::sql::ast::ColumnDefinition *col_def;
+    ::mai::sql::ast::ColumnDefinitionList *col_def_list;
+    ::mai::sql::ast::AlterTableSpecList *alter_table_spce_list;
+    ::mai::sql::ast::AlterTableSpec *alter_table_spce;
+    ::mai::sql::ast::NameList *name_list;
+    ::mai::sql::ast::Expression *expr;
+    ::mai::sql::ast::ExpressionList *expr_list;
+    ::mai::sql::ast::ProjectionColumn *proj_col;
+    ::mai::sql::ast::ProjectionColumnList *proj_col_list;
+    ::mai::sql::ast::Query *query;
+    ::mai::sql::ast::RowValuesList *row_vals_list;
+    ::mai::sql::ast::Assignment *assignment;
+    ::mai::sql::ast::AssignmentList *assignment_list;
+    ::mai::sql::ast::Identifier *id;
 }
 
 %token SELECT FROM CREATE TABLE TABLES DROP SHOW ALTER ADD RENAME ANY DIV
@@ -155,13 +156,13 @@ Statement: Command ';'
 Command: DDL
 | DML
 | TXN_BEGIN TRANSACTION {
-    $$ = ctx->factory->NewTCLStatement(TCLStatement::TXN_BEGIN);
+    $$ = ctx->factory->NewTCLStatement(ast::TCLStatement::TXN_BEGIN);
 }
 | TXN_COMMIT {
-    $$ = ctx->factory->NewTCLStatement(TCLStatement::TXN_COMMIT);
+    $$ = ctx->factory->NewTCLStatement(ast::TCLStatement::TXN_COMMIT);
 }
 | TXN_ROLLBACK {
-    $$ = ctx->factory->NewTCLStatement(TCLStatement::TXN_ROLLBACK);
+    $$ = ctx->factory->NewTCLStatement(ast::TCLStatement::TXN_ROLLBACK);
 }
 | SHOW TABLES {
     $$ = ctx->factory->NewShowTables();
@@ -190,7 +191,7 @@ ColumnDefinitionList: ColumnDefinition {
 }
 
 ColumnDefinition: Name TypeDefinition NullOption AutoIncrementOption DefaultOption KeyOption CommentOption {
-    ColumnDefinition *def = ctx->factory->NewColumnDefinition($1, $2);
+    auto *def = ctx->factory->NewColumnDefinition($1, $2);
     def->set_is_not_null($3);
     def->set_auto_increment($4);
     def->set_default_value($5);
@@ -397,7 +398,7 @@ DML : SelectStmt
 | UpdateStmt
 
 SelectStmt : SELECT DistinctOption ProjectionColumnList FromClause WhereClause OrderByClause GroupByClause HavingClause LimitOffsetClause ForUpdateOption {
-    Select *stmt = ctx->factory->NewSelect($2, $3, AstString::kEmpty);
+    auto *stmt = ctx->factory->NewSelect($2, $3, AstString::kEmpty);
     stmt->set_from_clause($4);
     stmt->set_where_clause($5);
     stmt->set_order_by_desc($6.desc);

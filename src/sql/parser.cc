@@ -11,6 +11,8 @@ namespace mai {
     
 namespace sql {
     
+namespace ast {
+    
 Location::Location(const YYLTYPE &yyl)
     : begin_line(yyl.first_line)
     , begin_column(yyl.first_column)
@@ -24,6 +26,8 @@ Location::Location(const YYLTYPE &yyl)
     result.end_column = last.last_column;
     return result;
 }
+
+} // namespace ast
     
 std::string Parser::Result::FormatError() {
     if (!error || error == AstString::kEmpty) {
@@ -34,7 +38,7 @@ std::string Parser::Result::FormatError() {
 
 
 /*static*/ Error
-Parser::Parse(const char *s, AstFactory *factory, Parser::Result *result) {
+Parser::Parse(const char *s, ast::Factory *factory, Parser::Result *result) {
     parser_ctx ctx;
     ctx.factory = factory;
     
@@ -58,7 +62,7 @@ Parser::Parse(const char *s, AstFactory *factory, Parser::Result *result) {
 
 /*static*/ Error Parser::Parse(const char *s, size_t n, base::Arena *arena,
                                Result *result) {
-    AstFactory factory(arena);
+    ast::Factory factory(arena);
     parser_ctx ctx;
     ctx.factory = &factory;
     

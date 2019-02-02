@@ -54,7 +54,7 @@ public:
         
         col.name = "b";
         col.type = SQL_VARCHAR;
-        col.fixed_size = 255;
+        col.m_size = 255;
         col.key = SQL_KEY;
         col.auto_increment = false;
         col.not_null = false;
@@ -63,7 +63,7 @@ public:
         
         col.name = "c";
         col.type = SQL_CHAR;
-        col.fixed_size = 16;
+        col.m_size = 16;
         col.key = SQL_KEY;
         col.auto_increment = false;
         col.not_null = true;

@@ -2,6 +2,7 @@
 #include "sql/ast.h"
 #include "sql/config.h"
 #include "sql/parser.h"
+//#include "sql/heap-tuple.h"
 #include "db/write-ahead-log.h"
 #include "base/standalone-arena.h"
 #include "base/hash.h"
@@ -264,6 +265,18 @@ public:
         form->indices_ = std::move(indices_);
         form->index_names_ = std::move(index_names_);
         form->column_assoc_index_ = std::move(column_assoc_index_);
+        
+        VirtualSchemaBuilder builder(form->table_name());
+        for (auto col : form->columns_) {
+            builder.BeginColumn(col->name, col->type)
+            .origin(col.get())
+            .origin_table(form)
+            .m_size(col->m_size)
+            .d_size(col->d_size)
+            //TODO: .is_unsigned(un)
+            .EndColumn();
+        }
+        form->virtual_schema_.reset(builder.origin_table(form).Build());
         return form;
     }
 
@@ -355,14 +368,14 @@ void Form::ToCreateTable(std::string *buf) const {
             buf->append(" ");
             break;
         case 1:
-            if (col->fixed_size > 0) {
-                buf->append(Slice::Sprintf("(%d) ", col->fixed_size));
+            if (col->m_size > 0) {
+                buf->append(Slice::Sprintf("(%d) ", col->m_size));
             }
             break;
         case 2:
-            if (col->fixed_size > 0 || col->float_size > 0) {
-                buf->append(Slice::Sprintf("(%d, %d) ", col->fixed_size,
-                                           col->float_size));
+            if (col->m_size > 0 || col->d_size > 0) {
+                buf->append(Slice::Sprintf("(%d, %d) ", col->m_size,
+                                           col->d_size));
             }
             break;
         default:
@@ -376,9 +389,10 @@ void Form::ToCreateTable(std::string *buf) const {
         if (col->auto_increment) {
             buf->append("AUTO_INCREMENT ");
         }
-        if (!col->default_val.empty()) {
-            buf->append("\'").append(col->default_val).append("\' ");
-        }
+        // TODO: default value
+//        if (!col->default_val.empty()) {
+//            buf->append("\'").append(col->default_val).append("\' ");
+//        }
         if (col->key != SQL_NOT_KEY) {
             buf->append(kSQLKeyText[col->key]).append(" ");
         }
@@ -390,6 +404,20 @@ void Form::ToCreateTable(std::string *buf) const {
     
     //buf->append(") ENGINE \"").append(engine_name_).append("\";\n");
     buf->append(");\n");
+}
+    
+const VirtualSchema *Form::ToVirtualSchema() const {
+    VirtualSchemaBuilder builder(table_name());
+    for (auto col : columns_) {
+        builder.BeginColumn(col->name, col->type)
+            .origin(col.get())
+            .origin_table(this)
+            .m_size(col->m_size)
+            .d_size(col->d_size)
+            //TODO: .is_unsigned(un)
+        .EndColumn();
+    }
+    return builder.origin_table(this).Build();
 }
 
 
@@ -540,7 +568,7 @@ Error FormSchemaSet::ReadForms(std::map<std::string, DbSlot> *dbs) {
                                     result.FormatError() + "\n" + std::string(sql));
             }
             
-            auto ast = CreateTable::Cast(result.block->stmt(0));
+            auto ast = ast::CreateTable::Cast(result.block->stmt(0));
             auto form = Ast2Form(inner.first, outter.second.engine_name,
                                  DCHECK_NOTNULL(ast));
             form->version_ = version;
@@ -751,7 +779,7 @@ Error FormSchemaSet::LogAndApply(const std::string &db_name,
 }
     
 Error FormSchemaSet::BuildForm(const std::string &db_name,
-                               const CreateTable *ast, Form **result) {
+                               const ast::CreateTable *ast, Form **result) {
     auto table_name = ast->table_name()->name()->ToString();
     
     auto iter = dbs_.find(db_name);
@@ -842,7 +870,7 @@ Error FormSchemaSet::AcquireFormSchema(const std::string &db_name,
     
 /*static*/ Form *FormSchemaSet::Ast2Form(const std::string &table_name,
                                          const std::string &engine_name,
-                                         const CreateTable *ast) {
+                                         const ast::CreateTable *ast) {
     FormBuilder builder(nullptr);
     builder.set_table_name(table_name);
     builder.set_engine_name(engine_name);
@@ -858,16 +886,17 @@ Error FormSchemaSet::AcquireFormSchema(const std::string &db_name,
     return builder.Build();
 }
     
-/*static*/ Form::Column *FormSchemaSet::Ast2Column(const ColumnDefinition *ast) {
+/*static*/ Form::Column *
+FormSchemaSet::Ast2Column(const ast::ColumnDefinition *ast) {
     Form::Column *col = new FormColumn();
     col->name = ast->name()->ToString();
     col->type = ast->type()->code();
-    col->fixed_size = ast->type()->fixed_size();
-    col->float_size = ast->type()->float_size();
+    col->m_size = ast->type()->fixed_size();
+    col->d_size = ast->type()->float_size();
     col->auto_increment = ast->auto_increment();
     col->not_null = ast->is_not_null();
     col->key = ast->key();
-    col->default_val = ""; // TODO:
+    //col->default_val = ""; // TODO:
     col->comment = ast->comment()->ToString();
     return col;
 }

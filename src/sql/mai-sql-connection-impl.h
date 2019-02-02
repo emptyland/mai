@@ -8,12 +8,16 @@
 namespace mai {
     
 namespace sql {
+
+namespace ast {
+class Statement;
+class CreateTable;
+} // namespace ast
     
 class MaiSQLImpl;
 class StorageEngine;
 
-class Statement;
-class CreateTable;
+
     
 class MaiSQLConnectionImpl final : public MaiSQLConnection {
 public:
@@ -41,8 +45,8 @@ public:
     friend class MaiSQLImpl;
     DISALLOW_IMPLICIT_CONSTRUCTORS(MaiSQLConnectionImpl);
 private:
-    ResultSet *ExecuteStatement(const Statement *stmt);
-    Error ExecuteCreateTable(const CreateTable *ast);
+    ResultSet *ExecuteStatement(const ast::Statement *stmt);
+    Error ExecuteCreateTable(const ast::CreateTable *ast);
 
     std::string db_name_;
     const uint32_t conn_id_;

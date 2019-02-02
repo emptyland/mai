@@ -81,12 +81,13 @@
 #include <string.h>
 
 using namespace ::mai::sql;
+using namespace ::mai::sql::ast;
 
 #define YYLEX_PARAM ctx->lex
 
 void yyerror(YYLTYPE *, parser_ctx *, const char *);
 
-#line 90 "sql.cc" /* yacc.c:338  */
+#line 91 "sql.cc" /* yacc.c:338  */
 # ifndef YY_NULLPTR
 #  if defined __cplusplus
 #   if 201103L <= __cplusplus
@@ -225,7 +226,7 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 33 "sql.y" /* yacc.c:353  */
+#line 34 "sql.y" /* yacc.c:353  */
 
     struct {
         const char *buf;
@@ -244,7 +245,7 @@ union YYSTYPE
         bool after;
     } col_pos;
     struct {
-        ::mai::sql::ExpressionList *expr_list;
+        ::mai::sql::ast::ExpressionList *expr_list;
         bool desc;
     } order_by;
     int int_val;
@@ -254,25 +255,25 @@ union YYSTYPE
     ::mai::sql::SQLKeyType key_type;
     ::mai::sql::SQLOperator op;
     ::mai::sql::SQLJoinKind join_kind;
-    ::mai::sql::Block *block;
-    ::mai::sql::Statement *stmt;
-    ::mai::sql::TypeDefinition *type_def;
-    ::mai::sql::ColumnDefinition *col_def;
-    ::mai::sql::ColumnDefinitionList *col_def_list;
-    ::mai::sql::AlterTableSpecList *alter_table_spce_list;
-    ::mai::sql::AlterTableSpec *alter_table_spce;
-    ::mai::sql::NameList *name_list;
-    ::mai::sql::Expression *expr;
-    ::mai::sql::ExpressionList *expr_list;
-    ::mai::sql::ProjectionColumn *proj_col;
-    ::mai::sql::ProjectionColumnList *proj_col_list;
-    ::mai::sql::Query *query;
-    ::mai::sql::RowValuesList *row_vals_list;
-    ::mai::sql::Assignment *assignment;
-    ::mai::sql::AssignmentList *assignment_list;
-    ::mai::sql::Identifier *id;
+    ::mai::sql::ast::Block *block;
+    ::mai::sql::ast::Statement *stmt;
+    ::mai::sql::ast::TypeDefinition *type_def;
+    ::mai::sql::ast::ColumnDefinition *col_def;
+    ::mai::sql::ast::ColumnDefinitionList *col_def_list;
+    ::mai::sql::ast::AlterTableSpecList *alter_table_spce_list;
+    ::mai::sql::ast::AlterTableSpec *alter_table_spce;
+    ::mai::sql::ast::NameList *name_list;
+    ::mai::sql::ast::Expression *expr;
+    ::mai::sql::ast::ExpressionList *expr_list;
+    ::mai::sql::ast::ProjectionColumn *proj_col;
+    ::mai::sql::ast::ProjectionColumnList *proj_col_list;
+    ::mai::sql::ast::Query *query;
+    ::mai::sql::ast::RowValuesList *row_vals_list;
+    ::mai::sql::ast::Assignment *assignment;
+    ::mai::sql::ast::AssignmentList *assignment_list;
+    ::mai::sql::ast::Identifier *id;
 
-#line 276 "sql.cc" /* yacc.c:353  */
+#line 277 "sql.cc" /* yacc.c:353  */
 };
 
 typedef union YYSTYPE YYSTYPE;
@@ -600,26 +601,26 @@ static const yytype_uint8 yytranslate[] =
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,   143,   143,   148,   153,   155,   156,   157,   160,   163,
-     166,   171,   174,   177,   181,   185,   188,   192,   202,   205,
-     208,   211,   214,   217,   220,   223,   226,   229,   233,   237,
-     242,   246,   251,   254,   258,   261,   265,   268,   271,   275,
-     278,   281,   284,   287,   290,   294,   297,   301,   305,   308,
-     312,   315,   318,   321,   324,   328,   332,   335,   338,   341,
-     344,   347,   350,   353,   356,   359,   362,   365,   368,   372,
-     376,   380,   385,   388,   395,   396,   397,   399,   413,   416,
-     419,   423,   426,   430,   434,   441,   447,   448,   452,   455,
-     459,   462,   466,   471,   477,   482,   486,   489,   493,   496,
-     499,   502,   505,   508,   512,   515,   519,   522,   526,   530,
-     534,   538,   543,   546,   550,   554,   558,   562,   568,   571,
-     575,   582,   588,   596,   597,   601,   604,   608,   609,   611,
-     614,   618,   622,   625,   629,   630,   634,   637,   641,   644,
-     648,   657,   666,   670,   680,   683,   690,   693,   696,   699,
-     702,   705,   708,   713,   716,   719,   722,   725,   728,   733,
-     736,   739,   742,   745,   748,   751,   754,   757,   763,   766,
-     769,   772,   775,   778,   781,   784,   787,   790,   793,   796,
-     799,   805,   808,   811,   814,   817,   820,   823,   828,   832,
-     835,   839
+       0,   144,   144,   149,   154,   156,   157,   158,   161,   164,
+     167,   172,   175,   178,   182,   186,   189,   193,   203,   206,
+     209,   212,   215,   218,   221,   224,   227,   230,   234,   238,
+     243,   247,   252,   255,   259,   262,   266,   269,   272,   276,
+     279,   282,   285,   288,   291,   295,   298,   302,   306,   309,
+     313,   316,   319,   322,   325,   329,   333,   336,   339,   342,
+     345,   348,   351,   354,   357,   360,   363,   366,   369,   373,
+     377,   381,   386,   389,   396,   397,   398,   400,   414,   417,
+     420,   424,   427,   431,   435,   442,   448,   449,   453,   456,
+     460,   463,   467,   472,   478,   483,   487,   490,   494,   497,
+     500,   503,   506,   509,   513,   516,   520,   523,   527,   531,
+     535,   539,   544,   547,   551,   555,   559,   563,   569,   572,
+     576,   583,   589,   597,   598,   602,   605,   609,   610,   612,
+     615,   619,   623,   626,   630,   631,   635,   638,   642,   645,
+     649,   658,   667,   671,   681,   684,   691,   694,   697,   700,
+     703,   706,   709,   714,   717,   720,   723,   726,   729,   734,
+     737,   740,   743,   746,   749,   752,   755,   758,   764,   767,
+     770,   773,   776,   779,   782,   785,   788,   791,   794,   797,
+     800,   806,   809,   812,   815,   818,   821,   824,   829,   833,
+     836,   840
 };
 #endif
 
@@ -1786,108 +1787,108 @@ yyreduce:
   switch (yyn)
     {
         case 2:
-#line 143 "sql.y" /* yacc.c:1660  */
+#line 144 "sql.y" /* yacc.c:1660  */
     {
     (yyval.block) = ctx->factory->NewBlock();
     (yyval.block)->AddStmt((yyvsp[0].stmt));
     ctx->block = (yyval.block);
 }
-#line 1796 "sql.cc" /* yacc.c:1660  */
+#line 1797 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 3:
-#line 148 "sql.y" /* yacc.c:1660  */
+#line 149 "sql.y" /* yacc.c:1660  */
     {
     (yyval.block)->AddStmt((yyvsp[0].stmt));
     ctx->block = (yyval.block);
 }
-#line 1805 "sql.cc" /* yacc.c:1660  */
+#line 1806 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 7:
-#line 157 "sql.y" /* yacc.c:1660  */
+#line 158 "sql.y" /* yacc.c:1660  */
     {
-    (yyval.stmt) = ctx->factory->NewTCLStatement(TCLStatement::TXN_BEGIN);
+    (yyval.stmt) = ctx->factory->NewTCLStatement(ast::TCLStatement::TXN_BEGIN);
 }
-#line 1813 "sql.cc" /* yacc.c:1660  */
+#line 1814 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 8:
-#line 160 "sql.y" /* yacc.c:1660  */
+#line 161 "sql.y" /* yacc.c:1660  */
     {
-    (yyval.stmt) = ctx->factory->NewTCLStatement(TCLStatement::TXN_COMMIT);
+    (yyval.stmt) = ctx->factory->NewTCLStatement(ast::TCLStatement::TXN_COMMIT);
 }
-#line 1821 "sql.cc" /* yacc.c:1660  */
+#line 1822 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 9:
-#line 163 "sql.y" /* yacc.c:1660  */
+#line 164 "sql.y" /* yacc.c:1660  */
     {
-    (yyval.stmt) = ctx->factory->NewTCLStatement(TCLStatement::TXN_ROLLBACK);
+    (yyval.stmt) = ctx->factory->NewTCLStatement(ast::TCLStatement::TXN_ROLLBACK);
 }
-#line 1829 "sql.cc" /* yacc.c:1660  */
+#line 1830 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 10:
-#line 166 "sql.y" /* yacc.c:1660  */
+#line 167 "sql.y" /* yacc.c:1660  */
     {
     (yyval.stmt) = ctx->factory->NewShowTables();
 }
-#line 1837 "sql.cc" /* yacc.c:1660  */
+#line 1838 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 11:
-#line 171 "sql.y" /* yacc.c:1660  */
+#line 172 "sql.y" /* yacc.c:1660  */
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1845 "sql.cc" /* yacc.c:1660  */
+#line 1846 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 12:
-#line 174 "sql.y" /* yacc.c:1660  */
+#line 175 "sql.y" /* yacc.c:1660  */
     {
     (yyval.stmt) = ctx->factory->NewDropTable((yyvsp[0].id));
 }
-#line 1853 "sql.cc" /* yacc.c:1660  */
+#line 1854 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 13:
-#line 177 "sql.y" /* yacc.c:1660  */
+#line 178 "sql.y" /* yacc.c:1660  */
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1861 "sql.cc" /* yacc.c:1660  */
+#line 1862 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 14:
-#line 181 "sql.y" /* yacc.c:1660  */
+#line 182 "sql.y" /* yacc.c:1660  */
     {
     (yyval.stmt) = ctx->factory->NewCreateTable((yyvsp[-3].id), (yyvsp[-1].col_def_list));
 }
-#line 1869 "sql.cc" /* yacc.c:1660  */
+#line 1870 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 15:
-#line 185 "sql.y" /* yacc.c:1660  */
+#line 186 "sql.y" /* yacc.c:1660  */
     {
     (yyval.col_def_list) = ctx->factory->NewColumnDefinitionList((yyvsp[0].col_def));
 }
-#line 1877 "sql.cc" /* yacc.c:1660  */
+#line 1878 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 16:
-#line 188 "sql.y" /* yacc.c:1660  */
+#line 189 "sql.y" /* yacc.c:1660  */
     {
     (yyval.col_def_list)->push_back((yyvsp[0].col_def));
 }
-#line 1885 "sql.cc" /* yacc.c:1660  */
+#line 1886 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 17:
-#line 192 "sql.y" /* yacc.c:1660  */
+#line 193 "sql.y" /* yacc.c:1660  */
     {
-    ColumnDefinition *def = ctx->factory->NewColumnDefinition((yyvsp[-6].name), (yyvsp[-5].type_def));
+    auto *def = ctx->factory->NewColumnDefinition((yyvsp[-6].name), (yyvsp[-5].type_def));
     def->set_is_not_null((yyvsp[-4].bool_val));
     def->set_auto_increment((yyvsp[-3].bool_val));
     def->set_default_value((yyvsp[-2].expr));
@@ -1895,470 +1896,470 @@ yyreduce:
     def->set_comment((yyvsp[0].name));
     (yyval.col_def) = def;
 }
-#line 1899 "sql.cc" /* yacc.c:1660  */
+#line 1900 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 18:
-#line 202 "sql.y" /* yacc.c:1660  */
+#line 203 "sql.y" /* yacc.c:1660  */
     {
     (yyval.type_def) = ctx->factory->NewTypeDefinition(SQL_BIGINT, (yyvsp[0].size).fixed_size);
 }
-#line 1907 "sql.cc" /* yacc.c:1660  */
+#line 1908 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 19:
-#line 205 "sql.y" /* yacc.c:1660  */
+#line 206 "sql.y" /* yacc.c:1660  */
     {
     (yyval.type_def) = ctx->factory->NewTypeDefinition(SQL_INT, (yyvsp[0].size).fixed_size);
 }
-#line 1915 "sql.cc" /* yacc.c:1660  */
+#line 1916 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 20:
-#line 208 "sql.y" /* yacc.c:1660  */
+#line 209 "sql.y" /* yacc.c:1660  */
     {
     (yyval.type_def) = ctx->factory->NewTypeDefinition(SQL_SMALLINT, (yyvsp[0].size).fixed_size);
 }
-#line 1923 "sql.cc" /* yacc.c:1660  */
+#line 1924 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 21:
-#line 211 "sql.y" /* yacc.c:1660  */
+#line 212 "sql.y" /* yacc.c:1660  */
     {
     (yyval.type_def) = ctx->factory->NewTypeDefinition(SQL_TINYINT, (yyvsp[0].size).fixed_size);
 }
-#line 1931 "sql.cc" /* yacc.c:1660  */
+#line 1932 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 22:
-#line 214 "sql.y" /* yacc.c:1660  */
+#line 215 "sql.y" /* yacc.c:1660  */
     {
     (yyval.type_def) = ctx->factory->NewTypeDefinition(SQL_DECIMAL, (yyvsp[0].size).fixed_size, (yyvsp[0].size).float_size);
 }
-#line 1939 "sql.cc" /* yacc.c:1660  */
+#line 1940 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 23:
-#line 217 "sql.y" /* yacc.c:1660  */
+#line 218 "sql.y" /* yacc.c:1660  */
     {
     (yyval.type_def) = ctx->factory->NewTypeDefinition(SQL_NUMERIC, (yyvsp[0].size).fixed_size, (yyvsp[0].size).float_size);
 }
-#line 1947 "sql.cc" /* yacc.c:1660  */
+#line 1948 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 24:
-#line 220 "sql.y" /* yacc.c:1660  */
+#line 221 "sql.y" /* yacc.c:1660  */
     {
     (yyval.type_def) = ctx->factory->NewTypeDefinition(SQL_NUMERIC, (yyvsp[0].size).fixed_size);
 }
-#line 1955 "sql.cc" /* yacc.c:1660  */
+#line 1956 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 25:
-#line 223 "sql.y" /* yacc.c:1660  */
+#line 224 "sql.y" /* yacc.c:1660  */
     {
     (yyval.type_def) = ctx->factory->NewTypeDefinition(SQL_VARCHAR, (yyvsp[0].size).fixed_size);
 }
-#line 1963 "sql.cc" /* yacc.c:1660  */
+#line 1964 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 26:
-#line 226 "sql.y" /* yacc.c:1660  */
+#line 227 "sql.y" /* yacc.c:1660  */
     {
     (yyval.type_def) = ctx->factory->NewTypeDefinition(SQL_DATE);
 }
-#line 1971 "sql.cc" /* yacc.c:1660  */
+#line 1972 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 27:
-#line 229 "sql.y" /* yacc.c:1660  */
+#line 230 "sql.y" /* yacc.c:1660  */
     {
     (yyval.type_def) = ctx->factory->NewTypeDefinition(SQL_DATETIME);
 }
-#line 1979 "sql.cc" /* yacc.c:1660  */
+#line 1980 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 28:
-#line 233 "sql.y" /* yacc.c:1660  */
+#line 234 "sql.y" /* yacc.c:1660  */
     {
     (yyval.size).fixed_size = (yyvsp[-1].int_val);
     (yyval.size).float_size = 0;
 }
-#line 1988 "sql.cc" /* yacc.c:1660  */
+#line 1989 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 29:
-#line 237 "sql.y" /* yacc.c:1660  */
+#line 238 "sql.y" /* yacc.c:1660  */
     {
     (yyval.size).fixed_size = 0;
     (yyval.size).float_size = 0;
 }
-#line 1997 "sql.cc" /* yacc.c:1660  */
+#line 1998 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 30:
-#line 242 "sql.y" /* yacc.c:1660  */
+#line 243 "sql.y" /* yacc.c:1660  */
     {
     (yyval.size).fixed_size = (yyvsp[-3].int_val);
     (yyval.size).float_size = (yyvsp[-1].int_val);
 }
-#line 2006 "sql.cc" /* yacc.c:1660  */
+#line 2007 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 31:
-#line 246 "sql.y" /* yacc.c:1660  */
+#line 247 "sql.y" /* yacc.c:1660  */
     {
     (yyval.size).fixed_size = 0;
     (yyval.size).float_size = 0;
 }
-#line 2015 "sql.cc" /* yacc.c:1660  */
+#line 2016 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 32:
-#line 251 "sql.y" /* yacc.c:1660  */
+#line 252 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = (yyvsp[0].expr);
 }
-#line 2023 "sql.cc" /* yacc.c:1660  */
+#line 2024 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 33:
-#line 254 "sql.y" /* yacc.c:1660  */
+#line 255 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = nullptr;
 }
-#line 2031 "sql.cc" /* yacc.c:1660  */
+#line 2032 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 34:
-#line 258 "sql.y" /* yacc.c:1660  */
+#line 259 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = true;
 }
-#line 2039 "sql.cc" /* yacc.c:1660  */
+#line 2040 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 35:
-#line 261 "sql.y" /* yacc.c:1660  */
+#line 262 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = false;
 }
-#line 2047 "sql.cc" /* yacc.c:1660  */
+#line 2048 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 36:
-#line 265 "sql.y" /* yacc.c:1660  */
+#line 266 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = true;
 }
-#line 2055 "sql.cc" /* yacc.c:1660  */
+#line 2056 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 37:
-#line 268 "sql.y" /* yacc.c:1660  */
+#line 269 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = false;
 }
-#line 2063 "sql.cc" /* yacc.c:1660  */
+#line 2064 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 38:
-#line 271 "sql.y" /* yacc.c:1660  */
+#line 272 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = false;
 }
-#line 2071 "sql.cc" /* yacc.c:1660  */
+#line 2072 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 39:
-#line 275 "sql.y" /* yacc.c:1660  */
+#line 276 "sql.y" /* yacc.c:1660  */
     {
     (yyval.key_type) = SQL_KEY;
 }
-#line 2079 "sql.cc" /* yacc.c:1660  */
+#line 2080 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 40:
-#line 278 "sql.y" /* yacc.c:1660  */
+#line 279 "sql.y" /* yacc.c:1660  */
     {
     (yyval.key_type) = SQL_UNIQUE_KEY;
 }
-#line 2087 "sql.cc" /* yacc.c:1660  */
+#line 2088 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 41:
-#line 281 "sql.y" /* yacc.c:1660  */
+#line 282 "sql.y" /* yacc.c:1660  */
     {
     (yyval.key_type) = SQL_UNIQUE_KEY;
 }
-#line 2095 "sql.cc" /* yacc.c:1660  */
+#line 2096 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 42:
-#line 284 "sql.y" /* yacc.c:1660  */
+#line 285 "sql.y" /* yacc.c:1660  */
     {
     (yyval.key_type) = SQL_PRIMARY_KEY;
 }
-#line 2103 "sql.cc" /* yacc.c:1660  */
+#line 2104 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 43:
-#line 287 "sql.y" /* yacc.c:1660  */
+#line 288 "sql.y" /* yacc.c:1660  */
     {
     (yyval.key_type) = SQL_PRIMARY_KEY;
 }
-#line 2111 "sql.cc" /* yacc.c:1660  */
+#line 2112 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 44:
-#line 290 "sql.y" /* yacc.c:1660  */
+#line 291 "sql.y" /* yacc.c:1660  */
     {
     (yyval.key_type) = SQL_NOT_KEY;
 }
-#line 2119 "sql.cc" /* yacc.c:1660  */
+#line 2120 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 45:
-#line 294 "sql.y" /* yacc.c:1660  */
+#line 295 "sql.y" /* yacc.c:1660  */
     {
     (yyval.name) = ctx->factory->NewString((yyvsp[0].text).buf, (yyvsp[0].text).len);
 }
-#line 2127 "sql.cc" /* yacc.c:1660  */
+#line 2128 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 46:
-#line 297 "sql.y" /* yacc.c:1660  */
+#line 298 "sql.y" /* yacc.c:1660  */
     {
     (yyval.name) = AstString::kEmpty;
 }
-#line 2135 "sql.cc" /* yacc.c:1660  */
+#line 2136 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 47:
-#line 301 "sql.y" /* yacc.c:1660  */
+#line 302 "sql.y" /* yacc.c:1660  */
     {
     (yyval.stmt) = ctx->factory->NewAlterTable((yyvsp[-1].id), (yyvsp[0].alter_table_spce_list));
 }
-#line 2143 "sql.cc" /* yacc.c:1660  */
+#line 2144 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 48:
-#line 305 "sql.y" /* yacc.c:1660  */
+#line 306 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce_list) = ctx->factory->NewAlterTableSpecList((yyvsp[0].alter_table_spce));
 }
-#line 2151 "sql.cc" /* yacc.c:1660  */
+#line 2152 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 49:
-#line 308 "sql.y" /* yacc.c:1660  */
+#line 309 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce_list)->push_back((yyvsp[0].alter_table_spce));
 }
-#line 2159 "sql.cc" /* yacc.c:1660  */
+#line 2160 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 50:
-#line 312 "sql.y" /* yacc.c:1660  */
+#line 313 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableAddColumn((yyvsp[-1].col_def), (yyvsp[0].col_pos).after, (yyvsp[0].col_pos).name);
 }
-#line 2167 "sql.cc" /* yacc.c:1660  */
+#line 2168 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 51:
-#line 315 "sql.y" /* yacc.c:1660  */
+#line 316 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableAddColumn((yyvsp[-1].col_def), (yyvsp[0].col_pos).after, (yyvsp[0].col_pos).name);
 }
-#line 2175 "sql.cc" /* yacc.c:1660  */
+#line 2176 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 52:
-#line 318 "sql.y" /* yacc.c:1660  */
+#line 319 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableAddColumn((yyvsp[-1].col_def_list));
 }
-#line 2183 "sql.cc" /* yacc.c:1660  */
+#line 2184 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 53:
-#line 321 "sql.y" /* yacc.c:1660  */
+#line 322 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableAddColumn((yyvsp[-1].col_def_list));
 }
-#line 2191 "sql.cc" /* yacc.c:1660  */
+#line 2192 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 54:
-#line 324 "sql.y" /* yacc.c:1660  */
+#line 325 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableAddIndex((yyvsp[-4].name), (yyvsp[-3].key_type) == SQL_NOT_KEY ? SQL_KEY : (yyvsp[-3].key_type),
                                              (yyvsp[-1].name_list));
 }
-#line 2200 "sql.cc" /* yacc.c:1660  */
+#line 2201 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 55:
-#line 328 "sql.y" /* yacc.c:1660  */
+#line 329 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableAddIndex((yyvsp[-4].name), (yyvsp[-3].key_type) == SQL_NOT_KEY ? SQL_KEY : (yyvsp[-3].key_type),
                                              (yyvsp[-1].name_list));
 }
-#line 2209 "sql.cc" /* yacc.c:1660  */
+#line 2210 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 56:
-#line 332 "sql.y" /* yacc.c:1660  */
+#line 333 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableChangeColumn((yyvsp[-2].name), (yyvsp[-1].col_def), (yyvsp[0].col_pos).after, (yyvsp[0].col_pos).name);
 }
-#line 2217 "sql.cc" /* yacc.c:1660  */
+#line 2218 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 57:
-#line 335 "sql.y" /* yacc.c:1660  */
+#line 336 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableChangeColumn((yyvsp[-2].name), (yyvsp[-1].col_def), (yyvsp[0].col_pos).after, (yyvsp[0].col_pos).name);
 }
-#line 2225 "sql.cc" /* yacc.c:1660  */
+#line 2226 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 58:
-#line 338 "sql.y" /* yacc.c:1660  */
+#line 339 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableRenameColumn((yyvsp[-2].name), (yyvsp[0].name));
 }
-#line 2233 "sql.cc" /* yacc.c:1660  */
+#line 2234 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 59:
-#line 341 "sql.y" /* yacc.c:1660  */
+#line 342 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableRenameIndex((yyvsp[-2].name), (yyvsp[0].name));
 }
-#line 2241 "sql.cc" /* yacc.c:1660  */
+#line 2242 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 60:
-#line 344 "sql.y" /* yacc.c:1660  */
+#line 345 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableRenameIndex((yyvsp[-2].name), (yyvsp[0].name));
 }
-#line 2249 "sql.cc" /* yacc.c:1660  */
+#line 2250 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 61:
-#line 347 "sql.y" /* yacc.c:1660  */
+#line 348 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableRename((yyvsp[0].name));
 }
-#line 2257 "sql.cc" /* yacc.c:1660  */
+#line 2258 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 62:
-#line 350 "sql.y" /* yacc.c:1660  */
+#line 351 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableRename((yyvsp[0].name));
 }
-#line 2265 "sql.cc" /* yacc.c:1660  */
+#line 2266 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 63:
-#line 353 "sql.y" /* yacc.c:1660  */
+#line 354 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableRename((yyvsp[0].name));
 }
-#line 2273 "sql.cc" /* yacc.c:1660  */
+#line 2274 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 64:
-#line 356 "sql.y" /* yacc.c:1660  */
+#line 357 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableDropColumn((yyvsp[0].name));
 }
-#line 2281 "sql.cc" /* yacc.c:1660  */
+#line 2282 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 65:
-#line 359 "sql.y" /* yacc.c:1660  */
+#line 360 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableDropColumn((yyvsp[0].name));
 }
-#line 2289 "sql.cc" /* yacc.c:1660  */
+#line 2290 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 66:
-#line 362 "sql.y" /* yacc.c:1660  */
+#line 363 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableDropIndex((yyvsp[0].name), false);
 }
-#line 2297 "sql.cc" /* yacc.c:1660  */
+#line 2298 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 67:
-#line 365 "sql.y" /* yacc.c:1660  */
+#line 366 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableDropIndex((yyvsp[0].name), false);
 }
-#line 2305 "sql.cc" /* yacc.c:1660  */
+#line 2306 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 68:
-#line 368 "sql.y" /* yacc.c:1660  */
+#line 369 "sql.y" /* yacc.c:1660  */
     {
     (yyval.alter_table_spce) = ctx->factory->NewAlterTableDropIndex(AstString::kEmpty, true);
 }
-#line 2313 "sql.cc" /* yacc.c:1660  */
+#line 2314 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 69:
-#line 372 "sql.y" /* yacc.c:1660  */
+#line 373 "sql.y" /* yacc.c:1660  */
     {
     (yyval.col_pos).name  = (yyvsp[0].name);
     (yyval.col_pos).after = false;
 }
-#line 2322 "sql.cc" /* yacc.c:1660  */
+#line 2323 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 70:
-#line 376 "sql.y" /* yacc.c:1660  */
+#line 377 "sql.y" /* yacc.c:1660  */
     {
     (yyval.col_pos).name  = (yyvsp[0].name);
     (yyval.col_pos).after = true;
 }
-#line 2331 "sql.cc" /* yacc.c:1660  */
+#line 2332 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 71:
-#line 380 "sql.y" /* yacc.c:1660  */
+#line 381 "sql.y" /* yacc.c:1660  */
     {
     (yyval.col_pos).name  = AstString::kEmpty;
     (yyval.col_pos).after = false;
 }
-#line 2340 "sql.cc" /* yacc.c:1660  */
+#line 2341 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 72:
-#line 385 "sql.y" /* yacc.c:1660  */
+#line 386 "sql.y" /* yacc.c:1660  */
     {
     (yyval.name_list) = ctx->factory->NewNameList((yyvsp[0].name));
 }
-#line 2348 "sql.cc" /* yacc.c:1660  */
+#line 2349 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 73:
-#line 388 "sql.y" /* yacc.c:1660  */
+#line 389 "sql.y" /* yacc.c:1660  */
     {
     (yyval.name_list)->push_back((yyvsp[0].name));
 }
-#line 2356 "sql.cc" /* yacc.c:1660  */
+#line 2357 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 77:
-#line 399 "sql.y" /* yacc.c:1660  */
+#line 400 "sql.y" /* yacc.c:1660  */
     {
-    Select *stmt = ctx->factory->NewSelect((yyvsp[-8].bool_val), (yyvsp[-7].proj_col_list), AstString::kEmpty);
+    auto *stmt = ctx->factory->NewSelect((yyvsp[-8].bool_val), (yyvsp[-7].proj_col_list), AstString::kEmpty);
     stmt->set_from_clause((yyvsp[-6].query));
     stmt->set_where_clause((yyvsp[-5].expr));
     stmt->set_order_by_desc((yyvsp[-4].order_by).desc);
@@ -2370,60 +2371,60 @@ yyreduce:
     stmt->set_for_update((yyvsp[0].bool_val));
     (yyval.stmt) = stmt;
 }
-#line 2374 "sql.cc" /* yacc.c:1660  */
+#line 2375 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 78:
-#line 413 "sql.y" /* yacc.c:1660  */
+#line 414 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = true;
 }
-#line 2382 "sql.cc" /* yacc.c:1660  */
+#line 2383 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 79:
-#line 416 "sql.y" /* yacc.c:1660  */
+#line 417 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = false;
 }
-#line 2390 "sql.cc" /* yacc.c:1660  */
+#line 2391 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 80:
-#line 419 "sql.y" /* yacc.c:1660  */
+#line 420 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = false;
 }
-#line 2398 "sql.cc" /* yacc.c:1660  */
+#line 2399 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 81:
-#line 423 "sql.y" /* yacc.c:1660  */
+#line 424 "sql.y" /* yacc.c:1660  */
     {
     (yyval.proj_col_list) = ctx->factory->NewProjectionColumnList((yyvsp[0].proj_col));
 }
-#line 2406 "sql.cc" /* yacc.c:1660  */
+#line 2407 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 82:
-#line 426 "sql.y" /* yacc.c:1660  */
+#line 427 "sql.y" /* yacc.c:1660  */
     {
     (yyval.proj_col_list)->push_back((yyvsp[0].proj_col));
 }
-#line 2414 "sql.cc" /* yacc.c:1660  */
+#line 2415 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 83:
-#line 430 "sql.y" /* yacc.c:1660  */
+#line 431 "sql.y" /* yacc.c:1660  */
     {
     (yyval.proj_col) = ctx->factory->NewProjectionColumn((yyvsp[-1].expr), (yyvsp[0].name),
                                            Location::Concat((yylsp[-1]), (yylsp[0])));
 }
-#line 2423 "sql.cc" /* yacc.c:1660  */
+#line 2424 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 84:
-#line 434 "sql.y" /* yacc.c:1660  */
+#line 435 "sql.y" /* yacc.c:1660  */
     {
     Identifier *id = ctx->factory->NewIdentifierWithPlaceholder((yyvsp[-2].name),
         ctx->factory->NewStarPlaceholder((yylsp[0])),
@@ -2431,299 +2432,299 @@ yyreduce:
     (yyval.proj_col) = ctx->factory->NewProjectionColumn(id, AstString::kEmpty,
         Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2435 "sql.cc" /* yacc.c:1660  */
+#line 2436 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 85:
-#line 441 "sql.y" /* yacc.c:1660  */
+#line 442 "sql.y" /* yacc.c:1660  */
     {
     Placeholder *ph = ctx->factory->NewStarPlaceholder((yylsp[0]));
     (yyval.proj_col) = ctx->factory->NewProjectionColumn(ph, AstString::kEmpty, (yylsp[0]));
 }
-#line 2444 "sql.cc" /* yacc.c:1660  */
+#line 2445 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 87:
-#line 448 "sql.y" /* yacc.c:1660  */
+#line 449 "sql.y" /* yacc.c:1660  */
     {
     (yyval.name) = AstString::kEmpty;
 }
-#line 2452 "sql.cc" /* yacc.c:1660  */
+#line 2453 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 88:
-#line 452 "sql.y" /* yacc.c:1660  */
+#line 453 "sql.y" /* yacc.c:1660  */
     {
     (yyval.name) = (yyvsp[0].name);
 }
-#line 2460 "sql.cc" /* yacc.c:1660  */
+#line 2461 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 89:
-#line 455 "sql.y" /* yacc.c:1660  */
+#line 456 "sql.y" /* yacc.c:1660  */
     {
     (yyval.name) = (yyvsp[0].name);
 }
-#line 2468 "sql.cc" /* yacc.c:1660  */
+#line 2469 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 90:
-#line 459 "sql.y" /* yacc.c:1660  */
+#line 460 "sql.y" /* yacc.c:1660  */
     {
     (yyval.query) = (yyvsp[0].query);
 }
-#line 2476 "sql.cc" /* yacc.c:1660  */
+#line 2477 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 91:
-#line 462 "sql.y" /* yacc.c:1660  */
+#line 463 "sql.y" /* yacc.c:1660  */
     {
     (yyval.query) = nullptr;
 }
-#line 2484 "sql.cc" /* yacc.c:1660  */
+#line 2485 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 92:
-#line 466 "sql.y" /* yacc.c:1660  */
+#line 467 "sql.y" /* yacc.c:1660  */
     {
     Query *query = ::mai::down_cast<Query>((yyvsp[-2].stmt));
     query->set_alias((yyvsp[0].name));
     (yyval.query) = query;
 }
-#line 2494 "sql.cc" /* yacc.c:1660  */
+#line 2495 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 93:
-#line 471 "sql.y" /* yacc.c:1660  */
+#line 472 "sql.y" /* yacc.c:1660  */
     {
     (yyvsp[-5].query)->set_alias((yyvsp[-4].name));
     (yyvsp[-2].query)->set_alias((yyvsp[-1].name));
     (yyval.query) = ctx->factory->NewJoinRelation((yyvsp[-5].query), SQL_CROSS_JOIN, (yyvsp[-2].query), (yyvsp[0].expr),
         AstString::kEmpty);
 }
-#line 2505 "sql.cc" /* yacc.c:1660  */
+#line 2506 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 94:
-#line 477 "sql.y" /* yacc.c:1660  */
+#line 478 "sql.y" /* yacc.c:1660  */
     {
     (yyvsp[-5].query)->set_alias((yyvsp[-4].name));
     (yyvsp[-2].query)->set_alias((yyvsp[-1].name));
     (yyval.query) = ctx->factory->NewJoinRelation((yyvsp[-5].query), (yyvsp[-3].join_kind), (yyvsp[-2].query), (yyvsp[0].expr), AstString::kEmpty);
 }
-#line 2515 "sql.cc" /* yacc.c:1660  */
+#line 2516 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 95:
-#line 482 "sql.y" /* yacc.c:1660  */
+#line 483 "sql.y" /* yacc.c:1660  */
     {
     (yyval.query) = ctx->factory->NewNameRelation((yyvsp[-1].id), (yyvsp[0].name));
 }
-#line 2523 "sql.cc" /* yacc.c:1660  */
+#line 2524 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 96:
-#line 486 "sql.y" /* yacc.c:1660  */
+#line 487 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = (yyvsp[-1].expr);
 }
-#line 2531 "sql.cc" /* yacc.c:1660  */
+#line 2532 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 97:
-#line 489 "sql.y" /* yacc.c:1660  */
+#line 490 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = nullptr;
 }
-#line 2539 "sql.cc" /* yacc.c:1660  */
+#line 2540 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 98:
-#line 493 "sql.y" /* yacc.c:1660  */
+#line 494 "sql.y" /* yacc.c:1660  */
     {
     (yyval.join_kind) = SQL_CROSS_JOIN;
 }
-#line 2547 "sql.cc" /* yacc.c:1660  */
+#line 2548 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 99:
-#line 496 "sql.y" /* yacc.c:1660  */
+#line 497 "sql.y" /* yacc.c:1660  */
     {
     (yyval.join_kind) = SQL_CROSS_JOIN;
 }
-#line 2555 "sql.cc" /* yacc.c:1660  */
+#line 2556 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 100:
-#line 499 "sql.y" /* yacc.c:1660  */
+#line 500 "sql.y" /* yacc.c:1660  */
     {
     (yyval.join_kind) = SQL_LEFT_OUTTER_JOIN;
 }
-#line 2563 "sql.cc" /* yacc.c:1660  */
+#line 2564 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 101:
-#line 502 "sql.y" /* yacc.c:1660  */
+#line 503 "sql.y" /* yacc.c:1660  */
     {
     (yyval.join_kind) = SQL_LEFT_OUTTER_JOIN;
 }
-#line 2571 "sql.cc" /* yacc.c:1660  */
+#line 2572 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 102:
-#line 505 "sql.y" /* yacc.c:1660  */
+#line 506 "sql.y" /* yacc.c:1660  */
     {
     (yyval.join_kind) = SQL_RIGHT_OUTTER_JOIN;
 }
-#line 2579 "sql.cc" /* yacc.c:1660  */
+#line 2580 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 103:
-#line 508 "sql.y" /* yacc.c:1660  */
+#line 509 "sql.y" /* yacc.c:1660  */
     {
     (yyval.join_kind) = SQL_RIGHT_OUTTER_JOIN;
 }
-#line 2587 "sql.cc" /* yacc.c:1660  */
+#line 2588 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 104:
-#line 512 "sql.y" /* yacc.c:1660  */
+#line 513 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = (yyvsp[0].expr);
 }
-#line 2595 "sql.cc" /* yacc.c:1660  */
+#line 2596 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 105:
-#line 515 "sql.y" /* yacc.c:1660  */
+#line 516 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = nullptr;
 }
-#line 2603 "sql.cc" /* yacc.c:1660  */
+#line 2604 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 106:
-#line 519 "sql.y" /* yacc.c:1660  */
+#line 520 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = (yyvsp[-1].expr);
 }
-#line 2611 "sql.cc" /* yacc.c:1660  */
+#line 2612 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 107:
-#line 522 "sql.y" /* yacc.c:1660  */
+#line 523 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = nullptr;
 }
-#line 2619 "sql.cc" /* yacc.c:1660  */
+#line 2620 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 108:
-#line 526 "sql.y" /* yacc.c:1660  */
+#line 527 "sql.y" /* yacc.c:1660  */
     {
     (yyval.order_by).expr_list = (yyvsp[-1].expr_list);
     (yyval.order_by).desc = false;
 }
-#line 2628 "sql.cc" /* yacc.c:1660  */
+#line 2629 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 109:
-#line 530 "sql.y" /* yacc.c:1660  */
+#line 531 "sql.y" /* yacc.c:1660  */
     {
     (yyval.order_by).expr_list = (yyvsp[-1].expr_list);
     (yyval.order_by).desc = true;
 }
-#line 2637 "sql.cc" /* yacc.c:1660  */
+#line 2638 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 110:
-#line 534 "sql.y" /* yacc.c:1660  */
+#line 535 "sql.y" /* yacc.c:1660  */
     {
     (yyval.order_by).expr_list = (yyvsp[0].expr_list);
     (yyval.order_by).desc = false;
 }
-#line 2646 "sql.cc" /* yacc.c:1660  */
+#line 2647 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 111:
-#line 538 "sql.y" /* yacc.c:1660  */
+#line 539 "sql.y" /* yacc.c:1660  */
     {
     (yyval.order_by).expr_list = nullptr;
     (yyval.order_by).desc = false;
 }
-#line 2655 "sql.cc" /* yacc.c:1660  */
+#line 2656 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 112:
-#line 543 "sql.y" /* yacc.c:1660  */
+#line 544 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr_list) = (yyvsp[0].expr_list);
 }
-#line 2663 "sql.cc" /* yacc.c:1660  */
+#line 2664 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 113:
-#line 546 "sql.y" /* yacc.c:1660  */
+#line 547 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr_list) = nullptr;
 }
-#line 2671 "sql.cc" /* yacc.c:1660  */
+#line 2672 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 114:
-#line 550 "sql.y" /* yacc.c:1660  */
+#line 551 "sql.y" /* yacc.c:1660  */
     {
     (yyval.limit).limit_val  = (yyvsp[0].int_val);
     (yyval.limit).offset_val = 0;
 }
-#line 2680 "sql.cc" /* yacc.c:1660  */
+#line 2681 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 115:
-#line 554 "sql.y" /* yacc.c:1660  */
+#line 555 "sql.y" /* yacc.c:1660  */
     {
     (yyval.limit).offset_val = (yyvsp[-2].int_val);
     (yyval.limit).limit_val  = (yyvsp[0].int_val);
 }
-#line 2689 "sql.cc" /* yacc.c:1660  */
+#line 2690 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 116:
-#line 558 "sql.y" /* yacc.c:1660  */
+#line 559 "sql.y" /* yacc.c:1660  */
     {
     (yyval.limit).limit_val  = (yyvsp[-2].int_val);
     (yyval.limit).offset_val = (yyvsp[0].int_val);
 }
-#line 2698 "sql.cc" /* yacc.c:1660  */
+#line 2699 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 117:
-#line 562 "sql.y" /* yacc.c:1660  */
+#line 563 "sql.y" /* yacc.c:1660  */
     {
     (yyval.limit).limit_val  = 0;
     (yyval.limit).offset_val = 0;
 }
-#line 2707 "sql.cc" /* yacc.c:1660  */
+#line 2708 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 118:
-#line 568 "sql.y" /* yacc.c:1660  */
+#line 569 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = true;
 }
-#line 2715 "sql.cc" /* yacc.c:1660  */
+#line 2716 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 119:
-#line 571 "sql.y" /* yacc.c:1660  */
+#line 572 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = false;
 }
-#line 2723 "sql.cc" /* yacc.c:1660  */
+#line 2724 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 120:
-#line 575 "sql.y" /* yacc.c:1660  */
+#line 576 "sql.y" /* yacc.c:1660  */
     {
     Insert *stmt = ctx->factory->NewInsert((yyvsp[-6].bool_val), (yyvsp[-4].id));
     stmt->set_col_names((yyvsp[-3].name_list));
@@ -2731,22 +2732,22 @@ yyreduce:
     stmt->set_on_duplicate_clause((yyvsp[0].assignment_list));
     (yyval.stmt) = stmt;
 }
-#line 2735 "sql.cc" /* yacc.c:1660  */
+#line 2736 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 121:
-#line 582 "sql.y" /* yacc.c:1660  */
+#line 583 "sql.y" /* yacc.c:1660  */
     {
     Insert *stmt = ctx->factory->NewInsert((yyvsp[-5].bool_val), (yyvsp[-3].id));
     stmt->SetAssignmentList((yyvsp[-1].assignment_list), ctx->factory->arena());
     stmt->set_on_duplicate_clause((yyvsp[0].assignment_list));
     (yyval.stmt) = stmt;
 }
-#line 2746 "sql.cc" /* yacc.c:1660  */
+#line 2747 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 122:
-#line 588 "sql.y" /* yacc.c:1660  */
+#line 589 "sql.y" /* yacc.c:1660  */
     {
     Insert *stmt = ctx->factory->NewInsert((yyvsp[-5].bool_val), (yyvsp[-3].id));
     stmt->set_col_names((yyvsp[-2].name_list));
@@ -2754,115 +2755,115 @@ yyreduce:
     stmt->set_on_duplicate_clause((yyvsp[0].assignment_list));
     (yyval.stmt) = stmt;
 }
-#line 2758 "sql.cc" /* yacc.c:1660  */
+#line 2759 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 124:
-#line 597 "sql.y" /* yacc.c:1660  */
+#line 598 "sql.y" /* yacc.c:1660  */
     {
     (yyval.name_list) = nullptr;
 }
-#line 2766 "sql.cc" /* yacc.c:1660  */
+#line 2767 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 125:
-#line 601 "sql.y" /* yacc.c:1660  */
+#line 602 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = true;
 }
-#line 2774 "sql.cc" /* yacc.c:1660  */
+#line 2775 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 126:
-#line 604 "sql.y" /* yacc.c:1660  */
+#line 605 "sql.y" /* yacc.c:1660  */
     {
     (yyval.bool_val) = false;
 }
-#line 2782 "sql.cc" /* yacc.c:1660  */
+#line 2783 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 129:
-#line 611 "sql.y" /* yacc.c:1660  */
+#line 612 "sql.y" /* yacc.c:1660  */
     {
     (yyval.row_vals_list) = ctx->factory->NewRowValuesList((yyvsp[0].expr_list));
 }
-#line 2790 "sql.cc" /* yacc.c:1660  */
+#line 2791 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 130:
-#line 614 "sql.y" /* yacc.c:1660  */
+#line 615 "sql.y" /* yacc.c:1660  */
     {
     (yyval.row_vals_list)->push_back((yyvsp[0].expr_list));
 }
-#line 2798 "sql.cc" /* yacc.c:1660  */
+#line 2799 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 131:
-#line 618 "sql.y" /* yacc.c:1660  */
+#line 619 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr_list) = (yyvsp[-1].expr_list);
 }
-#line 2806 "sql.cc" /* yacc.c:1660  */
+#line 2807 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 132:
-#line 622 "sql.y" /* yacc.c:1660  */
+#line 623 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr_list) = ctx->factory->NewExpressionList((yyvsp[0].expr));
 }
-#line 2814 "sql.cc" /* yacc.c:1660  */
+#line 2815 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 133:
-#line 625 "sql.y" /* yacc.c:1660  */
+#line 626 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr_list)->push_back((yyvsp[0].expr));
 }
-#line 2822 "sql.cc" /* yacc.c:1660  */
+#line 2823 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 135:
-#line 630 "sql.y" /* yacc.c:1660  */
+#line 631 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewDefaultPlaceholderLiteral((yylsp[0]));
 }
-#line 2830 "sql.cc" /* yacc.c:1660  */
+#line 2831 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 136:
-#line 634 "sql.y" /* yacc.c:1660  */
+#line 635 "sql.y" /* yacc.c:1660  */
     {
     (yyval.assignment_list) = (yyvsp[0].assignment_list);
 }
-#line 2838 "sql.cc" /* yacc.c:1660  */
+#line 2839 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 137:
-#line 637 "sql.y" /* yacc.c:1660  */
+#line 638 "sql.y" /* yacc.c:1660  */
     {
     (yyval.assignment_list) = nullptr;
 }
-#line 2846 "sql.cc" /* yacc.c:1660  */
+#line 2847 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 138:
-#line 641 "sql.y" /* yacc.c:1660  */
+#line 642 "sql.y" /* yacc.c:1660  */
     {
     (yyval.assignment_list) = ctx->factory->NewAssignmentList((yyvsp[0].assignment));
 }
-#line 2854 "sql.cc" /* yacc.c:1660  */
+#line 2855 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 139:
-#line 644 "sql.y" /* yacc.c:1660  */
+#line 645 "sql.y" /* yacc.c:1660  */
     {
     (yyval.assignment_list)->push_back((yyvsp[0].assignment));
 }
-#line 2862 "sql.cc" /* yacc.c:1660  */
+#line 2863 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 140:
-#line 648 "sql.y" /* yacc.c:1660  */
+#line 649 "sql.y" /* yacc.c:1660  */
     {
     if ((yyvsp[-1].op) != SQL_CMP_EQ) {
         yyerror(&(yylsp[-2]), ctx, "incorrect assignment.");
@@ -2870,11 +2871,11 @@ yyreduce:
     }
     (yyval.assignment) = ctx->factory->NewAssignment((yyvsp[-2].name), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2874 "sql.cc" /* yacc.c:1660  */
+#line 2875 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 141:
-#line 657 "sql.y" /* yacc.c:1660  */
+#line 658 "sql.y" /* yacc.c:1660  */
     {
     Update *stmt = ctx->factory->NewUpdate((yyvsp[-5].id), (yyvsp[-3].assignment_list));
     stmt->set_where_clause((yyvsp[-2].expr));
@@ -2883,381 +2884,381 @@ yyreduce:
     stmt->set_limit_val((yyvsp[0].limit).limit_val);
     (yyval.stmt) = stmt;
 }
-#line 2887 "sql.cc" /* yacc.c:1660  */
+#line 2888 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 142:
-#line 666 "sql.y" /* yacc.c:1660  */
+#line 667 "sql.y" /* yacc.c:1660  */
     {
     (yyval.limit).limit_val  = (yyvsp[0].int_val);
     (yyval.limit).offset_val = 0;
 }
-#line 2896 "sql.cc" /* yacc.c:1660  */
+#line 2897 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 143:
-#line 670 "sql.y" /* yacc.c:1660  */
+#line 671 "sql.y" /* yacc.c:1660  */
     {
     (yyval.limit).limit_val  = 0;
     (yyval.limit).offset_val = 0;
 }
-#line 2905 "sql.cc" /* yacc.c:1660  */
+#line 2906 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 144:
-#line 680 "sql.y" /* yacc.c:1660  */
+#line 681 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr_list) = ctx->factory->NewExpressionList((yyvsp[0].expr));
 }
-#line 2913 "sql.cc" /* yacc.c:1660  */
+#line 2914 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 145:
-#line 683 "sql.y" /* yacc.c:1660  */
+#line 684 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr_list)->push_back((yyvsp[0].expr));
 }
-#line 2921 "sql.cc" /* yacc.c:1660  */
+#line 2922 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 146:
-#line 690 "sql.y" /* yacc.c:1660  */
+#line 691 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_OR, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2929 "sql.cc" /* yacc.c:1660  */
+#line 2930 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 147:
-#line 693 "sql.y" /* yacc.c:1660  */
+#line 694 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_XOR, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2937 "sql.cc" /* yacc.c:1660  */
+#line 2938 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 148:
-#line 696 "sql.y" /* yacc.c:1660  */
+#line 697 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_AND, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2945 "sql.cc" /* yacc.c:1660  */
+#line 2946 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 149:
-#line 699 "sql.y" /* yacc.c:1660  */
+#line 700 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewUnaryExpression(SQL_NOT, (yyvsp[0].expr), Location::Concat((yylsp[-1]), (yylsp[0])));
 }
-#line 2953 "sql.cc" /* yacc.c:1660  */
+#line 2954 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 150:
-#line 702 "sql.y" /* yacc.c:1660  */
+#line 703 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewUnaryExpression(SQL_NOT, (yyvsp[0].expr), Location::Concat((yylsp[-1]), (yylsp[0])));
 }
-#line 2961 "sql.cc" /* yacc.c:1660  */
+#line 2962 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 151:
-#line 705 "sql.y" /* yacc.c:1660  */
+#line 706 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = (yyvsp[-1].expr);
 }
-#line 2969 "sql.cc" /* yacc.c:1660  */
+#line 2970 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 153:
-#line 713 "sql.y" /* yacc.c:1660  */
+#line 714 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewUnaryExpression(SQL_IS_NULL, (yyvsp[-2].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2977 "sql.cc" /* yacc.c:1660  */
+#line 2978 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 154:
-#line 716 "sql.y" /* yacc.c:1660  */
+#line 717 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewUnaryExpression(SQL_IS_NOT_NULL, (yyvsp[-3].expr), Location::Concat((yylsp[-3]), (yylsp[0])));
 }
-#line 2985 "sql.cc" /* yacc.c:1660  */
+#line 2986 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 155:
-#line 719 "sql.y" /* yacc.c:1660  */
+#line 720 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewComparison((yyvsp[-2].expr), (yyvsp[-1].op), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2993 "sql.cc" /* yacc.c:1660  */
+#line 2994 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 156:
-#line 722 "sql.y" /* yacc.c:1660  */
+#line 723 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewComparison((yyvsp[-3].expr), (yyvsp[-2].op), (yyvsp[0].expr), Location::Concat((yylsp[-3]), (yylsp[0])));
 }
-#line 3001 "sql.cc" /* yacc.c:1660  */
+#line 3002 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 157:
-#line 725 "sql.y" /* yacc.c:1660  */
+#line 726 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewComparison((yyvsp[-3].expr), (yyvsp[-2].op), (yyvsp[0].expr), Location::Concat((yylsp[-3]), (yylsp[0])));
 }
-#line 3009 "sql.cc" /* yacc.c:1660  */
+#line 3010 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 159:
-#line 733 "sql.y" /* yacc.c:1660  */
+#line 734 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewMultiExpression((yyvsp[-3].expr), SQL_NOT_IN, (yyvsp[0].expr), Location::Concat((yylsp[-3]), (yylsp[0])));
 }
-#line 3017 "sql.cc" /* yacc.c:1660  */
+#line 3018 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 160:
-#line 736 "sql.y" /* yacc.c:1660  */
+#line 737 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewMultiExpression((yyvsp[-2].expr), SQL_IN, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3025 "sql.cc" /* yacc.c:1660  */
+#line 3026 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 161:
-#line 739 "sql.y" /* yacc.c:1660  */
+#line 740 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewMultiExpression((yyvsp[-5].expr), SQL_NOT_IN, (yyvsp[-1].expr_list), Location::Concat((yylsp[-5]), (yylsp[0])));
 }
-#line 3033 "sql.cc" /* yacc.c:1660  */
+#line 3034 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 162:
-#line 742 "sql.y" /* yacc.c:1660  */
+#line 743 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewMultiExpression((yyvsp[-4].expr), SQL_IN, (yyvsp[-1].expr_list), Location::Concat((yylsp[-4]), (yylsp[0])));
 }
-#line 3041 "sql.cc" /* yacc.c:1660  */
+#line 3042 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 163:
-#line 745 "sql.y" /* yacc.c:1660  */
+#line 746 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewMultiExpression((yyvsp[-5].expr), SQL_NOT_BETWEEN, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-5]), (yylsp[0])));
 }
-#line 3049 "sql.cc" /* yacc.c:1660  */
+#line 3050 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 164:
-#line 748 "sql.y" /* yacc.c:1660  */
+#line 749 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewMultiExpression((yyvsp[-4].expr), SQL_BETWEEN, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-4]), (yylsp[0])));
 }
-#line 3057 "sql.cc" /* yacc.c:1660  */
+#line 3058 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 165:
-#line 751 "sql.y" /* yacc.c:1660  */
+#line 752 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-3].expr), SQL_NOT_LIKE, (yyvsp[0].expr), Location::Concat((yylsp[-3]), (yylsp[0])));
 }
-#line 3065 "sql.cc" /* yacc.c:1660  */
+#line 3066 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 166:
-#line 754 "sql.y" /* yacc.c:1660  */
+#line 755 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_LIKE, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3073 "sql.cc" /* yacc.c:1660  */
+#line 3074 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 168:
-#line 763 "sql.y" /* yacc.c:1660  */
+#line 764 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_BIT_OR, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3081 "sql.cc" /* yacc.c:1660  */
+#line 3082 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 169:
-#line 766 "sql.y" /* yacc.c:1660  */
+#line 767 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_BIT_AND, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3089 "sql.cc" /* yacc.c:1660  */
+#line 3090 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 170:
-#line 769 "sql.y" /* yacc.c:1660  */
+#line 770 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_LSHIFT, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3097 "sql.cc" /* yacc.c:1660  */
+#line 3098 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 171:
-#line 772 "sql.y" /* yacc.c:1660  */
+#line 773 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_RSHIFT, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3105 "sql.cc" /* yacc.c:1660  */
+#line 3106 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 172:
-#line 775 "sql.y" /* yacc.c:1660  */
+#line 776 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_PLUS, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3113 "sql.cc" /* yacc.c:1660  */
+#line 3114 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 173:
-#line 778 "sql.y" /* yacc.c:1660  */
+#line 779 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_SUB, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3121 "sql.cc" /* yacc.c:1660  */
+#line 3122 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 174:
-#line 781 "sql.y" /* yacc.c:1660  */
+#line 782 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_MUL, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3129 "sql.cc" /* yacc.c:1660  */
+#line 3130 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 175:
-#line 784 "sql.y" /* yacc.c:1660  */
+#line 785 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_DIV, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3137 "sql.cc" /* yacc.c:1660  */
+#line 3138 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 176:
-#line 787 "sql.y" /* yacc.c:1660  */
+#line 788 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_DIV, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3145 "sql.cc" /* yacc.c:1660  */
+#line 3146 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 177:
-#line 790 "sql.y" /* yacc.c:1660  */
+#line 791 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_MOD, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3153 "sql.cc" /* yacc.c:1660  */
+#line 3154 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 178:
-#line 793 "sql.y" /* yacc.c:1660  */
+#line 794 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_MOD, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3161 "sql.cc" /* yacc.c:1660  */
+#line 3162 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 179:
-#line 796 "sql.y" /* yacc.c:1660  */
+#line 797 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewBinaryExpression((yyvsp[-2].expr), SQL_BIT_XOR, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3169 "sql.cc" /* yacc.c:1660  */
+#line 3170 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 181:
-#line 805 "sql.y" /* yacc.c:1660  */
+#line 806 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = (yyvsp[0].id);
 }
-#line 3177 "sql.cc" /* yacc.c:1660  */
+#line 3178 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 182:
-#line 808 "sql.y" /* yacc.c:1660  */
+#line 809 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewStringLiteral((yyvsp[0].text).buf, (yyvsp[0].text).len, (yylsp[0]));
 }
-#line 3185 "sql.cc" /* yacc.c:1660  */
+#line 3186 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 183:
-#line 811 "sql.y" /* yacc.c:1660  */
+#line 812 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewIntegerLiteral((yyvsp[0].int_val), (yylsp[0]));
 }
-#line 3193 "sql.cc" /* yacc.c:1660  */
+#line 3194 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 184:
-#line 814 "sql.y" /* yacc.c:1660  */
+#line 815 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewApproxLiteral((yyvsp[0].approx_val), (yylsp[0]));
 }
-#line 3201 "sql.cc" /* yacc.c:1660  */
+#line 3202 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 185:
-#line 817 "sql.y" /* yacc.c:1660  */
+#line 818 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewParamPlaceholder((yylsp[0]));
 }
-#line 3209 "sql.cc" /* yacc.c:1660  */
+#line 3210 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 186:
-#line 820 "sql.y" /* yacc.c:1660  */
+#line 821 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewUnaryExpression(SQL_MINUS, (yyvsp[0].expr), Location::Concat((yylsp[-1]), (yylsp[0])));
 }
-#line 3217 "sql.cc" /* yacc.c:1660  */
+#line 3218 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 187:
-#line 823 "sql.y" /* yacc.c:1660  */
+#line 824 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewUnaryExpression(SQL_BIT_INV, (yyvsp[0].expr), Location::Concat((yylsp[-1]), (yylsp[0])));
 }
-#line 3225 "sql.cc" /* yacc.c:1660  */
+#line 3226 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 188:
-#line 828 "sql.y" /* yacc.c:1660  */
+#line 829 "sql.y" /* yacc.c:1660  */
     {
     (yyval.expr) = ctx->factory->NewSubquery(true, ::mai::down_cast<Query>((yyvsp[-1].stmt)), (yylsp[-1]));
 }
-#line 3233 "sql.cc" /* yacc.c:1660  */
+#line 3234 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 189:
-#line 832 "sql.y" /* yacc.c:1660  */
+#line 833 "sql.y" /* yacc.c:1660  */
     {
     (yyval.id) = ctx->factory->NewIdentifier(AstString::kEmpty, (yyvsp[0].name), (yylsp[0]));
 }
-#line 3241 "sql.cc" /* yacc.c:1660  */
+#line 3242 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 190:
-#line 835 "sql.y" /* yacc.c:1660  */
+#line 836 "sql.y" /* yacc.c:1660  */
     {
     (yyval.id) = ctx->factory->NewIdentifier((yyvsp[-2].name), (yyvsp[0].name), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 3249 "sql.cc" /* yacc.c:1660  */
+#line 3250 "sql.cc" /* yacc.c:1660  */
     break;
 
   case 191:
-#line 839 "sql.y" /* yacc.c:1660  */
+#line 840 "sql.y" /* yacc.c:1660  */
     {
     (yyval.name) = ctx->factory->NewString((yyvsp[0].text).buf, (yyvsp[0].text).len);
 }
-#line 3257 "sql.cc" /* yacc.c:1660  */
+#line 3258 "sql.cc" /* yacc.c:1660  */
     break;
 
 
-#line 3261 "sql.cc" /* yacc.c:1660  */
+#line 3262 "sql.cc" /* yacc.c:1660  */
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -3490,7 +3491,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 843 "sql.y" /* yacc.c:1903  */
+#line 844 "sql.y" /* yacc.c:1903  */
 
 void yyerror(YYLTYPE *yyl, parser_ctx *ctx, const char *msg) {
     ctx->err_line   = yyl->first_line;

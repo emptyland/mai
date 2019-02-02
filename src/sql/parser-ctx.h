@@ -9,16 +9,17 @@ namespace base {
 class ArenaString;
 } // namespace base
 namespace sql {
-    
-class AstFactory;
+namespace ast {
+class Factory;
 class AstNode;
 class Block;
+} // namespace ast
 
 struct parser_ctx {
     void *lex = nullptr;
-    AstFactory *factory = nullptr;
-    AstNode *ast = nullptr;
-    Block *block = nullptr;
+    ast::Factory *factory = nullptr;
+    ast::AstNode *ast = nullptr;
+    ast::Block *block = nullptr;
     
     const base::ArenaString *err_msg = nullptr;
     int err_line = 0;

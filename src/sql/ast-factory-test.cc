@@ -8,6 +8,8 @@ namespace mai {
     
 namespace sql {
     
+namespace ast {
+    
 class AstFactoryTest : public ::testing::Test {
 public:
     AstFactoryTest()
@@ -16,12 +18,14 @@ public:
     
     Env *env_ = Env::Default();
     base::StandaloneArena arena_;
-    AstFactory factory_;
+    Factory factory_;
 };
     
 TEST_F(AstFactoryTest, Sanity) {
 
 }
+    
+} // namespace ast
 
 } // namespace sql
     

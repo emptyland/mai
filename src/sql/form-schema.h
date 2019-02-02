@@ -1,6 +1,7 @@
 #ifndef MAI_SQL_FORM_SCHEMA_SET_H_
 #define MAI_SQL_FORM_SCHEMA_SET_H_
 
+#include "sql/heap-tuple.h"
 #include "sql/types.h"
 #include "base/reference-count.h"
 #include "base/base.h"
@@ -21,21 +22,27 @@ namespace db {
 class LogWriter;
 } // namespace db
 namespace sql {
-
+namespace eval {
+class Expression;
+} // namespace eval
+namespace ast {
 class CreateTable;
 class ColumnDefinition;
+} // namespace ast
+
+
 class FormBuilder;
 class FormSchemaSet;
     
 struct FormColumn {
     std::string name;
     SQLType type;
-    int fixed_size = 0;
-    int float_size = 0;
+    int m_size = 0;
+    int d_size = 0;
     bool not_null = false;
     bool auto_increment = false;
     SQLKeyType key = SQL_NOT_KEY;
-    std::string default_val;
+    eval::Expression *default_val;
     std::string comment;
 }; // struct FormColumn
     
@@ -45,8 +52,7 @@ struct FormIndex {
     SQLKeyType  key;
     std::vector<std::shared_ptr<FormColumn>> ref_columns;
 };
-    
-    
+
 class Form final {
 public:
     using Column = FormColumn;
@@ -55,6 +61,10 @@ public:
     DEF_VAL_GETTER(int, version);
     DEF_VAL_GETTER(std::string, table_name);
     DEF_VAL_GETTER(std::string, engine_name);
+    
+    const VirtualSchema *virtual_schema() const {
+        return virtual_schema_.get();
+    }
     
     const Column *column(size_t i) const {
         DCHECK_LT(i, columns_.size());
@@ -105,6 +115,7 @@ public:
     int refs() const { return refs_.load(); }
     
     void ToCreateTable(std::string *buf) const;
+    const VirtualSchema *ToVirtualSchema() const;
     
     friend class FormBuilder;
     friend class FormSchemaSet;
@@ -124,8 +135,10 @@ private:
     std::unordered_map<std::string, size_t> index_names_;
     std::vector<size_t> column_assoc_index_;
     int primary_key_ = -1;
+
     int version_ = 0;
     Form *older_ = nullptr;
+    std::unique_ptr<const VirtualSchema> virtual_schema_;
 }; // class Form
     
     
@@ -354,13 +367,13 @@ public:
     
     const std::map<std::string, DbSlot> &GetDatabases() const { return dbs_; }
     
-    Error BuildForm(const std::string &db_name, const CreateTable *ast,
+    Error BuildForm(const std::string &db_name, const ast::CreateTable *ast,
                     Form **result);
     
     static Form *Ast2Form(const std::string &table_name,
                           const std::string &engine_name,
-                          const CreateTable *ast);
-    static Form::Column *Ast2Column(const ColumnDefinition *ast);
+                          const ast::CreateTable *ast);
+    static Form::Column *Ast2Column(const ast::ColumnDefinition *ast);
 private:
     enum RecoredKind : uint8_t {
         kUpdateDatabase,

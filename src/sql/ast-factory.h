@@ -9,10 +9,12 @@ namespace mai {
     
 namespace sql {
     
-class AstFactory final {
+namespace ast {
+    
+class Factory final {
 public:
-    AstFactory(base::Arena *arena) : arena_(arena) {}
-    ~AstFactory() {}
+    Factory(base::Arena *arena) : arena_(arena) {}
+    ~Factory() {}
     
     Block *NewBlock() { return new (arena_) Block(arena_); }
 
@@ -289,6 +291,8 @@ private:
     
     base::Arena *const arena_;
 }; // class AstFactory
+    
+} // namespace ast
     
 } // namespace sql
     

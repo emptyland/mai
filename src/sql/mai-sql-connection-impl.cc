@@ -100,11 +100,11 @@ ResultSet *MaiSQLConnectionImpl::Query(const std::string &sql) {
     return nullptr;
 }
     
-ResultSet *MaiSQLConnectionImpl::ExecuteStatement(const Statement *stmt) {
+ResultSet *MaiSQLConnectionImpl::ExecuteStatement(const ast::Statement *stmt) {
     if (stmt->is_ddl()) { // execute utils command
         switch (stmt->kind()) {
-            case AstNode::kCreateTable: {
-                auto ast = CreateTable::Cast(stmt);
+            case ast::AstNode::kCreateTable: {
+                auto ast = ast::CreateTable::Cast(stmt);
                 Error rs = ExecuteCreateTable(ast);
                 if (!rs) {
                     return ResultSet::AsError(rs);
@@ -120,7 +120,7 @@ ResultSet *MaiSQLConnectionImpl::ExecuteStatement(const Statement *stmt) {
     
     if (stmt->is_dml()) {
         switch (stmt->kind()) {
-            case AstNode::kInsert:
+            case ast::AstNode::kInsert:
                 break;
                 
             // TODO:
@@ -132,7 +132,7 @@ ResultSet *MaiSQLConnectionImpl::ExecuteStatement(const Statement *stmt) {
     return ResultSet::AsError(Error::OK());
 }
     
-Error MaiSQLConnectionImpl::ExecuteCreateTable(const CreateTable *ast) {
+Error MaiSQLConnectionImpl::ExecuteCreateTable(const ast::CreateTable *ast) {
     Form *frm = nullptr;
     std::lock_guard<std::mutex> lock(owns_impl_->form_schema_mutex_);
     Error rs = owns_impl_->form_schema_->BuildForm(db_name_, ast, &frm);

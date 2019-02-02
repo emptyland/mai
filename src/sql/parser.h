@@ -10,10 +10,11 @@ class ArenaString;
 class Arena;
 } // namespace base
 namespace sql {
-    
-class AstFactory;
+namespace ast {
+class Factory;
 class AstNode;
 class Block;
+} // namespace ast
     
 class Parser final {
 public:
@@ -21,13 +22,13 @@ public:
         const base::ArenaString *error;
         int line;
         int column;
-        AstNode *ast;
-        Block *block;
+        ast::AstNode *ast;
+        ast::Block *block;
         
         std::string FormatError();
     };
 
-    static Error Parse(const char *s, AstFactory *factory, Result *result);
+    static Error Parse(const char *s, ast::Factory *factory, Result *result);
     
     static Error Parse(const char *s, size_t n, base::Arena *arena,
                        Result *result);

@@ -172,6 +172,8 @@ void VirtualSchemaBuilder::AddColumn(const InnerBuilder &inner) {
     cd->table_name_ = std::move(inner.table_name_);
     cd->is_unsigned_ = inner.is_unsigned_;
     cd->type_ = inner.type_;
+    cd->m_size_ = inner.m_size_;
+    cd->d_size_ = inner.d_size_;
     cd->index_ = static_cast<int>(columns_.size());
 
     column_names_.insert({std::move(full_name), columns_.size()});

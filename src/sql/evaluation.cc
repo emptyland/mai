@@ -1,5 +1,6 @@
 #include "sql/evaluation.h"
 #include "sql/heap-tuple.h"
+#include "sql/ast.h"
 #include "base/slice.h"
 
 namespace mai {
@@ -601,6 +602,40 @@ Operation::Operation(SQLOperator op, Expression *lhs,
 }
 
 } // namespace eval
+    
+////////////////////////////////////////////////////////////////////////////////
+/// Evaluation
+////////////////////////////////////////////////////////////////////////////////
+/*
+    V(ProjectionColumn) \
+    V(Identifier) \
+    V(Literal) \
+    V(Subquery) \
+    V(Placeholder) \
+    V(UnaryExpression) \
+    V(BinaryExpression) \
+    V(Assignment) \
+    V(Comparison) \
+    V(MultiExpression)
+*/
+class EvalExpressionBuilder : public ast::Visitor {
+public:
+    EvalExpressionBuilder(const VirtualSchema *env) : env_(env) {}
+    
+private:
+    const VirtualSchema *const env_;
+}; // class EvalExpressionBuilder
+    
+/*static*/ eval::Expression *
+Evaluation::BuildExpression(const VirtualSchema *env, ast::Expression *ast,
+                            base::Arena *arena) {
+    EvalExpressionBuilder builder(env);
+
+    ast->Accept(&builder);
+    
+    
+    return nullptr;
+}
 
 } // namespace sql
     

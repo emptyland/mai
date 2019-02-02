@@ -10,13 +10,16 @@
 namespace mai {
     
 namespace sql {
-class EvalFactory;
 using AstString = base::ArenaString;
 class HeapTuple;
 class ColumnDescriptor;
 class VirtualSchema;
+namespace ast {
+class Expression;
+} // namespace ast
 namespace eval {
     
+class Factory;
 class EvalNode;
 class Expression;
 class Context;
@@ -117,10 +120,12 @@ public:
     int64_t i64_val() const { return data_.i64_val; }
     double  f64_val() const { return data_.f64_val; }
     const AstString *str_val() const { return data_.str_val; }
+    bool is_null() const { return kind() == Data::kNull; }
+    bool is_not_null() const { return !is_null(); }
     
     virtual Error Evaluate(Context *ctx) override;
     
-    friend class ::mai::sql::EvalFactory;
+    friend class Factory;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Constant);
 private:
     Constant(const AstString *str_val) {
@@ -138,6 +143,8 @@ private:
         data_.f64_val = f64_val;
     }
     
+    Constant() { data_.kind = Data::kNull; }
+    
     Data data_;
 }; // class Constant
 
@@ -149,7 +156,7 @@ public:
     
     virtual Error Evaluate(Context *ctx) override;
     
-    friend class ::mai::sql::EvalFactory;
+    friend class Factory;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Variable);
 private:
     Variable(const VirtualSchema *schema, size_t entry_idx)
@@ -188,7 +195,7 @@ public:
     
     virtual Error Evaluate(Context *ctx) override;
     
-    friend class ::mai::sql::EvalFactory;
+    friend class Factory;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Operation);
 private:
     Operation(SQLOperator op, Expression *operand)
@@ -214,6 +221,14 @@ private:
 }; // class Operation
     
 } // namespace eval
+    
+struct Evaluation final {
+    
+    static eval::Expression *
+    BuildExpression(const VirtualSchema *env, ast::Expression *ast,
+                    base::Arena *arena);
+    
+}; // struct Evaluation
     
 } // namespace sql
     

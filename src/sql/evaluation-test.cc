@@ -43,7 +43,7 @@ public:
     
     Env *env_ = Env::Default();
     base::StandaloneArena arena_;
-    EvalFactory factory_;
+    Factory factory_;
 };
     
 TEST_F(EvaluationTest, Sanity) {

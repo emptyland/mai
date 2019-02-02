@@ -4,6 +4,8 @@ namespace mai {
 
 namespace sql {
     
+namespace ast {
+    
 #define DECL_OP_CASE(name, op, fmt) case SQL_##name:
 
 /*static*/ bool UnaryExpression::IsUnaryOperator(SQLOperator op) {
@@ -50,6 +52,8 @@ namespace sql {
     }
     return false;
 }
+    
+} // namespace ast
 
 } // namespace sql
     
