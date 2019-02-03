@@ -45,7 +45,9 @@ namespace sql {
     V(BinaryExpression) \
     V(Assignment) \
     V(Comparison) \
-    V(MultiExpression)
+    V(MultiExpression) \
+    V(Call) \
+    V(Aggregate)
     
 #define DEFINE_UTIL_NODES(V) \
     V(ShowTables)
@@ -867,6 +869,70 @@ private:
         const AstString *str_val_;
     };
 }; // class Literal
+    
+    
+class Call : public Expression {
+public:
+    bool is_udf() const { return name_->full(); }
+    
+    DEF_PTR_GETTER_NOTNULL(const AstString, name);
+    DEF_VAL_GETTER(SQLFunction, fnid);
+    DEF_PTR_GETTER(ExpressionList, parameters);
+    
+    size_t parameters_size() const {
+        return !parameters_ ? 0 : parameters_->size();
+    }
+    
+    Expression *parameter(size_t i) const {
+        DCHECK_LT(i, parameters_size());
+        return parameters_->at(i);
+    }
+    
+    DEF_AST_NODE(Call);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Call);
+protected:
+    Call(const AstString *name, ExpressionList *params, const Location &location)
+        : Expression(location)
+        , name_(DCHECK_NOTNULL(name))
+        , parameters_(params) {
+        DCHECK(name_->full());
+    }
+    
+    Call(SQLFunction fnid, ExpressionList *params, const Location &location)
+        : Expression(location)
+        , fnid_(fnid)
+        , parameters_(params) {
+    }
+    
+private:
+    const AstString *name_ = AstString::kEmpty;
+    SQLFunction fnid_;
+    ExpressionList *parameters_;
+}; // class Call
+    
+
+class Aggregate : public Call {
+public:
+
+    DEF_AST_NODE(Aggregate);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Aggregate);
+private:
+    Aggregate(const AstString *name, bool distinct, ExpressionList *params,
+              const Location &location)
+        : Call(name, params, location)
+        , distinct_(distinct) {}
+    
+    Aggregate(SQLFunction fnid, bool distinct, ExpressionList *params,
+              const Location &location)
+        : Call(fnid, params, location)
+        , distinct_(distinct) {
+        DCHECK_GE(fnid, 0);
+        DCHECK_LT(fnid, SQL_MAX_F);
+        DCHECK(kSQLFunctionDesc[fnid].aggregate);
+    }
+    
+    bool distinct_;
+}; // class Aggregate
 
 
 class Subquery final : public Expression {

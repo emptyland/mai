@@ -111,7 +111,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <alter_table_spce_list> AlterTableSpecList
 %type <name_list> NameList NameListOption
 %type <expr> Expression BoolPrimary Predicate BitExpression Simple OnClause WhereClause HavingClause Subquery Value DefaultOption
-%type <expr_list> ExpressionList GroupByClause ValueList RowValues
+%type <expr_list> ExpressionList GroupByClause ValueList RowValues Parameters
 %type <proj_col> ProjectionColumn
 %type <proj_col_list> ProjectionColumnList
 %type <query> Relation FromClause
@@ -691,6 +691,12 @@ ExpressionList: Expression {
     $$->push_back($3);
 }
 
+Parameters: '*' {
+    Placeholder *ph = ctx->factory->NewStarPlaceholder(@1);
+    $$ = ctx->factory->NewExpressionList(ph);
+}
+| ExpressionList
+
 //-----------------------------------------------------------------------------
 // Expressions
 //-----------------------------------------------------------------------------
@@ -831,6 +837,9 @@ Simple : Identifier {
 | APPROX_VAL {
     $$ = ctx->factory->NewApproxLiteral($1, @1);
 }
+| Name '(' DistinctOption Parameters ')' {
+    $$ = ctx->factory->NewCall($1, $3, $4, Location::Concat(@1, @5));
+} 
 | '?' {
     $$ = ctx->factory->NewParamPlaceholder(@1);
 }
@@ -839,9 +848,6 @@ Simple : Identifier {
 }
 | '~' Simple {
     $$ = ctx->factory->NewUnaryExpression(SQL_BIT_INV, $2, Location::Concat(@1, @2));
-}
-| '(' Simple ')' {
-    $$ = $2;
 }
 
 

@@ -132,6 +132,7 @@
 		2364B35821E451F9008519AE /* pessimistic-transaction-db-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B7155821DDEEBB0054FCB0 /* pessimistic-transaction-db-test.cc */; };
 		2364B35921E451F9008519AE /* ast-factory-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B8E68A21E32D8A0001096E /* ast-factory-test.cc */; };
 		2364B35A21E451F9008519AE /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163721AFED5E00DE7321 /* test-main.cc */; };
+		2365EC522206948600EE7103 /* ast-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2365EC512206948600EE7103 /* ast-factory.cc */; };
 		237B0C0B21E4869400F3A099 /* sql.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C0821E4869400F3A099 /* sql.cc */; };
 		237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */; };
 		237B0C1E21E4A9C100F3A099 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1D21E4A9C100F3A099 /* parser.cc */; };
@@ -326,6 +327,7 @@
 		235C1CD721D2166B0070A049 /* write-batch-with-index.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-batch-with-index.h"; sourceTree = "<group>"; };
 		235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch-with-index.cc"; sourceTree = "<group>"; };
 		235C1CE021D22F550070A049 /* mock-column-family.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "mock-column-family.h"; sourceTree = "<group>"; };
+		2365EC512206948600EE7103 /* ast-factory.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "ast-factory.cc"; sourceTree = "<group>"; };
 		236AC67521B768E60069A17B /* lru-cache-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lru-cache-v1.h"; sourceTree = "<group>"; };
 		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
 		236AC67921B769900069A17B /* lru-cache-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-test.cc"; sourceTree = "<group>"; };
@@ -801,6 +803,7 @@
 				23B8E68121E05FEC0001096E /* ast.cc */,
 				23216A2D2205511F00E1B816 /* ast-visitor.h */,
 				23B8E68821E32D070001096E /* ast-factory.h */,
+				2365EC512206948600EE7103 /* ast-factory.cc */,
 				237B0C0F21E4924900F3A099 /* parser-ctx.h */,
 				237B0C1C21E4A9B400F3A099 /* parser.h */,
 				237B0C1D21E4A9C100F3A099 /* parser.cc */,
@@ -1134,6 +1137,7 @@
 				2364B30121E451F9008519AE /* bytewise-comparator.cc in Sources */,
 				23216A272201A2F900E1B816 /* types-test.cc in Sources */,
 				23D2F6BC21F1C0A300A49B1A /* form-schema-test.cc in Sources */,
+				2365EC522206948600EE7103 /* ast-factory.cc in Sources */,
 				2364B30321E451F9008519AE /* key-boundle.cc in Sources */,
 				2364B30421E451F9008519AE /* iterator.cc in Sources */,
 				2364B30621E451F9008519AE /* internal-key-comparator.cc in Sources */,

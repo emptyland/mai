@@ -551,6 +551,8 @@ Operation::Operation(SQLOperator op, Expression *lhs,
             default:
                 break;
         }
+    } else if (operands_count_ > 2) {
+        // TODO:
     }
     return rs;
 }

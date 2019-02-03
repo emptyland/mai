@@ -232,6 +232,9 @@ public:
         return new (arena_) Assignment(name, rval, location);
     }
     
+    Call *NewCall(const AstString *name, bool disinct,
+                  ExpressionList *parameters, const Location &location);
+    
     ////////////////////////////////////////////////////////////////////////////
     // Utils
     ////////////////////////////////////////////////////////////////////////////

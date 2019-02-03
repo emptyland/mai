@@ -8,7 +8,6 @@ namespace sql {
 
 #define DECL_DESC(name, a1, a2, a3) {#name, a1, a2, a3},
 const SQLTypeDescEntry kSQLTypeDesc[] = {
-    {"NULL", 0, 0, 0},
     DEFINE_SQL_TYPES(DECL_DESC)
 };
 #undef  DECL_DESC
@@ -18,6 +17,17 @@ const char *kSQLKeyText[] = {
     DEFINE_SQL_KEYS(DECL_TEXT)
 };
 #undef  DECL_TEXT
+
+
+const SQLFunctionDescEntry kSQLFunctionDesc[] = {
+#define DECL_DESC(name) {#name, SQL_F_##name, 0},
+    DEFINE_SQL_FUNCTIONS(DECL_DESC)
+#undef  DECL_DESC
+    
+#define DECL_DESC(name) {#name, SQL_F_##name, 1},
+    DEFINE_SQL_AGGREGATE(DECL_DESC)
+#undef  DECL_DESC
+};
     
 /*static*/ SQLDateTime SQLDateTime::Now() {
     ::time_t t = ::time(nullptr);

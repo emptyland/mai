@@ -10,6 +10,7 @@ namespace mai {
 namespace sql {
 
 #define DEFINE_SQL_TYPES(V) \
+    V(NULL_TYPE, 1, 0,  0) \
     V(BIGINT,    1, 12, 0) \
     V(INT,       1, 12, 0) \
     V(MEDIUMINT, 1, 12, 0) \
@@ -28,7 +29,6 @@ namespace sql {
     V(DATETIME,  0, 0, 0)
     
 enum SQLType : int {
-    SQL_TY_NULL,
 #define DECL_ENUM(name, a1, a2, a3) SQL_##name,
     DEFINE_SQL_TYPES(DECL_ENUM)
 #undef  DECL_ENUM
@@ -108,6 +108,32 @@ enum SQLJoinKind : int {
     SQL_LEFT_OUTTER_JOIN,
     SQL_RIGHT_OUTTER_JOIN,
 };
+    
+#define DEFINE_SQL_ALL_FUNCTIONS(V) \
+    DEFINE_SQL_FUNCTIONS(V) \
+    DEFINE_SQL_AGGREGATE(V)
+    
+#define DEFINE_SQL_FUNCTIONS(V) \
+    V(ABS) \
+    V(NOW) \
+    V(DATE)
+
+#define DEFINE_SQL_AGGREGATE(V) \
+    V(COUNT) \
+    V(AVG) \
+    V(MAX) \
+    V(MIN) \
+    V(SUM) \
+    V(BIT_XOR) \
+    V(BIT_OR) \
+    V(BIT_AND)
+    
+enum SQLFunction {
+#define DECL_ENUM(name) SQL_F_##name,
+    DEFINE_SQL_ALL_FUNCTIONS(DECL_ENUM)
+#undef  DECL_ENUM
+    SQL_MAX_F,
+}; // enum SQLFunction
     
 struct SQLTime {
     uint32_t  hour      : 16;
@@ -219,7 +245,16 @@ struct SQLTypeDescEntry {
 };
 
 extern const SQLTypeDescEntry kSQLTypeDesc[];
+
 extern const char *kSQLKeyText[];
+    
+struct SQLFunctionDescEntry {
+    const char *name;
+    SQLFunction fnid;
+    int aggregate;
+};
+    
+extern const SQLFunctionDescEntry kSQLFunctionDesc[];
 
 } // namespace sql
     
