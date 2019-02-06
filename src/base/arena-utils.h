@@ -3,7 +3,6 @@
 
 #include "base/hash.h"
 #include "base/arena.h"
-//#include "base/hash.h"
 #include "glog/logging.h"
 #include <limits>
 #include <vector>
@@ -16,7 +15,7 @@ namespace mai {
     
 namespace base {
     
-class ArenaString final {
+class ArenaString {
 public:
     enum Kind {
         kSmall,
@@ -82,8 +81,25 @@ public:
         return New(arena, s.data(), s.size());
     }
 
+protected:
+    static ArenaString *NewPrepare(base::Arena *arena, size_t n);
+    
+    char *prepared() {
+        Kind k = kind();
+        DCHECK_NE(kOverflow, k);
+        if (k == kSmall) {
+            return reinterpret_cast<char *>(this + 1);
+        } else { // kLarge
+            return reinterpret_cast<char *>(this + 1) + 2;
+        }
+    }
+
 private:
     ArenaString(const char *s, size_t n, Kind kind);
+    
+    ArenaString(size_t n, Kind kind);
+    
+    static std::tuple<void *, Kind> Allocate(base::Arena *arena, size_t n);
     
     static Kind GetKind(size_t n) {
         if (n < 0x8000) {

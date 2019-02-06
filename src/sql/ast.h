@@ -70,10 +70,10 @@ class AlterTableSpec;
 class Expression;
     
 struct Location {
-    int begin_line = 0;
+    int begin_line   = 0;
     int begin_column = 0;
-    int end_line = 0;
-    int end_column = 0;
+    int end_line     = 0;
+    int end_column   = 0;
     
     Location(const YYLTYPE &yyl);
     

@@ -133,6 +133,8 @@
 		2364B35921E451F9008519AE /* ast-factory-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B8E68A21E32D8A0001096E /* ast-factory-test.cc */; };
 		2364B35A21E451F9008519AE /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163721AFED5E00DE7321 /* test-main.cc */; };
 		2365EC522206948600EE7103 /* ast-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2365EC512206948600EE7103 /* ast-factory.cc */; };
+		2365EC55220876D000EE7103 /* decimal-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2365EC54220876D000EE7103 /* decimal-test.cc */; };
+		2365EC5722087CAC00EE7103 /* decimal.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2365EC5622087CAC00EE7103 /* decimal.cc */; };
 		237B0C0B21E4869400F3A099 /* sql.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C0821E4869400F3A099 /* sql.cc */; };
 		237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */; };
 		237B0C1E21E4A9C100F3A099 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1D21E4A9C100F3A099 /* parser.cc */; };
@@ -328,6 +330,9 @@
 		235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch-with-index.cc"; sourceTree = "<group>"; };
 		235C1CE021D22F550070A049 /* mock-column-family.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "mock-column-family.h"; sourceTree = "<group>"; };
 		2365EC512206948600EE7103 /* ast-factory.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "ast-factory.cc"; sourceTree = "<group>"; };
+		2365EC532208767D00EE7103 /* decimal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = decimal.h; sourceTree = "<group>"; };
+		2365EC54220876D000EE7103 /* decimal-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-test.cc"; sourceTree = "<group>"; };
+		2365EC5622087CAC00EE7103 /* decimal.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = decimal.cc; sourceTree = "<group>"; };
 		236AC67521B768E60069A17B /* lru-cache-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lru-cache-v1.h"; sourceTree = "<group>"; };
 		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
 		236AC67921B769900069A17B /* lru-cache-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-test.cc"; sourceTree = "<group>"; };
@@ -809,6 +814,8 @@
 				237B0C1D21E4A9C100F3A099 /* parser.cc */,
 				2317596A21E5A1BA0025685F /* types.h */,
 				23D2F6BD21F1CC2300A49B1A /* types.cc */,
+				2365EC532208767D00EE7103 /* decimal.h */,
+				2365EC5622087CAC00EE7103 /* decimal.cc */,
 				23344CEA21EF0B09006BC6E4 /* mai-sql-impl.h */,
 				23344CEB21EF0B5F006BC6E4 /* mai-sql-impl.cc */,
 				23344CED21EF0D8E006BC6E4 /* mai-sql-connection-impl.h */,
@@ -843,6 +850,7 @@
 				2303D93821F8757500075A99 /* heap-tuple-test.cc */,
 				230D7ACB21FDE8890019F7BB /* evaluation-test.cc */,
 				23216A262201A2F900E1B816 /* types-test.cc */,
+				2365EC54220876D000EE7103 /* decimal-test.cc */,
 			);
 			name = sql;
 			path = src/sql;
@@ -1133,6 +1141,7 @@
 				2364B2FA21E451F9008519AE /* memory-table.cc in Sources */,
 				2364B2FC21E451F9008519AE /* bw-tree-memory-table.cc in Sources */,
 				2364B2FE21E451F9008519AE /* ordered-memory-table.cc in Sources */,
+				2365EC5722087CAC00EE7103 /* decimal.cc in Sources */,
 				2364B30021E451F9008519AE /* unordered-memory-table.cc in Sources */,
 				2364B30121E451F9008519AE /* bytewise-comparator.cc in Sources */,
 				23216A272201A2F900E1B816 /* types-test.cc in Sources */,
@@ -1170,6 +1179,7 @@
 				2364B33B21E451F9008519AE /* key-boundle-test.cc in Sources */,
 				2364B33C21E451F9008519AE /* merging-test.cc in Sources */,
 				2364B33D21E451F9008519AE /* ordered-memory-table-test.cc in Sources */,
+				2365EC55220876D000EE7103 /* decimal-test.cc in Sources */,
 				2364B33E21E451F9008519AE /* pipeline-queue-test.cc in Sources */,
 				2364B33F21E451F9008519AE /* skip-list-test.cc in Sources */,
 				2343978A21F960A400512A37 /* evaluation.cc in Sources */,

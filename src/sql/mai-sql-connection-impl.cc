@@ -120,8 +120,9 @@ ResultSet *MaiSQLConnectionImpl::ExecuteStatement(const ast::Statement *stmt) {
     
     if (stmt->is_dml()) {
         switch (stmt->kind()) {
-            case ast::AstNode::kInsert:
-                break;
+            case ast::AstNode::kInsert: {
+                
+            } break;
                 
             // TODO:
                 

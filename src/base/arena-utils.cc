@@ -23,8 +23,15 @@ static inline void Encode32(void *x, uint32_t val) {
     buf[3] = static_cast<uint8_t>((0x000000ff & val));
 }
     
-/*static*/ ArenaString *ArenaString::New(base::Arena *arena, const char *s,
-                                         size_t n) {
+/*static*/ ArenaString *ArenaString::NewPrepare(base::Arena *arena, size_t n) {
+    void *chunk;
+    Kind kind;
+    std::tie(chunk, kind) = Allocate(arena, n);
+    return new (chunk) ArenaString(n, kind);
+}
+    
+/*static*/ std::tuple<void *, ArenaString::Kind>
+ArenaString::Allocate(base::Arena *arena, size_t n) {
     size_t size = sizeof(ArenaString);
     Kind kind = GetKind(n);
     switch (kind) {
@@ -35,9 +42,16 @@ static inline void Encode32(void *x, uint32_t val) {
             size += (2 + n + 1);
             break;
         case kOverflow:
-            return nullptr;
+            return std::make_tuple(nullptr, kind);
     }
-    void *chunk = arena->Allocate(size);
+    return std::make_tuple(arena->Allocate(size), kind);
+}
+    
+/*static*/ ArenaString *ArenaString::New(base::Arena *arena, const char *s,
+                                         size_t n) {
+    void *chunk;
+    Kind kind;
+    std::tie(chunk, kind) = Allocate(arena, n);
     return new (chunk) ArenaString(s, n, kind);
 }
     
@@ -58,6 +72,20 @@ ArenaString::ArenaString(const char *s, size_t n, Kind kind)
     }
     ::memcpy(x, s, n);
     x[n] = '\0';
+}
+    
+ArenaString::ArenaString(size_t n, Kind kind)
+    : hash_val_(0) {
+    DCHECK_NE(kOverflow, kind);
+        
+    if (kind == kSmall) {
+        uint16_t raw_size = static_cast<uint16_t>(n & 0x7fffu);
+        Encode16(buf_, raw_size);
+    } else if (kind == kLarge) {
+        uint32_t raw_size = static_cast<uint32_t>(n & 0x3fffffffu);
+        Encode32(buf_, raw_size);
+        buf_[0] |= 0x80;
+    }
 }
     
 } // namespace base
