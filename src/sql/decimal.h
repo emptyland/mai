@@ -9,6 +9,9 @@ namespace sql {
 
 class Decimal final : public base::ArenaString {
 public:
+    static const int kMaxDigitalSize = 65;
+    static const int kMaxExp = 30;
+    
     int exp() const { return data()[0] & 0x7f; }
     
     bool negative() const { return !positive(); }
@@ -16,20 +19,31 @@ public:
     bool positive() const { return data()[0] & 0x80; }
     
     int digital(size_t i) const {
-        uint32_t d = segment(i / 9) / kPowExp[i % 9];
+        uint32_t d = segment(segment_size() - 1 - i / 9) / kPowExp[i % 9];
         return static_cast<int>(d % 10);
     }
     
     size_t digital_size() const { return segment_size() * 9; }
     
-    size_t segment_size() const { return (size() - 1) / 4; }
+    size_t segment_size() const {
+        DCHECK_EQ(0, size() % 4);
+        return size() / 4 - 1;
+    }
     
     Decimal *Add(const Decimal *rhs, base::Arena *arena) const;
     Decimal *Sub(const Decimal *rhs, base::Arena *arena) const;
     Decimal *Mul(const Decimal *rhs, base::Arena *arena) const;
     Decimal *Div(const Decimal *rhs, base::Arena *arena) const;
     
+    int Compare(const Decimal *rhs) const;
+    
     std::string ToString() const;
+    
+    Decimal *Extend(int d, int m, base::Arena *arena) const;
+    
+    Decimal *ExtendFrom(const Decimal *from, base::Arena *arena) const {
+        return Extend(static_cast<int>(from->digital_size()), exp(), arena);
+    }
 
     static Decimal *New(base::Arena *arena, const char *s, size_t n);
     
@@ -47,7 +61,7 @@ public:
 private:
     uint32_t segment(size_t i) const {
         DCHECK_LT(i, segment_size());
-        const uint8_t *x = reinterpret_cast<const uint8_t *>(data() + 1 + i * 4);
+        const uint8_t *x = reinterpret_cast<const uint8_t *>(data() + 4 + i * 4);
         return static_cast<uint32_t>(x[3])      |
             (static_cast<uint32_t>(x[2]) << 8)  |
             (static_cast<uint32_t>(x[1]) << 16) |
@@ -57,7 +71,7 @@ private:
     
     void set_segment(size_t i, uint32_t segment) {
         DCHECK_LT(i, segment_size());
-        uint8_t *x = reinterpret_cast<uint8_t *>(prepared() + 1 + i * 4);
+        uint8_t *x = reinterpret_cast<uint8_t *>(prepared() + 4 + i * 4);
         x[3] = static_cast<uint8_t>(segment & 0xff);
         x[2] = static_cast<uint8_t>((segment & 0xff00) >> 8);
         x[1] = static_cast<uint8_t>((segment & 0xff0000) >> 16);
