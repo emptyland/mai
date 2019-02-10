@@ -154,6 +154,7 @@ namespace base {
                 state = kPrevDot;
             } else if (state == kPrefixSign ||
                        state == kDecSgined ||
+                       state == kPrefixZero ||
                        state == kDec) {
                 state = kPrevDot;
             } else {
