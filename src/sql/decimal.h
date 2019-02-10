@@ -10,13 +10,17 @@ namespace sql {
 
 class Decimal final : public base::ArenaString {
 public:
-    static const int kMaxDigitalSize = 72;
-    static const int kMaxExp = 30;
+    static constexpr const int kMaxDigitalSize = 72;
+    static constexpr const int kMaxExp = 30;
     static constexpr const int kHeaderSize = 4;
+    static constexpr const int kMinConstVal = -10;
+    static constexpr const int kMaxConstVal = 10;
+    static constexpr const int kConstZeroIdx = (kMaxConstVal - kMinConstVal) / 2;
     
     static Decimal *const kZero;
     static Decimal *const kOne;
     static Decimal *const kMinusOne;
+    static Decimal *const kConstants[kMaxConstVal - kMinConstVal + 1];
     
     int exp() const { return data()[0] & 0x7f; }
     
@@ -25,6 +29,7 @@ public:
     bool positive() const { return data()[0] & 0x80; }
     
     int digital(size_t i) const {
+        DCHECK_LT(i, digitals_size());
         uint32_t d = segment(segments_size() - 1 - i / 9) / kPowExp[i % 9];
         return static_cast<int>(d % 10);
     }
@@ -71,6 +76,12 @@ public:
     
     Decimal *ExtendFrom(const Decimal *from, base::Arena *arena) const {
         return Extend(static_cast<int>(from->digitals_size()), from->exp(), arena);
+    }
+    
+    static Decimal *GetConstant(int val) {
+        DCHECK_GE(val, kMinConstVal);
+        DCHECK_LE(val, kMaxConstVal);
+        return kConstants[kConstZeroIdx + val];
     }
 
     static Decimal *New(base::Arena *arena, const char *s, size_t n);

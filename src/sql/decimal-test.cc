@@ -1,4 +1,5 @@
 #include "sql/decimal.h"
+#include "base/slice.h"
 #include "base/standalone-arena.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
@@ -32,6 +33,10 @@ TEST_F(DecimalTest, Constants) {
     EXPECT_EQ("0", Decimal::kZero->ToString());
     EXPECT_EQ("1", Decimal::kOne->ToString());
     EXPECT_EQ("-1", Decimal::kMinusOne->ToString());
+    
+    for (int i = Decimal::kMinConstVal; i < Decimal::kMaxConstVal + 1; ++i) {
+        EXPECT_EQ(base::Slice::Sprintf("%d", i), Decimal::GetConstant(i)->ToString());
+    }
 }
     
 TEST_F(DecimalTest, Point) {
@@ -69,7 +74,7 @@ TEST_F(DecimalTest, NewFromI64) {
     EXPECT_EQ("-1234567890", d->ToString());
     
     d = Decimal::NewI64(&arena_, 0);
-    EXPECT_EQ(1, d->segments_size());
+    EXPECT_EQ(0, d->segments_size());
     EXPECT_EQ("0", d->ToString());
     
     d = Decimal::NewI64(&arena_, -1);

@@ -4,37 +4,98 @@
 namespace mai {
 
 namespace sql {
+    
+#define DEF_CONST_DECIMAL_STUB_HEADER(neg, seg) \
+    0, 0, 0, 0, \
+    0, static_cast<uint8_t>(Decimal::kHeaderSize + (seg) * 4), 0, 0, \
+    ((neg) ? 0 : 0x80), 0, 0, 0, \
+
+#define DEF_CONST_DECIMAL_STUB(neg, seg, val) \
+    DEF_CONST_DECIMAL_STUB_HEADER(neg, seg) \
+    0, 0, 0, val,
 
 static uint8_t zero_decimal_stub[sizeof(Decimal) + Decimal::kHeaderSize] = {
-    0, 0, 0, 0, // hash_val
-    0, static_cast<uint8_t>(Decimal::kHeaderSize), 0, 0, // size
-    0x80, 0, 0, 0, // header
+//    0, 0, 0, 0, // hash_val
+//    0, static_cast<uint8_t>(Decimal::kHeaderSize), 0, 0, // size
+//    0x80, 0, 0, 0, // header
+    DEF_CONST_DECIMAL_STUB_HEADER(false, 0)
 };
 
 static uint8_t  one_decimal_stub[sizeof(Decimal) + Decimal::kHeaderSize + 4] = {
-    0, 0, 0, 0, // hash_val
-    0, static_cast<uint8_t>(Decimal::kHeaderSize) + 4, 0, 0, // size
-    0x80, 0, 0, 0, // header
-    0, 0, 0, 1, // one
+//    0, 0, 0, 0, // hash_val
+//    0, static_cast<uint8_t>(Decimal::kHeaderSize) + 4, 0, 0, // size
+//    0x80, 0, 0, 0, // header
+//    0, 0, 0, 1, // one
+    DEF_CONST_DECIMAL_STUB(false, 1, 1)
 };
 
 static
 uint8_t minus_one_decimal_stub[sizeof(Decimal) + Decimal::kHeaderSize + 4] = {
-    0, 0, 0, 0, // hash_val
-    0, static_cast<uint8_t>(Decimal::kHeaderSize) + 4, 0, 0, // size
-    0, 0, 0, 0, // header
-    0, 0, 0, 1, // one
+//    0, 0, 0, 0, // hash_val
+//    0, static_cast<uint8_t>(Decimal::kHeaderSize) + 4, 0, 0, // size
+//    0, 0, 0, 0, // header
+//    0, 0, 0, 1, // one
+    DEF_CONST_DECIMAL_STUB(true, 1, 1)
+};
+    
+static
+uint8_t const_decimal_stub[Decimal::kMaxConstVal - Decimal::kMinConstVal + 1]
+                          [sizeof(Decimal) + Decimal::kHeaderSize + 4] = {
+    {DEF_CONST_DECIMAL_STUB(true,  1, 10)},
+    {DEF_CONST_DECIMAL_STUB(true,  1, 9)},
+    {DEF_CONST_DECIMAL_STUB(true,  1, 8)},
+    {DEF_CONST_DECIMAL_STUB(true,  1, 7)},
+    {DEF_CONST_DECIMAL_STUB(true,  1, 6)},
+    {DEF_CONST_DECIMAL_STUB(true,  1, 5)},
+    {DEF_CONST_DECIMAL_STUB(true,  1, 4)},
+    {DEF_CONST_DECIMAL_STUB(true,  1, 3)},
+    {DEF_CONST_DECIMAL_STUB(true,  1, 2)},
+    {DEF_CONST_DECIMAL_STUB(true,  1, 1)},
+    {DEF_CONST_DECIMAL_STUB(false, 0, 0)},
+    {DEF_CONST_DECIMAL_STUB(false, 1, 1)},
+    {DEF_CONST_DECIMAL_STUB(false, 1, 2)},
+    {DEF_CONST_DECIMAL_STUB(false, 1, 3)},
+    {DEF_CONST_DECIMAL_STUB(false, 1, 4)},
+    {DEF_CONST_DECIMAL_STUB(false, 1, 5)},
+    {DEF_CONST_DECIMAL_STUB(false, 1, 6)},
+    {DEF_CONST_DECIMAL_STUB(false, 1, 7)},
+    {DEF_CONST_DECIMAL_STUB(false, 1, 8)},
+    {DEF_CONST_DECIMAL_STUB(false, 1, 9)},
+    {DEF_CONST_DECIMAL_STUB(false, 1, 10)},
 };
     
 /*static*/
-Decimal *const Decimal::kZero = reinterpret_cast<Decimal *>(zero_decimal_stub);
+Decimal *const Decimal::kZero = Decimal::kConstants[kConstZeroIdx];
     
 /*static*/
-Decimal *const Decimal::kOne  = reinterpret_cast<Decimal *>(one_decimal_stub);
-    
+Decimal *const Decimal::kOne = Decimal::kConstants[kConstZeroIdx + 1];
+
 /*static*/
-Decimal *const Decimal::kMinusOne
-    = reinterpret_cast<Decimal *>(minus_one_decimal_stub);
+Decimal *const Decimal::kMinusOne = Decimal::kConstants[kConstZeroIdx - 1];
+    
+/*static*/ Decimal *const Decimal::kConstants[kMaxConstVal - kMinConstVal + 1] = {
+    reinterpret_cast<Decimal *>(const_decimal_stub[0]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[1]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[2]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[3]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[4]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[5]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[6]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[7]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[8]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[9]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[10]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[11]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[12]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[13]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[14]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[15]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[16]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[17]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[18]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[19]),
+    reinterpret_cast<Decimal *>(const_decimal_stub[20]),
+};
     
 /*static*/
 //const int Decimal::kHeaderSize = 4;
@@ -460,12 +521,9 @@ Decimal *Decimal::Extend(int d, int m, base::Arena *arena) const {
         dec->set_segment(0, static_cast<uint32_t>(value / 1000000000ull));
         dec->set_segment(1, static_cast<uint32_t>(value % 1000000000ull));
     } else {
-        if (value == 0) {
-            return kZero;
-        } else if (value == 1) {
-            return kOne;
-        } else if (value == -1) {
-            return kMinusOne;
+        if (value <= kMaxConstVal) {
+            return negative ? kConstants[kConstZeroIdx - value]
+                            : kConstants[kConstZeroIdx + value];
         }
         dec = NewUninitialized(arena, 9);
         dec->set_segment(0, static_cast<uint32_t>(value));
@@ -485,10 +543,8 @@ Decimal *Decimal::Extend(int d, int m, base::Arena *arena) const {
         dec->set_segment(0, static_cast<uint32_t>(value / 1000000000ull));
         dec->set_segment(1, static_cast<uint32_t>(value % 1000000000ull));
     } else {
-        if (value == 0) {
-            return kZero;
-        } else if (value == 1) {
-            return kOne;
+        if (value <= kMaxConstVal) {
+            return kConstants[kConstZeroIdx + value];
         }
         dec = NewUninitialized(arena, 9);
         dec->set_segment(0, static_cast<uint32_t>(value));
