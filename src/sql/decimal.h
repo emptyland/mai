@@ -60,8 +60,28 @@ public:
         return true;
     }
     
+    int valid_exp() const {
+        int i = exp();
+        while (i-- > 0) {
+            if (digital(i) != 0) {
+                return exp() - i;
+            }
+        }
+        return 0;
+    }
+    
     const uint32_t *segments() const {
         return reinterpret_cast<const uint32_t *>(data() + kHeaderSize);
+    }
+    
+    uint32_t segment(size_t i) const {
+        DCHECK_LT(i, segments_size());
+        const uint8_t *x = reinterpret_cast<const uint8_t *>(data() + kHeaderSize + i * 4);
+        return static_cast<uint32_t>(x[3])      |
+        (static_cast<uint32_t>(x[2]) << 8)  |
+        (static_cast<uint32_t>(x[1]) << 16) |
+        (static_cast<uint32_t>(x[0]) << 24);
+        
     }
     
     Decimal *Add(const Decimal *rhs, base::Arena *arena) const;
@@ -116,16 +136,6 @@ private:
         return (i < 0 || i >= digitals_size()) ? 0 : digital(i);
     }
     
-    uint32_t segment(size_t i) const {
-        DCHECK_LT(i, segments_size());
-        const uint8_t *x = reinterpret_cast<const uint8_t *>(data() + kHeaderSize + i * 4);
-        return static_cast<uint32_t>(x[3])      |
-            (static_cast<uint32_t>(x[2]) << 8)  |
-            (static_cast<uint32_t>(x[1]) << 16) |
-            (static_cast<uint32_t>(x[0]) << 24);
-        
-    }
-    
     void set_segment(size_t i, uint32_t segment) {
         DCHECK_LT(i, segments_size());
         uint8_t *x = reinterpret_cast<uint8_t *>(prepared() + kHeaderSize + i * 4);
@@ -144,6 +154,7 @@ private:
     static uint32_t RawBasicMul(const Decimal *lhs, const Decimal *rhs,
                                 Decimal *rv);
     static uint32_t RawDivWord(const Decimal *lhs, uint32_t rhs, Decimal *rv);
+    static void RawDivWord(uint64_t n, uint64_t d, uint32_t rv[2]);
     static uint32_t RawShl(const Decimal *lhs, uint32_t n, Decimal *rv);
     static uint32_t RawShr(const Decimal *lhs, uint32_t n, Decimal *rv);
     

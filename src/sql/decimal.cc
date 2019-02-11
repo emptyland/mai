@@ -1,5 +1,6 @@
 #include "sql/decimal.h"
 #include "base/slice.h"
+#include "base/bit-ops.h"
 
 namespace mai {
 
@@ -147,12 +148,40 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
     }
     
     int rv = AbsCompare(rhs);
-    if (rv < 0) {
+    if (rv < 0 && exp() == 0 && rhs->exp() == 0) {
         return {kZero, NewWithRawData(arena, data(), size())};
     }
     if (rv == 0) {
         return (negative() == rhs->negative())
             ? std::make_tuple(kOne, kZero) : std::make_tuple(kMinusOne, kZero);
+    }
+    
+    // 0.001 / 0.1 = 0.01
+    // 0.01 / 0.1 = 0.1
+    // 0.1 / 1    = 0.1
+    // 1 / 0.1    = 10
+    // 0.1 / 0.1  = 1
+    if (rhs->segments_size() == 1) {
+        Decimal *rv = NewUninitialized(arena, digitals_size());
+        uint32_t r = RawDivWord(this, rhs->segment(0), rv);
+        Decimal *rem = NewU64(arena, r);
+        int delta_exp = valid_exp() - rhs->valid_exp();
+        if (delta_exp > 0) {
+            rv->set_negative_and_exp(negative() != rhs->negative(), delta_exp);
+        } else if (delta_exp < 0) {
+            // 0.1 / 0.001 = 10
+            if (exp() + delta_exp > 0) {
+                rv->set_negative_and_exp(negative() != rhs->negative(),
+                                         exp() + delta_exp - 1);
+            } else {
+                rv = rv->Mul(NewU64(arena, kPowExp[-delta_exp]), arena);
+                rv->set_negative_and_exp(negative() != rhs->negative(), 0);
+            }
+        } else {
+            rv->set_negative_and_exp(negative() != rhs->negative(), rhs->exp());
+        }
+        rem->set_negative_and_exp(negative() != rhs->negative(), rhs->exp());
+        return {rv, rem};
     }
 
     // TODO:
@@ -227,6 +256,98 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
         rv->set_segment(i, static_cast<uint32_t>(carry));
     }
     return static_cast<uint32_t>(carry);
+}
+    
+/*static*/ uint32_t Decimal::RawDivWord(const Decimal *lhs, uint32_t rhs,
+                                        Decimal *rv) {
+    uint64_t divisor = static_cast<uint64_t>(rhs);
+    if (lhs->segments_size() == 1) {
+        uint64_t dividend = static_cast<uint64_t>(lhs->segment(0));
+        uint32_t q = static_cast<uint32_t>(dividend / divisor);
+        uint32_t r = static_cast<uint32_t>(dividend - q * divisor);
+        
+        for (size_t i = 0; i < rv->segments_size(); ++i) {
+            rv->set_segment(i, 0);
+        }
+        rv->set_segment(0, q);
+        return r;
+    }
+    
+    int shift = base::Bits::CountLeadingZeros32(rhs);
+    uint32_t r = lhs->segment(0);
+    uint64_t rem = static_cast<uint64_t>(r);
+    if (rem < divisor) {
+        rv->set_segment(0, 0);
+    } else {
+        uint32_t d = static_cast<uint32_t>(rem / divisor);
+        rv->set_segment(0, d);
+        r = static_cast<uint32_t>(rem - (d * divisor));
+        rem = static_cast<uint64_t>(r);
+    }
+    
+    
+    uint32_t qword[2] = {0, 0};
+    for (int64_t i = 1; i < lhs->segments_size(); ++i) {
+        int64_t estimate = (rem * kLimitMod) +
+                            static_cast<int64_t>(lhs->segment(i));
+        if (estimate >= 0) {
+            qword[0] = static_cast<uint32_t>(estimate / divisor);
+            qword[1] = static_cast<uint32_t>(estimate - qword[0] * divisor);
+        } else {
+            RawDivWord(estimate, divisor, qword);
+        }
+        rv->set_segment(i, qword[0]);
+        r = qword[1];
+        rem = static_cast<uint64_t>(r);
+    }
+    
+    return shift > 0 ? r % divisor : r;
+}
+    
+/*static*/ void Decimal::RawDivWord(uint64_t n, uint64_t d, uint32_t rv[2]) {
+    if (d == 1) {
+        rv[0] = static_cast<uint32_t>(n);
+        rv[1] = 0;
+        return;
+    }
+    
+    uint64_t q = (n >> 1) / (d >> 1);
+    uint64_t r = n - q * d;
+    
+    while (r < 0) {
+        r += d;
+        q--;
+    }
+    
+    rv[0] = static_cast<uint32_t>(q);
+    rv[1] = static_cast<uint32_t>(r);
+    /*
+     1080           long dLong = d & LONG_MASK;
+     1081
+     1082           if (dLong == 1) {
+     1083               result[0] = (int)n;
+     1084               result[1] = 0;
+     1085               return;
+     1086           }
+     1087
+     1088           // Approximate the quotient and remainder
+     1089           long q = (n >>> 1) / (dLong >>> 1);
+     1090           long r = n - q*dLong;
+     1091
+     1092           // Correct the approximation
+     1093           while (r < 0) {
+     1094               r += dLong;
+     1095               q--;
+     1096           }
+     1097           while (r >= dLong) {
+     1098               r -= dLong;
+     1099               q++;
+     1100           }
+     1101
+     1102           // n - q*dlong == r && 0 <= r <dLong, hence we're done.
+     1103           result[0] = (int)q;
+     1104           result[1] = (int)r;
+     */
 }
     
 /*static*/ uint32_t Decimal::RawShl(const Decimal *lhs, uint32_t n,

@@ -264,6 +264,56 @@ TEST_F(DecimalTest, SampleDiv) {
     EXPECT_EQ("0", rem->ToString());
 }
     
+TEST_F(DecimalTest, DivWord) {
+    auto lhs = Decimal::New(&arena_, "999999999");
+    auto rhs = Decimal::New(&arena_, "9");
+    
+    Decimal *rv = nullptr, *rem = nullptr;
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("111111111", rv->ToString());
+    EXPECT_EQ("0", rem->ToString());
+    
+    lhs = Decimal::New(&arena_, "9999999999");
+    EXPECT_EQ(9, lhs->segment(0));
+    EXPECT_EQ(999999999, lhs->segment(1));
+    
+    rhs = Decimal::New(&arena_, "11");
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("909090909", rv->ToString());
+    EXPECT_EQ("0", rem->ToString());
+    
+    lhs = Decimal::New(&arena_, "1000000000");
+    rhs = Decimal::New(&arena_, "3");
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("333333333", rv->ToString());
+    EXPECT_EQ("1", rem->ToString());
+    
+    lhs = Decimal::New(&arena_, "0.001");
+    rhs = Decimal::New(&arena_, "0.1");
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("0.01", rv->ToString());
+    EXPECT_EQ("0", rem->ToString());
+    
+    std::tie(rv, rem) = rhs->Div(lhs, &arena_);
+    EXPECT_EQ("100", rv->ToString());
+    EXPECT_EQ("0", rem->ToString());
+    
+    lhs = Decimal::New(&arena_, "0.100");   // 1 3
+    EXPECT_EQ(1, lhs->valid_exp());
+    rhs = Decimal::New(&arena_, "0.001"); // 3 3 delta_exp = -2
+    EXPECT_EQ(3, rhs->valid_exp());
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("100", rv->ToString());
+    EXPECT_EQ("0", rem->ToString());
+    
+    // 17777777777
+    lhs = Decimal::New(&arena_, "17777777777");
+    rhs = Decimal::New(&arena_, "11");
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("1616161616", rv->ToString());
+    EXPECT_EQ("1", rem->ToString());
+}
+    
 } // namespace sql
     
 } // namespace mai
