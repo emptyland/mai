@@ -34,6 +34,12 @@ public:
         return static_cast<int>(d % 10);
     }
     
+    int rdigital(size_t i) const {
+        DCHECK_LT(i, digitals_size());
+        uint32_t d = segment(i / 9) / kPowExp[8 - i % 9];
+        return static_cast<int>(d % 10);
+    }
+    
     size_t digitals_size() const { return segments_size() * 9; }
     
     size_t segments_size() const {
@@ -106,6 +112,10 @@ private:
         return static_cast<Decimal *>(NewPrepare(arena, size));
     }
     
+    int GetDigitalOrZero(int64_t i) const {
+        return (i < 0 || i >= digitals_size()) ? 0 : digital(i);
+    }
+    
     uint32_t segment(size_t i) const {
         DCHECK_LT(i, segments_size());
         const uint8_t *x = reinterpret_cast<const uint8_t *>(data() + kHeaderSize + i * 4);
@@ -133,6 +143,7 @@ private:
     static uint32_t RawSub(const Decimal *lhs, const Decimal *rhs, Decimal *rv);
     static uint32_t RawBasicMul(const Decimal *lhs, const Decimal *rhs,
                                 Decimal *rv);
+    static uint32_t RawDivWord(const Decimal *lhs, uint32_t rhs, Decimal *rv);
     static uint32_t RawShl(const Decimal *lhs, uint32_t n, Decimal *rv);
     static uint32_t RawShr(const Decimal *lhs, uint32_t n, Decimal *rv);
     

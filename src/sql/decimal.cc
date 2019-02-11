@@ -13,30 +13,6 @@ namespace sql {
 #define DEF_CONST_DECIMAL_STUB(neg, seg, val) \
     DEF_CONST_DECIMAL_STUB_HEADER(neg, seg) \
     0, 0, 0, val,
-
-static uint8_t zero_decimal_stub[sizeof(Decimal) + Decimal::kHeaderSize] = {
-//    0, 0, 0, 0, // hash_val
-//    0, static_cast<uint8_t>(Decimal::kHeaderSize), 0, 0, // size
-//    0x80, 0, 0, 0, // header
-    DEF_CONST_DECIMAL_STUB_HEADER(false, 0)
-};
-
-static uint8_t  one_decimal_stub[sizeof(Decimal) + Decimal::kHeaderSize + 4] = {
-//    0, 0, 0, 0, // hash_val
-//    0, static_cast<uint8_t>(Decimal::kHeaderSize) + 4, 0, 0, // size
-//    0x80, 0, 0, 0, // header
-//    0, 0, 0, 1, // one
-    DEF_CONST_DECIMAL_STUB(false, 1, 1)
-};
-
-static
-uint8_t minus_one_decimal_stub[sizeof(Decimal) + Decimal::kHeaderSize + 4] = {
-//    0, 0, 0, 0, // hash_val
-//    0, static_cast<uint8_t>(Decimal::kHeaderSize) + 4, 0, 0, // size
-//    0, 0, 0, 0, // header
-//    0, 0, 0, 1, // one
-    DEF_CONST_DECIMAL_STUB(true, 1, 1)
-};
     
 static
 uint8_t const_decimal_stub[Decimal::kMaxConstVal - Decimal::kMinConstVal + 1]
@@ -157,7 +133,7 @@ Decimal *Decimal::Sub(const Decimal *rhs, base::Arena *arena) const {
 Decimal *Decimal::Mul(const Decimal *rhs, base::Arena *arena) const {
     Decimal *rv = NewUninitialized(arena, digitals_size() + rhs->digitals_size());
     RawBasicMul(this, rhs, rv);
-    rv->set_negative_and_exp(negative() != rhs->negative(), exp());
+    rv->set_negative_and_exp(negative() != rhs->negative(), exp() + rhs->exp());
     return rv;
 }
 
@@ -266,9 +242,6 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
 }
     
 int Decimal::Compare(const Decimal *rhs) const {
-    DCHECK_EQ(digitals_size(), rhs->digitals_size());
-    DCHECK_EQ(exp(), rhs->exp());
-
     if (negative() == rhs->negative()) {
         int rv = AbsCompare(rhs);
         return negative() ? -rv : rv;
@@ -276,18 +249,39 @@ int Decimal::Compare(const Decimal *rhs) const {
     return negative() ? -1 : 1;
 }
     
-int Decimal::AbsCompare(const Decimal *rhs) const {
-    DCHECK_EQ(digitals_size(), rhs->digitals_size());
-    DCHECK_EQ(exp(), rhs->exp());
-    
+int Decimal::AbsCompare(const Decimal *rhs) const {    
     int rv = 0;
-    for (size_t i = 0; i < segments_size(); ++i) {
-        if (segment(i) < rhs->segment(i)) {
-            rv = -1;
-            break;
-        } else if (segment(i) > rhs->segment(i)) {
-            rv = 1;
-            break;
+    if (segments_size() == rhs->segments_size() &&
+        exp() == rhs->exp()) {
+        for (size_t i = 0; i < segments_size(); ++i) {
+            if (segment(i) < rhs->segment(i)) {
+                rv = -1;
+                break;
+            } else if (segment(i) > rhs->segment(i)) {
+                rv = 1;
+                break;
+            }
+        }
+    } else {
+        //   j = 9, k = 6
+        //   111.1100000 -> 10
+        // 00011.11000   -> 8
+        const int delta_exp = exp() - rhs->exp();
+        const int delta_lhs = delta_exp > 0 ? 0 : +delta_exp;
+        const int delta_rhs = delta_exp > 0 ? -delta_exp : 0;
+
+        int64_t i = std::max(digitals_size(), rhs->digitals_size());
+        while (i-- > 0) {
+            int ld = GetDigitalOrZero(i + delta_lhs);
+            int rd = rhs->GetDigitalOrZero(i + delta_rhs);
+
+            if (ld < rd) {
+                rv = -1;
+                break;
+            } else if (ld > rd) {
+                rv = 1;
+                break;
+            }
         }
     }
     return rv;

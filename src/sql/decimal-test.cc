@@ -87,8 +87,12 @@ TEST_F(DecimalTest, Digital) {
     EXPECT_EQ(0, d->digital(0));
     EXPECT_EQ(9, d->digital(1));
     EXPECT_EQ(8, d->digital(2));
-    
     EXPECT_EQ(1, d->digital(9));
+    
+    EXPECT_EQ(1, d->rdigital(8));
+    EXPECT_EQ(2, d->rdigital(9));
+    EXPECT_EQ(3, d->rdigital(10));
+    EXPECT_EQ(0, d->rdigital(17));
 }
     
 TEST_F(DecimalTest, Shrink) {
@@ -113,6 +117,32 @@ TEST_F(DecimalTest, Extend) {
     
     d = d->Extend(65, 30, &arena_);
     EXPECT_EQ("789.987", d->ToString());
+}
+    
+TEST_F(DecimalTest, Compare) {
+    auto lhs = Decimal::New(&arena_, "9999999999");
+    auto rhs = Decimal::New(&arena_, "1");
+    
+    EXPECT_LT(0, lhs->AbsCompare(rhs));
+    EXPECT_GT(0, rhs->AbsCompare(lhs));
+    EXPECT_EQ(0, lhs->AbsCompare(lhs));
+    EXPECT_EQ(0, rhs->AbsCompare(rhs));
+    
+    lhs = Decimal::New(&arena_, "1.01");
+    rhs = Decimal::New(&arena_, "1.01");
+    lhs = lhs->Extend(20, 10, &arena_);
+    EXPECT_EQ(0, lhs->AbsCompare(rhs));
+    EXPECT_EQ(0, rhs->AbsCompare(lhs));
+    
+    lhs = Decimal::New(&arena_, "1.01");
+    rhs = Decimal::New(&arena_, "1.01001");
+    EXPECT_GT(0, lhs->AbsCompare(rhs));
+    EXPECT_LT(0, rhs->AbsCompare(lhs));
+    
+    lhs = Decimal::New(&arena_, "101001");
+    rhs = Decimal::New(&arena_, "1.01001");
+    EXPECT_LT(0, lhs->AbsCompare(rhs));
+    EXPECT_GT(0, rhs->AbsCompare(lhs));
 }
     
 TEST_F(DecimalTest, Add) {
@@ -190,7 +220,48 @@ TEST_F(DecimalTest, Mul) {
     EXPECT_EQ("-1358024689.864197531", rv->ToString());
     //         -1358024689.8641977
     
+    lhs = Decimal::New(&arena_, "0.1");
+    rhs = Decimal::New(&arena_, "0.1");
+    rv = lhs->Mul(rhs, &arena_);
+    EXPECT_EQ("0.01", rv->ToString());
+}
     
+TEST_F(DecimalTest, SampleDiv) {
+    auto lhs = Decimal::New(&arena_, "999999999");
+    auto rhs = Decimal::kZero;
+    
+    Decimal *rv = nullptr, *rem = nullptr;
+    // n / 0
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ(nullptr, rv);
+    EXPECT_EQ(nullptr, rem);
+    
+    lhs = Decimal::kZero;
+    rhs = Decimal::kOne;
+    // 0 / n
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("0", rv->ToString());
+    EXPECT_EQ("0", rem->ToString());
+    
+    // m / n (n > m)
+    lhs = Decimal::New(&arena_, "999999999");
+    rhs = Decimal::New(&arena_, "9999999999");
+    //lhs = lhs->ExtendFrom(rhs, &arena_);
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("0", rv->ToString());
+    EXPECT_EQ("999999999", rem->ToString());
+    
+    // n / n = 1
+    std::tie(rv, rem) = lhs->Div(lhs, &arena_);
+    EXPECT_EQ("1", rv->ToString());
+    EXPECT_EQ("0", rem->ToString());
+    
+    lhs = Decimal::New(&arena_, "-999999999");
+    rhs = Decimal::New(&arena_,  "999999999");
+    // -n / n = -1
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("-1", rv->ToString());
+    EXPECT_EQ("0", rem->ToString());
 }
     
 } // namespace sql
