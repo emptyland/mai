@@ -81,7 +81,6 @@ public:
         (static_cast<uint32_t>(x[2]) << 8)  |
         (static_cast<uint32_t>(x[1]) << 16) |
         (static_cast<uint32_t>(x[0]) << 24);
-        
     }
     
     Decimal *Add(const Decimal *rhs, base::Arena *arena) const;
@@ -89,9 +88,11 @@ public:
     Decimal *Mul(const Decimal *rhs, base::Arena *arena) const;
     std::tuple<Decimal *, Decimal *> Div(const Decimal *rhs,
                                          base::Arena *arena) const;
-    
     Decimal *Shl(uint32_t n, base::Arena *arena) const;
     Decimal *Shr(uint32_t n, base::Arena *arena) const;
+
+    void Shl(uint32_t n) { RawShl(this, n, this); }
+    void Shr(uint32_t n) { RawShr(this, n, this); }
     
     int Compare(const Decimal *rhs) const;
     int AbsCompare(const Decimal *rhs) const;
@@ -144,15 +145,17 @@ private:
         x[1] = static_cast<uint8_t>((segment & 0xff0000) >> 16);
         x[0] = static_cast<uint8_t>((segment & 0xff000000) >> 24);
     }
-    
+
     void set_negative_and_exp(bool negative, int exp) {
         prepared()[0] = (negative ? 0x00 : 0x80) | static_cast<int8_t>(exp);
     }
-    
+
     static uint32_t RawAdd(const Decimal *lhs, const Decimal *rhs, Decimal *rv);
     static uint32_t RawSub(const Decimal *lhs, const Decimal *rhs, Decimal *rv);
     static uint32_t RawBasicMul(const Decimal *lhs, const Decimal *rhs,
                                 Decimal *rv);
+    static uint32_t RawDiv(const Decimal *lhs, const Decimal *rhs, Decimal *rv,
+                           Decimal *rem);
     static uint32_t RawDivWord(const Decimal *lhs, uint32_t rhs, Decimal *rv);
     static void RawDivWord(uint64_t n, uint64_t d, uint32_t rv[2]);
     static uint32_t RawShl(const Decimal *lhs, uint32_t n, Decimal *rv);

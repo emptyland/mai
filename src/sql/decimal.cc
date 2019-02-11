@@ -147,45 +147,49 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
         return {kZero, kZero};
     }
     
-    int rv = AbsCompare(rhs);
-    if (rv < 0 && exp() == 0 && rhs->exp() == 0) {
+    int cmp = AbsCompare(rhs);
+    if (cmp < 0 && exp() == 0 && rhs->exp() == 0) {
         return {kZero, NewWithRawData(arena, data(), size())};
     }
-    if (rv == 0) {
+    if (cmp == 0) {
         return (negative() == rhs->negative())
             ? std::make_tuple(kOne, kZero) : std::make_tuple(kMinusOne, kZero);
     }
-    
+
+    Decimal *rv = nullptr, *rem = nullptr;
+    if (rhs->segments_size() == 1) {
+        rv = NewUninitialized(arena, digitals_size());
+        rem = NewU64(arena, RawDivWord(this, rhs->segment(0), rv));
+    } else {
+        rem = NewUninitialized(arena, digitals_size() + 9);
+        size_t limit = rem->segments_size() - rhs->segments_size() + 1;
+        rv = NewUninitialized(arena, limit * 9);
+        RawDiv(this, rhs, rv, rem);
+    }
+
     // 0.001 / 0.1 = 0.01
     // 0.01 / 0.1 = 0.1
     // 0.1 / 1    = 0.1
     // 1 / 0.1    = 10
     // 0.1 / 0.1  = 1
-    if (rhs->segments_size() == 1) {
-        Decimal *rv = NewUninitialized(arena, digitals_size());
-        uint32_t r = RawDivWord(this, rhs->segment(0), rv);
-        Decimal *rem = NewU64(arena, r);
-        int delta_exp = valid_exp() - rhs->valid_exp();
-        if (delta_exp > 0) {
-            rv->set_negative_and_exp(negative() != rhs->negative(), delta_exp);
-        } else if (delta_exp < 0) {
-            // 0.1 / 0.001 = 10
-            if (exp() + delta_exp > 0) {
-                rv->set_negative_and_exp(negative() != rhs->negative(),
-                                         exp() + delta_exp - 1);
-            } else {
-                rv = rv->Mul(NewU64(arena, kPowExp[-delta_exp]), arena);
-                rv->set_negative_and_exp(negative() != rhs->negative(), 0);
-            }
+    int delta_exp = valid_exp() - rhs->valid_exp();
+    if (delta_exp > 0) {
+        rv->set_negative_and_exp(negative() != rhs->negative(), delta_exp);
+    } else if (delta_exp < 0) {
+        // 0.1 / 0.001 = 10
+        if (exp() + delta_exp > 0) {
+            rv->set_negative_and_exp(negative() != rhs->negative(),
+                                     exp() + delta_exp - 1);
         } else {
-            rv->set_negative_and_exp(negative() != rhs->negative(), rhs->exp());
+            // TODO:
+            rv = rv->Mul(NewU64(arena, kPowExp[-delta_exp]), arena);
+            rv->set_negative_and_exp(negative() != rhs->negative(), 0);
         }
-        rem->set_negative_and_exp(negative() != rhs->negative(), rhs->exp());
-        return {rv, rem};
+    } else {
+        rv->set_negative_and_exp(negative() != rhs->negative(), rhs->exp());
     }
-
-    // TODO:
-    return {nullptr, nullptr};
+    rem->set_negative_and_exp(negative() != rhs->negative(), rhs->exp());
+    return {rv, rem};
 }
     
 /*static*/ uint32_t Decimal::RawAdd(const Decimal *lhs, const Decimal *rhs,
@@ -258,6 +262,59 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
     return static_cast<uint32_t>(carry);
 }
     
+/*static*/ uint32_t Decimal::RawDiv(const Decimal *lhs, const Decimal *rhs,
+                                    Decimal *rv, Decimal *rem) {
+    DCHECK_GT(rem->segments_size(), lhs->segments_size());
+    ::memcpy(rem->prepared() + kHeaderSize + 4, lhs->segments(),
+             lhs->segments_size() * 4);
+    
+    int shift = base::Bits::CountLeadingZeros32(rhs->segment(0));
+    if (shift > 0) {
+        
+    }
+    /*
+     956           // Remainder starts as dividend with space for a leading zero
+     957           MutableBigInteger rem = new MutableBigInteger(new int[intLen + 1]);
+     958           System.arraycopy(value, offset, rem.value, 1, intLen);
+     959           rem.intLen = intLen;
+     960           rem.offset = 1;
+     961
+     962           int nlen = rem.intLen;
+     963
+     964           // Set the quotient size
+     965           int dlen = divisor.length;
+     966           int limit = nlen - dlen + 1;
+     967           if (quotient.value.length < limit) {
+     968               quotient.value = new int[limit];
+     969               quotient.offset = 0;
+     970           }
+     971           quotient.intLen = limit;
+     972           int[] q = quotient.value;
+     973
+     974           // D1 normalize the divisor
+     975           int shift = Integer.numberOfLeadingZeros(divisor[0]);
+     976           if (shift > 0) {
+     977               // First shift will not grow array
+     978               BigInteger.primitiveLeftShift(divisor, dlen, shift);
+     979               // But this one might
+     980               rem.leftShift(shift);
+     981           }
+     982
+     983           // Must insert leading 0 in rem if its length did not change
+     984           if (rem.intLen == nlen) {
+     985               rem.offset = 0;
+     986               rem.value[0] = 0;
+     987               rem.intLen++;
+     988           }
+     989
+     990           int dh = divisor[0];
+     991           long dhLong = dh & LONG_MASK;
+     992           int dl = divisor[1];
+     993           int[] qWord = new int[2];
+     */
+    return 0;
+}
+    
 /*static*/ uint32_t Decimal::RawDivWord(const Decimal *lhs, uint32_t rhs,
                                         Decimal *rv) {
     uint64_t divisor = static_cast<uint64_t>(rhs);
@@ -321,39 +378,39 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
     
     rv[0] = static_cast<uint32_t>(q);
     rv[1] = static_cast<uint32_t>(r);
-    /*
-     1080           long dLong = d & LONG_MASK;
-     1081
-     1082           if (dLong == 1) {
-     1083               result[0] = (int)n;
-     1084               result[1] = 0;
-     1085               return;
-     1086           }
-     1087
-     1088           // Approximate the quotient and remainder
-     1089           long q = (n >>> 1) / (dLong >>> 1);
-     1090           long r = n - q*dLong;
-     1091
-     1092           // Correct the approximation
-     1093           while (r < 0) {
-     1094               r += dLong;
-     1095               q--;
-     1096           }
-     1097           while (r >= dLong) {
-     1098               r -= dLong;
-     1099               q++;
-     1100           }
-     1101
-     1102           // n - q*dlong == r && 0 <= r <dLong, hence we're done.
-     1103           result[0] = (int)q;
-     1104           result[1] = (int)r;
-     */
 }
     
 /*static*/ uint32_t Decimal::RawShl(const Decimal *lhs, uint32_t n,
                                     Decimal *rv) {
-    // TODO:
-    return 0;
+/*
+ 568           int[] val = value;
+ 569           int n2 = 32 - n;
+ 570           for (int i=offset, c=val[i], m=i+intLen-1; i<m; i++) {
+ 571               int b = c;
+ 572               c = val[i+1];
+ 573               val[i] = (b << n) | (c >>> n2);
+ 574           }
+ 575           val[offset+intLen-1] <<= n;
+ */
+    uint32_t carry = 0;
+    for (size_t i = 0, m = lhs->segments_size(); i < m; ++i) {
+        uint64_t b = lhs->segment(i);
+        uint64_t s = static_cast<uint64_t>((b << n));
+        carry = static_cast<uint32_t>(s / kLimitMod);
+        rv->set_segment(i, s % kLimitMod);
+        if (i > 0) {
+            int64_t j = i;
+            while (j-- > 0) {
+                s = rv->segment(j) + carry;
+                rv->set_segment(j, static_cast<uint32_t>(s % kLimitMod));
+                carry = static_cast<uint32_t>(s / kLimitMod);
+                if (carry == 0) {
+                    break;
+                }
+            }
+        }
+    }
+    return carry;
 }
 
 /*static*/ uint32_t Decimal::RawShr(const Decimal *lhs, uint32_t n,
