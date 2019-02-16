@@ -13,6 +13,7 @@ public:
     static constexpr const int kMaxDigitalSize = 72;
     static constexpr const int kMaxExp = 30;
     static constexpr const int kHeaderSize = 4;
+    static constexpr const int kMaxSegmentBits = 30;
     static constexpr const int kMinConstVal = -10;
     static constexpr const int kMaxConstVal = 10;
     static constexpr const int kConstZeroIdx = (kMaxConstVal - kMinConstVal) / 2;
@@ -82,20 +83,37 @@ public:
         (static_cast<uint32_t>(x[1]) << 16) |
         (static_cast<uint32_t>(x[0]) << 24);
     }
-    
+
+    Decimal *Shl(uint32_t n, base::Arena *arena) const;
+    Decimal *Shr(uint32_t n, base::Arena *arena) const;
     Decimal *Add(const Decimal *rhs, base::Arena *arena) const;
     Decimal *Sub(const Decimal *rhs, base::Arena *arena) const;
     Decimal *Mul(const Decimal *rhs, base::Arena *arena) const;
     std::tuple<Decimal *, Decimal *> Div(const Decimal *rhs,
                                          base::Arena *arena) const;
-    Decimal *Shl(uint32_t n, base::Arena *arena) const;
-    Decimal *Shr(uint32_t n, base::Arena *arena) const;
 
-    void Shl(uint32_t n) { RawShl(this, n, this); }
-    void Shr(uint32_t n) { RawShr(this, n, this); }
+
+    void PrimitiveShl(uint32_t n) {
+        DCHECK(!IsConstant());
+        RawShl(this, n, this);
+    }
+    void PrimitiveShr(uint32_t n) {
+        DCHECK(!IsConstant());
+        RawShr(this, n, this);
+    }
     
     int Compare(const Decimal *rhs) const;
     int AbsCompare(const Decimal *rhs) const;
+    
+    bool IsConstant() const {
+        int i = kMaxConstVal - kMinConstVal + 1;
+        while (i-- > 0) {
+            if (this == kConstants[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
     
     std::string ToString() const;
     
@@ -154,12 +172,18 @@ private:
     static uint32_t RawSub(const Decimal *lhs, const Decimal *rhs, Decimal *rv);
     static uint32_t RawBasicMul(const Decimal *lhs, const Decimal *rhs,
                                 Decimal *rv);
-    static uint32_t RawDiv(const Decimal *lhs, const Decimal *rhs, Decimal *rv,
-                           Decimal *rem);
+    static Decimal *RawDiv(const Decimal *lhs, const Decimal *rhs, Decimal *rv,
+                           Decimal *rem, base::Arena *arena);
     static uint32_t RawDivWord(const Decimal *lhs, uint32_t rhs, Decimal *rv);
     static void RawDivWord(uint64_t n, uint64_t d, uint32_t rv[2]);
     static uint32_t RawShl(const Decimal *lhs, uint32_t n, Decimal *rv);
     static uint32_t RawShr(const Decimal *lhs, uint32_t n, Decimal *rv);
+    
+    // int divadd(int[] a, int[] result, int offset)
+    static uint32_t DivAdd(const Decimal *a, Decimal *rv, size_t offset);
+    // int mulsub(int[] q, int[] a, int x, int len, int offset)
+    static uint32_t MulSub(const Decimal *a, Decimal *q, uint32_t x, size_t len,
+                           size_t offset);
     
     static const uint32_t kPowExp[9];
 }; // class Decimal

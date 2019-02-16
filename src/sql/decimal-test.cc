@@ -145,34 +145,66 @@ TEST_F(DecimalTest, Compare) {
     EXPECT_GT(0, rhs->AbsCompare(lhs));
 }
 
-TEST_F(DecimalTest, Shl) {
+TEST_F(DecimalTest, PrimitiveShl) {
     auto lhs = Decimal::New(&arena_, "9999999999");
-    lhs->Shl(1);
+    lhs->PrimitiveShl(1);
     EXPECT_EQ("19999999998", lhs->ToString());
     
     lhs = Decimal::New(&arena_, "9999999999999999999");
-    lhs->Shl(1);
+    lhs->PrimitiveShl(1);
     EXPECT_EQ("19999999999999999998", lhs->ToString());
     
     lhs = Decimal::New(&arena_, "9999999999999999999");
-    lhs->Shl(2);
+    lhs->PrimitiveShl(2);
     EXPECT_EQ("39999999999999999996", lhs->ToString());
     
     lhs = Decimal::New(&arena_, "9999999999999999999");
-    lhs->Shl(3);
+    lhs->PrimitiveShl(3);
     EXPECT_EQ("79999999999999999992", lhs->ToString());
     
     lhs = Decimal::New(&arena_, "9999999999999999999");
-    lhs->Shl(10);
+    lhs->PrimitiveShl(10);
     EXPECT_EQ("10239999999999999998976", lhs->ToString());
     
     lhs = Decimal::New(&arena_, "9999999999999999999");
-    lhs->Shl(20);
+    lhs->PrimitiveShl(20);
     EXPECT_EQ("10485759999999999998951424", lhs->ToString());
     
     lhs = Decimal::New(&arena_, "9999999999999999999");
-    lhs->Shl(31);
+    lhs->PrimitiveShl(31);
     EXPECT_EQ("474836479999999997852516352", lhs->ToString());
+}
+    
+TEST_F(DecimalTest, Shl) {
+    auto lhs = Decimal::New(&arena_, "9999999999999999999");
+    lhs = lhs->Shl(31, &arena_);
+    EXPECT_EQ("21474836479999999997852516352", lhs->ToString());
+    
+    lhs = Decimal::New(&arena_, "9999999999999999999");
+    lhs = lhs->Shl(32, &arena_);
+    EXPECT_EQ("42949672959999999995705032704", lhs->ToString());
+    
+    lhs = Decimal::New(&arena_, "9999999999999999999");
+    lhs = lhs->Shl(33, &arena_);
+    EXPECT_EQ("85899345919999999991410065408", lhs->ToString());
+    
+    lhs = Decimal::New(&arena_, "9999999999999999999");
+    lhs = lhs->Shl(34, &arena_);
+    EXPECT_EQ("171798691839999999982820130816", lhs->ToString());
+}
+
+TEST_F(DecimalTest, PrimitiveShr) {
+    auto lhs = Decimal::New(&arena_, "9999999999");
+    lhs->PrimitiveShr(1);
+    EXPECT_EQ("4999999999", lhs->ToString());
+    
+    lhs = Decimal::New(&arena_, "9999999999999999999");
+    lhs->PrimitiveShr(1);
+    EXPECT_EQ("4999999999999999999", lhs->ToString());
+    
+    lhs = Decimal::New(&arena_, "9999999999999999999");
+    lhs->PrimitiveShr(2);
+    EXPECT_EQ("2499999999999999999", lhs->ToString());
 }
     
 TEST_F(DecimalTest, Add) {

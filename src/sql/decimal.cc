@@ -89,6 +89,57 @@ Decimal *const Decimal::kMinusOne = Decimal::kConstants[kConstZeroIdx - 1];
     100000000, // 9
 };
     
+Decimal *Decimal::Shl(uint32_t n, base::Arena *arena) const {
+    if (zero()) {
+        return const_cast<Decimal *>(this);
+    }
+    Decimal *rv = const_cast<Decimal *>(this);
+    
+    int hi_word_bits = kMaxSegmentBits - base::Bits::CountLeadingZeros32(segment(0));
+    if (n <= kMaxSegmentBits - hi_word_bits) {
+        if (IsConstant()) {
+            rv = NewWithRawData(arena, data(), size());
+        }
+        rv->PrimitiveShl(n);
+        return rv;
+    }
+    
+    size_t n_segments = n / kMaxSegmentBits;
+    uint32_t n_bits = n % kMaxSegmentBits;
+    size_t new_len = segments_size() + n_segments + 1;
+    
+    if (n_bits <= kMaxSegmentBits - hi_word_bits) {
+        new_len--;
+    }
+    rv = NewUninitialized(arena, new_len * 9);
+    rv->set_negative_and_exp(negative(), exp());
+    //       100000000000
+    // 000000100000000000
+//    int64_t i = new_len;
+//    while (i-- > 0) {
+//        if (i < segments_size()) {
+//            rv->set_segment(i + d, segment(i));
+//        } else {
+//            rv->set_segment(i, 0);
+//        }
+//    }
+    //size_t d = new_len - segments_size();
+    for (size_t i = 0; i < segments_size(); ++i) {
+        rv->set_segment(new_len - i - 1, segment(segments_size() - i - 1));
+    }
+    for (size_t i = segments_size(); i < new_len; ++i) {
+        rv->set_segment(new_len - i - 1, 0);
+    }
+    
+    rv->PrimitiveShl(n);
+    return rv;
+}
+
+Decimal *Decimal::Shr(uint32_t n, base::Arena *arena) const {
+    
+    return nullptr;
+}
+    
 Decimal *Decimal::Add(const Decimal *rhs, base::Arena *arena) const {
     Decimal *rv = NewUninitialized(arena, digitals_size());
     bool neg = negative();
@@ -164,7 +215,7 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
         rem = NewUninitialized(arena, digitals_size() + 9);
         size_t limit = rem->segments_size() - rhs->segments_size() + 1;
         rv = NewUninitialized(arena, limit * 9);
-        RawDiv(this, rhs, rv, rem);
+        rem = RawDiv(this, rhs, rv, rem, arena);
     }
 
     // 0.001 / 0.1 = 0.01
@@ -262,57 +313,161 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
     return static_cast<uint32_t>(carry);
 }
     
-/*static*/ uint32_t Decimal::RawDiv(const Decimal *lhs, const Decimal *rhs,
-                                    Decimal *rv, Decimal *rem) {
+/*static*/ Decimal *Decimal::RawDiv(const Decimal *lhs, const Decimal *rhs,
+                                    Decimal *rv, Decimal *rem, base::Arena *arena) {
     DCHECK_GT(rem->segments_size(), lhs->segments_size());
     ::memcpy(rem->prepared() + kHeaderSize + 4, lhs->segments(),
              lhs->segments_size() * 4);
     
+    size_t rem_len = rem->segments_size();
+    
     int shift = base::Bits::CountLeadingZeros32(rhs->segment(0));
     if (shift > 0) {
-        
+        rhs = rhs->Shl(shift, arena);
+        rem = rem->Shl(shift, arena);
     }
+    
+    if (rem_len == rem->segments_size()) {
+        // TODO:
+    }
+    
+    size_t limit = rem_len - rhs->segments_size() + 1;
+    uint64_t dh = static_cast<uint64_t>(rhs->segment(0));
+    uint32_t dl = rhs->segment(1);
+    uint32_t qword[2] = {0, 0};
+    
+    static const uint32_t kLimit = 900000000;
+    
+    // D2 Initialize j
+    for (size_t j = 0; j < limit; ++j) {
+        // D3 Calculate qhat
+        // estimate qhat
+        
+        uint32_t qhat = 0;
+        uint32_t qrem = 0;
+        bool skip_correction = false;
+        uint32_t nh = rem->segment(j);
+        uint32_t nh2 = nh + kLimit;
+        uint32_t nm = rem->segment(j + 1);
+        
+        if (nh == dh) {
+            qhat = 999999999;
+            qrem = nh + nm;
+            skip_correction = qrem + kLimit < nh2;
+        } else {
+            uint64_t n_chunk = (((static_cast<uint64_t>(nh) * kLimitMod) +
+                                  static_cast<uint64_t>(nm)));
+            if (n_chunk >= 0) {
+                qhat = static_cast<uint32_t>(n_chunk / dh);
+                qrem = static_cast<uint32_t>(n_chunk - qhat * dh);
+            } else {
+                RawDivWord(n_chunk, dh, qword);
+                qhat = qword[0];
+                qrem = qword[1];
+            }
+            
+            if (qhat == 0) {
+                continue;
+            }
+            
+            if (!skip_correction) { // Correct qhat
+                uint64_t nl = static_cast<uint64_t>(rem->segment(j + 2));
+                uint64_t rs = static_cast<uint64_t>(qrem) * kLimitMod + nl;
+                uint64_t est_product = static_cast<uint64_t>(dl) * static_cast<uint64_t>(qhat);
+                
+                if (est_product != rs) {
+                    qhat--;
+                    qrem = static_cast<uint32_t>(static_cast<uint64_t>(qrem) + dh);
+                    if (static_cast<uint64_t>(qrem) >= dh) {
+                        est_product -= static_cast<uint64_t>(dl);
+                        rs = static_cast<uint64_t>(qrem) * kLimitMod + nl;
+                        if (est_product != rs) {
+                            qhat--;
+                        }
+                    }
+                }
+            }
+            
+            // D4 Multiply and subtract
+            rem->set_segment(j, 0);
+            uint32_t borrow = MulSub(rhs, rem, qhat, rhs->segments_size(), j);
+            
+            // D5 Test remainder
+            if (borrow + kLimit > nh2) {
+                // D6 Add back
+                DivAdd(rhs, rem, j + 1);
+                qhat--;
+            }
+        }
+        
+        // Store the quotient digit
+        rv->set_segment(j, qhat);
+    } // D7 loop on j
+    
+    if (shift > 0) {
+        rem = rem->Shr(shift, arena);
+    }
+    return rem;
+}
+    
+// int divadd(int[] a, int[] result, int offset)
+/*static*/ uint32_t Decimal::DivAdd(const Decimal *a, Decimal *rv,
+                                    size_t offset) {
     /*
-     956           // Remainder starts as dividend with space for a leading zero
-     957           MutableBigInteger rem = new MutableBigInteger(new int[intLen + 1]);
-     958           System.arraycopy(value, offset, rem.value, 1, intLen);
-     959           rem.intLen = intLen;
-     960           rem.offset = 1;
-     961
-     962           int nlen = rem.intLen;
-     963
-     964           // Set the quotient size
-     965           int dlen = divisor.length;
-     966           int limit = nlen - dlen + 1;
-     967           if (quotient.value.length < limit) {
-     968               quotient.value = new int[limit];
-     969               quotient.offset = 0;
-     970           }
-     971           quotient.intLen = limit;
-     972           int[] q = quotient.value;
-     973
-     974           // D1 normalize the divisor
-     975           int shift = Integer.numberOfLeadingZeros(divisor[0]);
-     976           if (shift > 0) {
-     977               // First shift will not grow array
-     978               BigInteger.primitiveLeftShift(divisor, dlen, shift);
-     979               // But this one might
-     980               rem.leftShift(shift);
-     981           }
-     982
-     983           // Must insert leading 0 in rem if its length did not change
-     984           if (rem.intLen == nlen) {
-     985               rem.offset = 0;
-     986               rem.value[0] = 0;
-     987               rem.intLen++;
-     988           }
-     989
-     990           int dh = divisor[0];
-     991           long dhLong = dh & LONG_MASK;
-     992           int dl = divisor[1];
-     993           int[] qWord = new int[2];
+     514           long carry = 0;
+     515
+     516           for (int j=a.length-1; j >= 0; j--) {
+     517               long sum = (a[j] & LONG_MASK) +
+     518                          (result[j+offset] & LONG_MASK) + carry;
+     519               result[j+offset] = (int)sum;
+     520               carry = sum >>> 32;
+     521           }
+     522           return (int)carry;
      */
-    return 0;
+    
+    uint64_t carry = 0;
+    int64_t i = a->segments_size();
+    while (i-- > 0) {
+        uint64_t sum = static_cast<uint64_t>(a->segment(i)) +
+                       static_cast<uint64_t>(rv->segment(i + offset)) + carry;
+        rv->set_segment(i + offset, static_cast<uint32_t>(sum % kLimitMod));
+        carry = sum / kLimitMod;
+    }
+    return static_cast<uint32_t>(carry);
+}
+
+// int mulsub(int[] q, int[] a, int x, int len, int offset)
+/*static*/ uint32_t Decimal::MulSub(const Decimal *a, Decimal *q, uint32_t x,
+                                    size_t len, size_t offset) {
+    /*
+     531           long xLong = x & LONG_MASK;
+     532           long carry = 0;
+     533           offset += len;
+     534
+     535           for (int j=len-1; j >= 0; j--) {
+     536               long product = (a[j] & LONG_MASK) * xLong + carry;
+     537               long difference = q[offset] - product;
+     538               q[offset--] = (int)difference;
+     539               carry = (product >>> 32)
+     540                        + (((difference & LONG_MASK) >
+     541                            (((~(int)product) & LONG_MASK))) ? 1:0);
+     542           }
+     543           return (int)carry;
+     */
+    int64_t carry = 0;
+    offset += len;
+    int64_t i = len;
+    while (i-- > 0) {
+        int64_t product = static_cast<int64_t>(a->segment(i)) * x + carry;
+        int64_t diff = static_cast<int64_t>(q->segment(offset)) - product;
+        
+        q->set_segment(offset--,
+                       static_cast<uint32_t>(diff < 0 ? kLimitMod + diff : diff));
+        
+        //carry = (product / kLimitMod) + (diff > 0 ? 1 : 0);
+        carry = (diff < 0) ? -diff : 0;
+    }
+    return static_cast<uint32_t>(carry);
 }
     
 /*static*/ uint32_t Decimal::RawDivWord(const Decimal *lhs, uint32_t rhs,
@@ -382,41 +537,42 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
     
 /*static*/ uint32_t Decimal::RawShl(const Decimal *lhs, uint32_t n,
                                     Decimal *rv) {
-/*
- 568           int[] val = value;
- 569           int n2 = 32 - n;
- 570           for (int i=offset, c=val[i], m=i+intLen-1; i<m; i++) {
- 571               int b = c;
- 572               c = val[i+1];
- 573               val[i] = (b << n) | (c >>> n2);
- 574           }
- 575           val[offset+intLen-1] <<= n;
- */
-    uint32_t carry = 0;
+    uint64_t carry = 0;
     for (size_t i = 0, m = lhs->segments_size(); i < m; ++i) {
         uint64_t b = lhs->segment(i);
-        uint64_t s = static_cast<uint64_t>((b << n));
-        carry = static_cast<uint32_t>(s / kLimitMod);
+        uint64_t s = b << n;
+        carry = s / kLimitMod;
         rv->set_segment(i, s % kLimitMod);
         if (i > 0) {
             int64_t j = i;
             while (j-- > 0) {
                 s = rv->segment(j) + carry;
                 rv->set_segment(j, static_cast<uint32_t>(s % kLimitMod));
-                carry = static_cast<uint32_t>(s / kLimitMod);
+                carry = s / kLimitMod;
                 if (carry == 0) {
                     break;
                 }
             }
         }
     }
-    return carry;
+    return static_cast<uint32_t>(carry);
 }
 
 /*static*/ uint32_t Decimal::RawShr(const Decimal *lhs, uint32_t n,
                                     Decimal *rv) {
-    // TODO:
-    return 0;
+/*
+ 552           int[] val = value;
+ 553           int n2 = 32 - n;
+ 554           for (int i=offset+intLen-1, c=val[i]; i>offset; i--) {
+ 555               int b = c;
+ 556               c = val[i-1];
+ 557               val[i] = (c << n2) | (b >>> n);
+ 558           }
+ 559           val[offset] >>>= n;
+ */
+    
+    // FIXME: Use fast implements
+    return RawDivWord(lhs, 1u << n, rv);
 }
     
 int Decimal::Compare(const Decimal *rhs) const {
