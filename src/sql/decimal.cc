@@ -89,6 +89,23 @@ Decimal *const Decimal::kMinusOne = Decimal::kConstants[kConstZeroIdx - 1];
     100000000, // 9
 };
     
+size_t Decimal::highest_digital() const {
+    size_t ridx = digitals_size();
+    for (size_t i = 0; i < segments_size(); ++i) {
+        uint32_t s = segment(i);
+        ridx -= 9;
+        if (s != 0) {
+            int64_t j = 9;
+            while (j-- > 0) {
+                if (s >= kPowExp[j]) {
+                    return ridx + j;
+                }
+            }
+        }
+    }
+    return digitals_size();
+}
+    
 Decimal *Decimal::Shl(uint32_t n, base::Arena *arena) const {
     if (zero()) {
         return const_cast<Decimal *>(this);
@@ -115,15 +132,6 @@ Decimal *Decimal::Shl(uint32_t n, base::Arena *arena) const {
     rv->set_negative_and_exp(negative(), exp());
     //       100000000000
     // 000000100000000000
-//    int64_t i = new_len;
-//    while (i-- > 0) {
-//        if (i < segments_size()) {
-//            rv->set_segment(i + d, segment(i));
-//        } else {
-//            rv->set_segment(i, 0);
-//        }
-//    }
-    //size_t d = new_len - segments_size();
     for (size_t i = 0; i < segments_size(); ++i) {
         rv->set_segment(new_len - i - 1, segment(segments_size() - i - 1));
     }
@@ -136,8 +144,13 @@ Decimal *Decimal::Shl(uint32_t n, base::Arena *arena) const {
 }
 
 Decimal *Decimal::Shr(uint32_t n, base::Arena *arena) const {
-    
-    return nullptr;
+    // FIXME: 
+    Decimal *rv = const_cast<Decimal *>(this);
+    if (IsConstant()) {
+        rv = NewWithRawData(arena, data(), size());
+    }
+    rv->PrimitiveShr(n);
+    return rv;
 }
     
 Decimal *Decimal::Add(const Decimal *rhs, base::Arena *arena) const {
@@ -212,10 +225,12 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
         rv = NewUninitialized(arena, digitals_size());
         rem = NewU64(arena, RawDivWord(this, rhs->segment(0), rv));
     } else {
-        rem = NewUninitialized(arena, digitals_size() + 9);
-        size_t limit = rem->segments_size() - rhs->segments_size() + 1;
-        rv = NewUninitialized(arena, limit * 9);
-        rem = RawDiv(this, rhs, rv, rem, arena);
+        rv = NewUninitialized(arena, digitals_size());
+        rem = NewUninitialized(arena, digitals_size());
+        Decimal *tmp = NewUninitialized(arena, digitals_size());
+        tmp->set_negative_and_exp(negative(), exp());
+        rem->set_negative_and_exp(negative(), exp());
+        RawDivSlow(this, rhs, tmp, rv, rem);
     }
 
     // 0.001 / 0.1 = 0.01
@@ -273,8 +288,8 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
         uint32_t rval = rhs->segment(i);
          int32_t val = lval - rval - carry;
         rv->set_segment(i, (val < 0) ? kLimitMod + val : val);
-        
-        carry = (val < 0) ? -val : 0;
+
+        carry = (val < 0) ? 1 : 0;
     }
     return carry;
 }
@@ -312,23 +327,97 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
     }
     return static_cast<uint32_t>(carry);
 }
+
+
+/*static*/ void Decimal::RawDivSlow(const Decimal *lhs, const Decimal *rhs,
+                                    Decimal *tmp, Decimal *rv, Decimal *rem) {
+    size_t hil = lhs->highest_digital();
+    DCHECK_LT(hil, lhs->digitals_size());
+    size_t hir = rhs->highest_digital();
+    DCHECK_LT(hir, rhs->digitals_size());
+    
+    DCHECK_GE(hil, hir);
+    ::memset(rv->segments(), 0, rv->segments_size() * 4);
+    //::memset(rem->segments(), 0, rem->segments_size() * 4);
+    ::memcpy(rem->segments(), lhs->segments(), lhs->segments_size() * 4);
+    
+    // 999999999 : 8
+    // 000012345 : 4
+    //
+    // 999999999 / 123450000 = 8 * 10000, 12399999
+    //  12399999 / 12345000  = 1 * 1000,  54999
+    //     54999 / 12345     = 4 * 1,     5619
+    //                       = 81004,     5619
+    //const Decimal *d0 = lhs;
+    const Decimal *mid = rhs;
+    int64_t m = 0;
+    do {
+        hil = rem->highest_digital();
+        hir = rhs->highest_digital();
+        //DCHECK_GE(hil, hir);
+        m = hil - hir;
+        if (m < 0) {
+            break;
+        } else if (m > 0) {
+            ::memset(tmp->segments(), 0, tmp->segments_size() * 4);
+            for (int64_t i = rhs->highest_digital(); i >= 0; i--) {
+                size_t sid = tmp->digital_to_segment(i + m);
+                uint32_t s = tmp->segment(sid);
+                s += rhs->digital(i) * kPowExp[(i + m) % 9];
+                tmp->set_segment(sid, s);
+            }
+            mid = tmp;
+        } else {
+            mid = rhs;
+        }
+//        printf("rem:%s\n", rem->ToString().c_str());
+//        printf("mid:%s\n", mid->ToString().c_str());
+
+        DCHECK_EQ(rem->highest_digital(), mid->highest_digital());
+        int k = 0;
+        while (rem->AbsCompare(mid) > 0) {
+            RawSub(rem, mid, rem);
+            k++;
+//            printf("-rem:%s, mid:%s\n", rem->ToString().c_str(), mid->ToString().c_str());
+        }
+        DCHECK_LT(k, 10);
+//        printf("+rem:%s\n", rem->ToString().c_str());
+        
+        size_t sid = rv->digital_to_segment(m);
+        uint32_t s = rv->segment(sid);
+        s += k * kPowExp[m % 9];
+        rv->set_segment(sid, s);
+        
+        //d0 = rem;
+    } while (m > 0);
+}
     
 /*static*/ Decimal *Decimal::RawDiv(const Decimal *lhs, const Decimal *rhs,
                                     Decimal *rv, Decimal *rem, base::Arena *arena) {
-    DCHECK_GT(rem->segments_size(), lhs->segments_size());
-    ::memcpy(rem->prepared() + kHeaderSize + 4, lhs->segments(),
-             lhs->segments_size() * 4);
+    DCHECK_EQ(rem->segments_size(), lhs->segments_size());
+//for (size_t i = 0; i <)
+//    ::memcpy(rem->prepared() + kHeaderSize, lhs->segments(),
+//             lhs->segments_size() * 4);
     
     size_t rem_len = rem->segments_size();
     
     int shift = base::Bits::CountLeadingZeros32(rhs->segment(0));
     if (shift > 0) {
-        rhs = rhs->Shl(shift, arena);
+        auto tmp = NewWithRawData(arena, rhs->data(), rhs->size());
+        tmp->PrimitiveShl(shift);
+        rhs = tmp;
         rem = rem->Shl(shift, arena);
     }
     
     if (rem_len == rem->segments_size()) {
         // TODO:
+        auto old = rem;
+        rem = NewUninitialized(arena, old->digitals_size() + 9);
+        DCHECK_EQ(rem->segments_size(), old->segments_size() + 1);
+        rem->set_segment(0, 0);
+        for (size_t i = 0; i < old->segments_size(); ++i) {
+            rem->set_segment(i + 1, old->segment(i));
+        }
     }
     
     size_t limit = rem_len - rhs->segments_size() + 1;
@@ -375,13 +464,13 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
                 uint64_t rs = static_cast<uint64_t>(qrem) * kLimitMod + nl;
                 uint64_t est_product = static_cast<uint64_t>(dl) * static_cast<uint64_t>(qhat);
                 
-                if (est_product != rs) {
+                if (est_product > rs) {
                     qhat--;
                     qrem = static_cast<uint32_t>(static_cast<uint64_t>(qrem) + dh);
                     if (static_cast<uint64_t>(qrem) >= dh) {
                         est_product -= static_cast<uint64_t>(dl);
                         rs = static_cast<uint64_t>(qrem) * kLimitMod + nl;
-                        if (est_product != rs) {
+                        if (est_product > rs) {
                             qhat--;
                         }
                     }
@@ -413,18 +502,6 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
 // int divadd(int[] a, int[] result, int offset)
 /*static*/ uint32_t Decimal::DivAdd(const Decimal *a, Decimal *rv,
                                     size_t offset) {
-    /*
-     514           long carry = 0;
-     515
-     516           for (int j=a.length-1; j >= 0; j--) {
-     517               long sum = (a[j] & LONG_MASK) +
-     518                          (result[j+offset] & LONG_MASK) + carry;
-     519               result[j+offset] = (int)sum;
-     520               carry = sum >>> 32;
-     521           }
-     522           return (int)carry;
-     */
-    
     uint64_t carry = 0;
     int64_t i = a->segments_size();
     while (i-- > 0) {
@@ -439,21 +516,6 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
 // int mulsub(int[] q, int[] a, int x, int len, int offset)
 /*static*/ uint32_t Decimal::MulSub(const Decimal *a, Decimal *q, uint32_t x,
                                     size_t len, size_t offset) {
-    /*
-     531           long xLong = x & LONG_MASK;
-     532           long carry = 0;
-     533           offset += len;
-     534
-     535           for (int j=len-1; j >= 0; j--) {
-     536               long product = (a[j] & LONG_MASK) * xLong + carry;
-     537               long difference = q[offset] - product;
-     538               q[offset--] = (int)difference;
-     539               carry = (product >>> 32)
-     540                        + (((difference & LONG_MASK) >
-     541                            (((~(int)product) & LONG_MASK))) ? 1:0);
-     542           }
-     543           return (int)carry;
-     */
     int64_t carry = 0;
     offset += len;
     int64_t i = len;
@@ -464,8 +526,8 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
         q->set_segment(offset--,
                        static_cast<uint32_t>(diff < 0 ? kLimitMod + diff : diff));
         
-        //carry = (product / kLimitMod) + (diff > 0 ? 1 : 0);
-        carry = (diff < 0) ? -diff : 0;
+        carry = (product / kLimitMod) + (diff > 0 ? 1 : 0);
+        //carry = (diff < 0) ? -diff : 0;
     }
     return static_cast<uint32_t>(carry);
 }

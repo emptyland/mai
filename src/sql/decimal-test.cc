@@ -93,6 +93,29 @@ TEST_F(DecimalTest, Digital) {
     EXPECT_EQ(2, d->rdigital(9));
     EXPECT_EQ(3, d->rdigital(10));
     EXPECT_EQ(0, d->rdigital(17));
+    
+    d = Decimal::NewU64(&arena_, 0ull);
+    EXPECT_EQ(d->digitals_size(), d->highest_digital());
+    
+    d = Decimal::NewU64(&arena_, 1ull);
+    EXPECT_EQ(0, d->highest_digital());
+    EXPECT_EQ(1, d->digital(0));
+    
+    d = Decimal::NewU64(&arena_, 10ull);
+    EXPECT_EQ(1, d->highest_digital());
+    EXPECT_EQ(1, d->digital(1));
+    
+    d = Decimal::NewU64(&arena_, 100ull);
+    EXPECT_EQ(2, d->highest_digital());
+    EXPECT_EQ(1, d->digital(2));
+    
+    d = Decimal::NewU64(&arena_, 999999999ull);
+    EXPECT_EQ(8, d->highest_digital());
+    EXPECT_EQ(9, d->digital(8));
+    
+    d = d->Extend(18, 0, &arena_);
+    EXPECT_EQ(8, d->highest_digital());
+    EXPECT_EQ(9, d->digital(8));
 }
     
 TEST_F(DecimalTest, Shrink) {
@@ -191,6 +214,10 @@ TEST_F(DecimalTest, Shl) {
     lhs = Decimal::New(&arena_, "9999999999999999999");
     lhs = lhs->Shl(34, &arena_);
     EXPECT_EQ("171798691839999999982820130816", lhs->ToString());
+    
+//    lhs = Decimal::New(&arena_, "9999999999999999999");
+//    lhs = lhs->Shl(35, &arena_);
+//    EXPECT_EQ("343597383679999999965640261632", lhs->ToString());
 }
 
 TEST_F(DecimalTest, PrimitiveShr) {
@@ -253,6 +280,23 @@ TEST_F(DecimalTest, Sub) {
     lhs = lhs->ExtendFrom(rhs, &arena_);
     rv = lhs->Sub(rhs, &arena_);
     EXPECT_EQ("-999999999", rv->ToString());
+}
+    
+TEST_F(DecimalTest, SubBugFix) {
+    //303099999999
+    //123450000000
+    auto lhs = Decimal::New(&arena_, "303099999999");
+    auto rhs = Decimal::New(&arena_, "123450000000");
+    
+    auto rv = lhs->Sub(rhs, &arena_);
+    EXPECT_EQ("179649999999", rv->ToString());
+    
+    
+    lhs = Decimal::New(&arena_, "100000000000");
+    rhs = Decimal::New(&arena_,  "99999999999");
+    
+    rv = lhs->Sub(rhs, &arena_);
+    EXPECT_EQ("1", rv->ToString());
 }
     
 TEST_F(DecimalTest, Mul) {
@@ -374,6 +418,58 @@ TEST_F(DecimalTest, DivWord) {
     std::tie(rv, rem) = lhs->Div(rhs, &arena_);
     EXPECT_EQ("1616161616", rv->ToString());
     EXPECT_EQ("1", rem->ToString());
+}
+    
+TEST_F(DecimalTest, Div) {
+    auto lhs = Decimal::New(&arena_, "9999999999");
+    auto rhs = Decimal::New(&arena_, "9000000000");
+
+    Decimal *rv = nullptr, *rem = nullptr;
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("1", rv->ToString());
+    EXPECT_EQ("999999999", rem->ToString());
+
+    lhs = Decimal::New(&arena_, "19999999999");
+    rhs = Decimal::New(&arena_, "1234567890");
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("16", rv->ToString());
+    EXPECT_EQ("246913759", rem->ToString());
+}
+    
+TEST_F(DecimalTest, DivSlow) {
+    auto lhs = Decimal::New(&arena_, "999999999");
+    auto rhs = Decimal::New(&arena_, "900000000");
+    
+    auto rv = Decimal::NewUninitialized(&arena_, lhs->digitals_size());
+    auto rem = Decimal::NewUninitialized(&arena_, lhs->digitals_size());
+    auto tmp = Decimal::NewUninitialized(&arena_, lhs->digitals_size());
+    rv->set_negative_and_exp(false, 0);
+    rem->set_negative_and_exp(false, 0);
+    tmp->set_negative_and_exp(false, 0);
+    
+    Decimal::RawDivSlow(lhs, rhs, nullptr, rv, rem);
+    EXPECT_EQ("1", rv->ToString());
+    EXPECT_EQ("99999999", rem->ToString());
+    
+    lhs = Decimal::New(&arena_, "999999999");
+    rhs = Decimal::New(&arena_, "12345");
+    
+    Decimal::RawDivSlow(lhs, rhs, tmp, rv, rem);
+    EXPECT_EQ("81004", rv->ToString());
+    EXPECT_EQ("5619", rem->ToString());
+    
+    lhs = Decimal::New(&arena_, "9999999999999999");
+    rhs = Decimal::New(&arena_, "12345");
+    rv = Decimal::NewUninitialized(&arena_, lhs->digitals_size());
+    rem = Decimal::NewUninitialized(&arena_, lhs->digitals_size());
+    tmp = Decimal::NewUninitialized(&arena_, lhs->digitals_size());
+    rv->set_negative_and_exp(false, 0);
+    rem->set_negative_and_exp(false, 0);
+    tmp->set_negative_and_exp(false, 0);
+    
+    Decimal::RawDivSlow(lhs, rhs, tmp, rv, rem);
+    EXPECT_EQ("810044552450", rv->ToString());
+    EXPECT_EQ("4749", rem->ToString());
 }
     
 } // namespace sql

@@ -30,9 +30,13 @@ public:
     bool positive() const { return data()[0] & 0x80; }
     
     int digital(size_t i) const {
-        DCHECK_LT(i, digitals_size());
-        uint32_t d = segment(segments_size() - 1 - i / 9) / kPowExp[i % 9];
+        uint32_t d = segment(digital_to_segment(i)) / kPowExp[i % 9];
         return static_cast<int>(d % 10);
+    }
+    
+    size_t digital_to_segment(size_t i) const {
+        DCHECK_LT(i, digitals_size());
+        return segments_size() - 1 - i / 9;
     }
     
     int rdigital(size_t i) const {
@@ -60,6 +64,8 @@ public:
         }
         return true;
     }
+    
+    size_t highest_digital() const;
     
     int valid_exp() const {
         int i = exp();
@@ -142,8 +148,14 @@ public:
     static Decimal *NewWithRawData(base::Arena *arena, const char *s, size_t n) {
         return static_cast<Decimal *>(base::ArenaString::New(arena, s, n));
     }
+    
+    FRIEND_UNITTEST_CASE(DecimalTest, DivSlow);
 private:
     static const uint32_t kLimitMod = 1000000000;
+    
+    uint32_t *segments() {
+        return reinterpret_cast<uint32_t *>(prepared() + kHeaderSize);
+    }
     
     static Decimal *NewUninitialized(base::Arena *arena, size_t digital_size) {
         size_t n_segment = (digital_size + 8) / 9;
@@ -174,6 +186,8 @@ private:
                                 Decimal *rv);
     static Decimal *RawDiv(const Decimal *lhs, const Decimal *rhs, Decimal *rv,
                            Decimal *rem, base::Arena *arena);
+    static void RawDivSlow(const Decimal *lhs, const Decimal *rhs,
+                           Decimal *tmp, Decimal *rv, Decimal *rem);
     static uint32_t RawDivWord(const Decimal *lhs, uint32_t rhs, Decimal *rv);
     static void RawDivWord(uint64_t n, uint64_t d, uint32_t rv[2]);
     static uint32_t RawShl(const Decimal *lhs, uint32_t n, Decimal *rv);
