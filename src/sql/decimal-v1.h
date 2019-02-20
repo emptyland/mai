@@ -1,5 +1,5 @@
-#ifndef MAI_SQL_DECIMAL_H_
-#define MAI_SQL_DECIMAL_H_
+#ifndef MAI_SQL_DECIMAL_V1_H_
+#define MAI_SQL_DECIMAL_V1_H_
 
 #include "base/arena-utils.h"
 #include <tuple>
@@ -7,6 +7,8 @@
 namespace mai {
     
 namespace sql {
+    
+namespace v1 {
 
 class Decimal final : public base::ArenaString {
 public:
@@ -204,9 +206,11 @@ private:
     
 static_assert(sizeof(Decimal) == sizeof(base::ArenaString), "Unexpected size.");
     
+} // namespace v1
+    
 } // namespace sql
     
 } // namespace mai
 
 
-#endif // MAI_SQL_DECIMAL_H_
+#endif // MAI_SQL_DECIMAL_V1_H_

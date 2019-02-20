@@ -1,10 +1,12 @@
-#include "sql/decimal.h"
+#include "sql/decimal-v1.h"
 #include "base/slice.h"
 #include "base/bit-ops.h"
 
 namespace mai {
 
 namespace sql {
+    
+namespace v1 {
     
 #define DEF_CONST_DECIMAL_STUB_HEADER(neg, seg) \
     0, 0, 0, 0, \
@@ -942,6 +944,8 @@ Decimal *Decimal::Extend(int d, int m, base::Arena *arena) const {
     dec->set_negative_and_exp(false, 0);
     return dec;
 }
+    
+} // namespace v1
 
 } // namespace sql
 

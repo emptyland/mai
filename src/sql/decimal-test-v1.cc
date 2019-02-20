@@ -1,4 +1,4 @@
-#include "sql/decimal.h"
+#include "sql/decimal-v1.h"
 #include "base/slice.h"
 #include "base/standalone-arena.h"
 #include "mai/env.h"
@@ -8,6 +8,8 @@
 namespace mai {
     
 namespace sql {
+    
+namespace v1 {
     
 class DecimalTest : public ::testing::Test {
 public:
@@ -420,22 +422,6 @@ TEST_F(DecimalTest, DivWord) {
     EXPECT_EQ("1", rem->ToString());
 }
     
-TEST_F(DecimalTest, Div) {
-    auto lhs = Decimal::New(&arena_, "9999999999");
-    auto rhs = Decimal::New(&arena_, "9000000000");
-
-    Decimal *rv = nullptr, *rem = nullptr;
-    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
-    EXPECT_EQ("1", rv->ToString());
-    EXPECT_EQ("999999999", rem->ToString());
-
-    lhs = Decimal::New(&arena_, "19999999999");
-    rhs = Decimal::New(&arena_, "1234567890");
-    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
-    EXPECT_EQ("16", rv->ToString());
-    EXPECT_EQ("246913759", rem->ToString());
-}
-    
 TEST_F(DecimalTest, DivSlow) {
     auto lhs = Decimal::New(&arena_, "999999999");
     auto rhs = Decimal::New(&arena_, "900000000");
@@ -471,7 +457,31 @@ TEST_F(DecimalTest, DivSlow) {
     EXPECT_EQ("810044552450", rv->ToString());
     EXPECT_EQ("4749", rem->ToString());
 }
+
+TEST_F(DecimalTest, Div) {
+    auto lhs = Decimal::New(&arena_, "9999999999");
+    auto rhs = Decimal::New(&arena_, "9000000000");
     
+    Decimal *rv = nullptr, *rem = nullptr;
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("1", rv->ToString());
+    EXPECT_EQ("999999999", rem->ToString());
+    
+    lhs = Decimal::New(&arena_, "19999999999");
+    rhs = Decimal::New(&arena_, "1234567890");
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("16", rv->ToString());
+    EXPECT_EQ("246913759", rem->ToString());
+
+    lhs = Decimal::New(&arena_, "123456789999999999999999");
+    rhs = Decimal::New(&arena_, "123456789123456789");
+    std::tie(rv, rem) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("1000000", rv->ToString());
+    EXPECT_EQ("876543210999999", rem->ToString());
+}
+    
+} // namespace v1
+
 } // namespace sql
     
 } // namespace mai
