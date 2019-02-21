@@ -48,23 +48,25 @@ public:
         offset_ = static_cast<uint32_t>(i);
     }
     
+    // n / log2(10)
+    size_t digitals_size() const {
+        // TODO:
+        return 0;
+    }
+    
     bool zero() const;
     
     View<uint32_t> segment_view() const {
-        return MakeView(segments(), capacity_);
+        return MakeView(segments(), segments_size());
     }
     
     MutView<uint32_t> segment_mut_view() {
-        return MakeMutView(segments(), capacity_);
+        return MakeMutView(segments(), segments_size());
     }
     
-    const uint32_t *segments() const {
-        return reinterpret_cast<const uint32_t *>((this + 1) + offset_);
-    }
+    const uint32_t *segments() const { return base() + offset_; }
     
-    uint32_t *segments() {
-        return reinterpret_cast<uint32_t *>((this + 1) + offset_);
-    }
+    uint32_t *segments() { return base() + offset_; }
     
     void set_negative_and_exp(bool neg, int exp) {
         flags_ = MakeFlags(neg, exp);
@@ -80,9 +82,9 @@ public:
         }
     }
     
-    Decimal *Shl(int bits, base::Arena *arena) const;
+    Decimal *Shl(int bits, base::Arena *arena);
     
-    Decimal *Shr(int bits, base::Arena *arena) const;
+    Decimal *Shr(int bits, base::Arena *arena);
     
     Decimal *Add(const Decimal *rhs, base::Arena *arena) const;
     
@@ -94,7 +96,16 @@ public:
 
     std::string ToString() const;
     
+    Decimal *Clone(base::Arena *arena) const { return NewCopied(this, arena); }
+    
     static int AbsCompare(const Decimal *lhs, const Decimal *rhs);
+    
+    static Decimal *NewCopied(const Decimal *other, base::Arena *arena) {
+        Decimal *rv = NewCopied(other->segment_view(), arena);
+        rv->set_negative_and_exp(other->negative(), other->exp());
+        return rv;
+    }
+    static Decimal *NewCopied(View<uint32_t> segments, base::Arena *arena);
     
     static Decimal *NewI64(int64_t val, base::Arena *arena);
     static Decimal *NewU64(uint64_t val, base::Arena *arena);
@@ -111,9 +122,9 @@ private:
 
     DEF_VAL_GETTER(uint32_t, flags);
     
-    void PrimitiveShl(int bits);
-    
-    void PrimitiveShr(int bits);
+    uint32_t *base() { return reinterpret_cast<uint32_t *>(this + 1); }
+
+    const uint32_t *base() const { return reinterpret_cast<const uint32_t *>(this + 1); }
     
     static uint32_t MakeFlags(bool neg, int exp) {
         DCHECK_GE(exp, 0);

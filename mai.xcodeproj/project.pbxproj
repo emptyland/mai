@@ -33,6 +33,7 @@
 		23344CEF21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CEE21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc */; };
 		23344CF321EF1C05006BC6E4 /* form-schema.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CF221EF1C05006BC6E4 /* form-schema.cc */; };
 		2343978A21F960A400512A37 /* evaluation.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2343978921F960A400512A37 /* evaluation.cc */; };
+		23565910221E82EC00837F83 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
 		235C1CCF21D1D63F0070A049 /* optimism-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */; };
 		235C1CD621D210520070A049 /* optimism-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CD421D210520070A049 /* optimism-transaction.cc */; };
 		235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */; };
@@ -210,6 +211,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		23565911221E82EC00837F83 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23B0E0C1217D7DA000F9E855 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 23DE17F721D0887700479C23;
+			remoteInfo = mai;
+		};
 		2364B2A721E45113008519AE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 23B0E0C1217D7DA000F9E855 /* Project object */;
@@ -324,6 +332,8 @@
 		234372C921998C0A00427E83 /* write-ahead-log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-ahead-log.h"; sourceTree = "<group>"; };
 		2343978821F9609300512A37 /* evaluation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = evaluation.h; sourceTree = "<group>"; };
 		2343978921F960A400512A37 /* evaluation.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = evaluation.cc; sourceTree = "<group>"; };
+		2356590B221E82EC00837F83 /* mai-tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "mai-tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2356590F221E82EC00837F83 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		235C1CCB21D1D5F70070A049 /* optimism-transaction-db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "optimism-transaction-db.h"; sourceTree = "<group>"; };
 		235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "optimism-transaction-db.cc"; sourceTree = "<group>"; };
 		235C1CD221D206F10070A049 /* optimism-transaction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "optimism-transaction.h"; sourceTree = "<group>"; };
@@ -483,6 +493,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		23565908221E82EC00837F83 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				23565910221E82EC00837F83 /* mai.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		23B0E0DB2187F9CD00F9E855 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -628,6 +646,14 @@
 			path = src/db;
 			sourceTree = "<group>";
 		};
+		2356590C221E82EC00837F83 /* mai-tests */ = {
+			isa = PBXGroup;
+			children = (
+				2356590F221E82EC00837F83 /* Info.plist */,
+			);
+			path = "mai-tests";
+			sourceTree = "<group>";
+		};
 		23B0E0C0217D7DA000F9E855 = {
 			isa = PBXGroup;
 			children = (
@@ -644,6 +670,7 @@
 				23DE17A021D07C9100479C23 /* benchmark */,
 				23DE17F921D0887700479C23 /* mai-framework */,
 				23B0E0E52187F9EC00F9E855 /* unit-tests */,
+				2356590C221E82EC00837F83 /* mai-tests */,
 				23B0E0CA217D7DA000F9E855 /* Products */,
 				23B0E0E72187FAF200F9E855 /* Frameworks */,
 			);
@@ -655,6 +682,7 @@
 				23B0E0DE2187F9CD00F9E855 /* unit-test */,
 				23DE17A521D07CD200479C23 /* benchmark */,
 				23DE17F821D0887700479C23 /* mai.framework */,
+				2356590B221E82EC00837F83 /* mai-tests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1000,6 +1028,24 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		2356590A221E82EC00837F83 /* mai-tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 23565915221E82EC00837F83 /* Build configuration list for PBXNativeTarget "mai-tests" */;
+			buildPhases = (
+				23565907221E82EC00837F83 /* Sources */,
+				23565908221E82EC00837F83 /* Frameworks */,
+				23565909221E82EC00837F83 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				23565912221E82EC00837F83 /* PBXTargetDependency */,
+			);
+			name = "mai-tests";
+			productName = "mai-tests";
+			productReference = 2356590B221E82EC00837F83 /* mai-tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		23B0E0DD2187F9CD00F9E855 /* unit-test */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 23B0E0E22187F9CE00F9E855 /* Build configuration list for PBXNativeTarget "unit-test" */;
@@ -1059,9 +1105,13 @@
 		23B0E0C1217D7DA000F9E855 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				DefaultBuildSystemTypeForWorkspace = Original;
 				LastUpgradeCheck = 0940;
 				ORGANIZATIONNAME = Niko;
 				TargetAttributes = {
+					2356590A221E82EC00837F83 = {
+						CreatedOnToolsVersion = 10.1;
+					};
 					23B0E0DD2187F9CD00F9E855 = {
 						CreatedOnToolsVersion = 9.4.1;
 					};
@@ -1088,11 +1138,19 @@
 				23B0E0DD2187F9CD00F9E855 /* unit-test */,
 				23DE17A421D07CD200479C23 /* benchmark */,
 				23DE17F721D0887700479C23 /* mai */,
+				2356590A221E82EC00837F83 /* mai-tests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		23565909221E82EC00837F83 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		23DE17F621D0887700479C23 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1103,6 +1161,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		23565907221E82EC00837F83 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		23B0E0DA2187F9CD00F9E855 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1308,6 +1373,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		23565912221E82EC00837F83 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 23DE17F721D0887700479C23 /* mai */;
+			targetProxy = 23565911221E82EC00837F83 /* PBXContainerItemProxy */;
+		};
 		2364B2A821E45113008519AE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 23DE17F721D0887700479C23 /* mai */;
@@ -1316,6 +1386,45 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		23565913221E82EC00837F83 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = "mai-tests/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.504.mai.mai-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		23565914221E82EC00837F83 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = "mai-tests/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.504.mai.mai-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		23B0E0CE217D7DA000F9E855 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1562,6 +1671,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		23565915221E82EC00837F83 /* Build configuration list for PBXNativeTarget "mai-tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				23565913221E82EC00837F83 /* Debug */,
+				23565914221E82EC00837F83 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		23B0E0C4217D7DA000F9E855 /* Build configuration list for PBXProject "mai" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
