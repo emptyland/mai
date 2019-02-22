@@ -17,6 +17,10 @@ class Decimal final {
     static constexpr const uint32_t kExpMask = ~kSignedMask;
 
 public:
+    static constexpr const int kMaxExp = 31;
+    static constexpr const int kMinRadix = 2;
+    static constexpr const int kMaxRadix = 16;
+    
     int exp() const { return flags() & kExpMask; }
     
     void set_exp(int e) { set_negative_and_exp(negative(), e); }
@@ -44,15 +48,16 @@ public:
     size_t offset() const { return offset_; }
     
     void set_offset(size_t i) {
-        DCHECK_LT(i, segments_size());
+        DCHECK_LE(i, capacity_);
         offset_ = static_cast<uint32_t>(i);
     }
     
     // n / log2(10)
-    size_t digitals_size() const {
-        // TODO:
-        return 0;
+    size_t max_digitals_size(int radix = 10) const {
+        return GetNumberOfDigitals(segments_size() * 32, radix);
     }
+    
+    const Decimal *scale() const { return GetFastPow10(exp()); }
     
     bool zero() const;
     
@@ -67,7 +72,7 @@ public:
     const uint32_t *segments() const { return base() + offset_; }
     
     uint32_t *segments() { return base() + offset_; }
-    
+
     void set_negative_and_exp(bool neg, int exp) {
         flags_ = MakeFlags(neg, exp);
     }
@@ -94,9 +99,11 @@ public:
     
     Decimal *Div(const Decimal *rhs, base::Arena *arena) const;
 
-    std::string ToString() const;
+    std::string ToString(int radix = 10) const;
     
     Decimal *Clone(base::Arena *arena) const { return NewCopied(this, arena); }
+    
+    int Compare(const Decimal *rhs) const;
     
     static int AbsCompare(const Decimal *lhs, const Decimal *rhs);
     
@@ -110,7 +117,23 @@ public:
     static Decimal *NewI64(int64_t val, base::Arena *arena);
     static Decimal *NewU64(uint64_t val, base::Arena *arena);
     
+    static Decimal *NewParsed(const char *s, base::Arena *arena) {
+        return NewParsed(s, strlen(s), arena);
+    }
+    
+    static Decimal *NewParsed(const std::string &s, base::Arena *arena) {
+        return NewParsed(s.c_str(), s.length(), arena);
+    }
+    
+    static Decimal *NewParsed(const char *s, size_t n, base::Arena *arena);
+    
     static Decimal *NewUninitialized(size_t capacity, base::Arena *arena);
+    
+    static const Decimal *GetFastPow10(int exp);
+    
+    static size_t GetNumberOfDigitals(size_t bits, int radix);
+
+    static size_t GetNumberOfBits(size_t digitals_count, int radix);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Decimal);
 private:
@@ -126,6 +149,18 @@ private:
 
     const uint32_t *base() const { return reinterpret_cast<const uint32_t *>(this + 1); }
     
+    void Resize(size_t n) {
+        if (n == segments_size()) {
+            return;
+        }
+        if (n < segments_size()) {
+            offset_ += (segments_size() - n);
+        } else if (n > segments_size()) {
+            DCHECK_LE(n, capacity_);
+            offset_ -= (n - segments_size());
+        }
+    }
+    
     static uint32_t MakeFlags(bool neg, int exp) {
         DCHECK_GE(exp, 0);
         DCHECK_LT(exp, kSignedMask);
@@ -134,7 +169,7 @@ private:
     
     uint32_t capacity_;
     uint32_t offset_;
-    uint32_t flags_ = 0;
+    uint32_t flags_;
 }; // class MutDecimal
     
 static_assert(sizeof(Decimal) == sizeof(uint32_t) * 3, "Invalid Decimal size.");
