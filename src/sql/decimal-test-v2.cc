@@ -319,6 +319,19 @@ TEST_F(DecimalV2Test, DivOneWord) {
     ASSERT_EQ("5005", rv->ToString());
 }
     
+TEST_F(DecimalV2Test, Div) {
+    static const uint32_t n1[] = {0x80000000, 0, 0};
+    auto lhs = Decimal::NewCopied(MakeView(n1, 3), &arena_);
+    
+    static const uint32_t n2[] = {1, 0};
+    auto rhs = Decimal::NewCopied(MakeView(n2, 2), &arena_);
+    Decimal *rv, *re;
+    std::tie(rv, re) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("8000000000000000", rv->ToString(16));
+    EXPECT_EQ("0", re->ToString(16));
+    
+}
+    
 TEST_F(DecimalV2Test, FixedPointParsing) {
     auto d = Decimal::NewParsed("0.1", &arena_);
     ASSERT_EQ("0.1", d->ToString());
