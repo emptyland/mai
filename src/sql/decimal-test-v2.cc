@@ -99,6 +99,24 @@ TEST_F(DecimalV2Test, NewParsedOctal) {
     EXPECT_EQ("1223334444555556666667777777", d->ToString(8));
 }
     
+TEST_F(DecimalV2Test, NewParsedDecimal) {
+    auto d = Decimal::NewParsed("65535", &arena_);
+    ASSERT_NE(nullptr, d);
+    EXPECT_EQ(1, d->segments_size());
+    EXPECT_EQ("65535", d->ToString(10));
+    EXPECT_EQ("ffff", d->ToString(16));
+    
+    d = Decimal::NewParsed("99999999999", &arena_);
+    ASSERT_NE(nullptr, d);
+    EXPECT_EQ(2, d->segments_size());
+    EXPECT_EQ("1011101001000011101101110011111111111", d->ToString(2));
+    EXPECT_EQ("99999999999", d->ToString(10));
+    EXPECT_EQ("174876e7ff", d->ToString(16));
+    
+    d = Decimal::NewParsed("-99999999999", &arena_);
+    EXPECT_EQ("-99999999999", d->ToString(10));
+}
+    
 TEST_F(DecimalV2Test, AbsCompare) {
     auto lhs = Decimal::NewU64(0, &arena_);
     auto rhs = Decimal::NewU64(1, &arena_);
@@ -247,6 +265,68 @@ TEST_F(DecimalV2Test, Mul) {
     rhs = Decimal::NewU64(8, &arena_);
     rv = lhs->Mul(rhs, &arena_);
     EXPECT_EQ("56", rv->ToString());
+}
+    
+TEST_F(DecimalV2Test, SimpleDiv) {
+    static const uint32_t n1[] = {0x80000000, 0, 0};
+    auto lhs = Decimal::NewCopied(MakeView(n1, 3), &arena_);
+    
+    Decimal *rv, *re;
+    std::tie(rv, re) = lhs->Div(lhs, &arena_);
+    ASSERT_EQ(1, rv->ToI64());
+    ASSERT_EQ(0, re->ToI64());
+    
+    lhs->set_negative(true);
+    std::tie(rv, re) = lhs->Div(lhs, &arena_);
+    ASSERT_EQ(1, rv->ToI64());
+    ASSERT_EQ(0, re->ToI64());
+    
+    auto rhs = Decimal::NewCopied(MakeView(n1, 3), &arena_);
+    std::tie(rv, re) = lhs->Div(rhs, &arena_);
+    ASSERT_EQ(-1, rv->ToI64());
+    ASSERT_EQ(0, re->ToI64());
+    
+    lhs = Decimal::NewI64(1, &arena_);
+    std::tie(rv, re) = lhs->Div(rhs, &arena_);
+    ASSERT_EQ(0, rv->ToI64());
+    ASSERT_EQ(1, re->ToI64());
+    
+    rhs = Decimal::NewI64(0, &arena_);
+    std::tie(rv, re) = lhs->Div(rhs, &arena_);
+    ASSERT_EQ(nullptr, rv);
+    ASSERT_EQ(nullptr, re);
+}
+    
+TEST_F(DecimalV2Test, DivOneWord) {
+    static const uint32_t n1[] = {0x80000000, 0, 0};
+    auto lhs = Decimal::NewCopied(MakeView(n1, 3), &arena_);
+    auto rhs = Decimal::NewI64(2, &arena_);
+    Decimal *rv, *re;
+    std::tie(rv, re) = lhs->Div(rhs, &arena_);
+    ASSERT_EQ("400000000000000000000000", rv->ToString(16));
+    
+    rhs = Decimal::NewI64(1234567, &arena_);
+    std::tie(rv, re) = lhs->Div(rhs, &arena_);
+    ASSERT_EQ("32087429242100403458679", rv->ToString());
+    
+    lhs = Decimal::NewParsed("1001.000", &arena_);
+    rhs = Decimal::NewParsed(   "0.100", &arena_);
+    std::tie(rv, re) = lhs->Div(rhs, &arena_);
+    ASSERT_EQ("10010", rv->ToString());
+    
+    rhs = Decimal::NewParsed(   "0.200", &arena_);
+    std::tie(rv, re) = lhs->Div(rhs, &arena_);
+    ASSERT_EQ("5005", rv->ToString());
+}
+    
+TEST_F(DecimalV2Test, FixedPointParsing) {
+    auto d = Decimal::NewParsed("0.1", &arena_);
+    ASSERT_EQ("0.1", d->ToString());
+    
+    d = Decimal::NewParsed("100.000", &arena_);
+    ASSERT_EQ(3, d->exp());
+    ASSERT_EQ("1000", d->scale()->ToString());
+    ASSERT_EQ("100", d->ToString());
 }
     
 } // namespace v2
