@@ -207,6 +207,9 @@
 		23DE184421D08A3600479C23 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
 		23DE184521D08AB100479C23 /* benchmark-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DE17F021D07D9400479C23 /* benchmark-main.cc */; };
 		23DE184621D08AB800479C23 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
+		23E0EB69222555D400A4D854 /* scoped-arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E0EB68222555D400A4D854 /* scoped-arena.cc */; };
+		23E0EB6B2225564300A4D854 /* scoped-arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E0EB68222555D400A4D854 /* scoped-arena.cc */; };
+		23E0EB6D2225570D00A4D854 /* scoped-arena-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E0EB6C2225570D00A4D854 /* scoped-arena-test.cc */; };
 		23F3E4AC221C0205001D1E86 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F3E4AB221C0205001D1E86 /* decimal-test-v2.cc */; };
 /* End PBXBuildFile section */
 
@@ -470,6 +473,8 @@
 		23DE17F821D0887700479C23 /* mai.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = mai.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		23DE17FB21D0887700479C23 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		23E0EB67222525D100A4D854 /* scoped-arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "scoped-arena.h"; sourceTree = "<group>"; };
+		23E0EB68222555D400A4D854 /* scoped-arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "scoped-arena.cc"; sourceTree = "<group>"; };
+		23E0EB6C2225570D00A4D854 /* scoped-arena-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "scoped-arena-test.cc"; sourceTree = "<group>"; };
 		23E40C0A21CB3C3A00B04858 /* block-cache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-cache.h"; sourceTree = "<group>"; };
 		23E40C0B21CB416600B04858 /* block-cache.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-cache.cc"; sourceTree = "<group>"; };
 		23F0742521D1D209009D8EAA /* transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db-test.cc"; sourceTree = "<group>"; };
@@ -709,6 +714,7 @@
 				2326026121ABE7D8003F434C /* standalone-arena.h */,
 				2326026221ABE80D003F434C /* standalone-arena.cc */,
 				23E0EB67222525D100A4D854 /* scoped-arena.h */,
+				23E0EB68222555D400A4D854 /* scoped-arena.cc */,
 				237F504A21EB6DA90069075D /* arena.h */,
 				237F504C21EB72C90069075D /* arena.cc */,
 				237F504F21EB73BE0069075D /* zone.h */,
@@ -930,6 +936,7 @@
 				2399D20B21C249E300C8D5B1 /* ebr-test.cc */,
 				239E483D21E4475700F2FD48 /* arena-utils-test.cc */,
 				23216A242201561B00E1B816 /* slice-test.cc */,
+				23E0EB6C2225570D00A4D854 /* scoped-arena-test.cc */,
 			);
 			name = base;
 			path = src/base;
@@ -1227,6 +1234,7 @@
 				2364B30621E451F9008519AE /* internal-key-comparator.cc in Sources */,
 				2364B30821E451F9008519AE /* iterator-warpper.cc in Sources */,
 				2364B30A21E451F9008519AE /* merging.cc in Sources */,
+				23E0EB69222555D400A4D854 /* scoped-arena.cc in Sources */,
 				2364B30B21E451F9008519AE /* env.cc in Sources */,
 				23B2C90B21F6C64600DF609E /* storage-engine-factory.cc in Sources */,
 				23D2F6BE21F1CC2300A49B1A /* types.cc in Sources */,
@@ -1276,6 +1284,7 @@
 				2364B34C21E451F9008519AE /* varint-encoding-test.cc in Sources */,
 				23F3E4AC221C0205001D1E86 /* decimal-test-v2.cc in Sources */,
 				237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */,
+				23E0EB6D2225570D00A4D854 /* scoped-arena-test.cc in Sources */,
 				2364B34D21E451F9008519AE /* base-test.cc in Sources */,
 				2364B34E21E451F9008519AE /* io-utils-test.cc in Sources */,
 				2303D93721F863F300075A99 /* storage-engine-test.cc in Sources */,
@@ -1341,6 +1350,7 @@
 				23DE180F21D088B000479C23 /* write-ahead-log.cc in Sources */,
 				23DE181021D088B000479C23 /* write-batch.cc in Sources */,
 				23DE181121D088B000479C23 /* db-impl.cc in Sources */,
+				23E0EB6B2225564300A4D854 /* scoped-arena.cc in Sources */,
 				23DE181221D088B000479C23 /* column-family.cc in Sources */,
 				237F505221EB74390069075D /* zone.cc in Sources */,
 				23DE181321D088B000479C23 /* version.cc in Sources */,

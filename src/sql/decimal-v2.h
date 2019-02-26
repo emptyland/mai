@@ -156,9 +156,9 @@ public:
     
     static Decimal *NewUninitialized(size_t capacity, base::Arena *arena);
     
-    static Decimal *NewScoped(std::unique_ptr<uint8_t[]> *buf,
-                              size_t capacity, size_t offset = 0,
-                              uint32_t flags = 0);
+//    static Decimal *NewScoped(std::unique_ptr<uint8_t[]> *buf,
+//                              size_t capacity, size_t offset = 0,
+//                              uint32_t flags = 0);
     
     static const Decimal *GetFastPow10(int exp);
     

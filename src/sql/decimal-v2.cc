@@ -673,11 +673,13 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
     // 100.100 : t
     // 000.100 : f
     const Decimal *lhs = this;
-    std::unique_ptr<uint8_t[]> scoped_buf;
+    base::ScopedArena scoped_buf;
     if (exp() > 0) {
         const Decimal *s = scale();
-        Decimal *scaled = NewScoped(&scoped_buf,
-                                    segments_size() + s->segments_size());
+//        Decimal *scaled = NewScoped(&scoped_buf,
+//                                    segments_size() + s->segments_size());
+        Decimal *scaled = NewUninitialized(segments_size() + s->segments_size(),
+                                           &scoped_buf);
         scaled->Fill(0);
         sql::BasicMul(segment_view(), s->segment_view(),
                       scaled->segment_mut_view());
@@ -711,20 +713,20 @@ std::string Decimal::ToString(int radix) const {
         return "0";
     }
 
-    std::unique_ptr<uint8_t[]> bufq;
-    Decimal *q = NewScoped(&bufq, capacity_, offset_, flags_);
-
-    const size_t size = sizeof(Decimal) + capacity_ * sizeof(uint32_t);
-    std::unique_ptr<uint8_t[]> bufp(new uint8_t[size]);
-    ::memcpy(bufp.get(), this, size);
-    Decimal *p = reinterpret_cast<Decimal *>(bufp.get());
+    base::ScopedArena scoped_buf;
+    Decimal *q = NewUninitialized(capacity_, &scoped_buf);
+    q->offset_ = offset_;
+    q->flags_  = flags_;
+    
+    Decimal *p = Clone(&scoped_buf);
     
     std::string buf;
     while (!p->zero()) {
         uint32_t m = DivWord(p->segment_view(), radix, q->segment_mut_view());
         DCHECK_LT(m, radix);
         buf.insert(buf.begin(), kRadixDigitals[m]);
-        ::memcpy(bufp.get(), bufq.get(), size);
+        ::memcpy(p->segments(), q->segments(),
+                 segments_size() * sizeof(uint32_t));
     }
 
     if (exp() > 0) {
@@ -785,14 +787,13 @@ double Decimal::ToF64() const {
     if (zero()) {
         return 0;
     }
+
+    base::ScopedArena scoped_buf;
+    Decimal *q = NewUninitialized(capacity_, &scoped_buf);
+    q->offset_ = offset_;
+    q->flags_  = flags_;
     
-    std::unique_ptr<uint8_t[]> bufq;
-    Decimal *q = NewScoped(&bufq, capacity_, offset_, flags_);
-    
-    const size_t size = sizeof(Decimal) + capacity_ * sizeof(uint32_t);
-    std::unique_ptr<uint8_t[]> bufp(new uint8_t[size]);
-    ::memcpy(bufp.get(), this, size);
-    Decimal *p = reinterpret_cast<Decimal *>(bufp.get());
+    Decimal *p = Clone(&scoped_buf);
     
     double rv = 0;
     int i = 0;
@@ -804,7 +805,8 @@ double Decimal::ToF64() const {
         } else { // i >= exp()
             rv += kFloatingExps[i - exp()] * m;
         }
-        ::memcpy(bufp.get(), bufq.get(), size);
+        ::memcpy(p->segments(), q->segments(),
+                 segments_size() * sizeof(uint32_t));
         ++i;
     }
     return rv * sign();
@@ -938,9 +940,10 @@ Decimal *Decimal::NewParsed(const char *s, size_t n, base::Arena *arena) {
     Decimal *rv = NewUninitialized(required_segments, arena);
     rv->Fill();
 
-    std::unique_ptr<uint8_t[]> scoped_buf;
-    Decimal *tmp = NewScoped(&scoped_buf, rv->capacity_, rv->offset_ + 1,
-                             rv->flags_);
+    base::ScopedArena scoped_buf;
+    Decimal *tmp = NewUninitialized(rv->capacity_, &scoped_buf);
+    tmp->offset_ = rv->offset_ + 1;
+    tmp->flags_  = rv->flags_;
     tmp->Fill();
 
     int exp = 0;
@@ -1020,16 +1023,6 @@ int Decimal::AbsCompare(const Decimal *lhs, const Decimal *rhs) {
 
     return new (chunk) Decimal(capacity, 0, 0);
 }
-
-/*static*/ Decimal *Decimal::NewScoped(std::unique_ptr<uint8_t[]> *buf,
-                                       size_t capacity, size_t offset,
-                                       uint32_t flags) {
-    const size_t size = sizeof(Decimal) + capacity * sizeof(uint32_t);
-    
-    buf->reset(new uint8_t[size]);
-    ::memset(buf->get(), 0, size);
-    return new (buf->get()) Decimal(capacity, offset, flags);
-}
     
 /*static*/ const Decimal *Decimal::GetFastPow10(int exp) {
     DCHECK_GE(exp, 0);
@@ -1084,9 +1077,7 @@ Decimal *Decimal::DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,
     re->Fill();
     re->offset_ = 1;
     ::memcpy(re->segments(), segments(), segments_size() * sizeof(uint32_t));
-    //printf("re: %s\n", re->ToString(16).c_str());
-    
-    //const size_t nlen = segments_size() + 1;
+
     const size_t nlen = segments_size();
     const size_t limit = nlen - divisor.n + 1;
     DCHECK_GE(rv->capacity_, limit);
@@ -1100,7 +1091,6 @@ Decimal *Decimal::DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,
         sql::PrimitiveShl(divisor, shift);
         // But this one might
         re = re->Shl(shift, arena);
-        //printf("re: %s\n", re->ToString(16).c_str());
     }
 
     // Must insert leading 0 in rem if its length did not change
@@ -1111,7 +1101,6 @@ Decimal *Decimal::DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,
         re = tmp;
         re->offset_ = 0;
         re->set_segment(0, 0);
-        //printf("re: %s\n", re->ToString(16).c_str());
     }
 
     uint64_t dh = divisor.z[0];
@@ -1170,7 +1159,6 @@ Decimal *Decimal::DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,
         // D4 Multiply and subtract
         re->set_segment(j, 0);
         uint32_t borrow = sql::MulSub(re->segment_mut_view(), divisor , qhat, j);
-        //printf("re: %s\n", re->ToString(16).c_str());
         
         // D5 Test remainder
         if (borrow + 0x80000000u > nh2) {
@@ -1180,7 +1168,6 @@ Decimal *Decimal::DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,
         }
         
         // Store the quotient digit
-        //q.z[j] = qhat;
         rv->set_segment(j, qhat);
     } // D7 loop on j
 

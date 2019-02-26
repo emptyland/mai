@@ -13,35 +13,20 @@ public:
     ScopedArena(size_t limit = -1) : limit_(limit) {}
     virtual ~ScopedArena() override { Purge(false); }
     
-    virtual void Purge(bool /*reinit*/) override {
-        for (auto chunk : chunks_) {
-            ::free(chunk);
-        }
-        usage_ = 0;
-    }
+    virtual void Purge(bool /*reinit*/) override;
     
     virtual size_t granularity() override { return 4; }
     
     virtual size_t memory_usage() const override { return usage_; }
     
-    virtual void *Allocate(size_t size, size_t /*alignment*/) override {
-        if (usage_ + size > limit_) {
-            return nullptr;
-        }
-        void *rv;
-        if (usage_ + size <= arraysize(buf_)) {
-            rv = &buf_[usage_];
-        } else {
-            rv = ::malloc(size);
-            chunks_.push_back(rv);
-        }
-        usage_ += size;
-        return rv;
-    }
+    virtual void *Allocate(size_t size, size_t alignment = 4) override;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(ScopedArena);
+    
+    FRIEND_UNITTEST_CASE(ScopedArenaTest, LargeAllocation);
+    FRIEND_UNITTEST_CASE(ScopedArenaTest, TotalBufAllocation);
 private:
-    uint8_t buf_[128];
+    uint8_t buf_[64];
     size_t  usage_ = 0;
     size_t const limit_;
     std::vector<void *> chunks_;
