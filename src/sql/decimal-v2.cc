@@ -1,4 +1,5 @@
 #include "sql/decimal-v2.h"
+#include "base/scoped-arena.h"
 #include "base/arena.h"
 #include "base/slice.h"
 #include "base/bit-ops.h"
@@ -437,6 +438,13 @@ static const double kRadixDigitalPerBits[] = {
 };
     
 static const char kRadixDigitals[] = "0123456789abcdef";
+    
+static const double kFloatingExps[] = {
+       1,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,
+    1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19,
+    1e20, 1e21, 1e22, 1e23, 1e24, 1e25, 1e26, 1e27, 1e28, 1e29,
+    1e30,
+};
 
 bool Decimal::zero() const {
     if (segments_size() == 0) {
@@ -718,7 +726,7 @@ std::string Decimal::ToString(int radix) const {
         buf.insert(buf.begin(), kRadixDigitals[m]);
         ::memcpy(bufp.get(), bufq.get(), size);
     }
-    
+
     if (exp() > 0) {
         DCHECK_EQ(10, radix);
         if (exp() >= buf.size()) {
@@ -755,31 +763,51 @@ std::string Decimal::ToString(int radix) const {
     
 int64_t Decimal::ToI64() const {
     const Decimal *d = this;
+    base::ScopedArena arena;
     if (exp() > 0) {
-        // TODO:
+        d = Shrink(0, &arena);
     }
-    
+
     int64_t val = 0;
     if (d->zero()) {
         val = 0;
     } else if (d->segments_size() < 2) {
-        val = static_cast<uint64_t>(segment(0));
+        val = static_cast<uint64_t>(d->segment(0));
     } else { // (d->segments_size() >= 2)
-        val |= static_cast<uint64_t>(segment(1) & 0x7fffffff) << 32;
-        val |= static_cast<uint64_t>(segment(0));
+        val |= static_cast<uint64_t>(d->segment(1) & 0x7fffffff) << 32;
+        val |= static_cast<uint64_t>(d->segment(0));
     }
 
     return val * sign();
 }
 
-float Decimal::ToF32() const {
-    // TODO:
-    return 0;
-}
-
 double Decimal::ToF64() const {
-    // TODO:
-    return 0;
+    if (zero()) {
+        return 0;
+    }
+    
+    std::unique_ptr<uint8_t[]> bufq;
+    Decimal *q = NewScoped(&bufq, capacity_, offset_, flags_);
+    
+    const size_t size = sizeof(Decimal) + capacity_ * sizeof(uint32_t);
+    std::unique_ptr<uint8_t[]> bufp(new uint8_t[size]);
+    ::memcpy(bufp.get(), this, size);
+    Decimal *p = reinterpret_cast<Decimal *>(bufp.get());
+    
+    double rv = 0;
+    int i = 0;
+    while (!p->zero()) {
+        uint32_t m = DivWord(p->segment_view(), 10, q->segment_mut_view());
+        DCHECK_LT(m, 10);
+        if (i < exp()) {
+            rv += (1.0f / kFloatingExps[exp() - i]) * m;
+        } else { // i >= exp()
+            rv += kFloatingExps[i - exp()] * m;
+        }
+        ::memcpy(bufp.get(), bufq.get(), size);
+        ++i;
+    }
+    return rv * sign();
 }
 
 // 1.00
@@ -794,18 +822,27 @@ Decimal *Decimal::Extend(int new_exp, base::Arena *arena) const {
     const Decimal *scale = GetFastPow10(delta);
     Decimal *rv = NewUninitialized(segments_size() + scale->segments_size(),
                                    arena);
-    int64_t i = rv->segments_size();
-    while (i-- > 0) {
-        rv->set_segment(i, 0);
-    }
+    rv->Fill();
     sql::BasicMul(segment_view(), scale->segment_view(), rv->segment_mut_view());
     rv->set_negative_and_exp(negative(), new_exp);
+    rv->Normalize();
     return rv;
 }
     
 Decimal *Decimal::Shrink(int new_exp, base::Arena *arena) const {
-    // TODO:
-    return nullptr;
+    DCHECK_LE(new_exp, kMaxExp);
+    if (exp() <= new_exp) {
+        return const_cast<Decimal *>(this);
+    }
+    int delta = exp() - new_exp;
+    DCHECK_LE(delta, kMaxExp);
+    const Decimal *scale = GetFastPow10(delta);
+    
+    Decimal *rv;
+    std::tie(rv, std::ignore) = DivRaw(this, scale, arena);
+    rv->set_negative_and_exp(negative(), new_exp);
+    rv->Normalize();
+    return rv;
 }
     
 int Decimal::Compare(const Decimal *rhs) const {
@@ -1049,7 +1086,8 @@ Decimal *Decimal::DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,
     ::memcpy(re->segments(), segments(), segments_size() * sizeof(uint32_t));
     //printf("re: %s\n", re->ToString(16).c_str());
     
-    const size_t nlen = segments_size() + 1;
+    //const size_t nlen = segments_size() + 1;
+    const size_t nlen = segments_size();
     const size_t limit = nlen - divisor.n + 1;
     DCHECK_GE(rv->capacity_, limit);
     rv->Resize(limit);
@@ -1106,11 +1144,11 @@ Decimal *Decimal::DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,
                 qrem = qword[1];
             }
         }
-        
+
         if (qhat == 0) {
             continue;
         }
-        
+
         if (!skip_correction) { // Correct qhat
             uint64_t nl = static_cast<uint64_t>(re->segment(j + 2));
             uint64_t rs = (static_cast<uint64_t>(qrem) << 32) | nl;

@@ -469,6 +469,7 @@
 		23DE17F021D07D9400479C23 /* benchmark-main.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "benchmark-main.cc"; sourceTree = "<group>"; };
 		23DE17F821D0887700479C23 /* mai.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = mai.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		23DE17FB21D0887700479C23 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		23E0EB67222525D100A4D854 /* scoped-arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "scoped-arena.h"; sourceTree = "<group>"; };
 		23E40C0A21CB3C3A00B04858 /* block-cache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-cache.h"; sourceTree = "<group>"; };
 		23E40C0B21CB416600B04858 /* block-cache.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-cache.cc"; sourceTree = "<group>"; };
 		23F0742521D1D209009D8EAA /* transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db-test.cc"; sourceTree = "<group>"; };
@@ -707,6 +708,7 @@
 				231C61F5219AA5EE001A95C1 /* io-utils.h */,
 				2326026121ABE7D8003F434C /* standalone-arena.h */,
 				2326026221ABE80D003F434C /* standalone-arena.cc */,
+				23E0EB67222525D100A4D854 /* scoped-arena.h */,
 				237F504A21EB6DA90069075D /* arena.h */,
 				237F504C21EB72C90069075D /* arena.cc */,
 				237F504F21EB73BE0069075D /* zone.h */,

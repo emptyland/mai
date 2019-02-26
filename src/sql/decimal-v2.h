@@ -98,13 +98,23 @@ public:
     
     int64_t ToI64() const;
     
-    float ToF32() const;
+    float ToF32() const { return static_cast<float>(ToF64()); }
     
     double ToF64() const;
     
     Decimal *Clone(base::Arena *arena) const { return NewCopied(this, arena); }
     
     int Compare(const Decimal *rhs) const;
+    
+    Decimal *NewPrecision(int new_exp, base::Arena *arena) const {
+        if (exp() > new_exp) {
+            return Shrink(new_exp, arena);
+        } else if (exp() < new_exp) {
+            return Extend(new_exp, arena);
+        } else {
+            return const_cast<Decimal *>(this);
+        }
+    }
     
     Decimal *Extend(int new_exp, base::Arena *arena) const;
     

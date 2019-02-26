@@ -17,6 +17,8 @@ public:
     Env *env_ = Env::Default();
     base::StandaloneArena arena_;
 };
+    
+static const double kAbsErr = 1e-7f;
 
 TEST_F(DecimalV2Test, Sanity) {
     Decimal *d = Decimal::NewUninitialized(1, &arena_);
@@ -329,7 +331,27 @@ TEST_F(DecimalV2Test, Div) {
     std::tie(rv, re) = lhs->Div(rhs, &arena_);
     EXPECT_EQ("8000000000000000", rv->ToString(16));
     EXPECT_EQ("0", re->ToString(16));
+
+    lhs = Decimal::NewParsed("9999999999", &arena_);
+    rhs = Decimal::NewParsed("9000000000", &arena_);
+    std::tie(rv, re) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("1", rv->ToString());
+    EXPECT_EQ("999999999", re->ToString());
+}
     
+TEST_F(DecimalV2Test, ToPrimitiveNumber) {
+    auto d = Decimal::NewParsed("0.1", &arena_);
+    EXPECT_NEAR(0.1, d->ToF32(), kAbsErr);
+    EXPECT_NEAR(0.1, d->ToF64(), kAbsErr);
+    
+    d->set_negative(true);
+    EXPECT_NEAR(-0.1, d->ToF32(), kAbsErr);
+    EXPECT_NEAR(-0.1, d->ToF64(), kAbsErr);
+    
+    d = Decimal::NewParsed("123456789.987654321", &arena_);
+    EXPECT_NEAR(123456789.987654321f, d->ToF32(), kAbsErr);
+    EXPECT_NEAR(123456789.987654321, d->ToF64(), kAbsErr);
+    EXPECT_EQ(123456789, d->ToI64());
 }
     
 TEST_F(DecimalV2Test, FixedPointParsing) {
