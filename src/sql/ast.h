@@ -8,6 +8,11 @@
 struct YYLTYPE;
 
 namespace mai {
+namespace core {
+namespace v2 {
+class Decimal;
+} // namespace v2
+} // namespace core
     
 namespace sql {
     
@@ -54,7 +59,8 @@ namespace sql {
     
 #define DEFINE_TCL_NODES(V) V(TCLStatement)
     
-using AstString = base::ArenaString;
+using AstString  = base::ArenaString;
+using AstDecimal = core::v2::Decimal;
     
 namespace ast {
     
@@ -810,6 +816,7 @@ public:
     enum Type {
         STRING,
         INTEGER,
+        DECIMAL,
         APPROX,
         NULL_VAL,
         DEFAULT_PLACEHOLDER,
@@ -819,6 +826,7 @@ public:
     
     bool is_string_val() const { return type_ == STRING; }
     bool is_integer_val() const { return type_ == INTEGER; }
+    bool is_decimal_val() const { return type_ == DECIMAL; }
     bool is_approx_val() const { return type_ == APPROX; }
     bool is_null_val() const { return type_ == NULL_VAL; }
     bool is_default_placeholder() const { return type_ == DEFAULT_PLACEHOLDER; }
@@ -827,6 +835,10 @@ public:
     
     int64_t integer_val() const {
         DCHECK(is_integer_val()); return int_val_;
+    }
+    
+    const AstDecimal *decimal_val() const {
+        DCHECK(is_decimal_val()); return dec_val_;
     }
     
     double approx_val() const {
@@ -845,6 +857,11 @@ private:
         , type_(INTEGER)
         , int_val_(val) {}
     
+    Literal(const AstDecimal *val, const Location &location)
+        : Expression(location)
+        , type_(DECIMAL)
+        , dec_val_(val) {}
+    
     Literal(double val, const Location &location)
         : Expression(location)
         , type_(APPROX)
@@ -858,15 +875,15 @@ private:
     Literal(Type type, const Location &location)
         : Expression(location)
         , type_(type) {
-        DCHECK_EQ(type, NULL_VAL);
-        DCHECK_EQ(type, DEFAULT_PLACEHOLDER);
+        DCHECK(type == NULL_VAL || type == DEFAULT_PLACEHOLDER);
     }
     
     Type type_;
     union {
-        int64_t int_val_;
-        double  approx_val_;
-        const AstString *str_val_;
+        int64_t           int_val_;
+        double            approx_val_;
+        const AstDecimal *dec_val_;
+        const AstString  *str_val_;
     };
 }; // class Literal
     

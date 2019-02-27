@@ -33,7 +33,7 @@ std::string Parser::Result::FormatError() {
     if (!error || error == AstString::kEmpty) {
         return "";
     }
-    return base::Slice::Sprintf("[%d,%d] %s", line, column, error->data());
+    return base::Sprintf("[%d,%d] %s", line, column, error->data());
 }
 
 

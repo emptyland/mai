@@ -575,8 +575,7 @@ Error VersionSet::WriteCurrentSnapshot() {
     patch.SetRedoLogNumber(redo_log_number_);
     patch.SetPrevLogNumber(prev_log_number_);
     
-    std::string manifest = base::Slice::Sprintf("%" PRIu64,
-                                                manifest_file_number_);
+    std::string manifest = base::Sprintf("%" PRIu64, manifest_file_number_);
     Error rs = base::FileWriter::WriteAll(Files::CurrentFileName(abs_db_path_),
                                           manifest, env_);
     if (!rs) {

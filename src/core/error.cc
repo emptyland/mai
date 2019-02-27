@@ -19,7 +19,7 @@ std::string Error::ToString() const {
                 break;
             }
         }
-        s = base::Slice::Sprintf("[%s:%d] ", x, fileline_);
+        s = base::Sprintf("[%s:%d] ", x, fileline_);
     }
     
     switch (code()) {

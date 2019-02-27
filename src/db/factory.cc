@@ -62,7 +62,7 @@ public:
             }
             result->reset(reader);
         } else {
-            return MAI_CORRUPTION(Slice::Sprintf("Unknown table name: %s",
+            return MAI_CORRUPTION(base::Sprintf("Unknown table name: %s",
                                                  name.c_str()));
         }
         return Error::OK();

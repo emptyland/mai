@@ -22,7 +22,7 @@ namespace base {
     return s;
 }
 
-/*static*/ std::string Slice::Sprintf(const char *fmt, ...) {
+/*static*/ std::string Sprintf(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     std::string str(Vsprintf(fmt, ap));
@@ -30,7 +30,7 @@ namespace base {
     return str;
 }
 
-/*static*/ std::string Slice::Vsprintf(const char *fmt, va_list ap) {
+/*static*/ std::string Vsprintf(const char *fmt, va_list ap) {
     va_list copied;
     int len = 128, rv = len;
     std::unique_ptr<char[]> buf;
@@ -59,12 +59,15 @@ namespace base {
         kPrefixZero,
         kPrefix0x, // hex prefix
         kPrevDot,
+        kPrefixExp,
+        kPrefixExpSign,
         
         kOct,
         kDec,
         kDecSgined,
         kHex,
         kFloat,
+        kExponent,
     };
     
     State state = kInit;
@@ -73,10 +76,13 @@ namespace base {
         const char c = *s++;
         
         if (c == '-' || c == '+') {
-            if (state != kInit) {
+            if (state == kPrefixExp) {
+                state = kPrefixExpSign;
+            } else if (state == kInit) {
+                state = kPrefixSign;
+            } else {
                 return 0;
             }
-            state = kPrefixSign;
         } else if (c == '0') {
             if (state == kInit) {
                 state = kPrefixZero;
@@ -88,11 +94,15 @@ namespace base {
                 state = kHex;
             } else if (state == kPrevDot) {
                 state = kFloat;
+            } else if (state == kPrefixExp ||
+                       state == kPrefixExpSign) {
+                state = kExponent;
             } else if (state == kDec ||
                        state == kOct ||
                        state == kDecSgined ||
                        state == kHex ||
-                       state == kFloat) {
+                       state == kFloat ||
+                       state == kExponent) {
                 // ignore
             } else {
                 return 0;
@@ -114,11 +124,15 @@ namespace base {
                 state = kDecSgined;
             } else if (state == kPrevDot) {
                 state = kFloat;
+            } else if (state == kPrefixExp ||
+                       state == kPrefixExpSign) {
+                state = kExponent;
             } else if (state == kOct ||
                        state == kDecSgined ||
                        state == kDec ||
                        state == kHex ||
-                       state == kFloat) {
+                       state == kFloat ||
+                       state == kExponent) {
                 // ignore
             } else {
                 return 0;
@@ -132,16 +146,29 @@ namespace base {
                 state = kDecSgined;
             } else if (state == kPrevDot) {
                 state = kFloat;
+            } else if (state == kPrefixExp ||
+                       state == kPrefixExpSign) {
+                state = kExponent;
             } else if (state == kDecSgined ||
                        state == kDec ||
                        state == kHex ||
-                       state == kFloat) {
+                       state == kFloat ||
+                       state == kExponent) {
                 // ignore
             } else {
                 return 0;
             }
         } else if ((c >= 'a' && c <= 'f') ||
                    (c >= 'A' && c <= 'F')) {
+            if (c == 'e' || c == 'E') {
+                if (state == kDec ||
+                    state == kDecSgined ||
+                    state == kPrefixZero ||
+                    state == kFloat) {
+                    state = kPrefixExp;
+                    continue;
+                }
+            }
             if (state == kPrefix0x) {
                 state = kHex;
             } else if (state == kHex) {
@@ -177,6 +204,8 @@ namespace base {
             return 'h';
         case kFloat:
             return 'f';
+        case kExponent:
+            return 'e';
         default:
             break;
     }

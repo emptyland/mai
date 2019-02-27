@@ -528,21 +528,20 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
             if (cfd->dropped()) {
                 continue;
             }
-            value->append(Slice::Sprintf("%llu,", cfd->redo_log_number()));
+            value->append(base::Sprintf("%llu,", cfd->redo_log_number()));
         }
         value->erase(value->size() - 1, 1);
     } else if (property == "db.log.total-size") {
         
-        *value = Slice::Sprintf("%" PRIu64,
-                                total_wal_size_.load(std::memory_order_acquire));
+        *value = base::Sprintf("%" PRIu64,
+                               total_wal_size_.load(std::memory_order_acquire));
     } else if (property == "db.bkg.jobs") {
         
-        *value = Slice::Sprintf("%d", bkg_active_.load());
+        *value = base::Sprintf("%d", bkg_active_.load());
     } else if (property == "db.versions.last-sequence-number") {
         
         std::unique_lock<std::mutex> lock(mutex_);
-        *value = Slice::Sprintf("%" PRIu64,
-                                versions_->last_sequence_number());
+        *value = base::Sprintf("%" PRIu64, versions_->last_sequence_number());
     } else if (property.find("db.cf.") == 0) {
         std::unique_lock<std::mutex> lock(mutex_);
         
@@ -552,17 +551,17 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
         ColumnFamilyImpl *cfd =
             versions_->column_families()->GetColumnFamily(cf_name);
         if (!cfd) {
-            return MAI_CORRUPTION(Slice::Sprintf("Column family: %s not found.",
-                                                 cf_name.c_str()));
+            return MAI_CORRUPTION(base::Sprintf("Column family: %s not found.",
+                                                cf_name.c_str()));
         }
         property.remove_prefix(cf_name.size() + 1);
         
         if (property == "levels") {
             for (int i = 0; i < Config::kMaxLevel; ++i) {
                 value->append("+--------------------------------------------+\n");
-                value->append(Slice::Sprintf("|== Level: %d ==\n", i));
+                value->append(base::Sprintf("|== Level: %d ==\n", i));
                 for (auto fmd : cfd->current()->level_files(i)) {
-                    value->append(Slice::Sprintf("+- Number: [%" PRIu64 "]\n", fmd->number));
+                    value->append(base::Sprintf("+- Number: [%" PRIu64 "]\n", fmd->number));
                     value->append("|---- Smallest : ");
                     value->append(KeyBoundle::ToString(fmd->smallest_key));
                     value->append("\n");
@@ -574,9 +573,9 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
             value->append("+--------------------------------------------+\n");
         }
     } else {
-        return MAI_CORRUPTION(Slice::Sprintf("Incorrect property name: %.*s",
-                                             int(property.size()),
-                                             property.data()));
+        return MAI_CORRUPTION(base::Sprintf("Incorrect property name: %.*s",
+                                            int(property.size()),
+                                            property.data()));
     }
 
     return Error::OK();

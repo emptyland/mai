@@ -9,12 +9,11 @@ namespace sql {
 
 
 class Files final {
-    using Slice = ::mai::base::Slice;
+    //using Slice = ::mai::base::Slice;
 public:
     static std::string
     MetaFileName(const std::string &path, uint64_t file_number) {
-        return Slice::Sprintf("%s/META-%06" PRIu64 , path.c_str(),
-                              file_number);
+        return base::Sprintf("%s/META-%06" PRIu64 , path.c_str(), file_number);
     }
 
     static std::string CurrentFileName(const std::string &path) {

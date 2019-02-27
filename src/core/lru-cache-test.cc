@@ -47,7 +47,7 @@ TEST_F(LRUCacheTest, Sanity) {
 TEST_F(LRUCacheTest, AutoPurpe) {
     LRUCacheShard cache(env_->GetLowLevelAllocator(), 7);
     for (int i = 0; i < 8; ++i) {
-        std::string key(base::Slice::Sprintf("k.%d", i));
+        std::string key(base::Sprintf("k.%d", i));
         auto h = LRUHandle::New(key, sizeof(int), (i + 1) * 100);
         cache.Insert(h->key(), h, nullptr);
     }
@@ -59,7 +59,7 @@ TEST_F(LRUCacheTest, AutoPurpe) {
     ASSERT_EQ(nullptr, cache.Get(k0));
     
     for (int i = 1; i < 8; ++i) {
-        std::string key(base::Slice::Sprintf("k.%d", i));
+        std::string key(base::Sprintf("k.%d", i));
         auto h = cache.Get(key);
         ASSERT_NE(nullptr, h);
         ASSERT_EQ((i + 1) * 100, h->id);
@@ -69,7 +69,7 @@ TEST_F(LRUCacheTest, AutoPurpe) {
 TEST_F(LRUCacheTest, InsertRehash) {
     LRUCacheShard cache(env_->GetLowLevelAllocator(), 1237);
     for (int i = 0; i < 10000; ++i) {
-        std::string key(Slice::Sprintf("k.%d", i));
+        std::string key(base::Sprintf("k.%d", i));
         auto h = LRUHandle::New(key, sizeof(int), i);
         cache.Insert(h->key(), h, nullptr);
     }
@@ -83,7 +83,7 @@ TEST_F(LRUCacheTest, ConcurrentInsert) {
         worker_thrd[i] = std::thread([&](auto slot) {
             auto base = slot * 10000;
             for (int j = base; j < base + 10000; ++j) {
-                std::string key(Slice::Sprintf("k.%d", j));
+                std::string key(base::Sprintf("k.%d", j));
                 auto h = LRUHandle::New(key, sizeof(int), j);
                 cache.Insert(h->key(), h, nullptr);
             }
@@ -96,7 +96,7 @@ TEST_F(LRUCacheTest, ConcurrentInsert) {
     
     int hit = 0;
     for (int i = 0; i < 40000; ++i) {
-        std::string key(Slice::Sprintf("k.%d", i));
+        std::string key(base::Sprintf("k.%d", i));
         auto h = cache.Get(key);
         if (h) {
             ASSERT_EQ(i, h->id);
@@ -112,7 +112,7 @@ TEST_F(LRUCacheTest, ConcurrentGet) {
     
     std::thread wr_thrd([&cache, &current] () {
         for (int i = 0; i < 40000; ++i) {
-            std::string key(Slice::Sprintf("k.%d", i));
+            std::string key(base::Sprintf("k.%d", i));
             auto h = LRUHandle::New(key, sizeof(int), i);
             cache.Insert(h->key(), h, nullptr);
             current.store(i, std::memory_order_release);
@@ -125,7 +125,7 @@ TEST_F(LRUCacheTest, ConcurrentGet) {
         if (!n) {
             continue;
         }
-        std::string key(Slice::Sprintf("k.%d", n));
+        std::string key(base::Sprintf("k.%d", n));
         auto h = cache.Get(key);
         if (h) {
             ASSERT_EQ(h->id, n);
@@ -145,7 +145,7 @@ TEST_F(LRUCacheTest, ConcurrentGetOrLoad) {
     std::thread work_thrd([&cache] () {
         for (int i = 0; i < 40000; ++i) {
             auto id = rand() % 40000;
-            std::string key(Slice::Sprintf("k.%d", id));
+            std::string key(base::Sprintf("k.%d", id));
             base::intrusive_ptr<LRUHandle> h;
             Error rs = cache.GetOrLoad(key, &h, nullptr, &Load,
                                        reinterpret_cast<void *>(id));
@@ -156,7 +156,7 @@ TEST_F(LRUCacheTest, ConcurrentGetOrLoad) {
     });
     for (int i = 0; i < 40000; ++i) {
         auto id = rand() % 40000;
-        std::string key(Slice::Sprintf("k.%d", id));
+        std::string key(base::Sprintf("k.%d", id));
         base::intrusive_ptr<LRUHandle> h;
         Error rs = cache.GetOrLoad(key, &h, nullptr, &Load,
                                    reinterpret_cast<void *>(id));
@@ -174,7 +174,7 @@ TEST_F(LRUCacheTest, ConcurrentGetOrLoadV2) {
     std::thread work_thrd([&cache] () {
         for (int i = 0; i < 40000; ++i) {
             auto id = rand() % 2000;
-            std::string key(Slice::Sprintf("k.%d", id));
+            std::string key(base::Sprintf("k.%d", id));
             base::intrusive_ptr<LRUHandle> h;
             Error rs = cache.GetOrLoad(key, &h, nullptr, &Load,
                                        reinterpret_cast<void *>(id));
@@ -185,7 +185,7 @@ TEST_F(LRUCacheTest, ConcurrentGetOrLoadV2) {
     });
     for (int i = 0; i < 40000; ++i) {
         auto id = rand() % 2000;
-        std::string key(Slice::Sprintf("k.%d", id));
+        std::string key(base::Sprintf("k.%d", id));
         base::intrusive_ptr<LRUHandle> h;
         Error rs = cache.GetOrLoad(key, &h, nullptr, &Load,
                                    reinterpret_cast<void *>(id));
@@ -203,7 +203,7 @@ TEST_F(LRUCacheTest, ConcurrentGetOrLoadV3) {
     std::thread work_thrd([&cache] () {
         for (int i = 0; i < 40000; ++i) {
             auto id = rand() % 2000;
-            std::string key(Slice::Sprintf("k.%d", id));
+            std::string key(base::Sprintf("k.%d", id));
             base::intrusive_ptr<LRUHandle> h;
             Error rs = cache.GetOrLoad(key, &h, nullptr, &Load,
                                        reinterpret_cast<void *>(id));
@@ -214,7 +214,7 @@ TEST_F(LRUCacheTest, ConcurrentGetOrLoadV3) {
     });
     for (int i = 0; i < 40000; ++i) {
         auto id = rand() % 2000;
-        std::string key(Slice::Sprintf("k.%d", id));
+        std::string key(base::Sprintf("k.%d", id));
         base::intrusive_ptr<LRUHandle> h;
         Error rs = cache.GetOrLoad(key, &h, nullptr, &Load,
                                    reinterpret_cast<void *>(id));

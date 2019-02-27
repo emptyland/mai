@@ -31,8 +31,7 @@ public:
     }
     
     void PrintFiles(DB *db, ColumnFamily *cf) {
-        std::string key(base::Slice::Sprintf("db.cf.%s.levels",
-                                             cf->name().c_str()));
+        std::string key(base::Sprintf("db.cf.%s.levels", cf->name().c_str()));
         std::string value;
         Error rs = db->GetProperty(key, &value);
         printf("%s\n", value.c_str());
@@ -409,7 +408,7 @@ TEST_F(DBImplTest, ConcurrentPutting) {
     for (int i = 0; i < arraysize(worker_thrds); ++i) {
         worker_thrds[i] = std::thread([&] (auto slot) {
             for (int j = 0; j < 10240; ++j) {
-                std::string key = base::Slice::Sprintf("k.%d.%d", slot, j);
+                std::string key = base::Sprintf("k.%d.%d", slot, j);
 
                 rs = impl->Put(wr, cf0, key, value);
                 EXPECT_TRUE(rs.ok()) << rs.ToString();
@@ -441,16 +440,16 @@ TEST_F(DBImplTest, UnorderedColumnFamily) {
     
     ColumnFamily *cf0 = scope.newest();
     for (int i = 0; i < opts.number_of_hash_slots; ++i) {
-        std::string key = base::Slice::Sprintf("k.%03d", i);
-        std::string val = base::Slice::Sprintf("v.%03d", i);
+        std::string key = base::Sprintf("k.%03d", i);
+        std::string val = base::Sprintf("v.%03d", i);
         
         rs = impl->Put(WriteOptions{}, cf0, key, val);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
     }
     
     for (int i = 0; i < opts.number_of_hash_slots; ++i) {
-        std::string key = base::Slice::Sprintf("k.%03d", i);
-        std::string val = base::Slice::Sprintf("v.%03d", i);
+        std::string key = base::Sprintf("k.%03d", i);
+        std::string val = base::Sprintf("v.%03d", i);
         
         std::string value;
         rs = impl->Get(ReadOptions{}, cf0, key, &value);
@@ -481,8 +480,8 @@ TEST_F(DBImplTest, UnorderedColumnFamilyRecovery) {
     uint64_t jiffies = env_->CurrentTimeMicros();
     WriteOptions wr;
     for (int i = 0; i < kN; ++i) {
-        std::string key = base::Slice::Sprintf("k.%07d", i);
-        std::string val = base::Slice::Sprintf("v.%d", i);
+        std::string key = base::Sprintf("k.%07d", i);
+        std::string val = base::Sprintf("v.%d", i);
 
         rs = impl->Put(wr, cf0, key, val);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
@@ -527,12 +526,12 @@ TEST_F(DBImplTest, UnorderedColumnFamilyRecovery) {
     rs = impl->Get(ReadOptions{}, cf0, "k.0000000", &value);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    rs = impl->Get(ReadOptions{}, cf0, base::Slice::Sprintf("k.%d", kN - 1),
+    rs = impl->Get(ReadOptions{}, cf0, base::Sprintf("k.%d", kN - 1),
                    &value);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     for (int i = 0; i < 1000; ++i) {
-        std::string key = base::Slice::Sprintf("k.%07d", rand() % kN);
+        std::string key = base::Sprintf("k.%07d", rand() % kN);
 
         rs = impl->Get(ReadOptions{}, cf0, key, &value);
         ASSERT_TRUE(rs.ok()) << rs.ToString() << " : " << key;
@@ -559,8 +558,7 @@ TEST_F(DBImplTest, OrderedColumnFamilyRecovery) {
     std::string val(1024, 'E');
     WriteOptions wr;
     for (int i = 0; i < kN; ++i) {
-        std::string key = base::Slice::Sprintf("k.%d", i);
-        //std::string val = base::Slice::Sprintf("v.%d", i);
+        std::string key = base::Sprintf("k.%d", i);
         
         rs = impl->Put(wr, cf0, key, val);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
@@ -590,12 +588,12 @@ TEST_F(DBImplTest, OrderedColumnFamilyRecovery) {
     rs = impl->Get(ReadOptions{}, cf0, "k.0", &value);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    rs = impl->Get(ReadOptions{}, cf0, base::Slice::Sprintf("k.%d", kN - 1),
+    rs = impl->Get(ReadOptions{}, cf0, base::Sprintf("k.%d", kN - 1),
                    &value);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     for (int i = 0; i < 1000; ++i) {
-        std::string key = base::Slice::Sprintf("k.%d", rand() % kN);
+        std::string key = base::Sprintf("k.%d", rand() % kN);
         
         rs = impl->Get(ReadOptions{}, cf0, key, &value);
         ASSERT_TRUE(rs.ok()) << rs.ToString() << " : " << key;
@@ -622,8 +620,8 @@ TEST_F(DBImplTest, UnorderedPutUnorderedCF) {
     uint64_t jiffies = env_->CurrentTimeMicros();
     WriteOptions wr;
     for (int i = 0; i < kN; ++i) {
-        std::string key = base::Slice::Sprintf("k.%d", i);
-        std::string val = base::Slice::Sprintf("v.%d", i);
+        std::string key = base::Sprintf("k.%d", i);
+        std::string val = base::Sprintf("v.%d", i);
         
         rs = impl->Put(wr, cf0, key, val);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
@@ -643,12 +641,12 @@ TEST_F(DBImplTest, UnorderedPutUnorderedCF) {
     rs = impl->Get(ReadOptions{}, cf0, "k.0", &value);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    rs = impl->Get(ReadOptions{}, cf0, base::Slice::Sprintf("k.%d", kN - 1),
+    rs = impl->Get(ReadOptions{}, cf0, base::Sprintf("k.%d", kN - 1),
                    &value);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     for (int i = 0; i < 1000; ++i) {
-        std::string key = base::Slice::Sprintf("k.%d", rand() % kN);
+        std::string key = base::Sprintf("k.%d", rand() % kN);
         rs = impl->Get(ReadOptions{}, cf0, key, &value);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
     }
@@ -664,8 +662,8 @@ TEST_F(DBImplTest, SnapshotGetting) {
     auto cf0 = impl->DefaultColumnFamily();
     const Snapshot *snapshot = nullptr;
     for (int i = 0; i < kN; ++i) {
-        std::string key = base::Slice::Sprintf("key.%d", i);
-        std::string val = base::Slice::Sprintf("val.%d", i);
+        std::string key = base::Sprintf("key.%d", i);
+        std::string val = base::Sprintf("val.%d", i);
         if (i == kN / 2) {
             snapshot = impl->GetSnapshot();
         }
@@ -677,8 +675,8 @@ TEST_F(DBImplTest, SnapshotGetting) {
     rd.snapshot = snapshot;
     std::string value;
     for (int i = 0; i < kN; ++i) {
-        std::string key = base::Slice::Sprintf("key.%d", i);
-        std::string val = base::Slice::Sprintf("val.%d", i);
+        std::string key = base::Sprintf("key.%d", i);
+        std::string val = base::Sprintf("val.%d", i);
         
         Error rs = impl->Get(rd, cf0, key, &value);
         if (i < kN / 2) {
@@ -718,14 +716,14 @@ TEST_F(DBImplTest, TwoCFWriting) {
     for (int i = 0; i < kN; ++i) {
         std::string key,val;
         if (i < kN / 2) {
-            key = base::Slice::Sprintf("cf0.key.%d", i);
-            val = base::Slice::Sprintf("cf0.val.%d", i);
+            key = base::Sprintf("cf0.key.%d", i);
+            val = base::Sprintf("cf0.val.%d", i);
 
             batch.Put(cf0, key, val);
         }
 
-        key = base::Slice::Sprintf("cf1.key.%d", i);
-        val = base::Slice::Sprintf("cf1.val.%d", i);
+        key = base::Sprintf("cf1.key.%d", i);
+        val = base::Sprintf("cf1.val.%d", i);
         
         batch.Put(cf1, key, val);
         
@@ -758,16 +756,16 @@ TEST_F(DBImplTest, TwoCFWriting) {
     for (int i = 0; i < kN; ++i) {
         std::string key,val;
         if (i < kN / 2) {
-            key = base::Slice::Sprintf("cf0.key.%d", i);
-            val = base::Slice::Sprintf("cf0.val.%d", i);
+            key = base::Sprintf("cf0.key.%d", i);
+            val = base::Sprintf("cf0.val.%d", i);
             
             rs = impl->Get(ReadOptions{}, cf0, key, &value);
             ASSERT_TRUE(rs.ok()) << rs.ToString();
             ASSERT_EQ(val, value);
         }
         
-        key = base::Slice::Sprintf("cf1.key.%d", i);
-        val = base::Slice::Sprintf("cf1.val.%d", i);
+        key = base::Sprintf("cf1.key.%d", i);
+        val = base::Sprintf("cf1.val.%d", i);
         
         rs = impl->Get(ReadOptions{}, cf1, key, &value);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
@@ -802,7 +800,7 @@ TEST_F(DBImplTest, ConcurrentGetting) {
     std::atomic<int> current_n(0);
     std::thread wr_thrd([&] () {
         for (int i = 0; i < kN; ++i) {
-            std::string key = base::Slice::Sprintf("key.%d", i);
+            std::string key = base::Sprintf("key.%d", i);
 
             Error rs = impl->Put(WriteOptions{}, cf0, key, val);
             ASSERT_TRUE(rs.ok()) << rs.ToString();
@@ -818,12 +816,12 @@ TEST_F(DBImplTest, ConcurrentGetting) {
             continue;
         }
         
-        std::string key = base::Slice::Sprintf("key.%d", n);
+        std::string key = base::Sprintf("key.%d", n);
         Error rs = impl->Get(ReadOptions{}, cf0, key, &value);
         EXPECT_TRUE(rs.ok()) << rs.ToString() << ":" << key;
 
         for (int i = 0; i < 10; i++) {
-            key = base::Slice::Sprintf("key.%d", rand() % n);
+            key = base::Sprintf("key.%d", rand() % n);
             rs = impl->Get(ReadOptions{}, cf0, key, &value);
             EXPECT_TRUE(rs.ok()) << rs.ToString() << ":" << key;
         }
@@ -858,15 +856,15 @@ TEST_F(DBImplTest, Deletion) {
     static const auto kN = 1024 * 1024;
     auto cf0 = impl->DefaultColumnFamily();
     for (int i = 0; i < kN; ++i) {
-        std::string key = base::Slice::Sprintf("k.%d", i);
-        std::string val = base::Slice::Sprintf("v.%d", i);
+        std::string key = base::Sprintf("k.%d", i);
+        std::string val = base::Sprintf("v.%d", i);
         
         rs = impl->Put(WriteOptions{}, cf0, key, val);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
     }
     
     for (int i = 0; i < kN / 2; ++i) {
-        std::string key = base::Slice::Sprintf("k.%d", i);
+        std::string key = base::Sprintf("k.%d", i);
         
         rs = impl->Delete(WriteOptions{}, cf0, key);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
@@ -876,7 +874,7 @@ TEST_F(DBImplTest, Deletion) {
     //rs = impl->Get(ReadOptions{}, cf0, "k.0", &value);
     
     for (int i = 0; i < kN; ++i) {
-        std::string key = base::Slice::Sprintf("k.%d", i);
+        std::string key = base::Sprintf("k.%d", i);
         
         rs = impl->Get(ReadOptions{}, cf0, key, &value);
         if (i < kN / 2) {
@@ -884,7 +882,7 @@ TEST_F(DBImplTest, Deletion) {
             EXPECT_TRUE(rs.IsNotFound()) << rs.ToString();
         } else {
             ASSERT_TRUE(rs.ok());
-            ASSERT_EQ(value, base::Slice::Sprintf("v.%d", i));
+            ASSERT_EQ(value, base::Sprintf("v.%d", i));
         }
     }
 }

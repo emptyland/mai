@@ -111,11 +111,6 @@ public:
     
     static std::string ToReadable(std::string_view raw);
     
-    __attribute__ (( __format__ (__printf__, 1, 2)))
-    static std::string Sprintf(const char *fmt, ...);
-    
-    static std::string Vsprintf(const char *fmt, va_list ap);
-    
     // return:
     // 0 = not a number
     // 'o' = octal
@@ -123,6 +118,7 @@ public:
     // 's' = signed decimal
     // 'h' = hexadecimal
     // 'f' = float
+    // 'e' = float with exp
     static int LikeNumber(const char *s) {
         return LikeNumber(s, !s ? 0 : strlen(s));
     }
@@ -212,6 +208,11 @@ private:
     size_t position_ = 0;
     const std::string_view buf_;
 }; // class BufferReader
+    
+__attribute__ (( __format__ (__printf__, 1, 2)))
+std::string Sprintf(const char *fmt, ...);
+
+std::string Vsprintf(const char *fmt, va_list ap);
     
 } // namespace base
     

@@ -162,10 +162,10 @@ TEST_F(S1TableReaderTest, IteratorV2) {
     std::vector<std::string> kvs;
     std::set<std::string> keys;
     for (int i = 0; i < 34; ++i) {
-        std::string key = base::Slice::Sprintf("k.%03d", i);
+        std::string key = base::Sprintf("k.%03d", i);
         kvs.push_back(key);
-        kvs.push_back(base::Slice::Sprintf("v.%03d", i));
-        kvs.push_back(base::Slice::Sprintf("%d", i + 1));
+        kvs.push_back(base::Sprintf("v.%03d", i));
+        kvs.push_back(base::Sprintf("%d", i + 1));
         keys.insert(key);
     }
     ASSERT_EQ(34, keys.size());
@@ -201,9 +201,9 @@ TEST_F(S1TableReaderTest, Properties) {
     std::string v(1024, 'C');
     std::vector<std::string> kvs;
     for (int i = 0; i < 1024 * 2; ++i) {
-        kvs.push_back(base::Slice::Sprintf("k.%04d", i));
+        kvs.push_back(base::Sprintf("k.%04d", i));
         kvs.push_back(v);
-        kvs.push_back(base::Slice::Sprintf("%d", i + 1));
+        kvs.push_back(base::Sprintf("%d", i + 1));
     }
     
     BuildTable(kvs, tmp_dirs[5], v2_factory_);
@@ -227,7 +227,7 @@ TEST_F(S1TableReaderTest, Properties) {
 
     std::string value;
     for (int i = 0; i < 1024 * 2; ++i) {
-        auto k = base::Slice::Sprintf("k.%04d", i);
+        auto k = base::Sprintf("k.%04d", i);
         rs = Get(reader.get(), k, core::Tag::kMaxSequenceNumber, &value, nullptr);
         EXPECT_TRUE(rs.ok()) << k;
     }
@@ -237,10 +237,10 @@ TEST_F(S1TableReaderTest, BloomFilter) {
     std::vector<std::string> kvs;
     std::set<std::string> keys;
     for (int i = 0; i < 17 * 4; ++i) {
-        std::string key = base::Slice::Sprintf("k.%03d", i);
+        std::string key = base::Sprintf("k.%03d", i);
         kvs.push_back(key);
-        kvs.push_back(base::Slice::Sprintf("v.%03d", i));
-        kvs.push_back(base::Slice::Sprintf("%d", i + 1));
+        kvs.push_back(base::Sprintf("v.%03d", i));
+        kvs.push_back(base::Sprintf("%d", i + 1));
         keys.insert(key);
     }
     

@@ -183,18 +183,16 @@ Error TransactionBase::CheckKey(db::DBImpl *db, db::ColumnFamilyImpl *impl,
         need_to_read_sst = true;
         
         if (cache_only) {
-            auto m = base::Slice::Sprintf("Transaction only check memory-table "
-                                          "at SequenceNumber: %" PRIu64,
-                                          key_seq);
+            auto m = base::Sprintf("Transaction only check memory-table "
+                                   "at SequenceNumber: %" PRIu64, key_seq);
             rs = MAI_TRY_AGAIN(m);
         }
     } else if (key_seq < earliest_seq) {
         need_to_read_sst = true;
         
         if (cache_only) {
-            auto m = base::Slice::Sprintf("Transaction only check memory-table "
-                                          "at SequenceNumber: %" PRIu64,
-                                          key_seq);
+            auto m = base::Sprintf("Transaction only check memory-table "
+                                   "at SequenceNumber: %" PRIu64, key_seq);
             rs = MAI_TRY_AGAIN(m);
         }
     }

@@ -34,7 +34,7 @@ using ::mai::base::ScopedMemory;
     std::string buf;
     
     buf.append(Slice::ToReadable(ikey.user_key));
-    buf.append(Slice::Sprintf("(%" PRIu64 ")", ikey.tag.sequence_number()));
+    buf.append(base::Sprintf("(%" PRIu64 ")", ikey.tag.sequence_number()));
     
     return buf;
 }

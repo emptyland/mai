@@ -37,7 +37,7 @@ TEST_F(DecimalTest, Constants) {
     EXPECT_EQ("-1", Decimal::kMinusOne->ToString());
     
     for (int i = Decimal::kMinConstVal; i < Decimal::kMaxConstVal + 1; ++i) {
-        EXPECT_EQ(base::Slice::Sprintf("%d", i), Decimal::GetConstant(i)->ToString());
+        EXPECT_EQ(base::Sprintf("%d", i), Decimal::GetConstant(i)->ToString());
     }
 }
     

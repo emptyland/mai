@@ -370,12 +370,12 @@ void Form::ToCreateTable(std::string *buf) const {
             break;
         case 1:
             if (col->m_size > 0) {
-                buf->append(Slice::Sprintf("(%d) ", col->m_size));
+                buf->append(base::Sprintf("(%d) ", col->m_size));
             }
             break;
         case 2:
             if (col->m_size > 0 || col->d_size > 0) {
-                buf->append(Slice::Sprintf("(%d, %d) ", col->m_size,
+                buf->append(base::Sprintf("(%d, %d) ", col->m_size,
                                            col->d_size));
             }
             break;
@@ -1019,7 +1019,7 @@ Error FormSchemaSet::WriteSnapshot() {
     }
 
     std::string file_name(Files::CurrentFileName(abs_meta_dir_));
-    std::string content(base::Slice::Sprintf("%" PRIu64, meta_file_number_));
+    std::string content(base::Sprintf("%" PRIu64, meta_file_number_));
     return base::FileWriter::WriteAll(file_name, content, env_);
 }
 

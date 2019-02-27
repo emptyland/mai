@@ -160,6 +160,10 @@ public:
         return new (arena_) Literal(val, location);
     }
     
+    Literal *NewDecimalLiteral(const AstDecimal *val, const Location &location) {
+        return new (arena_) Literal(val, location);
+    }
+    
     Literal *NewStringLiteral(const AstString *val, const Location &location) {
         return new (arena_) Literal(val, location);
     }
@@ -275,7 +279,7 @@ public:
     const AstString *Format(const char *fmt, ...) {
         va_list ap;
         va_start(ap, fmt);
-        std::string str(base::Slice::Vsprintf(fmt, ap));
+        std::string str(base::Vsprintf(fmt, ap));
         va_end(ap);
         return AstString::New(arena_, str);
     }

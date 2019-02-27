@@ -26,6 +26,12 @@ TEST(SliceTest, LikeNumber) {
     EXPECT_EQ('f', Slice::LikeNumber("-.1"));
     EXPECT_EQ('f', Slice::LikeNumber("+.1"));
     EXPECT_EQ('f', Slice::LikeNumber("1.000"));
+    
+    EXPECT_EQ('e', Slice::LikeNumber(".001e2"));
+    EXPECT_EQ('e', Slice::LikeNumber("0e0"));
+    EXPECT_EQ(0, Slice::LikeNumber("e"));
+    EXPECT_EQ('e', Slice::LikeNumber("+.1e-1"));
+    EXPECT_EQ('e', Slice::LikeNumber("1.000e+10"));
 }
     
 } // namespace base

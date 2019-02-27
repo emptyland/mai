@@ -8,9 +8,14 @@
 #include "glog/logging.h"
 
 namespace mai {
-    
+namespace core {
+namespace v2 {
+class Decimal;
+} // namespace v2
+} // namespace core
 namespace sql {
 using AstString = base::ArenaString;
+using AstDecimal = core::v2::Decimal;
 class HeapTuple;
 class ColumnDescriptor;
 class VirtualSchema;
@@ -28,6 +33,7 @@ struct Value {
     enum Kind : int {
         kNull,
         kString,
+        kDecimal,
         kU64,
         kI64,
         kF64,
@@ -39,6 +45,7 @@ struct Value {
     Kind kind;
     union {
         const AstString *str_val;
+        const AstDecimal *dec_val;
         double  f64_val;
         uint64_t u64_val;
         int64_t i64_val;
@@ -47,8 +54,11 @@ struct Value {
     
     bool is_floating() const { return kind == kF64; }
     bool is_integral() const { return kind == kI64 || kind == kU64; }
-    bool is_number() const { return is_floating() || is_integral(); }
-    
+    bool is_decimal() const { return kind == kDecimal; }
+    bool is_number() const {
+        return is_floating() || is_integral() || is_decimal();
+    }
+
     Value ToNumeric(Kind hint = kNull) const;
     Value ToIntegral(Kind hint = kNull) const;
     Value ToFloating(Kind hint = kNull) const;
