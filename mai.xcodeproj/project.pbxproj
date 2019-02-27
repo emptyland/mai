@@ -134,8 +134,6 @@
 		2364B35921E451F9008519AE /* ast-factory-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B8E68A21E32D8A0001096E /* ast-factory-test.cc */; };
 		2364B35A21E451F9008519AE /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163721AFED5E00DE7321 /* test-main.cc */; };
 		2365EC522206948600EE7103 /* ast-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2365EC512206948600EE7103 /* ast-factory.cc */; };
-		2365EC55220876D000EE7103 /* decimal-test-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2365EC54220876D000EE7103 /* decimal-test-v1.cc */; };
-		2365EC5722087CAC00EE7103 /* decimal-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2365EC5622087CAC00EE7103 /* decimal-v1.cc */; };
 		237B0C0B21E4869400F3A099 /* sql.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C0821E4869400F3A099 /* sql.cc */; };
 		237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */; };
 		237B0C1E21E4A9C100F3A099 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1D21E4A9C100F3A099 /* parser.cc */; };
@@ -152,7 +150,6 @@
 		23B0E0ED2187FAF200F9E855 /* libgtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0EA2187FAF200F9E855 /* libgtest.a */; };
 		23B2C90B21F6C64600DF609E /* storage-engine-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B2C90A21F6C64600DF609E /* storage-engine-factory.cc */; };
 		23B8E68721E2E50F0001096E /* lock-group.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B8E68521E2E50F0001096E /* lock-group.cc */; };
-		23BEDF45221BA16A005CFC7F /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BEDF44221BA16A005CFC7F /* decimal-v2.cc */; };
 		23BF17E621D4A96D00A722B9 /* transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E421D4A96D00A722B9 /* transaction-db.cc */; };
 		23BF17EB21D4C1D100A722B9 /* delta-amend-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */; };
 		23CC114F21D71F49001665AC /* transaction-lock-mgr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */; };
@@ -210,7 +207,10 @@
 		23E0EB69222555D400A4D854 /* scoped-arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E0EB68222555D400A4D854 /* scoped-arena.cc */; };
 		23E0EB6B2225564300A4D854 /* scoped-arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E0EB68222555D400A4D854 /* scoped-arena.cc */; };
 		23E0EB6D2225570D00A4D854 /* scoped-arena-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E0EB6C2225570D00A4D854 /* scoped-arena-test.cc */; };
-		23F3E4AC221C0205001D1E86 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F3E4AB221C0205001D1E86 /* decimal-test-v2.cc */; };
+		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
+		23F6A03122266E1A00AE5DB6 /* decimal-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02E22266E1900AE5DB6 /* decimal-v1.cc */; };
+		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
+		23F6A03622266E7700AE5DB6 /* decimal-test-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03422266E7700AE5DB6 /* decimal-test-v1.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -345,9 +345,6 @@
 		235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch-with-index.cc"; sourceTree = "<group>"; };
 		235C1CE021D22F550070A049 /* mock-column-family.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "mock-column-family.h"; sourceTree = "<group>"; };
 		2365EC512206948600EE7103 /* ast-factory.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "ast-factory.cc"; sourceTree = "<group>"; };
-		2365EC532208767D00EE7103 /* decimal-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "decimal-v1.h"; sourceTree = "<group>"; };
-		2365EC54220876D000EE7103 /* decimal-test-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-test-v1.cc"; sourceTree = "<group>"; };
-		2365EC5622087CAC00EE7103 /* decimal-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-v1.cc"; sourceTree = "<group>"; };
 		236AC67521B768E60069A17B /* lru-cache-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lru-cache-v1.h"; sourceTree = "<group>"; };
 		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
 		236AC67921B769900069A17B /* lru-cache-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-test.cc"; sourceTree = "<group>"; };
@@ -449,8 +446,6 @@
 		23B8E69921E32F2E0001096E /* pipeline-queue-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "pipeline-queue-test.cc"; sourceTree = "<group>"; };
 		23B8E69A21E32F2E0001096E /* skip-list-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "skip-list-test.cc"; sourceTree = "<group>"; };
 		23B8E69B21E32F2E0001096E /* hash-map-v2-test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "hash-map-v2-test.cc"; sourceTree = "<group>"; };
-		23BEDF43221BA0A1005CFC7F /* decimal-v2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "decimal-v2.h"; sourceTree = "<group>"; };
-		23BEDF44221BA16A005CFC7F /* decimal-v2.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-v2.cc"; sourceTree = "<group>"; };
 		23BF17E421D4A96D00A722B9 /* transaction-db.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db.cc"; sourceTree = "<group>"; };
 		23BF17E721D4C1A500A722B9 /* delta-amend-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "delta-amend-iterator.h"; sourceTree = "<group>"; };
 		23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "delta-amend-iterator.cc"; sourceTree = "<group>"; };
@@ -478,7 +473,6 @@
 		23E40C0A21CB3C3A00B04858 /* block-cache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-cache.h"; sourceTree = "<group>"; };
 		23E40C0B21CB416600B04858 /* block-cache.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-cache.cc"; sourceTree = "<group>"; };
 		23F0742521D1D209009D8EAA /* transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db-test.cc"; sourceTree = "<group>"; };
-		23F3E4AB221C0205001D1E86 /* decimal-test-v2.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-test-v2.cc"; sourceTree = "<group>"; };
 		23F60601219BBE9600CE12D9 /* write-batch.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch.cc"; sourceTree = "<group>"; };
 		23F60604219BC3DA00CE12D9 /* db-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-impl.h"; sourceTree = "<group>"; };
 		23F60605219BC40E00CE12D9 /* db-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "db-impl.cc"; sourceTree = "<group>"; };
@@ -488,6 +482,12 @@
 		23F6060D219BF8C800CE12D9 /* version.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = version.cc; sourceTree = "<group>"; };
 		23F60610219C1F6D00CE12D9 /* files.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = files.h; sourceTree = "<group>"; };
 		23F60611219C22AE00CE12D9 /* files.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = files.cc; sourceTree = "<group>"; };
+		23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-v2.cc"; sourceTree = "<group>"; };
+		23F6A02D22266E1900AE5DB6 /* decimal-v1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "decimal-v1.h"; sourceTree = "<group>"; };
+		23F6A02E22266E1900AE5DB6 /* decimal-v1.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-v1.cc"; sourceTree = "<group>"; };
+		23F6A02F22266E1A00AE5DB6 /* decimal-v2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "decimal-v2.h"; sourceTree = "<group>"; };
+		23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-test-v2.cc"; sourceTree = "<group>"; };
+		23F6A03422266E7700AE5DB6 /* decimal-test-v1.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-test-v1.cc"; sourceTree = "<group>"; };
 		23FB4B502195708900B2829B /* table-test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-test.h"; sourceTree = "<group>"; };
 		23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "sst-table-builder-test.cc"; sourceTree = "<group>"; };
 		23FB4B5321957CDF00B2829B /* key-filter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-filter.h"; sourceTree = "<group>"; };
@@ -758,6 +758,10 @@
 		23B0E0F82188337D00F9E855 /* core */ = {
 			isa = PBXGroup;
 			children = (
+				23F6A02E22266E1900AE5DB6 /* decimal-v1.cc */,
+				23F6A02D22266E1900AE5DB6 /* decimal-v1.h */,
+				23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */,
+				23F6A02F22266E1A00AE5DB6 /* decimal-v2.h */,
 				232AA2332193E506007EF228 /* skip-list.h */,
 				23B0E0FC218840EC00F9E855 /* hash-map-v1.h */,
 				230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */,
@@ -855,10 +859,6 @@
 				237B0C1D21E4A9C100F3A099 /* parser.cc */,
 				2317596A21E5A1BA0025685F /* types.h */,
 				23D2F6BD21F1CC2300A49B1A /* types.cc */,
-				2365EC532208767D00EE7103 /* decimal-v1.h */,
-				2365EC5622087CAC00EE7103 /* decimal-v1.cc */,
-				23BEDF43221BA0A1005CFC7F /* decimal-v2.h */,
-				23BEDF44221BA16A005CFC7F /* decimal-v2.cc */,
 				23344CEA21EF0B09006BC6E4 /* mai-sql-impl.h */,
 				23344CEB21EF0B5F006BC6E4 /* mai-sql-impl.cc */,
 				23344CED21EF0D8E006BC6E4 /* mai-sql-connection-impl.h */,
@@ -893,8 +893,6 @@
 				2303D93821F8757500075A99 /* heap-tuple-test.cc */,
 				230D7ACB21FDE8890019F7BB /* evaluation-test.cc */,
 				23216A262201A2F900E1B816 /* types-test.cc */,
-				2365EC54220876D000EE7103 /* decimal-test-v1.cc */,
-				23F3E4AB221C0205001D1E86 /* decimal-test-v2.cc */,
 			);
 			name = sql;
 			path = src/sql;
@@ -968,6 +966,8 @@
 		23B8E69121E32ED60001096E /* core */ = {
 			isa = PBXGroup;
 			children = (
+				23F6A03422266E7700AE5DB6 /* decimal-test-v1.cc */,
+				23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */,
 				23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */,
 				23B8E69B21E32F2E0001096E /* hash-map-v2-test.cc */,
 				23B8E69321E32F2E0001096E /* bw-tree-memory-table-test.cc */,
@@ -1209,6 +1209,7 @@
 				2364B2D821E451F9008519AE /* table-test.cc in Sources */,
 				23216A2A2201BC8600E1B816 /* heap-tuple.cc in Sources */,
 				2364B2DB21E451F9008519AE /* sst-table-builder.cc in Sources */,
+				23F6A03622266E7700AE5DB6 /* decimal-test-v1.cc in Sources */,
 				2364B2DD21E451F9008519AE /* sst-table-reader.cc in Sources */,
 				2364B2DF21E451F9008519AE /* s1-table-builder.cc in Sources */,
 				2364B2E121E451F9008519AE /* s1-table-reader.cc in Sources */,
@@ -1223,7 +1224,6 @@
 				2364B2FA21E451F9008519AE /* memory-table.cc in Sources */,
 				2364B2FC21E451F9008519AE /* bw-tree-memory-table.cc in Sources */,
 				2364B2FE21E451F9008519AE /* ordered-memory-table.cc in Sources */,
-				2365EC5722087CAC00EE7103 /* decimal-v1.cc in Sources */,
 				2364B30021E451F9008519AE /* unordered-memory-table.cc in Sources */,
 				2364B30121E451F9008519AE /* bytewise-comparator.cc in Sources */,
 				23216A272201A2F900E1B816 /* types-test.cc in Sources */,
@@ -1249,6 +1249,7 @@
 				2364B32921E451F9008519AE /* slice.cc in Sources */,
 				2364B32B21E451F9008519AE /* hash.cc in Sources */,
 				2364B32C21E451F9008519AE /* crc32.c in Sources */,
+				23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */,
 				2364B33021E451F9008519AE /* arena-utils.cc in Sources */,
 				23344CEF21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc in Sources */,
 				2364B33121E451F9008519AE /* standalone-arena.cc in Sources */,
@@ -1262,7 +1263,6 @@
 				2364B33B21E451F9008519AE /* key-boundle-test.cc in Sources */,
 				2364B33C21E451F9008519AE /* merging-test.cc in Sources */,
 				2364B33D21E451F9008519AE /* ordered-memory-table-test.cc in Sources */,
-				2365EC55220876D000EE7103 /* decimal-test-v1.cc in Sources */,
 				2364B33E21E451F9008519AE /* pipeline-queue-test.cc in Sources */,
 				2364B33F21E451F9008519AE /* skip-list-test.cc in Sources */,
 				2343978A21F960A400512A37 /* evaluation.cc in Sources */,
@@ -1274,6 +1274,7 @@
 				2364B34421E451F9008519AE /* sst-table-builder-test.cc in Sources */,
 				2364B34521E451F9008519AE /* sst-table-reader-test.cc in Sources */,
 				237B0C0B21E4869400F3A099 /* sql.cc in Sources */,
+				23F6A03122266E1A00AE5DB6 /* decimal-v1.cc in Sources */,
 				2364B34621E451F9008519AE /* s1-table-builder-test.cc in Sources */,
 				2364B34721E451F9008519AE /* s1-table-reader-test.cc in Sources */,
 				2364B34821E451F9008519AE /* file-test.cc in Sources */,
@@ -1282,7 +1283,6 @@
 				2303D93221F808C500075A99 /* storage-engine.cc in Sources */,
 				2364B34B21E451F9008519AE /* reference-count-test.cc in Sources */,
 				2364B34C21E451F9008519AE /* varint-encoding-test.cc in Sources */,
-				23F3E4AC221C0205001D1E86 /* decimal-test-v2.cc in Sources */,
 				237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */,
 				23E0EB6D2225570D00A4D854 /* scoped-arena-test.cc in Sources */,
 				2364B34D21E451F9008519AE /* base-test.cc in Sources */,
@@ -1293,7 +1293,7 @@
 				2364B35121E451F9008519AE /* config-test.cc in Sources */,
 				23344CE921EF082D006BC6E4 /* mai-sql-test.cc in Sources */,
 				2364B35221E451F9008519AE /* compaction-test.cc in Sources */,
-				23BEDF45221BA16A005CFC7F /* decimal-v2.cc in Sources */,
+				23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */,
 				23344CEC21EF0B5F006BC6E4 /* mai-sql-impl.cc in Sources */,
 				2364B35321E451F9008519AE /* files-test.cc in Sources */,
 				2364B35421E451F9008519AE /* version-test.cc in Sources */,
