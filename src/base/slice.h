@@ -126,6 +126,26 @@ public:
     static int LikeNumber(const char *s, size_t n);
     
     // return:
+    //  0 = parse ok
+    // > 0 = overflow
+    // < 0 = bad char
+    static int ParseI64(const char *s, int64_t *val) {
+        return ParseI64(s, !s ? 0 : strlen(s), val);
+    }
+    
+    static int ParseI64(const char *s, size_t n, int64_t *val);
+
+    // return:
+    //  0 = parse ok
+    // > 0 = overflow
+    // < 0 = bad char
+    static int ParseI32(const char *s, int32_t *val) {
+        return ParseI32(s, !s ? 0 : strlen(s), val);
+    }
+    
+    static int ParseI32(const char *s, size_t n, int32_t *val);
+    
+    // return:
     // 0 = not a date/date-time/time
     // 'c' = date-time : 0000-00-00 00:00:00
     // 'd' = date      : 0000-00-00

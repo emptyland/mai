@@ -5,6 +5,28 @@
 namespace mai {
     
 namespace base {
+    
+//static const int64_t kPow10Exps[19] = {
+//    1LL,
+//    10LL,
+//    100LL,
+//    1000LL,
+//    10000LL,
+//    100000LL,
+//    1000000LL,
+//    10000000LL,
+//    100000000LL,
+//    1000000000LL,
+//    10000000000LL,
+//    100000000000LL,
+//    1000000000000LL,
+//    10000000000000LL,
+//    100000000000000LL,
+//    1000000000000000LL,
+//    10000000000000000LL,
+//    100000000000000000LL,
+//    1000000000000000000LL,
+//};
 
 /*static*/ std::string Slice::ToReadable(std::string_view raw) {
     static char hex_aplha_table[] = "0123456789abcdef";
@@ -20,6 +42,68 @@ namespace base {
         }
     }
     return s;
+}
+    
+/*static*/ int Slice::ParseI64(const char *s, size_t n, int64_t *val) {
+    int sign = s[0] == '-' ? -1 : 1;
+    if (s[0] == '-' || s[0] == '+') {
+        s++;
+        n--;
+    }
+    if (n == 0) {
+        return -1;
+    }
+    if (n > 19) {
+        return 1;
+    }
+    
+    uint64_t l = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (*s < '0' || *s > '9') {
+            return -1;
+        }
+        uint64_t d = 0x7fffffffffffffffULL - l * 10;
+        uint64_t e = (*s++ - '0');
+        d += (sign < 0) ? 1 : 0;
+        if (e > d) {
+            return 1;
+        }
+        l = l * 10 + e;
+    }
+
+    *val = l * sign;
+    return 0;
+}
+    
+/*static*/ int Slice::ParseI32(const char *s, size_t n, int32_t *val) {
+    int sign = s[0] == '-' ? -1 : 1;
+    if (s[0] == '-' || s[0] == '+') {
+        s++;
+        n--;
+    }
+    if (n == 0) {
+        return -1;
+    }
+    if (n > 10) {
+        return 1;
+    }
+    
+    uint32_t l = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (*s < '0' || *s > '9') {
+            return -1;
+        }
+        uint32_t d = 0x7fffffffU - l * 10;
+        uint32_t e = (*s++ - '0');
+        d += (sign < 0) ? 1 : 0;
+        if (e > d) {
+            return 1;
+        }
+        l = l * 10 + e;
+    }
+    
+    *val = l * sign;
+    return 0;
 }
 
 /*static*/ std::string Sprintf(const char *fmt, ...) {

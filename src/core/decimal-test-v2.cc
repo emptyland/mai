@@ -61,6 +61,22 @@ TEST_F(DecimalV2Test, NewParsed) {
     ASSERT_NE(nullptr, d);
     ASSERT_EQ(4, d->segments_size());
     ASSERT_EQ("1234567890abcdef01234567890", d->ToString(16));
+    
+    d = Decimal::NewParsed("1e-7", &arena_);
+    ASSERT_NE(nullptr, d);
+    ASSERT_EQ("0.0000001", d->ToString());
+    
+    d = Decimal::NewParsed("1e+7", &arena_);
+    ASSERT_NE(nullptr, d);
+    ASSERT_EQ("10000000", d->ToString());
+    
+    d = Decimal::NewParsed("-1.075e+7", &arena_);
+    ASSERT_NE(nullptr, d);
+    ASSERT_EQ("-10750000", d->ToString());
+    
+    d = Decimal::NewParsed("1.075e2", &arena_);
+    ASSERT_NE(nullptr, d);
+    ASSERT_EQ("107.5", d->ToString());
 }
 
 TEST_F(DecimalV2Test, NewParsedOctal) {

@@ -756,7 +756,7 @@ std::string Decimal::ToString(int radix) const {
     if (exp() > 0) {
         DCHECK_EQ(10, radix);
         if (exp() >= buf.size()) {
-            for (size_t i = 0; i < exp() - buf.size(); ++i) {
+            while (exp() > buf.size()) {
                 buf.insert(0, "0");
             }
             buf.insert(0, "0.");
@@ -937,13 +937,62 @@ Decimal *Decimal::NewParsed(const char *s, size_t n, base::Arena *arena) {
         case 'f': {
             if (s[0] == '-' || s[0] == '+') {
                 negative = (s[0] == '-') ? true : false;
-                n--;
+                n--; // skip '-' / '+'
                 s++;
             } else {
                 negative = false;
             }
             rv = ParseDigitals(s, n, 10, arena);
             if (rv) {
+                rv->set_negative(negative);
+            }
+        } break;
+            
+        case 'e': {
+            if (s[0] == '-' || s[0] == '+') {
+                negative = (s[0] == '-');
+                n--; // skip '-' / '+'
+                s++;
+            } else {
+                negative = false;
+            }
+            size_t k = 0;
+            for (size_t i = 0; i < n; ++i) {
+                if (s[i] == 'e' || s[i] == 'E') {
+                    k = i;
+                    break;
+                }
+            }
+            DCHECK_LT(k, n);
+            rv = ParseDigitals(s, k, 10, arena);
+            // 1.085e-10 (5) (9)
+            int e = 0;
+            if (base::Slice::ParseI32(s + k + 1, n - k - 1, &e) != 0) {
+                return nullptr;
+            }
+            if (e < 0) {
+                if (-e + rv->exp() > kMaxExp) {
+                    return nullptr;
+                }
+                rv->set_negative_and_exp(negative, -e + rv->exp());
+            } else if (e > 0) {
+                // 1.075e7
+                // 1 0750000.000
+                // --------------
+                // 1.075e2
+                // 107.500
+                if (e > kMaxExp) {
+                    return nullptr;
+                }
+                //printf("%s\n", rv->ToString().c_str());
+                const Decimal *s = GetFastPow10(e);
+                Decimal *scaled = NewUninitialized(
+                        rv->segments_size() + s->segments_size(), arena);
+                core::BasicMul(rv->segment_view(), s->segment_view(),
+                               scaled->segment_mut_view());
+                scaled->set_negative_and_exp(negative, rv->exp());
+                rv = scaled;
+            } else {
                 rv->set_negative(negative);
             }
         } break;

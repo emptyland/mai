@@ -33,6 +33,55 @@ TEST(SliceTest, LikeNumber) {
     EXPECT_EQ('e', Slice::LikeNumber("+.1e-1"));
     EXPECT_EQ('e', Slice::LikeNumber("1.000e+10"));
 }
+
+TEST(SliceTest, ParseI64) {
+    int64_t val;
+    EXPECT_EQ(0, Slice::ParseI64("0", &val));
+    EXPECT_EQ(0, val);
+    
+    EXPECT_EQ(0, Slice::ParseI64("1", &val));
+    EXPECT_EQ(1, val);
+    
+    EXPECT_EQ(0, Slice::ParseI64("-1", &val));
+    EXPECT_EQ(-1, val);
+    
+    EXPECT_EQ(0, Slice::ParseI64("9223372036854775807", &val));
+    EXPECT_EQ(INT64_MAX, val);
+    
+    EXPECT_EQ(1, Slice::ParseI64("9223372036854775808", &val));
+    
+    EXPECT_EQ(0, Slice::ParseI64("-9223372036854775807", &val));
+    EXPECT_EQ(-9223372036854775807LL, val);
+    
+    EXPECT_EQ(0, Slice::ParseI64("-9223372036854775808", &val));
+    EXPECT_EQ(INT64_MIN, val);
+    
+    EXPECT_EQ(1, Slice::ParseI64("-9223372036854775809", &val));
+}
+    
+TEST(SliceTest, ParseI32) {
+    int32_t val;
+    EXPECT_EQ(0, Slice::ParseI32("0", &val));
+    EXPECT_EQ(0, val);
+    
+    EXPECT_EQ(0, Slice::ParseI32("1", &val));
+    EXPECT_EQ(1, val);
+    
+    EXPECT_EQ(0, Slice::ParseI32("-1", &val));
+    EXPECT_EQ(-1, val);
+    
+    EXPECT_EQ(0, Slice::ParseI32("2147483647", &val));
+    EXPECT_EQ(INT32_MAX, val);
+    
+    EXPECT_EQ(1, Slice::ParseI32("2147483648", &val));
+    
+    EXPECT_EQ(0, Slice::ParseI32("-2147483648", &val));
+    EXPECT_EQ(INT32_MIN, val);
+    
+    EXPECT_EQ(1, Slice::ParseI32("-2147483649", &val));
+    
+    EXPECT_EQ(-1, Slice::ParseI32("-", &val));
+}
     
 } // namespace base
     
