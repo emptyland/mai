@@ -676,8 +676,6 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
     base::ScopedArena scoped_buf;
     if (exp() > 0) {
         const Decimal *s = scale();
-//        Decimal *scaled = NewScoped(&scoped_buf,
-//                                    segments_size() + s->segments_size());
         Decimal *scaled = NewUninitialized(segments_size() + s->segments_size(),
                                            &scoped_buf);
         scaled->Fill(0);
@@ -694,6 +692,62 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
     re->Normalize();
     re->set_negative_and_exp(rv->negative(), rv->exp());
     return {rv, re};
+}
+    
+Decimal *Decimal::Sqrt(base::Arena *arena) const {
+/*
+        double n,y=1.0;
+ 12     while(fabs((1.0/2.0*(y+n/y))-y)>=0.00001)
+ 13     {
+ 14         y=1.0/2.0*(y+n/y);
+ 15         printf( "y=%lf\n", y );
+ 16     }
+ */
+    if (negative()) {
+        return nullptr;
+    }
+    base::ScopedArena scoped_buf;
+    Decimal *y = Decimal::NewI64(1, &scoped_buf);
+    y = y->NewPrecision(exp(), &scoped_buf);
+    
+    const Decimal *n = this;
+    // if exp is odd number
+    if (n->exp() & 0x1 /*n->exp() % 2 == 1*/) {
+        Decimal *tmp = NewUninitialized(segments_size() + 1, &scoped_buf);
+        tmp->Fill();
+        sql::BasicMul(n->segment_view(), GetFastPow10(1)->segment_view(),
+                      tmp->segment_mut_view());
+        tmp->set_exp(exp() + 1);
+        n = tmp;
+    }
+    
+    y->set_exp(0);
+    for (int i = 0; i < 1024; ++i) {
+        Decimal *t1;
+        std::tie(t1, std::ignore) = DivRaw(n, y, &scoped_buf);
+        Decimal *t2 = y->Add(t1, &scoped_buf);
+
+        Decimal *x = Decimal::NewUninitialized(t2->segments_size(), &scoped_buf);
+        sql::DivWord(t2->segment_view(), 2, x->segment_mut_view());
+
+        if (AbsCompare(x, y) == 0) {
+            //y = x;
+            break;
+        }
+        y = x;
+    }
+    // sqrt(81) = 9
+    // 8.1
+    // 8.10 = 0.28
+    // ------------------
+    // 8.100
+    // 8.1000 = 0.2840
+    if (n != this) {
+        y->set_exp(n->exp() / 2);
+        return y->Clone(arena);
+    }
+    y->set_exp(exp() / 2); // restore exp
+    return y->Clone(arena);
 }
     
 void Decimal::Normalize() {

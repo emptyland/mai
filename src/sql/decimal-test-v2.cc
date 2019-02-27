@@ -225,6 +225,11 @@ TEST_F(DecimalV2Test, Add) {
     
     rv = lhs->Add(rhs, &arena_);
     EXPECT_EQ("158798437938692969660742618332134375422", rv->ToString());
+    
+    lhs = Decimal::NewParsed("0.5", &arena_);
+    rhs = Decimal::NewParsed("0.5", &arena_);
+    rv = lhs->Add(rhs, &arena_);
+    EXPECT_EQ(1, rv->ToI64());
 }
 
 TEST_F(DecimalV2Test, Sub) {
@@ -337,6 +342,44 @@ TEST_F(DecimalV2Test, Div) {
     std::tie(rv, re) = lhs->Div(rhs, &arena_);
     EXPECT_EQ("1", rv->ToString());
     EXPECT_EQ("999999999", re->ToString());
+    
+    lhs = Decimal::NewParsed("1234567890.000", &arena_);
+    rhs = Decimal::NewParsed(         "0.001", &arena_);
+    std::tie(rv, re) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("1234567890000", rv->ToString());
+    EXPECT_EQ("0", re->ToString());
+    
+    lhs = Decimal::NewParsed("1.0000000", &arena_);
+    rhs = Decimal::NewParsed("3.0000000", &arena_);
+    std::tie(rv, re) = lhs->Div(rhs, &arena_);
+    EXPECT_EQ("0.3333333", rv->ToString());
+    EXPECT_EQ("1", re->ToString());
+}
+    
+TEST_F(DecimalV2Test, Sqrt) {
+    auto lhs = Decimal::NewParsed("81", &arena_);
+    auto rv = lhs->Sqrt(&arena_);
+    EXPECT_EQ("9", rv->ToString());
+    
+    lhs = Decimal::NewParsed("8.1", &arena_);
+    rv = lhs->Sqrt(&arena_);
+    EXPECT_EQ("2.8", rv->ToString());
+    
+    lhs = Decimal::NewParsed("8.100", &arena_);
+    rv = lhs->Sqrt(&arena_);
+    EXPECT_EQ("2.84", rv->ToString());
+    
+    lhs = Decimal::NewParsed("8.1000", &arena_);
+    rv = lhs->Sqrt(&arena_);
+    EXPECT_EQ("2.84", rv->ToString());
+    
+    lhs = Decimal::NewParsed("8.1999", &arena_);
+    rv = lhs->Sqrt(&arena_);
+    EXPECT_EQ("2.86", rv->ToString());
+    
+    lhs = Decimal::NewParsed("1234567890123456789.00000000", &arena_);
+    rv = lhs->Sqrt(&arena_);
+    EXPECT_EQ("1111111106.1111", rv->ToString());
 }
     
 TEST_F(DecimalV2Test, ToPrimitiveNumber) {

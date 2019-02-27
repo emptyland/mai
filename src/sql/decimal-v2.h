@@ -93,6 +93,8 @@ public:
     
     std::tuple<Decimal *, Decimal *> Div(const Decimal *rhs,
                                          base::Arena *arena) const;
+    
+    Decimal *Sqrt(base::Arena *arena) const;
 
     std::string ToString(int radix = 10) const;
     
