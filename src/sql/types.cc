@@ -1,4 +1,6 @@
 #include "sql/types.h"
+#include "core/decimal-v2.h"
+#include "base/scoped-arena.h"
 #include <ctype.h>
 #include <stdlib.h>
 
@@ -29,6 +31,26 @@ const SQLFunctionDescEntry kSQLFunctionDesc[] = {
 #undef  DECL_DESC
 };
     
+SQLDecimal *SQLTime::ToDecimal(base::Arena *arena) const {
+    base::ScopedArena scoped_buf;
+    SQLDecimal *rv = SQLDecimal::NewU64(ToU64(), &scoped_buf);
+    rv = rv->Mul(SQLDecimal::GetFastPow10(kExp), &scoped_buf);
+    SQLDecimal *add = SQLDecimal::NewU64(micros, &scoped_buf);
+    rv = rv->Add(add, arena);
+    rv->set_negative_and_exp(negative, SQLTime::kExp);
+    return rv;
+}
+    
+SQLDecimal *SQLDateTime::ToDecimal(base::Arena *arena) const {
+    base::ScopedArena scoped_buf;
+    SQLDecimal *rv = SQLDecimal::NewU64(ToU64(), &scoped_buf);
+    rv = rv->Mul(SQLDecimal::GetFastPow10(SQLTime::kExp), &scoped_buf);
+    SQLDecimal *add = SQLDecimal::NewU64(time.micros, &scoped_buf);
+    rv = rv->Add(add, arena);
+    rv->set_negative_and_exp(time.negative, SQLTime::kExp);
+    return rv;
+}
+    
 /*static*/ SQLDateTime SQLDateTime::Now() {
     ::time_t t = ::time(nullptr);
     ::tm m;
@@ -45,6 +67,16 @@ const SQLFunctionDescEntry kSQLFunctionDesc[] = {
         }
     };
 }
+    
+static const uint32_t kTimeMicrosPow10Rexp[7] = {
+    1000000,
+    100000,
+    10000,
+    1000,
+    100,
+    10,
+    1,
+};
     
 /*static*/ int
 SQLTimeUtils::Parse(const char *s, size_t n, SQLDateTime *result) {
@@ -65,6 +97,7 @@ SQLTimeUtils::Parse(const char *s, size_t n, SQLDateTime *result) {
         kBeginMicroSecond,
         kMicroSecond,
     };
+    //::memset(result, 0, sizeof(*result));
     
     bool has_date = false;
     State state = kInit;
@@ -211,7 +244,8 @@ SQLTimeUtils::Parse(const char *s, size_t n, SQLDateTime *result) {
             if (m < 0 || m > 999999) {
                 return 0;
             }
-            result->time.micros = m;
+            DCHECK_LT(i, arraysize(kTimeMicrosPow10Rexp));
+            result->time.micros = m * kTimeMicrosPow10Rexp[i];
         } return has_date ? 'c' : 't';
         default:
             break;

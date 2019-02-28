@@ -6,7 +6,14 @@
 #include <string.h>
 
 namespace mai {
-    
+namespace base {
+class Arena;
+} // namespace base
+namespace core {
+namespace v2 {
+class Decimal;
+} // namespace v2
+} // namespace core
 namespace sql {
 
 #define DEFINE_SQL_TYPES(V) \
@@ -135,7 +142,11 @@ enum SQLFunction {
     SQL_MAX_F,
 }; // enum SQLFunction
     
+using SQLDecimal = core::v2::Decimal;
+    
 struct SQLTime {
+    static constexpr const int kExp = 6;
+    
     uint32_t  hour      : 16;
     uint32_t  minute    : 6;
     uint32_t  second    : 6;
@@ -150,6 +161,8 @@ struct SQLTime {
     }
     
     int64_t ToI64() const { return negative ? -ToU64() : ToU64(); }
+    
+    SQLDecimal *ToDecimal(base::Arena *arena) const;
     
     static SQLTime Now(bool negative) {
         ::time_t t = ::time(nullptr);
@@ -200,6 +213,8 @@ struct SQLDateTime {
     SQLTime time;
     
     uint64_t ToU64() const { return time.ToU64() + date.ToU64() * 1000000; }
+    
+    SQLDecimal *ToDecimal(base::Arena *arena) const;
     
     static SQLDateTime Now();
     static SQLDateTime Zero() { return {SQLDate::Zero(), SQLTime::Zero()}; }

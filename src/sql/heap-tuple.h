@@ -12,7 +12,11 @@
 #include <unordered_map>
 
 namespace mai {
-    
+namespace core {
+namespace v2 {
+class Decimal;
+} // namespace v2
+} // namespace core
 namespace sql {
     
 struct FormColumn;
@@ -37,6 +41,7 @@ public:
     bool CoverF64() const;
     bool CoverDateTime() const;
     bool CoverString() const;
+    bool CoverDecimal() const;
     
     friend class HeapTupleBuilder;
     friend class VirtualSchemaBuilder;
@@ -94,6 +99,7 @@ union HeapRawData {
     int64_t     i64;
     double      f64;
     base::ArenaString *str;
+    core::v2::Decimal *dec;
     SQLDateTime dt;
 };
     
@@ -129,6 +135,10 @@ public:
     const base::ArenaString *GetRawString(const ColumnDescriptor *cd) const {
         return IsNull(cd) || !cd->CoverString()
                ? base::ArenaString::kEmpty : *address<base::ArenaString *>(cd);
+    }
+    
+    const core::v2::Decimal *GetDecimal(const ColumnDescriptor *cd) const {
+        return IsNull(cd) || !cd->CoverDecimal() ? 0 : *address<core::v2::Decimal *>(cd);
     }
     
     bool IsNull(const ColumnDescriptor *cd) const {
@@ -297,7 +307,9 @@ public:
     void SetString(size_t i, std::string_view value) {
         PrepareSet(i)->str = Binary::New(arena_, value.data(), value.size());
     }
-
+    void SetDecimal(size_t i, core::v2::Decimal *value) {
+        PrepareSet(i)->dec = value;
+    }
     void SetNull(size_t i) {
         DCHECK_LT(i, unpacked_.size());
         null_bitmap_[i / 32] |= (1u << (i % 32));

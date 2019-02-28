@@ -94,11 +94,19 @@ public:
     std::tuple<Decimal *, Decimal *> Div(const Decimal *rhs,
                                          base::Arena *arena) const;
     
+    Decimal *Minus(base::Arena *arena) const {
+        Decimal *rv = Clone(arena);
+        rv->set_negative(!negative());
+        return rv;
+    }
+    
     Decimal *Sqrt(base::Arena *arena) const;
 
     std::string ToString(int radix = 10) const;
     
     int64_t ToI64() const;
+    
+    uint64_t ToU64() const;
     
     float ToF32() const { return static_cast<float>(ToF64()); }
     

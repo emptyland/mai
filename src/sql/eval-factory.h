@@ -2,6 +2,7 @@
 #define MAI_SQL_EVAL_FACTORY_H_
 
 #include "sql/evaluation.h"
+#include "core/decimal-v2.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -37,6 +38,13 @@ public:
     
     Constant *NewConstStr(const char *s) {
         return NewConstStr(s, !s ? 0 : strlen(s));
+    }
+    
+    Constant *NewConstDec(const sql::SQLDecimal *val, bool clone = true) {
+        if (clone) {
+            val = sql::SQLDecimal::NewCopied(val, arena_);
+        }
+        return new (arena_) Constant(val);
     }
     
     Constant *NewConstNull() { return new (arena_) Constant(); }

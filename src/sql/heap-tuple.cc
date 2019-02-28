@@ -29,10 +29,11 @@ static size_t GetSize(const HeapRawData &data, SQLType type) {
         case SQL_BINARY:
         case SQL_VARBINARY:
             return sizeof(data.str);
-            
-            // TODO:
+
         case SQL_DECIMAL:
         case SQL_NUMERIC:
+            return sizeof(data.dec);
+
         default:
             DLOG(FATAL) << "noreached";
             break;
@@ -104,6 +105,17 @@ bool ColumnDescriptor::CoverString() const {
         case SQL_VARBINARY:
             return true;
             
+        default:
+            break;
+    }
+    return false;
+}
+    
+bool ColumnDescriptor::CoverDecimal() const {
+    switch (type()) {
+        case SQL_DECIMAL:
+        case SQL_NUMERIC:
+            return true;
         default:
             break;
     }
@@ -276,10 +288,13 @@ HeapTuple *HeapTupleBuilder::Build() {
                     = unpacked_[i].str;
                 offset += sizeof(unpacked_[i].str);
                 break;
-                
-                // TODO:
+
             case SQL_DECIMAL:
             case SQL_NUMERIC:
+                *static_cast<core::v2::Decimal **>(tuple->address(offset))
+                    = unpacked_[i].dec;
+                offset += sizeof(unpacked_[i].dec);
+                break;
             default:
                 DLOG(FATAL) << "noreached";
                 break;

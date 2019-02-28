@@ -8,14 +8,8 @@
 #include "glog/logging.h"
 
 namespace mai {
-namespace core {
-namespace v2 {
-class Decimal;
-} // namespace v2
-} // namespace core
 namespace sql {
 using AstString = base::ArenaString;
-using AstDecimal = core::v2::Decimal;
 class HeapTuple;
 class ColumnDescriptor;
 class VirtualSchema;
@@ -45,7 +39,7 @@ struct Value {
     Kind kind;
     union {
         const AstString *str_val;
-        const AstDecimal *dec_val;
+        const SQLDecimal *dec_val;
         double  f64_val;
         uint64_t u64_val;
         int64_t i64_val;
@@ -58,13 +52,21 @@ struct Value {
     bool is_number() const {
         return is_floating() || is_integral() || is_decimal();
     }
+    
+    bool IsZero() const;
 
-    Value ToNumeric(Kind hint = kNull) const;
-    Value ToIntegral(Kind hint = kNull) const;
-    Value ToFloating(Kind hint = kNull) const;
+    Value ToNumeric(base::Arena *arena, Kind hint = kNull) const;
+    Value ToIntegral(base::Arena *arena, Kind hint = kNull) const;
+    Value ToFloating(base::Arena *arena, Kind hint = kNull) const;
+
+    Value ToDecimal(base::Arena *arena, Kind hint = kNull) const {
+        Value v = ToNumeric(arena, kDecimal);
+        DCHECK(v.is_decimal());
+        return v;
+    }
     
     bool StrictEquals(const Value &rhs) const;
-    int Compare(const Value &rhs) const;
+    int Compare(const Value &rhs, base::Arena *arena = nullptr) const;
     
     void Minus();
 }; // struct RawData
@@ -129,6 +131,7 @@ public:
     
     int64_t i64_val() const { return data_.i64_val; }
     double  f64_val() const { return data_.f64_val; }
+    const SQLDecimal *dec_val() const { return data_.dec_val; }
     const AstString *str_val() const { return data_.str_val; }
     bool is_null() const { return kind() == Data::kNull; }
     bool is_not_null() const { return !is_null(); }
@@ -141,6 +144,11 @@ private:
     Constant(const AstString *str_val) {
         data_.kind = Data::kString;
         data_.str_val = str_val;
+    }
+    
+    Constant(const SQLDecimal *dec_val) {
+        data_.kind = Data::kDecimal;
+        data_.dec_val = dec_val;
     }
     
     Constant(int64_t i64_val) {

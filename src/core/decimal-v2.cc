@@ -806,6 +806,25 @@ int64_t Decimal::ToI64() const {
 
     return val * sign();
 }
+    
+uint64_t Decimal::ToU64() const {
+    const Decimal *d = this;
+    base::ScopedArena arena;
+    if (exp() > 0) {
+        d = Shrink(0, &arena);
+    }
+    
+    uint64_t val = 0;
+    if (d->zero()) {
+        val = 0;
+    } else if (d->segments_size() < 2) {
+        val = static_cast<uint64_t>(d->segment(0));
+    } else { // (d->segments_size() >= 2)
+        val |= static_cast<uint64_t>(d->segment(1) & 0xffffffff) << 32;
+        val |= static_cast<uint64_t>(d->segment(0));
+    }
+    return negative() ? -val : val;
+}
 
 double Decimal::ToF64() const {
     if (zero()) {
