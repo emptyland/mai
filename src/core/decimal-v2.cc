@@ -881,124 +881,157 @@ int Decimal::Compare(const Decimal *rhs) const {
     
 /*static*/
 Decimal *Decimal::NewParsed(const char *s, size_t n, base::Arena *arena) {
-    Decimal *rv = nullptr;
-    bool negative = false;
-    
-    int rn = base::Slice::LikeNumber(s, n);
-    switch (rn) {
-        case 'o': {
-            negative = false;
-            n--; // skip '0'
-            s++;
-            rv = ParseDigitals(s, n, 8, arena);
-            if (rv) {
-                DCHECK_EQ(0, rv->exp());
-                rv->set_negative(negative);
-            }
-        } break;
-            
+    int rv = base::Slice::LikeNumber(s, n);
+    switch (rv) {
+        case 'o':
+            return NewOctLiteral(s, n, arena);
         case 'd':
-        case 's': {
-            if (rn == 's') {
-                negative = (s[0] == '-') ? true : false;
-                n--; // skip '-'
-                s++;
-            } else {
-                negative = false;
-            }
-            rv = ParseDigitals(s, n, 10, arena);
-            if (rv) {
-                DCHECK_EQ(0, rv->exp());
-                rv->set_negative(negative);
-            }
-        } break;
-            
-        case 'h': {
-            negative = false;
-            n -= 2; // skip '0x'
-            s += 2;
-            
-            size_t required_bits = GetNumberOfBits(n, 16);
-            size_t required_segments = (required_bits + 31) / 32;
-            rv = NewUninitialized(required_segments, arena);
-            int64_t i = n, bit = 0;
-            while (i-- > 0) {
-                uint32_t n = core::Char2Digital(s[i]);
-                size_t j = rv->segments_size() - (bit >> 5) - 1;
-                if ((bit & 0x1f) == 0) {
-                    rv->set_segment(j, 0);
-                }
-                rv->set_segment(j, rv->segment(j) | (n << (bit & 0x1f)));
-                bit += 4;
-            }
-            rv->set_negative_and_exp(negative, 0);
-        } break;
-            
-        case 'f': {
-            if (s[0] == '-' || s[0] == '+') {
-                negative = (s[0] == '-') ? true : false;
-                n--; // skip '-' / '+'
-                s++;
-            } else {
-                negative = false;
-            }
-            rv = ParseDigitals(s, n, 10, arena);
-            if (rv) {
-                rv->set_negative(negative);
-            }
-        } break;
-            
-        case 'e': {
-            if (s[0] == '-' || s[0] == '+') {
-                negative = (s[0] == '-');
-                n--; // skip '-' / '+'
-                s++;
-            } else {
-                negative = false;
-            }
-            size_t k = 0;
-            for (size_t i = 0; i < n; ++i) {
-                if (s[i] == 'e' || s[i] == 'E') {
-                    k = i;
-                    break;
-                }
-            }
-            DCHECK_LT(k, n);
-            rv = ParseDigitals(s, k, 10, arena);
-            // 1.085e-10 (5) (9)
-            int e = 0;
-            if (base::Slice::ParseI32(s + k + 1, n - k - 1, &e) != 0) {
-                return nullptr;
-            }
-            if (e < 0) {
-                if (-e + rv->exp() > kMaxExp) {
-                    return nullptr;
-                }
-                rv->set_negative_and_exp(negative, -e + rv->exp());
-            } else if (e > 0) {
-                // 1.075e7
-                // 1 0750000.000
-                // --------------
-                // 1.075e2
-                // 107.500
-                if (e > kMaxExp) {
-                    return nullptr;
-                }
-                //printf("%s\n", rv->ToString().c_str());
-                const Decimal *s = GetFastPow10(e);
-                Decimal *scaled = NewUninitialized(
-                        rv->segments_size() + s->segments_size(), arena);
-                core::BasicMul(rv->segment_view(), s->segment_view(),
-                               scaled->segment_mut_view());
-                scaled->set_negative_and_exp(negative, rv->exp());
-                rv = scaled;
-            } else {
-                rv->set_negative(negative);
-            }
-        } break;
-            
+        case 's':
+            return NewDecLiteral(s, n, arena);
+        case 'h':
+            return NewHexLiteral(s, n, arena);
+        case 'f':
+            return NewRealLiteral(s, n, arena);
+        case 'e':
+            return NewExpLiteral(s, n, arena);
         default:
             break;
+    }
+    return nullptr;
+}
+    
+/*static*/
+Decimal *Decimal::NewOctLiteral(const char *s, size_t n, base::Arena *arena) {
+    DCHECK_EQ('o', base::Slice::LikeNumber(s, n));
+
+    bool negative = false;
+    n--; // skip '0'
+    s++;
+    Decimal *rv = ParseDigitals(s, n, 8, arena);
+    if (rv) {
+        DCHECK_EQ(0, rv->exp());
+        rv->set_negative(negative);
+    }
+    return rv;
+}
+
+/*static*/
+Decimal *Decimal::NewDecLiteral(const char *s, size_t n, base::Arena *arena) {
+#if defined(DEBUG) || defined(_DEBUG)
+    int r = base::Slice::LikeNumber(s, n);
+    DCHECK(r == 'd' || r == 's');
+#endif
+    
+    bool negative = false;
+    if (s[0] == '-' || s[0] == '+') {
+        negative = (s[0] == '-') ? true : false;
+        n--; // skip '-'
+        s++;
+    } else {
+        negative = false;
+    }
+    Decimal *rv = ParseDigitals(s, n, 10, arena);
+    if (rv) {
+        DCHECK_EQ(0, rv->exp());
+        rv->set_negative(negative);
+    }
+    return rv;
+}
+
+/*static*/
+Decimal *Decimal::NewHexLiteral(const char *s, size_t n, base::Arena *arena) {
+    DCHECK_EQ('h', base::Slice::LikeNumber(s, n));
+    
+    bool negative = false;
+    n -= 2; // skip '0x'
+    s += 2;
+
+    size_t required_bits = GetNumberOfBits(n, 16);
+    size_t required_segments = (required_bits + 31) / 32;
+    Decimal *rv = NewUninitialized(required_segments, arena);
+    int64_t i = n, bit = 0;
+    while (i-- > 0) {
+        uint32_t n = core::Char2Digital(s[i]);
+        size_t j = rv->segments_size() - (bit >> 5) - 1;
+        if ((bit & 0x1f) == 0) {
+            rv->set_segment(j, 0);
+        }
+        rv->set_segment(j, rv->segment(j) | (n << (bit & 0x1f)));
+        bit += 4;
+    }
+    rv->set_negative_and_exp(negative, 0);
+    return rv;
+}
+
+/*static*/
+Decimal *Decimal::NewRealLiteral(const char *s, size_t n, base::Arena *arena) {
+    DCHECK_EQ('f', base::Slice::LikeNumber(s, n));
+    
+    bool negative = false;
+    if (s[0] == '-' || s[0] == '+') {
+        negative = (s[0] == '-') ? true : false;
+        n--; // skip '-' / '+'
+        s++;
+    } else {
+        negative = false;
+    }
+    Decimal *rv = ParseDigitals(s, n, 10, arena);
+    if (rv) {
+        rv->set_negative(negative);
+    }
+    return rv;
+}
+
+/*static*/
+Decimal *Decimal::NewExpLiteral(const char *s, size_t n, base::Arena *arena) {
+    DCHECK_EQ('e', base::Slice::LikeNumber(s, n));
+    
+    bool negative = false;
+    if (s[0] == '-' || s[0] == '+') {
+        negative = (s[0] == '-');
+        n--; // skip '-' / '+'
+        s++;
+    } else {
+        negative = false;
+    }
+    size_t k = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (s[i] == 'e' || s[i] == 'E') {
+            k = i;
+            break;
+        }
+    }
+    DCHECK_LT(k, n);
+    Decimal *rv = ParseDigitals(s, k, 10, arena);
+    // 1.085e-10 (5) (9)
+    int e = 0;
+    if (base::Slice::ParseI32(s + k + 1, n - k - 1, &e) != 0) {
+        return nullptr;
+    }
+    if (e < 0) {
+        if (-e + rv->exp() > kMaxExp) {
+            return nullptr;
+        }
+        rv->set_negative_and_exp(negative, -e + rv->exp());
+    } else if (e > 0) {
+        // 1.075e7
+        // 1 0750000.000
+        // --------------
+        // 1.075e2
+        // 107.500
+        if (e > kMaxExp) {
+            return nullptr;
+        }
+        //printf("%s\n", rv->ToString().c_str());
+        const Decimal *s = GetFastPow10(e);
+        Decimal *scaled = NewUninitialized(
+                                           rv->segments_size() + s->segments_size(), arena);
+        core::BasicMul(rv->segment_view(), s->segment_view(),
+                       scaled->segment_mut_view());
+        scaled->set_negative_and_exp(negative, rv->exp());
+        rv = scaled;
+    } else {
+        rv->set_negative(negative);
     }
     return rv;
 }

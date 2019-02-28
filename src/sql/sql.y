@@ -4,10 +4,11 @@
 //%define parser_class_name {sql_parser}
 %locations
 %define api.pure
+%define parse.error verbose
 //%lex-param {void *ctx}
 %parse-param {parser_ctx *ctx}
 %lex-param {void *YYLEX_PARAM}
-%error-verbose
+//%error-verbose
 
 %{
 #include "sql/ast.h"
@@ -53,8 +54,10 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
         bool desc;
     } order_by;
     int int_val;
+    int64_t i64_val;
     double approx_val;
     bool bool_val;
+    const ::mai::sql::AstDecimal *dec_val;
     const ::mai::sql::AstString *name;
     ::mai::sql::SQLKeyType key_type;
     ::mai::sql::SQLOperator op;
@@ -85,7 +88,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %token GROUP FOR UPDATE LIMIT OFFSET INSERT OVERWRITE DELETE VALUES VALUE SET IN
 %token INTO DUPLICATE DEFAULT BINARY VARBINARY
 
-%token ID NULL_VAL INTEGRAL_VAL STRING_VAL APPROX_VAL DATE_VAL DATETIME_VAL
+%token ID NULL_VAL INTEGRAL_VAL STRING_VAL APPROX_VAL DATE_VAL DATETIME_VAL DECIMAL_VAL
 
 %token EQ NOT OP_AND
 
@@ -100,8 +103,9 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <bool_val> NullOption AutoIncrementOption DistinctOption ForUpdateOption OverwriteOption
 %type <size> FixedSizeDescription FloatingSizeDescription
 %type <type_def> TypeDefinition
-%type <int_val> INTEGRAL_VAL
+%type <i64_val> INTEGRAL_VAL
 %type <approx_val> APPROX_VAL
+%type <dec_val> DECIMAL_VAL
 %type <key_type> KeyOption
 %type <join_kind> JoinOp
 %type <col_def_list> ColumnDefinitionList
@@ -121,6 +125,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <assignment> Assignment
 %type <assignment_list> AssignmentList OnDuplicateClause
 %type <id> Identifier
+%type <int_val> IntVal
 
 
 %right ASSIGN
@@ -237,7 +242,7 @@ TypeDefinition: BIGINT FixedSizeDescription {
     $$ = ctx->factory->NewTypeDefinition(SQL_DATETIME);
 }
 
-FixedSizeDescription: '(' INTEGRAL_VAL ')' {
+FixedSizeDescription: '(' IntVal ')' {
     $$.fixed_size = $2;
     $$.float_size = 0;
 }
@@ -246,7 +251,7 @@ FixedSizeDescription: '(' INTEGRAL_VAL ')' {
     $$.float_size = 0;
 }
 
-FloatingSizeDescription: '(' INTEGRAL_VAL '.' INTEGRAL_VAL ')' {
+FloatingSizeDescription: '(' IntVal '.' IntVal ')' {
     $$.fixed_size = $2;
     $$.float_size = $4;
 }
@@ -554,15 +559,15 @@ GroupByClause : GROUP BY ExpressionList {
     $$ = nullptr;
 }
 
-LimitOffsetClause : LIMIT INTEGRAL_VAL {
+LimitOffsetClause : LIMIT IntVal {
     $$.limit_val  = $2;
     $$.offset_val = 0;
 }
-| LIMIT INTEGRAL_VAL ',' INTEGRAL_VAL {
+| LIMIT IntVal ',' IntVal {
     $$.offset_val = $2;
     $$.limit_val  = $4;
 }
-| LIMIT INTEGRAL_VAL OFFSET INTEGRAL_VAL {
+| LIMIT IntVal OFFSET IntVal {
     $$.limit_val  = $2;
     $$.offset_val = $4;
 }
@@ -670,7 +675,7 @@ UpdateStmt : UPDATE Identifier SET AssignmentList WhereClause OrderByClause Upda
     $$ = stmt;
 }
 
-UpdateLimitOption : LIMIT INTEGRAL_VAL {
+UpdateLimitOption : LIMIT IntVal {
     $$.limit_val  = $2;
     $$.offset_val = 0;
 }
@@ -715,9 +720,6 @@ Expression : Expression OP_OR Expression {
 | '!' Expression {
     $$ = ctx->factory->NewUnaryExpression(SQL_NOT, $2, Location::Concat(@1, @2));
 }
-| '(' Expression ')' {
-    $$ = $2;
-}
 | BoolPrimary
 
 //-----------------------------------------------------------------------------
@@ -737,9 +739,6 @@ BoolPrimary : BoolPrimary IS NULL_VAL {
 }
 | Expression COMPARISON ANY Subquery {
     $$ = ctx->factory->NewComparison($1, $2, $4, Location::Concat(@1, @4));
-}
-| '(' BoolPrimary ')' {
-    $$ = $2;
 }
 | Predicate
 
@@ -770,9 +769,6 @@ Predicate : BitExpression NOT IN Subquery {
 }
 | BitExpression LIKE BitExpression {
     $$ = ctx->factory->NewBinaryExpression($1, SQL_LIKE, $3, Location::Concat(@1, @3));
-} 
-| '(' Predicate ')' {
-    $$ = $2;
 }
 | BitExpression
 
@@ -816,9 +812,6 @@ BitExpression : BitExpression '|' BitExpression {
 | BitExpression '^' BitExpression {
     $$ = ctx->factory->NewBinaryExpression($1, SQL_BIT_XOR, $3, Location::Concat(@1, @3));
 }
-| '(' BitExpression ')' {
-    $$ = $2;
-}
 | Simple
 
 
@@ -837,6 +830,9 @@ Simple : Identifier {
 | APPROX_VAL {
     $$ = ctx->factory->NewApproxLiteral($1, @1);
 }
+| DECIMAL_VAL {
+    $$ = ctx->factory->NewDecimalLiteral($1, @1);
+}
 | Name '(' DistinctOption Parameters ')' {
     $$ = ctx->factory->NewCall($1, $3, $4, Location::Concat(@1, @5));
 } 
@@ -848,6 +844,9 @@ Simple : Identifier {
 }
 | '~' Simple {
     $$ = ctx->factory->NewUnaryExpression(SQL_BIT_INV, $2, Location::Concat(@1, @2));
+}
+| '(' Expression ')' {
+    $$ = $2;
 }
 
 
@@ -864,6 +863,14 @@ Identifier : Name {
 
 Name : ID {
     $$ = ctx->factory->NewString($1.buf, $1.len);
+}
+
+IntVal : INTEGRAL_VAL {
+    if ($1 > INT32_MAX || $1 < INT32_MIN) {
+        yyerror(&@1, ctx, "int val out of range.");
+        YYERROR;
+    }
+    $$ = static_cast<int>($1);
 }
 
 %%

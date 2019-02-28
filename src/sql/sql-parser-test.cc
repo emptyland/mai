@@ -1,6 +1,7 @@
 #include "sql/parser.h"
 #include "sql/ast.h"
 #include "sql/ast-factory.h"
+#include "core/decimal-v2.h"
 #include "base/standalone-arena.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
@@ -245,6 +246,22 @@ TEST_F(SQLParserTest, WhereClause) {
     child = Comparison::Cast(top->rhs());
     ASSERT_NE(nullptr, child);
     EXPECT_EQ(SQL_CMP_LT, child->op());
+}
+    
+TEST_F(SQLParserTest, Decimal) {
+    static const char *kX = "SELECT 1.00001;";
+    
+    Parser::Result result;
+    auto rs = Parser::Parse(kX, &arena_, &result);
+    ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
+    
+    auto stmt = Select::Cast(result.block->stmt(0));
+    ASSERT_NE(nullptr, stmt);
+    ASSERT_EQ(1, stmt->columns()->size());
+    
+    auto literal = Literal::Cast(stmt->columns()->at(0)->expr());
+    ASSERT_TRUE(literal->is_decimal_val());
+    ASSERT_EQ("1.00001", literal->decimal_val()->ToString());
 }
 
 } // namespace sql

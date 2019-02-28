@@ -44,6 +44,7 @@ Parser::Parse(const char *s, base::Arena *arena, Parser::Result *result) {
     ctx.factory = &factory;
     
     lexer_extra extra;
+    extra.arena = arena;
     yylex_init_extra(&extra, &ctx.lex);
     auto buf = yy_scan_string(s, ctx.lex);
     yy_switch_to_buffer(buf, ctx.lex);
@@ -68,6 +69,7 @@ Parser::Parse(const char *s, base::Arena *arena, Parser::Result *result) {
     ctx.factory = &factory;
     
     lexer_extra extra;
+    extra.arena = arena;
     yylex_init_extra(&extra, &ctx.lex);
     auto buf = yy_scan_bytes(s, n, ctx.lex);
     yy_switch_to_buffer(buf, ctx.lex);

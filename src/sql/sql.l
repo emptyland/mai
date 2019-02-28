@@ -9,10 +9,15 @@
 #include "sql/parser-ctx.h"
 #include "sql/ast.h"
 #include "sql/sql.hh"
+#include "base/slice.h"
+#include "core/decimal-v2.h"
 #include <string.h>
 #include <stdlib.h>
 
 void yyerror(YYLTYPE *yyl, parser_ctx *ctx, const char *msg);
+
+using ::mai::base::Slice;
+using ::mai::core::v2::Decimal;
 
 #define YY_USER_ACTION \
 	yylloc->first_line = yylloc->last_line = yylineno; \
@@ -125,16 +130,26 @@ XOR { return XOR; }
 }
 
 -?[0-9]+ {
-	yylval->int_val = atoi(yytext);
+	int rv = Slice::ParseI64(yytext, &yylval->i64_val);
+	if (rv < 0) {
+		return TOKEN_ERROR;
+	} else if (rv > 0) {
+		yylval->dec_val = Decimal::NewDecLiteral(yytext, strlen(yytext), yyextra->arena);
+		return DECIMAL_VAL;
+	}
 	return INTEGRAL_VAL;
 }
 
 -?[0-9]+"."[0-9]* |
--?"."[0-9]+ |
+-?"."[0-9]+ {
+	yylval->dec_val = Decimal::NewRealLiteral(yytext, strlen(yytext), yyextra->arena);
+	return DECIMAL_VAL;
+}
+
 -?[0-9]+E[-+]?[0-9]+ |
 -?"."[0-9]+E[-+]?[0-9]+ {
-	yylval->approx_val = atof(yytext);
-	return APPROX_VAL;
+	yylval->dec_val = Decimal::NewExpLiteral(yytext, strlen(yytext), yyextra->arena);
+	return DECIMAL_VAL;
 }
 
 "=" {

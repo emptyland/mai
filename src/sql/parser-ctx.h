@@ -7,6 +7,7 @@
 namespace mai {
 namespace base {
 class ArenaString;
+class Arena;
 } // namespace base
 namespace sql {
 namespace ast {
@@ -29,6 +30,7 @@ struct parser_ctx {
 struct lexer_extra {
     int old_state = 0;
     int column    = 1;
+    base::Arena *arena = nullptr;
 };
 
 } // namespace sql

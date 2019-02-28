@@ -1,8 +1,9 @@
-/* A Bison parser, made by GNU Bison 3.2.4.  */
+/* A Bison parser, made by GNU Bison 3.3.2.  */
 
 /* Bison interface for Yacc-like parsers in C
 
-   Copyright (C) 1984, 1989-1990, 2000-2015, 2018 Free Software Foundation, Inc.
+   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2019 Free Software Foundation,
+   Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -114,35 +115,36 @@ extern int yydebug;
     APPROX_VAL = 321,
     DATE_VAL = 322,
     DATETIME_VAL = 323,
-    EQ = 324,
-    NOT = 325,
-    OP_AND = 326,
-    BIGINT = 327,
-    INT = 328,
-    SMALLINT = 329,
-    TINYINT = 330,
-    DECIMAL = 331,
-    NUMERIC = 332,
-    CHAR = 333,
-    VARCHAR = 334,
-    DATE = 335,
-    DATETIME = 336,
-    TIMESTMAP = 337,
-    AUTO_INCREMENT = 338,
-    COMMENT = 339,
-    TOKEN_ERROR = 340,
-    ASSIGN = 341,
-    OP_OR = 342,
-    XOR = 343,
-    IS = 344,
-    LIKE = 345,
-    REGEXP = 346,
-    BETWEEN = 347,
-    COMPARISON = 348,
-    LSHIFT = 349,
-    RSHIFT = 350,
-    MOD = 351,
-    UMINUS = 352
+    DECIMAL_VAL = 324,
+    EQ = 325,
+    NOT = 326,
+    OP_AND = 327,
+    BIGINT = 328,
+    INT = 329,
+    SMALLINT = 330,
+    TINYINT = 331,
+    DECIMAL = 332,
+    NUMERIC = 333,
+    CHAR = 334,
+    VARCHAR = 335,
+    DATE = 336,
+    DATETIME = 337,
+    TIMESTMAP = 338,
+    AUTO_INCREMENT = 339,
+    COMMENT = 340,
+    TOKEN_ERROR = 341,
+    ASSIGN = 342,
+    OP_OR = 343,
+    XOR = 344,
+    IS = 345,
+    LIKE = 346,
+    REGEXP = 347,
+    BETWEEN = 348,
+    COMPARISON = 349,
+    LSHIFT = 350,
+    RSHIFT = 351,
+    MOD = 352,
+    UMINUS = 353
   };
 #endif
 
@@ -151,7 +153,7 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 34 "sql.y" /* yacc.c:1912  */
+#line 35 "sql.y" /* yacc.c:1927  */
 
     struct {
         const char *buf;
@@ -174,8 +176,10 @@ union YYSTYPE
         bool desc;
     } order_by;
     int int_val;
+    int64_t i64_val;
     double approx_val;
     bool bool_val;
+    const ::mai::sql::AstDecimal *dec_val;
     const ::mai::sql::AstString *name;
     ::mai::sql::SQLKeyType key_type;
     ::mai::sql::SQLOperator op;
@@ -198,7 +202,7 @@ union YYSTYPE
     ::mai::sql::ast::AssignmentList *assignment_list;
     ::mai::sql::ast::Identifier *id;
 
-#line 202 "sql.hh" /* yacc.c:1912  */
+#line 206 "sql.hh" /* yacc.c:1927  */
 };
 
 typedef union YYSTYPE YYSTYPE;
