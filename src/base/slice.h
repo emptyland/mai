@@ -134,6 +134,36 @@ public:
     }
     
     static int ParseI64(const char *s, size_t n, int64_t *val);
+    
+    // return:
+    //  0 = parse ok
+    // > 0 = overflow
+    // < 0 = bad char
+    static int ParseU64(const char *s, uint64_t *val) {
+        return ParseU64(s, !s ? 0 : strlen(s), val);
+    }
+    
+    static int ParseU64(const char *s, size_t n, uint64_t *val);
+    
+    // return:
+    //  0 = parse ok
+    // > 0 = overflow
+    // < 0 = bad char
+    static int ParseH64(const char *s, uint64_t *val) {
+        return ParseH64(s, !s ? 0 : strlen(s), val);
+    }
+    
+    static int ParseH64(const char *s, size_t n, uint64_t *val);
+    
+    // return:
+    //  0 = parse ok
+    // > 0 = overflow
+    // < 0 = bad char
+    static int ParseO64(const char *s, uint64_t *val) {
+        return ParseO64(s, !s ? 0 : strlen(s), val);
+    }
+    
+    static int ParseO64(const char *s, size_t n, uint64_t *val);
 
     // return:
     //  0 = parse ok
@@ -233,6 +263,12 @@ __attribute__ (( __format__ (__printf__, 1, 2)))
 std::string Sprintf(const char *fmt, ...);
 
 std::string Vsprintf(const char *fmt, va_list ap);
+    
+// Round bytes filling
+// For int16, 32, 64 filling:
+void *Round16BytesFill(const uint16_t zag, void *chunk, size_t n);
+void *Round32BytesFill(const uint32_t zag, void *chunk, size_t n);
+void *Round64BytesFill(const uint64_t zag, void *chunk, size_t n);
     
 } // namespace base
     

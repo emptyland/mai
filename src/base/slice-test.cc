@@ -83,6 +83,15 @@ TEST(SliceTest, ParseI32) {
     EXPECT_EQ(-1, Slice::ParseI32("-", &val));
 }
     
+TEST(SliceTest, ParseH32) {
+    uint64_t val = 1;
+    EXPECT_EQ(0, Slice::ParseH64("0x0", &val));
+    EXPECT_EQ(0, val);
+    
+    EXPECT_EQ(0, Slice::ParseH64("0xff", &val));
+    EXPECT_EQ(0xff, val);
+}
+    
 } // namespace base
     
 } // namespace mai

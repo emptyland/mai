@@ -134,12 +134,6 @@ inline View<T> MakeView(T const *z, size_t n) { return View<T>{z, n}; }
 template<class T>
 inline MutView<T> MakeMutView(T *z, size_t n) { return MutView<T>{z, n}; }
 
-// Round bytes filling
-// For int16, 32, 64 filling:
-void *Round16BytesFill(const uint16_t zag, void *chunk, size_t n);
-void *Round32BytesFill(const uint32_t zag, void *chunk, size_t n);
-void *Round64BytesFill(const uint64_t zag, void *chunk, size_t n);
-
 /**
  * define getter/mutable_getter/setter
  */

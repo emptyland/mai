@@ -1,5 +1,6 @@
 #include "base/zone.h"
 #include "base/arena.h"
+#include "base/slice.h"
 #include "glog/logging.h"
 #include <thread>
 #include <mutex>

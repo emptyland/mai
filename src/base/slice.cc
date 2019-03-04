@@ -75,6 +75,79 @@ namespace base {
     return 0;
 }
     
+/*static*/ int Slice::ParseU64(const char *s, size_t n, uint64_t *val) {
+    if (n == 0) {
+        return -1;
+    }
+    if (n > 20) { /*MAX: 18446744073709551615*/
+        return 1;
+    }
+    uint64_t l = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (*s < '0' || *s > '9') {
+            return -1;
+        }
+        uint64_t d = 0xffffffffffffffffULL - l * 10;
+        uint64_t e = (*s++ - '0');
+        if (e > d) {
+            return 1;
+        }
+        l = l * 10 + e;
+    }
+    *val = l;
+    return 0;
+}
+    
+/*static*/ int Slice::ParseH64(const char *s, size_t n, uint64_t *val) {
+    if (n == 0) {
+        return -1;
+    }
+    if (n > 16) { /*MAX: ffffffffffffffff*/
+        return 1;
+    }
+    uint64_t l = 0;
+    for (size_t i = 0; i < n; ++i) {
+        uint64_t e = 0;
+        if (*s >= '0' && *s <= '9') {
+            e = *s - '0';
+        } else if (*s >= 'a' && *s <= 'f') {
+            e = *s - 'a' + 10;
+        } else if (*s >= 'A' && *s <= 'F') {
+            e = *s - 'A' + 10;
+        } else {
+            return -1;
+        }
+        l = (l << 4) | e;
+        ++s;
+    }
+    *val = l;
+    return 0;
+}
+
+/*static*/ int Slice::ParseO64(const char *s, size_t n, uint64_t *val) {
+    if (n == 0) {
+        return -1;
+    }
+    if (n > 22) { /*MAX: 1777777777777777777777*/
+        return 1;
+    }
+    
+    uint64_t l = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (*s < '0' || *s > '7') {
+            return -1;
+        }
+        uint64_t d = 0xffffffffffffffffULL - l * 8;
+        uint64_t e = (*s++ - '0');
+        if (e > d) {
+            return 1;
+        }
+        l = l * 8 + e;
+    }
+    *val = l;
+    return 0;
+}
+    
 /*static*/ int Slice::ParseI32(const char *s, size_t n, int32_t *val) {
     int sign = s[0] == '-' ? -1 : 1;
     if (s[0] == '-' || s[0] == '+') {
@@ -294,6 +367,43 @@ namespace base {
             break;
     }
     return 0;
+}
+    
+template<class T>
+inline void *RoundBytesFill(const T zag, void *chunk, size_t n) {
+    static_assert(sizeof(zag) > 1 && sizeof(zag) <= 8, "T must be int16,32,64");
+    static_assert(std::is_integral<T>::value, "T must be int16,32,64");
+    
+    DCHECK_GE(n, 0);
+    auto result = chunk;
+    auto round = n / sizeof(T);
+    while (round--) {
+        auto round_bits = static_cast<T *>(chunk);
+        *round_bits = zag;
+        chunk = static_cast<void *>(round_bits + 1);
+    }
+    
+    auto zag_bytes = reinterpret_cast<const uint8_t *>(&zag);
+    
+    round = n % sizeof(T);
+    while (round--) {
+        auto bits8 = static_cast<uint8_t *>(chunk);
+        *bits8 = *zag_bytes++;
+        chunk = static_cast<void *>(bits8 + 1);
+    }
+    return result;
+}
+
+void *Round16BytesFill(const uint16_t zag, void *chunk, size_t n) {
+    return RoundBytesFill<uint16_t>(zag, chunk, n);
+}
+
+void *Round32BytesFill(const uint32_t zag, void *chunk, size_t n) {
+    return RoundBytesFill<uint32_t>(zag, chunk, n);
+}
+
+void *Round64BytesFill(const uint64_t zag, void *chunk, size_t n) {
+    return RoundBytesFill<uint64_t>(zag, chunk, n);
 }
 
 } // namespace base

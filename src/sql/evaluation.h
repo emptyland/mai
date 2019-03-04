@@ -230,8 +230,8 @@ private:
         operands_[1] = rhs;
     }
     
-    Operation(SQLOperator op, Expression *lhs,
-              const std::vector<Expression *> &rhs, base::Arena *arena);
+    Operation(SQLOperator op, Expression *lhs, const std::vector<Expression *> &rhs,
+              base::Arena *arena);
     
     SQLOperator op_;
     size_t operands_count_;
@@ -242,12 +242,11 @@ private:
     
 struct Evaluation final {
     
-    static eval::Expression *
-    BuildExpression(const VirtualSchema *env, ast::Expression *ast,
-                    base::Arena *arena);
+    static eval::Expression *BuildExpression(const VirtualSchema *env, ast::Expression *ast,
+                                             base::Arena *arena);
     
-    static Error BuildExpression(const VirtualSchema *env, ast::Expression *ast,
-                                 base::Arena *arena, eval::Expression **result);
+    static Error BuildExpression(const VirtualSchema *env, ast::Expression *ast, base::Arena *arena,
+                                 eval::Expression **result);
     
 }; // struct Evaluation
     

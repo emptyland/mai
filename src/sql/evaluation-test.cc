@@ -101,8 +101,8 @@ TEST_F(EvaluationTest, MinusF64) {
     auto rs = expr->Evaluate(&ctx);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    ASSERT_EQ(eval::Value::kF64, ctx.result().kind);
-    ASSERT_EQ(1.99, ctx.result().f64_val);
+    ASSERT_EQ(eval::Value::kDecimal, ctx.result().kind);
+    ASSERT_EQ(1.99f, ctx.result().dec_val->ToF32());
 }
     
 TEST_F(EvaluationTest, PlusInt) {
@@ -114,8 +114,8 @@ TEST_F(EvaluationTest, PlusInt) {
     auto rs = expr->Evaluate(&ctx);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    ASSERT_EQ(eval::Value::kF64, ctx.result().kind);
-    ASSERT_NEAR(0.01, ctx.result().f64_val, 0.0000001);
+    ASSERT_EQ(eval::Value::kDecimal, ctx.result().kind);
+    ASSERT_EQ("0.01", ctx.result().dec_val->ToString());
 }
     
 TEST_F(EvaluationTest, PlusDateTime) {
@@ -169,7 +169,6 @@ TEST_F(EvaluationTest, BuildEvalExpression) {
     
     ASSERT_EQ(Value::kI64, ctx.result().kind);
     ASSERT_EQ(101, ctx.result().i64_val);
-    
 }
     
 TEST_F(EvaluationTest, BuildEvalStringExpression) {
@@ -186,8 +185,8 @@ TEST_F(EvaluationTest, BuildEvalStringExpression) {
     auto rs = expr->Evaluate(&ctx);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    ASSERT_EQ(Value::kF64, ctx.result().kind);
-    ASSERT_NEAR(168.5, ctx.result().f64_val, 0.0000001);
+    ASSERT_EQ(Value::kDecimal, ctx.result().kind);
+    ASSERT_EQ("168.5", ctx.result().dec_val->ToString());
 }
     
 } // namespace eval

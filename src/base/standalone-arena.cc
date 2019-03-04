@@ -1,4 +1,5 @@
 #include "base/standalone-arena.h"
+#include "base/slice.h"
 
 namespace mai {
     

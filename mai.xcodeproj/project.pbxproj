@@ -88,7 +88,6 @@
 		2364B31221E451F9008519AE /* delta-amend-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */; };
 		2364B31F21E451F9008519AE /* varint-encoding.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E14B218FDFED00F9E855 /* varint-encoding.cc */; };
 		2364B32221E451F9008519AE /* spin-locking.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0FE218841C500F9E855 /* spin-locking.cc */; };
-		2364B32521E451F9008519AE /* base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0D82187F90400F9E855 /* base.cc */; };
 		2364B32921E451F9008519AE /* slice.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA248219432BB007EF228 /* slice.cc */; };
 		2364B32B21E451F9008519AE /* hash.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12F218AFBCC00F9E855 /* hash.cc */; };
 		2364B32C21E451F9008519AE /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
@@ -119,7 +118,6 @@
 		2364B34A21E451F9008519AE /* tls-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20821C247B100C8D5B1 /* tls-test.cc */; };
 		2364B34B21E451F9008519AE /* reference-count-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16321927F6C00F9E855 /* reference-count-test.cc */; };
 		2364B34C21E451F9008519AE /* varint-encoding-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E14F218FE03600F9E855 /* varint-encoding-test.cc */; };
-		2364B34D21E451F9008519AE /* base-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0EE2187FB1400F9E855 /* base-test.cc */; };
 		2364B34E21E451F9008519AE /* io-utils-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F7219AA67C001A95C1 /* io-utils-test.cc */; };
 		2364B34F21E451F9008519AE /* ebr-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20B21C249E300C8D5B1 /* ebr-test.cc */; };
 		2364B35021E451F9008519AE /* arena-utils-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239E483D21E4475700F2FD48 /* arena-utils-test.cc */; };
@@ -195,7 +193,6 @@
 		23DE183221D088C300479C23 /* lru-cache-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236AC67621B7692B0069A17B /* lru-cache-v1.cc */; };
 		23DE183321D088D000479C23 /* varint-encoding.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E14B218FDFED00F9E855 /* varint-encoding.cc */; };
 		23DE183421D088D000479C23 /* spin-locking.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0FE218841C500F9E855 /* spin-locking.cc */; };
-		23DE183521D088D000479C23 /* base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0D82187F90400F9E855 /* base.cc */; };
 		23DE183621D088D000479C23 /* slice.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA248219432BB007EF228 /* slice.cc */; };
 		23DE183721D088D000479C23 /* hash.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12F218AFBCC00F9E855 /* hash.cc */; };
 		23DE183821D088D000479C23 /* standalone-arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* standalone-arena.cc */; };
@@ -388,12 +385,10 @@
 		23AE732321AAAB870065725A /* db-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-iterator.h"; sourceTree = "<group>"; };
 		23AE732421AAABC60065725A /* db-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "db-iterator.cc"; sourceTree = "<group>"; };
 		23B0E0D72187F90400F9E855 /* base.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = base.h; sourceTree = "<group>"; };
-		23B0E0D82187F90400F9E855 /* base.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = base.cc; sourceTree = "<group>"; };
 		23B0E0DE2187F9CD00F9E855 /* unit-test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "unit-test"; sourceTree = BUILT_PRODUCTS_DIR; };
 		23B0E0E82187FAF200F9E855 /* libglog.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libglog.a; path = "third-party/libs/libglog.a"; sourceTree = "<group>"; };
 		23B0E0E92187FAF200F9E855 /* libgflags.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libgflags.a; path = "third-party/libs/libgflags.a"; sourceTree = "<group>"; };
 		23B0E0EA2187FAF200F9E855 /* libgtest.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libgtest.a; path = "third-party/libs/libgtest.a"; sourceTree = "<group>"; };
-		23B0E0EE2187FB1400F9E855 /* base-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "base-test.cc"; sourceTree = "<group>"; };
 		23B0E0F9218833A600F9E855 /* key-boundle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-boundle.h"; sourceTree = "<group>"; };
 		23B0E0FC218840EC00F9E855 /* hash-map-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map-v1.h"; sourceTree = "<group>"; };
 		23B0E0FD218841C500F9E855 /* spin-locking.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "spin-locking.h"; sourceTree = "<group>"; };
@@ -702,7 +697,6 @@
 				23B0E0FE218841C500F9E855 /* spin-locking.cc */,
 				23B0E0FD218841C500F9E855 /* spin-locking.h */,
 				23B0E152218FE12000F9E855 /* bit-ops.h */,
-				23B0E0D82187F90400F9E855 /* base.cc */,
 				23B0E0D72187F90400F9E855 /* base.h */,
 				23B0E10B2189816300F9E855 /* allocators.h */,
 				23B0E12B218AED2E00F9E855 /* slice.h */,
@@ -929,7 +923,6 @@
 				2399D20821C247B100C8D5B1 /* tls-test.cc */,
 				23B0E16321927F6C00F9E855 /* reference-count-test.cc */,
 				23B0E14F218FE03600F9E855 /* varint-encoding-test.cc */,
-				23B0E0EE2187FB1400F9E855 /* base-test.cc */,
 				231C61F7219AA67C001A95C1 /* io-utils-test.cc */,
 				2399D20B21C249E300C8D5B1 /* ebr-test.cc */,
 				239E483D21E4475700F2FD48 /* arena-utils-test.cc */,
@@ -1245,7 +1238,6 @@
 				237F505121EB74390069075D /* zone.cc in Sources */,
 				2364B31F21E451F9008519AE /* varint-encoding.cc in Sources */,
 				2364B32221E451F9008519AE /* spin-locking.cc in Sources */,
-				2364B32521E451F9008519AE /* base.cc in Sources */,
 				2364B32921E451F9008519AE /* slice.cc in Sources */,
 				2364B32B21E451F9008519AE /* hash.cc in Sources */,
 				2364B32C21E451F9008519AE /* crc32.c in Sources */,
@@ -1285,7 +1277,6 @@
 				2364B34C21E451F9008519AE /* varint-encoding-test.cc in Sources */,
 				237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */,
 				23E0EB6D2225570D00A4D854 /* scoped-arena-test.cc in Sources */,
-				2364B34D21E451F9008519AE /* base-test.cc in Sources */,
 				2364B34E21E451F9008519AE /* io-utils-test.cc in Sources */,
 				2303D93721F863F300075A99 /* storage-engine-test.cc in Sources */,
 				2364B34F21E451F9008519AE /* ebr-test.cc in Sources */,
@@ -1325,7 +1316,6 @@
 				235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */,
 				23DE183321D088D000479C23 /* varint-encoding.cc in Sources */,
 				23DE183421D088D000479C23 /* spin-locking.cc in Sources */,
-				23DE183521D088D000479C23 /* base.cc in Sources */,
 				23DE183621D088D000479C23 /* slice.cc in Sources */,
 				23DE183721D088D000479C23 /* hash.cc in Sources */,
 				23DE183821D088D000479C23 /* standalone-arena.cc in Sources */,

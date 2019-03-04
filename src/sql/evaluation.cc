@@ -14,6 +14,7 @@ namespace sql {
 namespace eval {
     
 using sql::SQLDecimal;
+using base::Slice;
     
 static inline bool LogicXor(uint64_t lhs, uint64_t rhs) {
     if ((lhs && rhs) || (!lhs && !rhs)) {
@@ -119,6 +120,20 @@ static inline SQLDecimal *DoArithMod(const SQLDecimal *lhs,
     return re;
 }
     
+static inline void AdjustPrecision(SQLDecimal const**lhs,
+                                   SQLDecimal const**rhs, Context *ctx) {
+    const SQLDecimal *l = *lhs;
+    const SQLDecimal *r = *rhs;
+    
+    int max_exp = std::max(l->exp(), r->exp());
+    *lhs = l->NewPrecision(max_exp, ctx->arena());
+    *rhs = r->NewPrecision(max_exp, ctx->arena());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// class Value
+////////////////////////////////////////////////////////////////////////////////
+
 bool Value::IsZero() const {
     if (!is_number()) {
         return false;
@@ -138,10 +153,69 @@ bool Value::IsZero() const {
     }
     return false;
 }
+    
+static inline Value Str2U64(const AstString *str_val, base::Arena *arena) {
+    Value v;
+    int s = Slice::ParseU64(str_val->data(), str_val->size(), &v.u64_val);
+    DCHECK_GE(s, 0);
+    if (s > 0) {
+        v.kind = Value::kDecimal;
+        v.dec_val = SQLDecimal::NewDecLiteral(str_val->data(), str_val->size(),
+                                              arena);
+    } else {
+        v.kind = Value::kU64;
+    }
+    return v;
+}
+    
+static inline Value Str2H64(const AstString *str_val, bool sign, base::Arena *arena) {
+    DCHECK_EQ('0', str_val->data()[0]);
+    DCHECK_EQ('x', str_val->data()[1]);
+    Value v;
+    int s = Slice::ParseH64(str_val->data() + 2, str_val->size() - 2, &v.u64_val);
+    DCHECK_GE(s, 0);
+    if (s > 0) {
+        v.kind = Value::kDecimal;
+        v.dec_val = SQLDecimal::NewHexLiteral(str_val->data(), str_val->size(),
+                                              arena);
+    } else {
+        v.kind = sign ? Value::kI64 : Value::kU64;
+    }
+    return v;
+}
+    
+static inline Value Str2O64(const AstString *str_val, bool sign, base::Arena *arena) {
+    DCHECK_EQ('0', str_val->data()[0]);
+    Value v;
+    int s = Slice::ParseO64(str_val->data() + 1, str_val->size() - 1, &v.u64_val);
+    DCHECK_GE(s, 0);
+    if (s > 0) {
+        v.kind = Value::kDecimal;
+        v.dec_val = SQLDecimal::NewOctLiteral(str_val->data(), str_val->size(),
+                                              arena);
+    } else {
+        v.kind = sign ? Value::kI64 : Value::kU64;
+    }
+    return v;
+}
+    
+static inline Value Str2I64(const AstString *str_val, base::Arena *arena) {
+    Value v;
+    int s = Slice::ParseI64(str_val->data(), str_val->size(), &v.i64_val);
+    DCHECK_GE(s, 0);
+    if (s > 0) {
+        v.kind = Value::kDecimal;
+        v.dec_val = SQLDecimal::NewDecLiteral(str_val->data(), str_val->size(),
+                                              arena);
+    } else {
+        v.kind = Value::kI64;
+    }
+    return v;
+}
 
 Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
     Value v;
-    v.kind    = kI64;
+    v.kind = kI64;
     v.i64_val = 0;
     
     int rv = 0;
@@ -153,11 +227,11 @@ Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
         case kI64:
             switch (hint) {
                 case kU64:
-                    v.kind    = kU64;
+                    v.kind = kU64;
                     v.u64_val = static_cast<uint64_t>(i64_val);
                     break;
-                case Value::kDecimal:
-                    v.kind    = kDecimal;
+                case kDecimal:
+                    v.kind = kDecimal;
                     v.dec_val = SQLDecimal::NewI64(i64_val, arena);
                     break;
                 default:
@@ -168,11 +242,11 @@ Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
         case kU64:
             switch (hint) {
                 case kI64:
-                    v.kind    = kI64;
+                    v.kind = kI64;
                     v.i64_val = static_cast<int64_t>(u64_val);
                     break;
                 case kDecimal:
-                    v.kind    = kDecimal;
+                    v.kind = kDecimal;
                     v.dec_val = SQLDecimal::NewI64(u64_val, arena);
                     break;
                 default:
@@ -181,21 +255,11 @@ Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
             break;
             
         case kDecimal:
-            switch (hint) {
-                case kI64:
-                    v.kind = kI64;
-                    v.i64_val = dec_val->ToI64();
-                    break;
-                case kU64:
-                    v.kind = kU64;
-                    v.u64_val = dec_val->ToU64();
-                    break;
-                case kF64:
-                    v.kind = kF64;
-                    v.f64_val = dec_val->ToF64();
-                    break;
-                default:
-                    return *this;
+            if (hint == kF64) {
+                v.kind = kF64;
+                v.f64_val = dec_val->ToF64();
+            } else {
+                return *this;
             }
             break;
             
@@ -229,40 +293,39 @@ Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
                 default:
                     break;
             }
-            rv = base::Slice::LikeNumber(str_val->data(), str_val->size());
+            rv = Slice::LikeNumber(str_val->data(), str_val->size());
             switch (rv) {
                 case 'd':
                     if (hint == kI64) {
-                        v.kind = kI64;
-                        v.i64_val = atoll(str_val->data());
+                        v = Str2I64(str_val, arena);
                     } else {
-                        v.kind = kU64;
-                        v.u64_val = atoll(str_val->data());
+                        v = Str2U64(str_val, arena);
                     }
                     break;
                 case 's':
                     if (hint == kU64) {
-                        v.kind = kU64;
-                        v.u64_val = atoll(str_val->data());
+                        v = Str2U64(str_val, arena);
                     } else {
-                        v.kind = kI64;
-                        v.i64_val = atoll(str_val->data());
+                        v = Str2I64(str_val, arena);
                     }
                     break;
                 case 'o':
-                    // TODO:
-                    v.kind = kU64;
-                    v.u64_val = 0;
+                    v = Str2O64(str_val, hint == kI64, arena);
                     break;
                 case 'h':
-                    // TODO:
-                    v.kind = kU64;
-                    v.u64_val = 0;
+                    v = Str2H64(str_val, hint == kI64, arena);
                     break;
                 case 'f':
+                    v.kind = kDecimal;
+                    v.dec_val = SQLDecimal::NewRealLiteral(str_val->data(),
+                                                           str_val->size(),
+                                                           arena);
+                    break;
                 case 'e':
-                    v.kind = kF64;
-                    v.f64_val = atof(str_val->data());
+                    v.kind = kDecimal;
+                    v.dec_val = SQLDecimal::NewExpLiteral(str_val->data(),
+                                                          str_val->size(),
+                                                          arena);
                     break;
                 default:
                     v.kind = kU64;
@@ -432,7 +495,7 @@ int Value::Compare(const Value &rhs, base::Arena *arena) const {
             return COMPARE_VAL(f64_val, r.f64_val);
         case kI64:
             r = rhs.ToIntegral(arena);
-            if (r.kind == Value::kI64) {
+            if (r.kind == kI64) {
                 return COMPARE_VAL(i64_val, r.i64_val);
             } else {
                 if (i64_val < 0) {
@@ -443,7 +506,7 @@ int Value::Compare(const Value &rhs, base::Arena *arena) const {
             }
         case kU64:
             r = rhs.ToIntegral(arena);
-            if (r.kind == Value::kU64) {
+            if (r.kind == kU64) {
                 return COMPARE_VAL(u64_val, r.u64_val);
             } else {
                 if (r.i64_val < 0) {
@@ -642,6 +705,7 @@ Operation::Operation(SQLOperator op, Expression *lhs,
                         rv.f64_val = op(lhs.f64_val, rhs.f64_val, ctx); \
                         break; \
                     case Value::kDecimal: \
+                        AdjustPrecision(&lhs.dec_val, &rhs.dec_val, ctx); \
                         rv.dec_val = op(lhs.dec_val, rhs.dec_val, ctx); \
                         break; \
                     default: \
