@@ -225,51 +225,33 @@ Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
             return *this;
             
         case kI64:
-            switch (hint) {
-                case kU64:
-                    v.kind = kU64;
-                    v.u64_val = static_cast<uint64_t>(i64_val);
-                    break;
-                case kDecimal:
-                    v.kind = kDecimal;
-                    v.dec_val = SQLDecimal::NewI64(i64_val, arena);
-                    break;
-                default:
-                    return *this;
-            }
-            break;
-            
-        case kU64:
-            switch (hint) {
-                case kI64:
-                    v.kind = kI64;
-                    v.i64_val = static_cast<int64_t>(u64_val);
-                    break;
-                case kDecimal:
-                    v.kind = kDecimal;
-                    v.dec_val = SQLDecimal::NewI64(u64_val, arena);
-                    break;
-                default:
-                    return *this;
-            }
-            break;
-            
-        case kDecimal:
-            if (hint == kF64) {
-                v.kind = kF64;
-                v.f64_val = dec_val->ToF64();
+            if (hint == kU64) {
+                v.kind = kU64;
+                v.u64_val = static_cast<uint64_t>(i64_val);
             } else {
                 return *this;
             }
             break;
+            
+        case kU64:
+            if (hint == kI64) {
+                v.kind = kI64;
+                v.i64_val = static_cast<int64_t>(u64_val);
+            } else {
+                return *this;
+            }
+            break;
+            
+        case kDecimal:
+            return *this;
             
         case kString:
             switch (hint) {
                 case kDate:
                 case kTime:
                 case kDateTime:
-                    rv = SQLTimeUtils::Parse(str_val->data(), str_val->size(),
-                                             &v.dt_val);
+                    v.dt_val.time.micros = 0;
+                    rv = SQLTimeUtils::Parse(str_val->data(), str_val->size(), &v.dt_val);
                     if (rv == 'd') {
                         v.kind = kDate;
                     } else if (rv == 't') {
@@ -282,14 +264,6 @@ Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
                         return v;
                     }
                     break;
-                case kDecimal:
-                    v.kind = kDecimal;
-                    v.dec_val = SQLDecimal::NewParsed(str_val->data(),
-                                                      str_val->size(), arena);
-                    if (!v.dec_val) {
-                        v.dec_val = SQLDecimal::NewU64(0, arena);
-                    }
-                    return v;
                 default:
                     break;
             }
@@ -317,15 +291,11 @@ Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
                     break;
                 case 'f':
                     v.kind = kDecimal;
-                    v.dec_val = SQLDecimal::NewRealLiteral(str_val->data(),
-                                                           str_val->size(),
-                                                           arena);
+                    v.dec_val = SQLDecimal::NewRealLiteral(str_val->data(), str_val->size(), arena);
                     break;
                 case 'e':
                     v.kind = kDecimal;
-                    v.dec_val = SQLDecimal::NewExpLiteral(str_val->data(),
-                                                          str_val->size(),
-                                                          arena);
+                    v.dec_val = SQLDecimal::NewExpLiteral(str_val->data(), str_val->size(), arena);
                     break;
                 default:
                     v.kind = kU64;
@@ -343,10 +313,6 @@ Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
                 case kTime:
                     v.kind = kU64;
                     v.u64_val = SQLTimeUtils::ConvertToTime(dt_val.date).ToU64();
-                    break;
-                case kDecimal:
-                    v.kind = kDecimal;
-                    v.dec_val = SQLDecimal::NewU64(dt_val.date.ToU64(), arena);
                     break;
                 default:
                     v.kind = kU64;
@@ -366,8 +332,13 @@ Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
                     v.u64_val = SQLTimeUtils::ConvertToDate(dt_val.time).ToU64();
                     break;
                 default:
-                    v.kind = kDecimal;
-                    v.dec_val = dt_val.time.ToDecimal(arena);
+                    if (dt_val.time.micros > 0) {
+                        v.kind = kDecimal;
+                        v.dec_val = dt_val.time.ToDecimal(arena);
+                    } else {
+                        v.kind = kU64;
+                        v.u64_val = dt_val.time.ToU64();
+                    }
                     break;
             }
             break;
@@ -383,13 +354,19 @@ Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
                     v.u64_val = SQLTimeUtils::ConvertToDate(dt_val).ToU64();
                     break;
                 default:
-                    v.kind = kDecimal;
-                    v.dec_val = dt_val.ToDecimal(arena);
+                    if (dt_val.time.micros > 0) {
+                        v.kind = kDecimal;
+                        v.dec_val = dt_val.ToDecimal(arena);
+                    } else {
+                        v.kind = kU64;
+                        v.u64_val = dt_val.ToU64();
+                    }
                     break;
             }
             break;
 
         default:
+            DLOG(FATAL) << "Noreached!";
             break;
     }
     return v;
@@ -418,6 +395,7 @@ Value Value::ToIntegral(base::Arena *arena, Kind hint) const {
             }
             break;
         default:
+            DLOG(FATAL) << "Noreached!";
             break;
     }
     return v;
@@ -443,6 +421,32 @@ Value Value::ToFloating(base::Arena *arena, Kind hint) const {
             v.f64_val = v.dec_val->ToF64();
             break;
         default:
+            DLOG(FATAL) << "Noreached!";
+            break;
+    }
+    return v;
+}
+    
+Value Value::ToDecimal(base::Arena *arena, Kind hint) const {
+    Value v = ToNumeric(arena, hint);
+    switch (v.kind) {
+        case kNull:
+            break;
+        case kF64:
+            DLOG(FATAL) << "f64 can nto convert to decimal.";
+            break;
+        case kI64:
+            v.kind = kDecimal;
+            v.dec_val = SQLDecimal::NewI64(v.i64_val, arena);
+            break;
+        case kU64:
+            v.kind = kDecimal;
+            v.dec_val = SQLDecimal::NewU64(v.u64_val, arena);
+            break;
+        case kDecimal:
+            break;
+        default:
+            DLOG(FATAL) << "Noreached!";
             break;
     }
     return v;
@@ -458,8 +462,7 @@ bool Value::StrictEquals(const Value &v) const {
         case kI64:
             return v.kind == kind && v.i64_val == i64_val;
         case kString:
-            return v.kind == kind && ::strncmp(v.str_val->data(),
-                                               str_val->data(),
+            return v.kind == kind && ::strncmp(v.str_val->data(), str_val->data(),
                                                str_val->size()) == 0;
         case kDecimal:
             return v.kind == kind && v.dec_val->Compare(dec_val) == 0;
@@ -469,9 +472,9 @@ bool Value::StrictEquals(const Value &v) const {
             return v.kind == kind && ::memcmp(&dt_val.time, &v.dt_val.time,
                                               sizeof(SQLTime)) == 0;
         case kDateTime:
-            return v.kind == kind && ::memcmp(&dt_val, &v.dt_val,
-                                              sizeof(SQLDateTime)) == 0;
+            return v.kind == kind && ::memcmp(&dt_val, &v.dt_val, sizeof(SQLDateTime)) == 0;
         default:
+            DLOG(FATAL) << "Noreached!";
             break;
     }
     return false;
@@ -517,8 +520,7 @@ int Value::Compare(const Value &rhs, base::Arena *arena) const {
             }
         case kString:
             if (rhs.kind == kString) {
-                return ::strncmp(str_val->data(), rhs.str_val->data(),
-                                 str_val->size());
+                return ::strncmp(str_val->data(), rhs.str_val->data(), str_val->size());
             }
             return -rhs.Compare(*this, arena);
         case kDecimal:
@@ -556,8 +558,7 @@ int Value::Compare(const Value &rhs, base::Arena *arena) const {
     return Error::OK();
 }
 
-Operation::Operation(SQLOperator op, Expression *lhs,
-                     const std::vector<Expression *> &rhs,
+Operation::Operation(SQLOperator op, Expression *lhs, const std::vector<Expression *> &rhs,
                      base::Arena *arena)
     : op_(op)
     , operands_count_(1 + rhs.size()) {
@@ -874,8 +875,7 @@ Operation::Operation(SQLOperator op, Expression *lhs,
 
 class EvalExpressionBuilder : public ast::VisitorWithStack<eval::Expression *> {
 public:
-    EvalExpressionBuilder(const VirtualSchema *env,
-                          ast::ErrorBreakListener *listener,
+    EvalExpressionBuilder(const VirtualSchema *env, ast::ErrorBreakListener *listener,
                           eval::Factory *factory)
         : ast::VisitorWithStack<eval::Expression *>(DCHECK_NOTNULL(listener))
         , env_(env)
@@ -984,17 +984,15 @@ private:
 }; // class EvalExpressionBuilder
     
 /*static*/ eval::Expression *
-Evaluation::BuildExpression(const VirtualSchema *env, ast::Expression *ast,
-                            base::Arena *arena) {
+Evaluation::BuildExpression(const VirtualSchema *env, ast::Expression *ast, base::Arena *arena) {
     eval::Expression *result = nullptr;
     auto rs = BuildExpression(env, ast, arena, &result);
     return !rs ? nullptr : result;
 }
     
 /*static*/ Error
-Evaluation::BuildExpression(const VirtualSchema *env, ast::Expression *ast,
-                            base::Arena *arena, eval::Expression **result) {
-    
+Evaluation::BuildExpression(const VirtualSchema *env, ast::Expression *ast, base::Arena *arena,
+                            eval::Expression **result) {
     eval::Factory factory(arena);
     ast::ErrorBreakVisitor box;
     EvalExpressionBuilder builder(env, &box, &factory);

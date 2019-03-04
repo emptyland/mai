@@ -180,15 +180,14 @@ Error DBImpl::Open(const std::vector<ColumnFamilyDescriptor> &desc,
         }
     }
     if (rs.ok()) {
-        ColumnFamily *cf = new ColumnFamilyHandle(this,
-                                                  column_familes->GetDefault());
+        ColumnFamily *cf = new ColumnFamilyHandle(this, column_familes->GetDefault());
         default_cf_.reset(cf);
     }
     
     flush_worker_ = std::thread([&](){ this->FlushWork(); });
     return rs;
 }
-    
+
 Error DBImpl::NewDB(const std::vector<ColumnFamilyDescriptor> &desc) {
     Error rs = env_->FileExists(abs_db_path_);
     if (!rs) {
@@ -210,21 +209,18 @@ Error DBImpl::NewDB(const std::vector<ColumnFamilyDescriptor> &desc) {
     // No default column family
     auto iter = cf_opts.find(kDefaultColumnFamilyName);
     if (iter == cf_opts.end()) {
-        versions_->column_families()->NewColumnFamily(options_,
-                                                      kDefaultColumnFamilyName,
-                                                      0, versions_.get());
+        versions_->column_families()->NewColumnFamily(options_, kDefaultColumnFamilyName, 0,
+                                                      versions_.get());
     } else {
-        versions_->column_families()->NewColumnFamily(iter->second,
-                                                      kDefaultColumnFamilyName,
-                                                      0, versions_.get());
+        versions_->column_families()->NewColumnFamily(iter->second, kDefaultColumnFamilyName, 0,
+                                                      versions_.get());
     }
     for (const auto &opt : cf_opts) {
         if (opt.first.compare(kDefaultColumnFamilyName) == 0) {
             continue;
         }
         uint32_t cfid = versions_->column_families()->NextColumnFamilyId();
-        versions_->column_families()->NewColumnFamily(opt.second, opt.first,
-                                                      cfid, versions_.get());
+        versions_->column_families()->NewColumnFamily(opt.second, opt.first, cfid, versions_.get());
     }
     for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
         rs = cfd->Install(factory_.get());
@@ -324,10 +320,7 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
     DLOG(INFO) << "Replay ok, last version: "
                << versions_->last_sequence_number();
 
-    rs = env_->NewWritableFile(Files::LogFileName(abs_db_path_,
-                                                  log_file_number_),
-                               true,
-                               &log_file_);
+    rs = env_->NewWritableFile(Files::LogFileName(abs_db_path_, log_file_number_), true, &log_file_);
     if (!rs) {
         return rs;
     }
@@ -345,7 +338,7 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
 /*virtual*/ Error DBImpl::NewColumnFamily(const std::string &name,
                                           const ColumnFamilyOptions &options,
                                           ColumnFamily **result) {
-    // Locking versions---------------------------------------------------------
+    // Locking versions-----------------------------------------------------------------------------
     std::unique_lock<std::mutex> lock(mutex_);
     uint32_t cfid;
     Error rs = InternalNewColumnFamily(name, options, &cfid);
@@ -362,7 +355,7 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
     DCHECK(cfd->initialized());
     *result = new ColumnFamilyHandle(this, cfd);
     return rs;
-    // Unlocking versions-------------------------------------------------------
+    // Unlocking versions---------------------------------------------------------------------------
 }
     
 /*virtual*/ Error DBImpl::DropColumnFamily(ColumnFamily *cf) {
@@ -417,7 +410,7 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
 DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     DCHECK_NOTNULL(result)->clear();
     
-    // Locking versions---------------------------------------------------------
+    // Locking versions-----------------------------------------------------------------------------
     std::unique_lock<std::mutex> lock(mutex_);
     for (auto impl : *versions_->column_families()) {
         if (!impl->dropped()) { // No dropped!
@@ -426,7 +419,7 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
         }
     }
     return Error::OK();
-    // Unlocking versions-------------------------------------------------------
+    // Unlocking versions---------------------------------------------------------------------------
 }
     
 /*virtual*/ Error DBImpl::Put(const WriteOptions &opts, ColumnFamily *cf,
@@ -449,8 +442,8 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     return WriteImpl(opts, updates, nullptr);
 }
     
-/*virtual*/ Error DBImpl::Get(const ReadOptions &opts, ColumnFamily *cf,
-                  std::string_view key, std::string *value) {
+/*virtual*/ Error DBImpl::Get(const ReadOptions &opts, ColumnFamily *cf, std::string_view key,
+                              std::string *value) {
     
     using core::Tag;
     
@@ -506,9 +499,7 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
     snapshots_.DeleteSnapshot(const_cast<SnapshotImpl *>(impl));
 }
     
-/*virtual*/ ColumnFamily *DBImpl::DefaultColumnFamily() {
-    return default_cf_.get();
-}
+/*virtual*/ ColumnFamily *DBImpl::DefaultColumnFamily() { return default_cf_.get(); }
     
 /*virtual*/ Error DBImpl::GetProperty(std::string_view property,
                                       std::string *value) {
@@ -533,8 +524,7 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
         value->erase(value->size() - 1, 1);
     } else if (property == "db.log.total-size") {
         
-        *value = base::Sprintf("%" PRIu64,
-                               total_wal_size_.load(std::memory_order_acquire));
+        *value = base::Sprintf("%" PRIu64, total_wal_size_.load(std::memory_order_acquire));
     } else if (property == "db.bkg.jobs") {
         
         *value = base::Sprintf("%d", bkg_active_.load());
@@ -548,8 +538,7 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
         property.remove_prefix(6);
         size_t n = property.find('.');
         std::string cf_name(property.substr(0, n));
-        ColumnFamilyImpl *cfd =
-            versions_->column_families()->GetColumnFamily(cf_name);
+        ColumnFamilyImpl *cfd = versions_->column_families()->GetColumnFamily(cf_name);
         if (!cfd) {
             return MAI_CORRUPTION(base::Sprintf("Column family: %s not found.",
                                                 cf_name.c_str()));
@@ -573,8 +562,7 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
             value->append("+--------------------------------------------+\n");
         }
     } else {
-        return MAI_CORRUPTION(base::Sprintf("Incorrect property name: %.*s",
-                                            int(property.size()),
+        return MAI_CORRUPTION(base::Sprintf("Incorrect property name: %.*s", int(property.size()),
                                             property.data()));
     }
 
@@ -651,9 +639,7 @@ Iterator *DBImpl::NewInternalIterator(const ReadOptions &opts,
         return Iterator::AsError(rs);
     }
 
-    Iterator *internal = core::Merging::NewMergingIterator(cfd->ikcmp(),
-                                                           &iters[0],
-                                                           iters.size());
+    Iterator *internal = core::Merging::NewMergingIterator(cfd->ikcmp(), &iters[0], iters.size());
     // No need register cleanup:
     // Memory table's iterator can cleanup itself reference count.
     return internal;
@@ -664,8 +650,7 @@ core::SequenceNumber DBImpl::GetLatestSequenceNumber() {
     return versions_->last_sequence_number();
 }
     
-Error DBImpl::GetColumnFamilyImpl(uint32_t cfid,
-                                  base::intrusive_ptr<ColumnFamilyImpl> *result) {
+Error DBImpl::GetColumnFamilyImpl(uint32_t cfid, base::intrusive_ptr<ColumnFamilyImpl> *result) {
     
     auto impl = versions_->column_families()->GetColumnFamily(cfid);
     if (!impl) {

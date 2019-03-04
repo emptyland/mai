@@ -58,12 +58,7 @@ struct Value {
     Value ToNumeric(base::Arena *arena, Kind hint = kNull) const;
     Value ToIntegral(base::Arena *arena, Kind hint = kNull) const;
     Value ToFloating(base::Arena *arena, Kind hint = kNull) const;
-
-    Value ToDecimal(base::Arena *arena, Kind hint = kNull) const {
-        Value v = ToNumeric(arena, kDecimal);
-        DCHECK(v.is_decimal());
-        return v;
-    }
+    Value ToDecimal(base::Arena *arena, Kind hint = kNull) const;
     
     bool StrictEquals(const Value &rhs) const;
     int Compare(const Value &rhs, base::Arena *arena = nullptr) const;

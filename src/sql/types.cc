@@ -57,7 +57,7 @@ SQLDecimal *SQLDateTime::ToDecimal(base::Arena *arena) const {
     ::localtime_r(&t, &m);
     return {
         {
-            static_cast<uint32_t>(m.tm_year),
+            static_cast<uint32_t>(m.tm_year) + 1900,
             static_cast<uint32_t>(m.tm_mon),
             static_cast<uint32_t>(m.tm_mday)
         }, {

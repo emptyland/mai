@@ -69,6 +69,207 @@ public:
     Factory factory_;
 };
     
+TEST_F(EvaluationTest, I64ToNumeric) {
+    Value v;
+    v.kind = Value::kI64;
+    v.i64_val = 991;
+    
+    Value r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kI64, r.kind);
+    ASSERT_EQ(991, r.i64_val);
+    
+    r = v.ToNumeric(&arena_, Value::kU64);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(991, r.u64_val);
+}
+
+TEST_F(EvaluationTest, U64ToNumeric) {
+    Value v;
+    v.kind = Value::kU64;
+    v.u64_val = 991;
+    
+    Value r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(991, r.u64_val);
+    
+    r = v.ToNumeric(&arena_, Value::kI64);
+    ASSERT_EQ(Value::kI64, r.kind);
+    ASSERT_EQ(991, r.i64_val);
+}
+    
+TEST_F(EvaluationTest, F64ToNumeric) {
+    Value v;
+    v.kind = Value::kF64;
+    v.f64_val = 991.123;
+    
+    Value r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kF64, r.kind);
+    ASSERT_EQ(991.123, r.f64_val);
+}
+    
+TEST_F(EvaluationTest, StringToNumeric) {
+    Value v;
+    v.kind = Value::kString;
+    v.str_val = AstString::New(&arena_, "123456");
+    
+    Value r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(123456, r.u64_val);
+    
+    v.str_val = AstString::New(&arena_, "-123456");
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kI64, r.kind);
+    ASSERT_EQ(-123456, r.i64_val);
+    
+    v.str_val = AstString::New(&arena_, "hello");
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(0, r.u64_val);
+    
+    //UINT64_MAX
+    v.str_val = AstString::New(&arena_, "18446744073709551615");
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(18446744073709551615ULL, r.u64_val);
+    
+    v.str_val = AstString::New(&arena_, "18446744073709551616");
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kDecimal, r.kind);
+    ASSERT_EQ("18446744073709551616", r.dec_val->ToString());
+    
+    v.str_val = AstString::New(&arena_, "0xfedcba3210");
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(0xfedcba3210, r.u64_val);
+    
+    v.str_val = AstString::New(&arena_, "0x10000000000000000");
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kDecimal, r.kind);
+    ASSERT_EQ("10000000000000000", r.dec_val->ToString(16));
+    
+    v.str_val = AstString::New(&arena_, "017777777");
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(017777777, r.u64_val);
+    
+    v.str_val = AstString::New(&arena_, "0.00123");
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kDecimal, r.kind);
+    ASSERT_EQ("0.00123", r.dec_val->ToString());
+    
+    v.str_val = AstString::New(&arena_, "-1.23e-3");
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kDecimal, r.kind);
+    ASSERT_EQ("-0.00123", r.dec_val->ToString());
+}
+    
+TEST_F(EvaluationTest, StringToNumericHint) {
+    Value v;
+    v.kind = Value::kString;
+    v.str_val = AstString::New(&arena_, "12:34:55.1");
+    Value r = v.ToNumeric(&arena_, Value::kTime);
+    ASSERT_EQ(Value::kDecimal, r.kind);
+    ASSERT_EQ("123455.1", r.dec_val->ToString());
+    
+    v.str_val = AstString::New(&arena_, "12:34:55");
+    r = v.ToNumeric(&arena_, Value::kTime);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(123455, r.u64_val);
+    
+    v.str_val = AstString::New(&arena_, "2019-02-14");
+    r = v.ToNumeric(&arena_, Value::kDate);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(20190214, r.u64_val);
+    
+    v.str_val = AstString::New(&arena_, "2019-02-14 12:34:55.1");
+    r = v.ToNumeric(&arena_, Value::kDateTime);
+    ASSERT_EQ(Value::kDecimal, r.kind);
+    ASSERT_EQ("20190214123455.1", r.dec_val->ToString());
+    
+    v.str_val = AstString::New(&arena_, "2019-02-14 12:34:55");
+    r = v.ToNumeric(&arena_, Value::kDateTime);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(20190214123455ULL, r.u64_val);
+    
+    v.str_val = AstString::New(&arena_, "-1.23e-3");
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kDecimal, r.kind);
+    ASSERT_EQ("-0.00123", r.dec_val->ToString());
+}
+    
+TEST_F(EvaluationTest, DecimalToNumeric) {
+    Value v;
+    v.kind = Value::kDecimal;
+    v.dec_val = SQLDecimal::NewI64(-1, &arena_);
+    
+    Value r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kDecimal, r.kind);
+    ASSERT_EQ(-1, r.dec_val->ToI64());
+}
+    
+TEST_F(EvaluationTest, DateToNumeric) {
+    Value v;
+    v.kind = Value::kDate;
+    v.dt_val.date = {2019, 2, 14};
+    Value r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(20190214, r.u64_val);
+    
+    r = v.ToNumeric(&arena_, Value::kTime);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(0, r.u64_val);
+    
+    r = v.ToNumeric(&arena_, Value::kDateTime);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(20190214000000, r.u64_val);
+}
+    
+TEST_F(EvaluationTest, TimeToNumeric) {
+    Value v;
+    v.kind = Value::kTime;
+    v.dt_val.time = {12, 32, 60, 0};
+    Value r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(123260, r.u64_val);
+    
+    r = v.ToNumeric(&arena_, Value::kDate);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(SQLDate::Now().ToU64(), r.u64_val);
+    
+    r = v.ToNumeric(&arena_, Value::kDateTime);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(SQLDate::Now().ToU64() * 1000000 + 123260, r.u64_val);
+    
+    v.dt_val.time = {12, 32, 60, 0, 999999};
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kDecimal, r.kind);
+    ASSERT_EQ("123260.999999", r.dec_val->ToString());
+}
+    
+TEST_F(EvaluationTest, DateTimeToNumeric) {
+    Value v;
+    v.kind = Value::kDateTime;
+    v.dt_val.date = {2019, 2, 14};
+    v.dt_val.time = {12, 32, 60, 0};
+    Value r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(20190214123260, r.u64_val);
+    
+    r = v.ToNumeric(&arena_, Value::kTime);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(123260, r.u64_val);
+    
+    r = v.ToNumeric(&arena_, Value::kDate);
+    ASSERT_EQ(Value::kU64, r.kind);
+    ASSERT_EQ(20190214, r.u64_val);
+    
+    v.dt_val.date = {2019, 2, 14};
+    v.dt_val.time = {12, 32, 60, 0, 100000};
+    r = v.ToNumeric(&arena_);
+    ASSERT_EQ(Value::kDecimal, r.kind);
+    ASSERT_EQ("20190214123260.1", r.dec_val->ToString());
+}
+    
 TEST_F(EvaluationTest, Sanity) {
     auto lhs = factory_.NewConstI64(100);
     auto expr = factory_.NewUnary(SQL_MINUS, lhs);
