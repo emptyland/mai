@@ -2,7 +2,7 @@
 #include "sql/ast.h"
 #include "sql/ast-factory.h"
 #include "core/decimal-v2.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 
@@ -206,7 +206,6 @@ TEST_F(SQLParserTest, SampleSelect) {
     auto column = stmt->columns()->at(0);
     ASSERT_TRUE(column->alias()->empty());
     ASSERT_TRUE(column->expr()->IsPlaceholder());
-    ASSERT_TRUE(Placeholder::Cast(column->expr())->is_star());
     
     auto from = NameRelation::Cast(stmt->from_clause());
     ASSERT_NE(nullptr, from);

@@ -2,7 +2,7 @@
 #define MAI_TXN_WRITE_BATCH_WITH_INDEX_H_
 
 #include "core/skip-list.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "base/base.h"
 #include "mai/write-batch.h"
 #include <unordered_map>

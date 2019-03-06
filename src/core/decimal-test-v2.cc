@@ -1,6 +1,6 @@
 #include "core/decimal-v2.h"
 #include "base/slice.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 
@@ -246,6 +246,28 @@ TEST_F(DecimalV2Test, Add) {
     rhs = Decimal::NewParsed("0.5", &arena_);
     rv = lhs->Add(rhs, &arena_);
     EXPECT_EQ(1, rv->ToI64());
+}
+    
+TEST_F(DecimalV2Test, AddSelf) {
+    size_t cap = (Decimal::GetNumberOfBits(65, 10) + 31) / 32;
+    auto lhs = Decimal::NewUninitialized(cap, &arena_);
+    lhs->set_offset(cap);
+    lhs->set_negative_and_exp(false, 0);
+    
+    
+    auto rhs = Decimal::NewU64(UINT64_MAX, &arena_);
+    rhs->set_negative_and_exp(false, 0);
+    lhs->Add(rhs);
+    EXPECT_EQ("18446744073709551615", lhs->ToString());
+    
+    lhs->Add(rhs);
+    EXPECT_EQ("36893488147419103230", lhs->ToString());
+    
+    lhs->Add(rhs);
+    EXPECT_EQ("55340232221128654845", lhs->ToString());
+    
+    lhs->Add(rhs);
+    EXPECT_EQ("73786976294838206460", lhs->ToString());
 }
 
 TEST_F(DecimalV2Test, Sub) {

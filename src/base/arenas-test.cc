@@ -1,4 +1,4 @@
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "base/zone.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
@@ -130,6 +130,70 @@ TEST_F(ArenaTest, ZoneNewArena) {
     x[0] = 4;
     ASSERT_EQ(x, static_cast<char *>(p) + 8);
     ASSERT_EQ(0, reinterpret_cast<uintptr_t>(x) % 8);
+}
+    
+TEST_F(ArenaTest, ScopedSanity) {
+    ScopedArena arena;
+    
+    uint8_t *p = static_cast<uint8_t *>(arena.Allocate(12));
+    uint8_t *x = static_cast<uint8_t *>(arena.Allocate(4));
+    ASSERT_EQ(12, x - p);
+    
+    p = static_cast<uint8_t *>(arena.Allocate(4));
+    ASSERT_EQ(4, p - x);
+}
+
+TEST_F(ArenaTest, ScopedLargeAllocation) {
+    ScopedArena arena;
+    
+    uint8_t *p = static_cast<uint8_t *>(arena.Allocate(12));
+    ASSERT_NE(nullptr, p);
+    ASSERT_TRUE(arena.chunks_.empty());
+    
+    p = static_cast<uint8_t *>(arena.Allocate(arraysize(arena.buf_) + 1));
+    ASSERT_NE(nullptr, p);
+    ASSERT_EQ(1, arena.chunks_.size());
+    ASSERT_EQ(p, arena.chunks_[0]);
+}
+
+TEST_F(ArenaTest, ScopedTotalBufAllocation) {
+    ScopedArena arena;
+    
+    uint8_t *p = static_cast<uint8_t *>(arena.Allocate(arraysize(arena.buf_)));
+    ASSERT_NE(nullptr, p);
+    ASSERT_TRUE(arena.chunks_.empty());
+    ASSERT_EQ(p, arena.buf_);
+    
+    p = static_cast<uint8_t *>(arena.Allocate(4));
+    ASSERT_NE(nullptr, p);
+    ASSERT_EQ(1, arena.chunks_.size());
+    ASSERT_EQ(p, arena.chunks_[0]);
+}
+
+TEST_F(ArenaTest, StaticSanity) {
+    StaticArena<> arena;
+    
+    uint8_t *p = static_cast<uint8_t *>(arena.Allocate(12, 4));
+    ASSERT_EQ(0, reinterpret_cast<uintptr_t>(p) % 4);
+    uint8_t *x = static_cast<uint8_t *>(arena.Allocate(4, 4));
+    ASSERT_EQ(0, reinterpret_cast<uintptr_t>(x) % 4);
+    ASSERT_EQ(12, x - p);
+    
+    p = static_cast<uint8_t *>(arena.Allocate(4));
+    ASSERT_EQ(4, p - x);
+    
+    x = static_cast<uint8_t *>(arena.Allocate(1, 8));
+    ASSERT_EQ(0, reinterpret_cast<uintptr_t>(x) % 8);
+}
+
+TEST_F(ArenaTest, StaticOverflowAllocation) {
+    StaticArena<> arena;
+    
+    uint8_t *p = static_cast<uint8_t *>(arena.Allocate(StaticArena<>::kLimitSize));
+    ASSERT_NE(nullptr, p);
+    
+    uint8_t *x = static_cast<uint8_t *>(arena.Allocate(1));
+    ASSERT_EQ(nullptr, x);
 }
     
 } // namespace base

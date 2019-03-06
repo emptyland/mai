@@ -1,5 +1,5 @@
 #include "core/skip-list.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 #include <stdio.h>

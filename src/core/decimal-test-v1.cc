@@ -1,6 +1,6 @@
 #include "core/decimal-v1.h"
 #include "base/slice.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 

@@ -4,11 +4,11 @@
 #include "sql/parser.h"
 #include "sql/evaluation.h"
 #include "db/write-ahead-log.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "base/hash.h"
 #include "base/slice.h"
 #include "base/io-utils.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "mai/env.h"
 
 namespace mai {

@@ -837,7 +837,7 @@ Simple : Identifier {
     $$ = ctx->factory->NewCall($1, $3, $4, Location::Concat(@1, @5));
 } 
 | '?' {
-    $$ = ctx->factory->NewParamPlaceholder(@1);
+    $$ = ctx->factory->NewBindPlaceholder(@1);
 }
 | '-' Simple {
     $$ = ctx->factory->NewUnaryExpression(SQL_MINUS, $2, Location::Concat(@1, @2));

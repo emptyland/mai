@@ -1,5 +1,5 @@
 #include "core/hash-map-v2.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 #include <thread>

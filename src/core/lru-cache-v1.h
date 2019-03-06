@@ -2,7 +2,7 @@
 #define MAI_CORE_LRU_CACHE_V1_H_
 
 #include "core/hash-map-v2.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "base/reference-count.h"
 #include "mai/allocator.h"
 #include "mai/error.h"

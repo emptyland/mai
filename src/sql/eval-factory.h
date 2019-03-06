@@ -54,16 +54,28 @@ public:
     }
     
     Operation *NewUnary(SQLOperator op, Expression *operand) {
-        return new (arena_) Operation(op, operand);
+        auto opt = NewOperation(op, 1);
+        opt->set_operand(0, operand);
+        return opt;
     }
     
     Operation *NewBinary(SQLOperator op, Expression *lhs, Expression *rhs) {
-        return new (arena_) Operation(op, lhs, rhs, arena_);
+        auto opt = NewOperation(op, 2);
+        opt->set_operand(0, lhs);
+        opt->set_operand(1, rhs);
+        return opt;
     }
     
-    Operation *NewMulti(SQLOperator op, Expression *lhs,
-                        const std::vector<Expression *> &rhs) {
-        return new (arena_) Operation(op, lhs, rhs, arena_);
+    Operation *NewOperation(SQLOperator op, size_t operands_count) {
+        return new (arena_) Operation(op, operands_count, arena_);
+    }
+    
+    Invocation *NewCall(SQLFunction fnid, size_t parameters_count) {
+        return new (arena_) Invocation(fnid, parameters_count, arena_);
+    }
+    
+    Aggregate *NewCall(SQLFunction fnid, size_t parameters_count, bool distinct) {
+        return new (arena_) Aggregate(fnid, parameters_count, distinct, arena_);
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Factory);

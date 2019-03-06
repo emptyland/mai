@@ -3264,7 +3264,7 @@ yyreduce:
   case 190:
 #line 839 "sql.y" /* yacc.c:1667  */
     {
-    (yyval.expr) = ctx->factory->NewParamPlaceholder((yylsp[0]));
+    (yyval.expr) = ctx->factory->NewBindPlaceholder((yylsp[0]));
 }
 #line 3270 "sql.cc" /* yacc.c:1667  */
     break;

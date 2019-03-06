@@ -1491,7 +1491,7 @@ case 86:
 YY_RULE_SETUP
 #line 144 "sql.l"
 {
-	yylval->dec_val = Decimal::NewRealLiteral(yytext, strlen(yytext), yyextra->arena);
+	yylval->dec_val = Decimal::NewPointLiteral(yytext, strlen(yytext), yyextra->arena);
 	return DECIMAL_VAL;
 }
 	YY_BREAK

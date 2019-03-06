@@ -3,7 +3,8 @@
 #include "sql/heap-tuple.h"
 #include "sql/parser.h"
 #include "sql/ast.h"
-#include "base/standalone-arena.h"
+#include "core/decimal-v2.h"
+#include "base/arenas.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 
@@ -22,19 +23,22 @@ public:
     void BuildBaseSchema(std::unique_ptr<VirtualSchema> *result) {
         VirtualSchema::Builder builder("");
         
-        auto vs = builder.BeginColumn("a", SQL_BIGINT)
+        auto vs = builder.BeginColumn("a", SQL_BIGINT) // 0
             .is_unsigned(true)
         .EndColumn()
-        .BeginColumn("b", SQL_MEDIUMINT)
+        .BeginColumn("b", SQL_MEDIUMINT) // 1
             .is_unsigned(false)
         .EndColumn()
-        .BeginColumn("c", SQL_VARCHAR)
+        .BeginColumn("c", SQL_VARCHAR) // 2
             .table_name("t1")
         .EndColumn()
-        .BeginColumn("d", SQL_CHAR)
+        .BeginColumn("d", SQL_CHAR) // 3
             .table_name("t2")
         .EndColumn()
-        .BeginColumn("e", SQL_DOUBLE)
+        .BeginColumn("e", SQL_DOUBLE) // 4
+            .table_name("t1")
+        .EndColumn()
+        .BeginColumn("f", SQL_DECIMAL) // 5
             .table_name("t1")
         .EndColumn()
         .Build();
@@ -388,6 +392,42 @@ TEST_F(EvaluationTest, BuildEvalStringExpression) {
     
     ASSERT_EQ(Value::kDecimal, ctx.result().kind);
     ASSERT_EQ("168.5", ctx.result().dec_val->ToString());
+}
+    
+TEST_F(EvaluationTest, EvalVariableExpression) {
+    static const char *kX = "SELECT ABS(b) AS ab, ABS(t1.f) AS af;";
+    
+    std::vector<ast::Expression *> columns;
+    ParseExpressions(kX, &columns);
+    
+    std::unique_ptr<VirtualSchema> vs;
+    BuildBaseSchema(&vs);
+    
+    auto expr0 = Evaluation::BuildExpression(vs.get(), columns[0], &arena_);
+    ASSERT_NE(nullptr, expr0);
+    ASSERT_NE(nullptr, dynamic_cast<eval::Invocation *>(expr0));
+    
+    auto expr1 = Evaluation::BuildExpression(vs.get(), columns[1], &arena_);
+    ASSERT_NE(nullptr, expr1);
+    ASSERT_NE(nullptr, dynamic_cast<eval::Invocation *>(expr1));
+    
+    HeapTupleBuilder builder(vs.get(), &arena_);
+    builder.SetI64(1, -991);
+    builder.SetDecimal(5, SQLDecimal::NewParsed("-1.0125", &arena_));
+    
+    eval::Context ctx(&arena_);
+    ctx.set_input(builder.Build());
+    ctx.set_schema(vs.get());
+    
+    auto rs = expr0->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ(Value::kI64, ctx.result().kind);
+    ASSERT_EQ(991, ctx.result().i64_val);
+    
+    rs = expr1->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_EQ(Value::kDecimal, ctx.result().kind);
+    ASSERT_EQ("1.0125", ctx.result().dec_val->ToString());
 }
     
 } // namespace eval

@@ -149,11 +149,11 @@ public:
     }
     
     Placeholder *NewStarPlaceholder(const Location &location) {
-        return new (arena_) Placeholder(Placeholder::STAR, location);
+        return new (arena_) Placeholder(location);
     }
     
-    Placeholder *NewParamPlaceholder(const Location &location) {
-        return new (arena_) Placeholder(Placeholder::PARAM, location);
+    Literal *NewBindPlaceholder(const Location &location) {
+        return new (arena_) Literal(Literal::BIND_PLACEHOLDER, location);
     }
     
     Literal *NewIntegerLiteral(int64_t val, const Location &location) {

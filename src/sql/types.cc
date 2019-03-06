@@ -1,6 +1,6 @@
 #include "sql/types.h"
 #include "core/decimal-v2.h"
-#include "base/scoped-arena.h"
+#include "base/arenas.h"
 #include <ctype.h>
 #include <stdlib.h>
 

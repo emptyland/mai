@@ -18,6 +18,8 @@ class Decimal final {
 
 public:
     static constexpr const int kMaxExp = 31;
+    static constexpr const int kMaxDigitals = 65;
+    static constexpr const int kMaxCap = 8;
     static constexpr const int kMinRadix = 2;
     static constexpr const int kMaxRadix = 16;
     
@@ -81,15 +83,33 @@ public:
     
     void Normalize();
     
+    Decimal *Abs(base::Arena *arena) const {
+        Decimal *rv = Clone(arena);
+        rv->set_negative(false);
+        return rv;
+    }
+    
     Decimal *Shl(int bits, base::Arena *arena);
     
     Decimal *Shr(int bits, base::Arena *arena);
+    
+    Decimal *Add(uint64_t rhs);
+    
+    Decimal *Add(int64_t rhs);
+    
+    Decimal *Add(const Decimal *rhs);
     
     Decimal *Add(const Decimal *rhs, base::Arena *arena) const;
     
     Decimal *Sub(const Decimal *rhs, base::Arena *arena) const;
 
     Decimal *Mul(const Decimal *rhs, base::Arena *arena) const;
+    
+    Decimal *Div(uint64_t rhs);
+    
+    Decimal *Div(int64_t rhs);
+    
+    Decimal *Div(const Decimal *rhs);
     
     std::tuple<Decimal *, Decimal *> Div(const Decimal *rhs,
                                          base::Arena *arena) const;
@@ -113,6 +133,16 @@ public:
     double ToF64() const;
     
     Decimal *Clone(base::Arena *arena) const { return NewCopied(this, arena); }
+    
+    Decimal *CopyFrom(const Decimal *rhs) {
+        Resize(rhs->segments_size());
+        int64_t i = rhs->segments_size();
+        while (i-- > 0) {
+            set_segment(i, rhs->segment(i));
+        }
+        flags_ = rhs->flags_;
+        return this;
+    }
     
     int Compare(const Decimal *rhs) const;
     
@@ -148,8 +178,17 @@ public:
     
     static Decimal *NewCopied(const uint32_t *s, size_t n, base::Arena *arena);
     
-    static Decimal *NewI64(int64_t val, base::Arena *arena);
-    static Decimal *NewU64(uint64_t val, base::Arena *arena);
+    static Decimal *NewI64(int64_t val, base::Arena *arena) {
+        bool neg = val < 0;
+        if (neg) { val = -val; }
+        return NewP64(val, neg, 0, val > 0xffffffff ? 2 : 1, arena);
+    }
+
+    static Decimal *NewU64(uint64_t val, base::Arena *arena) {
+        return NewP64(val, false, 0, val > 0xffffffff ? 2 : 1, arena);
+    }
+    
+    static Decimal *NewP64(uint64_t val, bool neg, int exp, size_t reserved, base::Arena *arena);
     
     static Decimal *NewParsed(const char *s, base::Arena *arena) {
         return NewParsed(s, strlen(s), arena);
@@ -167,7 +206,7 @@ public:
     
     static Decimal *NewDecLiteral(const char *s, size_t n, base::Arena *arena);
     
-    static Decimal *NewRealLiteral(const char *s, size_t n, base::Arena *arena);
+    static Decimal *NewPointLiteral(const char *s, size_t n, base::Arena *arena);
     
     static Decimal *NewExpLiteral(const char *s, size_t n, base::Arena *arena);
     
@@ -212,6 +251,8 @@ private:
     
     static std::tuple<Decimal *, Decimal *>
     DivRaw(const Decimal *lhs, const Decimal *rhs, base::Arena *arena);
+    
+    static void AddRaw(const Decimal *lhs, const Decimal *rhs, Decimal *rv);
     
     Decimal *DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,
                           base::Arena *arena) const;

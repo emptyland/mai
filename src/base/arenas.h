@@ -1,7 +1,8 @@
-#ifndef MAI_BASE_STANDALONE_ARENA_H_
-#define MAI_BASE_STANDALONE_ARENA_H_
+#ifndef MAI_BASE_ARENAS_H_
+#define MAI_BASE_ARENAS_H_
 
 #include "base/arena.h"
+#include "base/slice.h"
 #include "glog/logging.h"
 #include <atomic>
 #include <thread>
@@ -106,9 +107,78 @@ struct ArenaStatistics {
     double      used_rate;
 }; // struct ArenaStatistics
     
+    
+class ScopedArena : public Arena {
+public:
+    ScopedArena(size_t limit = -1) : limit_(limit) {}
+    virtual ~ScopedArena() override { Purge(false); }
+    
+    virtual void Purge(bool /*reinit*/) override;
+    
+    virtual size_t granularity() override { return 4; }
+    
+    virtual size_t memory_usage() const override { return usage_; }
+    
+    virtual void *Allocate(size_t size, size_t alignment = 4) override;
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(ScopedArena);
+    
+    FRIEND_UNITTEST_CASE(ArenaTest, ScopedLargeAllocation);
+    FRIEND_UNITTEST_CASE(ArenaTest, ScopedTotalBufAllocation);
+private:
+    uint8_t buf_[64];
+    size_t  usage_ = 0;
+    size_t const limit_;
+    std::vector<void *> chunks_;
+}; // class ScopedArena
+    
+
+template<int N = 128>
+class StaticArena : public Arena {
+public:
+    static constexpr const int kLimitSize = N;
+    
+    StaticArena() {
+    #if defined(DEBUG) || defined(_DEBUG)
+        Round32BytesFill(kInitZag, buf_, kLimitSize);
+    #endif
+    }
+
+    virtual ~StaticArena() {
+    #if defined(DEBUG) || defined(_DEBUG)
+        Round32BytesFill(kFreeZag, buf_, kLimitSize);
+    #endif
+    }
+    
+    virtual void Purge(bool reinit = false) override {
+        usage_ = 0;
+    #if defined(DEBUG) || defined(_DEBUG)
+        Round32BytesFill(kInitZag, buf_, kLimitSize);
+    #endif
+    }
+    
+    virtual size_t granularity() override { return 4; }
+    
+    virtual size_t memory_usage() const override { return usage_; }
+    
+    virtual void *Allocate(size_t size, size_t alignment = 4) override {
+        uint8_t *p = RoundUp(buf_ + usage_, alignment);
+        if (p + size > end_) {
+            return nullptr;
+        }
+        usage_ = (p - buf_) + size;
+        return p;
+    }
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(StaticArena);
+private:
+    uint8_t buf_[kLimitSize];
+    const uint8_t *const end_ = buf_ + kLimitSize;
+    size_t  usage_ = 0;
+}; // class StaticArena
+    
 } // namespace base
     
 } // namespace mai
 
-
-#endif // MAI_BASE_STANDALONE_ARENA_H_
+#endif // MAI_BASE_ARENAS_H_

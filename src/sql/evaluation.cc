@@ -4,7 +4,7 @@
 #include "sql/ast-visitor.h"
 #include "sql/ast.h"
 #include "core/decimal-v2.h"
-#include "base/scoped-arena.h"
+#include "base/arenas.h"
 #include "base/slice.h"
 
 namespace mai {
@@ -291,7 +291,7 @@ Value Value::ToNumeric(base::Arena *arena, Kind hint) const {
                     break;
                 case 'f':
                     v.kind = kDecimal;
-                    v.dec_val = SQLDecimal::NewRealLiteral(str_val->data(), str_val->size(), arena);
+                    v.dec_val = SQLDecimal::NewPointLiteral(str_val->data(), str_val->size(), arena);
                     break;
                 case 'e':
                     v.kind = kDecimal;
@@ -556,21 +556,6 @@ int Value::Compare(const Value &rhs, base::Arena *arena) const {
 /*virtual*/ Error Constant::Evaluate(Context *ctx) {
     ctx->set_result(data_);
     return Error::OK();
-}
-
-Operation::Operation(SQLOperator op, Expression *lhs, const std::vector<Expression *> &rhs,
-                     base::Arena *arena)
-    : op_(op)
-    , operands_count_(1 + rhs.size()) {
-    if (rhs.size() == 0) {
-        operands_ = reinterpret_cast<Expression **>(lhs);
-    } else {
-        operands_ = arena->NewArray<Expression *>(1 + rhs.size());
-        operands_[0] = lhs;
-        for (size_t i = 0; i < rhs.size(); ++i) {
-            operands_[i + 1] = rhs[i];
-        }
-    }
 }
 
 /*virtual*/ Error Operation::Evaluate(Context *ctx) {
@@ -866,6 +851,267 @@ Operation::Operation(SQLOperator op, Expression *lhs, const std::vector<Expressi
     ctx->set_result(v);
     return Error::OK();
 }
+    
+/*virtual*/ Error Invocation::Evaluate(Context *ctx) {
+    Value v;
+    v.kind = Value::kNull;
+    switch (fnid_) {
+        case SQL_F_ABS: {
+            DCHECK_GE(parameters_count(), 1);
+            Error rs = parameter(0)->Evaluate(ctx);
+            if (!rs) {
+                return rs;
+            }
+            v = ctx->result().ToNumeric(ctx->arena());
+            switch (v.kind) {
+                case Value::kI64:
+                    v.i64_val = v.i64_val < 0 ? -v.i64_val : v.i64_val;
+                    break;
+                case Value::kF64:
+                    v.f64_val = ::fabs(v.f64_val);
+                    break;
+                case Value::kDecimal:
+                    if (v.dec_val->negative()) {
+                        v.dec_val = v.dec_val->Abs(ctx->arena());
+                    }
+                    break;
+                default:
+                    break;
+            }
+        } break;
+
+        case SQL_F_NOW:
+            v.kind = Value::kDateTime;
+            v.dt_val = SQLDateTime::Now();
+            break;
+            
+        case SQL_F_DATE:
+            v.kind = Value::kDate;
+            v.dt_val.date = SQLDate::Now();
+            break;
+
+        default:
+            return MAI_NOT_SUPPORTED("TODO:");
+    }
+    ctx->set_result(v);
+    return Error::OK();
+}
+    
+/*virtual*/ Error Aggregate::Evaluate(Context *ctx) {
+    if (ctx->init()) {
+        counter_ = 0;
+    }
+    
+    Error rs;
+    switch (fnid_) {
+        case SQL_F_COUNT: {
+            // TODO:
+        } break;
+            
+        case SQL_F_SUM: {
+            DCHECK_EQ(parameters_count(), 1);
+            rs = parameter(0)->Evaluate(ctx);
+            if (!rs) {
+                return rs;
+            }
+            auto arg0 = ctx->result();
+            rs = SUM(arg0, ctx);
+            val_ = mid_;
+            if (val_.kind == Value::kDecimal) {
+                val_.dec_val = val_.dec_val->Clone(ctx->arena());
+            }
+        } break;
+            
+        case SQL_F_AVG: {
+            DCHECK_EQ(parameters_count(), 1);
+            rs = parameter(0)->Evaluate(ctx);
+            if (!rs) {
+                return rs;
+            }
+            auto arg0 = ctx->result();
+            rs = AVG(arg0, ctx);
+            val_ = mid_;
+            if (val_.kind == Value::kDecimal) {
+                val_.dec_val = val_.dec_val->Clone(ctx->arena());
+            }
+        } break;
+            
+        case SQL_F_MAX: {
+            DCHECK_EQ(parameters_count(), 1);
+            auto rs = parameter(0)->Evaluate(ctx);
+            if (!rs) {
+                return rs;
+            }
+            auto arg0 = ctx->result();
+            if (ctx->init()) {
+                mid_ = arg0;
+            }
+            if (arg0.kind == Value::kNull) {
+                val_.kind = Value::kNull;
+            } else {
+                if (mid_.kind == Value::kNull) {
+                    mid_ = arg0;
+                } else if (arg0.Compare(mid_) > 0) {
+                    mid_ = arg0;
+                }
+                val_ = mid_;
+            }
+        } break;
+            
+        case SQL_F_MIN: {
+            DCHECK_EQ(parameters_count(), 1);
+            auto rs = parameter(0)->Evaluate(ctx);
+            if (!rs) {
+                return rs;
+            }
+            auto arg0 = ctx->result();
+            if (ctx->init()) {
+                mid_ = arg0;
+            }
+            if (arg0.kind == Value::kNull) {
+                val_.kind = Value::kNull;
+            } else {
+                if (mid_.kind == Value::kNull) {
+                    mid_ = arg0;
+                } else if (arg0.Compare(mid_) < 0) {
+                    mid_ = arg0;
+                }
+                val_ = mid_;
+            }
+        } break;
+
+        default:
+            return MAI_NOT_SUPPORTED("TODO:");
+    }
+    ctx->set_result(val_);
+    return rs;
+}
+    
+Error Aggregate::SUM(Value arg0, Context *ctx) {
+    arg0 = arg0.ToNumeric(ctx->arena());
+    switch (arg0.kind) {
+        case Value::kNull:
+            if (ctx->init()) {
+                mid_.kind = Value::kNull;
+            }
+            break;
+            
+        case Value::kF64:
+            if (ctx->init()) {
+                mid_ = arg0;
+            } else {
+                if (!mid_.is_floating()) {
+                    mid_ = mid_.ToFloating(nullptr);
+                }
+                mid_.f64_val += arg0.f64_val;
+            }
+            break;
+            
+        case Value::kI64:
+            if (ctx->init()) {
+                bool neg = arg0.i64_val < 0;
+                uint64_t val = neg ? -arg0.i64_val : arg0.i64_val;
+                sum_val_ = SQLDecimal::NewP64(val, neg, 0, SQLDecimal::kMaxCap, &owned_arena_);
+                mid_.kind = Value::kDecimal;
+                mid_.dec_val = DCHECK_NOTNULL(sum_val_);
+            } else {
+                if (mid_.is_floating()) {
+                    mid_.f64_val += arg0.i64_val;
+                } else {
+                    DCHECK_EQ(mid_.kind, Value::kDecimal);
+                    sum_val_->Add(arg0.i64_val);
+                }
+            }
+            break;
+            
+        case Value::kU64:
+            if (ctx->init()) {
+                sum_val_ = SQLDecimal::NewP64(arg0.u64_val, false, 0, SQLDecimal::kMaxCap,
+                                              &owned_arena_);
+                mid_.kind = Value::kDecimal;
+                mid_.dec_val = DCHECK_NOTNULL(sum_val_);
+            } else {
+                if (mid_.is_floating()) {
+                    mid_.f64_val += arg0.u64_val;
+                } else {
+                    DCHECK_EQ(mid_.kind, Value::kDecimal);
+                    sum_val_->Add(arg0.u64_val);
+                }
+            }
+            break;
+            
+        case Value::kDecimal:
+            if (ctx->init()) {
+                sum_val_ = SQLDecimal::NewUninitialized(SQLDecimal::kMaxCap, &owned_arena_);
+                DCHECK_NOTNULL(sum_val_)->CopyFrom(arg0.dec_val);
+                mid_.kind = Value::kDecimal;
+                mid_.dec_val = sum_val_;
+            } else {
+                if (mid_.is_floating()) {
+                    mid_.f64_val += arg0.dec_val->ToF64();
+                } else {
+                    DCHECK_EQ(mid_.kind, Value::kDecimal);
+                    SQLDecimal *add = arg0.dec_val->NewPrecision(sum_val_->exp(), ctx->arena());
+                    sum_val_->Add(add);
+                }
+            }
+            break;
+            
+        default:
+            DLOG(FATAL) << "Noreached!";
+            break;
+    }
+    return Error::OK();
+}
+    
+Error Aggregate::AVG(Value arg0, Context *ctx) {
+    Error rs = SUM(arg0, ctx);
+    if (!rs) {
+        return rs;
+    }
+    if (arg0.is_not_null()) {
+        counter_++;
+    }
+
+    switch (mid_.kind) {
+        case Value::kNull:
+            val_.kind = Value::kNull;
+            break;
+            
+        case Value::kF64:
+            val_.kind = Value::kF64;
+            val_.f64_val = mid_.f64_val / counter_;
+            break;
+            
+        case Value::kI64:
+            val_.kind = Value::kI64;
+            val_.i64_val = mid_.i64_val / counter_;
+            break;
+            
+        case Value::kU64:
+            val_.kind = Value::kU64;
+            val_.u64_val = mid_.u64_val / counter_;
+            break;
+            
+        case Value::kDecimal:
+            if (ctx->init()) {
+                fin_val_ = SQLDecimal::NewUninitialized(SQLDecimal::kMaxCap, &owned_arena_);
+                fin_val_->CopyFrom(mid_.dec_val);
+                val_.kind = Value::kDecimal;
+                val_.dec_val = fin_val_;
+            } else {
+                DCHECK_EQ(val_.kind, Value::kDecimal);
+                const SQLDecimal *div = mid_.dec_val->NewPrecision(fin_val_->exp(), ctx->arena());
+                fin_val_->Div(div);
+            }
+            break;
+            
+        default:
+            DLOG(FATAL) << "Noreached!";
+            break;
+    }
+    return rs;
+}
 
 } // namespace eval
     
@@ -887,7 +1133,7 @@ public:
     
     virtual void VisitIdentifier(ast::Identifier *node) override {
         if (node->placeholder()) {
-             Raise(MAI_CORRUPTION("Placeholder: ?"));
+            Raise(MAI_CORRUPTION("Placeholder: ?"));
             return;
         }
         if (!env_) {
@@ -904,7 +1150,7 @@ public:
     }
     
     virtual void VisitPlaceholder(ast::Placeholder *node) override {
-        Raise(MAI_CORRUPTION("Placeholder: ?"));
+        Raise(MAI_CORRUPTION("Placeholder: *"));
     }
     
     virtual void VisitSubquery(ast::Subquery *node) override {
@@ -931,16 +1177,20 @@ public:
             case ast::Literal::DEFAULT_PLACEHOLDER:
                 Raise(MAI_CORRUPTION("Placeholder: DEFAULT"));
                 break;
+            case ast::Literal::BIND_PLACEHOLDER:
+                Raise(MAI_CORRUPTION("Placeholder: Unbinded"));
+                break;
             default:
-                DLOG(FATAL) << "noreached";
+                DLOG(FATAL) << "Noreached";
                 break;
         }
     }
     
     virtual void VisitUnaryExpression(ast::UnaryExpression *node) override {
+        eval::Operation *opt = factory_->NewOperation(node->op(), 1);
         node->operand(0)->Accept(this);
-        auto operand = Pop();
-        Push(factory_->NewUnary(node->op(), operand));
+        opt->set_operand(0, Pop());
+        Push(opt);
     }
     
     virtual void VisitBinaryExpression(ast::BinaryExpression *node) override {
@@ -957,26 +1207,59 @@ public:
     }
     
     virtual void VisitMultiExpression(ast::MultiExpression *node) override {
-        std::vector<eval::Expression *> rhs;
-        node->lhs()->Accept(this);
-        auto lhs = Pop();
-        
-        for (auto expr : *node->rhs()) {
-            expr->Accept(this);
-            rhs.push_back(Pop());
+        eval::Operation *opt = factory_->NewOperation(node->op(), node->operands_count());
+        for (size_t i = 0; i < node->operands_count(); ++i) {
+            node->operand(static_cast<int>(i))->Accept(this);
+            if (error().fail()) {
+                return;
+            }
+            opt->set_operand(i, Pop());
         }
-        Push(factory_->NewMulti(node->op(), lhs, rhs));
+        Push(opt);
+    }
+    
+    virtual void VisitCall(ast::Call *node) override {
+        eval::Invocation *call = factory_->NewCall(node->fnid(), node->parameters_size());
+        for (size_t i = 0; i < node->parameters_size(); ++i) {
+            node->parameter(i)->Accept(this);
+            if (error().fail()) {
+                return;
+            }
+            call->set_parameter(i, Pop());
+        }
+        Push(call);
+    }
+
+    virtual void VisitAggregate(ast::Aggregate *node) override {
+        size_t n_params = 0;
+        eval::Aggregate *call = nullptr;
+        if (ast::Placeholder *holder = ast::Placeholder::Cast(node->parameter(0))) {
+            n_params = env_->columns_size();
+            call = factory_->NewCall(node->fnid(), n_params, node->distinct());
+            for (size_t i = 0; i < env_->columns_size(); ++i) {
+                call->set_parameter(i, factory_->NewVariable(env_, env_->column(i)->index()));
+            }
+        } else {
+            n_params = node->parameters_size();
+            call = factory_->NewCall(node->fnid(), n_params, node->distinct());
+            for (size_t i = 0; i < node->parameters_size(); ++i) {
+                node->parameter(i)->Accept(this);
+                call->set_parameter(i, Pop());
+            }
+        }
+        Push(call);
     }
     
 private:
     void ProcessBinaryExpression(ast::FixedOperand<2> *node) {
+        eval::Operation *opt = factory_->NewOperation(node->op(), 2);
         node->lhs()->Accept(this);
-        auto lhs = Pop();
+        opt->set_operand(0, Pop());
         
         node->rhs()->Accept(this);
-        auto rhs = Pop();
+        opt->set_operand(1, Pop());
         
-        Push(factory_->NewBinary(node->op(), lhs, rhs));
+        Push(opt);
     }
     
     const VirtualSchema *const env_;
@@ -987,6 +1270,9 @@ private:
 Evaluation::BuildExpression(const VirtualSchema *env, ast::Expression *ast, base::Arena *arena) {
     eval::Expression *result = nullptr;
     auto rs = BuildExpression(env, ast, arena, &result);
+    if (!rs) {
+        DLOG(ERROR) << rs.ToString();
+    }
     return !rs ? nullptr : result;
 }
     

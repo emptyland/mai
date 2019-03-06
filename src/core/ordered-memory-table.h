@@ -4,7 +4,7 @@
 #include "core/memory-table.h"
 #include "core/skip-list.h"
 #include "core/internal-key-comparator.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "glog/logging.h"
 
 namespace mai {

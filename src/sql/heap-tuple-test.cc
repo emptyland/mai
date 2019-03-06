@@ -1,5 +1,5 @@
 #include "sql/heap-tuple.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
 

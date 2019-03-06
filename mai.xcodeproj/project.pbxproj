@@ -92,7 +92,7 @@
 		2364B32B21E451F9008519AE /* hash.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12F218AFBCC00F9E855 /* hash.cc */; };
 		2364B32C21E451F9008519AE /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
 		2364B33021E451F9008519AE /* arena-utils.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239E483A21E4403400F2FD48 /* arena-utils.cc */; };
-		2364B33121E451F9008519AE /* standalone-arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* standalone-arena.cc */; };
+		2364B33121E451F9008519AE /* arenas.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* arenas.cc */; };
 		2364B33321E451F9008519AE /* ebr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20D21C264B100C8D5B1 /* ebr.cc */; };
 		2364B33521E451F9008519AE /* lock-group.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B8E68521E2E50F0001096E /* lock-group.cc */; };
 		2364B33621E451F9008519AE /* bw-tree-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */; };
@@ -114,7 +114,7 @@
 		2364B34621E451F9008519AE /* s1-table-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6B621AE795E00AE0309 /* s1-table-builder-test.cc */; };
 		2364B34721E451F9008519AE /* s1-table-reader-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2302F6BD21AE961200AE0309 /* s1-table-reader-test.cc */; };
 		2364B34821E451F9008519AE /* file-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163421AFED1B00DE7321 /* file-test.cc */; };
-		2364B34921E451F9008519AE /* arena-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026521ABF614003F434C /* arena-test.cc */; };
+		2364B34921E451F9008519AE /* arenas-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026521ABF614003F434C /* arenas-test.cc */; };
 		2364B34A21E451F9008519AE /* tls-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20821C247B100C8D5B1 /* tls-test.cc */; };
 		2364B34B21E451F9008519AE /* reference-count-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E16321927F6C00F9E855 /* reference-count-test.cc */; };
 		2364B34C21E451F9008519AE /* varint-encoding-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E14F218FE03600F9E855 /* varint-encoding-test.cc */; };
@@ -195,15 +195,12 @@
 		23DE183421D088D000479C23 /* spin-locking.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E0FE218841C500F9E855 /* spin-locking.cc */; };
 		23DE183621D088D000479C23 /* slice.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232AA248219432BB007EF228 /* slice.cc */; };
 		23DE183721D088D000479C23 /* hash.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E12F218AFBCC00F9E855 /* hash.cc */; };
-		23DE183821D088D000479C23 /* standalone-arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* standalone-arena.cc */; };
+		23DE183821D088D000479C23 /* arenas.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2326026221ABE80D003F434C /* arenas.cc */; };
 		23DE183921D088D000479C23 /* ebr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2399D20D21C264B100C8D5B1 /* ebr.cc */; };
 		23DE183A21D0896A00479C23 /* libglog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E82187FAF200F9E855 /* libglog.a */; };
 		23DE184421D08A3600479C23 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
 		23DE184521D08AB100479C23 /* benchmark-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DE17F021D07D9400479C23 /* benchmark-main.cc */; };
 		23DE184621D08AB800479C23 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
-		23E0EB69222555D400A4D854 /* scoped-arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E0EB68222555D400A4D854 /* scoped-arena.cc */; };
-		23E0EB6B2225564300A4D854 /* scoped-arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E0EB68222555D400A4D854 /* scoped-arena.cc */; };
-		23E0EB6D2225570D00A4D854 /* scoped-arena-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E0EB6C2225570D00A4D854 /* scoped-arena-test.cc */; };
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
 		23F6A03122266E1A00AE5DB6 /* decimal-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02E22266E1900AE5DB6 /* decimal-v1.cc */; };
 		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
@@ -285,9 +282,9 @@
 		23216A292201BC8600E1B816 /* heap-tuple.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "heap-tuple.cc"; sourceTree = "<group>"; };
 		23216A2B2203FC1800E1B816 /* result-set.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "result-set.h"; sourceTree = "<group>"; };
 		23216A2D2205511F00E1B816 /* ast-visitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ast-visitor.h"; sourceTree = "<group>"; };
-		2326026121ABE7D8003F434C /* standalone-arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "standalone-arena.h"; sourceTree = "<group>"; };
-		2326026221ABE80D003F434C /* standalone-arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "standalone-arena.cc"; sourceTree = "<group>"; };
-		2326026521ABF614003F434C /* arena-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "arena-test.cc"; sourceTree = "<group>"; };
+		2326026121ABE7D8003F434C /* arenas.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arenas.h; sourceTree = "<group>"; };
+		2326026221ABE80D003F434C /* arenas.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = arenas.cc; sourceTree = "<group>"; };
+		2326026521ABF614003F434C /* arenas-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "arenas-test.cc"; sourceTree = "<group>"; };
 		2326A42921A3A1740040BE53 /* snapshot-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "snapshot-impl.h"; sourceTree = "<group>"; };
 		2326A42A21A507590040BE53 /* key-boundle.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "key-boundle.cc"; sourceTree = "<group>"; };
 		2326A42D21A54A740040BE53 /* db-impl-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "db-impl-test.cc"; sourceTree = "<group>"; };
@@ -462,9 +459,6 @@
 		23DE17F021D07D9400479C23 /* benchmark-main.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "benchmark-main.cc"; sourceTree = "<group>"; };
 		23DE17F821D0887700479C23 /* mai.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = mai.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		23DE17FB21D0887700479C23 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		23E0EB67222525D100A4D854 /* scoped-arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "scoped-arena.h"; sourceTree = "<group>"; };
-		23E0EB68222555D400A4D854 /* scoped-arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "scoped-arena.cc"; sourceTree = "<group>"; };
-		23E0EB6C2225570D00A4D854 /* scoped-arena-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "scoped-arena-test.cc"; sourceTree = "<group>"; };
 		23E40C0A21CB3C3A00B04858 /* block-cache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-cache.h"; sourceTree = "<group>"; };
 		23E40C0B21CB416600B04858 /* block-cache.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-cache.cc"; sourceTree = "<group>"; };
 		23F0742521D1D209009D8EAA /* transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db-test.cc"; sourceTree = "<group>"; };
@@ -705,10 +699,8 @@
 				23B0E12F218AFBCC00F9E855 /* hash.cc */,
 				23B0E132218AFD4E00F9E855 /* crc32.c */,
 				231C61F5219AA5EE001A95C1 /* io-utils.h */,
-				2326026121ABE7D8003F434C /* standalone-arena.h */,
-				2326026221ABE80D003F434C /* standalone-arena.cc */,
-				23E0EB67222525D100A4D854 /* scoped-arena.h */,
-				23E0EB68222555D400A4D854 /* scoped-arena.cc */,
+				2326026121ABE7D8003F434C /* arenas.h */,
+				2326026221ABE80D003F434C /* arenas.cc */,
 				237F504A21EB6DA90069075D /* arena.h */,
 				237F504C21EB72C90069075D /* arena.cc */,
 				237F504F21EB73BE0069075D /* zone.h */,
@@ -919,7 +911,7 @@
 		23B8E68E21E32E370001096E /* base */ = {
 			isa = PBXGroup;
 			children = (
-				2326026521ABF614003F434C /* arena-test.cc */,
+				2326026521ABF614003F434C /* arenas-test.cc */,
 				2399D20821C247B100C8D5B1 /* tls-test.cc */,
 				23B0E16321927F6C00F9E855 /* reference-count-test.cc */,
 				23B0E14F218FE03600F9E855 /* varint-encoding-test.cc */,
@@ -927,7 +919,6 @@
 				2399D20B21C249E300C8D5B1 /* ebr-test.cc */,
 				239E483D21E4475700F2FD48 /* arena-utils-test.cc */,
 				23216A242201561B00E1B816 /* slice-test.cc */,
-				23E0EB6C2225570D00A4D854 /* scoped-arena-test.cc */,
 			);
 			name = base;
 			path = src/base;
@@ -1227,7 +1218,6 @@
 				2364B30621E451F9008519AE /* internal-key-comparator.cc in Sources */,
 				2364B30821E451F9008519AE /* iterator-warpper.cc in Sources */,
 				2364B30A21E451F9008519AE /* merging.cc in Sources */,
-				23E0EB69222555D400A4D854 /* scoped-arena.cc in Sources */,
 				2364B30B21E451F9008519AE /* env.cc in Sources */,
 				23B2C90B21F6C64600DF609E /* storage-engine-factory.cc in Sources */,
 				23D2F6BE21F1CC2300A49B1A /* types.cc in Sources */,
@@ -1244,7 +1234,7 @@
 				23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */,
 				2364B33021E451F9008519AE /* arena-utils.cc in Sources */,
 				23344CEF21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc in Sources */,
-				2364B33121E451F9008519AE /* standalone-arena.cc in Sources */,
+				2364B33121E451F9008519AE /* arenas.cc in Sources */,
 				2364B33321E451F9008519AE /* ebr.cc in Sources */,
 				2364B33521E451F9008519AE /* lock-group.cc in Sources */,
 				2364B33621E451F9008519AE /* bw-tree-test.cc in Sources */,
@@ -1270,13 +1260,12 @@
 				2364B34621E451F9008519AE /* s1-table-builder-test.cc in Sources */,
 				2364B34721E451F9008519AE /* s1-table-reader-test.cc in Sources */,
 				2364B34821E451F9008519AE /* file-test.cc in Sources */,
-				2364B34921E451F9008519AE /* arena-test.cc in Sources */,
+				2364B34921E451F9008519AE /* arenas-test.cc in Sources */,
 				2364B34A21E451F9008519AE /* tls-test.cc in Sources */,
 				2303D93221F808C500075A99 /* storage-engine.cc in Sources */,
 				2364B34B21E451F9008519AE /* reference-count-test.cc in Sources */,
 				2364B34C21E451F9008519AE /* varint-encoding-test.cc in Sources */,
 				237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */,
-				23E0EB6D2225570D00A4D854 /* scoped-arena-test.cc in Sources */,
 				2364B34E21E451F9008519AE /* io-utils-test.cc in Sources */,
 				2303D93721F863F300075A99 /* storage-engine-test.cc in Sources */,
 				2364B34F21E451F9008519AE /* ebr-test.cc in Sources */,
@@ -1318,7 +1307,7 @@
 				23DE183421D088D000479C23 /* spin-locking.cc in Sources */,
 				23DE183621D088D000479C23 /* slice.cc in Sources */,
 				23DE183721D088D000479C23 /* hash.cc in Sources */,
-				23DE183821D088D000479C23 /* standalone-arena.cc in Sources */,
+				23DE183821D088D000479C23 /* arenas.cc in Sources */,
 				23DE183921D088D000479C23 /* ebr.cc in Sources */,
 				23DE182621D088C300479C23 /* memory-table.cc in Sources */,
 				23DE182721D088C300479C23 /* bw-tree-memory-table.cc in Sources */,
@@ -1340,7 +1329,6 @@
 				23DE180F21D088B000479C23 /* write-ahead-log.cc in Sources */,
 				23DE181021D088B000479C23 /* write-batch.cc in Sources */,
 				23DE181121D088B000479C23 /* db-impl.cc in Sources */,
-				23E0EB6B2225564300A4D854 /* scoped-arena.cc in Sources */,
 				23DE181221D088B000479C23 /* column-family.cc in Sources */,
 				237F505221EB74390069075D /* zone.cc in Sources */,
 				23DE181321D088B000479C23 /* version.cc in Sources */,

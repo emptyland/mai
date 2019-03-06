@@ -5,7 +5,7 @@
 #include "core/hash-map-v2.h"
 #include "core/internal-key-comparator.h"
 #include "base/hash.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "glog/logging.h"
 #include <atomic>
 

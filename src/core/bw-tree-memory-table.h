@@ -4,7 +4,7 @@
 #include "core/memory-table.h"
 #include "core/bw-tree.h"
 #include "core/internal-key-comparator.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 
 namespace mai {
 class Env;

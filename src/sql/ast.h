@@ -753,22 +753,10 @@ private:
     
 class Placeholder final : public Expression {
 public:
-    enum Type {
-        STAR,
-        PARAM,
-    };
-    
-    bool is_star() const { return type_ == STAR; }
-    bool is_param() const { return type_ == PARAM; }
-    
     DEF_AST_NODE(Placeholder);
     DISALLOW_IMPLICIT_CONSTRUCTORS(Placeholder);
 private:
-    Placeholder(Type type, const Location &location)
-        : Expression(location)
-        , type_(type) {}
-    
-    Type type_;
+    Placeholder(const Location &location) : Expression(location) {}
 }; // class Placeholder
 
 
@@ -820,6 +808,7 @@ public:
         APPROX,
         NULL_VAL,
         DEFAULT_PLACEHOLDER,
+        BIND_PLACEHOLDER,
     };
     virtual int operands_count() const override { return 1; }
     virtual bool is_literal() const override { return true; }
@@ -930,6 +919,7 @@ private:
 
 class Aggregate : public Call {
 public:
+    DEF_VAL_GETTER(bool, distinct);
 
     DEF_AST_NODE(Aggregate);
     DISALLOW_IMPLICIT_CONSTRUCTORS(Aggregate);

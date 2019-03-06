@@ -1,5 +1,5 @@
 #include "core/decimal-v2.h"
-#include "base/scoped-arena.h"
+#include "base/arenas.h"
 #include "base/arena.h"
 #include "base/slice.h"
 #include "base/bit-ops.h"
@@ -521,6 +521,37 @@ Decimal *Decimal::Shr(int n, base::Arena *arena) {
     }
     return this;
 }
+    
+Decimal *Decimal::Add(const Decimal *rhs) {
+    DCHECK_EQ(exp(), rhs->exp());
+    DCHECK_LE(rhs->segments_size(), capacity_);
+    size_t n_ints = std::max(segments_size(), rhs->segments_size()) + 1;
+    if (n_ints <= capacity_) {
+        size_t d = n_ints - segments_size();
+        Resize(n_ints);
+        for (size_t i = 0; i < d; ++i) {
+            set_segment(i, 0);
+        }
+    }
+    AddRaw(this, rhs, this);
+    return this;
+}
+    
+Decimal *Decimal::Add(uint64_t val) {
+    base::ScopedArena scoped_buf;
+    Decimal *rhs = NewU64(val, &scoped_buf);
+    rhs = rhs->NewPrecision(exp(), &scoped_buf);
+    AddRaw(this, DCHECK_NOTNULL(rhs), this);
+    return this;
+}
+
+Decimal *Decimal::Add(int64_t val) {
+    base::ScopedArena scoped_buf;
+    Decimal *rhs = NewI64(val, &scoped_buf);
+    rhs = rhs->NewPrecision(exp(), &scoped_buf);
+    AddRaw(this, DCHECK_NOTNULL(rhs), this);
+    return this;
+}
 
 Decimal *Decimal::Add(const Decimal *rhs, base::Arena *arena) const {
     DCHECK_EQ(exp(), rhs->exp());
@@ -528,23 +559,7 @@ Decimal *Decimal::Add(const Decimal *rhs, base::Arena *arena) const {
     size_t n_ints = std::max(segments_size(), rhs->segments_size()) + 1;
     Decimal *rv = NewUninitialized(n_ints, arena);
     rv->set_segment(0, 0);
-    bool neg = negative();
-    if (negative() == rhs->negative()) {
-        //   lhs  +   rhs  =   lhs + rhs
-        // (-lhs) + (-rhs) = -(lhs + rhs)
-        core::Add(segment_view(), rhs->segment_view(), rv->segment_mut_view());
-    } else {
-        //   lhs  + (-rhs) = lhs - rhs = -(rhs - lhs)
-        // (-lhs) +   rhs  = rhs - lhs = -(lhs - rhs)
-        if (AbsCompare(this, rhs) >= 0) {
-            core::Sub(segment_view(), rhs->segment_view(), rv->segment_mut_view());
-        } else {
-            neg = !neg;
-            core::Sub(rhs->segment_view(), segment_view(), rv->segment_mut_view());
-        }
-    }
-    rv->set_negative_and_exp(neg, exp());
-    rv->Normalize();
+    AddRaw(this, rhs, rv);
     return rv;
 }
 
@@ -605,9 +620,29 @@ Decimal *Decimal::Mul(const Decimal *rhs, base::Arena *arena) const {
     rv->set_negative_and_exp(negative() != rhs->negative(), exp());
     return rv;
 }
+    
+Decimal *Decimal::Div(uint64_t val) {
+    base::ScopedArena scoped_buf;
+    const Decimal *rhs = NewU64(val, &scoped_buf);
+    rhs = rhs->NewPrecision(exp(), &scoped_buf);
+    return Div(rhs);
+}
 
-std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs,
-                                              base::Arena *arena) const {
+Decimal *Decimal::Div(int64_t val) {
+    base::ScopedArena scoped_buf;
+    const Decimal *rhs = NewI64(val, &scoped_buf);
+    rhs = rhs->NewPrecision(exp(), &scoped_buf);
+    return Div(rhs);
+}
+
+Decimal *Decimal::Div(const Decimal *rhs) {
+    base::ScopedArena scoped_buf;
+    const Decimal *rv = nullptr;
+    std::tie(rv, std::ignore) = Div(rhs, &scoped_buf);
+    return CopyFrom(rv);
+}
+
+std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs, base::Arena *arena) const {
     DCHECK_EQ(exp(), rhs->exp());
     if (rhs->zero()) {
         return {nullptr, nullptr};
@@ -910,7 +945,7 @@ Decimal *Decimal::NewParsed(const char *s, size_t n, base::Arena *arena) {
         case 'h':
             return NewHexLiteral(s, n, arena);
         case 'f':
-            return NewRealLiteral(s, n, arena);
+            return NewPointLiteral(s, n, arena);
         case 'e':
             return NewExpLiteral(s, n, arena);
         default:
@@ -983,7 +1018,7 @@ Decimal *Decimal::NewHexLiteral(const char *s, size_t n, base::Arena *arena) {
 }
 
 /*static*/
-Decimal *Decimal::NewRealLiteral(const char *s, size_t n, base::Arena *arena) {
+Decimal *Decimal::NewPointLiteral(const char *s, size_t n, base::Arena *arena) {
     DCHECK_EQ('f', base::Slice::LikeNumber(s, n));
     
     bool negative = false;
@@ -1103,33 +1138,24 @@ int Decimal::AbsCompare(const Decimal *lhs, const Decimal *rhs) {
     DCHECK_EQ(lhs->exp(), rhs->exp());
     return core::Compare(lhs->segment_view(), rhs->segment_view());
 }
-
-/*static*/ Decimal *Decimal::NewI64(int64_t val, base::Arena *arena) {
-    bool neg = val < 0;
-    if (neg) {
-        val = -val;
-    }
+    
+/*static*/ Decimal *Decimal::NewP64(uint64_t val, bool neg, int exp, size_t reserved,
+                                    base::Arena *arena) {
+    Decimal *rv = NewUninitialized(reserved, arena);
     uint32_t hi_bits = static_cast<uint32_t>((val & 0xffffffff00000000ull) >> 32);
-    Decimal *rv = NewUninitialized((hi_bits ? 2 : 1), arena);
-    rv->set_negative_and_exp(neg, 0);
-    if (hi_bits > 0) {
+    if (hi_bits) {
+        rv->Resize(2);
         rv->segments()[0] = hi_bits;
         rv->segments()[1] = static_cast<uint32_t>(val);
     } else {
-        rv->segments()[0] = static_cast<uint32_t>(val);
+        if (val) {
+            rv->Resize(1);
+            rv->segments()[0] = static_cast<uint32_t>(val);
+        } else {
+            rv->Resize(0);
+        }
     }
-    return rv;
-}
-
-/*static*/ Decimal *Decimal::NewU64(uint64_t val, base::Arena *arena) {
-    uint32_t hi_bits = static_cast<uint32_t>((val & 0xffffffff00000000ull) >> 32);
-    Decimal *rv = NewUninitialized((hi_bits ? 2 : 1), arena);
-    if (hi_bits > 0) {
-        rv->segments()[0] = hi_bits;
-        rv->segments()[1] = static_cast<uint32_t>(val);
-    } else {
-        rv->segments()[0] = static_cast<uint32_t>(val);
-    }
+    rv->set_negative_and_exp(neg, exp);
     return rv;
 }
     
@@ -1193,6 +1219,26 @@ Decimal::DivRaw(const Decimal *lhs, const Decimal *rhs, base::Arena *arena) {
                                            rhs->segments_size()), rv, arena);
     }
     return {rv, re};
+}
+    
+/*static*/ void Decimal::AddRaw(const Decimal *lhs, const Decimal *rhs, Decimal *rv) {
+    bool neg = lhs->negative();
+    if (lhs->negative() == rhs->negative()) {
+        //   lhs  +   rhs  =   lhs + rhs
+        // (-lhs) + (-rhs) = -(lhs + rhs)
+        core::Add(lhs->segment_view(), rhs->segment_view(), rv->segment_mut_view());
+    } else {
+        //   lhs  + (-rhs) = lhs - rhs = -(rhs - lhs)
+        // (-lhs) +   rhs  = rhs - lhs = -(lhs - rhs)
+        if (AbsCompare(lhs, rhs) >= 0) {
+            core::Sub(lhs->segment_view(), rhs->segment_view(), rv->segment_mut_view());
+        } else {
+            neg = !neg;
+            core::Sub(rhs->segment_view(), lhs->segment_view(), rv->segment_mut_view());
+        }
+    }
+    rv->set_negative_and_exp(neg, lhs->exp());
+    rv->Normalize();
 }
     
 Decimal *Decimal::DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,

@@ -1,7 +1,7 @@
 #include "core/key-boundle.h"
 #include "core/internal-key-comparator.h"
 #include "core/unordered-memory-table.h"
-#include "base/standalone-arena.h"
+#include "base/arenas.h"
 #include "base/hash.h"
 #include "mai/env.h"
 #include "mai/iterator.h"

@@ -2,7 +2,7 @@
 #define MAI_SQL_EVALUATION_H_
 
 #include "sql/types.h"
-#include "base/arena.h"
+#include "base/arenas.h"
 #include "base/arena-utils.h"
 #include "mai/error.h"
 #include "glog/logging.h"
@@ -52,6 +52,8 @@ struct Value {
     bool is_number() const {
         return is_floating() || is_integral() || is_decimal();
     }
+    bool is_null() const { return kind == kNull; }
+    bool is_not_null() const { return !is_null(); }
     
     bool IsZero() const;
 
@@ -84,6 +86,8 @@ public:
     }
     
     DEF_VAL_PROP_RW(Value, result);
+    DEF_VAL_PROP_RW(bool, done);
+    DEF_VAL_PROP_RW(bool, init);
     DEF_PTR_GETTER_NOTNULL(base::Arena, arena);
     DEF_PTR_PROP_RW(const VirtualSchema, schema);
     DEF_PTR_PROP_RW(const HeapTuple, input);
@@ -91,6 +95,8 @@ public:
 private:
     base::Arena *const arena_; // arena for values
     Value result_;
+    bool done_ = false;
+    bool init_ = false;
     const VirtualSchema *schema_;
     const HeapTuple *input_;
 }; // class Context
@@ -185,14 +191,23 @@ class Operation : public Expression {
 public:
     DEF_VAL_GETTER(size_t, operands_count);
     
-    Expression *operand(size_t i) {
+    Expression *operand(size_t i) const {
         DCHECK_LT(i, operands_count_);
         return operands_count_ == 1
             ? reinterpret_cast<Expression *>(operands_)
             : operands_[i];
     }
     
-    Expression *lhs() const { return operands_[0]; }
+    void set_operand(size_t i, Expression *p) {
+        DCHECK_LT(i, operands_count_);
+        if (operands_count_ == 1) {
+            operands_ = reinterpret_cast<Expression **>(p);
+        } else {
+            operands_[i] = p;
+        }
+    }
+    
+    Expression *lhs() const { return operand(0); }
     
     Expression *rhs(size_t i) const {
         DCHECK_LT(i, rhs_count());
@@ -211,27 +226,91 @@ public:
     friend class Factory;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Operation);
 private:
-    Operation(SQLOperator op, Expression *operand)
+    Operation(SQLOperator op, size_t operands_count, base::Arena *arena)
         : op_(op)
-        , operands_count_(1)
-        , operands_(reinterpret_cast<Expression **>(operand)) {}
-    
-    Operation(SQLOperator op, Expression *lhs, Expression *rhs,
-              base::Arena *arena)
-        : op_(op)
-        , operands_count_(2)
-        , operands_(arena->NewArray<Expression *>(2)) {
-        operands_[0] = lhs;
-        operands_[1] = rhs;
+        , operands_count_(operands_count)
+        , operands_(operands_count > 1 ?
+                    arena->NewArray<Expression *>(operands_count) : nullptr) {
+        if (operands_count > 1) {
+            ::memset(operands_, 0, sizeof(*operands_) * operands_count);
+        }
     }
-    
-    Operation(SQLOperator op, Expression *lhs, const std::vector<Expression *> &rhs,
-              base::Arena *arena);
     
     SQLOperator op_;
     size_t operands_count_;
     Expression **operands_;
 }; // class Operation
+
+
+class Invocation : public Expression {
+public:
+    DEF_VAL_GETTER(SQLFunction, fnid);
+    DEF_VAL_GETTER(size_t, parameters_count);
+
+    Expression *parameter(size_t i) {
+        DCHECK_LT(i, parameters_count_);
+        return parameters_count_ == 1
+            ? reinterpret_cast<Expression *>(parameters_)
+            : parameters_[i];
+    }
+    
+    void set_parameter(size_t i, Expression *p) {
+        DCHECK_LT(i, parameters_count_);
+        if (parameters_count_ == 1) {
+            parameters_ = reinterpret_cast<Expression **>(p);
+        } else {
+            parameters_[i] = p;
+        }
+    }
+
+    virtual Error Evaluate(Context *ctx) override;
+    
+    friend class Factory;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Invocation);
+protected:
+    Invocation(SQLFunction fnid, size_t parameters_count, base::Arena *arena)
+        : fnid_(fnid)
+        , parameters_count_(parameters_count)
+        , parameters_(parameters_count > 1 ?
+                      arena->NewArray<Expression *>(parameters_count) : nullptr) {
+        if (parameters_count > 1) {
+            ::memset(parameters_, 0, sizeof(*parameters_) * parameters_count);
+        }
+    }
+    
+    const SQLFunction fnid_;
+    const size_t parameters_count_;
+    Expression **parameters_;
+}; // class Call
+
+
+class Aggregate : public Invocation {
+public:
+    DEF_VAL_GETTER(bool, distinct);
+    
+    virtual Error Evaluate(Context *ctx) override;
+    
+    friend class Factory;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Aggregate);
+private:
+    Aggregate(SQLFunction fnid, size_t parameters_count, bool distinct, base::Arena *arena)
+        : Invocation(fnid, parameters_count, arena)
+        , distinct_(distinct) {
+        mid_.kind = Value::kNull;
+        val_.kind = Value::kNull;
+    }
+    
+    Error SUM(Value arg0, Context *ctx);
+    Error AVG(Value arg0, Context *ctx);
+    
+    const bool distinct_;
+    uint64_t counter_ = 0;
+    SQLDecimal *sum_val_ = nullptr;
+    SQLDecimal *fin_val_ = nullptr;
+    Value mid_;
+    Value val_;
+    base::StaticArena<44 * 2> owned_arena_;
+}; // class Aggregate
     
 } // namespace eval
     
