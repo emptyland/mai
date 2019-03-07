@@ -62,6 +62,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::sql::SQLKeyType key_type;
     ::mai::sql::SQLOperator op;
     ::mai::sql::SQLJoinKind join_kind;
+    ::mai::sql::SQLDateTime dt_val;
     ::mai::sql::ast::Block *block;
     ::mai::sql::ast::Statement *stmt;
     ::mai::sql::ast::TypeDefinition *type_def;
@@ -88,7 +89,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %token GROUP FOR UPDATE LIMIT OFFSET INSERT OVERWRITE DELETE VALUES VALUE SET IN
 %token INTO DUPLICATE DEFAULT BINARY VARBINARY
 
-%token ID NULL_VAL INTEGRAL_VAL STRING_VAL APPROX_VAL DATE_VAL DATETIME_VAL DECIMAL_VAL
+%token ID NULL_VAL INTEGRAL_VAL STRING_VAL APPROX_VAL DATE_VAL TIME_VAL DATETIME_VAL DECIMAL_VAL
 
 %token EQ NOT OP_AND
 
@@ -106,6 +107,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <i64_val> INTEGRAL_VAL
 %type <approx_val> APPROX_VAL
 %type <dec_val> DECIMAL_VAL
+%type <dt_val> DATE_VAL TIME_VAL DATETIME_VAL
 %type <key_type> KeyOption
 %type <join_kind> JoinOp
 %type <col_def_list> ColumnDefinitionList
@@ -832,6 +834,15 @@ Simple : Identifier {
 }
 | DECIMAL_VAL {
     $$ = ctx->factory->NewDecimalLiteral($1, @1);
+}
+| '{' DATE_VAL '}' {
+    $$ = ctx->factory->NewDateLiteral($2.date, @2);
+}
+| '{' TIME_VAL '}' {
+    $$ = ctx->factory->NewTimeLiteral($2.time, @2);
+}
+| '{' DATETIME_VAL '}' {
+    $$ = ctx->factory->NewDateTimeLiteral($2, @2);
 }
 | Name '(' DistinctOption Parameters ')' {
     $$ = ctx->factory->NewCall($1, $3, $4, Location::Concat(@1, @5));

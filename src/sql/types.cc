@@ -97,7 +97,7 @@ SQLTimeUtils::Parse(const char *s, size_t n, SQLDateTime *result) {
         kBeginMicroSecond,
         kMicroSecond,
     };
-    //::memset(result, 0, sizeof(*result));
+    result->time.negative = false;
     
     bool has_date = false;
     State state = kInit;

@@ -8,6 +8,7 @@
 
 #include "sql/parser-ctx.h"
 #include "sql/ast.h"
+#include "sql/types.h"
 #include "sql/sql.hh"
 #include "base/slice.h"
 #include "core/decimal-v2.h"
@@ -17,6 +18,8 @@
 void yyerror(YYLTYPE *yyl, parser_ctx *ctx, const char *msg);
 
 using ::mai::base::Slice;
+using ::mai::sql::SQLTimeUtils;
+using ::mai::sql::SQLDateTime;
 using ::mai::core::v2::Decimal;
 
 #define YY_USER_ACTION \
@@ -142,7 +145,7 @@ XOR { return XOR; }
 
 -?[0-9]+"."[0-9]* |
 -?"."[0-9]+ {
-	yylval->dec_val = Decimal::NewRealLiteral(yytext, strlen(yytext), yyextra->arena);
+	yylval->dec_val = Decimal::NewPointLiteral(yytext, strlen(yytext), yyextra->arena);
 	return DECIMAL_VAL;
 }
 
@@ -151,6 +154,37 @@ XOR { return XOR; }
 	yylval->dec_val = Decimal::NewExpLiteral(yytext, strlen(yytext), yyextra->arena);
 	return DECIMAL_VAL;
 }
+
+"t"'[-+]?[0-9]+:[0-9]+:[0-9]+(\.[0-9]+)?' |
+"t"\"[-+]?[0-9]+:[0-9]+:[0-9]+(\.[0-9]+)?\" {
+	yylval->dt_val = SQLDateTime::Zero();
+	int rv = SQLTimeUtils::Parse(yytext + 2, strlen(yytext) - 3, &yylval->dt_val);
+	if (rv != 't') {
+		return TOKEN_ERROR;
+	}
+	return TIME_VAL;
+}
+
+"d"'[0-9]+-[0-9]+-[0-9]+' |
+"d"\"[0-9]+-[0-9]+-[0-9]+\" {
+	yylval->dt_val = SQLDateTime::Zero();
+	int rv = SQLTimeUtils::Parse(yytext + 2, strlen(yytext) - 3, &yylval->dt_val);
+	if (rv != 'd') {
+		return TOKEN_ERROR;
+	}
+	return DATE_VAL;
+}
+
+"ts"'[0-9]+-[0-9]+-[0-9]+\ [0-9]+:[0-9]+:[0-9]+(\.[0-9]+)?' |
+"ts"\"[0-9]+-[0-9]+-[0-9]+\ [0-9]+:[0-9]+:[0-9]+(\.[0-9]+)?\" {
+	yylval->dt_val = SQLDateTime::Zero();
+	int rv = SQLTimeUtils::Parse(yytext + 3, strlen(yytext) - 4, &yylval->dt_val);
+	if (rv != 'c') {
+		return TOKEN_ERROR;
+	}
+	return DATETIME_VAL;
+}
+
 
 "=" {
 	yylval->op = ::mai::sql::SQL_CMP_EQ;
@@ -187,7 +221,7 @@ XOR { return XOR; }
 ">>" { return RSHIFT; }
 ":=" { return ASSIGN; }
 
-[-+&~|^/%!()*.,;] { return yytext[0]; }
+[-+&~|^/%!()*.,;{}] { return yytext[0]; }
 
 "--"[ \t].* ;
 

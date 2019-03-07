@@ -700,14 +700,6 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs, base::Arena *a
 }
     
 Decimal *Decimal::Sqrt(base::Arena *arena) const {
-/*
-        double n,y=1.0;
- 12     while(fabs((1.0/2.0*(y+n/y))-y)>=0.00001)
- 13     {
- 14         y=1.0/2.0*(y+n/y);
- 15         printf( "y=%lf\n", y );
- 16     }
- */
     if (negative()) {
         return nullptr;
     }

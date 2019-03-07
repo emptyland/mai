@@ -262,6 +262,46 @@ TEST_F(SQLParserTest, Decimal) {
     ASSERT_TRUE(literal->is_decimal_val());
     ASSERT_EQ("1.00001", literal->decimal_val()->ToString());
 }
+    
+TEST_F(SQLParserTest, DateTimeLiteral) {
+    static const char *kX = "SELECT {d'2019-10-11'}, {t'-999:12:34.9'}, {ts'2019-10-11 09:12:34.998'};";
+    
+    Parser::Result result;
+    auto rs = Parser::Parse(kX, &arena_, &result);
+    ASSERT_TRUE(rs.ok()) <<  rs.ToString() << "\n" << result.FormatError();
+    
+    auto stmt = Select::Cast(result.block->stmt(0));
+    ASSERT_NE(nullptr, stmt);
+    ASSERT_EQ(3, stmt->columns()->size());
+    
+    auto literal = Literal::Cast(stmt->columns()->at(0)->expr());
+    ASSERT_TRUE(literal->is_date_val());
+    SQLDateTime dt = literal->time_class_val();
+    ASSERT_EQ(2019, dt.date.year);
+    ASSERT_EQ(10, dt.date.month);
+    ASSERT_EQ(11, dt.date.day);
+    
+    literal = Literal::Cast(stmt->columns()->at(1)->expr());
+    ASSERT_TRUE(literal->is_time_val());
+    dt = literal->time_class_val();
+    ASSERT_EQ(999, dt.time.hour);
+    ASSERT_TRUE(dt.time.negative);
+    ASSERT_EQ(12, dt.time.minute);
+    ASSERT_EQ(34, dt.time.second);
+    ASSERT_EQ(900000, dt.time.micros);
+    
+    literal = Literal::Cast(stmt->columns()->at(2)->expr());
+    ASSERT_TRUE(literal->is_datetime_val());
+    dt = literal->time_class_val();
+    ASSERT_EQ(2019, dt.date.year);
+    ASSERT_EQ(10, dt.date.month);
+    ASSERT_EQ(11, dt.date.day);
+    ASSERT_EQ(9, dt.time.hour);
+    ASSERT_FALSE(dt.time.negative);
+    ASSERT_EQ(12, dt.time.minute);
+    ASSERT_EQ(34, dt.time.second);
+    ASSERT_EQ(998000, dt.time.micros);
+}
 
 } // namespace sql
     

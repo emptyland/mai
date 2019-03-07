@@ -47,6 +47,12 @@ public:
         return new (arena_) Constant(val);
     }
     
+    Constant *NewConstDate(const SQLDate &val) { return new(arena_) Constant(val); }
+    
+    Constant *NewConstTime(const SQLTime &val) { return new(arena_) Constant(val); }
+    
+    Constant *NewConstDateTime(const SQLDateTime &val) { return new(arena_) Constant(val); }
+    
     Constant *NewConstNull() { return new (arena_) Constant(); }
     
     Variable *NewVariable(const VirtualSchema *schema, size_t entry_idx) {

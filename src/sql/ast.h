@@ -803,6 +803,9 @@ class Literal final : public Expression {
 public:
     enum Type {
         STRING,
+        DATE,
+        TIME,
+        DATETIME,
         INTEGER,
         DECIMAL,
         APPROX,
@@ -814,29 +817,34 @@ public:
     virtual bool is_literal() const override { return true; }
     
     bool is_string_val() const { return type_ == STRING; }
+    bool is_date_val() const { return type_ == DATE; }
+    bool is_time_val() const { return type_ == TIME; }
+    bool is_datetime_val() const { return type_ == DATETIME; }
+    bool is_time_class() const { return is_date_val() || is_time_val() || is_datetime_val(); }
     bool is_integer_val() const { return type_ == INTEGER; }
     bool is_decimal_val() const { return type_ == DECIMAL; }
     bool is_approx_val() const { return type_ == APPROX; }
     bool is_null_val() const { return type_ == NULL_VAL; }
     bool is_default_placeholder() const { return type_ == DEFAULT_PLACEHOLDER; }
+    bool is_bind_placeholder() const { return type_ == BIND_PLACEHOLDER; }
     
     DEF_VAL_GETTER(Type, type);
     
-    int64_t integer_val() const {
-        DCHECK(is_integer_val()); return int_val_;
-    }
+    int64_t integer_val() const { DCHECK(is_integer_val()); return int_val_; }
     
-    const AstDecimal *decimal_val() const {
-        DCHECK(is_decimal_val()); return dec_val_;
-    }
+    const AstDecimal *decimal_val() const { DCHECK(is_decimal_val()); return dec_val_; }
     
-    double approx_val() const {
-        DCHECK(is_approx_val()); return approx_val_;
-    }
+    double approx_val() const { DCHECK(is_approx_val()); return approx_val_; }
     
-    const AstString *string_val() const {
-        DCHECK(is_string_val()); return str_val_;
-    }
+    const AstString *string_val() const { DCHECK(is_string_val()); return str_val_; }
+    
+    SQLDateTime time_class_val() const { DCHECK(is_time_class()); return dt_val_; }
+    
+    SQLDate date_val() const { DCHECK(is_date_val()); return dt_val_.date; }
+    
+    SQLTime time_val() const { DCHECK(is_time_val()); return dt_val_.time; }
+    
+    SQLDateTime datetime_val() const { DCHECK(is_datetime_val()); return dt_val_; }
 
     DEF_AST_NODE(Literal);
     DISALLOW_IMPLICIT_CONSTRUCTORS(Literal);
@@ -861,10 +869,17 @@ private:
         , type_(STRING)
         , str_val_(val) {}
     
+    Literal(const SQLDateTime &val, Type type, const Location &location)
+        : Expression(location)
+        , type_(type)
+        , dt_val_(val) {
+        DCHECK(type == DATE || type == DATETIME || type == TIME);
+    }
+    
     Literal(Type type, const Location &location)
         : Expression(location)
         , type_(type) {
-        DCHECK(type == NULL_VAL || type == DEFAULT_PLACEHOLDER);
+        DCHECK(type == NULL_VAL || type == DEFAULT_PLACEHOLDER || type == BIND_PLACEHOLDER);
     }
     
     Type type_;
@@ -873,6 +888,7 @@ private:
         double            approx_val_;
         const AstDecimal *dec_val_;
         const AstString  *str_val_;
+        SQLDateTime       dt_val_;
     };
 }; // class Literal
     

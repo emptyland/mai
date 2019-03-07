@@ -323,8 +323,57 @@ TEST_F(EvaluationTest, PlusInt) {
     ASSERT_EQ("0.01", ctx.result().dec_val->ToString());
 }
     
-TEST_F(EvaluationTest, PlusDateTime) {
+TEST_F(EvaluationTest, PlusTime) {
+    auto lhs = factory_.NewConstStr("-0.7779998");
+    auto rhs = factory_.NewConstTime({23, 12, 33, false, 999000});
+    auto expr = factory_.NewBinary(SQL_PLUS, lhs, rhs);
     
+    eval::Context ctx(&arena_);
+    auto rs = expr->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ASSERT_EQ(eval::Value::kDecimal, ctx.result().kind);
+    ASSERT_EQ("231233.2210002", ctx.result().dec_val->ToString());
+}
+    
+TEST_F(EvaluationTest, AggregateSUM_I64) {
+    auto agg = factory_.NewCall(SQL_F_SUM, 1, false);
+    agg->set_parameter(0, factory_.NewConstI64(9999));
+    
+    eval::Context ctx(&arena_);
+    ctx.set_init(true);
+    auto rs = agg->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ctx.set_init(false);
+    agg->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    agg->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ASSERT_EQ(eval::Value::kDecimal, ctx.result().kind);
+    ASSERT_EQ("29997", ctx.result().dec_val->ToString());
+}
+    
+TEST_F(EvaluationTest, AggregateSUM_F64) {
+    auto agg = factory_.NewCall(SQL_F_SUM, 1, false);
+    agg->set_parameter(0, factory_.NewConstF64(9999.999));
+    
+    eval::Context ctx(&arena_);
+    ctx.set_init(true);
+    auto rs = agg->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ctx.set_init(false);
+    agg->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    agg->Evaluate(&ctx);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ASSERT_EQ(eval::Value::kF64, ctx.result().kind);
+    ASSERT_NEAR(30000, ctx.result().f64_val, 0.1);
 }
     
 TEST_F(EvaluationTest, VariableReading) {

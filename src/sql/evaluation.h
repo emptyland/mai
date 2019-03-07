@@ -162,6 +162,21 @@ private:
         data_.f64_val = f64_val;
     }
     
+    Constant(const SQLDate &val) {
+        data_.kind = Data::kDate;
+        data_.dt_val.date = val;
+    }
+    
+    Constant(const SQLTime &val) {
+        data_.kind = Data::kTime;
+        data_.dt_val.time = val;
+    }
+    
+    Constant(const SQLDateTime &val) {
+        data_.kind = Data::kDateTime;
+        data_.dt_val = val;
+    }
+    
     Constant() { data_.kind = Data::kNull; }
     
     Data data_;

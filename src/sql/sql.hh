@@ -114,37 +114,38 @@ extern int yydebug;
     STRING_VAL = 320,
     APPROX_VAL = 321,
     DATE_VAL = 322,
-    DATETIME_VAL = 323,
-    DECIMAL_VAL = 324,
-    EQ = 325,
-    NOT = 326,
-    OP_AND = 327,
-    BIGINT = 328,
-    INT = 329,
-    SMALLINT = 330,
-    TINYINT = 331,
-    DECIMAL = 332,
-    NUMERIC = 333,
-    CHAR = 334,
-    VARCHAR = 335,
-    DATE = 336,
-    DATETIME = 337,
-    TIMESTMAP = 338,
-    AUTO_INCREMENT = 339,
-    COMMENT = 340,
-    TOKEN_ERROR = 341,
-    ASSIGN = 342,
-    OP_OR = 343,
-    XOR = 344,
-    IS = 345,
-    LIKE = 346,
-    REGEXP = 347,
-    BETWEEN = 348,
-    COMPARISON = 349,
-    LSHIFT = 350,
-    RSHIFT = 351,
-    MOD = 352,
-    UMINUS = 353
+    TIME_VAL = 323,
+    DATETIME_VAL = 324,
+    DECIMAL_VAL = 325,
+    EQ = 326,
+    NOT = 327,
+    OP_AND = 328,
+    BIGINT = 329,
+    INT = 330,
+    SMALLINT = 331,
+    TINYINT = 332,
+    DECIMAL = 333,
+    NUMERIC = 334,
+    CHAR = 335,
+    VARCHAR = 336,
+    DATE = 337,
+    DATETIME = 338,
+    TIMESTMAP = 339,
+    AUTO_INCREMENT = 340,
+    COMMENT = 341,
+    TOKEN_ERROR = 342,
+    ASSIGN = 343,
+    OP_OR = 344,
+    XOR = 345,
+    IS = 346,
+    LIKE = 347,
+    REGEXP = 348,
+    BETWEEN = 349,
+    COMPARISON = 350,
+    LSHIFT = 351,
+    RSHIFT = 352,
+    MOD = 353,
+    UMINUS = 354
   };
 #endif
 
@@ -184,6 +185,7 @@ union YYSTYPE
     ::mai::sql::SQLKeyType key_type;
     ::mai::sql::SQLOperator op;
     ::mai::sql::SQLJoinKind join_kind;
+    ::mai::sql::SQLDateTime dt_val;
     ::mai::sql::ast::Block *block;
     ::mai::sql::ast::Statement *stmt;
     ::mai::sql::ast::TypeDefinition *type_def;
@@ -202,7 +204,7 @@ union YYSTYPE
     ::mai::sql::ast::AssignmentList *assignment_list;
     ::mai::sql::ast::Identifier *id;
 
-#line 206 "sql.hh" /* yacc.c:1927  */
+#line 208 "sql.hh" /* yacc.c:1927  */
 };
 
 typedef union YYSTYPE YYSTYPE;

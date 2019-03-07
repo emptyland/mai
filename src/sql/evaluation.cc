@@ -903,11 +903,7 @@ int Value::Compare(const Value &rhs, base::Arena *arena) const {
     }
     
     Error rs;
-    switch (fnid_) {
-        case SQL_F_COUNT: {
-            // TODO:
-        } break;
-            
+    switch (fnid_) {            
         case SQL_F_SUM: {
             DCHECK_EQ(parameters_count(), 1);
             rs = parameter(0)->Evaluate(ctx);
@@ -935,51 +931,11 @@ int Value::Compare(const Value &rhs, base::Arena *arena) const {
                 val_.dec_val = val_.dec_val->Clone(ctx->arena());
             }
         } break;
-            
-        case SQL_F_MAX: {
-            DCHECK_EQ(parameters_count(), 1);
-            auto rs = parameter(0)->Evaluate(ctx);
-            if (!rs) {
-                return rs;
-            }
-            auto arg0 = ctx->result();
-            if (ctx->init()) {
-                mid_ = arg0;
-            }
-            if (arg0.kind == Value::kNull) {
-                val_.kind = Value::kNull;
-            } else {
-                if (mid_.kind == Value::kNull) {
-                    mid_ = arg0;
-                } else if (arg0.Compare(mid_) > 0) {
-                    mid_ = arg0;
-                }
-                val_ = mid_;
-            }
-        } break;
-            
-        case SQL_F_MIN: {
-            DCHECK_EQ(parameters_count(), 1);
-            auto rs = parameter(0)->Evaluate(ctx);
-            if (!rs) {
-                return rs;
-            }
-            auto arg0 = ctx->result();
-            if (ctx->init()) {
-                mid_ = arg0;
-            }
-            if (arg0.kind == Value::kNull) {
-                val_.kind = Value::kNull;
-            } else {
-                if (mid_.kind == Value::kNull) {
-                    mid_ = arg0;
-                } else if (arg0.Compare(mid_) < 0) {
-                    mid_ = arg0;
-                }
-                val_ = mid_;
-            }
-        } break;
-
+        
+        case SQL_F_COUNT:
+        case SQL_F_MAX:
+        case SQL_F_MIN:
+            // TODO:
         default:
             return MAI_NOT_SUPPORTED("TODO:");
     }
@@ -1101,8 +1057,8 @@ Error Aggregate::AVG(Value arg0, Context *ctx) {
                 val_.dec_val = fin_val_;
             } else {
                 DCHECK_EQ(val_.kind, Value::kDecimal);
-                const SQLDecimal *div = mid_.dec_val->NewPrecision(fin_val_->exp(), ctx->arena());
-                fin_val_->Div(div);
+                fin_val_->CopyFrom(sum_val_);
+                fin_val_->Div(counter_);
             }
             break;
             
