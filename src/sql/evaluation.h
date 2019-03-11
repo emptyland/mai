@@ -23,51 +23,8 @@ class EvalNode;
 class Expression;
 class Context;
     
-struct Value {
-    enum Kind : int {
-        kNull,
-        kString,
-        kDecimal,
-        kU64,
-        kI64,
-        kF64,
-        kDate,
-        kTime,
-        kDateTime,
-    };
-    
-    Kind kind;
-    union {
-        const AstString *str_val;
-        const SQLDecimal *dec_val;
-        double  f64_val;
-        uint64_t u64_val;
-        int64_t i64_val;
-        SQLDateTime dt_val;
-    };
-    
-    bool is_floating() const { return kind == kF64; }
-    bool is_integral() const { return kind == kI64 || kind == kU64; }
-    bool is_decimal() const { return kind == kDecimal; }
-    bool is_number() const {
-        return is_floating() || is_integral() || is_decimal();
-    }
-    bool is_null() const { return kind == kNull; }
-    bool is_not_null() const { return !is_null(); }
-    
-    bool IsZero() const;
+using Value = ::mai::sql::SQLValue;
 
-    Value ToNumeric(base::Arena *arena, Kind hint = kNull) const;
-    Value ToIntegral(base::Arena *arena, Kind hint = kNull) const;
-    Value ToFloating(base::Arena *arena, Kind hint = kNull) const;
-    Value ToDecimal(base::Arena *arena, Kind hint = kNull) const;
-    
-    bool StrictEquals(const Value &rhs) const;
-    int Compare(const Value &rhs, base::Arena *arena = nullptr) const;
-    
-    void Minus();
-}; // struct RawData
-    
 class Context final {
 public:
     Context(base::Arena *arena)

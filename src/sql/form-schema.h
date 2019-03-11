@@ -34,6 +34,7 @@ class ColumnDefinition;
 
 class FormBuilder;
 class FormSchemaSet;
+//class VirtualSchema;
     
 struct FormColumn {
     std::string name;

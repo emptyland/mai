@@ -93,7 +93,7 @@ public:
     
     // ProtocolBinary::MYSQL_TYPE_DATE, ProtocolBinary::MYSQL_TYPE_DATETIME,
     // ProtocolBinary::MYSQL_TYPE_TIMESTAMP:
-    virtual sql::DateTime GetDateTime(int i) const =0;
+    virtual sql::DateTime GetDateTime(int i) const = 0;
     
     // ProtocolBinary::MYSQL_TYPE_TIME:
     virtual sql::Time GetTime(int i) const = 0;

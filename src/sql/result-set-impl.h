@@ -9,7 +9,7 @@ namespace mai {
     
 namespace sql {
     
-    class ResultSetStub : public ResultSet {
+class ResultSetStub : public ResultSet {
 public:
     ResultSetStub() {}
     virtual ~ResultSetStub() override {}

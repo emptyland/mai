@@ -12,12 +12,19 @@ namespace sql {
 namespace ast {
 class Statement;
 class CreateTable;
+class Insert;
 } // namespace ast
+namespace eval {
+//struct Value;
+} // namespace eval
     
 class MaiSQLImpl;
 class StorageEngine;
-
-
+class ColumnDescriptor;
+class HeapTupleBuilder;
+class Form;
+class StorageOperation;
+struct SQLValue;
     
 class MaiSQLConnectionImpl final : public MaiSQLConnection {
 public:
@@ -47,6 +54,10 @@ public:
 private:
     ResultSet *ExecuteStatement(const ast::Statement *stmt);
     Error ExecuteCreateTable(const ast::CreateTable *ast);
+    Error ExecuteInsert(const ast::Insert *ast);
+    Error ExecuteSimpleInsert(const Form *form, const ast::Insert *ast);
+    
+    Error SetValue(const ColumnDescriptor *cd, const SQLValue &value, HeapTupleBuilder *builder);
 
     std::string db_name_;
     const uint32_t conn_id_;
@@ -54,8 +65,7 @@ private:
     StorageEngine *engine_;
     base::Arena *arena_;
     bool arena_ownership_;
-    
-    
+    std::unique_ptr<StorageOperation> txn_;
 
     MaiSQLConnectionImpl *next_ = this;
     MaiSQLConnectionImpl *prev_ = this;

@@ -106,6 +106,8 @@ union HeapRawData {
 //
 class HeapTuple final {
 public:
+    using Builder = HeapTupleBuilder;
+    
     DEF_PTR_GETTER_NOTNULL(const VirtualSchema, schema);
     DEF_VAL_GETTER(size_t, size);
     DEF_VAL_GETTER(size_t, null_bitmap_size);

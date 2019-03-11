@@ -334,6 +334,15 @@ public:
               ArenaAllocator<std::pair<const K, V>>(zone)) {}
 };
     
+struct ArenaUtils {
+    
+    template<class T>
+    static inline bool IsEmpty(const ArenaVector<T> *a) { return !a || a->empty(); }
+    
+    template<class T>
+    static inline bool IsNotEmpty(const ArenaVector<T> *a) { return !IsEmpty(a); }
+};
+    
 } // namespace base
     
 } // namespace mai

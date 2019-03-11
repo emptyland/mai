@@ -1,7 +1,10 @@
 #include "sql/storage-engine.h"
 #include "sql/form-schema.h"
+#include "sql/heap-tuple.h"
 #include "base/slice.h"
 #include "mai/transaction.h"
+#include "mai/write-batch.h"
+//#include <shared_mutex>
 
 namespace mai {
 
@@ -14,6 +17,101 @@ using ::mai::base::Slice;
 /*static*/ const char StorageEngine::kSysNextColumnIdKey[] = "next_column_id";
 /*static*/ const char StorageEngine::kSysColumnsKey[] = "columns";
 /*static*/ const char StorageEngine::kSysIndicesKey[] = "indices";
+    
+class StorageEngine::ColumnStorageBatch : public StorageOperation {
+public:
+    ColumnStorageBatch(StorageEngine *owns)
+        : owns_(owns) {
+        snapshot_ = owns_->trx_db_->GetSnapshot();
+    }
+    
+    virtual ~ColumnStorageBatch() override {
+        owns_->trx_db_->ReleaseSnapshot(snapshot_);
+    }
+    
+    
+    /*
+           +-----------+-------------+        +-------+
+     key : | column-id | primary-key |  val : | value |
+           +-----------+-------------+        +-------+
+     
+           +-----------+---------------+-------------+       +------+
+     key : | column-id | secondary-key | primary-key | val : | info |
+           +-----------+---------------+-------------+       +------+
+     */
+    virtual Error Put(const HeapTuple *tuple, uint64_t key_hint) override {
+        std::shared_lock<std::shared_mutex> lock(owns_->meta_mutex_);
+        const Form *frm = DCHECK_NOTNULL(tuple->schema()->origin_table());
+        const Form::Column *pri_col = frm->GetPrimaryKey();
+        std::string pri_key;
+        if (!pri_col) {
+            // TODO:
+            //owns_->MakeAutoIncrementIndex(frm, &pri_key);
+        } else {
+            auto pri_cd = DCHECK_NOTNULL(tuple->schema()->FindOrNull(pri_col->name));
+            if (pri_col->auto_increment) {
+                // TODO:
+                //owns_->MakeAutoIncrementIndex(frm, &pri_key);
+            } else {
+                MakeKey(tuple, pri_cd, &pri_key);
+            }
+        }
+        auto cf = owns_->GetTableCfOrNull(frm->table_name());
+
+        for (size_t i = 0; i < tuple->schema()->columns_size(); ++i) {
+            auto cd = tuple->schema()->column(i);
+
+            std::string key, val;
+            if (cd->origin()->key == SQL_KEY) {
+                MakeSecondaryIndex(tuple, cd, pri_key, &key);
+                batch_.Put(cf, key, "[INFO]");
+            } else if (cd->origin()->key == SQL_UNIQUE_KEY) {
+                // TODO:
+            } else if (cd->origin()->key == SQL_NOT_KEY ||
+                       cd->origin()->key == SQL_PRIMARY_KEY) {
+                MakeIndex(cd, pri_key, &key);
+                MakeValue(tuple, cd, &val);
+                batch_.Put(cf, key, val);
+            }
+        }
+        
+        return MAI_NOT_SUPPORTED("TODO:");
+    }
+    
+    virtual Error Finialize(bool commit = false) override {
+        WriteOptions wr_opts;
+        Error rs = owns_->trx_db_->Write(wr_opts, &batch_);
+        batch_.Clear();
+        return rs;
+    }
+    
+    void MakeKey(const HeapTuple *tuple, const ColumnDescriptor *cd, std::string *buf) {
+        
+    }
+    
+    void MakeValue(const HeapTuple *tuple, const ColumnDescriptor *cd, std::string *buf) {
+        
+    }
+    
+    void MakeIndex(const ColumnDescriptor *cd, std::string_view pri_key, std::string *buf) {
+        
+    }
+    
+    void MakeSecondaryIndex(const HeapTuple *tuple, const ColumnDescriptor *cd,
+                            std::string_view pri_key, std::string *buf) {
+        
+    }
+
+private:
+    virtual Error Commit() override { return MAI_NOT_SUPPORTED("XXX:"); }
+    virtual Error Rollback() override { return MAI_NOT_SUPPORTED("XXX:"); }
+    
+    
+    
+    StorageEngine *owns_;
+    const Snapshot *snapshot_;
+    WriteBatch batch_;
+}; // class StorageEngine::StorageBatch
     
 StorageEngine::StorageEngine(TransactionDB *trx_db, StorageKind kind)
     : trx_db_(DCHECK_NOTNULL(trx_db))
@@ -101,6 +199,8 @@ Error StorageEngine::Prepare(bool boot) {
 }
     
 Error StorageEngine::NewTable(const std::string &/*db_name*/, const Form *form) {
+    std::unique_lock<std::shared_mutex> lock(meta_mutex_);
+    
     ColumnFamily *cf = nullptr;
     ColumnFamilyOptions cf_opts;
     Error rs = trx_db_->NewColumnFamily(form->table_name(), cf_opts, &cf);
@@ -135,6 +235,28 @@ Error StorageEngine::NewTable(const std::string &/*db_name*/, const Form *form) 
     }
 
     return SyncMetadata(form->table_name(), kIds|kColumns|kIndices);
+}
+    
+Error StorageEngine::PutTuple(const HeapTuple *tuple) {
+    // TODO:
+    return MAI_NOT_SUPPORTED("TODO:");
+}
+
+StorageOperation *StorageEngine::NewBatch() {
+    switch (kind_) {
+        case SQL_COLUMN_STORE:
+            return new ColumnStorageBatch(this);
+            
+        case SQL_ROW_STORE:
+            // TODO:
+            DLOG(FATAL) << "TODO:";
+            return nullptr;
+            
+        default:
+            DLOG(FATAL) << "Noreached";
+            break;
+    }
+    return nullptr;
 }
     
 Error StorageEngine::SyncMetadata(const std::string &arg, uint32_t flags) {
