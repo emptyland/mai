@@ -23,7 +23,8 @@ public:
     using Column = Form::Column;
     using Index  = Form::Index;
     
-    explicit FormBuilder(const Form *form) {
+    explicit FormBuilder(const Form *form, FormSchemaSet *fss)
+        : fss_(DCHECK_NOTNULL(fss)) {
         if (!form) {
             return;
         }
@@ -118,6 +119,7 @@ public:
         }
         
         auto oldcol = columns_[col_iter->second];
+        DCHECK_EQ(oldcol->cid, column->cid);
         columns_[col_iter->second] = column;
 
         if (oldcol->key == SQL_NOT_KEY) {
@@ -261,6 +263,7 @@ public:
         Form *form = new Form(table_name_, engine_name_);
         form->version_ = version_;
         form->older_   = older_;
+        form->tid_ = fss_->GenerateTableId();
         form->columns_ = std::move(columns_);
         form->column_names_ = std::move(column_names_);
         form->indices_ = std::move(indices_);
@@ -276,6 +279,11 @@ public:
             .d_size(col->d_size)
             //TODO: .is_unsigned(un)
             .EndColumn();
+            
+            col->cid = fss_->GenerateColumnId();
+        }
+        for (auto idx : form->indices_) {
+            idx->iid = fss_->GenerateColumnId();
         }
         form->virtual_schema_.reset(builder.origin_table(form).Build());
         return form;
@@ -344,6 +352,7 @@ private:
     std::vector<size_t> column_assoc_index_;
     int primary_key_ = -1;
     int version_ = 0;
+    FormSchemaSet *fss_;
     Form *older_ = nullptr;
 }; // class FormBuilder
     
@@ -455,7 +464,7 @@ void FormSchemaPatch::PartialDecode(base::BufferReader *rd,
 ////////////////////////////////////////////////////////////////////////////////
     
 void MetadataPatch::Encode(std::string *buf) const {
-    Slice::WriteVarint32(buf, next_index_id_);
+    Slice::WriteVarint32(buf, next_column_id_);
     Slice::WriteVarint32(buf, next_table_id_);
     Slice::WriteVarint64(buf, next_file_number_);
 }
@@ -466,7 +475,7 @@ void MetadataPatch::Decode(std::string_view buf) {
 }
 
 void MetadataPatch::Decode(base::BufferReader *rd) {
-    next_index_id_ = rd->ReadVarint32();
+    next_column_id_ = rd->ReadVarint32();
     next_table_id_ = rd->ReadVarint32();
     next_file_number_ = rd->ReadVarint64();
 }
@@ -655,7 +664,7 @@ Error FormSchemaSet::ReadBuffer(std::string_view buf,
                 patch.Decode(&rd);
                 
                 next_file_number_ = patch.next_file_number();
-                patch.next_index_id(); // TODO:
+                patch.next_column_id(); // TODO:
                 patch.next_table_id(); // TODO:
             } break;
                 
@@ -675,7 +684,7 @@ Error FormSchemaSet::LogAndApply(FormSchemaPatch *patch) {
     auto db = &iter->second.tables;
     auto it = db->find(patch->table_name());
 
-    FormBuilder builder(it == db->end() ? nullptr : it->second);
+    FormBuilder builder(it == db->end() ? nullptr : it->second, this);
     Error rs;
     for (auto spec : patch->specs_) {
         switch (spec->kind()) {
@@ -797,7 +806,7 @@ Error FormSchemaSet::BuildForm(const std::string &db_name,
     auto db = &iter->second.tables;
     auto it = db->find(table_name);
     
-    FormBuilder builder(it == db->end() ? nullptr : it->second);
+    FormBuilder builder(it == db->end() ? nullptr : it->second, this);
     builder.set_table_name(table_name);
     builder.set_engine_name(iter->second.engine_name);
     builder.SetOlder(it == db->end() ? nullptr : it->second);
@@ -884,7 +893,7 @@ Error FormSchemaSet::Ast2Form(const std::string &table_name,
                               const std::string &engine_name,
                               const ast::CreateTable *ast,
                               Form **result) {
-    FormBuilder builder(nullptr);
+    FormBuilder builder(nullptr, this);
     builder.set_table_name(table_name);
     builder.set_engine_name(engine_name);
     DCHECK_EQ(table_name, ast->table_name()->ToString());
@@ -910,7 +919,7 @@ Error FormSchemaSet::Ast2Form(const std::string &table_name,
     
 Error FormSchemaSet::Ast2Column(const ast::ColumnDefinition *ast,
                                 Form::Column **result) {
-    std::unique_ptr<Form::Column> col(new FormColumn());
+    std::unique_ptr<Form::Column> col(new Column());
     col->name = ast->name()->ToString();
     col->type = ast->type()->code();
     col->m_size = ast->type()->fixed_size();

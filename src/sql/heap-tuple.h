@@ -19,7 +19,7 @@ class Decimal;
 } // namespace core
 namespace sql {
     
-struct FormColumn;
+struct Column;
 class Form;
 class HeapTupleBuilder;
 class VirtualSchemaBuilder;
@@ -28,7 +28,7 @@ class ColumnDescriptor final {
 public:
     DEF_VAL_GETTER(int, index);
     DEF_PTR_GETTER(const Form, origin_table);
-    DEF_PTR_GETTER(const FormColumn, origin);
+    DEF_PTR_GETTER(const Column, origin);
     DEF_VAL_GETTER(std::string, table_name);
     DEF_VAL_GETTER(std::string, name);
     DEF_VAL_GETTER(SQLType, type);
@@ -51,7 +51,7 @@ private:
     
     int index_;
     const Form *origin_table_;
-    const FormColumn *origin_;
+    const Column *origin_;
     std::string table_name_;
     std::string name_;
     SQLType type_;
@@ -196,7 +196,7 @@ public:
             return *this;
         }
         
-        InnerBuilder &origin(const FormColumn *column) {
+        InnerBuilder &origin(const Column *column) {
             origin_ = DCHECK_NOTNULL(column);
             return *this;
         }
@@ -249,7 +249,7 @@ public:
         std::string name_;
         SQLType type_;
         const Form *origin_table_ = nullptr;
-        const FormColumn *origin_ = nullptr;
+        const Column *origin_ = nullptr;
         bool is_unsigned_ = false;
         int m_size_ = 0;
         int d_size_ = 0;

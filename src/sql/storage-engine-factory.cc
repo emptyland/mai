@@ -41,7 +41,16 @@ Error StorageEngineFactory::NewEngine(const std::string &abs_data_dir,
     } else {
         // Exist
         opts.create_if_missing = false;
-        rs = TransactionDB::Open(opts, trx_opts, name, {}, nullptr, &db);
+        std::vector<std::string> names;
+        rs = DB::ListColumnFamilies(opts, name, &names);
+        if (!rs) {
+            return rs;
+        }
+        std::vector<ColumnFamilyDescriptor> cfds(names.size());
+        for (size_t i = 0; i < names.size(); ++i) {
+            cfds[i].name = names[i];
+        }
+        rs = TransactionDB::Open(opts, trx_opts, name, cfds, nullptr, &db);
     }
     if (rs.ok()) {
         *result = new StorageEngine(db, kind);

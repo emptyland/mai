@@ -41,7 +41,7 @@ public:
         patch.set_engine_name("MaiDB");
         
         auto spec = new FormSpecPatch(FormSpecPatch::kCreatTable);
-        FormColumn col;
+        Column col;
         col.name = "a";
         col.type = SQL_BIGINT;
         col.key = SQL_PRIMARY_KEY;
@@ -91,7 +91,7 @@ TEST_F(FormSchemaTest, Sanity) {
     patch.set_engine_name("MaiDB");
     
     auto spec = new FormSpecPatch(FormSpecPatch::kCreatTable);
-    FormColumn col;
+    Column col;
     col.name = "a";
     col.type = SQL_BIGINT;
     col.key  = SQL_PRIMARY_KEY;
@@ -114,7 +114,7 @@ TEST_F(FormSchemaTest, CreateTable) {
     patch.set_engine_name("MaiDB");
     
     auto spec = new FormSpecPatch(FormSpecPatch::kCreatTable);
-    FormColumn col;
+    Column col;
     col.name = "a";
     col.type = SQL_BIGINT;
     col.key  = SQL_PRIMARY_KEY;

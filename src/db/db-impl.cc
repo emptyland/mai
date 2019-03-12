@@ -1327,24 +1327,6 @@ void DBImpl::DeleteObsoleteFiles(ColumnFamilyImpl *cfd) {
     
 const char kDefaultColumnFamilyName[] = "default";
     
-/*static*/ Error DB::Open(const Options &opts,
-                          const std::string name,
-                          const std::vector<ColumnFamilyDescriptor> &descriptors,
-                          std::vector<ColumnFamily *> *column_families,
-                          DB **result) {
-    if (name.empty()) {
-        return MAI_CORRUPTION("Empty db name.");
-    }
-    db::DBImpl *impl = new db::DBImpl(name, opts);
-    Error rs = impl->Open(descriptors, column_families);
-    if (!rs) {
-        return rs;
-    }
-    
-    *result = impl;
-    return Error::OK();
-}
-    
 /*virtual*/ Error
 DB::NewColumnFamilies(const std::vector<std::string> &names,
                       const ColumnFamilyOptions &options,
@@ -1375,6 +1357,77 @@ DB::DropColumnFamilies(const std::vector<ColumnFamily *> &column_families) {
         }
     }
     return rs;
+}
+    
+/*static*/
+Error DB::Open(const Options &opts, const std::string &name,
+               const std::vector<ColumnFamilyDescriptor> &descriptors,
+               std::vector<ColumnFamily *> *column_families, DB **result) {
+    if (name.empty()) {
+        return MAI_CORRUPTION("Empty db name.");
+    }
+    db::DBImpl *impl = new db::DBImpl(name, opts);
+    Error rs = impl->Open(descriptors, column_families);
+    if (!rs) {
+        return rs;
+    }
+    
+    *result = impl;
+    return Error::OK();
+}
+
+/*static*/
+Error DB::ListColumnFamilies(const Options &opts, const std::string &name,
+                             std::vector<std::string> *result) {
+    Env *env = opts.env;
+
+    std::string abs_db_path = env->GetAbsolutePath(name);;
+    std::string current_file_name = db::Files::CurrentFileName(abs_db_path);
+    
+    Error rs = env->FileExists(current_file_name);
+    if (!rs) {
+        return rs;
+    }
+    
+    std::string number;
+    rs = base::FileReader::ReadAll(current_file_name, &number, env);
+    if (!rs) {
+        return rs;
+    }
+    
+    uint64_t mn = 0;
+    if (base::Slice::ParseU64(number.data(), number.size(), &mn) != 0) {
+        return MAI_IO_ERROR("Bad manifest number! " + number);
+    }
+    
+    std::string manifest_file_name = db::Files::ManifestFileName(abs_db_path, mn);
+    std::unique_ptr<SequentialFile> file;
+    rs = env->NewSequentialFile(manifest_file_name, &file, false);
+    if (!rs) {
+        return rs;
+    }
+    
+    std::map<uint32_t, std::string> cfs;
+    
+    db::VersionPatch patch;
+    std::string_view record;
+    std::string scratch;
+    db::LogReader rd(file.get(), true, db::WAL::kDefaultBlockSize);
+    while (rd.Read(&record, &scratch)) {
+        patch.Reset();
+        patch.Decode(record);
+        
+        if (patch.has_add_column_family()) {
+            cfs.insert({patch.cf_creation().cfid, patch.cf_creation().name});
+        }
+        if (patch.has_drop_column_family()) {
+            cfs.erase(patch.cf_deletion());
+        }
+    }
+    for (const auto &cf : cfs) {
+        result->push_back(cf.second);
+    }
+    return Error::OK();
 }
     
 } // namespace mai

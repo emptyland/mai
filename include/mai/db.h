@@ -13,6 +13,7 @@ namespace mai {
 class Comparator;
 class Iterator;
 class WriteBatch;
+class Env;
     
 extern const char kDefaultColumnFamilyName[];
     
@@ -52,21 +53,21 @@ public:
     virtual ~DB() {}
     
     static Error Open(const Options &opts,
-                      const std::string name,
+                      const std::string &name,
                       const std::vector<ColumnFamilyDescriptor> &descriptors,
-                      std::vector<ColumnFamily *> *column_families,
-                      DB **result);
+                      std::vector<ColumnFamily *> *column_families, DB **result);
+    
+    static Error ListColumnFamilies(const Options &opts, const std::string &name,
+                                    std::vector<std::string> *result);
     
     virtual Error NewColumnFamilies(const std::vector<std::string> &names,
                                     const ColumnFamilyOptions &options,
                                     std::vector<ColumnFamily *> *result);
     
-    virtual Error NewColumnFamily(const std::string &name,
-                                  const ColumnFamilyOptions &options,
+    virtual Error NewColumnFamily(const std::string &name, const ColumnFamilyOptions &options,
                                   ColumnFamily **result) = 0;
     
-    virtual Error
-    DropColumnFamilies(const std::vector<ColumnFamily *> &column_families);
+    virtual Error DropColumnFamilies(const std::vector<ColumnFamily *> &column_families);
     
     virtual Error DropColumnFamily(ColumnFamily *cf) = 0;
     
@@ -74,16 +75,15 @@ public:
     
     virtual Error GetAllColumnFamilies(std::vector<ColumnFamily *> *result) = 0;
     
-    virtual Error Put(const WriteOptions &opts, ColumnFamily *cf,
-                      std::string_view key, std::string_view value) = 0;
+    virtual Error Put(const WriteOptions &opts, ColumnFamily *cf, std::string_view key,
+                      std::string_view value) = 0;
     
-    virtual Error Delete(const WriteOptions &opts, ColumnFamily *cf,
-                         std::string_view key) = 0;
+    virtual Error Delete(const WriteOptions &opts, ColumnFamily *cf, std::string_view key) = 0;
     
     virtual Error Write(const WriteOptions& opts, WriteBatch* updates) = 0;
     
-    virtual Error Get(const ReadOptions &opts, ColumnFamily *cf,
-                      std::string_view key, std::string *value) = 0;
+    virtual Error Get(const ReadOptions &opts, ColumnFamily *cf, std::string_view key,
+                      std::string *value) = 0;
     
     virtual Iterator *NewIterator(const ReadOptions &opts, ColumnFamily *cf) = 0;
     
@@ -97,7 +97,7 @@ public:
     // db.log.active: All active redo log file ids.
     // db.bkg.jobs: Background running jobs.
     virtual Error GetProperty(std::string_view property, std::string *value) = 0;
-    
+
     DB(const DB &) = delete;
     DB(DB &&) = delete;
     void operator = (const DB &) = delete;

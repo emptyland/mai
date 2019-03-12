@@ -197,7 +197,7 @@ Error MaiSQLConnectionImpl::ExecuteSimpleInsert(const Form *form, const ast::Ins
     std::unique_ptr<StorageOperation> scoped_batch;
     StorageOperation *op = txn_.get();
     if (!op) {
-        scoped_batch.reset(engine_->NewBatch());
+        scoped_batch.reset(engine_->NewWriter());
         op = scoped_batch.get();
     }
 

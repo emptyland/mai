@@ -43,7 +43,7 @@ public:
         patch.set_engine_name("MaiDB");
         
         auto spec = new FormSpecPatch(FormSpecPatch::kCreatTable);
-        FormColumn col;
+        Column col;
         col.name = "a";
         col.type = SQL_BIGINT;
         col.key = SQL_PRIMARY_KEY;
@@ -133,6 +133,53 @@ TEST_F(StorageEngineTest, NewTable) {
     
     Error rs = holder->NewTable(kPrimaryDatabaseName, frm.get());
     ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ASSERT_EQ(1, holder->item_owns_.size());
+    auto it = holder->item_owns_.find("t1");
+    ASSERT_TRUE(it != holder->item_owns_.end());
+    ASSERT_EQ(0, it->second.auto_increment);
+    
+    ASSERT_EQ(6, it->second.items.size());
+    ASSERT_EQ(6, holder->items_.size());
+    
+    it->second.auto_increment = 12;
+    rs = holder->SyncMetadata("t1");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+}
+    
+TEST_F(StorageEngineTest, Recovery) {
+    base::intrusive_ptr<Form> frm;
+    std::unique_ptr<StorageEngine> holder;
+    BuildBaseEngine("t1", &frm, &holder);
+    
+    Error rs = holder->NewTable(kPrimaryDatabaseName, frm.get());
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    BuildBaseTable("t2");
+    rs = schema_->AcquireFormSchema(kPrimaryDatabaseName, "t2", &frm);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    rs = holder->NewTable(kPrimaryDatabaseName, frm.get());
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    holder.reset();
+    
+    StorageEngine *engine;
+    rs = factory_->NewEngine(schema_->abs_data_dir(), kPrimaryDatabaseName,
+                             "MaiDB", SQL_COLUMN_STORE, &engine);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    holder.reset(engine);
+    
+    rs = holder->Prepare(false);
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    ASSERT_EQ(2, holder->item_owns_.size());
+    auto it = holder->item_owns_.find("t1");
+    ASSERT_TRUE(it != holder->item_owns_.end());
+    ASSERT_EQ(0, it->second.auto_increment);
+    it = holder->item_owns_.find("t2");
+    ASSERT_TRUE(it != holder->item_owns_.end());
+    ASSERT_EQ(0, it->second.auto_increment);
 }
 
 } // namespace sql

@@ -4,7 +4,7 @@
 #include "base/slice.h"
 #include "mai/transaction.h"
 #include "mai/write-batch.h"
-//#include <shared_mutex>
+#include "mai/iterator.h"
 
 namespace mai {
 
@@ -12,11 +12,8 @@ namespace sql {
     
 using ::mai::base::Slice;
 
-/*static*/ const char StorageEngine::kSysCfName[] = "__system__";
-/*static*/ const char StorageEngine::kSysNextIndexIdKey[] = "next_index_id";
-/*static*/ const char StorageEngine::kSysNextColumnIdKey[] = "next_column_id";
-/*static*/ const char StorageEngine::kSysColumnsKey[] = "columns";
-/*static*/ const char StorageEngine::kSysIndicesKey[] = "indices";
+static const char kSysCfName[] = "__system__";
+static const char kSysTablesKey[] = "tables";
     
 class StorageEngine::ColumnStorageBatch : public StorageOperation {
 public:
@@ -115,14 +112,14 @@ private:
     
 StorageEngine::StorageEngine(TransactionDB *trx_db, StorageKind kind)
     : trx_db_(DCHECK_NOTNULL(trx_db))
-    , kind_(kind)
-    , next_column_id_(0)
-    , next_index_id_(0) {}
+    , kind_(kind) {}
 
 StorageEngine::~StorageEngine() {
     for (auto cf : column_families_) {
         trx_db_->ReleaseColumnFamily(cf);
     }
+    delete trx_db_;
+    trx_db_ = nullptr;
 }
 
 Error StorageEngine::Prepare(bool boot) {
@@ -161,15 +158,7 @@ Error StorageEngine::Prepare(bool boot) {
         wr_opts.sync = true;
         
         std::unique_ptr<Transaction> trx(trx_db_->BeginTransaction(wr_opts));
-        std::string buf;
-        Slice::WriteFixed32(&buf, next_index_id_.load());
-        trx->Put(sys_cf(), kSysNextIndexIdKey, buf);
-        buf.clear();
-        
-        Slice::WriteFixed32(&buf, next_column_id_.load());
-        trx->Put(sys_cf(), kSysNextColumnIdKey, buf);
-        buf.clear();
-        
+        // TODO:
         rs = trx->Commit();
         if (!rs) {
             return rs;
@@ -179,21 +168,36 @@ Error StorageEngine::Prepare(bool boot) {
         if (iter == cf_names_.end()) {
             return MAI_CORRUPTION("\'__system__\' column family not found.");
         }
-        
-        ReadOptions rd_opts;
-        std::string buf;
-        rs = trx_db_->Get(rd_opts, sys_cf(), kSysNextIndexIdKey, &buf);
-        if (!rs) {
-            return rs;
+                
+        std::unique_ptr<Iterator> tbit(trx_db_->NewIterator({}, sys_cf()));
+        if (tbit->error().fail()) {
+            return tbit->error();
         }
-        next_index_id_.store(Slice::SetFixed32(buf));
-        rs = trx_db_->Get(rd_opts, sys_cf(), kSysNextColumnIdKey, &buf);
-        if (!rs) {
-            return rs;
+        std::string prefix(kSysTablesKey);
+        prefix.append(".");
+        for (tbit->Seek(prefix); tbit->Valid(); tbit->Next()) {
+            if (tbit->key().find(prefix) != 0) {
+                break;
+            }
+            auto name = tbit->key();
+            name.remove_prefix(prefix.length());
+            
+            TableMetadata *tbmd = &item_owns_[std::string(name)];
+            base::BufferReader rd(tbit->value());
+            tbmd->auto_increment = rd.ReadVarint64();
+            
+            while (!rd.Eof()) {
+                uint32_t id = rd.ReadVarint32();
+                bool column = rd.ReadVarint32();
+                std::string cf_name(rd.ReadString());
+                
+                auto cfit = cf_names_.find(cf_name);
+                DCHECK(cfit != cf_names_.end());
+                
+                items_.insert({id, {column, column_families_[cfit->second]}});
+                tbmd->items.insert(id);
+            }
         }
-        next_column_id_.store(Slice::SetFixed32(buf));
-        
-        // TODO load metadata
     }
     return Error::OK();
 }
@@ -211,30 +215,18 @@ Error StorageEngine::NewTable(const std::string &/*db_name*/, const Form *form) 
     column_families_.push_back(cf);
     
     for (size_t i = 0; i < form->columns_size(); ++i) {
-        std::shared_ptr<Column> column(new Column);
-        
-        column->col_id = next_column_id_.fetch_add(1);
-        column->owns_cf = cf;
-        
-        std::string name(form->table_name());
-        name.append(".").append(form->column(i)->name);
-        
-        columns_.insert({name, column});
+        auto id = form->column(i)->cid;
+        items_.insert({id, {true, cf}});
+        item_owns_[form->table_name()].items.insert(id);
     }
     
     for (size_t i = 0; i < form->indices_size(); ++i) {
-        std::shared_ptr<Index> index(new Index);
-        
-        index->idx_id = next_index_id_.fetch_add(1);
-        index->owns_cf = cf;
-
-        std::string name(form->table_name());
-        name.append(".").append(form->index(i)->name);
-        
-        indices_.insert({name, index});
+        auto id = form->index(i)->iid;
+        items_.insert({id, {false, cf}});
+        item_owns_[form->table_name()].items.insert(id);
     }
 
-    return SyncMetadata(form->table_name(), kIds|kColumns|kIndices);
+    return SyncMetadata(form->table_name());
 }
     
 Error StorageEngine::PutTuple(const HeapTuple *tuple) {
@@ -242,7 +234,7 @@ Error StorageEngine::PutTuple(const HeapTuple *tuple) {
     return MAI_NOT_SUPPORTED("TODO:");
 }
 
-StorageOperation *StorageEngine::NewBatch() {
+StorageOperation *StorageEngine::NewWriter() {
     switch (kind_) {
         case SQL_COLUMN_STORE:
             return new ColumnStorageBatch(this);
@@ -259,67 +251,45 @@ StorageOperation *StorageEngine::NewBatch() {
     return nullptr;
 }
     
-Error StorageEngine::SyncMetadata(const std::string &arg, uint32_t flags) {
+Error StorageEngine::SyncMetadata(const std::string &table_name) {
     WriteOptions wr_opts;
     wr_opts.sync = true;
     std::unique_ptr<Transaction> trx(trx_db_->BeginTransaction(wr_opts));
-
-    if (flags & kIds) {
-        std::string buf;
-
-        Slice::WriteFixed32(&buf, next_index_id_.load());
-        trx->Put(sys_cf(), kSysNextIndexIdKey, buf);
-        buf.clear();
-        
-        Slice::WriteFixed32(&buf, next_column_id_.load());
-        trx->Put(sys_cf(), kSysNextColumnIdKey, buf);
-        buf.clear();
-    }
     
-    if (flags & kColumns) {
-        std::map<std::string, std::string> tables;
-        for (const auto &pair : columns_) {
-            size_t dot = pair.first.find(".");
-            std::string table_name = pair.first.substr(0, dot);
-            std::string column_name = pair.first.substr(dot + 1);
-            
-            if (arg.empty() || arg == table_name) {
-                auto buf = &tables[table_name];
-                
-                Slice::WriteString(buf, column_name);
-                Slice::WriteString(buf, pair.second->owns_cf->name());
-                Slice::WriteVarint32(buf, pair.second->col_id);
+    std::map<std::string, std::string> bufs;
+    if (table_name.empty()) {
+        for (const auto &owns : item_owns_) {
+            auto buf = &bufs[owns.first];
+            Slice::WriteVarint64(buf, owns.second.auto_increment.load());
+            for (const auto id : owns.second.items) {
+                auto it = items_.find(id);
+                DCHECK(it != items_.end());
+
+                Slice::WriteVarint32(buf, it->first);
+                Slice::WriteVarint32(buf, it->second.column);
+                Slice::WriteString(buf, it->second.owns_cf->name());
             }
         }
+    } else {
+        auto buf = &bufs[table_name];
+        auto owns_it = item_owns_.find(table_name);
+        DCHECK(owns_it != item_owns_.end());
         
-        for (const auto &pair : tables) {
-            std::string key(kSysColumnsKey);
-            key.append(".").append(pair.first);
-            trx->Put(sys_cf(), key, pair.second);
+        Slice::WriteVarint64(buf, owns_it->second.auto_increment.load());
+        for (const auto id : owns_it->second.items) {
+            auto it = items_.find(id);
+            DCHECK(it != items_.end());
+
+            Slice::WriteVarint32(buf, it->first);
+            Slice::WriteVarint32(buf, it->second.column);
+            Slice::WriteString(buf, it->second.owns_cf->name());
         }
     }
     
-    if (flags & kIndices) {
-        std::map<std::string, std::string> tables;
-        for (const auto &pair : indices_) {
-            size_t dot = pair.first.find(".");
-            std::string table_name = pair.first.substr(0, dot);
-            std::string index_name = pair.first.substr(dot + 1);
-            
-            if (arg.empty() || arg == table_name) {
-                auto buf = &tables[table_name];
-                
-                Slice::WriteString(buf, index_name);
-                Slice::WriteString(buf, pair.second->owns_cf->name());
-                Slice::WriteVarint32(buf, pair.second->idx_id);
-            }
-        }
-
-        for (const auto &pair : tables) {
-            std::string key(kSysColumnsKey);
-            key.append(".").append(pair.first);
-            trx->Put(sys_cf(), key, pair.second);
-        }
+    for (const auto &buf : bufs) {
+        std::string key(kSysTablesKey);
+        key.append(".").append(buf.first);
+        trx->Put(sys_cf(), key, buf.second);
     }
 
     return trx->Commit();

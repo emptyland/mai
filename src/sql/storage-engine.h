@@ -7,7 +7,8 @@
 #include "mai/db.h"
 #include "glog/logging.h"
 #include <unordered_map>
-#include <atomic>
+#include <map>
+#include <set>
 #include <shared_mutex>
 
 namespace mai {
@@ -45,7 +46,7 @@ public:
     
     Error PutTuple(const HeapTuple *tuple);
     
-    StorageOperation *NewBatch();
+    StorageOperation *NewWriter();
     
     DEF_PTR_GETTER(TransactionDB, trx_db);
 
@@ -58,58 +59,42 @@ public:
         return column_families_[def_cf_idx_];
     }
     
+    FRIEND_UNITTEST_CASE(StorageEngineTest, NewTable);
+    FRIEND_UNITTEST_CASE(StorageEngineTest, Recovery);
     DISALLOW_IMPLICIT_CONSTRUCTORS(StorageEngine);
 private:
     class ColumnStorageBatch;
     
-    struct Column {
-        ColumnFamily *owns_cf;
-        uint32_t      col_id;
+    struct ItemMetadata {
+        bool column = false;
+        ColumnFamily *owns_cf = nullptr;
     };
     
-    struct Index {
-        ColumnFamily *owns_cf;
-        uint32_t      idx_id;
+    struct TableMetadata {
+        TableMetadata() : auto_increment(0) {}
+        std::atomic<uint64_t> auto_increment;
+        std::set<uint32_t> items;
     };
     
-    enum Flag : uint32_t {
-        kIds = 1,
-        kColumns = 1u << 1,
-        kIndices = 1u << 2,
-    };
-    
-    Error SyncMetadata(const std::string &arg, uint32_t flags);
+    Error SyncMetadata(const std::string &table_name);
     
     ColumnFamily *GetTableCfOrNull(const std::string &name) const {
         auto it = cf_names_.find(name);
         return it == cf_names_.end() ? nullptr : column_families_[it->second];
     }
     
-    void MakePrimaryIndex(const HeapTuple *tuple, const ColumnDescriptor *cd, std::string *buf);
-    void MakeSecondaryIndex(const HeapTuple *tuple, const ColumnDescriptor *cd,
-                            std::string_view pri_key, std::string *buf);
-    void MakeValue(const HeapTuple *tuple, const ColumnDescriptor *cd, std::string *buf);
-    
     TransactionDB *trx_db_;
     const StorageKind kind_;
-    std::atomic<uint32_t> next_column_id_;
-    std::atomic<uint32_t> next_index_id_;
     
     std::vector<ColumnFamily *> column_families_;
     std::unordered_map<std::string, size_t> cf_names_;
     size_t sys_cf_idx_ = 0; // __system__
     size_t def_cf_idx_ = 0; // default
     
-    std::unordered_map<std::string, std::shared_ptr<Column>> columns_;
-    std::unordered_map<std::string, std::shared_ptr<Index>> indices_;
-    
-    mutable std::shared_mutex meta_mutex_;
+    std::unordered_map<uint32_t, ItemMetadata> items_;
+    std::map<std::string, TableMetadata> item_owns_;
 
-    static const char kSysCfName[];
-    static const char kSysNextIndexIdKey[];
-    static const char kSysNextColumnIdKey[];
-    static const char kSysColumnsKey[];
-    static const char kSysIndicesKey[];
+    mutable std::shared_mutex meta_mutex_;
 }; // class StorageEngine
 
 } // namespace sql

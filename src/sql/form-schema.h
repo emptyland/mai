@@ -36,9 +36,10 @@ class FormBuilder;
 class FormSchemaSet;
 //class VirtualSchema;
     
-struct FormColumn {
+struct Column {
     std::string name;
     SQLType type;
+    uint32_t cid = 0;
     int m_size = 0;
     int d_size = 0;
     bool not_null = false;
@@ -46,21 +47,23 @@ struct FormColumn {
     SQLKeyType key = SQL_NOT_KEY;
     eval::Expression *default_val;
     std::string comment;
-}; // struct FormColumn
+}; // struct Column
     
     
-struct FormIndex {
+struct Index {
     std::string name;
     SQLKeyType  key;
-    std::vector<std::shared_ptr<FormColumn>> ref_columns;
+    uint32_t iid = 0;
+    std::vector<std::shared_ptr<Column>> ref_columns;
 };
 
 class Form final {
 public:
-    using Column = FormColumn;
-    using Index  = FormIndex;
+    using Column = Column;
+    using Index  = Index;
     
     DEF_VAL_GETTER(int, version);
+    DEF_VAL_GETTER(uint32_t, tid);
     DEF_VAL_GETTER(std::string, table_name);
     DEF_VAL_GETTER(std::string, engine_name);
     
@@ -138,6 +141,7 @@ private:
     std::vector<size_t> column_assoc_index_;
     int primary_key_ = -1;
 
+    uint32_t tid_ = 0;
     int version_ = 0;
     Form *older_ = nullptr;
     std::unique_ptr<const VirtualSchema> virtual_schema_;
@@ -145,7 +149,7 @@ private:
     
     
 struct FormColumnPatch {
-    std::shared_ptr<FormColumn> data;
+    std::shared_ptr<Column> data;
     bool after;
     std::string hint;
 }; // struct FormColumnPatch
@@ -170,10 +174,10 @@ public:
     
     DEF_VAL_GETTER(Kind, kind);
     
-    void AddColumn(const FormColumn &col) {
+    void AddColumn(const Column &col) {
         DCHECK(kCreatTable == kind_ ||
                kAddColumn == kind_);
-        columns_.emplace_back(new FormColumn(col));
+        columns_.emplace_back(new Column(col));
     }
     
     void AddIndex(const std::string &name, SQLKeyType key,
@@ -184,12 +188,12 @@ public:
         column_names_.push_back(column_name);
     }
     
-    void SetColumn(const std::string &name, const FormColumn &new_def,
+    void SetColumn(const std::string &name, const Column &new_def,
                    bool after, std::string &hint) {
         DCHECK(kAddColumn == kind_ || kChangeColumn == kind_);
         name_ = name;
         column_.after = after;
-        column_.data.reset(new FormColumn(new_def));
+        column_.data.reset(new Column(new_def));
     }
     
     void Rename(const std::string &old_name, const std::string &new_name) {
@@ -204,7 +208,7 @@ public:
         name_ = name;
     }
     
-    const std::vector<std::shared_ptr<FormColumn>> &GetColumns() const {
+    const std::vector<std::shared_ptr<Column>> &GetColumns() const {
         DCHECK(kCreatTable == kind_|| kAddColumn == kind_);
         return columns_;
     }
@@ -232,15 +236,12 @@ public:
         return new_name_;
     }
     
-    SQLKeyType GetKey() const {
-        DCHECK_EQ(kAddIndex, kind_);
-        return key_;
-    }
+    SQLKeyType GetKey() const { DCHECK_EQ(kAddIndex, kind_); return key_; }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(FormSpecPatch);
 private:
     Kind kind_;
-    std::vector<std::shared_ptr<FormColumn>> columns_;
+    std::vector<std::shared_ptr<Column>> columns_;
     std::vector<std::string> column_names_;
     FormColumnPatch column_;
     std::string name_;
@@ -287,7 +288,7 @@ class MetadataPatch final {
 public:
     MetadataPatch() {}
     
-    DEF_VAL_PROP_RW(uint32_t, next_index_id);
+    DEF_VAL_PROP_RW(uint32_t, next_column_id);
     DEF_VAL_PROP_RW(uint32_t, next_table_id);
     DEF_VAL_PROP_RW(uint64_t, next_file_number);
     
@@ -299,7 +300,7 @@ public:
 private:
     void Decode(base::BufferReader *rd);
     
-    uint32_t next_index_id_ = 0;
+    uint32_t next_column_id_ = 0;
     uint32_t next_table_id_ = 0;
     uint64_t next_file_number_ = 0;
 }; // class MetadataPatch
@@ -323,6 +324,22 @@ public:
     void ReuseFileNumber(uint64_t fn) {
         if (fn + 1 == next_file_number_) {
             next_file_number_ = fn;
+        }
+    }
+    
+    uint32_t GenerateColumnId() { return next_column_id_++; }
+    
+    void ReuseColumnId(uint32_t id) {
+        if (id + 1 == next_column_id_) {
+            next_column_id_ = id;
+        }
+    }
+    
+    uint32_t GenerateTableId() { return next_table_id_++; }
+    
+    void ReuseTableId(uint32_t id) {
+        if (id + 1 == next_table_id_) {
+            next_table_id_ = id;
         }
     }
 
@@ -405,8 +422,8 @@ private:
     void AppendMetadata(std::string *buf) const {
         buf->append(1, kUpdateMetadata);
         MetadataPatch patch;
-        patch.set_next_index_id(0); // TODO;
-        patch.set_next_table_id(0); // TODO;
+        patch.set_next_column_id(next_column_id_);
+        patch.set_next_table_id(next_table_id_);
         patch.set_next_file_number(next_file_number_);
         patch.Encode(buf);
     }
@@ -417,6 +434,8 @@ private:
     base::Arena *arena_;
     uint64_t meta_file_number_ = 0;
     uint64_t next_file_number_ = 0;
+    uint32_t next_column_id_ = 0;
+    uint32_t next_table_id_ = 0;
     std::map<std::string, DbSlot> dbs_;
     std::unique_ptr<WritableFile> log_file_;
     std::unique_ptr<db::LogWriter> logger_;
