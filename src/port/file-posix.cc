@@ -188,8 +188,7 @@ PosixWritableFile::Open(const std::string &file_name, bool append,
         flags |= O_APPEND;
     }
     
-    int fd = ::open(file_name.c_str(), flags,
-                    S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+    int fd = ::open(file_name.c_str(), flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
     if (fd < 0) {
         return MAI_IO_ERROR(strerror(errno));
     }
@@ -295,8 +294,7 @@ MemPosixRandomAccessFile::Open(const std::string &file_name,
         return MAI_IO_ERROR(strerror(errno));
     }
     
-    void *mapped = ::mmap(nullptr, s.st_size, PROT_READ, MAP_FILE|MAP_PRIVATE,
-                          fd, 0);
+    void *mapped = ::mmap(nullptr, s.st_size, PROT_READ, MAP_FILE|MAP_PRIVATE, fd, 0);
     if (mapped == MAP_FAILED) {
         close(fd);
         return MAI_IO_ERROR(strerror(errno));

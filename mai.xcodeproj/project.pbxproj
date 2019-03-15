@@ -32,6 +32,7 @@
 		23344CEC21EF0B5F006BC6E4 /* mai-sql-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CEB21EF0B5F006BC6E4 /* mai-sql-impl.cc */; };
 		23344CEF21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CEE21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc */; };
 		23344CF321EF1C05006BC6E4 /* form-schema.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CF221EF1C05006BC6E4 /* form-schema.cc */; };
+		2341B251223B404F00D3D4A4 /* nyaa.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2341B250223B404F00D3D4A4 /* nyaa.cc */; };
 		2343978A21F960A400512A37 /* evaluation.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2343978921F960A400512A37 /* evaluation.cc */; };
 		23565910221E82EC00837F83 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
 		235C1CCF21D1D63F0070A049 /* optimism-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */; };
@@ -132,6 +133,10 @@
 		2364B35921E451F9008519AE /* ast-factory-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B8E68A21E32D8A0001096E /* ast-factory-test.cc */; };
 		2364B35A21E451F9008519AE /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163721AFED5E00DE7321 /* test-main.cc */; };
 		2365EC522206948600EE7103 /* ast-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2365EC512206948600EE7103 /* ast-factory.cc */; };
+		2374DE47223B4BFE00810B41 /* nyaa-core.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2374DE46223B4BFE00810B41 /* nyaa-core.cc */; };
+		2374DE4C223B581A00810B41 /* values.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2374DE4B223B581A00810B41 /* values.cc */; };
+		2374DE4E223B91EF00810B41 /* handles.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2374DE4D223B91EF00810B41 /* handles.cc */; };
+		2374DE51223B943C00810B41 /* nyaa-values.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2374DE50223B943C00810B41 /* nyaa-values.cc */; };
 		237B0C0B21E4869400F3A099 /* sql.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C0821E4869400F3A099 /* sql.cc */; };
 		237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */; };
 		237B0C1E21E4A9C100F3A099 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1D21E4A9C100F3A099 /* parser.cc */; };
@@ -143,6 +148,7 @@
 		239B2A7621D6171E0088F382 /* pessimistic-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7421D6171E0088F382 /* pessimistic-transaction.cc */; };
 		239B2A7B21D61BE10088F382 /* transaction-base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7921D61BE10088F382 /* transaction-base.cc */; };
 		239E483C21E4403400F2FD48 /* arena-utils.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239E483A21E4403400F2FD48 /* arena-utils.cc */; };
+		23A934EB223A5BEF006CED8E /* isolate.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23A934EA223A5BEF006CED8E /* isolate.cc */; };
 		23B0E0EB2187FAF200F9E855 /* libglog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E82187FAF200F9E855 /* libglog.a */; };
 		23B0E0EC2187FAF200F9E855 /* libgflags.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E92187FAF200F9E855 /* libgflags.a */; };
 		23B0E0ED2187FAF200F9E855 /* libgtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0EA2187FAF200F9E855 /* libgtest.a */; };
@@ -326,6 +332,8 @@
 		23344CF021EF15AD006BC6E4 /* options.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = options.h; sourceTree = "<group>"; };
 		23344CF121EF1BB7006BC6E4 /* form-schema.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "form-schema.h"; sourceTree = "<group>"; };
 		23344CF221EF1C05006BC6E4 /* form-schema.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "form-schema.cc"; sourceTree = "<group>"; };
+		2341B24F223B404000D3D4A4 /* nyaa.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nyaa.h; sourceTree = "<group>"; };
+		2341B250223B404F00D3D4A4 /* nyaa.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nyaa.cc; sourceTree = "<group>"; };
 		234372C921998C0A00427E83 /* write-ahead-log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-ahead-log.h"; sourceTree = "<group>"; };
 		2343978821F9609300512A37 /* evaluation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = evaluation.h; sourceTree = "<group>"; };
 		2343978921F960A400512A37 /* evaluation.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = evaluation.cc; sourceTree = "<group>"; };
@@ -342,6 +350,14 @@
 		236AC67521B768E60069A17B /* lru-cache-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lru-cache-v1.h"; sourceTree = "<group>"; };
 		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
 		236AC67921B769900069A17B /* lru-cache-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-test.cc"; sourceTree = "<group>"; };
+		2374DE46223B4BFE00810B41 /* nyaa-core.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "nyaa-core.cc"; sourceTree = "<group>"; };
+		2374DE48223B4C0C00810B41 /* nyaa-core.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "nyaa-core.h"; sourceTree = "<group>"; };
+		2374DE49223B4D1700810B41 /* handles.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = handles.h; sourceTree = "<group>"; };
+		2374DE4A223B4FFD00810B41 /* values.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = values.h; sourceTree = "<group>"; };
+		2374DE4B223B581A00810B41 /* values.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = values.cc; sourceTree = "<group>"; };
+		2374DE4D223B91EF00810B41 /* handles.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = handles.cc; sourceTree = "<group>"; };
+		2374DE4F223B937B00810B41 /* nyaa-values.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "nyaa-values.h"; sourceTree = "<group>"; };
+		2374DE50223B943C00810B41 /* nyaa-values.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "nyaa-values.cc"; sourceTree = "<group>"; };
 		237B0C0521E4869400F3A099 /* sql.hh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = sql.hh; sourceTree = "<group>"; };
 		237B0C0621E4869400F3A099 /* sql.yy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sql.yy.h; sourceTree = "<group>"; };
 		237B0C0821E4869400F3A099 /* sql.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sql.cc; sourceTree = "<group>"; };
@@ -377,6 +393,8 @@
 		239E483A21E4403400F2FD48 /* arena-utils.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "arena-utils.cc"; sourceTree = "<group>"; };
 		239E483D21E4475700F2FD48 /* arena-utils-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "arena-utils-test.cc"; sourceTree = "<group>"; };
 		23A265D321CCC42700EB5CAA /* table-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "table-test.cc"; sourceTree = "<group>"; };
+		23A934E9223A5B8A006CED8E /* isolate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = isolate.h; sourceTree = "<group>"; };
+		23A934EA223A5BEF006CED8E /* isolate.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = isolate.cc; sourceTree = "<group>"; };
 		23AD6D5D21BF53CF00F8F4C5 /* bw-tree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bw-tree.h"; sourceTree = "<group>"; };
 		23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-tree-test.cc"; sourceTree = "<group>"; };
 		23AE732321AAAB870065725A /* db-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-iterator.h"; sourceTree = "<group>"; };
@@ -576,6 +594,7 @@
 			children = (
 				23216A2C2203FC2900E1B816 /* my */,
 				23344CCF21EF06E2006BC6E4 /* mai */,
+				2341B252223B41FE00D3D4A4 /* mai-lang */,
 				23344CCD21EF066C006BC6E4 /* mai-sql */,
 			);
 			path = include;
@@ -608,6 +627,17 @@
 				23344CDB21EF0751006BC6E4 /* write-batch.h */,
 			);
 			path = mai;
+			sourceTree = "<group>";
+		};
+		2341B252223B41FE00D3D4A4 /* mai-lang */ = {
+			isa = PBXGroup;
+			children = (
+				23A934E9223A5B8A006CED8E /* isolate.h */,
+				2341B24F223B404000D3D4A4 /* nyaa.h */,
+				2374DE49223B4D1700810B41 /* handles.h */,
+				2374DE4A223B4FFD00810B41 /* values.h */,
+			);
+			path = "mai-lang";
 			sourceTree = "<group>";
 		};
 		234372C821998BE200427E83 /* db */ = {
@@ -649,10 +679,27 @@
 			path = "mai-tests";
 			sourceTree = "<group>";
 		};
+		23A934E8223A5B2B006CED8E /* nyaa */ = {
+			isa = PBXGroup;
+			children = (
+				23A934EA223A5BEF006CED8E /* isolate.cc */,
+				2341B250223B404F00D3D4A4 /* nyaa.cc */,
+				2374DE48223B4C0C00810B41 /* nyaa-core.h */,
+				2374DE46223B4BFE00810B41 /* nyaa-core.cc */,
+				2374DE4B223B581A00810B41 /* values.cc */,
+				2374DE4D223B91EF00810B41 /* handles.cc */,
+				2374DE4F223B937B00810B41 /* nyaa-values.h */,
+				2374DE50223B943C00810B41 /* nyaa-values.cc */,
+			);
+			name = nyaa;
+			path = src/nyaa;
+			sourceTree = "<group>";
+		};
 		23B0E0C0217D7DA000F9E855 = {
 			isa = PBXGroup;
 			children = (
 				23344CCC21EF065C006BC6E4 /* include */,
+				23A934E8223A5B2B006CED8E /* nyaa */,
 				23B8E67F21E05F280001096E /* sql */,
 				23283B6E21D612DE0011D680 /* txn */,
 				231F33F721BE490F00A994A8 /* bw */,
@@ -1176,6 +1223,8 @@
 				2364B2B821E451F8008519AE /* transaction-db.cc in Sources */,
 				2364B2BA21E451F8008519AE /* transaction-lock-mgr.cc in Sources */,
 				2364B2BC21E451F8008519AE /* bw-nodes.cc in Sources */,
+				2374DE4E223B91EF00810B41 /* handles.cc in Sources */,
+				23A934EB223A5BEF006CED8E /* isolate.cc in Sources */,
 				2364B2BE21E451F9008519AE /* mapping-table.cc in Sources */,
 				2364B2C121E451F9008519AE /* write-ahead-log.cc in Sources */,
 				237F504D21EB72C90069075D /* arena.cc in Sources */,
@@ -1240,6 +1289,7 @@
 				2364B33621E451F9008519AE /* bw-tree-test.cc in Sources */,
 				2364B33721E451F9008519AE /* hash-map-v2-test.cc in Sources */,
 				2364B33821E451F9008519AE /* bw-tree-memory-table-test.cc in Sources */,
+				2374DE51223B943C00810B41 /* nyaa-values.cc in Sources */,
 				2364B33921E451F9008519AE /* error-test.cc in Sources */,
 				2364B33A21E451F9008519AE /* hash-map-v1-test.cc in Sources */,
 				2364B33B21E451F9008519AE /* key-boundle-test.cc in Sources */,
@@ -1268,9 +1318,11 @@
 				237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */,
 				2364B34E21E451F9008519AE /* io-utils-test.cc in Sources */,
 				2303D93721F863F300075A99 /* storage-engine-test.cc in Sources */,
+				2374DE4C223B581A00810B41 /* values.cc in Sources */,
 				2364B34F21E451F9008519AE /* ebr-test.cc in Sources */,
 				2364B35021E451F9008519AE /* arena-utils-test.cc in Sources */,
 				2364B35121E451F9008519AE /* config-test.cc in Sources */,
+				2374DE47223B4BFE00810B41 /* nyaa-core.cc in Sources */,
 				23344CE921EF082D006BC6E4 /* mai-sql-test.cc in Sources */,
 				2364B35221E451F9008519AE /* compaction-test.cc in Sources */,
 				23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */,
@@ -1284,6 +1336,7 @@
 				2364B35721E451F9008519AE /* transaction-db-test.cc in Sources */,
 				2364B35821E451F9008519AE /* pessimistic-transaction-db-test.cc in Sources */,
 				2317596921E5933F0025685F /* sql.yy.cc in Sources */,
+				2341B251223B404F00D3D4A4 /* nyaa.cc in Sources */,
 				2364B35921E451F9008519AE /* ast-factory-test.cc in Sources */,
 				2364B35A21E451F9008519AE /* test-main.cc in Sources */,
 			);
