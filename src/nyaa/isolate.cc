@@ -24,7 +24,7 @@ void Isolate::Exit() {
 
 void Isolate::Dispose() { delete this; }
 
-/*static*/ Isolate *Isolate::current() {
+/*static*/ Isolate *Isolate::Current() {
     std::shared_lock<std::shared_mutex> lock(is_mutex);
     return DCHECK_NOTNULL(top);
 }
@@ -50,6 +50,11 @@ Isolate::~Isolate() {
 }
     
 bool Isolate::Init() {
+    auto rs = env_->NewThreadLocalSlot("nyaa", nullptr, &ctx_tls_);
+    if (!rs) {
+        return false;
+    }
+    
     // TODO:
     return true;
 }

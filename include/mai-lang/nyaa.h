@@ -26,14 +26,16 @@ public:
     Isolate *isolate() const { return isolate_; }
     
     friend class nyaa::NyaaCore;
+    friend class Isolate;
     
     Nyaa(const Nyaa &) = delete;
     void operator = (const Nyaa &) = delete;
 private:
     Isolate *const isolate_;
     std::unique_ptr<Core> core_;
+    Nyaa *prev_ = nullptr;
 }; // class Nyaa
-    
+
 } // namespace nyaa
     
 } // namespace mai

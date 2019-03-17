@@ -8,6 +8,7 @@ namespace mai {
 namespace nyaa {
     
 class Nyaa;
+class Isolate;
 class Value;
 class Object;
     
@@ -17,16 +18,15 @@ class Object;
     
 class HandleScope final {
 public:
-    HandleScope(Nyaa *N);
+    HandleScope(Isolate *isolate);
     ~HandleScope();
     
-    Value **NewHandle(Value *input);
-    Object **NewHandle(Object *input);
-    
-    static HandleScope *current();
+    void **NewHandle(void *value);
+
+    static HandleScope *Current();
     
 private:
-    Nyaa *nyaa_;
+    Isolate *isolate_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -72,10 +72,10 @@ public:
     inline explicit Handle(T **location) : Handless<T>(location) {}
     
     template<class S> inline Handle(S *pointer)
-        : Handless<T>(reinterpret_cast<T**>(HandleScope::current()->NewHandle(pointer))) {}
+        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(pointer))) {}
     
     template<class S> inline Handle(Handle<S> other)
-        : Handless<T>(reinterpret_cast<T**>(HandleScope::current()->NewHandle(other.get()))) {}
+        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(other.get()))) {}
     
     inline Handle(const Handle &other) : Handless<T>(other) {}
     
@@ -105,16 +105,16 @@ public:
 template<class T>
 class Local final : public Handless<T> {
 public:
-    inline explicit Local(T **location) : Handless<T>(location) {}
-    
+    inline explicit Local(T **location = nullptr) : Handless<T>(location) {}
+
     template<class S> inline Local(S *pointer)
-        : Handless<T>(reinterpret_cast<T**>(HandleScope::current()->NewHandle(pointer))) {}
+        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(pointer))) {}
     
     template<class S> inline Local(Local<S> other)
-        : Handless<T>(reinterpret_cast<T**>(HandleScope::current()->NewHandle(other.location()))) {}
+        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(other.location()))) {}
     
     template<class S> inline Local(Handle<S> other)
-        : Handless<T>(reinterpret_cast<T**>(HandleScope::current()->NewHandle(other.location()))) {}
+        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(other.location()))) {}
     
     inline Local(const Local &other) : Handless<T>(other) {}
     

@@ -4,7 +4,7 @@ namespace mai {
     
 namespace nyaa {
 
-/*static*/ const Object *Object::kNil = nullptr;
+/*static*/ Object *const Object::kNil = nullptr;
 
     
 } // namespace nyaa

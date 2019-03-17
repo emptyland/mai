@@ -7,26 +7,25 @@ namespace mai {
     
 namespace nyaa {
     
-HandleScope::HandleScope(Nyaa *N)
-    : nyaa_(DCHECK_NOTNULL(N)) {
-    //nyaa_->core()->
+HandleScope::HandleScope(Isolate *isolate)
+    : isolate_(DCHECK_NOTNULL(isolate)) {
+    //NyaaCore::Current()->EnterHandleScope(this);
+    isolate_->GetNyaa()->core()->EnterHandleScope(this);
 }
 
 HandleScope::~HandleScope() {
-    
+    isolate_->GetNyaa()->core()->ExitHandleScope();
 }
 
-Value **HandleScope::NewHandle(Value *input) {
-    return nullptr;
+void **HandleScope::NewHandle(void *value) {
+    auto core = isolate_->GetNyaa()->core();
+    void **space = reinterpret_cast<void **>(core->AdvanceHandleSlots(1));
+    *space = value;
+    return space;
 }
 
-Object **HandleScope::NewHandle(Object *input) {
-    return nullptr;
-    
-}
-
-/*static*/ HandleScope *HandleScope::current() {
-    return nullptr;
+/*static*/ HandleScope *HandleScope::Current() {
+    return NyaaCore::Current()->current_handle_scope();
 }
     
 } // namespace nyaa

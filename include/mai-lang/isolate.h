@@ -29,9 +29,15 @@ public:
     void Exit();
     void Dispose();
     
-    static Isolate *current();
+    Nyaa *GetNyaa() const { return static_cast<Nyaa *>(ctx_tls_->Get()); }
+    
+    Env *env() const { return env_; }
+    
+    static Isolate *Current();
     static Isolate *New(const Options &opts = Options());
     
+    friend class Nyaa;
+
     Isolate(const Isolate &) = delete;
     void operator = (const Isolate &) = delete;
 private:
@@ -40,6 +46,8 @@ private:
     
     bool Init();
     
+    void SetNyaa(Nyaa *N) { ctx_tls_->Set(N); }
+    
     Env *const env_;
 
     // The heap young generation space initial size.
@@ -47,6 +55,9 @@ private:
     
     // The heap young generation space limit size.
     int major_area_max_size_;
+    
+    // tls for store Nyaa object.
+    std::unique_ptr<ThreadLocalSlot> ctx_tls_;
     
     Isolate *prev_ = nullptr;
 }; // class Isolate

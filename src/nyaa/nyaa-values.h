@@ -28,7 +28,7 @@ class Script;
 // [Object]
 class Object {
 public:
-    static const Object *kNil;
+    static Object *const kNil;
     
     bool is_smi() const { return word() & 0x1; }
     
