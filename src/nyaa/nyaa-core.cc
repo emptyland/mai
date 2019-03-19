@@ -1,5 +1,8 @@
 #include "nyaa/nyaa-core.h"
 #include "nyaa/nyaa-values.h"
+#include "nyaa/heap.h"
+#include "nyaa/object-factory-impl.h"
+#include "base/slice.h"
 #include "mai-lang/nyaa.h"
 #include "mai/allocator.h"
 #include "glog/logging.h"
@@ -10,18 +13,47 @@ namespace nyaa {
     
 NyaaCore::NyaaCore(Nyaa *stub)
     : stub_(DCHECK_NOTNULL(stub))
-    , page_alloc_(stub->isolate()->env()->GetLowLevelAllocator()) {
+    , page_alloc_(stub->isolate()->env()->GetLowLevelAllocator())
+    , heap_(new Heap(this))
+    , factory_(new ObjectFactoryImpl(this, heap_)){
     top_slot_ = new HandleScopeSlot;
     top_slot_->scope = nullptr;
     top_slot_->prev  = nullptr;
     top_slot_->base  = nullptr;
     top_slot_->end   = top_slot_->base;
     top_slot_->limit = top_slot_->end;
+        
+    Error rs = Boot();
+    if (!rs) {
+        DLOG(ERROR) << rs.ToString();
+    }
 }
 
 NyaaCore::~NyaaCore() {
-    
+    delete factory_;
+    delete heap_;
 }
+    
+Error NyaaCore::Boot() {
+    Error rs = heap_->Prepare();
+    if (!rs) {
+        return rs;
+    }
+    
+    kMtString = factory_->NewTable(8, rand());
+    kMtTable  = factory_->NewTable(8, rand());
+    return rs;
+}
+    
+void NyaaCore::Raisef(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    std::string msg(base::Vsprintf(fmt, ap));
+    va_end(ap);
+    DLOG(FATAL) << msg;
+}
+    
+Isolate *NyaaCore::isolate() const { return stub_->isolate_; }
     
 /*static*/ NyaaCore *NyaaCore::Current() {
     return Isolate::Current()->GetNyaa()->core();

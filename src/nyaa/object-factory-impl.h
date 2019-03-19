@@ -1,0 +1,30 @@
+#ifndef MAI_NYAA_OBJECT_FACTORY_IMPL_H_
+#define MAI_NYAA_OBJECT_FACTORY_IMPL_H_
+
+#include "nyaa/object-factory.h"
+
+namespace mai {
+
+namespace nyaa {
+    
+class Heap;
+class NyaaCore;
+    
+class ObjectFactoryImpl : public ObjectFactory {
+public:
+    ObjectFactoryImpl(NyaaCore *core, Heap *heap);
+    virtual ~ObjectFactoryImpl() override;
+    
+    virtual NyString *NewString(const char *s, size_t n, bool old) override;
+    virtual NyTable *NewTable(uint32_t capacity, uint32_t seed, NyTable *base, bool old) override;
+    virtual NyByteArray *NewByteArray(uint32_t capacity, NyByteArray *base, bool old) override;
+private:
+    NyaaCore *const core_;
+    Heap *const heap_;
+};
+
+} // namespace nyaa
+    
+} // namespace mai
+
+#endif // MAI_NYAA_OBJECT_FACTORY_IMPL_H_

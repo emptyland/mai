@@ -22,17 +22,21 @@ public:
 
 TEST_F(HandlesTest, Sanity) {
     HandleScope scope(isolate_);
-    
+
     Local<Value> h;
     ASSERT_TRUE(h.is_empty());
-    
+
     Local<Value> m(h);
     ASSERT_TRUE(m.is_empty());
-    
+
     Value *v = nullptr;
-    Local<Value> n(v);
+    Local<Value> n = Local<Value>::New(v);
     ASSERT_FALSE(n.is_empty());
     ASSERT_TRUE(n.is_null());
+    
+    Local<String> s = Local<String>::Cast(n);
+    ASSERT_FALSE(s.is_empty());
+    ASSERT_TRUE(s.is_null());
 }
     
 } // namespace nyaa

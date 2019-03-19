@@ -23,9 +23,13 @@ void **HandleScope::NewHandle(void *value) {
     *space = value;
     return space;
 }
-
+    
 /*static*/ HandleScope *HandleScope::Current() {
-    return NyaaCore::Current()->current_handle_scope();
+    return Current(Isolate::Current());
+}
+
+/*static*/ HandleScope *HandleScope::Current(Isolate *isolate) {
+    return DCHECK_NOTNULL(isolate)->GetNyaa()->core()->current_handle_scope();
 }
     
 } // namespace nyaa

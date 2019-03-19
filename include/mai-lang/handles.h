@@ -12,6 +12,11 @@ class Isolate;
 class Value;
 class Object;
     
+template<class T> class Handle;
+template<class T> class Local;
+template<class T> class Persistent;
+    
+    
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scope class
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,6 +30,8 @@ public:
 
     static HandleScope *Current();
     
+    static HandleScope *Current(Isolate *isolate);
+    
 private:
     Isolate *isolate_;
 };
@@ -35,8 +42,6 @@ private:
 template<class T>
 class Handless {
 public:
-    inline explicit Handless(T **location) : location_(location) {}
-    
     inline Handless(const Handless &other) : location_(other.location_) {}
     
     inline Handless(Handless &&other) : location_(other.location_) { other.location_ = nullptr; }
@@ -44,6 +49,8 @@ public:
     inline ~Handless() {}
     
     inline T *get() const { return *location_; }
+    
+    inline T **location() const { return location_; }
     
     inline bool is_null() const { return !get(); }
 
@@ -54,8 +61,8 @@ public:
     inline bool is_not_empty() const { return !is_empty(); }
     
 protected:
-    inline T **location() const { return location_; }
-    
+    inline explicit Handless(T **location) : location_(location) {}
+
     inline void set_location(T **location) { location_ = location; }
 
 private:
@@ -67,9 +74,9 @@ private:
 // Local Handle
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
-class Handle final : public Handless<T> {
+class Handle : public Handless<T> {
 public:
-    inline explicit Handle(T **location) : Handless<T>(location) {}
+    inline explicit Handle(T **location = nullptr) : Handless<T>(location) {}
     
     template<class S> inline Handle(S *pointer)
         : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(pointer))) {}
@@ -87,6 +94,8 @@ public:
     
     inline T *operator -> () const { return get(); }
     
+    inline T *operator * () const { return get(); }
+    
     inline bool operator ! () const { return !get(); }
     
     using Handless<T>::set_location;
@@ -99,50 +108,124 @@ public:
         other.set_location(nullptr);
     }
     
-    inline static Handle<T> Null() { return Handle<T>(nullptr); }
-}; // class Handle
-
-template<class T>
-class Local final : public Handless<T> {
-public:
-    inline explicit Local(T **location = nullptr) : Handless<T>(location) {}
-
-    template<class S> inline Local(S *pointer)
-        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(pointer))) {}
-    
-    template<class S> inline Local(Local<S> other)
-        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(other.location()))) {}
-    
-    template<class S> inline Local(Handle<S> other)
-        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(other.location()))) {}
-    
-    inline Local(const Local &other) : Handless<T>(other) {}
-    
-    inline Local(Local &&other) : Handless<T>(other) {}
-    
-    inline ~Local() {}
-    
-    using Handless<T>::get;
-    
-    inline T *operator -> () const { return get(); }
-    
-    inline bool operator ! () const { return !get(); }
-
-    using Handless<T>::set_location;
-    using Handless<T>::location;
-
-    inline void operator = (const Local &other) { set_location(other.location()); }
-    
-    inline void operator = (const Handle<T> &other) { set_location(other.location()); }
-    
-    inline void operator = (Local &&other) {
-        set_location(other.location());
-        other.set_location(nullptr);
+    template<class S> inline static Handle<T> Cast(const Handle<S> &input) {
+        if (input.is_empty()) {
+            return Handle<T>();
+        }
+        auto h = reinterpret_cast<T**>(HandleScope::Current()->NewHandle(*input));
+        return Handle<T>(h);
     }
     
-    inline static Local<T> Null() { return Local<T>(nullptr); }
+    inline static Handle<T> Null() { return Handle(static_cast<T *>(nullptr)); }
+
+    inline static Handle<T> Empty() { return Handle(static_cast<T **>(nullptr)); }
+}; // class Handle
+
+
+template<class T>
+class Local final : public Handle<T> {
+public:
+    inline Local() : Local(static_cast<T **>(nullptr)) {}
+
+    inline Local(const Local &other) : Handle<T>(other) {}
+
+    inline Local(Local &&other) : Handle<T>(other) {}
+    
+    inline ~Local() {}
+
+    using Handless<T>::location;
+
+    template<class S> inline static Local<T> Cast(const Local<S> &input) {
+        T *unused = static_cast<T *>(*input);
+        (void)unused;
+        return Local<T>(reinterpret_cast<T **>(input.location()));
+    }
+    
+    inline static Local<T> New(const Handle<T> &input);
+    
+    inline static Local<T> New(Isolate *isolate, const Handle<T> &input);
+    
+    inline static Local<T> New(const Persistent<T> &input);
+    
+    inline static Local<T> New(Isolate *isolate, const Persistent<T> &input);
+private:
+    inline explicit Local(T **location) : Handle<T>(location) {}
 }; // class Local
     
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Persistent Handle
+////////////////////////////////////////////////////////////////////////////////////////////////////
+template<class T>
+class Persistent final : public Handless<T> {
+public:
+    inline Persistent() : Persistent(static_cast<T **>(nullptr)) {}
+    
+    inline Persistent(const Persistent &other) : Handless<T>(other) {}
+    
+    inline Persistent(Persistent &&other) : Handless<T>(other) {}
+    
+    inline ~Persistent() {}
+    
+    inline void Dispose();
+    
+    using Handless<T>::location;
+    
+    template<class S> inline static Persistent<T> Cast(const Persistent<S> &input) {
+        T *unused = static_cast<T *>(*input);
+        (void)unused;
+        return Persistent<T>(reinterpret_cast<T **>(input.location()));
+    }
+    
+    inline static Persistent<T> New(const Handle<T> &input);
+    
+    inline static Persistent<T> New(Isolate *isolate, const Handle<T> &input);
+    
+private:
+    inline explicit Persistent(T **location) : Handless<T>(location) {}
+}; // template<class T> class Persistent
+    
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Handle Inline Functions:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<class T>
+inline Local<T> Local<T>::New(const Handle<T> &input) {
+    if (input.is_empty()) {
+        return Local<T>();
+    }
+    auto h = reinterpret_cast<T**>(HandleScope::Current()->NewHandle(*input));
+    return Local<T>(h);
+}
+
+template<class T>
+inline Local<T> Local<T>::New(Isolate *isolate, const Handle<T> &input) {
+    if (input.is_empty()) {
+        return Local<T>();
+    }
+    auto h = reinterpret_cast<T**>(HandleScope::Current(isolate)->NewHandle(*input));
+    return Local<T>(h);
+}
+    
+template<class T>
+inline Local<T> Local<T>::New(const Persistent<T> &input) {
+    if (input.is_empty()) {
+        return Local<T>();
+    }
+    auto h = reinterpret_cast<T**>(HandleScope::Current()->NewHandle(*input));
+    return Local<T>(h);
+}
+
+template<class T>
+inline Local<T> Local<T>::New(Isolate *isolate, const Persistent<T> &input) {
+    if (input.is_empty()) {
+        return Local<T>();
+    }
+    auto h = reinterpret_cast<T**>(HandleScope::Current(isolate)->NewHandle(*input));
+    return Local<T>(h);
+}
+
 } // namespace nyaa
     
 } // namespace mai
