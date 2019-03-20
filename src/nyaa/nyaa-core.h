@@ -12,9 +12,14 @@ class Nyaa;
 class Isolate;
 class HandleScope;
 class Heap;
+class Object;
+class NyString;
 class NyTable;
 class NyThread;
 class ObjectFactory;
+    
+struct BuiltinStrPool;
+struct BuiltinMetatablePool;
     
 struct HandleScopeSlot {
     HandleScope     *scope;
@@ -31,6 +36,8 @@ public:
     
     Error Boot();
     
+    void SetGlobal(NyString *name, Object *value);
+    
     void Raisef(const char *fmt, ...);
     
     void EnterHandleScope(HandleScope *handle_scope);
@@ -43,6 +50,8 @@ public:
     DEF_PTR_GETTER(Nyaa, stub);
     DEF_PTR_GETTER(Heap, heap);
     DEF_PTR_GETTER(ObjectFactory, factory);
+    DEF_PTR_GETTER(NyTable, g);
+    DEF_VAL_GETTER(bool, has_raised)
     
     Isolate *isolate() const;
     
@@ -50,16 +59,19 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyaaCore);
     
-    NyTable *kMtString = nullptr;
-    NyTable *kMtTable = nullptr;
+    BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
+    BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
 private:
     Nyaa *const stub_;
     Allocator *const page_alloc_;
     Heap *const heap_;
     ObjectFactory *const factory_;
     HandleScopeSlot *top_slot_;
+    bool has_raised_ = false;
     
-    
+    std::unique_ptr<BuiltinStrPool> bkz_pool_;
+    std::unique_ptr<BuiltinMetatablePool> kmt_pool_;
+
     NyTable *g_;
     NyThread *main_thd_;
 };

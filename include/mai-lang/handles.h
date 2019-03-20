@@ -52,13 +52,17 @@ public:
     
     inline T **location() const { return location_; }
     
-    inline bool is_null() const { return !get(); }
+    inline bool is_null() const { return location_ && !*location_; }
 
     inline bool is_not_null() const { return !is_null(); }
     
     inline bool is_empty() const { return !location_; }
     
     inline bool is_not_empty() const { return !is_empty(); }
+    
+    inline bool is_valid() const { return is_not_empty() && is_not_null(); }
+    
+    inline bool is_not_valid() const { return !is_valid(); }
     
 protected:
     inline explicit Handless(T **location) : location_(location) {}
@@ -148,6 +152,8 @@ public:
     inline static Local<T> New(const Persistent<T> &input);
     
     inline static Local<T> New(Isolate *isolate, const Persistent<T> &input);
+    
+    inline static Local<T> Warp(T **location) { return Local<T>(location); }
 private:
     inline explicit Local(T **location) : Handle<T>(location) {}
 }; // class Local
@@ -189,7 +195,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Handle Inline Functions:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-
+    
 template<class T>
 inline Local<T> Local<T>::New(const Handle<T> &input) {
     if (input.is_empty()) {

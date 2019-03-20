@@ -61,9 +61,9 @@ public:
     
     static Handle<String> New(Nyaa *N, const char *s, size_t n);
     
-    uint32_t GetHashVal() const;
+    uint32_t HashVal() const;
     
-    const char *GetBytes() const;
+    const char *Bytes() const;
     
     size_t Length() const;
 }; // class String
@@ -79,6 +79,7 @@ public:
     
     Handle<Value> Run(Nyaa *N);
 }; // class Script
+
     
 } // namespace nyaa
     

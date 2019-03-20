@@ -18,6 +18,10 @@ public:
     virtual NyString *NewString(const char *s, size_t n, bool old) override;
     virtual NyTable *NewTable(uint32_t capacity, uint32_t seed, NyTable *base, bool old) override;
     virtual NyByteArray *NewByteArray(uint32_t capacity, NyByteArray *base, bool old) override;
+    virtual NyInt32Array *NewInt32Array(uint32_t capacity, NyInt32Array *base, bool old) override;
+    virtual NyArray *NewArray(uint32_t capacity, NyArray *base, bool old) override;
+    virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, bool old) override;
+    virtual NyThread *NewThread(bool old) override;
 private:
     NyaaCore *const core_;
     Heap *const heap_;

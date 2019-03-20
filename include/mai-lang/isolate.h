@@ -19,6 +19,9 @@ struct IsolateOptions {
     
     // The heap young generation space limit size.
     int major_area_max_size = 20 * 1024 * 1024;
+    
+    // The init stack size.
+    int init_thread_stack_size = 1024;
 };
 
 class Isolate final {
@@ -32,6 +35,8 @@ public:
     Nyaa *GetNyaa() const { return static_cast<Nyaa *>(ctx_tls_->Get()); }
     
     Env *env() const { return env_; }
+    
+    int init_thread_stack_size() const { return init_thread_stack_size_; }
     
     static Isolate *Current();
     static Isolate *New(const Options &opts = Options());
@@ -55,6 +60,9 @@ private:
     
     // The heap young generation space limit size.
     int major_area_max_size_;
+
+    // The init stack size.
+    int init_thread_stack_size_;
     
     // tls for store Nyaa object.
     std::unique_ptr<ThreadLocalSlot> ctx_tls_;

@@ -2,6 +2,7 @@
 #define MAI_NYAA_THREAD_H_
 
 #include "nyaa/nyaa-values.h"
+#include "mai/error.h"
 
 namespace mai {
     
@@ -15,13 +16,18 @@ public:
     NyThread(NyaaCore *owns);
     ~NyThread();
     
+    Error Init();
+    
+    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    
     friend class NyaaCore;
 private:
     NyaaCore *const owns_;
-    TryCatch *catch_point_;
+    TryCatch *catch_point_ = nullptr;
     Object *ra_ = nullptr; // register A
     Object **stack_ = nullptr;
     Object **stack_last_ = nullptr;
+    size_t stack_size_ = 0;
 }; // class NyThread
     
 } // namespace nyaa

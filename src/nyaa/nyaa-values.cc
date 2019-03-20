@@ -1,9 +1,12 @@
 #include "nyaa/nyaa-values.h"
+#include "nyaa/thread.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/heap.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/memory.h"
+#include "nyaa/builtin.h"
 #include "base/hash.h"
+#include "mai-lang/arguments.h"
 
 namespace mai {
     
@@ -16,7 +19,7 @@ bool Object::IsKey(NyaaCore *N) const {
         return true;
     }
     auto ob = heap_object();
-    if (ob->GetMetatable() == N->kMtString) {
+    if (ob->IsString(N)) {
         return true;
         // TODO:
     }
@@ -28,7 +31,7 @@ uint32_t Object::HashVal(NyaaCore *N) const {
         return static_cast<uint32_t>(smi());
     }
     auto ob = heap_object();
-    if (ob->GetMetatable() == N->kMtString) {
+    if (ob->IsString(N)) {
         return static_cast<NyString *>(ob)->hash_val();
     }
     // TODO:
@@ -55,17 +58,27 @@ uint32_t Object::HashVal(NyaaCore *N) const {
     return lhs->heap_object()->Equals(rhs, N);
 }
     
+NyString *Object::Str(NyaaCore *N) const {
+    if (this == kNil) {
+        return N->bkz_pool()->kNil;
+    }
+    if (is_smi()) {
+        return N->factory()->Sprintf("%" PRId64 , smi());
+    }
+    return heap_object()->Str(N);
+}
+    
 void NyObject::SetMetatable(NyTable *mt, NyaaCore *N) {
-    mtword_ = reinterpret_cast<uintptr_t>(mt);
     N->heap()->BarrierWr(this, mt);
+    mtword_ = reinterpret_cast<uintptr_t>(mt);
 }
 
 bool NyObject::Equals(Object *rhs, NyaaCore *N) const {
     if (rhs == nullptr) {
         return false;
     }
-    if (GetMetatable() == N->kMtString) {
-        if (rhs->is_smi() || rhs->heap_object()->GetMetatable() != N->kMtString) {
+    if (IsString(N)) {
+        if (rhs->is_smi() || rhs->heap_object()->IsString(N)) {
             return false;
         }
         auto lv = static_cast<const NyString *>(this);
@@ -77,6 +90,56 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) const {
     }
     // TODO:
     return false;
+}
+    
+bool NyObject::IsTable(NyaaCore *N) const {
+    // TODO:
+    return false;
+}
+    
+NyString *NyObject::Str(NyaaCore *N) const {
+    auto tmp = const_cast<NyObject *>(this);
+    if (IsString(N)) {
+        return static_cast<NyString *>(tmp);
+    } else if (IsByteArray(N)) {
+        // TODO:
+    } else if (IsInt32Array(N)) {
+        // TODO:
+    } else if (IsArray(N)) {
+        // TODO:
+    } else if (IsDelegated(N)) {
+        // TODO:
+    } else if (IsScript(N)) {
+        // TODO:
+    }
+    
+    HandleScope scope(N->isolate());
+    
+    Handle<NyTable> mt(GetMetatable());
+    DCHECK(mt.is_valid() && mt->IsTable(N));
+    
+    Handle<NyDelegated> fn(mt->Get(N->bkz_pool()->kInnerStr, N));
+    if (fn.is_valid()) {
+        DCHECK(fn->IsDelegated(N));
+        
+        Arguments args(1);
+        args.SetCallee(Local<Value>::New(fn));
+        args.Set(0, Local<Value>::New(tmp));
+        if (fn->Apply(&args, N) < 0) {
+            return nullptr;
+        }
+    }
+    return N->bkz_pool()->kEmpty;
+}
+    
+NyMap *NyMap::Put(Object *key, Object *value, NyaaCore *N) {
+    // TODO:
+    return nullptr;
+}
+
+Object *NyMap::Get(Object *key, NyaaCore *N) {
+    // TODO:
+    return nullptr;
 }
     
 NyTable::NyTable(uint32_t seed, uint32_t capacity)
@@ -208,6 +271,149 @@ NyString::NyString(const char *s, size_t n)
     ::memcpy(bytes_, s, n);
     bytes_[n] = 0;
 }
+    
+NyByteArray *NyByteArray::Put(int64_t key, Byte value, NyaaCore *N) {
+    NyByteArray *ob = this;
+    if (key > capacity()) {
+        uint32_t new_cap = static_cast<uint32_t>(key + (key - capacity()) * 2);
+        ob = N->factory()->NewByteArray(new_cap, this);
+    }
+    ob->elems_[key] = value;
+    if (key > size()) {
+        size_ = static_cast<uint32_t>(key);
+    }
+    return ob;
+}
+
+NyByteArray *NyByteArray::Add(Byte value, NyaaCore *N) {
+    NyByteArray *ob = this;
+    if (size() + 1 > capacity()) {
+        ob = N->factory()->NewByteArray(capacity_ << 1, this);
+    }
+    ob->elems_[size_++] = value;
+    return ob;
+}
+
+NyByteArray *NyByteArray::Add(const Byte *value, size_t n, NyaaCore *N) {
+    NyByteArray *ob = this;
+    const uint32_t k = static_cast<uint32_t>(n);
+    if (size() + k > capacity()) {
+        ob = N->factory()->NewByteArray((capacity_ << 1) + k, this);
+    }
+    ::memcpy(elems_ + size(), value, n);
+    size_ += k;
+    return ob;
+}
+    
+NyInt32Array *NyInt32Array::Put(int64_t key, int32_t value, NyaaCore *N) {
+    NyInt32Array *ob = this;
+    if (key > capacity()) {
+        uint32_t new_cap = static_cast<uint32_t>(key + (key - capacity()) * 2);
+        ob = N->factory()->NewInt32Array(new_cap, this);
+    }
+    ob->elems_[key] = value;
+    if (key > size()) {
+        size_ = static_cast<uint32_t>(key);
+    }
+    return ob;
+}
+
+NyInt32Array *NyInt32Array::Add(int32_t value, NyaaCore *N) {
+    NyInt32Array *ob = this;
+    if (size() + 1 > capacity()) {
+        ob = N->factory()->NewInt32Array(capacity_ << 1, this);
+    }
+    ob->elems_[size_++] = value;
+    return ob;
+}
+    
+NyArray *NyArray::Put(int64_t key, Object *value, NyaaCore *N) {
+    NyArray *ob = this;
+    if (key > capacity()) {
+        uint32_t new_cap = static_cast<uint32_t>(key + (key - capacity()) * 2);
+        ob = N->factory()->NewArray(new_cap, this);
+    }
+
+    N->heap()->BarrierWr(this, value);
+    ob->elems_[key] = value;
+    
+    if (key > size()) {
+        size_ = static_cast<uint32_t>(key);
+    }
+    return ob;
+}
+
+NyArray *NyArray::Add(Object *value, NyaaCore *N) {
+    NyArray *ob = this;
+    if (size() + 1 > capacity()) {
+        ob = N->factory()->NewArray(capacity_ << 1, this);
+    }
+
+    N->heap()->BarrierWr(this, value);
+    ob->elems_[size_++] = value;
+    
+    return ob;
+}
+    
+void NyArray::Refill(const NyArray *base, NyaaCore *N) {
+    for (int64_t i = 0; i < base->size(); ++i) {
+        N->heap()->BarrierWr(this, base->Get(i));
+    }
+    NyArrayBase<Object*>::Refill(base);
+}
+    
+NyScript::NyScript(NyString *file_name, NyInt32Array *file_info, NyByteArray *bcbuf,
+                   NyArray *const_pool, NyaaCore *N) {
+    N->heap()->BarrierWr(this, file_name, file_info);
+    N->heap()->BarrierWr(this, bcbuf    , const_pool);
+    bcbuf_      = DCHECK_NOTNULL(bcbuf);
+    const_pool_ = const_pool;
+    file_name_  = file_name;
+    file_info_  = file_info;
+}
+    
+int NyRunnable::Apply(Arguments *args, NyaaCore *N) {
+    if (args) {
+        args->SetCallee(Local<Value>::New(this));
+    }
+    if (IsScript(N)) {
+        return static_cast<NyScript *>(this)->Run(N);
+    } else if (IsDelegated(N)) {
+        return static_cast<NyDelegated *>(this)->Call(args, N);
+    }
+    DLOG(FATAL) << "Noreached!";
+    return -1;
+}
+    
+int NyScript::Run(NyaaCore *N) {
+    // TODO:
+    return -1;
+}
+    
+int NyDelegated::Call(Arguments *args, NyaaCore *N) {
+    // TODO:
+    return -1;
+}
+
+#define DEFINE_TYPE_CHECK(type, name) \
+    bool NyObject::Is##type (NyaaCore *N) const { \
+        return GetMetatable() == N->kmt_pool()->k##type; \
+    } \
+    bool Ny##type::EnsureIs(const NyObject *o, NyaaCore *N) { \
+    if (!o->Is##type (N)) { \
+        N->Raisef("Unexpected type: " name "."); \
+            return false; \
+        } \
+        return true; \
+    }
+    
+DEFINE_TYPE_CHECK(String, "string")
+DEFINE_TYPE_CHECK(Delegated, "delegated")
+DEFINE_TYPE_CHECK(ByteArray, "array[byte]")
+DEFINE_TYPE_CHECK(Int32Array, "array[int32]")
+DEFINE_TYPE_CHECK(Array, "array")
+DEFINE_TYPE_CHECK(Script, "script")
+DEFINE_TYPE_CHECK(Thread, "thread")
 
 } // namespace nyaa
     

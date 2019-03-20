@@ -1,7 +1,9 @@
 #include "nyaa/nyaa-core.h"
 #include "nyaa/nyaa-values.h"
+#include "nyaa/thread.h"
 #include "nyaa/heap.h"
 #include "nyaa/object-factory-impl.h"
+#include "nyaa/builtin.h"
 #include "base/slice.h"
 #include "mai-lang/nyaa.h"
 #include "mai/allocator.h"
@@ -10,12 +12,15 @@
 namespace mai {
     
 namespace nyaa {
-    
+
 NyaaCore::NyaaCore(Nyaa *stub)
     : stub_(DCHECK_NOTNULL(stub))
     , page_alloc_(stub->isolate()->env()->GetLowLevelAllocator())
     , heap_(new Heap(this))
-    , factory_(new ObjectFactoryImpl(this, heap_)){
+    , factory_(new ObjectFactoryImpl(this, heap_))
+    , bkz_pool_(new BuiltinStrPool())
+    , kmt_pool_(new BuiltinMetatablePool()) {
+
     top_slot_ = new HandleScopeSlot;
     top_slot_->scope = nullptr;
     top_slot_->prev  = nullptr;
@@ -40,9 +45,42 @@ Error NyaaCore::Boot() {
         return rs;
     }
     
-    kMtString = factory_->NewTable(8, rand());
-    kMtTable  = factory_->NewTable(8, rand());
+    NyString **pool_a = &bkz_pool_->kInnerInit;
+    for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
+        pool_a[i] = factory_->NewString(kRawBuiltinKzs[i]);
+    }
+    
+    rs = kmt_pool_->Boot(this);
+    if (!rs) {
+        return rs;
+    }
+    
+    // Set Right Metatable
+    for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
+        pool_a[i]->SetMetatable(kmt_pool_->kTable, this);
+    }
+    
+    // Set builtin global variables:
+    g_ = factory_->NewTable(32, rand());
+    NyString *name = factory_->NewString("thread");
+    SetGlobal(name, kmt_pool_->kThread);
+    
+    for (auto e = &kBuiltinFnEntries[0]; e->name; e++) {
+        SetGlobal(factory_->NewString(e->name),
+                  factory_->NewDelegated(e->nafn));
+    }
+    
+    // Setup main_thread
+    main_thd_ = factory_->NewThread(true /* old */);
+    rs = main_thd_->Init();
+    if (!rs) {
+        return rs;
+    }
     return rs;
+}
+    
+void NyaaCore::SetGlobal(NyString *name, Object *value) {
+    g_ = g_->Put(name, value, this);
 }
     
 void NyaaCore::Raisef(const char *fmt, ...) {
@@ -50,6 +88,7 @@ void NyaaCore::Raisef(const char *fmt, ...) {
     va_start(ap, fmt);
     std::string msg(base::Vsprintf(fmt, ap));
     va_end(ap);
+    has_raised_ = true;
     DLOG(FATAL) << msg;
 }
     

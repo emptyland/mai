@@ -1,8 +1,11 @@
 #ifndef MAI_NYAA_OBJECT_FACTORY_H_
 #define MAI_NYAA_OBJECT_FACTORY_H_
 
+#include "nyaa/builtin.h"
 #include "base/base.h"
+#include "mai-lang/handles.h"
 #include <string_view>
+#include <stdarg.h>
 
 namespace mai {
     
@@ -11,9 +14,15 @@ namespace nyaa {
 class NyString;
 class NyScript;
 class NyTable;
-class NyObjectArray;
+class NyArray;
 class NyByteArray;
 class NyInt32Array;
+class NyDelegated;
+class NyThread;
+    
+class Value;
+class String;
+class Arguments;
     
 class ObjectFactory {
 public:
@@ -26,17 +35,56 @@ public:
         return NewString(s, !s ? 0 : ::strlen(s), old);
     }
     
+    __attribute__ (( __format__ (__printf__, 2, 3)))
+    NyString *Sprintf(const char *fmt, ...);
+    
+    NyString *Vsprintf(const char *fmt, va_list ap);
+    
     virtual NyTable *NewTable(uint32_t capacity, uint32_t seed, NyTable *base = nullptr,
                               bool old = false) = 0;
     
     virtual NyByteArray *NewByteArray(uint32_t capacity, NyByteArray *base = nullptr,
                                       bool old = false) = 0;
     
-//    virtual NyInt32Array *NewInt32Array(uint32_t capacity, const NyInt32Array *base = nullptr,
-//                                        bool old = false) = 0;
-//    
-//    virtual NyInt32Array *NewInt32Array(uint32_t capacity, const NyInt32Array *base = nullptr,
-//                                        bool old = false) = 0;
+    virtual NyInt32Array *NewInt32Array(uint32_t capacity, NyInt32Array *base = nullptr,
+                                      bool old = false) = 0;
+    
+    virtual NyArray *NewArray(uint32_t capacity, NyArray *base = nullptr, bool old = false) = 0;
+    
+    NyDelegated *NewDelegated(Handle<Value> (*fp)(Local<Value>, Local<String>, Nyaa *),
+                              bool old = false) {
+        return NewDelegated(kPropertyGetter, reinterpret_cast<Address>(fp), old);
+    }
+    
+    NyDelegated *NewDelegated(Handle<Value> (*fp)(Local<Value>, Local<String>, Local<Value>, Nyaa *),
+                              bool old = false) {
+        return NewDelegated(kPropertySetter, reinterpret_cast<Address>(fp), old);
+    }
+    
+    NyDelegated *NewDelegated(int (*fp)(Nyaa *), bool old = false) {
+        return NewDelegated(kArg0, reinterpret_cast<Address>(fp), old);
+    }
+    
+    NyDelegated *NewDelegated(int (*fp)(Local<Value>, Nyaa *), bool old = false) {
+        return NewDelegated(kArg1, reinterpret_cast<Address>(fp), old);
+    }
+    
+    NyDelegated *NewDelegated(int (*fp)(Local<Value>, Local<Value>, Nyaa *), bool old = false) {
+        return NewDelegated(kArg2, reinterpret_cast<Address>(fp), old);
+    }
+    
+    NyDelegated *NewDelegated(int (*fp)(Local<Value>, Local<Value>, Local<Value>, Nyaa *),
+                              bool old = false) {
+        return NewDelegated(kArg3, reinterpret_cast<Address>(fp), old);
+    }
+    
+    NyDelegated *NewDelegated(int (*fp)(Arguments *, Nyaa *), bool old = false) {
+        return NewDelegated(kUniversal, reinterpret_cast<Address>(fp), old);
+    }
+    
+    virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, bool old = false) = 0;
+    
+    virtual NyThread *NewThread(bool old = false) = 0;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(ObjectFactory);
 }; // class ObjectFactory
