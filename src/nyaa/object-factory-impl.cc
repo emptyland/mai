@@ -71,6 +71,13 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     return ob;
 }
     
+/*virtual*/ NyScript *ObjectFactoryImpl::NewScript(NyString *file_name, NyInt32Array *file_info,
+                                                   NyByteArray *bcbuf, NyArray *const_pool) {
+    auto ob = new NyScript(file_name, file_info, DCHECK_NOTNULL(bcbuf), const_pool, core_);
+    ob->SetMetatable(core_->kmt_pool()->kScript, core_);
+    return ob;
+}
+    
 /*virtual*/ NyDelegated *ObjectFactoryImpl::NewDelegated(DelegatedKind kind, Address fp, bool old) {
     void *chunk = ::malloc(sizeof(NyDelegated));
     auto ob = new (chunk) NyDelegated(kind, fp);

@@ -1,4 +1,5 @@
 #include "nyaa/nyaa-core.h"
+#include "nyaa/thread.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/nyaa-values.h"
 #include "mai-lang/nyaa.h"
@@ -119,9 +120,9 @@ size_t String::Length() const {
     return Handle<Script>::Null();
 }
 
-Handle<Value> Script::Run(Nyaa *N) {
+int Script::Run(Nyaa *N) {
     // TODO:
-    return Handle<Value>::Null();
+    return -1;
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -150,6 +151,47 @@ void **HandleScope::NewHandle(void *value) {
 
 /*static*/ HandleScope *HandleScope::Current(Isolate *isolate) {
     return DCHECK_NOTNULL(isolate)->GetNyaa()->core()->current_handle_scope();
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Arguments:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+Arguments::Arguments(Value **address, size_t length)
+    : length_(length)
+    , address_(address) {
+}
+
+Arguments::Arguments(size_t length)
+    : length_(length) {
+    auto addr = NyaaCore::Current()->AdvanceHandleSlots(static_cast<int>(length));
+    address_ = reinterpret_cast<Value **>(addr);
+    int64_t i = length;
+    while (i-- > 0) {
+        address_[i] = nullptr;
+    }
+}
+
+void Arguments::SetCallee(Local<Value> callee) {
+    if (!callee_) {
+        callee_ = reinterpret_cast<Value **>(HandleScope::Current()->NewHandle(nullptr));
+    }
+    *callee_ = *callee;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Returns:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int Returnf(Nyaa *N, int nrets, ...) {
+    N = !N ? Isolate::Current()->GetNyaa() : N;
+
+    va_list ap;
+    va_start(ap, nrets);
+    for (int i = 0; i < nrets; ++i) {
+        Object *ret = va_arg(ap, Object *);
+        N->core()->main_thd()->Push(ret);
+    }
+    va_end(ap);
+    return N->core()->Raised() ? -1 : nrets;
 }
     
     

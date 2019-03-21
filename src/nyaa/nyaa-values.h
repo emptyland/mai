@@ -103,7 +103,7 @@ public:
     
     NyTable *GetMetatable() const {
         void *addr = is_forward_mt() ? forward_address() : reinterpret_cast<void *>(mtword_);
-        return *reinterpret_cast<NyTable **>(addr);
+        return reinterpret_cast<NyTable *>(addr);
     }
     
     void SetMetatable(NyTable *mt, NyaaCore *N);
@@ -249,6 +249,11 @@ public:
     NyByteArray *Put(int64_t key, Byte value, NyaaCore *N);
     NyByteArray *Add(Byte value, NyaaCore *N);
     NyByteArray *Add(const Byte *value, size_t n, NyaaCore *N);
+    
+    View<Byte> View(uint32_t len) {
+        len = std::min(len, size());
+        return MakeView(elems_, len);
+    }
     
     using NyArrayBase<Byte>::Get;
     using NyArrayBase<Byte>::RequiredSize;

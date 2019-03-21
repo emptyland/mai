@@ -39,6 +39,8 @@ public:
     void SetGlobal(NyString *name, Object *value);
     
     void Raisef(const char *fmt, ...);
+    void Unraise();
+    bool Raised() const;
     
     void EnterHandleScope(HandleScope *handle_scope);
     void ExitHandleScope();
@@ -51,7 +53,7 @@ public:
     DEF_PTR_GETTER(Heap, heap);
     DEF_PTR_GETTER(ObjectFactory, factory);
     DEF_PTR_GETTER(NyTable, g);
-    DEF_VAL_GETTER(bool, has_raised)
+    DEF_PTR_GETTER(NyThread, main_thd);
     
     Isolate *isolate() const;
     
@@ -67,7 +69,6 @@ private:
     Heap *const heap_;
     ObjectFactory *const factory_;
     HandleScopeSlot *top_slot_;
-    bool has_raised_ = false;
     
     std::unique_ptr<BuiltinStrPool> bkz_pool_;
     std::unique_ptr<BuiltinMetatablePool> kmt_pool_;

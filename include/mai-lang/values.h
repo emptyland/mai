@@ -22,13 +22,17 @@ class Table;
 // [Value]
 class Value {
 public:
-    bool IsSmi() const;
-    
     bool IsObject() const;
     
-    int64_t AsSmi() const;
+    bool IsInt() const;
     
-    HeapObject *AsHeapObject() const;
+    bool IsString() const;
+    
+    bool IsDecimal() const;
+    
+    bool IsScript() const;
+    
+    int64_t AsInt() const;
 }; // class Value
     
 //--------------------------------------------------------------------------------------------------
@@ -38,24 +42,11 @@ public:
     static Handle<Value> New(Nyaa *N, int64_t val);
     
 }; // class Integral
-    
 
-//--------------------------------------------------------------------------------------------------
-// [Base Heap Object]
-class HeapObject : public Value {
-public:
-    bool IsString() const;
-    
-    bool IsDecimal() const;
-    
-    bool IsScript() const;
 
-}; // class HeapObject
-
-    
 //--------------------------------------------------------------------------------------------------
 // [String]
-class String final : public HeapObject {
+class String final : public Value {
 public:
     static Handle<String> New(Nyaa *N, const char *s) { return New(N, s, !s ? 0 : ::strlen(s)); }
     
@@ -71,13 +62,13 @@ public:
 
 //--------------------------------------------------------------------------------------------------
 // [Script]
-class Script final : public HeapObject {
+class Script final : public Value {
 public:
     static Handle<Script> Compile(Nyaa *N, Handle<String> source);
     
     static Handle<Script> Compile(Nyaa *N, FILE *fp);
     
-    Handle<Value> Run(Nyaa *N);
+    int Run(Nyaa *N);
 }; // class Script
 
     

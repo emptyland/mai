@@ -23,7 +23,7 @@ public:
     Local<Value> operator [] (size_t i) const { return Get(i); }
     
     Local<Value> Get(size_t i) const {
-        assert(i < length_); return Local<Value>::New(address_[i]);
+        return i >= Length() ? Local<Value>() : Local<Value>::New(address_[i]);
     }
     
     Local<Value> Callee() const { return Local<Value>::Warp(callee_); }
@@ -39,6 +39,39 @@ private:
     Value **address_;
     Value **callee_ = nullptr;
 }; // class Arguments
+    
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Returns
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int Returnf(Nyaa *N, int nrets, ...);
+    
+inline int Return() { return Returnf(nullptr, 0); }
+    
+template<class T1>
+inline int Return(const Handle<T1> &ret1) {
+    if (ret1.is_empty()) {
+        return -1;
+    }
+    return Returnf(nullptr, 1, *ret1);
+}
+    
+template<class T1, class T2>
+inline int Return(const Handle<T1> &ret1, const Handle<T2> &ret2) {
+    if (ret1.is_empty() || ret2.is_empty()) {
+        return -1;
+    }
+    return Returnf(nullptr, 2, *ret1, *ret2);
+}
+    
+template<class T1, class T2, class T3>
+inline int Return(const Handle<T1> &ret1, const Handle<T2> &ret2, const Handle<T3> &ret3) {
+    if (ret1.is_empty() || ret2.is_empty() || ret3.is_empty()) {
+        return -1;
+    }
+    return Returnf(nullptr, 3, *ret1, *ret2, *ret3);
+}
+    
+    
     
 } // namespace nyaa
     

@@ -84,6 +84,9 @@ public:
     
     virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, bool old = false) = 0;
     
+    virtual NyScript *NewScript(NyString *file_name, NyInt32Array *file_info, NyByteArray *bcbuf,
+                                NyArray *const_pool) = 0;
+    
     virtual NyThread *NewThread(bool old = false) = 0;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(ObjectFactory);

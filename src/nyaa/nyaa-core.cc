@@ -55,11 +55,6 @@ Error NyaaCore::Boot() {
         return rs;
     }
     
-    // Set Right Metatable
-    for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
-        pool_a[i]->SetMetatable(kmt_pool_->kTable, this);
-    }
-    
     // Set builtin global variables:
     g_ = factory_->NewTable(32, rand());
     NyString *name = factory_->NewString("thread");
@@ -88,8 +83,20 @@ void NyaaCore::Raisef(const char *fmt, ...) {
     va_start(ap, fmt);
     std::string msg(base::Vsprintf(fmt, ap));
     va_end(ap);
-    has_raised_ = true;
+    //has_raised_ = true;
+    
+    // TODO:
     DLOG(FATAL) << msg;
+}
+    
+bool NyaaCore::Raised() const {
+    return main_thd_->has_raised_;
+    // TODO:
+}
+    
+void NyaaCore::Unraise() {
+    main_thd_->has_raised_ = false;
+    // TODO:
 }
     
 Isolate *NyaaCore::isolate() const { return stub_->isolate_; }

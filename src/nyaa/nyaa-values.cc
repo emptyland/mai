@@ -6,7 +6,7 @@
 #include "nyaa/memory.h"
 #include "nyaa/builtin.h"
 #include "base/hash.h"
-#include "mai-lang/arguments.h"
+#include "mai-lang/call-info.h"
 
 namespace mai {
     
@@ -123,13 +123,17 @@ NyString *NyObject::Str(NyaaCore *N) const {
         DCHECK(fn->IsDelegated(N));
         
         Arguments args(1);
-        args.SetCallee(Local<Value>::New(fn));
         args.Set(0, Local<Value>::New(tmp));
         if (fn->Apply(&args, N) < 0) {
             return nullptr;
         }
     }
     return N->bkz_pool()->kEmpty;
+}
+    
+uint32_t NyMap::Length() const {
+    // TODO:
+    return 0;
 }
     
 NyMap *NyMap::Put(Object *key, Object *value, NyaaCore *N) {
@@ -385,13 +389,26 @@ int NyRunnable::Apply(Arguments *args, NyaaCore *N) {
     return -1;
 }
     
-int NyScript::Run(NyaaCore *N) {
-    // TODO:
-    return -1;
-}
+int NyScript::Run(NyaaCore *N) { return N->main_thd()->Run(this); }
     
 int NyDelegated::Call(Arguments *args, NyaaCore *N) {
-    // TODO:
+    switch (kind()) {
+        case kArg0:
+            return call0_(N->stub());
+        case kArg1:
+            return call1_(args->Get(0), N->stub());
+        case kArg2:
+            return call2_(args->Get(0), args->Get(1), N->stub());
+        case kArg3:
+            return call3_(args->Get(0), args->Get(1), args->Get(2), N->stub());
+        case kUniversal:
+            return calln_(args, N->stub());
+        case kPropertyGetter:
+        case kPropertySetter:
+        default:
+            DLOG(FATAL) << "TODO:";
+            break;
+    }
     return -1;
 }
 

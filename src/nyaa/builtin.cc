@@ -82,6 +82,11 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     //----------------------------------------------------------------------------------------------
     // NyString
     kString = factory->NewTable(16, 0);
+    // Set Right Metatable
+    NyString **pool_a = &kzs->kInnerInit;
+    for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
+        pool_a[i]->SetMetatable(kString, N);
+    }
     kString->Put(kzs->kInnerID, factory->NewString("string"), N);
     
     //----------------------------------------------------------------------------------------------

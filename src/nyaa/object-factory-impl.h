@@ -21,6 +21,8 @@ public:
     virtual NyInt32Array *NewInt32Array(uint32_t capacity, NyInt32Array *base, bool old) override;
     virtual NyArray *NewArray(uint32_t capacity, NyArray *base, bool old) override;
     virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, bool old) override;
+    virtual NyScript *NewScript(NyString *file_name, NyInt32Array *file_info, NyByteArray *bcbuf,
+                                NyArray *const_pool) override;
     virtual NyThread *NewThread(bool old) override;
 private:
     NyaaCore *const core_;

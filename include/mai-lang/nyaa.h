@@ -4,7 +4,7 @@
 #include "mai-lang/isolate.h"
 #include "mai-lang/handles.h"
 #include "mai-lang/values.h"
-#include "mai-lang/arguments.h"
+#include "mai-lang/call-info.h"
 #include <memory>
 
 
