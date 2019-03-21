@@ -87,10 +87,35 @@ Nyaa::~Nyaa() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Values:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+bool Value::IsObject() const {
+    auto o = reinterpret_cast<const Object *>(this);
+    return o->is_object();
+}
+
+bool Value::IsInt() const { return reinterpret_cast<const Object *>(this)->is_smi(); }
+
+bool Value::IsLong() const { /* TODO */ return false; }
+
+bool Value::IsString() const {
+    auto o = reinterpret_cast<const Object *>(this);
+    return o->is_object() && o->heap_object()->IsString(NyaaCore::Current());
+}
+
+bool Value::IsScript() const {
+    auto o = reinterpret_cast<const Object *>(this);
+    return o->is_object() && o->heap_object()->IsScript(NyaaCore::Current());
+}
+
+int64_t Value::AsInt() const {
+    auto o = reinterpret_cast<const Object *>(this);
+    return o->is_smi() ? o->smi() : 0;
+}
 
 /*static*/ Handle<Value> Integral::New(Nyaa *N, int64_t val) {
     // TODO:
-    return Handle<Value>::Null();
+    uintptr_t word = (val << 1) | 1u;
+    return Handle<Value>(reinterpret_cast<Value *>(word));
 }
 
 /*static*/ Handle<String> String::New(Nyaa *N, const char *s, size_t n) {

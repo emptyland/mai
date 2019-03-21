@@ -56,7 +56,7 @@ Error NyaaCore::Boot() {
     }
     
     // Set builtin global variables:
-    g_ = factory_->NewTable(32, rand());
+    g_ = factory_->NewMap(32, rand(), false);
     NyString *name = factory_->NewString("thread");
     SetGlobal(name, kmt_pool_->kThread);
     
@@ -74,9 +74,7 @@ Error NyaaCore::Boot() {
     return rs;
 }
     
-void NyaaCore::SetGlobal(NyString *name, Object *value) {
-    g_ = g_->Put(name, value, this);
-}
+void NyaaCore::SetGlobal(NyString *name, Object *value) { g_->Put(name, value, this); }
     
 void NyaaCore::Raisef(const char *fmt, ...) {
     va_list ap;

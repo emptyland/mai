@@ -92,10 +92,10 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) const {
     return false;
 }
     
-bool NyObject::IsTable(NyaaCore *N) const {
-    // TODO:
-    return false;
-}
+//bool NyObject::IsTable(NyaaCore *N) const {
+//    // TODO:
+//    return false;
+//}
     
 NyString *NyObject::Str(NyaaCore *N) const {
     auto tmp = const_cast<NyObject *>(this);
@@ -131,23 +131,69 @@ NyString *NyObject::Str(NyaaCore *N) const {
     return N->bkz_pool()->kEmpty;
 }
     
-uint32_t NyMap::Length() const {
-    // TODO:
-    return 0;
+NyMap::NyMap(NyObject *maybe, NyaaCore *N)
+    : generic_(DCHECK_NOTNULL(maybe))
+    , linear_(maybe->IsArray(N)) {
+    DCHECK(maybe->IsArray(N) || maybe->IsTable(N));
+    N->heap()->BarrierWr(this, maybe);
 }
     
-NyMap *NyMap::Put(Object *key, Object *value, NyaaCore *N) {
-    // TODO:
-    return nullptr;
+uint32_t NyMap::Length() const { return linear_ ? array_->size() : table_->size(); }
+    
+void NyMap::Put(Object *key, Object *value, NyaaCore *N) {
+    if (!linear_) {
+        table_ = table_->Put(key, value, N);
+        return;
+    }
+    
+    bool should_table = false;
+    int64_t index = 0;
+    if (key->is_smi()) {
+        index = key->smi();
+        if (index + 1024 > array_->capacity()) {
+            should_table = true;
+        }
+    } else {
+        should_table = true;
+    }
+    
+    HandleScope scope(N->isolate());
+    if (should_table) {
+        Handle<NyTable> table(N->factory()->NewTable(array_->capacity(), rand()));
+        for (int64_t i = 0; i < array_->size(); ++i) {
+            if (array_->Get(i) == Object::kNil) {
+                continue;
+            }
+            table = table->Put(NyInt64::New(i), array_->Get(i), N);
+        }
+        table_ = *table;
+        linear_ = false;
+    }
+    
+    if (linear_) {
+        array_ = array_->Put(index, value, N);
+    } else {
+        table_ = table_->Put(key, value, N);
+    }
 }
 
 Object *NyMap::Get(Object *key, NyaaCore *N) {
-    // TODO:
-    return nullptr;
+    if (linear_) {
+        if (key->is_object()) {
+            return nullptr;
+        }
+        int64_t index = key->smi();
+        if (index < 0 || index > array_->size()) {
+            return nullptr;
+        }
+        return array_->Get(index);
+    }
+    return table_->Get(key, N);
 }
     
-NyTable::NyTable(uint32_t seed, uint32_t capacity)
-    : seed_(seed)
+NyTable::NyTable(uint64_t kid, uint32_t seed, uint32_t capacity)
+    : kid_(kid)
+    , seed_(seed)
     , size_(0)
     , capacity_(capacity) {
     DCHECK_GT(capacity_, 4);
@@ -384,10 +430,26 @@ int NyRunnable::Apply(Arguments *args, NyaaCore *N) {
         return static_cast<NyScript *>(this)->Run(N);
     } else if (IsDelegated(N)) {
         return static_cast<NyDelegated *>(this)->Call(args, N);
+    } else if (IsFunction(N)) {
+        return static_cast<NyFunction *>(this)->Call(args, N);
     }
     DLOG(FATAL) << "Noreached!";
     return -1;
 }
+    
+NyFunction::NyFunction(uint8_t n_params,
+                       bool vargs,
+                       uint32_t max_stack_size,
+                       NyScript *script,
+                       NyaaCore *N)
+    : n_params_(n_params)
+    , vargs_(vargs)
+    , max_stack_size_(max_stack_size)
+    , script_(script) {
+    N->heap()->BarrierWr(this, script);
+}
+    
+int NyFunction::Call(Arguments *args, NyaaCore *N) { return N->main_thd()->Run(this, args); }
     
 int NyScript::Run(NyaaCore *N) { return N->main_thd()->Run(this); }
     
@@ -426,10 +488,13 @@ int NyDelegated::Call(Arguments *args, NyaaCore *N) {
     
 DEFINE_TYPE_CHECK(String, "string")
 DEFINE_TYPE_CHECK(Delegated, "delegated")
+DEFINE_TYPE_CHECK(Map, "map")
+DEFINE_TYPE_CHECK(Table, "table")
 DEFINE_TYPE_CHECK(ByteArray, "array[byte]")
 DEFINE_TYPE_CHECK(Int32Array, "array[int32]")
 DEFINE_TYPE_CHECK(Array, "array")
 DEFINE_TYPE_CHECK(Script, "script")
+DEFINE_TYPE_CHECK(Function, "function")
 DEFINE_TYPE_CHECK(Thread, "thread")
 
 } // namespace nyaa

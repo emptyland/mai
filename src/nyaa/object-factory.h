@@ -11,13 +11,16 @@ namespace mai {
     
 namespace nyaa {
     
+class NyObject;
 class NyString;
 class NyScript;
+class NyMap;
 class NyTable;
 class NyArray;
 class NyByteArray;
 class NyInt32Array;
 class NyDelegated;
+class NyFunction;
 class NyThread;
     
 class Value;
@@ -39,6 +42,10 @@ public:
     NyString *Sprintf(const char *fmt, ...);
     
     NyString *Vsprintf(const char *fmt, va_list ap);
+    
+    NyMap *NewMap(uint32_t capacity, uint32_t seed, bool linear = false, bool old = false);
+    
+    virtual NyMap *NewMap(NyObject *maybe, bool old = false) = 0;
     
     virtual NyTable *NewTable(uint32_t capacity, uint32_t seed, NyTable *base = nullptr,
                               bool old = false) = 0;
@@ -83,6 +90,9 @@ public:
     }
     
     virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, bool old = false) = 0;
+    
+    virtual NyFunction *NewFunction(size_t n_params, bool vargs, size_t max_stack_size,
+                                    NyScript *script) = 0;
     
     virtual NyScript *NewScript(NyString *file_name, NyInt32Array *file_info, NyByteArray *bcbuf,
                                 NyArray *const_pool) = 0;

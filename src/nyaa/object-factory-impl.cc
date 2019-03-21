@@ -23,6 +23,12 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     ob->SetMetatable(core_->kmt_pool()->kString, core_);
     return ob;
 }
+    
+/*virtual*/ NyMap *ObjectFactoryImpl::NewMap(NyObject *maybe, bool old) {
+    auto ob = new NyMap(maybe, core_);
+    ob->SetMetatable(core_->kmt_pool()->kMap, core_);
+    return ob;
+}
 
 /*virtual*/ NyTable *ObjectFactoryImpl::NewTable(uint32_t capacity, uint32_t seed, NyTable *base,
                                                  bool old) {
@@ -75,6 +81,16 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
                                                    NyByteArray *bcbuf, NyArray *const_pool) {
     auto ob = new NyScript(file_name, file_info, DCHECK_NOTNULL(bcbuf), const_pool, core_);
     ob->SetMetatable(core_->kmt_pool()->kScript, core_);
+    return ob;
+}
+    
+/*virtual*/ NyFunction *ObjectFactoryImpl::NewFunction(size_t n_params, bool vargs,
+                                                       size_t max_stack_size, NyScript *script) {
+    DCHECK_LE(n_params, UINT8_MAX);
+    DCHECK_LE(max_stack_size, UINT32_MAX);
+    auto ob = new NyFunction(static_cast<uint8_t>(n_params), vargs,
+                             static_cast<uint32_t>(max_stack_size), script, core_);
+    ob->SetMetatable(core_->kmt_pool()->kFunction, core_);
     return ob;
 }
     

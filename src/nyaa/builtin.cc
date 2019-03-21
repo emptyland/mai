@@ -29,6 +29,7 @@ const char *kRawBuiltinKzs[] = {
     "__id__",
     "__size__",
     "__base__",
+    "__weak__",
     "nil",
     "true",
     "false",
@@ -96,6 +97,11 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     kDelegated->Put(kzs->kInnerCall, factory->NewDelegated(DelegatedCall), N);
     
     //----------------------------------------------------------------------------------------------
+    // NyFunction
+    kFunction = factory->NewTable(16, 0);
+    kFunction->Put(kzs->kInnerID, factory->NewString("function"), N);
+    
+    //----------------------------------------------------------------------------------------------
     // NyScript
     kScript = factory->NewTable(16, 0);
     kScript->Put(kzs->kInnerID, factory->NewString("script"), N);
@@ -121,6 +127,11 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     // NyArray
     kArray = factory->NewTable(16, 0);
     kArray->Put(kzs->kInnerID, factory->NewString("array"), N);
+    
+    //----------------------------------------------------------------------------------------------
+    // NyMap
+    kMap = factory->NewTable(16, 0);
+    kMap->Put(kzs->kInnerID, factory->NewString("map"), N);
     return Error::OK();
 }
     

@@ -1,6 +1,7 @@
 #include "nyaa/thread.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/object-factory.h"
+#include "nyaa/nyaa-values.h"
 #include "nyaa/bytecode.h"
 #include "test/nyaa-test.h"
 #include "mai-lang/nyaa.h"
@@ -45,10 +46,10 @@ TEST_F(NyaaThreadTest, Sanity) {
 }
     
 static int CallingTest1(Nyaa *N) {
-    printf("calling test1...\n");
+    //printf("calling test1...\n");
     return Return(String::New(N, "1st"),
                   String::New(N, "2nd"),
-                  String::New(N, "3rd"));
+                  String::New(N, "3th"));
 }
     
 TEST_F(NyaaThreadTest, Calling) {
@@ -70,25 +71,60 @@ TEST_F(NyaaThreadTest, Calling) {
     bcbuf->Add(0, core_);
     bcbuf->Add(0, core_);
     bcbuf->Add(3, core_);
-    
-    // var a, b, c = foo(), 1
-    // LoadGlobal 'foo'
-    // Call 0, 1
-    // PushImm 1
-    // PushNil
-    //
-    // var a, b, c = foo()
-    // LoadGlobal 'foo'
-    // Call 0, 3
-    //
-    // var a, b, c = 1, 2, 3
-    // PushImm 1
-    // PushImm 2
-    // PushImm 3
+
     Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, *pool));
     auto thd = N_->core()->main_thd();
     auto rv = thd->Run(*script);
     ASSERT_EQ(0, rv);
+    ASSERT_EQ(3, thd->frame_size());
+    
+    Handle<NyString> r1(thd->Get(0));
+    ASSERT_STREQ("1st", r1->bytes());
+    r1 = thd->Get(1);
+    ASSERT_STREQ("2nd", r1->bytes());
+    r1 = thd->Get(2);
+    ASSERT_STREQ("3th", r1->bytes());
+}
+    
+static int CallingTest2(Local<Value> lhs, Local<Value> rhs, Nyaa *N) {
+    int64_t result = lhs->AsInt() + rhs->AsInt();
+    
+    return Return(Integral::New(N, result));
+}
+    
+TEST_F(NyaaThreadTest, Calling2) {
+    HandleScope scope(isolate_);
+    
+    Handle<NyDelegated> fn(core_->factory()->NewDelegated(CallingTest2));
+    Handle<NyString> name(core_->factory()->NewString("test2"));
+    core_->SetGlobal(*name, *fn);
+    
+    Handle<NyArray> pool(core_->factory()->NewArray(4));
+    pool->Add(*name, core_);
+    
+    Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
+    
+    // local a, b, c = test1()
+    bcbuf->Add(Bytecode::kPushGlobal, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(Bytecode::kPushImm, core_);
+    bcbuf->Add(100, core_);
+    bcbuf->Add(Bytecode::kPushImm, core_);
+    bcbuf->Add(22, core_);
+    
+    bcbuf->Add(Bytecode::kCall, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(2, core_);
+    bcbuf->Add(1, core_);
+    
+    Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, *pool));
+    auto thd = N_->core()->main_thd();
+    auto rv = thd->Run(*script);
+    ASSERT_EQ(0, rv);
+    ASSERT_EQ(1, thd->frame_size());
+    Handle<Object> r1(thd->Get(0));
+    ASSERT_TRUE(r1->is_smi());
+    ASSERT_EQ(122, r1->smi());
 }
     
 } // namespace nyaa

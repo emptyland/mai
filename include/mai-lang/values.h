@@ -14,7 +14,7 @@ class Nyaa;
 class Value;
 class HeapObject;
 class String;
-class Decimal;
+class Long;
 class Script;
 class Table;
     
@@ -26,10 +26,10 @@ public:
     
     bool IsInt() const;
     
+    bool IsLong() const;
+    
     bool IsString() const;
-    
-    bool IsDecimal() const;
-    
+
     bool IsScript() const;
     
     int64_t AsInt() const;

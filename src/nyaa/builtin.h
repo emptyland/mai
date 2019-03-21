@@ -36,6 +36,7 @@ struct BuiltinStrPool {
     NyString *kInnerID = nullptr;
     NyString *kInnerSize = nullptr;
     NyString *kInnerBase = nullptr;
+    NyString *kInnerWeak = nullptr;
     NyString *kNil = nullptr;
     NyString *kTrue = nullptr;
     NyString *kFalse = nullptr;
@@ -55,6 +56,8 @@ struct BuiltinMetatablePool {
     NyTable *kByteArray = nullptr;
     NyTable *kInt32Array = nullptr;
     NyTable *kArray = nullptr;
+    NyTable *kMap = nullptr;
+    NyTable *kFunction = nullptr;
     // TODO:
     
     friend class NyaaCore;

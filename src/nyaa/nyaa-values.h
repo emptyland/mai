@@ -19,6 +19,8 @@ class NyInt32Array;
 class NyArray;
 class NyTable;
 class NyScript;
+class NyFunction;
+class NyDelegated;
 class NyUDO;
 class NyThread;
 class NyaaCore;
@@ -116,18 +118,16 @@ public:
     bool IsString(NyaaCore *N) const;
     bool IsScript(NyaaCore *N) const;
     bool IsThread(NyaaCore *N) const;
+    bool IsMap(NyaaCore *N) const;
     bool IsTable(NyaaCore *N) const;
     bool IsArray(NyaaCore *N) const;
     bool IsByteArray(NyaaCore *N) const;
     bool IsInt32Array(NyaaCore *N) const;
     bool IsScriptArray(NyaaCore *N) const;
-    
-    bool IsMap(NyaaCore *N) const {
-        return IsArray(N) || IsByteArray(N) || IsInt32Array(N) || IsTable(N);
-    }
-    
+    bool IsFunction(NyaaCore *N) const;
+
     bool IsRunnable(NyaaCore *N) const {
-        return IsScript(N) || IsDelegated(N); // TODO:
+        return IsScript(N) || IsDelegated(N) || IsFunction(N); // TODO:
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyObject);
@@ -139,25 +139,39 @@ private:
         return reinterpret_cast<void *>(addr);
     }
     
-    uintptr_t mtword_;
+    uintptr_t mtword_; // [strong ref]
 }; // class NyObject
 
 static_assert(sizeof(NyObject) == sizeof(uintptr_t), "Incorrect Object size");
     
 class NyMap : public NyObject {
 public:
+    NyMap(NyObject *maybe, NyaaCore *N);
+    
     uint32_t Length() const;
     
-    NyMap *Put(Object *key, Object *value, NyaaCore *N);
+    void Put(Object *key, Object *value, NyaaCore *N);
     
     Object *Get(Object *key, NyaaCore *N);
     
+    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NyMap);
+private:
+    union {
+        NyTable *table_; // [strong ref]
+        NyArray *array_; // [strong ref]
+        NyObject *generic_; // [strong ref]
+    };
+    bool linear_; // fast cache flag.
 }; // class NyMap
 
-class NyTable : public NyMap {
+class NyTable : public NyObject {
 public:
-    NyTable(uint32_t seed, uint32_t capacity);
-    
+    NyTable(uint32_t seed, uint32_t capacity) : NyTable(0, seed, capacity) {}
+    NyTable(uint64_t kid, uint32_t seed, uint32_t capacity);
+
+    DEF_VAL_GETTER(uint64_t, kid);
     DEF_VAL_GETTER(uint32_t, size);
     DEF_VAL_GETTER(uint32_t, capacity);
     
@@ -199,6 +213,7 @@ private:
         return ((!key ? 0 : key->HashVal(N)) | 1u) ^ seed_;
     }
     
+    uint64_t const kid_;
     uint32_t const seed_;
     uint32_t const capacity_;
     uint32_t size_;
@@ -207,7 +222,7 @@ private:
 }; // class NyTable
     
 template<class T>
-class NyArrayBase : public NyMap {
+class NyArrayBase : public NyObject {
 public:
     inline NyArrayBase(uint32_t capacity)
         : size_(0)
@@ -333,6 +348,37 @@ class NyRunnable : public NyObject {
 public:
     int Apply(Arguments *, NyaaCore *N);
     
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NyRunnable);
+protected:
+    NyRunnable() {}
+}; // class NyCallable
+    
+    
+class NyFunction : public NyRunnable {
+public:
+    NyFunction(uint8_t n_params,
+               bool vargs,
+               uint32_t max_stack_size,
+               NyScript *script,
+               NyaaCore *N);
+    
+    DEF_VAL_GETTER(uint8_t, n_params);
+    DEF_VAL_GETTER(bool, vargs);
+    DEF_VAL_GETTER(uint32_t, max_stack_size);
+    DEF_PTR_GETTER(NyScript, script);
+    DEF_VAL_GETTER(uint64_t, call_count);
+    
+    int Call(Arguments *, NyaaCore *N);
+    
+    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NyFunction);
+private:
+    uint8_t n_params_;
+    bool vargs_;
+    uint32_t max_stack_size_;
+    NyScript *script_; // [strong ref]
+    uint64_t call_count_ = 0;
 }; // class NyCallable
     
 
@@ -355,10 +401,10 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyScript);
 private:
-    NyByteArray *bcbuf_;
-    NyString *file_name_;
-    NyInt32Array *file_info_;
-    NyArray *const_pool_;
+    NyByteArray *bcbuf_; // [strong ref]
+    NyString *file_name_; // [strong ref]
+    NyInt32Array *file_info_; // [strong ref]
+    NyArray *const_pool_; // [strong ref]
 }; // class NyScript
     
 

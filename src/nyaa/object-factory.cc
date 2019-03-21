@@ -1,4 +1,5 @@
 #include "nyaa/object-factory.h"
+#include "nyaa/nyaa-values.h"
 #include "base/slice.h"
 
 namespace mai {
@@ -17,6 +18,19 @@ NyString *ObjectFactory::Sprintf(const char *fmt, ...) {
 NyString *ObjectFactory::Vsprintf(const char *fmt, va_list ap) {
     std::string s(base::Vsprintf(fmt, ap));
     return NewString(s.data(), s.length(), false);
+}
+    
+NyMap *ObjectFactory::NewMap(uint32_t capacity, uint32_t seed, bool linear, bool old) {
+    NyObject *maybe = nullptr;
+    if (linear) {
+        maybe = NewArray(capacity, nullptr /*base*/, old);
+    } else {
+        maybe = NewTable(capacity, seed, nullptr /*base*/, old);
+    }
+    if (!maybe) {
+        return nullptr;
+    }
+    return NewMap(maybe, old);
 }
     
 } // namespace nyaa

@@ -14,7 +14,7 @@ class HandleScope;
 class Heap;
 class Object;
 class NyString;
-class NyTable;
+class NyMap;
 class NyThread;
 class ObjectFactory;
     
@@ -52,7 +52,7 @@ public:
     DEF_PTR_GETTER(Nyaa, stub);
     DEF_PTR_GETTER(Heap, heap);
     DEF_PTR_GETTER(ObjectFactory, factory);
-    DEF_PTR_GETTER(NyTable, g);
+    DEF_PTR_GETTER(NyMap, g);
     DEF_PTR_GETTER(NyThread, main_thd);
     
     Isolate *isolate() const;
@@ -73,7 +73,7 @@ private:
     std::unique_ptr<BuiltinStrPool> bkz_pool_;
     std::unique_ptr<BuiltinMetatablePool> kmt_pool_;
 
-    NyTable *g_;
+    NyMap *g_;
     NyThread *main_thd_;
 };
     
