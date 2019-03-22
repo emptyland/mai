@@ -3,6 +3,7 @@
 
 #include "mai-lang/handles.h"
 #include "nyaa/builtin.h"
+#include "nyaa/memory.h"
 #include "base/base.h"
 #include "glog/logging.h"
 
@@ -41,30 +42,39 @@ class Object {
 public:
     static Object *const kNil;
     
-    bool is_smi() const { return word() & 0x1; }
+    bool IsSmi() const { return word() & 0x1; }
     
-    bool is_object() const { return !is_smi(); }
+    bool IsObject() const { return !IsSmi(); }
     
     uintptr_t word() const { return reinterpret_cast<uintptr_t>(this); }
     
-    int64_t smi() const {
-        DCHECK(is_smi());
+    int64_t ToSmi() const {
+        DCHECK(IsSmi());
         return static_cast<int64_t>(word() >> 1);
     }
     
-    NyObject *heap_object() const {
-        DCHECK(is_object());
+    NyObject *ToHeapObject() const {
+        DCHECK(IsObject());
         return reinterpret_cast<NyObject *>(word());
     }
     
-    NyString *Str(NyaaCore *N) const;
+    bool IsNil() const { return this == kNil; }
+    
+    bool IsTrue() const { return !IsNil() && !IsFalse(); }
+    
+    bool IsFalse() const;
+    
+    NyString *Str(NyaaCore *N);
     
     bool IsKey(NyaaCore *N) const;
+    
     bool IsNotKey(NyaaCore *N) const { return !IsKey(N); }
 
     uint32_t HashVal(NyaaCore *N) const;
     
     static bool Equals(Object *lhs, Object *rhs, NyaaCore *N);
+    
+    static Object *Add(Object *lhs, Object *rhs, NyaaCore *N);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Object);
 protected:
@@ -82,14 +92,16 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyInt32);
 }; // class NyInt32
     
-class NyInt64 {
+class NySmi {
 public:
     static Object *New(int64_t value) {
         intptr_t word = value;
         return reinterpret_cast<Object *>((word << 1) | 1);
     }
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyInt64);
+    static Object *Add(Object *lhs, Object *rhs, NyaaCore *N);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NySmi);
 }; // class NyInt32
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -103,28 +115,22 @@ public:
     
     bool is_direct_mt() const { return !is_forward_mt(); }
     
-    NyTable *GetMetatable() const {
+    NyMap *GetMetatable() const {
         void *addr = is_forward_mt() ? forward_address() : reinterpret_cast<void *>(mtword_);
-        return reinterpret_cast<NyTable *>(addr);
+        return reinterpret_cast<NyMap *>(addr);
     }
     
-    void SetMetatable(NyTable *mt, NyaaCore *N);
+    void SetMetatable(NyMap *mt, NyaaCore *N);
     
-    bool Equals(Object *rhs, NyaaCore *N) const;
+    bool Equals(Object *rhs, NyaaCore *N);
     
-    NyString *Str(NyaaCore *N) const;
+    Object *Add(Object *rhs, NyaaCore *N);
     
-    bool IsDelegated(NyaaCore *N) const;
-    bool IsString(NyaaCore *N) const;
-    bool IsScript(NyaaCore *N) const;
-    bool IsThread(NyaaCore *N) const;
-    bool IsMap(NyaaCore *N) const;
-    bool IsTable(NyaaCore *N) const;
-    bool IsArray(NyaaCore *N) const;
-    bool IsByteArray(NyaaCore *N) const;
-    bool IsInt32Array(NyaaCore *N) const;
-    bool IsScriptArray(NyaaCore *N) const;
-    bool IsFunction(NyaaCore *N) const;
+    NyString *Str(NyaaCore *N);
+    
+#define DECL_TYPE_CHECK(type) bool Is##type(NyaaCore *N) const;
+    DECL_BUILTIN_TYPES(DECL_TYPE_CHECK)
+#undef DECL_TYPE_CHECK
 
     bool IsRunnable(NyaaCore *N) const {
         return IsScript(N) || IsDelegated(N) || IsFunction(N); // TODO:
@@ -146,7 +152,9 @@ static_assert(sizeof(NyObject) == sizeof(uintptr_t), "Incorrect Object size");
     
 class NyMap : public NyObject {
 public:
-    NyMap(NyObject *maybe, NyaaCore *N);
+    NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N);
+    
+    uint64_t kid() const { return kid_; }
     
     uint32_t Length() const;
     
@@ -163,15 +171,14 @@ private:
         NyArray *array_; // [strong ref]
         NyObject *generic_; // [strong ref]
     };
-    bool linear_; // fast cache flag.
+    uint64_t linear_ : 8; // fast cache flag.
+    uint64_t kid_ : 56;
 }; // class NyMap
 
 class NyTable : public NyObject {
 public:
-    NyTable(uint32_t seed, uint32_t capacity) : NyTable(0, seed, capacity) {}
-    NyTable(uint64_t kid, uint32_t seed, uint32_t capacity);
+    NyTable(uint32_t seed, uint32_t capacity);
 
-    DEF_VAL_GETTER(uint64_t, kid);
     DEF_VAL_GETTER(uint32_t, size);
     DEF_VAL_GETTER(uint32_t, capacity);
     
@@ -212,15 +219,17 @@ private:
     uint32_t HashVal(Object *key, NyaaCore *N) const {
         return ((!key ? 0 : key->HashVal(N)) | 1u) ^ seed_;
     }
-    
-    uint64_t const kid_;
+
     uint32_t const seed_;
     uint32_t const capacity_;
     uint32_t size_;
     Entry *free_;
     Entry entries_[0];
 }; // class NyTable
-    
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Arrays:
+////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 class NyArrayBase : public NyObject {
 public:
@@ -246,7 +255,7 @@ public:
     }
 
     inline static size_t RequiredSize(uint32_t capacity) {
-        return sizeof(NyArrayBase<T>) + sizeof(T) * capacity;
+        return RoundUp(sizeof(NyArrayBase<T>) + sizeof(T) * capacity, kAllocateAlignmentSize);
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyArrayBase);
@@ -260,10 +269,9 @@ protected:
 class NyByteArray : public NyArrayBase<Byte> {
 public:
     NyByteArray(uint32_t capacity) : NyArrayBase<Byte>(capacity) {}
-    
-    NyByteArray *Put(int64_t key, Byte value, NyaaCore *N);
+
     NyByteArray *Add(Byte value, NyaaCore *N);
-    NyByteArray *Add(const Byte *value, size_t n, NyaaCore *N);
+    NyByteArray *Add(const void *value, size_t n, NyaaCore *N);
     
     View<Byte> View(uint32_t len) {
         len = std::min(len, size());
@@ -273,18 +281,57 @@ public:
     using NyArrayBase<Byte>::Get;
     using NyArrayBase<Byte>::RequiredSize;
     using NyArrayBase<Byte>::Refill;
+    using NyArrayBase<Byte>::elems_;
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyByteArray);
+protected:
+    Address data() { return elems_; }
+    const Byte *data() const { return elems_; }
 }; // class NyByteArray
+
+
+class NyString final : public NyByteArray {
+public:
+    static constexpr const int kHeaderSize = sizeof(uint32_t);
+    static constexpr const uint32_t kHashMask = 0x7fffffffu;
     
+    NyString(const char *s, size_t n, NyaaCore *N);
+    
+    NyString(size_t capacity)
+        : NyByteArray(static_cast<uint32_t>(capacity) + kHeaderSize) {
+        DbgFillInitZag(data(), capacity + kHeaderSize);
+    }
+    
+    NyString *Done(NyaaCore *N);
+    
+    NyString *Add(const char *s, size_t n, NyaaCore *N) {
+        return static_cast<NyString *>(NyByteArray::Add(s, n, N)->Add(0, N));
+    }
+    
+    NyString *Add(const NyString *s, NyaaCore *N) { return Add(s->bytes(), s->size(), N); }
+
+    uint32_t hash_val() const { return header() & kHashMask; }
+    
+    const char *bytes() const { return reinterpret_cast<const char *>(data() + kHeaderSize); }
+    
+    static size_t RequiredSize(uint32_t size) {
+        return RoundUp(sizeof(NyString) + sizeof(uint32_t) + size + 1, kAllocateAlignmentSize);
+    }
+    
+    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+private:
+    uint32_t header() const { return *reinterpret_cast<const uint32_t *>(data()); }
+}; // class NyString
+    
+static_assert(sizeof(NyString) == sizeof(NyByteArray), "Incorrect NyString size.");
     
 class NyInt32Array : public NyArrayBase<int32_t> {
 public:
     NyInt32Array(uint32_t capacity) : NyArrayBase<int32_t>(capacity) {}
     
-    NyInt32Array *Put(int64_t key, int32_t value, NyaaCore *N);
+    //NyInt32Array *Put(int64_t key, int32_t value, NyaaCore *N);
     
     NyInt32Array *Add(int32_t value, NyaaCore *N);
 
@@ -318,28 +365,28 @@ public:
 }; // class NyArray
 
 
-class NyString : public NyObject {
-public:
-    NyString(const char *s, size_t n);
-    
-    DEF_VAL_GETTER(uint32_t, hash_val);
-    DEF_VAL_GETTER(uint32_t, size);
-    
-    const char *bytes() const { return bytes_; }
-    
-    static size_t RequiredSize(uint32_t size) {
-        size = size < 3 ? 0 : size - 3;
-        return sizeof(NyString) + size;
-    }
-    
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyString);
-private:
-    uint32_t hash_val_;
-    uint32_t size_;
-    char bytes_[4];
-}; // class NyString
+//class NyString : public NyObject {
+//public:
+//    NyString(const char *s, size_t n);
+//
+//    DEF_VAL_GETTER(uint32_t, hash_val);
+//    DEF_VAL_GETTER(uint32_t, size);
+//
+//    const char *bytes() const { return bytes_; }
+//
+//    static size_t RequiredSize(uint32_t size) {
+//        size = size < 3 ? 0 : size - 3;
+//        return sizeof(NyString) + size;
+//    }
+//
+//    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+//
+//    DISALLOW_IMPLICIT_CONSTRUCTORS(NyString);
+//private:
+//    uint32_t hash_val_;
+//    uint32_t size_;
+//    char bytes_[4];
+//}; // class NyString
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Function and Codes

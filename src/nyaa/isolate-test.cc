@@ -30,11 +30,11 @@ TEST_F(IsolateTest, Sanity) {
 }
     
 TEST_F(IsolateTest, NyaaScope) {
-    Nyaa nyaa(Isolate::Current());
+    Nyaa nyaa(Nyaa::Options(), Isolate::Current());
     
     ASSERT_EQ(Isolate::Current()->GetNyaa(), &nyaa);
     {
-        Nyaa inner(Isolate::Current());
+        Nyaa inner(Nyaa::Options(), Isolate::Current());
         ASSERT_EQ(Isolate::Current()->GetNyaa(), &inner);
     }
     ASSERT_EQ(Isolate::Current()->GetNyaa(), &nyaa);

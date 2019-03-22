@@ -32,7 +32,9 @@ public:
     ObjectFactory() {}
     virtual ~ObjectFactory() {}
     
-    virtual NyString *NewString(const char *s, size_t n, bool old) = 0;
+    virtual NyString *NewString(const char *s, size_t n, bool old = false) = 0;
+    
+    virtual NyString *NewUninitializedString(size_t capacity, bool old = false) = 0;
     
     virtual NyString *NewString(const char *s, bool old = false) {
         return NewString(s, !s ? 0 : ::strlen(s), old);
@@ -43,9 +45,10 @@ public:
     
     NyString *Vsprintf(const char *fmt, va_list ap);
     
-    NyMap *NewMap(uint32_t capacity, uint32_t seed, bool linear = false, bool old = false);
+    NyMap *NewMap(uint32_t capacity, uint32_t seed, uint64_t kid = 0, bool linear = false,
+                  bool old = false);
     
-    virtual NyMap *NewMap(NyObject *maybe, bool old = false) = 0;
+    virtual NyMap *NewMap(NyObject *maybe, uint64_t kid, bool linear, bool old = false) = 0;
     
     virtual NyTable *NewTable(uint32_t capacity, uint32_t seed, NyTable *base = nullptr,
                               bool old = false) = 0;

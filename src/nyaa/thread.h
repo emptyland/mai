@@ -23,7 +23,7 @@ public:
     static constexpr const int kPCOffset = 3;
     static constexpr const int kRBPOffset = 4;
     static constexpr const int kRBSOffset = 5;
-    static constexpr const int kBPOffset = kRBSOffset + 1;
+    static constexpr const int kBPSize = kRBSOffset + 1;
     
     NyThread(NyaaCore *owns);
     ~NyThread();
@@ -37,6 +37,11 @@ public:
     void Push(Object *value, int n = 1);
     
     Object *Get(int i);
+    
+    void Pop(int n) {
+        DCHECK_GE(stack_tp_ - n, stack_bp());
+        stack_tp_ -= n;
+    }
     
     size_t frame_size() const {
         DCHECK_GE(stack_tp_, stack_bp());
@@ -52,8 +57,8 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyThread);
 private:
     Object **stack_bp() const {
-        DCHECK_LT(stack_fp_ + kBPOffset, stack_last_);
-        return stack_fp_ + kBPOffset;
+        DCHECK_LT(stack_fp_ + kBPSize, stack_tp_);
+        return stack_fp_ + kBPSize;
     }
     
     uint32_t *pc_ptr() const {
@@ -63,20 +68,25 @@ private:
     
     size_t rbp() const {
         DCHECK_LT(stack_fp_ + kRBPOffset, stack_last_);
-        return stack_fp_[kRBPOffset]->smi();
+        return stack_fp_[kRBPOffset]->ToSmi();
     }
     
     size_t rbs() const {
         DCHECK_LT(stack_fp_ + kRBSOffset, stack_last_);
-        return stack_fp_[kRBSOffset]->smi();
+        return stack_fp_[kRBSOffset]->ToSmi();
+    }
+    
+    int32_t n_accepts() const {
+        DCHECK_LT(stack_fp_ + kAcceptsOffset, stack_last_);
+        return static_cast<int32_t>(stack_fp_[kAcceptsOffset]->ToSmi());
     }
     
     int Run(const NyByteArray *bcbuf);
     
-    int CallDelegated(NyDelegated *fn, ptrdiff_t rbp, int32_t n_params, int32_t n_accept);
-    int CallFunction(NyFunction *fn, ptrdiff_t rbp, int32_t n_params, int32_t n_accept);
+    int CallDelegated(NyDelegated *fn, Object **base, int32_t n_params, int32_t n_accept);
+    int CallFunction(NyFunction *fn, Object **base, int32_t n_params, int32_t n_accept);
     
-    void InitStack(NyRunnable *callee, int n_accepts, NyMap *env);
+    void InitStack(NyRunnable *callee, Object **bp, int n_accepts, NyMap *env);
     
     Object *NewPC(uint32_t pc) {
         uint64_t word = (static_cast<uint64_t>(pc) << 32) | 0x1u;
@@ -84,6 +94,8 @@ private:
     }
 
     NyRunnable *Current() const;
+    
+    const NyByteArray *CurrentBC() const;
     
     NyMap *Env() const;
     

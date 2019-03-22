@@ -15,12 +15,30 @@ namespace nyaa {
 class NyaaCore;
 class Isolate;
     
+struct NyaaOptions {
+    NyaaOptions() = default;
+    
+    Env *env = Env::Default();
+    
+    // The heap young generation space initial size.
+    int major_area_initial_size = 10 * 1024 * 1024;
+    
+    // The heap young generation space limit size.
+    int major_area_max_size = 20 * 1024 * 1024;
+    
+    // The init stack size.
+    int init_thread_stack_size = 1024;
+};
+    
 class Nyaa final {
 public:
     using Core = nyaa::NyaaCore;
+    using Options = NyaaOptions;
     
-    Nyaa(Isolate *is);
+    Nyaa(const NyaaOptions &options, Isolate *is);
     ~Nyaa();
+    
+    int init_thread_stack_size() const { return init_thread_stack_size_; }
     
     Core *core() const { return core_.get(); }
     
@@ -33,7 +51,18 @@ public:
     void operator = (const Nyaa &) = delete;
 private:
     Isolate *const isolate_;
+
+    // The heap young generation space initial size.
+    int major_area_initial_size_;
+    
+    // The heap young generation space limit size.
+    int major_area_max_size_;
+    
+    // The init stack size.
+    int init_thread_stack_size_;
+    
     std::unique_ptr<Core> core_;
+    
     Nyaa *prev_ = nullptr;
 }; // class Nyaa
 

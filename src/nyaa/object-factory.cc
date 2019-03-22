@@ -20,7 +20,7 @@ NyString *ObjectFactory::Vsprintf(const char *fmt, va_list ap) {
     return NewString(s.data(), s.length(), false);
 }
     
-NyMap *ObjectFactory::NewMap(uint32_t capacity, uint32_t seed, bool linear, bool old) {
+NyMap *ObjectFactory::NewMap(uint32_t capacity, uint32_t seed, uint64_t kid, bool linear, bool old) {
     NyObject *maybe = nullptr;
     if (linear) {
         maybe = NewArray(capacity, nullptr /*base*/, old);
@@ -30,7 +30,7 @@ NyMap *ObjectFactory::NewMap(uint32_t capacity, uint32_t seed, bool linear, bool
     if (!maybe) {
         return nullptr;
     }
-    return NewMap(maybe, old);
+    return NewMap(maybe, kid, linear, old);
 }
     
 } // namespace nyaa

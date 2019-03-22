@@ -14,8 +14,9 @@ struct Bytecode {
         kPushImm, // push imm
         kPushConst, // push const[idx]
         kPushGlobal, // push g, const[idx]
-        
         kPushNil, // push nil, n
+        
+        kAdd, // add local[idx], local[idx]
         
         kCall, // call local[idx], n_param, n_accept
         kReturn, // return imm

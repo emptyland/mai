@@ -26,7 +26,7 @@ const char *kRawBuiltinKzs[] = {
     "__lt__",
     "__le__",
     "__gc__",
-    "__id__",
+    "__type__",
     "__size__",
     "__base__",
     "__weak__",
@@ -81,57 +81,68 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     //Object *val;
     
     //----------------------------------------------------------------------------------------------
+    // Initialize
+    kTable = factory->NewMap(16, 0, kTypeTable);
+    kMap = factory->NewMap(16, 0, kTypeMap);
+    kTable->SetMetatable(kTable, N);
+    kMap->SetMetatable(kMap, N);
+
+    //----------------------------------------------------------------------------------------------
     // NyString
-    kString = factory->NewTable(16, 0);
+    kString = factory->NewMap(16, 0, kTypeString);
     // Set Right Metatable
     NyString **pool_a = &kzs->kInnerInit;
     for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
         pool_a[i]->SetMetatable(kString, N);
     }
-    kString->Put(kzs->kInnerID, factory->NewString("string"), N);
+    kString->Put(kzs->kInnerType, factory->NewString("string"), N);
+    
+    //----------------------------------------------------------------------------------------------
+    // NyMap
+    kMap->Put(kzs->kInnerType, factory->NewString("map"), N);
+    
+    //----------------------------------------------------------------------------------------------
+    // NyTable
+    kTable->Put(kzs->kInnerType, factory->NewString("table"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyDelegated
-    kDelegated = factory->NewTable(16, 0);
-    kDelegated->Put(kzs->kInnerID, factory->NewString("delegated"), N);
+    kDelegated = factory->NewMap(16, 0, kTypeDelegated);
+    kDelegated->Put(kzs->kInnerType, factory->NewString("delegated"), N);
     kDelegated->Put(kzs->kInnerCall, factory->NewDelegated(DelegatedCall), N);
     
     //----------------------------------------------------------------------------------------------
     // NyFunction
-    kFunction = factory->NewTable(16, 0);
-    kFunction->Put(kzs->kInnerID, factory->NewString("function"), N);
+    kFunction = factory->NewMap(16, 0, kTypeFunction);
+    kFunction->Put(kzs->kInnerType, factory->NewString("function"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyScript
-    kScript = factory->NewTable(16, 0);
-    kScript->Put(kzs->kInnerID, factory->NewString("script"), N);
+    kScript = factory->NewMap(16, 0, kTypeScript);
+    kScript->Put(kzs->kInnerType, factory->NewString("script"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyThread
-    kThread = factory->NewTable(16, 0);
-    kThread->Put(kzs->kInnerID, factory->NewString("thread"), N);
+    kThread = factory->NewMap(16, 0, kTypeThread);
+    kThread->Put(kzs->kInnerType, factory->NewString("thread"), N);
     kThread->Put(kzs->kInnerInit, factory->NewDelegated(ThreadInit), N);
-    kThread->Put(kzs->kInnerSize, NyInt64::New(sizeof(NyThread)), N);
+    kThread->Put(kzs->kInnerSize, NySmi::New(sizeof(NyThread)), N);
 
     //----------------------------------------------------------------------------------------------
     // NyByteArray
-    kByteArray = factory->NewTable(16, 0);
-    kByteArray->Put(kzs->kInnerID, factory->NewString("array[byte]"), N);
+    kByteArray = factory->NewMap(16, 0, kTypeByteArray);
+    kByteArray->Put(kzs->kInnerType, factory->NewString("array[byte]"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyInt32Array
-    kInt32Array = factory->NewTable(16, 0);
-    kInt32Array->Put(kzs->kInnerID, factory->NewString("array[int32]"), N);
+    kInt32Array = factory->NewMap(16, 0, kTypeInt32Array);
+    kInt32Array->Put(kzs->kInnerType, factory->NewString("array[int32]"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyArray
-    kArray = factory->NewTable(16, 0);
-    kArray->Put(kzs->kInnerID, factory->NewString("array"), N);
-    
-    //----------------------------------------------------------------------------------------------
-    // NyMap
-    kMap = factory->NewTable(16, 0);
-    kMap->Put(kzs->kInnerID, factory->NewString("map"), N);
+    kArray = factory->NewMap(16, 0, kTypeArray);
+    kArray->Put(kzs->kInnerType, factory->NewString("array"), N);
+
     return Error::OK();
 }
     

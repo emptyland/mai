@@ -9,11 +9,26 @@ namespace mai {
 namespace nyaa {
     
 class NyString;
+class NyMap;
 class NyTable;
 class NyaaCore;
 
 class Arguments;
 class Nyaa;
+    
+#define DECL_BUILTIN_TYPES(V) \
+    V(Flot64) \
+    V(Long) \
+    V(String) \
+    V(ByteArray) \
+    V(Int32Array) \
+    V(Array) \
+    V(Table) \
+    V(Map) \
+    V(Script) \
+    V(Function) \
+    V(Delegated) \
+    V(Thread)
 
 // All [strong ref]
 struct BuiltinStrPool {
@@ -33,7 +48,7 @@ struct BuiltinStrPool {
     NyString *kInnerLt = nullptr;
     NyString *kInnerLe = nullptr;
     NyString *kInnerGC = nullptr;
-    NyString *kInnerID = nullptr;
+    NyString *kInnerType = nullptr;
     NyString *kInnerSize = nullptr;
     NyString *kInnerBase = nullptr;
     NyString *kInnerWeak = nullptr;
@@ -48,17 +63,9 @@ extern const size_t kRawBuiltinKzsSize;
     
 // All [strong ref]
 struct BuiltinMetatablePool {
-    NyTable *kString = nullptr;
-    NyTable *kTable = nullptr;
-    NyTable *kDelegated = nullptr;
-    NyTable *kScript = nullptr;
-    NyTable *kThread = nullptr;
-    NyTable *kByteArray = nullptr;
-    NyTable *kInt32Array = nullptr;
-    NyTable *kArray = nullptr;
-    NyTable *kMap = nullptr;
-    NyTable *kFunction = nullptr;
-    // TODO:
+#define DEFINE_METATABLE(type) NyMap *k##type = nullptr;
+    DECL_BUILTIN_TYPES(DEFINE_METATABLE)
+#undef DEFINE_METATABLE
     
     friend class NyaaCore;
 private:
@@ -73,6 +80,12 @@ enum DelegatedKind : int {
     kArg2,
     kArg3,
     kUniversal,
+};
+    
+enum BuiltinType : int {
+#define DEFINE_TYPE(type) kType##type,
+    DECL_BUILTIN_TYPES(DEFINE_TYPE)
+#undef DEFINE_TYPE
 };
 
 struct NyaaNaFnEntry {

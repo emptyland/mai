@@ -36,8 +36,8 @@ void Isolate::Dispose() { delete this; }
     return DCHECK_NOTNULL(top);
 }
 
-/*static*/ Isolate *Isolate::New(const Options &opts) {
-    auto is = new Isolate(opts);
+/*static*/ Isolate *Isolate::New(Env *env) {
+    auto is = new Isolate(env);
     if (!is->Init()) {
         is->Dispose();
         return nullptr;
@@ -45,16 +45,9 @@ void Isolate::Dispose() { delete this; }
     return is;
 }
 
-Isolate::Isolate(const Options &opts)
-    : env_(DCHECK_NOTNULL(opts.env))
-    , major_area_initial_size_(opts.major_area_max_size)
-    , major_area_max_size_(opts.major_area_max_size)
-    , init_thread_stack_size_(opts.init_thread_stack_size) {
-}
+Isolate::Isolate(Env *env) : env_(DCHECK_NOTNULL(env)) {}
 
-Isolate::~Isolate() {
-    
-}
+Isolate::~Isolate() {}
 
 bool Isolate::Init() {
     auto rs = env_->NewThreadLocalSlot("nyaa", nullptr, &ctx_tls_);
@@ -70,8 +63,11 @@ bool Isolate::Init() {
 // Nyaa:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Nyaa::Nyaa(Isolate *is)
+Nyaa::Nyaa(const Options &opt, Isolate *is)
     : isolate_(DCHECK_NOTNULL(is))
+    , major_area_initial_size_(opt.major_area_initial_size)
+    , major_area_max_size_(opt.major_area_max_size)
+    , init_thread_stack_size_(opt.init_thread_stack_size)
     , core_(new NyaaCore(this)) {
     prev_ = isolate_->GetNyaa();
     DCHECK_NE(prev_, this);
@@ -90,26 +86,26 @@ Nyaa::~Nyaa() {
     
 bool Value::IsObject() const {
     auto o = reinterpret_cast<const Object *>(this);
-    return o->is_object();
+    return o->IsObject();
 }
 
-bool Value::IsInt() const { return reinterpret_cast<const Object *>(this)->is_smi(); }
+bool Value::IsInt() const { return reinterpret_cast<const Object *>(this)->IsSmi(); }
 
 bool Value::IsLong() const { /* TODO */ return false; }
 
 bool Value::IsString() const {
     auto o = reinterpret_cast<const Object *>(this);
-    return o->is_object() && o->heap_object()->IsString(NyaaCore::Current());
+    return o->IsObject() && o->ToHeapObject()->IsString(NyaaCore::Current());
 }
 
 bool Value::IsScript() const {
     auto o = reinterpret_cast<const Object *>(this);
-    return o->is_object() && o->heap_object()->IsScript(NyaaCore::Current());
+    return o->IsObject() && o->ToHeapObject()->IsScript(NyaaCore::Current());
 }
 
 int64_t Value::AsInt() const {
     auto o = reinterpret_cast<const Object *>(this);
-    return o->is_smi() ? o->smi() : 0;
+    return o->IsSmi() ? o->ToSmi() : 0;
 }
 
 /*static*/ Handle<Value> Integral::New(Nyaa *N, int64_t val) {

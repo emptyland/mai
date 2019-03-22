@@ -14,11 +14,48 @@ namespace nyaa {
 
 /*static*/ Object *const Object::kNil = nullptr;
     
+static Object *CallBinaryMetaFunction(NyString *name, NyObject *lhs, Object *rhs, NyaaCore *N) {
+    Handle<NyRunnable> metafn(lhs->GetMetatable()->Get(name, N));
+    if (metafn.is_null()) {
+        N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
+        return nullptr;
+    }
+    Arguments args(2);
+    args.Set(0, Local<Value>::New(lhs));
+    args.Set(1, Local<Value>::New(rhs));
+    int rv = metafn->Apply(&args, N);
+    if (rv < 0) {
+        return nullptr;
+    }
+    
+    Handle<Object> result(N->Get(-rv));
+    N->Pop(rv);
+    return *result;
+}
+    
+static Object *CallUnaryMetaFunction(NyString *name, NyObject *lhs, NyaaCore *N) {
+    Handle<NyRunnable> metafn(lhs->GetMetatable()->Get(name, N));
+    if (metafn.is_null()) {
+        N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
+        return nullptr;
+    }
+    Arguments args(1);
+    args.Set(0, Local<Value>::New(lhs));
+    int rv = metafn->Apply(&args, N);
+    if (rv < 0) {
+        return nullptr;
+    }
+    
+    Handle<Object> result(N->Get(-rv));
+    N->Pop(rv);
+    return *result;
+}
+    
 bool Object::IsKey(NyaaCore *N) const {
-    if (is_smi()) {
+    if (IsSmi()) {
         return true;
     }
-    auto ob = heap_object();
+    auto ob = ToHeapObject();
     if (ob->IsString(N)) {
         return true;
         // TODO:
@@ -27,10 +64,10 @@ bool Object::IsKey(NyaaCore *N) const {
 }
 
 uint32_t Object::HashVal(NyaaCore *N) const {
-    if (is_smi()) {
-        return static_cast<uint32_t>(smi());
+    if (IsSmi()) {
+        return static_cast<uint32_t>(ToSmi());
     }
-    auto ob = heap_object();
+    auto ob = ToHeapObject();
     if (ob->IsString(N)) {
         return static_cast<NyString *>(ob)->hash_val();
     }
@@ -47,49 +84,146 @@ uint32_t Object::HashVal(NyaaCore *N) const {
     if (lhs == nullptr) {
         return rhs == nullptr;
     }
-    if (lhs->is_smi()) {
-        if (rhs->is_smi()) {
-            return lhs->smi() == rhs->smi();
+    if (lhs->IsSmi()) {
+        if (rhs->IsSmi()) {
+            return lhs->ToSmi() == rhs->ToSmi();
         } else {
             // TODO:
             return false;
         }
     }
-    return lhs->heap_object()->Equals(rhs, N);
+    return lhs->ToHeapObject()->Equals(rhs, N);
 }
     
-NyString *Object::Str(NyaaCore *N) const {
+bool Object::IsFalse() const {
+    if (IsNil()) {
+        return false;
+    }
+    if (IsSmi()) {
+        return ToSmi() == 0;
+    }
+    NyObject *ob = ToHeapObject();
+    switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
+        case kTypeString: {
+            auto val = static_cast<const NyString *>(ob);
+            return val->size() == 0;
+        } break;
+            
+        case kTypeLong: {
+            // TODO:
+        } break;
+            
+        case kTypeFlot64: {
+            // TODO:
+        } break;
+
+        default:
+            break;
+    }
+    return false;
+}
+    
+/*static*/ Object *Object::Add(Object *lhs, Object *rhs, NyaaCore *N) {
+    if (lhs == Object::kNil || rhs == Object::kNil) {
+        return Object::kNil;
+    }
+    if (lhs->IsObject()) {
+        return lhs->ToHeapObject()->Add(rhs, N);
+    } else {
+        return NySmi::Add(lhs, rhs, N);
+    }
+}
+    
+NyString *Object::Str(NyaaCore *N) {
     if (this == kNil) {
         return N->bkz_pool()->kNil;
     }
-    if (is_smi()) {
-        return N->factory()->Sprintf("%" PRId64 , smi());
+    if (IsSmi()) {
+        return N->factory()->Sprintf("%" PRId64 , ToSmi());
     }
-    return heap_object()->Str(N);
+    return ToHeapObject()->Str(N);
 }
     
-void NyObject::SetMetatable(NyTable *mt, NyaaCore *N) {
+/*static*/ Object *NySmi::Add(Object *lhs, Object *rhs, NyaaCore *N) {
+    DCHECK(lhs->IsSmi());
+    auto lval = lhs->ToSmi();
+    if (rhs->IsSmi()) {
+        return New(lval + rhs->ToSmi());
+    }
+    auto rval = rhs->ToHeapObject();
+    if (rval->IsString(N)) {
+        return lhs->Str(N)->NyObject::Add(rval, N);
+    }
+    
+    N->Raisef("smi attempt to call nil `__add__' meta function.");
+    return nullptr;
+}
+    
+void NyObject::SetMetatable(NyMap *mt, NyaaCore *N) {
+    if (mt == Object::kNil) {
+        return; // ignore
+    }
     N->heap()->BarrierWr(this, mt);
     mtword_ = reinterpret_cast<uintptr_t>(mt);
 }
 
-bool NyObject::Equals(Object *rhs, NyaaCore *N) const {
+bool NyObject::Equals(Object *rhs, NyaaCore *N) {
     if (rhs == nullptr) {
         return false;
     }
-    if (IsString(N)) {
-        if (rhs->is_smi() || rhs->heap_object()->IsString(N)) {
-            return false;
-        }
-        auto lv = static_cast<const NyString *>(this);
-        auto rv = static_cast<const NyString *>(rhs);
-        if (lv->size() != rv->size()) {
-            return false;
-        }
-        return ::memcmp(lv->bytes(), rv->bytes(), lv->size()) == 0;
+
+    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+        case kTypeString: {
+            if (rhs->IsSmi() || rhs->ToHeapObject()->IsString(N)) {
+                return false;
+            }
+            auto lv = static_cast<const NyString *>(this);
+            auto rv = static_cast<const NyString *>(rhs);
+            if (lv->size() != rv->size()) {
+                return false;
+            }
+            return ::memcmp(lv->bytes(), rv->bytes(), lv->size()) == 0;
+        } break;
+            
+        case kTypeLong: {
+            // TODO:
+        } break;
+            
+        case kTypeFlot64: {
+            // TODO:
+        } break;
+            
+        default:
+            break;
     }
-    // TODO:
-    return false;
+    
+    HandleScope scope(N->isolate());
+    Handle<Object> result = CallBinaryMetaFunction(N->bkz_pool()->kInnerEq, this, rhs, N);
+    return result->IsTrue();
+}
+    
+Object *NyObject::Add(Object *rhs, NyaaCore *N) {
+    HandleScope scope(N->isolate());
+
+    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+        case kTypeString: {
+            Handle<NyString> lval(static_cast<NyString *>(this));
+            Handle<NyString> rval(rhs->Str(N));
+            return lval->Add(*rval, N)->Done(N);
+        } break;
+            
+        case kTypeLong: {
+            
+        } break;
+            
+        case kTypeFlot64: {
+            
+        } break;
+            
+        default:
+            break;
+    }
+    return CallBinaryMetaFunction(N->bkz_pool()->kInnerAdd, this, rhs, N);
 }
     
 //bool NyObject::IsTable(NyaaCore *N) const {
@@ -97,45 +231,39 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) const {
 //    return false;
 //}
     
-NyString *NyObject::Str(NyaaCore *N) const {
-    auto tmp = const_cast<NyObject *>(this);
-    if (IsString(N)) {
-        return static_cast<NyString *>(tmp);
-    } else if (IsByteArray(N)) {
-        // TODO:
-    } else if (IsInt32Array(N)) {
-        // TODO:
-    } else if (IsArray(N)) {
-        // TODO:
-    } else if (IsDelegated(N)) {
-        // TODO:
-    } else if (IsScript(N)) {
-        // TODO:
-    }
-    
+NyString *NyObject::Str(NyaaCore *N) {
     HandleScope scope(N->isolate());
     
-    Handle<NyTable> mt(GetMetatable());
-    DCHECK(mt.is_valid() && mt->IsTable(N));
-    
-    Handle<NyDelegated> fn(mt->Get(N->bkz_pool()->kInnerStr, N));
-    if (fn.is_valid()) {
-        DCHECK(fn->IsDelegated(N));
-        
-        Arguments args(1);
-        args.Set(0, Local<Value>::New(tmp));
-        if (fn->Apply(&args, N) < 0) {
-            return nullptr;
-        }
+    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+        case kTypeString:
+            return static_cast<NyString *>(const_cast<NyObject *>(this));
+            
+        case kTypeLong: {
+            // TODO:
+        } break;
+            
+        case kTypeFlot64: {
+            // TODO:
+        } break;
+
+        default:
+            break;
     }
-    return N->bkz_pool()->kEmpty;
+    Handle<Object> result = CallUnaryMetaFunction(N->bkz_pool()->kInnerStr, this, N);
+    if (result->IsSmi() || !result->ToHeapObject()->IsString(N)) {
+        N->Raisef("`__str__' meta function return not string.");
+        return nullptr;
+    }
+    return static_cast<NyString *>(*result);
 }
     
-NyMap::NyMap(NyObject *maybe, NyaaCore *N)
+NyMap::NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N)
     : generic_(DCHECK_NOTNULL(maybe))
-    , linear_(maybe->IsArray(N)) {
+    , kid_(kid)
+    , linear_(linear) {
     DCHECK(maybe->IsArray(N) || maybe->IsTable(N));
     N->heap()->BarrierWr(this, maybe);
+    DCHECK_LE(kid, 0x00ffffffffffffffull);
 }
     
 uint32_t NyMap::Length() const { return linear_ ? array_->size() : table_->size(); }
@@ -148,23 +276,23 @@ void NyMap::Put(Object *key, Object *value, NyaaCore *N) {
     
     bool should_table = false;
     int64_t index = 0;
-    if (key->is_smi()) {
-        index = key->smi();
+    if (key->IsSmi()) {
+        index = key->ToSmi();
         if (index + 1024 > array_->capacity()) {
             should_table = true;
         }
     } else {
-        should_table = true;
+        should_table = linear_;
     }
-    
-    HandleScope scope(N->isolate());
+
     if (should_table) {
+        HandleScope scope(N->isolate());
         Handle<NyTable> table(N->factory()->NewTable(array_->capacity(), rand()));
         for (int64_t i = 0; i < array_->size(); ++i) {
             if (array_->Get(i) == Object::kNil) {
                 continue;
             }
-            table = table->Put(NyInt64::New(i), array_->Get(i), N);
+            table = table->Put(NySmi::New(i), array_->Get(i), N);
         }
         table_ = *table;
         linear_ = false;
@@ -179,10 +307,10 @@ void NyMap::Put(Object *key, Object *value, NyaaCore *N) {
 
 Object *NyMap::Get(Object *key, NyaaCore *N) {
     if (linear_) {
-        if (key->is_object()) {
+        if (key->IsObject()) {
             return nullptr;
         }
-        int64_t index = key->smi();
+        int64_t index = key->ToSmi();
         if (index < 0 || index > array_->size()) {
             return nullptr;
         }
@@ -191,9 +319,8 @@ Object *NyMap::Get(Object *key, NyaaCore *N) {
     return table_->Get(key, N);
 }
     
-NyTable::NyTable(uint64_t kid, uint32_t seed, uint32_t capacity)
-    : kid_(kid)
-    , seed_(seed)
+NyTable::NyTable(uint32_t seed, uint32_t capacity)
+    : seed_(seed)
     , size_(0)
     , capacity_(capacity) {
     DCHECK_GT(capacity_, 4);
@@ -311,29 +438,38 @@ bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
     return p != nullptr;
 }
 
-NyString::NyString(const char *s, size_t n)
-    : size_(static_cast<uint32_t>(n)) {
-    if (size_ > kLargeStringLength) {
-        hash_val_ = -1;
-    } else {
-        hash_val_ = base::Hash::Js(s, n);
-    }
-    ::memcpy(bytes_, s, n);
-    bytes_[n] = 0;
+NyString::NyString(const char *s, size_t n, NyaaCore *N)
+    : NyByteArray(static_cast<uint32_t>(n) + kHeaderSize + 1) {
+    size_ += kHeaderSize;
+    Add(s, n, nullptr);
+    elems_[size_] = 0;
+    Done(N);
 }
     
-NyByteArray *NyByteArray::Put(int64_t key, Byte value, NyaaCore *N) {
-    NyByteArray *ob = this;
-    if (key > capacity()) {
-        uint32_t new_cap = static_cast<uint32_t>(key + (key - capacity()) * 2);
-        ob = N->factory()->NewByteArray(new_cap, this);
+NyString *NyString::Done(NyaaCore *N) {
+    uint32_t *hash_val = reinterpret_cast<uint32_t *>(data());
+    if (size() > kLargeStringLength) {
+        *hash_val = -1;
+    } else {
+        *hash_val = base::Hash::Js(bytes(), size());
     }
-    ob->elems_[key] = value;
-    if (key > size()) {
-        size_ = static_cast<uint32_t>(key);
-    }
-    return ob;
+    // TODO:
+    
+    return this;
 }
+    
+//NyByteArray *NyByteArray::Put(int64_t key, Byte value, NyaaCore *N) {
+//    NyByteArray *ob = this;
+//    if (key > capacity()) {
+//        uint32_t new_cap = static_cast<uint32_t>(key + (key - capacity()) * 2);
+//        ob = N->factory()->NewByteArray(new_cap, this);
+//    }
+//    ob->elems_[key] = value;
+//    if (key > size()) {
+//        size_ = static_cast<uint32_t>(key);
+//    }
+//    return ob;
+//}
 
 NyByteArray *NyByteArray::Add(Byte value, NyaaCore *N) {
     NyByteArray *ob = this;
@@ -344,7 +480,7 @@ NyByteArray *NyByteArray::Add(Byte value, NyaaCore *N) {
     return ob;
 }
 
-NyByteArray *NyByteArray::Add(const Byte *value, size_t n, NyaaCore *N) {
+NyByteArray *NyByteArray::Add(const void *value, size_t n, NyaaCore *N) {
     NyByteArray *ob = this;
     const uint32_t k = static_cast<uint32_t>(n);
     if (size() + k > capacity()) {
@@ -355,18 +491,18 @@ NyByteArray *NyByteArray::Add(const Byte *value, size_t n, NyaaCore *N) {
     return ob;
 }
     
-NyInt32Array *NyInt32Array::Put(int64_t key, int32_t value, NyaaCore *N) {
-    NyInt32Array *ob = this;
-    if (key > capacity()) {
-        uint32_t new_cap = static_cast<uint32_t>(key + (key - capacity()) * 2);
-        ob = N->factory()->NewInt32Array(new_cap, this);
-    }
-    ob->elems_[key] = value;
-    if (key > size()) {
-        size_ = static_cast<uint32_t>(key);
-    }
-    return ob;
-}
+//NyInt32Array *NyInt32Array::Put(int64_t key, int32_t value, NyaaCore *N) {
+//    NyInt32Array *ob = this;
+//    if (key > capacity()) {
+//        uint32_t new_cap = static_cast<uint32_t>(key + (key - capacity()) * 2);
+//        ob = N->factory()->NewInt32Array(new_cap, this);
+//    }
+//    ob->elems_[key] = value;
+//    if (key > size()) {
+//        size_ = static_cast<uint32_t>(key);
+//    }
+//    return ob;
+//}
 
 NyInt32Array *NyInt32Array::Add(int32_t value, NyaaCore *N) {
     NyInt32Array *ob = this;

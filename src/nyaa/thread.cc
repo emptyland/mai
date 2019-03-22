@@ -3,8 +3,7 @@
 #include "nyaa/bytecode.h"
 #include "nyaa/nyaa-values.h"
 #include "nyaa/object-factory.h"
-#include "mai-lang/call-info.h"
-#include "mai-lang/isolate.h"
+#include "mai-lang/nyaa.h"
 #include "mai/env.h"
 
 namespace mai {
@@ -21,7 +20,7 @@ NyThread::~NyThread() {
 }
     
 Error NyThread::Init() {
-    stack_size_ = owns_->isolate()->init_thread_stack_size();
+    stack_size_ = owns_->stub()->init_thread_stack_size();
     stack_ = new Object *[stack_size_];
     stack_last_ = stack_ + stack_size_;
     stack_fp_ = stack_;
@@ -57,7 +56,7 @@ int NyThread::Run(NyScript *entry, NyMap *env) {
         env = owns_->g();
     }
 
-    InitStack(entry, 0, env);
+    InitStack(entry, stack_tp_, 0, env);
     return Run(entry->bcbuf());
 }
     
@@ -67,7 +66,7 @@ int NyThread::Run(NyFunction *fn, Arguments *args, NyMap *env) {
         env = owns_->g();
     }
     
-    InitStack(fn, 0, env);
+    InitStack(fn, stack_tp_, 0, env);
     return Run(fn->script()->bcbuf());
 }
 
@@ -155,20 +154,55 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                 (*pc_ptr()) += 1 + scale;
             } break;
                 
+            case Bytecode::kAdd: {
+                uint32_t offset = 1;
+                int32_t lhs = ParseParam(bcbuf, offset, scale, &ok);
+                if (!ok) {
+                    return -1;
+                }
+                offset += scale;
+                int32_t rhs = ParseParam(bcbuf, offset, scale, &ok);
+                if (!ok) {
+                    return -1;
+                }
+                offset += scale;
+                
+                Push(NySmi::New(Get(lhs)->ToSmi() + Get(rhs)->ToSmi()));
+                (*pc_ptr()) += offset;
+            } break;
+                
             case Bytecode::kReturn: {
-                int32_t rvn = ParseParam(bcbuf, 1, scale, &ok);
+                int32_t nret = ParseParam(bcbuf, 1, scale, &ok);
                 if (!ok) {
                     return -1;
                 }
                 (*pc_ptr()) += 1 + scale;
                 if (Current() == entry_) {
-                    return rvn;
+                    return nret;
                 }
-                // TODO: process n_accepts.
-                
+                Object **ret = stack_tp_ - nret;
+                const int n = n_accepts();
                 size_t restore_rbp = rbp(), restore_rbs = rbs();
+
                 stack_fp_ = stack_ + restore_rbp;
                 stack_tp_ = stack_fp_ + restore_rbs;
+                
+                if (nret < n) {
+                    for (int i = 0; i < nret; ++i) {
+                        stack_tp_[i] = ret[i];
+                    }
+                    for (int i = nret; i < n; ++i) {
+                        stack_tp_[i] = Object::kNil;
+                    }
+                } else { // >=
+                    for (int i = 0; i < n; ++i) {
+                        stack_tp_[i] = ret[i];
+                    }
+                }
+                stack_tp_ += n;
+                DCHECK_LT(stack_tp_, stack_last_);
+                
+                bcbuf = CurrentBC();
             } break;
                 
             case Bytecode::kCall: {
@@ -188,23 +222,27 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                     return -1;
                 }
                 offset += scale;
-                
-                ptrdiff_t base = stack_tp_ - stack_bp() - 1 - n_args;
-                DCHECK_GE(base, 0);
+
+                //printf("%d\n", stack_tp_ - stack_bp());
+                Object **base = stack_tp_ - 1 - n_args;
+                DCHECK_GE(base, stack_bp());
                 Object *opd = Get(local); // callee
-                if (opd->is_object() && static_cast<NyObject *>(opd)->IsRunnable(owns_)) {
+                if (opd->IsObject() && static_cast<NyObject *>(opd)->IsRunnable(owns_)) {
+                    (*pc_ptr()) += offset; // NOTICE:
+                    
                     if (static_cast<NyObject *>(opd)->IsDelegated(owns_)) {
                         CallDelegated(static_cast<NyDelegated *>(opd), base, n_args, n_accepts);
                     } else if (static_cast<NyObject *>(opd)->IsScript(owns_)) {
                         NyScript *script = static_cast<NyScript *>(opd);
                         NyMap *env = Env();
-                        InitStack(script, 0, env);
+                        InitStack(script, base, 0, env);
+                        bcbuf = script->bcbuf();
                     } else if (static_cast<NyObject *>(opd)->IsFunction(owns_)) {
-                        CallFunction(static_cast<NyFunction *>(opd), base, n_args, n_accepts);
+                        NyFunction *callee = static_cast<NyFunction *>(opd);
+                        CallFunction(callee, base, n_args, n_accepts);
+                        bcbuf = callee->script()->bcbuf();
                     }
                 }
-                
-                (*pc_ptr()) += offset;
             } break;
                 
             // TODO:
@@ -223,7 +261,7 @@ int NyThread::Run(const NyByteArray *bcbuf) {
  *  | callee | arg[0] | arg[1] | ..... |
  *  +--------+--------+--------+       +
  */
-int NyThread::CallDelegated(NyDelegated *fn, ptrdiff_t stack_base, int32_t n_args,
+int NyThread::CallDelegated(NyDelegated *fn, Object **base, int32_t n_args,
                             int32_t n_accepts) {
     HandleScope scope(owns_->isolate());
 
@@ -236,27 +274,28 @@ int NyThread::CallDelegated(NyDelegated *fn, ptrdiff_t stack_base, int32_t n_arg
     Object **ret = stack_tp_ - nret;
     if (nret < n_accepts) {
         for (int i = 0; i < nret; ++i) {
-            stack_bp()[stack_base + i] = ret[i];
+            base[i] = ret[i];
         }
         for (int i = nret; i < n_accepts; ++i) {
-            stack_bp()[stack_base + i] = Object::kNil;
+            base[i] = Object::kNil;
         }
     } else { // >=
         for (int i = 0; i < n_accepts; ++i) {
-            stack_bp()[stack_base + i] = ret[i];
+            base[i] = ret[i];
         }
     }
-    stack_tp_ = stack_bp() + stack_base + n_accepts;
+    stack_tp_ = base + n_accepts;
+    DCHECK_LT(stack_tp_, stack_last_);
     return nret;
 }
     
-int NyThread::CallFunction(NyFunction *fn, ptrdiff_t stack_base, int32_t n_args,
+int NyThread::CallFunction(NyFunction *fn, Object **base, int32_t n_args,
                            int32_t n_accepts) {
     HandleScope scope(owns_->isolate());
 
     Object **argv = stack_tp_ - n_args;
     NyMap *env = Env();
-    InitStack(fn, n_accepts, env);
+    InitStack(fn, base, n_accepts, env);
     if (fn->vargs()) {
         if (n_args < fn->n_params()) {
             for (int i = 0; i < n_args; ++i) {
@@ -292,13 +331,18 @@ int NyThread::CallFunction(NyFunction *fn, ptrdiff_t stack_base, int32_t n_args,
     return 0;
 }
     
-void NyThread::InitStack(NyRunnable *callee, int n_accepts, NyMap *env) {
+void NyThread::InitStack(NyRunnable *callee, Object **bp, int n_accepts, NyMap *env) {
+    DCHECK_GE(stack_fp_, stack_);
+    DCHECK_GE(bp, stack_fp_);
+    ptrdiff_t rbp = stack_fp_ - stack_, rbs = bp - stack_fp_;
+    
+    stack_fp_ = stack_tp_;
     Push(callee);           // Callee
     Push(env);              // Env
     Push(NyInt32::New(n_accepts)); // Accepts
     Push(NewPC(0));         // PC
-    Push(NyInt64::New(stack_tp_ - stack_));  // RBP
-    Push(NyInt64::New(stack_tp_ - stack_fp_));  // RBS
+    Push(NySmi::New(rbp));  // RBP
+    Push(NySmi::New(rbs));  // RBS
 }
     
 int32_t NyThread::ParseParam(const NyByteArray *bcbuf, uint32_t offset, int scale, bool *ok) {
@@ -318,14 +362,28 @@ int32_t NyThread::ParseParam(const NyByteArray *bcbuf, uint32_t offset, int scal
     
 NyRunnable *NyThread::Current() const {
     Object *val = *(stack_fp_ + kCalleeOffset);
-    NyObject *o = val->heap_object();
+    NyObject *o = val->ToHeapObject();
     DCHECK(o->IsRunnable(owns_));
     return static_cast<NyRunnable *>(o);
 }
     
+const NyByteArray *NyThread::CurrentBC() const {
+    NyRunnable *val = Current();
+    if (!val) {
+        return nullptr;
+    }
+    if (val->IsScript(owns_)) {
+        return static_cast<NyScript *>(val)->bcbuf();
+    } else if (val->IsFunction(owns_)) {
+        return static_cast<NyFunction *>(val)->script()->bcbuf();
+    } else {
+        return nullptr;
+    }
+}
+    
 NyMap *NyThread::Env() const {
     Object *val = *(stack_fp_ + kEnvOffset);
-    NyObject *o = val->heap_object();
+    NyObject *o = val->ToHeapObject();
     DCHECK(o->IsMap(owns_));
     return static_cast<NyMap *>(o);
 }

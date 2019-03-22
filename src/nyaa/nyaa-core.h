@@ -36,6 +36,11 @@ public:
     
     Error Boot();
     
+    // Stack operations:
+    Object *Get(int i);
+    void Pop(int n = 1);
+    
+    // Global variable operations:
     void SetGlobal(NyString *name, Object *value);
     
     void Raisef(const char *fmt, ...);
@@ -54,15 +59,13 @@ public:
     DEF_PTR_GETTER(ObjectFactory, factory);
     DEF_PTR_GETTER(NyMap, g);
     DEF_PTR_GETTER(NyThread, main_thd);
-    
+    BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
+    BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
     Isolate *isolate() const;
     
     static NyaaCore *Current();
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyaaCore);
-    
-    BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
-    BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
 private:
     Nyaa *const stub_;
     Allocator *const page_alloc_;

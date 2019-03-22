@@ -9,7 +9,7 @@ class HandlesTest : public test::NyaaTest {
 public:
     void SetUp() override {
         NyaaTest::SetUp();
-        N_ = new Nyaa(isolate_);
+        N_ = new Nyaa(Nyaa::Options(), isolate_);
     }
     
     void TearDown() override {

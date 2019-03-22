@@ -8,26 +8,9 @@ namespace mai {
 namespace nyaa {
     
 class Nyaa;
-    
-struct IsolateOptions {
-    IsolateOptions() = default;
-
-    Env *env = Env::Default();
-    
-    // The heap young generation space initial size.
-    int major_area_initial_size = 10 * 1024 * 1024;
-    
-    // The heap young generation space limit size.
-    int major_area_max_size = 20 * 1024 * 1024;
-    
-    // The init stack size.
-    int init_thread_stack_size = 1024;
-};
 
 class Isolate final {
 public:
-    using Options = IsolateOptions;
-    
     void Enter();
     void Exit();
     void Dispose();
@@ -36,17 +19,15 @@ public:
     
     Env *env() const { return env_; }
     
-    int init_thread_stack_size() const { return init_thread_stack_size_; }
-    
     static Isolate *Current();
-    static Isolate *New(const Options &opts = Options());
+    static Isolate *New(Env *env = Env::Default());
     
     friend class Nyaa;
 
     Isolate(const Isolate &) = delete;
     void operator = (const Isolate &) = delete;
 private:
-    Isolate(const Options &opts);
+    Isolate(Env *env);
     ~Isolate();
     
     bool Init();
@@ -54,15 +35,6 @@ private:
     void SetNyaa(Nyaa *N) { ctx_tls_->Set(N); }
     
     Env *const env_;
-
-    // The heap young generation space initial size.
-    int major_area_initial_size_;
-    
-    // The heap young generation space limit size.
-    int major_area_max_size_;
-
-    // The init stack size.
-    int init_thread_stack_size_;
     
     // tls for store Nyaa object.
     std::unique_ptr<ThreadLocalSlot> ctx_tls_;

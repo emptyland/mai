@@ -74,6 +74,29 @@ Error NyaaCore::Boot() {
     return rs;
 }
     
+Object *NyaaCore::Get(int i) {
+    if (i < 0) {
+        if (main_thd_->stack_tp_ + i < main_thd_->stack_bp()) {
+            Raisef("stack index: %d out of range.", i);
+            return nullptr;
+        }
+    } else {
+        if (main_thd_->stack_bp() + i >= main_thd_->stack_tp_) {
+            Raisef("stack index: %d out of range.", i);
+            return nullptr;
+        }
+    }
+    return main_thd_->Get(i);
+}
+
+void NyaaCore::Pop(int n) {
+    if (main_thd_->stack_tp_ - n < main_thd_->stack_bp()) {
+        Raisef("stack pop: %d out of range.", n);
+    } else {
+        main_thd_->Pop(n);
+    }
+}
+    
 void NyaaCore::SetGlobal(NyString *name, Object *value) { g_->Put(name, value, this); }
     
 void NyaaCore::Raisef(const char *fmt, ...) {

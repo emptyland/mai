@@ -19,13 +19,20 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
 
 /*virtual*/ NyString *ObjectFactoryImpl::NewString(const char *s, size_t n, bool old) {
     void *chunk = ::malloc(NyString::RequiredSize(static_cast<uint32_t>(n)));
-    auto ob = new (chunk) NyString(s, n);
+    auto ob = new (chunk) NyString(s, n, core_);
     ob->SetMetatable(core_->kmt_pool()->kString, core_);
     return ob;
 }
     
-/*virtual*/ NyMap *ObjectFactoryImpl::NewMap(NyObject *maybe, bool old) {
-    auto ob = new NyMap(maybe, core_);
+/*virtual*/ NyString *ObjectFactoryImpl::NewUninitializedString(size_t capacity, bool old) {
+    void *chunk = ::malloc(NyString::RequiredSize(static_cast<uint32_t>(capacity)));
+    auto ob = new (chunk) NyString(capacity);
+    ob->SetMetatable(core_->kmt_pool()->kString, core_);
+    return ob;
+}
+    
+/*virtual*/ NyMap *ObjectFactoryImpl::NewMap(NyObject *maybe, uint64_t kid, bool linear, bool old) {
+    auto ob = new NyMap(maybe, kid, linear, core_);
     ob->SetMetatable(core_->kmt_pool()->kMap, core_);
     return ob;
 }
