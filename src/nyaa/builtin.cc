@@ -98,6 +98,16 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     kString->Put(kzs->kInnerType, factory->NewString("string"), N);
     
     //----------------------------------------------------------------------------------------------
+    // NyFloat64
+    kFloat64 = factory->NewMap(16, 0, kTypeFloat64);
+    kFloat64->Put(kzs->kInnerType, factory->NewString("float"), N);
+    
+    //----------------------------------------------------------------------------------------------
+    // NyLong
+    kLong = factory->NewMap(16, 0, kTypeLong);
+    kLong->Put(kzs->kInnerType, factory->NewString("int"), N);
+    
+    //----------------------------------------------------------------------------------------------
     // NyMap
     kMap->Put(kzs->kInnerType, factory->NewString("map"), N);
     

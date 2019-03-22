@@ -139,7 +139,7 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                 int32_t k = ParseParam(bcbuf, 1, scale, &ok);
                 DCHECK_GE(k, 0);
                 NyString *name = static_cast<NyString *>(ConstPool()->Get(k));
-                DCHECK(name->IsString(owns_));
+                DCHECK(name->IsString());
                 Push(Env()->Get(name, owns_));
                 
                 (*pc_ptr()) += 1 + scale;
@@ -227,17 +227,17 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                 Object **base = stack_tp_ - 1 - n_args;
                 DCHECK_GE(base, stack_bp());
                 Object *opd = Get(local); // callee
-                if (opd->IsObject() && static_cast<NyObject *>(opd)->IsRunnable(owns_)) {
+                if (opd->IsObject() && static_cast<NyObject *>(opd)->IsRunnable()) {
                     (*pc_ptr()) += offset; // NOTICE:
                     
-                    if (static_cast<NyObject *>(opd)->IsDelegated(owns_)) {
+                    if (static_cast<NyObject *>(opd)->IsDelegated()) {
                         CallDelegated(static_cast<NyDelegated *>(opd), base, n_args, n_accepts);
-                    } else if (static_cast<NyObject *>(opd)->IsScript(owns_)) {
+                    } else if (static_cast<NyObject *>(opd)->IsScript()) {
                         NyScript *script = static_cast<NyScript *>(opd);
                         NyMap *env = Env();
                         InitStack(script, base, 0, env);
                         bcbuf = script->bcbuf();
-                    } else if (static_cast<NyObject *>(opd)->IsFunction(owns_)) {
+                    } else if (static_cast<NyObject *>(opd)->IsFunction()) {
                         NyFunction *callee = static_cast<NyFunction *>(opd);
                         CallFunction(callee, base, n_args, n_accepts);
                         bcbuf = callee->script()->bcbuf();
@@ -363,7 +363,7 @@ int32_t NyThread::ParseParam(const NyByteArray *bcbuf, uint32_t offset, int scal
 NyRunnable *NyThread::Current() const {
     Object *val = *(stack_fp_ + kCalleeOffset);
     NyObject *o = val->ToHeapObject();
-    DCHECK(o->IsRunnable(owns_));
+    DCHECK(o->IsRunnable());
     return static_cast<NyRunnable *>(o);
 }
     
@@ -372,9 +372,9 @@ const NyByteArray *NyThread::CurrentBC() const {
     if (!val) {
         return nullptr;
     }
-    if (val->IsScript(owns_)) {
+    if (val->IsScript()) {
         return static_cast<NyScript *>(val)->bcbuf();
-    } else if (val->IsFunction(owns_)) {
+    } else if (val->IsFunction()) {
         return static_cast<NyFunction *>(val)->script()->bcbuf();
     } else {
         return nullptr;
@@ -384,15 +384,15 @@ const NyByteArray *NyThread::CurrentBC() const {
 NyMap *NyThread::Env() const {
     Object *val = *(stack_fp_ + kEnvOffset);
     NyObject *o = val->ToHeapObject();
-    DCHECK(o->IsMap(owns_));
+    DCHECK(o->IsMap());
     return static_cast<NyMap *>(o);
 }
     
 const NyArray *NyThread::ConstPool() const {
     NyRunnable *o = Current();
-    if (o->IsScript(owns_)) {
+    if (o->IsScript()) {
         return static_cast<NyScript *>(o)->const_pool();
-    } else if (o->IsFunction(owns_)) {
+    } else if (o->IsFunction()) {
         return static_cast<NyFunction *>(o)->script()->const_pool();
     } else {
         DLOG(FATAL) << "Noreached!";

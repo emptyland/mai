@@ -95,12 +95,12 @@ bool Value::IsLong() const { /* TODO */ return false; }
 
 bool Value::IsString() const {
     auto o = reinterpret_cast<const Object *>(this);
-    return o->IsObject() && o->ToHeapObject()->IsString(NyaaCore::Current());
+    return o->IsObject() && o->ToHeapObject()->IsString();
 }
 
 bool Value::IsScript() const {
     auto o = reinterpret_cast<const Object *>(this);
-    return o->IsObject() && o->ToHeapObject()->IsScript(NyaaCore::Current());
+    return o->IsObject() && o->ToHeapObject()->IsScript();
 }
 
 int64_t Value::AsInt() const {

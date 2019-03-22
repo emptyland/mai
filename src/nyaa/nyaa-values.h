@@ -13,6 +13,8 @@ namespace nyaa {
     
 class Object;
 class NyObject;
+class NyFloat64;
+class NyLong;
 class NyString;
 template<class T> class NyArrayBase;
 class NyByteArray;
@@ -64,7 +66,7 @@ public:
     
     bool IsFalse() const;
     
-    NyString *Str(NyaaCore *N);
+    NyString *ToString(NyaaCore *N);
     
     bool IsKey(NyaaCore *N) const;
     
@@ -126,14 +128,24 @@ public:
     
     Object *Add(Object *rhs, NyaaCore *N);
     
-    NyString *Str(NyaaCore *N);
+    NyString *ToString(NyaaCore *N);
     
-#define DECL_TYPE_CHECK(type) bool Is##type(NyaaCore *N) const;
+#define DECL_TYPE_CHECK(type) inline bool Is##type() const;
     DECL_BUILTIN_TYPES(DECL_TYPE_CHECK)
 #undef DECL_TYPE_CHECK
+    
+#define DECL_TYPE_CAST(type) \
+    inline Ny##type *To##type (); \
+    inline const Ny##type *To##type () const;
+    DECL_BUILTIN_TYPES(DECL_TYPE_CAST)
+#undef DECL_TYPE_CAST
+    
+    bool IsNumeric() const {
+        return IsFloat64() || IsLong(); // TODO:
+    }
 
-    bool IsRunnable(NyaaCore *N) const {
-        return IsScript(N) || IsDelegated(N) || IsFunction(N); // TODO:
+    bool IsRunnable() const {
+        return IsScript() || IsDelegated() || IsFunction(); // TODO:
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyObject);
@@ -150,6 +162,74 @@ private:
 
 static_assert(sizeof(NyObject) == sizeof(uintptr_t), "Incorrect Object size");
     
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Inbox Numbers:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+class NyFloat64 : public NyObject {
+public:
+    NyFloat64(f64_t value) : value_(value) {}
+    
+    f64_t value() const { return value_; }
+    
+    Object *Add(Object *rhs, NyaaCore *N) const;
+    
+    uint32_t HashVal() const {
+        uint64_t bits = *reinterpret_cast<const uint64_t *>(&value_);
+        return static_cast<uint32_t>(bits * bits >> 16);
+    }
+    
+    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NyFloat64);
+private:
+    f64_t value_;
+}; // class NyFloat64
+
+
+class NyLong : public NyObject {
+public:
+    NyLong(size_t capactiy);
+    
+    DEF_VAL_GETTER(uint32_t, capacity);
+    DEF_VAL_GETTER(uint32_t, offset);
+    DEF_VAL_GETTER(uint32_t, header);
+    
+    Object *Add(Object *rhs, NyaaCore *N) const;
+    
+    NyLong *Add(int64_t rhs, NyaaCore *N) const;
+    
+    NyLong *Add(const NyLong *rhs, NyaaCore *N) const;
+    
+    uint32_t HashVal() const;
+    
+    bool IsZero() const;
+    
+    f64_t ToFloat64Val() const;
+
+    int64_t ToInt64Val() const;
+    
+    NyString *ToString(NyaaCore *N) const;
+    
+    bool Equals(const NyLong *rhs) const { return Compare(this, rhs) == 0; }
+    
+    static int Compare(const NyLong *lhs, const NyLong *rhs);
+    
+    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NyLong);
+private:
+    uint32_t capacity_;
+    uint32_t offset_;
+    uint32_t header_;
+    uint32_t vals_[2];
+}; // class NyLong
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Maps:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 class NyMap : public NyObject {
 public:
     NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N);
@@ -198,14 +278,14 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyTable);
 private:
-    enum EKind {
+    enum Kind {
         kFree,
         kSlot,
         kNode,
     };
     struct Entry {
         Entry  *next;
-        EKind   kind;
+        Kind    kind;
         Object *key;
         Object *value;
     };
@@ -315,6 +395,8 @@ public:
     uint32_t hash_val() const { return header() & kHashMask; }
     
     const char *bytes() const { return reinterpret_cast<const char *>(data() + kHeaderSize); }
+    
+    Object *TryNumeric(NyaaCore *N) const;
     
     static size_t RequiredSize(uint32_t size) {
         return RoundUp(sizeof(NyString) + sizeof(uint32_t) + size + 1, kAllocateAlignmentSize);
@@ -516,6 +598,21 @@ private:
 template<class T>
 void UDOFinalizeDtor(Nyaa *, NyUDO *udo) { static_cast<T *>(udo)->~T(); }
 
+#define DECL_TYPE_CHECK(type) inline bool NyObject::Is##type() const { \
+        return GetMetatable()->kid() == kType##type; \
+    }
+    DECL_BUILTIN_TYPES(DECL_TYPE_CHECK)
+#undef DECL_TYPE_CHECK
+    
+#define DECL_TYPE_CAST(type) \
+    inline Ny##type *NyObject::To##type () { \
+        return !Is##type() ? nullptr : reinterpret_cast<Ny##type *>(this); \
+    } \
+    inline const Ny##type *NyObject::To##type () const { \
+        return !Is##type() ? nullptr : reinterpret_cast<const Ny##type *>(this); \
+    }
+    DECL_BUILTIN_TYPES(DECL_TYPE_CAST)
+#undef DECL_TYPE_CAST
     
 template<class T> inline Local<T> ApiWarp(Local<Value> api, NyaaCore *N) {
     NyObject *o = reinterpret_cast<NyObject *>(*api);

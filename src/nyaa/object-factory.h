@@ -12,6 +12,8 @@ namespace mai {
 namespace nyaa {
     
 class NyObject;
+class NyFloat64;
+class NyLong;
 class NyString;
 class NyScript;
 class NyMap;
@@ -31,6 +33,8 @@ class ObjectFactory {
 public:
     ObjectFactory() {}
     virtual ~ObjectFactory() {}
+    
+    virtual NyFloat64 *NewFloat64(f64_t value, bool old = false) = 0;
     
     virtual NyString *NewString(const char *s, size_t n, bool old = false) = 0;
     

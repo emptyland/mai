@@ -16,6 +16,12 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
 
 /*virtual*/ ObjectFactoryImpl::~ObjectFactoryImpl() {
 }
+    
+/*virtual*/ NyFloat64 *ObjectFactoryImpl::NewFloat64(f64_t value, bool old) {
+    auto ob = new NyFloat64(value);
+    ob->SetMetatable(core_->kmt_pool()->kFloat64, core_);
+    return ob;
+}
 
 /*virtual*/ NyString *ObjectFactoryImpl::NewString(const char *s, size_t n, bool old) {
     void *chunk = ::malloc(NyString::RequiredSize(static_cast<uint32_t>(n)));

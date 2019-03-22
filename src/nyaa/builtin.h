@@ -17,7 +17,7 @@ class Arguments;
 class Nyaa;
     
 #define DECL_BUILTIN_TYPES(V) \
-    V(Flot64) \
+    V(Float64) \
     V(Long) \
     V(String) \
     V(ByteArray) \
@@ -94,6 +94,8 @@ struct NyaaNaFnEntry {
 };
     
 extern const NyaaNaFnEntry kBuiltinFnEntries[];
+    
+using f64_t = double;
 
 } // namespace nyaa
     

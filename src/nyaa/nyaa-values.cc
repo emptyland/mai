@@ -56,9 +56,13 @@ bool Object::IsKey(NyaaCore *N) const {
         return true;
     }
     auto ob = ToHeapObject();
-    if (ob->IsString(N)) {
-        return true;
-        // TODO:
+    switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
+        case kTypeString:
+        case kTypeFloat64:
+        case kTypeLong:
+            return true;
+        default:
+            break;
     }
     return false;
 }
@@ -68,11 +72,16 @@ uint32_t Object::HashVal(NyaaCore *N) const {
         return static_cast<uint32_t>(ToSmi());
     }
     auto ob = ToHeapObject();
-    if (ob->IsString(N)) {
-        return static_cast<NyString *>(ob)->hash_val();
+    switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
+        case kTypeString:
+            return static_cast<const NyString *>(this)->hash_val();
+        case kTypeFloat64:
+            return static_cast<const NyFloat64 *>(this)->HashVal();
+        case kTypeLong:
+            // TODO:
+        default:
+            break;
     }
-    // TODO:
-    
     DLOG(FATAL) << "Noreached!";
     return 0;
 }
@@ -81,15 +90,14 @@ uint32_t Object::HashVal(NyaaCore *N) const {
     if (lhs == rhs) {
         return true;
     }
-    if (lhs == nullptr) {
-        return rhs == nullptr;
+    if (lhs == kNil || rhs == kNil) {
+        return false;
     }
     if (lhs->IsSmi()) {
         if (rhs->IsSmi()) {
             return lhs->ToSmi() == rhs->ToSmi();
         } else {
-            // TODO:
-            return false;
+            return rhs->ToHeapObject()->Equals(lhs, N);
         }
     }
     return lhs->ToHeapObject()->Equals(rhs, N);
@@ -105,17 +113,15 @@ bool Object::IsFalse() const {
     NyObject *ob = ToHeapObject();
     switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
         case kTypeString: {
-            auto val = static_cast<const NyString *>(ob);
+            auto val = ob->ToString();
             return val->size() == 0;
         } break;
             
-        case kTypeLong: {
-            // TODO:
-        } break;
+        case kTypeLong:
+            return ob->ToLong()->IsZero();
             
-        case kTypeFlot64: {
-            // TODO:
-        } break;
+        case kTypeFloat64:
+            return ob->ToFloat64()->value() == 0;
 
         default:
             break;
@@ -134,14 +140,14 @@ bool Object::IsFalse() const {
     }
 }
     
-NyString *Object::Str(NyaaCore *N) {
+NyString *Object::ToString(NyaaCore *N) {
     if (this == kNil) {
         return N->bkz_pool()->kNil;
     }
     if (IsSmi()) {
         return N->factory()->Sprintf("%" PRId64 , ToSmi());
     }
-    return ToHeapObject()->Str(N);
+    return ToHeapObject()->ToString(N);
 }
     
 /*static*/ Object *NySmi::Add(Object *lhs, Object *rhs, NyaaCore *N) {
@@ -151,8 +157,8 @@ NyString *Object::Str(NyaaCore *N) {
         return New(lval + rhs->ToSmi());
     }
     auto rval = rhs->ToHeapObject();
-    if (rval->IsString(N)) {
-        return lhs->Str(N)->NyObject::Add(rval, N);
+    if (rval->IsString()) {
+        return lhs->ToString(N)->NyObject::Add(rval, N);
     }
     
     N->Raisef("smi attempt to call nil `__add__' meta function.");
@@ -174,10 +180,10 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) {
 
     switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
         case kTypeString: {
-            if (rhs->IsSmi() || rhs->ToHeapObject()->IsString(N)) {
+            if (rhs->IsSmi() || rhs->ToHeapObject()->IsString()) {
                 return false;
             }
-            auto lv = static_cast<const NyString *>(this);
+            auto lv = ToString();
             auto rv = static_cast<const NyString *>(rhs);
             if (lv->size() != rv->size()) {
                 return false;
@@ -186,11 +192,29 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) {
         } break;
             
         case kTypeLong: {
-            // TODO:
+            auto lval = ToLong();
+            if (rhs->IsSmi()) {
+                return lval->ToInt64Val() == rhs->ToSmi();
+            } else if (rhs->ToHeapObject()->IsLong()) {
+                return lval->Equals(rhs->ToHeapObject()->ToLong());
+            } else if (rhs->ToHeapObject()->IsFloat64()) {
+                return lval->ToFloat64Val() == rhs->ToHeapObject()->ToFloat64()->value();
+            } else {
+                return false;
+            }
         } break;
             
-        case kTypeFlot64: {
-            // TODO:
+        case kTypeFloat64: {
+            auto lval = ToFloat64()->value();
+            if (rhs->IsSmi()) {
+                return lval == rhs->ToSmi();
+            } else if (rhs->ToHeapObject()->IsLong()) {
+                return lval == rhs->ToHeapObject()->ToLong()->ToFloat64Val();
+            } else if (rhs->ToHeapObject()->IsFloat64()) {
+                return lval == rhs->ToHeapObject()->ToFloat64()->value();
+            } else {
+                return false;
+            }
         } break;
             
         default:
@@ -207,18 +231,16 @@ Object *NyObject::Add(Object *rhs, NyaaCore *N) {
 
     switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
         case kTypeString: {
-            Handle<NyString> lval(static_cast<NyString *>(this));
-            Handle<NyString> rval(rhs->Str(N));
+            Handle<NyString> lval(ToString());
+            Handle<NyString> rval(rhs->ToString(N));
             return lval->Add(*rval, N)->Done(N);
         } break;
             
-        case kTypeLong: {
+        case kTypeLong:
+            return ToLong()->Add(rhs, N);
             
-        } break;
-            
-        case kTypeFlot64: {
-            
-        } break;
+        case kTypeFloat64:
+            return ToFloat64()->Add(rhs, N);
             
         default:
             break;
@@ -226,42 +248,112 @@ Object *NyObject::Add(Object *rhs, NyaaCore *N) {
     return CallBinaryMetaFunction(N->bkz_pool()->kInnerAdd, this, rhs, N);
 }
     
-//bool NyObject::IsTable(NyaaCore *N) const {
-//    // TODO:
-//    return false;
-//}
-    
-NyString *NyObject::Str(NyaaCore *N) {
+NyString *NyObject::ToString(NyaaCore *N) {
     HandleScope scope(N->isolate());
     
     switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
         case kTypeString:
-            return static_cast<NyString *>(const_cast<NyObject *>(this));
+            return (const_cast<NyObject *>(this))->ToString();
             
-        case kTypeLong: {
-            // TODO:
-        } break;
+        case kTypeLong:
+            return ToLong()->ToString(N);
             
-        case kTypeFlot64: {
-            // TODO:
-        } break;
+        case kTypeFloat64:
+            return N->factory()->Sprintf("%f", ToFloat64()->value());
 
         default:
             break;
     }
     Handle<Object> result = CallUnaryMetaFunction(N->bkz_pool()->kInnerStr, this, N);
-    if (result->IsSmi() || !result->ToHeapObject()->IsString(N)) {
+    if (result->IsSmi() || !result->ToHeapObject()->IsString()) {
         N->Raisef("`__str__' meta function return not string.");
         return nullptr;
     }
     return static_cast<NyString *>(*result);
 }
     
+Object *NyFloat64::Add(Object *rhs, NyaaCore *N) const {
+    if (rhs->IsObject() && rhs->ToHeapObject()->IsString()) {
+        rhs = rhs->ToHeapObject()->ToString()->TryNumeric(N);
+    }
+
+    auto lval = ToFloat64()->value();
+    if (rhs->IsSmi()) {
+        return N->factory()->NewFloat64(lval + rhs->ToSmi());
+    } else if (rhs->ToHeapObject()->IsLong()) {
+        auto rval = rhs->ToHeapObject()->ToLong()->ToFloat64Val();
+        return N->factory()->NewFloat64(lval + rval);
+    } else if (rhs->ToHeapObject()->IsFloat64()) {
+        auto rval = rhs->ToHeapObject()->ToFloat64()->value();
+        return N->factory()->NewFloat64(lval + rval);
+    }
+    N->Raisef("attempt to call nil `__add__' meta function.");
+    return nullptr;
+}
+
+Object *NyLong::Add(Object *rhs, NyaaCore *N) const {
+    if (rhs->IsObject() && rhs->ToHeapObject()->IsString()) {
+        rhs = rhs->ToHeapObject()->ToString()->TryNumeric(N);
+    }
+
+    auto lval = ToLong();
+    if (rhs->IsSmi()) {
+        return lval->Add(rhs->ToSmi(), N);
+    } else if (rhs->ToHeapObject()->IsLong()) {
+        return lval->Add(rhs->ToHeapObject()->ToLong(), N);
+    } else if (rhs->ToHeapObject()->IsFloat64()) {
+        auto rval = rhs->ToHeapObject()->ToFloat64()->value();
+        return N->factory()->NewFloat64(lval->ToFloat64Val() + rval);
+    }
+    N->Raisef("attempt to call nil `__add__' meta function.");
+    return nullptr;
+}
+
+NyLong *NyLong::Add(int64_t rhs, NyaaCore *N) const {
+    // TODO:
+    return nullptr;
+}
+
+NyLong *NyLong::Add(const NyLong *rhs, NyaaCore *N) const {
+    // TODO:
+    return nullptr;
+}
+    
+uint32_t NyLong::HashVal() const {
+    // TODO:
+    return 0;
+}
+    
+bool NyLong::IsZero() const {
+    // TODO:
+    return false;
+}
+
+f64_t NyLong::ToFloat64Val() const {
+    // TODO:
+    return 0;
+}
+
+int64_t NyLong::ToInt64Val() const {
+    // TODO:
+    return 0;
+}
+    
+NyString *NyLong::ToString(NyaaCore *N) const {
+    // TODO:
+    return nullptr;
+}
+    
+/*static*/ int NyLong::Compare(const NyLong *lhs, const NyLong *rhs) {
+    // TODO:
+    return 0;
+}
+    
 NyMap::NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N)
     : generic_(DCHECK_NOTNULL(maybe))
     , kid_(kid)
     , linear_(linear) {
-    DCHECK(maybe->IsArray(N) || maybe->IsTable(N));
+    //DCHECK(maybe->IsArray() || maybe->IsTable());
     N->heap()->BarrierWr(this, maybe);
     DCHECK_LE(kid, 0x00ffffffffffffffull);
 }
@@ -285,6 +377,7 @@ void NyMap::Put(Object *key, Object *value, NyaaCore *N) {
         should_table = linear_;
     }
 
+    NyObject *old = generic_;
     if (should_table) {
         HandleScope scope(N->isolate());
         Handle<NyTable> table(N->factory()->NewTable(array_->capacity(), rand()));
@@ -302,6 +395,9 @@ void NyMap::Put(Object *key, Object *value, NyaaCore *N) {
         array_ = array_->Put(index, value, N);
     } else {
         table_ = table_->Put(key, value, N);
+    }
+    if (generic_ != old) {
+        N->heap()->BarrierWr(this, generic_);
     }
 }
 
@@ -458,18 +554,10 @@ NyString *NyString::Done(NyaaCore *N) {
     return this;
 }
     
-//NyByteArray *NyByteArray::Put(int64_t key, Byte value, NyaaCore *N) {
-//    NyByteArray *ob = this;
-//    if (key > capacity()) {
-//        uint32_t new_cap = static_cast<uint32_t>(key + (key - capacity()) * 2);
-//        ob = N->factory()->NewByteArray(new_cap, this);
-//    }
-//    ob->elems_[key] = value;
-//    if (key > size()) {
-//        size_ = static_cast<uint32_t>(key);
-//    }
-//    return ob;
-//}
+Object *NyString::TryNumeric(NyaaCore *N) const {
+    // TODO:
+    return const_cast<NyString *>(this);
+}
 
 NyByteArray *NyByteArray::Add(Byte value, NyaaCore *N) {
     NyByteArray *ob = this;
@@ -562,11 +650,11 @@ int NyRunnable::Apply(Arguments *args, NyaaCore *N) {
     if (args) {
         args->SetCallee(Local<Value>::New(this));
     }
-    if (IsScript(N)) {
+    if (IsScript()) {
         return static_cast<NyScript *>(this)->Run(N);
-    } else if (IsDelegated(N)) {
+    } else if (IsDelegated()) {
         return static_cast<NyDelegated *>(this)->Call(args, N);
-    } else if (IsFunction(N)) {
+    } else if (IsFunction()) {
         return static_cast<NyFunction *>(this)->Call(args, N);
     }
     DLOG(FATAL) << "Noreached!";
@@ -611,17 +699,15 @@ int NyDelegated::Call(Arguments *args, NyaaCore *N) {
 }
 
 #define DEFINE_TYPE_CHECK(type, name) \
-    bool NyObject::Is##type (NyaaCore *N) const { \
-        return GetMetatable() == N->kmt_pool()->k##type; \
-    } \
     bool Ny##type::EnsureIs(const NyObject *o, NyaaCore *N) { \
-    if (!o->Is##type (N)) { \
+    if (!o->Is##type ()) { \
         N->Raisef("Unexpected type: " name "."); \
             return false; \
         } \
         return true; \
     }
     
+DEFINE_TYPE_CHECK(Float64, "float")
 DEFINE_TYPE_CHECK(String, "string")
 DEFINE_TYPE_CHECK(Delegated, "delegated")
 DEFINE_TYPE_CHECK(Map, "map")
