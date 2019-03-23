@@ -168,6 +168,36 @@ TEST_F(NyaaThreadTest, CallFunction) {
     ASSERT_EQ(200, r1->ToSmi());
 }
     
+//#if 0
+TEST_F(NyaaThreadTest, NewCoroutine) {
+    HandleScope scope(isolate_);
+    
+    Handle<NyArray> pool(core_->factory()->NewArray(4));
+    Handle<NyString> clazz(core_->factory()->NewString("coroutine"));
+    pool->Add(*clazz, core_);
+    
+    Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
+    
+    bcbuf->Add(Bytecode::kPushGlobal, core_);
+    bcbuf->Add(0, core_); // push g["coroutine"]
+    bcbuf->Add(Bytecode::kPushNil, core_);
+    bcbuf->Add(2, core_); // push nil
+                          // push nil
+    bcbuf->Add(Bytecode::kNew, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(2, core_); // new local[0], 1
+    
+    Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, *pool));
+    auto thd = N_->core()->main_thd();
+    auto rv = thd->Run(*script);
+    ASSERT_EQ(0, rv);
+    ASSERT_EQ(1, thd->frame_size());
+//    Handle<Object> r1(thd->Get(0));
+//    ASSERT_TRUE(r1->IsSmi());
+//    ASSERT_EQ(200, r1->ToSmi());
+}
+//#endif
+
 } // namespace nyaa
     
 } // namespace mai

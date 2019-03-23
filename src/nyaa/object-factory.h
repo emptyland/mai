@@ -23,6 +23,7 @@ class NyByteArray;
 class NyInt32Array;
 class NyDelegated;
 class NyFunction;
+class NyUDO;
 class NyThread;
     
 class Value;
@@ -40,18 +41,6 @@ public:
     
     virtual NyString *NewUninitializedString(size_t capacity, bool old = false) = 0;
     
-    virtual NyString *NewString(const char *s, bool old = false) {
-        return NewString(s, !s ? 0 : ::strlen(s), old);
-    }
-    
-    __attribute__ (( __format__ (__printf__, 2, 3)))
-    NyString *Sprintf(const char *fmt, ...);
-    
-    NyString *Vsprintf(const char *fmt, va_list ap);
-    
-    NyMap *NewMap(uint32_t capacity, uint32_t seed, uint64_t kid = 0, bool linear = false,
-                  bool old = false);
-    
     virtual NyMap *NewMap(NyObject *maybe, uint64_t kid, bool linear, bool old = false) = 0;
     
     virtual NyTable *NewTable(uint32_t capacity, uint32_t seed, NyTable *base = nullptr,
@@ -64,6 +53,30 @@ public:
                                       bool old = false) = 0;
     
     virtual NyArray *NewArray(uint32_t capacity, NyArray *base = nullptr, bool old = false) = 0;
+    
+    virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, bool old = false) = 0;
+    
+    virtual NyFunction *NewFunction(size_t n_params, bool vargs, size_t max_stack_size,
+                                    NyScript *script) = 0;
+    
+    virtual NyScript *NewScript(NyString *file_name, NyInt32Array *file_info, NyByteArray *bcbuf,
+                                NyArray *const_pool) = 0;
+    
+    virtual NyThread *NewThread(bool old = false) = 0;
+    
+    virtual NyUDO *NewUninitializedUDO(size_t size, NyMap *clazz, bool old = false) = 0;
+    
+    NyString *NewString(const char *s, bool old = false) {
+        return NewString(s, !s ? 0 : ::strlen(s), old);
+    }
+    
+    __attribute__ (( __format__ (__printf__, 2, 3)))
+    NyString *Sprintf(const char *fmt, ...);
+    
+    NyString *Vsprintf(const char *fmt, va_list ap);
+    
+    NyMap *NewMap(uint32_t capacity, uint32_t seed, uint64_t kid = 0, bool linear = false,
+                  bool old = false);
     
     NyDelegated *NewDelegated(Handle<Value> (*fp)(Local<Value>, Local<String>, Nyaa *),
                               bool old = false) {
@@ -95,16 +108,6 @@ public:
     NyDelegated *NewDelegated(int (*fp)(Arguments *, Nyaa *), bool old = false) {
         return NewDelegated(kUniversal, reinterpret_cast<Address>(fp), old);
     }
-    
-    virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, bool old = false) = 0;
-    
-    virtual NyFunction *NewFunction(size_t n_params, bool vargs, size_t max_stack_size,
-                                    NyScript *script) = 0;
-    
-    virtual NyScript *NewScript(NyString *file_name, NyInt32Array *file_info, NyByteArray *bcbuf,
-                                NyArray *const_pool) = 0;
-    
-    virtual NyThread *NewThread(bool old = false) = 0;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(ObjectFactory);
 }; // class ObjectFactory

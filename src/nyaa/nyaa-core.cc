@@ -57,8 +57,6 @@ Error NyaaCore::Boot() {
     
     // Set builtin global variables:
     g_ = factory_->NewMap(32, rand(), false);
-    NyString *name = factory_->NewString("thread");
-    SetGlobal(name, kmt_pool_->kThread);
     
     for (auto e = &kBuiltinFnEntries[0]; e->name; e++) {
         SetGlobal(factory_->NewString(e->name),
@@ -67,10 +65,16 @@ Error NyaaCore::Boot() {
     
     // Setup main_thread
     main_thd_ = factory_->NewThread(true /* old */);
+    main_thd_->next_ = main_thd_;
+    main_thd_->prev_ = main_thd_;
     rs = main_thd_->Init();
     if (!rs) {
         return rs;
     }
+    curr_thd_ = main_thd_;
+
+    // Setup builtin classes.
+    SetGlobal(factory_->NewString("coroutine"), kmt_pool_->kThread);
     return rs;
 }
     
@@ -97,15 +101,18 @@ void NyaaCore::Pop(int n) {
     }
 }
     
-void NyaaCore::SetGlobal(NyString *name, Object *value) { g_->Put(name, value, this); }
+void NyaaCore::SetGlobal(NyString *name, Object *value) { g_->RawPut(name, value, this); }
     
 void NyaaCore::Raisef(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    std::string msg(base::Vsprintf(fmt, ap));
+    Vraisef(fmt, ap);
     va_end(ap);
-    //has_raised_ = true;
+}
     
+void NyaaCore::Vraisef(const char *fmt, va_list ap) {
+    main_thd_->has_raised_ = true;
+    std::string msg(base::Vsprintf(fmt, ap));
     // TODO:
     DLOG(FATAL) << msg;
 }

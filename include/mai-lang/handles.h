@@ -100,12 +100,22 @@ public:
     
     inline T *operator * () const { return get(); }
     
-    inline bool operator ! () const { return !get(); }
+    using Handless<T>::is_empty;
+
+    inline bool operator ! () const { return is_empty(); }
     
     using Handless<T>::set_location;
     using Handless<T>::location;
     
-    inline void operator = (const Handle &other) { set_location(other.location()); }
+    inline void operator = (const Handle &other) {
+        if (other.is_empty()) {
+            set_location(nullptr);
+        } else if (is_empty()) {
+            set_location(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(other.get())));
+        } else {
+            *location() = other.get();
+        }
+    }
     
     inline void operator = (Handle &&other) {
         set_location(other.location());

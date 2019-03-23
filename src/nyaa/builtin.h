@@ -56,6 +56,9 @@ struct BuiltinStrPool {
     NyString *kTrue = nullptr;
     NyString *kFalse = nullptr;
     NyString *kEmpty = nullptr;
+    NyString *kRunning = nullptr;
+    NyString *kSuspended = nullptr;
+    NyString *kDead = nullptr;
 }; // struct ConstStrPool
     
 extern const char *kRawBuiltinKzs[];
@@ -94,6 +97,8 @@ struct NyaaNaFnEntry {
 };
     
 extern const NyaaNaFnEntry kBuiltinFnEntries[];
+    
+//Error LoadClassCoroutine(NyaaCore *N);
     
 using f64_t = double;
 

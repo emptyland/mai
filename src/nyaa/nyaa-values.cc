@@ -15,7 +15,7 @@ namespace nyaa {
 /*static*/ Object *const Object::kNil = nullptr;
     
 static Object *CallBinaryMetaFunction(NyString *name, NyObject *lhs, Object *rhs, NyaaCore *N) {
-    Handle<NyRunnable> metafn(lhs->GetMetatable()->Get(name, N));
+    Handle<NyRunnable> metafn(lhs->GetMetatable()->RawGet(name, N));
     if (metafn.is_null()) {
         N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
         return nullptr;
@@ -34,7 +34,7 @@ static Object *CallBinaryMetaFunction(NyString *name, NyObject *lhs, Object *rhs
 }
     
 static Object *CallUnaryMetaFunction(NyString *name, NyObject *lhs, NyaaCore *N) {
-    Handle<NyRunnable> metafn(lhs->GetMetatable()->Get(name, N));
+    Handle<NyRunnable> metafn(lhs->GetMetatable()->RawGet(name, N));
     if (metafn.is_null()) {
         N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
         return nullptr;
@@ -180,7 +180,7 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) {
 
     switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
         case kTypeString: {
-            if (rhs->IsSmi() || rhs->ToHeapObject()->IsString()) {
+            if (rhs->IsSmi() || !rhs->ToHeapObject()->IsString()) {
                 return false;
             }
             auto lv = ToString();
@@ -360,7 +360,7 @@ NyMap::NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N)
     
 uint32_t NyMap::Length() const { return linear_ ? array_->size() : table_->size(); }
     
-void NyMap::Put(Object *key, Object *value, NyaaCore *N) {
+void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
     if (!linear_) {
         table_ = table_->Put(key, value, N);
         return;
@@ -397,11 +397,11 @@ void NyMap::Put(Object *key, Object *value, NyaaCore *N) {
         table_ = table_->Put(key, value, N);
     }
     if (generic_ != old) {
-        N->heap()->BarrierWr(this, generic_);
+        N->heap()->BarrierWr(generic_, generic_);
     }
 }
 
-Object *NyMap::Get(Object *key, NyaaCore *N) {
+Object *NyMap::RawGet(Object *key, NyaaCore *N) {
     if (linear_) {
         if (key->IsObject()) {
             return nullptr;
@@ -578,19 +578,6 @@ NyByteArray *NyByteArray::Add(const void *value, size_t n, NyaaCore *N) {
     size_ += k;
     return ob;
 }
-    
-//NyInt32Array *NyInt32Array::Put(int64_t key, int32_t value, NyaaCore *N) {
-//    NyInt32Array *ob = this;
-//    if (key > capacity()) {
-//        uint32_t new_cap = static_cast<uint32_t>(key + (key - capacity()) * 2);
-//        ob = N->factory()->NewInt32Array(new_cap, this);
-//    }
-//    ob->elems_[key] = value;
-//    if (key > size()) {
-//        size_ = static_cast<uint32_t>(key);
-//    }
-//    return ob;
-//}
 
 NyInt32Array *NyInt32Array::Add(int32_t value, NyaaCore *N) {
     NyInt32Array *ob = this;
@@ -701,7 +688,7 @@ int NyDelegated::Call(Arguments *args, NyaaCore *N) {
 #define DEFINE_TYPE_CHECK(type, name) \
     bool Ny##type::EnsureIs(const NyObject *o, NyaaCore *N) { \
     if (!o->Is##type ()) { \
-        N->Raisef("Unexpected type: " name "."); \
+        N->Raisef("unexpected type: " name "."); \
             return false; \
         } \
         return true; \

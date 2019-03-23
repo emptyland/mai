@@ -25,6 +25,12 @@ Error NyThread::Init() {
     stack_last_ = stack_ + stack_size_;
     stack_fp_ = stack_;
     stack_tp_ = stack_fp_;
+    
+    if (this == owns_->main_thd()) {
+        // TODO:
+    } else {
+        // TODO:
+    }
     return Error::OK();
 }
     
@@ -50,8 +56,18 @@ Object *NyThread::Get(int i) {
     }
 }
     
+void NyThread::Set(int i, Object *value) {
+    if (i < 0) {
+        DCHECK_GE(stack_tp_ + i, stack_bp());
+        *(stack_tp_ + i) = value;
+    } else {
+        DCHECK_LT(stack_bp() + i, stack_tp_);
+        stack_bp()[i] = value;
+    }
+}
+    
 int NyThread::Run(NyScript *entry, NyMap *env) {
-    entry_ = DCHECK_NOTNULL(entry);
+    //entry_ = DCHECK_NOTNULL(entry);
     if (!env) {
         env = owns_->g();
     }
@@ -61,7 +77,7 @@ int NyThread::Run(NyScript *entry, NyMap *env) {
 }
     
 int NyThread::Run(NyFunction *fn, Arguments *args, NyMap *env) {
-    entry_ = DCHECK_NOTNULL(fn);
+    //entry_ = DCHECK_NOTNULL(fn);
     if (!env) {
         env = owns_->g();
     }
@@ -80,9 +96,10 @@ int NyThread::Run(const NyByteArray *bcbuf) {
         return -1;
     }
     
+    state_ = kRunning;
     while (pc() < bcbuf->size()) {
         if (has_raised_) {
-            return -1;
+            break;
         }
 
         Bytecode::ID id = static_cast<Bytecode::ID>(bcbuf->Get(pc()));
@@ -140,7 +157,7 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                 DCHECK_GE(k, 0);
                 NyString *name = static_cast<NyString *>(ConstPool()->Get(k));
                 DCHECK(name->IsString());
-                Push(Env()->Get(name, owns_));
+                Push(Env()->RawGet(name, owns_));
                 
                 (*pc_ptr()) += 1 + scale;
             } break;
@@ -177,9 +194,7 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                     return -1;
                 }
                 (*pc_ptr()) += 1 + scale;
-                if (Current() == entry_) {
-                    return nret;
-                }
+
                 Object **ret = stack_tp_ - nret;
                 const int n = n_accepts();
                 size_t restore_rbp = rbp(), restore_rbs = rbs();
@@ -205,6 +220,66 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                 bcbuf = CurrentBC();
             } break;
                 
+            case Bytecode::kNew: {
+                uint32_t offset = 1;
+                int32_t local = ParseParam(bcbuf, offset, scale, &ok);
+                if (!ok) {
+                    return -1;
+                }
+                offset += scale;
+                int32_t n_args = ParseParam(bcbuf, offset, scale, &ok);
+                if (!ok) {
+                    return -1;
+                }
+                offset += scale;
+                
+                Object *opd = Get(local);
+                if (opd->IsNil() || opd->IsSmi() || !opd->ToHeapObject()->IsMap()) {
+                    owns_->Raisef("new non-class.");
+                    return -1;
+                }
+                
+                HandleScope scope(owns_->isolate());
+                Handle<NyMap> clazz(opd->ToHeapObject()->ToMap());
+                Handle<Object> ob_size(clazz->RawGet(owns_->bkz_pool()->kInnerSize, owns_));
+                if (ob_size->IsNil() || !ob_size->IsSmi() || ob_size->ToSmi() < sizeof(NyUDO)) {
+                    owns_->Raisef("incorrect object size.");
+                    return -1;
+                }
+                Handle<NyUDO> thd(owns_->factory()->NewUninitializedUDO(ob_size->ToSmi(), *clazz));
+                Handle<NyObject> init(clazz->RawGet(owns_->bkz_pool()->kInnerInit, owns_));
+                
+                Object **base = stack_tp_ - 1 - n_args;
+                DCHECK_GE(base, stack_bp());
+                if (init.is_null()) {
+                    base[0] = *thd;
+                    stack_tp_ = base + 1;
+                    break;
+                }
+                
+                if (init->IsSmi() || !init->ToHeapObject()->IsRunnable()) {
+                    owns_->Raisef("incorrect __init__ function");
+                    return -1;
+                }
+                base[0] = *init;
+                base[1] = *thd;
+                
+                (*pc_ptr()) += offset; // NOTICE: farward pc first!
+                
+                if (init->IsDelegated()) {
+                    CallDelegated(init->ToDelegated(), base, n_args, 1);
+                } else if (init->IsScript()) {
+                    NyScript *script = init->ToScript();
+                    NyMap *env = Env();
+                    InitStack(script, base, 0, env);
+                    bcbuf = script->bcbuf();
+                } else if (init->IsFunction()) {
+                    NyFunction *callee = init->ToFunction();
+                    CallFunction(callee, base, n_args, 1);
+                    bcbuf = callee->script()->bcbuf();
+                }
+            } break;
+                
             case Bytecode::kCall: {
                 uint32_t offset = 1;
                 int32_t local = ParseParam(bcbuf, offset, scale, &ok);
@@ -228,7 +303,7 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                 DCHECK_GE(base, stack_bp());
                 Object *opd = Get(local); // callee
                 if (opd->IsObject() && static_cast<NyObject *>(opd)->IsRunnable()) {
-                    (*pc_ptr()) += offset; // NOTICE:
+                    (*pc_ptr()) += offset; // NOTICE: farward pc first!
                     
                     if (static_cast<NyObject *>(opd)->IsDelegated()) {
                         CallDelegated(static_cast<NyDelegated *>(opd), base, n_args, n_accepts);
@@ -252,7 +327,12 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                 break;
         }
     }
-    return 0;
+    if (Current() == entry_) {
+        state_ = kDead;
+    } else {
+        state_ = kSuspended;
+    }
+    return has_raised_ ? -1 : 0;
 }
     
 /**
@@ -291,7 +371,7 @@ int NyThread::CallDelegated(NyDelegated *fn, Object **base, int32_t n_args,
     
 int NyThread::CallFunction(NyFunction *fn, Object **base, int32_t n_args,
                            int32_t n_accepts) {
-    HandleScope scope(owns_->isolate());
+    //HandleScope scope(owns_->isolate());
 
     Object **argv = stack_tp_ - n_args;
     NyMap *env = Env();
@@ -308,7 +388,7 @@ int NyThread::CallFunction(NyFunction *fn, Object **base, int32_t n_args,
             }
             Handle<NyMap> vargs(owns_->factory()->NewMap(16, rand(), true/*linear*/));
             for (int i = fn->n_params(); i < n_args; ++i) {
-                vargs->Put(NyInt32::New(i), argv[i], owns_);
+                vargs->RawPut(NyInt32::New(i), argv[i], owns_);
             }
             Push(*vargs);
         }

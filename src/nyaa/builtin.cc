@@ -34,6 +34,9 @@ const char *kRawBuiltinKzs[] = {
     "true",
     "false",
     "",
+    "running",
+    "suspended",
+    "dead",
 };
     
 const size_t kRawBuiltinKzsSize = arraysize(kRawBuiltinKzs);
@@ -43,15 +46,23 @@ static_assert(sizeof(BuiltinStrPool) / kPointerSize == arraysize(kRawBuiltinKzs)
     
 static int BuiltinPrint(Arguments *args, Nyaa *N) {
     for (size_t i = 0; i < args->Length(); ++i) {
-        
+        auto arg = ApiWarpNoCheck<Object>(args->Get(i), N->core());
+        Handle<NyString> str(arg->ToString(N->core()));
+        if (i > 0) {
+            puts("\t");
+        }
+        puts(str->bytes());
     }
-
+    puts("\n");
+    return 0;
+}
+    
+static int BuiltinYield(Arguments *args, Nyaa *N) {
+    // TODO:
     return 0;
 }
     
 static int DelegatedCall(Arguments *args, Nyaa *N) {
-    HandleScope scope(N->isolate());
-    
     auto callee = ApiWarp<NyDelegated>(args->Callee(), N->core());
     if (callee.is_empty()) {
         return -1;
@@ -59,20 +70,65 @@ static int DelegatedCall(Arguments *args, Nyaa *N) {
     return callee->Call(args, N->core());
 }
     
-static int ThreadInit(Arguments *args, Nyaa *N) {
-    HandleScope scope(N->isolate());
-    
-    auto thrd = ApiWarp<NyThread>(args->Get(0), N->core());
-    if (thrd.is_empty()) {
+static int ThreadInit(Local<Value> arg0, Local<Value> arg1, Nyaa *N) {
+    auto udo = ApiWarpNoCheck<NyUDO>(arg0, N->core());
+    if (!udo) {
         return -1;
+    }
+    DCHECK_EQ(udo->GetMetatable(), N->core()->kmt_pool()->kThread);
+    
+    auto entry = ApiWarpNoCheck<NyRunnable>(arg1, N->core());
+    if (entry->IsNil() || entry->IsSmi() || !entry->IsRunnable()) {
+        return Raisef(N, "incorrect entry type.");
     }
 
-    auto rs = thrd->Init();
+    Handle<NyThread> thd(new (*udo) NyThread(N->core()));
+    thd->set_entry(*entry);
+    thd->SetMetatable(N->core()->kmt_pool()->kThread, N->core());
+    auto rs = thd->Init();
     if (!rs) {
-        N->core()->Raisef("Thread init fail, cause: %s", rs.ToString().c_str());
+        return Raisef(N, "coroutine init fail, cause: %s", rs.ToString().c_str());
+    }
+    return Return(thd);
+}
+
+static int ThreadIndex(Local<Value> arg0, Local<Value> arg1, Nyaa *N) {
+    auto thd = ApiWarp<NyThread>(arg0, N->core());
+    if (!thd) {
         return -1;
     }
-    return 0;
+    auto name = ApiWarp<NyString>(arg1, N->core());
+    if (!name) {
+        return -1;
+    }
+    
+    if (::strncmp(name->bytes(), "status", name->size())) {
+        Handle<NyString> rv;
+        switch (thd->state()) {
+            case NyThread::kRunning:
+                rv = N->core()->bkz_pool()->kRunning;
+                break;
+                
+            case NyThread::kSuspended:
+                rv = N->core()->bkz_pool()->kSuspended;
+                break;
+                
+            case NyThread::kDead:
+                rv = N->core()->bkz_pool()->kDead;
+                break;
+            default:
+                break;
+        }
+        return Return(rv);
+    }
+    
+    Handle<NyMap> mt(thd->GetMetatable());
+    Handle<Object> rv(mt->RawGet(*name, N->core()));
+    return Return(rv);
+}
+    
+static int ThreadNewindex(Local<Value>, Local<Value>, Local<Value>, Nyaa *N) {
+    return Raisef(N, "coroutine is readonly");
 }
     
 Error BuiltinMetatablePool::Boot(NyaaCore *N) {
@@ -95,63 +151,65 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
         pool_a[i]->SetMetatable(kString, N);
     }
-    kString->Put(kzs->kInnerType, factory->NewString("string"), N);
+    kString->RawPut(kzs->kInnerType, factory->NewString("string"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyFloat64
     kFloat64 = factory->NewMap(16, 0, kTypeFloat64);
-    kFloat64->Put(kzs->kInnerType, factory->NewString("float"), N);
+    kFloat64->RawPut(kzs->kInnerType, factory->NewString("float"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyLong
     kLong = factory->NewMap(16, 0, kTypeLong);
-    kLong->Put(kzs->kInnerType, factory->NewString("int"), N);
+    kLong->RawPut(kzs->kInnerType, factory->NewString("int"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyMap
-    kMap->Put(kzs->kInnerType, factory->NewString("map"), N);
+    kMap->RawPut(kzs->kInnerType, factory->NewString("map"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyTable
-    kTable->Put(kzs->kInnerType, factory->NewString("table"), N);
+    kTable->RawPut(kzs->kInnerType, factory->NewString("table"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyDelegated
     kDelegated = factory->NewMap(16, 0, kTypeDelegated);
-    kDelegated->Put(kzs->kInnerType, factory->NewString("delegated"), N);
-    kDelegated->Put(kzs->kInnerCall, factory->NewDelegated(DelegatedCall), N);
+    kDelegated->RawPut(kzs->kInnerType, factory->NewString("delegated"), N);
+    kDelegated->RawPut(kzs->kInnerCall, factory->NewDelegated(DelegatedCall), N);
     
     //----------------------------------------------------------------------------------------------
     // NyFunction
     kFunction = factory->NewMap(16, 0, kTypeFunction);
-    kFunction->Put(kzs->kInnerType, factory->NewString("function"), N);
+    kFunction->RawPut(kzs->kInnerType, factory->NewString("function"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyScript
     kScript = factory->NewMap(16, 0, kTypeScript);
-    kScript->Put(kzs->kInnerType, factory->NewString("script"), N);
+    kScript->RawPut(kzs->kInnerType, factory->NewString("script"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyThread
     kThread = factory->NewMap(16, 0, kTypeThread);
-    kThread->Put(kzs->kInnerType, factory->NewString("thread"), N);
-    kThread->Put(kzs->kInnerInit, factory->NewDelegated(ThreadInit), N);
-    kThread->Put(kzs->kInnerSize, NySmi::New(sizeof(NyThread)), N);
+    kThread->RawPut(kzs->kInnerType, factory->NewString("thread"), N);
+    kThread->RawPut(kzs->kInnerInit, factory->NewDelegated(ThreadInit), N);
+    kThread->RawPut(kzs->kInnerIndex, factory->NewDelegated(ThreadIndex), N);
+    kThread->RawPut(kzs->kInnerNewindex, factory->NewDelegated(ThreadNewindex), N);
+    kThread->RawPut(kzs->kInnerSize, NySmi::New(sizeof(NyThread)), N);
 
     //----------------------------------------------------------------------------------------------
     // NyByteArray
     kByteArray = factory->NewMap(16, 0, kTypeByteArray);
-    kByteArray->Put(kzs->kInnerType, factory->NewString("array[byte]"), N);
+    kByteArray->RawPut(kzs->kInnerType, factory->NewString("array[byte]"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyInt32Array
     kInt32Array = factory->NewMap(16, 0, kTypeInt32Array);
-    kInt32Array->Put(kzs->kInnerType, factory->NewString("array[int32]"), N);
+    kInt32Array->RawPut(kzs->kInnerType, factory->NewString("array[int32]"), N);
     
     //----------------------------------------------------------------------------------------------
     // NyArray
     kArray = factory->NewMap(16, 0, kTypeArray);
-    kArray->Put(kzs->kInnerType, factory->NewString("array"), N);
+    kArray->RawPut(kzs->kInnerType, factory->NewString("array"), N);
 
     return Error::OK();
 }

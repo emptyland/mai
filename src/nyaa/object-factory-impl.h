@@ -28,6 +28,7 @@ public:
                                     NyScript *script) override;
     virtual NyScript *NewScript(NyString *file_name, NyInt32Array *file_info, NyByteArray *bcbuf,
                                 NyArray *const_pool) override;
+    virtual NyUDO *NewUninitializedUDO(size_t size, NyMap *clazz, bool old) override;
     virtual NyThread *NewThread(bool old) override;
 private:
     NyaaCore *const core_;

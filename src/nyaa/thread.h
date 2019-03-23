@@ -25,23 +25,19 @@ public:
     static constexpr const int kRBSOffset = 5;
     static constexpr const int kBPSize = kRBSOffset + 1;
     
+    enum State {
+        kSuspended,
+        kRunning,
+        kDead,
+    };
+    
     NyThread(NyaaCore *owns);
     ~NyThread();
     
     Error Init();
-
-    int Run(NyScript *entry, NyMap *env = nullptr);
     
-    int Run(NyFunction *fn, Arguments *args, NyMap *env = nullptr);
-
-    void Push(Object *value, int n = 1);
-    
-    Object *Get(int i);
-    
-    void Pop(int n) {
-        DCHECK_GE(stack_tp_ - n, stack_bp());
-        stack_tp_ -= n;
-    }
+    DEF_PTR_PROP_RW(NyRunnable, entry);
+    DEF_VAL_GETTER(State, state);
     
     size_t frame_size() const {
         DCHECK_GE(stack_tp_, stack_bp());
@@ -49,6 +45,25 @@ public:
     }
     
     uint32_t pc() const { return *pc_ptr(); }
+
+    int Run(NyScript *entry, NyMap *env = nullptr);
+    
+    int Run(NyFunction *fn, Arguments *args, NyMap *env = nullptr);
+    
+    State Resume(Arguments *args);
+    
+    //int Yield(Arguments *args);
+
+    void Push(Object *value, int n = 1);
+    
+    Object *Get(int i);
+    
+    void Set(int i, Object *value);
+    
+    void Pop(int n) {
+        DCHECK_GE(stack_tp_ - n, stack_bp());
+        stack_tp_ -= n;
+    }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
@@ -105,15 +120,16 @@ private:
     
     NyaaCore *const owns_;
     TryCatch *catch_point_ = nullptr;
+    State state_ = kSuspended;
     Object **stack_ = nullptr; // [strong ref]
     Object **stack_fp_ = nullptr;
     Object **stack_tp_ = nullptr;
     Object **stack_last_ = nullptr;
     NyRunnable *entry_ = nullptr; // [strong ref] The entry script.
-    //NyRunnable *current_ = nullptr; // [strong ref] The current runnable object.
     size_t stack_size_ = 0;
-    NyThread *next_ = nullptr; // [strong ref]
     bool has_raised_ = false;
+    NyThread *prev_ = nullptr; // [strong ref]
+    NyThread *next_ = nullptr; // [strong ref]
 }; // class NyThread
     
 } // namespace nyaa

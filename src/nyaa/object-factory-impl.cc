@@ -114,6 +114,14 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     return ob;
 }
     
+/*virtual*/ NyUDO *ObjectFactoryImpl::NewUninitializedUDO(size_t size, NyMap *clazz, bool old) {
+    DCHECK_GE(size, sizeof(NyUDO));
+    void *chunk = ::malloc(size);
+    auto ob = new (chunk) NyUDO(nullptr);
+    ob->SetMetatable(clazz, core_);
+    return ob;
+}
+    
 /*virtual*/ NyThread *ObjectFactoryImpl::NewThread(bool old) {
     auto ob = new NyThread(core_);
     ob->SetMetatable(core_->kmt_pool()->kThread, core_);

@@ -238,9 +238,9 @@ public:
     
     uint32_t Length() const;
     
-    void Put(Object *key, Object *value, NyaaCore *N);
+    void RawPut(Object *key, Object *value, NyaaCore *N);
     
-    Object *Get(Object *key, NyaaCore *N);
+    Object *RawGet(Object *key, NyaaCore *N);
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
@@ -387,12 +387,14 @@ public:
     NyString *Done(NyaaCore *N);
     
     NyString *Add(const char *s, size_t n, NyaaCore *N) {
-        return static_cast<NyString *>(NyByteArray::Add(s, n, N)->Add(0, N));
+        return static_cast<NyString *>(NyByteArray::Add(s, n, N));
     }
     
     NyString *Add(const NyString *s, NyaaCore *N) { return Add(s->bytes(), s->size(), N); }
 
     uint32_t hash_val() const { return header() & kHashMask; }
+    
+    uint32_t size() const { return size_ - kHeaderSize; }
     
     const char *bytes() const { return reinterpret_cast<const char *>(data() + kHeaderSize); }
     

@@ -2,6 +2,7 @@
 #include "nyaa/thread.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/nyaa-values.h"
+#include "base/slice.h"
 #include "mai-lang/nyaa.h"
 #include <shared_mutex>
 
@@ -213,6 +214,16 @@ int Returnf(Nyaa *N, int nrets, ...) {
     }
     va_end(ap);
     return N->core()->Raised() ? -1 : nrets;
+}
+    
+int Raisef(Nyaa *N, const char *fmt, ...) {
+    N = !N ? Isolate::Current()->GetNyaa() : N;
+
+    va_list ap;
+    va_start(ap, fmt);
+    N->core()->Vraisef(fmt, ap);
+    va_end(ap);
+    return -1;
 }
     
     

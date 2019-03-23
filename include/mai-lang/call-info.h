@@ -71,7 +71,8 @@ inline int Return(const Handle<T1> &ret1, const Handle<T2> &ret2, const Handle<T
     return Returnf(nullptr, 3, *ret1, *ret2, *ret3);
 }
     
-    
+__attribute__ (( __format__ (__printf__, 2, 3)))
+int Raisef(Nyaa *N, const char *fmt, ...);
     
 } // namespace nyaa
     

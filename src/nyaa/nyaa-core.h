@@ -44,6 +44,7 @@ public:
     void SetGlobal(NyString *name, Object *value);
     
     void Raisef(const char *fmt, ...);
+    void Vraisef(const char *fmt, va_list ap);
     void Unraise();
     bool Raised() const;
     
@@ -59,6 +60,7 @@ public:
     DEF_PTR_GETTER(ObjectFactory, factory);
     DEF_PTR_GETTER(NyMap, g);
     DEF_PTR_GETTER(NyThread, main_thd);
+    DEF_PTR_GETTER(NyThread, curr_thd);
     BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
     BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
     Isolate *isolate() const;
@@ -76,8 +78,9 @@ private:
     std::unique_ptr<BuiltinStrPool> bkz_pool_;
     std::unique_ptr<BuiltinMetatablePool> kmt_pool_;
 
-    NyMap *g_;
-    NyThread *main_thd_;
+    NyMap *g_; // [strong ref]
+    NyThread *main_thd_; // [strong ref]
+    NyThread *curr_thd_; // [strong ref]
 };
     
 } // namespace nyaa
