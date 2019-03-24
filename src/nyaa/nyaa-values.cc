@@ -397,7 +397,7 @@ void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
         table_ = table_->Put(key, value, N);
     }
     if (generic_ != old) {
-        N->heap()->BarrierWr(generic_, generic_);
+        N->heap()->BarrierWr(this, generic_);
     }
 }
 

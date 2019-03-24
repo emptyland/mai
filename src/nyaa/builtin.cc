@@ -49,16 +49,11 @@ static int BuiltinPrint(Arguments *args, Nyaa *N) {
         auto arg = ApiWarpNoCheck<Object>(args->Get(i), N->core());
         Handle<NyString> str(arg->ToString(N->core()));
         if (i > 0) {
-            puts("\t");
+            putchar('\t');
         }
-        puts(str->bytes());
+        fwrite(str->bytes(), 1, str->size(), stdout);
     }
-    puts("\n");
-    return 0;
-}
-    
-static int BuiltinYield(Arguments *args, Nyaa *N) {
-    // TODO:
+    putchar('\n');
     return 0;
 }
     
@@ -130,7 +125,46 @@ static int ThreadIndex(Local<Value> arg0, Local<Value> arg1, Nyaa *N) {
 static int ThreadNewindex(Local<Value>, Local<Value>, Local<Value>, Nyaa *N) {
     return Raisef(N, "coroutine is readonly");
 }
+
+// yield a, b, c
+static int BuiltinYield(Arguments *args, Nyaa *N) {
+    Handle<NyThread> curr_thd(N->core()->curr_thd());
     
+    return 0;
+}
+    
+static int ThreadResume(Arguments *args, Nyaa *N) {
+    auto thd = ApiWarp<NyThread>(args->Get(0), N->core());
+    if (!thd) {
+        return -1;
+    }
+    if (thd->state() == NyThread::kDead) {
+        return Return(Handle<Value>(Object::kNil), String::New(N, "coroutine is dead."));
+    }
+    
+    Arguments params(args->Length() - 1);
+    for (size_t i = 1; i < args->Length(); ++i) {
+        params.Set(i, args->Get(i));
+    }
+    
+    Handle<NyThread> saved_thd(N->core()->curr_thd());
+    N->core()->set_curr_thd(*thd);
+    TryCatch try_catch(N->isolate());
+    int nret = thd->Resume(&params, *saved_thd);
+    N->core()->set_curr_thd(*saved_thd);
+    if (try_catch.HasCaught()) {
+        return Return(Handle<Value>(Object::kNil), try_catch.Message());
+    }
+    
+    saved_thd->Push(N->core()->factory()->NewString("ok"));
+    for (int i = 0; i < nret; ++i) {
+        saved_thd->Push(thd->Get(i - nret - 1));
+    }
+    thd->Pop(nret);
+    return 1 + nret;
+}
+    
+
 Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     auto kzs = N->bkz_pool();
     auto factory = N->factory();
@@ -194,6 +228,7 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     kThread->RawPut(kzs->kInnerInit, factory->NewDelegated(ThreadInit), N);
     kThread->RawPut(kzs->kInnerIndex, factory->NewDelegated(ThreadIndex), N);
     kThread->RawPut(kzs->kInnerNewindex, factory->NewDelegated(ThreadNewindex), N);
+    kThread->RawPut(factory->NewString("resume"), factory->NewDelegated(ThreadResume), N);
     kThread->RawPut(kzs->kInnerSize, NySmi::New(sizeof(NyThread)), N);
 
     //----------------------------------------------------------------------------------------------
@@ -216,6 +251,7 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     
 const NyaaNaFnEntry kBuiltinFnEntries[] = {
     {"print", BuiltinPrint},
+    {"yield", BuiltinYield},
     {nullptr, nullptr},
 };
 

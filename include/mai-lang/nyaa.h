@@ -67,17 +67,6 @@ private:
 }; // class Nyaa
 
 
-class TryCatch final {
-public:
-    TryCatch(Isolate *isolate);
-    ~TryCatch();
-
-    Handle<Value> Exception() const;
-    
-private:
-    Isolate *const isolate_;
-}; // class TryCatch
-
 } // namespace nyaa
     
 } // namespace mai

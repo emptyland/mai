@@ -71,9 +71,26 @@ inline int Return(const Handle<T1> &ret1, const Handle<T2> &ret2, const Handle<T
     return Returnf(nullptr, 3, *ret1, *ret2, *ret3);
 }
     
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// TryCatch
+////////////////////////////////////////////////////////////////////////////////////////////////////
 __attribute__ (( __format__ (__printf__, 2, 3)))
 int Raisef(Nyaa *N, const char *fmt, ...);
     
+class TryCatch final {
+public:
+    TryCatch(Isolate *isolate);
+    ~TryCatch();
+    
+    bool HasCaught() const;
+    
+    Handle<Value> Exception() const;
+    
+    Handle<String> Message() const;
+    
+private:
+    Isolate *const isolate_;
+}; // class TryCatch
 } // namespace nyaa
     
 } // namespace mai

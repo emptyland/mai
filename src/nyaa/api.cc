@@ -2,6 +2,7 @@
 #include "nyaa/thread.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/nyaa-values.h"
+#include "nyaa/thread.h"
 #include "base/slice.h"
 #include "mai-lang/nyaa.h"
 #include <shared_mutex>
@@ -216,6 +217,10 @@ int Returnf(Nyaa *N, int nrets, ...) {
     return N->core()->Raised() ? -1 : nrets;
 }
     
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// TryCatch:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    
 int Raisef(Nyaa *N, const char *fmt, ...) {
     N = !N ? Isolate::Current()->GetNyaa() : N;
 
@@ -225,8 +230,31 @@ int Raisef(Nyaa *N, const char *fmt, ...) {
     va_end(ap);
     return -1;
 }
+
+TryCatch::TryCatch(Isolate *isolate)
+    : isolate_(isolate) {
+    //isolate_->GetNyaa()->core()->curr_thd()
+}
+
+TryCatch::~TryCatch() {
     
+}
+
+Handle<Value> TryCatch::Exception() const {
+    // TODO:
+    return Local<Value>();
+}
     
+bool TryCatch::HasCaught() const {
+    // TODO:
+    return false;
+}
+
+Handle<String> TryCatch::Message() const {
+    // TODO:
+    return Local<String>();
+}
+
 } // namespace nyaa
     
 } // namespace mai

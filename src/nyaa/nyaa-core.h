@@ -60,7 +60,7 @@ public:
     DEF_PTR_GETTER(ObjectFactory, factory);
     DEF_PTR_GETTER(NyMap, g);
     DEF_PTR_GETTER(NyThread, main_thd);
-    DEF_PTR_GETTER(NyThread, curr_thd);
+    DEF_PTR_PROP_RW(NyThread, curr_thd);
     BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
     BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
     Isolate *isolate() const;

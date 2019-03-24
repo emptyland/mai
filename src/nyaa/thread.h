@@ -50,7 +50,7 @@ public:
     
     int Run(NyFunction *fn, Arguments *args, NyMap *env = nullptr);
     
-    State Resume(Arguments *args);
+    int Resume(Arguments *args, NyThread *prev);
     
     //int Yield(Arguments *args);
 

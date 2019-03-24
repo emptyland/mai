@@ -20,7 +20,7 @@ struct Bytecode {
         
         kAdd, // add local[idx], local[idx]
         
-        kCall, // call local[idx], n_param, n_accept
+        kCall, // call local[idx], n_args, n_accepts
         kReturn, // return imm
     };
 };
