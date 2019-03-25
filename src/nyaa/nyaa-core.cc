@@ -177,6 +177,23 @@ Address NyaaCore::AdvanceHandleSlots(int n_slots) {
     return slot_addr;
 }
     
+void NyaaCore::InsertThread(NyThread *thd) {
+    thd->next_ = main_thd_;
+    auto *prev = main_thd_->prev_;
+    thd->prev_ = prev;
+    prev->next_ = thd;
+    main_thd_->prev_ = thd;
+}
+
+void NyaaCore::RemoveThread(NyThread *thd) {
+    thd->prev_->next_ = thd->next_;
+    thd->next_->prev_ = thd->prev_;
+#if defined(DEBUG) || defined(_DEBUG)
+    thd->next_ = nullptr;
+    thd->prev_ = nullptr;
+#endif
+}
+    
 } // namespace nyaa
     
 } // namespace mai

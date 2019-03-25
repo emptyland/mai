@@ -16,6 +16,7 @@ public:
         NyaaTest::SetUp();
         N_ = new Nyaa(Nyaa::Options{}, isolate_);
         core_ = N_->core();
+        factory_ = core_->factory();
     }
     
     void TearDown() override {
@@ -23,8 +24,41 @@ public:
         NyaaTest::TearDown();
     }
     
+    // def foo() { yield(1,2,3) }
+    Handle<NyFunction> BuildFoo() {
+        Handle<NyArray> pool(core_->factory()->NewArray(4));
+        pool->Add(factory_->NewString("yield"), core_);
+        
+        Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
+        
+        // local a, b, c = test1()
+        bcbuf->Add(Bytecode::kPushGlobal, core_);
+        bcbuf->Add(0, core_);
+        bcbuf->Add(Bytecode::kPushImm, core_);
+        bcbuf->Add(1, core_);
+        bcbuf->Add(Bytecode::kPushImm, core_);
+        bcbuf->Add(2, core_);
+        bcbuf->Add(Bytecode::kPushImm, core_);
+        bcbuf->Add(3, core_);
+        bcbuf->Add(Bytecode::kCall, core_);
+        bcbuf->Add(0, core_);
+        bcbuf->Add(3, core_);
+        bcbuf->Add(0, core_);
+        bcbuf->Add(Bytecode::kReturn, core_);
+        bcbuf->Add(0, core_);
+        
+        Handle<NyScript> script(factory_->NewScript(nullptr, nullptr, *bcbuf, *pool));
+        Handle<NyFunction> foo(factory_->NewFunction(0, 0, 4, *script));
+        
+        core_->SetGlobal(factory_->NewString("foo"), *foo);
+        return foo;
+    }
+    
     Nyaa *N_ = nullptr;
     NyaaCore *core_ = nullptr;
+    ObjectFactory *factory_ = nullptr;
+    
+    //return Yield(1, 2, 3);
 };
     
 TEST_F(NyaaThreadTest, Sanity) {
@@ -238,12 +272,38 @@ TEST_F(NyaaThreadTest, NewCoroutine) {
     auto rv = thd->Run(*script);
     ASSERT_EQ(0, rv);
     ASSERT_EQ(1, thd->frame_size());
-//    Handle<Object> r1(thd->Get(0));
-//    ASSERT_TRUE(r1->IsSmi());
-//    ASSERT_EQ(200, r1->ToSmi());
 }
 //#endif
-
+TEST_F(NyaaThreadTest, IndexCommand) {
+    HandleScope scope(isolate_);
+    
+    Handle<NyArray> pool(core_->factory()->NewArray(4));
+    //Handle<NyString> clazz(core_->factory()->NewString("coroutine"));
+    pool->Add(core_->factory()->NewString("coroutine"), core_);
+    pool->Add(core_->factory()->NewString("print"), core_);
+    pool->Add(core_->factory()->NewString("status"), core_);
+    
+    Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
+    
+    bcbuf->Add(Bytecode::kPushGlobal, core_);
+    bcbuf->Add(0, core_); // push g["coroutine"]
+    bcbuf->Add(Bytecode::kPushNil, core_);
+    bcbuf->Add(1, core_); // push nil
+    bcbuf->Add(Bytecode::kPushGlobal, core_);
+    bcbuf->Add(1, core_); // push g["print"]
+    bcbuf->Add(Bytecode::kNew, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(2, core_); // new local[0], 1
+    bcbuf->Add(Bytecode::kIndexConst, core_);
+    bcbuf->Add(2, core_);
+    
+    Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, *pool));
+    auto thd = N_->core()->main_thd();
+    auto rv = thd->Run(*script);
+    ASSERT_EQ(0, rv);
+    ASSERT_EQ(1, thd->frame_size());
+}
+    
 } // namespace nyaa
     
 } // namespace mai

@@ -37,7 +37,8 @@ public:
     Error Init();
     
     DEF_PTR_PROP_RW(NyRunnable, entry);
-    DEF_VAL_GETTER(State, state);
+    DEF_PTR_PROP_RW(NyThread, save);
+    DEF_VAL_PROP_RW(State, state);
     
     size_t frame_size() const {
         DCHECK_GE(stack_tp_, stack_bp());
@@ -50,7 +51,7 @@ public:
     
     int Run(NyFunction *fn, Arguments *args, int n_accepts, NyMap *env = nullptr);
     
-    int Resume(Arguments *args, NyMap *env = nullptr);
+    int Resume(Arguments *args, NyThread *save, NyMap *env = nullptr);
     
     //int Yield(Arguments *args);
 
@@ -99,7 +100,12 @@ private:
     int Run(const NyByteArray *bcbuf);
     
     int CallDelegated(NyDelegated *fn, Object **base, int32_t n_params, int32_t n_accept);
-    int CallFunction(NyFunction *fn, Object **base, int32_t n_params, int32_t n_accept);
+    
+    int CallMetaFunction(NyObject *ob, NyString *name, Arguments *args, int n_accepts,
+                         uint32_t offset, NyByteArray const **bcbuf);
+
+    int CallInternal(NyRunnable *ro, Object **base, int32_t n_params, int n_accepts,
+                     uint32_t offset, NyByteArray const **bcbuf);
     
     void InitStack(NyRunnable *callee, Object **bp, int n_accepts, NyMap *env);
     void InitArgs(Arguments *args, int n_params, bool vargs);
@@ -129,8 +135,9 @@ private:
     NyRunnable *entry_ = nullptr; // [strong ref] The entry script.
     size_t stack_size_ = 0;
     bool has_raised_ = false;
-    NyThread *prev_ = nullptr; // [strong ref]
-    NyThread *next_ = nullptr; // [strong ref]
+    NyThread *save_ = nullptr; // [strong ref]
+    NyThread *prev_ = this; // [strong ref]
+    NyThread *next_ = this; // [strong ref]
 }; // class NyThread
     
 } // namespace nyaa

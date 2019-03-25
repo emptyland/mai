@@ -116,15 +116,21 @@ void NyThread::InitArgs(Arguments *args, int n_params, bool vargs) {
     }
 }
     
-int NyThread::Resume(Arguments *args, NyMap *env) {
+int NyThread::Resume(Arguments *args, NyThread *save, NyMap *env) {
     DCHECK_EQ(kSuspended, state_);
-    //prev_ = prev;
-    if (stack_tp_ == stack_) {
-        if (NyFunction *fn = DCHECK_NOTNULL(entry_)->ToFunction()) {
-            return Run(fn, args, 0, env);
+    DCHECK_NE(this, save);
+    save_ = DCHECK_NOTNULL(save);
+
+    if (stack_tp_ == stack_) { // has not run yet.
+        if (NyFunction *callee = DCHECK_NOTNULL(entry_)->ToFunction()) {
+            return Run(callee, args, 0, env);
         }
-        if (NyScript *script = DCHECK_NOTNULL(entry_)->ToScript()) {
-            return Run(script, env);
+        if (NyScript *callee = DCHECK_NOTNULL(entry_)->ToScript()) {
+            return Run(callee, env);
+        }
+        if (NyDelegated *callee = entry_->ToDelegated()) {
+            HandleScope scope(owns_->isolate());
+            return callee->Call(args, owns_);
         }
         DLOG(FATAL) << "Noreached!";
     }
@@ -215,6 +221,65 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                     return -1;
                 }
                 Push(Object::kNil, n);
+                (*pc_ptr()) += 1 + scale;
+            } break;
+                
+            case Bytecode::kIndexConst:
+            case Bytecode::kIndex: {
+                
+                Object *opd = nullptr, *key = nullptr;
+                uint32_t offset = 1;
+                if (id == Bytecode::kIndexConst) {
+                    opd = Get(-1);
+                    int32_t local = ParseInt32(bcbuf, offset, scale, &ok);
+                    if (!ok) {
+                        return -1;
+                    }
+                    offset += scale;
+                    key = ConstPool()->Get(local);
+                } else {
+                    opd = Get(-2);
+                    key = Get(-1);
+                }
+                
+                if (!opd->IsObject()) {
+                    owns_->Raisef("value has not field.");
+                    return -1;
+                }
+                
+                NyObject *ob = opd->ToHeapObject();
+                if (NyMap *val = ob->ToMap()) {
+                    if (val->GetMetatable() == owns_->kmt_pool()->kMap) {
+                        Set(-1, val->RawGet(key, owns_));
+                        break;
+                    }
+                    auto *index = val->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerIndex,
+                                                              owns_);
+                    if (index == nullptr) {
+                        Set(-1, val->RawGet(key, owns_));
+                        break;
+                    }
+                }
+                HandleScope scope(owns_->isolate());
+                Arguments args(2);
+                args.Set(0, Local<Value>::New(opd));
+                args.Set(1, Local<Value>::New(key));
+                Pop(id == Bytecode::kIndexConst ? 1: 2); // pop key
+                        // pop opd
+
+                int nret = CallMetaFunction(ob, owns_->bkz_pool()->kInnerIndex, &args,
+                                            1,/*n_accepts*/ offset,/*offset*/ &bcbuf);
+                if (owns_->curr_thd() != this) {
+                    return nret;
+                }
+            } break;
+                
+            case Bytecode::kPop: {
+                int32_t n = ParseInt32(bcbuf, 1, scale, &ok);
+                if (!ok) {
+                    return -1;
+                }
+                Pop(n);
                 (*pc_ptr()) += 1 + scale;
             } break;
                 
@@ -314,20 +379,10 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                 base[0] = *init;
                 base[1] = *thd;
                 
-                (*pc_ptr()) += offset; // NOTICE: add pc first!
-                
-                NyMap *env = Env();
-                if (NyDelegated *callee = init->ToDelegated()) {
-                    CallDelegated(callee, base, n_args, 1);
-                } else if (NyScript *callee = init->ToScript()) {
-                    NyScript *script = init->ToScript();
-                    InitStack(script, base, 1, env);
-                    bcbuf = script->bcbuf();
-                } else if (NyFunction *callee = init->ToFunction()) {
-                    Arguments args(reinterpret_cast<Value **>(stack_tp_ - n_args), n_args);
-                    InitStack(callee, base, 1, env);
-                    InitArgs(&args, callee->n_params(), callee->vargs());
-                    bcbuf = callee->script()->bcbuf();
+                int nret = CallInternal(static_cast<NyRunnable *>(*init), base, n_args, 1, offset,
+                                        &bcbuf);
+                if (owns_->curr_thd() != this) {
+                    return nret;
                 }
             } break;
                 
@@ -355,31 +410,38 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                 offset += scale;
 
                 Object **base = n_args < 0 ? stack_bp() + local : stack_tp_ - 1 - n_args;
-                //DCHECK_GE(base, stack_bp());
                 DCHECK_EQ(base, stack_bp() + local);
-                Object *opd = Get(local); // callee
-                if (opd->IsObject() && static_cast<NyObject *>(opd)->IsRunnable()) {
-                    (*pc_ptr()) += offset; // NOTICE: add pc first!
-                    
-                    if (n_args < 0) {
-                        n_args = static_cast<int32_t>(stack_tp_ - base) - 1;
+                
+                NyObject *opd = static_cast<NyObject *>(Get(local)); // callee
+                if (opd->IsNil()) {
+                    owns_->Raisef("attempt to call nil value.");
+                    return -1;
+                }
+                if (opd->IsSmi()) {
+                    owns_->Raisef("attempt to call incorrect value.");
+                    return -1;
+                }
+                
+                if (n_args < 0) {
+                    n_args = static_cast<int32_t>(stack_tp_ - base) - 1;
+                }
+                if (opd->IsRunnable()) {
+                    int nret = CallInternal(static_cast<NyRunnable *>(opd), base, n_args, n_accepts,
+                                            offset, &bcbuf);
+                    if (nret < 0 || owns_->curr_thd() != this) {
+                        return nret;
                     }
-                    
-                    NyMap *env = Env();
-                    NyRunnable *ro = static_cast<NyRunnable *>(opd);
-                    if (NyDelegated *callee = ro->ToDelegated()) {
-                        int nret = CallDelegated(callee, base, n_args, n_accepts);
-                        if (state_ == kSuspended) {
-                            return nret;
-                        }
-                    } else if (NyScript *callee = ro->ToScript()) {
-                        InitStack(callee, base, n_accepts, env);
-                        bcbuf = callee->bcbuf();
-                    } else if (NyFunction *callee = ro->ToFunction()) {
-                        Arguments args(reinterpret_cast<Value **>(stack_tp_ - n_args), n_args);
-                        InitStack(callee, base, n_accepts, env);
-                        InitArgs(&args, callee->n_params(), callee->vargs());
-                        bcbuf = callee->script()->bcbuf();
+                } else {
+                    HandleScope scope(owns_->isolate());
+                    Arguments args(n_args);
+                    for (int i = 0; i < n_args; ++i) {
+                        args.Set(i, Local<Value>::New(base + 1 + i));
+                    }
+                    Pop(n_args + 1);
+                    int nret = CallMetaFunction(opd, owns_->bkz_pool()->kInnerCall, &args,
+                                                n_accepts, offset, &bcbuf);
+                    if (nret < 0 || owns_->curr_thd() != this) {
+                        return nret;
                     }
                 }
             } break;
@@ -431,6 +493,61 @@ int NyThread::CallDelegated(NyDelegated *fn, Object **base, int32_t n_args,
     stack_tp_ = base + n_accepts;
     DCHECK_LT(stack_tp_, stack_last_);
     return nret;
+}
+    
+int NyThread::CallMetaFunction(NyObject *ob, NyString *name, Arguments *args, int n_accepts,
+                               uint32_t offset, NyByteArray const **bcbuf) {
+    NyMap *mt = DCHECK_NOTNULL(ob)->GetMetatable();
+    Object *mf = mt->RawGet(name, owns_);
+    if (mf == Object::kNil) {
+        owns_->Raisef("attempt to call nil `%s' meta function.", name->bytes());
+        return -1;
+    }
+    if (mf->IsSmi()) {
+        owns_->Raisef("attempt to call incorrect `%s' meta function.", name->bytes());
+        return -1;
+    }
+    NyRunnable *ro = static_cast<NyRunnable *>(mf);
+    if (!ro->IsRunnable()) {
+        owns_->Raisef("attempt to call incorrect `%s' meta function.", name->bytes());
+        return -1;
+    }
+    
+    Object **base = stack_tp_;
+    Push(ro);
+    for (size_t i = 0; i < args->Length(); ++i) {
+        Push(*ApiWarpNoCheck<Object>(args->Get(i), owns_));
+    }
+    
+    return CallInternal(ro, base, static_cast<int>(args->Length()), n_accepts, offset, bcbuf);
+}
+    
+int NyThread::CallInternal(NyRunnable *ro, Object **base, int32_t n_args, int n_accepts,
+                           uint32_t offset, NyByteArray const **bcbuf) {
+    NyMap *env = Env();
+
+    
+    if (NyDelegated *callee = ro->ToDelegated()) {
+        (*pc_ptr()) += offset; // NOTICE: add pc first!
+
+        int nret = CallDelegated(callee, base, n_args, n_accepts);
+        if (owns_->curr_thd() != this) {
+            return nret;
+        }
+    } else if (NyScript *callee = ro->ToScript()) {
+        (*pc_ptr()) += offset; // NOTICE: add pc first!
+        
+        InitStack(callee, base, n_accepts, env);
+        *bcbuf = callee->bcbuf();
+    } else if (NyFunction *callee = ro->ToFunction()) {
+        (*pc_ptr()) += offset; // NOTICE: add pc first!
+        
+        Arguments args(reinterpret_cast<Value **>(stack_tp_ - n_args), n_args);
+        InitStack(callee, base, n_accepts, env);
+        InitArgs(&args, callee->n_params(), callee->vargs());
+        *bcbuf = callee->script()->bcbuf();
+    }
+    return 0;
 }
     
 void NyThread::InitStack(NyRunnable *callee, Object **bp, int n_accepts, NyMap *env) {

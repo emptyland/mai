@@ -48,6 +48,9 @@ public:
     void Unraise();
     bool Raised() const;
     
+    void InsertThread(NyThread *thd);
+    void RemoveThread(NyThread *thd);
+    
     void EnterHandleScope(HandleScope *handle_scope);
     void ExitHandleScope();
     

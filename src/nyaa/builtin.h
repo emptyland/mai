@@ -90,6 +90,8 @@ enum BuiltinType : int {
     DECL_BUILTIN_TYPES(DEFINE_TYPE)
 #undef DEFINE_TYPE
 };
+    
+static constexpr const uint64_t kUdoKidBegin = 1000;
 
 struct NyaaNaFnEntry {
     const char *name;

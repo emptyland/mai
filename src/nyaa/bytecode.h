@@ -12,14 +12,17 @@ struct Bytecode {
         kDouble,
         kQuadruple,
         kPushImm, // push imm
+        kPushLocal, // push local[idx]
         kPushConst, // push const[idx]
-        kPushGlobal, // push g, const[idx]
+        kPushGlobal, // push g[const[idx]]
         kPushNil, // push nil, n
-        
-        kNew, // new local[idx], n_param
-        
+        kIndex, // getfield local[-2], local[-1]
+        kIndexConst, // getfield local[-1], const[idx]
+        kPop, // pop n
+
         kAdd, // add local[idx], local[idx]
         
+        kNew, // new local[idx], n_param
         kCall, // call local[idx], n_args, n_accepts
         kReturn, // return imm
     };
