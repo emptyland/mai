@@ -48,16 +48,18 @@ public:
     
     bool IsObject() const { return !IsSmi(); }
     
+    bool IsWeak() const { return IsObject() && (word() & 0x2); }
+    
     uintptr_t word() const { return reinterpret_cast<uintptr_t>(this); }
     
     int64_t ToSmi() const {
         DCHECK(IsSmi());
-        return static_cast<int64_t>(word() >> 1);
+        return static_cast<int64_t>(word()) >> 2;
     }
     
     NyObject *ToHeapObject() const {
         DCHECK(IsObject());
-        return reinterpret_cast<NyObject *>(word());
+        return reinterpret_cast<NyObject *>(word() & ~0x3);
     }
     
     bool IsNil() const { return this == kNil; }
@@ -88,7 +90,7 @@ class NyInt32 {
 public:
     static Object *New(int32_t value) {
         intptr_t word = value;
-        return reinterpret_cast<Object *>((word << 1) | 1);
+        return reinterpret_cast<Object *>((word << 2) | 1);
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyInt32);
@@ -96,9 +98,12 @@ public:
     
 class NySmi {
 public:
+    static constexpr const int64_t kMaxValue =  0x1fffffffffffffffll;
+    static constexpr const int64_t kMinValue = -0x1fffffffffffffffll;
+    
     static Object *New(int64_t value) {
         intptr_t word = value;
-        return reinterpret_cast<Object *>((word << 1) | 1);
+        return reinterpret_cast<Object *>((word << 2) | 1);
     }
     
     static Object *Add(Object *lhs, Object *rhs, NyaaCore *N);
@@ -113,13 +118,14 @@ class NyObject : public Object {
 public:
     NyObject() : mtword_(0) {}
 
-    bool is_forward_mt() const { return mtword_ & 0x1; }
+    bool is_forward() const { return mtword_ & 0x1; }
     
-    bool is_direct_mt() const { return !is_forward_mt(); }
+    bool is_direct() const { return !is_forward(); }
     
     NyMap *GetMetatable() const {
-        void *addr = is_forward_mt() ? forward_address() : reinterpret_cast<void *>(mtword_);
-        return reinterpret_cast<NyMap *>(addr);
+//        const NyObject *addr = is_forward() ? static_cast<const NyObject *>(forward_address()) : this;
+        DCHECK_EQ(mtword_ % 4, 0);
+        return reinterpret_cast<NyMap *>(mtword_);
     }
     
     void SetMetatable(NyMap *mt, NyaaCore *N);
@@ -151,7 +157,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyObject);
 private:
     void *forward_address() const {
-        DCHECK(is_forward_mt());
+        DCHECK(is_forward());
         uintptr_t addr = mtword_ & ~0x1;
         DCHECK_EQ(0, addr % 4);
         return reinterpret_cast<void *>(addr);
@@ -448,29 +454,6 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyArray);
 }; // class NyArray
 
-
-//class NyString : public NyObject {
-//public:
-//    NyString(const char *s, size_t n);
-//
-//    DEF_VAL_GETTER(uint32_t, hash_val);
-//    DEF_VAL_GETTER(uint32_t, size);
-//
-//    const char *bytes() const { return bytes_; }
-//
-//    static size_t RequiredSize(uint32_t size) {
-//        size = size < 3 ? 0 : size - 3;
-//        return sizeof(NyString) + size;
-//    }
-//
-//    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-//
-//    DISALLOW_IMPLICIT_CONSTRUCTORS(NyString);
-//private:
-//    uint32_t hash_val_;
-//    uint32_t size_;
-//    char bytes_[4];
-//}; // class NyString
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Function and Codes

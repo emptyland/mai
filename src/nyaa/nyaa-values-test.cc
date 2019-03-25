@@ -68,6 +68,17 @@ TEST_F(NyaaValuesTest, TableAutoRehash) {
         ASSERT_EQ(v, value);
     }
 }
+    
+TEST_F(NyaaValuesTest, Smi) {
+    Object *val = NySmi::New(-1);
+    ASSERT_EQ(-1, val->ToSmi());
+    
+    val = NySmi::New(NySmi::kMaxValue);
+    ASSERT_EQ(NySmi::kMaxValue, val->ToSmi());
+    
+    val = NySmi::New(NySmi::kMinValue);
+    ASSERT_EQ(NySmi::kMinValue, val->ToSmi());
+}
 
 } // namespace nyaa
     

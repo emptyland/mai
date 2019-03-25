@@ -37,11 +37,11 @@ public:
     
 //--------------------------------------------------------------------------------------------------
 // [Integer]
-class Integral final {
+class Integer final {
 public:
     static Handle<Value> New(Nyaa *N, int64_t val);
     
-}; // class Integral
+}; // class Integer
 
 
 //--------------------------------------------------------------------------------------------------

@@ -660,7 +660,7 @@ NyFunction::NyFunction(uint8_t n_params,
     N->heap()->BarrierWr(this, script);
 }
     
-int NyFunction::Call(Arguments *args, NyaaCore *N) { return N->main_thd()->Run(this, args); }
+int NyFunction::Call(Arguments *args, NyaaCore *N) { return N->curr_thd()->Run(this, args, -1); }
     
 int NyScript::Run(NyaaCore *N) { return N->main_thd()->Run(this); }
     

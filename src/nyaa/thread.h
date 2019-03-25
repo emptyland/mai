@@ -48,13 +48,13 @@ public:
 
     int Run(NyScript *entry, NyMap *env = nullptr);
     
-    int Run(NyFunction *fn, Arguments *args, NyMap *env = nullptr);
+    int Run(NyFunction *fn, Arguments *args, int n_accepts, NyMap *env = nullptr);
     
-    int Resume(Arguments *args, NyThread *prev);
+    int Resume(Arguments *args, NyMap *env = nullptr);
     
     //int Yield(Arguments *args);
 
-    void Push(Object *value, int n = 1);
+    void Push(Object *value, size_t n = 1);
     
     Object *Get(int i);
     
@@ -102,6 +102,7 @@ private:
     int CallFunction(NyFunction *fn, Object **base, int32_t n_params, int32_t n_accept);
     
     void InitStack(NyRunnable *callee, Object **bp, int n_accepts, NyMap *env);
+    void InitArgs(Arguments *args, int n_params, bool vargs);
     
     Object *NewPC(uint32_t pc) {
         uint64_t word = (static_cast<uint64_t>(pc) << 32) | 0x1u;
@@ -116,7 +117,7 @@ private:
     
     const NyArray *ConstPool() const;
     
-    int32_t ParseParam(const NyByteArray *bcbuf, uint32_t offset, int scale, bool *ok);
+    int32_t ParseInt32(const NyByteArray *bcbuf, uint32_t offset, int scale, bool *ok);
     
     NyaaCore *const owns_;
     TryCatch *catch_point_ = nullptr;

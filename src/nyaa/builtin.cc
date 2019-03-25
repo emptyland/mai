@@ -150,7 +150,7 @@ static int ThreadResume(Arguments *args, Nyaa *N) {
     Handle<NyThread> saved_thd(N->core()->curr_thd());
     N->core()->set_curr_thd(*thd);
     TryCatch try_catch(N->isolate());
-    int nret = thd->Resume(&params, *saved_thd);
+    int nret = thd->Resume(&params);
     N->core()->set_curr_thd(*saved_thd);
     if (try_catch.HasCaught()) {
         return Return(Handle<Value>(Object::kNil), try_catch.Message());

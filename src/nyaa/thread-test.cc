@@ -89,7 +89,7 @@ TEST_F(NyaaThreadTest, Calling) {
 static int CallingTest2(Local<Value> lhs, Local<Value> rhs, Nyaa *N) {
     int64_t result = lhs->AsInt() + rhs->AsInt();
     
-    return Return(Integral::New(N, result));
+    return Return(Integer::New(N, result));
 }
     
 TEST_F(NyaaThreadTest, Calling2) {

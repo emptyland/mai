@@ -110,10 +110,8 @@ int64_t Value::AsInt() const {
     return o->IsSmi() ? o->ToSmi() : 0;
 }
 
-/*static*/ Handle<Value> Integral::New(Nyaa *N, int64_t val) {
-    // TODO:
-    uintptr_t word = (val << 1) | 1u;
-    return Handle<Value>(reinterpret_cast<Value *>(word));
+/*static*/ Handle<Value> Integer::New(Nyaa *N, int64_t val) {
+    return Handle<Value>(reinterpret_cast<Value *>(NySmi::New(val)));
 }
 
 /*static*/ Handle<String> String::New(Nyaa *N, const char *s, size_t n) {
