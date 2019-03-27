@@ -43,10 +43,11 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     return ob;
 }
 
-/*virtual*/ NyTable *ObjectFactoryImpl::NewTable(uint32_t capacity, uint32_t seed, NyTable *base,
+/*virtual*/ NyTable *ObjectFactoryImpl::NewTable(size_t capacity, uint32_t seed, NyTable *base,
                                                  bool old) {
-    void *chunk = ::malloc(NyTable::RequiredSize(capacity));
-    auto ob = new (chunk) NyTable(seed, capacity);
+    DCHECK_LE(capacity, UINT32_MAX);
+    void *chunk = ::malloc(NyTable::RequiredSize(static_cast<uint32_t>(capacity)));
+    auto ob = new (chunk) NyTable(seed, static_cast<uint32_t>(capacity));
     ob->SetMetatable(core_->kmt_pool()->kTable, core_);
     if (base) {
         DCHECK_GT(capacity, base->capacity());
@@ -55,10 +56,11 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     return ob;
 }
 
-/*virtual*/ NyByteArray *ObjectFactoryImpl::NewByteArray(uint32_t capacity, NyByteArray *base,
+/*virtual*/ NyByteArray *ObjectFactoryImpl::NewByteArray(size_t capacity, NyByteArray *base,
                                                          bool old) {
-    void *chunk = ::malloc(NyByteArray::RequiredSize(capacity));
-    auto ob = new (chunk) NyByteArray(capacity);
+    DCHECK_LE(capacity, UINT32_MAX);
+    void *chunk = ::malloc(NyByteArray::RequiredSize(static_cast<uint32_t>(capacity)));
+    auto ob = new (chunk) NyByteArray(static_cast<uint32_t>(capacity));
     ob->SetMetatable(core_->kmt_pool()->kByteArray, core_);
     if (base) {
         DCHECK_GT(capacity, base->capacity());
@@ -67,10 +69,11 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     return ob;
 }
     
-/*virtual*/ NyInt32Array *ObjectFactoryImpl::NewInt32Array(uint32_t capacity, NyInt32Array *base,
+/*virtual*/ NyInt32Array *ObjectFactoryImpl::NewInt32Array(size_t capacity, NyInt32Array *base,
                                                            bool old) {
-    void *chunk = ::malloc(NyInt32Array::RequiredSize(capacity));
-    auto ob = new (chunk) NyInt32Array(capacity);
+    DCHECK_LE(capacity, UINT32_MAX);
+    void *chunk = ::malloc(NyInt32Array::RequiredSize(static_cast<uint32_t>(capacity)));
+    auto ob = new (chunk) NyInt32Array(static_cast<uint32_t>(capacity));
     ob->SetMetatable(core_->kmt_pool()->kInt32Array, core_);
     if (base) {
         DCHECK_GT(capacity, base->capacity());
@@ -79,9 +82,10 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     return ob;
 }
     
-/*virtual*/ NyArray *ObjectFactoryImpl::NewArray(uint32_t capacity, NyArray *base, bool old) {
-    void *chunk = ::malloc(NyArray::RequiredSize(capacity));
-    auto ob = new (chunk) NyArray(capacity);
+/*virtual*/ NyArray *ObjectFactoryImpl::NewArray(size_t capacity, NyArray *base, bool old) {
+    DCHECK_LE(capacity, UINT32_MAX);
+    void *chunk = ::malloc(NyArray::RequiredSize(static_cast<uint32_t>(capacity)));
+    auto ob = new (chunk) NyArray(static_cast<uint32_t>(capacity));
     ob->SetMetatable(core_->kmt_pool()->kArray, core_);
     if (base) {
         DCHECK_GT(capacity, base->capacity());
@@ -98,18 +102,26 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
 }
     
 /*virtual*/ NyFunction *ObjectFactoryImpl::NewFunction(size_t n_params, bool vargs,
-                                                       size_t max_stack_size, NyScript *script) {
+                                                       size_t max_stack_size, NyScript *script,
+                                                       size_t n_upvals, bool old) {
     DCHECK_LE(n_params, UINT8_MAX);
     DCHECK_LE(max_stack_size, UINT32_MAX);
-    auto ob = new NyFunction(static_cast<uint8_t>(n_params), vargs,
-                             static_cast<uint32_t>(max_stack_size), script, core_);
+    DCHECK_LE(n_upvals, UINT32_MAX);
+    void *chunk = ::malloc(NyFunction::RequiredSize(static_cast<uint32_t>(n_upvals)));
+    auto ob = new (chunk) NyFunction(static_cast<uint8_t>(n_params), vargs,
+                                     static_cast<uint32_t>(max_stack_size),
+                                     static_cast<uint32_t>(n_upvals),
+                                     script, core_);
     ob->SetMetatable(core_->kmt_pool()->kFunction, core_);
     return ob;
 }
     
-/*virtual*/ NyDelegated *ObjectFactoryImpl::NewDelegated(DelegatedKind kind, Address fp, bool old) {
-    void *chunk = ::malloc(sizeof(NyDelegated));
-    auto ob = new (chunk) NyDelegated(kind, fp);
+/*virtual*/
+NyDelegated *ObjectFactoryImpl::NewDelegated(DelegatedKind kind, Address fp, size_t n_upvals,
+                                             bool old) {
+    DCHECK_LE(n_upvals, UINT32_MAX);
+    void *chunk = ::malloc(NyDelegated::RequiredSize(static_cast<uint32_t>(n_upvals)));
+    auto ob = new (chunk) NyDelegated(kind, fp, static_cast<uint32_t>(n_upvals));
     ob->SetMetatable(core_->kmt_pool()->kDelegated, core_);
     return ob;
 }

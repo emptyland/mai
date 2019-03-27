@@ -43,21 +43,22 @@ public:
     
     virtual NyMap *NewMap(NyObject *maybe, uint64_t kid, bool linear, bool old = false) = 0;
     
-    virtual NyTable *NewTable(uint32_t capacity, uint32_t seed, NyTable *base = nullptr,
+    virtual NyTable *NewTable(size_t capacity, uint32_t seed, NyTable *base = nullptr,
                               bool old = false) = 0;
     
-    virtual NyByteArray *NewByteArray(uint32_t capacity, NyByteArray *base = nullptr,
+    virtual NyByteArray *NewByteArray(size_t capacity, NyByteArray *base = nullptr,
                                       bool old = false) = 0;
     
-    virtual NyInt32Array *NewInt32Array(uint32_t capacity, NyInt32Array *base = nullptr,
+    virtual NyInt32Array *NewInt32Array(size_t capacity, NyInt32Array *base = nullptr,
                                       bool old = false) = 0;
     
-    virtual NyArray *NewArray(uint32_t capacity, NyArray *base = nullptr, bool old = false) = 0;
+    virtual NyArray *NewArray(size_t capacity, NyArray *base = nullptr, bool old = false) = 0;
     
-    virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, bool old = false) = 0;
+    virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, size_t n_upvals = 0,
+                                      bool old = false) = 0;
     
     virtual NyFunction *NewFunction(size_t n_params, bool vargs, size_t max_stack_size,
-                                    NyScript *script) = 0;
+                                    NyScript *script, size_t n_upvals = 0, bool old = false) = 0;
     
     virtual NyScript *NewScript(NyString *file_name, NyInt32Array *file_info, NyByteArray *bcbuf,
                                 NyArray *const_pool) = 0;
@@ -79,34 +80,37 @@ public:
                   bool old = false);
     
     NyDelegated *NewDelegated(Handle<Value> (*fp)(Local<Value>, Local<String>, Nyaa *),
-                              bool old = false) {
-        return NewDelegated(kPropertyGetter, reinterpret_cast<Address>(fp), old);
+                              size_t n_upvals = 0, bool old = false) {
+        return NewDelegated(kPropertyGetter, reinterpret_cast<Address>(fp), n_upvals, old);
     }
     
     NyDelegated *NewDelegated(Handle<Value> (*fp)(Local<Value>, Local<String>, Local<Value>, Nyaa *),
+                              size_t n_upvals = 0, bool old = false) {
+        return NewDelegated(kPropertySetter, reinterpret_cast<Address>(fp), n_upvals, old);
+    }
+    
+    NyDelegated *NewDelegated(int (*fp)(Nyaa *), size_t n_upvals = 0, bool old = false) {
+        return NewDelegated(kArg0, reinterpret_cast<Address>(fp), n_upvals, old);
+    }
+    
+    NyDelegated *NewDelegated(int (*fp)(Local<Value>, Nyaa *), size_t n_upvals = 0,
                               bool old = false) {
-        return NewDelegated(kPropertySetter, reinterpret_cast<Address>(fp), old);
+        return NewDelegated(kArg1, reinterpret_cast<Address>(fp), n_upvals, old);
     }
     
-    NyDelegated *NewDelegated(int (*fp)(Nyaa *), bool old = false) {
-        return NewDelegated(kArg0, reinterpret_cast<Address>(fp), old);
-    }
-    
-    NyDelegated *NewDelegated(int (*fp)(Local<Value>, Nyaa *), bool old = false) {
-        return NewDelegated(kArg1, reinterpret_cast<Address>(fp), old);
-    }
-    
-    NyDelegated *NewDelegated(int (*fp)(Local<Value>, Local<Value>, Nyaa *), bool old = false) {
-        return NewDelegated(kArg2, reinterpret_cast<Address>(fp), old);
+    NyDelegated *NewDelegated(int (*fp)(Local<Value>, Local<Value>, Nyaa *),
+                              size_t n_upvals = 0, bool old = false) {
+        return NewDelegated(kArg2, reinterpret_cast<Address>(fp), n_upvals, old);
     }
     
     NyDelegated *NewDelegated(int (*fp)(Local<Value>, Local<Value>, Local<Value>, Nyaa *),
-                              bool old = false) {
-        return NewDelegated(kArg3, reinterpret_cast<Address>(fp), old);
+                              size_t n_upvals = 0, bool old = false) {
+        return NewDelegated(kArg3, reinterpret_cast<Address>(fp), n_upvals, old);
     }
     
-    NyDelegated *NewDelegated(int (*fp)(Arguments *, Nyaa *), bool old = false) {
-        return NewDelegated(kUniversal, reinterpret_cast<Address>(fp), old);
+    NyDelegated *NewDelegated(int (*fp)(Arguments *, Nyaa *), size_t n_upvals = 0,
+                              bool old = false) {
+        return NewDelegated(kUniversal, reinterpret_cast<Address>(fp), n_upvals, old);
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(ObjectFactory);

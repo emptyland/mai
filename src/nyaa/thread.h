@@ -14,6 +14,7 @@ class NyaaCore;
 class NyScript;
 class NyRunnable;
 class NyByteArray;
+class RootVisitor;
     
 class NyThread : public NyUDO {
 public:
@@ -65,6 +66,10 @@ public:
         DCHECK_GE(stack_tp_ - n, stack_bp());
         stack_tp_ -= n;
     }
+    
+    void IterateRoot(RootVisitor *visitor);
+    
+    constexpr size_t PlacedSize() const { return sizeof(*this); }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     

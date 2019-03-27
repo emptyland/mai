@@ -61,6 +61,18 @@ public:
 
 
 //--------------------------------------------------------------------------------------------------
+// [Result]
+class Result final : public Value {
+public:
+    Handle<Value> Get(size_t i) const;
+    
+    bool IsEmpty() const { return Length() == 0; }
+    
+    size_t Length() const;
+}; // class Result
+
+
+//--------------------------------------------------------------------------------------------------
 // [Script]
 class Script final : public Value {
 public:
@@ -68,7 +80,7 @@ public:
     
     static Handle<Script> Compile(Nyaa *N, FILE *fp);
     
-    int Run(Nyaa *N);
+    Handle<Result> Run(Nyaa *N);
 }; // class Script
 
     

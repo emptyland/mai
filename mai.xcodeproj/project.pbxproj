@@ -165,6 +165,7 @@
 		23CC114F21D71F49001665AC /* transaction-lock-mgr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */; };
 		23D2F6BC21F1C0A300A49B1A /* form-schema-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D2F6BB21F1C0A300A49B1A /* form-schema-test.cc */; };
 		23D2F6BE21F1CC2300A49B1A /* types.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D2F6BD21F1CC2300A49B1A /* types.cc */; };
+		23D9E0CA224B560800914076 /* visitors.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D9E0C9224B560800914076 /* visitors.cc */; };
 		23DE17EE21D07D6800479C23 /* libgflags.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E92187FAF200F9E855 /* libgflags.a */; };
 		23DE17EF21D07D6800479C23 /* libglog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 23B0E0E82187FAF200F9E855 /* libglog.a */; };
 		23DE180F21D088B000479C23 /* write-ahead-log.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */; };
@@ -493,6 +494,8 @@
 		23D2F6BB21F1C0A300A49B1A /* form-schema-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "form-schema-test.cc"; sourceTree = "<group>"; };
 		23D2F6BD21F1CC2300A49B1A /* types.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = types.cc; sourceTree = "<group>"; };
 		23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pipeline-queue.h"; sourceTree = "<group>"; };
+		23D9E0C8224B524D00914076 /* visitors.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = visitors.h; sourceTree = "<group>"; };
+		23D9E0C9224B560800914076 /* visitors.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = visitors.cc; sourceTree = "<group>"; };
 		23DB849E21F55D4B003AEDCB /* config.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
 		23DE17A521D07CD200479C23 /* benchmark */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = benchmark; sourceTree = BUILT_PRODUCTS_DIR; };
 		23DE17F021D07D9400479C23 /* benchmark-main.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "benchmark-main.cc"; sourceTree = "<group>"; };
@@ -732,6 +735,8 @@
 				23719D372240E2F20055D397 /* builtin.h */,
 				23719D382240E4860055D397 /* builtin.cc */,
 				23719D3F2242297F0055D397 /* bytecode.h */,
+				23D9E0C8224B524D00914076 /* visitors.h */,
+				23D9E0C9224B560800914076 /* visitors.cc */,
 			);
 			name = nyaa;
 			path = src/nyaa;
@@ -1350,6 +1355,7 @@
 				2343978A21F960A400512A37 /* evaluation.cc in Sources */,
 				2364B34021E451F9008519AE /* lru-cache-test.cc in Sources */,
 				2364B34121E451F9008519AE /* unordered-memory-table-test.cc in Sources */,
+				23D9E0CA224B560800914076 /* visitors.cc in Sources */,
 				2364B34221E451F9008519AE /* data-block-builder-test.cc in Sources */,
 				2364B34321E451F9008519AE /* filter-block-builder-test.cc in Sources */,
 				230D7ACC21FDE8890019F7BB /* evaluation-test.cc in Sources */,

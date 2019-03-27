@@ -3,6 +3,7 @@
 #include "nyaa/bytecode.h"
 #include "nyaa/nyaa-values.h"
 #include "nyaa/object-factory.h"
+#include "nyaa/visitors.h"
 #include "mai-lang/nyaa.h"
 #include "mai/env.h"
 
@@ -138,6 +139,17 @@ int NyThread::Resume(Arguments *args, NyThread *save, NyMap *env) {
     const NyByteArray *bcbuf = CurrentBC();
     return Run(bcbuf);
 }
+    
+void NyThread::IterateRoot(RootVisitor *visitor) {
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&entry_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&save_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&next_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&prev_));
+
+    visitor->VisitRootPointers(reinterpret_cast<Object **>(stack_),
+                               reinterpret_cast<Object **>(stack_tp_));
+}
+    
 
 /** fp                                           bp        tp
  *  +--------+--------+--------+--------+--------+---------+

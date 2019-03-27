@@ -131,6 +131,15 @@ size_t String::Length() const {
     return reinterpret_cast<const NyString *>(this)->size();
 }
     
+Handle<Value> Result::Get(size_t i) const {
+    auto core = reinterpret_cast<const NyArray *>(this);
+    return i >= core->size() ? Handle<Value>() : core->Get(i);
+}
+
+size_t Result::Length() const {
+    return reinterpret_cast<const NyArray *>(this)->size();
+}
+    
 /*static*/ Handle<Script> Script::Compile(Nyaa *N, Handle<String> source) {
     // TODO:
     return Handle<Script>::Null();
@@ -141,9 +150,9 @@ size_t String::Length() const {
     return Handle<Script>::Null();
 }
 
-int Script::Run(Nyaa *N) {
+Handle<Result> Script::Run(Nyaa *N) {
     // TODO:
-    return -1;
+    return Local<Result>();
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////

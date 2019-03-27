@@ -17,7 +17,8 @@ class NyString;
 class NyMap;
 class NyThread;
 class ObjectFactory;
-    
+class RootVisitor;
+
 struct BuiltinStrPool;
 struct BuiltinMetatablePool;
     
@@ -55,6 +56,8 @@ public:
     void ExitHandleScope();
     
     Address AdvanceHandleSlots(int n_slot);
+    
+    void IterateRoot(RootVisitor *visitor);
     
     HandleScope *current_handle_scope() const { return top_slot_->scope; }
     

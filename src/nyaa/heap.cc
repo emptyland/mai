@@ -1,5 +1,6 @@
 #include "nyaa/heap.h"
 #include "nyaa/nyaa-core.h"
+#include "nyaa/nyaa-values.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -23,8 +24,14 @@ std::tuple<NyObject *, Error> Heap::Allocate(size_t size, HeapArea kind) {
     return {nullptr, MAI_NOT_SUPPORTED("TODO:")};
 }
     
-void Heap::BarrierWr(NyObject *owns, Object *arg1, Object *arg2) {
-    // TODO:
+void Heap::BarrierWr(NyObject *host, Object *arg1, Object *arg2) {
+    if (arg1 != Object::kNil && arg1->IsObject()) {
+        // TODO:
+    }
+    
+    if (arg2 != Object::kNil && arg2->IsObject()) {
+        // TODO:
+    }
 }
 
 /*virtual*/ void *Heap::Allocate(size_t size, size_t /*alignment*/) {

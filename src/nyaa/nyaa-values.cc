@@ -14,42 +14,42 @@ namespace nyaa {
 
 /*static*/ Object *const Object::kNil = nullptr;
     
-static Object *CallBinaryMetaFunction(NyString *name, NyObject *lhs, Object *rhs, NyaaCore *N) {
-    Handle<NyRunnable> metafn(lhs->GetMetatable()->RawGet(name, N));
-    if (metafn.is_null()) {
-        N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
-        return nullptr;
-    }
-    Arguments args(2);
-    args.Set(0, Local<Value>::New(lhs));
-    args.Set(1, Local<Value>::New(rhs));
-    int rv = metafn->Apply(&args, N);
-    if (rv < 0) {
-        return nullptr;
-    }
-    
-    Handle<Object> result(N->Get(-rv));
-    N->Pop(rv);
-    return *result;
-}
-    
-static Object *CallUnaryMetaFunction(NyString *name, NyObject *lhs, NyaaCore *N) {
-    Handle<NyRunnable> metafn(lhs->GetMetatable()->RawGet(name, N));
-    if (metafn.is_null()) {
-        N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
-        return nullptr;
-    }
-    Arguments args(1);
-    args.Set(0, Local<Value>::New(lhs));
-    int rv = metafn->Apply(&args, N);
-    if (rv < 0) {
-        return nullptr;
-    }
-    
-    Handle<Object> result(N->Get(-rv));
-    N->Pop(rv);
-    return *result;
-}
+//static Object *CallBinaryMetaFunction(NyString *name, NyObject *lhs, Object *rhs, NyaaCore *N) {
+//    Handle<NyRunnable> metafn(lhs->GetMetatable()->RawGet(name, N));
+//    if (metafn.is_null()) {
+//        N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
+//        return nullptr;
+//    }
+//    Arguments args(2);
+//    args.Set(0, Local<Value>::New(lhs));
+//    args.Set(1, Local<Value>::New(rhs));
+//    int rv = metafn->Apply(&args, N);
+//    if (rv < 0) {
+//        return nullptr;
+//    }
+//
+//    Handle<Object> result(N->Get(-rv));
+//    N->Pop(rv);
+//    return *result;
+//}
+//
+//static Object *CallUnaryMetaFunction(NyString *name, NyObject *lhs, NyaaCore *N) {
+//    Handle<NyRunnable> metafn(lhs->GetMetatable()->RawGet(name, N));
+//    if (metafn.is_null()) {
+//        N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
+//        return nullptr;
+//    }
+//    Arguments args(1);
+//    args.Set(0, Local<Value>::New(lhs));
+//    int rv = metafn->Apply(&args, N);
+//    if (rv < 0) {
+//        return nullptr;
+//    }
+//
+//    Handle<Object> result(N->Get(-rv));
+//    N->Pop(rv);
+//    return *result;
+//}
     
 bool Object::IsKey(NyaaCore *N) const {
     if (IsSmi()) {
@@ -220,10 +220,29 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) {
         default:
             break;
     }
+
+    DLOG(FATAL) << "Noreached!";
+    return false;
+//    HandleScope scope(N->isolate());
+//    Handle<Object> result = CallBinaryMetaFunction(N->bkz_pool()->kInnerEq, this, rhs, N);
+//    return result->IsTrue();
+}
     
-    HandleScope scope(N->isolate());
-    Handle<Object> result = CallBinaryMetaFunction(N->bkz_pool()->kInnerEq, this, rhs, N);
-    return result->IsTrue();
+size_t NyObject::PlacedSize() const {
+    size_t bytes = 0;
+    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+#define DEFINE_PLACED_SIZE(type) \
+    case kType##type: \
+        bytes = static_cast<const Ny##type *>(this)->PlacedSize();
+            
+        DECL_BUILTIN_TYPES(DEFINE_PLACED_SIZE)
+#undef DEFINE_PLACED_SIZE
+        default: { // UDOs
+            DCHECK_GT(GetMetatable()->kid(), kUdoKidBegin);
+            DLOG(FATAL) << "TODO:";
+        } break;
+    }
+    return RoundUp(bytes, kAllocateAlignmentSize);
 }
     
 Object *NyObject::Add(Object *rhs, NyaaCore *N) {
@@ -245,7 +264,9 @@ Object *NyObject::Add(Object *rhs, NyaaCore *N) {
         default:
             break;
     }
-    return CallBinaryMetaFunction(N->bkz_pool()->kInnerAdd, this, rhs, N);
+    DLOG(FATAL) << "Noreached!";
+    return nullptr;
+    //return CallBinaryMetaFunction(N->bkz_pool()->kInnerAdd, this, rhs, N);
 }
     
 NyString *NyObject::ToString(NyaaCore *N) {
@@ -264,12 +285,8 @@ NyString *NyObject::ToString(NyaaCore *N) {
         default:
             break;
     }
-    Handle<Object> result = CallUnaryMetaFunction(N->bkz_pool()->kInnerStr, this, N);
-    if (result->IsSmi() || !result->ToHeapObject()->IsString()) {
-        N->Raisef("`__str__' meta function return not string.");
-        return nullptr;
-    }
-    return static_cast<NyString *>(*result);
+    DLOG(FATAL) << "Noreached!";
+    return nullptr;
 }
     
 Object *NyFloat64::Add(Object *rhs, NyaaCore *N) const {
@@ -648,16 +665,29 @@ int NyRunnable::Apply(Arguments *args, NyaaCore *N) {
     return -1;
 }
     
+void NyDelegated::Bind(int i, Object *upval, NyaaCore *N) {
+    N->heap()->BarrierWr(this, upval);
+    upvals_[i] = upval;
+}
+    
 NyFunction::NyFunction(uint8_t n_params,
                        bool vargs,
                        uint32_t max_stack_size,
+                       uint32_t n_upvals,
                        NyScript *script,
                        NyaaCore *N)
     : n_params_(n_params)
     , vargs_(vargs)
     , max_stack_size_(max_stack_size)
+    , n_upvals_(n_upvals)
     , script_(script) {
     N->heap()->BarrierWr(this, script);
+    ::memset(upvals_, 0, sizeof(n_upvals) * sizeof(Object *));
+}
+    
+void NyFunction::Bind(int i, Object *upval, NyaaCore *N) {
+    N->heap()->BarrierWr(this, upval);
+    upvals_[i] = upval;
 }
     
 int NyFunction::Call(Arguments *args, NyaaCore *N) { return N->curr_thd()->Run(this, args, -1); }

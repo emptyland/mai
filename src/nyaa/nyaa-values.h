@@ -123,12 +123,14 @@ public:
     bool is_direct() const { return !is_forward(); }
     
     NyMap *GetMetatable() const {
-//        const NyObject *addr = is_forward() ? static_cast<const NyObject *>(forward_address()) : this;
         DCHECK_EQ(mtword_ % 4, 0);
         return reinterpret_cast<NyMap *>(mtword_);
     }
     
     void SetMetatable(NyMap *mt, NyaaCore *N);
+    
+    // Real size in heap.
+    size_t PlacedSize() const;
     
     bool Equals(Object *rhs, NyaaCore *N);
     
@@ -185,6 +187,8 @@ public:
         return static_cast<uint32_t>(bits * bits >> 16);
     }
     
+    constexpr size_t PlacedSize() const { return sizeof(*this); }
+    
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyFloat64);
@@ -221,6 +225,12 @@ public:
     
     static int Compare(const NyLong *lhs, const NyLong *rhs);
     
+    size_t PlacedSize() const { return RequiredSize(capacity_); }
+    
+    static size_t RequiredSize(uint32_t capacity) {
+        return sizeof(NyLong) + sizeof(uint32_t) * (capacity < 2 ? 0 : capacity);
+    }
+    
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyLong);
@@ -247,6 +257,8 @@ public:
     void RawPut(Object *key, Object *value, NyaaCore *N);
     
     Object *RawGet(Object *key, NyaaCore *N);
+    
+    constexpr size_t PlacedSize() const { return sizeof(*this); }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
@@ -275,6 +287,8 @@ public:
     Object *Get(Object *key, NyaaCore *N);
     
     NyTable *Rehash(NyTable *origin, NyaaCore *N);
+    
+    size_t PlacedSize() const { return RequiredSize(capacity_); }
 
     static size_t RequiredSize(uint32_t capacity) {
         return sizeof(NyTable) + sizeof(Entry) * capacity;
@@ -339,6 +353,8 @@ public:
         ::memcpy(elems_, base->elems_, base->size() * sizeof(T));
         size_ = base->size();
     }
+    
+    inline size_t PlacedSize() const { return RequiredSize(capacity_); }
 
     inline static size_t RequiredSize(uint32_t capacity) {
         return RoundUp(sizeof(NyArrayBase<T>) + sizeof(T) * capacity, kAllocateAlignmentSize);
@@ -365,6 +381,7 @@ public:
     }
     
     using NyArrayBase<Byte>::Get;
+    using NyArrayBase<Byte>::PlacedSize;
     using NyArrayBase<Byte>::RequiredSize;
     using NyArrayBase<Byte>::Refill;
     using NyArrayBase<Byte>::elems_;
@@ -406,6 +423,8 @@ public:
     
     Object *TryNumeric(NyaaCore *N) const;
     
+    using NyByteArray::PlacedSize;
+    
     static size_t RequiredSize(uint32_t size) {
         return RoundUp(sizeof(NyString) + sizeof(uint32_t) + size + 1, kAllocateAlignmentSize);
     }
@@ -427,6 +446,7 @@ public:
 
     using NyArrayBase<int32_t>::Get;
     using NyArrayBase<int32_t>::Refill;
+    using NyArrayBase<int32_t>::PlacedSize;
     using NyArrayBase<int32_t>::RequiredSize;
 
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
@@ -445,6 +465,7 @@ public:
     
     using NyArrayBase<Object *>::Get;
     using NyArrayBase<Object *>::Refill;
+    using NyArrayBase<Object *>::PlacedSize;
     using NyArrayBase<Object *>::RequiredSize;
     
     void Refill(const NyArray *base, NyaaCore *N);
@@ -473,16 +494,32 @@ public:
     NyFunction(uint8_t n_params,
                bool vargs,
                uint32_t max_stack_size,
+               uint32_t n_upvals,
                NyScript *script,
                NyaaCore *N);
     
     DEF_VAL_GETTER(uint8_t, n_params);
     DEF_VAL_GETTER(bool, vargs);
     DEF_VAL_GETTER(uint32_t, max_stack_size);
+    DEF_VAL_GETTER(uint32_t, n_upvals);
     DEF_PTR_GETTER(NyScript, script);
     DEF_VAL_GETTER(uint64_t, call_count);
+
+    Object *upval(int i) const {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, n_upvals_);
+        return upvals_[i];
+    }
+    
+    void Bind(int i, Object *upval, NyaaCore *N);
     
     int Call(Arguments *, NyaaCore *N);
+    
+    size_t PlacedSize() const { return RequiredSize(n_upvals_); }
+    
+    static size_t RequiredSize(uint32_t n_upvals) {
+        return sizeof(NyFunction) + n_upvals * sizeof(Object *);
+    }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
@@ -491,8 +528,10 @@ private:
     uint8_t n_params_;
     bool vargs_;
     uint32_t max_stack_size_;
-    NyScript *script_; // [strong ref]
+    uint32_t n_upvals_;
     uint64_t call_count_ = 0;
+    NyScript *script_; // [strong ref]
+    Object *upvals_[0]; // [strong ref], MUST BE TAIL
 }; // class NyCallable
     
 
@@ -510,6 +549,8 @@ public:
     DEF_PTR_GETTER(NyArray, const_pool);
     
     int Run(NyaaCore *N);
+
+    constexpr size_t PlacedSize() const { return sizeof(*this); }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
@@ -533,8 +574,22 @@ public:
     using Arg3FP = int (*)(Local<Value>, Local<Value>, Local<Value>, Nyaa *);
     using UniversalFP = int (*)(Arguments *, Nyaa *);
     
-    NyDelegated(Kind kind, Address fp)
-        : kind_(kind), stub_(static_cast<void *>(fp)) {}
+    NyDelegated(Kind kind, Address fp, uint32_t n_upvals)
+        : kind_(kind)
+        , stub_(static_cast<void *>(fp))
+        , n_upvals_(n_upvals) {
+        ::memset(upvals_, 0, sizeof(n_upvals) * sizeof(Object *));
+    }
+    
+    DEF_VAL_GETTER(uint32_t, n_upvals);
+    
+    Object *upval(int i) const {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, n_upvals_);
+        return upvals_[i];
+    }
+    
+    void Bind(int i, Object *upval, NyaaCore *N);
     
     int Call(Arguments *, NyaaCore *N);
     
@@ -543,10 +598,17 @@ public:
     Address fp_addr() { return static_cast<Address>(stub_); }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    
+    size_t PlacedSize() const { return RequiredSize(n_upvals_); }
+    
+    static size_t RequiredSize(uint32_t n_upvals) {
+        return sizeof(NyDelegated) + n_upvals * sizeof(Object *);
+    }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyDelegated);
 private:
     Kind kind_;
+    uint32_t n_upvals_;
     union {
         PropertyGetterFP getter_;
         PropertySetterFP setter_;
@@ -557,6 +619,7 @@ private:
         UniversalFP calln_;
         void *stub_;
     };
+    Object *upvals_[0]; // [strong ref], MUST BE TAIL
 }; // class NyFunction
 
     

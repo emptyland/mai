@@ -4,6 +4,7 @@
 #include "nyaa/heap.h"
 #include "nyaa/object-factory-impl.h"
 #include "nyaa/builtin.h"
+#include "nyaa/visitors.h"
 #include "base/slice.h"
 #include "mai-lang/nyaa.h"
 #include "mai/allocator.h"
@@ -175,6 +176,20 @@ Address NyaaCore::AdvanceHandleSlots(int n_slots) {
     auto slot_addr = slot->end;
     slot->end += size;
     return slot_addr;
+}
+    
+void NyaaCore::IterateRoot(RootVisitor *visitor) {
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&g_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&main_thd_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&curr_thd_));
+
+    for (auto thd = main_thd_->next_; thd != main_thd_; thd = thd->next_) {
+        thd->IterateRoot(visitor);
+    }
+    for (auto slot = top_slot_; slot != nullptr; slot = slot->prev) {
+        visitor->VisitRootPointers(reinterpret_cast<Object **>(slot->base),
+                                   reinterpret_cast<Object **>(slot->end));
+    }
 }
     
 void NyaaCore::InsertThread(NyThread *thd) {
