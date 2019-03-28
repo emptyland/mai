@@ -43,6 +43,21 @@ public:
         }
     }
     
+    virtual Error SetAccess(void *chunk, size_t size, int access) override {
+        int flags = 0;
+        if (access == 0) {
+            flags = PROT_NONE;
+        } else {
+            flags |= (access & kRd) ? PROT_READ  : 0;
+            flags |= (access & kWr) ? PROT_WRITE : 0;
+            flags |= (access & kEx) ? PROT_EXEC  : 0;
+        }
+        if (::mprotect(chunk, size, flags) < 0) {
+            return MAI_CORRUPTION(strerror(errno));
+        }
+        return Error::OK();
+    }
+    
     virtual size_t granularity() override { return page_size_; }
     
 private:

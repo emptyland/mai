@@ -12,6 +12,7 @@ class Nyaa;
 class Isolate;
 class HandleScope;
 class Heap;
+class NyObject;
 class Object;
 class NyString;
 class NyMap;
@@ -57,6 +58,13 @@ public:
     
     Address AdvanceHandleSlots(int n_slot);
     
+    template<class T, class V>
+    inline V *BarrierWr(NyObject *host, T **pzwr, V *val) {
+        T *test = val;
+        InternalBarrierWr(host, reinterpret_cast<Object **>(pzwr), test);
+        return val;
+    }
+
     void IterateRoot(RootVisitor *visitor);
     
     HandleScope *current_handle_scope() const { return top_slot_->scope; }
@@ -75,14 +83,16 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyaaCore);
 private:
+    void InternalBarrierWr(NyObject *host, Object **pzwr, Object *val);
+    
     Nyaa *const stub_;
     Allocator *const page_alloc_;
     Heap *const heap_;
     ObjectFactory *const factory_;
     HandleScopeSlot *top_slot_;
     
-    std::unique_ptr<BuiltinStrPool> bkz_pool_;
-    std::unique_ptr<BuiltinMetatablePool> kmt_pool_;
+    std::unique_ptr<BuiltinStrPool> bkz_pool_; // [strong ref]
+    std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // [strong ref]
 
     NyMap *g_; // [strong ref]
     NyThread *main_thd_; // [strong ref]

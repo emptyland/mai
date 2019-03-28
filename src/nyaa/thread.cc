@@ -12,8 +12,7 @@ namespace mai {
 namespace nyaa {
 
 NyThread::NyThread(NyaaCore *owns)
-    : NyUDO(&UDOFinalizeDtor<NyThread>)
-    , owns_(DCHECK_NOTNULL(owns)) {
+    : owns_(DCHECK_NOTNULL(owns)) {
 }
 
 NyThread::~NyThread() {

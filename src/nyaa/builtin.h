@@ -63,7 +63,7 @@ struct BuiltinStrPool {
     
 extern const char *kRawBuiltinKzs[];
 extern const size_t kRawBuiltinKzsSize;
-    
+
 // All [strong ref]
 struct BuiltinMetatablePool {
 #define DEFINE_METATABLE(type) NyMap *k##type = nullptr;
@@ -74,6 +74,8 @@ struct BuiltinMetatablePool {
 private:
     Error Boot(NyaaCore *N);
 }; // struct BuiltinMetatablePool
+    
+extern const size_t kRawBuiltinkmtSize;
     
 enum DelegatedKind : int {
     kPropertyGetter,

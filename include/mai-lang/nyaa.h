@@ -39,6 +39,7 @@ public:
     ~Nyaa();
     
     int init_thread_stack_size() const { return init_thread_stack_size_; }
+    int major_area_initial_size() const { return major_area_initial_size_; }
     
     Core *core() const { return core_.get(); }
     

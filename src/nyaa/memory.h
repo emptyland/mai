@@ -8,15 +8,21 @@ namespace mai {
     
 namespace nyaa {
     
-enum HeapArea : int {
-    SEMI_SPACE,
-    NEW_SPACE,
-    OLD_SPACE,
-    CODE_SPACE,
-    LARGE_SPACE,
+enum HeapSpace : int {
+    kSemiSpace,
+    kNewSpace,
+    kOldSpace,
+    kCodeSpace,
+    kLargeSpace,
 };
     
-static const size_t kAllocateAlignmentSize = kPointerSize;
+static constexpr const int kPageShift = 20;
+static constexpr const size_t kAligmentSize = 4;
+static constexpr const size_t kAllocateAlignmentSize = kPointerSize;
+static constexpr const size_t kPageSize = 1u << kPageShift;
+static constexpr const size_t kLargePageThreshold = kPageSize >> 1;
+    
+static constexpr const int kAllocateRetries = 16;
     
 static const size_t kLargeStringLength = 1024;
     

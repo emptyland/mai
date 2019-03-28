@@ -628,23 +628,15 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class NyUDO : public NyObject {
 public:
-    using FinalizeFP = void (*)(Nyaa *, NyUDO *);
-    
-    explicit NyUDO(FinalizeFP fzfp) : fzfp_(fzfp) {}
-    
-    Object *GetField(NyString *name);
-    
-    bool SetField(NyString *name, Object *value, NyaaCore *N);
-    
-    DEF_VAL_PROP_RW(FinalizeFP, fzfp);
-    
+    NyUDO() {}
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyUDO);
 private:
-    FinalizeFP fzfp_;
+    Object *fields_[0];
 }; // class NyUDO
 
-template<class T>
-void UDOFinalizeDtor(Nyaa *, NyUDO *udo) { static_cast<T *>(udo)->~T(); }
+//template<class T>
+//void UDOFinalizeDtor(Nyaa *, NyUDO *udo) { static_cast<T *>(udo)->~T(); }
 
 #define DECL_TYPE_CHECK(type) inline bool NyObject::Is##type() const { \
         return GetMetatable()->kid() == kType##type; \

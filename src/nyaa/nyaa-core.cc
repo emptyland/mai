@@ -46,7 +46,7 @@ Error NyaaCore::Boot() {
         return rs;
     }
     
-    NyString **pool_a = &bkz_pool_->kInnerInit;
+    NyString **pool_a = reinterpret_cast<NyString **>(bkz_pool_.get());
     for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
         pool_a[i] = factory_->NewString(kRawBuiltinKzs[i]);
     }
@@ -182,6 +182,12 @@ void NyaaCore::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&g_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&main_thd_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&curr_thd_));
+    
+    Object **pool_a = reinterpret_cast<Object **>(bkz_pool_.get());
+    visitor->VisitRootPointers(pool_a, pool_a + kRawBuiltinKzsSize);
+
+    pool_a = reinterpret_cast<Object **>(kmt_pool_.get());
+    visitor->VisitRootPointers(pool_a, pool_a + kRawBuiltinkmtSize);
 
     for (auto thd = main_thd_->next_; thd != main_thd_; thd = thd->next_) {
         thd->IterateRoot(visitor);
@@ -207,6 +213,10 @@ void NyaaCore::RemoveThread(NyThread *thd) {
     thd->next_ = nullptr;
     thd->prev_ = nullptr;
 #endif
+}
+    
+void NyaaCore::InternalBarrierWr(NyObject *host, Object **pzwr, Object *val) {
+    heap_->BarrierWr(host, pzwr, val);
 }
     
 } // namespace nyaa

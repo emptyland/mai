@@ -169,7 +169,7 @@ void NyObject::SetMetatable(NyMap *mt, NyaaCore *N) {
     if (mt == Object::kNil) {
         return; // ignore
     }
-    N->heap()->BarrierWr(this, mt);
+    N->heap()->BarrierWr(this, reinterpret_cast<Object **>(&mtword_), mt);
     mtword_ = reinterpret_cast<uintptr_t>(mt);
 }
 
@@ -367,19 +367,24 @@ NyString *NyLong::ToString(NyaaCore *N) const {
 }
     
 NyMap::NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N)
-    : generic_(DCHECK_NOTNULL(maybe))
+    : generic_(maybe)
     , kid_(kid)
     , linear_(linear) {
     //DCHECK(maybe->IsArray() || maybe->IsTable());
-    N->heap()->BarrierWr(this, maybe);
+    N->BarrierWr(this, &generic_, maybe);
     DCHECK_LE(kid, 0x00ffffffffffffffull);
 }
     
 uint32_t NyMap::Length() const { return linear_ ? array_->size() : table_->size(); }
     
 void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
+    NyObject *old = generic_;
+    
     if (!linear_) {
         table_ = table_->Put(key, value, N);
+        if (generic_ != old) {
+            N->BarrierWr(this, &generic_, generic_);
+        }
         return;
     }
     
@@ -394,7 +399,6 @@ void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
         should_table = linear_;
     }
 
-    NyObject *old = generic_;
     if (should_table) {
         HandleScope scope(N->isolate());
         Handle<NyTable> table(N->factory()->NewTable(array_->capacity(), rand()));
@@ -414,7 +418,7 @@ void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
         table_ = table_->Put(key, value, N);
     }
     if (generic_ != old) {
-        N->heap()->BarrierWr(this, generic_);
+        N->BarrierWr(this, &generic_, generic_);
     }
 }
 
@@ -517,15 +521,19 @@ bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
         if (p) {
             p->value = value;
         } else {
-            if (p == slot || slot->value == nullptr) {
+            if (p == slot || slot->value == Object::kNil) {
+                N->BarrierWr(this, &slot->key, key);
                 slot->key = key;
+                N->BarrierWr(this, &slot->value, value);
                 slot->value = value;
             } else {
                 Entry *n = free_;
                 free_ = free_->next;
                 DCHECK_EQ(kFree, n->kind);
                 n->kind = kNode;
+                N->BarrierWr(this, &n->key, key);
                 n->key = key;
+                N->BarrierWr(this, &n->value, value);
                 n->value = value;
                 n->next = nullptr;
                 prev->next = n;
@@ -535,8 +543,10 @@ bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
     } else {
         if (p) {
             if (p == slot) {
-                p->key = nullptr;
-                p->value = nullptr;
+                N->BarrierWr(this, &p->key, Object::kNil);
+                p->key = Object::kNil;
+                N->BarrierWr(this, &p->value, Object::kNil);
+                p->value = Object::kNil;
             } else {
                 prev->next = p->next;
                 p->kind = kFree;
@@ -546,8 +556,6 @@ bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
             --size_;
         }
     }
-    //printf("slot: %p, key: %p\n", slot, slot->key);
-    N->heap()->BarrierWr(this, key, value);
     return p != nullptr;
 }
 
@@ -612,7 +620,7 @@ NyArray *NyArray::Put(int64_t key, Object *value, NyaaCore *N) {
         ob = N->factory()->NewArray(new_cap, this);
     }
 
-    N->heap()->BarrierWr(this, value);
+    N->BarrierWr(this, ob->elems_ + key, value);
     ob->elems_[key] = value;
     
     if (key > size()) {
@@ -627,7 +635,7 @@ NyArray *NyArray::Add(Object *value, NyaaCore *N) {
         ob = N->factory()->NewArray(capacity_ << 1, this);
     }
 
-    N->heap()->BarrierWr(this, value);
+    N->BarrierWr(this, ob->elems_ + size_, value);
     ob->elems_[size_++] = value;
     
     return ob;
@@ -635,18 +643,20 @@ NyArray *NyArray::Add(Object *value, NyaaCore *N) {
     
 void NyArray::Refill(const NyArray *base, NyaaCore *N) {
     for (int64_t i = 0; i < base->size(); ++i) {
-        N->heap()->BarrierWr(this, base->Get(i));
+        N->BarrierWr(this, elems_ + i, base->Get(i));
     }
     NyArrayBase<Object*>::Refill(base);
 }
     
 NyScript::NyScript(NyString *file_name, NyInt32Array *file_info, NyByteArray *bcbuf,
                    NyArray *const_pool, NyaaCore *N) {
-    N->heap()->BarrierWr(this, file_name, file_info);
-    N->heap()->BarrierWr(this, bcbuf    , const_pool);
+    N->BarrierWr(this, &bcbuf_, bcbuf);
     bcbuf_      = DCHECK_NOTNULL(bcbuf);
+    N->BarrierWr(this, &const_pool_, const_pool);
     const_pool_ = const_pool;
+    N->BarrierWr(this, &file_name_, file_name);
     file_name_  = file_name;
+    N->BarrierWr(this, &file_info_, file_info);
     file_info_  = file_info;
 }
     
@@ -666,7 +676,9 @@ int NyRunnable::Apply(Arguments *args, NyaaCore *N) {
 }
     
 void NyDelegated::Bind(int i, Object *upval, NyaaCore *N) {
-    N->heap()->BarrierWr(this, upval);
+    DCHECK_GE(i, 0);
+    DCHECK_LT(i, n_upvals_);
+    N->BarrierWr(this, upvals_ + i, upval);
     upvals_[i] = upval;
 }
     
@@ -681,12 +693,14 @@ NyFunction::NyFunction(uint8_t n_params,
     , max_stack_size_(max_stack_size)
     , n_upvals_(n_upvals)
     , script_(script) {
-    N->heap()->BarrierWr(this, script);
+    N->BarrierWr(this, &script_, script);
     ::memset(upvals_, 0, sizeof(n_upvals) * sizeof(Object *));
 }
     
 void NyFunction::Bind(int i, Object *upval, NyaaCore *N) {
-    N->heap()->BarrierWr(this, upval);
+    DCHECK_GE(i, 0);
+    DCHECK_LT(i, n_upvals_);
+    N->BarrierWr(this, upvals_ + i, upval);
     upvals_[i] = upval;
 }
     

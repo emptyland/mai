@@ -129,7 +129,7 @@ NyDelegated *ObjectFactoryImpl::NewDelegated(DelegatedKind kind, Address fp, siz
 /*virtual*/ NyUDO *ObjectFactoryImpl::NewUninitializedUDO(size_t size, NyMap *clazz, bool old) {
     DCHECK_GE(size, sizeof(NyUDO));
     void *chunk = ::malloc(size);
-    auto ob = new (chunk) NyUDO(nullptr);
+    auto ob = new (chunk) NyUDO();
     ob->SetMetatable(clazz, core_);
     return ob;
 }

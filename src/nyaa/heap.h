@@ -4,6 +4,7 @@
 #include "nyaa/memory.h"
 #include "base/arena.h"
 #include "mai/error.h"
+#include <unordered_map>
 
 namespace mai {
     
@@ -23,9 +24,13 @@ public:
     
     Error Prepare();
     
-    std::tuple<NyObject *, Error> Allocate(size_t size, HeapArea kind);
+    NyObject *Allocate(size_t size, HeapSpace space);
     
-    void BarrierWr(NyObject *owns, Object *arg1, Object *arg2 = nullptr);
+    HeapSpace Contains(NyObject *ob);
+    bool InNewArea(NyObject *ob);
+    bool InOldArea(NyObject *ob) { return InNewArea(ob); }
+    
+    void BarrierWr(NyObject *host, Object **pzwr, Object *val);
     
     virtual void *Allocate(size_t size, size_t) override;
     virtual void Purge(bool reinit) override;
@@ -34,11 +39,20 @@ public:
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
 private:
+    struct WriteEntry {
+        WriteEntry *next;
+        NyObject   *host; // in old space
+        NyObject  **pzwr; // in new space
+    };
+    
     NyaaCore *const owns_;
     NewSpace *new_space_ = nullptr;
     OldSpace *old_space_ = nullptr;
     OldSpace *code_space_ = nullptr;
     LargeSpace *large_space_ = nullptr;
+    
+    std::unordered_map<Address, WriteEntry *> old_to_new_;
+    //WriteEntry *wrbuf_ = nullptr;
 }; // class Heap
     
 } // namespace nyaa
