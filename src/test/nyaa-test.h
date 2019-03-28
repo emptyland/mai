@@ -10,13 +10,17 @@ namespace test {
 
 class NyaaTest : public ::testing::Test {
 public:
-    NyaaTest() : isolate_(nyaa::Isolate::New()) {}
+    NyaaTest() : isolate_(isolate_ = nyaa::Isolate::New()) {}
     
     ~NyaaTest() override { isolate_->Dispose(); }
     
-    void SetUp() override { isolate_->Enter(); }
+    void SetUp() override {
+        isolate_->Enter();
+    }
     
-    void TearDown() override { isolate_->Exit(); }
+    void TearDown() override {
+        isolate_->Exit();
+    }
     
     nyaa::Isolate *isolate_;
 };

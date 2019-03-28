@@ -60,12 +60,12 @@ static void *PageAllocate(size_t size, size_t alignment, Allocator *lla) {
     }
     DCHECK_EQ(reinterpret_cast<uintptr_t>(chunk) % kPageSize, 0);
 
-    DbgFillInitZag(chunk, kPageSize);
-    auto rs = lla->SetAccess(chunk, requried_size, access);
-    if (!rs) {
-        DLOG(ERROR) << rs.ToString();
-        return nullptr; // Failed!
-    }
+    //DbgFillInitZag(chunk, kPageSize);
+//    auto rs = lla->SetAccess(chunk, requried_size, access);
+//    if (!rs) {
+//        DLOG(ERROR) << rs.ToString();
+//        return nullptr; // Failed!
+//    }
     return new (chunk) Page(space, static_cast<uint32_t>(requried_size));
 }
     

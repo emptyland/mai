@@ -47,10 +47,11 @@ Error NyaaCore::Boot() {
     }
     
     NyString **pool_a = reinterpret_cast<NyString **>(bkz_pool_.get());
+    //NyString **pool_a = &bkz_pool_->kInnerInit;
     for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
         pool_a[i] = factory_->NewString(kRawBuiltinKzs[i]);
     }
-    
+
     rs = kmt_pool_->Boot(this);
     if (!rs) {
         return rs;

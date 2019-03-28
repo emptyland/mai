@@ -94,9 +94,9 @@ private:
     std::unique_ptr<BuiltinStrPool> bkz_pool_; // [strong ref]
     std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // [strong ref]
 
-    NyMap *g_; // [strong ref]
-    NyThread *main_thd_; // [strong ref]
-    NyThread *curr_thd_; // [strong ref]
+    NyMap *g_ = nullptr; // [strong ref]
+    NyThread *main_thd_ = nullptr; // [strong ref]
+    NyThread *curr_thd_ = nullptr; // [strong ref]
 };
     
 } // namespace nyaa

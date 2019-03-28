@@ -215,6 +215,7 @@
 		23DE184421D08A3600479C23 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
 		23DE184521D08AB100479C23 /* benchmark-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DE17F021D07D9400479C23 /* benchmark-main.cc */; };
 		23DE184621D08AB800479C23 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
+		23E82BC2224CCC4D00BC910B /* spaces-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E82BC1224CCC4D00BC910B /* spaces-test.cc */; };
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
 		23F6A03122266E1A00AE5DB6 /* decimal-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02E22266E1900AE5DB6 /* decimal-v1.cc */; };
 		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
@@ -506,6 +507,7 @@
 		23DE17FB21D0887700479C23 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		23E40C0A21CB3C3A00B04858 /* block-cache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-cache.h"; sourceTree = "<group>"; };
 		23E40C0B21CB416600B04858 /* block-cache.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-cache.cc"; sourceTree = "<group>"; };
+		23E82BC1224CCC4D00BC910B /* spaces-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "spaces-test.cc"; path = "src/nyaa/spaces-test.cc"; sourceTree = "<group>"; };
 		23F0742521D1D209009D8EAA /* transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db-test.cc"; sourceTree = "<group>"; };
 		23F60601219BBE9600CE12D9 /* write-batch.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch.cc"; sourceTree = "<group>"; };
 		23F60604219BC3DA00CE12D9 /* db-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-impl.h"; sourceTree = "<group>"; };
@@ -714,6 +716,7 @@
 				23A9D769223D2D20006CD82B /* handles-test.cc */,
 				23719D35223FA3110055D397 /* nyaa-values-test.cc */,
 				23719D422242318F0055D397 /* thread-test.cc */,
+				23E82BC1224CCC4D00BC910B /* spaces-test.cc */,
 			);
 			name = nyaa;
 			sourceTree = "<group>";
@@ -1336,6 +1339,7 @@
 				237F505121EB74390069075D /* zone.cc in Sources */,
 				2364B31F21E451F9008519AE /* varint-encoding.cc in Sources */,
 				2364B32221E451F9008519AE /* spin-locking.cc in Sources */,
+				23E82BC2224CCC4D00BC910B /* spaces-test.cc in Sources */,
 				2364B32921E451F9008519AE /* slice.cc in Sources */,
 				2364B32B21E451F9008519AE /* hash.cc in Sources */,
 				2364B32C21E451F9008519AE /* crc32.c in Sources */,

@@ -441,6 +441,7 @@ NyTable::NyTable(uint32_t seed, uint32_t capacity)
     , size_(0)
     , capacity_(capacity) {
     DCHECK_GT(capacity_, 4);
+    
     for (size_t i = 0; i < n_slots(); ++i) {
         entries_[i].kind  = kSlot;
         entries_[i].key   = nullptr;
@@ -455,6 +456,8 @@ NyTable::NyTable(uint32_t seed, uint32_t capacity)
     entries_[capacity_ - 1].next = nullptr;
 
     free_ = &entries_[n_slots()];
+    //::memset(entries_, 0, sizeof(Entry) * capacity);
+    //free_ = entries_ + capacity_ - 1;
 }
     
 NyTable *NyTable::Put(Object *key, Object *value, NyaaCore *N) {
@@ -508,6 +511,28 @@ NyTable *NyTable::Rehash(NyTable *origin, NyaaCore *N) {
     
 bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
     Entry *slot = GetSlot(key, N);
+    DCHECK(slot >= entries_);
+    DCHECK(slot < entries_ + n_slots());
+    
+//    switch (slot->kind) {
+//        case kFree: {
+//            if (value) {
+//                slot->kind = kSlot;
+//                N->BarrierWr(this, &slot->key, key);
+//                slot->key = key;
+//                N->BarrierWr(this, &slot->value, value);
+//                slot->value = value;
+//            }
+//        } break;
+//        case kSlot:
+//            break;
+//        case kNode:
+//        default:
+//            DLOG(FATAL) << "noreached";
+//            break;
+//    }
+//    return false;
+
     Entry *prev = nullptr, *p = slot;
     while (p) {
         if (Object::Equals(key, p->key, N)) {
@@ -516,7 +541,7 @@ bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
         prev = p;
         p = p->next;
     }
-    
+
     if (value) {
         if (p) {
             p->value = value;
@@ -562,7 +587,8 @@ bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
 NyString::NyString(const char *s, size_t n, NyaaCore *N)
     : NyByteArray(static_cast<uint32_t>(n) + kHeaderSize + 1) {
     size_ += kHeaderSize;
-    Add(s, n, nullptr);
+    ::memcpy(elems_ + kHeaderSize, s, n);
+    size_ += n;
     elems_[size_] = 0;
     Done(N);
 }
@@ -694,7 +720,7 @@ NyFunction::NyFunction(uint8_t n_params,
     , n_upvals_(n_upvals)
     , script_(script) {
     N->BarrierWr(this, &script_, script);
-    ::memset(upvals_, 0, sizeof(n_upvals) * sizeof(Object *));
+    ::memset(upvals_, 0, n_upvals * sizeof(Object *));
 }
     
 void NyFunction::Bind(int i, Object *upval, NyaaCore *N) {

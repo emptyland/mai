@@ -204,8 +204,9 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
         pool_a[i]->SetMetatable(kString, N);
     }
+
     kString->RawPut(kzs->kInnerType, factory->NewString("string"), N);
-    
+
     //----------------------------------------------------------------------------------------------
     // NyFloat64
     kFloat64 = factory->NewMap(16, 0, kTypeFloat64);
@@ -223,13 +224,14 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     //----------------------------------------------------------------------------------------------
     // NyTable
     kTable->RawPut(kzs->kInnerType, factory->NewString("table"), N);
-    
+
+//#if 0
     //----------------------------------------------------------------------------------------------
     // NyDelegated
     kDelegated = factory->NewMap(16, 0, kTypeDelegated);
     kDelegated->RawPut(kzs->kInnerType, factory->NewString("delegated"), N);
     kDelegated->RawPut(kzs->kInnerCall, factory->NewDelegated(DelegatedCall), N);
-    
+
     //----------------------------------------------------------------------------------------------
     // NyFunction
     kFunction = factory->NewMap(16, 0, kTypeFunction);
@@ -239,7 +241,7 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     // NyScript
     kScript = factory->NewMap(16, 0, kTypeScript);
     kScript->RawPut(kzs->kInnerType, factory->NewString("script"), N);
-    
+
     //----------------------------------------------------------------------------------------------
     // NyThread
     kThread = factory->NewMap(16, 0, kTypeThread);
@@ -264,7 +266,7 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     // NyArray
     kArray = factory->NewMap(16, 0, kTypeArray);
     kArray->RawPut(kzs->kInnerType, factory->NewString("array"), N);
-
+//#endif
     return Error::OK();
 }
     

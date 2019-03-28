@@ -105,7 +105,7 @@ public:
     }
     
     virtual size_t Available() const override {
-        DCHECK_EQ(free_ - page_->area_base_, page_->available_);
+        DCHECK_EQ(page_->area_limit_ - free_, page_->available_);
         return page_->available_;
     }
     

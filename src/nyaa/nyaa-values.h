@@ -336,7 +336,7 @@ public:
     inline NyArrayBase(uint32_t capacity)
         : size_(0)
         , capacity_(capacity) {
-        ::memset(elems_, 0, sizeof(T) * capacity_);
+        //::memset(elems_, 0, sizeof(T) * capacity_);
     }
     
     DEF_VAL_GETTER(uint32_t, size);
@@ -426,7 +426,7 @@ public:
     using NyByteArray::PlacedSize;
     
     static size_t RequiredSize(uint32_t size) {
-        return RoundUp(sizeof(NyString) + sizeof(uint32_t) + size + 1, kAllocateAlignmentSize);
+        return RoundUp(sizeof(NyString) + kHeaderSize + size + 1, kAllocateAlignmentSize);
     }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
@@ -457,7 +457,10 @@ public:
     
 class NyArray : public NyArrayBase<Object *> {
 public:
-    NyArray(uint32_t capacity) : NyArrayBase<Object *>(capacity) {}
+    NyArray(uint32_t capacity)
+        : NyArrayBase<Object *>(capacity) {
+        ::memset(elems_, 0, sizeof(Object *) * capacity);
+    }
     
     NyArray *Put(int64_t key, Object *value, NyaaCore *N);
     
@@ -578,7 +581,7 @@ public:
         : kind_(kind)
         , stub_(static_cast<void *>(fp))
         , n_upvals_(n_upvals) {
-        ::memset(upvals_, 0, sizeof(n_upvals) * sizeof(Object *));
+        ::memset(upvals_, 0, n_upvals * sizeof(Object *));
     }
     
     DEF_VAL_GETTER(uint32_t, n_upvals);
