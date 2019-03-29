@@ -61,16 +61,40 @@ static void *PageAllocate(size_t size, size_t alignment, Allocator *lla) {
     DCHECK_EQ(reinterpret_cast<uintptr_t>(chunk) % kPageSize, 0);
 
     //DbgFillInitZag(chunk, kPageSize);
-//    auto rs = lla->SetAccess(chunk, requried_size, access);
-//    if (!rs) {
-//        DLOG(ERROR) << rs.ToString();
-//        return nullptr; // Failed!
-//    }
+    auto rs = lla->SetAccess(chunk, requried_size, access);
+    if (!rs) {
+        DLOG(ERROR) << rs.ToString();
+        return nullptr; // Failed!
+    }
     return new (chunk) Page(space, static_cast<uint32_t>(requried_size));
 }
     
 void Page::Dispose(Isolate *isolate) {
     isolate->env()->GetLowLevelAllocator()->Free(this, page_size_);
+}
+    
+Error SemiSpace::Init(size_t size, Isolate *isolate) {
+    isolate_ = DCHECK_NOTNULL(isolate);
+    const size_t required_size = RoundUp(size, kPageSize);
+    page_ = Page::NewRegular(kind(), static_cast<int>(required_size >> kPageShift),
+                             Allocator::kRd | Allocator::kWr, isolate_);
+    if (!page_) {
+        return MAI_CORRUPTION("Not enough memory.");
+    } else {
+        free_ = page_->area_base_;
+        return Error::OK();
+    }
+}
+
+void *SemiSpace::AllocateRaw(size_t size) {
+    Address align_free = RoundUp(free_, kAligmentSize);
+    size_t  align_size = RoundUp(size, kAllocateAlignmentSize);
+    if (align_free + align_size >= page_->area_limit_) {
+        return nullptr;
+    }
+    page_->available_ -= align_free + align_size - free_;
+    free_ = align_free + align_size;
+    return align_free;
 }
     
 } // namespace nyaa

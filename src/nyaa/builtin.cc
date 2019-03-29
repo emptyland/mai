@@ -200,7 +200,7 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     // NyString
     kString = factory->NewMap(16, 0, kTypeString);
     // Set Right Metatable
-    NyString **pool_a = &kzs->kInnerInit;
+    NyString **pool_a = reinterpret_cast<NyString **>(kzs);
     for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
         pool_a[i]->SetMetatable(kString, N);
     }
@@ -225,7 +225,6 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     // NyTable
     kTable->RawPut(kzs->kInnerType, factory->NewString("table"), N);
 
-//#if 0
     //----------------------------------------------------------------------------------------------
     // NyDelegated
     kDelegated = factory->NewMap(16, 0, kTypeDelegated);

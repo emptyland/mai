@@ -111,29 +111,10 @@ public:
     
     DEF_PTR_GETTER_NOTNULL(Page, page);
     
-    Error Init(size_t size, Isolate *isolate) {
-        isolate_ = DCHECK_NOTNULL(isolate);
-        const size_t required_size = RoundUp(size, kPageSize);
-        page_ = Page::NewRegular(kind(), static_cast<int>(required_size >> kPageShift),
-                                 Allocator::kRd | Allocator::kWr, isolate_);
-        if (!page_) {
-            return MAI_CORRUPTION("Not enough memory.");
-        } else {
-            free_ = page_->area_base_;
-            return Error::OK();
-        }
-    }
+    Error Init(size_t size, Isolate *isolate);
     
-    void *AllocateRaw(size_t size) {
-        Address align_free = RoundUp(free_, kAligmentSize);
-        size_t  align_size = RoundUp(size, kAllocateAlignmentSize);
-        if (align_free + align_size >= page_->area_limit_) {
-            return nullptr;
-        }
-        page_->available_ -= align_free + align_size - free_;
-        free_ = align_free + align_size;
-        return align_free;
-    }
+    void *AllocateRaw(size_t size);
+
 private:
     Page *page_  = nullptr;
     Address free_ = nullptr;
@@ -175,6 +156,7 @@ private:
     std::unique_ptr<SemiSpace>   to_area_;
     
 }; // class NewSpace
+
     
 } // namespace nyaa
     

@@ -24,34 +24,56 @@ public:
         NyaaTest::TearDown();
     }
     
-    // def foo() { yield(1,2,3) }
-    Handle<NyFunction> BuildFoo() {
-        Handle<NyArray> pool(core_->factory()->NewArray(4));
-        pool->Add(factory_->NewString("yield"), core_);
-        
+    // def f1() { return 1, 2, 3 }
+    Handle<NyFunction> BuildF1() {
         Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
         
-        // local a, b, c = test1()
+        bcbuf->Add(Bytecode::kPushImm, core_);
+        bcbuf->Add(1, core_); // push 1
+        bcbuf->Add(Bytecode::kPushImm, core_);
+        bcbuf->Add(2, core_); // push 2
+        bcbuf->Add(Bytecode::kPushImm, core_);
+        bcbuf->Add(3, core_); // push 3
+        bcbuf->Add(Bytecode::kPushImm, core_);
+        bcbuf->Add(4, core_); // push 4
+        bcbuf->Add(Bytecode::kRet, core_);
+        bcbuf->Add(0, core_); // ret offset+0
+        
+        Handle<NyScript> script(factory_->NewScript(nullptr, nullptr, *bcbuf, nullptr));
+        Handle<NyFunction> fn(factory_->NewFunction(0, 0, 4, *script));
+        
+        core_->SetGlobal(factory_->NewString("f1"), *fn);
+        return fn;
+    }
+    
+    // def f2() { return name() }
+    Handle<NyFunction> BuildF2(const char *name) {
+        Handle<NyArray> pool(core_->factory()->NewArray(4));
+        pool->Add(factory_->NewString(name), core_);
+        
+        Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
+
         bcbuf->Add(Bytecode::kPushGlobal, core_);
-        bcbuf->Add(0, core_);
-        bcbuf->Add(Bytecode::kPushImm, core_);
-        bcbuf->Add(1, core_);
-        bcbuf->Add(Bytecode::kPushImm, core_);
-        bcbuf->Add(2, core_);
-        bcbuf->Add(Bytecode::kPushImm, core_);
-        bcbuf->Add(3, core_);
+        bcbuf->Add(0, core_); // push g[name]
         bcbuf->Add(Bytecode::kCall, core_);
         bcbuf->Add(0, core_);
-        bcbuf->Add(3, core_);
         bcbuf->Add(0, core_);
-        bcbuf->Add(Bytecode::kReturn, core_);
-        bcbuf->Add(0, core_);
+        bcbuf->Add(-1, core_); // call l[0], 0, -1
+        bcbuf->Add(Bytecode::kRet, core_);
+        bcbuf->Add(0, core_); // ret offset+0
         
         Handle<NyScript> script(factory_->NewScript(nullptr, nullptr, *bcbuf, *pool));
-        Handle<NyFunction> foo(factory_->NewFunction(0, 0, 4, *script));
+        Handle<NyFunction> fn(factory_->NewFunction(0, 0, 4, *script));
         
-        core_->SetGlobal(factory_->NewString("foo"), *foo);
-        return foo;
+        core_->SetGlobal(factory_->NewString("f2"), *fn);
+        return fn;
+    }
+    
+    Handle<NyDelegated> RegisterChecker(const char *name, int n_upvals,
+                                        int (*fp)(Arguments *, Nyaa *)) {
+        Handle<NyDelegated> fn(factory_->NewDelegated(fp, n_upvals));
+        core_->SetGlobal(factory_->NewString(name), *fn);
+        return fn;
     }
     
     Nyaa *N_ = nullptr;
@@ -66,17 +88,15 @@ TEST_F(NyaaThreadTest, Sanity) {
     
     Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
     bcbuf->Add(Bytecode::kPushImm, core_);
-    bcbuf->Add(119, core_);
-    bcbuf->Add(Bytecode::kReturn, core_);
-    bcbuf->Add(0, core_);
+    bcbuf->Add(119, core_); // push 119
+    bcbuf->Add(Bytecode::kRet, core_);
+    bcbuf->Add(0, core_); // ret offset+0
     
     Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, nullptr));
     
     auto thd = N_->core()->main_thd();
     auto rv = thd->Run(*script);
     ASSERT_EQ(0, rv);
-//    ASSERT_TRUE(thd->ra()->is_smi());
-//    ASSERT_EQ(119, thd->ra()->smi());
 }
     
 static int CallingTest1(Nyaa *N) {
@@ -166,12 +186,11 @@ TEST_F(NyaaThreadTest, CallFunction) {
     
     Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
     
-    // local a, b, c = test1()
     bcbuf->Add(Bytecode::kAdd, core_);
     bcbuf->Add(0, core_);
-    bcbuf->Add(1, core_);
-    bcbuf->Add(Bytecode::kReturn, core_);
-    bcbuf->Add(1, core_);
+    bcbuf->Add(1, core_); // add l[0], l[1]
+    bcbuf->Add(Bytecode::kRet, core_);
+    bcbuf->Add(0, core_); // ret offset+0
     
     Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, nullptr));
     Handle<NyFunction> fn(core_->factory()->NewFunction(2, false, 1, *script));
@@ -219,8 +238,8 @@ TEST_F(NyaaThreadTest, CallVarArgsAndResults) {
     bcbuf->Add(2, core_); // push 2
     bcbuf->Add(Bytecode::kPushImm, core_);
     bcbuf->Add(3, core_); // push 3
-    bcbuf->Add(Bytecode::kReturn, core_);
-    bcbuf->Add(3, core_); // ret 3
+    bcbuf->Add(Bytecode::kRet, core_);
+    bcbuf->Add(0, core_); // ret offset+0
     
     Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, nullptr));
     Handle<NyFunction> fn(core_->factory()->NewFunction(0, false, 3, *script));
@@ -302,6 +321,59 @@ TEST_F(NyaaThreadTest, IndexCommand) {
     auto rv = thd->Run(*script);
     ASSERT_EQ(0, rv);
     ASSERT_EQ(1, thd->frame_size());
+}
+    
+int ReturnVarResult_Check(Arguments *args, Nyaa *N) {
+    Local<NyDelegated> callee = ApiWarp<NyDelegated>(args->Callee(), N->core());
+    if (!callee) {
+        return -1;
+    }
+    
+    callee->Bind(0, *ApiWarpNoCheck<Object>(args->Get(0), N->core()), N->core());
+    callee->Bind(1, *ApiWarpNoCheck<Object>(args->Get(1), N->core()), N->core());
+    callee->Bind(2, *ApiWarpNoCheck<Object>(args->Get(2), N->core()), N->core());
+    callee->Bind(3, *ApiWarpNoCheck<Object>(args->Get(3), N->core()), N->core());
+    return 0;
+}
+    
+TEST_F(NyaaThreadTest, ReturnVarResult) {
+    HandleScope scope(isolate_);
+    
+    BuildF1();
+    BuildF2("f1");
+    Handle<NyDelegated> check(RegisterChecker("check1", 4, ReturnVarResult_Check));
+    
+    Handle<NyArray> pool(core_->factory()->NewArray(4));
+    //Handle<NyString> clazz(core_->factory()->NewString("coroutine"));
+    pool->Add(core_->factory()->NewString("f2"), core_);
+    pool->Add(core_->factory()->NewString("check1"), core_);
+    
+    Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
+    
+    // print(f2())
+    bcbuf->Add(Bytecode::kPushGlobal, core_);
+    bcbuf->Add(1, core_); // push g["print"]
+    bcbuf->Add(Bytecode::kPushGlobal, core_);
+    bcbuf->Add(0, core_); // push g["f2"]
+    bcbuf->Add(Bytecode::kCall, core_);
+    bcbuf->Add(1, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(-1, core_); // call l[1], 0, -1
+    bcbuf->Add(Bytecode::kCall, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(-1, core_);
+    bcbuf->Add(0, core_); // call l[0], -1, 0
+    
+    Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, *pool));
+    auto thd = N_->core()->main_thd();
+    auto rv = thd->Run(*script);
+    ASSERT_EQ(0, rv);
+    ASSERT_EQ(0, thd->frame_size());
+    
+    ASSERT_EQ(1, check->upval(0)->ToSmi());
+    ASSERT_EQ(2, check->upval(1)->ToSmi());
+    ASSERT_EQ(3, check->upval(2)->ToSmi());
+    ASSERT_EQ(4, check->upval(3)->ToSmi());
 }
     
 } // namespace nyaa

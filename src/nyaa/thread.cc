@@ -75,12 +75,12 @@ int NyThread::Run(NyScript *entry, NyMap *env) {
     return Run(entry->bcbuf());
 }
     
-int NyThread::Run(NyFunction *fn, Arguments *args, int n_accepts, NyMap *env) {
+int NyThread::Run(NyFunction *fn, Arguments *args, int n_result, NyMap *env) {
     if (!env) {
         env = owns_->g();
     }
     
-    InitStack(fn, stack_tp_, n_accepts, env);
+    InitStack(fn, stack_tp_, n_result, env);
     InitArgs(args, fn->n_params(), fn->vargs());
     return Run(fn->script()->bcbuf());
 }
@@ -307,40 +307,44 @@ int NyThread::Run(const NyByteArray *bcbuf) {
                 }
                 offset += scale;
                 
-                Push(Object::Add(Get(lhs), Get(rhs), owns_));
+                Object *rv = Object::Add(Get(lhs), Get(rhs), owns_);
+                Pop(1);
+                Set(-1, rv);
                 (*pc_ptr()) += offset;
             } break;
-                
-            case Bytecode::kReturn: {
-                int32_t nret = ParseInt32(bcbuf, 1, scale, &ok);
+
+            case Bytecode::kRet: {
+                // result offset
+                int32_t roff = ParseInt32(bcbuf, 1, scale, &ok);
                 if (!ok) {
                     return -1;
                 }
                 (*pc_ptr()) += 1 + scale;
 
-                Object **ret = stack_tp_ - nret;
-                int n = n_accepts();
+                Object **ret = stack_bp() + roff;
+                int nret = static_cast<int>(stack_tp_ - ret);
+                int n_receive = n_result();
                 size_t restore_rbp = rbp(), restore_rbs = rbs();
 
                 stack_fp_ = stack_ + restore_rbp;
                 stack_tp_ = stack_fp_ + restore_rbs;
                 
-                if (nret < n) {
+                if (nret < n_receive) {
                     for (int i = 0; i < nret; ++i) {
                         stack_tp_[i] = ret[i];
                     }
-                    for (int i = nret; i < n; ++i) {
+                    for (int i = nret; i < n_receive; ++i) {
                         stack_tp_[i] = Object::kNil;
                     }
                 } else { // >=
-                    if (n < 0) {
-                        n = nret;
+                    if (n_receive < 0) {
+                        n_receive = nret;
                     }
-                    for (int i = 0; i < n; ++i) {
+                    for (int i = 0; i < n_receive; ++i) {
                         stack_tp_[i] = ret[i];
                     }
                 }
-                stack_tp_ += n;
+                stack_tp_ += n_receive;
                 DCHECK_LT(stack_tp_, stack_last_);
                 
                 bcbuf = CurrentBC();
@@ -479,7 +483,7 @@ int NyThread::Run(const NyByteArray *bcbuf) {
  *  +--------+--------+--------+       +
  */
 int NyThread::CallDelegated(NyDelegated *fn, Object **base, int32_t n_args,
-                            int32_t n_accepts) {
+                            int32_t n_receive) {
     HandleScope scope(owns_->isolate());
 
     Arguments args(reinterpret_cast<Value **>(stack_tp_ - n_args), n_args);
@@ -489,19 +493,19 @@ int NyThread::CallDelegated(NyDelegated *fn, Object **base, int32_t n_args,
         return -1;
     }
     Object **ret = stack_tp_ - nret;
-    if (nret < n_accepts) {
+    if (nret < n_receive) {
         for (int i = 0; i < nret; ++i) {
             base[i] = ret[i];
         }
-        for (int i = nret; i < n_accepts; ++i) {
+        for (int i = nret; i < n_receive; ++i) {
             base[i] = Object::kNil;
         }
     } else { // >=
-        for (int i = 0; i < n_accepts; ++i) {
+        for (int i = 0; i < n_receive; ++i) {
             base[i] = ret[i];
         }
     }
-    stack_tp_ = base + n_accepts;
+    stack_tp_ = base + n_receive;
     DCHECK_LT(stack_tp_, stack_last_);
     return nret;
 }

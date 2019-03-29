@@ -24,7 +24,7 @@ struct Bytecode {
         
         kNew, // new local[idx], n_param
         kCall, // call local[idx], n_args, n_accepts
-        kReturn, // return imm
+        kRet, // ret offset+imm
     };
 };
 

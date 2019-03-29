@@ -20,10 +20,10 @@ Heap::Heap(NyaaCore *N)
 }
 
 Error Heap::Prepare() {
-//    auto rs = new_space_->Init(owns_->stub()->major_area_initial_size(), owns_->isolate());
-//    if (!rs) {
-//        return rs;
-//    }
+    auto rs = new_space_->Init(owns_->stub()->major_area_initial_size(), owns_->isolate());
+    if (!rs) {
+        return rs;
+    }
     return Error::OK();
 }
 

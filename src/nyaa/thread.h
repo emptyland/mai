@@ -18,12 +18,12 @@ class RootVisitor;
     
 class NyThread : public NyUDO {
 public:
-    static constexpr const int kCalleeOffset = 0;
-    static constexpr const int kEnvOffset = 1;
-    static constexpr const int kAcceptsOffset = 2;
-    static constexpr const int kPCOffset = 3;
-    static constexpr const int kRBPOffset = 4;
-    static constexpr const int kRBSOffset = 5;
+    static constexpr const int kCalleeOffset = 0; // callee
+    static constexpr const int kEnvOffset = 1; // env
+    static constexpr const int kNROffset = 2;  // n_result
+    static constexpr const int kPCOffset = 3;  // pc
+    static constexpr const int kRBPOffset = 4; // prev bp
+    static constexpr const int kRBSOffset = 5; // prev bp size
     static constexpr const int kBPSize = kRBSOffset + 1;
     
     enum State {
@@ -50,7 +50,7 @@ public:
 
     int Run(NyScript *entry, NyMap *env = nullptr);
     
-    int Run(NyFunction *fn, Arguments *args, int n_accepts, NyMap *env = nullptr);
+    int Run(NyFunction *fn, Arguments *args, int n_result, NyMap *env = nullptr);
     
     int Resume(Arguments *args, NyThread *save, NyMap *env = nullptr);
     
@@ -78,7 +78,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyThread);
 private:
     Object **stack_bp() const {
-        DCHECK_LT(stack_fp_ + kBPSize, stack_tp_);
+        DCHECK_LE(stack_fp_ + kBPSize, stack_tp_);
         return stack_fp_ + kBPSize;
     }
     
@@ -97,9 +97,9 @@ private:
         return stack_fp_[kRBSOffset]->ToSmi();
     }
     
-    int32_t n_accepts() const {
-        DCHECK_LT(stack_fp_ + kAcceptsOffset, stack_last_);
-        return static_cast<int32_t>(stack_fp_[kAcceptsOffset]->ToSmi());
+    int32_t n_result() const {
+        DCHECK_LT(stack_fp_ + kNROffset, stack_last_);
+        return static_cast<int32_t>(stack_fp_[kNROffset]->ToSmi());
     }
     
     int Run(const NyByteArray *bcbuf);
