@@ -99,6 +99,11 @@ bool Value::IsString() const {
     auto o = reinterpret_cast<const Object *>(this);
     return o->IsObject() && o->ToHeapObject()->IsString();
 }
+    
+bool Value::IsFunction() const {
+    auto o = reinterpret_cast<const Object *>(this);
+    return o->IsObject() && (o->ToHeapObject()->IsFunction() || o->ToHeapObject()->IsDelegated());
+}
 
 bool Value::IsScript() const {
     auto o = reinterpret_cast<const Object *>(this);
@@ -138,6 +143,29 @@ Handle<Value> Result::Get(size_t i) const {
 
 size_t Result::Length() const {
     return reinterpret_cast<const NyArray *>(this)->size();
+}
+    
+void Function::Bind(int i, Handle<Value> val) {
+    if (!IsFunction()) {
+        return;
+    }
+    if (NyFunction *fn = reinterpret_cast<NyObject *>(this)->ToFunction()) {
+        fn->Bind(i, reinterpret_cast<Object *>(*val), NyaaCore::Current());
+    } else if (NyDelegated *fn = reinterpret_cast<NyObject *>(this)->ToDelegated()) {
+        fn->Bind(i, reinterpret_cast<Object *>(*val), NyaaCore::Current());
+    }
+}
+
+Handle<Value> Function::GetUpVal(int i) {
+    if (!IsFunction()) {
+        return Handle<Value>();
+    }
+    if (NyFunction *fn = reinterpret_cast<NyObject *>(this)->ToFunction()) {
+        return fn->upval(i);
+    } else if (NyDelegated *fn = reinterpret_cast<NyObject *>(this)->ToDelegated()) {
+        return fn->upval(i);
+    }
+    return Handle<Value>();
 }
     
 /*static*/ Handle<Script> Script::Compile(Nyaa *N, Handle<String> source) {

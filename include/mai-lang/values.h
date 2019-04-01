@@ -29,6 +29,8 @@ public:
     bool IsLong() const;
     
     bool IsString() const;
+    
+    bool IsFunction() const;
 
     bool IsScript() const;
     
@@ -70,7 +72,19 @@ public:
     
     size_t Length() const;
 }; // class Result
+    
 
+//--------------------------------------------------------------------------------------------------
+// [Function]
+class Function final : public Value {
+public:
+    
+    void Bind(int i, Handle<Value> val);
+    
+    Handle<Value> GetUpVal(int i);
+    
+}; // class Function
+    
 
 //--------------------------------------------------------------------------------------------------
 // [Script]

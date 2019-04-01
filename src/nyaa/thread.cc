@@ -67,10 +67,10 @@ void NyThread::Push(Object *value, size_t n) {
     
 Object *NyThread::Get(int i) {
     if (i < 0) {
-        DCHECK_GE(stack_tp_ + i, frame_bp());
-        return *(stack_tp_ + i);
+        DCHECK_GE(frame_tp() + i, frame_bp());
+        return *(frame_tp() + i);
     } else {
-        DCHECK_LT(frame_bp() + i, stack_tp_);
+        DCHECK_LT(frame_bp() + i, frame_tp());
         return frame_bp()[i];
     }
 }
@@ -318,7 +318,9 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
     switch (ob->GetMetatable()->kid()) {
         case kTypeFunction: {
             NyFunction *callee = ob->ToFunction();
-            n_args = static_cast<int32_t>(stack_tp_ - base - 1);
+            if (n_args < 0) {
+                n_args = static_cast<int32_t>(stack_tp_ - base - 1);
+            }
 
             CallFrame frame;
             frame.Enter(this, callee,
@@ -333,9 +335,10 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
             return rv;
         } break;
             
-        case kTypeScript:
+        case kTypeScript: {
+            //NyScript *callee = ob->ToScript();
             // TODO:
-            break;
+        } break;
 
         case kTypeDelegated: {
             NyDelegated *callee = ob->ToDelegated();

@@ -24,52 +24,58 @@ public:
         NyaaTest::TearDown();
     }
     
-#if 0
     // def f1() { return 1, 2, 3 }
-    Handle<NyFunction> BuildF1() {
+    Handle<NyFunction> BuildRet3(const char *name) {
         Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
         
-        bcbuf->Add(Bytecode::kPushImm, core_);
-        bcbuf->Add(1, core_); // push 1
-        bcbuf->Add(Bytecode::kPushImm, core_);
-        bcbuf->Add(2, core_); // push 2
-        bcbuf->Add(Bytecode::kPushImm, core_);
-        bcbuf->Add(3, core_); // push 3
-        bcbuf->Add(Bytecode::kPushImm, core_);
-        bcbuf->Add(4, core_); // push 4
+        bcbuf->Add(Bytecode::kLoadImm, core_);
+        bcbuf->Add(0, core_);
+        bcbuf->Add(1, core_); // load l[0], 1
+        bcbuf->Add(Bytecode::kLoadImm, core_);
+        bcbuf->Add(1, core_);
+        bcbuf->Add(2, core_); // load l[1], 2
+        bcbuf->Add(Bytecode::kLoadImm, core_);
+        bcbuf->Add(2, core_);
+        bcbuf->Add(3, core_); // load l[2], 3
+        bcbuf->Add(Bytecode::kLoadImm, core_);
+        bcbuf->Add(3, core_);
+        bcbuf->Add(4, core_); // load l[3], 4
         bcbuf->Add(Bytecode::kRet, core_);
-        bcbuf->Add(0, core_); // ret offset+0
+        bcbuf->Add(0, core_); // ret offset+0, 4
+        bcbuf->Add(4, core_);
         
-        Handle<NyScript> script(factory_->NewScript(nullptr, nullptr, *bcbuf, nullptr));
-        Handle<NyFunction> fn(factory_->NewFunction(0, 0, 4, *script));
+        Handle<NyScript> script(factory_->NewScript(4, nullptr, nullptr, *bcbuf, nullptr));
+        Handle<NyFunction> fn(factory_->NewFunction(0, false, *script));
         
-        core_->SetGlobal(factory_->NewString("f1"), *fn);
+        core_->SetGlobal(factory_->NewString(name), *fn);
         return fn;
     }
-    
+
     // def f2() { return name() }
-    Handle<NyFunction> BuildF2(const char *name) {
+    Handle<NyFunction> BuildRetFn(const char *name, const char *callee) {
         Handle<NyArray> pool(core_->factory()->NewArray(4));
-        pool->Add(factory_->NewString(name), core_);
+        pool->Add(factory_->NewString(callee), core_);
         
         Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
 
-        bcbuf->Add(Bytecode::kPushGlobal, core_);
-        bcbuf->Add(0, core_); // push g[name]
+        bcbuf->Add(Bytecode::kLoadGlobal, core_);
+        bcbuf->Add(0, core_);
+        bcbuf->Add(0, core_); // load l[0], g[k[0]]
         bcbuf->Add(Bytecode::kCall, core_);
         bcbuf->Add(0, core_);
         bcbuf->Add(0, core_);
         bcbuf->Add(-1, core_); // call l[0], 0, -1
         bcbuf->Add(Bytecode::kRet, core_);
-        bcbuf->Add(0, core_); // ret offset+0
+        bcbuf->Add(0, core_); // ret offset+0, -1
+        bcbuf->Add(-1, core_);
         
-        Handle<NyScript> script(factory_->NewScript(nullptr, nullptr, *bcbuf, *pool));
-        Handle<NyFunction> fn(factory_->NewFunction(0, 0, 4, *script));
+        Handle<NyScript> script(factory_->NewScript(2, nullptr, nullptr, *bcbuf, *pool));
+        Handle<NyFunction> fn(factory_->NewFunction(0, false, *script));
         
-        core_->SetGlobal(factory_->NewString("f2"), *fn);
+        core_->SetGlobal(factory_->NewString(name), *fn);
         return fn;
     }
-#endif
+
     Handle<NyDelegated> RegisterChecker(const char *name, int n_upvals,
                                         int (*fp)(Arguments *, Nyaa *)) {
         Handle<NyDelegated> fn(factory_->NewDelegated(fp, n_upvals));
@@ -179,6 +185,86 @@ TEST_F(NyaaThreadTest, Return) {
     ASSERT_EQ(2, r1->ToSmi());
     r1 = thd->Get(2);
     ASSERT_EQ(3, r1->ToSmi());
+}
+    
+TEST_F(NyaaThreadTest, CallVarResults) {
+    HandleScope scope(isolate_);
+    
+    BuildRet3("f1");
+    BuildRetFn("f2", "f1");
+    
+    Handle<NyArray> pool(core_->factory()->NewArray(4));
+    pool->Add(factory_->NewString("f2"), core_);
+    Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
+    
+    bcbuf->Add(Bytecode::kLoadGlobal, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(Bytecode::kCall, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(-1, core_);
+    bcbuf->Add(Bytecode::kRet, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(-1, core_);
+    
+    Handle<NyScript> script(core_->factory()->NewScript(2, nullptr, nullptr, *bcbuf, *pool));
+    auto thd = N_->core()->main_thd();
+    auto rv = thd->Run(*script, 3);
+    ASSERT_EQ(4, rv);
+    ASSERT_EQ(3, thd->frame_size());
+}
+    
+int ReturnVarArgs_Check(Arguments *args, Nyaa *N) {
+    Local<Function> callee = Local<Function>::Cast(args->Callee());
+    if (!callee) {
+        return -1;
+    }
+    
+    callee->Bind(0, args->Get(0));
+    callee->Bind(1, args->Get(1));
+    callee->Bind(2, args->Get(2));
+    callee->Bind(3, args->Get(3));
+    return 0;
+}
+  
+TEST_F(NyaaThreadTest, CallVarArgs) {
+    HandleScope scope(isolate_);
+    
+    BuildRet3("f1");
+    Handle<NyDelegated> fn(RegisterChecker("check1", 4, ReturnVarArgs_Check));
+    
+    Handle<NyArray> pool(core_->factory()->NewArray(4));
+    pool->Add(factory_->NewString("check1"), core_);
+    pool->Add(factory_->NewString("f1"), core_);
+    Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
+    
+    // check1(f1())
+    bcbuf->Add(Bytecode::kLoadGlobal, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(Bytecode::kLoadGlobal, core_);
+    bcbuf->Add(1, core_);
+    bcbuf->Add(1, core_);
+    bcbuf->Add(Bytecode::kCall, core_); // call f1
+    bcbuf->Add(1, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(-1, core_);
+    bcbuf->Add(Bytecode::kCall, core_); // call check1
+    bcbuf->Add(0, core_);
+    bcbuf->Add(-1, core_);
+    bcbuf->Add(0, core_);
+    
+    Handle<NyScript> script(core_->factory()->NewScript(2, nullptr, nullptr, *bcbuf, *pool));
+    auto thd = N_->core()->main_thd();
+    auto rv = thd->Run(*script, 0);
+    ASSERT_EQ(0, rv);
+    ASSERT_EQ(0, thd->frame_size());
+    
+    ASSERT_EQ(1, fn->upval(0)->ToSmi());
+    ASSERT_EQ(2, fn->upval(1)->ToSmi());
+    ASSERT_EQ(3, fn->upval(2)->ToSmi());
+    ASSERT_EQ(4, fn->upval(3)->ToSmi());
 }
 
 #if 0

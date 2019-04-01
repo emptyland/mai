@@ -114,7 +114,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyThread);
 private:
     Object **frame_bp() const { return !frame_ ? stack_ : stack_ + frame_->stack_bp(); }
-    Object **frame_tp() const { return !frame_ ? stack_ : stack_ + frame_->stack_tp(); }
+    Object **frame_tp() const { return !frame_ ? stack_tp_ : stack_ + frame_->stack_tp(); }
     
     int Run();
 
