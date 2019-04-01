@@ -25,10 +25,10 @@ public:
     virtual NyArray *NewArray(size_t capacity, NyArray *base, bool old) override;
     virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, size_t n_upvals,
                                       bool old) override;
-    virtual NyFunction *NewFunction(size_t n_params, bool vargs, size_t max_stack_size,
-                                    NyScript *script, size_t n_upvals, bool old) override;
-    virtual NyScript *NewScript(NyString *file_name, NyInt32Array *file_info, NyByteArray *bcbuf,
-                                NyArray *const_pool) override;
+    virtual NyFunction *NewFunction(size_t n_params, bool vargs, NyScript *script, size_t n_upvals,
+                                    bool old) override;
+    virtual NyScript *NewScript(size_t max_stack_size, NyString *file_name, NyInt32Array *file_info,
+                                NyByteArray *bcbuf, NyArray *const_pool) override;
     virtual NyUDO *NewUninitializedUDO(size_t size, NyMap *clazz, bool old) override;
     virtual NyThread *NewThread(bool old) override;
 private:

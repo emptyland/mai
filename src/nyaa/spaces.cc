@@ -97,6 +97,70 @@ void *SemiSpace::AllocateRaw(size_t size) {
     return align_free;
 }
     
+Error NewSpace::Init(size_t total_size, Isolate *isolate) {
+    auto rs = from_area_->Init(total_size >> 1, isolate);
+    if (!rs) {
+        return rs;
+    }
+    rs = to_area_->Init(total_size >> 1, isolate);
+    if (!rs) {
+        return rs;
+    }
+    // TODO:;
+    return Error::OK();
+}
+    
+/*virtual*/ OldSpace::~OldSpace() {
+    while (dummy_->next_ != dummy_) {
+        Page *x = dummy_->next_;
+        Page::Remove(x);
+        x->Dispose(isolate_);
+    }
+    delete dummy_;
+}
+
+/*virtual*/ size_t OldSpace::Available() const {
+    return 0;
+}
+
+Error OldSpace::Init(size_t init_size, size_t limit_size) {
+    DCHECK_GT(init_size, kPageSize);
+    DCHECK_GT(limit_size, init_size);
+    
+    init_size_ = init_size;
+    limit_size_ = limit_size;
+
+    size_t n_pages = (init_size_ + kPageSize - 1) / kPageSize;
+    for (size_t i = 0; i < n_pages; ++i) {
+        Page *page = NewPage();
+        if (!page) {
+            return MAI_CORRUPTION("Not enough memory!");
+        }
+    }
+
+    cache_ = dummy_->next_;
+    return Error::OK();
+}
+
+void *OldSpace::AllocateRaw(size_t size, HeapColor init_color) {
+    return nullptr;
+}
+    
+Page *OldSpace::NewPage() {
+    int access = Allocator::kRd | Allocator::kWr;
+    if (executable()) {
+        access |= Allocator::kEx;
+    }
+    
+    Page *page = Page::NewRegular(kOldSpace, 1, access, isolate_);
+    if (!page) {
+        return nullptr;
+    }
+    Page::Insert(dummy_, page);
+    pages_total_size_ += page->page_size();
+    return page;
+}
+    
 } // namespace nyaa
     
 } // namespace mai

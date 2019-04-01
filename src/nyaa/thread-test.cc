@@ -24,6 +24,7 @@ public:
         NyaaTest::TearDown();
     }
     
+#if 0
     // def f1() { return 1, 2, 3 }
     Handle<NyFunction> BuildF1() {
         Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
@@ -68,7 +69,7 @@ public:
         core_->SetGlobal(factory_->NewString("f2"), *fn);
         return fn;
     }
-    
+#endif
     Handle<NyDelegated> RegisterChecker(const char *name, int n_upvals,
                                         int (*fp)(Arguments *, Nyaa *)) {
         Handle<NyDelegated> fn(factory_->NewDelegated(fp, n_upvals));
@@ -87,16 +88,18 @@ TEST_F(NyaaThreadTest, Sanity) {
     HandleScope scope(isolate_);
     
     Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
-    bcbuf->Add(Bytecode::kPushImm, core_);
-    bcbuf->Add(119, core_); // push 119
+    bcbuf->Add(Bytecode::kLoadImm, core_);
+    bcbuf->Add(0, core_); // load l[0], 119
+    bcbuf->Add(119, core_);
     bcbuf->Add(Bytecode::kRet, core_);
     bcbuf->Add(0, core_); // ret offset+0
+    bcbuf->Add(1, core_);
     
-    Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, nullptr));
+    Handle<NyScript> script(core_->factory()->NewScript(1, nullptr, nullptr, *bcbuf, nullptr));
     
     auto thd = N_->core()->main_thd();
-    auto rv = thd->Run(*script);
-    ASSERT_EQ(0, rv);
+    auto rv = thd->Run(*script, 1);
+    ASSERT_EQ(1, rv);
 }
     
 static int CallingTest1(Nyaa *N) {
@@ -105,6 +108,8 @@ static int CallingTest1(Nyaa *N) {
                   String::New(N, "2nd"),
                   String::New(N, "3th"));
 }
+  
+
     
 TEST_F(NyaaThreadTest, Calling) {
     HandleScope scope(isolate_);
@@ -119,17 +124,21 @@ TEST_F(NyaaThreadTest, Calling) {
     Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
 
     // local a, b, c = test1()
-    bcbuf->Add(Bytecode::kPushGlobal, core_);
+    bcbuf->Add(Bytecode::kLoadGlobal, core_);
+    bcbuf->Add(0, core_);
     bcbuf->Add(0, core_);
     bcbuf->Add(Bytecode::kCall, core_);
     bcbuf->Add(0, core_);
     bcbuf->Add(0, core_);
     bcbuf->Add(3, core_);
+    bcbuf->Add(Bytecode::kRet, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(-1, core_);
 
-    Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, *pool));
+    Handle<NyScript> script(core_->factory()->NewScript(3, nullptr, nullptr, *bcbuf, *pool));
     auto thd = N_->core()->main_thd();
-    auto rv = thd->Run(*script);
-    ASSERT_EQ(0, rv);
+    auto rv = thd->Run(*script, -1);
+    ASSERT_EQ(3, rv);
     ASSERT_EQ(3, thd->frame_size());
     
     Handle<NyString> r1(thd->Get(0));
@@ -140,86 +149,39 @@ TEST_F(NyaaThreadTest, Calling) {
     ASSERT_STREQ("3th", r1->bytes());
 }
     
-static int CallingTest2(Local<Value> lhs, Local<Value> rhs, Nyaa *N) {
-    int64_t result = lhs->AsInt() + rhs->AsInt();
-    
-    return Return(Integer::New(N, result));
-}
-    
-TEST_F(NyaaThreadTest, Calling2) {
+TEST_F(NyaaThreadTest, Return) {
     HandleScope scope(isolate_);
-    
-    Handle<NyDelegated> fn(core_->factory()->NewDelegated(CallingTest2));
-    Handle<NyString> name(core_->factory()->NewString("test2"));
-    core_->SetGlobal(*name, *fn);
-    
-    Handle<NyArray> pool(core_->factory()->NewArray(4));
-    pool->Add(*name, core_);
-    
     Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
     
-    // local a, b, c = test1()
-    bcbuf->Add(Bytecode::kPushGlobal, core_);
+    // return 1, 2, 3
+    bcbuf->Add(Bytecode::kLoadImm, core_);
     bcbuf->Add(0, core_);
-    bcbuf->Add(Bytecode::kPushImm, core_);
-    bcbuf->Add(100, core_);
-    bcbuf->Add(Bytecode::kPushImm, core_);
-    bcbuf->Add(22, core_);
-    
-    bcbuf->Add(Bytecode::kCall, core_);
-    bcbuf->Add(0, core_);
-    bcbuf->Add(2, core_);
     bcbuf->Add(1, core_);
-    
-    Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, *pool));
-    auto thd = N_->core()->main_thd();
-    auto rv = thd->Run(*script);
-    ASSERT_EQ(0, rv);
-    ASSERT_EQ(1, thd->frame_size());
-    Handle<Object> r1(thd->Get(0));
-    ASSERT_TRUE(r1->IsSmi());
-    ASSERT_EQ(122, r1->ToSmi());
-}
-    
-TEST_F(NyaaThreadTest, CallFunction) {
-    HandleScope scope(isolate_);
-    
-    Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
-    
-    bcbuf->Add(Bytecode::kAdd, core_);
-    bcbuf->Add(0, core_);
-    bcbuf->Add(1, core_); // add l[0], l[1]
+    bcbuf->Add(Bytecode::kLoadImm, core_);
+    bcbuf->Add(1, core_);
+    bcbuf->Add(2, core_);
+    bcbuf->Add(Bytecode::kLoadImm, core_);
+    bcbuf->Add(2, core_);
+    bcbuf->Add(3, core_);
     bcbuf->Add(Bytecode::kRet, core_);
-    bcbuf->Add(0, core_); // ret offset+0
-    
-    Handle<NyScript> script(core_->factory()->NewScript(nullptr, nullptr, *bcbuf, nullptr));
-    Handle<NyFunction> fn(core_->factory()->NewFunction(2, false, 1, *script));
-    Handle<NyString> name(core_->factory()->NewString("test3"));
-    core_->SetGlobal(*name, *fn);
-    
-    bcbuf = core_->factory()->NewByteArray(128);
-    bcbuf->Add(Bytecode::kPushGlobal, core_);
     bcbuf->Add(0, core_);
-    bcbuf->Add(Bytecode::kPushImm, core_);
-    bcbuf->Add(99, core_);
-    bcbuf->Add(Bytecode::kPushImm, core_);
-    bcbuf->Add(1, core_);
-    bcbuf->Add(Bytecode::kCall, core_);
-    bcbuf->Add(0, core_);
-    bcbuf->Add(2, core_);
-    bcbuf->Add(1, core_);
+    bcbuf->Add(3, core_);
     
-    Handle<NyArray> pool(core_->factory()->NewArray(4));
-    pool->Add(*name, core_);
-    script = core_->factory()->NewScript(nullptr, nullptr, *bcbuf, *pool);
+    Handle<NyScript> script(core_->factory()->NewScript(3, nullptr, nullptr, *bcbuf, nullptr));
     auto thd = N_->core()->main_thd();
-    auto rv = thd->Run(*script);
-    ASSERT_EQ(0, rv);
-    ASSERT_EQ(1, thd->frame_size());
+    auto rv = thd->Run(*script, 3);
+    ASSERT_EQ(3, rv);
+    ASSERT_EQ(3, thd->frame_size());
+    
     Handle<Object> r1(thd->Get(0));
-    ASSERT_TRUE(r1->IsSmi());
-    ASSERT_EQ(100, r1->ToSmi());
+    ASSERT_EQ(1, r1->ToSmi());
+    r1 = thd->Get(1);
+    ASSERT_EQ(2, r1->ToSmi());
+    r1 = thd->Get(2);
+    ASSERT_EQ(3, r1->ToSmi());
 }
+
+#if 0
     
 TEST_F(NyaaThreadTest, CallVarArgsAndResults) {
     HandleScope scope(isolate_);
@@ -375,6 +337,7 @@ TEST_F(NyaaThreadTest, ReturnVarResult) {
     ASSERT_EQ(3, check->upval(2)->ToSmi());
     ASSERT_EQ(4, check->upval(3)->ToSmi());
 }
+#endif // 0
     
 } // namespace nyaa
     

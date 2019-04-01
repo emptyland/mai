@@ -30,6 +30,7 @@ public:
     
     HeapSpace owns_space() const { return static_cast<HeapSpace>(owns_space_); }
     size_t available() const { return available_; }
+    size_t page_size() const { return page_size_; }
     
     bool Contains(Address addr) const { return addr >= area_base_ && addr < area_limit_; }
     
@@ -46,6 +47,19 @@ public:
     static Page *NewRegular(HeapSpace space, int scale, int access, Isolate *isolate);
     
     void Dispose(Isolate *isolate);
+    
+    struct Chunk {
+        Chunk *next;
+        size_t n;
+    };
+    
+    struct Region {
+        Chunk *tiny;    // [0, 64) bytes
+        Chunk *small;   // [64, 512) bytes
+        Chunk *medium;  // [512, 1024) bytes
+        Chunk *normal;  // [1024, 4096) bytes
+        Chunk *big;     // >= 4096 bytes
+    };
 
     friend class SemiSpace;
     friend class NewSpace;
@@ -64,14 +78,38 @@ private:
         available_ = static_cast<uint32_t>(area_limit_ - area_base_);
     }
     
+    Page()
+        : tag_(0)
+        , owns_space_(0)
+        , page_size_(sizeof(Page))
+        , available_(0)
+        , area_base_(nullptr)
+        , area_limit_(nullptr) {}
+    
+    static void Insert(Page *head, Page *x) {
+        x->next_ = head;
+        auto *prev = head->prev_;
+        x->prev_ = prev;
+        prev->next_ = x;
+        head->prev_ = x;
+    }
+
+    static void Remove(Page *x) {
+        x->prev_->next_ = x->next_;
+        x->next_->prev_ = x->prev_;
+#if defined(DEBUG) || defined(_DEBUG)
+        x->next_ = nullptr;
+        x->prev_ = nullptr;
+#endif
+    }
+    
     uint16_t tag_;
     int16_t owns_space_; // owner space
     uint32_t available_;
     uint32_t page_size_;
+    Region *region_ = nullptr;
     Address area_base_;
     Address area_limit_;
-    //Address free_;
-    //Bitmap *bitmap_ = nullptr;
     Page *next_ = this; // linked page
     Page *prev_ = this;
 }; // class Page
@@ -90,10 +128,12 @@ public:
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Space);
 protected:
-    Space(HeapSpace kind) : kind_(kind) {}
+    Space(HeapSpace kind, bool executable = false)
+        : kind_(kind)
+        , executable_(executable) {}
     
     HeapSpace const kind_;
-    bool executable_ = false;
+    bool const executable_;
 }; // class Space
 
 class SemiSpace : public Space {
@@ -121,7 +161,7 @@ private:
     Isolate *isolate_ = nullptr;
 }; // class SemiSpace
 
-class NewSpace : public Space {
+class NewSpace final : public Space {
 public:
     NewSpace()
         : Space(kNewSpace)
@@ -136,27 +176,41 @@ public:
         return from_area_->page()->Contains(addr) || to_area_->page()->Contains(addr);
     }
     
-    Error Init(size_t total_size, Isolate *isolate) {
-        auto rs = from_area_->Init(total_size >> 1, isolate);
-        if (!rs) {
-            return rs;
-        }
-        rs = to_area_->Init(total_size >> 1, isolate);
-        if (!rs) {
-            return rs;
-        }
-        // TODO:;
-        return Error::OK();
-    }
+    Error Init(size_t total_size, Isolate *isolate);
     
     void *AllocateRaw(size_t size) { return to_area_->AllocateRaw(size); }
     
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NewSpace);
 private:
     std::unique_ptr<SemiSpace> from_area_;
     std::unique_ptr<SemiSpace>   to_area_;
-    
 }; // class NewSpace
 
+class OldSpace final : public Space {
+public:
+    OldSpace(bool executable, Isolate *isolate)
+        : Space(kOldSpace, executable)
+        , dummy_(new Page())
+        , isolate_(DCHECK_NOTNULL(isolate)) {}
+    virtual ~OldSpace() override;
+    
+    virtual size_t Available() const override;
+    
+    Error Init(size_t init_size, size_t limit_size);
+    
+    void *AllocateRaw(size_t size, HeapColor init_color);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(OldSpace);
+private:
+    Page *NewPage();
+    
+    Page *dummy_ = nullptr;
+    Page *cache_ = nullptr;
+    size_t init_size_ = 0;
+    size_t limit_size_ = 0;
+    size_t pages_total_size_ = 0;
+    Isolate *isolate_ = nullptr;
+}; // class OldSpace
     
 } // namespace nyaa
     

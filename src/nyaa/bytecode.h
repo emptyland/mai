@@ -11,20 +11,19 @@ struct Bytecode {
     enum ID : uint8_t {
         kDouble,
         kQuadruple,
-        kPushImm, // push imm
-        kPushLocal, // push local[idx]
-        kPushConst, // push const[idx]
-        kPushGlobal, // push g[const[idx]]
-        kPushNil, // push nil, n
-        kIndex, // getfield local[-2], local[-1]
-        kIndexConst, // getfield local[-1], const[idx]
-        kPop, // pop n
+        kLoadImm, // load local[ra], imm
+        kMove, // move local[ra], local[rb]
+        kLoadConst, // load const[ra]
+        kLoadGlobal, // load local[ra], global[const[rb]]
+        kLoadNil, // loadnil local[ra]
+        kIndex,
+        kIndexConst,
 
-        kAdd, // add local[idx], local[idx]
+        kAdd, // add local[ra], local[rb], local[rc]
         
-        kNew, // new local[idx], n_param
-        kCall, // call local[idx], n_args, n_accepts
-        kRet, // ret offset+imm
+        kNew,
+        kCall, // call local[ra], rb, rc
+        kRet, // ret n
     };
 };
 

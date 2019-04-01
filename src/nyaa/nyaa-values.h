@@ -165,6 +165,7 @@ private:
         return reinterpret_cast<void *>(addr);
     }
     
+    // 0x0000000101719fe0
     uintptr_t mtword_; // [strong ref]
 }; // class NyObject
 
@@ -496,14 +497,13 @@ class NyFunction : public NyRunnable {
 public:
     NyFunction(uint8_t n_params,
                bool vargs,
-               uint32_t max_stack_size,
                uint32_t n_upvals,
                NyScript *script,
                NyaaCore *N);
     
     DEF_VAL_GETTER(uint8_t, n_params);
     DEF_VAL_GETTER(bool, vargs);
-    DEF_VAL_GETTER(uint32_t, max_stack_size);
+    
     DEF_VAL_GETTER(uint32_t, n_upvals);
     DEF_PTR_GETTER(NyScript, script);
     DEF_VAL_GETTER(uint64_t, call_count);
@@ -530,7 +530,7 @@ public:
 private:
     uint8_t n_params_;
     bool vargs_;
-    uint32_t max_stack_size_;
+    
     uint32_t n_upvals_;
     uint64_t call_count_ = 0;
     NyScript *script_; // [strong ref]
@@ -540,12 +540,14 @@ private:
 
 class NyScript : public NyRunnable {
 public:
-    NyScript(NyString *file_name,
+    NyScript(uint32_t max_stack_size,
+             NyString *file_name,
              NyInt32Array *file_info,
              NyByteArray *bcbuf,
              NyArray *const_pool,
              NyaaCore *N);
     
+    DEF_VAL_GETTER(uint32_t, max_stack_size);
     DEF_PTR_GETTER(NyByteArray, bcbuf);
     DEF_PTR_GETTER(NyString, file_name);
     DEF_PTR_GETTER(NyInt32Array, file_info);
@@ -559,6 +561,8 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyScript);
 private:
+    uint32_t unused_; // TODO:
+    uint32_t max_stack_size_;
     NyByteArray *bcbuf_; // [strong ref]
     NyString *file_name_; // [strong ref]
     NyInt32Array *file_info_; // [strong ref]

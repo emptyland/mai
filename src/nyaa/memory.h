@@ -16,6 +16,13 @@ enum HeapSpace : int {
     kLargeSpace,
 };
     
+enum HeapColor : int {
+    kColorNone  = 0,
+    kColorWhite = 1,
+    KColorGray  = 2,
+    kColorBlack = 3,
+};
+    
 static constexpr const int kPageShift = 20;
 static constexpr const size_t kAligmentSize = 4;
 static constexpr const size_t kAllocateAlignmentSize = kPointerSize;

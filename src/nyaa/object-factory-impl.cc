@@ -101,24 +101,23 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     return ob;
 }
     
-/*virtual*/ NyScript *ObjectFactoryImpl::NewScript(NyString *file_name, NyInt32Array *file_info,
-                                                   NyByteArray *bcbuf, NyArray *const_pool) {
-    auto ob = new NyScript(file_name, file_info, DCHECK_NOTNULL(bcbuf), const_pool, core_);
+/*virtual*/ NyScript *ObjectFactoryImpl::NewScript(size_t max_stack_size, NyString *file_name,
+                                                   NyInt32Array *file_info, NyByteArray *bcbuf,
+                                                   NyArray *const_pool) {
+    DCHECK_LE(max_stack_size, UINT32_MAX);
+    auto ob = new NyScript(static_cast<uint32_t>(max_stack_size), file_name, file_info,
+                           DCHECK_NOTNULL(bcbuf), const_pool, core_);
     ob->SetMetatable(core_->kmt_pool()->kScript, core_);
     return ob;
 }
     
-/*virtual*/ NyFunction *ObjectFactoryImpl::NewFunction(size_t n_params, bool vargs,
-                                                       size_t max_stack_size, NyScript *script,
+/*virtual*/ NyFunction *ObjectFactoryImpl::NewFunction(size_t n_params, bool vargs, NyScript *script,
                                                        size_t n_upvals, bool old) {
     DCHECK_LE(n_params, UINT8_MAX);
-    DCHECK_LE(max_stack_size, UINT32_MAX);
     DCHECK_LE(n_upvals, UINT32_MAX);
     void *chunk = ::malloc(NyFunction::RequiredSize(static_cast<uint32_t>(n_upvals)));
     auto ob = new (chunk) NyFunction(static_cast<uint8_t>(n_params), vargs,
-                                     static_cast<uint32_t>(max_stack_size),
-                                     static_cast<uint32_t>(n_upvals),
-                                     script, core_);
+                                     static_cast<uint32_t>(n_upvals), script, core_);
     ob->SetMetatable(core_->kmt_pool()->kFunction, core_);
     DCHECK_EQ(ob->PlacedSize(), NyFunction::RequiredSize(static_cast<uint32_t>(n_upvals)));
     return ob;

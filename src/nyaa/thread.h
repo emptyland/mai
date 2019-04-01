@@ -15,17 +15,53 @@ class NyScript;
 class NyRunnable;
 class NyByteArray;
 class RootVisitor;
+class NyThread;
+    
+class CallFrame {
+public:
+    CallFrame() {}
+    ~CallFrame() {}
+    
+    void Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, NyArray *kpool, int wanted,
+               Object **bp, Object **tp, NyMap *env);
+    void Exit(NyThread *owns);
+
+    DEF_PTR_GETTER(NyRunnable, callee);
+    DEF_PTR_GETTER(NyMap, env);
+    DEF_PTR_GETTER(NyByteArray, bcbuf);
+    DEF_PTR_GETTER(NyArray, const_poll);
+    DEF_PTR_GETTER(CallFrame, prev);
+    DEF_VAL_GETTER(int, level);
+    DEF_VAL_GETTER(int, pc);
+    DEF_VAL_GETTER(int, wanted);
+    DEF_VAL_GETTER(size_t, stack_bp);
+    DEF_VAL_GETTER(size_t, stack_tp);
+    
+    void AddPC(int delta) {
+        DCHECK_GE(pc_ + delta, 0);
+        DCHECK_LE(pc_ + delta, bcbuf_->size());
+        pc_ += delta;
+    }
+    
+    Byte BC() const { return bcbuf_->Get(pc_); }
+
+    friend class NyThread;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(CallFrame);
+private:
+    NyRunnable *callee_; // [strong ref]
+    NyMap *env_; // [strong ref]
+    NyByteArray *bcbuf_ = nullptr; // [strong ref]
+    NyArray *const_poll_ = nullptr; // [strong ref]
+    CallFrame *prev_;
+    int level_ = 0;
+    int pc_ = 0;
+    size_t stack_bp_ = 0;
+    size_t stack_tp_ = 0;
+    int wanted_ = 0; // return wanted results.
+};
     
 class NyThread : public NyUDO {
 public:
-    static constexpr const int kCalleeOffset = 0; // callee
-    static constexpr const int kEnvOffset = 1; // env
-    static constexpr const int kNROffset = 2;  // n_result
-    static constexpr const int kPCOffset = 3;  // pc
-    static constexpr const int kRBPOffset = 4; // prev bp
-    static constexpr const int kRBSOffset = 5; // prev bp size
-    static constexpr const int kBPSize = kRBSOffset + 1;
-    
     enum State {
         kSuspended,
         kRunning,
@@ -42,13 +78,12 @@ public:
     DEF_VAL_PROP_RW(State, state);
     
     size_t frame_size() const {
-        DCHECK_GE(stack_tp_, stack_bp());
-        return stack_tp_ - stack_bp();
+        DCHECK_GE(stack_tp_, stack_);
+        DCHECK_LT(stack_tp_, stack_last_);
+        return stack_tp_ - stack_;
     }
-    
-    uint32_t pc() const { return *pc_ptr(); }
 
-    int Run(NyScript *entry, NyMap *env = nullptr);
+    int Run(NyScript *entry, int n_result, NyMap *env = nullptr);
     
     int Run(NyFunction *fn, Arguments *args, int n_result, NyMap *env = nullptr);
     
@@ -63,7 +98,7 @@ public:
     void Set(int i, Object *value);
     
     void Pop(int n) {
-        DCHECK_GE(stack_tp_ - n, stack_bp());
+        DCHECK_GE(stack_tp_ - n, frame_bp());
         stack_tp_ -= n;
     }
     
@@ -75,71 +110,34 @@ public:
     
     friend class NyaaCore;
     
+    friend class CallFrame;
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyThread);
 private:
-    Object **stack_bp() const {
-        DCHECK_LE(stack_fp_ + kBPSize, stack_tp_);
-        return stack_fp_ + kBPSize;
-    }
+    Object **frame_bp() const { return !frame_ ? stack_ : stack_ + frame_->stack_bp(); }
+    Object **frame_tp() const { return !frame_ ? stack_ : stack_ + frame_->stack_tp(); }
     
-    uint32_t *pc_ptr() const {
-        DCHECK_LT(stack_fp_ + kPCOffset, stack_last_);
-        return reinterpret_cast<uint32_t *>(stack_fp_ + kPCOffset) + 1;
-    }
-    
-    size_t rbp() const {
-        DCHECK_LT(stack_fp_ + kRBPOffset, stack_last_);
-        return stack_fp_[kRBPOffset]->ToSmi();
-    }
-    
-    size_t rbs() const {
-        DCHECK_LT(stack_fp_ + kRBSOffset, stack_last_);
-        return stack_fp_[kRBSOffset]->ToSmi();
-    }
-    
-    int32_t n_result() const {
-        DCHECK_LT(stack_fp_ + kNROffset, stack_last_);
-        return static_cast<int32_t>(stack_fp_[kNROffset]->ToSmi());
-    }
-    
-    int Run(const NyByteArray *bcbuf);
-    
-    int CallDelegated(NyDelegated *fn, Object **base, int32_t n_params, int32_t n_accept);
-    
-    int CallMetaFunction(NyObject *ob, NyString *name, Arguments *args, int n_accepts,
-                         uint32_t offset, NyByteArray const **bcbuf);
+    int Run();
 
-    int CallInternal(NyRunnable *ro, Object **base, int32_t n_params, int n_accepts,
-                     uint32_t offset, NyByteArray const **bcbuf);
+    int InternalCall(Object **func, int32_t n_args, int wanted);
     
-    void InitStack(NyRunnable *callee, Object **bp, int n_accepts, NyMap *env);
-    void InitArgs(Arguments *args, int n_params, bool vargs);
+    void CopyArgs(Arguments *args, int n_params, bool vargs);
     
-    Object *NewPC(uint32_t pc) {
-        uint64_t word = (static_cast<uint64_t>(pc) << 32) | 0x1u;
-        return reinterpret_cast<Object *>(word);
-    }
-
-    NyRunnable *Current() const;
+    void CopyResult(Object **ret, int n_rets, int wanted);
     
-    const NyByteArray *CurrentBC() const;
+    int ParseBytecodeInt32Params(int offset, int scale, int n, ...);
     
-    NyMap *Env() const;
-    
-    const NyArray *ConstPool() const;
-    
-    int32_t ParseInt32(const NyByteArray *bcbuf, uint32_t offset, int scale, bool *ok);
+    int32_t ParseInt32(const NyByteArray *bcbuf, int offset, int scale, bool *ok);
     
     NyaaCore *const owns_;
     TryCatch *catch_point_ = nullptr;
     State state_ = kSuspended;
     Object **stack_ = nullptr; // [strong ref]
-    Object **stack_fp_ = nullptr;
     Object **stack_tp_ = nullptr;
     Object **stack_last_ = nullptr;
     NyRunnable *entry_ = nullptr; // [strong ref] The entry script.
     size_t stack_size_ = 0;
     bool has_raised_ = false;
+    CallFrame *frame_ = nullptr;
     NyThread *save_ = nullptr; // [strong ref]
     NyThread *prev_ = this; // [strong ref]
     NyThread *next_ = this; // [strong ref]

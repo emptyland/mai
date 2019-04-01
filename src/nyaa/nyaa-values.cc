@@ -674,8 +674,15 @@ void NyArray::Refill(const NyArray *base, NyaaCore *N) {
     NyArrayBase<Object*>::Refill(base);
 }
     
-NyScript::NyScript(NyString *file_name, NyInt32Array *file_info, NyByteArray *bcbuf,
-                   NyArray *const_pool, NyaaCore *N) {
+NyScript::NyScript(uint32_t max_stack_size,
+                   NyString *file_name,
+                   NyInt32Array *file_info,
+                   NyByteArray *bcbuf,
+                   NyArray *const_pool,
+                   NyaaCore *N)
+    : unused_(0) // TODO:
+    , max_stack_size_(max_stack_size) {
+
     N->BarrierWr(this, &bcbuf_, bcbuf);
     bcbuf_      = DCHECK_NOTNULL(bcbuf);
     N->BarrierWr(this, &const_pool_, const_pool);
@@ -710,13 +717,11 @@ void NyDelegated::Bind(int i, Object *upval, NyaaCore *N) {
     
 NyFunction::NyFunction(uint8_t n_params,
                        bool vargs,
-                       uint32_t max_stack_size,
                        uint32_t n_upvals,
                        NyScript *script,
                        NyaaCore *N)
     : n_params_(n_params)
     , vargs_(vargs)
-    , max_stack_size_(max_stack_size)
     , n_upvals_(n_upvals)
     , script_(script) {
     N->BarrierWr(this, &script_, script);
@@ -732,7 +737,7 @@ void NyFunction::Bind(int i, Object *upval, NyaaCore *N) {
     
 int NyFunction::Call(Arguments *args, NyaaCore *N) { return N->curr_thd()->Run(this, args, -1); }
     
-int NyScript::Run(NyaaCore *N) { return N->main_thd()->Run(this); }
+int NyScript::Run(NyaaCore *N) { return N->main_thd()->Run(this, 0); }
     
 int NyDelegated::Call(Arguments *args, NyaaCore *N) {
     switch (kind()) {
