@@ -13,6 +13,7 @@
 		2303D93921F8757500075A99 /* heap-tuple-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2303D93821F8757500075A99 /* heap-tuple-test.cc */; };
 		230D7ACC21FDE8890019F7BB /* evaluation-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230D7ACB21FDE8890019F7BB /* evaluation-test.cc */; };
 		2312DFBD2253503700689616 /* malloc-object-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2312DFBC2253503700689616 /* malloc-object-factory.cc */; };
+		2312DFC022536B4300689616 /* scavenger.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2312DFBF22536B4300689616 /* scavenger.cc */; };
 		2317596921E5933F0025685F /* sql.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2317596821E5933F0025685F /* sql.yy.cc */; };
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
 		23216A272201A2F900E1B816 /* types-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A262201A2F900E1B816 /* types-test.cc */; };
@@ -282,6 +283,8 @@
 		230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map-v2.h"; sourceTree = "<group>"; };
 		2312DFBB2253503600689616 /* malloc-object-factory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "malloc-object-factory.h"; sourceTree = "<group>"; };
 		2312DFBC2253503700689616 /* malloc-object-factory.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "malloc-object-factory.cc"; sourceTree = "<group>"; };
+		2312DFBE22536B3700689616 /* scavenger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = scavenger.h; sourceTree = "<group>"; };
+		2312DFBF22536B4300689616 /* scavenger.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = scavenger.cc; sourceTree = "<group>"; };
 		2317596821E5933F0025685F /* sql.yy.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sql.yy.cc; sourceTree = "<group>"; };
 		2317596A21E5A1BA0025685F /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
 		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
@@ -750,6 +753,8 @@
 				23719D3F2242297F0055D397 /* bytecode.h */,
 				23D9E0C8224B524D00914076 /* visitors.h */,
 				23D9E0C9224B560800914076 /* visitors.cc */,
+				2312DFBE22536B3700689616 /* scavenger.h */,
+				2312DFBF22536B4300689616 /* scavenger.cc */,
 			);
 			name = nyaa;
 			path = src/nyaa;
@@ -1306,6 +1311,7 @@
 				2364B2D821E451F9008519AE /* table-test.cc in Sources */,
 				23216A2A2201BC8600E1B816 /* heap-tuple.cc in Sources */,
 				2364B2DB21E451F9008519AE /* sst-table-builder.cc in Sources */,
+				2312DFC022536B4300689616 /* scavenger.cc in Sources */,
 				23F6A03622266E7700AE5DB6 /* decimal-test-v1.cc in Sources */,
 				2364B2DD21E451F9008519AE /* sst-table-reader.cc in Sources */,
 				2364B2DF21E451F9008519AE /* s1-table-builder.cc in Sources */,

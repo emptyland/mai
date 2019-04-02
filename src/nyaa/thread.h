@@ -106,6 +106,8 @@ public:
     
     void IterateRoot(RootVisitor *visitor);
     
+    void Iterate(ObjectVisitor *) {}
+    
     constexpr size_t PlacedSize() const { return sizeof(*this); }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);

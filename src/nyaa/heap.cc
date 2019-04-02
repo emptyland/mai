@@ -82,6 +82,14 @@ bool Heap::InNewArea(NyObject *ob) {
     return new_space_->Contains(reinterpret_cast<Address>(ob));
 }
     
+bool Heap::InFromSemiArea(NyObject *ob) {
+    return new_space_->from_area()->Contains(reinterpret_cast<Address>(ob));
+}
+
+bool Heap::InToSemiArea(NyObject *ob) {
+    return new_space_->to_area()->Contains(reinterpret_cast<Address>(ob));
+}
+    
 void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
     //printf("%p(%p) = %p\n", host, pzwr, val);
     if (owns_->stub()->nogc()) {
@@ -111,7 +119,7 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
             WriteEntry *wr = new WriteEntry;
             wr->next = nullptr;
             wr->host = host;
-            wr->pzwr = reinterpret_cast<NyObject **>(pzwr);
+            wr->pzwr = pzwr;
             wr->ismt = ismt;
             
             old_to_new_.insert({addr, wr});

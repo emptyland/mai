@@ -35,6 +35,8 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(ObjectVisitor);
 }; // class ObjectVisitor
+    
+//void IterateObject(Object *host, ObjectVisitor *visitor);
 
 } // namespace nyaa
     

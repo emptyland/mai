@@ -234,6 +234,25 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) {
 //    return result->IsTrue();
 }
     
+void NyObject::Iterate(ObjectVisitor *visitor) {
+    DCHECK(is_direct());
+    visitor->VisitMetatablePointer(this, &mtword_);
+    
+    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+    #define DEFINE_ITERATE(type) \
+        case kType##type: \
+            static_cast<Ny##type *>(this)->Iterate(visitor); \
+            break;
+            
+        DECL_BUILTIN_TYPES(DEFINE_ITERATE)
+    #undef DEFINE_PLACED_SIZE
+        default: { // UDOs
+            DCHECK_GT(GetMetatable()->kid(), kUdoKidBegin);
+            DLOG(FATAL) << "TODO:";
+        } break;
+    }
+}
+    
 size_t NyObject::PlacedSize() const {
     size_t bytes = 0;
     switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
@@ -589,6 +608,18 @@ bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
         }
     }
     return p != nullptr;
+}
+    
+void NyTable::Iterate(ObjectVisitor *visitor) {
+    for (size_t i = 0; i < capacity_; ++i) {
+        Entry *e = entries_ + i;
+        if (e->kind == kFree) {
+            continue;
+        }
+
+        visitor->VisitPointer(this, &e->key);
+        visitor->VisitPointer(this, &e->value);
+    }
 }
 
 NyString::NyString(const char *s, size_t n, NyaaCore *N)

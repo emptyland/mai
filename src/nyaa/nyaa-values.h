@@ -4,6 +4,7 @@
 #include "mai-lang/handles.h"
 #include "nyaa/builtin.h"
 #include "nyaa/memory.h"
+#include "nyaa/visitors.h"
 #include "base/base.h"
 #include "glog/logging.h"
 
@@ -28,6 +29,7 @@ class NyUDO;
 class NyThread;
 class NyaaCore;
 class NyFactory;
+//class ObjectVisitor;
     
 class String;
 class Array;
@@ -126,6 +128,10 @@ public:
     bool is_forward() const { return mtword_ & 0x1; }
     
     bool is_direct() const { return !is_forward(); }
+    
+    NyObject *Foward() const {
+        return is_forward() ? static_cast<NyObject *>(forward_address()) : nullptr;
+    }
 
 #if defined(NYAA_USE_POINTER_COLOR)
     HeapColor GetColor() const {
@@ -148,6 +154,8 @@ public:
     }
 
     void SetMetatable(NyMap *mt, NyaaCore *N);
+    
+    void Iterate(ObjectVisitor *visitor);
     
     // Real size in heap.
     size_t PlacedSize() const;
@@ -208,6 +216,8 @@ public:
         return static_cast<uint32_t>(bits * bits >> 16);
     }
     
+    void Iterate(ObjectVisitor *visitor) {}
+    
     constexpr size_t PlacedSize() const { return sizeof(*this); }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
@@ -246,6 +256,8 @@ public:
     
     static int Compare(const NyLong *lhs, const NyLong *rhs);
     
+    void Iterate(ObjectVisitor *visitor) {}
+    
     size_t PlacedSize() const { return RequiredSize(capacity_); }
     
     static size_t RequiredSize(uint32_t capacity) {
@@ -279,6 +291,10 @@ public:
     
     Object *RawGet(Object *key, NyaaCore *N);
     
+    void Iterate(ObjectVisitor *visitor) {
+        visitor->VisitPointer(this, reinterpret_cast<Object **>(&generic_));
+    }
+    
     constexpr size_t PlacedSize() const { return sizeof(*this); }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
@@ -309,6 +325,8 @@ public:
     
     NyTable *Rehash(NyTable *origin, NyaaCore *N);
     
+    void Iterate(ObjectVisitor *visitor);
+    
     size_t PlacedSize() const { return RequiredSize(capacity_); }
 
     static size_t RequiredSize(uint32_t capacity) {
@@ -327,8 +345,8 @@ private:
     struct Entry {
         Entry  *next;
         Kind    kind;
-        Object *key;
-        Object *value;
+        Object *key; // [strong ref]
+        Object *value; // [strong ref]
     };
     
     bool DoPut(Object *key, Object *value, NyaaCore *N);
@@ -401,6 +419,8 @@ public:
         return MakeView(elems_, len);
     }
     
+    void Iterate(ObjectVisitor *visitor) {}
+    
     using NyArrayBase<Byte>::Get;
     using NyArrayBase<Byte>::PlacedSize;
     using NyArrayBase<Byte>::RequiredSize;
@@ -444,6 +464,8 @@ public:
     
     Object *TryNumeric(NyaaCore *N) const;
     
+    void Iterate(ObjectVisitor *visitor) {}
+    
     using NyByteArray::PlacedSize;
     
     static size_t RequiredSize(uint32_t size) {
@@ -464,6 +486,8 @@ public:
     //NyInt32Array *Put(int64_t key, int32_t value, NyaaCore *N);
     
     NyInt32Array *Add(int32_t value, NyaaCore *N);
+    
+    void Iterate(ObjectVisitor *visitor) {}
 
     using NyArrayBase<int32_t>::Get;
     using NyArrayBase<int32_t>::Refill;
@@ -493,6 +517,8 @@ public:
     using NyArrayBase<Object *>::RequiredSize;
     
     void Refill(const NyArray *base, NyaaCore *N);
+    
+    void Iterate(ObjectVisitor *visitor) { visitor->VisitPointers(this, elems_, elems_ + size_); }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
@@ -538,6 +564,11 @@ public:
     
     int Call(Arguments *, NyaaCore *N);
     
+    void Iterate(ObjectVisitor *visitor) {
+        visitor->VisitPointer(this, reinterpret_cast<Object **>(&script_));
+        visitor->VisitPointers(this, upvals_, upvals_ + n_upvals_);
+    }
+    
     size_t PlacedSize() const { return RequiredSize(n_upvals_); }
     
     static size_t RequiredSize(uint32_t n_upvals) {
@@ -574,6 +605,13 @@ public:
     DEF_PTR_GETTER(NyArray, const_pool);
     
     int Run(NyaaCore *N);
+    
+    void Iterate(ObjectVisitor *visitor) {
+        visitor->VisitPointer(this, reinterpret_cast<Object **>(&bcbuf_));
+        visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_name_));
+        visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_info_));
+        visitor->VisitPointer(this, reinterpret_cast<Object **>(&const_pool_));
+    }
 
     constexpr size_t PlacedSize() const { return sizeof(*this); }
     
@@ -625,6 +663,10 @@ public:
     Address fp_addr() { return static_cast<Address>(stub_); }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    
+    void Iterate(ObjectVisitor *visitor) {
+        visitor->VisitPointers(this, upvals_, upvals_ + n_upvals_);
+    }
     
     size_t PlacedSize() const { return RequiredSize(n_upvals_); }
     

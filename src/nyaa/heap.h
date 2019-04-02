@@ -29,6 +29,8 @@ public:
     HeapSpace Contains(NyObject *ob);
     bool InNewArea(NyObject *ob);
     bool InOldArea(NyObject *ob) { return !InNewArea(ob); }
+    bool InFromSemiArea(NyObject *ob);
+    bool InToSemiArea(NyObject *ob);
     
     void BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt = false);
     
@@ -37,15 +39,19 @@ public:
     virtual size_t granularity() override { return kAllocateAlignmentSize; }
     virtual size_t memory_usage() const override;
 
-    DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
-private:
     struct WriteEntry {
         WriteEntry *next;
         NyObject   *host; // in old space
-        NyObject  **pzwr; // in new space
         uint32_t    ismt; // is pzwr metatable address?
+        union {
+            Object  **pzwr; // use by ismt == false, in new space
+            uintptr_t *mtwr; // use by ismt == true
+        };
     };
-    
+
+    friend class Scavenger;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
+private:
     NyaaCore *const owns_;
     size_t const os_page_size_;
     NewSpace *new_space_ = nullptr;

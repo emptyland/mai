@@ -13,6 +13,7 @@ class NyaaCore;
 class Isolate;
 class Object;
 class NyObject;
+class RootVisitor;
     
 class SemiSpace;
 class NewSpace;
@@ -31,6 +32,8 @@ public:
     HeapSpace owns_space() const { return static_cast<HeapSpace>(owns_space_); }
     size_t available() const { return available_; }
     size_t page_size() const { return page_size_; }
+    DEF_VAL_GETTER(Address, area_base);
+    DEF_VAL_GETTER(Address, area_limit);
     
     bool Contains(Address addr) const { return addr >= area_base_ && addr < area_limit_; }
     
@@ -150,8 +153,18 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Spaces
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+class HeapVisitor {
+public:
+    HeapVisitor() {}
+    virtual ~HeapVisitor() {}
+    virtual void VisitObject(NyObject *ob, size_t placed_size) = 0;
+}; // class HeapVisitor
+    
 class Space {
 public:
+    using Visitor = HeapVisitor;
+    
     virtual ~Space() {}
     
     virtual size_t Available() const = 0;
@@ -171,12 +184,14 @@ protected:
     HeapSpace const kind_;
 }; // class Space
 
-class SemiSpace : public Space {
+class SemiSpace final : public Space {
 public:
     SemiSpace() : Space(kSemiSpace) {}
     
     virtual ~SemiSpace() override {
-        if (page_) { page_->Dispose(isolate_); }
+        if (page_) {
+            page_->Dispose(isolate_);
+        }
     }
     
     virtual size_t Available() const override {
@@ -186,10 +201,18 @@ public:
     
     virtual Address AllocateRaw(size_t size) override;
     
+    bool Contains(Address addr) const { return page_->Contains(addr); }
+    
+    void Iterate(Address begin, Address end, HeapVisitor *visitor);
+    
     DEF_PTR_GETTER_NOTNULL(Page, page);
+    DEF_VAL_GETTER(Address, free);
     
     Error Init(size_t size, Isolate *isolate);
     
+    friend class NewSpace;
+    friend class Scavenger;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(SemiSpace);
 private:
     Page *page_  = nullptr;
     Address free_ = nullptr;
@@ -202,19 +225,25 @@ public:
         : Space(kNewSpace)
         , from_area_(new SemiSpace())
         , to_area_(new SemiSpace()) {}
-
     virtual ~NewSpace() override {}
-    
     virtual size_t Available() const override { return to_area_->Available(); }
-    
     virtual Address AllocateRaw(size_t size) override { return to_area_->AllocateRaw(size); }
     
-    bool Contains(Address addr) const {
-        return from_area_->page()->Contains(addr) || to_area_->page()->Contains(addr);
-    }
+    SemiSpace *from_area() const { return from_area_.get(); }
+    SemiSpace *to_area() const { return to_area_.get(); }
     
     Error Init(size_t total_size, Isolate *isolate);
     
+    bool Contains(Address addr) const {
+        return from_area_->Contains(addr) || to_area_->Contains(addr);
+    }
+    
+    void Purge(bool reinit) {
+        from_area_.swap(to_area_);
+        to_area_->free_ = to_area_->page()->area_base_;
+    }
+    
+    friend class Scavenger;
     DISALLOW_IMPLICIT_CONSTRUCTORS(NewSpace);
 private:
     std::unique_ptr<SemiSpace> from_area_;

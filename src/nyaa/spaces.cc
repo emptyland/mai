@@ -163,6 +163,21 @@ Error SemiSpace::Init(size_t size, Isolate *isolate) {
     return align_free;
 }
     
+void SemiSpace::Iterate(Address begin, Address end, HeapVisitor *visitor) {
+    DCHECK_GE(begin, page_->area_base());
+    DCHECK_LE(end, page_->area_limit());
+    DCHECK_LE(begin, end);
+    Address addr = begin;
+    while (addr < end) {
+        NyObject *ob = reinterpret_cast<NyObject *>(addr);
+        size_t size = ob->PlacedSize();
+        DCHECK_EQ(size % kAllocateAlignmentSize, 0);
+        
+        visitor->VisitObject(ob, size);
+        addr += size;
+    }
+}
+    
 Error NewSpace::Init(size_t total_size, Isolate *isolate) {
     auto rs = from_area_->Init(total_size >> 1, isolate);
     if (!rs) {
