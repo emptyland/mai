@@ -45,7 +45,7 @@ NyaaCore::~NyaaCore() {
 }
     
 Error NyaaCore::Boot() {
-    Error rs = heap_->Prepare();
+    Error rs = heap_->Init();
     if (!rs) {
         return rs;
     }

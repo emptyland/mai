@@ -22,7 +22,7 @@ public:
     Heap(NyaaCore *N);
     virtual ~Heap();
     
-    Error Prepare();
+    Error Init();
     
     NyObject *Allocate(size_t size, HeapSpace space);
     
@@ -30,7 +30,7 @@ public:
     bool InNewArea(NyObject *ob);
     bool InOldArea(NyObject *ob) { return !InNewArea(ob); }
     
-    void BarrierWr(NyObject *host, Object **pzwr, Object *val);
+    void BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt = false);
     
     virtual void *Allocate(size_t size, size_t) override;
     virtual void Purge(bool reinit) override;
@@ -43,9 +43,11 @@ private:
         WriteEntry *next;
         NyObject   *host; // in old space
         NyObject  **pzwr; // in new space
+        uint32_t    ismt; // is pzwr metatable address?
     };
     
     NyaaCore *const owns_;
+    size_t const os_page_size_;
     NewSpace *new_space_ = nullptr;
     OldSpace *old_space_ = nullptr;
     OldSpace *code_space_ = nullptr;

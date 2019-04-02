@@ -31,6 +31,8 @@ public:
     
     virtual void VisitPointer(Object *host, Object **p) { VisitPointers(host, p, p + 1); }
     
+    virtual void VisitMetatablePointer(Object *host, uintptr_t *mta) = 0;
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(ObjectVisitor);
 }; // class ObjectVisitor
 

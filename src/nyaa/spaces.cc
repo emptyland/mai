@@ -48,13 +48,41 @@ const size_t Page::kRegionLimitSize[kMaxRegionChunks] = {
     SIZE_T_MAX,
 };
     
-/*static*/ Page *Page::NewRegular(HeapSpace space, int scale, int access, Isolate *isolate) {
+///*static*/ Page *Page::NewRegular(HeapSpace space, int scale, int access, Isolate *isolate) {
+//    Allocator *lla = isolate->env()->GetLowLevelAllocator();
+//    DCHECK_GE(kPageSize, lla->granularity());
+//    DCHECK_EQ(kPageSize % lla->granularity(), 0);
+//    DCHECK_GT(scale, 0);
+//    
+//    size_t requried_size = kPageSize * scale;
+//    
+//    void *chunk = nullptr;
+//    for (int i = 0; i < kAllocateRetries; ++i) {
+//        if ((chunk = PageAllocate(requried_size, kPageSize, lla)) != nullptr) {
+//            break;
+//        }
+//        DLOG(INFO) << "Retry page allocating: " << i;
+//    }
+//    if (!chunk) {
+//        PLOG(INFO) << "Allocation fail!";
+//        return nullptr; // Failed!
+//    }
+//    DCHECK_EQ(reinterpret_cast<uintptr_t>(chunk) % kPageSize, 0);
+//
+//    auto rs = lla->SetAccess(chunk, requried_size, access);
+//    if (!rs) {
+//        DLOG(ERROR) << rs.ToString();
+//        return nullptr; // Failed!
+//    }
+//    return new (chunk) Page(space, static_cast<uint32_t>(requried_size));
+//}
+    
+/*static*/ Page *Page::NewVariable(HeapSpace space, size_t size, int access, Isolate *isolate) {
     Allocator *lla = isolate->env()->GetLowLevelAllocator();
     DCHECK_GE(kPageSize, lla->granularity());
     DCHECK_EQ(kPageSize % lla->granularity(), 0);
-    DCHECK_GT(scale, 0);
     
-    size_t requried_size = kPageSize * scale;
+    size_t requried_size = RoundUp(size, kPageSize);
     
     void *chunk = nullptr;
     for (int i = 0; i < kAllocateRetries; ++i) {
@@ -68,8 +96,7 @@ const size_t Page::kRegionLimitSize[kMaxRegionChunks] = {
         return nullptr; // Failed!
     }
     DCHECK_EQ(reinterpret_cast<uintptr_t>(chunk) % kPageSize, 0);
-
-    //DbgFillInitZag(chunk, kPageSize);
+    
     auto rs = lla->SetAccess(chunk, requried_size, access);
     if (!rs) {
         DLOG(ERROR) << rs.ToString();
@@ -82,6 +109,34 @@ void Page::Dispose(Isolate *isolate) {
     delete region_;
     region_ = nullptr;
     isolate->env()->GetLowLevelAllocator()->Free(this, page_size_);
+}
+    
+HeapColor Space::GetAddressColor(Address addr) const {
+    Page *page = Page::FromAddress(addr);
+    DCHECK_EQ(kind(), page->owns_space());
+    
+#if defined(NYAA_USE_POINTER_COLOR)
+    void *hp = *reinterpret_cast<void **>(addr);
+    uintptr_t header = reinterpret_cast<uintptr_t>(hp);
+    return static_cast<HeapColor>((header & NyObject::kColorMask) >> NyObject::kMaskBitsOrder);
+#else // !defined(NYAA_USE_POINTER_COLOR)
+    // TODO:
+#endif // defined(NYAA_USE_POINTER_COLOR)
+}
+
+void Space::SetAddressColor(Address addr, HeapColor color) {
+    Page *page = Page::FromAddress(addr);
+    DCHECK_EQ(kind(), page->owns_space());
+    
+#if defined(NYAA_USE_POINTER_COLOR)
+    void *hp = *reinterpret_cast<void **>(addr);
+    uintptr_t header = reinterpret_cast<uintptr_t>(hp);
+    header &= ~NyObject::kColorMask;
+    header |= ((static_cast<uintptr_t>(color) & 0xfull) << NyObject::kMaskBitsOrder);
+    *reinterpret_cast<void **>(addr) = reinterpret_cast<void *>(header);
+#else // !defined(NYAA_USE_POINTER_COLOR)
+    // TODO:
+#endif // defined(NYAA_USE_POINTER_COLOR)
 }
     
 Error SemiSpace::Init(size_t size, Isolate *isolate) {
@@ -207,34 +262,6 @@ Error OldSpace::Init(size_t init_size, size_t limit_size) {
     return raw;
 }
     
-HeapColor OldSpace::GetAddressColor(Address addr) const {
-    Page *page = Page::FromAddress(addr);
-    DCHECK_EQ(kind(), page->owns_space());
-    
-#if defined(NYAA_USE_POINTER_COLOR)
-    void *hp = *reinterpret_cast<void **>(addr);
-    uintptr_t header = reinterpret_cast<uintptr_t>(hp);
-    return static_cast<HeapColor>((header & NyObject::kColorMask) >> NyObject::kMaskBitsOrder);
-#else // !defined(NYAA_USE_POINTER_COLOR)
-    // TODO:
-#endif // defined(NYAA_USE_POINTER_COLOR)
-}
-    
-void OldSpace::SetAddressColor(Address addr, HeapColor color) {
-    Page *page = Page::FromAddress(addr);
-    DCHECK_EQ(kind(), page->owns_space());
-    
-#if defined(NYAA_USE_POINTER_COLOR)
-    void *hp = *reinterpret_cast<void **>(addr);
-    uintptr_t header = reinterpret_cast<uintptr_t>(hp);
-    header &= ~NyObject::kColorMask;
-    header |= ((static_cast<uintptr_t>(color) & 0xfull) << NyObject::kMaskBitsOrder);
-    *reinterpret_cast<void **>(addr) = reinterpret_cast<void *>(header);
-#else // !defined(NYAA_USE_POINTER_COLOR)
-    // TODO:
-#endif // defined(NYAA_USE_POINTER_COLOR)
-}
-    
 void OldSpace::Free(Address addr, size_t size) {
     Page *page = Page::FromAddress(addr);
     DCHECK_EQ(kind(), page->owns_space());
@@ -305,6 +332,45 @@ Page *OldSpace::NewPage() {
     Page::Insert(dummy_, page);
     pages_total_size_ += page->page_size();
     return page;
+}
+    
+/*virtual*/ LargeSpace::~LargeSpace() {
+    while (dummy_->next_ != dummy_) {
+        Page *x = dummy_->next_;
+        Page::Remove(x);
+        x->Dispose(isolate_);
+    }
+    delete dummy_;
+}
+    
+/*virtual*/ size_t LargeSpace::Available() const {
+    size_t size = 0;
+    for (Page *i = dummy_->next_; i != dummy_; i = i->next_) {
+        size += i->page_size();
+    }
+    return size;
+}
+
+Address LargeSpace::AllocateRaw(size_t size, bool executable) {
+    size_t required_size = size + sizeof(Page);
+    if (pages_total_size_ + RoundUp(required_size, kPageSize) > limit_size_) {
+        return nullptr;
+    }
+
+    int access = Allocator::kRd | Allocator::kWr;
+    if (executable) {
+        access |= Allocator::kEx;
+    }
+    Page *page = Page::NewVariable(kind(), required_size, access, isolate_);
+    if (!page) {
+        return nullptr;
+    }
+    Page::Insert(dummy_, page);
+    pages_total_size_ += page->page_size();
+    
+    Address result = page->area_base_;
+    SetAddressColor(result, kColorWhite);
+    return result;
 }
     
 } // namespace nyaa

@@ -34,7 +34,7 @@ TEST_F(NyaaSpacesTest, NewSpace) {
     auto rs = ns->Init(N_->major_area_initial_size(), isolate_);
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
-    ASSERT_EQ(N_->major_area_initial_size()/2, ns->Available());
+    ASSERT_GE(N_->major_area_initial_size()/2, ns->Available());
     
     auto available = ns->Available();
     auto chunk = ns->AllocateRaw(sizeof(NyFloat64));
@@ -59,7 +59,7 @@ TEST_F(NyaaSpacesTest, OldSpace) {
     std::unique_ptr<OldSpace> os(new OldSpace(kOldSpace, false, isolate_));
     auto rs = os->Init(N_->minor_area_initial_size(), N_->minor_area_max_size());
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    ASSERT_EQ(N_->minor_area_initial_size(), os->Available());
+    ASSERT_GE(N_->minor_area_initial_size(), os->Available());
     
     auto available = os->Available();
     auto chunk = os->AllocateRaw(sizeof(NyFloat64));
@@ -75,7 +75,7 @@ TEST_F(NyaaSpacesTest, OldSpaceInit) {
     std::unique_ptr<OldSpace> os(new OldSpace(kOldSpace, false, isolate_));
     auto rs = os->Init(N_->minor_area_initial_size(), N_->minor_area_max_size());
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    ASSERT_EQ(N_->minor_area_initial_size(), os->Available());
+    ASSERT_GE(N_->minor_area_initial_size(), os->Available());
     
     auto region = os->cache()->region();
     ASSERT_EQ(nullptr, region->tiny);
@@ -86,7 +86,7 @@ TEST_F(NyaaSpacesTest, OldSpaceInit) {
     
     auto chunk = region->big;
     ASSERT_EQ(nullptr, chunk->next);
-    ASSERT_EQ(1048576, chunk->size);
+    ASSERT_EQ(1048520, chunk->size);
     ASSERT_EQ(os->cache_->available(), chunk->size);
 }
     
@@ -100,7 +100,7 @@ TEST_F(NyaaSpacesTest, OldSpaceAlloc) {
     
     auto chunk = os->cache()->region()->big;
     ASSERT_EQ(nullptr, chunk->next);
-    ASSERT_EQ(1048560, chunk->size);
+    ASSERT_EQ(1048504, chunk->size);
     ASSERT_EQ(os->cache()->available(), chunk->size);
     
     blk = os->AllocateRaw(sizeof(NyFloat64));
@@ -108,7 +108,7 @@ TEST_F(NyaaSpacesTest, OldSpaceAlloc) {
     
     chunk = os->cache()->region()->big;
     ASSERT_EQ(nullptr, chunk->next);
-    ASSERT_EQ(1048544, chunk->size);
+    ASSERT_EQ(1048488, chunk->size);
     ASSERT_EQ(os->cache()->available(), chunk->size);
 }
 
@@ -125,7 +125,7 @@ TEST_F(NyaaSpacesTest, OldSpaceFreeMerge) {
 
     auto chunk = os->cache()->region()->big;
     ASSERT_EQ(nullptr, chunk->next);
-    ASSERT_EQ(1048576, chunk->size);
+    ASSERT_EQ(1048520, chunk->size);
     ASSERT_EQ(os->cache()->available(), chunk->size);
 }
     
@@ -142,13 +142,18 @@ TEST_F(NyaaSpacesTest, OldSpaceFreeNoMerge) {
     
     auto chunk = os->cache()->region()->big;
     ASSERT_EQ(nullptr, chunk->next);
-    ASSERT_EQ(1048560, chunk->size);
+    ASSERT_EQ(1048504, chunk->size);
 
     chunk = os->cache()->region()->tiny;
     ASSERT_EQ(nullptr, chunk->next);
     ASSERT_EQ(sizeof(NyFloat64), chunk->size);
 }
 
+TEST_F(NyaaSpacesTest, LargeSpace) {
+    std::unique_ptr<LargeSpace> ls(new LargeSpace(N_->minor_area_max_size(), isolate_));
+    ls->Free(ls->AllocateRaw(1));
+}
+    
 } // namespace nyaa
 
 } // namespace mai

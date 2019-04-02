@@ -44,11 +44,16 @@ public:
     // Only for regular page
     static Page *FromHeapObject(NyObject *ob) { return FromAddress(reinterpret_cast<Address>(ob)); }
 
-    static Page *NewRegular(HeapSpace space, int scale, int access, Isolate *isolate);
+    static Page *NewRegular(HeapSpace space, int scale, int access, Isolate *isolate) {
+        DCHECK_GT(scale, 0);
+        return NewVariable(space, kPageSize * scale, access, isolate);
+    }
     
     static Page *NewPaged(HeapSpace space, int access, Isolate *isolate) {
         return NewRegular(space, 1, access, isolate);
     }
+    
+    static Page *NewVariable(HeapSpace space, size_t size, int access, Isolate *isolate);
     
     void Dispose(Isolate *isolate);
     
@@ -102,7 +107,7 @@ private:
         , page_size_(page_size) {
         DCHECK_GE(page_size, kPageSize);
         area_base_ = reinterpret_cast<Address>(this + 1);
-        area_limit_ = area_base_ + page_size_;
+        area_limit_ = reinterpret_cast<Address>(this) + page_size;
         available_ = static_cast<uint32_t>(area_limit_ - area_base_);
     }
     
@@ -150,19 +155,20 @@ public:
     virtual ~Space() {}
     
     virtual size_t Available() const = 0;
+    
     virtual Address AllocateRaw(size_t size) = 0;
     
     DEF_VAL_GETTER(HeapSpace, kind);
-    DEF_VAL_GETTER(bool, executable);
+    
+    HeapColor GetAddressColor(Address addr) const;
+    
+    void SetAddressColor(Address addr, HeapColor color);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Space);
 protected:
-    Space(HeapSpace kind, bool executable = false)
-        : kind_(kind)
-        , executable_(executable) {}
+    Space(HeapSpace kind) : kind_(kind) {}
     
     HeapSpace const kind_;
-    bool const executable_;
 }; // class Space
 
 class SemiSpace : public Space {
@@ -218,7 +224,8 @@ private:
 class OldSpace final : public Space {
 public:
     OldSpace(HeapSpace kind, bool executable, Isolate *isolate)
-        : Space(kind, executable)
+        : Space(kind)
+        , executable_(executable)
         , dummy_(new Page())
         , isolate_(DCHECK_NOTNULL(isolate)) {}
     virtual ~OldSpace() override;
@@ -226,12 +233,14 @@ public:
     virtual Address AllocateRaw(size_t size) override;
     
     DEF_PTR_GETTER(Page, cache);
+    DEF_VAL_GETTER(bool, executable);
     
     Error Init(size_t init_size, size_t limit_size);
     
-    HeapColor GetAddressColor(Address addr) const;
-    
-    void SetAddressColor(Address addr, HeapColor color);
+    bool Contains(Address addr) const {
+        Page *page = Page::FromAddress(addr);
+        return page->owns_space() == kind();
+    }
     
     void Free(Address addr, size_t size);
     
@@ -241,13 +250,47 @@ public:
 private:
     Page *NewPage();
     
-    Page *dummy_ = nullptr;
+    Isolate *isolate_;
+    bool executable_;
+    Page *dummy_;
     Page *cache_ = nullptr;
     size_t init_size_ = 0;
     size_t limit_size_ = 0;
     size_t pages_total_size_ = 0;
-    Isolate *isolate_ = nullptr;
 }; // class OldSpace
+    
+class LargeSpace final : public Space {
+public:
+    LargeSpace(size_t limit_size, Isolate *isolate)
+        : Space(kLargeSpace)
+        , dummy_(new Page())
+        , limit_size_(limit_size)
+        , isolate_(isolate) {}
+    virtual ~LargeSpace() override;
+    virtual size_t Available() const override;
+    virtual Address AllocateRaw(size_t size) override { return AllocateRaw(size, false); }
+
+    bool Contains(Address addr) const {
+        Page *page = Page::FromAddress(addr);
+        return page->owns_space() == kind();
+    }
+    
+    Address AllocateRaw(size_t size, bool executable);
+    
+    void Free(Address addr) {
+        Page *page = Page::FromAddress(addr);
+        DCHECK_EQ(kind(), page->owns_space());
+        Page::Remove(page);
+        pages_total_size_ -= page->page_size();
+        page->Dispose(isolate_);
+    }
+    
+private:
+    Page *dummy_;
+    Isolate *const isolate_;
+    size_t limit_size_;
+    size_t pages_total_size_ = 0;
+}; // class LargeSpace
     
 } // namespace nyaa
     

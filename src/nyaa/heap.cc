@@ -11,16 +11,21 @@ namespace nyaa {
     
 Heap::Heap(NyaaCore *N)
     : owns_(DCHECK_NOTNULL(N))
+    , os_page_size_(N->isolate()->env()->GetLowLevelAllocator()->granularity())
     , new_space_(new NewSpace())
-    , old_space_(new OldSpace(kOldSpace, false, N->isolate())) {
-        // TODO:
+    , old_space_(new OldSpace(kOldSpace, false, N->isolate()))
+    , code_space_(new OldSpace(kCodeSpace, true, N->isolate()))
+    , large_space_(new LargeSpace(N->stub()->minor_area_max_size(), N->isolate())) {
 }
 
 /*virtual*/ Heap::~Heap() {
+    delete large_space_;
+    delete code_space_;
+    delete old_space_;
     delete new_space_;
 }
 
-Error Heap::Prepare() {
+Error Heap::Init() {
     Nyaa *stub = owns_->stub();
     auto rs = new_space_->Init(stub->major_area_initial_size(), owns_->isolate());
     if (!rs) {
@@ -30,11 +35,13 @@ Error Heap::Prepare() {
     if (!rs) {
         return rs;
     }
+    old_space_->Free(old_space_->AllocateRaw(16), 16);
+    large_space_->Free(large_space_->AllocateRaw(1));
     return Error::OK();
 }
 
 NyObject *Heap::Allocate(size_t size, HeapSpace space) {
-    if (size > kLargePageThreshold) {
+    if (size > os_page_size_) {
         space = kLargeSpace;
     }
     
@@ -50,7 +57,7 @@ NyObject *Heap::Allocate(size_t size, HeapSpace space) {
             // TODO:
             break;
         case kLargeSpace:
-            // TODO:
+            chunk = large_space_->AllocateRaw(size);
             break;
         default:
             break;
@@ -64,10 +71,6 @@ NyObject *Heap::Allocate(size_t size, HeapSpace space) {
 }
     
 HeapSpace Heap::Contains(NyObject *ob) {
-//    if (owns_->initialized() && ob->PlacedSize() > kLargePageThreshold) {
-//        return kLargeSpace;
-//    }
-    // TODO:
     if (new_space_->Contains(reinterpret_cast<Address>(ob))) {
         return kNewSpace;
     }
@@ -79,7 +82,7 @@ bool Heap::InNewArea(NyObject *ob) {
     return new_space_->Contains(reinterpret_cast<Address>(ob));
 }
     
-void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val) {
+void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
     //printf("%p(%p) = %p\n", host, pzwr, val);
     if (owns_->stub()->nogc()) {
         return;
@@ -109,6 +112,7 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val) {
             wr->next = nullptr;
             wr->host = host;
             wr->pzwr = reinterpret_cast<NyObject **>(pzwr);
+            wr->ismt = ismt;
             
             old_to_new_.insert({addr, wr});
         }
