@@ -46,20 +46,48 @@ public:
 
     static Page *NewRegular(HeapSpace space, int scale, int access, Isolate *isolate);
     
+    static Page *NewPaged(HeapSpace space, int access, Isolate *isolate) {
+        return NewRegular(space, 1, access, isolate);
+    }
+    
     void Dispose(Isolate *isolate);
     
     struct Chunk {
         Chunk *next;
-        size_t n;
+        uint32_t size;
     };
     
     struct Region {
-        Chunk *tiny;    // [0, 64) bytes
-        Chunk *small;   // [64, 512) bytes
-        Chunk *medium;  // [512, 1024) bytes
-        Chunk *normal;  // [1024, 4096) bytes
-        Chunk *big;     // >= 4096 bytes
+        Chunk *tiny   = nullptr;  // [0, 64) bytes
+        Chunk *small  = nullptr;  // [64, 512) bytes
+        Chunk *medium = nullptr;  // [512, 1024) bytes
+        Chunk *normal = nullptr;  // [1024, 4096) bytes
+        Chunk *big    = nullptr;  // >= 4096 bytes
     };
+    
+    static constexpr const size_t kMaxRegionChunks = 5;
+    static const size_t kRegionLimitSize[kMaxRegionChunks];
+    
+    DEF_PTR_PROP_RW_NOTNULL2(Region, region);
+    Chunk **region_array() const { return reinterpret_cast<Chunk **>(region()); }
+    
+    size_t FindFitRegion(size_t size) const {
+        for (size_t i = 0; i < kMaxRegionChunks; ++i) {
+            if (size < kRegionLimitSize[i] && region_array()[i]) {
+                return i;
+            }
+        }
+        return kMaxRegionChunks;
+    }
+    
+    static size_t FindWantedRegion(size_t size) {
+        for (size_t i = 0; i < kMaxRegionChunks; ++i) {
+            if (size < kRegionLimitSize[i]) {
+                return i;
+            }
+        }
+        return kMaxRegionChunks;
+    }
 
     friend class SemiSpace;
     friend class NewSpace;
@@ -122,6 +150,7 @@ public:
     virtual ~Space() {}
     
     virtual size_t Available() const = 0;
+    virtual Address AllocateRaw(size_t size) = 0;
     
     DEF_VAL_GETTER(HeapSpace, kind);
     DEF_VAL_GETTER(bool, executable);
@@ -149,12 +178,12 @@ public:
         return page_->available_;
     }
     
+    virtual Address AllocateRaw(size_t size) override;
+    
     DEF_PTR_GETTER_NOTNULL(Page, page);
     
     Error Init(size_t size, Isolate *isolate);
     
-    void *AllocateRaw(size_t size);
-
 private:
     Page *page_  = nullptr;
     Address free_ = nullptr;
@@ -172,13 +201,13 @@ public:
     
     virtual size_t Available() const override { return to_area_->Available(); }
     
+    virtual Address AllocateRaw(size_t size) override { return to_area_->AllocateRaw(size); }
+    
     bool Contains(Address addr) const {
         return from_area_->page()->Contains(addr) || to_area_->page()->Contains(addr);
     }
     
     Error Init(size_t total_size, Isolate *isolate);
-    
-    void *AllocateRaw(size_t size) { return to_area_->AllocateRaw(size); }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NewSpace);
 private:
@@ -188,17 +217,25 @@ private:
 
 class OldSpace final : public Space {
 public:
-    OldSpace(bool executable, Isolate *isolate)
-        : Space(kOldSpace, executable)
+    OldSpace(HeapSpace kind, bool executable, Isolate *isolate)
+        : Space(kind, executable)
         , dummy_(new Page())
         , isolate_(DCHECK_NOTNULL(isolate)) {}
     virtual ~OldSpace() override;
-    
     virtual size_t Available() const override;
+    virtual Address AllocateRaw(size_t size) override;
+    
+    DEF_PTR_GETTER(Page, cache);
     
     Error Init(size_t init_size, size_t limit_size);
     
-    void *AllocateRaw(size_t size, HeapColor init_color);
+    HeapColor GetAddressColor(Address addr) const;
+    
+    void SetAddressColor(Address addr, HeapColor color);
+    
+    void Free(Address addr, size_t size);
+    
+    FRIEND_UNITTEST_CASE(NyaaSpacesTest, OldSpaceInit);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(OldSpace);
 private:

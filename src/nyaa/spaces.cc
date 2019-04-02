@@ -1,4 +1,5 @@
 #include "nyaa/spaces.h"
+#include "nyaa/nyaa-values.h"
 #include "mai/allocator.h"
 #include "mai-lang/isolate.h"
 
@@ -39,6 +40,14 @@ static void *PageAllocate(size_t size, size_t alignment, Allocator *lla) {
     return static_cast<void*>(aligned_base);
 }
     
+const size_t Page::kRegionLimitSize[kMaxRegionChunks] = {
+    64,
+    512,
+    1024,
+    4096,
+    SIZE_T_MAX,
+};
+    
 /*static*/ Page *Page::NewRegular(HeapSpace space, int scale, int access, Isolate *isolate) {
     Allocator *lla = isolate->env()->GetLowLevelAllocator();
     DCHECK_GE(kPageSize, lla->granularity());
@@ -70,6 +79,8 @@ static void *PageAllocate(size_t size, size_t alignment, Allocator *lla) {
 }
     
 void Page::Dispose(Isolate *isolate) {
+    delete region_;
+    region_ = nullptr;
     isolate->env()->GetLowLevelAllocator()->Free(this, page_size_);
 }
     
@@ -86,7 +97,7 @@ Error SemiSpace::Init(size_t size, Isolate *isolate) {
     }
 }
 
-void *SemiSpace::AllocateRaw(size_t size) {
+/*virtual*/ Address SemiSpace::AllocateRaw(size_t size) {
     Address align_free = RoundUp(free_, kAligmentSize);
     size_t  align_size = RoundUp(size, kAllocateAlignmentSize);
     if (align_free + align_size >= page_->area_limit_) {
@@ -120,7 +131,11 @@ Error NewSpace::Init(size_t total_size, Isolate *isolate) {
 }
 
 /*virtual*/ size_t OldSpace::Available() const {
-    return 0;
+    size_t size = 0;
+    for (Page *i = dummy_->next_; i != dummy_; i = i->next_) {
+        size += i->available();
+    }
+    return size;
 }
 
 Error OldSpace::Init(size_t init_size, size_t limit_size) {
@@ -142,8 +157,128 @@ Error OldSpace::Init(size_t init_size, size_t limit_size) {
     return Error::OK();
 }
 
-void *OldSpace::AllocateRaw(size_t size, HeapColor init_color) {
-    return nullptr;
+/*virtual*/ Address OldSpace::AllocateRaw(size_t size) {
+    DCHECK_NOTNULL(cache_);
+    size = RoundUp(size, kAllocateAlignmentSize);
+    
+    Page *hit = cache_;
+    if (size > cache_->available()) {
+        for (hit = dummy_->next_; hit != dummy_; hit = hit->next_) {
+            if (size <= hit->available()) {
+                break;
+            }
+        }
+        if (hit == dummy_) {
+            if (pages_total_size_ + kPageSize > limit_size_) {
+                return nullptr;
+            }
+            hit = NewPage();
+        }
+        cache_ = hit;
+    }
+
+    size_t idx = hit->FindFitRegion(size);
+    DCHECK_LT(idx, Page::kMaxRegionChunks);
+    Page::Chunk *chunk = hit->region_array()[idx];
+    DCHECK_NOTNULL(chunk);
+    
+    Address raw = reinterpret_cast<Address>(chunk);
+    DCHECK_GE(chunk->size, size);
+    if (chunk->size - size > sizeof(Page::Chunk)) {
+        Page::Chunk *next = chunk->next;
+        size_t n = chunk->size;
+        chunk = reinterpret_cast<Page::Chunk *>(raw + size);
+        chunk->next = next;
+        chunk->size = static_cast<uint32_t>(n - size);
+        
+        size_t wanted = Page::FindWantedRegion(chunk->size);
+        if (idx != wanted) {
+            hit->region_array()[idx] = next;    
+            chunk->next = hit->region_array()[wanted];
+        }
+        hit->available_ -= size;
+        hit->region_array()[wanted] = chunk;
+    } else{
+        hit->available_ -= chunk->size;
+        hit->region_array()[idx] = chunk->next;
+    }
+
+    SetAddressColor(raw, kColorWhite);
+    return raw;
+}
+    
+HeapColor OldSpace::GetAddressColor(Address addr) const {
+    Page *page = Page::FromAddress(addr);
+    DCHECK_EQ(kind(), page->owns_space());
+    
+#if defined(NYAA_USE_POINTER_COLOR)
+    void *hp = *reinterpret_cast<void **>(addr);
+    uintptr_t header = reinterpret_cast<uintptr_t>(hp);
+    return static_cast<HeapColor>((header & NyObject::kColorMask) >> NyObject::kMaskBitsOrder);
+#else // !defined(NYAA_USE_POINTER_COLOR)
+    // TODO:
+#endif // defined(NYAA_USE_POINTER_COLOR)
+}
+    
+void OldSpace::SetAddressColor(Address addr, HeapColor color) {
+    Page *page = Page::FromAddress(addr);
+    DCHECK_EQ(kind(), page->owns_space());
+    
+#if defined(NYAA_USE_POINTER_COLOR)
+    void *hp = *reinterpret_cast<void **>(addr);
+    uintptr_t header = reinterpret_cast<uintptr_t>(hp);
+    header &= ~NyObject::kColorMask;
+    header |= ((static_cast<uintptr_t>(color) & 0xfull) << NyObject::kMaskBitsOrder);
+    *reinterpret_cast<void **>(addr) = reinterpret_cast<void *>(header);
+#else // !defined(NYAA_USE_POINTER_COLOR)
+    // TODO:
+#endif // defined(NYAA_USE_POINTER_COLOR)
+}
+    
+void OldSpace::Free(Address addr, size_t size) {
+    Page *page = Page::FromAddress(addr);
+    DCHECK_EQ(kind(), page->owns_space());
+    DCHECK_NE(kColorFreed, GetAddressColor(addr)) << "Free freed block: " << addr;
+    
+    DbgFillFreeZag(addr, size);
+    Page::Chunk *chunk = reinterpret_cast<Page::Chunk *>(addr);
+    chunk->size = static_cast<uint32_t>(size);
+
+    if (addr + size < page->area_limit_) {
+        HeapColor slibing_color = GetAddressColor(addr + size);
+        if (slibing_color == kColorFreed) {
+            Page::Chunk *slibing = reinterpret_cast<Page::Chunk *>(addr + size);
+            chunk->size = static_cast<uint32_t>(size + slibing->size);
+            
+            size_t i = page->FindFitRegion(slibing->size);
+            DCHECK_LT(i, Page::kMaxRegionChunks);
+            
+            Page::Chunk dummy;
+            dummy.next = page->region_array()[i];
+            Page::Chunk *p = dummy.next, *prev = &dummy;
+            DCHECK(p != nullptr);
+            while (p) {
+                if (p == slibing) {
+                    prev->next = slibing->next;
+                    break;
+                }
+                prev = p;
+                p = p->next;
+            }
+            page->region_array()[i] = dummy.next;
+        }
+    }
+    
+    size_t wanted = Page::FindWantedRegion(chunk->size);
+    DCHECK_LT(wanted, Page::kMaxRegionChunks);
+
+    chunk->next = page->region_array()[wanted];
+    page->region_array()[wanted] = chunk;
+
+    page->available_ += size;
+    if (page != cache_ && page->available() > cache_->available()) {
+        cache_ = page;
+    }
 }
     
 Page *OldSpace::NewPage() {
@@ -152,10 +287,21 @@ Page *OldSpace::NewPage() {
         access |= Allocator::kEx;
     }
     
-    Page *page = Page::NewRegular(kOldSpace, 1, access, isolate_);
+    Page *page = Page::NewPaged(kind(), access, isolate_);
     if (!page) {
         return nullptr;
     }
+    
+    Page::Chunk  *chunk = reinterpret_cast<Page::Chunk *>(page->area_base_);
+    chunk->next = nullptr;
+    chunk->size = static_cast<uint32_t>(page->area_limit_ - page->area_base_);
+    DCHECK_EQ(chunk->size, page->available());
+
+    page->region_ = new Page::Region{};
+    size_t i = Page::FindWantedRegion(chunk->size);
+    DCHECK_LT(i, Page::kMaxRegionChunks);
+    page->region_array()[i] = chunk;
+
     Page::Insert(dummy_, page);
     pages_total_size_ += page->page_size();
     return page;

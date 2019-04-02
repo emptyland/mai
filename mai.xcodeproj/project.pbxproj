@@ -12,6 +12,7 @@
 		2303D93721F863F300075A99 /* storage-engine-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2303D93621F863F300075A99 /* storage-engine-test.cc */; };
 		2303D93921F8757500075A99 /* heap-tuple-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2303D93821F8757500075A99 /* heap-tuple-test.cc */; };
 		230D7ACC21FDE8890019F7BB /* evaluation-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230D7ACB21FDE8890019F7BB /* evaluation-test.cc */; };
+		2312DFBD2253503700689616 /* malloc-object-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2312DFBC2253503700689616 /* malloc-object-factory.cc */; };
 		2317596921E5933F0025685F /* sql.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2317596821E5933F0025685F /* sql.yy.cc */; };
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
 		23216A272201A2F900E1B816 /* types-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A262201A2F900E1B816 /* types-test.cc */; };
@@ -279,6 +280,8 @@
 		230D7ACA21FDE8290019F7BB /* eval-factory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "eval-factory.h"; sourceTree = "<group>"; };
 		230D7ACB21FDE8890019F7BB /* evaluation-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "evaluation-test.cc"; sourceTree = "<group>"; };
 		230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map-v2.h"; sourceTree = "<group>"; };
+		2312DFBB2253503600689616 /* malloc-object-factory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "malloc-object-factory.h"; sourceTree = "<group>"; };
+		2312DFBC2253503700689616 /* malloc-object-factory.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "malloc-object-factory.cc"; sourceTree = "<group>"; };
 		2317596821E5933F0025685F /* sql.yy.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sql.yy.cc; sourceTree = "<group>"; };
 		2317596A21E5A1BA0025685F /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
 		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
@@ -734,17 +737,19 @@
 				23A9D76C223E8872006CD82B /* heap.h */,
 				23A9D76D223E88B4006CD82B /* heap.cc */,
 				23A9D76F223E8AB0006CD82B /* memory.h */,
+				23D9E0CB224B82D800914076 /* spaces.h */,
+				23D9E0CC224B830B00914076 /* spaces.cc */,
 				23A9D770223E93DA006CD82B /* object-factory.h */,
 				23719D3D224222220055D397 /* object-factory.cc */,
 				23719D2F223F46630055D397 /* object-factory-impl.h */,
 				23719D30223F46C10055D397 /* object-factory-impl.cc */,
+				2312DFBC2253503700689616 /* malloc-object-factory.cc */,
+				2312DFBB2253503600689616 /* malloc-object-factory.h */,
 				23719D372240E2F20055D397 /* builtin.h */,
 				23719D382240E4860055D397 /* builtin.cc */,
 				23719D3F2242297F0055D397 /* bytecode.h */,
 				23D9E0C8224B524D00914076 /* visitors.h */,
 				23D9E0C9224B560800914076 /* visitors.cc */,
-				23D9E0CB224B82D800914076 /* spaces.h */,
-				23D9E0CC224B830B00914076 /* spaces.cc */,
 			);
 			name = nyaa;
 			path = src/nyaa;
@@ -1380,6 +1385,7 @@
 				2364B34921E451F9008519AE /* arenas-test.cc in Sources */,
 				2364B34A21E451F9008519AE /* tls-test.cc in Sources */,
 				2303D93221F808C500075A99 /* storage-engine.cc in Sources */,
+				2312DFBD2253503700689616 /* malloc-object-factory.cc in Sources */,
 				2364B34B21E451F9008519AE /* reference-count-test.cc in Sources */,
 				2364B34C21E451F9008519AE /* varint-encoding-test.cc in Sources */,
 				237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */,

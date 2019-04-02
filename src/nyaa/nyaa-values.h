@@ -117,7 +117,8 @@ public:
 class NyObject : public Object {
 public:
 #if defined(MAI_OS_DARWIN)
-    static constexpr const uintptr_t kColorMask = 0xfull << 42;
+    static constexpr const int kMaskBitsOrder = 42;
+    static constexpr const uintptr_t kColorMask = 0xfull << kMaskBitsOrder;
 #endif
     
     NyObject() : mtword_(0) {}
@@ -127,11 +128,13 @@ public:
     bool is_direct() const { return !is_forward(); }
 
 #if defined(NYAA_USE_POINTER_COLOR)
-    HeapColor GetColor() const { return static_cast<HeapColor>((mtword_ & kColorMask) >> 42); }
-    
+    HeapColor GetColor() const {
+        return static_cast<HeapColor>((mtword_ & kColorMask) >> kMaskBitsOrder);
+    }
+
     void SetColor(HeapColor color) {
         mtword_ &= ~kColorMask;
-        mtword_ |= ((static_cast<uintptr_t>(color) & 0xfull) << 42);
+        mtword_ |= ((static_cast<uintptr_t>(color) & 0xfull) << kMaskBitsOrder);
     }
 #endif
 

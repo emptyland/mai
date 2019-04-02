@@ -3,6 +3,7 @@
 #include "nyaa/thread.h"
 #include "nyaa/heap.h"
 #include "nyaa/object-factory-impl.h"
+#include "nyaa/malloc-object-factory.h"
 #include "nyaa/builtin.h"
 #include "nyaa/visitors.h"
 #include "base/slice.h"
@@ -18,10 +19,14 @@ NyaaCore::NyaaCore(Nyaa *stub)
     : stub_(DCHECK_NOTNULL(stub))
     , page_alloc_(stub->isolate()->env()->GetLowLevelAllocator())
     , heap_(new Heap(this))
-    , factory_(new ObjectFactoryImpl(this, heap_))
     , bkz_pool_(new BuiltinStrPool())
     , kmt_pool_(new BuiltinMetatablePool()) {
-
+    if (stub_->nogc()) {
+        factory_.reset(new MallocObjectFactory(this));
+    } else {
+        factory_.reset(new ObjectFactoryImpl(this, heap_.get()));
+    }
+        
     top_slot_ = new HandleScopeSlot;
     top_slot_->scope = nullptr;
     top_slot_->prev  = nullptr;
@@ -36,8 +41,7 @@ NyaaCore::NyaaCore(Nyaa *stub)
 }
 
 NyaaCore::~NyaaCore() {
-    delete factory_;
-    delete heap_;
+
 }
     
 Error NyaaCore::Boot() {
@@ -77,6 +81,9 @@ Error NyaaCore::Boot() {
 
     // Setup builtin classes.
     SetGlobal(factory_->NewString("coroutine"), kmt_pool_->kThread);
+    
+    DCHECK(!initialized_);
+    initialized_ = true;
     return rs;
 }
     

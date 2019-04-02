@@ -61,7 +61,7 @@ public:
                                     size_t n_upvals = 0, bool old = false) = 0;
     
     virtual NyScript *NewScript(size_t max_stack_size, NyString *file_name, NyInt32Array *file_info,
-                                NyByteArray *bcbuf, NyArray *const_pool) = 0;
+                                NyByteArray *bcbuf, NyArray *const_pool, bool old = false) = 0;
     
     virtual NyThread *NewThread(bool old = false) = 0;
     

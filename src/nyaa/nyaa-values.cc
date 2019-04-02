@@ -169,7 +169,6 @@ void NyObject::SetMetatable(NyMap *mt, NyaaCore *N) {
     if (mt == Object::kNil) {
         return; // ignore
     }
-    N->heap()->BarrierWr(this, reinterpret_cast<Object **>(&mtword_), mt);
 #if defined(NYAA_USE_POINTER_COLOR)
     uintptr_t bits = reinterpret_cast<uintptr_t>(mt);
     DCHECK_EQ(bits & kColorMask, 0);
@@ -177,6 +176,7 @@ void NyObject::SetMetatable(NyMap *mt, NyaaCore *N) {
 #else
     mtword_ = reinterpret_cast<uintptr_t>(mt);
 #endif
+    N->heap()->BarrierWr(this, reinterpret_cast<Object **>(&mtword_), mt);
 }
 
 bool NyObject::Equals(Object *rhs, NyaaCore *N) {
@@ -239,7 +239,8 @@ size_t NyObject::PlacedSize() const {
     switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
 #define DEFINE_PLACED_SIZE(type) \
     case kType##type: \
-        bytes = static_cast<const Ny##type *>(this)->PlacedSize();
+        bytes = static_cast<const Ny##type *>(this)->PlacedSize(); \
+        break;
             
         DECL_BUILTIN_TYPES(DEFINE_PLACED_SIZE)
 #undef DEFINE_PLACED_SIZE

@@ -11,7 +11,8 @@ namespace nyaa {
     
 Heap::Heap(NyaaCore *N)
     : owns_(DCHECK_NOTNULL(N))
-    , new_space_(new NewSpace()) {
+    , new_space_(new NewSpace())
+    , old_space_(new OldSpace(kOldSpace, false, N->isolate())) {
         // TODO:
 }
 
@@ -20,7 +21,12 @@ Heap::Heap(NyaaCore *N)
 }
 
 Error Heap::Prepare() {
-    auto rs = new_space_->Init(owns_->stub()->major_area_initial_size(), owns_->isolate());
+    Nyaa *stub = owns_->stub();
+    auto rs = new_space_->Init(stub->major_area_initial_size(), owns_->isolate());
+    if (!rs) {
+        return rs;
+    }
+    rs = old_space_->Init(stub->minor_area_initial_size(), stub->minor_area_max_size());
     if (!rs) {
         return rs;
     }
@@ -37,16 +43,15 @@ NyObject *Heap::Allocate(size_t size, HeapSpace space) {
         case kNewSpace:
             chunk = new_space_->AllocateRaw(size);
             break;
-            
         case kOldSpace:
+            chunk = old_space_->AllocateRaw(size);
             break;
-
         case kCodeSpace:
+            // TODO:
             break;
-            
         case kLargeSpace:
+            // TODO:
             break;
-            
         default:
             break;
     }
@@ -59,9 +64,10 @@ NyObject *Heap::Allocate(size_t size, HeapSpace space) {
 }
     
 HeapSpace Heap::Contains(NyObject *ob) {
-    if (ob->PlacedSize() > kLargePageThreshold) {
-        return kLargeSpace;
-    }
+//    if (owns_->initialized() && ob->PlacedSize() > kLargePageThreshold) {
+//        return kLargeSpace;
+//    }
+    // TODO:
     if (new_space_->Contains(reinterpret_cast<Address>(ob))) {
         return kNewSpace;
     }
@@ -70,21 +76,15 @@ HeapSpace Heap::Contains(NyObject *ob) {
 }
     
 bool Heap::InNewArea(NyObject *ob) {
-    switch (Contains(ob)) {
-        case kSemiSpace:
-        case kNewSpace:
-            return true;
-            
-        default:
-            break;
-    }
-    return false;
+    return new_space_->Contains(reinterpret_cast<Address>(ob));
 }
     
 void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val) {
-    
-    return;
-#if 0
+    //printf("%p(%p) = %p\n", host, pzwr, val);
+    if (owns_->stub()->nogc()) {
+        return;
+    }
+//#if 0
     DCHECK_NOTNULL(pzwr);
     auto addr = reinterpret_cast<Address>(pzwr);
     auto iter = old_to_new_.find(addr);
@@ -121,7 +121,7 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val) {
             }
         }
     }
-#endif
+//#endif
 }
 
 /*virtual*/ void *Heap::Allocate(size_t size, size_t /*alignment*/) {

@@ -28,7 +28,7 @@ public:
     virtual NyFunction *NewFunction(size_t n_params, bool vargs, NyScript *script, size_t n_upvals,
                                     bool old) override;
     virtual NyScript *NewScript(size_t max_stack_size, NyString *file_name, NyInt32Array *file_info,
-                                NyByteArray *bcbuf, NyArray *const_pool) override;
+                                NyByteArray *bcbuf, NyArray *const_pool, bool old) override;
     virtual NyUDO *NewUninitializedUDO(size_t size, NyMap *clazz, bool old) override;
     virtual NyThread *NewThread(bool old) override;
 private:

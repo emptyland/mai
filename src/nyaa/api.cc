@@ -70,6 +70,9 @@ Nyaa::Nyaa(const Options &opt, Isolate *is)
     , major_area_initial_size_(opt.major_area_initial_size)
     , major_area_max_size_(opt.major_area_max_size)
     , init_thread_stack_size_(opt.init_thread_stack_size)
+    , minor_area_initial_size_(opt.minor_area_initial_size)
+    , minor_area_max_size_(opt.minor_area_max_size)
+    , nogc_(opt.nogc)
     , core_(new NyaaCore(this)) {
     prev_ = isolate_->GetNyaa();
     DCHECK_NE(prev_, this);

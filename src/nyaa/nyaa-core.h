@@ -70,8 +70,9 @@ public:
     HandleScope *current_handle_scope() const { return top_slot_->scope; }
     
     DEF_PTR_GETTER(Nyaa, stub);
-    DEF_PTR_GETTER(Heap, heap);
-    DEF_PTR_GETTER(ObjectFactory, factory);
+    Heap *heap() const { return heap_.get(); }
+    ObjectFactory *factory() const { return factory_.get(); }
+    DEF_VAL_GETTER(bool, initialized);
     DEF_PTR_GETTER(NyMap, g);
     DEF_PTR_GETTER(NyThread, main_thd);
     DEF_PTR_PROP_RW(NyThread, curr_thd);
@@ -87,10 +88,10 @@ private:
     
     Nyaa *const stub_;
     Allocator *const page_alloc_;
-    Heap *const heap_;
-    ObjectFactory *const factory_;
+    std::unique_ptr<Heap> heap_;
+    std::unique_ptr<ObjectFactory> factory_;
     HandleScopeSlot *top_slot_;
-    
+    bool initialized_ = false;
     std::unique_ptr<BuiltinStrPool> bkz_pool_; // [strong ref]
     std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // [strong ref]
 

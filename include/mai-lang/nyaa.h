@@ -26,8 +26,17 @@ struct NyaaOptions {
     // The heap young generation space limit size.
     int major_area_max_size = 20 * 1024 * 1024;
     
+    // The heap old generation space initial size.
+    int minor_area_initial_size = 10 * 1024 * 1024;
+    
+    // The heap old generation space limit size.
+    int minor_area_max_size = 512 * 1024 * 1024;
+    
     // The init stack size.
     int init_thread_stack_size = 1024;
+    
+    // Do not use GC memory management.
+    bool nogc = false;
 };
     
 class Nyaa final {
@@ -40,6 +49,9 @@ public:
     
     int init_thread_stack_size() const { return init_thread_stack_size_; }
     int major_area_initial_size() const { return major_area_initial_size_; }
+    int minor_area_initial_size() const { return minor_area_initial_size_; }
+    int minor_area_max_size() const { return minor_area_max_size_; }
+    bool nogc() const { return nogc_; }
     
     Core *core() const { return core_.get(); }
     
@@ -61,6 +73,15 @@ private:
     
     // The init stack size.
     int init_thread_stack_size_;
+    
+    // The heap old generation space initial size.
+    int minor_area_initial_size_;
+    
+    // The heap old generation space limit size.
+    int minor_area_max_size_;
+    
+    // Do not use GC memory management.
+    bool nogc_;
     
     std::unique_ptr<Core> core_;
     

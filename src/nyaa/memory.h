@@ -17,7 +17,7 @@ enum HeapSpace : int {
 };
     
 enum HeapColor : int {
-    kColorNone  = 0,
+    kColorFreed  = 0,
     kColorWhite = 1,
     KColorGray  = 2,
     kColorBlack = 3,

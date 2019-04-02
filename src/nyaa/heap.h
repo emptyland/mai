@@ -28,7 +28,7 @@ public:
     
     HeapSpace Contains(NyObject *ob);
     bool InNewArea(NyObject *ob);
-    bool InOldArea(NyObject *ob) { return InNewArea(ob); }
+    bool InOldArea(NyObject *ob) { return !InNewArea(ob); }
     
     void BarrierWr(NyObject *host, Object **pzwr, Object *val);
     
