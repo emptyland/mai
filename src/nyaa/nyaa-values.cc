@@ -170,7 +170,13 @@ void NyObject::SetMetatable(NyMap *mt, NyaaCore *N) {
         return; // ignore
     }
     N->heap()->BarrierWr(this, reinterpret_cast<Object **>(&mtword_), mt);
+#if defined(NYAA_USE_POINTER_COLOR)
+    uintptr_t bits = reinterpret_cast<uintptr_t>(mt);
+    DCHECK_EQ(bits & kColorMask, 0);
+    mtword_ = (bits | (mtword_ & kColorMask));
+#else
     mtword_ = reinterpret_cast<uintptr_t>(mt);
+#endif
 }
 
 bool NyObject::Equals(Object *rhs, NyaaCore *N) {

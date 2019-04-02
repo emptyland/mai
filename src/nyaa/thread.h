@@ -44,6 +44,8 @@ public:
     }
     
     Byte BC() const { return bcbuf_->Get(pc_); }
+    
+    void IterateRoot(RootVisitor *visitor);
 
     friend class NyThread;
     DISALLOW_IMPLICIT_CONSTRUCTORS(CallFrame);

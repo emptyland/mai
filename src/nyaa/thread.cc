@@ -35,7 +35,14 @@ void CallFrame::Exit(NyThread *owns) {
     owns->frame_ = prev_;
 }
 
+void CallFrame::IterateRoot(RootVisitor *visitor) {
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&callee_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&bcbuf_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&const_poll_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&env_));
+}
 
+    
 NyThread::NyThread(NyaaCore *owns)
     : owns_(DCHECK_NOTNULL(owns)) {
 }
@@ -182,6 +189,12 @@ void NyThread::IterateRoot(RootVisitor *visitor) {
 
     visitor->VisitRootPointers(reinterpret_cast<Object **>(stack_),
                                reinterpret_cast<Object **>(stack_tp_));
+    
+    CallFrame *f = frame_;
+    while (f) {
+        f->IterateRoot(visitor);
+        f = f->prev_;
+    }
 }
     
 

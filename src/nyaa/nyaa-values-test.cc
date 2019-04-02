@@ -80,6 +80,25 @@ TEST_F(NyaaValuesTest, Smi) {
     ASSERT_EQ(NySmi::kMinValue, val->ToSmi());
 }
 
+#if defined(NYAA_USE_POINTER_COLOR)
+
+TEST_F(NyaaValuesTest, NyObjectColor) {
+    NyString *s = factory_->NewString("cccc");
+    NyMap *mt = s->GetMetatable();
+    ASSERT_EQ(mt, N_->core()->kmt_pool()->kString);
+    
+    s->SetColor(kColorWhite);
+    ASSERT_EQ(kColorWhite, s->GetColor());
+    
+    ASSERT_EQ(mt, s->GetMetatable());
+    
+    s->SetMetatable(N_->core()->kmt_pool()->kLong, N_->core());
+    ASSERT_EQ(kColorWhite, s->GetColor());
+    ASSERT_EQ(s->GetMetatable(), N_->core()->kmt_pool()->kLong);
+}
+
+#endif // defined(NYAA_USE_POINTER_COLOR)
+    
 } // namespace nyaa
     
 } // namespace mai

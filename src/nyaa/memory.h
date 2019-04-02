@@ -57,6 +57,9 @@ static inline void *DbgFillInitZag(void *p, size_t n) { return p; }
 static inline void *DbgFillFreeZag(void *p, size_t n) { return p; }
 #endif
     
+#if defined(MAI_OS_POSIX)
+#define NYAA_USE_POINTER_COLOR 1
+#endif
     
 } // namespace nyaa
     
