@@ -213,6 +213,12 @@ public:
     
     Error Init(size_t size, Isolate *isolate);
     
+    void Purge() {
+        DbgFillFreeZag(page_->area_base(), free_ - page_->area_base());
+        free_ = page_->area_base();
+        page_->available_ = static_cast<uint32_t>(page_->usable_size());
+    }
+    
     friend class NewSpace;
     friend class Scavenger;
     DISALLOW_IMPLICIT_CONSTRUCTORS(SemiSpace);
@@ -240,11 +246,13 @@ public:
     bool Contains(Address addr) const {
         return from_area_->Contains(addr) || to_area_->Contains(addr);
     }
-    
+
     void Purge(bool reinit) {
         from_area_.swap(to_area_);
-        to_area_->free_ = to_area_->page()->area_base_;
-        to_area_->page_->available_ = static_cast<uint32_t>(to_area_->page_->usable_size());
+        from_area_->Purge();
+        if (reinit) {
+            to_area_->Purge();
+        }
     }
     
     friend class Scavenger;

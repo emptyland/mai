@@ -101,8 +101,6 @@ Scavenger::Scavenger(NyaaCore *core, Heap *heap)
 }
     
 void Scavenger::Run() {
-
-    
     uint64_t jiffy = core_->isolate()->env()->CurrentTimeMicros();
     RootVisitorImpl visitor(this);
     core_->IterateRoot(&visitor);

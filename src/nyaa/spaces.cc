@@ -190,7 +190,7 @@ Error NewSpace::Init(size_t total_size, Isolate *isolate) {
     // TODO:;
     return Error::OK();
 }
-    
+
 /*virtual*/ OldSpace::~OldSpace() {
     while (dummy_->next_ != dummy_) {
         Page *x = dummy_->next_;

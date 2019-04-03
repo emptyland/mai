@@ -58,11 +58,13 @@ TEST_F(NyaaScavengerTest, MoveNewSpace) {
     NyString *p2 = *s2;
 
     gc.Run();
-    
+
+    Handle<NyString> s3 = factory_->NewString("no~no~no~");
     ASSERT_NE(p1, *s1);
     ASSERT_STREQ("ok", s1->bytes());
     ASSERT_NE(p2, *s2);
     ASSERT_STREQ("yes", s2->bytes());
+    ASSERT_STREQ("no~no~no~", s3->bytes());
 }
     
 } // namespace nyaa
