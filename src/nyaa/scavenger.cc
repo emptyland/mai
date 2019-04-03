@@ -29,10 +29,8 @@ public:
                 continue;
             }
             if (owns_->heap_->InNewArea(ob)) {
-                Address from = reinterpret_cast<Address>(ob);
-                size_t  from_size = ob->PlacedSize();
                 
-                *i = owns_->MoveNewSpace(from, from_size);
+                *i = owns_->MoveObject(ob, ob->PlacedSize());
             }
         }
     }
@@ -71,10 +69,8 @@ public:
                 continue;
             }
             if (owns_->heap_->InToSemiArea(ob)) {
-                Address from = reinterpret_cast<Address>(ob);
-                size_t  from_size = ob->PlacedSize();
                 
-                *i = owns_->MoveNewSpace(from, from_size);
+                *i = owns_->MoveObject(ob, ob->PlacedSize());
             }
         }
     }
@@ -104,19 +100,12 @@ void Scavenger::Run() {
     
     ObjectVisitorImpl obv(this);
     HeapVisitorImpl hpv(&obv);
-    
-    for (const auto &pair : heap_->old_to_new_) {
-        Heap::WriteEntry *wr = pair.second;
-        if (wr->ismt) {
-            obv.VisitMetatablePointer(wr->host, wr->mtwr);
-        } else {
-            obv.VisitPointer(wr->host, wr->pzwr);
-        }
-    }
-    heap_->old_to_new_.clear();
+
+    heap_->IterateOldToNewWr(&obv, true);
 
     SemiSpace *from_area = heap_->new_space_->from_area();
-    Address begin = from_area->page()->area_base(), end = from_area->free();
+    Address begin = RoundUp(from_area->page()->area_base(), kAligmentSize);
+    Address end   = from_area->free();
     while (begin < end) {
         from_area->Iterate(begin, end, &hpv);
         begin = end;
@@ -127,12 +116,12 @@ void Scavenger::Run() {
     // TODO:
 }
     
-Object *Scavenger::MoveNewSpace(Address addr, size_t size) {
+Object *Scavenger::MoveObject(Object *addr, size_t size) {
     //heap_->new_space_->from_area_->page()
     SemiSpace *from_area = heap_->new_space_->from_area();
     SemiSpace *to_area   = heap_->new_space_->to_area();
     
-    DCHECK(to_area->Contains(addr));
+    DCHECK(to_area->Contains(reinterpret_cast<Address>(addr)));
     Address dst = from_area->free();
     ::memcpy(dst, addr, size);
     from_area->free_ += RoundUp(size, kAllocateAlignmentSize);

@@ -27,7 +27,7 @@ private:
     class HeapVisitorImpl;
     class ObjectVisitorImpl;
     
-    Object *MoveNewSpace(Address addr, size_t size);
+    Object *MoveObject(Object *addr, size_t size);
     
     NyaaCore *const core_;
     Heap *const heap_;

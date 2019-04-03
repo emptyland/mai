@@ -13,8 +13,8 @@ Heap::Heap(NyaaCore *N)
     : owns_(DCHECK_NOTNULL(N))
     , os_page_size_(N->isolate()->env()->GetLowLevelAllocator()->granularity())
     , new_space_(new NewSpace())
-    , old_space_(new OldSpace(kOldSpace, false, N->isolate()))
-    , code_space_(new OldSpace(kCodeSpace, true, N->isolate()))
+    , old_space_(new OldSpace(kOldSpace, false, /*executable*/ N->isolate()))
+    , code_space_(new OldSpace(kCodeSpace, true, /*executable*/ N->isolate()))
     , large_space_(new LargeSpace(N->stub()->minor_area_max_size(), N->isolate())) {
 }
 
@@ -134,6 +134,20 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
         }
     }
 //#endif
+}
+    
+void Heap::IterateOldToNewWr(ObjectVisitor *visitor, bool after_clean) {
+    for (const auto &pair : old_to_new_) {
+        Heap::WriteEntry *wr = pair.second;
+        if (wr->ismt) {
+            visitor->VisitMetatablePointer(wr->host, wr->mtwr);
+        } else {
+            visitor->VisitPointer(wr->host, wr->pzwr);
+        }
+    }
+    if (after_clean) {
+        old_to_new_.clear();
+    }
 }
 
 /*virtual*/ void *Heap::Allocate(size_t size, size_t /*alignment*/) {

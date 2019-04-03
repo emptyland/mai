@@ -16,6 +16,7 @@ class NyObject;
 class NewSpace;
 class OldSpace;
 class LargeSpace;
+class ObjectVisitor;
     
 class Heap final : public base::Arena {
 public:
@@ -23,6 +24,9 @@ public:
     virtual ~Heap();
     
     Error Init();
+    
+    DEF_VAL_GETTER(HeapColor, initial_color);
+    DEF_VAL_GETTER(HeapColor, finalize_color);
     
     NyObject *Allocate(size_t size, HeapSpace space);
     
@@ -39,6 +43,9 @@ public:
     virtual size_t granularity() override { return kAllocateAlignmentSize; }
     virtual size_t memory_usage() const override;
 
+    friend class Scavenger;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
+private:
     struct WriteEntry {
         WriteEntry *next;
         NyObject   *host; // in old space
@@ -48,16 +55,18 @@ public:
             uintptr_t *mtwr; // use by ismt == true
         };
     };
+    
+    void IterateOldToNewWr(ObjectVisitor *visitor, bool after_clean);
 
-    friend class Scavenger;
-    DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
-private:
     NyaaCore *const owns_;
     size_t const os_page_size_;
     NewSpace *new_space_ = nullptr;
     OldSpace *old_space_ = nullptr;
     OldSpace *code_space_ = nullptr;
     LargeSpace *large_space_ = nullptr;
+    
+    HeapColor initial_color_  = kColorWhite;
+    HeapColor finalize_color_ = kColorBlack;
     
     std::unordered_map<Address, WriteEntry *> old_to_new_;
     //WriteEntry *wrbuf_ = nullptr;

@@ -21,7 +21,7 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     auto blk = heap_->Allocate(size, old ? kOldSpace : kNewSpace); \
     auto ob = new (blk) expr; \
     ob->SetMetatable(core_->kmt_pool()->k##type, core_); \
-    ob->SetColor(kColorWhite);
+    ob->SetColor(heap_->initial_color());
     
 /*virtual*/ NyFloat64 *ObjectFactoryImpl::NewFloat64(f64_t value, bool old) {
     NEW_OBJECT(sizeof(NyFloat64), NyFloat64(value), Float64);
