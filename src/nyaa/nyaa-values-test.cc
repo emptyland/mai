@@ -52,6 +52,22 @@ TEST_F(NyaaValuesTest, Table) {
     ASSERT_STREQ("bbbb", v->bytes());
 }
     
+TEST_F(NyaaValuesTest, TablePut) {
+    HandleScope scope(isolate_);
+    Handle<NyTable> h(factory_->NewTable(8, 0));
+    
+    NyTable *const kOrigin = *h;
+    Object *value = factory_->NewString("cccc");
+    h = h->Put(NyInt32::New(0), value, N_->core());
+    h = h->Put(NyInt32::New(1), value, N_->core());
+    ASSERT_EQ(kOrigin, *h);
+    
+    Object *v = h->Get(NyInt32::New(0), N_->core());
+    ASSERT_EQ(v, value);
+    v = h->Get(NyInt32::New(1), N_->core());
+    ASSERT_EQ(v, value);
+}
+    
 TEST_F(NyaaValuesTest, TableAutoRehash) {
     HandleScope scope(isolate_);
     Handle<NyTable> h(factory_->NewTable(8, 0));
@@ -65,7 +81,7 @@ TEST_F(NyaaValuesTest, TableAutoRehash) {
     
     for (int i = 0; i < 100; ++i) {
         Object *v = h->Get(NyInt32::New(i), N_->core());
-        ASSERT_EQ(v, value);
+        ASSERT_EQ(v, value) << i;
     }
 }
     

@@ -467,23 +467,8 @@ NyTable::NyTable(uint32_t seed, uint32_t capacity)
     , size_(0)
     , capacity_(capacity) {
     DCHECK_GT(capacity_, 4);
-    
-    for (size_t i = 0; i < n_slots(); ++i) {
-        entries_[i].kind  = kSlot;
-        entries_[i].key   = nullptr;
-        entries_[i].value = nullptr;
-        entries_[i].next  = nullptr;
-    }
-    for (size_t i = n_slots(); i < capacity_ - 1; ++i) {
-        entries_[i].kind = kFree;
-        entries_[i].next = &entries_[i + 1];
-    }
-    entries_[capacity_ - 1].kind = kFree;
-    entries_[capacity_ - 1].next = nullptr;
-
-    free_ = &entries_[n_slots()];
-    //::memset(entries_, 0, sizeof(Entry) * capacity);
-    //free_ = entries_ + capacity_ - 1;
+    ::memset(entries_, 0, sizeof(Entry) * (capacity + 1));
+    free_ = capacity_;
 }
     
 NyTable *NyTable::Put(Object *key, Object *value, NyaaCore *N) {
@@ -494,14 +479,22 @@ NyTable *NyTable::Put(Object *key, Object *value, NyaaCore *N) {
 
     NyTable *ob = this;
     if (value) {
-        if (!free_) { // no free nodes
+        if (free_ <= n_slots() + 1) {
             ob = N->factory()->NewTable(capacity_ << 1, seed_, ob);
             if (!ob) {
                 return nullptr;
             }
         }
+        ob->DoPut(key, value, N);
+    } else {
+        ob->DoDelete(key, N);
+        if (capacity_ > 32 && size_ < (capacity_ >> 2)) { // size < 1/4 capacity_
+            ob = N->factory()->NewTable(capacity_ >> 1, seed_, ob);
+            if (!ob) {
+                return nullptr;
+            }
+        }
     }
-    ob->DoPut(key, value, N);
     return ob;
 }
 
@@ -516,108 +509,106 @@ Object *NyTable::Get(Object *key, NyaaCore *N) {
         if (Object::Equals(key, p->key, N)) {
             break;
         }
-        p = p->next;
+        p = At(p->next);
     }
     return !p ? kNil : p->value;
 }
 
 NyTable *NyTable::Rehash(NyTable *origin, NyaaCore *N) {
     NyTable *ob = this;
-    for (size_t i = 0; i < origin->n_slots(); ++i) {
-        DCHECK_EQ(kSlot, origin->entries_[i].kind);
-        if (!origin->entries_[i].value) {
-            continue;
-        }
-        for (Entry *p = &origin->entries_[i]; p; p = p->next) {
-            ob = ob->Put(p->key, p->value, N);
+    for (size_t i = 1; i < origin->capacity() + 1; ++i) {
+        Entry *e = DCHECK_NOTNULL(origin->At(static_cast<int>(i)));
+        if (e->kind != kFree) {
+            ob = ob->Put(e->key, e->value, N);
         }
     }
     return ob;
 }
     
+bool NyTable::DoDelete(Object *key, NyaaCore *N) {
+    Entry *slot = GetSlot(key, N);
+    DCHECK(slot >= entries_ + 1);
+    DCHECK(slot < entries_ + 1 + n_slots());
+    
+    switch (slot->kind) {
+        case kSlot: {
+            Entry dummy;
+            dummy.next = Ptr(slot);
+            Entry *p = slot, *prev = &dummy;
+            while (p) {
+                if (Object::Equals(key, p->key, N)) {
+                    break;
+                }
+                prev = p;
+                p = At(p->next);
+            }
+            if (p) {
+                prev->next = p->next;
+                Free(p);
+                *slot = *At(prev->next);
+                slot->kind = kSlot;
+                size_--;
+            }
+        } break;
+
+        case kFree:
+            break;
+        case kNode:
+        default:
+            DLOG(FATAL) << "noreached";
+            break;
+    }
+    return false;
+}
+
 bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
     Entry *slot = GetSlot(key, N);
-    DCHECK(slot >= entries_);
-    DCHECK(slot < entries_ + n_slots());
-    
-//    switch (slot->kind) {
-//        case kFree: {
-//            if (value) {
-//                slot->kind = kSlot;
-//                N->BarrierWr(this, &slot->key, key);
-//                slot->key = key;
-//                N->BarrierWr(this, &slot->value, value);
-//                slot->value = value;
-//            }
-//        } break;
-//        case kSlot:
-//            break;
-//        case kNode:
-//        default:
-//            DLOG(FATAL) << "noreached";
-//            break;
-//    }
-//    return false;
+    DCHECK(slot >= entries_ + 1);
+    DCHECK(slot < entries_ + 1 + n_slots());
+    DCHECK_NOTNULL(value);
 
-    Entry *prev = nullptr, *p = slot;
-    while (p) {
-        if (Object::Equals(key, p->key, N)) {
-            break;
-        }
-        prev = p;
-        p = p->next;
-    }
-
-    if (value) {
-        if (p) {
+    switch (slot->kind) {
+        case kFree: {
+            slot->kind = kSlot;
+            N->BarrierWr(this, &slot->key, key);
+            slot->key = key;
+            N->BarrierWr(this, &slot->value, value);
+            slot->value = value;
+            size_++;
+        } break;
+        case kSlot: {
+            Entry *p = slot;
+            while (p) {
+                if (Object::Equals(key, p->key, N)) {
+                    N->BarrierWr(this, &p->value, value);
+                    p->value = value;
+                    return true;
+                }
+                p = At(p->next);
+            }
+            p = DCHECK_NOTNULL(Alloc());
+            p->kind = kNode;
+            p->next = slot->next;
+            slot->next = Ptr(p);
+            DCHECK_GT(slot->next, 0);
+            N->BarrierWr(this, &p->key, key);
+            p->key = key;
+            N->BarrierWr(this, &p->value, value);
             p->value = value;
-        } else {
-            if (p == slot || slot->value == Object::kNil) {
-                N->BarrierWr(this, &slot->key, key);
-                slot->key = key;
-                N->BarrierWr(this, &slot->value, value);
-                slot->value = value;
-            } else {
-                Entry *n = free_;
-                free_ = free_->next;
-                DCHECK_EQ(kFree, n->kind);
-                n->kind = kNode;
-                N->BarrierWr(this, &n->key, key);
-                n->key = key;
-                N->BarrierWr(this, &n->value, value);
-                n->value = value;
-                n->next = nullptr;
-                prev->next = n;
-            }
-            ++size_;
-        }
-    } else {
-        if (p) {
-            if (p == slot) {
-                N->BarrierWr(this, &p->key, Object::kNil);
-                p->key = Object::kNil;
-                N->BarrierWr(this, &p->value, Object::kNil);
-                p->value = Object::kNil;
-            } else {
-                prev->next = p->next;
-                p->kind = kFree;
-                p->next = free_;
-                free_ = p;
-            }
-            --size_;
-        }
+            size_++;
+        } break;
+        case kNode:
+        default:
+            DLOG(FATAL) << "noreached";
+            break;
     }
-    return p != nullptr;
+    return false;
 }
     
 void NyTable::Iterate(ObjectVisitor *visitor) {
     for (size_t i = 0; i < capacity_; ++i) {
         Entry *e = entries_ + i;
-        if (e->kind == kFree) {
-            continue;
-        }
-        // TODO:
-        if (e->value) {
+        if (e->kind != kFree) {
             visitor->VisitPointer(this, &e->key);
             visitor->VisitPointer(this, &e->value);
         }

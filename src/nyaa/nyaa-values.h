@@ -333,18 +333,6 @@ public:
     
     size_t PlacedSize() const { return RequiredSize(capacity_); }
 
-    enum Kind {
-        kFree,
-        kSlot,
-        kNode,
-    };
-    struct Entry {
-        Entry  *next;
-        Kind    kind;
-        Object *key; // [strong ref]
-        Object *value; // [strong ref]
-    };
-    
     static size_t RequiredSize(uint32_t capacity) {
         return sizeof(NyTable) + sizeof(Entry) * capacity;
     }
@@ -353,23 +341,59 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyTable);
 private:
-
+    enum Kind : int {
+        kFree,
+        kSlot,
+        kNode,
+    };
+    struct Entry {
+        int     next; // 0 == nullptr
+        Kind    kind;
+        Object *key; // [strong ref]
+        Object *value; // [strong ref]
+    };
     
     bool DoPut(Object *key, Object *value, NyaaCore *N);
     
-    Entry *GetSlot(Object *key, NyaaCore *N) { return GetSlot(HashVal(key, N) % n_slots()); }
+    bool DoDelete(Object *key, NyaaCore *N);
     
-    Entry *GetSlot(uint32_t i) { DCHECK_LT(i, n_slots()); return &entries_[i]; }
+    Entry *Alloc() {
+        while (free_ > n_slots() + 1) {
+            Entry *p = &entries_[free_--];
+            if (p->kind == kFree) {
+                return p;
+            }
+        }
+        return nullptr;
+    }
+    
+    void Free(Entry *p) {
+        DCHECK_GE(p, entries_ + 1 + n_slots());
+        DCHECK_LT(p, entries_ + 1 + capacity_);
+        int i = Ptr(p);
+        p->kind = kFree;
+        if (i > free_) {
+            free_ = i;
+        }
+    }
+    
+    Entry *GetSlot(Object *key, NyaaCore *N) { return At(HashVal(key, N) % n_slots() + 1); }
     
     uint32_t HashVal(Object *key, NyaaCore *N) const {
         return ((!key ? 0 : key->HashVal(N)) | 1u) ^ seed_;
     }
+    
+    Entry *At(int pos) { return pos == 0 ? nullptr : entries_ + pos; }
+    
+    const Entry *At(int pos) const { return pos == 0 ? nullptr : entries_ + pos; }
+    
+    int Ptr(const Entry *p) const { return static_cast<int>(p - entries_); }
 
     uint32_t const seed_;
     uint32_t const capacity_;
     uint32_t size_;
-    Entry *free_;
-    Entry entries_[0];
+    uint32_t free_;
+    Entry entries_[1]; // [0] is dummy entry
 }; // class NyTable
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
