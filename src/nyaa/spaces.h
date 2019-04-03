@@ -34,6 +34,7 @@ public:
     size_t page_size() const { return page_size_; }
     DEF_VAL_GETTER(Address, area_base);
     DEF_VAL_GETTER(Address, area_limit);
+    size_t usable_size() const { return area_limit_ - area_base_; }
     
     bool Contains(Address addr) const { return addr >= area_base_ && addr < area_limit_; }
     
@@ -195,11 +196,13 @@ public:
     }
     
     virtual size_t Available() const override {
-        DCHECK_EQ(page_->area_limit_ - free_, page_->available_);
-        return page_->available_;
+        DCHECK_EQ(page_->area_limit() - free_, page_->available());
+        return page_->available();
     }
     
     virtual Address AllocateRaw(size_t size) override;
+    
+    size_t UsageMemory() const { return free_ - page_->area_base(); }
     
     bool Contains(Address addr) const { return page_->Contains(addr); }
     
@@ -241,6 +244,7 @@ public:
     void Purge(bool reinit) {
         from_area_.swap(to_area_);
         to_area_->free_ = to_area_->page()->area_base_;
+        to_area_->page_->available_ = static_cast<uint32_t>(to_area_->page_->usable_size());
     }
     
     friend class Scavenger;

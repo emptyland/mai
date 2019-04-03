@@ -25,23 +25,27 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     
 /*virtual*/ NyFloat64 *ObjectFactoryImpl::NewFloat64(f64_t value, bool old) {
     NEW_OBJECT(sizeof(NyFloat64), NyFloat64(value), Float64);
+    DCHECK_EQ(sizeof(NyFloat64), ob->PlacedSize());
     return ob;
 }
 
 /*virtual*/ NyString *ObjectFactoryImpl::NewString(const char *s, size_t n, bool old) {
     size_t required_size = NyString::RequiredSize(static_cast<uint32_t>(n));
     NEW_OBJECT(required_size, NyString(s, n, core_), String);
+    DCHECK_EQ(required_size, ob->PlacedSize());
     return ob;
 }
     
 /*virtual*/ NyString *ObjectFactoryImpl::NewUninitializedString(size_t capacity, bool old) {
     size_t required_size = NyString::RequiredSize(static_cast<uint32_t>(capacity));
     NEW_OBJECT(required_size, NyString(capacity), String);
+    DCHECK_EQ(required_size, ob->PlacedSize());
     return ob;
 }
     
 /*virtual*/ NyMap *ObjectFactoryImpl::NewMap(NyObject *maybe, uint64_t kid, bool linear, bool old) {
     NEW_OBJECT(sizeof(NyMap), NyMap(maybe, kid, linear, core_), Map);
+    DCHECK_EQ(sizeof(NyMap), ob->PlacedSize());
     return ob;
 }
 
@@ -54,7 +58,7 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
         DCHECK_GT(capacity, base->capacity());
         ob = ob->Rehash(base, core_);
     }
-    DCHECK_EQ(ob->PlacedSize(), NyTable::RequiredSize(static_cast<uint32_t>(capacity)));
+    DCHECK_EQ(ob->PlacedSize(), required_size);
     return ob;
 }
 
@@ -67,7 +71,7 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
         DCHECK_GT(capacity, base->capacity());
         ob->Refill(base);
     }
-    DCHECK_EQ(ob->PlacedSize(), NyByteArray::RequiredSize(static_cast<uint32_t>(capacity)));
+    DCHECK_EQ(ob->PlacedSize(), required_size);
     return ob;
 }
     
@@ -80,7 +84,7 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
         DCHECK_GT(capacity, base->capacity());
         ob->Refill(base);
     }
-    DCHECK_EQ(ob->PlacedSize(), NyInt32Array::RequiredSize(static_cast<uint32_t>(capacity)));
+    DCHECK_EQ(ob->PlacedSize(), required_size);
     return ob;
 }
     
@@ -92,7 +96,7 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
         DCHECK_GT(capacity, base->capacity());
         ob->Refill(base, core_);
     }
-    DCHECK_EQ(ob->PlacedSize(), NyArray::RequiredSize(static_cast<uint32_t>(capacity)));
+    DCHECK_EQ(ob->PlacedSize(), required_size);
     return ob;
 }
     
@@ -104,6 +108,7 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
                NyScript(static_cast<uint32_t>(max_stack_size), file_name, file_info,
                         DCHECK_NOTNULL(bcbuf), const_pool, core_),
                Script);
+    DCHECK_EQ(sizeof(NyScript), ob->PlacedSize());
     return ob;
 }
     
@@ -116,7 +121,7 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
                NyFunction(static_cast<uint8_t>(n_params), vargs, static_cast<uint32_t>(n_upvals),
                           script, core_),
                Function);
-    DCHECK_EQ(ob->PlacedSize(), NyFunction::RequiredSize(static_cast<uint32_t>(n_upvals)));
+    DCHECK_EQ(ob->PlacedSize(), required_size);
     return ob;
 }
     
@@ -126,7 +131,7 @@ NyDelegated *ObjectFactoryImpl::NewDelegated(DelegatedKind kind, Address fp, siz
     DCHECK_LE(n_upvals, UINT32_MAX);
     size_t required_size = NyDelegated::RequiredSize(static_cast<uint32_t>(n_upvals));
     NEW_OBJECT(required_size, NyDelegated(kind, fp, static_cast<uint32_t>(n_upvals)), Delegated);
-    DCHECK_EQ(ob->PlacedSize(), NyDelegated::RequiredSize(static_cast<uint32_t>(n_upvals)));
+    DCHECK_EQ(ob->PlacedSize(), required_size);
     return ob;
 }
     
@@ -141,6 +146,7 @@ NyDelegated *ObjectFactoryImpl::NewDelegated(DelegatedKind kind, Address fp, siz
     
 /*virtual*/ NyThread *ObjectFactoryImpl::NewThread(bool old) {
     NEW_OBJECT(sizeof(NyThread), NyThread(core_), Thread);
+    DCHECK_EQ(sizeof(NyThread), ob->PlacedSize());
     return ob;
 }
     

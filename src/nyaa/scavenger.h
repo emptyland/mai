@@ -14,10 +14,10 @@ class NyaaCore;
     
 class Scavenger final {
 public:
-    Scavenger(NyaaCore *core, Heap *heap)
-        : core_(core)
-        , heap_(heap) {}
+    Scavenger(NyaaCore *core, Heap *heap);
     ~Scavenger() {}
+    
+    DEF_VAL_PROP_RW(bool, should_upgrade);
     
     void Run();
 
@@ -31,6 +31,7 @@ private:
     
     NyaaCore *const core_;
     Heap *const heap_;
+    bool should_upgrade_ = false;
 }; // class Scavenger
     
 

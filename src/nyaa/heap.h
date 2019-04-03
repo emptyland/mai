@@ -27,6 +27,9 @@ public:
     
     DEF_VAL_GETTER(HeapColor, initial_color);
     DEF_VAL_GETTER(HeapColor, finalize_color);
+    DEF_VAL_GETTER(float, from_semi_area_remain_rate);
+    DEF_VAL_GETTER(double, major_gc_cost);
+    DEF_VAL_GETTER(double, minor_gc_cost);
     
     NyObject *Allocate(size_t size, HeapSpace space);
     
@@ -69,6 +72,14 @@ private:
     HeapColor finalize_color_ = kColorBlack;
     
     std::unordered_map<Address, WriteEntry *> old_to_new_;
+    
+    float from_semi_area_remain_rate_ = 0;
+    double major_gc_cost_ = 0;
+    double minor_gc_cost_ = 0;
+    
+#if defined(DEBUG) || defined(_DEBUG)
+    std::vector<View<Byte>> debug_track_blocks_;
+#endif // defined(DEBUG) || defined(_DEBUG)
     //WriteEntry *wrbuf_ = nullptr;
 }; // class Heap
     

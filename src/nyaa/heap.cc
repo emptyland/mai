@@ -40,24 +40,24 @@ Error Heap::Init() {
     return Error::OK();
 }
 
-NyObject *Heap::Allocate(size_t size, HeapSpace space) {
-    if (size > os_page_size_) {
+NyObject *Heap::Allocate(size_t request_size, HeapSpace space) {
+    if (request_size > os_page_size_) {
         space = kLargeSpace;
     }
     
     void *chunk = nullptr;
     switch (space) {
         case kNewSpace:
-            chunk = new_space_->AllocateRaw(size);
+            chunk = new_space_->AllocateRaw(request_size);
             break;
         case kOldSpace:
-            chunk = old_space_->AllocateRaw(size);
+            chunk = old_space_->AllocateRaw(request_size);
             break;
         case kCodeSpace:
             // TODO:
             break;
         case kLargeSpace:
-            chunk = large_space_->AllocateRaw(size);
+            chunk = large_space_->AllocateRaw(request_size);
             break;
         default:
             break;
@@ -65,8 +65,10 @@ NyObject *Heap::Allocate(size_t size, HeapSpace space) {
     if (!chunk) {
         return nullptr;
     }
+    //DCHECK_NE(request_size, 1056);
+    //printf("heap allocate: %p(%lu)\n", chunk, request_size);
     DCHECK_EQ(reinterpret_cast<uintptr_t>(chunk) % kAligmentSize, 0);
-    DbgFillInitZag(chunk, size);
+    DbgFillInitZag(chunk, request_size);
     return static_cast<NyObject *>(chunk);
 }
     

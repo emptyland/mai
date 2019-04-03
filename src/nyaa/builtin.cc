@@ -37,6 +37,20 @@ const char *kRawBuiltinKzs[] = {
     "running",
     "suspended",
     "dead",
+    "resume",
+    "coroutine",
+    "string",
+    "float",
+    "int",
+    "map",
+    "table",
+    "delegated",
+    "function",
+    "script",
+    "thread",
+    "array[byte]",
+    "array[int32]",
+    "array",
 };
     
 const size_t kRawBuiltinKzsSize = arraysize(kRawBuiltinKzs);
@@ -189,82 +203,83 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     auto factory = N->factory();
     //Object *val;
     
+#define NEW_METATABLE(kind) factory->NewMap(16, 0, kind, false, true)
+    
     //----------------------------------------------------------------------------------------------
     // Initialize
-    kTable = factory->NewMap(16, 0, kTypeTable);
-    kMap = factory->NewMap(16, 0, kTypeMap);
+    kTable = NEW_METATABLE(kTypeTable);
+    kMap = NEW_METATABLE(kTypeMap);
     kTable->SetMetatable(kTable, N);
     kMap->SetMetatable(kMap, N);
 
     //----------------------------------------------------------------------------------------------
     // NyString
-    kString = factory->NewMap(16, 0, kTypeString);
+    kString = NEW_METATABLE(kTypeString);
     // Set Right Metatable
     NyString **pool_a = reinterpret_cast<NyString **>(kzs);
     for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
         pool_a[i]->SetMetatable(kString, N);
     }
-
-    kString->RawPut(kzs->kInnerType, factory->NewString("string"), N);
+    kString->RawPut(kzs->kInnerType, kzs->kString, N);
 
     //----------------------------------------------------------------------------------------------
     // NyFloat64
-    kFloat64 = factory->NewMap(16, 0, kTypeFloat64);
-    kFloat64->RawPut(kzs->kInnerType, factory->NewString("float"), N);
+    kFloat64 = NEW_METATABLE(kTypeFloat64);
+    kFloat64->RawPut(kzs->kInnerType, kzs->kFloat, N);
     
     //----------------------------------------------------------------------------------------------
     // NyLong
-    kLong = factory->NewMap(16, 0, kTypeLong);
-    kLong->RawPut(kzs->kInnerType, factory->NewString("int"), N);
+    kLong = NEW_METATABLE(kTypeLong);
+    kLong->RawPut(kzs->kInnerType, kzs->kInt, N);
     
     //----------------------------------------------------------------------------------------------
     // NyMap
-    kMap->RawPut(kzs->kInnerType, factory->NewString("map"), N);
+    kMap->RawPut(kzs->kInnerType, kzs->kMap, N);
     
     //----------------------------------------------------------------------------------------------
     // NyTable
-    kTable->RawPut(kzs->kInnerType, factory->NewString("table"), N);
+    kTable->RawPut(kzs->kInnerType, kzs->kMap, N);
 
     //----------------------------------------------------------------------------------------------
     // NyDelegated
-    kDelegated = factory->NewMap(16, 0, kTypeDelegated);
-    kDelegated->RawPut(kzs->kInnerType, factory->NewString("delegated"), N);
-    kDelegated->RawPut(kzs->kInnerCall, factory->NewDelegated(DelegatedCall), N);
+    kDelegated = NEW_METATABLE(kTypeDelegated);
+    kDelegated->RawPut(kzs->kInnerType, kzs->kDelegated, N);
+    kDelegated->RawPut(kzs->kInnerCall, factory->NewDelegated(DelegatedCall, 0, true), N);
 
     //----------------------------------------------------------------------------------------------
     // NyFunction
-    kFunction = factory->NewMap(16, 0, kTypeFunction);
-    kFunction->RawPut(kzs->kInnerType, factory->NewString("function"), N);
+    kFunction = NEW_METATABLE(kTypeFunction);
+    kFunction->RawPut(kzs->kInnerType, kzs->kFunction, N);
     
     //----------------------------------------------------------------------------------------------
     // NyScript
-    kScript = factory->NewMap(16, 0, kTypeScript);
-    kScript->RawPut(kzs->kInnerType, factory->NewString("script"), N);
+    kScript = NEW_METATABLE(kTypeScript);
+    kScript->RawPut(kzs->kInnerType, kzs->kScript, N);
 
     //----------------------------------------------------------------------------------------------
     // NyThread
-    kThread = factory->NewMap(16, 0, kTypeThread);
-    kThread->RawPut(kzs->kInnerType, factory->NewString("thread"), N);
-    kThread->RawPut(kzs->kInnerInit, factory->NewDelegated(ThreadInit), N);
-    kThread->RawPut(kzs->kInnerIndex, factory->NewDelegated(ThreadIndex), N);
-    kThread->RawPut(kzs->kInnerNewindex, factory->NewDelegated(ThreadNewindex), N);
-    kThread->RawPut(factory->NewString("resume"), factory->NewDelegated(ThreadResume), N);
+    kThread = NEW_METATABLE(kTypeThread);
+    kThread->RawPut(kzs->kInnerType, kzs->kThread, N);
+    kThread->RawPut(kzs->kInnerInit, factory->NewDelegated(ThreadInit, 0, true), N);
+    kThread->RawPut(kzs->kInnerIndex, factory->NewDelegated(ThreadIndex, 0, true), N);
+    kThread->RawPut(kzs->kInnerNewindex, factory->NewDelegated(ThreadNewindex, 0, true), N);
+    kThread->RawPut(kzs->kResume, factory->NewDelegated(ThreadResume, 0, true), N);
     kThread->RawPut(kzs->kInnerSize, NySmi::New(sizeof(NyThread)), N);
 
     //----------------------------------------------------------------------------------------------
     // NyByteArray
-    kByteArray = factory->NewMap(16, 0, kTypeByteArray);
-    kByteArray->RawPut(kzs->kInnerType, factory->NewString("array[byte]"), N);
+    kByteArray = NEW_METATABLE(kTypeByteArray);
+    kByteArray->RawPut(kzs->kInnerType, kzs->kByteArray, N);
     
     //----------------------------------------------------------------------------------------------
     // NyInt32Array
-    kInt32Array = factory->NewMap(16, 0, kTypeInt32Array);
-    kInt32Array->RawPut(kzs->kInnerType, factory->NewString("array[int32]"), N);
+    kInt32Array = NEW_METATABLE(kTypeInt32Array);
+    kInt32Array->RawPut(kzs->kInnerType, kzs->kInt32Array, N);
     
     //----------------------------------------------------------------------------------------------
     // NyArray
-    kArray = factory->NewMap(16, 0, kTypeArray);
-    kArray->RawPut(kzs->kInnerType, factory->NewString("array"), N);
+    kArray = NEW_METATABLE(kTypeArray);
+    kArray->RawPut(kzs->kInnerType, kzs->kArray, N);
 //#endif
     return Error::OK();
 }

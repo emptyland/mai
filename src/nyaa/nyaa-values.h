@@ -128,7 +128,7 @@ public:
     bool is_forward() const { return mtword_ & 0x1; }
     
     bool is_direct() const { return !is_forward(); }
-    
+
     NyObject *Foward() const {
         return is_forward() ? static_cast<NyObject *>(forward_address()) : nullptr;
     }
@@ -148,9 +148,9 @@ public:
         DCHECK_EQ(mtword_ % 4, 0);
 #if defined(NYAA_USE_POINTER_COLOR)
         return reinterpret_cast<NyMap *>(mtword_ & ~kColorMask);
-#else
+#else // !defined(NYAA_USE_POINTER_COLOR)
         return reinterpret_cast<NyMap *>(mtword_);
-#endif
+#endif // defined(NYAA_USE_POINTER_COLOR)
     }
 
     void SetMetatable(NyMap *mt, NyaaCore *N);
@@ -190,7 +190,11 @@ private:
         DCHECK(is_forward());
         uintptr_t addr = mtword_ & ~0x1;
         DCHECK_EQ(0, addr % 4);
+#if defined(NYAA_USE_POINTER_COLOR)
+        return reinterpret_cast<void *>(addr & ~kColorMask);
+#else // !defined(NYAA_USE_POINTER_COLOR)
         return reinterpret_cast<void *>(addr);
+#endif // defined(NYAA_USE_POINTER_COLOR)
     }
     
     // 0x0000000101719fe0
@@ -329,14 +333,6 @@ public:
     
     size_t PlacedSize() const { return RequiredSize(capacity_); }
 
-    static size_t RequiredSize(uint32_t capacity) {
-        return sizeof(NyTable) + sizeof(Entry) * capacity;
-    }
-    
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyTable);
-private:
     enum Kind {
         kFree,
         kSlot,
@@ -348,6 +344,16 @@ private:
         Object *key; // [strong ref]
         Object *value; // [strong ref]
     };
+    
+    static size_t RequiredSize(uint32_t capacity) {
+        return sizeof(NyTable) + sizeof(Entry) * capacity;
+    }
+    
+    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NyTable);
+private:
+
     
     bool DoPut(Object *key, Object *value, NyaaCore *N);
     

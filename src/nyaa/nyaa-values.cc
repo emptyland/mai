@@ -616,9 +616,11 @@ void NyTable::Iterate(ObjectVisitor *visitor) {
         if (e->kind == kFree) {
             continue;
         }
-
-        visitor->VisitPointer(this, &e->key);
-        visitor->VisitPointer(this, &e->value);
+        // TODO:
+        if (e->value) {
+            visitor->VisitPointer(this, &e->key);
+            visitor->VisitPointer(this, &e->value);
+        }
     }
 }
 

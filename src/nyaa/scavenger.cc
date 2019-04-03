@@ -29,7 +29,6 @@ public:
                 continue;
             }
             if (owns_->heap_->InNewArea(ob)) {
-                
                 *i = owns_->MoveObject(ob, ob->PlacedSize());
             }
         }
@@ -69,17 +68,16 @@ public:
                 continue;
             }
             if (owns_->heap_->InToSemiArea(ob)) {
-                
                 *i = owns_->MoveObject(ob, ob->PlacedSize());
             }
         }
     }
-    
+
     virtual void VisitMetatablePointer(Object *host, uintptr_t *word) override {
 #if defined(NYAA_USE_POINTER_COLOR)
         DCHECK_NE(0, *word);
         DCHECK(!(*word & 0x1));
-        
+
         uintptr_t color_bits = *word & NyObject::kColorMask;
 
         Object *mt = reinterpret_cast<Object *>(*word & ~NyObject::kColorMask);
@@ -94,7 +92,18 @@ private:
     Scavenger *const owns_;
 }; // class Scavenger::ObjectVisitorImpl
     
+Scavenger::Scavenger(NyaaCore *core, Heap *heap)
+    : core_(core)
+    , heap_(heap) {
+    if (heap_->from_semi_area_remain_rate_ > 0.25) { // 1/4
+        should_upgrade_ = true;
+    }
+}
+    
 void Scavenger::Run() {
+
+    
+    uint64_t jiffy = core_->isolate()->env()->CurrentTimeMicros();
     RootVisitorImpl visitor(this);
     core_->IterateRoot(&visitor);
     
@@ -112,23 +121,43 @@ void Scavenger::Run() {
         end = from_area->free();
     }
     
+    size_t total_size = from_area->page()->usable_size();
+    heap_->from_semi_area_remain_rate_ = static_cast<float>(from_area->UsageMemory())
+                                       / static_cast<float>(total_size);
     heap_->new_space_->Purge(false);
+    heap_->major_gc_cost_ = (core_->isolate()->env()->CurrentTimeMicros() - jiffy) / 1000.0;
     // TODO:
 }
     
 Object *Scavenger::MoveObject(Object *addr, size_t size) {
-    //heap_->new_space_->from_area_->page()
-    SemiSpace *from_area = heap_->new_space_->from_area();
-    SemiSpace *to_area   = heap_->new_space_->to_area();
-    
+    SemiSpace *to_area = heap_->new_space_->to_area();
     DCHECK(to_area->Contains(reinterpret_cast<Address>(addr)));
-    Address dst = from_area->free();
-    ::memcpy(dst, addr, size);
-    from_area->free_ += RoundUp(size, kAllocateAlignmentSize);
-    
-    *reinterpret_cast<uintptr_t *>(addr) |= 0x1;
-//    uintptr_t foward = *reinterpret_cast<uintptr_t *>(addr) | 0x1;
-//    *reinterpret_cast<uintptr_t *>(addr) = foward;
+
+    Address dst = nullptr;
+    if (should_upgrade_) {
+        dst = heap_->old_space_->AllocateRaw(size);
+        DCHECK_NOTNULL(dst);
+        ::memcpy(dst, addr, size);
+    } else {
+        SemiSpace *from_area = heap_->new_space_->from_area();
+        dst = from_area->AllocateRaw(size);
+        DCHECK_NOTNULL(dst);
+        //printf("move: %p(%lu) <- %p\n", dst, size, addr);
+        ::memcpy(dst, addr, size);
+    }
+
+    // Set foward address:
+#if defined(NYAA_USE_POINTER_COLOR)
+    uintptr_t word = *reinterpret_cast<uintptr_t *>(addr);
+    uintptr_t color_bits = word & NyObject::kColorMask;
+    word = reinterpret_cast<uintptr_t>(dst) | color_bits | 0x1;
+    *reinterpret_cast<uintptr_t *>(addr) = word;
+#else // !defined(NYAA_USE_POINTER_COLOR)
+    uintptr_t word = *reinterpret_cast<uintptr_t *>(addr);
+    word = reinterpret_cast<uintptr_t>(dst) | 0x1;
+    *reinterpret_cast<uintptr_t *>(addr) = word;
+#endif // defined(NYAA_USE_POINTER_COLOR)
+
     return reinterpret_cast<Object *>(dst);
 }
 

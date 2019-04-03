@@ -59,6 +59,20 @@ struct BuiltinStrPool {
     NyString *kRunning = nullptr;
     NyString *kSuspended = nullptr;
     NyString *kDead = nullptr;
+    NyString *kResume = nullptr; // "resume"
+    NyString *kCoroutine = nullptr; //    "coroutine",
+    NyString *kString = nullptr; //    "string",
+    NyString *kFloat = nullptr; //    "float",
+    NyString *kInt = nullptr;//    "int",
+    NyString *kMap = nullptr; //    "map",
+    NyString *kTable = nullptr; //    "table"
+    NyString *kDelegated = nullptr; //    "delegated",
+    NyString *kFunction = nullptr; //    "function",
+    NyString *kScript = nullptr; //    "script",
+    NyString *kThread = nullptr; //    "thread",
+    NyString *kByteArray = nullptr; //    "array[byte]",
+    NyString *kInt32Array = nullptr; //    "array[int32]",
+    NyString *kArray = nullptr; //    "array",
 }; // struct ConstStrPool
     
 extern const char *kRawBuiltinKzs[];

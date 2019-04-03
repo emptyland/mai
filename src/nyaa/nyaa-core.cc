@@ -53,7 +53,7 @@ Error NyaaCore::Boot() {
     NyString **pool_a = reinterpret_cast<NyString **>(bkz_pool_.get());
     //NyString **pool_a = &bkz_pool_->kInnerInit;
     for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
-        pool_a[i] = factory_->NewString(kRawBuiltinKzs[i]);
+        pool_a[i] = factory_->NewString(kRawBuiltinKzs[i], true /*old*/);
     }
 
     rs = kmt_pool_->Boot(this);
@@ -62,7 +62,8 @@ Error NyaaCore::Boot() {
     }
     
     // Set builtin global variables:
-    g_ = factory_->NewMap(32, rand(), false);
+    g_ = factory_->NewMap(32, /*capacity*/ rand(), /*seed*/ 0, /*kid*/ false, /*linear*/
+                          true /*old*/);
     
     for (auto e = &kBuiltinFnEntries[0]; e->name; e++) {
         SetGlobal(factory_->NewString(e->name),
