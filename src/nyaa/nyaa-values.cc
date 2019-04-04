@@ -636,6 +636,20 @@ NyString *NyString::Done(NyaaCore *N) {
     return this;
 }
     
+int NyString::Compare(const char *z, size_t n) const {
+    const size_t min_len = size() < n ? size() : n;
+    int r = ::memcmp(bytes(), z, min_len);
+    if (r == 0) {
+        if (size() < n) {
+            r = -1;
+        }
+        else if (size() > n) {
+            r = +1;
+        }
+    }
+    return r;
+}
+    
 Object *NyString::TryNumeric(NyaaCore *N) const {
     // TODO:
     return const_cast<NyString *>(this);

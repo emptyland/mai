@@ -6,6 +6,7 @@
 #include "nyaa/malloc-object-factory.h"
 #include "nyaa/builtin.h"
 #include "nyaa/visitors.h"
+#include "nyaa/string-pool.h"
 #include "base/slice.h"
 #include "mai-lang/nyaa.h"
 #include "mai/allocator.h"

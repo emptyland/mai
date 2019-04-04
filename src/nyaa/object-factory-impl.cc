@@ -19,6 +19,7 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     
 #define NEW_OBJECT(size, expr, type) \
     auto blk = heap_->Allocate(size, old ? kOldSpace : kNewSpace); \
+    if (!blk) { return nullptr; } \
     auto ob = new (blk) expr; \
     ob->SetMetatable(core_->kmt_pool()->k##type, core_); \
     ob->SetColor(heap_->initial_color());

@@ -22,7 +22,7 @@ public:
     
     virtual size_t memory_usage() const = 0;
     
-    template<class T> T *New() { new (Allocate(sizeof(T))) T(); }
+    template<class T> T *New() { return new (Allocate(sizeof(T))) T(); }
     
     template<class T> T *NewArray(size_t n) {
         return static_cast<T *>(Allocate(sizeof(T) * n));

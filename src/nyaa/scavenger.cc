@@ -108,7 +108,7 @@ void Scavenger::Run() {
     ObjectVisitorImpl obv(this);
     HeapVisitorImpl hpv(&obv);
 
-    heap_->IterateOldToNewWr(&obv, true);
+    heap_->IterateRememberSet(&obv, true);
 
     SemiSpace *from_area = heap_->new_space_->from_area();
     Address begin = RoundUp(from_area->page()->area_base(), kAligmentSize);

@@ -65,8 +65,7 @@ NyObject *Heap::Allocate(size_t request_size, HeapSpace space) {
     if (!chunk) {
         return nullptr;
     }
-    //DCHECK_NE(request_size, 1056);
-    //printf("heap allocate: %p(%lu)\n", chunk, request_size);
+
     DCHECK_EQ(reinterpret_cast<uintptr_t>(chunk) % kAligmentSize, 0);
     DbgFillInitZag(chunk, request_size);
     return static_cast<NyObject *>(chunk);
@@ -100,12 +99,12 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
 //#if 0
     DCHECK_NOTNULL(pzwr);
     auto addr = reinterpret_cast<Address>(pzwr);
-    auto iter = old_to_new_.find(addr);
+    auto iter = remember_set_.find(addr);
 
     if (val == Object::kNil || !val->IsObject()) {
-        if (iter != old_to_new_.end()) {
+        if (iter != remember_set_.end()) {
             delete iter->second;
-            old_to_new_.erase(iter);
+            remember_set_.erase(iter);
         }
         return;
     }
@@ -115,7 +114,7 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
     }
     
     DCHECK(InOldArea(host));
-    if (iter == old_to_new_.end()) {
+    if (iter == remember_set_.end()) {
         // old -> new
         if (InNewArea(val->ToHeapObject())) {
             WriteEntry *wr = new WriteEntry;
@@ -124,22 +123,22 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
             wr->pzwr = pzwr;
             wr->ismt = ismt;
             
-            old_to_new_.insert({addr, wr});
+            remember_set_.insert({addr, wr});
         }
     } else {
         DCHECK_EQ(host, iter->second->host);
         if (InOldArea(val->ToHeapObject())) {
-            if (iter != old_to_new_.end()) {
+            if (iter != remember_set_.end()) {
                 delete iter->second;
-                old_to_new_.erase(iter);
+                remember_set_.erase(iter);
             }
         }
     }
 //#endif
 }
     
-void Heap::IterateOldToNewWr(ObjectVisitor *visitor, bool after_clean) {
-    for (const auto &pair : old_to_new_) {
+void Heap::IterateRememberSet(ObjectVisitor *visitor, bool after_clean) {
+    for (const auto &pair : remember_set_) {
         Heap::WriteEntry *wr = pair.second;
         if (wr->ismt) {
             visitor->VisitMetatablePointer(wr->host, wr->mtwr);
@@ -148,7 +147,7 @@ void Heap::IterateOldToNewWr(ObjectVisitor *visitor, bool after_clean) {
         }
     }
     if (after_clean) {
-        old_to_new_.clear();
+        remember_set_.clear();
     }
 }
 

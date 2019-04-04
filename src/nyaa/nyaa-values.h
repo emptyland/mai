@@ -469,7 +469,7 @@ protected:
 class NyString final : public NyByteArray {
 public:
     static constexpr const int kHeaderSize = sizeof(uint32_t);
-    static constexpr const uint32_t kHashMask = 0x7fffffffu;
+    //static constexpr const uint32_t kHashMask = 0x7fffffffu;
     
     NyString(const char *s, size_t n, NyaaCore *N);
     
@@ -480,17 +480,21 @@ public:
     
     NyString *Done(NyaaCore *N);
     
+    uint32_t hash_val() const { return header(); }
+    
+    uint32_t size() const { return size_ - kHeaderSize; }
+    
+    const char *bytes() const { return reinterpret_cast<const char *>(data() + kHeaderSize); }
+    
     NyString *Add(const char *s, size_t n, NyaaCore *N) {
         return static_cast<NyString *>(NyByteArray::Add(s, n, N));
     }
     
     NyString *Add(const NyString *s, NyaaCore *N) { return Add(s->bytes(), s->size(), N); }
 
-    uint32_t hash_val() const { return header() & kHashMask; }
+    int Compare(const char *z, size_t n) const;
     
-    uint32_t size() const { return size_ - kHeaderSize; }
-    
-    const char *bytes() const { return reinterpret_cast<const char *>(data() + kHeaderSize); }
+    int Compare(const NyString *s) const { return Compare(s->bytes(), s->size()); }
     
     Object *TryNumeric(NyaaCore *N) const;
     
