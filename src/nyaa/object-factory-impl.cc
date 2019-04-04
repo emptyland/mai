@@ -1,4 +1,5 @@
 #include "nyaa/object-factory-impl.h"
+#include "nyaa/string-pool.h"
 #include "nyaa/nyaa-values.h"
 #include "nyaa/thread.h"
 #include "nyaa/nyaa-core.h"
@@ -31,6 +32,12 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
 }
 
 /*virtual*/ NyString *ObjectFactoryImpl::NewString(const char *s, size_t n, bool old) {
+    if (core_->kz_pool()) {
+        NyString *kz = core_->kz_pool()->GetOrNull(s, n);
+        if (kz) {
+            return kz;
+        }
+    }
     size_t required_size = NyString::RequiredSize(static_cast<uint32_t>(n));
     NEW_OBJECT(required_size, NyString(s, n, core_), String);
     DCHECK_EQ(required_size, ob->PlacedSize());

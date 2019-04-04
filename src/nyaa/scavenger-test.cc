@@ -2,6 +2,7 @@
 #include "nyaa/nyaa-core.h"
 #include "nyaa/nyaa-values.h"
 #include "nyaa/object-factory.h"
+#include "nyaa/string-pool.h"
 #include "nyaa/heap.h"
 #include "test/nyaa-test.h"
 #include "mai-lang/nyaa.h"
@@ -65,6 +66,23 @@ TEST_F(NyaaScavengerTest, MoveNewSpace) {
     ASSERT_NE(p2, *s2);
     ASSERT_STREQ("yes", s2->bytes());
     ASSERT_STREQ("no~no~no~", s3->bytes());
+}
+    
+TEST_F(NyaaScavengerTest, KzPoolSweep) {
+    Scavenger gc(core_, core_->heap());
+    
+    HandleScope scope(isolate_);
+    auto p1 = factory_->NewString("ok");
+    ASSERT_EQ(p1, factory_->NewString("ok"));
+    auto p2 = factory_->NewString("doom");
+    ASSERT_EQ(p2, factory_->NewString("doom"));
+    
+    gc.Run();
+    
+    p1 = core_->kz_pool()->GetOrNull("ok");
+    ASSERT_EQ(nullptr, p1);
+    p2 = core_->kz_pool()->GetOrNull("doom");
+    ASSERT_EQ(nullptr, p2);
 }
     
 } // namespace nyaa

@@ -1,4 +1,5 @@
 #include "nyaa/scavenger.h"
+#include "nyaa/string-pool.h"
 #include "nyaa/heap.h"
 #include "nyaa/spaces.h"
 #include "nyaa/nyaa-values.h"
@@ -92,6 +93,39 @@ private:
     Scavenger *const owns_;
 }; // class Scavenger::ObjectVisitorImpl
     
+class Scavenger::WeakObjectVisitorImpl final : public ObjectVisitor {
+public:
+    WeakObjectVisitorImpl(Scavenger *owns) : owns_(DCHECK_NOTNULL(owns)) {}
+    virtual ~WeakObjectVisitorImpl() override {}
+    
+    virtual void VisitPointer(Object *host, Object **p) override {
+        NyString *s = static_cast<NyString *>(*p);
+        DCHECK(s->IsObject());
+        if (NyObject *foward = s->Foward()) {
+            *p = foward;
+            return;
+        } else if (owns_->heap_->InOldArea(s)) {
+            DCHECK(s->IsString());
+            return; // Scavenger do not sweep old space, ignore it.
+        } else if (owns_->heap_->InToSemiArea(s)) {
+            DCHECK(s->IsString());
+            *p = nullptr; // No one reference this string, should be sweep.
+            return;
+        }
+        // Has some one reference this string, ignore it.
+        DCHECK(owns_->heap_->InFromSemiArea(s));
+    }
+    virtual void VisitPointers(Object *host, Object **begin, Object **end) override {
+        DLOG(FATAL) << "noreached!";
+    }
+    virtual void VisitMetatablePointer(Object *host, uintptr_t *word) override {
+        DLOG(FATAL) << "noreached!";
+    }
+
+private:
+    Scavenger *const owns_;
+}; // class Scavenger::WeakObjectVisitorImpl
+    
 Scavenger::Scavenger(NyaaCore *core, Heap *heap)
     : core_(core)
     , heap_(heap) {
@@ -118,6 +152,14 @@ void Scavenger::Run() {
         begin = end;
         end = from_area->free();
     }
+    
+    // Process for weak tables
+    if (core_->kz_pool()) {
+        // kz_pool is a special weak table.
+        WeakObjectVisitorImpl wov(this);
+        core_->kz_pool()->IterateForSweep(&wov);
+    }
+    // TODO:
     
     size_t total_size = from_area->page()->usable_size();
     heap_->from_semi_area_remain_rate_ = static_cast<float>(from_area->UsageMemory())

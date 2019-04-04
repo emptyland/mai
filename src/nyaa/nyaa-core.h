@@ -6,6 +6,7 @@
 
 namespace mai {
 class Allocator;
+class RandomGenerator;
 namespace nyaa {
     
 class Nyaa;
@@ -19,6 +20,7 @@ class NyMap;
 class NyThread;
 class ObjectFactory;
 class RootVisitor;
+class StringPool;
 
 struct BuiltinStrPool;
 struct BuiltinMetatablePool;
@@ -77,6 +79,7 @@ public:
     DEF_PTR_GETTER(NyThread, main_thd);
     DEF_PTR_PROP_RW(NyThread, curr_thd);
     BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
+    StringPool *kz_pool() const { return kz_pool_.get(); }
     BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
     Isolate *isolate() const;
     
@@ -92,8 +95,10 @@ private:
     std::unique_ptr<ObjectFactory> factory_;
     HandleScopeSlot *top_slot_;
     bool initialized_ = false;
-    std::unique_ptr<BuiltinStrPool> bkz_pool_; // [strong ref]
-    std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // [strong ref]
+    std::unique_ptr<RandomGenerator> random_;
+    std::unique_ptr<StringPool> kz_pool_; // internal [weak ref]
+    std::unique_ptr<BuiltinStrPool> bkz_pool_; // internal [strong ref]
+    std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // internal [strong ref]
 
     NyMap *g_ = nullptr; // [strong ref]
     NyThread *main_thd_ = nullptr; // [strong ref]

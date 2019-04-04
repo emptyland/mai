@@ -3,6 +3,7 @@
 #include "nyaa/nyaa-core.h"
 #include "nyaa/heap.h"
 #include "nyaa/object-factory.h"
+#include "nyaa/string-pool.h"
 #include "nyaa/memory.h"
 #include "nyaa/builtin.h"
 #include "base/hash.h"
@@ -631,8 +632,10 @@ NyString *NyString::Done(NyaaCore *N) {
     } else {
         *hash_val = base::Hash::Js(bytes(), size());
     }
-    // TODO:
     
+    if (size() < kLargeStringLength && N->kz_pool()) {
+        N->kz_pool()->Add(this);
+    }
     return this;
 }
     

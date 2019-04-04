@@ -46,9 +46,18 @@ NyaaCore::~NyaaCore() {
 }
     
 Error NyaaCore::Boot() {
-    Error rs = heap_->Init();
+    Error rs = isolate()->env()->NewRealRandomGenerator(&random_);
     if (!rs) {
         return rs;
+    }
+    rs = heap_->Init();
+    if (!rs) {
+        return rs;
+    }
+    
+    if (stub_->use_string_pool_) {
+        Allocator *lla = isolate()->env()->GetLowLevelAllocator();
+        kz_pool_.reset(new StringPool(lla, random_.get()));
     }
     
     NyString **pool_a = reinterpret_cast<NyString **>(bkz_pool_.get());

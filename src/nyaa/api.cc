@@ -73,6 +73,7 @@ Nyaa::Nyaa(const Options &opt, Isolate *is)
     , minor_area_initial_size_(opt.minor_area_initial_size)
     , minor_area_max_size_(opt.minor_area_max_size)
     , nogc_(opt.nogc)
+    , use_string_pool_(opt.use_string_pool)
     , core_(new NyaaCore(this)) {
     prev_ = isolate_->GetNyaa();
     DCHECK_NE(prev_, this);

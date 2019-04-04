@@ -14,6 +14,7 @@ class WritableFile;
 class RandomAccessFile;
 class Allocator;
 class ThreadLocalSlot;
+class RandomGenerator;
     
 class Env {
 public:
@@ -46,10 +47,13 @@ public:
     virtual Error DeleteFile(const std::string &name, bool recursive) = 0;
     
     virtual Error GetFileSize(const std::string &name, uint64_t *size) = 0;
+
+    // New system real random generator
+    virtual Error NewRealRandomGenerator(std::unique_ptr<RandomGenerator> *random) = 0;
     
     // Get a OS level memory allocator
     virtual Allocator *GetLowLevelAllocator() = 0;
-    
+
     virtual std::string GetWorkDirectory() = 0;
     
     virtual std::string GetAbsolutePath(const std::string &file_name) = 0;
@@ -108,6 +112,20 @@ public:
     virtual void *Get() = 0;
     virtual void Set(void *value) = 0;
 }; // class ThreadLocalSlot
+    
+class RandomGenerator {
+public:
+    RandomGenerator() {}
+    virtual ~RandomGenerator() {}
+
+    virtual uint64_t NextU64() = 0;
+    virtual uint32_t NextU32() = 0;
+    virtual float NextF32() = 0;
+    virtual double NextF64() = 0;
+    
+    uint64_t NextRange64(uint64_t m, uint64_t n) { return NextU64() % (n - m) + m; }
+    uint32_t NextRange32(uint32_t m, uint32_t n) { return NextU32() % (n - m) + m; }
+}; // class RandomGenerator
     
 } // namespace mai
 

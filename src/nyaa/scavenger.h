@@ -26,6 +26,7 @@ private:
     class RootVisitorImpl;
     class HeapVisitorImpl;
     class ObjectVisitorImpl;
+    class WeakObjectVisitorImpl;
     
     Object *MoveObject(Object *addr, size_t size);
     

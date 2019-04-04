@@ -8,17 +8,21 @@
 #include "glog/logging.h"
 
 namespace mai {
+    
+class RandomGenerator;
 
 namespace nyaa {
     
+class ObjectVisitor;
+    
 // Weak table for string
-class StringPool final {
+class StringPool final : public Object { // A fake `Object', don not use be code.
 public:
     static constexpr const size_t kInitSlots = 127;
     static constexpr const float kExtendConflictFactor = 1.75;
     static constexpr const float kShrinkConflictFactor = 0.25;
     
-    StringPool(Allocator *lla);
+    StringPool(Allocator *lla, RandomGenerator *random = nullptr);
     ~StringPool();
     
     DEF_VAL_GETTER(size_t, n_slots);
@@ -41,8 +45,7 @@ public:
     NyString *GetOrNull(const char *z) const { return GetOrNull(z, !z ? 0 : ::strlen(z)); }
     
     NyString *GetOrNull(const char *z, size_t n) const {
-        uint32_t hash_val = base::Hash::Js(z, n);
-        Node *slot = slots_ + (hash_val % n_slots_);
+        Node *slot = GetSlot(base::Hash::Js(z, n));
         for (Node *p = slot->next; p; p = p->next) {
             if (p->key->Compare(z, n) == 0) {
                 return p->key;
@@ -53,7 +56,7 @@ public:
     
     void Add(NyString *s) {
         DCHECK(GetOrNull(s->bytes(), s->size()) == nullptr);
-        Node *slot = slots_ + (s->hash_val() % n_slots_);
+        Node *slot = GetSlot(s->hash_val());
         Node *p = AllocNode();
         p->next = slot->next;
         p->key  = s;
@@ -61,6 +64,8 @@ public:
         size_++;
         RehashIfNeeded(true);
     }
+    
+    size_t IterateForSweep(ObjectVisitor *visitor);
     
     template<class Cond> inline size_t Sweep(Cond cond) {
         size_t n = 0;
@@ -87,13 +92,15 @@ public:
 private:
     struct Node {
         Node *next = nullptr;
-        NyString *key = nullptr;
+        NyString *key = nullptr; // [weak ref]
     };
     
     void FreeNode(Node *x) {
         x->next = pool_;
         pool_ = x;
     }
+    
+    Node *GetSlot(uint32_t hash_val) const { return slots_ + ((hash_val ^ seed_) % n_slots_); }
     
     Node *AllocNode() {
         if (pool_) {
@@ -124,6 +131,7 @@ private:
     void Rehash(size_t n_slots);
     
     Allocator *const lla_;
+    RandomGenerator *const random_;
     base::Arena *arena_;
     size_t n_slots_;
     Node *slots_;

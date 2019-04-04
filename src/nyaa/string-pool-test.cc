@@ -5,6 +5,7 @@
 #include "base/slice.h"
 #include "test/nyaa-test.h"
 #include "mai-lang/nyaa.h"
+#include "mai/env.h"
 
 namespace mai {
     
@@ -13,20 +14,21 @@ namespace nyaa {
 class NyaaStringPoolTest : public test::NyaaTest {
 public:
     NyaaStringPoolTest()
-        : scope_(Nyaa::Options{}, isolate_)
+        : scope_(Nyaa::Options{.use_string_pool = false}, isolate_)
         , N_(&scope_)
         , core_(scope_.core())
         , lla_(isolate_->env()->GetLowLevelAllocator())
-        , pool_(lla_)
-        , factory_(new MallocObjectFactory(core_)) {
+        , factory_(new MallocObjectFactory(core_))
+        , pool_(lla_) {
     }
     
     Nyaa scope_;
     Nyaa *N_ = nullptr;
     NyaaCore *core_ = nullptr;
     Allocator *lla_ = nullptr;
-    StringPool pool_;
     std::unique_ptr<ObjectFactory> factory_;
+    StringPool pool_;
+    
 };
     
 TEST_F(NyaaStringPoolTest, Sanity) {

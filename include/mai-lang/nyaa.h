@@ -37,6 +37,9 @@ struct NyaaOptions {
     
     // Do not use GC memory management.
     bool nogc = false;
+    
+    // Use the short string pool.
+    bool use_string_pool = true;
 };
     
 class Nyaa final {
@@ -82,6 +85,9 @@ private:
     
     // Do not use GC memory management.
     bool nogc_;
+    
+    // Use the short string pool.
+    bool use_string_pool_;
     
     std::unique_ptr<Core> core_;
     
