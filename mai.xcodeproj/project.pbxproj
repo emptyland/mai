@@ -14,6 +14,7 @@
 		230D7ACC21FDE8890019F7BB /* evaluation-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230D7ACB21FDE8890019F7BB /* evaluation-test.cc */; };
 		2312DFBD2253503700689616 /* malloc-object-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2312DFBC2253503700689616 /* malloc-object-factory.cc */; };
 		2312DFC022536B4300689616 /* scavenger.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2312DFBF22536B4300689616 /* scavenger.cc */; };
+		23163C3F225643C90096B601 /* marking-sweeper-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23163C3E225643C90096B601 /* marking-sweeper-test.cc */; };
 		2317596921E5933F0025685F /* sql.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2317596821E5933F0025685F /* sql.yy.cc */; };
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
 		23216A272201A2F900E1B816 /* types-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A262201A2F900E1B816 /* types-test.cc */; };
@@ -166,6 +167,7 @@
 		23BF17EB21D4C1D100A722B9 /* delta-amend-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */; };
 		23C23D02225449610078A6B0 /* scavenger-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C23D01225449610078A6B0 /* scavenger-test.cc */; };
 		23CC114F21D71F49001665AC /* transaction-lock-mgr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */; };
+		23D2474E2255FC9700C96006 /* marking-sweeper.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D2474D2255FC9700C96006 /* marking-sweeper.cc */; };
 		23D2F6BC21F1C0A300A49B1A /* form-schema-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D2F6BB21F1C0A300A49B1A /* form-schema-test.cc */; };
 		23D2F6BE21F1CC2300A49B1A /* types.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D2F6BD21F1CC2300A49B1A /* types.cc */; };
 		23D9E0CA224B560800914076 /* visitors.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D9E0C9224B560800914076 /* visitors.cc */; };
@@ -288,6 +290,7 @@
 		2312DFBC2253503700689616 /* malloc-object-factory.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "malloc-object-factory.cc"; sourceTree = "<group>"; };
 		2312DFBE22536B3700689616 /* scavenger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = scavenger.h; sourceTree = "<group>"; };
 		2312DFBF22536B4300689616 /* scavenger.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = scavenger.cc; sourceTree = "<group>"; };
+		23163C3E225643C90096B601 /* marking-sweeper-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "marking-sweeper-test.cc"; path = "src/nyaa/marking-sweeper-test.cc"; sourceTree = "<group>"; };
 		2317596821E5933F0025685F /* sql.yy.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sql.yy.cc; sourceTree = "<group>"; };
 		2317596A21E5A1BA0025685F /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
 		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
@@ -503,6 +506,8 @@
 		23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-tree-memory-table.cc"; sourceTree = "<group>"; };
 		23CC114B21D71EB1001665AC /* transaction-lock-mgr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "transaction-lock-mgr.h"; sourceTree = "<group>"; };
 		23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-lock-mgr.cc"; sourceTree = "<group>"; };
+		23D2474C2255FBF100C96006 /* marking-sweeper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "marking-sweeper.h"; sourceTree = "<group>"; };
+		23D2474D2255FC9700C96006 /* marking-sweeper.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "marking-sweeper.cc"; sourceTree = "<group>"; };
 		23D2F6BB21F1C0A300A49B1A /* form-schema-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "form-schema-test.cc"; sourceTree = "<group>"; };
 		23D2F6BD21F1CC2300A49B1A /* types.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = types.cc; sourceTree = "<group>"; };
 		23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pipeline-queue.h"; sourceTree = "<group>"; };
@@ -732,6 +737,7 @@
 				23E82BC1224CCC4D00BC910B /* spaces-test.cc */,
 				23C23D01225449610078A6B0 /* scavenger-test.cc */,
 				23F9F8C22255AE22004F0A42 /* string-pool-test.cc */,
+				23163C3E225643C90096B601 /* marking-sweeper-test.cc */,
 			);
 			name = nyaa;
 			sourceTree = "<group>";
@@ -764,6 +770,8 @@
 				23D9E0C9224B560800914076 /* visitors.cc */,
 				2312DFBE22536B3700689616 /* scavenger.h */,
 				2312DFBF22536B4300689616 /* scavenger.cc */,
+				23D2474C2255FBF100C96006 /* marking-sweeper.h */,
+				23D2474D2255FC9700C96006 /* marking-sweeper.cc */,
 				23F9F8BF225597C9004F0A42 /* string-pool.h */,
 				23F9F8C02255A767004F0A42 /* string-pool.cc */,
 			);
@@ -1331,6 +1339,7 @@
 				2364B2E121E451F9008519AE /* s1-table-reader.cc in Sources */,
 				2364B2E321E451F9008519AE /* data-block-builder.cc in Sources */,
 				2364B2E821E451F9008519AE /* table.cc in Sources */,
+				23163C3F225643C90096B601 /* marking-sweeper-test.cc in Sources */,
 				2364B2EA21E451F9008519AE /* key-bloom-filter.cc in Sources */,
 				2364B2EC21E451F9008519AE /* block-iterator.cc in Sources */,
 				2364B2EE21E451F9008519AE /* block-cache.cc in Sources */,
@@ -1418,6 +1427,7 @@
 				2374DE47223B4BFE00810B41 /* nyaa-core.cc in Sources */,
 				23344CE921EF082D006BC6E4 /* mai-sql-test.cc in Sources */,
 				2364B35221E451F9008519AE /* compaction-test.cc in Sources */,
+				23D2474E2255FC9700C96006 /* marking-sweeper.cc in Sources */,
 				23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */,
 				23344CEC21EF0B5F006BC6E4 /* mai-sql-impl.cc in Sources */,
 				2364B35321E451F9008519AE /* files-test.cc in Sources */,
@@ -1597,7 +1607,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -1662,7 +1672,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;

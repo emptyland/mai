@@ -15,6 +15,7 @@ class Object;
 class NyObject;
 class RootVisitor;
     
+class Space;
 class SemiSpace;
 class NewSpace;
 class OldSpace;
@@ -79,6 +80,8 @@ public:
     
     DEF_PTR_PROP_RW_NOTNULL2(Region, region);
     Chunk **region_array() const { return reinterpret_cast<Chunk **>(region()); }
+    
+    void SetUpRegion();
     
     size_t FindFitRegion(size_t size) const {
         for (size_t i = 0; i < kMaxRegionChunks; ++i) {
@@ -159,7 +162,7 @@ class HeapVisitor {
 public:
     HeapVisitor() {}
     virtual ~HeapVisitor() {}
-    virtual void VisitObject(NyObject *ob, size_t placed_size) = 0;
+    virtual void VisitObject(Space *owns, NyObject *ob, size_t placed_size) = 0;
 }; // class HeapVisitor
     
 class Space {
@@ -283,7 +286,12 @@ public:
         return page->owns_space() == kind();
     }
     
-    void Free(Address addr, size_t size);
+    void Free(Address addr, size_t size, bool merge_slibing = true);
+    
+    void MergeFreeChunks(Page *page);
+    void MergeAllFreeChunks();
+    
+    void Iterate(HeapVisitor *visitor);
     
     FRIEND_UNITTEST_CASE(NyaaSpacesTest, OldSpaceInit);
     
@@ -325,6 +333,8 @@ public:
         pages_total_size_ -= page->page_size();
         page->Dispose(isolate_);
     }
+    
+    void Iterate(HeapVisitor *visitor);
     
 private:
     Page *dummy_;

@@ -607,7 +607,7 @@ bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
 }
     
 void NyTable::Iterate(ObjectVisitor *visitor) {
-    for (size_t i = 0; i < capacity_; ++i) {
+    for (size_t i = 1; i < capacity_ + 1; ++i) {
         Entry *e = entries_ + i;
         if (e->kind != kFree) {
             visitor->VisitPointer(this, &e->key);

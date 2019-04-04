@@ -4,6 +4,7 @@
 #include "nyaa/spaces.h"
 #include "mai-lang/nyaa.h"
 #include "glog/logging.h"
+#include <set>
 
 namespace mai {
     
@@ -35,8 +36,13 @@ Error Heap::Init() {
     if (!rs) {
         return rs;
     }
-    old_space_->Free(old_space_->AllocateRaw(16), 16);
-    large_space_->Free(large_space_->AllocateRaw(1));
+    Address probe = old_space_->AllocateRaw(16);
+    old_space_->SetAddressColor(probe, initial_color_);
+    old_space_->Free(probe, 16);
+    
+    probe = large_space_->AllocateRaw(1);
+    large_space_->SetAddressColor(probe, initial_color_);
+    large_space_->Free(probe);
     return Error::OK();
 }
 
@@ -65,6 +71,8 @@ NyObject *Heap::Allocate(size_t request_size, HeapSpace space) {
     if (!chunk) {
         return nullptr;
     }
+    //printf("alloc: %p(%lu)\n", chunk, request_size);
+    //DCHECK_NE(432, request_size);
 
     DCHECK_EQ(reinterpret_cast<uintptr_t>(chunk) % kAligmentSize, 0);
     DbgFillInitZag(chunk, request_size);
@@ -137,17 +145,35 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
 //#endif
 }
     
-void Heap::IterateRememberSet(ObjectVisitor *visitor, bool after_clean) {
-    for (const auto &pair : remember_set_) {
-        Heap::WriteEntry *wr = pair.second;
-        if (wr->ismt) {
-            visitor->VisitMetatablePointer(wr->host, wr->mtwr);
-        } else {
-            visitor->VisitPointer(wr->host, wr->pzwr);
+void Heap::IterateRememberSet(ObjectVisitor *visitor, bool for_host, bool after_clean) {
+    if (for_host) {
+        std::set<Address> for_clean;
+        for (const auto &pair : remember_set_) {
+            Heap::WriteEntry *wr = pair.second;
+            visitor->VisitPointer(wr->host, reinterpret_cast<Object **>(&wr->host));
+            if (!wr->host) {
+                delete wr;
+                for_clean.insert(pair.first);
+            }
         }
-    }
-    if (after_clean) {
-        remember_set_.clear();
+        for (Address key : for_clean) {
+            remember_set_.erase(key);
+        }
+    } else {
+        for (const auto &pair : remember_set_) {
+            Heap::WriteEntry *wr = pair.second;
+            if (wr->ismt) {
+                visitor->VisitMetatablePointer(wr->host, wr->mtwr);
+            } else {
+                visitor->VisitPointer(wr->host, wr->pzwr);
+            }
+            if (after_clean) {
+                delete wr;
+            }
+        }
+        if (after_clean) {
+            remember_set_.clear();
+        }
     }
 }
 

@@ -288,9 +288,11 @@ public:
     NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N);
     
     uint64_t kid() const { return kid_; }
+    bool linear() const { return linear_; }
+    DEF_PTR_GETTER(NyObject, generic);
     
     uint32_t Length() const;
-    
+
     void RawPut(Object *key, Object *value, NyaaCore *N);
     
     Object *RawGet(Object *key, NyaaCore *N);

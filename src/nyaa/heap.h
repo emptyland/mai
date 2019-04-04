@@ -47,11 +47,12 @@ public:
     virtual size_t memory_usage() const override;
 
     friend class Scavenger;
+    friend class MarkingSweeper;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
 private:
     struct WriteEntry {
         WriteEntry *next;
-        NyObject   *host; // in old space
+        NyObject   *host; // [weak ref] in old space
         uint32_t    ismt; // is pzwr metatable address?
         union {
             Object   **pzwr; // use by ismt == false, in new space
@@ -59,7 +60,8 @@ private:
         };
     };
     
-    void IterateRememberSet(ObjectVisitor *visitor, bool after_clean);
+    void IterateRememberSet(ObjectVisitor *visitor, bool for_sweep, bool after_clean);
+    //void IterateRememberSetForSweep(ObjectVisitor *visitor);
 
     NyaaCore *const owns_;
     size_t const os_page_size_;
@@ -71,7 +73,7 @@ private:
     HeapColor initial_color_  = kColorWhite;
     HeapColor finalize_color_ = kColorBlack;
     
-    std::unordered_map<Address, WriteEntry *> remember_set_;
+    std::unordered_map<Address, WriteEntry *> remember_set_; // internal [weak ref]
     
     float from_semi_area_remain_rate_ = 0;
     double major_gc_cost_ = 0;

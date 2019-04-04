@@ -96,7 +96,7 @@ TEST_F(NyaaSpacesTest, OldSpaceAlloc) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     auto blk = os->AllocateRaw(sizeof(NyFloat64));
-    ASSERT_EQ(kColorWhite, os->GetAddressColor(blk));
+    ASSERT_EQ(0, os->GetAddressColor(blk));
     
     auto chunk = os->cache()->region()->big;
     ASSERT_EQ(nullptr, chunk->next);
@@ -104,7 +104,7 @@ TEST_F(NyaaSpacesTest, OldSpaceAlloc) {
     ASSERT_EQ(os->cache()->available(), chunk->size);
     
     blk = os->AllocateRaw(sizeof(NyFloat64));
-    ASSERT_EQ(kColorWhite, os->GetAddressColor(blk));
+    ASSERT_EQ(0, os->GetAddressColor(blk));
     
     chunk = os->cache()->region()->big;
     ASSERT_EQ(nullptr, chunk->next);
@@ -118,7 +118,9 @@ TEST_F(NyaaSpacesTest, OldSpaceFreeMerge) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     auto b1 = os->AllocateRaw(sizeof(NyFloat64));
+    os->SetAddressColor(b1, kColorWhite);
     auto b2 = os->AllocateRaw(sizeof(NyFloat64));
+    os->SetAddressColor(b2, kColorWhite);
     
     os->Free(b2, sizeof(NyFloat64));
     os->Free(b1, sizeof(NyFloat64));
@@ -135,11 +137,13 @@ TEST_F(NyaaSpacesTest, OldSpaceFreeNoMerge) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     
     auto b1 = os->AllocateRaw(sizeof(NyFloat64));
+    os->SetAddressColor(b1, kColorWhite);
     auto b2 = os->AllocateRaw(sizeof(NyFloat64));
+    os->SetAddressColor(b2, kColorWhite);
     
     os->Free(b1, sizeof(NyFloat64));
     os->Free(b2, sizeof(NyFloat64));
-    
+
     auto chunk = os->cache()->region()->big;
     ASSERT_EQ(nullptr, chunk->next);
     ASSERT_EQ(1048504, chunk->size);

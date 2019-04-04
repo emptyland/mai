@@ -12,6 +12,7 @@ class Heap;
 class Object;
 class NyaaCore;
     
+// Fast gc implements, only for new space.
 class Scavenger final {
 public:
     Scavenger(NyaaCore *core, Heap *heap);
@@ -26,7 +27,7 @@ private:
     class RootVisitorImpl;
     class HeapVisitorImpl;
     class ObjectVisitorImpl;
-    class WeakObjectVisitorImpl;
+    class KzPoolVisitorImpl;
     
     Object *MoveObject(Object *addr, size_t size);
     

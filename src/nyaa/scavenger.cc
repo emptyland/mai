@@ -44,7 +44,7 @@ public:
     HeapVisitorImpl(ObjectVisitor *ob_visitor)
         : ob_visitor_(DCHECK_NOTNULL(ob_visitor)) {}
     virtual ~HeapVisitorImpl() override {}
-    virtual void VisitObject(NyObject *ob, size_t placed_size) override {
+    virtual void VisitObject(Space *owns, NyObject *ob, size_t placed_size) override {
         ob->Iterate(ob_visitor_);
     }
 private:
@@ -93,10 +93,10 @@ private:
     Scavenger *const owns_;
 }; // class Scavenger::ObjectVisitorImpl
     
-class Scavenger::WeakObjectVisitorImpl final : public ObjectVisitor {
+class Scavenger::KzPoolVisitorImpl final : public ObjectVisitor {
 public:
-    WeakObjectVisitorImpl(Scavenger *owns) : owns_(DCHECK_NOTNULL(owns)) {}
-    virtual ~WeakObjectVisitorImpl() override {}
+    KzPoolVisitorImpl(Scavenger *owns) : owns_(DCHECK_NOTNULL(owns)) {}
+    virtual ~KzPoolVisitorImpl() override {}
     
     virtual void VisitPointer(Object *host, Object **p) override {
         NyString *s = static_cast<NyString *>(*p);
@@ -124,7 +124,7 @@ public:
 
 private:
     Scavenger *const owns_;
-}; // class Scavenger::WeakObjectVisitorImpl
+}; // class Scavenger::KzPoolVisitorImpl
     
 Scavenger::Scavenger(NyaaCore *core, Heap *heap)
     : core_(core)
@@ -142,7 +142,7 @@ void Scavenger::Run() {
     ObjectVisitorImpl obv(this);
     HeapVisitorImpl hpv(&obv);
 
-    heap_->IterateRememberSet(&obv, true);
+    heap_->IterateRememberSet(&obv, false /*for_host*/ , true /*after_clean*/);
 
     SemiSpace *from_area = heap_->new_space_->from_area();
     Address begin = RoundUp(from_area->page()->area_base(), kAligmentSize);
@@ -156,7 +156,7 @@ void Scavenger::Run() {
     // Process for weak tables
     if (core_->kz_pool()) {
         // kz_pool is a special weak table.
-        WeakObjectVisitorImpl wov(this);
+        KzPoolVisitorImpl wov(this);
         core_->kz_pool()->IterateForSweep(&wov);
     }
     // TODO:

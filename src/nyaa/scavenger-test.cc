@@ -20,13 +20,13 @@ public:
         , factory_(core_->factory()) {
     }
     
-    void SetUp() override {
-        NyaaTest::SetUp();
-    }
-    
-    void TearDown() override {
-        NyaaTest::TearDown();
-    }
+//    void SetUp() override {
+//        NyaaTest::SetUp();
+//    }
+//
+//    void TearDown() override {
+//        NyaaTest::TearDown();
+//    }
     
     Nyaa scope_;
     Nyaa *N_ = nullptr;
@@ -70,15 +70,15 @@ TEST_F(NyaaScavengerTest, MoveNewSpace) {
     
 TEST_F(NyaaScavengerTest, KzPoolSweep) {
     Scavenger gc(core_, core_->heap());
-    
+
     HandleScope scope(isolate_);
     auto p1 = factory_->NewString("ok");
     ASSERT_EQ(p1, factory_->NewString("ok"));
     auto p2 = factory_->NewString("doom");
     ASSERT_EQ(p2, factory_->NewString("doom"));
-    
+
     gc.Run();
-    
+
     p1 = core_->kz_pool()->GetOrNull("ok");
     ASSERT_EQ(nullptr, p1);
     p2 = core_->kz_pool()->GetOrNull("doom");

@@ -1,4 +1,5 @@
 #include "nyaa/malloc-object-factory.h"
+#include "nyaa/string-pool.h"
 #include "nyaa/nyaa-values.h"
 #include "nyaa/thread.h"
 #include "nyaa/nyaa-core.h"
@@ -21,6 +22,12 @@ MallocObjectFactory::MallocObjectFactory(NyaaCore *core) : core_(DCHECK_NOTNULL(
 }
 
 /*virtual*/ NyString *MallocObjectFactory::NewString(const char *s, size_t n, bool old) {
+    if (core_->kz_pool()) {
+        NyString *kz = core_->kz_pool()->GetOrNull(s, n);
+        if (kz) {
+            return kz;
+        }
+    }
     size_t required_size = NyString::RequiredSize(static_cast<uint32_t>(n));
     void *chunk = ::malloc(required_size);
     auto ob = new (chunk) NyString(s, n, core_);

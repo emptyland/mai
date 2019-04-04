@@ -207,10 +207,12 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     
     //----------------------------------------------------------------------------------------------
     // Initialize
-    kTable = NEW_METATABLE(kTypeTable);
     kMap = NEW_METATABLE(kTypeMap);
-    kTable->SetMetatable(kTable, N);
+    kTable = NEW_METATABLE(kTypeTable);
+    kTable->SetMetatable(kMap, N);
+    kTable->generic()->SetMetatable(kTable, N);
     kMap->SetMetatable(kMap, N);
+    kMap->generic()->SetMetatable(kTable, N);
 
     //----------------------------------------------------------------------------------------------
     // NyString
