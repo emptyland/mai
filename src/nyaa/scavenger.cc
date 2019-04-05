@@ -127,15 +127,17 @@ private:
 }; // class Scavenger::KzPoolVisitorImpl
     
 Scavenger::Scavenger(NyaaCore *core, Heap *heap)
-    : core_(core)
-    , heap_(heap) {
+    : GarbageCollectionPolicy(core, heap) {
     if (heap_->from_semi_area_remain_rate_ > 0.25) { // 1/4
         should_upgrade_ = true;
     }
 }
     
-void Scavenger::Run() {
-    uint64_t jiffy = core_->isolate()->env()->CurrentTimeMicros();
+/*virtual*/ void Scavenger::Run() {
+    Env *env = core_->isolate()->env();
+    uint64_t jiffy = env->CurrentTimeMicros();
+    size_t available = heap_->new_space_->Available();
+    
     RootVisitorImpl visitor(this);
     core_->IterateRoot(&visitor);
     
@@ -165,7 +167,8 @@ void Scavenger::Run() {
     heap_->from_semi_area_remain_rate_ = static_cast<float>(from_area->UsageMemory())
                                        / static_cast<float>(total_size);
     heap_->new_space_->Purge(false);
-    heap_->major_gc_cost_ = (core_->isolate()->env()->CurrentTimeMicros() - jiffy) / 1000.0;
+    time_cost_ = (env->CurrentTimeMicros() - jiffy) / 1000.0;
+    collected_bytes_ = heap_->new_space_->Available() - available;
     // TODO:
 }
     

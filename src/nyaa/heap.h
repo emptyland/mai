@@ -47,7 +47,7 @@ public:
     virtual size_t memory_usage() const override;
 
     friend class Scavenger;
-    friend class MarkingSweeper;
+    friend class MarkingSweep;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
 private:
     struct WriteEntry {

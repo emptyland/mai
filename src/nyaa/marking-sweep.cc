@@ -1,4 +1,4 @@
-#include "nyaa/marking-sweeper.h"
+#include "nyaa/marking-sweep.h"
 #include "nyaa/string-pool.h"
 #include "nyaa/heap.h"
 #include "nyaa/spaces.h"
@@ -6,14 +6,15 @@
 #include "nyaa/visitors.h"
 #include "nyaa/nyaa-core.h"
 #include "mai-lang/nyaa.h"
+#include "glog/logging.h"
 
 namespace mai {
     
 namespace nyaa {
     
-class MarkingSweeper::RootVisitorImpl final : public RootVisitor {
+class MarkingSweep::RootVisitorImpl final : public RootVisitor {
 public:
-    RootVisitorImpl(MarkingSweeper *owns) : owns_(DCHECK_NOTNULL(owns)) {}
+    RootVisitorImpl(MarkingSweep *owns) : owns_(DCHECK_NOTNULL(owns)) {}
     virtual ~RootVisitorImpl() override {}
     
     virtual void VisitRootPointers(Object **begin, Object **end) override {
@@ -24,10 +25,6 @@ public:
             }
             
             NyObject *ob = o->ToHeapObject();
-//            if (NyObject *forward = ob->Foward()) {
-//                *i = forward;
-//                continue;
-//            }
             DCHECK(ob->is_direct());
             DCHECK_NE(owns_->heap_->finalize_color(), ob->GetColor());
             ob->SetColor(KColorGray);
@@ -36,12 +33,12 @@ public:
     }
     
 private:
-    MarkingSweeper *const owns_;
+    MarkingSweep *const owns_;
 }; // class MarkingSweeper::RootVisitorImpl
     
-class MarkingSweeper::ObjectVisitorImpl final : public ObjectVisitor {
+class MarkingSweep::ObjectVisitorImpl final : public ObjectVisitor {
 public:
-    ObjectVisitorImpl(MarkingSweeper *owns) : owns_(DCHECK_NOTNULL(owns)) {}
+    ObjectVisitorImpl(MarkingSweep *owns) : owns_(DCHECK_NOTNULL(owns)) {}
     virtual ~ObjectVisitorImpl() override {}
     
     virtual void VisitPointers(Object *host, Object **begin, Object **end) override {
@@ -64,24 +61,20 @@ public:
 #if defined(NYAA_USE_POINTER_COLOR)
         DCHECK_NE(0, *word);
         DCHECK(!(*word & 0x1));
-        
-        //uintptr_t color_bits = *word & NyObject::kColorMask;
-        
+
         Object *mt = reinterpret_cast<Object *>(*word & ~NyObject::kColorMask);
         VisitPointer(host, &mt);
-
-        //*word = reinterpret_cast<uintptr_t>(mt) | color_bits;
 #else // !defined(NYAA_USE_POINTER_COLOR)
         // TODO:
 #endif // defined(NYAA_USE_POINTER_COLOR)
     }
 private:
-    MarkingSweeper *const owns_;
+    MarkingSweep *const owns_;
 }; // class MarkingSweeper::ObjectVisitorImpl
     
-class MarkingSweeper::HeapVisitorImpl final : public HeapVisitor {
+class MarkingSweep::HeapVisitorImpl final : public HeapVisitor {
 public:
-    HeapVisitorImpl(MarkingSweeper *owns) : owns_(DCHECK_NOTNULL(owns)) {}
+    HeapVisitorImpl(MarkingSweep *owns) : owns_(DCHECK_NOTNULL(owns)) {}
     virtual ~HeapVisitorImpl() override {}
     
     virtual void VisitObject(Space *owns, NyObject *ob, size_t placed_size) override {
@@ -110,12 +103,12 @@ public:
     }
 
 private:
-    MarkingSweeper *const owns_;
+    MarkingSweep *const owns_;
 }; // class MarkingSweeper::HeapVisitorImpl
     
-class MarkingSweeper::KzPoolVisitorImpl final : public ObjectVisitor {
+class MarkingSweep::KzPoolVisitorImpl final : public ObjectVisitor {
 public:
-    KzPoolVisitorImpl(MarkingSweeper *owns) : owns_(DCHECK_NOTNULL(owns)) {}
+    KzPoolVisitorImpl(MarkingSweep *owns) : owns_(DCHECK_NOTNULL(owns)) {}
     virtual ~KzPoolVisitorImpl() override {}
     
     virtual void VisitPointer(Object *host, Object **p) override {
@@ -137,18 +130,17 @@ public:
     }
     
 private:
-    MarkingSweeper *const owns_;
+    MarkingSweep *const owns_;
 }; // class MarkingSweeper::KzPoolVisitorImpl
     
-MarkingSweeper::MarkingSweeper(NyaaCore *core, Heap *heap)
-    : core_(DCHECK_NOTNULL(core))
-    , heap_(DCHECK_NOTNULL(heap)) {
+MarkingSweep::MarkingSweep(NyaaCore *core, Heap *heap)
+    : GarbageCollectionPolicy(core, heap) {
 }
 
-MarkingSweeper::~MarkingSweeper() {
+MarkingSweep::~MarkingSweep() {
 }
 
-void MarkingSweeper::Run() {
+void MarkingSweep::Run() {
     Env *env = core_->isolate()->env();
     uint64_t jiffy = env->CurrentTimeMicros();
     

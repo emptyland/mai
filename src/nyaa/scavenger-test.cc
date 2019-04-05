@@ -41,7 +41,7 @@ TEST_F(NyaaScavengerTest, Sanity) {
     
     gc.Run();
     ASSERT_GT(core_->heap()->from_semi_area_remain_rate(), 0);
-    ASSERT_GT(core_->heap()->major_gc_cost(), 0);
+    ASSERT_GT(gc.time_cost(), 0);
 
     auto s = core_->factory()->NewString("ok");
     ASSERT_EQ(core_->kmt_pool()->kString, s->GetMetatable());

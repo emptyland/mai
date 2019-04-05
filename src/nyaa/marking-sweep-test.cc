@@ -1,4 +1,4 @@
-#include "nyaa/marking-sweeper.h"
+#include "nyaa/marking-sweep.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/nyaa-values.h"
 #include "nyaa/object-factory.h"
@@ -11,9 +11,9 @@ namespace mai {
     
 namespace nyaa {
 
-class NyaaMarkSweeperTest : public test::NyaaTest {
+class NyaaMarkingSweepTest : public test::NyaaTest {
 public:
-    NyaaMarkSweeperTest()
+    NyaaMarkingSweepTest()
         : scope_(Nyaa::Options{}, isolate_)
         , N_(&scope_)
         , core_(scope_.core())
@@ -26,10 +26,10 @@ public:
     ObjectFactory *factory_ = nullptr;
 };
 
-TEST_F(NyaaMarkSweeperTest, Sanity) {
+TEST_F(NyaaMarkingSweepTest, Sanity) {
     factory_->NewMap(128, 0, 0, false, true);
 
-    MarkingSweeper gc(core_, core_->heap());
+    MarkingSweep gc(core_, core_->heap());
     gc.Run();
     ASSERT_LT(0, gc.collected_bytes());
     ASSERT_EQ(2, gc.collected_objs());

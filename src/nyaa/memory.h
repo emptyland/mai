@@ -8,6 +8,9 @@ namespace mai {
     
 namespace nyaa {
     
+class NyaaCore;
+class Heap;
+    
 enum HeapSpace : int {
     kSemiSpace,
     kNewSpace,
@@ -60,6 +63,31 @@ static inline void *DbgFillFreeZag(void *p, size_t n) { return p; }
 #if defined(MAI_OS_POSIX)
 #define NYAA_USE_POINTER_COLOR 1
 #endif
+    
+    
+class GarbageCollectionPolicy {
+public:
+    GarbageCollectionPolicy(NyaaCore *core, Heap *heap)
+        : core_(core)
+        , heap_(heap) {}
+    virtual ~GarbageCollectionPolicy() {}
+    
+    DEF_PTR_GETTER(NyaaCore, core);
+    DEF_PTR_GETTER(Heap, heap);
+    DEF_VAL_GETTER(size_t, collected_bytes);
+    DEF_VAL_GETTER(size_t, collected_objs);
+    DEF_VAL_GETTER(double, time_cost);
+    
+    virtual void Run() = 0;
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(GarbageCollectionPolicy);
+protected:
+    NyaaCore *const core_;
+    Heap *const heap_;
+    size_t collected_bytes_ = 0;
+    size_t collected_objs_ = 0;
+    double time_cost_ = 0;
+}; // class GarbageCollectionPolicy
     
 } // namespace nyaa
     

@@ -1,6 +1,7 @@
 #ifndef MAI_NYAA_SCAVENGER_H_
 #define MAI_NYAA_SCAVENGER_H_
 
+#include "nyaa/memory.h"
 #include "base/base.h"
 #include "glog/logging.h"
 
@@ -13,14 +14,14 @@ class Object;
 class NyaaCore;
     
 // Fast gc implements, only for new space.
-class Scavenger final {
+class Scavenger final : public GarbageCollectionPolicy {
 public:
     Scavenger(NyaaCore *core, Heap *heap);
-    ~Scavenger() {}
+    virtual ~Scavenger() override {}
     
     DEF_VAL_PROP_RW(bool, should_upgrade);
     
-    void Run();
+    virtual void Run() override;
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Scavenger);
 private:
@@ -30,9 +31,7 @@ private:
     class KzPoolVisitorImpl;
     
     Object *MoveObject(Object *addr, size_t size);
-    
-    NyaaCore *const core_;
-    Heap *const heap_;
+
     bool should_upgrade_ = false;
 }; // class Scavenger
     

@@ -1,8 +1,8 @@
-#ifndef MAI_NYAA_MARKING_SWEEPER_H_
-#define MAI_NYAA_MARKING_SWEEPER_H_
+#ifndef MAI_NYAA_MARKING_SWEEP_H_
+#define MAI_NYAA_MARKING_SWEEP_H_
 
+#include "nyaa/memory.h"
 #include "base/base.h"
-#include "glog/logging.h"
 #include <stack>
 
 namespace mai {
@@ -16,36 +16,30 @@ class NyaaCore;
     
 // Normal spped gc implements;
 // This implements never move object.
-class MarkingSweeper final {
+class MarkingSweep final : public GarbageCollectionPolicy {
 public:
-    MarkingSweeper(NyaaCore *core, Heap *heap);
-    ~MarkingSweeper();
+    MarkingSweep(NyaaCore *core, Heap *heap);
+    ~MarkingSweep();
     
-    void Run();
+    virtual void Run() override;
     
     DEF_VAL_GETTER(size_t, collected_bytes);
     DEF_VAL_GETTER(size_t, collected_objs);
     DEF_VAL_GETTER(double, time_cost);
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(MarkingSweeper);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(MarkingSweep);
 private:
     class RootVisitorImpl;
     class HeapVisitorImpl;
     class ObjectVisitorImpl;
     class KzPoolVisitorImpl;
-    
-    NyaaCore *const core_;
-    Heap *const heap_;
+
     std::stack<NyObject *> gray_;
-    
-    size_t collected_bytes_ = 0; // size of freed memory
-    size_t collected_objs_ = 0; // number of freed object
-    double time_cost_ = 0;
-};
+}; // class MarkingSweep
     
 } // namespace nyaa
     
 } // namespace mai
 
 
-#endif // MAI_NYAA_MARKING_SWEEPER_H_
+#endif // MAI_NYAA_MARKING_SWEEP_H_

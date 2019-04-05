@@ -14,7 +14,7 @@
 		230D7ACC21FDE8890019F7BB /* evaluation-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230D7ACB21FDE8890019F7BB /* evaluation-test.cc */; };
 		2312DFBD2253503700689616 /* malloc-object-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2312DFBC2253503700689616 /* malloc-object-factory.cc */; };
 		2312DFC022536B4300689616 /* scavenger.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2312DFBF22536B4300689616 /* scavenger.cc */; };
-		23163C3F225643C90096B601 /* marking-sweeper-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23163C3E225643C90096B601 /* marking-sweeper-test.cc */; };
+		23163C3F225643C90096B601 /* marking-sweep-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23163C3E225643C90096B601 /* marking-sweep-test.cc */; };
 		2317596921E5933F0025685F /* sql.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2317596821E5933F0025685F /* sql.yy.cc */; };
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
 		23216A272201A2F900E1B816 /* types-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A262201A2F900E1B816 /* types-test.cc */; };
@@ -35,6 +35,7 @@
 		23344CEC21EF0B5F006BC6E4 /* mai-sql-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CEB21EF0B5F006BC6E4 /* mai-sql-impl.cc */; };
 		23344CEF21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CEE21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc */; };
 		23344CF321EF1C05006BC6E4 /* form-schema.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23344CF221EF1C05006BC6E4 /* form-schema.cc */; };
+		23347C7F2256F25100ABAB3F /* marking-compaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23347C7E2256F25100ABAB3F /* marking-compaction.cc */; };
 		2343978A21F960A400512A37 /* evaluation.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2343978921F960A400512A37 /* evaluation.cc */; };
 		23565910221E82EC00837F83 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
 		235C1CCF21D1D63F0070A049 /* optimism-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */; };
@@ -167,7 +168,7 @@
 		23BF17EB21D4C1D100A722B9 /* delta-amend-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */; };
 		23C23D02225449610078A6B0 /* scavenger-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C23D01225449610078A6B0 /* scavenger-test.cc */; };
 		23CC114F21D71F49001665AC /* transaction-lock-mgr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */; };
-		23D2474E2255FC9700C96006 /* marking-sweeper.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D2474D2255FC9700C96006 /* marking-sweeper.cc */; };
+		23D2474E2255FC9700C96006 /* marking-sweep.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D2474D2255FC9700C96006 /* marking-sweep.cc */; };
 		23D2F6BC21F1C0A300A49B1A /* form-schema-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D2F6BB21F1C0A300A49B1A /* form-schema-test.cc */; };
 		23D2F6BE21F1CC2300A49B1A /* types.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D2F6BD21F1CC2300A49B1A /* types.cc */; };
 		23D9E0CA224B560800914076 /* visitors.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D9E0C9224B560800914076 /* visitors.cc */; };
@@ -290,7 +291,7 @@
 		2312DFBC2253503700689616 /* malloc-object-factory.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "malloc-object-factory.cc"; sourceTree = "<group>"; };
 		2312DFBE22536B3700689616 /* scavenger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = scavenger.h; sourceTree = "<group>"; };
 		2312DFBF22536B4300689616 /* scavenger.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = scavenger.cc; sourceTree = "<group>"; };
-		23163C3E225643C90096B601 /* marking-sweeper-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "marking-sweeper-test.cc"; path = "src/nyaa/marking-sweeper-test.cc"; sourceTree = "<group>"; };
+		23163C3E225643C90096B601 /* marking-sweep-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "marking-sweep-test.cc"; path = "src/nyaa/marking-sweep-test.cc"; sourceTree = "<group>"; };
 		2317596821E5933F0025685F /* sql.yy.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sql.yy.cc; sourceTree = "<group>"; };
 		2317596A21E5A1BA0025685F /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
 		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
@@ -353,6 +354,8 @@
 		23344CF021EF15AD006BC6E4 /* options.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = options.h; sourceTree = "<group>"; };
 		23344CF121EF1BB7006BC6E4 /* form-schema.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "form-schema.h"; sourceTree = "<group>"; };
 		23344CF221EF1C05006BC6E4 /* form-schema.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "form-schema.cc"; sourceTree = "<group>"; };
+		23347C7D2256F1A200ABAB3F /* marking-compaction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "marking-compaction.h"; sourceTree = "<group>"; };
+		23347C7E2256F25100ABAB3F /* marking-compaction.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "marking-compaction.cc"; sourceTree = "<group>"; };
 		2341B24F223B404000D3D4A4 /* nyaa.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nyaa.h; sourceTree = "<group>"; };
 		234372C921998C0A00427E83 /* write-ahead-log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-ahead-log.h"; sourceTree = "<group>"; };
 		2343978821F9609300512A37 /* evaluation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = evaluation.h; sourceTree = "<group>"; };
@@ -506,8 +509,8 @@
 		23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-tree-memory-table.cc"; sourceTree = "<group>"; };
 		23CC114B21D71EB1001665AC /* transaction-lock-mgr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "transaction-lock-mgr.h"; sourceTree = "<group>"; };
 		23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-lock-mgr.cc"; sourceTree = "<group>"; };
-		23D2474C2255FBF100C96006 /* marking-sweeper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "marking-sweeper.h"; sourceTree = "<group>"; };
-		23D2474D2255FC9700C96006 /* marking-sweeper.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "marking-sweeper.cc"; sourceTree = "<group>"; };
+		23D2474C2255FBF100C96006 /* marking-sweep.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "marking-sweep.h"; sourceTree = "<group>"; };
+		23D2474D2255FC9700C96006 /* marking-sweep.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "marking-sweep.cc"; sourceTree = "<group>"; };
 		23D2F6BB21F1C0A300A49B1A /* form-schema-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "form-schema-test.cc"; sourceTree = "<group>"; };
 		23D2F6BD21F1CC2300A49B1A /* types.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = types.cc; sourceTree = "<group>"; };
 		23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pipeline-queue.h"; sourceTree = "<group>"; };
@@ -737,7 +740,7 @@
 				23E82BC1224CCC4D00BC910B /* spaces-test.cc */,
 				23C23D01225449610078A6B0 /* scavenger-test.cc */,
 				23F9F8C22255AE22004F0A42 /* string-pool-test.cc */,
-				23163C3E225643C90096B601 /* marking-sweeper-test.cc */,
+				23163C3E225643C90096B601 /* marking-sweep-test.cc */,
 			);
 			name = nyaa;
 			sourceTree = "<group>";
@@ -770,8 +773,10 @@
 				23D9E0C9224B560800914076 /* visitors.cc */,
 				2312DFBE22536B3700689616 /* scavenger.h */,
 				2312DFBF22536B4300689616 /* scavenger.cc */,
-				23D2474C2255FBF100C96006 /* marking-sweeper.h */,
-				23D2474D2255FC9700C96006 /* marking-sweeper.cc */,
+				23D2474C2255FBF100C96006 /* marking-sweep.h */,
+				23D2474D2255FC9700C96006 /* marking-sweep.cc */,
+				23347C7D2256F1A200ABAB3F /* marking-compaction.h */,
+				23347C7E2256F25100ABAB3F /* marking-compaction.cc */,
 				23F9F8BF225597C9004F0A42 /* string-pool.h */,
 				23F9F8C02255A767004F0A42 /* string-pool.cc */,
 			);
@@ -1339,7 +1344,7 @@
 				2364B2E121E451F9008519AE /* s1-table-reader.cc in Sources */,
 				2364B2E321E451F9008519AE /* data-block-builder.cc in Sources */,
 				2364B2E821E451F9008519AE /* table.cc in Sources */,
-				23163C3F225643C90096B601 /* marking-sweeper-test.cc in Sources */,
+				23163C3F225643C90096B601 /* marking-sweep-test.cc in Sources */,
 				2364B2EA21E451F9008519AE /* key-bloom-filter.cc in Sources */,
 				2364B2EC21E451F9008519AE /* block-iterator.cc in Sources */,
 				2364B2EE21E451F9008519AE /* block-cache.cc in Sources */,
@@ -1427,7 +1432,7 @@
 				2374DE47223B4BFE00810B41 /* nyaa-core.cc in Sources */,
 				23344CE921EF082D006BC6E4 /* mai-sql-test.cc in Sources */,
 				2364B35221E451F9008519AE /* compaction-test.cc in Sources */,
-				23D2474E2255FC9700C96006 /* marking-sweeper.cc in Sources */,
+				23D2474E2255FC9700C96006 /* marking-sweep.cc in Sources */,
 				23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */,
 				23344CEC21EF0B5F006BC6E4 /* mai-sql-impl.cc in Sources */,
 				2364B35321E451F9008519AE /* files-test.cc in Sources */,
@@ -1438,6 +1443,7 @@
 				2364B35621E451F9008519AE /* write-batch-with-index-test.cc in Sources */,
 				2364B35721E451F9008519AE /* transaction-db-test.cc in Sources */,
 				2364B35821E451F9008519AE /* pessimistic-transaction-db-test.cc in Sources */,
+				23347C7F2256F25100ABAB3F /* marking-compaction.cc in Sources */,
 				2317596921E5933F0025685F /* sql.yy.cc in Sources */,
 				2364B35921E451F9008519AE /* ast-factory-test.cc in Sources */,
 				2364B35A21E451F9008519AE /* test-main.cc in Sources */,
