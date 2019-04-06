@@ -146,7 +146,7 @@ NyDelegated *ObjectFactoryImpl::NewDelegated(DelegatedKind kind, Address fp, siz
 /*virtual*/ NyUDO *ObjectFactoryImpl::NewUninitializedUDO(size_t size, NyMap *clazz, bool old) {
     DCHECK_GE(size, sizeof(NyUDO));
     void *blk = heap_->Allocate(size, old ? kOldSpace : kNewSpace);
-    NyUDO *ob = new (blk) NyUDO();
+    NyUDO *ob = new (blk) NyUDO(false);
     ob->SetMetatable(clazz, core_);
     ob->SetColor(kColorWhite);
     return ob;
@@ -155,6 +155,7 @@ NyDelegated *ObjectFactoryImpl::NewDelegated(DelegatedKind kind, Address fp, siz
 /*virtual*/ NyThread *ObjectFactoryImpl::NewThread(bool old) {
     NEW_OBJECT(sizeof(NyThread), NyThread(core_), Thread);
     DCHECK_EQ(sizeof(NyThread), ob->PlacedSize());
+    //core_->InsertThread(ob);
     return ob;
 }
     

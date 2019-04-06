@@ -34,6 +34,44 @@ TEST_F(NyaaMarkingSweepTest, Sanity) {
     ASSERT_LT(0, gc.collected_bytes());
     ASSERT_EQ(2, gc.collected_objs());
 }
+    
+TEST_F(NyaaMarkingSweepTest, RunAgain) {
+    factory_->NewMap(128, 0, 0, false, true);
+    {
+        MarkingSweep gc(core_, core_->heap());
+        gc.Run();
+        ASSERT_LT(0, gc.collected_bytes());
+        ASSERT_EQ(2, gc.collected_objs());
+    }
+
+    
+    factory_->NewMap(128, 0, 0, false, true);
+    {
+        MarkingSweep gc(core_, core_->heap());
+        gc.Run();
+        ASSERT_LT(0, gc.collected_bytes());
+        ASSERT_EQ(2, gc.collected_objs());
+    }
+}
+    
+TEST_F(NyaaMarkingSweepTest, ClearRememberSet) {
+    HandleScope scope(isolate_);
+    
+    Handle<NyMap> h1 = factory_->NewMap(128, 0, 0, false, true);
+    h1->RawPut(factory_->NewString("ok"), NyInt32::New(100), core_);
+    h1->RawPut(factory_->NewString("ye"), NyInt32::New(200), core_);
+    
+    auto remembers = core_->heap()->GetRememberHosts(h1->generic());
+    ASSERT_EQ(2, remembers.size());
+    
+    h1 = nullptr;
+    {
+        MarkingSweep gc(core_, core_->heap());
+        gc.Run();
+        ASSERT_LT(0, gc.collected_bytes());
+        ASSERT_EQ(2, gc.collected_objs());
+    }
+}
 
 }
 

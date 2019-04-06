@@ -216,10 +216,12 @@ public:
     
     Error Init(size_t size, Isolate *isolate);
     
-    void Purge() {
-        DbgFillFreeZag(page_->area_base(), free_ - page_->area_base());
+    size_t Purge() {
+        size_t remaining = free_ - page_->area_base();
+        DbgFillFreeZag(page_->area_base(), remaining);
         free_ = page_->area_base();
         page_->available_ = static_cast<uint32_t>(page_->usable_size());
+        return remaining;
     }
     
     friend class NewSpace;
@@ -243,6 +245,16 @@ public:
     
     SemiSpace *from_area() const { return from_area_.get(); }
     SemiSpace *to_area() const { return to_area_.get(); }
+    DEF_VAL_GETTER(size_t, latest_remaining_size);
+    
+    float GetLatestRemainingRate() const {
+        return static_cast<float>(latest_remaining_size_) /
+               static_cast<float>(to_area_->page()->usable_size());
+    }
+    
+    Address GetLatestRemainingLevel() const {
+        return to_area_->page()->area_base() + latest_remaining_size_;
+    }
     
     Error Init(size_t total_size, Isolate *isolate);
     
@@ -252,7 +264,7 @@ public:
 
     void Purge(bool reinit) {
         from_area_.swap(to_area_);
-        from_area_->Purge();
+        latest_remaining_size_ = from_area_->Purge();
         if (reinit) {
             to_area_->Purge();
         }
@@ -263,6 +275,7 @@ public:
 private:
     std::unique_ptr<SemiSpace> from_area_;
     std::unique_ptr<SemiSpace>   to_area_;
+    size_t latest_remaining_size_ = 0; // latest gc remaining size.
 }; // class NewSpace
 
 class OldSpace final : public Space {

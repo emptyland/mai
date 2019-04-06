@@ -4,6 +4,7 @@
 #include "nyaa/object-factory.h"
 #include "nyaa/string-pool.h"
 #include "nyaa/heap.h"
+#include "nyaa/spaces.h"
 #include "test/nyaa-test.h"
 #include "mai-lang/nyaa.h"
 
@@ -40,7 +41,8 @@ TEST_F(NyaaScavengerTest, Sanity) {
     auto oldone = core_->kmt_pool()->kString;
     
     gc.Run();
-    ASSERT_GT(core_->heap()->from_semi_area_remain_rate(), 0);
+    ASSERT_GT(core_->heap()->new_space_->latest_remaining_size(), 0);
+    //printf("%lu\n", core_->heap()->new_space_->latest_remaining_size());
     ASSERT_GT(gc.time_cost(), 0);
 
     auto s = core_->factory()->NewString("ok");
@@ -66,6 +68,33 @@ TEST_F(NyaaScavengerTest, MoveNewSpace) {
     ASSERT_NE(p2, *s2);
     ASSERT_STREQ("yes", s2->bytes());
     ASSERT_STREQ("no~no~no~", s3->bytes());
+    ASSERT_EQ(kNewSpace, core_->heap()->Contains(*s1));
+    ASSERT_EQ(kNewSpace, core_->heap()->Contains(*s2));
+    ASSERT_EQ(kNewSpace, core_->heap()->Contains(*s3));
+}
+
+TEST_F(NyaaScavengerTest, ForceUpgrade) {
+    Scavenger gc(core_, core_->heap());
+    
+    HandleScope scope(isolate_);
+    
+    Handle<NyString> s1 = factory_->NewString("ok");
+    NyString *p1 = *s1;
+    Handle<NyString> s2 = factory_->NewString("yes");
+    NyString *p2 = *s2;
+    
+    gc.set_force_upgrade(true);
+    gc.Run();
+    
+    Handle<NyString> s3 = factory_->NewString("no~no~no~");
+    ASSERT_NE(p1, *s1);
+    ASSERT_STREQ("ok", s1->bytes());
+    ASSERT_NE(p2, *s2);
+    ASSERT_STREQ("yes", s2->bytes());
+    ASSERT_STREQ("no~no~no~", s3->bytes());
+    ASSERT_EQ(kOldSpace, core_->heap()->Contains(*s1));
+    ASSERT_EQ(kOldSpace, core_->heap()->Contains(*s2));
+    ASSERT_EQ(kNewSpace, core_->heap()->Contains(*s3));
 }
     
 TEST_F(NyaaScavengerTest, KzPoolSweep) {

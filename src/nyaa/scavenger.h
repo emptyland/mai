@@ -19,7 +19,7 @@ public:
     Scavenger(NyaaCore *core, Heap *heap);
     virtual ~Scavenger() override {}
     
-    DEF_VAL_PROP_RW(bool, should_upgrade);
+    DEF_VAL_PROP_RW(bool, force_upgrade);
     
     virtual void Run() override;
 
@@ -28,11 +28,10 @@ private:
     class RootVisitorImpl;
     class HeapVisitorImpl;
     class ObjectVisitorImpl;
-    class KzPoolVisitorImpl;
-    
-    Object *MoveObject(Object *addr, size_t size);
+    class WeakVisitorImpl;
 
-    bool should_upgrade_ = false;
+    bool force_upgrade_ = false;
+    Address upgrade_level_ = nullptr;
 }; // class Scavenger
     
 

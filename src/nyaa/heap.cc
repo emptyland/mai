@@ -17,9 +17,17 @@ Heap::Heap(NyaaCore *N)
     , old_space_(new OldSpace(kOldSpace, false, /*executable*/ N->isolate()))
     , code_space_(new OldSpace(kCodeSpace, true, /*executable*/ N->isolate()))
     , large_space_(new LargeSpace(N->stub()->minor_area_max_size(), N->isolate())) {
+    ::memset(&final_records_, 0, sizeof(final_records_));
 }
 
 /*virtual*/ Heap::~Heap() {
+    while (final_records_) {
+        FinalizerRecord *p = final_records_;
+        final_records_ = p->next;
+        p->fp(p->host, owns_);
+        delete p;
+    }
+    
     delete large_space_;
     delete code_space_;
     delete old_space_;
@@ -100,16 +108,14 @@ bool Heap::InToSemiArea(NyObject *ob) {
 }
     
 void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
-    //printf("%p(%p) = %p\n", host, pzwr, val);
     if (owns_->stub()->nogc()) {
         return;
     }
-//#if 0
     DCHECK_NOTNULL(pzwr);
     auto addr = reinterpret_cast<Address>(pzwr);
-    auto iter = remember_set_.find(addr);
 
     if (val == Object::kNil || !val->IsObject()) {
+        auto iter = remember_set_.find(addr);
         if (iter != remember_set_.end()) {
             delete iter->second;
             remember_set_.erase(iter);
@@ -120,13 +126,14 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
     if (InNewArea(host)) {
         return;
     }
+    auto iter = remember_set_.find(addr);
     
     DCHECK(InOldArea(host));
     if (iter == remember_set_.end()) {
         // old -> new
         if (InNewArea(val->ToHeapObject())) {
-            WriteEntry *wr = new WriteEntry;
-            wr->next = nullptr;
+            RememberRecord *wr = new RememberRecord;
+            //wr->next = nullptr;
             wr->host = host;
             wr->pzwr = pzwr;
             wr->ismt = ismt;
@@ -142,14 +149,68 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
             }
         }
     }
-//#endif
+}
+    
+void Heap::AddFinalizer(NyUDO *host, UDOFinalizer fp) {
+    if (!fp) {
+        FinalizerRecord dummy {.next = final_records_};
+        FinalizerRecord *prev = &dummy, *p = final_records_;
+        while (p) {
+            if (p->host == host) {
+                prev->next = p->next;
+                delete p;
+                break;
+            }
+            prev = p;
+            p = p->next;
+        }
+        final_records_ = dummy.next;
+    } else {
+        FinalizerRecord *fr = new FinalizerRecord;
+        fr->next = final_records_;
+        fr->host = DCHECK_NOTNULL(host);
+        fr->fp   = fp;
+        final_records_ = fr;
+    }
+}
+    
+Object *Heap::MoveNewObject(Object *addr, size_t size, bool upgrade) {
+    SemiSpace *to_area = new_space_->to_area();
+    DCHECK(to_area->Contains(reinterpret_cast<Address>(addr)));
+    
+    Address dst = nullptr;
+    if (upgrade) {
+        dst = old_space_->AllocateRaw(size);
+        DCHECK_NOTNULL(dst);
+        ::memcpy(dst, addr, size);
+    } else {
+        SemiSpace *from_area = new_space_->from_area();
+        dst = from_area->AllocateRaw(size);
+        DCHECK_NOTNULL(dst);
+        //printf("move: %p(%lu) <- %p\n", dst, size, addr);
+        ::memcpy(dst, addr, size);
+    }
+    
+    // Set foward address:
+#if defined(NYAA_USE_POINTER_COLOR)
+    uintptr_t word = *reinterpret_cast<uintptr_t *>(addr);
+    uintptr_t color_bits = word & NyObject::kColorMask;
+    word = reinterpret_cast<uintptr_t>(dst) | color_bits | 0x1;
+    *reinterpret_cast<uintptr_t *>(addr) = word;
+#else // !defined(NYAA_USE_POINTER_COLOR)
+    uintptr_t word = *reinterpret_cast<uintptr_t *>(addr);
+    word = reinterpret_cast<uintptr_t>(dst) | 0x1;
+    *reinterpret_cast<uintptr_t *>(addr) = word;
+#endif // defined(NYAA_USE_POINTER_COLOR)
+    
+    return reinterpret_cast<Object *>(dst);
 }
     
 void Heap::IterateRememberSet(ObjectVisitor *visitor, bool for_host, bool after_clean) {
     if (for_host) {
         std::set<Address> for_clean;
         for (const auto &pair : remember_set_) {
-            Heap::WriteEntry *wr = pair.second;
+            Heap::RememberRecord *wr = pair.second;
             visitor->VisitPointer(wr->host, reinterpret_cast<Object **>(&wr->host));
             if (!wr->host) {
                 delete wr;
@@ -161,7 +222,7 @@ void Heap::IterateRememberSet(ObjectVisitor *visitor, bool for_host, bool after_
         }
     } else {
         for (const auto &pair : remember_set_) {
-            Heap::WriteEntry *wr = pair.second;
+            Heap::RememberRecord *wr = pair.second;
             if (wr->ismt) {
                 visitor->VisitMetatablePointer(wr->host, wr->mtwr);
             } else {
@@ -175,6 +236,39 @@ void Heap::IterateRememberSet(ObjectVisitor *visitor, bool for_host, bool after_
             remember_set_.clear();
         }
     }
+}
+    
+void Heap::IterateFinalizerRecords(ObjectVisitor *visitor) {
+    FinalizerRecord dummy {.next = final_records_};
+    FinalizerRecord *prev = &dummy, *p = dummy.next;
+    while (p) {
+        DCHECK_NOTNULL(p->host);
+        NyUDO *host = p->host;
+        visitor->VisitPointer(nullptr, reinterpret_cast<Object **>(&p->host));
+        if (!p->host) {
+            prev->next = p->next;
+            p->fp(host, owns_);
+            delete p;
+            p = prev->next;
+        } else {
+            prev = p;
+            p = p->next;
+        }
+    }
+    final_records_ = dummy.next;
+}
+    
+std::vector<Heap::RememberHost> Heap::GetRememberHosts(NyObject *host) const {
+    std::vector<RememberHost> result;
+    for (const auto &pair : remember_set_) {
+        if (pair.second->host == host) {
+            RememberRecord *wr = pair.second;
+            result.push_back({
+                static_cast<bool>(wr->ismt),
+                reinterpret_cast<Address>(wr->pzwr)});
+        }
+    }
+    return result;
 }
 
 /*virtual*/ void *Heap::Allocate(size_t size, size_t /*alignment*/) {

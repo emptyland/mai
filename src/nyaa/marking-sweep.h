@@ -15,25 +15,24 @@ class NyObject;
 class NyaaCore;
     
 // Normal spped gc implements;
-// This implements never move object.
+// This implements never move old space object(s).
 class MarkingSweep final : public GarbageCollectionPolicy {
 public:
     MarkingSweep(NyaaCore *core, Heap *heap);
-    ~MarkingSweep();
+    virtual ~MarkingSweep() override;
     
     virtual void Run() override;
-    
-    DEF_VAL_GETTER(size_t, collected_bytes);
-    DEF_VAL_GETTER(size_t, collected_objs);
-    DEF_VAL_GETTER(double, time_cost);
+
+    DEF_VAL_PROP_RW(bool, full);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(MarkingSweep);
 private:
     class RootVisitorImpl;
     class HeapVisitorImpl;
     class ObjectVisitorImpl;
-    class KzPoolVisitorImpl;
+    class WeakVisitorImpl;
 
+    bool full_ = false; // full gc?
     std::stack<NyObject *> gray_;
 }; // class MarkingSweep
     

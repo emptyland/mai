@@ -184,6 +184,12 @@ public:
         return IsScript() || IsDelegated() || IsFunction(); // TODO:
     }
     
+    inline bool IsUDO() const;
+    
+    inline const NyUDO *ToUDO() const;
+    
+    inline NyUDO *ToUDO();
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyObject);
 private:
     void *forward_address() const {
@@ -733,15 +739,24 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class NyUDO : public NyObject {
 public:
-    NyUDO() {}
+    using Finalizer = UDOFinalizer;
+    
+    NyUDO(bool ignore_managed) : finalizer_(ignore_managed ? 0x1 : 0) {}
+    
+    void SetFinalizer(Finalizer fp, NyaaCore *N);
+    
+    Finalizer GetFinalizer() const { return reinterpret_cast<Finalizer>(finalizer_ & ~0x1); }
+    
+    bool IgnoreManaged() const { return finalizer_ & 0x1; }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyUDO);
 private:
+    uintptr_t finalizer_;
     Object *fields_[0];
 }; // class NyUDO
 
-//template<class T>
-//void UDOFinalizeDtor(Nyaa *, NyUDO *udo) { static_cast<T *>(udo)->~T(); }
+template<class T>
+void UDOFinalizeDtor(NyUDO *udo, NyaaCore *) { static_cast<T *>(udo)->~T(); }
 
 #define DECL_TYPE_CHECK(type) inline bool NyObject::Is##type() const { \
         return GetMetatable()->kid() == kType##type; \
@@ -758,6 +773,16 @@ private:
     }
     DECL_BUILTIN_TYPES(DECL_TYPE_CAST)
 #undef DECL_TYPE_CAST
+    
+inline bool NyObject::IsUDO() const {
+    return IsThread() || GetMetatable()->kid() > kUdoKidBegin;
+}
+    
+inline const NyUDO *NyObject::ToUDO() const {
+    return !IsUDO() ? nullptr : static_cast<const NyUDO *>(this);
+}
+
+inline NyUDO *NyObject::ToUDO() { return !IsUDO() ? nullptr : static_cast<NyUDO *>(this); }
     
 template<class T> inline Local<T> ApiWarp(Local<Value> api, NyaaCore *N) {
     NyObject *o = reinterpret_cast<NyObject *>(*api);

@@ -65,7 +65,7 @@ public:
         RehashIfNeeded(true);
     }
     
-    size_t IterateForSweep(ObjectVisitor *visitor);
+    size_t Iterate(ObjectVisitor *visitor);
     
     template<class Cond> inline size_t Sweep(Cond cond) {
         size_t n = 0;

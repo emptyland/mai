@@ -29,8 +29,10 @@ public:
                 *i = forward;
                 continue;
             }
+            
             if (owns_->heap_->InNewArea(ob)) {
-                *i = owns_->MoveObject(ob, ob->PlacedSize());
+                bool should_upgrade = reinterpret_cast<Address>(ob) < owns_->upgrade_level_;
+                *i = owns_->heap_->MoveNewObject(ob, ob->PlacedSize(), should_upgrade);
             }
         }
     }
@@ -69,7 +71,8 @@ public:
                 continue;
             }
             if (owns_->heap_->InToSemiArea(ob)) {
-                *i = owns_->MoveObject(ob, ob->PlacedSize());
+                bool should_upgrade = reinterpret_cast<Address>(ob) < owns_->upgrade_level_;
+                *i = owns_->heap_->MoveNewObject(ob, ob->PlacedSize(), should_upgrade);
             }
         }
     }
@@ -93,27 +96,25 @@ private:
     Scavenger *const owns_;
 }; // class Scavenger::ObjectVisitorImpl
     
-class Scavenger::KzPoolVisitorImpl final : public ObjectVisitor {
+class Scavenger::WeakVisitorImpl final : public ObjectVisitor {
 public:
-    KzPoolVisitorImpl(Scavenger *owns) : owns_(DCHECK_NOTNULL(owns)) {}
-    virtual ~KzPoolVisitorImpl() override {}
+    WeakVisitorImpl(Scavenger *owns) : owns_(DCHECK_NOTNULL(owns)) {}
+    virtual ~WeakVisitorImpl() override {}
     
     virtual void VisitPointer(Object *host, Object **p) override {
-        NyString *s = static_cast<NyString *>(*p);
-        DCHECK(s->IsObject());
-        if (NyObject *foward = s->Foward()) {
+        NyObject *ob = static_cast<NyObject *>(*p);
+        DCHECK(ob->IsObject());
+        if (NyObject *foward = ob->Foward()) {
             *p = foward;
             return;
-        } else if (owns_->heap_->InOldArea(s)) {
-            DCHECK(s->IsString());
+        } else if (owns_->heap_->InOldArea(ob)) {
             return; // Scavenger do not sweep old space, ignore it.
-        } else if (owns_->heap_->InToSemiArea(s)) {
-            DCHECK(s->IsString());
-            *p = nullptr; // No one reference this string, should be sweep.
+        } else if (owns_->heap_->InToSemiArea(ob)) {
+            *p = nullptr; // No one reference this object, should be sweep.
             return;
         }
-        // Has some one reference this string, ignore it.
-        DCHECK(owns_->heap_->InFromSemiArea(s));
+        // Has some one reference this object, ignore it.
+        DCHECK(owns_->heap_->InFromSemiArea(ob));
     }
     virtual void VisitPointers(Object *host, Object **begin, Object **end) override {
         DLOG(FATAL) << "noreached!";
@@ -128,9 +129,6 @@ private:
     
 Scavenger::Scavenger(NyaaCore *core, Heap *heap)
     : GarbageCollectionPolicy(core, heap) {
-    if (heap_->from_semi_area_remain_rate_ > 0.25) { // 1/4
-        should_upgrade_ = true;
-    }
 }
     
 /*virtual*/ void Scavenger::Run() {
@@ -138,31 +136,39 @@ Scavenger::Scavenger(NyaaCore *core, Heap *heap)
     uint64_t jiffy = env->CurrentTimeMicros();
     size_t available = heap_->new_space_->Available();
     
-    RootVisitorImpl visitor(this);
-    core_->IterateRoot(&visitor);
+    SemiSpace *to_area = heap_->new_space_->to_area();
+    upgrade_level_ = to_area->page()->area_base();
+    if (force_upgrade_) {
+        upgrade_level_ = to_area->free();
+    } else if (heap_->new_space_->GetLatestRemainingRate() > 0.25) {
+        upgrade_level_ = heap_->new_space_->GetLatestRemainingLevel();
+    }
     
-    ObjectVisitorImpl obv(this);
-    HeapVisitorImpl hpv(&obv);
+    RootVisitorImpl root_visitor(this);
+    core_->IterateRoot(&root_visitor);
+    
+    ObjectVisitorImpl obj_visitor(this);
+    heap_->IterateRememberSet(&obj_visitor, false /*for_host*/ , true /*after_clean*/);
 
-    heap_->IterateRememberSet(&obv, false /*for_host*/ , true /*after_clean*/);
-
+    HeapVisitorImpl heap_visitor(&obj_visitor);
     SemiSpace *from_area = heap_->new_space_->from_area();
     Address begin = RoundUp(from_area->page()->area_base(), kAligmentSize);
     Address end   = from_area->free();
     while (begin < end) {
-        from_area->Iterate(begin, end, &hpv);
+        from_area->Iterate(begin, end, &heap_visitor);
         begin = end;
         end = from_area->free();
     }
     
     // Process for weak tables
+    WeakVisitorImpl weak_visitor(this);
     if (core_->kz_pool()) {
         // kz_pool is a special weak table.
-        KzPoolVisitorImpl wov(this);
-        core_->kz_pool()->IterateForSweep(&wov);
+        core_->kz_pool()->Iterate(&weak_visitor);
     }
+    heap_->IterateFinalizerRecords(&weak_visitor);
     // TODO:
-    
+
     size_t total_size = from_area->page()->usable_size();
     heap_->from_semi_area_remain_rate_ = static_cast<float>(from_area->UsageMemory())
                                        / static_cast<float>(total_size);
@@ -170,38 +176,6 @@ Scavenger::Scavenger(NyaaCore *core, Heap *heap)
     time_cost_ = (env->CurrentTimeMicros() - jiffy) / 1000.0;
     collected_bytes_ = heap_->new_space_->Available() - available;
     // TODO:
-}
-    
-Object *Scavenger::MoveObject(Object *addr, size_t size) {
-    SemiSpace *to_area = heap_->new_space_->to_area();
-    DCHECK(to_area->Contains(reinterpret_cast<Address>(addr)));
-
-    Address dst = nullptr;
-    if (should_upgrade_) {
-        dst = heap_->old_space_->AllocateRaw(size);
-        DCHECK_NOTNULL(dst);
-        ::memcpy(dst, addr, size);
-    } else {
-        SemiSpace *from_area = heap_->new_space_->from_area();
-        dst = from_area->AllocateRaw(size);
-        DCHECK_NOTNULL(dst);
-        //printf("move: %p(%lu) <- %p\n", dst, size, addr);
-        ::memcpy(dst, addr, size);
-    }
-
-    // Set foward address:
-#if defined(NYAA_USE_POINTER_COLOR)
-    uintptr_t word = *reinterpret_cast<uintptr_t *>(addr);
-    uintptr_t color_bits = word & NyObject::kColorMask;
-    word = reinterpret_cast<uintptr_t>(dst) | color_bits | 0x1;
-    *reinterpret_cast<uintptr_t *>(addr) = word;
-#else // !defined(NYAA_USE_POINTER_COLOR)
-    uintptr_t word = *reinterpret_cast<uintptr_t *>(addr);
-    word = reinterpret_cast<uintptr_t>(dst) | 0x1;
-    *reinterpret_cast<uintptr_t *>(addr) = word;
-#endif // defined(NYAA_USE_POINTER_COLOR)
-
-    return reinterpret_cast<Object *>(dst);
 }
 
 } // namespace nyaa

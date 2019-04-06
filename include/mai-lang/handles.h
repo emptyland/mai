@@ -23,6 +23,7 @@ template<class T> class Persistent;
     
 class HandleScope final {
 public:
+    HandleScope();
     HandleScope(Isolate *isolate);
     ~HandleScope();
     
@@ -117,11 +118,19 @@ public:
         }
     }
     
+    inline void operator = (T *ptr) {
+        if (is_empty()) {
+            set_location(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(ptr)));
+        } else {
+            *location() = ptr;
+        }
+    }
+    
     inline void operator = (Handle &&other) {
         set_location(other.location());
         other.set_location(nullptr);
     }
-    
+
     template<class S> inline static Handle<T> Cast(const Handle<S> &input) {
         if (input.is_empty()) {
             return Handle<T>();

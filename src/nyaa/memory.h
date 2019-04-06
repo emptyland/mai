@@ -9,7 +9,9 @@ namespace mai {
 namespace nyaa {
     
 class NyaaCore;
+class Nyaa;
 class Heap;
+class NyUDO;
     
 enum HeapSpace : int {
     kSemiSpace,
@@ -65,6 +67,8 @@ static inline void *DbgFillFreeZag(void *p, size_t n) { return p; }
 #endif
     
     
+using UDOFinalizer = void (*)(NyUDO *udo, NyaaCore *);
+    
 class GarbageCollectionPolicy {
 public:
     GarbageCollectionPolicy(NyaaCore *core, Heap *heap)
@@ -79,7 +83,13 @@ public:
     DEF_VAL_GETTER(double, time_cost);
     
     virtual void Run() = 0;
-    
+
+    virtual void Reset() {
+        collected_bytes_ = 0;
+        collected_objs_ = 0;
+        time_cost_ = 0;
+    }
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(GarbageCollectionPolicy);
 protected:
     NyaaCore *const core_;
@@ -87,6 +97,7 @@ protected:
     size_t collected_bytes_ = 0;
     size_t collected_objs_ = 0;
     double time_cost_ = 0;
+    
 }; // class GarbageCollectionPolicy
     
 } // namespace nyaa

@@ -807,6 +807,13 @@ int NyDelegated::Call(Arguments *args, NyaaCore *N) {
     }
     return -1;
 }
+    
+void NyUDO::SetFinalizer(Finalizer fp, NyaaCore *N) {
+    uintptr_t word = reinterpret_cast<uintptr_t>(fp);
+    DCHECK_EQ(0, word % 2);
+    finalizer_ = word | (IgnoreManaged() ? 0x1 : 0);
+    N->heap()->AddFinalizer(this, fp);
+}
 
 #define DEFINE_TYPE_CHECK(type, name) \
     bool Ny##type::EnsureIs(const NyObject *o, NyaaCore *N) { \

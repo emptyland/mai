@@ -19,7 +19,7 @@ StringPool::StringPool(Allocator *lla, RandomGenerator *random)
 
 StringPool::~StringPool() { delete arena_; }
     
-size_t StringPool::IterateForSweep(ObjectVisitor *visitor) {
+size_t StringPool::Iterate(ObjectVisitor *visitor) {
     size_t n = 0;
     for (size_t i = 0; i < n_slots_; ++i) {
         Node *prev = slots_ + i;

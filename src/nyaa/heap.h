@@ -31,8 +31,13 @@ public:
     DEF_VAL_GETTER(double, major_gc_cost);
     DEF_VAL_GETTER(double, minor_gc_cost);
     
-    NyObject *Allocate(size_t size, HeapSpace space);
+    virtual void *Allocate(size_t size, size_t) override;
+    virtual void Purge(bool reinit) override;
+    virtual size_t granularity() override { return kAllocateAlignmentSize; }
+    virtual size_t memory_usage() const override;
     
+    NyObject *Allocate(size_t size, HeapSpace space);
+
     HeapSpace Contains(NyObject *ob);
     bool InNewArea(NyObject *ob);
     bool InOldArea(NyObject *ob) { return !InNewArea(ob); }
@@ -41,17 +46,22 @@ public:
     
     void BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt = false);
     
-    virtual void *Allocate(size_t size, size_t) override;
-    virtual void Purge(bool reinit) override;
-    virtual size_t granularity() override { return kAllocateAlignmentSize; }
-    virtual size_t memory_usage() const override;
+    struct RememberHost {
+        bool    ismt;
+        Address addr_wr;
+    };
+    std::vector<RememberHost> GetRememberHosts(NyObject *host) const;
+    
+    void AddFinalizer(NyUDO *host, UDOFinalizer fp);
 
     friend class Scavenger;
     friend class MarkingSweep;
+    FRIEND_UNITTEST_CASE(NyaaScavengerTest, Sanity);
     DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
 private:
-    struct WriteEntry {
-        WriteEntry *next;
+    Object *MoveNewObject(Object *addr, size_t size, bool upgrade);
+    
+    struct RememberRecord {
         NyObject   *host; // [weak ref] in old space
         uint32_t    ismt; // is pzwr metatable address?
         union {
@@ -60,8 +70,14 @@ private:
         };
     };
     
+    struct FinalizerRecord {
+        FinalizerRecord *next;
+        NyUDO *host;     // [weak ref]
+        UDOFinalizer fp; // The finalizer function pointer
+    };
+    
     void IterateRememberSet(ObjectVisitor *visitor, bool for_sweep, bool after_clean);
-    //void IterateRememberSetForSweep(ObjectVisitor *visitor);
+    void IterateFinalizerRecords(ObjectVisitor *visitor);
 
     NyaaCore *const owns_;
     size_t const os_page_size_;
@@ -73,7 +89,8 @@ private:
     HeapColor initial_color_  = kColorWhite;
     HeapColor finalize_color_ = kColorBlack;
     
-    std::unordered_map<Address, WriteEntry *> remember_set_; // internal [weak ref]
+    std::unordered_map<Address, RememberRecord *> remember_set_; // elements [weak ref]
+    FinalizerRecord *final_records_ = nullptr; // elements [weak ref]
     
     float from_semi_area_remain_rate_ = 0;
     double major_gc_cost_ = 0;

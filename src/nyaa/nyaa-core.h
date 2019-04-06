@@ -96,9 +96,9 @@ private:
     HandleScopeSlot *top_slot_;
     bool initialized_ = false;
     std::unique_ptr<RandomGenerator> random_;
-    std::unique_ptr<StringPool> kz_pool_; // internal [weak ref]
-    std::unique_ptr<BuiltinStrPool> bkz_pool_; // internal [strong ref]
-    std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // internal [strong ref]
+    std::unique_ptr<StringPool> kz_pool_; // elements [weak ref]
+    std::unique_ptr<BuiltinStrPool> bkz_pool_; // elements [strong ref]
+    std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // elements [strong ref]
 
     NyMap *g_ = nullptr; // [strong ref]
     NyThread *main_thd_ = nullptr; // [strong ref]

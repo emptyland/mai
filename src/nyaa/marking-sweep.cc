@@ -80,21 +80,33 @@ public:
     virtual void VisitObject(Space *owns, NyObject *ob, size_t placed_size) override {
         HeapSpace space = owns_->heap_->Contains(ob);
         DCHECK_EQ(owns->kind(), space);
-        if (ob->GetColor() == owns_->heap_->finalize_color()) { // Has marked!
-            return;
-        }
+        DCHECK(ob->is_direct());
         
         Address addr = reinterpret_cast<Address>(ob);
         switch (space) {
+            case kNewSpace:
+                if (ob->GetColor() == owns_->heap()->initial_color()) {
+                    owns_->collected_bytes_ += placed_size;
+                    owns_->collected_objs_++;
+                } else {
+                    DCHECK_EQ(owns_->heap()->finalize_color(), ob->GetColor());
+                    // never upgrade.
+                    owns_->heap_->MoveNewObject(ob, placed_size, false /*upgrade*/);
+                }
+                break;
             case kOldSpace:
-                static_cast<OldSpace *>(owns)->Free(addr, placed_size, false);
-                owns_->collected_bytes_ += placed_size;
-                owns_->collected_objs_++;
+                if (ob->GetColor() == owns_->heap()->initial_color()) {
+                    static_cast<OldSpace *>(owns)->Free(addr, placed_size, false);
+                    owns_->collected_bytes_ += placed_size;
+                    owns_->collected_objs_++;
+                }
                 break;
             case kLargeSpace:
-                static_cast<LargeSpace *>(owns)->Free(addr);
-                owns_->collected_bytes_ += placed_size;
-                owns_->collected_objs_++;
+                if (ob->GetColor() == owns_->heap()->initial_color()) {
+                    static_cast<LargeSpace *>(owns)->Free(addr);
+                    owns_->collected_bytes_ += placed_size;
+                    owns_->collected_objs_++;
+                }
                 break;
             default:
                 DLOG(FATAL) << "noreached!" << space;
@@ -106,18 +118,21 @@ private:
     MarkingSweep *const owns_;
 }; // class MarkingSweeper::HeapVisitorImpl
     
-class MarkingSweep::KzPoolVisitorImpl final : public ObjectVisitor {
+class MarkingSweep::WeakVisitorImpl final : public ObjectVisitor {
 public:
-    KzPoolVisitorImpl(MarkingSweep *owns) : owns_(DCHECK_NOTNULL(owns)) {}
-    virtual ~KzPoolVisitorImpl() override {}
+    WeakVisitorImpl(MarkingSweep *owns) : owns_(DCHECK_NOTNULL(owns)) {}
+    virtual ~WeakVisitorImpl() override {}
     
     virtual void VisitPointer(Object *host, Object **p) override {
         DCHECK((*p)->IsObject());
         
         NyObject *ob = (*p)->ToHeapObject();
-        DCHECK(ob->is_direct());
+        DCHECK(!owns_->full_ || ob->is_direct());
         
-        if (ob->GetColor() != owns_->heap_->finalize_color()) {
+        if (NyObject *foward = ob->Foward()) {
+            DCHECK_EQ(owns_->heap_->finalize_color(), foward->GetColor());
+            *p = foward;
+        } else if (ob->GetColor() != owns_->heap_->finalize_color()) {
             DCHECK_NE(KColorGray, ob->GetColor());
             *p = nullptr;
         }
@@ -167,11 +182,20 @@ void MarkingSweep::Run() {
     heap_->old_space_->Iterate(&heap_visitor);
     heap_->code_space_->Iterate(&heap_visitor);
     heap_->large_space_->Iterate(&heap_visitor);
+    if (full_) {
+        // Only full gc can sweep new space.
+        SemiSpace *to_area = heap_->new_space_->to_area();
+        Address begin = to_area->page()->area_base();
+        Address end = to_area->free();
+        to_area->Iterate(begin, end, &heap_visitor);
+        heap_->new_space_->Purge(false);
+    }
 
     // Weak table sweeping:
-    KzPoolVisitorImpl kzpool_visitor(this);
-    heap_->IterateRememberSet(&kzpool_visitor, true/*for_host*/, false/*after_clean*/);
-    core_->kz_pool()->IterateForSweep(&kzpool_visitor);
+    WeakVisitorImpl weak_visitor(this);
+    heap_->IterateRememberSet(&weak_visitor, true/*for_host*/, false/*after_clean*/);
+    heap_->IterateFinalizerRecords(&weak_visitor);
+    core_->kz_pool()->Iterate(&weak_visitor);
     
     // Finalize:
     std::swap(heap_->initial_color_, heap_->finalize_color_);

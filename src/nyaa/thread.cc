@@ -14,7 +14,7 @@ namespace nyaa {
 void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, NyArray *kpool,
                       int wanted, Object **bp, Object **tp, NyMap *env) {
     DCHECK_NE(this, owns->frame_);
-    
+
     level_ = (owns->frame_ ? owns->frame_->level_ + 1 : 0);
     prev_ = owns->frame_;
     owns->frame_ = this;
@@ -44,11 +44,17 @@ void CallFrame::IterateRoot(RootVisitor *visitor) {
 
     
 NyThread::NyThread(NyaaCore *owns)
-    : owns_(DCHECK_NOTNULL(owns)) {
+    : NyUDO(true /* ignore_managed */)
+    , owns_(DCHECK_NOTNULL(owns)) {
+    SetFinalizer(&UDOFinalizeDtor<NyThread>, owns);
 }
 
 NyThread::~NyThread() {
     delete[] stack_;
+    
+    if (this != owns_->main_thd()) {
+        owns_->RemoveThread(this);
+    }
 }
     
 Error NyThread::Init() {
