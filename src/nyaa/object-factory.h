@@ -65,7 +65,8 @@ public:
     
     virtual NyThread *NewThread(bool old = false) = 0;
     
-    virtual NyUDO *NewUninitializedUDO(size_t size, NyMap *clazz, bool old = false) = 0;
+    virtual NyUDO *NewUninitializedUDO(size_t size, NyMap *clazz, bool ignore_managed,
+                                       bool old = false) = 0;
     
     NyString *NewString(const char *s, bool old = false) {
         return NewString(s, !s ? 0 : ::strlen(s), old);

@@ -43,7 +43,8 @@ MallocObjectFactory::MallocObjectFactory(NyaaCore *core) : core_(DCHECK_NOTNULL(
     return ob;
 }
     
-/*virtual*/ NyMap *MallocObjectFactory::NewMap(NyObject *maybe, uint64_t kid, bool linear, bool old) {
+/*virtual*/ NyMap *MallocObjectFactory::NewMap(NyObject *maybe, uint64_t kid, bool linear,
+                                               bool old) {
     auto ob = new NyMap(maybe, kid, linear, core_);
     ob->SetMetatable(core_->kmt_pool()->kMap, core_);
     return ob;
@@ -139,10 +140,11 @@ NyDelegated *MallocObjectFactory::NewDelegated(DelegatedKind kind, Address fp, s
     return ob;
 }
     
-/*virtual*/ NyUDO *MallocObjectFactory::NewUninitializedUDO(size_t size, NyMap *clazz, bool old) {
+/*virtual*/ NyUDO *MallocObjectFactory::NewUninitializedUDO(size_t size, NyMap *clazz,
+                                                            bool ignore_managed, bool old) {
     DCHECK_GE(size, sizeof(NyUDO));
     void *chunk = ::malloc(size);
-    auto ob = new (chunk) NyUDO(false);
+    auto ob = new (chunk) NyUDO(ignore_managed);
     ob->SetMetatable(clazz, core_);
     return ob;
 }

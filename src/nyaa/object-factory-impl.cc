@@ -143,12 +143,13 @@ NyDelegated *ObjectFactoryImpl::NewDelegated(DelegatedKind kind, Address fp, siz
     return ob;
 }
     
-/*virtual*/ NyUDO *ObjectFactoryImpl::NewUninitializedUDO(size_t size, NyMap *clazz, bool old) {
+/*virtual*/ NyUDO *ObjectFactoryImpl::NewUninitializedUDO(size_t size, NyMap *clazz,
+                                                          bool ignore_managed, bool old) {
     DCHECK_GE(size, sizeof(NyUDO));
     void *blk = heap_->Allocate(size, old ? kOldSpace : kNewSpace);
-    NyUDO *ob = new (blk) NyUDO(false);
+    NyUDO *ob = new (blk) NyUDO(ignore_managed);
     ob->SetMetatable(clazz, core_);
-    ob->SetColor(kColorWhite);
+    ob->SetColor(heap_->initial_color());
     return ob;
 }
     

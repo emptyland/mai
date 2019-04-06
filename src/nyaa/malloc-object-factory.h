@@ -28,7 +28,8 @@ public:
                                     bool old) override;
     virtual NyScript *NewScript(size_t max_stack_size, NyString *file_name, NyInt32Array *file_info,
                                 NyByteArray *bcbuf, NyArray *const_pool, bool old) override;
-    virtual NyUDO *NewUninitializedUDO(size_t size, NyMap *clazz, bool old) override;
+    virtual NyUDO *NewUninitializedUDO(size_t size, NyMap *clazz, bool ignore_managed,
+                                       bool old) override;
     virtual NyThread *NewThread(bool old) override;
 private:
     NyaaCore *const core_;
