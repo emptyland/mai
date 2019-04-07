@@ -126,6 +126,23 @@ void Page::Dispose(Isolate *isolate) {
     isolate->env()->GetLowLevelAllocator()->Free(this, page_size_);
 }
     
+void Page::RemoveFitRegion(size_t size, Chunk *chunk) {
+    size_t i = FindFitRegion(size);
+    DCHECK_NE(kMaxRegionChunks, i);
+    Chunk dummy{ .next = region_array()[i] };
+    Chunk *prev = &dummy, *p = dummy.next;
+    while (p) {
+        if (p == chunk) {
+            prev->next = p->next;
+            break;
+        }
+        prev = p;
+        p = p->next;
+    }
+    DCHECK(p != nullptr);
+    region_array()[i] = dummy.next;
+}
+    
 HeapColor Space::GetAddressColor(Address addr) const {
     Page *page = Page::FromAddress(addr);
     DCHECK_EQ(kind(), page->owns_space());
@@ -292,7 +309,7 @@ Error OldSpace::Init(size_t init_size, size_t limit_size) {
     return raw;
 }
     
-void OldSpace::Free(Address addr, size_t size, bool merge_slibing) {
+void OldSpace::Free(Address addr, size_t size, bool merge) {
     Page *page = Page::FromAddress(addr);
     DCHECK_EQ(kind(), page->owns_space());
     DCHECK_NE(kColorFreed, GetAddressColor(addr)) << "Free freed block: " << addr;
@@ -301,36 +318,15 @@ void OldSpace::Free(Address addr, size_t size, bool merge_slibing) {
     Page::Chunk *chunk = reinterpret_cast<Page::Chunk *>(addr);
     chunk->size = static_cast<uint32_t>(size);
 
-    if (merge_slibing && addr + size < page->area_limit_) {
+    if (merge && addr + size < page->area_limit_) {
         HeapColor slibing_color = GetAddressColor(addr + size);
         if (slibing_color == kColorFreed) {
             Page::Chunk *slibing = reinterpret_cast<Page::Chunk *>(addr + size);
             chunk->size = static_cast<uint32_t>(size + slibing->size);
-            
-            size_t i = page->FindFitRegion(slibing->size);
-            DCHECK_LT(i, Page::kMaxRegionChunks);
-            
-            Page::Chunk dummy;
-            dummy.next = page->region_array()[i];
-            Page::Chunk *p = dummy.next, *prev = &dummy;
-            DCHECK(p != nullptr);
-            while (p) {
-                if (p == slibing) {
-                    prev->next = slibing->next;
-                    break;
-                }
-                prev = p;
-                p = p->next;
-            }
-            page->region_array()[i] = dummy.next;
+            page->RemoveFitRegion(slibing->size, slibing);
         }
     }
-    
-    size_t wanted = Page::FindWantedRegion(chunk->size);
-    DCHECK_LT(wanted, Page::kMaxRegionChunks);
-
-    chunk->next = page->region_array()[wanted];
-    page->region_array()[wanted] = chunk;
+    page->InsertFitRegion(chunk->size, chunk);
 
     page->available_ += size;
     if (page != cache_ && page->available() > cache_->available()) {
@@ -339,34 +335,48 @@ void OldSpace::Free(Address addr, size_t size, bool merge_slibing) {
 }
     
 void OldSpace::MergeFreeChunks(Page *page) {
-    // TODO:
-}
+    Address p = RoundUp(page->area_base(), kAligmentSize);
+    while (p < page->area_limit()) {
+        HeapColor color = GetAddressColor(p);
+        if (color == kColorFreed) {
+            while (true) {
+                Page::Chunk *chunk = reinterpret_cast<Page::Chunk *>(p);
+                p += chunk->size;
+                if (p >= page->area_limit()) {
+                    break;
+                }
+                color = GetAddressColor(p);
+                if (color != kColorFreed) {
+                    break;
+                }
 
-void OldSpace::MergeAllFreeChunks() {
-    Page *p = dummy_->next_;
-    while (p != dummy_) {
-        Page *next = p->next_;
-        MergeFreeChunks(p);
-        p = next;
+                size_t old_size = chunk->size;
+                chunk->size += reinterpret_cast<Page::Chunk *>(p)->size;
+                p = reinterpret_cast<Address>(chunk);
+                page->MoveFitRegion(old_size, chunk);
+            }
+        } else {
+            DCHECK(color == KColorGray || color == kColorWhite || color == kColorBlack);
+            NyObject *ob = reinterpret_cast<NyObject *>(p);
+            p += ob->PlacedSize();
+        }
     }
 }
     
-void OldSpace::Iterate(HeapVisitor *visitor) {
-    for (Page *page = dummy_->next_; page != dummy_; page = page->next_) {
-        Address p = RoundUp(page->area_base(), kAligmentSize);
-        while (p < page->area_limit()) {
-            HeapColor color = GetAddressColor(p);
-            if (color == kColorFreed) {
-                Page::Chunk *chunk = reinterpret_cast<Page::Chunk *>(p);
-                p += chunk->size;
-            } else {
-                DCHECK(color == KColorGray || color == kColorWhite || color == kColorBlack);
-                NyObject *ob = reinterpret_cast<NyObject *>(p);
-                //printf("heap: %p(%d)\n", ob, color);
-                size_t placed_size = ob->PlacedSize();
-                visitor->VisitObject(this, ob, placed_size);
-                p += placed_size;
-            }
+void OldSpace::Iterate(Page *page, HeapVisitor *visitor) {
+    Address p = RoundUp(page->area_base(), kAligmentSize);
+    while (p < page->area_limit()) {
+        HeapColor color = GetAddressColor(p);
+        if (color == kColorFreed) {
+            Page::Chunk *chunk = reinterpret_cast<Page::Chunk *>(p);
+            p += chunk->size;
+        } else {
+            DCHECK(color == KColorGray || color == kColorWhite || color == kColorBlack);
+            NyObject *ob = reinterpret_cast<NyObject *>(p);
+            //printf("heap: %p(%d)\n", ob, color);
+            size_t placed_size = ob->PlacedSize();
+            visitor->VisitObject(this, ob, placed_size);
+            p += placed_size;
         }
     }
 }
@@ -382,16 +392,6 @@ Page *OldSpace::NewPage() {
         return nullptr;
     }
     page->SetUpRegion();
-//    Address align_addr = RoundUp(page->area_base(), kAligmentSize);
-//    Page::Chunk *chunk = reinterpret_cast<Page::Chunk *>(align_addr);
-//    chunk->next = nullptr;
-//    chunk->size = static_cast<uint32_t>(page->area_limit_ - align_addr);
-//    DCHECK_EQ(chunk->size, page->available());
-//
-//    page->region_ = new Page::Region{};
-//    size_t i = Page::FindWantedRegion(chunk->size);
-//    DCHECK_LT(i, Page::kMaxRegionChunks);
-//    page->region_array()[i] = chunk;
 
     Page::Insert(dummy_, page);
     pages_total_size_ += page->page_size();

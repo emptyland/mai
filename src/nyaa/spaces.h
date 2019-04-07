@@ -92,6 +92,20 @@ public:
         return kMaxRegionChunks;
     }
     
+    void MoveFitRegion(size_t old_size, Chunk *chunk) {
+        RemoveFitRegion(old_size, chunk);
+        InsertFitRegion(chunk->size, chunk);
+    }
+    
+    void RemoveFitRegion(size_t size, Chunk *chunk);
+
+    void InsertFitRegion(size_t size, Chunk *chunk) {
+        size_t i = FindWantedRegion(size);
+        DCHECK_NE(kMaxRegionChunks, i);
+        chunk->next = region_array()[i];
+        region_array()[i] = chunk;
+    }
+    
     static size_t FindWantedRegion(size_t size) {
         for (size_t i = 0; i < kMaxRegionChunks; ++i) {
             if (size < kRegionLimitSize[i]) {
@@ -299,15 +313,28 @@ public:
         return page->owns_space() == kind();
     }
     
-    void Free(Address addr, size_t size, bool merge_slibing = true);
+    void Free(Address addr, size_t size, bool merge = true);
+    
+    void MergeFreeChunks() {
+        Page *p = dummy_->next_;
+        while (p != dummy_) {
+            Page *next = p->next_;
+            MergeFreeChunks(p);
+            p = next;
+        }
+    }
     
     void MergeFreeChunks(Page *page);
-    void MergeAllFreeChunks();
-    
-    void Iterate(HeapVisitor *visitor);
+
+    void Iterate(HeapVisitor *visitor) {
+        for (Page *page = dummy_->next_; page != dummy_; page = page->next_) {
+            Iterate(page, visitor);
+        }
+    }
+
+    void Iterate(Page *page, HeapVisitor *visitor);
     
     FRIEND_UNITTEST_CASE(NyaaSpacesTest, OldSpaceInit);
-    
     DISALLOW_IMPLICIT_CONSTRUCTORS(OldSpace);
 private:
     Page *NewPage();

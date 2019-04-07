@@ -180,10 +180,12 @@ void MarkingSweep::Run() {
     // Sweeping phase:
     HeapVisitorImpl heap_visitor(this);
     heap_->old_space_->Iterate(&heap_visitor);
+    heap_->old_space_->MergeFreeChunks();
     heap_->code_space_->Iterate(&heap_visitor);
+    heap_->code_space_->MergeFreeChunks();
     heap_->large_space_->Iterate(&heap_visitor);
     if (full_) {
-        // Only full gc can sweep new space.
+        // Only full gc will sweep new space.
         SemiSpace *to_area = heap_->new_space_->to_area();
         Address begin = to_area->page()->area_base();
         Address end = to_area->free();
