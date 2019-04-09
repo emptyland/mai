@@ -145,8 +145,11 @@ public:
                 IVal val = expr->Accept(this, &ix);
                 blk_scope_->PutLocal(node->names()->at(i), &val);
             }
-            for (; i < node->names()->size(); ++i) {
-                builder()->LoadNil(blk_scope_->GetOrNewLocal(node->names()->at(i)), 1);
+            if (node->inits()->size() > 1 || !node->inits()->at(0)->IsCall()) {
+                for (; i < node->names()->size(); ++i) {
+                    builder()->LoadNil(blk_scope_->GetOrNewLocal(node->names()->at(i)), 1,
+                                       node->line());
+                }
             }
         } else {
             for (size_t i = 0; i < node->names()->size(); ++i) {
@@ -181,7 +184,7 @@ public:
         if (val.kind == IVal::kNone) {
             IVal g = {.kind = IVal::kGlobal};
             g.index = fun_scope_->kpool()->GerOrNewStr(node->name());
-            return g;
+            val = g;
         }
         if (CodeGeneratorContext::Cast(x)->localize()) {
             return Localize(val, node->line());
@@ -219,8 +222,6 @@ public:
 
         IVal callee = node->callee()->Accept(this, &ix);
         int32_t reg = callee.index;
-
-        //std::vector<IVal> args;
         for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
             ast::Expression *expr = node->args()->at(i);
             AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
@@ -228,6 +229,45 @@ public:
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
         builder()->Call(callee, n_args, ctx->n_result());
         return callee;
+    }
+    
+    virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
+        std::vector<IVal> operands;
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        ix.set_keep_const(true);
+        for (int i = 0; i < node->n_operands(); ++i) {
+            operands.push_back(node->operand(i)->Accept(this, &ix));
+        }
+        
+        IVal ret = IVal::None();
+        for (auto op : operands) {
+            if (op.kind == IVal::kLocal) {
+                ret = op;
+            }
+        }
+        if (ret.kind == IVal::kNone) {
+            ret = fun_scope_->NewLocal();
+        }
+        switch (node->op()) {
+            case Operator::kAdd:
+                builder()->Add(ret, operands[0], operands[1]);
+                break;
+            case Operator::kSub:
+                builder()->Sub(ret, operands[0], operands[1]);
+                break;
+            case Operator::kMul:
+                builder()->Mul(ret, operands[0], operands[1]);
+                break;
+            case Operator::kDiv:
+                builder()->Div(ret, operands[0], operands[1]);
+                break;
+                // TODO:
+            default:
+                DLOG(FATAL) << "TODO:";
+                break;
+        }
+        return ret;
     }
     
     friend class FunctionScope;
@@ -241,8 +281,9 @@ private:
             case IVal::kUpval:
             case IVal::kGlobal:
             case IVal::kConst: {
-                IVal ret = blk_scope_->PutLocal(nullptr, nullptr);
+                IVal ret = fun_scope_->NewLocal();
                 builder()->Load(ret, val);
+                return ret;
             } break;
                 break;
             case IVal::kNone:

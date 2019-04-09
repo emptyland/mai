@@ -194,9 +194,53 @@ void BytecodeArrayDisassembler::Disassembly() {
         fputc('\n', fp_);
     }
 }
+    
+/*static*/
+void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyScript> script,
+                                            std::string *buf, size_t limit) {
+    buf->resize(limit);
+    FILE *fp = ::fmemopen(&(*buf)[0], limit, "w");
+    if (!fp) {
+        return;
+    }
+    Disassembly(core, script, fp);
+    buf->resize(::ftell(fp));
+    ::fclose(fp);
+}
+    
+/*static*/
+void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyScript> script, FILE *fp) {
+    fprintf(fp, "script: %p, max-stack: %u\n", *script, script->max_stack_size());
+    if (script->file_name()) {
+        fprintf(fp, "file name: %s\n", script->file_name()->bytes());
+    }
+    if (script->const_pool()) {
+        fprintf(fp, "const pool: %u\n", script->const_pool()->size());
+        for (int i = 0; i < script->const_pool()->size(); ++i) {
+            Handle<NyString> str(script->const_pool()->Get(i)->ToString(core));
+            fprintf(fp, " [%u] (%d) %s\n", i, -i-1, str->bytes());
+        }
+    }
+    fprintf(fp, "------------------------------\n");
+    Disassembly(script->bcbuf(), script->file_info(), fp);
+}
+    
+/*static*/
+void BytecodeArrayDisassembler::Disassembly(Handle<NyByteArray> bcs, Handle<NyInt32Array> info,
+                                            std::string *buf, size_t limit) {
+    buf->resize(limit);
+    FILE *fp = ::fmemopen(&(*buf)[0], limit, "w");
+    if (!fp) {
+        return;
+    }
+    Disassembly(bcs, info, fp);
+    buf->resize(::ftell(fp));
+    ::fclose(fp);
+}
 
-/*static*/ void BytecodeArrayDisassembler::Disassembly(Handle<NyByteArray> bcs,
-                                                       Handle<NyInt32Array> info, FILE *fp) {
+/*static*/
+void BytecodeArrayDisassembler::Disassembly(Handle<NyByteArray> bcs, Handle<NyInt32Array> info,
+                                            FILE *fp) {
     BytecodeArrayDisassembler dis(bcs, info, fp);
     dis.Disassembly();
 }

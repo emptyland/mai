@@ -15,11 +15,12 @@ namespace nyaa {
 namespace ast {
 using String = base::ArenaString;
 } // namespace ast
-    
+class NyaaCore;
 class ObjectFactory;
 class NyArray;
 class NyByteArray;
 class NyInt32Array;
+class NyScript;
 class Object;
     
 class BytecodeArrayBuilder {
@@ -51,11 +52,23 @@ public:
     
     void Ret(IVal a, int32_t b, int line = 0) {
         DCHECK_EQ(IVal::kLocal, a.kind);
-        Emit(Bytecode::kCall, a.index, b, line);
+        Emit(Bytecode::kRet, a.index, b, line);
     }
+    
+    void Add(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kAdd, a, b, c, line); }
+    void Sub(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kSub, a, b, c, line); }
+    void Mul(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kMul, a, b, c, line); }
+    void Div(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kDiv, a, b, c, line); }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArrayBuilder);
 private:
+    void EmitArith(Bytecode::ID id, IVal a, IVal b, IVal c, int line) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        Emit(id, a.index,
+             b.kind == IVal::kConst ? -b.index-1 : b.index,
+             c.kind == IVal::kConst ? -c.index-1 : c.index, line);
+    }
+    
     void Emit(Bytecode::ID id, int line) { AddID(id, 1, line); }
     void Emit(Bytecode::ID id, int32_t a, int line);
     void Emit(Bytecode::ID id, int32_t a, int32_t b, int line);
@@ -141,9 +154,16 @@ public:
         , fp_(DCHECK_NOTNULL(fp)) {}
     
     void Disassembly();
-
-    static void Disassembly(Handle<NyByteArray> bcs, Handle<NyInt32Array> info, FILE *fp);
     
+    static void Disassembly(NyaaCore *core, Handle<NyScript> script, std::string *buf,
+                            size_t limit);
+
+    static void Disassembly(NyaaCore *core, Handle<NyScript> script, FILE *fp);
+
+    static void Disassembly(Handle<NyByteArray> bcs, Handle<NyInt32Array> info, std::string *buf,
+                            size_t limit);
+    static void Disassembly(Handle<NyByteArray> bcs, Handle<NyInt32Array> info, FILE *fp);
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArrayDisassembler);
 private:
     struct BytecodeNode {
@@ -155,11 +175,11 @@ private:
         uint32_t pc;
         int32_t line;
     };
-    
+
     bool ReadNext(BytecodeNode *bc);
     bool IsEnd() const;
     void ParseInt32Params(int scale, int n, ...);
-    
+
     Handle<NyByteArray> bcs_;
     Handle<NyInt32Array> info_;
     FILE *fp_;

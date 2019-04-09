@@ -17,7 +17,7 @@ namespace ast {
 #define DECL_AST_NODES(V) \
     V(Block) \
     V(VarDeclaration) \
-    V(MultiExpression) \
+    V(Multiple) \
     V(StringLiteral) \
     V(ApproxLiteral) \
     V(Variable) \
@@ -187,6 +187,47 @@ private:
     StmtList *stmts_;
 }; // class Block
     
+    
+class Multiple : public Expression {
+public:
+    static constexpr const int kLimitOperands = 5;
+    
+    DEF_VAL_GETTER(Operator::ID, op);
+    DEF_VAL_GETTER(int, n_operands);
+    
+    Expression *operand(int i) const {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, n_operands_);
+        return operands_[i];
+    }
+    
+    Expression *operand() const { return DCHECK_NOTNULL(operand(0)); }
+    Expression *lhs() const { return DCHECK_NOTNULL(operand(0)); }
+    Expression *rhs() const { return DCHECK_NOTNULL(operand(1)); }
+    
+    DEFINE_AST_NODE(Multiple);
+private:
+    Multiple(int line, Operator::ID op, Expression *expr)
+        : Expression(line)
+        , op_(op)
+        , n_operands_(1) {
+        ::memset(operands_, 0, sizeof(Expression *) * kLimitOperands);
+        operands_[0] = expr;
+    }
+    
+    Multiple(int line, Operator::ID op, Expression *e1, Expression *e2)
+        : Expression(line)
+        , op_(op)
+        , n_operands_(2) {
+        ::memset(operands_, 0, sizeof(Expression *) * kLimitOperands);
+        operands_[0] = e1;
+        operands_[1] = e2;
+    }
+    
+    Operator::ID op_;
+    int n_operands_;
+    Expression *operands_[kLimitOperands];
+};
 
 template<class T>
 class Literal : public Expression {
@@ -270,7 +311,7 @@ public:
     
     VarDeclaration *NewVarDeclaration(VarDeclaration::NameList *names,
                                       VarDeclaration::ExprList *inits) {
-        return new (arena_) VarDeclaration(9, names, inits);
+        return new (arena_) VarDeclaration(0, names, inits);
     }
     
     StringLiteral *NewStringLiteral(const String *val) {
@@ -293,22 +334,22 @@ public:
         return new (arena_) Return(0, rets);
     }
     
-    base::ArenaVector<Expression *> *NewExprList(Expression *init) {
-        auto rv = new (arena_) base::ArenaVector<Expression *>(arena_);
-        if (init) {
-            rv->push_back(init);
-        }
-        return rv;
+    Multiple *NewUnary(Operator::ID op, Expression *operand) {
+        return new (arena_) Multiple(0, op, operand);
     }
     
-    base::ArenaVector<const String *> *NewNameList(const String *init) {
-        auto rv = new (arena_) base::ArenaVector<const String *>(arena_);
+    Multiple *NewBinary(Operator::ID op, Expression *lhs, Expression *rhs) {
+        return new (arena_) Multiple(0, op, lhs, rhs);
+    }
+
+    template<class T>
+    base::ArenaVector<T> *NewList(T init) {
+        auto rv = new (arena_) base::ArenaVector<T>(arena_);
         if (init) {
             rv->push_back(init);
         }
         return rv;
     }
-
 private:
     base::Arena *arena_;
 }; // class Factory
