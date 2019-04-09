@@ -687,6 +687,17 @@ NyInt32Array *NyInt32Array::Add(int32_t value, NyaaCore *N) {
     return ob;
 }
     
+NyInt32Array *NyInt32Array::Add(int32_t *value, size_t n, NyaaCore *N) {
+    NyInt32Array *ob = this;
+    const uint32_t k = static_cast<uint32_t>(n);
+    if (size() + k > capacity()) {
+        ob = N->factory()->NewInt32Array((capacity_ << 1) + k, this);
+    }
+    ::memcpy(elems_ + size(), value, n * sizeof(uint32_t));
+    size_ += k;
+    return ob;
+}
+    
 NyArray *NyArray::Put(int64_t key, Object *value, NyaaCore *N) {
     NyArray *ob = this;
     if (key > capacity()) {

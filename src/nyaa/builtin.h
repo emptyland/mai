@@ -59,20 +59,20 @@ struct BuiltinStrPool {
     NyString *kRunning = nullptr;
     NyString *kSuspended = nullptr;
     NyString *kDead = nullptr;
-    NyString *kResume = nullptr; // "resume"
-    NyString *kCoroutine = nullptr; //    "coroutine",
-    NyString *kString = nullptr; //    "string",
-    NyString *kFloat = nullptr; //    "float",
-    NyString *kInt = nullptr;//    "int",
-    NyString *kMap = nullptr; //    "map",
-    NyString *kTable = nullptr; //    "table"
-    NyString *kDelegated = nullptr; //    "delegated",
-    NyString *kFunction = nullptr; //    "function",
-    NyString *kScript = nullptr; //    "script",
-    NyString *kThread = nullptr; //    "thread",
-    NyString *kByteArray = nullptr; //    "array[byte]",
-    NyString *kInt32Array = nullptr; //    "array[int32]",
-    NyString *kArray = nullptr; //    "array",
+    NyString *kResume = nullptr;
+    NyString *kCoroutine = nullptr;
+    NyString *kString = nullptr;
+    NyString *kFloat = nullptr;
+    NyString *kInt = nullptr;
+    NyString *kMap = nullptr;
+    NyString *kTable = nullptr;
+    NyString *kDelegated = nullptr;
+    NyString *kFunction = nullptr;
+    NyString *kScript = nullptr;
+    NyString *kThread = nullptr;
+    NyString *kByteArray = nullptr;
+    NyString *kInt32Array = nullptr;
+    NyString *kArray = nullptr;
 }; // struct ConstStrPool
     
 extern const char *kRawBuiltinKzs[];
@@ -102,10 +102,55 @@ enum DelegatedKind : int {
 };
     
 enum BuiltinType : int {
+    kTypeNil,
+    kTypeSmi,
 #define DEFINE_TYPE(type) kType##type,
     DECL_BUILTIN_TYPES(DEFINE_TYPE)
 #undef DEFINE_TYPE
 };
+    
+struct IVal {
+    enum Kind {
+        kLocal,
+        kGlobal, // index = const_pool_idx
+        kConst,
+        kUpval,
+        kNone,
+    };
+    Kind kind;
+    int32_t index;
+    
+    static IVal None() { return {kNone, -1}; }
+    static IVal Local(int32_t idx) { return {kLocal, idx}; }
+    static IVal Const(int32_t idx) { return {kConst, idx}; }
+}; // struct IVal
+    
+struct Operator {
+    enum ID {
+        kAdd,
+        kSub,
+        kMul,
+        kDiv,
+        kMod,
+        kNeg,
+        kUmn,
+        kConcat,
+        kShl,
+        kShr,
+        kEQ,
+        kNE,
+        kLE,
+        kLT,
+        kGE,
+        kGT,
+        kAnd,
+        kOr,
+        kNot,
+        kBitAnd,
+        kBitOr,
+        kBitXor,
+    };
+}; // struct Operator
     
 static constexpr const uint64_t kUdoKidBegin = 1000;
 

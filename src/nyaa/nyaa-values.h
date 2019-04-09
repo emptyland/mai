@@ -425,6 +425,11 @@ public:
         return elems_[key];
     }
     
+    inline View<T> GetView(uint32_t begin, uint32_t len) const {
+        DCHECK_LE(begin + len, size());
+        return MakeView(elems_ + begin, len);
+    }
+    
     inline void Refill(const NyArrayBase *base) {
         DCHECK_LE(base->size(), capacity());
         ::memcpy(elems_, base->elems_, base->size() * sizeof(T));
@@ -451,12 +456,7 @@ public:
 
     NyByteArray *Add(Byte value, NyaaCore *N);
     NyByteArray *Add(const void *value, size_t n, NyaaCore *N);
-    
-    View<Byte> View(uint32_t len) {
-        len = std::min(len, size());
-        return MakeView(elems_, len);
-    }
-    
+
     void Iterate(ObjectVisitor *visitor) {}
     
     using NyArrayBase<Byte>::Get;
@@ -528,6 +528,7 @@ public:
     //NyInt32Array *Put(int64_t key, int32_t value, NyaaCore *N);
     
     NyInt32Array *Add(int32_t value, NyaaCore *N);
+    NyInt32Array *Add(int32_t *values, size_t size, NyaaCore *N);
     
     void Iterate(ObjectVisitor *visitor) {}
 

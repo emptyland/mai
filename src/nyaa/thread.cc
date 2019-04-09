@@ -515,7 +515,8 @@ int NyThread::ParseBytecodeInt32Params(int offset, int scale, int n, ...) {
     va_start(ap, n);
     for (int i = 0; i < n; ++i) {
         int32_t *p = va_arg(ap, int32_t *);
-        *p = ParseInt32(frame_->bcbuf(), frame_->pc() + offset, scale, &ok);
+        View<Byte> slice = frame_->bcbuf()->GetView(frame_->pc() + offset, scale);
+        *p = Bytecode::ParseInt32Param(slice, scale);
         if (!ok) {
             return -1;
         }
@@ -523,30 +524,6 @@ int NyThread::ParseBytecodeInt32Params(int offset, int scale, int n, ...) {
     }
     va_end(ap);
     return offset;
-}
-    
-int32_t NyThread::ParseInt32(const NyByteArray *bcbuf, int offset, int scale, bool *ok) {
-    int32_t param = 0;
-    if (scale == 1) {
-        int8_t val = static_cast<int8_t>(bcbuf->Get(offset));
-        param = static_cast<int32_t>(val);
-    } else if (scale == 2) {
-        uint8_t lo = bcbuf->Get(offset + 0);
-        uint8_t hi = bcbuf->Get(offset + 1);
-        param = static_cast<int32_t>(static_cast<uint16_t>(hi) << 8 | lo);
-    } else if (scale == 4) {
-        uint8_t lo0 = bcbuf->Get(offset + 0);
-        uint8_t lo1 = bcbuf->Get(offset + 1);
-        uint8_t hi0 = bcbuf->Get(offset + 2);
-        uint8_t hi1 = bcbuf->Get(offset + 3);
-        param = static_cast<int32_t>(static_cast<uint32_t>(hi1) << 24 |
-                                     static_cast<uint32_t>(hi0) << 16 |
-                                     static_cast<uint32_t>(lo1) << 8 | lo0);
-    } else {
-        owns_->Raisef("unexpected scale: %d, requried(1, 2, 4)", scale);
-        *ok = false;
-    }
-    return param;
 }
     
 } // namespace nyaa

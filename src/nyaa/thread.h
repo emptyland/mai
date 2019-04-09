@@ -130,8 +130,6 @@ private:
     
     int ParseBytecodeInt32Params(int offset, int scale, int n, ...);
     
-    int32_t ParseInt32(const NyByteArray *bcbuf, int offset, int scale, bool *ok);
-    
     NyaaCore *const owns_;
     TryCatch *catch_point_ = nullptr;
     State state_ = kSuspended;
