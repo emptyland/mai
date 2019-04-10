@@ -48,7 +48,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <block> Script
 %type <stmt> Statement VarDeclaration Assignment
 %type <stmts> StatementList
-%type <expr> Expression
+%type <expr> Expression Call
 %type <exprs> ExpressionList
 %type <lval> LValue
 %type <lvals> LValList
@@ -104,6 +104,9 @@ Statement : RETURN ExpressionList {
 VarDeclaration : VAR NameList '=' ExpressionList {
     $$ = ctx->factory->NewVarDeclaration($2, $4, Location::Concat(@1, @4));
 }
+| VAR NameList {
+    $$ = ctx->factory->NewVarDeclaration($2, nullptr, Location::Concat(@1, @2));
+}
 
 Assignment : LValList '=' ExpressionList {
     $$ = ctx->factory->NewAssignment($1, $3, Location::Concat(@1, @3));
@@ -120,6 +123,9 @@ ExpressionList : Expression {
 }
 
 Expression : LValue {
+    $$ = $1;
+}
+| Call {
     $$ = $1;
 }
 | SMI_LITERAL {
@@ -168,6 +174,18 @@ LValue : NAME {
 }
 | Expression '.' NAME {
     $$ = ctx->factory->NewDotField($1, $3, Location::Concat(@1, @3));
+}
+
+Call : Expression '(' ExpressionList ')' {
+    $$ = ctx->factory->NewCall($1, $3, Location::Concat(@1, @4));
+}
+| Expression STRING_LITERAL {
+    auto arg0 = ctx->factory->NewStringLiteral($2, @2);
+    auto args = ctx->factory->NewList<mai::nyaa::ast::Expression *>(arg0);
+    $$ = ctx->factory->NewCall($1, args, Location::Concat(@1, @2));
+}
+| Expression ':' NAME '(' ExpressionList ')' {
+    $$ = ctx->factory->NewSelfCall($1, $3, $5, Location::Concat(@1, @6));
 }
 
 NameList : NAME {

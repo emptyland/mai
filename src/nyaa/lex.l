@@ -113,7 +113,7 @@ return { return RETURN; }
 "[" { return '['; }
 "]" { return '['; }
 
-[-=+&~|^/%!()*.,;{}] { return yytext[0]; }
+[-=+&~|^/%!()*.,;:{}] { return yytext[0]; }
 
 "--"[ \t].* ;
 

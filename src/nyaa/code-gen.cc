@@ -26,7 +26,13 @@ public:
     BytecodeArrayBuilder *builder() { return &builder_; }
     DEF_VAL_GETTER(int32_t, max_stack);
     
-    IVal NewLocal() { return IVal::Local(max_stack_++); }
+    IVal NewLocal() { return IVal::Local(max_stack_ ++); }
+    
+    IVal Reserve(int n) {
+        IVal base = IVal::Local(max_stack_);
+        max_stack_ += n;
+        return base;
+    }
     
     friend class CodeGeneratorVisitor;
     friend class BlockScope;
@@ -69,15 +75,19 @@ public:
     }
 
     IVal PutLocal(const ast::String *name, const IVal *val) {
-        IVal rv;
+        IVal rv = IVal::None();
+        if (name->size() == 1 && name->data()[0] == '_') {
+            return rv; // ignore!
+        }
         if (val) {
             rv = *val;
-            auto iter = locals_.find(name);
-            if (iter != locals_.end()) {
-                prot_regs_.erase(iter->second.index);
-            }
         } else {
             rv = owns_->NewLocal();
+        }
+        DCHECK_LT(rv.index, owns_->max_stack());
+        auto iter = locals_.find(name);
+        if (iter != locals_.end()) {
+            prot_regs_.erase(iter->second.index);
         }
         locals_.insert({name, rv});
         prot_regs_.insert(rv.index);
@@ -85,7 +95,9 @@ public:
     }
     
     bool Protected(IVal val) {
-        DCHECK_EQ(IVal::kLocal, val.kind);
+        if (IVal::kLocal != val.kind) {
+            return false;
+        }
         return prot_regs_.find(val.index) != prot_regs_.end();
     }
 
@@ -148,29 +160,34 @@ public:
         std::vector<IVal> vars;
 
         if (node->inits()) {
-            CodeGeneratorContext ix;
-            if (node->names()->size() > 1 && node->inits()->size() == 1) {
-                ix.set_n_result(static_cast<int>(node->names()->size()));
+            CodeGeneratorContext rix;
+            if (node->inits()->size() == 1 && node->inits()->at(0)->IsInvoke()) {
+                rix.set_n_result(static_cast<int>(node->names()->size()));
+                IVal rval = node->inits()->at(0)->Accept(this, &rix);
+                fun_scope_->Reserve(rix.n_result() - 1);
+
+                DCHECK_EQ(IVal::kLocal, rval.kind);
+                for (size_t i = 0; i < node->names()->size(); ++i) {
+                    blk_scope_->PutLocal(node->names()->at(i), &rval);
+                    rval.index++;
+                }
             } else {
-                ix.set_n_result(1);
-            }
-            size_t len = std::min(node->names()->size(), node->inits()->size());
-            size_t i = 0;
-            for (i = 0; i < len; ++i) {
-                ast::Expression *expr = node->inits()->at(i);
-                IVal val = expr->Accept(this, &ix);
-                blk_scope_->PutLocal(node->names()->at(i), &val);
-            }
-            if (node->inits()->size() > 1 || !node->inits()->at(0)->IsInvoke()) {
-                for (; i < node->names()->size(); ++i) {
-                    builder()->LoadNil(blk_scope_->GetOrNewLocal(node->names()->at(i)), 1,
-                                       node->line());
+                rix.set_n_result(1);
+                
+                for (size_t i = 0; i < node->names()->size(); ++i) {
+                    if (i < node->inits()->size()) {
+                        IVal rval = node->inits()->at(i)->Accept(this, &rix);
+                        blk_scope_->PutLocal(node->names()->at(i), &rval);
+                    } else {
+                        IVal lval = blk_scope_->PutLocal(node->names()->at(i), nullptr);
+                        builder()->LoadNil(lval, 1, node->line());
+                    }
                 }
             }
         } else {
             for (size_t i = 0; i < node->names()->size(); ++i) {
                 const ast::String *name = node->names()->at(i);
-                vars.push_back(blk_scope_->GetOrNewLocal(name));
+                vars.push_back(blk_scope_->PutLocal(name, nullptr));
             }
             builder()->LoadNil(vars[0], static_cast<int32_t>(vars.size()), node->line());
         }

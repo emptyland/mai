@@ -95,13 +95,14 @@ TEST_F(NyaaCodeGenTest, VarInitializerCalling) {
     HandleScope handle_scope(isolate_);
     Handle<NyScript> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
     
-    std::string buf;
-    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
-    static const char z[] ={
-        "[000] LoadGlobal 0 0 ; line: 0\n"
-        "[003] Call 0 0 3 ; line: 0\n"
-        "[007] Ret 0 0 ; line: 0\n"
+    static const char z[] = {
+        "[000] LoadGlobal 0 0 \n"
+        "[003] Call 0 0 3 \n"
+        "[007] Ret 0 0 \n"
     };
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), Handle<NyInt32Array>::Null(), &buf,
+                                           1024);
     ASSERT_EQ(z, buf);
 }
     
@@ -119,8 +120,6 @@ TEST_F(NyaaCodeGenTest, ReturnCallingInCall) {
     HandleScope handle_scope(isolate_);
     Handle<NyScript> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
     
-    std::string buf;
-    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
     static const char z[] = {
         "[000] LoadGlobal 0 0 ; line: 0\n"
         "[003] LoadGlobal 1 1 ; line: 0\n"
@@ -128,6 +127,8 @@ TEST_F(NyaaCodeGenTest, ReturnCallingInCall) {
         "[010] Call 0 -1 -1 ; line: 0\n"
         "[014] Ret 0 -1 ; line: 0\n"
     };
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
     ASSERT_EQ(z, buf);
 }
     
@@ -146,9 +147,17 @@ TEST_F(NyaaCodeGenTest, ReturnExpression) {
     HandleScope handle_scope(isolate_);
     Handle<NyScript> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
     
+    static const char z[] = {
+        "[000] LoadNil 0 2 \n"
+        "[003] Mul 2 -1 0 \n"
+        "[007] Div 3 -2 1 \n"
+        "[011] Add 3 2 3 \n"
+        "[015] Ret 3 1 \n"
+    };
     std::string buf;
-    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
-    puts(buf.c_str());
+    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), Handle<NyInt32Array>::Null(), &buf,
+                                           1024);
+    ASSERT_EQ(z, buf);
 }
     
 TEST_F(NyaaCodeGenTest, CallExpression) {
@@ -166,13 +175,20 @@ TEST_F(NyaaCodeGenTest, CallExpression) {
     HandleScope handle_scope(isolate_);
     Handle<NyScript> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
     
-//    std::string buf;
-//    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
-//    puts(buf.c_str());
-    
+    static const char z[] = {
+        "[000] LoadGlobal 0 0 \n"
+        "[003] LoadGlobal 1 2 \n"
+        "[006] Add 1 -2 1 \n"
+        "[010] Mul 1 1 -4 \n"
+        "[014] Sub 1 1 -5 \n"
+        "[018] LoadConst 2 5 \n"
+        "[021] LoadGlobal 3 6 \n"
+        "[024] Call 0 3 0 \n"
+    };
     std::string buf;
-    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
-    puts(buf.c_str());
+    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), Handle<NyInt32Array>::Null(),
+                                           &buf, 1024);
+    ASSERT_EQ(z, buf);
 }
     
 TEST_F(NyaaCodeGenTest, Compile) {
@@ -181,14 +197,49 @@ TEST_F(NyaaCodeGenTest, Compile) {
         "\n"
         "return a + b / c - 2\n"
     };
+    static const char z[] = {
+        "[000] LoadConst 0 0 ; line: 1\n"
+        "[003] LoadNil 1 1 ; line: 1\n"
+        "[006] LoadNil 2 1 ; line: 1\n"
+        "[009] Div 3 1 2 ; line: 3\n"
+        "[013] Add 3 0 3 ; line: 3\n"
+        "[017] Sub 3 3 -1 ; line: 3\n"
+        "[021] Ret 3 1 ; line: 3\n"
+    };
     
     HandleScope handle_scope(isolate_);
     Handle<NyScript> script(NyScript::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
+    ASSERT_EQ(4, script->max_stack_size());
     
     std::string buf;
-    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
-    puts(buf.c_str());
+    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 1024);
+    ASSERT_EQ(z, buf);
+}
+    
+TEST_F(NyaaCodeGenTest, MutilReceive) {
+    static const char s[] = {
+        "var a, b, c = foo()\n"
+        "return a * b + c / b, c\n"
+    };
+    static const char z[] = {
+        "[000] LoadGlobal 0 0 ; line: 1\n"
+        "[003] Call 0 0 3 ; line: 1\n"
+        "[007] Mul 3 0 1 ; line: 2\n"
+        "[011] Div 4 2 1 ; line: 2\n"
+        "[015] Add 4 3 4 ; line: 2\n"
+        "[019] Move 5 2 ; line: 2\n"
+        "[022] Ret 4 2 ; line: 2\n"
+    };
+    
+    HandleScope handle_scope(isolate_);
+    Handle<NyScript> script(NyScript::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    ASSERT_EQ(6, script->max_stack_size());
+    
+    std::string buf;    
+    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 1024);
+    ASSERT_EQ(z, buf);
 }
 
 } // namespace nyaa
