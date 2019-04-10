@@ -171,6 +171,10 @@
 		23C23D02225449610078A6B0 /* scavenger-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C23D01225449610078A6B0 /* scavenger-test.cc */; };
 		23CA8249225C338F00947EA8 /* bytecode.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA8248225C338F00947EA8 /* bytecode.cc */; };
 		23CA824B225C45B300947EA8 /* code-gen-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA824A225C45B300947EA8 /* code-gen-test.cc */; };
+		23CA8251225CC8CE00947EA8 /* lex.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA824E225CC8CD00947EA8 /* lex.yy.cc */; };
+		23CA8252225CC8CE00947EA8 /* syntax.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA824F225CC8CD00947EA8 /* syntax.cc */; };
+		23CA8255225D82D900947EA8 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA8254225D82D900947EA8 /* parser.cc */; };
+		23CA8257225D929300947EA8 /* parser-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA8256225D929300947EA8 /* parser-test.cc */; };
 		23CC114F21D71F49001665AC /* transaction-lock-mgr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */; };
 		23CF40DD225A28280072CD91 /* ast.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CF40DC225A28280072CD91 /* ast.cc */; };
 		23CF40E0225A39EE0072CD91 /* code-gen.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CF40DF225A39EE0072CD91 /* code-gen.cc */; };
@@ -518,6 +522,14 @@
 		23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-tree-memory-table.cc"; sourceTree = "<group>"; };
 		23CA8248225C338F00947EA8 /* bytecode.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = bytecode.cc; sourceTree = "<group>"; };
 		23CA824A225C45B300947EA8 /* code-gen-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "code-gen-test.cc"; path = "src/nyaa/code-gen-test.cc"; sourceTree = "<group>"; };
+		23CA824C225CC0B200947EA8 /* parser-ctx.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "parser-ctx.h"; sourceTree = "<group>"; };
+		23CA824D225CC8CD00947EA8 /* lex.yy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lex.yy.h; sourceTree = "<group>"; };
+		23CA824E225CC8CD00947EA8 /* lex.yy.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = lex.yy.cc; sourceTree = "<group>"; };
+		23CA824F225CC8CD00947EA8 /* syntax.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = syntax.cc; sourceTree = "<group>"; };
+		23CA8250225CC8CE00947EA8 /* syntax.hh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = syntax.hh; sourceTree = "<group>"; };
+		23CA8253225D828700947EA8 /* parser.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = parser.h; sourceTree = "<group>"; };
+		23CA8254225D82D900947EA8 /* parser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = parser.cc; sourceTree = "<group>"; };
+		23CA8256225D929300947EA8 /* parser-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "parser-test.cc"; path = "src/nyaa/parser-test.cc"; sourceTree = "<group>"; };
 		23CC114B21D71EB1001665AC /* transaction-lock-mgr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "transaction-lock-mgr.h"; sourceTree = "<group>"; };
 		23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-lock-mgr.cc"; sourceTree = "<group>"; };
 		23CF40DB225A27700072CD91 /* ast.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ast.h; sourceTree = "<group>"; };
@@ -757,6 +769,7 @@
 				23F9F8C22255AE22004F0A42 /* string-pool-test.cc */,
 				23163C3E225643C90096B601 /* marking-sweep-test.cc */,
 				23CA824A225C45B300947EA8 /* code-gen-test.cc */,
+				23CA8256225D929300947EA8 /* parser-test.cc */,
 			);
 			name = nyaa;
 			sourceTree = "<group>";
@@ -800,6 +813,13 @@
 				23F9F8C02255A767004F0A42 /* string-pool.cc */,
 				23CF40DB225A27700072CD91 /* ast.h */,
 				23CF40DC225A28280072CD91 /* ast.cc */,
+				23CA824E225CC8CD00947EA8 /* lex.yy.cc */,
+				23CA824D225CC8CD00947EA8 /* lex.yy.h */,
+				23CA824F225CC8CD00947EA8 /* syntax.cc */,
+				23CA8250225CC8CE00947EA8 /* syntax.hh */,
+				23CA824C225CC0B200947EA8 /* parser-ctx.h */,
+				23CA8253225D828700947EA8 /* parser.h */,
+				23CA8254225D82D900947EA8 /* parser.cc */,
 				23CF40DE225A396C0072CD91 /* code-gen.h */,
 				23CF40DF225A39EE0072CD91 /* code-gen.cc */,
 			);
@@ -1359,6 +1379,7 @@
 				23C23D02225449610078A6B0 /* scavenger-test.cc in Sources */,
 				2364B2D521E451F9008519AE /* db-iterator.cc in Sources */,
 				2364B2D621E451F9008519AE /* write-batch.cc in Sources */,
+				23CA8255225D82D900947EA8 /* parser.cc in Sources */,
 				2364B2D821E451F9008519AE /* table-test.cc in Sources */,
 				23216A2A2201BC8600E1B816 /* heap-tuple.cc in Sources */,
 				2364B2DB21E451F9008519AE /* sst-table-builder.cc in Sources */,
@@ -1367,9 +1388,11 @@
 				2364B2DD21E451F9008519AE /* sst-table-reader.cc in Sources */,
 				2364B2DF21E451F9008519AE /* s1-table-builder.cc in Sources */,
 				2364B2E121E451F9008519AE /* s1-table-reader.cc in Sources */,
+				23CA8251225CC8CE00947EA8 /* lex.yy.cc in Sources */,
 				2364B2E321E451F9008519AE /* data-block-builder.cc in Sources */,
 				2364B2E821E451F9008519AE /* table.cc in Sources */,
 				23163C3F225643C90096B601 /* marking-sweep-test.cc in Sources */,
+				23CA8252225CC8CE00947EA8 /* syntax.cc in Sources */,
 				2364B2EA21E451F9008519AE /* key-bloom-filter.cc in Sources */,
 				23CF40E0225A39EE0072CD91 /* code-gen.cc in Sources */,
 				2364B2EC21E451F9008519AE /* block-iterator.cc in Sources */,
@@ -1466,6 +1489,7 @@
 				23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */,
 				23344CEC21EF0B5F006BC6E4 /* mai-sql-impl.cc in Sources */,
 				2364B35321E451F9008519AE /* files-test.cc in Sources */,
+				23CA8257225D929300947EA8 /* parser-test.cc in Sources */,
 				2364B35421E451F9008519AE /* version-test.cc in Sources */,
 				2364B35521E451F9008519AE /* db-impl-test.cc in Sources */,
 				2303D93521F84EF700075A99 /* result-set-impl.cc in Sources */,

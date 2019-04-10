@@ -1,5 +1,5 @@
 #!/bin/bash
 
-lex sql.l
-mv lex.yy.c sql.yy.cc
-bison -v -d sql.y -o sql.cc
+lex --prefix=nyaa_yy lex.l
+mv lex.nyaa_yy.c lex.yy.cc
+bison -v -d syntax.y -o syntax.cc

@@ -8,6 +8,8 @@
 #include "base/base.h"
 #include "mai-lang/handles.h"
 
+struct NYAA_YYLTYPE;
+
 namespace mai {
     
 namespace nyaa {
@@ -20,6 +22,8 @@ namespace ast {
     V(Multiple) \
     V(StringLiteral) \
     V(ApproxLiteral) \
+    V(SmiLiteral) \
+    V(IntLiteral) \
     V(Variable) \
     V(Call) \
     V(Return)
@@ -32,6 +36,18 @@ DECL_AST_NODES(DEFINE_PRE_DECL)
 #undef DEFINE_PRE_DECL
     
 using String = base::ArenaString;
+    
+struct Location {
+    int begin_line   = 0;
+    int begin_column = 0;
+    int end_line     = 0;
+    int end_column   = 0;
+    
+    Location() {}
+    Location(const NYAA_YYLTYPE &yyl);
+
+    static Location Concat(const NYAA_YYLTYPE &first, const NYAA_YYLTYPE &last);
+};
     
 class VisitorContext {
 public:
@@ -255,8 +271,24 @@ public:
 private:
     ApproxLiteral(int line, f64_t value) : Literal<f64_t>(line, value) {}
 }; // class ApproxLiteral
-
     
+    
+class SmiLiteral : public Literal<int64_t> {
+public:
+    DEFINE_AST_NODE(SmiLiteral);
+private:
+    SmiLiteral(int line, int64_t value) : Literal<int64_t>(line, value) {}
+}; // class SmiLiteral
+
+
+class IntLiteral : public Literal<const String *> {
+public:
+    DEFINE_AST_NODE(IntLiteral);
+private:
+    IntLiteral(int line, const String *value) : Literal<const String *>(line, value) {}
+}; // class SmiLiteral
+
+
 class Variable : public Expression {
 public:
     DEF_PTR_GETTER_NOTNULL(const String, name);
@@ -305,41 +337,59 @@ public:
     Factory(base::Arena *arena)
         : arena_(DCHECK_NOTNULL(arena)) {}
     
-    Block *NewBlock(Block::StmtList *stmts) {
-        return new (arena_) Block(0, 0, stmts);
+    Block *NewBlock(Block::StmtList *stmts, const Location &loc = Location{}) {
+        return new (arena_) Block(loc.begin_line, loc.end_line, stmts);
     }
     
     VarDeclaration *NewVarDeclaration(VarDeclaration::NameList *names,
-                                      VarDeclaration::ExprList *inits) {
-        return new (arena_) VarDeclaration(0, names, inits);
+                                      VarDeclaration::ExprList *inits,
+                                      const Location &loc = Location{}) {
+        return new (arena_) VarDeclaration(loc.begin_line, names, inits);
     }
     
-    StringLiteral *NewStringLiteral(const String *val) {
-        return new (arena_) StringLiteral(0, val);
+    StringLiteral *NewStringLiteral(const String *val, const Location &loc = Location{}) {
+        return new (arena_) StringLiteral(loc.begin_line, val);
     }
     
-    ApproxLiteral *NewApproxLiteral(f64_t val) {
-        return new (arena_) ApproxLiteral(0, val);
+    ApproxLiteral *NewApproxLiteral(f64_t val, const Location &loc = Location{}) {
+        return new (arena_) ApproxLiteral(loc.begin_line, val);
     }
     
-    Variable *NewVariable(const String *name) {
-        return new (arena_) Variable(0, name);
+    SmiLiteral *NewSmiLiteral(int64_t val, const Location &loc = Location{}) {
+        return new (arena_) SmiLiteral(loc.begin_line, val);
     }
     
-    Call *NewCall(Expression *callee, Call::ArgumentList *args) {
-        return new (arena_) Call(0, callee, args);
+    IntLiteral *NewIntLiteral(const String *val, const Location &loc = Location{}) {
+        return new (arena_) IntLiteral(loc.begin_line, val);
     }
     
-    Return *NewReturn(Return::ExprList *rets) {
-        return new (arena_) Return(0, rets);
+    Variable *NewVariable(const String *name, const Location &loc = Location{}) {
+        return new (arena_) Variable(loc.begin_line, name);
     }
     
-    Multiple *NewUnary(Operator::ID op, Expression *operand) {
-        return new (arena_) Multiple(0, op, operand);
+    Call *NewCall(Expression *callee, Call::ArgumentList *args, const Location &loc = Location{}) {
+        return new (arena_) Call(loc.begin_line, callee, args);
     }
     
-    Multiple *NewBinary(Operator::ID op, Expression *lhs, Expression *rhs) {
-        return new (arena_) Multiple(0, op, lhs, rhs);
+    Return *NewReturn(Return::ExprList *rets, const Location &loc = Location{}) {
+        return new (arena_) Return(loc.begin_line, rets);
+    }
+    
+    Multiple *NewUnary(Operator::ID op, Expression *operand, const Location &loc = Location{}) {
+        return new (arena_) Multiple(loc.begin_line, op, operand);
+    }
+    
+    Multiple *NewBinary(Operator::ID op, Expression *lhs, Expression *rhs,
+                        const Location &loc = Location{}) {
+        return new (arena_) Multiple(loc.begin_line, op, lhs, rhs);
+    }
+    
+    String *NewString(const char *z, int quote) {
+        if (quote == 0) {
+            return String::New(arena_, z);
+        }
+        size_t len = ::strlen(z);
+        return String::New(arena_, z + 1, len - 2);
     }
 
     template<class T>

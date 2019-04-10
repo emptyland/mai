@@ -8,18 +8,24 @@
 
 #include "nyaa/parser-ctx.h"
 #include "nyaa/ast.h"
-#include "nyaa/snytax.hh"
 #include "base/slice.h"
+#include "nyaa/syntax.hh"
 #include <string.h>
 #include <stdlib.h>
 
 using ::mai::base::Slice;
+using ::mai::nyaa::NySmi;
+using ::mai::nyaa::Operator;
+using namespace ::mai::nyaa::ast;
 
 #define YY_USER_ACTION \
 	yylloc->first_line = yylloc->last_line = yylineno; \
 	yylloc->first_column = yyextra->column;            \
 	yylloc->last_column = (int)(yyextra->column + yyleng - 1);    \
 	yyextra->column += (int)yyleng;
+
+#define YYLTYPE NYAA_YYLTYPE
+#define YYSTYPE NYAA_YYSTYPE
 
 #define register
 %}
@@ -29,77 +35,75 @@ using ::mai::base::Slice;
 def { return DEF; }
 var { return VAR; }
 lambda { return LAMBDA; }
+return { return RETURN; }
 
 
 [A-Za-z_][A-Za-z_0-9]* {
-    //yylval->text.buf = yytext;
-    //yylval->text.len = strlen(yytext);
-    return NAME;
-}
-
-`[A-Za-z_][A-Za-z_0-9]*` {
-    //yylval->text.buf = yytext + 1;
-    //yylval->text.len = strlen(yytext) - 2;
+    yylval->name = yyextra->factory->NewString(yytext, 0);
     return NAME;
 }
 
 '(\\.|''|[^'\n'])*' |
 \"(\\.|\"\"|[^"\n])*\" {
-    //yylval->text.buf = yytext + 1;
-    //yylval->text.len = strlen(yytext) - 2;
-    return VALUE;	
+	yylval->str_val = yyextra->factory->NewString(yytext, yytext[0]);
+    return STRING_LITERAL;	
 }
 
 -?[0-9]+ {
-	int rv = Slice::ParseI64(yytext, &yylval->i64_val);
+	int rv = Slice::ParseI64(yytext, &yylval->smi_val);
 	if (rv < 0) {
 		return TOKEN_ERROR;
-	} else if (rv > 0) {
-		yylval->dec_val = Decimal::NewDecLiteral(yytext, strlen(yytext), yyextra->arena);
-		return DECIMAL_VAL;
 	}
-	return VALUE;
+	if (rv > 0) {
+		yylval->int_val = yyextra->factory->NewString(yytext, 0);
+		return INT_LITERAL;
+	}
+	if (yylval->smi_val < NySmi::kMinValue || yylval->smi_val > NySmi::kMaxValue) {
+		yylval->int_val = yyextra->factory->NewString(yytext, 0);
+		return INT_LITERAL;
+	}
+	return SMI_LITERAL;
 }
 
 -?[0-9]+"."[0-9]* |
 -?"."[0-9]+ {
-	yylval->dec_val = Decimal::NewPointLiteral(yytext, strlen(yytext), yyextra->arena);
-	return VALUE;
+	yylval->f64_val = atof(yytext);
+	return APPROX_LITERAL;
 }
 
 -?[0-9]+E[-+]?[0-9]+ |
 -?"."[0-9]+E[-+]?[0-9]+ {
-	yylval->dec_val = Decimal::NewExpLiteral(yytext, strlen(yytext), yyextra->arena);
-	return VALUE;
+	yylval->f64_val = atof(yytext);
+	return APPROX_LITERAL;
 }
 
 "==" {
-	yylval->op = ::mai::sql::SQL_CMP_EQ;
+	yylval->op = Operator::kEQ;
 	return COMPARISON;
 }
 "!=" |
 "<>" {
-	yylval->op = ::mai::sql::SQL_CMP_NE;
+	yylval->op = Operator::kNE;
 	return COMPARISON;	
 }
 "<=>" {
-	yylval->op = ::mai::sql::SQL_CMP_STRICT_EQ;
+	yylval->op = Operator::kEQ;
 	return COMPARISON;	
 }
 ">" {
-	yylval->op = ::mai::sql::SQL_CMP_GT;
+	yylval->op = Operator::kGT;
 	return COMPARISON;		
 }
 ">=" {
-	yylval->op = ::mai::sql::SQL_CMP_GE;
+	yylval->op = Operator::kGE;
 	return COMPARISON;		
 }
 "<" {
-	yylval->op = ::mai::sql::SQL_CMP_LT;
+	yylval->op = Operator::kLT;
 	return COMPARISON;		
 }
 "<=" {
-	yylval->op = ::mai::sql::SQL_CMP_LE;
+	yylval->op = Operator::kLE;
 	return COMPARISON;		
 }
 "&&" { return OP_AND; }
