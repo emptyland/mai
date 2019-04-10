@@ -110,6 +110,8 @@ return { return RETURN; }
 "||" { return OP_OR; }
 "<<" { return OP_LSHIFT; }
 ">>" { return OP_RSHIFT; }
+"[" { return '['; }
+"]" { return '['; }
 
 [-=+&~|^/%!()*.,;{}] { return yytext[0]; }
 

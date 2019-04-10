@@ -108,9 +108,9 @@ TEST_F(NyaaValuesTest, NyObjectColor) {
     
     ASSERT_EQ(mt, s->GetMetatable());
     
-    s->SetMetatable(N_->core()->kmt_pool()->kLong, N_->core());
+    s->SetMetatable(N_->core()->kmt_pool()->kInt, N_->core());
     ASSERT_EQ(kColorWhite, s->GetColor());
-    ASSERT_EQ(s->GetMetatable(), N_->core()->kmt_pool()->kLong);
+    ASSERT_EQ(s->GetMetatable(), N_->core()->kmt_pool()->kInt);
 }
 
 #endif // defined(NYAA_USE_POINTER_COLOR)

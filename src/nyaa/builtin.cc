@@ -231,8 +231,8 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     
     //----------------------------------------------------------------------------------------------
     // NyLong
-    kLong = NEW_METATABLE(kTypeLong);
-    kLong->RawPut(kzs->kInnerType, kzs->kInt, N);
+    kInt = NEW_METATABLE(kTypeInt);
+    kInt->RawPut(kzs->kInnerType, kzs->kInt, N);
     
     //----------------------------------------------------------------------------------------------
     // NyMap

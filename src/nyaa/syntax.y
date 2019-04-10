@@ -29,6 +29,8 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::nyaa::ast::VarDeclaration::NameList *names;
     ::mai::nyaa::ast::Block *block;
     ::mai::nyaa::ast::Expression *expr;
+    ::mai::nyaa::ast::LValue *lval;
+    ::mai::nyaa::ast::Assignment::LValList *lvals;
     ::mai::nyaa::ast::Statement *stmt;
     ::mai::nyaa::ast::Block::StmtList *stmts;
     ::mai::nyaa::ast::Return::ExprList *exprs;
@@ -44,10 +46,12 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %token TOKEN_ERROR
 
 %type <block> Script
-%type <stmt> Statement VarDeclaration
+%type <stmt> Statement VarDeclaration Assignment
 %type <stmts> StatementList
 %type <expr> Expression
 %type <exprs> ExpressionList
+%type <lval> LValue
+%type <lvals> LValList
 %type <name> NAME
 %type <names> NameList
 %type <str_val> STRING_LITERAL
@@ -93,9 +97,16 @@ Statement : RETURN ExpressionList {
 | VarDeclaration {
     $$ = $1;
 }
+| Assignment {
+    $$ = $1;
+}
 
 VarDeclaration : VAR NameList '=' ExpressionList {
     $$ = ctx->factory->NewVarDeclaration($2, $4, Location::Concat(@1, @4));
+}
+
+Assignment : LValList '=' ExpressionList {
+    $$ = ctx->factory->NewAssignment($1, $3, Location::Concat(@1, @3));
 }
 
 ExpressionList : Expression {
@@ -108,8 +119,8 @@ ExpressionList : Expression {
     $$ = nullptr;
 }
 
-Expression : NAME {
-    $$ = ctx->factory->NewVariable($1, @1);
+Expression : LValue {
+    $$ = $1;
 }
 | SMI_LITERAL {
     $$ = ctx->factory->NewSmiLiteral($1, @1);
@@ -140,6 +151,23 @@ Expression : NAME {
 }
 | '(' Expression ')' {
     $$ = $2;
+}
+
+LValList : LValue {
+    $$ = ctx->factory->NewList($1);
+}
+| LValList ',' LValue {
+    $$->push_back($3);
+}
+
+LValue : NAME {
+    $$ = ctx->factory->NewVariable($1, @1);
+}
+| Expression '[' Expression ']' {
+    $$ = ctx->factory->NewIndex($1, $3, Location::Concat(@1, @4));
+}
+| Expression '.' NAME {
+    $$ = ctx->factory->NewDotField($1, $3, Location::Concat(@1, @3));
 }
 
 NameList : NAME {

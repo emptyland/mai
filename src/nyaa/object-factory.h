@@ -13,7 +13,7 @@ namespace nyaa {
     
 class NyObject;
 class NyFloat64;
-class NyLong;
+class NyInt;
 class NyString;
 class NyScript;
 class NyMap;

@@ -19,18 +19,23 @@ namespace ast {
 #define DECL_AST_NODES(V) \
     V(Block) \
     V(VarDeclaration) \
+    V(Assignment) \
     V(Multiple) \
     V(StringLiteral) \
     V(ApproxLiteral) \
     V(SmiLiteral) \
     V(IntLiteral) \
     V(Variable) \
+    V(Index) \
+    V(DotField) \
     V(Call) \
+    V(SelfCall) \
     V(Return)
 
 class Factory;
 class Statement;
 class Expression;
+class LValue;
 #define DEFINE_PRE_DECL(name) class name;
 DECL_AST_NODES(DEFINE_PRE_DECL)
 #undef DEFINE_PRE_DECL
@@ -97,6 +102,8 @@ public:
     DECL_AST_NODES(DEFINE_CAST_METHOD)
 #undef DEFINE_CAST_METHOD
     
+    bool IsInvoke() const { return  IsCall() || IsSelfCall(); }
+    
     void *operator new (size_t size, base::Arena *arena) {
         return arena->Allocate(size);
     }
@@ -148,16 +155,24 @@ private:
     NameList *names_;
     ExprList *inits_;
 }; // class VarDeclaration
-
-class Expression : public Statement {
+    
+class Assignment : public Statement {
 public:
-    virtual bool is_expression() const override { return true; }
-    virtual bool is_literal() const { return false; }
-
-protected:
-    Expression(int line) : Statement(line) {}
-}; // class Expression
-
+    using LValList = base::ArenaVector<LValue *>;
+    using RValList = base::ArenaVector<Expression *>;
+    
+    DEF_PTR_GETTER_NOTNULL(LValList, lvals);
+    DEF_PTR_GETTER_NOTNULL(RValList, rvals);
+    DEFINE_AST_NODE(Assignment);
+private:
+    Assignment(int line, LValList *lvals, RValList *rvals)
+        : Statement(line)
+        , lvals_(DCHECK_NOTNULL(lvals))
+        , rvals_(DCHECK_NOTNULL(rvals)) {}
+    
+    LValList *lvals_;
+    RValList *rvals_;
+}; // class Assignment
 
 class Return : public Statement {
 public:
@@ -165,16 +180,8 @@ public:
     
     DEF_PTR_GETTER(ExprList, rets);
     
-    int GetNRets() const {
-        if (!rets_) {
-            return 0;
-        }
-        if (rets_->size() == 1 && rets_->at(0)->IsCall()) {
-            return -1;
-        } else {
-            return static_cast<int>(rets_->size());
-        }
-    }
+    inline int GetNRets() const;
+
     DEFINE_AST_NODE(Return);
 private:
     Return(int line, ExprList *rets)
@@ -183,7 +190,6 @@ private:
     
     ExprList *rets_;
 }; // class Return
-    
     
 class Block : public Statement {
 public:
@@ -202,6 +208,26 @@ private:
     int end_line_;
     StmtList *stmts_;
 }; // class Block
+    
+    
+class Expression : public Statement {
+public:
+    virtual bool is_expression() const override { return true; }
+    virtual bool is_literal() const { return false; }
+    virtual bool is_lval() const { return false; }
+    virtual bool is_rval() const { return true; }
+    
+protected:
+    Expression(int line) : Statement(line) {}
+}; // class Expression
+    
+    
+class LValue : public Expression {
+public:
+    virtual bool is_lval() const { return true; }
+protected:
+    LValue(int line) : Expression(line) {}
+}; // class LVal
     
     
 class Multiple : public Expression {
@@ -287,19 +313,6 @@ public:
 private:
     IntLiteral(int line, const String *value) : Literal<const String *>(line, value) {}
 }; // class SmiLiteral
-
-
-class Variable : public Expression {
-public:
-    DEF_PTR_GETTER_NOTNULL(const String, name);
-    DEFINE_AST_NODE(Variable);
-private:
-    Variable(int line, const String *name)
-        : Expression(line)
-        , name_(DCHECK_NOTNULL(name)) {}
-
-    const String *name_;
-}; // class Variable
     
 class Call : public Expression {
 public:
@@ -307,27 +320,100 @@ public:
     
     DEF_PTR_GETTER_NOTNULL(Expression, callee);
     DEF_PTR_GETTER(ArgumentList, args);
-    
-    int GetNArgs() const {
-        if (!args_) {
-            return 0;
-        }
-        if (args_->size() == 1 && args_->at(0)->IsCall()) {
-            return -1;
-        } else {
-            return static_cast<int>(args_->size());
-        }
-    }
+
+    inline int GetNArgs() const;
+
     DEFINE_AST_NODE(Call);
-private:
+protected:
     Call(int line, Expression *callee, ArgumentList *args)
         : Expression(line)
         , callee_(DCHECK_NOTNULL(callee))
         , args_(args) {}
     
+private:
     Expression *callee_;
     ArgumentList *args_;
 }; // class Call
+    
+class SelfCall : public Call {
+public:
+    DEF_PTR_GETTER_NOTNULL(const String, method);
+    DEFINE_AST_NODE(SelfCall);
+private:
+    SelfCall(int line, Expression *callee, const String *method, ArgumentList *args)
+        : Call(line, callee, args)
+        , method_(DCHECK_NOTNULL(method)) {}
+
+    const String *method_;
+}; // class SelfCall
+    
+class Variable : public LValue {
+public:
+    DEF_PTR_GETTER_NOTNULL(const String, name);
+    DEFINE_AST_NODE(Variable);
+private:
+    Variable(int line, const String *name)
+        : LValue(line)
+        , name_(DCHECK_NOTNULL(name)) {}
+    
+    const String *name_;
+}; // class Variable
+
+
+template<class T>
+class GenericIndex : public LValue {
+public:
+    DEF_PTR_GETTER_NOTNULL(Expression, self);
+    DEF_VAL_GETTER(T, index);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(GenericIndex);
+protected:
+    GenericIndex(int line, Expression *self, T index)
+        : LValue(line)
+        , self_(DCHECK_NOTNULL(self))
+        , index_(index) {
+    }
+
+    Expression *self_;
+    T index_;
+}; // class Index
+
+class Index : public GenericIndex<Expression *> {
+public:
+    DEFINE_AST_NODE(Index);
+private:
+    Index(int line, Expression *self, Expression *index)
+        : GenericIndex<Expression *>(line, self, index) {}
+}; // class Index
+    
+class DotField : public GenericIndex<const String *> {
+public:
+    DEFINE_AST_NODE(DotField);
+private:
+    DotField(int line, Expression *self, const String *index)
+        : GenericIndex<const String *>(line, self, index) {}
+}; // class DotField
+    
+inline int Return::GetNRets() const {
+    if (!rets_) {
+        return 0;
+    }
+    if (rets_->size() == 1 && rets_->at(0)->IsInvoke()) {
+        return -1;
+    } else {
+        return static_cast<int>(rets_->size());
+    }
+}
+    
+inline int Call::GetNArgs() const {
+    if (!args_) {
+        return 0;
+    }
+    if (args_->size() == 1 && args_->at(0)->IsInvoke()) {
+        return -1;
+    } else {
+        return static_cast<int>(args_->size());
+    }
+}
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Factory
@@ -336,54 +422,72 @@ class Factory final {
 public:
     Factory(base::Arena *arena)
         : arena_(DCHECK_NOTNULL(arena)) {}
-    
+
     Block *NewBlock(Block::StmtList *stmts, const Location &loc = Location{}) {
         return new (arena_) Block(loc.begin_line, loc.end_line, stmts);
     }
-    
+
     VarDeclaration *NewVarDeclaration(VarDeclaration::NameList *names,
                                       VarDeclaration::ExprList *inits,
                                       const Location &loc = Location{}) {
         return new (arena_) VarDeclaration(loc.begin_line, names, inits);
     }
     
+    Assignment *NewAssignment(Assignment::LValList *lvals, Assignment::RValList *rvals,
+                              const Location &loc = Location{}) {
+        return new (arena_) Assignment(loc.begin_line, lvals, rvals);
+    }
+
     StringLiteral *NewStringLiteral(const String *val, const Location &loc = Location{}) {
         return new (arena_) StringLiteral(loc.begin_line, val);
     }
-    
+
     ApproxLiteral *NewApproxLiteral(f64_t val, const Location &loc = Location{}) {
         return new (arena_) ApproxLiteral(loc.begin_line, val);
     }
-    
+
     SmiLiteral *NewSmiLiteral(int64_t val, const Location &loc = Location{}) {
         return new (arena_) SmiLiteral(loc.begin_line, val);
     }
-    
+
     IntLiteral *NewIntLiteral(const String *val, const Location &loc = Location{}) {
         return new (arena_) IntLiteral(loc.begin_line, val);
     }
-    
+
     Variable *NewVariable(const String *name, const Location &loc = Location{}) {
         return new (arena_) Variable(loc.begin_line, name);
     }
-    
+
     Call *NewCall(Expression *callee, Call::ArgumentList *args, const Location &loc = Location{}) {
         return new (arena_) Call(loc.begin_line, callee, args);
     }
     
+    SelfCall *NewSelfCall(Expression *callee, const String *method, Call::ArgumentList *args,
+                          const Location &loc = Location{}) {
+        return new (arena_) SelfCall(loc.begin_line, callee, method, args);
+    }
+
     Return *NewReturn(Return::ExprList *rets, const Location &loc = Location{}) {
         return new (arena_) Return(loc.begin_line, rets);
     }
-    
+
     Multiple *NewUnary(Operator::ID op, Expression *operand, const Location &loc = Location{}) {
         return new (arena_) Multiple(loc.begin_line, op, operand);
     }
-    
+
     Multiple *NewBinary(Operator::ID op, Expression *lhs, Expression *rhs,
                         const Location &loc = Location{}) {
         return new (arena_) Multiple(loc.begin_line, op, lhs, rhs);
     }
     
+    Index *NewIndex(Expression *self, Expression *index, const Location &loc = Location{}) {
+        return new (arena_) Index(loc.begin_line, self, index);
+    }
+    
+    DotField *NewDotField(Expression *self, const String *index, const Location &loc = Location{}) {
+        return new (arena_) DotField(loc.begin_line, self, index);
+    }
+
     String *NewString(const char *z, int quote) {
         if (quote == 0) {
             return String::New(arena_, z);

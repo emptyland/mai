@@ -18,7 +18,7 @@ class Nyaa;
     
 #define DECL_BUILTIN_TYPES(V) \
     V(Float64) \
-    V(Long) \
+    V(Int) \
     V(String) \
     V(ByteArray) \
     V(Int32Array) \
@@ -120,9 +120,12 @@ struct IVal {
     Kind kind;
     int32_t index;
     
+    int32_t Encode() const { return kind == kConst ? -index-1 : index; }
+    
     static IVal None() { return {kNone, -1}; }
     static IVal Local(int32_t idx) { return {kLocal, idx}; }
     static IVal Const(int32_t idx) { return {kConst, idx}; }
+    static IVal Global(int32_t idx) { return {kGlobal, idx}; }
 }; // struct IVal
     
 struct Operator {

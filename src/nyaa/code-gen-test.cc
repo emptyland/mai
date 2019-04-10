@@ -147,15 +147,8 @@ TEST_F(NyaaCodeGenTest, ReturnExpression) {
     Handle<NyScript> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
     
     std::string buf;
-    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 1024);
-    static const char z[] = {
-        "[000] LoadNil 0 2 ; line: 0\n"
-        "[003] Mul 0 -1 0 ; line: 0\n"
-        "[007] Div 1 -2 1 ; line: 0\n"
-        "[011] Add 1 0 1 ; line: 0\n"
-        "[015] Ret 1 1 ; line: 0\n"
-    };
-    ASSERT_EQ(z, buf);
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
+    puts(buf.c_str());
 }
     
 TEST_F(NyaaCodeGenTest, CallExpression) {
@@ -176,6 +169,22 @@ TEST_F(NyaaCodeGenTest, CallExpression) {
 //    std::string buf;
 //    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
 //    puts(buf.c_str());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
+    puts(buf.c_str());
+}
+    
+TEST_F(NyaaCodeGenTest, Compile) {
+    static const char s[] = {
+        "var a, b, c = 2\n"
+        "\n"
+        "return a + b / c - 2\n"
+    };
+    
+    HandleScope handle_scope(isolate_);
+    Handle<NyScript> script(NyScript::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
     
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);

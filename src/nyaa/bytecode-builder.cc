@@ -127,20 +127,26 @@ int32_t ConstPoolBuilder::GetOrNew(const Key &key) {
     if (iter != const_to_p_.end()) {
         return iter->second;
     }
+    
+    int32_t p = -1;
     switch (key.kind) {
         case kF64:
-            return Add(factory_->NewFloat64(key.f64_val));
+            p = Add(factory_->NewFloat64(key.f64_val));
+            break;
         case kSmi:
-            return Add(NySmi::New(key.smi_val));
+            p = Add(NySmi::New(key.smi_val));
+            break;
         case kStr:
-            return Add(factory_->NewString(key.str_val->data(), key.str_val->size()));
+            p = Add(factory_->NewString(key.str_val->data(), key.str_val->size()));
+            break;
         case kInt:
             // TODO:
         default:
             DLOG(FATAL) << "TODO:";
             break;
     }
-    return -1;
+    const_to_p_.insert({key, p});
+    return p;
 }
 
 
@@ -164,7 +170,7 @@ bool ConstPoolBuilder::EqualTo::operator()(const Key &lhs, const Key &rhs) const
     return false;
 }
 
-bool ConstPoolBuilder::Hash::operator()(const Key &key) const {
+size_t ConstPoolBuilder::Hash::operator()(const Key &key) const {
     switch (key.kind) {
         case kSmi:
             return key.smi_val;

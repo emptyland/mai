@@ -59,14 +59,28 @@ public:
     void Sub(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kSub, a, b, c, line); }
     void Mul(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kMul, a, b, c, line); }
     void Div(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kDiv, a, b, c, line); }
+    
+    void GetField(IVal a, IVal b, int line = 0) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        Emit(Bytecode::kGetField, a.index, b.Encode(), line);
+    }
+    
+    void SetField(IVal a, IVal b, IVal c, int line = 0) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        Emit(Bytecode::kSetField, a.index, b.Encode(), c.Encode(), line);
+    }
+    
+    void StoreGlobal(IVal a, IVal b, int line = 0) {
+        DCHECK_EQ(IVal::kGlobal, a.kind);
+        DCHECK_EQ(IVal::kLocal, b.kind);
+        Emit(Bytecode::kStoreGlobal, a.index, b.index, line);
+    }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArrayBuilder);
 private:
     void EmitArith(Bytecode::ID id, IVal a, IVal b, IVal c, int line) {
         DCHECK_EQ(IVal::kLocal, a.kind);
-        Emit(id, a.index,
-             b.kind == IVal::kConst ? -b.index-1 : b.index,
-             c.kind == IVal::kConst ? -c.index-1 : c.index, line);
+        Emit(id, a.index, b.Encode(), c.Encode(), line);
     }
     
     void Emit(Bytecode::ID id, int line) { AddID(id, 1, line); }
@@ -134,7 +148,7 @@ private:
         bool operator () (const Key &lhs, const Key &rhs) const;
     }; // struct EqualTo
     struct Hash : public std::unary_function<Key, size_t> {
-        bool operator () (const Key &key) const;
+        size_t operator () (const Key &key) const;
     }; // struct Hash
     
     int32_t GetOrNew(const Key &key);

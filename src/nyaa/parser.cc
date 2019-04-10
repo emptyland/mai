@@ -30,6 +30,7 @@ std::string Parser::Result::ToString() const {
     nyaa_yylex_init_extra(&extra, &ctx.lex);
     auto buf = nyaa_yy_scan_string(s, ctx.lex);
     nyaa_yy_switch_to_buffer(buf, ctx.lex);
+    nyaa_yyset_lineno(1, ctx.lex);
     nyaa_yyparse(&ctx);
     nyaa_yy_delete_buffer(buf, ctx.lex);
     nyaa_yylex_destroy(ctx.lex);
@@ -54,6 +55,7 @@ std::string Parser::Result::ToString() const {
     nyaa_yylex_init_extra(&extra, &ctx.lex);
     auto buf = nyaa_yy_scan_bytes(s, n, ctx.lex);
     nyaa_yy_switch_to_buffer(buf, ctx.lex);
+    nyaa_yyset_lineno(1, ctx.lex);
     nyaa_yyparse(&ctx);
     nyaa_yy_delete_buffer(buf, ctx.lex);
     nyaa_yylex_destroy(ctx.lex);

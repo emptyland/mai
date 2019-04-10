@@ -8,20 +8,21 @@ namespace mai {
 namespace nyaa {
     
 #define DECL_BYTECODES(V) \
-    V(LoadImm,    2, a, b) \
-    V(Move,       2, a, b) \
-    V(LoadConst,  2, a, b) \
-    V(LoadGlobal, 2, a, b) \
-    V(LoadNil,    2, a, b) \
-    V(Index,      2, a, b) \
-    V(IndexConst, 2, a, b) \
-    V(Add,        3, a, b, c) \
-    V(Sub,        3, a, b, c) \
-    V(Mul,        3, a, b, c) \
-    V(Div,        3, a, b, c) \
-    V(New,        3, a, b, c) \
-    V(Call,       3, a, b, c) \
-    V(Ret,        2, a, b)
+    V(LoadImm,     2, a, b) \
+    V(Move,        2, a, b) \
+    V(LoadConst,   2, a, b) \
+    V(LoadGlobal,  2, a, b) \
+    V(LoadNil,     2, a, b) \
+    V(GetField,    2, a, b) \
+    V(SetField,    3, a, b, c)\
+    V(StoreGlobal, 2, a, b) \
+    V(Add,         3, a, b, c) \
+    V(Sub,         3, a, b, c) \
+    V(Mul,         3, a, b, c) \
+    V(Div,         3, a, b, c) \
+    V(New,         3, a, b, c) \
+    V(Call,        3, a, b, c) \
+    V(Ret,         2, a, b)
 
 struct Bytecode {
     enum ID : uint8_t {

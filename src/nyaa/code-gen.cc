@@ -7,6 +7,7 @@
 #include "base/hash.h"
 #include "glog/logging.h"
 #include <unordered_map>
+#include <set>
 
 namespace mai {
     
@@ -49,6 +50,7 @@ public:
         if (iter == locals_.end()) {
             IVal val = owns_->NewLocal();
             locals_.insert({name, val});
+            prot_regs_.insert(val.index);
             return val;
         }
         return iter->second;
@@ -70,12 +72,21 @@ public:
         IVal rv;
         if (val) {
             rv = *val;
-            locals_[name] = *val;
+            auto iter = locals_.find(name);
+            if (iter != locals_.end()) {
+                prot_regs_.erase(iter->second.index);
+            }
         } else {
             rv = owns_->NewLocal();
-            locals_.insert({name, rv});
         }
+        locals_.insert({name, rv});
+        prot_regs_.insert(rv.index);
         return rv;
+    }
+    
+    bool Protected(IVal val) {
+        DCHECK_EQ(IVal::kLocal, val.kind);
+        return prot_regs_.find(val.index) != prot_regs_.end();
     }
 
 private:
@@ -87,6 +98,7 @@ private:
     BlockScope *prev_;
     FunctionScope *const owns_;
     VariableTable locals_;
+    std::set<int32_t> prot_regs_;
 }; // class BlockScope
     
 class CodeGeneratorContext : public ast::VisitorContext {
@@ -97,6 +109,8 @@ public:
     DEF_VAL_PROP_RW(int, n_result);
     DEF_VAL_PROP_RW(bool, localize);
     DEF_VAL_PROP_RW(bool, keep_const);
+    DEF_VAL_PROP_RW(bool, lval);
+    DEF_VAL_PROP_RW(IVal, rval);
 
     static CodeGeneratorContext *Cast(ast::VisitorContext *ctx) {
         return !ctx ? nullptr : down_cast<CodeGeneratorContext>(ctx);
@@ -107,6 +121,8 @@ private:
     int n_result_ = 0;
     bool localize_ = true;
     bool keep_const_ = false;
+    bool lval_ = false;
+    IVal rval_;
 }; // CodeGeneratorContext
 
 class CodeGeneratorVisitor : public ast::Visitor {
@@ -145,7 +161,7 @@ public:
                 IVal val = expr->Accept(this, &ix);
                 blk_scope_->PutLocal(node->names()->at(i), &val);
             }
-            if (node->inits()->size() > 1 || !node->inits()->at(0)->IsCall()) {
+            if (node->inits()->size() > 1 || !node->inits()->at(0)->IsInvoke()) {
                 for (; i < node->names()->size(); ++i) {
                     builder()->LoadNil(blk_scope_->GetOrNewLocal(node->names()->at(i)), 1,
                                        node->line());
@@ -157,6 +173,35 @@ public:
                 vars.push_back(blk_scope_->GetOrNewLocal(name));
             }
             builder()->LoadNil(vars[0], static_cast<int32_t>(vars.size()), node->line());
+        }
+        return IVal::None();
+    }
+    
+    virtual IVal VisitAssignment(ast::Assignment *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext rix;
+        if (node->rvals()->size() == 1 && node->rvals()->at(0)->IsInvoke()) {
+            rix.set_n_result(static_cast<int>(node->lvals()->size()));
+            IVal val = node->rvals()->at(0)->Accept(this, &rix);
+            for (size_t i = 0; i < node->lvals()->size(); ++i) {
+                
+                CodeGeneratorContext lix;
+                lix.set_rval(val);
+                lix.set_lval(true);
+                node->lvals()->at(i)->Accept(this, &lix);
+                val.index++;
+            }
+        } else {
+            rix.set_n_result(1);
+            size_t len = std::min(node->lvals()->size(), node->rvals()->size());
+            for (size_t i = 0; i < len; ++i) {
+                ast::Expression *expr = node->rvals()->at(i);
+                IVal val = expr->Accept(this, &rix);
+                
+                CodeGeneratorContext lix;
+                lix.set_rval(val);
+                lix.set_lval(true);
+                node->lvals()->at(i)->Accept(this, &lix);
+            }
         }
         return IVal::None();
     }
@@ -179,17 +224,72 @@ public:
         return val;
     }
     
-    virtual IVal VisitVariable(ast::Variable *node, ast::VisitorContext *x) override {
-        IVal val = blk_scope_->GetVariable(node->name());
-        if (val.kind == IVal::kNone) {
-            IVal g = {.kind = IVal::kGlobal};
-            g.index = fun_scope_->kpool()->GerOrNewStr(node->name());
-            val = g;
-        }
-        if (CodeGeneratorContext::Cast(x)->localize()) {
+    virtual IVal VisitSmiLiteral(ast::SmiLiteral *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+        IVal val = IVal::Const(fun_scope_->kpool()->GerOrNewSmi(node->value()));
+        if (ctx->localize() && !ctx->keep_const()) {
             return Localize(val, node->line());
+        }
+        return val;
+    }
+
+    virtual IVal VisitVariable(ast::Variable *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+        
+        IVal val = blk_scope_->GetVariable(node->name());
+        if (ctx->lval()) {
+            if (val.kind == IVal::kNone) {
+                val = IVal::Global(fun_scope_->kpool()->GerOrNewStr(node->name()));
+                builder()->StoreGlobal(val, ctx->rval());
+            } else {
+                DCHECK_EQ(IVal::kLocal, val.kind);
+                builder()->Move(val, ctx->rval());
+            }
+            return IVal::None();
         } else {
-            return val;
+            if (val.kind == IVal::kNone) {
+                val = IVal::Global(fun_scope_->kpool()->GerOrNewStr(node->name()));
+            }
+            if (ctx->localize()) {
+                return Localize(val, node->line());
+            } else {
+                return val;
+            }
+        }
+    }
+    
+    virtual IVal VisitIndex(ast::Index *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+        
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        IVal self = node->self()->Accept(this, &ix);
+        ix.set_keep_const(true);
+        IVal index = node->index()->Accept(this, &ix);
+        
+        if (ctx->lval()) {
+            builder()->SetField(self, index, ctx->rval(), node->line());
+            return IVal::None();
+        } else {
+            builder()->GetField(self, index, node->line());
+            return self;
+        }
+    }
+    
+    virtual IVal VisitDotField(ast::DotField *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+        
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        IVal self = node->self()->Accept(this, &ix);
+        IVal index = IVal::Const(fun_scope_->kpool()->GerOrNewStr(node->index()));
+        
+        if (ctx->lval()) {
+            builder()->SetField(self, index, ctx->rval(), node->line());
+            return IVal::None();
+        } else {
+            builder()->GetField(self, index, node->line());
+            return self;
         }
     }
     
@@ -211,7 +311,7 @@ public:
             AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
         }
         
-        builder()->Ret(first, n_rets);
+        builder()->Ret(first, n_rets, node->line());
         return IVal::None();
     }
     
@@ -227,7 +327,7 @@ public:
             AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
         }
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-        builder()->Call(callee, n_args, ctx->n_result());
+        builder()->Call(callee, n_args, ctx->n_result(), node->line());
         return callee;
     }
     
@@ -242,7 +342,7 @@ public:
         
         IVal ret = IVal::None();
         for (auto op : operands) {
-            if (op.kind == IVal::kLocal) {
+            if (op.kind == IVal::kLocal && !blk_scope_->Protected(op)) {
                 ret = op;
             }
         }
@@ -251,16 +351,16 @@ public:
         }
         switch (node->op()) {
             case Operator::kAdd:
-                builder()->Add(ret, operands[0], operands[1]);
+                builder()->Add(ret, operands[0], operands[1], node->line());
                 break;
             case Operator::kSub:
-                builder()->Sub(ret, operands[0], operands[1]);
+                builder()->Sub(ret, operands[0], operands[1], node->line());
                 break;
             case Operator::kMul:
-                builder()->Mul(ret, operands[0], operands[1]);
+                builder()->Mul(ret, operands[0], operands[1], node->line());
                 break;
             case Operator::kDiv:
-                builder()->Div(ret, operands[0], operands[1]);
+                builder()->Div(ret, operands[0], operands[1], node->line());
                 break;
                 // TODO:
             default:
@@ -274,7 +374,7 @@ public:
     friend class BlockScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(CodeGeneratorVisitor);
 private:
-    IVal Localize(IVal val, int line = 0) {
+    IVal Localize(IVal val, int line) {
         switch (val.kind) {
             case IVal::kLocal:
                 break;
@@ -282,7 +382,7 @@ private:
             case IVal::kGlobal:
             case IVal::kConst: {
                 IVal ret = fun_scope_->NewLocal();
-                builder()->Load(ret, val);
+                builder()->Load(ret, val, line);
                 return ret;
             } break;
                 break;

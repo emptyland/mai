@@ -1,13 +1,19 @@
 #include "nyaa/nyaa-values.h"
 #include "nyaa/thread.h"
+#include "nyaa/parser.h"
+#include "nyaa/code-gen.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/heap.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/string-pool.h"
 #include "nyaa/memory.h"
 #include "nyaa/builtin.h"
+#include "base/arena-utils.h"
+#include "base/arenas.h"
 #include "base/hash.h"
 #include "mai-lang/call-info.h"
+#include "mai-lang/isolate.h"
+#include "mai/env.h"
 
 namespace mai {
     
@@ -60,7 +66,7 @@ bool Object::IsKey(NyaaCore *N) const {
     switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
         case kTypeString:
         case kTypeFloat64:
-        case kTypeLong:
+        case kTypeInt:
             return true;
         default:
             break;
@@ -78,7 +84,7 @@ uint32_t Object::HashVal(NyaaCore *N) const {
             return static_cast<const NyString *>(this)->hash_val();
         case kTypeFloat64:
             return static_cast<const NyFloat64 *>(this)->HashVal();
-        case kTypeLong:
+        case kTypeInt:
             // TODO:
         default:
             break;
@@ -118,8 +124,8 @@ bool Object::IsFalse() const {
             return val->size() == 0;
         } break;
             
-        case kTypeLong:
-            return ob->ToLong()->IsZero();
+        case kTypeInt:
+            return ob->ToInt()->IsZero();
             
         case kTypeFloat64:
             return ob->ToFloat64()->value() == 0;
@@ -198,12 +204,12 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) {
             return ::memcmp(lv->bytes(), rv->bytes(), lv->size()) == 0;
         } break;
             
-        case kTypeLong: {
-            auto lval = ToLong();
+        case kTypeInt: {
+            auto lval = ToInt();
             if (rhs->IsSmi()) {
                 return lval->ToInt64Val() == rhs->ToSmi();
-            } else if (rhs->ToHeapObject()->IsLong()) {
-                return lval->Equals(rhs->ToHeapObject()->ToLong());
+            } else if (rhs->ToHeapObject()->IsInt()) {
+                return lval->Equals(rhs->ToHeapObject()->ToInt());
             } else if (rhs->ToHeapObject()->IsFloat64()) {
                 return lval->ToFloat64Val() == rhs->ToHeapObject()->ToFloat64()->value();
             } else {
@@ -215,8 +221,8 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) {
             auto lval = ToFloat64()->value();
             if (rhs->IsSmi()) {
                 return lval == rhs->ToSmi();
-            } else if (rhs->ToHeapObject()->IsLong()) {
-                return lval == rhs->ToHeapObject()->ToLong()->ToFloat64Val();
+            } else if (rhs->ToHeapObject()->IsInt()) {
+                return lval == rhs->ToHeapObject()->ToInt()->ToFloat64Val();
             } else if (rhs->ToHeapObject()->IsFloat64()) {
                 return lval == rhs->ToHeapObject()->ToFloat64()->value();
             } else {
@@ -282,8 +288,8 @@ Object *NyObject::Add(Object *rhs, NyaaCore *N) {
             return lval->Add(*rval, N)->Done(N);
         } break;
             
-        case kTypeLong:
-            return ToLong()->Add(rhs, N);
+        case kTypeInt:
+            return ToInt()->Add(rhs, N);
             
         case kTypeFloat64:
             return ToFloat64()->Add(rhs, N);
@@ -302,13 +308,10 @@ NyString *NyObject::ToString(NyaaCore *N) {
     switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
         case kTypeString:
             return (const_cast<NyObject *>(this))->ToString();
-            
-        case kTypeLong:
-            return ToLong()->ToString(N);
-            
+        case kTypeInt:
+            return ToInt()->ToString(N);
         case kTypeFloat64:
             return N->factory()->Sprintf("%f", ToFloat64()->value());
-
         default:
             break;
     }
@@ -324,8 +327,8 @@ Object *NyFloat64::Add(Object *rhs, NyaaCore *N) const {
     auto lval = ToFloat64()->value();
     if (rhs->IsSmi()) {
         return N->factory()->NewFloat64(lval + rhs->ToSmi());
-    } else if (rhs->ToHeapObject()->IsLong()) {
-        auto rval = rhs->ToHeapObject()->ToLong()->ToFloat64Val();
+    } else if (rhs->ToHeapObject()->IsInt()) {
+        auto rval = rhs->ToHeapObject()->ToInt()->ToFloat64Val();
         return N->factory()->NewFloat64(lval + rval);
     } else if (rhs->ToHeapObject()->IsFloat64()) {
         auto rval = rhs->ToHeapObject()->ToFloat64()->value();
@@ -335,16 +338,16 @@ Object *NyFloat64::Add(Object *rhs, NyaaCore *N) const {
     return nullptr;
 }
 
-Object *NyLong::Add(Object *rhs, NyaaCore *N) const {
+Object *NyInt::Add(Object *rhs, NyaaCore *N) const {
     if (rhs->IsObject() && rhs->ToHeapObject()->IsString()) {
         rhs = rhs->ToHeapObject()->ToString()->TryNumeric(N);
     }
 
-    auto lval = ToLong();
+    auto lval = ToInt();
     if (rhs->IsSmi()) {
         return lval->Add(rhs->ToSmi(), N);
-    } else if (rhs->ToHeapObject()->IsLong()) {
-        return lval->Add(rhs->ToHeapObject()->ToLong(), N);
+    } else if (rhs->ToHeapObject()->IsInt()) {
+        return lval->Add(rhs->ToHeapObject()->ToInt(), N);
     } else if (rhs->ToHeapObject()->IsFloat64()) {
         auto rval = rhs->ToHeapObject()->ToFloat64()->value();
         return N->factory()->NewFloat64(lval->ToFloat64Val() + rval);
@@ -353,42 +356,42 @@ Object *NyLong::Add(Object *rhs, NyaaCore *N) const {
     return nullptr;
 }
 
-NyLong *NyLong::Add(int64_t rhs, NyaaCore *N) const {
+NyInt *NyInt::Add(int64_t rhs, NyaaCore *N) const {
     // TODO:
     return nullptr;
 }
 
-NyLong *NyLong::Add(const NyLong *rhs, NyaaCore *N) const {
+NyInt *NyInt::Add(const NyInt *rhs, NyaaCore *N) const {
     // TODO:
     return nullptr;
 }
     
-uint32_t NyLong::HashVal() const {
+uint32_t NyInt::HashVal() const {
     // TODO:
     return 0;
 }
     
-bool NyLong::IsZero() const {
+bool NyInt::IsZero() const {
     // TODO:
     return false;
 }
 
-f64_t NyLong::ToFloat64Val() const {
+f64_t NyInt::ToFloat64Val() const {
     // TODO:
     return 0;
 }
 
-int64_t NyLong::ToInt64Val() const {
+int64_t NyInt::ToInt64Val() const {
     // TODO:
     return 0;
 }
     
-NyString *NyLong::ToString(NyaaCore *N) const {
+NyString *NyInt::ToString(NyaaCore *N) const {
     // TODO:
     return nullptr;
 }
     
-/*static*/ int NyLong::Compare(const NyLong *lhs, const NyLong *rhs) {
+/*static*/ int NyInt::Compare(const NyInt *lhs, const NyInt *rhs) {
     // TODO:
     return 0;
 }
@@ -772,6 +775,17 @@ void NyDelegated::Bind(int i, Object *upval, NyaaCore *N) {
     DCHECK_LT(i, n_upvals_);
     N->BarrierWr(this, upvals_ + i, upval);
     upvals_[i] = upval;
+}
+    
+/*static*/ Handle<NyScript> NyScript::Compile(const char *z, size_t n, NyaaCore *N) {
+    base::StandaloneArena arena(N->isolate()->env()->GetLowLevelAllocator());
+    Parser::Result result = Parser::Parse(z, n, &arena);
+    if (result.error) {
+        N->Raisef("syntax error: [%d:%d] %s", result.error_line, result.error_column,
+                  result.error->data());
+        return Handle<NyScript>();
+    }
+    return CodeGen::Generate(Handle<NyString>::Null(), result.block, N);
 }
     
 NyFunction::NyFunction(uint8_t n_params,

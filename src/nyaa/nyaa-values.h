@@ -15,7 +15,7 @@ namespace nyaa {
 class Object;
 class NyObject;
 class NyFloat64;
-class NyLong;
+class NyInt;
 class NyString;
 template<class T> class NyArrayBase;
 class NyByteArray;
@@ -177,7 +177,7 @@ public:
 #undef DECL_TYPE_CAST
     
     bool IsNumeric() const {
-        return IsFloat64() || IsLong(); // TODO:
+        return IsFloat64() || IsInt(); // TODO:
     }
 
     bool IsRunnable() const {
@@ -238,9 +238,9 @@ private:
 }; // class NyFloat64
 
 
-class NyLong : public NyObject {
+class NyInt : public NyObject {
 public:
-    NyLong(size_t capactiy);
+    NyInt(size_t capactiy);
     
     DEF_VAL_GETTER(uint32_t, capacity);
     DEF_VAL_GETTER(uint32_t, offset);
@@ -248,9 +248,9 @@ public:
     
     Object *Add(Object *rhs, NyaaCore *N) const;
     
-    NyLong *Add(int64_t rhs, NyaaCore *N) const;
+    NyInt *Add(int64_t rhs, NyaaCore *N) const;
     
-    NyLong *Add(const NyLong *rhs, NyaaCore *N) const;
+    NyInt *Add(const NyInt *rhs, NyaaCore *N) const;
     
     uint32_t HashVal() const;
     
@@ -262,21 +262,21 @@ public:
     
     NyString *ToString(NyaaCore *N) const;
     
-    bool Equals(const NyLong *rhs) const { return Compare(this, rhs) == 0; }
+    bool Equals(const NyInt *rhs) const { return Compare(this, rhs) == 0; }
     
-    static int Compare(const NyLong *lhs, const NyLong *rhs);
+    static int Compare(const NyInt *lhs, const NyInt *rhs);
     
     void Iterate(ObjectVisitor *visitor) {}
     
     size_t PlacedSize() const { return RequiredSize(capacity_); }
     
     static size_t RequiredSize(uint32_t capacity) {
-        return sizeof(NyLong) + sizeof(uint32_t) * (capacity < 2 ? 0 : capacity);
+        return sizeof(NyInt) + sizeof(uint32_t) * (capacity < 2 ? 0 : capacity);
     }
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyLong);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NyInt);
 private:
     uint32_t capacity_;
     uint32_t offset_;
@@ -648,6 +648,12 @@ public:
     DEF_PTR_GETTER(NyArray, const_pool);
     
     int Run(NyaaCore *N);
+    
+    static Handle<NyScript> Compile(const char *z, NyaaCore *N) {
+        return Compile(z, !z ? 0 : ::strlen(z), N);
+    }
+    
+    static Handle<NyScript> Compile(const char *z, size_t n, NyaaCore *N);
     
     void Iterate(ObjectVisitor *visitor) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&bcbuf_));
