@@ -10,14 +10,14 @@ namespace ast {
 class Block;
 } // namespace ast
 class NyaaCore;
-class NyScript;
+class NyFunction;
 class NyString;
     
 class CodeGen final {
 public:
     
-    static Handle<NyScript> Generate(Handle<NyString> file_name, ast::Block *root,
-                                     NyaaCore *core);
+    static Handle<NyFunction> Generate(Handle<NyString> file_name, ast::Block *root,
+                                       NyaaCore *core);
     
     DISALLOW_ALL_CONSTRUCTORS(CodeGen);
 }; // class CodeGen

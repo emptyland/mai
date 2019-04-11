@@ -202,7 +202,7 @@ void BytecodeArrayDisassembler::Disassembly() {
 }
     
 /*static*/
-void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyScript> script,
+void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyFunction> script,
                                             std::string *buf, size_t limit) {
     buf->resize(limit);
     FILE *fp = ::fmemopen(&(*buf)[0], limit, "w");
@@ -215,8 +215,8 @@ void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyScript> scr
 }
     
 /*static*/
-void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyScript> script, FILE *fp) {
-    fprintf(fp, "script: %p, max-stack: %u\n", *script, script->max_stack_size());
+void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyFunction> script, FILE *fp) {
+    fprintf(fp, "script: %p, max-stack: %u\n", *script, script->max_stack());
     if (script->file_name()) {
         fprintf(fp, "file name: %s\n", script->file_name()->bytes());
     }

@@ -107,29 +107,36 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     DCHECK_EQ(ob->PlacedSize(), required_size);
     return ob;
 }
-    
-/*virtual*/ NyScript *ObjectFactoryImpl::NewScript(size_t max_stack_size, NyString *file_name,
-                                                   NyInt32Array *file_info, NyByteArray *bcbuf,
-                                                   NyArray *const_pool, bool old) {
-    DCHECK_LE(max_stack_size, UINT32_MAX);
-    NEW_OBJECT(sizeof(NyScript),
-               NyScript(static_cast<uint32_t>(max_stack_size), file_name, file_info,
-                        DCHECK_NOTNULL(bcbuf), const_pool, core_),
-               Script);
-    DCHECK_EQ(sizeof(NyScript), ob->PlacedSize());
+
+/*virtual*/ NyFunction *
+ObjectFactoryImpl::NewFunction(NyString *name, uint8_t n_params, bool vargs, uint32_t n_upvals,
+                               uint32_t max_stack, NyString *file_name, NyInt32Array *file_info,
+                               NyByteArray *bcbuf, NyArray *proto_pool, NyArray *const_pool,
+                               bool old) {
+    DCHECK_LE(n_params, UINT8_MAX);
+    DCHECK_LE(n_upvals, UINT32_MAX);
+    DCHECK_LE(max_stack, UINT32_MAX);
+    size_t required_size = NyFunction::RequiredSize(static_cast<uint32_t>(n_upvals));
+    NEW_OBJECT(required_size,
+               NyFunction(name,
+                          static_cast<uint8_t>(n_params),
+                          vargs,
+                          static_cast<uint32_t>(n_upvals),
+                          static_cast<uint32_t>(max_stack),
+                          file_name,
+                          file_info,
+                          bcbuf,
+                          proto_pool,
+                          const_pool,
+                          core_),
+               Function);
+    DCHECK_EQ(ob->PlacedSize(), required_size);
     return ob;
 }
     
-/*virtual*/ NyFunction *ObjectFactoryImpl::NewFunction(size_t n_params, bool vargs, NyScript *script,
-                                                       size_t n_upvals, bool old) {
-    DCHECK_LE(n_params, UINT8_MAX);
-    DCHECK_LE(n_upvals, UINT32_MAX);
-    size_t required_size = NyFunction::RequiredSize(static_cast<uint32_t>(n_upvals));
-    NEW_OBJECT(required_size,
-               NyFunction(static_cast<uint8_t>(n_params), vargs, static_cast<uint32_t>(n_upvals),
-                          script, core_),
-               Function);
-    DCHECK_EQ(ob->PlacedSize(), required_size);
+/*virtual*/ NyClosure *ObjectFactoryImpl::NewClosure(NyFunction *proto, bool old) {
+    NEW_OBJECT(sizeof(NyClosure), NyClosure(proto, core_), Closure);
+    DCHECK_EQ(sizeof(NyClosure), ob->PlacedSize());
     return ob;
 }
     

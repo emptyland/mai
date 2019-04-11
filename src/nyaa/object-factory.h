@@ -15,7 +15,7 @@ class NyObject;
 class NyFloat64;
 class NyInt;
 class NyString;
-class NyScript;
+class NyClosure;
 class NyMap;
 class NyTable;
 class NyArray;
@@ -57,11 +57,11 @@ public:
     virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, size_t n_upvals = 0,
                                       bool old = false) = 0;
     
-    virtual NyFunction *NewFunction(size_t n_params, bool vargs, NyScript *script,
-                                    size_t n_upvals = 0, bool old = false) = 0;
-    
-    virtual NyScript *NewScript(size_t max_stack_size, NyString *file_name, NyInt32Array *file_info,
-                                NyByteArray *bcbuf, NyArray *const_pool, bool old = false) = 0;
+    virtual NyFunction *NewFunction(NyString *name, uint8_t n_params, bool vargs, uint32_t n_upvals,
+                                    uint32_t max_stack, NyString *file_name, NyInt32Array *file_info,
+                                    NyByteArray *bcbuf, NyArray *proto_pool, NyArray *const_pool,
+                                    bool old = false) = 0;
+    virtual NyClosure *NewClosure(NyFunction *proto, bool old = false) = 0;
     
     virtual NyThread *NewThread(bool old = false) = 0;
     

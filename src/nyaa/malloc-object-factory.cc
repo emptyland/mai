@@ -106,26 +106,34 @@ MallocObjectFactory::MallocObjectFactory(NyaaCore *core) : core_(DCHECK_NOTNULL(
     return ob;
 }
     
-/*virtual*/ NyScript *MallocObjectFactory::NewScript(size_t max_stack_size, NyString *file_name,
-                                                     NyInt32Array *file_info, NyByteArray *bcbuf,
-                                                     NyArray *const_pool, bool old) {
-    DCHECK_LE(max_stack_size, UINT32_MAX);
-    auto ob = new NyScript(static_cast<uint32_t>(max_stack_size), file_name, file_info,
-                           DCHECK_NOTNULL(bcbuf), const_pool, core_);
-    ob->SetMetatable(core_->kmt_pool()->kScript, core_);
+/*virtual*/ NyFunction *
+MallocObjectFactory::NewFunction(NyString *name, uint8_t n_params, bool vargs, uint32_t n_upvals,
+                                 uint32_t max_stack, NyString *file_name, NyInt32Array *file_info,
+                                 NyByteArray *bcbuf, NyArray *proto_pool, NyArray *const_pool,
+                                 bool old) {
+    DCHECK_LE(n_params, UINT8_MAX);
+    DCHECK_LE(n_upvals, UINT32_MAX);
+    DCHECK_LE(max_stack, UINT32_MAX);
+    void *chunk = ::malloc(NyFunction::RequiredSize(static_cast<uint32_t>(n_upvals)));
+    auto ob = new (chunk) NyFunction(name,
+                                     static_cast<uint8_t>(n_params),
+                                     vargs,
+                                     static_cast<uint32_t>(n_upvals),
+                                     static_cast<uint32_t>(max_stack),
+                                     file_name,
+                                     file_info,
+                                     bcbuf,
+                                     proto_pool,
+                                     const_pool,
+                                     core_);
+    ob->SetMetatable(core_->kmt_pool()->kFunction, core_);
+    DCHECK_EQ(ob->PlacedSize(), NyFunction::RequiredSize(static_cast<uint32_t>(n_upvals)));
     return ob;
 }
     
-/*virtual*/ NyFunction *MallocObjectFactory::NewFunction(size_t n_params, bool vargs,
-                                                         NyScript *script, size_t n_upvals,
-                                                         bool old) {
-    DCHECK_LE(n_params, UINT8_MAX);
-    DCHECK_LE(n_upvals, UINT32_MAX);
-    void *chunk = ::malloc(NyFunction::RequiredSize(static_cast<uint32_t>(n_upvals)));
-    auto ob = new (chunk) NyFunction(static_cast<uint8_t>(n_params), vargs,
-                                     static_cast<uint32_t>(n_upvals), script, core_);
-    ob->SetMetatable(core_->kmt_pool()->kFunction, core_);
-    DCHECK_EQ(ob->PlacedSize(), NyFunction::RequiredSize(static_cast<uint32_t>(n_upvals)));
+/*virtual*/ NyClosure *MallocObjectFactory::NewClosure(NyFunction *proto, bool old) {
+    auto ob = new NyClosure(proto, core_);
+    DCHECK_EQ(sizeof(NyClosure), ob->PlacedSize());
     return ob;
 }
     

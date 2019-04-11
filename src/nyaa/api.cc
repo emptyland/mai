@@ -111,7 +111,7 @@ bool Value::IsFunction() const {
 
 bool Value::IsScript() const {
     auto o = reinterpret_cast<const Object *>(this);
-    return o->IsObject() && o->ToHeapObject()->IsScript();
+    return o->IsObject() && o->ToHeapObject()->IsFunction();
 }
 
 int64_t Value::AsInt() const {
@@ -153,7 +153,7 @@ void Function::Bind(int i, Handle<Value> val) {
     if (!IsFunction()) {
         return;
     }
-    if (NyFunction *fn = reinterpret_cast<NyObject *>(this)->ToFunction()) {
+    if (NyClosure *fn = reinterpret_cast<NyObject *>(this)->ToClosure()) {
         fn->Bind(i, reinterpret_cast<Object *>(*val), NyaaCore::Current());
     } else if (NyDelegated *fn = reinterpret_cast<NyObject *>(this)->ToDelegated()) {
         fn->Bind(i, reinterpret_cast<Object *>(*val), NyaaCore::Current());
@@ -164,7 +164,7 @@ Handle<Value> Function::GetUpVal(int i) {
     if (!IsFunction()) {
         return Handle<Value>();
     }
-    if (NyFunction *fn = reinterpret_cast<NyObject *>(this)->ToFunction()) {
+    if (NyClosure *fn = reinterpret_cast<NyObject *>(this)->ToClosure()) {
         return fn->upval(i);
     } else if (NyDelegated *fn = reinterpret_cast<NyObject *>(this)->ToDelegated()) {
         return fn->upval(i);

@@ -22,8 +22,8 @@ class NyByteArray;
 class NyInt32Array;
 class NyArray;
 class NyTable;
-class NyScript;
 class NyFunction;
+class NyClosure;
 class NyDelegated;
 class NyUDO;
 class NyThread;
@@ -181,7 +181,7 @@ public:
     }
 
     bool IsRunnable() const {
-        return IsScript() || IsDelegated() || IsFunction(); // TODO:
+        return IsClosure() || IsDelegated(); // TODO:
     }
     
     inline bool IsUDO() const;
@@ -574,108 +574,123 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class NyRunnable : public NyObject {
 public:
-    int Apply(Arguments *, NyaaCore *N);
+    int Apply(Arguments *args, int nrets, NyaaCore *N);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyRunnable);
 protected:
     NyRunnable() {}
 }; // class NyCallable
-    
-    
-class NyFunction : public NyRunnable {
+
+class NyFunction : public NyObject {
 public:
-    NyFunction(uint8_t n_params,
+    NyFunction(NyString *name,
+               uint8_t n_params,
                bool vargs,
                uint32_t n_upvals,
-               NyScript *script,
+               uint32_t max_stack_size,
+               NyString *file_name,
+               NyInt32Array *file_info,
+               NyByteArray *bcbuf,
+               NyArray *proto_pool,
+               NyArray *const_pool,
                NyaaCore *N);
     
     DEF_VAL_GETTER(uint8_t, n_params);
     DEF_VAL_GETTER(bool, vargs);
-    
     DEF_VAL_GETTER(uint32_t, n_upvals);
-    DEF_PTR_GETTER(NyScript, script);
     DEF_VAL_GETTER(uint64_t, call_count);
+    DEF_VAL_GETTER(uint32_t, max_stack);
+    DEF_PTR_GETTER(NyByteArray, bcbuf);
+    DEF_PTR_GETTER(NyString, file_name);
+    DEF_PTR_GETTER(NyInt32Array, file_info);
+    DEF_PTR_GETTER(NyArray, proto_pool);
+    DEF_PTR_GETTER(NyArray, const_pool);
 
+    struct UpvalDesc {
+        NyString *name; // [strong ref]
+        int32_t  in_stack;
+        int32_t  in_upval;
+    };
+
+    const UpvalDesc &upval(size_t i) const {
+        DCHECK_LT(i, n_upvals_);
+        return upvals_[i];
+    }
+    
+    void SetUpval(size_t i, NyString *name, int32_t in_stack, int32_t in_upval,
+                  NyaaCore *N);
+    
+    static Handle<NyFunction> Compile(const char *z, NyaaCore *N) {
+        return Compile(z, !z ? 0 : ::strlen(z), N);
+    }
+    
+    static Handle<NyFunction> Compile(const char *z, size_t n, NyaaCore *N);
+
+    void Iterate(ObjectVisitor *visitor);
+    
+    size_t PlacedSize() const { return RequiredSize(n_upvals_); }
+    
+    static size_t RequiredSize(uint32_t n_upvals) {
+        return sizeof(NyFunction) + n_upvals * sizeof(upvals_[0]);
+    }
+    
+    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NyFunction);
+private:
+    uint8_t n_params_;
+    bool vargs_;
+    uint32_t n_upvals_;
+    uint32_t max_stack_;
+    uint64_t call_count_ = 0;
+    NyString *name_; // [strong ref]
+    NyByteArray *bcbuf_; // [strong ref]
+    NyString *file_name_; // [strong ref]
+    NyInt32Array *file_info_; // [strong ref]
+    NyArray *proto_pool_; // [strong ref] internal defined functions.
+    NyArray *const_pool_; // [strong ref]
+    UpvalDesc upvals_[0]; // elements [strong ref]
+}; // class NyCallable
+    
+class NyClosure : public NyRunnable {
+public:
+    NyClosure(NyFunction *proto, NyaaCore *N);
+    
+    DEF_PTR_GETTER(NyFunction, proto);
     Object *upval(int i) const {
         DCHECK_GE(i, 0);
-        DCHECK_LT(i, n_upvals_);
+        DCHECK_LT(i, proto_->n_upvals());
         return upvals_[i];
     }
     
     void Bind(int i, Object *upval, NyaaCore *N);
     
-    int Call(Arguments *, NyaaCore *N);
+    int Call(Arguments *args, int nrets, NyaaCore *N);
     
-    void Iterate(ObjectVisitor *visitor) {
-        visitor->VisitPointer(this, reinterpret_cast<Object **>(&script_));
-        visitor->VisitPointers(this, upvals_, upvals_ + n_upvals_);
+    static Handle<NyClosure> Do(const char *z, NyaaCore *N) {
+        return Do(z, !z ? 0 : ::strlen(z), N);
     }
     
-    size_t PlacedSize() const { return RequiredSize(n_upvals_); }
+    static Handle<NyClosure> Do(const char *z, size_t n, NyaaCore *N);
+    
+    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    
+    void Iterate(ObjectVisitor *visitor) {
+        visitor->VisitPointer(this, reinterpret_cast<Object **>(&proto_));
+        visitor->VisitPointers(this, upvals_, upvals_ + proto_->n_upvals());
+    }
+    
+    size_t PlacedSize() const { return RequiredSize(proto_->n_upvals()); }
     
     static size_t RequiredSize(uint32_t n_upvals) {
-        return sizeof(NyFunction) + n_upvals * sizeof(Object *);
+        return sizeof(NyClosure) + n_upvals * sizeof(Object *);
     }
     
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyFunction);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NyClosure);
 private:
-    uint8_t n_params_;
-    bool vargs_;
-    
-    uint32_t n_upvals_;
-    uint64_t call_count_ = 0;
-    NyScript *script_; // [strong ref]
-    Object *upvals_[0]; // [strong ref], MUST BE TAIL
-}; // class NyCallable
-    
-
-class NyScript : public NyRunnable {
-public:
-    NyScript(uint32_t max_stack_size,
-             NyString *file_name,
-             NyInt32Array *file_info,
-             NyByteArray *bcbuf,
-             NyArray *const_pool,
-             NyaaCore *N);
-    
-    DEF_VAL_GETTER(uint32_t, max_stack_size);
-    DEF_PTR_GETTER(NyByteArray, bcbuf);
-    DEF_PTR_GETTER(NyString, file_name);
-    DEF_PTR_GETTER(NyInt32Array, file_info);
-    DEF_PTR_GETTER(NyArray, const_pool);
-    
-    int Run(NyaaCore *N);
-    
-    static Handle<NyScript> Compile(const char *z, NyaaCore *N) {
-        return Compile(z, !z ? 0 : ::strlen(z), N);
-    }
-    
-    static Handle<NyScript> Compile(const char *z, size_t n, NyaaCore *N);
-    
-    void Iterate(ObjectVisitor *visitor) {
-        visitor->VisitPointer(this, reinterpret_cast<Object **>(&bcbuf_));
-        visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_name_));
-        visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_info_));
-        visitor->VisitPointer(this, reinterpret_cast<Object **>(&const_pool_));
-    }
-
-    constexpr size_t PlacedSize() const { return sizeof(*this); }
-    
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyScript);
-private:
-    uint32_t unused_; // TODO:
-    uint32_t max_stack_size_;
-    NyByteArray *bcbuf_; // [strong ref]
-    NyString *file_name_; // [strong ref]
-    NyInt32Array *file_info_; // [strong ref]
-    NyArray *const_pool_; // [strong ref]
-}; // class NyScript
-    
+    NyFunction *proto_; // [strong ref]
+    Object *upvals_[0]; // [strong ref]
+}; // class NyClosure
 
 class NyDelegated : public NyRunnable {
 public:
@@ -705,7 +720,7 @@ public:
     
     void Bind(int i, Object *upval, NyaaCore *N);
     
-    int Call(Arguments *, NyaaCore *N);
+    int Call(Arguments *args, NyaaCore *N);
     
     DEF_VAL_GETTER(Kind, kind);
     

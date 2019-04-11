@@ -736,35 +736,15 @@ void NyArray::Refill(const NyArray *base, NyaaCore *N) {
     NyArrayBase<Object*>::Refill(base);
 }
     
-NyScript::NyScript(uint32_t max_stack_size,
-                   NyString *file_name,
-                   NyInt32Array *file_info,
-                   NyByteArray *bcbuf,
-                   NyArray *const_pool,
-                   NyaaCore *N)
-    : unused_(0) // TODO:
-    , max_stack_size_(max_stack_size) {
-
-    N->BarrierWr(this, &bcbuf_, bcbuf);
-    bcbuf_      = DCHECK_NOTNULL(bcbuf);
-    N->BarrierWr(this, &const_pool_, const_pool);
-    const_pool_ = const_pool;
-    N->BarrierWr(this, &file_name_, file_name);
-    file_name_  = file_name;
-    N->BarrierWr(this, &file_info_, file_info);
-    file_info_  = file_info;
-}
-    
-int NyRunnable::Apply(Arguments *args, NyaaCore *N) {
+int NyRunnable::Apply(Arguments *args, int nrets, NyaaCore *N) {
     if (args) {
         args->SetCallee(Local<Value>::New(this));
     }
-    if (IsScript()) {
-        return static_cast<NyScript *>(this)->Run(N);
-    } else if (IsDelegated()) {
-        return static_cast<NyDelegated *>(this)->Call(args, N);
-    } else if (IsFunction()) {
-        return static_cast<NyFunction *>(this)->Call(args, N);
+    if (NyClosure *callee = ToClosure()) {
+        return callee->Call(args, nrets, N);
+    } else if (NyDelegated *callee = ToDelegated()) {
+        // TODO:
+        return callee->Call(args, N);
     }
     DLOG(FATAL) << "Noreached!";
     return -1;
@@ -776,41 +756,6 @@ void NyDelegated::Bind(int i, Object *upval, NyaaCore *N) {
     N->BarrierWr(this, upvals_ + i, upval);
     upvals_[i] = upval;
 }
-    
-/*static*/ Handle<NyScript> NyScript::Compile(const char *z, size_t n, NyaaCore *N) {
-    base::StandaloneArena arena(N->isolate()->env()->GetLowLevelAllocator());
-    Parser::Result result = Parser::Parse(z, n, &arena);
-    if (result.error) {
-        N->Raisef("syntax error: [%d:%d] %s", result.error_line, result.error_column,
-                  result.error->data());
-        return Handle<NyScript>();
-    }
-    return CodeGen::Generate(Handle<NyString>::Null(), result.block, N);
-}
-    
-NyFunction::NyFunction(uint8_t n_params,
-                       bool vargs,
-                       uint32_t n_upvals,
-                       NyScript *script,
-                       NyaaCore *N)
-    : n_params_(n_params)
-    , vargs_(vargs)
-    , n_upvals_(n_upvals)
-    , script_(script) {
-    N->BarrierWr(this, &script_, script);
-    ::memset(upvals_, 0, n_upvals * sizeof(Object *));
-}
-    
-void NyFunction::Bind(int i, Object *upval, NyaaCore *N) {
-    DCHECK_GE(i, 0);
-    DCHECK_LT(i, n_upvals_);
-    N->BarrierWr(this, upvals_ + i, upval);
-    upvals_[i] = upval;
-}
-    
-int NyFunction::Call(Arguments *args, NyaaCore *N) { return N->curr_thd()->Run(this, args, -1); }
-    
-int NyScript::Run(NyaaCore *N) { return N->curr_thd()->Run(this, 0); }
     
 int NyDelegated::Call(Arguments *args, NyaaCore *N) {
     switch (kind()) {
@@ -833,6 +778,85 @@ int NyDelegated::Call(Arguments *args, NyaaCore *N) {
     return -1;
 }
     
+NyFunction::NyFunction(NyString *name, uint8_t n_params, bool vargs, uint32_t n_upvals,
+                       uint32_t max_stack, NyString *file_name, NyInt32Array *file_info,
+                       NyByteArray *bcbuf, NyArray *proto_pool, NyArray *const_pool, NyaaCore *N)
+    : name_(name)
+    , n_params_(n_params)
+    , vargs_(vargs)
+    , n_upvals_(n_upvals)
+    , max_stack_(max_stack)
+    , file_name_(file_name)
+    , file_info_(file_info)
+    , bcbuf_(bcbuf)
+    , proto_pool_(proto_pool)
+    , const_pool_(const_pool) {
+    N->BarrierWr(this, &name_, name);
+    N->BarrierWr(this, &file_name_, file_name);
+    N->BarrierWr(this, &file_info_, file_info);
+    N->BarrierWr(this, &bcbuf_, bcbuf);
+    N->BarrierWr(this, &proto_pool_, proto_pool);
+    N->BarrierWr(this, &const_pool_, const_pool);
+    ::memset(upvals_, 0, n_upvals * sizeof(upvals_[0]));
+}
+    
+void NyFunction::SetUpval(size_t i, NyString *name, int32_t in_stack, int32_t in_upval,
+                          NyaaCore *N) {
+    DCHECK_LT(i, n_upvals_);
+    N->BarrierWr(this, &upvals_[i].name, name);
+    upvals_[i].name = name;
+    upvals_[i].in_stack = in_stack;
+    upvals_[i].in_upval = in_upval;
+}
+
+void NyFunction::Iterate(ObjectVisitor *visitor) {
+    visitor->VisitPointer(this, reinterpret_cast<Object **>(&name_));
+    visitor->VisitPointer(this, reinterpret_cast<Object **>(&bcbuf_));
+    visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_name_));
+    visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_info_));
+    visitor->VisitPointer(this, reinterpret_cast<Object **>(&const_pool_));
+    for (uint32_t i = 0; i < n_upvals_; ++i) {
+        visitor->VisitPointer(this, reinterpret_cast<Object **>(&upvals_[i].name));
+    }
+}
+    
+/*static*/ Handle<NyFunction> NyFunction::Compile(const char *z, size_t n, NyaaCore *N) {
+    base::StandaloneArena arena(N->isolate()->env()->GetLowLevelAllocator());
+    Parser::Result result = Parser::Parse(z, n, &arena);
+    if (result.error) {
+        N->Raisef("[%d:%d] %s", result.error_line, result.error_column, result.error->data());
+        return Handle<NyFunction>();
+    }
+    return CodeGen::Generate(N->factory()->NewString(":memory:"), result.block, N);
+}
+    
+
+    
+NyClosure::NyClosure(NyFunction *proto, NyaaCore *N)
+    : proto_(DCHECK_NOTNULL(proto)) {
+    N->BarrierWr(this, &proto_, proto);
+    ::memset(upvals_, 0, proto_->n_upvals() * sizeof(upvals_[0]));
+}
+
+void NyClosure::Bind(int i, Object *upval, NyaaCore *N) {
+    DCHECK_GE(i, 0);
+    DCHECK_LT(i, proto_->n_upvals());
+    N->BarrierWr(this, upvals_ + i, upval);
+    upvals_[i] = upval;
+}
+
+int NyClosure::Call(Arguments *args, int nrets, NyaaCore *N) {
+    return N->curr_thd()->Run(this, args, nrets);
+}
+
+/*static*/ Handle<NyClosure> NyClosure::Do(const char *z, size_t n, NyaaCore *N) {
+    Handle<NyFunction> script = NyFunction::Compile(z, n, N);
+    if (script.is_valid()) {
+        return N->factory()->NewClosure(*script);
+    }
+    return Handle<NyClosure>();
+}
+
 void NyUDO::SetFinalizer(Finalizer fp, NyaaCore *N) {
     uintptr_t word = reinterpret_cast<uintptr_t>(fp);
     DCHECK_EQ(0, word % 2);
@@ -857,7 +881,7 @@ DEFINE_TYPE_CHECK(Table, "table")
 DEFINE_TYPE_CHECK(ByteArray, "array[byte]")
 DEFINE_TYPE_CHECK(Int32Array, "array[int32]")
 DEFINE_TYPE_CHECK(Array, "array")
-DEFINE_TYPE_CHECK(Script, "script")
+DEFINE_TYPE_CHECK(Closure, "closure")
 DEFINE_TYPE_CHECK(Function, "function")
 DEFINE_TYPE_CHECK(Thread, "thread")
 

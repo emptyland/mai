@@ -456,8 +456,8 @@ inline BlockScope::~BlockScope() {
     owns_->owns_->blk_scope_ = prev_;
 }
     
-/*static*/ Handle<NyScript> CodeGen::Generate(Handle<NyString> file_name, ast::Block *root,
-                                              NyaaCore *core) {
+/*static*/ Handle<NyFunction> CodeGen::Generate(Handle<NyString> file_name, ast::Block *root,
+                                                NyaaCore *core) {
     HandleScope handle_scope(core->isolate());
 
     CodeGeneratorVisitor visitor(core);
@@ -468,7 +468,17 @@ inline BlockScope::~BlockScope() {
     Handle<NyInt32Array> info;
     std::tie(bcbuf, info) = scope.builder()->Build(core);
     Handle<NyArray> kpool = scope.kpool()->Build(core);
-    return core->factory()->NewScript(scope.max_stack(), *file_name, *info, *bcbuf, *kpool);
+
+    return core->factory()->NewFunction(nullptr/*name*/,
+                                        0/*nparams*/,
+                                        false/*vargs*/,
+                                        0/*n_upvals*/,
+                                        scope.max_stack(),
+                                        *file_name,
+                                        *info,
+                                        *bcbuf,
+                                        nullptr/*proto_pool*/,
+                                        *kpool);
 }
     
 } // namespace nyaa

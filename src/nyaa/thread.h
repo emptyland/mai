@@ -11,7 +11,6 @@ namespace nyaa {
     
 class TryCatch;
 class NyaaCore;
-class NyScript;
 class NyRunnable;
 class NyByteArray;
 class RootVisitor;
@@ -70,6 +69,12 @@ public:
     ~TryCatchCore();
     
     void Catch(NyString *message, Object *exception, NyArray *stack_trace);
+    void Reset() {
+        has_caught_  = false;
+        message_     = nullptr;
+        exception_   = nullptr;
+        stack_trace_ = nullptr;
+    }
     
     DEF_VAL_GETTER(bool, has_caught);
     DEF_PTR_GETTER(NyString, message);
@@ -114,9 +119,7 @@ public:
         return stack_tp_ - stack_;
     }
 
-    int Run(NyScript *entry, int n_result, NyMap *env = nullptr);
-    
-    int Run(NyFunction *fn, Arguments *args, int n_result, NyMap *env = nullptr);
+    int Run(NyClosure *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
     
     int Resume(Arguments *args, NyThread *save, NyMap *env = nullptr);
     

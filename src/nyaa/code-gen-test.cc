@@ -43,7 +43,7 @@ TEST_F(NyaaCodeGenTest, Sanity) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyScript> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
     
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
@@ -68,7 +68,7 @@ TEST_F(NyaaCodeGenTest, VarInitializer) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyScript> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
 
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
@@ -93,7 +93,7 @@ TEST_F(NyaaCodeGenTest, VarInitializerCalling) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyScript> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
     
     static const char z[] = {
         "[000] LoadGlobal 0 0 \n"
@@ -118,7 +118,7 @@ TEST_F(NyaaCodeGenTest, ReturnCallingInCall) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyScript> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
     
     static const char z[] = {
         "[000] LoadGlobal 0 0 ; line: 0\n"
@@ -145,7 +145,7 @@ TEST_F(NyaaCodeGenTest, ReturnExpression) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyScript> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
     
     static const char z[] = {
         "[000] LoadNil 0 2 \n"
@@ -173,7 +173,7 @@ TEST_F(NyaaCodeGenTest, CallExpression) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyScript> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
     
     static const char z[] = {
         "[000] LoadGlobal 0 0 \n"
@@ -208,9 +208,9 @@ TEST_F(NyaaCodeGenTest, Compile) {
     };
     
     HandleScope handle_scope(isolate_);
-    Handle<NyScript> script(NyScript::Compile(s, core_));
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
-    ASSERT_EQ(4, script->max_stack_size());
+    ASSERT_EQ(4, script->max_stack());
     
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 1024);
@@ -233,9 +233,9 @@ TEST_F(NyaaCodeGenTest, MutilReceive) {
     };
     
     HandleScope handle_scope(isolate_);
-    Handle<NyScript> script(NyScript::Compile(s, core_));
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
-    ASSERT_EQ(6, script->max_stack_size());
+    ASSERT_EQ(6, script->max_stack());
     
     std::string buf;    
     BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 1024);
@@ -253,9 +253,9 @@ TEST_F(NyaaCodeGenTest, CallRaise) {
     };
     
     HandleScope handle_scope(isolate_);
-    Handle<NyScript> script(NyScript::Compile(s, core_));
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
-    ASSERT_EQ(2, script->max_stack_size());
+    ASSERT_EQ(2, script->max_stack());
     
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 1024);

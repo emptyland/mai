@@ -36,12 +36,10 @@ void CallFrame::Exit(NyThread *owns) {
 }
     
 std::tuple<NyString *, NyInt32Array *> CallFrame::FileInfo() const {
-    if (NyScript *ob = callee_->ToScript()) {
-        return { ob->file_name(), ob->file_info() };
-    } else if (NyFunction *ob = callee_->ToFunction()) {
-        return { ob->script()->file_name(), ob->script()->file_info() };
+    if (NyClosure *ob = callee_->ToClosure()) {
+        return { ob->proto()->file_name(), ob->proto()->file_info() };
     } else {
-        return {nullptr, nullptr};
+        return { nullptr, nullptr };
     }
 }
 
@@ -184,36 +182,19 @@ void NyThread::Set(int i, Object *value) {
     }
 }
     
-int NyThread::Run(NyScript *entry, int n_result, NyMap *env) {
-    if (!env) {
-        env = owns_->g();
-    }
-
-    CallFrame frame;
-    frame.Enter(this, entry, entry->bcbuf(), entry->const_pool(),
-                n_result, /* wanted */
-                stack_tp_, /* frame_bp */
-                stack_tp_ + entry->max_stack_size() /* frame_tp */,
-                env);
-    Push(entry);
-    int rv = Run();
-    frame.Exit(this);
-    return rv;
-}
-    
-int NyThread::Run(NyFunction *fn, Arguments *args, int n_result, NyMap *env) {
+int NyThread::Run(NyClosure *fn, Arguments *args, int n_result, NyMap *env) {
     if (!env) {
         env = owns_->g();
     }
     
     CallFrame frame;
-    frame.Enter(this, fn, fn->script()->bcbuf(), fn->script()->const_pool(),
+    frame.Enter(this, fn, fn->proto()->bcbuf(), fn->proto()->const_pool(),
                 n_result, /* wanted */
                 stack_tp_, /* frame_bp */
-                stack_tp_ + fn->script()->max_stack_size() /* frame_tp */,
+                stack_tp_ + fn->proto()->max_stack() /* frame_tp */,
                 env);
     Push(fn);
-    CopyArgs(args, static_cast<int>(args->Length()), fn->vargs());
+    CopyArgs(args, static_cast<int>(args->Length()), fn->proto()->vargs());
     int rv = Run();
     frame.Exit(this);
     return rv;
@@ -256,11 +237,8 @@ int NyThread::Resume(Arguments *args, NyThread *save, NyMap *env) {
     save_ = DCHECK_NOTNULL(save);
 
     if (stack_tp_ == stack_) { // has not run yet.
-        if (NyFunction *callee = DCHECK_NOTNULL(entry_)->ToFunction()) {
-            return Run(callee, args, 0, env);
-        }
-        if (NyScript *callee = DCHECK_NOTNULL(entry_)->ToScript()) {
-            return Run(callee, 0, env);
+        if (NyClosure *callee = DCHECK_NOTNULL(entry_)->ToClosure()) {
+            return Run(callee, args, 0);
         }
         if (NyDelegated *callee = entry_->ToDelegated()) {
             HandleScope scope(owns_->isolate());
@@ -301,10 +279,11 @@ void NyThread::IterateRoot(RootVisitor *visitor) {
  *  +--------+--------+--------+--------+--------+---------+
  */
 int NyThread::Run() {
-    if (has_raised_) {
-        return -1;
+    has_raised_ = false;
+    if (catch_point_) {
+        catch_point_->Reset();
     }
-    
+
     state_ = kRunning;
     while (frame_->pc() < frame_->bcbuf()->size()) {
         if (has_raised_) {
@@ -438,28 +417,23 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
 
     NyObject *ob = static_cast<NyObject *>(*base);
     switch (ob->GetMetatable()->kid()) {
-        case kTypeFunction: {
-            NyFunction *callee = ob->ToFunction();
+        case kTypeClosure: {
+            NyClosure *callee = ob->ToClosure();
             if (n_args < 0) {
                 n_args = static_cast<int32_t>(stack_tp_ - base - 1);
             }
 
             CallFrame frame;
             frame.Enter(this, callee,
-                        callee->script()->bcbuf(),
-                        callee->script()->const_pool(),
+                        callee->proto()->bcbuf(),
+                        callee->proto()->const_pool(),
                         wanted,
                         base, /*frame_bp*/
-                        base + 1 + callee->script()->max_stack_size(), /*frame_tp*/
+                        base + 1 + callee->proto()->max_stack(), /*frame_tp*/
                         frame_->env());
             int rv = Run();
             frame.Exit(this);
             return rv;
-        } break;
-            
-        case kTypeScript: {
-            //NyScript *callee = ob->ToScript();
-            // TODO:
         } break;
 
         case kTypeDelegated: {

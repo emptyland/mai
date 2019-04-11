@@ -44,10 +44,11 @@ public:
         bcbuf->Add(0, core_); // ret offset+0, 4
         bcbuf->Add(4, core_);
         
-        Handle<NyScript> script(factory_->NewScript(4, nullptr, nullptr, *bcbuf, nullptr));
-        Handle<NyFunction> fn(factory_->NewFunction(0, false, *script));
-        
-        core_->SetGlobal(factory_->NewString(name), *fn);
+        Handle<NyFunction> fn =
+        factory_->NewFunction(nullptr/*name*/, 0/*n_params*/, false/*vargs*/, 0/*n_upvals*/,
+                              4/*max_stack*/, nullptr/*file_name*/, nullptr/*file_info*/, *bcbuf,
+                              nullptr/*proto_pool*/, nullptr/*const_pool*/);
+        core_->SetGlobal(factory_->NewString(name), factory_->NewClosure(*fn));
         return fn;
     }
 
@@ -69,10 +70,11 @@ public:
         bcbuf->Add(0, core_); // ret offset+0, -1
         bcbuf->Add(-1, core_);
         
-        Handle<NyScript> script(factory_->NewScript(2, nullptr, nullptr, *bcbuf, *pool));
-        Handle<NyFunction> fn(factory_->NewFunction(0, false, *script));
-        
-        core_->SetGlobal(factory_->NewString(name), *fn);
+        Handle<NyFunction> fn =
+        factory_->NewFunction(nullptr/*name*/, 0/*n_params*/, false/*vargs*/, 0/*n_upvals*/,
+                              4/*max_stack*/, nullptr/*file_name*/, nullptr/*file_info*/, *bcbuf,
+                              nullptr/*proto_pool*/, *pool/*const_pool*/);
+        core_->SetGlobal(factory_->NewString(name), factory_->NewClosure(*fn));
         return fn;
     }
 
@@ -81,6 +83,14 @@ public:
         Handle<NyDelegated> fn(factory_->NewDelegated(fp, n_upvals));
         core_->SetGlobal(factory_->NewString(name), *fn);
         return fn;
+    }
+    
+    Handle<NyClosure> NewClosure(Handle<NyByteArray> bcbuf, Handle<NyArray> kpool) {
+        Handle<NyFunction> fn =
+        factory_->NewFunction(nullptr/*name*/, 0/*n_params*/, false/*vargs*/, 0/*n_upvals*/,
+                              4/*max_stack*/, nullptr/*file_name*/, nullptr/*file_info*/, *bcbuf,
+                              nullptr/*proto_pool*/, *kpool/*const_pool*/);
+        return factory_->NewClosure(*fn);
     }
     
     Nyaa *N_ = nullptr;
@@ -101,10 +111,10 @@ TEST_F(NyaaThreadTest, Sanity) {
     bcbuf->Add(0, core_); // ret offset+0
     bcbuf->Add(1, core_);
     
-    Handle<NyScript> script(core_->factory()->NewScript(1, nullptr, nullptr, *bcbuf, nullptr));
-    
-    auto thd = N_->core()->main_thd();
-    auto rv = thd->Run(*script, 1);
+    Handle<NyClosure> script = NewClosure(bcbuf, Handle<NyArray>::Null());
+    Arguments args(0);
+    auto thd = N_->core()->curr_thd();
+    auto rv = thd->Run(*script, &args);
     ASSERT_EQ(1, rv);
 }
     
@@ -141,9 +151,10 @@ TEST_F(NyaaThreadTest, Calling) {
     bcbuf->Add(0, core_);
     bcbuf->Add(-1, core_);
 
-    Handle<NyScript> script(core_->factory()->NewScript(3, nullptr, nullptr, *bcbuf, *pool));
-    auto thd = N_->core()->main_thd();
-    auto rv = thd->Run(*script, -1);
+    Handle<NyClosure> script = NewClosure(bcbuf, pool);
+    Arguments args(0);
+    auto thd = N_->core()->curr_thd();
+    auto rv = thd->Run(*script, &args, -1);
     ASSERT_EQ(3, rv);
     ASSERT_EQ(3, thd->frame_size());
     
@@ -173,9 +184,10 @@ TEST_F(NyaaThreadTest, Return) {
     bcbuf->Add(0, core_);
     bcbuf->Add(3, core_);
     
-    Handle<NyScript> script(core_->factory()->NewScript(3, nullptr, nullptr, *bcbuf, nullptr));
+    Handle<NyClosure> script = NewClosure(bcbuf, Handle<NyArray>::Null());
+    Arguments args(0);
     auto thd = N_->core()->main_thd();
-    auto rv = thd->Run(*script, 3);
+    auto rv = thd->Run(*script, &args, 3);
     ASSERT_EQ(3, rv);
     ASSERT_EQ(3, thd->frame_size());
     
@@ -208,9 +220,10 @@ TEST_F(NyaaThreadTest, CallVarResults) {
     bcbuf->Add(0, core_);
     bcbuf->Add(-1, core_);
     
-    Handle<NyScript> script(core_->factory()->NewScript(2, nullptr, nullptr, *bcbuf, *pool));
-    auto thd = N_->core()->main_thd();
-    auto rv = thd->Run(*script, 3);
+    Handle<NyClosure> script = NewClosure(bcbuf, pool);
+    Arguments args(0);
+    auto thd = N_->core()->curr_thd();
+    auto rv = thd->Run(*script, &args, 3);
     ASSERT_EQ(4, rv);
     ASSERT_EQ(3, thd->frame_size());
 }
@@ -255,9 +268,10 @@ TEST_F(NyaaThreadTest, CallVarArgs) {
     bcbuf->Add(-1, core_);
     bcbuf->Add(0, core_);
     
-    Handle<NyScript> script(core_->factory()->NewScript(2, nullptr, nullptr, *bcbuf, *pool));
+    Handle<NyClosure> script = NewClosure(bcbuf, pool);
+    Arguments args(0);
     auto thd = N_->core()->main_thd();
-    auto rv = thd->Run(*script, 0);
+    auto rv = thd->Run(*script, &args, 0);
     ASSERT_EQ(0, rv);
     ASSERT_EQ(0, thd->frame_size());
     
@@ -278,10 +292,12 @@ TEST_F(NyaaThreadTest, Raise) {
     HandleScope scope(isolate_);
     
     TryCatchCore try_catch(core_);
-    Handle<NyScript> script = NyScript::Compile(s, core_);
+    auto script = NyClosure::Do(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
-    auto rv = script->Run(core_);
+    Arguments args(0);
+    auto rv = script->Call(&args, 0, core_);
     ASSERT_GT(0, rv);
+    ASSERT_TRUE(try_catch.has_caught());
     ASSERT_STREQ("error!", try_catch.message()->bytes());
 }
 

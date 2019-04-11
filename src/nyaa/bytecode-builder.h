@@ -20,7 +20,7 @@ class ObjectFactory;
 class NyArray;
 class NyByteArray;
 class NyInt32Array;
-class NyScript;
+class NyFunction;
 class Object;
     
 class BytecodeArrayBuilder {
@@ -169,10 +169,10 @@ public:
     
     void Disassembly();
     
-    static void Disassembly(NyaaCore *core, Handle<NyScript> script, std::string *buf,
+    static void Disassembly(NyaaCore *core, Handle<NyFunction> script, std::string *buf,
                             size_t limit);
 
-    static void Disassembly(NyaaCore *core, Handle<NyScript> script, FILE *fp);
+    static void Disassembly(NyaaCore *core, Handle<NyFunction> script, FILE *fp);
 
     static void Disassembly(Handle<NyByteArray> bcs, Handle<NyInt32Array> info, std::string *buf,
                             size_t limit);
