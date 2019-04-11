@@ -37,6 +37,8 @@ public:
     DEF_VAL_GETTER(size_t, stack_bp);
     DEF_VAL_GETTER(size_t, stack_tp);
     
+    std::tuple<NyString *, NyInt32Array *> FileInfo() const;
+    
     void AddPC(int delta) {
         DCHECK_GE(pc_ + delta, 0);
         DCHECK_LE(pc_ + delta, bcbuf_->size());
@@ -60,6 +62,33 @@ private:
     size_t stack_bp_ = 0;
     size_t stack_tp_ = 0;
     int wanted_ = 0; // return wanted results.
+};
+    
+class TryCatchCore {
+public:
+    TryCatchCore(NyaaCore *core);
+    ~TryCatchCore();
+    
+    void Catch(NyString *message, Object *exception, NyArray *stack_trace);
+    
+    DEF_VAL_GETTER(bool, has_caught);
+    DEF_PTR_GETTER(NyString, message);
+    DEF_PTR_GETTER(Object, exception);
+    DEF_PTR_GETTER(NyArray, stack_trace);
+    DEF_PTR_GETTER(TryCatchCore, prev);
+    
+    void IterateRoot(RootVisitor *visitor);
+    
+    //friend class TryCatch;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(TryCatchCore);
+private:
+    NyaaCore *const core_;
+    NyThread *thrd_; // [strong ref]
+    bool has_caught_ = false;
+    TryCatchCore *prev_;
+    NyString *message_ = nullptr; // [strong ref]
+    Object *exception_ = nullptr; // [strong ref]
+    NyArray *stack_trace_ = nullptr; // [strong ref]
 };
     
 class NyThread : public NyUDO {
@@ -92,6 +121,12 @@ public:
     int Resume(Arguments *args, NyThread *save, NyMap *env = nullptr);
     
     //int Yield(Arguments *args);
+    
+    void Raisef(const char *fmt, ...);
+    
+    void Vraisef(const char *fmt, va_list ap);
+    
+    void Raise(NyString *msg, Object *ex);
 
     void Push(Object *value, size_t n = 1);
     
@@ -113,7 +148,7 @@ public:
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
     friend class NyaaCore;
-    
+    friend class TryCatchCore;
     friend class CallFrame;
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyThread);
 private:
@@ -131,7 +166,7 @@ private:
     int ParseBytecodeInt32Params(int offset, int scale, int n, ...);
     
     NyaaCore *const owns_;
-    TryCatch *catch_point_ = nullptr;
+    TryCatchCore *catch_point_ = nullptr; // elements [strong ref]
     State state_ = kSuspended;
     Object **stack_ = nullptr; // [strong ref]
     Object **stack_tp_ = nullptr;

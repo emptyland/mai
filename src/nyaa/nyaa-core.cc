@@ -126,24 +126,21 @@ void NyaaCore::SetGlobal(NyString *name, Object *value) { g_->RawPut(name, value
 void NyaaCore::Raisef(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    Vraisef(fmt, ap);
+    curr_thd_->Vraisef(fmt, ap);
     va_end(ap);
 }
-    
+
 void NyaaCore::Vraisef(const char *fmt, va_list ap) {
-    main_thd_->has_raised_ = true;
-    std::string msg(base::Vsprintf(fmt, ap));
-    // TODO:
-    DLOG(FATAL) << msg;
+    curr_thd_->Vraisef(fmt, ap);
 }
-    
+
 bool NyaaCore::Raised() const {
-    return main_thd_->has_raised_;
+    return curr_thd_->has_raised_;
     // TODO:
 }
     
 void NyaaCore::Unraise() {
-    main_thd_->has_raised_ = false;
+    curr_thd_->has_raised_ = false;
     // TODO:
 }
     

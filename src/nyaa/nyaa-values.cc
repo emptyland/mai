@@ -810,7 +810,7 @@ void NyFunction::Bind(int i, Object *upval, NyaaCore *N) {
     
 int NyFunction::Call(Arguments *args, NyaaCore *N) { return N->curr_thd()->Run(this, args, -1); }
     
-int NyScript::Run(NyaaCore *N) { return N->main_thd()->Run(this, 0); }
+int NyScript::Run(NyaaCore *N) { return N->curr_thd()->Run(this, 0); }
     
 int NyDelegated::Call(Arguments *args, NyaaCore *N) {
     switch (kind()) {

@@ -266,6 +266,24 @@ TEST_F(NyaaThreadTest, CallVarArgs) {
     ASSERT_EQ(3, fn->upval(2)->ToSmi());
     ASSERT_EQ(4, fn->upval(3)->ToSmi());
 }
+    
+TEST_F(NyaaThreadTest, Raise) {
+    static const char s[] = {
+        "print(\"----1-----\")\n"
+        "print(\"----2-----\")\n"
+        "raise(\"error!\")\n"
+        "print(\"----3-----\")\n"
+    };
+    
+    HandleScope scope(isolate_);
+    
+    TryCatchCore try_catch(core_);
+    Handle<NyScript> script = NyScript::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
+    auto rv = script->Run(core_);
+    ASSERT_GT(0, rv);
+    ASSERT_STREQ("error!", try_catch.message()->bytes());
+}
 
 #if 0
     

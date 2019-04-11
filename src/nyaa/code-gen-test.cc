@@ -241,6 +241,27 @@ TEST_F(NyaaCodeGenTest, MutilReceive) {
     BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 1024);
     ASSERT_EQ(z, buf);
 }
+    
+TEST_F(NyaaCodeGenTest, CallRaise) {
+    static const char s[] = {
+        "raise(\"error!\")"
+    };
+    static const char z[] = {
+        "[000] LoadGlobal 0 0 ; line: 1\n"
+        "[003] LoadConst 1 1 ; line: 1\n"
+        "[006] Call 0 1 0 ; line: 1\n"
+    };
+    
+    HandleScope handle_scope(isolate_);
+    Handle<NyScript> script(NyScript::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    ASSERT_EQ(2, script->max_stack_size());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 1024);
+    //puts(buf.c_str());
+    ASSERT_EQ(z, buf);
+}
 
 } // namespace nyaa
     

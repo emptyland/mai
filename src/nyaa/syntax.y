@@ -100,6 +100,9 @@ Statement : RETURN ExpressionList {
 | Assignment {
     $$ = $1;
 }
+| Expression {
+    $$ = $1;
+}
 
 VarDeclaration : VAR NameList '=' ExpressionList {
     $$ = ctx->factory->NewVarDeclaration($2, $4, Location::Concat(@1, @4));

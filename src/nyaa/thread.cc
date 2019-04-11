@@ -34,12 +34,49 @@ void CallFrame::Exit(NyThread *owns) {
     DCHECK_EQ(this, owns->frame_);
     owns->frame_ = prev_;
 }
+    
+std::tuple<NyString *, NyInt32Array *> CallFrame::FileInfo() const {
+    if (NyScript *ob = callee_->ToScript()) {
+        return { ob->file_name(), ob->file_info() };
+    } else if (NyFunction *ob = callee_->ToFunction()) {
+        return { ob->script()->file_name(), ob->script()->file_info() };
+    } else {
+        return {nullptr, nullptr};
+    }
+}
 
 void CallFrame::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&callee_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&bcbuf_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&const_poll_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&env_));
+}
+    
+    
+TryCatchCore::TryCatchCore(NyaaCore *core)
+    : core_(DCHECK_NOTNULL(core))
+    , thrd_(DCHECK_NOTNULL(core_->curr_thd())) {
+    prev_ = thrd_->catch_point_;
+    thrd_->catch_point_ = this;
+}
+
+TryCatchCore::~TryCatchCore() {
+    DCHECK_EQ(thrd_->catch_point_, this);
+    thrd_->catch_point_ = prev_;
+}
+    
+void TryCatchCore::Catch(NyString *message, Object *exception, NyArray *stack_trace) {
+    has_caught_ = true;
+    message_ = message;
+    exception_ = exception;
+    stack_trace_ = stack_trace;
+}
+
+void TryCatchCore::IterateRoot(RootVisitor *visitor) {
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&thrd_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&message_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&exception_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&stack_trace_));
 }
 
     
@@ -65,7 +102,56 @@ Error NyThread::Init() {
 
     return Error::OK();
 }
+
+void NyThread::Raisef(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    Vraisef(fmt, ap);
+    va_end(ap);
+}
+
+void NyThread::Vraisef(const char *fmt, va_list ap) {
+    has_raised_ = true;
+    NyString *msg = owns_->factory()->Vsprintf(fmt, ap);
+    Raise(msg, nullptr);
+}
     
+void NyThread::Raise(NyString *msg, Object *ex) {
+    has_raised_ = true;
+    
+    std::vector<NyString *> stack_trace;
+    CallFrame *x = frame_;
+    while (x) {
+        NyInt32Array *file_info;
+        NyString *file_name;
+        std::tie(file_name, file_info) = x->FileInfo();
+        
+        NyString *line = nullptr;
+        if (file_info) {
+            line = owns_->factory()->Sprintf("%s:%d", !file_name ? "unknown" : file_name->bytes(),
+                                             file_info->Get(x->pc()));
+        } else {
+            line = owns_->factory()->Sprintf("%s:[%p]", !file_name ? "" : file_name->bytes(),
+                                             x->callee());
+        }
+        stack_trace.push_back(line);
+        x = x->prev();
+    }
+    
+    if (catch_point_) {
+        NyArray *bt = nullptr;
+        if (!stack_trace.empty()) {
+            bt = owns_->factory()->NewArray(stack_trace.size());
+            for (auto line : stack_trace) {
+                bt = bt->Add(line, owns_);
+            }
+        }
+        catch_point_->Catch(msg, ex, bt);
+    } else {
+        DLOG(FATAL) << msg;
+    }
+}
+
 void NyThread::Push(Object *value, size_t n) {
     if (stack_tp_ + n >= stack_last_) {
         // TODO:
@@ -201,6 +287,11 @@ void NyThread::IterateRoot(RootVisitor *visitor) {
         f->IterateRoot(visitor);
         f = f->prev_;
     }
+    TryCatchCore *c = catch_point_;
+    while (c) {
+        c->IterateRoot(visitor);
+        c = c->prev();
+    }
 }
     
 
@@ -275,6 +366,17 @@ int NyThread::Run() {
                 Set(ra, frame_->env()->RawGet(key, owns_));
                 frame_->AddPC(delta);
             } break;
+                
+            case Bytecode::kLoadConst: {
+                int32_t ra, rb;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &rb)) < 0) {
+                    return -1;
+                }
+                Object *k = frame_->const_poll()->Get(rb);
+                Set(ra, k);
+                frame_->AddPC(delta);
+            } break;
 
             case Bytecode::kRet: {
                 int32_t ra, n;
@@ -293,6 +395,7 @@ int NyThread::Run() {
             } break;
                 
             case Bytecode::kNew: {
+                // TODO:
             } break;
                 
                 // foo(bar())

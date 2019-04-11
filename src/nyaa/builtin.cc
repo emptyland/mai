@@ -72,6 +72,21 @@ static int BuiltinPrint(Arguments *args, Nyaa *N) {
     return 0;
 }
     
+static int BuiltinRaise(Arguments *args, Nyaa *N) {
+    auto msg = Handle<NyString>::Null();
+    if (args->Length() >= 1) {
+        auto ob = ApiWarpNoCheck<Object>(args->Get(0), N->core());
+        msg = ob->ToString(N->core());
+    }
+    
+    auto ex = Handle<Object>::Null();
+    if (args->Length() >= 2) {
+        ex = ApiWarpNoCheck<Object>(args->Get(1), N->core());
+    }
+    N->core()->curr_thd()->Raise(*msg, *ex);
+    return -1;
+}
+    
 static int DelegatedCall(Arguments *args, Nyaa *N) {
     auto callee = ApiWarp<NyDelegated>(args->Callee(), N->core());
     if (callee.is_empty()) {
@@ -289,6 +304,7 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
 const NyaaNaFnEntry kBuiltinFnEntries[] = {
     {"print", BuiltinPrint},
     {"yield", BuiltinYield},
+    {"raise", BuiltinRaise},
     {nullptr, nullptr},
 };
 

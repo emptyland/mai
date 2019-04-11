@@ -273,27 +273,27 @@ int Raisef(Nyaa *N, const char *fmt, ...) {
 }
 
 TryCatch::TryCatch(Isolate *isolate)
-    : isolate_(isolate) {
-    //isolate_->GetNyaa()->core()->curr_thd()
+    : isolate_(isolate)
+    , catch_point_(new TryCatchCore(isolate->GetNyaa()->core())) {
 }
 
 TryCatch::~TryCatch() {
-    
 }
 
 Handle<Value> TryCatch::Exception() const {
-    // TODO:
-    return Local<Value>();
+    return Handle<Value>(catch_point_->exception());
 }
     
 bool TryCatch::HasCaught() const {
-    // TODO:
-    return false;
+    return catch_point_->has_caught();
 }
 
 Handle<String> TryCatch::Message() const {
-    // TODO:
-    return Local<String>();
+    return Handle<String>(catch_point_->message());
+}
+    
+Handle<Value> TryCatch::StackTrace() const {
+    return Handle<Value>(catch_point_->stack_trace());
 }
 
 } // namespace nyaa
