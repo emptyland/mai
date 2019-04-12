@@ -282,6 +282,7 @@ TEST_F(NyaaCodeGenTest, LambdaLiteral) {
         "[000] LoadUp 1 0 ; line: 2\n"
         "[003] Add 1 0 1 ; line: 2\n"
         "[007] Ret 1 1 ; line: 2\n"
+        "[010] Ret 0 0 ; line: 0\n"
     };
     
     HandleScope handle_scope(isolate_);
@@ -291,6 +292,7 @@ TEST_F(NyaaCodeGenTest, LambdaLiteral) {
     
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
+    //puts(buf.c_str());
     ASSERT_EQ(z, buf);
 }
 

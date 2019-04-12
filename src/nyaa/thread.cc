@@ -186,6 +186,7 @@ int NyThread::Run(NyClosure *fn, Arguments *args, int n_result, NyMap *env) {
     if (!env) {
         env = owns_->g();
     }
+    Push(fn);
     
     CallFrame frame;
     frame.Enter(this, fn, fn->proto()->bcbuf(), fn->proto()->const_pool(),
@@ -193,7 +194,7 @@ int NyThread::Run(NyClosure *fn, Arguments *args, int n_result, NyMap *env) {
                 stack_tp_, /* frame_bp */
                 stack_tp_ + fn->proto()->max_stack() /* frame_tp */,
                 env);
-    Push(fn);
+    //Push(fn);
     CopyArgs(args, static_cast<int>(args->Length()), fn->proto()->vargs());
     int rv = Run();
     frame.Exit(this);
@@ -356,6 +357,51 @@ int NyThread::Run() {
                 Set(ra, k);
                 frame_->AddPC(delta);
             } break;
+                
+            case Bytecode::kLoadUp: {
+                int32_t ra, ub;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &ub)) < 0) {
+                    return -1;
+                }
+                Object *uv = frame_->upval(ub);
+                Set(ra, uv);
+                frame_->AddPC(delta);
+            } break;
+                
+            case Bytecode::kStoreUp: {
+                int32_t ra, ub;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &ub)) < 0) {
+                    return -1;
+                }
+                Object *val = Get(ra);
+                frame_->SetUpval(ub, val, owns_);
+                frame_->AddPC(delta);
+            } break;
+                
+            case Bytecode::kStoreGlobal: {
+                int32_t ra, kb;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &kb)) < 0) {
+                    return -1;
+                }
+                Object *val = Get(ra);
+                Object *idx = frame_->const_poll()->Get(kb);
+                frame_->env()->RawPut(idx, val, owns_);
+                frame_->AddPC(delta);
+            } break;
+                
+            case Bytecode::kMove: {
+                int32_t ra, rb;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &rb)) < 0) {
+                    return -1;
+                }
+                Object *val = Get(rb);
+                Set(ra, val);
+                frame_->AddPC(delta);
+            } break;
 
             case Bytecode::kRet: {
                 int32_t ra, n;
@@ -368,13 +414,30 @@ int NyThread::Run() {
                 } else {
                     stack_tp_ = (frame_bp() + ra) + n;
                 }
-                CopyResult(frame_bp(), n, frame_->wanted());
+                CopyResult(frame_bp() - 1, n, frame_->wanted());
                 frame_->AddPC(delta);
                 return n;
             } break;
                 
             case Bytecode::kNew: {
                 // TODO:
+            } break;
+                
+            case Bytecode::kClosure: {
+                int32_t ra, pb;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &pb)) < 0) {
+                    return -1;
+                }
+                NyFunction *proto = static_cast<NyFunction *>(frame_->proto()->proto_pool()->Get(pb));
+                //printf("proto:%p, %d\n", proto, proto->IsArray());
+                DCHECK(proto->IsObject() && proto->ToHeapObject()->IsFunction());
+                NyClosure *closure = owns_->factory()->NewClosure(proto);
+                for (int i = 0; i < proto->n_upvals(); ++i) {
+                    Bind(i, closure, proto->upval(i));
+                }
+                Set(ra, closure);
+                frame_->AddPC(delta);
             } break;
                 
                 // foo(bar())
@@ -400,7 +463,7 @@ int NyThread::Run() {
             // TODO:
                 
             default:
-                owns_->Raisef("Bad bytecode: %d", id);
+                owns_->Raisef("Bad bytecode: %s(%d)", Bytecode::kNames[id], id);
                 break;
         }
     }
@@ -428,7 +491,7 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
                         callee->proto()->bcbuf(),
                         callee->proto()->const_pool(),
                         wanted,
-                        base, /*frame_bp*/
+                        base + 1, /*frame_bp*/
                         base + 1 + callee->proto()->max_stack(), /*frame_tp*/
                         frame_->env());
             int rv = Run();
@@ -450,12 +513,12 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
                         nullptr, /* bc buf */
                         nullptr, /* const pool */
                         wanted,
-                        base, /*frame_bp*/
+                        base + 1, /*frame_bp*/
                         base + 20, /* frame_tp */
                         frame_->env());
             int rv = callee->Call(&args, owns_);
             if (rv >= 0) {
-                CopyResult(stack_ + frame.stack_bp(), rv, wanted);
+                CopyResult(stack_ + frame.stack_bp() - 1, rv, wanted);
             }
             frame.Exit(this);
             return rv;

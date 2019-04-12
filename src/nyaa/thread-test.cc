@@ -3,6 +3,7 @@
 #include "nyaa/object-factory.h"
 #include "nyaa/nyaa-values.h"
 #include "nyaa/bytecode.h"
+#include "nyaa/bytecode-builder.h"
 #include "test/nyaa-test.h"
 #include "mai-lang/nyaa.h"
 
@@ -267,6 +268,9 @@ TEST_F(NyaaThreadTest, CallVarArgs) {
     bcbuf->Add(0, core_);
     bcbuf->Add(-1, core_);
     bcbuf->Add(0, core_);
+    bcbuf->Add(Bytecode::kRet, core_);
+    bcbuf->Add(0, core_);
+    bcbuf->Add(0, core_);
     
     Handle<NyClosure> script = NewClosure(bcbuf, pool);
     Arguments args(0);
@@ -299,6 +303,25 @@ TEST_F(NyaaThreadTest, Raise) {
     ASSERT_GT(0, rv);
     ASSERT_TRUE(try_catch.has_caught());
     ASSERT_STREQ("error!", try_catch.message()->bytes());
+}
+    
+TEST_F(NyaaThreadTest, FunctionDefinition) {
+    static const char s[] = {
+        "def foo(a) { print(\"params:\", a) }\n"
+        "foo(1)\n"
+        "foo(2)\n"
+    };
+    
+    HandleScope scope(isolate_);
+    
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Do(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    auto rv = script->Call(&args, 0, core_);
+    ASSERT_EQ(0, rv) << try_catch.message()->bytes();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
 }
 
 } // namespace nyaa

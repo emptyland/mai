@@ -50,11 +50,11 @@ public:
         if (protos_.empty()) {
             return Handle<NyArray>::Null();
         }
-        Handle<NyArray> protos = core->factory()->NewArray(protos_.size());
+        Handle<NyArray> pool = core->factory()->NewArray(protos_.size());
         for (auto proto : protos_) {
-            protos->Add(*proto, core);
+            pool->Add(*proto, core);
         }
-        return protos;
+        return pool;
     }
     
     struct UpvalDesc {
@@ -184,14 +184,14 @@ public:
         CodeGeneratorContext rix;
         rix.set_localize(false);
         rix.set_keep_const(true);
-        IVal rval = node->literal()->Accept(this, x);
+        IVal rval = node->literal()->Accept(this, &rix);
         DCHECK_EQ(IVal::kFunction, rval.kind);
         
         Handle<NyFunction> lambda = fun_scope_->protos_[rval.index];
         lambda->SetName(core_->factory()->NewString(node->name()->data(),
                                                     node->name()->size()), core_);
         IVal closure = fun_scope_->NewLocal();
-        builder()->Closure(closure, rval);
+        builder()->Closure(closure, rval, node->line());
         if (node->self()) {
             CodeGeneratorContext lix;
             lix.set_n_result(1);
@@ -202,7 +202,7 @@ public:
             if (fun_scope_->prev_ == nullptr) {
                 // as global variable
                 IVal lval = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
-                builder()->StoreGlobal(lval, closure);
+                builder()->StoreGlobal(closure, lval, node->line());
             } else {
                 // as local variable
                 blk_scope_->PutVariable(node->name(), &closure);
@@ -316,7 +316,7 @@ public:
     }
     
     virtual IVal VisitLambdaLiteral(ast::LambdaLiteral *node, ast::VisitorContext *x) override {
-        HandleScope handle_scope(core_->isolate());
+        //HandleScope handle_scope(core_->isolate());
         Handle<NyFunction> proto;
         {
             FunctionScope fun_scope(this);
@@ -328,6 +328,7 @@ public:
             }
             CodeGeneratorContext bix;
             node->value()->Accept(this, &bix);
+            builder()->Ret(IVal::Local(0), 0);
 
             Handle<NyByteArray> bcbuf;
             Handle<NyInt32Array> info;
@@ -366,16 +367,16 @@ public:
             switch (val.kind) {
                 case IVal::kNone:
                     val = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
-                    builder()->StoreGlobal(val, ctx->rval(), node->line());
+                    builder()->StoreGlobal(ctx->rval(), val, node->line());
                     break;
                 case IVal::kUpval:
-                    builder()->StoreUp(val, ctx->rval(), node->line());
+                    builder()->StoreUp(ctx->rval(), val, node->line());
                     break;
                 default:
                     DCHECK_EQ(IVal::kLocal, val.kind);
                     if (val_scope != fun_scope_) {
                         val = blk_scope_->NewUpval(node->name(), val, val_scope);
-                        builder()->StoreUp(val, ctx->rval(), node->line());
+                        builder()->StoreUp(ctx->rval(), val, node->line());
                     } else {
                         builder()->Move(val, ctx->rval(), node->line());
                     }

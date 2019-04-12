@@ -312,10 +312,14 @@ NyString *NyObject::ToString(NyaaCore *N) {
             return ToInt()->ToString(N);
         case kTypeFloat64:
             return N->factory()->Sprintf("%f", ToFloat64()->value());
+        case kTypeClosure:
+            return N->factory()->Sprintf("closure: %p", this);
+        case kTypeFunction:
+            return N->factory()->Sprintf("function: %p", this);
         default:
             break;
     }
-    DLOG(FATAL) << "Noreached!";
+    DLOG(FATAL) << "Noreached!" << GetMetatable()->kid();
     return nullptr;
 }
     

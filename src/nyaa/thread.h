@@ -38,6 +38,21 @@ public:
     
     std::tuple<NyString *, NyInt32Array *> FileInfo() const;
     
+    NyFunction *proto() const {
+        NyClosure *ob = DCHECK_NOTNULL(callee_->ToClosure());
+        return ob->proto();
+    }
+    
+    Object *upval(int32_t index) const {
+        NyClosure *ob = DCHECK_NOTNULL(callee_->ToClosure());
+        return ob->upval(index);
+    }
+    
+    void SetUpval(int32_t index, Object *value, NyaaCore *core) {
+        NyClosure *ob = DCHECK_NOTNULL(callee_->ToClosure());
+        ob->Bind(index, value, core);
+    }
+    
     void AddPC(int delta) {
         DCHECK_GE(pc_ + delta, 0);
         DCHECK_LE(pc_ + delta, bcbuf_->size());
@@ -167,6 +182,16 @@ private:
     void CopyResult(Object **ret, int n_rets, int wanted);
     
     int ParseBytecodeInt32Params(int offset, int scale, int n, ...);
+    
+    void Bind(int i, NyClosure *closure, const NyFunction::UpvalDesc &desc) {
+        int lv = desc.level;
+        CallFrame *cf = frame_;
+        while (lv--) {
+            DCHECK_NOTNULL(cf);
+            cf = cf->prev_;
+        }
+        closure->Bind(i, stack_[cf->stack_bp() + desc.index], owns_);
+    }
     
     NyaaCore *const owns_;
     TryCatchCore *catch_point_ = nullptr; // elements [strong ref]

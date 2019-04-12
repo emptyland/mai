@@ -71,14 +71,14 @@ public:
     }
     
     void StoreGlobal(IVal a, IVal b, int line = 0) {
-        DCHECK_EQ(IVal::kGlobal, a.kind);
-        DCHECK_EQ(IVal::kLocal, b.kind);
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        DCHECK_EQ(IVal::kGlobal, b.kind);
         Emit(Bytecode::kStoreGlobal, a.index, b.index, line);
     }
     
     void StoreUp(IVal a, IVal b, int line = 0) {
-        DCHECK_EQ(IVal::kUpval, a.kind);
-        DCHECK_EQ(IVal::kLocal, b.kind);
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        DCHECK_EQ(IVal::kUpval, b.kind);
         Emit(Bytecode::kStoreUp, a.index, b.index, line);
     }
     
