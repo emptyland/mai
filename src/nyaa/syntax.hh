@@ -69,14 +69,15 @@ extern int nyaa_yydebug;
     OP_RSHIFT = 267,
     UMINUS = 268,
     RETURN = 269,
-    STRING_LITERAL = 270,
-    SMI_LITERAL = 271,
-    APPROX_LITERAL = 272,
-    INT_LITERAL = 273,
-    TOKEN_ERROR = 274,
-    IN = 275,
-    IS = 276,
-    OP_NOT = 277
+    VARGS = 270,
+    STRING_LITERAL = 271,
+    SMI_LITERAL = 272,
+    APPROX_LITERAL = 273,
+    INT_LITERAL = 274,
+    TOKEN_ERROR = 275,
+    IN = 276,
+    IS = 277,
+    OP_NOT = 278
   };
 #endif
 
@@ -87,7 +88,7 @@ union NYAA_YYSTYPE
 {
 #line 27 "syntax.y" /* yacc.c:1927  */
 
-    ::mai::nyaa::ast::String *name;
+    const ::mai::nyaa::ast::String *name;
     ::mai::nyaa::ast::VarDeclaration::NameList *names;
     ::mai::nyaa::ast::Block *block;
     ::mai::nyaa::ast::Expression *expr;
@@ -96,13 +97,14 @@ union NYAA_YYSTYPE
     ::mai::nyaa::ast::Statement *stmt;
     ::mai::nyaa::ast::Block::StmtList *stmts;
     ::mai::nyaa::ast::Return::ExprList *exprs;
+    bool vargs;
     ::mai::nyaa::Operator::ID op;
     ::mai::nyaa::ast::String *str_val;
     ::mai::nyaa::ast::String *int_val;
     ::mai::nyaa::f64_t f64_val;
     int64_t smi_val;
 
-#line 106 "syntax.hh" /* yacc.c:1927  */
+#line 108 "syntax.hh" /* yacc.c:1927  */
 };
 
 typedef union NYAA_YYSTYPE NYAA_YYSTYPE;

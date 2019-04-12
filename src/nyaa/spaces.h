@@ -276,7 +276,7 @@ public:
         return from_area_->Contains(addr) || to_area_->Contains(addr);
     }
 
-    void Purge(bool reinit) {
+    void Flip(bool reinit) {
         from_area_.swap(to_area_);
         latest_remaining_size_ = from_area_->Purge();
         if (reinit) {

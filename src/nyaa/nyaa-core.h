@@ -70,6 +70,7 @@ public:
     void IterateRoot(RootVisitor *visitor);
     
     HandleScope *current_handle_scope() const { return top_slot_->scope; }
+    HandleScopeSlot *current_handle_scope_slot() const { return top_slot_; }
     
     DEF_PTR_GETTER(Nyaa, stub);
     Heap *heap() const { return heap_.get(); }

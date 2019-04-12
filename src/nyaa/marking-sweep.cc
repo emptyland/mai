@@ -190,7 +190,7 @@ void MarkingSweep::Run() {
         Address begin = to_area->page()->area_base();
         Address end = to_area->free();
         to_area->Iterate(begin, end, &heap_visitor);
-        heap_->new_space_->Purge(false);
+        heap_->new_space_->Flip(false);
     }
 
     // Weak table sweeping:

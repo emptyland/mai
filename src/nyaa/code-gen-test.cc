@@ -33,7 +33,7 @@ public:
 };
 
 TEST_F(NyaaCodeGenTest, Sanity) {
-    auto names = af_.NewList(ast::String::New(&arena_, "a"));
+    auto names = af_.NewList<const ast::String *>(ast::String::New(&arena_, "a"));
     names->push_back(ast::String::New(&arena_, "b"));
     names->push_back(ast::String::New(&arena_, "c"));
     
@@ -55,7 +55,7 @@ TEST_F(NyaaCodeGenTest, Sanity) {
 }
     
 TEST_F(NyaaCodeGenTest, VarInitializer) {
-    auto names = af_.NewList(ast::String::New(&arena_, "a"));
+    auto names = af_.NewList<const ast::String *>(ast::String::New(&arena_, "a"));
     names->push_back(ast::String::New(&arena_, "b"));
     names->push_back(ast::String::New(&arena_, "c"));
     
@@ -82,7 +82,7 @@ TEST_F(NyaaCodeGenTest, VarInitializer) {
 }
 
 TEST_F(NyaaCodeGenTest, VarInitializerCalling) {
-    auto names = af_.NewList(ast::String::New(&arena_, "a"));
+    auto names = af_.NewList<const ast::String *>(ast::String::New(&arena_, "a"));
     names->push_back(ast::String::New(&arena_, "b"));
     names->push_back(ast::String::New(&arena_, "c"));
     
@@ -138,7 +138,7 @@ TEST_F(NyaaCodeGenTest, ReturnExpression) {
     auto lhs = af_.NewBinary(Operator::kMul, af_.NewApproxLiteral(1.2), af_.NewVariable(name_a));
     auto rhs = af_.NewBinary(Operator::kDiv, af_.NewApproxLiteral(1.3), af_.NewVariable(name_b));
     auto expr = af_.NewBinary(Operator::kAdd, lhs, rhs);
-    auto names = af_.NewList(name_a);
+    auto names = af_.NewList<const ast::String *>(name_a);
     names->push_back(name_b);
     auto stmts = af_.NewList<ast::Statement*>(af_.NewVarDeclaration(names, nullptr));
     stmts->push_back(af_.NewReturn(af_.NewList<ast::Expression *>(expr)));
@@ -260,6 +260,37 @@ TEST_F(NyaaCodeGenTest, CallRaise) {
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 1024);
     //puts(buf.c_str());
+    ASSERT_EQ(z, buf);
+}
+    
+TEST_F(NyaaCodeGenTest, LambdaLiteral) {
+    static const char s[] = {
+        "var b = 100\n"
+        "var foo = lambda (a) { return a + b }\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 2, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 1\n"
+        " [0] (-1) 100\n"
+        ".............................\n"
+        "[000] LoadConst 0 0 ; line: 1\n"
+        "[003] Closure 1 0 ; line: 2\n"
+        "-----------------------------\n"
+        "function: [unnamed], params: 1, vargs: 0, max-stack: 2, upvals: 1\n"
+        ".............................\n"
+        "[000] LoadUp 1 0 ; line: 2\n"
+        "[003] Add 1 0 1 ; line: 2\n"
+        "[007] Ret 1 1 ; line: 2\n"
+    };
+    
+    HandleScope handle_scope(isolate_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    ASSERT_EQ(2, script->max_stack());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
     ASSERT_EQ(z, buf);
 }
 

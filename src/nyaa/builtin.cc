@@ -269,7 +269,7 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     kFunction->RawPut(kzs->kInnerType, kzs->kFunction, N);
     
     //----------------------------------------------------------------------------------------------
-    // NyScript
+    // NyClosure
     kClosure = NEW_METATABLE(kTypeClosure);
     kClosure->RawPut(kzs->kInnerType, kzs->kClosure, N);
 

@@ -161,6 +161,7 @@ void NyaaCore::EnterHandleScope(HandleScope *handle_scope) {
 
 void NyaaCore::ExitHandleScope() {
     auto slot = top_slot_;
+    DCHECK(slot->prev || slot->prev->end == slot->base);
     top_slot_ = slot->prev;
     if (slot->prev->limit != slot->limit &&
         (slot->limit - slot->base) % page_alloc_->granularity() == 0) {
@@ -191,6 +192,8 @@ Address NyaaCore::AdvanceHandleSlots(int n_slots) {
     DCHECK_LT(slot->end, slot->limit);
     auto slot_addr = slot->end;
     slot->end += size;
+    
+    //printf("end : %p(%p), alloc: %p\n", slot->end, slot, slot_addr);
     return slot_addr;
 }
     

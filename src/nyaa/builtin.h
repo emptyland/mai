@@ -114,6 +114,7 @@ struct IVal {
         kLocal,
         kGlobal, // index = const_pool_idx
         kConst,
+        kFunction, // index = proto_pool_idx
         kUpval,
         kNone,
     };
@@ -124,7 +125,9 @@ struct IVal {
     
     static IVal None() { return {kNone, -1}; }
     static IVal Local(int32_t idx) { return {kLocal, idx}; }
+    static IVal Upval(int32_t idx) { return {kUpval, idx}; }
     static IVal Const(int32_t idx) { return {kConst, idx}; }
+    static IVal Function(int32_t idx) { return {kFunction, idx}; }
     static IVal Global(int32_t idx) { return {kGlobal, idx}; }
 }; // struct IVal
     

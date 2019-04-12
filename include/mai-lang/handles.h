@@ -28,6 +28,11 @@ public:
     ~HandleScope();
     
     void **NewHandle(void *value);
+    
+    template<class T>
+    inline Handle<T> CloseAndEscape(Handle<T> in_scope);
+    
+    HandleScope *Prev();
 
     static HandleScope *Current();
     
@@ -249,6 +254,12 @@ inline Local<T> Local<T>::New(Isolate *isolate, const Persistent<T> &input) {
     }
     auto h = reinterpret_cast<T**>(HandleScope::Current(isolate)->NewHandle(*input));
     return Local<T>(h);
+}
+    
+template<class T>
+inline Handle<T> HandleScope::CloseAndEscape(Handle<T> in_scope) {
+    T **address = reinterpret_cast<T **>(Prev()->NewHandle(*in_scope));
+    return Handle<T>(address);
 }
 
 } // namespace nyaa

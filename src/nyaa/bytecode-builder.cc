@@ -30,8 +30,14 @@ void BytecodeArrayBuilder::Load(IVal a, IVal b, int line) {
         case IVal::kLocal:
             Emit(Bytecode::kMove, a.index, b.index, line);
             break;
+        case IVal::kUpval:
+            Emit(Bytecode::kLoadUp, a.index, b.index, line);
+            break;
         case IVal::kGlobal:
             Emit(Bytecode::kLoadGlobal, a.index, b.index, line);
+            break;
+        case IVal::kFunction:
+            Emit(Bytecode::kClosure, a.index, b.index, line);
             break;
         case IVal::kConst:
             Emit(Bytecode::kLoadConst, a.index, b.index, line);
@@ -214,9 +220,10 @@ void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyFunction> s
     ::fclose(fp);
 }
     
-/*static*/
-void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyFunction> script, FILE *fp) {
-    fprintf(fp, "script: %p, max-stack: %u\n", *script, script->max_stack());
+static void PrintFunctionDesc(NyaaCore *core, Handle<NyFunction> script, FILE *fp) {
+    fprintf(fp, "function: %s, params: %u, vargs: %d, max-stack: %u, upvals: %u\n",
+            !script->name() ? "[unnamed]" : script->name()->bytes(),
+            script->n_params(), script->vargs(), script->max_stack(), script->n_upvals());
     if (script->file_name()) {
         fprintf(fp, "file name: %s\n", script->file_name()->bytes());
     }
@@ -227,8 +234,23 @@ void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyFunction> s
             fprintf(fp, " [%u] (%d) %s\n", i, -i-1, str->bytes());
         }
     }
-    fprintf(fp, "------------------------------\n");
+}
+    
+/*static*/
+void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyFunction> script, FILE *fp) {
+    PrintFunctionDesc(core, script, fp);
+    fprintf(fp, ".............................\n");
     Disassembly(script->bcbuf(), script->file_info(), fp);
+    
+    if (script->proto_pool()) {
+        for (size_t i = 0; i < script->proto_pool()->size(); ++i) {
+            Handle<NyFunction> proto(script->proto_pool()->Get(i));
+            fprintf(fp, "-----------------------------\n");
+            PrintFunctionDesc(core, proto, fp);
+            fprintf(fp, ".............................\n");
+            Disassembly(proto->bcbuf(), proto->file_info(), fp);
+        }
+    }
 }
     
 /*static*/

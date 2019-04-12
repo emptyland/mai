@@ -112,6 +112,7 @@ return { return RETURN; }
 ">>" { return OP_RSHIFT; }
 "[" { return '['; }
 "]" { return '['; }
+"..." { return VARGS; }
 
 [-=+&~|^/%!()*.,;:{}] { return yytext[0]; }
 

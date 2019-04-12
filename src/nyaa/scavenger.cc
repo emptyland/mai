@@ -172,7 +172,7 @@ Scavenger::Scavenger(NyaaCore *core, Heap *heap)
     size_t total_size = from_area->page()->usable_size();
     heap_->from_semi_area_remain_rate_ = static_cast<float>(from_area->UsageMemory())
                                        / static_cast<float>(total_size);
-    heap_->new_space_->Purge(false);
+    heap_->new_space_->Flip(false);
     time_cost_ = (env->CurrentTimeMicros() - jiffy) / 1000.0;
     collected_bytes_ = heap_->new_space_->Available() - available;
     // TODO:

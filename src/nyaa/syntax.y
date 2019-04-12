@@ -25,7 +25,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %}
 
 %union {
-    ::mai::nyaa::ast::String *name;
+    const ::mai::nyaa::ast::String *name;
     ::mai::nyaa::ast::VarDeclaration::NameList *names;
     ::mai::nyaa::ast::Block *block;
     ::mai::nyaa::ast::Expression *expr;
@@ -34,6 +34,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::nyaa::ast::Statement *stmt;
     ::mai::nyaa::ast::Block::StmtList *stmts;
     ::mai::nyaa::ast::Return::ExprList *exprs;
+    bool vargs;
     ::mai::nyaa::Operator::ID op;
     ::mai::nyaa::ast::String *str_val;
     ::mai::nyaa::ast::String *int_val;
@@ -41,19 +42,20 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     int64_t smi_val;
 }
 
-%token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS RETURN
+%token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS RETURN VARGS
 %token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL
 %token TOKEN_ERROR
 
-%type <block> Script
-%type <stmt> Statement VarDeclaration Assignment
+%type <block> Script Block
+%type <stmt> Statement VarDeclaration FunctionDefinition Assignment
 %type <stmts> StatementList
-%type <expr> Expression Call
+%type <expr> Expression Call LambdaLiteral
 %type <exprs> ExpressionList
 %type <lval> LValue
 %type <lvals> LValList
 %type <name> NAME
 %type <names> NameList
+%type <vargs> ParameterVargs
 %type <str_val> STRING_LITERAL
 %type <smi_val> SMI_LITERAL
 %type <int_val> INT_LITERAL
@@ -81,6 +83,10 @@ Script: StatementList {
     ctx->block = $$;
 }
 
+Block : '{' StatementList '}' {
+    $$ = ctx->factory->NewBlock($2, @2);
+}
+
 StatementList : Statement {
     $$ = ctx->factory->NewList($1);
 }
@@ -97,11 +103,31 @@ Statement : RETURN ExpressionList {
 | VarDeclaration {
     $$ = $1;
 }
+| FunctionDefinition {
+    $$ = $1;
+}
 | Assignment {
     $$ = $1;
 }
 | Expression {
     $$ = $1;
+}
+
+FunctionDefinition : DEF NAME '.' NAME '(' NameList ParameterVargs ')' Block {
+    auto lambda = ctx->factory->NewLambdaLiteral($6, $7, $9, Location::Concat(@5, @9));
+    auto self = ctx->factory->NewVariable($2, @2);
+    $$ =  ctx->factory->NewFunctionDefinition(self, $4, lambda, Location::Concat(@1, @9));
+}
+| DEF NAME '(' NameList ParameterVargs ')' Block {
+    auto lambda = ctx->factory->NewLambdaLiteral($4, $5, $7, Location::Concat(@3, @7));
+    $$ =  ctx->factory->NewFunctionDefinition(nullptr, $2, lambda, Location::Concat(@1, @7));
+}
+
+ParameterVargs : ',' VARGS {
+    $$ =  true;
+}
+| {
+    $$ = false;
 }
 
 VarDeclaration : VAR NameList '=' ExpressionList {
@@ -143,6 +169,9 @@ Expression : LValue {
 | STRING_LITERAL {
     $$ = ctx->factory->NewStringLiteral($1, @1);
 }
+| LambdaLiteral {
+    $$ = $1;
+}
 | Expression COMPARISON Expression {
     $$ = ctx->factory->NewBinary($2, $1, $3, Location::Concat(@1, @3));
 }
@@ -160,6 +189,13 @@ Expression : LValue {
 }
 | '(' Expression ')' {
     $$ = $2;
+}
+
+LambdaLiteral : LAMBDA '(' NameList ParameterVargs ')' Block {
+    $$ = ctx->factory->NewLambdaLiteral($3, $4, $6, Location::Concat(@1, @6));
+}
+| LAMBDA Block {
+    $$ = ctx->factory->NewLambdaLiteral(nullptr, false, $2, Location::Concat(@1, @2));
 }
 
 LValList : LValue {
@@ -190,6 +226,7 @@ Call : Expression '(' ExpressionList ')' {
 | Expression ':' NAME '(' ExpressionList ')' {
     $$ = ctx->factory->NewSelfCall($1, $3, $5, Location::Concat(@1, @6));
 }
+
 
 NameList : NAME {
     $$ = ctx->factory->NewList($1);

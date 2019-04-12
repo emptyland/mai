@@ -208,6 +208,12 @@ void **HandleScope::NewHandle(void *value) {
     *space = value;
     return space;
 }
+    
+HandleScope *HandleScope::Prev() {
+    auto core = isolate_->GetNyaa()->core();
+    auto slot = DCHECK_NOTNULL(core->current_handle_scope_slot());
+    return DCHECK_NOTNULL(slot->prev)->scope;
+}
 
 /*static*/ HandleScope *HandleScope::Current() {
     return Current(Isolate::Current());

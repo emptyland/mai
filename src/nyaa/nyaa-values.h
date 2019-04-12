@@ -600,16 +600,19 @@ public:
     DEF_VAL_GETTER(uint32_t, n_upvals);
     DEF_VAL_GETTER(uint64_t, call_count);
     DEF_VAL_GETTER(uint32_t, max_stack);
+    DEF_PTR_GETTER(NyString, name);
     DEF_PTR_GETTER(NyByteArray, bcbuf);
     DEF_PTR_GETTER(NyString, file_name);
     DEF_PTR_GETTER(NyInt32Array, file_info);
     DEF_PTR_GETTER(NyArray, proto_pool);
     DEF_PTR_GETTER(NyArray, const_pool);
+    
+    void SetName(NyString *name, NyaaCore *N);
 
     struct UpvalDesc {
         NyString *name; // [strong ref]
-        int32_t  in_stack;
-        int32_t  in_upval;
+        int32_t  level;
+        int32_t  index;
     };
 
     const UpvalDesc &upval(size_t i) const {
@@ -617,7 +620,7 @@ public:
         return upvals_[i];
     }
     
-    void SetUpval(size_t i, NyString *name, int32_t in_stack, int32_t in_upval,
+    void SetUpval(size_t i, NyString *name, int32_t level, int32_t index,
                   NyaaCore *N);
     
     static Handle<NyFunction> Compile(const char *z, NyaaCore *N) {

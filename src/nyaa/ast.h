@@ -25,11 +25,13 @@ namespace ast {
     V(ApproxLiteral) \
     V(SmiLiteral) \
     V(IntLiteral) \
+    V(LambdaLiteral) \
     V(Variable) \
     V(Index) \
     V(DotField) \
     V(Call) \
     V(SelfCall) \
+    V(FunctionDefinition) \
     V(Return)
 
 class Factory;
@@ -140,7 +142,7 @@ private:
     
 class VarDeclaration : public Statement {
 public:
-    using NameList = base::ArenaVector<String *>;
+    using NameList = base::ArenaVector<const String *>;
     using ExprList = base::ArenaVector<Expression *>;
     
     DEF_PTR_GETTER_NOTNULL(NameList, names);
@@ -314,6 +316,27 @@ private:
     IntLiteral(int line, const String *value) : Literal<const String *>(line, value) {}
 }; // class SmiLiteral
     
+class LambdaLiteral : public Literal<Block *> {
+public:
+    using ParameterList = base::ArenaVector<const String *>;
+    
+    DEF_VAL_GETTER(int, end_line);
+    DEF_VAL_GETTER(bool, vargs);
+    DEF_PTR_GETTER(ParameterList, params);
+    
+    DEFINE_AST_NODE(LambdaLiteral);
+private:
+    LambdaLiteral(int begin_line, int end_line, ParameterList *params, bool vargs, Block *body)
+        : Literal<Block*>(begin_line, body)
+        , end_line_(end_line)
+        , vargs_(vargs)
+        , params_(params) {}
+    
+    int end_line_;
+    bool vargs_;
+    ParameterList *params_;
+}; // class LambdaLiteral
+    
 class Call : public Expression {
 public:
     using ArgumentList = base::ArenaVector<Expression *>;
@@ -392,6 +415,25 @@ private:
     DotField(int line, Expression *self, const String *index)
         : GenericIndex<const String *>(line, self, index) {}
 }; // class DotField
+
+class FunctionDefinition : public Statement {
+public:
+    DEF_PTR_GETTER(Expression, self);
+    DEF_PTR_GETTER(const String, name);
+    DEF_PTR_GETTER(LambdaLiteral, literal);
+
+    DEFINE_AST_NODE(FunctionDefinition);
+private:
+    FunctionDefinition(int line, Expression *self, const String *name, LambdaLiteral *literal)
+        : Statement(line)
+        , self_(self)
+        , name_(name)
+        , literal_(literal) {}
+
+    Expression *self_; // def foo.name(a,b) { retunr 1 }
+    const String *name_;
+    LambdaLiteral *literal_; // lambda (a,b) { return 1 }
+}; // class FunctionDefinition
     
 inline int Return::GetNRets() const {
     if (!rets_) {
@@ -433,6 +475,12 @@ public:
         return new (arena_) VarDeclaration(loc.begin_line, names, inits);
     }
     
+    FunctionDefinition *NewFunctionDefinition(Expression *self, const String *name,
+                                              LambdaLiteral *literal,
+                                              const Location &loc = Location{}) {
+        return new (arena_) FunctionDefinition(loc.begin_line, self, name, literal);
+    }
+    
     Assignment *NewAssignment(Assignment::LValList *lvals, Assignment::RValList *rvals,
                               const Location &loc = Location{}) {
         return new (arena_) Assignment(loc.begin_line, lvals, rvals);
@@ -452,6 +500,11 @@ public:
 
     IntLiteral *NewIntLiteral(const String *val, const Location &loc = Location{}) {
         return new (arena_) IntLiteral(loc.begin_line, val);
+    }
+
+    LambdaLiteral *NewLambdaLiteral(LambdaLiteral::ParameterList *params, bool vargs,
+                                    Block *body, const Location &loc = Location{}) {
+        return new (arena_) LambdaLiteral(loc.begin_line, loc.end_line, params, vargs, body);
     }
 
     Variable *NewVariable(const String *name, const Location &loc = Location{}) {

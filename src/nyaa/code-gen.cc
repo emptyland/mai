@@ -28,21 +28,53 @@ public:
     
     IVal NewLocal() { return IVal::Local(max_stack_ ++); }
     
+    IVal NewProto(Handle<NyFunction> proto) {
+        int index = static_cast<int32_t>(protos_.size());
+        protos_.push_back(proto);
+        return IVal::Function(index);
+    }
+    
+    IVal NewUpval(const ast::String *name, int level, int reg) {
+        int32_t index = static_cast<int32_t>(upvals_.size());
+        upvals_.push_back({name, level, reg});
+        return IVal::Upval(index);
+    }
+    
     IVal Reserve(int n) {
         IVal base = IVal::Local(max_stack_);
         max_stack_ += n;
         return base;
     }
     
+    Handle<NyArray> BuildProtos(NyaaCore *core) {
+        if (protos_.empty()) {
+            return Handle<NyArray>::Null();
+        }
+        Handle<NyArray> protos = core->factory()->NewArray(protos_.size());
+        for (auto proto : protos_) {
+            protos->Add(*proto, core);
+        }
+        return protos;
+    }
+    
+    struct UpvalDesc {
+        const ast::String *name;
+        int level;
+        int index;
+    };
+    
     friend class CodeGeneratorVisitor;
     friend class BlockScope;
 private:
     FunctionScope *prev_;
+    int level_ = 0;
     BlockScope *top_;
     CodeGeneratorVisitor *const owns_;
     int32_t max_stack_ = 0; // min is 2;
     ConstPoolBuilder kpool_builder_;
     BytecodeArrayBuilder builder_;
+    std::vector<Handle<NyFunction>> protos_;
+    std::vector<UpvalDesc> upvals_;
 }; // class FunctionScope
     
     
@@ -51,30 +83,21 @@ public:
     inline BlockScope(FunctionScope *owns);
     inline ~BlockScope();
     
-    IVal GetOrNewLocal(const ast::String *name) {
-        auto iter = locals_.find(name);
-        if (iter == locals_.end()) {
-            IVal val = owns_->NewLocal();
-            locals_.insert({name, val});
-            prot_regs_.insert(val.index);
-            return val;
-        }
-        return iter->second;
-    }
-    
-    IVal GetVariable(const ast::String *name) {
+    std::tuple<IVal, FunctionScope *> GetVariableNested(const ast::String *name) {
         BlockScope *scope = this;
-        while (scope && scope->owns_ == owns_) {
-            auto iter = scope->locals_.find(name);
-            if (iter != scope->locals_.end()) {
-                return iter->second;
+        while (scope) {
+            auto iter = scope->vars_.find(name);
+            if (iter != scope->vars_.end()) {
+                if (scope->owns_ == owns_ || iter->second.kind != IVal::kUpval) {
+                    return {iter->second, scope->owns_};
+                }
             }
             scope = scope->prev_;
         }
-        return IVal::None();
+        return {IVal::None(), nullptr};
     }
 
-    IVal PutLocal(const ast::String *name, const IVal *val) {
+    IVal PutVariable(const ast::String *name, const IVal *val) {
         IVal rv = IVal::None();
         if (name->size() == 1 && name->data()[0] == '_') {
             return rv; // ignore!
@@ -85,13 +108,22 @@ public:
             rv = owns_->NewLocal();
         }
         DCHECK_LT(rv.index, owns_->max_stack());
-        auto iter = locals_.find(name);
-        if (iter != locals_.end()) {
+        auto iter = vars_.find(name);
+        if (iter != vars_.end()) {
             prot_regs_.erase(iter->second.index);
         }
-        locals_.insert({name, rv});
-        prot_regs_.insert(rv.index);
+        vars_.insert({name, rv});
+        if (rv.kind == IVal::kLocal) {
+            prot_regs_.insert(rv.index);
+        }
         return rv;
+    }
+    
+    IVal NewUpval(const ast::String *name, IVal local, FunctionScope *val_scope) {
+        DCHECK_EQ(IVal::kLocal, local.kind);
+        DCHECK_NE(val_scope, owns_);
+        DCHECK_LT(val_scope->level_, owns_->level_);
+        return owns_->NewUpval(name, val_scope->level_ - owns_->level_, local.index);
     }
     
     bool Protected(IVal val) {
@@ -109,7 +141,7 @@ private:
     
     BlockScope *prev_;
     FunctionScope *const owns_;
-    VariableTable locals_;
+    VariableTable vars_;
     std::set<int32_t> prot_regs_;
 }; // class BlockScope
     
@@ -146,6 +178,39 @@ public:
     
     BytecodeArrayBuilder *builder() { return fun_scope_->builder(); }
     
+    virtual IVal
+    VisitFunctionDefinition(ast::FunctionDefinition *node, ast::VisitorContext *x) override {
+        // TODO: for object or class scope.
+        CodeGeneratorContext rix;
+        rix.set_localize(false);
+        rix.set_keep_const(true);
+        IVal rval = node->literal()->Accept(this, x);
+        DCHECK_EQ(IVal::kFunction, rval.kind);
+        
+        Handle<NyFunction> lambda = fun_scope_->protos_[rval.index];
+        lambda->SetName(core_->factory()->NewString(node->name()->data(),
+                                                    node->name()->size()), core_);
+        IVal closure = fun_scope_->NewLocal();
+        builder()->Closure(closure, rval);
+        if (node->self()) {
+            CodeGeneratorContext lix;
+            lix.set_n_result(1);
+            IVal self = node->self()->Accept(this, &lix);
+            IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
+            builder()->SetField(self, index, closure);
+        } else {
+            if (fun_scope_->prev_ == nullptr) {
+                // as global variable
+                IVal lval = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
+                builder()->StoreGlobal(lval, closure);
+            } else {
+                // as local variable
+                blk_scope_->PutVariable(node->name(), &closure);
+            }
+        }
+        return IVal::None();
+    }
+    
     virtual IVal VisitBlock(ast::Block *node, ast::VisitorContext */*ctx*/) override {
         BlockScope scope(fun_scope_);
         CodeGeneratorContext ctx;
@@ -168,7 +233,7 @@ public:
 
                 DCHECK_EQ(IVal::kLocal, rval.kind);
                 for (size_t i = 0; i < node->names()->size(); ++i) {
-                    blk_scope_->PutLocal(node->names()->at(i), &rval);
+                    blk_scope_->PutVariable(node->names()->at(i), &rval);
                     rval.index++;
                 }
             } else {
@@ -177,9 +242,9 @@ public:
                 for (size_t i = 0; i < node->names()->size(); ++i) {
                     if (i < node->inits()->size()) {
                         IVal rval = node->inits()->at(i)->Accept(this, &rix);
-                        blk_scope_->PutLocal(node->names()->at(i), &rval);
+                        blk_scope_->PutVariable(node->names()->at(i), &rval);
                     } else {
-                        IVal lval = blk_scope_->PutLocal(node->names()->at(i), nullptr);
+                        IVal lval = blk_scope_->PutVariable(node->names()->at(i), nullptr);
                         builder()->LoadNil(lval, 1, node->line());
                     }
                 }
@@ -187,7 +252,7 @@ public:
         } else {
             for (size_t i = 0; i < node->names()->size(); ++i) {
                 const ast::String *name = node->names()->at(i);
-                vars.push_back(blk_scope_->PutLocal(name, nullptr));
+                vars.push_back(blk_scope_->PutVariable(name, nullptr));
             }
             builder()->LoadNil(vars[0], static_cast<int32_t>(vars.size()), node->line());
         }
@@ -225,7 +290,7 @@ public:
     
     virtual IVal VisitStringLiteral(ast::StringLiteral *node, ast::VisitorContext *x) override {
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-        IVal val = IVal::Const(fun_scope_->kpool()->GerOrNewStr(node->value()));
+        IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->value()));
         if (ctx->localize() && !ctx->keep_const()) {
             return Localize(val, node->line());
         }
@@ -234,7 +299,7 @@ public:
     
     virtual IVal VisitApproxLiteral(ast::ApproxLiteral *node, ast::VisitorContext *x) override {
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-        IVal val = IVal::Const(fun_scope_->kpool()->GerOrNewF64(node->value()));
+        IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewF64(node->value()));
         if (ctx->localize() && !ctx->keep_const()) {
             return Localize(val, node->line());
         }
@@ -243,7 +308,48 @@ public:
     
     virtual IVal VisitSmiLiteral(ast::SmiLiteral *node, ast::VisitorContext *x) override {
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-        IVal val = IVal::Const(fun_scope_->kpool()->GerOrNewSmi(node->value()));
+        IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewSmi(node->value()));
+        if (ctx->localize() && !ctx->keep_const()) {
+            return Localize(val, node->line());
+        }
+        return val;
+    }
+    
+    virtual IVal VisitLambdaLiteral(ast::LambdaLiteral *node, ast::VisitorContext *x) override {
+        HandleScope handle_scope(core_->isolate());
+        Handle<NyFunction> proto;
+        {
+            FunctionScope fun_scope(this);
+            BlockScope blk_scope(&fun_scope);
+            if (node->params()) {
+                for (auto param : *node->params()) {
+                     blk_scope.PutVariable(param, nullptr);
+                }
+            }
+            CodeGeneratorContext bix;
+            node->value()->Accept(this, &bix);
+
+            Handle<NyByteArray> bcbuf;
+            Handle<NyInt32Array> info;
+            std::tie(bcbuf, info) = fun_scope.builder()->Build(core_);
+            Handle<NyArray> kpool = fun_scope.kpool()->Build(core_);
+            Handle<NyArray> fpool = fun_scope.BuildProtos(core_);
+            
+            proto = core_->factory()->NewFunction(nullptr/*name*/,
+                                                  node->params()->size()/*nparams*/,
+                                                  node->vargs()/*vargs*/,
+                                                  fun_scope.upvals_.size() /*n_upvals*/,
+                                                  fun_scope.max_stack(),
+                                                  nullptr/*file_name*/,
+                                                  *info, *bcbuf, *fpool, *kpool);
+            size_t i = 0;
+            for (auto upval : fun_scope.upvals_) {
+                NyString *name = core_->factory()->NewString(upval.name->data(), upval.name->size());
+                proto->SetUpval(i++, name, upval.level, upval.index, core_);
+            }
+        }
+        IVal val = fun_scope_->NewProto(proto);
+        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
         if (ctx->localize() && !ctx->keep_const()) {
             return Localize(val, node->line());
         }
@@ -253,19 +359,41 @@ public:
     virtual IVal VisitVariable(ast::Variable *node, ast::VisitorContext *x) override {
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
         
-        IVal val = blk_scope_->GetVariable(node->name());
+        FunctionScope *val_scope;
+        IVal val;
+        std::tie(val, val_scope) = blk_scope_->GetVariableNested(node->name());
         if (ctx->lval()) {
-            if (val.kind == IVal::kNone) {
-                val = IVal::Global(fun_scope_->kpool()->GerOrNewStr(node->name()));
-                builder()->StoreGlobal(val, ctx->rval());
-            } else {
-                DCHECK_EQ(IVal::kLocal, val.kind);
-                builder()->Move(val, ctx->rval());
+            switch (val.kind) {
+                case IVal::kNone:
+                    val = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
+                    builder()->StoreGlobal(val, ctx->rval(), node->line());
+                    break;
+                case IVal::kUpval:
+                    builder()->StoreUp(val, ctx->rval(), node->line());
+                    break;
+                default:
+                    DCHECK_EQ(IVal::kLocal, val.kind);
+                    if (val_scope != fun_scope_) {
+                        val = blk_scope_->NewUpval(node->name(), val, val_scope);
+                        builder()->StoreUp(val, ctx->rval(), node->line());
+                    } else {
+                        builder()->Move(val, ctx->rval(), node->line());
+                    }
+                    break;
             }
             return IVal::None();
         } else {
-            if (val.kind == IVal::kNone) {
-                val = IVal::Global(fun_scope_->kpool()->GerOrNewStr(node->name()));
+            switch (val.kind) {
+                case IVal::kNone:
+                    val = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
+                    break;
+                case IVal::kLocal:
+                    if (val_scope != fun_scope_) {
+                        val = blk_scope_->NewUpval(node->name(), val, val_scope);
+                    }
+                    break;
+                default:
+                    break;
             }
             if (ctx->localize()) {
                 return Localize(val, node->line());
@@ -299,7 +427,7 @@ public:
         CodeGeneratorContext ix;
         ix.set_n_result(1);
         IVal self = node->self()->Accept(this, &ix);
-        IVal index = IVal::Const(fun_scope_->kpool()->GerOrNewStr(node->index()));
+        IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->index()));
         
         if (ctx->lval()) {
             builder()->SetField(self, index, ctx->rval(), node->line());
@@ -396,6 +524,7 @@ private:
             case IVal::kLocal:
                 break;
             case IVal::kUpval:
+            case IVal::kFunction:
             case IVal::kGlobal:
             case IVal::kConst: {
                 IVal ret = fun_scope_->NewLocal();
@@ -435,6 +564,10 @@ inline FunctionScope::FunctionScope(CodeGeneratorVisitor *owns)
     , kpool_builder_(owns->core_->factory()) {
     prev_ = owns_->fun_scope_;
     owns_->fun_scope_ = this;
+        
+    if (prev_) {
+        level_ = prev_->level_ + 1;
+    }
 }
 
 inline FunctionScope::~FunctionScope() {
@@ -468,17 +601,20 @@ inline BlockScope::~BlockScope() {
     Handle<NyInt32Array> info;
     std::tie(bcbuf, info) = scope.builder()->Build(core);
     Handle<NyArray> kpool = scope.kpool()->Build(core);
+    Handle<NyArray> fpool = scope.BuildProtos(core);
 
-    return core->factory()->NewFunction(nullptr/*name*/,
-                                        0/*nparams*/,
-                                        false/*vargs*/,
-                                        0/*n_upvals*/,
-                                        scope.max_stack(),
-                                        *file_name,
-                                        *info,
-                                        *bcbuf,
-                                        nullptr/*proto_pool*/,
-                                        *kpool);
+    Handle<NyFunction> result = core->factory()->NewFunction(nullptr/*name*/,
+            0/*nparams*/,
+            false/*vargs*/,
+            0/*n_upvals*/,
+            scope.max_stack(),
+            *file_name,
+            *info,
+            *bcbuf,
+            *fpool/*proto_pool*/,
+            *kpool);
+    return handle_scope.CloseAndEscape(result);
+    //return result;
 }
     
 } // namespace nyaa

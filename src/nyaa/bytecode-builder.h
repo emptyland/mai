@@ -75,6 +75,18 @@ public:
         DCHECK_EQ(IVal::kLocal, b.kind);
         Emit(Bytecode::kStoreGlobal, a.index, b.index, line);
     }
+    
+    void StoreUp(IVal a, IVal b, int line = 0) {
+        DCHECK_EQ(IVal::kUpval, a.kind);
+        DCHECK_EQ(IVal::kLocal, b.kind);
+        Emit(Bytecode::kStoreUp, a.index, b.index, line);
+    }
+    
+    void Closure(IVal a, IVal b, int line = 0) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        DCHECK_EQ(IVal::kFunction, b.kind);
+        Emit(Bytecode::kClosure, a.index, b.index, line);
+    }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArrayBuilder);
 private:
@@ -113,12 +125,12 @@ public:
     
     Handle<NyArray> Build(NyaaCore *core);
     
-    int32_t GerOrNewSmi(int64_t val) { return GetOrNew({.kind = kSmi, .smi_val = val}); }
-    int32_t GerOrNewF64(f64_t val) { return GetOrNew({.kind = kF64, .f64_val = val}); }
-    int32_t GerOrNewStr(const ast::String *val) {
+    int32_t GetOrNewSmi(int64_t val) { return GetOrNew({.kind = kSmi, .smi_val = val}); }
+    int32_t GetOrNewF64(f64_t val) { return GetOrNew({.kind = kF64, .f64_val = val}); }
+    int32_t GetOrNewStr(const ast::String *val) {
         return GetOrNew({.kind = kStr, .str_val = val});
     }
-    int32_t GerOrNewInt(const ast::String *val) {
+    int32_t GetOrNewInt(const ast::String *val) {
         return GetOrNew({.kind = kInt, .int_val = val});
     }
     int32_t Add(Handle<Object> val) {

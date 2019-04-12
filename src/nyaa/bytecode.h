@@ -12,14 +12,19 @@ namespace nyaa {
     V(Move,        2, a, b) \
     V(LoadConst,   2, a, b) \
     V(LoadGlobal,  2, a, b) \
+    V(LoadUp,      2, a, b) \
     V(LoadNil,     2, a, b) \
     V(GetField,    2, a, b) \
     V(SetField,    3, a, b, c)\
+    V(GetUpField,  2, a, b) \
+    V(SetUPField,  3, a, b, c)\
     V(StoreGlobal, 2, a, b) \
+    V(StoreUp,     2, a, b) \
     V(Add,         3, a, b, c) \
     V(Sub,         3, a, b, c) \
     V(Mul,         3, a, b, c) \
     V(Div,         3, a, b, c) \
+    V(Closure,     2, a, b) \
     V(New,         3, a, b, c) \
     V(Call,        3, a, b, c) \
     V(Ret,         2, a, b)

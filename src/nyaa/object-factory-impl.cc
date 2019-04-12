@@ -109,8 +109,8 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
 }
 
 /*virtual*/ NyFunction *
-ObjectFactoryImpl::NewFunction(NyString *name, uint8_t n_params, bool vargs, uint32_t n_upvals,
-                               uint32_t max_stack, NyString *file_name, NyInt32Array *file_info,
+ObjectFactoryImpl::NewFunction(NyString *name, size_t n_params, bool vargs, size_t n_upvals,
+                               size_t max_stack, NyString *file_name, NyInt32Array *file_info,
                                NyByteArray *bcbuf, NyArray *proto_pool, NyArray *const_pool,
                                bool old) {
     DCHECK_LE(n_params, UINT8_MAX);

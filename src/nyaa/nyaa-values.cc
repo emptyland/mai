@@ -800,13 +800,17 @@ NyFunction::NyFunction(NyString *name, uint8_t n_params, bool vargs, uint32_t n_
     ::memset(upvals_, 0, n_upvals * sizeof(upvals_[0]));
 }
     
-void NyFunction::SetUpval(size_t i, NyString *name, int32_t in_stack, int32_t in_upval,
-                          NyaaCore *N) {
+void NyFunction::SetName(NyString *name, NyaaCore *N) {
+    N->BarrierWr(this, &name_, name);
+    name_ = name;
+}
+    
+void NyFunction::SetUpval(size_t i, NyString *name, int32_t level, int32_t index, NyaaCore *N) {
     DCHECK_LT(i, n_upvals_);
     N->BarrierWr(this, &upvals_[i].name, name);
     upvals_[i].name = name;
-    upvals_[i].in_stack = in_stack;
-    upvals_[i].in_upval = in_upval;
+    upvals_[i].level = level;
+    upvals_[i].index = index;
 }
 
 void NyFunction::Iterate(ObjectVisitor *visitor) {
@@ -814,6 +818,7 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&bcbuf_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_name_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_info_));
+    visitor->VisitPointer(this, reinterpret_cast<Object **>(&proto_pool_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&const_pool_));
     for (uint32_t i = 0; i < n_upvals_; ++i) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&upvals_[i].name));
