@@ -71,7 +71,7 @@ public:
     Visitor() {}
     virtual ~Visitor() {}
     
-#define DEFINE_METHOD(name) virtual IVal Visit##name(name *node, VisitorContext *) { return IVal::None(); }
+#define DEFINE_METHOD(name) virtual IVal Visit##name(name *node, VisitorContext *) { return IVal::Void(); }
     DECL_AST_NODES(DEFINE_METHOD);
 #undef DEFINE_METHOD
     

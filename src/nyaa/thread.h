@@ -184,13 +184,10 @@ private:
     int ParseBytecodeInt32Params(int offset, int scale, int n, ...);
     
     void Bind(int i, NyClosure *closure, const NyFunction::UpvalDesc &desc) {
-        int lv = desc.level;
-        CallFrame *cf = frame_;
-        while (lv--) {
-            DCHECK_NOTNULL(cf);
-            cf = cf->prev_;
-        }
-        closure->Bind(i, stack_[cf->stack_bp() + desc.index], owns_);
+        CallFrame *up = frame_;
+        Object *val = desc.in_stack ? stack_[up->stack_bp() + desc.index] :
+                      static_cast<NyClosure *>(up->callee())->upval(desc.index);
+        closure->Bind(i, val, owns_);
     }
     
     NyaaCore *const owns_;

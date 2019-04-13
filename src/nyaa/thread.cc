@@ -146,7 +146,7 @@ void NyThread::Raise(NyString *msg, Object *ex) {
         }
         catch_point_->Catch(msg, ex, bt);
     } else {
-        DLOG(FATAL) << msg;
+        DLOG(FATAL) << msg->bytes();
     }
 }
 

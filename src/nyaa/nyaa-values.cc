@@ -809,11 +809,11 @@ void NyFunction::SetName(NyString *name, NyaaCore *N) {
     name_ = name;
 }
     
-void NyFunction::SetUpval(size_t i, NyString *name, int32_t level, int32_t index, NyaaCore *N) {
+void NyFunction::SetUpval(size_t i, NyString *name, bool in_stack, int32_t index, NyaaCore *N) {
     DCHECK_LT(i, n_upvals_);
     N->BarrierWr(this, &upvals_[i].name, name);
     upvals_[i].name = name;
-    upvals_[i].level = level;
+    upvals_[i].in_stack = in_stack;
     upvals_[i].index = index;
 }
 

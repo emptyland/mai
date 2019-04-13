@@ -611,8 +611,8 @@ public:
 
     struct UpvalDesc {
         NyString *name; // [strong ref]
-        int32_t  level;
-        int32_t  index;
+        bool in_stack;
+        int32_t index;
     };
 
     const UpvalDesc &upval(size_t i) const {
@@ -620,7 +620,7 @@ public:
         return upvals_[i];
     }
     
-    void SetUpval(size_t i, NyString *name, int32_t level, int32_t index,
+    void SetUpval(size_t i, NyString *name, bool in_stack, int32_t index,
                   NyaaCore *N);
     
     static Handle<NyFunction> Compile(const char *z, NyaaCore *N) {

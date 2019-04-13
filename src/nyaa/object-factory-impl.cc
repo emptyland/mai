@@ -135,8 +135,9 @@ ObjectFactoryImpl::NewFunction(NyString *name, size_t n_params, bool vargs, size
 }
     
 /*virtual*/ NyClosure *ObjectFactoryImpl::NewClosure(NyFunction *proto, bool old) {
-    NEW_OBJECT(sizeof(NyClosure), NyClosure(proto, core_), Closure);
-    DCHECK_EQ(sizeof(NyClosure), ob->PlacedSize());
+    size_t required_size = NyClosure::RequiredSize(static_cast<uint32_t>(proto->n_upvals()));
+    NEW_OBJECT(required_size, NyClosure(proto, core_), Closure);
+    DCHECK_EQ(required_size, ob->PlacedSize());
     return ob;
 }
     

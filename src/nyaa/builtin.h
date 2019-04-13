@@ -116,14 +116,14 @@ struct IVal {
         kConst,
         kFunction, // index = proto_pool_idx
         kUpval,
-        kNone,
+        kVoid,
     };
     Kind kind;
     int32_t index;
     
     int32_t Encode() const { return kind == kConst ? -index-1 : index; }
     
-    static IVal None() { return {kNone, -1}; }
+    static IVal Void() { return {kVoid, -1}; }
     static IVal Local(int32_t idx) { return {kLocal, idx}; }
     static IVal Upval(int32_t idx) { return {kUpval, idx}; }
     static IVal Const(int32_t idx) { return {kConst, idx}; }
