@@ -368,20 +368,24 @@ TEST_F(NyaaThreadTest, FunctionUpvals2) {
         "   return lambda { return a, b, c }\n"
         "}\n"
         "var f = foo(4)\n"
-        "print(f())\n"
+        "check(f())\n"
     };
-    
+
     HandleScope scope(isolate_);
-    //Handle<NyDelegated> checker(RegisterChecker("check", 3, FunctionUpvals_Check));
+    Handle<NyDelegated> checker(RegisterChecker("check", 3, FunctionUpvals_Check));
     
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Do(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
-    BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
     Arguments args(0);
     auto rv = script->Call(&args, 0, core_);
     ASSERT_EQ(0, rv) << try_catch.message()->bytes();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
+    
+    ASSERT_EQ(4, checker->upval(0)->ToSmi());
+    ASSERT_EQ(2, checker->upval(1)->ToSmi());
+    ASSERT_EQ(3, checker->upval(2)->ToSmi());
 }
 
 } // namespace nyaa

@@ -242,16 +242,10 @@ public:
                 rix.set_n_result(1);
                 
                 for (size_t i = 0; i < node->names()->size(); ++i) {
-                    ast::Expression *init = node->inits()->at(i);
                     if (i < node->inits()->size()) {
+                        ast::Expression *init = node->inits()->at(i);
                         IVal rval = init->Accept(this, &rix);
                         blk_scope_->PutVariable(node->names()->at(i), &rval);
-//                        if (init->IsInvoke()) {
-//                            IVal lval = blk_scope_->PutVariable(node->names()->at(i), nullptr);
-//                            builder()->Move(lval, rval);
-//                        } else {
-//                            blk_scope_->PutVariable(node->names()->at(i), &rval);
-//                        }
                     } else {
                         IVal lval = blk_scope_->PutVariable(node->names()->at(i), nullptr);
                         builder()->LoadNil(lval, 1, node->line());
