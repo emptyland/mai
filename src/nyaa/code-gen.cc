@@ -16,6 +16,12 @@ namespace nyaa {
 class FunctionScope;
 class BlockScope;
 class CodeGeneratorVisitor;
+    
+using VariableTable = std::unordered_map<
+    const ast::String *,
+    IVal,
+    base::ArenaHash<const ast::String *>,
+    base::ArenaEqualTo<const ast::String *>>;
 
 class FunctionScope {
 public:
@@ -35,9 +41,11 @@ public:
     }
     
     IVal NewUpval(const ast::String *name, bool in_stack, int reg) {
-        int32_t index = static_cast<int32_t>(upvals_.size());
-        upvals_.push_back({name, in_stack, reg});
-        return IVal::Upval(index);
+        int32_t index = static_cast<int32_t>(upval_desc_.size());
+        upval_desc_.push_back({name, in_stack, reg});
+        IVal val = IVal::Upval(index);
+        upvals_.insert({name, val});
+        return val;
     }
     
     IVal Reserve(int n) {
@@ -79,7 +87,8 @@ private:
     ConstPoolBuilder kpool_builder_;
     BytecodeArrayBuilder builder_;
     std::vector<Handle<NyFunction>> protos_;
-    std::vector<UpvalDesc> upvals_;
+    VariableTable upvals_;
+    std::vector<UpvalDesc> upval_desc_;
 }; // class FunctionScope
     
     
@@ -120,13 +129,6 @@ public:
         return rv;
     }
     
-    IVal NewUpval(const ast::String *name, IVal local, FunctionScope *val_scope) {
-        DCHECK_EQ(IVal::kLocal, local.kind);
-        DCHECK_NE(val_scope, owns_);
-        DCHECK_LT(val_scope->level_, owns_->level_);
-        return owns_->NewUpval(name, val_scope->level_ - owns_->level_, local.index);
-    }
-    
     bool Protected(IVal val) {
         if (IVal::kLocal != val.kind) {
             return false;
@@ -135,11 +137,6 @@ public:
     }
 
 private:
-    using VariableTable = std::unordered_map<const ast::String *,
-        IVal,
-        base::ArenaHash<const ast::String *>,
-        base::ArenaEqualTo<const ast::String *>>;
-    
     BlockScope *prev_;
     FunctionScope *const owns_;
     VariableTable vars_;
@@ -342,12 +339,12 @@ public:
             proto = core_->factory()->NewFunction(nullptr/*name*/,
                                                   !node->params() ? 0 : node->params()->size()/*nparams*/,
                                                   node->vargs()/*vargs*/,
-                                                  fun_scope.upvals_.size() /*n_upvals*/,
+                                                  fun_scope.upval_desc_.size() /*n_upvals*/,
                                                   fun_scope.max_stack(),
                                                   nullptr/*file_name*/,
                                                   *info, *bcbuf, *fpool, *kpool);
             size_t i = 0;
-            for (auto upval : fun_scope.upvals_) {
+            for (auto upval : fun_scope.upval_desc_) {
                 NyString *name = core_->factory()->NewString(upval.name->data(), upval.name->size());
                 proto->SetUpval(i++, name, upval.in_stack, upval.index, core_);
             }
@@ -585,6 +582,10 @@ IVal FunctionScope::GetVariable(const ast::String *name) {
         }
         blk = blk->prev();
     }
+    auto iter = upvals_.find(name);
+    if (iter != upvals_.end()) {
+        return iter->second;
+    }
     return IVal::Void();
 }
 
@@ -597,10 +598,8 @@ IVal FunctionScope::GetOrNewUpvalNested(const ast::String *name) {
         val = prev_->GetOrNewUpvalNested(name);
         if (val.kind == IVal::kLocal) {
             val = NewUpval(name, true, val.index);
-            top_->PutVariable(name, &val);
         } else if (val.kind == IVal::kUpval) {
             val = NewUpval(name, false, val.index);
-            top_->PutVariable(name, &val);
         }
         return val;
     }
