@@ -103,9 +103,9 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(TryCatchCore);
 private:
     NyaaCore *const core_;
-    NyThread *thrd_; // [strong ref]
     bool has_caught_ = false;
     TryCatchCore *prev_;
+    NyThread *thrd_; // [strong ref]
     NyString *message_ = nullptr; // [strong ref]
     Object *exception_ = nullptr; // [strong ref]
     NyArray *stack_trace_ = nullptr; // [strong ref]

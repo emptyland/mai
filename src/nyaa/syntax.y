@@ -31,6 +31,8 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::nyaa::ast::Expression *expr;
     ::mai::nyaa::ast::LValue *lval;
     ::mai::nyaa::ast::Assignment::LValList *lvals;
+    ::mai::nyaa::ast::Multiple *entry;
+    ::mai::nyaa::ast::MapLiteral::EntryList *entries;
     ::mai::nyaa::ast::Statement *stmt;
     ::mai::nyaa::ast::Block::StmtList *stmts;
     ::mai::nyaa::ast::Return::ExprList *exprs;
@@ -49,8 +51,10 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <block> Script Block
 %type <stmt> Statement VarDeclaration FunctionDefinition Assignment
 %type <stmts> StatementList
-%type <expr> Expression Call LambdaLiteral
+%type <expr> Expression Call LambdaLiteral MapLiteral
 %type <exprs> ExpressionList
+%type <entry> MapEntry
+%type <entries> MapEntryList
 %type <lval> LValue
 %type <lvals> LValList
 %type <name> NAME
@@ -172,6 +176,9 @@ Expression : LValue {
 | LambdaLiteral {
     $$ = $1;
 }
+| MapLiteral {
+    $$ = $1;
+}
 | Expression COMPARISON Expression {
     $$ = ctx->factory->NewBinary($2, $1, $3, Location::Concat(@1, @3));
 }
@@ -196,6 +203,31 @@ LambdaLiteral : LAMBDA '(' NameList ParameterVargs ')' Block {
 }
 | LAMBDA Block {
     $$ = ctx->factory->NewLambdaLiteral(nullptr, false, $2, Location::Concat(@1, @2));
+}
+
+MapLiteral : '{' MapEntryList '}' {
+    $$ = ctx->factory->NewMapLiteral($2, Location::Concat(@1, @3));
+}
+
+MapEntryList : MapEntry {
+    $$ = ctx->factory->NewList($1);
+}
+| MapEntryList ',' MapEntry {
+    $$->push_back($3);
+}
+| {
+    $$ = nullptr;
+}
+
+MapEntry : NAME ':' Expression {
+    auto key = ctx->factory->NewStringLiteral($1, @1);
+    $$ = ctx->factory->NewEntry(key, $3, Location::Concat(@1, @3));
+}
+| Expression {
+    $$ = ctx->factory->NewEntry(nullptr, $1, @1);
+}
+| '[' Expression ']' '=' Expression {
+    $$ = ctx->factory->NewEntry($2, $5, Location::Concat(@1, @5));
 }
 
 LValList : LValue {

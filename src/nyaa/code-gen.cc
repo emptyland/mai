@@ -32,7 +32,13 @@ public:
     BytecodeArrayBuilder *builder() { return &builder_; }
     DEF_VAL_GETTER(int32_t, max_stack);
     
-    IVal NewLocal() { return IVal::Local(max_stack_ ++); }
+    IVal NewLocal() {
+        IVal val = IVal::Local(free_reg_++);
+        if (free_reg_ > max_stack_) {
+            max_stack_ = free_reg_;
+        }
+        return val;
+    }
     
     IVal NewProto(Handle<NyFunction> proto) {
         int index = static_cast<int32_t>(protos_.size());
@@ -69,10 +75,26 @@ public:
     
     IVal GetOrNewUpvalNested(const ast::String *name);
     
+    void FreeVar(IVal val) {
+        if (val.kind == IVal::kLocal) {
+            if (val.index >= active_vars_) {
+                free_reg_--;
+                DCHECK_EQ(val.index, free_reg_);
+                //printf("free: %d - %d\n", val.index, free_reg_);
+            }
+        }
+    }
+    
     struct UpvalDesc {
         const ast::String *name;
         bool in_stack;
         int index;
+    };
+    
+    enum VarDesc {
+        kFree,
+        kVar,
+        kTmp,
     };
     
     friend class CodeGeneratorVisitor;
@@ -83,12 +105,14 @@ private:
     int level_ = 0;
     BlockScope *top_ = nullptr;
     BlockScope *current_ = nullptr;
-    int32_t max_stack_ = 0; // min is 2;
     ConstPoolBuilder kpool_builder_;
     BytecodeArrayBuilder builder_;
     std::vector<Handle<NyFunction>> protos_;
     VariableTable upvals_;
     std::vector<UpvalDesc> upval_desc_;
+    int active_vars_ = 0;
+    int free_reg_ = 0;
+    int32_t max_stack_ = 0;
 }; // class FunctionScope
     
     
@@ -117,30 +141,28 @@ public:
             rv = owns_->NewLocal();
         }
         DCHECK(rv.kind != IVal::kLocal || rv.index < owns_->max_stack());
-        //DCHECK_LT(rv.index, owns_->max_stack());
-        auto iter = vars_.find(name);
-        if (iter != vars_.end()) {
-            prot_regs_.erase(iter->second.index);
-        }
         vars_.insert({name, rv});
-        if (rv.kind == IVal::kLocal) {
-            prot_regs_.insert(rv.index);
-        }
+        //DCHECK_EQ(rv.index, active_vars_);
+        active_vars_++;
+        owns_->active_vars_++;
         return rv;
     }
     
     bool Protected(IVal val) {
-        if (IVal::kLocal != val.kind) {
-            return false;
+        if (val.kind == IVal::kLocal) {
+            DCHECK_GE(val.index, 0);
+            DCHECK_LT(val.index, owns_->max_stack());
+            return val.index < active_vars_;
         }
-        return prot_regs_.find(val.index) != prot_regs_.end();
+        return false;
     }
 
 private:
     BlockScope *prev_;
     FunctionScope *const owns_;
+    int active_vars_;
     VariableTable vars_;
-    std::set<int32_t> prot_regs_;
+//    std::set<int32_t> prot_regs_;
 }; // class BlockScope
     
 class CodeGeneratorContext : public ast::VisitorContext {
@@ -196,6 +218,8 @@ public:
             IVal self = node->self()->Accept(this, &lix);
             IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
             builder()->SetField(self, index, closure);
+            fun_scope_->FreeVar(self);
+            fun_scope_->FreeVar(index);
         } else {
             if (fun_scope_->prev_ == nullptr) {
                 // as global variable
@@ -206,6 +230,7 @@ public:
                 blk_scope_->PutVariable(node->name(), &closure);
             }
         }
+        fun_scope_->FreeVar(closure);
         return IVal::Void();
     }
     
@@ -315,6 +340,60 @@ public:
         return val;
     }
     
+    virtual IVal VisitMapLiteral(ast::MapLiteral *node, ast::VisitorContext *x) override {
+        int index = 0;
+        if (!node->value()) {
+            IVal map = fun_scope_->NewLocal();
+            builder()->NewTable(map, 0/*n*/, 0/*linear*/, node->line());
+            return map;
+        }
+        bool linear = true;
+        for (auto entry : *node->value()) {
+            if (entry->key()) {
+                linear = false;
+                break;
+            }
+        }
+        
+        std::vector<IVal> kvs;
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        ix.set_localize(true);
+        ix.set_keep_const(false);
+        
+        if (linear) {
+            for (auto entry : *node->value()) {
+                IVal value = entry->value()->Accept(this, &ix);
+                kvs.push_back(value);
+            }
+        } else {
+            for (auto entry : *node->value()) {
+                IVal key;
+                if (entry->key()) {
+                    key = entry->key()->Accept(this, &ix);
+                } else {
+                    key = IVal::Const(fun_scope_->kpool()->GetOrNewSmi(index++));
+                    key = Localize(key, entry->value()->line());
+                }
+                IVal value = entry->value()->Accept(this, &ix);
+                if (blk_scope_->Protected(value)) {
+                    IVal tmp = fun_scope_->NewLocal();
+                    builder()->Move(tmp, value);
+                    value = tmp;
+                }
+                kvs.push_back(key);
+                kvs.push_back(value);
+            }
+        }
+        
+        IVal map = kvs.front();
+        builder()->NewTable(map, static_cast<int>(kvs.size()), linear, node->line());
+        for (int64_t i = kvs.size() - 1; i > 0; --i) {
+            fun_scope_->FreeVar(kvs[i]);
+        }
+        return map;
+    }
+    
     virtual IVal VisitLambdaLiteral(ast::LambdaLiteral *node, ast::VisitorContext *x) override {
         //HandleScope handle_scope(core_->isolate());
         Handle<NyFunction> proto;
@@ -406,9 +485,13 @@ public:
         
         if (ctx->lval()) {
             builder()->SetField(self, index, ctx->rval(), node->line());
+            fun_scope_->FreeVar(index);
+            fun_scope_->FreeVar(self);
             return IVal::Void();
         } else {
             builder()->GetField(self, index, node->line());
+            fun_scope_->FreeVar(index);
+            //fun_scope_->FreeVar(self);
             return self;
         }
     }
@@ -423,9 +506,11 @@ public:
         
         if (ctx->lval()) {
             builder()->SetField(self, index, ctx->rval(), node->line());
+            //fun_scope_->FreeVar(self);
             return IVal::Void();
         } else {
             builder()->GetField(self, index, node->line());
+            //fun_scope_->FreeVar(self);
             return self;
         }
     }
@@ -440,15 +525,20 @@ public:
         CodeGeneratorContext ix;
         ix.set_n_result(n_rets < 0 ? -1 : 1);
         
+        std::vector<IVal> rets;
         IVal first = node->rets()->at(0)->Accept(this, &ix);
+        rets.push_back(first);
         int32_t reg = first.index;
-        
+
         for (size_t i = 1; i < node->rets()->size(); ++i) {
             ast::Expression *expr = node->rets()->at(i);
-            AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
+            rets.push_back(AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line()));
         }
-        
         builder()->Ret(first, n_rets, node->line());
+
+        for (int64_t i = rets.size() - 1; i >= 0; --i) {
+            fun_scope_->FreeVar(rets[i]);
+        }
         return IVal::Void();
     }
     
@@ -464,6 +554,7 @@ public:
             callee = tmp;
         }
         int reg = callee.index;
+        //std::vector<IVal> args;
         for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
             ast::Expression *expr = node->args()->at(i);
             AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
@@ -471,6 +562,8 @@ public:
 
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
         builder()->Call(callee, n_args, ctx->n_result(), node->line());
+
+        fun_scope_->free_reg_ = callee.index + 1;
         return callee;
     }
     
@@ -479,19 +572,12 @@ public:
         CodeGeneratorContext ix;
         ix.set_n_result(1);
         ix.set_keep_const(true);
+        
+        IVal ret = fun_scope_->NewLocal();
         for (int i = 0; i < node->n_operands(); ++i) {
             operands.push_back(node->operand(i)->Accept(this, &ix));
         }
-        
-        IVal ret = IVal::Void();
-        for (auto op : operands) {
-            if (op.kind == IVal::kLocal && !blk_scope_->Protected(op)) {
-                ret = op;
-            }
-        }
-        if (ret.kind == IVal::kVoid) {
-            ret = fun_scope_->NewLocal();
-        }
+
         switch (node->op()) {
             case Operator::kAdd:
                 builder()->Add(ret, operands[0], operands[1], node->line());
@@ -509,6 +595,9 @@ public:
             default:
                 DLOG(FATAL) << "TODO:";
                 break;
+        }
+        for (int64_t i = operands.size() - 1; i >= 0; --i) {
+            fun_scope_->FreeVar(operands[i]);
         }
         return ret;
     }
@@ -608,7 +697,6 @@ IVal FunctionScope::GetOrNewUpvalNested(const ast::String *name) {
 
 inline BlockScope::BlockScope(FunctionScope *owns)
     : owns_(DCHECK_NOTNULL(owns)) {
-        
 
     prev_ = owns_->owns_->blk_scope_;
     owns_->owns_->blk_scope_ = this;
@@ -616,6 +704,7 @@ inline BlockScope::BlockScope(FunctionScope *owns)
         owns_->top_ = this;
     }
     owns_->current_ = this;
+    active_vars_ = owns_->active_vars_;
 }
 
 inline BlockScope::~BlockScope() {
@@ -625,6 +714,13 @@ inline BlockScope::~BlockScope() {
         owns_->top_ = nullptr;
     }
     owns_->current_ = prev_;
+    owns_->free_reg_ = active_vars_;
+    owns_->active_vars_ -= active_vars_;
+    
+//    printf("*****************\n");
+//    for (const auto &var : vars_) {
+//        printf("var: %s = %d\n", var.first->data(), var.second.index);
+//    }
 }
     
 /*static*/ Handle<NyFunction> CodeGen::Generate(Handle<NyString> file_name, ast::Block *root,

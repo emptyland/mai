@@ -440,6 +440,34 @@ int NyThread::Run() {
                 frame_->AddPC(delta);
             } break;
                 
+            case Bytecode::kNewMap: {
+                int32_t ra, n, linear;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 3, &ra, &n, &linear)) < 0) {
+                    return -1;
+                }
+                uint32_t capacity = (linear ? n : n / 2) + 4;
+                if (capacity < 8) {
+                    capacity = 8;
+                }
+                NyMap *ob = owns_->factory()->NewMap(capacity, 0/*seed*/, 0/*kid*/,
+                                                     linear, false/*old*/);
+                Object **base = frame_bp() + ra;
+                if (linear) {
+                    for (int i = 0; i < n; ++i) {
+                        ob->RawPut(NyInt32::New(i), base[i], owns_);
+                    }
+                } else {
+                    for (int i = 0; i < n; i += 2) {
+                        ob->RawPut(base[i], base[i + 1], owns_);
+                    }
+                }
+                Set(ra, ob);
+                // TODO: should gc
+
+                frame_->AddPC(delta);
+            } break;
+                
                 // foo(bar())
             case Bytecode::kCall: {
                 int32_t ra, n_args, n_rets;
@@ -546,7 +574,7 @@ void NyThread::CopyResult(Object **ret, int n_rets, int wanted) {
             } else {
                 ret[0] = *(stack_tp_ - 1);
             }
-            stack_tp_ = ret;
+            stack_tp_ = ret + 1;
             return;
         default:
             break;

@@ -1043,7 +1043,7 @@ YY_RULE_SETUP
 case 26:
 YY_RULE_SETUP
 #line 114 "lex.l"
-{ return '['; }
+{ return ']'; }
 	YY_BREAK
 case 27:
 YY_RULE_SETUP

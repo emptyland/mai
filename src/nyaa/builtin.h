@@ -133,6 +133,7 @@ struct IVal {
     
 struct Operator {
     enum ID {
+        kEntry,
         kAdd,
         kSub,
         kMul,

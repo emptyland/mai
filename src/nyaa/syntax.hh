@@ -94,6 +94,8 @@ union NYAA_YYSTYPE
     ::mai::nyaa::ast::Expression *expr;
     ::mai::nyaa::ast::LValue *lval;
     ::mai::nyaa::ast::Assignment::LValList *lvals;
+    ::mai::nyaa::ast::Multiple *entry;
+    ::mai::nyaa::ast::MapLiteral::EntryList *entries;
     ::mai::nyaa::ast::Statement *stmt;
     ::mai::nyaa::ast::Block::StmtList *stmts;
     ::mai::nyaa::ast::Return::ExprList *exprs;
@@ -104,7 +106,7 @@ union NYAA_YYSTYPE
     ::mai::nyaa::f64_t f64_val;
     int64_t smi_val;
 
-#line 108 "syntax.hh" /* yacc.c:1927  */
+#line 110 "syntax.hh" /* yacc.c:1927  */
 };
 
 typedef union NYAA_YYSTYPE NYAA_YYSTYPE;

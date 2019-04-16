@@ -111,7 +111,7 @@ return { return RETURN; }
 "<<" { return OP_LSHIFT; }
 ">>" { return OP_RSHIFT; }
 "[" { return '['; }
-"]" { return '['; }
+"]" { return ']'; }
 "..." { return VARGS; }
 
 [-=+&~|^/%!()*.,;:{}] { return yytext[0]; }

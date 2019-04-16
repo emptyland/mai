@@ -26,6 +26,7 @@ namespace ast {
     V(SmiLiteral) \
     V(IntLiteral) \
     V(LambdaLiteral) \
+    V(MapLiteral) \
     V(Variable) \
     V(Index) \
     V(DotField) \
@@ -248,6 +249,8 @@ public:
     Expression *operand() const { return DCHECK_NOTNULL(operand(0)); }
     Expression *lhs() const { return DCHECK_NOTNULL(operand(0)); }
     Expression *rhs() const { return DCHECK_NOTNULL(operand(1)); }
+    Expression *key() const { return operand(0); }
+    Expression *value() const { return rhs(); }
     
     DEFINE_AST_NODE(Multiple);
 private:
@@ -336,6 +339,19 @@ private:
     bool vargs_;
     ParameterList *params_;
 }; // class LambdaLiteral
+    
+class MapLiteral : public Literal<base::ArenaVector<Multiple *> *> {
+public:
+    using EntryList = base::ArenaVector<Multiple *>;
+    
+    DEF_VAL_GETTER(int, end_line);
+    DEFINE_AST_NODE(MapLiteral);
+private:
+    MapLiteral(int begin_line, int end_line, EntryList *entries)
+        : Literal<base::ArenaVector<Multiple *> *>(begin_line, entries)
+        , end_line_(end_line) {}
+    int end_line_;
+}; // class MapLiteral
     
 class Call : public Expression {
 public:
@@ -506,6 +522,10 @@ public:
                                     Block *body, const Location &loc = Location{}) {
         return new (arena_) LambdaLiteral(loc.begin_line, loc.end_line, params, vargs, body);
     }
+    
+    MapLiteral *NewMapLiteral(MapLiteral::EntryList *entries, const Location &loc = Location{}) {
+        return new (arena_) MapLiteral(loc.begin_line, loc.end_line, entries);
+    }
 
     Variable *NewVariable(const String *name, const Location &loc = Location{}) {
         return new (arena_) Variable(loc.begin_line, name);
@@ -531,6 +551,10 @@ public:
     Multiple *NewBinary(Operator::ID op, Expression *lhs, Expression *rhs,
                         const Location &loc = Location{}) {
         return new (arena_) Multiple(loc.begin_line, op, lhs, rhs);
+    }
+    
+    Multiple *NewEntry(Expression *key, Expression *value, const Location &loc = Location{}) {
+        return new (arena_) Multiple(loc.begin_line, Operator::kEntry, key, value);
     }
     
     Index *NewIndex(Expression *self, Expression *index, const Location &loc = Location{}) {

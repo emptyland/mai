@@ -251,14 +251,14 @@ struct ArenaEqualTo : public std::binary_function<T, T, bool> {
 template <> struct ArenaEqualTo<ArenaString *>
 : public std::binary_function<ArenaString *, ArenaString *, bool> {
     bool operator () (ArenaString * lhs, ArenaString * rhs) const {
-        return ::strcmp(lhs->data(), rhs->data()) == 0;
+        return lhs->size() == rhs->size() && ::memcmp(lhs->data(), rhs->data(), lhs->size()) == 0;
     }
 }; // template <> struct ArenaEqualTo<ArenaString *>
 
 template <> struct ArenaEqualTo<const ArenaString *>
 : public std::binary_function<const ArenaString *, const ArenaString *, bool> {
     bool operator () (const ArenaString *lhs, const ArenaString *rhs) const {
-        return ::strcmp(lhs->data(), rhs->data()) == 0;
+        return lhs->size() == rhs->size() && ::memcmp(lhs->data(), rhs->data(), lhs->size()) == 0;
     }
 }; // template <> struct ArenaEqualTo<const ArenaString *>
 

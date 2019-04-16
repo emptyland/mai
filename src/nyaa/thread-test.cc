@@ -377,7 +377,7 @@ TEST_F(NyaaThreadTest, FunctionUpvals2) {
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Do(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
-    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+//    BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
     Arguments args(0);
     auto rv = script->Call(&args, 0, core_);
     ASSERT_EQ(0, rv) << try_catch.message()->bytes();
@@ -386,6 +386,40 @@ TEST_F(NyaaThreadTest, FunctionUpvals2) {
     ASSERT_EQ(4, checker->upval(0)->ToSmi());
     ASSERT_EQ(2, checker->upval(1)->ToSmi());
     ASSERT_EQ(3, checker->upval(2)->ToSmi());
+}
+    
+TEST_F(NyaaThreadTest, MapInitializer) {
+    static const char s[] = {
+        "var a, b, c = 1, 2, 3\n"
+        "return {\n"
+        "   a, b, c, \n"
+        "   a: 1,\n"
+        "   b: \"ok\","
+        "   [100] = 100\n"
+        "}\n"
+    };
+
+    HandleScope scope(isolate_);
+    
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Do(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    auto rv = script->Call(&args, 1, core_);
+    ASSERT_EQ(1, rv) << try_catch.message()->bytes();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
+    ASSERT_EQ(1, core_->curr_thd()->frame_size());
+    Handle<NyMap> map(core_->curr_thd()->Get(-1));
+    ASSERT_TRUE(map->IsMap());
+    
+    Object *val = map->RawGet(NyInt32::New(0), core_);
+    ASSERT_TRUE(val->IsSmi());
+    ASSERT_EQ(1, val->ToSmi());
+    
+    val = map->RawGet(NyInt32::New(100), core_);
+    ASSERT_TRUE(val->IsSmi());
+    ASSERT_EQ(100, val->ToSmi());
 }
 
 } // namespace nyaa
