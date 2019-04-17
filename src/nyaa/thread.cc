@@ -419,10 +419,45 @@ int NyThread::Run() {
                 return n;
             } break;
                 
-            case Bytecode::kNew: {
-                // TODO:
+            case Bytecode::kTest: {
+                int32_t ra, neg, none;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 3, &ra, &neg, &none)) < 0) {
+                    return -1;
+                }
+                bool cond = false;
+                Object *ob = Get(ra);
+                if (ob == Object::kNil) {
+                    cond = false;
+                } else {
+                    cond = neg ? ob->IsFalse() : ob->IsTrue();
+                }
+                if (cond) {
+                    delta += ParseBytecodeSize(frame_->pc() + delta);
+                }
+                frame_->AddPC(delta);
             } break;
-                
+
+            case Bytecode::kJumpImm: {
+                int32_t offset;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 1, &offset)) < 0) {
+                    return -1;
+                }
+                frame_->AddPC(offset);
+            } break;
+
+            case Bytecode::kJumpConst: {
+                int32_t k;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 1, &k)) < 0) {
+                    return -1;
+                }
+                Object *ob = frame_->const_poll()->Get(k);
+                DCHECK(ob->IsSmi());
+                frame_->AddPC(static_cast<int32_t>(ob->ToSmi()));
+            } break;
+
             case Bytecode::kClosure: {
                 int32_t ra, pb;
                 int delta = 1;
@@ -439,7 +474,7 @@ int NyThread::Run() {
                 Set(ra, closure);
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kNewMap: {
                 int32_t ra, n, linear;
                 int delta = 1;
@@ -467,7 +502,7 @@ int NyThread::Run() {
 
                 frame_->AddPC(delta);
             } break;
-                
+
                 // foo(bar())
             case Bytecode::kCall: {
                 int32_t ra, n_args, n_rets;
@@ -604,6 +639,38 @@ int NyThread::ParseBytecodeInt32Params(int offset, int scale, int n, ...) {
     }
     va_end(ap);
     return offset;
+}
+    
+int NyThread::ParseBytecodeSize(int offset) {
+    Bytecode::ID first = static_cast<Bytecode::ID>(frame_->bcbuf()->Get(offset));
+    int scale = 0;
+    int size = 0;
+    switch (first) {
+        case Bytecode::kDouble:
+            scale = 2;
+            size = 2;
+            first = static_cast<Bytecode::ID>(frame_->bcbuf()->Get(offset + 1));
+            break;
+        case Bytecode::kQuadruple:
+            scale = 4;
+            size = 2;
+            first = static_cast<Bytecode::ID>(frame_->bcbuf()->Get(offset + 1));
+            break;
+        default:
+            scale = 1;
+            size = 1;
+            break;
+    }
+#define DEFINE_SIZE(name, n, ...) \
+    case Bytecode::k##name: size += (n) * scale; break;
+    switch (first) {
+        DECL_BYTECODES(DEFINE_SIZE)
+        default:
+            DLOG(FATAL) << "incorrect bytecode: " << first;
+            break;
+    }
+#undef DEFINE_SIZE
+    return size;
 }
     
 } // namespace nyaa

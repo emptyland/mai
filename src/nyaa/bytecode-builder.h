@@ -22,8 +22,46 @@ class NyByteArray;
 class NyInt32Array;
 class NyFunction;
 class Object;
+class BytecodeArrayBuilder;
+class ConstPoolBuilder;
     
-class BytecodeArrayBuilder {
+class BytecodeLable {
+public:
+    BytecodeLable() {}
+    ~BytecodeLable() {}
+
+    bool unbinded() const { return !binded_; }
+    
+    void SetBinded() {
+        binded_ = true;
+        subs_.clear();
+    }
+    
+    void Reset() {
+        pc_ = -1;
+        kslot_ = -1;
+        binded_ = false;
+        subs_.clear();
+    }
+    
+    DEF_VAL_GETTER(int, pc);
+    DEF_VAL_GETTER(int, kslot);
+    
+    friend class BytecodeArrayBuilder;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeLable);
+private:
+    struct Position {
+        int pc = -1;
+        int kslot = -1;
+    };
+    
+    bool binded_ = false;
+    int pc_ = -1;
+    int kslot_ = -1;
+    std::vector<Position> subs_;
+}; // class BytecodeLable
+    
+class BytecodeArrayBuilder final {
 public:
     BytecodeArrayBuilder() {}
     ~BytecodeArrayBuilder() {}
@@ -64,6 +102,33 @@ public:
     void Sub(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kSub, a, b, c, line); }
     void Mul(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kMul, a, b, c, line); }
     void Div(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kDiv, a, b, c, line); }
+    
+    void Equal(IVal a, IVal b, IVal c, int line = 0) {
+        EmitArith(Bytecode::kEqual, a, b, c, line);
+    }
+    void NotEqual(IVal a, IVal b, IVal c, int line = 0) {
+        EmitArith(Bytecode::kNotEqual, a, b, c, line);
+    }
+    void LessThan(IVal a, IVal b, IVal c, int line = 0) {
+        EmitArith(Bytecode::kLessThan, a, b, c, line);
+    }
+    void LessEqual(IVal a, IVal b, IVal c, int line = 0) {
+        EmitArith(Bytecode::kLessEqual, a, b, c, line);
+    }
+    void GreaterThan(IVal a, IVal b, IVal c, int line = 0) {
+        EmitArith(Bytecode::kGreaterThan, a, b, c, line);
+    }
+    void GreaterEqual(IVal a, IVal b, IVal c, int line = 0) {
+        EmitArith(Bytecode::kGreaterEqual, a, b, c, line);
+    }
+    void Test(IVal a, int32_t b, int32_t c, int line = 0) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        Emit(Bytecode::kTest, a.index, b, c, line);
+    }
+    
+    void Bind(BytecodeLable *lable, ConstPoolBuilder *kpool);
+    
+    void Jump(BytecodeLable *lable, ConstPoolBuilder *kpool, int line = 0);
     
     void GetField(IVal a, IVal b, int line = 0) {
         DCHECK_EQ(IVal::kLocal, a.kind);
@@ -148,6 +213,11 @@ public:
         const_pool_.push_back(val);
         return idx;
     }
+    void Set(int32_t i, Handle<Object> val) {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, const_pool_.size());
+        const_pool_[i] = val;
+    }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(ConstPoolBuilder);
 private:
@@ -221,6 +291,9 @@ private:
     FILE *fp_;
     uint32_t pc_ = 0;
 }; // class BytecodeArrayDisassembler
+    
+    
+
     
 } // namespace nyaa
     

@@ -44,12 +44,13 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     int64_t smi_val;
 }
 
-%token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS RETURN VARGS
+%token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS RETURN VARGS DO
+%token IF ELSE WHILE
 %token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL
 %token TOKEN_ERROR
 
 %type <block> Script Block
-%type <stmt> Statement VarDeclaration FunctionDefinition Assignment
+%type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause
 %type <stmts> StatementList
 %type <expr> Expression Call LambdaLiteral MapLiteral
 %type <exprs> ExpressionList
@@ -115,6 +116,26 @@ Statement : RETURN ExpressionList {
 }
 | Expression {
     $$ = $1;
+}
+| DO Block {
+    $$ = $2;
+}
+| IfStatement {
+    $$ = $1;
+}
+
+IfStatement: IF '(' Expression ')' Block ElseClause {
+    $$ = ctx->factory->NewIfStatement($3, $5, $6, Location::Concat(@1, @6));
+}
+
+ElseClause: ELSE Block {
+    $$ = $2;
+}
+| ELSE IfStatement {
+    $$ = $2;
+}
+| {
+    $$ = nullptr;
 }
 
 FunctionDefinition : DEF NAME '.' NAME '(' NameList ParameterVargs ')' Block {

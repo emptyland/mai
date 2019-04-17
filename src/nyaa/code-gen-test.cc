@@ -315,26 +315,103 @@ TEST_F(NyaaCodeGenTest, MapLiteral) {
         "   }\n"
         "}\n"
     };
-//    static const char z[] = {
-//        "function: [unnamed], params: 0, vargs: 0, max-stack: 2, upvals: 0\n"
-//        "file name: :memory:\n"
-//        "const pool: 3\n"
-//        " [0] (-1) t\n"
-//        " [1] (-2) 1\n"
-//        " [2] (-3) field\n"
-//        ".............................\n"
-//        "[000] LoadGlobal 0 0 ; line: 1\n"
-//        "[003] GetField 0 -2 ; line: 1\n"
-//        "[006] LoadGlobal 1 0 ; line: 1\n"
-//        "[009] GetField 1 -3 ; line: 1\n"
-//        "[012] Ret 0 2 ; line: 2\n"
-//    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 15, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 12\n"
+        " [0] (-1) 100\n"
+        " [1] (-2) 0\n"
+        " [2] (-3) 1\n"
+        " [3] (-4) 2\n"
+        " [4] (-5) 3\n"
+        " [5] (-6) name\n"
+        " [6] (-7) jack\n"
+        " [7] (-8) 1.100000\n"
+        " [8] (-9) nested\n"
+        " [9] (-10) 7\n"
+        " [10] (-11) 8\n"
+        " [11] (-12) 9\n"
+        ".............................\n"
+        "[000] LoadConst 0 0 ; line: 1\n"
+        "[003] LoadConst 1 1 ; line: 3\n"
+        "[006] LoadConst 2 2 ; line: 3\n"
+        "[009] LoadConst 3 2 ; line: 3\n"
+        "[012] LoadConst 4 3 ; line: 3\n"
+        "[015] LoadConst 5 3 ; line: 3\n"
+        "[018] LoadConst 6 4 ; line: 3\n"
+        "[021] LoadConst 7 5 ; line: 4\n"
+        "[024] LoadConst 8 6 ; line: 4\n"
+        "[027] Add 9 -3 0 ; line: 5\n"
+        "[031] LoadConst 10 7 ; line: 5\n"
+        "[034] LoadConst 11 8 ; line: 6\n"
+        "[037] LoadConst 12 9 ; line: 7\n"
+        "[040] LoadConst 13 10 ; line: 7\n"
+        "[043] LoadConst 14 11 ; line: 7\n"
+        "[046] NewMap 12 3 1 ; line: 6\n"
+        "[050] NewMap 1 12 0 ; line: 2\n"
+    };
+
     HandleScope handle_scope(isolate_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     //ASSERT_EQ(10, script->max_stack());
     
-    BytecodeArrayDisassembler::Disassembly(core_, script, stdout);
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
+    ASSERT_EQ(z, buf);
+}
+    
+TEST_F(NyaaCodeGenTest, IfElse) {
+    static const char s[] = {
+        "var a, b, c = 1, 2, 3\n"
+        "if (a == b) { print(a) }\n"
+        "else if (a < b) { print (c) }\n"
+        "else { print(b) }\n"
+        "return\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 5, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 8\n"
+        " [0] (-1) 1\n"
+        " [1] (-2) 2\n"
+        " [2] (-3) 3\n"
+        " [3] (-4) 14\n"
+        " [4] (-5) print\n"
+        " [5] (-6) 34\n"
+        " [6] (-7) 14\n"
+        " [7] (-8) 12\n"
+        ".............................\n"
+        "[000] LoadConst 0 0 ; line: 1\n"
+        "[003] LoadConst 1 1 ; line: 1\n"
+        "[006] LoadConst 2 2 ; line: 1\n"
+        "[009] Equal 3 0 1 ; line: 2\n"
+        "[013] Test 3 0 0 ; line: 2\n"
+        "[017] JumpConst 3 ; line: 2\n"
+        "[019] LoadGlobal 3 4 ; line: 2\n"
+        "[022] Move 4 0 ; line: 2\n"
+        "[025] Call 3 1 0 ; line: 2\n"
+        "[029] JumpConst 5 ; line: 2\n"
+        "[031] LessThan 3 0 1 ; line: 3\n"
+        "[035] Test 3 0 0 ; line: 3\n"
+        "[039] JumpConst 6 ; line: 3\n"
+        "[041] LoadGlobal 3 4 ; line: 3\n"
+        "[044] Move 4 2 ; line: 3\n"
+        "[047] Call 3 1 0 ; line: 3\n"
+        "[051] JumpConst 7 ; line: 3\n"
+        "[053] LoadGlobal 3 4 ; line: 4\n"
+        "[056] Move 4 1 ; line: 4\n"
+        "[059] Call 3 1 0 ; line: 4\n"
+        "[063] Ret 0 0 ; line: 5\n"
+    };
+    HandleScope handle_scope(isolate_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    //ASSERT_EQ(10, script->max_stack());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
+    ASSERT_EQ(z, buf);
 }
 
 } // namespace nyaa

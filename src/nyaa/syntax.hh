@@ -70,14 +70,18 @@ extern int nyaa_yydebug;
     UMINUS = 268,
     RETURN = 269,
     VARGS = 270,
-    STRING_LITERAL = 271,
-    SMI_LITERAL = 272,
-    APPROX_LITERAL = 273,
-    INT_LITERAL = 274,
-    TOKEN_ERROR = 275,
-    IN = 276,
-    IS = 277,
-    OP_NOT = 278
+    DO = 271,
+    IF = 272,
+    ELSE = 273,
+    WHILE = 274,
+    STRING_LITERAL = 275,
+    SMI_LITERAL = 276,
+    APPROX_LITERAL = 277,
+    INT_LITERAL = 278,
+    TOKEN_ERROR = 279,
+    IN = 280,
+    IS = 281,
+    OP_NOT = 282
   };
 #endif
 
@@ -106,7 +110,7 @@ union NYAA_YYSTYPE
     ::mai::nyaa::f64_t f64_val;
     int64_t smi_val;
 
-#line 110 "syntax.hh" /* yacc.c:1927  */
+#line 114 "syntax.hh" /* yacc.c:1927  */
 };
 
 typedef union NYAA_YYSTYPE NYAA_YYSTYPE;

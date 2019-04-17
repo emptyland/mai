@@ -34,8 +34,13 @@ using namespace ::mai::nyaa::ast;
 %%
 def { return DEF; }
 var { return VAR; }
+do { return DO; }
 lambda { return LAMBDA; }
 return { return RETURN; }
+if { return IF; }
+else { return ELSE; }
+while { return WHILE; }
+
 
 
 [A-Za-z_][A-Za-z_0-9]* {

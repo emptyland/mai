@@ -421,6 +421,119 @@ TEST_F(NyaaThreadTest, MapInitializer) {
     ASSERT_TRUE(val->IsSmi());
     ASSERT_EQ(100, val->ToSmi());
 }
+    
+TEST_F(NyaaThreadTest, MapLinearInitializer)  {
+    static const char s[] = {
+        "var a, b, c = 1, 2, 3\n"
+        "return {\n"
+        "   a, b, c, 4, 5, 6, 7, 8"
+        "}\n"
+    };
+    
+    HandleScope scope(isolate_);
+    
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Do(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    auto rv = script->Call(&args, 1, core_);
+    ASSERT_EQ(1, rv) << try_catch.message()->bytes();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
+    ASSERT_EQ(1, core_->curr_thd()->frame_size());
+    Handle<NyMap> map(core_->curr_thd()->Get(-1));
+    ASSERT_TRUE(map->IsMap());
+    
+    for (int i = 0; i < 8; ++i) {
+        Handle<Object> val = map->RawGet(NyInt32::New(i), core_);
+        ASSERT_TRUE(val->IsSmi());
+        ASSERT_EQ(1 + i, val->ToSmi());
+    }
+}
+    
+int Values_Check(Arguments *args, Nyaa *N) {
+    Local<Function> callee = Local<Function>::Cast(args->Callee());
+    if (!callee) {
+        return -1;
+    }
+
+    for (int i = 0; i < args->Length(); ++i) {
+        callee->Bind(i, args->Get(i));
+    }
+    return 0;
+}
+    
+TEST_F(NyaaThreadTest, OnlyIf)  {
+    static const char s[] = {
+        "var a, b, c = 1, 0, 1\n"
+        "if (a) { check(3) }\n"
+        "return\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
+    
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Do(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 1, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
+    
+    Handle<Object> val = check->upval(0);
+    ASSERT_TRUE(val->IsSmi());
+    ASSERT_EQ(3, val->ToSmi());
+}
+
+TEST_F(NyaaThreadTest, IfElse)  {
+    static const char s[] = {
+        "var a, b, c = 0, 0, 1\n"
+        "if (a) { check(1) }\n"
+        "else { check(2) }\n"
+        "return\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
+    
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Do(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 1, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
+    
+    Handle<Object> val = check->upval(0);
+    ASSERT_TRUE(val->IsSmi());
+    ASSERT_EQ(2, val->ToSmi());
+}
+    
+TEST_F(NyaaThreadTest, IfElseIf)  {
+    static const char s[] = {
+        "var a, b, c = nil, 0, 1\n"
+        "if (c) { check(1) }\n"
+        "else { check(2) }\n"
+        "return\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
+    
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Do(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 1, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
+
+    Handle<Object> val = check->upval(0);
+    ASSERT_TRUE(val->IsSmi());
+    ASSERT_EQ(1, val->ToSmi());
+}
+    
 
 } // namespace nyaa
     

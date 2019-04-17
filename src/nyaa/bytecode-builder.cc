@@ -117,6 +117,38 @@ void BytecodeArrayBuilder::AddParam(int32_t p, int scale, int line) {
     }
 }
     
+void BytecodeArrayBuilder::Bind(BytecodeLable *lable, ConstPoolBuilder *kpool) {
+    if (lable->unbinded()) {
+        int pc = static_cast<int>(bcs_.size());
+        if (lable->subs_.empty()) {
+            lable->pc_ = pc;
+            lable->kslot_ = kpool->Add(NyInt32::New(0));
+        }
+
+        for (auto sub : lable->subs_) {
+            int delta = pc - sub.pc;
+            kpool->Set(sub.kslot, NyInt32::New(delta));
+        }
+        lable->SetBinded();
+    } else {
+        DCHECK_NE(-1, lable->pc());
+        DCHECK_NE(-1, lable->kslot());
+    }
+}
+
+void BytecodeArrayBuilder::Jump(BytecodeLable *lable, ConstPoolBuilder *kpool, int line) {
+    if (lable->unbinded()) {
+        int pc = static_cast<int>(bcs_.size());
+        int kslot = kpool->Add(NyInt32::New(0));
+        lable->subs_.push_back(BytecodeLable::Position{pc, kslot});
+        Emit(Bytecode::kJumpConst, kslot, line);
+    } else {
+        int pc = static_cast<int>(bcs_.size());
+        int delta = pc - lable->pc();
+        Emit(Bytecode::kJumpImm, delta, line);
+    }
+}
+    
 Handle<NyArray> ConstPoolBuilder::Build(NyaaCore *core) {
     if (const_pool_.empty()) {
         return Handle<NyArray>::Null();

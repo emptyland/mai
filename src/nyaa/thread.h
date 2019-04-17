@@ -182,6 +182,7 @@ private:
     void CopyResult(Object **ret, int n_rets, int wanted);
     
     int ParseBytecodeInt32Params(int offset, int scale, int n, ...);
+    int ParseBytecodeSize(int offset);
     
     void Bind(int i, NyClosure *closure, const NyFunction::UpvalDesc &desc) {
         CallFrame *up = frame_;

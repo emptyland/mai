@@ -20,6 +20,7 @@ namespace ast {
     V(Block) \
     V(VarDeclaration) \
     V(Assignment) \
+    V(IfStatement) \
     V(Multiple) \
     V(StringLiteral) \
     V(ApproxLiteral) \
@@ -176,6 +177,24 @@ private:
     LValList *lvals_;
     RValList *rvals_;
 }; // class Assignment
+    
+class IfStatement : public Statement {
+public:
+    DEF_PTR_GETTER_NOTNULL(Expression, cond);
+    DEF_PTR_GETTER_NOTNULL(Block, then_clause);
+    DEF_PTR_GETTER(Statement, else_clause);
+    DEFINE_AST_NODE(IfStatement);
+private:
+    IfStatement(int line, Expression *cond, Block *then_clause, Statement *else_clause)
+        : Statement(line)
+        , cond_(DCHECK_NOTNULL(cond))
+        , then_clause_(DCHECK_NOTNULL(then_clause))
+        , else_clause_(else_clause) {}
+
+    Expression *cond_;
+    Block *then_clause_;
+    Statement *else_clause_;
+}; // class IfStatement
 
 class Return : public Statement {
 public:
@@ -478,8 +497,7 @@ inline int Call::GetNArgs() const {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class Factory final {
 public:
-    Factory(base::Arena *arena)
-        : arena_(DCHECK_NOTNULL(arena)) {}
+    Factory(base::Arena *arena) : arena_(DCHECK_NOTNULL(arena)) {}
 
     Block *NewBlock(Block::StmtList *stmts, const Location &loc = Location{}) {
         return new (arena_) Block(loc.begin_line, loc.end_line, stmts);
@@ -500,6 +518,11 @@ public:
     Assignment *NewAssignment(Assignment::LValList *lvals, Assignment::RValList *rvals,
                               const Location &loc = Location{}) {
         return new (arena_) Assignment(loc.begin_line, lvals, rvals);
+    }
+    
+    IfStatement *NewIfStatement(Expression *cond, Block *then_clause, Statement *else_clause,
+                                const Location &loc = Location{}) {
+        return new (arena_) IfStatement(loc.begin_line, cond, then_clause, else_clause);
     }
 
     StringLiteral *NewStringLiteral(const String *val, const Location &loc = Location{}) {

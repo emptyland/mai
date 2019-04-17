@@ -15,9 +15,9 @@ namespace nyaa {
     V(LoadUp,      2, a, b) \
     V(LoadNil,     2, a, b) \
     V(GetField,    2, a, b) \
-    V(SetField,    3, a, b, c)\
+    V(SetField,    3, a, b, c) \
     V(GetUpField,  2, a, b) \
-    V(SetUPField,  3, a, b, c)\
+    V(SetUPField,  3, a, b, c) \
     V(StoreGlobal, 2, a, b) \
     V(StoreUp,     2, a, b) \
     V(NewMap,      3, a, b, c) \
@@ -25,6 +25,15 @@ namespace nyaa {
     V(Sub,         3, a, b, c) \
     V(Mul,         3, a, b, c) \
     V(Div,         3, a, b, c) \
+    V(Equal,       3, a, b, c) \
+    V(NotEqual,    3, a, b, c) \
+    V(LessThan,    3, a, b, c) \
+    V(LessEqual,   3, a, b, c) \
+    V(GreaterThan, 3, a, b, c) \
+    V(GreaterEqual,3, a, b, c) \
+    V(Test,        3, a, b, c) \
+    V(JumpImm,     1, a) \
+    V(JumpConst,   1, a) \
     V(Closure,     2, a, b) \
     V(New,         3, a, b, c) \
     V(Call,        3, a, b, c) \

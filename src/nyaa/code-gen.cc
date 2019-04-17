@@ -313,6 +313,30 @@ public:
         return IVal::Void();
     }
     
+    virtual IVal VisitIfStatement(ast::IfStatement *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        IVal cond = node->cond()->Accept(this, &ix);
+        builder()->Test(cond, 0, 0, node->line());
+        fun_scope_->FreeVar(cond);
+
+        BytecodeLable else_lable;
+        builder()->Jump(&else_lable, fun_scope_->kpool(), node->line());
+        node->then_clause()->Accept(this, &ix);
+
+        if (!node->else_clause()) {
+            builder()->Bind(&else_lable, fun_scope_->kpool());
+        } else {
+            BytecodeLable out_lable;
+            builder()->Jump(&out_lable, fun_scope_->kpool(), node->then_clause()->line());
+            builder()->Bind(&else_lable, fun_scope_->kpool());
+            node->else_clause()->Accept(this, &ix);
+            builder()->Bind(&out_lable, fun_scope_->kpool());
+        }
+        
+        return IVal::Void();
+    }
+    
     virtual IVal VisitStringLiteral(ast::StringLiteral *node, ast::VisitorContext *x) override {
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
         IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->value()));
@@ -364,6 +388,11 @@ public:
         if (linear) {
             for (auto entry : *node->value()) {
                 IVal value = entry->value()->Accept(this, &ix);
+                if (blk_scope_->Protected(value)) {
+                    IVal tmp = fun_scope_->NewLocal();
+                    builder()->Move(tmp, value);
+                    value = tmp;
+                }
                 kvs.push_back(value);
             }
         } else {
@@ -517,7 +546,7 @@ public:
     
     virtual IVal VisitReturn(ast::Return *node, ast::VisitorContext *x) override {
         if (!node->rets()) {
-            builder()->Ret(IVal::Local(0), 0);
+            builder()->Ret(IVal::Local(0), 0, node->line());
             return IVal::Void();
         }
         
@@ -591,7 +620,24 @@ public:
             case Operator::kDiv:
                 builder()->Div(ret, operands[0], operands[1], node->line());
                 break;
-                // TODO:
+            case Operator::kEQ:
+                builder()->Equal(ret, operands[0], operands[1], node->line());
+                break;
+            case Operator::kNE:
+                builder()->NotEqual(ret, operands[0], operands[1], node->line());
+                break;
+            case Operator::kLT:
+                builder()->LessThan(ret, operands[0], operands[1], node->line());
+                break;
+            case Operator::kLE:
+                builder()->LessEqual(ret, operands[0], operands[1], node->line());
+                break;
+            case Operator::kGT:
+                builder()->GreaterThan(ret, operands[0], operands[1], node->line());
+                break;
+            case Operator::kGE:
+                builder()->GreaterEqual(ret, operands[0], operands[1], node->line());
+                break;
             default:
                 DLOG(FATAL) << "TODO:";
                 break;
@@ -696,7 +742,8 @@ IVal FunctionScope::GetOrNewUpvalNested(const ast::String *name) {
 }
 
 inline BlockScope::BlockScope(FunctionScope *owns)
-    : owns_(DCHECK_NOTNULL(owns)) {
+    : owns_(DCHECK_NOTNULL(owns))
+    , active_vars_(0) {
 
     prev_ = owns_->owns_->blk_scope_;
     owns_->owns_->blk_scope_ = this;
@@ -704,7 +751,6 @@ inline BlockScope::BlockScope(FunctionScope *owns)
         owns_->top_ = this;
     }
     owns_->current_ = this;
-    active_vars_ = owns_->active_vars_;
 }
 
 inline BlockScope::~BlockScope() {
@@ -714,8 +760,9 @@ inline BlockScope::~BlockScope() {
         owns_->top_ = nullptr;
     }
     owns_->current_ = prev_;
-    owns_->free_reg_ = active_vars_;
+
     owns_->active_vars_ -= active_vars_;
+    owns_->free_reg_ = owns_->active_vars_;
     
 //    printf("*****************\n");
 //    for (const auto &var : vars_) {
