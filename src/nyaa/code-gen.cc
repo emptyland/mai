@@ -337,6 +337,50 @@ public:
         return IVal::Void();
     }
     
+    virtual IVal VisitObjectDefinition(ast::ObjectDefinition *node, ast::VisitorContext *x) override {
+        std::vector<IVal> kvs;
+        size_t offset = sizeof(NyUDO);
+        if (node->members()) {
+            for (auto stmt : *node->members()) {
+                if (ast::PropertyDeclaration *decl = stmt->ToPropertyDeclaration()) {
+                    offset = DeclareClassProperies(decl, offset, &kvs);
+                } else if (ast::FunctionDefinition *func = stmt->ToFunctionDefinition()) {
+                    DefineClassMethod(node->name(), func, &kvs);
+                } else {
+                    DLOG(FATAL) << "noreached!";
+                }
+            }
+        }
+        auto bkz = core_->bkz_pool();
+        {
+            IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerType));
+            kvs.push_back(Localize(key, node->line()));
+            IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
+            kvs.push_back(Localize(val, node->line()));
+        }
+        {
+            IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerSize));
+            kvs.push_back(Localize(key, node->line()));
+            IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewSmi(offset));
+            kvs.push_back(Localize(val, node->line()));
+        }
+        
+        IVal clazz = kvs.front();
+        builder()->NewMap(clazz, static_cast<int>(kvs.size()), -1/*linear*/, node->end_line());
+        for (int64_t i = kvs.size() - 1; i > 0; --i) {
+            fun_scope_->FreeVar(kvs[i]);
+        }
+        builder()->New(clazz, 0, 1, node->end_line());
+        if (node->local()) {
+            blk_scope_->PutVariable(node->name(), &clazz);
+        } else {
+            fun_scope_->FreeVar(clazz);
+            IVal key = IVal::Global(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerType));
+            builder()->StoreGlobal(clazz, key, node->end_line());
+        }
+        return IVal::Void();
+    }
+    
     virtual IVal VisitStringLiteral(ast::StringLiteral *node, ast::VisitorContext *x) override {
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
         IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->value()));
@@ -368,7 +412,7 @@ public:
         int index = 0;
         if (!node->value()) {
             IVal map = fun_scope_->NewLocal();
-            builder()->NewTable(map, 0/*n*/, 0/*linear*/, node->line());
+            builder()->NewMap(map, 0/*n*/, 0/*linear*/, node->line());
             return map;
         }
         bool linear = true;
@@ -416,7 +460,7 @@ public:
         }
         
         IVal map = kvs.front();
-        builder()->NewTable(map, static_cast<int>(kvs.size()), linear, node->line());
+        builder()->NewMap(map, static_cast<int>(kvs.size()), linear, node->line());
         for (int64_t i = kvs.size() - 1; i > 0; --i) {
             fun_scope_->FreeVar(kvs[i]);
         }
@@ -652,6 +696,42 @@ public:
     friend class BlockScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(CodeGeneratorVisitor);
 private:
+    size_t DeclareClassProperies(ast::PropertyDeclaration *decl, size_t offset,
+                                 std::vector<IVal> *kvs) {
+        for (auto nm : *decl->names()) {
+            int64_t tag = decl->readonly() ? 0x1 : 0x3;
+            tag |= (offset << 2);
+            
+            IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(nm));
+            kvs->push_back(Localize(key, decl->line()));
+            IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewSmi(tag));
+            kvs->push_back(Localize(val, decl->line()));
+            
+            offset += kPointerSize;
+        }
+        return offset;
+    }
+    
+    void DefineClassMethod(const ast::String *class_name, ast::FunctionDefinition *node,
+                           std::vector<IVal> *kvs) {
+        CodeGeneratorContext rix;
+        rix.set_localize(false);
+        rix.set_keep_const(true);
+        IVal fn = node->literal()->Accept(this, &rix);
+        DCHECK_EQ(IVal::kFunction, fn.kind);
+        
+        Handle<NyFunction> lambda = fun_scope_->protos_[fn.index];
+        Handle<NyString> name = core_->factory()->Sprintf("%s::%s", class_name->data(),
+                                                          node->name()->data());
+        lambda->SetName(*name, core_);
+        
+        IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
+        kvs->push_back(Localize(key, node->line()));
+        IVal val = fun_scope_->NewLocal();
+        builder()->Closure(val, fn, node->line());
+        kvs->push_back(val);
+    }
+    
     IVal Localize(IVal val, int line) {
         switch (val.kind) {
             case IVal::kLocal:

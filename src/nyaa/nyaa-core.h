@@ -69,6 +69,8 @@ public:
 
     void IterateRoot(RootVisitor *visitor);
     
+    uint64_t GenerateUdoKid() { return next_udo_kid_++; }
+    
     HandleScope *current_handle_scope() const { return top_slot_->scope; }
     HandleScopeSlot *current_handle_scope_slot() const { return top_slot_; }
     
@@ -96,6 +98,7 @@ private:
     std::unique_ptr<ObjectFactory> factory_;
     HandleScopeSlot *top_slot_;
     bool initialized_ = false;
+    uint64_t next_udo_kid_;
     std::unique_ptr<RandomGenerator> random_;
     std::unique_ptr<StringPool> kz_pool_; // elements [weak ref]
     std::unique_ptr<BuiltinStrPool> bkz_pool_; // elements [strong ref]

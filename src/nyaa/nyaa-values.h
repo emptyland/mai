@@ -723,7 +723,9 @@ public:
     
     void Bind(int i, Object *upval, NyaaCore *N);
     
-    int Call(Arguments *args, NyaaCore *N);
+    int Call(Arguments *args, int nrets, NyaaCore *N);
+    
+    int RawCall(Arguments *args, NyaaCore *N);
     
     DEF_VAL_GETTER(Kind, kind);
     
@@ -773,6 +775,10 @@ public:
     Finalizer GetFinalizer() const { return reinterpret_cast<Finalizer>(finalizer_ & ~0x1); }
     
     bool IgnoreManaged() const { return finalizer_ & 0x1; }
+    
+    Address data() { return reinterpret_cast<Address>(this + 1); }
+    
+    Object *field(size_t i) { return fields_[i]; }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyUDO);
 private:

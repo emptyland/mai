@@ -201,6 +201,29 @@ int NyThread::Run(NyClosure *fn, Arguments *args, int n_result, NyMap *env) {
     return rv;
 }
     
+int NyThread::Run(NyDelegated *fn, Arguments *args, int nrets, NyMap *env) {
+    if (!env) {
+        env = owns_->g();
+    }
+    Push(fn);
+    
+    HandleScope scope(owns_->isolate());
+    CallFrame frame;
+    frame.Enter(this, fn,
+                nullptr, /* bc buf */
+                nullptr, /* const pool */
+                nrets,
+                stack_tp_, /*frame_bp*/
+                stack_tp_ + 20, /* frame_tp */
+                env);
+    int rv = fn->RawCall(args, owns_);
+    if (rv >= 0) {
+        CopyResult(stack_ + frame.stack_bp() - 1, rv, nrets);
+    }
+    frame.Exit(this);
+    return rv;
+}
+    
 void NyThread::CopyArgs(Arguments *args, int n_params, bool vargs) {
     if (vargs) {
         NyMap *params = owns_->factory()->NewMap(8, rand(), true /*linear*/);
@@ -243,7 +266,7 @@ int NyThread::Resume(Arguments *args, NyThread *save, NyMap *env) {
         }
         if (NyDelegated *callee = entry_->ToDelegated()) {
             HandleScope scope(owns_->isolate());
-            return callee->Call(args, owns_);
+            return callee->RawCall(args, owns_);
         }
         DLOG(FATAL) << "Noreached!";
     }
@@ -476,17 +499,22 @@ int NyThread::Run() {
             } break;
 
             case Bytecode::kNewMap: {
-                int32_t ra, n, linear;
+                int32_t ra, n, p;
                 int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 3, &ra, &n, &linear)) < 0) {
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 3, &ra, &n, &p)) < 0) {
                     return -1;
                 }
+                bool linear = p < 0 ? false : p;
                 uint32_t capacity = (linear ? n : n / 2) + 4;
                 if (capacity < 8) {
                     capacity = 8;
                 }
-                NyMap *ob = owns_->factory()->NewMap(capacity, 0/*seed*/, 0/*kid*/,
-                                                     linear, false/*old*/);
+                // linear > 0 : linear map
+                //        < 0 : class metatable
+                //       == 0 : normal map
+                uint64_t kid = p < 0 ? owns_->GenerateUdoKid() : 0;
+                NyMap *ob = owns_->factory()->NewMap(capacity, 0/*seed*/, kid/*kid*/, linear,
+                                                     false/*old*/);
                 Object **base = frame_bp() + ra;
                 if (linear) {
                     for (int i = 0; i < n; ++i) {
@@ -520,6 +548,31 @@ int NyThread::Run() {
                     stack_tp_ = base + 1 + n_args;
                 }
                 InternalCall(base, n_args, n_rets);
+                frame_->AddPC(delta);
+            } break;
+                
+            case Bytecode::kNew: {
+                int32_t ra, n_args, n_rets;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 3, &ra, &n_args, &n_rets)) < 0) {
+                    return -1;
+                }
+                Object *val = Get(ra);
+                if (val->IsSmi()) {
+                    owns_->Raisef("can not call number.");
+                    return -1;
+                }
+                NyMap *clazz = val->ToHeapObject()->ToMap();
+                if (!clazz) {
+                    owns_->Raisef("new non-class.");
+                    return -1;
+                }
+                Object *size = clazz->RawGet(owns_->bkz_pool()->kInnerSize, owns_);
+                if (size == Object::kNil || !size->IsSmi()) {
+                    owns_->Raisef("incorrect class table: error __size__.");
+                    return -1;
+                }
+                InternalNewUdo(frame_bp() + ra, n_args, size->ToSmi(), clazz);
                 frame_->AddPC(delta);
             } break;
                 
@@ -579,7 +632,7 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
                         base + 1, /*frame_bp*/
                         base + 20, /* frame_tp */
                         frame_->env());
-            int rv = callee->Call(&args, owns_);
+            int rv = callee->RawCall(&args, owns_);
             if (rv >= 0) {
                 CopyResult(stack_ + frame.stack_bp() - 1, rv, wanted);
             }
@@ -591,6 +644,30 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
             // TODO: call metatable method.
             DLOG(FATAL) << "TODO";
         } break;
+    }
+    return 0;
+}
+    
+int NyThread::InternalNewUdo(Object **udo, int32_t n_args, size_t size, NyMap *clazz) {
+    NyUDO *rv = owns_->factory()->NewUninitializedUDO(size, clazz, false);
+    ::memset(rv->data(), 0, size - sizeof(NyUDO));
+    *udo = rv; // protected for gc.
+
+    Object *vv = clazz->RawGet(owns_->bkz_pool()->kInnerInit, owns_);
+    if (vv != Object::kNil && vv->IsObject() && vv->ToHeapObject()->IsRunnable()) {
+        Object **base = udo;
+        if (n_args >= 0) {
+            stack_tp_ = base + 1 + n_args;
+        }
+        if (n_args < 0) {
+            n_args = static_cast<int32_t>(stack_tp_ - base - 1);
+        }
+        NyRunnable *init = static_cast<NyRunnable *>(vv);
+        Arguments args(reinterpret_cast<Value **>(base), n_args + 1);
+        int nrets = init->Apply(&args, 0, owns_);
+        if (nrets < 0) {
+            return -1;
+        }
     }
     return 0;
 }

@@ -18,9 +18,13 @@ namespace ast {
     
 #define DECL_AST_NODES(V) \
     V(Block) \
+    V(ClassDefinition) \
+    V(ObjectDefinition) \
     V(VarDeclaration) \
+    V(PropertyDeclaration) \
     V(Assignment) \
     V(IfStatement) \
+    V(WhileLoop) \
     V(Multiple) \
     V(StringLiteral) \
     V(ApproxLiteral) \
@@ -125,6 +129,7 @@ protected:
     friend class Factory; \
     DISALLOW_IMPLICIT_CONSTRUCTORS(name)
     
+using Attributes = base::ArenaVector<const String *>;
 
 class Statement : public AstNode {
 public:
@@ -150,12 +155,12 @@ public:
     DEF_PTR_GETTER_NOTNULL(NameList, names);
     DEF_PTR_GETTER(ExprList, inits);
     DEFINE_AST_NODE(VarDeclaration);
-private:
+protected:
     VarDeclaration(int line, NameList *names, ExprList *inits)
         : Statement(line)
         , names_(DCHECK_NOTNULL(names))
         , inits_(inits) {}
-
+private:
     NameList *names_;
     ExprList *inits_;
 }; // class VarDeclaration
@@ -195,6 +200,20 @@ private:
     Block *then_clause_;
     Statement *else_clause_;
 }; // class IfStatement
+    
+class WhileLoop : public Statement {
+public:
+    DEF_PTR_GETTER_NOTNULL(Expression, cond);
+    DEF_PTR_GETTER_NOTNULL(Block, body);
+    DEFINE_AST_NODE(WhileLoop);
+private:
+    WhileLoop(int line, Expression *cond, Block *body)
+        : Statement(line)
+        , cond_(DCHECK_NOTNULL(cond))
+        , body_(DCHECK_NOTNULL(body)) {}
+    Expression *cond_;
+    Block *body_;
+}; // class WhileLoop
 
 class Return : public Statement {
 public:
@@ -450,6 +469,54 @@ private:
     DotField(int line, Expression *self, const String *index)
         : GenericIndex<const String *>(line, self, index) {}
 }; // class DotField
+    
+class PropertyDeclaration : public VarDeclaration {
+public:
+    DEF_VAL_GETTER(bool, readonly);
+    DEFINE_AST_NODE(PropertyDeclaration);
+private:
+    PropertyDeclaration(int line, NameList *names, ExprList *inits, bool readonly)
+        : VarDeclaration(line, names, inits)
+        , readonly_(readonly) {}
+    bool readonly_;
+}; // class PropertyDeclaration
+    
+class ObjectDefinition : public Statement {
+public:
+    using MemberList = base::ArenaVector<Statement *>;
+
+    DEF_VAL_GETTER(int, end_line);
+    DEF_PTR_GETTER_NOTNULL(const String, name);
+    DEF_VAL_GETTER(bool, local);
+    DEF_PTR_GETTER(MemberList, members);
+    DEFINE_AST_NODE(ObjectDefinition);
+protected:
+    ObjectDefinition(int begin_line, int end_line, const String *name, bool local,
+                     MemberList *members)
+        : Statement(begin_line)
+        , end_line_(end_line)
+        , name_(DCHECK_NOTNULL(name))
+        , local_(local)
+        , members_(members) {}
+private:
+    int end_line_;
+    const String *name_;
+    bool local_;
+    MemberList *members_;
+}; // class ObjectDefinition
+    
+class ClassDefinition : public ObjectDefinition {
+public:
+    DEF_PTR_GETTER(Variable, base);
+    DEFINE_AST_NODE(ClassDefinition);
+private:
+    ClassDefinition(int begin_line, int end_line, const String *name, bool local, Variable *base,
+                    MemberList *members)
+        : ObjectDefinition(begin_line, end_line, name, local, members)
+        , base_(base) {}
+
+    Variable *base_;
+}; // class ClassDefinition
 
 class FunctionDefinition : public Statement {
 public:
@@ -509,10 +576,33 @@ public:
         return new (arena_) VarDeclaration(loc.begin_line, names, inits);
     }
     
+    PropertyDeclaration *NewPropertyDeclaration(Attributes *attrs,
+                                                VarDeclaration::NameList *names,
+                                                VarDeclaration::ExprList *inits,
+                                                const Location &loc = Location{}) {
+        bool ro = AttributesMatch(attrs, "ro", true, false);
+        ro = AttributesMatch(attrs, "rw", false, !ro);
+        return new (arena_) PropertyDeclaration(loc.begin_line, names, inits, ro);
+    }
+    
     FunctionDefinition *NewFunctionDefinition(Expression *self, const String *name,
                                               LambdaLiteral *literal,
                                               const Location &loc = Location{}) {
         return new (arena_) FunctionDefinition(loc.begin_line, self, name, literal);
+    }
+    
+    ObjectDefinition *NewObjectDefinition(Attributes *attrs, const String *name,
+                                          ObjectDefinition::MemberList *members,
+                                          const Location &loc = Location{}) {
+        bool local = AttributesMatch(attrs, "local", true, false);
+        return new (arena_) ObjectDefinition(loc.begin_line, loc.end_line, name, local, members);
+    }
+    
+    ClassDefinition *NewClassDefinition(Attributes *attrs, const String *name, Variable *base,
+                                        ObjectDefinition::MemberList *members,
+                                        const Location &loc = Location{}) {
+        bool local = AttributesMatch(attrs, "local", true, false);
+        return new (arena_) ClassDefinition(loc.begin_line, loc.end_line, name, local, base, members);
     }
     
     Assignment *NewAssignment(Assignment::LValList *lvals, Assignment::RValList *rvals,
@@ -601,6 +691,19 @@ public:
         auto rv = new (arena_) base::ArenaVector<T>(arena_);
         if (init) {
             rv->push_back(init);
+        }
+        return rv;
+    }
+    
+    template<class T>
+    T AttributesMatch(Attributes *attrs, const char *z, T value, T def_val) {
+        T rv = def_val;
+        if (attrs) {
+            for (auto attr : *attrs) {
+                if (attr->Equal(z)) {
+                    rv = value;
+                }
+            }
         }
         return rv;
     }

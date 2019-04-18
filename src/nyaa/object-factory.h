@@ -80,6 +80,8 @@ public:
     NyMap *NewMap(uint32_t capacity, uint32_t seed, uint64_t kid = 0, bool linear = false,
                   bool old = false);
     
+    //NyMap *NewUdoMetatable(const char *name, uint32_t capacity, uint32_t seed, bool old = false);
+    
     NyDelegated *NewDelegated(Handle<Value> (*fp)(Local<Value>, Local<String>, Nyaa *),
                               size_t n_upvals = 0, bool old = false) {
         return NewDelegated(kPropertyGetter, reinterpret_cast<Address>(fp), n_upvals, old);

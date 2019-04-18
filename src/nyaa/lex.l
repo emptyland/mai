@@ -40,7 +40,10 @@ return { return RETURN; }
 if { return IF; }
 else { return ELSE; }
 while { return WHILE; }
-
+property { return PROPERTY; }
+class { return CLASS; }
+object { return OBJECT; }
+nil { return NIL_LITERAL; }
 
 
 [A-Za-z_][A-Za-z_0-9]* {

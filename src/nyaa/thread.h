@@ -136,6 +136,8 @@ public:
 
     int Run(NyClosure *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
     
+    int Run(NyDelegated *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
+    
     int Resume(Arguments *args, NyThread *save, NyMap *env = nullptr);
     
     //int Yield(Arguments *args);
@@ -176,6 +178,7 @@ private:
     int Run();
 
     int InternalCall(Object **func, int32_t n_args, int wanted);
+    int InternalNewUdo(Object **udo, int32_t n_args, size_t size, NyMap *clazz);
     
     void CopyArgs(Arguments *args, int n_params, bool vargs);
     

@@ -317,6 +317,9 @@ NyString *NyObject::ToString(NyaaCore *N) {
         case kTypeFunction:
             return N->factory()->Sprintf("function: %p", this);
         default:
+            if (GetMetatable()->kid() > kUdoKidBegin) {
+                return N->factory()->Sprintf("udo: %p", this);
+            }
             break;
     }
     DLOG(FATAL) << "Noreached!" << GetMetatable()->kid();
@@ -747,8 +750,7 @@ int NyRunnable::Apply(Arguments *args, int nrets, NyaaCore *N) {
     if (NyClosure *callee = ToClosure()) {
         return callee->Call(args, nrets, N);
     } else if (NyDelegated *callee = ToDelegated()) {
-        // TODO:
-        return callee->Call(args, N);
+        return callee->Call(args, nrets, N);
     }
     DLOG(FATAL) << "Noreached!";
     return -1;
@@ -761,7 +763,11 @@ void NyDelegated::Bind(int i, Object *upval, NyaaCore *N) {
     upvals_[i] = upval;
 }
     
-int NyDelegated::Call(Arguments *args, NyaaCore *N) {
+int NyDelegated::Call(Arguments *args, int nrets, NyaaCore *N) {
+    return N->curr_thd()->Run(this, args, nrets);
+}
+    
+int NyDelegated::RawCall(Arguments *args, NyaaCore *N) {
     switch (kind()) {
         case kArg0:
             return call0_(N->stub());

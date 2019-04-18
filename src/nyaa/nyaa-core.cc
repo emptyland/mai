@@ -21,7 +21,8 @@ NyaaCore::NyaaCore(Nyaa *stub)
     , page_alloc_(stub->isolate()->env()->GetLowLevelAllocator())
     , heap_(new Heap(this))
     , bkz_pool_(new BuiltinStrPool())
-    , kmt_pool_(new BuiltinMetatablePool()) {
+    , kmt_pool_(new BuiltinMetatablePool())
+    , next_udo_kid_(kUdoKidBegin + 1) {
     if (stub_->nogc()) {
         factory_.reset(new MallocObjectFactory(this));
     } else {

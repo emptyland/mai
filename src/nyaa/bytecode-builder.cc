@@ -149,6 +149,21 @@ void BytecodeArrayBuilder::Jump(BytecodeLable *lable, ConstPoolBuilder *kpool, i
     }
 }
     
+int32_t ConstPoolBuilder::GetOrNewStr(const NyString *val) {
+    View<char> view = MakeView(val->bytes(), val->size());
+    return GetOrNew({.kind = kStr, .str_val = view});
+}
+    
+int32_t ConstPoolBuilder::GetOrNewStr(const ast::String *val) {
+    View<char> view = MakeView(val->data(), val->size());
+    return GetOrNew({.kind = kStr, .str_val = view});
+}
+
+int32_t ConstPoolBuilder::GetOrNewInt(const ast::String *val) {
+    View<char> view = MakeView(val->data(), val->size());
+    return GetOrNew({.kind = kStr, .int_val = view});
+}
+    
 Handle<NyArray> ConstPoolBuilder::Build(NyaaCore *core) {
     if (const_pool_.empty()) {
         return Handle<NyArray>::Null();
@@ -175,7 +190,7 @@ int32_t ConstPoolBuilder::GetOrNew(const Key &key) {
             p = Add(NySmi::New(key.smi_val));
             break;
         case kStr:
-            p = Add(factory_->NewString(key.str_val->data(), key.str_val->size()));
+            p = Add(factory_->NewString(key.str_val.z, key.str_val.n));
             break;
         case kInt:
             // TODO:
@@ -198,9 +213,9 @@ bool ConstPoolBuilder::EqualTo::operator()(const Key &lhs, const Key &rhs) const
         case kF64:
             return lhs.f64_val == rhs.f64_val;
         case kInt:
-            return lhs.int_val->ToString() == rhs.int_val->ToString();
+            return ::strncmp(lhs.str_val.z, rhs.str_val.z, lhs.str_val.n) == 0;
         case kStr:
-            return lhs.str_val->ToString() == rhs.str_val->ToString();
+            return ::strncmp(lhs.int_val.z, rhs.int_val.z, lhs.int_val.n) == 0;
         default:
             break;
     }
@@ -215,9 +230,9 @@ size_t ConstPoolBuilder::Hash::operator()(const Key &key) const {
         case kF64:
             return *reinterpret_cast<const uint64_t *>(&key.f64_val);
         case kInt:
-            return base::Hash::Js(key.int_val->data(), key.int_val->size());
+            return base::Hash::Js(key.int_val.z, key.int_val.n);
         case kStr:
-            return base::Hash::Js(key.str_val->data(), key.str_val->size());
+            return base::Hash::Js(key.str_val.z, key.str_val.n);
         default:
             break;
     }

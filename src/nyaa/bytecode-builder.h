@@ -93,6 +93,11 @@ public:
         Emit(Bytecode::kCall, a.index, b, c, line);
     }
     
+    void New(IVal a, int32_t b, int32_t c, int line = 0) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        Emit(Bytecode::kNew, a.index, b, c, line);
+    }
+    
     void Ret(IVal a, int32_t b, int line = 0) {
         DCHECK_EQ(IVal::kLocal, a.kind);
         Emit(Bytecode::kRet, a.index, b, line);
@@ -158,9 +163,14 @@ public:
         Emit(Bytecode::kClosure, a.index, b.index, line);
     }
     
-    void NewTable(IVal a, int32_t b, int32_t c, int line = 0) {
+    void NewMap(IVal a, int32_t b, int32_t c, int line = 0) {
         DCHECK_EQ(IVal::kLocal, a.kind);
         Emit(Bytecode::kNewMap, a.index, b, c, line);
+    }
+    
+    void NewClass(IVal a, int32_t b, int32_t c, int line = 0) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        Emit(Bytecode::kNewClass, a.index, b, c, line);
     }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArrayBuilder);
@@ -202,12 +212,9 @@ public:
     
     int32_t GetOrNewSmi(int64_t val) { return GetOrNew({.kind = kSmi, .smi_val = val}); }
     int32_t GetOrNewF64(f64_t val) { return GetOrNew({.kind = kF64, .f64_val = val}); }
-    int32_t GetOrNewStr(const ast::String *val) {
-        return GetOrNew({.kind = kStr, .str_val = val});
-    }
-    int32_t GetOrNewInt(const ast::String *val) {
-        return GetOrNew({.kind = kInt, .int_val = val});
-    }
+    int32_t GetOrNewStr(const NyString *val);
+    int32_t GetOrNewStr(const ast::String *val);
+    int32_t GetOrNewInt(const ast::String *val);
     int32_t Add(Handle<Object> val) {
         int32_t idx = static_cast<int32_t>(const_pool_.size());
         const_pool_.push_back(val);
@@ -232,8 +239,10 @@ private:
         union {
             int64_t smi_val;
             f64_t f64_val;
-            const ast::String *str_val;
-            const ast::String *int_val; // big int literal string
+            View<char> str_val;
+            View<char> int_val; // big int literal string
+//            const ast::String *str_val;
+//            const ast::String *int_val; // big int literal string
         };
     }; // struct Key
     struct EqualTo : public std::binary_function<Key, Key, bool> {

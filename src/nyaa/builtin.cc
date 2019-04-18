@@ -92,7 +92,7 @@ static int DelegatedCall(Arguments *args, Nyaa *N) {
     if (callee.is_empty()) {
         return -1;
     }
-    return callee->Call(args, N->core());
+    return callee->RawCall(args, N->core());
 }
     
 static int ThreadInit(Local<Value> arg0, Local<Value> arg1, Nyaa *N) {

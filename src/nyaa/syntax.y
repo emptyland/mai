@@ -45,13 +45,13 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 }
 
 %token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS RETURN VARGS DO
-%token IF ELSE WHILE
-%token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL
+%token IF ELSE WHILE OBJECT CLASS PROPERTY
+%token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL NIL_LITERAL
 %token TOKEN_ERROR
 
 %type <block> Script Block
-%type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause
-%type <stmts> StatementList
+%type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration
+%type <stmts> StatementList MemberList
 %type <expr> Expression Call LambdaLiteral MapLiteral
 %type <exprs> ExpressionList
 %type <entry> MapEntry
@@ -59,7 +59,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <lval> LValue
 %type <lvals> LValList
 %type <name> NAME
-%type <names> NameList
+%type <names> NameList Attributes
 %type <vargs> ParameterVargs
 %type <str_val> STRING_LITERAL
 %type <smi_val> SMI_LITERAL
@@ -108,6 +108,9 @@ Statement : RETURN ExpressionList {
 | VarDeclaration {
     $$ = $1;
 }
+| ObjectDefinition {
+    $$ = $1;
+}
 | FunctionDefinition {
     $$ = $1;
 }
@@ -136,6 +139,31 @@ ElseClause: ELSE Block {
 }
 | {
     $$ = nullptr;
+}
+
+ObjectDefinition : OBJECT Attributes NAME '{' MemberList '}' {
+    $$ = ctx->factory->NewObjectDefinition($2, $3, $5, Location::Concat(@1, @6));
+}
+
+MemberList : MemberDefinition {
+    $$ = ctx->factory->NewList($1);
+}
+| MemberList MemberDefinition {
+    $$->push_back($2);
+}
+| {
+    $$ = nullptr;
+}
+
+MemberDefinition : PropertyDeclaration {
+    $$ = $1;
+}
+| FunctionDefinition {
+    $$ = $1;
+}
+
+PropertyDeclaration : PROPERTY Attributes NameList {
+    $$ = ctx->factory->NewPropertyDeclaration($2, $3, nullptr);
 }
 
 FunctionDefinition : DEF NAME '.' NAME '(' NameList ParameterVargs ')' Block {
@@ -278,6 +306,14 @@ Call : Expression '(' ExpressionList ')' {
 }
 | Expression ':' NAME '(' ExpressionList ')' {
     $$ = ctx->factory->NewSelfCall($1, $3, $5, Location::Concat(@1, @6));
+}
+
+
+Attributes: '[' NameList ']' {
+    $$ = $2;
+}
+| {
+    $$ = nullptr;
 }
 
 

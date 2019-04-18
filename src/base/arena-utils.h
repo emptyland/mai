@@ -52,6 +52,8 @@ public:
     
     bool full() const { return !empty(); }
     
+    bool Equal(const char *z) const { return ::strncmp(z, data(), size()) == 0; }
+    
     std::string ToString() const { return std::string(data(), size()); }
     
     std::string_view ToSlice() const {

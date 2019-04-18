@@ -21,6 +21,7 @@ namespace nyaa {
     V(StoreGlobal, 2, a, b) \
     V(StoreUp,     2, a, b) \
     V(NewMap,      3, a, b, c) \
+    V(NewClass,    3, a, b, c) \
     V(Add,         3, a, b, c) \
     V(Sub,         3, a, b, c) \
     V(Mul,         3, a, b, c) \

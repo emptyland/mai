@@ -414,6 +414,17 @@ TEST_F(NyaaCodeGenTest, IfElse) {
     ASSERT_EQ(z, buf);
 }
 
+TEST_F(NyaaCodeGenTest, ObjectDefinition) {
+    static const char s[] = {
+        "object foo {}\n"
+    };
+    HandleScope handle_scope(isolate_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+
+    BytecodeArrayDisassembler::Disassembly(core_, script, stdout);
+}
+
 } // namespace nyaa
     
 } // namespace mai

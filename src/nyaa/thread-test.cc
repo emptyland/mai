@@ -534,6 +534,55 @@ TEST_F(NyaaThreadTest, IfElseIf)  {
     ASSERT_EQ(1, val->ToSmi());
 }
     
+TEST_F(NyaaThreadTest, EmptyObjectDefinition)  {
+    static const char s[] = {
+        "object [local] foo {}\n"
+        "check(foo)"
+        "return\n"
+    };
+
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
+    
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Do(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 1, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
+
+    Handle<Object> val = check->upval(0);
+    ASSERT_TRUE(val->IsObject());
+    Handle<NyUDO> udo = val->ToHeapObject()->ToUDO();
+    ASSERT_TRUE(udo.is_valid());
+}
+
+TEST_F(NyaaThreadTest, ObjectDefinitionConstructor)  {
+    static const char s[] = {
+        "object [local] foo {\n"
+        "  def __init__(self) { check(self) }\n"
+        "}\n"
+        "return\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
+    
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Do(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 1, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
+    
+    Handle<Object> val = check->upval(0);
+    ASSERT_TRUE(val->IsObject());
+    Handle<NyUDO> udo = val->ToHeapObject()->ToUDO();
+    ASSERT_TRUE(udo.is_valid());
+}
+
 
 } // namespace nyaa
     
