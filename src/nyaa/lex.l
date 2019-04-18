@@ -44,6 +44,14 @@ property { return PROPERTY; }
 class { return CLASS; }
 object { return OBJECT; }
 nil { return NIL_LITERAL; }
+true {
+	yylval->smi_val = 1;
+	return BOOL_LITERAL;
+}
+false {
+	yylval->smi_val = 0;
+	return BOOL_LITERAL;
+}
 
 
 [A-Za-z_][A-Za-z_0-9]* {

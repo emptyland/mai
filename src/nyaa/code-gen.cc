@@ -338,6 +338,31 @@ public:
     }
     
     virtual IVal VisitObjectDefinition(ast::ObjectDefinition *node, ast::VisitorContext *x) override {
+        IVal clazz = DefineClass(node, nullptr);
+        builder()->New(clazz, 0, 1, node->end_line());
+        if (node->local()) {
+            blk_scope_->PutVariable(node->name(), &clazz);
+        } else {
+            fun_scope_->FreeVar(clazz);
+            IVal key = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
+            builder()->StoreGlobal(clazz, key, node->end_line());
+        }
+        return IVal::Void();
+    }
+    
+    virtual IVal VisitClassDefinition(ast::ClassDefinition *node, ast::VisitorContext *) override {
+        IVal clazz = DefineClass(node, node->base());
+        if (node->local()) {
+            blk_scope_->PutVariable(node->name(), &clazz);
+        } else {
+            fun_scope_->FreeVar(clazz);
+            IVal key = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
+            builder()->StoreGlobal(clazz, key, node->end_line());
+        }
+        return IVal::Void();
+    }
+    
+    IVal DefineClass(ast::ObjectDefinition *node, ast::Expression *base) {
         std::vector<IVal> kvs;
         size_t offset = sizeof(NyUDO);
         if (node->members()) {
@@ -364,21 +389,32 @@ public:
             IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewSmi(offset));
             kvs.push_back(Localize(val, node->line()));
         }
+        if (base) {
+            IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerBase));
+            kvs.push_back(Localize(key, node->line()));
+            CodeGeneratorContext ix;
+            ix.set_n_result(1);
+            IVal val = base->Accept(this, &ix);
+            if (blk_scope_->Protected(val)) {
+                IVal tmp = fun_scope_->NewLocal();
+                builder()->Move(tmp, val);
+                val = tmp;
+            }
+            kvs.push_back(Localize(val, node->line()));
+        }
         
         IVal clazz = kvs.front();
         builder()->NewMap(clazz, static_cast<int>(kvs.size()), -1/*linear*/, node->end_line());
         for (int64_t i = kvs.size() - 1; i > 0; --i) {
             fun_scope_->FreeVar(kvs[i]);
         }
-        builder()->New(clazz, 0, 1, node->end_line());
-        if (node->local()) {
-            blk_scope_->PutVariable(node->name(), &clazz);
-        } else {
-            fun_scope_->FreeVar(clazz);
-            IVal key = IVal::Global(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerType));
-            builder()->StoreGlobal(clazz, key, node->end_line());
-        }
-        return IVal::Void();
+        return clazz;
+    }
+    
+    virtual IVal VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) override {
+        IVal tmp = fun_scope_->NewLocal();
+        builder()->LoadNil(tmp, 1);
+        return tmp;
     }
     
     virtual IVal VisitStringLiteral(ast::StringLiteral *node, ast::VisitorContext *x) override {
@@ -408,7 +444,7 @@ public:
         return val;
     }
     
-    virtual IVal VisitMapLiteral(ast::MapLiteral *node, ast::VisitorContext *x) override {
+    virtual IVal VisitMapInitializer(ast::MapInitializer *node, ast::VisitorContext *x) override {
         int index = 0;
         if (!node->value()) {
             IVal map = fun_scope_->NewLocal();

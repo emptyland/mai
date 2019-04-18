@@ -225,13 +225,31 @@ TEST_F(NyaaCodeGenTest, LambdaLiteral) {
         "var b = 100\n"
         "var foo = lambda (a) { return a + b }\n"
     };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 2, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 1\n"
+        " [0] (-1) 100\n"
+        ".............................\n"
+        "[000] LoadConst 0 0 ; line: 1\n"
+        "[003] Closure 1 0 ; line: 2\n"
+        "-----------------------------\n"
+        "function: [unnamed], params: 1, vargs: 0, max-stack: 3, upvals: 1\n"
+        ".............................\n"
+        "[000] LoadUp 2 0 ; line: 2\n"
+        "[003] Add 1 0 2 ; line: 2\n"
+        "[007] Ret 1 1 ; line: 2\n"
+        "[010] Ret 0 0 ; line: 0\n"
+    };
     
     HandleScope handle_scope(isolate_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     ASSERT_EQ(2, script->max_stack());
     
-    BytecodeArrayDisassembler::Disassembly(core_, script, stdout);
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
+    ASSERT_EQ(z, buf);
 }
     
 TEST_F(NyaaCodeGenTest, CallExpressions) {
@@ -418,11 +436,30 @@ TEST_F(NyaaCodeGenTest, ObjectDefinition) {
     static const char s[] = {
         "object foo {}\n"
     };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 4, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 4\n"
+        " [0] (-1) __type__\n"
+        " [1] (-2) foo\n"
+        " [2] (-3) __size__\n"
+        " [3] (-4) 16\n"
+        ".............................\n"
+        "[000] LoadConst 0 0 ; line: 1\n"
+        "[003] LoadConst 1 1 ; line: 1\n"
+        "[006] LoadConst 2 2 ; line: 1\n"
+        "[009] LoadConst 3 3 ; line: 1\n"
+        "[012] NewMap 0 4 -1 ; line: 1\n"
+        "[016] New 0 0 1 ; line: 1\n"
+        "[020] StoreGlobal 0 1 ; line: 1\n"
+    };
     HandleScope handle_scope(isolate_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
 
-    BytecodeArrayDisassembler::Disassembly(core_, script, stdout);
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
+    ASSERT_EQ(z, buf);
 }
 
 } // namespace nyaa

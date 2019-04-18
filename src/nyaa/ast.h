@@ -30,8 +30,9 @@ namespace ast {
     V(ApproxLiteral) \
     V(SmiLiteral) \
     V(IntLiteral) \
+    V(NilLiteral) \
     V(LambdaLiteral) \
-    V(MapLiteral) \
+    V(MapInitializer) \
     V(Variable) \
     V(Index) \
     V(DotField) \
@@ -325,14 +326,19 @@ protected:
     T value_;
 }; // class Literal
     
-    
+class NilLiteral : public Literal<void *> {
+public:
+    DEFINE_AST_NODE(NilLiteral);
+private:
+    NilLiteral(int line) : Literal<void *>(line, nullptr) {}
+}; // class NilLiteral
+
 class StringLiteral : public Literal<const String *> {
 public:
     DEFINE_AST_NODE(StringLiteral);
 private:
     StringLiteral(int line, const String *value) : Literal<const String *>(line, value) {}
 }; // class StringLiteral
-
 
 class ApproxLiteral : public Literal<f64_t> {
 public:
@@ -378,14 +384,14 @@ private:
     ParameterList *params_;
 }; // class LambdaLiteral
     
-class MapLiteral : public Literal<base::ArenaVector<Multiple *> *> {
+class MapInitializer : public Literal<base::ArenaVector<Multiple *> *> {
 public:
     using EntryList = base::ArenaVector<Multiple *>;
     
     DEF_VAL_GETTER(int, end_line);
-    DEFINE_AST_NODE(MapLiteral);
+    DEFINE_AST_NODE(MapInitializer);
 private:
-    MapLiteral(int begin_line, int end_line, EntryList *entries)
+    MapInitializer(int begin_line, int end_line, EntryList *entries)
         : Literal<base::ArenaVector<Multiple *> *>(begin_line, entries)
         , end_line_(end_line) {}
     int end_line_;
@@ -507,15 +513,15 @@ private:
     
 class ClassDefinition : public ObjectDefinition {
 public:
-    DEF_PTR_GETTER(Variable, base);
+    DEF_PTR_GETTER(Expression, base);
     DEFINE_AST_NODE(ClassDefinition);
 private:
-    ClassDefinition(int begin_line, int end_line, const String *name, bool local, Variable *base,
+    ClassDefinition(int begin_line, int end_line, const String *name, bool local, Expression *base,
                     MemberList *members)
         : ObjectDefinition(begin_line, end_line, name, local, members)
         , base_(base) {}
 
-    Variable *base_;
+    Expression *base_;
 }; // class ClassDefinition
 
 class FunctionDefinition : public Statement {
@@ -598,7 +604,7 @@ public:
         return new (arena_) ObjectDefinition(loc.begin_line, loc.end_line, name, local, members);
     }
     
-    ClassDefinition *NewClassDefinition(Attributes *attrs, const String *name, Variable *base,
+    ClassDefinition *NewClassDefinition(Attributes *attrs, const String *name, Expression *base,
                                         ObjectDefinition::MemberList *members,
                                         const Location &loc = Location{}) {
         bool local = AttributesMatch(attrs, "local", true, false);
@@ -613,6 +619,10 @@ public:
     IfStatement *NewIfStatement(Expression *cond, Block *then_clause, Statement *else_clause,
                                 const Location &loc = Location{}) {
         return new (arena_) IfStatement(loc.begin_line, cond, then_clause, else_clause);
+    }
+    
+    NilLiteral *NewNilLiteral(const Location &loc = Location{}) {
+        return new (arena_) NilLiteral(loc.begin_line);
     }
 
     StringLiteral *NewStringLiteral(const String *val, const Location &loc = Location{}) {
@@ -636,8 +646,9 @@ public:
         return new (arena_) LambdaLiteral(loc.begin_line, loc.end_line, params, vargs, body);
     }
     
-    MapLiteral *NewMapLiteral(MapLiteral::EntryList *entries, const Location &loc = Location{}) {
-        return new (arena_) MapLiteral(loc.begin_line, loc.end_line, entries);
+    MapInitializer *NewMapInitializer(MapInitializer::EntryList *entries,
+                                      const Location &loc = Location{}) {
+        return new (arena_) MapInitializer(loc.begin_line, loc.end_line, entries);
     }
 
     Variable *NewVariable(const String *name, const Location &loc = Location{}) {

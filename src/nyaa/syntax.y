@@ -32,7 +32,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::nyaa::ast::LValue *lval;
     ::mai::nyaa::ast::Assignment::LValList *lvals;
     ::mai::nyaa::ast::Multiple *entry;
-    ::mai::nyaa::ast::MapLiteral::EntryList *entries;
+    ::mai::nyaa::ast::MapInitializer::EntryList *entries;
     ::mai::nyaa::ast::Statement *stmt;
     ::mai::nyaa::ast::Block::StmtList *stmts;
     ::mai::nyaa::ast::Return::ExprList *exprs;
@@ -46,13 +46,13 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 
 %token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS RETURN VARGS DO
 %token IF ELSE WHILE OBJECT CLASS PROPERTY
-%token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL NIL_LITERAL
+%token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL NIL_LITERAL BOOL_LITERAL
 %token TOKEN_ERROR
 
 %type <block> Script Block
 %type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration
 %type <stmts> StatementList MemberList
-%type <expr> Expression Call LambdaLiteral MapLiteral
+%type <expr> Expression Call LambdaLiteral MapInitializer InheritClause
 %type <exprs> ExpressionList
 %type <entry> MapEntry
 %type <entries> MapEntryList
@@ -62,7 +62,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <names> NameList Attributes
 %type <vargs> ParameterVargs
 %type <str_val> STRING_LITERAL
-%type <smi_val> SMI_LITERAL
+%type <smi_val> SMI_LITERAL BOOL_LITERAL
 %type <int_val> INT_LITERAL
 %type <f64_val> APPROX_LITERAL
 
@@ -111,6 +111,9 @@ Statement : RETURN ExpressionList {
 | ObjectDefinition {
     $$ = $1;
 }
+| ClassDefinition {
+    $$ = $1;
+}
 | FunctionDefinition {
     $$ = $1;
 }
@@ -143,6 +146,17 @@ ElseClause: ELSE Block {
 
 ObjectDefinition : OBJECT Attributes NAME '{' MemberList '}' {
     $$ = ctx->factory->NewObjectDefinition($2, $3, $5, Location::Concat(@1, @6));
+}
+
+ClassDefinition : CLASS Attributes NAME InheritClause '{' MemberList '}' {
+    $$ = ctx->factory->NewClassDefinition($2, $3, $4, $6, Location::Concat(@1, @7));
+}
+
+InheritClause : ':' Expression {
+    $$ = $2;
+}
+| {
+    $$ = nullptr;
 }
 
 MemberList : MemberDefinition {
@@ -210,7 +224,13 @@ Expression : LValue {
 | Call {
     $$ = $1;
 }
+| NIL_LITERAL {
+    $$ = ctx->factory->NewNilLiteral(@1);
+}
 | SMI_LITERAL {
+    $$ = ctx->factory->NewSmiLiteral($1, @1);
+}
+| BOOL_LITERAL {
     $$ = ctx->factory->NewSmiLiteral($1, @1);
 }
 | INT_LITERAL {
@@ -225,7 +245,7 @@ Expression : LValue {
 | LambdaLiteral {
     $$ = $1;
 }
-| MapLiteral {
+| MapInitializer {
     $$ = $1;
 }
 | Expression COMPARISON Expression {
@@ -254,8 +274,8 @@ LambdaLiteral : LAMBDA '(' NameList ParameterVargs ')' Block {
     $$ = ctx->factory->NewLambdaLiteral(nullptr, false, $2, Location::Concat(@1, @2));
 }
 
-MapLiteral : '{' MapEntryList '}' {
-    $$ = ctx->factory->NewMapLiteral($2, Location::Concat(@1, @3));
+MapInitializer : '{' MapEntryList '}' {
+    $$ = ctx->factory->NewMapInitializer($2, Location::Concat(@1, @3));
 }
 
 MapEntryList : MapEntry {

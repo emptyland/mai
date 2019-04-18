@@ -49,6 +49,7 @@ struct BuiltinStrPool {
     NyString *kInnerLe = nullptr;
     NyString *kInnerGC = nullptr;
     NyString *kInnerType = nullptr;
+    NyString *kInnerOffset = nullptr;
     NyString *kInnerSize = nullptr;
     NyString *kInnerBase = nullptr;
     NyString *kInnerWeak = nullptr;

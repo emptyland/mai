@@ -27,6 +27,7 @@ const char *kRawBuiltinKzs[] = {
     "__le__",
     "__gc__",
     "__type__",
+    "__offset__",
     "__size__",
     "__base__",
     "__weak__",

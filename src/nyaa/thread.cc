@@ -359,6 +359,18 @@ int NyThread::Run() {
                 frame_->AddPC(delta);
             } break;
                 
+            case Bytecode::kLoadNil: {
+                int32_t ra, n;
+                int delta = 1;
+                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &n)) < 0) {
+                    return -1;
+                }
+                for (int i = 0; i < n; ++i) {
+                    Set(ra + i, Object::kNil);
+                }
+                frame_->AddPC(delta);
+            } break;
+                
             case Bytecode::kLoadGlobal: {
                 int32_t ra, rb;
                 int delta = 1;

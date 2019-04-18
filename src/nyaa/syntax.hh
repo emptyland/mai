@@ -81,10 +81,12 @@ extern int nyaa_yydebug;
     SMI_LITERAL = 279,
     APPROX_LITERAL = 280,
     INT_LITERAL = 281,
-    TOKEN_ERROR = 282,
-    IN = 283,
-    IS = 284,
-    OP_NOT = 285
+    NIL_LITERAL = 282,
+    BOOL_LITERAL = 283,
+    TOKEN_ERROR = 284,
+    IN = 285,
+    IS = 286,
+    OP_NOT = 287
   };
 #endif
 
@@ -102,7 +104,7 @@ union NYAA_YYSTYPE
     ::mai::nyaa::ast::LValue *lval;
     ::mai::nyaa::ast::Assignment::LValList *lvals;
     ::mai::nyaa::ast::Multiple *entry;
-    ::mai::nyaa::ast::MapLiteral::EntryList *entries;
+    ::mai::nyaa::ast::MapInitializer::EntryList *entries;
     ::mai::nyaa::ast::Statement *stmt;
     ::mai::nyaa::ast::Block::StmtList *stmts;
     ::mai::nyaa::ast::Return::ExprList *exprs;
@@ -113,7 +115,7 @@ union NYAA_YYSTYPE
     ::mai::nyaa::f64_t f64_val;
     int64_t smi_val;
 
-#line 117 "syntax.hh" /* yacc.c:1927  */
+#line 119 "syntax.hh" /* yacc.c:1927  */
 };
 
 typedef union NYAA_YYSTYPE NYAA_YYSTYPE;
