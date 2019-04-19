@@ -238,14 +238,14 @@ public:
     using StmtList = base::ArenaVector<Statement *>;
     
     int end_line() const { return end_line_; }
-    DEF_PTR_GETTER_NOTNULL(StmtList, stmts);
+    DEF_PTR_GETTER(StmtList, stmts);
     
     DEFINE_AST_NODE(Block);
 private:
     Block(int begin_line, int end_line, StmtList *stmts)
         : Statement(begin_line)
         , end_line_(end_line)
-        , stmts_(DCHECK_NOTNULL(stmts)) {}
+        , stmts_(stmts) {}
 
     int end_line_;
     StmtList *stmts_;

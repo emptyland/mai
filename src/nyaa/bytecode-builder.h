@@ -72,7 +72,7 @@ public:
     
     void LoadImm(IVal a, int32_t imm, int line = 0) {
         DCHECK_EQ(IVal::kLocal, a.kind);
-        Emit(Bytecode::kLoadImm, imm, line);
+        Emit(Bytecode::kLoadImm, a.index, imm, line);
     }
     
     void LoadNil(IVal a, int32_t b, int line = 0) {

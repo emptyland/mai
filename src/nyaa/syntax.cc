@@ -1750,7 +1750,7 @@ yyreduce:
   case 29:
 #line 179 "syntax.y" /* yacc.c:1667  */
     {
-    (yyval.stmt) = ctx->factory->NewPropertyDeclaration((yyvsp[-1].names), (yyvsp[0].names), nullptr);
+    (yyval.stmt) = ctx->factory->NewPropertyDeclaration((yyvsp[-1].names), (yyvsp[0].names), nullptr, Location::Concat((yylsp[-2]), (yylsp[0])));
 }
 #line 1756 "syntax.cc" /* yacc.c:1667  */
     break;

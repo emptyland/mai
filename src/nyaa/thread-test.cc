@@ -296,7 +296,7 @@ TEST_F(NyaaThreadTest, Raise) {
     HandleScope scope(isolate_);
     
     TryCatchCore try_catch(core_);
-    auto script = NyClosure::Do(s, core_);
+    auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     Arguments args(0);
     auto rv = script->Call(&args, 0, core_);
@@ -315,7 +315,7 @@ TEST_F(NyaaThreadTest, FunctionDefinition) {
     HandleScope scope(isolate_);
     
     TryCatchCore try_catch(core_);
-    auto script = NyClosure::Do(s, core_);
+    auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
     Arguments args(0);
@@ -349,7 +349,7 @@ TEST_F(NyaaThreadTest, FunctionUpvals) {
     Handle<NyDelegated> checker(RegisterChecker("check", 3, FunctionUpvals_Check));
     
     TryCatchCore try_catch(core_);
-    auto script = NyClosure::Do(s, core_);
+    auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     Arguments args(0);
     auto rv = script->Call(&args, 0, core_);
@@ -375,7 +375,7 @@ TEST_F(NyaaThreadTest, FunctionUpvals2) {
     Handle<NyDelegated> checker(RegisterChecker("check", 3, FunctionUpvals_Check));
     
     TryCatchCore try_catch(core_);
-    auto script = NyClosure::Do(s, core_);
+    auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
 //    BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
     Arguments args(0);
@@ -402,7 +402,7 @@ TEST_F(NyaaThreadTest, MapInitializer) {
     HandleScope scope(isolate_);
     
     TryCatchCore try_catch(core_);
-    auto script = NyClosure::Do(s, core_);
+    auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
     Arguments args(0);
@@ -433,7 +433,7 @@ TEST_F(NyaaThreadTest, MapLinearInitializer)  {
     HandleScope scope(isolate_);
     
     TryCatchCore try_catch(core_);
-    auto script = NyClosure::Do(s, core_);
+    auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
     Arguments args(0);
@@ -474,7 +474,7 @@ TEST_F(NyaaThreadTest, OnlyIf)  {
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     
     TryCatchCore try_catch(core_);
-    auto script = NyClosure::Do(s, core_);
+    auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
     Arguments args(0);
@@ -498,7 +498,7 @@ TEST_F(NyaaThreadTest, IfElse)  {
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     
     TryCatchCore try_catch(core_);
-    auto script = NyClosure::Do(s, core_);
+    auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
     Arguments args(0);
@@ -522,7 +522,7 @@ TEST_F(NyaaThreadTest, IfElseIf)  {
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     
     TryCatchCore try_catch(core_);
-    auto script = NyClosure::Do(s, core_);
+    auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
     Arguments args(0);
@@ -545,7 +545,7 @@ TEST_F(NyaaThreadTest, EmptyObjectDefinition)  {
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     
     TryCatchCore try_catch(core_);
-    auto script = NyClosure::Do(s, core_);
+    auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
     Arguments args(0);
@@ -570,7 +570,7 @@ TEST_F(NyaaThreadTest, ObjectDefinitionConstructor)  {
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     
     TryCatchCore try_catch(core_);
-    auto script = NyClosure::Do(s, core_);
+    auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
     Arguments args(0);

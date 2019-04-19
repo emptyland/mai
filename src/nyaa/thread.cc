@@ -579,12 +579,12 @@ int NyThread::Run() {
                     owns_->Raisef("new non-class.");
                     return -1;
                 }
-                Object *size = clazz->RawGet(owns_->bkz_pool()->kInnerSize, owns_);
-                if (size == Object::kNil || !size->IsSmi()) {
+                Object *n_fields = clazz->RawGet(owns_->bkz_pool()->kInnerSize, owns_);
+                if (n_fields == Object::kNil || !n_fields->IsSmi()) {
                     owns_->Raisef("incorrect class table: error __size__.");
                     return -1;
                 }
-                InternalNewUdo(frame_bp() + ra, n_args, size->ToSmi(), clazz);
+                InternalNewUdo(frame_bp() + ra, n_args, n_fields->ToSmi(), clazz);
                 frame_->AddPC(delta);
             } break;
                 
@@ -660,7 +660,8 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
     return 0;
 }
     
-int NyThread::InternalNewUdo(Object **udo, int32_t n_args, size_t size, NyMap *clazz) {
+int NyThread::InternalNewUdo(Object **udo, int32_t n_args, size_t n_fields, NyMap *clazz) {
+    size_t size = sizeof(NyUDO) + n_fields * kPointerSize;
     NyUDO *rv = owns_->factory()->NewUninitializedUDO(size, clazz, false);
     ::memset(rv->data(), 0, size - sizeof(NyUDO));
     *udo = rv; // protected for gc.

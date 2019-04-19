@@ -864,7 +864,7 @@ int NyClosure::Call(Arguments *args, int nrets, NyaaCore *N) {
     return N->curr_thd()->Run(this, args, nrets);
 }
 
-/*static*/ Handle<NyClosure> NyClosure::Do(const char *z, size_t n, NyaaCore *N) {
+/*static*/ Handle<NyClosure> NyClosure::Compile(const char *z, size_t n, NyaaCore *N) {
     Handle<NyFunction> script = NyFunction::Compile(z, n, N);
     if (script.is_valid()) {
         return N->factory()->NewClosure(*script);

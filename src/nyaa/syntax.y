@@ -177,7 +177,7 @@ MemberDefinition : PropertyDeclaration {
 }
 
 PropertyDeclaration : PROPERTY Attributes NameList {
-    $$ = ctx->factory->NewPropertyDeclaration($2, $3, nullptr);
+    $$ = ctx->factory->NewPropertyDeclaration($2, $3, nullptr, Location::Concat(@1, @3));
 }
 
 FunctionDefinition : DEF NAME '.' NAME '(' NameList ParameterVargs ')' Block {

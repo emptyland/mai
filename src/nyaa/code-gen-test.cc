@@ -439,16 +439,15 @@ TEST_F(NyaaCodeGenTest, ObjectDefinition) {
     static const char z[] = {
         "function: [unnamed], params: 0, vargs: 0, max-stack: 4, upvals: 0\n"
         "file name: :memory:\n"
-        "const pool: 4\n"
+        "const pool: 3\n"
         " [0] (-1) __type__\n"
         " [1] (-2) foo\n"
         " [2] (-3) __size__\n"
-        " [3] (-4) 16\n"
         ".............................\n"
         "[000] LoadConst 0 0 ; line: 1\n"
         "[003] LoadConst 1 1 ; line: 1\n"
         "[006] LoadConst 2 2 ; line: 1\n"
-        "[009] LoadConst 3 3 ; line: 1\n"
+        "[009] LoadImm 3 0 ; line: 1\n"
         "[012] NewMap 0 4 -1 ; line: 1\n"
         "[016] New 0 0 1 ; line: 1\n"
         "[020] StoreGlobal 0 1 ; line: 1\n"
@@ -459,7 +458,102 @@ TEST_F(NyaaCodeGenTest, ObjectDefinition) {
 
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
-    ASSERT_EQ(z, buf);
+    ASSERT_EQ(z, buf) << buf;
+}
+    
+TEST_F(NyaaCodeGenTest, ClassDefinition) {
+    static const char s[] = {
+        "class foo {}\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 4, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 3\n"
+        " [0] (-1) __type__\n"
+        " [1] (-2) foo\n"
+        " [2] (-3) __size__\n"
+        ".............................\n"
+        "[000] LoadConst 0 0 ; line: 1\n"
+        "[003] LoadConst 1 1 ; line: 1\n"
+        "[006] LoadConst 2 2 ; line: 1\n"
+        "[009] LoadImm 3 0 ; line: 1\n"
+        "[012] NewMap 0 4 -1 ; line: 1\n"
+        "[016] StoreGlobal 0 1 ; line: 1\n"
+    };
+    HandleScope handle_scope(isolate_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
+    ASSERT_EQ(z, buf) << buf;
+}
+    
+TEST_F(NyaaCodeGenTest, ClassDefinitionWithMembers) {
+    static const char s[] = {
+        "class foo {\n"
+        "   def __init__(self) {}\n"
+        "   def __add__(self, other) { return self + other }\n"
+        "   property [ro] a, b, c\n"
+        "   property [rw] d, e, f\n"
+        "}\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 20, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 11\n"
+        " [0] (-1) __init__\n"
+        " [1] (-2) __add__\n"
+        " [2] (-3) a\n"
+        " [3] (-4) b\n"
+        " [4] (-5) c\n"
+        " [5] (-6) d\n"
+        " [6] (-7) e\n"
+        " [7] (-8) f\n"
+        " [8] (-9) __type__\n"
+        " [9] (-10) foo\n"
+        " [10] (-11) __size__\n"
+        ".............................\n"
+        "[000] LoadConst 0 0 ; line: 2\n"
+        "[003] Closure 1 0 ; line: 2\n"
+        "[006] LoadConst 2 1 ; line: 3\n"
+        "[009] Closure 3 1 ; line: 3\n"
+        "[012] LoadConst 4 2 ; line: 4\n"
+        "[015] LoadImm 5 3 ; line: 4\n"
+        "[018] LoadConst 6 3 ; line: 4\n"
+        "[021] LoadImm 7 7 ; line: 4\n"
+        "[024] LoadConst 8 4 ; line: 4\n"
+        "[027] LoadImm 9 11 ; line: 4\n"
+        "[030] LoadConst 10 5 ; line: 5\n"
+        "[033] LoadImm 11 15 ; line: 5\n"
+        "[036] LoadConst 12 6 ; line: 5\n"
+        "[039] LoadImm 13 19 ; line: 5\n"
+        "[042] LoadConst 14 7 ; line: 5\n"
+        "[045] LoadImm 15 23 ; line: 5\n"
+        "[048] LoadConst 16 8 ; line: 1\n"
+        "[051] LoadConst 17 9 ; line: 1\n"
+        "[054] LoadConst 18 10 ; line: 1\n"
+        "[057] LoadImm 19 6 ; line: 1\n"
+        "[060] NewMap 0 20 -1 ; line: 6\n"
+        "[064] StoreGlobal 0 9 ; line: 6\n"
+        "-----------------------------\n"
+        "function: foo::__init__, params: 1, vargs: 0, max-stack: 1, upvals: 0\n"
+        ".............................\n"
+        "[000] Ret 0 0 ; line: 0\n"
+        "-----------------------------\n"
+        "function: foo::__add__, params: 2, vargs: 0, max-stack: 3, upvals: 0\n"
+        ".............................\n"
+        "[000] Add 2 0 1 ; line: 3\n"
+        "[004] Ret 2 1 ; line: 3\n"
+        "[007] Ret 0 0 ; line: 0\n"
+    };
+    HandleScope handle_scope(isolate_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
+    ASSERT_EQ(z, buf) << buf;
 }
 
 } // namespace nyaa

@@ -670,11 +670,11 @@ public:
     
     int Call(Arguments *args, int nrets, NyaaCore *N);
     
-    static Handle<NyClosure> Do(const char *z, NyaaCore *N) {
-        return Do(z, !z ? 0 : ::strlen(z), N);
+    static Handle<NyClosure> Compile(const char *z, NyaaCore *N) {
+        return Compile(z, !z ? 0 : ::strlen(z), N);
     }
     
-    static Handle<NyClosure> Do(const char *z, size_t n, NyaaCore *N);
+    static Handle<NyClosure> Compile(const char *z, size_t n, NyaaCore *N);
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     

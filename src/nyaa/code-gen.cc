@@ -238,8 +238,10 @@ public:
         BlockScope scope(fun_scope_);
         CodeGeneratorContext ctx;
         IVal ret;
-        for (auto stmt : *node->stmts()) {
-            ret = stmt->Accept(this, &ctx);
+        if (node->stmts()) {
+            for (auto stmt : *node->stmts()) {
+                ret = stmt->Accept(this, &ctx);
+            }
         }
         return ret;
     }
@@ -364,7 +366,7 @@ public:
     
     IVal DefineClass(ast::ObjectDefinition *node, ast::Expression *base) {
         std::vector<IVal> kvs;
-        size_t offset = sizeof(NyUDO);
+        size_t offset = 0;
         if (node->members()) {
             for (auto stmt : *node->members()) {
                 if (ast::PropertyDeclaration *decl = stmt->ToPropertyDeclaration()) {
@@ -386,8 +388,9 @@ public:
         {
             IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerSize));
             kvs.push_back(Localize(key, node->line()));
-            IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewSmi(offset));
-            kvs.push_back(Localize(val, node->line()));
+            IVal val = fun_scope_->NewLocal();
+            builder()->LoadImm(val, static_cast<int32_t>(offset), node->line());
+            kvs.push_back(val);
         }
         if (base) {
             IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerBase));
@@ -740,10 +743,12 @@ private:
             
             IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(nm));
             kvs->push_back(Localize(key, decl->line()));
-            IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewSmi(tag));
-            kvs->push_back(Localize(val, decl->line()));
+            IVal val = fun_scope_->NewLocal();
+            DCHECK_LT(tag, INT32_MAX);
+            builder()->LoadImm(val, static_cast<int32_t>(tag), decl->line());
+            kvs->push_back(val);
             
-            offset += kPointerSize;
+            offset++;
         }
         return offset;
     }
