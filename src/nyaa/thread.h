@@ -133,6 +133,8 @@ public:
         DCHECK_LT(stack_tp_, stack_last_);
         return stack_tp_ - stack_;
     }
+    
+    //int TryRun(NyClosure *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
 
     int Run(NyClosure *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
     
@@ -183,6 +185,8 @@ private:
     void CopyArgs(Arguments *args, int n_params, bool vargs);
     
     void CopyResult(Object **ret, int n_rets, int wanted);
+    
+    void ProcessClass(NyMap *clazz);
     
     int ParseBytecodeInt32Params(int offset, int scale, int n, ...);
     int ParseBytecodeSize(int offset);

@@ -516,7 +516,8 @@ int NyThread::Run() {
                 if ((delta = ParseBytecodeInt32Params(delta, scale, 3, &ra, &n, &p)) < 0) {
                     return -1;
                 }
-                bool linear = p < 0 ? false : p;
+                bool clazz = p < 0;
+                bool linear = clazz ? false : p;
                 uint32_t capacity = (linear ? n : n / 2) + 4;
                 if (capacity < 8) {
                     capacity = 8;
@@ -537,6 +538,7 @@ int NyThread::Run() {
                         ob->RawPut(base[i], base[i + 1], owns_);
                     }
                 }
+                if (clazz) { ProcessClass(ob); }
                 Set(ra, ob);
                 // TODO: should gc
 
@@ -712,6 +714,42 @@ void NyThread::CopyResult(Object **ret, int n_rets, int wanted) {
         ret[i] = Object::kNil;
     }
     stack_tp_ = ret + wanted;
+}
+    
+void NyThread::ProcessClass(NyMap *clazz) {
+    int64_t self_offset = 0;
+    int64_t self_size = 0;
+
+    auto base = clazz->RawGet(owns_->bkz_pool()->kInnerBase, owns_);
+    if (base) {
+        NyMap *base_map = base->ToHeapObject()->ToMap();
+        auto size = base_map->RawGet(owns_->bkz_pool()->kInnerSize, owns_);
+        self_size = size->ToSmi();
+        self_offset = self_size;
+    }
+    
+    NyMap::Iterator iter(clazz);
+    for (iter.SeekFirst(); iter.Valid(); iter.Next()) {
+        auto maykey = iter.key();
+        DCHECK_NE(Object::kNil, maykey);
+        NyString *key = maykey->IsSmi() ? nullptr : maykey->ToHeapObject()->ToString();
+        //printf("field:%s\n", key->bytes());
+        if (key && key->bytes()[0] != '_' && key->bytes()[0] != '$') {
+            if (!iter.value()->IsSmi()) {
+                continue;
+            }
+
+            int64_t access_mask = iter.value()->ToSmi() & 0x3;
+            int64_t offset = (iter.value()->ToSmi() & ~0x3) >> 2;
+            Object *tag = NySmi::New(((self_offset + offset) << 2) | access_mask);
+            clazz->RawPut(key, tag, owns_);
+            
+            ++self_size;
+        }
+    }
+    
+    clazz->RawPut(owns_->bkz_pool()->kInnerOffset, NySmi::New(self_offset), owns_);
+    clazz->RawPut(owns_->bkz_pool()->kInnerSize, NySmi::New(self_size), owns_);
 }
     
 int NyThread::ParseBytecodeInt32Params(int offset, int scale, int n, ...) {

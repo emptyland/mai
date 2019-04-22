@@ -18,8 +18,12 @@ class BlockScope;
 class CodeGeneratorVisitor;
     
 using VariableTable = std::unordered_map<
-    const ast::String *,
-    IVal,
+    const ast::String *, IVal,
+    base::ArenaHash<const ast::String *>,
+    base::ArenaEqualTo<const ast::String *>>;
+    
+using FieldTable = std::unordered_map<
+    const ast::String *, int,
     base::ArenaHash<const ast::String *>,
     base::ArenaEqualTo<const ast::String *>>;
 
@@ -364,56 +368,6 @@ public:
         return IVal::Void();
     }
     
-    IVal DefineClass(ast::ObjectDefinition *node, ast::Expression *base) {
-        std::vector<IVal> kvs;
-        size_t offset = 0;
-        if (node->members()) {
-            for (auto stmt : *node->members()) {
-                if (ast::PropertyDeclaration *decl = stmt->ToPropertyDeclaration()) {
-                    offset = DeclareClassProperies(decl, offset, &kvs);
-                } else if (ast::FunctionDefinition *func = stmt->ToFunctionDefinition()) {
-                    DefineClassMethod(node->name(), func, &kvs);
-                } else {
-                    DLOG(FATAL) << "noreached!";
-                }
-            }
-        }
-        auto bkz = core_->bkz_pool();
-        {
-            IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerType));
-            kvs.push_back(Localize(key, node->line()));
-            IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
-            kvs.push_back(Localize(val, node->line()));
-        }
-        {
-            IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerSize));
-            kvs.push_back(Localize(key, node->line()));
-            IVal val = fun_scope_->NewLocal();
-            builder()->LoadImm(val, static_cast<int32_t>(offset), node->line());
-            kvs.push_back(val);
-        }
-        if (base) {
-            IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerBase));
-            kvs.push_back(Localize(key, node->line()));
-            CodeGeneratorContext ix;
-            ix.set_n_result(1);
-            IVal val = base->Accept(this, &ix);
-            if (blk_scope_->Protected(val)) {
-                IVal tmp = fun_scope_->NewLocal();
-                builder()->Move(tmp, val);
-                val = tmp;
-            }
-            kvs.push_back(Localize(val, node->line()));
-        }
-        
-        IVal clazz = kvs.front();
-        builder()->NewMap(clazz, static_cast<int>(kvs.size()), -1/*linear*/, node->end_line());
-        for (int64_t i = kvs.size() - 1; i > 0; --i) {
-            fun_scope_->FreeVar(kvs[i]);
-        }
-        return clazz;
-    }
-    
     virtual IVal VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) override {
         IVal tmp = fun_scope_->NewLocal();
         builder()->LoadNil(tmp, 1);
@@ -735,20 +689,67 @@ public:
     friend class BlockScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(CodeGeneratorVisitor);
 private:
-    size_t DeclareClassProperies(ast::PropertyDeclaration *decl, size_t offset,
+    IVal DefineClass(ast::ObjectDefinition *node, ast::Expression *base) {
+        std::vector<IVal> kvs;
+        size_t index = 0;
+        if (node->members()) {
+            FieldTable fields;
+            for (auto stmt : *node->members()) {
+                if (ast::PropertyDeclaration *decl = stmt->ToPropertyDeclaration()) {
+                    index = DeclareClassProperies(decl, index, &fields, &kvs);
+                } else if (ast::FunctionDefinition *func = stmt->ToFunctionDefinition()) {
+                    DefineClassMethod(node->name(), func, &kvs);
+                } else {
+                    DLOG(FATAL) << "noreached!";
+                }
+            }
+        }
+        auto bkz = core_->bkz_pool();
+        {
+            IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerType));
+            kvs.push_back(Localize(key, node->line()));
+            IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
+            kvs.push_back(Localize(val, node->line()));
+        }
+        if (base) {
+            IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerBase));
+            kvs.push_back(Localize(key, node->line()));
+            CodeGeneratorContext ix;
+            ix.set_n_result(1);
+            IVal val = base->Accept(this, &ix);
+            if (blk_scope_->Protected(val)) {
+                IVal tmp = fun_scope_->NewLocal();
+                builder()->Move(tmp, val);
+                val = tmp;
+            }
+            kvs.push_back(Localize(val, node->line()));
+        }
+        
+        IVal clazz = kvs.front();
+        builder()->NewMap(clazz, static_cast<int>(kvs.size()), -1/*linear*/, node->end_line());
+        for (int64_t i = kvs.size() - 1; i > 0; --i) {
+            fun_scope_->FreeVar(kvs[i]);
+        }
+        return clazz;
+    }
+
+    size_t DeclareClassProperies(ast::PropertyDeclaration *decl, size_t offset, FieldTable *fields,
                                  std::vector<IVal> *kvs) {
         for (auto nm : *decl->names()) {
             int64_t tag = decl->readonly() ? 0x1 : 0x3;
-            tag |= (offset << 2);
-            
+            auto iter = fields->find(nm);
+            if (iter == fields->end()) {
+                tag |= (offset++ << 2);
+            } else {
+                tag |= (iter->second << 2);
+            }
+
             IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(nm));
             kvs->push_back(Localize(key, decl->line()));
             IVal val = fun_scope_->NewLocal();
             DCHECK_LT(tag, INT32_MAX);
             builder()->LoadImm(val, static_cast<int32_t>(tag), decl->line());
             kvs->push_back(val);
-            
-            offset++;
         }
         return offset;
     }

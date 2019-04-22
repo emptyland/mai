@@ -582,6 +582,14 @@ TEST_F(NyaaThreadTest, ObjectDefinitionConstructor)  {
     Handle<NyUDO> udo = val->ToHeapObject()->ToUDO();
     ASSERT_TRUE(udo.is_valid());
 }
+    
+TEST_F(NyaaThreadTest, CxxTryCatchTest) {
+    try {
+        throw 1;
+    } catch (int n) {
+        ASSERT_EQ(1, n);
+    }
+}
 
 
 } // namespace nyaa

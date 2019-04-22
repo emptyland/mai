@@ -288,9 +288,13 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Maps:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+class MapIterator;
 
 class NyMap : public NyObject {
 public:
+    using Iterator = MapIterator;
+
     NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N);
     
     uint64_t kid() const { return kid_; }
@@ -311,6 +315,7 @@ public:
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
+    friend class MapIterator;
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyMap);
 private:
     union {
@@ -347,6 +352,7 @@ public:
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
+    friend class MapIterator;
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyTable);
 private:
     enum Kind : int {
@@ -785,6 +791,50 @@ private:
     uintptr_t finalizer_;
     Object *fields_[0];
 }; // class NyUDO
+    
+class MapIterator final {
+public:
+    MapIterator(NyMap *owns)
+        : table_(!owns->linear_ ? owns->table_ : nullptr)
+        , array_(owns->linear_ ? owns->array_ : nullptr) {
+    }
+    
+    MapIterator(NyTable *table) : table_(table), array_(nullptr) {}
+    
+    void SeekFirst();
+    
+    bool Valid() const {
+        if (table_) {
+            return index_ < table_->capacity();
+        } else {
+            return index_ < array_->capacity();
+        }
+    }
+
+    void Next();
+    
+    Object *key() const {
+        if (table_) {
+            return table_->entries_[index_ + 1].key;
+        } else {
+            return NySmi::New(index_);
+        }
+    }
+
+    Object *value() const {
+        if (table_) {
+            return table_->entries_[index_ + 1].value;
+        } else {
+            return array_->Get(index_);
+        }
+    }
+
+private:
+    NyTable *table_;
+    NyArray *array_;
+    int64_t index_ = 0;
+    
+}; // class MapIterator
 
 template<class T>
 void UDOFinalizeDtor(NyUDO *udo, NyaaCore *) { static_cast<T *>(udo)->~T(); }

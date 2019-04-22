@@ -900,6 +900,46 @@ DEFINE_TYPE_CHECK(Closure, "closure")
 DEFINE_TYPE_CHECK(Function, "function")
 DEFINE_TYPE_CHECK(Thread, "thread")
 
+void MapIterator::SeekFirst() {
+    if (table_) {
+        int64_t i;
+        for (i = 0; i < table_->capacity(); ++i) {
+            if (table_->entries_[i + 1].kind != NyTable::kFree) {
+                break;
+            }
+        }
+        index_ = i;
+    } else {
+        int64_t i;
+        for (i = 0; i < table_->capacity(); ++i) {
+            if (array_->Get(i)) {
+                break;
+            }
+        }
+        index_ = i;
+    }
+}
+    
+void MapIterator::Next() {
+    if (table_) {
+        int64_t i;
+        for (i = index_ + 1; i < table_->capacity(); ++i) {
+            if (table_->entries_[i + 1].kind != NyTable::kFree) {
+                break;
+            }
+        }
+        index_ = i;
+    } else {
+        int64_t i;
+        for (i = index_ + 1; i < table_->capacity(); ++i) {
+            if (array_->Get(i)) {
+                break;
+            }
+        }
+        index_ = i;
+    }
+}
+
 } // namespace nyaa
     
 } // namespace mai
