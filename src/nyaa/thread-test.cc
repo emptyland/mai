@@ -558,7 +558,7 @@ TEST_F(NyaaThreadTest, EmptyObjectDefinition)  {
     ASSERT_TRUE(udo.is_valid());
 }
 
-TEST_F(NyaaThreadTest, ObjectDefinitionConstructor)  {
+TEST_F(NyaaThreadTest, ObjectDefinitionConstructor) {
     static const char s[] = {
         "object [local] foo {\n"
         "  def __init__(self) { check(self) }\n"
@@ -581,6 +581,33 @@ TEST_F(NyaaThreadTest, ObjectDefinitionConstructor)  {
     ASSERT_TRUE(val->IsObject());
     Handle<NyUDO> udo = val->ToHeapObject()->ToUDO();
     ASSERT_TRUE(udo.is_valid());
+}
+    
+TEST_F(NyaaThreadTest, FunctionVargs) {
+    static const char s[] = {
+        "def foo(a, b, ...) {\n"
+        "   check(a, b)\n"
+        "}\n"
+        "foo(1,2,3,4,5)\n"
+        "return\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 2, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 1, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
+    
+    Handle<Object> val = check->upval(0);
+    ASSERT_TRUE(val->IsSmi());
+    ASSERT_EQ(1, val->ToSmi());
+    val = check->upval(1);
+    ASSERT_TRUE(val->IsSmi());
+    ASSERT_EQ(2, val->ToSmi());
 }
     
 TEST_F(NyaaThreadTest, CxxTryCatchTest) {

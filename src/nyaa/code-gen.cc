@@ -255,8 +255,7 @@ public:
 
         if (node->inits()) {
             CodeGeneratorContext rix;
-            if (node->names()->size() > 1 &&
-                node->inits()->size() == 1 && node->inits()->at(0)->IsInvoke()) {
+            if (node->names()->size() > 1 && node->GetNWanted() < 0) {
                 rix.set_n_result(static_cast<int>(node->names()->size()));
                 IVal rval = node->inits()->at(0)->Accept(this, &rix);
                 fun_scope_->Reserve(rix.n_result() - 1);
@@ -631,6 +630,14 @@ public:
 
         fun_scope_->free_reg_ = callee.index + 1;
         return callee;
+    }
+    
+    virtual
+    IVal VisitVariableArguments(ast::VariableArguments *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+        IVal vargs = fun_scope_->NewLocal();
+        builder()->Vargs(vargs, ctx->n_result(), node->line());
+        return vargs;
     }
     
     virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {

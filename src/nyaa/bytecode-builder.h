@@ -172,6 +172,11 @@ public:
         DCHECK_EQ(IVal::kLocal, a.kind);
         Emit(Bytecode::kNewClass, a.index, b, c, line);
     }
+    
+    void Vargs(IVal a, int32_t b, int line = 0) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        Emit(Bytecode::kVargs, a.index, b, line);
+    }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArrayBuilder);
 private:

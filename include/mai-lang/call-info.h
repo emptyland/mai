@@ -34,6 +34,8 @@ public:
         assert(i < length_); address_[i] = *arg;
     }
     
+    Value **Address() const { return address_; }
+    
 private:
     size_t length_;
     Value **address_;

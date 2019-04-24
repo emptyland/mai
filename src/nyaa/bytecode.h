@@ -16,6 +16,7 @@ namespace nyaa {
     V(LoadNil,     2, a, b) \
     V(GetField,    2, a, b) \
     V(SetField,    3, a, b, c) \
+    V(Self,        3, a, b, c) \
     V(GetUpField,  2, a, b) \
     V(SetUPField,  3, a, b, c) \
     V(StoreGlobal, 2, a, b) \
@@ -36,6 +37,7 @@ namespace nyaa {
     V(JumpImm,     1, a) \
     V(JumpConst,   1, a) \
     V(Closure,     2, a, b) \
+    V(Vargs,       2, a, b) \
     V(New,         3, a, b, c) \
     V(Call,        3, a, b, c) \
     V(Ret,         2, a, b)

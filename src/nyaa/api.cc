@@ -261,7 +261,7 @@ int Returnf(Nyaa *N, int nrets, ...) {
         N->core()->main_thd()->Push(ret);
     }
     va_end(ap);
-    return N->core()->Raised() ? -1 : nrets;
+    return nrets;
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////

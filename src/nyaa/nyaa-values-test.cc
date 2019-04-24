@@ -42,11 +42,11 @@ TEST_F(NyaaValuesTest, Table) {
     HandleScope scope(isolate_);
     Handle<NyTable> h(factory_->NewTable(12, 0));
     
-    h = h->Put(NyInt32::New(1), factory_->NewString("aaaa"), N_->core());
-    h = h->Put(NyInt32::New(2), factory_->NewString("bbbb"), N_->core());
-    h = h->Put(NyInt32::New(3), factory_->NewString("cccc"), N_->core());
+    h = h->RawPut(NyInt32::New(1), factory_->NewString("aaaa"), N_->core());
+    h = h->RawPut(NyInt32::New(2), factory_->NewString("bbbb"), N_->core());
+    h = h->RawPut(NyInt32::New(3), factory_->NewString("cccc"), N_->core());
     
-    auto v = Local<NyString>::New(h->Get(NyInt32::New(2), N_->core()));
+    auto v = Local<NyString>::New(h->RawGet(NyInt32::New(2), N_->core()));
     ASSERT_TRUE(v.is_not_null());
     ASSERT_TRUE(v.is_not_empty());
     ASSERT_STREQ("bbbb", v->bytes());
@@ -58,13 +58,13 @@ TEST_F(NyaaValuesTest, TablePut) {
     
     NyTable *const kOrigin = *h;
     Object *value = factory_->NewString("cccc");
-    h = h->Put(NyInt32::New(0), value, N_->core());
-    h = h->Put(NyInt32::New(1), value, N_->core());
+    h = h->RawPut(NyInt32::New(0), value, N_->core());
+    h = h->RawPut(NyInt32::New(1), value, N_->core());
     ASSERT_EQ(kOrigin, *h);
     
-    Object *v = h->Get(NyInt32::New(0), N_->core());
+    Object *v = h->RawGet(NyInt32::New(0), N_->core());
     ASSERT_EQ(v, value);
-    v = h->Get(NyInt32::New(1), N_->core());
+    v = h->RawGet(NyInt32::New(1), N_->core());
     ASSERT_EQ(v, value);
 }
     
@@ -75,12 +75,12 @@ TEST_F(NyaaValuesTest, TableAutoRehash) {
     NyTable *const kOrigin = *h;
     Object *value = factory_->NewString("cccc");
     for (int i = 0; i < 100; ++i) {
-        h = h->Put(NyInt32::New(i), value, N_->core());
+        h = h->RawPut(NyInt32::New(i), value, N_->core());
     }
     ASSERT_NE(kOrigin, *h);
     
     for (int i = 0; i < 100; ++i) {
-        Object *v = h->Get(NyInt32::New(i), N_->core());
+        Object *v = h->RawGet(NyInt32::New(i), N_->core());
         ASSERT_EQ(v, value) << i;
     }
 }

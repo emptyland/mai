@@ -29,7 +29,7 @@ class NyUDO;
 class NyThread;
 class NyaaCore;
 class NyFactory;
-//class ObjectVisitor;
+class NyRunnable;
     
 class String;
 class Array;
@@ -184,6 +184,14 @@ public:
         return IsClosure() || IsDelegated(); // TODO:
     }
     
+    NyRunnable *ToRunnable() {
+        return !IsRunnable() ? nullptr : reinterpret_cast<NyRunnable *>(this);
+    }
+    
+    const NyRunnable *ToRunnable() const {
+        return !IsRunnable() ? nullptr : reinterpret_cast<const NyRunnable *>(this);
+    }
+    
     inline bool IsUDO() const;
     
     inline const NyUDO *ToUDO() const;
@@ -302,9 +310,11 @@ public:
     DEF_PTR_GETTER(NyObject, generic);
     
     uint32_t Length() const;
+    
+    void Put(Object *key, Object *value, NyaaCore *N);
+    Object *Get(Object *key, NyaaCore *N);
 
     void RawPut(Object *key, Object *value, NyaaCore *N);
-    
     Object *RawGet(Object *key, NyaaCore *N);
     
     void Iterate(ObjectVisitor *visitor) {
@@ -336,9 +346,9 @@ public:
     
     uint32_t n_slots() const { return capacity_ >> 1; }
 
-    NyTable *Put(Object *key, Object *value, NyaaCore *N);
+    NyTable *RawPut(Object *key, Object *value, NyaaCore *N);
     
-    Object *Get(Object *key, NyaaCore *N);
+    Object *RawGet(Object *key, NyaaCore *N);
     
     NyTable *Rehash(NyTable *origin, NyaaCore *N);
     

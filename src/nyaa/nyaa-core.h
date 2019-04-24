@@ -49,8 +49,6 @@ public:
     
     void Raisef(const char *fmt, ...);
     void Vraisef(const char *fmt, va_list ap);
-    void Unraise();
-    bool Raised() const;
     
     void InsertThread(NyThread *thd);
     void RemoveThread(NyThread *thd);

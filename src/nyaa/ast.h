@@ -33,6 +33,7 @@ namespace ast {
     V(NilLiteral) \
     V(LambdaLiteral) \
     V(MapInitializer) \
+    V(VariableArguments) \
     V(Variable) \
     V(Index) \
     V(DotField) \
@@ -156,6 +157,7 @@ public:
     DEF_PTR_GETTER_NOTNULL(NameList, names);
     DEF_PTR_GETTER(ExprList, inits);
     DEFINE_AST_NODE(VarDeclaration);
+    inline int GetNWanted() const;
 protected:
     VarDeclaration(int line, NameList *names, ExprList *inits)
         : Statement(line)
@@ -442,6 +444,12 @@ private:
     const String *name_;
 }; // class Variable
 
+class VariableArguments : public Expression {
+public:
+    DEFINE_AST_NODE(VariableArguments);
+private:
+    VariableArguments(int line) : Expression(line) {}
+}; // class VariableArguments
 
 template<class T>
 class GenericIndex : public LValue {
@@ -543,22 +551,33 @@ private:
     LambdaLiteral *literal_; // lambda (a,b) { return 1 }
 }; // class FunctionDefinition
     
+inline int VarDeclaration::GetNWanted() const {
+    if (!inits_) {
+        return 0;
+    }
+    if (inits_->size() == 1 && (inits_->at(0)->IsInvoke() || inits_->at(0)->IsVariableArguments())) {
+        return -1;
+    } else {
+        return static_cast<int>(inits_->size());
+    }
+}
+    
 inline int Return::GetNRets() const {
     if (!rets_) {
         return 0;
     }
-    if (rets_->size() == 1 && rets_->at(0)->IsInvoke()) {
+    if (rets_->size() == 1 && (rets_->at(0)->IsInvoke() || rets_->at(0)->IsVariableArguments())) {
         return -1;
     } else {
         return static_cast<int>(rets_->size());
     }
 }
-    
+
 inline int Call::GetNArgs() const {
     if (!args_) {
         return 0;
     }
-    if (args_->size() == 1 && args_->at(0)->IsInvoke()) {
+    if (args_->size() == 1 && (args_->at(0)->IsInvoke() || args_->at(0)->IsVariableArguments())) {
         return -1;
     } else {
         return static_cast<int>(args_->size());
@@ -653,6 +672,10 @@ public:
 
     Variable *NewVariable(const String *name, const Location &loc = Location{}) {
         return new (arena_) Variable(loc.begin_line, name);
+    }
+    
+    VariableArguments *NewVariableArguments(const Location &loc = Location{}) {
+        return new (arena_) VariableArguments(loc.begin_line);
     }
 
     Call *NewCall(Expression *callee, Call::ArgumentList *args, const Location &loc = Location{}) {

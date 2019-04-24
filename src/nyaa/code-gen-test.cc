@@ -662,6 +662,39 @@ TEST_F(NyaaCodeGenTest, ClassDefinitionWithBase) {
     BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
     ASSERT_EQ(z, buf) << buf;
 }
+    
+TEST_F(NyaaCodeGenTest, VargsExpression) {
+    static const char s[] = {
+        "def foo(a, b, ...) {\n"
+        "   var c, d = ...\n"
+        "   return ...\n"
+        "}\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 1, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 1\n"
+        " [0] (-1) foo\n"
+        ".............................\n"
+        "[000] Closure 0 0 ; line: 1\n"
+        "[003] StoreGlobal 0 0 ; line: 1\n"
+        "-----------------------------\n"
+        "function: foo, params: 2, vargs: 1, max-stack: 4, upvals: 0\n"
+        ".............................\n"
+        "[000] Vargs 2 2 ; line: 2\n"
+        "[003] Vargs 3 -1 ; line: 3\n"
+        "[006] Ret 3 -1 ; line: 3\n"
+        "[009] Ret 0 0 ; line: 0\n"
+    };
+    
+    HandleScope handle_scope(isolate_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
+    ASSERT_EQ(z, buf) << buf;
+}
 
 } // namespace nyaa
     

@@ -414,11 +414,20 @@ NyMap::NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N)
     
 uint32_t NyMap::Length() const { return linear_ ? array_->size() : table_->size(); }
     
+void NyMap::Put(Object *key, Object *value, NyaaCore *N) {
+    // TODO:
+}
+
+Object *NyMap::Get(Object *key, NyaaCore *N) {
+    // TODO:
+    return nullptr;
+}
+    
 void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
     NyObject *old = generic_;
     
     if (!linear_) {
-        table_ = table_->Put(key, value, N);
+        table_ = table_->RawPut(key, value, N);
         if (generic_ != old) {
             N->BarrierWr(this, &generic_, generic_);
         }
@@ -443,7 +452,7 @@ void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
             if (array_->Get(i) == Object::kNil) {
                 continue;
             }
-            table = table->Put(NySmi::New(i), array_->Get(i), N);
+            table = table->RawPut(NySmi::New(i), array_->Get(i), N);
         }
         table_ = *table;
         linear_ = false;
@@ -452,7 +461,7 @@ void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
     if (linear_) {
         array_ = array_->Put(index, value, N);
     } else {
-        table_ = table_->Put(key, value, N);
+        table_ = table_->RawPut(key, value, N);
     }
     if (generic_ != old) {
         N->BarrierWr(this, &generic_, generic_);
@@ -470,7 +479,7 @@ Object *NyMap::RawGet(Object *key, NyaaCore *N) {
         }
         return array_->Get(index);
     }
-    return table_->Get(key, N);
+    return table_->RawGet(key, N);
 }
     
 NyTable::NyTable(uint32_t seed, uint32_t capacity)
@@ -482,7 +491,7 @@ NyTable::NyTable(uint32_t seed, uint32_t capacity)
     free_ = capacity_;
 }
     
-NyTable *NyTable::Put(Object *key, Object *value, NyaaCore *N) {
+NyTable *NyTable::RawPut(Object *key, Object *value, NyaaCore *N) {
     if (key != nullptr && key->IsNotKey(N)) {
         N->Raisef("Incorrect hash key.");
         return nullptr;
@@ -509,7 +518,7 @@ NyTable *NyTable::Put(Object *key, Object *value, NyaaCore *N) {
     return ob;
 }
 
-Object *NyTable::Get(Object *key, NyaaCore *N) {
+Object *NyTable::RawGet(Object *key, NyaaCore *N) {
     if (key != nullptr && key->IsNotKey(N)) {
         return kNil;
     }
@@ -530,7 +539,7 @@ NyTable *NyTable::Rehash(NyTable *origin, NyaaCore *N) {
     for (size_t i = 1; i < origin->capacity() + 1; ++i) {
         Entry *e = DCHECK_NOTNULL(origin->At(static_cast<int>(i)));
         if (e->kind != kFree) {
-            ob = ob->Put(e->key, e->value, N);
+            ob = ob->RawPut(e->key, e->value, N);
         }
     }
     return ob;
@@ -861,13 +870,17 @@ void NyClosure::Bind(int i, Object *upval, NyaaCore *N) {
 }
 
 int NyClosure::Call(Arguments *args, int nrets, NyaaCore *N) {
-    return N->curr_thd()->Run(this, args, nrets);
+    return N->curr_thd()->TryRun(this, args, nrets);
 }
 
 /*static*/ Handle<NyClosure> NyClosure::Compile(const char *z, size_t n, NyaaCore *N) {
-    Handle<NyFunction> script = NyFunction::Compile(z, n, N);
-    if (script.is_valid()) {
-        return N->factory()->NewClosure(*script);
+    try {
+        Handle<NyFunction> script = NyFunction::Compile(z, n, N);
+        if (script.is_valid()) {
+            return N->factory()->NewClosure(*script);
+        }
+    } catch (NyThread::CatchId e) {
+        // ignore
     }
     return Handle<NyClosure>();
 }

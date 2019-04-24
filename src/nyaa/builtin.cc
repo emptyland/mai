@@ -162,55 +162,15 @@ static int ThreadNewindex(Local<Value>, Local<Value>, Local<Value>, Nyaa *N) {
 // coroutine.yield(a, b, c)
 // yield(a,b,c)
 static int BuiltinYield(Arguments *args, Nyaa *N) {
-    Handle<NyThread> curr_thd(N->core()->curr_thd());
-    
-    if (!curr_thd->save()) {
-        return Raisef(N, "no restore coroutine.");
-    }
-    Handle<NyThread> restore_thd(curr_thd->save());
-    curr_thd->set_save(nullptr);
-    curr_thd->set_state(NyThread::kSuspended);
-    N->core()->set_curr_thd(*restore_thd);
-    
-    for (size_t i = 0; i < args->Length(); ++i) {
-        restore_thd->Push(*ApiWarpNoCheck<Object>(args->Get(i), N->core()));
-    }
-    return 0;
+    // TODO:
+    N->core()->Raisef("TODO:");
+    return -1;
 }
     
 static int ThreadResume(Arguments *args, Nyaa *N) {
-    auto thd = ApiWarp<NyThread>(args->Get(0), N->core());
-    if (!thd) {
-        return -1;
-    }
-    if (thd->state() == NyThread::kDead) {
-        return Return(Handle<Value>(Object::kNil), String::New(N, "coroutine is dead."));
-    }
-    
-    Arguments params(args->Length() - 1);
-    for (size_t i = 1; i < args->Length(); ++i) {
-        params.Set(i, args->Get(i));
-    }
-    
-    Handle<NyThread> saved_thd(N->core()->curr_thd());
-    N->core()->set_curr_thd(*thd);
-    TryCatch try_catch(N->isolate());
-    int nret = thd->Resume(&params, *saved_thd);
-    N->core()->set_curr_thd(*saved_thd);
-    if (try_catch.HasCaught()) {
-        return Return(Handle<Value>(Object::kNil), try_catch.Message());
-    }
-    
-    saved_thd->Push(N->core()->factory()->NewString("ok"));
-    for (int i = 0; i < nret; ++i) {
-        saved_thd->Push(thd->Get(i - nret - 1));
-    }
-    thd->Pop(nret);
-    
-    if (thd->state() == NyThread::kDead) {
-        N->core()->RemoveThread(*thd);
-    }
-    return 1 + nret;
+    // TODO:
+    N->core()->Raisef("TODO:");
+    return -1;
 }
     
 

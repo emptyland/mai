@@ -22,7 +22,7 @@ public:
     ~CallFrame() {}
     
     void Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, NyArray *kpool, int wanted,
-               Object **bp, Object **tp, NyMap *env);
+               size_t bp, size_t tp, NyMap *env);
     void Exit(NyThread *owns);
 
     DEF_PTR_GETTER(NyRunnable, callee);
@@ -33,6 +33,7 @@ public:
     DEF_VAL_GETTER(int, level);
     DEF_VAL_GETTER(int, pc);
     DEF_VAL_GETTER(int, wanted);
+    DEF_VAL_GETTER(size_t, stack_be);
     DEF_VAL_GETTER(size_t, stack_bp);
     DEF_VAL_GETTER(size_t, stack_tp);
     
@@ -59,6 +60,16 @@ public:
         pc_ += delta;
     }
     
+    void AdjustBP(int delta) {
+        stack_bp_ += delta;
+        stack_tp_ += delta;
+    }
+    
+    size_t GetNVargs() const {
+        DCHECK_GE(stack_bp_, stack_be_);
+        return stack_bp_ - stack_be_;
+    }
+    
     Byte BC() const { return bcbuf_->Get(pc_); }
     
     void IterateRoot(RootVisitor *visitor);
@@ -73,6 +84,7 @@ private:
     CallFrame *prev_;
     int level_ = 0;
     int pc_ = 0;
+    size_t stack_be_ = 0;
     size_t stack_bp_ = 0;
     size_t stack_tp_ = 0;
     int wanted_ = 0; // return wanted results.
@@ -80,35 +92,37 @@ private:
     
 class TryCatchCore {
 public:
+    static constexpr const int kThread = 0;
+    static constexpr const int kMessage = 1;
+    static constexpr const int kException = 2;
+    static constexpr const int kStackTrace = 3;
+    static constexpr const int kSlotSize = 4;
+    
     TryCatchCore(NyaaCore *core);
     ~TryCatchCore();
     
     void Catch(NyString *message, Object *exception, NyArray *stack_trace);
     void Reset() {
         has_caught_  = false;
-        message_     = nullptr;
-        exception_   = nullptr;
-        stack_trace_ = nullptr;
+        obs_[kMessage] = nullptr;
+        obs_[kException] = nullptr;
+        obs_[kStackTrace] = nullptr;
     }
     
     DEF_VAL_GETTER(bool, has_caught);
-    DEF_PTR_GETTER(NyString, message);
-    DEF_PTR_GETTER(Object, exception);
-    DEF_PTR_GETTER(NyArray, stack_trace);
     DEF_PTR_GETTER(TryCatchCore, prev);
-    
-    void IterateRoot(RootVisitor *visitor);
+    inline NyThread *thread() const;
+    NyString *message() const { return static_cast<NyString *>(obs_[kMessage]); }
+    Object *exception() const { return obs_[kException]; }
+    NyArray *stack_trace() const { return static_cast<NyArray *>(obs_[kStackTrace]); }
     
     //friend class TryCatch;
     DISALLOW_IMPLICIT_CONSTRUCTORS(TryCatchCore);
 private:
     NyaaCore *const core_;
     bool has_caught_ = false;
-    TryCatchCore *prev_;
-    NyThread *thrd_; // [strong ref]
-    NyString *message_ = nullptr; // [strong ref]
-    Object *exception_ = nullptr; // [strong ref]
-    NyArray *stack_trace_ = nullptr; // [strong ref]
+    TryCatchCore *prev_ = nullptr;
+    Object **obs_ = nullptr;
 };
     
 class NyThread : public NyUDO {
@@ -134,15 +148,11 @@ public:
         return stack_tp_ - stack_;
     }
     
-    //int TryRun(NyClosure *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
+    int TryRun(NyRunnable *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
 
-    int Run(NyClosure *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
+    int Run(NyRunnable *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
     
-    int Run(NyDelegated *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
-    
-    int Resume(Arguments *args, NyThread *save, NyMap *env = nullptr);
-    
-    //int Yield(Arguments *args);
+    int Run(NyRunnable *fn, Object**args, int nargs, int nrets = 0, NyMap *env = nullptr);
     
     void Raisef(const char *fmt, ...);
     
@@ -169,20 +179,35 @@ public:
     
     static bool EnsureIs(const NyObject *o, NyaaCore *N);
     
+    enum CatchId {
+        kException,
+    };
+    
     friend class NyaaCore;
     friend class TryCatchCore;
     friend class CallFrame;
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyThread);
 private:
+    
+    
     Object **frame_bp() const { return !frame_ ? stack_ : stack_ + frame_->stack_bp(); }
     Object **frame_tp() const { return !frame_ ? stack_tp_ : stack_ + frame_->stack_tp(); }
+    Object **frame_be() const { return !frame_ ? stack_ : stack_ + frame_->stack_be(); }
     
+    void CheckStackAdd(size_t add) {
+        DCHECK_GE(stack_tp_, stack_);
+        CheckStack(stack_tp_ - stack_ + add);
+    }
+    void CheckStack(size_t size);
+    void Rewind();
     int Run();
 
+    int InternalGetField(Object **base, Object *key);
+    int InternalSetField(Object *base, Object *key, Object *value);
     int InternalCall(Object **func, int32_t n_args, int wanted);
     int InternalNewUdo(Object **udo, int32_t n_args, size_t size, NyMap *clazz);
     
-    void CopyArgs(Arguments *args, int n_params, bool vargs);
+    int CopyArgs(Object **args, int n_args, int n_params, bool vargs);
     
     void CopyResult(Object **ret, int n_rets, int wanted);
     
@@ -206,12 +231,13 @@ private:
     Object **stack_last_ = nullptr;
     NyRunnable *entry_ = nullptr; // [strong ref] The entry script.
     size_t stack_size_ = 0;
-    bool has_raised_ = false;
     CallFrame *frame_ = nullptr;
     NyThread *save_ = nullptr; // [strong ref]
     NyThread *prev_ = this; // [strong ref]
     NyThread *next_ = this; // [strong ref]
 }; // class NyThread
+    
+inline NyThread *TryCatchCore::thread() const { return static_cast<NyThread *>(obs_[kThread]); }
     
 } // namespace nyaa
     

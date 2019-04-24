@@ -248,6 +248,9 @@ Expression : LValue {
 | MapInitializer {
     $$ = $1;
 }
+| VARGS {
+    $$ = ctx->factory->NewVariableArguments(@1);
+}
 | Expression COMPARISON Expression {
     $$ = ctx->factory->NewBinary($2, $1, $3, Location::Concat(@1, @3));
 }

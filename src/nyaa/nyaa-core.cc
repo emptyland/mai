@@ -134,16 +134,6 @@ void NyaaCore::Raisef(const char *fmt, ...) {
 void NyaaCore::Vraisef(const char *fmt, va_list ap) {
     curr_thd_->Vraisef(fmt, ap);
 }
-
-bool NyaaCore::Raised() const {
-    return curr_thd_->has_raised_;
-    // TODO:
-}
-    
-void NyaaCore::Unraise() {
-    curr_thd_->has_raised_ = false;
-    // TODO:
-}
     
 Isolate *NyaaCore::isolate() const { return stub_->isolate_; }
     
