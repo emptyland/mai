@@ -14,7 +14,7 @@ namespace nyaa {
     V(LoadGlobal,  2, a, b) \
     V(LoadUp,      2, a, b) \
     V(LoadNil,     2, a, b) \
-    V(GetField,    2, a, b) \
+    V(GetField,    3, a, b, c) \
     V(SetField,    3, a, b, c) \
     V(Self,        3, a, b, c) \
     V(GetUpField,  2, a, b) \

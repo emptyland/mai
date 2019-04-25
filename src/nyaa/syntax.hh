@@ -108,14 +108,18 @@ union NYAA_YYSTYPE
     ::mai::nyaa::ast::Statement *stmt;
     ::mai::nyaa::ast::Block::StmtList *stmts;
     ::mai::nyaa::ast::Return::ExprList *exprs;
-    bool vargs;
+    struct {
+        ::mai::nyaa::ast::LambdaLiteral::ParameterList *params;
+        bool vargs;
+    } params;
     ::mai::nyaa::Operator::ID op;
     ::mai::nyaa::ast::String *str_val;
     ::mai::nyaa::ast::String *int_val;
     ::mai::nyaa::f64_t f64_val;
     int64_t smi_val;
+    bool bool_val;
 
-#line 119 "syntax.hh" /* yacc.c:1927  */
+#line 123 "syntax.hh" /* yacc.c:1927  */
 };
 
 typedef union NYAA_YYSTYPE NYAA_YYSTYPE;

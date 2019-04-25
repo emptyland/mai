@@ -606,7 +606,7 @@ public:
                                                 VarDeclaration::ExprList *inits,
                                                 const Location &loc = Location{}) {
         bool ro = AttributesMatch(attrs, "ro", true, false);
-        ro = AttributesMatch(attrs, "rw", false, !ro);
+        ro = AttributesMatch(attrs, "rw", false, ro);
         return new (arena_) PropertyDeclaration(loc.begin_line, names, inits, ro);
     }
     

@@ -116,6 +116,8 @@ public:
     Object *exception() const { return obs_[kException]; }
     NyArray *stack_trace() const { return static_cast<NyArray *>(obs_[kStackTrace]); }
     
+    std::string ToString() const;
+    
     //friend class TryCatch;
     DISALLOW_IMPLICIT_CONSTRUCTORS(TryCatchCore);
 private:
@@ -176,9 +178,7 @@ public:
     void Iterate(ObjectVisitor *) {}
     
     constexpr size_t PlacedSize() const { return sizeof(*this); }
-    
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
+
     enum CatchId {
         kException,
     };
@@ -186,6 +186,7 @@ public:
     friend class NyaaCore;
     friend class TryCatchCore;
     friend class CallFrame;
+    DEF_HEAP_OBJECT(Thread);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyThread);
 private:
     
@@ -202,8 +203,8 @@ private:
     void Rewind();
     int Run();
 
-    int InternalGetField(Object **base, Object *key);
-    int InternalSetField(Object *base, Object *key, Object *value);
+    Object *InternalGetField(Object *mm, Object *key);
+    int InternalSetField(Object *mm, Object *key, Object *value);
     int InternalCall(Object **func, int32_t n_args, int wanted);
     int InternalNewUdo(Object **udo, int32_t n_args, size_t size, NyMap *clazz);
     

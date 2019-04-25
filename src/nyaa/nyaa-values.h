@@ -217,6 +217,19 @@ private:
 
 static_assert(sizeof(NyObject) == sizeof(uintptr_t), "Incorrect Object size");
     
+#define DEF_HEAP_OBJECT(name) \
+    DEF_HEAP_OBJECT_CASTS(name) \
+    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    
+#define DEF_HEAP_OBJECT_CASTS(name) \
+    inline static Ny##name *Cast(Object *ob) { \
+        return !ob || !ob->IsObject() ? nullptr : ob->ToHeapObject()->To##name(); \
+    } \
+    inline static const Ny##name *Cast(const Object *ob) { \
+        return !ob || !ob->IsObject() ? nullptr : ob->ToHeapObject()->To##name(); \
+    }
+    
+    
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Inbox Numbers:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -238,8 +251,7 @@ public:
     
     constexpr size_t PlacedSize() const { return sizeof(*this); }
     
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
+    DEF_HEAP_OBJECT(Float64);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyFloat64);
 private:
     f64_t value_;
@@ -282,8 +294,7 @@ public:
         return sizeof(NyInt) + sizeof(uint32_t) * (capacity < 2 ? 0 : capacity);
     }
     
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
+    DEF_HEAP_OBJECT(Int);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyInt);
 private:
     uint32_t capacity_;
@@ -323,9 +334,8 @@ public:
     
     constexpr size_t PlacedSize() const { return sizeof(*this); }
     
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
     friend class MapIterator;
+    DEF_HEAP_OBJECT(Map);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyMap);
 private:
     union {
@@ -359,10 +369,9 @@ public:
     static size_t RequiredSize(uint32_t capacity) {
         return sizeof(NyTable) + sizeof(Entry) * capacity;
     }
-    
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
+
     friend class MapIterator;
+    DEF_HEAP_OBJECT(Table);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyTable);
 private:
     enum Kind : int {
@@ -481,8 +490,7 @@ public:
     using NyArrayBase<Byte>::Refill;
     using NyArrayBase<Byte>::elems_;
     
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
+    DEF_HEAP_OBJECT(ByteArray);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyByteArray);
 protected:
     Address data() { return elems_; }
@@ -530,7 +538,8 @@ public:
         return RoundUp(sizeof(NyString) + kHeaderSize + size + 1, kAllocateAlignmentSize);
     }
     
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    DEF_HEAP_OBJECT(String);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NyString);
 private:
     uint32_t header() const { return *reinterpret_cast<const uint32_t *>(data()); }
 }; // class NyString
@@ -553,8 +562,7 @@ public:
     using NyArrayBase<int32_t>::PlacedSize;
     using NyArrayBase<int32_t>::RequiredSize;
 
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
+    DEF_HEAP_OBJECT(Int32Array);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyInt32Array);
 }; // class NyInt32Array
     
@@ -578,9 +586,8 @@ public:
     void Refill(const NyArray *base, NyaaCore *N);
     
     void Iterate(ObjectVisitor *visitor) { visitor->VisitPointers(this, elems_, elems_ + size_); }
-    
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
+
+    DEF_HEAP_OBJECT(Array);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyArray);
 }; // class NyArray
 
@@ -592,6 +599,7 @@ class NyRunnable : public NyObject {
 public:
     int Apply(Arguments *args, int nrets, NyaaCore *N);
     
+    DEF_HEAP_OBJECT_CASTS(Runnable);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyRunnable);
 protected:
     NyRunnable() {}
@@ -691,9 +699,7 @@ public:
     }
     
     static Handle<NyClosure> Compile(const char *z, size_t n, NyaaCore *N);
-    
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
+
     void Iterate(ObjectVisitor *visitor) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&proto_));
         visitor->VisitPointers(this, upvals_, upvals_ + proto_->n_upvals());
@@ -705,6 +711,7 @@ public:
         return sizeof(NyClosure) + n_upvals * sizeof(Object *);
     }
     
+    DEF_HEAP_OBJECT(Closure);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyClosure);
 private:
     NyFunction *proto_; // [strong ref]
@@ -746,9 +753,7 @@ public:
     DEF_VAL_GETTER(Kind, kind);
     
     Address fp_addr() { return static_cast<Address>(stub_); }
-    
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
-    
+
     void Iterate(ObjectVisitor *visitor) {
         visitor->VisitPointers(this, upvals_, upvals_ + n_upvals_);
     }
@@ -759,6 +764,7 @@ public:
         return sizeof(NyDelegated) + n_upvals * sizeof(Object *);
     }
 
+    DEF_HEAP_OBJECT(Delegated);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyDelegated);
 private:
     Kind kind_;
@@ -784,21 +790,49 @@ class NyUDO : public NyObject {
 public:
     using Finalizer = UDOFinalizer;
     
-    NyUDO(bool ignore_managed) : finalizer_(ignore_managed ? 0x1 : 0) {}
+    NyUDO(size_t n_fields, bool dont_visit) : tag_(MakeTag(n_fields, dont_visit)) {}
     
-    void SetFinalizer(Finalizer fp, NyaaCore *N);
+    bool ignore_managed() const { return tag_ & 0x1; }
     
-    Finalizer GetFinalizer() const { return reinterpret_cast<Finalizer>(finalizer_ & ~0x1); }
-    
-    bool IgnoreManaged() const { return finalizer_ & 0x1; }
+    size_t n_fields() const { return tag_ >> 1; }
     
     Address data() { return reinterpret_cast<Address>(this + 1); }
-    
-    Object *field(size_t i) { return fields_[i]; }
 
+    void SetFinalizer(Finalizer fp, NyaaCore *N);
+
+    Object *RawGet(Object *key, NyaaCore *N);
+    
+    void RawPut(Object *key, Object *value, NyaaCore *N);
+
+    Object *GetField(size_t i, NyaaCore *N);
+
+    void SetField(size_t i, Object *value, NyaaCore *N);
+    
+    void Iterate(ObjectVisitor *visitor) {
+        if (!ignore_managed()) {
+            visitor->VisitPointers(this, fields_, fields_ + n_fields());
+        }
+    }
+
+    size_t PlacedSize() const { return RequiredSize(n_fields()); }
+    
+    static size_t RequiredSize(size_t n_fields) {
+        return sizeof(NyUDO) + n_fields * sizeof(Object *);
+    }
+    
+    static size_t GetNFiedls(size_t total_bytes) {
+        DCHECK_GE(total_bytes, sizeof(NyUDO));
+        return ((total_bytes - sizeof(NyUDO)) + (kPointerSize - 1)) / kPointerSize;
+    }
+
+    DEF_HEAP_OBJECT(UDO);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyUDO);
 private:
-    uintptr_t finalizer_;
+    static uintptr_t MakeTag(size_t n_fields, bool ignore_managed) {
+        return static_cast<uintptr_t>(n_fields << 1 | (ignore_managed ? 0x1 : 0));
+    }
+
+    uintptr_t tag_;
     Object *fields_[0];
 }; // class NyUDO
     

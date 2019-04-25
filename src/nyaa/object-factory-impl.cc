@@ -153,9 +153,9 @@ NyDelegated *ObjectFactoryImpl::NewDelegated(DelegatedKind kind, Address fp, siz
     
 /*virtual*/ NyUDO *ObjectFactoryImpl::NewUninitializedUDO(size_t size, NyMap *clazz,
                                                           bool ignore_managed, bool old) {
-    DCHECK_GE(size, sizeof(NyUDO));
+    size_t n_fields = NyUDO::GetNFiedls(size);
     void *blk = heap_->Allocate(size, old ? kOldSpace : kNewSpace);
-    NyUDO *ob = new (blk) NyUDO(ignore_managed);
+    NyUDO *ob = new (blk) NyUDO(n_fields, ignore_managed);
     ob->SetMetatable(clazz, core_);
     ob->SetColor(heap_->initial_color());
     return ob;

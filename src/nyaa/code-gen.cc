@@ -35,12 +35,15 @@ public:
     ConstPoolBuilder *kpool() { return &kpool_builder_; }
     BytecodeArrayBuilder *builder() { return &builder_; }
     DEF_VAL_GETTER(int32_t, max_stack);
+    DEF_VAL_GETTER(int, free_reg);
+    DEF_VAL_GETTER(int, active_vars);
     
     IVal NewLocal() {
         IVal val = IVal::Local(free_reg_++);
         if (free_reg_ > max_stack_) {
             max_stack_ = free_reg_;
         }
+        //printf("[alloc] free-reg:%d\n", free_reg_);
         return val;
     }
     
@@ -59,8 +62,11 @@ public:
     }
     
     IVal Reserve(int n) {
-        IVal base = IVal::Local(max_stack_);
-        max_stack_ += n;
+        IVal base = IVal::Local(free_reg_);
+        free_reg_ += n;
+        if (free_reg_ > max_stack_) {
+            max_stack_ = free_reg_;
+        }
         return base;
     }
     
@@ -82,9 +88,9 @@ public:
     void FreeVar(IVal val) {
         if (val.kind == IVal::kLocal) {
             if (val.index >= active_vars_) {
+                //printf("[free] index:%d, free-reg:%d\n", val.index, free_reg_);
                 free_reg_--;
                 DCHECK_EQ(val.index, free_reg_);
-                //printf("free: %d - %d\n", val.index, free_reg_);
             }
         }
     }
@@ -94,13 +100,7 @@ public:
         bool in_stack;
         int index;
     };
-    
-    enum VarDesc {
-        kFree,
-        kVar,
-        kTmp,
-    };
-    
+
     friend class CodeGeneratorVisitor;
     friend class BlockScope;
 private:
@@ -541,6 +541,7 @@ public:
     
     virtual IVal VisitIndex(ast::Index *node, ast::VisitorContext *x) override {
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+        IVal val = ctx->lval() ? IVal::Void() : fun_scope_->NewLocal();
         
         CodeGeneratorContext ix;
         ix.set_n_result(1);
@@ -554,15 +555,16 @@ public:
             fun_scope_->FreeVar(self);
             return IVal::Void();
         } else {
-            builder()->GetField(self, index, node->line());
+            builder()->GetField(val, self, index, node->line());
             fun_scope_->FreeVar(index);
-            //fun_scope_->FreeVar(self);
-            return self;
+            fun_scope_->FreeVar(self);
+            return val;
         }
     }
     
     virtual IVal VisitDotField(ast::DotField *node, ast::VisitorContext *x) override {
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+        IVal val = ctx->lval() ? IVal::Void() : fun_scope_->NewLocal();
         
         CodeGeneratorContext ix;
         ix.set_n_result(1);
@@ -571,12 +573,14 @@ public:
         
         if (ctx->lval()) {
             builder()->SetField(self, index, ctx->rval(), node->line());
+            fun_scope_->FreeVar(index);
             //fun_scope_->FreeVar(self);
             return IVal::Void();
         } else {
-            builder()->GetField(self, index, node->line());
-            //fun_scope_->FreeVar(self);
-            return self;
+            builder()->GetField(val, self, index, node->line());
+            fun_scope_->FreeVar(index);
+            fun_scope_->FreeVar(self);
+            return val;
         }
     }
     
@@ -630,6 +634,33 @@ public:
 
         fun_scope_->free_reg_ = callee.index + 1;
         return callee;
+    }
+    
+    virtual IVal VisitSelfCall(ast::SelfCall *node, ast::VisitorContext *x) override {
+        int32_t n_args = node->GetNArgs();
+        CodeGeneratorContext ix;
+        ix.set_n_result(n_args < 0 ? -1 : 1);
+        
+        IVal base = fun_scope_->NewLocal();
+        IVal self = fun_scope_->NewLocal();
+        IVal callee = node->callee()->Accept(this, &ix);
+        IVal method = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->method()));
+        builder()->Self(base, callee, method, node->line());
+        fun_scope_->FreeVar(callee);
+        
+        int reg = base.index + 1;
+        for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
+            ast::Expression *expr = node->args()->at(i);
+            AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
+        }
+        (void)self;
+        //fun_scope_->FreeVar(self);
+        
+        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+        builder()->Call(base, n_args, ctx->n_result(), node->line());
+        
+        fun_scope_->free_reg_ = base.index + 1;
+        return base;
     }
     
     virtual
@@ -804,12 +835,14 @@ private:
     
     IVal AdjustStackPosition(int requried, IVal val, int line) {
         DCHECK_EQ(IVal::kLocal, val.kind);
-        IVal dst{.kind = IVal::kLocal, .index = requried};
-        if (requried >= fun_scope_->max_stack_) {
-            dst = fun_scope_->NewLocal();
-            DCHECK_EQ(requried, dst.index);
-        }
+        //IVal dst{.kind = IVal::kLocal, .index = requried};
+//        if (requried >= fun_scope_->max_stack_) {
+//            dst = fun_scope_->NewLocal();
+//            DCHECK_EQ(requried, dst.index);
+//        }
         if (requried != val.index) {
+            IVal dst = fun_scope_->NewLocal();
+            DCHECK_EQ(requried, dst.index);
             builder()->Move(dst, val, line);
             return dst;
         }
@@ -909,6 +942,7 @@ inline BlockScope::~BlockScope() {
     
     Handle<NyByteArray> bcbuf;
     Handle<NyInt32Array> info;
+    scope.builder()->Ret(IVal::Local(0), 0); // last return
     std::tie(bcbuf, info) = scope.builder()->Build(core);
     Handle<NyArray> kpool = scope.kpool()->Build(core);
     Handle<NyArray> fpool = scope.BuildProtos(core);

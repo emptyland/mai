@@ -255,7 +255,8 @@ void NyObject::Iterate(ObjectVisitor *visitor) {
     #undef DEFINE_PLACED_SIZE
         default: { // UDOs
             DCHECK_GT(GetMetatable()->kid(), kUdoKidBegin);
-            DLOG(FATAL) << "TODO:";
+            static_cast<NyUDO *>(this)->Iterate(visitor);
+            //DLOG(FATAL) << "TODO:";
         } break;
     }
 }
@@ -272,7 +273,8 @@ size_t NyObject::PlacedSize() const {
 #undef DEFINE_PLACED_SIZE
         default: { // UDOs
             DCHECK_GT(GetMetatable()->kid(), kUdoKidBegin);
-            DLOG(FATAL) << "TODO:";
+            return static_cast<const NyUDO *>(this)->PlacedSize();
+            //DLOG(FATAL) << "TODO:";
         } break;
     }
     return RoundUp(bytes, kAllocateAlignmentSize);
@@ -886,10 +888,85 @@ int NyClosure::Call(Arguments *args, int nrets, NyaaCore *N) {
 }
 
 void NyUDO::SetFinalizer(Finalizer fp, NyaaCore *N) {
-    uintptr_t word = reinterpret_cast<uintptr_t>(fp);
-    DCHECK_EQ(0, word % 2);
-    finalizer_ = word | (IgnoreManaged() ? 0x1 : 0);
+//    uintptr_t word = reinterpret_cast<uintptr_t>(fp);
+//    DCHECK_EQ(0, word % 2);
+//    tag_ = word | (IgnoreManaged() ? 0x1 : 0);
     N->heap()->AddFinalizer(this, fp);
+}
+    
+Object *NyUDO::RawGet(Object *key, NyaaCore *N) {
+    DCHECK_NOTNULL(key);
+    bool ignore_access_check = false;
+    if (NyString *name = NyString::Cast(key)) {
+        if (name->bytes()[name->size() - 1] == '_') {
+            ignore_access_check = true;
+            key = N->factory()->NewString(name->bytes(), name->size() - 1, false);
+        }
+    }
+
+    Object *mfield = GetMetatable()->RawGet(key, N);
+    if (mfield == Object::kNil) {
+        return Object::kNil;
+    }
+    if (mfield->IsSmi()) {
+        if (!ignore_access_check) {
+            int64_t access = mfield->ToSmi() & 0x3;
+            if (!(access & 0x1)) {
+                N->Raisef("udo access fail: read");
+                return Object::kNil;
+            }
+        }
+        return GetField(mfield->ToSmi() >> 2, N);
+    }
+    NyObject *ob = mfield->ToHeapObject();
+    return ob->ToRunnable();
+}
+
+void NyUDO::RawPut(Object *key, Object *value, NyaaCore *N) {
+    DCHECK_NOTNULL(key);
+    bool ignore_access_check = false;
+    if (NyString *name = NyString::Cast(key)) {
+        if (name->bytes()[name->size() - 1] == '_') {
+            ignore_access_check = true;
+            key = N->factory()->NewString(name->bytes(), name->size() - 1, false);
+        }
+    }
+    
+    Object *mfield = GetMetatable()->RawGet(key, N);
+    if (mfield == Object::kNil) {
+        return;
+    }
+    if (mfield->IsSmi()) {
+        if (!ignore_access_check) {
+            int64_t access = mfield->ToSmi() & 0x3;
+            if (!(access & 0x2)) {
+                N->Raisef("udo access fail: write");
+                return;
+            }
+        }
+        SetField(mfield->ToSmi() >> 2, value, N);
+    }
+}
+    
+Object *NyUDO::GetField(size_t i, NyaaCore *N) {
+#if defined(DEBUG) || defined(_DEBUG)
+    Object *msize = GetMetatable()->RawGet(N->bkz_pool()->kInnerSize, N);
+    DCHECK(DCHECK_NOTNULL(msize)->IsSmi());
+    DCHECK_EQ(msize->ToSmi(), n_fields());
+#endif
+    DCHECK_LT(i, n_fields());
+    return fields_[i];
+}
+    
+void NyUDO::SetField(size_t i, Object *value, NyaaCore *N) {
+#if defined(DEBUG) || defined(_DEBUG)
+    Object *msize = GetMetatable()->RawGet(N->bkz_pool()->kInnerSize, N);
+    DCHECK(DCHECK_NOTNULL(msize)->IsSmi());
+    DCHECK_EQ(msize->ToSmi(), n_fields());
+#endif
+    DCHECK_LT(i, n_fields());
+    N->BarrierWr(this, fields_ + i, value);
+    fields_[i] = value;
 }
 
 #define DEFINE_TYPE_CHECK(type, name) \

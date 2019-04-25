@@ -610,6 +610,121 @@ TEST_F(NyaaThreadTest, FunctionVargs) {
     ASSERT_EQ(2, val->ToSmi());
 }
     
+TEST_F(NyaaThreadTest, FunctionVargsRef) {
+    static const char s[] = {
+        "def foo(a, b, ...) {\n"
+        "   var c, d, e = ...\n"
+        "   check(a, b, c, d, e)\n"
+        "}\n"
+        "foo(1,2,3,4,5)\n"
+        "return\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 5, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 1, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
+    
+    for (int i = 0; i < 5; ++i) {
+        Handle<Object> val = check->upval(i);
+        ASSERT_TRUE(val->IsSmi());
+        ASSERT_EQ(i + 1, val->ToSmi());
+    }
+}
+    
+TEST_F(NyaaThreadTest, MapGetField) {
+    static const char s[] = {
+        "var t = {\n"
+        "   name: \"doom\",\n"
+        "   id: 100\n"
+        "}\n"
+        "check(t.name, t[\"id\"])\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 2, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    Arguments args(0);
+    script->Call(&args, 1, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    Handle<Object> val = check->upval(0);
+    ASSERT_TRUE(val->IsObject());
+    Handle<NyString> v1 = Handle<NyString>::Cast(val);
+    ASSERT_STREQ("doom", v1->bytes());
+    val = check->upval(1);
+    ASSERT_TRUE(val->IsSmi());
+    ASSERT_EQ(100, val->ToSmi());
+}
+    
+TEST_F(NyaaThreadTest, UdoSetGetField) {
+    static const char s[] = {
+        "object [local] foo {\n"
+        "   def get() { return 199 }\n"
+        "   property [ro] a, b, c\n"
+        "}\n"
+        "foo.a_ = 1\n"
+        "check(foo.get(), foo.a, foo.b)\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    Handle<Object> val = check->upval(0);
+    ASSERT_TRUE(val->IsSmi());
+    ASSERT_EQ(199, val->ToSmi());
+    val = check->upval(1);
+    ASSERT_TRUE(val->IsSmi());
+    ASSERT_EQ(1, val->ToSmi());
+    val = check->upval(2);
+    ASSERT_TRUE(val->IsNil());
+}
+    
+TEST_F(NyaaThreadTest, UdoSelfCall) {
+    static const char s[] = {
+        "object [local] foo {\n"
+        "   def __init__(self) {\n"
+        "       self.a_ = 1\n"
+        "       self.b_ = 2\n"
+        "       self.c_ = 3\n"
+        "   }\n"
+        "   def get(self) { return self.a, self.b, self.c }\n"
+        "   property [ro] a, b, c\n"
+        "}\n"
+        "check(foo:get())\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    for (int i = 0; i < 3; ++i) {
+        Handle<Object> val = check->upval(i);
+        ASSERT_TRUE(val->IsSmi());
+        ASSERT_EQ(i + 1, val->ToSmi());
+    }
+}
+
 TEST_F(NyaaThreadTest, CxxTryCatchTest) {
     try {
         throw 1;

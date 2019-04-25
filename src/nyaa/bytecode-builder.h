@@ -135,9 +135,10 @@ public:
     
     void Jump(BytecodeLable *lable, ConstPoolBuilder *kpool, int line = 0);
     
-    void GetField(IVal a, IVal b, int line = 0) {
+    void GetField(IVal a, IVal b, IVal c, int line = 0) {
         DCHECK_EQ(IVal::kLocal, a.kind);
-        Emit(Bytecode::kGetField, a.index, b.Encode(), line);
+        DCHECK_EQ(IVal::kLocal, b.kind);
+        Emit(Bytecode::kGetField, a.index, b.index, c.Encode(), line);
     }
     
     void SetField(IVal a, IVal b, IVal c, int line = 0) {
@@ -176,6 +177,13 @@ public:
     void Vargs(IVal a, int32_t b, int line = 0) {
         DCHECK_EQ(IVal::kLocal, a.kind);
         Emit(Bytecode::kVargs, a.index, b, line);
+    }
+    
+    void Self(IVal a, IVal b, IVal c, int line = 0) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        DCHECK_EQ(IVal::kLocal, b.kind);
+        DCHECK_EQ(IVal::kConst, c.kind);
+        Emit(Bytecode::kSelf, a.index, b.index, c.index, line);
     }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArrayBuilder);

@@ -77,9 +77,25 @@ void TryCatchCore::Catch(NyString *message, Object *exception, NyArray *stack_tr
     obs_[kException] = exception;
     obs_[kStackTrace] = stack_trace;
 }
-    
+
+std::string TryCatchCore::ToString() const {
+    std::string buf;
+    buf.append(message()->bytes(), message()->size());
+    buf.append("\n");
+    if (stack_trace()) {
+        buf.append("stack strace:\n");
+        for (int i = 0; i < stack_trace()->size(); ++i) {
+            buf.append("    ");
+            const NyString *line = static_cast<NyString *>(stack_trace()->Get(i));
+            buf.append(line->bytes(), line->size());
+            buf.append("\n");
+        }
+    }
+    return buf;
+}
+
 NyThread::NyThread(NyaaCore *owns)
-    : NyUDO(true /* ignore_managed */)
+    : NyUDO(NyUDO::GetNFiedls(sizeof(NyThread)), true /* ignore_managed */)
     , owns_(DCHECK_NOTNULL(owns)) {
     SetFinalizer(&UDOFinalizeDtor<NyThread>, owns);
 }
@@ -91,7 +107,7 @@ NyThread::~NyThread() {
         owns_->RemoveThread(this);
     }
 }
-    
+
 Error NyThread::Init() {
     stack_size_ = owns_->stub()->init_thread_stack_size();
     stack_ = static_cast<Object **>(::malloc(sizeof(Object *) * stack_size_)); //new Object *[stack_size_];
@@ -476,15 +492,16 @@ int NyThread::Run() {
             } break;
                 
             case Bytecode::kGetField: {
-                int32_t ra, rkb;
-                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &rkb);
+                int32_t ra, rb, rkc;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &rkc);
                 Object *key = nullptr;
-                if (rkb < 0) {
-                    key = frame_->const_poll()->Get(-rkb - 1);
+                if (rkc < 0) {
+                    key = frame_->const_poll()->Get(-rkc - 1);
                 } else {
-                    key = Get(rkb);
+                    key = Get(rkc);
                 }
-                InternalGetField(frame_bp() + ra, key);
+                Object *value = InternalGetField(Get(rb), key);
+                Set(ra, value);
                 frame_->AddPC(delta);
             } break;
                 
@@ -499,7 +516,7 @@ int NyThread::Run() {
                 }
                 
                 Object *value = nullptr;
-                if (rkb < 0) {
+                if (rkc < 0) {
                     value = frame_->const_poll()->Get(-rkc - 1);
                 } else {
                     value = Get(rkc);
@@ -628,6 +645,16 @@ int NyThread::Run() {
 
                 frame_->AddPC(delta);
             } break;
+                
+            case Bytecode::kSelf: {
+                int32_t ra, rb, kc;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &kc);
+                Object *key = frame_->const_poll()->Get(kc);
+                Object *method = InternalGetField(Get(rb), key);
+                Set(ra + 1, Get(rb));
+                Set(ra, method);
+                frame_->AddPC(delta);
+            } break;
 
                 // foo(bar())
             case Bytecode::kCall: {
@@ -717,43 +744,42 @@ int NyThread::Run() {
     //return has_raised_ ? -1 : 0;
 }
     
-int NyThread::InternalGetField(Object **base, Object *key) {
-    Object *mm = *base;
+Object *NyThread::InternalGetField(Object *mm, Object *key) {
     if (mm == Object::kNil) {
         Raisef("attempt to nil field.");
-        return -1;
+        return Object::kNil;
     }
     if (mm->IsSmi()) {
         Raisef("attempt to smi field.");
-        return -1;
+        return Object::kNil;
     }
     
     NyObject *ob = mm->ToHeapObject();
     if (NyMap *map = ob->ToMap()) {
         if (map->GetMetatable() == owns_->kmt_pool()->kMap) {
-            *base = map->RawGet(key, owns_);
-            return 1;
+            return map->RawGet(key, owns_);
         }
-        Object *mf = map->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerIndex, owns_);
-        if (mf != Object::kNil && mf->IsObject()) {
-            if (NyMap *mf_map = mf->ToHeapObject()->ToMap()) {
-                *base = mf_map->RawGet(key, owns_);
-                return 1;
-            } else if (NyRunnable *mf_fn = mf->ToHeapObject()->ToRunnable()) {
-                //int rv = Run(mf_fn, frame_->env(), 1/*nrets*/, 2/*nargs*/, *base, key);
-                Object *args[2] = {*base, key};
-                int rv = Run(mf_fn, args, 2/*nargs*/, 1/*nrets*/, frame_->env());
-                *base = Get(-1);
-                return rv;
-            }
+        Object *mindex = map->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerIndex, owns_);
+        if (NyMap *index_map = NyMap::Cast(mindex)) {
+            return index_map->RawGet(key, owns_);
+        } else if (NyRunnable *mfn = NyRunnable::Cast(mindex)) {
+            Object *args[2] = {mm, key};
+            Run(mfn, args, 2/*nargs*/, 1/*nrets*/, frame_->env());
+            return Get(-1);
         }
     } else if (NyUDO *udo = ob->ToUDO()) {
-        // TODO:
+        Object *mindex = udo->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerIndex, owns_);
+        if (NyRunnable *mfn = NyRunnable::Cast(mindex)) {
+            Object *args[2] = {mm, key};
+            Run(mfn, args, 2/*nargs*/, 1/*nrets*/, frame_->env());
+            return Get(-1);
+        }
+        return udo->RawGet(key, owns_);
     } else {
         Raisef("incorrect type for getfield.");
-        return -1;
+        return Object::kNil;
     }
-    return 0;
+    return Object::kNil;
 }
     
 int NyThread::InternalSetField(Object *mm, Object *key, Object *value) {
@@ -772,17 +798,20 @@ int NyThread::InternalSetField(Object *mm, Object *key, Object *value) {
             map->RawPut(key, value, owns_);
             return 0;
         }
-        Object *mf = map->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerNewindex, owns_);
-        if (mf != Object::kNil && mf->IsObject()) {
-            if (NyMap *mf_map = mf->ToHeapObject()->ToMap()) {
-                mf_map->RawPut(key, value, owns_);
-            } else if (NyRunnable *mf_fn = mf->ToHeapObject()->ToRunnable()) {
-                Object *args[3] = {mm, key, value};
-                Run(mf_fn, args, 3/*nargs*/, 0/*nrets*/, frame_->env());
-            }
+        Object *mnewindex = map->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerNewindex, owns_);
+        if (NyMap *newindex_map = NyMap::Cast(mnewindex)) {
+            newindex_map->RawPut(key, value, owns_);
+        } else if (NyRunnable *fn = NyRunnable::Cast(mnewindex)) {
+            Object *args[3] = {mm, key, value};
+            Run(fn, args, 3/*nargs*/, 0/*nrets*/, frame_->env());
         }
     } else if (NyUDO *udo = ob->ToUDO()) {
-        // TODO:
+        Object *mnewindex = udo->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerNewindex, owns_);
+        if (NyRunnable *fn = NyRunnable::Cast(mnewindex)) {
+            Object *args[3] = {mm, key, value};
+            Run(fn, args, 3/*nargs*/, 0/*nrets*/, frame_->env());
+        }
+        udo->RawPut(key, value, owns_);
     } else {
         Raisef("incorrect type for getfield.");
         return -1;
@@ -797,7 +826,7 @@ int NyThread::InternalNewUdo(Object **udo, int32_t n_args, size_t n_fields, NyMa
     *udo = rv; // protected for gc.
     
     Object *vv = clazz->RawGet(owns_->bkz_pool()->kInnerInit, owns_);
-    if (vv != Object::kNil && vv->IsObject() && vv->ToHeapObject()->IsRunnable()) {
+    if (NyRunnable *init = NyRunnable::Cast(vv)) {
         Object **base = udo;
         if (n_args >= 0) {
             stack_tp_ = base + 1 + n_args;
@@ -805,7 +834,6 @@ int NyThread::InternalNewUdo(Object **udo, int32_t n_args, size_t n_fields, NyMa
         if (n_args < 0) {
             n_args = static_cast<int32_t>(stack_tp_ - base - 1);
         }
-        NyRunnable *init = static_cast<NyRunnable *>(vv);
         size_t base_p = base - stack_;
         CheckStack(base_p + n_args + 2);
         base = stack_ + base_p;
@@ -923,8 +951,7 @@ void NyThread::ProcessClass(NyMap *clazz) {
     int64_t self_size = 0;
 
     auto base = clazz->RawGet(owns_->bkz_pool()->kInnerBase, owns_);
-    if (base) {
-        NyMap *base_map = base->ToHeapObject()->ToMap();
+    if (NyMap *base_map = NyMap::Cast(base)) {
         auto size = base_map->RawGet(owns_->bkz_pool()->kInnerSize, owns_);
         self_size = size->ToSmi();
         self_offset = self_size;
@@ -932,9 +959,8 @@ void NyThread::ProcessClass(NyMap *clazz) {
     
     NyMap::Iterator iter(clazz);
     for (iter.SeekFirst(); iter.Valid(); iter.Next()) {
-        auto maykey = iter.key();
-        DCHECK_NE(Object::kNil, maykey);
-        NyString *key = maykey->IsSmi() ? nullptr : maykey->ToHeapObject()->ToString();
+        DCHECK_NE(Object::kNil, iter.key());
+        NyString *key = NyString::Cast(iter.key());
         //printf("field:%s\n", key->bytes());
         if (key && key->bytes()[0] != '_' && key->bytes()[0] != '$') {
             if (!iter.value()->IsSmi()) {

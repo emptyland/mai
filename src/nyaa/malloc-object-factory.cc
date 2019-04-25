@@ -150,9 +150,9 @@ NyDelegated *MallocObjectFactory::NewDelegated(DelegatedKind kind, Address fp, s
     
 /*virtual*/ NyUDO *MallocObjectFactory::NewUninitializedUDO(size_t size, NyMap *clazz,
                                                             bool ignore_managed, bool old) {
-    DCHECK_GE(size, sizeof(NyUDO));
+    size_t n_fields = NyUDO::GetNFiedls(size);
     void *chunk = ::malloc(size);
-    auto ob = new (chunk) NyUDO(ignore_managed);
+    auto ob = new (chunk) NyUDO(n_fields, ignore_managed);
     ob->SetMetatable(clazz, core_);
     return ob;
 }

@@ -36,12 +36,16 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     ::mai::nyaa::ast::Statement *stmt;
     ::mai::nyaa::ast::Block::StmtList *stmts;
     ::mai::nyaa::ast::Return::ExprList *exprs;
-    bool vargs;
+    struct {
+        ::mai::nyaa::ast::LambdaLiteral::ParameterList *params;
+        bool vargs;
+    } params;
     ::mai::nyaa::Operator::ID op;
     ::mai::nyaa::ast::String *str_val;
     ::mai::nyaa::ast::String *int_val;
     ::mai::nyaa::f64_t f64_val;
     int64_t smi_val;
+    bool bool_val;
 }
 
 %token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS RETURN VARGS DO
@@ -60,11 +64,12 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <lvals> LValList
 %type <name> NAME
 %type <names> NameList Attributes
-%type <vargs> ParameterVargs
+%type <params> Parameters
 %type <str_val> STRING_LITERAL
 %type <smi_val> SMI_LITERAL BOOL_LITERAL
 %type <int_val> INT_LITERAL
 %type <f64_val> APPROX_LITERAL
+%type <bool_val> ParameterVargs
 
 %right '='
 %left OP_OR
@@ -180,14 +185,27 @@ PropertyDeclaration : PROPERTY Attributes NameList {
     $$ = ctx->factory->NewPropertyDeclaration($2, $3, nullptr, Location::Concat(@1, @3));
 }
 
-FunctionDefinition : DEF NAME '.' NAME '(' NameList ParameterVargs ')' Block {
-    auto lambda = ctx->factory->NewLambdaLiteral($6, $7, $9, Location::Concat(@5, @9));
+FunctionDefinition : DEF NAME '.' NAME '(' Parameters ')' Block {
+    auto lambda = ctx->factory->NewLambdaLiteral($6.params, $6.vargs, $8, Location::Concat(@5, @8));
     auto self = ctx->factory->NewVariable($2, @2);
-    $$ =  ctx->factory->NewFunctionDefinition(self, $4, lambda, Location::Concat(@1, @9));
+    $$ =  ctx->factory->NewFunctionDefinition(self, $4, lambda, Location::Concat(@1, @8));
 }
-| DEF NAME '(' NameList ParameterVargs ')' Block {
-    auto lambda = ctx->factory->NewLambdaLiteral($4, $5, $7, Location::Concat(@3, @7));
-    $$ =  ctx->factory->NewFunctionDefinition(nullptr, $2, lambda, Location::Concat(@1, @7));
+| DEF NAME '(' Parameters ')' Block {
+    auto lambda = ctx->factory->NewLambdaLiteral($4.params, $4.vargs, $6, Location::Concat(@3, @6));
+    $$ =  ctx->factory->NewFunctionDefinition(nullptr, $2, lambda, Location::Concat(@1, @6));
+}
+
+Parameters : NameList ParameterVargs {
+    $$.params = $1;
+    $$.vargs  = $2;
+}
+| VARGS {
+    $$.params = nullptr;
+    $$.vargs  = true;    
+}
+| {
+    $$.params = nullptr;
+    $$.vargs  = false;
 }
 
 ParameterVargs : ',' VARGS {
@@ -270,8 +288,8 @@ Expression : LValue {
     $$ = $2;
 }
 
-LambdaLiteral : LAMBDA '(' NameList ParameterVargs ')' Block {
-    $$ = ctx->factory->NewLambdaLiteral($3, $4, $6, Location::Concat(@1, @6));
+LambdaLiteral : LAMBDA '(' Parameters ')' Block {
+    $$ = ctx->factory->NewLambdaLiteral($3.params, $3.vargs, $5, Location::Concat(@1, @5));
 }
 | LAMBDA Block {
     $$ = ctx->factory->NewLambdaLiteral(nullptr, false, $2, Location::Concat(@1, @2));
