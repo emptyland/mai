@@ -416,14 +416,55 @@ NyMap::NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N)
     
 uint32_t NyMap::Length() const { return linear_ ? array_->size() : table_->size(); }
     
-void NyMap::Put(Object *key, Object *value, NyaaCore *N) {
-    // TODO:
-}
+//std::tuple<Object *, Object *> NyMap::GetFirstPair() {
+//    if ()
+//    return {nullptr, nullptr};
+//}
+//
+//std::tuple<Object *, Object *> NyMap::GetNextPair(Object *key) {
+//    if (key == Object::kNil) {
+//        return GetFirstPair();
+//    }
+//    if (linear_) {
+//        if (!key->IsSmi()) {
+//            return {nullptr, nullptr};
+//        }
+//        int64_t idx;
+//        Object *val;
+//        std::tie(idx, val) = array_->GetNextPair(key->ToSmi());
+//        return {NySmi::New(idx), val};
+//    } else {
+//        return table_->GetNextPair(key);
+//    }
+//}
 
-Object *NyMap::Get(Object *key, NyaaCore *N) {
-    // TODO:
-    return nullptr;
-}
+//Object *NyMap::GetFirst() {
+//
+//    return nullptr;
+//}
+//
+//Object *NyMap::GetNext(Object *key) {
+//    if (key == Object::kNil) {
+//        return GetFirst();
+//    }
+//
+//    Object *next = Object::kNil;
+//    if (linear_) {
+//        if (!key->IsSmi()) {
+//            return next;
+//        }
+//        int64_t index = key->ToSmi();
+//        for (int64_t i = index + 1; i < array_->size(); ++i) {
+//            if (array_->Get(i)) {
+//                next = NySmi::New(i);
+//                break;
+//            }
+//        }
+//    } else {
+//
+//    }
+//    return next;
+//}
     
 void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
     NyObject *old = generic_;
@@ -492,7 +533,59 @@ NyTable::NyTable(uint32_t seed, uint32_t capacity)
     ::memset(entries_, 0, sizeof(Entry) * (capacity + 1));
     free_ = capacity_;
 }
+
+std::tuple<Object *, Object *> NyTable::GetFirstPair() {
+    Entry *slot = entries_ + 1;
+    Entry *last = entries_ + 1 + n_slots();
+    DCHECK(slot < last);
     
+    for (Entry *i = slot; i < last; ++i) {
+        if (i->kind == kSlot) {
+            return {i->key, i->value};
+        }
+    }
+    return {nullptr, nullptr};
+}
+
+std::tuple<Object *, Object *> NyTable::GetNextPair(Object *key, NyaaCore *N) {
+    Entry *slot = GetSlot(key, N);
+    DCHECK(slot >= entries_ + 1);
+    Entry *last = entries_ + 1 + n_slots();
+    DCHECK(slot < last);
+    switch (slot->kind) {
+        case kFree: {
+            for (Entry *i = slot + 1; i < last; ++i) {
+                if (i->kind == kSlot) {
+                    return {i->key, i->value};
+                }
+            }
+        } break;
+        case kSlot: {
+            Entry *p = slot;
+            while (p) {
+                if (Object::Equals(key, p->key, N)) {
+                    break;
+                }
+                p = At(p->next);
+            }
+            if (Entry *next = !p ? nullptr : At(p->next)) {
+                return {next->key, next->value};
+            }
+            //if (!p || !At(p->next))
+            for (Entry *i = slot + 1; i < last; ++i) {
+                if (i->kind == kSlot) {
+                    return {i->key, i->value};
+                }
+            }
+        } break;
+        case kNode:
+        default:
+            DLOG(FATAL) << "noreached";
+            break;
+    }
+    return {nullptr, nullptr};
+}
+
 NyTable *NyTable::RawPut(Object *key, Object *value, NyaaCore *N) {
     if (key != nullptr && key->IsNotKey(N)) {
         N->Raisef("Incorrect hash key.");

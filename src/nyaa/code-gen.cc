@@ -127,7 +127,8 @@ public:
     
     DEF_PTR_GETTER(BlockScope, prev);
     DEF_PTR_GETTER(FunctionScope, owns);
-    
+    DEF_PTR_PROP_RW(BytecodeLable, loop_in);
+    DEF_PTR_PROP_RW(BytecodeLable, loop_out);
     
     IVal GetVariable(const ast::String *name) {
         auto iter = vars_.find(name);
@@ -166,7 +167,9 @@ private:
     FunctionScope *const owns_;
     int active_vars_;
     VariableTable vars_;
-//    std::set<int32_t> prot_regs_;
+    
+    BytecodeLable *loop_in_ = nullptr;
+    BytecodeLable *loop_out_ = nullptr;
 }; // class BlockScope
     
 class CodeGeneratorContext : public ast::VisitorContext {
@@ -338,7 +341,62 @@ public:
             node->else_clause()->Accept(this, &ix);
             builder()->Bind(&out_lable, fun_scope_->kpool());
         }
+        return IVal::Void();
+    }
+    
+    virtual IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        BytecodeLable in_lable;
+        builder()->Bind(&in_lable, fun_scope_->kpool());
         
+        IVal cond = node->cond()->Accept(this, &ix);
+        builder()->Test(cond, 0, 0, node->line());
+        fun_scope_->FreeVar(cond);
+        BytecodeLable out_lable;
+        builder()->Jump(&out_lable, fun_scope_->kpool(), node->line());
+        
+        blk_scope_->set_loop_in(&in_lable);
+        blk_scope_->set_loop_out(&out_lable);
+        
+        node->body()->Accept(this, x);
+        
+        blk_scope_->set_loop_in(nullptr);
+        blk_scope_->set_loop_out(nullptr);
+        
+        builder()->Jump(&in_lable, fun_scope_->kpool(), node->end_line());
+        builder()->Bind(&out_lable, fun_scope_->kpool());
+        return IVal::Void();
+    }
+    
+    virtual IVal VisitForIterateLoop(ast::ForIterateLoop *node, ast::VisitorContext *x) override {
+        // TODO:
+        return IVal::Void();
+    }
+    
+    virtual IVal VisitContinue(ast::Continue *node, ast::VisitorContext *x) override {
+        auto blk = blk_scope_;
+        while (blk && blk->owns() == fun_scope_) {
+            if (blk->loop_in()) {
+                break;
+            }
+            blk = blk->prev();
+        }
+        DCHECK_NOTNULL(blk);
+        builder()->Jump(blk->loop_in(), fun_scope_->kpool(), node->line());
+        return IVal::Void();
+    }
+    
+    virtual IVal VisitBreak(ast::Break *node, ast::VisitorContext *x) override {
+        auto blk = blk_scope_;
+        while (blk && blk->owns() == fun_scope_) {
+            if (blk->loop_out()) {
+                break;
+            }
+            blk = blk->prev();
+        }
+        DCHECK_NOTNULL(blk);
+        builder()->Jump(blk->loop_out(), fun_scope_->kpool(), node->line());
         return IVal::Void();
     }
     

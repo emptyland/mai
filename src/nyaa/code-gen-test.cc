@@ -811,6 +811,46 @@ TEST_F(NyaaCodeGenTest, NewCall) {
     ASSERT_EQ(z, buf) << buf;
 }
 
+TEST_F(NyaaCodeGenTest, WhileLoop) {
+    static const char s[] = {
+        "while (test()) {\n"
+        "   print(1)\n"
+        "   break\n"
+        "   continue\n"
+        "}\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 2, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 6\n"
+        " [0] (-1) 0\n"
+        " [1] (-2) test\n"
+        " [2] (-3) 18\n"
+        " [3] (-4) print\n"
+        " [4] (-5) 1\n"
+        " [5] (-6) 6\n"
+        ".............................\n"
+        "[000] LoadGlobal 0 1 ; line: 1\n"
+        "[003] Call 0 0 1 ; line: 1\n"
+        "[007] Test 0 0 0 ; line: 1\n"
+        "[011] JumpConst 2 ; line: 1\n"
+        "[013] LoadGlobal 0 3 ; line: 2\n"
+        "[016] LoadConst 1 4 ; line: 2\n"
+        "[019] Call 0 1 0 ; line: 2\n"
+        "[023] JumpConst 5 ; line: 3\n"
+        "[025] JumpImm -25 ; line: 4\n"
+        "[027] JumpImm -27 ; line: 5\n"
+        "[029] Ret 0 0 ; line: 0\n"
+    };
+    HandleScope handle_scope(isolate_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
+    ASSERT_EQ(z, buf) << buf;
+}
+
 } // namespace nyaa
     
 } // namespace mai

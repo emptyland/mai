@@ -787,6 +787,33 @@ TEST_F(NyaaThreadTest, NewUdoCallInitVargs) {
     }
 }
 
+TEST_F(NyaaThreadTest, PairIterate) {
+    static const char s[] = {
+        "var t = {\n"
+        "   a: 1,\n"
+        "   b: 2,\n"
+        "   c: 3,\n"
+        "   d: 4\n"
+        "}\n"
+        "var iter = pairs(t)\n"
+        "print(iter())\n"
+        "print(iter())\n"
+        "print(iter())\n"
+        "print(iter())\n"
+        "print(iter())\n"
+    };
+    
+    HandleScope scope(isolate_);
+    //Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+
 TEST_F(NyaaThreadTest, CxxTryCatchTest) {
     try {
         throw 1;

@@ -315,25 +315,28 @@ public:
     using Iterator = MapIterator;
 
     NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N);
-    
+
     uint64_t kid() const { return kid_; }
     bool linear() const { return linear_; }
     DEF_PTR_GETTER(NyObject, generic);
-    
+
     uint32_t Length() const;
+
+    inline std::tuple<Object *, Object *> GetFirstPair();
+    inline std::tuple<Object *, Object *> GetNextPair(Object *key, NyaaCore *N);
     
-    void Put(Object *key, Object *value, NyaaCore *N);
-    Object *Get(Object *key, NyaaCore *N);
+//    void Put(Object *key, Object *value, NyaaCore *N);
+//    Object *Get(Object *key, NyaaCore *N);
 
     void RawPut(Object *key, Object *value, NyaaCore *N);
     Object *RawGet(Object *key, NyaaCore *N);
-    
+
     void Iterate(ObjectVisitor *visitor) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&generic_));
     }
-    
+
     constexpr size_t PlacedSize() const { return sizeof(*this); }
-    
+
     friend class MapIterator;
     DEF_HEAP_OBJECT(Map);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyMap);
@@ -353,8 +356,10 @@ public:
 
     DEF_VAL_GETTER(uint32_t, size);
     DEF_VAL_GETTER(uint32_t, capacity);
-    
     uint32_t n_slots() const { return capacity_ >> 1; }
+    
+    std::tuple<Object *, Object *> GetFirstPair();
+    std::tuple<Object *, Object *> GetNextPair(Object *key, NyaaCore *N);
 
     NyTable *RawPut(Object *key, Object *value, NyaaCore *N);
     
@@ -573,6 +578,9 @@ public:
         : NyArrayBase<Object *>(capacity) {
         ::memset(elems_, 0, sizeof(Object *) * capacity);
     }
+    
+    inline std::tuple<Object *, Object *> GetFirstPair();
+    inline std::tuple<Object *, Object *> GetNextPair(Object *key);
     
     NyArray *Put(int64_t key, Object *value, NyaaCore *N);
     
@@ -905,6 +913,46 @@ inline bool NyObject::IsUDO() const {
     
 inline const NyUDO *NyObject::ToUDO() const {
     return !IsUDO() ? nullptr : static_cast<const NyUDO *>(this);
+}
+
+inline std::tuple<Object *, Object *> NyMap::GetFirstPair() {
+    if (linear_) {
+        return array_->GetFirstPair();
+    } else {
+        return table_->GetFirstPair();
+    }
+}
+
+inline std::tuple<Object *, Object *> NyMap::GetNextPair(Object *key, NyaaCore *N) {
+    if (!key) {
+        return GetFirstPair();
+    }
+    if (linear_) {
+        return array_->GetNextPair(key);
+    } else {
+        return table_->GetNextPair(key, N);
+    }
+}
+
+inline std::tuple<Object *, Object *> NyArray::GetFirstPair() {
+    for (int64_t i = 0; i < size(); ++i) {
+        Object *val = elems_[i];
+        if (val) {
+            return {NySmi::New(i), val};
+        }
+    }
+    return {nullptr, nullptr};
+}
+
+inline std::tuple<Object *, Object *> NyArray::GetNextPair(Object *key) {
+    int64_t idx = key->ToSmi();
+    for (int64_t i = idx + 1; i < size(); ++i) {
+        Object *val = elems_[i];
+        if (val) {
+            return {NySmi::New(i), val};
+        }
+    }
+    return {nullptr, nullptr};
 }
 
 inline NyUDO *NyObject::ToUDO() { return !IsUDO() ? nullptr : static_cast<NyUDO *>(this); }

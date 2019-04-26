@@ -41,6 +41,10 @@ return { return RETURN; }
 if { return IF; }
 else { return ELSE; }
 while { return WHILE; }
+for { return FOR; }
+in { return IN; }
+break { return BREAK; }
+continue { return CONTINUE; }
 property { return PROPERTY; }
 class { return CLASS; }
 object { return OBJECT; }

@@ -49,12 +49,12 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 }
 
 %token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS RETURN VARGS DO NEW
-%token IF ELSE WHILE OBJECT CLASS PROPERTY
+%token IF ELSE WHILE FOR IN OBJECT CLASS PROPERTY BREAK CONTINUE
 %token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL NIL_LITERAL BOOL_LITERAL
 %token TOKEN_ERROR
 
 %type <block> Script Block
-%type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration
+%type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration WhileLoop ForIterateLoop
 %type <stmts> StatementList MemberList
 %type <expr> Expression Call LambdaLiteral MapInitializer InheritClause
 %type <exprs> ExpressionList Arguments
@@ -134,6 +134,18 @@ Statement : RETURN ExpressionList {
 | IfStatement {
     $$ = $1;
 }
+| WhileLoop {
+    $$ = $1;
+}
+| ForIterateLoop {
+    $$ = $1;
+}
+| BREAK {
+    $$ = ctx->factory->NewBreak(@1);
+}
+| CONTINUE {
+    $$ = ctx->factory->NewContinue(@1);
+}
 
 IfStatement: IF '(' Expression ')' Block ElseClause {
     $$ = ctx->factory->NewIfStatement($3, $5, $6, Location::Concat(@1, @6));
@@ -147,6 +159,14 @@ ElseClause: ELSE Block {
 }
 | {
     $$ = nullptr;
+}
+
+WhileLoop : WHILE '(' Expression ')' Block {
+    $$ = ctx->factory->NewWhileLoop($3, $5, Location::Concat(@1, @5));
+}
+
+ForIterateLoop : FOR NameList IN Expression Block {
+    $$ = ctx->factory->NewForIterateLoop($2, $4, $5, Location::Concat(@1, @5));
 }
 
 ObjectDefinition : OBJECT Attributes NAME '{' MemberList '}' {
@@ -354,9 +374,6 @@ Arguments : '(' ExpressionList ')' {
 | STRING_LITERAL {
     auto arg0 = ctx->factory->NewStringLiteral($1, @1);
     $$ = ctx->factory->NewList<mai::nyaa::ast::Expression *>(arg0);
-}
-| MapInitializer {
-    $$ = ctx->factory->NewList<mai::nyaa::ast::Expression *>($1);
 }
 
 Attributes: '[' NameList ']' {

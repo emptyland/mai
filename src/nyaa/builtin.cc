@@ -88,6 +88,38 @@ static int BuiltinRaise(Arguments *args, Nyaa *N) {
     return -1;
 }
     
+static int BuiltinMapIter(Arguments *args, Nyaa *N) {
+    Handle<NyDelegated> callee = ApiWarpNoCheck<NyDelegated>(args->Callee(), N->core());
+    DCHECK(callee.is_valid());
+    Handle<NyMap> map = NyMap::Cast(callee->upval(0));
+    DCHECK(map.is_valid());
+    Handle<Object> key = callee->upval(1);
+
+    Object *next, *value;
+    std::tie(next, value) = map->GetNextPair(*key, N->core());
+    callee->Bind(1, next, N->core());
+    return Return(Local<Object>::New(next), Local<Object>::New(value));
+}
+    
+static int BuiltinPairs(Arguments *args, Nyaa *N) {
+    if (args->Length() < 1) {
+        return Raisef(N, "incorrect argument length, expected: %zd, need: 1", args->Length());
+    }
+    auto arg0 = ApiWarpNoCheck<Object>(args->Get(0), N->core());
+    if (NyMap *map = NyMap::Cast(*arg0)) {
+        Handle<NyDelegated> iter = N->core()->factory()->NewDelegated(BuiltinMapIter, 2);
+        iter->Bind(0, map, N->core());
+        iter->Bind(1, Object::kNil, N->core());
+        return Return(iter);
+    } else if (NyUDO *uod = NyUDO::Cast(*arg0)) {
+        // TODO:
+        return Raisef(N, "TODO:");
+    } else {
+        return Raisef(N, "incorrect type: no pairs.");
+    }
+    return Return();
+}
+    
 static int DelegatedCall(Arguments *args, Nyaa *N) {
     auto callee = ApiWarp<NyDelegated>(args->Callee(), N->core());
     if (callee.is_empty()) {
@@ -266,6 +298,7 @@ const NyaaNaFnEntry kBuiltinFnEntries[] = {
     {"print", BuiltinPrint},
     {"yield", BuiltinYield},
     {"raise", BuiltinRaise},
+    {"pairs", BuiltinPairs},
     {nullptr, nullptr},
 };
 

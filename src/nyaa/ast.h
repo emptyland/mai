@@ -25,6 +25,7 @@ namespace ast {
     V(Assignment) \
     V(IfStatement) \
     V(WhileLoop) \
+    V(ForIterateLoop) \
     V(Multiple) \
     V(StringLiteral) \
     V(ApproxLiteral) \
@@ -41,6 +42,8 @@ namespace ast {
     V(SelfCall) \
     V(New) \
     V(FunctionDefinition) \
+    V(Continue) \
+    V(Break) \
     V(Return)
 
 class Factory;
@@ -206,26 +209,66 @@ private:
     Statement *else_clause_;
 }; // class IfStatement
     
-class WhileLoop : public Statement {
+class Loop : public Statement {
+public:
+    DEF_PTR_GETTER_NOTNULL(Block, body);
+    DEF_VAL_GETTER(int, end_line);
+protected:
+    Loop(int begin_line, int end_line, Block *body)
+        : Statement(begin_line)
+        , end_line_(end_line)
+        , body_(DCHECK_NOTNULL(body)) {}
+private:
+    int end_line_;
+    Block *body_;
+}; // class Loop
+    
+class WhileLoop : public Loop {
 public:
     DEF_PTR_GETTER_NOTNULL(Expression, cond);
-    DEF_PTR_GETTER_NOTNULL(Block, body);
     DEFINE_AST_NODE(WhileLoop);
 private:
-    WhileLoop(int line, Expression *cond, Block *body)
-        : Statement(line)
-        , cond_(DCHECK_NOTNULL(cond))
-        , body_(DCHECK_NOTNULL(body)) {}
+    WhileLoop(int begin_line, int end_line, Expression *cond, Block *body)
+        : Loop(begin_line, end_line, body)
+        , cond_(DCHECK_NOTNULL(cond)) {}
     Expression *cond_;
-    Block *body_;
 }; // class WhileLoop
+    
+class ForIterateLoop : public Loop {
+public:
+    using NameList = base::ArenaVector<const String *>;
+    DEF_PTR_GETTER_NOTNULL(NameList, names);
+    DEF_PTR_GETTER_NOTNULL(Expression, init);
+    DEFINE_AST_NODE(ForIterateLoop);
+private:
+    ForIterateLoop(int begin_line, int end_line, NameList *names, Expression *init, Block *body)
+        : Loop(begin_line, end_line, body)
+        , names_(DCHECK_NOTNULL(names))
+        , init_(DCHECK_NOTNULL(init)) {}
+    NameList *names_;
+    Expression *init_;
+}; // class ForIterateLoop
+    
+class Continue : public Statement {
+public:
+    DEFINE_AST_NODE(Continue);
+private:
+    Continue(int line) : Statement(line) {}
+}; // class Continue
+    
+class Break : public Statement {
+public:
+    DEFINE_AST_NODE(Break);
+private:
+    Break(int line) : Statement(line) {}
+}; // class Break
 
 class Return : public Statement {
 public:
     using ExprList = base::ArenaVector<Expression *>;
     
     DEF_PTR_GETTER(ExprList, rets);
-    
+
     inline int GetNRets() const;
 
     DEFINE_AST_NODE(Return);
@@ -658,6 +701,15 @@ public:
         return new (arena_) IfStatement(loc.begin_line, cond, then_clause, else_clause);
     }
     
+    WhileLoop *NewWhileLoop(Expression *cond, Block *body, const Location &loc = Location{}) {
+        return new (arena_) WhileLoop(loc.begin_line, loc.end_line, cond, body);
+    }
+    
+    ForIterateLoop *NewForIterateLoop(ForIterateLoop::NameList *names, Expression *init,
+                                      Block *body, const Location &loc = Location{}) {
+        return new (arena_) ForIterateLoop(loc.begin_line, loc.end_line, names, init, body);
+    }
+
     NilLiteral *NewNilLiteral(const Location &loc = Location{}) {
         return new (arena_) NilLiteral(loc.begin_line);
     }
@@ -707,6 +759,14 @@ public:
     
     New *NewNew(Expression *callee, Call::ArgumentList *args, const Location &loc = Location{}) {
         return new (arena_) New(loc.begin_line, callee, args);
+    }
+    
+    Continue *NewContinue(const Location &loc = Location{}) {
+        return new (arena_) Continue(loc.begin_line);
+    }
+    
+    Break *NewBreak(const Location &loc = Location{}) {
+        return new (arena_) Break(loc.begin_line);
     }
 
     Return *NewReturn(Return::ExprList *rets, const Location &loc = Location{}) {

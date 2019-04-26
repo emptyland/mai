@@ -144,7 +144,7 @@ void BytecodeArrayBuilder::Jump(BytecodeLable *lable, ConstPoolBuilder *kpool, i
         Emit(Bytecode::kJumpConst, kslot, line);
     } else {
         int pc = static_cast<int>(bcs_.size());
-        int delta = pc - lable->pc();
+        int delta = lable->pc() - pc;
         Emit(Bytecode::kJumpImm, delta, line);
     }
 }
