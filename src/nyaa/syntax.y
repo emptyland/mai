@@ -48,7 +48,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     bool bool_val;
 }
 
-%token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS RETURN VARGS DO
+%token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS RETURN VARGS DO NEW
 %token IF ELSE WHILE OBJECT CLASS PROPERTY
 %token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL NIL_LITERAL BOOL_LITERAL
 %token TOKEN_ERROR
@@ -57,7 +57,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration
 %type <stmts> StatementList MemberList
 %type <expr> Expression Call LambdaLiteral MapInitializer InheritClause
-%type <exprs> ExpressionList
+%type <exprs> ExpressionList Arguments
 %type <entry> MapEntry
 %type <entries> MapEntryList
 %type <lval> LValue
@@ -157,8 +157,8 @@ ClassDefinition : CLASS Attributes NAME InheritClause '{' MemberList '}' {
     $$ = ctx->factory->NewClassDefinition($2, $3, $4, $6, Location::Concat(@1, @7));
 }
 
-InheritClause : ':' Expression {
-    $$ = $2;
+InheritClause : ':' NAME {
+    $$ = ctx->factory->NewVariable($2, @2);
 }
 | {
     $$ = nullptr;
@@ -337,18 +337,27 @@ LValue : NAME {
     $$ = ctx->factory->NewDotField($1, $3, Location::Concat(@1, @3));
 }
 
-Call : Expression '(' ExpressionList ')' {
-    $$ = ctx->factory->NewCall($1, $3, Location::Concat(@1, @4));
+Call : Expression Arguments {
+    $$ = ctx->factory->NewCall($1, $2, Location::Concat(@1, @2));
 }
-| Expression STRING_LITERAL {
-    auto arg0 = ctx->factory->NewStringLiteral($2, @2);
-    auto args = ctx->factory->NewList<mai::nyaa::ast::Expression *>(arg0);
-    $$ = ctx->factory->NewCall($1, args, Location::Concat(@1, @2));
+| Expression ':' NAME Arguments {
+    $$ = ctx->factory->NewSelfCall($1, $3, $4, Location::Concat(@1, @4));
 }
-| Expression ':' NAME '(' ExpressionList ')' {
-    $$ = ctx->factory->NewSelfCall($1, $3, $5, Location::Concat(@1, @6));
+| NEW NAME '(' ExpressionList ')' {
+    auto callee = ctx->factory->NewVariable($2, @2);
+    $$ = ctx->factory->NewNew(callee, $4, Location::Concat(@1, @5));
 }
 
+Arguments : '(' ExpressionList ')' {
+    $$ = $2;
+}
+| STRING_LITERAL {
+    auto arg0 = ctx->factory->NewStringLiteral($1, @1);
+    $$ = ctx->factory->NewList<mai::nyaa::ast::Expression *>(arg0);
+}
+| MapInitializer {
+    $$ = ctx->factory->NewList<mai::nyaa::ast::Expression *>($1);
+}
 
 Attributes: '[' NameList ']' {
     $$ = $2;

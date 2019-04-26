@@ -93,9 +93,10 @@ public:
         Emit(Bytecode::kCall, a.index, b, c, line);
     }
     
-    void New(IVal a, int32_t b, int32_t c, int line = 0) {
+    void New(IVal a, IVal b, int32_t c, int line = 0) {
         DCHECK_EQ(IVal::kLocal, a.kind);
-        Emit(Bytecode::kNew, a.index, b, c, line);
+        DCHECK_EQ(IVal::kLocal, b.kind);
+        Emit(Bytecode::kNew, a.index, b.index, c, line);
     }
     
     void Ret(IVal a, int32_t b, int line = 0) {

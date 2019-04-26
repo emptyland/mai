@@ -724,6 +724,68 @@ TEST_F(NyaaThreadTest, UdoSelfCall) {
         ASSERT_EQ(i + 1, val->ToSmi());
     }
 }
+    
+TEST_F(NyaaThreadTest, NewUdoCallInit) {
+    static const char s[] = {
+        "class foo {\n"
+        "   def __init__(self, a, b, c) {\n"
+        "       self.a_ = a\n"
+        "       self.b_ = b\n"
+        "       self.c_ = c\n"
+        "   }\n"
+        "   def get(self) { return self.a, self.b, self.c }\n"
+        "   property [ro] a, b, c\n"
+        "}\n"
+        "var o = new foo(1, 2, 3)\n"
+        "check(o:get())\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    for (int i = 0; i < 3; ++i) {
+        Handle<Object> val = check->upval(i);
+        ASSERT_TRUE(val->IsSmi());
+        ASSERT_EQ(i + 1, val->ToSmi());
+    }
+}
+
+TEST_F(NyaaThreadTest, NewUdoCallInitVargs) {
+    static const char s[] = {
+        "class foo {\n"
+        "   def __init__(self, ...) {\n"
+        "       self.a_, self.b_, self.c_ = ...\n"
+        "   }\n"
+        "   def get(self) { return self.a, self.b, self.c }\n"
+        "   property [ro] a, b, c\n"
+        "}\n"
+        "var o = new foo(1, 2, 3)\n"
+        "check(o:get())\n"
+    };
+
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    for (int i = 0; i < 3; ++i) {
+        Handle<Object> val = check->upval(i);
+        ASSERT_TRUE(val->IsSmi());
+        ASSERT_EQ(i + 1, val->ToSmi());
+    }
+}
 
 TEST_F(NyaaThreadTest, CxxTryCatchTest) {
     try {

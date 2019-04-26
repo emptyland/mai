@@ -34,6 +34,7 @@ using namespace ::mai::nyaa::ast;
 %%
 def { return DEF; }
 var { return VAR; }
+new { return NEW; }
 do { return DO; }
 lambda { return LAMBDA; }
 return { return RETURN; }

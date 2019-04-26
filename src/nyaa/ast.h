@@ -39,6 +39,7 @@ namespace ast {
     V(DotField) \
     V(Call) \
     V(SelfCall) \
+    V(New) \
     V(FunctionDefinition) \
     V(Return)
 
@@ -156,8 +157,8 @@ public:
     
     DEF_PTR_GETTER_NOTNULL(NameList, names);
     DEF_PTR_GETTER(ExprList, inits);
-    DEFINE_AST_NODE(VarDeclaration);
     inline int GetNWanted() const;
+    DEFINE_AST_NODE(VarDeclaration);
 protected:
     VarDeclaration(int line, NameList *names, ExprList *inits)
         : Statement(line)
@@ -175,6 +176,7 @@ public:
     
     DEF_PTR_GETTER_NOTNULL(LValList, lvals);
     DEF_PTR_GETTER_NOTNULL(RValList, rvals);
+    inline int GetNWanted() const;
     DEFINE_AST_NODE(Assignment);
 private:
     Assignment(int line, LValList *lvals, RValList *rvals)
@@ -432,6 +434,13 @@ private:
     const String *method_;
 }; // class SelfCall
     
+class New : public Call {
+public:
+    DEFINE_AST_NODE(New);
+private:
+    New(int line, Expression *callee, ArgumentList *args) : Call(line, callee, args) {}
+}; // class NewCall
+    
 class Variable : public LValue {
 public:
     DEF_PTR_GETTER_NOTNULL(const String, name);
@@ -562,6 +571,15 @@ inline int VarDeclaration::GetNWanted() const {
     }
 }
     
+inline int Assignment::GetNWanted() const {
+    DCHECK_NOTNULL(rvals_);
+    if (rvals_->size() == 1 && (rvals_->at(0)->IsInvoke() || rvals_->at(0)->IsVariableArguments())) {
+        return -1;
+    } else {
+        return static_cast<int>(rvals_->size());
+    }
+}
+    
 inline int Return::GetNRets() const {
     if (!rets_) {
         return 0;
@@ -685,6 +703,10 @@ public:
     SelfCall *NewSelfCall(Expression *callee, const String *method, Call::ArgumentList *args,
                           const Location &loc = Location{}) {
         return new (arena_) SelfCall(loc.begin_line, callee, method, args);
+    }
+    
+    New *NewNew(Expression *callee, Call::ArgumentList *args, const Location &loc = Location{}) {
+        return new (arena_) New(loc.begin_line, callee, args);
     }
 
     Return *NewReturn(Return::ExprList *rets, const Location &loc = Location{}) {

@@ -204,9 +204,10 @@ private:
     int Run();
 
     Object *InternalGetField(Object *mm, Object *key);
+    NyUDO *InternalNewUdo(Object **args, int32_t n_args, size_t size, NyMap *clazz);
     int InternalSetField(Object *mm, Object *key, Object *value);
     int InternalCall(Object **func, int32_t n_args, int wanted);
-    int InternalNewUdo(Object **udo, int32_t n_args, size_t size, NyMap *clazz);
+    
     
     int CopyArgs(Object **args, int n_args, int n_params, bool vargs);
     
@@ -225,14 +226,14 @@ private:
     }
     
     NyaaCore *const owns_;
-    TryCatchCore *catch_point_ = nullptr; // elements [strong ref]
+    TryCatchCore *catch_point_ = nullptr;
     State state_ = kSuspended;
-    Object **stack_ = nullptr; // [strong ref]
+    Object **stack_ = nullptr; // elements [strong ref]
     Object **stack_tp_ = nullptr;
     Object **stack_last_ = nullptr;
     NyRunnable *entry_ = nullptr; // [strong ref] The entry script.
     size_t stack_size_ = 0;
-    CallFrame *frame_ = nullptr;
+    CallFrame *frame_ = nullptr; // elements [strong ref]
     NyThread *save_ = nullptr; // [strong ref]
     NyThread *prev_ = this; // [strong ref]
     NyThread *next_ = this; // [strong ref]

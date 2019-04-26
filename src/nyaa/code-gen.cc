@@ -291,7 +291,7 @@ public:
     
     virtual IVal VisitAssignment(ast::Assignment *node, ast::VisitorContext *x) override {
         CodeGeneratorContext rix;
-        if (node->rvals()->size() == 1 && node->rvals()->at(0)->IsInvoke()) {
+        if (node->rvals()->size() == 1 && node->GetNWanted() < 0) {
             rix.set_n_result(static_cast<int>(node->lvals()->size()));
             IVal val = node->rvals()->at(0)->Accept(this, &rix);
             for (size_t i = 0; i < node->lvals()->size(); ++i) {
@@ -344,7 +344,7 @@ public:
     
     virtual IVal VisitObjectDefinition(ast::ObjectDefinition *node, ast::VisitorContext *x) override {
         IVal clazz = DefineClass(node, nullptr);
-        builder()->New(clazz, 0, 1, node->end_line());
+        builder()->New(clazz, clazz, 0, node->end_line());
         if (node->local()) {
             blk_scope_->PutVariable(node->name(), &clazz);
         } else {
@@ -614,7 +614,7 @@ public:
     virtual IVal VisitCall(ast::Call *node, ast::VisitorContext *x) override {
         int32_t n_args = node->GetNArgs();
         CodeGeneratorContext ix;
-        ix.set_n_result(n_args < 0 ? -1 : 1);
+        ix.set_n_result(1);
 
         IVal callee = node->callee()->Accept(this, &ix);
         if (blk_scope_->Protected(callee)) {
@@ -622,6 +622,8 @@ public:
             builder()->Move(tmp, callee);
             callee = tmp;
         }
+        
+        ix.set_n_result(n_args < 0 ? -1 : 1);
         int reg = callee.index;
         //std::vector<IVal> args;
         for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
@@ -636,10 +638,31 @@ public:
         return callee;
     }
     
+    virtual IVal VisitNew(ast::New *node, ast::VisitorContext *x) override {
+        int32_t n_args = node->GetNArgs();
+        CodeGeneratorContext ix;
+        
+        ix.set_n_result(1);
+        IVal val = fun_scope_->NewLocal();
+        IVal clazz = node->callee()->Accept(this, &ix);
+
+        ix.set_n_result(n_args < 0 ? -1 : 1);
+        int reg = clazz.index;
+        for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
+            ast::Expression *expr = node->args()->at(i);
+            AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
+        }
+        
+        builder()->New(val, clazz, n_args, node->line());
+        //fun_scope_->FreeVar(clazz);
+        fun_scope_->free_reg_ = clazz.index;
+        return val;
+    }
+    
     virtual IVal VisitSelfCall(ast::SelfCall *node, ast::VisitorContext *x) override {
         int32_t n_args = node->GetNArgs();
         CodeGeneratorContext ix;
-        ix.set_n_result(n_args < 0 ? -1 : 1);
+        ix.set_n_result(1);
         
         IVal base = fun_scope_->NewLocal();
         IVal self = fun_scope_->NewLocal();
@@ -648,6 +671,7 @@ public:
         builder()->Self(base, callee, method, node->line());
         fun_scope_->FreeVar(callee);
         
+        ix.set_n_result(n_args < 0 ? -1 : 1);
         int reg = base.index + 1;
         for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
             ast::Expression *expr = node->args()->at(i);

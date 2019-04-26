@@ -184,7 +184,14 @@ Object *NyThread::Get(int i) {
         DCHECK_GE(frame_tp() + i, frame_bp());
         return *(frame_tp() + i);
     } else {
-        DCHECK_LT(frame_bp() + i, frame_tp());
+        //if (stack_tp_ < )
+        //DCHECK_LT(frame_bp() + i, frame_tp());
+        if (stack_tp_ > frame_tp()) {
+            DCHECK_LT(frame_bp() + i, stack_tp_);
+        } else {
+            DCHECK_LT(frame_bp() + i, frame_tp());
+        }
+        DCHECK_LT(frame_bp() + i, stack_last_);
         return frame_bp()[i];
     }
 }
@@ -303,10 +310,11 @@ int NyThread::CopyArgs(Object **args, int n_args, int n_params, bool vargs) {
         }
         Push(Object::kNil, n_params - n_args);
     } else { // >=
-        for (int i = adjust; i < n_args; ++i) {
+        // FIXME:
+        for (int i = n_params; i < n_args; ++i) {
             Push(args[i]);
         }
-        for (int i = 0; i < adjust; ++i) {
+        for (int i = 0; i < n_params; ++i) {
             Push(args[i]);
         }
     }
@@ -677,17 +685,9 @@ int NyThread::Run() {
             } break;
                 
             case Bytecode::kNew: {
-                int32_t ra, n_args, n_rets;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 3, &ra, &n_args, &n_rets)) < 0) {
-                    return -1;
-                }
-                Object *val = Get(ra);
-                if (val->IsSmi()) {
-                    owns_->Raisef("can not call number.");
-                    return -1;
-                }
-                NyMap *clazz = val->ToHeapObject()->ToMap();
+                int32_t ra, rb, nargs;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &nargs);
+                NyMap *clazz = NyMap::Cast(Get(rb));
                 if (!clazz) {
                     owns_->Raisef("new non-class.");
                     return -1;
@@ -697,7 +697,8 @@ int NyThread::Run() {
                     owns_->Raisef("incorrect class table: error __size__.");
                     return -1;
                 }
-                InternalNewUdo(frame_bp() + ra, n_args, n_fields->ToSmi(), clazz);
+                NyUDO *udo = InternalNewUdo(frame_bp() + rb, nargs, n_fields->ToSmi(), clazz);
+                Set(ra, udo);
                 frame_->AddPC(delta);
             } break;
                 
@@ -726,6 +727,7 @@ int NyThread::Run() {
                             a[i] = frame_be()[i];
                         }
                     }
+                    stack_tp_ = a + wanted;
                 }
                 frame_->AddPC(delta);
             } break;
@@ -788,7 +790,7 @@ int NyThread::InternalSetField(Object *mm, Object *key, Object *value) {
         return -1;
     }
     if (mm->IsSmi()) {
-        Raisef("attempt to smi field.");
+        Raisef("attempt to smi field. %d", mm->ToSmi());
         return -1;
     }
     
@@ -813,21 +815,21 @@ int NyThread::InternalSetField(Object *mm, Object *key, Object *value) {
         }
         udo->RawPut(key, value, owns_);
     } else {
-        Raisef("incorrect type for getfield.");
+        Raisef("incorrect type for setfield.");
         return -1;
     }
     return 0;
 }
     
-int NyThread::InternalNewUdo(Object **udo, int32_t n_args, size_t n_fields, NyMap *clazz) {
-    size_t size = sizeof(NyUDO) + n_fields * kPointerSize;
-    NyUDO *rv = owns_->factory()->NewUninitializedUDO(size, clazz, false);
-    ::memset(rv->data(), 0, size - sizeof(NyUDO));
-    *udo = rv; // protected for gc.
+NyUDO *NyThread::InternalNewUdo(Object **args, int32_t n_args, size_t n_fields, NyMap *clazz) {
+    size_t size = NyUDO::RequiredSize(n_fields);
+    NyUDO *udo = owns_->factory()->NewUninitializedUDO(size, clazz, false);
+    ::memset(udo->data(), 0, size - sizeof(NyUDO));
+    *args = udo; // protected for gc.
     
     Object *vv = clazz->RawGet(owns_->bkz_pool()->kInnerInit, owns_);
     if (NyRunnable *init = NyRunnable::Cast(vv)) {
-        Object **base = udo;
+        Object **base = args;
         if (n_args >= 0) {
             stack_tp_ = base + 1 + n_args;
         }
@@ -837,9 +839,9 @@ int NyThread::InternalNewUdo(Object **udo, int32_t n_args, size_t n_fields, NyMa
         size_t base_p = base - stack_;
         CheckStack(base_p + n_args + 2);
         base = stack_ + base_p;
-        return Run(init, base, n_args + 1, 0/*nrets*/, frame_->env());
+        Run(init, base, n_args + 1, 0/*nrets*/, frame_->env());
     }
-    return 0;
+    return udo;
 }
     
 int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
