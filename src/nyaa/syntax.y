@@ -48,8 +48,8 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     bool bool_val;
 }
 
-%token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS RETURN VARGS DO NEW
-%token IF ELSE WHILE FOR IN OBJECT CLASS PROPERTY BREAK CONTINUE
+%token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS OP_CONCAT NEW
+%token IF ELSE WHILE FOR IN OBJECT CLASS PROPERTY BREAK CONTINUE RETURN VARGS DO
 %token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL NIL_LITERAL BOOL_LITERAL
 %token TOKEN_ERROR
 
@@ -57,7 +57,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration WhileLoop ForIterateLoop
 %type <stmts> StatementList MemberList
 %type <expr> Expression Call LambdaLiteral MapInitializer InheritClause
-%type <exprs> ExpressionList Arguments
+%type <exprs> ExpressionList Arguments Concat
 %type <entry> MapEntry
 %type <entries> MapEntryList
 %type <lval> LValue
@@ -72,6 +72,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <bool_val> ParameterVargs
 
 %right '='
+%left OP_CONCAT
 %left OP_OR
 %left OP_XOR
 %left OP_AND
@@ -286,6 +287,9 @@ Expression : LValue {
 | MapInitializer {
     $$ = $1;
 }
+| Concat {
+    $$ = ctx->factory->NewConcat($1, @1);
+}
 | VARGS {
     $$ = ctx->factory->NewVariableArguments(@1);
 }
@@ -306,6 +310,15 @@ Expression : LValue {
 }
 | '(' Expression ')' {
     $$ = $2;
+}
+
+Concat : Expression OP_CONCAT Expression {
+    $$ = ctx->factory->NewList($1);
+    $$->push_back($3);
+}
+| Concat OP_CONCAT Expression {
+    $1->push_back($3);
+    $$ = $1;
 }
 
 LambdaLiteral : LAMBDA '(' Parameters ')' Block {

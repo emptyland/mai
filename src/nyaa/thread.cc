@@ -581,6 +581,22 @@ int NyThread::Run() {
                 }
                 frame_->AddPC(delta);
             } break;
+                
+            case Bytecode::kTestNil: {
+                int32_t ra, neg, none;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &neg, &none);
+                bool cond = false;
+                Object *ob = Get(ra);
+                if (ob == Object::kNil) {
+                    cond = !neg ? true : false;
+                } else {
+                    cond = !neg ? false : true;
+                }
+                if (cond) {
+                    delta += ParseBytecodeSize(frame_->pc() + delta);
+                }
+                frame_->AddPC(delta);
+            } break;
 
             case Bytecode::kJumpImm: {
                 int32_t offset;
@@ -729,6 +745,23 @@ int NyThread::Run() {
                     }
                     stack_tp_ = a + wanted;
                 }
+                frame_->AddPC(delta);
+            } break;
+                
+            case Bytecode::kConcat: {
+                int32_t ra, rb, n;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &n);
+                NyString *str = Get(rb)->ToString(owns_);
+                NyString *rv = owns_->factory()->NewUninitializedString(str->size() + 64);
+                Set(ra, rv->Add(str, owns_)); // protect for gc
+                for (int i = 1; i < n; ++i) {
+                    str = Get(rb + i)->ToString(owns_);
+                    rv = DCHECK_NOTNULL(NyString::Cast(Get(ra)));
+                    Set(ra, rv->Add(str, owns_)); // protect for gc
+                }
+
+                rv = DCHECK_NOTNULL(NyString::Cast(Get(ra)));
+                rv->Done(owns_);
                 frame_->AddPC(delta);
             } break;
                 

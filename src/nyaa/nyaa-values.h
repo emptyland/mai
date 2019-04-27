@@ -198,6 +198,10 @@ public:
     
     inline NyUDO *ToUDO();
     
+    inline Object *GetMetaFunction(NyString *name, NyaaCore *N);
+    
+    inline NyRunnable *GetValidMetaFunction(NyString *name, NyaaCore *N);
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyObject);
 private:
     void *forward_address() const {
@@ -325,8 +329,7 @@ public:
     inline std::tuple<Object *, Object *> GetFirstPair();
     inline std::tuple<Object *, Object *> GetNextPair(Object *key, NyaaCore *N);
     
-//    void Put(Object *key, Object *value, NyaaCore *N);
-//    Object *Get(Object *key, NyaaCore *N);
+    NyString *ToString(NyaaCore *N);
 
     void RawPut(Object *key, Object *value, NyaaCore *N);
     Object *RawGet(Object *key, NyaaCore *N);
@@ -913,6 +916,14 @@ inline bool NyObject::IsUDO() const {
     
 inline const NyUDO *NyObject::ToUDO() const {
     return !IsUDO() ? nullptr : static_cast<const NyUDO *>(this);
+}
+    
+inline Object *NyObject::GetMetaFunction(NyString *name, NyaaCore *N) {
+    return GetMetatable()->RawGet(name, N);
+}
+
+inline NyRunnable *NyObject::GetValidMetaFunction(NyString *name, NyaaCore *N) {
+    return NyRunnable::Cast(GetMetaFunction(name, N));
 }
 
 inline std::tuple<Object *, Object *> NyMap::GetFirstPair() {

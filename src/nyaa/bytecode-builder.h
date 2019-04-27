@@ -131,6 +131,15 @@ public:
         DCHECK_EQ(IVal::kLocal, a.kind);
         Emit(Bytecode::kTest, a.index, b, c, line);
     }
+    void TestNil(IVal a, int32_t b, int32_t c, int line = 0) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        Emit(Bytecode::kTestNil, a.index, b, c, line);
+    }
+    void Concat(IVal a, IVal b, int32_t c, int line = 0) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        DCHECK_EQ(IVal::kLocal, b.kind);
+        Emit(Bytecode::kConcat, a.index, b.index, c, line);
+    }
     
     void Bind(BytecodeLable *lable, ConstPoolBuilder *kpool);
     

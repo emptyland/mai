@@ -362,8 +362,8 @@ static void yy_fatal_error (yyconst char msg[] ,yyscan_t yyscanner );
 	*yy_cp = '\0'; \
 	yyg->yy_c_buf_p = yy_cp;
 
-#define YY_NUM_RULES 50
-#define YY_END_OF_BUFFER 51
+#define YY_NUM_RULES 51
+#define YY_END_OF_BUFFER 52
 /* This struct is not used in this scanner,
    but its presence is necessary. */
 struct yy_trans_info
@@ -373,19 +373,19 @@ struct yy_trans_info
 	};
 static yyconst flex_int16_t yy_accept[147] =
     {   0,
-        0,    0,    0,    0,   51,   50,   48,   49,   43,   50,
-       43,   43,   50,   43,   43,   43,   23,   34,   43,   32,
+        0,    0,    0,    0,   52,   51,   49,   50,   44,   51,
+       44,   44,   51,   44,   44,   44,   23,   34,   44,   32,
        20,   40,   41,   20,   20,   20,   20,   20,   20,   20,
-       20,   20,   20,   20,   20,   20,   20,   43,   47,   47,
+       20,   20,   20,   20,   20,   20,   20,   44,   48,   48,
        29,    0,   22,    0,   36,    0,   21,    0,    0,    0,
-       23,    0,   25,   45,   24,    0,   38,   35,   30,   28,
+       23,   43,   25,   46,   24,    0,   38,   35,   30,   28,
        33,   39,   20,   20,   20,   20,   20,    4,   20,   20,
        20,    7,   11,   20,   20,   20,   20,   20,   20,   20,
-       20,   20,   37,   46,    0,   22,    0,    0,   21,    0,
-       44,   42,    0,   24,    0,   26,   31,   20,   20,   20,
+       20,   20,   37,   47,    0,   22,    0,    0,   21,    0,
+       45,   42,    0,   24,    0,   26,   31,   20,   20,   20,
 
         1,   20,   20,   10,   20,    3,   17,   20,   20,   20,
-       20,    2,   20,   44,    0,   27,   20,   20,   20,    8,
+       20,    2,   20,   45,    0,   27,   20,   20,   20,    8,
        20,   20,   20,   20,   20,   18,   20,   12,   15,   20,
        19,   20,   20,   20,   20,    9,   20,    5,   16,   20,
         6,   20,   20,   13,   14,    0
@@ -535,11 +535,11 @@ static yyconst flex_int16_t yy_chk[241] =
     } ;
 
 /* Table of booleans, true if rule could match eol. */
-static yyconst flex_int32_t yy_rule_can_match_eol[51] =
+static yyconst flex_int32_t yy_rule_can_match_eol[52] =
     {   0,
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0,     };
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0,     };
 
 /* The intent behind this definition is that it'll catch
  * any uses of REJECT which flex missed.
@@ -1170,51 +1170,56 @@ YY_RULE_SETUP
 	YY_BREAK
 case 43:
 YY_RULE_SETUP
-#line 138 "lex.l"
-{ return yytext[0]; }
+#line 137 "lex.l"
+{ return OP_CONCAT; }
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
-#line 140 "lex.l"
-;
+#line 139 "lex.l"
+{ return yytext[0]; }
 	YY_BREAK
 case 45:
 YY_RULE_SETUP
-#line 142 "lex.l"
-{ yyextra->old_state = YY_START; BEGIN COMMENT_MOD; }
+#line 141 "lex.l"
+;
 	YY_BREAK
 case 46:
 YY_RULE_SETUP
 #line 143 "lex.l"
-{ BEGIN yyextra->old_state; }
+{ yyextra->old_state = YY_START; BEGIN COMMENT_MOD; }
 	YY_BREAK
 case 47:
-/* rule 47 can match eol */
 YY_RULE_SETUP
 #line 144 "lex.l"
+{ BEGIN yyextra->old_state; }
+	YY_BREAK
+case 48:
+/* rule 48 can match eol */
+YY_RULE_SETUP
+#line 145 "lex.l"
 ;
 	YY_BREAK
 case YY_STATE_EOF(COMMENT_MOD):
-#line 145 "lex.l"
+#line 146 "lex.l"
 { return TOKEN_ERROR; }
 	YY_BREAK
-case 48:
-YY_RULE_SETUP
-#line 147 "lex.l"
-;
-	YY_BREAK
 case 49:
-/* rule 49 can match eol */
 YY_RULE_SETUP
 #line 148 "lex.l"
-{ yyextra->column = 1; }
+;
 	YY_BREAK
 case 50:
+/* rule 50 can match eol */
 YY_RULE_SETUP
-#line 150 "lex.l"
+#line 149 "lex.l"
+{ yyextra->column = 1; }
+	YY_BREAK
+case 51:
+YY_RULE_SETUP
+#line 151 "lex.l"
 ECHO;
 	YY_BREAK
-#line 1218 "lex.nyaa_yy.c"
+#line 1223 "lex.nyaa_yy.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -2403,7 +2408,7 @@ void nyaa_yyfree (void * ptr , yyscan_t yyscanner)
 
 #define YYTABLES_NAME "yytables"
 
-#line 150 "lex.l"
+#line 151 "lex.l"
 
 
 

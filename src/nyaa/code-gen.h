@@ -5,6 +5,9 @@
 #include "mai-lang/handles.h"
 
 namespace mai {
+namespace base {
+class Arena;
+} // namespace base
 namespace nyaa {
 namespace ast {
 class Block;
@@ -17,7 +20,7 @@ class CodeGen final {
 public:
     
     static Handle<NyFunction> Generate(Handle<NyString> file_name, ast::Block *root,
-                                       NyaaCore *core);
+                                       base::Arena *arena, NyaaCore *core);
     
     DISALLOW_ALL_CONSTRUCTORS(CodeGen);
 }; // class CodeGen

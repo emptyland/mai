@@ -117,9 +117,63 @@ static int BuiltinPairs(Arguments *args, Nyaa *N) {
     } else {
         return Raisef(N, "incorrect type: no pairs.");
     }
-    return Return();
 }
     
+static int BuiltinRangeIter(Arguments *args, Nyaa *N) {
+    Handle<NyDelegated> callee = ApiWarpNoCheck<NyDelegated>(args->Callee(), N->core());
+    DCHECK(callee.is_valid());
+    
+    int64_t curr = callee->upval(0)->ToSmi();
+    int64_t end  = callee->upval(1)->ToSmi();
+    int64_t step = callee->upval(2)->ToSmi();
+    if (step > 0) {
+        if (curr >= end) {
+            return Return(Local<Object>::New(Object::kNil));
+        }
+    } else {
+        if (curr <= end) {
+            return Return(Local<Object>::New(Object::kNil));
+        }
+    }
+    curr += step;
+    Handle<Object> rv = NySmi::New(curr);
+    callee->Bind(0, *rv, N->core());
+    return Return(rv);
+}
+
+static int BuiltinRange(Arguments *args, Nyaa *N) {
+    int64_t begin = 0, end = 0, step = 1;
+    switch (args->Length()) {
+        case 3: {
+            Handle<Object> ob = ApiWarpNoCheck<Object>(args->Get(2), N->core());
+            if (!ob->IsSmi()) {
+                return Raisef(N, "incorrect type: need integer.");
+            }
+            step = ob->ToSmi();
+        } // though
+        case 2: {
+            Handle<Object> ob = ApiWarpNoCheck<Object>(args->Get(1), N->core());
+            if (!ob->IsSmi()) {
+                return Raisef(N, "incorrect type: need integer.");
+            }
+            end = ob->ToSmi();
+            ob = ApiWarpNoCheck<Object>(args->Get(0), N->core());
+            if (!ob->IsSmi()) {
+                return Raisef(N, "incorrect type: need integer.");
+            }
+            begin = ob->ToSmi();
+        } break;
+
+        default:
+            return Raisef(N, "incorrect number of arguments. need [2, 3]");
+    }
+    Handle<NyDelegated> iter = N->core()->factory()->NewDelegated(BuiltinRangeIter, 3);
+    iter->Bind(0, NySmi::New(begin), N->core());
+    iter->Bind(1, NySmi::New(end), N->core());
+    iter->Bind(2, NySmi::New(step), N->core());
+    return Return(iter);
+}
+
 static int DelegatedCall(Arguments *args, Nyaa *N) {
     auto callee = ApiWarp<NyDelegated>(args->Callee(), N->core());
     if (callee.is_empty()) {

@@ -134,6 +134,7 @@ false {
 "[" { return '['; }
 "]" { return ']'; }
 "..." { return VARGS; }
+".." { return OP_CONCAT; }
 
 [-=+&~|^/%!()*.,;:{}] { return yytext[0]; }
 

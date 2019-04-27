@@ -33,7 +33,9 @@ namespace nyaa {
     V(LessEqual,   3, a, b, c) \
     V(GreaterThan, 3, a, b, c) \
     V(GreaterEqual,3, a, b, c) \
+    V(Concat,      3, a, b, c) \
     V(Test,        3, a, b, c) \
+    V(TestNil,     3, a, b, c) \
     V(JumpImm,     1, a) \
     V(JumpConst,   1, a) \
     V(Closure,     2, a, b) \

@@ -129,6 +129,7 @@ void BytecodeArrayBuilder::Bind(BytecodeLable *lable, ConstPoolBuilder *kpool) {
             int delta = pc - sub.pc;
             kpool->Set(sub.kslot, NyInt32::New(delta));
         }
+        lable->pc_ = pc;
         lable->SetBinded();
     } else {
         DCHECK_NE(-1, lable->pc());
@@ -144,8 +145,15 @@ void BytecodeArrayBuilder::Jump(BytecodeLable *lable, ConstPoolBuilder *kpool, i
         Emit(Bytecode::kJumpConst, kslot, line);
     } else {
         int pc = static_cast<int>(bcs_.size());
+        DCHECK_GE(lable->pc(), 0);
         int delta = lable->pc() - pc;
-        Emit(Bytecode::kJumpImm, delta, line);
+        if (lable->kslot() >= 0) {
+            kpool->Set(lable->kslot(), NyInt32::New(delta));
+            Emit(Bytecode::kJumpConst, lable->kslot(), line);
+            lable->kslot_ = -1; // use kslot only once.
+        } else {
+            Emit(Bytecode::kJumpImm, delta, line);
+        }
     }
 }
     

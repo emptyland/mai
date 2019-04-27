@@ -137,7 +137,7 @@ public:
 
     IVal PutVariable(const ast::String *name, const IVal *val) {
         IVal rv = IVal::Void();
-        if (name->size() == 1 && name->data()[0] == '_') {
+        if (ast::IsPlaceholder(name)) {
             return rv; // ignore!
         }
         if (val) {
@@ -200,7 +200,10 @@ class CodeGeneratorVisitor : public ast::Visitor {
 public:
     using Context = CodeGeneratorContext;
 
-    CodeGeneratorVisitor(NyaaCore *core) : core_(DCHECK_NOTNULL(core)) {}
+    CodeGeneratorVisitor(NyaaCore *core, base::Arena *arena, Handle<NyString> file_name)
+        : core_(DCHECK_NOTNULL(core))
+        , arena_(DCHECK_NOTNULL(arena))
+        , file_name_(file_name) {}
     virtual ~CodeGeneratorVisitor() override {};
     
     BytecodeArrayBuilder *builder() { return fun_scope_->builder(); }
@@ -369,8 +372,51 @@ public:
         return IVal::Void();
     }
     
+    // for v1, v2, ... = expr {
+    //    stmts...
+    // }
     virtual IVal VisitForIterateLoop(ast::ForIterateLoop *node, ast::VisitorContext *x) override {
-        // TODO:
+        BlockScope scope(fun_scope_);
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        
+        IVal generator = node->init()->Accept(this, &ix);
+        blk_scope_->PutVariable(ast::String::New(arena_, "(generator)"), &generator);
+        
+        BytecodeLable in_label;
+        builder()->Jump(&in_label, fun_scope_->kpool(), node->line());
+
+        for (auto name : *DCHECK_NOTNULL(node->names())) {
+            blk_scope_->PutVariable(name, nullptr);
+        }
+        
+        BytecodeLable body_label, out_label;
+        scope.set_loop_in(&in_label);
+        scope.set_loop_out(&out_label);
+        builder()->Bind(&body_label, fun_scope_->kpool());
+        node->body()->Accept(this, x);
+        scope.set_loop_in(nullptr);
+        scope.set_loop_out(nullptr);
+        
+        // test
+        builder()->Bind(&in_label, fun_scope_->kpool());
+        //builder()->Bind(&test_lable, fun_scope_->kpool());
+        IVal callee = fun_scope_->NewLocal();
+        builder()->Move(callee, generator, node->end_line());
+        
+        int nrets = static_cast<int>(node->names()->size());
+        fun_scope_->Reserve(nrets);
+        builder()->Call(callee, 0, nrets, node->end_line());
+        builder()->TestNil(callee, 1/*neg*/, 0, node->end_line());
+        builder()->Jump(&out_label, fun_scope_->kpool(), node->end_line());
+        
+        IVal base = callee;
+        for (auto name : *DCHECK_NOTNULL(node->names())) {
+            builder()->Move(blk_scope_->GetVariable(name), base, node->end_line());
+            base.index++;
+        }
+        builder()->Jump(&body_label, fun_scope_->kpool(), node->end_line());
+        builder()->Bind(&out_label, fun_scope_->kpool());
         return IVal::Void();
     }
     
@@ -538,13 +584,14 @@ public:
             Handle<NyArray> kpool = fun_scope.kpool()->Build(core_);
             Handle<NyArray> fpool = fun_scope.BuildProtos(core_);
             
-            proto = core_->factory()->NewFunction(nullptr/*name*/,
-                                                  !node->params() ? 0 : node->params()->size()/*nparams*/,
-                                                  node->vargs()/*vargs*/,
-                                                  fun_scope.upval_desc_.size() /*n_upvals*/,
-                                                  fun_scope.max_stack(),
-                                                  nullptr/*file_name*/,
-                                                  *info, *bcbuf, *fpool, *kpool);
+            proto = core_->factory()->NewFunction(
+                    nullptr/*name*/,
+                    !node->params() ? 0 : node->params()->size()/*nparams*/,
+                    node->vargs()/*vargs*/,
+                    fun_scope.upval_desc_.size() /*n_upvals*/,
+                    fun_scope.max_stack(),
+                    file_name_.is_empty() ? nullptr : *file_name_,
+                    *info, *bcbuf, *fpool, *kpool);
             size_t i = 0;
             for (auto upval : fun_scope.upval_desc_) {
                 NyString *name = core_->factory()->NewString(upval.name->data(), upval.name->size());
@@ -805,6 +852,25 @@ public:
         return ret;
     }
     
+    virtual IVal VisitConcat(ast::Concat *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        
+        IVal base = fun_scope_->Reserve(static_cast<int>(node->operands()->size()));
+        int32_t reg = base.index;
+        std::vector<IVal> ops;
+        for (auto op : *node->operands()) {
+            IVal val = IVal::Local(reg++);
+            builder()->Move(val, op->Accept(this, &ix), op->line());
+            ops.push_back(val);
+        }
+        for (int64_t i = ops.size() -1; i >= 1; --i) {
+            fun_scope_->FreeVar(ops[i]);
+        }
+        builder()->Concat(base, base, static_cast<int32_t>(ops.size()), node->line());
+        return base;
+    }
+    
     friend class FunctionScope;
     friend class BlockScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(CodeGeneratorVisitor);
@@ -932,6 +998,8 @@ private:
     }
     
     NyaaCore *const core_;
+    Handle<NyString> file_name_;
+    base::Arena *arena_;
     FunctionScope *fun_scope_ = nullptr;
     BlockScope *blk_scope_ = nullptr;
 }; // class CodeGeneratorVisitor
@@ -1015,10 +1083,10 @@ inline BlockScope::~BlockScope() {
 }
     
 /*static*/ Handle<NyFunction> CodeGen::Generate(Handle<NyString> file_name, ast::Block *root,
-                                                NyaaCore *core) {
+                                                base::Arena *arena, NyaaCore *core) {
     HandleScope handle_scope(core->isolate());
 
-    CodeGeneratorVisitor visitor(core);
+    CodeGeneratorVisitor visitor(core, arena, file_name);
     FunctionScope scope(&visitor);
     root->Accept(&visitor, nullptr);
     

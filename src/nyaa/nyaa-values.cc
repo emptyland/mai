@@ -318,6 +318,8 @@ NyString *NyObject::ToString(NyaaCore *N) {
             return N->factory()->Sprintf("closure: %p", this);
         case kTypeFunction:
             return N->factory()->Sprintf("function: %p", this);
+        case kTypeMap:
+            return ToMap()->ToString(N);
         default:
             if (GetMetatable()->kid() > kUdoKidBegin) {
                 return N->factory()->Sprintf("udo: %p", this);
@@ -465,6 +467,29 @@ uint32_t NyMap::Length() const { return linear_ ? array_->size() : table_->size(
 //    }
 //    return next;
 //}
+    
+NyString *NyMap::ToString(NyaaCore *N) {
+    if (GetMetatable() != N->kmt_pool()->kMap) {
+        if (NyRunnable *fn = GetValidMetaFunction(N->bkz_pool()->kInnerStr, N)) {
+            Object *args = this;
+            N->curr_thd()->Run(fn, &args, 1/*nargs*/, 1/*nrets*/);
+            return NyString::Cast(N->curr_thd()->Get(-1));
+        }
+    }
+
+    NyString *buf = N->factory()->NewUninitializedString(64);
+    Iterator iter(this);
+    buf = buf->Add("{", 1, N);
+    for (iter.SeekFirst(); iter.Valid(); iter.Next()) {
+        buf->Add(iter.key()->ToString(N), N);
+        buf = buf->Add(":", 1, N);
+        buf->Add(iter.value()->ToString(N), N);
+        buf = buf->Add(",", 1, N);
+    }
+    buf = buf->Add("}", 1, N);
+
+    return buf->Done(N);
+}
     
 void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
     NyObject *old = generic_;
@@ -946,7 +971,7 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
         N->Raisef("[%d:%d] %s", result.error_line, result.error_column, result.error->data());
         return Handle<NyFunction>();
     }
-    return CodeGen::Generate(N->factory()->NewString(":memory:"), result.block, N);
+    return CodeGen::Generate(N->factory()->NewString(":memory:"), result.block, &arena, N);
 }
     
 

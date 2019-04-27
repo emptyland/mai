@@ -43,7 +43,7 @@ TEST_F(NyaaCodeGenTest, Sanity) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
     
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
@@ -69,7 +69,7 @@ TEST_F(NyaaCodeGenTest, VarInitializer) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
 
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
@@ -95,7 +95,7 @@ TEST_F(NyaaCodeGenTest, VarInitializerCalling) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
     
     static const char z[] = {
         "[000] LoadGlobal 0 0 \n"
@@ -121,7 +121,7 @@ TEST_F(NyaaCodeGenTest, ReturnCallingInCall) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
     
     static const char z[] = {
         "[000] LoadGlobal 0 0 ; line: 0\n"
@@ -164,7 +164,7 @@ TEST_F(NyaaCodeGenTest, ReturnExpression) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
     
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
@@ -205,7 +205,7 @@ TEST_F(NyaaCodeGenTest, CallExpression) {
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(isolate_);
-    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, core_));
+    Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
     
     std::string buf;
     BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 1024);
@@ -312,6 +312,7 @@ TEST_F(NyaaCodeGenTest, LambdaLiteral) {
         "[006] Ret 0 0 ; line: 0\n"
         "-----------------------------\n"
         "function: [unnamed], params: 1, vargs: 0, max-stack: 3, upvals: 1\n"
+        "file name: :memory:\n"
         ".............................\n"
         "[000] LoadUp 2 0 ; line: 2\n"
         "[003] Add 1 0 2 ; line: 2\n"
@@ -612,10 +613,12 @@ TEST_F(NyaaCodeGenTest, ClassDefinitionWithMembers) {
         "[061] Ret 0 0 ; line: 0\n"
         "-----------------------------\n"
         "function: foo::__init__, params: 1, vargs: 0, max-stack: 1, upvals: 0\n"
+        "file name: :memory:\n"
         ".............................\n"
         "[000] Ret 0 0 ; line: 0\n"
         "-----------------------------\n"
         "function: foo::__add__, params: 2, vargs: 0, max-stack: 3, upvals: 0\n"
+        "file name: :memory:\n"
         ".............................\n"
         "[000] Add 2 0 1 ; line: 3\n"
         "[004] Ret 2 1 ; line: 3\n"
@@ -699,6 +702,7 @@ TEST_F(NyaaCodeGenTest, VargsExpression) {
         "[006] Ret 0 0 ; line: 0\n"
         "-----------------------------\n"
         "function: foo, params: 2, vargs: 1, max-stack: 5, upvals: 0\n"
+        "file name: :memory:\n"
         ".............................\n"
         "[000] Vargs 2 2 ; line: 2\n"
         "[003] Vargs 4 -1 ; line: 3\n"
@@ -823,7 +827,7 @@ TEST_F(NyaaCodeGenTest, WhileLoop) {
         "function: [unnamed], params: 0, vargs: 0, max-stack: 2, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 6\n"
-        " [0] (-1) 0\n"
+        " [0] (-1) -25\n"
         " [1] (-2) test\n"
         " [2] (-3) 18\n"
         " [3] (-4) print\n"
@@ -838,9 +842,84 @@ TEST_F(NyaaCodeGenTest, WhileLoop) {
         "[016] LoadConst 1 4 ; line: 2\n"
         "[019] Call 0 1 0 ; line: 2\n"
         "[023] JumpConst 5 ; line: 3\n"
-        "[025] JumpImm -25 ; line: 4\n"
+        "[025] JumpConst 0 ; line: 4\n"
         "[027] JumpImm -27 ; line: 5\n"
         "[029] Ret 0 0 ; line: 0\n"
+    };
+    HandleScope handle_scope(isolate_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
+    ASSERT_EQ(z, buf) << buf;
+}
+    
+TEST_F(NyaaCodeGenTest, ForIterateLoop) {
+    static const char s[] = {
+        "for i, v in pairs(t) {\n"
+        "   print(i, v)\n"
+        "}\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 6, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 6\n"
+        " [0] (-1) pairs\n"
+        " [1] (-2) t\n"
+        " [2] (-3) 15\n"
+        " [3] (-4) -32\n"
+        " [4] (-5) print\n"
+        " [5] (-6) 10\n"
+        ".............................\n"
+        "[000] LoadGlobal 0 0 ; line: 1\n"
+        "[003] LoadGlobal 1 1 ; line: 1\n"
+        "[006] Call 0 1 1 ; line: 1\n"
+        "[010] JumpConst 2 ; line: 1\n"
+        "[012] LoadGlobal 3 4 ; line: 2\n"
+        "[015] Move 4 1 ; line: 2\n"
+        "[018] Move 5 2 ; line: 2\n"
+        "[021] Call 3 2 0 ; line: 2\n"
+        "[025] Move 3 0 ; line: 3\n"
+        "[028] Call 3 0 2 ; line: 3\n"
+        "[032] TestNil 3 1 0 ; line: 3\n"
+        "[036] JumpConst 5 ; line: 3\n"
+        "[038] Move 1 3 ; line: 3\n"
+        "[041] Move 2 4 ; line: 3\n"
+        "[044] JumpConst 3 ; line: 3\n"
+        "[046] Ret 0 0 ; line: 0\n"
+    };
+    HandleScope handle_scope(isolate_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
+    ASSERT_EQ(z, buf) << buf;
+}
+    
+TEST_F(NyaaCodeGenTest, Concat) {
+    static const char s[] = {
+        "var x, y = 1, 2\n"
+        "var a = x..y..x..y\n"
+        "return a\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 6, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 2\n"
+        " [0] (-1) 1\n"
+        " [1] (-2) 2\n"
+        ".............................\n"
+        "[000] LoadConst 0 0 ; line: 1\n"
+        "[003] LoadConst 1 1 ; line: 1\n"
+        "[006] Move 2 0 ; line: 2\n"
+        "[009] Move 3 1 ; line: 2\n"
+        "[012] Move 4 0 ; line: 2\n"
+        "[015] Move 5 1 ; line: 2\n"
+        "[018] Concat 2 2 4 ; line: 2\n"
+        "[022] Ret 2 1 ; line: 3\n"
+        "[025] Ret 0 0 ; line: 0\n"
     };
     HandleScope handle_scope(isolate_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));

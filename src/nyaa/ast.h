@@ -27,6 +27,7 @@ namespace ast {
     V(WhileLoop) \
     V(ForIterateLoop) \
     V(Multiple) \
+    V(Concat) \
     V(StringLiteral) \
     V(ApproxLiteral) \
     V(SmiLiteral) \
@@ -321,7 +322,7 @@ protected:
     
 class Multiple : public Expression {
 public:
-    static constexpr const int kLimitOperands = 5;
+    static constexpr const int kLimitOperands = 4;
     
     DEF_VAL_GETTER(Operator::ID, op);
     DEF_VAL_GETTER(int, n_operands);
@@ -360,7 +361,19 @@ private:
     Operator::ID op_;
     int n_operands_;
     Expression *operands_[kLimitOperands];
-};
+}; // class Multiple
+    
+class Concat : public Expression {
+public:
+    using OperandList = base::ArenaVector<Expression *>;
+    DEF_PTR_GETTER_NOTNULL(OperandList, operands);
+    DEFINE_AST_NODE(Concat);
+private:
+    Concat(int line, OperandList *operands)
+        : Expression(line)
+        , operands_(DCHECK_NOTNULL(operands)) {}
+    OperandList *operands_;
+}; // class Concat
 
 template<class T>
 class Literal : public Expression {
@@ -645,6 +658,10 @@ inline int Call::GetNArgs() const {
     }
 }
     
+inline bool IsPlaceholder(const String *name) {
+    return !name ? false : (name->size() == 1 && name->data()[0] == '_');
+}
+    
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Factory
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -784,6 +801,10 @@ public:
     
     Multiple *NewEntry(Expression *key, Expression *value, const Location &loc = Location{}) {
         return new (arena_) Multiple(loc.begin_line, Operator::kEntry, key, value);
+    }
+    
+    Concat *NewConcat(Concat::OperandList *ops, const Location &loc = Location{}) {
+        return new (arena_) Concat(loc.begin_line, ops);
     }
     
     Index *NewIndex(Expression *self, Expression *index, const Location &loc = Location{}) {
