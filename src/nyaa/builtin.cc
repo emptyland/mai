@@ -73,6 +73,27 @@ static int BuiltinPrint(Arguments *args, Nyaa *N) {
     return 0;
 }
     
+static int BuiltinStr(Arguments *args, Nyaa *N) {
+    switch (args->Length()) {
+        case 0:
+            return Return(Local<NyString>::New(N->core()->bkz_pool()->kEmpty));
+        case 1: {
+            Handle<Object> a0 = ApiWarpNoCheck<Object>(args->Get(0), N->core());
+            DCHECK(a0.is_not_empty());
+            return Return(Local<NyString>::New(a0->ToString(N->core())));
+        } break;
+        default: {
+            Handle<NyString> buf = N->core()->factory()->NewUninitializedString(64);
+            for (size_t i = 0; i < args->Length(); ++i) {
+                Handle<Object> a = ApiWarpNoCheck<Object>(args->Get(i), N->core());
+                DCHECK(a.is_not_empty());
+                buf = buf->Add(a->ToString(N->core()), N->core());
+            }
+            return Return(Local<NyString>::New(buf->Done(N->core())));
+        } break;
+    }
+}
+    
 static int BuiltinRaise(Arguments *args, Nyaa *N) {
     auto msg = Handle<NyString>::Null();
     if (args->Length() >= 1) {
@@ -172,6 +193,34 @@ static int BuiltinRange(Arguments *args, Nyaa *N) {
     iter->Bind(1, NySmi::New(end), N->core());
     iter->Bind(2, NySmi::New(step), N->core());
     return Return(iter);
+}
+    
+static int BuiltinSetMetatable(Arguments *args, Nyaa *N) {
+    Handle<Object> ob = ApiWarpNoCheck<Object>(args->Get(0), N->core());
+    if (ob.is_not_valid()) {
+        return Return();
+    }
+    Handle<NyMap> a0 = ApiWarp<NyMap>(args->Get(1), N->core());
+    if (a0.is_not_valid()) {
+        return Return();
+    }
+    if (NyMap *map = NyMap::Cast(*ob)) {
+        a0->set_kid(kTypeMap);
+        map->SetMetatable(*a0, N->core());
+        return Return(args->Get(0));
+    }
+    return Return();
+}
+    
+static int BuiltinGetMetatable(Arguments *args, Nyaa *N) {
+    Handle<Object> ob = ApiWarpNoCheck<Object>(args->Get(0), N->core());
+    if (ob.is_not_valid()) {
+        return Return();
+    }
+    if (NyMap *map = NyMap::Cast(*ob)) {
+        return Return(Local<NyMap>::New(map->GetMetatable()));
+    }
+    return Return();
 }
 
 static int DelegatedCall(Arguments *args, Nyaa *N) {
@@ -349,10 +398,14 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
 }
     
 const NyaaNaFnEntry kBuiltinFnEntries[] = {
+    {"str", BuiltinStr},
     {"print", BuiltinPrint},
     {"yield", BuiltinYield},
     {"raise", BuiltinRaise},
     {"pairs", BuiltinPairs},
+    {"range", BuiltinRange},
+    {"getmetatable", BuiltinGetMetatable},
+    {"setmetatable", BuiltinSetMetatable},
     {nullptr, nullptr},
 };
 

@@ -837,6 +837,100 @@ TEST_F(NyaaThreadTest, ForIterate) {
     script->Call(&args, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
+    
+TEST_F(NyaaThreadTest, MapToStr) {
+    static const char s[] = {
+        "var t = {\n"
+        "   a: 1,\n"
+        "   b: 2,\n"
+        "   c: 3,\n"
+        "   d: 4\n"
+        "}\n"
+        "check(str(t))\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    Handle<NyString> v1 = NyString::Cast(check->upval(0));
+    ASSERT_TRUE(v1.is_valid());
+    ASSERT_STREQ("{a:1, c:3, d:4, b:2}", v1->bytes());
+}
+    
+TEST_F(NyaaThreadTest, MapMetaStr) {
+    static const char s[] = {
+        "var t = setmetatable({a:1, b:2}, {__str__:lambda(self) { return \"ok\" }})\n"
+        "check(str(t))\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    Handle<NyString> v1 = NyString::Cast(check->upval(0));
+    ASSERT_TRUE(v1.is_valid());
+    ASSERT_STREQ("ok", v1->bytes());
+}
+    
+TEST_F(NyaaThreadTest, Concat) {
+    static const char s[] = {
+        "var t = setmetatable({a:1, b:2}, {__str__:lambda(self) { return \"ok\" }})\n"
+        "var a, b, c = 1.1, 2, 3"
+        "check(t..\",\"..a..\",\"..b..\",\"..c)\n"
+    };
+
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    Handle<NyString> v1 = NyString::Cast(check->upval(0));
+    ASSERT_TRUE(v1.is_valid());
+    ASSERT_STREQ("ok,1.100000,2,3", v1->bytes());
+}
+    
+TEST_F(NyaaThreadTest, UdoMetaStr) {
+    static const char s[] = {
+        "object [local] foo {\n"
+        "   def __init__(self) { self.a_, self.b_ = 1, 2 }\n"
+        "   def __str__(self) { return self.a..\",\"..self.b }\n"
+        "   property [ro] a, b\n"
+        "}\n"
+        "check(str(foo))\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    Handle<NyString> v1 = NyString::Cast(check->upval(0));
+    ASSERT_TRUE(v1.is_valid());
+    ASSERT_STREQ("1,2", v1->bytes());
+}
 
 TEST_F(NyaaThreadTest, CxxTryCatchTest) {
     try {

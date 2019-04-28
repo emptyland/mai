@@ -289,7 +289,7 @@ Object *NyObject::Add(Object *rhs, NyaaCore *N) {
             Handle<NyString> rval(rhs->ToString(N));
             return lval->Add(*rval, N)->Done(N);
         } break;
-            
+
         case kTypeInt:
             return ToInt()->Add(rhs, N);
             
@@ -322,7 +322,7 @@ NyString *NyObject::ToString(NyaaCore *N) {
             return ToMap()->ToString(N);
         default:
             if (GetMetatable()->kid() > kUdoKidBegin) {
-                return N->factory()->Sprintf("udo: %p", this);
+                return ToUDO()->ToString(N);
             }
             break;
     }
@@ -480,11 +480,15 @@ NyString *NyMap::ToString(NyaaCore *N) {
     NyString *buf = N->factory()->NewUninitializedString(64);
     Iterator iter(this);
     buf = buf->Add("{", 1, N);
+    bool first = true;
     for (iter.SeekFirst(); iter.Valid(); iter.Next()) {
-        buf->Add(iter.key()->ToString(N), N);
+        if (!first) {
+            buf = buf->Add(", ", 2, N);
+        }
+        first = false;
+        buf = buf->Add(iter.key()->ToString(N), N);
         buf = buf->Add(":", 1, N);
-        buf->Add(iter.value()->ToString(N), N);
-        buf = buf->Add(",", 1, N);
+        buf = buf->Add(iter.value()->ToString(N), N);
     }
     buf = buf->Add("}", 1, N);
 
@@ -760,11 +764,12 @@ NyString::NyString(const char *s, size_t n, NyaaCore *N)
     size_ += kHeaderSize;
     ::memcpy(elems_ + kHeaderSize, s, n);
     size_ += n;
-    elems_[size_] = 0;
     Done(N);
 }
     
 NyString *NyString::Done(NyaaCore *N) {
+    elems_[size_] = 0;
+    
     uint32_t *hash_val = reinterpret_cast<uint32_t *>(data());
     if (size() > kLargeStringLength) {
         *hash_val = -1;
@@ -772,8 +777,11 @@ NyString *NyString::Done(NyaaCore *N) {
         *hash_val = base::Hash::Js(bytes(), size());
     }
     
+    //data()[this->size()] = 0;
     if (size() < kLargeStringLength && N->kz_pool()) {
-        N->kz_pool()->Add(this);
+        if (!N->kz_pool()->GetOrNull(bytes(), size())) {
+            N->kz_pool()->Add(this);
+        }
     }
     return this;
 }
@@ -1010,6 +1018,15 @@ void NyUDO::SetFinalizer(Finalizer fp, NyaaCore *N) {
 //    DCHECK_EQ(0, word % 2);
 //    tag_ = word | (IgnoreManaged() ? 0x1 : 0);
     N->heap()->AddFinalizer(this, fp);
+}
+    
+NyString *NyUDO::ToString(NyaaCore *N) {
+    if (NyRunnable *fn = GetValidMetaFunction(N->bkz_pool()->kInnerStr, N)) {
+        Object *args = this;
+        N->curr_thd()->Run(fn, &args, 1/*nargs*/, 1/*nrets*/);
+        return NyString::Cast(N->curr_thd()->Get(-1));
+    }
+    return N->factory()->Sprintf("udo: %p", this);
 }
     
 Object *NyUDO::RawGet(Object *key, NyaaCore *N) {

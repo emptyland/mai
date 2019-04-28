@@ -321,6 +321,7 @@ public:
     NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N);
 
     uint64_t kid() const { return kid_; }
+    void set_kid(uint64_t kid) { kid_ = kid; }
     bool linear() const { return linear_; }
     DEF_PTR_GETTER(NyObject, generic);
 
@@ -515,6 +516,8 @@ public:
     
     NyString(size_t capacity)
         : NyByteArray(static_cast<uint32_t>(capacity) + kHeaderSize) {
+            uint32_t header = 0;
+        NyByteArray::Add(&header, kHeaderSize, nullptr);
         DbgFillInitZag(data(), capacity + kHeaderSize);
     }
     
@@ -525,6 +528,8 @@ public:
     uint32_t size() const { return size_ - kHeaderSize; }
     
     const char *bytes() const { return reinterpret_cast<const char *>(data() + kHeaderSize); }
+    
+    using NyByteArray::data;
     
     NyString *Add(const char *s, size_t n, NyaaCore *N) {
         return static_cast<NyString *>(NyByteArray::Add(s, n, N));
@@ -810,6 +815,8 @@ public:
     Address data() { return reinterpret_cast<Address>(this + 1); }
 
     void SetFinalizer(Finalizer fp, NyaaCore *N);
+    
+    NyString *ToString(NyaaCore *N);
 
     Object *RawGet(Object *key, NyaaCore *N);
     

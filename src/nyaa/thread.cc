@@ -181,8 +181,9 @@ void NyThread::Push(Object *value, size_t n) {
     
 Object *NyThread::Get(int i) {
     if (i < 0) {
-        DCHECK_GE(frame_tp() + i, frame_bp());
-        return *(frame_tp() + i);
+        //DCHECK_GE(frame_tp() + i, frame_bp());
+        //return *(frame_tp() + i);
+        return *(stack_tp_ + i);
     } else {
         //if (stack_tp_ < )
         //DCHECK_LT(frame_bp() + i, frame_tp());
@@ -765,6 +766,15 @@ int NyThread::Run() {
                 frame_->AddPC(delta);
             } break;
                 
+            case Bytecode::kAdd: {
+                int32_t ra, rkb, rkc;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
+                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb);
+                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc);
+                Set(ra, Object::Add(lhs, rhs, owns_));
+                frame_->AddPC(delta);
+            } break;
+                
             default:
                 owns_->Raisef("Bad bytecode: %s(%d)", Bytecode::kNames[id], id);
                 break;
@@ -802,6 +812,7 @@ Object *NyThread::InternalGetField(Object *mm, Object *key) {
             Run(mfn, args, 2/*nargs*/, 1/*nrets*/, frame_->env());
             return Get(-1);
         }
+        return map->RawGet(key, owns_);
     } else if (NyUDO *udo = ob->ToUDO()) {
         Object *mindex = udo->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerIndex, owns_);
         if (NyRunnable *mfn = NyRunnable::Cast(mindex)) {
@@ -840,6 +851,7 @@ int NyThread::InternalSetField(Object *mm, Object *key, Object *value) {
             Object *args[3] = {mm, key, value};
             Run(fn, args, 3/*nargs*/, 0/*nrets*/, frame_->env());
         }
+        map->RawPut(key, value, owns_);
     } else if (NyUDO *udo = ob->ToUDO()) {
         Object *mnewindex = udo->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerNewindex, owns_);
         if (NyRunnable *fn = NyRunnable::Cast(mnewindex)) {
