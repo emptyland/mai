@@ -294,7 +294,7 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) {
                 return false;
             }
             NyString *lval = ToString();
-            return lval->Compare(rval);
+            return lval->Compare(rval) == 0;
         } break;
             
         case kTypeInt: {
@@ -1533,6 +1533,9 @@ void NyTable::Iterate(ObjectVisitor *visitor) {
     for (size_t i = 1; i < capacity_ + 1; ++i) {
         Entry *e = entries_ + i;
         if (e->kind != kFree) {
+//            if (NyString *s = NyString::Cast(e->key)) {
+//                printf("iterate: %s\n", s->bytes());
+//            }
             visitor->VisitPointer(this, &e->key);
             visitor->VisitPointer(this, &e->value);
         }

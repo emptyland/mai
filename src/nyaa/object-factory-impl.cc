@@ -33,7 +33,7 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     
 /*virtual*/ NyInt *ObjectFactoryImpl::NewUninitializedInt(size_t capacity, bool old) {
     size_t required_size = NyInt::RequiredSize(static_cast<uint32_t>(capacity));
-    NEW_OBJECT(required_size, NyInt(capacity), Int);
+    NEW_OBJECT(required_size, NyInt(static_cast<uint32_t>(capacity)), Int);
     DCHECK_EQ(required_size, ob->PlacedSize());
     return ob;
 }

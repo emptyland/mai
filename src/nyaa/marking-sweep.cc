@@ -96,6 +96,11 @@ public:
                 break;
             case kOldSpace:
                 if (ob->GetColor() == owns_->heap()->initial_color()) {
+//                    printf("%d\n", ob->GetMetatable()->kid());
+//                    auto fn = NyDelegated::Cast(ob);
+//                    if (fn) {
+//                        printf("fn = %p\n", fn);
+//                    }
                     static_cast<OldSpace *>(owns)->Free(addr, placed_size, false);
                     owns_->collected_bytes_ += placed_size;
                     owns_->collected_objs_++;
