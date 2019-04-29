@@ -15,6 +15,7 @@ public:
     virtual ~MallocObjectFactory() override;
     
     virtual NyFloat64 *NewFloat64(f64_t value, bool old) override;
+    virtual NyInt *NewUninitializedInt(size_t capacity, bool old) override;
     virtual NyString *NewString(const char *s, size_t n, bool old) override;
     virtual NyString *NewUninitializedString(size_t capacity, bool old) override;
     virtual NyMap *NewMap(NyObject *maybe, uint64_t kid, bool linear, bool old) override;

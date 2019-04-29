@@ -37,6 +37,8 @@ public:
     
     virtual NyFloat64 *NewFloat64(f64_t value, bool old = false) = 0;
     
+    virtual NyInt *NewUninitializedInt(size_t capacity, bool old = false) = 0;
+    
     virtual NyString *NewString(const char *s, size_t n, bool old = false) = 0;
     
     virtual NyString *NewUninitializedString(size_t capacity, bool old = false) = 0;
@@ -79,42 +81,46 @@ public:
     
     NyMap *NewMap(uint32_t capacity, uint32_t seed, uint64_t kid = 0, bool linear = false,
                   bool old = false);
-    
-    //NyMap *NewUdoMetatable(const char *name, uint32_t capacity, uint32_t seed, bool old = false);
-    
+
     NyDelegated *NewDelegated(Handle<Value> (*fp)(Local<Value>, Local<String>, Nyaa *),
                               size_t n_upvals = 0, bool old = false) {
         return NewDelegated(kPropertyGetter, reinterpret_cast<Address>(fp), n_upvals, old);
     }
-    
+
     NyDelegated *NewDelegated(Handle<Value> (*fp)(Local<Value>, Local<String>, Local<Value>, Nyaa *),
                               size_t n_upvals = 0, bool old = false) {
         return NewDelegated(kPropertySetter, reinterpret_cast<Address>(fp), n_upvals, old);
     }
-    
+
     NyDelegated *NewDelegated(int (*fp)(Nyaa *), size_t n_upvals = 0, bool old = false) {
         return NewDelegated(kArg0, reinterpret_cast<Address>(fp), n_upvals, old);
     }
-    
+
     NyDelegated *NewDelegated(int (*fp)(Local<Value>, Nyaa *), size_t n_upvals = 0,
                               bool old = false) {
         return NewDelegated(kArg1, reinterpret_cast<Address>(fp), n_upvals, old);
     }
-    
+
     NyDelegated *NewDelegated(int (*fp)(Local<Value>, Local<Value>, Nyaa *),
                               size_t n_upvals = 0, bool old = false) {
         return NewDelegated(kArg2, reinterpret_cast<Address>(fp), n_upvals, old);
     }
-    
+
     NyDelegated *NewDelegated(int (*fp)(Local<Value>, Local<Value>, Local<Value>, Nyaa *),
                               size_t n_upvals = 0, bool old = false) {
         return NewDelegated(kArg3, reinterpret_cast<Address>(fp), n_upvals, old);
     }
-    
+
     NyDelegated *NewDelegated(int (*fp)(Arguments *, Nyaa *), size_t n_upvals = 0,
                               bool old = false) {
         return NewDelegated(kUniversal, reinterpret_cast<Address>(fp), n_upvals, old);
     }
+    
+    NyInt *NewLiteralInt(const char *z, bool old = false) {
+        return NewLiteralInt(z, !z ? 0 : ::strlen(z), old);
+    }
+
+    NyInt *NewLiteralInt(const char *z, size_t n, bool old = false);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(ObjectFactory);
 }; // class ObjectFactory

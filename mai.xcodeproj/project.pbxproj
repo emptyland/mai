@@ -231,6 +231,8 @@
 		23DE184421D08A3600479C23 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B0E132218AFD4E00F9E855 /* crc32.c */; };
 		23DE184521D08AB100479C23 /* benchmark-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DE17F021D07D9400479C23 /* benchmark-main.cc */; };
 		23DE184621D08AB800479C23 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
+		23DFE03722754D29005D489C /* big-number.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DFE03622754D29005D489C /* big-number.cc */; };
+		23DFE03822754D29005D489C /* big-number.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DFE03622754D29005D489C /* big-number.cc */; };
 		23E82BC2224CCC4D00BC910B /* spaces-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23E82BC1224CCC4D00BC910B /* spaces-test.cc */; };
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
 		23F6A03122266E1A00AE5DB6 /* decimal-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02E22266E1900AE5DB6 /* decimal-v1.cc */; };
@@ -550,6 +552,8 @@
 		23DE17F021D07D9400479C23 /* benchmark-main.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "benchmark-main.cc"; sourceTree = "<group>"; };
 		23DE17F821D0887700479C23 /* mai.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = mai.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		23DE17FB21D0887700479C23 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		23DFE03522754CCD005D489C /* big-number.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "big-number.h"; sourceTree = "<group>"; };
+		23DFE03622754D29005D489C /* big-number.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "big-number.cc"; sourceTree = "<group>"; };
 		23E40C0A21CB3C3A00B04858 /* block-cache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-cache.h"; sourceTree = "<group>"; };
 		23E40C0B21CB416600B04858 /* block-cache.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-cache.cc"; sourceTree = "<group>"; };
 		23E82BC1224CCC4D00BC910B /* spaces-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "spaces-test.cc"; path = "src/nyaa/spaces-test.cc"; sourceTree = "<group>"; };
@@ -890,6 +894,8 @@
 				2399D20D21C264B100C8D5B1 /* ebr.cc */,
 				23B8E68321E2E4FF0001096E /* lock-group.h */,
 				23B8E68521E2E50F0001096E /* lock-group.cc */,
+				23DFE03522754CCD005D489C /* big-number.h */,
+				23DFE03622754D29005D489C /* big-number.cc */,
 			);
 			name = base;
 			path = src/base;
@@ -1439,6 +1445,7 @@
 				23344CEF21EF0DEC006BC6E4 /* mai-sql-connection-impl.cc in Sources */,
 				2364B33121E451F9008519AE /* arenas.cc in Sources */,
 				2364B33321E451F9008519AE /* ebr.cc in Sources */,
+				23DFE03722754D29005D489C /* big-number.cc in Sources */,
 				2364B33521E451F9008519AE /* lock-group.cc in Sources */,
 				23719D3E224222220055D397 /* object-factory.cc in Sources */,
 				2364B33621E451F9008519AE /* bw-tree-test.cc in Sources */,
@@ -1543,6 +1550,7 @@
 				23DE183221D088C300479C23 /* lru-cache-v1.cc in Sources */,
 				23DE180F21D088B000479C23 /* write-ahead-log.cc in Sources */,
 				23DE181021D088B000479C23 /* write-batch.cc in Sources */,
+				23DFE03822754D29005D489C /* big-number.cc in Sources */,
 				23DE181121D088B000479C23 /* db-impl.cc in Sources */,
 				23DE181221D088B000479C23 /* column-family.cc in Sources */,
 				237F505221EB74390069075D /* zone.cc in Sources */,

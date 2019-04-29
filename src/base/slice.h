@@ -119,9 +119,7 @@ public:
     // 'h' = hexadecimal
     // 'f' = float
     // 'e' = float with exp
-    static int LikeNumber(const char *s) {
-        return LikeNumber(s, !s ? 0 : strlen(s));
-    }
+    static int LikeNumber(const char *s) { return LikeNumber(s, !s ? 0 : strlen(s)); }
     
     static int LikeNumber(const char *s, size_t n);
     

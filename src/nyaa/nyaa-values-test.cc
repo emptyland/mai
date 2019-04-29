@@ -114,7 +114,14 @@ TEST_F(NyaaValuesTest, NyObjectColor) {
 }
 
 #endif // defined(NYAA_USE_POINTER_COLOR)
-    
+
+TEST_F(NyaaValuesTest, Int) {
+    NyInt *n = factory_->NewLiteralInt("99999999999");
+    ASSERT_NE(nullptr, n);
+    NyString *s = n->ToString(N_->core());
+    ASSERT_STREQ("99999999999", s->bytes());
+}
+
 } // namespace nyaa
     
 } // namespace mai

@@ -169,7 +169,7 @@ int32_t ConstPoolBuilder::GetOrNewStr(const ast::String *val) {
 
 int32_t ConstPoolBuilder::GetOrNewInt(const ast::String *val) {
     View<char> view = MakeView(val->data(), val->size());
-    return GetOrNew({.kind = kStr, .int_val = view});
+    return GetOrNew({.kind = kInt, .int_val = view});
 }
     
 Handle<NyArray> ConstPoolBuilder::Build(NyaaCore *core) {
@@ -201,7 +201,8 @@ int32_t ConstPoolBuilder::GetOrNew(const Key &key) {
             p = Add(factory_->NewString(key.str_val.z, key.str_val.n));
             break;
         case kInt:
-            // TODO:
+            p = Add(factory_->NewLiteralInt(key.int_val.z, key.int_val.n));
+            break;
         default:
             DLOG(FATAL) << "TODO:";
             break;

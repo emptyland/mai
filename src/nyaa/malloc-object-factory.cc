@@ -20,6 +20,15 @@ MallocObjectFactory::MallocObjectFactory(NyaaCore *core) : core_(DCHECK_NOTNULL(
     ob->SetMetatable(core_->kmt_pool()->kFloat64, core_);
     return ob;
 }
+    
+/*virtual*/ NyInt *MallocObjectFactory::NewUninitializedInt(size_t capacity, bool old) {
+    size_t required_size = NyInt::RequiredSize(static_cast<uint32_t>(capacity));
+    void *chunk = ::malloc(required_size);
+    auto ob = new (chunk) NyInt(static_cast<uint32_t>(capacity));
+    DCHECK_EQ(ob->PlacedSize(), required_size);
+    ob->SetMetatable(core_->kmt_pool()->kInt, core_);
+    return ob;
+}
 
 /*virtual*/ NyString *MallocObjectFactory::NewString(const char *s, size_t n, bool old) {
     if (core_->kz_pool()) {

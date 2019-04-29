@@ -504,6 +504,15 @@ public:
         return val;
     }
     
+    virtual IVal VisitIntLiteral(ast::IntLiteral *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+        IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewInt(node->value()));
+        if (ctx->localize() && !ctx->keep_const()) {
+            return Localize(val, node->line());
+        }
+        return val;
+    }
+    
     virtual IVal VisitMapInitializer(ast::MapInitializer *node, ast::VisitorContext *x) override {
         int index = 0;
         if (!node->value()) {

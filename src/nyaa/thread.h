@@ -187,7 +187,6 @@ public:
     friend class TryCatchCore;
     friend class CallFrame;
     DEF_HEAP_OBJECT(Thread);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyThread);
 private:
     
     

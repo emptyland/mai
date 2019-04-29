@@ -119,7 +119,7 @@ public:
         rv->set_negative(!negative());
         return rv;
     }
-    
+
     Decimal *Sqrt(base::Arena *arena) const;
 
     std::string ToString(int radix = 10) const;
@@ -175,7 +175,7 @@ public:
     static Decimal *NewCopied(View<uint32_t> segments, base::Arena *arena) {
         return NewCopied(segments.z, segments.n, arena);
     }
-    
+
     static Decimal *NewCopied(const uint32_t *s, size_t n, base::Arena *arena);
     
     static Decimal *NewI64(int64_t val, base::Arena *arena) {

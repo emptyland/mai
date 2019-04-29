@@ -264,8 +264,6 @@ private:
             f64_t f64_val;
             View<char> str_val;
             View<char> int_val; // big int literal string
-//            const ast::String *str_val;
-//            const ast::String *int_val; // big int literal string
         };
     }; // struct Key
     struct EqualTo : public std::binary_function<Key, Key, bool> {
@@ -276,8 +274,7 @@ private:
     }; // struct Hash
     
     int32_t GetOrNew(const Key &key);
-    
-    //NyaaCore *const core_;
+
     ObjectFactory *const factory_;
     std::unordered_map<Key, int32_t, Hash, EqualTo> const_to_p_;
     std::vector<Handle<Object>> const_pool_;

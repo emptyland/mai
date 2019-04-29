@@ -9,9 +9,12 @@
 #include "glog/logging.h"
 
 namespace mai {
-    
+namespace base {
+class Arena;
+} // namespace base
 namespace nyaa {
     
+class ObjectFactory;
 class Object;
 class NyObject;
 class NyFloat64;
@@ -81,6 +84,10 @@ public:
     static bool Equals(Object *lhs, Object *rhs, NyaaCore *N);
     
     static Object *Add(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Sub(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Mul(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Div(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Mod(Object *lhs, Object *rhs, NyaaCore *N);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Object);
 protected:
@@ -109,7 +116,11 @@ public:
     }
     
     static Object *Add(Object *lhs, Object *rhs, NyaaCore *N);
-    
+    static Object *Sub(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Mul(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Div(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Mod(Object *lhs, Object *rhs, NyaaCore *N);
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(NySmi);
 }; // class NyInt32
     
@@ -163,6 +174,10 @@ public:
     bool Equals(Object *rhs, NyaaCore *N);
     
     Object *Add(Object *rhs, NyaaCore *N);
+    Object *Sub(Object *rhs, NyaaCore *N);
+    Object *Mul(Object *rhs, NyaaCore *N);
+    Object *Div(Object *rhs, NyaaCore *N);
+    Object *Mod(Object *rhs, NyaaCore *N);
     
     NyString *ToString(NyaaCore *N);
     
@@ -193,14 +208,11 @@ public:
     }
     
     inline bool IsUDO() const;
-    
     inline const NyUDO *ToUDO() const;
-    
     inline NyUDO *ToUDO();
     
-    inline Object *GetMetaFunction(NyString *name, NyaaCore *N);
-    
-    inline NyRunnable *GetValidMetaFunction(NyString *name, NyaaCore *N);
+    inline Object *GetMetaFunction(NyString *name, NyaaCore *N) const;
+    inline NyRunnable *GetValidMetaFunction(NyString *name, NyaaCore *N) const;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyObject);
 private:
@@ -223,7 +235,8 @@ static_assert(sizeof(NyObject) == sizeof(uintptr_t), "Incorrect Object size");
     
 #define DEF_HEAP_OBJECT(name) \
     DEF_HEAP_OBJECT_CASTS(name) \
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
+    static bool EnsureIs(const NyObject *o, NyaaCore *N); \
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Ny##name)
     
 #define DEF_HEAP_OBJECT_CASTS(name) \
     inline static Ny##name *Cast(Object *ob) { \
@@ -245,6 +258,10 @@ public:
     f64_t value() const { return value_; }
     
     Object *Add(Object *rhs, NyaaCore *N) const;
+    Object *Sub(Object *rhs, NyaaCore *N) const;
+    Object *Mul(Object *rhs, NyaaCore *N) const;
+    Object *Div(Object *rhs, NyaaCore *N) const;
+    Object *Mod(Object *rhs, NyaaCore *N) const;
     
     uint32_t HashVal() const {
         uint64_t bits = *reinterpret_cast<const uint64_t *>(&value_);
@@ -256,36 +273,63 @@ public:
     constexpr size_t PlacedSize() const { return sizeof(*this); }
     
     DEF_HEAP_OBJECT(Float64);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyFloat64);
 private:
+    
     f64_t value_;
 }; // class NyFloat64
 
 
 class NyInt : public NyObject {
 public:
-    NyInt(size_t capactiy);
+    static constexpr const int kMinRadix = 2;
+    static constexpr const int kMaxRadix = 16;
+
+    NyInt(uint32_t capactiy);
     
     DEF_VAL_GETTER(uint32_t, capacity);
     DEF_VAL_GETTER(uint32_t, offset);
     DEF_VAL_GETTER(uint32_t, header);
+
+    bool IsZero() const;
     
+    NyInt *Shl(int bits, NyaaCore *N);
+    NyInt *Shr(int bits, NyaaCore *N);
+
     Object *Add(Object *rhs, NyaaCore *N) const;
+    Object *Sub(Object *rhs, NyaaCore *N) const;
+    Object *Mul(Object *rhs, NyaaCore *N) const;
+    Object *Div(Object *rhs, NyaaCore *N) const;
+    Object *Mod(Object *rhs, NyaaCore *N) const;
     
     NyInt *Add(int64_t rhs, NyaaCore *N) const;
+    NyInt *Sub(int64_t rhs, NyaaCore *N) const;
+    NyInt *Mul(int64_t rhs, NyaaCore *N) const;
+    NyInt *Div(int64_t rhs, NyaaCore *N) const;
+    NyInt *Mod(int64_t rhs, NyaaCore *N) const;
     
     NyInt *Add(const NyInt *rhs, NyaaCore *N) const;
+    NyInt *Sub(const NyInt *rhs, NyaaCore *N) const;
+    NyInt *Mul(const NyInt *rhs, NyaaCore *N) const;
+    NyInt *Div(const NyInt *rhs, NyaaCore *N) const { return std::get<0>(CompleteDiv(rhs, N)); }
+    NyInt *Mod(const NyInt *rhs, NyaaCore *N) const { return std::get<1>(CompleteDiv(rhs, N)); }
+
+    std::tuple<NyInt *, NyInt *> CompleteDiv(const NyInt *rhs, NyaaCore *N) const;
     
     uint32_t HashVal() const;
     
-    bool IsZero() const;
+    f64_t ToF64() const;
+    int64_t ToI64() const;
     
-    f64_t ToFloat64Val() const;
+    NyString *ToString(NyaaCore *N, int radix = 10) const;
+    
+    NyInt *Clone(base::Arena *arena) const { return New(segments(), segments_size(), arena); }
+    NyInt *Clone(ObjectFactory *factory) const { return New(segments(), segments_size(), factory); }
+    
+    void Fill(uint32_t s = 0) {
+        int64_t i = segments_size();
+        while (i-- > 0) { set_segment(i, s); }
+    }
 
-    int64_t ToInt64Val() const;
-    
-    NyString *ToString(NyaaCore *N) const;
-    
     bool Equals(const NyInt *rhs) const { return Compare(this, rhs) == 0; }
     
     static int Compare(const NyInt *lhs, const NyInt *rhs);
@@ -295,12 +339,74 @@ public:
     size_t PlacedSize() const { return RequiredSize(capacity_); }
     
     static size_t RequiredSize(uint32_t capacity) {
-        return sizeof(NyInt) + sizeof(uint32_t) * (capacity < 2 ? 0 : capacity);
+        return sizeof(NyInt) + sizeof(uint32_t) * (capacity <= 2 ? 0 : capacity);
     }
     
+    static NyInt *Parse(const char *s, size_t n, ObjectFactory *factory);
+    static NyInt *ParseOctLiteral(const char *s, size_t n, ObjectFactory *factory);
+    static NyInt *ParseHexLiteral(const char *s, size_t n, ObjectFactory *factory);
+    static NyInt *ParseDecLiteral(const char *s, size_t n, ObjectFactory *factory);
+    static NyInt *ParseDigitals(const char *s, size_t n, int radix, ObjectFactory *factory);
+    static NyInt *NewI64(int64_t val, ObjectFactory *factory);
+    static NyInt *NewU64(uint64_t val, ObjectFactory *factory);
+    static NyInt *New(const uint32_t *s, size_t n, ObjectFactory *factory);
+
+    // for temp int objects
+    static NyInt *NewI64(int64_t val, base::Arena *arena);
+    static NyInt *NewU64(uint64_t val, base::Arena *arena);
+    static NyInt *New(const uint32_t *s, size_t n, base::Arena *arena);
+    static NyInt *NewUninitialized(size_t capacity, base::Arena *arena);
+    
     DEF_HEAP_OBJECT(Int);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyInt);
 private:
+    void InitI64(int64_t val) {
+        bool neg = val < 0;
+        if (neg) { val = -val; }
+        InitP64(val, neg, val > 0xffffffff ? 2 : 1);
+    }
+    
+    void InitP64(uint64_t val, bool neg, size_t reserved);
+    
+    bool negative() const { return header_ & 0x1; }
+    int sign() const { return negative() ? -1 : 1; }
+    size_t segments_size() const { return capacity_ - offset_; }
+    size_t segments_capacity() const { return capacity_;  }
+    const uint32_t *segments() const { return vals_ + offset_; }
+    uint32_t *segments() { return vals_ + offset_; }
+    View<uint32_t> segment_view() const { return MakeView(segments(), segments_size()); }
+    MutView<uint32_t> segment_mut_view() { return MakeMutView(segments(), segments_size()); }
+    
+    uint32_t segment(size_t i) const {
+        DCHECK_LT(i, segments_size());
+        return segments()[i];
+    }
+
+    void set_segment(size_t i, uint32_t s) {
+        DCHECK_LT(i, segments_size());
+        segments()[i] = s;
+    }
+    
+    void set_offset(size_t i) {
+        DCHECK_LE(i, capacity_);
+        offset_ = static_cast<uint32_t>(i);
+    }
+
+    void set_negative(bool neg) {
+        if (neg) {
+            header_ |= 0x1;
+        } else {
+            header_ &= ~0x1;
+        }
+    }
+    
+    static int AbsCompare(const NyInt *lhs, const NyInt *rhs);
+    static void AddRaw(const NyInt *lhs, const NyInt *rhs, NyInt *rv);
+    static std::tuple<NyInt *, NyInt *> DivRaw(const NyInt *lhs, const NyInt *rhs, NyaaCore *N);
+    NyInt *DivMagnitude(MutView<uint32_t> divisor, NyInt *rv, NyaaCore *N) const;
+    
+    void Normalize();
+    void Resize(size_t n);
+
     uint32_t capacity_;
     uint32_t offset_;
     uint32_t header_;
@@ -333,7 +439,13 @@ public:
     NyString *ToString(NyaaCore *N);
 
     void RawPut(Object *key, Object *value, NyaaCore *N);
-    Object *RawGet(Object *key, NyaaCore *N);
+    Object *RawGet(Object *key, NyaaCore *N) const;
+
+    Object *Add(Object *rhs, NyaaCore *N) const;
+    Object *Sub(Object *rhs, NyaaCore *N) const;
+    Object *Mul(Object *rhs, NyaaCore *N) const;
+    Object *Div(Object *rhs, NyaaCore *N) const;
+    Object *Mod(Object *rhs, NyaaCore *N) const;
 
     void Iterate(ObjectVisitor *visitor) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&generic_));
@@ -343,8 +455,9 @@ public:
 
     friend class MapIterator;
     DEF_HEAP_OBJECT(Map);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyMap);
 private:
+    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) const;
+    
     union {
         NyTable *table_; // [strong ref]
         NyArray *array_; // [strong ref]
@@ -366,8 +479,7 @@ public:
     std::tuple<Object *, Object *> GetNextPair(Object *key, NyaaCore *N);
 
     NyTable *RawPut(Object *key, Object *value, NyaaCore *N);
-    
-    Object *RawGet(Object *key, NyaaCore *N);
+    Object *RawGet(Object *key, NyaaCore *N) const;
     
     NyTable *Rehash(NyTable *origin, NyaaCore *N);
     
@@ -381,7 +493,6 @@ public:
 
     friend class MapIterator;
     DEF_HEAP_OBJECT(Table);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyTable);
 private:
     enum Kind : int {
         kFree,
@@ -418,6 +529,8 @@ private:
             free_ = i;
         }
     }
+    
+    const Entry *GetSlot(Object *key, NyaaCore *N) const { return At(HashVal(key, N) % n_slots() + 1); }
     
     Entry *GetSlot(Object *key, NyaaCore *N) { return At(HashVal(key, N) % n_slots() + 1); }
     
@@ -500,7 +613,6 @@ public:
     using NyArrayBase<Byte>::elems_;
     
     DEF_HEAP_OBJECT(ByteArray);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyByteArray);
 protected:
     Address data() { return elems_; }
     const Byte *data() const { return elems_; }
@@ -552,7 +664,6 @@ public:
     }
     
     DEF_HEAP_OBJECT(String);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyString);
 private:
     uint32_t header() const { return *reinterpret_cast<const uint32_t *>(data()); }
 }; // class NyString
@@ -576,7 +687,6 @@ public:
     using NyArrayBase<int32_t>::RequiredSize;
 
     DEF_HEAP_OBJECT(Int32Array);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyInt32Array);
 }; // class NyInt32Array
     
     
@@ -604,7 +714,6 @@ public:
     void Iterate(ObjectVisitor *visitor) { visitor->VisitPointers(this, elems_, elems_ + size_); }
 
     DEF_HEAP_OBJECT(Array);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyArray);
 }; // class NyArray
 
     
@@ -676,10 +785,8 @@ public:
     static size_t RequiredSize(uint32_t n_upvals) {
         return sizeof(NyFunction) + n_upvals * sizeof(upvals_[0]);
     }
-    
-    static bool EnsureIs(const NyObject *o, NyaaCore *N);
 
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyFunction);
+    DEF_HEAP_OBJECT(Function);
 private:
     uint8_t n_params_;
     bool vargs_;
@@ -728,7 +835,6 @@ public:
     }
     
     DEF_HEAP_OBJECT(Closure);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyClosure);
 private:
     NyFunction *proto_; // [strong ref]
     Object *upvals_[0]; // [strong ref]
@@ -781,7 +887,6 @@ public:
     }
 
     DEF_HEAP_OBJECT(Delegated);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyDelegated);
 private:
     Kind kind_;
     uint32_t n_upvals_;
@@ -819,12 +924,16 @@ public:
     NyString *ToString(NyaaCore *N);
 
     Object *RawGet(Object *key, NyaaCore *N);
-    
     void RawPut(Object *key, Object *value, NyaaCore *N);
 
     Object *GetField(size_t i, NyaaCore *N);
-
     void SetField(size_t i, Object *value, NyaaCore *N);
+    
+    Object *Add(Object *rhs, NyaaCore *N) const;
+    Object *Sub(Object *rhs, NyaaCore *N) const;
+    Object *Mul(Object *rhs, NyaaCore *N) const;
+    Object *Div(Object *rhs, NyaaCore *N) const;
+    Object *Mod(Object *rhs, NyaaCore *N) const;
     
     void Iterate(ObjectVisitor *visitor) {
         if (!ignore_managed()) {
@@ -844,11 +953,12 @@ public:
     }
 
     DEF_HEAP_OBJECT(UDO);
-    DISALLOW_IMPLICIT_CONSTRUCTORS(NyUDO);
 private:
     static uintptr_t MakeTag(size_t n_fields, bool ignore_managed) {
         return static_cast<uintptr_t>(n_fields << 1 | (ignore_managed ? 0x1 : 0));
     }
+    
+    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) const;
 
     uintptr_t tag_;
     Object *fields_[0];
@@ -925,11 +1035,11 @@ inline const NyUDO *NyObject::ToUDO() const {
     return !IsUDO() ? nullptr : static_cast<const NyUDO *>(this);
 }
     
-inline Object *NyObject::GetMetaFunction(NyString *name, NyaaCore *N) {
+inline Object *NyObject::GetMetaFunction(NyString *name, NyaaCore *N) const{
     return GetMetatable()->RawGet(name, N);
 }
 
-inline NyRunnable *NyObject::GetValidMetaFunction(NyString *name, NyaaCore *N) {
+inline NyRunnable *NyObject::GetValidMetaFunction(NyString *name, NyaaCore *N) const {
     return NyRunnable::Cast(GetMetaFunction(name, N));
 }
 

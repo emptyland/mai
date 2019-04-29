@@ -2,275 +2,17 @@
 #include "base/arenas.h"
 #include "base/arena.h"
 #include "base/slice.h"
-#include "base/bit-ops.h"
+//#include "base/bit-ops.h"
+#include "base/big-number.h"
 #include <cmath>
 
 namespace mai {
 
 namespace core {
-    
-// 0 1 2 3 4 5 6
-//     0 1 2 3 4
-//
-int Compare(View<uint32_t> lhs, View<uint32_t> rhs) {
-    int64_t n = std::max(lhs.n, rhs.n);
-    int64_t d = lhs.n > rhs.n ? lhs.n - rhs.n : rhs.n - lhs.n;
-    for (int64_t i = 0; i < n; ++i) {
-        uint32_t lval = 0;
-        if (n == lhs.n) {
-            lval = lhs.z[i];
-        } else {
-            if (i - d < 0) {
-                lval = 0;
-            } else {
-                lval = lhs.z[i - d];
-            }
-        }
-        
-        uint32_t rval = 0;
-        if (n == rhs.n) {
-            rval = rhs.z[i];
-        } else {
-            if (i - d < 0) {
-                rval = 0;
-            } else {
-                rval = rhs.z[i - d];
-            }
-        }
-        
-        if (lval < rval) {
-            return -1;
-        } else if (lval > rval) {
-            return 1;
-        }
-    }
-    return 0;
-}
-    
-void PrimitiveShl(MutView<uint32_t> vals, int n) {
-    int shift = 32 - n;
-    uint32_t c = vals.z[0];
-    for (size_t i = 0; i < vals.n - 1; ++i) {
-        uint32_t b = c;
-        c = vals.z[i + 1];
-        vals.z[i] = (b << n) | (c >> shift);
-    }
-    vals.z[vals.n - 1] <<= n;
-}
-    
-void PrimitiveShr(MutView<uint32_t> vals, int n) {
-    int shift = 32 - n;
-    uint32_t c = vals.z[vals.n - 1];
-    for (size_t i = vals.n - 1; i > 0; i--) {
-        uint32_t b = c;
-        c = vals.z[i - 1];
-        vals.z[i] = (c << shift) | (b >> n);
-    }
-    vals.z[0] >>= n;
-}
-    
-uint32_t Add(View<uint32_t> lhs, View<uint32_t> rhs, MutView<uint32_t> rv) {
-    int64_t x = lhs.n, y = rhs.n;
-    DCHECK_GE(rv.n, std::max(lhs.n, rhs.n));
-    
-    int64_t restart = rv.n - 1;
-    uint64_t sum = 0, carry = 0;
-    
-    // Add common parts of both numbers
-    while (x > 0 && y > 0) {
-        x--;
-        y--;
-        sum = static_cast<uint64_t>(lhs.z[x])
-            + static_cast<uint64_t>(rhs.z[y]) + carry;
-        rv.z[restart--] = static_cast<uint32_t>(sum);
-        carry = sum >> 32;
-    }
-    
-    // Add remainder of the longer number
-    while (x > 0) {
-        x--;
-        sum = static_cast<uint64_t>(lhs.z[x]) + carry;
-        rv.z[restart--] = static_cast<uint32_t>(sum);
-        carry = sum >> 32;
-    }
-    while (y > 0) {
-        y--;
-        sum = static_cast<uint64_t>(rhs.z[y]) + carry;
-        rv.z[restart--] = static_cast<uint32_t>(sum);
-        carry = sum >> 32;
-    }
-    
-    return static_cast<uint32_t>(carry);
-}
-    
-uint32_t Sub(View<uint32_t> lhs, View<uint32_t> rhs, MutView<uint32_t> rv) {
-    uint64_t diff = 0;
-    int64_t x = lhs.n, y = rhs.n, restart = rv.n - 1;
-    
-    // Subtract common parts of both numbers
-    while (y > 0) {
-        x--;
-        y--;
-        
-        diff = static_cast<uint64_t>(lhs.z[x])
-             - static_cast<uint64_t>(rhs.z[y])
-             - static_cast<uint32_t>(-(diff >> 32));
-        rv.z[restart--] = static_cast<uint32_t>(diff);
-    }
-    
-    // Subtract remainder of longer number
-    while (x > 0) {
-        x--;
-        diff = static_cast<uint64_t>(lhs.z[x])
-             - static_cast<uint32_t>(-(diff >> 32));
-        rv.z[restart--] = static_cast<uint32_t>(diff);
-    }
-    
-    return static_cast<uint32_t>(diff);
-}
-    
-uint32_t BasicMul(View<uint32_t> x, View<uint32_t> y, MutView<uint32_t> rv) {
-    int64_t xlen = x.n, ylen = y.n;
-    DCHECK_EQ(rv.n, xlen + ylen);
-    
-    // The first iteration is hoisted out of the loop to avoid extra add
-    uint64_t carry = 0;
-    for (int64_t j = ylen - 1, k = ylen + xlen - 1; j >= 0; j--, k--) {
-        uint64_t product = static_cast<uint64_t>(y.z[j]) *
-                           static_cast<uint64_t>(x.z[xlen - 1]) + carry;
-        rv.z[k] = static_cast<uint32_t>(product);
-        carry = product >> 32;
-    }
-    rv.z[xlen - 1] = static_cast<uint32_t>(carry);
-    
-    // Perform the multiplication word by word
-    for (int64_t i = xlen - 2; i >= 0; i--) {
-        carry = 0;
-        for (int64_t j = ylen - 1, k = ylen + i; j >= 0; j--, k--) {
-            uint64_t product = static_cast<uint64_t>(y.z[j]) *
-                               static_cast<uint64_t>(x.z[i]) +
-                               static_cast<uint64_t>(rv.z[k]) + carry;
-            rv.z[k] = static_cast<uint32_t>(product);
-            carry = product >> 32;
-        }
-        rv.z[i] = static_cast<uint32_t>(carry);
-    }
 
-    return static_cast<uint32_t>(carry);
-}
-    
-void DivWord(uint64_t n, uint64_t d, uint32_t rv[2]) {
-    if (d == 1) {
-        rv[0] = static_cast<uint32_t>(n);
-        rv[1] = 0;
-        return;
-    }
-    
-    uint64_t q = (n >> 1) / (d >> 1);
-    uint64_t r = n - q * d;
-    
-    while (r < 0) {
-        r += d;
-        q--;
-    }
-    
-    rv[0] = static_cast<uint32_t>(q);
-    rv[1] = static_cast<uint32_t>(r);
-}
-
-uint32_t MulSub(MutView<uint32_t> q, MutView<uint32_t> a, uint32_t x,
-                int64_t offset) {
-    uint64_t xl = static_cast<uint64_t>(x), carry = 0;
-    offset += a.n;
-    
-    for (int64_t j = a.n - 1; j >= 0; j--) {
-        DCHECK_LT(j, a.n);
-        uint64_t product = static_cast<uint64_t>(a.z[j]) * xl + carry;
-        
-        DCHECK_LT(offset, q.n);
-        uint64_t diff = q.z[offset] - product;
-        
-        DCHECK_GE(offset, 0);
-        q.z[offset--] = static_cast<uint32_t>(diff);
-        carry = (product >> 32) +
-            (static_cast<int64_t>(diff) > static_cast<int64_t>(~static_cast<uint32_t>(product)) ? 1 : 0);
-    }
-    return static_cast<uint32_t>(carry);
-}
-
-uint32_t DivAdd(MutView<uint32_t> a, MutView<uint32_t> r, size_t offset) {
-    uint64_t carry = 0;
-    
-    for (int64_t j = a.n - 1; j >= 0; j--) {
-        DCHECK_LT(j, a.n);
-        DCHECK_LT(j + offset, r.n);
-        uint64_t sum = static_cast<uint64_t>(a.z[j]) +
-                       static_cast<uint64_t>(r.z[j + offset]) + carry;
-        r.z[j + offset] = static_cast<uint32_t>(sum);
-        carry = sum >> 32;
-    }
-
-    return static_cast<uint32_t>(carry);
-}
-    
-uint32_t DivWord(View<uint32_t> lhs, uint32_t rhs, MutView<uint32_t> rv) {
-    uint64_t divisor = static_cast<uint64_t>(rhs);
-    if (lhs.n == 1) {
-        uint64_t dividend = static_cast<uint64_t>(lhs.z[0]);
-        uint32_t q = static_cast<uint32_t>(dividend / divisor);
-        uint32_t r = static_cast<uint32_t>(dividend - q * divisor);
-        
-        for (size_t i = 0; i < rv.n; ++i) {
-            rv.z[i] = 0;
-        }
-        rv.z[0] = q;
-        return r;
-    }
-    
-    int shift = base::Bits::CountLeadingZeros32(rhs);
-    uint32_t r = lhs.z[0];
-    uint64_t rem = static_cast<uint64_t>(r);
-    if (rem < divisor) {
-        rv.z[0] = 0;
-    } else {
-        uint32_t d = static_cast<uint32_t>(rem / divisor);
-        rv.z[0] = d;
-        r = static_cast<uint32_t>(rem - (d * divisor));
-        rem = static_cast<uint64_t>(r);
-    }
-    
-    uint32_t qword[2] = {0, 0};
-    for (int64_t i = 1; i < lhs.n; ++i) {
-        int64_t estimate = (rem << 32) | static_cast<int64_t>(lhs.z[i]);
-        if (estimate >= 0) {
-            qword[0] = static_cast<uint32_t>(estimate / divisor);
-            qword[1] = static_cast<uint32_t>(estimate - qword[0] * divisor);
-        } else {
-            DivWord(estimate, divisor, qword);
-        }
-        rv.z[i] = qword[0];
-        r = qword[1];
-        rem = static_cast<uint64_t>(r);
-    }
-
-    return shift > 0 ? r % divisor : r;
-}
-    
-static inline uint32_t Char2Digital(int c) {
-    uint32_t n = 0;
-    if (c >= '0' && c <= '9') {
-        n = c - '0';
-    } else if (c >= 'a' && c <= 'f') {
-        n = 10 + (c - 'a');
-    } else if (c >= 'A' && c <= 'F') {
-        n = 10 + (c - 'A');
-    } else {
-        DLOG(FATAL) << "Noreached!";
-    }
-    return n;
-}
-    
 namespace v2 {
+    
+using big = base::Big;
     
 ////////////////////////////////////////////////////////////////////////////////
 /// class Decimal
@@ -444,7 +186,7 @@ Decimal *Decimal::Shl(int n, base::Arena *arena) {
     
     // If shift can be done without moving words, do so
     if (n <= 32 - hi_word_bits) {
-        core::PrimitiveShl(segment_mut_view(), n);
+        big::PrimitiveShl(segment_mut_view(), n);
         return this;
     }
     
@@ -488,9 +230,9 @@ Decimal *Decimal::Shl(int n, base::Arena *arena) {
         return rv;
     }
     if (n_bits <= 32 - hi_word_bits) {
-        core::PrimitiveShl(rv->segment_mut_view(), n_bits);
+        big::PrimitiveShl(rv->segment_mut_view(), n_bits);
     } else {
-        core::PrimitiveShr(rv->segment_mut_view(), 32 - n_bits);
+        big::PrimitiveShr(rv->segment_mut_view(), 32 - n_bits);
     }
     return rv;
 }
@@ -512,12 +254,12 @@ Decimal *Decimal::Shr(int n, base::Arena *arena) {
     }
     int hi_word_bits = 32 - base::Bits::CountLeadingZeros32(segment(0));
     if (n_bits >= hi_word_bits) {
-        core::PrimitiveShl(segment_mut_view(), 32 - n_bits);
+        big::PrimitiveShl(segment_mut_view(), 32 - n_bits);
         ::memmove(segments() + 1, segments(),
                   (segments_size() - 1) * sizeof(uint32_t));
         offset_++;
     } else {
-        core::PrimitiveShr(segment_mut_view(), n_bits);
+        big::PrimitiveShr(segment_mut_view(), n_bits);
     }
     return this;
 }
@@ -573,15 +315,15 @@ Decimal *Decimal::Sub(const Decimal *rhs, base::Arena *arena) const {
     if (negative() != rhs->negative()) {
         // -lhs -   rhs  = -(lhs + rhs)
         //  lhs - (-rhs) =   lhs + rhs
-        core::Add(segment_view(), rhs->segment_view(), rv->segment_mut_view());
+        big::Add(segment_view(), rhs->segment_view(), rv->segment_mut_view());
     } else {
         //   lhs  -   rhs  = lhs - rhs = -(rhs - lhs)
         // (-lhs) - (-rhs) = rhs - lhs = -(lhs - rhs)
         if (AbsCompare(this, rhs) >= 0) {
-            core::Sub(segment_view(), rhs->segment_view(), rv->segment_mut_view());
+            big::Sub(segment_view(), rhs->segment_view(), rv->segment_mut_view());
         } else {
             neg = !neg;
-            core::Sub(rhs->segment_view(), segment_view(), rv->segment_mut_view());
+            big::Sub(rhs->segment_view(), segment_view(), rv->segment_mut_view());
         }
     }
     rv->set_negative_and_exp(neg, exp());
@@ -608,7 +350,7 @@ Decimal *Decimal::Mul(const Decimal *rhs, base::Arena *arena) const {
     
     Decimal *rv = NewUninitialized(segments_size() + rhs->segments_size(), arena);
     rv->Fill(0);
-    BasicMul(segment_view(), rhs->segment_view(), rv->segment_mut_view());
+    big::BasicMul(segment_view(), rhs->segment_view(), rv->segment_mut_view());
     rv->Normalize();
     if (exp() > 0) {
         Decimal *scaled = nullptr;
@@ -684,7 +426,7 @@ std::tuple<Decimal *, Decimal *> Decimal::Div(const Decimal *rhs, base::Arena *a
         Decimal *scaled = NewUninitialized(segments_size() + s->segments_size(),
                                            &scoped_buf);
         scaled->Fill(0);
-        core::BasicMul(segment_view(), s->segment_view(),
+        big::BasicMul(segment_view(), s->segment_view(),
                       scaled->segment_mut_view());
         lhs = scaled;
     }
@@ -712,7 +454,7 @@ Decimal *Decimal::Sqrt(base::Arena *arena) const {
     if (n->exp() & 0x1 /*n->exp() % 2 == 1*/) {
         Decimal *tmp = NewUninitialized(segments_size() + 1, &scoped_buf);
         tmp->Fill();
-        core::BasicMul(n->segment_view(), GetFastPow10(1)->segment_view(),
+        big::BasicMul(n->segment_view(), GetFastPow10(1)->segment_view(),
                       tmp->segment_mut_view());
         tmp->set_exp(exp() + 1);
         n = tmp;
@@ -725,7 +467,7 @@ Decimal *Decimal::Sqrt(base::Arena *arena) const {
         Decimal *t2 = y->Add(t1, &scoped_buf);
 
         Decimal *x = Decimal::NewUninitialized(t2->segments_size(), &scoped_buf);
-        core::DivWord(t2->segment_view(), 2, x->segment_mut_view());
+        big::DivWord(t2->segment_view(), 2, x->segment_mut_view());
 
         if (AbsCompare(x, y) == 0) {
             //y = x;
@@ -773,7 +515,7 @@ std::string Decimal::ToString(int radix) const {
     
     std::string buf;
     while (!p->zero()) {
-        uint32_t m = DivWord(p->segment_view(), radix, q->segment_mut_view());
+        uint32_t m = big::DivWord(p->segment_view(), radix, q->segment_mut_view());
         DCHECK_LT(m, radix);
         buf.insert(buf.begin(), kRadixDigitals[m]);
         ::memcpy(p->segments(), q->segments(),
@@ -868,7 +610,7 @@ double Decimal::ToF64() const {
     double rv = 0;
     int i = 0;
     while (!p->zero()) {
-        uint32_t m = DivWord(p->segment_view(), 10, q->segment_mut_view());
+        uint32_t m = big::DivWord(p->segment_view(), 10, q->segment_mut_view());
         DCHECK_LT(m, 10);
         if (i < exp()) {
             rv += (1.0f / kFloatingExps[exp() - i]) * m;
@@ -895,7 +637,7 @@ Decimal *Decimal::Extend(int new_exp, base::Arena *arena) const {
     Decimal *rv = NewUninitialized(segments_size() + scale->segments_size(),
                                    arena);
     rv->Fill();
-    core::BasicMul(segment_view(), scale->segment_view(), rv->segment_mut_view());
+    big::BasicMul(segment_view(), scale->segment_view(), rv->segment_mut_view());
     rv->set_negative_and_exp(negative(), new_exp);
     rv->Normalize();
     return rv;
@@ -997,7 +739,7 @@ Decimal *Decimal::NewHexLiteral(const char *s, size_t n, base::Arena *arena) {
     Decimal *rv = NewUninitialized(required_segments, arena);
     int64_t i = n, bit = 0;
     while (i-- > 0) {
-        uint32_t n = core::Char2Digital(s[i]);
+        uint32_t n = big::Char2Digital(s[i]);
         size_t j = rv->segments_size() - (bit >> 5) - 1;
         if ((bit & 0x1f) == 0) {
             rv->set_segment(j, 0);
@@ -1072,7 +814,7 @@ Decimal *Decimal::NewExpLiteral(const char *s, size_t n, base::Arena *arena) {
         const Decimal *s = GetFastPow10(e);
         Decimal *scaled = NewUninitialized(
                                            rv->segments_size() + s->segments_size(), arena);
-        core::BasicMul(rv->segment_view(), s->segment_view(),
+        big::BasicMul(rv->segment_view(), s->segment_view(),
                        scaled->segment_mut_view());
         scaled->set_negative_and_exp(negative, rv->exp());
         rv = scaled;
@@ -1087,7 +829,7 @@ Decimal *Decimal::NewExpLiteral(const char *s, size_t n, base::Arena *arena) {
     DCHECK_GE(radix, kMinRadix);
     DCHECK_LE(radix, kMaxRadix);
 
-    size_t required_bits = GetNumberOfBits(n, radix);
+    size_t required_bits = big::GetNumberOfBits(n, radix);
     size_t required_segments = (required_bits + 31) / 32 + 1;
     Decimal *rv = NewUninitialized(required_segments, arena);
     rv->Fill();
@@ -1109,11 +851,11 @@ Decimal *Decimal::NewExpLiteral(const char *s, size_t n, base::Arena *arena) {
 
         tmp->Normalize();
         rv->Resize(tmp->segments_size() + 1);
-        core::BasicMul(tmp->segment_view(), MakeView(&scale, 1),
+        big::BasicMul(tmp->segment_view(), MakeView(&scale, 1),
                       rv->segment_mut_view());
     
-        const uint32_t elem = core::Char2Digital(s[i]);
-        core::Add(rv->segment_view(), MakeView(&elem, 1),
+        const uint32_t elem = big::Char2Digital(s[i]);
+        big::Add(rv->segment_view(), MakeView(&elem, 1),
                  rv->segment_mut_view());
         
         tmp->set_offset(rv->offset());
@@ -1128,7 +870,7 @@ Decimal *Decimal::NewExpLiteral(const char *s, size_t n, base::Arena *arena) {
 /*static*/
 int Decimal::AbsCompare(const Decimal *lhs, const Decimal *rhs) {
     DCHECK_EQ(lhs->exp(), rhs->exp());
-    return core::Compare(lhs->segment_view(), rhs->segment_view());
+    return big::Compare(lhs->segment_view(), rhs->segment_view());
 }
     
 /*static*/ Decimal *Decimal::NewP64(uint64_t val, bool neg, int exp, size_t reserved,
@@ -1193,7 +935,7 @@ Decimal::DivRaw(const Decimal *lhs, const Decimal *rhs, base::Arena *arena) {
     Decimal *rv, *re;
     if (rhs->segments_size() == 1) {
         rv = NewUninitialized(lhs->segments_size(), arena);
-        auto re_val = core::DivWord(lhs->segment_view(), rhs->segment(0),
+        auto re_val = big::DivWord(lhs->segment_view(), rhs->segment(0),
                                    rv->segment_mut_view());
         re = NewU64(re_val, arena);
         
@@ -1218,15 +960,15 @@ Decimal::DivRaw(const Decimal *lhs, const Decimal *rhs, base::Arena *arena) {
     if (lhs->negative() == rhs->negative()) {
         //   lhs  +   rhs  =   lhs + rhs
         // (-lhs) + (-rhs) = -(lhs + rhs)
-        core::Add(lhs->segment_view(), rhs->segment_view(), rv->segment_mut_view());
+        big::Add(lhs->segment_view(), rhs->segment_view(), rv->segment_mut_view());
     } else {
         //   lhs  + (-rhs) = lhs - rhs = -(rhs - lhs)
         // (-lhs) +   rhs  = rhs - lhs = -(lhs - rhs)
         if (AbsCompare(lhs, rhs) >= 0) {
-            core::Sub(lhs->segment_view(), rhs->segment_view(), rv->segment_mut_view());
+            big::Sub(lhs->segment_view(), rhs->segment_view(), rv->segment_mut_view());
         } else {
             neg = !neg;
-            core::Sub(rhs->segment_view(), lhs->segment_view(), rv->segment_mut_view());
+            big::Sub(rhs->segment_view(), lhs->segment_view(), rv->segment_mut_view());
         }
     }
     rv->set_negative_and_exp(neg, lhs->exp());
@@ -1251,7 +993,7 @@ Decimal *Decimal::DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,
     int shift = base::Bits::CountLeadingZeros32(divisor.z[0]);
     if (shift > 0) {
         // First shift will not grow array
-        core::PrimitiveShl(divisor, shift);
+        big::PrimitiveShl(divisor, shift);
         // But this one might
         re = re->Shl(shift, arena);
     }
@@ -1291,7 +1033,7 @@ Decimal *Decimal::DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,
                 qhat = static_cast<uint32_t>(chunk / dh);
                 qrem = static_cast<uint32_t>(chunk - (qhat * dh));
             } else {
-                core::DivWord(chunk, dh, qword);
+                big::DivWord(chunk, dh, qword);
                 qhat = qword[0];
                 qrem = qword[1];
             }
@@ -1321,12 +1063,12 @@ Decimal *Decimal::DivMagnitude(MutView<uint32_t> divisor, Decimal *rv,
         
         // D4 Multiply and subtract
         re->set_segment(j, 0);
-        uint32_t borrow = core::MulSub(re->segment_mut_view(), divisor , qhat, j);
+        uint32_t borrow = big::MulSub(re->segment_mut_view(), divisor , qhat, j);
         
         // D5 Test remainder
         if (borrow + 0x80000000u > nh2) {
             // D6 Add back
-            DivAdd(divisor, re->segment_mut_view(), j + 1);
+            big::DivAdd(divisor, re->segment_mut_view(), j + 1);
             qhat--;
         }
         
