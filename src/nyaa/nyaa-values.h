@@ -66,7 +66,7 @@ public:
         DCHECK(IsObject());
         return reinterpret_cast<NyObject *>(word() & ~0x3);
     }
-    
+
     bool IsNil() const { return this == kNil; }
     
     bool IsTrue() const { return !IsNil() && !IsFalse(); }
@@ -81,7 +81,9 @@ public:
 
     uint32_t HashVal(NyaaCore *N) const;
     
-    static bool Equals(Object *lhs, Object *rhs, NyaaCore *N);
+    static bool Equal(Object *lhs, Object *rhs, NyaaCore *N);
+    static bool LessThan(Object *lhs, Object *rhs, NyaaCore *N);
+    static bool LessEqual(Object *lhs, Object *rhs, NyaaCore *N);
     
     static Object *Add(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Sub(Object *lhs, Object *rhs, NyaaCore *N);
@@ -171,7 +173,9 @@ public:
     // Real size in heap.
     size_t PlacedSize() const;
     
-    bool Equals(Object *rhs, NyaaCore *N);
+    bool Equal(Object *rhs, NyaaCore *N);
+    bool LessThan(Object *rhs, NyaaCore *N);
+    bool LessEqual(Object *rhs, NyaaCore *N);
     
     Object *Add(Object *rhs, NyaaCore *N);
     Object *Sub(Object *rhs, NyaaCore *N);
@@ -342,6 +346,16 @@ public:
         return sizeof(NyInt) + sizeof(uint32_t) * (capacity <= 2 ? 0 : capacity);
     }
     
+    static Object *UnboxIfNeed(NyInt *ob) {
+        if (ob->segments_size() <= 2) {
+            auto val = ob->ToI64();
+            if (val >= NySmi::kMinValue && val <= NySmi::kMaxValue) {
+                return NySmi::New(val);
+            }
+        }
+        return ob;
+    }
+    
     static NyInt *Parse(const char *s, size_t n, ObjectFactory *factory);
     static NyInt *ParseOctLiteral(const char *s, size_t n, ObjectFactory *factory);
     static NyInt *ParseHexLiteral(const char *s, size_t n, ObjectFactory *factory);
@@ -440,6 +454,10 @@ public:
 
     void RawPut(Object *key, Object *value, NyaaCore *N);
     Object *RawGet(Object *key, NyaaCore *N) const;
+    
+    bool Equal(Object *rhs, NyaaCore *N) const;
+    bool LessThan(Object *rhs, NyaaCore *N) const;
+    bool LessEqual(Object *rhs, NyaaCore *N) const;
 
     Object *Add(Object *rhs, NyaaCore *N) const;
     Object *Sub(Object *rhs, NyaaCore *N) const;
@@ -928,6 +946,10 @@ public:
 
     Object *GetField(size_t i, NyaaCore *N);
     void SetField(size_t i, Object *value, NyaaCore *N);
+    
+    bool Equal(Object *rhs, NyaaCore *N) const;
+    bool LessThan(Object *rhs, NyaaCore *N) const;
+    bool LessEqual(Object *rhs, NyaaCore *N) const;
     
     Object *Add(Object *rhs, NyaaCore *N) const;
     Object *Sub(Object *rhs, NyaaCore *N) const;

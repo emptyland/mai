@@ -833,6 +833,9 @@ public:
             case Operator::kDiv:
                 builder()->Div(ret, operands[0], operands[1], node->line());
                 break;
+            case Operator::kMod:
+                builder()->Mod(ret, operands[0], operands[1], node->line());
+                break;
             case Operator::kEQ:
                 builder()->Equal(ret, operands[0], operands[1], node->line());
                 break;
@@ -858,6 +861,37 @@ public:
         for (int64_t i = operands.size() - 1; i >= 0; --i) {
             fun_scope_->FreeVar(operands[i]);
         }
+        return ret;
+    }
+    
+    virtual IVal VisitLogicSwitch(ast::LogicSwitch *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+
+        IVal ret = fun_scope_->NewLocal();
+        IVal lhs = node->lhs()->Accept(this, &ix);
+        IVal rhs = node->rhs()->Accept(this, &ix);
+        switch (node->op()) {
+            case Operator::kAnd: {
+                int br1 = builder()->GetCodeSize(ret.Encode(), rhs.Encode());
+                br1 += builder()->GetCodeSize(br1) + 1;
+                builder()->TestSet(ret, lhs, 1/*neg*/, node->line());
+                builder()->Jump(br1, node->line());
+                builder()->Move(ret, rhs, node->line());
+            } break;
+            case Operator::kOr: {
+                int br1 = builder()->GetCodeSize(ret.Encode(), rhs.Encode());
+                br1 += builder()->GetCodeSize(br1) + 1;
+                builder()->TestSet(ret, lhs, 0/*neg*/, node->line());
+                builder()->Jump(br1, node->line());
+                builder()->Move(ret, rhs, node->line());
+            } break;
+            default:
+                DLOG(FATAL) << "Noreached:" << node->op();
+                break;
+        }
+        fun_scope_->FreeVar(rhs);
+        fun_scope_->FreeVar(lhs);
         return ret;
     }
     

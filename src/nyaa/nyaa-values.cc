@@ -27,6 +27,10 @@ static const char kRadixDigitals[] = "0123456789abcdef";
 
 /*static*/ Object *const Object::kNil = nullptr;
     
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class Object:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    
 bool Object::IsKey(NyaaCore *N) const {
     if (IsSmi()) {
         return true;
@@ -62,21 +66,55 @@ uint32_t Object::HashVal(NyaaCore *N) const {
     return 0;
 }
     
-/*static*/ bool Object::Equals(Object *lhs, Object *rhs, NyaaCore *N) {
-    if (lhs == rhs) {
-        return true;
-    }
+/*static*/ bool Object::Equal(Object *lhs, Object *rhs, NyaaCore *N) {
     if (lhs == kNil || rhs == kNil) {
         return false;
+    }
+    if (lhs == rhs) {
+        return true;
     }
     if (lhs->IsSmi()) {
         if (rhs->IsSmi()) {
             return lhs->ToSmi() == rhs->ToSmi();
         } else {
-            return rhs->ToHeapObject()->Equals(lhs, N);
+            return rhs->ToHeapObject()->Equal(lhs, N);
         }
     }
-    return lhs->ToHeapObject()->Equals(rhs, N);
+    return lhs->ToHeapObject()->Equal(rhs, N);
+}
+
+/*static*/ bool Object::LessThan(Object *lhs, Object *rhs, NyaaCore *N) {
+    if (lhs == kNil || rhs == kNil) {
+        return false;
+    }
+    if (lhs == rhs) {
+        return false;
+    }
+    if (lhs->IsSmi()) {
+        if (rhs->IsSmi()) {
+            return lhs->ToSmi() < rhs->ToSmi();
+        } else {
+            return rhs->ToHeapObject()->LessThan(lhs, N);
+        }
+    }
+    return lhs->ToHeapObject()->LessThan(rhs, N);
+}
+
+/*static*/ bool Object::LessEqual(Object *lhs, Object *rhs, NyaaCore *N) {
+    if (lhs == kNil || rhs == kNil) {
+        return false;
+    }
+    if (lhs == rhs) {
+        return true;
+    }
+    if (lhs->IsSmi()) {
+        if (rhs->IsSmi()) {
+            return lhs->ToSmi() <= rhs->ToSmi();
+        } else {
+            return rhs->ToHeapObject()->LessEqual(lhs, N);
+        }
+    }
+    return lhs->ToHeapObject()->LessEqual(rhs, N);
 }
     
 bool Object::IsFalse() const {
@@ -132,11 +170,17 @@ NyString *Object::ToString(NyaaCore *N) {
     return ToHeapObject()->ToString(N);
 }
     
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NySmi:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    
 /*static*/ Object *NySmi::Add(Object *lhs, Object *rhs, NyaaCore *N) {
     DCHECK(lhs->IsSmi());
     auto lval = lhs->ToSmi();
     if (rhs->IsSmi()) {
         auto rval = rhs->ToSmi();
+        // kMinValue <= lval + rval <= kMaxValue
+        // lval <= kMaxValue - rval
         if (((rval > 0) && (lval > (kMaxValue - rval))) ||
             ((rval < 0) && (lval < (kMinValue - rval)))) {
             base::ScopedArena scoped_buf;
@@ -153,8 +197,12 @@ NyString *Object::ToString(NyaaCore *N) {
     auto lval = lhs->ToSmi();
     if (rhs->IsSmi()) {
         auto rval = rhs->ToSmi();
-        if (((rval > 0) && (lval > (kMaxValue - rval))) ||
-            ((rval < 0) && (lval < (kMinValue - rval)))) {
+        // kMinValue <= lval - rval <= kMaxValue
+        // lval - rval < kMinValue -> lval < kMinValue + rval
+        // lval - rval > kMaxValue -> lval > kMaxValue + rval
+        //
+        if (((rval > 0) && (lval < (kMinValue + rval))) ||
+            ((rval < 0) && (lval > (kMaxValue + rval)))) {
             base::ScopedArena scoped_buf;
             NyInt *ll = NyInt::NewI64(lval, &scoped_buf);
             return ll->Sub(rval, N);
@@ -267,6 +315,10 @@ NyString *Object::ToString(NyaaCore *N) {
     N->Raisef("smi attempt to call nil `__mod__' meta function.");
     return nullptr;
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyObject:
+////////////////////////////////////////////////////////////////////////////////////////////////////
     
 void NyObject::SetMetatable(NyMap *mt, NyaaCore *N) {
     if (mt == Object::kNil) {
@@ -282,7 +334,7 @@ void NyObject::SetMetatable(NyMap *mt, NyaaCore *N) {
 #endif
 }
 
-bool NyObject::Equals(Object *rhs, NyaaCore *N) {
+bool NyObject::Equal(Object *rhs, NyaaCore *N) {
     if (rhs == nullptr) {
         return false;
     }
@@ -302,7 +354,7 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) {
             if (rhs->IsSmi()) {
                 return lval->ToI64() == rhs->ToSmi();
             } else if (NyInt *rval = NyInt::Cast(rhs)) {
-                return NyInt::Compare(lval, rval);
+                return NyInt::Compare(lval, rval) == 0;
             } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
                 return lval->ToF64() == rval->value();
             } else {
@@ -323,19 +375,126 @@ bool NyObject::Equals(Object *rhs, NyaaCore *N) {
             }
         } break;
             
-        case kTypeMap: {
-            // TODO:
-        } break;
+        case kTypeMap:
+            return ToMap()->Equal(rhs, N);
   
-        default: {
-            // TODO:
-            DCHECK_GE(GetMetatable()->kid(), kUdoKidBegin);
-            //auto lval = ToUDO();
-            
-        } break;
+        default:
+            if (GetMetatable()->kid() > kUdoKidBegin) {
+                return ToUDO()->Equal(rhs, N);
+            }
+            break;
     }
 
-    DLOG(FATAL) << "Noreached!";
+    N->Raisef("type can not be compare.");
+    return false;
+}
+
+bool NyObject::LessThan(Object *rhs, NyaaCore *N) {
+    if (rhs == nullptr) {
+        return false;
+    }
+    
+    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+        case kTypeString: {
+            NyString *lval = ToString();
+            NyString *rval = NyString::Cast(rhs);
+            if (!rval) {
+                return false;
+            }
+            return lval->Compare(rval) < 0;
+        } break;
+            
+        case kTypeInt: {
+            auto lval = ToInt();
+            if (rhs->IsSmi()) {
+                return lval->ToI64() < rhs->ToSmi();
+            } else if (NyInt *rval = NyInt::Cast(rhs)) {
+                return NyInt::Compare(lval, rval) < 0;
+            } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
+                return lval->ToF64() < rval->value();
+            } else {
+                return false;
+            }
+        } break;
+            
+        case kTypeFloat64: {
+            auto lval = ToFloat64()->value();
+            if (rhs->IsSmi()) {
+                return lval < rhs->ToSmi();
+            } else if (NyInt *rval = NyInt::Cast(rhs)) {
+                return lval < rval->ToF64();
+            } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
+                return lval < rval->value();
+            } else {
+                return false;
+            }
+        } break;
+            
+        case kTypeMap:
+            return ToMap()->LessThan(rhs, N);
+            
+        default:
+            if (GetMetatable()->kid() > kUdoKidBegin) {
+                return ToUDO()->LessThan(rhs, N);
+            }
+            break;
+    }
+    
+    N->Raisef("type can not be compare.");
+    return false;
+}
+
+bool NyObject::LessEqual(Object *rhs, NyaaCore *N) {
+    if (rhs == nullptr) {
+        return false;
+    }
+    
+    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+        case kTypeString: {
+            NyString *lval = ToString();
+            NyString *rval = NyString::Cast(rhs);
+            if (!rval) {
+                return false;
+            }
+            return lval->Compare(rval) <= 0;
+        } break;
+            
+        case kTypeInt: {
+            auto lval = ToInt();
+            if (rhs->IsSmi()) {
+                return lval->ToI64() <= rhs->ToSmi();
+            } else if (NyInt *rval = NyInt::Cast(rhs)) {
+                return NyInt::Compare(lval, rval) <= 0;
+            } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
+                return lval->ToF64() <= rval->value();
+            } else {
+                return false;
+            }
+        } break;
+            
+        case kTypeFloat64: {
+            auto lval = ToFloat64()->value();
+            if (rhs->IsSmi()) {
+                return lval <= rhs->ToSmi();
+            } else if (NyInt *rval = NyInt::Cast(rhs)) {
+                return lval <= rval->ToF64();
+            } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
+                return lval <= rval->value();
+            } else {
+                return false;
+            }
+        } break;
+            
+        case kTypeMap:
+            return ToMap()->LessEqual(rhs, N);
+            
+        default:
+            if (GetMetatable()->kid() > kUdoKidBegin) {
+                return ToUDO()->LessEqual(rhs, N);
+            }
+            break;
+    }
+    N->Raisef("type can not be compare.");
     return false;
 }
     
@@ -433,6 +592,10 @@ NyString *NyObject::ToString(NyaaCore *N) {
     return nullptr;
 }
     
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyFloat64:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    
 template<class T>
 static inline Object *ProcessFlot64Arith(const NyFloat64 *lhs, Object *rhs, const char *literal,
                                          T callback,  NyaaCore *N) {
@@ -480,6 +643,10 @@ Object *NyFloat64::Mod(Object *rhs, NyaaCore *N) const {
     return ProcessFlot64Arith(this, rhs, "%",
                               [](f64_t lval, f64_t rval) { return ::fmod(lval, rval); }, N);
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyInt:
+////////////////////////////////////////////////////////////////////////////////////////////////////
     
 NyInt::NyInt(uint32_t max_len)
     : capacity_(max_len)
@@ -590,12 +757,12 @@ NyInt *NyInt::Shr(int n, NyaaCore *N) {
 
 Object *NyInt::Add(Object *rhs, NyaaCore *N) const {
     if (rhs->IsSmi()) {
-        return Add(rhs->ToSmi(), N);
+        return UnboxIfNeed(Add(rhs->ToSmi(), N));
     }
     NyObject *ob = rhs->ToHeapObject();
     switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
         case kTypeInt:
-            return Add(NyInt::Cast(ob), N);
+            return UnboxIfNeed(Add(NyInt::Cast(ob), N));
         case kTypeFloat64:
             return N->factory()->NewFloat64(ToF64() + NyFloat64::Cast(ob)->value());
         default:
@@ -607,12 +774,12 @@ Object *NyInt::Add(Object *rhs, NyaaCore *N) const {
 
 Object *NyInt::Sub(Object *rhs, NyaaCore *N) const {
     if (rhs->IsSmi()) {
-        return Sub(rhs->ToSmi(), N);
+        return UnboxIfNeed(Sub(rhs->ToSmi(), N));
     }
     NyObject *ob = rhs->ToHeapObject();
     switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
         case kTypeInt:
-            return Sub(NyInt::Cast(ob), N);
+            return UnboxIfNeed(Sub(NyInt::Cast(ob), N));
         case kTypeFloat64:
             return N->factory()->NewFloat64(ToF64() - NyFloat64::Cast(ob)->value());
         default:
@@ -624,12 +791,12 @@ Object *NyInt::Sub(Object *rhs, NyaaCore *N) const {
     
 Object *NyInt::Mul(Object *rhs, NyaaCore *N) const {
     if (rhs->IsSmi()) {
-        return Mul(rhs->ToSmi(), N);
+        return UnboxIfNeed(Mul(rhs->ToSmi(), N));
     }
     NyObject *ob = rhs->ToHeapObject();
     switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
         case kTypeInt:
-            return Mul(NyInt::Cast(ob), N);
+            return UnboxIfNeed(Mul(NyInt::Cast(ob), N));
         case kTypeFloat64:
             return N->factory()->NewFloat64(ToF64() * NyFloat64::Cast(ob)->value());
         default:
@@ -646,13 +813,13 @@ Object *NyInt::Div(Object *rhs, NyaaCore *N) const {
             N->Raisef("div zero.");
             return nullptr;
         }
-        return Div(rhs->ToSmi(), N);
+        return UnboxIfNeed(Div(rhs->ToSmi(), N));
     }
     
     NyObject *ob = rhs->ToHeapObject();
     switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
         case kTypeInt:
-            return Div(NyInt::Cast(rhs), N);
+            return UnboxIfNeed(Div(NyInt::Cast(rhs), N));
         case kTypeFloat64:
             return N->factory()->NewFloat64(ToF64())->Div(rhs, N);
         default:
@@ -668,13 +835,13 @@ Object *NyInt::Mod(Object *rhs, NyaaCore *N) const {
             N->Raisef("div zero.");
             return nullptr;
         }
-        return Mod(rhs->ToSmi(), N);
+        return UnboxIfNeed(Mod(rhs->ToSmi(), N));
     }
     
     NyObject *ob = rhs->ToHeapObject();
     switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
         case kTypeInt:
-            return Mod(NyInt::Cast(rhs), N);
+            return UnboxIfNeed(Mod(NyInt::Cast(rhs), N));
         case kTypeFloat64:
             return N->factory()->NewFloat64(ToF64())->Mod(rhs, N);
         default:
@@ -1204,6 +1371,10 @@ void NyInt::Resize(size_t n) {
         offset_ -= (n - segments_size());
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyMap:
+////////////////////////////////////////////////////////////////////////////////////////////////////
     
 NyMap::NyMap(NyObject *maybe, uint64_t kid, bool linear, NyaaCore *N)
     : generic_(maybe)
@@ -1302,6 +1473,18 @@ Object *NyMap::RawGet(Object *key, NyaaCore *N) const {
     return table_->RawGet(key, N);
 }
     
+bool NyMap::Equal(Object *rhs, NyaaCore *N) const {
+    return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerEq, N)->IsTrue();
+}
+
+bool NyMap::LessThan(Object *rhs, NyaaCore *N) const {
+    return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerLt, N)->IsTrue();
+}
+
+bool NyMap::LessEqual(Object *rhs, NyaaCore *N) const {
+    return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerLe, N)->IsTrue();
+}
+    
 Object *NyMap::Add(Object *rhs, NyaaCore *N) const {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerAdd, N);
 }
@@ -1333,7 +1516,11 @@ Object *NyMap::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *
     N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
     return nullptr;
 }
-    
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyTable:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 NyTable::NyTable(uint32_t seed, uint32_t capacity)
     : seed_(seed)
     , size_(0)
@@ -1372,7 +1559,7 @@ std::tuple<Object *, Object *> NyTable::GetNextPair(Object *key, NyaaCore *N) {
         case kSlot: {
             Entry *p = slot;
             while (p) {
-                if (Object::Equals(key, p->key, N)) {
+                if (Object::Equal(key, p->key, N)) {
                     break;
                 }
                 p = At(p->next);
@@ -1430,7 +1617,7 @@ Object *NyTable::RawGet(Object *key, NyaaCore *N) const {
     const Entry *slot = GetSlot(key, N);
     const Entry *p = slot;
     while (p) {
-        if (Object::Equals(key, p->key, N)) {
+        if (Object::Equal(key, p->key, N)) {
             break;
         }
         p = At(p->next);
@@ -1460,7 +1647,7 @@ bool NyTable::DoDelete(Object *key, NyaaCore *N) {
             dummy.next = Ptr(slot);
             Entry *p = slot, *prev = &dummy;
             while (p) {
-                if (Object::Equals(key, p->key, N)) {
+                if (Object::Equal(key, p->key, N)) {
                     break;
                 }
                 prev = p;
@@ -1503,7 +1690,7 @@ bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
         case kSlot: {
             Entry *p = slot;
             while (p) {
-                if (Object::Equals(key, p->key, N)) {
+                if (Object::Equal(key, p->key, N)) {
                     N->BarrierWr(this, &p->value, value);
                     p->value = value;
                     return true;
@@ -1541,6 +1728,10 @@ void NyTable::Iterate(ObjectVisitor *visitor) {
         }
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyString:
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 NyString::NyString(const char *s, size_t n, NyaaCore *N)
     : NyByteArray(static_cast<uint32_t>(n) + kHeaderSize + 1) {
@@ -1628,6 +1819,10 @@ Object *NyString::TryNumeric(NyaaCore *N) const {
     return NySmi::New(i64);
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyByteArray:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 NyByteArray *NyByteArray::Add(Byte value, NyaaCore *N) {
     NyByteArray *ob = this;
     if (size() + 1 > capacity()) {
@@ -1647,6 +1842,10 @@ NyByteArray *NyByteArray::Add(const void *value, size_t n, NyaaCore *N) {
     size_ += k;
     return ob;
 }
+    
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyInt32Array:
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 NyInt32Array *NyInt32Array::Add(int32_t value, NyaaCore *N) {
     NyInt32Array *ob = this;
@@ -1667,7 +1866,11 @@ NyInt32Array *NyInt32Array::Add(int32_t *value, size_t n, NyaaCore *N) {
     size_ += k;
     return ob;
 }
-    
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyArray:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 NyArray *NyArray::Put(int64_t key, Object *value, NyaaCore *N) {
     NyArray *ob = this;
     if (key > capacity()) {
@@ -1702,6 +1905,10 @@ void NyArray::Refill(const NyArray *base, NyaaCore *N) {
     }
     NyArrayBase<Object*>::Refill(base);
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyRunnable:
+////////////////////////////////////////////////////////////////////////////////////////////////////
     
 int NyRunnable::Apply(Arguments *args, int nrets, NyaaCore *N) {
     if (args) {
@@ -1715,6 +1922,10 @@ int NyRunnable::Apply(Arguments *args, int nrets, NyaaCore *N) {
     DLOG(FATAL) << "Noreached!";
     return -1;
 }
+    
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyDelegated:
+////////////////////////////////////////////////////////////////////////////////////////////////////
     
 void NyDelegated::Bind(int i, Object *upval, NyaaCore *N) {
     DCHECK_GE(i, 0);
@@ -1747,7 +1958,11 @@ int NyDelegated::RawCall(Arguments *args, NyaaCore *N) {
     }
     return -1;
 }
-    
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyFunction:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 NyFunction::NyFunction(NyString *name, uint8_t n_params, bool vargs, uint32_t n_upvals,
                        uint32_t max_stack, NyString *file_name, NyInt32Array *file_info,
                        NyByteArray *bcbuf, NyArray *proto_pool, NyArray *const_pool, NyaaCore *N)
@@ -1805,7 +2020,9 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
     return CodeGen::Generate(N->factory()->NewString(":memory:"), result.block, &arena, N);
 }
     
-
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyClosure:
+////////////////////////////////////////////////////////////////////////////////////////////////////
     
 NyClosure::NyClosure(NyFunction *proto, NyaaCore *N)
     : proto_(DCHECK_NOTNULL(proto)) {
@@ -1835,6 +2052,10 @@ int NyClosure::Call(Arguments *args, int nrets, NyaaCore *N) {
     }
     return Handle<NyClosure>();
 }
+    
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyUDO:
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void NyUDO::SetFinalizer(Finalizer fp, NyaaCore *N) {
 //    uintptr_t word = reinterpret_cast<uintptr_t>(fp);
@@ -1927,6 +2148,18 @@ void NyUDO::SetField(size_t i, Object *value, NyaaCore *N) {
     fields_[i] = value;
 }
     
+bool NyUDO::Equal(Object *rhs, NyaaCore *N) const {
+    return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerEq, N)->IsTrue();
+}
+
+bool NyUDO::LessThan(Object *rhs, NyaaCore *N) const {
+    return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerLt, N)->IsTrue();
+}
+
+bool NyUDO::LessEqual(Object *rhs, NyaaCore *N) const {
+    return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerLe, N)->IsTrue();
+}
+    
 Object *NyUDO::Add(Object *rhs, NyaaCore *N) const {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerAdd, N);
 }
@@ -1956,6 +2189,10 @@ Object *NyUDO::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *
     N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
     return nullptr;
 }
+    
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Others:
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define DEFINE_TYPE_CHECK(type, name) \
     bool Ny##type::EnsureIs(const NyObject *o, NyaaCore *N) { \

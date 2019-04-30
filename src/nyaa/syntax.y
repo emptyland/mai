@@ -49,7 +49,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 }
 
 %token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS OP_CONCAT NEW
-%token IF ELSE WHILE FOR IN OBJECT CLASS PROPERTY BREAK CONTINUE RETURN VARGS DO
+%token IF ELSE WHILE FOR IN OBJECT CLASS PROPERTY BREAK CONTINUE RETURN VARGS DO TINY_ARROW
 %token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL NIL_LITERAL BOOL_LITERAL
 %token TOKEN_ERROR
 
@@ -293,6 +293,15 @@ Expression : LValue {
 | VARGS {
     $$ = ctx->factory->NewVariableArguments(@1);
 }
+| OP_NOT Expression {
+    $$ = ctx->factory->NewUnary(Operator::kNot, $2, Location::Concat(@1, @2));
+}
+| Expression OP_AND Expression {
+    $$ = ctx->factory->NewAnd($1, $3, Location::Concat(@1, @3));
+}
+| Expression OP_OR Expression {
+    $$ = ctx->factory->NewOr($1, $3, Location::Concat(@1, @3));
+}
 | Expression COMPARISON Expression {
     $$ = ctx->factory->NewBinary($2, $1, $3, Location::Concat(@1, @3));
 }
@@ -307,6 +316,9 @@ Expression : LValue {
 }
 | Expression '/' Expression {
     $$ = ctx->factory->NewBinary(Operator::kDiv, $1, $3, Location::Concat(@1, @3));
+}
+| Expression '%' Expression {
+    $$ = ctx->factory->NewBinary(Operator::kMod, $1, $3, Location::Concat(@1, @3));
 }
 | '(' Expression ')' {
     $$ = $2;
@@ -324,8 +336,11 @@ Concat : Expression OP_CONCAT Expression {
 LambdaLiteral : LAMBDA '(' Parameters ')' Block {
     $$ = ctx->factory->NewLambdaLiteral($3.params, $3.vargs, $5, Location::Concat(@1, @5));
 }
-| LAMBDA Block {
-    $$ = ctx->factory->NewLambdaLiteral(nullptr, false, $2, Location::Concat(@1, @2));
+| LAMBDA Parameters TINY_ARROW ExpressionList {
+    auto stmt = ctx->factory->NewReturn($4, @4);
+    auto stmts = ctx->factory->NewList<::mai::nyaa::ast::Statement *>(stmt);
+    auto block = ctx->factory->NewBlock(stmts, @4);
+    $$ = ctx->factory->NewLambdaLiteral($2.params, $2.vargs, block, Location::Concat(@1, @4));
 }
 
 MapInitializer : '{' MapEntryList '}' {

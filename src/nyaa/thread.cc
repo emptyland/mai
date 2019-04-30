@@ -598,6 +598,24 @@ int NyThread::Run() {
                 }
                 frame_->AddPC(delta);
             } break;
+                
+            case Bytecode::kTestSet: {
+                int32_t ra, rb, c;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &c);
+                bool cond = false;
+                Object *ob = Get(rb);
+                if (ob == Object::kNil) {
+                    cond = false;
+                } else {
+                    cond = c ? ob->IsFalse() : ob->IsTrue();
+                }
+                if (cond) {
+                    Set(ra, ob);
+                } else {
+                    delta += ParseBytecodeSize(frame_->pc() + delta);
+                }
+                frame_->AddPC(delta);
+            } break;
 
             case Bytecode::kJumpImm: {
                 int32_t offset;
@@ -765,16 +783,76 @@ int NyThread::Run() {
                 rv->Done(owns_);
                 frame_->AddPC(delta);
             } break;
-                
+
+            #define PROCESS_ARITH(op) \
+                int32_t ra, rkb, rkc; \
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc); \
+                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb); \
+                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc); \
+                Set(ra, Object::op(lhs, rhs, owns_)); \
+                frame_->AddPC(delta)
+
             case Bytecode::kAdd: {
+                PROCESS_ARITH(Add);
+            } break;
+            case Bytecode::kSub: {
+                PROCESS_ARITH(Sub);
+            } break;
+            case Bytecode::kMul: {
+                PROCESS_ARITH(Mul);
+            } break;
+            case Bytecode::kDiv: {
+                PROCESS_ARITH(Div);
+            } break;
+            case Bytecode::kMod: {
+                PROCESS_ARITH(Mod);
+            } break;
+                
+            case Bytecode::kEqual: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
                 Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb);
                 Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc);
-                Set(ra, Object::Add(lhs, rhs, owns_));
+                Set(ra, NySmi::New(Object::Equal(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
                 
+            case Bytecode::kLessThan: {
+                int32_t ra, rkb, rkc;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
+                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb);
+                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc);
+                Set(ra, NySmi::New(Object::LessThan(lhs, rhs, owns_)));
+                frame_->AddPC(delta);
+            } break;
+                
+            case Bytecode::kLessEqual: {
+                int32_t ra, rkb, rkc;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
+                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb);
+                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc);
+                Set(ra, NySmi::New(Object::LessEqual(lhs, rhs, owns_)));
+                frame_->AddPC(delta);
+            } break;
+                
+            case Bytecode::kGreaterThan: {
+                int32_t ra, rkb, rkc;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
+                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb);
+                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc);
+                Set(ra, NySmi::New(!Object::LessEqual(lhs, rhs, owns_)));
+                frame_->AddPC(delta);
+            } break;
+                
+            case Bytecode::kGreaterEqual: {
+                int32_t ra, rkb, rkc;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
+                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb);
+                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc);
+                Set(ra, NySmi::New(!Object::LessThan(lhs, rhs, owns_)));
+                frame_->AddPC(delta);
+            } break;
+
             default:
                 owns_->Raisef("Bad bytecode: %s(%d)", Bytecode::kNames[id], id);
                 break;

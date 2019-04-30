@@ -108,6 +108,7 @@ public:
     void Sub(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kSub, a, b, c, line); }
     void Mul(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kMul, a, b, c, line); }
     void Div(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kDiv, a, b, c, line); }
+    void Mod(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kMod, a, b, c, line); }
     
     void Equal(IVal a, IVal b, IVal c, int line = 0) {
         EmitArith(Bytecode::kEqual, a, b, c, line);
@@ -131,10 +132,18 @@ public:
         DCHECK_EQ(IVal::kLocal, a.kind);
         Emit(Bytecode::kTest, a.index, b, c, line);
     }
+
     void TestNil(IVal a, int32_t b, int32_t c, int line = 0) {
         DCHECK_EQ(IVal::kLocal, a.kind);
         Emit(Bytecode::kTestNil, a.index, b, c, line);
     }
+    
+    void TestSet(IVal a, IVal b, int32_t c, int  line = 0) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        DCHECK_EQ(IVal::kLocal, b.kind);
+        Emit(Bytecode::kTestSet, a.index, b.index, c, line);
+    }
+
     void Concat(IVal a, IVal b, int32_t c, int line = 0) {
         DCHECK_EQ(IVal::kLocal, a.kind);
         DCHECK_EQ(IVal::kLocal, b.kind);
@@ -144,6 +153,11 @@ public:
     void Bind(BytecodeLable *lable, ConstPoolBuilder *kpool);
     
     void Jump(BytecodeLable *lable, ConstPoolBuilder *kpool, int line = 0);
+    
+    void Jump(int32_t imm, int line = 0) {
+        DCHECK_NE(0, imm);
+        Emit(Bytecode::kJumpImm, imm, line);
+    }
     
     void GetField(IVal a, IVal b, IVal c, int line = 0) {
         DCHECK_EQ(IVal::kLocal, a.kind);
@@ -194,6 +208,21 @@ public:
         DCHECK_EQ(IVal::kLocal, b.kind);
         DCHECK_EQ(IVal::kConst, c.kind);
         Emit(Bytecode::kSelf, a.index, b.index, c.index, line);
+    }
+    
+    int GetCodeSize(int32_t a, int32_t b, int32_t c) {
+        int scale = GetScale(a, b, c);
+        return scale * 3 + scale > 1 ? 2 : 1;
+    }
+    
+    int GetCodeSize(int32_t a, int32_t b) {
+        int scale = GetScale(a, b);
+        return scale * 2 + scale > 1 ? 2 : 1;
+    }
+    
+    int GetCodeSize(int32_t a) {
+        int scale = GetScale(a);
+        return scale * 1 + scale > 1 ? 2 : 1;
     }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArrayBuilder);

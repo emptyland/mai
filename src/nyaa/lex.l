@@ -57,6 +57,9 @@ false {
 	yylval->smi_val = 0;
 	return BOOL_LITERAL;
 }
+and { return OP_AND; }
+or { return OP_OR; }
+not { return OP_NOT; }
 
 
 [A-Za-z_][A-Za-z_0-9]* {
@@ -135,6 +138,7 @@ false {
 "]" { return ']'; }
 "..." { return VARGS; }
 ".." { return OP_CONCAT; }
+"->" { return TINY_ARROW; }
 
 [-=+&~|^/%!()*.,;:{}] { return yytext[0]; }
 

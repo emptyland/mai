@@ -929,6 +929,39 @@ TEST_F(NyaaCodeGenTest, Concat) {
     BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
     ASSERT_EQ(z, buf) << buf;
 }
+    
+TEST_F(NyaaCodeGenTest, AndOrSwitch) {
+    static const char s[] = {
+        "var x, y = 0, 1\n"
+        "var a, b = x and y, x or y\n"
+        "return a, b\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 0, max-stack: 4, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 2\n"
+        " [0] (-1) 0\n"
+        " [1] (-2) 1\n"
+        ".............................\n"
+        "[000] LoadConst 0 0 ; line: 1\n"
+        "[003] LoadConst 1 1 ; line: 1\n"
+        "[006] TestSet 2 0 1 ; line: 2\n"
+        "[010] JumpImm 5 ; line: 2\n"
+        "[012] Move 2 1 ; line: 2\n"
+        "[015] TestSet 3 0 0 ; line: 2\n"
+        "[019] JumpImm 5 ; line: 2\n"
+        "[021] Move 3 1 ; line: 2\n"
+        "[024] Ret 2 2 ; line: 3\n"
+        "[027] Ret 0 0 ; line: 0\n"
+    };
+    HandleScope handle_scope(isolate_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
+    ASSERT_EQ(z, buf) << buf;
+}
 
 } // namespace nyaa
     

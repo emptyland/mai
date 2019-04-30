@@ -27,6 +27,7 @@ namespace ast {
     V(WhileLoop) \
     V(ForIterateLoop) \
     V(Multiple) \
+    V(LogicSwitch) \
     V(Concat) \
     V(StringLiteral) \
     V(ApproxLiteral) \
@@ -340,7 +341,7 @@ public:
     Expression *value() const { return rhs(); }
     
     DEFINE_AST_NODE(Multiple);
-private:
+protected:
     Multiple(int line, Operator::ID op, Expression *expr)
         : Expression(line)
         , op_(op)
@@ -357,11 +358,20 @@ private:
         operands_[0] = e1;
         operands_[1] = e2;
     }
-    
+
+private:
     Operator::ID op_;
     int n_operands_;
     Expression *operands_[kLimitOperands];
 }; // class Multiple
+    
+class LogicSwitch : public Multiple {
+public:
+    DEFINE_AST_NODE(LogicSwitch);
+private:
+    LogicSwitch(int line, Operator::ID op, Expression *e1, Expression *e2)
+        : Multiple(line, op, e1, e2) {}
+}; // class LogicSwitch
     
 class Concat : public Expression {
 public:
@@ -801,6 +811,14 @@ public:
     
     Multiple *NewEntry(Expression *key, Expression *value, const Location &loc = Location{}) {
         return new (arena_) Multiple(loc.begin_line, Operator::kEntry, key, value);
+    }
+    
+    LogicSwitch *NewAnd(Expression *lhs, Expression *rhs, const Location &loc = Location{}) {
+        return new (arena_) LogicSwitch(loc.begin_line, Operator::kAnd, lhs, rhs);
+    }
+    
+    LogicSwitch *NewOr(Expression *lhs, Expression *rhs, const Location &loc = Location{}) {
+        return new (arena_) LogicSwitch(loc.begin_line, Operator::kOr, lhs, rhs);
     }
     
     Concat *NewConcat(Concat::OperandList *ops, const Location &loc = Location{}) {

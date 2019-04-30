@@ -365,7 +365,7 @@ TEST_F(NyaaThreadTest, FunctionUpvals2) {
     static const char s[] = {
         "var a, b, c = 1, 2, 3\n"
         "def foo(a) {\n"
-        "   return lambda { return a, b, c }\n"
+        "   return lambda -> a, b, c\n"
         "}\n"
         "var f = foo(4)\n"
         "check(f())\n"
@@ -930,6 +930,68 @@ TEST_F(NyaaThreadTest, UdoMetaStr) {
     Handle<NyString> v1 = NyString::Cast(check->upval(0));
     ASSERT_TRUE(v1.is_valid());
     ASSERT_STREQ("1,2", v1->bytes());
+}
+    
+TEST_F(NyaaThreadTest, ArithAdd) {
+    static const char s[] = {
+        "var a, b, c = 1, 2, 3"
+        "check(a + 1, a + b, c + -4)\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    ASSERT_EQ(2, check->upval(0)->ToSmi());
+    ASSERT_EQ(3, check->upval(1)->ToSmi());
+    ASSERT_EQ(-1, check->upval(2)->ToSmi());
+}
+    
+TEST_F(NyaaThreadTest, ArithAddOverflow) {
+    static const char s[] = {
+        "var a, b = 1, 2305843009213693951"
+        "check(a + b)\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    Handle<NyInt> v1 = NyInt::Cast(check->upval(0));
+    ASSERT_TRUE(v1.is_valid());
+    ASSERT_STREQ("2305843009213693952", v1->ToString(core_)->bytes());
+}
+
+TEST_F(NyaaThreadTest, AndOrSwitch) {
+    static const char s[] = {
+        "var a, b = 1, 0"
+        "check(a and b, a or b)\n"
+    };
+    
+    HandleScope scope(isolate_);
+    Handle<NyDelegated> check = RegisterChecker("check", 2, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Arguments args(0);
+    script->Call(&args, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    ASSERT_EQ(0, check->upval(0)->ToSmi());
+    ASSERT_EQ(1, check->upval(1)->ToSmi());
 }
 
 TEST_F(NyaaThreadTest, CxxTryCatchTest) {

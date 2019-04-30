@@ -83,15 +83,16 @@ extern int nyaa_yydebug;
     RETURN = 281,
     VARGS = 282,
     DO = 283,
-    STRING_LITERAL = 284,
-    SMI_LITERAL = 285,
-    APPROX_LITERAL = 286,
-    INT_LITERAL = 287,
-    NIL_LITERAL = 288,
-    BOOL_LITERAL = 289,
-    TOKEN_ERROR = 290,
-    IS = 291,
-    OP_NOT = 292
+    TINY_ARROW = 284,
+    STRING_LITERAL = 285,
+    SMI_LITERAL = 286,
+    APPROX_LITERAL = 287,
+    INT_LITERAL = 288,
+    NIL_LITERAL = 289,
+    BOOL_LITERAL = 290,
+    TOKEN_ERROR = 291,
+    IS = 292,
+    OP_NOT = 293
   };
 #endif
 
@@ -124,7 +125,7 @@ union NYAA_YYSTYPE
     int64_t smi_val;
     bool bool_val;
 
-#line 128 "syntax.hh" /* yacc.c:1927  */
+#line 129 "syntax.hh" /* yacc.c:1927  */
 };
 
 typedef union NYAA_YYSTYPE NYAA_YYSTYPE;

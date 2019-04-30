@@ -3,6 +3,7 @@
 #include "nyaa/nyaa-core.h"
 #include "nyaa/object-factory.h"
 #include "mai-lang/nyaa.h"
+#include <limits>
 
 namespace mai {
     
@@ -13,6 +14,7 @@ public:
     void SetUp() override {
         NyaaTest::SetUp();
         N_ = new Nyaa(Nyaa::Options(), isolate_);
+        core_ = N_->core();
         factory_ = N_->core()->factory();
     }
     
@@ -22,6 +24,7 @@ public:
     }
     
     Nyaa *N_ = nullptr;
+    NyaaCore *core_ = nullptr;
     ObjectFactory *factory_ = nullptr;
 };
 
@@ -120,6 +123,74 @@ TEST_F(NyaaValuesTest, Int) {
     ASSERT_NE(nullptr, n);
     NyString *s = n->ToString(N_->core());
     ASSERT_STREQ("99999999999", s->bytes());
+}
+    
+TEST_F(NyaaValuesTest, ObjectAdd) {
+    Object *rv = Object::Add(NySmi::New(1), NySmi::New(1), core_);
+    ASSERT_EQ(2, rv->ToSmi());
+    
+    rv = Object::Add(NySmi::New(1), NySmi::New(NySmi::kMaxValue), core_);
+    ASSERT_TRUE(rv->IsObject());
+    ASSERT_NE(nullptr, NyInt::Cast(rv));
+    ASSERT_STREQ("2305843009213693952", NyInt::Cast(rv)->ToString(core_)->bytes());
+}
+
+TEST_F(NyaaValuesTest, ObjectSub) {
+    Object *rv = Object::Sub(NySmi::New(1), NySmi::New(1), core_);
+    ASSERT_EQ(0, rv->ToSmi());
+
+    rv = Object::Sub(NySmi::New(NySmi::kMinValue), NySmi::New(1), core_);
+    auto ob = NyInt::Cast(rv);
+    ASSERT_NE(nullptr, ob);
+    ASSERT_STREQ("-2305843009213693952", ob->ToString(core_)->bytes());
+}
+
+TEST_F(NyaaValuesTest, ObjectMul) {
+    Object *rv = Object::Mul(NySmi::New(100), NySmi::New(100), core_);
+    ASSERT_EQ(10000, rv->ToSmi());
+    
+    rv = Object::Mul(NySmi::New(NySmi::kMaxValue), NySmi::New(2), core_);
+    ASSERT_TRUE(rv->IsObject());
+    ASSERT_NE(nullptr, NyInt::Cast(rv));
+    ASSERT_STREQ("4611686018427387902", NyInt::Cast(rv)->ToString(core_)->bytes());
+    
+    rv = Object::Mul(NySmi::New(NySmi::kMaxValue), NySmi::New(NySmi::kMaxValue), core_);
+    auto ob = NyInt::Cast(rv);
+    ASSERT_NE(nullptr, ob);
+    ASSERT_STREQ("5316911983139663487003542222693990401", ob->ToString(core_)->bytes());
+}
+
+TEST_F(NyaaValuesTest, ObjectDiv) {
+    Object *rv = Object::Div(NySmi::New(1), NySmi::New(1), core_);
+    ASSERT_EQ(1, rv->ToSmi());
+    
+    rv = Object::Div(NySmi::New(NySmi::kMinValue), NySmi::New(2), core_);
+    ASSERT_EQ(-1152921504606846975, rv->ToSmi());
+}
+
+TEST_F(NyaaValuesTest, ObjectMod) {
+    Object *rv = Object::Mod(NySmi::New(3), NySmi::New(2), core_);
+    ASSERT_EQ(1, rv->ToSmi());
+    
+    rv = Object::Mod(NySmi::New(NySmi::kMaxValue), NySmi::New(2), core_);
+    ASSERT_EQ(1, rv->ToSmi());
+    
+    auto ob = factory_->NewLiteralInt("5316911983139663487003542222693990401");
+    rv = Object::Mod(ob, NySmi::New(3), core_);
+    ASSERT_EQ(1, rv->ToSmi());
+}
+
+TEST_F(NyaaValuesTest, Float64Add) {
+    Object *rv = Object::Add(NySmi::New(1), factory_->NewFloat64(1), core_);
+    auto ob = NyFloat64::Cast(rv);
+    ASSERT_NE(nullptr, ob);
+    ASSERT_EQ(2, ob->value());
+
+    auto big = factory_->NewLiteralInt("5316911983139663487003542222693990401");
+    rv = Object::Add(big, factory_->NewFloat64(1), core_);
+    ob = NyFloat64::Cast(rv);
+    ASSERT_NE(nullptr, ob);
+    ASSERT_NEAR(5.3169119831396629e+36, ob->value(), std::numeric_limits<f64_t>::epsilon());
 }
 
 } // namespace nyaa
