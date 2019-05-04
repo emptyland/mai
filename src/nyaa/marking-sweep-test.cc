@@ -55,7 +55,7 @@ TEST_F(NyaaMarkingSweepTest, RunAgain) {
 }
     
 TEST_F(NyaaMarkingSweepTest, ClearRememberSet) {
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     
     Handle<NyMap> h1 = factory_->NewMap(128, 0, 0, false, true);
     h1->RawPut(factory_->NewString("ok"), NyInt32::New(100), core_);

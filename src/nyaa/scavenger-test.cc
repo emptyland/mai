@@ -53,7 +53,7 @@ TEST_F(NyaaScavengerTest, Sanity) {
 TEST_F(NyaaScavengerTest, MoveNewSpace) {
     Scavenger gc(core_, core_->heap());
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     
     Handle<NyString> s1 = factory_->NewString("ok");
     NyString *p1 = *s1;
@@ -76,7 +76,7 @@ TEST_F(NyaaScavengerTest, MoveNewSpace) {
 TEST_F(NyaaScavengerTest, ForceUpgrade) {
     Scavenger gc(core_, core_->heap());
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     
     Handle<NyString> s1 = factory_->NewString("ok");
     NyString *p1 = *s1;
@@ -100,7 +100,7 @@ TEST_F(NyaaScavengerTest, ForceUpgrade) {
 TEST_F(NyaaScavengerTest, KzPoolSweep) {
     Scavenger gc(core_, core_->heap());
 
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     auto p1 = factory_->NewString("ok");
     ASSERT_EQ(p1, factory_->NewString("ok"));
     auto p2 = factory_->NewString("doom");

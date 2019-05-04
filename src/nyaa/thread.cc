@@ -281,7 +281,7 @@ int NyThread::Run(NyRunnable *rb, Object **args, int nargs, int nrets, NyMap *en
                      top, /*frame_bp*/
                      top + 20, /* frame_tp */
                      env);
-        HandleScope handle_scope(owns_->isolate());
+        HandleScope handle_scope(owns_->stub());
         Arguments args(nargs);
         for (int i = 0; i < nargs; ++i) {
             args.Set(i, Local<Value>::New(args[i]));
@@ -1014,7 +1014,7 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
             if (n_args < 0) {
                 n_args = static_cast<int32_t>(stack_tp_ - base - 1);
             }
-            HandleScope scope(owns_->isolate());
+            HandleScope scope(owns_->stub());
             Arguments args(reinterpret_cast<Value **>(base + 1), n_args);
             args.SetCallee(Local<Value>::New(callee));
             CallFrame *frame = new CallFrame;

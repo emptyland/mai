@@ -42,7 +42,7 @@ TEST_F(NyaaCodeGenTest, Sanity) {
 
     auto block = af_.NewBlock(stmts);
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
     
     std::string buf;
@@ -68,7 +68,7 @@ TEST_F(NyaaCodeGenTest, VarInitializer) {
     
     auto block = af_.NewBlock(stmts);
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
 
     std::string buf;
@@ -94,7 +94,7 @@ TEST_F(NyaaCodeGenTest, VarInitializerCalling) {
     
     auto block = af_.NewBlock(stmts);
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
     
     static const char z[] = {
@@ -120,7 +120,7 @@ TEST_F(NyaaCodeGenTest, ReturnCallingInCall) {
     auto stmts = af_.NewList<ast::Statement*>(ret);
     auto block = af_.NewBlock(stmts);
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
     
     static const char z[] = {
@@ -163,7 +163,7 @@ TEST_F(NyaaCodeGenTest, ReturnExpression) {
     stmts->push_back(af_.NewReturn(af_.NewList<ast::Expression *>(expr)));
     auto block = af_.NewBlock(stmts);
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
     
     std::string buf;
@@ -204,7 +204,7 @@ TEST_F(NyaaCodeGenTest, CallExpression) {
     auto stmts = af_.NewList<ast::Statement*>(af_.NewCall(af_.NewVariable(ast::String::New(&arena_, "foo")), args));
     auto block = af_.NewBlock(stmts);
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
     
     std::string buf;
@@ -234,7 +234,7 @@ TEST_F(NyaaCodeGenTest, Compile) {
         "[024] Ret 0 0 ; line: 0\n"
     };
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     ASSERT_EQ(6, script->max_stack());
@@ -265,7 +265,7 @@ TEST_F(NyaaCodeGenTest, MutilReceive) {
         "[025] Ret 0 0 ; line: 0\n"
     };
 
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
 
@@ -285,7 +285,7 @@ TEST_F(NyaaCodeGenTest, CallRaise) {
         "[010] Ret 0 0 ; line: 0\n"
     };
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     ASSERT_EQ(2, script->max_stack());
@@ -320,7 +320,7 @@ TEST_F(NyaaCodeGenTest, LambdaLiteral) {
         "[010] Ret 0 0 ; line: 0\n"
     };
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     ASSERT_EQ(2, script->max_stack());
@@ -361,7 +361,7 @@ TEST_F(NyaaCodeGenTest, CallExpressions) {
         "[047] Ret 0 0 ; line: 0\n"
     };
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     ASSERT_EQ(9, script->max_stack());
@@ -391,7 +391,7 @@ TEST_F(NyaaCodeGenTest, Index) {
         "[014] Ret 0 2 ; line: 2\n"
         "[017] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     
@@ -449,7 +449,7 @@ TEST_F(NyaaCodeGenTest, MapLiteral) {
         "[054] Ret 0 0 ; line: 0\n"
     };
 
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     //ASSERT_EQ(10, script->max_stack());
@@ -503,7 +503,7 @@ TEST_F(NyaaCodeGenTest, IfElse) {
         "[063] Ret 0 0 ; line: 5\n"
         "[066] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     //ASSERT_EQ(10, script->max_stack());
@@ -531,7 +531,7 @@ TEST_F(NyaaCodeGenTest, ObjectDefinition) {
         "[014] StoreGlobal 0 1 ; line: 1\n"
         "[017] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
 
@@ -557,7 +557,7 @@ TEST_F(NyaaCodeGenTest, ClassDefinition) {
         "[010] StoreGlobal 0 1 ; line: 1\n"
         "[013] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     
@@ -624,7 +624,7 @@ TEST_F(NyaaCodeGenTest, ClassDefinitionWithMembers) {
         "[004] Ret 2 1 ; line: 3\n"
         "[007] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     
@@ -675,7 +675,7 @@ TEST_F(NyaaCodeGenTest, ClassDefinitionWithBase) {
         "[053] Ret 0 0 ; line: 0\n"
     };
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     
@@ -710,7 +710,7 @@ TEST_F(NyaaCodeGenTest, VargsExpression) {
         "[009] Ret 0 0 ; line: 0\n"
     };
     
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     
@@ -742,7 +742,7 @@ TEST_F(NyaaCodeGenTest, GetFieldSetField) {
         "[021] SetField 1 -4 0 ; line: 2\n"
         "[025] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     
@@ -775,7 +775,7 @@ TEST_F(NyaaCodeGenTest, SelfCall) {
         "[020] Ret 0 1 ; line: 2\n"
         "[023] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     
@@ -806,7 +806,7 @@ TEST_F(NyaaCodeGenTest, NewCall) {
         "[020] Move 0 1 ; line: 2\n"
         "[023] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     
@@ -846,7 +846,7 @@ TEST_F(NyaaCodeGenTest, WhileLoop) {
         "[027] JumpImm -27 ; line: 5\n"
         "[029] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     
@@ -889,7 +889,7 @@ TEST_F(NyaaCodeGenTest, ForIterateLoop) {
         "[044] JumpConst 3 ; line: 3\n"
         "[046] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     
@@ -921,7 +921,7 @@ TEST_F(NyaaCodeGenTest, Concat) {
         "[022] Ret 2 1 ; line: 3\n"
         "[025] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
     
@@ -954,7 +954,7 @@ TEST_F(NyaaCodeGenTest, AndOrSwitch) {
         "[024] Ret 2 2 ; line: 3\n"
         "[027] Ret 0 0 ; line: 0\n"
     };
-    HandleScope handle_scope(isolate_);
+    HandleScope handle_scope(N_);
     Handle<NyFunction> script(NyFunction::Compile(s, core_));
     ASSERT_TRUE(script.is_valid());
 

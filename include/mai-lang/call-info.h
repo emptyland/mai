@@ -76,14 +76,14 @@ inline int Return(const Handle<T1> &ret1, const Handle<T2> &ret2, const Handle<T
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // TryCatch
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-__attribute__ (( __format__ (__printf__, 2, 3)))
-int Raisef(Nyaa *N, const char *fmt, ...);
+__attribute__ (( __format__ (__printf__, 1, 2)))
+int Raisef(const char *fmt, ...);
     
 class TryCatchCore;
     
 class TryCatch final {
 public:
-    TryCatch(Isolate *isolate);
+    TryCatch(Nyaa *N);
     ~TryCatch();
     
     bool HasCaught() const;
@@ -95,7 +95,7 @@ public:
     Handle<Value> StackTrace() const;
     
 private:
-    Isolate *const isolate_;
+    Nyaa *const N_;
     std::unique_ptr<TryCatchCore> catch_point_;
 }; // class TryCatch
 } // namespace nyaa

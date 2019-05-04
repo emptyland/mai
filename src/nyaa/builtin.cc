@@ -124,7 +124,7 @@ static int BuiltinMapIter(Arguments *args, Nyaa *N) {
     
 static int BuiltinPairs(Arguments *args, Nyaa *N) {
     if (args->Length() < 1) {
-        return Raisef(N, "incorrect argument length, expected: %zd, need: 1", args->Length());
+        return Raisef("incorrect argument length, expected: %zd, need: 1", args->Length());
     }
     auto arg0 = ApiWarpNoCheck<Object>(args->Get(0), N->core());
     if (NyMap *map = NyMap::Cast(*arg0)) {
@@ -134,9 +134,9 @@ static int BuiltinPairs(Arguments *args, Nyaa *N) {
         return Return(iter);
     } else if (NyUDO *uod = NyUDO::Cast(*arg0)) {
         // TODO:
-        return Raisef(N, "TODO:");
+        return Raisef("TODO:");
     } else {
-        return Raisef(N, "incorrect type: no pairs.");
+        return Raisef("incorrect type: no pairs.");
     }
 }
     
@@ -168,25 +168,25 @@ static int BuiltinRange(Arguments *args, Nyaa *N) {
         case 3: {
             Handle<Object> ob = ApiWarpNoCheck<Object>(args->Get(2), N->core());
             if (!ob->IsSmi()) {
-                return Raisef(N, "incorrect type: need integer.");
+                return Raisef("incorrect type: need integer.");
             }
             step = ob->ToSmi();
         } // though
         case 2: {
             Handle<Object> ob = ApiWarpNoCheck<Object>(args->Get(1), N->core());
             if (!ob->IsSmi()) {
-                return Raisef(N, "incorrect type: need integer.");
+                return Raisef("incorrect type: need integer.");
             }
             end = ob->ToSmi();
             ob = ApiWarpNoCheck<Object>(args->Get(0), N->core());
             if (!ob->IsSmi()) {
-                return Raisef(N, "incorrect type: need integer.");
+                return Raisef("incorrect type: need integer.");
             }
             begin = ob->ToSmi();
         } break;
 
         default:
-            return Raisef(N, "incorrect number of arguments. need [2, 3]");
+            return Raisef("incorrect number of arguments. need [2, 3]");
     }
     Handle<NyDelegated> iter = N->core()->factory()->NewDelegated(BuiltinRangeIter, 3);
     iter->Bind(0, NySmi::New(begin), N->core());
@@ -240,7 +240,7 @@ static int ThreadInit(Local<Value> arg0, Local<Value> arg1, Nyaa *N) {
     
     auto entry = ApiWarpNoCheck<NyRunnable>(arg1, N->core());
     if (entry->IsNil() || entry->IsSmi() || !entry->IsRunnable()) {
-        return Raisef(N, "incorrect entry type.");
+        return Raisef("incorrect entry type.");
     }
 
     Handle<NyThread> thd(new (*udo) NyThread(N->core()));
@@ -248,7 +248,7 @@ static int ThreadInit(Local<Value> arg0, Local<Value> arg1, Nyaa *N) {
     thd->SetMetatable(N->core()->kmt_pool()->kThread, N->core());
     auto rs = thd->Init();
     if (!rs) {
-        return Raisef(N, "coroutine init fail, cause: %s", rs.ToString().c_str());
+        return Raisef("coroutine init fail, cause: %s", rs.ToString().c_str());
     }
     N->core()->InsertThread(*thd);
     return Return(thd);
@@ -291,21 +291,17 @@ static int ThreadIndex(Local<Value> arg0, Local<Value> arg1, Nyaa *N) {
 }
     
 static int ThreadNewindex(Local<Value>, Local<Value>, Local<Value>, Nyaa *N) {
-    return Raisef(N, "coroutine is readonly");
+    return Raisef("coroutine is readonly");
 }
 
 // coroutine.yield(a, b, c)
 // yield(a,b,c)
 static int BuiltinYield(Arguments *args, Nyaa *N) {
-    // TODO:
-    N->core()->Raisef("TODO:");
-    return -1;
+    return Raisef("TODO:");
 }
     
 static int ThreadResume(Arguments *args, Nyaa *N) {
-    // TODO:
-    N->core()->Raisef("TODO:");
-    return -1;
+    return Raisef("TODO:");
 }
     
 

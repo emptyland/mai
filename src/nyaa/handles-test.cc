@@ -21,7 +21,7 @@ public:
 };
 
 TEST_F(HandlesTest, Sanity) {
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
 
     Local<Value> h;
     ASSERT_TRUE(h.is_empty());

@@ -24,7 +24,7 @@ template<class T> class Persistent;
 class HandleScope final {
 public:
     HandleScope();
-    HandleScope(Isolate *isolate);
+    HandleScope(Nyaa *N);
     ~HandleScope();
     
     void **NewHandle(void *value);
@@ -35,11 +35,9 @@ public:
     HandleScope *Prev();
 
     static HandleScope *Current();
-    
-    static HandleScope *Current(Isolate *isolate);
-    
+    static HandleScope *Current(Nyaa *N);
 private:
-    Isolate *isolate_;
+    Nyaa *N_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -171,11 +169,11 @@ public:
     
     inline static Local<T> New(const Handle<T> &input);
     
-    inline static Local<T> New(Isolate *isolate, const Handle<T> &input);
+    inline static Local<T> New(Nyaa *N, const Handle<T> &input);
     
     inline static Local<T> New(const Persistent<T> &input);
     
-    inline static Local<T> New(Isolate *isolate, const Persistent<T> &input);
+    inline static Local<T> New(Nyaa *N, const Persistent<T> &input);
     
     inline static Local<T> Warp(T **location) { return Local<T>(location); }
 private:
@@ -230,11 +228,11 @@ inline Local<T> Local<T>::New(const Handle<T> &input) {
 }
 
 template<class T>
-inline Local<T> Local<T>::New(Isolate *isolate, const Handle<T> &input) {
+inline Local<T> Local<T>::New(Nyaa *N, const Handle<T> &input) {
     if (input.is_empty()) {
         return Local<T>();
     }
-    auto h = reinterpret_cast<T**>(HandleScope::Current(isolate)->NewHandle(*input));
+    auto h = reinterpret_cast<T**>(HandleScope::Current(N)->NewHandle(*input));
     return Local<T>(h);
 }
     
@@ -248,11 +246,11 @@ inline Local<T> Local<T>::New(const Persistent<T> &input) {
 }
 
 template<class T>
-inline Local<T> Local<T>::New(Isolate *isolate, const Persistent<T> &input) {
+inline Local<T> Local<T>::New(Nyaa *N, const Persistent<T> &input) {
     if (input.is_empty()) {
         return Local<T>();
     }
-    auto h = reinterpret_cast<T**>(HandleScope::Current(isolate)->NewHandle(*input));
+    auto h = reinterpret_cast<T**>(HandleScope::Current(N)->NewHandle(*input));
     return Local<T>(h);
 }
     

@@ -29,7 +29,7 @@ public:
 };
 
 TEST_F(NyaaValuesTest, Sanity) {
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyString> h(factory_->NewString("abcd", 4, false));
 
     ASSERT_NE(nullptr, *h);
@@ -42,7 +42,7 @@ TEST_F(NyaaValuesTest, Sanity) {
 }
     
 TEST_F(NyaaValuesTest, Table) {
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyTable> h(factory_->NewTable(12, 0));
     
     h = h->RawPut(NyInt32::New(1), factory_->NewString("aaaa"), N_->core());
@@ -56,7 +56,7 @@ TEST_F(NyaaValuesTest, Table) {
 }
     
 TEST_F(NyaaValuesTest, TablePut) {
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyTable> h(factory_->NewTable(8, 0));
     
     NyTable *const kOrigin = *h;
@@ -72,7 +72,7 @@ TEST_F(NyaaValuesTest, TablePut) {
 }
     
 TEST_F(NyaaValuesTest, TableAutoRehash) {
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyTable> h(factory_->NewTable(8, 0));
     
     NyTable *const kOrigin = *h;

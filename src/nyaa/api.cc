@@ -190,37 +190,35 @@ Handle<Result> Script::Run(Nyaa *N) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Handles:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-HandleScope::HandleScope() : HandleScope(Isolate::Current()) {}
+HandleScope::HandleScope() : HandleScope(Isolate::Current()->GetNyaa()) {}
 
-HandleScope::HandleScope(Isolate *isolate)
-    : isolate_(DCHECK_NOTNULL(isolate)) {
-    //NyaaCore::Current()->EnterHandleScope(this);
-    isolate_->GetNyaa()->core()->EnterHandleScope(this);
+HandleScope::HandleScope(Nyaa *N)
+    : N_(DCHECK_NOTNULL(N)) {
+    N_->core()->EnterHandleScope(this);
 }
 
 HandleScope::~HandleScope() {
-    isolate_->GetNyaa()->core()->ExitHandleScope();
+    N_->core()->ExitHandleScope();
 }
 
 void **HandleScope::NewHandle(void *value) {
-    auto core = isolate_->GetNyaa()->core();
-    void **space = reinterpret_cast<void **>(core->AdvanceHandleSlots(1));
+    void **space = reinterpret_cast<void **>(N_->core()->AdvanceHandleSlots(1));
     *space = value;
     return space;
 }
     
 HandleScope *HandleScope::Prev() {
-    auto core = isolate_->GetNyaa()->core();
+    auto core = N_->core();
     auto slot = DCHECK_NOTNULL(core->current_handle_scope_slot());
     return DCHECK_NOTNULL(slot->prev)->scope;
 }
 
 /*static*/ HandleScope *HandleScope::Current() {
-    return Current(Isolate::Current());
+    return Current(Isolate::Current()->GetNyaa());
 }
 
-/*static*/ HandleScope *HandleScope::Current(Isolate *isolate) {
-    return DCHECK_NOTNULL(isolate)->GetNyaa()->core()->current_handle_scope();
+/*static*/ HandleScope *HandleScope::Current(Nyaa *N) {
+    return DCHECK_NOTNULL(N)->core()->current_handle_scope();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -268,8 +266,8 @@ int Returnf(Nyaa *N, int nrets, ...) {
 // TryCatch:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
     
-int Raisef(Nyaa *N, const char *fmt, ...) {
-    N = !N ? Isolate::Current()->GetNyaa() : N;
+int Raisef(const char *fmt, ...) {
+    Nyaa *N = Isolate::Current()->GetNyaa();
 
     va_list ap;
     va_start(ap, fmt);
@@ -278,9 +276,9 @@ int Raisef(Nyaa *N, const char *fmt, ...) {
     return -1;
 }
 
-TryCatch::TryCatch(Isolate *isolate)
-    : isolate_(isolate)
-    , catch_point_(new TryCatchCore(isolate->GetNyaa()->core())) {
+TryCatch::TryCatch(Nyaa *N)
+    : N_(N)
+    , catch_point_(new TryCatchCore(N->core())) {
 }
 
 TryCatch::~TryCatch() {

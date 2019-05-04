@@ -1127,7 +1127,7 @@ inline BlockScope::~BlockScope() {
     
 /*static*/ Handle<NyFunction> CodeGen::Generate(Handle<NyString> file_name, ast::Block *root,
                                                 base::Arena *arena, NyaaCore *core) {
-    HandleScope handle_scope(core->isolate());
+    HandleScope handle_scope(core->stub());
 
     CodeGeneratorVisitor visitor(core, arena, file_name);
     FunctionScope scope(&visitor);

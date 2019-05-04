@@ -102,7 +102,7 @@ public:
 };
     
 TEST_F(NyaaThreadTest, Sanity) {
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     
     Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
     bcbuf->Add(Bytecode::kLoadImm, core_);
@@ -129,7 +129,7 @@ static int CallingTest1(Nyaa *N) {
 
     
 TEST_F(NyaaThreadTest, Calling) {
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     
     Handle<NyDelegated> fn(core_->factory()->NewDelegated(CallingTest1));
     Handle<NyString> name(core_->factory()->NewString("test1"));
@@ -168,7 +168,7 @@ TEST_F(NyaaThreadTest, Calling) {
 }
     
 TEST_F(NyaaThreadTest, Return) {
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyByteArray> bcbuf(core_->factory()->NewByteArray(1024));
     
     // return 1, 2, 3
@@ -201,7 +201,7 @@ TEST_F(NyaaThreadTest, Return) {
 }
     
 TEST_F(NyaaThreadTest, CallVarResults) {
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     
     BuildRet3("f1");
     BuildRetFn("f2", "f1");
@@ -243,7 +243,7 @@ int ReturnVarArgs_Check(Arguments *args, Nyaa *N) {
 }
   
 TEST_F(NyaaThreadTest, CallVarArgs) {
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     
     BuildRet3("f1");
     Handle<NyDelegated> fn(RegisterChecker("check1", 4, ReturnVarArgs_Check));
@@ -293,7 +293,7 @@ TEST_F(NyaaThreadTest, Raise) {
         "print(\"----3-----\")\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -312,7 +312,7 @@ TEST_F(NyaaThreadTest, FunctionDefinition) {
         "foo(2)\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -345,7 +345,7 @@ TEST_F(NyaaThreadTest, FunctionUpvals) {
         "foo(4)\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> checker(RegisterChecker("check", 3, FunctionUpvals_Check));
     
     TryCatchCore try_catch(core_);
@@ -371,7 +371,7 @@ TEST_F(NyaaThreadTest, FunctionUpvals2) {
         "check(f())\n"
     };
 
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> checker(RegisterChecker("check", 3, FunctionUpvals_Check));
     
     TryCatchCore try_catch(core_);
@@ -399,7 +399,7 @@ TEST_F(NyaaThreadTest, MapInitializer) {
         "}\n"
     };
 
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -430,7 +430,7 @@ TEST_F(NyaaThreadTest, MapLinearInitializer)  {
         "}\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -470,7 +470,7 @@ TEST_F(NyaaThreadTest, OnlyIf)  {
         "return\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     
     TryCatchCore try_catch(core_);
@@ -494,7 +494,7 @@ TEST_F(NyaaThreadTest, IfElse)  {
         "return\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     
     TryCatchCore try_catch(core_);
@@ -518,7 +518,7 @@ TEST_F(NyaaThreadTest, IfElseIf)  {
         "return\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     
     TryCatchCore try_catch(core_);
@@ -541,7 +541,7 @@ TEST_F(NyaaThreadTest, EmptyObjectDefinition)  {
         "return\n"
     };
 
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     
     TryCatchCore try_catch(core_);
@@ -566,7 +566,7 @@ TEST_F(NyaaThreadTest, ObjectDefinitionConstructor) {
         "return\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     
     TryCatchCore try_catch(core_);
@@ -592,7 +592,7 @@ TEST_F(NyaaThreadTest, FunctionVargs) {
         "return\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 2, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -620,7 +620,7 @@ TEST_F(NyaaThreadTest, FunctionVargsRef) {
         "return\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 5, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -646,7 +646,7 @@ TEST_F(NyaaThreadTest, MapGetField) {
         "check(t.name, t[\"id\"])\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 2, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -674,7 +674,7 @@ TEST_F(NyaaThreadTest, UdoSetGetField) {
         "check(foo.get(), foo.a, foo.b)\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -708,7 +708,7 @@ TEST_F(NyaaThreadTest, UdoSelfCall) {
         "check(foo:get())\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -740,7 +740,7 @@ TEST_F(NyaaThreadTest, NewUdoCallInit) {
         "check(o:get())\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -770,7 +770,7 @@ TEST_F(NyaaThreadTest, NewUdoCallInitVargs) {
         "check(o:get())\n"
     };
 
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -803,7 +803,7 @@ TEST_F(NyaaThreadTest, PairIterate) {
         "print(iter())\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     //Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -827,7 +827,7 @@ TEST_F(NyaaThreadTest, ForIterate) {
         "}\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     //Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -849,7 +849,7 @@ TEST_F(NyaaThreadTest, MapToStr) {
         "check(str(t))\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -870,7 +870,7 @@ TEST_F(NyaaThreadTest, MapMetaStr) {
         "check(str(t))\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -892,7 +892,7 @@ TEST_F(NyaaThreadTest, Concat) {
         "check(t..\",\"..a..\",\"..b..\",\"..c)\n"
     };
 
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -917,7 +917,7 @@ TEST_F(NyaaThreadTest, UdoMetaStr) {
         "check(str(foo))\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -938,7 +938,7 @@ TEST_F(NyaaThreadTest, ArithAdd) {
         "check(a + 1, a + b, c + -4)\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -959,7 +959,7 @@ TEST_F(NyaaThreadTest, ArithAddOverflow) {
         "check(a + b)\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 1, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -980,7 +980,7 @@ TEST_F(NyaaThreadTest, AndOrSwitch) {
         "check(a and b, a or b)\n"
     };
     
-    HandleScope scope(isolate_);
+    HandleScope scope(N_);
     Handle<NyDelegated> check = RegisterChecker("check", 2, Values_Check);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);

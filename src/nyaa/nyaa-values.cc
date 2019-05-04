@@ -567,7 +567,7 @@ DEFINE_HEAP_OBJECT_BIN_ARITH(Div, "/")
 DEFINE_HEAP_OBJECT_BIN_ARITH(Mod, "%")
 
 NyString *NyObject::ToString(NyaaCore *N) {
-    HandleScope scope(N->isolate());
+    HandleScope scope(N->stub());
     
     switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
         case kTypeString:
@@ -1437,7 +1437,7 @@ void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
     }
 
     if (should_table) {
-        HandleScope scope(N->isolate());
+        HandleScope scope(N->stub());
         Handle<NyTable> table(N->factory()->NewTable(array_->capacity(), rand()));
         for (int64_t i = 0; i < array_->size(); ++i) {
             if (array_->Get(i) == Object::kNil) {
