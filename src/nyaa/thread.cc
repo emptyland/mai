@@ -207,10 +207,10 @@ void NyThread::Set(int i, Object *value) {
     }
 }
     
-int NyThread::TryRun(NyRunnable *fn, Arguments *args, int nrets, NyMap *env) {
+int NyThread::TryRun(NyRunnable *fn, Object *argv[], int argc, int nrets, NyMap *env) {
     int rv = 0;
     try {
-        rv = Run(fn, args, nrets, env);
+        rv = Run(fn, argv, argc, nrets, env);
     } catch (CatchId which) {
         Rewind();
         if (which == kException) {
@@ -222,39 +222,39 @@ int NyThread::TryRun(NyRunnable *fn, Arguments *args, int nrets, NyMap *env) {
     return rv;
 }
     
-int NyThread::Run(NyRunnable *rb, Arguments *args, int nrets, NyMap *env) {
-    if (!env) {
-        env = owns_->g();
-    }
-    int rv = -1;
-    CallFrame *frame = new CallFrame;
-    if (NyClosure *fn = rb->ToClosure()) {
-        rv = Run(fn, reinterpret_cast<Object **>(args->Address()), static_cast<int>(args->Length()),
-                 nrets, env);
-    } else if (NyDelegated *fn = rb->ToDelegated()) {
-        Push(fn);
-        DCHECK_GE(stack_tp_, stack_);
-        size_t top = stack_tp_ - stack_;
-        frame->Enter(this, fn,
-                     nullptr, /* bc buf */
-                     nullptr, /* const pool */
-                     nrets,
-                     top, /*frame_bp*/
-                     top + 20, /* frame_tp */
-                     env);
-        rv = fn->RawCall(args, owns_);
-        if (rv >= 0) {
-            CopyResult(stack_ + frame->stack_bp() - 1, rv, nrets);
-        }
-        frame->Exit(this);
-        delete frame;
-    } else {
-        DLOG(FATAL) << "noreached!";
-    }
-    return rv;
-}
+//int NyThread::Run(NyRunnable *rb, Arguments *args, int nrets, NyMap *env) {
+//    if (!env) {
+//        env = owns_->g();
+//    }
+//    int rv = -1;
+//    CallFrame *frame = new CallFrame;
+//    if (NyClosure *fn = rb->ToClosure()) {
+//        rv = Run(fn, reinterpret_cast<Object **>(args->Address()), static_cast<int>(args->Length()),
+//                 nrets, env);
+//    } else if (NyDelegated *fn = rb->ToDelegated()) {
+//        Push(fn);
+//        DCHECK_GE(stack_tp_, stack_);
+//        size_t top = stack_tp_ - stack_;
+//        frame->Enter(this, fn,
+//                     nullptr, /* bc buf */
+//                     nullptr, /* const pool */
+//                     nrets,
+//                     top, /*frame_bp*/
+//                     top + 20, /* frame_tp */
+//                     env);
+//        rv = fn->RawCall(args, owns_);
+//        if (rv >= 0) {
+//            CopyResult(stack_ + frame->stack_bp() - 1, rv, nrets);
+//        }
+//        frame->Exit(this);
+//        delete frame;
+//    } else {
+//        DLOG(FATAL) << "noreached!";
+//    }
+//    return rv;
+//}
 
-int NyThread::Run(NyRunnable *rb, Object **args, int nargs, int nrets, NyMap *env) {
+int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int nrets, NyMap *env) {
     if (!env) {
         env = owns_->g();
     }
@@ -270,7 +270,7 @@ int NyThread::Run(NyRunnable *rb, Object **args, int nargs, int nrets, NyMap *en
                      top, /* frame_bp */
                      top + fn->proto()->max_stack() /* frame_tp */,
                      env);
-        int adjust = CopyArgs(args, nargs, fn->proto()->n_params(), fn->proto()->vargs());
+        int adjust = CopyArgs(argv, argc, fn->proto()->n_params(), fn->proto()->vargs());
         frame_->AdjustBP(adjust);
         rv = Run();
     } else if (NyDelegated *fn = rb->ToDelegated()) {
@@ -282,9 +282,9 @@ int NyThread::Run(NyRunnable *rb, Object **args, int nargs, int nrets, NyMap *en
                      top + 20, /* frame_tp */
                      env);
         HandleScope handle_scope(owns_->stub());
-        Arguments args(nargs);
-        for (int i = 0; i < nargs; ++i) {
-            args.Set(i, Local<Value>::New(args[i]));
+        Arguments args(argc);
+        for (int i = 0; i < argc; ++i) {
+            args.Set(i, Local<Value>::New(argv[i]));
         }
         rv = fn->RawCall(&args, owns_);
         if (rv >= 0) {

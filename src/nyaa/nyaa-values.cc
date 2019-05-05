@@ -1910,14 +1910,14 @@ void NyArray::Refill(const NyArray *base, NyaaCore *N) {
 /// class NyRunnable:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
     
-int NyRunnable::Apply(Arguments *args, int nrets, NyaaCore *N) {
-    if (args) {
-        args->SetCallee(Local<Value>::New(this));
-    }
+int NyRunnable::Apply(Object *argv[], int argc, int nrets, NyaaCore *N) {
+//    if (args) {
+//        args->SetCallee(Local<Value>::New(this));
+//    }
     if (NyClosure *callee = ToClosure()) {
-        return callee->Call(args, nrets, N);
+        return callee->Call(argv, argc, nrets, N);
     } else if (NyDelegated *callee = ToDelegated()) {
-        return callee->Call(args, nrets, N);
+        return callee->Call(argv, argc, nrets, N);
     }
     DLOG(FATAL) << "Noreached!";
     return -1;
@@ -1934,8 +1934,8 @@ void NyDelegated::Bind(int i, Object *upval, NyaaCore *N) {
     upvals_[i] = upval;
 }
     
-int NyDelegated::Call(Arguments *args, int nrets, NyaaCore *N) {
-    return N->curr_thd()->Run(this, args, nrets);
+int NyDelegated::Call(Object *argv[], int argc, int nrets, NyaaCore *N) {
+    return N->curr_thd()->TryRun(this, argv, argc, nrets);
 }
     
 int NyDelegated::RawCall(Arguments *args, NyaaCore *N) {
@@ -2037,8 +2037,8 @@ void NyClosure::Bind(int i, Object *upval, NyaaCore *N) {
     upvals_[i] = upval;
 }
 
-int NyClosure::Call(Arguments *args, int nrets, NyaaCore *N) {
-    return N->curr_thd()->TryRun(this, args, nrets);
+int NyClosure::Call(Object *argv[], int argc, int nrets, NyaaCore *N) {
+    return N->curr_thd()->TryRun(this, argv, argc, nrets);
 }
 
 /*static*/ Handle<NyClosure> NyClosure::Compile(const char *z, size_t n, NyaaCore *N) {

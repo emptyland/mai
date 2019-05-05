@@ -113,9 +113,8 @@ TEST_F(NyaaThreadTest, Sanity) {
     bcbuf->Add(1, core_);
     
     Handle<NyClosure> script = NewClosure(bcbuf, Handle<NyArray>::Null());
-    Arguments args(0);
     auto thd = N_->core()->curr_thd();
-    auto rv = thd->Run(*script, &args);
+    auto rv = thd->Run(*script, nullptr, 0);
     ASSERT_EQ(1, rv);
 }
     
@@ -153,9 +152,8 @@ TEST_F(NyaaThreadTest, Calling) {
     bcbuf->Add(-1, core_);
 
     Handle<NyClosure> script = NewClosure(bcbuf, pool);
-    Arguments args(0);
     auto thd = N_->core()->curr_thd();
-    auto rv = thd->Run(*script, &args, -1);
+    auto rv = thd->Run(*script, nullptr, 0, -1);
     ASSERT_EQ(3, rv);
     ASSERT_EQ(3, thd->frame_size());
     
@@ -188,7 +186,7 @@ TEST_F(NyaaThreadTest, Return) {
     Handle<NyClosure> script = NewClosure(bcbuf, Handle<NyArray>::Null());
     Arguments args(0);
     auto thd = N_->core()->main_thd();
-    auto rv = thd->Run(*script, &args, 3);
+    auto rv = thd->Run(*script, nullptr, 0, 3);
     ASSERT_EQ(3, rv);
     ASSERT_EQ(3, thd->frame_size());
     
@@ -222,9 +220,8 @@ TEST_F(NyaaThreadTest, CallVarResults) {
     bcbuf->Add(-1, core_);
     
     Handle<NyClosure> script = NewClosure(bcbuf, pool);
-    Arguments args(0);
     auto thd = N_->core()->curr_thd();
-    auto rv = thd->Run(*script, &args, 3);
+    auto rv = thd->Run(*script, nullptr, 0, 3);
     ASSERT_EQ(4, rv);
     ASSERT_EQ(3, thd->frame_size());
 }
@@ -273,9 +270,8 @@ TEST_F(NyaaThreadTest, CallVarArgs) {
     bcbuf->Add(0, core_);
     
     Handle<NyClosure> script = NewClosure(bcbuf, pool);
-    Arguments args(0);
     auto thd = N_->core()->main_thd();
-    auto rv = thd->Run(*script, &args, 0);
+    auto rv = thd->Run(*script, nullptr, 0, 0);
     ASSERT_EQ(0, rv);
     ASSERT_EQ(0, thd->frame_size());
     
@@ -298,8 +294,7 @@ TEST_F(NyaaThreadTest, Raise) {
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
-    Arguments args(0);
-    auto rv = script->Call(&args, 0, core_);
+    auto rv = script->Call(nullptr, 0, 0, core_);
     ASSERT_GT(0, rv);
     ASSERT_TRUE(try_catch.has_caught());
     ASSERT_STREQ("error!", try_catch.message()->bytes());
@@ -318,8 +313,7 @@ TEST_F(NyaaThreadTest, FunctionDefinition) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    auto rv = script->Call(&args, 0, core_);
+    auto rv = script->Call(nullptr, 0, 0, core_);
     ASSERT_EQ(0, rv) << try_catch.message()->bytes();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
 }
@@ -351,8 +345,7 @@ TEST_F(NyaaThreadTest, FunctionUpvals) {
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
-    Arguments args(0);
-    auto rv = script->Call(&args, 0, core_);
+    auto rv = script->Call(nullptr, 0, 0, core_);
     ASSERT_EQ(0, rv) << try_catch.message()->bytes();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
     
@@ -378,8 +371,7 @@ TEST_F(NyaaThreadTest, FunctionUpvals2) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
 //    BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    auto rv = script->Call(&args, 0, core_);
+    auto rv = script->Call(nullptr, 0, 0, core_);
     ASSERT_EQ(0, rv) << try_catch.message()->bytes();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
     
@@ -405,8 +397,7 @@ TEST_F(NyaaThreadTest, MapInitializer) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    auto rv = script->Call(&args, 1, core_);
+    auto rv = script->Call(nullptr, 0, 1, core_);
     ASSERT_EQ(1, rv) << try_catch.message()->bytes();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
     ASSERT_EQ(1, core_->curr_thd()->frame_size());
@@ -436,8 +427,7 @@ TEST_F(NyaaThreadTest, MapLinearInitializer)  {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    auto rv = script->Call(&args, 1, core_);
+    auto rv = script->Call(nullptr, 0, 1, core_);
     ASSERT_EQ(1, rv) << try_catch.message()->bytes();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
     ASSERT_EQ(1, core_->curr_thd()->frame_size());
@@ -477,8 +467,7 @@ TEST_F(NyaaThreadTest, OnlyIf)  {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 1, core_);
+    script->Call(nullptr, 0, 1, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
     
     Handle<Object> val = check->upval(0);
@@ -501,8 +490,7 @@ TEST_F(NyaaThreadTest, IfElse)  {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 1, core_);
+    script->Call(nullptr, 0, 1, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
     
     Handle<Object> val = check->upval(0);
@@ -525,8 +513,7 @@ TEST_F(NyaaThreadTest, IfElseIf)  {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 1, core_);
+    script->Call(nullptr, 0, 1, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
 
     Handle<Object> val = check->upval(0);
@@ -548,8 +535,7 @@ TEST_F(NyaaThreadTest, EmptyObjectDefinition)  {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 1, core_);
+    script->Call(nullptr, 0, 1, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
 
     Handle<Object> val = check->upval(0);
@@ -573,8 +559,7 @@ TEST_F(NyaaThreadTest, ObjectDefinitionConstructor) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 1, core_);
+    script->Call(nullptr, 0, 1, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
     
     Handle<Object> val = check->upval(0);
@@ -598,8 +583,7 @@ TEST_F(NyaaThreadTest, FunctionVargs) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 1, core_);
+    script->Call(nullptr, 0, 1, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
     
     Handle<Object> val = check->upval(0);
@@ -626,8 +610,7 @@ TEST_F(NyaaThreadTest, FunctionVargsRef) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.message()->bytes();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 1, core_);
+    script->Call(nullptr, 0, 1, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
     
     for (int i = 0; i < 5; ++i) {
@@ -651,8 +634,7 @@ TEST_F(NyaaThreadTest, MapGetField) {
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
-    Arguments args(0);
-    script->Call(&args, 1, core_);
+    script->Call(nullptr, 0, 1, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     Handle<Object> val = check->upval(0);
@@ -680,8 +662,7 @@ TEST_F(NyaaThreadTest, UdoSetGetField) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     Handle<Object> val = check->upval(0);
@@ -714,8 +695,7 @@ TEST_F(NyaaThreadTest, UdoSelfCall) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     for (int i = 0; i < 3; ++i) {
@@ -746,8 +726,7 @@ TEST_F(NyaaThreadTest, NewUdoCallInit) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     for (int i = 0; i < 3; ++i) {
@@ -776,8 +755,7 @@ TEST_F(NyaaThreadTest, NewUdoCallInitVargs) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     for (int i = 0; i < 3; ++i) {
@@ -809,8 +787,7 @@ TEST_F(NyaaThreadTest, PairIterate) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
     
@@ -833,8 +810,7 @@ TEST_F(NyaaThreadTest, ForIterate) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
     
@@ -855,8 +831,7 @@ TEST_F(NyaaThreadTest, MapToStr) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     Handle<NyString> v1 = NyString::Cast(check->upval(0));
@@ -876,8 +851,7 @@ TEST_F(NyaaThreadTest, MapMetaStr) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     Handle<NyString> v1 = NyString::Cast(check->upval(0));
@@ -898,8 +872,7 @@ TEST_F(NyaaThreadTest, Concat) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     Handle<NyString> v1 = NyString::Cast(check->upval(0));
@@ -923,8 +896,7 @@ TEST_F(NyaaThreadTest, UdoMetaStr) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     Handle<NyString> v1 = NyString::Cast(check->upval(0));
@@ -944,8 +916,7 @@ TEST_F(NyaaThreadTest, ArithAdd) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     ASSERT_EQ(2, check->upval(0)->ToSmi());
@@ -965,8 +936,7 @@ TEST_F(NyaaThreadTest, ArithAddOverflow) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     Handle<NyInt> v1 = NyInt::Cast(check->upval(0));
@@ -986,8 +956,7 @@ TEST_F(NyaaThreadTest, AndOrSwitch) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
-    Arguments args(0);
-    script->Call(&args, 0, core_);
+    script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
     
     ASSERT_EQ(0, check->upval(0)->ToSmi());

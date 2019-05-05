@@ -40,6 +40,7 @@ class Table;
 class Script;
 class TryCatch;
 class Arguments;
+template<class T> class FunctionCallbackInfo;
 
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -740,7 +741,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class NyRunnable : public NyObject {
 public:
-    int Apply(Arguments *args, int nrets, NyaaCore *N);
+    int Apply(Object *argv[], int argc, int nrets, NyaaCore *N);
     
     DEF_HEAP_OBJECT_CASTS(Runnable);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyRunnable);
@@ -833,7 +834,7 @@ public:
     
     void Bind(int i, Object *upval, NyaaCore *N);
     
-    int Call(Arguments *args, int nrets, NyaaCore *N);
+    int Call(Object *argv[], int argc, int nrets, NyaaCore *N);
     
     static Handle<NyClosure> Compile(const char *z, NyaaCore *N) {
         return Compile(z, !z ? 0 : ::strlen(z), N);
@@ -868,6 +869,8 @@ public:
     using Arg2FP = int (*)(Local<Value>, Local<Value>, Nyaa *);
     using Arg3FP = int (*)(Local<Value>, Local<Value>, Local<Value>, Nyaa *);
     using UniversalFP = int (*)(Arguments *, Nyaa *);
+    using FunctionCallbackApiFP = void (*)(const FunctionCallbackInfo<Value> &);
+    using FunctionCallbackFP = void (*)(const FunctionCallbackInfo<Object> &);
     
     NyDelegated(Kind kind, Address fp, uint32_t n_upvals)
         : kind_(kind)
@@ -886,7 +889,7 @@ public:
     
     void Bind(int i, Object *upval, NyaaCore *N);
     
-    int Call(Arguments *args, int nrets, NyaaCore *N);
+    int Call(Object *argv[], int argc, int nrets, NyaaCore *N);
     
     int RawCall(Arguments *args, NyaaCore *N);
     

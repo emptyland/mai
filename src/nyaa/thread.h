@@ -150,11 +150,11 @@ public:
         return stack_tp_ - stack_;
     }
     
-    int TryRun(NyRunnable *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
+    int TryRun(NyRunnable *fn, Object *argv[], int argc, int nrets = 0, NyMap *env = nullptr);
 
-    int Run(NyRunnable *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
+    //int Run(NyRunnable *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
     
-    int Run(NyRunnable *fn, Object**args, int nargs, int nrets = 0, NyMap *env = nullptr);
+    int Run(NyRunnable *fn, Object *argv[], int argc, int nrets = 0, NyMap *env = nullptr);
     
     void Raisef(const char *fmt, ...);
     

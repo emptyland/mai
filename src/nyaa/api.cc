@@ -224,6 +224,26 @@ HandleScope *HandleScope::Prev() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Arguments:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void FunctionCallbackBase::Raisef(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    N_->core()->Vraisef(fmt, ap);
+    va_end(ap);
+}
+
+FunctionCallbackBase::FunctionCallbackBase(void *address, size_t length, Nyaa *N)
+    : address_(DCHECK_NOTNULL(address))
+    , length_(length)
+    , N_(DCHECK_NOTNULL(N)) {
+}
+
+FunctionCallbackBase::FunctionCallbackBase(size_t length, Nyaa *N)
+    : address_(N->core()->AdvanceHandleSlots(static_cast<int>(length) + 1))
+    , length_(length)
+    , N_(DCHECK_NOTNULL(N)) {
+    static_cast<void **>(address_)[0] = nullptr;
+}
+
 Arguments::Arguments(Value **address, size_t length)
     : length_(length)
     , address_(address) {
@@ -260,6 +280,36 @@ int Returnf(Nyaa *N, int nrets, ...) {
     }
     va_end(ap);
     return nrets;
+}
+    
+void ReturnValuesBase::Add(int64_t val) {
+    if (val > NySmi::kMaxValue || val < NySmi::kMinValue) {
+        AddInternal(NyInt::NewI64(val, N_->core()->factory()));
+    } else {
+        AddInternal(NySmi::New(val));
+    }
+}
+
+void ReturnValuesBase::Add(double val) {
+    AddInternal(N_->core()->factory()->NewFloat64(val));
+}
+
+void ReturnValuesBase::Add(const char *z, size_t n) {
+    AddInternal(N_->core()->factory()->NewString(z, n));
+}
+
+void ReturnValuesBase::AddInternal(Object *val) {
+    N_->core()->main_thd()->Push(val);
+}
+
+void ReturnValuesBase::AddInternalSome(int nrets, ...) {
+    va_list ap;
+    va_start(ap, nrets);
+    for (int i = 0; i < nrets; ++i) {
+        Object *ret = va_arg(ap, Object *);
+        N_->core()->main_thd()->Push(ret);
+    }
+    va_end(ap);
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
