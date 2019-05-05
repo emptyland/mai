@@ -243,43 +243,32 @@ FunctionCallbackBase::FunctionCallbackBase(size_t length, Nyaa *N)
     , N_(DCHECK_NOTNULL(N)) {
     static_cast<void **>(address_)[0] = nullptr;
 }
-
-Arguments::Arguments(Value **address, size_t length)
-    : length_(length)
-    , address_(address) {
-}
-
-Arguments::Arguments(size_t length)
-    : length_(length) {
-    auto addr = NyaaCore::Current()->AdvanceHandleSlots(static_cast<int>(length));
-    address_ = reinterpret_cast<Value **>(addr);
-    int64_t i = length;
-    while (i-- > 0) {
-        address_[i] = nullptr;
-    }
-}
-
-void Arguments::SetCallee(Local<Value> callee) {
-    if (!callee_) {
-        callee_ = reinterpret_cast<Value **>(HandleScope::Current()->NewHandle(nullptr));
-    }
-    *callee_ = *callee;
-}
+    
+NyaaCore *FunctionCallbackBase::Core() const { return N_->core(); }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Returns:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-int Returnf(Nyaa *N, int nrets, ...) {
-    N = !N ? Isolate::Current()->GetNyaa() : N;
-
+void ErrorsBase::Raisef(const char *fmt, ...) {
     va_list ap;
-    va_start(ap, nrets);
-    for (int i = 0; i < nrets; ++i) {
-        Object *ret = va_arg(ap, Object *);
-        N->core()->main_thd()->Push(ret);
-    }
+    va_start(ap, fmt);
+    N_->core()->Vraisef(fmt, ap);
     va_end(ap);
-    return nrets;
+}
+
+void ErrorsBase::Raise(const char *z, size_t n, void *ex) {
+    auto core = N_->core();
+    core->curr_thd()->Raise(core->factory()->NewString(z, n),
+                            static_cast<Object *>(ex));
+}
+    
+ReturnValuesBase::ReturnValuesBase(Nyaa *N)
+    : N_(DCHECK_NOTNULL(N))
+    , nrets_(N_->core()->curr_thd()->call_info()->nrets()) {
+}
+
+ReturnValuesBase::~ReturnValuesBase() {
+    N_->core()->curr_thd()->call_info()->set_nrets(nrets_);
 }
     
 void ReturnValuesBase::Add(int64_t val) {
@@ -290,7 +279,7 @@ void ReturnValuesBase::Add(int64_t val) {
     }
 }
 
-void ReturnValuesBase::Add(double val) {
+void ReturnValuesBase::AddF64(double val) {
     AddInternal(N_->core()->factory()->NewFloat64(val));
 }
 
@@ -299,6 +288,7 @@ void ReturnValuesBase::Add(const char *z, size_t n) {
 }
 
 void ReturnValuesBase::AddInternal(Object *val) {
+    nrets_++;
     N_->core()->main_thd()->Push(val);
 }
 

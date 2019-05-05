@@ -60,88 +60,82 @@ const size_t kRawBuiltinkmtSize = sizeof(BuiltinMetatablePool) / sizeof(NyMap *)
 static_assert(sizeof(BuiltinStrPool) / kPointerSize == arraysize(kRawBuiltinKzs),
               "Incorrect size of kRawBuiltinKzs");
     
-static int BuiltinPrint(Arguments *args, Nyaa *N) {
-    for (size_t i = 0; i < args->Length(); ++i) {
-        auto arg = ApiWarpNoCheck<Object>(args->Get(i), N->core());
-        Handle<NyString> str(arg->ToString(N->core()));
+static void BuiltinPrint(const FunctionCallbackInfo<Object> &info) {
+    for (size_t i = 0; i < info.Length(); ++i) {
+        Handle<NyString> str(info[i]->ToString(info.Core()));
         if (i > 0) {
             putchar('\t');
         }
         fwrite(str->bytes(), 1, str->size(), stdout);
     }
     putchar('\n');
-    return 0;
+    info.GetReturnValues().Add(info.Length());
 }
     
-static int BuiltinStr(Arguments *args, Nyaa *N) {
-    switch (args->Length()) {
+static void BuiltinStr(const FunctionCallbackInfo<Object> &info) {
+    switch (info.Length()) {
         case 0:
-            return Return(Local<NyString>::New(N->core()->bkz_pool()->kEmpty));
-        case 1: {
-            Handle<Object> a0 = ApiWarpNoCheck<Object>(args->Get(0), N->core());
-            DCHECK(a0.is_not_empty());
-            return Return(Local<NyString>::New(a0->ToString(N->core())));
-        } break;
+            info.GetReturnValues().Add("");
+            break;
+        case 1:
+            info.GetReturnValues().Add(info[0]->ToString(info.Core()));
+            break;
         default: {
-            Handle<NyString> buf = N->core()->factory()->NewUninitializedString(64);
-            for (size_t i = 0; i < args->Length(); ++i) {
-                Handle<Object> a = ApiWarpNoCheck<Object>(args->Get(i), N->core());
-                DCHECK(a.is_not_empty());
-                buf = buf->Add(a->ToString(N->core()), N->core());
+            Handle<NyString> buf = info.Core()->factory()->NewUninitializedString(64);
+            for (size_t i = 0; i < info.Length(); ++i) {
+                buf = buf->Add(info[i]->ToString(info.Core()), info.Core());
             }
-            return Return(Local<NyString>::New(buf->Done(N->core())));
+            info.GetReturnValues().Add(buf->Done(info.Core()));
         } break;
     }
 }
     
-static int BuiltinRaise(Arguments *args, Nyaa *N) {
+static void BuiltinRaise(const FunctionCallbackInfo<Object> &info) {
     auto msg = Handle<NyString>::Null();
-    if (args->Length() >= 1) {
-        auto ob = ApiWarpNoCheck<Object>(args->Get(0), N->core());
-        msg = ob->ToString(N->core());
+    if (info.Length() >= 1) {
+        msg = info[0]->ToString(info.Core());
     }
     
     auto ex = Handle<Object>::Null();
-    if (args->Length() >= 2) {
-        ex = ApiWarpNoCheck<Object>(args->Get(1), N->core());
+    if (info.Length() >= 2) {
+        ex = info[1];
     }
-    N->core()->curr_thd()->Raise(*msg, *ex);
-    return -1;
+    info.Core()->curr_thd()->Raise(*msg, *ex);
 }
     
-static int BuiltinMapIter(Arguments *args, Nyaa *N) {
-    Handle<NyDelegated> callee = ApiWarpNoCheck<NyDelegated>(args->Callee(), N->core());
+static void BuiltinMapIter(const FunctionCallbackInfo<Object> &info) {
+    Handle<NyDelegated> callee = NyDelegated::Cast(*info.Callee());
     DCHECK(callee.is_valid());
     Handle<NyMap> map = NyMap::Cast(callee->upval(0));
     DCHECK(map.is_valid());
     Handle<Object> key = callee->upval(1);
 
     Object *next, *value;
-    std::tie(next, value) = map->GetNextPair(*key, N->core());
-    callee->Bind(1, next, N->core());
-    return Return(Local<Object>::New(next), Local<Object>::New(value));
+    std::tie(next, value) = map->GetNextPair(*key, info.Core());
+    callee->Bind(1, next, info.Core());
+    info.GetReturnValues().Add(next).Add(value);
 }
     
-static int BuiltinPairs(Arguments *args, Nyaa *N) {
-    if (args->Length() < 1) {
-        return Raisef("incorrect argument length, expected: %zd, need: 1", args->Length());
+static void BuiltinPairs(const FunctionCallbackInfo<Object> &info) {
+    if (info.Length() < 1) {
+        info.GetErrors().Raisef("incorrect argument length, expected: %zd, need: 1", info.Length());
     }
-    auto arg0 = ApiWarpNoCheck<Object>(args->Get(0), N->core());
-    if (NyMap *map = NyMap::Cast(*arg0)) {
-        Handle<NyDelegated> iter = N->core()->factory()->NewDelegated(BuiltinMapIter, 2);
-        iter->Bind(0, map, N->core());
-        iter->Bind(1, Object::kNil, N->core());
-        return Return(iter);
-    } else if (NyUDO *uod = NyUDO::Cast(*arg0)) {
+    if (NyMap *map = NyMap::Cast(*info[0])) {
+        Handle<NyDelegated> iter = info.Core()->factory()->NewDelegated(BuiltinMapIter, 2);
+        iter->Bind(0, map, info.Core());
+        iter->Bind(1, Object::kNil, info.Core());
+        //return Return(iter);
+        info.GetReturnValues().Add(iter);
+    } else if (NyUDO *uod = NyUDO::Cast(*info[0])) {
         // TODO:
-        return Raisef("TODO:");
+        info.GetErrors().Raisef("TODO:");
     } else {
-        return Raisef("incorrect type: no pairs.");
+        info.GetErrors().Raisef("incorrect type: no pairs.");
     }
 }
     
-static int BuiltinRangeIter(Arguments *args, Nyaa *N) {
-    Handle<NyDelegated> callee = ApiWarpNoCheck<NyDelegated>(args->Callee(), N->core());
+static void BuiltinRangeIter(const FunctionCallbackInfo<Object> &info) {
+    Handle<NyDelegated> callee = NyDelegated::Cast(*info.Callee());
     DCHECK(callee.is_valid());
     
     int64_t curr = callee->upval(0)->ToSmi();
@@ -149,159 +143,108 @@ static int BuiltinRangeIter(Arguments *args, Nyaa *N) {
     int64_t step = callee->upval(2)->ToSmi();
     if (step > 0) {
         if (curr >= end) {
-            return Return(Local<Object>::New(Object::kNil));
+            info.GetReturnValues().AddNil();
+            return;
         }
     } else {
         if (curr <= end) {
-            return Return(Local<Object>::New(Object::kNil));
+            info.GetReturnValues().AddNil();
+            return;
         }
     }
     curr += step;
     Handle<Object> rv = NySmi::New(curr);
-    callee->Bind(0, *rv, N->core());
-    return Return(rv);
+    callee->Bind(0, *rv, info.Core());
+    info.GetReturnValues().Add(rv);
 }
 
-static int BuiltinRange(Arguments *args, Nyaa *N) {
+static void BuiltinRange(const FunctionCallbackInfo<Object> &info) {
     int64_t begin = 0, end = 0, step = 1;
-    switch (args->Length()) {
+    switch (info.Length()) {
         case 3: {
-            Handle<Object> ob = ApiWarpNoCheck<Object>(args->Get(2), N->core());
+            Handle<Object> ob = info[2];
             if (!ob->IsSmi()) {
-                return Raisef("incorrect type: need integer.");
+                info.GetErrors().Raisef("incorrect type: need integer.");
             }
             step = ob->ToSmi();
         } // though
         case 2: {
-            Handle<Object> ob = ApiWarpNoCheck<Object>(args->Get(1), N->core());
+            Handle<Object> ob = info[1];
             if (!ob->IsSmi()) {
-                return Raisef("incorrect type: need integer.");
+                info.GetErrors().Raisef("incorrect type: need integer.");
             }
             end = ob->ToSmi();
-            ob = ApiWarpNoCheck<Object>(args->Get(0), N->core());
+            ob = info[0];
             if (!ob->IsSmi()) {
-                return Raisef("incorrect type: need integer.");
+                info.GetErrors().Raisef("incorrect type: need integer.");
             }
             begin = ob->ToSmi();
         } break;
 
         default:
-            return Raisef("incorrect number of arguments. need [2, 3]");
+            info.GetErrors().Raisef("incorrect number of arguments. need [2, 3]");
+            return;
     }
-    Handle<NyDelegated> iter = N->core()->factory()->NewDelegated(BuiltinRangeIter, 3);
-    iter->Bind(0, NySmi::New(begin), N->core());
-    iter->Bind(1, NySmi::New(end), N->core());
-    iter->Bind(2, NySmi::New(step), N->core());
-    return Return(iter);
+    Handle<NyDelegated> iter = info.Core()->factory()->NewDelegated(BuiltinRangeIter, 3);
+    iter->Bind(0, NySmi::New(begin), info.Core());
+    iter->Bind(1, NySmi::New(end), info.Core());
+    iter->Bind(2, NySmi::New(step), info.Core());
+    info.GetReturnValues().Add(iter);
 }
     
-static int BuiltinSetMetatable(Arguments *args, Nyaa *N) {
-    Handle<Object> ob = ApiWarpNoCheck<Object>(args->Get(0), N->core());
+static void BuiltinSetMetatable(const FunctionCallbackInfo<Object> &info) {
+    Handle<Object> ob = info[0];
     if (ob.is_not_valid()) {
-        return Return();
+        return;
     }
-    Handle<NyMap> a0 = ApiWarp<NyMap>(args->Get(1), N->core());
-    if (a0.is_not_valid()) {
-        return Return();
+    Handle<NyMap> a1 = NyMap::Cast(*info[1]);
+    if (a1.is_not_valid()) {
+        return;
     }
     if (NyMap *map = NyMap::Cast(*ob)) {
-        a0->set_kid(kTypeMap);
-        map->SetMetatable(*a0, N->core());
-        return Return(args->Get(0));
+        a1->set_kid(kTypeMap);
+        map->SetMetatable(*a1, info.Core());
+        info.GetReturnValues().Add(info[0]);
     }
-    return Return();
 }
     
-static int BuiltinGetMetatable(Arguments *args, Nyaa *N) {
-    Handle<Object> ob = ApiWarpNoCheck<Object>(args->Get(0), N->core());
+static void BuiltinGetMetatable(const FunctionCallbackInfo<Object> &info) {
+    Handle<Object> ob = info[0];
     if (ob.is_not_valid()) {
-        return Return();
+        return;
     }
     if (NyMap *map = NyMap::Cast(*ob)) {
-        return Return(Local<NyMap>::New(map->GetMetatable()));
+        info.GetReturnValues().Add(map->GetMetatable());
     }
-    return Return();
 }
 
-static int DelegatedCall(Arguments *args, Nyaa *N) {
-    auto callee = ApiWarp<NyDelegated>(args->Callee(), N->core());
-    if (callee.is_empty()) {
-        return -1;
-    }
-    return callee->RawCall(args, N->core());
+static void DelegatedCall(const FunctionCallbackInfo<Object> &info) {
+    // TODO:
+    info.GetErrors().Raisef("TODO:");
 }
     
-static int ThreadInit(Local<Value> arg0, Local<Value> arg1, Nyaa *N) {
-    auto udo = ApiWarpNoCheck<NyUDO>(arg0, N->core());
-    if (!udo) {
-        return -1;
-    }
-    DCHECK_EQ(udo->GetMetatable(), N->core()->kmt_pool()->kThread);
-    
-    auto entry = ApiWarpNoCheck<NyRunnable>(arg1, N->core());
-    if (entry->IsNil() || entry->IsSmi() || !entry->IsRunnable()) {
-        return Raisef("incorrect entry type.");
-    }
-
-    Handle<NyThread> thd(new (*udo) NyThread(N->core()));
-    thd->set_entry(*entry);
-    thd->SetMetatable(N->core()->kmt_pool()->kThread, N->core());
-    auto rs = thd->Init();
-    if (!rs) {
-        return Raisef("coroutine init fail, cause: %s", rs.ToString().c_str());
-    }
-    N->core()->InsertThread(*thd);
-    return Return(thd);
+static void ThreadInit(const FunctionCallbackInfo<Object> &info) {
+    // TODO:
+    info.GetErrors().Raisef("TODO:");
 }
 
-static int ThreadIndex(Local<Value> arg0, Local<Value> arg1, Nyaa *N) {
-    auto thd = ApiWarp<NyThread>(arg0, N->core());
-    if (!thd) {
-        return -1;
-    }
-    auto name = ApiWarp<NyString>(arg1, N->core());
-    if (!name) {
-        return -1;
-    }
-    
-    //printf("%s\n", name->bytes());
-    if (::strncmp(name->bytes(), "status", name->size()) == 0) {
-        Handle<NyString> rv;
-        switch (thd->state()) {
-            case NyThread::kRunning:
-                rv = N->core()->bkz_pool()->kRunning;
-                break;
-                
-            case NyThread::kSuspended:
-                rv = N->core()->bkz_pool()->kSuspended;
-                break;
-                
-            case NyThread::kDead:
-                rv = N->core()->bkz_pool()->kDead;
-                break;
-            default:
-                break;
-        }
-        return Return(rv);
-    }
-    
-    Handle<NyMap> mt(thd->GetMetatable());
-    Handle<Object> rv(mt->RawGet(*name, N->core()));
-    return Return(rv);
+static void ThreadIndex(const FunctionCallbackInfo<Object> &info) {
+    // TODO:
+    info.GetErrors().Raisef("TODO:");
 }
     
-static int ThreadNewindex(Local<Value>, Local<Value>, Local<Value>, Nyaa *N) {
-    return Raisef("coroutine is readonly");
+static void ThreadNewindex(const FunctionCallbackInfo<Object> &info) {
+    info.GetErrors().Raisef("TODO:");
 }
 
 // coroutine.yield(a, b, c)
 // yield(a,b,c)
-static int BuiltinYield(Arguments *args, Nyaa *N) {
-    return Raisef("TODO:");
+static void BuiltinYield(const FunctionCallbackInfo<Object> &info) {
+    info.GetErrors().Raisef("TODO:");
 }
     
-static int ThreadResume(Arguments *args, Nyaa *N) {
-    return Raisef("TODO:");
+static void ThreadResume(const FunctionCallbackInfo<Object> &info) {
+    info.GetErrors().Raisef("TODO:");
 }
     
 

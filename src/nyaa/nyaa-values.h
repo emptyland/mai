@@ -39,7 +39,6 @@ class Array;
 class Table;
 class Script;
 class TryCatch;
-class Arguments;
 template<class T> class FunctionCallbackInfo;
 
     
@@ -862,13 +861,6 @@ private:
 class NyDelegated : public NyRunnable {
 public:
     using Kind = DelegatedKind;
-    using PropertyGetterFP = Handle<Value> (*)(Local<Value>, Local<String>, Nyaa *);
-    using PropertySetterFP = Handle<Value> (*)(Local<Value>, Local<String>, Local<Value>, Nyaa *);
-    using Arg0FP = int (*)(Nyaa *);
-    using Arg1FP = int (*)(Local<Value>, Nyaa *);
-    using Arg2FP = int (*)(Local<Value>, Local<Value>, Nyaa *);
-    using Arg3FP = int (*)(Local<Value>, Local<Value>, Local<Value>, Nyaa *);
-    using UniversalFP = int (*)(Arguments *, Nyaa *);
     using FunctionCallbackApiFP = void (*)(const FunctionCallbackInfo<Value> &);
     using FunctionCallbackFP = void (*)(const FunctionCallbackInfo<Object> &);
     
@@ -891,7 +883,7 @@ public:
     
     int Call(Object *argv[], int argc, int nrets, NyaaCore *N);
     
-    int RawCall(Arguments *args, NyaaCore *N);
+    int Apply(const FunctionCallbackInfo<Object> &info);
     
     DEF_VAL_GETTER(Kind, kind);
     
@@ -912,13 +904,7 @@ private:
     Kind kind_;
     uint32_t n_upvals_;
     union {
-        PropertyGetterFP getter_;
-        PropertySetterFP setter_;
-        Arg0FP call0_;
-        Arg1FP call1_;
-        Arg2FP call2_;
-        Arg3FP call3_;
-        UniversalFP calln_;
+        FunctionCallbackFP fn_fp_;
         void *stub_;
     };
     Object *upvals_[0]; // [strong ref], MUST BE TAIL

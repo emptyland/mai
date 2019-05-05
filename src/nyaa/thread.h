@@ -32,6 +32,7 @@ public:
     DEF_PTR_GETTER(CallFrame, prev);
     DEF_VAL_GETTER(int, level);
     DEF_VAL_GETTER(int, pc);
+    DEF_VAL_PROP_RW(int, nrets);
     DEF_VAL_GETTER(int, wanted);
     DEF_VAL_GETTER(size_t, stack_be);
     DEF_VAL_GETTER(size_t, stack_bp);
@@ -87,6 +88,7 @@ private:
     size_t stack_be_ = 0;
     size_t stack_bp_ = 0;
     size_t stack_tp_ = 0;
+    int nrets_ = 0; // record real return results.
     int wanted_ = 0; // return wanted results.
 };
     
@@ -143,6 +145,7 @@ public:
     DEF_PTR_PROP_RW(NyRunnable, entry);
     DEF_PTR_PROP_RW(NyThread, save);
     DEF_VAL_PROP_RW(State, state);
+    CallFrame *call_info() const { return DCHECK_NOTNULL(frame_); }
     
     size_t frame_size() const {
         DCHECK_GE(stack_tp_, stack_);
@@ -152,8 +155,6 @@ public:
     
     int TryRun(NyRunnable *fn, Object *argv[], int argc, int nrets = 0, NyMap *env = nullptr);
 
-    //int Run(NyRunnable *fn, Arguments *args, int nrets = 0, NyMap *env = nullptr);
-    
     int Run(NyRunnable *fn, Object *argv[], int argc, int nrets = 0, NyMap *env = nullptr);
     
     void Raisef(const char *fmt, ...);
@@ -188,8 +189,7 @@ public:
     friend class CallFrame;
     DEF_HEAP_OBJECT(Thread);
 private:
-    
-    
+
     Object **frame_bp() const { return !frame_ ? stack_ : stack_ + frame_->stack_bp(); }
     Object **frame_tp() const { return !frame_ ? stack_tp_ : stack_ + frame_->stack_tp(); }
     Object **frame_be() const { return !frame_ ? stack_ : stack_ + frame_->stack_be(); }

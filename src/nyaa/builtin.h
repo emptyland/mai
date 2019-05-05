@@ -8,12 +8,13 @@ namespace mai {
     
 namespace nyaa {
     
+class Object;
 class NyString;
 class NyMap;
 class NyTable;
 class NyaaCore;
 
-class Arguments;
+template<class T> class FunctionCallbackInfo;
 class Nyaa;
     
 #define DECL_BUILTIN_TYPES(V) \
@@ -93,13 +94,7 @@ private:
 extern const size_t kRawBuiltinkmtSize;
     
 enum DelegatedKind : int {
-    kPropertyGetter,
-    kPropertySetter,
-    kArg0,
-    kArg1,
-    kArg2,
-    kArg3,
-    kUniversal,
+    kFunctionCallback,
 };
     
 enum BuiltinType : int {
@@ -164,7 +159,7 @@ static constexpr const uint64_t kUdoKidBegin = 1000;
 
 struct NyaaNaFnEntry {
     const char *name;
-    int (*nafn)(Arguments *, Nyaa *);
+    void (*nafn)(const FunctionCallbackInfo<Object> &);
 };
     
 extern const NyaaNaFnEntry kBuiltinFnEntries[];

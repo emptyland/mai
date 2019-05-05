@@ -9,46 +9,47 @@ namespace mai {
  
 namespace nyaa {
     
+class NyaaCore;
 template<class T> class ReturnValues;
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Returns
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-int Returnf(Nyaa *N, int nrets, ...);
+class ErrorsBase {
+public:
+    __attribute__ (( __format__ (__printf__, 2, 3)))
+    void Raisef(const char *fmt, ...);
 
-inline int Return() { return Returnf(nullptr, 0); }
+protected:
+    ErrorsBase(Nyaa *N) : N_(N) {}
 
-template<class T1>
-inline int Return(const Handle<T1> &ret1) {
-    if (ret1.is_empty()) {
-        return -1;
-    }
-    return Returnf(nullptr, 1, *ret1);
-}
-
-template<class T1, class T2>
-inline int Return(const Handle<T1> &ret1, const Handle<T2> &ret2) {
-    if (ret1.is_empty() || ret2.is_empty()) {
-        return -1;
-    }
-    return Returnf(nullptr, 2, *ret1, *ret2);
-}
-
-template<class T1, class T2, class T3>
-inline int Return(const Handle<T1> &ret1, const Handle<T2> &ret2, const Handle<T3> &ret3) {
-    if (ret1.is_empty() || ret2.is_empty() || ret3.is_empty()) {
-        return -1;
-    }
-    return Returnf(nullptr, 3, *ret1, *ret2, *ret3);
-}
+    void Raise(const char *z, size_t n, void *ex);
+private:
+    Nyaa *N_;
+}; // class ErrorsBase
     
+    
+template<class T>
+class Errors final : public ErrorsBase {
+public:
+    Errors(Nyaa *N) : ErrorsBase(N) {}
+
+    void Raise(const char *z, const Handle<T> ex) { Raise(z, !z ? 0 : ::strlen(z), *ex); }
+    
+    template<class S>
+    void Raise(const char *z, const Handle<S> ex) {
+        Raise(z, !z ? 0 : ::strlen(z), *Handle<T>::Cast(ex));
+    }
+}; // template<class T> class Errors
+
 class ReturnValuesBase {
 protected:
-    ReturnValuesBase(Nyaa *N) : N_(N) {}
+    ReturnValuesBase(Nyaa *N);
+    ~ReturnValuesBase();
 
     void Add(bool val) { Add(static_cast<int64_t>(val)); }
     void Add(int64_t val);
-    void Add(double val);
+    void AddF64(double val);
     void AddNil() { AddInternal(nullptr); }
     void Add(const char *z, size_t n);
     void AddInternal(Object *val);
@@ -56,37 +57,39 @@ protected:
 
 private:
     Nyaa *N_;
+    int nrets_;
 }; // class ReturnValuesBase
     
 template<class T>
 class ReturnValues final : ReturnValuesBase {
 public:
+    using i = ReturnValuesBase;
+    
     ReturnValues(Nyaa *N) : ReturnValuesBase(N) {}
 
-    inline ReturnValues &Add(bool val) { Add(val); return *this; }
-    inline ReturnValues &Add(int64_t val) { Add(val); return *this; }
-    inline ReturnValues &Add(double val) { Add(val); return *this; }
-    inline ReturnValues &Add(const char *z) { Add(z, !z ? 0 : ::strlen(z)); return *this; }
-    inline ReturnValues &Add(const char *z, size_t n) { Add(z, n); return *this; }
-    inline ReturnValues &AddNil() { AddNil(); return *this; }
+    inline ReturnValues &Add(int64_t val) { i::Add(val); return *this; }
+    inline ReturnValues &Add(const char *z) { i::Add(z, !z ? 0 : ::strlen(z)); return *this; }
+    inline ReturnValues &Add(const char *z, size_t n) { i::Add(z, n); return *this; }
+    inline ReturnValues &AddF64(double val) { i::AddF64(val); return *this; }
+    inline ReturnValues &AddNil() { i::AddNil(); return *this; }
     inline ReturnValues &Add(const Handle<T> val) {
-        AddInternal(reinterpret_cast<Object *>(*val));
+        i::AddInternal(reinterpret_cast<Object *>(*val));
         return *this;
     }
     inline ReturnValues &Add(const Persistent<T> val) {
-        AddInternal(reinterpret_cast<Object *>(*val));
+        i::AddInternal(reinterpret_cast<Object *>(*val));
         return *this;
     }
 
     template<class S>
     inline ReturnValues &Add(const Handle<S> val) {
-        AddInternal(reinterpret_cast<Object *>(*Handle<T>::Cast(val)));
+        i::AddInternal(reinterpret_cast<Object *>(*Handle<T>::Cast(val)));
         return *this;
     }
 
     template<class S>
     inline ReturnValues &Add(const Persistent<S> val) {
-        AddInternal(reinterpret_cast<Object *>(*Persistent<T>::Cast(val)));
+        i::AddInternal(reinterpret_cast<Object *>(*Persistent<T>::Cast(val)));
         return *this;
     }
 }; // template<class T> class ReturnValues
@@ -98,6 +101,7 @@ class FunctionCallbackBase {
 public:
     size_t Length() const { return length_; }
     Nyaa *VM() const { return N_; }
+    NyaaCore *Core() const;
     
     __attribute__ (( __format__ (__printf__, 2, 3)))
     void Raisef(const char *fmt, ...);
@@ -105,7 +109,6 @@ protected:
     FunctionCallbackBase(void *address, size_t length, Nyaa *N);
     FunctionCallbackBase(size_t length, Nyaa *N);
 
-    //void *callee_ = nullptr;
     void *address_;
 private:
     size_t length_;
@@ -117,8 +120,14 @@ class FunctionCallbackInfo : public FunctionCallbackBase {
 public:
     FunctionCallbackInfo(void *address, size_t length, Nyaa *N)
         : FunctionCallbackBase(address, length, N) {}
-    FunctionCallbackInfo(size_t length, Nyaa *N)
-        : FunctionCallbackBase(length, N) {}
+
+    FunctionCallbackInfo(T *callee, T *argv[], size_t length, Nyaa *N)
+        : FunctionCallbackBase(length, N) {
+        static_cast<T **>(address_)[0] = callee;
+        for (size_t i = 0; i < length; ++i) {
+            static_cast<T **>(address_)[1 + i] = argv[i];
+        }
+    }
     
     void SetCallee(Handle<T> callee) {
         static_cast<T **>(address_)[0] = *callee;
@@ -136,44 +145,12 @@ public:
         if (i >= Length()) {
             return Local<T>();
         }
-        return Local<T>::New(*static_cast<T **>(address_)[1 + i]);
+        return Local<T>::New(static_cast<T **>(address_)[1 + i]);
     }
     
     ReturnValues<T> GetReturnValues() const { return ReturnValues<T>(VM()); }
+    Errors<T> GetErrors() const { return Errors<T>(VM()); }
 }; // class FunctionCallbackInfo
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// Arguments
-////////////////////////////////////////////////////////////////////////////////////////////////////
-class Arguments final {
-public:
-    Arguments(Value **address, size_t length);
-    
-    Arguments(size_t length);
-    
-    size_t Length() const { return length_; }
-    
-    Local<Value> operator [] (size_t i) const { return Get(i); }
-    
-    Local<Value> Get(size_t i) const {
-        return i >= Length() ? Local<Value>() : Local<Value>::New(address_[i]);
-    }
-    
-    Local<Value> Callee() const { return Local<Value>::Warp(callee_); }
-    
-    void SetCallee(Local<Value> callee);
-    
-    void Set(size_t i, Local<Value> arg) {
-        assert(i < length_); address_[i] = *arg;
-    }
-    
-    Value **Address() const { return address_; }
-    
-private:
-    size_t length_;
-    Value **address_;
-    Value **callee_ = nullptr;
-}; // class Arguments
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // TryCatch

@@ -1938,20 +1938,11 @@ int NyDelegated::Call(Object *argv[], int argc, int nrets, NyaaCore *N) {
     return N->curr_thd()->TryRun(this, argv, argc, nrets);
 }
     
-int NyDelegated::RawCall(Arguments *args, NyaaCore *N) {
+int NyDelegated::Apply(const FunctionCallbackInfo<Object> &info) {
     switch (kind()) {
-        case kArg0:
-            return call0_(N->stub());
-        case kArg1:
-            return call1_(args->Get(0), N->stub());
-        case kArg2:
-            return call2_(args->Get(0), args->Get(1), N->stub());
-        case kArg3:
-            return call3_(args->Get(0), args->Get(1), args->Get(2), N->stub());
-        case kUniversal:
-            return calln_(args, N->stub());
-        case kPropertyGetter:
-        case kPropertySetter:
+        case kFunctionCallback:
+            fn_fp_(info);
+            break;
         default:
             DLOG(FATAL) << "TODO:";
             break;

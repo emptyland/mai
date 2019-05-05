@@ -282,11 +282,10 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int nrets, NyMap *en
                      top + 20, /* frame_tp */
                      env);
         HandleScope handle_scope(owns_->stub());
-        Arguments args(argc);
-        for (int i = 0; i < argc; ++i) {
-            args.Set(i, Local<Value>::New(argv[i]));
-        }
-        rv = fn->RawCall(&args, owns_);
+        //Arguments args(argc);
+        FunctionCallbackInfo<Object> info(fn, argv, argc, owns_->stub());
+        fn->Apply(info);
+        rv = frame->nrets();
         if (rv >= 0) {
             CopyResult(stack_ + frame->stack_bp() - 1, rv, nrets);
         }
@@ -1015,8 +1014,6 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
                 n_args = static_cast<int32_t>(stack_tp_ - base - 1);
             }
             HandleScope scope(owns_->stub());
-            Arguments args(reinterpret_cast<Value **>(base + 1), n_args);
-            args.SetCallee(Local<Value>::New(callee));
             CallFrame *frame = new CallFrame;
             frame->Enter(this, callee,
                          nullptr, /* bc buf */
@@ -1025,7 +1022,9 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
                          base_p + 1, /*frame_bp*/
                          base_p + 20, /* frame_tp */
                          frame_->env());
-            int rv = callee->RawCall(&args, owns_);
+            FunctionCallbackInfo<Object> info(base, n_args, owns_->stub());
+            callee->Apply(info);
+            int rv = frame->nrets();
             if (rv >= 0) {
                 CopyResult(stack_ + frame->stack_be() - 1, rv, wanted);
             }

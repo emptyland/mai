@@ -80,7 +80,7 @@ public:
     }
 
     Handle<NyDelegated> RegisterChecker(const char *name, int n_upvals,
-                                        int (*fp)(Arguments *, Nyaa *)) {
+                                        void (*fp)(const FunctionCallbackInfo<Object> &)) {
         Handle<NyDelegated> fn(factory_->NewDelegated(fp, n_upvals));
         core_->SetGlobal(factory_->NewString(name), *fn);
         return fn;
@@ -118,11 +118,11 @@ TEST_F(NyaaThreadTest, Sanity) {
     ASSERT_EQ(1, rv);
 }
     
-static int CallingTest1(Nyaa *N) {
-    //printf("calling test1...\n");
-    return Return(String::New(N, "1st"),
-                  String::New(N, "2nd"),
-                  String::New(N, "3th"));
+static void CallingTest1(const FunctionCallbackInfo<Object> &info) {
+    info.GetReturnValues()
+        .Add("1st")
+        .Add("2nd")
+        .Add("3th");
 }
   
 
@@ -184,7 +184,6 @@ TEST_F(NyaaThreadTest, Return) {
     bcbuf->Add(3, core_);
     
     Handle<NyClosure> script = NewClosure(bcbuf, Handle<NyArray>::Null());
-    Arguments args(0);
     auto thd = N_->core()->main_thd();
     auto rv = thd->Run(*script, nullptr, 0, 3);
     ASSERT_EQ(3, rv);
@@ -226,17 +225,16 @@ TEST_F(NyaaThreadTest, CallVarResults) {
     ASSERT_EQ(3, thd->frame_size());
 }
     
-int ReturnVarArgs_Check(Arguments *args, Nyaa *N) {
-    Local<Function> callee = Local<Function>::Cast(args->Callee());
+void ReturnVarArgs_Check(const FunctionCallbackInfo<Object> &info) {
+    Handle<NyDelegated> callee = NyDelegated::Cast(*info.Callee());
     if (!callee) {
-        return -1;
+        return;
     }
     
-    callee->Bind(0, args->Get(0));
-    callee->Bind(1, args->Get(1));
-    callee->Bind(2, args->Get(2));
-    callee->Bind(3, args->Get(3));
-    return 0;
+    callee->Bind(0, *info[0], info.Core());
+    callee->Bind(1, *info[1], info.Core());
+    callee->Bind(2, *info[2], info.Core());
+    callee->Bind(3, *info[3], info.Core());
 }
   
 TEST_F(NyaaThreadTest, CallVarArgs) {
@@ -318,16 +316,15 @@ TEST_F(NyaaThreadTest, FunctionDefinition) {
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.message()->bytes();
 }
     
-int FunctionUpvals_Check(Arguments *args, Nyaa *N) {
-    Local<Function> callee = Local<Function>::Cast(args->Callee());
+void FunctionUpvals_Check(const FunctionCallbackInfo<Object> &info) {
+    Handle<NyDelegated> callee = NyDelegated::Cast(*info.Callee());
     if (!callee) {
-        return -1;
+        return;
     }
     
-    callee->Bind(0, args->Get(0));
-    callee->Bind(1, args->Get(1));
-    callee->Bind(2, args->Get(2));
-    return 0;
+    callee->Bind(0, *info[0], info.Core());
+    callee->Bind(1, *info[1], info.Core());
+    callee->Bind(2, *info[2], info.Core());
 }
 
 TEST_F(NyaaThreadTest, FunctionUpvals) {
@@ -441,16 +438,14 @@ TEST_F(NyaaThreadTest, MapLinearInitializer)  {
     }
 }
     
-int Values_Check(Arguments *args, Nyaa *N) {
-    Local<Function> callee = Local<Function>::Cast(args->Callee());
-    if (!callee) {
-        return -1;
+void Values_Check(const FunctionCallbackInfo<Object> &info) {
+    Handle<NyDelegated> callee = NyDelegated::Cast(*info.Callee());
+    if (callee.is_not_valid()) {
+        return;
     }
-
-    for (int i = 0; i < args->Length(); ++i) {
-        callee->Bind(i, args->Get(i));
+    for (int i = 0; i < info.Length(); ++i) {
+        callee->Bind(i, *info[i], info.Core());
     }
-    return 0;
 }
     
 TEST_F(NyaaThreadTest, OnlyIf)  {
