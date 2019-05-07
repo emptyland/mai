@@ -53,7 +53,7 @@ protected:
     void Add(const char *z, size_t n);
     void AddInternal(Object *val);
     void AddInternalSome(int nrets, ...);
-
+    void Set(int nrets);
 private:
     Nyaa *N_;
     //int nrets_;
@@ -91,6 +91,8 @@ public:
         i::AddInternal(reinterpret_cast<Object *>(*Persistent<T>::Cast(val)));
         return *this;
     }
+    
+    inline void Set(int nrets) { i::Set(nrets); }
 }; // template<class T> class ReturnValues
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

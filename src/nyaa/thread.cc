@@ -1028,30 +1028,30 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
     return 0;
 }
     
-void NyThread::CopyResult(Object **ret, int n_rets, int wanted) {
+void NyThread::CopyResult(Object **ret, int nrets, int wanted) {
     switch (wanted) {
         case -1:
-            wanted = n_rets;
+            wanted = nrets;
             break;
         case 0:
             stack_tp_ = ret;
             return;
         case 1:
-            if (n_rets == 0) {
+            if (nrets == 0) {
                 ret[0] = Object::kNil;
             } else {
-                ret[0] = *(stack_tp_ - 1);
+                ret[0] = *(stack_tp_ - nrets);
             }
             stack_tp_ = ret + 1;
             return;
         default:
             break;
     }
-    Object **from = stack_tp_ - n_rets;
-    for (int i = 0; i < n_rets && i < wanted; ++i) {
+    Object **from = stack_tp_ - nrets;
+    for (int i = 0; i < nrets && i < wanted; ++i) {
         ret[i] = from[i];
     }
-    for (int i = n_rets; i < wanted; ++i) {
+    for (int i = nrets; i < wanted; ++i) {
         ret[i] = Object::kNil;
     }
     stack_tp_ = ret + wanted;

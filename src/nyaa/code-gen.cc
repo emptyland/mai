@@ -1142,7 +1142,7 @@ inline BlockScope::~BlockScope() {
 
     Handle<NyFunction> result = core->factory()->NewFunction(nullptr/*name*/,
             0/*nparams*/,
-            false/*vargs*/,
+            true/*vargs*/,
             0/*n_upvals*/,
             scope.max_stack(),
             *file_name,

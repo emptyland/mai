@@ -47,6 +47,9 @@ public:
     // Global variable operations:
     void SetGlobal(NyString *name, Object *value);
     
+    // New env object (global variable table)
+    NyMap *NewEnv(NyMap *base);
+    
     void Raisef(const char *fmt, ...);
     void Vraisef(const char *fmt, va_list ap);
     
@@ -78,6 +81,7 @@ public:
     DEF_VAL_GETTER(bool, initialized);
     DEF_PTR_GETTER(FILE, logger);
     DEF_PTR_GETTER(NyMap, g);
+    DEF_PTR_GETTER(NyMap, loads);
     DEF_PTR_GETTER(NyThread, main_thd);
     DEF_PTR_PROP_RW(NyThread, curr_thd);
     BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
@@ -105,6 +109,7 @@ private:
     std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // elements [strong ref]
 
     NyMap *g_ = nullptr; // [strong ref]
+    NyMap *loads_ = nullptr; // [strong ref]
     NyThread *main_thd_ = nullptr; // [strong ref]
     NyThread *curr_thd_ = nullptr; // [strong ref]
 };

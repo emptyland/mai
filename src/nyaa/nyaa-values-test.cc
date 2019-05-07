@@ -35,7 +35,7 @@ TEST_F(NyaaValuesTest, Sanity) {
     ASSERT_NE(nullptr, *h);
     ASSERT_STREQ("abcd", h->bytes());
     
-    Local<String> s = Local<String>::New(h);
+    Local<String> s = Local<String>::New(reinterpret_cast<String *>(*h));
 
     ASSERT_NE(nullptr, *s);
     ASSERT_STREQ("abcd", s->Bytes());

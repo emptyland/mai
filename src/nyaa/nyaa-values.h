@@ -789,13 +789,11 @@ public:
     
     void SetUpval(size_t i, NyString *name, bool in_stack, int32_t index,
                   NyaaCore *N);
-    
+
     static Handle<NyFunction> Compile(const char *z, NyaaCore *N) {
         return Compile(z, !z ? 0 : ::strlen(z), N);
     }
-    
     static Handle<NyFunction> Compile(const char *z, size_t n, NyaaCore *N);
-    
     static Handle<NyFunction> Compile(const char *file_name, FILE *fp, NyaaCore *N);
 
     void Iterate(ObjectVisitor *visitor);

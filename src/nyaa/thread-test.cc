@@ -989,6 +989,27 @@ TEST_F(NyaaThreadTest, Log) {
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
     
+TEST_F(NyaaThreadTest, Require) {
+    static const char s[] = {
+        "var a = require \"tests/nyaa/01-foo-file.nyaa\"\n"
+        "var b, c, d, e = require \"tests/nyaa/02-bar-file.nyaa\"\n"
+        "check(a, b)\n"
+    };
+    
+    HandleScope scope(N_);
+    Handle<NyDelegated> check = RegisterChecker("check", 2, Values_Check);
+    TryCatchCore try_catch(core_);
+    NyClosure::Do(s, arraysize(s), 0/*wanted*/, nullptr, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    NyString *val = NyString::Cast(check->upval(0));
+    ASSERT_NE(nullptr, val);
+    ASSERT_STREQ("foo", val->bytes());
+    val = NyString::Cast(check->upval(1));
+    ASSERT_NE(nullptr, val);
+    ASSERT_STREQ("bar", val->bytes());
+}
+    
 //TEST_F(NyaaThreadTest, CheckStack)
 
 } // namespace nyaa

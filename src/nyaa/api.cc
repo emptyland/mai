@@ -128,7 +128,7 @@ bool Value::IsScript() const {
 
 /*static*/ Handle<String> String::New(Nyaa *N, const char *s, size_t n) {
     auto factory = N->core()->factory();
-    return factory->NewString(s, n, false);
+    return reinterpret_cast<String *>(factory->NewString(s, n, false));
 }
 
 uint32_t String::HashVal() const {
@@ -145,7 +145,7 @@ size_t String::Length() const {
     
 Handle<Value> Result::Get(size_t i) const {
     auto core = reinterpret_cast<const NyArray *>(this);
-    return i >= core->size() ? Handle<Value>() : core->Get(i);
+    return i >= core->size() ? Handle<Value>::Empty() : reinterpret_cast<Value *>(core->Get(i));
 }
 
 size_t Result::Length() const {
@@ -168,9 +168,9 @@ Handle<Value> Function::GetUpVal(int i) {
         return Handle<Value>();
     }
     if (NyClosure *fn = reinterpret_cast<NyObject *>(this)->ToClosure()) {
-        return fn->upval(i);
+        return reinterpret_cast<Value *>(fn->upval(i));
     } else if (NyDelegated *fn = reinterpret_cast<NyObject *>(this)->ToDelegated()) {
-        return fn->upval(i);
+        return reinterpret_cast<Value *>(fn->upval(i));
     }
     return Handle<Value>();
 }
@@ -308,6 +308,11 @@ void ReturnValuesBase::AddInternalSome(int nrets, ...) {
     va_end(ap);
 }
     
+void ReturnValuesBase::Set(int nrets) {
+    auto ci = N_->core()->curr_thd()->call_info();
+    ci->set_nrets(nrets);
+}
+    
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // TryCatch:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -331,7 +336,7 @@ TryCatch::~TryCatch() {
 }
 
 Handle<Value> TryCatch::Exception() const {
-    return Handle<Value>(catch_point_->exception());
+    return Handle<Value>(reinterpret_cast<Value *>(catch_point_->exception()));
 }
     
 bool TryCatch::HasCaught() const {
@@ -339,11 +344,11 @@ bool TryCatch::HasCaught() const {
 }
 
 Handle<String> TryCatch::Message() const {
-    return Handle<String>(catch_point_->message());
+    return Handle<String>(reinterpret_cast<String *>(catch_point_->message()));
 }
     
 Handle<Value> TryCatch::StackTrace() const {
-    return Handle<Value>(catch_point_->stack_trace());
+    return Handle<Value>(reinterpret_cast<Value *>(catch_point_->stack_trace()));
 }
 
 } // namespace nyaa

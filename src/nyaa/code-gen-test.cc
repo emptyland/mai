@@ -138,7 +138,7 @@ TEST_F(NyaaCodeGenTest, ReturnCallingInCall) {
     
 TEST_F(NyaaCodeGenTest, ReturnExpression) {
     static const  char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 5, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 5, upvals: 0\n"
         "const pool: 2\n"
         " [0] (-1) 1.200000\n"
         " [1] (-2) 1.300000\n"
@@ -173,7 +173,7 @@ TEST_F(NyaaCodeGenTest, ReturnExpression) {
     
 TEST_F(NyaaCodeGenTest, CallExpression) {
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 5, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 5, upvals: 0\n"
         "const pool: 7\n"
         " [0] (-1) foo\n"
         " [1] (-2) 1.200000\n"
@@ -219,7 +219,7 @@ TEST_F(NyaaCodeGenTest, Compile) {
         "return a + b / c - 2\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 6, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 6, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 1\n"
         " [0] (-1) 2\n"
@@ -250,7 +250,7 @@ TEST_F(NyaaCodeGenTest, MutilReceive) {
         "return a * b + c / b, c\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 6, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 6, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 1\n"
         " [0] (-1) foo\n"
@@ -302,7 +302,7 @@ TEST_F(NyaaCodeGenTest, LambdaLiteral) {
         "var foo = lambda (a) { return a + b }\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 2, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 2, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 1\n"
         " [0] (-1) 100\n"
@@ -337,7 +337,7 @@ TEST_F(NyaaCodeGenTest, CallExpressions) {
         "return f\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 9, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 9, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 4\n"
         " [0] (-1) 100\n"
@@ -377,7 +377,7 @@ TEST_F(NyaaCodeGenTest, Index) {
         "return a, b\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 3, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 3, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 3\n"
         " [0] (-1) t\n"
@@ -413,7 +413,7 @@ TEST_F(NyaaCodeGenTest, MapLiteral) {
         "}\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 15, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 15, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 12\n"
         " [0] (-1) 100\n"
@@ -468,7 +468,7 @@ TEST_F(NyaaCodeGenTest, IfElse) {
         "return\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 5, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 5, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 8\n"
         " [0] (-1) 1\n"
@@ -518,7 +518,7 @@ TEST_F(NyaaCodeGenTest, ObjectDefinition) {
         "object foo {}\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 2, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 2, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 2\n"
         " [0] (-1) __type__\n"
@@ -545,7 +545,7 @@ TEST_F(NyaaCodeGenTest, ClassDefinition) {
         "class foo {}\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 2, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 2, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 2\n"
         " [0] (-1) __type__\n"
@@ -576,7 +576,7 @@ TEST_F(NyaaCodeGenTest, ClassDefinitionWithMembers) {
         "}\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 18, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 18, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 10\n"
         " [0] (-1) __init__\n"
@@ -643,7 +643,7 @@ TEST_F(NyaaCodeGenTest, ClassDefinitionWithBase) {
         "}\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 9, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 9, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 8\n"
         " [0] (-1) a\n"
@@ -692,7 +692,7 @@ TEST_F(NyaaCodeGenTest, VargsExpression) {
         "}\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 1, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 1, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 1\n"
         " [0] (-1) foo\n"
@@ -725,7 +725,7 @@ TEST_F(NyaaCodeGenTest, GetFieldSetField) {
         "t.c = a\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 4, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 4, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 4\n"
         " [0] (-1) t\n"
@@ -757,7 +757,7 @@ TEST_F(NyaaCodeGenTest, SelfCall) {
         "return a\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 5, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 5, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 5\n"
         " [0] (-1) t\n"
@@ -790,7 +790,7 @@ TEST_F(NyaaCodeGenTest, NewCall) {
         "a = new t(1,2)\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 5, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 5, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 3\n"
         " [0] (-1) t\n"
@@ -824,7 +824,7 @@ TEST_F(NyaaCodeGenTest, WhileLoop) {
         "}\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 2, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 2, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 6\n"
         " [0] (-1) -25\n"
@@ -862,7 +862,7 @@ TEST_F(NyaaCodeGenTest, ForIterateLoop) {
         "}\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 6, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 6, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 6\n"
         " [0] (-1) pairs\n"
@@ -905,7 +905,7 @@ TEST_F(NyaaCodeGenTest, Concat) {
         "return a\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 6, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 6, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 2\n"
         " [0] (-1) 1\n"
@@ -937,7 +937,7 @@ TEST_F(NyaaCodeGenTest, AndOrSwitch) {
         "return a, b\n"
     };
     static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 0, max-stack: 4, upvals: 0\n"
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 4, upvals: 0\n"
         "file name: :memory:\n"
         "const pool: 2\n"
         " [0] (-1) 0\n"

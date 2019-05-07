@@ -261,6 +261,59 @@ static void BuiltinLog(const FunctionCallbackInfo<Object> &info) {
     ::fflush(logger);
 }
 
+static void BuiltinRequire(const FunctionCallbackInfo<Object> &info) {
+    if (info.Length() < 1) {
+        info.GetErrors().Raisef("incorrect arguments length, required: >1");
+        return;
+    }
+    
+    NyaaCore *N = info.Core();
+    Handle<NyString> arg0 = info[0]->ToString(N);
+    Env *paltform = Isolate::Current()->env();
+
+    std::string file_name(arg0->bytes(), arg0->size());
+    auto rs = paltform->FileExists(file_name);
+    if (!rs) {
+        for (const auto &path : info.VM()->find_paths()) {
+            file_name = path;
+            file_name.append("/");
+            file_name.append(arg0->bytes(), arg0->size());
+            rs = paltform->FileExists(file_name);
+            if (rs.ok()) {
+                break;
+            }
+        }
+        if (!rs) {
+            info.GetErrors().Raisef("file not found: %s", arg0->bytes());
+            return;
+        }
+    }
+    Handle<NyString> key = N->factory()->NewString(file_name.data(), file_name.size());
+    if (N->loads()->RawGet(*key, N)) {
+        return;
+    }
+    N->loads()->RawPut(*key, NySmi::New(0), N);
+    
+    Handle<NyMap> env = Handle<NyMap>::Null();
+    if (info.Length() > 1) {
+        env = NyMap::Cast(*info[1]);
+    }
+    env = info.Core()->NewEnv(*env);
+    
+    FILE *fp = ::fopen(file_name.c_str(), "r");
+    if (!fp) {
+        info.GetErrors().Raisef("can not open file: %s", arg0->bytes());
+        return;
+    }
+    Handle<NyFunction> script = NyFunction::Compile(file_name.c_str(), fp, N);
+    ::fclose(fp);
+    Handle<NyClosure> fn = N->factory()->NewClosure(*script);
+    int rv = N->curr_thd()->Run(*fn, nullptr/*argv*/, 0/*argc*/, -1/*wanted*/, *env);
+    if (rv > 0) {
+        info.GetReturnValues().Set(rv);
+    }
+}
+
 static void DelegatedCall(const FunctionCallbackInfo<Object> &info) {
     // TODO:
     info.GetErrors().Raisef("TODO:");
@@ -388,6 +441,7 @@ const NyaaNaFnEntry kBuiltinFnEntries[] = {
     {"raise", BuiltinRaise},
     {"pairs", BuiltinPairs},
     {"range", BuiltinRange},
+    {"require", BuiltinRequire},
     {"getmetatable", BuiltinGetMetatable},
     {"setmetatable", BuiltinSetMetatable},
     {nullptr, nullptr},

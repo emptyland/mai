@@ -74,14 +74,12 @@ Error NyaaCore::Boot() {
     }
     
     // Set builtin global variables:
-    g_ = factory_->NewMap(32, /*capacity*/ rand(), /*seed*/ 0, /*kid*/ false, /*linear*/
-                          true /*old*/);
+    g_ = NewEnv(nullptr);
     
-    for (auto e = &kBuiltinFnEntries[0]; e->name; e++) {
-        SetGlobal(factory_->NewString(e->name),
-                  factory_->NewDelegated(e->nafn));
-    }
-    
+    // Files has be loaded:
+    loads_ = factory_->NewMap(32/*capacity*/, random_->NextU32()/*seed*/, 0/*kid*/, false/*linear*/,
+                              true/*old*/);
+
     // Setup main_thread
     main_thd_ = factory_->NewThread(true /* old */);
     main_thd_->next_ = main_thd_;
@@ -124,6 +122,22 @@ void NyaaCore::Pop(int n) {
 }
     
 void NyaaCore::SetGlobal(NyString *name, Object *value) { g_->RawPut(name, value, this); }
+    
+NyMap *NyaaCore::NewEnv(NyMap *base) {
+    NyMap *env = base;
+    if (!env) {
+        env = factory_->NewMap(32/*capacity*/, random_->NextU32()/*seed*/, 0/*kid*/,
+                               false/*linear*/, true/*old*/);
+    }
+
+    for (auto e = &kBuiltinFnEntries[0]; e->name; e++) {
+        NyString *name = factory_->NewString(e->name);
+        if (!env->RawGet(name, this)) {
+            env->RawPut(factory_->NewString(e->name), factory_->NewDelegated(e->nafn), this);
+        }
+    }
+    return env;
+}
     
 void NyaaCore::Raisef(const char *fmt, ...) {
     va_list ap;
@@ -191,6 +205,7 @@ Address NyaaCore::AdvanceHandleSlots(int n_slots) {
     
 void NyaaCore::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&g_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&loads_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&main_thd_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&curr_thd_));
     

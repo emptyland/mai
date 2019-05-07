@@ -2,6 +2,7 @@
 #define MAI_LANG_HANDLES_H_
 
 #include <assert.h>
+#include <type_traits>
 
 namespace mai {
     
@@ -87,10 +88,16 @@ public:
     inline explicit Handle(T **location = nullptr) : Handless<T>(location) {}
     
     template<class S> inline Handle(S *pointer)
-        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(pointer))) {}
+        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(pointer))) {
+        T *unused = static_cast<T *>(pointer);
+        (void)unused;
+    }
     
     template<class S> inline Handle(Handle<S> other)
-        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(other.get()))) {}
+        : Handless<T>(reinterpret_cast<T**>(HandleScope::Current()->NewHandle(other.get()))) {
+        T *unused = static_cast<T *>(*other);
+        (void)unused;
+    }
     
     inline Handle(const Handle &other) : Handless<T>(other) {}
     
@@ -138,6 +145,8 @@ public:
         if (input.is_empty()) {
             return Handle<T>();
         }
+        T *unused = static_cast<T *>(*input);
+        (void)unused;
         auto h = reinterpret_cast<T**>(HandleScope::Current()->NewHandle(*input));
         return Handle<T>(h);
     }

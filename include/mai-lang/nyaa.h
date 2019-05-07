@@ -6,6 +6,7 @@
 #include "mai-lang/values.h"
 #include "mai-lang/call-info.h"
 #include <memory>
+#include <set>
 
 
 namespace mai {
@@ -54,11 +55,12 @@ public:
     int major_area_initial_size() const { return major_area_initial_size_; }
     int minor_area_initial_size() const { return minor_area_initial_size_; }
     int minor_area_max_size() const { return minor_area_max_size_; }
+    const std::set<std::string> &find_paths() const { return find_paths_; }
     bool nogc() const { return nogc_; }
-    
     Core *core() const { return core_.get(); }
-    
     Isolate *isolate() const { return isolate_; }
+    
+    void AddFindPath(const std::string &path) { find_paths_.insert(path); }
     
     friend class nyaa::NyaaCore;
     friend class Isolate;
@@ -88,6 +90,9 @@ private:
     
     // Use the short string pool.
     bool use_string_pool_;
+    
+    // Require command find paths.
+    std::set<std::string> find_paths_;
     
     std::unique_ptr<Core> core_;
     
