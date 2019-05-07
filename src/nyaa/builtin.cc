@@ -124,7 +124,6 @@ static void BuiltinPairs(const FunctionCallbackInfo<Object> &info) {
         Handle<NyDelegated> iter = info.Core()->factory()->NewDelegated(BuiltinMapIter, 2);
         iter->Bind(0, map, info.Core());
         iter->Bind(1, Object::kNil, info.Core());
-        //return Return(iter);
         info.GetReturnValues().Add(iter);
     } else if (NyUDO *uod = NyUDO::Cast(*info[0])) {
         // TODO:
@@ -217,6 +216,50 @@ static void BuiltinGetMetatable(const FunctionCallbackInfo<Object> &info) {
         info.GetReturnValues().Add(map->GetMetatable());
     }
 }
+    
+static void BuiltinLog(const FunctionCallbackInfo<Object> &info) {
+    if (info.Length() == 0) {
+        return;
+    }
+    Handle<NyString> buf;
+    switch (info.Length()) {
+        case 0:
+            buf = info.Core()->bkz_pool()->kEmpty;
+            break;
+        case 1:
+            buf = info[0]->ToString(info.Core());
+            break;
+        default: {
+            buf = info.Core()->factory()->NewUninitializedString(64);
+            for (size_t i = 0; i < info.Length(); ++i) {
+                buf = buf->Add(info[i]->ToString(info.Core()), info.Core());
+            }
+            buf = buf->Done(info.Core());
+        } break;
+    }
+
+    auto logger = info.Core()->logger();
+    auto ci = info.Core()->curr_thd()->call_info();
+    auto [file_name, name, line] = ci->prev()->GetCurrentSourceInfo();
+    if (file_name) {
+        const char *b = file_name->bytes();
+        const char *p = b + file_name->size();
+        int sp = 0;
+        while (p > b) {
+            if (*p == '\\' || *p == '/') {
+                if (sp++ > 0) {
+                    p++;
+                    break;
+                }
+            }
+            --p;
+        }
+        ::fprintf(logger, "LOG %s:%d %s() ", p, line, !name ? "" : name->bytes());
+    }
+    ::fputs(buf->bytes(), logger);
+    ::fputc('\n', logger);
+    ::fflush(logger);
+}
 
 static void DelegatedCall(const FunctionCallbackInfo<Object> &info) {
     // TODO:
@@ -234,16 +277,17 @@ static void ThreadIndex(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void ThreadNewindex(const FunctionCallbackInfo<Object> &info) {
+    // TODO:
     info.GetErrors().Raisef("TODO:");
 }
 
-// coroutine.yield(a, b, c)
-// yield(a,b,c)
 static void BuiltinYield(const FunctionCallbackInfo<Object> &info) {
+    // TODO:
     info.GetErrors().Raisef("TODO:");
 }
     
 static void ThreadResume(const FunctionCallbackInfo<Object> &info) {
+    // TODO:
     info.GetErrors().Raisef("TODO:");
 }
     
@@ -338,6 +382,7 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     
 const NyaaNaFnEntry kBuiltinFnEntries[] = {
     {"str", BuiltinStr},
+    {"log", BuiltinLog},
     {"print", BuiltinPrint},
     {"yield", BuiltinYield},
     {"raise", BuiltinRaise},

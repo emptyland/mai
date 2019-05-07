@@ -795,6 +795,8 @@ public:
     }
     
     static Handle<NyFunction> Compile(const char *z, size_t n, NyaaCore *N);
+    
+    static Handle<NyFunction> Compile(const char *file_name, FILE *fp, NyaaCore *N);
 
     void Iterate(ObjectVisitor *visitor);
     
@@ -833,13 +835,19 @@ public:
     
     void Bind(int i, Object *upval, NyaaCore *N);
     
-    int Call(Object *argv[], int argc, int nrets, NyaaCore *N);
+    int Call(Object *argv[], int argc, int wanted, NyaaCore *N);
     
     static Handle<NyClosure> Compile(const char *z, NyaaCore *N) {
         return Compile(z, !z ? 0 : ::strlen(z), N);
     }
     
     static Handle<NyClosure> Compile(const char *z, size_t n, NyaaCore *N);
+    
+    static Handle<NyClosure> Compile(const char *file_name, FILE *fp, NyaaCore *N);
+
+    static int Do(const char *z, size_t n, int wanted, NyMap *env, NyaaCore *N);
+    
+    static int Do(const char *file_name, FILE *fp, int wanted, NyMap *env, NyaaCore *N);
 
     void Iterate(ObjectVisitor *visitor) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&proto_));

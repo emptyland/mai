@@ -45,7 +45,6 @@ public:
 class ReturnValuesBase {
 protected:
     ReturnValuesBase(Nyaa *N);
-    ~ReturnValuesBase();
 
     void Add(bool val) { Add(static_cast<int64_t>(val)); }
     void Add(int64_t val);
@@ -57,7 +56,7 @@ protected:
 
 private:
     Nyaa *N_;
-    int nrets_;
+    //int nrets_;
 }; // class ReturnValuesBase
     
 template<class T>

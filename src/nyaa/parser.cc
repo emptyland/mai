@@ -68,6 +68,29 @@ std::string Parser::Result::ToString() const {
     };
 }
     
+/*static*/ Parser::Result Parser::Parse(FILE *fp, base::Arena *arena) {
+    ast::Factory factory(arena);
+    parser_ctx ctx;
+    ctx.arena = arena;
+    ctx.factory = &factory;
+    
+    lexer_extra extra;
+    extra.arena = arena;
+    extra.factory = &factory;
+    nyaa_yylex_init_extra(&extra, &ctx.lex);
+    nyaa_yyset_in(fp, ctx.lex);
+    //nyaa_yyset_lineno(1, ctx.lex);
+    nyaa_yyparse(&ctx);
+    nyaa_yylex_destroy(ctx.lex);
+
+    return {
+        .block = ctx.block,
+        .error = ctx.err_msg,
+        .error_line = ctx.err_line,
+        .error_column = ctx.err_column,
+    };
+}
+    
 } // namespace nyaa
 
 } // namespace mai

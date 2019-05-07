@@ -958,14 +958,38 @@ TEST_F(NyaaThreadTest, AndOrSwitch) {
     ASSERT_EQ(1, check->upval(1)->ToSmi());
 }
 
-TEST_F(NyaaThreadTest, CxxTryCatchTest) {
-    try {
-        throw 1;
-    } catch (int n) {
-        ASSERT_EQ(1, n);
-    }
+TEST_F(NyaaThreadTest, CheckStack) {
+    NyaaOptions opts;
+    opts.init_thread_stack_size = 4;
+    Nyaa N(opts, isolate_);
+    
+    static const char s[] = {
+        "var a, b, c, d = 1, 2, 3, 4\n"
+        "return a + b + c + d\n"
+    };
+    HandleScope scope(&N);
+    TryCatchCore try_catch(N.core());
+    auto script = NyClosure::Compile(s, N.core());
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    script->Call(nullptr, 0, 1, N.core());
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    ASSERT_EQ(N.core()->curr_thd()->frame_size(), 1);
+    ASSERT_EQ(10, N.core()->curr_thd()->Get(-1)->ToSmi());
 }
-
+    
+TEST_F(NyaaThreadTest, Log) {
+    static const char f[] = "tests/nyaa/00-do-file.nyaa";
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    FILE *fp = fopen(f, "r");
+    NyClosure::Do(f, fp, 0, nullptr, core_);
+    fclose(fp);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+    
+//TEST_F(NyaaThreadTest, CheckStack)
 
 } // namespace nyaa
     

@@ -71,6 +71,14 @@ public:
         return stack_bp_ - stack_be_;
     }
     
+    std::tuple<NyString *, NyString *, int> GetCurrentSourceInfo() {
+        if (NyClosure *fn = NyClosure::Cast(callee_)) {
+            int line = static_cast<int>(proto()->file_info()->Get(pc()));
+            return {proto()->file_name(), proto()->name(), line};
+        }
+        return {nullptr, nullptr, 0};
+    }
+    
     Byte BC() const { return bcbuf_->Get(pc_); }
     
     void IterateRoot(RootVisitor *visitor);

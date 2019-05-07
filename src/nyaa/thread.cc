@@ -19,6 +19,8 @@ void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, Ny
     prev_ = owns->frame_;
     owns->frame_ = this;
     
+    owns->CheckStack(tp);
+
     callee_     = DCHECK_NOTNULL(callee);
     bcbuf_      = bcbuf;
     const_poll_ = kpool;
@@ -28,9 +30,7 @@ void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, Ny
     stack_be_   = bp;
     stack_bp_   = stack_be_;
     DCHECK(tp >= bp && tp < owns->stack_size_);
-    stack_tp_   = tp;
-
-    owns->CheckStack(stack_tp_);
+    stack_tp_   = tp;    
 }
 
 void CallFrame::Exit(NyThread *owns) {
@@ -139,6 +139,7 @@ void NyThread::Raise(NyString *msg, Object *ex) {
         NyInt32Array *file_info;
         NyString *file_name;
         std::tie(file_name, file_info) = x->FileInfo();
+        //auto [file_name, file_info] = x->FileInfo();
         
         NyString *line = nullptr;
         if (file_info) {
@@ -405,22 +406,7 @@ int NyThread::Run() {
         }
     
         id = static_cast<Bytecode::ID>(frame_->BC());
-        // var a, b, c = foo(), 1
-        // LoadGlobal 'foo'
-        // Call 0, 1
-        // PushImm 1
-        // PushNil
-        //
-        // var a, b, c = foo()
-        // LoadGlobal 'foo'
-        // Call 0, 3
-        //
-        // var a, b, c = 1, 2, 3
-        // PushImm 1
-        // PushImm 2
-        // PushImm 3
         switch (id) {
-                
             case Bytecode::kLoadImm: {
                 int32_t ra, imm;
                 int delta = 1;
@@ -555,6 +541,7 @@ int NyThread::Run() {
                 } else {
                     stack_tp_ = (frame_bp() + ra) + n;
                 }
+                frame_->set_nrets(n);
                 CopyResult(stack_ + frame_->stack_be() - 1, n, frame_->wanted());
                 frame_->AddPC(delta);
                 auto outter = frame_;

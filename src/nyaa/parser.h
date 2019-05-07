@@ -30,12 +30,13 @@ struct Parser final {
 
     static Result Parse(const char *s, size_t n, base::Arena *arena);
     
+    static Result Parse(FILE *fp, base::Arena *arena);
+    
     DISALLOW_ALL_CONSTRUCTORS(Parser);
 }; // class Parser
 
 } // namespace nyaa
     
 } // namespace mai
-
 
 #endif // MAI_NYAA_PARSER_H_

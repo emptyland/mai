@@ -23,25 +23,23 @@ class Table;
 class Value {
 public:
     bool IsObject() const;
-    
-    bool IsInt() const;
-    
-    bool IsLong() const;
-    
+
+    bool IsNumber() const;
+
     bool IsString() const;
-    
+
     bool IsFunction() const;
 
     bool IsScript() const;
-    
-    int64_t AsInt() const;
 }; // class Value
     
 //--------------------------------------------------------------------------------------------------
 // [Integer]
-class Integer final {
+class Number final {
 public:
-    static Handle<Value> New(Nyaa *N, int64_t val);
+    static Handle<Number> NewI64(Nyaa *N, int64_t val);
+
+    static Handle<Number> NewF64(Nyaa *N, double val);
     
 }; // class Integer
 
@@ -92,9 +90,9 @@ class Script final : public Value {
 public:
     static Handle<Script> Compile(Nyaa *N, Handle<String> source);
     
-    static Handle<Script> Compile(Nyaa *N, FILE *fp);
+    static Handle<Script> Compile(Nyaa *N, const char *file_name, FILE *fp);
     
-    Handle<Result> Run(Nyaa *N);
+    Handle<Result> Run(Nyaa *N, int wanted);
 }; // class Script
 
     

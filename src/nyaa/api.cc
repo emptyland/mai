@@ -95,9 +95,10 @@ bool Value::IsObject() const {
     return o->IsObject();
 }
 
-bool Value::IsInt() const { return reinterpret_cast<const Object *>(this)->IsSmi(); }
-
-bool Value::IsLong() const { /* TODO */ return false; }
+bool Value::IsNumber() const {
+    auto o = reinterpret_cast<const Object *>(this);
+    return o->IsSmi() || o->ToHeapObject()->IsNumeric();
+}
 
 bool Value::IsString() const {
     auto o = reinterpret_cast<const Object *>(this);
@@ -106,7 +107,7 @@ bool Value::IsString() const {
     
 bool Value::IsFunction() const {
     auto o = reinterpret_cast<const Object *>(this);
-    return o->IsObject() && (o->ToHeapObject()->IsFunction() || o->ToHeapObject()->IsDelegated());
+    return o->IsObject() && (o->ToHeapObject()->IsRunnable());
 }
 
 bool Value::IsScript() const {
@@ -114,13 +115,15 @@ bool Value::IsScript() const {
     return o->IsObject() && o->ToHeapObject()->IsFunction();
 }
 
-int64_t Value::AsInt() const {
-    auto o = reinterpret_cast<const Object *>(this);
-    return o->IsSmi() ? o->ToSmi() : 0;
+/*static*/ Handle<Number> Number::NewI64(Nyaa *N, int64_t val) {
+    if (val > NySmi::kMaxValue || val < NySmi::kMinValue) {
+        return Handle<Number>(reinterpret_cast<Number *>(NyInt::NewI64(val, N->core()->factory())));
+    }
+    return Handle<Number>(reinterpret_cast<Number *>(NySmi::New(val)));
 }
-
-/*static*/ Handle<Value> Integer::New(Nyaa *N, int64_t val) {
-    return Handle<Value>(reinterpret_cast<Value *>(NySmi::New(val)));
+    
+/*static*/ Handle<Number> Number::NewF64(Nyaa *N, double val) {
+    return Handle<Number>(reinterpret_cast<Number *>(N->core()->factory()->NewFloat64(val)));
 }
 
 /*static*/ Handle<String> String::New(Nyaa *N, const char *s, size_t n) {
@@ -173,16 +176,24 @@ Handle<Value> Function::GetUpVal(int i) {
 }
     
 /*static*/ Handle<Script> Script::Compile(Nyaa *N, Handle<String> source) {
-    // TODO:
-    return Handle<Script>::Null();
+    Handle<NyClosure> script = NyClosure::Compile(source->Bytes(), source->Length(), N->core());
+    if (script.is_empty()) {
+        return Handle<Script>();
+    }
+    return Handle<Script>(reinterpret_cast<Script *>(*script));
 }
 
-/*static*/ Handle<Script> Script::Compile(Nyaa *N, FILE *fp) {
-    // TODO:
-    return Handle<Script>::Null();
+/*static*/ Handle<Script> Script::Compile(Nyaa *N, const char *file_name, FILE *fp) {
+    Handle<NyClosure> script = NyClosure::Compile(file_name, fp, N->core());
+    if (script.is_empty()) {
+        return Handle<Script>();
+    }
+    return Handle<Script>(reinterpret_cast<Script *>(*script));
 }
 
-Handle<Result> Script::Run(Nyaa *N) {
+Handle<Result> Script::Run(Nyaa *N, int wanted) {
+    NyClosure *script = reinterpret_cast<NyClosure *>(this);
+    script->Call(nullptr/*argv*/, 0/*argc*/, wanted, N->core());
     // TODO:
     return Local<Result>();
 }
@@ -263,12 +274,7 @@ void ErrorsBase::Raise(const char *z, size_t n, void *ex) {
 }
     
 ReturnValuesBase::ReturnValuesBase(Nyaa *N)
-    : N_(DCHECK_NOTNULL(N))
-    , nrets_(N_->core()->curr_thd()->call_info()->nrets()) {
-}
-
-ReturnValuesBase::~ReturnValuesBase() {
-    N_->core()->curr_thd()->call_info()->set_nrets(nrets_);
+    : N_(DCHECK_NOTNULL(N)) {
 }
     
 void ReturnValuesBase::Add(int64_t val) {
@@ -288,7 +294,8 @@ void ReturnValuesBase::Add(const char *z, size_t n) {
 }
 
 void ReturnValuesBase::AddInternal(Object *val) {
-    nrets_++;
+    auto ci = N_->core()->curr_thd()->call_info();
+    ci->set_nrets(ci->nrets() + 1);
     N_->core()->main_thd()->Push(val);
 }
 
@@ -296,8 +303,7 @@ void ReturnValuesBase::AddInternalSome(int nrets, ...) {
     va_list ap;
     va_start(ap, nrets);
     for (int i = 0; i < nrets; ++i) {
-        Object *ret = va_arg(ap, Object *);
-        N_->core()->main_thd()->Push(ret);
+        AddInternal(va_arg(ap, Object *));
     }
     va_end(ap);
 }

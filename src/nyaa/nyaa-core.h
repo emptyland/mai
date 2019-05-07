@@ -76,6 +76,7 @@ public:
     Heap *heap() const { return heap_.get(); }
     ObjectFactory *factory() const { return factory_.get(); }
     DEF_VAL_GETTER(bool, initialized);
+    DEF_PTR_GETTER(FILE, logger);
     DEF_PTR_GETTER(NyMap, g);
     DEF_PTR_GETTER(NyThread, main_thd);
     DEF_PTR_PROP_RW(NyThread, curr_thd);
@@ -97,6 +98,7 @@ private:
     HandleScopeSlot *top_slot_;
     bool initialized_ = false;
     uint64_t next_udo_kid_;
+    FILE *logger_;
     std::unique_ptr<RandomGenerator> random_;
     std::unique_ptr<StringPool> kz_pool_; // elements [weak ref]
     std::unique_ptr<BuiltinStrPool> bkz_pool_; // elements [strong ref]

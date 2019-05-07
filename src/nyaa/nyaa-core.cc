@@ -22,7 +22,8 @@ NyaaCore::NyaaCore(Nyaa *stub)
     , heap_(new Heap(this))
     , bkz_pool_(new BuiltinStrPool())
     , kmt_pool_(new BuiltinMetatablePool())
-    , next_udo_kid_(kUdoKidBegin + 1) {
+    , next_udo_kid_(kUdoKidBegin + 1)
+    , logger_(stdout) {
     if (stub_->nogc()) {
         factory_.reset(new MallocObjectFactory(this));
     } else {

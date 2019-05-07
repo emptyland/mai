@@ -2011,6 +2011,17 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
     return CodeGen::Generate(N->factory()->NewString(":memory:"), result.block, &arena, N);
 }
     
+/*static*/ Handle<NyFunction> NyFunction::Compile(const char *file_name, FILE *fp, NyaaCore *N) {
+    base::StandaloneArena arena(N->isolate()->env()->GetLowLevelAllocator());
+    Parser::Result result = Parser::Parse(fp, &arena);
+    if (result.error) {
+        N->Raisef("%s [%d:%d] %s", file_name, result.error_line, result.error_column,
+                  result.error->data());
+        return Handle<NyFunction>();
+    }
+    return CodeGen::Generate(N->factory()->NewString(file_name), result.block, &arena, N);
+}
+    
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// class NyClosure:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2028,8 +2039,8 @@ void NyClosure::Bind(int i, Object *upval, NyaaCore *N) {
     upvals_[i] = upval;
 }
 
-int NyClosure::Call(Object *argv[], int argc, int nrets, NyaaCore *N) {
-    return N->curr_thd()->TryRun(this, argv, argc, nrets);
+int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
+    return N->curr_thd()->TryRun(this, argv, argc, wanted);
 }
 
 /*static*/ Handle<NyClosure> NyClosure::Compile(const char *z, size_t n, NyaaCore *N) {
@@ -2042,6 +2053,34 @@ int NyClosure::Call(Object *argv[], int argc, int nrets, NyaaCore *N) {
         // ignore
     }
     return Handle<NyClosure>();
+}
+    
+/*static*/ Handle<NyClosure> NyClosure::Compile(const char *file_name, FILE *fp, NyaaCore *N) {
+    try {
+        Handle<NyFunction> script = NyFunction::Compile(file_name, fp, N);
+        if (script.is_valid()) {
+            return N->factory()->NewClosure(*script);
+        }
+    } catch (NyThread::CatchId e) {
+        // ignore
+    }
+    return Handle<NyClosure>();
+}
+    
+/*static*/ int NyClosure::Do(const char *z, size_t n, int wanted, NyMap *env, NyaaCore *N) {
+    Handle<NyClosure> script = Compile(z, n, N);
+    if (script.is_not_valid()) {
+        return -1;
+    }
+    return N->curr_thd()->TryRun(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
+}
+    
+/*static*/ int NyClosure::Do(const char *file_name, FILE *fp, int wanted, NyMap *env, NyaaCore *N) {
+    Handle<NyClosure> script = Compile(file_name, fp, N);
+    if (script.is_not_valid()) {
+        return -1;
+    }
+    return N->curr_thd()->TryRun(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
