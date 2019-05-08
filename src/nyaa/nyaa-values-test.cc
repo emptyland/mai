@@ -142,7 +142,7 @@ TEST_F(NyaaValuesTest, ObjectSub) {
     rv = Object::Sub(NySmi::New(NySmi::kMinValue), NySmi::New(1), core_);
     auto ob = NyInt::Cast(rv);
     ASSERT_NE(nullptr, ob);
-    ASSERT_STREQ("-2305843009213693952", ob->ToString(core_)->bytes());
+    ASSERT_STREQ("-2305843009213693953", ob->ToString(core_)->bytes());
 }
 
 TEST_F(NyaaValuesTest, ObjectMul) {
@@ -165,7 +165,7 @@ TEST_F(NyaaValuesTest, ObjectDiv) {
     ASSERT_EQ(1, rv->ToSmi());
     
     rv = Object::Div(NySmi::New(NySmi::kMinValue), NySmi::New(2), core_);
-    ASSERT_EQ(-1152921504606846975, rv->ToSmi());
+    ASSERT_EQ(-1152921504606846976, rv->ToSmi());
 }
 
 TEST_F(NyaaValuesTest, ObjectMod) {

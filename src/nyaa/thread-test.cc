@@ -898,7 +898,7 @@ TEST_F(NyaaThreadTest, UdoMetaStr) {
     ASSERT_TRUE(v1.is_valid());
     ASSERT_STREQ("1,2", v1->bytes());
 }
-    
+
 TEST_F(NyaaThreadTest, ArithAdd) {
     static const char s[] = {
         "var a, b, c = 1, 2, 3"
@@ -918,7 +918,7 @@ TEST_F(NyaaThreadTest, ArithAdd) {
     ASSERT_EQ(3, check->upval(1)->ToSmi());
     ASSERT_EQ(-1, check->upval(2)->ToSmi());
 }
-    
+
 TEST_F(NyaaThreadTest, ArithAddOverflow) {
     static const char s[] = {
         "var a, b = 1, 2305843009213693951"
@@ -937,6 +937,26 @@ TEST_F(NyaaThreadTest, ArithAddOverflow) {
     Handle<NyInt> v1 = NyInt::Cast(check->upval(0));
     ASSERT_TRUE(v1.is_valid());
     ASSERT_STREQ("2305843009213693952", v1->ToString(core_)->bytes());
+}
+
+TEST_F(NyaaThreadTest, ArithSub) {
+    static const char s[] = {
+        "var a, b, c = 1, 2, 3"
+        "check(a - 1, a - b, c - -4)\n"
+    };
+    
+    HandleScope scope(N_);
+    Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    script->Call(nullptr, 0, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    ASSERT_EQ(0, check->upval(0)->ToSmi());
+    ASSERT_EQ(-1, check->upval(1)->ToSmi());
+    ASSERT_EQ(7, check->upval(2)->ToSmi());
 }
 
 TEST_F(NyaaThreadTest, AndOrSwitch) {
@@ -978,7 +998,7 @@ TEST_F(NyaaThreadTest, CheckStack) {
     ASSERT_EQ(N.core()->curr_thd()->frame_size(), 1);
     ASSERT_EQ(10, N.core()->curr_thd()->Get(-1)->ToSmi());
 }
-    
+
 TEST_F(NyaaThreadTest, Log) {
     static const char f[] = "tests/nyaa/00-do-file.nyaa";
     HandleScope scope(N_);
@@ -989,6 +1009,42 @@ TEST_F(NyaaThreadTest, Log) {
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
     
+TEST_F(NyaaThreadTest, LoadFileError) {
+    static const char s[] = {
+        "check(loadfile(\"tests/nyaa/03-error-file.nyaa\"))\n"
+    };
+    
+    HandleScope scope(N_);
+    Handle<NyDelegated> check = RegisterChecker("check", 2, Values_Check);
+    TryCatchCore try_catch(core_);
+    NyClosure::Do(s, arraysize(s), 0/*wanted*/, nullptr, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    ASSERT_EQ(Object::kNil, check->upval(0));
+    NyString *val = NyString::Cast(check->upval(1));
+    ASSERT_NE(nullptr, val);
+}
+    
+TEST_F(NyaaThreadTest, LoadFile) {
+    static const char s[] = {
+        "var f = loadfile(\"tests/nyaa/01-foo-file.nyaa\")\n"
+        "check(f())"
+    };
+    
+    HandleScope scope(N_);
+    Handle<NyDelegated> check = RegisterChecker("check", 4, Values_Check);
+    TryCatchCore try_catch(core_);
+    NyClosure::Do(s, arraysize(s), 0/*wanted*/, nullptr, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    NyString *val = NyString::Cast(check->upval(0));
+    ASSERT_NE(nullptr, val);
+    ASSERT_STREQ("foo", val->bytes());
+    ASSERT_EQ(1, check->upval(1)->ToSmi());
+    ASSERT_EQ(2, check->upval(2)->ToSmi());
+    ASSERT_EQ(3, check->upval(3)->ToSmi());
+}
+
 TEST_F(NyaaThreadTest, Require) {
     static const char s[] = {
         "var a = require \"tests/nyaa/01-foo-file.nyaa\"\n"
@@ -1009,8 +1065,27 @@ TEST_F(NyaaThreadTest, Require) {
     ASSERT_NE(nullptr, val);
     ASSERT_STREQ("bar", val->bytes());
 }
+
+TEST_F(NyaaThreadTest, TopScriptArgs) {
+    static const char s[] = {
+        "var a, b, c = ..."
+        "check(a, b, c)\n"
+    };
     
-//TEST_F(NyaaThreadTest, CheckStack)
+    HandleScope scope(N_);
+    Handle<NyDelegated> check = RegisterChecker("check", 3, Values_Check);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    Object *argv[] = {NySmi::New(1), NySmi::New(2), NySmi::New(3)};
+    script->Call(argv, 3, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+    
+    ASSERT_EQ(1, check->upval(0)->ToSmi());
+    ASSERT_EQ(2, check->upval(1)->ToSmi());
+    ASSERT_EQ(3, check->upval(2)->ToSmi());
+}
 
 } // namespace nyaa
     

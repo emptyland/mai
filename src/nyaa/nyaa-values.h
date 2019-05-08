@@ -66,6 +66,8 @@ public:
         DCHECK(IsObject());
         return reinterpret_cast<NyObject *>(word() & ~0x3);
     }
+    
+    inline BuiltinType GetType() const;
 
     bool IsNil() const { return this == kNil; }
     
@@ -110,7 +112,8 @@ public:
 class NySmi {
 public:
     static constexpr const int64_t kMaxValue =  0x1fffffffffffffffll;
-    static constexpr const int64_t kMinValue = -0x1fffffffffffffffll;
+    //static constexpr const int64_t kMinValue = -0x1fffffffffffffffll;
+    static constexpr const int64_t kMinValue = -0x2000000000000000ll;
     
     static Object *New(int64_t value) {
         intptr_t word = value;
@@ -156,6 +159,8 @@ public:
         mtword_ |= ((static_cast<uintptr_t>(color) & 0xfull) << kMaskBitsOrder);
     }
 #endif
+    
+    inline BuiltinType GetType() const;
 
     NyMap *GetMetatable() const {
         DCHECK_EQ(mtword_ % 4, 0);
@@ -1029,7 +1034,7 @@ template<class T>
 void UDOFinalizeDtor(NyUDO *udo, NyaaCore *) { static_cast<T *>(udo)->~T(); }
 
 #define DECL_TYPE_CHECK(type) inline bool NyObject::Is##type() const { \
-        return GetMetatable()->kid() == kType##type; \
+        return GetType() == kType##type; \
     }
     DECL_BUILTIN_TYPES(DECL_TYPE_CHECK)
 #undef DECL_TYPE_CHECK
@@ -1044,8 +1049,19 @@ void UDOFinalizeDtor(NyUDO *udo, NyaaCore *) { static_cast<T *>(udo)->~T(); }
     DECL_BUILTIN_TYPES(DECL_TYPE_CAST)
 #undef DECL_TYPE_CAST
     
+    
+inline BuiltinType Object::GetType() const {
+    if (IsNil()) {
+        return kTypeNil;
+    }
+    if (IsSmi()) {
+        return kTypeSmi;
+    }
+    return ToHeapObject()->GetType();
+}
+    
 inline bool NyObject::IsUDO() const {
-    return IsThread() || GetMetatable()->kid() > kUdoKidBegin;
+    return IsThread() || GetType() == kTypeUdo;
 }
     
 inline const NyUDO *NyObject::ToUDO() const {
@@ -1054,6 +1070,11 @@ inline const NyUDO *NyObject::ToUDO() const {
     
 inline Object *NyObject::GetMetaFunction(NyString *name, NyaaCore *N) const{
     return GetMetatable()->RawGet(name, N);
+}
+    
+inline BuiltinType NyObject::GetType() const {
+    uint64_t kid = GetMetatable()->kid();
+    return static_cast<BuiltinType>(kid > kUdoKidBegin ? kTypeUdo : kid);
 }
 
 inline NyRunnable *NyObject::GetValidMetaFunction(NyString *name, NyaaCore *N) const {

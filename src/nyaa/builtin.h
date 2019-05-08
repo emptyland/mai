@@ -100,6 +100,7 @@ enum DelegatedKind : int {
 enum BuiltinType : int {
     kTypeNil,
     kTypeSmi,
+    kTypeUdo,
 #define DEFINE_TYPE(type) kType##type,
     DECL_BUILTIN_TYPES(DEFINE_TYPE)
 #undef DEFINE_TYPE

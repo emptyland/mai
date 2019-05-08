@@ -313,6 +313,54 @@ static void BuiltinRequire(const FunctionCallbackInfo<Object> &info) {
         info.GetReturnValues().Set(rv);
     }
 }
+    
+static void BuiltinLoadFile(const FunctionCallbackInfo<Object> &info) {
+    if (info.Length() < 1) {
+        info.GetErrors().Raisef("incorrect arguments length, required: >1");
+        return;
+    }
+    
+    NyaaCore *N = info.Core();
+    Handle<NyString> arg0 = info[0]->ToString(N);
+    Env *paltform = Isolate::Current()->env();
+    
+    std::string file_name(arg0->bytes(), arg0->size());
+    auto rs = paltform->FileExists(file_name);
+    if (!rs) {
+        info.GetErrors().Raisef("file not found: %s", arg0->bytes());
+        return;
+    }
+    FILE *fp = ::fopen(file_name.c_str(), "r");
+    if (!fp) {
+        info.GetErrors().Raisef("can not open file: %s", arg0->bytes());
+        return;
+    }
+    TryCatchCore try_catch(info.Core());
+    Handle<NyClosure> fn = NyClosure::Compile(file_name.c_str(), fp, info.Core());
+    ::fclose(fp);
+    if (try_catch.has_caught()) {
+        info.GetReturnValues().AddNil().Add(try_catch.message());
+    } else {
+        info.GetReturnValues().Add(fn);
+    }
+}
+    
+static void BuiltinLoadString(const FunctionCallbackInfo<Object> &info) {
+    if (info.Length() < 1) {
+        info.GetErrors().Raisef("incorrect arguments length, required: >1");
+        return;
+    }
+    
+    NyaaCore *N = info.Core();
+    Handle<NyString> source = info[0]->ToString(N);
+    TryCatchCore try_catch(info.Core());
+    Handle<NyClosure> fn = NyClosure::Compile(source->bytes(), source->size(), N);
+    if (try_catch.has_caught()) {
+        info.GetReturnValues().AddNil().Add(try_catch.message());
+    } else {
+        info.GetReturnValues().Add(fn);
+    }
+}
 
 static void DelegatedCall(const FunctionCallbackInfo<Object> &info) {
     // TODO:
@@ -442,6 +490,8 @@ const NyaaNaFnEntry kBuiltinFnEntries[] = {
     {"pairs", BuiltinPairs},
     {"range", BuiltinRange},
     {"require", BuiltinRequire},
+    {"loadfile", BuiltinLoadFile},
+    {"loadstring", BuiltinLoadString},
     {"getmetatable", BuiltinGetMetatable},
     {"setmetatable", BuiltinSetMetatable},
     {nullptr, nullptr},

@@ -32,11 +32,8 @@ static const char kRadixDigitals[] = "0123456789abcdef";
 ////////////////////////////////////////////////////////////////////////////////////////////////////
     
 bool Object::IsKey(NyaaCore *N) const {
-    if (IsSmi()) {
-        return true;
-    }
-    auto ob = ToHeapObject();
-    switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
+    switch (GetType()) {
+        case kTypeSmi:
         case kTypeString:
         case kTypeFloat64:
         case kTypeInt:
@@ -48,11 +45,9 @@ bool Object::IsKey(NyaaCore *N) const {
 }
 
 uint32_t Object::HashVal(NyaaCore *N) const {
-    if (IsSmi()) {
-        return static_cast<uint32_t>(ToSmi());
-    }
-    auto ob = ToHeapObject();
-    switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
+    switch (GetType()) {
+        case kTypeSmi:
+            return static_cast<uint32_t>(ToSmi());
         case kTypeString:
             return NyString::Cast(this)->hash_val();
         case kTypeFloat64:
@@ -118,22 +113,17 @@ uint32_t Object::HashVal(NyaaCore *N) const {
 }
     
 bool Object::IsFalse() const {
-    if (IsNil()) {
-        return false;
-    }
-    if (IsSmi()) {
-        return ToSmi() == 0;
-    }
-    NyObject *ob = ToHeapObject();
-    switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
-        case kTypeString: {
-            auto val = ob->ToString();
-            return val->size() == 0;
-        } break;
+    switch (GetType()) {
+        case kTypeNil:
+            return false;
+        case kTypeSmi:
+            return ToSmi() == 0;
+        case kTypeString:
+            return NyString::Cast(this)->size() == 0;
         case kTypeInt:
-            return ob->ToInt()->IsZero();
+            return NyInt::Cast(this)->IsZero();
         case kTypeFloat64:
-            return ob->ToFloat64()->value() == 0;
+            return NyFloat64::Cast(this)->value() == 0;
         default:
             break;
     }
@@ -195,29 +185,31 @@ NyString *Object::ToString(NyaaCore *N) {
 /*static*/ Object *NySmi::Sub(Object *lhs, Object *rhs, NyaaCore *N) {
     DCHECK(lhs->IsSmi());
     auto lval = lhs->ToSmi();
-    if (rhs->IsSmi()) {
-        auto rval = rhs->ToSmi();
-        // kMinValue <= lval - rval <= kMaxValue
-        // lval - rval < kMinValue -> lval < kMinValue + rval
-        // lval - rval > kMaxValue -> lval > kMaxValue + rval
-        //
-        if (((rval > 0) && (lval < (kMinValue + rval))) ||
-            ((rval < 0) && (lval > (kMaxValue + rval)))) {
-            base::ScopedArena scoped_buf;
-            NyInt *ll = NyInt::NewI64(lval, &scoped_buf);
-            return ll->Sub(rval, N);
-        }
-        return New(lval - rval);
-    }
-    auto rval = rhs->ToHeapObject();
-    switch (static_cast<BuiltinType>(rval->GetMetatable()->kid())) {
+    switch (rhs->GetType()) {
+        case kTypeSmi: {
+            auto rval = rhs->ToSmi();
+            // kMinValue <= lval - rval <= kMaxValue
+            // lval - rval < kMinValue -> lval < kMinValue + rval
+            // lval - rval > kMaxValue -> lval > kMaxValue + rval
+            //
+            if (((rval > 0) && (lval < (kMinValue + rval))) ||
+                ((rval < 0) && (lval > (kMaxValue + rval)))) {
+                base::ScopedArena scoped_buf;
+                NyInt *ll = NyInt::NewI64(lval, &scoped_buf);
+                return ll->Sub(rval, N);
+            }
+            return New(lval - rval);
+        } break;
+            
         case kTypeInt: {
             base::ScopedArena scoped_buf;
             NyInt *ll = NyInt::NewI64(lval, &scoped_buf);
-            return ll->Add(NyInt::Cast(rval), N);
+            return ll->Add(NyInt::Cast(rhs), N);
         } break;
+            
         case kTypeFloat64:
-            return N->factory()->NewFloat64(lval - NyFloat64::Cast(rval)->value());
+            return N->factory()->NewFloat64(lval - NyFloat64::Cast(rhs)->value());
+            
         default:
             break;
     }
@@ -265,23 +257,25 @@ NyString *Object::ToString(NyaaCore *N) {
 /*static*/ Object *NySmi::Div(Object *lhs, Object *rhs, NyaaCore *N) {
     DCHECK(lhs->IsSmi());
     auto lval = lhs->ToSmi();
-    if (rhs->IsSmi()) {
-        auto rval = rhs->ToSmi();
-        if (!rval) {
-            N->Raisef("div zero.");
-            return nullptr;
-        }
-        return New(lval / rval);
-    }
-    auto rval = rhs->ToHeapObject();
-    switch (static_cast<BuiltinType>(rval->GetMetatable()->kid())) {
+    switch (rhs->GetType()) {
+        case kTypeSmi: {
+            auto rval = rhs->ToSmi();
+            if (!rval) {
+                N->Raisef("div zero.");
+                return nullptr;
+            }
+            return New(lval / rval);
+        } break;
+            
         case kTypeInt: {
             base::ScopedArena scoped_buf;
             NyInt *ll = NyInt::NewI64(lval, &scoped_buf);
-            return ll->Div(NyInt::Cast(rval), N);
+            return ll->Div(NyInt::Cast(rhs), N);
         } break;
+
         case kTypeFloat64:
-            return N->factory()->NewFloat64(lval / NyFloat64::Cast(rval)->value());
+            return N->factory()->NewFloat64(lval / NyFloat64::Cast(rhs)->value());
+
         default:
             break;
     }
@@ -292,23 +286,22 @@ NyString *Object::ToString(NyaaCore *N) {
 /*static*/ Object *NySmi::Mod(Object *lhs, Object *rhs, NyaaCore *N) {
     DCHECK(lhs->IsSmi());
     auto lval = lhs->ToSmi();
-    if (rhs->IsSmi()) {
-        auto rval = rhs->ToSmi();
-        if (!rval) {
-            N->Raisef("div zero.");
-            return nullptr;
-        }
-        return New(lval % rval);
-    }
-    auto rval = rhs->ToHeapObject();
-    switch (static_cast<BuiltinType>(rval->GetMetatable()->kid())) {
+    switch (rhs->GetType()) {
+        case kTypeSmi: {
+            auto rval = rhs->ToSmi();
+            if (!rval) {
+                N->Raisef("div zero.");
+                return nullptr;
+            }
+            return New(lval % rval);
+        } break;
         case kTypeInt: {
             base::ScopedArena scoped_buf;
             NyInt *ll = NyInt::NewI64(lval, &scoped_buf);
-            return ll->Mod(NyInt::Cast(rval), N);
+            return ll->Mod(NyInt::Cast(rhs), N);
         } break;
         case kTypeFloat64:
-            return N->factory()->NewFloat64(::fmod(lval, NyFloat64::Cast(rval)->value()));
+            return N->factory()->NewFloat64(::fmod(lval, NyFloat64::Cast(rhs)->value()));
         default:
             break;
     }
@@ -339,7 +332,7 @@ bool NyObject::Equal(Object *rhs, NyaaCore *N) {
         return false;
     }
 
-    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+    switch (GetType()) {
         case kTypeString: {
             NyString *rval = NyString::Cast(rhs);
             if (!rval) {
@@ -377,11 +370,14 @@ bool NyObject::Equal(Object *rhs, NyaaCore *N) {
             
         case kTypeMap:
             return ToMap()->Equal(rhs, N);
+            
+        case kTypeUdo:
+            return ToUDO()->Equal(rhs, N);
   
         default:
-            if (GetMetatable()->kid() > kUdoKidBegin) {
-                return ToUDO()->Equal(rhs, N);
-            }
+//            if (GetMetatable()->kid() > kUdoKidBegin) {
+//                return ToUDO()->Equal(rhs, N);
+//            }
             break;
     }
 
@@ -394,7 +390,7 @@ bool NyObject::LessThan(Object *rhs, NyaaCore *N) {
         return false;
     }
     
-    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+    switch (GetType()) {
         case kTypeString: {
             NyString *lval = ToString();
             NyString *rval = NyString::Cast(rhs);
@@ -433,10 +429,13 @@ bool NyObject::LessThan(Object *rhs, NyaaCore *N) {
         case kTypeMap:
             return ToMap()->LessThan(rhs, N);
             
+        case kTypeUdo:
+            return ToUDO()->LessThan(rhs, N);
+            
         default:
-            if (GetMetatable()->kid() > kUdoKidBegin) {
-                return ToUDO()->LessThan(rhs, N);
-            }
+//            if (GetMetatable()->kid() > kUdoKidBegin) {
+//                return ToUDO()->LessThan(rhs, N);
+//            }
             break;
     }
     
@@ -449,7 +448,7 @@ bool NyObject::LessEqual(Object *rhs, NyaaCore *N) {
         return false;
     }
     
-    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+    switch (GetType()) {
         case kTypeString: {
             NyString *lval = ToString();
             NyString *rval = NyString::Cast(rhs);
@@ -488,10 +487,13 @@ bool NyObject::LessEqual(Object *rhs, NyaaCore *N) {
         case kTypeMap:
             return ToMap()->LessEqual(rhs, N);
             
+        case kTypeUdo:
+            return ToUDO()->LessEqual(rhs, N);
+            
         default:
-            if (GetMetatable()->kid() > kUdoKidBegin) {
-                return ToUDO()->LessEqual(rhs, N);
-            }
+//            if (GetMetatable()->kid() > kUdoKidBegin) {
+//                return ToUDO()->LessEqual(rhs, N);
+//            }
             break;
     }
     N->Raisef("type can not be compare.");
@@ -502,7 +504,7 @@ void NyObject::Iterate(ObjectVisitor *visitor) {
     DCHECK(is_direct());
     visitor->VisitMetatablePointer(this, &mtword_);
     
-    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+    switch (GetType()) {
     #define DEFINE_ITERATE(type) \
         case kType##type: \
             static_cast<Ny##type *>(this)->Iterate(visitor); \
@@ -510,17 +512,18 @@ void NyObject::Iterate(ObjectVisitor *visitor) {
             
         DECL_BUILTIN_TYPES(DEFINE_ITERATE)
     #undef DEFINE_PLACED_SIZE
-        default: { // UDOs
-            DCHECK_GT(GetMetatable()->kid(), kUdoKidBegin);
+        case kTypeUdo:
             static_cast<NyUDO *>(this)->Iterate(visitor);
-            //DLOG(FATAL) << "TODO:";
-        } break;
+            break;
+        default:
+            DLOG(FATAL) << "Noreached";
+            break;
     }
 }
     
 size_t NyObject::PlacedSize() const {
     size_t bytes = 0;
-    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+    switch (GetType()) {
 #define DEFINE_PLACED_SIZE(type) \
     case kType##type: \
         bytes = static_cast<const Ny##type *>(this)->PlacedSize(); \
@@ -528,10 +531,12 @@ size_t NyObject::PlacedSize() const {
 
         DECL_BUILTIN_TYPES(DEFINE_PLACED_SIZE)
 #undef DEFINE_PLACED_SIZE
-        default: { // UDOs
-            DCHECK_GT(GetMetatable()->kid(), kUdoKidBegin);
-            return static_cast<const NyUDO *>(this)->PlacedSize();
-        } break;
+        case kTypeUdo:
+            static_cast<const NyUDO *>(this)->PlacedSize();
+            break;
+        default:
+            DLOG(FATAL) << "Noreached";
+            break;
     }
     return RoundUp(bytes, kAllocateAlignmentSize);
 }
@@ -541,7 +546,7 @@ size_t NyObject::PlacedSize() const {
         if (NyString *s = NyString::Cast(rhs)) { \
             rhs = s->TryNumeric(N); \
         } \
-        switch (static_cast<BuiltinType>(GetMetatable()->kid())) { \
+        switch (GetType()) { \
             case kTypeInt: \
                 return ToInt()->name(rhs, N); \
             case kTypeFloat64: \
@@ -550,10 +555,9 @@ size_t NyObject::PlacedSize() const {
                 return Object::name(ToString()->TryNumeric(N), rhs, N); \
             case kTypeMap: \
                 return ToMap()->name(rhs, N); \
+            case kTypeUdo: \
+                return ToUDO()->name(rhs, N); \
             default: \
-                if (GetMetatable()->kid() > kUdoKidBegin) { \
-                    return ToUDO()->name(rhs, N); \
-                } \
                 break; \
         } \
         N->Raisef("type can not be `" literal "'."); \
@@ -567,9 +571,9 @@ DEFINE_HEAP_OBJECT_BIN_ARITH(Div, "/")
 DEFINE_HEAP_OBJECT_BIN_ARITH(Mod, "%")
 
 NyString *NyObject::ToString(NyaaCore *N) {
-    HandleScope scope(N->stub());
-    
-    switch (static_cast<BuiltinType>(GetMetatable()->kid())) {
+    //HandleScope scope(N->stub());
+
+    switch (GetType()) {
         case kTypeString:
             return (const_cast<NyObject *>(this))->ToString();
         case kTypeInt:
@@ -582,10 +586,12 @@ NyString *NyObject::ToString(NyaaCore *N) {
             return N->factory()->Sprintf("function: %p", this);
         case kTypeMap:
             return ToMap()->ToString(N);
+        case kTypeUdo:
+            return ToUDO()->ToString(N);
         default:
-            if (GetMetatable()->kid() > kUdoKidBegin) {
-                return ToUDO()->ToString(N);
-            }
+//            if (GetMetatable()->kid() > kUdoKidBegin) {
+//                return ToUDO()->ToString(N);
+//            }
             break;
     }
     DLOG(FATAL) << "Noreached!" << GetMetatable()->kid();
@@ -603,15 +609,13 @@ static inline Object *ProcessFlot64Arith(const NyFloat64 *lhs, Object *rhs, cons
         rhs = s->TryNumeric(N);
     }
     f64_t lval = lhs->value();
-    if (rhs->IsSmi()) {
-        if ((literal[0] == '/' || literal[0] == '%') && rhs->ToSmi() == 0) {
-            N->Raisef("div zero.");
-            return nullptr;
-        }
-        return N->factory()->NewFloat64(callback(lval, rhs->ToSmi()));
-    }
-    NyObject *rval = static_cast<NyObject *>(rhs);
-    switch (static_cast<BuiltinType>(rval->GetMetatable()->kid())) {
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            if ((literal[0] == '/' || literal[0] == '%') && rhs->ToSmi() == 0) {
+                N->Raisef("div zero.");
+                return nullptr;
+            }
+            return N->factory()->NewFloat64(callback(lval, rhs->ToSmi()));
         case kTypeFloat64:
             return N->factory()->NewFloat64(callback(lval, NyFloat64::Cast(rhs)->value()));
         case kTypeInt:
@@ -756,15 +760,13 @@ NyInt *NyInt::Shr(int n, NyaaCore *N) {
 }
 
 Object *NyInt::Add(Object *rhs, NyaaCore *N) const {
-    if (rhs->IsSmi()) {
-        return UnboxIfNeed(Add(rhs->ToSmi(), N));
-    }
-    NyObject *ob = rhs->ToHeapObject();
-    switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            return UnboxIfNeed(Add(rhs->ToSmi(), N));
         case kTypeInt:
-            return UnboxIfNeed(Add(NyInt::Cast(ob), N));
+            return UnboxIfNeed(Add(NyInt::Cast(rhs), N));
         case kTypeFloat64:
-            return N->factory()->NewFloat64(ToF64() + NyFloat64::Cast(ob)->value());
+            return N->factory()->NewFloat64(ToF64() + NyFloat64::Cast(rhs)->value());
         default:
             break;
     }
@@ -773,15 +775,13 @@ Object *NyInt::Add(Object *rhs, NyaaCore *N) const {
 }
 
 Object *NyInt::Sub(Object *rhs, NyaaCore *N) const {
-    if (rhs->IsSmi()) {
-        return UnboxIfNeed(Sub(rhs->ToSmi(), N));
-    }
-    NyObject *ob = rhs->ToHeapObject();
-    switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            return UnboxIfNeed(Sub(rhs->ToSmi(), N));
         case kTypeInt:
-            return UnboxIfNeed(Sub(NyInt::Cast(ob), N));
+            return UnboxIfNeed(Sub(NyInt::Cast(rhs), N));
         case kTypeFloat64:
-            return N->factory()->NewFloat64(ToF64() - NyFloat64::Cast(ob)->value());
+            return N->factory()->NewFloat64(ToF64() - NyFloat64::Cast(rhs)->value());
         default:
             break;
     }
@@ -790,15 +790,13 @@ Object *NyInt::Sub(Object *rhs, NyaaCore *N) const {
 }
     
 Object *NyInt::Mul(Object *rhs, NyaaCore *N) const {
-    if (rhs->IsSmi()) {
-        return UnboxIfNeed(Mul(rhs->ToSmi(), N));
-    }
-    NyObject *ob = rhs->ToHeapObject();
-    switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            return UnboxIfNeed(Mul(rhs->ToSmi(), N));
         case kTypeInt:
-            return UnboxIfNeed(Mul(NyInt::Cast(ob), N));
+            return UnboxIfNeed(Mul(NyInt::Cast(rhs), N));
         case kTypeFloat64:
-            return N->factory()->NewFloat64(ToF64() * NyFloat64::Cast(ob)->value());
+            return N->factory()->NewFloat64(ToF64() * NyFloat64::Cast(rhs)->value());
         default:
             break;
     }
@@ -808,16 +806,13 @@ Object *NyInt::Mul(Object *rhs, NyaaCore *N) const {
 
 
 Object *NyInt::Div(Object *rhs, NyaaCore *N) const {
-    if (rhs->IsSmi()) {
-        if (rhs->ToSmi() == 0) {
-            N->Raisef("div zero.");
-            return nullptr;
-        }
-        return UnboxIfNeed(Div(rhs->ToSmi(), N));
-    }
-    
-    NyObject *ob = rhs->ToHeapObject();
-    switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            if (rhs->ToSmi() == 0) {
+                N->Raisef("div zero.");
+                return nullptr;
+            }
+            return UnboxIfNeed(Div(rhs->ToSmi(), N));
         case kTypeInt:
             return UnboxIfNeed(Div(NyInt::Cast(rhs), N));
         case kTypeFloat64:
@@ -830,16 +825,13 @@ Object *NyInt::Div(Object *rhs, NyaaCore *N) const {
 }
 
 Object *NyInt::Mod(Object *rhs, NyaaCore *N) const {
-    if (rhs->IsSmi()) {
-        if (rhs->ToSmi() == 0) {
-            N->Raisef("div zero.");
-            return nullptr;
-        }
-        return UnboxIfNeed(Mod(rhs->ToSmi(), N));
-    }
-    
-    NyObject *ob = rhs->ToHeapObject();
-    switch (static_cast<BuiltinType>(ob->GetMetatable()->kid())) {
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            if (rhs->ToSmi() == 0) {
+                N->Raisef("div zero.");
+                return nullptr;
+            }
+            return UnboxIfNeed(Mod(rhs->ToSmi(), N));
         case kTypeInt:
             return UnboxIfNeed(Mod(NyInt::Cast(rhs), N));
         case kTypeFloat64:
