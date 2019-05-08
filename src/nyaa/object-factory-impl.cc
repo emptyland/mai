@@ -23,7 +23,8 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
     if (!blk) { return nullptr; } \
     auto ob = new (blk) expr; \
     ob->SetMetatable(core_->kmt_pool()->k##type, core_); \
-    ob->SetColor(heap_->initial_color());
+    ob->SetColor(heap_->initial_color()); \
+    ob->SetType(kType##type)
     
 /*virtual*/ NyFloat64 *ObjectFactoryImpl::NewFloat64(f64_t value, bool old) {
     NEW_OBJECT(sizeof(NyFloat64), NyFloat64(value), Float64);
@@ -166,6 +167,7 @@ NyDelegated *ObjectFactoryImpl::NewDelegated(DelegatedKind kind, Address fp, siz
     NyUDO *ob = new (blk) NyUDO(n_fields, ignore_managed);
     ob->SetMetatable(clazz, core_);
     ob->SetColor(heap_->initial_color());
+    ob->SetType(kTypeUdo);
     DCHECK_EQ(size, ob->PlacedSize());
     return ob;
 }

@@ -78,19 +78,19 @@ public:
     }
 
     virtual void VisitMetatablePointer(Object *host, uintptr_t *word) override {
-#if defined(NYAA_USE_POINTER_COLOR)
+#if defined(NYAA_USE_POINTER_COLOR) || defined(NYAA_USE_POINTER_TYPE)
         DCHECK_NE(0, *word);
         DCHECK(!(*word & 0x1));
 
-        uintptr_t color_bits = *word & NyObject::kColorMask;
+        uintptr_t data_bits = *word & NyObject::kDataMask;
 
-        Object *mt = reinterpret_cast<Object *>(*word & ~NyObject::kColorMask);
+        Object *mt = reinterpret_cast<Object *>(*word & ~NyObject::kDataMask);
         VisitPointer(host, &mt);
 
-        *word = reinterpret_cast<uintptr_t>(mt) | color_bits;
-#else // !defined(NYAA_USE_POINTER_COLOR)
+        *word = reinterpret_cast<uintptr_t>(mt) | data_bits;
+#else // !defined(NYAA_USE_POINTER_COLOR) && defined(NYAA_USE_POINTER_TYPE)
         // TODO:
-#endif // defined(NYAA_USE_POINTER_COLOR)
+#endif // defined(NYAA_USE_POINTER_COLOR) || defined(NYAA_USE_POINTER_TYPE)
     }
 private:
     Scavenger *const owns_;

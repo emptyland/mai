@@ -192,16 +192,16 @@ Object *Heap::MoveNewObject(Object *addr, size_t size, bool upgrade) {
     }
     
     // Set foward address:
-#if defined(NYAA_USE_POINTER_COLOR)
+#if defined(NYAA_USE_POINTER_COLOR) || defined(NYAA_USE_POINTER_TYPE)
     uintptr_t word = *reinterpret_cast<uintptr_t *>(addr);
-    uintptr_t color_bits = word & NyObject::kColorMask;
-    word = reinterpret_cast<uintptr_t>(dst) | color_bits | 0x1;
+    uintptr_t data_bits = word & NyObject::kDataMask;
+    word = reinterpret_cast<uintptr_t>(dst) | data_bits | 0x1;
     *reinterpret_cast<uintptr_t *>(addr) = word;
-#else // !defined(NYAA_USE_POINTER_COLOR)
+#else // !defined(NYAA_USE_POINTER_COLOR) && !defined(NYAA_USE_POINTER_TYPE)
     uintptr_t word = *reinterpret_cast<uintptr_t *>(addr);
     word = reinterpret_cast<uintptr_t>(dst) | 0x1;
     *reinterpret_cast<uintptr_t *>(addr) = word;
-#endif // defined(NYAA_USE_POINTER_COLOR)
+#endif // defined(NYAA_USE_POINTER_COLOR) || defined(NYAA_USE_POINTER_TYPE)
     
     return reinterpret_cast<Object *>(dst);
 }

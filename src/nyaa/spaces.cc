@@ -150,7 +150,7 @@ HeapColor Space::GetAddressColor(Address addr) const {
 #if defined(NYAA_USE_POINTER_COLOR)
     void *hp = *reinterpret_cast<void **>(addr);
     uintptr_t header = reinterpret_cast<uintptr_t>(hp);
-    return static_cast<HeapColor>((header & NyObject::kColorMask) >> NyObject::kMaskBitsOrder);
+    return static_cast<HeapColor>((header & NyObject::kColorMask) >> NyObject::kColorBitsOrder);
 #else // !defined(NYAA_USE_POINTER_COLOR)
     // TODO:
 #endif // defined(NYAA_USE_POINTER_COLOR)
@@ -164,7 +164,7 @@ void Space::SetAddressColor(Address addr, HeapColor color) {
     void *hp = *reinterpret_cast<void **>(addr);
     uintptr_t header = reinterpret_cast<uintptr_t>(hp);
     header &= ~NyObject::kColorMask;
-    header |= ((static_cast<uintptr_t>(color) & 0xfull) << NyObject::kMaskBitsOrder);
+    header |= ((static_cast<uintptr_t>(color) & 0xfull) << NyObject::kColorBitsOrder);
     *reinterpret_cast<void **>(addr) = reinterpret_cast<void *>(header);
 #else // !defined(NYAA_USE_POINTER_COLOR)
     // TODO:

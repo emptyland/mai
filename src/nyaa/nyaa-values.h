@@ -134,9 +134,12 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class NyObject : public Object {
 public:
-#if defined(MAI_OS_DARWIN)
-    static constexpr const int kMaskBitsOrder = 42;
-    static constexpr const uintptr_t kColorMask = 0xfull << kMaskBitsOrder;
+#if defined(NYAA_USE_POINTER_COLOR) || defined(NYAA_USE_POINTER_TYPE)
+    static constexpr const int kColorBitsOrder = 42;
+    static constexpr const uintptr_t kColorMask = 0xfull << kColorBitsOrder;
+    static constexpr const int kTypeBitsOrder = kColorBitsOrder + 4;
+    static constexpr const uintptr_t kTypeMask = 0xffull << kTypeBitsOrder;
+    static constexpr const uintptr_t kDataMask = kColorMask | kTypeMask;
 #endif
     
     NyObject() : mtword_(0) {}
@@ -151,24 +154,26 @@ public:
 
 #if defined(NYAA_USE_POINTER_COLOR)
     HeapColor GetColor() const {
-        return static_cast<HeapColor>((mtword_ & kColorMask) >> kMaskBitsOrder);
+        return static_cast<HeapColor>((mtword_ & kColorMask) >> kColorBitsOrder);
     }
 
     void SetColor(HeapColor color) {
         mtword_ &= ~kColorMask;
-        mtword_ |= ((static_cast<uintptr_t>(color) & 0xfull) << kMaskBitsOrder);
+        mtword_ |= ((static_cast<uintptr_t>(color) & 0xfull) << kColorBitsOrder);
     }
 #endif
     
     inline BuiltinType GetType() const;
+    
+    inline void SetType(BuiltinType type);
 
     NyMap *GetMetatable() const {
         DCHECK_EQ(mtword_ % 4, 0);
-#if defined(NYAA_USE_POINTER_COLOR)
-        return reinterpret_cast<NyMap *>(mtword_ & ~kColorMask);
-#else // !defined(NYAA_USE_POINTER_COLOR)
+#if defined(NYAA_USE_POINTER_COLOR) || defined(NYAA_USE_POINTER_TYPE)
+        return reinterpret_cast<NyMap *>(mtword_ & ~kDataMask);
+#else // !defined(NYAA_USE_POINTER_COLOR) && !defined(NYAA_USE_POINTER_TYPE)
         return reinterpret_cast<NyMap *>(mtword_);
-#endif // defined(NYAA_USE_POINTER_COLOR)
+#endif // defined(NYAA_USE_POINTER_COLOR) || defined(NYAA_USE_POINTER_TYPE)
     }
 
     void SetMetatable(NyMap *mt, NyaaCore *N);
@@ -229,11 +234,11 @@ private:
         DCHECK(is_forward());
         uintptr_t addr = mtword_ & ~0x1;
         DCHECK_EQ(0, addr % 4);
-#if defined(NYAA_USE_POINTER_COLOR)
-        return reinterpret_cast<void *>(addr & ~kColorMask);
-#else // !defined(NYAA_USE_POINTER_COLOR)
+#if defined(NYAA_USE_POINTER_COLOR) || defined(NYAA_USE_POINTER_TYPE)
+        return reinterpret_cast<void *>(addr & ~kDataMask);
+#else // !defined(NYAA_USE_POINTER_COLOR) && !defined(NYAA_USE_POINTER_TYPE)
         return reinterpret_cast<void *>(addr);
-#endif // defined(NYAA_USE_POINTER_COLOR)
+#endif // defined(NYAA_USE_POINTER_COLOR) || defined(NYAA_USE_POINTER_TYPE)
     }
     
     // 0x0000000101719fe0
@@ -1049,7 +1054,6 @@ void UDOFinalizeDtor(NyUDO *udo, NyaaCore *) { static_cast<T *>(udo)->~T(); }
     DECL_BUILTIN_TYPES(DECL_TYPE_CAST)
 #undef DECL_TYPE_CAST
     
-    
 inline BuiltinType Object::GetType() const {
     if (IsNil()) {
         return kTypeNil;
@@ -1059,6 +1063,30 @@ inline BuiltinType Object::GetType() const {
     }
     return ToHeapObject()->GetType();
 }
+    
+#if defined(NYAA_USE_POINTER_TYPE)
+inline BuiltinType NyObject::GetType() const {
+    //printf("hit!\n");
+    return static_cast<BuiltinType>((mtword_ & kTypeMask) >> kTypeBitsOrder);
+}
+
+inline void NyObject::SetType(BuiltinType type) {
+    DCHECK_NE(kTypeSmi, type);
+    DCHECK_NE(kTypeNil, type);
+    DCHECK_EQ(0, GetType()) << "Type can set once!";
+    //printf("hit %d!\n", type);
+    mtword_ &= ~kTypeMask;
+    mtword_ |= ((static_cast<uintptr_t>(type) & 0xffull) << kTypeBitsOrder);
+}
+
+#else // defined(NYAA_USE_POINTER_TYPE)
+inline BuiltinType NyObject::GetType() const {
+    uint64_t kid = GetMetatable()->kid();
+    return static_cast<BuiltinType>(kid > kUdoKidBegin ? kTypeUdo : kid);
+}
+
+inline void NyObject::SetType(BuiltinType type) {}
+#endif // defined(NYAA_USE_POINTER_TYPE)
     
 inline bool NyObject::IsUDO() const {
     return IsThread() || GetType() == kTypeUdo;
@@ -1070,11 +1098,6 @@ inline const NyUDO *NyObject::ToUDO() const {
     
 inline Object *NyObject::GetMetaFunction(NyString *name, NyaaCore *N) const{
     return GetMetatable()->RawGet(name, N);
-}
-    
-inline BuiltinType NyObject::GetType() const {
-    uint64_t kid = GetMetatable()->kid();
-    return static_cast<BuiltinType>(kid > kUdoKidBegin ? kTypeUdo : kid);
 }
 
 inline NyRunnable *NyObject::GetValidMetaFunction(NyString *name, NyaaCore *N) const {

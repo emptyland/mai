@@ -64,6 +64,7 @@ static inline void *DbgFillFreeZag(void *p, size_t n) { return p; }
     
 #if defined(MAI_OS_POSIX)
 #define NYAA_USE_POINTER_COLOR 1
+#define NYAA_USE_POINTER_TYPE  1
 #endif
     
     
