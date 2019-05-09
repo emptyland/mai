@@ -86,6 +86,11 @@ public:
         return NewDelegated(kFunctionCallback, reinterpret_cast<Address>(fp), n_upvals, old);
     }
     
+    NyDelegated *NewDelegated(void (*fp)(const FunctionCallbackInfo<Value> &), size_t n_upvals = 0,
+                              bool old = false) {
+        return NewDelegated(kFunctionCallback, reinterpret_cast<Address>(fp), n_upvals, old);
+    }
+    
     NyInt *NewLiteralInt(const char *z, bool old = false) {
         return NewLiteralInt(z, !z ? 0 : ::strlen(z), old);
     }

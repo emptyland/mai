@@ -17,6 +17,7 @@ class String;
 class Long;
 class Script;
 class Table;
+template<class T> class FunctionCallbackInfo;
     
 //--------------------------------------------------------------------------------------------------
 // [Value]
@@ -37,9 +38,9 @@ public:
 // [Integer]
 class Number final : public Value {
 public:
-    static Handle<Number> NewI64(Nyaa *N, int64_t val);
+    static Handle<Number> NewI64(int64_t val);
 
-    static Handle<Number> NewF64(Nyaa *N, double val);
+    static Handle<Number> NewF64(double val);
     
     int64_t I64Value() const;
     
@@ -52,9 +53,9 @@ public:
 // [String]
 class String final : public Value {
 public:
-    static Handle<String> New(Nyaa *N, const char *s) { return New(N, s, !s ? 0 : ::strlen(s)); }
+    static Handle<String> New(const char *s) { return New(s, !s ? 0 : ::strlen(s)); }
     
-    static Handle<String> New(Nyaa *N, const char *s, size_t n);
+    static Handle<String> New(const char *s, size_t n);
     
     uint32_t HashVal() const;
     
@@ -70,11 +71,15 @@ public:
 // [Function]
 class Function final : public Value {
 public:
+    using InvocationCallback = void (*)(const FunctionCallbackInfo<Value> &);
     
+    static Handle<Function> New(InvocationCallback callback, size_t nupvals);
+
     void Bind(int i, Handle<Value> val);
     
     Handle<Value> GetUpVal(int i);
-    
+
+    int Call(Handle<Value> argv[], int argc, Handle<Value> rets[], int wanted);
 }; // class Function
     
 
@@ -82,11 +87,11 @@ public:
 // [Script]
 class Script final : public Value {
 public:
-    static Handle<Script> Compile(Nyaa *N, Handle<String> source);
+    static Handle<Script> Compile(Handle<String> source);
     
-    static Handle<Script> Compile(Nyaa *N, const char *file_name, FILE *fp);
+    static Handle<Script> Compile(const char *file_name, FILE *fp);
     
-    int Run(Nyaa *N, Handle<Value> argv[], int argc, Handle<Value> result[], int wanted);
+    int Run(Handle<Value> argv[], int argc, Handle<Value> rets[], int wanted);
 }; // class Script
 
     

@@ -62,6 +62,9 @@ public:
     
     void AddFindPath(const std::string &path) { find_paths_.insert(path); }
     
+    void SetGlobal(Handle<String> name, Handle<Value> value);
+    Handle<Value> GetGlobal(Handle<String> name);
+    
     friend class nyaa::NyaaCore;
     friend class Isolate;
     

@@ -85,7 +85,17 @@ Nyaa::~Nyaa() {
     isolate_->SetNyaa(prev_);
     prev_ = nullptr;
 }
-    
+
+void Nyaa::SetGlobal(Handle<String> name, Handle<Value> value) {
+    core_->SetGlobal(reinterpret_cast<NyString *>(*name),
+                     reinterpret_cast<Object *>(*value));
+}
+
+Handle<Value> Nyaa::GetGlobal(Handle<String> name) {
+    Object *val = core_->g()->RawGet(reinterpret_cast<NyString *>(*name), core_.get());
+    return reinterpret_cast<Value *>(val);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Values:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -115,15 +125,17 @@ bool Value::IsScript() const {
     return o->IsObject() && o->ToHeapObject()->IsFunction();
 }
 
-/*static*/ Handle<Number> Number::NewI64(Nyaa *N, int64_t val) {
+/*static*/ Handle<Number> Number::NewI64(int64_t val) {
+    NyaaCore *N = NyaaCore::Current();
     if (val > NySmi::kMaxValue || val < NySmi::kMinValue) {
-        return Handle<Number>(reinterpret_cast<Number *>(NyInt::NewI64(val, N->core()->factory())));
+        return Handle<Number>(reinterpret_cast<Number *>(NyInt::NewI64(val, N->factory())));
     }
     return Handle<Number>(reinterpret_cast<Number *>(NySmi::New(val)));
 }
     
-/*static*/ Handle<Number> Number::NewF64(Nyaa *N, double val) {
-    return Handle<Number>(reinterpret_cast<Number *>(N->core()->factory()->NewFloat64(val)));
+/*static*/ Handle<Number> Number::NewF64(double val) {
+    NyaaCore *N = NyaaCore::Current();
+    return Handle<Number>(reinterpret_cast<Number *>(N->factory()->NewFloat64(val)));
 }
     
 int64_t Number::I64Value() const {
@@ -156,9 +168,9 @@ double Number::F64Value() const {
     return 0;
 }
 
-/*static*/ Handle<String> String::New(Nyaa *N, const char *s, size_t n) {
-    auto factory = N->core()->factory();
-    return reinterpret_cast<String *>(factory->NewString(s, n, false));
+/*static*/ Handle<String> String::New(const char *s, size_t n) {
+    NyaaCore *N = NyaaCore::Current();
+    return reinterpret_cast<String *>(N->factory()->NewString(s, n, false));
 }
 
 uint32_t String::HashVal() const {
@@ -173,65 +185,88 @@ size_t String::Length() const {
     return reinterpret_cast<const NyString *>(this)->size();
 }
     
+/*static*/ Handle<Function> Function::New(Function::InvocationCallback callback,
+                                          size_t nupvals) {
+    NyaaCore *N = NyaaCore::Current();
+    NyDelegated *fn = N->factory()->NewDelegated(callback, nupvals);
+    return Handle<Function>(reinterpret_cast<Function *>(fn));
+}
+    
 void Function::Bind(int i, Handle<Value> val) {
-    if (!IsFunction()) {
-        return;
-    }
-    if (NyClosure *fn = reinterpret_cast<NyObject *>(this)->ToClosure()) {
+    DCHECK(IsFunction());
+    Object *maybe = reinterpret_cast<Object *>(this);
+    if (NyClosure *fn = NyClosure::Cast(maybe)) {
         fn->Bind(i, reinterpret_cast<Object *>(*val), NyaaCore::Current());
-    } else if (NyDelegated *fn = reinterpret_cast<NyObject *>(this)->ToDelegated()) {
+    } else if (NyDelegated *fn = NyDelegated::Cast(maybe)) {
         fn->Bind(i, reinterpret_cast<Object *>(*val), NyaaCore::Current());
     }
 }
 
 Handle<Value> Function::GetUpVal(int i) {
-    if (!IsFunction()) {
-        return Handle<Value>();
-    }
-    if (NyClosure *fn = reinterpret_cast<NyObject *>(this)->ToClosure()) {
+    DCHECK(IsFunction());
+    Object *maybe = reinterpret_cast<Object *>(this);
+    if (NyClosure *fn = NyClosure::Cast(maybe)) {
         return reinterpret_cast<Value *>(fn->upval(i));
-    } else if (NyDelegated *fn = reinterpret_cast<NyObject *>(this)->ToDelegated()) {
+    } else if (NyDelegated *fn = NyDelegated::Cast(maybe)) {
         return reinterpret_cast<Value *>(fn->upval(i));
     }
-    return Handle<Value>();
+    return Handle<Value>::Empty();
 }
     
-/*static*/ Handle<Script> Script::Compile(Nyaa *N, Handle<String> source) {
-    Handle<NyClosure> script = NyClosure::Compile(source->Bytes(), source->Length(), N->core());
-    if (script.is_empty()) {
-        return Handle<Script>();
-    }
-    return Handle<Script>(reinterpret_cast<Script *>(*script));
-}
+int Function::Call(Handle<Value> argv[], int argc, Handle<Value> rets[], int wanted) {
+    DCHECK(IsFunction());
+    NyaaCore *N = NyaaCore::Current();
+    NyRunnable *self = NyRunnable::Cast(reinterpret_cast<Object *>(this));
 
-/*static*/ Handle<Script> Script::Compile(Nyaa *N, const char *file_name, FILE *fp) {
-    Handle<NyClosure> script = NyClosure::Compile(file_name, fp, N->core());
-    if (script.is_empty()) {
-        return Handle<Script>();
-    }
-    return Handle<Script>(reinterpret_cast<Script *>(*script));
-}
-
-int Script::Run(Nyaa *N, Handle<Value> argv[], int argc, Handle<Value> rets[], int wanted) {
-    NyClosure *self = DCHECK_NOTNULL(NyClosure::Cast(reinterpret_cast<Object *>(this)));
-    
-    Object *tmp[8];
-    Object **input = nullptr;
-    std::unique_ptr<Object *[]> scoped;
-    if (argc > arraysize(tmp)) {
-        scoped.reset(new Object *[argc]);
-        input = scoped.get();
-    } else {
-        input = tmp;
-    }
+    base::ScopedMemoryTemplate<Object *, 8> tmp;
+    Object **input = tmp.New(argc);
     for (int i = 0; i < argc; ++i) {
         input[i] = reinterpret_cast<Object *>(*argv[i]);
     }
-    int rv = self->Call(input, argc, wanted, N->core());
+    int rv = self->Apply(input, argc, wanted, N);
     if (rv >= 0) {
-        DCHECK_EQ(rv, wanted);
-        for (int i = 0; i < wanted; ++i) {
-            rets[i] = reinterpret_cast<Value *>(N->core()->Get(-(wanted - i)));
+        DCHECK(wanted < 0 || rv == wanted) << rv << " vs " << wanted;
+        int n = wanted < 0 ? rv : wanted;
+        for (int i = 0; i < n; ++i) {
+            rets[i] = reinterpret_cast<Value *>(N->Get(-(n - i)));
+        }
+    }
+    return rv;
+}
+    
+/*static*/ Handle<Script> Script::Compile(Handle<String> source) {
+    NyaaCore *N = NyaaCore::Current();
+    Handle<NyClosure> script = NyClosure::Compile(source->Bytes(), source->Length(), N);
+    if (script.is_empty()) {
+        return Handle<Script>();
+    }
+    return Handle<Script>(reinterpret_cast<Script *>(*script));
+}
+
+/*static*/ Handle<Script> Script::Compile(const char *file_name, FILE *fp) {
+    NyaaCore *N = NyaaCore::Current();
+    Handle<NyClosure> script = NyClosure::Compile(file_name, fp, N);
+    if (script.is_empty()) {
+        return Handle<Script>();
+    }
+    return Handle<Script>(reinterpret_cast<Script *>(*script));
+}
+
+int Script::Run(Handle<Value> argv[], int argc, Handle<Value> rets[], int wanted) {
+    NyaaCore *N = NyaaCore::Current();
+    NyClosure *self = DCHECK_NOTNULL(NyClosure::Cast(reinterpret_cast<Object *>(this)));
+    
+    base::ScopedMemoryTemplate<Object *, 8> tmp;
+    Object **input = tmp.New(argc);
+    for (int i = 0; i < argc; ++i) {
+        input[i] = reinterpret_cast<Object *>(*argv[i]);
+    }
+    int rv = self->Call(input, argc, wanted, N);
+    if (rv >= 0) {
+        DCHECK(wanted < 0 || rv == wanted) << rv << " vs " << wanted;
+        int n = wanted < 0 ? rv : wanted;
+        for (int i = 0; i < n; ++i) {
+            rets[i] = reinterpret_cast<Value *>(N->Get(-(n - i)));
         }
     }
     return rv;

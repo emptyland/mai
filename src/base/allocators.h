@@ -65,7 +65,7 @@ private:
     T *memory_ = static_;
 }; // class ScopedMemory
     
-using ScopedMemory = ScopedMemoryTemplate<uint8_t, 512>;
+using ScopedMemory = ScopedMemoryTemplate<uint8_t, 128>;
     
 struct ScopedAllocator {
     void *Allocate(size_t size) { return memory->Allocate(size); }
