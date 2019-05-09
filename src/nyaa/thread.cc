@@ -1000,7 +1000,7 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
             if (n_args < 0) {
                 n_args = static_cast<int32_t>(stack_tp_ - base - 1);
             }
-            HandleScope scope(owns_->stub());
+
             CallFrame *frame = new CallFrame;
             frame->Enter(this, callee,
                          nullptr, /* bc buf */

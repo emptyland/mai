@@ -125,6 +125,36 @@ bool Value::IsScript() const {
 /*static*/ Handle<Number> Number::NewF64(Nyaa *N, double val) {
     return Handle<Number>(reinterpret_cast<Number *>(N->core()->factory()->NewFloat64(val)));
 }
+    
+int64_t Number::I64Value() const {
+    const Object *maybe = reinterpret_cast<const Object *>(this);
+    switch (maybe->GetType()) {
+        case kTypeSmi:
+            return maybe->ToSmi();
+        case kTypeInt:
+            return NyInt::Cast(maybe)->ToI64();
+        case kTypeFloat64:
+            return static_cast<int64_t>(NyFloat64::Cast(maybe)->value());
+        default:
+            break;
+    }
+    return 0;
+}
+
+double Number::F64Value() const {
+    const Object *maybe = reinterpret_cast<const Object *>(this);
+    switch (maybe->GetType()) {
+        case kTypeSmi:
+            return maybe->ToSmi();
+        case kTypeInt:
+            return NyInt::Cast(maybe)->ToF64();
+        case kTypeFloat64:
+            return NyFloat64::Cast(maybe)->value();
+        default:
+            break;
+    }
+    return 0;
+}
 
 /*static*/ Handle<String> String::New(Nyaa *N, const char *s, size_t n) {
     auto factory = N->core()->factory();
@@ -141,15 +171,6 @@ const char *String::Bytes() const {
 
 size_t String::Length() const {
     return reinterpret_cast<const NyString *>(this)->size();
-}
-    
-Handle<Value> Result::Get(size_t i) const {
-    auto core = reinterpret_cast<const NyArray *>(this);
-    return i >= core->size() ? Handle<Value>::Empty() : reinterpret_cast<Value *>(core->Get(i));
-}
-
-size_t Result::Length() const {
-    return reinterpret_cast<const NyArray *>(this)->size();
 }
     
 void Function::Bind(int i, Handle<Value> val) {
@@ -191,11 +212,29 @@ Handle<Value> Function::GetUpVal(int i) {
     return Handle<Script>(reinterpret_cast<Script *>(*script));
 }
 
-Handle<Result> Script::Run(Nyaa *N, int wanted) {
-    NyClosure *script = reinterpret_cast<NyClosure *>(this);
-    script->Call(nullptr/*argv*/, 0/*argc*/, wanted, N->core());
-    // TODO:
-    return Local<Result>();
+int Script::Run(Nyaa *N, Handle<Value> argv[], int argc, Handle<Value> rets[], int wanted) {
+    NyClosure *self = DCHECK_NOTNULL(NyClosure::Cast(reinterpret_cast<Object *>(this)));
+    
+    Object *tmp[8];
+    Object **input = nullptr;
+    std::unique_ptr<Object *[]> scoped;
+    if (argc > arraysize(tmp)) {
+        scoped.reset(new Object *[argc]);
+        input = scoped.get();
+    } else {
+        input = tmp;
+    }
+    for (int i = 0; i < argc; ++i) {
+        input[i] = reinterpret_cast<Object *>(*argv[i]);
+    }
+    int rv = self->Call(input, argc, wanted, N->core());
+    if (rv >= 0) {
+        DCHECK_EQ(rv, wanted);
+        for (int i = 0; i < wanted; ++i) {
+            rets[i] = reinterpret_cast<Value *>(N->core()->Get(-(wanted - i)));
+        }
+    }
+    return rv;
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////

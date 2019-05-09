@@ -3,6 +3,7 @@
 #include "nyaa/nyaa-values.h"
 #include "nyaa/thread.h"
 #include "nyaa/object-factory.h"
+#include "base/allocators.h"
 #include "mai-lang/nyaa.h"
 
 namespace mai {
@@ -61,6 +62,8 @@ static_assert(sizeof(BuiltinStrPool) / kPointerSize == arraysize(kRawBuiltinKzs)
               "Incorrect size of kRawBuiltinKzs");
     
 static void BuiltinPrint(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    
     for (size_t i = 0; i < info.Length(); ++i) {
         Handle<NyString> str(info[i]->ToString(info.Core()));
         if (i > 0) {
@@ -73,6 +76,8 @@ static void BuiltinPrint(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void BuiltinStr(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    
     switch (info.Length()) {
         case 0:
             info.GetReturnValues().Add("");
@@ -91,6 +96,8 @@ static void BuiltinStr(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void BuiltinRaise(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    
     auto msg = Handle<NyString>::Null();
     if (info.Length() >= 1) {
         msg = info[0]->ToString(info.Core());
@@ -104,6 +111,8 @@ static void BuiltinRaise(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void BuiltinMapIter(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    
     Handle<NyDelegated> callee = NyDelegated::Cast(*info.Callee());
     DCHECK(callee.is_valid());
     Handle<NyMap> map = NyMap::Cast(callee->upval(0));
@@ -117,6 +126,8 @@ static void BuiltinMapIter(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void BuiltinPairs(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    
     if (info.Length() < 1) {
         info.GetErrors().Raisef("incorrect argument length, expected: %zd, need: 1", info.Length());
     }
@@ -134,6 +145,8 @@ static void BuiltinPairs(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void BuiltinRangeIter(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    
     Handle<NyDelegated> callee = NyDelegated::Cast(*info.Callee());
     DCHECK(callee.is_valid());
     
@@ -158,6 +171,8 @@ static void BuiltinRangeIter(const FunctionCallbackInfo<Object> &info) {
 }
 
 static void BuiltinRange(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    
     int64_t begin = 0, end = 0, step = 1;
     switch (info.Length()) {
         case 3: {
@@ -192,6 +207,8 @@ static void BuiltinRange(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void BuiltinSetMetatable(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    
     Handle<Object> ob = info[0];
     if (ob.is_not_valid()) {
         return;
@@ -208,6 +225,8 @@ static void BuiltinSetMetatable(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void BuiltinGetMetatable(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    
     Handle<Object> ob = info[0];
     if (ob.is_not_valid()) {
         return;
@@ -218,6 +237,8 @@ static void BuiltinGetMetatable(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void BuiltinLog(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    
     if (info.Length() == 0) {
         return;
     }
@@ -262,6 +283,8 @@ static void BuiltinLog(const FunctionCallbackInfo<Object> &info) {
 }
 
 static void BuiltinRequire(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+
     if (info.Length() < 1) {
         info.GetErrors().Raisef("incorrect arguments length, required: >1");
         return;
@@ -315,6 +338,8 @@ static void BuiltinRequire(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void BuiltinLoadFile(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+
     if (info.Length() < 1) {
         info.GetErrors().Raisef("incorrect arguments length, required: >1");
         return;
@@ -346,6 +371,8 @@ static void BuiltinLoadFile(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void BuiltinLoadString(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+
     if (info.Length() < 1) {
         info.GetErrors().Raisef("incorrect arguments length, required: >1");
         return;
@@ -361,33 +388,66 @@ static void BuiltinLoadString(const FunctionCallbackInfo<Object> &info) {
         info.GetReturnValues().Add(fn);
     }
 }
+    
+static void BuiltinPCall(const FunctionCallbackInfo<Object> &info) {
+    if (info.Length() < 1) {
+        info.GetErrors().Raisef("incorrect arguments length, required: >1");
+        return;
+    }
+    
+    NyaaCore *N = info.Core();
+    NyRunnable *fn;
+    base::ScopedMemoryTemplate<Object *, 8> scoped;
+    int argc = static_cast<int>(info.Length() - 1);
+    Object **argv = scoped.New(argc);
+    {
+        HandleScope handle_scope(info.VM());
+        fn = NyRunnable::Cast(*info[0]);
+        for (int i = 0; i < argc; i++) {
+            argv[i] = *info[i + 1];
+        }
+    }
+    TryCatchCore try_catch(info.Core());
+    int nrets = N->curr_thd()->TryRun(fn, argv, argc);
+    if (try_catch.has_caught()) {
+        info.GetReturnValues().AddNil().Add(try_catch.message());
+    } else {
+        info.GetReturnValues().Set(nrets);
+    }
+}
 
 static void DelegatedCall(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
     // TODO:
     info.GetErrors().Raisef("TODO:");
 }
     
 static void ThreadInit(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
     // TODO:
     info.GetErrors().Raisef("TODO:");
 }
 
 static void ThreadIndex(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
     // TODO:
     info.GetErrors().Raisef("TODO:");
 }
     
 static void ThreadNewindex(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
     // TODO:
     info.GetErrors().Raisef("TODO:");
 }
 
 static void BuiltinYield(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
     // TODO:
     info.GetErrors().Raisef("TODO:");
 }
     
 static void ThreadResume(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
     // TODO:
     info.GetErrors().Raisef("TODO:");
 }
@@ -489,6 +549,7 @@ const NyaaNaFnEntry kBuiltinFnEntries[] = {
     {"raise", BuiltinRaise},
     {"pairs", BuiltinPairs},
     {"range", BuiltinRange},
+    {"pcall", BuiltinPCall},
     {"require", BuiltinRequire},
     {"loadfile", BuiltinLoadFile},
     {"loadstring", BuiltinLoadString},

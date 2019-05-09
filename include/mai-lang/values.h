@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string>
+#include <vector>
 
 namespace mai {
     
@@ -12,7 +13,6 @@ namespace nyaa {
     
 class Nyaa;
 class Value;
-class HeapObject;
 class String;
 class Long;
 class Script;
@@ -35,11 +35,15 @@ public:
     
 //--------------------------------------------------------------------------------------------------
 // [Integer]
-class Number final {
+class Number final : public Value {
 public:
     static Handle<Number> NewI64(Nyaa *N, int64_t val);
 
     static Handle<Number> NewF64(Nyaa *N, double val);
+    
+    int64_t I64Value() const;
+    
+    double F64Value() const;
     
 }; // class Integer
 
@@ -57,20 +61,10 @@ public:
     const char *Bytes() const;
     
     size_t Length() const;
+    
+    std::string ToStl() const { return std::string(Bytes(), Length()); }
 }; // class String
 
-
-//--------------------------------------------------------------------------------------------------
-// [Result]
-class Result final : public Value {
-public:
-    Handle<Value> Get(size_t i) const;
-    
-    bool IsEmpty() const { return Length() == 0; }
-    
-    size_t Length() const;
-}; // class Result
-    
 
 //--------------------------------------------------------------------------------------------------
 // [Function]
@@ -92,7 +86,7 @@ public:
     
     static Handle<Script> Compile(Nyaa *N, const char *file_name, FILE *fp);
     
-    Handle<Result> Run(Nyaa *N, int wanted);
+    int Run(Nyaa *N, Handle<Value> argv[], int argc, Handle<Value> result[], int wanted);
 }; // class Script
 
     

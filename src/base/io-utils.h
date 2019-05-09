@@ -188,13 +188,13 @@ public:
     }
     
     Error WriteVarint32(uint32_t value) {
-        char *p = static_cast<char *>(scope_.New(Varint32::kMaxLen));
+        char *p = static_cast<char *>(scope_.Allocate(Varint32::kMaxLen));
         size_t n = Varint32::Encode(p, value);
         return Write(std::string_view(p, n));
     }
     
     Error WriteVarint64(uint64_t value) {
-        char *p = static_cast<char *>(scope_.New(Varint64::kMaxLen));
+        char *p = static_cast<char *>(scope_.Allocate(Varint64::kMaxLen));
         size_t n = Varint64::Encode(p, value);
         return Write(std::string_view(p, n));
     }

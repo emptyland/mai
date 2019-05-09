@@ -48,7 +48,7 @@ void LRUHandle::set_flags(bool val, uint32_t bits) {
     
 struct LRUCacheShard::LookupHandle final {
     LookupHandle(std::string_view key, const Comparator *cmp) {
-        handle = static_cast<LRUHandle *>(memory.New(sizeof(LRUHandle) + key.size()));
+        handle = static_cast<LRUHandle *>(memory.Allocate(sizeof(LRUHandle) + key.size()));
         handle->key_size = key.size();
         handle->hash_val = cmp->Hash(key);
         ::memcpy(handle->data, key.data(), key.size());
