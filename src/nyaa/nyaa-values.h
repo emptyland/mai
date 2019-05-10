@@ -856,6 +856,8 @@ public:
     static int Do(const char *z, size_t n, int wanted, NyMap *env, NyaaCore *N);
     
     static int Do(const char *file_name, FILE *fp, int wanted, NyMap *env, NyaaCore *N);
+    
+    static int DoFile(const char *file_name, int wanted, NyMap *env, NyaaCore *N);
 
     void Iterate(ObjectVisitor *visitor) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&proto_));

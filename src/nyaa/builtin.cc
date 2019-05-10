@@ -444,10 +444,24 @@ static void BuiltinGarbageCollect(const FunctionCallbackInfo<Object> &info) {
         .AddF64(histogram.time_cost);
 }
 
-static void DelegatedCall(const FunctionCallbackInfo<Object> &info) {
+static void BuiltinAssert(const FunctionCallbackInfo<Object> &info) {
     HandleScope handle_scope(info.VM());
-    // TODO:
-    info.GetErrors().Raisef("TODO:");
+    NyaaCore *N = info.Core();
+    Handle<NyString> message;
+    if (info.Length() >= 2) {
+        message = info[1]->ToString(info.Core());
+    }
+    if (!message) {
+        message = N->factory()->NewString("assert fail");
+    }
+
+    if (info.Length() >= 1) {
+        if (info[0]->IsFalse()) {
+            info.GetErrors().Raise(message->bytes(), info[0]);
+        } else {
+            info.GetReturnValues().Add(info[0]);
+        }
+    }
 }
     
 static void ThreadInit(const FunctionCallbackInfo<Object> &info) {
@@ -529,7 +543,7 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     // NyDelegated
     kDelegated = NEW_METATABLE(kTypeDelegated);
     kDelegated->RawPut(kzs->kInnerType, kzs->kDelegated, N);
-    kDelegated->RawPut(kzs->kInnerCall, factory->NewDelegated(DelegatedCall, 0, true), N);
+    //kDelegated->RawPut(kzs->kInnerCall, factory->NewDelegated(DelegatedCall, 0, true), N);
 
     //----------------------------------------------------------------------------------------------
     // NyFunction
@@ -578,6 +592,7 @@ const NyaaNaFnEntry kBuiltinFnEntries[] = {
     {"pairs", BuiltinPairs},
     {"range", BuiltinRange},
     {"pcall", BuiltinPCall},
+    {"assert", BuiltinAssert},
     {"require", BuiltinRequire},
     {"loadfile", BuiltinLoadFile},
     {"loadstring", BuiltinLoadString},

@@ -345,7 +345,9 @@ bool NyObject::Equal(Object *rhs, NyaaCore *N) {
         case kTypeInt: {
             auto lval = ToInt();
             if (rhs->IsSmi()) {
-                return lval->ToI64() == rhs->ToSmi();
+                base::ScopedArena scoped_arena;
+                NyInt *rval = NyInt::NewI64(rhs->ToSmi(), &scoped_arena);
+                return NyInt::Compare(lval, rval) == 0;
             } else if (NyInt *rval = NyInt::Cast(rhs)) {
                 return NyInt::Compare(lval, rval) == 0;
             } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
@@ -403,7 +405,9 @@ bool NyObject::LessThan(Object *rhs, NyaaCore *N) {
         case kTypeInt: {
             auto lval = ToInt();
             if (rhs->IsSmi()) {
-                return lval->ToI64() < rhs->ToSmi();
+                base::ScopedArena scoped_arena;
+                NyInt *rval = NyInt::NewI64(rhs->ToSmi(), &scoped_arena);
+                return NyInt::Compare(lval, rval) < 0;
             } else if (NyInt *rval = NyInt::Cast(rhs)) {
                 return NyInt::Compare(lval, rval) < 0;
             } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
@@ -457,11 +461,13 @@ bool NyObject::LessEqual(Object *rhs, NyaaCore *N) {
             }
             return lval->Compare(rval) <= 0;
         } break;
-            
+
         case kTypeInt: {
             auto lval = ToInt();
             if (rhs->IsSmi()) {
-                return lval->ToI64() <= rhs->ToSmi();
+                base::ScopedArena scoped_arena;
+                NyInt *rval = NyInt::NewI64(rhs->ToSmi(), &scoped_arena);
+                return NyInt::Compare(lval, rval) <= 0;
             } else if (NyInt *rval = NyInt::Cast(rhs)) {
                 return NyInt::Compare(lval, rval) <= 0;
             } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
@@ -470,7 +476,7 @@ bool NyObject::LessEqual(Object *rhs, NyaaCore *N) {
                 return false;
             }
         } break;
-            
+
         case kTypeFloat64: {
             auto lval = ToFloat64()->value();
             if (rhs->IsSmi()) {
@@ -483,13 +489,13 @@ bool NyObject::LessEqual(Object *rhs, NyaaCore *N) {
                 return false;
             }
         } break;
-            
+
         case kTypeMap:
             return ToMap()->LessEqual(rhs, N);
             
         case kTypeUdo:
             return ToUDO()->LessEqual(rhs, N);
-            
+
         default:
 //            if (GetMetatable()->kid() > kUdoKidBegin) {
 //                return ToUDO()->LessEqual(rhs, N);
@@ -978,8 +984,8 @@ int64_t NyInt::ToI64() const {
     } else if (segments_size() < 2) {
         val = static_cast<uint64_t>(segment(0));
     } else { // (d->segments_size() >= 2)
-        val |= static_cast<uint64_t>(segment(1) & 0x7fffffff) << 32;
-        val |= static_cast<uint64_t>(segment(0));
+        val |= static_cast<uint64_t>(segment(0) & 0x7fffffff) << 32;
+        val |= static_cast<uint64_t>(segment(1));
     }
     return val * sign();
 }
@@ -2073,6 +2079,16 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
         return -1;
     }
     return N->curr_thd()->TryRun(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
+}
+    
+/*static*/ int NyClosure::DoFile(const char *file_name, int wanted, NyMap *env, NyaaCore *N) {
+    FILE *fp = ::fopen(file_name, "r");
+    if (!fp) {
+        return -1;
+    }
+    int rv = Do(file_name, fp, wanted, env, N);
+    ::fclose(fp);
+    return rv;
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////

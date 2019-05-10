@@ -1109,6 +1109,41 @@ TEST_F(NyaaThreadTest, GarbageCollectFunc) {
     script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
+    
+    
+TEST_F(NyaaThreadTest, AssertFunc) {
+    static const char s[] = {
+        "def foo() {\n"
+        "   assert(1)\n"
+        "   assert(0, \"hit\")\n"
+        "}\n"
+        "for i in range(1, 100) {\n"
+        "   foo()\n"
+        "}\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    script->Call(nullptr, 0, 0, core_);
+    ASSERT_TRUE(try_catch.has_caught());
+    ASSERT_STREQ("hit", try_catch.message()->bytes());
+}
+    
+TEST_F(NyaaThreadTest, AddAssertTest) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/05-add-op-assert.nyaa", 0, nullptr, core_)) << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+
+TEST_F(NyaaThreadTest, SubAssertTest) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/06-sub-op-assert.nyaa", 0, nullptr, core_)) << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
 
 } // namespace nyaa
     

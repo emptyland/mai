@@ -1,0 +1,8 @@
+var assert = assert
+
+var a = 0
+assert(a - 1 == -1)
+assert(a - -1 == 1)
+assert(a - 0.1 == -0.1)
+a = -2305843009213693952
+assert(a - 1 == -2305843009213693953)

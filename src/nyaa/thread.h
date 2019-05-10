@@ -190,6 +190,7 @@ public:
 
     enum CatchId {
         kException,
+        kYield,
     };
     
     friend class NyaaCore;

@@ -125,6 +125,16 @@ TEST_F(NyaaValuesTest, Int) {
     ASSERT_STREQ("99999999999", s->bytes());
 }
     
+TEST_F(NyaaValuesTest, IntAdd) {
+    // 2305843009213693952
+    NyInt *n = factory_->NewLiteralInt("2305843009213693952");
+    ASSERT_NE(nullptr, n);
+    n = n->Add(1, core_);
+    NyString *s = n->ToString(N_->core());
+    ASSERT_STREQ("2305843009213693953", s->bytes());
+    ASSERT_EQ(2305843009213693953, n->ToI64());
+}
+    
 TEST_F(NyaaValuesTest, ObjectAdd) {
     Object *rv = Object::Add(NySmi::New(1), NySmi::New(1), core_);
     ASSERT_EQ(2, rv->ToSmi());

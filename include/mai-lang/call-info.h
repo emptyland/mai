@@ -32,13 +32,15 @@ private:
 template<class T>
 class Errors final : public ErrorsBase {
 public:
+    using i = ErrorsBase;
+    
     Errors(Nyaa *N) : ErrorsBase(N) {}
 
-    void Raise(const char *z, const Handle<T> ex) { Raise(z, !z ? 0 : ::strlen(z), *ex); }
+    void Raise(const char *z, const Handle<T> ex) { i::Raise(z, !z ? 0 : ::strlen(z), *ex); }
     
     template<class S>
     void Raise(const char *z, const Handle<S> ex) {
-        Raise(z, !z ? 0 : ::strlen(z), *Handle<T>::Cast(ex));
+        i::Raise(z, !z ? 0 : ::strlen(z), *Handle<T>::Cast(ex));
     }
 }; // template<class T> class Errors
 

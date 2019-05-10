@@ -69,7 +69,7 @@ public:
 
 //--------------------------------------------------------------------------------------------------
 // [Function]
-class Function final : public Value {
+class Function : public Value {
 public:
     using InvocationCallback = void (*)(const FunctionCallbackInfo<Value> &);
     
@@ -80,18 +80,18 @@ public:
     Handle<Value> GetUpVal(int i);
 
     int Call(Handle<Value> argv[], int argc, Handle<Value> rets[], int wanted);
+    
+    int Call(Handle<Value> argv[], int argc, std::vector<Handle<Value>> *rets, int wanted);
 }; // class Function
     
 
 //--------------------------------------------------------------------------------------------------
 // [Script]
-class Script final : public Value {
+class Script final : public Function {
 public:
     static Handle<Script> Compile(Handle<String> source);
     
     static Handle<Script> Compile(const char *file_name, FILE *fp);
-    
-    int Run(Handle<Value> argv[], int argc, Handle<Value> rets[], int wanted);
 }; // class Script
 
     

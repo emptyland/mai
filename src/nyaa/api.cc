@@ -234,6 +234,28 @@ int Function::Call(Handle<Value> argv[], int argc, Handle<Value> rets[], int wan
     return rv;
 }
     
+int Function::Call(Handle<Value> argv[], int argc, std::vector<Handle<Value>> *rets, int wanted) {
+    DCHECK(IsFunction());
+    NyaaCore *N = NyaaCore::Current();
+    NyRunnable *self = NyRunnable::Cast(reinterpret_cast<Object *>(this));
+    
+    base::ScopedMemoryTemplate<Object *, 8> tmp;
+    Object **input = tmp.New(argc);
+    for (int i = 0; i < argc; ++i) {
+        input[i] = reinterpret_cast<Object *>(*argv[i]);
+    }
+    int rv = self->Apply(input, argc, wanted, N);
+    if (rv >= 0) {
+        rets->clear();
+        DCHECK(wanted < 0 || rv == wanted) << rv << " vs " << wanted;
+        int n = wanted < 0 ? rv : wanted;
+        for (int i = 0; i < n; ++i) {
+            rets->push_back(reinterpret_cast<Value *>(N->Get(-(n - i))));
+        }
+    }
+    return rv;
+}
+    
 /*static*/ Handle<Script> Script::Compile(Handle<String> source) {
     NyaaCore *N = NyaaCore::Current();
     Handle<NyClosure> script = NyClosure::Compile(source->Bytes(), source->Length(), N);
@@ -250,26 +272,6 @@ int Function::Call(Handle<Value> argv[], int argc, Handle<Value> rets[], int wan
         return Handle<Script>();
     }
     return Handle<Script>(reinterpret_cast<Script *>(*script));
-}
-
-int Script::Run(Handle<Value> argv[], int argc, Handle<Value> rets[], int wanted) {
-    NyaaCore *N = NyaaCore::Current();
-    NyClosure *self = DCHECK_NOTNULL(NyClosure::Cast(reinterpret_cast<Object *>(this)));
-    
-    base::ScopedMemoryTemplate<Object *, 8> tmp;
-    Object **input = tmp.New(argc);
-    for (int i = 0; i < argc; ++i) {
-        input[i] = reinterpret_cast<Object *>(*argv[i]);
-    }
-    int rv = self->Call(input, argc, wanted, N);
-    if (rv >= 0) {
-        DCHECK(wanted < 0 || rv == wanted) << rv << " vs " << wanted;
-        int n = wanted < 0 ? rv : wanted;
-        for (int i = 0; i < n; ++i) {
-            rets[i] = reinterpret_cast<Value *>(N->Get(-(n - i)));
-        }
-    }
-    return rv;
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
