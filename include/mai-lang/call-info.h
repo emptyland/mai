@@ -109,6 +109,8 @@ public:
 protected:
     FunctionCallbackBase(void *address, size_t length, Nyaa *N);
     FunctionCallbackBase(size_t length, Nyaa *N);
+    
+    Object *CurrentEnv() const;
 
     void *address_;
 private:
@@ -137,10 +139,13 @@ public:
     using FunctionCallbackBase::VM;
     using FunctionCallbackBase::Length;
     using FunctionCallbackBase::Raisef;
+    using FunctionCallbackBase::CurrentEnv;
     
     Local<T> Callee() const { return Local<T>::New(static_cast<T **>(address_)[0]); }
 
     Local<T> Data() const { return Local<T>::New(static_cast<T **>(address_)[1]); }
+    
+    Local<T> Env() const { return Local<T>::New(reinterpret_cast<T *>(CurrentEnv())); }
 
     Local<T> operator [] (size_t i) const {
         if (i >= Length()) {

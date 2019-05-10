@@ -253,6 +253,9 @@ static void BuiltinLog(const FunctionCallbackInfo<Object> &info) {
         default: {
             buf = info.Core()->factory()->NewUninitializedString(64);
             for (size_t i = 0; i < info.Length(); ++i) {
+                if (i > 0) {
+                    buf = buf->Add("|", 1, info.Core());
+                }
                 buf = buf->Add(info[i]->ToString(info.Core()), info.Core());
             }
             buf = buf->Done(info.Core());
@@ -416,6 +419,31 @@ static void BuiltinPCall(const FunctionCallbackInfo<Object> &info) {
     }
 }
 
+static void BuiltinGarbageCollect(const FunctionCallbackInfo<Object> &info) {
+    if (info.Length() < 1) {
+        info.GetErrors().Raisef("incorrect arguments length, required: >1");
+        return;
+    }
+
+    GarbageCollectionHistogram histogram;
+    HandleScope handle_scope(info.VM());
+    NyaaCore *N = info.Core();
+    if (*info[0] == N->factory()->NewString("major")) {
+        N->GarbageCollect(kMajorGC, &histogram);
+    } else if (*info[0] == N->factory()->NewString("minor")) {
+        N->GarbageCollect(kMinorGC, &histogram);
+    } else if (*info[0] == N->factory()->NewString("full")) {
+        N->GarbageCollect(kFullGC, &histogram);
+    } else {
+        info.GetReturnValues().Add("gc not run");
+        return;
+    }
+    info.GetReturnValues()
+        .Add(histogram.collected_bytes)
+        .Add(histogram.collected_objs)
+        .AddF64(histogram.time_cost);
+}
+
 static void DelegatedCall(const FunctionCallbackInfo<Object> &info) {
     HandleScope handle_scope(info.VM());
     // TODO:
@@ -555,6 +583,7 @@ const NyaaNaFnEntry kBuiltinFnEntries[] = {
     {"loadstring", BuiltinLoadString},
     {"getmetatable", BuiltinGetMetatable},
     {"setmetatable", BuiltinSetMetatable},
+    {"garbagecollect", BuiltinGarbageCollect},
     {nullptr, nullptr},
 };
 

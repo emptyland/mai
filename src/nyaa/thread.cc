@@ -52,8 +52,7 @@ void CallFrame::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&const_poll_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&env_));
 }
-    
-    
+
 TryCatchCore::TryCatchCore(NyaaCore *core)
     : core_(DCHECK_NOTNULL(core)) {
     auto thd = core_->curr_thd();
@@ -283,7 +282,6 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int nrets, NyMap *en
                      top + 20, /* frame_tp */
                      env);
         HandleScope handle_scope(owns_->stub());
-        //Arguments args(argc);
         FunctionCallbackInfo<Object> info(fn, argv, argc, owns_->stub());
         fn->Apply(info);
         rv = frame->nrets();
@@ -295,6 +293,7 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int nrets, NyMap *en
     } else {
         DLOG(FATAL) << "noreached!";
     }
+    owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
     return rv;
 }
     
@@ -404,7 +403,7 @@ int NyThread::Run() {
                 scale = 1;
                 break;
         }
-    
+
         id = static_cast<Bytecode::ID>(frame_->BC());
         switch (id) {
             case Bytecode::kLoadImm: {
@@ -416,7 +415,7 @@ int NyThread::Run() {
                 Set(ra, NyInt32::New(imm));
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kLoadNil: {
                 int32_t ra, n;
                 int delta = 1;
@@ -428,7 +427,7 @@ int NyThread::Run() {
                 }
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kLoadGlobal: {
                 int32_t ra, rb;
                 int delta = 1;
@@ -439,7 +438,7 @@ int NyThread::Run() {
                 Set(ra, frame_->env()->RawGet(key, owns_));
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kLoadConst: {
                 int32_t ra, rb;
                 int delta = 1;
@@ -450,7 +449,7 @@ int NyThread::Run() {
                 Set(ra, k);
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kLoadUp: {
                 int32_t ra, ub;
                 int delta = 1;
@@ -461,7 +460,7 @@ int NyThread::Run() {
                 Set(ra, uv);
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kStoreUp: {
                 int32_t ra, ub;
                 int delta = 1;
@@ -472,7 +471,7 @@ int NyThread::Run() {
                 frame_->SetUpval(ub, val, owns_);
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kStoreGlobal: {
                 int32_t ra, kb;
                 int delta = 1;
@@ -484,7 +483,7 @@ int NyThread::Run() {
                 frame_->env()->RawPut(idx, val, owns_);
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kGetField: {
                 int32_t ra, rb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &rkc);
@@ -498,7 +497,7 @@ int NyThread::Run() {
                 Set(ra, value);
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kSetField: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
@@ -518,7 +517,7 @@ int NyThread::Run() {
                 InternalSetField(Get(ra), key, value);
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kMove: {
                 int32_t ra, rb;
                 int delta = 1;
@@ -547,9 +546,10 @@ int NyThread::Run() {
                 auto outter = frame_;
                 outter->Exit(this);
                 delete outter;
+                owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
                 return n;
             } break;
-                
+
             case Bytecode::kTest: {
                 int32_t ra, neg, none;
                 int delta = 1;
@@ -568,7 +568,7 @@ int NyThread::Run() {
                 }
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kTestNil: {
                 int32_t ra, neg, none;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &neg, &none);
@@ -584,7 +584,7 @@ int NyThread::Run() {
                 }
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kTestSet: {
                 int32_t ra, rb, c;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &c);
@@ -670,11 +670,10 @@ int NyThread::Run() {
                 }
                 if (clazz) { ProcessClass(ob); }
                 Set(ra, ob);
-                // TODO: should gc
-
+                owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kSelf: {
                 int32_t ra, rb, kc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &kc);
@@ -704,7 +703,7 @@ int NyThread::Run() {
                 InternalCall(base, n_args, n_rets);
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kNew: {
                 int32_t ra, rb, nargs;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &nargs);
@@ -722,7 +721,7 @@ int NyThread::Run() {
                 Set(ra, udo);
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kVargs: {
                 int32_t ra, wanted;
                 int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &wanted);
@@ -752,7 +751,7 @@ int NyThread::Run() {
                 }
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kConcat: {
                 int32_t ra, rb, n;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &n);
@@ -793,7 +792,7 @@ int NyThread::Run() {
             case Bytecode::kMod: {
                 PROCESS_ARITH(Mod);
             } break;
-                
+
             case Bytecode::kEqual: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
@@ -802,7 +801,7 @@ int NyThread::Run() {
                 Set(ra, NySmi::New(Object::Equal(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kLessThan: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
@@ -811,7 +810,7 @@ int NyThread::Run() {
                 Set(ra, NySmi::New(Object::LessThan(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kLessEqual: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
@@ -820,7 +819,7 @@ int NyThread::Run() {
                 Set(ra, NySmi::New(Object::LessEqual(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kGreaterThan: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
@@ -829,7 +828,7 @@ int NyThread::Run() {
                 Set(ra, NySmi::New(!Object::LessEqual(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
-                
+
             case Bytecode::kGreaterEqual: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
@@ -1017,6 +1016,8 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
             }
             frame->Exit(this);
             delete frame;
+
+            owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
             return rv;
         } break;
 

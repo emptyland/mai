@@ -962,6 +962,64 @@ TEST_F(NyaaCodeGenTest, AndOrSwitch) {
     BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
     ASSERT_EQ(z, buf) << buf;
 }
+    
+TEST_F(NyaaCodeGenTest, Bugfix1) {
+    static const char s[] = {
+        "def foo() {\n"
+        "   var a = {a:1, b:2}\n"
+        "   return a.a\n"
+        "}\n"
+        "foo()\n"
+        "var gc = garbagecollect\n"
+        "log(gc(\"major\"))\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 4, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 4\n"
+        " [0] (-1) foo\n"
+        " [1] (-2) garbagecollect\n"
+        " [2] (-3) log\n"
+        " [3] (-4) major\n"
+        ".............................\n"
+        "[000] Closure 0 0 ; line: 1\n"
+        "[003] StoreGlobal 0 0 ; line: 1\n"
+        "[006] LoadGlobal 0 0 ; line: 5\n"
+        "[009] Call 0 0 0 ; line: 5\n"
+        "[013] LoadGlobal 0 1 ; line: 6\n"
+        "[016] LoadGlobal 1 2 ; line: 7\n"
+        "[019] Move 2 0 ; line: 0\n"
+        "[022] LoadConst 3 3 ; line: 7\n"
+        "[025] Call 2 1 -1 ; line: 7\n"
+        "[029] Call 1 -1 0 ; line: 7\n"
+        "[033] Ret 0 0 ; line: 0\n"
+        "-----------------------------\n"
+        "function: foo, params: 0, vargs: 0, max-stack: 4, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 4\n"
+        " [0] (-1) a\n"
+        " [1] (-2) 1\n"
+        " [2] (-3) b\n"
+        " [3] (-4) 2\n"
+        ".............................\n"
+        "[000] LoadConst 0 0 ; line: 2\n"
+        "[003] LoadConst 1 1 ; line: 2\n"
+        "[006] LoadConst 2 2 ; line: 2\n"
+        "[009] LoadConst 3 3 ; line: 2\n"
+        "[012] NewMap 0 4 0 ; line: 2\n"
+        "[016] GetField 1 0 -1 ; line: 3\n"
+        "[020] Ret 1 1 ; line: 3\n"
+        "[023] Ret 0 0 ; line: 0\n"
+    };
+
+    HandleScope handle_scope(N_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
+    ASSERT_EQ(z, buf) << buf;
+}
 
 } // namespace nyaa
     

@@ -1,6 +1,7 @@
 #ifndef MAI_NYAA_NYAA_CORE_H_
 #define MAI_NYAA_NYAA_CORE_H_
 
+#include "nyaa/memory.h"
 #include "base/base.h"
 #include "mai/error.h"
 
@@ -60,6 +61,9 @@ public:
     void ExitHandleScope();
     
     Address AdvanceHandleSlots(int n_slot);
+    
+    void GarbageCollect(GarbageCollectionMethod method, GarbageCollectionHistogram *histogram);
+    void GarbageCollectionSafepoint(const char *file, int line) {} // TODO:
     
     template<class T, class V>
     inline V *BarrierWr(NyObject *host, T **pzwr, V *val) {

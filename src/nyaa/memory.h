@@ -70,6 +70,18 @@ static inline void *DbgFillFreeZag(void *p, size_t n) { return p; }
     
 using UDOFinalizer = void (*)(NyUDO *udo, NyaaCore *);
     
+enum GarbageCollectionMethod {
+    kMajorGC,
+    kMinorGC,
+    kFullGC,
+};
+    
+struct GarbageCollectionHistogram {
+    size_t collected_bytes = 0;
+    size_t collected_objs  = 0;
+    double time_cost       = 0;
+}; // struct GarbageCollectionHistogram
+    
 class GarbageCollectionPolicy {
 public:
     GarbageCollectionPolicy(NyaaCore *core, Heap *heap)

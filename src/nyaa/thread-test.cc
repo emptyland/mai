@@ -1086,6 +1086,29 @@ TEST_F(NyaaThreadTest, TopScriptArgs) {
     ASSERT_EQ(2, check->upval(1)->ToSmi());
     ASSERT_EQ(3, check->upval(2)->ToSmi());
 }
+    
+TEST_F(NyaaThreadTest, GarbageCollectFunc) {
+    static const char s[] = {
+        "def foo() {\n"
+        "   var a = {a:1, b:2}\n"
+        "   return a.a\n"
+        "}\n"
+        "for i in range(1, 100) {\n"
+        "   foo()\n"
+        "}\n"
+        "var gc = garbagecollect\n"
+        "log(gc(\"major\"))\n"
+        "\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    script->Call(nullptr, 0, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
 
 } // namespace nyaa
     

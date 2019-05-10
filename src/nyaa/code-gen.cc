@@ -251,9 +251,12 @@ public:
         if (node->stmts()) {
             for (auto stmt : *node->stmts()) {
                 ret = stmt->Accept(this, &ctx);
+                if (ret.kind == IVal::kLocal) {
+                    fun_scope_->FreeVar(ret);
+                }
             }
         }
-        return ret;
+        return IVal::Void();
     }
 
     virtual IVal VisitVarDeclaration(ast::VarDeclaration *node, ast::VisitorContext *x) override {
@@ -736,7 +739,7 @@ public:
             builder()->Move(tmp, callee);
             callee = tmp;
         }
-        
+
         ix.set_n_result(n_args < 0 ? -1 : 1);
         int reg = callee.index;
         //std::vector<IVal> args;
@@ -1026,11 +1029,6 @@ private:
     
     IVal AdjustStackPosition(int requried, IVal val, int line) {
         DCHECK_EQ(IVal::kLocal, val.kind);
-        //IVal dst{.kind = IVal::kLocal, .index = requried};
-//        if (requried >= fun_scope_->max_stack_) {
-//            dst = fun_scope_->NewLocal();
-//            DCHECK_EQ(requried, dst.index);
-//        }
         if (requried != val.index) {
             IVal dst = fun_scope_->NewLocal();
             DCHECK_EQ(requried, dst.index);

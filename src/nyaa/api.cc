@@ -330,6 +330,11 @@ FunctionCallbackBase::FunctionCallbackBase(size_t length, Nyaa *N)
 }
     
 NyaaCore *FunctionCallbackBase::Core() const { return N_->core(); }
+    
+Object *FunctionCallbackBase::CurrentEnv() const {
+    auto ci = N_->core()->curr_thd()->call_info();
+    return ci->env();
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Returns:

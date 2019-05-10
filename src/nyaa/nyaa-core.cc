@@ -7,6 +7,9 @@
 #include "nyaa/builtin.h"
 #include "nyaa/visitors.h"
 #include "nyaa/string-pool.h"
+#include "nyaa/scavenger.h"
+#include "nyaa/marking-sweep.h"
+#include "nyaa/marking-compaction.h"
 #include "base/slice.h"
 #include "mai-lang/nyaa.h"
 #include "mai/allocator.h"
@@ -63,7 +66,6 @@ Error NyaaCore::Boot() {
     }
     
     NyString **pool_a = reinterpret_cast<NyString **>(bkz_pool_.get());
-    //NyString **pool_a = &bkz_pool_->kInnerInit;
     for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
         pool_a[i] = factory_->NewString(kRawBuiltinKzs[i], true /*old*/);
     }
@@ -203,6 +205,53 @@ Address NyaaCore::AdvanceHandleSlots(int n_slots) {
     return slot_addr;
 }
     
+void NyaaCore::GarbageCollect(GarbageCollectionMethod method,
+                              GarbageCollectionHistogram *histogram) {
+    switch (method) {
+        case kMajorGC: {
+            Scavenger gc(this, heap());
+            gc.Run();
+            
+            histogram->collected_bytes = gc.collected_bytes();
+            histogram->collected_objs  = gc.collected_objs();
+            histogram->time_cost       = gc.time_cost();
+
+//            DLOG(INFO) << "major gc finish : "
+//                << gc.collected_objs() << " objs, "
+//                << gc.collected_bytes() << " bytes, "
+//                << gc.time_cost() << " ms.";
+        } break;
+        case kMinorGC: {
+            MarkingSweep gc(this, heap());
+            gc.Run();
+
+            histogram->collected_bytes = gc.collected_bytes();
+            histogram->collected_objs  = gc.collected_objs();
+            histogram->time_cost       = gc.time_cost();
+
+//            DLOG(INFO) << "major gc finish : "
+//                << gc.collected_objs() << " objs, "
+//                << gc.collected_bytes() << " bytes, "
+//                << gc.time_cost() << " ms.";
+        } break;
+        case kFullGC: {
+            Scavenger major_gc(this, heap());
+            major_gc.Run();
+            
+            histogram->collected_bytes = major_gc.collected_bytes();
+            histogram->collected_objs  = major_gc.collected_objs();
+            histogram->time_cost       = major_gc.time_cost();
+            MarkingSweep minor_gc(this, heap());
+            minor_gc.Run();
+            histogram->collected_bytes += minor_gc.collected_bytes();
+            histogram->collected_objs  += minor_gc.collected_objs();
+            histogram->time_cost       += minor_gc.time_cost();
+        } break;
+        default:
+            break;
+    }
+}
+    
 void NyaaCore::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&g_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&loads_));
@@ -215,9 +264,11 @@ void NyaaCore::IterateRoot(RootVisitor *visitor) {
     pool_a = reinterpret_cast<Object **>(kmt_pool_.get());
     visitor->VisitRootPointers(pool_a, pool_a + kRawBuiltinkmtSize);
 
+    main_thd_->IterateRoot(visitor);
     for (auto thd = main_thd_->next_; thd != main_thd_; thd = thd->next_) {
         thd->IterateRoot(visitor);
     }
+
     for (auto slot = top_slot_; slot != nullptr; slot = slot->prev) {
         visitor->VisitRootPointers(reinterpret_cast<Object **>(slot->base),
                                    reinterpret_cast<Object **>(slot->end));
