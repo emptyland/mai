@@ -9,3 +9,19 @@ a = 2305843009213693952
 assert(a + -1 == 2305843009213693951)
 assert(a + 1 == 2305843009213693953)
 assert(a + 0.1 == 2305843009213693952.0)
+
+class foo {
+	def __init__(self, val) {
+		self.val_ = val
+	}
+
+	def __add__(lhs, rhs) {
+		return new foo(lhs.val + rhs.val)
+	}
+
+	property [ro] val
+}
+
+a = new foo(100)
+var b = new foo(200)
+assert((a + b).val == 300)

@@ -322,6 +322,7 @@ public:
                 lix.set_rval(val);
                 lix.set_lval(true);
                 node->lvals()->at(i)->Accept(this, &lix);
+                fun_scope_->FreeVar(val);
             }
         }
         return IVal::Void();

@@ -1020,6 +1020,94 @@ TEST_F(NyaaCodeGenTest, Bugfix1) {
     BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
     ASSERT_EQ(z, buf) << buf;
 }
+    
+TEST_F(NyaaCodeGenTest, Bugfix2) {
+    static const char s[] = {
+        "var a = 1\n"
+        "class foo {\n"
+        "    def __init__(self, val) {\n"
+        "        self.val_ = val\n"
+        "    }\n"
+        "    def __add__(lhs, rhs) {\n"
+        "        return new foo(lhs.val + rhs.val)\n"
+        "    }\n"
+        "    property [ro] val\n"
+        "}\n"
+        "a = new foo(100)\n"
+        "var b = new foo(200)\n"
+        "assert((a + b).val == 300)\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 9, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 10\n"
+        " [0] (-1) 1\n"
+        " [1] (-2) __init__\n"
+        " [2] (-3) __add__\n"
+        " [3] (-4) val\n"
+        " [4] (-5) __type__\n"
+        " [5] (-6) foo\n"
+        " [6] (-7) 100\n"
+        " [7] (-8) 200\n"
+        " [8] (-9) assert\n"
+        " [9] (-10) 300\n"
+        ".............................\n"
+        "[000] LoadConst 0 0 ; line: 1\n"
+        "[003] LoadConst 1 1 ; line: 3\n"
+        "[006] Closure 2 0 ; line: 3\n"
+        "[009] LoadConst 3 2 ; line: 6\n"
+        "[012] Closure 4 1 ; line: 6\n"
+        "[015] LoadConst 5 3 ; line: 9\n"
+        "[018] LoadImm 6 1 ; line: 9\n"
+        "[021] LoadConst 7 4 ; line: 2\n"
+        "[024] LoadConst 8 5 ; line: 2\n"
+        "[027] NewMap 1 8 -1 ; line: 10\n"
+        "[031] StoreGlobal 1 5 ; line: 10\n"
+        "[034] LoadGlobal 2 5 ; line: 11\n"
+        "[037] LoadConst 3 6 ; line: 11\n"
+        "[040] New 1 2 1 ; line: 11\n"
+        "[044] Move 0 1 ; line: 11\n"
+        "[047] LoadGlobal 2 5 ; line: 12\n"
+        "[050] LoadConst 3 7 ; line: 12\n"
+        "[053] New 1 2 1 ; line: 12\n"
+        "[057] LoadGlobal 2 8 ; line: 13\n"
+        "[060] Add 5 0 1 ; line: 13\n"
+        "[064] GetField 4 5 -4 ; line: 13\n"
+        "[068] Equal 3 4 -10 ; line: 13\n"
+        "[072] Call 2 1 0 ; line: 13\n"
+        "[076] Ret 0 0 ; line: 0\n"
+        "-----------------------------\n"
+        "function: foo::__init__, params: 2, vargs: 0, max-stack: 2, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 1\n"
+        " [0] (-1) val_\n"
+        ".............................\n"
+        "[000] SetField 0 -1 1 ; line: 4\n"
+        "[004] Ret 0 0 ; line: 0\n"
+        "-----------------------------\n"
+        "function: foo::__add__, params: 2, vargs: 0, max-stack: 7, upvals: 0\n"
+        "file name: :memory:\n"
+        "const pool: 2\n"
+        " [0] (-1) foo\n"
+        " [1] (-2) val\n"
+        ".............................\n"
+        "[000] LoadGlobal 3 0 ; line: 7\n"
+        "[003] GetField 5 0 -2 ; line: 7\n"
+        "[007] GetField 6 1 -2 ; line: 7\n"
+        "[011] Add 4 5 6 ; line: 7\n"
+        "[015] New 2 3 1 ; line: 7\n"
+        "[019] Ret 2 1 ; line: 7\n"
+        "[022] Ret 0 0 ; line: 0\n"
+    };
+    
+    HandleScope handle_scope(N_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
+    ASSERT_EQ(z, buf) << buf;
+}
 
 } // namespace nyaa
     

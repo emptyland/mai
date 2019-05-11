@@ -356,15 +356,15 @@ bool NyObject::Equal(Object *rhs, NyaaCore *N) {
                 return false;
             }
         } break;
-            
+
         case kTypeFloat64: {
             auto lval = ToFloat64()->value();
             if (rhs->IsSmi()) {
-                return lval == rhs->ToSmi();
+                return NyFloat64::Near(lval, rhs->ToSmi());
             } else if (NyInt *rval = NyInt::Cast(rhs)) {
-                return lval == rval->ToF64();
+                return NyFloat64::Near(lval, rval->ToF64());
             } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
-                return lval == rval->value();
+                return NyFloat64::Near(lval, rval->value());
             } else {
                 return false;
             }
@@ -377,9 +377,6 @@ bool NyObject::Equal(Object *rhs, NyaaCore *N) {
             return ToUDO()->Equal(rhs, N);
   
         default:
-//            if (GetMetatable()->kid() > kUdoKidBegin) {
-//                return ToUDO()->Equal(rhs, N);
-//            }
             break;
     }
 

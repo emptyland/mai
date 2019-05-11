@@ -1134,14 +1134,24 @@ TEST_F(NyaaThreadTest, AssertFunc) {
 TEST_F(NyaaThreadTest, AddAssertTest) {
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);
-    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/05-add-op-assert.nyaa", 0, nullptr, core_)) << try_catch.ToString();
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/05-add-op-assert.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
 
 TEST_F(NyaaThreadTest, SubAssertTest) {
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);
-    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/06-sub-op-assert.nyaa", 0, nullptr, core_)) << try_catch.ToString();
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/06-sub-op-assert.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+    
+TEST_F(NyaaThreadTest, MulAssertTest) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/07-mul-op-assert.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
 

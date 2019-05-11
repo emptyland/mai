@@ -7,6 +7,8 @@
 #include "nyaa/visitors.h"
 #include "base/base.h"
 #include "glog/logging.h"
+#include <math.h>
+#include <numeric>
 
 namespace mai {
 namespace base {
@@ -276,6 +278,10 @@ public:
     Object *Mul(Object *rhs, NyaaCore *N) const;
     Object *Div(Object *rhs, NyaaCore *N) const;
     Object *Mod(Object *rhs, NyaaCore *N) const;
+    
+    static bool Near(f64_t lhs, f64_t rhs) {
+        return ::fabs(lhs - rhs) <= std::numeric_limits<f64_t>::epsilon();
+    }
     
     uint32_t HashVal() const {
         uint64_t bits = *reinterpret_cast<const uint64_t *>(&value_);
