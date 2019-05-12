@@ -305,7 +305,7 @@ int Function::Call(Handle<Value> argv[], int argc, Handle<Value> rets[], int wan
     for (int i = 0; i < argc; ++i) {
         input[i] = reinterpret_cast<Object *>(*argv[i]);
     }
-    int rv = self->TryRun(input, argc, wanted, N);
+    int rv = self->Run(input, argc, wanted, N);
     if (rv >= 0) {
         DCHECK(wanted < 0 || rv == wanted) << rv << " vs " << wanted;
         int n = wanted < 0 ? rv : wanted;
@@ -326,7 +326,7 @@ int Function::Call(Handle<Value> argv[], int argc, std::vector<Handle<Value>> *r
     for (int i = 0; i < argc; ++i) {
         input[i] = reinterpret_cast<Object *>(*argv[i]);
     }
-    int rv = self->TryRun(input, argc, wanted, N);
+    int rv = self->Run(input, argc, wanted, N);
     if (rv >= 0) {
         rets->clear();
         DCHECK(wanted < 0 || rv == wanted) << rv << " vs " << wanted;
@@ -340,7 +340,7 @@ int Function::Call(Handle<Value> argv[], int argc, std::vector<Handle<Value>> *r
     
 /*static*/ Handle<Script> Script::Compile(Handle<String> source) {
     NyaaCore *N = NyaaCore::Current();
-    Handle<NyClosure> script = NyClosure::TryCompile(source->Bytes(), source->Length(), N);
+    Handle<NyClosure> script = NyClosure::Compile(source->Bytes(), source->Length(), N);
     if (script.is_empty()) {
         return Handle<Script>();
     }
@@ -349,7 +349,7 @@ int Function::Call(Handle<Value> argv[], int argc, std::vector<Handle<Value>> *r
 
 /*static*/ Handle<Script> Script::Compile(const char *file_name, FILE *fp) {
     NyaaCore *N = NyaaCore::Current();
-    Handle<NyClosure> script = NyClosure::TryCompile(file_name, fp, N);
+    Handle<NyClosure> script = NyClosure::Compile(file_name, fp, N);
     if (script.is_empty()) {
         return Handle<Script>();
     }

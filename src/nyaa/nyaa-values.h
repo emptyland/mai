@@ -764,7 +764,6 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class NyRunnable : public NyObject {
 public:
-    int TryRun(Object *argv[], int argc, int nrets, NyaaCore *N);
     int Run(Object *argv[], int argc, int nrets, NyaaCore *N);
     
     DEF_HEAP_OBJECT_CASTS(Runnable);
@@ -858,15 +857,8 @@ public:
     
     void Bind(int i, Object *upval, NyaaCore *N);
     
-    int TryCall(Object *argv[], int argc, int wanted, NyaaCore *N);
     int Call(Object *argv[], int argc, int wanted, NyaaCore *N);
-    
-    static Handle<NyClosure> TryCompile(const char *z, NyaaCore *N) {
-        return TryCompile(z, !z ? 0 : ::strlen(z), N);
-    }
-    static Handle<NyClosure> TryCompile(const char *z, size_t n, NyaaCore *N);
-    static Handle<NyClosure> TryCompile(const char *file_name, FILE *fp, NyaaCore *N);
-    
+
     static Handle<NyClosure> Compile(const char *z, NyaaCore *N) {
         return Compile(z, !z ? 0 : ::strlen(z), N);
     }
@@ -917,8 +909,7 @@ public:
     
     void Bind(int i, Object *upval, NyaaCore *N);
     
-    int TryCall(Object *argv[], int argc, int nrets, NyaaCore *N);
-    int Call(Object *argv[], int argc, int wanted, NyaaCore *N);
+    int Call(Object *argv[], int argc, int nrets, NyaaCore *N);
     
     int Apply(const FunctionCallbackInfo<Object> &info);
     

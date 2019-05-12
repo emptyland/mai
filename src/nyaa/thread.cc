@@ -209,50 +209,19 @@ void NyThread::Set(int i, Object *value) {
     
 int NyThread::TryRun(NyRunnable *fn, Object *argv[], int argc, int nrets, NyMap *env) {
     int rv = 0;
+    CallFrame *ci = frame_;
     try {
         rv = Run(fn, argv, argc, nrets, env);
     } catch (CatchId which) {
-        Rewind();
         if (which == kException) {
+            Rewind(ci);
             rv = -1;
         } else {
-            DLOG(FATAL) << "TODO:";
+            throw which;
         }
     }
     return rv;
 }
-    
-//int NyThread::Run(NyRunnable *rb, Arguments *args, int nrets, NyMap *env) {
-//    if (!env) {
-//        env = owns_->g();
-//    }
-//    int rv = -1;
-//    CallFrame *frame = new CallFrame;
-//    if (NyClosure *fn = rb->ToClosure()) {
-//        rv = Run(fn, reinterpret_cast<Object **>(args->Address()), static_cast<int>(args->Length()),
-//                 nrets, env);
-//    } else if (NyDelegated *fn = rb->ToDelegated()) {
-//        Push(fn);
-//        DCHECK_GE(stack_tp_, stack_);
-//        size_t top = stack_tp_ - stack_;
-//        frame->Enter(this, fn,
-//                     nullptr, /* bc buf */
-//                     nullptr, /* const pool */
-//                     nrets,
-//                     top, /*frame_bp*/
-//                     top + 20, /* frame_tp */
-//                     env);
-//        rv = fn->RawCall(args, owns_);
-//        if (rv >= 0) {
-//            CopyResult(stack_ + frame->stack_bp() - 1, rv, nrets);
-//        }
-//        frame->Exit(this);
-//        delete frame;
-//    } else {
-//        DLOG(FATAL) << "noreached!";
-//    }
-//    return rv;
-//}
 
 int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int nrets, NyMap *env) {
     if (!env) {
@@ -365,8 +334,8 @@ void NyThread::CheckStack(size_t size) {
     stack_tp_   = stack_ + tp;
 }
     
-void NyThread::Rewind() {
-    while (frame_) {
+void NyThread::Rewind(CallFrame *ci) {
+    while (frame_ != ci) {
         CallFrame *frame = frame_;
         frame->Exit(this);
         delete frame;

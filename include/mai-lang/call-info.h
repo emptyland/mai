@@ -113,6 +113,8 @@ protected:
     FunctionCallbackBase(size_t length, Nyaa *N);
     
     Object *CurrentEnv() const;
+    
+    void ReRaise(void *msg, void *ex, void *bt);
 
     void *address_;
 private:

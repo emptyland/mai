@@ -1867,12 +1867,8 @@ void NyArray::Refill(const NyArray *base, NyaaCore *N) {
 /// class NyRunnable:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
     
-int NyRunnable::TryRun(Object *argv[], int argc, int nrets, NyaaCore *N) {
-    return N->curr_thd()->TryRun(this, argv, argc, nrets);
-}
-    
 int NyRunnable::Run(Object *argv[], int argc, int nrets, NyaaCore *N) {
-    return N->curr_thd()->Run(this, argv, argc, nrets);
+    return N->curr_thd()->TryRun(this, argv, argc, nrets);
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1886,12 +1882,8 @@ void NyDelegated::Bind(int i, Object *upval, NyaaCore *N) {
     upvals_[i] = upval;
 }
     
-int NyDelegated::TryCall(Object *argv[], int argc, int wanted, NyaaCore *N) {
-    return N->curr_thd()->TryRun(this, argv, argc, wanted);
-}
-    
 int NyDelegated::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
-    return N->curr_thd()->Run(this, argv, argc, wanted);
+    return N->curr_thd()->TryRun(this, argv, argc, wanted);
 }
     
 int NyDelegated::Apply(const FunctionCallbackInfo<Object> &info) {
@@ -1995,15 +1987,11 @@ void NyClosure::Bind(int i, Object *upval, NyaaCore *N) {
     upvals_[i] = upval;
 }
 
-int NyClosure::TryCall(Object *argv[], int argc, int wanted, NyaaCore *N) {
+int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
     return N->curr_thd()->TryRun(this, argv, argc, wanted);
 }
-    
-int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
-    return N->curr_thd()->Run(this, argv, argc, wanted);
-}
 
-/*static*/ Handle<NyClosure> NyClosure::TryCompile(const char *z, size_t n, NyaaCore *N) {
+/*static*/ Handle<NyClosure> NyClosure::Compile(const char *z, size_t n, NyaaCore *N) {
     try {
         Handle<NyFunction> script = NyFunction::Compile(z, n, N);
         if (script.is_valid()) {
@@ -2015,7 +2003,7 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
     return Handle<NyClosure>::Empty();
 }
     
-/*static*/ Handle<NyClosure> NyClosure::TryCompile(const char *file_name, FILE *fp, NyaaCore *N) {
+/*static*/ Handle<NyClosure> NyClosure::Compile(const char *file_name, FILE *fp, NyaaCore *N) {
     try {
         Handle<NyFunction> script = NyFunction::Compile(file_name, fp, N);
         if (script.is_valid()) {
@@ -2027,24 +2015,8 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
     return Handle<NyClosure>::Empty();
 }
 
-/*static*/ Handle<NyClosure> NyClosure::Compile(const char *z, size_t n, NyaaCore *N) {
-    Handle<NyFunction> script = NyFunction::Compile(z, n, N);
-    if (script.is_valid()) {
-        return N->factory()->NewClosure(*script);
-    }
-    return Handle<NyClosure>::Empty();
-}
-
-/*static*/ Handle<NyClosure> NyClosure::Compile(const char *file_name, FILE *fp, NyaaCore *N) {
-    Handle<NyFunction> script = NyFunction::Compile(file_name, fp, N);
-    if (script.is_valid()) {
-        return N->factory()->NewClosure(*script);
-    }
-    return Handle<NyClosure>::Empty();
-}
-    
 /*static*/ int NyClosure::Do(const char *z, size_t n, int wanted, NyMap *env, NyaaCore *N) {
-    Handle<NyClosure> script = TryCompile(z, n, N);
+    Handle<NyClosure> script = Compile(z, n, N);
     if (script.is_not_valid()) {
         return -1;
     }
@@ -2052,7 +2024,7 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
 }
     
 /*static*/ int NyClosure::Do(const char *file_name, FILE *fp, int wanted, NyMap *env, NyaaCore *N) {
-    Handle<NyClosure> script = TryCompile(file_name, fp, N);
+    Handle<NyClosure> script = Compile(file_name, fp, N);
     if (script.is_not_valid()) {
         return -1;
     }

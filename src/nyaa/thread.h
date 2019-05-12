@@ -208,7 +208,7 @@ private:
         CheckStack(stack_tp_ - stack_ + add);
     }
     void CheckStack(size_t size);
-    void Rewind();
+    void Rewind(CallFrame *ci);
     int Run();
 
     Object *InternalGetField(Object *mm, Object *key);
