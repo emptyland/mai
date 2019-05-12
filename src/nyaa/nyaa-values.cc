@@ -341,41 +341,15 @@ bool NyObject::Equal(Object *rhs, NyaaCore *N) {
             NyString *lval = ToString();
             return lval->Compare(rval) == 0;
         } break;
-            
-        case kTypeInt: {
-            auto lval = ToInt();
-            if (rhs->IsSmi()) {
-                base::ScopedArena scoped_arena;
-                NyInt *rval = NyInt::NewI64(rhs->ToSmi(), &scoped_arena);
-                return NyInt::Compare(lval, rval) == 0;
-            } else if (NyInt *rval = NyInt::Cast(rhs)) {
-                return NyInt::Compare(lval, rval) == 0;
-            } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
-                return lval->ToF64() == rval->value();
-            } else {
-                return false;
-            }
-        } break;
 
-        case kTypeFloat64: {
-            auto lval = ToFloat64()->value();
-            if (rhs->IsSmi()) {
-                return NyFloat64::Near(lval, rhs->ToSmi());
-            } else if (NyInt *rval = NyInt::Cast(rhs)) {
-                return NyFloat64::Near(lval, rval->ToF64());
-            } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
-                return NyFloat64::Near(lval, rval->value());
-            } else {
-                return false;
-            }
-        } break;
-            
+        case kTypeInt:
+            return ToInt()->Equal(rhs, N);
+        case kTypeFloat64:
+            return ToFloat64()->Equal(rhs, N);
         case kTypeMap:
             return ToMap()->Equal(rhs, N);
-            
         case kTypeUdo:
             return ToUDO()->Equal(rhs, N);
-  
         default:
             break;
     }
@@ -388,7 +362,6 @@ bool NyObject::LessThan(Object *rhs, NyaaCore *N) {
     if (rhs == nullptr) {
         return false;
     }
-    
     switch (GetType()) {
         case kTypeString: {
             NyString *lval = ToString();
@@ -398,48 +371,18 @@ bool NyObject::LessThan(Object *rhs, NyaaCore *N) {
             }
             return lval->Compare(rval) < 0;
         } break;
-            
-        case kTypeInt: {
-            auto lval = ToInt();
-            if (rhs->IsSmi()) {
-                base::ScopedArena scoped_arena;
-                NyInt *rval = NyInt::NewI64(rhs->ToSmi(), &scoped_arena);
-                return NyInt::Compare(lval, rval) < 0;
-            } else if (NyInt *rval = NyInt::Cast(rhs)) {
-                return NyInt::Compare(lval, rval) < 0;
-            } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
-                return lval->ToF64() < rval->value();
-            } else {
-                return false;
-            }
-        } break;
-            
-        case kTypeFloat64: {
-            auto lval = ToFloat64()->value();
-            if (rhs->IsSmi()) {
-                return lval < rhs->ToSmi();
-            } else if (NyInt *rval = NyInt::Cast(rhs)) {
-                return lval < rval->ToF64();
-            } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
-                return lval < rval->value();
-            } else {
-                return false;
-            }
-        } break;
-            
+
+        case kTypeInt:
+            return ToInt()->LessThan(rhs, N);
+        case kTypeFloat64:
+            return ToFloat64()->LessThan(rhs, N);
         case kTypeMap:
             return ToMap()->LessThan(rhs, N);
-            
         case kTypeUdo:
             return ToUDO()->LessThan(rhs, N);
-            
         default:
-//            if (GetMetatable()->kid() > kUdoKidBegin) {
-//                return ToUDO()->LessThan(rhs, N);
-//            }
             break;
     }
-    
     N->Raisef("type can not be compare.");
     return false;
 }
@@ -459,44 +402,15 @@ bool NyObject::LessEqual(Object *rhs, NyaaCore *N) {
             return lval->Compare(rval) <= 0;
         } break;
 
-        case kTypeInt: {
-            auto lval = ToInt();
-            if (rhs->IsSmi()) {
-                base::ScopedArena scoped_arena;
-                NyInt *rval = NyInt::NewI64(rhs->ToSmi(), &scoped_arena);
-                return NyInt::Compare(lval, rval) <= 0;
-            } else if (NyInt *rval = NyInt::Cast(rhs)) {
-                return NyInt::Compare(lval, rval) <= 0;
-            } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
-                return lval->ToF64() <= rval->value();
-            } else {
-                return false;
-            }
-        } break;
-
-        case kTypeFloat64: {
-            auto lval = ToFloat64()->value();
-            if (rhs->IsSmi()) {
-                return lval <= rhs->ToSmi();
-            } else if (NyInt *rval = NyInt::Cast(rhs)) {
-                return lval <= rval->ToF64();
-            } else if (NyFloat64 *rval = NyFloat64::Cast(rhs)) {
-                return lval <= rval->value();
-            } else {
-                return false;
-            }
-        } break;
-
+        case kTypeInt:
+            return ToInt()->LessEqual(rhs, N);
+        case kTypeFloat64:
+            return ToFloat64()->LessEqual(rhs, N);
         case kTypeMap:
             return ToMap()->LessEqual(rhs, N);
-            
         case kTypeUdo:
             return ToUDO()->LessEqual(rhs, N);
-
         default:
-//            if (GetMetatable()->kid() > kUdoKidBegin) {
-//                return ToUDO()->LessEqual(rhs, N);
-//            }
             break;
     }
     N->Raisef("type can not be compare.");
@@ -592,9 +506,6 @@ NyString *NyObject::ToString(NyaaCore *N) {
         case kTypeUdo:
             return ToUDO()->ToString(N);
         default:
-//            if (GetMetatable()->kid() > kUdoKidBegin) {
-//                return ToUDO()->ToString(N);
-//            }
             break;
     }
     DLOG(FATAL) << "Noreached!" << GetMetatable()->kid();
@@ -672,6 +583,57 @@ bool NyInt::IsZero() const {
         }
     }
     return true;
+}
+
+bool NyInt::Equal(Object *rhs, NyaaCore *N) const {
+    switch (rhs->GetType()) {
+        case kTypeSmi: {
+            base::ScopedArena scoped_arena;
+            NyInt *rval = NyInt::NewI64(rhs->ToSmi(), &scoped_arena);
+            return NyInt::Compare(this, rval) == 0;
+        } break;
+        case kTypeInt:
+            return NyInt::Compare(this, NyInt::Cast(rhs)) == 0;
+        case kTypeFloat64:
+            return NyFloat64::Near(ToF64(), NyFloat64::Cast(rhs)->value());
+        default:
+            break;
+    }
+    return false;
+}
+
+bool NyInt::LessThan(Object *rhs, NyaaCore *N) const {
+    switch (rhs->GetType()) {
+        case kTypeSmi: {
+            base::ScopedArena scoped_arena;
+            NyInt *rval = NyInt::NewI64(rhs->ToSmi(), &scoped_arena);
+            return NyInt::Compare(this, rval) < 0;
+        } break;
+        case kTypeInt:
+            return NyInt::Compare(this, NyInt::Cast(rhs)) < 0;
+        case kTypeFloat64:
+            return ToF64() < NyFloat64::Cast(rhs)->value();
+        default:
+            break;
+    }
+    return false;
+}
+
+bool NyInt::LessEqual(Object *rhs, NyaaCore *N) const {
+    switch (rhs->GetType()) {
+        case kTypeSmi: {
+            base::ScopedArena scoped_arena;
+            NyInt *rval = NyInt::NewI64(rhs->ToSmi(), &scoped_arena);
+            return NyInt::Compare(this, rval) <= 0;
+        } break;
+        case kTypeInt:
+            return NyInt::Compare(this, NyInt::Cast(rhs)) <= 0;
+        case kTypeFloat64:
+            return ToF64() <= NyFloat64::Cast(rhs)->value();
+        default:
+            break;
+    }
+    return false;
 }
 
 NyInt *NyInt::Shl(int n, NyaaCore *N) {
@@ -1468,42 +1430,42 @@ Object *NyMap::RawGet(Object *key, NyaaCore *N) const {
     return table_->RawGet(key, N);
 }
     
-bool NyMap::Equal(Object *rhs, NyaaCore *N) const {
+bool NyMap::Equal(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerEq, N)->IsTrue();
 }
 
-bool NyMap::LessThan(Object *rhs, NyaaCore *N) const {
+bool NyMap::LessThan(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerLt, N)->IsTrue();
 }
 
-bool NyMap::LessEqual(Object *rhs, NyaaCore *N) const {
+bool NyMap::LessEqual(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerLe, N)->IsTrue();
 }
     
-Object *NyMap::Add(Object *rhs, NyaaCore *N) const {
+Object *NyMap::Add(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerAdd, N);
 }
 
-Object *NyMap::Sub(Object *rhs, NyaaCore *N) const {
+Object *NyMap::Sub(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerSub, N);
 }
 
-Object *NyMap::Mul(Object *rhs, NyaaCore *N) const {
+Object *NyMap::Mul(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerMul, N);
 }
 
-Object *NyMap::Div(Object *rhs, NyaaCore *N) const {
+Object *NyMap::Div(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerDiv, N);
 }
 
-Object *NyMap::Mod(Object *rhs, NyaaCore *N) const {
+Object *NyMap::Mod(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerMod, N);
 }
     
-Object *NyMap::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) const {
+Object *NyMap::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) {
     if (GetMetatable() != N->kmt_pool()->kMap) {
         if (NyRunnable *fn = GetValidMetaFunction(name, N)) {
-            Object *args[] = {const_cast<NyMap *>(this), rhs};
+            Object *args[] = {this, rhs};
             N->curr_thd()->Run(fn, args, 2/*nargs*/, 1/*nrets*/);
             return N->curr_thd()->Get(-1);
         }
@@ -1905,17 +1867,12 @@ void NyArray::Refill(const NyArray *base, NyaaCore *N) {
 /// class NyRunnable:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
     
-int NyRunnable::Apply(Object *argv[], int argc, int nrets, NyaaCore *N) {
-//    if (args) {
-//        args->SetCallee(Local<Value>::New(this));
-//    }
-    if (NyClosure *callee = ToClosure()) {
-        return callee->Call(argv, argc, nrets, N);
-    } else if (NyDelegated *callee = ToDelegated()) {
-        return callee->Call(argv, argc, nrets, N);
-    }
-    DLOG(FATAL) << "Noreached!";
-    return -1;
+int NyRunnable::TryRun(Object *argv[], int argc, int nrets, NyaaCore *N) {
+    return N->curr_thd()->TryRun(this, argv, argc, nrets);
+}
+    
+int NyRunnable::Run(Object *argv[], int argc, int nrets, NyaaCore *N) {
+    return N->curr_thd()->Run(this, argv, argc, nrets);
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1929,8 +1886,12 @@ void NyDelegated::Bind(int i, Object *upval, NyaaCore *N) {
     upvals_[i] = upval;
 }
     
-int NyDelegated::Call(Object *argv[], int argc, int nrets, NyaaCore *N) {
-    return N->curr_thd()->TryRun(this, argv, argc, nrets);
+int NyDelegated::TryCall(Object *argv[], int argc, int wanted, NyaaCore *N) {
+    return N->curr_thd()->TryRun(this, argv, argc, wanted);
+}
+    
+int NyDelegated::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
+    return N->curr_thd()->Run(this, argv, argc, wanted);
 }
     
 int NyDelegated::Apply(const FunctionCallbackInfo<Object> &info) {
@@ -2034,11 +1995,15 @@ void NyClosure::Bind(int i, Object *upval, NyaaCore *N) {
     upvals_[i] = upval;
 }
 
-int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
+int NyClosure::TryCall(Object *argv[], int argc, int wanted, NyaaCore *N) {
     return N->curr_thd()->TryRun(this, argv, argc, wanted);
 }
+    
+int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
+    return N->curr_thd()->Run(this, argv, argc, wanted);
+}
 
-/*static*/ Handle<NyClosure> NyClosure::Compile(const char *z, size_t n, NyaaCore *N) {
+/*static*/ Handle<NyClosure> NyClosure::TryCompile(const char *z, size_t n, NyaaCore *N) {
     try {
         Handle<NyFunction> script = NyFunction::Compile(z, n, N);
         if (script.is_valid()) {
@@ -2047,10 +2012,10 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
     } catch (NyThread::CatchId e) {
         // ignore
     }
-    return Handle<NyClosure>();
+    return Handle<NyClosure>::Empty();
 }
     
-/*static*/ Handle<NyClosure> NyClosure::Compile(const char *file_name, FILE *fp, NyaaCore *N) {
+/*static*/ Handle<NyClosure> NyClosure::TryCompile(const char *file_name, FILE *fp, NyaaCore *N) {
     try {
         Handle<NyFunction> script = NyFunction::Compile(file_name, fp, N);
         if (script.is_valid()) {
@@ -2059,11 +2024,27 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
     } catch (NyThread::CatchId e) {
         // ignore
     }
-    return Handle<NyClosure>();
+    return Handle<NyClosure>::Empty();
+}
+
+/*static*/ Handle<NyClosure> NyClosure::Compile(const char *z, size_t n, NyaaCore *N) {
+    Handle<NyFunction> script = NyFunction::Compile(z, n, N);
+    if (script.is_valid()) {
+        return N->factory()->NewClosure(*script);
+    }
+    return Handle<NyClosure>::Empty();
+}
+
+/*static*/ Handle<NyClosure> NyClosure::Compile(const char *file_name, FILE *fp, NyaaCore *N) {
+    Handle<NyFunction> script = NyFunction::Compile(file_name, fp, N);
+    if (script.is_valid()) {
+        return N->factory()->NewClosure(*script);
+    }
+    return Handle<NyClosure>::Empty();
 }
     
 /*static*/ int NyClosure::Do(const char *z, size_t n, int wanted, NyMap *env, NyaaCore *N) {
-    Handle<NyClosure> script = Compile(z, n, N);
+    Handle<NyClosure> script = TryCompile(z, n, N);
     if (script.is_not_valid()) {
         return -1;
     }
@@ -2071,7 +2052,7 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
 }
     
 /*static*/ int NyClosure::Do(const char *file_name, FILE *fp, int wanted, NyMap *env, NyaaCore *N) {
-    Handle<NyClosure> script = Compile(file_name, fp, N);
+    Handle<NyClosure> script = TryCompile(file_name, fp, N);
     if (script.is_not_valid()) {
         return -1;
     }
@@ -2183,41 +2164,41 @@ void NyUDO::SetField(size_t i, Object *value, NyaaCore *N) {
     fields_[i] = value;
 }
     
-bool NyUDO::Equal(Object *rhs, NyaaCore *N) const {
+bool NyUDO::Equal(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerEq, N)->IsTrue();
 }
 
-bool NyUDO::LessThan(Object *rhs, NyaaCore *N) const {
+bool NyUDO::LessThan(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerLt, N)->IsTrue();
 }
 
-bool NyUDO::LessEqual(Object *rhs, NyaaCore *N) const {
+bool NyUDO::LessEqual(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerLe, N)->IsTrue();
 }
     
-Object *NyUDO::Add(Object *rhs, NyaaCore *N) const {
+Object *NyUDO::Add(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerAdd, N);
 }
 
-Object *NyUDO::Sub(Object *rhs, NyaaCore *N) const {
+Object *NyUDO::Sub(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerSub, N);
 }
 
-Object *NyUDO::Mul(Object *rhs, NyaaCore *N) const {
+Object *NyUDO::Mul(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerMul, N);
 }
 
-Object *NyUDO::Div(Object *rhs, NyaaCore *N) const {
+Object *NyUDO::Div(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerDiv, N);
 }
 
-Object *NyUDO::Mod(Object *rhs, NyaaCore *N) const {
+Object *NyUDO::Mod(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerMod, N);
 }
 
-Object *NyUDO::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) const {
+Object *NyUDO::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) {
     if (NyRunnable *fn = GetValidMetaFunction(name, N)) {
-        Object *args[] = {const_cast<NyUDO *>(this), rhs};
+        Object *args[] = {this, rhs};
         N->curr_thd()->Run(fn, args, 2/*nargs*/, 1/*nrets*/);
         return N->curr_thd()->Get(-1);
     }

@@ -100,20 +100,7 @@ Error NyaaCore::Boot() {
     return rs;
 }
     
-Object *NyaaCore::Get(int i) {
-    if (i < 0) {
-        if (main_thd_->stack_tp_ + i < main_thd_->frame_bp()) {
-            Raisef("stack index: %d out of range.", i);
-            return nullptr;
-        }
-    } else {
-        if (main_thd_->frame_bp() + i >= main_thd_->stack_tp_) {
-            Raisef("stack index: %d out of range.", i);
-            return nullptr;
-        }
-    }
-    return main_thd_->Get(i);
-}
+Object *NyaaCore::Get(int i) { return  curr_thd_->Get(i); }
 
 void NyaaCore::Pop(int n) {
     if (main_thd_->stack_tp_ - n < main_thd_->frame_bp()) {

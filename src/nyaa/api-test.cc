@@ -31,16 +31,16 @@ public:
     
 TEST_F(NyaaApiTest, Sanity) {
     HandleScope handle_scope(N_);
-    
+
     TryCatch try_catch(N_);
     Handle<String> source = String::New("return 1, 2, 3");
     Handle<Script> script = Script::Compile(source);
     ASSERT_FALSE(try_catch.HasCaught()) << try_catch.Message()->ToStl();
-    
+
     Handle<Value> rets[3];
     ASSERT_EQ(3, script->Call(nullptr, 0, rets, 3));
     ASSERT_FALSE(try_catch.HasCaught()) << try_catch.Message()->ToStl();
-    
+
     for (int i = 0; i < arraysize(rets); ++i) {
         ASSERT_TRUE(rets[i]->IsNumber());
         auto val = Handle<Number>::Cast(rets[i]);

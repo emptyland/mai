@@ -273,6 +273,10 @@ public:
     
     f64_t value() const { return value_; }
     
+    inline bool Equal(Object *rhs, NyaaCore *N) const;
+    inline bool LessThan(Object *rhs, NyaaCore *N) const;
+    inline bool LessEqual(Object *rhs, NyaaCore *N) const;
+    
     Object *Add(Object *rhs, NyaaCore *N) const;
     Object *Sub(Object *rhs, NyaaCore *N) const;
     Object *Mul(Object *rhs, NyaaCore *N) const;
@@ -311,6 +315,10 @@ public:
     DEF_VAL_GETTER(uint32_t, header);
 
     bool IsZero() const;
+    
+    bool Equal(Object *rhs, NyaaCore *N) const;
+    bool LessThan(Object *rhs, NyaaCore *N) const;
+    bool LessEqual(Object *rhs, NyaaCore *N) const;
     
     NyInt *Shl(int bits, NyaaCore *N);
     NyInt *Shr(int bits, NyaaCore *N);
@@ -471,15 +479,15 @@ public:
     void RawPut(Object *key, Object *value, NyaaCore *N);
     Object *RawGet(Object *key, NyaaCore *N) const;
     
-    bool Equal(Object *rhs, NyaaCore *N) const;
-    bool LessThan(Object *rhs, NyaaCore *N) const;
-    bool LessEqual(Object *rhs, NyaaCore *N) const;
+    bool Equal(Object *rhs, NyaaCore *N);
+    bool LessThan(Object *rhs, NyaaCore *N);
+    bool LessEqual(Object *rhs, NyaaCore *N);
 
-    Object *Add(Object *rhs, NyaaCore *N) const;
-    Object *Sub(Object *rhs, NyaaCore *N) const;
-    Object *Mul(Object *rhs, NyaaCore *N) const;
-    Object *Div(Object *rhs, NyaaCore *N) const;
-    Object *Mod(Object *rhs, NyaaCore *N) const;
+    Object *Add(Object *rhs, NyaaCore *N);
+    Object *Sub(Object *rhs, NyaaCore *N);
+    Object *Mul(Object *rhs, NyaaCore *N);
+    Object *Div(Object *rhs, NyaaCore *N);
+    Object *Mod(Object *rhs, NyaaCore *N);
 
     void Iterate(ObjectVisitor *visitor) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&generic_));
@@ -490,7 +498,7 @@ public:
     friend class MapIterator;
     DEF_HEAP_OBJECT(Map);
 private:
-    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) const;
+    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N);
     
     union {
         NyTable *table_; // [strong ref]
@@ -756,7 +764,8 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class NyRunnable : public NyObject {
 public:
-    int Apply(Object *argv[], int argc, int nrets, NyaaCore *N);
+    int TryRun(Object *argv[], int argc, int nrets, NyaaCore *N);
+    int Run(Object *argv[], int argc, int nrets, NyaaCore *N);
     
     DEF_HEAP_OBJECT_CASTS(Runnable);
     DISALLOW_IMPLICIT_CONSTRUCTORS(NyRunnable);
@@ -849,20 +858,23 @@ public:
     
     void Bind(int i, Object *upval, NyaaCore *N);
     
+    int TryCall(Object *argv[], int argc, int wanted, NyaaCore *N);
     int Call(Object *argv[], int argc, int wanted, NyaaCore *N);
+    
+    static Handle<NyClosure> TryCompile(const char *z, NyaaCore *N) {
+        return TryCompile(z, !z ? 0 : ::strlen(z), N);
+    }
+    static Handle<NyClosure> TryCompile(const char *z, size_t n, NyaaCore *N);
+    static Handle<NyClosure> TryCompile(const char *file_name, FILE *fp, NyaaCore *N);
     
     static Handle<NyClosure> Compile(const char *z, NyaaCore *N) {
         return Compile(z, !z ? 0 : ::strlen(z), N);
     }
-    
     static Handle<NyClosure> Compile(const char *z, size_t n, NyaaCore *N);
-    
     static Handle<NyClosure> Compile(const char *file_name, FILE *fp, NyaaCore *N);
 
     static int Do(const char *z, size_t n, int wanted, NyMap *env, NyaaCore *N);
-    
     static int Do(const char *file_name, FILE *fp, int wanted, NyMap *env, NyaaCore *N);
-    
     static int DoFile(const char *file_name, int wanted, NyMap *env, NyaaCore *N);
 
     void Iterate(ObjectVisitor *visitor) {
@@ -905,7 +917,8 @@ public:
     
     void Bind(int i, Object *upval, NyaaCore *N);
     
-    int Call(Object *argv[], int argc, int nrets, NyaaCore *N);
+    int TryCall(Object *argv[], int argc, int nrets, NyaaCore *N);
+    int Call(Object *argv[], int argc, int wanted, NyaaCore *N);
     
     int Apply(const FunctionCallbackInfo<Object> &info);
     
@@ -960,15 +973,15 @@ public:
     Object *GetField(size_t i, NyaaCore *N);
     void SetField(size_t i, Object *value, NyaaCore *N);
     
-    bool Equal(Object *rhs, NyaaCore *N) const;
-    bool LessThan(Object *rhs, NyaaCore *N) const;
-    bool LessEqual(Object *rhs, NyaaCore *N) const;
+    bool Equal(Object *rhs, NyaaCore *N);
+    bool LessThan(Object *rhs, NyaaCore *N);
+    bool LessEqual(Object *rhs, NyaaCore *N);
     
-    Object *Add(Object *rhs, NyaaCore *N) const;
-    Object *Sub(Object *rhs, NyaaCore *N) const;
-    Object *Mul(Object *rhs, NyaaCore *N) const;
-    Object *Div(Object *rhs, NyaaCore *N) const;
-    Object *Mod(Object *rhs, NyaaCore *N) const;
+    Object *Add(Object *rhs, NyaaCore *N);
+    Object *Sub(Object *rhs, NyaaCore *N);
+    Object *Mul(Object *rhs, NyaaCore *N);
+    Object *Div(Object *rhs, NyaaCore *N);
+    Object *Mod(Object *rhs, NyaaCore *N);
     
     void Iterate(ObjectVisitor *visitor) {
         if (!ignore_managed()) {
@@ -993,7 +1006,7 @@ private:
         return static_cast<uintptr_t>(n_fields << 1 | (ignore_managed ? 0x1 : 0));
     }
     
-    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) const;
+    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N);
 
     uintptr_t tag_;
     Object *fields_[0];
@@ -1106,6 +1119,48 @@ inline const NyUDO *NyObject::ToUDO() const {
     
 inline Object *NyObject::GetMetaFunction(NyString *name, NyaaCore *N) const{
     return GetMetatable()->RawGet(name, N);
+}
+
+inline bool NyFloat64::Equal(Object *rhs, NyaaCore *N) const {
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            return NyFloat64::Near(value_, rhs->ToSmi());
+        case kTypeInt:
+            return NyFloat64::Near(value_, NyInt::Cast(rhs)->ToF64());
+        case kTypeFloat64:
+            return NyFloat64::Near(value_, NyFloat64::Cast(rhs)->value());
+        default:
+            break;
+    }
+    return false;
+}
+
+inline bool NyFloat64::LessThan(Object *rhs, NyaaCore *N) const {
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            return value_ < rhs->ToSmi();
+        case kTypeInt:
+            return value_ < NyInt::Cast(rhs)->ToF64();
+        case kTypeFloat64:
+            return value_ < NyFloat64::Cast(rhs)->value();
+        default:
+            break;
+    }
+    return false;
+}
+
+inline bool NyFloat64::LessEqual(Object *rhs, NyaaCore *N) const {
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            return value_ <= rhs->ToSmi();
+        case kTypeInt:
+            return value_ <= NyInt::Cast(rhs)->ToF64();
+        case kTypeFloat64:
+            return value_ <= NyFloat64::Cast(rhs)->value();
+        default:
+            break;
+    }
+    return false;
 }
 
 inline NyRunnable *NyObject::GetValidMetaFunction(NyString *name, NyaaCore *N) const {

@@ -364,7 +364,7 @@ static void BuiltinLoadFile(const FunctionCallbackInfo<Object> &info) {
         return;
     }
     TryCatchCore try_catch(info.Core());
-    Handle<NyClosure> fn = NyClosure::Compile(file_name.c_str(), fp, info.Core());
+    Handle<NyClosure> fn = NyClosure::TryCompile(file_name.c_str(), fp, info.Core());
     ::fclose(fp);
     if (try_catch.has_caught()) {
         info.GetReturnValues().AddNil().Add(try_catch.message());
@@ -384,7 +384,7 @@ static void BuiltinLoadString(const FunctionCallbackInfo<Object> &info) {
     NyaaCore *N = info.Core();
     Handle<NyString> source = info[0]->ToString(N);
     TryCatchCore try_catch(info.Core());
-    Handle<NyClosure> fn = NyClosure::Compile(source->bytes(), source->size(), N);
+    Handle<NyClosure> fn = NyClosure::TryCompile(source->bytes(), source->size(), N);
     if (try_catch.has_caught()) {
         info.GetReturnValues().AddNil().Add(try_catch.message());
     } else {

@@ -124,6 +124,88 @@ bool Value::IsScript() const {
     auto o = reinterpret_cast<const Object *>(this);
     return o->IsObject() && o->ToHeapObject()->IsFunction();
 }
+    
+Handle<Value> Objective::Get(Handle<Value> key) const {
+    // TODO:
+    return Handle<Value>::Empty();
+}
+
+void Objective::Set(Handle<Value> key, Handle<Value> value)  {
+    // TODO:
+}
+
+Handle<Value> Objective::Add(Handle<Value> rhs) {
+    return reinterpret_cast<Value *>(Object::Add(reinterpret_cast<Object *>(this),
+                                                 reinterpret_cast<Object *>(*rhs),
+                                                 NyaaCore::Current()));
+}
+
+Handle<Value> Objective::Sub(Handle<Value> rhs) {
+    return reinterpret_cast<Value *>(Object::Sub(reinterpret_cast<Object *>(this),
+                                                 reinterpret_cast<Object *>(*rhs),
+                                                 NyaaCore::Current()));
+}
+
+Handle<Value> Objective::Mul(Handle<Value> rhs) {
+    return reinterpret_cast<Value *>(Object::Mul(reinterpret_cast<Object *>(this),
+                                                 reinterpret_cast<Object *>(*rhs),
+                                                 NyaaCore::Current()));
+}
+
+Handle<Value> Objective::Div(Handle<Value> rhs) {
+    return reinterpret_cast<Value *>(Object::Div(reinterpret_cast<Object *>(this),
+                                                 reinterpret_cast<Object *>(*rhs),
+                                                 NyaaCore::Current()));
+}
+
+Handle<Value> Objective::Mod(Handle<Value> rhs) {
+    return reinterpret_cast<Value *>(Object::Mod(reinterpret_cast<Object *>(this),
+                                                 reinterpret_cast<Object *>(*rhs),
+                                                 NyaaCore::Current()));
+}
+
+Handle<Value> Objective::Unm() {
+    // TODO:
+    return Handle<Value>::Empty();
+}
+
+Handle<Value> Objective::Concat(Handle<Value> rhs) {
+    // TODO:
+    return Handle<Value>::Empty();
+}
+
+Handle<String> Objective::Str() {
+    return reinterpret_cast<String *>(reinterpret_cast<Object *>(this)->ToString(NyaaCore::Current()));
+}
+
+bool Objective::Equal(Handle<Value> rhs) {
+    return Object::Equal(reinterpret_cast<Object *>(this), reinterpret_cast<Object *>(*rhs),
+                         NyaaCore::Current());
+}
+
+bool Objective::LessThan(Handle<Value> rhs) {
+    return Object::LessThan(reinterpret_cast<Object *>(this), reinterpret_cast<Object *>(*rhs),
+                            NyaaCore::Current());
+}
+
+bool Objective::LessEqual(Handle<Value> rhs) {
+    return Object::LessEqual(reinterpret_cast<Object *>(this), reinterpret_cast<Object *>(*rhs),
+                             NyaaCore::Current());
+}
+
+int Objective::Call(Handle<Value> argv[], int argc, Handle<Value> rets[], int wanted) {
+    if (IsFunction()) {
+        return static_cast<Function *>(this)->Call(argv, argc, rets, wanted);
+    }
+    return 0;
+}
+
+int Objective::Call(Handle<Value> argv[], int argc, std::vector<Handle<Value>> *rets, int wanted) {
+    if (IsFunction()) {
+        return static_cast<Function *>(this)->Call(argv, argc, rets, wanted);
+    }
+    return 0;
+}
 
 /*static*/ Handle<Number> Number::NewI64(int64_t val) {
     NyaaCore *N = NyaaCore::Current();
@@ -223,7 +305,7 @@ int Function::Call(Handle<Value> argv[], int argc, Handle<Value> rets[], int wan
     for (int i = 0; i < argc; ++i) {
         input[i] = reinterpret_cast<Object *>(*argv[i]);
     }
-    int rv = self->Apply(input, argc, wanted, N);
+    int rv = self->TryRun(input, argc, wanted, N);
     if (rv >= 0) {
         DCHECK(wanted < 0 || rv == wanted) << rv << " vs " << wanted;
         int n = wanted < 0 ? rv : wanted;
@@ -244,7 +326,7 @@ int Function::Call(Handle<Value> argv[], int argc, std::vector<Handle<Value>> *r
     for (int i = 0; i < argc; ++i) {
         input[i] = reinterpret_cast<Object *>(*argv[i]);
     }
-    int rv = self->Apply(input, argc, wanted, N);
+    int rv = self->TryRun(input, argc, wanted, N);
     if (rv >= 0) {
         rets->clear();
         DCHECK(wanted < 0 || rv == wanted) << rv << " vs " << wanted;
@@ -258,7 +340,7 @@ int Function::Call(Handle<Value> argv[], int argc, std::vector<Handle<Value>> *r
     
 /*static*/ Handle<Script> Script::Compile(Handle<String> source) {
     NyaaCore *N = NyaaCore::Current();
-    Handle<NyClosure> script = NyClosure::Compile(source->Bytes(), source->Length(), N);
+    Handle<NyClosure> script = NyClosure::TryCompile(source->Bytes(), source->Length(), N);
     if (script.is_empty()) {
         return Handle<Script>();
     }
@@ -267,7 +349,7 @@ int Function::Call(Handle<Value> argv[], int argc, std::vector<Handle<Value>> *r
 
 /*static*/ Handle<Script> Script::Compile(const char *file_name, FILE *fp) {
     NyaaCore *N = NyaaCore::Current();
-    Handle<NyClosure> script = NyClosure::Compile(file_name, fp, N);
+    Handle<NyClosure> script = NyClosure::TryCompile(file_name, fp, N);
     if (script.is_empty()) {
         return Handle<Script>();
     }
