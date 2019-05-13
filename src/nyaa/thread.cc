@@ -452,9 +452,6 @@ int NyThread::Run() {
                 int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &rb);
                 Object *key = frame_->const_poll()->Get(rb);
                 Object *val = frame_->env()->RawGet(key, owns_);
-//                if (ra == 2) {
-//                    printf("load global: %p\n", val);
-//                }
                 Set(ra, val);
                 frame_->AddPC(delta);
             } break;
@@ -758,9 +755,8 @@ int NyThread::Run() {
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc); \
                 Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb); \
                 Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc); \
-                bool has = false; \
-                InternalCallMetaFunction(frame_bp() + ra, lhs, rhs, 1, owns_->bkz_pool()->kInner##op, &has); \
-                if (!has) { \
+                if (!InternalCallMetaFunction(frame_bp() + ra, owns_->bkz_pool()->kInner##op, \
+                                              1, lhs, 1, rhs)) { \
                     Set(ra, Object::op(lhs, rhs, owns_)); \
                 } \
                 frame_->AddPC(delta)
@@ -858,22 +854,17 @@ Object *NyThread::InternalGetField(Object **base, Object *mm, Object *key) {
         Object *mindex = map->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerIndex, owns_);
         if (NyMap *index_map = NyMap::Cast(mindex)) {
             return index_map->RawGet(key, owns_);
-        } else if (NyRunnable *mfn = NyRunnable::Cast(mindex)) {
-            stack_tp_ = base; // set correct stack_tp;
-            Object *args[2] = {mm, key};
-            Run(mfn, args, 2/*nargs*/, 1/*nrets*/, frame_->env());
+        } else if (InternalCallMetaFunction(base, owns_->bkz_pool()->kInnerIndex, 1, mm, 1, key)) {
             return Get(-1);
+        } else {
+            return map->RawGet(key, owns_);
         }
-        return map->RawGet(key, owns_);
     } else if (NyUDO *udo = ob->ToUDO()) {
-        Object *mindex = udo->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerIndex, owns_);
-        if (NyRunnable *mfn = NyRunnable::Cast(mindex)) {
-            stack_tp_ = base; // set correct stack_tp;
-            Object *args[2] = {mm, key};
-            Run(mfn, args, 2/*nargs*/, 1/*nrets*/, frame_->env());
+        if (InternalCallMetaFunction(base, owns_->bkz_pool()->kInnerIndex, 1, mm, 1, key)) {
             return Get(-1);
+        } else {
+            return udo->RawGet(key, owns_);
         }
-        return udo->RawGet(key, owns_);
     } else {
         Raisef("incorrect type for getfield.");
         return Object::kNil;
@@ -901,22 +892,21 @@ int NyThread::InternalSetField(Object **base, Object *key, Object *value) {
         Object *mnewindex = map->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerNewindex, owns_);
         if (NyMap *newindex_map = NyMap::Cast(mnewindex)) {
             newindex_map->RawPut(key, value, owns_);
-        } else if (NyRunnable *fn = NyRunnable::Cast(mnewindex)) {
-            stack_tp_ = base;
-            Object *args[3] = {mm, key, value};
-            Run(fn, args, 3/*nargs*/, 0/*nrets*/, frame_->env());
+        } else {
+            // base + 1 for skip map position
+            if (!InternalCallMetaFunction(base + 1, owns_->bkz_pool()->kInnerNewindex, 0, mm, 2,
+                                          key, value)) {
+                map->RawPut(key, value, owns_);
+            }
         }
-        map->RawPut(key, value, owns_);
     } else if (NyUDO *udo = ob->ToUDO()) {
-        Object *mnewindex = udo->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerNewindex, owns_);
-        if (NyRunnable *fn = NyRunnable::Cast(mnewindex)) {
-            stack_tp_ = base;
-            Object *args[3] = {mm, key, value};
-            Run(fn, args, 3/*nargs*/, 0/*nrets*/, frame_->env());
+        // base + 1 for skip map position
+        if (!InternalCallMetaFunction(base + 1, owns_->bkz_pool()->kInnerNewindex, 0, mm, 2, key,
+                                      value)) {
+            udo->RawPut(key, value, owns_);
         }
-        udo->RawPut(key, value, owns_);
     } else {
-        Raisef("incorrect type for setfield.");
+        Raisef("incorrect type for setfield. %s", mm->ToString(owns_)->bytes());
         return -1;
     }
     return 0;
@@ -967,6 +957,47 @@ int NyThread::InternalCallMetaFunction(Object **base, Object *a1, Object *a2, in
     Push(a1);
     Push(a2);
     return InternalCall(stack_ + tp, 2, wanted);
+}
+
+bool NyThread::InternalCallMetaFunction(Object **base, NyString *name, int wanted, Object *a1,
+                                        int n, ...) {
+    DCHECK_GE(wanted, 0);
+    NyRunnable *fn = nullptr;
+    switch (a1->GetType()) {
+        case kTypeMap:
+        case kTypeUdo:
+            fn = a1->ToHeapObject()->GetValidMetaFunction(name, owns_);
+            break;
+        default:
+            break;
+    }
+    if (!fn) {
+        return false;
+    }
+    stack_tp_ = base;
+    size_t tp = base - stack_;
+    CheckStack(base - stack_ + n + 1);
+//    Push(fn);
+//    Push(a1);
+//    va_list ap;
+//    va_start(ap, n);
+//    for (int i = 0; i < n; ++i) {
+//        Object *a = va_arg(ap, Object *);
+//        Push(a);
+//    }
+//    va_end(ap);
+//    InternalCall(stack_ + tp, n + 1, wanted);
+    stack_tp_[0] = fn;
+    stack_tp_[1] = a1;
+    va_list ap;
+    va_start(ap, n);
+    for (int i = 0; i < n; ++i) {
+        stack_tp_[i + 2] = va_arg(ap, Object *);
+    }
+    va_end(ap);
+    stack_tp_ += n + 2;
+    InternalCall(stack_ + tp, n + 1, wanted);
+    return true;
 }
     
 int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {

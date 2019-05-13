@@ -217,6 +217,8 @@ private:
     
     int InternalCallMetaFunction(Object **base, Object *a1, Object *a2, int wanted,
                                  NyString *name, bool *has);
+    bool InternalCallMetaFunction(Object **base, NyString *name, int wanted, Object *a1,
+                                  int n, ...);
     int InternalCall(Object **func, int32_t n_args, int wanted);
 
     int CopyArgs(Object **args, int n_args, int n_params, bool vargs);
