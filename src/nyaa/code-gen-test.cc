@@ -771,7 +771,7 @@ TEST_F(NyaaCodeGenTest, SelfCall) {
         "[007] LoadConst 2 2 ; line: 1\n"
         "[010] LoadConst 3 3 ; line: 1\n"
         "[013] LoadConst 4 4 ; line: 1\n"
-        "[016] Call 0 3 1 ; line: 1\n"
+        "[016] Call 0 4 1 ; line: 1\n"
         "[020] Ret 0 1 ; line: 2\n"
         "[023] Ret 0 0 ; line: 0\n"
     };

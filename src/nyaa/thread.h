@@ -109,6 +109,7 @@ public:
     static constexpr const int kSlotSize = 4;
     
     TryCatchCore(NyaaCore *core);
+    TryCatchCore(NyaaCore *core, NyThread *thread);
     ~TryCatchCore();
     
     void Catch(NyString *message, Object *exception, NyArray *stack_trace);
@@ -162,19 +163,16 @@ public:
     }
     
     int TryRun(NyRunnable *fn, Object *argv[], int argc, int nrets = 0, NyMap *env = nullptr);
-
     int Run(NyRunnable *fn, Object *argv[], int argc, int nrets = 0, NyMap *env = nullptr);
+    int Resume(Object *argv[], int argc, int wanted, NyMap *env);
+    void Yield();
     
     void Raisef(const char *fmt, ...);
-    
     void Vraisef(const char *fmt, va_list ap);
-    
     void Raise(NyString *msg, Object *ex);
 
     void Push(Object *value, size_t n = 1);
-    
     Object *Get(int i);
-    
     void Set(int i, Object *value);
     
     void Pop(int n) {
@@ -215,11 +213,11 @@ private:
     NyUDO *InternalNewUdo(Object **args, int32_t n_args, size_t size, NyMap *clazz);
     int InternalSetField(Object *mm, Object *key, Object *value);
     int InternalCall(Object **func, int32_t n_args, int wanted);
-    
-    
+
     int CopyArgs(Object **args, int n_args, int n_params, bool vargs);
     
     void CopyResult(Object **ret, int n_rets, int wanted);
+    void CopyResult(Object **ret, Object **argv, int argc, int wanted);
     
     void ProcessClass(NyMap *clazz);
     
@@ -246,7 +244,7 @@ private:
     NyThread *prev_ = this; // [strong ref]
     NyThread *next_ = this; // [strong ref]
 }; // class NyThread
-    
+
 inline NyThread *TryCatchCore::thread() const { return static_cast<NyThread *>(obs_[kThread]); }
     
 } // namespace nyaa

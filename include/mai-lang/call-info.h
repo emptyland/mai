@@ -56,6 +56,7 @@ protected:
     void AddInternal(Object *val);
     void AddInternalSome(int nrets, ...);
     void Set(int nrets);
+    void Yield();
 private:
     Nyaa *N_;
     //int nrets_;
@@ -95,6 +96,7 @@ public:
     }
     
     inline void Set(int nrets) { i::Set(nrets); }
+    inline void Yield() { i::Yield(); }
 }; // template<class T> class ReturnValues
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

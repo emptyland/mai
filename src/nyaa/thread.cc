@@ -52,15 +52,16 @@ void CallFrame::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&const_poll_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&env_));
 }
-
-TryCatchCore::TryCatchCore(NyaaCore *core)
-    : core_(DCHECK_NOTNULL(core)) {
-    auto thd = core_->curr_thd();
-    prev_ = thd->catch_point_;
-    thd->catch_point_ = this;
     
+TryCatchCore::TryCatchCore(NyaaCore *core) : TryCatchCore(core, core->curr_thd()) {}
+
+TryCatchCore::TryCatchCore(NyaaCore *core, NyThread *thread)
+    : core_(DCHECK_NOTNULL(core)) {
+    prev_ = thread->catch_point_;
+    thread->catch_point_ = this;
+
     obs_ = reinterpret_cast<Object **>(core_->AdvanceHandleSlots(kSlotSize));
-    obs_[kThread] = thd;
+    obs_[kThread] = thread;
     Reset();
 }
 
@@ -101,7 +102,11 @@ NyThread::NyThread(NyaaCore *owns)
 
 NyThread::~NyThread() {
     ::free(stack_);
-    
+    while (frame_) {
+        CallFrame *ci = frame_;
+        frame_ = frame_->prev();
+        delete ci;
+    }
     if (this != owns_->main_thd()) {
         owns_->RemoveThread(this);
     }
@@ -207,11 +212,11 @@ void NyThread::Set(int i, Object *value) {
     }
 }
     
-int NyThread::TryRun(NyRunnable *fn, Object *argv[], int argc, int nrets, NyMap *env) {
+int NyThread::TryRun(NyRunnable *fn, Object *argv[], int argc, int wanted, NyMap *env) {
     int rv = 0;
     CallFrame *ci = frame_;
     try {
-        rv = Run(fn, argv, argc, nrets, env);
+        rv = Run(fn, argv, argc, wanted, env);
     } catch (CatchId which) {
         if (which == kException) {
             Rewind(ci);
@@ -222,8 +227,50 @@ int NyThread::TryRun(NyRunnable *fn, Object *argv[], int argc, int nrets, NyMap 
     }
     return rv;
 }
+    
+int NyThread::Resume(Object *argv[], int argc, int wanted, NyMap *env) {
+    int rv = 0;
+    CallFrame *ci = frame_;
+    
+    DCHECK_NE(this, owns_->curr_thd());
+    save_ = owns_->curr_thd();
+    owns_->set_curr_thd(this);
 
-int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int nrets, NyMap *env) {
+    try {
+        if (!ci) {
+            rv = Run(entry_, argv, argc, wanted, env);
+        } else {
+            CallFrame *frame = frame_;
+            CopyResult(stack_ + frame->stack_bp() - 1, argv, argc, frame->wanted());
+            frame->Exit(this);
+            delete frame;
+            
+            frame_->AddPC(ParseBytecodeSize(frame_->pc()));
+            rv = Run();
+        }
+    } catch (CatchId which) {
+        if (which == kException) {
+            Rewind(ci);
+            rv = -1;
+            state_ = kSuspended;
+        } else if (which == kYield) {
+            rv = frame_->nrets();
+            DCHECK_GE(rv, 0);
+            state_ = kSuspended;
+        } else {
+            throw which;
+        }
+    }
+    
+    DCHECK_EQ(this, owns_->curr_thd());
+    owns_->set_curr_thd(save_);
+    save_ =  nullptr;
+    return rv;
+}
+
+void NyThread::Yield() { throw kYield; }
+
+int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *env) {
     if (!env) {
         env = owns_->g();
     }
@@ -235,7 +282,7 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int nrets, NyMap *en
     CallFrame *frame = new CallFrame;
     if (NyClosure *fn = rb->ToClosure()) {
         frame->Enter(this, fn, fn->proto()->bcbuf(), fn->proto()->const_pool(),
-                     nrets, /* wanted */
+                     wanted, /* wanted */
                      top, /* frame_bp */
                      top + fn->proto()->max_stack() /* frame_tp */,
                      env);
@@ -246,7 +293,7 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int nrets, NyMap *en
         frame->Enter(this, fn,
                      nullptr, /* bc buf */
                      nullptr, /* const pool */
-                     nrets, /* wanted */
+                     wanted, /* wanted */
                      top, /*frame_bp*/
                      top + 20, /* frame_tp */
                      env);
@@ -255,7 +302,7 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int nrets, NyMap *en
         fn->Apply(info);
         rv = frame->nrets();
         if (rv >= 0) {
-            CopyResult(stack_ + frame->stack_bp() - 1, rv, nrets);
+            CopyResult(stack_ + frame->stack_bp() - 1, rv, wanted);
         }
         frame->Exit(this);
         delete frame;
@@ -574,19 +621,13 @@ int NyThread::Run() {
 
             case Bytecode::kJumpImm: {
                 int32_t offset;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 1, &offset)) < 0) {
-                    return -1;
-                }
+                ParseBytecodeInt32Params(1, scale, 1, &offset);
                 frame_->AddPC(offset);
             } break;
 
             case Bytecode::kJumpConst: {
                 int32_t k;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 1, &k)) < 0) {
-                    return -1;
-                }
+                ParseBytecodeInt32Params(1, scale, 1, &k);
                 Object *ob = frame_->const_poll()->Get(k);
                 DCHECK(ob->IsSmi());
                 frame_->AddPC(static_cast<int32_t>(ob->ToSmi()));
@@ -655,27 +696,24 @@ int NyThread::Run() {
 
                 // foo(bar())
             case Bytecode::kCall: {
-                int32_t ra, n_args, n_rets;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 3, &ra, &n_args, &n_rets)) < 0) {
-                    return -1;
-                }
+                int32_t ra, argc, wanted;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &argc, &wanted);
                 Object *val = Get(ra);
                 if (val->IsSmi()) {
                     owns_->Raisef("can not call number.");
                     return -1;
                 }
                 Object **base = frame_bp() + ra;
-                if (n_args >= 0) {
-                    stack_tp_ = base + 1 + n_args;
+                if (argc >= 0) {
+                    stack_tp_ = base + 1 + argc;
                 }
-                InternalCall(base, n_args, n_rets);
+                InternalCall(base, argc, wanted);
                 frame_->AddPC(delta);
             } break;
 
             case Bytecode::kNew: {
-                int32_t ra, rb, nargs;
-                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &nargs);
+                int32_t ra, rb, argc;
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &argc);
                 NyMap *clazz = NyMap::Cast(Get(rb));
                 if (!clazz) {
                     owns_->Raisef("new non-class.");
@@ -686,7 +724,7 @@ int NyThread::Run() {
                     owns_->Raisef("incorrect class table: error __size__.");
                     return -1;
                 }
-                NyUDO *udo = InternalNewUdo(frame_bp() + rb, nargs, n_fields->ToSmi(), clazz);
+                NyUDO *udo = InternalNewUdo(frame_bp() + rb, argc, n_fields->ToSmi(), clazz);
                 Set(ra, udo);
                 frame_->AddPC(delta);
             } break;
@@ -1022,6 +1060,19 @@ void NyThread::CopyResult(Object **ret, int nrets, int wanted) {
         ret[i] = from[i];
     }
     for (int i = nrets; i < wanted; ++i) {
+        ret[i] = Object::kNil;
+    }
+    stack_tp_ = ret + wanted;
+}
+
+void NyThread::CopyResult(Object **ret, Object **argv, int argc, int wanted) {
+    if (wanted < 0) {
+        wanted = argc;
+    }
+    for (int i = 0; i < argc && i < wanted; ++i) {
+        ret[i] = argv[i];
+    }
+    for (int i = argc; i < wanted; ++i) {
         ret[i] = Object::kNil;
     }
     stack_tp_ = ret + wanted;

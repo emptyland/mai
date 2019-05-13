@@ -1895,7 +1895,7 @@ int NyDelegated::Apply(const FunctionCallbackInfo<Object> &info) {
             DLOG(FATAL) << "TODO:";
             break;
     }
-    return -1;
+    return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

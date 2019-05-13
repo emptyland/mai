@@ -1131,6 +1131,14 @@ TEST_F(NyaaThreadTest, AssertFunc) {
     ASSERT_STREQ("hit", try_catch.message()->bytes());
 }
     
+TEST_F(NyaaThreadTest, CoroutineSanity) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/10-coroutine-sanity.nyaa", 0, nullptr, core_))
+     << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+    
 TEST_F(NyaaThreadTest, AddAssertTest) {
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);

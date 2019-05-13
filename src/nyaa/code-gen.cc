@@ -799,7 +799,7 @@ public:
         //fun_scope_->FreeVar(self);
         
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-        builder()->Call(base, n_args, ctx->n_result(), node->line());
+        builder()->Call(base, n_args + 1/*for self*/, ctx->n_result(), node->line());
         
         fun_scope_->free_reg_ = base.index + 1;
         return base;
