@@ -505,10 +505,14 @@ NyString *NyObject::ToString(NyaaCore *N) {
             return ToMap()->ToString(N);
         case kTypeUdo:
             return ToUDO()->ToString(N);
+        case kTypeDelegated:
+            return N->factory()->Sprintf("delegated: %p(%p)", this, ToDelegated()->fp_addr());
+        case kTypeThread:
+            return N->factory()->Sprintf("thread: %p", this);
         default:
             break;
     }
-    DLOG(FATAL) << "Noreached!" << GetMetatable()->kid();
+    DLOG(FATAL) << "Noreached!" << GetType();
     return nullptr;
 }
     

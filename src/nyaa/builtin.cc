@@ -486,6 +486,11 @@ static void ThreadInit(const FunctionCallbackInfo<Object> &info) {
     }
     
     Handle<NyThread> thread = new (*udo) NyThread(N);
+    auto rs = thread->Init();
+    if (!rs) {
+        info.GetErrors().Raisef("thread initialize fail: %s", rs.ToString().c_str());
+        return;
+    }
     thread->set_entry(*entry);
     thread->SetMetatable(N->kmt_pool()->kThread, N);
     thread->SetType(kTypeThread); // FIXME
@@ -552,6 +557,11 @@ static void ThreadResume(const FunctionCallbackInfo<Object> &info) {
     {
         HandleScope handle_scope(info.VM());
         thread = NyThread::Cast(*info[0]);
+        if (!thread) {
+            info.GetErrors().Raisef("incorrect argument[0] type, unexpected: %d, requried: thread",
+                                    info[0]->GetType());
+            return;
+        }
         for (int i = 0; i < argc; i++) {
             argv[i] = *info[i + 1];
         }

@@ -180,6 +180,8 @@ public:
         stack_tp_ -= n;
     }
     
+    void PrintStack();
+    
     void IterateRoot(RootVisitor *visitor);
     
     void Iterate(ObjectVisitor *) {}
@@ -209,9 +211,12 @@ private:
     void Rewind(CallFrame *ci);
     int Run();
 
-    Object *InternalGetField(Object *mm, Object *key);
+    Object *InternalGetField(Object **base, Object *mm, Object *key);
+    int InternalSetField(Object **base, Object *key, Object *value);
     NyUDO *InternalNewUdo(Object **args, int32_t n_args, size_t size, NyMap *clazz);
-    int InternalSetField(Object *mm, Object *key, Object *value);
+    
+    int InternalCallMetaFunction(Object **base, Object *a1, Object *a2, int wanted,
+                                 NyString *name, bool *has);
     int InternalCall(Object **func, int32_t n_args, int wanted);
 
     int CopyArgs(Object **args, int n_args, int n_params, bool vargs);

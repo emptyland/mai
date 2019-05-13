@@ -174,8 +174,8 @@ void NyThread::Raise(NyString *msg, Object *ex) {
 
 void NyThread::Push(Object *value, size_t n) {
     CheckStackAdd(n);
-    if (stack_tp_ + n >= stack_last_) {
-        owns_->Raisef("Stack overflow!");
+    if (stack_tp_ + n > stack_last_) {
+        owns_->Raisef("stack overflow!");
         return;
     }
     for (int i = 0; i < n; ++i) {
@@ -337,6 +337,15 @@ int NyThread::CopyArgs(Object **args, int n_args, int n_params, bool vargs) {
     return adjust;
 }
     
+void NyThread::PrintStack() {
+    printf("<%d>--------------------------------------------------\n", frame_->pc());
+    int i = 0;
+    for (Object **p = frame_bp(); p < stack_tp_; ++p) {
+        NyString *s = (*p)->ToString(owns_);
+        printf("[%d] %p, %s\n", i++, *p,  s->bytes());
+    }
+}
+    
 void NyThread::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&entry_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&save_));
@@ -424,20 +433,14 @@ int NyThread::Run() {
         switch (id) {
             case Bytecode::kLoadImm: {
                 int32_t ra, imm;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &imm)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &imm);
                 Set(ra, NyInt32::New(imm));
                 frame_->AddPC(delta);
             } break;
 
             case Bytecode::kLoadNil: {
                 int32_t ra, n;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &n)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &n);
                 for (int i = 0; i < n; ++i) {
                     Set(ra + i, Object::kNil);
                 }
@@ -446,21 +449,19 @@ int NyThread::Run() {
 
             case Bytecode::kLoadGlobal: {
                 int32_t ra, rb;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &rb)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &rb);
                 Object *key = frame_->const_poll()->Get(rb);
-                Set(ra, frame_->env()->RawGet(key, owns_));
+                Object *val = frame_->env()->RawGet(key, owns_);
+//                if (ra == 2) {
+//                    printf("load global: %p\n", val);
+//                }
+                Set(ra, val);
                 frame_->AddPC(delta);
             } break;
 
             case Bytecode::kLoadConst: {
                 int32_t ra, rb;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &rb)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &rb);
                 Object *k = frame_->const_poll()->Get(rb);
                 Set(ra, k);
                 frame_->AddPC(delta);
@@ -468,10 +469,7 @@ int NyThread::Run() {
 
             case Bytecode::kLoadUp: {
                 int32_t ra, ub;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &ub)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &ub);
                 Object *uv = frame_->upval(ub);
                 Set(ra, uv);
                 frame_->AddPC(delta);
@@ -479,10 +477,7 @@ int NyThread::Run() {
 
             case Bytecode::kStoreUp: {
                 int32_t ra, ub;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &ub)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &ub);
                 Object *val = Get(ra);
                 frame_->SetUpval(ub, val, owns_);
                 frame_->AddPC(delta);
@@ -490,10 +485,7 @@ int NyThread::Run() {
 
             case Bytecode::kStoreGlobal: {
                 int32_t ra, kb;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &kb)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &kb);
                 Object *val = Get(ra);
                 Object *idx = frame_->const_poll()->Get(kb);
                 frame_->env()->RawPut(idx, val, owns_);
@@ -509,7 +501,7 @@ int NyThread::Run() {
                 } else {
                     key = Get(rkc);
                 }
-                Object *value = InternalGetField(Get(rb), key);
+                Object *value = InternalGetField(frame_bp() + ra, Get(rb), key);
                 Set(ra, value);
                 frame_->AddPC(delta);
             } break;
@@ -523,23 +515,20 @@ int NyThread::Run() {
                 } else {
                     key = Get(rkb);
                 }
-                
+
                 Object *value = nullptr;
                 if (rkc < 0) {
                     value = frame_->const_poll()->Get(-rkc - 1);
                 } else {
                     value = Get(rkc);
                 }
-                InternalSetField(Get(ra), key, value);
+                InternalSetField(frame_bp() + ra, key, value);
                 frame_->AddPC(delta);
             } break;
 
             case Bytecode::kMove: {
                 int32_t ra, rb;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &rb)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &rb);
                 Object *val = Get(rb);
                 Set(ra, val);
                 frame_->AddPC(delta);
@@ -547,10 +536,7 @@ int NyThread::Run() {
 
             case Bytecode::kRet: {
                 int32_t ra, n;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &n)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &n);
                 if (n < 0) {
                     n = static_cast<int32_t>(stack_tp_ - (frame_bp() + ra));
                 } else {
@@ -568,10 +554,7 @@ int NyThread::Run() {
 
             case Bytecode::kTest: {
                 int32_t ra, neg, none;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 3, &ra, &neg, &none)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &neg, &none);
                 bool cond = false;
                 Object *ob = Get(ra);
                 if (ob == Object::kNil) {
@@ -635,10 +618,7 @@ int NyThread::Run() {
 
             case Bytecode::kClosure: {
                 int32_t ra, pb;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 2, &ra, &pb)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &pb);
                 NyFunction *proto = static_cast<NyFunction *>(frame_->proto()->proto_pool()->Get(pb));
                 //printf("proto:%p, %d\n", proto, proto->IsArray());
                 DCHECK(proto->IsObject() && proto->ToHeapObject()->IsFunction());
@@ -652,10 +632,7 @@ int NyThread::Run() {
 
             case Bytecode::kNewMap: {
                 int32_t ra, n, p;
-                int delta = 1;
-                if ((delta = ParseBytecodeInt32Params(delta, scale, 3, &ra, &n, &p)) < 0) {
-                    return -1;
-                }
+                int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &n, &p);
                 bool clazz = p < 0;
                 bool linear = clazz ? false : p;
                 uint32_t capacity = (linear ? n : n / 2) + 4;
@@ -688,7 +665,7 @@ int NyThread::Run() {
                 int32_t ra, rb, kc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &kc);
                 Object *key = frame_->const_poll()->Get(kc);
-                Object *method = InternalGetField(Get(rb), key);
+                Object *method = InternalGetField(frame_bp() + ra, Get(rb), key);
                 Set(ra + 1, Get(rb));
                 Set(ra, method);
                 frame_->AddPC(delta);
@@ -781,7 +758,11 @@ int NyThread::Run() {
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc); \
                 Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb); \
                 Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc); \
-                Set(ra, Object::op(lhs, rhs, owns_)); \
+                bool has = false; \
+                InternalCallMetaFunction(frame_bp() + ra, lhs, rhs, 1, owns_->bkz_pool()->kInner##op, &has); \
+                if (!has) { \
+                    Set(ra, Object::op(lhs, rhs, owns_)); \
+                } \
                 frame_->AddPC(delta)
 
             case Bytecode::kAdd: {
@@ -859,7 +840,7 @@ int NyThread::Run() {
     //return has_raised_ ? -1 : 0;
 }
     
-Object *NyThread::InternalGetField(Object *mm, Object *key) {
+Object *NyThread::InternalGetField(Object **base, Object *mm, Object *key) {
     if (mm == Object::kNil) {
         Raisef("attempt to nil field.");
         return Object::kNil;
@@ -878,6 +859,7 @@ Object *NyThread::InternalGetField(Object *mm, Object *key) {
         if (NyMap *index_map = NyMap::Cast(mindex)) {
             return index_map->RawGet(key, owns_);
         } else if (NyRunnable *mfn = NyRunnable::Cast(mindex)) {
+            stack_tp_ = base; // set correct stack_tp;
             Object *args[2] = {mm, key};
             Run(mfn, args, 2/*nargs*/, 1/*nrets*/, frame_->env());
             return Get(-1);
@@ -886,6 +868,7 @@ Object *NyThread::InternalGetField(Object *mm, Object *key) {
     } else if (NyUDO *udo = ob->ToUDO()) {
         Object *mindex = udo->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerIndex, owns_);
         if (NyRunnable *mfn = NyRunnable::Cast(mindex)) {
+            stack_tp_ = base; // set correct stack_tp;
             Object *args[2] = {mm, key};
             Run(mfn, args, 2/*nargs*/, 1/*nrets*/, frame_->env());
             return Get(-1);
@@ -898,7 +881,8 @@ Object *NyThread::InternalGetField(Object *mm, Object *key) {
     return Object::kNil;
 }
     
-int NyThread::InternalSetField(Object *mm, Object *key, Object *value) {
+int NyThread::InternalSetField(Object **base, Object *key, Object *value) {
+    Object *mm = *base;
     if (mm == Object::kNil) {
         Raisef("attempt to nil field.");
         return -1;
@@ -918,6 +902,7 @@ int NyThread::InternalSetField(Object *mm, Object *key, Object *value) {
         if (NyMap *newindex_map = NyMap::Cast(mnewindex)) {
             newindex_map->RawPut(key, value, owns_);
         } else if (NyRunnable *fn = NyRunnable::Cast(mnewindex)) {
+            stack_tp_ = base;
             Object *args[3] = {mm, key, value};
             Run(fn, args, 3/*nargs*/, 0/*nrets*/, frame_->env());
         }
@@ -925,6 +910,7 @@ int NyThread::InternalSetField(Object *mm, Object *key, Object *value) {
     } else if (NyUDO *udo = ob->ToUDO()) {
         Object *mnewindex = udo->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerNewindex, owns_);
         if (NyRunnable *fn = NyRunnable::Cast(mnewindex)) {
+            stack_tp_ = base;
             Object *args[3] = {mm, key, value};
             Run(fn, args, 3/*nargs*/, 0/*nrets*/, frame_->env());
         }
@@ -959,12 +945,36 @@ NyUDO *NyThread::InternalNewUdo(Object **args, int32_t n_args, size_t n_fields, 
     return udo;
 }
     
+int NyThread::InternalCallMetaFunction(Object **base, Object *a1, Object *a2, int wanted,
+                                       NyString *name, bool *has) {
+    NyRunnable *fn = nullptr;
+    switch (a1->GetType()) {
+        case kTypeMap:
+        case kTypeUdo:
+            fn = a1->ToHeapObject()->GetValidMetaFunction(name, owns_);
+            break;
+        default:
+            *has = false;
+            break;
+    }
+    if (!fn) {
+        return 0;
+    }
+    *has = true;
+    stack_tp_ = base;
+    size_t tp = stack_tp_ - stack_;
+    Push(fn);
+    Push(a1);
+    Push(a2);
+    return InternalCall(stack_ + tp, 2, wanted);
+}
+    
 int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
     DCHECK((*base)->IsObject());
-
+    //PrintStack();
     size_t base_p = base - stack_;
     NyObject *ob = static_cast<NyObject *>(*base);
-    switch (ob->GetMetatable()->kid()) {
+    switch (ob->GetType()) {
         case kTypeClosure: {
             NyClosure *callee = ob->ToClosure();
             if (n_args < 0) {
@@ -1016,6 +1026,7 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
                          base_p + 20, /* frame_tp */
                          frame_->env());
             FunctionCallbackInfo<Object> info(base, n_args, owns_->stub());
+            //PrintStack();
             callee->Apply(info);
             int rv = frame->nrets();
             if (rv >= 0) {
@@ -1025,12 +1036,17 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
             delete frame;
 
             owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
+            //PrintStack();
             return rv;
         } break;
 
         default: {
             // TODO: call metatable method.
-            DLOG(FATAL) << "TODO";
+            //DLOG(FATAL) << "TODO:" << ob->GetType();
+            
+            NyString *s = ob->ToString(owns_);
+            Raisef("bad calling: %s", s->bytes());
+            
         } break;
     }
     return 0;

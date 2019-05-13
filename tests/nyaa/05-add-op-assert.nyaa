@@ -19,9 +19,17 @@ class foo {
 		return new foo(lhs.val + rhs.val)
 	}
 
+	def set_val(self, val) {
+		self.val_ = val
+	}
+
 	property [ro] val
 }
 
 a = new foo(100)
 var b = new foo(200)
 assert((a + b).val == 300)
+
+a:set_val(333)
+b:set_val(444)
+assert((a + b).val == 777)

@@ -1139,6 +1139,33 @@ TEST_F(NyaaThreadTest, CoroutineSanity) {
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
     
+TEST_F(NyaaThreadTest, CoroutineIterate) {
+    static const char s[] = {
+        "var t = new coroutine(lambda() {})\n"
+        "log(t:resume(1))\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    script->Call(nullptr, 0, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+
+TEST_F(NyaaThreadTest, CoroutineIterate2) {
+    static const char kF[] = "tests/nyaa/11-coroutine-iterate.nyaa";
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    FILE *fp = ::fopen(kF, "r");
+    Handle<NyClosure> script = NyClosure::Compile(kF, fp, core_);
+    ::fclose(fp);
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    script->Call(nullptr, 0, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+
 TEST_F(NyaaThreadTest, AddAssertTest) {
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);

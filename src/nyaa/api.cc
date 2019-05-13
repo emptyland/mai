@@ -459,7 +459,7 @@ void ReturnValuesBase::Add(const char *z, size_t n) {
 void ReturnValuesBase::AddInternal(Object *val) {
     auto ci = N_->core()->curr_thd()->call_info();
     ci->set_nrets(ci->nrets() + 1);
-    N_->core()->main_thd()->Push(val);
+    N_->core()->curr_thd()->Push(val);
 }
 
 void ReturnValuesBase::AddInternalSome(int nrets, ...) {
