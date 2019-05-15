@@ -164,12 +164,12 @@ public:
     // [base + disp/r]
     Operand(Register reg, int32_t disp);
     
+    // [index * scale + disp/r]
+    Operand(Register index, ScaleFactor scale, int32_t disp);
+    
     // [base + index * scale + disp/r]
     Operand(Register base, Register index, ScaleFactor scale,
             int32_t disp);
-    
-    // [index * scale + disp/r]
-    Operand(Register index, ScaleFactor scale, int32_t disp);
     
     DEF_VAL_GETTER(uint8_t, rex);
     DEF_VAL_GETTER(uint8_t, len);
@@ -276,13 +276,6 @@ public:
         EmitOperand(dst, src);
     }
     
-    void Emit_rdrand(Register dst, int size = kDefaultSize) {
-        EmitRex(dst, size);
-        EmitB(0x0F);
-        EmitB(0xC7);
-        EmitModRM(6, dst);
-    }
-    
     //----------------------------------------------------------------------------------------------
     // Stack operations:
     //----------------------------------------------------------------------------------------------
@@ -362,6 +355,203 @@ public:
         EmitDW(src.value());
     }
     
+    void Emit_movb(Register dst, Register src);
+    
+    void Emit_movb(Register dst, Operand src);
+    
+    void Emit_movb(Operand dst, Register src);
+    
+    void Emit_movb(Register dst, int32_t val) {
+        if (!RegIsByte(dst)) {
+            EmitRex32(dst);
+        }
+        EmitB(0xB0 + RegLoBits(dst));
+        EmitB(val);
+    }
+    
+    void Emit_movb(Operand dst, int32_t val) {
+        EmitOptionalRex32(dst);
+        EmitB(0xC6);
+        EmitOperand(0x00, dst);
+        EmitB(val);
+    }
+    
+    void Emit_movw(Register dst, Register src) {
+        EmitB(0x66);
+        EmitOptionalRex32(src, dst);
+        EmitB(0x89);
+        EmitModRM(src, dst);
+    }
+    
+    void Emit_movw(Register dst, Operand src) {
+        EmitB(0x66);
+        EmitOptionalRex32(dst, src);
+        EmitB(0x8B);
+        EmitOperand(dst, src);
+    }
+    
+    void Emit_movw(Operand dst, Register src) {
+        EmitB(0x66);
+        EmitOptionalRex32(src, dst);
+        EmitB(0x89);
+        EmitOperand(src, dst);
+    }
+    
+    void Emit_movw(Register dst, int32_t val) {
+        EmitB(0x66);
+        EmitRex32(dst);
+        EmitB(0xB8 + RegLoBits(dst));
+        EmitW(val);
+    }
+    
+    void Emit_movw(Operand dst, int32_t val) {
+        EmitB(0x66);
+        EmitOptionalRex32(dst);
+        EmitB(0xC7);
+        EmitOperand(0x00, dst);
+        EmitB(static_cast<uint8_t>(val & 0xff));
+        EmitB(static_cast<uint8_t>(val >> 8));
+    }
+    
+    // NOTICE: only AH, BH, CH, DH can be extend
+    // byte -> dword
+    void Emit_movzxb(Register dst, Register src) {
+        DCHECK(src.code == kRAX || src.code == kRBX || src.code == kRCX || src.code == kRDX);
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0xB6);
+        EmitModRM(dst, src);
+    }
+
+    void Emit_movzxb(Register dst, Operand src) {
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0xB6);
+        EmitOperand(dst, src);
+    }
+
+    // word -> dword
+    void Emit_movzxw(Register dst, Register src) {
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0xB7);
+        EmitModRM(dst, src);
+    }
+
+    void Emit_movzxw(Register dst, Operand src) {
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0xB7);
+        EmitOperand(dst, src);
+    }
+
+    // byte -> dword
+    void Emit_movsxb(Register dst, Register src) {
+        DCHECK(src.code == kRAX || src.code == kRBX || src.code == kRCX || src.code == kRDX);
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0xBE);
+        EmitModRM(dst, src);
+    }
+
+    void Emit_movsxb(Register dst, Operand src) {
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0xBE);
+        EmitOperand(dst, src);
+    }
+
+    // word -> dword
+    void Emit_movsxw(Register dst, Register src) {
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0xBF);
+        EmitModRM(dst, src);
+    }
+
+    void Emit_movsxw(Register dst, Operand src) {
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0xBF);
+        EmitOperand(dst, src);
+    }
+    
+    //
+    // SSE
+    //
+    // MOVAPS—Move Aligned Packed Single-Precision Floating-Point Values
+    void Emit_movaps(Xmm dst, Xmm src);
+
+    void Emit_movaps(Xmm dst, Operand src) {
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0x28);
+        EmitOperand(dst, src);
+    }
+
+    void Emit_movaps(Operand dst, Xmm src) {
+        EmitOptionalRex32(src, dst);
+        EmitB(0x0F);
+        EmitB(0x29);
+        EmitOperand(src, dst);
+    }
+    
+    // MOVSS—Move Scalar Single-Precision Floating-Point Values
+    void Emit_movss(Xmm dst, Operand src) {
+        EmitB(0xF3);
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0x10);
+        EmitOperand(dst, src);
+    }
+
+    void Emit_movss(Operand dst, Xmm src) {
+        EmitB(0xF3);
+        EmitOptionalRex32(src, dst);
+        EmitB(0x0F);
+        EmitB(0x11);
+        EmitOperand(src, dst);
+    }
+    
+    //
+    // SSE2
+    //
+    // MOVAPD—Move Aligned Packed Double-Precision Floating-Point Values
+    void Emit_movapd(Xmm dst, Xmm src);
+
+    void Emit_movapd(Xmm dst, Operand src) {
+        EmitB(0x66);
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0x28);
+        EmitOperand(dst, src);
+    }
+
+    void Emit_movapd(Operand dst, Xmm src) {
+        EmitB(0x66);
+        EmitOptionalRex32(src, dst);
+        EmitB(0x0F);
+        EmitB(0x29);
+        EmitOperand(src, dst);
+    }
+
+    // Move Scalar Double-Precision Floating-Point Value
+    void Emit_movsd(Xmm dst, Operand src) {
+        EmitB(0xF2);
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0x10);
+        EmitOperand(dst, src);
+    }
+
+    void Emit_movsd(Operand dst, Xmm src) {
+        EmitB(0xF2);
+        EmitOptionalRex32(src, dst);
+        EmitB(0x0F);
+        EmitB(0x11);
+        EmitOperand(src, dst);
+    }
+    
     //----------------------------------------------------------------------------------------------
     // Jmps
     //----------------------------------------------------------------------------------------------
@@ -392,16 +582,7 @@ public:
         EmitOperand(0x2, addr);
     }
 
-    void Emit_ret(int val) {
-        DCHECK(IsUintN(val, 16));
-        if (val == 0) {
-            EmitB(0xC3);
-        } else {
-            EmitB(0xC2);
-            EmitB(val & 0xFF);
-            EmitB((val >> 8) & 0xFF);
-        }
-    }
+    void Emit_ret(int val);
     
     // Jumping
     void Emit_jmp(Label *l, bool is_far);
@@ -443,6 +624,35 @@ public:
     }
 
     void Emit_test(Operand dst, Immediate mask, int size = kDefaultSize);
+    
+    // Arithmetic Compare
+    void Emit_cmp(Register dst, Register src, int size = kDefaultSize) {
+        EmitRex(dst, src, size);
+        EmitB(0x3B);
+        EmitModRM(dst, src);
+    }
+    
+    void Emit_cmp(Register dst, int32_t val, int size = kDefaultSize);
+
+    void Emit_cmp(Operand dst, int32_t val, int size = kDefaultSize) {
+        EmitRex(dst, size);
+        EmitB(0x81);
+        EmitOperand(7, dst);
+        EmitDW(val);
+    }
+    
+    void Emit_cmp(Operand dst, Register src, int size = kDefaultSize) {
+        EmitRex(src, dst, size);
+        EmitB(0x39);
+        EmitOperand(src, dst);
+    }
+    
+    void Emit_cmp(Register dst, Operand src, int size = kDefaultSize) {
+        EmitRex(dst, src, size);
+        EmitB(0x3B);
+        EmitOperand(dst, src);
+    }
+
     
     //----------------------------------------------------------------------------------------------
     // Neg/Not/Shift
@@ -489,18 +699,37 @@ public:
     void Emit_shrd(Register dst, Register src);
 
     //----------------------------------------------------------------------------------------------
-    // Debug
+    // Utils
     //----------------------------------------------------------------------------------------------
+    void Emit_rdrand(Register dst, int size = kDefaultSize) {
+        EmitRex(dst, size);
+        EmitB(0x0F);
+        EmitB(0xC7);
+        EmitModRM(6, dst);
+    }
+    
+    // read real timestamp to EDX:EAX
+    void Emit_rdtsc() {
+        EmitB(0x0F);
+        EmitB(0x31);
+    }
+    
+    // read real timestamp and processor id to EDX:EAX ECX
+    void Emit_rdtscp() {
+        EmitB(0x0F);
+        EmitB(0x01);
+        EmitB(0xF9);
+    }
+    
     void EmitBreakpoint() { Emit_int3(); }
 
     void Emit_int3() { EmitB(0xCC); }
     
-    void Emit_nop() {
-        //0x90; 0x0f 0x1f
-        EmitB(0x90);
-        EmitB(0x0F);
-        EmitB(0x1F);
-    }
+    // nop for one byte
+    void Emit_nop() { EmitB(0x90); }
+    
+    // nop n bytes, 1 < n < 9
+    void Emit_nop(int n);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Assembler);
 private:
@@ -626,7 +855,7 @@ private:
 //        for (unsigned i = 1; i < len; i++) {
 //            EmitB(addr.buf()[i]);
 //        }
-        Emit(addr.buf(), len);
+        Emit(addr.buf() + 1, len - 1);
         //pc_ += len;
     }
     

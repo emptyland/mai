@@ -1,4 +1,5 @@
 #include "asm/x64/asm-x64.h"
+#include "asm/utils.h"
 #include "mai/allocator.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
@@ -51,13 +52,14 @@ TEST_F(X64AssemblerTest, Sanity) {
 }
 
 TEST_F(X64AssemblerTest, FarJccJump) {
-    asm_.Emit_test(kRegArgv[0], kRegArgv[1]);
+    //asm_.EmitBreakpoint();
+    asm_.Emit_cmp(kRegArgv[0], kRegArgv[1]);
     Label label;
     asm_.Emit_jcc(Equal, &label, true);
-    asm_.Emit_movq(rax, kRegArgv[0]);
+    asm_.Emit_movq(rax, kRegArgv[1]);
     asm_.Emit_ret(0);
     asm_.Bind(&label);
-    asm_.Emit_movq(rax, kRegArgv[1]);
+    asm_.Emit_movq(rax, kRegArgv[0]);
     asm_.Emit_ret(0);
     
     auto fn = MakeFunction<int (int, int)>();
@@ -84,13 +86,55 @@ TEST_F(X64AssemblerTest, CallOutsideFunction) {
 }
     
 struct TestFoo1 {
-    int a;
-    int b;
-    int c;
+    int a = 0;
+    int b = 0;
+    int c = 0;
+    
+    static const size_t kOffsetA;
 };
+
+const size_t TestFoo1::kOffsetA = arch::ObjectTemplate<TestFoo1>::OffsetOf(&TestFoo1::a);
+
     
 TEST_F(X64AssemblerTest, SetStruct) {
+    arch::ObjectTemplate<TestFoo1, int> foo_tmpl;
+    static const int kOffsetA = foo_tmpl.Offset(&TestFoo1::a);
+    static const int kOffsetB = foo_tmpl.Offset(&TestFoo1::b);
+    static const int kOffsetC = foo_tmpl.Offset(&TestFoo1::c);
+
+    //asm_.EmitBreakpoint();
+    asm_.Emit_movq(rax, 1);
+    asm_.Emit_movq(Operand(kRegArgv[0], kOffsetA), rax);
+    asm_.Emit_movq(rax, 2);
+    asm_.Emit_movq(Operand(kRegArgv[0], kOffsetB), rax);
+    asm_.Emit_movq(rax, 3);
+    asm_.Emit_movq(Operand(kRegArgv[0], kOffsetC), rax);
+    asm_.Emit_ret(0);
     
+    TestFoo1 foo;
+    auto fn = MakeFunction<void (TestFoo1 *)>();
+    fn(&foo);
+    
+    ASSERT_EQ(1, foo.a);
+    ASSERT_EQ(2, foo.b);
+    ASSERT_EQ(3, foo.c);
+}
+    
+TEST_F(X64AssemblerTest, SetArray) {
+    Register a0 = kRegArgv[0];
+    Register a1 = kRegArgv[1];
+    
+    asm_.Emit_movq(Operand(a0, a1, times_4, 0), Immediate{999});
+    asm_.Emit_ret(0);
+    
+    int d[4] = {0, 0, 0, 0};
+    auto fn = MakeFunction<void (int *, int)>();
+    fn(d, 0);
+    fn(d, 3);
+    EXPECT_EQ(d[0], 999);
+    EXPECT_EQ(d[1], 0);
+    EXPECT_EQ(d[2], 0);
+    EXPECT_EQ(d[3], 999);
 }
 
 } // namespace x64

@@ -161,7 +161,67 @@ void Assembler::Emit_movq(Register dst, Immediate src, int size) {
     }
     EmitDW(src.value());
 }
+
+void Assembler::Emit_movb(Register dst, Register src) {
+    if (!RegIsByte(dst)) {
+        EmitRex32(src, dst);
+    } else {
+        EmitOptionalRex32(src, dst);
+    }
+    EmitB(0x88);
+    EmitModRM(src, dst);
+}
     
+void Assembler::Emit_movb(Register dst, Operand src) {
+    if (!RegIsByte(dst)) {
+        // Register is not one of al, bl, cl, dl. Its encoding needs REX
+        EmitRex32(src);
+    } else {
+        EmitOptionalRex32(src);
+    }
+    EmitB(0x8A);
+    EmitOperand(dst, src);
+}
+
+void Assembler::Emit_movb(Operand dst, Register src) {
+    if (!RegIsByte(src)) {
+        EmitRex32(src, dst);
+    } else {
+        EmitOptionalRex32(src, dst);
+    }
+    EmitB(0x88);
+    EmitOperand(src, dst);
+}
+    
+void Assembler::Emit_movaps(Xmm dst, Xmm src) {
+    if (XmmLoBits(src) == 4) {
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0x29);
+        EmitOperand(src, dst);
+    } else {
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0x28);
+        EmitOperand(dst, src);
+    }
+}
+
+void Assembler::Emit_movapd(Xmm dst, Xmm src) {
+    EmitB(0x66);
+    if (XmmLoBits(src) == 4) {
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0x29);
+        EmitOperand(src, dst);
+    } else {
+        EmitOptionalRex32(dst, src);
+        EmitB(0x0F);
+        EmitB(0x28);
+        EmitOperand(dst, src);
+    }
+}
+
 void Assembler::Emit_call(Label *l) {
     EmitB(0xE8);
     if (l->IsBound()) {
@@ -176,6 +236,17 @@ void Assembler::Emit_call(Label *l) {
         int32_t curr = pc();
         EmitDW(curr);
         l->LinkTo(curr, true);
+    }
+}
+
+void Assembler::Emit_ret(int val) {
+    DCHECK(IsUintN(val, 16));
+    if (val == 0) {
+        EmitB(0xC3);
+    } else {
+        EmitB(0xC2);
+        EmitB(val & 0xFF);
+        EmitB((val >> 8) & 0xFF);
     }
 }
 
@@ -317,6 +388,19 @@ void Assembler::Emit_test(Operand dst, Immediate mask, int size) {
     EmitOperand(rax, dst);
     EmitDW(mask.value());
 }
+    
+void Assembler::Emit_cmp(Register dst, int32_t val, int size) {
+    if (dst.code == kRAX) {
+        EmitRex(dst, size);
+        EmitB(0x3D);
+        EmitDW(val);
+    } else {
+        EmitRex(dst, size);
+        EmitB(0x81);
+        EmitModRM(7, dst);
+        EmitDW(val);
+    }
+}
 
 void Assembler::BindTo(Label *l, int pos) {
     DCHECK(!l->IsBound()); // Label may only be bound once.
@@ -373,6 +457,75 @@ void Assembler::Emit_shift(Register dst, Immediate amount, int subcode, int size
         EmitB(0xC1);
         EmitModRM(subcode, dst);
         EmitB(amount.value());
+    }
+}
+
+void Assembler::Emit_nop(int n) {
+    switch (n) {
+        case 0:
+            break;
+        case 1:
+            Emit_nop();
+            break;
+        case 2:
+            EmitB(0x66);
+            EmitB(0x90);
+            break;
+        case 3:
+            // 0F 1F 00
+            EmitB(0x0F);
+            EmitB(0x1F);
+            EmitB(0x00);
+            break;
+        case 4:
+            // 0F 1F 40 00
+            EmitB(0x0F);
+            EmitB(0x1F);
+            EmitB(0x40);
+            EmitB(0x00);
+            break;
+        case 5:
+            // 0F 1F 44 00 00
+            EmitB(0x0F);
+            EmitB(0x1F);
+            EmitB(0x44);
+            EmitW(0); // 00 00
+            break;
+        case 6:
+            // 66 0F 1F 44 00 00
+            EmitB(0x66);
+            EmitB(0x0F);
+            EmitB(0x1F);
+            EmitB(0x44);
+            EmitW(0); // 00 00
+            break;
+        case 7:
+            // 0F 1F 80 00 00 00 00
+            EmitB(0x0F);
+            EmitB(0x1F);
+            EmitB(0x80);
+            EmitDW(0); // 00 00 00 00
+            break;
+        case 8:
+            // 0F 1F 84 00 00 00 00 00
+            EmitB(0x0F);
+            EmitB(0x1F);
+            EmitB(0x84);
+            EmitB(0x00);
+            EmitDW(0); // 00 00 00 00
+            break;
+        case 9:
+            // 66 0F 1F 84 00 00 00 00 00
+            EmitB(0x66);
+            EmitB(0x0F);
+            EmitB(0x1F);
+            EmitB(0x84);
+            EmitB(0x00);
+            EmitDW(0); // 00 00 00 00
+            break;
+        default:
+            DCHECK_GT(n, 0);
+            break;
     }
 }
 
