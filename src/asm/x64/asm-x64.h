@@ -332,48 +332,63 @@ public:
         EmitQW(val);
     }
     
-    void Emit_movq(Register dst, Register src, int size = kDefaultSize);
+    void Emit_movq(Register dst, Register src);
     
-    void Emit_movq(Register dst, Operand src, int size = kDefaultSize) {
-        EmitRex(dst, src, size);
+    void Emit_movq(Register dst, Operand src) {
+        EmitRex(dst, src, 8);
         EmitB(0x8B);
         EmitOperand(dst, src);
     }
     
-    void Emit_movq(Operand dst, Register src, int size = kDefaultSize) {
-        EmitRex(src, dst, size);
+    void Emit_movq(Operand dst, Register src) {
+        EmitRex(src, dst, 8);
         EmitB(0x89);
         EmitOperand(src, dst);
     }
     
-    void Emit_movq(Register dst, Immediate src, int size = kDefaultSize);
+    void Emit_movq(Register dst, int32_t src) {
+        EmitRex(dst, 8);
+        EmitB(0xC7);
+        EmitModRM(0x0, dst);
+        EmitDW(src);
+    }
     
-    void Emit_movq(Operand dst, Immediate src, int size = kDefaultSize) {
-        EmitRex(dst, size);
+    void Emit_movq(Operand dst, int32_t src) {
+        EmitRex(dst, 8);
         EmitB(0xC7);
         EmitOperand(0x0, dst);
-        EmitDW(src.value());
+        EmitDW(src);
     }
     
-    void Emit_movb(Register dst, Register src);
-    
-    void Emit_movb(Register dst, Operand src);
-    
-    void Emit_movb(Operand dst, Register src);
-    
-    void Emit_movb(Register dst, int32_t val) {
-        if (!RegIsByte(dst)) {
-            EmitRex32(dst);
-        }
-        EmitB(0xB0 + RegLoBits(dst));
-        EmitB(val);
+    void Emit_movl(Register dst, Register src) {
+        EmitRex(src, dst, 4);
+        EmitB(0x89);
+        EmitModRM(src, dst);
     }
     
-    void Emit_movb(Operand dst, int32_t val) {
-        EmitOptionalRex32(dst);
-        EmitB(0xC6);
-        EmitOperand(0x00, dst);
-        EmitB(val);
+    void Emit_movl(Register dst, Operand src) {
+        EmitRex(dst, src, 4);
+        EmitB(0x8B);
+        EmitOperand(dst, src);
+    }
+    
+    void Emit_movl(Operand dst, Register src) {
+        EmitRex(src, dst, 4);
+        EmitB(0x89);
+        EmitOperand(src, dst);
+    }
+    
+    void Emit_movl(Register dst, int32_t src) {
+        EmitRex(dst, 4);
+        EmitB(0xB8 + RegLoBits(dst));
+        EmitDW(src);
+    }
+    
+    void Emit_movl(Operand dst, int32_t src) {
+        EmitRex(dst, 4);
+        EmitB(0xC7);
+        EmitOperand(0x0, dst);
+        EmitDW(src);
     }
     
     void Emit_movw(Register dst, Register src) {
@@ -411,6 +426,27 @@ public:
         EmitOperand(0x00, dst);
         EmitB(static_cast<uint8_t>(val & 0xff));
         EmitB(static_cast<uint8_t>(val >> 8));
+    }
+    
+    void Emit_movb(Register dst, Register src);
+    
+    void Emit_movb(Register dst, Operand src);
+    
+    void Emit_movb(Operand dst, Register src);
+    
+    void Emit_movb(Register dst, int32_t val) {
+        if (!RegIsByte(dst)) {
+            EmitRex32(dst);
+        }
+        EmitB(0xB0 + RegLoBits(dst));
+        EmitB(val);
+    }
+    
+    void Emit_movb(Operand dst, int32_t val) {
+        EmitOptionalRex32(dst);
+        EmitB(0xC6);
+        EmitOperand(0x00, dst);
+        EmitB(val);
     }
     
     // NOTICE: only AH, BH, CH, DH can be extend
@@ -482,36 +518,16 @@ public:
     // MOVAPS—Move Aligned Packed Single-Precision Floating-Point Values
     void Emit_movaps(Xmm dst, Xmm src);
 
-    void Emit_movaps(Xmm dst, Operand src) {
-        EmitOptionalRex32(dst, src);
-        EmitB(0x0F);
-        EmitB(0x28);
-        EmitOperand(dst, src);
-    }
+    void Emit_movaps(Xmm dst, Operand src) { EmitSSEArith(0, 0x28, dst, src); }
 
-    void Emit_movaps(Operand dst, Xmm src) {
-        EmitOptionalRex32(src, dst);
-        EmitB(0x0F);
-        EmitB(0x29);
-        EmitOperand(src, dst);
-    }
+    void Emit_movaps(Operand dst, Xmm src) { EmitSSEArith(0, 0x29, src, dst); }
     
     // MOVSS—Move Scalar Single-Precision Floating-Point Values
-    void Emit_movss(Xmm dst, Operand src) {
-        EmitB(0xF3);
-        EmitOptionalRex32(dst, src);
-        EmitB(0x0F);
-        EmitB(0x10);
-        EmitOperand(dst, src);
-    }
+    void Emit_movss(Xmm dst, Xmm src) { EmitSSEArith(0xF3, 0x10, dst, src); }
+    
+    void Emit_movss(Xmm dst, Operand src) { EmitSSEArith(0xF3, 0x10, dst, src); }
 
-    void Emit_movss(Operand dst, Xmm src) {
-        EmitB(0xF3);
-        EmitOptionalRex32(src, dst);
-        EmitB(0x0F);
-        EmitB(0x11);
-        EmitOperand(src, dst);
-    }
+    void Emit_movss(Operand dst, Xmm src) { EmitSSEArith(0xF3, 0x11, src, dst); }
     
     //
     // SSE2
@@ -519,38 +535,16 @@ public:
     // MOVAPD—Move Aligned Packed Double-Precision Floating-Point Values
     void Emit_movapd(Xmm dst, Xmm src);
 
-    void Emit_movapd(Xmm dst, Operand src) {
-        EmitB(0x66);
-        EmitOptionalRex32(dst, src);
-        EmitB(0x0F);
-        EmitB(0x28);
-        EmitOperand(dst, src);
-    }
+    void Emit_movapd(Xmm dst, Operand src) { EmitSSEArith(0x66, 0x28, dst, src); }
 
-    void Emit_movapd(Operand dst, Xmm src) {
-        EmitB(0x66);
-        EmitOptionalRex32(src, dst);
-        EmitB(0x0F);
-        EmitB(0x29);
-        EmitOperand(src, dst);
-    }
+    void Emit_movapd(Operand dst, Xmm src) { EmitSSEArith(0x66, 0x29, src, dst); }
 
     // Move Scalar Double-Precision Floating-Point Value
-    void Emit_movsd(Xmm dst, Operand src) {
-        EmitB(0xF2);
-        EmitOptionalRex32(dst, src);
-        EmitB(0x0F);
-        EmitB(0x10);
-        EmitOperand(dst, src);
-    }
+    void Emit_movsd(Xmm dst, Xmm src) { EmitSSEArith(0xF2, 0x10, dst, src); }
+    
+    void Emit_movsd(Xmm dst, Operand src) { EmitSSEArith(0xF2, 0x10, dst, src); }
 
-    void Emit_movsd(Operand dst, Xmm src) {
-        EmitB(0xF2);
-        EmitOptionalRex32(src, dst);
-        EmitB(0x0F);
-        EmitB(0x11);
-        EmitOperand(src, dst);
-    }
+    void Emit_movsd(Operand dst, Xmm src) { EmitSSEArith(0xF2, 0x11, src, dst); }
     
     //----------------------------------------------------------------------------------------------
     // Jmps
@@ -624,35 +618,90 @@ public:
     }
 
     void Emit_test(Operand dst, Immediate mask, int size = kDefaultSize);
-    
-    // Arithmetic Compare
-    void Emit_cmp(Register dst, Register src, int size = kDefaultSize) {
-        EmitRex(dst, src, size);
-        EmitB(0x3B);
-        EmitModRM(dst, src);
-    }
-    
-    void Emit_cmp(Register dst, int32_t val, int size = kDefaultSize);
 
-    void Emit_cmp(Operand dst, int32_t val, int size = kDefaultSize) {
-        EmitRex(dst, size);
-        EmitB(0x81);
-        EmitOperand(7, dst);
-        EmitDW(val);
+    //
+    // SSE Floating Comparation
+    //
+    // CMPPD—Compare Packed Double-Precision Floating-Point Values
+    void Emit_cmppd(Xmm lhs, Xmm rhs, int8_t precision) {
+        //66 0F C2 /r ib
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0xC2);
+        EmitOperand(lhs, rhs); // RMI
+        EmitB(precision);
     }
     
-    void Emit_cmp(Operand dst, Register src, int size = kDefaultSize) {
-        EmitRex(src, dst, size);
-        EmitB(0x39);
-        EmitOperand(src, dst);
+    void Emit_cmppd(Xmm lhs, Operand rhs, int8_t precision) {
+        //66 0F C2 /r ib
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0xC2);
+        EmitOperand(lhs, rhs); // RMI
+        EmitB(precision);
     }
     
-    void Emit_cmp(Register dst, Operand src, int size = kDefaultSize) {
-        EmitRex(dst, src, size);
-        EmitB(0x3B);
-        EmitOperand(dst, src);
+    // Compare Packed Single-Precision Floating-Point Values
+    void Emit_cmpps(Xmm lhs, Xmm rhs, int8_t precision) {
+        // 0F C2 /r ib
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0xC2);
+        EmitOperand(lhs, rhs); // RMI
+        EmitB(precision);
+    }
+    
+    void Emit_cmpps(Xmm lhs, Operand rhs, int8_t precision) {
+        // 0F C2 /r ib
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0xC2);
+        EmitOperand(lhs, rhs); // RMI
+        EmitB(precision);
+    }
+    
+    // Compare Scalar Double-Precision Floating-Point Values (SSE2)
+    void Emit_cmpsd(Xmm lhs, Xmm rhs, int8_t precision) {
+        // F2 0F C2 /r ib
+        EmitB(0xF2);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0xC2);
+        EmitOperand(lhs, rhs); // RMI
+        EmitB(precision);
     }
 
+    void Emit_cmpsd(Xmm lhs, Operand rhs, int8_t precision) {
+        // F2 0F C2 /r ib
+        EmitB(0xF2);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0xC2);
+        EmitOperand(lhs, rhs); // RMI
+        EmitB(precision);
+    }
+    
+    // Compare Scalar Ordered Double-Precision Floating-Point Values and Set EFLAGS
+    // 66 0F 2F /r
+    void Emit_comisd(Xmm lhs, Xmm rhs) { EmitSSEArith(0x66, 0x2F, lhs, rhs); }
+    void Emit_comisd(Xmm lhs, Operand rhs) { EmitSSEArith(0x66, 0x2F, lhs, rhs); }
+
+    // UCOMISD—Unordered Compare Scalar Double-Precision Floating-Point Values and Set EFLAGS
+    // 66 0F 2E /r
+    void Emit_ucomisd(Xmm lhs, Xmm rhs) { EmitSSEArith(0x66, 0x2E, lhs, rhs); }
+    void Emit_ucomisd(Xmm lhs, Operand rhs) { EmitSSEArith(0x66, 0x2E, lhs, rhs); }
+    
+    // Compare Scalar Ordered Single-Precision Floating-Point Values and Set EFLAGS
+    // 0F 2F /r
+    void Emit_comiss(Xmm lhs, Xmm rhs) { EmitSSEArith(0, 0x2F, lhs, rhs); }
+    void Emit_comiss(Xmm lhs, Operand rhs) { EmitSSEArith(0, 0x2F, lhs, rhs); }
+    
+    // UCOMISS—Unordered Compare Scalar Single-Precision Floating-Point Values and Set EFLAGS
+    // 0F 2E /r
+    void Emit_ucomiss(Xmm lhs, Xmm rhs) { EmitSSEArith(0, 0x2E, lhs, rhs); }
+    void Emit_ucomiss(Xmm lhs, Operand rhs) { EmitSSEArith(0, 0x2E, lhs, rhs); }
     
     //----------------------------------------------------------------------------------------------
     // Neg/Not/Shift
@@ -697,6 +746,77 @@ public:
 
     // shift src:dst right by cl bits, affecting only dst.
     void Emit_shrd(Register dst, Register src);
+    
+    //----------------------------------------------------------------------------------------------
+    // Arith
+    //----------------------------------------------------------------------------------------------
+#define ARITH_OP_LIST(V) \
+    V(add, \
+        0x3, 0x0, 0x3, 0x1, 0x0, \
+        0x1, 0x0, 0x3, 0x1, 0x0, \
+        0x0, 0x0, 0x2, 0x0, 0x0) \
+    V(sub, \
+        0x2B, 0x5, 0x2B, 0x29, 0x5, \
+        0x29, 0x5, 0x2B, 0x29, 0x5, \
+        0x28, 0x5, 0x2A, 0x29, 0x5) \
+    V(cmp, \
+        0x3B, 0x7, 0x3B, 0x39, 0x7, \
+        0x39, 0x7, 0x3B, 0x39, 0x7, \
+        0x3A, 0x7, 0x3A, 0x38, 0x7) \
+    V(and, \
+        0x23, 0x4, 0x23, 0x21, 0x4, \
+        0x21, 0x4, 0x23, 0x21, 0x4, \
+        0x22, 0x4, 0x22, 0x20, 0x4) \
+    V(or, \
+        0x0B, 0x1, 0x0B, 0x09, 0x1, \
+        0x09, 0x1, 0x0B, 0x09, 0x1, \
+        0x0A, 0x1, 0x0A, 0x08, 0x1) \
+    V(xor, \
+        0x33, 0x6, 0x33, 0x31, 0x6, \
+        0x31, 0x6, 0x33, 0x31, 0x6, \
+        0x32, 0x6, 0x32, 0x30, 0x6)
+    
+#define DEF_ARITH(name, q_r_r, q_r_i, q_r_o, q_o_r, q_o_i, w_r_r, w_r_i, w_r_o, w_o_r, w_o_i, b_r_r, b_r_i, b_r_o, b_o_r, b_o_i) \
+    DEF_ARITH_LONG(name##q,   8, q_r_r, q_r_i, q_r_o, q_o_r, q_o_i) \
+    DEF_ARITH_LONG(name##l,   4, q_r_r, q_r_i, q_r_o, q_o_r, q_o_i)
+    
+#define DEF_ARITH_LONG(name, size, rr, ri, ro, or, oi) \
+    inline void Emit_##name(Register lhs, Register rhs) { EmitArith(rr, lhs, rhs, size); } \
+    inline void Emit_##name(Register lhs, int32_t val) { EmitArith(ri, lhs, val, size); } \
+    inline void Emit_##name(Register lhs, Operand rhs) { EmitArith(ro, lhs, rhs, size); } \
+    inline void Emit_##name(Operand lhs, Register rhs) { EmitArith(or, rhs, lhs, size); } \
+    inline void Emit_##name(Operand lhs, int32_t val) { EmitArith(or, lhs, val, size); }
+
+    ARITH_OP_LIST(DEF_ARITH)
+    
+#undef ARITH_OP_LIST
+#undef DEF_ARITH_LONG
+#undef DEF_ARITH
+    
+    // ss, ps, sd, pd
+#define ARITH_SSE_OP_LIST(V) \
+    V(add, 0x58) \
+    V(sub, 0x5C) \
+    V(mul, 0x59) \
+    V(div, 0x5E) \
+    V(and, 0x54) \
+    V(or,  0x56) \
+    V(xor, 0x57)
+    
+#define DEF_SSE_ARITH(name, opcode) \
+    inline void Emit_##name##ss(Xmm lhs, Xmm rhs) { EmitSSEArith(0xF3, opcode, lhs, rhs); } \
+    inline void Emit_##name##ss(Xmm lhs, Operand rhs) { EmitSSEArith(0xF3, opcode, lhs, rhs); } \
+    inline void Emit_##name##ps(Xmm lhs, Xmm rhs) { EmitSSEArith(0, opcode, lhs, rhs); } \
+    inline void Emit_##name##ps(Xmm lhs, Operand rhs) { EmitSSEArith(0, opcode, lhs, rhs); } \
+    inline void Emit_##name##sd(Xmm lhs, Xmm rhs) { EmitSSEArith(0xF2, opcode, lhs, rhs); } \
+    inline void Emit_##name##sd(Xmm lhs, Operand rhs) { EmitSSEArith(0xF2, opcode, lhs, rhs); } \
+    inline void Emit_##name##pd(Xmm lhs, Xmm rhs) { EmitSSEArith(0x66, opcode, lhs, rhs); } \
+    inline void Emit_##name##pd(Xmm lhs, Operand rhs) { EmitSSEArith(0x66, opcode, lhs, rhs); }
+
+    ARITH_SSE_OP_LIST(DEF_SSE_ARITH)
+
+#undef DEF_SSE_ARITH
+#undef ARITH_SSE_OP_LIST
 
     //----------------------------------------------------------------------------------------------
     // Utils
@@ -706,19 +826,6 @@ public:
         EmitB(0x0F);
         EmitB(0xC7);
         EmitModRM(6, dst);
-    }
-    
-    // read real timestamp to EDX:EAX
-    void Emit_rdtsc() {
-        EmitB(0x0F);
-        EmitB(0x31);
-    }
-    
-    // read real timestamp and processor id to EDX:EAX ECX
-    void Emit_rdtscp() {
-        EmitB(0x0F);
-        EmitB(0x01);
-        EmitB(0xF9);
     }
     
     void EmitBreakpoint() { Emit_int3(); }
@@ -733,6 +840,28 @@ public:
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Assembler);
 private:
+    void EmitArith(uint8_t op, Register lhs, Operand rhs, int size) {
+        EmitRex(lhs, rhs, size);
+        EmitB(op);
+        EmitOperand(lhs, rhs);
+    }
+    
+    void EmitArith(uint8_t op, Register lhs, Register rhs, int size);
+    
+    void EmitArith(uint8_t subcode, Register lhs, int32_t imm, int size);
+    
+    void EmitArith(uint8_t subcode, Operand lhs, int32_t imm, int size);
+
+    template<class L, class R>
+    inline void EmitSSEArith(uint8_t prefix, uint8_t subcode, L lhs, R rhs) {
+        if (prefix) {
+            EmitB(prefix);
+        }
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(subcode);
+        EmitOperand(lhs, rhs);
+    }
     
     template<class T, class S>
     inline void EmitRex(T dst, S src, int size) {
@@ -822,11 +951,11 @@ private:
     void EmitOptionalRex32(Register reg, Xmm base) { EmitOptionalRex32(Xmm{reg.code}, base); }
     
     void EmitModRM(Register reg, Register rmreg) {
-        EmitB(0xc0 | RegLoBits(reg) << 3 | RegLoBits(rmreg));
+        EmitB(0xC0 | RegLoBits(reg) << 3 | RegLoBits(rmreg));
     }
     
     void EmitModRM(int n, Register rmreg) {
-        EmitB(0xc0 | ((n) << 3) | RegLoBits(rmreg));
+        EmitB(0xC0 | ((n) << 3) | RegLoBits(rmreg));
     }
     
     void EmitOperand(Register reg, Operand opd) { EmitOperand(RegLoBits(reg), opd); }
@@ -848,15 +977,10 @@ private:
         
         const unsigned len = addr.len();
         DCHECK_GT(len, 0);
-        
+
         DCHECK_EQ((addr.buf()[0] & 0x38), 0);
         EmitB(addr.buf()[0] | code << 3);
-
-//        for (unsigned i = 1; i < len; i++) {
-//            EmitB(addr.buf()[i]);
-//        }
         Emit(addr.buf() + 1, len - 1);
-        //pc_ += len;
     }
     
     void EmitB(uint8_t x) { EmitT<uint8_t>(x); }

@@ -138,28 +138,16 @@ Operand::Operand(Register index, ScaleFactor scale, int32_t disp)
 }
 
     
-void Assembler::Emit_movq(Register dst, Register src, int size) {
+void Assembler::Emit_movq(Register dst, Register src) {
     if (RegLoBits(dst) == 4) {
-        EmitRex(src, dst, size);
+        EmitRex(src, dst, 8);
         EmitB(0x89);
         EmitModRM(src, dst);
     } else {
-        EmitRex(dst, src, size);
+        EmitRex(dst, src, 8);
         EmitB(0x8B);
         EmitModRM(dst, src);
     }
-}
-    
-void Assembler::Emit_movq(Register dst, Immediate src, int size) {
-    EmitRex(dst, size);
-    if (size == 8) {
-        EmitB(0xC7);
-        EmitModRM(0x0, dst);
-    } else {
-        DCHECK_EQ(size, 4);
-        EmitB(0xB8 + RegLoBits(dst));
-    }
-    EmitDW(src.value());
 }
 
 void Assembler::Emit_movb(Register dst, Register src) {
@@ -389,18 +377,18 @@ void Assembler::Emit_test(Operand dst, Immediate mask, int size) {
     EmitDW(mask.value());
 }
     
-void Assembler::Emit_cmp(Register dst, int32_t val, int size) {
-    if (dst.code == kRAX) {
-        EmitRex(dst, size);
-        EmitB(0x3D);
-        EmitDW(val);
-    } else {
-        EmitRex(dst, size);
-        EmitB(0x81);
-        EmitModRM(7, dst);
-        EmitDW(val);
-    }
-}
+//void Assembler::Emit_cmp(Register dst, int32_t val, int size) {
+//    if (dst.code == kRAX) {
+//        EmitRex(dst, size);
+//        EmitB(0x3D);
+//        EmitDW(val);
+//    } else {
+//        EmitRex(dst, size);
+//        EmitB(0x81);
+//        EmitModRM(7, dst);
+//        EmitDW(val);
+//    }
+//}
 
 void Assembler::BindTo(Label *l, int pos) {
     DCHECK(!l->IsBound()); // Label may only be bound once.
@@ -526,6 +514,51 @@ void Assembler::Emit_nop(int n) {
         default:
             DCHECK_GT(n, 0);
             break;
+    }
+}
+
+
+void Assembler::EmitArith(uint8_t op, Register reg, Register rm_reg, int size) {
+    DCHECK((op & 0xC6) == 2);
+    
+    if (RegLoBits(rm_reg) == 4) { // Forces SIB byte.
+        // Swap reg and rm_reg and change opcode operand order.
+        EmitRex(rm_reg, reg, size);
+        EmitB(op ^ 0x20);
+        EmitModRM(rm_reg, reg);
+    } else {
+        EmitRex(reg, rm_reg, size);
+        EmitB(op);
+        EmitModRM(reg, rm_reg);
+    }
+}
+
+void Assembler::EmitArith(uint8_t subcode, Register lhs, int32_t imm, int size) {
+    EmitRex(lhs, size);
+    if (IsIntN(imm, 8)) {
+        EmitB(0x83);
+        EmitModRM(subcode, lhs);
+        EmitB(imm);
+    } else if (lhs.code == rax.code) {
+        EmitB(0x05 | (subcode << 3));
+        EmitDW(imm);
+    } else {
+        EmitB(0x81);
+        EmitModRM(subcode, lhs);
+        EmitDW(imm);
+    }
+}
+    
+void Assembler::EmitArith(uint8_t subcode, Operand lhs, int32_t imm, int size) {
+    EmitRex(lhs, size);
+    if (IsIntN(imm, 8)) {
+        EmitB(0x83);
+        EmitOperand(subcode, lhs);
+        EmitB(imm);
+    } else {
+        EmitB(0x81);
+        EmitOperand(subcode, lhs);
+        EmitDW(imm);
     }
 }
 
