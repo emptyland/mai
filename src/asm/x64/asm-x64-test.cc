@@ -210,6 +210,43 @@ TEST_F(X64AssemblerTest, XmmAdd) {
         ASSERT_NEAR(2777.406, a2[3], 0.001);
     }
 }
+
+TEST_F(X64AssemblerTest, SSEConvert) {
+    
+    asm_.Emit_cvtss2sd(xmm0, Operand(kRegArgv[0], 0));
+    asm_.Emit_ret(0);
+    {
+        float in = 1234.5678;
+        auto foo = MakeFunction<double (float *)>();
+        EXPECT_NEAR(1234.57, foo(&in), 0.01);
+    }
+    
+    asm_.Reset();
+    asm_.Emit_cvtss2sil(rax, Operand(kRegArgv[0], 0));
+    asm_.Emit_ret(0);
+    {
+        float in = 1234.5678;
+        auto foo = MakeFunction<int32_t (float *)>();
+        EXPECT_EQ(1235, foo(&in));
+    }
+    
+    asm_.Reset();
+    //asm_.EmitBreakpoint();
+    asm_.Emit_cvtss2sil(rax, kXmmArgv[0]);
+    asm_.Emit_ret(0);
+    {
+        auto foo = MakeFunction<int32_t (float)>();
+        EXPECT_EQ(1235, foo(1234.5678));
+    }
+    
+    asm_.Reset();
+    asm_.Emit_cvtss2siq(rax, kXmmArgv[0]);
+    asm_.Emit_ret(0);
+    {
+        auto foo = MakeFunction<int64_t (float)>();
+        EXPECT_EQ(1235, foo(1234.5678));
+    }
+}
     
 static int TestStub1(int a, int b) {
     return a + b;

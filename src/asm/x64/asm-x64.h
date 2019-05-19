@@ -4,6 +4,7 @@
 #include "base/base.h"
 #include "glog/logging.h"
 #include <string>
+#include <type_traits>
 
 namespace mai {
 
@@ -746,7 +747,86 @@ public:
 
     // shift src:dst right by cl bits, affecting only dst.
     void Emit_shrd(Register dst, Register src);
+
+    //----------------------------------------------------------------------------------------------
+    // Convert
+    //----------------------------------------------------------------------------------------------
+#define CONVERT_MODE_MX_X(name, prefix, subcode) \
+    void Emit_cvt##name(Xmm dst, Xmm src) { EmitSSEArith(prefix, subcode, dst, src); } \
+    void Emit_cvt##name(Xmm dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src); }
+
+#define CONVERT_MODE_MX_R(name, prefix, subcode) \
+    void Emit_cvt##name##q(Register dst, Xmm src) { EmitSSEArith(prefix, subcode, dst, src, 8); } \
+    void Emit_cvt##name##q(Register dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src, 8); } \
+    void Emit_cvt##name##l(Register dst, Xmm src) { EmitSSEArith(prefix, subcode, dst, src, 4); } \
+    void Emit_cvt##name##l(Register dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src, 4); }
     
+#define CONVERT_MODE_MR_X(name, prefix, subcode) \
+    void Emit_cvt##name##q(Xmm dst, Register src) { EmitSSEArith(prefix, subcode, dst, src, 8); } \
+    void Emit_cvt##name##q(Xmm dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src, 8); } \
+    void Emit_cvt##name##l(Xmm dst, Register src) { EmitSSEArith(prefix, subcode, dst, src, 4); } \
+    void Emit_cvt##name##l(Xmm dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src, 4); }
+    
+#define DEF_CONVERT(name, mode, prefix, subcode) CONVERT_##mode(name, prefix, subcode)
+    
+#define SSE_CONVERT(V) \
+    V(dq2pd,  MODE_MX_X, 0xF3, 0xE6) \
+    V(dq2ps,  MODE_MX_X, 0,    0x5B) \
+    V(pd2dq,  MODE_MX_X, 0xF2, 0xE6) \
+    V(pd2ps,  MODE_MX_X, 0x66, 0x5A) \
+    V(ps2pd,  MODE_MX_X, 0,    0x5A) \
+    V(ps2dq,  MODE_MX_X, 0x66, 0x5A) \
+    V(sd2si,  MODE_MX_R, 0xF2, 0x2D) \
+    V(sd2ss,  MODE_MX_X, 0xF2, 0x5A) \
+    V(si2sd,  MODE_MR_X, 0xF2, 0x2A) \
+    V(si2ss,  MODE_MR_X, 0xF3, 0x2A) \
+    V(ss2sd,  MODE_MX_X, 0xF3, 0x5A) \
+    V(ss2si,  MODE_MX_R, 0xF3, 0x2D) \
+    V(tpd2dq, MODE_MX_X, 0x66, 0xE6) \
+    V(tps2dq, MODE_MX_X, 0xF3, 0x5B) \
+    V(tsd2si, MODE_MX_R, 0xF2, 0x2C) \
+    V(tss2si, MODE_MX_R, 0xF3, 0x2C)
+
+    // Convert Packed Dword Integers to Packed Double-Precision FP Values
+    // F3 0F E6
+    // CVTDQ2PS—Convert Packed Dword Integers to Packed Single-Precision FP Values
+    // 0F 5B /r
+    // CVTPD2DQ—Convert Packed Double-Precision FP Values to Packed Dword Integers
+    // F2 0F E6 /r
+    // CVTPD2PS—Convert Packed Double-Precision FP Values to Packed Single-Precision FP Values
+    // 66 0F 5A /r
+    // CVTPS2PD—Convert Packed Single-Precision FP Values to Packed Double-Precision FP Values
+    // 0F 5A /r
+    // CVTSD2SI—Convert Scalar Double-Precision FP Value to Integer
+    // F2 0F 2D /r
+    // CVTSD2SS—Convert Scalar Double-Precision FP Value to Scalar Single-Precision FP Value
+    // F2 0F 5A /r
+    // CVTSI2SD—Convert Dword Integer to Scalar Double-Precision FP Value
+    // F2 0F 2A /r
+    // CVTSI2SS—Convert Dword Integer to Scalar Single-Precision FP Value
+    // F3 0F 2A /r
+    // CVTSS2SD—Convert Scalar Single-Precision FP Value to Scalar Double-Precision FP Value
+    // F3 0F 5A /r
+    // CVTSS2SI—Convert Scalar Single-Precision FP Value to Dword Integer
+    // F3 0F 2D /r
+    // CVTTPD2DQ—Convert with Truncation Packed Double-Precision FP Values to Packed Dword Integers
+    // 66 0F E6 /r
+    // CVTTPS2DQ—Convert with Truncation Packed Single-Precision FP Values to Packed Dword Integers
+    // F3 0F 5B /r
+    // CVTTSD2SI—Convert with Truncation Scalar Double-Precision FP Value to Signed Integer
+    // F2 0F 2C /r
+    // CVTTSS2SI—Convert with Truncation Scalar Single-Precision FP Value to Dword Integer
+    // F3 0F 2C /r
+    
+    SSE_CONVERT(DEF_CONVERT)
+    
+#undef DEF_CONVERT
+#undef SSE_CONVERT
+#undef DEF_CONVERT
+#undef CONVERT_MODE_MR_X
+#undef CONVERT_MODE_MX_R
+#undef CONVERT_MODE_MX_X
+
     //----------------------------------------------------------------------------------------------
     // Arith
     //----------------------------------------------------------------------------------------------
@@ -858,6 +938,19 @@ private:
             EmitB(prefix);
         }
         EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(subcode);
+        EmitOperand(lhs, rhs);
+    }
+    
+    template<class L, class R>
+    inline void EmitSSEArith(uint8_t prefix, uint8_t subcode, L lhs, R rhs, int size) {
+//        static_assert(std::is_same<L, Register>::value ||
+//                      std::is_same<R, Register>::value, "only for register");
+        if (prefix) {
+            EmitB(prefix);
+        }
+        EmitRex(lhs, rhs, size);
         EmitB(0x0F);
         EmitB(subcode);
         EmitOperand(lhs, rhs);
