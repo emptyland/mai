@@ -74,6 +74,14 @@ enum Cond {
     LastCond = Greater,
 }; // Cond;
     
+#define RegBits(reg)   (1 << (reg).code)
+#define RegHiBit(reg)  ((reg).code >> 3)
+#define RegLoBits(reg) ((reg).code & 0x7)
+#define RegIsByte(reg) ((reg).code <= 3)
+    
+#define XmmHiBit(reg)  RegHiBit(reg)
+#define XmmLoBits(reg) RegLoBits(reg)
+    
 struct Register {
     int code;
 }; // struct Register
@@ -131,14 +139,6 @@ static const constexpr int kMaxAllocXmms = 15;
 extern const Register kRegArgv[kMaxRegArgs];
 extern const Xmm kXmmArgv[kMaxXmmArgs];
 extern const Register kRegAlloc[kMaxAllocRegs];
-    
-#define RegBits(reg)   (1 << (reg).code)
-#define RegHiBit(reg)  ((reg).code >> 3)
-#define RegLoBits(reg) ((reg).code & 0x7)
-#define RegIsByte(reg) ((reg).code <= 3)
-    
-#define XmmHiBit(reg)  RegHiBit(reg)
-#define XmmLoBits(reg) RegLoBits(reg)
     
 inline int IsIntN(int64_t x, uint32_t n) {
     DCHECK((0 < n) && (n < 64));
@@ -276,7 +276,7 @@ public:
         EmitB(0x8D);
         EmitOperand(dst, src);
     }
-    
+
     //----------------------------------------------------------------------------------------------
     // Stack operations:
     //----------------------------------------------------------------------------------------------
@@ -547,6 +547,21 @@ public:
 
     void Emit_movsd(Operand dst, Xmm src) { EmitSSEArith(0xF2, 0x11, src, dst); }
     
+    // CMOVcc—Conditional Move
+    void Emit_cmovcc(Cond cond, Register dst, Register src, int size = kDefaultSize) {
+        EmitRex(dst, src, size);
+        EmitB(0x0F);
+        EmitB(0x70|cond);
+        EmitModRM(dst, src);
+    }
+    
+    void Emit_cmovcc(Cond cond, Register dst, Operand src, int size = kDefaultSize) {
+        EmitRex(dst, src, size);
+        EmitB(0x0F);
+        EmitB(0x70|cond);
+        EmitOperand(dst, src);
+    }
+    
     //----------------------------------------------------------------------------------------------
     // Jmps
     //----------------------------------------------------------------------------------------------
@@ -734,13 +749,34 @@ public:
     }
 
     // Shift
-    void Emit_shift(Register dst, Immediate amount, int subcode, int size = kDefaultSize);
+#define BITS_SHIFT(V) \
+    V(rol, 0x0) \
+    V(ror, 0x1) \
+    V(rcl, 0x2) \
+    V(rcr, 0x3) \
+    V(shl, 0x4) \
+    V(shr, 0x5) \
+    V(sal, 0x4) \
+    V(sar, 0x7)
+    
+#define DEF_SHIFT(name, subcode) \
+    void Emit_##name##l(Register dst, uint8_t imm8) { EmitShift(dst, imm8, subcode, 4); } \
+    void Emit_##name##l(Register dst) { EmitShift(dst, subcode, 4); } \
+    void Emit_##name##q(Register dst, uint8_t imm8) { EmitShift(dst, imm8, subcode, 8); } \
+    void Emit_##name##q(Register dst) { EmitShift(dst, subcode, 8); }
+    
+    // RCL : Rotate 9/17/33/65 bits (CF, r/m8) left
+    // RCR : Rotate 9/17/33/65 bits (CF, r/m8) right
+    // ROL : Rotate 8/16/32/64 bits (CF, r/m8) left
+    // ROR : Rotate 8/16/32/64 bits (CF, r/m8) right
+    // SAL : Multiply r/m8 by 2
+    // SAR : Signed divide* r/m8 by 2
+    // SHL : Multiply r/m8 by 2
+    // SHR : Unsigned divide r/m8 by 2
+    BITS_SHIFT(DEF_SHIFT)
 
-    void Emit_shift(Register dst, int subcode, int size = kDefaultSize) {
-        EmitRex(dst, size);
-        EmitB(0xD3);
-        EmitModRM(subcode, dst);
-    }
+#undef BITS_SHIFT
+#undef DEF_SHIFT
 
     // shift dst:src left by cl bits, affecting only dst.
     void Emit_shld(Register dst, Register src);
@@ -830,6 +866,30 @@ public:
     //----------------------------------------------------------------------------------------------
     // Arith
     //----------------------------------------------------------------------------------------------
+    void Emit_inc(Register dst, int size = kDefaultSize) {
+        EmitRex(dst, size);
+        EmitB(0xFF);
+        EmitModRM(0, dst);
+    }
+    
+    void Emit_inc(Operand dst, int size = kDefaultSize) {
+        EmitRex(dst, size);
+        EmitB(0xFF);
+        EmitOperand(0, dst);
+    }
+    
+    void Emit_dec(Register dst, int size = kDefaultSize) {
+        EmitRex(dst, size);
+        EmitB(0xFF);
+        EmitModRM(1, dst);
+    }
+    
+    void Emit_dec(Operand dst, int size = kDefaultSize) {
+        EmitRex(dst, size);
+        EmitB(0xFF);
+        EmitOperand(1, dst);
+    }
+    
 #define ARITH_OP_LIST(V) \
     V(add, \
         0x3, 0x0, 0x3, 0x1, 0x0, \
@@ -897,7 +957,7 @@ public:
 
 #undef DEF_SSE_ARITH
 #undef ARITH_SSE_OP_LIST
-
+    
     //----------------------------------------------------------------------------------------------
     // Utils
     //----------------------------------------------------------------------------------------------
@@ -920,6 +980,26 @@ public:
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Assembler);
 private:
+    void EmitShift(Register dst, uint8_t amount, int subcode, int size) {
+        DCHECK(size == sizeof(uint64_t) ? IsUintN(amount, 6) : IsUintN(amount, 5));
+        if (amount == 1) {
+            EmitRex(dst, size);
+            EmitB(0xD1);
+            EmitModRM(subcode, dst);
+        } else {
+            EmitRex(dst, size);
+            EmitB(0xC1);
+            EmitModRM(subcode, dst);
+            EmitB(amount);
+        }
+    }
+
+    void EmitShift(Register dst, int subcode, int size) {
+        EmitRex(dst, size);
+        EmitB(0xD3);
+        EmitModRM(subcode, dst);
+    }
+    
     void EmitArith(uint8_t op, Register lhs, Operand rhs, int size) {
         EmitRex(lhs, rhs, size);
         EmitB(op);

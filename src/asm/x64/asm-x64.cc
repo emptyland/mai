@@ -433,21 +433,6 @@ void Assembler::BindTo(Label *l, int pos) {
     l->BindTo(pos);
 }
 
-void Assembler::Emit_shift(Register dst, Immediate amount, int subcode, int size) {
-    DCHECK(size == sizeof(uint64_t) ? IsUintN(amount.value(), 6)
-           : IsUintN(amount.value(), 5));
-    if (amount.value() == 1) {
-        EmitRex(dst, size);
-        EmitB(0xD1);
-        EmitModRM(subcode, dst);
-    } else {
-        EmitRex(dst, size);
-        EmitB(0xC1);
-        EmitModRM(subcode, dst);
-        EmitB(amount.value());
-    }
-}
-
 void Assembler::Emit_nop(int n) {
     switch (n) {
         case 0:

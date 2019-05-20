@@ -93,6 +93,32 @@ TEST_F(X64AssemblerTest, Add) {
     ASSERT_EQ(110, k);
 }
 
+TEST_F(X64AssemblerTest, Shift) {
+    asm_.Emit_movl(rax, kRegArgv[0]);
+    asm_.Emit_shll(rax, 1);
+    asm_.Emit_shll(rax, 2);
+    asm_.Emit_movb(rcx, 1);
+    asm_.Emit_shll(rax);
+    asm_.Emit_ret(0);
+    {
+        auto foo = MakeFunction<uint32_t (uint32_t)>();
+        EXPECT_EQ(16, foo(1));
+    }
+    
+    asm_.Reset();
+    //asm_.EmitBreakpoint();
+    asm_.Emit_movl(rax, kRegArgv[0]);
+    asm_.Emit_shrl(rax, 1);
+    asm_.Emit_shrl(rax, 2);
+    asm_.Emit_movb(rcx, 1);
+    asm_.Emit_shrl(rax);
+    asm_.Emit_ret(0);
+    {
+        auto foo = MakeFunction<uint32_t (uint32_t)>();
+        EXPECT_EQ(1, foo(16));
+    }
+}
+
 TEST_F(X64AssemblerTest, XmmMoving) {
     
     asm_.Reset();
@@ -246,8 +272,78 @@ TEST_F(X64AssemblerTest, SSEConvert) {
         auto foo = MakeFunction<int64_t (float)>();
         EXPECT_EQ(1235, foo(1234.5678));
     }
-}
     
+    asm_.Reset();
+    asm_.Emit_cvttsd2sil(rax, kXmmArgv[0]);
+    asm_.Emit_ret(0);
+    {
+        auto foo = MakeFunction<int32_t (double)>();
+        EXPECT_EQ(1234, foo(1234.5678));
+    }
+    
+    asm_.Reset();
+    asm_.Emit_cvttsd2siq(rax, Operand(kRegArgv[0], 0));
+    asm_.Emit_ret(0);
+    {
+        double k = 98765.654321;
+        auto foo = MakeFunction<int64_t (double *)>();
+        ASSERT_EQ(98765, foo(&k));
+    }
+}
+
+TEST_F(X64AssemblerTest, SSEPackedConvert) {
+    asm_.Emit_cvtdq2pd(xmm0, Operand(kRegArgv[0], 0));
+    asm_.Emit_movapd(Operand(kRegArgv[1], 0), xmm0);
+    asm_.Emit_ret(0);
+    {
+        int32_t in[2] = {1234567, 8901234};
+        double out[2] = {0, 0};
+        auto foo = MakeFunction<void (int32_t *, double *)>();
+        foo(in, out);
+        EXPECT_NEAR(1234567, out[0], 0.1);
+        EXPECT_NEAR(8901234, out[1], 0.1);
+    }
+    
+    asm_.Reset();
+    asm_.Emit_cvtpd2dq(xmm0, Operand(kRegArgv[0], 0));
+    asm_.Emit_movapd(Operand(kRegArgv[1], 0), xmm0);
+    asm_.Emit_ret(0);
+    {
+        double in[2] = {1.9, 2.0};
+        int32_t out[4] = {0, 0, 0, 0};
+        auto foo = MakeFunction<void (double *, int32_t *)>();
+        foo(in, out);
+        EXPECT_EQ(2, out[0]);
+        EXPECT_EQ(2, out[1]);
+    }
+    
+    asm_.Reset();
+    asm_.Emit_cvtps2pd(xmm0, Operand(kRegArgv[0], 0));
+    asm_.Emit_movapd(Operand(kRegArgv[1], 0), xmm0);
+    asm_.Emit_ret(0);
+    {
+        float in[4] = {19.5, 20.1};
+        double out[2] = {0, 0};
+        auto foo = MakeFunction<void (float *, double *)>();
+        foo(in, out);
+        EXPECT_NEAR(19.5, out[0], 0.1);
+        EXPECT_NEAR(20.1, out[1], 0.1);
+    }
+    
+    asm_.Reset();
+    asm_.Emit_cvtpd2ps(xmm0, Operand(kRegArgv[0], 0));
+    asm_.Emit_movapd(Operand(kRegArgv[1], 0), xmm0);
+    asm_.Emit_ret(0);
+    {
+        double in[2] = {999.9, 888.8};
+        float  out[4] = {0, 0, 0, 0};
+        auto foo = MakeFunction<void (double *, float *)>();
+        foo(in, out);
+        EXPECT_NEAR(999.9, out[0], 0.1);
+        EXPECT_NEAR(888.8, out[1], 0.1);
+    }
+}
+
 static int TestStub1(int a, int b) {
     return a + b;
 }
