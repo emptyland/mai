@@ -74,62 +74,88 @@ enum Cond {
     LastCond = Greater,
 }; // Cond;
     
-#define RegBits(reg)   (1 << (reg).code)
-#define RegHiBit(reg)  ((reg).code >> 3)
-#define RegLoBits(reg) ((reg).code & 0x7)
-#define RegIsByte(reg) ((reg).code <= 3)
+//#define RegBits(reg)   (1 << (reg).code)
+//#define RegHiBit(reg)  ((reg).code >> 3)
+//#define RegLoBits(reg) ((reg).code & 0x7)
+//#define RegIsByte(reg) ((reg).code <= 3)
+//    
+//#define XmmHiBit(reg)  RegHiBit(reg)
+//#define XmmLoBits(reg) RegLoBits(reg)
     
-#define XmmHiBit(reg)  RegHiBit(reg)
-#define XmmLoBits(reg) RegLoBits(reg)
+class Register {
+public:
+    constexpr explicit Register(int code) : code_(code) {}
     
-struct Register {
-    int code;
-}; // struct Register
+    DEF_VAL_GETTER(int, code);
+
+    inline uint32_t bits() const { return 1u << code_; }
+    inline uint32_t hi_bits() const { return code_ >> 3; }
+    inline uint32_t lo_bits() const { return code_ & 0x7; }
+    inline bool is_byte() const { return code_ <= 3; }
     
-extern const Register rax; // 0
-extern const Register rcx; // 1
-extern const Register rdx; // 2
-extern const Register rbx; // 3
-extern const Register rsp; // 4
-
-extern const Register rbp; // 5
-extern const Register rsi; // 6
-extern const Register rdi; // 7
-extern const Register r8;  // 8
-extern const Register r9;  // 9
-
-extern const Register r10; // 10
-extern const Register r11; // 11
-extern const Register r12; // 12
-extern const Register r13; // 13
-extern const Register r14; // 14
-
-extern const Register r15; // 15
-extern const Register rNone; // -1
-
-struct Xmm {
-    int code;
-}; // struct Xmm
+    inline bool operator == (const Register &other) const { return code_ == other.code_; }
+    inline bool operator != (const Register &other) const { return code_ != other.code_; }
+private:
+    const int code_;
+}; // class Register
     
-extern const Xmm xmm0; // 0
-extern const Xmm xmm1; // 1
-extern const Xmm xmm2; // 2
-extern const Xmm xmm3; // 3
-extern const Xmm xmm4; // 4
+constexpr Register rax(kRAX); // 0
+constexpr Register rcx(kRCX); // 1
+constexpr Register rdx(kRDX); // 2
+constexpr Register rbx(kRBX); // 3
+constexpr Register rsp(kRSP); // 4
 
-extern const Xmm xmm5; // 5
-extern const Xmm xmm6; // 6
-extern const Xmm xmm7; // 7
-extern const Xmm xmm8; // 8
-extern const Xmm xmm9; // 9
+constexpr Register rbp(kRBP); // 5
+constexpr Register rsi(kRSI); // 6
+constexpr Register rdi(kRDI); // 7
+constexpr Register r8(kR8);  // 8
+constexpr Register r9(kR9);  // 9
 
-extern const Xmm xmm10; // 10
-extern const Xmm xmm11; // 11
-extern const Xmm xmm12; // 12
-extern const Xmm xmm13; // 13
-extern const Xmm xmm14; // 14
+constexpr Register r10(kR10); // 10
+constexpr Register r11(kR11); // 11
+constexpr Register r12(kR12); // 12
+constexpr Register r13(kR13); // 13
+constexpr Register r14(kR14); // 14
 
-extern const Xmm xmm15; // 15
+constexpr Register r15(kR15); // 15
+//extern const Register rNone; // -1
+
+class XMMRegister {
+public:
+    constexpr explicit XMMRegister(int code) : code_(code) {}
+    
+    DEF_VAL_GETTER(int, code);
+    
+    //inline uint32_t bits() const { return 1u << code_; }
+    inline uint8_t hi_bits() const { return code_ >> 3; }
+    inline uint8_t lo_bits() const { return code_ & 0x7; }
+    //inline bool is_byte() const { return code_ <= 3; }
+    
+    inline bool operator == (const XMMRegister &other) const { return code_ == other.code_; }
+    inline bool operator != (const XMMRegister &other) const { return code_ != other.code_; }
+private:
+    const int code_;
+}; // class XMMRegister
+    
+constexpr XMMRegister xmm0(0); // 0
+constexpr XMMRegister xmm1(1); // 1
+constexpr XMMRegister xmm2(2); // 2
+constexpr XMMRegister xmm3(3); // 3
+constexpr XMMRegister xmm4(4); // 4
+
+constexpr XMMRegister xmm5(5); // 5
+constexpr XMMRegister xmm6(6); // 6
+constexpr XMMRegister xmm7(7); // 7
+constexpr XMMRegister xmm8(8); // 8
+constexpr XMMRegister xmm9(9); // 9
+
+constexpr XMMRegister xmm10(10); // 10
+constexpr XMMRegister xmm11(11); // 11
+constexpr XMMRegister xmm12(12); // 12
+constexpr XMMRegister xmm13(13); // 13
+constexpr XMMRegister xmm14(14); // 14
+
+constexpr XMMRegister xmm15(15); // 15
     
 static const constexpr int kMaxRegArgs = 8;
 static const constexpr int kMaxXmmArgs = 8;
@@ -137,7 +163,7 @@ static const constexpr int kMaxAllocRegs = 11;
 static const constexpr int kMaxAllocXmms = 15;
     
 extern const Register kRegArgv[kMaxRegArgs];
-extern const Xmm kXmmArgv[kMaxXmmArgs];
+extern const XMMRegister kXmmArgv[kMaxXmmArgs];
 extern const Register kRegAlloc[kMaxAllocRegs];
     
 inline int IsIntN(int64_t x, uint32_t n) {
@@ -179,18 +205,17 @@ public:
 private:
     void SetModRM(int mod, Register rmreg) {
         DCHECK(IsUintN(mod, 2));
-        buf_[0] = mod << 6 | RegLoBits(rmreg);
-        rex_ |= RegHiBit(rmreg);
+        buf_[0] = mod << 6 | rmreg.lo_bits();
+        rex_ |= rmreg.hi_bits();
     }
 
     void SetSIB(ScaleFactor scale, Register index, Register base) {
         DCHECK_EQ(len_, 1);
         DCHECK(IsUintN(scale, 2));
-        DCHECK(index.code != rsp.code || base.code == rsp.code ||
-               base.code == r12.code);
-        
-        buf_[1] = (((int)scale) << 6) | (RegLoBits(index) << 3) | RegLoBits(base);
-        rex_ |= RegHiBit(index) << 1 | RegHiBit(base);
+        DCHECK(index != rsp || base == rsp || base == r12);
+
+        buf_[1] = ((static_cast<int>(scale)) << 6) | (index.lo_bits() << 3) | base.lo_bits();
+        rex_ |= index.hi_bits() << 1 | base.hi_bits();
         len_ = 2;
     }
     
@@ -282,7 +307,7 @@ public:
     //----------------------------------------------------------------------------------------------
     void Emit_pushq(Register src) {
         EmitOptionalRex32(src);
-        EmitB(0x50 | RegLoBits(src));
+        EmitB(0x50 | src.lo_bits());
     }
     
     void Emit_pushq(Operand opd) {
@@ -300,7 +325,7 @@ public:
     
     void Emit_popq(Register dst) {
         EmitOptionalRex32(dst);
-        EmitB(0x58 | RegLoBits(dst));
+        EmitB(0x58 | dst.lo_bits());
     }
     
     void Emit_popq(Operand dst) {
@@ -316,20 +341,20 @@ public:
     //----------------------------------------------------------------------------------------------
     void Emit_movp(Register dst, Address val) {
         EmitRex(dst, sizeof(val));
-        EmitB(0xB8 | RegLoBits(dst));
+        EmitB(0xB8 | dst.lo_bits());
         EmitP(val);
     }
     
     void Emit_movq(Register dst, Address val) {
         DCHECK_EQ(sizeof(val), sizeof(int64_t));
         EmitRex64(dst);
-        EmitB(0xB8 | RegLoBits(dst));
+        EmitB(0xB8 | dst.lo_bits());
         EmitP(val);
     }
     
     void Emit_movq(Register dst, int64_t val) {
         EmitRex64(dst);
-        EmitB(0xB8 | RegLoBits(dst));
+        EmitB(0xB8 | dst.lo_bits());
         EmitQW(val);
     }
     
@@ -381,7 +406,7 @@ public:
     
     void Emit_movl(Register dst, int32_t src) {
         EmitRex(dst, 4);
-        EmitB(0xB8 + RegLoBits(dst));
+        EmitB(0xB8 + dst.lo_bits());
         EmitDW(src);
     }
     
@@ -416,7 +441,8 @@ public:
     void Emit_movw(Register dst, int32_t val) {
         EmitB(0x66);
         EmitRex32(dst);
-        EmitB(0xB8 + RegLoBits(dst));
+        //EmitB(0xB8 + RegLoBits(dst));
+        EmitB(0xB8 + dst.lo_bits());
         EmitW(val);
     }
     
@@ -436,11 +462,12 @@ public:
     void Emit_movb(Operand dst, Register src);
     
     void Emit_movb(Register dst, int32_t val) {
-        if (!RegIsByte(dst)) {
+        if (!dst.is_byte()) {
             EmitRex32(dst);
         }
-        EmitB(0xB0 + RegLoBits(dst));
+        EmitB(0xB0 + dst.lo_bits());
         EmitB(val);
+
     }
     
     void Emit_movb(Operand dst, int32_t val) {
@@ -453,7 +480,7 @@ public:
     // NOTICE: only AH, BH, CH, DH can be extend
     // byte -> dword
     void Emit_movzxb(Register dst, Register src) {
-        DCHECK(src.code == kRAX || src.code == kRBX || src.code == kRCX || src.code == kRDX);
+        DCHECK(src == rax || src == rbx || src == rcx || src == rdx);
         EmitOptionalRex32(dst, src);
         EmitB(0x0F);
         EmitB(0xB6);
@@ -484,7 +511,7 @@ public:
 
     // byte -> dword
     void Emit_movsxb(Register dst, Register src) {
-        DCHECK(src.code == kRAX || src.code == kRBX || src.code == kRCX || src.code == kRDX);
+        DCHECK(src == rax || src == rbx || src == rcx || src == rdx);
         EmitOptionalRex32(dst, src);
         EmitB(0x0F);
         EmitB(0xBE);
@@ -517,48 +544,48 @@ public:
     // SSE
     //
     // MOVAPS—Move Aligned Packed Single-Precision Floating-Point Values
-    void Emit_movaps(Xmm dst, Xmm src);
+    void Emit_movaps(XMMRegister dst, XMMRegister src);
 
-    void Emit_movaps(Xmm dst, Operand src) { EmitSSEArith(0, 0x28, dst, src); }
+    void Emit_movaps(XMMRegister dst, Operand src) { EmitSSEArith(0, 0x28, dst, src); }
 
-    void Emit_movaps(Operand dst, Xmm src) { EmitSSEArith(0, 0x29, src, dst); }
+    void Emit_movaps(Operand dst, XMMRegister src) { EmitSSEArith(0, 0x29, src, dst); }
     
     // MOVSS—Move Scalar Single-Precision Floating-Point Values
-    void Emit_movss(Xmm dst, Xmm src) { EmitSSEArith(0xF3, 0x10, dst, src); }
+    void Emit_movss(XMMRegister dst, XMMRegister src) { EmitSSEArith(0xF3, 0x10, dst, src); }
     
-    void Emit_movss(Xmm dst, Operand src) { EmitSSEArith(0xF3, 0x10, dst, src); }
+    void Emit_movss(XMMRegister dst, Operand src) { EmitSSEArith(0xF3, 0x10, dst, src); }
 
-    void Emit_movss(Operand dst, Xmm src) { EmitSSEArith(0xF3, 0x11, src, dst); }
+    void Emit_movss(Operand dst, XMMRegister src) { EmitSSEArith(0xF3, 0x11, src, dst); }
     
     //
     // SSE2
     //
     // MOVAPD—Move Aligned Packed Double-Precision Floating-Point Values
-    void Emit_movapd(Xmm dst, Xmm src);
+    void Emit_movapd(XMMRegister dst, XMMRegister src);
 
-    void Emit_movapd(Xmm dst, Operand src) { EmitSSEArith(0x66, 0x28, dst, src); }
+    void Emit_movapd(XMMRegister dst, Operand src) { EmitSSEArith(0x66, 0x28, dst, src); }
 
-    void Emit_movapd(Operand dst, Xmm src) { EmitSSEArith(0x66, 0x29, src, dst); }
+    void Emit_movapd(Operand dst, XMMRegister src) { EmitSSEArith(0x66, 0x29, src, dst); }
 
     // Move Scalar Double-Precision Floating-Point Value
-    void Emit_movsd(Xmm dst, Xmm src) { EmitSSEArith(0xF2, 0x10, dst, src); }
+    void Emit_movsd(XMMRegister dst, XMMRegister src) { EmitSSEArith(0xF2, 0x10, dst, src); }
     
-    void Emit_movsd(Xmm dst, Operand src) { EmitSSEArith(0xF2, 0x10, dst, src); }
+    void Emit_movsd(XMMRegister dst, Operand src) { EmitSSEArith(0xF2, 0x10, dst, src); }
 
-    void Emit_movsd(Operand dst, Xmm src) { EmitSSEArith(0xF2, 0x11, src, dst); }
+    void Emit_movsd(Operand dst, XMMRegister src) { EmitSSEArith(0xF2, 0x11, src, dst); }
     
     // CMOVcc—Conditional Move
     void Emit_cmovcc(Cond cond, Register dst, Register src, int size = kDefaultSize) {
         EmitRex(dst, src, size);
         EmitB(0x0F);
-        EmitB(0x70|cond);
+        EmitB(0x70 | cond);
         EmitModRM(dst, src);
     }
     
     void Emit_cmovcc(Cond cond, Register dst, Operand src, int size = kDefaultSize) {
         EmitRex(dst, src, size);
         EmitB(0x0F);
-        EmitB(0x70|cond);
+        EmitB(0x70 | cond);
         EmitOperand(dst, src);
     }
     
@@ -639,7 +666,7 @@ public:
     // SSE Floating Comparation
     //
     // CMPPD—Compare Packed Double-Precision Floating-Point Values
-    void Emit_cmppd(Xmm lhs, Xmm rhs, int8_t precision) {
+    void Emit_cmppd(XMMRegister lhs, XMMRegister rhs, int8_t precision) {
         //66 0F C2 /r ib
         EmitB(0x66);
         EmitOptionalRex32(lhs, rhs);
@@ -649,7 +676,7 @@ public:
         EmitB(precision);
     }
     
-    void Emit_cmppd(Xmm lhs, Operand rhs, int8_t precision) {
+    void Emit_cmppd(XMMRegister lhs, Operand rhs, int8_t precision) {
         //66 0F C2 /r ib
         EmitB(0x66);
         EmitOptionalRex32(lhs, rhs);
@@ -660,7 +687,7 @@ public:
     }
     
     // Compare Packed Single-Precision Floating-Point Values
-    void Emit_cmpps(Xmm lhs, Xmm rhs, int8_t precision) {
+    void Emit_cmpps(XMMRegister lhs, XMMRegister rhs, int8_t precision) {
         // 0F C2 /r ib
         EmitOptionalRex32(lhs, rhs);
         EmitB(0x0F);
@@ -669,7 +696,7 @@ public:
         EmitB(precision);
     }
     
-    void Emit_cmpps(Xmm lhs, Operand rhs, int8_t precision) {
+    void Emit_cmpps(XMMRegister lhs, Operand rhs, int8_t precision) {
         // 0F C2 /r ib
         EmitOptionalRex32(lhs, rhs);
         EmitB(0x0F);
@@ -679,7 +706,7 @@ public:
     }
     
     // Compare Scalar Double-Precision Floating-Point Values (SSE2)
-    void Emit_cmpsd(Xmm lhs, Xmm rhs, int8_t precision) {
+    void Emit_cmpsd(XMMRegister lhs, XMMRegister rhs, int8_t precision) {
         // F2 0F C2 /r ib
         EmitB(0xF2);
         EmitOptionalRex32(lhs, rhs);
@@ -689,7 +716,7 @@ public:
         EmitB(precision);
     }
 
-    void Emit_cmpsd(Xmm lhs, Operand rhs, int8_t precision) {
+    void Emit_cmpsd(XMMRegister lhs, Operand rhs, int8_t precision) {
         // F2 0F C2 /r ib
         EmitB(0xF2);
         EmitOptionalRex32(lhs, rhs);
@@ -701,23 +728,23 @@ public:
     
     // Compare Scalar Ordered Double-Precision Floating-Point Values and Set EFLAGS
     // 66 0F 2F /r
-    void Emit_comisd(Xmm lhs, Xmm rhs) { EmitSSEArith(0x66, 0x2F, lhs, rhs); }
-    void Emit_comisd(Xmm lhs, Operand rhs) { EmitSSEArith(0x66, 0x2F, lhs, rhs); }
+    void Emit_comisd(XMMRegister lhs, XMMRegister rhs) { EmitSSEArith(0x66, 0x2F, lhs, rhs); }
+    void Emit_comisd(XMMRegister lhs, Operand rhs) { EmitSSEArith(0x66, 0x2F, lhs, rhs); }
 
     // UCOMISD—Unordered Compare Scalar Double-Precision Floating-Point Values and Set EFLAGS
     // 66 0F 2E /r
-    void Emit_ucomisd(Xmm lhs, Xmm rhs) { EmitSSEArith(0x66, 0x2E, lhs, rhs); }
-    void Emit_ucomisd(Xmm lhs, Operand rhs) { EmitSSEArith(0x66, 0x2E, lhs, rhs); }
+    void Emit_ucomisd(XMMRegister lhs, XMMRegister rhs) { EmitSSEArith(0x66, 0x2E, lhs, rhs); }
+    void Emit_ucomisd(XMMRegister lhs, Operand rhs) { EmitSSEArith(0x66, 0x2E, lhs, rhs); }
     
     // Compare Scalar Ordered Single-Precision Floating-Point Values and Set EFLAGS
     // 0F 2F /r
-    void Emit_comiss(Xmm lhs, Xmm rhs) { EmitSSEArith(0, 0x2F, lhs, rhs); }
-    void Emit_comiss(Xmm lhs, Operand rhs) { EmitSSEArith(0, 0x2F, lhs, rhs); }
+    void Emit_comiss(XMMRegister lhs, XMMRegister rhs) { EmitSSEArith(0, 0x2F, lhs, rhs); }
+    void Emit_comiss(XMMRegister lhs, Operand rhs) { EmitSSEArith(0, 0x2F, lhs, rhs); }
     
     // UCOMISS—Unordered Compare Scalar Single-Precision Floating-Point Values and Set EFLAGS
     // 0F 2E /r
-    void Emit_ucomiss(Xmm lhs, Xmm rhs) { EmitSSEArith(0, 0x2E, lhs, rhs); }
-    void Emit_ucomiss(Xmm lhs, Operand rhs) { EmitSSEArith(0, 0x2E, lhs, rhs); }
+    void Emit_ucomiss(XMMRegister lhs, XMMRegister rhs) { EmitSSEArith(0, 0x2E, lhs, rhs); }
+    void Emit_ucomiss(XMMRegister lhs, Operand rhs) { EmitSSEArith(0, 0x2E, lhs, rhs); }
     
     //----------------------------------------------------------------------------------------------
     // Neg/Not/Shift
@@ -788,20 +815,20 @@ public:
     // Convert
     //----------------------------------------------------------------------------------------------
 #define CONVERT_MODE_MX_X(name, prefix, subcode) \
-    void Emit_cvt##name(Xmm dst, Xmm src) { EmitSSEArith(prefix, subcode, dst, src); } \
-    void Emit_cvt##name(Xmm dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src); }
+    void Emit_cvt##name(XMMRegister dst, XMMRegister src) { EmitSSEArith(prefix, subcode, dst, src); } \
+    void Emit_cvt##name(XMMRegister dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src); }
 
 #define CONVERT_MODE_MX_R(name, prefix, subcode) \
-    void Emit_cvt##name##q(Register dst, Xmm src) { EmitSSEArith(prefix, subcode, dst, src, 8); } \
+    void Emit_cvt##name##q(Register dst, XMMRegister src) { EmitSSEArith(prefix, subcode, dst, src, 8); } \
     void Emit_cvt##name##q(Register dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src, 8); } \
-    void Emit_cvt##name##l(Register dst, Xmm src) { EmitSSEArith(prefix, subcode, dst, src, 4); } \
+    void Emit_cvt##name##l(Register dst, XMMRegister src) { EmitSSEArith(prefix, subcode, dst, src, 4); } \
     void Emit_cvt##name##l(Register dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src, 4); }
     
 #define CONVERT_MODE_MR_X(name, prefix, subcode) \
-    void Emit_cvt##name##q(Xmm dst, Register src) { EmitSSEArith(prefix, subcode, dst, src, 8); } \
-    void Emit_cvt##name##q(Xmm dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src, 8); } \
-    void Emit_cvt##name##l(Xmm dst, Register src) { EmitSSEArith(prefix, subcode, dst, src, 4); } \
-    void Emit_cvt##name##l(Xmm dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src, 4); }
+    void Emit_cvt##name##q(XMMRegister dst, Register src) { EmitSSEArith(prefix, subcode, dst, src, 8); } \
+    void Emit_cvt##name##q(XMMRegister dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src, 8); } \
+    void Emit_cvt##name##l(XMMRegister dst, Register src) { EmitSSEArith(prefix, subcode, dst, src, 4); } \
+    void Emit_cvt##name##l(XMMRegister dst, Operand src) { EmitSSEArith(prefix, subcode, dst, src, 4); }
     
 #define DEF_CONVERT(name, mode, prefix, subcode) CONVERT_##mode(name, prefix, subcode)
     
@@ -944,14 +971,14 @@ public:
     V(xor, 0x57)
     
 #define DEF_SSE_ARITH(name, opcode) \
-    inline void Emit_##name##ss(Xmm lhs, Xmm rhs) { EmitSSEArith(0xF3, opcode, lhs, rhs); } \
-    inline void Emit_##name##ss(Xmm lhs, Operand rhs) { EmitSSEArith(0xF3, opcode, lhs, rhs); } \
-    inline void Emit_##name##ps(Xmm lhs, Xmm rhs) { EmitSSEArith(0, opcode, lhs, rhs); } \
-    inline void Emit_##name##ps(Xmm lhs, Operand rhs) { EmitSSEArith(0, opcode, lhs, rhs); } \
-    inline void Emit_##name##sd(Xmm lhs, Xmm rhs) { EmitSSEArith(0xF2, opcode, lhs, rhs); } \
-    inline void Emit_##name##sd(Xmm lhs, Operand rhs) { EmitSSEArith(0xF2, opcode, lhs, rhs); } \
-    inline void Emit_##name##pd(Xmm lhs, Xmm rhs) { EmitSSEArith(0x66, opcode, lhs, rhs); } \
-    inline void Emit_##name##pd(Xmm lhs, Operand rhs) { EmitSSEArith(0x66, opcode, lhs, rhs); }
+    inline void Emit_##name##ss(XMMRegister lhs, XMMRegister rhs) { EmitSSEArith(0xF3, opcode, lhs, rhs); } \
+    inline void Emit_##name##ss(XMMRegister lhs, Operand rhs) { EmitSSEArith(0xF3, opcode, lhs, rhs); } \
+    inline void Emit_##name##ps(XMMRegister lhs, XMMRegister rhs) { EmitSSEArith(0, opcode, lhs, rhs); } \
+    inline void Emit_##name##ps(XMMRegister lhs, Operand rhs) { EmitSSEArith(0, opcode, lhs, rhs); } \
+    inline void Emit_##name##sd(XMMRegister lhs, XMMRegister rhs) { EmitSSEArith(0xF2, opcode, lhs, rhs); } \
+    inline void Emit_##name##sd(XMMRegister lhs, Operand rhs) { EmitSSEArith(0xF2, opcode, lhs, rhs); } \
+    inline void Emit_##name##pd(XMMRegister lhs, XMMRegister rhs) { EmitSSEArith(0x66, opcode, lhs, rhs); } \
+    inline void Emit_##name##pd(XMMRegister lhs, Operand rhs) { EmitSSEArith(0x66, opcode, lhs, rhs); }
 
     ARITH_SSE_OP_LIST(DEF_SSE_ARITH)
 
@@ -1025,8 +1052,6 @@ private:
     
     template<class L, class R>
     inline void EmitSSEArith(uint8_t prefix, uint8_t subcode, L lhs, R rhs, int size) {
-//        static_assert(std::is_same<L, Register>::value ||
-//                      std::is_same<R, Register>::value, "only for register");
         if (prefix) {
             EmitB(prefix);
         }
@@ -1059,90 +1084,96 @@ private:
     void EmitRex64() { EmitB(0x48); }
     
     void EmitRex64(Register rmreg) {
-        DCHECK(((rmreg).code & 0xf) == (rmreg).code);
-        EmitB(0x48 | RegHiBit(rmreg));
+        DCHECK((rmreg.code() & 0xf) == rmreg.code());
+        EmitB(0x48 | rmreg.hi_bits());
     }
 
     void EmitRex64(Operand opd) { EmitB(0x48 | opd.rex()); }
 
-    void EmitRex64(Xmm reg, Register rmreg) { EmitRex64(reg, Xmm{rmreg.code}); }
-    void EmitRex64(Register reg, Xmm rmreg) { EmitRex64(Xmm{reg.code}, rmreg); }
+    void EmitRex64(XMMRegister reg, Register rmreg) { EmitRex64(reg, XMMRegister{rmreg.code()}); }
+    void EmitRex64(Register reg, XMMRegister rmreg) { EmitRex64(XMMRegister{reg.code()}, rmreg); }
 
     void EmitRex64(Register reg, Register rmreg) {
-        EmitB(0x48 | RegHiBit(reg) << 2 | RegHiBit(rmreg));
+        EmitB(0x48 | reg.hi_bits() << 2 | rmreg.hi_bits());
     }
     
-    void EmitRex64(Xmm reg, Xmm rmreg) {
-        EmitB(0x48 | ((reg).code & 0x8) >> 1 | (rmreg).code >> 3);
+    void EmitRex64(XMMRegister reg, XMMRegister rmreg) {
+        EmitB(0x48 | (reg.code() & 0x8) >> 1 | rmreg.code() >> 3);
     }
-    
-    void EmitRex64(Register reg, Operand opd) { EmitB(0x48 | RegHiBit(reg) << 2 | opd.rex()); }
-    void EmitRex64(Xmm reg, Operand opd) { EmitB(0x48 | ((reg).code & 0x8) >> 1 | opd.rex()); }
-    
-    void EmitRex32(Register rmreg) { EmitB(0x40 | RegHiBit(rmreg)); }
+
+    void EmitRex64(Register reg, Operand opd) { EmitB(0x48 | reg.hi_bits() << 2 | opd.rex()); }
+    void EmitRex64(XMMRegister reg, Operand opd) {
+        EmitB(0x48 | (reg.code() & 0x8) >> 1 | opd.rex());
+    }
+
+    void EmitRex32(Register rmreg) { EmitB(0x40 | rmreg.hi_bits()); }
 
     void EmitRex32(Operand opd) { EmitB(0x40 | opd.rex()); }
     
     void EmitRex32(Register reg, Register rmreg) {
-        EmitB(0x40 | RegHiBit(reg) << 2 | RegHiBit(rmreg));
+        EmitB(0x40 | reg.hi_bits() << 2 | rmreg.hi_bits());
     }
     
     void EmitRex32(Register reg, Operand opd) {
-        EmitB(0x40 | RegHiBit(reg) << 2 | opd.rex());
+        EmitB(0x40 | reg.hi_bits() << 2 | opd.rex());
     }
     
-    void EmitOptionalRex32(Register rmreg) {
-        if (RegHiBit(rmreg)) { EmitB(0x41); }
-    }
+    void EmitOptionalRex32(Register rmreg) { if (rmreg.hi_bits()) { EmitB(0x41); } }
     
     void EmitOptionalRex32(Operand opd) {
         if (opd.rex() != 0) { EmitB(0x40 | opd.rex()); }
     }
     
     void EmitOptionalRex32(Register reg, Register rmreg) {
-        uint8_t rex_bits = RegHiBit(reg) << 2 | RegHiBit(rmreg);
+        uint8_t rex_bits = reg.hi_bits() << 2 | rmreg.hi_bits();
         if (rex_bits != 0) { EmitB(0x40 | rex_bits); }
     }
     
     void EmitOptionalRex32(Register reg, Operand opd) {
-        uint8_t rex_bits = RegHiBit(reg) << 2 | opd.rex();
+        uint8_t rex_bits = reg.hi_bits() << 2 | opd.rex();
         if (rex_bits != 0) { EmitB(0x40 | rex_bits); }
     }
 
-    void EmitOptionalRex32(Xmm reg, Operand opd) {
-        uint8_t rex_bits = ((reg).code & 0x8) >> 1 | opd.rex();
+    void EmitOptionalRex32(XMMRegister reg, Operand opd) {
+        uint8_t rex_bits = (reg.code() & 0x8) >> 1 | opd.rex();
         if (rex_bits != 0) { EmitB(0x40 | rex_bits); }
     }
     
-    void EmitOptionalRex32(Xmm reg, Xmm base) {
-        uint8_t rex_bits = ((reg).code & 0x8) >> 1 | ((base).code & 0x8) >> 3;
+    void EmitOptionalRex32(XMMRegister reg, XMMRegister base) {
+        uint8_t rex_bits = (reg.code() & 0x8) >> 1 | (base.code() & 0x8) >> 3;
         if (rex_bits != 0) { EmitB(0x40 | rex_bits); }
     }
     
-    void EmitOptionalRex32(Xmm reg, Register base) { EmitOptionalRex32(reg, Xmm{base.code}); }
+    void EmitOptionalRex32(XMMRegister reg, Register base) {
+        EmitOptionalRex32(reg, XMMRegister{base.code()});
+    }
 
-    void EmitOptionalRex32(Register reg, Xmm base) { EmitOptionalRex32(Xmm{reg.code}, base); }
+    void EmitOptionalRex32(Register reg, XMMRegister base) {
+        EmitOptionalRex32(XMMRegister{reg.code()}, base);
+    }
     
     void EmitModRM(Register reg, Register rmreg) {
-        EmitB(0xC0 | RegLoBits(reg) << 3 | RegLoBits(rmreg));
+        EmitB(0xC0 | reg.lo_bits() << 3 | rmreg.lo_bits());
     }
     
     void EmitModRM(int n, Register rmreg) {
-        EmitB(0xC0 | ((n) << 3) | RegLoBits(rmreg));
+        EmitB(0xC0 | ((n) << 3) | rmreg.lo_bits());
+    }
+
+    void EmitOperand(Register reg, Operand opd) { EmitOperand(reg.lo_bits(), opd); }
+    
+    void EmitOperand(XMMRegister reg, Operand opd) { EmitOperand(Register(reg.code()), opd); }
+
+    void EmitOperand(XMMRegister dst, XMMRegister src) {
+        EmitB(0xC0 | (dst.lo_bits() << 3) | src.lo_bits());
+    }
+
+    void EmitOperand(XMMRegister dst, Register src) {
+        EmitB(0xC0 | (dst.lo_bits() << 3) | src.lo_bits());
     }
     
-    void EmitOperand(Register reg, Operand opd) { EmitOperand(RegLoBits(reg), opd); }
-    
-    void EmitOperand(Xmm reg, Operand opd) { EmitOperand(Register{reg.code}, opd); }
-
-    void EmitOperand(Xmm dst, Xmm src) { EmitB(0xC0 | (XmmLoBits(dst) << 3) | XmmLoBits(src)); }
-
-    void EmitOperand(Xmm dst, Register src) {
-        EmitB(0xC0 | (XmmLoBits(dst) << 3) | RegLoBits(src));
-    }
-    
-    void EmitOperand(Register dst, Xmm src) {
-        EmitB(0xC0 | (RegLoBits(dst) << 3) | XmmLoBits(src));
+    void EmitOperand(Register dst, XMMRegister src) {
+        EmitB(0xC0 | (dst.lo_bits() << 3) | src.lo_bits());
     }
     
     void EmitOperand(int code, Operand addr) {

@@ -4,48 +4,6 @@ namespace mai {
     
 namespace x64 {
     
-const Register rax{kRAX}; // 0
-const Register rcx{kRCX}; // 1
-const Register rdx{kRDX}; // 2
-const Register rbx{kRBX}; // 3
-const Register rsp{kRSP}; // 4
-
-const Register rbp{kRBP}; // 5
-const Register rsi{kRSI}; // 6
-const Register rdi{kRDI}; // 7
-const Register r8{kR8};  // 8
-const Register r9{kR9};  // 9
-
-const Register r10{kR10}; // 10
-const Register r11{kR11}; // 11
-const Register r12{kR12}; // 12
-const Register r13{kR13}; // 13
-const Register r14{kR14}; // 14
-
-const Register r15{kR15}; // 15
-const Register rNone{-1}; // -1
-    
-// 128bit xmm registers:
-const Xmm xmm0  = {0}; // 0
-const Xmm xmm1  = {1}; // 1
-const Xmm xmm2  = {2}; // 2
-const Xmm xmm3  = {3}; // 3
-const Xmm xmm4  = {4}; // 4
-
-const Xmm xmm5  = {5}; // 5
-const Xmm xmm6  = {6}; // 6
-const Xmm xmm7  = {7}; // 7
-const Xmm xmm8  = {8}; // 8
-const Xmm xmm9  = {9}; // 9
-
-const Xmm xmm10 = {10}; // 10
-const Xmm xmm11 = {11}; // 11
-const Xmm xmm12 = {12}; // 12
-const Xmm xmm13 = {13}; // 13
-const Xmm xmm14 = {14}; // 14
-
-const Xmm xmm15 = {15}; // 15
-    
 const Register kRegArgv[kMaxRegArgs] {
     rdi, // {kRDI},
     rsi, // {kRSI},
@@ -57,7 +15,7 @@ const Register kRegArgv[kMaxRegArgs] {
     r11, // {kR11},
 };
 
-const Xmm kXmmArgv[kMaxXmmArgs] {
+const XMMRegister kXmmArgv[kMaxXmmArgs] {
     xmm0,
     xmm1,
     xmm2,
@@ -76,29 +34,40 @@ const Xmm kXmmArgv[kMaxXmmArgs] {
 // r13 - root register
 //
 const Register kRegAlloc[kMaxAllocRegs] {
-    {kRAX}, // 0
-    {kRBX},
-    {kRDX},
-    {kRCX},
-    {kRSI}, // 4
-    {kRDI},
-    {kR8},
-    {kR9},
-    {kR11}, // 8
-    {kR14},
-    {kR15},
+//    {kRAX}, // 0
+//    {kRBX},
+//    {kRDX},
+//    {kRCX},
+//    {kRSI}, // 4
+//    {kRDI},
+//    {kR8},
+//    {kR9},
+//    {kR11}, // 8
+//    {kR14},
+//    {kR15},
+    rax, // 0
+    rbx,
+    rdx,
+    rcx,
+    rsi, // 4
+    rdi,
+    r8,
+    r9,
+    r11, // 8
+    r14,
+    r15,
 };
 
 // [base + disp/r]
 Operand::Operand(Register base, int32_t disp)
     : rex_(0)
     , len_(1) {
-    if (base.code == rsp.code || base.code == r12.code) {
+    if (base == rsp || base == r12) {
         // From v8:
         // SIB byte is needed to encode (rsp + offset) or (r12 + offset)
         SetSIB(times_1, rsp, base);
     }
-    if (disp == 0 && base.code != rbp.code && base.code != r13.code) {
+    if (disp == 0 && base != rbp && base != r13) {
         SetModRM(0, base);
     } else if (IsIntN(disp, 8)) {
         SetModRM(1, base);
@@ -114,10 +83,10 @@ Operand::Operand(Register base, Register index, ScaleFactor scale,
                  int32_t disp)
     : rex_(0)
     , len_(1) {
-    DCHECK(index.code != rsp.code);
+    DCHECK(index != rsp);
 
     SetSIB(scale, index, base);
-    if (disp == 0 && base.code != rbp.code && base.code != r13.code) {
+    if (disp == 0 && base != rbp && base != r13) {
         SetModRM(0, rsp);
     } else if (IsIntN(disp, 8)) {
         SetModRM(1, rsp);
@@ -139,7 +108,7 @@ Operand::Operand(Register index, ScaleFactor scale, int32_t disp)
 
     
 void Assembler::Emit_movq(Register dst, Register src) {
-    if (RegLoBits(dst) == 4) {
+    if (dst.lo_bits() == 4) {
         EmitRex(src, dst, 8);
         EmitB(0x89);
         EmitModRM(src, dst);
@@ -151,7 +120,7 @@ void Assembler::Emit_movq(Register dst, Register src) {
 }
 
 void Assembler::Emit_movb(Register dst, Register src) {
-    if (!RegIsByte(dst)) {
+    if (!dst.is_byte()) {
         EmitRex32(src, dst);
     } else {
         EmitOptionalRex32(src, dst);
@@ -161,7 +130,7 @@ void Assembler::Emit_movb(Register dst, Register src) {
 }
     
 void Assembler::Emit_movb(Register dst, Operand src) {
-    if (!RegIsByte(dst)) {
+    if (!dst.is_byte()) {
         // Register is not one of al, bl, cl, dl. Its encoding needs REX
         EmitRex32(src);
     } else {
@@ -172,7 +141,7 @@ void Assembler::Emit_movb(Register dst, Operand src) {
 }
 
 void Assembler::Emit_movb(Operand dst, Register src) {
-    if (!RegIsByte(src)) {
+    if (!src.is_byte()) {
         EmitRex32(src, dst);
     } else {
         EmitOptionalRex32(src, dst);
@@ -181,8 +150,8 @@ void Assembler::Emit_movb(Operand dst, Register src) {
     EmitOperand(src, dst);
 }
     
-void Assembler::Emit_movaps(Xmm dst, Xmm src) {
-    if (XmmLoBits(src) == 4) {
+void Assembler::Emit_movaps(XMMRegister dst, XMMRegister src) {
+    if (src.lo_bits() == 4) {
         EmitOptionalRex32(dst, src);
         EmitB(0x0F);
         EmitB(0x29);
@@ -195,9 +164,9 @@ void Assembler::Emit_movaps(Xmm dst, Xmm src) {
     }
 }
 
-void Assembler::Emit_movapd(Xmm dst, Xmm src) {
+void Assembler::Emit_movapd(XMMRegister dst, XMMRegister src) {
     EmitB(0x66);
-    if (XmmLoBits(src) == 4) {
+    if (src.lo_bits() == 4) {
         EmitOptionalRex32(dst, src);
         EmitB(0x0F);
         EmitB(0x29);
@@ -338,7 +307,7 @@ void Assembler::Emit_jcc(Cond cc, Label *l, bool is_far) {
 }
     
 void Assembler::Emit_test(Register dst, Register src, int size) {
-    if (RegLoBits(src) == 4) {
+    if (src.lo_bits() == 4) {
         EmitRex(src, dst, size);
         EmitB(0x85);
         EmitModRM(src, dst);
@@ -354,7 +323,7 @@ void Assembler::Emit_test(Register dst, Immediate mask, int size) {
         // testb(reg, mask);
         return;
     }
-    if (dst.code == rax.code) {
+    if (dst == rax) {
         EmitRex(rax, size);
         EmitB(0xA9);
         EmitDW(mask.value());
@@ -376,19 +345,6 @@ void Assembler::Emit_test(Operand dst, Immediate mask, int size) {
     EmitOperand(rax, dst);
     EmitDW(mask.value());
 }
-    
-//void Assembler::Emit_cmp(Register dst, int32_t val, int size) {
-//    if (dst.code == kRAX) {
-//        EmitRex(dst, size);
-//        EmitB(0x3D);
-//        EmitDW(val);
-//    } else {
-//        EmitRex(dst, size);
-//        EmitB(0x81);
-//        EmitModRM(7, dst);
-//        EmitDW(val);
-//    }
-//}
 
 void Assembler::BindTo(Label *l, int pos) {
     DCHECK(!l->IsBound()); // Label may only be bound once.
@@ -505,8 +461,8 @@ void Assembler::Emit_nop(int n) {
 
 void Assembler::EmitArith(uint8_t op, Register reg, Register rm_reg, int size) {
     DCHECK((op & 0xC6) == 2);
-    
-    if (RegLoBits(rm_reg) == 4) { // Forces SIB byte.
+
+    if (rm_reg.lo_bits() == 4) { // Forces SIB byte.
         // Swap reg and rm_reg and change opcode operand order.
         EmitRex(rm_reg, reg, size);
         EmitB(op ^ 0x20);
@@ -524,7 +480,7 @@ void Assembler::EmitArith(uint8_t subcode, Register lhs, int32_t imm, int size) 
         EmitB(0x83);
         EmitModRM(subcode, lhs);
         EmitB(imm);
-    } else if (lhs.code == rax.code) {
+    } else if (lhs == rax) {
         EmitB(0x05 | (subcode << 3));
         EmitDW(imm);
     } else {

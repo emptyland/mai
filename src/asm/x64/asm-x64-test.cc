@@ -396,7 +396,18 @@ TEST_F(X64AssemblerTest, SetStruct) {
     ASSERT_EQ(2, foo.b);
     ASSERT_EQ(3, foo.c);
 }
+
+class TRegister {
+public:
+    constexpr TRegister(int code) : code_(code) {}
     
+    int code() const { return code_; }
+private:
+    int code_;
+};
+    
+constexpr TRegister r1(0);
+
 TEST_F(X64AssemblerTest, SetArray) {
     Register a0 = kRegArgv[0];
     Register a1 = kRegArgv[1];
