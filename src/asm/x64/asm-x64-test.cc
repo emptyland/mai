@@ -44,11 +44,11 @@ private:
     
 };
     
-#define __(ins, ...) asm_.Emit_##ins(__VA_ARGS__)
+#define __ asm_.
     
 TEST_F(X64AssemblerTest, Sanity) {
-    asm_.Emit_movq(rax, 999);
-    asm_.Emit_ret(0);
+    asm_.movq(rax, 999);
+    asm_.ret(0);
     
     auto fn = MakeFunction<int ()>();
     ASSERT_EQ(999, fn());
@@ -56,14 +56,14 @@ TEST_F(X64AssemblerTest, Sanity) {
 
 TEST_F(X64AssemblerTest, FarJccJump) {
     //asm_.EmitBreakpoint();
-    asm_.Emit_cmpl(kRegArgv[0], kRegArgv[1]);
+    asm_.cmpl(kRegArgv[0], kRegArgv[1]);
     Label label;
-    asm_.Emit_jcc(Equal, &label, true);
-    asm_.Emit_movl(rax, kRegArgv[1]);
-    asm_.Emit_ret(0);
+    asm_.jcc(Equal, &label, true);
+    asm_.movl(rax, kRegArgv[1]);
+    asm_.ret(0);
     asm_.Bind(&label);
-    asm_.Emit_movl(rax, kRegArgv[0]);
-    asm_.Emit_ret(0);
+    asm_.movl(rax, kRegArgv[0]);
+    asm_.ret(0);
     
     auto fn = MakeFunction<int (int, int)>();
     ASSERT_EQ(1, fn(1, 1));
@@ -71,11 +71,11 @@ TEST_F(X64AssemblerTest, FarJccJump) {
 }
     
 TEST_F(X64AssemblerTest, Add) {
-    asm_.Emit_addl(kRegArgv[0], kRegArgv[1]); // 255
-    asm_.Emit_movq(rax, kRegArgv[0]); // rax = 255
-    asm_.Emit_addl(rax, 100); // 355
-    asm_.Emit_addl(rax, Operand(kRegArgv[2], 0)); // 454
-    asm_.Emit_ret(0);
+    asm_.addl(kRegArgv[0], kRegArgv[1]); // 255
+    asm_.movq(rax, kRegArgv[0]); // rax = 255
+    asm_.addl(rax, 100); // 355
+    asm_.addl(rax, Operand(kRegArgv[2], 0)); // 454
+    asm_.ret(0);
 
     auto foo = MakeFunction<int (int, int, int *)>();
     int k = 99;
@@ -83,9 +83,9 @@ TEST_F(X64AssemblerTest, Add) {
     
     asm_.Reset();
     //asm_.EmitBreakpoint();
-    asm_.Emit_addl(kRegArgv[0], kRegArgv[1]);
-    asm_.Emit_addl(Operand(kRegArgv[2], 0), kRegArgv[0]);
-    asm_.Emit_ret(0);
+    asm_.addl(kRegArgv[0], kRegArgv[1]);
+    asm_.addl(Operand(kRegArgv[2], 0), kRegArgv[0]);
+    asm_.ret(0);
     
     auto bar = MakeFunction<void (int, int, int *)>();
     k = 0;
@@ -94,12 +94,12 @@ TEST_F(X64AssemblerTest, Add) {
 }
 
 TEST_F(X64AssemblerTest, Shift) {
-    asm_.Emit_movl(rax, kRegArgv[0]);
-    asm_.Emit_shll(rax, 1);
-    asm_.Emit_shll(rax, 2);
-    asm_.Emit_movb(rcx, 1);
-    asm_.Emit_shll(rax);
-    asm_.Emit_ret(0);
+    asm_.movl(rax, kRegArgv[0]);
+    asm_.shll(rax, 1);
+    asm_.shll(rax, 2);
+    asm_.movb(rcx, 1);
+    asm_.shll(rax);
+    asm_.ret(0);
     {
         auto foo = MakeFunction<uint32_t (uint32_t)>();
         EXPECT_EQ(16, foo(1));
@@ -107,12 +107,12 @@ TEST_F(X64AssemblerTest, Shift) {
     
     asm_.Reset();
     //asm_.EmitBreakpoint();
-    asm_.Emit_movl(rax, kRegArgv[0]);
-    asm_.Emit_shrl(rax, 1);
-    asm_.Emit_shrl(rax, 2);
-    asm_.Emit_movb(rcx, 1);
-    asm_.Emit_shrl(rax);
-    asm_.Emit_ret(0);
+    asm_.movl(rax, kRegArgv[0]);
+    asm_.shrl(rax, 1);
+    asm_.shrl(rax, 2);
+    asm_.movb(rcx, 1);
+    asm_.shrl(rax);
+    asm_.ret(0);
     {
         auto foo = MakeFunction<uint32_t (uint32_t)>();
         EXPECT_EQ(1, foo(16));
@@ -122,10 +122,10 @@ TEST_F(X64AssemblerTest, Shift) {
 TEST_F(X64AssemblerTest, XmmMoving) {
     
     asm_.Reset();
-    asm_.Emit_movsd(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_movsd(xmm1, xmm0);
-    asm_.Emit_movsd(Operand(kRegArgv[1], 0), xmm1);
-    asm_.Emit_ret(0);
+    asm_.movsd(xmm0, Operand(kRegArgv[0], 0));
+    asm_.movsd(xmm1, xmm0);
+    asm_.movsd(Operand(kRegArgv[1], 0), xmm1);
+    asm_.ret(0);
     {
         double in = 2.22221, out = 0;
         auto foo = MakeFunction<void (double *, double *)>();
@@ -134,10 +134,10 @@ TEST_F(X64AssemblerTest, XmmMoving) {
     }
     
     asm_.Reset();
-    asm_.Emit_movss(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_movss(xmm1, xmm0);
-    asm_.Emit_movss(Operand(kRegArgv[1], 0), xmm1);
-    asm_.Emit_ret(0);
+    asm_.movss(xmm0, Operand(kRegArgv[0], 0));
+    asm_.movss(xmm1, xmm0);
+    asm_.movss(Operand(kRegArgv[1], 0), xmm1);
+    asm_.ret(0);
     {
         float in = 2.22221, out = 0;
         auto foo = MakeFunction<void (float *, float *)>();
@@ -146,10 +146,10 @@ TEST_F(X64AssemblerTest, XmmMoving) {
     }
 
     asm_.Reset();
-    asm_.Emit_movapd(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_movapd(xmm1, xmm0);
-    asm_.Emit_movapd(Operand(kRegArgv[1], 0), xmm1);
-    asm_.Emit_ret(0);
+    asm_.movapd(xmm0, Operand(kRegArgv[0], 0));
+    asm_.movapd(xmm1, xmm0);
+    asm_.movapd(Operand(kRegArgv[1], 0), xmm1);
+    asm_.ret(0);
     
     {
         double in[2] = {0.0001, 0.1234};
@@ -161,10 +161,10 @@ TEST_F(X64AssemblerTest, XmmMoving) {
     }
     
     asm_.Reset();
-    asm_.Emit_movaps(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_movaps(xmm1, xmm0);
-    asm_.Emit_movaps(Operand(kRegArgv[1], 0), xmm1);
-    asm_.Emit_ret(0);
+    asm_.movaps(xmm0, Operand(kRegArgv[0], 0));
+    asm_.movaps(xmm1, xmm0);
+    asm_.movaps(Operand(kRegArgv[1], 0), xmm1);
+    asm_.ret(0);
     {
         float in[4] = {1.00001, 2.00002, 3.0003, 4.00004};
         float out[4] = {0, 0, 0, 0};
@@ -178,11 +178,11 @@ TEST_F(X64AssemblerTest, XmmMoving) {
     
 TEST_F(X64AssemblerTest, XmmAdd) {
     asm_.Reset();
-    asm_.Emit_movsd(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_movsd(xmm1, Operand(kRegArgv[1], 0));
-    asm_.Emit_addsd(xmm0, xmm1);
-    asm_.Emit_addsd(xmm0, Operand(kRegArgv[1], 0));
-    asm_.Emit_ret(0);
+    asm_.movsd(xmm0, Operand(kRegArgv[0], 0));
+    asm_.movsd(xmm1, Operand(kRegArgv[1], 0));
+    asm_.addsd(xmm0, xmm1);
+    asm_.addsd(xmm0, Operand(kRegArgv[1], 0));
+    asm_.ret(0);
     {
         double a1 = 1238.1234567, a2 = 9999.1234567;
         auto foo = MakeFunction<double (double *, double *)>();
@@ -191,9 +191,9 @@ TEST_F(X64AssemblerTest, XmmAdd) {
     }
     
     asm_.Reset();
-    asm_.Emit_addss(xmm0, xmm1);
-    asm_.Emit_addss(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_ret(0);
+    asm_.addss(xmm0, xmm1);
+    asm_.addss(xmm0, Operand(kRegArgv[0], 0));
+    asm_.ret(0);
     {
         float k = 123.456;
         auto foo = MakeFunction<float (float, float, float *)>();
@@ -203,12 +203,12 @@ TEST_F(X64AssemblerTest, XmmAdd) {
     
     
     asm_.Reset();
-    asm_.Emit_movapd(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_movapd(xmm1, Operand(kRegArgv[1], 0));
-    asm_.Emit_addpd(xmm0, xmm1);
-    asm_.Emit_addpd(xmm0, Operand(kRegArgv[1], 0));
-    asm_.Emit_movapd(Operand(kRegArgv[1], 0), xmm0);
-    asm_.Emit_ret(0);
+    asm_.movapd(xmm0, Operand(kRegArgv[0], 0));
+    asm_.movapd(xmm1, Operand(kRegArgv[1], 0));
+    asm_.addpd(xmm0, xmm1);
+    asm_.addpd(xmm0, Operand(kRegArgv[1], 0));
+    asm_.movapd(Operand(kRegArgv[1], 0), xmm0);
+    asm_.ret(0);
     {
         double a1[2] = {1238.1234567, 1238.1234567};
         double a2[2] = {9999.1234567, 9999.1234567};
@@ -219,12 +219,12 @@ TEST_F(X64AssemblerTest, XmmAdd) {
     }
     
     asm_.Reset();
-    asm_.Emit_movaps(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_movaps(xmm1, Operand(kRegArgv[1], 0));
-    asm_.Emit_addps(xmm0, xmm1);
-    asm_.Emit_addps(xmm0, Operand(kRegArgv[1], 0));
-    asm_.Emit_movaps(Operand(kRegArgv[1], 0), xmm0);
-    asm_.Emit_ret(0);
+    asm_.movaps(xmm0, Operand(kRegArgv[0], 0));
+    asm_.movaps(xmm1, Operand(kRegArgv[1], 0));
+    asm_.addps(xmm0, xmm1);
+    asm_.addps(xmm0, Operand(kRegArgv[1], 0));
+    asm_.movaps(Operand(kRegArgv[1], 0), xmm0);
+    asm_.ret(0);
     {
         float a1[4] = {999.876, 999.876, 999.876, 999.876};
         float a2[4] = {888.765, 888.765, 888.765, 888.765};
@@ -239,8 +239,8 @@ TEST_F(X64AssemblerTest, XmmAdd) {
 
 TEST_F(X64AssemblerTest, SSEConvert) {
     
-    asm_.Emit_cvtss2sd(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_ret(0);
+    asm_.cvtss2sd(xmm0, Operand(kRegArgv[0], 0));
+    asm_.ret(0);
     {
         float in = 1234.5678;
         auto foo = MakeFunction<double (float *)>();
@@ -248,8 +248,8 @@ TEST_F(X64AssemblerTest, SSEConvert) {
     }
     
     asm_.Reset();
-    asm_.Emit_cvtss2sil(rax, Operand(kRegArgv[0], 0));
-    asm_.Emit_ret(0);
+    asm_.cvtss2sil(rax, Operand(kRegArgv[0], 0));
+    asm_.ret(0);
     {
         float in = 1234.5678;
         auto foo = MakeFunction<int32_t (float *)>();
@@ -258,32 +258,32 @@ TEST_F(X64AssemblerTest, SSEConvert) {
     
     asm_.Reset();
     //asm_.EmitBreakpoint();
-    asm_.Emit_cvtss2sil(rax, kXmmArgv[0]);
-    asm_.Emit_ret(0);
+    asm_.cvtss2sil(rax, kXmmArgv[0]);
+    asm_.ret(0);
     {
         auto foo = MakeFunction<int32_t (float)>();
         EXPECT_EQ(1235, foo(1234.5678));
     }
     
     asm_.Reset();
-    asm_.Emit_cvtss2siq(rax, kXmmArgv[0]);
-    asm_.Emit_ret(0);
+    asm_.cvtss2siq(rax, kXmmArgv[0]);
+    asm_.ret(0);
     {
         auto foo = MakeFunction<int64_t (float)>();
         EXPECT_EQ(1235, foo(1234.5678));
     }
     
     asm_.Reset();
-    asm_.Emit_cvttsd2sil(rax, kXmmArgv[0]);
-    asm_.Emit_ret(0);
+    asm_.cvttsd2sil(rax, kXmmArgv[0]);
+    asm_.ret(0);
     {
         auto foo = MakeFunction<int32_t (double)>();
         EXPECT_EQ(1234, foo(1234.5678));
     }
     
     asm_.Reset();
-    asm_.Emit_cvttsd2siq(rax, Operand(kRegArgv[0], 0));
-    asm_.Emit_ret(0);
+    asm_.cvttsd2siq(rax, Operand(kRegArgv[0], 0));
+    asm_.ret(0);
     {
         double k = 98765.654321;
         auto foo = MakeFunction<int64_t (double *)>();
@@ -292,9 +292,9 @@ TEST_F(X64AssemblerTest, SSEConvert) {
 }
 
 TEST_F(X64AssemblerTest, SSEPackedConvert) {
-    asm_.Emit_cvtdq2pd(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_movapd(Operand(kRegArgv[1], 0), xmm0);
-    asm_.Emit_ret(0);
+    asm_.cvtdq2pd(xmm0, Operand(kRegArgv[0], 0));
+    asm_.movapd(Operand(kRegArgv[1], 0), xmm0);
+    asm_.ret(0);
     {
         int32_t in[2] = {1234567, 8901234};
         double out[2] = {0, 0};
@@ -305,9 +305,9 @@ TEST_F(X64AssemblerTest, SSEPackedConvert) {
     }
     
     asm_.Reset();
-    asm_.Emit_cvtpd2dq(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_movapd(Operand(kRegArgv[1], 0), xmm0);
-    asm_.Emit_ret(0);
+    asm_.cvtpd2dq(xmm0, Operand(kRegArgv[0], 0));
+    asm_.movapd(Operand(kRegArgv[1], 0), xmm0);
+    asm_.ret(0);
     {
         double in[2] = {1.9, 2.0};
         int32_t out[4] = {0, 0, 0, 0};
@@ -318,9 +318,9 @@ TEST_F(X64AssemblerTest, SSEPackedConvert) {
     }
     
     asm_.Reset();
-    asm_.Emit_cvtps2pd(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_movapd(Operand(kRegArgv[1], 0), xmm0);
-    asm_.Emit_ret(0);
+    asm_.cvtps2pd(xmm0, Operand(kRegArgv[0], 0));
+    asm_.movapd(Operand(kRegArgv[1], 0), xmm0);
+    asm_.ret(0);
     {
         float in[4] = {19.5, 20.1};
         double out[2] = {0, 0};
@@ -331,9 +331,9 @@ TEST_F(X64AssemblerTest, SSEPackedConvert) {
     }
     
     asm_.Reset();
-    asm_.Emit_cvtpd2ps(xmm0, Operand(kRegArgv[0], 0));
-    asm_.Emit_movapd(Operand(kRegArgv[1], 0), xmm0);
-    asm_.Emit_ret(0);
+    asm_.cvtpd2ps(xmm0, Operand(kRegArgv[0], 0));
+    asm_.movapd(Operand(kRegArgv[1], 0), xmm0);
+    asm_.ret(0);
     {
         double in[2] = {999.9, 888.8};
         float  out[4] = {0, 0, 0, 0};
@@ -349,14 +349,14 @@ static int TestStub1(int a, int b) {
 }
 
 TEST_F(X64AssemblerTest, CallOutsideFunction) {
-    asm_.Emit_pushq(rcx);
-    asm_.Emit_movq(rcx, reinterpret_cast<Address>(TestStub1));
-    asm_.Emit_movq(kRegArgv[0], 1000);
-    asm_.Emit_movq(kRegArgv[1], -1);
-    asm_.Emit_call(rcx);
-    asm_.Emit_popq(rcx);
-    asm_.Emit_ret(0);
-    asm_.Emit_nop();
+    asm_.pushq(rcx);
+    asm_.movq(rcx, reinterpret_cast<Address>(TestStub1));
+    asm_.movq(kRegArgv[0], 1000);
+    asm_.movq(kRegArgv[1], -1);
+    asm_.call(rcx);
+    asm_.popq(rcx);
+    asm_.ret(0);
+    asm_.nop();
     
     auto fn = MakeFunction<int ()>();
     ASSERT_EQ(999, fn());
@@ -380,13 +380,13 @@ TEST_F(X64AssemblerTest, SetStruct) {
     static const int kOffsetC = foo_tmpl.Offset(&TestFoo1::c);
 
     //asm_.EmitBreakpoint();
-    asm_.Emit_movq(rax, 1);
-    asm_.Emit_movq(Operand(kRegArgv[0], kOffsetA), rax);
-    asm_.Emit_movq(rax, 2);
-    asm_.Emit_movq(Operand(kRegArgv[0], kOffsetB), rax);
-    asm_.Emit_movq(rax, 3);
-    asm_.Emit_movq(Operand(kRegArgv[0], kOffsetC), rax);
-    asm_.Emit_ret(0);
+    asm_.movq(rax, 1);
+    asm_.movq(Operand(kRegArgv[0], kOffsetA), rax);
+    asm_.movq(rax, 2);
+    asm_.movq(Operand(kRegArgv[0], kOffsetB), rax);
+    asm_.movq(rax, 3);
+    asm_.movq(Operand(kRegArgv[0], kOffsetC), rax);
+    asm_.ret(0);
     
     TestFoo1 foo;
     auto fn = MakeFunction<void (TestFoo1 *)>();
@@ -397,24 +397,13 @@ TEST_F(X64AssemblerTest, SetStruct) {
     ASSERT_EQ(3, foo.c);
 }
 
-class TRegister {
-public:
-    constexpr TRegister(int code) : code_(code) {}
-    
-    int code() const { return code_; }
-private:
-    int code_;
-};
-    
-constexpr TRegister r1(0);
-
 TEST_F(X64AssemblerTest, SetArray) {
     Register a0 = kRegArgv[0];
     Register a1 = kRegArgv[1];
     
-    asm_.Emit_movq(Operand(a0, a1, times_4, 0), 999);
-    asm_.Emit_ret(0);
-    
+    asm_.movq(Operand(a0, a1, times_4, 0), 999);
+    asm_.ret(0);
+
     int d[4] = {0, 0, 0, 0};
     auto fn = MakeFunction<void (int *, int)>();
     fn(d, 0);
@@ -423,6 +412,27 @@ TEST_F(X64AssemblerTest, SetArray) {
     EXPECT_EQ(d[1], 0);
     EXPECT_EQ(d[2], 0);
     EXPECT_EQ(d[3], 999);
+}
+    
+TEST_F(X64AssemblerTest, Loop) {
+    Label out, retry;
+    
+    //__ Breakpoint();
+    __ movl(rax, 0);
+    __ movl(rcx, kRegArgv[0]);
+    __ Bind(&retry);
+    __ cmpl(rcx, 0);
+    __ jcc(BelowEqual, &out, true);
+    __ addl(rax, 10);
+    __ decl(rcx);
+    __ jmp(&retry, true);
+    __ Bind(&out);
+    __ ret(0);
+    
+    auto fn = MakeFunction<int (int)>();
+    for (int i = 0; i < 100; ++i) {
+        EXPECT_EQ(i * 10, fn(i));
+    }
 }
 
 } // namespace x64

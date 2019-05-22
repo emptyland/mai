@@ -107,7 +107,7 @@ Operand::Operand(Register index, ScaleFactor scale, int32_t disp)
 }
 
     
-void Assembler::Emit_movq(Register dst, Register src) {
+void Assembler::movq(Register dst, Register src) {
     if (dst.lo_bits() == 4) {
         EmitRex(src, dst, 8);
         EmitB(0x89);
@@ -119,7 +119,7 @@ void Assembler::Emit_movq(Register dst, Register src) {
     }
 }
 
-void Assembler::Emit_movb(Register dst, Register src) {
+void Assembler::movb(Register dst, Register src) {
     if (!dst.is_byte()) {
         EmitRex32(src, dst);
     } else {
@@ -129,7 +129,7 @@ void Assembler::Emit_movb(Register dst, Register src) {
     EmitModRM(src, dst);
 }
     
-void Assembler::Emit_movb(Register dst, Operand src) {
+void Assembler::movb(Register dst, Operand src) {
     if (!dst.is_byte()) {
         // Register is not one of al, bl, cl, dl. Its encoding needs REX
         EmitRex32(src);
@@ -140,7 +140,7 @@ void Assembler::Emit_movb(Register dst, Operand src) {
     EmitOperand(dst, src);
 }
 
-void Assembler::Emit_movb(Operand dst, Register src) {
+void Assembler::movb(Operand dst, Register src) {
     if (!src.is_byte()) {
         EmitRex32(src, dst);
     } else {
@@ -150,7 +150,7 @@ void Assembler::Emit_movb(Operand dst, Register src) {
     EmitOperand(src, dst);
 }
     
-void Assembler::Emit_movaps(XMMRegister dst, XMMRegister src) {
+void Assembler::movaps(XMMRegister dst, XMMRegister src) {
     if (src.lo_bits() == 4) {
         EmitOptionalRex32(dst, src);
         EmitB(0x0F);
@@ -164,7 +164,7 @@ void Assembler::Emit_movaps(XMMRegister dst, XMMRegister src) {
     }
 }
 
-void Assembler::Emit_movapd(XMMRegister dst, XMMRegister src) {
+void Assembler::movapd(XMMRegister dst, XMMRegister src) {
     EmitB(0x66);
     if (src.lo_bits() == 4) {
         EmitOptionalRex32(dst, src);
@@ -179,7 +179,7 @@ void Assembler::Emit_movapd(XMMRegister dst, XMMRegister src) {
     }
 }
 
-void Assembler::Emit_call(Label *l) {
+void Assembler::call(Label *l) {
     EmitB(0xE8);
     if (l->IsBound()) {
         int off = l->GetPosition() - pc() - sizeof(uint32_t);
@@ -196,7 +196,7 @@ void Assembler::Emit_call(Label *l) {
     }
 }
 
-void Assembler::Emit_ret(int val) {
+void Assembler::ret(int val) {
     DCHECK(IsUintN(val, 16));
     if (val == 0) {
         EmitB(0xC3);
@@ -207,7 +207,7 @@ void Assembler::Emit_ret(int val) {
     }
 }
 
-void Assembler::Emit_jmp(Label *l, bool is_far) {
+void Assembler::jmp(Label *l, bool is_far) {
     static const int kShortSize = 1;
     static const int kLongSize = 4;
     
@@ -250,9 +250,9 @@ void Assembler::Emit_jmp(Label *l, bool is_far) {
     }
 }
     
-void Assembler::Emit_jcc(Cond cc, Label *l, bool is_far) {
+void Assembler::jcc(Cond cc, Label *l, bool is_far) {
     if (cc == Always) {
-        Emit_jmp(l, is_far);
+        jmp(l, is_far);
         return;
     }
     if (cc == Never) {
@@ -306,7 +306,7 @@ void Assembler::Emit_jcc(Cond cc, Label *l, bool is_far) {
     }
 }
     
-void Assembler::Emit_test(Register dst, Register src, int size) {
+void Assembler::test(Register dst, Register src, int size) {
     if (src.lo_bits() == 4) {
         EmitRex(src, dst, size);
         EmitB(0x85);
@@ -318,7 +318,7 @@ void Assembler::Emit_test(Register dst, Register src, int size) {
     }
 }
 
-void Assembler::Emit_test(Register dst, Immediate mask, int size) {
+void Assembler::test(Register dst, Immediate mask, int size) {
     if (IsUintN(mask.value(), 8)) {
         // testb(reg, mask);
         return;
@@ -335,7 +335,7 @@ void Assembler::Emit_test(Register dst, Immediate mask, int size) {
     }
 }
     
-void Assembler::Emit_test(Operand dst, Immediate mask, int size) {
+void Assembler::test(Operand dst, Immediate mask, int size) {
     if (IsUintN(mask.value(), 8)) {
         // testb(op, mask);
         return;
@@ -389,12 +389,12 @@ void Assembler::BindTo(Label *l, int pos) {
     l->BindTo(pos);
 }
 
-void Assembler::Emit_nop(int n) {
+void Assembler::nop(int n) {
     switch (n) {
         case 0:
             break;
         case 1:
-            Emit_nop();
+            nop();
             break;
         case 2:
             EmitB(0x66);
