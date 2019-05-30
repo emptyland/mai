@@ -119,6 +119,60 @@ TEST_F(X64AssemblerTest, Shift) {
     }
 }
 
+TEST_F(X64AssemblerTest, UnsignedDiv) {
+    
+    __ Reset();
+    __ movl(rax, kRegArgv[0]);
+    __ movq(r13, kRegArgv[2]);
+    __ xorl(rdx, rdx);
+    __ divl(kRegArgv[1]);
+    __ movl(Operand(r13, 0), rdx);
+    __ ret(0);
+    {
+        uint32_t a = 29, b = 3, c = 0;
+        auto foo = MakeFunction<uint32_t (uint32_t, uint32_t, uint32_t *)>();
+        EXPECT_EQ(a / b, foo(a, b, &c));
+        EXPECT_EQ(a % b, c);
+    }
+    
+    __ Reset();
+    __ movq(rax, kRegArgv[0]);
+    __ movq(r13, kRegArgv[2]);
+    __ xorq(rdx, rdx);
+    __ divq(kRegArgv[1]);
+    __ movq(Operand(r13, 0), rdx);
+    __ ret(0);
+    {
+        uint64_t a = 29, b = 3, c = 0;
+        auto foo = MakeFunction<uint64_t (uint64_t, uint64_t, uint64_t *)>();
+        EXPECT_EQ(a / b, foo(a, b, &c));
+        EXPECT_EQ(a % b, c);
+    }
+}
+
+TEST_F(X64AssemblerTest, UnsignedMul) {
+    
+    __ Reset();
+    __ movl(rax, kRegArgv[0]);
+    __ mull(kRegArgv[1]);
+    __ ret(0);
+    {
+        uint32_t a = 99999, b = 999;
+        auto foo = MakeFunction<uint32_t(uint32_t, uint32_t)>();
+        EXPECT_EQ(a * b, foo(a, b));
+    }
+    
+    __ Reset();
+    __ movq(rax, kRegArgv[0]);
+    __ mulq(kRegArgv[1]);
+    __ ret(0);
+    {
+        uint64_t a = 999999, b = 99999;
+        auto foo = MakeFunction<uint64_t(uint64_t, uint64_t)>();
+        EXPECT_EQ(a * b, foo(a, b));
+    }
+}
+
 TEST_F(X64AssemblerTest, XmmMoving) {
     
     asm_.Reset();
@@ -422,7 +476,7 @@ TEST_F(X64AssemblerTest, Loop) {
     __ movl(rcx, kRegArgv[0]);
     __ Bind(&retry);
     __ cmpl(rcx, 0);
-    __ jcc(BelowEqual, &out, true);
+    __ UnlikelyJ(BelowEqual, &out, true);
     __ addl(rax, 10);
     __ decl(rcx);
     __ jmp(&retry, true);
@@ -432,6 +486,36 @@ TEST_F(X64AssemblerTest, Loop) {
     auto fn = MakeFunction<int (int)>();
     for (int i = 0; i < 100; ++i) {
         EXPECT_EQ(i * 10, fn(i));
+    }
+}
+
+class TestCallingStub {
+public:
+    TestCallingStub(int a, int b) : a_(a), b_(b) {}
+
+    int call0() {
+        return a_ + b_;
+    }
+    
+private:
+    int a_ = 0;
+    int b_ = 0;
+};
+    
+TEST_F(X64AssemblerTest, CallCxxMethod) {
+    auto fp = &TestCallingStub::call0;
+    //printf("%lu\n", sizeof(fp));
+    Address stub[2];
+    ::memcpy(stub, &fp, sizeof(fp));
+    //printf("%p, %p\n", stub[0], stub[1]);
+    
+    __ Reset();
+    __ call(Operand(kRegArgv[1], 0));
+    __ ret(0);
+    {
+        TestCallingStub ob(1, 2);
+        auto foo = MakeFunction<int (TestCallingStub *, Address)>();
+        EXPECT_EQ(3, foo(&ob, reinterpret_cast<Address>(&stub[0])));
     }
 }
 

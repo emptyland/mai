@@ -643,6 +643,16 @@ public:
     
     void jcc(Cond cond, Label *l, bool is_far);
     
+    void LikelyJ(Cond cond, Label *l, bool is_far) {
+        PrefixLikely();
+        jcc(cond, l, is_far);
+    }
+    
+    void UnlikelyJ(Cond cond, Label *l, bool is_far) {
+        PrefixUnlikely();
+        jcc(cond, l, is_far);
+    }
+    
     void Bind(Label *l) { BindTo(l, pc()); }
     
     void BindTo(Label *l, int pos);
@@ -1026,6 +1036,54 @@ public:
         EmitDW(rhs);
     }
     
+    // Unsigned divide EDX:EAX by r/m32, with result stored in EAX ← Quotient, EDX ←
+    // Remainder.
+    void divl(Register divsor) { div(divsor, 4); }
+    void divl(Operand divsor) { div(divsor, 4); }
+    
+    // Unsigned divide RDX:RAX by r/m64, with result stored in RAX ← Quotient, RDX ←
+    // Remainder.
+    void divq(Register divsor) { div(divsor, 8); }
+    void divq(Operand divsor) { div(divsor, 8); }
+    
+    void div(Register divsor, int size) {
+        // REX.W + F7 /6
+        EmitRex(divsor, size);
+        EmitB(0xF7);
+        EmitModRM(6, divsor);
+    }
+    
+    void div(Operand divsor, int size) {
+        // REX.W + F7 /6
+        EmitRex(divsor, size);
+        EmitB(0xF7);
+        EmitOperand(6, divsor);
+    }
+    
+    // Unsigned multiply (EDX:EAX ← EAX ∗ r/m32).
+    void mull(Register divsor) { mul(divsor, 4); }
+    void mull(Operand divsor) { mul(divsor, 4); }
+    
+    // Unsigned multiply (RDX:RAX ← RAX ∗ r/m64.
+    void mulq(Register divsor) { mul(divsor, 8); }
+    void mulq(Operand divsor) { mul(divsor, 8); }
+    
+    void mul(Register divsor, int size) {
+        // REX.W + F7 /4
+        EmitRex(divsor, size);
+        EmitB(0xF7);
+        EmitModRM(4, divsor);
+    }
+    
+    void mul(Operand divsor, int size) {
+        // REX.W + F7 /4
+        EmitRex(divsor, size);
+        EmitB(0xF7);
+        EmitOperand(4, divsor);
+    }
+    
+    
+
 #define ARITH_OP_LIST(V) \
     V(add, \
         0x3, 0x0, 0x3, 0x1, 0x0, \
@@ -1113,6 +1171,16 @@ public:
     
     // nop n bytes, 1 < n < 9
     void nop(int n);
+    
+    //----------------------------------------------------------------------------------------------
+    // Prefix
+    //----------------------------------------------------------------------------------------------
+    // Only for jcc
+    void PrefixUnlikely() { EmitB(0x2E); }
+    void PrefixLikely() { EmitB(0x3E); }
+    
+    // Atomic prefix
+    void PrefixLock() { EmitB(0xF0); }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Assembler);
 private:
