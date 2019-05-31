@@ -205,7 +205,14 @@ inline MutView<T> MakeMutView(T *z, size_t n) { return MutView<T>{z, n}; }
 #endif
 
 // CPU Arch macros
+    
+#if defined(__amd64) || defined(__amd64__) || defined(__x86_64) || defined(__x86_64__)
+#   define MAI_ARCH_X64 1
+#endif
 
+#if defined(__ARM64_ARCH_8__)
+#   define MAI_ARCH_ARM64 1
+#endif
 
 enum Initializer {
     LAZY_INSTANCE_INITIALIZER,

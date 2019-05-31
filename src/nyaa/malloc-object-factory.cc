@@ -118,7 +118,7 @@ MallocObjectFactory::MallocObjectFactory(NyaaCore *core) : core_(DCHECK_NOTNULL(
 /*virtual*/ NyFunction *
 MallocObjectFactory::NewFunction(NyString *name, size_t n_params, bool vargs, size_t n_upvals,
                                  size_t max_stack, NyString *file_name, NyInt32Array *file_info,
-                                 NyByteArray *bcbuf, NyArray *proto_pool, NyArray *const_pool,
+                                 NyObject *exec, NyArray *proto_pool, NyArray *const_pool,
                                  bool old) {
     DCHECK_LE(n_params, UINT8_MAX);
     DCHECK_LE(n_upvals, UINT32_MAX);
@@ -131,13 +131,20 @@ MallocObjectFactory::NewFunction(NyString *name, size_t n_params, bool vargs, si
                                      static_cast<uint32_t>(max_stack),
                                      file_name,
                                      file_info,
-                                     bcbuf,
+                                     exec,
                                      proto_pool,
                                      const_pool,
                                      core_);
     ob->SetMetatable(core_->kmt_pool()->kFunction, core_);
     DCHECK_EQ(ob->PlacedSize(), NyFunction::RequiredSize(static_cast<uint32_t>(n_upvals)));
     return ob;
+}
+
+NyCode *MallocObjectFactory::NewCode(int kind, const uint8_t *instructions,
+                                     size_t instructions_byte_size) {
+    // TODO:
+    DLOG(FATAL) << "Noreached!";
+    return nullptr;
 }
     
 /*virtual*/ NyClosure *MallocObjectFactory::NewClosure(NyFunction *proto, bool old) {

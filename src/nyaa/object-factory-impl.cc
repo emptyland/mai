@@ -119,7 +119,7 @@ ObjectFactoryImpl::ObjectFactoryImpl(NyaaCore *core, Heap *heap)
 /*virtual*/ NyFunction *
 ObjectFactoryImpl::NewFunction(NyString *name, size_t n_params, bool vargs, size_t n_upvals,
                                size_t max_stack, NyString *file_name, NyInt32Array *file_info,
-                               NyByteArray *bcbuf, NyArray *proto_pool, NyArray *const_pool,
+                               NyObject *exec, NyArray *proto_pool, NyArray *const_pool,
                                bool old) {
     DCHECK_LE(n_params, UINT8_MAX);
     DCHECK_LE(n_upvals, UINT32_MAX);
@@ -133,11 +133,29 @@ ObjectFactoryImpl::NewFunction(NyString *name, size_t n_params, bool vargs, size
                           static_cast<uint32_t>(max_stack),
                           file_name,
                           file_info,
-                          bcbuf,
+                          exec,
                           proto_pool,
                           const_pool,
                           core_),
                Function);
+    DCHECK_EQ(ob->PlacedSize(), required_size);
+    return ob;
+}
+
+/*virtual*/ NyCode *ObjectFactoryImpl::NewCode(int kind, const uint8_t *instructions,
+                                               size_t instructions_bytes_size) {
+    DCHECK_LE(instructions_bytes_size, UINT32_MAX);
+    size_t required_size = NyCode::RequiredSize(static_cast<uint32_t>(instructions_bytes_size));
+    void *blk = heap_->Allocate(required_size, kCodeSpace);
+    if (!blk) {
+        return nullptr;
+    }
+    NyCode *ob = new (blk) NyCode(static_cast<NyCode::Kind>(kind),
+                                  instructions,
+                                  static_cast<uint32_t>(instructions_bytes_size));
+    ob->SetMetatable(core_->kmt_pool()->kCode, core_);
+    ob->SetColor(heap_->initial_color());
+    ob->SetType(kTypeCode);
     DCHECK_EQ(ob->PlacedSize(), required_size);
     return ob;
 }

@@ -47,7 +47,15 @@ Error Heap::Init() {
     Address probe = old_space_->AllocateRaw(16);
     old_space_->SetAddressColor(probe, initial_color_);
     old_space_->Free(probe, 16);
-    
+
+    rs = code_space_->Init(stub->code_area_initial_size(), stub->code_area_max_size());
+    if (!rs) {
+        return rs;
+    }
+    probe = code_space_->AllocateRaw(16);
+    code_space_->SetAddressColor(probe, initial_color_);
+    code_space_->Free(probe, 16);
+
     probe = large_space_->AllocateRaw(1);
     large_space_->SetAddressColor(probe, initial_color_);
     large_space_->Free(probe);
@@ -68,7 +76,7 @@ NyObject *Heap::Allocate(size_t request_size, HeapSpace space) {
             chunk = old_space_->AllocateRaw(request_size);
             break;
         case kCodeSpace:
-            // TODO:
+            chunk = code_space_->AllocateRaw(request_size);
             break;
         case kLargeSpace:
             chunk = large_space_->AllocateRaw(request_size);

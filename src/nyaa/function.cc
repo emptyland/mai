@@ -30,6 +30,7 @@ NyFunction::NyFunction(NyString *name, uint8_t n_params, bool vargs, uint32_t n_
     , exec_(exec)
     , proto_pool_(proto_pool)
     , const_pool_(const_pool) {
+    DCHECK(exec->IsByteArray() || exec->IsCode());
     N->BarrierWr(this, &name_, name);
     N->BarrierWr(this, &file_name_, file_name);
     N->BarrierWr(this, &file_info_, file_info);
@@ -89,7 +90,7 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
 /// class NyCode:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
     
-NyCode::NyCode(Kind kind, uint32_t instructions_bytes_size, Address instructions)
+NyCode::NyCode(Kind kind, const uint8_t *instructions, uint32_t instructions_bytes_size)
     : kind_(kind)
     , instructions_bytes_size_(instructions_bytes_size) {
     ::memcpy(instructions_, instructions, instructions_bytes_size);

@@ -2,12 +2,13 @@
 #define MAI_NYAA_FUNCTION_H_
 
 #include "nyaa/nyaa-values.h"
+#include <type_traits>
 
 namespace mai {
     
 namespace nyaa {
 
-class NyFunction : public NyObject {
+class NyFunction final : public NyObject {
 public:
     NyFunction(NyString *name,
                uint8_t n_params,
@@ -94,7 +95,7 @@ private:
 }; // class NyCallable
     
 // This object only in code area of heap
-class NyCode : public NyObject {
+class NyCode final : public NyObject {
 public:
     enum Kind {
         kStub,
@@ -102,11 +103,11 @@ public:
         kOptimizedFunction,
     };
     
-    NyCode(Kind kind, uint32_t instructions_bytes_size, Address instructions);
+    NyCode(Kind kind, const uint8_t *instructions, uint32_t instructions_bytes_size);
     
     DEF_VAL_GETTER(Kind, kind);
     DEF_VAL_GETTER(uint32_t, instructions_bytes_size);
-    Address address() { return instructions_; }
+    Address entry_address() { return instructions_; }
 
     void Iterate(ObjectVisitor *visitor) {/*ignore*/}
     
@@ -121,7 +122,20 @@ private:
     Byte instructions_[0];
 }; // class NyCode
     
-class NyClosure : public NyRunnable {
+
+template<class T>
+class CallStub final {
+public:
+    static_assert(std::is_function<T>::value, "only call function");
+    
+    CallStub(NyCode *code) : entry_fn_(reinterpret_cast<T*>(code->entry_address())) {}
+    
+    T *entry_fn() const { return entry_fn_; }
+private:
+    T *entry_fn_;
+}; // class CallStub
+    
+class NyClosure final : public NyRunnable {
 public:
     NyClosure(NyFunction *proto, NyaaCore *N);
     
@@ -163,7 +177,7 @@ private:
     Object *upvals_[0]; // [strong ref]
 }; // class NyClosure
 
-class NyDelegated : public NyRunnable {
+class NyDelegated final : public NyRunnable {
 public:
     using Kind = DelegatedKind;
     using FunctionCallbackApiFP = void (*)(const FunctionCallbackInfo<Value> &);

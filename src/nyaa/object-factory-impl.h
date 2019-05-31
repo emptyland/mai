@@ -28,8 +28,10 @@ public:
                                       bool old) override;
     virtual NyFunction *NewFunction(NyString *name, size_t n_params, bool vargs, size_t n_upvals,
                                     size_t max_stack, NyString *file_name, NyInt32Array *file_info,
-                                    NyByteArray *bcbuf, NyArray *proto_pool, NyArray *const_pool,
+                                    NyObject *exec, NyArray *proto_pool, NyArray *const_pool,
                                     bool old) override;
+    virtual NyCode *NewCode(int kind, const uint8_t *instructions,
+                            size_t instructions_byte_size) override;
     virtual NyClosure *NewClosure(NyFunction *proto, bool old) override;
     virtual NyUDO *NewUninitializedUDO(size_t size, NyMap *clazz, bool ignore_managed,
                                        bool old) override;

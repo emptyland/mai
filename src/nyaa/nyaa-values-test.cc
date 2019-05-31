@@ -2,6 +2,8 @@
 #include "nyaa/nyaa-values.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/object-factory.h"
+#include "nyaa/function.h"
+#include "asm/x64/asm-x64.h"
 #include "mai-lang/nyaa.h"
 #include <limits>
 
@@ -202,6 +204,28 @@ TEST_F(NyaaValuesTest, Float64Add) {
     ASSERT_NE(nullptr, ob);
     ASSERT_NEAR(5.3169119831396629e+36, ob->value(), std::numeric_limits<f64_t>::epsilon());
 }
+    
+#if defined(MAI_ARCH_X64)
+    
+#define __ masm.
+
+TEST_F(NyaaValuesTest, CodeObject) {
+    using namespace ::mai::x64;
+    
+    Assembler masm;
+    
+    __ movl(rax, kRegArgv[0]);
+    __ addl(rax, kRegArgv[1]);
+    __ ret(0);
+    
+    auto code = factory_->NewCode(NyCode::kOptimizedFunction,
+                                  reinterpret_cast<const uint8_t *>(masm.buf().data()),
+                                  masm.buf().size());
+    CallStub<int (int, int)> stub(code);
+    EXPECT_EQ(200, stub.entry_fn()(199, 1));
+}
+    
+#endif
 
 } // namespace nyaa
     

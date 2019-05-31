@@ -23,6 +23,7 @@ class NyByteArray;
 class NyInt32Array;
 class NyDelegated;
 class NyFunction;
+class NyCode;
 class NyUDO;
 class NyThread;
     
@@ -60,8 +61,11 @@ public:
     
     virtual NyFunction *NewFunction(NyString *name, size_t n_params, bool vargs, size_t n_upvals,
                                     size_t max_stack, NyString *file_name, NyInt32Array *file_info,
-                                    NyByteArray *bcbuf, NyArray *proto_pool, NyArray *const_pool,
+                                    NyObject *exec, NyArray *proto_pool, NyArray *const_pool,
                                     bool old = false) = 0;
+
+    virtual NyCode *NewCode(int kind, const uint8_t *instructions, size_t instructions_byte_size) = 0;
+    
     virtual NyClosure *NewClosure(NyFunction *proto, bool old = false) = 0;
     
     virtual NyThread *NewThread(bool old = false) = 0;
