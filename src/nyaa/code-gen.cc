@@ -2,6 +2,7 @@
 #include "nyaa/bytecode-builder.h"
 #include "nyaa/ast.h"
 #include "nyaa/nyaa-values.h"
+#include "nyaa/function.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/object-factory.h"
 #include "base/hash.h"

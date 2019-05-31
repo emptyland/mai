@@ -49,6 +49,7 @@ const char *kRawBuiltinKzs[] = {
     "table",
     "delegated",
     "function",
+    "code",
     "closure",
     "thread",
     "array[byte]",
@@ -634,6 +635,11 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     // NyFunction
     kFunction = NEW_METATABLE(kTypeFunction);
     kFunction->RawPut(kzs->kInnerType, kzs->kFunction, N);
+    
+    //----------------------------------------------------------------------------------------------
+    // NyCode
+    kCode = NEW_METATABLE(kTypeCode);
+    kCode->RawPut(kzs->kInnerType, kzs->kCode, N);
     
     //----------------------------------------------------------------------------------------------
     // NyClosure

@@ -4,6 +4,7 @@
 #include "nyaa/bytecode-builder.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/nyaa-values.h"
+#include "nyaa/function.h"
 #include "nyaa/object-factory.h"
 #include "test/nyaa-test.h"
 #include "base/arenas.h"

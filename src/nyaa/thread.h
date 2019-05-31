@@ -2,6 +2,7 @@
 #define MAI_NYAA_THREAD_H_
 
 #include "nyaa/nyaa-values.h"
+#include "nyaa/function.h"
 #include "mai/error.h"
 #include "glog/logging.h"
 

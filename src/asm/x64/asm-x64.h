@@ -1163,6 +1163,14 @@ public:
     }
     
     void Breakpoint() { int3(); }
+    
+    // Returns processor identification and feature information to the EAX, EBX, ECX, and EDX
+    // registers, as determined by input entered in EAX (in some cases, ECX as well).
+    void cpuid() {
+        // 0F A2
+        EmitB(0x0F);
+        EmitB(0xA2);
+    }
 
     void int3() { EmitB(0xCC); }
     

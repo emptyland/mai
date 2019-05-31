@@ -28,6 +28,7 @@ class Nyaa;
     V(Map) \
     V(Closure) \
     V(Function) \
+    V(Code) \
     V(Delegated) \
     V(Thread)
 
@@ -70,6 +71,7 @@ struct BuiltinStrPool {
     NyString *kTable = nullptr;
     NyString *kDelegated = nullptr;
     NyString *kFunction = nullptr;
+    NyString *kCode = nullptr;
     NyString *kClosure = nullptr;
     NyString *kThread = nullptr;
     NyString *kByteArray = nullptr;
