@@ -219,7 +219,7 @@ Error NewSpace::Init(size_t total_size, Isolate *isolate) {
     if (!rs) {
         return rs;
     }
-    // TODO:;
+    // TODO:
     return Error::OK();
 }
 

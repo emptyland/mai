@@ -909,9 +909,8 @@ std::tuple<NyInt *, NyInt *> NyInt::CompleteDiv(const NyInt *rhs, NyaaCore *N) c
 }
 
 uint32_t NyInt::HashVal() const {
-    // TODO:
-    DLOG(FATAL) << "TODO:";
-    return 0;
+    auto view = segment_view();
+    return base::Hash::Js(reinterpret_cast<const char *>(view.z), view.n * sizeof(view.z[0]));
 }
 
 f64_t NyInt::ToF64() const {
