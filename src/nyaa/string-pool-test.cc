@@ -1,7 +1,7 @@
 #include "nyaa/string-pool.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/nyaa-values.h"
-#include "nyaa/malloc-object-factory.h"
+#include "nyaa/object-factory.h"
 #include "base/slice.h"
 #include "test/nyaa-test.h"
 #include "mai-lang/nyaa.h"
@@ -18,7 +18,7 @@ public:
         , N_(&scope_)
         , core_(scope_.core())
         , lla_(isolate_->env()->GetLowLevelAllocator())
-        , factory_(new MallocObjectFactory(core_))
+        , factory_(ObjectFactory::NewMallocFactory(core_))
         , pool_(lla_) {
     }
     

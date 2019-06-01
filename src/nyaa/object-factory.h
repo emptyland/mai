@@ -26,7 +26,7 @@ class NyFunction;
 class NyCode;
 class NyUDO;
 class NyThread;
-    
+class Heap;
 class Value;
 class String;
     
@@ -100,6 +100,10 @@ public:
     }
 
     NyInt *NewLiteralInt(const char *z, size_t n, bool old = false);
+    
+    static ObjectFactory *NewHeapFactory(NyaaCore *core, Heap *heap);
+    
+    static ObjectFactory *NewMallocFactory(NyaaCore *core);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(ObjectFactory);
 }; // class ObjectFactory

@@ -2,8 +2,7 @@
 #include "nyaa/nyaa-values.h"
 #include "nyaa/thread.h"
 #include "nyaa/heap.h"
-#include "nyaa/object-factory-impl.h"
-#include "nyaa/malloc-object-factory.h"
+#include "nyaa/object-factory.h"
 #include "nyaa/builtin.h"
 #include "nyaa/visitors.h"
 #include "nyaa/string-pool.h"
@@ -28,9 +27,9 @@ NyaaCore::NyaaCore(Nyaa *stub)
     , next_udo_kid_(kUdoKidBegin + 1)
     , logger_(stdout) {
     if (stub_->nogc()) {
-        factory_.reset(new MallocObjectFactory(this));
+        factory_.reset(ObjectFactory::NewMallocFactory(this));
     } else {
-        factory_.reset(new ObjectFactoryImpl(this, heap_.get()));
+        factory_.reset(ObjectFactory::NewHeapFactory(this, heap_.get()));
     }
         
     top_slot_ = new HandleScopeSlot;

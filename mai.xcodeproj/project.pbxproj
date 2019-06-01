@@ -50,6 +50,7 @@
 		23347C7F2256F25100ABAB3F /* marking-compaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23347C7E2256F25100ABAB3F /* marking-compaction.cc */; };
 		23347C81225791B400ABAB3F /* thread-pool-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23347C80225791B400ABAB3F /* thread-pool-test.cc */; };
 		2343978A21F960A400512A37 /* evaluation.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2343978921F960A400512A37 /* evaluation.cc */; };
+		2349FDF022A21C93001861E0 /* aot-generator-visitor-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDEF22A21C93001861E0 /* aot-generator-visitor-x64.cc */; };
 		23565910221E82EC00837F83 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
 		235C1CCF21D1D63F0070A049 /* optimism-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */; };
 		235C1CD621D210520070A049 /* optimism-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CD421D210520070A049 /* optimism-transaction.cc */; };
@@ -147,7 +148,7 @@
 		2364B35921E451F9008519AE /* ast-factory-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B8E68A21E32D8A0001096E /* ast-factory-test.cc */; };
 		2364B35A21E451F9008519AE /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163721AFED5E00DE7321 /* test-main.cc */; };
 		2365EC522206948600EE7103 /* ast-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2365EC512206948600EE7103 /* ast-factory.cc */; };
-		23719D31223F46C10055D397 /* object-factory-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23719D30223F46C10055D397 /* object-factory-impl.cc */; };
+		23719D31223F46C10055D397 /* heap-object-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23719D30223F46C10055D397 /* heap-object-factory.cc */; };
 		23719D34223F73270055D397 /* thread.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23719D33223F73270055D397 /* thread.cc */; };
 		23719D392240E4860055D397 /* builtin.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23719D382240E4860055D397 /* builtin.cc */; };
 		23719D3E224222220055D397 /* object-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23719D3D224222220055D397 /* object-factory.cc */; };
@@ -303,7 +304,6 @@
 		230D7ACA21FDE8290019F7BB /* eval-factory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "eval-factory.h"; sourceTree = "<group>"; };
 		230D7ACB21FDE8890019F7BB /* evaluation-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "evaluation-test.cc"; sourceTree = "<group>"; };
 		230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map-v2.h"; sourceTree = "<group>"; };
-		2312DFBB2253503600689616 /* malloc-object-factory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "malloc-object-factory.h"; sourceTree = "<group>"; };
 		2312DFBC2253503700689616 /* malloc-object-factory.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "malloc-object-factory.cc"; sourceTree = "<group>"; };
 		2312DFBE22536B3700689616 /* scavenger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = scavenger.h; sourceTree = "<group>"; };
 		2312DFBF22536B4300689616 /* scavenger.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = scavenger.cc; sourceTree = "<group>"; };
@@ -385,6 +385,7 @@
 		234372C921998C0A00427E83 /* write-ahead-log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-ahead-log.h"; sourceTree = "<group>"; };
 		2343978821F9609300512A37 /* evaluation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = evaluation.h; sourceTree = "<group>"; };
 		2343978921F960A400512A37 /* evaluation.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = evaluation.cc; sourceTree = "<group>"; };
+		2349FDEF22A21C93001861E0 /* aot-generator-visitor-x64.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "aot-generator-visitor-x64.cc"; sourceTree = "<group>"; };
 		2356590B221E82EC00837F83 /* mai-tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "mai-tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2356590F221E82EC00837F83 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		235C1CCB21D1D5F70070A049 /* optimism-transaction-db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "optimism-transaction-db.h"; sourceTree = "<group>"; };
@@ -398,8 +399,7 @@
 		236AC67521B768E60069A17B /* lru-cache-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lru-cache-v1.h"; sourceTree = "<group>"; };
 		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
 		236AC67921B769900069A17B /* lru-cache-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-test.cc"; sourceTree = "<group>"; };
-		23719D2F223F46630055D397 /* object-factory-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "object-factory-impl.h"; sourceTree = "<group>"; };
-		23719D30223F46C10055D397 /* object-factory-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "object-factory-impl.cc"; sourceTree = "<group>"; };
+		23719D30223F46C10055D397 /* heap-object-factory.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "heap-object-factory.cc"; sourceTree = "<group>"; };
 		23719D32223F72A80055D397 /* thread.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = thread.h; sourceTree = "<group>"; };
 		23719D33223F73270055D397 /* thread.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = thread.cc; sourceTree = "<group>"; };
 		23719D372240E2F20055D397 /* builtin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = builtin.h; sourceTree = "<group>"; };
@@ -831,9 +831,7 @@
 				23D9E0CC224B830B00914076 /* spaces.cc */,
 				23A9D770223E93DA006CD82B /* object-factory.h */,
 				23719D3D224222220055D397 /* object-factory.cc */,
-				23719D2F223F46630055D397 /* object-factory-impl.h */,
-				23719D30223F46C10055D397 /* object-factory-impl.cc */,
-				2312DFBB2253503600689616 /* malloc-object-factory.h */,
+				23719D30223F46C10055D397 /* heap-object-factory.cc */,
 				2312DFBC2253503700689616 /* malloc-object-factory.cc */,
 				23719D372240E2F20055D397 /* builtin.h */,
 				23719D382240E4860055D397 /* builtin.cc */,
@@ -865,6 +863,7 @@
 				2325865922A17564006AADE4 /* code-gen-base.h */,
 				2325865A22A175CA006AADE4 /* code-gen-base.cc */,
 				2325865C22A17DB3006AADE4 /* bytecode-generator-visitor.cc */,
+				2349FDEF22A21C93001861E0 /* aot-generator-visitor-x64.cc */,
 			);
 			name = nyaa;
 			path = src/nyaa;
@@ -1414,7 +1413,8 @@
 				2364B2C321E451F9008519AE /* db-impl.cc in Sources */,
 				2364B2C521E451F9008519AE /* column-family.cc in Sources */,
 				237B0C1E21E4A9C100F3A099 /* parser.cc in Sources */,
-				23719D31223F46C10055D397 /* object-factory-impl.cc in Sources */,
+				2349FDF022A21C93001861E0 /* aot-generator-visitor-x64.cc in Sources */,
+				23719D31223F46C10055D397 /* heap-object-factory.cc in Sources */,
 				232CD51B2283CAEA00544808 /* api-test.cc in Sources */,
 				2364B2C721E451F9008519AE /* version.cc in Sources */,
 				2364B2C921E451F9008519AE /* files.cc in Sources */,

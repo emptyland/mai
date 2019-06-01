@@ -5,6 +5,7 @@
 #include "nyaa/builtin.h"
 #include "nyaa/memory.h"
 #include "nyaa/visitors.h"
+#include "asm/utils.h"
 #include "base/base.h"
 #include "glog/logging.h"
 #include <math.h>
@@ -600,6 +601,12 @@ private:
 template<class T>
 class NyArrayBase : public NyObject {
 public:
+    using Template = arch::ObjectTemplate<NyArrayBase<T>, int32_t>;
+    
+    static const int32_t kOffsetSize;
+    static const int32_t kOffsetCapacity;
+    static const int32_t kOffsetElems;
+    
     inline NyArrayBase(uint32_t capacity)
         : size_(0)
         , capacity_(capacity) {
@@ -638,6 +645,13 @@ protected:
     uint32_t capacity_;
     T elems_[0];
 }; // class NyArrayBase
+    
+template<class T>
+const int32_t NyArrayBase<T>::kOffsetSize = Template::OffsetOf(&NyArrayBase<T>::size_);
+template<class T>
+const int32_t NyArrayBase<T>::kOffsetCapacity = Template::OffsetOf(&NyArrayBase<T>::capacity_);
+template<class T>
+const int32_t NyArrayBase<T>::kOffsetElems = Template::OffsetOf(&NyArrayBase<T>::elems_);
 
 
 class NyByteArray : public NyArrayBase<Byte> {

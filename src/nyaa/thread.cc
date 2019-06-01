@@ -11,6 +11,8 @@ namespace mai {
     
 namespace nyaa {
     
+const int32_t NyThread::kOffsetOwns = Template::OffsetOf(&NyThread::owns_);
+    
 void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, NyArray *kpool,
                       int wanted, size_t bp, size_t tp, NyMap *env) {
     DCHECK_NE(this, owns->frame_);

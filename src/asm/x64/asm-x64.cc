@@ -34,17 +34,6 @@ const XMMRegister kXmmArgv[kMaxXmmArgs] {
 // r13 - root register
 //
 const Register kRegAlloc[kMaxAllocRegs] {
-//    {kRAX}, // 0
-//    {kRBX},
-//    {kRDX},
-//    {kRCX},
-//    {kRSI}, // 4
-//    {kRDI},
-//    {kR8},
-//    {kR9},
-//    {kR11}, // 8
-//    {kR14},
-//    {kR15},
     rax, // 0
     rbx,
     rdx,

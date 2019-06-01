@@ -40,7 +40,6 @@ public:
     
     DEF_PTR_GETTER(FunctionScope, prev);
     ConstPoolBuilder *kpool() { return &kpool_builder_; }
-    BytecodeArrayBuilder *builder() { return &builder_; }
     DEF_VAL_GETTER(int32_t, max_stack);
     DEF_VAL_PROP_RW(int, free_reg);
     DEF_VAL_GETTER(int, active_vars);
@@ -121,7 +120,6 @@ private:
     BlockScope *top_ = nullptr;
     BlockScope *current_ = nullptr;
     ConstPoolBuilder kpool_builder_;
-    BytecodeArrayBuilder builder_;
     std::vector<Handle<NyFunction>> protos_;
     VariableTable upvals_;
     std::vector<UpvalDesc> upval_desc_;
@@ -212,6 +210,23 @@ public:
         , arena_(DCHECK_NOTNULL(arena))
         , file_name_(file_name) {}
     virtual ~CodeGeneratorVisitor() override {}
+
+    //----------------------------------------------------------------------------------------------
+    // Onwer Implements
+    //----------------------------------------------------------------------------------------------
+    virtual IVal Localize(IVal val, int line) = 0;
+    virtual void LoadNil(IVal val, int n, int line) = 0;
+    
+    //----------------------------------------------------------------------------------------------
+    // Implements from ast::Visitor
+    //----------------------------------------------------------------------------------------------
+    virtual IVal VisitBlock(ast::Block *node, ast::VisitorContext */*ctx*/) override;
+    virtual IVal VisitVarDeclaration(ast::VarDeclaration *node, ast::VisitorContext *x) override;
+    virtual IVal VisitAssignment(ast::Assignment *node, ast::VisitorContext *x) override;
+    virtual IVal VisitStringLiteral(ast::StringLiteral *node, ast::VisitorContext *x) override;
+    virtual IVal VisitApproxLiteral(ast::ApproxLiteral *node, ast::VisitorContext *x) override;
+    virtual IVal VisitSmiLiteral(ast::SmiLiteral *node, ast::VisitorContext *x) override;
+    virtual IVal VisitIntLiteral(ast::IntLiteral *node, ast::VisitorContext *x) override;
     
     friend class FunctionScope;
     friend class BlockScope;

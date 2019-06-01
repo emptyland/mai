@@ -3,6 +3,7 @@
 
 #include "nyaa/nyaa-values.h"
 #include "nyaa/function.h"
+#include "asm/utils.h"
 #include "mai/error.h"
 #include "glog/logging.h"
 
@@ -147,6 +148,10 @@ public:
         kDead,
     };
     
+    using Template = arch::ObjectTemplate<NyThread, int32_t>;
+    
+    static const int32_t kOffsetOwns;
+    
     NyThread(NyaaCore *owns);
     ~NyThread();
     
@@ -197,6 +202,7 @@ public:
     friend class NyaaCore;
     friend class TryCatchCore;
     friend class CallFrame;
+    friend class Runtime;
     DEF_HEAP_OBJECT(Thread);
 private:
 

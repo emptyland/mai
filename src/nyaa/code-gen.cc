@@ -7,8 +7,11 @@ namespace mai {
     
 namespace nyaa {
 
-Handle<NyFunction> Bytecode_CodeGenerate(Handle<NyString> file_name, ast::Block *root,
-                                         base::Arena *arena, NyaaCore *core);
+extern Handle<NyFunction> Bytecode_CodeGenerate(Handle<NyString> file_name, ast::Block *root,
+                                                base::Arena *arena, NyaaCore *core);
+
+extern Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root,
+                                           base::Arena *arena, NyaaCore *core);
     
 /*static*/ Handle<NyFunction> CodeGen::Generate(Handle<NyString> file_name, ast::Block *root,
                                                 base::Arena *arena, NyaaCore *core) {
@@ -17,7 +20,8 @@ Handle<NyFunction> Bytecode_CodeGenerate(Handle<NyString> file_name, ast::Block 
             return Bytecode_CodeGenerate(file_name, root, arena, core);
             
         case Nyaa::kAOT:
-            break;
+            return AOT_CodeGenerate(file_name, root, arena, core);
+
         default:
             break;
     }
