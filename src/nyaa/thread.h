@@ -20,6 +20,12 @@ class NyThread;
     
 class CallFrame {
 public:
+    using Template = arch::ObjectTemplate<CallFrame, int32_t>;
+
+    static const int32_t kOffsetCallee;
+    static const int32_t kOffsetEnv;
+    static const int32_t kOffsetConstPool;
+    
     CallFrame() {}
     ~CallFrame() {}
     
@@ -30,7 +36,7 @@ public:
     DEF_PTR_GETTER(NyRunnable, callee);
     DEF_PTR_GETTER(NyMap, env);
     DEF_PTR_GETTER(NyByteArray, bcbuf);
-    DEF_PTR_GETTER(NyArray, const_poll);
+    DEF_PTR_GETTER(NyArray, const_pool);
     DEF_PTR_GETTER(CallFrame, prev);
     DEF_VAL_GETTER(int, level);
     DEF_VAL_GETTER(int, pc);
@@ -91,7 +97,7 @@ private:
     NyRunnable *callee_; // [strong ref]
     NyMap *env_; // [strong ref]
     NyByteArray *bcbuf_ = nullptr; // [strong ref]
-    NyArray *const_poll_ = nullptr; // [strong ref]
+    NyArray *const_pool_ = nullptr; // [strong ref]
     CallFrame *prev_;
     int level_ = 0;
     int pc_ = 0;
@@ -151,6 +157,7 @@ public:
     using Template = arch::ObjectTemplate<NyThread, int32_t>;
     
     static const int32_t kOffsetOwns;
+    static const int32_t kOffsetFrame;
     
     NyThread(NyaaCore *owns);
     ~NyThread();
@@ -227,6 +234,7 @@ private:
     bool InternalCallMetaFunction(Object **base, NyString *name, int wanted, Object *a1,
                                   int n, ...);
     int InternalCall(Object **func, int32_t n_args, int wanted);
+    int InternalRet(int32_t base, int32_t nrets);
 
     int CopyArgs(Object **args, int n_args, int n_params, bool vargs);
     

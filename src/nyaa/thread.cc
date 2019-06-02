@@ -11,7 +11,12 @@ namespace mai {
     
 namespace nyaa {
     
+const int32_t CallFrame::kOffsetCallee = Template::OffsetOf(&CallFrame::callee_);
+const int32_t CallFrame::kOffsetEnv = Template::OffsetOf(&CallFrame::env_);
+const int32_t CallFrame::kOffsetConstPool = Template::OffsetOf(&CallFrame::const_pool_);
+    
 const int32_t NyThread::kOffsetOwns = Template::OffsetOf(&NyThread::owns_);
+const int32_t NyThread::kOffsetFrame = Template::OffsetOf(&NyThread::frame_);
     
 void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, NyArray *kpool,
                       int wanted, size_t bp, size_t tp, NyMap *env) {
@@ -25,7 +30,7 @@ void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, Ny
 
     callee_     = DCHECK_NOTNULL(callee);
     bcbuf_      = bcbuf;
-    const_poll_ = kpool;
+    const_pool_ = kpool;
     env_        = DCHECK_NOTNULL(env);
     wanted_     = wanted;
     DCHECK(bp >= 0 && bp < owns->stack_size_);
@@ -51,7 +56,7 @@ std::tuple<NyString *, NyInt32Array *> CallFrame::FileInfo() const {
 void CallFrame::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&callee_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&bcbuf_));
-    visitor->VisitRootPointer(reinterpret_cast<Object **>(&const_poll_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&const_pool_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&env_));
 }
     
@@ -452,7 +457,7 @@ int NyThread::Run() {
             case Bytecode::kLoadGlobal: {
                 int32_t ra, rb;
                 int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &rb);
-                Object *key = frame_->const_poll()->Get(rb);
+                Object *key = frame_->const_pool()->Get(rb);
                 Object *val = frame_->env()->RawGet(key, owns_);
                 Set(ra, val);
                 frame_->AddPC(delta);
@@ -461,7 +466,7 @@ int NyThread::Run() {
             case Bytecode::kLoadConst: {
                 int32_t ra, rb;
                 int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &rb);
-                Object *k = frame_->const_poll()->Get(rb);
+                Object *k = frame_->const_pool()->Get(rb);
                 Set(ra, k);
                 frame_->AddPC(delta);
             } break;
@@ -486,7 +491,7 @@ int NyThread::Run() {
                 int32_t ra, kb;
                 int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &kb);
                 Object *val = Get(ra);
-                Object *idx = frame_->const_poll()->Get(kb);
+                Object *idx = frame_->const_pool()->Get(kb);
                 frame_->env()->RawPut(idx, val, owns_);
                 frame_->AddPC(delta);
             } break;
@@ -496,7 +501,7 @@ int NyThread::Run() {
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &rkc);
                 Object *key = nullptr;
                 if (rkc < 0) {
-                    key = frame_->const_poll()->Get(-rkc - 1);
+                    key = frame_->const_pool()->Get(-rkc - 1);
                 } else {
                     key = Get(rkc);
                 }
@@ -510,14 +515,14 @@ int NyThread::Run() {
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
                 Object *key = nullptr;
                 if (rkb < 0) {
-                    key = frame_->const_poll()->Get(-rkb - 1);
+                    key = frame_->const_pool()->Get(-rkb - 1);
                 } else {
                     key = Get(rkb);
                 }
 
                 Object *value = nullptr;
                 if (rkc < 0) {
-                    value = frame_->const_poll()->Get(-rkc - 1);
+                    value = frame_->const_pool()->Get(-rkc - 1);
                 } else {
                     value = Get(rkc);
                 }
@@ -610,7 +615,7 @@ int NyThread::Run() {
             case Bytecode::kJumpConst: {
                 int32_t k;
                 ParseBytecodeInt32Params(1, scale, 1, &k);
-                Object *ob = frame_->const_poll()->Get(k);
+                Object *ob = frame_->const_pool()->Get(k);
                 DCHECK(ob->IsSmi());
                 frame_->AddPC(static_cast<int32_t>(ob->ToSmi()));
             } break;
@@ -663,7 +668,7 @@ int NyThread::Run() {
             case Bytecode::kSelf: {
                 int32_t ra, rb, kc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &kc);
-                Object *key = frame_->const_poll()->Get(kc);
+                Object *key = frame_->const_pool()->Get(kc);
                 Object *method = InternalGetField(frame_bp() + ra, Get(rb), key);
                 Set(ra + 1, Get(rb));
                 Set(ra, method);
@@ -755,8 +760,8 @@ int NyThread::Run() {
             #define PROCESS_ARITH(op) \
                 int32_t ra, rkb, rkc; \
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc); \
-                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb); \
-                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc); \
+                Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb); \
+                Object *rhs = rkc < 0 ? frame_->const_pool()->Get(-rkc - 1) : Get(rkc); \
                 if (!InternalCallMetaFunction(frame_bp() + ra, owns_->bkz_pool()->kInner##op, \
                                               1, lhs, 1, rhs)) { \
                     Set(ra, Object::op(lhs, rhs, owns_)); \
@@ -782,8 +787,8 @@ int NyThread::Run() {
             case Bytecode::kEqual: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
-                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb);
-                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc);
+                Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb);
+                Object *rhs = rkc < 0 ? frame_->const_pool()->Get(-rkc - 1) : Get(rkc);
                 Set(ra, NySmi::New(Object::Equal(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
@@ -791,8 +796,8 @@ int NyThread::Run() {
             case Bytecode::kLessThan: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
-                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb);
-                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc);
+                Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb);
+                Object *rhs = rkc < 0 ? frame_->const_pool()->Get(-rkc - 1) : Get(rkc);
                 Set(ra, NySmi::New(Object::LessThan(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
@@ -800,8 +805,8 @@ int NyThread::Run() {
             case Bytecode::kLessEqual: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
-                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb);
-                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc);
+                Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb);
+                Object *rhs = rkc < 0 ? frame_->const_pool()->Get(-rkc - 1) : Get(rkc);
                 Set(ra, NySmi::New(Object::LessEqual(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
@@ -809,8 +814,8 @@ int NyThread::Run() {
             case Bytecode::kGreaterThan: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
-                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb);
-                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc);
+                Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb);
+                Object *rhs = rkc < 0 ? frame_->const_pool()->Get(-rkc - 1) : Get(rkc);
                 Set(ra, NySmi::New(!Object::LessEqual(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
@@ -818,8 +823,8 @@ int NyThread::Run() {
             case Bytecode::kGreaterEqual: {
                 int32_t ra, rkb, rkc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
-                Object *lhs = rkb < 0 ? frame_->const_poll()->Get(-rkb - 1) : Get(rkb);
-                Object *rhs = rkc < 0 ? frame_->const_poll()->Get(-rkc - 1) : Get(rkc);
+                Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb);
+                Object *rhs = rkc < 0 ? frame_->const_pool()->Get(-rkc - 1) : Get(rkc);
                 Set(ra, NySmi::New(!Object::LessThan(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
@@ -1083,6 +1088,20 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
         } break;
     }
     return 0;
+}
+    
+int NyThread::InternalRet(int32_t base, int32_t nrets) {
+    if (nrets < 0) {
+        nrets = static_cast<int32_t>(stack_tp_ - (frame_bp() + base));
+    } else {
+        stack_tp_ = (frame_bp() + base) + nrets;
+    }
+    frame_->set_nrets(nrets);
+    CopyResult(stack_ + frame_->stack_be() - 1, nrets, frame_->wanted());
+    auto outter = frame_;
+    outter->Exit(this);
+    delete outter;
+    return nrets;
 }
     
 void NyThread::CopyResult(Object **ret, int nrets, int wanted) {

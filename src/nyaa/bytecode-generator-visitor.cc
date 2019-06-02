@@ -19,6 +19,11 @@ class BytecodeGeneratorVisitor : public CodeGeneratorVisitor {
 public:
     using Context = CodeGeneratorContext;
     
+    BytecodeGeneratorVisitor(NyaaCore *core, base::Arena *arena, Handle<NyString> file_name)
+        : CodeGeneratorVisitor(core, arena, file_name) {}
+    
+    virtual ~BytecodeGeneratorVisitor() override {};
+    
     virtual IVal
     VisitFunctionDefinition(ast::FunctionDefinition *node, ast::VisitorContext *x) override {
         // TODO: for object or class scope.
@@ -54,76 +59,7 @@ public:
         fun_scope_->FreeVar(closure);
         return IVal::Void();
     }
-    
-//    virtual IVal VisitVarDeclaration(ast::VarDeclaration *node, ast::VisitorContext *x) override {
-//        std::vector<IVal> vars;
-//
-//        if (node->inits()) {
-//            CodeGeneratorContext rix;
-//            if (node->names()->size() > 1 && node->GetNWanted() < 0) {
-//                rix.set_n_result(static_cast<int>(node->names()->size()));
-//                IVal rval = node->inits()->at(0)->Accept(this, &rix);
-//                fun_scope_->Reserve(rix.n_result() - 1);
-//
-//                DCHECK_EQ(IVal::kLocal, rval.kind);
-//                for (size_t i = 0; i < node->names()->size(); ++i) {
-//                    blk_scope_->PutVariable(node->names()->at(i), &rval);
-//                    rval.index++;
-//                }
-//            } else {
-//                rix.set_n_result(1);
-//
-//                for (size_t i = 0; i < node->names()->size(); ++i) {
-//                    if (i < node->inits()->size()) {
-//                        ast::Expression *init = node->inits()->at(i);
-//                        IVal rval = init->Accept(this, &rix);
-//                        blk_scope_->PutVariable(node->names()->at(i), &rval);
-//                    } else {
-//                        IVal lval = blk_scope_->PutVariable(node->names()->at(i), nullptr);
-//                        builder()->LoadNil(lval, 1, node->line());
-//                    }
-//                }
-//            }
-//        } else {
-//            for (size_t i = 0; i < node->names()->size(); ++i) {
-//                const ast::String *name = node->names()->at(i);
-//                vars.push_back(blk_scope_->PutVariable(name, nullptr));
-//            }
-//            builder()->LoadNil(vars[0], static_cast<int32_t>(vars.size()), node->line());
-//        }
-//        return IVal::Void();
-//    }
-    
-//    virtual IVal VisitAssignment(ast::Assignment *node, ast::VisitorContext *x) override {
-//        CodeGeneratorContext rix;
-//        if (node->rvals()->size() == 1 && node->GetNWanted() < 0) {
-//            rix.set_n_result(static_cast<int>(node->lvals()->size()));
-//            IVal val = node->rvals()->at(0)->Accept(this, &rix);
-//            for (size_t i = 0; i < node->lvals()->size(); ++i) {
-//
-//                CodeGeneratorContext lix;
-//                lix.set_rval(val);
-//                lix.set_lval(true);
-//                node->lvals()->at(i)->Accept(this, &lix);
-//                val.index++;
-//            }
-//        } else {
-//            rix.set_n_result(1);
-//            size_t len = std::min(node->lvals()->size(), node->rvals()->size());
-//            for (size_t i = 0; i < len; ++i) {
-//                ast::Expression *expr = node->rvals()->at(i);
-//                IVal val = expr->Accept(this, &rix);
-//
-//                CodeGeneratorContext lix;
-//                lix.set_rval(val);
-//                lix.set_lval(true);
-//                node->lvals()->at(i)->Accept(this, &lix);
-//                fun_scope_->FreeVar(val);
-//            }
-//        }
-//        return IVal::Void();
-//    }
-    
+
     virtual IVal VisitIfStatement(ast::IfStatement *node, ast::VisitorContext *x) override {
         CodeGeneratorContext ix;
         ix.set_n_result(1);
@@ -271,12 +207,6 @@ public:
         return IVal::Void();
     }
 
-    virtual IVal VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) override {
-        IVal tmp = fun_scope_->NewLocal();
-        builder()->LoadNil(tmp, 1);
-        return tmp;
-    }
-
     virtual IVal VisitMapInitializer(ast::MapInitializer *node, ast::VisitorContext *x) override {
         int index = 0;
         if (!node->value()) {
@@ -378,44 +308,6 @@ public:
         return val;
     }
     
-    virtual IVal VisitVariable(ast::Variable *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-        
-        IVal val = fun_scope_->GetOrNewUpvalNested(node->name());
-        if (ctx->lval()) {
-            switch (val.kind) {
-                case IVal::kVoid:
-                    val = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
-                    builder()->StoreGlobal(ctx->rval(), val, node->line());
-                    break;
-                case IVal::kUpval:
-                    builder()->StoreUp(ctx->rval(), val, node->line());
-                    break;
-                default:
-                    DCHECK_EQ(IVal::kLocal, val.kind);
-                    builder()->Move(val, ctx->rval(), node->line());
-                    break;
-            }
-            return IVal::Void();
-        } else {
-            switch (val.kind) {
-                case IVal::kVoid:
-                    val = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
-                    break;
-                case IVal::kLocal:
-                case IVal::kUpval:
-                    break;
-                default:
-                    break;
-            }
-            if (ctx->localize()) {
-                return Localize(val, node->line());
-            } else {
-                return val;
-            }
-        }
-    }
-    
     virtual IVal VisitIndex(ast::Index *node, ast::VisitorContext *x) override {
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
         IVal val = ctx->lval() ? IVal::Void() : fun_scope_->NewLocal();
@@ -459,33 +351,6 @@ public:
             fun_scope_->FreeVar(self);
             return val;
         }
-    }
-    
-    virtual IVal VisitReturn(ast::Return *node, ast::VisitorContext *x) override {
-        if (!node->rets()) {
-            builder()->Ret(IVal::Local(0), 0, node->line());
-            return IVal::Void();
-        }
-        
-        int32_t n_rets = node->GetNRets();
-        CodeGeneratorContext ix;
-        ix.set_n_result(n_rets < 0 ? -1 : 1);
-        
-        std::vector<IVal> rets;
-        IVal first = node->rets()->at(0)->Accept(this, &ix);
-        rets.push_back(first);
-        int32_t reg = first.index;
-        
-        for (size_t i = 1; i < node->rets()->size(); ++i) {
-            ast::Expression *expr = node->rets()->at(i);
-            rets.push_back(AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line()));
-        }
-        builder()->Ret(first, n_rets, node->line());
-        
-        for (int64_t i = rets.size() - 1; i >= 0; --i) {
-            fun_scope_->FreeVar(rets[i]);
-        }
-        return IVal::Void();
     }
     
     virtual IVal VisitCall(ast::Call *node, ast::VisitorContext *x) override {
@@ -676,44 +541,27 @@ public:
         builder()->Concat(base, base, static_cast<int32_t>(ops.size()), node->line());
         return base;
     }
-
-    static Handle<NyFunction> Generate(Handle<NyString> file_name, ast::Block *root,
-                                       base::Arena *arena, NyaaCore *core) {
-        HandleScope handle_scope(core->stub());
-        
-        BytecodeGeneratorVisitor visitor(core, arena, file_name);
-        FunctionScopeBundle scope(&visitor);
-        root->Accept(&visitor, nullptr);
-        
-        Handle<NyByteArray> bcbuf;
-        Handle<NyInt32Array> info;
-        scope.builder_.Ret(IVal::Local(0), 0); // last return
-        std::tie(bcbuf, info) = scope.builder_.Build(core);
-        Handle<NyArray> kpool = scope.kpool()->Build(core);
-        Handle<NyArray> fpool = scope.BuildProtos(core);
-        
-        Handle<NyFunction> result = core->factory()->NewFunction(nullptr/*name*/,
-                                                                 0/*nparams*/,
-                                                                 true/*vargs*/,
-                                                                 0/*n_upvals*/,
-                                                                 scope.max_stack(),
-                                                                 *file_name,/*source file name*/
-                                                                 *info,/*source info */
-                                                                 *bcbuf,/*exec object*/
-                                                                 *fpool/*proto_pool*/,
-                                                                 *kpool);
-        return handle_scope.CloseAndEscape(result);
-    }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeGeneratorVisitor);
 private:
-    BytecodeGeneratorVisitor(NyaaCore *core, base::Arena *arena, Handle<NyString> file_name)
-        : CodeGeneratorVisitor(core, arena, file_name) {}
-
-    virtual ~BytecodeGeneratorVisitor() override {};
-    
     virtual void LoadNil(IVal val, int n, int line) override {
         builder()->LoadNil(val, n, line);
+    }
+    
+    virtual void Ret(IVal base, int nrets, int line) override {
+        builder()->Ret(base, nrets, line);
+    }
+    
+    virtual void Move(IVal dst, IVal src, int line) override {
+        builder()->Move(dst, src, line);
+    }
+    
+    virtual void StoreUp(IVal val, IVal up, int line) override {
+        builder()->StoreUp(val, up, line);
+    }
+
+    virtual void StoreGlobal(IVal val, IVal name, int line) override {
+        builder()->StoreGlobal(val, name, line);
     }
     
     virtual IVal Localize(IVal val, int line) override {
@@ -840,7 +688,25 @@ private:
 
 Handle<NyFunction> Bytecode_CodeGenerate(Handle<NyString> file_name, ast::Block *root,
                                          base::Arena *arena, NyaaCore *core) {
-    return BytecodeGeneratorVisitor::Generate(file_name, root, arena, core);
+    HandleScope handle_scope(core->stub());
+    
+    BytecodeGeneratorVisitor visitor(core, arena, file_name);
+    FunctionScopeBundle scope(&visitor);
+    root->Accept(&visitor, nullptr);
+    
+    Handle<NyByteArray> bcbuf;
+    Handle<NyInt32Array> info;
+    scope.builder_.Ret(IVal::Local(0), 0); // last return
+    std::tie(bcbuf, info) = scope.builder_.Build(core);
+    Handle<NyArray> kpool = scope.kpool()->Build(core);
+    Handle<NyArray> fpool = scope.BuildProtos(core);
+    
+    Handle<NyFunction> result =
+        core->factory()->NewFunction(nullptr/*name*/, 0/*nparams*/, true/*vargs*/, 0/*n_upvals*/,
+                                     scope.max_stack(), *file_name,/*source file name*/
+                                     *info,/*source info */ *bcbuf,/*exec object*/
+                                     *fpool/*proto_pool*/, *kpool);
+    return handle_scope.CloseAndEscape(result);
 }
     
 } // namespace nyaa

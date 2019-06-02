@@ -155,6 +155,44 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     return IVal::Void();
 }
     
+/*virtual*/ IVal CodeGeneratorVisitor::VisitVariable(ast::Variable *node, ast::VisitorContext *x) {
+    CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+    
+    IVal val = fun_scope_->GetOrNewUpvalNested(node->name());
+    if (ctx->lval()) {
+        switch (val.kind) {
+            case IVal::kVoid:
+                val = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
+                StoreGlobal(ctx->rval(), val, node->line());
+                break;
+            case IVal::kUpval:
+                StoreUp(ctx->rval(), val, node->line());
+                break;
+            default:
+                DCHECK_EQ(IVal::kLocal, val.kind);
+                Move(val, ctx->rval(), node->line());
+                break;
+        }
+        return IVal::Void();
+    } else {
+        switch (val.kind) {
+            case IVal::kVoid:
+                val = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
+                break;
+            case IVal::kLocal:
+            case IVal::kUpval:
+                break;
+            default:
+                break;
+        }
+        if (ctx->localize()) {
+            return Localize(val, node->line());
+        } else {
+            return val;
+        }
+    }
+}
+    
 /*virtual*/ IVal CodeGeneratorVisitor::VisitAssignment(ast::Assignment *node,
                                                        ast::VisitorContext *x) {
     CodeGeneratorContext rix;
@@ -184,6 +222,39 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
         }
     }
     return IVal::Void();
+}
+
+/*virtual*/ IVal CodeGeneratorVisitor::VisitReturn(ast::Return *node, ast::VisitorContext *x) {
+    if (!node->rets()) {
+        Ret(IVal::Local(0), 0, node->line());
+        return IVal::Void();
+    }
+    
+    int32_t n_rets = node->GetNRets();
+    CodeGeneratorContext ix;
+    ix.set_n_result(n_rets < 0 ? -1 : 1);
+    
+    std::vector<IVal> rets;
+    IVal first = node->rets()->at(0)->Accept(this, &ix);
+    rets.push_back(first);
+    int32_t reg = first.index;
+    
+    for (size_t i = 1; i < node->rets()->size(); ++i) {
+        ast::Expression *expr = node->rets()->at(i);
+        rets.push_back(AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line()));
+    }
+    Ret(first, n_rets, node->line());
+    
+    for (int64_t i = rets.size() - 1; i >= 0; --i) {
+        fun_scope_->FreeVar(rets[i]);
+    }
+    return IVal::Void();
+}
+    
+/*virtual*/ IVal CodeGeneratorVisitor::VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) {
+    IVal tmp = fun_scope_->NewLocal();
+    LoadNil(tmp, 1, node->line());
+    return tmp;
 }
 
 /*virtual*/ IVal CodeGeneratorVisitor::VisitStringLiteral(ast::StringLiteral *node,
@@ -222,6 +293,17 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewInt(node->value()));
     if (ctx->localize() && !ctx->keep_const()) {
         return Localize(val, node->line());
+    }
+    return val;
+}
+    
+IVal CodeGeneratorVisitor::AdjustStackPosition(int requried, IVal val, int line) {
+    DCHECK_EQ(IVal::kLocal, val.kind);
+    if (requried != val.index) {
+        IVal dst = fun_scope_->NewLocal();
+        DCHECK_EQ(requried, dst.index);
+        Move(dst, val, line);
+        return dst;
     }
     return val;
 }

@@ -216,13 +216,20 @@ public:
     //----------------------------------------------------------------------------------------------
     virtual IVal Localize(IVal val, int line) = 0;
     virtual void LoadNil(IVal val, int n, int line) = 0;
+    virtual void Ret(IVal base, int nrets, int line) = 0;
+    virtual void Move(IVal dst, IVal src, int line) = 0;
+    virtual void StoreUp(IVal val, IVal up, int line) = 0;
+    virtual void StoreGlobal(IVal val, IVal name, int line) = 0;
     
     //----------------------------------------------------------------------------------------------
     // Implements from ast::Visitor
     //----------------------------------------------------------------------------------------------
     virtual IVal VisitBlock(ast::Block *node, ast::VisitorContext */*ctx*/) override;
     virtual IVal VisitVarDeclaration(ast::VarDeclaration *node, ast::VisitorContext *x) override;
+    virtual IVal VisitVariable(ast::Variable *node, ast::VisitorContext *x) override;
     virtual IVal VisitAssignment(ast::Assignment *node, ast::VisitorContext *x) override;
+    virtual IVal VisitReturn(ast::Return *node, ast::VisitorContext *x) override;
+    virtual IVal VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) override;
     virtual IVal VisitStringLiteral(ast::StringLiteral *node, ast::VisitorContext *x) override;
     virtual IVal VisitApproxLiteral(ast::ApproxLiteral *node, ast::VisitorContext *x) override;
     virtual IVal VisitSmiLiteral(ast::SmiLiteral *node, ast::VisitorContext *x) override;
@@ -232,6 +239,8 @@ public:
     friend class BlockScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(CodeGeneratorVisitor);
 protected:
+    IVal AdjustStackPosition(int requried, IVal val, int line);
+
     NyaaCore *const core_;
     Handle<NyString> file_name_;
     base::Arena *arena_;

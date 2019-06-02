@@ -28,11 +28,20 @@ public:
     DEF_VAL_GETTER(uint64_t, call_count);
     DEF_VAL_GETTER(uint32_t, max_stack);
     DEF_PTR_GETTER(NyString, name);
-    DEF_PTR_GETTER(NyByteArray, bcbuf);
     DEF_PTR_GETTER(NyString, file_name);
     DEF_PTR_GETTER(NyInt32Array, file_info);
     DEF_PTR_GETTER(NyArray, proto_pool);
     DEF_PTR_GETTER(NyArray, const_pool);
+    
+    NyByteArray *bcbuf() const {
+        DCHECK(IsInterpretationExec());
+        return bcbuf_;
+    }
+    
+    NyCode *code() const {
+        DCHECK(IsNativeExec());
+        return code_;
+    }
     
     void SetName(NyString *name, NyaaCore *N);
     
