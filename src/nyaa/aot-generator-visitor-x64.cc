@@ -157,6 +157,7 @@ public:
     void InitializeFun() {
         __ pushq(rbp);
         __ movq(rbp, rsp);
+        __ subq(rsp, 8);
     }
 
     void FinalizeRet() { Ret(IVal::Local(0), 0, 0); }
@@ -182,6 +183,16 @@ private:
         }
     }
     
+    virtual void Call(IVal callee, int nargs, int wanted, int line) override {
+        DCHECK_EQ(IVal::kLocal, callee.kind);
+        FileLineScope fls(fun_scope_, line);
+        __ movq(kRegArgv[0], kThread);
+        __ movl(kRegArgv[1], callee.index);
+        __ movl(kRegArgv[2], nargs);
+        __ movl(kRegArgv[3], wanted);
+        CallRuntime(Runtime::kThread_Call);
+    }
+    
     virtual void Ret(IVal base, int nrets, int line) override {
         DCHECK_EQ(IVal::kLocal, base.kind);
         FileLineScope fls(fun_scope_, line);
@@ -189,6 +200,7 @@ private:
         __ movl(kRegArgv[1], base.index);
         __ movl(kRegArgv[2], nrets);
         CallRuntime(Runtime::kThread_Ret);
+        __ addq(rsp, 8);
         __ popq(rbp);
         __ ret(0);
     }
@@ -250,6 +262,7 @@ private:
                 __ movq(kRegArgv[1], kScratch); // argv[1] = key
                 __ movq(kRegArgv[2], Operand(kThread, NyThread::kOffsetOwns)); // argv[2] = thread->owns_
                 CallRuntime(Runtime::kMap_RawGet); // rax = rax->RawGet(r10, onws)
+                //__ Breakpoint();
                 __ movq(Local(ret.index), rax);
                 return ret;
             }
@@ -259,6 +272,7 @@ private:
                 __ movq(rax, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
                 __ movq(kScratch, Operand(rax, CallFrame::kOffsetConstPool)); // scratch = const_pool
                 __ movq(rax, Operand(kScratch, NyArray::kOffsetElems + val.index * kPointerSize));
+                //__ Breakpoint();
                 __ movq(Local(ret.index), rax);
                 return ret;
             } break;
@@ -299,7 +313,9 @@ private:
         __ pushq(kRuntime);
         __ pushq(kCore);
         __ pushq(kBP);
+        __ pushq(rbx); // for alignment
         __ call(ExternalLink(sym));
+        __ popq(rbx); // for alignment
         __ popq(kBP);
         __ popq(kCore);
         __ popq(kRuntime);

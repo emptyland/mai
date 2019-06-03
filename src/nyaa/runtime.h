@@ -22,6 +22,7 @@ public:
         kThread_SetUpVal,
         kThread_GetProto,
         kThread_Closure,
+        kThread_Call,
         kThread_Ret,
         
         kMap_RawGet,

@@ -353,33 +353,6 @@ public:
         }
     }
     
-    virtual IVal VisitCall(ast::Call *node, ast::VisitorContext *x) override {
-        int32_t n_args = node->GetNArgs();
-        CodeGeneratorContext ix;
-        ix.set_n_result(1);
-        
-        IVal callee = node->callee()->Accept(this, &ix);
-        if (blk_scope_->Protected(callee)) {
-            IVal tmp = fun_scope_->NewLocal();
-            builder()->Move(tmp, callee);
-            callee = tmp;
-        }
-        
-        ix.set_n_result(n_args < 0 ? -1 : 1);
-        int reg = callee.index;
-        //std::vector<IVal> args;
-        for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
-            ast::Expression *expr = node->args()->at(i);
-            AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
-        }
-        
-        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-        builder()->Call(callee, n_args, ctx->n_result(), node->line());
-        
-        fun_scope_->set_free_reg(callee.index + 1);
-        return callee;
-    }
-    
     virtual IVal VisitNew(ast::New *node, ast::VisitorContext *x) override {
         int32_t n_args = node->GetNArgs();
         CodeGeneratorContext ix;
@@ -546,6 +519,10 @@ public:
 private:
     virtual void LoadNil(IVal val, int n, int line) override {
         builder()->LoadNil(val, n, line);
+    }
+    
+    virtual void Call(IVal callee, int nargs, int wanted, int line) override {
+        builder()->Call(callee, nargs, wanted, line);
     }
     
     virtual void Ret(IVal base, int nrets, int line) override {

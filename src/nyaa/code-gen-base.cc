@@ -223,6 +223,33 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     }
     return IVal::Void();
 }
+    
+/*virtual*/ IVal CodeGeneratorVisitor::VisitCall(ast::Call *node, ast::VisitorContext *x) {
+    int32_t n_args = node->GetNArgs();
+    CodeGeneratorContext ix;
+    ix.set_n_result(1);
+    
+    IVal callee = node->callee()->Accept(this, &ix);
+    if (blk_scope_->Protected(callee)) {
+        IVal tmp = fun_scope_->NewLocal();
+        Move(tmp, callee, node->callee()->line());
+        callee = tmp;
+    }
+    
+    ix.set_n_result(n_args < 0 ? -1 : 1);
+    int reg = callee.index;
+    //std::vector<IVal> args;
+    for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
+        ast::Expression *expr = node->args()->at(i);
+        AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
+    }
+    
+    CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+    Call(callee, n_args, ctx->n_result(), node->line());
+    
+    fun_scope_->set_free_reg(callee.index + 1);
+    return callee;
+}
 
 /*virtual*/ IVal CodeGeneratorVisitor::VisitReturn(ast::Return *node, ast::VisitorContext *x) {
     if (!node->rets()) {

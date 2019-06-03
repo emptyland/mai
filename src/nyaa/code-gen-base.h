@@ -216,6 +216,7 @@ public:
     //----------------------------------------------------------------------------------------------
     virtual IVal Localize(IVal val, int line) = 0;
     virtual void LoadNil(IVal val, int n, int line) = 0;
+    virtual void Call(IVal callee, int nargs, int wanted, int line) = 0;
     virtual void Ret(IVal base, int nrets, int line) = 0;
     virtual void Move(IVal dst, IVal src, int line) = 0;
     virtual void StoreUp(IVal val, IVal up, int line) = 0;
@@ -228,6 +229,7 @@ public:
     virtual IVal VisitVarDeclaration(ast::VarDeclaration *node, ast::VisitorContext *x) override;
     virtual IVal VisitVariable(ast::Variable *node, ast::VisitorContext *x) override;
     virtual IVal VisitAssignment(ast::Assignment *node, ast::VisitorContext *x) override;
+    virtual IVal VisitCall(ast::Call *node, ast::VisitorContext *x) override;
     virtual IVal VisitReturn(ast::Return *node, ast::VisitorContext *x) override;
     virtual IVal VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) override;
     virtual IVal VisitStringLiteral(ast::StringLiteral *node, ast::VisitorContext *x) override;

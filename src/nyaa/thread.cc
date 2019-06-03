@@ -1100,7 +1100,24 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
     return 0;
 }
     
-int NyThread::InternalRet(int32_t base, int32_t nrets) {
+int NyThread::RuntimeCall(int32_t callee, int32_t argc, int wanted) {
+    Object *val = Get(callee);
+    if (val->IsSmi()) {
+        owns_->Raisef("can not call number.");
+        return -1;
+    }
+    if (!NyRunnable::Cast(val)) {
+        owns_->Raisef("can not call this object.");
+        return -1;
+    }
+    Object **base = frame_bp() + callee;
+    if (argc >= 0) {
+        stack_tp_ = base + 1 + argc;
+    }
+    return InternalCall(base, argc, wanted);
+}
+    
+int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
     if (nrets < 0) {
         nrets = static_cast<int32_t>(stack_tp_ - (frame_bp() + base));
     } else {

@@ -989,7 +989,7 @@ TEST_F(NyaaCodeGenTest, Bugfix1) {
         "[009] Call 0 0 0 ; line: 5\n"
         "[013] LoadGlobal 0 1 ; line: 6\n"
         "[016] LoadGlobal 1 2 ; line: 7\n"
-        "[019] Move 2 0 ; line: 0\n"
+        "[019] Move 2 0 ; line: 7\n"
         "[022] LoadConst 3 3 ; line: 7\n"
         "[025] Call 2 1 -1 ; line: 7\n"
         "[029] Call 1 -1 0 ; line: 7\n"

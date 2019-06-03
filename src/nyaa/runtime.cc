@@ -41,7 +41,8 @@ using MapTemplate = arch::ObjectTemplate<NyMap>;
     reinterpret_cast<Address>(&Thread_SetUpVal),
     reinterpret_cast<Address>(&Thread_GetProto),
     reinterpret_cast<Address>(&Thread_Closure),
-    ThreadTemplate::MethodAddress(&NyThread::InternalRet),
+    ThreadTemplate::MethodAddress(&NyThread::RuntimeCall),
+    ThreadTemplate::MethodAddress(&NyThread::RuntimeRet),
     
     MapTemplate::MethodAddress(&NyMap::RawGet),
     MapTemplate::MethodAddress(&NyMap::RawPut),

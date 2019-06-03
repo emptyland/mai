@@ -25,6 +25,7 @@ static constexpr Register kBP = Runtime::kBP;
 static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ pushq(rbp);
     __ movq(rbp, rsp);
+    __ subq(rsp, 8);
     
     __ movq(kThread, kRegArgv[0]);
     __ movq(kCore, kRegArgv[2]);
@@ -32,12 +33,15 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame));
     __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetStackBP));
     __ movq(kBP, Operand(kThread, NyThread::kOffsetStack));
-    __ addq(kBP, kScratch);
+    __ movq(rax, kPointerSize);
+    __ mulq(kScratch);
+    __ addq(kBP, rax);
     
     __ movq(kScratch, kRegArgv[1]);
     __ addq(kScratch, NyCode::kOffsetInstructions);
     __ call(kScratch);
     
+    __ addq(rsp, 8);
     __ popq(rbp);
     __ ret(0);
 }
