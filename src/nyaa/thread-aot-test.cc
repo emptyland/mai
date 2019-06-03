@@ -43,6 +43,7 @@ TEST_F(NyaaThreadAOTTest, Sanity) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     ASSERT_TRUE(script->proto()->IsNativeExec());
+    EXPECT_EQ(1, script->Call(nullptr, 0, 0, core_));
 }
 
 }

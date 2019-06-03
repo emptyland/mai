@@ -12,6 +12,7 @@ class Object;
 class NyString;
 class NyMap;
 class NyTable;
+class NyCode;
 class NyaaCore;
 
 template<class T> class FunctionCallbackInfo;
@@ -81,6 +82,7 @@ struct BuiltinStrPool {
     
 extern const char *kRawBuiltinKzs[];
 extern const size_t kRawBuiltinKzsSize;
+extern const size_t kRawBuiltinCodeSize;
 
 // All [strong ref]
 struct BuiltinMetatablePool {
@@ -92,6 +94,16 @@ struct BuiltinMetatablePool {
 private:
     Error Boot(NyaaCore *N);
 }; // struct BuiltinMetatablePool
+
+
+// All [strong ref]
+struct BuiltinCodePool final {
+    NyCode *kEntryTrampoline = nullptr;
+    
+    friend class NyaaCore;
+private:
+    Error Boot(NyaaCore *N);
+}; // struct BuiltinCodePool
     
 extern const size_t kRawBuiltinkmtSize;
     

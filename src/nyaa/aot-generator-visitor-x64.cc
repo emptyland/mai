@@ -1,6 +1,7 @@
 #include "nyaa/code-gen-base.h"
 #include "nyaa/function.h"
 #include "nyaa/thread.h"
+#include "nyaa/runtime.h"
 #include "asm/x64/asm-x64.h"
 #include "asm/utils.h"
 
@@ -43,62 +44,6 @@ private:
     
 using namespace x64;
 
-class Runtime {
-public:
-    enum ExternalLink {
-        kThread_Set,
-        kThread_Get,
-        kThread_GetUpVal,
-        kThread_SetUpVal,
-        kThread_GetProto,
-        kThread_Closure,
-        kThread_Ret,
-
-        kMap_RawGet,
-        kMap_RawPut,
-        kMaxLinks,
-    };
-    using ThreadTemplate = arch::ObjectTemplate<NyThread>;
-    using MapTemplate = arch::ObjectTemplate<NyMap>;
-    
-    static Object *Thread_GetUpVal(NyThread *thd, int slot) {
-        return thd->frame_->upval(slot);
-    }
-    
-    static void Thread_SetUpVal(NyThread *thd, Object *val, int up) {
-        thd->frame_->SetUpval(up, val, thd->owns_);
-    }
-    
-    static Object *Thread_GetProto(NyThread *thd, int slot) {
-        return thd->frame_->proto()->proto_pool()->Get(slot);
-    }
-    
-    static Object *Thread_Closure(NyThread *thd, int slot) {
-        NyFunction *proto = NyFunction::Cast(thd->frame_->proto()->proto_pool()->Get(slot));
-        DCHECK_NOTNULL(proto);
-        NyClosure *closure = thd->owns_->factory()->NewClosure(proto);
-        for (int i = 0; i < proto->n_upvals(); ++i) {
-            thd->Bind(i, closure, proto->upval(i));
-        }
-        return closure;
-    }
-    
-    static const Address kExternalLinks[kMaxLinks];
-}; // class Runtime
-
-/*static*/ const Address Runtime::kExternalLinks[kMaxLinks] = {
-    ThreadTemplate::MethodAddress(&NyThread::Set),
-    ThreadTemplate::MethodAddress(&NyThread::Get),
-    reinterpret_cast<Address>(&Thread_GetUpVal),
-    reinterpret_cast<Address>(&Thread_SetUpVal),
-    reinterpret_cast<Address>(&Thread_GetProto),
-    reinterpret_cast<Address>(&Thread_Closure),
-    ThreadTemplate::MethodAddress(&NyThread::InternalRet),
-
-    MapTemplate::MethodAddress(&NyMap::RawGet),
-    MapTemplate::MethodAddress(&NyMap::RawPut),
-};
-
 #define __ masm()->
     
 class AOTGeneratorVisitor : public CodeGeneratorVisitor {
@@ -111,11 +56,11 @@ public:
     // r13 - nyaa-bp
     //
 
-    static constexpr Register kScratch = r10;
-    static constexpr Register kThread = r11;
-    static constexpr Register kExternalLinks = r12;
-    static constexpr Register kCore = r13;
-    static constexpr Register kBP = r14;
+    static constexpr Register kScratch = Runtime::kScratch;
+    static constexpr Register kThread = Runtime::kThread;
+    static constexpr Register kRuntime = Runtime::kRuntime;
+    static constexpr Register kCore = Runtime::kCore;
+    static constexpr Register kBP = Runtime::kBP;
     
     using Context = CodeGeneratorContext;
     
@@ -173,8 +118,10 @@ public:
                 }
             }
             CodeGeneratorContext bix;
+
+            InitializeFun();
             node->value()->Accept(this, &bix);
-            //builder()->Ret(IVal::Local(0), 0);
+            Ret(IVal::Local(0), 0, node->end_line());
             
             Handle<NyInt32Array> info = core_->factory()->NewInt32Array(fun_scope.line_info_.size());
             info = info->Add(fun_scope.line_info_.data(), fun_scope.line_info_.size(), core_);
@@ -207,6 +154,11 @@ public:
         return val;
     }
     
+    void InitializeFun() {
+        __ pushq(rbp);
+        __ movq(rbp, rsp);
+    }
+
     void FinalizeRet() { Ret(IVal::Local(0), 0, 0); }
 private:
     virtual void LoadNil(IVal val, int n, int line) override {
@@ -237,6 +189,7 @@ private:
         __ movl(kRegArgv[1], base.index);
         __ movl(kRegArgv[2], nrets);
         CallRuntime(Runtime::kThread_Ret);
+        __ popq(rbp);
         __ ret(0);
     }
     
@@ -343,19 +296,19 @@ private:
     void CallRuntime(Runtime::ExternalLink sym) {
         __ pushq(kScratch);
         __ pushq(kThread);
-        __ pushq(kExternalLinks);
+        __ pushq(kRuntime);
         __ pushq(kCore);
         __ pushq(kBP);
         __ call(ExternalLink(sym));
         __ popq(kBP);
         __ popq(kCore);
-        __ popq(kExternalLinks);
+        __ popq(kRuntime);
         __ popq(kThread);
         __ popq(kScratch);
     }
     
     Operand ExternalLink(Runtime::ExternalLink sym) {
-        return Operand(kExternalLinks, sym * kPointerSize);
+        return Operand(kRuntime, sym * kPointerSize);
     }
     
     Operand Local(int index) {
@@ -369,8 +322,8 @@ Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root
     
     AOTGeneratorVisitor visitor(core, arena, file_name);
     FunctionScopeBundle scope(&visitor);
+    visitor.InitializeFun();
     root->Accept(&visitor, nullptr);
-    
     visitor.FinalizeRet(); // last return
     
     Handle<NyInt32Array> info = core->factory()->NewInt32Array(scope.line_info_.size());

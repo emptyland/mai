@@ -24,6 +24,7 @@ NyaaCore::NyaaCore(Nyaa *stub)
     , heap_(new Heap(this))
     , bkz_pool_(new BuiltinStrPool())
     , kmt_pool_(new BuiltinMetatablePool())
+    , code_pool_(new BuiltinCodePool())
     , next_udo_kid_(kUdoKidBegin + 1)
     , logger_(stdout) {
     if (stub_->nogc()) {
@@ -50,12 +51,10 @@ NyaaCore::~NyaaCore() {
 }
     
 Error NyaaCore::Boot() {
-    Error rs = isolate()->env()->NewRealRandomGenerator(&random_);
-    if (!rs) {
+    if (Error rs = isolate()->env()->NewRealRandomGenerator(&random_); !rs) {
         return rs;
     }
-    rs = heap_->Init();
-    if (!rs) {
+    if (Error rs = heap_->Init(); !rs) {
         return rs;
     }
     
@@ -68,12 +67,13 @@ Error NyaaCore::Boot() {
     for (size_t i = 0; i < kRawBuiltinKzsSize; ++i) {
         pool_a[i] = factory_->NewString(kRawBuiltinKzs[i], true /*old*/);
     }
-
-    rs = kmt_pool_->Boot(this);
-    if (!rs) {
+    if (Error rs = kmt_pool_->Boot(this); !rs) {
         return rs;
     }
-    
+    if (Error rs = code_pool_->Boot(this); !rs) {
+        return rs;
+    }
+
     // Set builtin global variables:
     g_ = NewEnv(nullptr);
     
@@ -85,8 +85,7 @@ Error NyaaCore::Boot() {
     main_thd_ = factory_->NewThread(true /* old */);
     main_thd_->next_ = main_thd_;
     main_thd_->prev_ = main_thd_;
-    rs = main_thd_->Init();
-    if (!rs) {
+    if (Error rs = main_thd_->Init(); !rs) {
         return rs;
     }
     curr_thd_ = main_thd_;
@@ -96,7 +95,7 @@ Error NyaaCore::Boot() {
     
     DCHECK(!initialized_);
     initialized_ = true;
-    return rs;
+    return Error::OK();
 }
     
 Object *NyaaCore::Get(int i) { return  curr_thd_->Get(i); }
@@ -249,6 +248,9 @@ void NyaaCore::IterateRoot(RootVisitor *visitor) {
 
     pool_a = reinterpret_cast<Object **>(kmt_pool_.get());
     visitor->VisitRootPointers(pool_a, pool_a + kRawBuiltinkmtSize);
+    
+    pool_a = reinterpret_cast<Object **>(code_pool_.get());
+    visitor->VisitRootPointers(pool_a, pool_a + kRawBuiltinCodeSize);
 
     main_thd_->IterateRoot(visitor);
     for (auto thd = main_thd_->next_; thd != main_thd_; thd = thd->next_) {

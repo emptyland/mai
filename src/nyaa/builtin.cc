@@ -59,6 +59,7 @@ const char *kRawBuiltinKzs[] = {
     
 const size_t kRawBuiltinKzsSize = arraysize(kRawBuiltinKzs);
 const size_t kRawBuiltinkmtSize = sizeof(BuiltinMetatablePool) / sizeof(NyMap *);
+const size_t kRawBuiltinCodeSize = sizeof(BuiltinCodePool) / sizeof(NyCode *);
     
 static_assert(sizeof(BuiltinStrPool) / kPointerSize == arraysize(kRawBuiltinKzs),
               "Incorrect size of kRawBuiltinKzs");

@@ -2,6 +2,7 @@
 #define MAI_NYAA_FUNCTION_H_
 
 #include "nyaa/nyaa-values.h"
+#include "asm/utils.h"
 #include <type_traits>
 
 namespace mai {
@@ -111,6 +112,13 @@ public:
         kFunction,
         kOptimizedFunction,
     };
+    
+    using Template = arch::ObjectTemplate<NyCode, int32_t>;
+    
+    static const int32_t kOffsetKind;
+    static const int32_t kOffsetInstructionsBytesSize;
+    static const int32_t kOffsetInstructions;
+    
     
     NyCode(Kind kind, const uint8_t *instructions, uint32_t instructions_bytes_size);
     

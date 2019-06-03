@@ -25,6 +25,7 @@ class StringPool;
 
 struct BuiltinStrPool;
 struct BuiltinMetatablePool;
+struct BuiltinCodePool;
     
 struct HandleScopeSlot {
     HandleScope     *scope;
@@ -91,6 +92,7 @@ public:
     BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
     StringPool *kz_pool() const { return kz_pool_.get(); }
     BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
+    BuiltinCodePool *code_pool() const { return code_pool_.get(); }
     Isolate *isolate() const;
     
     static NyaaCore *Current();
@@ -111,6 +113,7 @@ private:
     std::unique_ptr<StringPool> kz_pool_; // elements [weak ref]
     std::unique_ptr<BuiltinStrPool> bkz_pool_; // elements [strong ref]
     std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // elements [strong ref]
+    std::unique_ptr<BuiltinCodePool> code_pool_; // elements [strong ref]
 
     NyMap *g_ = nullptr; // [strong ref]
     NyMap *loads_ = nullptr; // [strong ref]

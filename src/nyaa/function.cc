@@ -90,6 +90,10 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
 /// class NyCode:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
     
+const int32_t NyCode::kOffsetKind = Template::OffsetOf(&NyCode::kind_);
+const int32_t NyCode::kOffsetInstructionsBytesSize = Template::OffsetOf(&NyCode::instructions_bytes_size_);
+const int32_t NyCode::kOffsetInstructions = Template::OffsetOf(&NyCode::instructions_);
+    
 NyCode::NyCode(Kind kind, const uint8_t *instructions, uint32_t instructions_bytes_size)
     : kind_(kind)
     , instructions_bytes_size_(instructions_bytes_size) {

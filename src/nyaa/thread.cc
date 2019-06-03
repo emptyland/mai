@@ -14,9 +14,13 @@ namespace nyaa {
 const int32_t CallFrame::kOffsetCallee = Template::OffsetOf(&CallFrame::callee_);
 const int32_t CallFrame::kOffsetEnv = Template::OffsetOf(&CallFrame::env_);
 const int32_t CallFrame::kOffsetConstPool = Template::OffsetOf(&CallFrame::const_pool_);
+const int32_t CallFrame::kOffsetStackBE = Template::OffsetOf(&CallFrame::stack_be_);
+const int32_t CallFrame::kOffsetStackBP = Template::OffsetOf(&CallFrame::stack_bp_);
+const int32_t CallFrame::kOffsetStackTP = Template::OffsetOf(&CallFrame::stack_tp_);
     
 const int32_t NyThread::kOffsetOwns = Template::OffsetOf(&NyThread::owns_);
 const int32_t NyThread::kOffsetFrame = Template::OffsetOf(&NyThread::frame_);
+const int32_t NyThread::kOffsetStack = Template::OffsetOf(&NyThread::stack_);
     
 void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, NyArray *kpool,
                       int wanted, size_t bp, size_t tp, NyMap *env) {
@@ -288,14 +292,20 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *e
     int rv = -1;
     CallFrame *frame = new CallFrame;
     if (NyClosure *fn = rb->ToClosure()) {
-        frame->Enter(this, fn, fn->proto()->bcbuf(), fn->proto()->const_pool(),
+        NyByteArray *bcbuf = fn->proto()->IsInterpretationExec() ? fn->proto()->bcbuf() : nullptr;
+        frame->Enter(this, fn, bcbuf, fn->proto()->const_pool(),
                      wanted, /* wanted */
                      top, /* frame_bp */
                      top + fn->proto()->max_stack() /* frame_tp */,
                      env);
         int adjust = CopyArgs(argv, argc, fn->proto()->n_params(), fn->proto()->vargs());
         frame_->AdjustBP(adjust);
-        rv = Run();
+        if (fn->proto()->IsNativeExec()) {
+            CallStub<int (NyThread *, NyCode *code, NyaaCore *)> stub(owns_->code_pool()->kEntryTrampoline);
+            rv = stub.entry_fn()(this, fn->proto()->code(), owns_);
+        } else {
+            rv = Run();
+        }
     } else if (NyDelegated *fn = rb->ToDelegated()) {
         frame->Enter(this, fn,
                      nullptr, /* bc buf */

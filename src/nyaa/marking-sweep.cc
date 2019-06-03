@@ -95,6 +95,7 @@ public:
                 }
                 break;
             case kOldSpace:
+            case kCodeSpace:
                 if (ob->GetColor() == owns_->heap()->initial_color()) {
 //                    printf("%d\n", ob->GetMetatable()->kid());
 //                    auto fn = NyDelegated::Cast(ob);

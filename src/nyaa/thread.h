@@ -25,6 +25,9 @@ public:
     static const int32_t kOffsetCallee;
     static const int32_t kOffsetEnv;
     static const int32_t kOffsetConstPool;
+    static const int32_t kOffsetStackBE;
+    static const int32_t kOffsetStackBP;
+    static const int32_t kOffsetStackTP;
     
     CallFrame() {}
     ~CallFrame() {}
@@ -158,6 +161,7 @@ public:
     
     static const int32_t kOffsetOwns;
     static const int32_t kOffsetFrame;
+    static const int32_t kOffsetStack;
     
     NyThread(NyaaCore *owns);
     ~NyThread();

@@ -52,6 +52,10 @@
 		2343978A21F960A400512A37 /* evaluation.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2343978921F960A400512A37 /* evaluation.cc */; };
 		2349FDF022A21C93001861E0 /* aot-generator-visitor-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDEF22A21C93001861E0 /* aot-generator-visitor-x64.cc */; };
 		2349FDF222A40C98001861E0 /* thread-aot-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF122A40C98001861E0 /* thread-aot-test.cc */; };
+		2349FDF522A4BA76001861E0 /* sha256.c in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF422A4BA76001861E0 /* sha256.c */; };
+		2349FDF722A4BAA0001861E0 /* sha256-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF622A4BAA0001861E0 /* sha256-test.cc */; };
+		2349FDF922A4CD3B001861E0 /* builtin-code-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF822A4CD3B001861E0 /* builtin-code-x64.cc */; };
+		2349FDFC22A4F948001861E0 /* runtime.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDFB22A4F948001861E0 /* runtime.cc */; };
 		23565910221E82EC00837F83 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
 		235C1CCF21D1D63F0070A049 /* optimism-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */; };
 		235C1CD621D210520070A049 /* optimism-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CD421D210520070A049 /* optimism-transaction.cc */; };
@@ -388,6 +392,12 @@
 		2343978921F960A400512A37 /* evaluation.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = evaluation.cc; sourceTree = "<group>"; };
 		2349FDEF22A21C93001861E0 /* aot-generator-visitor-x64.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "aot-generator-visitor-x64.cc"; sourceTree = "<group>"; };
 		2349FDF122A40C98001861E0 /* thread-aot-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "thread-aot-test.cc"; sourceTree = "<group>"; };
+		2349FDF322A4BA76001861E0 /* sha256.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sha256.h; sourceTree = "<group>"; };
+		2349FDF422A4BA76001861E0 /* sha256.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sha256.c; sourceTree = "<group>"; };
+		2349FDF622A4BAA0001861E0 /* sha256-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "sha256-test.cc"; sourceTree = "<group>"; };
+		2349FDF822A4CD3B001861E0 /* builtin-code-x64.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "builtin-code-x64.cc"; sourceTree = "<group>"; };
+		2349FDFA22A4F88D001861E0 /* runtime.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = runtime.h; sourceTree = "<group>"; };
+		2349FDFB22A4F948001861E0 /* runtime.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = runtime.cc; sourceTree = "<group>"; };
 		2356590B221E82EC00837F83 /* mai-tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "mai-tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2356590F221E82EC00837F83 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		235C1CCB21D1D5F70070A049 /* optimism-transaction-db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "optimism-transaction-db.h"; sourceTree = "<group>"; };
@@ -838,6 +848,9 @@
 				2312DFBC2253503700689616 /* malloc-object-factory.cc */,
 				23719D372240E2F20055D397 /* builtin.h */,
 				23719D382240E4860055D397 /* builtin.cc */,
+				2349FDF822A4CD3B001861E0 /* builtin-code-x64.cc */,
+				2349FDFA22A4F88D001861E0 /* runtime.h */,
+				2349FDFB22A4F948001861E0 /* runtime.cc */,
 				23719D3F2242297F0055D397 /* bytecode.h */,
 				23CA8248225C338F00947EA8 /* bytecode.cc */,
 				23C2279C225AF61E008B427A /* bytecode-builder.h */,
@@ -909,6 +922,8 @@
 		23B0E0D32187F8CF00F9E855 /* base */ = {
 			isa = PBXGroup;
 			children = (
+				2349FDF422A4BA76001861E0 /* sha256.c */,
+				2349FDF322A4BA76001861E0 /* sha256.h */,
 				23B0E14B218FDFED00F9E855 /* varint-encoding.cc */,
 				23B0E14C218FDFEE00F9E855 /* varint-encoding.h */,
 				23B0E16221927E7400F9E855 /* reference-count.h */,
@@ -1148,6 +1163,7 @@
 				239E483D21E4475700F2FD48 /* arena-utils-test.cc */,
 				23216A242201561B00E1B816 /* slice-test.cc */,
 				23347C80225791B400ABAB3F /* thread-pool-test.cc */,
+				2349FDF622A4BAA0001861E0 /* sha256-test.cc */,
 			);
 			name = base;
 			path = src/base;
@@ -1399,6 +1415,7 @@
 				2325865B22A175CA006AADE4 /* code-gen-base.cc in Sources */,
 				2364B2AA21E451F8008519AE /* ast.cc in Sources */,
 				2364B2AD21E451F8008519AE /* pessimistic-transaction-db.cc in Sources */,
+				2349FDF722A4BAA0001861E0 /* sha256-test.cc in Sources */,
 				232CD51F2283CAEA00544808 /* spaces-test.cc in Sources */,
 				23216A252201561B00E1B816 /* slice-test.cc in Sources */,
 				2364B2AF21E451F8008519AE /* pessimistic-transaction.cc in Sources */,
@@ -1427,6 +1444,7 @@
 				23719D392240E4860055D397 /* builtin.cc in Sources */,
 				2364B2D321E451F9008519AE /* compaction-impl.cc in Sources */,
 				2364B2D521E451F9008519AE /* db-iterator.cc in Sources */,
+				2349FDFC22A4F948001861E0 /* runtime.cc in Sources */,
 				2364B2D621E451F9008519AE /* write-batch.cc in Sources */,
 				23CA8255225D82D900947EA8 /* parser.cc in Sources */,
 				2364B2D821E451F9008519AE /* table-test.cc in Sources */,
@@ -1460,6 +1478,7 @@
 				23216A272201A2F900E1B816 /* types-test.cc in Sources */,
 				23D2F6BC21F1C0A300A49B1A /* form-schema-test.cc in Sources */,
 				2365EC522206948600EE7103 /* ast-factory.cc in Sources */,
+				2349FDF922A4CD3B001861E0 /* builtin-code-x64.cc in Sources */,
 				2364B30321E451F9008519AE /* key-boundle.cc in Sources */,
 				23804A0B228A6C400079C95C /* asm-x64.cc in Sources */,
 				2364B30421E451F9008519AE /* iterator.cc in Sources */,
@@ -1520,6 +1539,7 @@
 				237B0C0B21E4869400F3A099 /* sql.cc in Sources */,
 				23F6A03122266E1A00AE5DB6 /* decimal-v1.cc in Sources */,
 				232CD51C2283CAEA00544808 /* scavenger-test.cc in Sources */,
+				2349FDF522A4BA76001861E0 /* sha256.c in Sources */,
 				2364B34621E451F9008519AE /* s1-table-builder-test.cc in Sources */,
 				2364B34721E451F9008519AE /* s1-table-reader-test.cc in Sources */,
 				2364B34821E451F9008519AE /* file-test.cc in Sources */,
