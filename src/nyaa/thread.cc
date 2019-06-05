@@ -19,6 +19,9 @@ const int32_t CallFrame::kOffsetStackBP = Template::OffsetOf(&CallFrame::stack_b
 const int32_t CallFrame::kOffsetStackTP = Template::OffsetOf(&CallFrame::stack_tp_);
     
 const int32_t NyThread::kOffsetOwns = Template::OffsetOf(&NyThread::owns_);
+const int32_t NyThread::kOffsetInterruptionPending =
+    Template::OffsetOf(&NyThread::interruption_pending_);
+const int32_t NyThread::kOffsetSavePoint = Template::OffsetOf(&NyThread::save_point_);
 const int32_t NyThread::kOffsetFrame = Template::OffsetOf(&NyThread::frame_);
 const int32_t NyThread::kOffsetStack = Template::OffsetOf(&NyThread::stack_);
     
@@ -109,6 +112,7 @@ NyThread::NyThread(NyaaCore *owns)
     : NyUDO(NyUDO::GetNFiedls(sizeof(NyThread)), true /* ignore_managed */)
     , owns_(DCHECK_NOTNULL(owns)) {
     SetFinalizer(&UDOFinalizeDtor<NyThread>, owns);
+    ::memset(&save_point_, 0, sizeof(save_point_));
 }
 
 NyThread::~NyThread() {
@@ -154,8 +158,7 @@ void NyThread::Raise(NyString *msg, Object *ex) {
         NyInt32Array *file_info;
         NyString *file_name;
         std::tie(file_name, file_info) = x->FileInfo();
-        //auto [file_name, file_info] = x->FileInfo();
-        
+
         NyString *line = nullptr;
         if (file_info) {
             line = owns_->factory()->Sprintf("%s:%d", !file_name ? "unknown" : file_name->bytes(),
@@ -177,7 +180,16 @@ void NyThread::Raise(NyString *msg, Object *ex) {
             }
         }
         catch_point_->Catch(msg, ex, bt);
-        throw kException;
+        interruption_pending_ = CallFrame::kException;
+        switch (owns_->stub()->exec()) {
+            case Nyaa::kAOT:
+                break; // Ingore
+            case Nyaa::kInterpreter:
+                throw interruption_pending_;
+            default:
+                DLOG(FATAL) << "Noreached!";
+                break;
+        }
     } else {
         DLOG(FATAL) << msg->bytes();
     }
@@ -226,11 +238,12 @@ void NyThread::Set(int i, Object *value) {
 int NyThread::TryRun(NyRunnable *fn, Object *argv[], int argc, int wanted, NyMap *env) {
     int rv = 0;
     CallFrame *ci = frame_;
+    interruption_pending_ = CallFrame::kNormal; // clear interruption pending flag
     try {
         rv = Run(fn, argv, argc, wanted, env);
-    } catch (CatchId which) {
-        if (which == kException) {
-            Rewind(ci);
+    } catch (CallFrame::ExceptionId which) {
+        if (which == CallFrame::kException) {
+            Unwind(ci);
             rv = -1;
         } else {
             throw which;
@@ -259,12 +272,12 @@ int NyThread::Resume(Object *argv[], int argc, int wanted, NyMap *env) {
             frame_->AddPC(ParseBytecodeSize(frame_->pc()));
             rv = Run();
         }
-    } catch (CatchId which) {
-        if (which == kException) {
-            Rewind(ci);
+    } catch (CallFrame::ExceptionId which) {
+        if (which == CallFrame::kException) {
+            Unwind(ci);
             rv = -1;
             state_ = kSuspended;
-        } else if (which == kYield) {
+        } else if (which == CallFrame::kYield) {
             rv = frame_->nrets();
             DCHECK_GE(rv, 0);
             state_ = kSuspended;
@@ -279,7 +292,21 @@ int NyThread::Resume(Object *argv[], int argc, int wanted, NyMap *env) {
     return rv;
 }
 
-void NyThread::Yield() { throw kYield; }
+void NyThread::Yield() {
+    interruption_pending_ = CallFrame::kYield;
+    switch (owns_->stub()->exec()) {
+        case Nyaa::kAOT:
+            break;
+        case Nyaa::kInterpreter:
+            throw interruption_pending_;
+        default:
+            DLOG(FATAL) << "Noreached!";
+            break;
+    }
+}
+    
+using EntryTrampolineCallStub =
+    CallStub<int (NyThread *, NyCode *code, NyaaCore *, arch::RegisterContext *)>;
 
 int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *env) {
     if (!env) {
@@ -301,8 +328,8 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *e
         int adjust = CopyArgs(argv, argc, fn->proto()->n_params(), fn->proto()->vargs());
         frame_->AdjustBP(adjust);
         if (fn->proto()->IsNativeExec()) {
-            CallStub<int (NyThread *, NyCode *code, NyaaCore *)> stub(owns_->code_pool()->kEntryTrampoline);
-            rv = stub.entry_fn()(this, fn->proto()->code(), owns_);
+            EntryTrampolineCallStub stub(owns_->code_pool()->kEntryTrampoline);
+            rv = stub.entry_fn()(this, fn->proto()->code(), owns_, &save_point_);
         } else {
             rv = Run();
         }
@@ -407,7 +434,7 @@ void NyThread::CheckStack(size_t size) {
     stack_tp_   = stack_ + tp;
 }
     
-void NyThread::Rewind(CallFrame *ci) {
+void NyThread::Unwind(CallFrame *ci) {
     while (frame_ != ci) {
         CallFrame *frame = frame_;
         frame->Exit(this);

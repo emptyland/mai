@@ -45,6 +45,29 @@ public:
     
 }; //template<class T, class O> class ObjectTemplate
     
+#if defined(MAI_ARCH_X64)
+union XMM128Value {
+    float f32[4];
+    double f64[2];
+    uint32_t u32[4];
+    uint64_t u64[2];
+};
+
+struct RegisterContext {
+    uintptr_t regs[16];
+    uintptr_t rip;
+    XMM128Value xmms[16];
+    
+    using Template = ObjectTemplate<RegisterContext, int32_t>;
+
+};
+    
+const constexpr int32_t kRCOffsetRegs = offsetof(RegisterContext, regs);
+const constexpr int32_t kRCOffsetRip = offsetof(RegisterContext, rip);
+const constexpr int32_t kRCOffsetXmms = offsetof(RegisterContext, xmms);
+
+#endif // defined(MAI_ARCH_X64)
+    
 } // namespace arch
     
 } // namespace mai

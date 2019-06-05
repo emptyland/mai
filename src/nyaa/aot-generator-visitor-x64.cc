@@ -58,7 +58,6 @@ public:
 
     static constexpr Register kScratch = Runtime::kScratch;
     static constexpr Register kThread = Runtime::kThread;
-    static constexpr Register kRuntime = Runtime::kRuntime;
     static constexpr Register kCore = Runtime::kCore;
     static constexpr Register kBP = Runtime::kBP;
     
@@ -157,7 +156,7 @@ public:
     void InitializeFun() {
         __ pushq(rbp);
         __ movq(rbp, rsp);
-        __ subq(rsp, 8);
+        __ subq(rsp, kPointerSize);
     }
 
     void FinalizeRet() { Ret(IVal::Local(0), 0, 0); }
@@ -190,7 +189,7 @@ private:
         __ movl(kRegArgv[1], callee.index);
         __ movl(kRegArgv[2], nargs);
         __ movl(kRegArgv[3], wanted);
-        CallRuntime(Runtime::kThread_Call);
+        CallRuntime(Runtime::kThread_Call, true/*may_interrupt*/);
     }
     
     virtual void Ret(IVal base, int nrets, int line) override {
@@ -200,7 +199,7 @@ private:
         __ movl(kRegArgv[1], base.index);
         __ movl(kRegArgv[2], nrets);
         CallRuntime(Runtime::kThread_Ret);
-        __ addq(rsp, 8);
+        __ addq(rsp, kPointerSize);
         __ popq(rbp);
         __ ret(0);
     }
@@ -294,9 +293,9 @@ private:
         __ movq(kRegArgv[1], Operand(kScratch, NyArray::kOffsetElems + name.index * kPointerSize));
         DCHECK_EQ(IVal::kLocal, val.kind);
         __ movq(kRegArgv[2], Local(val.index)); // argv[2] = value
-        CallRuntime(Runtime::kMap_RawPut);
+        CallRuntime(Runtime::kMap_RawPut, true/*may_interrupt*/);
     }
-    
+
     void Closure(IVal closure, IVal func, int line) {
         FileLineScope fls(fun_scope_, line);
         __ movq(kRegArgv[0], kThread);
@@ -307,26 +306,42 @@ private:
 
     Assembler *masm() { return &static_cast<FunctionScopeBundle *>(fun_scope_)->masm_; }
     
-    void CallRuntime(Runtime::ExternalLink sym) {
+    void CallRuntime(Runtime::ExternalLink sym, bool may_interrupt = false) {
         __ pushq(kScratch);
         __ pushq(kThread);
-        __ pushq(kRuntime);
-        __ pushq(kCore);
         __ pushq(kBP);
-        __ pushq(rbx); // for alignment
-        __ call(ExternalLink(sym));
-        __ popq(rbx); // for alignment
-        __ popq(kBP);
+        __ pushq(kCore);
+
+        __ movp(rax, Runtime::kExternalLinks[sym]);
+        __ call(rax);
+
         __ popq(kCore);
-        __ popq(kRuntime);
+        __ popq(kBP);
         __ popq(kThread);
         __ popq(kScratch);
+        
+        if (may_interrupt) {
+            __ movl(rbx, Operand(kThread, NyThread::kOffsetInterruptionPending));
+            __ cmpl(rbx, CallFrame::kException);
+            Label l_raise;
+            __ UnlikelyJ(Equal, &l_raise, true);
+            __ cmpl(rbx, CallFrame::kYield);
+            Label l_yield;
+            __ UnlikelyJ(Equal, &l_yield, true);
+            Label l_out;
+            __ jmp(&l_out, true);
+            __ Bind(&l_raise);
+            // Has exception, jump to suspend point
+            __ movq(kRegArgv[0], kCore);
+            __ movp(rbx, Runtime::kExternalLinks[Runtime::kNyaaCore_GetSuspendPoint]);
+            __ call(rbx);
+            __ jmp(rax);
+            __ Bind(&l_yield);
+            // Has Yield, jump to suspend point
+            __ Bind(&l_out);
+        }
     }
-    
-    Operand ExternalLink(Runtime::ExternalLink sym) {
-        return Operand(kRuntime, sym * kPointerSize);
-    }
-    
+
     Operand Local(int index) {
         return Operand(kBP, index * kPointerSize);
     }

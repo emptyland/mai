@@ -20,6 +20,12 @@ class NyThread;
     
 class CallFrame {
 public:
+    enum ExceptionId {
+        kNormal,
+        kException,
+        kYield,
+    };
+
     using Template = arch::ObjectTemplate<CallFrame, int32_t>;
 
     static const int32_t kOffsetCallee;
@@ -107,6 +113,7 @@ private:
     size_t stack_be_ = 0;
     size_t stack_bp_ = 0;
     size_t stack_tp_ = 0;
+    //ExceptionId eid_ = kNormal;
     int nrets_ = 0; // record real return results.
     int wanted_ = 0; // return wanted results.
 };
@@ -160,6 +167,8 @@ public:
     using Template = arch::ObjectTemplate<NyThread, int32_t>;
     
     static const int32_t kOffsetOwns;
+    static const int32_t kOffsetInterruptionPending;
+    static const int32_t kOffsetSavePoint;
     static const int32_t kOffsetFrame;
     static const int32_t kOffsetStack;
     
@@ -204,11 +213,6 @@ public:
     void Iterate(ObjectVisitor *) {}
     
     constexpr size_t PlacedSize() const { return sizeof(*this); }
-
-    enum CatchId {
-        kException,
-        kYield,
-    };
     
     friend class NyaaCore;
     friend class TryCatchCore;
@@ -226,7 +230,7 @@ private:
         CheckStack(stack_tp_ - stack_ + add);
     }
     void CheckStack(size_t size);
-    void Rewind(CallFrame *ci);
+    void Unwind(CallFrame *ci);
     int Run();
 
     Object *InternalGetField(Object **base, Object *mm, Object *key);
@@ -261,6 +265,8 @@ private:
     
     NyaaCore *const owns_;
     TryCatchCore *catch_point_ = nullptr;
+    CallFrame::ExceptionId interruption_pending_ = CallFrame::kNormal;
+    arch::RegisterContext save_point_;
     State state_ = kSuspended;
     Object **stack_ = nullptr; // elements [strong ref]
     Object **stack_tp_ = nullptr;

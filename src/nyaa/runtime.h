@@ -12,6 +12,7 @@ namespace nyaa {
 
 class NyThread;
 class Object;
+class NyaaCore;
 
 class Runtime {
 public:
@@ -25,6 +26,8 @@ public:
         kThread_Call,
         kThread_Ret,
         
+        kNyaaCore_GetSuspendPoint, //SUSPEND_POINT
+        
         kMap_RawGet,
         kMap_RawPut,
         kMaxLinks,
@@ -33,9 +36,8 @@ public:
 #if defined(MAI_ARCH_X64)
     static constexpr x64::Register kScratch = x64::r10;
     static constexpr x64::Register kThread = x64::r11;
-    static constexpr x64::Register kRuntime = x64::r12;
-    static constexpr x64::Register kCore = x64::r13;
-    static constexpr x64::Register kBP = x64::r14;
+    static constexpr x64::Register kCore = x64::r12;
+    static constexpr x64::Register kBP = x64::r13;
 #endif // defined(MAI_ARCH_X64)
 
     static Address kExternalLinks[kMaxLinks];
@@ -44,6 +46,7 @@ private:
     static void Thread_SetUpVal(NyThread *thd, Object *val, int up);
     static Object *Thread_GetProto(NyThread *thd, int slot);
     static Object *Thread_Closure(NyThread *thd, int slot);
+    static Address NyaaCore_GetSuspendPoint(NyaaCore *N);
 }; // class Runtime
 
 } // namespace nyaa

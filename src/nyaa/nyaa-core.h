@@ -2,6 +2,7 @@
 #define MAI_NYAA_NYAA_CORE_H_
 
 #include "nyaa/memory.h"
+#include "asm/utils.h"
 #include "base/base.h"
 #include "mai/error.h"
 
@@ -84,6 +85,7 @@ public:
     Heap *heap() const { return heap_.get(); }
     ObjectFactory *factory() const { return factory_.get(); }
     DEF_VAL_GETTER(bool, initialized);
+    DEF_VAL_PROP_RW(int32_t, suspend_point_pc);
     DEF_PTR_GETTER(FILE, logger);
     DEF_PTR_GETTER(NyMap, g);
     DEF_PTR_GETTER(NyMap, loads);
@@ -107,6 +109,7 @@ private:
     std::unique_ptr<ObjectFactory> factory_;
     HandleScopeSlot *top_slot_;
     bool initialized_ = false;
+    int32_t suspend_point_pc_ = 0; // suspend point pc for entry trampoline
     uint64_t next_udo_kid_;
     FILE *logger_;
     std::unique_ptr<RandomGenerator> random_;

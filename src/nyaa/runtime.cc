@@ -4,6 +4,7 @@
 #include "nyaa/nyaa-values.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/function.h"
+#include "nyaa/builtin.h"
 
 namespace mai {
 
@@ -11,6 +12,7 @@ namespace nyaa {
 
 using ThreadTemplate = arch::ObjectTemplate<NyThread>;
 using MapTemplate = arch::ObjectTemplate<NyMap>;
+using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
 
 /*static*/ Object *Runtime::Thread_GetUpVal(NyThread *thd, int slot) {
     return thd->frame_->upval(slot);
@@ -34,6 +36,10 @@ using MapTemplate = arch::ObjectTemplate<NyMap>;
     return closure;
 }
     
+/*static*/ Address Runtime::NyaaCore_GetSuspendPoint(NyaaCore *N) {
+    return N->code_pool()->kEntryTrampoline->entry_address() + N->suspend_point_pc();
+}
+    
 /*static*/ Address Runtime::kExternalLinks[kMaxLinks] = {
     ThreadTemplate::MethodAddress(&NyThread::Set),
     ThreadTemplate::MethodAddress(&NyThread::Get),
@@ -43,6 +49,8 @@ using MapTemplate = arch::ObjectTemplate<NyMap>;
     reinterpret_cast<Address>(&Thread_Closure),
     ThreadTemplate::MethodAddress(&NyThread::RuntimeCall),
     ThreadTemplate::MethodAddress(&NyThread::RuntimeRet),
+    
+    reinterpret_cast<Address>(&NyaaCore_GetSuspendPoint),
     
     MapTemplate::MethodAddress(&NyMap::RawGet),
     MapTemplate::MethodAddress(&NyMap::RawPut),

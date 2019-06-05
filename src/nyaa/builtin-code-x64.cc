@@ -16,20 +16,19 @@ using namespace x64;
 
 static constexpr Register kScratch = Runtime::kScratch;
 static constexpr Register kThread = Runtime::kThread;
-static constexpr Register kRuntime = Runtime::kRuntime;
 static constexpr Register kCore = Runtime::kCore;
 static constexpr Register kBP = Runtime::kBP;
     
 //
-// protptype: void entry(NyThread *thd, NyCode *code, NyaaCore *N)
+// protptype: void entry(NyThread *thd, NyCode *code, NyaaCore *N, arch::RegisterContext *ctx)
 static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ pushq(rbp);
     __ movq(rbp, rsp);
-    __ subq(rsp, 8);
+    __ subq(rsp, kPointerSize);
+    __ movq(Operand(kRegArgv[3], rsp.code() * kPointerSize), rsp);
     
     __ movq(kThread, kRegArgv[0]);
     __ movq(kCore, kRegArgv[2]);
-    __ movq(kRuntime, reinterpret_cast<Address>(Runtime::kExternalLinks));
     __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame));
     __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetStackBP));
     __ movq(kBP, Operand(kThread, NyThread::kOffsetStack));
@@ -40,8 +39,18 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ movq(kScratch, kRegArgv[1]);
     __ addq(kScratch, NyCode::kOffsetInstructions);
     __ call(kScratch);
+    Label exit;
+    __ jmp(&exit, true);
     
-    __ addq(rsp, 8);
+    // save suspend point for long jumping
+    N->set_suspend_point_pc(masm->pc());
+    //__ Breakpoint();
+    __ lea(kScratch, Operand(kThread, NyThread::kOffsetSavePoint));
+    __ movq(rsp, Operand(kScratch, rsp.code() * kPointerSize));
+    __ movq(rax, -1);
+    
+    __ Bind(&exit);
+    __ addq(rsp, kPointerSize);
     __ popq(rbp);
     __ ret(0);
 }

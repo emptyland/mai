@@ -127,7 +127,7 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
         if (script.is_valid()) {
             return N->factory()->NewClosure(*script);
         }
-    } catch (NyThread::CatchId e) {
+    } catch (CallFrame::ExceptionId e) {
         // ignore
     }
     return Handle<NyClosure>::Empty();
@@ -139,7 +139,7 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
         if (script.is_valid()) {
             return N->factory()->NewClosure(*script);
         }
-    } catch (NyThread::CatchId e) {
+    } catch (CallFrame::ExceptionId e) {
         // ignore
     }
     return Handle<NyClosure>::Empty();

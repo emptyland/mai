@@ -518,6 +518,29 @@ TEST_F(X64AssemblerTest, CallCxxMethod) {
         EXPECT_EQ(3, foo(&ob, reinterpret_cast<Address>(&stub[0])));
     }
 }
+    
+//static void TestStubThrowException() {
+//    printf("raise\n");
+//    throw 123;
+//}
+//
+//TEST_F(X64AssemblerTest, CallThrowCxxException) {
+//    __ Reset();
+//    __ pushq(rbp);
+//    __ movq(rbp, rsp);
+//    __ call(kRegArgv[0]);
+//    __ popq(rbp);
+//    __ ret(0);
+//    {
+//        auto foo = MakeFunction<void (Address)>();
+//        try {
+//            foo(reinterpret_cast<Address>(&TestStubThrowException));
+//            //TestStubThrowException();
+//        } catch (int n) {
+//            printf("catch!\n");
+//        }
+//    }
+//}
 
 } // namespace x64
     

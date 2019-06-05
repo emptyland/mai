@@ -66,7 +66,7 @@ inline T bit_cast(F from) {
 // Returns true iff x is a power of 2 (or zero). Cannot be used with the
 // maximally negative value of the type T (the -1 overflows).
 template <typename T>
-inline bool IsPowerOf2(T x) {
+constexpr inline bool IsPowerOf2(T x) {
     return IS_POWER_OF_TWO(x);
 }
 
@@ -74,7 +74,7 @@ inline bool IsPowerOf2(T x) {
 // This allows conversion of Addresses and integral types into
 // 0-relative int offsets.
 template <typename T>
-inline intptr_t OffsetFrom(T x) {
+constexpr inline intptr_t OffsetFrom(T x) {
     return x - static_cast<T>(0);
 }
 
@@ -83,14 +83,14 @@ inline intptr_t OffsetFrom(T x) {
 // This allows conversion of 0-relative int offsets into Addresses and
 // integral types.
 template <typename T>
-inline T AddressFrom(intptr_t x) {
+constexpr inline T AddressFrom(intptr_t x) {
     return static_cast<T>(static_cast<T>(0) + x);
 }
 
 
 // Return the largest multiple of m which is <= x.
 template <typename T>
-inline T RoundDown(T x, intptr_t m) {
+constexpr inline T RoundDown(T x, intptr_t m) {
     assert(IsPowerOf2(m));
     return AddressFrom<T>(OffsetFrom(x) & -m);
 }
@@ -98,12 +98,12 @@ inline T RoundDown(T x, intptr_t m) {
 
 // Return the smallest multiple of m which is >= x.
 template <typename T>
-inline T RoundUp(T x, intptr_t m) {
+constexpr inline T RoundUp(T x, intptr_t m) {
     return RoundDown<T>(static_cast<T>(x + m - 1), m);
 }
 
 template <class T>
-inline T AlignDownBounds(T bounds, size_t value) {
+constexpr inline T AlignDownBounds(T bounds, size_t value) {
     return (value + bounds - 1) & (~(bounds - 1));
 }
 
