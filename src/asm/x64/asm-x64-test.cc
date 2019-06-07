@@ -518,6 +518,17 @@ TEST_F(X64AssemblerTest, CallCxxMethod) {
         EXPECT_EQ(3, foo(&ob, reinterpret_cast<Address>(&stub[0])));
     }
 }
+
+TEST_F(X64AssemblerTest, RIP) {
+    __ Reset();
+    __ nop();
+    __ lea(rax, Operand(rip, 0));
+    __ ret(0);
+    {
+        auto foo = MakeFunction<intptr_t ()>();
+        ASSERT_EQ(8, foo() - reinterpret_cast<intptr_t>(foo));
+    }
+}
     
 //static void TestStubThrowException() {
 //    printf("raise\n");

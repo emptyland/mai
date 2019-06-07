@@ -29,8 +29,8 @@ public:
     
     ~FileLineScope() {
         int pc = start_pc_;
-        while (pc < fs_->masm_.pc()) {
-            fs_->line_info_.push_back(pc++);
+        while (pc++ < fs_->masm_.pc()) {
+            fs_->line_info_.push_back(line_);
         }
     }
     
@@ -307,6 +307,15 @@ private:
     Assembler *masm() { return &static_cast<FunctionScopeBundle *>(fun_scope_)->masm_; }
     
     void CallRuntime(Runtime::ExternalLink sym, bool may_interrupt = false) {
+        //if (may_interrupt) {
+        //__ Breakpoint();
+        __ movq(rbx, Operand(kThread, NyThread::kOffsetFrame));
+        __ movq(r9, Operand(rbx, CallFrame::kOffsetEntry));
+        __ lea(r8, Operand(rip, 0)); // r8 = rip
+        __ subq(r8, r9);
+        __ movl(Operand(rbx, CallFrame::kOffsetPC), r8);
+        //}
+        
         __ pushq(kScratch);
         __ pushq(kThread);
         __ pushq(kBP);
@@ -338,6 +347,7 @@ private:
             __ jmp(rax);
             __ Bind(&l_yield);
             // Has Yield, jump to suspend point
+            __ int3(); // not in it
             __ Bind(&l_out);
         }
     }

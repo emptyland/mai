@@ -99,6 +99,7 @@ private:
 // All [strong ref]
 struct BuiltinCodePool final {
     NyCode *kEntryTrampoline = nullptr;
+    NyCode *kInvokeStub = nullptr;
     
     friend class NyaaCore;
 private:

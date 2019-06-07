@@ -17,6 +17,8 @@ const int32_t CallFrame::kOffsetConstPool = Template::OffsetOf(&CallFrame::const
 const int32_t CallFrame::kOffsetStackBE = Template::OffsetOf(&CallFrame::stack_be_);
 const int32_t CallFrame::kOffsetStackBP = Template::OffsetOf(&CallFrame::stack_bp_);
 const int32_t CallFrame::kOffsetStackTP = Template::OffsetOf(&CallFrame::stack_tp_);
+const int32_t CallFrame::kOffsetEntry = Template::OffsetOf(&CallFrame::entry_);
+const int32_t CallFrame::kOffsetPC = Template::OffsetOf(&CallFrame::pc_);
     
 const int32_t NyThread::kOffsetOwns = Template::OffsetOf(&NyThread::owns_);
 const int32_t NyThread::kOffsetInterruptionPending =
@@ -44,7 +46,18 @@ void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, Ny
     stack_be_   = bp;
     stack_bp_   = stack_be_;
     DCHECK(tp >= bp && tp < owns->stack_size_);
-    stack_tp_   = tp;    
+    stack_tp_   = tp;
+//    entry_      = bcbuf ? 0 :
+//        reinterpret_cast<intptr_t>(NyClosure::Cast(callee)->proto()->code()->entry_address());
+    if (NyClosure *fn = NyClosure::Cast(callee)) {
+        if (fn->proto()->IsNativeExec()) {
+            entry_ = reinterpret_cast<intptr_t>(fn->proto()->code()->entry_address());
+        } else {
+            entry_ = 0;
+        }
+    } else {
+        entry_ = 0;
+    }
 }
 
 void CallFrame::Exit(NyThread *owns) {
@@ -107,12 +120,31 @@ std::string TryCatchCore::ToString() const {
     }
     return buf;
 }
+    
+class NyThread::CodeContextBundle : public arch::RegisterContext {
+public:
+    CodeContextBundle(NyThread *owns)
+        : owns_(owns)
+        , prev_(static_cast<CodeContextBundle *>(owns_->save_point_)) {
+        DCHECK_NE(owns_->save_point_, this);
+        owns_->save_point_ = this;
+        ::memset(this, 0, sizeof(arch::RegisterContext));
+    }
+    
+    ~CodeContextBundle() {
+        DCHECK_EQ(owns_->save_point_, this);
+        owns_->save_point_ = prev_;
+    }
+private:
+    NyThread *const owns_;
+    CodeContextBundle *prev_;
+}; // class CodeContextBundle
 
 NyThread::NyThread(NyaaCore *owns)
     : NyUDO(NyUDO::GetNFiedls(sizeof(NyThread)), true /* ignore_managed */)
     , owns_(DCHECK_NOTNULL(owns)) {
     SetFinalizer(&UDOFinalizeDtor<NyThread>, owns);
-    ::memset(&save_point_, 0, sizeof(save_point_));
+    //::memset(&save_point_, 0, sizeof(save_point_));
 }
 
 NyThread::~NyThread() {
@@ -161,6 +193,10 @@ void NyThread::Raise(NyString *msg, Object *ex) {
 
         NyString *line = nullptr;
         if (file_info) {
+//            for (int i = 0; i < file_info->size(); ++i) {
+//                printf("%d ", file_info->Get(i));
+//            }
+//            printf("\n");
             line = owns_->factory()->Sprintf("%s:%d", !file_name ? "unknown" : file_name->bytes(),
                                              file_info->Get(x->pc()));
         } else {
@@ -329,7 +365,11 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *e
         frame_->AdjustBP(adjust);
         if (fn->proto()->IsNativeExec()) {
             EntryTrampolineCallStub stub(owns_->code_pool()->kEntryTrampoline);
-            rv = stub.entry_fn()(this, fn->proto()->code(), owns_, &save_point_);
+            CodeContextBundle bundle(this);
+            rv = stub.entry_fn()(this, fn->proto()->code(), owns_, &bundle);
+            if (interruption_pending_) {
+                throw interruption_pending_;
+            }
         } else {
             rv = Run();
         }
@@ -441,13 +481,7 @@ void NyThread::Unwind(CallFrame *ci) {
         delete frame;
     }
 }
-    
 
-/** fp                                           bp        tp
- *  +--------+--------+--------+--------+--------+---------+
- *  | callee | bcbuf  |   pc   |  rbp   |  rbs   | args...
- *  +--------+--------+--------+--------+--------+---------+
- */
 int NyThread::Run() {
     if (catch_point_) {
         catch_point_->Reset();
@@ -877,7 +911,6 @@ int NyThread::Run() {
         state_ = kSuspended;
     }
     return 0;
-    //return has_raised_ ? -1 : 0;
 }
     
 Object *NyThread::InternalGetField(Object **base, Object *mm, Object *key) {
@@ -1021,16 +1054,6 @@ bool NyThread::InternalCallMetaFunction(Object **base, NyString *name, int wante
     stack_tp_ = base;
     size_t tp = base - stack_;
     CheckStack(base - stack_ + n + 1);
-//    Push(fn);
-//    Push(a1);
-//    va_list ap;
-//    va_start(ap, n);
-//    for (int i = 0; i < n; ++i) {
-//        Object *a = va_arg(ap, Object *);
-//        Push(a);
-//    }
-//    va_end(ap);
-//    InternalCall(stack_ + tp, n + 1, wanted);
     stack_tp_[0] = fn;
     stack_tp_[1] = a1;
     va_list ap;

@@ -34,6 +34,8 @@ public:
     static const int32_t kOffsetStackBE;
     static const int32_t kOffsetStackBP;
     static const int32_t kOffsetStackTP;
+    static const int32_t kOffsetEntry;
+    static const int32_t kOffsetPC;
     
     CallFrame() {}
     ~CallFrame() {}
@@ -109,6 +111,7 @@ private:
     NyArray *const_pool_ = nullptr; // [strong ref]
     CallFrame *prev_;
     int level_ = 0;
+    intptr_t entry_;
     int pc_ = 0;
     size_t stack_be_ = 0;
     size_t stack_bp_ = 0;
@@ -165,6 +168,8 @@ public:
     };
     
     using Template = arch::ObjectTemplate<NyThread, int32_t>;
+    
+    class CodeContextBundle;
     
     static const int32_t kOffsetOwns;
     static const int32_t kOffsetInterruptionPending;
@@ -266,7 +271,7 @@ private:
     NyaaCore *const owns_;
     TryCatchCore *catch_point_ = nullptr;
     CallFrame::ExceptionId interruption_pending_ = CallFrame::kNormal;
-    arch::RegisterContext save_point_;
+    arch::RegisterContext *save_point_ = nullptr;
     State state_ = kSuspended;
     Object **stack_ = nullptr; // elements [strong ref]
     Object **stack_tp_ = nullptr;

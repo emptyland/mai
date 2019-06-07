@@ -119,6 +119,8 @@ constexpr Register r14(kR14); // 14
 
 constexpr Register r15(kR15); // 15
 //extern const Register rNone; // -1
+    
+constexpr struct RIPRegisterTag {} rip;
 
 class XMMRegister {
 public:
@@ -188,6 +190,7 @@ private:
 
 class Operand {
 public:
+    
     // [base + disp/r]
     Operand(Register reg, int32_t disp);
     
@@ -198,6 +201,19 @@ public:
     Operand(Register base, Register index, ScaleFactor scale,
             int32_t disp);
     
+    // [rip * scale + disp/r]
+    Operand(RIPRegisterTag, int32_t disp) {
+        // mod = 00
+        // r/m = 101
+        buf_[0] = 0 << 6 | 5;
+        rex_ = 1;
+        len_ = 1;
+        SetDisp32(disp);
+    }
+
+    // [rip * scale + disp/r]
+    Operand(RIPRegisterTag, ScaleFactor scale, int32_t disp);
+
     DEF_VAL_GETTER(uint8_t, rex);
     DEF_VAL_GETTER(uint8_t, len);
     const uint8_t *buf() const { return buf_; }

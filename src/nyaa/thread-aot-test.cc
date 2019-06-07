@@ -48,8 +48,8 @@ TEST_F(NyaaThreadAOTTest, Sanity) {
     
 TEST_F(NyaaThreadAOTTest, Raise) {
     static const char s[] = {
-        "raise(\"ok\")\n"
-        "print(1, 2, 3)\n"
+        "print(\"ok\")\n"
+        "raise(\"error\")\n"
     };
 
     HandleScope scope(N_);
@@ -57,7 +57,8 @@ TEST_F(NyaaThreadAOTTest, Raise) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     ASSERT_TRUE(script->proto()->IsNativeExec());
-    EXPECT_EQ(-1, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+    EXPECT_EQ(-1, script->Call(nullptr, 0, 0, core_));
+    FAIL() << try_catch.ToString();
 }
 
 }

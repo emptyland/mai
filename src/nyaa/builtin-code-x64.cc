@@ -45,7 +45,7 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     // save suspend point for long jumping
     N->set_suspend_point_pc(masm->pc());
     //__ Breakpoint();
-    __ lea(kScratch, Operand(kThread, NyThread::kOffsetSavePoint));
+    __ movq(kScratch, Operand(kThread, NyThread::kOffsetSavePoint));
     __ movq(rsp, Operand(kScratch, rsp.code() * kPointerSize));
     __ movq(rax, -1);
     
