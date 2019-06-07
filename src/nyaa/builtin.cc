@@ -64,6 +64,19 @@ const size_t kRawBuiltinCodeSize = sizeof(BuiltinCodePool) / sizeof(NyCode *);
 static_assert(sizeof(BuiltinStrPool) / kPointerSize == arraysize(kRawBuiltinKzs),
               "Incorrect size of kRawBuiltinKzs");
     
+const char *kBuiltinTypeName[] = {
+//    kTypeNil,
+//    kTypeSmi,
+//    kTypeUdo,
+//#define DEFINE_TYPE(type) kType##type,
+//    DECL_BUILTIN_TYPES(DEFINE_TYPE)
+//#undef DEFINE_TYPE
+    "Nil", "Smi", "Udo",
+#define DEFINE_TYPE(type) #type,
+    DECL_BUILTIN_TYPES(DEFINE_TYPE)
+#undef DEFINE_TYPE
+};
+    
 static void BuiltinPrint(const FunctionCallbackInfo<Object> &info) {
     HandleScope handle_scope(info.VM());
     

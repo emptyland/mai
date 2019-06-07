@@ -11,6 +11,10 @@ namespace nyaa {
 
 class NyFunction final : public NyObject {
 public:
+    using Template = arch::ObjectTemplate<NyFunction, int32_t>;
+    static const int32_t kOffsetCode;
+    static const int32_t kOffsetBcbuf;
+    
     NyFunction(NyString *name,
                uint8_t n_params,
                bool vargs,
@@ -154,6 +158,11 @@ private:
     
 class NyClosure final : public NyRunnable {
 public:
+    using Template = arch::ObjectTemplate<NyClosure, int32_t>;
+    
+    static const int32_t kOffsetProto;
+    static const int32_t kOffsetUpvals;
+    
     NyClosure(NyFunction *proto, NyaaCore *N);
     
     DEF_PTR_GETTER(NyFunction, proto);

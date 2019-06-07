@@ -58,7 +58,24 @@ TEST_F(NyaaThreadAOTTest, Raise) {
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     ASSERT_TRUE(script->proto()->IsNativeExec());
     EXPECT_EQ(-1, script->Call(nullptr, 0, 0, core_));
-    FAIL() << try_catch.ToString();
+    //FAIL() << try_catch.ToString();
+}
+    
+TEST_F(NyaaThreadAOTTest, Call) {
+    static const char s[] = {
+        "def foo() { print(\"foo\") }\n"
+        "foo()\n"
+        "foo()\n"
+        "foo()\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    ASSERT_TRUE(script->proto()->IsNativeExec());
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+    //FAIL() << try_catch.ToString();
 }
 
 }

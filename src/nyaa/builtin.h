@@ -121,6 +121,8 @@ enum BuiltinType : int {
 #undef DEFINE_TYPE
 };
     
+extern const char *kBuiltinTypeName[];
+    
 struct IVal {
     enum Kind {
         kLocal,

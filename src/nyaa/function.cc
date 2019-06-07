@@ -16,6 +16,9 @@ namespace nyaa {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// class NyFunction:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+const int32_t NyFunction::kOffsetCode = Template::OffsetOf(&NyFunction::code_);
+const int32_t NyFunction::kOffsetBcbuf = Template::OffsetOf(&NyFunction::bcbuf_);
 
 NyFunction::NyFunction(NyString *name, uint8_t n_params, bool vargs, uint32_t n_upvals,
                        uint32_t max_stack, NyString *file_name, NyInt32Array *file_info,
@@ -103,6 +106,9 @@ NyCode::NyCode(Kind kind, const uint8_t *instructions, uint32_t instructions_byt
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// class NyClosure:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+const int32_t NyClosure::kOffsetProto = Template::OffsetOf(&NyClosure::proto_);
+const int32_t NyClosure::kOffsetUpvals = Template::OffsetOf(&NyClosure::upvals_);
 
 NyClosure::NyClosure(NyFunction *proto, NyaaCore *N)
 : proto_(DCHECK_NOTNULL(proto)) {

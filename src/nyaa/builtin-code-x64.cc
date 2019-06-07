@@ -24,7 +24,7 @@ static constexpr Register kBP = Runtime::kBP;
 static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ pushq(rbp);
     __ movq(rbp, rsp);
-    __ subq(rsp, kPointerSize);
+    //__ subq(rsp, kPointerSize);
     __ movq(Operand(kRegArgv[3], rsp.code() * kPointerSize), rsp);
     
     __ movq(kThread, kRegArgv[0]);
@@ -50,7 +50,7 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ movq(rax, -1);
     
     __ Bind(&exit);
-    __ addq(rsp, kPointerSize);
+    //__ addq(rsp, kPointerSize);
     __ popq(rbp);
     __ ret(0);
 }

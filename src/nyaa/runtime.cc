@@ -47,7 +47,8 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     reinterpret_cast<Address>(&Thread_SetUpVal),
     reinterpret_cast<Address>(&Thread_GetProto),
     reinterpret_cast<Address>(&Thread_Closure),
-    ThreadTemplate::MethodAddress(&NyThread::RuntimeCall),
+    ThreadTemplate::MethodAddress(&NyThread::RuntimePrepareCall),
+    ThreadTemplate::MethodAddress(&NyThread::FinializeCall),
     ThreadTemplate::MethodAddress(&NyThread::RuntimeRet),
     
     reinterpret_cast<Address>(&NyaaCore_GetSuspendPoint),

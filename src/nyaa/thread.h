@@ -56,7 +56,7 @@ public:
     DEF_VAL_GETTER(size_t, stack_be);
     DEF_VAL_GETTER(size_t, stack_bp);
     DEF_VAL_GETTER(size_t, stack_tp);
-    
+
     std::tuple<NyString *, NyInt32Array *> FileInfo() const;
     
     NyFunction *proto() const {
@@ -123,11 +123,11 @@ private:
     
 class TryCatchCore {
 public:
-    static constexpr const int kThread = 0;
-    static constexpr const int kMessage = 1;
-    static constexpr const int kException = 2;
-    static constexpr const int kStackTrace = 3;
-    static constexpr const int kSlotSize = 4;
+    static constexpr int kThread = 0;
+    static constexpr int kMessage = 1;
+    static constexpr int kException = 2;
+    static constexpr int kStackTrace = 3;
+    static constexpr int kSlotSize = 4;
     
     TryCatchCore(NyaaCore *core);
     TryCatchCore(NyaaCore *core, NyThread *thread);
@@ -246,10 +246,21 @@ private:
                                  NyString *name, bool *has);
     bool InternalCallMetaFunction(Object **base, NyString *name, int wanted, Object *a1,
                                   int n, ...);
-    int InternalCall(Object **func, int32_t n_args, int wanted);
+
+    int InternalCall(Object **base, int32_t nargs, int wanted) {
+        size_t base_p = base - stack_;
+        nargs = PrepareCall(base, nargs, wanted);
+        base = stack_ + base_p;
+        return FinializeCall(base, nargs, wanted);
+    }
     
-    int RuntimeCall(int32_t callee, int32_t nargs, int wanted);
+    int RuntimePrepareCall(int32_t callee, int32_t nargs, int wanted);
+    int RuntimeFinializeCall(int32_t callee, int32_t nargs, int wanted);
+
     int RuntimeRet(int32_t base, int32_t nrets);
+    
+    int PrepareCall(Object **base, int32_t nargs, int32_t wanted);
+    int FinializeCall(Object **base, int32_t nargs, int32_t wanted);
 
     int CopyArgs(Object **args, int n_args, int n_params, bool vargs);
     

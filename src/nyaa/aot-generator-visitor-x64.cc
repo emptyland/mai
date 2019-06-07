@@ -156,7 +156,7 @@ public:
     void InitializeFun() {
         __ pushq(rbp);
         __ movq(rbp, rsp);
-        __ subq(rsp, kPointerSize);
+        //__ subq(rsp, kPointerSize);
     }
 
     void FinalizeRet() { Ret(IVal::Local(0), 0, 0); }
@@ -181,15 +181,70 @@ private:
             __ LikelyJ(Less, &retry, true);
         }
     }
-    
+
     virtual void Call(IVal callee, int nargs, int wanted, int line) override {
         DCHECK_EQ(IVal::kLocal, callee.kind);
         FileLineScope fls(fun_scope_, line);
+        static constexpr int32_t kSaveSize = 16;
+        
+        // Save current bp
+        __ subq(rsp, kSaveSize);
+        __ movq(rax, Operand(kThread, NyThread::kOffsetFrame));
+        __ movq(rax, Operand(rax, CallFrame::kOffsetStackBP));
+        __ movq(Operand(rbp, -kPointerSize), rax);
+        
         __ movq(kRegArgv[0], kThread);
         __ movl(kRegArgv[1], callee.index);
         __ movl(kRegArgv[2], nargs);
         __ movl(kRegArgv[3], wanted);
-        CallRuntime(Runtime::kThread_Call, true/*may_interrupt*/);
+        CallRuntime(Runtime::kThread_PrepareCall, true/*may_interrupt*/); // rax = nargs(new)
+        __ movq(kScratch, rax); // scratch = nargs
+        
+        // Restore
+        __ movq(kBP, Operand(kThread, NyThread::kOffsetStack));
+        __ movq(rax, Operand(rbp, -kPointerSize));
+        __ imulq(rax, rax, kPointerSize);
+        __ addq(kBP, rax);
+        __ addq(rsp, kSaveSize);
+
+        //__ Breakpoint();
+        __ movq(rax, Operand(kBP, callee.index)); // rax = callee
+        
+        Label fallback;
+#if defined(NYAA_USE_POINTER_TYPE)
+        __ movq(rax, Operand(rax, 0)); // rax = mtword_
+        __ movq(rbx, static_cast<int64_t>(NyObject::kTypeMask));
+        __ andq(rax, rbx);
+        __ shrq(rax, NyObject::kTypeBitsOrder);
+        __ cmpl(rax, kTypeClosure);
+        __ jcc(NotEqual, &fallback, true);
+#endif
+
+        __ movq(rax, Operand(kBP, callee.index)); // rax = callee
+        __ movq(rax, Operand(rax, NyClosure::kOffsetProto));
+        __ movq(rax, Operand(rax, NyFunction::kOffsetCode));
+        __ lea(rax, Operand(rax, NyCode::kOffsetInstructions));
+        // Setup BP
+        __ movq(kBP, Operand(kThread, NyThread::kOffsetStack));
+        __ movq(r8, Operand(kThread, NyThread::kOffsetFrame));
+        __ movq(rbx, Operand(r8, CallFrame::kOffsetStackBP));
+        //__ movq(r8, kPointerSize);
+        __ imulq(rbx, rbx, kPointerSize);
+        __ addq(kBP, rbx);
+
+        __ call(rax);
+        Label exit;
+        __ jmp(&exit, true);
+        
+        __ Bind(&fallback);
+        __ movq(rax, kBP);
+        __ addq(rax, callee.index); // rax = base
+        __ movq(kRegArgv[0], kThread);
+        __ movq(kRegArgv[1], rax); // argv[1] = base
+        __ movl(kRegArgv[2], kScratch); // argv[2] = nargs
+        __ movl(kRegArgv[3], wanted);
+        CallRuntime(Runtime::kThread_FinalizeCall, true/*may_interrupt*/);
+        __ Bind(&exit);
     }
     
     virtual void Ret(IVal base, int nrets, int line) override {
@@ -199,7 +254,7 @@ private:
         __ movl(kRegArgv[1], base.index);
         __ movl(kRegArgv[2], nrets);
         CallRuntime(Runtime::kThread_Ret);
-        __ addq(rsp, kPointerSize);
+        //__ addq(rsp, kPointerSize);
         __ popq(rbp);
         __ ret(0);
     }
@@ -274,8 +329,7 @@ private:
                 //__ Breakpoint();
                 __ movq(Local(ret.index), rax);
                 return ret;
-            } break;
-                break;
+            }
             case IVal::kVoid:
             default:
                 DLOG(FATAL) << "noreached.";
@@ -293,6 +347,8 @@ private:
         __ movq(kRegArgv[1], Operand(kScratch, NyArray::kOffsetElems + name.index * kPointerSize));
         DCHECK_EQ(IVal::kLocal, val.kind);
         __ movq(kRegArgv[2], Local(val.index)); // argv[2] = value
+        __ movq(kRegArgv[3], kCore); // argv[3] = core
+        //__ Breakpoint();
         CallRuntime(Runtime::kMap_RawPut, true/*may_interrupt*/);
     }
 
@@ -307,14 +363,14 @@ private:
     Assembler *masm() { return &static_cast<FunctionScopeBundle *>(fun_scope_)->masm_; }
     
     void CallRuntime(Runtime::ExternalLink sym, bool may_interrupt = false) {
-        //if (may_interrupt) {
+        if (may_interrupt) {
         //__ Breakpoint();
-        __ movq(rbx, Operand(kThread, NyThread::kOffsetFrame));
-        __ movq(r9, Operand(rbx, CallFrame::kOffsetEntry));
-        __ lea(r8, Operand(rip, 0)); // r8 = rip
-        __ subq(r8, r9);
-        __ movl(Operand(rbx, CallFrame::kOffsetPC), r8);
-        //}
+            __ movq(rbx, Operand(kThread, NyThread::kOffsetFrame));
+            __ movq(r9, Operand(rbx, CallFrame::kOffsetEntry));
+            __ lea(r8, Operand(rip, 0)); // r8 = rip
+            __ subq(r8, r9);
+            __ movl(Operand(rbx, CallFrame::kOffsetPC), r8);
+        }
         
         __ pushq(kScratch);
         __ pushq(kThread);

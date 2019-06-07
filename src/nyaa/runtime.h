@@ -23,7 +23,8 @@ public:
         kThread_SetUpVal,
         kThread_GetProto,
         kThread_Closure,
-        kThread_Call,
+        kThread_PrepareCall,
+        kThread_FinalizeCall,
         kThread_Ret,
         
         kNyaaCore_GetSuspendPoint, //SUSPEND_POINT

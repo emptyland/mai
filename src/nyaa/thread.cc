@@ -47,8 +47,6 @@ void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, Ny
     stack_bp_   = stack_be_;
     DCHECK(tp >= bp && tp < owns->stack_size_);
     stack_tp_   = tp;
-//    entry_      = bcbuf ? 0 :
-//        reinterpret_cast<intptr_t>(NyClosure::Cast(callee)->proto()->code()->entry_address());
     if (NyClosure *fn = NyClosure::Cast(callee)) {
         if (fn->proto()->IsNativeExec()) {
             entry_ = reinterpret_cast<intptr_t>(fn->proto()->code()->entry_address());
@@ -58,9 +56,12 @@ void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, Ny
     } else {
         entry_ = 0;
     }
+    
+    //printf("enter: %p\n", callee_);
 }
 
 void CallFrame::Exit(NyThread *owns) {
+    //printf("exit: %p\n", callee_);
     DCHECK_EQ(this, owns->frame_);
     owns->frame_ = prev_;
 }
@@ -219,7 +220,7 @@ void NyThread::Raise(NyString *msg, Object *ex) {
         interruption_pending_ = CallFrame::kException;
         switch (owns_->stub()->exec()) {
             case Nyaa::kAOT:
-                break; // Ingore
+                break; // Ingore: DO NOT throw anything.
             case Nyaa::kInterpreter:
                 throw interruption_pending_;
             default:
@@ -1066,18 +1067,20 @@ bool NyThread::InternalCallMetaFunction(Object **base, NyString *name, int wante
     InternalCall(stack_ + tp, n + 1, wanted);
     return true;
 }
-    
-int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
+
+#if 0
+int NyThread::InternalCall(Object **base, int32_t nargs, int32_t wanted) {
     DCHECK((*base)->IsObject());
     //PrintStack();
     size_t base_p = base - stack_;
     NyObject *ob = static_cast<NyObject *>(*base);
+    
+    if (n_args < 0) {
+        n_args = static_cast<int32_t>(stack_tp_ - base - 1);
+    }
     switch (ob->GetType()) {
         case kTypeClosure: {
             NyClosure *callee = ob->ToClosure();
-            if (n_args < 0) {
-                n_args = static_cast<int32_t>(stack_tp_ - base - 1);
-            }
             int adjust = 0;
             if (callee->proto()->vargs()) {
                 int n_params = callee->proto()->n_params();
@@ -1110,11 +1113,6 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
 
         case kTypeDelegated: {
             NyDelegated *callee = ob->ToDelegated();
-
-            if (n_args < 0) {
-                n_args = static_cast<int32_t>(stack_tp_ - base - 1);
-            }
-
             CallFrame *frame = new CallFrame;
             frame->Enter(this, callee,
                          nullptr, /* bc buf */
@@ -1149,22 +1147,21 @@ int NyThread::InternalCall(Object **base, int32_t n_args, int32_t wanted) {
     }
     return 0;
 }
+#endif
     
-int NyThread::RuntimeCall(int32_t callee, int32_t argc, int wanted) {
+int NyThread::RuntimePrepareCall(int32_t callee, int32_t argc, int wanted) {
+    //PrintStack();
+    //printf("frame: %p\n", frame_bp());
     Object *val = Get(callee);
     if (val->IsSmi()) {
         owns_->Raisef("can not call number.");
-        return -1;
-    }
-    if (!NyRunnable::Cast(val)) {
-        owns_->Raisef("can not call this object.");
         return -1;
     }
     Object **base = frame_bp() + callee;
     if (argc >= 0) {
         stack_tp_ = base + 1 + argc;
     }
-    return InternalCall(base, argc, wanted);
+    return PrepareCall(base, argc, wanted);
 }
     
 int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
@@ -1180,7 +1177,105 @@ int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
     delete outter;
     return nrets;
 }
+
+int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {
+    DCHECK((*base)->IsObject());
+    size_t base_p = base - stack_;
+    NyObject *ob = static_cast<NyObject *>(*base);
+    if (nargs < 0) {
+        nargs = static_cast<int32_t>(stack_tp_ - base - 1);
+    }
+    switch (ob->GetType()) {
+        case kTypeClosure: {
+            NyClosure *callee = ob->ToClosure();
+            int adjust = 0;
+            if (callee->proto()->vargs()) {
+                int nparams = callee->proto()->n_params();
+                if (nargs > nparams) {
+                    adjust = nargs - nparams;
+                }
+                // a0, a1, a2, a3, a4: n_params = 2, adjust = 3;
+                // a2, a3, a4, a0, a1
+                if (adjust > 0 && nparams > 0) {
+                    int fixed_size = nparams;
+                    Object **fixed = new Object *[fixed_size];
+                    ::memcpy(fixed, base + 1, sizeof(Object *) * fixed_size);
+                    ::memmove(base + 1, base + 1 + fixed_size, sizeof(Object *) * adjust);
+                    ::memcpy(base + 1 + adjust, fixed, sizeof(Object *) * fixed_size);
+                    delete[] fixed;
+                }
+            }
+            
+            CallFrame *frame = new CallFrame;
+            NyByteArray *bcbuf =
+                callee->proto()->IsInterpretationExec() ? callee->proto()->bcbuf(): nullptr;
+            frame->Enter(this, callee,
+                         bcbuf,
+                         callee->proto()->const_pool(),
+                         wanted,
+                         base_p + 1, /*frame_bp*/
+                         base_p + 1 + callee->proto()->max_stack(), /*frame_tp*/
+                         frame_->env());
+            frame->AdjustBP(adjust);
+        } break;
+            
+        case kTypeDelegated: {
+            NyDelegated *callee = ob->ToDelegated();
+            CallFrame *frame = new CallFrame;
+            frame->Enter(this, callee,
+                         nullptr, /* bc buf */
+                         nullptr, /* const pool */
+                         wanted,
+                         base_p + 1, /*frame_bp*/
+                         base_p + 20, /* frame_tp */
+                         frame_->env());
+        } break;
+
+        default:
+            DLOG(FATAL) << "incorrect type: " << kBuiltinTypeName[ob->GetType()];
+            break;
+    }
+    return nargs;
+}
     
+int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
+    Object *ob = *base;
+    switch (ob->GetType()) {
+        case kTypeClosure: {
+            NyClosure *callee = NyClosure::Cast(ob);
+            DCHECK_EQ(callee, frame_->callee());
+            if (callee->proto()->IsNativeExec()) {
+                EntryTrampolineCallStub stub(owns_->code_pool()->kEntryTrampoline);
+                CodeContextBundle bundle(this);
+                return stub.entry_fn()(this, callee->proto()->code(), owns_, &bundle);
+            } else {
+                DCHECK(callee->proto()->IsInterpretationExec());
+                return Run();
+            }
+        } break;
+        case kTypeDelegated: {
+            NyDelegated *callee = NyDelegated::Cast(ob);
+            DCHECK_EQ(callee, frame_->callee());
+            FunctionCallbackInfo<Object> info(base, nargs, owns_->stub());
+            //PrintStack();
+            callee->Apply(info);
+            CallFrame *outter = frame_;
+            int rv = outter->nrets();
+            if (rv >= 0) {
+                CopyResult(stack_ + outter->stack_be() - 1, rv, wanted);
+            }
+            outter->Exit(this);
+            delete outter;
+            
+            owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
+        } break;
+        default: {
+            
+        } break;
+    }
+    return 0;
+}
+
 void NyThread::CopyResult(Object **ret, int nrets, int wanted) {
     switch (wanted) {
         case -1:
@@ -1222,7 +1317,7 @@ void NyThread::CopyResult(Object **ret, Object **argv, int argc, int wanted) {
     }
     stack_tp_ = ret + wanted;
 }
-    
+
 void NyThread::ProcessClass(NyMap *clazz) {
     int64_t self_offset = 0;
     int64_t self_size = 0;
@@ -1256,7 +1351,7 @@ void NyThread::ProcessClass(NyMap *clazz) {
     clazz->RawPut(owns_->bkz_pool()->kInnerOffset, NySmi::New(self_offset), owns_);
     clazz->RawPut(owns_->bkz_pool()->kInnerSize, NySmi::New(self_size), owns_);
 }
-    
+
 int NyThread::ParseBytecodeInt32Params(int offset, int scale, int n, ...) {
     va_list ap;
     va_start(ap, n);
@@ -1269,7 +1364,7 @@ int NyThread::ParseBytecodeInt32Params(int offset, int scale, int n, ...) {
     va_end(ap);
     return offset;
 }
-    
+
 int NyThread::ParseBytecodeSize(int offset) {
     Bytecode::ID first = static_cast<Bytecode::ID>(frame_->bcbuf()->Get(offset));
     int scale = 0;
@@ -1301,7 +1396,7 @@ int NyThread::ParseBytecodeSize(int offset) {
 #undef DEFINE_SIZE
     return size;
 }
-    
+
 } // namespace nyaa
     
 } // namespace mai
