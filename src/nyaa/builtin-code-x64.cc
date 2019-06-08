@@ -36,9 +36,11 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ mulq(kScratch);
     __ addq(kBP, rax);
     
-    __ movq(kScratch, kRegArgv[1]);
-    __ addq(kScratch, NyCode::kOffsetInstructions);
-    __ call(kScratch);
+//    __ movq(kScratch, kRegArgv[1]);
+//    __ addq(kScratch, NyCode::kOffsetInstructions);
+    //__ Breakpoint();
+    __ lea(rax, Operand(kRegArgv[1], NyCode::kOffsetInstructions));
+    __ call(rax);
     Label exit;
     __ jmp(&exit, true);
     

@@ -219,15 +219,16 @@ enum Initializer {
     ON_EXIT_SCOPE_INITIALIZER
 };
 
-typedef uint8_t Byte;
-typedef Byte *  Address;
+using Byte = uint8_t;
+using Address = Byte *;
 
-static const int kPointerSize = sizeof(void *);
+static constexpr int kPointerSize = sizeof(void *);
+static constexpr int kPointerShift = 3;
 
 namespace base {
-constexpr static const int kKB = 1024;
-constexpr static const int kMB = 1024 * kKB;
-constexpr static const int kGB = 1024 * kMB;
+static constexpr int kKB = 1024;
+static constexpr int kMB = 1024 * kKB;
+static constexpr int kGB = 1024 * kMB;
 } // namespace base
 
 } // namespace mai

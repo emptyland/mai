@@ -63,10 +63,13 @@ Error Heap::Init() {
 }
 
 NyObject *Heap::Allocate(size_t request_size, HeapSpace space) {
-    if (request_size > os_page_size_) {
+    // TODO: add a argument for executable
+    bool executable = space == kCodeSpace;
+    if (request_size > kPageSize / 4) {
         space = kLargeSpace;
+        DCHECK_GT(request_size, os_page_size_);
     }
-    
+
     void *chunk = nullptr;
     switch (space) {
         case kNewSpace:
@@ -79,7 +82,7 @@ NyObject *Heap::Allocate(size_t request_size, HeapSpace space) {
             chunk = code_space_->AllocateRaw(request_size);
             break;
         case kLargeSpace:
-            chunk = large_space_->AllocateRaw(request_size);
+            chunk = large_space_->AllocateRaw(request_size, executable);
             break;
         default:
             break;

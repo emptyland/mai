@@ -12,6 +12,7 @@ namespace nyaa {
 
 using ThreadTemplate = arch::ObjectTemplate<NyThread>;
 using MapTemplate = arch::ObjectTemplate<NyMap>;
+using ObjectTemplate = arch::ObjectTemplate<Object>;
 using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
 
 /*static*/ Object *Runtime::Thread_GetUpVal(NyThread *thd, int slot) {
@@ -52,6 +53,8 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     ThreadTemplate::MethodAddress(&NyThread::RuntimeRet),
     
     reinterpret_cast<Address>(&NyaaCore_GetSuspendPoint),
+    
+    ObjectTemplate::MethodAddress(&Object::IsFalse),
     
     MapTemplate::MethodAddress(&NyMap::RawGet),
     MapTemplate::MethodAddress(&NyMap::RawPut),

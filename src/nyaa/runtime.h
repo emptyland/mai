@@ -29,6 +29,8 @@ public:
         
         kNyaaCore_GetSuspendPoint, //SUSPEND_POINT
         
+        kObject_IsFalse,
+        
         kMap_RawGet,
         kMap_RawPut,
         kMaxLinks,

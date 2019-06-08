@@ -153,10 +153,51 @@ public:
         return val;
     }
     
+    virtual IVal VisitLogicSwitch(ast::LogicSwitch *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        
+        IVal ret = fun_scope_->NewLocal();
+        IVal lhs = node->lhs()->Accept(this, &ix);
+        IVal rhs = node->rhs()->Accept(this, &ix);
+        switch (node->op()) {
+            case Operator::kAnd: {
+                //__ Breakpoint();
+                __ movq(kRegArgv[0], Local(lhs.index));
+                CallRuntime(Runtime::kObject_IsFalse);
+                __ cmpl(rax, 0);
+                __ cmovq(NotEqual, rax, Local(lhs.index));
+                __ cmovq(Equal, rax, Local(rhs.index));
+                __ movq(Local(ret.index), rax);
+            } break;
+            case Operator::kOr: {
+                __ movq(kRegArgv[0], Local(lhs.index));
+                CallRuntime(Runtime::kObject_IsFalse);
+                __ cmpl(rax, 0);
+                __ cmovq(Equal, rax, Local(lhs.index));
+                __ cmovq(NotEqual, rax, Local(rhs.index));
+                __ movq(Local(ret.index), rax);
+            } break;
+            default:
+                DLOG(FATAL) << "Noreached:" << node->op();
+                break;
+        }
+        fun_scope_->FreeVar(rhs);
+        fun_scope_->FreeVar(lhs);
+        return ret;
+    }
+    
     void InitializeFun() {
+        //__ Breakpoint();
         __ pushq(rbp);
         __ movq(rbp, rsp);
         //__ subq(rsp, kPointerSize);
+        // Setup BP
+        __ movq(kBP, Operand(kThread, NyThread::kOffsetStack));
+        __ movq(rax, Operand(kThread, NyThread::kOffsetFrame));
+        __ movq(rax, Operand(rax, CallFrame::kOffsetStackBP));
+        __ shlq(rax, kPointerShift);
+        __ addq(kBP, rax);
     }
 
     void FinalizeRet() { Ret(IVal::Local(0), 0, 0); }
@@ -217,24 +258,17 @@ private:
         __ andq(rax, rbx);
         __ shrq(rax, NyObject::kTypeBitsOrder);
         __ cmpl(rax, kTypeClosure);
-        __ jcc(NotEqual, &fallback, true);
+        __ j(NotEqual, &fallback, false);
 #endif
 
         __ movq(rax, Operand(kBP, callee.index)); // rax = callee
         __ movq(rax, Operand(rax, NyClosure::kOffsetProto));
         __ movq(rax, Operand(rax, NyFunction::kOffsetCode));
         __ lea(rax, Operand(rax, NyCode::kOffsetInstructions));
-        // Setup BP
-        __ movq(kBP, Operand(kThread, NyThread::kOffsetStack));
-        __ movq(r8, Operand(kThread, NyThread::kOffsetFrame));
-        __ movq(rbx, Operand(r8, CallFrame::kOffsetStackBP));
-        //__ movq(r8, kPointerSize);
-        __ imulq(rbx, rbx, kPointerSize);
-        __ addq(kBP, rbx);
-
-        __ call(rax);
+        // TODO: use call stub
+        __ call(rax); // call generated native function
         Label exit;
-        __ jmp(&exit, true);
+        __ jmp(&exit, false);
         
         __ Bind(&fallback);
         __ movq(rax, kBP);
@@ -254,6 +288,21 @@ private:
         __ movl(kRegArgv[1], base.index);
         __ movl(kRegArgv[2], nrets);
         CallRuntime(Runtime::kThread_Ret);
+        __ movq(kScratch, rax); // save return value
+        
+        // Setup BP
+        __ movq(kBP, Operand(kThread, NyThread::kOffsetStack));
+        __ movq(rax, Operand(kThread, NyThread::kOffsetFrame));
+        __ cmpq(rax, 0);
+        Label exit;
+        __ j(Equal, &exit, false);
+ 
+        __ movq(rax, Operand(rax, CallFrame::kOffsetStackBP));
+        __ shlq(rax, kPointerShift);
+        __ addq(kBP, rax);
+        
+        __ Bind(&exit);
+        __ movq(rax, kScratch);
         //__ addq(rsp, kPointerSize);
         __ popq(rbp);
         __ ret(0);
@@ -364,7 +413,6 @@ private:
     
     void CallRuntime(Runtime::ExternalLink sym, bool may_interrupt = false) {
         if (may_interrupt) {
-        //__ Breakpoint();
             __ movq(rbx, Operand(kThread, NyThread::kOffsetFrame));
             __ movq(r9, Operand(rbx, CallFrame::kOffsetEntry));
             __ lea(r8, Operand(rip, 0)); // r8 = rip
@@ -422,7 +470,7 @@ Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root
     visitor.InitializeFun();
     root->Accept(&visitor, nullptr);
     visitor.FinalizeRet(); // last return
-    
+
     Handle<NyInt32Array> info = core->factory()->NewInt32Array(scope.line_info_.size());
     info = info->Add(scope.line_info_.data(), scope.line_info_.size(), core);
 

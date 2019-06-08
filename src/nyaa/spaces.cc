@@ -111,12 +111,20 @@ void Page::SetUpRegion() {
         return nullptr; // Failed!
     }
     DCHECK_EQ(reinterpret_cast<uintptr_t>(chunk) % kPageSize, 0);
-    
+
     auto rs = lla->SetAccess(chunk, requried_size, access);
     if (!rs) {
         DLOG(ERROR) << rs.ToString();
         return nullptr; // Failed!
     }
+//    auto end = static_cast<Address>(chunk) + requried_size;
+//    for (auto p = static_cast<Address>(chunk); p < end; p += lla->granularity()) {
+//        auto rs = lla->SetAccess(p, lla->granularity(), access);
+//        if (!rs) {
+//            DLOG(ERROR) << rs.ToString();
+//            return nullptr; // Failed!
+//        }
+//    }
     return new (chunk) Page(space, static_cast<uint32_t>(requried_size));
 }
     

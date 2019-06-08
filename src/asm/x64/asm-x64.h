@@ -259,7 +259,12 @@ private:
 
 class Label {
 public:
-    Label() = default;
+    Label() { DCHECK(IsUnused()); }
+    
+    ~Label() {
+        DCHECK(!IsLinked());
+        DCHECK(!IsNearLinked());
+    }
 
     DEF_VAL_GETTER(int, pos);
     DEF_VAL_PROP_RW(int, near_link_pos);
@@ -268,7 +273,6 @@ public:
     bool IsUnused() const { return pos_ == 0 && near_link_pos_ == 0; }
     bool IsLinked() const { return pos_ > 0; }
     bool IsNearLinked() const { return near_link_pos_ > 0; }
-    bool GetNearLinkPosition() const { return near_link_pos_ - 1; }
     
     void BindTo(int for_bind) {
         pos_ = -(for_bind) - 1;
@@ -293,6 +297,9 @@ public:
         DLOG(FATAL) << "noreached";
         return 0;
     }
+    
+    int GetNearLinkPosition() const { return near_link_pos_ - 1; }
+    
 private:
     int pos_ = 0;
     int near_link_pos_ = 0;
@@ -591,19 +598,25 @@ public:
     void movsd(Operand dst, XMMRegister src) { EmitSSEArith(0xF2, 0x11, src, dst); }
     
     // CMOVcc—Conditional Move
-    void cmovcc(Cond cond, Register dst, Register src, int size = kDefaultSize) {
+    void cmov(Cond cond, Register dst, Register src, int size) {
         EmitRex(dst, src, size);
         EmitB(0x0F);
-        EmitB(0x70 | cond);
+        EmitB(0x40 | cond);
         EmitModRM(dst, src);
     }
     
-    void cmovcc(Cond cond, Register dst, Operand src, int size = kDefaultSize) {
+    void cmov(Cond cond, Register dst, Operand src, int size) {
         EmitRex(dst, src, size);
         EmitB(0x0F);
-        EmitB(0x70 | cond);
+        EmitB(0x40 | cond);
         EmitOperand(dst, src);
     }
+    
+    void cmovq(Cond cond, Register dst, Register src) { cmov(cond, dst, src, 8); }
+    void cmovq(Cond cond, Register dst, Operand src) { cmov(cond, dst, src, 8); }
+    
+    void cmovl(Cond cond, Register dst, Register src) { cmov(cond, dst, src, 4); }
+    void cmovl(Cond cond, Register dst, Operand src) { cmov(cond, dst, src, 4); }
     
     //----------------------------------------------------------------------------------------------
     // Jmps
@@ -657,16 +670,16 @@ public:
         EmitOperand(0x4, addr);
     }
     
-    void jcc(Cond cond, Label *l, bool is_far);
+    void j(Cond cond, Label *l, bool is_far);
     
     void LikelyJ(Cond cond, Label *l, bool is_far) {
         PrefixLikely();
-        jcc(cond, l, is_far);
+        j(cond, l, is_far);
     }
     
     void UnlikelyJ(Cond cond, Label *l, bool is_far) {
         PrefixUnlikely();
-        jcc(cond, l, is_far);
+        j(cond, l, is_far);
     }
     
     void Bind(Label *l) { BindTo(l, pc()); }

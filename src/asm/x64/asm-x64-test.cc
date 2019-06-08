@@ -58,7 +58,7 @@ TEST_F(X64AssemblerTest, FarJccJump) {
     //asm_.EmitBreakpoint();
     asm_.cmpl(kRegArgv[0], kRegArgv[1]);
     Label label;
-    asm_.jcc(Equal, &label, true);
+    asm_.j(Equal, &label, false);
     asm_.movl(rax, kRegArgv[1]);
     asm_.ret(0);
     asm_.Bind(&label);

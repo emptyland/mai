@@ -239,7 +239,7 @@ void Assembler::jmp(Label *l, bool is_far) {
     }
 }
     
-void Assembler::jcc(Cond cc, Label *l, bool is_far) {
+void Assembler::j(Cond cc, Label *l, bool is_far) {
     if (cc == Always) {
         jmp(l, is_far);
         return;
@@ -355,10 +355,23 @@ void Assembler::BindTo(Label *l, int pos) {
         LongPut(curr, last_i32);
     }
     
+//    while (L->is_near_linked()) {
+//        int fixup_pos = L->near_link_pos();
+//        int offset_to_next =
+//        static_cast<int>(*reinterpret_cast<int8_t*>(addr_at(fixup_pos)));
+//        DCHECK_LE(offset_to_next, 0);
+//        int disp = pos - (fixup_pos + sizeof(int8_t));
+//        CHECK(is_int8(disp));
+//        set_byte_at(fixup_pos, disp);
+//        if (offset_to_next < 0) {
+//            L->link_to(fixup_pos + offset_to_next, Label::kNear);
+//        } else {
+//            L->UnuseNear();
+//        }
+//    }
     while (l->IsNearLinked()) {
         int fixup_pos = l->GetNearLinkPosition();
-        int off_to_next = static_cast<int8_t>(*AddrAt(fixup_pos));
-        //int off_to_next = LongAt(fixup_pos);
+        int off_to_next = *reinterpret_cast<int8_t *>(AddrAt(fixup_pos));
         DCHECK_LE(off_to_next, 0);
         
         int disp = pos - (fixup_pos + sizeof(int8_t));

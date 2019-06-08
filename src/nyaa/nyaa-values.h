@@ -51,6 +51,8 @@ template<class T> class FunctionCallbackInfo;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class Object {
 public:
+    using Template = arch::ObjectTemplate<Object, int32_t>;
+    
     static Object *const kNil;
     
     bool IsSmi() const { return word() & 0x1; }

@@ -42,8 +42,8 @@ TEST_F(NyaaThreadAOTTest, Sanity) {
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
-    ASSERT_TRUE(script->proto()->IsNativeExec());
-    EXPECT_EQ(1, script->Call(nullptr, 0, 0, core_));
+    //ASSERT_TRUE(script->proto()->IsNativeExec());
+    EXPECT_EQ(1, script->Call(nullptr, 0, -1, core_));
 }
     
 TEST_F(NyaaThreadAOTTest, Raise) {
@@ -56,16 +56,18 @@ TEST_F(NyaaThreadAOTTest, Raise) {
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
-    ASSERT_TRUE(script->proto()->IsNativeExec());
+    //ASSERT_TRUE(script->proto()->IsNativeExec());
     EXPECT_EQ(-1, script->Call(nullptr, 0, 0, core_));
     //FAIL() << try_catch.ToString();
 }
     
 TEST_F(NyaaThreadAOTTest, Call) {
     static const char s[] = {
+        "def baz() { bar() }\n"
+        "def bar() { foo() }\n"
         "def foo() { print(\"foo\") }\n"
-        "foo()\n"
-        "foo()\n"
+        "baz()\n"
+        "bar()\n"
         "foo()\n"
     };
     
@@ -73,7 +75,29 @@ TEST_F(NyaaThreadAOTTest, Call) {
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
-    ASSERT_TRUE(script->proto()->IsNativeExec());
+    //ASSERT_TRUE(script->proto()->IsNativeExec());
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+    //FAIL() << try_catch.ToString();
+}
+    
+TEST_F(NyaaThreadAOTTest, AndOrSwitch) {
+    static const char s[] = {
+        "print(1 and 1)\n"
+        "print(0 and 1)\n"
+        "print(1 and 0)\n"
+        "print(0 and 0)\n"
+        "print(\"-------\")\n"
+        "print(1 or 1)\n"
+        "print(0 or 1)\n"
+        "print(1 or 0)\n"
+        "print(0 or 0)\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //ASSERT_TRUE(script->proto()->IsNativeExec());
     EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
     //FAIL() << try_catch.ToString();
 }
