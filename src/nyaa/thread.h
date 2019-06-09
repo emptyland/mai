@@ -198,13 +198,28 @@ public:
     int Resume(Object *argv[], int argc, int wanted, NyMap *env);
     void Yield();
     
-    void Raisef(const char *fmt, ...);
+    void Raisef(const char *fmt, ...) {
+        va_list ap;
+        va_start(ap, fmt);
+        Vraisef(fmt, ap);
+        va_end(ap);
+    }
+    
     void Vraisef(const char *fmt, va_list ap);
     void Raise(NyString *msg, Object *ex);
 
-    void Push(Object *value, size_t n = 1);
-    Object *Get(int i);
-    void Set(int i, Object *value);
+    inline void Push(Object *value, size_t n = 1);
+    inline Object *Get(int i);
+
+    void Set(int i, Object *value) {
+        if (i < 0) {
+            DCHECK_GE(frame_tp() + i, frame_bp());
+            *(frame_tp() + i) = value;
+        } else {
+            DCHECK_LT(frame_bp() + i, frame_tp());
+            frame_bp()[i] = value;
+        }
+    }
     
     void Pop(int n) {
         DCHECK_GE(stack_tp_ - n, frame_bp());
@@ -234,8 +249,17 @@ private:
         DCHECK_GE(stack_tp_, stack_);
         CheckStack(stack_tp_ - stack_ + add);
     }
+
     void CheckStack(size_t size);
-    void Unwind(CallFrame *ci);
+
+    void Unwind(CallFrame *ci) {
+        while (frame_ != ci) {
+            CallFrame *frame = frame_;
+            frame->Exit(this);
+            delete frame;
+        }
+    }
+
     int Run();
 
     Object *InternalGetField(Object **base, Object *mm, Object *key);
@@ -258,14 +282,14 @@ private:
     int RuntimeFinializeCall(int32_t callee, int32_t nargs, int wanted);
 
     int RuntimeRet(int32_t base, int32_t nrets);
-    
+
     int PrepareCall(Object **base, int32_t nargs, int32_t wanted);
     int FinializeCall(Object **base, int32_t nargs, int32_t wanted);
 
-    int CopyArgs(Object **args, int n_args, int n_params, bool vargs);
+    int CopyArgs(Object **args, int nargs, int nparams, bool vargs);
     
-    void CopyResult(Object **ret, int n_rets, int wanted);
-    void CopyResult(Object **ret, Object **argv, int argc, int wanted);
+    void CopyResult(Object **ret, int nrets, int wanted);
+    inline void CopyResult(Object **ret, Object **argv, int argc, int wanted);
     
     void ProcessClass(NyMap *clazz);
     
@@ -296,6 +320,49 @@ private:
 }; // class NyThread
 
 inline NyThread *TryCatchCore::thread() const { return static_cast<NyThread *>(obs_[kThread]); }
+    
+inline void NyThread::Push(Object *value, size_t n) {
+    CheckStackAdd(n);
+    if (stack_tp_ + n > stack_last_) {
+        Raisef("stack overflow!");
+        return;
+    }
+    for (int i = 0; i < n; ++i) {
+        stack_tp_[i] = value;
+    }
+    stack_tp_ += n;
+}
+    
+inline Object *NyThread::Get(int i) {
+    if (i < 0) {
+        //DCHECK_GE(frame_tp() + i, frame_bp());
+        //return *(frame_tp() + i);
+        return *(stack_tp_ + i);
+    } else {
+        //if (stack_tp_ < )
+        //DCHECK_LT(frame_bp() + i, frame_tp());
+        if (stack_tp_ > frame_tp()) {
+            DCHECK_LT(frame_bp() + i, stack_tp_);
+        } else {
+            DCHECK_LT(frame_bp() + i, frame_tp());
+        }
+        DCHECK_LT(frame_bp() + i, stack_last_);
+        return frame_bp()[i];
+    }
+}
+    
+inline void NyThread::CopyResult(Object **ret, Object **argv, int argc, int wanted) {
+    if (wanted < 0) {
+        wanted = argc;
+    }
+    for (int i = 0; i < argc && i < wanted; ++i) {
+        ret[i] = argv[i];
+    }
+    for (int i = argc; i < wanted; ++i) {
+        ret[i] = Object::kNil;
+    }
+    stack_tp_ = ret + wanted;
+}
     
 } // namespace nyaa
     

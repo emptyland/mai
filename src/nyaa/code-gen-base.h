@@ -139,8 +139,8 @@ public:
     
     DEF_PTR_GETTER(BlockScope, prev);
     DEF_PTR_GETTER(FunctionScope, owns);
-    DEF_PTR_PROP_RW(BytecodeLable, loop_in);
-    DEF_PTR_PROP_RW(BytecodeLable, loop_out);
+    DEF_PTR_PROP_RW(void, loop_in);
+    DEF_PTR_PROP_RW(void, loop_out);
     
     IVal GetVariable(const ast::String *name) {
         auto iter = vars_.find(name);
@@ -165,8 +165,8 @@ private:
     int active_vars_;
     VariableTable vars_;
     
-    BytecodeLable *loop_in_ = nullptr;
-    BytecodeLable *loop_out_ = nullptr;
+    void *loop_in_ = nullptr;
+    void *loop_out_ = nullptr;
 }; // class BlockScope
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -221,6 +221,8 @@ public:
     virtual void Move(IVal dst, IVal src, int line) = 0;
     virtual void StoreUp(IVal val, IVal up, int line) = 0;
     virtual void StoreGlobal(IVal val, IVal name, int line) = 0;
+    virtual void NewMap(IVal map, int n, int linear, int line) = 0;
+    //map, 0/*n*/, 0/*linear*/, node->line()
     
     //----------------------------------------------------------------------------------------------
     // Implements from ast::Visitor
@@ -236,6 +238,7 @@ public:
     virtual IVal VisitApproxLiteral(ast::ApproxLiteral *node, ast::VisitorContext *x) override;
     virtual IVal VisitSmiLiteral(ast::SmiLiteral *node, ast::VisitorContext *x) override;
     virtual IVal VisitIntLiteral(ast::IntLiteral *node, ast::VisitorContext *x) override;
+    virtual IVal VisitMapInitializer(ast::MapInitializer *node, ast::VisitorContext *x) override;
     
     friend class FunctionScope;
     friend class BlockScope;

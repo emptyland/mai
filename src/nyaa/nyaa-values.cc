@@ -115,7 +115,7 @@ uint32_t Object::HashVal(NyaaCore *N) const {
 bool Object::IsFalse() const {
     switch (GetType()) {
         case kTypeNil:
-            return false;
+            return true;
         case kTypeSmi:
             return ToSmi() == 0;
         case kTypeString:

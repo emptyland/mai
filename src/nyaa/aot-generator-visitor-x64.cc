@@ -118,7 +118,7 @@ public:
             }
             CodeGeneratorContext bix;
 
-            InitializeFun();
+            InitializeFun(node->line());
             node->value()->Accept(this, &bix);
             Ret(IVal::Local(0), 0, node->end_line());
             
@@ -153,6 +153,37 @@ public:
         return val;
     }
     
+    virtual IVal VisitIfStatement(ast::IfStatement *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        IVal cond = node->cond()->Accept(this, &ix);
+        
+        Label else_lable;
+        {
+            FileLineScope fls(fun_scope_, node->line());
+            //__ Breakpoint();
+            __ movq(kRegArgv[0], Local(cond.index));
+            CallRuntime(Runtime::kObject_IsFalse);
+            __ cmpl(rax, 0);
+            __ j(NotEqual, &else_lable, true); // is false?
+        }
+        fun_scope_->FreeVar(cond);
+
+        node->then_clause()->Accept(this, &ix);
+        
+        if (!node->else_clause()) {
+            __ Bind(&else_lable);
+        } else {
+            FileLineScope fls(fun_scope_, node->else_clause()->line());
+            Label exit_lable;
+            __ jmp(&exit_lable, true);
+            __ Bind(&else_lable);
+            node->else_clause()->Accept(this, &ix);
+            __ Bind(&exit_lable);
+        }
+        return IVal::Void();
+    }
+    
     virtual IVal VisitLogicSwitch(ast::LogicSwitch *node, ast::VisitorContext *x) override {
         CodeGeneratorContext ix;
         ix.set_n_result(1);
@@ -162,7 +193,7 @@ public:
         IVal rhs = node->rhs()->Accept(this, &ix);
         switch (node->op()) {
             case Operator::kAnd: {
-                //__ Breakpoint();
+                FileLineScope fls(fun_scope_, node->line());
                 __ movq(kRegArgv[0], Local(lhs.index));
                 CallRuntime(Runtime::kObject_IsFalse);
                 __ cmpl(rax, 0);
@@ -171,6 +202,7 @@ public:
                 __ movq(Local(ret.index), rax);
             } break;
             case Operator::kOr: {
+                FileLineScope fls(fun_scope_, node->line());
                 __ movq(kRegArgv[0], Local(lhs.index));
                 CallRuntime(Runtime::kObject_IsFalse);
                 __ cmpl(rax, 0);
@@ -187,8 +219,8 @@ public:
         return ret;
     }
     
-    void InitializeFun() {
-        //__ Breakpoint();
+    void InitializeFun(int line) {
+        FileLineScope fls(fun_scope_, line);
         __ pushq(rbp);
         __ movq(rbp, rsp);
         //__ subq(rsp, kPointerSize);
@@ -240,16 +272,16 @@ private:
         __ movl(kRegArgv[3], wanted);
         CallRuntime(Runtime::kThread_PrepareCall, true/*may_interrupt*/); // rax = nargs(new)
         __ movq(kScratch, rax); // scratch = nargs
-        
+
         // Restore
         __ movq(kBP, Operand(kThread, NyThread::kOffsetStack));
         __ movq(rax, Operand(rbp, -kPointerSize));
-        __ imulq(rax, rax, kPointerSize);
+        __ shlq(rax, kPointerShift);
         __ addq(kBP, rax);
         __ addq(rsp, kSaveSize);
 
         //__ Breakpoint();
-        __ movq(rax, Operand(kBP, callee.index)); // rax = callee
+        __ movq(rax, Local(callee.index)); // rax = callee
         
         Label fallback;
 #if defined(NYAA_USE_POINTER_TYPE)
@@ -261,20 +293,19 @@ private:
         __ j(NotEqual, &fallback, false);
 #endif
 
-        __ movq(rax, Operand(kBP, callee.index)); // rax = callee
+        __ movq(rax, Local(callee.index)); // rax = callee
         __ movq(rax, Operand(rax, NyClosure::kOffsetProto));
         __ movq(rax, Operand(rax, NyFunction::kOffsetCode));
         __ lea(rax, Operand(rax, NyCode::kOffsetInstructions));
         // TODO: use call stub
         __ call(rax); // call generated native function
         Label exit;
-        __ jmp(&exit, false);
+        __ jmp(&exit, true);
         
         __ Bind(&fallback);
-        __ movq(rax, kBP);
-        __ addq(rax, callee.index); // rax = base
         __ movq(kRegArgv[0], kThread);
-        __ movq(kRegArgv[1], rax); // argv[1] = base
+        __ movq(kRegArgv[1], kBP);
+        __ addq(kRegArgv[1], callee.index << kPointerShift); // argv[1] = base
         __ movl(kRegArgv[2], kScratch); // argv[2] = nargs
         __ movl(kRegArgv[3], wanted);
         CallRuntime(Runtime::kThread_FinalizeCall, true/*may_interrupt*/);
@@ -307,7 +338,7 @@ private:
         __ popq(rbp);
         __ ret(0);
     }
-    
+
     virtual void Move(IVal dst, IVal src, int line) override {
         DCHECK_EQ(IVal::kLocal, dst.kind);
         DCHECK_EQ(IVal::kLocal, src.kind);
@@ -315,7 +346,7 @@ private:
         __ movq(rax, Local(src.index));
         __ movq(Local(dst.index), rax);
     }
-    
+
     virtual void StoreUp(IVal val, IVal up, int line) override {
         DCHECK_EQ(IVal::kLocal, val.kind);
         DCHECK_EQ(IVal::kUpval, up.kind);
@@ -326,7 +357,14 @@ private:
         __ movl(kRegArgv[2], up.index);
         CallRuntime(Runtime::kThread_SetUpVal);
     }
-    
+
+    virtual void NewMap(IVal map, int n, int linear, int line) override {
+        DCHECK_EQ(IVal::kLocal, map.kind);
+        FileLineScope fls(fun_scope_, line);
+        // TODO:
+        DLOG(FATAL) << "TODO:";
+    }
+
     virtual IVal Localize(IVal val, int line) override {
         switch (val.kind) {
             case IVal::kLocal:
@@ -456,9 +494,7 @@ private:
         }
     }
 
-    Operand Local(int index) {
-        return Operand(kBP, index * kPointerSize);
-    }
+    Operand Local(int index) { return Operand(kBP, index * kPointerSize); }
 }; // class AOTGeneratorVisitor
     
 Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root,
@@ -467,7 +503,7 @@ Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root
     
     AOTGeneratorVisitor visitor(core, arena, file_name);
     FunctionScopeBundle scope(&visitor);
-    visitor.InitializeFun();
+    visitor.InitializeFun(1);
     root->Accept(&visitor, nullptr);
     visitor.FinalizeRet(); // last return
 

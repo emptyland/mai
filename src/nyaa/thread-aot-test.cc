@@ -102,6 +102,23 @@ TEST_F(NyaaThreadAOTTest, AndOrSwitch) {
     //FAIL() << try_catch.ToString();
 }
 
+TEST_F(NyaaThreadAOTTest, IfElseStatement) {
+    static const char s[] = {
+        "var a = 1\n"
+        "if (a) { print(\"true\") }\n"
+        "a = nil\n"
+        "if (a) { print(\"true\") }\n"
+        "else { print(\"false\") }\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //ASSERT_TRUE(script->proto()->IsNativeExec());
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+}
+
 }
 
 }

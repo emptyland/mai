@@ -99,7 +99,7 @@ public:
         blk_scope_->set_loop_out(&out_lable);
         
         node->body()->Accept(this, x);
-        
+    
         blk_scope_->set_loop_in(nullptr);
         blk_scope_->set_loop_out(nullptr);
         
@@ -165,7 +165,8 @@ public:
             blk = blk->prev();
         }
         DCHECK_NOTNULL(blk);
-        builder()->Jump(blk->loop_in(), fun_scope_->kpool(), node->line());
+        builder()->Jump(static_cast<BytecodeLable *>(blk->loop_in()), fun_scope_->kpool(),
+                        node->line());
         return IVal::Void();
     }
     
@@ -178,7 +179,8 @@ public:
             blk = blk->prev();
         }
         DCHECK_NOTNULL(blk);
-        builder()->Jump(blk->loop_out(), fun_scope_->kpool(), node->line());
+        builder()->Jump(static_cast<BytecodeLable *>(blk->loop_out()), fun_scope_->kpool(),
+                        node->line());
         return IVal::Void();
     }
     
@@ -205,65 +207,6 @@ public:
             builder()->StoreGlobal(clazz, key, node->end_line());
         }
         return IVal::Void();
-    }
-
-    virtual IVal VisitMapInitializer(ast::MapInitializer *node, ast::VisitorContext *x) override {
-        int index = 0;
-        if (!node->value()) {
-            IVal map = fun_scope_->NewLocal();
-            builder()->NewMap(map, 0/*n*/, 0/*linear*/, node->line());
-            return map;
-        }
-        bool linear = true;
-        for (auto entry : *node->value()) {
-            if (entry->key()) {
-                linear = false;
-                break;
-            }
-        }
-
-        std::vector<IVal> kvs;
-        CodeGeneratorContext ix;
-        ix.set_n_result(1);
-        ix.set_localize(true);
-        ix.set_keep_const(false);
-        
-        if (linear) {
-            for (auto entry : *node->value()) {
-                IVal value = entry->value()->Accept(this, &ix);
-                if (blk_scope_->Protected(value)) {
-                    IVal tmp = fun_scope_->NewLocal();
-                    builder()->Move(tmp, value);
-                    value = tmp;
-                }
-                kvs.push_back(value);
-            }
-        } else {
-            for (auto entry : *node->value()) {
-                IVal key;
-                if (entry->key()) {
-                    key = entry->key()->Accept(this, &ix);
-                } else {
-                    key = IVal::Const(fun_scope_->kpool()->GetOrNewSmi(index++));
-                    key = Localize(key, entry->value()->line());
-                }
-                IVal value = entry->value()->Accept(this, &ix);
-                if (blk_scope_->Protected(value)) {
-                    IVal tmp = fun_scope_->NewLocal();
-                    builder()->Move(tmp, value);
-                    value = tmp;
-                }
-                kvs.push_back(key);
-                kvs.push_back(value);
-            }
-        }
-        
-        IVal map = kvs.front();
-        builder()->NewMap(map, static_cast<int>(kvs.size()), linear, node->line());
-        for (int64_t i = kvs.size() - 1; i > 0; --i) {
-            fun_scope_->FreeVar(kvs[i]);
-        }
-        return map;
     }
     
     virtual IVal VisitLambdaLiteral(ast::LambdaLiteral *node, ast::VisitorContext *x) override {
@@ -540,7 +483,11 @@ private:
     virtual void StoreGlobal(IVal val, IVal name, int line) override {
         builder()->StoreGlobal(val, name, line);
     }
-    
+
+    virtual void NewMap(IVal map, int n, int linear, int line) override {
+        builder()->NewMap(map, n, linear, line);
+    }
+
     virtual IVal Localize(IVal val, int line) override {
         switch (val.kind) {
             case IVal::kLocal:

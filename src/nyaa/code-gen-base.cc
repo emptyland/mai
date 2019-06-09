@@ -323,6 +323,66 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     }
     return val;
 }
+
+/*virtual*/ IVal CodeGeneratorVisitor::VisitMapInitializer(ast::MapInitializer *node,
+                                                           ast::VisitorContext *x) {
+    int index = 0;
+    if (!node->value()) {
+        IVal map = fun_scope_->NewLocal();
+        NewMap(map, 0/*n*/, 0/*linear*/, node->line());
+        return map;
+    }
+    bool linear = true;
+    for (auto entry : *node->value()) {
+        if (entry->key()) {
+            linear = false;
+            break;
+        }
+    }
+    
+    std::vector<IVal> kvs;
+    CodeGeneratorContext ix;
+    ix.set_n_result(1);
+    ix.set_localize(true);
+    ix.set_keep_const(false);
+    
+    if (linear) {
+        for (auto entry : *node->value()) {
+            IVal value = entry->value()->Accept(this, &ix);
+            if (blk_scope_->Protected(value)) {
+                IVal tmp = fun_scope_->NewLocal();
+                Move(tmp, value, entry->value()->line());
+                value = tmp;
+            }
+            kvs.push_back(value);
+        }
+    } else {
+        for (auto entry : *node->value()) {
+            IVal key;
+            if (entry->key()) {
+                key = entry->key()->Accept(this, &ix);
+            } else {
+                key = IVal::Const(fun_scope_->kpool()->GetOrNewSmi(index++));
+                key = Localize(key, entry->value()->line());
+            }
+            IVal value = entry->value()->Accept(this, &ix);
+            if (blk_scope_->Protected(value)) {
+                IVal tmp = fun_scope_->NewLocal();
+                Move(tmp, value, entry->value()->line());
+                value = tmp;
+            }
+            kvs.push_back(key);
+            kvs.push_back(value);
+        }
+    }
+    
+    IVal map = kvs.front();
+    NewMap(map, static_cast<int>(kvs.size()), linear, node->line());
+    for (int64_t i = kvs.size() - 1; i > 0; --i) {
+        fun_scope_->FreeVar(kvs[i]);
+    }
+    return map;
+}
     
 IVal CodeGeneratorVisitor::AdjustStackPosition(int requried, IVal val, int line) {
     DCHECK_EQ(IVal::kLocal, val.kind);

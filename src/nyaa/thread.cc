@@ -168,16 +168,8 @@ Error NyThread::Init() {
 
     return Error::OK();
 }
-
-void NyThread::Raisef(const char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    Vraisef(fmt, ap);
-    va_end(ap);
-}
-
+    
 void NyThread::Vraisef(const char *fmt, va_list ap) {
-    //has_raised_ = true;
     NyString *msg = owns_->factory()->Vsprintf(fmt, ap);
     Raise(msg, nullptr);
 }
@@ -229,46 +221,6 @@ void NyThread::Raise(NyString *msg, Object *ex) {
         }
     } else {
         DLOG(FATAL) << msg->bytes();
-    }
-}
-
-void NyThread::Push(Object *value, size_t n) {
-    CheckStackAdd(n);
-    if (stack_tp_ + n > stack_last_) {
-        owns_->Raisef("stack overflow!");
-        return;
-    }
-    for (int i = 0; i < n; ++i) {
-        stack_tp_[i] = value;
-    }
-    stack_tp_ += n;
-}
-    
-Object *NyThread::Get(int i) {
-    if (i < 0) {
-        //DCHECK_GE(frame_tp() + i, frame_bp());
-        //return *(frame_tp() + i);
-        return *(stack_tp_ + i);
-    } else {
-        //if (stack_tp_ < )
-        //DCHECK_LT(frame_bp() + i, frame_tp());
-        if (stack_tp_ > frame_tp()) {
-            DCHECK_LT(frame_bp() + i, stack_tp_);
-        } else {
-            DCHECK_LT(frame_bp() + i, frame_tp());
-        }
-        DCHECK_LT(frame_bp() + i, stack_last_);
-        return frame_bp()[i];
-    }
-}
-    
-void NyThread::Set(int i, Object *value) {
-    if (i < 0) {
-        DCHECK_GE(frame_tp() + i, frame_bp());
-        *(frame_tp() + i) = value;
-    } else {
-        DCHECK_LT(frame_bp() + i, frame_tp());
-        frame_bp()[i] = value;
     }
 }
     
@@ -473,14 +425,6 @@ void NyThread::CheckStack(size_t size) {
     stack_size_ = required_size;
     stack_last_ = stack_ + stack_size_;
     stack_tp_   = stack_ + tp;
-}
-    
-void NyThread::Unwind(CallFrame *ci) {
-    while (frame_ != ci) {
-        CallFrame *frame = frame_;
-        frame->Exit(this);
-        delete frame;
-    }
 }
 
 int NyThread::Run() {
@@ -1300,19 +1244,6 @@ void NyThread::CopyResult(Object **ret, int nrets, int wanted) {
         ret[i] = from[i];
     }
     for (int i = nrets; i < wanted; ++i) {
-        ret[i] = Object::kNil;
-    }
-    stack_tp_ = ret + wanted;
-}
-
-void NyThread::CopyResult(Object **ret, Object **argv, int argc, int wanted) {
-    if (wanted < 0) {
-        wanted = argc;
-    }
-    for (int i = 0; i < argc && i < wanted; ++i) {
-        ret[i] = argv[i];
-    }
-    for (int i = argc; i < wanted; ++i) {
         ret[i] = Object::kNil;
     }
     stack_tp_ = ret + wanted;
