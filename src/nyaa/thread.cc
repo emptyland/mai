@@ -186,12 +186,8 @@ void NyThread::Raise(NyString *msg, Object *ex) {
 
         NyString *line = nullptr;
         if (file_info) {
-//            for (int i = 0; i < file_info->size(); ++i) {
-//                printf("%d ", file_info->Get(i));
-//            }
-//            printf("\n");
             line = owns_->factory()->Sprintf("%s:%d", !file_name ? "unknown" : file_name->bytes(),
-                                             file_info->Get(x->pc()));
+                                             GetLine(file_info, x->pc()));
         } else {
             line = owns_->factory()->Sprintf("%s:[%p]", !file_name ? "" : file_name->bytes(),
                                              x->callee());
@@ -1326,6 +1322,19 @@ int NyThread::ParseBytecodeSize(int offset) {
     }
 #undef DEFINE_SIZE
     return size;
+}
+    
+int NyThread::GetLine(const NyInt32Array *line_info, int pc) const {
+    if (!owns_->stub()->compact_source_line_info()) {
+        return line_info->Get(pc);
+    }
+    for (int i = 0; i < line_info->size(); i += 3) {
+        if (pc >= line_info->Get(i) && pc < line_info->Get(i + 1)) {
+            return line_info->Get(i + 2);
+        }
+    }
+    DLOG(FATAL) << "Noreached!";
+    return -1;
 }
 
 } // namespace nyaa

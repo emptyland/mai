@@ -4,6 +4,7 @@
 #include "nyaa/runtime.h"
 #include "asm/x64/asm-x64.h"
 #include "asm/utils.h"
+#include "mai-lang/nyaa.h"
 
 namespace mai {
     
@@ -13,8 +14,11 @@ namespace {
     
 class FunctionScopeBundle final : public FunctionScope {
 public:
-    FunctionScopeBundle(CodeGeneratorVisitor *owns) : FunctionScope(owns) {}
+    FunctionScopeBundle(CodeGeneratorVisitor *owns)
+        : FunctionScope(owns)
+        , compact_line_info_(owns->core()->stub()->compact_source_line_info()) {}
     
+    bool compact_line_info_ = false;
     x64::Assembler masm_;
     std::vector<int> line_info_;
 }; // class FunctionScopeBundle
@@ -28,9 +32,15 @@ public:
     }
     
     ~FileLineScope() {
-        int pc = start_pc_;
-        while (pc++ < fs_->masm_.pc()) {
+        if (fs_->compact_line_info_) {
+            fs_->line_info_.push_back(start_pc_);
+            fs_->line_info_.push_back(fs_->masm_.pc());
             fs_->line_info_.push_back(line_);
+        } else {
+            int pc = start_pc_;
+            while (pc++ < fs_->masm_.pc()) {
+                fs_->line_info_.push_back(line_);
+            }
         }
     }
     

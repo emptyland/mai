@@ -210,6 +210,8 @@ public:
         , arena_(DCHECK_NOTNULL(arena))
         , file_name_(file_name) {}
     virtual ~CodeGeneratorVisitor() override {}
+    
+    DEF_PTR_GETTER(NyaaCore, core);
 
     //----------------------------------------------------------------------------------------------
     // Onwer Implements

@@ -303,6 +303,8 @@ private:
         closure->Bind(i, val, owns_);
     }
     
+    int GetLine(const NyInt32Array *line_info, int pc) const;
+    
     NyaaCore *const owns_;
     TryCatchCore *catch_point_ = nullptr;
     CallFrame::ExceptionId interruption_pending_ = CallFrame::kNormal;

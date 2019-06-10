@@ -100,6 +100,8 @@ TEST_F(NyaaThreadAOTTest, AndOrSwitch) {
     //ASSERT_TRUE(script->proto()->IsNativeExec());
     EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
     //FAIL() << try_catch.ToString();
+    printf("%u %u\n", script->proto()->file_info()->size(),
+           script->proto()->code()->instructions_bytes_size());
 }
 
 TEST_F(NyaaThreadAOTTest, IfElseStatement) {
