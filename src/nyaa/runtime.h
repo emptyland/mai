@@ -43,6 +43,8 @@ public:
         kObject_Equal,
         kObject_LessThan,
         kObject_LessEqual,
+        kObject_Get,
+        kObject_Put,
         
         kMap_RawGet,
         kMap_RawPut,

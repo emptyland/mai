@@ -80,6 +80,12 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
         case Operator::kUnm:
             name = N->bkz_pool()->kInnerUnm;
             break;
+        case Operator::kIndex:
+            name = N->bkz_pool()->kInnerIndex;
+            break;
+        case Operator::kNewindex:
+            name = N->bkz_pool()->kInnerNewindex;
+            break;
         default:
             DLOG(FATAL) << "Noreached: " << op;
             break;
@@ -119,6 +125,8 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     reinterpret_cast<Address>(&Object::Equal),
     reinterpret_cast<Address>(&Object::LessThan),
     reinterpret_cast<Address>(&Object::LessEqual),
+    reinterpret_cast<Address>(&Object::Get),
+    reinterpret_cast<Address>(&Object::Put),
     
     MapTemplate::MethodAddress(&NyMap::RawGet),
     MapTemplate::MethodAddress(&NyMap::RawPut),

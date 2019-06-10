@@ -214,7 +214,7 @@ public:
     DEF_PTR_GETTER(NyaaCore, core);
 
     //----------------------------------------------------------------------------------------------
-    // Onwer Implements
+    // Owns Interfaces
     //----------------------------------------------------------------------------------------------
     virtual IVal Localize(IVal val, int line) = 0;
     virtual void LoadNil(IVal val, int n, int line) = 0;
@@ -224,7 +224,8 @@ public:
     virtual void StoreUp(IVal val, IVal up, int line) = 0;
     virtual void StoreGlobal(IVal val, IVal name, int line) = 0;
     virtual void NewMap(IVal map, int n, int linear, int line) = 0;
-    //map, 0/*n*/, 0/*linear*/, node->line()
+    virtual void SetField(IVal self, IVal index, IVal value, int line) = 0;
+    virtual void GetField(IVal value, IVal self, IVal index, int line) = 0;
     
     //----------------------------------------------------------------------------------------------
     // Implements from ast::Visitor
@@ -233,6 +234,8 @@ public:
     virtual IVal VisitVarDeclaration(ast::VarDeclaration *node, ast::VisitorContext *x) override;
     virtual IVal VisitVariable(ast::Variable *node, ast::VisitorContext *x) override;
     virtual IVal VisitAssignment(ast::Assignment *node, ast::VisitorContext *x) override;
+    virtual IVal VisitIndex(ast::Index *node, ast::VisitorContext *x) override;
+    virtual IVal VisitDotField(ast::DotField *node, ast::VisitorContext *x) override;
     virtual IVal VisitCall(ast::Call *node, ast::VisitorContext *x) override;
     virtual IVal VisitReturn(ast::Return *node, ast::VisitorContext *x) override;
     virtual IVal VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) override;

@@ -138,6 +138,12 @@ TEST_F(NyaaThreadAOTTest, Add) {
     static const char s[] = {
         "var a, b, c = 1, 2, 3\n"
         "assert(a + b == c)\n"
+        "a = setmetatable({f:1}, {\n"
+        "   __add__: lambda(lhs, rhs) { return 999 + rhs }\n"
+        "})\n"
+        "assert(a + 1 == 1000)\n"
+        "assert(a + 2 == 1001)\n"
+        "assert(a + 3 == 1002)\n"
     };
     
     HandleScope scope(N_);
@@ -159,6 +165,25 @@ TEST_F(NyaaThreadAOTTest, Compare) {
         "assert(b < c)\n"
         "assert(c > a)\n"
         "assert(b > a)\n"
+    };
+
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //ASSERT_TRUE(script->proto()->IsNativeExec());
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+//    printf("%u %u\n", script->proto()->file_info()->size(),
+//           script->proto()->code()->instructions_bytes_size());
+}
+    
+TEST_F(NyaaThreadAOTTest, SetField) {
+    static const char s[] = {
+        "var a = {a:1, b:2}\n"
+        "print(a)\n"
+        "a.a = 2\n"
+        "a.c = 3\n"
+        "print(a)\n"
     };
     
     HandleScope scope(N_);

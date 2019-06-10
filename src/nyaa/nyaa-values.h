@@ -99,6 +99,9 @@ public:
     static Object *Div(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Mod(Object *lhs, Object *rhs, NyaaCore *N);
     
+    static Object *Get(Object *lhs, Object *key, NyaaCore *N);
+    static void Put(Object *lhs, Object *key, Object *value, NyaaCore *N);
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(Object);
 protected:
     Object() {}
@@ -479,6 +482,9 @@ public:
     inline std::tuple<Object *, Object *> GetNextPair(Object *key, NyaaCore *N);
     
     NyString *ToString(NyaaCore *N);
+    
+    void Put(Object *key, Object *value, NyaaCore *N);
+    Object *Get(Object *key, NyaaCore *N) const;
 
     void RawPut(Object *key, Object *value, NyaaCore *N);
     Object *RawGet(Object *key, NyaaCore *N) const;
@@ -808,6 +814,9 @@ public:
     void SetFinalizer(Finalizer fp, NyaaCore *N);
     
     NyString *ToString(NyaaCore *N);
+    
+    Object *Get(Object *key, NyaaCore *N);
+    void Put(Object *key, Object *value, NyaaCore *N);
 
     Object *RawGet(Object *key, NyaaCore *N);
     void RawPut(Object *key, Object *value, NyaaCore *N);

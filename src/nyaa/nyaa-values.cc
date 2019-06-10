@@ -149,6 +149,33 @@ DEFINE_OBJECT_BIN_ARITH(Div)
 DEFINE_OBJECT_BIN_ARITH(Mod)
     
 #undef DEFINE_OBJECT_BIN_ARITH
+    
+/*static*/ Object *Object::Get(Object *lhs, Object *key, NyaaCore *N) {
+    switch (lhs->GetType()) {
+        case kTypeMap:
+            return NyMap::Cast(lhs)->Get(key, N);
+        case kTypeUdo:
+            return NyUDO::Cast(lhs)->Get(key, N);
+        default:
+            N->Raisef("attempt get `%s' field.", kBuiltinTypeName[lhs->GetType()]);
+            break;
+    }
+    return nullptr;
+}
+
+/*static*/ void Object::Put(Object *lhs, Object *key, Object *value, NyaaCore *N) {
+    switch (lhs->GetType()) {
+        case kTypeMap:
+            NyMap::Cast(lhs)->Put(key, value, N);
+            break;
+        case kTypeUdo:
+            NyUDO::Cast(lhs)->Put(key, value, N);
+            break;
+        default:
+            N->Raisef("attempt set `%s' field.", kBuiltinTypeName[lhs->GetType()]);
+            break;
+    }
+}
 
 NyString *Object::ToString(NyaaCore *N) {
     if (this == kNil) {
@@ -1374,6 +1401,40 @@ NyString *NyMap::ToString(NyaaCore *N) {
     return buf->Done(N);
 }
     
+void NyMap::Put(Object *key, Object *value, NyaaCore *N) {
+    NyMap *mt = GetMetatable();
+    if (mt == N->kmt_pool()->kMap) {
+        RawPut(key, value, N);
+        return;
+    }
+    Object *mo = GetMetaFunction(N->bkz_pool()->kInnerNewindex, N);
+    if (NyMap *mm = NyMap::Cast(mo)) {
+        mm->RawPut(key, value, N);
+    } else if (NyRunnable *mf = NyRunnable::Cast(mo)) {
+        Object *args[] = {this, key, value};
+        N->curr_thd()->Run(mf, args, 3/*nargs*/, 0/*nrets*/);
+    } else {
+        RawPut(key, value, N);
+    }
+}
+
+Object *NyMap::Get(Object *key, NyaaCore *N) const {
+    NyMap *mt = GetMetatable();
+    if (mt == N->kmt_pool()->kMap) {
+        return RawGet(key, N);
+    }
+    Object *mo = GetMetaFunction(N->bkz_pool()->kInnerIndex, N);
+    if (NyMap *mm = NyMap::Cast(mo)) {
+        return mm->RawGet(key, N);
+    } else if (NyRunnable *mf = NyRunnable::Cast(mo)) {
+        Object *args[] = {const_cast<NyMap *>(this), key};
+        N->curr_thd()->Run(mf, args, 2/*nargs*/, 1/*nrets*/);
+        return N->Get(-1);
+    } else {
+        return RawGet(key, N);
+    }
+}
+    
 void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
     NyObject *old = generic_;
     
@@ -1919,6 +1980,25 @@ NyString *NyUDO::ToString(NyaaCore *N) {
         return NyString::Cast(N->curr_thd()->Get(-1));
     }
     return N->factory()->Sprintf("udo: %p", this);
+}
+    
+void NyUDO::Put(Object *key, Object *value, NyaaCore *N) {
+    if (NyRunnable *mf = GetValidMetaFunction(N->bkz_pool()->kInnerNewindex, N)) {
+        Object *args[] = {this, key, value};
+        N->curr_thd()->Run(mf, args, arraysize(args)/*argc*/, 0/*wanted*/, nullptr/*TODO: env*/);
+    } else {
+        RawPut(key, value, N);
+    }
+}
+
+Object *NyUDO::Get(Object *key, NyaaCore *N) {
+    if (NyRunnable *mf = GetValidMetaFunction(N->bkz_pool()->kInnerIndex, N)) {
+        Object *args[] = {this, key};
+        N->curr_thd()->Run(mf, args, arraysize(args)/*argc*/, 1/*wanted*/, nullptr/*TODO: env*/);
+        return N->Get(-1);
+    } else {
+        return RawGet(key, N);
+    }
 }
     
 Object *NyUDO::RawGet(Object *key, NyaaCore *N) {

@@ -228,11 +228,15 @@ int NyThread::TryRun(NyRunnable *fn, Object *argv[], int argc, int wanted, NyMap
         rv = Run(fn, argv, argc, wanted, env);
     } catch (CallFrame::ExceptionId which) {
         if (which == CallFrame::kException) {
-            Unwind(ci);
-            rv = -1;
+            DCHECK_EQ(which, interruption_pending_);
+            // Ingore
         } else {
             throw which;
         }
+    }
+    if (interruption_pending_ == CallFrame::kException) {
+        Unwind(ci);
+        rv = -1;
     }
     return rv;
 }
@@ -316,9 +320,6 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *e
             EntryTrampolineCallStub stub(owns_->code_pool()->kEntryTrampoline);
             CodeContextBundle bundle(this);
             rv = stub.entry_fn()(this, fn->proto()->code(), owns_, &bundle);
-            if (interruption_pending_) {
-                throw interruption_pending_;
-            }
         } else {
             rv = Run();
         }

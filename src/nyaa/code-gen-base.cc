@@ -224,6 +224,51 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     return IVal::Void();
 }
     
+/*virtual*/ IVal CodeGeneratorVisitor::VisitIndex(ast::Index *node, ast::VisitorContext *x) {
+    CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+    IVal val = ctx->lval() ? IVal::Void() : fun_scope_->NewLocal();
+    
+    CodeGeneratorContext ix;
+    ix.set_n_result(1);
+    IVal self = node->self()->Accept(this, &ix);
+    ix.set_keep_const(true);
+    IVal index = node->index()->Accept(this, &ix);
+    
+    if (ctx->lval()) {
+        SetField(self, index, ctx->rval(), node->line());
+        fun_scope_->FreeVar(index);
+        fun_scope_->FreeVar(self);
+        return IVal::Void();
+    } else {
+        GetField(val, self, index, node->line());
+        fun_scope_->FreeVar(index);
+        fun_scope_->FreeVar(self);
+        return val;
+    }
+}
+
+/*virtual*/ IVal CodeGeneratorVisitor::VisitDotField(ast::DotField *node, ast::VisitorContext *x) {
+    CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+    IVal val = ctx->lval() ? IVal::Void() : fun_scope_->NewLocal();
+    
+    CodeGeneratorContext ix;
+    ix.set_n_result(1);
+    IVal self = node->self()->Accept(this, &ix);
+    IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->index()));
+    
+    if (ctx->lval()) {
+        SetField(self, index, ctx->rval(), node->line());
+        fun_scope_->FreeVar(index);
+        //fun_scope_->FreeVar(self);
+        return IVal::Void();
+    } else {
+        GetField(val, self, index, node->line());
+        fun_scope_->FreeVar(index);
+        fun_scope_->FreeVar(self);
+        return val;
+    }
+}
+    
 /*virtual*/ IVal CodeGeneratorVisitor::VisitCall(ast::Call *node, ast::VisitorContext *x) {
     int32_t n_args = node->GetNArgs();
     CodeGeneratorContext ix;

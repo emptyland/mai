@@ -251,51 +251,6 @@ public:
         return val;
     }
     
-    virtual IVal VisitIndex(ast::Index *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-        IVal val = ctx->lval() ? IVal::Void() : fun_scope_->NewLocal();
-        
-        CodeGeneratorContext ix;
-        ix.set_n_result(1);
-        IVal self = node->self()->Accept(this, &ix);
-        ix.set_keep_const(true);
-        IVal index = node->index()->Accept(this, &ix);
-        
-        if (ctx->lval()) {
-            builder()->SetField(self, index, ctx->rval(), node->line());
-            fun_scope_->FreeVar(index);
-            fun_scope_->FreeVar(self);
-            return IVal::Void();
-        } else {
-            builder()->GetField(val, self, index, node->line());
-            fun_scope_->FreeVar(index);
-            fun_scope_->FreeVar(self);
-            return val;
-        }
-    }
-    
-    virtual IVal VisitDotField(ast::DotField *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-        IVal val = ctx->lval() ? IVal::Void() : fun_scope_->NewLocal();
-        
-        CodeGeneratorContext ix;
-        ix.set_n_result(1);
-        IVal self = node->self()->Accept(this, &ix);
-        IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->index()));
-        
-        if (ctx->lval()) {
-            builder()->SetField(self, index, ctx->rval(), node->line());
-            fun_scope_->FreeVar(index);
-            //fun_scope_->FreeVar(self);
-            return IVal::Void();
-        } else {
-            builder()->GetField(val, self, index, node->line());
-            fun_scope_->FreeVar(index);
-            fun_scope_->FreeVar(self);
-            return val;
-        }
-    }
-    
     virtual IVal VisitNew(ast::New *node, ast::VisitorContext *x) override {
         int32_t n_args = node->GetNArgs();
         CodeGeneratorContext ix;
@@ -486,6 +441,14 @@ private:
 
     virtual void NewMap(IVal map, int n, int linear, int line) override {
         builder()->NewMap(map, n, linear, line);
+    }
+    
+    virtual void SetField(IVal self, IVal index, IVal value, int line) override {
+        builder()->SetField(self, index, value, line);
+    }
+
+    virtual void GetField(IVal value, IVal self, IVal index, int line) override {
+        builder()->GetField(value, self, index, line);
     }
 
     virtual IVal Localize(IVal val, int line) override {

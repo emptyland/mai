@@ -170,8 +170,8 @@ struct Operator {
         kBitAnd,
         kBitOr,
         kBitXor,
-//        kIndex,
-//        kNewindex,
+        kIndex,
+        kNewindex,
     };
 }; // struct Operator
     

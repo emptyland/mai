@@ -97,10 +97,10 @@ public:
             lix.set_n_result(1);
             IVal self = node->self()->Accept(this, &lix);
             IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
-            // TODO: builder()->SetField(self, index, closure);
+            SetField(self, index, closure, node->line());
             fun_scope_->FreeVar(self);
             fun_scope_->FreeVar(index);
-            DLOG(FATAL) << "TODO:";
+            //DLOG(FATAL) << "TODO:";
         } else {
             if (fun_scope_->prev() == nullptr) {
                 // as global variable
@@ -457,6 +457,77 @@ private:
         __ rdrand(kRegArgv[4]);
         CallRuntime(Runtime::kThread_NewMap);
     }
+    
+    virtual void SetField(IVal self, IVal index, IVal value, int line) override {
+        DCHECK_EQ(IVal::kLocal, self.kind);
+        FileLineScope fls(fun_scope_, line);
+        __ movq(kRegArgv[0], kCore);
+        __ movq(kRegArgv[1], Local(self.index));
+        __ movl(kRegArgv[2], Operator::kIndex);
+        CallRuntime(Runtime::kNyaaCore_TryMetaFunction);
+        __ cmpq(rax, 0);
+        Label call_meta;
+        __ j(NotEqual, &call_meta, true); // ------------> call_meta
+        
+        __ movq(kRegArgv[0], Local(self.index));
+        if (index.kind == IVal::kConst || value.kind == IVal::kConst) {
+            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
+            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
+        }
+        if (index.kind == IVal::kConst) {
+            __ movq(kRegArgv[1], ArrayAt(kScratch, index.index));
+        } else {
+            __ movq(kRegArgv[1], Local(index.index));
+        }
+        if (value.kind == IVal::kConst) {
+            __ movq(kRegArgv[2], ArrayAt(kScratch, value.index));
+        } else {
+            __ movq(kRegArgv[2], Local(value.index));
+        }
+        __ movq(kRegArgv[3], kCore);
+        CallRuntime(Runtime::kObject_Put);
+
+        Label exit;
+        __ jmp(&exit, true); // -------------> exit
+        
+        //------------------------------------------------------------------------------------------
+        // Call meta function
+        //------------------------------------------------------------------------------------------
+        __ Bind(&call_meta);
+        IVal callee = fun_scope_->Reserve(4);
+        
+        __ movq(Local(callee.index), rax);
+        __ movq(rax, Local(self.index));
+        __ movq(Local(callee.index + 1), rax);
+        if (index.kind == IVal::kConst || value.kind == IVal::kConst) {
+            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
+            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
+        }
+        if (index.kind == IVal::kConst) {
+            __ movq(rax, ArrayAt(kScratch, index.index));
+        } else {
+            __ movq(rax, Local(index.index));
+        }
+        __ movq(Local(callee.index + 2), kScratch);
+        if (value.kind == IVal::kConst) {
+            __ movq(rax, ArrayAt(kScratch, value.index));
+        } else {
+            __ movq(rax, Local(value.index));
+        }
+        __ movq(Local(callee.index + 3), rax);
+        Invoke(callee.index, 3, 0);
+        
+        fun_scope_->FreeVar(IVal::Local(callee.index + 3));
+        fun_scope_->FreeVar(IVal::Local(callee.index + 2));
+        fun_scope_->FreeVar(IVal::Local(callee.index + 1));
+        fun_scope_->FreeVar(callee);
+        __ Bind(&exit);
+    }
+    
+    virtual void GetField(IVal value, IVal self, IVal index, int line) override {
+        // TODO:
+        DLOG(FATAL) << "Noreached!";
+    }
 
     virtual IVal Localize(IVal val, int line) override {
         switch (val.kind) {
@@ -475,8 +546,8 @@ private:
                 IVal ret = fun_scope_->NewLocal();
                 FileLineScope fls(fun_scope_, line);
                 __ movq(kRegArgv[0], kThread);
-                __ movl(kRegArgv[1], val.index);
-                CallRuntime(Runtime::kThread_GetProto);
+                __ movq(kRegArgv[1], val.index);
+                CallRuntime(Runtime::kThread_Closure);
                 __ movq(Local(ret.index), rax);
                 return ret;
             }
@@ -487,7 +558,7 @@ private:
                 __ movq(kScratch, Operand(rax, CallFrame::kOffsetConstPool)); // scratch = const_pool
 
                 // scratch = kpool[val.index] scratch is key
-                __ movq(kScratch, Operand(kScratch, NyArray::kOffsetElems + val.index * kPointerSize));
+                __ movq(kScratch, ArrayAt(kScratch, val.index));
                 
                 __ movq(rax, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
                 __ movq(rax, Operand(rax, CallFrame::kOffsetEnv)); // rax = env
@@ -505,7 +576,7 @@ private:
                 FileLineScope fls(fun_scope_, line);
                 __ movq(rax, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
                 __ movq(kScratch, Operand(rax, CallFrame::kOffsetConstPool)); // scratch = const_pool
-                __ movq(rax, Operand(kScratch, NyArray::kOffsetElems + val.index * kPointerSize));
+                __ movq(rax, ArrayAt(kScratch, val.index));
                 //__ Breakpoint();
                 __ movq(Local(ret.index), rax);
                 return ret;
@@ -524,7 +595,7 @@ private:
         __ movq(kRegArgv[0], Operand(rax, CallFrame::kOffsetEnv)); // argv[0] = env
         __ movq(kScratch, Operand(rax, CallFrame::kOffsetConstPool)); // scratch = const_pool
         // argv[1] = key
-        __ movq(kRegArgv[1], Operand(kScratch, NyArray::kOffsetElems + name.index * kPointerSize));
+        __ movq(kRegArgv[1], ArrayAt(kScratch, name.index));
         DCHECK_EQ(IVal::kLocal, val.kind);
         __ movq(kRegArgv[2], Local(val.index)); // argv[2] = value
         __ movq(kRegArgv[3], kCore); // argv[3] = core
@@ -568,17 +639,17 @@ private:
         __ cmpq(rax, 0);
         Label call_meta;
         __ j(NotEqual, &call_meta, true);
-        if (lhs.kind == IVal::kConst) {
+        if (lhs.kind == IVal::kConst || rhs.kind == IVal::kConst) {
             __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
             __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
-            __ movq(kRegArgv[0], Operand(kScratch, NyArray::kOffsetElems + lhs.index * kPointerSize));
+        }
+        if (lhs.kind == IVal::kConst) {
+            __ movq(kRegArgv[0], ArrayAt(kScratch, lhs.index));
         } else {
             __ movq(kRegArgv[0], Local(lhs.index));
         }
         if (rhs.kind == IVal::kConst) {
-            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
-            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
-            __ movq(kRegArgv[1], Operand(kScratch, NyArray::kOffsetElems + rhs.index * kPointerSize));
+            __ movq(kRegArgv[1], ArrayAt(kScratch, rhs.index));
         } else {
             __ movq(kRegArgv[1], Local(rhs.index));
         }
@@ -603,14 +674,31 @@ private:
         Label exit;
         __ jmp(&exit, true);
         
+        //------------------------------------------------------------------------------------------
+        // Call meta function
+        //------------------------------------------------------------------------------------------
         __ Bind(&call_meta);
-        //__ movq(Local(ret.index), rax);
         IVal callee = fun_scope_->Reserve(3);
-        
+
         __ movq(Local(callee.index), rax);
-        __ movq(Local(callee.index + 1), lhs.index);
-        __ movq(Local(callee.index + 2), rhs.index);
+        if (lhs.kind == IVal::kConst || rhs.kind == IVal::kConst) {
+            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
+            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
+        }
+        if (lhs.kind == IVal::kConst) {
+            __ movq(rax, ArrayAt(kScratch, lhs.index));
+        } else {
+            __ movq(rax, Local(lhs.index));
+        }
+        __ movq(Local(callee.index + 1), kScratch);
+        if (rhs.kind == IVal::kConst) {
+            __ movq(rax, ArrayAt(kScratch, rhs.index));
+        } else {
+            __ movq(rax, Local(rhs.index));
+        }
+        __ movq(Local(callee.index + 2), rax);
         Invoke(callee.index, 2, 1);
+        __ movq(rax, Local(callee.index));
         __ movq(Local(ret.index), rax);
 
         fun_scope_->FreeVar(IVal::Local(callee.index + 2));
@@ -664,7 +752,11 @@ private:
         }
     }
 
-    Operand Local(int index) { return Operand(kBP, index * kPointerSize); }
+    Operand Local(int index) { return Operand(kBP, (index << kPointerShift)); }
+    
+    Operand ArrayAt(Register arr, int index) {
+        return Operand(arr, NyArray::kOffsetElems + (index << kPointerShift));
+    }
 }; // class AOTGeneratorVisitor
     
 Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root,

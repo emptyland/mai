@@ -700,6 +700,16 @@ public:
     }
 
     void test(Operand dst, Immediate mask, int size = kDefaultSize);
+    
+    void testl(Register dst, Register src) { test(dst, src, 4); }
+    void testl(Register dst, int32_t mask) { test(dst, Immediate(mask), 4); }
+    void testl(Operand dst, Register src) { test(dst, src, 4); }
+    void testl(Operand dst, int32_t mask) { test(dst, Immediate(mask), 4); }
+    
+    void testq(Register dst, Register src) { test(dst, src, 8); }
+    void testq(Register dst, int32_t mask) { test(dst, Immediate(mask), 8); }
+    void testq(Operand dst, Register src) { test(dst, src, 8); }
+    void testq(Operand dst, int32_t mask) { test(dst, Immediate(mask), 8); }
 
     //
     // SSE Floating Comparation
