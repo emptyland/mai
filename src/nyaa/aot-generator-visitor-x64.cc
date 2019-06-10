@@ -34,7 +34,7 @@ public:
     ~FileLineScope() {
         if (fs_->compact_line_info_) {
             fs_->line_info_.push_back(start_pc_);
-            fs_->line_info_.push_back(fs_->masm_.pc());
+            fs_->line_info_.push_back(fs_->masm_.pc() + 1);
             fs_->line_info_.push_back(line_);
         } else {
             int pc = start_pc_;
@@ -194,6 +194,70 @@ public:
         return IVal::Void();
     }
     
+    virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
+        std::vector<IVal> operands;
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        ix.set_keep_const(true);
+        
+        IVal ret = fun_scope_->NewLocal();
+        for (int i = 0; i < node->n_operands(); ++i) {
+            operands.push_back(node->operand(i)->Accept(this, &ix));
+        }
+        
+        #define DEF_BIN(op) BinaryExpression(ret, operands[0], operands[1], Operator::k##op, \
+            Runtime::kObject_##op, node->line())
+        switch (node->op()) {
+            case Operator::kAdd:
+                DEF_BIN(Add);
+                break;
+            case Operator::kSub:
+                DEF_BIN(Sub);
+                break;
+            case Operator::kMul:
+                DEF_BIN(Mul);
+                break;
+            case Operator::kDiv:
+                DEF_BIN(Div);
+                break;
+            case Operator::kMod:
+                DEF_BIN(Mod);
+                break;
+            case Operator::kEQ:
+                BinaryExpression(ret, operands[0], operands[1], Operator::kEQ,
+                                 Runtime::kObject_Equal, node->line());
+                break;
+            case Operator::kNE:
+                BinaryExpression(ret, operands[0], operands[1], Operator::kNE,
+                                 Runtime::kObject_Equal, node->line());
+                break;
+            case Operator::kLT:
+                BinaryExpression(ret, operands[0], operands[1], Operator::kLT,
+                                 Runtime::kObject_LessThan, node->line());
+                break;
+            case Operator::kLE:
+                BinaryExpression(ret, operands[0], operands[1], Operator::kLE,
+                                 Runtime::kObject_LessEqual, node->line());
+                break;
+            case Operator::kGT:
+                BinaryExpression(ret, operands[0], operands[1], Operator::kGT,
+                                 Runtime::kObject_LessEqual, node->line());
+                break;
+            case Operator::kGE:
+                BinaryExpression(ret, operands[0], operands[1], Operator::kGE,
+                                 Runtime::kObject_LessThan, node->line());
+                break;
+            default:
+                DLOG(FATAL) << "TODO:";
+                break;
+        }
+        #undef DEF_BIN
+        for (int64_t i = operands.size() - 1; i >= 0; --i) {
+            fun_scope_->FreeVar(operands[i]);
+        }
+        return ret;
+    }
+    
     virtual IVal VisitLogicSwitch(ast::LogicSwitch *node, ast::VisitorContext *x) override {
         CodeGeneratorContext ix;
         ix.set_n_result(1);
@@ -264,62 +328,77 @@ private:
             __ LikelyJ(Less, &retry, true);
         }
     }
+    
+    void Invoke(int32_t callee, int32_t nargs, int32_t wanted) {
+        __ movq(rbx, Operand(kThread, NyThread::kOffsetFrame));
+        __ movq(r9, Operand(rbx, CallFrame::kOffsetEntry));
+        __ lea(r8, Operand(rip, 0)); // r8 = rip
+        __ subq(r8, r9);
+        __ movl(Operand(rbx, CallFrame::kOffsetPC), r8);
+        
+        __ movl(kRegArgv[0], callee);
+        __ movl(kRegArgv[1], nargs);
+        __ movl(kRegArgv[2], wanted);
+        __ movq(rax, core_->code_pool()->kCallStub->entry_address());
+        __ call(rax);
+    }
 
     virtual void Call(IVal callee, int nargs, int wanted, int line) override {
         DCHECK_EQ(IVal::kLocal, callee.kind);
         FileLineScope fls(fun_scope_, line);
-        static constexpr int32_t kSaveSize = 16;
-        
-        // Save current bp
-        __ subq(rsp, kSaveSize);
-        __ movq(rax, Operand(kThread, NyThread::kOffsetFrame));
-        __ movq(rax, Operand(rax, CallFrame::kOffsetStackBP));
-        __ movq(Operand(rbp, -kPointerSize), rax);
-        
-        __ movq(kRegArgv[0], kThread);
-        __ movl(kRegArgv[1], callee.index);
-        __ movl(kRegArgv[2], nargs);
-        __ movl(kRegArgv[3], wanted);
-        CallRuntime(Runtime::kThread_PrepareCall, true/*may_interrupt*/); // rax = nargs(new)
-        __ movq(kScratch, rax); // scratch = nargs
-
-        // Restore
-        __ movq(kBP, Operand(kThread, NyThread::kOffsetStack));
-        __ movq(rax, Operand(rbp, -kPointerSize));
-        __ shlq(rax, kPointerShift);
-        __ addq(kBP, rax);
-        __ addq(rsp, kSaveSize);
-
-        //__ Breakpoint();
-        __ movq(rax, Local(callee.index)); // rax = callee
-        
-        Label fallback;
-#if defined(NYAA_USE_POINTER_TYPE)
-        __ movq(rax, Operand(rax, 0)); // rax = mtword_
-        __ movq(rbx, static_cast<int64_t>(NyObject::kTypeMask));
-        __ andq(rax, rbx);
-        __ shrq(rax, NyObject::kTypeBitsOrder);
-        __ cmpl(rax, kTypeClosure);
-        __ j(NotEqual, &fallback, false);
-#endif
-
-        __ movq(rax, Local(callee.index)); // rax = callee
-        __ movq(rax, Operand(rax, NyClosure::kOffsetProto));
-        __ movq(rax, Operand(rax, NyFunction::kOffsetCode));
-        __ lea(rax, Operand(rax, NyCode::kOffsetInstructions));
-        // TODO: use call stub
-        __ call(rax); // call generated native function
-        Label exit;
-        __ jmp(&exit, true);
-        
-        __ Bind(&fallback);
-        __ movq(kRegArgv[0], kThread);
-        __ movq(kRegArgv[1], kBP);
-        __ addq(kRegArgv[1], callee.index << kPointerShift); // argv[1] = base
-        __ movl(kRegArgv[2], kScratch); // argv[2] = nargs
-        __ movl(kRegArgv[3], wanted);
-        CallRuntime(Runtime::kThread_FinalizeCall, true/*may_interrupt*/);
-        __ Bind(&exit);
+        Invoke(callee.index, nargs, wanted);
+//        static constexpr int32_t kSaveSize = 16;
+//
+//        // Save current bp
+//        __ subq(rsp, kSaveSize);
+//        __ movq(rax, Operand(kThread, NyThread::kOffsetFrame));
+//        __ movq(rax, Operand(rax, CallFrame::kOffsetStackBP));
+//        __ movq(Operand(rbp, -kPointerSize), rax);
+//
+//        __ movq(kRegArgv[0], kThread);
+//        __ movl(kRegArgv[1], callee.index);
+//        __ movl(kRegArgv[2], nargs);
+//        __ movl(kRegArgv[3], wanted);
+//        CallRuntime(Runtime::kThread_PrepareCall, true/*may_interrupt*/); // rax = nargs(new)
+//        __ movq(kScratch, rax); // scratch = nargs
+//
+//        // Restore
+//        __ movq(kBP, Operand(kThread, NyThread::kOffsetStack));
+//        __ movq(rax, Operand(rbp, -kPointerSize));
+//        __ shlq(rax, kPointerShift);
+//        __ addq(kBP, rax);
+//        __ addq(rsp, kSaveSize);
+//
+//        //__ Breakpoint();
+//        __ movq(rax, Local(callee.index)); // rax = callee
+//
+//        Label fallback;
+//#if defined(NYAA_USE_POINTER_TYPE)
+//        __ movq(rax, Operand(rax, 0)); // rax = mtword_
+//        __ movq(rbx, static_cast<int64_t>(NyObject::kTypeMask));
+//        __ andq(rax, rbx);
+//        __ shrq(rax, NyObject::kTypeBitsOrder);
+//        __ cmpl(rax, kTypeClosure);
+//        __ j(NotEqual, &fallback, false);
+//#endif
+//
+//        __ movq(rax, Local(callee.index)); // rax = callee
+//        __ movq(rax, Operand(rax, NyClosure::kOffsetProto));
+//        __ movq(rax, Operand(rax, NyFunction::kOffsetCode));
+//        __ lea(rax, Operand(rax, NyCode::kOffsetInstructions));
+//        // TODO: use call stub
+//        __ call(rax); // call generated native function
+//        Label exit;
+//        __ jmp(&exit, true);
+//
+//        __ Bind(&fallback);
+//        __ movq(kRegArgv[0], kThread);
+//        __ movq(kRegArgv[1], kBP);
+//        __ addq(kRegArgv[1], callee.index << kPointerShift); // argv[1] = base
+//        __ movl(kRegArgv[2], kScratch); // argv[2] = nargs
+//        __ movl(kRegArgv[3], wanted);
+//        CallRuntime(Runtime::kThread_FinalizeCall, true/*may_interrupt*/);
+//        __ Bind(&exit);
     }
     
     virtual void Ret(IVal base, int nrets, int line) override {
@@ -371,8 +450,12 @@ private:
     virtual void NewMap(IVal map, int n, int linear, int line) override {
         DCHECK_EQ(IVal::kLocal, map.kind);
         FileLineScope fls(fun_scope_, line);
-        // TODO:
-        DLOG(FATAL) << "TODO:";
+        __ movq(kRegArgv[0], kThread);
+        __ movl(kRegArgv[1], map.index);
+        __ movl(kRegArgv[2], n);
+        __ movl(kRegArgv[3], linear);
+        __ rdrand(kRegArgv[4]);
+        CallRuntime(Runtime::kThread_NewMap);
     }
 
     virtual IVal Localize(IVal val, int line) override {
@@ -458,6 +541,83 @@ private:
     }
 
     Assembler *masm() { return &static_cast<FunctionScopeBundle *>(fun_scope_)->masm_; }
+    
+    void BinaryExpression(IVal ret, IVal lhs, IVal rhs, Operator::ID op, Runtime::ExternalLink rt,
+                          int line) {
+        int bool_op = 0;
+        switch (op) {
+            case Operator::kEQ:
+            case Operator::kLT:
+            case Operator::kLE:
+                bool_op = 1;
+                break;
+            case Operator::kNE:
+            case Operator::kGT:
+            case Operator::kGE:
+                bool_op = -1;
+                break;
+            default:
+                break;
+        }
+
+        FileLineScope fls(fun_scope_, line);
+        __ movq(kRegArgv[0], kCore);
+        __ movq(kRegArgv[1], Local(lhs.index));
+        __ movl(kRegArgv[2], op);
+        CallRuntime(Runtime::kNyaaCore_TryMetaFunction);
+        __ cmpq(rax, 0);
+        Label call_meta;
+        __ j(NotEqual, &call_meta, true);
+        if (lhs.kind == IVal::kConst) {
+            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
+            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
+            __ movq(kRegArgv[0], Operand(kScratch, NyArray::kOffsetElems + lhs.index * kPointerSize));
+        } else {
+            __ movq(kRegArgv[0], Local(lhs.index));
+        }
+        if (rhs.kind == IVal::kConst) {
+            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
+            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
+            __ movq(kRegArgv[1], Operand(kScratch, NyArray::kOffsetElems + rhs.index * kPointerSize));
+        } else {
+            __ movq(kRegArgv[1], Local(rhs.index));
+        }
+        __ movq(kRegArgv[2], kCore);
+        CallRuntime(rt, true/*may*/);
+        if (bool_op > 0) {
+            //__ Breakpoint();
+            __ shlq(rax, 2);
+            __ orq(rax, 1);
+        } else if (bool_op < 0) {
+            __ cmpl(rax, 0);
+            Label set_one;
+            __ j(Equal, &set_one, false);
+            __ movq(rax, (0 << 2) | 1);
+            Label exit;
+            __ jmp(&exit, false);
+            __ Bind(&set_one);
+            __ movq(rax, (1 << 2) | 1);
+            __ Bind(&exit);
+        }
+        __ movq(Local(ret.index), rax);
+        Label exit;
+        __ jmp(&exit, true);
+        
+        __ Bind(&call_meta);
+        //__ movq(Local(ret.index), rax);
+        IVal callee = fun_scope_->Reserve(3);
+        
+        __ movq(Local(callee.index), rax);
+        __ movq(Local(callee.index + 1), lhs.index);
+        __ movq(Local(callee.index + 2), rhs.index);
+        Invoke(callee.index, 2, 1);
+        __ movq(Local(ret.index), rax);
+
+        fun_scope_->FreeVar(IVal::Local(callee.index + 2));
+        fun_scope_->FreeVar(IVal::Local(callee.index + 1));
+        fun_scope_->FreeVar(callee);
+        __ Bind(&exit);
+    }
     
     void CallRuntime(Runtime::ExternalLink sym, bool may_interrupt = false) {
         if (may_interrupt) {

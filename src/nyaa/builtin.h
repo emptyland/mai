@@ -99,7 +99,7 @@ private:
 // All [strong ref]
 struct BuiltinCodePool final {
     NyCode *kEntryTrampoline = nullptr;
-    NyCode *kInvokeStub = nullptr;
+    NyCode *kCallStub = nullptr;
     
     friend class NyaaCore;
 private:
@@ -154,7 +154,7 @@ struct Operator {
         kDiv,
         kMod,
         kNeg,
-        kUmn,
+        kUnm,
         kConcat,
         kShl,
         kShr,
@@ -170,6 +170,8 @@ struct Operator {
         kBitAnd,
         kBitOr,
         kBitXor,
+//        kIndex,
+//        kNewindex,
     };
 }; // struct Operator
     

@@ -278,6 +278,8 @@ private:
         return FinializeCall(base, nargs, wanted);
     }
     
+    void RuntimeNewMap(int32_t map, int32_t n, int32_t p, uint32_t seed);
+    
     int RuntimePrepareCall(int32_t callee, int32_t nargs, int wanted);
     int RuntimeFinializeCall(int32_t callee, int32_t nargs, int wanted);
 

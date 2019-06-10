@@ -195,7 +195,7 @@ void NyThread::Raise(NyString *msg, Object *ex) {
         stack_trace.push_back(line);
         x = x->prev();
     }
-    
+
     if (catch_point_) {
         NyArray *bt = nullptr;
         if (!stack_trace.empty()) {
@@ -649,30 +649,7 @@ int NyThread::Run() {
             case Bytecode::kNewMap: {
                 int32_t ra, n, p;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &n, &p);
-                bool clazz = p < 0;
-                bool linear = clazz ? false : p;
-                uint32_t capacity = (linear ? n : n / 2) + 4;
-                if (capacity < 8) {
-                    capacity = 8;
-                }
-                // linear > 0 : linear map
-                //        < 0 : class metatable
-                //       == 0 : normal map
-                uint64_t kid = p < 0 ? owns_->GenerateUdoKid() : 0;
-                NyMap *ob = owns_->factory()->NewMap(capacity, 0/*seed*/, kid/*kid*/, linear,
-                                                     false/*old*/);
-                Object **base = frame_bp() + ra;
-                if (linear) {
-                    for (int i = 0; i < n; ++i) {
-                        ob->RawPut(NyInt32::New(i), base[i], owns_);
-                    }
-                } else {
-                    for (int i = 0; i < n; i += 2) {
-                        ob->RawPut(base[i], base[i + 1], owns_);
-                    }
-                }
-                if (clazz) { ProcessClass(ob); }
-                Set(ra, ob);
+                RuntimeNewMap(ra, n, p, 0);
                 owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
                 frame_->AddPC(delta);
             } break;
@@ -1088,6 +1065,32 @@ int NyThread::InternalCall(Object **base, int32_t nargs, int32_t wanted) {
     return 0;
 }
 #endif
+    
+void NyThread::RuntimeNewMap(int32_t ra, int32_t n, int32_t p, uint32_t seed) {
+    bool clazz = p < 0;
+    bool linear = clazz ? false : p;
+    uint32_t capacity = (linear ? n : n / 2) + 4;
+    if (capacity < 8) {
+        capacity = 8;
+    }
+    // linear > 0 : linear map
+    //        < 0 : class metatable
+    //       == 0 : normal map
+    uint64_t kid = p < 0 ? owns_->GenerateUdoKid() : 0;
+    NyMap *ob = owns_->factory()->NewMap(capacity, seed, kid/*kid*/, linear, false/*old*/);
+    Object **base = frame_bp() + ra;
+    if (linear) {
+        for (int i = 0; i < n; ++i) {
+            ob->RawPut(NyInt32::New(i), base[i], owns_);
+        }
+    } else {
+        for (int i = 0; i < n; i += 2) {
+            ob->RawPut(base[i], base[i + 1], owns_);
+        }
+    }
+    if (clazz) { ProcessClass(ob); }
+    Set(ra, ob);
+}
     
 int NyThread::RuntimePrepareCall(int32_t callee, int32_t argc, int wanted) {
     //PrintStack();

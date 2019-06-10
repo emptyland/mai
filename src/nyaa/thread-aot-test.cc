@@ -82,15 +82,15 @@ TEST_F(NyaaThreadAOTTest, Call) {
     
 TEST_F(NyaaThreadAOTTest, AndOrSwitch) {
     static const char s[] = {
-        "print(1 and 1)\n"
-        "print(0 and 1)\n"
-        "print(1 and 0)\n"
-        "print(0 and 0)\n"
-        "print(\"-------\")\n"
-        "print(1 or 1)\n"
-        "print(0 or 1)\n"
-        "print(1 or 0)\n"
-        "print(0 or 0)\n"
+        "assert(1 and 1)\n"
+        "assert((0 and 1) == 0)\n"
+        "assert((1 and 0) == 0)\n"
+        "assert((0 and 0) == 0)\n"
+        "\n"
+        "assert(1 or 1)\n"
+        "assert(0 or 1)\n"
+        "assert(1 or 0)\n"
+        "assert((0 or 0) == 0)\n"
     };
     
     HandleScope scope(N_);
@@ -99,18 +99,17 @@ TEST_F(NyaaThreadAOTTest, AndOrSwitch) {
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //ASSERT_TRUE(script->proto()->IsNativeExec());
     EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
-    //FAIL() << try_catch.ToString();
-    printf("%u %u\n", script->proto()->file_info()->size(),
-           script->proto()->code()->instructions_bytes_size());
+//    printf("%u %u\n", script->proto()->file_info()->size(),
+//           script->proto()->code()->instructions_bytes_size());
 }
 
 TEST_F(NyaaThreadAOTTest, IfElseStatement) {
     static const char s[] = {
         "var a = 1\n"
-        "if (a) { print(\"true\") }\n"
+        "if (a) { assert(true) }\n"
         "a = nil\n"
-        "if (a) { print(\"true\") }\n"
-        "else { print(\"false\") }\n"
+        "if (a) { assert(false) }\n"
+        "else { assert(true) }\n"
     };
     
     HandleScope scope(N_);
@@ -119,6 +118,57 @@ TEST_F(NyaaThreadAOTTest, IfElseStatement) {
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     //ASSERT_TRUE(script->proto()->IsNativeExec());
     EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+}
+    
+TEST_F(NyaaThreadAOTTest, NewMap) {
+    static const char s[] = {
+        "var a = {1, 2, 3, 4}\n"
+        "assert(a)\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //ASSERT_TRUE(script->proto()->IsNativeExec());
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+}
+    
+TEST_F(NyaaThreadAOTTest, Add) {
+    static const char s[] = {
+        "var a, b, c = 1, 2, 3\n"
+        "assert(a + b == c)\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //ASSERT_TRUE(script->proto()->IsNativeExec());
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+}
+    
+TEST_F(NyaaThreadAOTTest, Compare) {
+    static const char s[] = {
+        "var a, b, c = 1, 2, 3\n"
+        "assert(a == a)\n"
+        "assert(b == b)\n"
+        "assert(a != b)\n"
+        "assert(a != c)\n"
+        "assert(a < c)\n"
+        "assert(b < c)\n"
+        "assert(c > a)\n"
+        "assert(b > a)\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //ASSERT_TRUE(script->proto()->IsNativeExec());
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+//    printf("%u %u\n", script->proto()->file_info()->size(),
+//           script->proto()->code()->instructions_bytes_size());
 }
 
 }

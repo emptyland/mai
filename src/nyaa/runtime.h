@@ -1,10 +1,12 @@
 #ifndef MAI_NYAA_RUNTIME_H_
 #define MAI_NYAA_RUNTIME_H_
 
-#include "base/base.h"
+#include "nyaa/builtin.h"
 #if defined(MAI_ARCH_X64)
 #include "asm/x64/asm-x64.h"
 #endif
+#include "base/base.h"
+
 
 namespace mai {
     
@@ -13,6 +15,7 @@ namespace nyaa {
 class NyThread;
 class Object;
 class NyaaCore;
+class NyRunnable;
 
 class Runtime {
 public:
@@ -26,10 +29,20 @@ public:
         kThread_PrepareCall,
         kThread_FinalizeCall,
         kThread_Ret,
+        kThread_NewMap,
         
         kNyaaCore_GetSuspendPoint, //SUSPEND_POINT
+        kNyaaCore_TryMetaFunction,
         
         kObject_IsFalse,
+        kObject_Add,
+        kObject_Sub,
+        kObject_Mul,
+        kObject_Div,
+        kObject_Mod,
+        kObject_Equal,
+        kObject_LessThan,
+        kObject_LessEqual,
         
         kMap_RawGet,
         kMap_RawPut,
@@ -50,6 +63,7 @@ private:
     static Object *Thread_GetProto(NyThread *thd, int slot);
     static Object *Thread_Closure(NyThread *thd, int slot);
     static Address NyaaCore_GetSuspendPoint(NyaaCore *N);
+    static NyRunnable *NyaaCore_TryMetaFunction(NyaaCore *N, Object *ob, Operator::ID op);
 }; // class Runtime
 
 } // namespace nyaa
