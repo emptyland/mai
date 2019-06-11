@@ -59,12 +59,15 @@ struct RegisterContext {
     XMM128Value xmms[16];
     
     using Template = ObjectTemplate<RegisterContext, int32_t>;
-
+    uintptr_t cxx_rsp;
 };
     
-const constexpr int32_t kRCOffsetRegs = offsetof(RegisterContext, regs);
-const constexpr int32_t kRCOffsetRip = offsetof(RegisterContext, rip);
-const constexpr int32_t kRCOffsetXmms = offsetof(RegisterContext, xmms);
+constexpr int32_t kRCOffsetRegs = offsetof(RegisterContext, regs);
+constexpr int32_t kRCOffsetRip = offsetof(RegisterContext, rip);
+constexpr int32_t kRCOffsetXmms = offsetof(RegisterContext, xmms);
+constexpr int32_t kRCOffsetCxxRsp = offsetof(RegisterContext, cxx_rsp);
+    
+constexpr size_t kNativeStackAligment = 16;
 
 #endif // defined(MAI_ARCH_X64)
     

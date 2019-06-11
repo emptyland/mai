@@ -37,8 +37,8 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     return closure;
 }
     
-/*static*/ Address Runtime::NyaaCore_GetSuspendPoint(NyaaCore *N) {
-    return N->code_pool()->kEntryTrampoline->entry_address() + N->suspend_point_pc();
+/*static*/ Address Runtime::NyaaCore_GetRecoverPoint(NyaaCore *N) {
+    return N->code_pool()->kEntryTrampoline->entry_address() + N->recover_point_pc();
 }
    
 /*static*/ NyRunnable *Runtime::NyaaCore_TryMetaFunction(NyaaCore *N, Object *ob, Operator::ID op) {
@@ -112,8 +112,9 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     ThreadTemplate::MethodAddress(&NyThread::FinializeCall),
     ThreadTemplate::MethodAddress(&NyThread::RuntimeRet),
     ThreadTemplate::MethodAddress(&NyThread::RuntimeNewMap),
+    ThreadTemplate::MethodAddress(&NyThread::RuntimeSaveNativeStack),
     
-    reinterpret_cast<Address>(&NyaaCore_GetSuspendPoint),
+    reinterpret_cast<Address>(&NyaaCore_GetRecoverPoint),
     reinterpret_cast<Address>(&NyaaCore_TryMetaFunction),
     
     ObjectTemplate::MethodAddress(&Object::IsFalse),
@@ -131,6 +132,9 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     MapTemplate::MethodAddress(&NyMap::RawGet),
     MapTemplate::MethodAddress(&NyMap::RawPut),
 };
+    
+static_assert(arraysize(Runtime::kExternalLinks) == Runtime::kMaxLinks,
+              "Incorrect external links size");
     
 } // namespace nyaa
     

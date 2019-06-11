@@ -30,8 +30,9 @@ public:
         kThread_FinalizeCall,
         kThread_Ret,
         kThread_NewMap,
+        kThread_SaveNativeStack,
         
-        kNyaaCore_GetSuspendPoint, //SUSPEND_POINT
+        kNyaaCore_GetRecoverPoint,
         kNyaaCore_TryMetaFunction,
         
         kObject_IsFalse,
@@ -64,7 +65,7 @@ private:
     static void Thread_SetUpVal(NyThread *thd, Object *val, int up);
     static Object *Thread_GetProto(NyThread *thd, int slot);
     static Object *Thread_Closure(NyThread *thd, int slot);
-    static Address NyaaCore_GetSuspendPoint(NyaaCore *N);
+    static Address NyaaCore_GetRecoverPoint(NyaaCore *N);
     static NyRunnable *NyaaCore_TryMetaFunction(NyaaCore *N, Object *ob, Operator::ID op);
 }; // class Runtime
 

@@ -113,6 +113,7 @@ class NyCode final : public NyObject {
 public:
     enum Kind {
         kStub,
+        kHandler,
         kFunction,
         kOptimizedFunction,
     };
@@ -122,8 +123,7 @@ public:
     static const int32_t kOffsetKind;
     static const int32_t kOffsetInstructionsBytesSize;
     static const int32_t kOffsetInstructions;
-    
-    
+
     NyCode(Kind kind, const uint8_t *instructions, uint32_t instructions_bytes_size);
     
     DEF_VAL_GETTER(Kind, kind);

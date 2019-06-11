@@ -180,12 +180,13 @@ TEST_F(NyaaThreadAOTTest, Compare) {
 TEST_F(NyaaThreadAOTTest, SetField) {
     static const char s[] = {
         "var a = {a:1, b:2}\n"
-        "print(a)\n"
         "a.a = 2\n"
         "a.c = 3\n"
-        "print(a)\n"
+        "assert(a.a == 2)\n"
+        "assert(a.b == 2)\n"
+        "assert(a.c == 3)\n"
     };
-    
+
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);
@@ -195,7 +196,15 @@ TEST_F(NyaaThreadAOTTest, SetField) {
 //    printf("%u %u\n", script->proto()->file_info()->size(),
 //           script->proto()->code()->instructions_bytes_size());
 }
-
+    
+TEST_F(NyaaThreadAOTTest, MapIndex) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/20-map-index-meta.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
 
-}
+} // namespace nyaa
+
+} // namespace mai

@@ -26,6 +26,14 @@ const int32_t NyThread::kOffsetInterruptionPending =
 const int32_t NyThread::kOffsetSavePoint = Template::OffsetOf(&NyThread::save_point_);
 const int32_t NyThread::kOffsetFrame = Template::OffsetOf(&NyThread::frame_);
 const int32_t NyThread::kOffsetStack = Template::OffsetOf(&NyThread::stack_);
+//const int32_t NyThread::kOffsetNaStTP = Template::OffsetOf(&NyThread::nast_tp_);
+//const int32_t NyThread::kOffsetNaStBK = Template::OffsetOf(&NyThread::nast_bk_);
+//const int32_t NyThread::kOffsetNaStBP = Template::OffsetOf(&NyThread::nast_bp_);
+
+const int32_t NyThread::CodeContextBundle::kOffsetNaStTP = Template::OffsetOf(&NyThread::CodeContextBundle::nast_tp_);
+const int32_t NyThread::CodeContextBundle::kOffsetNaStBK = Template::OffsetOf(&NyThread::CodeContextBundle::nast_bk_);
+const int32_t NyThread::CodeContextBundle::kOffsetNaStBP = Template::OffsetOf(&NyThread::CodeContextBundle::nast_bp_);
+const int32_t NyThread::CodeContextBundle::kOffsetNaStPC = Template::OffsetOf(&NyThread::CodeContextBundle::nast_pc_);
     
 void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, NyArray *kpool,
                       int wanted, size_t bp, size_t tp, NyMap *env) {
@@ -121,25 +129,6 @@ std::string TryCatchCore::ToString() const {
     }
     return buf;
 }
-    
-class NyThread::CodeContextBundle : public arch::RegisterContext {
-public:
-    CodeContextBundle(NyThread *owns)
-        : owns_(owns)
-        , prev_(static_cast<CodeContextBundle *>(owns_->save_point_)) {
-        DCHECK_NE(owns_->save_point_, this);
-        owns_->save_point_ = this;
-        ::memset(this, 0, sizeof(arch::RegisterContext));
-    }
-    
-    ~CodeContextBundle() {
-        DCHECK_EQ(owns_->save_point_, this);
-        owns_->save_point_ = prev_;
-    }
-private:
-    NyThread *const owns_;
-    CodeContextBundle *prev_;
-}; // class CodeContextBundle
 
 NyThread::NyThread(NyaaCore *owns)
     : NyUDO(NyUDO::GetNFiedls(sizeof(NyThread)), true /* ignore_managed */)
@@ -150,6 +139,7 @@ NyThread::NyThread(NyaaCore *owns)
 
 NyThread::~NyThread() {
     ::free(stack_);
+    //::free(nast_);
     while (frame_) {
         CallFrame *ci = frame_;
         frame_ = frame_->prev();
@@ -165,6 +155,16 @@ Error NyThread::Init() {
     stack_ = static_cast<Object **>(::malloc(sizeof(Object *) * stack_size_)); //new Object *[stack_size_];
     stack_last_ = stack_ + stack_size_;
     stack_tp_ = stack_;
+    
+//    if (owns_->stub()->exec() == Nyaa::kAOT) {
+//        nast_size_ = 16 * base::kKB; // TODO:
+//        nast_ = static_cast<Address>(::malloc(nast_size_ + arch::kNativeStackAligment));
+//    #if defined(MAI_ARCH_X64)
+//        nast_tp_ = RoundDown(nast_ + nast_size_, arch::kNativeStackAligment);
+//        nast_last_ = nast_;
+//        DCHECK_GT(nast_tp_, nast_last_);
+//    #endif
+//    }
 
     return Error::OK();
 }
@@ -262,19 +262,26 @@ int NyThread::Resume(Object *argv[], int argc, int wanted, NyMap *env) {
             rv = Run();
         }
     } catch (CallFrame::ExceptionId which) {
-        if (which == CallFrame::kException) {
-            Unwind(ci);
-            rv = -1;
-            state_ = kSuspended;
-        } else if (which == CallFrame::kYield) {
-            rv = frame_->nrets();
-            DCHECK_GE(rv, 0);
-            state_ = kSuspended;
-        } else {
+        // ignore
+        DCHECK_EQ(which, interruption_pending_);
+        if (which != CallFrame::kException && which != CallFrame::kYield) {
             throw which;
         }
     }
-    
+    switch (interruption_pending_) {
+        case CallFrame::kException:
+            Unwind(ci);
+            rv = -1;
+            state_ = kSuspended;
+            break;
+        case CallFrame::kYield:
+            rv = frame_->nrets();
+            DCHECK_GE(rv, 0);
+            state_ = kSuspended;
+            break;
+        default:
+            break;
+    }
     DCHECK_EQ(this, owns_->curr_thd());
     owns_->set_curr_thd(save_);
     save_ =  nullptr;
@@ -1120,6 +1127,15 @@ int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
     outter->Exit(this);
     delete outter;
     return nrets;
+}
+
+void NyThread::RuntimeSaveNativeStack(Address nast_tp) {
+    DCHECK(save_point_->nast_bk_ == nullptr);
+    save_point_->nast_tp_ = nast_tp;
+    DCHECK_LT(save_point_->nast_tp_, save_point_->nast_bp_);
+    size_t nast_size = save_point_->nast_bp_ - save_point_->nast_tp_;
+    save_point_->nast_bk_ = static_cast<Address>(::malloc(nast_size));
+    ::memcpy(save_point_->nast_bk_, save_point_->nast_tp_, nast_size);
 }
 
 int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {

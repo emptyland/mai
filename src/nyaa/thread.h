@@ -169,8 +169,6 @@ public:
     
     using Template = arch::ObjectTemplate<NyThread, int32_t>;
     
-    class CodeContextBundle;
-    
     static const int32_t kOffsetOwns;
     static const int32_t kOffsetInterruptionPending;
     static const int32_t kOffsetSavePoint;
@@ -234,6 +232,42 @@ public:
     
     constexpr size_t PlacedSize() const { return sizeof(*this); }
     
+    class CodeContextBundle : public arch::RegisterContext {
+    public:
+        using Template = arch::ObjectTemplate<CodeContextBundle, int32_t>;
+        
+        static const int32_t kOffsetNaStTP;
+        static const int32_t kOffsetNaStBK;
+        static const int32_t kOffsetNaStBP;
+        static const int32_t kOffsetNaStPC;
+        
+        CodeContextBundle(NyThread *owns)
+            : owns_(owns)
+            , prev_(owns_->save_point_) {
+            DCHECK_NE(owns_->save_point_, this);
+            owns_->save_point_ = this;
+                
+            static_assert(std::is_base_of<arch::RegisterContext, CodeContextBundle>::value, "error");
+            if (std::is_base_of<arch::RegisterContext, CodeContextBundle>::value) {
+                ::memset(this, 0, sizeof(arch::RegisterContext));
+            }
+        }
+        
+        ~CodeContextBundle() {
+            DCHECK_EQ(owns_->save_point_, this);
+            owns_->save_point_ = prev_;
+            ::free(nast_bk_);
+        }
+        
+        Address nast_tp_ = nullptr; // saved native stack pointer
+        Address nast_bk_ = nullptr; // backup native stack pointer
+        Address nast_bp_ = nullptr; // bk size = nast_bp_ - nast_tp_
+        Address nast_pc_ = nullptr;
+    private:
+        NyThread *const owns_;
+        CodeContextBundle *prev_;
+    }; // class CodeContextBundle
+    
     friend class NyaaCore;
     friend class TryCatchCore;
     friend class CallFrame;
@@ -284,6 +318,8 @@ private:
     int RuntimeFinializeCall(int32_t callee, int32_t nargs, int wanted);
 
     int RuntimeRet(int32_t base, int32_t nrets);
+    
+    void RuntimeSaveNativeStack(Address nast_tp);
 
     int PrepareCall(Object **base, int32_t nargs, int32_t wanted);
     int FinializeCall(Object **base, int32_t nargs, int32_t wanted);
@@ -310,7 +346,7 @@ private:
     NyaaCore *const owns_;
     TryCatchCore *catch_point_ = nullptr;
     CallFrame::ExceptionId interruption_pending_ = CallFrame::kNormal;
-    arch::RegisterContext *save_point_ = nullptr;
+    CodeContextBundle *save_point_ = nullptr;
     State state_ = kSuspended;
     Object **stack_ = nullptr; // elements [strong ref]
     Object **stack_tp_ = nullptr;

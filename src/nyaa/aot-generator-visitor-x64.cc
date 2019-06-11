@@ -525,8 +525,57 @@ private:
     }
     
     virtual void GetField(IVal value, IVal self, IVal index, int line) override {
-        // TODO:
-        DLOG(FATAL) << "Noreached!";
+        DCHECK_EQ(IVal::kLocal, self.kind);
+        FileLineScope fls(fun_scope_, line);
+        __ movq(kRegArgv[0], kCore);
+        __ movq(kRegArgv[1], Local(self.index));
+        __ movl(kRegArgv[2], Operator::kIndex);
+        CallRuntime(Runtime::kNyaaCore_TryMetaFunction);
+        __ cmpq(rax, 0); // rax = meta-function or nil
+        Label call_meta;
+        __ j(NotEqual, &call_meta, true); // ------------> call_meta
+        
+        __ movq(kRegArgv[0], Local(self.index));
+        if (index.kind == IVal::kConst) {
+            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
+            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
+            __ movq(kRegArgv[1], ArrayAt(kScratch, index.index));
+        } else {
+            __ movq(kRegArgv[1], Local(index.index));
+        }
+        __ movq(kRegArgv[2], kCore);
+        CallRuntime(Runtime::kObject_Get);
+        __ movq(Local(value.index), rax);
+        
+        Label exit;
+        __ jmp(&exit, true); // -------------> exit
+        
+        //------------------------------------------------------------------------------------------
+        // Call meta function
+        //------------------------------------------------------------------------------------------
+        __ Bind(&call_meta); // <------------ call_meta
+        IVal callee = fun_scope_->Reserve(3);
+        
+        __ movq(Local(callee.index), rax); // rax = meta-function
+        __ movq(rax, Local(self.index));
+        __ movq(Local(callee.index + 1), rax);
+        if (index.kind == IVal::kConst) {
+            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
+            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
+            __ movq(rax, ArrayAt(kScratch, index.index));
+        } else {
+            __ movq(rax, Local(index.index));
+        }
+        __ movq(Local(callee.index + 2), rax);
+        Invoke(callee.index, 2/*nargs*/, 1/*wanted*/);
+        __ movq(rax, Local(callee.index));
+        __ movq(Local(value.index), rax);
+
+        fun_scope_->FreeVar(IVal::Local(callee.index + 2));
+        fun_scope_->FreeVar(IVal::Local(callee.index + 1));
+        fun_scope_->FreeVar(callee);
+
+        __ Bind(&exit); // <------------- exit
     }
 
     virtual IVal Localize(IVal val, int line) override {
@@ -690,7 +739,7 @@ private:
         } else {
             __ movq(rax, Local(lhs.index));
         }
-        __ movq(Local(callee.index + 1), kScratch);
+        __ movq(Local(callee.index + 1), rax);
         if (rhs.kind == IVal::kConst) {
             __ movq(rax, ArrayAt(kScratch, rhs.index));
         } else {
@@ -715,7 +764,7 @@ private:
             __ subq(r8, r9);
             __ movl(Operand(rbx, CallFrame::kOffsetPC), r8);
         }
-        
+
         __ pushq(kScratch);
         __ pushq(kThread);
         __ pushq(kBP);
@@ -728,27 +777,10 @@ private:
         __ popq(kBP);
         __ popq(kThread);
         __ popq(kScratch);
-        
+
         if (may_interrupt) {
-            __ movl(rbx, Operand(kThread, NyThread::kOffsetInterruptionPending));
-            __ cmpl(rbx, CallFrame::kException);
-            Label l_raise;
-            __ UnlikelyJ(Equal, &l_raise, true);
-            __ cmpl(rbx, CallFrame::kYield);
-            Label l_yield;
-            __ UnlikelyJ(Equal, &l_yield, true);
-            Label l_out;
-            __ jmp(&l_out, true);
-            __ Bind(&l_raise);
-            // Has exception, jump to suspend point
-            __ movq(kRegArgv[0], kCore);
-            __ movp(rbx, Runtime::kExternalLinks[Runtime::kNyaaCore_GetSuspendPoint]);
-            __ call(rbx);
-            __ jmp(rax);
-            __ Bind(&l_yield);
-            // Has Yield, jump to suspend point
-            __ int3(); // not in it
-            __ Bind(&l_out);
+            __ movq(kScratch, core_->code_pool()->kRecoverIfNeed->entry_address());
+            __ call(kScratch);
         }
     }
 

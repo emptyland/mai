@@ -100,6 +100,7 @@ private:
 struct BuiltinCodePool final {
     NyCode *kEntryTrampoline = nullptr;
     NyCode *kCallStub = nullptr;
+    NyCode *kRecoverIfNeed = nullptr;
     
     friend class NyaaCore;
 private:
