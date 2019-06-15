@@ -86,6 +86,7 @@ public:
     ObjectFactory *factory() const { return factory_.get(); }
     DEF_VAL_GETTER(bool, initialized);
     DEF_VAL_PROP_RW(int32_t, recover_point_pc);
+    DEF_VAL_PROP_RW(int32_t, suspend_point_pc);
     DEF_PTR_GETTER(FILE, logger);
     DEF_PTR_GETTER(NyMap, g);
     DEF_PTR_GETTER(NyMap, loads);
@@ -96,6 +97,9 @@ public:
     BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
     BuiltinCodePool *code_pool() const { return code_pool_.get(); }
     Isolate *isolate() const;
+    
+    Address GetRecoverPointAddress();
+    Address GetSuspendPointAddress();
     
     static NyaaCore *Current();
     
@@ -110,6 +114,7 @@ private:
     HandleScopeSlot *top_slot_;
     bool initialized_ = false;
     int32_t recover_point_pc_ = 0; // recover point pc for entry trampoline
+    int32_t suspend_point_pc_ = 0; // suspend point pc
     uint64_t next_udo_kid_;
     FILE *logger_;
     std::unique_ptr<RandomGenerator> random_;

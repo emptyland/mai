@@ -142,6 +142,14 @@ Isolate *NyaaCore::isolate() const { return stub_->isolate_; }
 /*static*/ NyaaCore *NyaaCore::Current() {
     return Isolate::Current()->GetNyaa()->core();
 }
+    
+Address NyaaCore::GetRecoverPointAddress() {
+    return code_pool_->kEntryTrampoline->entry_address() + recover_point_pc_;
+}
+
+Address NyaaCore::GetSuspendPointAddress() {
+    return code_pool_->kRecoverIfNeed->entry_address() + suspend_point_pc_;
+}
 
 void NyaaCore::EnterHandleScope(HandleScope *handle_scope) {
     auto prev_slot = top_slot_;

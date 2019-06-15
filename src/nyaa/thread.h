@@ -174,6 +174,10 @@ public:
     static const int32_t kOffsetSavePoint;
     static const int32_t kOffsetFrame;
     static const int32_t kOffsetStack;
+    static const int32_t kOffsetNaStTP;
+    static const int32_t kOffsetNaStBK;
+    static const int32_t kOffsetNaStBP;
+    static const int32_t kOffsetNaStPC;
     
     NyThread(NyaaCore *owns);
     ~NyThread();
@@ -235,18 +239,18 @@ public:
     class CodeContextBundle : public arch::RegisterContext {
     public:
         using Template = arch::ObjectTemplate<CodeContextBundle, int32_t>;
-        
+
         static const int32_t kOffsetNaStTP;
         static const int32_t kOffsetNaStBK;
         static const int32_t kOffsetNaStBP;
         static const int32_t kOffsetNaStPC;
-        
+
         CodeContextBundle(NyThread *owns)
             : owns_(owns)
             , prev_(owns_->save_point_) {
             DCHECK_NE(owns_->save_point_, this);
             owns_->save_point_ = this;
-                
+
             static_assert(std::is_base_of<arch::RegisterContext, CodeContextBundle>::value, "error");
             if (std::is_base_of<arch::RegisterContext, CodeContextBundle>::value) {
                 ::memset(this, 0, sizeof(arch::RegisterContext));
@@ -254,10 +258,12 @@ public:
         }
         
         ~CodeContextBundle() {
-            DCHECK_EQ(owns_->save_point_, this);
+            //DCHECK_EQ(owns_->save_point_, this);
             owns_->save_point_ = prev_;
             ::free(nast_bk_);
         }
+        
+        DEF_PTR_GETTER(CodeContextBundle, prev);
         
         Address nast_tp_ = nullptr; // saved native stack pointer
         Address nast_bk_ = nullptr; // backup native stack pointer
@@ -348,6 +354,10 @@ private:
     CallFrame::ExceptionId interruption_pending_ = CallFrame::kNormal;
     CodeContextBundle *save_point_ = nullptr;
     State state_ = kSuspended;
+    Address nast_tp_ = nullptr; // saved native stack pointer
+    Address nast_bk_ = nullptr; // backup native stack pointer
+    Address nast_bp_ = nullptr; // bk size = nast_bp_ - nast_tp_
+    Address nast_pc_ = nullptr;
     Object **stack_ = nullptr; // elements [strong ref]
     Object **stack_tp_ = nullptr;
     Object **stack_last_ = nullptr;

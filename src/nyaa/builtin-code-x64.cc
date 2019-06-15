@@ -22,12 +22,11 @@ static constexpr Register kBP = Runtime::kBP;
 void CallRuntime(Assembler *masm, NyaaCore *N, Runtime::ExternalLink sym, bool may_interrupt = true);
     
 //
-// protptype: void entry(NyThread *thd, NyCode *code, NyaaCore *N, arch::RegisterContext *ctx)
+// protptype: void entry(NyThread *thd, NyCode *code, NyaaCore *N, int resume)
 static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ pushq(rbp);
     __ movq(rbp, rsp);
     //__ subq(rsp, kPointerSize);
-    __ movq(Operand(kRegArgv[3], NyThread::CodeContextBundle::kOffsetNaStBP), rsp);
     
     __ movq(kThread, kRegArgv[0]);
     __ movq(kCore, kRegArgv[2]);
@@ -37,6 +36,10 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ movq(rax, kPointerSize);
     __ mulq(kScratch);
     __ addq(kBP, rax);
+    
+//    __ movq(kScratch, Operand(kThread, NyThread::kOffsetSavePoint));
+//    __ movq(Operand(kScratch, NyThread::CodeContextBundle::kOffsetNaStBP), rsp);
+    __ movq(Operand(kThread, NyThread::kOffsetNaStBP), rsp);
 
     //__ Breakpoint();
     __ lea(rax, Operand(kRegArgv[1], NyCode::kOffsetInstructions));
@@ -48,10 +51,9 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     // save suspend point for long jumping
     N->set_recover_point_pc(masm->pc());
     //__ Breakpoint();
-    __ movq(kScratch, Operand(kThread, NyThread::kOffsetSavePoint));
-    __ movq(rsp, Operand(kScratch, NyThread::CodeContextBundle::kOffsetNaStBP));
+    __ movq(rsp, Operand(kThread, NyThread::kOffsetNaStBP));
     __ movq(rax, -1);
-    
+
     __ Bind(&exit);
     //__ addq(rsp, kPointerSize);
     __ popq(rbp);
@@ -147,8 +149,8 @@ static void BuildRecoverIfNeed(Assembler *masm, NyaaCore *N) {
     __ jmp(&exit, true); // -------------> exit
     __ Bind(&l_raise); // <------------ raise
     // Has exception, jump to suspend point
-    __ movq(kScratch, Operand(kThread, NyThread::kOffsetSavePoint));
-    __ movq(Operand(kScratch, NyThread::CodeContextBundle::kOffsetNaStTP), rsp);
+    //__ movq(kScratch, Operand(kThread, NyThread::kOffsetSavePoint));
+    __ movq(Operand(kThread, NyThread::kOffsetNaStTP), rsp);
     __ movq(kRegArgv[0], kCore);
     __ movp(rbx, Runtime::kExternalLinks[Runtime::kNyaaCore_GetRecoverPoint]);
     __ call(rbx);
@@ -157,8 +159,8 @@ static void BuildRecoverIfNeed(Assembler *masm, NyaaCore *N) {
     __ Bind(&l_yield); // <------------ yield
     // Has Yield, jump to suspend point
 
-    __ movq(kScratch, Operand(kThread, NyThread::kOffsetSavePoint));
-    __ movq(Operand(kScratch, NyThread::CodeContextBundle::kOffsetNaStTP), rsp);
+    //__ movq(kScratch, Operand(kThread, NyThread::kOffsetSavePoint));
+    __ movq(Operand(kThread, NyThread::kOffsetNaStTP), rsp);
     __ movq(kRegArgv[0], rsp);
     __ movp(rbx, Runtime::kExternalLinks[Runtime::kThread_SaveNativeStack]);
     __ call(rbx);
@@ -169,6 +171,7 @@ static void BuildRecoverIfNeed(Assembler *masm, NyaaCore *N) {
     __ jmp(rax); // =======> Longjump to recover point
     __ Bind(&exit); // <------------- exit
     
+    N->set_suspend_point_pc(masm->pc());
     __ popq(rbp);
     __ ret(0);
 }

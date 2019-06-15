@@ -26,9 +26,10 @@ const int32_t NyThread::kOffsetInterruptionPending =
 const int32_t NyThread::kOffsetSavePoint = Template::OffsetOf(&NyThread::save_point_);
 const int32_t NyThread::kOffsetFrame = Template::OffsetOf(&NyThread::frame_);
 const int32_t NyThread::kOffsetStack = Template::OffsetOf(&NyThread::stack_);
-//const int32_t NyThread::kOffsetNaStTP = Template::OffsetOf(&NyThread::nast_tp_);
-//const int32_t NyThread::kOffsetNaStBK = Template::OffsetOf(&NyThread::nast_bk_);
-//const int32_t NyThread::kOffsetNaStBP = Template::OffsetOf(&NyThread::nast_bp_);
+const int32_t NyThread::kOffsetNaStTP = Template::OffsetOf(&NyThread::nast_tp_);
+const int32_t NyThread::kOffsetNaStBK = Template::OffsetOf(&NyThread::nast_bk_);
+const int32_t NyThread::kOffsetNaStBP = Template::OffsetOf(&NyThread::nast_bp_);
+const int32_t NyThread::kOffsetNaStPC = Template::OffsetOf(&NyThread::nast_pc_);
 
 const int32_t NyThread::CodeContextBundle::kOffsetNaStTP = Template::OffsetOf(&NyThread::CodeContextBundle::nast_tp_);
 const int32_t NyThread::CodeContextBundle::kOffsetNaStBK = Template::OffsetOf(&NyThread::CodeContextBundle::nast_bk_);
@@ -139,7 +140,7 @@ NyThread::NyThread(NyaaCore *owns)
 
 NyThread::~NyThread() {
     ::free(stack_);
-    //::free(nast_);
+    ::free(nast_bk_);
     while (frame_) {
         CallFrame *ci = frame_;
         frame_ = frame_->prev();
@@ -1130,12 +1131,18 @@ int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
 }
 
 void NyThread::RuntimeSaveNativeStack(Address nast_tp) {
-    DCHECK(save_point_->nast_bk_ == nullptr);
-    save_point_->nast_tp_ = nast_tp;
-    DCHECK_LT(save_point_->nast_tp_, save_point_->nast_bp_);
-    size_t nast_size = save_point_->nast_bp_ - save_point_->nast_tp_;
-    save_point_->nast_bk_ = static_cast<Address>(::malloc(nast_size));
-    ::memcpy(save_point_->nast_bk_, save_point_->nast_tp_, nast_size);
+//    DCHECK(save_point_->nast_bk_ == nullptr);
+//    save_point_->nast_tp_ = nast_tp;
+//    DCHECK_LT(save_point_->nast_tp_, save_point_->nast_bp_);
+//    size_t nast_size = save_point_->nast_bp_ - save_point_->nast_tp_;
+//    save_point_->nast_bk_ = static_cast<Address>(::malloc(nast_size));
+//    ::memcpy(save_point_->nast_bk_, save_point_->nast_tp_, nast_size);
+    
+    ::free(nast_bk_);
+    nast_tp_ = nast_tp;
+    DCHECK_LT(nast_tp_, nast_bp_);
+    size_t nast_size = nast_bp_ - nast_tp_;
+    ::memcpy(nast_bk_, nast_tp_, nast_size);
 }
 
 int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {
