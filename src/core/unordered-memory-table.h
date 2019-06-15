@@ -5,6 +5,7 @@
 #include "core/hash-map-v2.h"
 #include "core/internal-key-comparator.h"
 #include "base/hash.h"
+#include "base/arenas.h"
 #include "glog/logging.h"
 #include <atomic>
 
@@ -46,7 +47,7 @@ private:
 
     const InternalKeyComparator *const ikcmp_;
     std::atomic<size_t> mem_usage_;
-    base::Arena arena_;
+    base::StandaloneArena arena_;
     Table table_;
 };
     

@@ -1,0 +1,27 @@
+var assert = assert
+
+var a = 0
+assert(a - 1 == -1)
+assert(a - -1 == 1)
+assert(a - 0.1 == -0.1)
+a = -2305843009213693952
+assert(a - 1 == -2305843009213693953)
+a = 1.001
+assert(a - 1 == 0.001)
+
+class foo {
+	def __init__(self, val) {
+		self.val_ = val
+	}
+	def __sub__(lhs, rhs) {
+		return new foo(lhs.val - rhs.val)
+	}
+	def __eq__(lhs, rhs) {
+		return lhs.val == rhs.val
+	}
+	property [ro] val
+}
+
+a = new foo(300)
+var b = new foo(150)
+assert(a - b == new foo(150))

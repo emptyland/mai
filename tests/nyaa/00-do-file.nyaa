@@ -1,0 +1,7 @@
+def foo() {
+    log("in foo")
+}
+log("ok")
+log("hello")
+
+foo()

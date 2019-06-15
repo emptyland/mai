@@ -2,7 +2,7 @@
 #define MAI_CORE_LRU_CACHE_V1_H_
 
 #include "core/hash-map-v2.h"
-#include "base/arena.h"
+#include "base/arenas.h"
 #include "base/reference-count.h"
 #include "mai/allocator.h"
 #include "mai/error.h"
@@ -11,7 +11,9 @@
 #include <mutex>
 
 namespace mai {
-    
+namespace base {
+class LockGroup;
+} // namespace base
 namespace core {
     
 inline namespace v1 {
@@ -41,7 +43,7 @@ struct LRUHandle {
     LRUHandle *prev;
     Deleter *deleter;
     std::atomic<int> refs;
-    uint64_t id; // User defined id
+    uintptr_t id; // User defined id
     void *value;
     size_t key_size;
     uint32_t hash_val;
@@ -50,12 +52,13 @@ struct LRUHandle {
     char data[1];
 }; // struct LRUHandle
 
-class LRUCache final {
+class LRUCacheShard final {
 public:
     static const size_t kMinLRUTableSlots = 1237;
     
-    LRUCache(Allocator *low_level_allocator, size_t capacity);
-    ~LRUCache();
+    LRUCacheShard(Allocator *ll_allocator, size_t capacity,
+                  base::LockGroup *locks = nullptr);
+    ~LRUCacheShard();
     
     DEF_VAL_GETTER(size_t, capacity);
     DEF_VAL_GETTER(size_t, size);
@@ -65,33 +68,17 @@ public:
                     LRUHandle::Loader *loader,
                     void *arg0, void *arg1 = nullptr);
     
-    template<class Callable>
-    inline Error GetOrLoad(std::string_view key,
-                           base::intrusive_ptr<LRUHandle> *result,
-                           LRUHandle::Deleter *deleter,
-                           Callable &&loader);
-    
     void Insert(std::string_view key, LRUHandle *handle,
                 LRUHandle::Deleter *deleter);
     
     LRUHandle *Get(std::string_view key);
     
-    void Remove(std::string_view key) {
-        LRUHandle *x = Get(key);
-        if (x && x->ref_count() == 1) {
-            x->set_deletion(true);
-            if (x->deleter) {
-                x->deleter(x->key(), x->value);
-            }
-            LRU_Remove(x);
-        }
-    }
+    void Remove(std::string_view key);
 
     void PurgeIfNeeded(bool force);
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(LRUCache);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(LRUCacheShard);
 private:
-    
     struct KeyComparator {
         const Comparator *cmp;
         int operator () (LRUHandle *lhs, LRUHandle *rhs) const {
@@ -103,7 +90,7 @@ private:
     }; // struct Comparator
     
     using LRUTable = HashMap<LRUHandle *, KeyComparator>;
-    using Arena = ::mai::base::Arena;
+    using StandaloneArena = ::mai::base::StandaloneArena;
     
     struct TableBoundle : public base::ReferenceCounted<TableBoundle> {
         TableBoundle(Allocator *low_level_allocator,
@@ -114,7 +101,7 @@ private:
             return static_cast<float>(table.n_entries()) /
                    static_cast<float>(table.n_slots());
         }
-        Arena    arena;
+        StandaloneArena arena;
         LRUTable table;
     }; // struct TableBoundle
     
@@ -143,8 +130,9 @@ private:
     const Comparator *const cmp_;
     base::atomic_intrusive_ptr<TableBoundle> boundle_;
     size_t capacity_;
-    std::atomic<int> in_ordered_;
-    
+    base::LockGroup *const locks_;
+    const bool locks_ownership_;
+
     size_t size_ = 0;
     LRUHandle lru_dummy_;
     LRUHandle *lru_ = &lru_dummy_;
@@ -153,27 +141,86 @@ private:
     std::mutex mutex_;
 }; // class LRUCache
     
+
+
+class LRUCache final {
+public:
+    LRUCache(size_t max_shards, Allocator *ll_allocator, size_t capacity);
+    ~LRUCache();
     
-template<class Callable>
-inline Error LRUCache::GetOrLoad(std::string_view key,
-                                 base::intrusive_ptr<LRUHandle> *result,
-                                 LRUHandle::Deleter *deleter,
-                                 Callable &&loader) {
-    LRUHandle *handle = Get(key);
-    if (handle) {
-        result->reset(handle);
-        return Error::OK();
+    DEF_VAL_GETTER(size_t, max_shards);
+    
+    Error GetOrLoad(std::string_view key, base::intrusive_ptr<LRUHandle> *result,
+                    LRUHandle::Deleter *deleter,
+                    LRUHandle::Loader *loader,
+                    void *arg0, void *arg1 = nullptr) {
+        return GetShard(HashKey(key))->GetOrLoad(key, result, deleter, loader,
+                                                 arg0, arg1);
     }
-    Error rs = loader(key, &handle);
-    if (!rs) {
-        return rs;
+    
+    void Insert(std::string_view key, LRUHandle *handle,
+                LRUHandle::Deleter *deleter) {
+        GetShard(HashKey(key))->Insert(key, handle, deleter);
     }
-    handle->AddRef();
-    Insert(key, handle, deleter);
-    PurgeIfNeeded(false);
-    result->reset(handle);
-    return Error::OK();
-}
+    
+    LRUHandle *Get(std::string_view key) {
+        return GetShard(HashKey(key))->Get(key);
+    }
+    
+    void Remove(std::string_view key) {
+        return GetShard(HashKey(key))->Remove(key);
+    }
+    
+    // Get or new a cache shard
+    LRUCacheShard *GetShard(size_t idx);
+    
+    // Just get a cache shard
+    const LRUCacheShard *GetShard(size_t idx) const;
+    
+    // Delete a cache shard by shard index
+    bool Delete(size_t shard);
+
+    void Purge(size_t idx);
+    
+    size_t HashNumber(uint64_t n) const { return n % max_shards_; }
+    size_t HashKey(std::string_view key) const;
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(LRUCache);
+
+private:
+    static const uintptr_t kPendingMask = 1u;
+    static const uintptr_t kCreatedMask = ~kPendingMask;
+    
+    static LRUCacheShard *Get(const std::atomic<uintptr_t> *shard) {
+        auto val = shard->load();
+        return reinterpret_cast<LRUCacheShard *>(val);
+    }
+    
+    static bool NeedInit(std::atomic<uintptr_t> *shard) {
+        uintptr_t exp = 0;
+        if (shard->compare_exchange_strong(exp, kPendingMask)) {
+            return true;
+        }
+        while (shard->load(std::memory_order_acquire) == kPendingMask) {
+            std::this_thread::yield();
+        }
+        return false;
+    }
+    
+    void Install(std::atomic<uintptr_t> *shard) {
+        auto inst = new LRUCacheShard(ll_allocator_, capacity_, locks_.get());
+        auto val = reinterpret_cast<uintptr_t>(inst);
+        shard->store(val, std::memory_order_release);
+        
+    }
+
+    const size_t max_shards_;
+    Allocator *const ll_allocator_;
+    const size_t capacity_;
+    std::unique_ptr<base::LockGroup> locks_;
+    std::atomic<uintptr_t> *shards_;
+    
+}; // class LRUCache
     
 } // inline namespace v1
     

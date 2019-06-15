@@ -18,4 +18,6 @@ Env::Env() {}
     
 /*virtual*/ RandomAccessFile::~RandomAccessFile() {}
     
+/*virtual*/ ThreadLocalSlot::~ThreadLocalSlot() {}
+    
 } // namespace mai

@@ -34,7 +34,6 @@ private:
     BlockHandle WriteFilter();
     BlockHandle WriteIndexs();
     BlockHandle WriteProperties(BlockHandle indexs, BlockHandle filter);
-    uint64_t AlignmentToBlock();
     
     const core::InternalKeyComparator *const ikcmp_;
     base::FileWriter writer_;

@@ -47,7 +47,7 @@ struct TableProperties final {
     uint32_t    block_size      = 0;
     size_t      num_entries     = 0;
     uint64_t    index_position  = 0;
-    size_t      index_count     = 0;
+    size_t      index_size      = 0;
     uint64_t    filter_position = 0;
     size_t      filter_size     = 0;
     uint64_t    last_version    = 0;

@@ -1,12 +1,10 @@
-#ifndef NYAA_BASE_BASE_H_
-#define NYAA_BASE_BASE_H_
+#ifndef MAI_BASE_BASE_H_
+#define MAI_BASE_BASE_H_
 
 #include <stddef.h>
 #include <assert.h>
 
 namespace mai {
-
-//namespace base {
 
 #define DISALLOW_IMPLICIT_CONSTRUCTORS(clazz_name) \
     clazz_name (const clazz_name &) = delete;      \
@@ -68,7 +66,7 @@ inline T bit_cast(F from) {
 // Returns true iff x is a power of 2 (or zero). Cannot be used with the
 // maximally negative value of the type T (the -1 overflows).
 template <typename T>
-inline bool IsPowerOf2(T x) {
+constexpr inline bool IsPowerOf2(T x) {
     return IS_POWER_OF_TWO(x);
 }
 
@@ -76,7 +74,7 @@ inline bool IsPowerOf2(T x) {
 // This allows conversion of Addresses and integral types into
 // 0-relative int offsets.
 template <typename T>
-inline intptr_t OffsetFrom(T x) {
+constexpr inline intptr_t OffsetFrom(T x) {
     return x - static_cast<T>(0);
 }
 
@@ -85,27 +83,27 @@ inline intptr_t OffsetFrom(T x) {
 // This allows conversion of 0-relative int offsets into Addresses and
 // integral types.
 template <typename T>
-inline T AddressFrom(intptr_t x) {
+constexpr inline T AddressFrom(intptr_t x) {
     return static_cast<T>(static_cast<T>(0) + x);
 }
 
 
 // Return the largest multiple of m which is <= x.
 template <typename T>
-inline T RoundDown(T x, intptr_t m) {
-    //DCHECK(IsPowerOf2(m));
+constexpr inline T RoundDown(T x, intptr_t m) {
+    assert(IsPowerOf2(m));
     return AddressFrom<T>(OffsetFrom(x) & -m);
 }
 
 
 // Return the smallest multiple of m which is >= x.
 template <typename T>
-inline T RoundUp(T x, intptr_t m) {
+constexpr inline T RoundUp(T x, intptr_t m) {
     return RoundDown<T>(static_cast<T>(x + m - 1), m);
 }
 
 template <class T>
-inline T AlignDownBounds(T bounds, size_t value) {
+constexpr inline T AlignDownBounds(T bounds, size_t value) {
     return (value + bounds - 1) & (~(bounds - 1));
 }
 
@@ -117,12 +115,24 @@ inline int ComputeValueShift(T value) {
     return shift;
 }
 
-// Round bytes filling
-// For int16, 32, 64 filling:
-void *Round16BytesFill(const uint16_t zag, void *chunk, size_t n);
-void *Round32BytesFill(const uint32_t zag, void *chunk, size_t n);
-void *Round64BytesFill(const uint64_t zag, void *chunk, size_t n);
+// Array view template
+template<class T>
+struct View {
+    T const     *z;
+    size_t const n;
+};
 
+template<class T>
+struct MutView {
+    T     *z;
+    size_t n;
+};
+
+template<class T>
+inline View<T> MakeView(T const *z, size_t n) { return View<T>{z, n}; }
+
+template<class T>
+inline MutView<T> MakeMutView(T *z, size_t n) { return MutView<T>{z, n}; }
 
 /**
  * define getter/mutable_getter/setter
@@ -175,44 +185,52 @@ void *Round64BytesFill(const uint64_t zag, void *chunk, size_t n);
 
 // OS platform macros
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64)
-#   define NYAA_OS_WINDOWS 1
-#   define NYAA_OS_POSIX   0
+#   define MAI_OS_WINDOWS 1
+#   define MAI_OS_POSIX   0
 #endif
 
 #if defined(unix) || defined(__unix) || defined(__unix__)
-#   define NYAA_OS_UNIX   1
-#   define NYAA_OS_POSIX  1
+#   define MAI_OS_UNIX   1
+#   define MAI_OS_POSIX  1
 #endif
 
 #if defined(linux) || defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
-#   define NYAA_OS_LINUX  1
-#   define NYAA_OS_POSIX  1
+#   define MAI_OS_LINUX  1
+#   define MAI_OS_POSIX  1
 #endif
 
 #if defined(__APPLE__)
-#   define NYAA_OS_DARWIN 1
-#   define NYAA_OS_POSIX  1
+#   define MAI_OS_DARWIN 1
+#   define MAI_OS_POSIX  1
 #endif
 
 // CPU Arch macros
+    
+#if defined(__amd64) || defined(__amd64__) || defined(__x86_64) || defined(__x86_64__)
+#   define MAI_ARCH_X64 1
+#endif
 
+#if defined(__ARM64_ARCH_8__)
+#   define MAI_ARCH_ARM64 1
+#endif
 
 enum Initializer {
     LAZY_INSTANCE_INITIALIZER,
     ON_EXIT_SCOPE_INITIALIZER
 };
 
-typedef uint8_t Byte;
-typedef Byte *  Address;
+using Byte = uint8_t;
+using Address = Byte *;
 
-static const int kPointerSize = sizeof(void *);
+static constexpr int kPointerSize = sizeof(void *);
+static constexpr int kPointerShift = 3;
 
 namespace base {
-constexpr static const int kKB = 1024;
-constexpr static const int kMB = 1024 * kKB;
-constexpr static const int kGB = 1024 * kMB;
+static constexpr int kKB = 1024;
+static constexpr int kMB = 1024 * kKB;
+static constexpr int kGB = 1024 * kMB;
 } // namespace base
 
 } // namespace mai
 
-#endif // NYAA_BASE_BASE_H_
+#endif // MAI_BASE_BASE_H_

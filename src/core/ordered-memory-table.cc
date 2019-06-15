@@ -49,9 +49,8 @@ private:
 }; // class UnorderedMemoryTable::IteratorImpl
     
 OrderedMemoryTable::OrderedMemoryTable(const InternalKeyComparator *ikcmp,
-                                       Allocator *low_level_alloc)
-    : mem_usage_(sizeof(*this))
-    , arena_(low_level_alloc)
+                                       Allocator *ll_allocator)
+    : arena_(ll_allocator)
     , table_(KeyComparator{ikcmp}, &arena_)
     , n_entries_(0) {
 }
@@ -68,7 +67,6 @@ OrderedMemoryTable::Put(std::string_view key, std::string_view value,
     //const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
     DCHECK_NOTNULL(ikey);
     table_.Put(ikey);
-    //mem_usage_.fetch_add(ikey->size()); // TODO: use arean size
     n_entries_.fetch_add(1);
 }
     
@@ -90,15 +88,15 @@ OrderedMemoryTable::Get(std::string_view key, SequenceNumber version, Tag *tag,
     switch (iter.key()->tag().flag()) {
         case Tag::kFlagValue:
             value->assign(iter.key()->value());
-            if (tag) {
-                *tag = iter.key()->tag();
-            }
             break;
         case Tag::kFlagDeletion:
-            return MAI_NOT_FOUND("Deleted key.");
+            break;
         default:
             DLOG(FATAL) << "Incorrect tag type: " << iter.key()->tag().flag();
             break;
+    }
+    if (tag) {
+        *tag = iter.key()->tag();
     }
     return Error::OK();
 }
@@ -115,8 +113,6 @@ OrderedMemoryTable::Get(std::string_view key, SequenceNumber version, Tag *tag,
 }
     
 /*virtual*/ size_t OrderedMemoryTable::ApproximateMemoryUsage() const {
-    //return mem_usage_.load(std::memory_order_acquire);
-    //return arena_.MemoryUsage();
     return arena_.memory_usage();
 }
 

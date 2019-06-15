@@ -1,0 +1,5 @@
+#!/bin/bash
+
+lex --prefix=nyaa_yy lex.l
+mv lex.nyaa_yy.c lex.yy.cc
+bison -v -d syntax.y -o syntax.cc

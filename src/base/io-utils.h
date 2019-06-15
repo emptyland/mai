@@ -39,9 +39,9 @@ public:
         return result[0];
     }
     
-    uint16_t ReadFixed16() { return Slice::SetU16(Read(2, &scratch_)); }
-    uint32_t ReadFixed32() { return Slice::SetU32(Read(4, &scratch_)); }
-    uint64_t ReadFixed64() { return Slice::SetU64(Read(8, &scratch_)); }
+    uint16_t ReadFixed16() { return Slice::SetFixed16(Read(2, &scratch_)); }
+    uint32_t ReadFixed32() { return Slice::SetFixed32(Read(4, &scratch_)); }
+    uint64_t ReadFixed64() { return Slice::SetFixed64(Read(8, &scratch_)); }
     
     void Skip(size_t n) {
         error_ = file_->Skip(n);
@@ -116,13 +116,13 @@ public:
         return result[0];
     }
     uint16_t ReadFixed16(uint64_t offset) {
-        return Slice::SetU16(Read(offset, 2, &scratch_));
+        return Slice::SetFixed16(Read(offset, 2, &scratch_));
     }
     uint32_t ReadFixed32(uint64_t offset) {
-        return Slice::SetU32(Read(offset, 4, &scratch_));
+        return Slice::SetFixed32(Read(offset, 4, &scratch_));
     }
     uint64_t ReadFixed64(uint64_t offset) {
-        return Slice::SetU64(Read(offset, 8, &scratch_));
+        return Slice::SetFixed64(Read(offset, 8, &scratch_));
     }
     uint32_t ReadVarint32(uint64_t offset, size_t *len = nullptr) {
         std::string_view result = Read(offset, Varint32::kMaxLen, &scratch_);
@@ -188,13 +188,13 @@ public:
     }
     
     Error WriteVarint32(uint32_t value) {
-        char *p = static_cast<char *>(scope_.New(Varint32::kMaxLen));
+        char *p = static_cast<char *>(scope_.Allocate(Varint32::kMaxLen));
         size_t n = Varint32::Encode(p, value);
         return Write(std::string_view(p, n));
     }
     
     Error WriteVarint64(uint64_t value) {
-        char *p = static_cast<char *>(scope_.New(Varint64::kMaxLen));
+        char *p = static_cast<char *>(scope_.Allocate(Varint64::kMaxLen));
         size_t n = Varint64::Encode(p, value);
         return Write(std::string_view(p, n));
     }
@@ -239,6 +239,85 @@ private:
     size_t written_position_ = 0;
 }; // class FileWriter
 
+    
+class BufferedWritableFile final : public WritableFile {
+public:
+    static const int kBufferSize = 16 * base::kKB;
+    
+    BufferedWritableFile(WritableFile *file, bool ownership)
+        : file_(DCHECK_NOTNULL(file))
+        , ownership_(ownership) {}
+    
+    virtual ~BufferedWritableFile() {
+        if (!buf_.empty()) {
+            Error rs = file_->Append(buf_);
+            if (!rs) {
+                LOG(ERROR) << "Flush file fail!";
+            }
+        }
+        if (ownership_) { delete file_; }
+    }
+    
+    virtual Error Append(std::string_view data) override {
+        Error rs;
+        if (data.size() >= kBufferSize) {
+            rs = Flush();
+            if (rs.ok()) {
+                rs = file_->Append(data);
+            }
+        } else {
+            if (buf_.size() + data.size() > kBufferSize) {
+                rs = Flush();
+            }
+            if (rs.ok()) {
+                buf_.append(data);
+            }
+        }
+        return rs;
+    }
+    
+    virtual Error PositionedAppend(std::string_view data,
+                                   uint64_t offset) override {
+        Error rs = Flush();
+        if (!rs) {
+            return rs;
+        }
+        return file_->PositionedAppend(data, offset);
+    }
+    
+    virtual Error Flush() override {
+        Error rs;
+        if (!buf_.empty()) {
+            rs = file_->Append(buf_);
+            buf_.clear();
+        }
+        return rs;
+    }
+    
+    virtual Error Sync() override { return file_->Sync(); }
+    
+    virtual Error GetFileSize(uint64_t *size) override {
+        Error rs = file_->GetFileSize(size);
+        if (!rs) {
+            return rs;
+        }
+        *size += buf_.size();
+        return Error::OK();
+    }
+    
+    virtual Error Truncate(uint64_t size) override {
+        Error rs = Flush();
+        if (!rs) {
+            return rs;
+        }
+        return file_->Truncate(size);
+    }
+
+private:
+    WritableFile *const file_;
+    const bool ownership_;
+    std::string buf_;
+}; // class BufferedWritableFile
     
 } // namespace base
     

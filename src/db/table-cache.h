@@ -19,6 +19,7 @@ namespace table {
 class TableReader;
 struct TableProperties;
 class TablePropsBoundle;
+class BlockCache;
 } // namespace table
 namespace core {
 class KeyFilter;
@@ -84,9 +85,10 @@ private:
 
     const std::string abs_db_path_;
     Env *const env_;
+    std::unique_ptr<table::BlockCache> block_cache_;
     Factory *const factory_;
     const bool allow_mmap_reads_;
-    core::LRUCache cache_;
+    core::LRUCacheShard cache_;
 }; // class TableCache
     
 } // namespace db

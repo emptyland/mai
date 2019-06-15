@@ -4,7 +4,7 @@
 #include "core/memory-table.h"
 #include "core/skip-list.h"
 #include "core/internal-key-comparator.h"
-#include "base/arena.h"
+#include "base/arenas.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -39,9 +39,8 @@ private:
     using Table = SkipList<const KeyBoundle *, KeyComparator>;
     
     class IteratorImpl;
-    
-    std::atomic<size_t> mem_usage_;
-    base::Arena arena_;
+
+    base::StandaloneArena arena_;
     Table table_;
     std::atomic<size_t> n_entries_;
 }; // class OrderedMemoryTable

@@ -76,18 +76,11 @@ Error LogWriter::EmitPhysicalRecord(const void *data, size_t len,
     Error rs;
     
     uint32_t checksum = ::crc32(typed_checksums_[type], data, len);
-    ScopedMemory scope;
-    std::string buf;
-    buf.append(Slice::GetU32(checksum, &scope));
-    buf.append(Slice::GetU16(static_cast<uint16_t>(len), &scope));
-    buf.append(Slice::GetByte(static_cast<uint8_t>(type), &scope));
-    buf.append(static_cast<const char *>(data), len);
     
-//    TRY_RUN(writer_.WriteFixed32(checksum));
-//    TRY_RUN(writer_.WriteFixed16(static_cast<uint16_t>(len)));
-//    TRY_RUN(writer_.WriteByte(static_cast<uint8_t>(type)));
-//    TRY_RUN(writer_.Write(data, len));
-    TRY_RUN(writer_.Write(buf));
+    TRY_RUN(writer_.WriteFixed32(checksum));
+    TRY_RUN(writer_.WriteFixed16(static_cast<uint16_t>(len)));
+    TRY_RUN(writer_.WriteByte(static_cast<uint8_t>(type)));
+    TRY_RUN(writer_.Write(data, len));
 
     block_offset_ += (WAL::kHeaderSize + len);
     return Error::OK();

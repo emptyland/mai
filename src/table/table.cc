@@ -33,7 +33,7 @@ void Table::WriteProperties(const TableProperties &props, std::string *buf) {
     buf->append(Slice::GetU32(static_cast<uint32_t>(props.num_entries),
                                     &scope));
     buf->append(Slice::GetU64(props.index_position, &scope));
-    buf->append(Slice::GetU32(static_cast<uint32_t>(props.index_count),
+    buf->append(Slice::GetU32(static_cast<uint32_t>(props.index_size),
                                     &scope));
     buf->append(Slice::GetU64(props.filter_position, &scope));
     buf->append(Slice::GetU32(static_cast<uint32_t>(props.filter_size),
@@ -59,7 +59,7 @@ void Table::WriteProperties(const TableProperties &props, std::string *buf) {
     TRY_RUN(props->block_size      = reader.ReadFixed32());
     TRY_RUN(props->num_entries     = reader.ReadFixed32());
     TRY_RUN(props->index_position  = reader.ReadFixed64());
-    TRY_RUN(props->index_count     = reader.ReadFixed32());
+    TRY_RUN(props->index_size      = reader.ReadFixed32());
     TRY_RUN(props->filter_position = reader.ReadFixed64());
     TRY_RUN(props->filter_size     = reader.ReadFixed32());
     TRY_RUN(props->last_version    = reader.ReadFixed64());

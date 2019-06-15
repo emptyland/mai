@@ -1,5 +1,6 @@
 #include "table/s1-table-reader.h"
 #include "table/key-bloom-filter.h"
+#include "table/block-cache.h"
 #include "table/table.h"
 #include "core/key-boundle.h"
 #include "core/internal-key-comparator.h"
@@ -7,6 +8,7 @@
 #include "base/io-utils.h"
 #include "base/slice.h"
 #include "base/hash.h"
+#include "mai/options.h"
 #include "mai/iterator.h"
 #include "glog/logging.h"
 
@@ -38,16 +40,18 @@ using ::mai::base::Slice;
     
 class S1TableReader::IteratorImpl final : public Iterator {
 public:
-    IteratorImpl(const core::InternalKeyComparator *ikcmp, S1TableReader *owns)
+    IteratorImpl(const core::InternalKeyComparator *ikcmp,
+                 const ReadOptions &read_opts, S1TableReader *owns)
     : owns_(DCHECK_NOTNULL(owns))
-    , ikcmp_(DCHECK_NOTNULL(ikcmp)) {
-        DCHECK(!owns_->index().empty());
+    , ikcmp_(DCHECK_NOTNULL(ikcmp))
+    , read_opts_(read_opts) {
+        DCHECK(owns_->has_initialized_);
     }
     
     virtual ~IteratorImpl() override {}
     
     virtual bool Valid() const override {
-        if (error_.ok() && slot_ >= 0 && slot_ < owns_->index_.size()) {
+        if (error_.ok() && slot_ >= 0 && slot_ < owns_->index_size_) {
             if (!owns_->index_[slot_].empty()) {
                 return current_ >= 0 && current_ < owns_->index_[slot_].size();
             }
@@ -58,7 +62,7 @@ public:
     virtual void SeekToFirst() override {
         slot_ = -1;
         current_ = -1;
-        for (int64_t i = 0; i < owns_->index_.size(); ++i) {
+        for (int64_t i = 0; i < owns_->index_size_; ++i) {
             if (!owns_->index_[i].empty()) {
                 slot_ = i;
                 current_ = 0;
@@ -67,7 +71,7 @@ public:
         }
         saved_key_.clear();
         if (Valid()) {
-            UpdateKV();
+            UpdateEntry();
         }
     }
     
@@ -77,74 +81,14 @@ public:
         error_ = MAI_NOT_SUPPORTED("Can not reserve.");
     }
     
-    virtual void Seek(std::string_view target) override {
-        slot_ = -1;
-        current_ = -1;
-        ParsedTaggedKey lookup;
-        if (!KeyBoundle::ParseTaggedKey(target, &lookup)) {
-            error_ = MAI_CORRUPTION("Bad target key!");
-            return;
-        }
-        
-        size_t slot = ikcmp_->Hash(target) % owns_->index_.size();
-        if (owns_->index_[slot].empty()) {
-            error_ = MAI_NOT_FOUND("No bucket.");
-            return;
-        }
-        slot_ = slot;
-        
-        std::string scatch;
-        std::string_view result;
-        bool found = false;
-        for (int64_t i = 0; i < owns_->index_[slot_].size(); ++i) {
-            Index idx = owns_->index_[slot_][i];
-            uint64_t offset = idx.block_offset + idx.offset + 4;
-            uint64_t shared_len, private_len;
-            error_ = owns_->ReadKey(&offset, &shared_len, &private_len, &result,
-                                    &scatch);
-            if (error_.fail()) {
-                return;
-            }
-            
-            saved_key_ = saved_key_.substr(0, shared_len);
-            saved_key_.append(result);
-            
-            if (owns_->table_props_->last_level) {
-                if (ikcmp_->ucmp()->Equals(saved_key_, lookup.user_key)) {
-                    found = true;
-                    // fill fake tag for last level key.
-                    uint64_t tag_stub = Tag(0, Tag::kFlagValue).Encode();
-                    saved_key_.append(reinterpret_cast<const char *>(&tag_stub),
-                                      8);
-                }
-            } else {
-                ParsedTaggedKey ikey;
-                KeyBoundle::ParseTaggedKey(saved_key_, &ikey);
-                if (ikcmp_->ucmp()->Equals(ikey.user_key, lookup.user_key) &&
-                    ikey.tag.sequence_number() <= lookup.tag.sequence_number()) {
-                    found = true;
-                }
-            }
-            if (found) {
-                error_ = owns_->ReadValue(&offset, &value_, &saved_value_);
-                if (error_.fail()) {
-                    return;
-                }
-                current_ = i;
-                break;
-            }
-        }
-        if (!found) {
-            error_ = MAI_NOT_FOUND("Seek()");
-        }
-    }
+    virtual void Seek(std::string_view target) override;
     
     virtual void Next() override {
         DCHECK(Valid());
         if (current_ == owns_->index_[slot_].size() - 1) { // The last one
             int64_t old = slot_;
             slot_ = -1;
-            for (int64_t i = old + 1; i < owns_->index_.size(); ++i) {
+            for (int64_t i = old + 1; i < owns_->index_size_; ++i) {
                 if (!owns_->index_[i].empty()) {
                     slot_ = i;
                     current_ = 0;
@@ -155,7 +99,7 @@ public:
         } else {
             current_++;
         }
-        if (Valid()) { UpdateKV(); }
+        if (Valid()) { UpdateEntry(); }
     }
     
     virtual void Prev() override {
@@ -175,26 +119,11 @@ public:
     virtual Error error() const override { return error_; }
     
 private:
-    Error UpdateKV() {
-        Error rs;
-        std::string scatch;
-        std::string_view result;
-
-        Index idx = owns_->index_[slot_][current_];
-        uint64_t offset = idx.block_offset + idx.offset + 4;
-        uint64_t shared_len, private_len;
-        TRY_RUN1(owns_->ReadKey(&offset, &shared_len, &private_len, &result,
-                                &scatch));
-
-        saved_key_ = saved_key_.substr(0, shared_len);
-        saved_key_.append(result);
-        
-        TRY_RUN1(owns_->ReadValue(&offset, &value_, &saved_value_));
-        return Error::OK();
-    }
+    Error UpdateEntry();
     
     const S1TableReader *const owns_;
     const core::InternalKeyComparator *const ikcmp_;
+    ReadOptions const read_opts_;
     int64_t slot_ = -1;
     int64_t current_ = -1;
     std::string saved_key_;
@@ -202,6 +131,93 @@ private:
     std::string saved_value_;
     Error error_;
 }; // class S1TableReader::IteratorImpl
+    
+
+void S1TableReader::IteratorImpl::Seek(std::string_view target) {
+    slot_ = -1;
+    current_ = -1;
+    ParsedTaggedKey lookup;
+    if (!KeyBoundle::ParseTaggedKey(target, &lookup)) {
+        error_ = MAI_CORRUPTION("Bad target key!");
+        return;
+    }
+    
+    size_t slot = ikcmp_->Hash(target) % owns_->index_size_;
+    if (owns_->index_[slot].empty()) {
+        error_ = MAI_NOT_FOUND("No bucket.");
+        return;
+    }
+    slot_ = slot;
+    
+    base::intrusive_ptr<core::LRUHandle> handle;
+    std::string scatch;
+    std::string_view result;
+    bool found = false;
+    for (int64_t i = 0; i < owns_->index_[slot_].size(); ++i) {
+        const auto &idx = owns_->index_[slot_][i];
+        std::string_view buf;
+        error_ = owns_->PrepareRead(idx, read_opts_, &buf, &handle);
+        if (error_.fail()) {
+            return;
+        }
+
+        uint64_t shared_len, private_len;
+        auto bytes = owns_->ReadKey(buf, &shared_len, &private_len, &result);
+        buf.remove_prefix(bytes);
+        
+        saved_key_ = saved_key_.substr(0, shared_len);
+        saved_key_.append(result);
+        
+        if (owns_->table_props_->last_level) {
+            if (ikcmp_->ucmp()->Equals(saved_key_, lookup.user_key)) {
+                found = true;
+                // fill fake tag for last level key.
+                uint64_t tag_stub = Tag(0, Tag::kFlagValue).Encode();
+                saved_key_.append(reinterpret_cast<const char *>(&tag_stub),
+                                  8);
+            }
+        } else {
+            ParsedTaggedKey ikey;
+            KeyBoundle::ParseTaggedKey(saved_key_, &ikey);
+            if (ikcmp_->ucmp()->Equals(ikey.user_key, lookup.user_key) &&
+                ikey.tag.sequence_number() <= lookup.tag.sequence_number()) {
+                found = true;
+            }
+        }
+        if (found) {
+            owns_->ReadValue(buf, &value_, &saved_key_);
+            current_ = i;
+            break;
+        }
+    }
+    if (!found) {
+        error_ = MAI_NOT_FOUND("Seek()");
+    }
+}
+    
+Error S1TableReader::IteratorImpl::UpdateEntry() {
+    Error rs;
+    std::string scatch;
+    std::string_view result;
+    
+    base::intrusive_ptr<core::LRUHandle> handle;
+    std::string_view buf;
+    rs = owns_->PrepareRead(owns_->index_[slot_][current_], read_opts_, &buf,
+                            &handle);
+    if (!rs) {
+        return rs;
+    }
+    
+    uint64_t shared_len, private_len;
+    auto bytes = owns_->ReadKey(buf, &shared_len, &private_len, &result);
+    buf.remove_prefix(bytes);
+    
+    saved_key_ = saved_key_.substr(0, shared_len);
+    saved_key_.append(result);
+    
+    owns_->ReadValue(buf, &value_, &saved_value_);
+    return Error::OK();
+}
     
 ////////////////////////////////////////////////////////////////////////////////
 /// class S1TableReader::KeyFilterImpl
@@ -229,11 +245,14 @@ private:
 /// class S1TableReader
 ////////////////////////////////////////////////////////////////////////////////
     
-S1TableReader::S1TableReader(RandomAccessFile *file, uint64_t file_size,
-                             bool checksum_verify)
+S1TableReader::S1TableReader(RandomAccessFile *file, uint64_t file_number,
+                             uint64_t file_size, bool checksum_verify,
+                             BlockCache *cache)
     : file_(DCHECK_NOTNULL(file))
+    , file_number_(file_number)
     , file_size_(file_size)
-    , checksum_verify_(checksum_verify) {}
+    , checksum_verify_(checksum_verify)
+    , cache_(DCHECK_NOTNULL(cache)) {}
 
 /*virtual*/ S1TableReader::~S1TableReader() {}
 
@@ -266,22 +285,33 @@ Error S1TableReader::Prepare() {
     }
     table_props_ = table_props_boundle_->mutable_data();
 
-    TRY_RUN1(ReadBlock({table_props_->index_position, table_props_->index_count},
+    TRY_RUN1(ReadBlock({table_props_->index_position, table_props_->index_size },
                        &result, &scatch));
     
     base::BufferReader rd(result);
-    while (!rd.Eof()) {
-        std::vector<Index> n;
-        uint64_t size = rd.ReadVarint64();
-        for (uint64_t i = 0; i < size; ++i) {
-            Index idx;
-            idx.block_offset = rd.ReadVarint64();
-            idx.offset       = rd.ReadVarint32();
-            n.push_back(idx);
-        }
-        index_.push_back(n);
+    DCHECK(!rd.Eof());
+    block_map_size_ = rd.ReadVarint64();
+    block_map_.reset(new BlockHandle[block_map_size_]);
+    for (uint64_t i = 0; i < block_map_size_; ++i) {
+        auto offset = rd.ReadVarint64();
+        auto size   = rd.ReadVarint64();
+        block_map_[i] = BlockHandle(offset, size);
     }
     
+    DCHECK(!rd.Eof());
+    index_size_ = rd.ReadVarint64();
+    index_.reset(new std::vector<Index>[index_size_]);
+    for (uint64_t i = 0; i < index_size_; ++i) {
+        uint64_t size = rd.ReadVarint64();
+        for (uint64_t j = 0; j < size; ++j) {
+            Index idx;
+            idx.block_idx = rd.ReadVarint64();
+            idx.offset       = rd.ReadVarint32();
+            index_[i].push_back(idx);
+        }
+    }
+    
+    has_initialized_ = true;
     // Filter:
     if (table_props_->filter_size == 0) {
         filter_.reset(new KeyFilterImpl(this));
@@ -301,10 +331,10 @@ Error S1TableReader::Prepare() {
 /*virtual*/ Iterator *
 S1TableReader::NewIterator(const ReadOptions &read_opts,
                            const core::InternalKeyComparator *ikcmp) {
-    if (index_.empty()) {
+    if (!has_initialized_) {
         return Iterator::AsError(MAI_CORRUPTION("Not prepare yet."));
     }
-    return new IteratorImpl(ikcmp, this);
+    return new IteratorImpl(ikcmp, read_opts, this);
 }
 
 /*virtual*/ Error S1TableReader::Get(const ReadOptions &read_opts,
@@ -313,27 +343,38 @@ S1TableReader::NewIterator(const ReadOptions &read_opts,
                   core::Tag *tag,
                   std::string_view *value,
                   std::string *scratch) {
+    if (!has_initialized_) {
+        return MAI_CORRUPTION("Not prepare yet.");
+    }
+    
     ParsedTaggedKey lookup;
     KeyBoundle::ParseTaggedKey(key, &lookup);
     
-    size_t slot = ikcmp->Hash(key) % index_.size();
+    size_t slot = ikcmp->Hash(key) % index_size_;
     if (index_[slot].empty()) {
         return MAI_NOT_FOUND("Key not exists in bucket.");
     }
     
     Error rs;
+    base::intrusive_ptr<core::LRUHandle> handle;
     std::string_view result;
     std::string saved_key;
     ParsedTaggedKey ikey;
     bool found = false;
     for (const auto &idx : index_[slot]) {
-        uint64_t offset = idx.block_offset + idx.offset + 4;
-        uint64_t shared_len, private_len;
+        std::string_view buf;
+        rs = PrepareRead(idx, read_opts, &buf, &handle);
+        if (!rs) {
+            return rs;
+        }
         
-        TRY_RUN1(ReadKey(&offset, &shared_len, &private_len, &result, scratch));
+        uint64_t shared_len, private_len;
+        auto bytes = ReadKey(buf, &shared_len, &private_len, &result);
+        buf.remove_prefix(bytes);
+        
         saved_key = saved_key.substr(0, shared_len);
         saved_key.append(result);
-    
+        
         if (table_props_->last_level) {
             if (ikcmp->ucmp()->Equals(saved_key, lookup.user_key)) {
                 found = true;
@@ -346,7 +387,7 @@ S1TableReader::NewIterator(const ReadOptions &read_opts,
             }
         }
         if (found) {
-            TRY_RUN1(ReadValue(&offset, value, scratch));
+            ReadValue(buf, value, scratch);
             break;
         }
     }
@@ -357,15 +398,20 @@ S1TableReader::NewIterator(const ReadOptions &read_opts,
         if (tag) {
             *tag = KeyBoundle::ExtractTag(saved_key);
         }
+    } else {
+        if (tag) {
+            *tag = Tag(0, Tag::kFlagValue);
+        }
     }
     return Error::OK();
 }
 
 /*virtual*/ size_t S1TableReader::ApproximateMemoryUsage() const {
     size_t usage = sizeof(*this);
-    for (const auto &n : index_) {
-        usage += (sizeof(index_[0]) + n.size() * sizeof(Index));
-    }
+//    for (const auto &n : index_) {
+//        usage += (sizeof(index_[0]) + n.size() * sizeof(Index));
+//    }
+    // TODO:
     if (!filter_.is_null()) {
         usage += filter_->memory_usage();
     }
@@ -400,31 +446,41 @@ Error S1TableReader::ReadBlock(const BlockHandle &bh, std::string_view *result,
     return Error::OK();
 }
     
-Error S1TableReader::ReadKey(uint64_t *offset, uint64_t *shared_len,
-                             uint64_t *private_len, std::string_view *result,
-                             std::string *scatch) const {
-    base::RandomAccessFileReader reader(file_);
-    size_t len = 0;
-    
-    TRY_RUN0(*shared_len = reader.ReadVarint64(*offset, &len));
-    *offset += len;
-    TRY_RUN0(*private_len = reader.ReadVarint64(*offset, &len));
-    *offset += len;
-    TRY_RUN0(*result = reader.Read(*offset, *private_len, scatch));
-    *offset += result->size();
-    return Error::OK();
+uint64_t S1TableReader::ReadKey(std::string_view buf, uint64_t *shared_len,
+                                uint64_t *private_len,
+                                std::string_view *result) const {
+    base::BufferReader rd(buf);
+    *shared_len  = rd.ReadVarint64();
+    *private_len = rd.ReadVarint64();
+    *result      = rd.ReadString(*private_len);
+    return rd.position();
 }
     
-Error S1TableReader::ReadValue(uint64_t *offset, std::string_view *result,
-                               std::string *scatch) const {
-    base::RandomAccessFileReader reader(file_);
-    size_t len = 0;
+uint64_t S1TableReader::ReadValue(std::string_view buf, std::string_view *result,
+                                  std::string *scatch) const {
+    base::BufferReader rd(buf);
+    uint64_t value_len = rd.ReadVarint64();
+    *scatch = rd.ReadString(value_len);
+    *result = *scatch;
+    return rd.position();
+}
+    
+Error S1TableReader::PrepareRead(const Index &idx, const ReadOptions &read_opts,
+                                 std::string_view *buf,
+                                 base::intrusive_ptr<core::LRUHandle> *handle) const {
+    DCHECK_GE(idx.block_idx, 0);
+    DCHECK_LT(idx.block_idx, block_map_size_);
+    
+    const auto &bh = block_map_[idx.block_idx];
+    Error rs = cache_->GetOrLoad(file_, file_number_, bh.offset(), bh.size(),
+                                 read_opts.verify_checksums, handle);
+    if (!rs) {
+        return rs;
+    }
 
-    uint64_t value_len;
-    TRY_RUN0(value_len = reader.ReadVarint64(*offset, &len));
-    *offset += len;
-    TRY_RUN0(*result = reader.Read(*offset, value_len, scatch));
-    *offset += result->size();
+    // Ignore crc32 checksum
+    *buf = std::string_view(static_cast<char *>(handle->get()->value) + idx.offset,
+                            bh.size() - 4 - idx.offset);
     return Error::OK();
 }
     

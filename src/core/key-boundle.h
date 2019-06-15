@@ -41,6 +41,10 @@ public:
         return Tag(tag >> 8, tag & 0xffULL);
     }
     
+    static uint64_t Encode(SequenceNumber version, uint8_t flag) {
+        return Tag(version, flag).Encode();
+    }
+    
     DEF_VAL_GETTER(SequenceNumber, sequence_number);
     DEF_VAL_GETTER(uint8_t, flag);
 private:

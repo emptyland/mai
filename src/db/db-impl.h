@@ -1,11 +1,12 @@
 #ifndef MAI_DB_DB_IMPL_H_
 #define MAI_DB_DB_IMPL_H_
 
+#include "db/snapshot-impl.h"
+#include "base/reference-count.h"
 #include "base/base.h"
 #include "mai/db.h"
 #include "mai/options.h"
 #include "mai/write-batch.h"
-#include "db/snapshot-impl.h"
 #include <thread>
 #include <mutex>
 
@@ -15,6 +16,9 @@ class Env;
 namespace core {
 class MemoryTable;
 } // namespace core
+namespace table {
+class BlockCache;
+} // namespace table
 namespace db {
 class LogWriter;
 class TableCache;
@@ -24,8 +28,15 @@ class VersionPatch;
 class Factory;
 class ColumnFamilyImpl;
 struct CompactionContext;
-    
+class DBImpl;
 struct GetContext;
+    
+class WriteCallback {
+public:
+    virtual Error Prepare(DBImpl *db) = 0;
+    virtual void WALDone(DBImpl *db) {}
+    virtual void Done(DBImpl *db) {}
+}; // class WriteCallback
 
 class DBImpl final : public DB {
 public:
@@ -34,6 +45,7 @@ public:
     
     DEF_VAL_GETTER(std::string, db_name);
     DEF_VAL_GETTER(std::string, abs_db_path);
+    DEF_PTR_GETTER_NOTNULL(Env, env);
     
     Error Open(const std::vector<ColumnFamilyDescriptor> &descriptors,
                std::vector<ColumnFamily *> *column_families);
@@ -64,7 +76,17 @@ public:
     virtual Error GetProperty(std::string_view property,
                               std::string *value) override;
     
+    Error WriteImpl(const WriteOptions& opts, WriteBatch* batch,
+                    WriteCallback *callback);
     Iterator *NewInternalIterator(const ReadOptions &opts, ColumnFamilyImpl *cfd);
+    core::SequenceNumber GetLatestSequenceNumber();
+
+    Error GetColumnFamilyImpl(uint32_t cfid,
+                              base::intrusive_ptr<ColumnFamilyImpl> *result);
+    Error  GetLatestSequenceForKey(ColumnFamilyImpl *impl,
+                                   bool cache_only,
+                                   std::string_view key,
+                                   core::SequenceNumber *seq);
 
     //void TEST_PrintFiles(ColumnFamily *cf);
     Error TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync);
@@ -72,7 +94,6 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(DBImpl);
 private:
-    Error SwitchMemoryTable(ColumnFamilyImpl *cfd);
     Error RenewLogger();
     Error Redo(uint64_t log_file_number,
                core::SequenceNumber last_sequence_number,
@@ -105,6 +126,7 @@ private:
     std::unique_ptr<Factory> factory_;
     std::atomic<int> bkg_active_;
     std::atomic<bool> shutting_down_;
+    //std::unique_ptr<table::BlockCache> block_cache_;
     std::unique_ptr<TableCache> table_cache_;
     std::unique_ptr<VersionSet> versions_;
     std::atomic<uint64_t> total_wal_size_;

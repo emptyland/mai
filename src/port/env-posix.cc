@@ -1,4 +1,6 @@
 #include "port/file-posix.h"
+#include "port/tls-posix.h"
+#include "base/io-utils.h"
 #include "mai/allocator.h"
 #include <chrono>
 #include <sys/mman.h>
@@ -6,6 +8,7 @@
 #include <sys/param.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 namespace mai {
     
@@ -41,9 +44,88 @@ public:
         }
     }
     
+    virtual Error SetAccess(void *chunk, size_t size, int access) override {
+        int flags = 0;
+        if (access == 0) {
+            flags = PROT_NONE;
+        } else {
+            flags |= (access & kRd) ? PROT_READ  : 0;
+            flags |= (access & kWr) ? PROT_WRITE : 0;
+            flags |= (access & kEx) ? PROT_EXEC  : 0;
+        }
+        if (::mprotect(chunk, size, flags) < 0) {
+            return MAI_CORRUPTION(strerror(errno));
+        }
+        return Error::OK();
+    }
+    
+    virtual size_t granularity() override { return page_size_; }
+    
 private:
     const size_t page_size_;
 }; // class PosixMmapAllocator
+    
+    
+class RandomGeneratorImpl final : public RandomGenerator {
+public:
+    static constexpr const int kBufSize = 1024;
+    
+    RandomGeneratorImpl() {}
+    virtual ~RandomGeneratorImpl() override {
+        if (fd_ >= 0) {
+            if (::close(fd_) < 0) {
+                PLOG(ERROR) << "Can not close urandom fd.";
+            }
+        }
+    }
+    
+    Error Init() {
+        fd_ = ::open("/dev/urandom", O_RDONLY);
+        if (fd_ < 0) {
+            return MAI_CORRUPTION(strerror(errno));
+        }
+        if (::read(fd_, buf_, kBufSize) < 0) {
+            return MAI_CORRUPTION(strerror(errno));
+        }
+        return Error::OK();
+    }
+
+    virtual uint64_t NextU64() override {
+        return *static_cast<uint64_t *>(Read(sizeof(uint64_t)));
+    }
+    virtual uint32_t NextU32() override {
+        return *static_cast<uint32_t *>(Read(sizeof(uint32_t)));
+    }
+    virtual float NextF32() override { return static_cast<float>(NextU32()) / UINT32_MAX; }
+    virtual double NextF64() override { return static_cast<double>(NextU64()) / UINT64_MAX; }
+
+private:
+    void *Read(size_t wanted) {
+        if (offset_ + wanted > kBufSize) {
+            if (::read(fd_, buf_, kBufSize) < 0) {
+                PLOG(ERROR) << "can not read /dev/urandom, fallback pseudo random.";
+                FillFallback();
+                return fallback_;
+            }
+            offset_ = 0;
+        }
+        void *result = buf_ + offset_;
+        offset_ += wanted;
+        return result;
+    }
+    
+    void FillFallback() {
+        int *r = reinterpret_cast<int *>(fallback_);
+        for (int i = 0; i < sizeof(fallback_) / sizeof(int); ++i) {
+            r[i] = rand();
+        }
+    }
+
+    int fd_ = -1;
+    size_t offset_ = 0;
+    char fallback_[16];
+    char buf_[kBufSize];
+}; // class RandomGeneratorImpl
     
 class PosixEnv final : public Env {
 public:
@@ -64,7 +146,15 @@ public:
     
     virtual Error NewWritableFile(const std::string &file_name, bool append,
                                   std::unique_ptr<WritableFile> *file) override {
-        return PosixWritableFile::Open(file_name, append, file);
+        Error rs = PosixWritableFile::Open(file_name, append, file);
+        if (!rs) {
+            return rs;
+        }
+        WritableFile *buffered = new base::BufferedWritableFile(file->release(),
+                                                                true);
+        file->reset(buffered);
+        return Error::OK();
+        //return PosixWritableFile::Open(file_name, append, file);
     }
     
     virtual Error NewRandomAccessFile(const std::string &file_name,
@@ -184,8 +274,22 @@ public:
         return GetWorkDirectory() + "/" + file_name;
     }
     
-    virtual Allocator *GetLowLevelAllocator() override {
-        return low_level_alloc_.get();
+    virtual Allocator *GetLowLevelAllocator() override { return low_level_alloc_.get(); }
+    
+    virtual Error NewRealRandomGenerator(std::unique_ptr<RandomGenerator> *random) override {
+        std::unique_ptr<RandomGeneratorImpl> impl(new RandomGeneratorImpl());
+        Error rs = impl->Init();
+        if (!rs) {
+            return rs;
+        }
+        random->reset(impl.release());
+        return Error::OK();
+    }
+    
+    virtual Error NewThreadLocalSlot(const std::string &name,
+                                     void (*dtor)(void *),
+                                     std::unique_ptr<ThreadLocalSlot> *result) override {
+        return PosixThreadLocalSlot::New(name, dtor, result);
     }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(PosixEnv);

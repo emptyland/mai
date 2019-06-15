@@ -10,11 +10,12 @@ namespace mai {
 namespace table {
     
 class BlockIterator;
+class BlockCache;
     
 class SstTableReader final : public TableReader {
 public:
-    SstTableReader(RandomAccessFile *file, uint64_t file_size,
-                   bool checksum_verify);
+    SstTableReader(RandomAccessFile *file, uint64_t file_number,
+                   uint64_t file_size, bool checksum_verify, BlockCache *cache);
     virtual ~SstTableReader();
     
     Error Prepare();
@@ -34,6 +35,8 @@ public:
     virtual base::intrusive_ptr<core::KeyFilter> GetKeyFilter() const override;
     
     Iterator *NewIndexIterator(const core::InternalKeyComparator *ikcmp);
+    Iterator *NewBlockIterator(const core::InternalKeyComparator *ikcmp,
+                               BlockHandle bh, bool checksum_verify);
     
     void TEST_PrintAll(const core::InternalKeyComparator *ikcmp);
 private:
@@ -46,9 +49,11 @@ private:
     Error ReadBlock(const BlockHandle &bh, std::string_view *result,
                     std::string *scatch) const;
     
-    RandomAccessFile *file_;
-    uint64_t file_size_;
-    bool checksum_verify_;
+    RandomAccessFile *const file_;
+    const uint64_t file_number_;
+    const uint64_t file_size_;
+    const bool checksum_verify_;
+    BlockCache *const cache_;
     
     base::intrusive_ptr<TablePropsBoundle> table_props_boundle_;
     const TableProperties *table_props_ = nullptr;

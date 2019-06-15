@@ -2,25 +2,20 @@
 #define MAI_TABLE_S1_TABLE_READER_H_
 
 #include "table/table-reader.h"
+#include "core/lru-cache-v1.h"
 #include <vector>
 
 namespace mai {
 class RandomAccessFile;
 namespace table {
 class BlockHandle;
+class BlockCache;
     
 class S1TableReader final : public TableReader {
 public:
-    S1TableReader(RandomAccessFile *file, uint64_t file_size,
-                  bool checksum_verify);
+    S1TableReader(RandomAccessFile *file, uint64_t file_number,
+                  uint64_t file_size, bool checksum_verify, BlockCache *cache);
     virtual ~S1TableReader();
-    
-    struct Index {
-        uint64_t block_offset;
-        uint32_t offset;
-    };
-    
-    DEF_VAL_GETTER(std::vector<std::vector<Index>>, index);
     
     Error Prepare();
     
@@ -41,18 +36,32 @@ private:
     class IteratorImpl;
     class KeyFilterImpl;
     
-    Error ReadKey(uint64_t *offset, uint64_t *shared_len, uint64_t *private_len,
-                  std::string_view *result, std::string *scatch) const;
-    Error ReadValue(uint64_t *offset, std::string_view *result,
-                    std::string *scatch) const;
+    struct Index {
+        uint64_t block_idx;
+        uint32_t offset;
+    };
+    
+    uint64_t ReadKey(std::string_view buf, uint64_t *shared_len,
+                     uint64_t *private_len, std::string_view *result) const;
+    uint64_t ReadValue(std::string_view buf, std::string_view *result,
+                       std::string *scatch) const;
+    Error PrepareRead(const Index &idx, const ReadOptions &read_opts,
+                      std::string_view *buf,
+                      base::intrusive_ptr<core::LRUHandle> *handle) const;
     Error ReadBlock(const BlockHandle &bh, std::string_view *result,
                     std::string *scatch) const;
     
     RandomAccessFile *const file_;
+    const uint64_t file_number_;
     const uint64_t file_size_;
     const bool checksum_verify_;
+    BlockCache *const cache_;
     
-    std::vector<std::vector<Index>> index_;
+    std::unique_ptr<std::vector<Index>[]> index_;
+    size_t index_size_ = 0;
+    std::unique_ptr<BlockHandle[]> block_map_;
+    size_t block_map_size_ = 0;
+    bool has_initialized_ = false;
     base::intrusive_ptr<TablePropsBoundle> table_props_boundle_;
     const TableProperties *table_props_ = nullptr;
     base::intrusive_ptr<core::KeyFilter> filter_;

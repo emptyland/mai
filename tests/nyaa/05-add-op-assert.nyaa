@@ -1,0 +1,35 @@
+var assert = assert
+
+var a = 1
+assert(a + 1 == 2)
+assert(a + 1.1 == 2.1)
+assert(a + -1 == 0)
+assert(a + 2305843009213693951 == 2305843009213693952)
+a = 2305843009213693952
+assert(a + -1 == 2305843009213693951)
+assert(a + 1 == 2305843009213693953)
+assert(a + 0.1 == 2305843009213693952.0)
+
+class foo {
+	def __init__(self, val) {
+		self.val_ = val
+	}
+
+	def __add__(lhs, rhs) {
+		return new foo(lhs.val + rhs.val)
+	}
+
+	def set_val(self, val) {
+		self.val_ = val
+	}
+
+	property [ro] val
+}
+
+a = new foo(100)
+var b = new foo(200)
+assert((a + b).val == 300)
+
+a:set_val(333)
+b:set_val(444)
+assert((a + b).val == 777)

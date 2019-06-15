@@ -46,7 +46,7 @@ struct FileMetaData final : public base::ReferenceCounted<FileMetaData> {
 #define VERSION_FIELDS(V) \
     V(LastSequenceNumber, last_sequence_number) \
     V(NextFileNumber, next_file_number) \
-    V(PrepareRedoLog, prepare_redo_log) \
+    V(RedoLogNumber, redo_log_number) \
     V(RedoLog, redo_log) \
     V(PrevLogNumber, prev_log_number) \
     V(CompactionPoint, compaction_point) \
@@ -68,39 +68,38 @@ public:
     VersionPatch() { Reset(); }
     ~VersionPatch() {}
     
-//    void set_last_sequence_number(core::SequenceNumber version) {
-//        set_field(kLastSequenceNumber);
-//        last_sequence_number_ = version;
-//    }
-    
-    void set_prepare_redo_log(uint64_t number, core::SequenceNumber sn) {
-        set_field(kPrepareRedoLog);
-        prepare_redo_log_.number = number;
-        prepare_redo_log_.last_sequence_number = sn;
+    void SetLastSequenceNumber(core::SequenceNumber version) {
+        set_field(kLastSequenceNumber);
+        last_sequence_number_ = version;
     }
     
-    void set_next_file_number(uint64_t number) {
+    void SetRedoLogNumber(uint64_t number) {
+        set_field(kRedoLogNumber);
+        redo_log_number_ = number;
+    }
+    
+    void SetNextFileNumber(uint64_t number) {
         set_field(kNextFileNumber);
         next_file_number_ = number;
     }
     
-    void set_redo_log(uint32_t cfid, uint64_t number) {
+    void SetRedoLog(uint32_t cfid, uint64_t number) {
         set_field(kRedoLog);
         redo_log_.cfid = cfid;
         redo_log_.number = number;
     }
     
-    void set_prev_log_number(uint64_t number) {
+    void SetPrevLogNumber(uint64_t number) {
         set_field(kPrevLogNumber);
         prev_log_number_ = number;
     }
     
-    void set_max_column_faimly(uint32_t max_column_family) {
+    void SetMaxColumnFaimly(uint32_t max_column_family) {
         set_field(kMaxColumnFamily);
         max_column_family_ = max_column_family;
     }
     
-    void set_compaction_point(uint32_t cfid, int level, std::string_view key) {
+    void SetCompactionPoint(uint32_t cfid, int level, std::string_view key) {
         set_field(kCompactionPoint);
         compaction_point_.cfid = cfid;
         compaction_point_.level = level;
@@ -190,8 +189,8 @@ public:
     using FileDeletionCollection = std::vector<FileDeletion>;
     
     DEF_VAL_GETTER(uint32_t, max_column_family);
-    //DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
-    DEF_VAL_GETTER(PrepareRedoLog, prepare_redo_log);
+    DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
+    DEF_VAL_GETTER(uint64_t, redo_log_number);
     DEF_VAL_GETTER(uint64_t, next_file_number);
     DEF_VAL_GETTER(RedoLog, redo_log);
     DEF_VAL_GETTER(uint64_t, prev_log_number);
@@ -223,13 +222,13 @@ private:
     uint32_t cf_deletion_;
     CFCreation cf_creation_;
     
-    //core::SequenceNumber last_sequence_number_;
+    core::SequenceNumber last_sequence_number_;
     uint64_t next_file_number_;
     RedoLog redo_log_;
     uint64_t prev_log_number_;
     
     CompactionPoint compaction_point_;
-    PrepareRedoLog prepare_redo_log_;
+    uint64_t redo_log_number_;
     FileCreationCollection file_creation_;
     FileDeletionCollection file_deletion_;
     
@@ -301,11 +300,18 @@ public:
     DEF_VAL_GETTER(core::SequenceNumber, last_sequence_number);
     DEF_VAL_GETTER(uint64_t, next_file_number);
     DEF_VAL_GETTER(uint64_t, prev_log_number);
+    DEF_VAL_GETTER(uint64_t, redo_log_number);
     DEF_VAL_GETTER(uint64_t, manifest_file_number);
     
     core::SequenceNumber AddSequenceNumber(core::SequenceNumber add) {
         last_sequence_number_ += add;
         return last_sequence_number_;
+    }
+    
+    void UpdateSequenceNumber(core::SequenceNumber val) {
+        if (val > last_sequence_number_) {
+            last_sequence_number_ = val;
+        }
     }
     
     uint64_t GenerateFileNumber() { return next_file_number_++; }
@@ -318,7 +324,7 @@ public:
     
     Error Recovery(const std::map<std::string, ColumnFamilyOptions> &desc,
                    uint64_t file_number,
-                   std::map<uint64_t, uint64_t> *history);
+                   std::set<uint64_t> *history);
     
     Error LogAndApply(const ColumnFamilyOptions &cf_opts,
                       VersionPatch *patch,
@@ -342,6 +348,7 @@ private:
     core::SequenceNumber last_sequence_number_ = 0;
     uint64_t next_file_number_ = 0;
     uint64_t prev_log_number_ = 0;
+    uint64_t redo_log_number_ = 0;
     uint64_t manifest_file_number_ = 0;
     
     std::unique_ptr<WritableFile> log_file_;

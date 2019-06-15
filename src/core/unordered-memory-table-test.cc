@@ -1,6 +1,7 @@
 #include "core/key-boundle.h"
 #include "core/internal-key-comparator.h"
 #include "core/unordered-memory-table.h"
+#include "base/arenas.h"
 #include "base/hash.h"
 #include "mai/env.h"
 #include "mai/iterator.h"
@@ -35,7 +36,7 @@ public:
         : ikcmp_(new core::InternalKeyComparator(Comparator::Bytewise())) {}
     
     void SetUp() override {
-        arena_ = new base::Arena(env_->GetLowLevelAllocator());
+        arena_ = new base::StandaloneArena(env_->GetLowLevelAllocator());
     }
     
     void TearDown() override {
@@ -135,8 +136,10 @@ TEST_F(UnorderedMemoryTableTest, Deletion) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_EQ("v5", value);
     
-    rs = table->Get("k1", 2, nullptr, &value);
-    ASSERT_TRUE(rs.IsNotFound());
+    core::Tag tag;
+    rs = table->Get("k1", 2, &tag, &value);
+    ASSERT_TRUE(rs.ok());
+    ASSERT_EQ(core::Tag::kFlagDeletion, tag.flag());
     
     rs = table->Get("k1", 1, nullptr, &value);
     ASSERT_TRUE(rs.ok()) << rs.ToString();

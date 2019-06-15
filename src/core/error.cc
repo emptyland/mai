@@ -19,7 +19,7 @@ std::string Error::ToString() const {
                 break;
             }
         }
-        s = base::Slice::Sprintf("[%s:%d] ", x, fileline_);
+        s = base::Sprintf("[%s:%d] ", x, fileline_);
     }
     
     switch (code()) {
@@ -39,6 +39,15 @@ std::string Error::ToString() const {
             break;
         case kIOError:
             s.append("IO Error: ");
+            break;
+        case kEOF:
+            s.append("EOF: ");
+            break;
+        case kBusy:
+            s.append("Busy: ");
+            break;
+        case kTryAgain:
+            s.append("Try Again: ");
             break;
         default:
             break;

@@ -6,6 +6,7 @@
 #include "base/io-utils.h"
 #include <memory>
 #include <set>
+#include <map>
 
 namespace mai {
 class WritableFile;
@@ -32,18 +33,17 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(S1TableBuilder);
 private:
+    static const uint64_t kInvalidIdx;
     struct Index {
-        uint64_t block_offset = -1;
+        uint64_t block_idx = kInvalidIdx;
         uint32_t offset = 0;
     };
-    static const uint64_t kInvalidOffset;
     
     BlockHandle WriteIndex();
     BlockHandle WriteFilter();
     BlockHandle WriteProperties();
     BlockHandle FlushBlock();
     BlockHandle WriteBlock(std::string_view block);
-    uint64_t AlignmentToBlock();
 
     const core::InternalKeyComparator *const ikcmp_;
     base::FileWriter writer_;
@@ -60,6 +60,7 @@ private:
     std::unique_ptr<PlainBlockBuilder> block_builder_;
     std::unique_ptr<FilterBlockBuilder> filter_builder_;
     std::set<uint64_t> unbound_index_;
+    std::vector<BlockHandle> block_map_;
 }; // class S1TableReader
     
 } // namespace table

@@ -1,0 +1,7 @@
+
+g1 = 1
+g2 = 2
+g3 = 3
+
+log("in bar")
+return "bar", g1, g2, g3

@@ -3,6 +3,7 @@
 #include "db/factory.h"
 #include "db/version.h"
 #include "table/table.h"
+#include "table/block-cache.h"
 #include "core/key-filter.h"
 #include "mai/iterator.h"
 #include "mai/options.h"
@@ -51,6 +52,8 @@ TableCache::TableCache(const std::string &abs_db_path, const Options &opts,
                        Factory *factory)
     : abs_db_path_(abs_db_path)
     , env_(DCHECK_NOTNULL(opts.env))
+    , block_cache_(new table::BlockCache(opts.env->GetLowLevelAllocator(),
+                                         opts.block_cache_capacity))
     , factory_(DCHECK_NOTNULL(factory))
     , allow_mmap_reads_(opts.allow_mmap_reads)
     , cache_(env_->GetLowLevelAllocator(), opts.max_open_files) {}
@@ -144,7 +147,11 @@ Error TableCache::LoadTable(const ColumnFamilyImpl *cfd,
     rs = factory_->NewTableReader(cfd->options().use_unordered_table ?
                                   "s1t" : "sst",
                                   cfd->ikcmp(),
-                                  result->file.get(), file_size, true,
+                                  result->file.get(),
+                                  file_number,
+                                  file_size,
+                                  true,
+                                  block_cache_.get(),
                                   &result->table);
     if (!rs) {
         return rs;

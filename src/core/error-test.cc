@@ -14,9 +14,9 @@ TEST(ErrorTest, NotFound) {
 }
     
 TEST(ErrorTest, ToString) {
-    Error err = MAI_EOF("EOF");
+    Error err = MAI_EOF("");
     ASSERT_TRUE(err.IsEof());
-    ASSERT_EQ("[core/error-test.cc:17] EOF", err.ToString());
+    ASSERT_EQ("[core/error-test.cc:17] EOF: ", err.ToString());
 }
     
 } // namespace mai

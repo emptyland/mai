@@ -12,6 +12,7 @@
 #include "db/db-iterator.h"
 #include "table/table-builder.h"
 #include "table/table.h"
+#include "table/block-cache.h"
 #include "core/key-boundle.h"
 #include "core/memory-table.h"
 #include "core/merging.h"
@@ -28,11 +29,9 @@ namespace db {
 class WritingHandler final : public WriteBatch::Stub {
 public:
     WritingHandler(uint64_t redo_log_number, bool filter,
-                   core::SequenceNumber sequence_number,
                    ColumnFamilySet *column_families)
         : redo_log_number_(redo_log_number)
         , filter_(filter)
-        , last_sequence_number_(sequence_number)
         , column_families_(DCHECK_NOTNULL(column_families)) {}
     
     virtual ~WritingHandler() {}
@@ -87,12 +86,18 @@ public:
     
     DEF_VAL_GETTER(uint64_t, size_count);
     DEF_VAL_GETTER(uint64_t, sequence_number_count);
+    
+    void ResetLastSequenceNumber(core::SequenceNumber sn) {
+        last_sequence_number_  = sn;
+        sequence_number_count_ = 0;
+    }
+
 private:
     const uint64_t redo_log_number_;
     const bool filter_;
-    const core::SequenceNumber last_sequence_number_;
     ColumnFamilySet *const column_families_;
     
+    core::SequenceNumber last_sequence_number_;
     uint64_t size_count_ = 0;
     uint64_t sequence_number_count_ = 0;
 }; // class WritingHnalder
@@ -100,12 +105,17 @@ private:
 
 struct GetContext {
     std::vector<base::intrusive_ptr<core::MemoryTable>> in_mem;
-    core::SequenceNumber                         last_sequence_number;
-    base::intrusive_ptr<ColumnFamilyImpl>               cfd;
-    Version                                     *current;
+    core::SequenceNumber                  last_sequence_number;
+    base::intrusive_ptr<ColumnFamilyImpl> cfd;
+    Version                              *current;
 }; // struct ReadContext
 
-    
+
+static inline void MakeRedo(std::string *buf, core::SequenceNumber sn,
+                            uint32_t n_entries) {
+    buf->append(reinterpret_cast<const char *>(&sn), sizeof(sn));
+    buf->append(reinterpret_cast<const char *>(&n_entries), sizeof(n_entries));
+}
 
 DBImpl::DBImpl(const std::string &db_name, const Options &opts)
     : db_name_(db_name)
@@ -170,17 +180,19 @@ Error DBImpl::Open(const std::vector<ColumnFamilyDescriptor> &desc,
         }
     }
     if (rs.ok()) {
-        ColumnFamily *cf = new ColumnFamilyHandle(this,
-                                                  column_familes->GetDefault());
+        ColumnFamily *cf = new ColumnFamilyHandle(this, column_familes->GetDefault());
         default_cf_.reset(cf);
     }
     
     flush_worker_ = std::thread([&](){ this->FlushWork(); });
     return rs;
 }
-    
+
 Error DBImpl::NewDB(const std::vector<ColumnFamilyDescriptor> &desc) {
-    Error rs = env_->MakeDirectory(abs_db_path_, true);
+    Error rs = env_->FileExists(abs_db_path_);
+    if (!rs) {
+        rs = env_->MakeDirectory(abs_db_path_, true);
+    }
     if (!rs) {
         return rs;
     }
@@ -197,21 +209,18 @@ Error DBImpl::NewDB(const std::vector<ColumnFamilyDescriptor> &desc) {
     // No default column family
     auto iter = cf_opts.find(kDefaultColumnFamilyName);
     if (iter == cf_opts.end()) {
-        versions_->column_families()->NewColumnFamily(options_,
-                                                      kDefaultColumnFamilyName,
-                                                      0, versions_.get());
+        versions_->column_families()->NewColumnFamily(options_, kDefaultColumnFamilyName, 0,
+                                                      versions_.get());
     } else {
-        versions_->column_families()->NewColumnFamily(iter->second,
-                                                      kDefaultColumnFamilyName,
-                                                      0, versions_.get());
+        versions_->column_families()->NewColumnFamily(iter->second, kDefaultColumnFamilyName, 0,
+                                                      versions_.get());
     }
     for (const auto &opt : cf_opts) {
         if (opt.first.compare(kDefaultColumnFamilyName) == 0) {
             continue;
         }
         uint32_t cfid = versions_->column_families()->NextColumnFamilyId();
-        versions_->column_families()->NewColumnFamily(opt.second, opt.first,
-                                                      cfid, versions_.get());
+        versions_->column_families()->NewColumnFamily(opt.second, opt.first, cfid, versions_.get());
     }
     for (ColumnFamilyImpl *cfd : *versions_->column_families()) {
         rs = cfd->Install(factory_.get());
@@ -221,7 +230,8 @@ Error DBImpl::NewDB(const std::vector<ColumnFamilyDescriptor> &desc) {
         cfd->set_redo_log_number(log_file_number_);
     }
     VersionPatch patch;
-    patch.set_prev_log_number(0);
+    patch.SetPrevLogNumber(0);
+    patch.SetRedoLogNumber(log_file_number_);
     versions_->AddSequenceNumber(1); // Begin with 1
     return versions_->LogAndApply(options_, &patch, &mutex_);
 }
@@ -243,11 +253,11 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
     }
     
     uint64_t manifest_file_number = ::atoll(result.c_str());
-    std::map<uint64_t, uint64_t> history;
     std::map<std::string, ColumnFamilyOptions> cf_opts;
     for (const auto &d : desc) {
         cf_opts[d.name] = d.options;
     }
+    std::set<uint64_t> history;
     rs = versions_->Recovery(cf_opts, manifest_file_number, &history);
     if (!rs) {
         return rs;
@@ -286,30 +296,31 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
     // Add undumped log files.
     for (auto iter = history.upper_bound(max_number); iter != history.end();
          iter++) {
-        numbers.insert(iter->first);
-        max_number = iter->first;
+        numbers.insert(*iter);
+        max_number = *iter;
     }
     
     DCHECK_GE(history.size(), numbers.size());
     core::SequenceNumber last = 0, update = 0;
     for (uint64_t number: numbers) {
-        last = history[number];
+        //last = history[number];
         // The newest redo log file filter is not need.
         rs = Redo(number, last, &update, max_number != number);
         if (!rs) {
             return rs;
         }
     }
-    log_file_number_ = max_number; // The max one is newest file.
-    DCHECK_GE(update, versions_->last_sequence_number());
-    versions_->AddSequenceNumber(update - versions_->last_sequence_number());
+    // The max one is newest file.
+    DCHECK_EQ(max_number, versions_->redo_log_number());
+    
+    log_file_number_ = versions_->redo_log_number();
+    //DCHECK_GE(update, versions_->last_sequence_number());
+    
+    versions_->UpdateSequenceNumber(update);
     DLOG(INFO) << "Replay ok, last version: "
                << versions_->last_sequence_number();
 
-    rs = env_->NewWritableFile(Files::LogFileName(abs_db_path_,
-                                                  log_file_number_),
-                               true,
-                               &log_file_);
+    rs = env_->NewWritableFile(Files::LogFileName(abs_db_path_, log_file_number_), true, &log_file_);
     if (!rs) {
         return rs;
     }
@@ -327,7 +338,7 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
 /*virtual*/ Error DBImpl::NewColumnFamily(const std::string &name,
                                           const ColumnFamilyOptions &options,
                                           ColumnFamily **result) {
-    // Locking versions---------------------------------------------------------
+    // Locking versions-----------------------------------------------------------------------------
     std::unique_lock<std::mutex> lock(mutex_);
     uint32_t cfid;
     Error rs = InternalNewColumnFamily(name, options, &cfid);
@@ -344,7 +355,7 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
     DCHECK(cfd->initialized());
     *result = new ColumnFamilyHandle(this, cfd);
     return rs;
-    // Unlocking versions-------------------------------------------------------
+    // Unlocking versions---------------------------------------------------------------------------
 }
     
 /*virtual*/ Error DBImpl::DropColumnFamily(ColumnFamily *cf) {
@@ -399,7 +410,7 @@ Error DBImpl::Recovery(const std::vector<ColumnFamilyDescriptor> &desc) {
 DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
     DCHECK_NOTNULL(result)->clear();
     
-    // Locking versions---------------------------------------------------------
+    // Locking versions-----------------------------------------------------------------------------
     std::unique_lock<std::mutex> lock(mutex_);
     for (auto impl : *versions_->column_families()) {
         if (!impl->dropped()) { // No dropped!
@@ -408,60 +419,54 @@ DBImpl::GetAllColumnFamilies(std::vector<ColumnFamily *> *result) {
         }
     }
     return Error::OK();
-    // Unlocking versions-------------------------------------------------------
+    // Unlocking versions---------------------------------------------------------------------------
 }
     
 /*virtual*/ Error DBImpl::Put(const WriteOptions &opts, ColumnFamily *cf,
                   std::string_view key, std::string_view value) {
-    return Write(opts, cf, key, value, core::Tag::kFlagValue);
+    WriteBatch batch;
+    batch.Put(cf, key, value);
+    return Write(opts, &batch);
+    //return Write(opts, cf, key, value, core::Tag::kFlagValue);
 }
     
 /*virtual*/ Error DBImpl::Delete(const WriteOptions &opts, ColumnFamily *cf,
                      std::string_view key) {
-    return Write(opts, cf, key, "", core::Tag::kFlagDeletion);
+    WriteBatch batch;
+    batch.Delete(cf, key);
+    return Write(opts, &batch);
+    //return Write(opts, cf, key, "", core::Tag::kFlagDeletion);
 }
     
 /*virtual*/ Error DBImpl::Write(const WriteOptions& opts, WriteBatch* updates) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    
-    core::SequenceNumber last_version = versions_->last_sequence_number();
-    Error rs;
-    for (auto cfd : *versions_->column_families()) {
-        rs = MakeRoomForWrite(cfd, &lock);
-        if (!rs) {
-            return rs;
-        }
-    }
-    rs = logger_->Append(updates->redo());
-    if (!rs) {
-        return rs;
-    }
-    if (opts.sync) {
-        flush_request_.fetch_add(1);
-    }
-    
-    WritingHandler handler(0, false, last_version + 1,
-                           versions_->column_families());
-    updates->Iterate(&handler);
-    
-    versions_->AddSequenceNumber(handler.sequence_number_count());
-    return Error::OK();
+    return WriteImpl(opts, updates, nullptr);
 }
     
-/*virtual*/ Error DBImpl::Get(const ReadOptions &opts, ColumnFamily *cf,
-                  std::string_view key, std::string *value) {
+/*virtual*/ Error DBImpl::Get(const ReadOptions &opts, ColumnFamily *cf, std::string_view key,
+                              std::string *value) {
     
     using core::Tag;
     
     GetContext ctx;
+    core::Tag tag;
     Error rs = PrepareForGet(opts, cf, &ctx);
     for (const auto &table : ctx.in_mem) {
-        rs = table->Get(key, ctx.last_sequence_number, nullptr, value);
+        rs = table->Get(key, ctx.last_sequence_number, &tag, value);
         if (rs.ok()) {
+            if (tag.flag() == core::Tag::kFlagDeletion) {
+                rs = MAI_NOT_FOUND("Deleted.");
+            }
             return rs;
         }
     }
-    return ctx.current->Get(opts, key, ctx.last_sequence_number, nullptr, value);
+    rs = ctx.current->Get(opts, key, ctx.last_sequence_number, &tag, value);
+    if (!rs) {
+        return rs;
+    }
+    if (tag.flag() == core::Tag::kFlagDeletion) {
+        return MAI_NOT_FOUND("Deleted.");
+    }
+    return rs;
 }
     
 /*virtual*/ Iterator *
@@ -484,7 +489,8 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
     
 /*virtual*/ const Snapshot *DBImpl::GetSnapshot() {
     std::unique_lock<std::mutex> lock(mutex_);
-    return snapshots_.NewSnapshot(versions_->last_sequence_number());
+    return snapshots_.NewSnapshot(versions_->last_sequence_number(),
+                                  env_->CurrentTimeMicros() / 1000);
 }
     
 /*virtual*/ void DBImpl::ReleaseSnapshot(const Snapshot *snapshot) {
@@ -493,9 +499,7 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
     snapshots_.DeleteSnapshot(const_cast<SnapshotImpl *>(impl));
 }
     
-/*virtual*/ ColumnFamily *DBImpl::DefaultColumnFamily() {
-    return default_cf_.get();
-}
+/*virtual*/ ColumnFamily *DBImpl::DefaultColumnFamily() { return default_cf_.get(); }
     
 /*virtual*/ Error DBImpl::GetProperty(std::string_view property,
                                       std::string *value) {
@@ -515,41 +519,38 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
             if (cfd->dropped()) {
                 continue;
             }
-            value->append(Slice::Sprintf("%llu,", cfd->redo_log_number()));
+            value->append(base::Sprintf("%llu,", cfd->redo_log_number()));
         }
         value->erase(value->size() - 1, 1);
     } else if (property == "db.log.total-size") {
         
-        *value = Slice::Sprintf("%" PRIu64,
-                                total_wal_size_.load(std::memory_order_acquire));
+        *value = base::Sprintf("%" PRIu64, total_wal_size_.load(std::memory_order_acquire));
     } else if (property == "db.bkg.jobs") {
         
-        *value = Slice::Sprintf("%d", bkg_active_.load());
+        *value = base::Sprintf("%d", bkg_active_.load());
     } else if (property == "db.versions.last-sequence-number") {
         
         std::unique_lock<std::mutex> lock(mutex_);
-        *value = Slice::Sprintf("%" PRIu64,
-                                versions_->last_sequence_number());
+        *value = base::Sprintf("%" PRIu64, versions_->last_sequence_number());
     } else if (property.find("db.cf.") == 0) {
         std::unique_lock<std::mutex> lock(mutex_);
         
         property.remove_prefix(6);
         size_t n = property.find('.');
         std::string cf_name(property.substr(0, n));
-        ColumnFamilyImpl *cfd =
-            versions_->column_families()->GetColumnFamily(cf_name);
+        ColumnFamilyImpl *cfd = versions_->column_families()->GetColumnFamily(cf_name);
         if (!cfd) {
-            return MAI_CORRUPTION(Slice::Sprintf("Column family: %s not found.",
-                                                 cf_name.c_str()));
+            return MAI_CORRUPTION(base::Sprintf("Column family: %s not found.",
+                                                cf_name.c_str()));
         }
         property.remove_prefix(cf_name.size() + 1);
         
         if (property == "levels") {
             for (int i = 0; i < Config::kMaxLevel; ++i) {
                 value->append("+--------------------------------------------+\n");
-                value->append(Slice::Sprintf("|== Level: %d ==\n", i));
+                value->append(base::Sprintf("|== Level: %d ==\n", i));
                 for (auto fmd : cfd->current()->level_files(i)) {
-                    value->append(Slice::Sprintf("+- Number: [%" PRIu64 "]\n", fmd->number));
+                    value->append(base::Sprintf("+- Number: [%" PRIu64 "]\n", fmd->number));
                     value->append("|---- Smallest : ");
                     value->append(KeyBoundle::ToString(fmd->smallest_key));
                     value->append("\n");
@@ -561,11 +562,61 @@ DBImpl::NewIterator(const ReadOptions &opts, ColumnFamily *cf) {
             value->append("+--------------------------------------------+\n");
         }
     } else {
-        return MAI_CORRUPTION(Slice::Sprintf("Incorrect property name: %.*s",
-                                             int(property.size()),
-                                             property.data()));
+        return MAI_CORRUPTION(base::Sprintf("Incorrect property name: %.*s", int(property.size()),
+                                            property.data()));
     }
 
+    return Error::OK();
+}
+    
+Error DBImpl::WriteImpl(const WriteOptions& opts, WriteBatch* batch,
+                        WriteCallback *callback) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    
+    core::SequenceNumber last_version = versions_->last_sequence_number();
+    Error rs;
+    for (auto cfd : *versions_->column_families()) {
+        rs = MakeRoomForWrite(cfd, &lock);
+        if (!rs) {
+            return rs;
+        }
+    }
+    if (callback) {
+        rs = callback->Prepare(this);
+        if (!rs) {
+            return rs;
+        }
+    }
+    
+    rs = logger_->Append(batch->redo(last_version + 1));
+    if (!rs) {
+        return rs;
+    }
+    flush_request_.fetch_add(1);
+    
+    if (opts.sync) {
+        rs = logger_->Flush();
+        if (!rs) {
+            return rs;
+        }
+        rs = logger_->Sync(true);
+        if (!rs) {
+            return rs;
+        }
+    }
+    if (callback) {
+        callback->WALDone(this);
+    }
+    
+    WritingHandler handler(0, false, versions_->column_families());
+    handler.ResetLastSequenceNumber(last_version + 1);
+    batch->Iterate(&handler);
+    
+    versions_->AddSequenceNumber(handler.sequence_number_count());
+    
+    if (callback) {
+        callback->Done(this);
+    }
     return Error::OK();
 }
     
@@ -588,35 +639,60 @@ Iterator *DBImpl::NewInternalIterator(const ReadOptions &opts,
         return Iterator::AsError(rs);
     }
 
-    Iterator *internal = core::Merging::NewMergingIterator(cfd->ikcmp(),
-                                                           &iters[0],
-                                                           iters.size());
+    Iterator *internal = core::Merging::NewMergingIterator(cfd->ikcmp(), &iters[0], iters.size());
     // No need register cleanup:
     // Memory table's iterator can cleanup itself reference count.
     return internal;
 }
     
-//void DBImpl::TEST_PrintFiles(ColumnFamily *cf) {
-//    GetContext ctx;
-//    Error rs = PrepareForGet(ReadOptions{}, cf, &ctx);
-//    if (!rs) {
-//        return;
-//    }
-//    std::unique_lock<std::mutex> lock(mutex_);
-//    if (ctx.cfd->background_progress()) {
-//        ctx.cfd->mutable_background_cv()->wait(lock);
-//    }
-//    for (int i = 0; i < Config::kMaxLevel; ++i) {
-//        printf("level: %d\n", i);
-//        for (auto fmd : ctx.cfd->current()->level_files(i)) {
-//            std::string smallest(core::KeyBoundle::ExtractUserKey(fmd->smallest_key));
-//            std::string largest(core::KeyBoundle::ExtractUserKey(fmd->largest_key));
-//            
-//            printf("file[%llu] [%s, %s]\n", fmd->number, smallest.c_str(),
-//                   largest.c_str());
-//        }
-//    }
-//}
+core::SequenceNumber DBImpl::GetLatestSequenceNumber() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    return versions_->last_sequence_number();
+}
+    
+Error DBImpl::GetColumnFamilyImpl(uint32_t cfid, base::intrusive_ptr<ColumnFamilyImpl> *result) {
+    
+    auto impl = versions_->column_families()->GetColumnFamily(cfid);
+    if (!impl) {
+        return MAI_CORRUPTION("Column family not found!");
+    }
+    result->reset(impl);
+    return Error::OK();
+}
+    
+Error DBImpl::GetLatestSequenceForKey(ColumnFamilyImpl *impl, bool cache_only,
+                              std::string_view key, core::SequenceNumber *seq) {
+    auto curr_seq = versions_->last_sequence_number();
+    *seq = core::Tag::kMaxSequenceNumber;
+    
+    std::string value;
+    core::Tag tag;
+    Error rs = impl->mutable_table()->Get(key, curr_seq, &tag, &value);
+    if (rs.ok()) {
+        *seq = tag.sequence_number();
+        return Error::OK();
+    }
+    
+    std::vector<base::intrusive_ptr<core::MemoryTable>> imm;
+    impl->immutable_pipeline()->PeekAll(&imm);
+    for (const auto &table : imm) {
+        rs = table->Get(key, curr_seq, &tag, &value);
+        if (rs.ok()) {
+            *seq = tag.sequence_number();
+            return Error::OK();
+        }
+    }
+    if (cache_only) {
+        return MAI_NOT_FOUND("No any key in memory tables!");
+    }
+    
+    rs = impl->current()->Get(ReadOptions{}, key, curr_seq, &tag, &value);
+    if (rs.ok()) {
+        *seq = tag.sequence_number();
+        return Error::OK();
+    }
+    return rs;
+}
 
 Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
     ColumnFamilyImpl *cfd = DCHECK_NOTNULL(ColumnFamilyHandle::Cast(cf)->impl());
@@ -626,8 +702,7 @@ Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
         return rs;
     }
     VersionPatch patch;
-    patch.set_prepare_redo_log(log_file_number_,
-                               versions_->last_sequence_number());
+    patch.SetRedoLogNumber(log_file_number_);
     rs = versions_->LogAndApply(options_, &patch, &mutex_);
     if (!rs) {
         return rs;
@@ -639,12 +714,6 @@ Error DBImpl::TEST_ForceDumpImmutableTable(ColumnFamily *cf, bool sync) {
     if (sync && cfd->background_progress()) {
         cfd->mutable_background_cv()->wait(lock);
     }
-    return Error::OK();
-}
-
-// REQUIRES: mutex_.lock()
-Error DBImpl::SwitchMemoryTable(ColumnFamilyImpl *column_family) {
-    // TODO:
     return Error::OK();
 }
 
@@ -674,7 +743,8 @@ Error DBImpl::Redo(uint64_t log_file_number,
                    bool filter) {
     std::unique_ptr<SequentialFile> file;
     std::string log_file_name = Files::LogFileName(abs_db_path_, log_file_number);
-    Error rs = env_->NewSequentialFile(log_file_name, &file, options_.allow_mmap_reads);
+    Error rs = env_->NewSequentialFile(log_file_name, &file,
+                                       options_.allow_mmap_reads);
     if (!rs) {
         return rs;
     }
@@ -682,19 +752,23 @@ Error DBImpl::Redo(uint64_t log_file_number,
     
     std::string_view result;
     std::string scatch;
-    WritingHandler handler(log_file_number, filter, last_sequence_number + 1,
-                           versions_->column_families());
+    WritingHandler handler(log_file_number, filter, versions_->column_families());
     while (logger.Read(&result, &scatch)) {
+        core::SequenceNumber sn = base::Slice::SetFixed64(result.substr(0, 8));
+        uint32_t n_entries = base::Slice::SetFixed32(result.substr(8, 4));
+        result.remove_prefix(WriteBatch::kHeaderSize);
+
+        handler.ResetLastSequenceNumber(sn);
         rs = WriteBatch::Iterate(result.data(), result.size(), &handler);
         if (!rs) {
             return rs;
         }
+        DCHECK_EQ(n_entries, handler.sequence_number_count());
+        *update_sequence_number = sn + handler.sequence_number_count();
     }
     if (!logger.error().ok() && !logger.error().IsEof()) {
         return logger.error();
     }
-    *update_sequence_number = last_sequence_number
-                            + handler.sequence_number_count();
     return Error::OK();
 }
     
@@ -751,13 +825,22 @@ Error DBImpl::Write(const WriteOptions &opts, ColumnFamily *cf,
     }
     
     std::string redo;
+    MakeRedo(&redo, last_sequence_number, 1);
     core::KeyBoundle::MakeRedo(key, value, cfd->id(), flag, &redo);
     rs = logger_->Append(redo);
     if (!rs) {
         return rs;
     }
+    flush_request_.fetch_add(1);
     if (opts.sync) {
-        flush_request_.fetch_add(1);
+        rs = logger_->Flush();
+        if (!rs) {
+            return rs;
+        }
+        rs = logger_->Sync(true);
+        if (!rs) {
+            return rs;
+        }
     }
     
     // TODO: thiny locking
@@ -838,19 +921,14 @@ Error DBImpl::MakeRoomForWrite(ColumnFamilyImpl *cfd,
                    Config::kMaxNumberLevel0File) {
             cfd->mutable_background_cv()->wait(*lock);
             break;
-        } /*else if (total_wal_size_.load(std::memory_order_acquire) <
-                   options_.max_total_wal_size) {
-            // Wal file size checking.
-            break;
-        } */ else {
+        } else {
             DCHECK_EQ(0, versions_->prev_log_number());
             rs = RenewLogger();
             if (!rs) {
                 break;
             }
             VersionPatch patch;
-            patch.set_prepare_redo_log(log_file_number_,
-                                       versions_->last_sequence_number());
+            patch.SetRedoLogNumber(log_file_number_);
             rs = versions_->LogAndApply(options_, &patch, &mutex_);
             if (!rs) {
                 break;
@@ -874,7 +952,7 @@ void DBImpl::FlushWork() {
         bkg_cv_.wait_for(lock, std::chrono::milliseconds(200));
         
         int n_reqs = flush_request_.load();
-        if (n_reqs > 0 ||
+        if (n_reqs > 0 &&
             (env_->CurrentTimeMicros() - last_sync_jiffy) / 1000 >
             Config::kMaxWalSyncMills) {
 
@@ -996,8 +1074,8 @@ Error DBImpl::CompactMemoryTable(ColumnFamilyImpl *cfd) {
         if (shutting_down_.load()) {
             return MAI_IO_ERROR("Deleting DB during memtable compaction");
         }
-        patch.set_prev_log_number(0);
-        patch.set_redo_log(cfd->id(), imm->associated_file_number());
+        patch.SetPrevLogNumber(0);
+        patch.SetRedoLog(cfd->id(), imm->associated_file_number());
         rs = versions_->LogAndApply(ColumnFamilyOptions{}, &patch, &mutex_);
         if (!rs) {
             return rs;
@@ -1096,13 +1174,6 @@ Error DBImpl::CompactFileTable(ColumnFamilyImpl *cfd, CompactionContext *ctx) {
         return rs;
     }
     DCHECK_GT(builder->NumEntries(), 0) << "Empty compaction!";
-    mutex_.unlock();
-    rs = builder->Finish();
-    mutex_.lock();
-    if (!rs) {
-        builder->Abandon();
-        return rs;
-    }
     
     FileMetaData *fmd = new FileMetaData(job->target_file_number());
     fmd->ctime        = env_->CurrentTimeMicros();
@@ -1256,24 +1327,6 @@ void DBImpl::DeleteObsoleteFiles(ColumnFamilyImpl *cfd) {
     
 const char kDefaultColumnFamilyName[] = "default";
     
-/*static*/ Error DB::Open(const Options &opts,
-                          const std::string name,
-                          const std::vector<ColumnFamilyDescriptor> &descriptors,
-                          std::vector<ColumnFamily *> *column_families,
-                          DB **result) {
-    if (name.empty()) {
-        return MAI_CORRUPTION("Empty db name.");
-    }
-    db::DBImpl *impl = new db::DBImpl(name, opts);
-    Error rs = impl->Open(descriptors, column_families);
-    if (!rs) {
-        return rs;
-    }
-    
-    *result = impl;
-    return Error::OK();
-}
-    
 /*virtual*/ Error
 DB::NewColumnFamilies(const std::vector<std::string> &names,
                       const ColumnFamilyOptions &options,
@@ -1304,6 +1357,77 @@ DB::DropColumnFamilies(const std::vector<ColumnFamily *> &column_families) {
         }
     }
     return rs;
+}
+    
+/*static*/
+Error DB::Open(const Options &opts, const std::string &name,
+               const std::vector<ColumnFamilyDescriptor> &descriptors,
+               std::vector<ColumnFamily *> *column_families, DB **result) {
+    if (name.empty()) {
+        return MAI_CORRUPTION("Empty db name.");
+    }
+    db::DBImpl *impl = new db::DBImpl(name, opts);
+    Error rs = impl->Open(descriptors, column_families);
+    if (!rs) {
+        return rs;
+    }
+    
+    *result = impl;
+    return Error::OK();
+}
+
+/*static*/
+Error DB::ListColumnFamilies(const Options &opts, const std::string &name,
+                             std::vector<std::string> *result) {
+    Env *env = opts.env;
+
+    std::string abs_db_path = env->GetAbsolutePath(name);;
+    std::string current_file_name = db::Files::CurrentFileName(abs_db_path);
+    
+    Error rs = env->FileExists(current_file_name);
+    if (!rs) {
+        return rs;
+    }
+    
+    std::string number;
+    rs = base::FileReader::ReadAll(current_file_name, &number, env);
+    if (!rs) {
+        return rs;
+    }
+    
+    uint64_t mn = 0;
+    if (base::Slice::ParseU64(number.data(), number.size(), &mn) != 0) {
+        return MAI_IO_ERROR("Bad manifest number! " + number);
+    }
+    
+    std::string manifest_file_name = db::Files::ManifestFileName(abs_db_path, mn);
+    std::unique_ptr<SequentialFile> file;
+    rs = env->NewSequentialFile(manifest_file_name, &file, false);
+    if (!rs) {
+        return rs;
+    }
+    
+    std::map<uint32_t, std::string> cfs;
+    
+    db::VersionPatch patch;
+    std::string_view record;
+    std::string scratch;
+    db::LogReader rd(file.get(), true, db::WAL::kDefaultBlockSize);
+    while (rd.Read(&record, &scratch)) {
+        patch.Reset();
+        patch.Decode(record);
+        
+        if (patch.has_add_column_family()) {
+            cfs.insert({patch.cf_creation().cfid, patch.cf_creation().name});
+        }
+        if (patch.has_drop_column_family()) {
+            cfs.erase(patch.cf_deletion());
+        }
+    }
+    for (const auto &cf : cfs) {
+        result->push_back(cf.second);
+    }
+    return Error::OK();
 }
     
 } // namespace mai

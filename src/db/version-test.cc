@@ -4,6 +4,7 @@
 #include "db/factory.h"
 #include "db/compaction.h"
 #include "db/config.h"
+#include "table/block-cache.h"
 #include "mai/options.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"

@@ -124,8 +124,12 @@ CompactionImpl::CompactionImpl(const std::string abs_db_path,
             }
         }
     }
-    
     result->compacted_n_entries = builder->NumEntries();
+
+    Error rs = builder->Finish();
+    if (!rs) {
+        return rs;
+    }
     return builder->error();
 }
     

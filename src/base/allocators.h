@@ -5,6 +5,7 @@
 #include "glog/logging.h"
 #include <stdlib.h>
 #include <memory>
+#include <type_traits>
 
 namespace mai {
     
@@ -26,35 +27,48 @@ struct DelegatedAllocator {
     void Free(void *chunk) const { allocator->Free(chunk, 0); }
 }; // struct DelegatedAllocator
 
-class ScopedMemory {
+template<class T, int N>
+class ScopedMemoryTemplate {
 public:
-    static const int kSize = 512;
+    static const int kSize = N;
     
-    ScopedMemory() {}
-    ~ScopedMemory() { Purge(); }
+    ScopedMemoryTemplate() {}
+    ~ScopedMemoryTemplate() { Purge(); }
     
-    void *New(size_t size) {
+    void *Allocate(size_t size) {
         Purge();
         if (size > kSize) {
-            memory_ = ::malloc(size);
+            memory_ = static_cast<T *>(::malloc(size * sizeof(T)));
         }
         return memory_;
     }
     
+    T *New(size_t size) {
+        T *raw = static_cast<T *>(Allocate(size));
+        if (std::is_constructible<T, void>::value) {
+            for (size_t i = 0; i < size; ++i) {
+                new (raw) T();
+            }
+        }
+        return raw;
+    }
+    
     void Purge() {
-        if (memory_ != init_memory_) {
+        if (memory_ != static_) {
             ::free(memory_);
-            memory_ = init_memory_;
+            memory_ = static_;
         }
     }
     
 private:
-    char init_memory_[kSize];
-    void *memory_ = init_memory_;
+    T  static_[kSize];
+    T *memory_ = static_;
 }; // class ScopedMemory
     
+using ScopedMemory = ScopedMemoryTemplate<uint8_t, 128>;
+    
 struct ScopedAllocator {
-    void *Allocate(size_t size) { return memory->New(size); }
+    void *Allocate(size_t size) { return memory->Allocate(size); }
   
     ScopedMemory *memory;
 }; // struct ScopedAllocator
