@@ -226,16 +226,22 @@ public:
     virtual void NewMap(IVal map, int n, int linear, int line) = 0;
     virtual void SetField(IVal self, IVal index, IVal value, int line) = 0;
     virtual void GetField(IVal value, IVal self, IVal index, int line) = 0;
+    virtual void Closure(IVal closure, IVal func, int line) = 0;
+    virtual void Self(IVal base, IVal callee, IVal method, int line) = 0;
+    virtual void New(IVal val, IVal clazz, int nargs, int line) = 0;
     
     //----------------------------------------------------------------------------------------------
     // Implements from ast::Visitor
     //----------------------------------------------------------------------------------------------
+    virtual IVal VisitFunctionDefinition(ast::FunctionDefinition *node, ast::VisitorContext *x) override;
     virtual IVal VisitBlock(ast::Block *node, ast::VisitorContext */*ctx*/) override;
     virtual IVal VisitVarDeclaration(ast::VarDeclaration *node, ast::VisitorContext *x) override;
     virtual IVal VisitVariable(ast::Variable *node, ast::VisitorContext *x) override;
     virtual IVal VisitAssignment(ast::Assignment *node, ast::VisitorContext *x) override;
     virtual IVal VisitIndex(ast::Index *node, ast::VisitorContext *x) override;
     virtual IVal VisitDotField(ast::DotField *node, ast::VisitorContext *x) override;
+    virtual IVal VisitSelfCall(ast::SelfCall *node, ast::VisitorContext *x) override;
+    virtual IVal VisitNew(ast::New *node, ast::VisitorContext *x) override;
     virtual IVal VisitCall(ast::Call *node, ast::VisitorContext *x) override;
     virtual IVal VisitReturn(ast::Return *node, ast::VisitorContext *x) override;
     virtual IVal VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) override;

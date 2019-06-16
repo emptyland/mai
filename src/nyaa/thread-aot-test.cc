@@ -197,6 +197,26 @@ TEST_F(NyaaThreadAOTTest, SetField) {
 //           script->proto()->code()->instructions_bytes_size());
 }
     
+TEST_F(NyaaThreadAOTTest, SelfCall) {
+    static const char s[] = {
+        "var a = {a:1, b:2}\n"
+        "a.f = lambda(self) { return self.a + self.b }\n"
+        "assert(a.a == 1)\n"
+        "assert(a.b == 2)\n"
+        "assert(a:f() == 3)\n"
+        "assert(a:f() == (a.a + a.b))\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //ASSERT_TRUE(script->proto()->IsNativeExec());
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+    //    printf("%u %u\n", script->proto()->file_info()->size(),
+    //           script->proto()->code()->instructions_bytes_size());
+}
+    
 TEST_F(NyaaThreadAOTTest, MapIndex) {
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);

@@ -23,42 +23,6 @@ public:
         : CodeGeneratorVisitor(core, arena, file_name) {}
     
     virtual ~BytecodeGeneratorVisitor() override {};
-    
-    virtual IVal
-    VisitFunctionDefinition(ast::FunctionDefinition *node, ast::VisitorContext *x) override {
-        // TODO: for object or class scope.
-        CodeGeneratorContext rix;
-        rix.set_localize(false);
-        rix.set_keep_const(true);
-        IVal rval = node->literal()->Accept(this, &rix);
-        DCHECK_EQ(IVal::kFunction, rval.kind);
-        
-        Handle<NyFunction> lambda = fun_scope_->proto(rval.index);
-        lambda->SetName(core_->factory()->NewString(node->name()->data(),
-                                                    node->name()->size()), core_);
-        IVal closure = fun_scope_->NewLocal();
-        builder()->Closure(closure, rval, node->line());
-        if (node->self()) {
-            CodeGeneratorContext lix;
-            lix.set_n_result(1);
-            IVal self = node->self()->Accept(this, &lix);
-            IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
-            builder()->SetField(self, index, closure);
-            fun_scope_->FreeVar(self);
-            fun_scope_->FreeVar(index);
-        } else {
-            if (fun_scope_->prev() == nullptr) {
-                // as global variable
-                IVal lval = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
-                builder()->StoreGlobal(closure, lval, node->line());
-            } else {
-                // as local variable
-                blk_scope_->PutVariable(node->name(), &closure);
-            }
-        }
-        fun_scope_->FreeVar(closure);
-        return IVal::Void();
-    }
 
     virtual IVal VisitIfStatement(ast::IfStatement *node, ast::VisitorContext *x) override {
         CodeGeneratorContext ix;
@@ -251,55 +215,6 @@ public:
         return val;
     }
     
-    virtual IVal VisitNew(ast::New *node, ast::VisitorContext *x) override {
-        int32_t n_args = node->GetNArgs();
-        CodeGeneratorContext ix;
-        
-        ix.set_n_result(1);
-        IVal val = fun_scope_->NewLocal();
-        IVal clazz = node->callee()->Accept(this, &ix);
-        
-        ix.set_n_result(n_args < 0 ? -1 : 1);
-        int reg = clazz.index;
-        for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
-            ast::Expression *expr = node->args()->at(i);
-            AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
-        }
-        
-        builder()->New(val, clazz, n_args, node->line());
-        //fun_scope_->FreeVar(clazz);
-        fun_scope_->set_free_reg(clazz.index);
-        return val;
-    }
-    
-    virtual IVal VisitSelfCall(ast::SelfCall *node, ast::VisitorContext *x) override {
-        int32_t n_args = node->GetNArgs();
-        CodeGeneratorContext ix;
-        ix.set_n_result(1);
-        
-        IVal base = fun_scope_->NewLocal();
-        IVal self = fun_scope_->NewLocal();
-        IVal callee = node->callee()->Accept(this, &ix);
-        IVal method = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->method()));
-        builder()->Self(base, callee, method, node->line());
-        fun_scope_->FreeVar(callee);
-        
-        ix.set_n_result(n_args < 0 ? -1 : 1);
-        int reg = base.index + 1;
-        for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
-            ast::Expression *expr = node->args()->at(i);
-            AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
-        }
-        (void)self;
-        //fun_scope_->FreeVar(self);
-        
-        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-        builder()->Call(base, n_args + 1/*for self*/, ctx->n_result(), node->line());
-        
-        fun_scope_->set_free_reg(base.index + 1);
-        return base;
-    }
-    
     virtual
     IVal VisitVariableArguments(ast::VariableArguments *node, ast::VisitorContext *x) override {
         CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
@@ -419,6 +334,10 @@ private:
         builder()->LoadNil(val, n, line);
     }
     
+    virtual void Self(IVal base, IVal callee, IVal method, int line) override {
+        builder()->Self(base, callee, method, line);
+    }
+    
     virtual void Call(IVal callee, int nargs, int wanted, int line) override {
         builder()->Call(callee, nargs, wanted, line);
     }
@@ -449,6 +368,14 @@ private:
 
     virtual void GetField(IVal value, IVal self, IVal index, int line) override {
         builder()->GetField(value, self, index, line);
+    }
+    
+    virtual void Closure(IVal closure, IVal func, int line) override {
+        builder()->Closure(closure, func, line);
+    }
+    
+    virtual void New(IVal val, IVal clazz, int nargs, int line) override {
+        builder()->New(val, clazz, nargs, line);
     }
 
     virtual IVal Localize(IVal val, int line) override {
@@ -561,16 +488,16 @@ private:
         kvs->push_back(val);
     }
     
-    IVal AdjustStackPosition(int requried, IVal val, int line) {
-        DCHECK_EQ(IVal::kLocal, val.kind);
-        if (requried != val.index) {
-            IVal dst = fun_scope_->NewLocal();
-            DCHECK_EQ(requried, dst.index);
-            builder()->Move(dst, val, line);
-            return dst;
-        }
-        return val;
-    }
+//    IVal AdjustStackPosition(int requried, IVal val, int line) {
+//        DCHECK_EQ(IVal::kLocal, val.kind);
+//        if (requried != val.index) {
+//            IVal dst = fun_scope_->NewLocal();
+//            DCHECK_EQ(requried, dst.index);
+//            builder()->Move(dst, val, line);
+//            return dst;
+//        }
+//        return val;
+//    }
 }; // class CodeGeneratorVisitor
 
 Handle<NyFunction> Bytecode_CodeGenerate(Handle<NyString> file_name, ast::Block *root,

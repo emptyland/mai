@@ -115,6 +115,42 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     return IVal::Void();
 }
     
+/*virtual*/ IVal CodeGeneratorVisitor::VisitFunctionDefinition(ast::FunctionDefinition *node,
+                                                               ast::VisitorContext *x) {
+    // TODO: for object or class scope.
+    CodeGeneratorContext rix;
+    rix.set_localize(false);
+    rix.set_keep_const(true);
+    IVal rval = node->literal()->Accept(this, &rix);
+    DCHECK_EQ(IVal::kFunction, rval.kind);
+    
+    Handle<NyFunction> lambda = fun_scope_->proto(rval.index);
+    lambda->SetName(core_->factory()->NewString(node->name()->data(),
+                                                node->name()->size()), core_);
+    IVal closure = fun_scope_->NewLocal();
+    Closure(closure, rval, node->line());
+    if (node->self()) {
+        CodeGeneratorContext lix;
+        lix.set_n_result(1);
+        IVal self = node->self()->Accept(this, &lix);
+        IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
+        SetField(self, index, closure, node->line());
+        fun_scope_->FreeVar(self);
+        fun_scope_->FreeVar(index);
+    } else {
+        if (fun_scope_->prev() == nullptr) {
+            // as global variable
+            IVal lval = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
+            StoreGlobal(closure, lval, node->line());
+        } else {
+            // as local variable
+            blk_scope_->PutVariable(node->name(), &closure);
+        }
+    }
+    fun_scope_->FreeVar(closure);
+    return IVal::Void();
+}
+    
 /*virtual*/ IVal CodeGeneratorVisitor::VisitVarDeclaration(ast::VarDeclaration *node,
                                                            ast::VisitorContext *x) {
     std::vector<IVal> vars;
@@ -269,6 +305,54 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     }
 }
     
+/*virtual*/ IVal CodeGeneratorVisitor::VisitSelfCall(ast::SelfCall *node, ast::VisitorContext *x) {
+    int32_t n_args = node->GetNArgs();
+    CodeGeneratorContext ix;
+    ix.set_n_result(1);
+    
+    IVal base = fun_scope_->NewLocal();
+    IVal self = fun_scope_->NewLocal();
+    IVal callee = node->callee()->Accept(this, &ix);
+    IVal method = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->method()));
+    Self(base, callee, method, node->line());
+    fun_scope_->FreeVar(callee);
+    
+    ix.set_n_result(n_args < 0 ? -1 : 1);
+    int reg = base.index + 1;
+    for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
+        ast::Expression *expr = node->args()->at(i);
+        AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
+    }
+    (void)self;
+    
+    CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+    Call(base, n_args + 1/*for self*/, ctx->n_result(), node->line());
+    
+    fun_scope_->set_free_reg(base.index + 1);
+    return base;
+}
+    
+/*virtual*/ IVal CodeGeneratorVisitor::VisitNew(ast::New *node, ast::VisitorContext *x) {
+    int32_t n_args = node->GetNArgs();
+    CodeGeneratorContext ix;
+    
+    ix.set_n_result(1);
+    IVal val = fun_scope_->NewLocal();
+    IVal clazz = node->callee()->Accept(this, &ix);
+    
+    ix.set_n_result(n_args < 0 ? -1 : 1);
+    int reg = clazz.index;
+    for (size_t i = 0; node->args() && i < node->args()->size(); ++i) {
+        ast::Expression *expr = node->args()->at(i);
+        AdjustStackPosition(++reg, expr->Accept(this, &ix), expr->line());
+    }
+    
+    New(val, clazz, n_args, node->line());
+    //fun_scope_->FreeVar(clazz);
+    fun_scope_->set_free_reg(clazz.index);
+    return val;
+}
+
 /*virtual*/ IVal CodeGeneratorVisitor::VisitCall(ast::Call *node, ast::VisitorContext *x) {
     int32_t n_args = node->GetNArgs();
     CodeGeneratorContext ix;
