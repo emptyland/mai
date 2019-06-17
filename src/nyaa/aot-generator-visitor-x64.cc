@@ -293,17 +293,20 @@ private:
     }
 
     void Invoke(int32_t callee, int32_t nargs, int32_t wanted) {
-        __ movq(rbx, Operand(kThread, NyThread::kOffsetFrame));
-        __ movq(r9, Operand(rbx, CallFrame::kOffsetEntry));
-        __ lea(r8, Operand(rip, 0)); // r8 = rip
-        __ subq(r8, r9);
-        __ movl(Operand(rbx, CallFrame::kOffsetPC), r8);
-        
+        SaveRIP();
         __ movl(kRegArgv[0], callee);
         __ movl(kRegArgv[1], nargs);
         __ movl(kRegArgv[2], wanted);
         __ movq(rax, core_->code_pool()->kCallStub->entry_address());
         __ call(rax);
+    }
+    
+    void SaveRIP() {
+        __ movq(rbx, Operand(kThread, NyThread::kOffsetFrame));
+        __ movq(r9, Operand(rbx, CallFrame::kOffsetEntry));
+        __ lea(r8, Operand(rip, 0)); // r8 = rip
+        __ subq(r8, r9);
+        __ movl(Operand(rbx, CallFrame::kOffsetPC), r8);
     }
 
     // base = ob:method
@@ -591,8 +594,75 @@ private:
     }
     
     virtual void New(IVal val, IVal clazz, int nargs, int line) override {
-        // TODO:
-        DLOG(FATAL) << "TODO:Noreached!";
+        FileLineScope fls(fun_scope_, line);
+        static const int32_t kSavedStack = RoundUp(kPageSize + 4, arch::kNativeStackAligment);
+        static const Operand kStNArgs = Operand(rbp, -4);
+        static const Operand kStInit = Operand(rbp, -12);
+        
+        __ subq(rsp, kSavedStack);
+        
+        //__ Breakpoint();
+        __ movq(kRegArgv[0], kThread);
+        __ movl(kRegArgv[1], val.index);
+        __ movl(kRegArgv[2], clazz.index);
+        __ movl(kStNArgs, nargs);
+        __ lea(kRegArgv[3], kStNArgs);
+        __ lea(kRegArgv[4], kStInit);
+        CallRuntime(Runtime::kThread_PrepareNew);
+        __ cmpq(kStInit, 0);
+        Label call_init;
+        __ j(NotEqual, &call_init, true); // ----------------> call_init
+        __ movq(Local(val.index), rax);
+        Label exit;
+        __ jmp(&exit, true); // ----------------> exit
+
+        __ Bind(&call_init); // <---------------- call_init
+        __ movq(Local(val.index), rax);
+        __ movq(rsi, kBP);
+        __ movl(rax, clazz.index);
+        __ shll(rax, kPointerShift);
+        __ addl(rax, kPointerSize);
+        __ addq(rsi, rax); // rsi = bp + (clazz.index + 1) * 8
+
+        __ movl(rax, kStNArgs);
+        __ shll(rax, kPointerShift);
+        __ movq(rdi, rsi);
+        __ addq(rdi, rax); // rdi = bp + (clazz.index + 1) * 8 + nargs * 8
+        
+        __ movq(rax, kStInit);
+        __ movq(Operand(rdi, 0), rax); // rdi[0] = function init
+        __ movq(rax, Local(val.index));
+        __ movq(Operand(rdi, kPointerSize), rax); // rdi[1] = self
+
+        __ addq(rdi, kPointerSize * 2); // rdi[2..] = args
+        __ movl(rcx, kStNArgs);
+        __ cmpl(rcx, 0);
+        Label out, retry;
+        __ Bind(&retry);
+        __ j(LessEqual, &out, false);
+        __ movq(rax, Operand(rsi, 0));
+        __ movq(Operand(rdi, 0), rax);
+        __ addq(rsi, kPointerSize);
+        __ addq(rdi, kPointerSize);
+        __ decl(rcx);
+        __ jmp(&retry, false);
+        
+        __ Bind(&out);
+        SaveRIP();
+        // argv[0] = clazz.index + 1 + nargs
+        __ movl(kRegArgv[0], clazz.index);
+        __ incl(kRegArgv[0]);
+        __ addl(kRegArgv[0], kStNArgs);
+        // argv[1] = nargs + 1
+        __ movl(kRegArgv[1], kStNArgs);
+        __ incl(kRegArgv[1]);
+        // argv[2] = 0
+        __ movl(kRegArgv[2], 0); // no return
+        __ movq(rax, core_->code_pool()->kCallStub->entry_address());
+        __ call(rax);
+
+        __ Bind(&exit); // <---------------- exit
+        __ addq(rsp, kSavedStack);
     }
 
     Assembler *masm() { return &static_cast<FunctionScopeBundle *>(fun_scope_)->masm_; }

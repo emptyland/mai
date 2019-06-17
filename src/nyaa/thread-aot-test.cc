@@ -225,6 +225,23 @@ TEST_F(NyaaThreadAOTTest, MapIndex) {
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
 
+TEST_F(NyaaThreadAOTTest, NewCoroutine) {
+    static const char s[] = {
+        "var co = assert(new coroutine(lambda(){}))\n"
+        "assert(co)\n"
+        "assert(co.status == \"suspended\")\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //ASSERT_TRUE(script->proto()->IsNativeExec());
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+//    printf("%u %u\n", script->proto()->file_info()->size(),
+//           script->proto()->code()->instructions_bytes_size());
+}
+
 } // namespace nyaa
 
 } // namespace mai

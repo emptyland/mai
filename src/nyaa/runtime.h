@@ -30,6 +30,7 @@ public:
         kThread_FinalizeCall,
         kThread_Ret,
         kThread_NewMap,
+        kThread_PrepareNew,
         kThread_SaveNativeStack,
         
         kNyaaCore_GetRecoverPoint,

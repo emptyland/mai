@@ -1158,7 +1158,7 @@ public:
     inline void name(Register lhs, int32_t val) { EmitArith(ri, lhs, val, size); } \
     inline void name(Register lhs, Operand rhs) { EmitArith(ro, lhs, rhs, size); } \
     inline void name(Operand lhs, Register rhs) { EmitArith(or, rhs, lhs, size); } \
-    inline void name(Operand lhs, int32_t val) { EmitArith(or, lhs, val, size); }
+    inline void name(Operand lhs, int32_t val) { EmitArith(oi, lhs, val, size); }
 
     ARITH_OP_LIST(DEF_ARITH)
     

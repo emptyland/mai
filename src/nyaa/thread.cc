@@ -1101,6 +1101,35 @@ void NyThread::RuntimeNewMap(int32_t ra, int32_t n, int32_t p, uint32_t seed) {
     Set(ra, ob);
 }
     
+NyUDO *NyThread::RuntimePrepareNew(int32_t val, int32_t type, int32_t *nargs, NyRunnable **init) {
+    NyMap *clazz = NyMap::Cast(Get(type));
+    if (!clazz) {
+        owns_->Raisef("new non-class.");
+        return nullptr;
+    }
+    Object *n_fields = clazz->RawGet(owns_->bkz_pool()->kInnerSize, owns_);
+    if (n_fields == Object::kNil || !n_fields->IsSmi()) {
+        owns_->Raisef("incorrect class table: error __size__.");
+        return nullptr;
+    }
+    
+    size_t size = NyUDO::RequiredSize(n_fields->ToSmi());
+    NyUDO *udo = owns_->factory()->NewUninitializedUDO(size, clazz, false);
+    ::memset(udo->data(), 0, size - sizeof(NyUDO));
+    Set(type, udo); // protected for gc.
+    
+    Object **base = frame_bp() + type;
+    if (*nargs >= 0) {
+        stack_tp_ = base + 1 + *nargs;
+    }
+    if (*nargs < 0) {
+        *nargs = static_cast<int32_t>(stack_tp_ - base - 1);
+    }
+    CheckStack((base - stack_) + *nargs + 2);
+    *init = NyRunnable::Cast(clazz->RawGet(owns_->bkz_pool()->kInnerInit, owns_));
+    return udo;
+}
+    
 int NyThread::RuntimePrepareCall(int32_t callee, int32_t argc, int wanted) {
     //PrintStack();
     //printf("frame: %p\n", frame_bp());
@@ -1115,7 +1144,7 @@ int NyThread::RuntimePrepareCall(int32_t callee, int32_t argc, int wanted) {
     }
     return PrepareCall(base, argc, wanted);
 }
-    
+
 int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
     if (nrets < 0) {
         nrets = static_cast<int32_t>(stack_tp_ - (frame_bp() + base));

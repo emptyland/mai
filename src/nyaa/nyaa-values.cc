@@ -154,6 +154,7 @@ DEFINE_OBJECT_BIN_ARITH(Mod)
     switch (lhs->GetType()) {
         case kTypeMap:
             return NyMap::Cast(lhs)->Get(key, N);
+        case kTypeThread:
         case kTypeUdo:
             return NyUDO::Cast(lhs)->Get(key, N);
         default:
@@ -168,6 +169,7 @@ DEFINE_OBJECT_BIN_ARITH(Mod)
         case kTypeMap:
             NyMap::Cast(lhs)->Put(key, value, N);
             break;
+        case kTypeThread:
         case kTypeUdo:
             NyUDO::Cast(lhs)->Put(key, value, N);
             break;

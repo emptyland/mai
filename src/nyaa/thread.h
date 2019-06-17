@@ -319,7 +319,7 @@ private:
     }
     
     void RuntimeNewMap(int32_t map, int32_t n, int32_t p, uint32_t seed);
-    
+    NyUDO *RuntimePrepareNew(int32_t base, int32_t ob, int32_t *nargs, NyRunnable **init);
     int RuntimePrepareCall(int32_t callee, int32_t nargs, int wanted);
     int RuntimeFinializeCall(int32_t callee, int32_t nargs, int wanted);
 
@@ -391,11 +391,11 @@ inline Object *NyThread::Get(int i) {
     } else {
         //if (stack_tp_ < )
         //DCHECK_LT(frame_bp() + i, frame_tp());
-        if (stack_tp_ > frame_tp()) {
-            DCHECK_LT(frame_bp() + i, stack_tp_);
-        } else {
-            DCHECK_LT(frame_bp() + i, frame_tp());
-        }
+//        if (stack_tp_ > frame_tp()) {
+//            DCHECK_LT(frame_bp() + i, stack_tp_);
+//        } else {
+//            DCHECK_LT(frame_bp() + i, frame_tp());
+//        }
         DCHECK_LT(frame_bp() + i, stack_last_);
         return frame_bp()[i];
     }

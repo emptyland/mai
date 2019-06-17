@@ -93,6 +93,7 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     switch (ob->GetType()) {
         case kTypeMap:
             return NyMap::Cast(ob)->GetValidMetaFunction(name, N);
+        case kTypeThread:
         case kTypeUdo:
             return NyUDO::Cast(ob)->GetValidMetaFunction(name, N);
         default:
@@ -112,6 +113,7 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     ThreadTemplate::MethodAddress(&NyThread::FinializeCall),
     ThreadTemplate::MethodAddress(&NyThread::RuntimeRet),
     ThreadTemplate::MethodAddress(&NyThread::RuntimeNewMap),
+    ThreadTemplate::MethodAddress(&NyThread::RuntimePrepareNew),
     ThreadTemplate::MethodAddress(&NyThread::RuntimeSaveNativeStack),
     
     reinterpret_cast<Address>(&NyaaCore_GetRecoverPoint),
