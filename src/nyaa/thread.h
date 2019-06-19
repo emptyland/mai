@@ -159,6 +159,27 @@ private:
     Object **obs_ = nullptr;
 };
     
+class CodeContextBundle : public arch::RegisterContext {
+public:
+    using Template = arch::ObjectTemplate<CodeContextBundle, int32_t>;
+    
+    static const int32_t kOffsetNaStTP;
+    static const int32_t kOffsetNaStBP;
+    
+    inline CodeContextBundle(NyThread *owns);
+    inline ~CodeContextBundle();
+    
+    inline size_t nast_size() const { return nast_bp_ - nast_tp_; }
+    DEF_PTR_PROP_RW(Byte, nast_tp);
+    DEF_PTR_PROP_RW(Byte, nast_bp);
+    DEF_PTR_GETTER(CodeContextBundle, prev);
+private:
+    NyThread *const owns_;
+    CodeContextBundle *prev_;
+    Address nast_tp_ = nullptr; // saved native stack pointer
+    Address nast_bp_ = nullptr; // bk size = nast_bp_ - nast_tp_
+}; // class CodeContextBundle
+    
 class NyThread : public NyUDO {
 public:
     enum State {
@@ -174,10 +195,8 @@ public:
     static const int32_t kOffsetSavePoint;
     static const int32_t kOffsetFrame;
     static const int32_t kOffsetStack;
-    static const int32_t kOffsetNaStTP;
     static const int32_t kOffsetNaStBK;
-    static const int32_t kOffsetNaStBP;
-    static const int32_t kOffsetNaStPC;
+    static const int32_t kOffsetNaStBKSize;
     
     NyThread(NyaaCore *owns);
     ~NyThread();
@@ -236,47 +255,10 @@ public:
     
     constexpr size_t PlacedSize() const { return sizeof(*this); }
     
-    class CodeContextBundle : public arch::RegisterContext {
-    public:
-        using Template = arch::ObjectTemplate<CodeContextBundle, int32_t>;
-
-        static const int32_t kOffsetNaStTP;
-        static const int32_t kOffsetNaStBK;
-        static const int32_t kOffsetNaStBP;
-        static const int32_t kOffsetNaStPC;
-
-        CodeContextBundle(NyThread *owns)
-            : owns_(owns)
-            , prev_(owns_->save_point_) {
-            DCHECK_NE(owns_->save_point_, this);
-            owns_->save_point_ = this;
-
-            static_assert(std::is_base_of<arch::RegisterContext, CodeContextBundle>::value, "error");
-            if (std::is_base_of<arch::RegisterContext, CodeContextBundle>::value) {
-                ::memset(this, 0, sizeof(arch::RegisterContext));
-            }
-        }
-        
-        ~CodeContextBundle() {
-            //DCHECK_EQ(owns_->save_point_, this);
-            owns_->save_point_ = prev_;
-            ::free(nast_bk_);
-        }
-        
-        DEF_PTR_GETTER(CodeContextBundle, prev);
-        
-        Address nast_tp_ = nullptr; // saved native stack pointer
-        Address nast_bk_ = nullptr; // backup native stack pointer
-        Address nast_bp_ = nullptr; // bk size = nast_bp_ - nast_tp_
-        Address nast_pc_ = nullptr;
-    private:
-        NyThread *const owns_;
-        CodeContextBundle *prev_;
-    }; // class CodeContextBundle
-    
     friend class NyaaCore;
     friend class TryCatchCore;
     friend class CallFrame;
+    friend class CodeContextBundle;
     friend class Runtime;
     DEF_HEAP_OBJECT(Thread);
 private:
@@ -354,10 +336,8 @@ private:
     CallFrame::ExceptionId interruption_pending_ = CallFrame::kNormal;
     CodeContextBundle *save_point_ = nullptr;
     State state_ = kSuspended;
-    Address nast_tp_ = nullptr; // saved native stack pointer
     Address nast_bk_ = nullptr; // backup native stack pointer
-    Address nast_bp_ = nullptr; // bk size = nast_bp_ - nast_tp_
-    Address nast_pc_ = nullptr;
+    size_t nast_bk_size_ = 0; // size of backup native stack
     Object **stack_ = nullptr; // elements [strong ref]
     Object **stack_tp_ = nullptr;
     Object **stack_last_ = nullptr;
@@ -368,6 +348,24 @@ private:
     NyThread *prev_ = this; // [strong ref]
     NyThread *next_ = this; // [strong ref]
 }; // class NyThread
+    
+inline CodeContextBundle::CodeContextBundle(NyThread *owns)
+    : owns_(owns)
+    , prev_(owns_->save_point_) {
+    DCHECK_NE(owns_->save_point_, this);
+    owns_->save_point_ = this;
+    
+    static_assert(std::is_base_of<arch::RegisterContext, CodeContextBundle>::value, "error");
+    if (std::is_base_of<arch::RegisterContext, CodeContextBundle>::value) {
+        ::memset(this, 0, sizeof(arch::RegisterContext));
+    }
+}
+
+inline CodeContextBundle::~CodeContextBundle() {
+    DCHECK_EQ(owns_->save_point_, this);
+    owns_->save_point_ = prev_;
+}
+
 
 inline NyThread *TryCatchCore::thread() const { return static_cast<NyThread *>(obs_[kThread]); }
     
@@ -385,17 +383,8 @@ inline void NyThread::Push(Object *value, size_t n) {
     
 inline Object *NyThread::Get(int i) {
     if (i < 0) {
-        //DCHECK_GE(frame_tp() + i, frame_bp());
-        //return *(frame_tp() + i);
         return *(stack_tp_ + i);
     } else {
-        //if (stack_tp_ < )
-        //DCHECK_LT(frame_bp() + i, frame_tp());
-//        if (stack_tp_ > frame_tp()) {
-//            DCHECK_LT(frame_bp() + i, stack_tp_);
-//        } else {
-//            DCHECK_LT(frame_bp() + i, frame_tp());
-//        }
         DCHECK_LT(frame_bp() + i, stack_last_);
         return frame_bp()[i];
     }

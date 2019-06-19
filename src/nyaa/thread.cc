@@ -11,6 +11,9 @@ namespace mai {
     
 namespace nyaa {
     
+using EntryTrampolineCallStub =
+    CallStub<int (NyThread *, NyCode *code, NyaaCore *, CodeContextBundle *, Address)>;
+    
 const int32_t CallFrame::kOffsetCallee = Template::OffsetOf(&CallFrame::callee_);
 const int32_t CallFrame::kOffsetEnv = Template::OffsetOf(&CallFrame::env_);
 const int32_t CallFrame::kOffsetConstPool = Template::OffsetOf(&CallFrame::const_pool_);
@@ -26,15 +29,11 @@ const int32_t NyThread::kOffsetInterruptionPending =
 const int32_t NyThread::kOffsetSavePoint = Template::OffsetOf(&NyThread::save_point_);
 const int32_t NyThread::kOffsetFrame = Template::OffsetOf(&NyThread::frame_);
 const int32_t NyThread::kOffsetStack = Template::OffsetOf(&NyThread::stack_);
-const int32_t NyThread::kOffsetNaStTP = Template::OffsetOf(&NyThread::nast_tp_);
 const int32_t NyThread::kOffsetNaStBK = Template::OffsetOf(&NyThread::nast_bk_);
-const int32_t NyThread::kOffsetNaStBP = Template::OffsetOf(&NyThread::nast_bp_);
-const int32_t NyThread::kOffsetNaStPC = Template::OffsetOf(&NyThread::nast_pc_);
+const int32_t NyThread::kOffsetNaStBKSize = Template::OffsetOf(&NyThread::nast_bk_size_);
 
-const int32_t NyThread::CodeContextBundle::kOffsetNaStTP = Template::OffsetOf(&NyThread::CodeContextBundle::nast_tp_);
-const int32_t NyThread::CodeContextBundle::kOffsetNaStBK = Template::OffsetOf(&NyThread::CodeContextBundle::nast_bk_);
-const int32_t NyThread::CodeContextBundle::kOffsetNaStBP = Template::OffsetOf(&NyThread::CodeContextBundle::nast_bp_);
-const int32_t NyThread::CodeContextBundle::kOffsetNaStPC = Template::OffsetOf(&NyThread::CodeContextBundle::nast_pc_);
+const int32_t CodeContextBundle::kOffsetNaStTP = Template::OffsetOf(&CodeContextBundle::nast_tp_);
+const int32_t CodeContextBundle::kOffsetNaStBP = Template::OffsetOf(&CodeContextBundle::nast_bp_);
     
 void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, NyArray *kpool,
                       int wanted, size_t bp, size_t tp, NyMap *env) {
@@ -156,16 +155,6 @@ Error NyThread::Init() {
     stack_ = static_cast<Object **>(::malloc(sizeof(Object *) * stack_size_)); //new Object *[stack_size_];
     stack_last_ = stack_ + stack_size_;
     stack_tp_ = stack_;
-    
-//    if (owns_->stub()->exec() == Nyaa::kAOT) {
-//        nast_size_ = 16 * base::kKB; // TODO:
-//        nast_ = static_cast<Address>(::malloc(nast_size_ + arch::kNativeStackAligment));
-//    #if defined(MAI_ARCH_X64)
-//        nast_tp_ = RoundDown(nast_ + nast_size_, arch::kNativeStackAligment);
-//        nast_last_ = nast_;
-//        DCHECK_GT(nast_tp_, nast_last_);
-//    #endif
-//    }
 
     return Error::OK();
 }
@@ -251,16 +240,23 @@ int NyThread::Resume(Object *argv[], int argc, int wanted, NyMap *env) {
     owns_->set_curr_thd(this);
 
     try {
-        if (!ci) {
-            rv = Run(entry_, argv, argc, wanted, env);
-        } else {
+        if (ci) {
             CallFrame *frame = frame_;
             CopyResult(stack_ + frame->stack_bp() - 1, argv, argc, frame->wanted());
             frame->Exit(this);
             delete frame;
             
-            frame_->AddPC(ParseBytecodeSize(frame_->pc()));
-            rv = Run();
+            if (frame_->proto()->IsNativeExec()) {
+                EntryTrampolineCallStub stub(owns_->code_pool()->kEntryTrampoline);
+                CodeContextBundle bundle(this);
+                rv = stub.entry_fn()(this, frame_->proto()->code(), owns_, &bundle,
+                                     owns_->GetSuspendPointAddress());
+            } else {
+                frame_->AddPC(ParseBytecodeSize(frame_->pc()));
+                rv = Run();
+            }
+        } else {
+            rv = Run(entry_, argv, argc, wanted, env);
         }
     } catch (CallFrame::ExceptionId which) {
         // ignore
@@ -301,9 +297,6 @@ void NyThread::Yield() {
             break;
     }
 }
-    
-using EntryTrampolineCallStub =
-    CallStub<int (NyThread *, NyCode *code, NyaaCore *, arch::RegisterContext *)>;
 
 int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *env) {
     if (!env) {
@@ -327,7 +320,7 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *e
         if (fn->proto()->IsNativeExec()) {
             EntryTrampolineCallStub stub(owns_->code_pool()->kEntryTrampoline);
             CodeContextBundle bundle(this);
-            rv = stub.entry_fn()(this, fn->proto()->code(), owns_, &bundle);
+            rv = stub.entry_fn()(this, fn->proto()->code(), owns_, &bundle, nullptr);
         } else {
             rv = Run();
         }
@@ -1100,7 +1093,7 @@ void NyThread::RuntimeNewMap(int32_t ra, int32_t n, int32_t p, uint32_t seed) {
     if (clazz) { ProcessClass(ob); }
     Set(ra, ob);
 }
-    
+
 NyUDO *NyThread::RuntimePrepareNew(int32_t val, int32_t type, int32_t *nargs, NyRunnable **init) {
     NyMap *clazz = NyMap::Cast(Get(type));
     if (!clazz) {
@@ -1160,18 +1153,43 @@ int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
 }
 
 void NyThread::RuntimeSaveNativeStack(Address nast_tp) {
-//    DCHECK(save_point_->nast_bk_ == nullptr);
-//    save_point_->nast_tp_ = nast_tp;
-//    DCHECK_LT(save_point_->nast_tp_, save_point_->nast_bp_);
-//    size_t nast_size = save_point_->nast_bp_ - save_point_->nast_tp_;
-//    save_point_->nast_bk_ = static_cast<Address>(::malloc(nast_size));
-//    ::memcpy(save_point_->nast_bk_, save_point_->nast_tp_, nast_size);
-    
+    if (save_point_->nast_tp()) {
+        DCHECK_EQ(save_point_->nast_tp(), nast_tp);
+    } else {
+        save_point_->set_nast_tp(DCHECK_NOTNULL(nast_tp));
+    }
+    DCHECK_LT(save_point_->nast_tp(), save_point_->nast_bp());
+    nast_bk_size_ = save_point_->nast_size();
+    //DCHECK_EQ(0, nast_bk_size_ % arch::kNativeStackAligment);
     ::free(nast_bk_);
-    nast_tp_ = nast_tp;
-    DCHECK_LT(nast_tp_, nast_bp_);
-    size_t nast_size = nast_bp_ - nast_tp_;
-    ::memcpy(nast_bk_, nast_tp_, nast_size);
+    nast_bk_ = static_cast<Address>(::malloc(nast_bk_size_));
+    ::memcpy(nast_bk_, save_point_->nast_tp(), nast_bk_size_);
+
+    for (Address i = save_point_->nast_tp(); i < save_point_->nast_bp(); i += kPointerSize) {
+        printf("[nast:%p] %p\n", i, *reinterpret_cast<void **>(i));
+    }
+
+    std::vector<size_t> off_vec;
+    Address tp = save_point_->nast_tp();
+    while(tp < save_point_->nast_bp()) {
+        Address p = *reinterpret_cast<Address *>(tp);
+        size_t offset = p - save_point_->nast_tp();
+        //size_t index = (save_point_->nast_bp() - p) / kPointerSize - 1;
+        //printf("<find> offset: 0x%zx\n", offset);
+        tp = p;
+        off_vec.push_back(offset);
+    }
+    
+    uintptr_t *bk = reinterpret_cast<uintptr_t *>(nast_bk_);
+    bk[0] = off_vec[0];
+    for (size_t i = 1; i < off_vec.size(); ++i) {
+        bk = reinterpret_cast<uintptr_t *>(nast_bk_ + off_vec[i - 1]);
+        *bk = off_vec[i] - off_vec[i - 1];
+    }
+
+    for (Address i = nast_bk_; i < nast_bk_ + nast_bk_size_; i += kPointerSize) {
+        printf("[bk:%p] %p\n", i, *reinterpret_cast<void **>(i));
+    }
 }
 
 int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {
@@ -1243,7 +1261,7 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
             if (callee->proto()->IsNativeExec()) {
                 EntryTrampolineCallStub stub(owns_->code_pool()->kEntryTrampoline);
                 CodeContextBundle bundle(this);
-                return stub.entry_fn()(this, callee->proto()->code(), owns_, &bundle);
+                return stub.entry_fn()(this, callee->proto()->code(), owns_, &bundle, nullptr);
             } else {
                 DCHECK(callee->proto()->IsInterpretationExec());
                 return Run();
@@ -1255,6 +1273,10 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
             FunctionCallbackInfo<Object> info(base, nargs, owns_->stub());
             //PrintStack();
             callee->Apply(info);
+            if (interruption_pending_ != CallFrame::kNormal) {
+                return -1;
+            }
+
             CallFrame *outter = frame_;
             int rv = outter->nrets();
             if (rv >= 0) {
@@ -1264,6 +1286,7 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
             delete outter;
             
             owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
+            return rv;
         } break;
         default: {
             

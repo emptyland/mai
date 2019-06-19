@@ -241,6 +241,38 @@ TEST_F(NyaaThreadAOTTest, NewCoroutine) {
 //    printf("%u %u\n", script->proto()->file_info()->size(),
 //           script->proto()->code()->instructions_bytes_size());
 }
+    
+TEST_F(NyaaThreadAOTTest, NewYield) {
+    static const char s[] = {
+        "var co = assert(new coroutine(lambda(){ yield(99) }))\n"
+        "assert(co:resume() == 99)\n"
+    };
+
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+}
+    
+TEST_F(NyaaThreadAOTTest, YieldThenResume) {
+    static const char s[] = {
+        "val entry = lambda(a, b) {\n"
+        "   print(a, b)\n"
+        "   print(yield(99))\n"
+        "   print(yield(98))\n"
+        "}\n"
+        "var co = assert(new coroutine(entry))\n"
+        "print(\"out:\", co:resume(1, 2))\n"
+        //"print(\"out:\", co:resume(3, 4))\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+}
 
 } // namespace nyaa
 
