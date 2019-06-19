@@ -77,11 +77,25 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ movq(Operand(rdi, rcx, times_ptr_size, 0), rax);
     __ incq(rcx);
     __ jmp(&copy_retry, false);
-    
     __ Bind(&copy_done);
+    
+    Label adjust_done, adjust_retry;
+    __ movq(rdx, rdi);
+    __ addq(rdx, Operand(kThread, NyThread::kOffsetNaStBKSize)); // init: rdx = rdi + bk_size = rsp + bk_size
+    __ movq(rcx, rdi); // init: rcx = rdi = rsp
+    __ Bind(&adjust_retry);
+    __ cmpq(rcx, rdx);
+    __ j(GreaterEqual, &adjust_done, false);
+    __ movq(rax, Operand(rcx, 0)); // rbx = rsp[rcx]
+    __ addq(rax, rcx); // rax = rsp + rsp[rcx]
+    __ movq(Operand(rcx, 0), rax); // rsp[rcx] = rax = rsp + rsp[rcx]
+    __ movq(rcx, rax); // rcx = rsp + rsp[rcx]
+    __ jmp(&adjust_retry, false);
+    __ Bind(&adjust_done);
     
     //__ Breakpoint();
     __ movq(rsp, rdi);
+    __ movq(rbp, rsp);
     __ jmp(kScratch); // long jump to suspend_point
     //__ jmp(&exit, true);
     
@@ -164,8 +178,8 @@ static void BuildCallStub(Assembler *masm, NyaaCore *N) {
     __ movl(kRegArgv[2], kScratch); // argv[2] = nargs
     __ movl(kRegArgv[3], kArgWanted);
     CallRuntime(masm, N, Runtime::kThread_FinalizeCall, true/*may_interrupt*/);
+
     __ Bind(&exit);
-    
     __ addq(rsp, kSavedSize);
     __ popq(rbp);
     __ ret(0);
@@ -234,16 +248,16 @@ static void BuildRecoverIfNeed(Assembler *masm, NyaaCore *N) {
     
 void CallRuntime(Assembler *masm, NyaaCore *N, Runtime::ExternalLink sym, bool may_interrupt) {
     __ pushq(kScratch);
-    __ pushq(kThread);
     __ pushq(kBP);
+    __ pushq(kThread);
     __ pushq(kCore);
     
     __ movp(rax, Runtime::kExternalLinks[sym]);
     __ call(rax);
     
     __ popq(kCore);
-    __ popq(kBP);
     __ popq(kThread);
+    __ popq(kBP);
     __ popq(kScratch);
     
     if (may_interrupt) {

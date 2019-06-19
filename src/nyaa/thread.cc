@@ -247,6 +247,7 @@ int NyThread::Resume(Object *argv[], int argc, int wanted, NyMap *env) {
             delete frame;
             
             if (frame_->proto()->IsNativeExec()) {
+                interruption_pending_ = CallFrame::kNormal;
                 EntryTrampolineCallStub stub(owns_->code_pool()->kEntryTrampoline);
                 CodeContextBundle bundle(this);
                 rv = stub.entry_fn()(this, frame_->proto()->code(), owns_, &bundle,
@@ -679,7 +680,10 @@ int NyThread::Run() {
                 if (argc >= 0) {
                     stack_tp_ = base + 1 + argc;
                 }
-                InternalCall(base, argc, wanted);
+                int rv = InternalCall(base, argc, wanted);
+//                if (interruption_pending_ != CallFrame::kNormal) {
+//                    return rv;
+//                }
                 frame_->AddPC(delta);
             } break;
 
@@ -1153,6 +1157,7 @@ int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
 }
 
 void NyThread::RuntimeSaveNativeStack(Address nast_tp) {
+    //nast_tp += 16;
     if (save_point_->nast_tp()) {
         DCHECK_EQ(save_point_->nast_tp(), nast_tp);
     } else {
@@ -1165,9 +1170,9 @@ void NyThread::RuntimeSaveNativeStack(Address nast_tp) {
     nast_bk_ = static_cast<Address>(::malloc(nast_bk_size_));
     ::memcpy(nast_bk_, save_point_->nast_tp(), nast_bk_size_);
 
-    for (Address i = save_point_->nast_tp(); i < save_point_->nast_bp(); i += kPointerSize) {
-        printf("[nast:%p] %p\n", i, *reinterpret_cast<void **>(i));
-    }
+//    for (Address i = save_point_->nast_tp(); i < save_point_->nast_bp(); i += kPointerSize) {
+//        printf("[nast:%p] %p\n", i, *reinterpret_cast<void **>(i));
+//    }
 
     std::vector<size_t> off_vec;
     Address tp = save_point_->nast_tp();
@@ -1187,9 +1192,9 @@ void NyThread::RuntimeSaveNativeStack(Address nast_tp) {
         *bk = off_vec[i] - off_vec[i - 1];
     }
 
-    for (Address i = nast_bk_; i < nast_bk_ + nast_bk_size_; i += kPointerSize) {
-        printf("[bk:%p] %p\n", i, *reinterpret_cast<void **>(i));
-    }
+//    for (Address i = nast_bk_; i < nast_bk_ + nast_bk_size_; i += kPointerSize) {
+//        printf("[bk:%p] %p\n", i, *reinterpret_cast<void **>(i));
+//    }
 }
 
 int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {
@@ -1273,8 +1278,10 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
             FunctionCallbackInfo<Object> info(base, nargs, owns_->stub());
             //PrintStack();
             callee->Apply(info);
-            if (interruption_pending_ != CallFrame::kNormal) {
-                return -1;
+            if (owns_->stub()->exec() == Nyaa::kAOT) {
+                if (interruption_pending_ == CallFrame::kYield) {
+                    return frame_->nrets();
+                }
             }
 
             CallFrame *outter = frame_;
