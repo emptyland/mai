@@ -175,7 +175,7 @@ private:
 
 class CodeGeneratorContext : public ast::VisitorContext {
 public:
-    CodeGeneratorContext() {}
+    CodeGeneratorContext(Initializer) {}
     ~CodeGeneratorContext() {}
     
     DEF_VAL_PROP_RW(int, n_result);

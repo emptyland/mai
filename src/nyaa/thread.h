@@ -365,7 +365,7 @@ inline CodeContextBundle::CodeContextBundle(NyThread *owns)
 }
 
 inline CodeContextBundle::~CodeContextBundle() {
-    DCHECK_EQ(owns_->save_point_, this);
+    //DCHECK_EQ(owns_->save_point_, this);
     owns_->save_point_ = prev_;
 }
 

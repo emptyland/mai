@@ -1110,6 +1110,26 @@ TEST_F(NyaaThreadTest, GarbageCollectFunc) {
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
     
+//TEST_F(NyaaThreadTest, WhileLoop) {
+//    static const char s[] = {
+//        "var i, n = 0, 0"
+//        "while (i < 1000000) {\n"
+//        "   n = i + 1\n"
+//        "   n = n * 9\n"
+//        "   n = n / (1 + i) + i\n"
+//        "   i = i + 1\n"
+//        "}\n"
+//        "print(n)\n"
+//    };
+//    
+//    HandleScope scope(N_);
+//    TryCatchCore try_catch(core_);
+//    auto script = NyClosure::Compile(s, core_);
+//    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+//    script->Call(nullptr, 0, 0, core_);
+//    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+//}
+    
     
 TEST_F(NyaaThreadTest, AssertFunc) {
     static const char s[] = {

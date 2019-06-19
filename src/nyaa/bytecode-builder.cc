@@ -118,7 +118,7 @@ void BytecodeArrayBuilder::AddParam(int32_t p, int scale, int line) {
     }
 }
     
-void BytecodeArrayBuilder::Bind(BytecodeLable *lable, ConstPoolBuilder *kpool) {
+void BytecodeArrayBuilder::Bind(BytecodeLabel *lable, ConstPoolBuilder *kpool) {
     if (lable->unbinded()) {
         int pc = static_cast<int>(bcs_.size());
         if (lable->subs_.empty()) {
@@ -138,11 +138,11 @@ void BytecodeArrayBuilder::Bind(BytecodeLable *lable, ConstPoolBuilder *kpool) {
     }
 }
 
-void BytecodeArrayBuilder::Jump(BytecodeLable *lable, ConstPoolBuilder *kpool, int line) {
+void BytecodeArrayBuilder::Jump(BytecodeLabel *lable, ConstPoolBuilder *kpool, int line) {
     if (lable->unbinded()) {
         int pc = static_cast<int>(bcs_.size());
         int kslot = kpool->Add(NyInt32::New(0));
-        lable->subs_.push_back(BytecodeLable::Position{pc, kslot});
+        lable->subs_.push_back(BytecodeLabel::Position{pc, kslot});
         Emit(Bytecode::kJumpConst, kslot, line);
     } else {
         int pc = static_cast<int>(bcs_.size());

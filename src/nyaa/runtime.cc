@@ -14,7 +14,45 @@ using ThreadTemplate = arch::ObjectTemplate<NyThread>;
 using MapTemplate = arch::ObjectTemplate<NyMap>;
 using ObjectTemplate = arch::ObjectTemplate<Object>;
 using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
+    
+/*static*/ int Runtime::Object_IsFalseWarp(Object *ob) {
+    return ob == Object::kNil ? 1 : ob->IsFalse() ? 1 : 0;
+}
 
+/*static*/ int Runtime::Object_IsTrueWarp(Object *ob) {
+    return ob == Object::kNil ? 0 : ob->IsTrue() ? 1 : 0;
+}
+    
+/*static*/ Object *Runtime::Object_EQWarp(Object *lhs, Object *rhs, NyaaCore *N) {
+    return lhs == Object::kNil || rhs == Object::kNil ? Object::kNil :
+           NySmi::New(Object::Equal(lhs, rhs, N));
+}
+    
+/*static*/ Object *Runtime::Object_NEWarp(Object *lhs, Object *rhs, NyaaCore *N) {
+    return lhs == Object::kNil || rhs == Object::kNil ? Object::kNil :
+           NySmi::New(!Object::Equal(lhs, rhs, N));
+}
+
+/*static*/ Object *Runtime::Object_LTWarp(Object *lhs, Object *rhs, NyaaCore *N) {
+    return lhs == Object::kNil || rhs == Object::kNil ? Object::kNil :
+           NySmi::New(Object::LessThan(lhs, rhs, N));
+}
+
+/*static*/ Object *Runtime::Object_LEWarp(Object *lhs, Object *rhs, NyaaCore *N) {
+    return lhs == Object::kNil || rhs == Object::kNil ? Object::kNil :
+           NySmi::New(Object::LessEqual(lhs, rhs, N));
+}
+
+/*static*/ Object *Runtime::Object_GTWarp(Object *lhs, Object *rhs, NyaaCore *N) {
+    return lhs == Object::kNil || rhs == Object::kNil ? Object::kNil :
+           NySmi::New(!Object::LessEqual(lhs, rhs, N));
+}
+
+/*static*/ Object *Runtime::Object_GEWarp(Object *lhs, Object *rhs, NyaaCore *N) {
+    return lhs == Object::kNil || rhs == Object::kNil ? Object::kNil :
+           NySmi::New(!Object::LessThan(lhs, rhs, N));
+}
+    
 /*static*/ Object *Runtime::Thread_GetUpVal(NyThread *thd, int slot) {
     return thd->frame_->upval(slot);
 }
@@ -119,15 +157,19 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     reinterpret_cast<Address>(&NyaaCore_GetRecoverPoint),
     reinterpret_cast<Address>(&NyaaCore_TryMetaFunction),
     
-    ObjectTemplate::MethodAddress(&Object::IsFalse),
+    reinterpret_cast<Address>(&Object_IsFalseWarp),
+    reinterpret_cast<Address>(&Object_IsTrueWarp),
     reinterpret_cast<Address>(&Object::Add),
     reinterpret_cast<Address>(&Object::Sub),
     reinterpret_cast<Address>(&Object::Mul),
     reinterpret_cast<Address>(&Object::Div),
     reinterpret_cast<Address>(&Object::Mod),
-    reinterpret_cast<Address>(&Object::Equal),
-    reinterpret_cast<Address>(&Object::LessThan),
-    reinterpret_cast<Address>(&Object::LessEqual),
+    reinterpret_cast<Address>(&Object_EQWarp),
+    reinterpret_cast<Address>(&Object_NEWarp),
+    reinterpret_cast<Address>(&Object_LTWarp),
+    reinterpret_cast<Address>(&Object_LEWarp),
+    reinterpret_cast<Address>(&Object_GTWarp),
+    reinterpret_cast<Address>(&Object_GEWarp),
     reinterpret_cast<Address>(&Object::Get),
     reinterpret_cast<Address>(&Object::Put),
     

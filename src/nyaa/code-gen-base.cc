@@ -102,7 +102,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     
 /*virtual*/ IVal CodeGeneratorVisitor::VisitBlock(ast::Block *node, ast::VisitorContext */*ctx*/) {
     BlockScope scope(fun_scope_);
-    CodeGeneratorContext ctx;
+    CodeGeneratorContext ctx(LAZY_INSTANCE_INITIALIZER);
     IVal ret;
     if (node->stmts()) {
         for (auto stmt : *node->stmts()) {
@@ -118,7 +118,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
 /*virtual*/ IVal CodeGeneratorVisitor::VisitFunctionDefinition(ast::FunctionDefinition *node,
                                                                ast::VisitorContext *x) {
     // TODO: for object or class scope.
-    CodeGeneratorContext rix;
+    CodeGeneratorContext rix(LAZY_INSTANCE_INITIALIZER);
     rix.set_localize(false);
     rix.set_keep_const(true);
     IVal rval = node->literal()->Accept(this, &rix);
@@ -130,7 +130,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     IVal closure = fun_scope_->NewLocal();
     Closure(closure, rval, node->line());
     if (node->self()) {
-        CodeGeneratorContext lix;
+        CodeGeneratorContext lix(LAZY_INSTANCE_INITIALIZER);
         lix.set_n_result(1);
         IVal self = node->self()->Accept(this, &lix);
         IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
@@ -156,7 +156,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     std::vector<IVal> vars;
     
     if (node->inits()) {
-        CodeGeneratorContext rix;
+        CodeGeneratorContext rix(LAZY_INSTANCE_INITIALIZER);
         if (node->names()->size() > 1 && node->GetNWanted() < 0) {
             rix.set_n_result(static_cast<int>(node->names()->size()));
             IVal rval = node->inits()->at(0)->Accept(this, &rix);
@@ -231,13 +231,13 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     
 /*virtual*/ IVal CodeGeneratorVisitor::VisitAssignment(ast::Assignment *node,
                                                        ast::VisitorContext *x) {
-    CodeGeneratorContext rix;
+    CodeGeneratorContext rix(LAZY_INSTANCE_INITIALIZER);
     if (node->rvals()->size() == 1 && node->GetNWanted() < 0) {
         rix.set_n_result(static_cast<int>(node->lvals()->size()));
         IVal val = node->rvals()->at(0)->Accept(this, &rix);
         for (size_t i = 0; i < node->lvals()->size(); ++i) {
             
-            CodeGeneratorContext lix;
+            CodeGeneratorContext lix(LAZY_INSTANCE_INITIALIZER);
             lix.set_rval(val);
             lix.set_lval(true);
             node->lvals()->at(i)->Accept(this, &lix);
@@ -250,7 +250,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
             ast::Expression *expr = node->rvals()->at(i);
             IVal val = expr->Accept(this, &rix);
             
-            CodeGeneratorContext lix;
+            CodeGeneratorContext lix(LAZY_INSTANCE_INITIALIZER);
             lix.set_rval(val);
             lix.set_lval(true);
             node->lvals()->at(i)->Accept(this, &lix);
@@ -264,7 +264,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
     IVal val = ctx->lval() ? IVal::Void() : fun_scope_->NewLocal();
     
-    CodeGeneratorContext ix;
+    CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
     ix.set_n_result(1);
     IVal self = node->self()->Accept(this, &ix);
     ix.set_keep_const(true);
@@ -287,7 +287,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
     IVal val = ctx->lval() ? IVal::Void() : fun_scope_->NewLocal();
     
-    CodeGeneratorContext ix;
+    CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
     ix.set_n_result(1);
     IVal self = node->self()->Accept(this, &ix);
     IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->index()));
@@ -307,7 +307,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     
 /*virtual*/ IVal CodeGeneratorVisitor::VisitSelfCall(ast::SelfCall *node, ast::VisitorContext *x) {
     int32_t n_args = node->GetNArgs();
-    CodeGeneratorContext ix;
+    CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
     ix.set_n_result(1);
     
     IVal base = fun_scope_->NewLocal();
@@ -334,7 +334,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     
 /*virtual*/ IVal CodeGeneratorVisitor::VisitNew(ast::New *node, ast::VisitorContext *x) {
     int32_t n_args = node->GetNArgs();
-    CodeGeneratorContext ix;
+    CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
     
     ix.set_n_result(1);
     IVal val = fun_scope_->NewLocal();
@@ -355,7 +355,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
 
 /*virtual*/ IVal CodeGeneratorVisitor::VisitCall(ast::Call *node, ast::VisitorContext *x) {
     int32_t n_args = node->GetNArgs();
-    CodeGeneratorContext ix;
+    CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
     ix.set_n_result(1);
     
     IVal callee = node->callee()->Accept(this, &ix);
@@ -387,7 +387,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     }
     
     int32_t n_rets = node->GetNRets();
-    CodeGeneratorContext ix;
+    CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
     ix.set_n_result(n_rets < 0 ? -1 : 1);
     
     std::vector<IVal> rets;
@@ -470,7 +470,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     }
     
     std::vector<IVal> kvs;
-    CodeGeneratorContext ix;
+    CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
     ix.set_n_result(1);
     ix.set_localize(true);
     ix.set_keep_const(false);

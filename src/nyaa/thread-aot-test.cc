@@ -284,17 +284,22 @@ TEST_F(NyaaThreadAOTTest, Coroutine) {
     << try_catch.ToString();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
-    
+
+// Benchmark:
+// Interpreter: 467 ms
+//         AOT: 103 ms
 TEST_F(NyaaThreadAOTTest, WhileLoop) {
     static const char s[] = {
-        "var i = 0\n"
-        "while (i < 5) {\n"
-        "   print(i)\n"
+        "var i, n = 0, 0"
+        "while (i < 1000000) {\n"
+        "   n = i + 1\n"
+        "   n = n * 9\n"
+        "   n = n / (1 + i) + i\n"
         "   i = i + 1\n"
-        "   continue\n"
         "}\n"
+        "assert(n == 1000008)\n"
     };
-    
+
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);
     auto script = NyClosure::Compile(s, core_);

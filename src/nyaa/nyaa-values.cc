@@ -1636,7 +1636,7 @@ Object *NyTable::RawGet(Object *key, NyaaCore *N) const {
     if (key != nullptr && key->IsNotKey(N)) {
         return kNil;
     }
-    
+
     const Entry *slot = GetSlot(key, N);
     const Entry *p = slot;
     while (p) {

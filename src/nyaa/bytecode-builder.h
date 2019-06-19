@@ -25,10 +25,10 @@ class Object;
 class BytecodeArrayBuilder;
 class ConstPoolBuilder;
     
-class BytecodeLable {
+class BytecodeLabel {
 public:
-    BytecodeLable() {}
-    ~BytecodeLable() {}
+    BytecodeLabel() {}
+    ~BytecodeLabel() {}
 
     bool unbinded() const { return !binded_; }
     
@@ -48,7 +48,7 @@ public:
     DEF_VAL_GETTER(int, kslot);
     
     friend class BytecodeArrayBuilder;
-    DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeLable);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeLabel);
 private:
     struct Position {
         int pc = -1;
@@ -150,9 +150,9 @@ public:
         Emit(Bytecode::kConcat, a.index, b.index, c, line);
     }
     
-    void Bind(BytecodeLable *lable, ConstPoolBuilder *kpool);
+    void Bind(BytecodeLabel *lable, ConstPoolBuilder *kpool);
     
-    void Jump(BytecodeLable *lable, ConstPoolBuilder *kpool, int line = 0);
+    void Jump(BytecodeLabel *lable, ConstPoolBuilder *kpool, int line = 0);
     
     void Jump(int32_t imm, int line = 0) {
         DCHECK_NE(0, imm);

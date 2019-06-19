@@ -89,7 +89,7 @@ public:
                     blk_scope.PutVariable(param, nullptr);
                 }
             }
-            CodeGeneratorContext bix;
+            CodeGeneratorContext bix(LAZY_INSTANCE_INITIALIZER);
 
             InitializeFun(node->line());
             node->value()->Accept(this, &bix);
@@ -127,7 +127,7 @@ public:
     }
     
     virtual IVal VisitIfStatement(ast::IfStatement *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix;
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
         IVal cond = node->cond()->Accept(this, &ix);
         
@@ -158,12 +158,12 @@ public:
     }
     
     virtual IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix;
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
 
         Label in_label;
         __ Bind(&in_label);
-    
+
         IVal cond = node->cond()->Accept(this, &ix);
         Label out_label;
         {
@@ -225,7 +225,7 @@ public:
     
     virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
         std::vector<IVal> operands;
-        CodeGeneratorContext ix;
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
         ix.set_keep_const(true);
         
@@ -253,28 +253,22 @@ public:
                 DEF_BIN(Mod);
                 break;
             case Operator::kEQ:
-                BinaryExpression(ret, operands[0], operands[1], Operator::kEQ,
-                                 Runtime::kObject_Equal, node->line());
+                DEF_BIN(EQ);
                 break;
             case Operator::kNE:
-                BinaryExpression(ret, operands[0], operands[1], Operator::kNE,
-                                 Runtime::kObject_Equal, node->line());
+                DEF_BIN(NE);
                 break;
             case Operator::kLT:
-                BinaryExpression(ret, operands[0], operands[1], Operator::kLT,
-                                 Runtime::kObject_LessThan, node->line());
+                DEF_BIN(LT);
                 break;
             case Operator::kLE:
-                BinaryExpression(ret, operands[0], operands[1], Operator::kLE,
-                                 Runtime::kObject_LessEqual, node->line());
+                DEF_BIN(LE);
                 break;
             case Operator::kGT:
-                BinaryExpression(ret, operands[0], operands[1], Operator::kGT,
-                                 Runtime::kObject_LessEqual, node->line());
+                DEF_BIN(GT);
                 break;
             case Operator::kGE:
-                BinaryExpression(ret, operands[0], operands[1], Operator::kGE,
-                                 Runtime::kObject_LessThan, node->line());
+                DEF_BIN(GE);
                 break;
             default:
                 DLOG(FATAL) << "TODO:";
@@ -288,7 +282,7 @@ public:
     }
     
     virtual IVal VisitLogicSwitch(ast::LogicSwitch *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix;
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
         
         IVal ret = fun_scope_->NewLocal();
@@ -735,22 +729,6 @@ private:
     
     void BinaryExpression(IVal ret, IVal lhs, IVal rhs, Operator::ID op, Runtime::ExternalLink rt,
                           int line) {
-        int bool_op = 0;
-        switch (op) {
-            case Operator::kEQ:
-            case Operator::kLT:
-            case Operator::kLE:
-                bool_op = 1;
-                break;
-            case Operator::kNE:
-            case Operator::kGT:
-            case Operator::kGE:
-                bool_op = -1;
-                break;
-            default:
-                break;
-        }
-
         FileLineScope fls(fun_scope_, line);
         __ movq(kRegArgv[0], kCore);
         __ movq(kRegArgv[1], Local(lhs.index));
@@ -775,21 +753,21 @@ private:
         }
         __ movq(kRegArgv[2], kCore);
         CallRuntime(rt, true/*may*/);
-        if (bool_op > 0) {
-            //__ Breakpoint();
-            __ shlq(rax, 2);
-            __ orq(rax, 1);
-        } else if (bool_op < 0) {
-            __ cmpl(rax, 0);
-            Label set_one;
-            __ j(Equal, &set_one, false);
-            __ movq(rax, (0 << 2) | 1);
-            Label exit;
-            __ jmp(&exit, false);
-            __ Bind(&set_one);
-            __ movq(rax, (1 << 2) | 1);
-            __ Bind(&exit);
-        }
+//        if (bool_op > 0) {
+//            //__ Breakpoint();
+//            __ shlq(rax, 2);
+//            __ orq(rax, 1);
+//        } else if (bool_op < 0) {
+//            __ cmpl(rax, 0);
+//            Label set_one;
+//            __ j(Equal, &set_one, false);
+//            __ movq(rax, (0 << 2) | 1);
+//            Label exit;
+//            __ jmp(&exit, false);
+//            __ Bind(&set_one);
+//            __ movq(rax, (1 << 2) | 1);
+//            __ Bind(&exit);
+//        }
         __ movq(Local(ret.index), rax);
         Label exit;
         __ jmp(&exit, true);
@@ -841,8 +819,8 @@ private:
         __ pushq(kBP);
         __ pushq(kCore);
 
-        __ movp(rax, Runtime::kExternalLinks[sym]);
-        __ call(rax);
+        __ movp(rbx, Runtime::kExternalLinks[sym]);
+        __ call(rbx);
 
         __ popq(kCore);
         __ popq(kBP);

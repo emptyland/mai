@@ -37,14 +37,18 @@ public:
         kNyaaCore_TryMetaFunction,
         
         kObject_IsFalse,
+        kObject_IsTrue,
         kObject_Add,
         kObject_Sub,
         kObject_Mul,
         kObject_Div,
         kObject_Mod,
-        kObject_Equal,
-        kObject_LessThan,
-        kObject_LessEqual,
+        kObject_EQ,
+        kObject_NE,
+        kObject_LT,
+        kObject_LE,
+        kObject_GT,
+        kObject_GE,
         kObject_Get,
         kObject_Put,
         
@@ -62,6 +66,15 @@ public:
 
     static Address kExternalLinks[kMaxLinks];
 private:
+    static int Object_IsFalseWarp(Object *ob);
+    static int Object_IsTrueWarp(Object *ob);
+    static Object *Object_EQWarp(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Object_NEWarp(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Object_LTWarp(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Object_LEWarp(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Object_GTWarp(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Object_GEWarp(Object *lhs, Object *rhs, NyaaCore *N);
+    
     static Object *Thread_GetUpVal(NyThread *thd, int slot);
     static void Thread_SetUpVal(NyThread *thd, Object *val, int up);
     static Object *Thread_GetProto(NyThread *thd, int slot);

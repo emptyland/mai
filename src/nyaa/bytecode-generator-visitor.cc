@@ -25,20 +25,20 @@ public:
     virtual ~BytecodeGeneratorVisitor() override {};
 
     virtual IVal VisitIfStatement(ast::IfStatement *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix;
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
         IVal cond = node->cond()->Accept(this, &ix);
         builder()->Test(cond, 0, 0, node->line());
         fun_scope_->FreeVar(cond);
         
-        BytecodeLable else_lable;
+        BytecodeLabel else_lable;
         builder()->Jump(&else_lable, fun_scope_->kpool(), node->line());
         node->then_clause()->Accept(this, &ix);
         
         if (!node->else_clause()) {
             builder()->Bind(&else_lable, fun_scope_->kpool());
         } else {
-            BytecodeLable out_lable;
+            BytecodeLabel out_lable;
             builder()->Jump(&out_lable, fun_scope_->kpool(), node->then_clause()->line());
             builder()->Bind(&else_lable, fun_scope_->kpool());
             node->else_clause()->Accept(this, &ix);
@@ -48,15 +48,15 @@ public:
     }
     
     virtual IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix;
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
-        BytecodeLable in_lable;
+        BytecodeLabel in_lable;
         builder()->Bind(&in_lable, fun_scope_->kpool());
         
         IVal cond = node->cond()->Accept(this, &ix);
         builder()->Test(cond, 0, 0, node->line());
         fun_scope_->FreeVar(cond);
-        BytecodeLable out_lable;
+        BytecodeLabel out_lable;
         builder()->Jump(&out_lable, fun_scope_->kpool(), node->line());
         
         blk_scope_->set_loop_in(&in_lable);
@@ -77,20 +77,20 @@ public:
     // }
     virtual IVal VisitForIterateLoop(ast::ForIterateLoop *node, ast::VisitorContext *x) override {
         BlockScope scope(fun_scope_);
-        CodeGeneratorContext ix;
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
         
         IVal generator = node->init()->Accept(this, &ix);
         blk_scope_->PutVariable(ast::String::New(arena_, "(generator)"), &generator);
         
-        BytecodeLable in_label;
+        BytecodeLabel in_label;
         builder()->Jump(&in_label, fun_scope_->kpool(), node->line());
         
         for (auto name : *DCHECK_NOTNULL(node->names())) {
             blk_scope_->PutVariable(name, nullptr);
         }
         
-        BytecodeLable body_label, out_label;
+        BytecodeLabel body_label, out_label;
         scope.set_loop_in(&in_label);
         scope.set_loop_out(&out_label);
         builder()->Bind(&body_label, fun_scope_->kpool());
@@ -102,17 +102,17 @@ public:
         builder()->Bind(&in_label, fun_scope_->kpool());
         //builder()->Bind(&test_lable, fun_scope_->kpool());
         IVal callee = fun_scope_->NewLocal();
-        builder()->Move(callee, generator, node->end_line());
+        Move(callee, generator, node->end_line());
         
         int nrets = static_cast<int>(node->names()->size());
         fun_scope_->Reserve(nrets);
-        builder()->Call(callee, 0, nrets, node->end_line());
+        Call(callee, 0, nrets, node->end_line());
         builder()->TestNil(callee, 1/*neg*/, 0, node->end_line());
         builder()->Jump(&out_label, fun_scope_->kpool(), node->end_line());
         
         IVal base = callee;
         for (auto name : *DCHECK_NOTNULL(node->names())) {
-            builder()->Move(blk_scope_->GetVariable(name), base, node->end_line());
+            Move(blk_scope_->GetVariable(name), base, node->end_line());
             base.index++;
         }
         builder()->Jump(&body_label, fun_scope_->kpool(), node->end_line());
@@ -129,7 +129,7 @@ public:
             blk = blk->prev();
         }
         DCHECK_NOTNULL(blk);
-        builder()->Jump(static_cast<BytecodeLable *>(blk->loop_in()), fun_scope_->kpool(),
+        builder()->Jump(static_cast<BytecodeLabel *>(blk->loop_in()), fun_scope_->kpool(),
                         node->line());
         return IVal::Void();
     }
@@ -143,7 +143,7 @@ public:
             blk = blk->prev();
         }
         DCHECK_NOTNULL(blk);
-        builder()->Jump(static_cast<BytecodeLable *>(blk->loop_out()), fun_scope_->kpool(),
+        builder()->Jump(static_cast<BytecodeLabel *>(blk->loop_out()), fun_scope_->kpool(),
                         node->line());
         return IVal::Void();
     }
@@ -184,7 +184,7 @@ public:
                     blk_scope.PutVariable(param, nullptr);
                 }
             }
-            CodeGeneratorContext bix;
+            CodeGeneratorContext bix(LAZY_INSTANCE_INITIALIZER);
             node->value()->Accept(this, &bix);
             builder()->Ret(IVal::Local(0), 0);
             
@@ -225,7 +225,7 @@ public:
     
     virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
         std::vector<IVal> operands;
-        CodeGeneratorContext ix;
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
         ix.set_keep_const(true);
         
@@ -279,7 +279,7 @@ public:
     }
     
     virtual IVal VisitLogicSwitch(ast::LogicSwitch *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix;
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
         
         IVal ret = fun_scope_->NewLocal();
@@ -310,7 +310,7 @@ public:
     }
     
     virtual IVal VisitConcat(ast::Concat *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix;
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
         
         IVal base = IVal::Local(fun_scope_->free_reg());
@@ -428,7 +428,7 @@ private:
         if (base) {
             IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerBase));
             kvs.push_back(Localize(key, node->line()));
-            CodeGeneratorContext ix;
+            CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
             ix.set_n_result(1);
             IVal val = base->Accept(this, &ix);
             if (blk_scope_->Protected(val)) {
@@ -470,7 +470,7 @@ private:
     
     void DefineClassMethod(const ast::String *class_name, ast::FunctionDefinition *node,
                            std::vector<IVal> *kvs) {
-        CodeGeneratorContext rix;
+        CodeGeneratorContext rix(LAZY_INSTANCE_INITIALIZER);
         rix.set_localize(false);
         rix.set_keep_const(true);
         IVal fn = node->literal()->Accept(this, &rix);
