@@ -119,7 +119,7 @@ public:
         builder()->Bind(&out_label, fun_scope_->kpool());
         return IVal::Void();
     }
-    
+
     virtual IVal VisitContinue(ast::Continue *node, ast::VisitorContext *x) override {
         auto blk = blk_scope_;
         while (blk && blk->owns() == fun_scope_) {

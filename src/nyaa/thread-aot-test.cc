@@ -257,7 +257,7 @@ TEST_F(NyaaThreadAOTTest, NewYield) {
     
 TEST_F(NyaaThreadAOTTest, YieldThenResume) {
     static const char s[] = {
-        "val entry = lambda(a, b) {\n"
+        "var entry = lambda(a, b) {\n"
         "   assert(a == 1) assert(b == 2)\n"
         "   a, b = yield(99)\n"
         "   assert(a == 3) assert(b == 4)\n"
@@ -268,6 +268,31 @@ TEST_F(NyaaThreadAOTTest, YieldThenResume) {
         "assert(co:resume(1, 2) == 99)\n"
         "assert(co:resume(3, 4) == 98)\n"
         "co:resume(5, 6)\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+}
+    
+TEST_F(NyaaThreadAOTTest, Coroutine) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/10-coroutine-sanity.nyaa", 0, nullptr, core_))
+    << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+    
+TEST_F(NyaaThreadAOTTest, WhileLoop) {
+    static const char s[] = {
+        "var i = 0\n"
+        "while (i < 5) {\n"
+        "   print(i)\n"
+        "   i = i + 1\n"
+        "   continue\n"
+        "}\n"
     };
     
     HandleScope scope(N_);

@@ -157,6 +157,72 @@ public:
         return IVal::Void();
     }
     
+    virtual IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+
+        Label in_label;
+        __ Bind(&in_label);
+    
+        IVal cond = node->cond()->Accept(this, &ix);
+        Label out_label;
+        {
+            FileLineScope fls(fun_scope_, node->line());
+            __ movq(kRegArgv[0], Local(cond.index));
+            __ cmpq(kRegArgv[0], 0);
+            __ j(Equal, &out_label, true); // cond == nil ?
+            CallRuntime(Runtime::kObject_IsFalse);
+            __ cmpl(rax, 0);
+            __ j(NotEqual, &out_label, true); // cond is true?
+        }
+        fun_scope_->FreeVar(cond);
+        
+        blk_scope_->set_loop_in(&in_label);
+        blk_scope_->set_loop_out(&out_label);
+        
+        node->body()->Accept(this, x);
+        
+        blk_scope_->set_loop_in(nullptr);
+        blk_scope_->set_loop_out(nullptr);
+
+        {
+            FileLineScope fls(fun_scope_, node->line());
+            __ jmp(&in_label, true);
+            __ Bind(&out_label);
+        }
+        return IVal::Void();
+    }
+    
+    virtual IVal VisitContinue(ast::Continue *node, ast::VisitorContext *x) override {
+        auto blk = blk_scope_;
+        while (blk && blk->owns() == fun_scope_) {
+            if (blk->loop_in()) {
+                break;
+            }
+            blk = blk->prev();
+        }
+        DCHECK_NOTNULL(blk);
+
+        FileLineScope fls(fun_scope_, node->line());
+        __ jmp(static_cast<Label *>(blk->loop_in()), true);
+        return IVal::Void();
+    }
+    
+    virtual IVal VisitBreak(ast::Break *node, ast::VisitorContext *x) override {
+        auto blk = blk_scope_;
+        while (blk && blk->owns() == fun_scope_) {
+            if (blk->loop_out()) {
+                break;
+            }
+            blk = blk->prev();
+        }
+        DCHECK_NOTNULL(blk);
+
+        FileLineScope fls(fun_scope_, node->line());
+        __ jmp(static_cast<Label *>(blk->loop_out()), true);
+        return IVal::Void();
+    }
+    
     virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
         std::vector<IVal> operands;
         CodeGeneratorContext ix;

@@ -92,7 +92,7 @@ public:
     
     std::tuple<NyString *, NyString *, int> GetCurrentSourceInfo() {
         if (NyClosure *fn = NyClosure::Cast(callee_)) {
-            int line = static_cast<int>(proto()->file_info()->Get(pc()));
+            int line = GetFileLine(proto()->file_info());
             return {proto()->file_name(), proto()->name(), line};
         }
         return {nullptr, nullptr, 0};
@@ -105,6 +105,9 @@ public:
     friend class NyThread;
     DISALLOW_IMPLICIT_CONSTRUCTORS(CallFrame);
 private:
+    int GetFileLine(const NyInt32Array *line_info);
+
+    bool compact_file_info_ = false;
     NyRunnable *callee_; // [strong ref]
     NyMap *env_; // [strong ref]
     NyByteArray *bcbuf_ = nullptr; // [strong ref]

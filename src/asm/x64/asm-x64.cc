@@ -354,21 +354,7 @@ void Assembler::BindTo(Label *l, int pos) {
         int last_i32 = pos - (curr + sizeof(uint32_t));
         LongPut(curr, last_i32);
     }
-    
-//    while (L->is_near_linked()) {
-//        int fixup_pos = L->near_link_pos();
-//        int offset_to_next =
-//        static_cast<int>(*reinterpret_cast<int8_t*>(addr_at(fixup_pos)));
-//        DCHECK_LE(offset_to_next, 0);
-//        int disp = pos - (fixup_pos + sizeof(int8_t));
-//        CHECK(is_int8(disp));
-//        set_byte_at(fixup_pos, disp);
-//        if (offset_to_next < 0) {
-//            L->link_to(fixup_pos + offset_to_next, Label::kNear);
-//        } else {
-//            L->UnuseNear();
-//        }
-//    }
+
     while (l->IsNearLinked()) {
         int fixup_pos = l->GetNearLinkPosition();
         int off_to_next = *reinterpret_cast<int8_t *>(AddrAt(fixup_pos));

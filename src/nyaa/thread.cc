@@ -45,6 +45,7 @@ void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, Ny
     
     owns->CheckStack(tp);
 
+    compact_file_info_ = owns->owns_->stub()->compact_source_line_info();
     callee_     = DCHECK_NOTNULL(callee);
     bcbuf_      = bcbuf;
     const_pool_ = kpool;
@@ -87,6 +88,20 @@ void CallFrame::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&bcbuf_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&const_pool_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&env_));
+}
+    
+int CallFrame::GetFileLine(const NyInt32Array *line_info) {
+    if (!compact_file_info_) {
+        return line_info->Get(pc_);
+    }
+    
+    for (int i = 0; i < line_info->size(); i += 3) {
+        if (pc_ >= line_info->Get(i) && pc_ < line_info->Get(i + 1)) {
+            return line_info->Get(i + 2);
+        }
+    }
+    DLOG(FATAL) << "Noreached!";
+    return 0;
 }
     
 TryCatchCore::TryCatchCore(NyaaCore *core) : TryCatchCore(core, core->curr_thd()) {}
@@ -165,8 +180,6 @@ void NyThread::Vraisef(const char *fmt, va_list ap) {
 }
     
 void NyThread::Raise(NyString *msg, Object *ex) {
-    //has_raised_ = true;
-    
     std::vector<NyString *> stack_trace;
     CallFrame *x = frame_;
     while (x) {
