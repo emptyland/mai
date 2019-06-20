@@ -157,6 +157,62 @@ public:
         return IVal::Void();
     }
     
+    // for v1, v2, ... = expr {
+    //    stmts...
+    // }
+    virtual IVal VisitForIterateLoop(ast::ForIterateLoop *node, ast::VisitorContext *x) override {
+        BlockScope scope(fun_scope_);
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        ix.set_n_result(1);
+        
+        IVal generator = node->init()->Accept(this, &ix);
+        blk_scope_->PutVariable(ast::String::New(arena_, "(generator)"), &generator);
+        
+        Label in_label;
+        {
+            FileLineScope fls(fun_scope_, node->line());
+            __ jmp(&in_label, true);
+        }
+
+        for (auto name : *DCHECK_NOTNULL(node->names())) {
+            blk_scope_->PutVariable(name, nullptr);
+        }
+        
+        Label body_label, out_label;
+        scope.set_loop_in(&in_label);
+        scope.set_loop_out(&out_label);
+        __ Bind(&body_label);
+        node->body()->Accept(this, x);
+        scope.set_loop_in(nullptr);
+        scope.set_loop_out(nullptr);
+        
+        // test
+        __ Bind(&in_label);
+        IVal callee = fun_scope_->NewLocal();
+        Move(callee, generator, node->end_line());
+        
+        int nrets = static_cast<int>(node->names()->size());
+        fun_scope_->Reserve(nrets);
+        Call(callee, 0, nrets, node->end_line());
+        {
+            FileLineScope fls(fun_scope_, node->line());
+            __ cmpq(Local(callee.index), 0);
+            __ j(Equal, &out_label, true);
+        }
+        
+        IVal base = callee;
+        for (auto name : *DCHECK_NOTNULL(node->names())) {
+            Move(blk_scope_->GetVariable(name), base, node->end_line());
+            base.index++;
+        }
+        {
+            FileLineScope fls(fun_scope_, node->line());
+            __ jmp(&body_label, true);
+        }
+        __ Bind(&out_label);
+        return IVal::Void();
+    }
+    
     virtual IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
         CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
@@ -350,6 +406,14 @@ private:
             __ cmpl(rcx, n);
             __ LikelyJ(Less, &retry, true);
         }
+    }
+
+    virtual void LoadImm(IVal val, int32_t imm, int line) override {
+        DCHECK_EQ(IVal::kLocal, val.kind);
+        FileLineScope fls(fun_scope_, line);
+        Object *imm_val = NySmi::New(imm);
+        __ movq(rax, reinterpret_cast<Address>(imm_val));
+        __ movq(Local(val.index), rax);
     }
 
     void Invoke(int32_t callee, int32_t nargs, int32_t wanted) {

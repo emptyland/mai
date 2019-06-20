@@ -307,6 +307,39 @@ TEST_F(NyaaThreadAOTTest, WhileLoop) {
     EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
 }
 
+TEST_F(NyaaThreadAOTTest, ForIterateLoop) {
+    static const char s[] = {
+        "var n = 0\n"
+        "for i in range(0, 100) {\n"
+        "   assert(i > 0)\n"
+        "   n = i\n"
+        "}\n"
+        "assert(n == 100)\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+}
+
+TEST_F(NyaaThreadAOTTest, CoroutineIterate) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/11-coroutine-iterate.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+
+TEST_F(NyaaThreadAOTTest, ObjectDefinition) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/30-object-define.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+
 } // namespace nyaa
 
 } // namespace mai

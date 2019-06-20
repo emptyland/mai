@@ -218,6 +218,7 @@ public:
     //----------------------------------------------------------------------------------------------
     virtual IVal Localize(IVal val, int line) = 0;
     virtual void LoadNil(IVal val, int n, int line) = 0;
+    virtual void LoadImm(IVal val, int32_t imm, int line) = 0;
     virtual void Call(IVal callee, int nargs, int wanted, int line) = 0;
     virtual void Ret(IVal base, int nrets, int line) = 0;
     virtual void Move(IVal dst, IVal src, int line) = 0;
@@ -233,6 +234,8 @@ public:
     //----------------------------------------------------------------------------------------------
     // Implements from ast::Visitor
     //----------------------------------------------------------------------------------------------
+    virtual IVal VisitObjectDefinition(ast::ObjectDefinition *node, ast::VisitorContext *x) override;
+    virtual IVal VisitClassDefinition(ast::ClassDefinition *node, ast::VisitorContext *) override;
     virtual IVal VisitFunctionDefinition(ast::FunctionDefinition *node, ast::VisitorContext *x) override;
     virtual IVal VisitBlock(ast::Block *node, ast::VisitorContext */*ctx*/) override;
     virtual IVal VisitVarDeclaration(ast::VarDeclaration *node, ast::VisitorContext *x) override;
@@ -255,6 +258,11 @@ public:
     friend class BlockScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(CodeGeneratorVisitor);
 protected:
+    IVal DefineClass(ast::ObjectDefinition *node, ast::Expression *base);
+    size_t DeclareClassProperies(ast::PropertyDeclaration *decl, size_t offset, FieldTable *fields,
+                                 std::vector<IVal> *kvs);
+    void DefineClassMethod(const ast::String *class_name, ast::FunctionDefinition *node,
+                           std::vector<IVal> *kvs);
     IVal AdjustStackPosition(int requried, IVal val, int line);
 
     NyaaCore *const core_;

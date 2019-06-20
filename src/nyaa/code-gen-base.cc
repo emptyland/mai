@@ -115,6 +115,33 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     return IVal::Void();
 }
     
+/*virtual*/ IVal CodeGeneratorVisitor::VisitObjectDefinition(ast::ObjectDefinition *node,
+                                                             ast::VisitorContext *x) {
+    IVal clazz = DefineClass(node, nullptr);
+    New(clazz, clazz, 0, node->end_line());
+    if (node->local()) {
+        blk_scope_->PutVariable(node->name(), &clazz);
+    } else {
+        fun_scope_->FreeVar(clazz);
+        IVal key = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
+        StoreGlobal(clazz, key, node->end_line());
+    }
+    return IVal::Void();
+}
+
+/*virtual*/ IVal CodeGeneratorVisitor::VisitClassDefinition(ast::ClassDefinition *node,
+                                                            ast::VisitorContext *) {
+    IVal clazz = DefineClass(node, node->base());
+    if (node->local()) {
+        blk_scope_->PutVariable(node->name(), &clazz);
+    } else {
+        fun_scope_->FreeVar(clazz);
+        IVal key = IVal::Global(fun_scope_->kpool()->GetOrNewStr(node->name()));
+        StoreGlobal(clazz, key, node->end_line());
+    }
+    return IVal::Void();
+}
+    
 /*virtual*/ IVal CodeGeneratorVisitor::VisitFunctionDefinition(ast::FunctionDefinition *node,
                                                                ast::VisitorContext *x) {
     // TODO: for object or class scope.
@@ -511,6 +538,92 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
         fun_scope_->FreeVar(kvs[i]);
     }
     return map;
+}
+    
+IVal CodeGeneratorVisitor::DefineClass(ast::ObjectDefinition *node, ast::Expression *base) {
+    std::vector<IVal> kvs;
+    size_t index = 0;
+    if (node->members()) {
+        FieldTable fields;
+        for (auto stmt : *node->members()) {
+            if (ast::PropertyDeclaration *decl = stmt->ToPropertyDeclaration()) {
+                index = DeclareClassProperies(decl, index, &fields, &kvs);
+            } else if (ast::FunctionDefinition *func = stmt->ToFunctionDefinition()) {
+                DefineClassMethod(node->name(), func, &kvs);
+            } else {
+                DLOG(FATAL) << "noreached!";
+            }
+        }
+    }
+    auto bkz = core_->bkz_pool();
+    {
+        IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerType));
+        kvs.push_back(Localize(key, node->line()));
+        IVal val = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
+        kvs.push_back(Localize(val, node->line()));
+    }
+    if (base) {
+        IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(bkz->kInnerBase));
+        kvs.push_back(Localize(key, node->line()));
+        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        ix.set_n_result(1);
+        IVal val = base->Accept(this, &ix);
+        if (blk_scope_->Protected(val)) {
+            IVal tmp = fun_scope_->NewLocal();
+            Move(tmp, val, base->line());
+            val = tmp;
+        }
+        kvs.push_back(Localize(val, node->line()));
+    }
+    
+    IVal clazz = kvs.front();
+    NewMap(clazz, static_cast<int>(kvs.size()), -1/*linear*/, node->end_line());
+    for (int64_t i = kvs.size() - 1; i > 0; --i) {
+        fun_scope_->FreeVar(kvs[i]);
+    }
+    return clazz;
+}
+
+size_t CodeGeneratorVisitor::DeclareClassProperies(ast::PropertyDeclaration *decl, size_t offset,
+                                                   FieldTable *fields, std::vector<IVal> *kvs) {
+    for (auto nm : *decl->names()) {
+        int64_t tag = decl->readonly() ? 0x1 : 0x3;
+        auto iter = fields->find(nm);
+        if (iter == fields->end()) {
+            tag |= (offset++ << 2);
+        } else {
+            tag |= (iter->second << 2);
+        }
+        
+        IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(nm));
+        kvs->push_back(Localize(key, decl->line()));
+        IVal val = fun_scope_->NewLocal();
+        DCHECK_LT(tag, INT32_MAX);
+        LoadImm(val, static_cast<int32_t>(tag), decl->line());
+        kvs->push_back(val);
+    }
+    return offset;
+}
+
+void CodeGeneratorVisitor::DefineClassMethod(const ast::String *class_name,
+                                             ast::FunctionDefinition *node,
+                                             std::vector<IVal> *kvs) {
+    CodeGeneratorContext rix(LAZY_INSTANCE_INITIALIZER);
+    rix.set_localize(false);
+    rix.set_keep_const(true);
+    IVal fn = node->literal()->Accept(this, &rix);
+    DCHECK_EQ(IVal::kFunction, fn.kind);
+    
+    Handle<NyFunction> lambda = fun_scope_->proto(fn.index);
+    Handle<NyString> name = core_->factory()->Sprintf("%s::%s", class_name->data(),
+                                                      node->name()->data());
+    lambda->SetName(*name, core_);
+    
+    IVal key = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
+    kvs->push_back(Localize(key, node->line()));
+    IVal val = fun_scope_->NewLocal();
+    Closure(val, fn, node->line());
+    kvs->push_back(val);
 }
     
 IVal CodeGeneratorVisitor::AdjustStackPosition(int requried, IVal val, int line) {

@@ -670,7 +670,7 @@ TEST_F(NyaaCodeGenTest, ClassDefinitionWithBase) {
         "[034] LoadConst 5 2 ; line: 4\n"
         "[037] LoadConst 6 6 ; line: 4\n"
         "[040] LoadConst 7 7 ; line: 4\n"
-        "[043] Move 8 0 ; line: 0\n"
+        "[043] Move 8 0 ; line: 4\n"
         "[046] NewMap 1 8 -1 ; line: 6\n"
         "[050] StoreGlobal 1 6 ; line: 6\n"
         "[053] Ret 0 0 ; line: 0\n"

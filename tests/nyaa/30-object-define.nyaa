@@ -1,0 +1,22 @@
+object foo {
+	def __init__(self) {
+		self.a_ = 1
+		self.b_ = 2
+		self.c_ = 3
+	}
+
+	def get(self) {
+		return self.a, self.b, self.c
+	}
+	
+	property [ro] a, b, c
+}
+
+assert(foo.a == 1)
+assert(foo.b == 2)
+assert(foo.c == 3)
+
+var a, b, c = foo:get()
+assert(a == 1)
+assert(b == 2)
+assert(c == 3)
