@@ -10,7 +10,7 @@ TEST(Sha256Test, Speed) {
     const char data[] = "18781927416";
     BYTE hash[32];
     
-    for (int i = 0; i < 10000000; ++i) {
+    for (int i = 0; i < 1000; ++i) {
         sha256_init(&ctx);
         sha256_update(&ctx, reinterpret_cast<const BYTE *>(data), sizeof(data) - 1);
         sha256_final(&ctx, hash);

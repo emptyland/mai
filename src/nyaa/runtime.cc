@@ -140,6 +140,14 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     return nullptr;
 }
     
+/*static*/ void Runtime::Test_PrintNaSt(Address tp, Address bp) {
+    DCHECK_LE(tp, bp);
+    for (Address i = tp; i < bp; i += kPointerSize) {
+        Address p = *reinterpret_cast<Address *>(i);
+        printf("<test:%p> %p\n", i, p);
+    }
+}
+
 /*static*/ Address Runtime::kExternalLinks[kMaxLinks] = {
     ThreadTemplate::MethodAddress(&NyThread::Set),
     ThreadTemplate::MethodAddress(&NyThread::Get),
@@ -175,6 +183,8 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     
     MapTemplate::MethodAddress(&NyMap::RawGet),
     MapTemplate::MethodAddress(&NyMap::RawPut),
+    
+    reinterpret_cast<Address>(&Test_PrintNaSt),
 };
     
 static_assert(arraysize(Runtime::kExternalLinks) == Runtime::kMaxLinks,

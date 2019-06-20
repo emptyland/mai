@@ -753,21 +753,6 @@ private:
         }
         __ movq(kRegArgv[2], kCore);
         CallRuntime(rt, true/*may*/);
-//        if (bool_op > 0) {
-//            //__ Breakpoint();
-//            __ shlq(rax, 2);
-//            __ orq(rax, 1);
-//        } else if (bool_op < 0) {
-//            __ cmpl(rax, 0);
-//            Label set_one;
-//            __ j(Equal, &set_one, false);
-//            __ movq(rax, (0 << 2) | 1);
-//            Label exit;
-//            __ jmp(&exit, false);
-//            __ Bind(&set_one);
-//            __ movq(rax, (1 << 2) | 1);
-//            __ Bind(&exit);
-//        }
         __ movq(Local(ret.index), rax);
         Label exit;
         __ jmp(&exit, true);

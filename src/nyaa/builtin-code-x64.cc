@@ -26,8 +26,18 @@ void CallRuntime(Assembler *masm, NyaaCore *N, Runtime::ExternalLink sym, bool m
 static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ pushq(rbp);
     __ movq(rbp, rsp);
-    //__ subq(rsp, kPointerSize);
-    
+    //==============================================================================================
+    // NOTICE: The fucking clang++ optimizer should proecte: r12~r15 and rbx registers.
+    // =============================================================================================
+    __ pushq(r15);
+    __ pushq(r14);
+    __ pushq(r13);
+    __ pushq(r12);
+    __ pushq(rbx);
+    __ subq(rsp, kPointerSize); // for rsp alignment.
+    // =============================================================================================
+
+    //__ Breakpoint();
     __ movq(kThread, kRegArgv[0]);
     __ movq(kCore, kRegArgv[2]);
     __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame));
@@ -92,21 +102,26 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ movq(rcx, rax); // rcx = rsp + rsp[rcx]
     __ jmp(&adjust_retry, false);
     __ Bind(&adjust_done);
-    
-    //__ Breakpoint();
+
     __ movq(rsp, rdi);
     __ movq(rbp, rsp);
     __ jmp(kScratch); // long jump to suspend_point
-    //__ jmp(&exit, true);
     
     // save suspend point for long jumping
     N->set_recover_point_pc(masm->pc());
+    //__ Breakpoint();
     __ movq(kScratch, Operand(kThread, NyThread::kOffsetSavePoint));
     __ movq(rsp, Operand(kScratch, CodeContextBundle::kOffsetNaStBP));
     __ movq(rax, -1);
 
     __ Bind(&exit);
-    //__ addq(rsp, kPointerSize);
+    __ addq(rsp, kPointerSize);
+    __ popq(rbx);
+    __ popq(r12);
+    __ popq(r13);
+    __ popq(r14);
+    __ popq(r15);
+
     __ popq(rbp);
     __ ret(0);
 }

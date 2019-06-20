@@ -54,6 +54,8 @@ public:
         
         kMap_RawGet,
         kMap_RawPut,
+        
+        kTest_PrintNaSt,
         kMaxLinks,
     };
 
@@ -81,6 +83,8 @@ private:
     static Object *Thread_Closure(NyThread *thd, int slot);
     static Address NyaaCore_GetRecoverPoint(NyaaCore *N);
     static NyRunnable *NyaaCore_TryMetaFunction(NyaaCore *N, Object *ob, Operator::ID op);
+    
+    static void Test_PrintNaSt(Address tp, Address bp);
 }; // class Runtime
 
 } // namespace nyaa

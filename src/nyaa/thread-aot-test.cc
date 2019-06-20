@@ -276,7 +276,7 @@ TEST_F(NyaaThreadAOTTest, YieldThenResume) {
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
 }
-    
+
 TEST_F(NyaaThreadAOTTest, Coroutine) {
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);

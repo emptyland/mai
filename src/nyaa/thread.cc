@@ -1289,7 +1289,6 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
             NyDelegated *callee = NyDelegated::Cast(ob);
             DCHECK_EQ(callee, frame_->callee());
             FunctionCallbackInfo<Object> info(base, nargs, owns_->stub());
-            //PrintStack();
             callee->Apply(info);
             if (owns_->stub()->exec() == Nyaa::kAOT) {
                 if (interruption_pending_ == CallFrame::kYield) {

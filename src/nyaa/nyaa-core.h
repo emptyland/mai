@@ -97,7 +97,7 @@ public:
     BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
     BuiltinCodePool *code_pool() const { return code_pool_.get(); }
     Isolate *isolate() const;
-    
+
     Address GetRecoverPointAddress();
     Address GetSuspendPointAddress();
     
