@@ -339,6 +339,14 @@ TEST_F(NyaaThreadAOTTest, ObjectDefinition) {
         << try_catch.ToString();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
+    
+TEST_F(NyaaThreadAOTTest, ClassDefinition) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/31-class-define.nyaa", 0, nullptr, core_))
+    << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
 
 } // namespace nyaa
 

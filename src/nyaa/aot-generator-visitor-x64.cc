@@ -845,8 +845,24 @@ private:
         }
         __ movq(Local(callee.index + 2), rax);
         Invoke(callee.index, 2, 1);
-        __ movq(rax, Local(callee.index));
-        __ movq(Local(ret.index), rax);
+        switch (op) {
+            case Operator::kNE:
+            case Operator::kGT:
+            case Operator::kGE:
+                __ movq(rax, Local(callee.index));
+                __ shrq(rax, 2);
+                __ movq(rbx, reinterpret_cast<Address>(NySmi::New(0)));
+                __ movq(rcx, reinterpret_cast<Address>(NySmi::New(1)));
+                __ cmpq(rax, 0);
+                __ cmovq(Equal, rax, rcx);
+                __ cmovq(NotEqual, rax, rbx);
+                __ movq(Local(ret.index), rax);
+                break;
+            default:
+                __ movq(rax, Local(callee.index));
+                __ movq(Local(ret.index), rax);
+                break;
+        }
 
         fun_scope_->FreeVar(IVal::Local(callee.index + 2));
         fun_scope_->FreeVar(IVal::Local(callee.index + 1));

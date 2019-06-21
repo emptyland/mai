@@ -693,10 +693,7 @@ int NyThread::Run() {
                 if (argc >= 0) {
                     stack_tp_ = base + 1 + argc;
                 }
-                int rv = InternalCall(base, argc, wanted);
-//                if (interruption_pending_ != CallFrame::kNormal) {
-//                    return rv;
-//                }
+                InternalCall(base, argc, wanted);
                 frame_->AddPC(delta);
             } break;
 

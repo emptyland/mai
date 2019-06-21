@@ -1218,6 +1218,37 @@ TEST_F(NyaaThreadTest, MulAssertTest) {
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
 
+//TEST_F(NyaaThreadTest, ClassMetaCall) {
+//    static const char s[] = {
+//        "class Foo {\n"
+//        "   def __init__(self, a) { self.a = a }\n"
+//        "   def __lt__(a, b) { a.a < b.a }\n"
+//        "   def __le__(a, b) { a.a <= b.a }\n"
+//        "   property [rw] a\n"
+//        "}\n"
+//        "var a, b = new Foo(1), new Foo(2)\n"
+//        "print(a.a, b.a)\n"
+//        "assert(a < b)\n"
+//        "assert(a <= b)\n"
+//    };
+//    
+//    HandleScope scope(N_);
+//    TryCatchCore try_catch(core_);
+//    auto script = NyClosure::Compile(s, core_);
+//    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+//    BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+//    script->Call(nullptr, 0, 0, core_);
+//    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+//}
+    
+//TEST_F(NyaaThreadTest, ClassDefinition) {
+//    HandleScope scope(N_);
+//    TryCatchCore try_catch(core_);
+//    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/31-class-define.nyaa", 0, nullptr, core_))
+//        << try_catch.ToString();
+//    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+//}
+
 } // namespace nyaa
     
 } // namespace mai
