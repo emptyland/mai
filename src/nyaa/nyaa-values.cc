@@ -2114,7 +2114,10 @@ Object *NyUDO::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *
     if (NyRunnable *fn = GetValidMetaFunction(name, N)) {
         Object *args[] = {this, rhs};
         N->curr_thd()->Run(fn, args, 2/*nargs*/, 1/*nrets*/);
-        return N->curr_thd()->Get(-1);
+        Object *rv = N->curr_thd()->Get(-1);
+        N->curr_thd()->Pop(1);
+        //printf("tp: %zd\n", N->curr_thd()->stack_tp() - N->curr_thd()->stack());
+        return rv;
     }
     N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
     return nullptr;

@@ -686,7 +686,7 @@ int NyThread::Run() {
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &argc, &wanted);
                 Object *val = Get(ra);
                 if (val->IsSmi()) {
-                    owns_->Raisef("can not call number.");
+                    owns_->Raisef("can not call number. %lld", val->ToSmi());
                     return -1;
                 }
                 Object **base = frame_bp() + ra;
@@ -803,6 +803,8 @@ int NyThread::Run() {
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
                 Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb);
                 Object *rhs = rkc < 0 ? frame_->const_pool()->Get(-rkc - 1) : Get(rkc);
+                //printf("%d, %d, %d\n", ra, rkb, rkc);
+                //printf("%zd, %zd\n", frame_bp() -stack_, stack_tp_ - stack_);
                 Set(ra, NySmi::New(Object::LessThan(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
@@ -1297,6 +1299,7 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
             int rv = outter->nrets();
             if (rv >= 0) {
                 CopyResult(stack_ + outter->stack_be() - 1, rv, wanted);
+                //printf("fin: %zd\n", stack_tp_ - stack_);
             }
             outter->Exit(this);
             delete outter;

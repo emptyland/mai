@@ -45,12 +45,12 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
 
 /*static*/ Object *Runtime::Object_GTWarp(Object *lhs, Object *rhs, NyaaCore *N) {
     return lhs == Object::kNil || rhs == Object::kNil ? Object::kNil :
-           NySmi::New(!Object::LessEqual(lhs, rhs, N));
+           NySmi::New(Object::LessThan(rhs, lhs, N));
 }
 
 /*static*/ Object *Runtime::Object_GEWarp(Object *lhs, Object *rhs, NyaaCore *N) {
     return lhs == Object::kNil || rhs == Object::kNil ? Object::kNil :
-           NySmi::New(!Object::LessThan(lhs, rhs, N));
+           NySmi::New(Object::LessEqual(rhs, lhs, N));
 }
     
 /*static*/ Object *Runtime::Thread_GetUpVal(NyThread *thd, int slot) {

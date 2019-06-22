@@ -353,7 +353,8 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     (void)self;
     
     CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-    Call(base, n_args + 1/*for self*/, ctx->n_result(), node->line());
+    int wanted = ctx->n_result() == 0 ? 1 : ctx->n_result();
+    Call(base, n_args + 1/*for self*/, wanted, node->line());
     
     fun_scope_->set_free_reg(base.index + 1);
     return base;
@@ -401,7 +402,8 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     }
     
     CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-    Call(callee, n_args, ctx->n_result(), node->line());
+    int wanted = ctx->n_result() == 0 ? 1 : ctx->n_result();
+    Call(callee, n_args, wanted, node->line());
     
     fun_scope_->set_free_reg(callee.index + 1);
     return callee;

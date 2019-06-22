@@ -46,7 +46,7 @@ public:
         }
         return IVal::Void();
     }
-    
+
     virtual IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
         CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
         ix.set_n_result(1);
@@ -133,7 +133,7 @@ public:
                         node->line());
         return IVal::Void();
     }
-    
+
     virtual IVal VisitBreak(ast::Break *node, ast::VisitorContext *x) override {
         auto blk = blk_scope_;
         while (blk && blk->owns() == fun_scope_) {
@@ -318,6 +318,7 @@ private:
     }
     
     virtual void Call(IVal callee, int nargs, int wanted, int line) override {
+        DCHECK_NE(0, wanted) << "at leatest one wanted resunt value.";
         builder()->Call(callee, nargs, wanted, line);
     }
     

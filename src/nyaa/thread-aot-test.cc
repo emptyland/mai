@@ -340,6 +340,26 @@ TEST_F(NyaaThreadAOTTest, ObjectDefinition) {
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
     
+TEST_F(NyaaThreadAOTTest, ClassMetaCall) {
+    static const char s[] = {
+        "class Foo {\n"
+        "   def __init__(self, a) { self.a = a }\n"
+        "   def __lt__(a, b) { return a.a < b.a }\n"
+        "   def __le__(a, b) { return a.a <= b.a }\n"
+        "   property [rw] a\n"
+        "}\n"
+        "var a, b = new Foo(1), new Foo(2)\n"
+        "assert(a < b)\n"
+        "assert(a <= b)\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+}
+    
 TEST_F(NyaaThreadAOTTest, ClassDefinition) {
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);

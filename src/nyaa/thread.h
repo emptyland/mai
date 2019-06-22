@@ -209,6 +209,8 @@ public:
     DEF_PTR_PROP_RW(NyRunnable, entry);
     DEF_PTR_PROP_RW(NyThread, save);
     DEF_VAL_PROP_RW(State, state);
+    DEF_PTR_GETTER(Object*, stack);
+    DEF_PTR_PROP_RW(Object*, stack_tp);
     CallFrame *call_info() const { return DCHECK_NOTNULL(frame_); }
     
     size_t frame_size() const {
