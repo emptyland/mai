@@ -190,14 +190,6 @@ public:
         return val;
     }
     
-    virtual
-    IVal VisitVariableArguments(ast::VariableArguments *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
-        IVal vargs = fun_scope_->NewLocal();
-        builder()->Vargs(vargs, ctx->n_result(), node->line());
-        return vargs;
-    }
-    
     virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
         std::vector<IVal> operands;
         CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
@@ -356,6 +348,10 @@ private:
     
     virtual void New(IVal val, IVal clazz, int nargs, int line) override {
         builder()->New(val, clazz, nargs, line);
+    }
+
+    virtual void Vargs(IVal vargs, int wanted, int line) override {
+        builder()->Vargs(vargs, wanted, line);
     }
 
     virtual IVal Localize(IVal val, int line) override {

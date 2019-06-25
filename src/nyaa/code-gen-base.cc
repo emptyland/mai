@@ -440,6 +440,14 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     return IVal::Void();
 }
     
+/*virtual*/ IVal CodeGeneratorVisitor::VisitVariableArguments(ast::VariableArguments *node,
+                                                              ast::VisitorContext *x) {
+    CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
+    IVal vargs = fun_scope_->NewLocal();
+    Vargs(vargs, ctx->n_result(), node->line());
+    return vargs;
+}
+    
 /*virtual*/ IVal CodeGeneratorVisitor::VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) {
     IVal tmp = fun_scope_->NewLocal();
     LoadNil(tmp, 1, node->line());

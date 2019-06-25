@@ -372,17 +372,25 @@ public:
         return ret;
     }
     
+    static constexpr int32_t kFuncSavedSize = RoundUp(kPointerSize * 4, arch::kNativeStackAligment);
+    
     void InitializeFun(int line) {
         FileLineScope fls(fun_scope_, line);
         __ pushq(rbp);
         __ movq(rbp, rsp);
-        //__ subq(rsp, kPointerSize);
+
         // Setup BP
         __ movq(kBP, Operand(kThread, NyThread::kOffsetStack));
         __ movq(rax, Operand(kThread, NyThread::kOffsetFrame));
         __ movq(rax, Operand(rax, CallFrame::kOffsetStackBP));
         __ shlq(rax, kPointerShift);
         __ addq(kBP, rax);
+
+//        __ subq(rsp, kFuncSavedSize);
+//        __ movq(Operand(rbp, -kPointerSize), kScratch);
+//        __ movq(Operand(rbp, -kPointerSize - 8), kBP);
+//        __ movq(Operand(rbp, -kPointerSize - 16), kThread);
+//        __ movq(Operand(rbp, -kPointerSize - 24), kCore);
     }
 
     void FinalizeRet() { Ret(IVal::Local(0), 0, 0); }
@@ -474,7 +482,7 @@ private:
         
         __ Bind(&exit);
         __ movq(rax, kScratch);
-        //__ addq(rsp, kPointerSize);
+        //__ addq(rsp, kFuncSavedSize);
         __ popq(rbp);
         __ ret(0);
     }
@@ -788,6 +796,109 @@ private:
         __ Bind(&exit); // <---------------- exit
         __ addq(rsp, kSavedStack);
     }
+    
+//    void NyThread::RuntimeExpandVArgs(int32_t ra, int wanted) {
+//        int32_t nvargs = static_cast<int32_t>(frame_->GetNVargs());
+//        if (wanted < 0) {
+//            CheckStack(frame_->stack_bp() + nvargs);
+//            Object **a = frame_bp() + ra;
+//            for (size_t i = 0; i < nvargs; ++i) {
+//                a[i] = frame_be()[i];
+//            }
+//            stack_tp_ = a + nvargs;
+//        } else {
+//            Object **a = frame_bp() + ra;
+//            if (wanted > nvargs) {
+//                for (int i = 0; i < nvargs; ++i) {
+//                    a[i] = frame_be()[i];
+//                }
+//                for (int i = nvargs; i < wanted; ++i) {
+//                    a[i] = Object::kNil;
+//                }
+//            } else {
+//                for (int i = 0; i < wanted; ++i) {
+//                    a[i] = frame_be()[i];
+//                }
+//            }
+//            stack_tp_ = a + wanted;
+//        }
+//    }
+    
+    virtual void Vargs(IVal vargs, int wanted, int line) override {
+        FileLineScope fls(fun_scope_, line);
+        
+        __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame));
+        __ movq(rcx, Operand(kScratch, CallFrame::kOffsetStackBP));
+        __ subq(rcx, Operand(kScratch, CallFrame::kOffsetStackBE)); // rcx = nvargs
+
+        __ movq(rdi, kBP);
+        __ addq(rdi, vargs.index * kPointerSize);
+        if (wanted < 0) {
+            __ pushq(rdi);
+            __ pushq(rcx);
+            
+            __ movq(kRegArgv[0], kThread);
+            __ movq(kRegArgv[1], Operand(kScratch, CallFrame::kOffsetStackBP));
+            __ shlq(rcx, kPointerShift);
+            __ addq(kRegArgv[1], rcx);
+            CallRuntime(Runtime::kThread_CheckStack);
+
+            __ popq(rcx);
+            __ popq(rdi);
+            
+            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame));
+            __ movq(rsi, Operand(kThread, NyThread::kOffsetStack));
+            __ movq(rax, Operand(kScratch, CallFrame::kOffsetStackBE));
+            __ shlq(rax, kPointerShift);
+            __ addq(rsi, rax);
+            
+            __ xorq(rbx, rbx);
+            Label retry, done;
+            __ Bind(&retry);
+            __ cmpq(rbx, rcx);
+            __ LikelyJ(GreaterEqual, &done, false);
+            __ movq(rax, Operand(rsi, rbx, times_ptr_size, 0));
+            __ movq(Operand(rdi, rbx, times_ptr_size, 0), rax);
+            __ incq(rbx);
+            __ jmp(&retry, false);
+            __ Bind(&done);
+            
+        } else {
+            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame));
+            __ movq(rsi, Operand(kThread, NyThread::kOffsetStack));
+            __ movq(rax, Operand(kScratch, CallFrame::kOffsetStackBE));
+            __ shlq(rax, kPointerShift);
+            __ addq(rsi, rax);
+            
+            __ xorq(rbx, rbx);
+            Label retry, done;
+            __ Bind(&retry);
+            __ cmpq(rbx, wanted); // rbx >= wanted?
+            __ LikelyJ(GreaterEqual, &done, false);
+            
+            __ cmpq(rbx, rcx); // rbx >= nvargs?
+            Label fill_nil;
+            __ UnlikelyJ(GreaterEqual, &fill_nil, false);
+            __ movq(rax, Operand(rsi, rbx, times_ptr_size, 0));
+            __ movq(Operand(rdi, rbx, times_ptr_size, 0), rax);
+            
+            Label pre_retry;
+            __ jmp(&pre_retry, false);
+
+            __ Bind(&fill_nil);
+            __ xorq(rax, rax);
+            __ movq(Operand(rdi, rbx, times_ptr_size, 0), rax);
+            
+            __ Bind(&pre_retry);
+            __ incq(rbx);
+            __ jmp(&retry, false);
+            __ Bind(&done);
+        }
+        
+        __ shlq(rcx, kPointerShift);
+        __ addq(rdi, rcx);
+        __ movq(Operand(kThread, NyThread::kOffsetStackTP), rdi);
+    }
 
     Assembler *masm() { return &static_cast<FunctionScopeBundle *>(fun_scope_)->masm_; }
     
@@ -891,6 +1002,11 @@ private:
         __ popq(kBP);
         __ popq(kThread);
         __ popq(kScratch);
+
+//        __ movq(kScratch, Operand(rbp, -kPointerSize));
+//        __ movq(kBP, Operand(rbp, -kPointerSize - 8));
+//        __ movq(kThread, Operand(rbp, -kPointerSize - 16));
+//        __ movq(kCore, Operand(rbp, -kPointerSize - 24));
 
         if (may_interrupt) {
             __ movq(kScratch, core_->code_pool()->kRecoverIfNeed->entry_address());

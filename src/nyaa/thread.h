@@ -198,6 +198,7 @@ public:
     static const int32_t kOffsetSavePoint;
     static const int32_t kOffsetFrame;
     static const int32_t kOffsetStack;
+    static const int32_t kOffsetStackTP;
     static const int32_t kOffsetState;
     static const int32_t kOffsetNaStBK;
     static const int32_t kOffsetNaStBKSize;
@@ -256,7 +257,6 @@ public:
     void PrintStack();
     
     void IterateRoot(RootVisitor *visitor);
-    
     void Iterate(ObjectVisitor *) {}
     
     constexpr size_t PlacedSize() const { return sizeof(*this); }
@@ -305,6 +305,8 @@ private:
     int RuntimeRet(int32_t base, int32_t nrets);
     
     void RuntimeSaveNativeStack(Address nast_tp);
+    
+    void RuntimeExpandVArgs(int32_t ra, int wanted);
 
     int PrepareCall(Object **base, int32_t nargs, int32_t wanted);
     int FinializeCall(Object **base, int32_t nargs, int32_t wanted);

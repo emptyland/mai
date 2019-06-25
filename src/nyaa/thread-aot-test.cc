@@ -323,6 +323,27 @@ TEST_F(NyaaThreadAOTTest, ForIterateLoop) {
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
 }
+    
+TEST_F(NyaaThreadAOTTest, Vargs) {
+    static const char s[] = {
+        "var a, b, c = ...\n"
+        "assert(a == 100)\n"
+        "assert(b == 200)\n"
+        "assert(c == 300)\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    Object *argv[] = {
+        NySmi::New(100),
+        NySmi::New(200),
+        NySmi::New(300),
+        NySmi::New(999),
+    };
+    EXPECT_EQ(0, script->Call(argv, 4, 0, core_)) << try_catch.ToString();
+}
 
 TEST_F(NyaaThreadAOTTest, CoroutineIterate) {
     HandleScope scope(N_);

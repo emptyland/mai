@@ -230,6 +230,7 @@ public:
     virtual void Closure(IVal closure, IVal func, int line) = 0;
     virtual void Self(IVal base, IVal callee, IVal method, int line) = 0;
     virtual void New(IVal val, IVal clazz, int nargs, int line) = 0;
+    virtual void Vargs(IVal vargs, int wanted, int line) = 0;
     
     //----------------------------------------------------------------------------------------------
     // Implements from ast::Visitor
@@ -253,6 +254,7 @@ public:
     virtual IVal VisitSmiLiteral(ast::SmiLiteral *node, ast::VisitorContext *x) override;
     virtual IVal VisitIntLiteral(ast::IntLiteral *node, ast::VisitorContext *x) override;
     virtual IVal VisitMapInitializer(ast::MapInitializer *node, ast::VisitorContext *x) override;
+    virtual IVal VisitVariableArguments(ast::VariableArguments *node, ast::VisitorContext *x) override;
     
     friend class FunctionScope;
     friend class BlockScope;

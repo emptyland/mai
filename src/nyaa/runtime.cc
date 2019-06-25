@@ -161,6 +161,7 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     ThreadTemplate::MethodAddress(&NyThread::RuntimeNewMap),
     ThreadTemplate::MethodAddress(&NyThread::RuntimePrepareNew),
     ThreadTemplate::MethodAddress(&NyThread::RuntimeSaveNativeStack),
+    ThreadTemplate::MethodAddress(&NyThread::CheckStack),
     
     reinterpret_cast<Address>(&NyaaCore_GetRecoverPoint),
     reinterpret_cast<Address>(&NyaaCore_TryMetaFunction),

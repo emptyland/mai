@@ -30,6 +30,7 @@ const int32_t NyThread::kOffsetSavePoint = Template::OffsetOf(&NyThread::save_po
 const int32_t NyThread::kOffsetFrame = Template::OffsetOf(&NyThread::frame_);
 const int32_t NyThread::kOffsetState = Template::OffsetOf(&NyThread::state_);
 const int32_t NyThread::kOffsetStack = Template::OffsetOf(&NyThread::stack_);
+const int32_t NyThread::kOffsetStackTP = Template::OffsetOf(&NyThread::stack_tp_);
 const int32_t NyThread::kOffsetNaStBK = Template::OffsetOf(&NyThread::nast_bk_);
 const int32_t NyThread::kOffsetNaStBKSize = Template::OffsetOf(&NyThread::nast_bk_size_);
 
@@ -711,30 +712,7 @@ int NyThread::Run() {
             case Bytecode::kVargs: {
                 int32_t ra, wanted;
                 int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &wanted);
-                int32_t nvargs = static_cast<int32_t>(frame_->GetNVargs());
-                if (wanted < 0) {
-                    CheckStack(frame_->stack_bp() + nvargs);
-                    Object **a = frame_bp() + ra;
-                    for (size_t i = 0; i < nvargs; ++i) {
-                        a[i] = frame_be()[i];
-                    }
-                    stack_tp_ = a + nvargs;
-                } else {
-                    Object **a = frame_bp() + ra;
-                    if (wanted > nvargs) {
-                        for (int i = 0; i < nvargs; ++i) {
-                            a[i] = frame_be()[i];
-                        }
-                        for (int i = nvargs; i < wanted; ++i) {
-                            a[i] = Object::kNil;
-                        }
-                    } else {
-                        for (int i = 0; i < wanted; ++i) {
-                            a[i] = frame_be()[i];
-                        }
-                    }
-                    stack_tp_ = a + wanted;
-                }
+                RuntimeExpandVArgs(ra, wanted);
                 frame_->AddPC(delta);
             } break;
 
@@ -958,6 +936,33 @@ void NyThread::RuntimeSaveNativeStack(Address nast_tp) {
 //    for (Address i = nast_bk_; i < nast_bk_ + nast_bk_size_; i += kPointerSize) {
 //        printf("[bk:%p] %p\n", i, *reinterpret_cast<void **>(i));
 //    }
+}
+
+void NyThread::RuntimeExpandVArgs(int32_t ra, int wanted) {
+    int32_t nvargs = static_cast<int32_t>(frame_->GetNVargs());
+    if (wanted < 0) {
+        CheckStack(frame_->stack_bp() + nvargs);
+        Object **a = frame_bp() + ra;
+        for (size_t i = 0; i < nvargs; ++i) {
+            a[i] = frame_be()[i];
+        }
+        stack_tp_ = a + nvargs;
+    } else {
+        Object **a = frame_bp() + ra;
+        if (wanted > nvargs) {
+            for (int i = 0; i < nvargs; ++i) {
+                a[i] = frame_be()[i];
+            }
+            for (int i = nvargs; i < wanted; ++i) {
+                a[i] = Object::kNil;
+            }
+        } else {
+            for (int i = 0; i < wanted; ++i) {
+                a[i] = frame_be()[i];
+            }
+        }
+        stack_tp_ = a + wanted;
+    }
 }
 
 int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {

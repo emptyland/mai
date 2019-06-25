@@ -32,6 +32,7 @@ public:
         kThread_NewMap,
         kThread_PrepareNew,
         kThread_SaveNativeStack,
+        kThread_CheckStack,
         
         kNyaaCore_GetRecoverPoint,
         kNyaaCore_TryMetaFunction,
