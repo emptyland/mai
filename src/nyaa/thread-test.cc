@@ -1151,6 +1151,29 @@ TEST_F(NyaaThreadTest, AssertFunc) {
     ASSERT_STREQ("hit", try_catch.message()->bytes());
 }
     
+TEST_F(NyaaThreadTest, Bugfix1) {
+    static const char s[] = {
+        "var m = {\n"
+        "   a: 1,\n"
+        "   b: 2,\n"
+        "   c: \"cccc\"\n"
+        "}\n"
+        "var t = setmetatable({}, {__index__:m})\n"
+        "assert(t.a == 1)\n"
+        "assert(t.b == 2)\n"
+        "assert(t.c == \"cccc\")\n"
+        "t = setmetatable({}, {__index__:lambda(self, name) { return 0 } })\n"
+        "assert(t.a == 0)\n" // fail
+    };
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    script->Call(nullptr, 0, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+    
 TEST_F(NyaaThreadTest, MapMetaIndex) {
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);
@@ -1240,7 +1263,7 @@ TEST_F(NyaaThreadTest, ClassMetaCall) {
     script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
-    
+
 TEST_F(NyaaThreadTest, ClassDefinition) {
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);

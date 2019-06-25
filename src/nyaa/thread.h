@@ -198,6 +198,7 @@ public:
     static const int32_t kOffsetSavePoint;
     static const int32_t kOffsetFrame;
     static const int32_t kOffsetStack;
+    static const int32_t kOffsetState;
     static const int32_t kOffsetNaStBK;
     static const int32_t kOffsetNaStBKSize;
     
@@ -288,15 +289,6 @@ private:
     }
 
     int Run();
-
-    Object *InternalGetField(Object **base, Object *mm, Object *key);
-    int InternalSetField(Object **base, Object *key, Object *value);
-    NyUDO *InternalNewUdo(Object **args, int32_t n_args, size_t size, NyMap *clazz);
-    
-    int InternalCallMetaFunction(Object **base, Object *a1, Object *a2, int wanted,
-                                 NyString *name, bool *has);
-    bool InternalCallMetaFunction(Object **base, NyString *name, int wanted, Object *a1,
-                                  int n, ...);
 
     int InternalCall(Object **base, int32_t nargs, int wanted) {
         size_t base_p = base - stack_;

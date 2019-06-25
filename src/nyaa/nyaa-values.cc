@@ -544,6 +544,18 @@ NyString *NyObject::ToString(NyaaCore *N) {
     DLOG(FATAL) << "Noreached!" << GetType();
     return nullptr;
 }
+
+Object *NyObject::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) {
+    if (NyRunnable *fn = GetValidMetaFunction(name, N)) {
+        Object *args[] = {this, rhs};
+        N->curr_thd()->Run(fn, args, 2/*nargs*/, 1/*nrets*/);
+        Object *rv = N->Get(-1);
+        N->Pop(1);
+        return rv;
+    }
+    N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
+    return nullptr;
+}
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// class NyFloat64:
@@ -1425,16 +1437,20 @@ Object *NyMap::Get(Object *key, NyaaCore *N) const {
     if (mt == N->kmt_pool()->kMap) {
         return RawGet(key, N);
     }
+    
+    Object *val = nullptr;
     Object *mo = GetMetaFunction(N->bkz_pool()->kInnerIndex, N);
     if (NyMap *mm = NyMap::Cast(mo)) {
-        return mm->RawGet(key, N);
+        val = mm->RawGet(key, N);
     } else if (NyRunnable *mf = NyRunnable::Cast(mo)) {
         Object *args[] = {const_cast<NyMap *>(this), key};
         N->curr_thd()->Run(mf, args, 2/*nargs*/, 1/*nrets*/);
-        return N->Get(-1);
+        val = N->Get(-1);
+        N->Pop();
     } else {
-        return RawGet(key, N);
+        val = RawGet(key, N);
     }
+    return val;
 }
     
 void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
@@ -1452,7 +1468,7 @@ void NyMap::RawPut(Object *key, Object *value, NyaaCore *N) {
     int64_t index = 0;
     if (key->IsSmi()) {
         index = key->ToSmi();
-        if (index + 1024 > array_->capacity()) {
+        if (index > array_->capacity() + 1024) {
             should_table = true;
         }
     } else {
@@ -1526,18 +1542,6 @@ Object *NyMap::Div(Object *rhs, NyaaCore *N) {
 
 Object *NyMap::Mod(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerMod, N);
-}
-    
-Object *NyMap::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) {
-    if (GetMetatable() != N->kmt_pool()->kMap) {
-        if (NyRunnable *fn = GetValidMetaFunction(name, N)) {
-            Object *args[] = {this, rhs};
-            N->curr_thd()->Run(fn, args, 2/*nargs*/, 1/*nrets*/);
-            return N->curr_thd()->Get(-1);
-        }
-    }
-    N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
-    return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1905,7 +1909,7 @@ NyArray *NyArray::Put(int64_t key, Object *value, NyaaCore *N) {
     ob->elems_[key] = value;
     
     if (key > size()) {
-        size_ = static_cast<uint32_t>(key);
+        size_ = static_cast<uint32_t>(key) + 1;
     }
     return ob;
 }
@@ -1969,9 +1973,6 @@ int NyDelegated::Apply(const FunctionCallbackInfo<Object> &info) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void NyUDO::SetFinalizer(Finalizer fp, NyaaCore *N) {
-//    uintptr_t word = reinterpret_cast<uintptr_t>(fp);
-//    DCHECK_EQ(0, word % 2);
-//    tag_ = word | (IgnoreManaged() ? 0x1 : 0);
     N->heap()->AddFinalizer(this, fp);
 }
     
@@ -1994,13 +1995,16 @@ void NyUDO::Put(Object *key, Object *value, NyaaCore *N) {
 }
 
 Object *NyUDO::Get(Object *key, NyaaCore *N) {
+    Object *val = nullptr;
     if (NyRunnable *mf = GetValidMetaFunction(N->bkz_pool()->kInnerIndex, N)) {
         Object *args[] = {this, key};
         N->curr_thd()->Run(mf, args, arraysize(args)/*argc*/, 1/*wanted*/, nullptr/*TODO: env*/);
-        return N->Get(-1);
+        val = N->Get(-1);
+        N->Pop();
     } else {
-        return RawGet(key, N);
+        val = RawGet(key, N);
     }
+    return val;
 }
     
 Object *NyUDO::RawGet(Object *key, NyaaCore *N) {
@@ -2109,19 +2113,6 @@ Object *NyUDO::Div(Object *rhs, NyaaCore *N) {
 Object *NyUDO::Mod(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerMod, N);
 }
-
-Object *NyUDO::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) {
-    if (NyRunnable *fn = GetValidMetaFunction(name, N)) {
-        Object *args[] = {this, rhs};
-        N->curr_thd()->Run(fn, args, 2/*nargs*/, 1/*nrets*/);
-        Object *rv = N->curr_thd()->Get(-1);
-        N->curr_thd()->Pop(1);
-        //printf("tp: %zd\n", N->curr_thd()->stack_tp() - N->curr_thd()->stack());
-        return rv;
-    }
-    N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
-    return nullptr;
-}
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Others:
@@ -2159,7 +2150,7 @@ void MapIterator::SeekFirst() {
         index_ = i;
     } else {
         int64_t i;
-        for (i = 0; i < table_->capacity(); ++i) {
+        for (i = 0; i < array_->capacity(); ++i) {
             if (array_->Get(i)) {
                 break;
             }
@@ -2179,7 +2170,7 @@ void MapIterator::Next() {
         index_ = i;
     } else {
         int64_t i;
-        for (i = index_ + 1; i < table_->capacity(); ++i) {
+        for (i = index_ + 1; i < array_->size(); ++i) {
             if (array_->Get(i)) {
                 break;
             }

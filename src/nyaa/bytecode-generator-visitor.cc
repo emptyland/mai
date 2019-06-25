@@ -321,11 +321,11 @@ private:
         DCHECK_NE(0, wanted) << "at leatest one wanted resunt value.";
         builder()->Call(callee, nargs, wanted, line);
     }
-    
+
     virtual void Ret(IVal base, int nrets, int line) override {
         builder()->Ret(base, nrets, line);
     }
-    
+
     virtual void Move(IVal dst, IVal src, int line) override {
         builder()->Move(dst, src, line);
     }

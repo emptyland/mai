@@ -261,7 +261,8 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     CodeGeneratorContext rix(LAZY_INSTANCE_INITIALIZER);
     if (node->rvals()->size() == 1 && node->GetNWanted() < 0) {
         rix.set_n_result(static_cast<int>(node->lvals()->size()));
-        IVal val = node->rvals()->at(0)->Accept(this, &rix);
+        IVal base = node->rvals()->at(0)->Accept(this, &rix);
+        IVal val = base;
         for (size_t i = 0; i < node->lvals()->size(); ++i) {
             
             CodeGeneratorContext lix(LAZY_INSTANCE_INITIALIZER);
@@ -269,6 +270,9 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
             lix.set_lval(true);
             node->lvals()->at(i)->Accept(this, &lix);
             val.index++;
+        }
+        if (!blk_scope_->Protected(base)) {
+            fun_scope_->FreeVar(base);
         }
     } else {
         rix.set_n_result(1);

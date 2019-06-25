@@ -234,6 +234,8 @@ public:
     inline const NyUDO *ToUDO() const;
     inline NyUDO *ToUDO();
     
+    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N);
+    
     inline Object *GetMetaFunction(NyString *name, NyaaCore *N) const;
     inline NyRunnable *GetValidMetaFunction(NyString *name, NyaaCore *N) const;
     
@@ -508,8 +510,6 @@ public:
     friend class MapIterator;
     DEF_HEAP_OBJECT(Map);
 private:
-    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N);
-    
     union {
         NyTable *table_; // [strong ref]
         NyArray *array_; // [strong ref]
@@ -856,8 +856,6 @@ private:
     static uintptr_t MakeTag(size_t n_fields, bool ignore_managed) {
         return static_cast<uintptr_t>(n_fields << 1 | (ignore_managed ? 0x1 : 0));
     }
-    
-    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N);
 
     uintptr_t tag_;
     Object *fields_[0];
@@ -878,7 +876,7 @@ public:
         if (table_) {
             return index_ < table_->capacity();
         } else {
-            return index_ < array_->capacity();
+            return index_ < array_->size();
         }
     }
 
@@ -896,7 +894,7 @@ public:
         if (table_) {
             return table_->entries_[index_ + 1].value;
         } else {
-            return array_->Get(index_);
+            return index_ < array_->size() ? array_->Get(index_) : Object::kNil;
         }
     }
 

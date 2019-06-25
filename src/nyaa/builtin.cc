@@ -583,6 +583,10 @@ static void ThreadResume(const FunctionCallbackInfo<Object> &info) {
             argv[i] = *info[i + 1];
         }
     }
+    if (thread->state() == NyThread::kDead) {
+        info.GetErrors().Raisef("coroutine is dead.");
+        return;
+    }
 
     TryCatchCore try_catch(N, thread);
     int nrets = thread->Resume(argv, argc, -1, nullptr); // TODO: env

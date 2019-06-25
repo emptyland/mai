@@ -27,7 +27,7 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ pushq(rbp);
     __ movq(rbp, rsp);
     //==============================================================================================
-    // NOTICE: The fucking clang++ optimizer should proecte: r12~r15 and rbx registers.
+    // NOTICE: The fucking clang++ optimizer will proecte: r12~r15 and rbx registers.
     // =============================================================================================
     __ pushq(r15);
     __ pushq(r14);
@@ -58,6 +58,7 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     //----------------------------------------------------------------------------------------------
     // Directy Run:
     //----------------------------------------------------------------------------------------------
+    __ movq(Operand(kThread, NyThread::kOffsetState), NyThread::kRunning);
     __ lea(rax, Operand(kRegArgv[1], NyCode::kOffsetInstructions));
     __ call(rax);
 
@@ -103,6 +104,7 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
     __ jmp(&adjust_retry, false);
     __ Bind(&adjust_done);
 
+    __ movq(Operand(kThread, NyThread::kOffsetState), NyThread::kRunning);
     __ movq(rsp, rdi);
     __ movq(rbp, rsp);
     __ jmp(kScratch); // long jump to suspend_point

@@ -28,6 +28,7 @@ const int32_t NyThread::kOffsetInterruptionPending =
     Template::OffsetOf(&NyThread::interruption_pending_);
 const int32_t NyThread::kOffsetSavePoint = Template::OffsetOf(&NyThread::save_point_);
 const int32_t NyThread::kOffsetFrame = Template::OffsetOf(&NyThread::frame_);
+const int32_t NyThread::kOffsetState = Template::OffsetOf(&NyThread::state_);
 const int32_t NyThread::kOffsetStack = Template::OffsetOf(&NyThread::stack_);
 const int32_t NyThread::kOffsetNaStBK = Template::OffsetOf(&NyThread::nast_bk_);
 const int32_t NyThread::kOffsetNaStBKSize = Template::OffsetOf(&NyThread::nast_bk_size_);
@@ -65,12 +66,9 @@ void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, Ny
     } else {
         entry_ = 0;
     }
-    
-    //printf("enter: %p\n", callee_);
 }
 
 void CallFrame::Exit(NyThread *owns) {
-    //printf("exit: %p\n", callee_);
     DCHECK_EQ(this, owns->frame_);
     owns->frame_ = prev_;
 }
@@ -134,7 +132,7 @@ std::string TryCatchCore::ToString() const {
     buf.append(message()->bytes(), message()->size());
     buf.append("\n");
     if (stack_trace()) {
-        buf.append("stack strace:\n");
+        buf.append("stack trace:\n");
         for (int i = 0; i < stack_trace()->size(); ++i) {
             buf.append("    ");
             const NyString *line = static_cast<NyString *>(stack_trace()->Get(i));
@@ -291,6 +289,7 @@ int NyThread::Resume(Object *argv[], int argc, int wanted, NyMap *env) {
             state_ = kSuspended;
             break;
         default:
+            state_ = kDead;
             break;
     }
     DCHECK_EQ(this, owns_->curr_thd());
@@ -300,6 +299,7 @@ int NyThread::Resume(Object *argv[], int argc, int wanted, NyMap *env) {
 }
 
 void NyThread::Yield() {
+    DCHECK_EQ(kRunning, state_);
     interruption_pending_ = CallFrame::kYield;
     switch (owns_->stub()->exec()) {
         case Nyaa::kAOT:
@@ -533,7 +533,8 @@ int NyThread::Run() {
                 } else {
                     key = Get(rkc);
                 }
-                Object *value = InternalGetField(frame_bp() + ra, Get(rb), key);
+                //Object *value = InternalGetField(frame_bp() + ra, Get(rb), key);
+                Object *value = Object::Get(Get(rb), key, owns_);
                 Set(ra, value);
                 frame_->AddPC(delta);
             } break;
@@ -554,7 +555,7 @@ int NyThread::Run() {
                 } else {
                     value = Get(rkc);
                 }
-                InternalSetField(frame_bp() + ra, key, value);
+                Object::Put(Get(ra), key, value, owns_);
                 frame_->AddPC(delta);
             } break;
 
@@ -652,7 +653,6 @@ int NyThread::Run() {
                 int32_t ra, pb;
                 int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &pb);
                 NyFunction *proto = static_cast<NyFunction *>(frame_->proto()->proto_pool()->Get(pb));
-                //printf("proto:%p, %d\n", proto, proto->IsArray());
                 DCHECK(proto->IsObject() && proto->ToHeapObject()->IsFunction());
                 NyClosure *closure = owns_->factory()->NewClosure(proto);
                 for (int i = 0; i < proto->n_upvals(); ++i) {
@@ -666,7 +666,6 @@ int NyThread::Run() {
                 int32_t ra, n, p;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &n, &p);
                 RuntimeNewMap(ra, n, p, 0);
-                owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
                 frame_->AddPC(delta);
             } break;
 
@@ -674,13 +673,12 @@ int NyThread::Run() {
                 int32_t ra, rb, kc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &kc);
                 Object *key = frame_->const_pool()->Get(kc);
-                Object *method = InternalGetField(frame_bp() + ra, Get(rb), key);
+                Object *method = Object::Get(Get(rb), key, owns_);
                 Set(ra + 1, Get(rb));
                 Set(ra, method);
                 frame_->AddPC(delta);
             } break;
 
-                // foo(bar())
             case Bytecode::kCall: {
                 int32_t ra, argc, wanted;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &argc, &wanted);
@@ -700,17 +698,12 @@ int NyThread::Run() {
             case Bytecode::kNew: {
                 int32_t ra, rb, argc;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &argc);
-                NyMap *clazz = NyMap::Cast(Get(rb));
-                if (!clazz) {
-                    owns_->Raisef("new non-class.");
-                    return -1;
+                NyRunnable *init = nullptr;
+                NyUDO *udo = RuntimePrepareNew(ra, rb, &argc, &init);
+                if (init) {
+                    Object **base = frame_bp() + rb;
+                    Run(init, base, argc + 1, 0/*nrets*/, frame_->env());
                 }
-                Object *n_fields = clazz->RawGet(owns_->bkz_pool()->kInnerSize, owns_);
-                if (n_fields == Object::kNil || !n_fields->IsSmi()) {
-                    owns_->Raisef("incorrect class table: error __size__.");
-                    return -1;
-                }
-                NyUDO *udo = InternalNewUdo(frame_bp() + rb, argc, n_fields->ToSmi(), clazz);
                 Set(ra, udo);
                 frame_->AddPC(delta);
             } break;
@@ -761,16 +754,13 @@ int NyThread::Run() {
                 rv->Done(owns_);
                 frame_->AddPC(delta);
             } break;
-
+                
             #define PROCESS_ARITH(op) \
                 int32_t ra, rkb, rkc; \
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc); \
                 Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb); \
                 Object *rhs = rkc < 0 ? frame_->const_pool()->Get(-rkc - 1) : Get(rkc); \
-                if (!InternalCallMetaFunction(frame_bp() + ra, owns_->bkz_pool()->kInner##op, \
-                                              1, lhs, 1, rhs)) { \
-                    Set(ra, Object::op(lhs, rhs, owns_)); \
-                } \
+                Set(ra, Object::op(lhs, rhs, owns_)); \
                 frame_->AddPC(delta)
 
             case Bytecode::kAdd: {
@@ -803,8 +793,6 @@ int NyThread::Run() {
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc);
                 Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb);
                 Object *rhs = rkc < 0 ? frame_->const_pool()->Get(-rkc - 1) : Get(rkc);
-                //printf("%d, %d, %d\n", ra, rkb, rkc);
-                //printf("%zd, %zd\n", frame_bp() -stack_, stack_tp_ - stack_);
                 Set(ra, NySmi::New(Object::LessThan(lhs, rhs, owns_)));
                 frame_->AddPC(delta);
             } break;
@@ -848,242 +836,7 @@ int NyThread::Run() {
     }
     return 0;
 }
-    
-Object *NyThread::InternalGetField(Object **base, Object *mm, Object *key) {
-    if (mm == Object::kNil) {
-        Raisef("attempt to nil field.");
-        return Object::kNil;
-    }
-    if (mm->IsSmi()) {
-        Raisef("attempt to smi field.");
-        return Object::kNil;
-    }
-    
-    NyObject *ob = mm->ToHeapObject();
-    if (NyMap *map = ob->ToMap()) {
-        if (map->GetMetatable() == owns_->kmt_pool()->kMap) {
-            return map->RawGet(key, owns_);
-        }
-        Object *mindex = map->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerIndex, owns_);
-        if (NyMap *index_map = NyMap::Cast(mindex)) {
-            return index_map->RawGet(key, owns_);
-        } else if (InternalCallMetaFunction(base, owns_->bkz_pool()->kInnerIndex, 1, mm, 1, key)) {
-            return Get(-1);
-        } else {
-            return map->RawGet(key, owns_);
-        }
-    } else if (NyUDO *udo = ob->ToUDO()) {
-        if (InternalCallMetaFunction(base, owns_->bkz_pool()->kInnerIndex, 1, mm, 1, key)) {
-            return Get(-1);
-        } else {
-            return udo->RawGet(key, owns_);
-        }
-    } else {
-        Raisef("incorrect type for getfield.");
-        return Object::kNil;
-    }
-    return Object::kNil;
-}
-    
-int NyThread::InternalSetField(Object **base, Object *key, Object *value) {
-    Object *mm = *base;
-    if (mm == Object::kNil) {
-        Raisef("attempt to nil field.");
-        return -1;
-    }
-    if (mm->IsSmi()) {
-        Raisef("attempt to smi field. %d", mm->ToSmi());
-        return -1;
-    }
-    
-    NyObject *ob = mm->ToHeapObject();
-    if (NyMap *map = ob->ToMap()) {
-        if (map->GetMetatable() == owns_->kmt_pool()->kMap) {
-            map->RawPut(key, value, owns_);
-            return 0;
-        }
-        Object *mnewindex = map->GetMetatable()->RawGet(owns_->bkz_pool()->kInnerNewindex, owns_);
-        if (NyMap *newindex_map = NyMap::Cast(mnewindex)) {
-            newindex_map->RawPut(key, value, owns_);
-        } else {
-            // base + 1 for skip map position
-            if (!InternalCallMetaFunction(base + 1, owns_->bkz_pool()->kInnerNewindex, 0, mm, 2,
-                                          key, value)) {
-                map->RawPut(key, value, owns_);
-            }
-        }
-    } else if (NyUDO *udo = ob->ToUDO()) {
-        // base + 1 for skip map position
-        if (!InternalCallMetaFunction(base + 1, owns_->bkz_pool()->kInnerNewindex, 0, mm, 2, key,
-                                      value)) {
-            udo->RawPut(key, value, owns_);
-        }
-    } else {
-        Raisef("incorrect type for setfield. %s", mm->ToString(owns_)->bytes());
-        return -1;
-    }
-    return 0;
-}
-    
-NyUDO *NyThread::InternalNewUdo(Object **args, int32_t n_args, size_t n_fields, NyMap *clazz) {
-    size_t size = NyUDO::RequiredSize(n_fields);
-    NyUDO *udo = owns_->factory()->NewUninitializedUDO(size, clazz, false);
-    ::memset(udo->data(), 0, size - sizeof(NyUDO));
-    *args = udo; // protected for gc.
-    
-    Object *vv = clazz->RawGet(owns_->bkz_pool()->kInnerInit, owns_);
-    if (NyRunnable *init = NyRunnable::Cast(vv)) {
-        Object **base = args;
-        if (n_args >= 0) {
-            stack_tp_ = base + 1 + n_args;
-        }
-        if (n_args < 0) {
-            n_args = static_cast<int32_t>(stack_tp_ - base - 1);
-        }
-        size_t base_p = base - stack_;
-        CheckStack(base_p + n_args + 2);
-        base = stack_ + base_p;
-        Run(init, base, n_args + 1, 0/*nrets*/, frame_->env());
-    }
-    return udo;
-}
-    
-int NyThread::InternalCallMetaFunction(Object **base, Object *a1, Object *a2, int wanted,
-                                       NyString *name, bool *has) {
-    NyRunnable *fn = nullptr;
-    switch (a1->GetType()) {
-        case kTypeMap:
-        case kTypeUdo:
-            fn = a1->ToHeapObject()->GetValidMetaFunction(name, owns_);
-            break;
-        default:
-            *has = false;
-            break;
-    }
-    if (!fn) {
-        return 0;
-    }
-    *has = true;
-    stack_tp_ = base;
-    size_t tp = stack_tp_ - stack_;
-    Push(fn);
-    Push(a1);
-    Push(a2);
-    return InternalCall(stack_ + tp, 2, wanted);
-}
 
-bool NyThread::InternalCallMetaFunction(Object **base, NyString *name, int wanted, Object *a1,
-                                        int n, ...) {
-    DCHECK_GE(wanted, 0);
-    NyRunnable *fn = nullptr;
-    switch (a1->GetType()) {
-        case kTypeMap:
-        case kTypeUdo:
-            fn = a1->ToHeapObject()->GetValidMetaFunction(name, owns_);
-            break;
-        default:
-            break;
-    }
-    if (!fn) {
-        return false;
-    }
-    stack_tp_ = base;
-    size_t tp = base - stack_;
-    CheckStack(base - stack_ + n + 1);
-    stack_tp_[0] = fn;
-    stack_tp_[1] = a1;
-    va_list ap;
-    va_start(ap, n);
-    for (int i = 0; i < n; ++i) {
-        stack_tp_[i + 2] = va_arg(ap, Object *);
-    }
-    va_end(ap);
-    stack_tp_ += n + 2;
-    InternalCall(stack_ + tp, n + 1, wanted);
-    return true;
-}
-
-#if 0
-int NyThread::InternalCall(Object **base, int32_t nargs, int32_t wanted) {
-    DCHECK((*base)->IsObject());
-    //PrintStack();
-    size_t base_p = base - stack_;
-    NyObject *ob = static_cast<NyObject *>(*base);
-    
-    if (n_args < 0) {
-        n_args = static_cast<int32_t>(stack_tp_ - base - 1);
-    }
-    switch (ob->GetType()) {
-        case kTypeClosure: {
-            NyClosure *callee = ob->ToClosure();
-            int adjust = 0;
-            if (callee->proto()->vargs()) {
-                int n_params = callee->proto()->n_params();
-                if (n_args > n_params) {
-                    adjust = n_args - n_params;
-                }
-                // a0, a1, a2, a3, a4: n_params = 2, adjust = 3;
-                // a2, a3, a4, a0, a1
-                if (adjust > 0 && n_params > 0) {
-                    int fixed_size = n_params;
-                    Object **fixed = new Object *[fixed_size];
-                    ::memcpy(fixed, base + 1, sizeof(Object *) * fixed_size);
-                    ::memmove(base + 1, base + 1 + fixed_size, sizeof(Object *) * adjust);
-                    ::memcpy(base + 1 + adjust, fixed, sizeof(Object *) * fixed_size);
-                    delete[] fixed;
-                }
-            }
-
-            CallFrame *frame = new CallFrame;
-            frame->Enter(this, callee,
-                         callee->proto()->bcbuf(),
-                         callee->proto()->const_pool(),
-                         wanted,
-                         base_p + 1, /*frame_bp*/
-                         base_p + 1 + callee->proto()->max_stack(), /*frame_tp*/
-                         frame_->env());
-            frame->AdjustBP(adjust);
-            return Run();
-        } break;
-
-        case kTypeDelegated: {
-            NyDelegated *callee = ob->ToDelegated();
-            CallFrame *frame = new CallFrame;
-            frame->Enter(this, callee,
-                         nullptr, /* bc buf */
-                         nullptr, /* const pool */
-                         wanted,
-                         base_p + 1, /*frame_bp*/
-                         base_p + 20, /* frame_tp */
-                         frame_->env());
-            FunctionCallbackInfo<Object> info(base, n_args, owns_->stub());
-            //PrintStack();
-            callee->Apply(info);
-            int rv = frame->nrets();
-            if (rv >= 0) {
-                CopyResult(stack_ + frame->stack_be() - 1, rv, wanted);
-            }
-            frame->Exit(this);
-            delete frame;
-
-            owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
-            //PrintStack();
-            return rv;
-        } break;
-
-        default: {
-            // TODO: call metatable method.
-            //DLOG(FATAL) << "TODO:" << ob->GetType();
-            
-            NyString *s = ob->ToString(owns_);
-            Raisef("bad calling: %s", s->bytes());
-            
-        } break;
-    }
-    return 0;
-}
-#endif
-    
 void NyThread::RuntimeNewMap(int32_t ra, int32_t n, int32_t p, uint32_t seed) {
     bool clazz = p < 0;
     bool linear = clazz ? false : p;
@@ -1169,7 +922,6 @@ int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
 }
 
 void NyThread::RuntimeSaveNativeStack(Address nast_tp) {
-    //nast_tp += 16;
     if (save_point_->nast_tp()) {
         DCHECK_EQ(save_point_->nast_tp(), nast_tp);
     } else {
@@ -1177,7 +929,6 @@ void NyThread::RuntimeSaveNativeStack(Address nast_tp) {
     }
     DCHECK_LT(save_point_->nast_tp(), save_point_->nast_bp());
     nast_bk_size_ = save_point_->nast_size();
-    //DCHECK_EQ(0, nast_bk_size_ % arch::kNativeStackAligment);
     ::free(nast_bk_);
     nast_bk_ = static_cast<Address>(::malloc(nast_bk_size_));
     ::memcpy(nast_bk_, save_point_->nast_tp(), nast_bk_size_);
