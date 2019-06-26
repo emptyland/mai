@@ -26,6 +26,7 @@ namespace ast {
     V(IfStatement) \
     V(WhileLoop) \
     V(ForIterateLoop) \
+    V(ForStepLoop) \
     V(Multiple) \
     V(LogicSwitch) \
     V(Concat) \
@@ -250,6 +251,31 @@ private:
     NameList *names_;
     Expression *init_;
 }; // class ForIterateLoop
+    
+class ForStepLoop : public Loop {
+public:
+    DEF_PTR_GETTER_NOTNULL(const ast::String, name);
+    DEF_VAL_GETTER(bool, is_until);
+    DEF_PTR_GETTER_NOTNULL(Expression, init);
+    DEF_PTR_GETTER_NOTNULL(Expression, limit);
+    DEF_PTR_GETTER(Expression, step);
+    DEFINE_AST_NODE(ForStepLoop);
+private:
+    ForStepLoop(int begin_line, int end_line, const ast::String *name, Expression *init,
+                bool is_until, Expression *limit, Expression *step, Block *body)
+        : Loop(begin_line, end_line, body)
+        , name_(DCHECK_NOTNULL(name))
+        , init_(DCHECK_NOTNULL(init))
+        , is_until_(is_until)
+        , limit_(DCHECK_NOTNULL(limit))
+        , step_(step) {}
+    
+    const ast::String *name_;
+    Expression *init_;
+    bool is_until_;
+    Expression *limit_;
+    Expression *step_;
+}; // class ForStepLoop
     
 class Continue : public Statement {
 public:
@@ -735,6 +761,13 @@ public:
     ForIterateLoop *NewForIterateLoop(ForIterateLoop::NameList *names, Expression *init,
                                       Block *body, const Location &loc = Location{}) {
         return new (arena_) ForIterateLoop(loc.begin_line, loc.end_line, names, init, body);
+    }
+    
+    ForStepLoop *NewForStepLoop(const ast::String *name, Expression *init, bool is_until,
+                                Expression *limit, Expression *step, Block *body,
+                                const Location &loc = Location{}) {
+        return new (arena_) ForStepLoop(loc.begin_line, loc.end_line, name, init, is_until, limit,
+                                        step, body);
     }
 
     NilLiteral *NewNilLiteral(const Location &loc = Location{}) {

@@ -1,4 +1,4 @@
-#include "nyaa/code-gen-base.h"
+#include "nyaa/code-gen-utils.h"
 #include "nyaa/function.h"
 #include "nyaa/thread.h"
 #include "nyaa/runtime.h"
@@ -58,14 +58,6 @@ using namespace x64;
     
 class AOTGeneratorVisitor : public CodeGeneratorVisitor {
 public:
-    // The non-allocatable registers are:
-    // rsp - stack pointer
-    // rbp - frame pointer
-    // r10 - thread
-    // r12 - kpool
-    // r13 - nyaa-bp
-    //
-
     static constexpr Register kScratch = Runtime::kScratch;
     static constexpr Register kThread = Runtime::kThread;
     static constexpr Register kCore = Runtime::kCore;
@@ -89,7 +81,7 @@ public:
                     blk_scope.PutVariable(param, nullptr);
                 }
             }
-            CodeGeneratorContext bix(LAZY_INSTANCE_INITIALIZER);
+            CodeGeneratorContext bix;
 
             InitializeFun(node->line());
             node->value()->Accept(this, &bix);
@@ -127,7 +119,7 @@ public:
     }
     
     virtual IVal VisitIfStatement(ast::IfStatement *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        CodeGeneratorContext ix;
         ix.set_n_result(1);
         IVal cond = node->cond()->Accept(this, &ix);
         
@@ -162,7 +154,7 @@ public:
     // }
     virtual IVal VisitForIterateLoop(ast::ForIterateLoop *node, ast::VisitorContext *x) override {
         BlockScope scope(fun_scope_);
-        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        CodeGeneratorContext ix;
         ix.set_n_result(1);
         
         IVal generator = node->init()->Accept(this, &ix);
@@ -214,7 +206,7 @@ public:
     }
     
     virtual IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        CodeGeneratorContext ix;
         ix.set_n_result(1);
 
         Label in_label;
@@ -281,7 +273,7 @@ public:
     
     virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
         std::vector<IVal> operands;
-        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        CodeGeneratorContext ix;
         ix.set_n_result(1);
         ix.set_keep_const(true);
         
@@ -338,7 +330,7 @@ public:
     }
     
     virtual IVal VisitLogicSwitch(ast::LogicSwitch *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        CodeGeneratorContext ix;
         ix.set_n_result(1);
         
         IVal ret = fun_scope_->NewLocal();

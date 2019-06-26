@@ -1,5 +1,5 @@
-#ifndef MAI_NYAA_CODE_GEN_BASE_H_
-#define MAI_NYAA_CODE_GEN_BASE_H_
+#ifndef MAI_NYAA_CODE_GEN_UTILS_H_
+#define MAI_NYAA_CODE_GEN_UTILS_H_
 
 #include "nyaa/bytecode-builder.h"
 #include "nyaa/object-factory.h"
@@ -175,7 +175,7 @@ private:
 
 class CodeGeneratorContext : public ast::VisitorContext {
 public:
-    CodeGeneratorContext(Initializer) {}
+    CodeGeneratorContext() {}
     ~CodeGeneratorContext() {}
     
     DEF_VAL_PROP_RW(int, n_result);
@@ -268,6 +268,12 @@ protected:
     void DefineClassMethod(const ast::String *class_name, ast::FunctionDefinition *node,
                            std::vector<IVal> *kvs);
     IVal AdjustStackPosition(int requried, IVal val, int line);
+    
+    static bool IsPlaceholder(const ast::String *name) {
+        return name->size() == 1 && name->data()[0] == '_';
+    }
+    
+    static bool IsNotPlaceholder(const ast::String *name) { return !IsPlaceholder(name); }
 
     NyaaCore *const core_;
     Handle<NyString> file_name_;
@@ -281,4 +287,4 @@ protected:
 } // namespace mai
 
 
-#endif // MAI_NYAA_CODE_GEN_BASE_H_
+#endif // MAI_NYAA_CODE_GEN_UTILS_H_

@@ -1,4 +1,4 @@
-#include "nyaa/code-gen-base.h"
+#include "nyaa/code-gen-utils.h"
 
 namespace mai {
 
@@ -25,7 +25,7 @@ public:
     virtual ~BytecodeGeneratorVisitor() override {};
 
     virtual IVal VisitIfStatement(ast::IfStatement *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        CodeGeneratorContext ix;
         ix.set_n_result(1);
         IVal cond = node->cond()->Accept(this, &ix);
         builder()->Test(cond, 0, 0, node->line());
@@ -48,7 +48,7 @@ public:
     }
 
     virtual IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        CodeGeneratorContext ix;
         ix.set_n_result(1);
         BytecodeLabel in_lable;
         builder()->Bind(&in_lable, fun_scope_->kpool());
@@ -72,12 +72,12 @@ public:
         return IVal::Void();
     }
     
-    // for v1, v2, ... = expr {
+    // for v1, v2, ... in expr {
     //    stmts...
     // }
     virtual IVal VisitForIterateLoop(ast::ForIterateLoop *node, ast::VisitorContext *x) override {
         BlockScope scope(fun_scope_);
-        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        CodeGeneratorContext ix;
         ix.set_n_result(1);
         
         IVal generator = node->init()->Accept(this, &ix);
@@ -115,6 +115,57 @@ public:
             Move(blk_scope_->GetVariable(name), base, node->end_line());
             base.index++;
         }
+        builder()->Jump(&body_label, fun_scope_->kpool(), node->end_line());
+        builder()->Bind(&out_label, fun_scope_->kpool());
+        return IVal::Void();
+    }
+    
+    // for var in expr to expr { body }
+    // for var in expr until expr { body }
+    virtual IVal VisitForStepLoop(ast::ForStepLoop *node, ast::VisitorContext *x) override {
+        BlockScope scope(fun_scope_);
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        
+        IVal var = fun_scope_->NewLocal();
+        if (IsNotPlaceholder(node->name())) {
+            blk_scope_->PutVariable(node->name(), &var);
+        } else {
+            blk_scope_->PutVariable(ast::String::New(arena_, "(shadow)"), &var);
+        }
+        IVal init = node->init()->Accept(this, &ix);
+        Move(var, init, node->init()->line());
+        IVal limit = node->limit()->Accept(this, &ix);
+        IVal step;
+        if (node->step()) {
+            step = node->step()->Accept(this, &ix);
+        } else {
+            step = fun_scope_->NewLocal();
+            LoadImm(step, 1, node->line());
+        }
+        
+        BytecodeLabel body_label, in_label, out_label;
+        // test
+        builder()->Bind(&body_label, fun_scope_->kpool());
+        IVal ret = fun_scope_->NewLocal();
+        if (node->is_until()) {
+            builder()->GreaterEqual(ret, var, limit, node->line());
+            builder()->Test(ret, 1, 0, node->line());
+        } else {
+            builder()->GreaterThan(ret, var, limit, node->line());
+            builder()->Test(ret, 1, 0, node->line());
+        }
+        builder()->Jump(&out_label, fun_scope_->kpool(), node->end_line());
+        fun_scope_->FreeVar(ret);
+
+        scope.set_loop_in(&in_label);
+        scope.set_loop_out(&out_label);
+        node->body()->Accept(this, x);
+        scope.set_loop_in(nullptr);
+        scope.set_loop_out(nullptr);
+
+        builder()->Bind(&in_label, fun_scope_->kpool());
+        builder()->Add(var, var, step);
         builder()->Jump(&body_label, fun_scope_->kpool(), node->end_line());
         builder()->Bind(&out_label, fun_scope_->kpool());
         return IVal::Void();
@@ -159,7 +210,7 @@ public:
                     blk_scope.PutVariable(param, nullptr);
                 }
             }
-            CodeGeneratorContext bix(LAZY_INSTANCE_INITIALIZER);
+            CodeGeneratorContext bix;
             node->value()->Accept(this, &bix);
             builder()->Ret(IVal::Local(0), 0);
             
@@ -192,7 +243,7 @@ public:
     
     virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
         std::vector<IVal> operands;
-        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        CodeGeneratorContext ix;
         ix.set_n_result(1);
         ix.set_keep_const(true);
         
@@ -240,13 +291,15 @@ public:
                 break;
         }
         for (int64_t i = operands.size() - 1; i >= 0; --i) {
+            //if (!blk_scope_->Protected(operands[i])) {
             fun_scope_->FreeVar(operands[i]);
+            //}
         }
         return ret;
     }
     
     virtual IVal VisitLogicSwitch(ast::LogicSwitch *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+        CodeGeneratorContext ix;
         ix.set_n_result(1);
         
         IVal ret = fun_scope_->NewLocal();

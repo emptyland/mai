@@ -70,29 +70,31 @@ extern int nyaa_yydebug;
     UMINUS = 268,
     OP_CONCAT = 269,
     NEW = 270,
-    IF = 271,
-    ELSE = 272,
-    WHILE = 273,
-    FOR = 274,
-    IN = 275,
-    OBJECT = 276,
-    CLASS = 277,
-    PROPERTY = 278,
-    BREAK = 279,
-    CONTINUE = 280,
-    RETURN = 281,
-    VARGS = 282,
-    DO = 283,
-    TINY_ARROW = 284,
-    STRING_LITERAL = 285,
-    SMI_LITERAL = 286,
-    APPROX_LITERAL = 287,
-    INT_LITERAL = 288,
-    NIL_LITERAL = 289,
-    BOOL_LITERAL = 290,
-    TOKEN_ERROR = 291,
-    IS = 292,
-    OP_NOT = 293
+    TO = 271,
+    UNTIL = 272,
+    IF = 273,
+    ELSE = 274,
+    WHILE = 275,
+    FOR = 276,
+    IN = 277,
+    OBJECT = 278,
+    CLASS = 279,
+    PROPERTY = 280,
+    BREAK = 281,
+    CONTINUE = 282,
+    RETURN = 283,
+    VARGS = 284,
+    DO = 285,
+    TINY_ARROW = 286,
+    STRING_LITERAL = 287,
+    SMI_LITERAL = 288,
+    APPROX_LITERAL = 289,
+    INT_LITERAL = 290,
+    NIL_LITERAL = 291,
+    BOOL_LITERAL = 292,
+    TOKEN_ERROR = 293,
+    IS = 294,
+    OP_NOT = 295
   };
 #endif
 
@@ -124,7 +126,7 @@ union NYAA_YYSTYPE
     int64_t smi_val;
     bool bool_val;
 
-#line 128 "syntax.hh"
+#line 130 "syntax.hh"
 
 };
 typedef union NYAA_YYSTYPE NYAA_YYSTYPE;

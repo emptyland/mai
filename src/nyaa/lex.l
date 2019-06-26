@@ -36,6 +36,8 @@ def { return DEF; }
 var { return VAR; }
 new { return NEW; }
 do { return DO; }
+to { return TO; }
+until { return UNTIL; }
 lambda { return LAMBDA; }
 return { return RETURN; }
 if { return IF; }

@@ -1272,6 +1272,24 @@ TEST_F(NyaaThreadTest, ClassDefinition) {
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
 
+TEST_F(NyaaThreadTest, ForStepLoop) {
+    static const char s[] = {
+        "var n = 0"
+        "for (i in 0 to 100) {\n"
+        "   n = n + 1\n"
+        "}\n"
+        "assert(n == 101)\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    script->Call(nullptr, 0, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+
 } // namespace nyaa
     
 } // namespace mai

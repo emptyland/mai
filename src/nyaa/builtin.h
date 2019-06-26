@@ -154,7 +154,6 @@ struct Operator {
         kMul,
         kDiv,
         kMod,
-        kNeg,
         kUnm,
         kConcat,
         kShl,
@@ -171,6 +170,7 @@ struct Operator {
         kBitAnd,
         kBitOr,
         kBitXor,
+        kBitInv,
         kIndex,
         kNewindex,
     };

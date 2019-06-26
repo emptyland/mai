@@ -18,7 +18,7 @@
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
 		23216A272201A2F900E1B816 /* types-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A262201A2F900E1B816 /* types-test.cc */; };
 		23216A2A2201BC8600E1B816 /* heap-tuple.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A292201BC8600E1B816 /* heap-tuple.cc */; };
-		2325865B22A175CA006AADE4 /* code-gen-base.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2325865A22A175CA006AADE4 /* code-gen-base.cc */; };
+		2325865B22A175CA006AADE4 /* code-gen-utils.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2325865A22A175CA006AADE4 /* code-gen-utils.cc */; };
 		2325865D22A17DB3006AADE4 /* bytecode-generator-visitor.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2325865C22A17DB3006AADE4 /* bytecode-generator-visitor.cc */; };
 		232CD5182283CAEA00544808 /* thread-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232CD50D2283CAEA00544808 /* thread-test.cc */; };
 		232CD5192283CAEA00544808 /* code-gen-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 232CD50E2283CAEA00544808 /* code-gen-test.cc */; };
@@ -325,8 +325,8 @@
 		23216A292201BC8600E1B816 /* heap-tuple.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "heap-tuple.cc"; sourceTree = "<group>"; };
 		23216A2B2203FC1800E1B816 /* result-set.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "result-set.h"; sourceTree = "<group>"; };
 		23216A2D2205511F00E1B816 /* ast-visitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ast-visitor.h"; sourceTree = "<group>"; };
-		2325865922A17564006AADE4 /* code-gen-base.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "code-gen-base.h"; sourceTree = "<group>"; };
-		2325865A22A175CA006AADE4 /* code-gen-base.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "code-gen-base.cc"; sourceTree = "<group>"; };
+		2325865922A17564006AADE4 /* code-gen-utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "code-gen-utils.h"; sourceTree = "<group>"; };
+		2325865A22A175CA006AADE4 /* code-gen-utils.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "code-gen-utils.cc"; sourceTree = "<group>"; };
 		2325865C22A17DB3006AADE4 /* bytecode-generator-visitor.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bytecode-generator-visitor.cc"; sourceTree = "<group>"; };
 		2326026121ABE7D8003F434C /* arenas.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arenas.h; sourceTree = "<group>"; };
 		2326026221ABE80D003F434C /* arenas.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = arenas.cc; sourceTree = "<group>"; };
@@ -876,8 +876,8 @@
 				23CA8254225D82D900947EA8 /* parser.cc */,
 				23CF40DE225A396C0072CD91 /* code-gen.h */,
 				23CF40DF225A39EE0072CD91 /* code-gen.cc */,
-				2325865922A17564006AADE4 /* code-gen-base.h */,
-				2325865A22A175CA006AADE4 /* code-gen-base.cc */,
+				2325865922A17564006AADE4 /* code-gen-utils.h */,
+				2325865A22A175CA006AADE4 /* code-gen-utils.cc */,
 				2325865C22A17DB3006AADE4 /* bytecode-generator-visitor.cc */,
 				2349FDEF22A21C93001861E0 /* aot-generator-visitor-x64.cc */,
 			);
@@ -1412,7 +1412,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2325865B22A175CA006AADE4 /* code-gen-base.cc in Sources */,
+				2325865B22A175CA006AADE4 /* code-gen-utils.cc in Sources */,
 				2364B2AA21E451F8008519AE /* ast.cc in Sources */,
 				2364B2AD21E451F8008519AE /* pessimistic-transaction-db.cc in Sources */,
 				2349FDF722A4BAA0001861E0 /* sha256-test.cc in Sources */,

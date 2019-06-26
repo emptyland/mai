@@ -48,13 +48,13 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     bool bool_val;
 }
 
-%token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS OP_CONCAT NEW
+%token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS OP_CONCAT NEW TO UNTIL
 %token IF ELSE WHILE FOR IN OBJECT CLASS PROPERTY BREAK CONTINUE RETURN VARGS DO TINY_ARROW
 %token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL NIL_LITERAL BOOL_LITERAL
 %token TOKEN_ERROR
 
 %type <block> Script Block
-%type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration WhileLoop ForIterateLoop
+%type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration WhileLoop ForIterateLoop ForStepLoop
 %type <stmts> StatementList MemberList
 %type <expr> Expression Call LambdaLiteral MapInitializer InheritClause
 %type <exprs> ExpressionList Arguments Concat
@@ -85,7 +85,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %left '+' '-'
 %left '*' '/' '%'
 %left '^'
-%nonassoc UMINUS
+%nonassoc UMINUS '~'
 
 //%type column
 %%
@@ -141,6 +141,9 @@ Statement : RETURN ExpressionList {
 | ForIterateLoop {
     $$ = $1;
 }
+| ForStepLoop {
+    $$ = $1;
+}
 | BREAK {
     $$ = ctx->factory->NewBreak(@1);
 }
@@ -168,6 +171,13 @@ WhileLoop : WHILE '(' Expression ')' Block {
 
 ForIterateLoop : FOR NameList IN Expression Block {
     $$ = ctx->factory->NewForIterateLoop($2, $4, $5, Location::Concat(@1, @5));
+}
+
+ForStepLoop : FOR '(' NAME IN Expression TO Expression ')' Block {
+    $$ = ctx->factory->NewForStepLoop($3, $5, false, $7, nullptr, $9, Location::Concat(@1, @9));
+}
+| FOR '(' NAME IN Expression UNTIL Expression ')' Block {
+    $$ = ctx->factory->NewForStepLoop($3, $5, true,  $7, nullptr, $9, Location::Concat(@1, @9));
 }
 
 ObjectDefinition : OBJECT Attributes NAME '{' MemberList '}' {
@@ -296,6 +306,12 @@ Expression : LValue {
 | OP_NOT Expression {
     $$ = ctx->factory->NewUnary(Operator::kNot, $2, Location::Concat(@1, @2));
 }
+| '~' Expression {
+    $$ = ctx->factory->NewUnary(Operator::kBitInv, $2, Location::Concat(@1, @2));
+}
+| UMINUS Expression {
+    $$ = ctx->factory->NewUnary(Operator::kUnm, $2, Location::Concat(@1, @2));
+}
 | Expression OP_AND Expression {
     $$ = ctx->factory->NewAnd($1, $3, Location::Concat(@1, @3));
 }
@@ -319,6 +335,21 @@ Expression : LValue {
 }
 | Expression '%' Expression {
     $$ = ctx->factory->NewBinary(Operator::kMod, $1, $3, Location::Concat(@1, @3));
+}
+| Expression OP_LSHIFT Expression {
+    $$ = ctx->factory->NewBinary(Operator::kShl, $1, $3, Location::Concat(@1, @3));
+}
+| Expression OP_RSHIFT Expression {
+    $$ = ctx->factory->NewBinary(Operator::kShr, $1, $3, Location::Concat(@1, @3));
+}
+| Expression '|' Expression {
+    $$ = ctx->factory->NewBinary(Operator::kBitOr, $1, $3, Location::Concat(@1, @3));
+}
+| Expression '&' Expression {
+    $$ = ctx->factory->NewBinary(Operator::kBitAnd, $1, $3, Location::Concat(@1, @3));
+}
+| Expression '^' Expression {
+    $$ = ctx->factory->NewBinary(Operator::kBitXor, $1, $3, Location::Concat(@1, @3));
 }
 | '(' Expression ')' {
     $$ = $2;

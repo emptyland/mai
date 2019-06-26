@@ -335,7 +335,7 @@ extern int nyaa_yylex \
 #undef YY_DECL
 #endif
 
-#line 156 "lex.l"
+#line 158 "lex.l"
 
 
 #line 342 "lex.yy.h"
