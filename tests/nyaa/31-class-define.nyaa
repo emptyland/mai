@@ -1,3 +1,7 @@
+// class meta functions test:
+/* Block comment */
+# line comment
+
 class Foo {
     def __init__(self, a, b, c) {
         self.a = a

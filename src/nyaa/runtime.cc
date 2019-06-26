@@ -13,6 +13,7 @@ namespace nyaa {
 using ThreadTemplate = arch::ObjectTemplate<NyThread>;
 using MapTemplate = arch::ObjectTemplate<NyMap>;
 using ObjectTemplate = arch::ObjectTemplate<Object>;
+using StringTemplate = arch::ObjectTemplate<NyString>;
 using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     
 /*static*/ int Runtime::Object_IsFalseWarp(Object *ob) {
@@ -140,6 +141,10 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     return nullptr;
 }
     
+/*static*/ NyString *Runtime::NyaaCore_NewUninitializedString(NyaaCore *N, size_t init_size) {
+    return N->factory()->NewUninitializedString(init_size);
+}
+    
 /*static*/ void Runtime::Test_PrintNaSt(Address tp, Address bp) {
     DCHECK_LE(tp, bp);
     for (Address i = tp; i < bp; i += kPointerSize) {
@@ -162,9 +167,11 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     ThreadTemplate::MethodAddress(&NyThread::RuntimePrepareNew),
     ThreadTemplate::MethodAddress(&NyThread::RuntimeSaveNativeStack),
     ThreadTemplate::MethodAddress(&NyThread::CheckStack),
+    ThreadTemplate::MethodAddress(&NyThread::RuntimeConcat),
     
     reinterpret_cast<Address>(&NyaaCore_GetRecoverPoint),
     reinterpret_cast<Address>(&NyaaCore_TryMetaFunction),
+    reinterpret_cast<Address>(&NyaaCore_NewUninitializedString),
     
     reinterpret_cast<Address>(&Object_IsFalseWarp),
     reinterpret_cast<Address>(&Object_IsTrueWarp),
@@ -181,6 +188,10 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     reinterpret_cast<Address>(&Object_GEWarp),
     reinterpret_cast<Address>(&Object::Get),
     reinterpret_cast<Address>(&Object::Put),
+    ObjectTemplate::MethodAddress(&Object::ToString),
+    
+    StringTemplate::MethodAddress(static_cast<NyString *(NyString::*)(const NyString *, NyaaCore*)>(&NyString::Add)),
+    StringTemplate::MethodAddress(&NyString::Done),
     
     MapTemplate::MethodAddress(&NyMap::RawGet),
     MapTemplate::MethodAddress(&NyMap::RawPut),

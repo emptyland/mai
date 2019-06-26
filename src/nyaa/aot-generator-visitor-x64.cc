@@ -727,7 +727,7 @@ private:
     
     virtual void New(IVal val, IVal clazz, int nargs, int line) override {
         FileLineScope fls(fun_scope_, line);
-        static const int32_t kSavedStack = RoundUp(kPageSize + 4, arch::kNativeStackAligment);
+        static const int32_t kSavedStack = RoundUp(16, arch::kNativeStackAligment);
         static const Operand kStNArgs = Operand(rbp, -4);
         static const Operand kStInit = Operand(rbp, -12);
         
@@ -899,8 +899,52 @@ private:
         __ addq(rdi, rcx);
         __ movq(Operand(kThread, NyThread::kOffsetStackTP), rdi);
     }
+    
+    virtual void Concat(IVal val, IVal base, int n, int line) override {
+        FileLineScope fls(fun_scope_, line);
+        if (n > 4) {
+            __ movq(kRegArgv[0], kThread);
+            __ movl(kRegArgv[1], val.index);
+            __ movl(kRegArgv[2], base.index);
+            __ movl(kRegArgv[3], n);
+            CallRuntime(Runtime::kThread_Concat);
+            return;
+        }
+        
+        __ movq(kRegArgv[0], Local(base.index));
+        __ movq(kRegArgv[1], kCore);
+        CallRuntime(Runtime::kObject_ToString);
+        __ movq(rbx, rax);
 
-    Assembler *masm() { return &static_cast<FunctionScopeBundle *>(fun_scope_)->masm_; }
+        __ movq(kRegArgv[0], kCore);
+        __ movl(kRegArgv[1], Operand(rbx, NyString::kOffsetSize));
+        __ addq(kRegArgv[1], 64);
+        CallRuntime(Runtime::kNyaaCore_NewUninitializedString);
+        
+        __ movq(kRegArgv[0], rax);
+        __ movq(kRegArgv[1], rbx);
+        __ movq(kRegArgv[2], kCore);
+        CallRuntime(Runtime::kString_Add);
+        __ movq(Local(val.index), rax);
+
+        for (int i = 1; i < n; ++i) {
+            __ movq(kRegArgv[0], Local(base.index + i));
+            __ movq(kRegArgv[1], kCore);
+            CallRuntime(Runtime::kObject_ToString);
+            __ movq(rbx, rax);
+            
+            __ movq(kRegArgv[0], Local(val.index));
+            __ movq(kRegArgv[1], rbx);
+            __ movq(kRegArgv[2], kCore);
+            CallRuntime(Runtime::kString_Add);
+            __ movq(Local(val.index), rax);
+        }
+        
+        __ movq(kRegArgv[0], Local(val.index));
+        __ movq(kRegArgv[1], kCore);
+        CallRuntime(Runtime::kString_Done);
+        __ movq(Local(val.index), rax);
+    }
     
     void BinaryExpression(IVal ret, IVal lhs, IVal rhs, Operator::ID op, Runtime::ExternalLink rt,
                           int line) {
@@ -995,18 +1039,13 @@ private:
         __ pushq(kBP);
         __ pushq(kCore);
 
-        __ movp(rbx, Runtime::kExternalLinks[sym]);
-        __ call(rbx);
+        __ movp(rax, Runtime::kExternalLinks[sym]);
+        __ call(rax);
 
         __ popq(kCore);
         __ popq(kBP);
         __ popq(kThread);
         __ popq(kScratch);
-
-//        __ movq(kScratch, Operand(rbp, -kPointerSize));
-//        __ movq(kBP, Operand(rbp, -kPointerSize - 8));
-//        __ movq(kThread, Operand(rbp, -kPointerSize - 16));
-//        __ movq(kCore, Operand(rbp, -kPointerSize - 24));
 
         if (may_interrupt) {
             __ movq(kScratch, core_->code_pool()->kRecoverIfNeed->entry_address());
@@ -1019,6 +1058,8 @@ private:
     Operand ArrayAt(Register arr, int index) {
         return Operand(arr, NyArray::kOffsetElems + (index << kPointerShift));
     }
+    
+    Assembler *masm() { return &static_cast<FunctionScopeBundle *>(fun_scope_)->masm_; }
 }; // class AOTGeneratorVisitor
     
 Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root,

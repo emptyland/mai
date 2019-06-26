@@ -1,4 +1,4 @@
-/* A Bison parser, made by GNU Bison 3.3.2.  */
+/* A Bison parser, made by GNU Bison 3.4.1.  */
 
 /* Bison interface for Yacc-like parsers in C
 
@@ -98,10 +98,9 @@ extern int nyaa_yydebug;
 
 /* Value type.  */
 #if ! defined NYAA_YYSTYPE && ! defined NYAA_YYSTYPE_IS_DECLARED
-
 union NYAA_YYSTYPE
 {
-#line 27 "syntax.y" /* yacc.c:1927  */
+#line 27 "syntax.y"
 
     const ::mai::nyaa::ast::String *name;
     ::mai::nyaa::ast::VarDeclaration::NameList *names;
@@ -125,9 +124,9 @@ union NYAA_YYSTYPE
     int64_t smi_val;
     bool bool_val;
 
-#line 129 "syntax.hh" /* yacc.c:1927  */
-};
+#line 128 "syntax.hh"
 
+};
 typedef union NYAA_YYSTYPE NYAA_YYSTYPE;
 # define NYAA_YYSTYPE_IS_TRIVIAL 1
 # define NYAA_YYSTYPE_IS_DECLARED 1

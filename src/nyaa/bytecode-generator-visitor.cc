@@ -276,25 +276,6 @@ public:
         return ret;
     }
     
-    virtual IVal VisitConcat(ast::Concat *node, ast::VisitorContext *x) override {
-        CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
-        ix.set_n_result(1);
-        
-        IVal base = IVal::Local(fun_scope_->free_reg());
-        int32_t reg = base.index;
-        std::vector<IVal> ops;
-        for (auto op : *node->operands()) {
-            IVal val = AdjustStackPosition(reg++, op->Accept(this, &ix), op->line());
-            ops.push_back(val);
-        }
-        
-        for (int64_t i = ops.size() -1; i >= 1; --i) {
-            fun_scope_->FreeVar(ops[i]);
-        }
-        builder()->Concat(base, base, static_cast<int32_t>(ops.size()), node->line());
-        return base;
-    }
-    
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeGeneratorVisitor);
 private:
     virtual void LoadNil(IVal val, int n, int line) override {
@@ -352,6 +333,10 @@ private:
 
     virtual void Vargs(IVal vargs, int wanted, int line) override {
         builder()->Vargs(vargs, wanted, line);
+    }
+
+    virtual void Concat(IVal val, IVal base, int n, int line) override {
+        builder()->Concat(val, base, n, line);
     }
 
     virtual IVal Localize(IVal val, int line) override {

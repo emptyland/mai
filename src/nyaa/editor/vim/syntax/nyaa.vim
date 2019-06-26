@@ -14,6 +14,8 @@ syntax match nyaaFix "FIX\|FIXME\|TODO\|XXX"
 syntax match nyaaOperator "\^\|@"
 
 syntax region nyaaComment start="//" skip="\\$" end="$"
+syntax region nyaaComment start="#" end="$"
+syntax region nyaaComment start="/\*" end="\*/"
 syntax region nyaaString start=+L\="+ skip=+\\\\\|\\"+ end=+"+
 syntax region nyaaRawString start=+L\='+ skip=+\\\\\|\\'+ end=+'+
 

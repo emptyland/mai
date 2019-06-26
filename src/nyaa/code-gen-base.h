@@ -231,14 +231,15 @@ public:
     virtual void Self(IVal base, IVal callee, IVal method, int line) = 0;
     virtual void New(IVal val, IVal clazz, int nargs, int line) = 0;
     virtual void Vargs(IVal vargs, int wanted, int line) = 0;
+    virtual void Concat(IVal val, IVal base, int n, int line) = 0;
     
     //----------------------------------------------------------------------------------------------
     // Implements from ast::Visitor
     //----------------------------------------------------------------------------------------------
     virtual IVal VisitObjectDefinition(ast::ObjectDefinition *node, ast::VisitorContext *x) override;
-    virtual IVal VisitClassDefinition(ast::ClassDefinition *node, ast::VisitorContext *) override;
+    virtual IVal VisitClassDefinition(ast::ClassDefinition *node, ast::VisitorContext *x) override;
     virtual IVal VisitFunctionDefinition(ast::FunctionDefinition *node, ast::VisitorContext *x) override;
-    virtual IVal VisitBlock(ast::Block *node, ast::VisitorContext */*ctx*/) override;
+    virtual IVal VisitBlock(ast::Block *node, ast::VisitorContext *x) override;
     virtual IVal VisitVarDeclaration(ast::VarDeclaration *node, ast::VisitorContext *x) override;
     virtual IVal VisitVariable(ast::Variable *node, ast::VisitorContext *x) override;
     virtual IVal VisitAssignment(ast::Assignment *node, ast::VisitorContext *x) override;
@@ -254,6 +255,7 @@ public:
     virtual IVal VisitSmiLiteral(ast::SmiLiteral *node, ast::VisitorContext *x) override;
     virtual IVal VisitIntLiteral(ast::IntLiteral *node, ast::VisitorContext *x) override;
     virtual IVal VisitMapInitializer(ast::MapInitializer *node, ast::VisitorContext *x) override;
+    virtual IVal VisitConcat(ast::Concat *node, ast::VisitorContext *x) override;
     virtual IVal VisitVariableArguments(ast::VariableArguments *node, ast::VisitorContext *x) override;
     
     friend class FunctionScope;

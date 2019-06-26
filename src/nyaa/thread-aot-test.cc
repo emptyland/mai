@@ -396,6 +396,24 @@ TEST_F(NyaaThreadAOTTest, MapMetaIndex) {
     << try_catch.ToString();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
+    
+TEST_F(NyaaThreadAOTTest, StrConcat) {
+    static const char s[] = {
+        "var i, j, k = 1, 2.22, \"ok\""
+        "var s = i..\":\"..j..\":\"..k\n"
+        "assert(s == \"1:2.220000:ok\")\n"
+        "s = i..j..k\n"
+        "assert(s == \"12.220000ok\")\n"
+        "s = nil\n"
+        "garbagecollect(\"full\")\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+}
 
 } // namespace nyaa
 

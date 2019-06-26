@@ -307,6 +307,7 @@ private:
     void RuntimeSaveNativeStack(Address nast_tp);
     
     void RuntimeExpandVArgs(int32_t ra, int wanted);
+    void RuntimeConcat(int32_t ret, int32_t base, int32_t n);
 
     int PrepareCall(Object **base, int32_t nargs, int32_t wanted);
     int FinializeCall(Object **base, int32_t nargs, int32_t wanted);

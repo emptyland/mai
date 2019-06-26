@@ -142,7 +142,8 @@ not { return OP_NOT; }
 
 [-=+&~|^/%!()*.,;:{}] { return yytext[0]; }
 
-"--"[ \t].* ;
+"//"[ \t].* ;
+"#"[ \t].* ;
 
 "/*"          { yyextra->old_state = YY_START; BEGIN COMMENT_MOD; }
 <COMMENT_MOD>"*/" { BEGIN yyextra->old_state; }

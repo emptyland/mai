@@ -719,17 +719,7 @@ int NyThread::Run() {
             case Bytecode::kConcat: {
                 int32_t ra, rb, n;
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rb, &n);
-                NyString *str = Get(rb)->ToString(owns_);
-                NyString *rv = owns_->factory()->NewUninitializedString(str->size() + 64);
-                Set(ra, rv->Add(str, owns_)); // protect for gc
-                for (int i = 1; i < n; ++i) {
-                    str = Get(rb + i)->ToString(owns_);
-                    rv = DCHECK_NOTNULL(NyString::Cast(Get(ra)));
-                    Set(ra, rv->Add(str, owns_)); // protect for gc
-                }
-
-                rv = DCHECK_NOTNULL(NyString::Cast(Get(ra)));
-                rv->Done(owns_);
+                RuntimeConcat(ra, rb, n);
                 frame_->AddPC(delta);
             } break;
                 
@@ -963,6 +953,20 @@ void NyThread::RuntimeExpandVArgs(int32_t ra, int wanted) {
         }
         stack_tp_ = a + wanted;
     }
+}
+    
+void NyThread::RuntimeConcat(int32_t ra, int32_t rb, int32_t n) {
+    NyString *str = Get(rb)->ToString(owns_);
+    NyString *rv = owns_->factory()->NewUninitializedString(str->size() + 64);
+    Set(ra, rv->Add(str, owns_)); // protect for gc
+    for (int i = 1; i < n; ++i) {
+        str = Get(rb + i)->ToString(owns_);
+        rv = DCHECK_NOTNULL(NyString::Cast(Get(ra)));
+        Set(ra, rv->Add(str, owns_)); // protect for gc
+    }
+    
+    rv = DCHECK_NOTNULL(NyString::Cast(Get(ra)));
+    rv->Done(owns_);
 }
 
 int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {

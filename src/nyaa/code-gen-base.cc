@@ -493,6 +493,25 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     }
     return val;
 }
+    
+/*virtual*/ IVal CodeGeneratorVisitor::VisitConcat(ast::Concat *node, ast::VisitorContext *x) {
+    CodeGeneratorContext ix(LAZY_INSTANCE_INITIALIZER);
+    ix.set_n_result(1);
+    
+    IVal base = IVal::Local(fun_scope_->free_reg());
+    int32_t reg = base.index;
+    std::vector<IVal> ops;
+    for (auto op : *node->operands()) {
+        IVal val = AdjustStackPosition(reg++, op->Accept(this, &ix), op->line());
+        ops.push_back(val);
+    }
+    
+    for (int64_t i = ops.size() -1; i >= 1; --i) {
+        fun_scope_->FreeVar(ops[i]);
+    }
+    Concat(base, base, static_cast<int32_t>(ops.size()), node->line());
+    return base;
+}
 
 /*virtual*/ IVal CodeGeneratorVisitor::VisitMapInitializer(ast::MapInitializer *node,
                                                            ast::VisitorContext *x) {

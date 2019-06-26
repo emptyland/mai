@@ -33,9 +33,11 @@ public:
         kThread_PrepareNew,
         kThread_SaveNativeStack,
         kThread_CheckStack,
+        kThread_Concat,
         
         kNyaaCore_GetRecoverPoint,
         kNyaaCore_TryMetaFunction,
+        kNyaaCore_NewUninitializedString,
         
         kObject_IsFalse,
         kObject_IsTrue,
@@ -52,6 +54,10 @@ public:
         kObject_GE,
         kObject_Get,
         kObject_Put,
+        kObject_ToString,
+        
+        kString_Add,
+        kString_Done,
         
         kMap_RawGet,
         kMap_RawPut,
@@ -84,6 +90,7 @@ private:
     static Object *Thread_Closure(NyThread *thd, int slot);
     static Address NyaaCore_GetRecoverPoint(NyaaCore *N);
     static NyRunnable *NyaaCore_TryMetaFunction(NyaaCore *N, Object *ob, Operator::ID op);
+    static NyString *NyaaCore_NewUninitializedString(NyaaCore *N, size_t init_size);
     
     static void Test_PrintNaSt(Address tp, Address bp);
 }; // class Runtime
