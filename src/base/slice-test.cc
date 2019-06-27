@@ -92,6 +92,36 @@ TEST(SliceTest, ParseH64) {
     EXPECT_EQ(0xff, val);
 }
     
+TEST(SliceTest, ParseEscaped) {
+    std::string buf;
+    EXPECT_EQ(0, Slice::ParseEscaped("", &buf));
+    EXPECT_EQ("", buf);
+    
+    buf.clear();
+    EXPECT_EQ(0, Slice::ParseEscaped("\\t", &buf));
+    EXPECT_EQ("\t", buf);
+    
+    buf.clear();
+    EXPECT_EQ(0, Slice::ParseEscaped("\\t\\r\\n\\v\\a\\b\\f", &buf));
+    EXPECT_EQ("\t\r\n\v\a\b\f", buf);
+    
+    buf.clear();
+    EXPECT_EQ(0, Slice::ParseEscaped("\\tabcdef\\n", &buf));
+    EXPECT_EQ("\tabcdef\n", buf);
+    
+    buf.clear();
+    EXPECT_EQ(0, Slice::ParseEscaped("\\0777\\0111", &buf));
+    EXPECT_EQ("\xff\x49", buf);
+    
+    buf.clear();
+    EXPECT_EQ(0, Slice::ParseEscaped("\\07a\\011bc", &buf));
+    EXPECT_EQ("\07a\011bc", buf);
+    
+    buf.clear();
+    EXPECT_EQ(0, Slice::ParseEscaped("🐼\\xee\\xff\\x11", &buf));
+    EXPECT_EQ("🐼\xee\xff\x11", buf);
+}
+    
 } // namespace base
     
 } // namespace mai

@@ -1297,6 +1297,29 @@ TEST_F(NyaaThreadTest, ForStepLoopBreak) {
         << try_catch.ToString();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
+    
+TEST_F(NyaaThreadTest, StringEscape) {
+    static const char s[] = {
+        "var s = \'\\r\\n\\b\'\n"
+        "assert(s == \'\\r\\n\\b\')\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    //BytecodeArrayDisassembler::Disassembly(core_, script->proto(), stdout);
+    script->Call(nullptr, 0, 0, core_);
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+
+TEST_F(NyaaThreadTest, TypeofKindof) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/13-typeof-kindof.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
 
 } // namespace nyaa
     

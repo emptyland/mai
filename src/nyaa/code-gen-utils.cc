@@ -325,8 +325,8 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     
     if (ctx->lval()) {
         SetField(self, index, ctx->rval(), node->line());
-        fun_scope_->FreeVar(index);
-        //fun_scope_->FreeVar(self);
+        //fun_scope_->FreeVar(index);
+        fun_scope_->FreeVar(self);
         return IVal::Void();
     } else {
         GetField(val, self, index, node->line());

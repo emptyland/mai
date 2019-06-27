@@ -2,7 +2,7 @@
 syntax keyword nyaaContant nil true false
 syntax keyword nyaaKeyword var val not def new do lambda property class object
 
-syntax keyword nyaaFunc raise getmetatable setmetatable len str log print yield
+syntax keyword nyaaFunc raise getmetatable setmetatable len str log print yield kindof typeof
 syntax keyword nyaaFunc range pairs pcall assert require loadfile loadstring garbagecollect
 
 syntax match nyaaInteger "\<\d\+\>"

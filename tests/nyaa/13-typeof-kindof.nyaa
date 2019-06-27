@@ -1,0 +1,25 @@
+var a, b, c = 1, 1.1, 'ok'
+
+assert(typeof(a) == 'int')
+assert(typeof(b) == 'float')
+assert(typeof(c) == 'string')
+
+a = {1,2,3}
+assert(typeof(a) == 'map')
+
+object foo {}
+assert(typeof(foo) == 'foo')
+
+class bar {}
+
+a = new bar()
+assert(typeof(a) == 'bar')
+assert(typeof(bar) == 'map')
+
+assert(typeof(lambda a -> a) == 'closure')
+
+__g__.foo = nil
+__g__.bar = nil
+
+assert(typeof(foo) == 'nil')
+assert(typeof(bar) == 'nil')

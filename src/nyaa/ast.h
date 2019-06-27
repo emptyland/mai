@@ -5,6 +5,7 @@
 #include "nyaa/builtin.h"
 #include "base/arena-utils.h"
 #include "base/arena.h"
+#include "base/slice.h"
 #include "base/base.h"
 #include "mai-lang/handles.h"
 
@@ -872,6 +873,17 @@ public:
         }
         size_t len = ::strlen(z);
         return String::New(arena_, z + 1, len - 2);
+    }
+
+    String *NewStringEscaped(const char *z, int quote, bool *ok) {
+        std::string buf;
+        if (quote == 0) {
+            *ok = (base::Slice::ParseEscaped(z, &buf) == 0);
+        } else {
+            size_t len = ::strlen(z);
+            *ok = (base::Slice::ParseEscaped(z + 1, len - 2, &buf) == 0);
+        }
+        return !*ok ? nullptr : String::New(arena_, buf.data(), buf.size());
     }
 
     template<class T>

@@ -1060,18 +1060,25 @@ YY_RULE_SETUP
 }
 	YY_BREAK
 case 26:
-#line 73 "lex.l"
-case 27:
 YY_RULE_SETUP
-#line 73 "lex.l"
+#line 72 "lex.l"
 {
 	yylval->str_val = yyextra->factory->NewString(yytext, yytext[0]);
-    return STRING_LITERAL;	
+	return STRING_LITERAL;
+}
+	YY_BREAK
+case 27:
+YY_RULE_SETUP
+#line 77 "lex.l"
+{
+	bool ok = true;
+	yylval->str_val = yyextra->factory->NewStringEscaped(yytext, yytext[0], &ok);
+    return ok ? STRING_LITERAL : TOKEN_ERROR;
 }
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 78 "lex.l"
+#line 83 "lex.l"
 {
 	int rv = Slice::ParseI64(yytext, &yylval->smi_val);
 	if (rv < 0) {
@@ -1089,20 +1096,20 @@ YY_RULE_SETUP
 }
 	YY_BREAK
 case 29:
-#line 95 "lex.l"
+#line 100 "lex.l"
 case 30:
 YY_RULE_SETUP
-#line 95 "lex.l"
+#line 100 "lex.l"
 {
 	yylval->f64_val = atof(yytext);
 	return APPROX_LITERAL;
 }
 	YY_BREAK
 case 31:
-#line 101 "lex.l"
+#line 106 "lex.l"
 case 32:
 YY_RULE_SETUP
-#line 101 "lex.l"
+#line 106 "lex.l"
 {
 	yylval->f64_val = atof(yytext);
 	return APPROX_LITERAL;
@@ -1110,17 +1117,17 @@ YY_RULE_SETUP
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-#line 106 "lex.l"
+#line 111 "lex.l"
 {
 	yylval->op = Operator::kEQ;
 	return COMPARISON;
 }
 	YY_BREAK
 case 34:
-#line 111 "lex.l"
+#line 116 "lex.l"
 case 35:
 YY_RULE_SETUP
-#line 111 "lex.l"
+#line 116 "lex.l"
 {
 	yylval->op = Operator::kNE;
 	return COMPARISON;	
@@ -1128,7 +1135,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-#line 115 "lex.l"
+#line 120 "lex.l"
 {
 	yylval->op = Operator::kEQ;
 	return COMPARISON;	
@@ -1136,7 +1143,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
-#line 119 "lex.l"
+#line 124 "lex.l"
 {
 	yylval->op = Operator::kGT;
 	return COMPARISON;		
@@ -1144,7 +1151,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-#line 123 "lex.l"
+#line 128 "lex.l"
 {
 	yylval->op = Operator::kGE;
 	return COMPARISON;		
@@ -1152,7 +1159,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
-#line 127 "lex.l"
+#line 132 "lex.l"
 {
 	yylval->op = Operator::kLT;
 	return COMPARISON;		
@@ -1160,7 +1167,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 40:
 YY_RULE_SETUP
-#line 131 "lex.l"
+#line 136 "lex.l"
 {
 	yylval->op = Operator::kLE;
 	return COMPARISON;		
@@ -1168,101 +1175,101 @@ YY_RULE_SETUP
 	YY_BREAK
 case 41:
 YY_RULE_SETUP
-#line 135 "lex.l"
+#line 140 "lex.l"
 { return OP_AND; }
 	YY_BREAK
 case 42:
 YY_RULE_SETUP
-#line 136 "lex.l"
+#line 141 "lex.l"
 { return OP_OR; }
 	YY_BREAK
 case 43:
 YY_RULE_SETUP
-#line 137 "lex.l"
+#line 142 "lex.l"
 { return OP_LSHIFT; }
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
-#line 138 "lex.l"
+#line 143 "lex.l"
 { return OP_RSHIFT; }
 	YY_BREAK
 case 45:
 YY_RULE_SETUP
-#line 139 "lex.l"
+#line 144 "lex.l"
 { return '['; }
 	YY_BREAK
 case 46:
 YY_RULE_SETUP
-#line 140 "lex.l"
+#line 145 "lex.l"
 { return ']'; }
 	YY_BREAK
 case 47:
 YY_RULE_SETUP
-#line 141 "lex.l"
+#line 146 "lex.l"
 { return VARGS; }
 	YY_BREAK
 case 48:
 YY_RULE_SETUP
-#line 142 "lex.l"
+#line 147 "lex.l"
 { return OP_CONCAT; }
 	YY_BREAK
 case 49:
 YY_RULE_SETUP
-#line 143 "lex.l"
+#line 148 "lex.l"
 { return TINY_ARROW; }
 	YY_BREAK
 case 50:
 YY_RULE_SETUP
-#line 145 "lex.l"
+#line 150 "lex.l"
 { return yytext[0]; }
 	YY_BREAK
 case 51:
 YY_RULE_SETUP
-#line 147 "lex.l"
+#line 152 "lex.l"
 ;
 	YY_BREAK
 case 52:
 YY_RULE_SETUP
-#line 148 "lex.l"
+#line 153 "lex.l"
 ;
 	YY_BREAK
 case 53:
 YY_RULE_SETUP
-#line 150 "lex.l"
+#line 155 "lex.l"
 { yyextra->old_state = YY_START; BEGIN COMMENT_MOD; }
 	YY_BREAK
 case 54:
 YY_RULE_SETUP
-#line 151 "lex.l"
+#line 156 "lex.l"
 { BEGIN yyextra->old_state; }
 	YY_BREAK
 case 55:
 /* rule 55 can match eol */
 YY_RULE_SETUP
-#line 152 "lex.l"
+#line 157 "lex.l"
 ;
 	YY_BREAK
 case YY_STATE_EOF(COMMENT_MOD):
-#line 153 "lex.l"
+#line 158 "lex.l"
 { return TOKEN_ERROR; }
 	YY_BREAK
 case 56:
 YY_RULE_SETUP
-#line 155 "lex.l"
+#line 160 "lex.l"
 ;
 	YY_BREAK
 case 57:
 /* rule 57 can match eol */
 YY_RULE_SETUP
-#line 156 "lex.l"
+#line 161 "lex.l"
 { yyextra->column = 1; }
 	YY_BREAK
 case 58:
 YY_RULE_SETUP
-#line 158 "lex.l"
+#line 163 "lex.l"
 ECHO;
 	YY_BREAK
-#line 1266 "lex.nyaa_yy.c"
+#line 1273 "lex.nyaa_yy.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -2451,7 +2458,7 @@ void nyaa_yyfree (void * ptr , yyscan_t yyscanner)
 
 #define YYTABLES_NAME "yytables"
 
-#line 158 "lex.l"
+#line 163 "lex.l"
 
 
 

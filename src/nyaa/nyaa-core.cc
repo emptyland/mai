@@ -123,6 +123,7 @@ NyMap *NyaaCore::NewEnv(NyMap *base) {
             env->RawPut(factory_->NewString(e->name), factory_->NewDelegated(e->nafn), this);
         }
     }
+    env->RawPut(bkz_pool()->kInnerG, env, this);
     return env;
 }
     
@@ -194,7 +195,6 @@ Address NyaaCore::AdvanceHandleSlots(int n_slots) {
     auto slot_addr = slot->end;
     slot->end += size;
     
-    //printf("end : %p(%p), alloc: %p\n", slot->end, slot, slot_addr);
     return slot_addr;
 }
     
@@ -208,11 +208,6 @@ void NyaaCore::GarbageCollect(GarbageCollectionMethod method,
             histogram->collected_bytes = gc.collected_bytes();
             histogram->collected_objs  = gc.collected_objs();
             histogram->time_cost       = gc.time_cost();
-
-//            DLOG(INFO) << "major gc finish : "
-//                << gc.collected_objs() << " objs, "
-//                << gc.collected_bytes() << " bytes, "
-//                << gc.time_cost() << " ms.";
         } break;
         case kMinorGC: {
             MarkingSweep gc(this, heap());
@@ -221,11 +216,6 @@ void NyaaCore::GarbageCollect(GarbageCollectionMethod method,
             histogram->collected_bytes = gc.collected_bytes();
             histogram->collected_objs  = gc.collected_objs();
             histogram->time_cost       = gc.time_cost();
-
-//            DLOG(INFO) << "major gc finish : "
-//                << gc.collected_objs() << " objs, "
-//                << gc.collected_bytes() << " bytes, "
-//                << gc.time_cost() << " ms.";
         } break;
         case kFullGC: {
             Scavenger major_gc(this, heap());

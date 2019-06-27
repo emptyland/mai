@@ -69,10 +69,15 @@ not { return OP_NOT; }
     return NAME;
 }
 
-'(\\.|''|[^'\n'])*' |
-\"(\\.|\"\"|[^"\n])*\" {
+'(\\.|''|[^'\n'])*' {
 	yylval->str_val = yyextra->factory->NewString(yytext, yytext[0]);
-    return STRING_LITERAL;	
+	return STRING_LITERAL;
+}
+
+\"(\\.|\"\"|[^"\n])*\" {
+	bool ok = true;
+	yylval->str_val = yyextra->factory->NewStringEscaped(yytext, yytext[0], &ok);
+    return ok ? STRING_LITERAL : TOKEN_ERROR;
 }
 
 -?[0-9]+ {

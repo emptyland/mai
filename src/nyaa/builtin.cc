@@ -33,6 +33,7 @@ const char *kRawBuiltinKzs[] = {
     "__size__",
     "__base__",
     "__weak__",
+    "__g__",
     "nil",
     "true",
     "false",
@@ -480,6 +481,37 @@ static void BuiltinAssert(const FunctionCallbackInfo<Object> &info) {
     }
 }
     
+static void BuiltinKindof(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    if (info.Length() == 0) {
+        info.GetReturnValues().Add(kTypeNil);
+        return;
+    }
+    info.GetReturnValues().Add(info[0]->GetType());
+}
+    
+static void BuiltinTypeof(const FunctionCallbackInfo<Object> &info) {
+    HandleScope handle_scope(info.VM());
+    NyaaCore *N = info.Core();
+    if (info.Length() == 0) {
+        info.GetReturnValues().Add(N->bkz_pool()->kNil);
+        return;
+    }
+    
+    switch (info[0]->GetType()) {
+        case kTypeNil:
+            info.GetReturnValues().Add(N->bkz_pool()->kNil);
+            break;
+        case kTypeSmi:
+            info.GetReturnValues().Add(N->bkz_pool()->kInt);
+            break;
+        default: {
+            Handle<NyObject> input = Handle<NyObject>::Cast(info[0]);
+            info.GetReturnValues().Add(input->GetMetatable()->RawGet(N->bkz_pool()->kInnerType, N));
+        } break;
+    }
+}
+    
 static void ThreadInit(const FunctionCallbackInfo<Object> &info) {
     if (info.Length() < 2) {
         info.GetErrors().Raisef("incorrect arguments length, required: >1");
@@ -701,6 +733,8 @@ const NyaaNaFnEntry kBuiltinFnEntries[] = {
     {"pairs", BuiltinPairs},
     {"range", BuiltinRange},
     {"pcall", BuiltinPCall},
+    {"kindof", BuiltinKindof},
+    {"typeof", BuiltinTypeof},
     {"assert", BuiltinAssert},
     {"require", BuiltinRequire},
     {"loadfile", BuiltinLoadFile},

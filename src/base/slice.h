@@ -179,10 +179,30 @@ public:
     // 'd' = date      : 0000-00-00
     // 't' = time      : 00:00:00
     static int LikeDateTime(const char *s) {
-        return LikeDateTime(s, !s ? 0 : strlen(s));
+        return LikeDateTime(s, !s ? 0 : ::strlen(s));
     }
     
     static int LikeDateTime(const char *s, size_t n) { return 0; }
+    
+    // escape char:
+    // \a
+    // \b
+    // \f
+    // \n
+    // \r
+    // \t
+    // \v
+    // \\ -> \
+    // \' -> '
+    // \" -> "
+    // \dddd - oct
+    // \xhh -> hex
+    // \uuuuu -> unicode
+    static int ParseEscaped(const char *s, std::string *rv) {
+        return ParseEscaped(s, !s ? 0 : ::strlen(s), rv);
+    }
+    
+    static int ParseEscaped(const char *s, size_t n, std::string *rv);
     
     DISALLOW_ALL_CONSTRUCTORS(Slice);
 }; // struct Slice

@@ -369,6 +369,97 @@ namespace base {
     return 0;
 }
     
+/*static*/ int Slice::ParseEscaped(const char *s, size_t n, std::string *rv) {
+    const char *e = s + n;
+    while (s < e) {
+        const char c = *s++;
+        if (c != '\\') {
+            rv->append(1, c);
+            continue;
+        }
+        
+        // c == '\\'
+        if (s >= e) {
+            rv->append(1, '\\');
+            break;
+        }
+
+        switch (*s++) {
+            case 'a':
+                rv->append(1, '\a');
+                break;
+            case 'b':
+                rv->append(1, '\b');
+                break;
+            case 'f':
+                rv->append(1, '\f');
+                break;
+            case 'n':
+                rv->append(1, '\n');
+                break;
+            case 'r':
+                rv->append(1, '\r');
+                break;
+            case 't':
+                rv->append(1, '\t');
+                break;
+            case 'v':
+                rv->append(1, '\v');
+                break;
+            case '\\':
+                rv->append(1, '\\');
+                break;
+            case '\'':
+                rv->append(1, '\'');
+                break;
+            case '\"':
+                rv->append(1, '\"');
+                break;
+            case '0': {
+                uint8_t v = 0;
+                for (int i = 0; i < 3; ++i) {
+                    char cc = *s;
+                    if (s >= e) {
+                        break;
+                    }
+                    if (cc >= '0' && cc <= '7') {
+                        v = (v << 3) + (cc - '0');
+                    } else {
+                        break;
+                    }
+                    s++;
+                }
+                rv->append(1, static_cast<char>(v));
+            } break;
+                
+            case 'x': {
+                uint8_t v = 0;
+                for (int i = 0; i < 2; ++i) {
+                    char cc = *s;
+                    if (s >= e) {
+                        break;
+                    }
+                    if (cc >= '0' && cc <= '9') {
+                        v = (v << 4) + (cc - '0');
+                    } else if (cc >= 'a' && cc <= 'f') {
+                        v = (v << 4) + (10 + cc - 'a');
+                    } else if (cc >= 'A' && cc <= 'F') {
+                        v = (v << 4) + (10 + cc - 'A');
+                    } else {
+                        break;
+                    }
+                    s++;
+                }
+                rv->append(1, static_cast<char>(v));
+            } break;
+
+            default:
+                return -1;
+        }
+    }
+    return 0;
+}
+    
 template<class T>
 inline void *RoundBytesFill(const T zag, void *chunk, size_t n) {
     static_assert(sizeof(zag) > 1 && sizeof(zag) <= 8, "T must be int16,32,64");

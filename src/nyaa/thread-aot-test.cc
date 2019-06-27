@@ -423,6 +423,14 @@ TEST_F(NyaaThreadAOTTest, ForStepLoop) {
         << try_catch.ToString();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
+    
+TEST_F(NyaaThreadAOTTest, TypeofKindof) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/13-typeof-kindof.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
 
 } // namespace nyaa
 
