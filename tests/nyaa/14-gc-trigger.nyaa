@@ -1,0 +1,50 @@
+
+def trigger(a, b) {
+    var m = {
+        name: 'test',
+        id: 100,
+        inner: {
+            1, 2, 3, 4, 5, 5, 6
+        },
+        nested: {
+            name: 'nested',
+            aaaaaaaaaaaa: 'aaaaaaaaaaaa28',
+            aaaaaaaaaaab: 'aaaaaaaaaaaa27',
+            aaaaaaaaaaac: 'aaaaaaaaaaaa26',
+            aaaaaaaaaaad: 'aaaaaaaaaaaa25',
+            aaaaaaaaaaae: 'aaaaaaaaaaaa24',
+            aaaaaaaaaaaf: 'aaaaaaaaaaaa23',
+            aaaaaaaaaaag: 'aaaaaaaaaaaa22',
+            aaaaaaaaaaah: 'aaaaaaaaaaaa21',
+            aaaaaaaaaaai: 'aaaaaaaaaaaa20',
+            aaaaaaaaaaaj: 'aaaaaaaaaaaa19',
+            aaaaaaaaaaak: 'aaaaaaaaaaaa18',
+            aaaaaaaaaaal: 'aaaaaaaaaaaa17',
+            aaaaaaaaaaam: 'aaaaaaaaaaaa16',
+            aaaaaaaaaaan: 'aaaaaaaaaaaa15',
+            aaaaaaaaaaao: 'aaaaaaaaaaaa14',
+            aaaaaaaaaaap: 'aaaaaaaaaaaa13',
+            aaaaaaaaaaaq: 'aaaaaaaaaaaa12',
+            aaaaaaaaaaar: 'aaaaaaaaaaaa11',
+            aaaaaaaaaaas: 'aaaaaaaaaaaa10',
+            aaaaaaaaaaat: 'aaaaaaaaaaaaa9',
+            aaaaaaaaaaau: 'aaaaaaaaaaaaa8',
+            aaaaaaaaaaav: 'aaaaaaaaaaaaa7',
+            aaaaaaaaaaaw: 'aaaaaaaaaaaaa6',
+            aaaaaaaaaaax: 'aaaaaaaaaaaaa5',
+            aaaaaaaaaaay: 'aaaaaaaaaaaaa4',
+            aaaaaaaaaaaz: 'aaaaaaaaaaaaa3',
+            aaaaaaaaaaba: 'aaaaaaaaaaaaa2',
+            aaaaaaaaaaca: 'aaaaaaaaaaaaa1',
+            aaaaaaaaaada: 'aaaaaaaaaaaaa0'
+        }
+    }
+
+    return a + b
+}
+
+for (i in 0 until 10000) {
+    # print(i)
+    trigger(i, i)
+}
+

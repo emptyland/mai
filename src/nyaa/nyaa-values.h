@@ -936,7 +936,6 @@ inline BuiltinType Object::GetType() const {
     
 #if defined(NYAA_USE_POINTER_TYPE)
 inline BuiltinType NyObject::GetType() const {
-    //printf("hit!\n");
     return static_cast<BuiltinType>((mtword_ & kTypeMask) >> kTypeBitsOrder);
 }
 
@@ -944,7 +943,6 @@ inline void NyObject::SetType(BuiltinType type) {
     DCHECK_NE(kTypeSmi, type);
     DCHECK_NE(kTypeNil, type);
     DCHECK_EQ(0, GetType()) << "Type can set once!";
-    //printf("hit %d!\n", type);
     mtword_ &= ~kTypeMask;
     mtword_ |= ((static_cast<uintptr_t>(type) & 0xffull) << kTypeBitsOrder);
 }

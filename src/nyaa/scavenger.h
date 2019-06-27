@@ -4,6 +4,7 @@
 #include "nyaa/memory.h"
 #include "base/base.h"
 #include "glog/logging.h"
+#include <deque>
 
 namespace mai {
 
@@ -32,6 +33,7 @@ private:
 
     bool force_upgrade_ = false;
     Address upgrade_level_ = nullptr;
+    std::deque<Object *> upgraded_obs_;
 }; // class Scavenger
     
 

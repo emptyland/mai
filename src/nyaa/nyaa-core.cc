@@ -120,7 +120,8 @@ NyMap *NyaaCore::NewEnv(NyMap *base) {
     for (auto e = &kBuiltinFnEntries[0]; e->name; e++) {
         NyString *name = factory_->NewString(e->name);
         if (!env->RawGet(name, this)) {
-            env->RawPut(factory_->NewString(e->name), factory_->NewDelegated(e->nafn), this);
+            env->RawPut(factory_->NewString(e->name, true/*old*/),
+                        factory_->NewDelegated(e->nafn, 0/*n_upvals*/, true/*old*/), this);
         }
     }
     env->RawPut(bkz_pool()->kInnerG, env, this);
@@ -233,6 +234,35 @@ void NyaaCore::GarbageCollect(GarbageCollectionMethod method,
         default:
             break;
     }
+}
+    
+void NyaaCore::GarbageCollectionSafepoint(const char *file, int line) {
+    GarbageCollectionHistogram histogram;
+    if (gc_force_count_ > 0) {
+        GarbageCollect(kMajorGC, &histogram);
+        --gc_force_count_;
+        return;
+    }
+    
+    Heap::Info info;
+    heap_->GetInfo(&info);
+    
+    bool hit = false;
+    if (info.major_usage > (info.major_size >> 1)) {
+        hit = true;
+        GarbageCollect(kMajorGC, &histogram);
+    }
+    if (info.minor_usage > (info.minor_size >> 1)) {
+        hit = true;
+        GarbageCollect(kMinorGC, &histogram);
+    }
+    
+//    if (hit) {
+//        printf("[%d]freed: %f MB, %f ms\n", gc_tick_,
+//               histogram.collected_bytes/static_cast<float>(base::kMB),
+//               histogram.time_cost);
+//    }
+    gc_tick_++;
 }
     
 void NyaaCore::IterateRoot(RootVisitor *visitor) {

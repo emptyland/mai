@@ -404,7 +404,7 @@ void NyThread::IterateRoot(RootVisitor *visitor) {
 
     visitor->VisitRootPointers(reinterpret_cast<Object **>(stack_),
                                reinterpret_cast<Object **>(stack_tp_));
-    
+
     CallFrame *f = frame_;
     while (f) {
         f->IterateRoot(visitor);
@@ -487,6 +487,7 @@ int NyThread::Run() {
                 int32_t ra, rb;
                 int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &rb);
                 Object *key = frame_->const_pool()->Get(rb);
+                DCHECK(key->IsKey(owns_));
                 Object *val = frame_->env()->RawGet(key, owns_);
                 Set(ra, val);
                 frame_->AddPC(delta);
@@ -582,7 +583,6 @@ int NyThread::Run() {
                 auto outter = frame_;
                 outter->Exit(this);
                 delete outter;
-                owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
                 return n;
             } break;
 
@@ -972,13 +972,13 @@ void NyThread::RuntimeConcat(int32_t ra, int32_t rb, int32_t n) {
 int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {
     DCHECK((*base)->IsObject());
     size_t base_p = base - stack_;
-    NyObject *ob = static_cast<NyObject *>(*base);
+    Object *ob = *base;
     if (nargs < 0) {
         nargs = static_cast<int32_t>(stack_tp_ - base - 1);
     }
     switch (ob->GetType()) {
         case kTypeClosure: {
-            NyClosure *callee = ob->ToClosure();
+            NyClosure *callee = NyClosure::Cast(ob);
             int adjust = 0;
             if (callee->proto()->vargs()) {
                 int nparams = callee->proto()->n_params();
@@ -1011,7 +1011,7 @@ int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {
         } break;
             
         case kTypeDelegated: {
-            NyDelegated *callee = ob->ToDelegated();
+            NyDelegated *callee = NyDelegated::Cast(ob);
             CallFrame *frame = new CallFrame;
             frame->Enter(this, callee,
                          nullptr, /* bc buf */
@@ -1024,6 +1024,7 @@ int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {
 
         default:
             DLOG(FATAL) << "incorrect type: " << kBuiltinTypeName[ob->GetType()];
+            //Raisef("incorrect type: %s", kBuiltinTypeName[ob->GetType()]);
             break;
     }
     return nargs;
@@ -1035,14 +1036,17 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
         case kTypeClosure: {
             NyClosure *callee = NyClosure::Cast(ob);
             DCHECK_EQ(callee, frame_->callee());
+            int rv;
             if (callee->proto()->IsNativeExec()) {
                 EntryTrampolineCallStub stub(owns_->code_pool()->kEntryTrampoline);
                 CodeContextBundle bundle(this);
-                return stub.entry_fn()(this, callee->proto()->code(), owns_, &bundle, nullptr);
+                rv = stub.entry_fn()(this, callee->proto()->code(), owns_, &bundle, nullptr);
             } else {
                 DCHECK(callee->proto()->IsInterpretationExec());
-                return Run();
+                rv = Run();
             }
+            owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
+            return rv;
         } break;
         case kTypeDelegated: {
             NyDelegated *callee = NyDelegated::Cast(ob);
@@ -1063,7 +1067,6 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
             }
             outter->Exit(this);
             delete outter;
-            
             owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
             return rv;
         } break;

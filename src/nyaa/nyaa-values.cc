@@ -585,7 +585,7 @@ static inline Object *ProcessFlot64Arith(const NyFloat64 *lhs, Object *rhs, cons
     N->Raisef("type can not be `%s'.", literal);
     return nullptr;
 }
-    
+
 Object *NyFloat64::Add(Object *rhs, NyaaCore *N) const {
     return ProcessFlot64Arith(this, rhs, "+", [](f64_t lval, f64_t rval){ return lval + rval; }, N);
 }
@@ -1750,6 +1750,7 @@ void NyTable::Iterate(ObjectVisitor *visitor) {
 //            if (NyString *s = NyString::Cast(e->key)) {
 //                printf("iterate: %s\n", s->bytes());
 //            }
+            //printf("table-iterate: %p\n", e->key);
             visitor->VisitPointer(this, &e->key);
             visitor->VisitPointer(this, &e->value);
         }

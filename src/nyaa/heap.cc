@@ -61,6 +61,25 @@ Error Heap::Init() {
     large_space_->Free(probe);
     return Error::OK();
 }
+    
+void Heap::GetInfo(Info *info) const {
+    info->major_usage     = new_space_->UsageMemory(&info->major_size);
+    info->major_rss_size  = new_space_->pages_total_size();
+
+    info->old_usage    = old_space_->MemoryUsage(&info->old_size);
+    info->code_usage   = code_space_->MemoryUsage(&info->code_size);
+    info->large_usage  = large_space_->MemoryUsage(&info->large_size);
+    info->minor_size   = info->old_size;
+    info->minor_size  += info->code_size;
+    info->minor_size  += info->large_size;
+    info->minor_usage  = info->old_usage;
+    info->minor_usage += info->code_usage;
+    info->minor_usage += info->large_usage;
+    
+    info->minor_rss_size  = large_space_->pages_total_size();
+    info->minor_rss_size += old_space_->pages_total_size();
+    info->minor_rss_size += code_space_->pages_total_size();
+}
 
 NyObject *Heap::Allocate(size_t request_size, HeapSpace space) {
     // TODO: add a argument for executable
@@ -201,7 +220,7 @@ Object *Heap::MoveNewObject(Object *addr, size_t size, bool upgrade) {
         //printf("move: %p(%lu) <- %p\n", dst, size, addr);
         ::memcpy(dst, addr, size);
     }
-    
+
     // Set foward address:
 #if defined(NYAA_USE_POINTER_COLOR) || defined(NYAA_USE_POINTER_TYPE)
     uintptr_t word = *reinterpret_cast<uintptr_t *>(addr);
@@ -280,19 +299,6 @@ std::vector<Heap::RememberHost> Heap::GetRememberHosts(NyObject *host) const {
         }
     }
     return result;
-}
-
-/*virtual*/ void *Heap::Allocate(size_t size, size_t /*alignment*/) {
-    return Allocate(size, kNewSpace);
-}
-
-/*virtual*/ void Heap::Purge(bool reinit) {
-    // TODO:
-}
-
-/*virtual*/ size_t Heap::memory_usage() const {
-    // TODO:
-    return 0;
 }
     
 } // namespace nyaa

@@ -65,7 +65,7 @@ public:
     Address AdvanceHandleSlots(int n_slot);
     
     void GarbageCollect(GarbageCollectionMethod method, GarbageCollectionHistogram *histogram);
-    void GarbageCollectionSafepoint(const char *file, int line) {} // TODO:
+    void GarbageCollectionSafepoint(const char *file, int line);
     
     template<class T, class V>
     inline V *BarrierWr(NyObject *host, T **pzwr, V *val) {
@@ -85,6 +85,7 @@ public:
     Heap *heap() const { return heap_.get(); }
     ObjectFactory *factory() const { return factory_.get(); }
     DEF_VAL_GETTER(bool, initialized);
+    DEF_VAL_PROP_RW(int, gc_force_count);
     DEF_VAL_PROP_RW(int32_t, recover_point_pc);
     DEF_VAL_PROP_RW(int32_t, suspend_point_pc);
     DEF_PTR_GETTER(FILE, logger);
@@ -113,6 +114,8 @@ private:
     std::unique_ptr<ObjectFactory> factory_;
     HandleScopeSlot *top_slot_;
     bool initialized_ = false;
+    int gc_force_count_ = 0;
+    int gc_tick_ = 0;
     int32_t recover_point_pc_ = 0; // recover point pc for entry trampoline
     int32_t suspend_point_pc_ = 0; // suspend point pc
     uint64_t next_udo_kid_;

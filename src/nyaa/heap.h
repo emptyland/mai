@@ -18,7 +18,7 @@ class OldSpace;
 class LargeSpace;
 class ObjectVisitor;
     
-class Heap final : public base::Arena {
+class Heap final {
 public:
     Heap(NyaaCore *N);
     virtual ~Heap();
@@ -31,10 +31,24 @@ public:
     DEF_VAL_GETTER(double, major_gc_cost);
     DEF_VAL_GETTER(double, minor_gc_cost);
     
-    virtual void *Allocate(size_t size, size_t) override;
-    virtual void Purge(bool reinit) override;
-    virtual size_t granularity() override { return kAllocateAlignmentSize; }
-    virtual size_t memory_usage() const override;
+    struct Info {
+        size_t major_size;     // total memory can used
+        size_t major_usage;    // used memory
+        size_t major_rss_size; // os allocated memory
+        
+        size_t minor_size;     // total memory can used
+        size_t minor_usage;    // used memory
+        size_t minor_rss_size; // os allocated memory
+        
+        size_t old_usage;
+        size_t old_size;
+        size_t code_usage;
+        size_t code_size;
+        size_t large_usage;
+        size_t large_size;
+    };
+    
+    void GetInfo(Info *info) const;
     
     NyObject *Allocate(size_t size, HeapSpace space);
 

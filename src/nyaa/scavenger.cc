@@ -33,6 +33,9 @@ public:
             if (owns_->heap_->InNewArea(ob)) {
                 bool should_upgrade = reinterpret_cast<Address>(ob) < owns_->upgrade_level_;
                 *i = owns_->heap_->MoveNewObject(ob, ob->PlacedSize(), should_upgrade);
+                if (should_upgrade) {
+                    owns_->upgraded_obs_.push_back(*i);
+                }
             }
         }
     }
@@ -73,6 +76,9 @@ public:
             if (owns_->heap_->InToSemiArea(ob)) {
                 bool should_upgrade = reinterpret_cast<Address>(ob) < owns_->upgrade_level_;
                 *i = owns_->heap_->MoveNewObject(ob, ob->PlacedSize(), should_upgrade);
+                if (should_upgrade) {
+                    owns_->upgraded_obs_.push_back(*i);
+                }
             }
         }
     }
@@ -104,13 +110,17 @@ public:
     virtual void VisitPointer(Object *host, Object **p) override {
         NyObject *ob = static_cast<NyObject *>(*p);
         DCHECK(ob->IsObject());
+        //printf("weak:%p ", ob);
         if (NyObject *foward = ob->Foward()) {
             *p = foward;
+            //printf("foward %p\n", foward);
             return;
         } else if (owns_->heap_->InOldArea(ob)) {
+            //printf("keeped\n");
             return; // Scavenger do not sweep old space, ignore it.
         } else if (owns_->heap_->InToSemiArea(ob)) {
             *p = nullptr; // No one reference this object, should be sweep.
+            //printf("sweep\n");
             return;
         }
         // Has some one reference this object, ignore it.
@@ -144,11 +154,12 @@ Scavenger::Scavenger(NyaaCore *core, Heap *heap)
         upgrade_level_ = heap_->new_space_->GetLatestRemainingLevel();
     }
     
+    upgraded_obs_.clear();
     RootVisitorImpl root_visitor(this);
     core_->IterateRoot(&root_visitor);
     
     ObjectVisitorImpl obj_visitor(this);
-    heap_->IterateRememberSet(&obj_visitor, false /*for_host*/ , true /*after_clean*/);
+    heap_->IterateRememberSet(&obj_visitor, false /*for_host*/ , false /*after_clean*/);
 
     HeapVisitorImpl heap_visitor(&obj_visitor);
     SemiSpace *from_area = heap_->new_space_->from_area();
@@ -159,7 +170,21 @@ Scavenger::Scavenger(NyaaCore *core, Heap *heap)
         begin = end;
         end = from_area->free();
     }
-    
+    while (upgraded_obs_.size() > 0) {
+        Object *ob = upgraded_obs_.front();
+        upgraded_obs_.pop_front();
+        
+        switch (ob->GetType()) {
+            case kTypeNil:
+            case kTypeSmi:
+                // skip...
+                break;
+            default:
+                ob->ToHeapObject()->Iterate(&obj_visitor);
+                break;
+        }
+    }
+
     // Process for weak tables
     WeakVisitorImpl weak_visitor(this);
     if (core_->kz_pool()) {

@@ -260,6 +260,14 @@ public:
     SemiSpace *from_area() const { return from_area_.get(); }
     SemiSpace *to_area() const { return to_area_.get(); }
     DEF_VAL_GETTER(size_t, latest_remaining_size);
+    size_t pages_total_size() const {
+        return to_area_->page()->page_size() + from_area_->page()->page_size();
+    }
+    
+    size_t UsageMemory(size_t *total) const {
+        *total = to_area_->page()->usable_size();
+        return to_area_->UsageMemory();
+    }
     
     float GetLatestRemainingRate() const {
         return static_cast<float>(latest_remaining_size_) /
@@ -299,14 +307,26 @@ public:
         , executable_(executable)
         , dummy_(new Page())
         , isolate_(DCHECK_NOTNULL(isolate)) {}
+
+    DEF_VAL_GETTER(size_t, pages_total_size);
+    DEF_PTR_GETTER(Page, cache);
+    DEF_VAL_GETTER(bool, executable);
+    
     virtual ~OldSpace() override;
     virtual size_t Available() const override;
     virtual Address AllocateRaw(size_t size) override;
     
-    DEF_PTR_GETTER(Page, cache);
-    DEF_VAL_GETTER(bool, executable);
-    
     Error Init(size_t init_size, size_t limit_size);
+    
+    size_t MemoryUsage(size_t *total) const {
+        size_t size = 0;
+        *total = 0;
+        for (Page *i = dummy_->next_; i != dummy_; i = i->next_) {
+            *total += i->usable_size();
+            size   += i->usable_size() - i->available();
+        }
+        return size;
+    }
     
     bool Contains(Address addr) const {
         Page *page = Page::FromAddress(addr);
@@ -355,9 +375,22 @@ public:
         , dummy_(new Page())
         , limit_size_(limit_size)
         , isolate_(isolate) {}
+    
+    DEF_VAL_GETTER(size_t, pages_total_size);
+    
     virtual ~LargeSpace() override;
     virtual size_t Available() const override;
     virtual Address AllocateRaw(size_t size) override { return AllocateRaw(size, false); }
+
+    size_t MemoryUsage(size_t *total) const {
+        size_t size = 0;
+        *total = 0;
+        for (Page *i = dummy_->next_; i != dummy_; i = i->next_) {
+            *total += i->usable_size();
+            size   += i->usable_size() - i->available();
+        }
+        return size;
+    }
 
     bool Contains(Address addr) const {
         Page *page = Page::FromAddress(addr);
