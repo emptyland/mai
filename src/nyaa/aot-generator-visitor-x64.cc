@@ -205,6 +205,66 @@ public:
         return IVal::Void();
     }
     
+    // for (var in expr to expr) { body }
+    // for (var in expr until expr) { body }
+    virtual IVal VisitForStepLoop(ast::ForStepLoop *node, ast::VisitorContext *x) override {
+        BlockScope scope(fun_scope_);
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        
+        IVal var = fun_scope_->NewLocal();
+        if (IsNotPlaceholder(node->name())) {
+            blk_scope_->PutVariable(node->name(), &var);
+        } else {
+            blk_scope_->PutVariable(ast::String::New(arena_, "(shadow)"), &var);
+        }
+        IVal init = node->init()->Accept(this, &ix);
+        IVal iter;
+        if (blk_scope_->Protected(init)) {
+            iter = blk_scope_->PutVariable(ast::String::New(arena_, "(iter)"), nullptr);
+            
+        } else {
+            iter = blk_scope_->PutVariable(ast::String::New(arena_, "(iter)"), &init);
+        }
+        Move(var, iter, node->init()->line());
+        IVal limit = node->limit()->Accept(this, &ix);
+        IVal step;
+        if (node->step()) {
+            step = node->step()->Accept(this, &ix);
+        } else {
+            step = fun_scope_->NewLocal();
+            LoadImm(step, 1, node->line());
+        }
+        
+        Label body_label, in_label, out_label;
+        // test
+        __ Bind(&body_label);
+        IVal ret = fun_scope_->NewLocal();
+        if (node->is_until()) {
+            BinaryExpression(ret, iter, limit, Operator::kGE, Runtime::kObject_GE, node->line());
+        } else {
+            BinaryExpression(ret, iter, limit, Operator::kGT, Runtime::kObject_GT, node->line());
+        }
+        __ movq(kRegArgv[0], Local(ret.index));
+        CallRuntime(Runtime::kObject_IsFalse);
+        __ cmpl(rax, 0);
+        __ j(Equal, &out_label, true/*far*/);
+        fun_scope_->FreeVar(ret);
+        
+        scope.set_loop_in(&in_label);
+        scope.set_loop_out(&out_label);
+        node->body()->Accept(this, x);
+        scope.set_loop_in(nullptr);
+        scope.set_loop_out(nullptr);
+        
+        __ Bind(&in_label);
+        BinaryExpression(iter, iter, step, Operator::kAdd, Runtime::kObject_Add, node->line());
+        Move(var, iter, node->line());
+        __ jmp(&body_label, true/*far*/);
+        __ Bind(&out_label);
+        return IVal::Void();
+    }
+    
     virtual IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
         CodeGeneratorContext ix;
         ix.set_n_result(1);
@@ -377,12 +437,6 @@ public:
         __ movq(rax, Operand(rax, CallFrame::kOffsetStackBP));
         __ shlq(rax, kPointerShift);
         __ addq(kBP, rax);
-
-//        __ subq(rsp, kFuncSavedSize);
-//        __ movq(Operand(rbp, -kPointerSize), kScratch);
-//        __ movq(Operand(rbp, -kPointerSize - 8), kBP);
-//        __ movq(Operand(rbp, -kPointerSize - 16), kThread);
-//        __ movq(Operand(rbp, -kPointerSize - 24), kCore);
     }
 
     void FinalizeRet() { Ret(IVal::Local(0), 0, 0); }
@@ -482,6 +536,9 @@ private:
     virtual void Move(IVal dst, IVal src, int line) override {
         DCHECK_EQ(IVal::kLocal, dst.kind);
         DCHECK_EQ(IVal::kLocal, src.kind);
+        if (dst.index == src.index) {
+            return;
+        }
         FileLineScope fls(fun_scope_, line);
         __ movq(rax, Local(src.index));
         __ movq(Local(dst.index), rax);
@@ -788,34 +845,7 @@ private:
         __ Bind(&exit); // <---------------- exit
         __ addq(rsp, kSavedStack);
     }
-    
-//    void NyThread::RuntimeExpandVArgs(int32_t ra, int wanted) {
-//        int32_t nvargs = static_cast<int32_t>(frame_->GetNVargs());
-//        if (wanted < 0) {
-//            CheckStack(frame_->stack_bp() + nvargs);
-//            Object **a = frame_bp() + ra;
-//            for (size_t i = 0; i < nvargs; ++i) {
-//                a[i] = frame_be()[i];
-//            }
-//            stack_tp_ = a + nvargs;
-//        } else {
-//            Object **a = frame_bp() + ra;
-//            if (wanted > nvargs) {
-//                for (int i = 0; i < nvargs; ++i) {
-//                    a[i] = frame_be()[i];
-//                }
-//                for (int i = nvargs; i < wanted; ++i) {
-//                    a[i] = Object::kNil;
-//                }
-//            } else {
-//                for (int i = 0; i < wanted; ++i) {
-//                    a[i] = frame_be()[i];
-//                }
-//            }
-//            stack_tp_ = a + wanted;
-//        }
-//    }
-    
+
     virtual void Vargs(IVal vargs, int wanted, int line) override {
         FileLineScope fls(fun_scope_, line);
         

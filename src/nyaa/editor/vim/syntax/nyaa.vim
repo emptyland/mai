@@ -20,7 +20,7 @@ syntax region nyaaString start=+L\="+ skip=+\\\\\|\\"+ end=+"+
 syntax region nyaaRawString start=+L\='+ skip=+\\\\\|\\'+ end=+'+
 
 syntax keyword nyaaCondition if else and or
-syntax keyword nyaaLoop for while break continue in
+syntax keyword nyaaLoop for while break continue in to until continue
 syntax keyword nyaaReturn return
 
 hi def link nyaaCondition Statement

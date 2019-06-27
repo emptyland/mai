@@ -405,7 +405,8 @@ TEST_F(NyaaThreadAOTTest, StrConcat) {
         "s = i..j..k\n"
         "assert(s == \"12.220000ok\")\n"
         "s = nil\n"
-        "garbagecollect(\"full\")\n"
+        "var bytes = garbagecollect(\"full\")\n"
+        "assert(bytes > 0)\n"
     };
     
     HandleScope scope(N_);
@@ -413,6 +414,14 @@ TEST_F(NyaaThreadAOTTest, StrConcat) {
     auto script = NyClosure::Compile(s, core_);
     ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
     EXPECT_EQ(0, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+}
+    
+TEST_F(NyaaThreadAOTTest, ForStepLoop) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/12-for-step-loop.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
 
 } // namespace nyaa

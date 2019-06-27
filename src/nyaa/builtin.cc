@@ -559,7 +559,6 @@ static void BuiltinYield(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void ThreadResume(const FunctionCallbackInfo<Object> &info) {
-    //printf("invoke: thread::resume()\n");
     if (info.Length() < 1) {
         info.GetErrors().Raisef("incorrect arguments length, required: >1");
         return;
@@ -573,7 +572,6 @@ static void ThreadResume(const FunctionCallbackInfo<Object> &info) {
     {
         HandleScope handle_scope(info.VM());
         thread = NyThread::Cast(*info[0]);
-        //printf("thread: %p\n", thread);
         if (!thread) {
             info.GetErrors().Raisef("incorrect argument[0] type, unexpected: %d, requried: thread",
                                     info[0]->GetType());

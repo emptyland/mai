@@ -1289,6 +1289,14 @@ TEST_F(NyaaThreadTest, ForStepLoop) {
     script->Call(nullptr, 0, 0, core_);
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
+    
+TEST_F(NyaaThreadTest, ForStepLoopBreak) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/12-for-step-loop.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
 
 } // namespace nyaa
     

@@ -1,0 +1,26 @@
+# for-step-loop tests:
+
+var n = 0
+for (i in 0 to 100) {
+    n = n + 1
+}
+assert(n == 101)
+
+n = 0
+for (i in 0 until 100) {
+    n = n + 1
+}
+assert(n == 100)
+
+for (i in 0 until 3) {
+    break
+    assert(false)
+}
+
+n = 0
+for (i in 0 until 100) {
+    continue
+    n = n + 1
+}
+assert(n == 0)
+

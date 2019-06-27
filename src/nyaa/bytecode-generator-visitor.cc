@@ -119,7 +119,7 @@ public:
         builder()->Bind(&out_label, fun_scope_->kpool());
         return IVal::Void();
     }
-    
+
     // for var in expr to expr { body }
     // for var in expr until expr { body }
     virtual IVal VisitForStepLoop(ast::ForStepLoop *node, ast::VisitorContext *x) override {
