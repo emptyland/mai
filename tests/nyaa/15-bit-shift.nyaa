@@ -1,0 +1,11 @@
+# shl shr tests:
+
+var a = 1
+assert(a << 1 == 2)
+assert(a << 1.1 == 2)
+assert(a << 2.2 == 4)
+assert(a << 63 == 9223372036854775808)
+assert(a >> 1 == 0)
+var b = 9223372036854775808
+assert(b >> 63 == 1)
+assert(b >> 64 == 0)

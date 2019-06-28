@@ -99,6 +99,12 @@ public:
     static Object *Div(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Mod(Object *lhs, Object *rhs, NyaaCore *N);
     
+    static Object *Shl(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Shr(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitAnd(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitOr(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitXor(Object *lhs, Object *rhs, NyaaCore *N);
+    
     static Object *Get(Object *lhs, Object *key, NyaaCore *N);
     static void Put(Object *lhs, Object *key, Object *value, NyaaCore *N);
     
@@ -134,6 +140,12 @@ public:
     static Object *Mul(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Div(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Mod(Object *lhs, Object *rhs, NyaaCore *N);
+    
+    static Object *Shl(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Shr(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitAnd(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitOr(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitXor(Object *lhs, Object *rhs, NyaaCore *N);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(NySmi);
 }; // class NyInt32
@@ -201,7 +213,13 @@ public:
     Object *Mul(Object *rhs, NyaaCore *N);
     Object *Div(Object *rhs, NyaaCore *N);
     Object *Mod(Object *rhs, NyaaCore *N);
-    
+
+    Object *Shl(Object *rhs, NyaaCore *N);
+    Object *Shr(Object *rhs, NyaaCore *N);
+    Object *BitAnd(Object *rhs, NyaaCore *N);
+    Object *BitOr(Object *rhs, NyaaCore *N);
+    Object *BitXor(Object *rhs, NyaaCore *N);
+
     NyString *ToString(NyaaCore *N);
     
 #define DECL_TYPE_CHECK(type) inline bool Is##type() const;
@@ -291,6 +309,8 @@ public:
     Object *Mul(Object *rhs, NyaaCore *N) const;
     Object *Div(Object *rhs, NyaaCore *N) const;
     Object *Mod(Object *rhs, NyaaCore *N) const;
+    Object *Shl(Object *rhs, NyaaCore *N) const;
+    Object *Shr(Object *rhs, NyaaCore *N) const;
     
     static bool Near(f64_t lhs, f64_t rhs) {
         return ::fabs(lhs - rhs) <= std::numeric_limits<f64_t>::epsilon();
@@ -337,6 +357,8 @@ public:
     Object *Mul(Object *rhs, NyaaCore *N) const;
     Object *Div(Object *rhs, NyaaCore *N) const;
     Object *Mod(Object *rhs, NyaaCore *N) const;
+    Object *Shl(Object *rhs, NyaaCore *N) const;
+    Object *Shr(Object *rhs, NyaaCore *N) const;
     
     NyInt *Add(int64_t rhs, NyaaCore *N) const;
     NyInt *Sub(int64_t rhs, NyaaCore *N) const;

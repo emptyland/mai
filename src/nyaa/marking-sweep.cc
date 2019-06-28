@@ -170,7 +170,6 @@ void MarkingSweep::Run() {
         gray_.pop();
 
         if (ob->GetColor() == KColorGray) {
-            //printf("mark: %p\n", ob);
             ob->SetColor(heap_->finalize_color());
             ob->Iterate(&obj_visitor);
         } else {
@@ -196,7 +195,7 @@ void MarkingSweep::Run() {
 
     // Weak table sweeping:
     WeakVisitorImpl weak_visitor(this);
-    heap_->IterateRememberSet(&weak_visitor, true/*for_host*/, false/*after_clean*/);
+    heap_->IterateRememberSet(&weak_visitor, true/*for_host*/);
     heap_->IterateFinalizerRecords(&weak_visitor);
     core_->kz_pool()->Iterate(&weak_visitor);
     

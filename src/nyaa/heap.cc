@@ -27,6 +27,9 @@ Heap::Heap(NyaaCore *N)
         p->fp(p->host, owns_);
         delete p;
     }
+    for (const auto &pair : remember_set_) {
+        delete pair.second;
+    }
     
     delete large_space_;
     delete code_space_;
@@ -236,7 +239,7 @@ Object *Heap::MoveNewObject(Object *addr, size_t size, bool upgrade) {
     return reinterpret_cast<Object *>(dst);
 }
     
-void Heap::IterateRememberSet(ObjectVisitor *visitor, bool for_host, bool after_clean) {
+void Heap::IterateRememberSet(ObjectVisitor *visitor, bool for_host) {
     if (for_host) {
         std::set<Address> for_clean;
         for (const auto &pair : remember_set_) {
@@ -258,12 +261,6 @@ void Heap::IterateRememberSet(ObjectVisitor *visitor, bool for_host, bool after_
             } else {
                 visitor->VisitPointer(wr->host, wr->pzwr);
             }
-            if (after_clean) {
-                delete wr;
-            }
-        }
-        if (after_clean) {
-            remember_set_.clear();
         }
     }
 }

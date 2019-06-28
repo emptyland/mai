@@ -110,6 +110,12 @@ public:
     void Div(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kDiv, a, b, c, line); }
     void Mod(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kMod, a, b, c, line); }
     
+    void Shl(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kShl, a, b, c, line); }
+    void Shr(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kShr, a, b, c, line); }
+    void BitAnd(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kBitAnd, a, b, c, line); }
+    void BitOr(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kBitOr, a, b, c, line); }
+    void BitXor(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kBitXor, a, b, c, line); }
+    
     void Equal(IVal a, IVal b, IVal c, int line = 0) {
         EmitArith(Bytecode::kEqual, a, b, c, line);
     }

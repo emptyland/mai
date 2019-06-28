@@ -147,6 +147,11 @@ DEFINE_OBJECT_BIN_ARITH(Sub)
 DEFINE_OBJECT_BIN_ARITH(Mul)
 DEFINE_OBJECT_BIN_ARITH(Div)
 DEFINE_OBJECT_BIN_ARITH(Mod)
+DEFINE_OBJECT_BIN_ARITH(Shl)
+DEFINE_OBJECT_BIN_ARITH(Shr)
+DEFINE_OBJECT_BIN_ARITH(BitAnd)
+DEFINE_OBJECT_BIN_ARITH(BitOr)
+DEFINE_OBJECT_BIN_ARITH(BitXor)
     
 #undef DEFINE_OBJECT_BIN_ARITH
     
@@ -337,6 +342,79 @@ NyString *Object::ToString(NyaaCore *N) {
     N->Raisef("smi attempt to call nil `__mod__' meta function.");
     return nullptr;
 }
+    
+/*static*/ Object *NySmi::Shl(Object *lhs, Object *rhs, NyaaCore *N) {
+    DCHECK(lhs->IsSmi());
+    auto lval = lhs->ToSmi();
+    int n = 0;
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            n = static_cast<int>(rhs->ToSmi());
+            break;
+        case kTypeInt:
+            n = static_cast<int>(NyInt::Cast(rhs)->ToI64());
+            break;
+        case kTypeFloat64:
+            n = static_cast<int>(NyFloat64::Cast(rhs)->value());
+            break;
+        default:
+            N->Raisef("incorrect type %s attempt shl.", kBuiltinTypeName[rhs->GetType()]);
+            return Object::kNil;
+    }
+    int leading1 = 64 - base::Bits::CountLeadingZeros64(lval);
+    if (leading1 + n > 62) { // overflow
+        return NyInt::NewI64(lval, N->factory())->Shl(n, N);
+    }
+    return NySmi::New(lval << n);
+}
+
+/*static*/ Object *NySmi::Shr(Object *lhs, Object *rhs, NyaaCore *N) {
+    DCHECK(lhs->IsSmi());
+    auto lval = lhs->ToSmi();
+    int n = 0;
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            n = static_cast<int>(rhs->ToSmi());
+            break;
+        case kTypeInt:
+            n = static_cast<int>(NyInt::Cast(rhs)->ToI64());
+            break;
+        case kTypeFloat64:
+            n = static_cast<int>(NyFloat64::Cast(rhs)->value());
+            break;
+        default:
+            N->Raisef("incorrect type %s attempt shr.", kBuiltinTypeName[rhs->GetType()]);
+            return Object::kNil;
+    }
+    return NySmi::New(static_cast<uint64_t>(lval) >> n);
+}
+
+/*static*/ Object *NySmi::BitAnd(Object *lhs, Object *rhs, NyaaCore *N) {
+    DCHECK(lhs->IsSmi());
+    if (!rhs->IsSmi()) {
+        N->Raisef("incorrect type %s attempt bit and.", kBuiltinTypeName[rhs->GetType()]);
+        return Object::kNil;
+    }
+    return NySmi::New(lhs->ToSmi() & rhs->ToSmi());
+}
+
+/*static*/ Object *NySmi::BitOr(Object *lhs, Object *rhs, NyaaCore *N) {
+    DCHECK(lhs->IsSmi());
+    if (!rhs->IsSmi()) {
+        N->Raisef("incorrect type %s attempt bit or.", kBuiltinTypeName[rhs->GetType()]);
+        return Object::kNil;
+    }
+    return NySmi::New(lhs->ToSmi() | rhs->ToSmi());
+}
+
+/*static*/ Object *NySmi::BitXor(Object *lhs, Object *rhs, NyaaCore *N) {
+    DCHECK(lhs->IsSmi());
+    if (!rhs->IsSmi()) {
+        N->Raisef("incorrect type %s attempt bit xor.", kBuiltinTypeName[rhs->GetType()]);
+        return Object::kNil;
+    }
+    return NySmi::New(lhs->ToSmi() ^ rhs->ToSmi());
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// class NyObject:
@@ -515,10 +593,57 @@ DEFINE_HEAP_OBJECT_BIN_ARITH(Sub, "-")
 DEFINE_HEAP_OBJECT_BIN_ARITH(Mul, "*")
 DEFINE_HEAP_OBJECT_BIN_ARITH(Div, "/")
 DEFINE_HEAP_OBJECT_BIN_ARITH(Mod, "%")
+    
+Object *NyObject::Shl(Object *rhs, NyaaCore *N) {
+    if (NyString *s = NyString::Cast(rhs)) {
+        rhs = s->TryNumeric(N);
+    }
+
+    switch (GetType()) {
+        case kTypeInt:
+            return ToInt()->Shl(rhs, N);
+        case kTypeFloat64:
+            return ToFloat64()->Shl(rhs, N);
+        default:
+            N->Raisef("incorrect type %s attempt shl.", kBuiltinTypeName[GetType()]);
+            break;
+    }
+    return Object::kNil;
+}
+
+Object *NyObject::Shr(Object *rhs, NyaaCore *N) {
+    if (NyString *s = NyString::Cast(rhs)) {
+        rhs = s->TryNumeric(N);
+    }
+    
+    switch (GetType()) {
+        case kTypeInt:
+            return ToInt()->Shr(rhs, N);
+        case kTypeFloat64:
+            return ToFloat64()->Shr(rhs, N);
+        default:
+            N->Raisef("incorrect type %s attempt shr.", kBuiltinTypeName[GetType()]);
+            break;
+    }
+    return Object::kNil;
+}
+
+Object *NyObject::BitAnd(Object *rhs, NyaaCore *N) {
+    N->Raisef("incorrect type %s attempt bit and.", kBuiltinTypeName[GetType()]);
+    return Object::kNil;
+}
+
+Object *NyObject::BitOr(Object *rhs, NyaaCore *N) {
+    N->Raisef("incorrect type %s attempt bit or.", kBuiltinTypeName[GetType()]);
+    return Object::kNil;
+}
+
+Object *NyObject::BitXor(Object *rhs, NyaaCore *N) {
+    N->Raisef("incorrect type %s attempt bit xor.", kBuiltinTypeName[GetType()]);
+    return Object::kNil;
+}
 
 NyString *NyObject::ToString(NyaaCore *N) {
-    //HandleScope scope(N->stub());
-
     switch (GetType()) {
         case kTypeString:
             return (const_cast<NyObject *>(this))->ToString();
@@ -605,6 +730,44 @@ Object *NyFloat64::Div(Object *rhs, NyaaCore *N) const {
 Object *NyFloat64::Mod(Object *rhs, NyaaCore *N) const {
     return ProcessFlot64Arith(this, rhs, "%",
                               [](f64_t lval, f64_t rval) { return ::fmod(lval, rval); }, N);
+}
+    
+Object *NyFloat64::Shl(Object *rhs, NyaaCore *N) const {
+    int n = 0;
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            n = static_cast<int>(rhs->ToSmi());
+            break;
+        case kTypeInt:
+            n = static_cast<int>(NyInt::Cast(rhs)->ToI64());
+            break;
+        case kTypeFloat64:
+            n = static_cast<int>(NyFloat64::Cast(rhs)->value());
+            break;
+        default:
+            N->Raisef("incorrect type %s attempt shl.", kBuiltinTypeName[GetType()]);
+            return Object::kNil;
+    }
+    return NySmi::New(static_cast<int64_t>(value_) << n);
+}
+
+Object *NyFloat64::Shr(Object *rhs, NyaaCore *N) const {
+    int n = 0;
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            n = static_cast<int>(rhs->ToSmi());
+            break;
+        case kTypeInt:
+            n = static_cast<int>(NyInt::Cast(rhs)->ToI64());
+            break;
+        case kTypeFloat64:
+            n = static_cast<int>(NyFloat64::Cast(rhs)->value());
+            break;
+        default:
+            N->Raisef("incorrect type %s attempt shr.", kBuiltinTypeName[GetType()]);
+            return Object::kNil;
+    }
+    return NySmi::New(static_cast<uint64_t>(value_) >> n);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -723,12 +886,11 @@ NyInt *NyInt::Shl(int n, NyaaCore *N) {
         offset_ = new_off;
     } else {
         uint32_t new_off  = static_cast<uint32_t>(capacity_ - new_len);
-        ::memmove(vals_ + new_off, vals_ + offset_,
-                  segments_size() * sizeof(uint32_t));
-        offset_ = new_off;
-        for (size_t i = segments_size(); i < new_len; ++i) {
-            set_segment(i, 0);
+        ::memcpy(vals_ + new_off, vals_ + offset_, segments_size() * sizeof(uint32_t));
+        for (size_t i = offset_; i < new_len; ++i) {
+            vals_[i] = 0;
         }
+        offset_ = new_off;
     }
     
     if (n_bits == 0) {
@@ -851,6 +1013,44 @@ Object *NyInt::Mod(Object *rhs, NyaaCore *N) const {
     }
     N->Raisef("type can not `%'.");
     return nullptr;
+}
+
+Object *NyInt::Shl(Object *rhs, NyaaCore *N) const {
+    int n = 0;
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            n = static_cast<int>(rhs->ToSmi());
+            break;
+        case kTypeInt:
+            n = static_cast<int>(NyInt::Cast(rhs)->ToI64());
+            break;
+        case kTypeFloat64:
+            n = static_cast<int>(NyFloat64::Cast(rhs)->value());
+            break;
+        default:
+            N->Raisef("incorrect type %s attempt shl.", kBuiltinTypeName[GetType()]);
+            return Object::kNil;
+    }
+    return Clone(N->factory())->Shl(n, N);
+}
+
+Object *NyInt::Shr(Object *rhs, NyaaCore *N) const {
+    int n = 0;
+    switch (rhs->GetType()) {
+        case kTypeSmi:
+            n = static_cast<int>(rhs->ToSmi());
+            break;
+        case kTypeInt:
+            n = static_cast<int>(NyInt::Cast(rhs)->ToI64());
+            break;
+        case kTypeFloat64:
+            n = static_cast<int>(NyFloat64::Cast(rhs)->value());
+            break;
+        default:
+            N->Raisef("incorrect type %s attempt shr.", kBuiltinTypeName[GetType()]);
+            return Object::kNil;
+    }
+    return UnboxIfNeed(Clone(N->factory())->Shr(n, N));
 }
 
 NyInt *NyInt::Add(int64_t rval, NyaaCore *N) const {

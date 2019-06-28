@@ -90,7 +90,7 @@ private:
         UDOFinalizer fp; // The finalizer function pointer
     };
     
-    void IterateRememberSet(ObjectVisitor *visitor, bool for_sweep, bool after_clean);
+    void IterateRememberSet(ObjectVisitor *visitor, bool for_sweep);
     void IterateFinalizerRecords(ObjectVisitor *visitor);
 
     NyaaCore *const owns_;

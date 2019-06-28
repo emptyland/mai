@@ -183,6 +183,15 @@ static void BuildCallStub(Assembler *masm, NyaaCore *N) {
     __ lea(rax, Operand(rax, NyCode::kOffsetInstructions));
     // TODO: use call stub
     __ call(rax); // call generated native function
+    
+    //----------------------------------------------------------------------------------------------
+    // Post GC
+    __ movq(kRegArgv[0], kCore);
+    __ movq(kRegArgv[1], 0);
+    __ movl(kRegArgv[2], 0);
+    CallRuntime(masm, N, Runtime::kNyaaCore_GarbageCollectionSafepoint);
+    //----------------------------------------------------------------------------------------------
+    
     Label exit;
     __ jmp(&exit, true);
     

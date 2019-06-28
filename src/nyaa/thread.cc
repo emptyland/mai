@@ -746,6 +746,21 @@ int NyThread::Run() {
             case Bytecode::kMod: {
                 PROCESS_ARITH(Mod);
             } break;
+            case Bytecode::kShl: {
+                PROCESS_ARITH(Shl);
+            } break;
+            case Bytecode::kShr: {
+                PROCESS_ARITH(Shr);
+            } break;
+            case Bytecode::kBitAnd: {
+                PROCESS_ARITH(BitAnd);
+            } break;
+            case Bytecode::kBitOr: {
+                PROCESS_ARITH(BitOr);
+            } break;
+            case Bytecode::kBitXor: {
+                PROCESS_ARITH(BitXor);
+            } break;
 
             case Bytecode::kEqual: {
                 int32_t ra, rkb, rkc;
@@ -1063,7 +1078,6 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
             int rv = outter->nrets();
             if (rv >= 0) {
                 CopyResult(stack_ + outter->stack_be() - 1, rv, wanted);
-                //printf("fin: %zd\n", stack_tp_ - stack_);
             }
             outter->Exit(this);
             delete outter;

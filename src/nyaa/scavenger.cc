@@ -159,7 +159,7 @@ Scavenger::Scavenger(NyaaCore *core, Heap *heap)
     core_->IterateRoot(&root_visitor);
     
     ObjectVisitorImpl obj_visitor(this);
-    heap_->IterateRememberSet(&obj_visitor, false /*for_host*/ , false /*after_clean*/);
+    heap_->IterateRememberSet(&obj_visitor, false /*for_host*/);
 
     HeapVisitorImpl heap_visitor(&obj_visitor);
     SemiSpace *from_area = heap_->new_space_->from_area();
@@ -170,7 +170,7 @@ Scavenger::Scavenger(NyaaCore *core, Heap *heap)
         begin = end;
         end = from_area->free();
     }
-    while (upgraded_obs_.size() > 0) {
+    while (!upgraded_obs_.empty()) {
         Object *ob = upgraded_obs_.front();
         upgraded_obs_.pop_front();
         

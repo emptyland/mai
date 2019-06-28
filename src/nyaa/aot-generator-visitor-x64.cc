@@ -344,6 +344,8 @@ public:
         
         #define DEF_BIN(op) BinaryExpression(ret, operands[0], operands[1], Operator::k##op, \
             Runtime::kObject_##op, node->line())
+        #define DEF_BIT_BIN(op) BitBinaryExpression(ret, operands[0], operands[1], Operator::k##op, \
+            Runtime::kObject_##op, node->line())
         switch (node->op()) {
             case Operator::kAdd:
                 DEF_BIN(Add);
@@ -378,10 +380,26 @@ public:
             case Operator::kGE:
                 DEF_BIN(GE);
                 break;
+            case Operator::kShl:
+                DEF_BIT_BIN(Shl);
+                break;
+            case Operator::kShr:
+                DEF_BIT_BIN(Shr);
+                break;
+            case Operator::kBitAnd:
+                DEF_BIT_BIN(BitAnd);
+                break;
+            case Operator::kBitOr:
+                DEF_BIT_BIN(BitOr);
+                break;
+            case Operator::kBitXor:
+                DEF_BIT_BIN(BitXor);
+                break;
             default:
                 DLOG(FATAL) << "TODO:";
                 break;
         }
+        #undef DEF_BIT_BIN
         #undef DEF_BIN
         for (int64_t i = operands.size() - 1; i >= 0; --i) {
             fun_scope_->FreeVar(operands[i]);
@@ -1045,6 +1063,64 @@ private:
         fun_scope_->FreeVar(IVal::Local(callee.index + 1));
         fun_scope_->FreeVar(callee);
         __ Bind(&exit);
+    }
+    
+    void BitBinaryExpression(IVal ret, IVal lhs, IVal rhs, Operator::ID op, Runtime::ExternalLink rt,
+                             int line) {
+        FileLineScope fls(fun_scope_, line);
+        if (lhs.kind == IVal::kConst || rhs.kind == IVal::kConst) {
+            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
+            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
+        }
+        if (lhs.kind == IVal::kConst) {
+            __ movq(kRegArgv[0], ArrayAt(kScratch, lhs.index));
+        } else {
+            __ movq(kRegArgv[0], Local(lhs.index));
+        }
+        __ testq(kRegArgv[0], 0x1);
+        Label fallback;
+        __ UnlikelyJ(Zero, &fallback, true/*far*/);
+
+        if (rhs.kind == IVal::kConst) {
+            __ movq(kRegArgv[1], ArrayAt(kScratch, rhs.index));
+        } else {
+            __ movq(kRegArgv[1], Local(rhs.index));
+        }
+        __ testq(kRegArgv[1], 0x1);
+        __ UnlikelyJ(Zero, &fallback, true/*far*/);
+        
+        // lhs and rhs are smi:
+        Label exit;
+        switch (op) {
+            case Operator::kBitAnd:
+                __ movq(rax, kRegArgv[0]);
+                __ andq(rax, kRegArgv[1]);
+                __ jmp(&exit, true/*far*/);
+                break;
+            case Operator::kBitOr:
+                __ movq(rax, kRegArgv[0]);
+                __ orq(rax, kRegArgv[1]);
+                __ jmp(&exit, true/*far*/);
+                break;
+            case Operator::kBitXor:
+                __ movq(rax, kRegArgv[0]);
+                __ shrq(rax, 2);
+                __ movq(rbx, kRegArgv[1]);
+                __ shrq(rbx, 2);
+                __ xorq(rax, rbx);
+                __ shlq(rax, 2);
+                __ orq(rax, 0x1);
+                __ jmp(&exit, true/*far*/);
+                break;
+            default:
+                break;
+        }
+
+        __ Bind(&fallback);
+        __ movq(kRegArgv[2], kCore);
+        CallRuntime(rt, true/*may*/);
+        __ Bind(&exit);
+        __ movq(Local(ret.index), rax);
     }
     
     void CallRuntime(Runtime::ExternalLink sym, bool may_interrupt = false) {

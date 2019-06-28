@@ -286,18 +286,31 @@ public:
             case Operator::kGE:
                 builder()->GreaterEqual(ret, operands[0], operands[1], node->line());
                 break;
+            case Operator::kShl:
+                builder()->Shl(ret, operands[0], operands[1], node->line());
+                break;
+            case Operator::kShr:
+                builder()->Shr(ret, operands[0], operands[1], node->line());
+                break;
+            case Operator::kBitAnd:
+                builder()->BitAnd(ret, operands[0], operands[1], node->line());
+                break;
+            case Operator::kBitOr:
+                builder()->BitOr(ret, operands[0], operands[1], node->line());
+                break;
+            case Operator::kBitXor:
+                builder()->BitXor(ret, operands[0], operands[1], node->line());
+                break;
             default:
                 DLOG(FATAL) << "TODO:";
                 break;
         }
         for (int64_t i = operands.size() - 1; i >= 0; --i) {
-            //if (!blk_scope_->Protected(operands[i])) {
             fun_scope_->FreeVar(operands[i]);
-            //}
         }
         return ret;
     }
-    
+
     virtual IVal VisitLogicSwitch(ast::LogicSwitch *node, ast::VisitorContext *x) override {
         CodeGeneratorContext ix;
         ix.set_n_result(1);

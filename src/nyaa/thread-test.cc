@@ -1325,7 +1325,15 @@ TEST_F(NyaaThreadTest, GCTrigger) {
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);
     ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/14-gc-trigger.nyaa", 0, nullptr, core_))
-    << try_catch.ToString();
+        << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
+
+TEST_F(NyaaThreadTest, ShiftOps) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/15-bit-shift.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
 
