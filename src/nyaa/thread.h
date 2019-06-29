@@ -151,9 +151,9 @@ public:
     Object *exception() const { return obs_[kException]; }
     NyArray *stack_trace() const { return static_cast<NyArray *>(obs_[kStackTrace]); }
     
+    NyString *GetFileLineMessage() const;
     std::string ToString() const;
-    
-    //friend class TryCatch;
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(TryCatchCore);
 private:
     NyaaCore *const core_;
@@ -214,6 +214,7 @@ public:
     DEF_PTR_GETTER(Object*, stack);
     DEF_PTR_PROP_RW(Object*, stack_tp);
     CallFrame *call_info() const { return DCHECK_NOTNULL(frame_); }
+    NyMap *CurrentEnv() const;
     
     size_t frame_size() const {
         DCHECK_GE(stack_tp_, stack_);

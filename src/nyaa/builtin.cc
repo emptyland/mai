@@ -428,9 +428,9 @@ static void BuiltinPCall(const FunctionCallbackInfo<Object> &info) {
         }
     }
     TryCatchCore try_catch(info.Core());
-    int nrets = N->curr_thd()->TryRun(fn, argv, argc);
+    int nrets = N->curr_thd()->TryRun(fn, argv, argc, -1/*wanted*/, N->curr_thd()->CurrentEnv()/*env*/);
     if (try_catch.has_caught()) {
-        info.GetReturnValues().AddNil().Add(try_catch.message());
+        info.GetReturnValues().AddNil().Add(try_catch.GetFileLineMessage());
     } else {
         info.GetReturnValues().Set(nrets);
     }

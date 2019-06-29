@@ -36,7 +36,7 @@ static constexpr const size_t kLargePageThreshold = kPageSize >> 1;
     
 static constexpr const int kAllocateRetries = 16;
     
-static const size_t kLargeStringLength = 1024;
+static const size_t kLargeStringLength = 128;
     
 static const uint32_t kFreeZag = 0xfeedfeed;
 static const uint32_t kInitZag = 0xcccccccc;

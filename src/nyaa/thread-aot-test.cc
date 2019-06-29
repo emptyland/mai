@@ -399,7 +399,7 @@ TEST_F(NyaaThreadAOTTest, MapMetaIndex) {
     
 TEST_F(NyaaThreadAOTTest, StrConcat) {
     static const char s[] = {
-        "var i, j, k = 1, 2.22, \"ok\""
+        "var i, j, k = 1, 2.22, \"ok\"\n"
         "var s = i..\":\"..j..\":\"..k\n"
         "assert(s == \"1:2.220000:ok\")\n"
         "s = i..j..k\n"

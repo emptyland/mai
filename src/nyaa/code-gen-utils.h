@@ -20,14 +20,14 @@ class BlockScope;
 class CodeGeneratorVisitor;
 
 using VariableTable = std::unordered_map<
-const ast::String *, IVal,
-base::ArenaHash<const ast::String *>,
-base::ArenaEqualTo<const ast::String *>>;
+    const ast::String *, IVal,
+    base::ArenaHash<const ast::String *>,
+    base::ArenaEqualTo<const ast::String *>>;
 
 using FieldTable = std::unordered_map<
-const ast::String *, int,
-base::ArenaHash<const ast::String *>,
-base::ArenaEqualTo<const ast::String *>>;
+    const ast::String *, int,
+    base::ArenaHash<const ast::String *>,
+    base::ArenaEqualTo<const ast::String *>>;
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// class FunctionScope
@@ -104,7 +104,6 @@ public:
     void FreeVar(IVal val) {
         if (val.kind == IVal::kLocal) {
             if (val.index >= active_vars_) {
-                //printf("[free] index:%d, free-reg:%d\n", val.index, free_reg_);
                 free_reg_--;
                 DCHECK_EQ(val.index, free_reg_);
             }

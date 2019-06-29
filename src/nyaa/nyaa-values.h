@@ -87,7 +87,7 @@ public:
     
     bool IsNotKey(NyaaCore *N) const { return !IsKey(N); }
 
-    uint32_t HashVal(NyaaCore *N) const;
+    inline uint32_t HashVal(NyaaCore *N) const;
     
     static bool Equal(Object *lhs, Object *rhs, NyaaCore *N);
     static bool LessThan(Object *lhs, Object *rhs, NyaaCore *N);
@@ -607,10 +607,8 @@ private:
     const Entry *GetSlot(Object *key, NyaaCore *N) const { return At(HashVal(key, N) % n_slots() + 1); }
     
     Entry *GetSlot(Object *key, NyaaCore *N) { return At(HashVal(key, N) % n_slots() + 1); }
-    
-    uint32_t HashVal(Object *key, NyaaCore *N) const {
-        return ((!key ? 0 : key->HashVal(N)) | 1u) ^ seed_;
-    }
+
+    inline uint32_t HashVal(Object *key, NyaaCore *N) const;
     
     Entry *At(int pos) { return pos == 0 ? nullptr : entries_ + pos; }
     
@@ -733,7 +731,7 @@ public:
     NyString *Add(const char *s, size_t n, NyaaCore *N) {
         return static_cast<NyString *>(NyByteArray::Add(s, n, N));
     }
-    
+
     NyString *Add(const NyString *s, NyaaCore *N) { return Add(s->bytes(), s->size(), N); }
 
     int Compare(const char *z, size_t n) const;
@@ -956,6 +954,40 @@ inline BuiltinType Object::GetType() const {
     return ToHeapObject()->GetType();
 }
     
+inline uint32_t Object::HashVal(NyaaCore *N) const {
+    switch (GetType()) {
+        case kTypeSmi:
+            return static_cast<uint32_t>(ToSmi());
+        case kTypeString:
+            return NyString::Cast(this)->hash_val();
+        case kTypeFloat64:
+            return NyFloat64::Cast(this)->HashVal();
+        case kTypeInt:
+            return NyInt::Cast(this)->HashVal();
+        default:
+            break;
+    }
+    DLOG(FATAL) << "Noreached!";
+    return 0;
+}
+    
+/*static*/ inline bool Object::Equal(Object *lhs, Object *rhs, NyaaCore *N) {
+    if (lhs == rhs) {
+        return true;
+    }
+    if (lhs == kNil || rhs == kNil) {
+        return false;
+    }
+    if (lhs->IsSmi()) {
+        if (rhs->IsSmi()) {
+            return lhs->ToSmi() == rhs->ToSmi();
+        } else {
+            return rhs->ToHeapObject()->Equal(lhs, N);
+        }
+    }
+    return lhs->ToHeapObject()->Equal(rhs, N);
+}
+    
 #if defined(NYAA_USE_POINTER_TYPE)
 inline BuiltinType NyObject::GetType() const {
     return static_cast<BuiltinType>((mtword_ & kTypeMask) >> kTypeBitsOrder);
@@ -1074,6 +1106,14 @@ inline std::tuple<Object *, Object *> NyArray::GetNextPair(Object *key) {
         }
     }
     return {nullptr, nullptr};
+}
+    
+inline uint32_t NyTable::HashVal(Object *key, NyaaCore *N) const {
+    if (NyString *s = NyString::Cast(key)) {
+        return (s->hash_val() | 1u) ^ seed_;
+    } else {
+        return ((!key ? 0 : key->HashVal(N)) | 1u) ^ seed_;
+    }
 }
 
 inline NyUDO *NyObject::ToUDO() { return !IsUDO() ? nullptr : static_cast<NyUDO *>(this); }

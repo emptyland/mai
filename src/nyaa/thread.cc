@@ -127,8 +127,30 @@ void TryCatchCore::Catch(NyString *message, Object *exception, NyArray *stack_tr
     obs_[kException] = exception;
     obs_[kStackTrace] = stack_trace;
 }
+    
+NyString *TryCatchCore::GetFileLineMessage() const {
+    if (!has_caught_) {
+        return core_->bkz_pool()->kEmpty; // no exception
+    }
+    if (!stack_trace() || stack_trace()->size() < 2) {
+        return message();
+    }
+    NyString *line = NyString::Cast(stack_trace()->Get(0));
+    DCHECK_NOTNULL(line);
+    NyString *msg = core_->factory()->NewUninitializedString(message()->size() + 2 + line->size() + 1);
+    if (!msg) {
+        return nullptr;
+    }
+    msg = msg->Add(line, core_);
+    msg = msg->Add(": ", 2, core_);
+    msg = msg->Add(message(), core_);
+    return msg->Done(core_);
+}
 
 std::string TryCatchCore::ToString() const {
+    if (!has_caught_) {
+        return ""; // no exception
+    }
     std::string buf;
     buf.append(message()->bytes(), message()->size());
     buf.append("\n");
@@ -145,10 +167,9 @@ std::string TryCatchCore::ToString() const {
 }
 
 NyThread::NyThread(NyaaCore *owns)
-    : NyUDO(NyUDO::GetNFiedls(sizeof(NyThread)), true /* ignore_managed */)
+    : NyUDO(NyUDO::GetNFiedls(sizeof(NyThread)), true/*ignore_managed*/)
     , owns_(DCHECK_NOTNULL(owns)) {
     SetFinalizer(&UDOFinalizeDtor<NyThread>, owns);
-    //::memset(&save_point_, 0, sizeof(save_point_));
 }
 
 NyThread::~NyThread() {
@@ -222,6 +243,10 @@ void NyThread::Raise(NyString *msg, Object *ex) {
     }
 }
     
+NyMap *NyThread::CurrentEnv() const {
+    return frame_ ? frame_->env() : owns_->g();
+}
+    
 int NyThread::TryRun(NyRunnable *fn, Object *argv[], int argc, int wanted, NyMap *env) {
     int rv = 0;
     CallFrame *ci = frame_;
@@ -239,6 +264,7 @@ int NyThread::TryRun(NyRunnable *fn, Object *argv[], int argc, int wanted, NyMap
     if (interruption_pending_ == CallFrame::kException) {
         Unwind(ci);
         rv = -1;
+        interruption_pending_ = CallFrame::kNormal; // clean
     }
     return rv;
 }
@@ -315,7 +341,7 @@ void NyThread::Yield() {
 
 int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *env) {
     if (!env) {
-        env = owns_->g();
+        env = CurrentEnv();
     }
     Push(rb);
     DCHECK_GE(stack_tp_, stack_);
@@ -981,7 +1007,7 @@ void NyThread::RuntimeConcat(int32_t ra, int32_t rb, int32_t n) {
     }
     
     rv = DCHECK_NOTNULL(NyString::Cast(Get(ra)));
-    rv->Done(owns_);
+    Set(ra, rv->Done(owns_));
 }
 
 int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {

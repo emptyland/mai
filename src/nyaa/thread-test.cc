@@ -1336,6 +1336,14 @@ TEST_F(NyaaThreadTest, ShiftOps) {
         << try_catch.ToString();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
+    
+TEST_F(NyaaThreadTest, BitOps) {
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    ASSERT_EQ(0, NyClosure::DoFile("tests/nyaa/16-bit-ops.nyaa", 0, nullptr, core_))
+        << try_catch.ToString();
+    ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
+}
 
 } // namespace nyaa
     

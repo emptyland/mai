@@ -44,40 +44,6 @@ bool Object::IsKey(NyaaCore *N) const {
     return false;
 }
 
-uint32_t Object::HashVal(NyaaCore *N) const {
-    switch (GetType()) {
-        case kTypeSmi:
-            return static_cast<uint32_t>(ToSmi());
-        case kTypeString:
-            return NyString::Cast(this)->hash_val();
-        case kTypeFloat64:
-            return NyFloat64::Cast(this)->HashVal();
-        case kTypeInt:
-            return NyInt::Cast(this)->HashVal();
-        default:
-            break;
-    }
-    DLOG(FATAL) << "Noreached!";
-    return 0;
-}
-    
-/*static*/ bool Object::Equal(Object *lhs, Object *rhs, NyaaCore *N) {
-    if (lhs == kNil || rhs == kNil) {
-        return false;
-    }
-    if (lhs == rhs) {
-        return true;
-    }
-    if (lhs->IsSmi()) {
-        if (rhs->IsSmi()) {
-            return lhs->ToSmi() == rhs->ToSmi();
-        } else {
-            return rhs->ToHeapObject()->Equal(lhs, N);
-        }
-    }
-    return lhs->ToHeapObject()->Equal(rhs, N);
-}
-
 /*static*/ bool Object::LessThan(Object *lhs, Object *rhs, NyaaCore *N) {
     if (lhs == kNil || rhs == kNil) {
         return false;
@@ -358,7 +324,7 @@ NyString *Object::ToString(NyaaCore *N) {
             n = static_cast<int>(NyFloat64::Cast(rhs)->value());
             break;
         default:
-            N->Raisef("incorrect type %s attempt shl.", kBuiltinTypeName[rhs->GetType()]);
+            N->Raisef("incorrect type `%s' attempt shl.", kBuiltinTypeName[rhs->GetType()]);
             return Object::kNil;
     }
     int leading1 = 64 - base::Bits::CountLeadingZeros64(lval);
@@ -383,7 +349,7 @@ NyString *Object::ToString(NyaaCore *N) {
             n = static_cast<int>(NyFloat64::Cast(rhs)->value());
             break;
         default:
-            N->Raisef("incorrect type %s attempt shr.", kBuiltinTypeName[rhs->GetType()]);
+            N->Raisef("incorrect type `%s' attempt shr.", kBuiltinTypeName[rhs->GetType()]);
             return Object::kNil;
     }
     return NySmi::New(static_cast<uint64_t>(lval) >> n);
@@ -391,8 +357,11 @@ NyString *Object::ToString(NyaaCore *N) {
 
 /*static*/ Object *NySmi::BitAnd(Object *lhs, Object *rhs, NyaaCore *N) {
     DCHECK(lhs->IsSmi());
+    if (NyString *s = NyString::Cast(rhs)) {
+        rhs = s->TryNumeric(N);
+    }
     if (!rhs->IsSmi()) {
-        N->Raisef("incorrect type %s attempt bit and.", kBuiltinTypeName[rhs->GetType()]);
+        N->Raisef("incorrect type `%s' attempt bit and.", kBuiltinTypeName[rhs->GetType()]);
         return Object::kNil;
     }
     return NySmi::New(lhs->ToSmi() & rhs->ToSmi());
@@ -400,8 +369,11 @@ NyString *Object::ToString(NyaaCore *N) {
 
 /*static*/ Object *NySmi::BitOr(Object *lhs, Object *rhs, NyaaCore *N) {
     DCHECK(lhs->IsSmi());
+    if (NyString *s = NyString::Cast(rhs)) {
+        rhs = s->TryNumeric(N);
+    }
     if (!rhs->IsSmi()) {
-        N->Raisef("incorrect type %s attempt bit or.", kBuiltinTypeName[rhs->GetType()]);
+        N->Raisef("incorrect type `%s' attempt bit or.", kBuiltinTypeName[rhs->GetType()]);
         return Object::kNil;
     }
     return NySmi::New(lhs->ToSmi() | rhs->ToSmi());
@@ -409,8 +381,11 @@ NyString *Object::ToString(NyaaCore *N) {
 
 /*static*/ Object *NySmi::BitXor(Object *lhs, Object *rhs, NyaaCore *N) {
     DCHECK(lhs->IsSmi());
+    if (NyString *s = NyString::Cast(rhs)) {
+        rhs = s->TryNumeric(N);
+    }
     if (!rhs->IsSmi()) {
-        N->Raisef("incorrect type %s attempt bit xor.", kBuiltinTypeName[rhs->GetType()]);
+        N->Raisef("incorrect type `%s' attempt bit xor.", kBuiltinTypeName[rhs->GetType()]);
         return Object::kNil;
     }
     return NySmi::New(lhs->ToSmi() ^ rhs->ToSmi());
@@ -446,7 +421,7 @@ bool NyObject::Equal(Object *rhs, NyaaCore *N) {
                 return false;
             }
             NyString *lval = ToString();
-            return lval->Compare(rval) == 0;
+            return lval->size() <= kLargeStringLength ? lval == rval : lval->Compare(rval) == 0;
         } break;
 
         case kTypeInt:
@@ -605,7 +580,7 @@ Object *NyObject::Shl(Object *rhs, NyaaCore *N) {
         case kTypeFloat64:
             return ToFloat64()->Shl(rhs, N);
         default:
-            N->Raisef("incorrect type %s attempt shl.", kBuiltinTypeName[GetType()]);
+            N->Raisef("incorrect type `%s' attempt shl.", kBuiltinTypeName[GetType()]);
             break;
     }
     return Object::kNil;
@@ -622,24 +597,24 @@ Object *NyObject::Shr(Object *rhs, NyaaCore *N) {
         case kTypeFloat64:
             return ToFloat64()->Shr(rhs, N);
         default:
-            N->Raisef("incorrect type %s attempt shr.", kBuiltinTypeName[GetType()]);
+            N->Raisef("incorrect type `%s' attempt shr.", kBuiltinTypeName[GetType()]);
             break;
     }
     return Object::kNil;
 }
 
 Object *NyObject::BitAnd(Object *rhs, NyaaCore *N) {
-    N->Raisef("incorrect type %s attempt bit and.", kBuiltinTypeName[GetType()]);
+    N->Raisef("incorrect type `%s' attempt bit and.", kBuiltinTypeName[GetType()]);
     return Object::kNil;
 }
 
 Object *NyObject::BitOr(Object *rhs, NyaaCore *N) {
-    N->Raisef("incorrect type %s attempt bit or.", kBuiltinTypeName[GetType()]);
+    N->Raisef("incorrect type `%s' attempt bit or.", kBuiltinTypeName[GetType()]);
     return Object::kNil;
 }
 
 Object *NyObject::BitXor(Object *rhs, NyaaCore *N) {
-    N->Raisef("incorrect type %s attempt bit xor.", kBuiltinTypeName[GetType()]);
+    N->Raisef("incorrect type `%s' attempt bit xor.", kBuiltinTypeName[GetType()]);
     return Object::kNil;
 }
 
@@ -673,7 +648,7 @@ NyString *NyObject::ToString(NyaaCore *N) {
 Object *NyObject::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) {
     if (NyRunnable *fn = GetValidMetaFunction(name, N)) {
         Object *args[] = {this, rhs};
-        N->curr_thd()->Run(fn, args, 2/*nargs*/, 1/*nrets*/);
+        N->curr_thd()->Run(fn, args, 2/*nargs*/, 1/*nrets*/, N->curr_thd()->CurrentEnv()/*env*/);
         Object *rv = N->Get(-1);
         N->Pop(1);
         return rv;
@@ -1966,7 +1941,8 @@ NyString::NyString(const char *s, size_t n, NyaaCore *N)
     size_ += kHeaderSize;
     ::memcpy(elems_ + kHeaderSize, s, n);
     size_ += n;
-    Done(N);
+    NyString *done = Done(N);
+    (void)done; DCHECK_EQ(done, this);
 }
     
 NyString *NyString::Done(NyaaCore *N) {
@@ -1978,10 +1954,11 @@ NyString *NyString::Done(NyaaCore *N) {
     } else {
         *hash_val = base::Hash::Js(bytes(), size());
     }
-    
-    //data()[this->size()] = 0;
-    if (size() < kLargeStringLength && N->kz_pool()) {
-        if (!N->kz_pool()->GetOrNull(bytes(), size())) {
+
+    if (size() <= kLargeStringLength && N->kz_pool()) {
+        if (NyString *found = N->kz_pool()->GetOrNull(bytes(), size())) {
+            return found;
+        } else {
             N->kz_pool()->Add(this);
         }
     }
@@ -2042,7 +2019,7 @@ Object *NyString::TryNumeric(NyaaCore *N) const {
             return N->factory()->NewFloat64(::atof(bytes()));
         case 0:
         default:
-            return NySmi::New(0);
+            return const_cast<NyString *>(this);
     }
     return NySmi::New(i64);
 }
