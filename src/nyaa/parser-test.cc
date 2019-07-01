@@ -28,6 +28,18 @@ TEST_F(NyaaParserTest, Sanity) {
     ASSERT_NE(nullptr, result.block);
 }
     
+TEST_F(NyaaParserTest, LambdaLiteral) {
+    static const char z[] = {
+        "lambda(a) { return a }(1) \n"
+        "(lambda a -> a)(2)\n"
+        "return new a()\n"
+    };
+    
+    auto result = Parser::Parse(z, &arena_);
+    ASSERT_EQ(nullptr, result.error) << result.ToString();
+    ASSERT_NE(nullptr, result.block);
+}
+
 } // namespace nyaa
     
 } // namespace mai
