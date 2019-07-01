@@ -109,12 +109,16 @@ public:
     void Mul(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kMul, a, b, c, line); }
     void Div(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kDiv, a, b, c, line); }
     void Mod(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kMod, a, b, c, line); }
+    void Minus(IVal a, IVal b, int line = 0) { EmitArith(Bytecode::kMinus, a, b, line); }
     
     void Shl(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kShl, a, b, c, line); }
     void Shr(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kShr, a, b, c, line); }
     void BitAnd(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kBitAnd, a, b, c, line); }
     void BitOr(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kBitOr, a, b, c, line); }
     void BitXor(IVal a, IVal b, IVal c, int line = 0) { EmitArith(Bytecode::kBitXor, a, b, c, line); }
+    void BitInv(IVal a, IVal b, int line = 0) { EmitArith(Bytecode::kBitInv, a, b, line); }
+    
+    void Not(IVal a, IVal b, int line = 0) { EmitArith(Bytecode::kNot, a, b, line); }
     
     void Equal(IVal a, IVal b, IVal c, int line = 0) {
         EmitArith(Bytecode::kEqual, a, b, c, line);
@@ -236,6 +240,11 @@ private:
     void EmitArith(Bytecode::ID id, IVal a, IVal b, IVal c, int line) {
         DCHECK_EQ(IVal::kLocal, a.kind);
         Emit(id, a.index, b.Encode(), c.Encode(), line);
+    }
+    
+    void EmitArith(Bytecode::ID id, IVal a, IVal b, int line) {
+        DCHECK_EQ(IVal::kLocal, a.kind);
+        Emit(id, a.index, b.Encode(), line);
     }
     
     void Emit(Bytecode::ID id, int line) { AddID(id, 1, line); }

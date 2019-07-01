@@ -1047,8 +1047,8 @@ TEST_F(NyaaThreadTest, LoadFile) {
 
 TEST_F(NyaaThreadTest, Require) {
     static const char s[] = {
-        "var a = require \"tests/nyaa/01-foo-file.nyaa\"\n"
-        "var b, c, d, e = require \"tests/nyaa/02-bar-file.nyaa\"\n"
+        "var a = require(\"tests/nyaa/01-foo-file.nyaa\")\n"
+        "var b, c, d, e = require(\"tests/nyaa/02-bar-file.nyaa\")\n"
         "check(a, b)\n"
     };
     
@@ -1150,7 +1150,7 @@ TEST_F(NyaaThreadTest, AssertFunc) {
     ASSERT_TRUE(try_catch.has_caught());
     ASSERT_STREQ("hit", try_catch.message()->bytes());
 }
-    
+
 TEST_F(NyaaThreadTest, Bugfix1) {
     static const char s[] = {
         "var m = {\n"

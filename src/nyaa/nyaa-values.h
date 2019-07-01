@@ -98,12 +98,14 @@ public:
     static Object *Mul(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Div(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Mod(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Minus(Object *lhs, NyaaCore *N);
     
     static Object *Shl(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Shr(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *BitAnd(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *BitOr(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *BitXor(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitInv(Object *lhs, NyaaCore *N);
     
     static Object *Get(Object *lhs, Object *key, NyaaCore *N);
     static void Put(Object *lhs, Object *key, Object *value, NyaaCore *N);
@@ -140,12 +142,14 @@ public:
     static Object *Mul(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Div(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Mod(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Minus(Object *lhs, NyaaCore *N) { return New(-lhs->ToSmi()); }
     
     static Object *Shl(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Shr(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *BitAnd(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *BitOr(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *BitXor(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitInv(Object *lhs, NyaaCore *N) { return New(~lhs->ToSmi()); }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(NySmi);
 }; // class NyInt32
@@ -213,12 +217,14 @@ public:
     Object *Mul(Object *rhs, NyaaCore *N);
     Object *Div(Object *rhs, NyaaCore *N);
     Object *Mod(Object *rhs, NyaaCore *N);
+    Object *Minus(NyaaCore *N);
 
     Object *Shl(Object *rhs, NyaaCore *N);
     Object *Shr(Object *rhs, NyaaCore *N);
     Object *BitAnd(Object *rhs, NyaaCore *N);
     Object *BitOr(Object *rhs, NyaaCore *N);
     Object *BitXor(Object *rhs, NyaaCore *N);
+    Object *BitInv(NyaaCore *N);
 
     NyString *ToString(NyaaCore *N);
     
@@ -253,6 +259,7 @@ public:
     inline NyUDO *ToUDO();
     
     Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N);
+    Object *AttemptUnaryMetaFunction(NyString *name, NyaaCore *N);
     
     inline Object *GetMetaFunction(NyString *name, NyaaCore *N) const;
     inline NyRunnable *GetValidMetaFunction(NyString *name, NyaaCore *N) const;
@@ -365,12 +372,13 @@ public:
     NyInt *Mul(int64_t rhs, NyaaCore *N) const;
     NyInt *Div(int64_t rhs, NyaaCore *N) const;
     NyInt *Mod(int64_t rhs, NyaaCore *N) const;
-    
+
     NyInt *Add(const NyInt *rhs, NyaaCore *N) const;
     NyInt *Sub(const NyInt *rhs, NyaaCore *N) const;
     NyInt *Mul(const NyInt *rhs, NyaaCore *N) const;
     NyInt *Div(const NyInt *rhs, NyaaCore *N) const { return std::get<0>(CompleteDiv(rhs, N)); }
     NyInt *Mod(const NyInt *rhs, NyaaCore *N) const { return std::get<1>(CompleteDiv(rhs, N)); }
+    NyInt *Minus(NyaaCore *N) const;
 
     std::tuple<NyInt *, NyInt *> CompleteDiv(const NyInt *rhs, NyaaCore *N) const;
     
@@ -522,6 +530,7 @@ public:
     Object *Mul(Object *rhs, NyaaCore *N);
     Object *Div(Object *rhs, NyaaCore *N);
     Object *Mod(Object *rhs, NyaaCore *N);
+    Object *Minus(NyaaCore *N);
 
     void Iterate(ObjectVisitor *visitor) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&generic_));
@@ -853,6 +862,7 @@ public:
     Object *Mul(Object *rhs, NyaaCore *N);
     Object *Div(Object *rhs, NyaaCore *N);
     Object *Mod(Object *rhs, NyaaCore *N);
+    Object *Minus(NyaaCore *N);
     
     void Iterate(ObjectVisitor *visitor) {
         if (!ignore_managed()) {

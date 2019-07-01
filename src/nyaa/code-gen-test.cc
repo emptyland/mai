@@ -622,58 +622,7 @@ TEST_F(NyaaCodeGenTest, ClassDefinitionWithMembers) {
     BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
     ASSERT_EQ(z, buf) << buf;
 }
-    
-TEST_F(NyaaCodeGenTest, ClassDefinitionWithBase) {
-    static const char s[] = {
-        "class [local] foo {\n"
-        "   property [ro] a, b\n"
-        "}\n"
-        "class bar : foo {\n"
-        "   property [rw] c, d\n"
-        "}\n"
-    };
-    static const char z[] = {
-        "function: [unnamed], params: 0, vargs: 1, max-stack: 9, upvals: 0\n"
-        "file name: :memory:\n"
-        "const pool: 8\n"
-        " [0] (-1) a\n"
-        " [1] (-2) b\n"
-        " [2] (-3) __type__\n"
-        " [3] (-4) foo\n"
-        " [4] (-5) c\n"
-        " [5] (-6) d\n"
-        " [6] (-7) bar\n"
-        " [7] (-8) __base__\n"
-        ".............................\n"
-        "[000] LoadConst 0 0 ; line: 2\n"
-        "[003] LoadImm 1 1 ; line: 2\n"
-        "[006] LoadConst 2 1 ; line: 2\n"
-        "[009] LoadImm 3 5 ; line: 2\n"
-        "[012] LoadConst 4 2 ; line: 1\n"
-        "[015] LoadConst 5 3 ; line: 1\n"
-        "[018] NewMap 0 6 -1 ; line: 3\n"
-        "[022] LoadConst 1 4 ; line: 5\n"
-        "[025] LoadImm 2 3 ; line: 5\n"
-        "[028] LoadConst 3 5 ; line: 5\n"
-        "[031] LoadImm 4 7 ; line: 5\n"
-        "[034] LoadConst 5 2 ; line: 4\n"
-        "[037] LoadConst 6 6 ; line: 4\n"
-        "[040] LoadConst 7 7 ; line: 4\n"
-        "[043] Move 8 0 ; line: 4\n"
-        "[046] NewMap 1 8 -1 ; line: 6\n"
-        "[050] StoreGlobal 1 6 ; line: 6\n"
-        "[053] Ret 0 0 ; line: 0\n"
-    };
-    
-    HandleScope handle_scope(N_);
-    Handle<NyFunction> script(NyFunction::Compile(s, core_));
-    ASSERT_TRUE(script.is_valid());
-    
-    std::string buf;
-    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
-    ASSERT_EQ(z, buf) << buf;
-}
-    
+
 TEST_F(NyaaCodeGenTest, VargsExpression) {
     static const char s[] = {
         "def foo(a, b, ...) {\n"
@@ -1071,6 +1020,48 @@ TEST_F(NyaaCodeGenTest, Bugfix2) {
         "[015] New 2 3 1 ; line: 7\n"
         "[019] Ret 2 1 ; line: 7\n"
         "[022] Ret 0 0 ; line: 0\n"
+    };
+    
+    HandleScope handle_scope(N_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
+    ASSERT_EQ(z, buf) << buf;
+}
+
+TEST_F(NyaaCodeGenTest, NotOperator) {
+    static const char s[] = {
+        "var a, b = 1, 2\n"
+        "var r = not (a == b)\n"
+        "r = not (a != b)\n"
+        "r = not (a < b)\n"
+        "r = not (a <= b)\n"
+        "r = not (a > b)\n"
+        "r = not (a >= b)\n"
+        "r = not r\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 4, upvals: 0\n"
+        "file name: :memory:\n"
+        ".............................\n"
+        "[000] LoadImm 0 1 ; line: 1\n"
+        "[003] LoadImm 1 2 ; line: 1\n"
+        "[006] NotEqual 2 0 1 ; line: 2\n"
+        "[010] Equal 3 0 1 ; line: 3\n"
+        "[014] Move 2 3 ; line: 3\n"
+        "[017] GreaterEqual 3 0 1 ; line: 4\n"
+        "[021] Move 2 3 ; line: 4\n"
+        "[024] GreaterThan 3 0 1 ; line: 5\n"
+        "[028] Move 2 3 ; line: 5\n"
+        "[031] LessEqual 3 0 1 ; line: 6\n"
+        "[035] Move 2 3 ; line: 6\n"
+        "[038] LessThan 3 0 1 ; line: 7\n"
+        "[042] Move 2 3 ; line: 7\n"
+        "[045] Not 3 2 ; line: 8\n"
+        "[048] Move 2 3 ; line: 8\n"
+        "[051] Ret 0 0 ; line: 0\n"
     };
     
     HandleScope handle_scope(N_);

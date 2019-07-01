@@ -121,6 +121,20 @@ DEFINE_OBJECT_BIN_ARITH(BitXor)
     
 #undef DEFINE_OBJECT_BIN_ARITH
     
+/*static*/ Object *Object::Minus(Object *lhs, NyaaCore *N) {
+    if (lhs == Object::kNil) {
+        return Object::kNil;
+    }
+    return lhs->IsObject() ? lhs->ToHeapObject()->Minus(N) : NySmi::Minus(lhs, N);
+}
+    
+/*static*/ Object *Object::BitInv(Object *lhs, NyaaCore *N) {
+    if (lhs == Object::kNil) {
+        return Object::kNil;
+    }
+    return lhs->IsObject() ? lhs->ToHeapObject()->BitInv(N) : NySmi::BitInv(lhs, N);
+}
+    
 /*static*/ Object *Object::Get(Object *lhs, Object *key, NyaaCore *N) {
     switch (lhs->GetType()) {
         case kTypeMap:
@@ -569,18 +583,42 @@ DEFINE_HEAP_OBJECT_BIN_ARITH(Mul, "*")
 DEFINE_HEAP_OBJECT_BIN_ARITH(Div, "/")
 DEFINE_HEAP_OBJECT_BIN_ARITH(Mod, "%")
     
+#undef DEFINE_HEAP_OBJECT_BIN_ARITH
+    
+Object *NyObject::Minus(NyaaCore *N) {
+    Object *lhs = this;
+    if (NyString *s = NyString::Cast(this)) {
+        lhs = s->TryNumeric(N);
+    }
+    switch (lhs->GetType()) {
+        case kTypeSmi:
+            return NySmi::Minus(lhs, N);
+        case kTypeFloat64:
+            return N->factory()->NewFloat64(-NyFloat64::Cast(lhs)->value());
+        case kTypeInt:
+            return NyInt::Cast(lhs)->Minus(N);
+        case kTypeMap:
+            return NyMap::Cast(lhs)->Minus(N);
+        case kTypeUdo:
+            return NyUDO::Cast(lhs)->Minus(N);
+        default:
+            N->Raisef("incorrect type `%s' attempt minus(-unary).", kBuiltinTypeName[GetType()]);
+            break;
+    }
+    return Object::kNil;
+}
+    
 Object *NyObject::Shl(Object *rhs, NyaaCore *N) {
     if (NyString *s = NyString::Cast(rhs)) {
         rhs = s->TryNumeric(N);
     }
-
     switch (GetType()) {
         case kTypeInt:
             return ToInt()->Shl(rhs, N);
         case kTypeFloat64:
             return ToFloat64()->Shl(rhs, N);
         default:
-            N->Raisef("incorrect type `%s' attempt shl.", kBuiltinTypeName[GetType()]);
+            N->Raisef("incorrect type `%s' attempt shl(<<).", kBuiltinTypeName[GetType()]);
             break;
     }
     return Object::kNil;
@@ -590,31 +628,35 @@ Object *NyObject::Shr(Object *rhs, NyaaCore *N) {
     if (NyString *s = NyString::Cast(rhs)) {
         rhs = s->TryNumeric(N);
     }
-    
     switch (GetType()) {
         case kTypeInt:
             return ToInt()->Shr(rhs, N);
         case kTypeFloat64:
             return ToFloat64()->Shr(rhs, N);
         default:
-            N->Raisef("incorrect type `%s' attempt shr.", kBuiltinTypeName[GetType()]);
+            N->Raisef("incorrect type `%s' attempt shr(>>).", kBuiltinTypeName[GetType()]);
             break;
     }
     return Object::kNil;
 }
 
 Object *NyObject::BitAnd(Object *rhs, NyaaCore *N) {
-    N->Raisef("incorrect type `%s' attempt bit and.", kBuiltinTypeName[GetType()]);
+    N->Raisef("incorrect type `%s' attempt bit and(&).", kBuiltinTypeName[GetType()]);
     return Object::kNil;
 }
 
 Object *NyObject::BitOr(Object *rhs, NyaaCore *N) {
-    N->Raisef("incorrect type `%s' attempt bit or.", kBuiltinTypeName[GetType()]);
+    N->Raisef("incorrect type `%s' attempt bit or(|).", kBuiltinTypeName[GetType()]);
     return Object::kNil;
 }
 
 Object *NyObject::BitXor(Object *rhs, NyaaCore *N) {
-    N->Raisef("incorrect type `%s' attempt bit xor.", kBuiltinTypeName[GetType()]);
+    N->Raisef("incorrect type `%s' attempt bit xor(^).", kBuiltinTypeName[GetType()]);
+    return Object::kNil;
+}
+    
+Object *NyObject::BitInv(NyaaCore *N) {
+    N->Raisef("incorrect type `%s' attempt bit inv(~).", kBuiltinTypeName[GetType()]);
     return Object::kNil;
 }
 
@@ -654,7 +696,19 @@ Object *NyObject::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCor
         return rv;
     }
     N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
-    return nullptr;
+    return Object::kNil;
+}
+
+Object *NyObject::AttemptUnaryMetaFunction(NyString *name, NyaaCore *N) {
+    if (NyRunnable *fn = GetValidMetaFunction(name, N)) {
+        Object *args[] = {this};
+        N->curr_thd()->Run(fn, args, 1/*nargs*/, 1/*nrets*/, N->curr_thd()->CurrentEnv()/*env*/);
+        Object *rv = N->Get(-1);
+        N->Pop(1);
+        return rv;
+    }
+    N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
+    return Object::kNil;
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1091,6 +1145,12 @@ NyInt *NyInt::Mul(const NyInt *rhs, NyaaCore *N) const {
     big::BasicMul(segment_view(), rhs->segment_view(), rv->segment_mut_view());
     rv->Normalize();
     rv->set_negative(negative() != rhs->negative());
+    return rv;
+}
+    
+NyInt *NyInt::Minus(NyaaCore *N) const {
+    NyInt *rv = Clone(N->factory());
+    rv->set_negative(!negative());
     return rv;
 }
 
@@ -1719,6 +1779,10 @@ Object *NyMap::Mod(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerMod, N);
 }
 
+Object *NyMap::Minus(NyaaCore *N) {
+    return AttemptUnaryMetaFunction(N->bkz_pool()->kInnerUnm, N);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// class NyTable:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2290,6 +2354,10 @@ Object *NyUDO::Div(Object *rhs, NyaaCore *N) {
 
 Object *NyUDO::Mod(Object *rhs, NyaaCore *N) {
     return AttemptBinaryMetaFunction(rhs, N->bkz_pool()->kInnerMod, N);
+}
+    
+Object *NyUDO::Minus(NyaaCore *N) {
+    return AttemptUnaryMetaFunction(N->bkz_pool()->kInnerUnm, N);
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////

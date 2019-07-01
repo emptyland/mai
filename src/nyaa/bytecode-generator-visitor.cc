@@ -213,7 +213,7 @@ public:
             CodeGeneratorContext bix;
             node->value()->Accept(this, &bix);
             builder()->Ret(IVal::Local(0), 0);
-            
+
             Handle<NyByteArray> bcbuf;
             Handle<NyInt32Array> info;
             std::tie(bcbuf, info) = fun_scope.builder_.Build(core_);
@@ -240,7 +240,7 @@ public:
         }
         return val;
     }
-    
+
     virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
         std::vector<IVal> operands;
         CodeGeneratorContext ix;
@@ -248,11 +248,28 @@ public:
         ix.set_keep_const(true);
         
         IVal ret = fun_scope_->NewLocal();
+        if (node->op() == Operator::kNot) {
+            if (ast::Multiple *inner = node->operand()->ToMultiple()) {
+                if (ProcessNotOperator(ret, inner, node->line())) {
+                    return ret;
+                }
+            }
+        }
+
         for (int i = 0; i < node->n_operands(); ++i) {
             operands.push_back(node->operand(i)->Accept(this, &ix));
         }
-        
+
         switch (node->op()) {
+            case Operator::kBitInv:
+                builder()->BitInv(ret, operands[0], node->line());
+                break;
+            case Operator::kNot:
+                builder()->Not(ret, operands[0], node->line());
+                break;
+            case Operator::kUnm:
+                builder()->Minus(ret, operands[0], node->line());
+                break;
             case Operator::kAdd:
                 builder()->Add(ret, operands[0], operands[1], node->line());
                 break;
@@ -424,6 +441,50 @@ private:
                 break;
         }
         return val;
+    }
+    
+    bool ProcessNotOperator(IVal ret, ast::Multiple *inner, int line) {
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        ix.set_keep_const(true);
+        IVal lhs, rhs;
+        switch (inner->op()) {
+            case Operator::kEQ:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                builder()->NotEqual(ret, lhs, rhs, line);
+                break;
+            case Operator::kNE:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                builder()->Equal(ret, lhs, rhs, line);
+                break;
+            case Operator::kLE:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                builder()->GreaterThan(ret, lhs, rhs, line);
+                break;
+            case Operator::kLT:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                builder()->GreaterEqual(ret, lhs, rhs, line);
+                break;
+            case Operator::kGT:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                builder()->LessEqual(ret, lhs, rhs, line);
+                break;
+            case Operator::kGE:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                builder()->LessThan(ret, lhs, rhs, line);
+                break;
+            default:
+                return false;
+        }
+        fun_scope_->FreeVar(rhs);
+        fun_scope_->FreeVar(lhs);
+        return true;
     }
     
     BytecodeArrayBuilder *builder() {

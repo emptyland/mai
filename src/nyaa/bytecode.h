@@ -28,17 +28,20 @@ namespace nyaa {
     V(Mul,         3, a, b, c) \
     V(Div,         3, a, b, c) \
     V(Mod,         3, a, b, c) \
+    V(Minus,       2, a, b) \
     V(Shl,         3, a, b, c) \
     V(Shr,         3, a, b, c) \
     V(BitAnd,      3, a, b, c) \
     V(BitOr,       3, a, b, c) \
     V(BitXor,      3, a, b, c) \
+    V(BitInv,      2, a, b) \
     V(Equal,       3, a, b, c) \
     V(NotEqual,    3, a, b, c) \
     V(LessThan,    3, a, b, c) \
     V(LessEqual,   3, a, b, c) \
     V(GreaterThan, 3, a, b, c) \
     V(GreaterEqual,3, a, b, c) \
+    V(Not,         2, a, b) \
     V(Concat,      3, a, b, c) \
     V(Test,        3, a, b, c) \
     V(TestNil,     3, a, b, c) \

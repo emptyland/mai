@@ -749,6 +749,30 @@ int NyThread::Run() {
                 frame_->AddPC(delta);
             } break;
                 
+            case Bytecode::kNot: {
+                int32_t ra, rkb;
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &rkb);
+                Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb);
+                Set(ra, NySmi::New(lhs->IsFalse()));
+                frame_->AddPC(delta);
+            } break;
+                
+            case Bytecode::kMinus: {
+                int32_t ra, rkb;
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &rkb);
+                Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb);
+                Set(ra, Object::Minus(lhs, owns_));
+                frame_->AddPC(delta);
+            } break;
+                
+            case Bytecode::kBitInv: {
+                int32_t ra, rkb;
+                int delta = ParseBytecodeInt32Params(1, scale, 2, &ra, &rkb);
+                Object *lhs = rkb < 0 ? frame_->const_pool()->Get(-rkb - 1) : Get(rkb);
+                Set(ra, Object::BitInv(lhs, owns_));
+                frame_->AddPC(delta);
+            } break;
+                
             #define PROCESS_ARITH(op) \
                 int32_t ra, rkb, rkc; \
                 int delta = ParseBytecodeInt32Params(1, scale, 3, &ra, &rkb, &rkc); \
