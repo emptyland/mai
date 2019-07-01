@@ -54,9 +54,9 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %token TOKEN_ERROR
 
 %type <block> Script Block
-%type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration WhileLoop ForIterateLoop ForStepLoop
+%type <stmt> Statement Return VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration WhileLoop ForIterateLoop ForStepLoop
 %type <stmts> StatementList MemberList
-%type <expr> Expression Call LambdaLiteral MapInitializer InheritClause
+%type <expr> Expression Suffixed Primary Simple LambdaLiteral MapInitializer 
 %type <exprs> ExpressionList Arguments Concat
 %type <entry> MapEntry
 %type <entries> MapEntryList
@@ -93,9 +93,16 @@ Script: StatementList {
     $$ = ctx->factory->NewBlock($1, @1);
     ctx->block = $$;
 }
+| {
+    $$ = nullptr;
+    ctx->block = $$;
+}
 
 Block : '{' StatementList '}' {
     $$ = ctx->factory->NewBlock($2, @2);
+}
+| '{' '}' {
+    $$ = ctx->factory->NewBlock(nullptr, @1);
 }
 
 StatementList : Statement {
@@ -104,12 +111,12 @@ StatementList : Statement {
 | StatementList Statement {
     $$->push_back($2);
 }
-| {
-    $$ = nullptr;
-}
+//| {
+//    $$ = nullptr;
+//}
 
-Statement : RETURN ExpressionList {
-    $$ = ctx->factory->NewReturn($2, @2);
+Statement : Return {
+    $$ = $1;
 }
 | VarDeclaration {
     $$ = $1;
@@ -151,6 +158,13 @@ Statement : RETURN ExpressionList {
     $$ = ctx->factory->NewContinue(@1);
 }
 
+Return: RETURN ExpressionList {
+    $$ = ctx->factory->NewReturn($2, @2);
+}
+| RETURN {
+    $$ = ctx->factory->NewReturn(nullptr, @1);
+}
+
 IfStatement: IF '(' Expression ')' Block ElseClause {
     $$ = ctx->factory->NewIfStatement($3, $5, $6, Location::Concat(@1, @6));
 }
@@ -183,16 +197,15 @@ ForStepLoop : FOR '(' NAME IN Expression TO Expression ')' Block {
 ObjectDefinition : OBJECT Attributes NAME '{' MemberList '}' {
     $$ = ctx->factory->NewObjectDefinition($2, $3, $5, Location::Concat(@1, @6));
 }
-
-ClassDefinition : CLASS Attributes NAME InheritClause '{' MemberList '}' {
-    $$ = ctx->factory->NewClassDefinition($2, $3, $4, $6, Location::Concat(@1, @7));
+| OBJECT Attributes NAME '{' '}' {
+    $$ = ctx->factory->NewObjectDefinition($2, $3, nullptr, Location::Concat(@1, @5));
 }
 
-InheritClause : ':' NAME {
-    $$ = ctx->factory->NewVariable($2, @2);
+ClassDefinition : CLASS Attributes NAME '{' MemberList '}' {
+    $$ = ctx->factory->NewClassDefinition($2, $3, nullptr, $5, Location::Concat(@1, @6));
 }
-| {
-    $$ = nullptr;
+| CLASS Attributes NAME '{' '}' {
+    $$ = ctx->factory->NewClassDefinition($2, $3, nullptr, nullptr, Location::Concat(@1, @5));
 }
 
 MemberList : MemberDefinition {
@@ -201,9 +214,9 @@ MemberList : MemberDefinition {
 | MemberList MemberDefinition {
     $$->push_back($2);
 }
-| {
-    $$ = nullptr;
-}
+//| {
+//    $$ = nullptr;
+//}
 
 MemberDefinition : PropertyDeclaration {
     $$ = $1;
@@ -263,45 +276,15 @@ ExpressionList : Expression {
 | ExpressionList ',' Expression {
     $$->push_back($3);
 }
-| {
-    $$ = nullptr;
-}
 
-Expression : LValue {
+Expression : Suffixed {
     $$ = $1;
 }
-| Call {
-    $$ = $1;
-}
-| NIL_LITERAL {
-    $$ = ctx->factory->NewNilLiteral(@1);
-}
-| SMI_LITERAL {
-    $$ = ctx->factory->NewSmiLiteral($1, @1);
-}
-| BOOL_LITERAL {
-    $$ = ctx->factory->NewSmiLiteral($1, @1);
-}
-| INT_LITERAL {
-    $$ = ctx->factory->NewIntLiteral($1, @1);
-}
-| APPROX_LITERAL {
-    $$ = ctx->factory->NewApproxLiteral($1, @1);
-}
-| STRING_LITERAL {
-    $$ = ctx->factory->NewStringLiteral($1, @1);
-}
-| LambdaLiteral {
-    $$ = $1;
-}
-| MapInitializer {
+| Simple {
     $$ = $1;
 }
 | Concat {
     $$ = ctx->factory->NewConcat($1, @1);
-}
-| VARGS {
-    $$ = ctx->factory->NewVariableArguments(@1);
 }
 | OP_NOT Expression {
     $$ = ctx->factory->NewUnary(Operator::kNot, $2, Location::Concat(@1, @2));
@@ -309,7 +292,7 @@ Expression : LValue {
 | '~' Expression {
     $$ = ctx->factory->NewUnary(Operator::kBitInv, $2, Location::Concat(@1, @2));
 }
-| UMINUS Expression {
+| '-' Expression %prec UMINUS {
     $$ = ctx->factory->NewUnary(Operator::kUnm, $2, Location::Concat(@1, @2));
 }
 | Expression OP_AND Expression {
@@ -351,8 +334,88 @@ Expression : LValue {
 | Expression '^' Expression {
     $$ = ctx->factory->NewBinary(Operator::kBitXor, $1, $3, Location::Concat(@1, @3));
 }
-| '(' Expression ')' {
+
+LValList : LValue {
+    $$ = ctx->factory->NewList($1);
+}
+| LValList ',' LValue {
+    $$->push_back($3);
+}
+
+LValue : NAME {
+    $$ = ctx->factory->NewVariable($1, @1);
+}
+| Suffixed '[' Expression ']' {
+    $$ = ctx->factory->NewIndex($1, $3, Location::Concat(@1, @4));
+}
+| Suffixed '.' NAME {
+    $$ = ctx->factory->NewDotField($1, $3, Location::Concat(@1, @3));
+}
+
+Suffixed: Suffixed '.' NAME {
+    $$ = ctx->factory->NewDotField($1, $3, Location::Concat(@1, @3));
+}
+| Suffixed '[' Expression ']' {
+    $$ = ctx->factory->NewIndex($1, $3, Location::Concat(@1, @4));
+}
+| Suffixed Arguments {
+    $$ = ctx->factory->NewCall($1, $2, Location::Concat(@1, @2));
+}
+| Suffixed ':' NAME Arguments {
+    $$ = ctx->factory->NewSelfCall($1, $3, $4, Location::Concat(@1, @4));
+}
+| Primary {
+    $$ = $1;
+}
+
+Arguments : '(' ExpressionList ')' {
     $$ = $2;
+}
+| '(' ')' {
+    $$ = nullptr;
+}
+| STRING_LITERAL {
+    auto arg0 = ctx->factory->NewStringLiteral($1, @1);
+    $$ = ctx->factory->NewList<mai::nyaa::ast::Expression *>(arg0);
+}
+
+Primary: '(' Expression ')' {
+    $$ = $2;
+}
+| NAME {
+    $$ = ctx->factory->NewVariable($1, @1);
+}
+| NEW NAME Arguments {
+    auto callee = ctx->factory->NewVariable($2, @2);
+    $$ = ctx->factory->NewNew(callee, $3, Location::Concat(@1, @3));
+}
+
+Simple: NIL_LITERAL {
+    $$ = ctx->factory->NewNilLiteral(@1);
+}
+| SMI_LITERAL {
+    $$ = ctx->factory->NewSmiLiteral($1, @1);
+}
+| BOOL_LITERAL {
+    $$ = ctx->factory->NewSmiLiteral($1, @1);
+}
+| INT_LITERAL {
+    $$ = ctx->factory->NewIntLiteral($1, @1);
+}
+| APPROX_LITERAL {
+    $$ = ctx->factory->NewApproxLiteral($1, @1);
+}
+| STRING_LITERAL {
+    $$ = ctx->factory->NewStringLiteral($1, @1);
+}
+| LambdaLiteral {
+    $$ = $1;
+}
+| MapInitializer {
+    $$ = $1;
+}
+| VARGS {
+    $$ = ctx->factory->NewVariableArguments(@1);
 }
 
 Concat : Expression OP_CONCAT Expression {
@@ -399,41 +462,6 @@ MapEntry : NAME ':' Expression {
     $$ = ctx->factory->NewEntry($2, $5, Location::Concat(@1, @5));
 }
 
-LValList : LValue {
-    $$ = ctx->factory->NewList($1);
-}
-| LValList ',' LValue {
-    $$->push_back($3);
-}
-
-LValue : NAME {
-    $$ = ctx->factory->NewVariable($1, @1);
-}
-| Expression '[' Expression ']' {
-    $$ = ctx->factory->NewIndex($1, $3, Location::Concat(@1, @4));
-}
-| Expression '.' NAME {
-    $$ = ctx->factory->NewDotField($1, $3, Location::Concat(@1, @3));
-}
-
-Call : Expression Arguments {
-    $$ = ctx->factory->NewCall($1, $2, Location::Concat(@1, @2));
-}
-| Expression ':' NAME Arguments {
-    $$ = ctx->factory->NewSelfCall($1, $3, $4, Location::Concat(@1, @4));
-}
-| NEW NAME '(' ExpressionList ')' {
-    auto callee = ctx->factory->NewVariable($2, @2);
-    $$ = ctx->factory->NewNew(callee, $4, Location::Concat(@1, @5));
-}
-
-Arguments : '(' ExpressionList ')' {
-    $$ = $2;
-}
-| STRING_LITERAL {
-    auto arg0 = ctx->factory->NewStringLiteral($1, @1);
-    $$ = ctx->factory->NewList<mai::nyaa::ast::Expression *>(arg0);
-}
 
 Attributes: '[' NameList ']' {
     $$ = $2;
