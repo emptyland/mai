@@ -309,7 +309,7 @@ Expression : LValue {
 | '~' Expression {
     $$ = ctx->factory->NewUnary(Operator::kBitInv, $2, Location::Concat(@1, @2));
 }
-| UMINUS Expression {
+| '-' Expression %prec UMINUS {
     $$ = ctx->factory->NewUnary(Operator::kUnm, $2, Location::Concat(@1, @2));
 }
 | Expression OP_AND Expression {

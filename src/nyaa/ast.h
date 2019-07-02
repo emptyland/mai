@@ -754,7 +754,7 @@ public:
                                 const Location &loc = Location{}) {
         return new (arena_) IfStatement(loc.begin_line, cond, then_clause, else_clause);
     }
-    
+
     WhileLoop *NewWhileLoop(Expression *cond, Block *body, const Location &loc = Location{}) {
         return new (arena_) WhileLoop(loc.begin_line, loc.end_line, cond, body);
     }

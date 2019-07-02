@@ -16,7 +16,7 @@ a = new bar()
 assert(typeof(a) == 'bar')
 assert(typeof(bar) == 'map')
 
-assert(typeof(lambda a -> a) == 'closure')
+assert(typeof(lambda a => a) == 'closure')
 
 __g__.foo = nil
 __g__.bar = nil

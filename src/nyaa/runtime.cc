@@ -54,6 +54,10 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
            NySmi::New(Object::LessEqual(rhs, lhs, N));
 }
     
+/*static*/ Object *Runtime::Object_NotWarp(Object *lhs) {
+    return lhs == Object::kNil ? Object::kNil : NySmi::New(!lhs->IsTrue());
+}
+    
 /*static*/ Object *Runtime::Thread_GetUpVal(NyThread *thd, int slot) {
     return thd->frame_->upval(slot);
 }
@@ -195,6 +199,9 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     reinterpret_cast<Address>(&Object::Get),
     reinterpret_cast<Address>(&Object::Put),
     ObjectTemplate::MethodAddress(&Object::ToString),
+    reinterpret_cast<Address>(&Object::Minus),
+    reinterpret_cast<Address>(&Object_NotWarp),
+    reinterpret_cast<Address>(&Object::BitInv),
     
     StringTemplate::MethodAddress(static_cast<NyString *(NyString::*)(const NyString *, NyaaCore*)>(&NyString::Add)),
     StringTemplate::MethodAddress(&NyString::Done),

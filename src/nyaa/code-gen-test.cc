@@ -1072,6 +1072,50 @@ TEST_F(NyaaCodeGenTest, NotOperator) {
     BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
     ASSERT_EQ(z, buf) << buf;
 }
+    
+TEST_F(NyaaCodeGenTest, UnaryOperators) {
+    static const char s[] = {
+        "var a, b = 1, 2\n"
+        "var r = -1\n"
+        "r = -a\n"
+        "r = -a-b\n"
+        "r = ~a-~b\n"
+        "r = --a\n"
+        "r = ~~b\n"
+    };
+    static const char z[] = {
+        "function: [unnamed], params: 0, vargs: 1, max-stack: 6, upvals: 0\n"
+        "file name: :memory:\n"
+        ".............................\n"
+        "[000] LoadImm 0 1 ; line: 1\n"
+        "[003] LoadImm 1 2 ; line: 1\n"
+        "[006] LoadImm 2 -1 ; line: 2\n"
+        "[009] Minus 3 0 ; line: 3\n"
+        "[012] Move 2 3 ; line: 3\n"
+        "[015] Minus 4 0 ; line: 4\n"
+        "[018] Sub 3 4 1 ; line: 4\n"
+        "[022] Move 2 3 ; line: 4\n"
+        "[025] BitInv 4 0 ; line: 5\n"
+        "[028] BitInv 5 1 ; line: 5\n"
+        "[031] Sub 3 4 5 ; line: 5\n"
+        "[035] Move 2 3 ; line: 5\n"
+        "[038] Minus 4 0 ; line: 6\n"
+        "[041] Minus 3 4 ; line: 6\n"
+        "[044] Move 2 3 ; line: 6\n"
+        "[047] BitInv 4 1 ; line: 7\n"
+        "[050] BitInv 3 4 ; line: 7\n"
+        "[053] Move 2 3 ; line: 7\n"
+        "[056] Ret 0 0 ; line: 0\n"
+    };
+    
+    HandleScope handle_scope(N_);
+    Handle<NyFunction> script(NyFunction::Compile(s, core_));
+    ASSERT_TRUE(script.is_valid());
+    
+    std::string buf;
+    BytecodeArrayDisassembler::Disassembly(core_, script, &buf, 4096);
+    ASSERT_EQ(z, buf) << buf;
+}
 
 } // namespace nyaa
     

@@ -61,6 +61,9 @@ public:
         kObject_Get,
         kObject_Put,
         kObject_ToString,
+        kObject_Unm,
+        kObject_Not,
+        kObject_BitInv,
         
         kString_Add,
         kString_Done,
@@ -89,6 +92,7 @@ private:
     static Object *Object_LEWarp(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Object_GTWarp(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Object_GEWarp(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Object_NotWarp(Object *lhs);
     
     static Object *Thread_GetUpVal(NyThread *thd, int slot);
     static void Thread_SetUpVal(NyThread *thd, Object *val, int up);

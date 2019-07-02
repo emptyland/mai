@@ -338,10 +338,18 @@ public:
         ix.set_keep_const(true);
         
         IVal ret = fun_scope_->NewLocal();
+        if (node->op() == Operator::kNot) {
+            if (ast::Multiple *inner = node->operand()->ToMultiple()) {
+                if (ProcessNotOperator(ret, inner, node->line())) {
+                    return ret;
+                }
+            }
+        }
+        
         for (int i = 0; i < node->n_operands(); ++i) {
             operands.push_back(node->operand(i)->Accept(this, &ix));
         }
-        
+
         #define DEF_BIN(op) BinaryExpression(ret, operands[0], operands[1], Operator::k##op, \
             Runtime::kObject_##op, node->line())
         #define DEF_BIT_BIN(op) BitBinaryExpression(ret, operands[0], operands[1], Operator::k##op, \
@@ -395,6 +403,15 @@ public:
             case Operator::kBitXor:
                 DEF_BIT_BIN(BitXor);
                 break;
+            case Operator::kUnm:
+                UnmExpression(ret, operands[0], node->line());
+                break;
+            case Operator::kNot:
+                NotExpression(ret, operands[0], node->line());
+                break;
+            case Operator::kBitInv:
+                BitInvExpression(ret, operands[0], node->line());
+                break;
             default:
                 DLOG(FATAL) << "TODO:";
                 break;
@@ -441,9 +458,7 @@ public:
         fun_scope_->FreeVar(lhs);
         return ret;
     }
-    
-    static constexpr int32_t kFuncSavedSize = RoundUp(kPointerSize * 4, arch::kNativeStackAligment);
-    
+
     void InitializeFun(int line) {
         FileLineScope fls(fun_scope_, line);
         __ pushq(rbp);
@@ -596,20 +611,7 @@ private:
         __ j(NotEqual, &call_meta, true); // ------------> call_meta
         
         __ movq(kRegArgv[0], Local(self.index));
-        if (index.kind == IVal::kConst || value.kind == IVal::kConst) {
-            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
-            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
-        }
-        if (index.kind == IVal::kConst) {
-            __ movq(kRegArgv[1], ArrayAt(kScratch, index.index));
-        } else {
-            __ movq(kRegArgv[1], Local(index.index));
-        }
-        if (value.kind == IVal::kConst) {
-            __ movq(kRegArgv[2], ArrayAt(kScratch, value.index));
-        } else {
-            __ movq(kRegArgv[2], Local(value.index));
-        }
+        LoadLocalOrConst(kRegArgv[1], index, kRegArgv[2], value, nullptr/*fallback*/);
         __ movq(kRegArgv[3], kCore);
         CallRuntime(Runtime::kObject_Put);
 
@@ -625,22 +627,9 @@ private:
         __ movq(Local(callee.index), rax);
         __ movq(rax, Local(self.index));
         __ movq(Local(callee.index + 1), rax);
-        if (index.kind == IVal::kConst || value.kind == IVal::kConst) {
-            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
-            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
-        }
-        if (index.kind == IVal::kConst) {
-            __ movq(rax, ArrayAt(kScratch, index.index));
-        } else {
-            __ movq(rax, Local(index.index));
-        }
-        __ movq(Local(callee.index + 2), kScratch);
-        if (value.kind == IVal::kConst) {
-            __ movq(rax, ArrayAt(kScratch, value.index));
-        } else {
-            __ movq(rax, Local(value.index));
-        }
-        __ movq(Local(callee.index + 3), rax);
+        LoadLocalOrConst(rax, index, rbx, value, nullptr/*fallback*/);
+        __ movq(Local(callee.index + 2), rax);
+        __ movq(Local(callee.index + 3), rbx);
         Invoke(callee.index, 3, 0);
         
         fun_scope_->FreeVar(IVal::Local(callee.index + 3));
@@ -960,7 +949,7 @@ private:
         __ movl(kRegArgv[1], Operand(rbx, NyString::kOffsetSize));
         __ addq(kRegArgv[1], 64);
         CallRuntime(Runtime::kNyaaCore_NewUninitializedString);
-        
+
         __ movq(kRegArgv[0], rax);
         __ movq(kRegArgv[1], rbx);
         __ movq(kRegArgv[2], kCore);
@@ -979,11 +968,168 @@ private:
             CallRuntime(Runtime::kString_Add);
             __ movq(Local(val.index), rax);
         }
-        
+
         __ movq(kRegArgv[0], Local(val.index));
         __ movq(kRegArgv[1], kCore);
         CallRuntime(Runtime::kString_Done);
         __ movq(Local(val.index), rax);
+    }
+    
+    bool ProcessNotOperator(IVal ret, ast::Multiple *inner, int line) {
+        CodeGeneratorContext ix;
+        ix.set_n_result(1);
+        ix.set_keep_const(true);
+        IVal lhs, rhs;
+        switch (inner->op()) {
+        #define DEF_BIN(op) BinaryExpression(ret, lhs, rhs, Operator::k##op, \
+            Runtime::kObject_##op, line)
+            case Operator::kEQ:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                DEF_BIN(NE);
+                break;
+            case Operator::kNE:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                DEF_BIN(EQ);
+                break;
+            case Operator::kLE:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                DEF_BIN(GT);
+                break;
+            case Operator::kLT:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                DEF_BIN(GE);
+                break;
+            case Operator::kGT:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                DEF_BIN(LE);
+                break;
+            case Operator::kGE:
+                lhs = inner->lhs()->Accept(this, &ix);
+                rhs = inner->rhs()->Accept(this, &ix);
+                DEF_BIN(LT);
+                break;
+            default:
+                return false;
+        #undef DEF_BING
+        }
+        fun_scope_->FreeVar(rhs);
+        fun_scope_->FreeVar(lhs);
+        return true;
+    }
+    
+    void BitInvExpression(IVal ret, IVal lhs, int line) {
+        FileLineScope fls(fun_scope_, line);
+        
+        Label fallback;
+        LoadLocalOrConst(rax, lhs, &fallback);
+        
+        //------------------------------------------------------------------------------------------
+        // Smi Processing
+        //------------------------------------------------------------------------------------------
+        __ shrq(rax, 2);
+        __ not_(rax);
+        __ shlq(rax, 2);
+        __ orq(rax, 0x1); // (rax << 2) | 0x1
+        Label exit;
+        __ jmp(&exit, true/*far*/);
+        
+        //------------------------------------------------------------------------------------------
+        // Fallback Calling
+        //------------------------------------------------------------------------------------------
+        __ Bind(&fallback);
+        __ movq(kRegArgv[0], rax);
+        __ movq(kRegArgv[1], kCore);
+        CallRuntime(Runtime::kObject_BitInv, false/*may*/);
+        
+        __ Bind(&exit);
+        __ movq(Local(ret.index), rax);
+    }
+    
+    void NotExpression(IVal ret, IVal lhs, int line) {
+        FileLineScope fls(fun_scope_, line);
+        
+        Label fallback;
+        LoadLocalOrConst(rax, lhs, &fallback);
+        
+        //------------------------------------------------------------------------------------------
+        // Smi Processing
+        //------------------------------------------------------------------------------------------
+        __ shrq(rax, 2);
+        __ movq(rbx, reinterpret_cast<Address>(NySmi::New(0)));
+        __ movq(rcx, reinterpret_cast<Address>(NySmi::New(1)));
+        __ cmpq(rax, 0);
+        __ cmovq(Equal, rax, rcx);
+        __ cmovq(NotEqual, rax, rbx);
+        Label exit;
+        __ jmp(&exit, true/*far*/);
+
+        //------------------------------------------------------------------------------------------
+        // Fallback Calling
+        //------------------------------------------------------------------------------------------
+        __ Bind(&fallback);
+        __ movq(kRegArgv[0], rax);
+        __ movq(kRegArgv[1], kCore);
+        CallRuntime(Runtime::kObject_Not, false/*may*/);
+
+        __ Bind(&exit);
+        __ movq(Local(ret.index), rax);
+    }
+    
+    void UnmExpression(IVal ret, IVal lhs, int line) {
+        FileLineScope fls(fun_scope_, line);
+        
+        Label call_meta;
+        __ movq(kRegArgv[0], kCore);
+        __ movq(kRegArgv[1], Local(lhs.index));
+        __ movl(kRegArgv[2], Operator::kUnm);
+        CallRuntime(Runtime::kNyaaCore_TryMetaFunction);
+        __ cmpq(rax, 0);
+        __ j(NotEqual, &call_meta, true);
+
+        Label fallback;
+        LoadLocalOrConst(rbx, lhs, &fallback);
+        
+        //------------------------------------------------------------------------------------------
+        // Smi Processing
+        //------------------------------------------------------------------------------------------
+        __ shrq(rbx, 2);
+        __ xorq(rax, rax);
+        __ subq(rax, rbx); // 0 - rbx
+        __ shlq(rax, 2);
+        __ orq(rax, 0x1); // (rax << 2) | 0x1
+        Label exit;
+        __ jmp(&exit, true/*far*/);
+
+        //------------------------------------------------------------------------------------------
+        // Fallback Calling
+        //------------------------------------------------------------------------------------------
+        __ Bind(&fallback);
+        __ movq(kRegArgv[0], rbx);
+        __ movq(kRegArgv[1], kCore);
+        CallRuntime(Runtime::kObject_Unm, true/*may*/);
+        __ jmp(&exit, true/*far*/);
+
+        //------------------------------------------------------------------------------------------
+        // Meta Function Calling
+        //------------------------------------------------------------------------------------------
+        __ Bind(&call_meta);
+        IVal callee = fun_scope_->Reserve(2);
+        
+        __ movq(Local(callee.index), rax);
+        LoadLocalOrConst(rax, lhs, nullptr/*fallback*/);
+        __ movq(Local(callee.index + 1), rax);
+        Invoke(callee.index, 1, 1);
+        __ movq(rax, Local(callee.index));
+
+        fun_scope_->FreeVar(IVal::Local(callee.index + 1));
+        fun_scope_->FreeVar(callee);
+        __ Bind(&exit);
+        __ movq(Local(ret.index), rax);
     }
     
     void BinaryExpression(IVal ret, IVal lhs, IVal rhs, Operator::ID op, Runtime::ExternalLink rt,
@@ -996,20 +1142,8 @@ private:
         __ cmpq(rax, 0);
         Label call_meta;
         __ j(NotEqual, &call_meta, true);
-        if (lhs.kind == IVal::kConst || rhs.kind == IVal::kConst) {
-            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
-            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
-        }
-        if (lhs.kind == IVal::kConst) {
-            __ movq(kRegArgv[0], ArrayAt(kScratch, lhs.index));
-        } else {
-            __ movq(kRegArgv[0], Local(lhs.index));
-        }
-        if (rhs.kind == IVal::kConst) {
-            __ movq(kRegArgv[1], ArrayAt(kScratch, rhs.index));
-        } else {
-            __ movq(kRegArgv[1], Local(rhs.index));
-        }
+        
+        LoadLocalOrConst(kRegArgv[0], lhs, kRegArgv[1], rhs, nullptr/*fallback*/);
         __ movq(kRegArgv[2], kCore);
         CallRuntime(rt, true/*may*/);
         __ movq(Local(ret.index), rax);
@@ -1023,22 +1157,9 @@ private:
         IVal callee = fun_scope_->Reserve(3);
 
         __ movq(Local(callee.index), rax);
-        if (lhs.kind == IVal::kConst || rhs.kind == IVal::kConst) {
-            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
-            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
-        }
-        if (lhs.kind == IVal::kConst) {
-            __ movq(rax, ArrayAt(kScratch, lhs.index));
-        } else {
-            __ movq(rax, Local(lhs.index));
-        }
+        LoadLocalOrConst(rax, lhs, rbx, rhs, nullptr/*fallback*/);
         __ movq(Local(callee.index + 1), rax);
-        if (rhs.kind == IVal::kConst) {
-            __ movq(rax, ArrayAt(kScratch, rhs.index));
-        } else {
-            __ movq(rax, Local(rhs.index));
-        }
-        __ movq(Local(callee.index + 2), rax);
+        __ movq(Local(callee.index + 2), rbx);
         Invoke(callee.index, 2, 1);
         switch (op) {
             case Operator::kNE:
@@ -1068,27 +1189,8 @@ private:
     void BitBinaryExpression(IVal ret, IVal lhs, IVal rhs, Operator::ID op, Runtime::ExternalLink rt,
                              int line) {
         FileLineScope fls(fun_scope_, line);
-        if (lhs.kind == IVal::kConst || rhs.kind == IVal::kConst) {
-            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
-            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
-        }
-        if (lhs.kind == IVal::kConst) {
-            __ movq(kRegArgv[0], ArrayAt(kScratch, lhs.index));
-        } else {
-            __ movq(kRegArgv[0], Local(lhs.index));
-        }
-        __ testq(kRegArgv[0], 0x1);
         Label fallback;
-        __ UnlikelyJ(Zero, &fallback, true/*far*/);
-
-        if (rhs.kind == IVal::kConst) {
-            __ movq(kRegArgv[1], ArrayAt(kScratch, rhs.index));
-        } else {
-            __ movq(kRegArgv[1], Local(rhs.index));
-        }
-        __ testq(kRegArgv[1], 0x1);
-        __ UnlikelyJ(Zero, &fallback, true/*far*/);
-        
+        LoadLocalOrConst(kRegArgv[0], lhs, kRegArgv[1], rhs, &fallback);
         // lhs and rhs are smi:
         Label exit;
         switch (op) {
@@ -1148,6 +1250,36 @@ private:
         if (may_interrupt) {
             __ movq(kScratch, core_->code_pool()->kRecoverIfNeed->entry_address());
             __ call(kScratch);
+        }
+    }
+    
+    void LoadLocalOrConst(Register r1, IVal v1, Label *fallback, bool prepare = false) {
+        if (prepare || v1.kind == IVal::kConst) {
+            __ movq(kScratch, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
+            __ movq(kScratch, Operand(kScratch, CallFrame::kOffsetConstPool)); // scratch = const_pool
+        }
+        if (v1.kind == IVal::kConst) {
+            __ movq(r1, ArrayAt(kScratch, v1.index));
+        } else {
+            __ movq(r1, Local(v1.index));
+        }
+        if (fallback) {
+            __ testq(r1, 0x1);
+            __ UnlikelyJ(Zero, fallback, true/*far*/);
+        }
+    }
+    
+    void LoadLocalOrConst(Register r1, IVal v1, Register r2, IVal v2, Label *fallback) {
+        LoadLocalOrConst(r1, v1, fallback, v2.kind == IVal::kConst);
+        DCHECK_NE(r1.code(), r2.code());
+        if (v2.kind == IVal::kConst) {
+            __ movq(r2, ArrayAt(kScratch, v2.index));
+        } else {
+            __ movq(r2, Local(v2.index));
+        }
+        if (fallback) {
+            __ testq(r2, 0x1);
+            __ UnlikelyJ(Zero, fallback, true/*far*/);
         }
     }
 
