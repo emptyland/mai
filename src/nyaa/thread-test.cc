@@ -355,7 +355,7 @@ TEST_F(NyaaThreadTest, FunctionUpvals2) {
     static const char s[] = {
         "var a, b, c = 1, 2, 3\n"
         "def foo(a) {\n"
-        "   return lambda -> a, b, c\n"
+        "   return lambda => a, b, c\n"
         "}\n"
         "var f = foo(4)\n"
         "check(f())\n"

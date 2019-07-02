@@ -49,7 +49,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 }
 
 %token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS OP_CONCAT NEW TO UNTIL
-%token IF ELSE WHILE FOR IN OBJECT CLASS PROPERTY BREAK CONTINUE RETURN VARGS DO TINY_ARROW
+%token IF ELSE WHILE FOR IN OBJECT CLASS PROPERTY BREAK CONTINUE RETURN VARGS DO THIN_ARROW FAT_ARROW
 %token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL NIL_LITERAL BOOL_LITERAL
 %token TOKEN_ERROR
 
@@ -367,7 +367,7 @@ Concat : Expression OP_CONCAT Expression {
 LambdaLiteral : LAMBDA '(' Parameters ')' Block {
     $$ = ctx->factory->NewLambdaLiteral($3.params, $3.vargs, $5, Location::Concat(@1, @5));
 }
-| LAMBDA Parameters TINY_ARROW ExpressionList {
+| LAMBDA Parameters FAT_ARROW ExpressionList {
     auto stmt = ctx->factory->NewReturn($4, @4);
     auto stmts = ctx->factory->NewList<::mai::nyaa::ast::Statement *>(stmt);
     auto block = ctx->factory->NewBlock(stmts, @4);

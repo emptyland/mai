@@ -145,7 +145,8 @@ not { return OP_NOT; }
 "]" { return ']'; }
 "..." { return VARGS; }
 ".." { return OP_CONCAT; }
-"->" { return TINY_ARROW; }
+"->" { return THIN_ARROW; }
+"=>" { return FAT_ARROW; }
 
 [-=+&~|^/%!()*.,;:{}] { return yytext[0]; }
 

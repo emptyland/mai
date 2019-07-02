@@ -19,6 +19,20 @@ public:
 
 TEST_F(NyaaParserTest, Sanity) {
     static const char z[] = {
+        "var a = t.name\n"
+        "var b = t.t.a\n"
+        "var c = t.t['name']\n"
+        "var d = t().name\n"
+        "var e = t:f()['name']\n"
+    };
+    
+    auto result = Parser::Parse(z, &arena_);
+    ASSERT_EQ(nullptr, result.error) << result.ToString();
+    ASSERT_NE(nullptr, result.block);
+}
+
+TEST_F(NyaaParserTest, Expression) {
+    static const char z[] = {
         "var a, b, c = 1, 2, 3\n"
         "return a + b / c\n"
     };
@@ -30,9 +44,8 @@ TEST_F(NyaaParserTest, Sanity) {
     
 TEST_F(NyaaParserTest, LambdaLiteral) {
     static const char z[] = {
-        "lambda(a) { return a }(1) \n"
-        "(lambda a -> a)(2)\n"
-        "return new a()\n"
+        "var f = lambda(a) { return a } \n"
+        "return f(0)\n"
     };
     
     auto result = Parser::Parse(z, &arena_);
