@@ -280,6 +280,14 @@ protected:
     FunctionScope *fun_scope_ = nullptr;
     BlockScope *blk_scope_ = nullptr;
 }; // class CodeGeneratorVisitor
+    
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// AST Serialization
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Error SerializeCompactedAST(ast::AstNode *node, std::string *buf);
+    
+Error LoadCompactedAST(std::string_view buf, ast::Factory *factory, ast::AstNode **rv);
 
 } // namespace nyaa
     

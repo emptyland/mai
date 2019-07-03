@@ -109,6 +109,16 @@ public:
         return *reinterpret_cast<const uint64_t *>(slice.data());
     }
     
+    static float SetFloat32(std::string_view slice) {
+        DCHECK_EQ(sizeof(float), slice.size());
+        return *reinterpret_cast<const float *>(slice.data());
+    }
+    
+    static double SetFloat64(std::string_view slice) {
+        DCHECK_EQ(sizeof(double), slice.size());
+        return *reinterpret_cast<const double *>(slice.data());
+    }
+    
     static std::string ToReadable(std::string_view raw);
     
     // return:
@@ -217,6 +227,20 @@ public:
     char ReadByte() {
         DCHECK(!Eof());
         return buf_[position_++];
+    }
+    
+    float ReadFloat32() {
+        DCHECK(!Eof());
+        std::string_view result = buf_.substr(position_, 4);
+        position_ += 4;
+        return Slice::SetFloat32(result);
+    }
+    
+    double ReadFloat64() {
+        DCHECK(!Eof());
+        std::string_view result = buf_.substr(position_, 8);
+        position_ += 8;
+        return Slice::SetFloat64(result);
     }
     
     uint32_t ReadFixed32() {

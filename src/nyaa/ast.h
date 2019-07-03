@@ -136,6 +136,8 @@ protected:
 #define DEFINE_AST_NODE(name) \
     virtual Kind kind() const override { return k##name; } \
     virtual IVal Accept(Visitor *v, VisitorContext *ctx) override { return v->Visit##name(this, ctx); } \
+    static name *Cast(AstNode *node) { return !node ? nullptr : node->To##name(); } \
+    static const name *Cast(const AstNode *node) { return !node ? nullptr : node->To##name(); } \
     friend class Factory; \
     DISALLOW_IMPLICIT_CONSTRUCTORS(name)
     
@@ -144,10 +146,16 @@ using Attributes = base::ArenaVector<const String *>;
 class Statement : public AstNode {
 public:
     virtual int line() const override { return line_; }
-    //virtual int end_line() const override { return line_; }
     virtual bool is_statement() const override { return true; }
     virtual bool is_expression() const override { return false; }
-    //virtual Object *Emit() const override { return Object::kNil; }
+    
+    static Statement *Cast(AstNode *node) {
+        return (!node || !node->is_statement()) ? nullptr : static_cast<Statement *>(node);
+    }
+    
+    static const Statement *Cast(const AstNode *node) {
+        return (!node || !node->is_statement()) ? nullptr : static_cast<const Statement *>(node);
+    }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Statement);
 protected:
@@ -335,6 +343,14 @@ public:
     virtual bool is_lval() const { return false; }
     virtual bool is_rval() const { return true; }
     
+    static Expression *Cast(AstNode *node) {
+        return (!node || !node->is_expression()) ? nullptr : static_cast<Expression *>(node);
+    }
+    
+    static const Expression *Cast(const AstNode *node) {
+        return (!node || !node->is_expression()) ? nullptr : static_cast<const Expression *>(node);
+    }
+    
 protected:
     Expression(int line) : Statement(line) {}
 }; // class Expression
@@ -343,6 +359,15 @@ protected:
 class LValue : public Expression {
 public:
     virtual bool is_lval() const { return true; }
+    
+    static LValue *Cast(AstNode *node) {
+        Expression *expr = Expression::Cast(node);
+        return (!expr || !expr->is_lval()) ? nullptr : static_cast<LValue *>(node);
+    }
+    static const LValue *Cast(const AstNode *node) {
+        const Expression *expr = Expression::Cast(node);
+        return (!expr || !expr->is_lval()) ? nullptr : static_cast<const LValue *>(node);
+    }
 protected:
     LValue(int line) : Expression(line) {}
 }; // class LVal
@@ -725,6 +750,12 @@ public:
         return new (arena_) PropertyDeclaration(loc.begin_line, names, inits, ro);
     }
     
+    PropertyDeclaration *NewPropertyDeclaration(VarDeclaration::NameList *names,
+                                                VarDeclaration::ExprList *inits, bool readonly,
+                                                const Location &loc = Location{}) {
+        return new (arena_) PropertyDeclaration(loc.begin_line, names, inits, readonly);
+    }
+    
     FunctionDefinition *NewFunctionDefinition(Expression *self, const String *name,
                                               LambdaLiteral *literal,
                                               const Location &loc = Location{}) {
@@ -738,11 +769,25 @@ public:
         return new (arena_) ObjectDefinition(loc.begin_line, loc.end_line, name, local, members);
     }
     
+    ObjectDefinition *NewObjectDefinition(const String *name, bool local,
+                                          ObjectDefinition::MemberList *members,
+                                          const Location &loc = Location{}) {
+        return new (arena_) ObjectDefinition(loc.begin_line, loc.end_line, name, local, members);
+    }
+    
     ClassDefinition *NewClassDefinition(Attributes *attrs, const String *name, Expression *base,
                                         ObjectDefinition::MemberList *members,
                                         const Location &loc = Location{}) {
         bool local = AttributesMatch(attrs, "local", true, false);
-        return new (arena_) ClassDefinition(loc.begin_line, loc.end_line, name, local, base, members);
+        return new (arena_) ClassDefinition(loc.begin_line, loc.end_line, name, local, base,
+                                            members);
+    }
+    
+    ClassDefinition *NewClassDefinition(const String *name, bool local,
+                                        ObjectDefinition::MemberList *members,
+                                        const Location &loc = Location{}) {
+        return new (arena_) ClassDefinition(loc.begin_line, loc.end_line, name, local, nullptr,
+                                            members);
     }
     
     Assignment *NewAssignment(Assignment::LValList *lvals, Assignment::RValList *rvals,
@@ -874,6 +919,8 @@ public:
         size_t len = ::strlen(z);
         return String::New(arena_, z + 1, len - 2);
     }
+    
+    String *NewRawString(const char *z, size_t n) { return String::New(arena_, z, n); }
 
     String *NewStringEscaped(const char *z, int quote, bool *ok) {
         std::string buf;
