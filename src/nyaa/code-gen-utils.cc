@@ -756,7 +756,8 @@ public:
         WriteNode(node->rhs());
         return IVal::Void();
     }
-    virtual IVal VisitObjectDefinition(ast::ObjectDefinition *node, ast::VisitorContext *x) override {
+    virtual IVal VisitObjectDefinition(ast::ObjectDefinition *node,
+                                       ast::VisitorContext *x) override {
         WritePrefix(node);
         WriteInt(node->end_line());
         WriteString(node->name());
@@ -786,7 +787,8 @@ public:
         }
         return IVal::Void();
     }
-    virtual IVal VisitFunctionDefinition(ast::FunctionDefinition *node, ast::VisitorContext *x) override {
+    virtual IVal VisitFunctionDefinition(ast::FunctionDefinition *node,
+                                         ast::VisitorContext *x) override {
         WritePrefix(node);
         WriteNodeOptional(node->self());
         WriteString(node->name());
@@ -902,7 +904,8 @@ public:
         WriteExprs(node->operands());
         return IVal::Void();
     }
-    virtual IVal VisitVariableArguments(ast::VariableArguments *node, ast::VisitorContext *x) override {
+    virtual IVal VisitVariableArguments(ast::VariableArguments *node,
+                                        ast::VisitorContext *x) override {
         WritePrefix(node);
         return IVal::Void();
     }
@@ -1176,7 +1179,7 @@ private:
     
     ast::Expression *ReadExprOptional() {
         ast::AstNode *node = ReadNodeOptional();
-        DCHECK(node || node->is_expression());
+        DCHECK(!node || node->is_expression());
         return static_cast<ast::Expression *>(node);
     }
     
@@ -1220,7 +1223,8 @@ private:
         if (n == 0) {
             return nullptr;
         }
-        base::ArenaVector<const ast::String *> *names = factory_->NewList<const ast::String *>(nullptr);
+        base::ArenaVector<const ast::String *> *names =
+            factory_->NewList<const ast::String *>(nullptr);
         for (uint64_t i = 0; i < n; ++i) {
             names->push_back(ReadString());
         }

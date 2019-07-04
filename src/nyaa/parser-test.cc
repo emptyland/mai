@@ -54,7 +54,7 @@ TEST_F(NyaaParserTest, LambdaLiteral) {
     ASSERT_NE(nullptr, result.block);
 }
     
-TEST_F(NyaaParserTest, Serialize) {
+TEST_F(NyaaParserTest, SanitySerialize) {
     static const char z[] = {
         "var f = lambda(a) { return a } \n"
         "return f(0)\n"
@@ -87,6 +87,39 @@ TEST_F(NyaaParserTest, Serialize) {
     ast::Return *rt = block->stmts()->at(1)->ToReturn();
     ASSERT_NE(nullptr, rt);
     ASSERT_EQ(1, rt->rets()->size());
+}
+    
+TEST_F(NyaaParserTest, ObjectDefinitionSerialize) {
+    static const char z[] = {
+        "object foo {\n"
+        "   def f() {}\n"
+        "   property [ro] a, b, c\n"
+        "}\n"
+    };
+    
+    auto result = Parser::Parse(z, &arena_);
+    ASSERT_EQ(nullptr, result.error) << result.ToString();
+    ASSERT_NE(nullptr, result.block);
+    
+    std::string buf;
+    SerializeCompactedAST(result.block, &buf);
+    ASSERT_EQ(38, buf.size());
+    
+    ast::Factory factory(&arena_);
+    ast::AstNode *ast = nullptr;
+    LoadCompactedAST(buf, &factory, &ast);
+    ASSERT_NE(nullptr, ast);
+    
+    ast::Block *blk = ast->ToBlock();
+    ASSERT_EQ(1, blk->stmts()->size());
+    ast::ObjectDefinition *obd = blk->stmts()->at(0)->ToObjectDefinition();
+    ASSERT_NE(nullptr, obd);
+    EXPECT_EQ("foo", obd->name()->ToString());
+    ASSERT_EQ(2, obd->members()->size());
+    
+    ast::FunctionDefinition *m1 = obd->members()->at(0)->ToFunctionDefinition();
+    ASSERT_NE(nullptr, m1);
+    EXPECT_EQ("f", m1->name()->ToString());
 }
 
 } // namespace nyaa
