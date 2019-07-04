@@ -246,9 +246,7 @@
 		23DFE03722754D29005D489C /* big-number.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DFE03622754D29005D489C /* big-number.cc */; };
 		23DFE03822754D29005D489C /* big-number.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DFE03622754D29005D489C /* big-number.cc */; };
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
-		23F6A03122266E1A00AE5DB6 /* decimal-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02E22266E1900AE5DB6 /* decimal-v1.cc */; };
 		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
-		23F6A03622266E7700AE5DB6 /* decimal-test-v1.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03422266E7700AE5DB6 /* decimal-test-v1.cc */; };
 		23F9F8C12255A767004F0A42 /* string-pool.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F9F8C02255A767004F0A42 /* string-pool.cc */; };
 /* End PBXBuildFile section */
 
@@ -590,11 +588,8 @@
 		23F60610219C1F6D00CE12D9 /* files.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = files.h; sourceTree = "<group>"; };
 		23F60611219C22AE00CE12D9 /* files.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = files.cc; sourceTree = "<group>"; };
 		23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-v2.cc"; sourceTree = "<group>"; };
-		23F6A02D22266E1900AE5DB6 /* decimal-v1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "decimal-v1.h"; sourceTree = "<group>"; };
-		23F6A02E22266E1900AE5DB6 /* decimal-v1.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-v1.cc"; sourceTree = "<group>"; };
 		23F6A02F22266E1A00AE5DB6 /* decimal-v2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "decimal-v2.h"; sourceTree = "<group>"; };
 		23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-test-v2.cc"; sourceTree = "<group>"; };
-		23F6A03422266E7700AE5DB6 /* decimal-test-v1.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-test-v1.cc"; sourceTree = "<group>"; };
 		23F9F8BF225597C9004F0A42 /* string-pool.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "string-pool.h"; sourceTree = "<group>"; };
 		23F9F8C02255A767004F0A42 /* string-pool.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "string-pool.cc"; sourceTree = "<group>"; };
 		23FB4B502195708900B2829B /* table-test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-test.h"; sourceTree = "<group>"; };
@@ -987,8 +982,6 @@
 		23B0E0F82188337D00F9E855 /* core */ = {
 			isa = PBXGroup;
 			children = (
-				23F6A02E22266E1900AE5DB6 /* decimal-v1.cc */,
-				23F6A02D22266E1900AE5DB6 /* decimal-v1.h */,
 				23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */,
 				23F6A02F22266E1A00AE5DB6 /* decimal-v2.h */,
 				232AA2332193E506007EF228 /* skip-list.h */,
@@ -1195,7 +1188,6 @@
 		23B8E69121E32ED60001096E /* core */ = {
 			isa = PBXGroup;
 			children = (
-				23F6A03422266E7700AE5DB6 /* decimal-test-v1.cc */,
 				23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */,
 				23AD6D5E21BF5B5300F8F4C5 /* bw-tree-test.cc */,
 				23B8E69B21E32F2E0001096E /* hash-map-v2-test.cc */,
@@ -1452,7 +1444,6 @@
 				2364B2DB21E451F9008519AE /* sst-table-builder.cc in Sources */,
 				232CD5212283CAEA00544808 /* nyaa-values-test.cc in Sources */,
 				2312DFC022536B4300689616 /* scavenger.cc in Sources */,
-				23F6A03622266E7700AE5DB6 /* decimal-test-v1.cc in Sources */,
 				232CD51D2283CAEA00544808 /* parser-test.cc in Sources */,
 				2364B2DD21E451F9008519AE /* sst-table-reader.cc in Sources */,
 				2364B2DF21E451F9008519AE /* s1-table-builder.cc in Sources */,
@@ -1537,7 +1528,6 @@
 				2364B34421E451F9008519AE /* sst-table-builder-test.cc in Sources */,
 				2364B34521E451F9008519AE /* sst-table-reader-test.cc in Sources */,
 				237B0C0B21E4869400F3A099 /* sql.cc in Sources */,
-				23F6A03122266E1A00AE5DB6 /* decimal-v1.cc in Sources */,
 				232CD51C2283CAEA00544808 /* scavenger-test.cc in Sources */,
 				2349FDF522A4BA76001861E0 /* sha256.c in Sources */,
 				2364B34621E451F9008519AE /* s1-table-builder-test.cc in Sources */,

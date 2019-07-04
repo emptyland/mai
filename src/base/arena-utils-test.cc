@@ -16,26 +16,6 @@ public:
     base::StandaloneArena arena_;
 };
     
-TEST_F(ArenaUtilsTest, ArenaString) {
-    
-    auto s = ArenaString::New(&arena_, "Hello, World");
-    
-    ASSERT_EQ(s->size(), 12);
-    ASSERT_EQ("Hello, World", s->ToString());
-    
-    auto kN = ArenaString::kMinLargetSize;
-    
-    std::unique_ptr<char []> buf(new char[kN]);
-    ::memset(buf.get(), 0xfc, kN);
-    
-    s = ArenaString::New(&arena_, buf.get(), kN);
-    ASSERT_EQ(s->size(), kN);
-    
-    for (int i = 0; i < kN; ++i) {
-        ASSERT_EQ('\xFC', s->data()[i]);
-    }
-}
-    
 TEST_F(ArenaUtilsTest, ArenaVector) {
     
     ArenaVector<ArenaString *> v(3, &arena_);
