@@ -191,7 +191,7 @@ public:
         
         int nrets = static_cast<int>(node->names()->size());
         fun_scope_->Reserve(nrets);
-        Call(callee, 0, nrets, node->end_line());
+        Call(callee, 0, nrets, node->end_line(), node->trace_id());
         {
             FileLineScope fls(fun_scope_, node->line());
             __ cmpq(Local(callee.index), 0);
@@ -247,9 +247,11 @@ public:
         __ Bind(&body_label);
         IVal ret = fun_scope_->NewLocal();
         if (node->is_until()) {
-            BinaryExpression(ret, iter, limit, Operator::kGE, Runtime::kObject_GE, node->line());
+            BinaryExpression(ret, iter, limit, Operator::kGE, Runtime::kObject_GE, node->line(),
+                             node->trace_id1());
         } else {
-            BinaryExpression(ret, iter, limit, Operator::kGT, Runtime::kObject_GT, node->line());
+            BinaryExpression(ret, iter, limit, Operator::kGT, Runtime::kObject_GT, node->line(),
+                             node->trace_id1());
         }
         __ movq(kRegArgv[0], Local(ret.index));
         CallRuntime(Runtime::kObject_IsFalse);
@@ -264,7 +266,8 @@ public:
         scope.set_loop_out(nullptr);
         
         __ Bind(&in_label);
-        BinaryExpression(iter, iter, step, Operator::kAdd, Runtime::kObject_Add, node->line());
+        BinaryExpression(iter, iter, step, Operator::kAdd, Runtime::kObject_Add, node->line(),
+                         node->trace_id2());
         Move(var, iter, node->line());
         __ jmp(&body_label, true/*far*/);
         __ Bind(&out_label);
@@ -357,7 +360,7 @@ public:
         }
 
         #define DEF_BIN(op) BinaryExpression(ret, operands[0], operands[1], Operator::k##op, \
-            Runtime::kObject_##op, node->line())
+            Runtime::kObject_##op, node->line(), node->trace_id())
         #define DEF_BIT_BIN(op) BitBinaryExpression(ret, operands[0], operands[1], Operator::k##op, \
             Runtime::kObject_##op, node->line())
         switch (node->op()) {
@@ -410,7 +413,7 @@ public:
                 DEF_BIT_BIN(BitXor);
                 break;
             case Operator::kUnm:
-                UnmExpression(ret, operands[0], node->line());
+                UnmExpression(ret, operands[0], node->line(), node->trace_id());
                 break;
             case Operator::kNot:
                 NotExpression(ret, operands[0], node->line());
@@ -509,11 +512,12 @@ private:
         __ movq(Local(val.index), rax);
     }
 
-    void Invoke(int32_t callee, int32_t nargs, int32_t wanted) {
+    void Invoke(int32_t callee, int32_t nargs, int32_t wanted, int32_t trace_id) {
         SaveRIP();
         __ movl(kRegArgv[0], callee);
         __ movl(kRegArgv[1], nargs);
         __ movl(kRegArgv[2], wanted);
+        __ movl(kRegArgv[3], trace_id);
         __ movq(rax, core_->code_pool()->kCallStub->entry_address());
         __ call(rax);
     }
@@ -529,20 +533,20 @@ private:
     // base = ob:method
     // base[0] = ob[method]
     // base[1] = ob
-    virtual void Self(IVal base, IVal ob, IVal method, int line) override {
+    virtual void Self(IVal base, IVal ob, IVal method, int line, int trace_id) override {
         DCHECK_EQ(IVal::kLocal, base.kind);
         DCHECK_EQ(IVal::kLocal, ob.kind);
         DCHECK_EQ(IVal::kConst, method.kind);
         FileLineScope fls(fun_scope_, line);
-        GetField(base.index, ob.index, method.Encode());
+        GetField(base.index, ob.index, method.Encode(), trace_id);
         __ movq(kScratch, Local(ob.index));
         __ movq(Local(base.index + 1), kScratch);
     }
 
-    virtual void Call(IVal callee, int nargs, int wanted, int line) override {
+    virtual void Call(IVal callee, int nargs, int wanted, int line, int trace_id) override {
         DCHECK_EQ(IVal::kLocal, callee.kind);
         FileLineScope fls(fun_scope_, line);
-        Invoke(callee.index, nargs, wanted);
+        Invoke(callee.index, nargs, wanted, trace_id);
     }
 
     virtual void Ret(IVal base, int nrets, int line) override {
@@ -605,7 +609,7 @@ private:
         CallRuntime(Runtime::kThread_NewMap);
     }
 
-    virtual void SetField(IVal self, IVal index, IVal value, int line) override {
+    virtual void SetField(IVal self, IVal index, IVal value, int line, int trace_id) override {
         DCHECK_EQ(IVal::kLocal, self.kind);
         FileLineScope fls(fun_scope_, line);
         __ movq(kRegArgv[0], kCore);
@@ -636,7 +640,7 @@ private:
         LoadLocalOrConst(rax, index, rbx, value, nullptr/*fallback*/);
         __ movq(Local(callee.index + 2), rax);
         __ movq(Local(callee.index + 3), rbx);
-        Invoke(callee.index, 3, 0);
+        Invoke(callee.index, 3/*nargs*/, 0/*wanted*/, trace_id/*trace_id*/);
         
         fun_scope_->FreeVar(IVal::Local(callee.index + 3));
         fun_scope_->FreeVar(IVal::Local(callee.index + 2));
@@ -645,12 +649,12 @@ private:
         __ Bind(&exit);
     }
 
-    virtual void GetField(IVal value, IVal self, IVal index, int line) override {
+    virtual void GetField(IVal value, IVal self, IVal index, int line, int trace_id) override {
         DCHECK_EQ(IVal::kLocal, self.kind);
         DCHECK_EQ(IVal::kLocal, value.kind);
         DCHECK(index.kind == IVal::kLocal  || index.kind  == IVal::kConst) << index.kind;
         FileLineScope fls(fun_scope_, line);
-        GetField(value.index, self.index, index.Encode());
+        GetField(value.index, self.index, index.Encode(), trace_id);
     }
 
     virtual IVal Localize(IVal val, int line) override {
@@ -727,7 +731,7 @@ private:
         CallRuntime(Runtime::kMap_RawPut, true/*may_interrupt*/);
     }
     
-    void GetField(int32_t ret, int32_t self, int32_t index) {
+    void GetField(int32_t ret, int32_t self, int32_t index, int32_t trace_id) {
         __ movq(kRegArgv[0], kCore);
         __ movq(kRegArgv[1], Local(self));
         __ movl(kRegArgv[2], Operator::kIndex);
@@ -768,7 +772,7 @@ private:
             __ movq(rax, Local(index));
         }
         __ movq(Local(callee.index + 2), rax);
-        Invoke(callee.index, 2/*nargs*/, 1/*wanted*/);
+        Invoke(callee.index, 2/*nargs*/, 1/*wanted*/, trace_id/*trace_id*/);
         __ movq(rax, Local(callee.index));
         __ movq(Local(ret), rax);
         
@@ -988,7 +992,7 @@ private:
         IVal lhs, rhs;
         switch (inner->op()) {
         #define DEF_BIN(op) BinaryExpression(ret, lhs, rhs, Operator::k##op, \
-            Runtime::kObject_##op, line)
+            Runtime::kObject_##op, line, inner->trace_id())
             case Operator::kEQ:
                 lhs = inner->lhs()->Accept(this, &ix);
                 rhs = inner->rhs()->Accept(this, &ix);
@@ -1086,7 +1090,7 @@ private:
         __ movq(Local(ret.index), rax);
     }
     
-    void UnmExpression(IVal ret, IVal lhs, int line) {
+    void UnmExpression(IVal ret, IVal lhs, int line, int trace_id) {
         FileLineScope fls(fun_scope_, line);
         
         Label call_meta;
@@ -1129,7 +1133,7 @@ private:
         __ movq(Local(callee.index), rax);
         LoadLocalOrConst(rax, lhs, nullptr/*fallback*/);
         __ movq(Local(callee.index + 1), rax);
-        Invoke(callee.index, 1, 1);
+        Invoke(callee.index, 1/*nargs*/, 1/*wanted*/, trace_id/*trace_id*/);
         __ movq(rax, Local(callee.index));
 
         fun_scope_->FreeVar(IVal::Local(callee.index + 1));
@@ -1139,7 +1143,7 @@ private:
     }
     
     void BinaryExpression(IVal ret, IVal lhs, IVal rhs, Operator::ID op, Runtime::ExternalLink rt,
-                          int line) {
+                          int line, int trace_id) {
         FileLineScope fls(fun_scope_, line);
         __ movq(kRegArgv[0], kCore);
         __ movq(kRegArgv[1], Local(lhs.index));
@@ -1166,7 +1170,7 @@ private:
         LoadLocalOrConst(rax, lhs, rbx, rhs, nullptr/*fallback*/);
         __ movq(Local(callee.index + 1), rax);
         __ movq(Local(callee.index + 2), rbx);
-        Invoke(callee.index, 2, 1);
+        Invoke(callee.index, 2/*nargs*/, 1/*wanted*/, trace_id/*trace_id*/);
         switch (op) {
             case Operator::kNE:
             case Operator::kGT:

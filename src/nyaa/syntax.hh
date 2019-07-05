@@ -103,7 +103,7 @@ extern int nyaa_yydebug;
 #if ! defined NYAA_YYSTYPE && ! defined NYAA_YYSTYPE_IS_DECLARED
 union NYAA_YYSTYPE
 {
-#line 27 "syntax.y"
+#line 28 "syntax.y"
 
     const ::mai::nyaa::ast::String *name;
     ::mai::nyaa::ast::VarDeclaration::NameList *names;

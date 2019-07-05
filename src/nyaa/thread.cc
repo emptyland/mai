@@ -927,9 +927,7 @@ NyUDO *NyThread::RuntimePrepareNew(int32_t val, int32_t type, int32_t *nargs, Ny
     return udo;
 }
     
-int NyThread::RuntimePrepareCall(int32_t callee, int32_t argc, int wanted) {
-    //PrintStack();
-    //printf("frame: %p\n", frame_bp());
+int NyThread::RuntimePrepareCall(int32_t callee, int32_t argc, int wanted, int trace_id) {
     Object *val = Get(callee);
     if (val->IsSmi()) {
         owns_->Raisef("can not call number.");
@@ -939,7 +937,7 @@ int NyThread::RuntimePrepareCall(int32_t callee, int32_t argc, int wanted) {
     if (argc >= 0) {
         stack_tp_ = base + 1 + argc;
     }
-    return PrepareCall(base, argc, wanted);
+    return PrepareCall(base, argc, wanted, trace_id);
 }
 
 int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
@@ -949,7 +947,14 @@ int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
         stack_tp_ = (frame_bp() + base) + nrets;
     }
     frame_->set_nrets(nrets);
-    CopyResult(stack_ + frame_->stack_be() - 1, nrets, frame_->wanted());
+    
+    Object **rets = stack_ + frame_->stack_be() - 1;
+    CopyResult(rets, nrets, frame_->wanted());
+    if (owns_->stub()->use_jit() && frame_->prev()) {
+        DCHECK_GE(frame_->trace_id(), 0);
+        owns_->TraceCalling(frame_->trace_id(), rets, frame_->wanted() < 0 ? nrets : frame_->wanted());
+    }
+
     auto outter = frame_;
     outter->Exit(this);
     delete outter;
@@ -1036,7 +1041,7 @@ void NyThread::RuntimeConcat(int32_t ra, int32_t rb, int32_t n) {
     Set(ra, rv->Done(owns_));
 }
 
-int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {
+int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted, int trace_id) {
     DCHECK((*base)->IsObject());
     size_t base_p = base - stack_;
     Object *ob = *base;
@@ -1064,7 +1069,7 @@ int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {
                 }
             }
             
-            CallFrame *frame = new CallFrame;
+            CallFrame *frame = new CallFrame(trace_id);
             NyByteArray *bcbuf =
                 callee->proto()->IsInterpretationExec() ? callee->proto()->bcbuf(): nullptr;
             frame->Enter(this, callee,
@@ -1079,7 +1084,7 @@ int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {
             
         case kTypeDelegated: {
             NyDelegated *callee = NyDelegated::Cast(ob);
-            CallFrame *frame = new CallFrame;
+            CallFrame *frame = new CallFrame(trace_id);
             frame->Enter(this, callee,
                          nullptr, /* bc buf */
                          nullptr, /* const pool */
@@ -1090,8 +1095,8 @@ int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted) {
         } break;
 
         default:
-            DLOG(FATAL) << "incorrect type: " << kBuiltinTypeName[ob->GetType()];
-            //Raisef("incorrect type: %s", kBuiltinTypeName[ob->GetType()]);
+            //DLOG(FATAL) << "incorrect type: " << kBuiltinTypeName[ob->GetType()];
+            Raisef("incorrect type: %s", kBuiltinTypeName[ob->GetType()]);
             break;
     }
     return nargs;
@@ -1129,7 +1134,12 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
             CallFrame *outter = frame_;
             int rv = outter->nrets();
             if (rv >= 0) {
-                CopyResult(stack_ + outter->stack_be() - 1, rv, wanted);
+                Object **rets = stack_ + outter->stack_be() - 1;
+                CopyResult(rets, rv, wanted);
+                if (owns_->stub()->use_jit()) {
+                    DCHECK_GE(outter->trace_id(), 0);
+                    owns_->TraceCalling(outter->trace_id(), rets, wanted < 0 ? rv : wanted);
+                }
             }
             outter->Exit(this);
             delete outter;

@@ -129,13 +129,14 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
 }
 
 //
-// protptype: void entry(int32_t callee, int32_t nargs, int32_t wanted)
+// protptype: void entry(int32_t callee, int32_t nargs, int32_t wanted, int32_t trace_id)
 static void BuildCallStub(Assembler *masm, NyaaCore *N) {
     static constexpr int32_t kSavedSize = 32;
     static const Operand kSavedBP(rbp, -kPointerSize);
     static const Operand kArgCallee(rbp, -kPointerSize - 8);
     static const Operand kArgNArgs(rbp, -kPointerSize - 12);
     static const Operand kArgWanted(rbp, -kPointerSize - 16);
+    static const Operand kArgTraceId(rbp, -kPointerSize - 20);
 
     __ pushq(rbp);
     __ movq(rbp, rsp);
@@ -148,11 +149,13 @@ static void BuildCallStub(Assembler *masm, NyaaCore *N) {
     __ movl(kArgCallee, kRegArgv[0]);
     __ movl(kArgNArgs, kRegArgv[1]);
     __ movl(kArgWanted, kRegArgv[2]);
+    __ movl(kArgTraceId, kRegArgv[3]);
     
     __ movq(kRegArgv[0], kThread);
     __ movl(kRegArgv[1], kArgCallee);
     __ movl(kRegArgv[2], kArgNArgs);
     __ movl(kRegArgv[3], kArgWanted);
+    __ movl(kRegArgv[4], kArgTraceId);
     CallRuntime(masm, N, Runtime::kThread_PrepareCall, true/*may_interrupt*/); // rax = nargs(new)
     __ movq(kScratch, rax); // scratch = nargs
     

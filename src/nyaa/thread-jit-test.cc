@@ -32,8 +32,8 @@ public:
     ObjectFactory *factory_ = nullptr;
 };
     
-//     profiling: 208 162 162 162 166
-// non-profiling: 145 145 145 145 146
+//     profiling: 625 585 595
+// non-profiling: 621 598 583
 TEST_F(NyaaThreadJITTest, BranchProfiling) {
     HandleScope scope(N_);
     TryCatchCore try_catch(core_);

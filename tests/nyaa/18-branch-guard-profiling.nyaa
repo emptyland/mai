@@ -14,9 +14,9 @@ def test(a, b) {
     }
 }
 
-var test = test
+var test, rand = test, rand
 
 for (i in 0 until 100000) {
-    test(i, 9000)
+    test(rand(), rand())
 }
 

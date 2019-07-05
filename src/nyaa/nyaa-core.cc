@@ -47,7 +47,12 @@ NyaaCore::NyaaCore(Nyaa *stub)
 }
 
 NyaaCore::~NyaaCore() {
-
+    for (auto pair : profiler_) {
+        ProfileSlot *slot = &pair.second;
+        if (slot->kind == ProfileSlot::kCalling && slot->n > 1) {
+            ::free(slot->rets);
+        }
+    }
 }
     
 Error NyaaCore::Boot() {
@@ -270,19 +275,55 @@ int NyaaCore::TraceBranchGuard(int trace_id, int value) {
     auto iter = profiler_.find(trace_id);
     if (iter == profiler_.end()) {
         ProfileSlot slot;
+        slot.kind = ProfileSlot::kBranch;
         slot.hit = 1;
         slot.true_guard = value ? 1 : 0;
         profiler_.insert({trace_id, slot});
     } else {
+        DCHECK_EQ(ProfileSlot::kBranch, iter->second.kind);
         iter->second.hit++;
         iter->second.true_guard += (value ? 1 : 0);
     }
     PurgeProfilerIfNeeded();
     return value;
 }
-
-void NyaaCore::TraceCalling(int trace_id) {
     
+static inline void UpdateRets(ProfileSlot *slot, Object **rets, size_t n) {
+    switch (n) {
+        case 0:
+            break;
+        case 1:
+            slot->ret = rets[0]->GetType();
+            break;
+        default:
+            slot->rets = static_cast<int32_t *>(::malloc(n * sizeof(int32_t)));
+            for (size_t i = 0; i < n; ++i) {
+                slot->rets[i] = rets[i]->GetType();
+            }
+            break;
+    }
+}
+
+void NyaaCore::TraceCalling(int trace_id, Object **rets, size_t n) {
+    DCHECK_LT(trace_id, max_trace_id_);
+    auto iter = profiler_.find(trace_id);
+    if (iter == profiler_.end()) {
+        ProfileSlot slot;
+        slot.kind = ProfileSlot::kCalling;
+        slot.hit  = 1;
+        slot.n    = static_cast<int32_t>(n);
+        UpdateRets(&slot, rets, n);
+        profiler_.insert({trace_id, slot});
+    } else {
+        ProfileSlot *slot = &iter->second;
+        DCHECK_EQ(ProfileSlot::kCalling, slot->kind);
+        slot->hit++;
+        if (slot->n > 1) {
+            ::free(slot->rets);
+        }
+        UpdateRets(slot, rets, n);
+    }
+    PurgeProfilerIfNeeded();
 }
     
 void NyaaCore::PurgeProfilerIfNeeded() {
@@ -291,8 +332,12 @@ void NyaaCore::PurgeProfilerIfNeeded() {
     }
     std::set<int> for_clean;
     for (auto pair : profiler_) {
-        if (pair.second.hit <= profiling_level_) {
+        ProfileSlot *slot = &pair.second;
+        if (slot->hit <= profiling_level_) {
             for_clean.insert(pair.first);
+            if (slot->kind == ProfileSlot::kCalling && slot->n > 1) {
+                ::free(slot->rets);
+            }
         }
     }
     for (auto trace_id : for_clean) {

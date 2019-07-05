@@ -155,9 +155,9 @@ TEST_F(NyaaCodeGenTest, ReturnExpression) {
     // return 1.2 * a + 1.3 / b
     auto name_a = ast::String::New(&arena_, "a");
     auto name_b = ast::String::New(&arena_, "b");
-    auto lhs = af_.NewBinary(Operator::kMul, af_.NewApproxLiteral(1.2), af_.NewVariable(name_a));
-    auto rhs = af_.NewBinary(Operator::kDiv, af_.NewApproxLiteral(1.3), af_.NewVariable(name_b));
-    auto expr = af_.NewBinary(Operator::kAdd, lhs, rhs);
+    auto lhs = af_.NewBinary(0, Operator::kMul, af_.NewApproxLiteral(1.2), af_.NewVariable(name_a));
+    auto rhs = af_.NewBinary(0, Operator::kDiv, af_.NewApproxLiteral(1.3), af_.NewVariable(name_b));
+    auto expr = af_.NewBinary(0, Operator::kAdd, lhs, rhs);
     auto names = af_.NewList<const ast::String *>(name_a);
     names->push_back(name_b);
     auto stmts = af_.NewList<ast::Statement*>(af_.NewVarDeclaration(names, nullptr));
@@ -194,9 +194,9 @@ TEST_F(NyaaCodeGenTest, CallExpression) {
         "[024] Call 0 3 1 ; line: 0\n"
         "[028] Ret 0 0 ; line: 0\n"
     };
-    auto expr = af_.NewBinary(Operator::kAdd, af_.NewApproxLiteral(1.2), af_.NewVariable(ast::String::New(&arena_, "a")));
-    expr = af_.NewBinary(Operator::kMul, expr, af_.NewApproxLiteral(2.2));
-    expr = af_.NewBinary(Operator::kSub, expr, af_.NewStringLiteral(ast::String::New(&arena_, "c")));
+    auto expr = af_.NewBinary(0, Operator::kAdd, af_.NewApproxLiteral(1.2), af_.NewVariable(ast::String::New(&arena_, "a")));
+    expr = af_.NewBinary(0, Operator::kMul, expr, af_.NewApproxLiteral(2.2));
+    expr = af_.NewBinary(0, Operator::kSub, expr, af_.NewStringLiteral(ast::String::New(&arena_, "c")));
     
     auto args = af_.NewList<ast::Expression *>(expr);
     args->push_back(af_.NewApproxLiteral(100));

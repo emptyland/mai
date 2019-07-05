@@ -1922,7 +1922,9 @@ bool NyTable::DoDelete(Object *key, NyaaCore *N) {
             if (p) {
                 prev->next = p->next;
                 Free(p);
-                *slot = *At(prev->next);
+                if (prev->next) {
+                    *slot = *At(prev->next);
+                }
                 slot->kind = kSlot;
                 size_--;
             }

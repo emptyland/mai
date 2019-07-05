@@ -17,6 +17,7 @@
 #include <string.h>
 
 #define YYLEX_PARAM ctx->lex
+#define NEXT_TRACE_ID (ctx->next_trace_id++)
 
 using ::mai::nyaa::ast::Location;
 using ::mai::nyaa::Operator;
@@ -152,7 +153,7 @@ Statement : RETURN ExpressionList {
 }
 
 IfStatement: IF '(' Expression ')' Block ElseClause {
-    $$ = ctx->factory->NewIfStatement(ctx->next_trace_id++, $3, $5, $6, Location::Concat(@1, @6));
+    $$ = ctx->factory->NewIfStatement(NEXT_TRACE_ID, $3, $5, $6, Location::Concat(@1, @6));
 }
 
 ElseClause: ELSE Block {
@@ -170,14 +171,14 @@ WhileLoop : WHILE '(' Expression ')' Block {
 }
 
 ForIterateLoop : FOR NameList IN Expression Block {
-    $$ = ctx->factory->NewForIterateLoop($2, $4, $5, Location::Concat(@1, @5));
+    $$ = ctx->factory->NewForIterateLoop(NEXT_TRACE_ID, $2, $4, $5, Location::Concat(@1, @5));
 }
 
 ForStepLoop : FOR '(' NAME IN Expression TO Expression ')' Block {
-    $$ = ctx->factory->NewForStepLoop($3, $5, false, $7, nullptr, $9, Location::Concat(@1, @9));
+    $$ = ctx->factory->NewForStepLoop(NEXT_TRACE_ID, NEXT_TRACE_ID, $3, $5, false, $7, nullptr, $9, Location::Concat(@1, @9));
 }
 | FOR '(' NAME IN Expression UNTIL Expression ')' Block {
-    $$ = ctx->factory->NewForStepLoop($3, $5, true,  $7, nullptr, $9, Location::Concat(@1, @9));
+    $$ = ctx->factory->NewForStepLoop(NEXT_TRACE_ID, NEXT_TRACE_ID, $3, $5, true,  $7, nullptr, $9, Location::Concat(@1, @9));
 }
 
 ObjectDefinition : OBJECT Attributes NAME '{' MemberList '}' {
@@ -219,11 +220,11 @@ PropertyDeclaration : PROPERTY Attributes NameList {
 FunctionDefinition : DEF NAME '.' NAME '(' Parameters ')' Block {
     auto lambda = ctx->factory->NewLambdaLiteral($6.params, $6.vargs, $8, Location::Concat(@5, @8));
     auto self = ctx->factory->NewVariable($2, @2);
-    $$ =  ctx->factory->NewFunctionDefinition(self, $4, lambda, Location::Concat(@1, @8));
+    $$ =  ctx->factory->NewFunctionDefinition(NEXT_TRACE_ID, self, $4, lambda, Location::Concat(@1, @8));
 }
 | DEF NAME '(' Parameters ')' Block {
     auto lambda = ctx->factory->NewLambdaLiteral($4.params, $4.vargs, $6, Location::Concat(@3, @6));
-    $$ =  ctx->factory->NewFunctionDefinition(nullptr, $2, lambda, Location::Concat(@1, @6));
+    $$ =  ctx->factory->NewFunctionDefinition(NEXT_TRACE_ID, nullptr, $2, lambda, Location::Concat(@1, @6));
 }
 
 Parameters : NameList ParameterVargs {
@@ -304,13 +305,13 @@ Expression : LValue {
     $$ = ctx->factory->NewVariableArguments(@1);
 }
 | OP_NOT Expression {
-    $$ = ctx->factory->NewUnary(Operator::kNot, $2, Location::Concat(@1, @2));
+    $$ = ctx->factory->NewUnary(NEXT_TRACE_ID, Operator::kNot, $2, Location::Concat(@1, @2));
 }
 | '~' Expression {
-    $$ = ctx->factory->NewUnary(Operator::kBitInv, $2, Location::Concat(@1, @2));
+    $$ = ctx->factory->NewUnary(NEXT_TRACE_ID, Operator::kBitInv, $2, Location::Concat(@1, @2));
 }
 | '-' Expression %prec UMINUS {
-    $$ = ctx->factory->NewUnary(Operator::kUnm, $2, Location::Concat(@1, @2));
+    $$ = ctx->factory->NewUnary(NEXT_TRACE_ID, Operator::kUnm, $2, Location::Concat(@1, @2));
 }
 | Expression OP_AND Expression {
     $$ = ctx->factory->NewAnd($1, $3, Location::Concat(@1, @3));
@@ -319,37 +320,37 @@ Expression : LValue {
     $$ = ctx->factory->NewOr($1, $3, Location::Concat(@1, @3));
 }
 | Expression COMPARISON Expression {
-    $$ = ctx->factory->NewBinary($2, $1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewBinary(NEXT_TRACE_ID, $2, $1, $3, Location::Concat(@1, @3));
 }
 | Expression '+' Expression {
-    $$ = ctx->factory->NewBinary(Operator::kAdd, $1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kAdd, $1, $3, Location::Concat(@1, @3));
 }
 | Expression '-' Expression {
-    $$ = ctx->factory->NewBinary(Operator::kSub, $1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kSub, $1, $3, Location::Concat(@1, @3));
 }
 | Expression '*' Expression {
-    $$ = ctx->factory->NewBinary(Operator::kMul, $1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kMul, $1, $3, Location::Concat(@1, @3));
 }
 | Expression '/' Expression {
-    $$ = ctx->factory->NewBinary(Operator::kDiv, $1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kDiv, $1, $3, Location::Concat(@1, @3));
 }
 | Expression '%' Expression {
-    $$ = ctx->factory->NewBinary(Operator::kMod, $1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kMod, $1, $3, Location::Concat(@1, @3));
 }
 | Expression OP_LSHIFT Expression {
-    $$ = ctx->factory->NewBinary(Operator::kShl, $1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kShl, $1, $3, Location::Concat(@1, @3));
 }
 | Expression OP_RSHIFT Expression {
-    $$ = ctx->factory->NewBinary(Operator::kShr, $1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kShr, $1, $3, Location::Concat(@1, @3));
 }
 | Expression '|' Expression {
-    $$ = ctx->factory->NewBinary(Operator::kBitOr, $1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kBitOr, $1, $3, Location::Concat(@1, @3));
 }
 | Expression '&' Expression {
-    $$ = ctx->factory->NewBinary(Operator::kBitAnd, $1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kBitAnd, $1, $3, Location::Concat(@1, @3));
 }
 | Expression '^' Expression {
-    $$ = ctx->factory->NewBinary(Operator::kBitXor, $1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kBitXor, $1, $3, Location::Concat(@1, @3));
 }
 | '(' Expression ')' {
     $$ = $2;
@@ -410,21 +411,21 @@ LValue : NAME {
     $$ = ctx->factory->NewVariable($1, @1);
 }
 | Expression '[' Expression ']' {
-    $$ = ctx->factory->NewIndex($1, $3, Location::Concat(@1, @4));
+    $$ = ctx->factory->NewIndex(NEXT_TRACE_ID, $1, $3, Location::Concat(@1, @4));
 }
 | Expression '.' NAME {
-    $$ = ctx->factory->NewDotField($1, $3, Location::Concat(@1, @3));
+    $$ = ctx->factory->NewDotField(NEXT_TRACE_ID, $1, $3, Location::Concat(@1, @3));
 }
 
 Call : Expression Arguments {
-    $$ = ctx->factory->NewCall(ctx->next_trace_id++, $1, $2, Location::Concat(@1, @2));
+    $$ = ctx->factory->NewCall(NEXT_TRACE_ID, $1, $2, Location::Concat(@1, @2));
 }
 | Expression ':' NAME Arguments {
-    $$ = ctx->factory->NewSelfCall(ctx->next_trace_id++, $1, $3, $4, Location::Concat(@1, @4));
+    $$ = ctx->factory->NewSelfCall(NEXT_TRACE_ID, $1, $3, $4, Location::Concat(@1, @4));
 }
 | NEW NAME '(' ExpressionList ')' {
     auto callee = ctx->factory->NewVariable($2, @2);
-    $$ = ctx->factory->NewNew(callee, $4, Location::Concat(@1, @5));
+    $$ = ctx->factory->NewNew(NEXT_TRACE_ID, callee, $4, Location::Concat(@1, @5));
 }
 
 Arguments : '(' ExpressionList ')' {

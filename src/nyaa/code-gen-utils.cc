@@ -161,7 +161,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
         lix.set_n_result(1);
         IVal self = node->self()->Accept(this, &lix);
         IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->name()));
-        SetField(self, index, closure, node->line());
+        SetField(self, index, closure, node->line(), node->trace_id());
         fun_scope_->FreeVar(self);
         fun_scope_->FreeVar(index);
     } else {
@@ -302,12 +302,12 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     IVal index = node->index()->Accept(this, &ix);
     
     if (ctx->lval()) {
-        SetField(self, index, ctx->rval(), node->line());
+        SetField(self, index, ctx->rval(), node->line(), node->trace_id());
         fun_scope_->FreeVar(index);
         fun_scope_->FreeVar(self);
         return IVal::Void();
     } else {
-        GetField(val, self, index, node->line());
+        GetField(val, self, index, node->line(), node->trace_id());
         fun_scope_->FreeVar(index);
         fun_scope_->FreeVar(self);
         return val;
@@ -324,12 +324,12 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     IVal index = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->index()));
     
     if (ctx->lval()) {
-        SetField(self, index, ctx->rval(), node->line());
+        SetField(self, index, ctx->rval(), node->line(), node->trace_id());
         //fun_scope_->FreeVar(index);
         fun_scope_->FreeVar(self);
         return IVal::Void();
     } else {
-        GetField(val, self, index, node->line());
+        GetField(val, self, index, node->line(), node->trace_id());
         fun_scope_->FreeVar(index);
         fun_scope_->FreeVar(self);
         return val;
@@ -345,7 +345,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     IVal self = fun_scope_->NewLocal();
     IVal callee = node->callee()->Accept(this, &ix);
     IVal method = IVal::Const(fun_scope_->kpool()->GetOrNewStr(node->method()));
-    Self(base, callee, method, node->line());
+    Self(base, callee, method, node->line(), node->trace_id());
     fun_scope_->FreeVar(callee);
     
     ix.set_n_result(n_args < 0 ? -1 : 1);
@@ -358,7 +358,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     
     CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
     int wanted = ctx->n_result() == 0 ? 1 : ctx->n_result();
-    Call(base, n_args + 1/*for self*/, wanted, node->line());
+    Call(base, n_args + 1/*for self*/, wanted, node->line(), node->trace_id());
     
     fun_scope_->set_free_reg(base.index + 1);
     return base;
@@ -407,7 +407,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     
     CodeGeneratorContext *ctx = CodeGeneratorContext::Cast(x);
     int wanted = ctx->n_result() == 0 ? 1 : ctx->n_result();
-    Call(callee, n_args, wanted, node->line());
+    Call(callee, n_args, wanted, node->line(), node->trace_id());
     
     fun_scope_->set_free_reg(callee.index + 1);
     return callee;
@@ -711,6 +711,7 @@ public:
     virtual IVal VisitForIterateLoop(ast::ForIterateLoop *node, ast::VisitorContext *x) override {
         WritePrefix(node);
         WriteInt(node->end_line());
+        WriteInt(node->trace_id());
         WriteNames(node->names());
         WriteNode(node->init());
         WriteNode(node->body());
@@ -719,6 +720,8 @@ public:
     virtual IVal VisitForStepLoop(ast::ForStepLoop *node, ast::VisitorContext *x) override {
         WritePrefix(node);
         WriteInt(node->end_line());
+        WriteInt(node->trace_id1());
+        WriteInt(node->trace_id2());
         WriteString(node->name());
         WriteNode(node->init());
         WriteByte(node->is_until());
@@ -743,6 +746,7 @@ public:
     }
     virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
         WritePrefix(node);
+        WriteInt(node->trace_id());
         WriteOperator(node->op());
         WriteInt(node->n_operands());
         for (int i = 0; i < node->n_operands(); ++i) {
@@ -791,6 +795,7 @@ public:
     virtual IVal VisitFunctionDefinition(ast::FunctionDefinition *node,
                                          ast::VisitorContext *x) override {
         WritePrefix(node);
+        WriteInt(node->trace_id());
         WriteNodeOptional(node->self());
         WriteString(node->name());
         WriteNode(node->literal());
@@ -836,12 +841,14 @@ public:
     }
     virtual IVal VisitIndex(ast::Index *node, ast::VisitorContext *x) override {
         WritePrefix(node);
+        WriteInt(node->trace_id());
         WriteNode(node->self());
         WriteNode(node->index());
         return IVal::Void();
     }
     virtual IVal VisitDotField(ast::DotField *node, ast::VisitorContext *x) override {
         WritePrefix(node);
+        WriteInt(node->trace_id());
         WriteNode(node->self());
         WriteString(node->index());
         return IVal::Void();
@@ -856,6 +863,7 @@ public:
     }
     virtual IVal VisitNew(ast::New *node, ast::VisitorContext *x) override {
         WritePrefix(node);
+        WriteInt(node->trace_id());
         WriteNode(node->callee());
         WriteExprs(node->args());
         return IVal::Void();
@@ -1011,7 +1019,7 @@ public:
     }
     
     ast::FunctionDefinition *ReadFunctionDefinition(int line) {
-        return factory_->NewFunctionDefinition(ReadExprOptional(), ReadString(),
+        return factory_->NewFunctionDefinition(ReadInt(), ReadExprOptional(), ReadString(),
                                                DCHECK_NOTNULL(LoadNode()->ToLambdaLiteral()),
                                                Location(line));
     }
@@ -1056,13 +1064,14 @@ public:
     
     ast::ForStepLoop *ReadForStepLoop(int line) {
         int end_line = ReadInt();
-        return factory_->NewForStepLoop(ReadString(), ReadExpr(), ReadBool(), ReadExpr(),
-                                        ReadExprOptional(), ReadBlock(), Location(line, end_line));
+        return factory_->NewForStepLoop(ReadInt(), ReadInt(), ReadString(), ReadExpr(), ReadBool(),
+                                        ReadExpr(), ReadExprOptional(), ReadBlock(),
+                                        Location(line, end_line));
     }
     
     ast::ForIterateLoop *ReadForIterateLoop(int line) {
         int end_line = ReadInt();
-        return factory_->NewForIterateLoop(ReadNames(), ReadExpr(), ReadBlock(),
+        return factory_->NewForIterateLoop(ReadInt(), ReadNames(), ReadExpr(), ReadBlock(),
                                            Location(line, end_line));
     }
     
@@ -1080,13 +1089,14 @@ public:
     }
     
     ast::Multiple *ReadMultiple(int line) {
+        int trace_id = ReadInt();
         Operator::ID op = ReadOperator();
         int n = ReadInt();
         switch (n) {
             case 1:
-                return factory_->NewUnary(op, ReadExpr(), Location(line));
+                return factory_->NewUnary(trace_id, op, ReadExpr(), Location(line));
             case 2:
-                return factory_->NewBinary(op, ReadExpr(), ReadExpr(), Location(line));
+                return factory_->NewBinary(trace_id, op, ReadExpr(), ReadExpr(), Location(line));
             default:
                 DLOG(FATAL) << "Noreached!";
                 break;
@@ -1113,11 +1123,11 @@ public:
     }
     
     ast::Index *ReadIndex(int line) {
-        return factory_->NewIndex(ReadExpr(), ReadExpr(), Location(line));
+        return factory_->NewIndex(ReadInt(), ReadExpr(), ReadExpr(), Location(line));
     }
     
     ast::DotField *ReadDotField(int line) {
-        return factory_->NewDotField(ReadExpr(), ReadString(), Location(line));
+        return factory_->NewDotField(ReadInt(), ReadExpr(), ReadString(), Location(line));
     }
     
     ast::Variable *ReadVariable(int line) {
@@ -1134,7 +1144,7 @@ public:
     }
     
     ast::New *ReadNew(int line) {
-        return factory_->NewNew(ReadExpr(), ReadExprs(), Location(line));
+        return factory_->NewNew(ReadInt(), ReadExpr(), ReadExprs(), Location(line));
     }
     
     ast::Call *ReadCall(int line) {

@@ -92,6 +92,10 @@ static void BuiltinPrint(const FunctionCallbackInfo<Object> &info) {
     info.GetReturnValues().Add(info.Length());
 }
     
+static void BuiltinRand(const FunctionCallbackInfo<Object> &info) {
+    info.GetReturnValues().Add(::rand());
+}
+    
 static void BuiltinStr(const FunctionCallbackInfo<Object> &info) {
     HandleScope handle_scope(info.VM());
     
@@ -727,6 +731,7 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
 const NyaaNaFnEntry kBuiltinFnEntries[] = {
     {"str", BuiltinStr},
     {"log", BuiltinLog},
+    {"rand", BuiltinRand},
     {"print", BuiltinPrint},
     {"yield", BuiltinYield},
     {"raise", BuiltinRaise},

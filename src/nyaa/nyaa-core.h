@@ -39,10 +39,17 @@ struct HandleScopeSlot {
 };
     
 struct ProfileSlot {
-    uint64_t hit; // total count;
+    enum Kind {
+        kBranch,
+        kCalling,
+    };
+    Kind kind;
+    int32_t  n;
+    uint64_t hit; // total count
     union {
-        uint64_t true_guard; // branch true guard count;
-        uintptr_t *receivers;
+        uint64_t true_guard; // branch true guard count
+        int32_t ret; // if n <= 1
+        int32_t *rets; // if n > 1
     };
 }; // struct ProfilingSlot
     
@@ -85,7 +92,7 @@ public:
     }
     
     int TraceBranchGuard(int trace_id, int value);
-    void TraceCalling(int trace_id);
+    void TraceCalling(int trace_id, Object **rets, size_t n);
 
     void IterateRoot(RootVisitor *visitor);
     

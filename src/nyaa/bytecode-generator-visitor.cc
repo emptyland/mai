@@ -106,7 +106,7 @@ public:
         
         int nrets = static_cast<int>(node->names()->size());
         fun_scope_->Reserve(nrets);
-        Call(callee, 0, nrets, node->end_line());
+        Call(callee, 0, nrets, node->end_line(), -1/*trace_id*/);
         builder()->TestNil(callee, 1/*neg*/, 0, node->end_line());
         builder()->Jump(&out_label, fun_scope_->kpool(), node->end_line());
         
@@ -369,11 +369,11 @@ private:
         builder()->LoadImm(val, imm, line);
     }
     
-    virtual void Self(IVal base, IVal callee, IVal method, int line) override {
+    virtual void Self(IVal base, IVal callee, IVal method, int line, int trace_id) override {
         builder()->Self(base, callee, method, line);
     }
     
-    virtual void Call(IVal callee, int nargs, int wanted, int line) override {
+    virtual void Call(IVal callee, int nargs, int wanted, int line, int trace_id) override {
         DCHECK_NE(0, wanted) << "at leatest one wanted resunt value.";
         builder()->Call(callee, nargs, wanted, line);
     }
@@ -398,11 +398,11 @@ private:
         builder()->NewMap(map, n, linear, line);
     }
     
-    virtual void SetField(IVal self, IVal index, IVal value, int line) override {
+    virtual void SetField(IVal self, IVal index, IVal value, int line, int trace_id) override {
         builder()->SetField(self, index, value, line);
     }
 
-    virtual void GetField(IVal value, IVal self, IVal index, int line) override {
+    virtual void GetField(IVal value, IVal self, IVal index, int line, int trace_id) override {
         builder()->GetField(value, self, index, line);
     }
     

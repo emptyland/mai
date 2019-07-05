@@ -37,13 +37,14 @@ public:
     static const int32_t kOffsetEntry;
     static const int32_t kOffsetPC;
     
-    CallFrame() {}
+    explicit CallFrame(int trace_id = -1) : trace_id_(trace_id) {}
     ~CallFrame() {}
     
     void Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, NyArray *kpool, int wanted,
                size_t bp, size_t tp, NyMap *env);
     void Exit(NyThread *owns);
 
+    DEF_VAL_GETTER(int, trace_id);
     DEF_PTR_GETTER(NyRunnable, callee);
     DEF_PTR_GETTER(NyMap, env);
     DEF_PTR_GETTER(NyByteArray, bcbuf);
@@ -107,6 +108,7 @@ public:
 private:
     int GetFileLine(const NyInt32Array *line_info);
 
+    int trace_id_; // calling trace-id.
     bool compact_file_info_ = false;
     NyRunnable *callee_; // [strong ref]
     NyMap *env_; // [strong ref]
@@ -293,14 +295,14 @@ private:
 
     int InternalCall(Object **base, int32_t nargs, int wanted) {
         size_t base_p = base - stack_;
-        nargs = PrepareCall(base, nargs, wanted);
+        nargs = PrepareCall(base, nargs, wanted, -1/*trace_id*/);
         base = stack_ + base_p;
         return FinializeCall(base, nargs, wanted);
     }
     
     void RuntimeNewMap(int32_t map, int32_t n, int32_t p, uint32_t seed);
     NyUDO *RuntimePrepareNew(int32_t base, int32_t ob, int32_t *nargs, NyRunnable **init);
-    int RuntimePrepareCall(int32_t callee, int32_t nargs, int wanted);
+    int RuntimePrepareCall(int32_t callee, int32_t nargs, int wanted, int trace_id);
     int RuntimeFinializeCall(int32_t callee, int32_t nargs, int wanted);
 
     int RuntimeRet(int32_t base, int32_t nrets);
@@ -310,7 +312,7 @@ private:
     void RuntimeExpandVArgs(int32_t ra, int wanted);
     void RuntimeConcat(int32_t ret, int32_t base, int32_t n);
 
-    int PrepareCall(Object **base, int32_t nargs, int32_t wanted);
+    int PrepareCall(Object **base, int32_t nargs, int32_t wanted, int trace_id);
     int FinializeCall(Object **base, int32_t nargs, int32_t wanted);
 
     int CopyArgs(Object **args, int nargs, int nparams, bool vargs);

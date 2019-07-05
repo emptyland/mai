@@ -83,13 +83,14 @@
 #include <string.h>
 
 #define YYLEX_PARAM ctx->lex
+#define NEXT_TRACE_ID (ctx->next_trace_id++)
 
 using ::mai::nyaa::ast::Location;
 using ::mai::nyaa::Operator;
 
 void yyerror(YYLTYPE *, parser_ctx *, const char *);
 
-#line 93 "syntax.cc"
+#line 94 "syntax.cc"
 
 # ifndef YY_NULLPTR
 #  if defined __cplusplus
@@ -182,7 +183,7 @@ extern int nyaa_yydebug;
 #if ! defined NYAA_YYSTYPE && ! defined NYAA_YYSTYPE_IS_DECLARED
 union NYAA_YYSTYPE
 {
-#line 27 "syntax.y"
+#line 28 "syntax.y"
 
     const ::mai::nyaa::ast::String *name;
     ::mai::nyaa::ast::VarDeclaration::NameList *names;
@@ -206,7 +207,7 @@ union NYAA_YYSTYPE
     int64_t smi_val;
     bool bool_val;
 
-#line 210 "syntax.cc"
+#line 211 "syntax.cc"
 
 };
 typedef union NYAA_YYSTYPE NYAA_YYSTYPE;
@@ -530,17 +531,17 @@ static const yytype_uint8 yytranslate[] =
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,    92,    92,    97,   101,   104,   107,   111,   114,   117,
-     120,   123,   126,   129,   132,   135,   138,   141,   144,   147,
-     150,   154,   158,   161,   164,   168,   172,   176,   179,   183,
-     187,   191,   194,   198,   201,   204,   208,   211,   215,   219,
-     224,   229,   233,   237,   242,   245,   249,   252,   256,   260,
-     263,   266,   270,   273,   276,   279,   282,   285,   288,   291,
-     294,   297,   300,   303,   306,   309,   312,   315,   318,   321,
-     324,   327,   330,   333,   336,   339,   342,   345,   348,   351,
-     354,   358,   362,   367,   370,   377,   381,   384,   387,   391,
-     395,   398,   402,   405,   409,   412,   415,   419,   422,   425,
-     430,   433,   438,   441,   446,   449
+       0,    93,    93,    98,   102,   105,   108,   112,   115,   118,
+     121,   124,   127,   130,   133,   136,   139,   142,   145,   148,
+     151,   155,   159,   162,   165,   169,   173,   177,   180,   184,
+     188,   192,   195,   199,   202,   205,   209,   212,   216,   220,
+     225,   230,   234,   238,   243,   246,   250,   253,   257,   261,
+     264,   267,   271,   274,   277,   280,   283,   286,   289,   292,
+     295,   298,   301,   304,   307,   310,   313,   316,   319,   322,
+     325,   328,   331,   334,   337,   340,   343,   346,   349,   352,
+     355,   359,   363,   368,   371,   378,   382,   385,   388,   392,
+     396,   399,   403,   406,   410,   413,   416,   420,   423,   426,
+     431,   434,   439,   442,   447,   450
 };
 #endif
 
@@ -1692,854 +1693,854 @@ yyreduce:
   switch (yyn)
     {
   case 2:
-#line 92 "syntax.y"
+#line 93 "syntax.y"
     {
     (yyval.block) = ctx->factory->NewBlock((yyvsp[0].stmts), (yylsp[0]));
     ctx->block = (yyval.block);
 }
-#line 1701 "syntax.cc"
+#line 1702 "syntax.cc"
     break;
 
   case 3:
-#line 97 "syntax.y"
+#line 98 "syntax.y"
     {
     (yyval.block) = ctx->factory->NewBlock((yyvsp[-1].stmts), (yylsp[-1]));
 }
-#line 1709 "syntax.cc"
+#line 1710 "syntax.cc"
     break;
 
   case 4:
-#line 101 "syntax.y"
+#line 102 "syntax.y"
     {
     (yyval.stmts) = ctx->factory->NewList((yyvsp[0].stmt));
 }
-#line 1717 "syntax.cc"
+#line 1718 "syntax.cc"
     break;
 
   case 5:
-#line 104 "syntax.y"
+#line 105 "syntax.y"
     {
     (yyval.stmts)->push_back((yyvsp[0].stmt));
 }
-#line 1725 "syntax.cc"
+#line 1726 "syntax.cc"
     break;
 
   case 6:
-#line 107 "syntax.y"
+#line 108 "syntax.y"
     {
     (yyval.stmts) = nullptr;
 }
-#line 1733 "syntax.cc"
+#line 1734 "syntax.cc"
     break;
 
   case 7:
-#line 111 "syntax.y"
+#line 112 "syntax.y"
     {
     (yyval.stmt) = ctx->factory->NewReturn((yyvsp[0].exprs), (yylsp[0]));
 }
-#line 1741 "syntax.cc"
+#line 1742 "syntax.cc"
     break;
 
   case 8:
-#line 114 "syntax.y"
+#line 115 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1749 "syntax.cc"
+#line 1750 "syntax.cc"
     break;
 
   case 9:
-#line 117 "syntax.y"
+#line 118 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1757 "syntax.cc"
+#line 1758 "syntax.cc"
     break;
 
   case 10:
-#line 120 "syntax.y"
+#line 121 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1765 "syntax.cc"
+#line 1766 "syntax.cc"
     break;
 
   case 11:
-#line 123 "syntax.y"
+#line 124 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1773 "syntax.cc"
+#line 1774 "syntax.cc"
     break;
 
   case 12:
-#line 126 "syntax.y"
+#line 127 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1781 "syntax.cc"
+#line 1782 "syntax.cc"
     break;
 
   case 13:
-#line 129 "syntax.y"
+#line 130 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].expr);
 }
-#line 1789 "syntax.cc"
+#line 1790 "syntax.cc"
     break;
 
   case 14:
-#line 132 "syntax.y"
+#line 133 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].block);
 }
-#line 1797 "syntax.cc"
+#line 1798 "syntax.cc"
     break;
 
   case 15:
-#line 135 "syntax.y"
+#line 136 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1805 "syntax.cc"
+#line 1806 "syntax.cc"
     break;
 
   case 16:
-#line 138 "syntax.y"
+#line 139 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1813 "syntax.cc"
+#line 1814 "syntax.cc"
     break;
 
   case 17:
-#line 141 "syntax.y"
+#line 142 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1821 "syntax.cc"
+#line 1822 "syntax.cc"
     break;
 
   case 18:
-#line 144 "syntax.y"
+#line 145 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1829 "syntax.cc"
+#line 1830 "syntax.cc"
     break;
 
   case 19:
-#line 147 "syntax.y"
+#line 148 "syntax.y"
     {
     (yyval.stmt) = ctx->factory->NewBreak((yylsp[0]));
 }
-#line 1837 "syntax.cc"
+#line 1838 "syntax.cc"
     break;
 
   case 20:
-#line 150 "syntax.y"
+#line 151 "syntax.y"
     {
     (yyval.stmt) = ctx->factory->NewContinue((yylsp[0]));
 }
-#line 1845 "syntax.cc"
+#line 1846 "syntax.cc"
     break;
 
   case 21:
-#line 154 "syntax.y"
+#line 155 "syntax.y"
     {
-    (yyval.stmt) = ctx->factory->NewIfStatement(ctx->next_trace_id++, (yyvsp[-3].expr), (yyvsp[-1].block), (yyvsp[0].stmt), Location::Concat((yylsp[-5]), (yylsp[0])));
+    (yyval.stmt) = ctx->factory->NewIfStatement(NEXT_TRACE_ID, (yyvsp[-3].expr), (yyvsp[-1].block), (yyvsp[0].stmt), Location::Concat((yylsp[-5]), (yylsp[0])));
 }
-#line 1853 "syntax.cc"
+#line 1854 "syntax.cc"
     break;
 
   case 22:
-#line 158 "syntax.y"
+#line 159 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].block);
 }
-#line 1861 "syntax.cc"
+#line 1862 "syntax.cc"
     break;
 
   case 23:
-#line 161 "syntax.y"
+#line 162 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1869 "syntax.cc"
+#line 1870 "syntax.cc"
     break;
 
   case 24:
-#line 164 "syntax.y"
+#line 165 "syntax.y"
     {
     (yyval.stmt) = nullptr;
 }
-#line 1877 "syntax.cc"
+#line 1878 "syntax.cc"
     break;
 
   case 25:
-#line 168 "syntax.y"
+#line 169 "syntax.y"
     {
     (yyval.stmt) = ctx->factory->NewWhileLoop((yyvsp[-2].expr), (yyvsp[0].block), Location::Concat((yylsp[-4]), (yylsp[0])));
 }
-#line 1885 "syntax.cc"
+#line 1886 "syntax.cc"
     break;
 
   case 26:
-#line 172 "syntax.y"
+#line 173 "syntax.y"
     {
-    (yyval.stmt) = ctx->factory->NewForIterateLoop((yyvsp[-3].names), (yyvsp[-1].expr), (yyvsp[0].block), Location::Concat((yylsp[-4]), (yylsp[0])));
+    (yyval.stmt) = ctx->factory->NewForIterateLoop(NEXT_TRACE_ID, (yyvsp[-3].names), (yyvsp[-1].expr), (yyvsp[0].block), Location::Concat((yylsp[-4]), (yylsp[0])));
 }
-#line 1893 "syntax.cc"
+#line 1894 "syntax.cc"
     break;
 
   case 27:
-#line 176 "syntax.y"
+#line 177 "syntax.y"
     {
-    (yyval.stmt) = ctx->factory->NewForStepLoop((yyvsp[-6].name), (yyvsp[-4].expr), false, (yyvsp[-2].expr), nullptr, (yyvsp[0].block), Location::Concat((yylsp[-8]), (yylsp[0])));
+    (yyval.stmt) = ctx->factory->NewForStepLoop(NEXT_TRACE_ID, NEXT_TRACE_ID, (yyvsp[-6].name), (yyvsp[-4].expr), false, (yyvsp[-2].expr), nullptr, (yyvsp[0].block), Location::Concat((yylsp[-8]), (yylsp[0])));
 }
-#line 1901 "syntax.cc"
+#line 1902 "syntax.cc"
     break;
 
   case 28:
-#line 179 "syntax.y"
+#line 180 "syntax.y"
     {
-    (yyval.stmt) = ctx->factory->NewForStepLoop((yyvsp[-6].name), (yyvsp[-4].expr), true,  (yyvsp[-2].expr), nullptr, (yyvsp[0].block), Location::Concat((yylsp[-8]), (yylsp[0])));
+    (yyval.stmt) = ctx->factory->NewForStepLoop(NEXT_TRACE_ID, NEXT_TRACE_ID, (yyvsp[-6].name), (yyvsp[-4].expr), true,  (yyvsp[-2].expr), nullptr, (yyvsp[0].block), Location::Concat((yylsp[-8]), (yylsp[0])));
 }
-#line 1909 "syntax.cc"
+#line 1910 "syntax.cc"
     break;
 
   case 29:
-#line 183 "syntax.y"
+#line 184 "syntax.y"
     {
     (yyval.stmt) = ctx->factory->NewObjectDefinition((yyvsp[-4].names), (yyvsp[-3].name), (yyvsp[-1].stmts), Location::Concat((yylsp[-5]), (yylsp[0])));
 }
-#line 1917 "syntax.cc"
+#line 1918 "syntax.cc"
     break;
 
   case 30:
-#line 187 "syntax.y"
+#line 188 "syntax.y"
     {
     (yyval.stmt) = ctx->factory->NewClassDefinition((yyvsp[-5].names), (yyvsp[-4].name), (yyvsp[-3].expr), (yyvsp[-1].stmts), Location::Concat((yylsp[-6]), (yylsp[0])));
 }
-#line 1925 "syntax.cc"
+#line 1926 "syntax.cc"
     break;
 
   case 31:
-#line 191 "syntax.y"
+#line 192 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewVariable((yyvsp[0].name), (yylsp[0]));
 }
-#line 1933 "syntax.cc"
+#line 1934 "syntax.cc"
     break;
 
   case 32:
-#line 194 "syntax.y"
+#line 195 "syntax.y"
     {
     (yyval.expr) = nullptr;
 }
-#line 1941 "syntax.cc"
+#line 1942 "syntax.cc"
     break;
 
   case 33:
-#line 198 "syntax.y"
+#line 199 "syntax.y"
     {
     (yyval.stmts) = ctx->factory->NewList((yyvsp[0].stmt));
 }
-#line 1949 "syntax.cc"
+#line 1950 "syntax.cc"
     break;
 
   case 34:
-#line 201 "syntax.y"
+#line 202 "syntax.y"
     {
     (yyval.stmts)->push_back((yyvsp[0].stmt));
 }
-#line 1957 "syntax.cc"
+#line 1958 "syntax.cc"
     break;
 
   case 35:
-#line 204 "syntax.y"
+#line 205 "syntax.y"
     {
     (yyval.stmts) = nullptr;
 }
-#line 1965 "syntax.cc"
+#line 1966 "syntax.cc"
     break;
 
   case 36:
-#line 208 "syntax.y"
+#line 209 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1973 "syntax.cc"
+#line 1974 "syntax.cc"
     break;
 
   case 37:
-#line 211 "syntax.y"
+#line 212 "syntax.y"
     {
     (yyval.stmt) = (yyvsp[0].stmt);
 }
-#line 1981 "syntax.cc"
+#line 1982 "syntax.cc"
     break;
 
   case 38:
-#line 215 "syntax.y"
+#line 216 "syntax.y"
     {
     (yyval.stmt) = ctx->factory->NewPropertyDeclaration((yyvsp[-1].names), (yyvsp[0].names), nullptr, Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 1989 "syntax.cc"
+#line 1990 "syntax.cc"
     break;
 
   case 39:
-#line 219 "syntax.y"
+#line 220 "syntax.y"
     {
     auto lambda = ctx->factory->NewLambdaLiteral((yyvsp[-2].params).params, (yyvsp[-2].params).vargs, (yyvsp[0].block), Location::Concat((yylsp[-3]), (yylsp[0])));
     auto self = ctx->factory->NewVariable((yyvsp[-6].name), (yylsp[-6]));
-    (yyval.stmt) =  ctx->factory->NewFunctionDefinition(self, (yyvsp[-4].name), lambda, Location::Concat((yylsp[-7]), (yylsp[0])));
+    (yyval.stmt) =  ctx->factory->NewFunctionDefinition(NEXT_TRACE_ID, self, (yyvsp[-4].name), lambda, Location::Concat((yylsp[-7]), (yylsp[0])));
 }
-#line 1999 "syntax.cc"
+#line 2000 "syntax.cc"
     break;
 
   case 40:
-#line 224 "syntax.y"
+#line 225 "syntax.y"
     {
     auto lambda = ctx->factory->NewLambdaLiteral((yyvsp[-2].params).params, (yyvsp[-2].params).vargs, (yyvsp[0].block), Location::Concat((yylsp[-3]), (yylsp[0])));
-    (yyval.stmt) =  ctx->factory->NewFunctionDefinition(nullptr, (yyvsp[-4].name), lambda, Location::Concat((yylsp[-5]), (yylsp[0])));
+    (yyval.stmt) =  ctx->factory->NewFunctionDefinition(NEXT_TRACE_ID, nullptr, (yyvsp[-4].name), lambda, Location::Concat((yylsp[-5]), (yylsp[0])));
 }
-#line 2008 "syntax.cc"
+#line 2009 "syntax.cc"
     break;
 
   case 41:
-#line 229 "syntax.y"
+#line 230 "syntax.y"
     {
     (yyval.params).params = (yyvsp[-1].names);
     (yyval.params).vargs  = (yyvsp[0].bool_val);
 }
-#line 2017 "syntax.cc"
+#line 2018 "syntax.cc"
     break;
 
   case 42:
-#line 233 "syntax.y"
+#line 234 "syntax.y"
     {
     (yyval.params).params = nullptr;
     (yyval.params).vargs  = true;    
 }
-#line 2026 "syntax.cc"
+#line 2027 "syntax.cc"
     break;
 
   case 43:
-#line 237 "syntax.y"
+#line 238 "syntax.y"
     {
     (yyval.params).params = nullptr;
     (yyval.params).vargs  = false;
 }
-#line 2035 "syntax.cc"
+#line 2036 "syntax.cc"
     break;
 
   case 44:
-#line 242 "syntax.y"
+#line 243 "syntax.y"
     {
     (yyval.bool_val) =  true;
 }
-#line 2043 "syntax.cc"
+#line 2044 "syntax.cc"
     break;
 
   case 45:
-#line 245 "syntax.y"
+#line 246 "syntax.y"
     {
     (yyval.bool_val) = false;
 }
-#line 2051 "syntax.cc"
+#line 2052 "syntax.cc"
     break;
 
   case 46:
-#line 249 "syntax.y"
+#line 250 "syntax.y"
     {
     (yyval.stmt) = ctx->factory->NewVarDeclaration((yyvsp[-2].names), (yyvsp[0].exprs), Location::Concat((yylsp[-3]), (yylsp[0])));
 }
-#line 2059 "syntax.cc"
+#line 2060 "syntax.cc"
     break;
 
   case 47:
-#line 252 "syntax.y"
+#line 253 "syntax.y"
     {
     (yyval.stmt) = ctx->factory->NewVarDeclaration((yyvsp[0].names), nullptr, Location::Concat((yylsp[-1]), (yylsp[0])));
 }
-#line 2067 "syntax.cc"
+#line 2068 "syntax.cc"
     break;
 
   case 48:
-#line 256 "syntax.y"
+#line 257 "syntax.y"
     {
     (yyval.stmt) = ctx->factory->NewAssignment((yyvsp[-2].lvals), (yyvsp[0].exprs), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2075 "syntax.cc"
+#line 2076 "syntax.cc"
     break;
 
   case 49:
-#line 260 "syntax.y"
+#line 261 "syntax.y"
     {
     (yyval.exprs) = ctx->factory->NewList((yyvsp[0].expr));
 }
-#line 2083 "syntax.cc"
+#line 2084 "syntax.cc"
     break;
 
   case 50:
-#line 263 "syntax.y"
+#line 264 "syntax.y"
     {
     (yyval.exprs)->push_back((yyvsp[0].expr));
 }
-#line 2091 "syntax.cc"
+#line 2092 "syntax.cc"
     break;
 
   case 51:
-#line 266 "syntax.y"
+#line 267 "syntax.y"
     {
     (yyval.exprs) = nullptr;
 }
-#line 2099 "syntax.cc"
+#line 2100 "syntax.cc"
     break;
 
   case 52:
-#line 270 "syntax.y"
+#line 271 "syntax.y"
     {
     (yyval.expr) = (yyvsp[0].lval);
 }
-#line 2107 "syntax.cc"
+#line 2108 "syntax.cc"
     break;
 
   case 53:
-#line 273 "syntax.y"
+#line 274 "syntax.y"
     {
     (yyval.expr) = (yyvsp[0].expr);
 }
-#line 2115 "syntax.cc"
+#line 2116 "syntax.cc"
     break;
 
   case 54:
-#line 276 "syntax.y"
+#line 277 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewNilLiteral((yylsp[0]));
 }
-#line 2123 "syntax.cc"
+#line 2124 "syntax.cc"
     break;
 
   case 55:
-#line 279 "syntax.y"
+#line 280 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewSmiLiteral((yyvsp[0].smi_val), (yylsp[0]));
 }
-#line 2131 "syntax.cc"
+#line 2132 "syntax.cc"
     break;
 
   case 56:
-#line 282 "syntax.y"
+#line 283 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewSmiLiteral((yyvsp[0].smi_val), (yylsp[0]));
 }
-#line 2139 "syntax.cc"
+#line 2140 "syntax.cc"
     break;
 
   case 57:
-#line 285 "syntax.y"
+#line 286 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewIntLiteral((yyvsp[0].int_val), (yylsp[0]));
 }
-#line 2147 "syntax.cc"
+#line 2148 "syntax.cc"
     break;
 
   case 58:
-#line 288 "syntax.y"
+#line 289 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewApproxLiteral((yyvsp[0].f64_val), (yylsp[0]));
 }
-#line 2155 "syntax.cc"
+#line 2156 "syntax.cc"
     break;
 
   case 59:
-#line 291 "syntax.y"
+#line 292 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewStringLiteral((yyvsp[0].str_val), (yylsp[0]));
 }
-#line 2163 "syntax.cc"
+#line 2164 "syntax.cc"
     break;
 
   case 60:
-#line 294 "syntax.y"
+#line 295 "syntax.y"
     {
     (yyval.expr) = (yyvsp[0].expr);
 }
-#line 2171 "syntax.cc"
+#line 2172 "syntax.cc"
     break;
 
   case 61:
-#line 297 "syntax.y"
+#line 298 "syntax.y"
     {
     (yyval.expr) = (yyvsp[0].expr);
 }
-#line 2179 "syntax.cc"
+#line 2180 "syntax.cc"
     break;
 
   case 62:
-#line 300 "syntax.y"
+#line 301 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewConcat((yyvsp[0].exprs), (yylsp[0]));
 }
-#line 2187 "syntax.cc"
+#line 2188 "syntax.cc"
     break;
 
   case 63:
-#line 303 "syntax.y"
+#line 304 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewVariableArguments((yylsp[0]));
 }
-#line 2195 "syntax.cc"
+#line 2196 "syntax.cc"
     break;
 
   case 64:
-#line 306 "syntax.y"
+#line 307 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewUnary(Operator::kNot, (yyvsp[0].expr), Location::Concat((yylsp[-1]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewUnary(NEXT_TRACE_ID, Operator::kNot, (yyvsp[0].expr), Location::Concat((yylsp[-1]), (yylsp[0])));
 }
-#line 2203 "syntax.cc"
+#line 2204 "syntax.cc"
     break;
 
   case 65:
-#line 309 "syntax.y"
+#line 310 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewUnary(Operator::kBitInv, (yyvsp[0].expr), Location::Concat((yylsp[-1]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewUnary(NEXT_TRACE_ID, Operator::kBitInv, (yyvsp[0].expr), Location::Concat((yylsp[-1]), (yylsp[0])));
 }
-#line 2211 "syntax.cc"
+#line 2212 "syntax.cc"
     break;
 
   case 66:
-#line 312 "syntax.y"
+#line 313 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewUnary(Operator::kUnm, (yyvsp[0].expr), Location::Concat((yylsp[-1]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewUnary(NEXT_TRACE_ID, Operator::kUnm, (yyvsp[0].expr), Location::Concat((yylsp[-1]), (yylsp[0])));
 }
-#line 2219 "syntax.cc"
+#line 2220 "syntax.cc"
     break;
 
   case 67:
-#line 315 "syntax.y"
+#line 316 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewAnd((yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2227 "syntax.cc"
+#line 2228 "syntax.cc"
     break;
 
   case 68:
-#line 318 "syntax.y"
+#line 319 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewOr((yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2235 "syntax.cc"
+#line 2236 "syntax.cc"
     break;
 
   case 69:
-#line 321 "syntax.y"
+#line 322 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewBinary((yyvsp[-1].op), (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewBinary(NEXT_TRACE_ID, (yyvsp[-1].op), (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2243 "syntax.cc"
+#line 2244 "syntax.cc"
     break;
 
   case 70:
-#line 324 "syntax.y"
+#line 325 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewBinary(Operator::kAdd, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kAdd, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2251 "syntax.cc"
+#line 2252 "syntax.cc"
     break;
 
   case 71:
-#line 327 "syntax.y"
+#line 328 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewBinary(Operator::kSub, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kSub, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2259 "syntax.cc"
+#line 2260 "syntax.cc"
     break;
 
   case 72:
-#line 330 "syntax.y"
+#line 331 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewBinary(Operator::kMul, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kMul, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2267 "syntax.cc"
+#line 2268 "syntax.cc"
     break;
 
   case 73:
-#line 333 "syntax.y"
+#line 334 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewBinary(Operator::kDiv, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kDiv, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2275 "syntax.cc"
+#line 2276 "syntax.cc"
     break;
 
   case 74:
-#line 336 "syntax.y"
+#line 337 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewBinary(Operator::kMod, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kMod, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2283 "syntax.cc"
+#line 2284 "syntax.cc"
     break;
 
   case 75:
-#line 339 "syntax.y"
+#line 340 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewBinary(Operator::kShl, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kShl, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2291 "syntax.cc"
+#line 2292 "syntax.cc"
     break;
 
   case 76:
-#line 342 "syntax.y"
+#line 343 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewBinary(Operator::kShr, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kShr, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2299 "syntax.cc"
+#line 2300 "syntax.cc"
     break;
 
   case 77:
-#line 345 "syntax.y"
+#line 346 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewBinary(Operator::kBitOr, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kBitOr, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2307 "syntax.cc"
+#line 2308 "syntax.cc"
     break;
 
   case 78:
-#line 348 "syntax.y"
+#line 349 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewBinary(Operator::kBitAnd, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kBitAnd, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2315 "syntax.cc"
+#line 2316 "syntax.cc"
     break;
 
   case 79:
-#line 351 "syntax.y"
+#line 352 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewBinary(Operator::kBitXor, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewBinary(NEXT_TRACE_ID, Operator::kBitXor, (yyvsp[-2].expr), (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2323 "syntax.cc"
+#line 2324 "syntax.cc"
     break;
 
   case 80:
-#line 354 "syntax.y"
+#line 355 "syntax.y"
     {
     (yyval.expr) = (yyvsp[-1].expr);
 }
-#line 2331 "syntax.cc"
+#line 2332 "syntax.cc"
     break;
 
   case 81:
-#line 358 "syntax.y"
+#line 359 "syntax.y"
     {
     (yyval.exprs) = ctx->factory->NewList((yyvsp[-2].expr));
     (yyval.exprs)->push_back((yyvsp[0].expr));
 }
-#line 2340 "syntax.cc"
+#line 2341 "syntax.cc"
     break;
 
   case 82:
-#line 362 "syntax.y"
+#line 363 "syntax.y"
     {
     (yyvsp[-2].exprs)->push_back((yyvsp[0].expr));
     (yyval.exprs) = (yyvsp[-2].exprs);
 }
-#line 2349 "syntax.cc"
+#line 2350 "syntax.cc"
     break;
 
   case 83:
-#line 367 "syntax.y"
+#line 368 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewLambdaLiteral((yyvsp[-2].params).params, (yyvsp[-2].params).vargs, (yyvsp[0].block), Location::Concat((yylsp[-4]), (yylsp[0])));
 }
-#line 2357 "syntax.cc"
+#line 2358 "syntax.cc"
     break;
 
   case 84:
-#line 370 "syntax.y"
+#line 371 "syntax.y"
     {
     auto stmt = ctx->factory->NewReturn((yyvsp[0].exprs), (yylsp[0]));
     auto stmts = ctx->factory->NewList<::mai::nyaa::ast::Statement *>(stmt);
     auto block = ctx->factory->NewBlock(stmts, (yylsp[0]));
     (yyval.expr) = ctx->factory->NewLambdaLiteral((yyvsp[-2].params).params, (yyvsp[-2].params).vargs, block, Location::Concat((yylsp[-3]), (yylsp[0])));
 }
-#line 2368 "syntax.cc"
+#line 2369 "syntax.cc"
     break;
 
   case 85:
-#line 377 "syntax.y"
+#line 378 "syntax.y"
     {
     (yyval.expr) = ctx->factory->NewMapInitializer((yyvsp[-1].entries), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2376 "syntax.cc"
+#line 2377 "syntax.cc"
     break;
 
   case 86:
-#line 381 "syntax.y"
+#line 382 "syntax.y"
     {
     (yyval.entries) = ctx->factory->NewList((yyvsp[0].entry));
 }
-#line 2384 "syntax.cc"
+#line 2385 "syntax.cc"
     break;
 
   case 87:
-#line 384 "syntax.y"
+#line 385 "syntax.y"
     {
     (yyval.entries)->push_back((yyvsp[0].entry));
 }
-#line 2392 "syntax.cc"
+#line 2393 "syntax.cc"
     break;
 
   case 88:
-#line 387 "syntax.y"
+#line 388 "syntax.y"
     {
     (yyval.entries) = nullptr;
 }
-#line 2400 "syntax.cc"
+#line 2401 "syntax.cc"
     break;
 
   case 89:
-#line 391 "syntax.y"
+#line 392 "syntax.y"
     {
     auto key = ctx->factory->NewStringLiteral((yyvsp[-2].name), (yylsp[-2]));
     (yyval.entry) = ctx->factory->NewEntry(key, (yyvsp[0].expr), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2409 "syntax.cc"
+#line 2410 "syntax.cc"
     break;
 
   case 90:
-#line 395 "syntax.y"
+#line 396 "syntax.y"
     {
     (yyval.entry) = ctx->factory->NewEntry(nullptr, (yyvsp[0].expr), (yylsp[0]));
 }
-#line 2417 "syntax.cc"
+#line 2418 "syntax.cc"
     break;
 
   case 91:
-#line 398 "syntax.y"
+#line 399 "syntax.y"
     {
     (yyval.entry) = ctx->factory->NewEntry((yyvsp[-3].expr), (yyvsp[0].expr), Location::Concat((yylsp[-4]), (yylsp[0])));
 }
-#line 2425 "syntax.cc"
+#line 2426 "syntax.cc"
     break;
 
   case 92:
-#line 402 "syntax.y"
+#line 403 "syntax.y"
     {
     (yyval.lvals) = ctx->factory->NewList((yyvsp[0].lval));
 }
-#line 2433 "syntax.cc"
+#line 2434 "syntax.cc"
     break;
 
   case 93:
-#line 405 "syntax.y"
+#line 406 "syntax.y"
     {
     (yyval.lvals)->push_back((yyvsp[0].lval));
 }
-#line 2441 "syntax.cc"
+#line 2442 "syntax.cc"
     break;
 
   case 94:
-#line 409 "syntax.y"
+#line 410 "syntax.y"
     {
     (yyval.lval) = ctx->factory->NewVariable((yyvsp[0].name), (yylsp[0]));
 }
-#line 2449 "syntax.cc"
+#line 2450 "syntax.cc"
     break;
 
   case 95:
-#line 412 "syntax.y"
+#line 413 "syntax.y"
     {
-    (yyval.lval) = ctx->factory->NewIndex((yyvsp[-3].expr), (yyvsp[-1].expr), Location::Concat((yylsp[-3]), (yylsp[0])));
+    (yyval.lval) = ctx->factory->NewIndex(NEXT_TRACE_ID, (yyvsp[-3].expr), (yyvsp[-1].expr), Location::Concat((yylsp[-3]), (yylsp[0])));
 }
-#line 2457 "syntax.cc"
+#line 2458 "syntax.cc"
     break;
 
   case 96:
-#line 415 "syntax.y"
+#line 416 "syntax.y"
     {
-    (yyval.lval) = ctx->factory->NewDotField((yyvsp[-2].expr), (yyvsp[0].name), Location::Concat((yylsp[-2]), (yylsp[0])));
+    (yyval.lval) = ctx->factory->NewDotField(NEXT_TRACE_ID, (yyvsp[-2].expr), (yyvsp[0].name), Location::Concat((yylsp[-2]), (yylsp[0])));
 }
-#line 2465 "syntax.cc"
+#line 2466 "syntax.cc"
     break;
 
   case 97:
-#line 419 "syntax.y"
+#line 420 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewCall(ctx->next_trace_id++, (yyvsp[-1].expr), (yyvsp[0].exprs), Location::Concat((yylsp[-1]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewCall(NEXT_TRACE_ID, (yyvsp[-1].expr), (yyvsp[0].exprs), Location::Concat((yylsp[-1]), (yylsp[0])));
 }
-#line 2473 "syntax.cc"
+#line 2474 "syntax.cc"
     break;
 
   case 98:
-#line 422 "syntax.y"
+#line 423 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewSelfCall(ctx->next_trace_id++, (yyvsp[-3].expr), (yyvsp[-1].name), (yyvsp[0].exprs), Location::Concat((yylsp[-3]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewSelfCall(NEXT_TRACE_ID, (yyvsp[-3].expr), (yyvsp[-1].name), (yyvsp[0].exprs), Location::Concat((yylsp[-3]), (yylsp[0])));
 }
-#line 2481 "syntax.cc"
+#line 2482 "syntax.cc"
     break;
 
   case 99:
-#line 425 "syntax.y"
+#line 426 "syntax.y"
     {
     auto callee = ctx->factory->NewVariable((yyvsp[-3].name), (yylsp[-3]));
-    (yyval.expr) = ctx->factory->NewNew(callee, (yyvsp[-1].exprs), Location::Concat((yylsp[-4]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewNew(NEXT_TRACE_ID, callee, (yyvsp[-1].exprs), Location::Concat((yylsp[-4]), (yylsp[0])));
 }
-#line 2490 "syntax.cc"
+#line 2491 "syntax.cc"
     break;
 
   case 100:
-#line 430 "syntax.y"
+#line 431 "syntax.y"
     {
     (yyval.exprs) = (yyvsp[-1].exprs);
 }
-#line 2498 "syntax.cc"
+#line 2499 "syntax.cc"
     break;
 
   case 101:
-#line 433 "syntax.y"
+#line 434 "syntax.y"
     {
     auto arg0 = ctx->factory->NewStringLiteral((yyvsp[0].str_val), (yylsp[0]));
     (yyval.exprs) = ctx->factory->NewList<mai::nyaa::ast::Expression *>(arg0);
 }
-#line 2507 "syntax.cc"
+#line 2508 "syntax.cc"
     break;
 
   case 102:
-#line 438 "syntax.y"
+#line 439 "syntax.y"
     {
     (yyval.names) = (yyvsp[-1].names);
 }
-#line 2515 "syntax.cc"
+#line 2516 "syntax.cc"
     break;
 
   case 103:
-#line 441 "syntax.y"
+#line 442 "syntax.y"
     {
     (yyval.names) = nullptr;
 }
-#line 2523 "syntax.cc"
+#line 2524 "syntax.cc"
     break;
 
   case 104:
-#line 446 "syntax.y"
+#line 447 "syntax.y"
     {
     (yyval.names) = ctx->factory->NewList((yyvsp[0].name));
 }
-#line 2531 "syntax.cc"
+#line 2532 "syntax.cc"
     break;
 
   case 105:
-#line 449 "syntax.y"
+#line 450 "syntax.y"
     {
     (yyval.names)->push_back((yyvsp[0].name));
 }
-#line 2539 "syntax.cc"
+#line 2540 "syntax.cc"
     break;
 
 
-#line 2543 "syntax.cc"
+#line 2544 "syntax.cc"
 
       default: break;
     }
@@ -2777,7 +2778,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 454 "syntax.y"
+#line 455 "syntax.y"
 
 void yyerror(YYLTYPE *yyl, parser_ctx *ctx, const char *msg) {
     ctx->err_line   = yyl->first_line;
