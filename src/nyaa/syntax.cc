@@ -1847,7 +1847,7 @@ yyreduce:
   case 21:
 #line 154 "syntax.y"
     {
-    (yyval.stmt) = ctx->factory->NewIfStatement((yyvsp[-3].expr), (yyvsp[-1].block), (yyvsp[0].stmt), Location::Concat((yylsp[-5]), (yylsp[0])));
+    (yyval.stmt) = ctx->factory->NewIfStatement(ctx->next_trace_id++, (yyvsp[-3].expr), (yyvsp[-1].block), (yyvsp[0].stmt), Location::Concat((yylsp[-5]), (yylsp[0])));
 }
 #line 1853 "syntax.cc"
     break;
@@ -2467,7 +2467,7 @@ yyreduce:
   case 97:
 #line 419 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewCall((yyvsp[-1].expr), (yyvsp[0].exprs), Location::Concat((yylsp[-1]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewCall(ctx->next_trace_id++, (yyvsp[-1].expr), (yyvsp[0].exprs), Location::Concat((yylsp[-1]), (yylsp[0])));
 }
 #line 2473 "syntax.cc"
     break;
@@ -2475,7 +2475,7 @@ yyreduce:
   case 98:
 #line 422 "syntax.y"
     {
-    (yyval.expr) = ctx->factory->NewSelfCall((yyvsp[-3].expr), (yyvsp[-1].name), (yyvsp[0].exprs), Location::Concat((yylsp[-3]), (yylsp[0])));
+    (yyval.expr) = ctx->factory->NewSelfCall(ctx->next_trace_id++, (yyvsp[-3].expr), (yyvsp[-1].name), (yyvsp[0].exprs), Location::Concat((yylsp[-3]), (yylsp[0])));
 }
 #line 2481 "syntax.cc"
     break;

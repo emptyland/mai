@@ -262,7 +262,43 @@ void NyaaCore::GarbageCollectionSafepoint(const char *file, int line) {
 //               histogram.collected_bytes/static_cast<float>(base::kMB),
 //               histogram.time_cost);
 //    }
-    gc_tick_++;
+    gc_ticks_++;
+}
+    
+int NyaaCore::TraceBranchGuard(int trace_id, int value) {
+    DCHECK_LT(trace_id, max_trace_id_);
+    auto iter = profiler_.find(trace_id);
+    if (iter == profiler_.end()) {
+        ProfileSlot slot;
+        slot.hit = 1;
+        slot.true_guard = value ? 1 : 0;
+        profiler_.insert({trace_id, slot});
+    } else {
+        iter->second.hit++;
+        iter->second.true_guard += (value ? 1 : 0);
+    }
+    PurgeProfilerIfNeeded();
+    return value;
+}
+
+void NyaaCore::TraceCalling(int trace_id) {
+    
+}
+    
+void NyaaCore::PurgeProfilerIfNeeded() {
+    if (profiling_ticks_++ < profiling_level_ + 10000) {
+        return;
+    }
+    std::set<int> for_clean;
+    for (auto pair : profiler_) {
+        if (pair.second.hit <= profiling_level_) {
+            for_clean.insert(pair.first);
+        }
+    }
+    for (auto trace_id : for_clean) {
+        profiler_.erase(trace_id);
+    }
+    profiling_level_ = profiling_ticks_;
 }
     
 void NyaaCore::IterateRoot(RootVisitor *visitor) {

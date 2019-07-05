@@ -1,0 +1,22 @@
+# test branch guard profiling
+
+def foo(a) { return a + 1 }
+
+var foo = foo
+
+def test(a, b) {
+    if (a > b) {
+        foo(a)
+    } else if (a == b) {
+        foo(b)
+    } else {
+        foo(a + b)
+    }
+}
+
+var test = test
+
+for (i in 0 until 100000) {
+    test(i, 9000)
+}
+

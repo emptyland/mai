@@ -271,7 +271,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
             node->lvals()->at(i)->Accept(this, &lix);
             val.index++;
         }
-        if (!blk_scope_->Protected(base)) {
+        if (!fun_scope_->Protected(base)) {
             fun_scope_->FreeVar(base);
         }
     } else {
@@ -391,7 +391,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     ix.set_n_result(1);
     
     IVal callee = node->callee()->Accept(this, &ix);
-    if (blk_scope_->Protected(callee)) {
+    if (fun_scope_->Protected(callee)) {
         IVal tmp = fun_scope_->NewLocal();
         Move(tmp, callee, node->callee()->line());
         callee = tmp;
@@ -547,7 +547,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
     if (linear) {
         for (auto entry : *node->value()) {
             IVal value = entry->value()->Accept(this, &ix);
-            if (blk_scope_->Protected(value)) {
+            if (fun_scope_->Protected(value)) {
                 IVal tmp = fun_scope_->NewLocal();
                 Move(tmp, value, entry->value()->line());
                 value = tmp;
@@ -564,7 +564,7 @@ IVal BlockScope::PutVariable(const ast::String *name, const IVal *val) {
                 key = Localize(key, entry->value()->line());
             }
             IVal value = entry->value()->Accept(this, &ix);
-            if (blk_scope_->Protected(value)) {
+            if (fun_scope_->Protected(value)) {
                 IVal tmp = fun_scope_->NewLocal();
                 Move(tmp, value, entry->value()->line());
                 value = tmp;
@@ -610,7 +610,7 @@ IVal CodeGeneratorVisitor::DefineClass(ast::ObjectDefinition *node, ast::Express
         CodeGeneratorContext ix;
         ix.set_n_result(1);
         IVal val = base->Accept(this, &ix);
-        if (blk_scope_->Protected(val)) {
+        if (fun_scope_->Protected(val)) {
             IVal tmp = fun_scope_->NewLocal();
             Move(tmp, val, base->line());
             val = tmp;
@@ -702,6 +702,7 @@ public:
     }
     virtual IVal VisitIfStatement(ast::IfStatement *node, ast::VisitorContext *x) override {
         WritePrefix(node);
+        WriteInt(node->trace_id());
         WriteNode(node->cond());
         WriteNode(node->then_clause());
         WriteNodeOptional(node->else_clause());
@@ -847,6 +848,7 @@ public:
     }
     virtual IVal VisitSelfCall(ast::SelfCall *node, ast::VisitorContext *x) override {
         WritePrefix(node);
+        WriteInt(node->trace_id());
         WriteNode(node->callee());
         WriteString(node->method());
         WriteExprs(node->args());
@@ -860,6 +862,7 @@ public:
     }
     virtual IVal VisitCall(ast::Call *node, ast::VisitorContext *x) override {
         WritePrefix(node);
+        WriteInt(node->trace_id());
         WriteNode(node->callee());
         WriteExprs(node->args());
         return IVal::Void();
@@ -1047,7 +1050,8 @@ public:
     }
     
     ast::IfStatement *ReadIfStatement(int line) {
-        return factory_->NewIfStatement(ReadExpr(), ReadBlock(), ReadStmtOptional(), Location(line));
+        return factory_->NewIfStatement(ReadInt(), ReadExpr(), ReadBlock(), ReadStmtOptional(),
+                                        Location(line));
     }
     
     ast::ForStepLoop *ReadForStepLoop(int line) {
@@ -1125,7 +1129,8 @@ public:
     }
     
     ast::SelfCall *ReadSelfCall(int line) {
-        return factory_->NewSelfCall(ReadExpr(), ReadString(), ReadExprs(), Location(line));
+        return factory_->NewSelfCall(ReadInt(), ReadExpr(), ReadString(), ReadExprs(),
+                                     Location(line));
     }
     
     ast::New *ReadNew(int line) {
@@ -1133,7 +1138,7 @@ public:
     }
     
     ast::Call *ReadCall(int line) {
-        return factory_->NewCall(ReadExpr(), ReadExprs(), Location(line));
+        return factory_->NewCall(ReadInt(), ReadExpr(), ReadExprs(), Location(line));
     }
     
     ast::Return *ReadReturn(int line) {

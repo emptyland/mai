@@ -86,6 +86,15 @@ public:
         return base;
     }
     
+    bool Protected(IVal val) {
+        if (val.kind == IVal::kLocal) {
+            DCHECK_GE(val.index, 0);
+            DCHECK_LT(val.index, max_stack_);
+            return val.index < active_vars_;
+        }
+        return false;
+    }
+    
     Handle<NyArray> BuildProtos(NyaaCore *core) {
         if (protos_.empty()) {
             return Handle<NyArray>::Null();
@@ -148,14 +157,14 @@ public:
     
     IVal PutVariable(const ast::String *name, const IVal *val);
     
-    bool Protected(IVal val) {
-        if (val.kind == IVal::kLocal) {
-            DCHECK_GE(val.index, 0);
-            DCHECK_LT(val.index, owns_->max_stack());
-            return val.index < active_vars_;
-        }
-        return false;
-    }
+//    bool Protected(IVal val) {
+//        if (val.kind == IVal::kLocal) {
+//            DCHECK_GE(val.index, 0);
+//            DCHECK_LT(val.index, owns_->max_stack());
+//            return val.index < active_vars_;
+//        }
+//        return false;
+//    }
     
     friend class CodeGeneratorVisitor;
 private:

@@ -5,6 +5,8 @@
 #include "asm/utils.h"
 #include "base/base.h"
 #include "mai/error.h"
+#include <unordered_map>
+#include <set>
 
 namespace mai {
 class Allocator;
@@ -35,6 +37,14 @@ struct HandleScopeSlot {
     Address          end;
     Address          limit;
 };
+    
+struct ProfileSlot {
+    uint64_t hit; // total count;
+    union {
+        uint64_t true_guard; // branch true guard count;
+        uintptr_t *receivers;
+    };
+}; // struct ProfilingSlot
     
 class NyaaCore final {
 public:
@@ -73,6 +83,9 @@ public:
         InternalBarrierWr(host, reinterpret_cast<Object **>(pzwr), test);
         return val;
     }
+    
+    int TraceBranchGuard(int trace_id, int value);
+    void TraceCalling(int trace_id);
 
     void IterateRoot(RootVisitor *visitor);
     
@@ -86,6 +99,7 @@ public:
     ObjectFactory *factory() const { return factory_.get(); }
     DEF_VAL_GETTER(bool, initialized);
     DEF_VAL_PROP_RW(int, gc_force_count);
+    DEF_VAL_PROP_RW(int, max_trace_id);
     DEF_VAL_PROP_RW(int32_t, recover_point_pc);
     DEF_VAL_PROP_RW(int32_t, suspend_point_pc);
     DEF_PTR_GETTER(FILE, logger);
@@ -108,6 +122,8 @@ public:
 private:
     void InternalBarrierWr(NyObject *host, Object **pzwr, Object *val);
     
+    void PurgeProfilerIfNeeded();
+    
     Nyaa *const stub_;
     Allocator *const page_alloc_;
     std::unique_ptr<Heap> heap_;
@@ -115,9 +131,13 @@ private:
     HandleScopeSlot *top_slot_;
     bool initialized_ = false;
     int gc_force_count_ = 0;
-    int gc_tick_ = 0;
+    int gc_ticks_ = 0;
     int32_t recover_point_pc_ = 0; // recover point pc for entry trampoline
     int32_t suspend_point_pc_ = 0; // suspend point pc
+    int max_trace_id_ = 0;
+    std::unordered_map<int, ProfileSlot> profiler_;
+    uint64_t profiling_level_ = 0;
+    uint64_t profiling_ticks_ = 0;
     uint64_t next_udo_kid_;
     FILE *logger_;
     std::unique_ptr<RandomGenerator> random_;

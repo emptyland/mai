@@ -152,7 +152,7 @@ Statement : RETURN ExpressionList {
 }
 
 IfStatement: IF '(' Expression ')' Block ElseClause {
-    $$ = ctx->factory->NewIfStatement($3, $5, $6, Location::Concat(@1, @6));
+    $$ = ctx->factory->NewIfStatement(ctx->next_trace_id++, $3, $5, $6, Location::Concat(@1, @6));
 }
 
 ElseClause: ELSE Block {
@@ -417,10 +417,10 @@ LValue : NAME {
 }
 
 Call : Expression Arguments {
-    $$ = ctx->factory->NewCall($1, $2, Location::Concat(@1, @2));
+    $$ = ctx->factory->NewCall(ctx->next_trace_id++, $1, $2, Location::Concat(@1, @2));
 }
 | Expression ':' NAME Arguments {
-    $$ = ctx->factory->NewSelfCall($1, $3, $4, Location::Concat(@1, @4));
+    $$ = ctx->factory->NewSelfCall(ctx->next_trace_id++, $1, $3, $4, Location::Concat(@1, @4));
 }
 | NEW NAME '(' ExpressionList ')' {
     auto callee = ctx->factory->NewVariable($2, @2);

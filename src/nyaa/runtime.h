@@ -39,6 +39,7 @@ public:
         kNyaaCore_TryMetaFunction,
         kNyaaCore_NewUninitializedString,
         kNyaaCore_GarbageCollectionSafepoint,
+        kNyaaCore_TraceBranchGuard,
         
         kObject_IsFalse,
         kObject_IsTrue,

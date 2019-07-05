@@ -177,6 +177,7 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     reinterpret_cast<Address>(&NyaaCore_TryMetaFunction),
     reinterpret_cast<Address>(&NyaaCore_NewUninitializedString),
     NyaaCoreTemplate::MethodAddress(&NyaaCore::GarbageCollectionSafepoint),
+    NyaaCoreTemplate::MethodAddress(&NyaaCore::TraceBranchGuard),
     
     reinterpret_cast<Address>(&Object_IsFalseWarp),
     reinterpret_cast<Address>(&Object_IsTrueWarp),

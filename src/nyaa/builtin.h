@@ -7,6 +7,10 @@
 namespace mai {
     
 namespace nyaa {
+
+namespace dag {
+class Value;
+}; // namespace dag
     
 class Object;
 class NyString;
@@ -132,19 +136,25 @@ struct IVal {
         kConst,
         kFunction, // index = proto_pool_idx
         kUpval,
+        kDAG,
         kVoid,
     };
     Kind kind;
-    int32_t index;
+    
+    union {
+        int32_t index;
+        dag::Value *node;
+    };
     
     int32_t Encode() const { return kind == kConst ? -index-1 : index; }
     
-    static IVal Void() { return {kVoid, -1}; }
-    static IVal Local(int32_t idx) { return {kLocal, idx}; }
-    static IVal Upval(int32_t idx) { return {kUpval, idx}; }
-    static IVal Const(int32_t idx) { return {kConst, idx}; }
-    static IVal Function(int32_t idx) { return {kFunction, idx}; }
-    static IVal Global(int32_t idx) { return {kGlobal, idx}; }
+    static IVal Void() { return {.kind = kVoid, .index = -1}; }
+    static IVal Local(int32_t idx) { return {.kind = kLocal, .index = idx}; }
+    static IVal Upval(int32_t idx) { return {.kind = kUpval, .index = idx}; }
+    static IVal Const(int32_t idx) { return {.kind = kConst, .index = idx}; }
+    static IVal Function(int32_t idx) { return {.kind = kFunction, .index = idx}; }
+    static IVal Global(int32_t idx) { return {.kind = kGlobal, .index = idx}; }
+    static IVal IR(dag::Value *node) { return {.kind = kDAG, .node = node}; }
 }; // struct IVal
     
 struct Operator {

@@ -70,22 +70,24 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
 
 /*static*/ Handle<NyFunction> NyFunction::Compile(const char *z, size_t n, NyaaCore *N) {
     base::StandaloneArena arena(N->isolate()->env()->GetLowLevelAllocator());
-    Parser::Result result = Parser::Parse(z, n, &arena);
+    Parser::Result result = Parser::Parse(z, n, N->max_trace_id(), &arena);
     if (result.error) {
         N->Raisef("[%d:%d] %s", result.error_line, result.error_column, result.error->data());
         return Handle<NyFunction>();
     }
+    N->set_max_trace_id(result.next_trace_id);
     return CodeGen::Generate(N->factory()->NewString(":memory:"), result.block, &arena, N);
 }
 
 /*static*/ Handle<NyFunction> NyFunction::Compile(const char *file_name, FILE *fp, NyaaCore *N) {
     base::StandaloneArena arena(N->isolate()->env()->GetLowLevelAllocator());
-    Parser::Result result = Parser::Parse(fp, &arena);
+    Parser::Result result = Parser::Parse(fp, N->max_trace_id(), &arena);
     if (result.error) {
         N->Raisef("%s [%d:%d] %s", file_name, result.error_line, result.error_column,
                   result.error->data());
         return Handle<NyFunction>();
     }
+    N->set_max_trace_id(result.next_trace_id);
     return CodeGen::Generate(N->factory()->NewString(file_name), result.block, &arena, N);
 }
     

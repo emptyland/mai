@@ -89,7 +89,7 @@ TEST_F(NyaaCodeGenTest, VarInitializerCalling) {
     names->push_back(ast::String::New(&arena_, "b"));
     names->push_back(ast::String::New(&arena_, "c"));
     
-    auto inits = af_.NewList<ast::Expression *>(af_.NewCall(af_.NewVariable(ast::String::New(&arena_, "foo")), nullptr));
+    auto inits = af_.NewList<ast::Expression *>(af_.NewCall(0, af_.NewVariable(ast::String::New(&arena_, "foo")), nullptr));
     auto stmts = af_.NewList<ast::Statement*>(af_.NewVarDeclaration(names, inits));
     stmts->push_back(af_.NewReturn(nullptr));
     
@@ -114,9 +114,9 @@ TEST_F(NyaaCodeGenTest, ReturnCallingInCall) {
     auto args = af_.NewList<ast::Expression *>(nullptr);
     auto bar = af_.NewVariable(ast::String::New(&arena_, "bar"));
     auto foo = af_.NewVariable(ast::String::New(&arena_, "foo"));
-    auto call = af_.NewCall(bar, nullptr);
+    auto call = af_.NewCall(0, bar, nullptr);
     args->push_back(call);
-    call = af_.NewCall(foo, args);
+    call = af_.NewCall(0, foo, args);
     auto ret = af_.NewReturn(af_.NewList<ast::Expression *>(call));
     auto stmts = af_.NewList<ast::Statement*>(ret);
     auto block = af_.NewBlock(stmts);
@@ -202,7 +202,7 @@ TEST_F(NyaaCodeGenTest, CallExpression) {
     args->push_back(af_.NewApproxLiteral(100));
     args->push_back(af_.NewVariable(ast::String::New(&arena_, "d")));
     
-    auto stmts = af_.NewList<ast::Statement*>(af_.NewCall(af_.NewVariable(ast::String::New(&arena_, "foo")), args));
+    auto stmts = af_.NewList<ast::Statement*>(af_.NewCall(0, af_.NewVariable(ast::String::New(&arena_, "foo")), args));
     auto block = af_.NewBlock(stmts);
     
     HandleScope handle_scope(N_);

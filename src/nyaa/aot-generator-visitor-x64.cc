@@ -122,13 +122,19 @@ public:
         CodeGeneratorContext ix;
         ix.set_n_result(1);
         IVal cond = node->cond()->Accept(this, &ix);
-        
+
         Label else_lable;
         {
             FileLineScope fls(fun_scope_, node->line());
             //__ Breakpoint();
             __ movq(kRegArgv[0], Local(cond.index));
             CallRuntime(Runtime::kObject_IsFalse);
+            if (core_->stub()->use_jit()) {
+                __ movq(kRegArgv[0], kCore);
+                __ movl(kRegArgv[1], node->trace_id());
+                __ movl(kRegArgv[2], rax);
+                CallRuntime(Runtime::kNyaaCore_TraceBranchGuard);
+            }
             __ cmpl(rax, 0);
             __ j(NotEqual, &else_lable, true); // is false?
         }
@@ -204,7 +210,7 @@ public:
         __ Bind(&out_label);
         return IVal::Void();
     }
-    
+
     // for (var in expr to expr) { body }
     // for (var in expr until expr) { body }
     virtual IVal VisitForStepLoop(ast::ForStepLoop *node, ast::VisitorContext *x) override {
@@ -220,7 +226,7 @@ public:
         }
         IVal init = node->init()->Accept(this, &ix);
         IVal iter;
-        if (blk_scope_->Protected(init)) {
+        if (fun_scope_->Protected(init)) {
             iter = blk_scope_->PutVariable(ast::String::New(arena_, "(iter)"), nullptr);
             
         } else {
@@ -974,7 +980,7 @@ private:
         CallRuntime(Runtime::kString_Done);
         __ movq(Local(val.index), rax);
     }
-    
+
     bool ProcessNotOperator(IVal ret, ast::Multiple *inner, int line) {
         CodeGeneratorContext ix;
         ix.set_n_result(1);

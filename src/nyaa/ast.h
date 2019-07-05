@@ -205,17 +205,20 @@ private:
     
 class IfStatement : public Statement {
 public:
+    DEF_VAL_PROP_RW(int, trace_id);
     DEF_PTR_GETTER_NOTNULL(Expression, cond);
     DEF_PTR_GETTER_NOTNULL(Block, then_clause);
     DEF_PTR_GETTER(Statement, else_clause);
     DEFINE_AST_NODE(IfStatement);
 private:
-    IfStatement(int line, Expression *cond, Block *then_clause, Statement *else_clause)
+    IfStatement(int line, int trace_id, Expression *cond, Block *then_clause, Statement *else_clause)
         : Statement(line)
+        , trace_id_(trace_id)
         , cond_(DCHECK_NOTNULL(cond))
         , then_clause_(DCHECK_NOTNULL(then_clause))
         , else_clause_(else_clause) {}
 
+    int trace_id_;
     Expression *cond_;
     Block *then_clause_;
     Statement *else_clause_;
@@ -525,17 +528,20 @@ public:
     
     DEF_PTR_GETTER_NOTNULL(Expression, callee);
     DEF_PTR_GETTER(ArgumentList, args);
+    DEF_VAL_PROP_RW(int, trace_id);
 
     inline int GetNArgs() const;
 
     DEFINE_AST_NODE(Call);
 protected:
-    Call(int line, Expression *callee, ArgumentList *args)
+    Call(int line, int trace_id, Expression *callee, ArgumentList *args)
         : Expression(line)
         , callee_(DCHECK_NOTNULL(callee))
-        , args_(args) {}
+        , args_(args)
+        , trace_id_(trace_id) {}
     
 private:
+    int trace_id_;
     Expression *callee_;
     ArgumentList *args_;
 }; // class Call
@@ -545,8 +551,8 @@ public:
     DEF_PTR_GETTER_NOTNULL(const String, method);
     DEFINE_AST_NODE(SelfCall);
 private:
-    SelfCall(int line, Expression *callee, const String *method, ArgumentList *args)
-        : Call(line, callee, args)
+    SelfCall(int line, int trace_id, Expression *callee, const String *method, ArgumentList *args)
+        : Call(line, trace_id, callee, args)
         , method_(DCHECK_NOTNULL(method)) {}
 
     const String *method_;
@@ -556,7 +562,7 @@ class New : public Call {
 public:
     DEFINE_AST_NODE(New);
 private:
-    New(int line, Expression *callee, ArgumentList *args) : Call(line, callee, args) {}
+    New(int line, Expression *callee, ArgumentList *args) : Call(line, -1, callee, args) {}
 }; // class NewCall
     
 class Variable : public LValue {
@@ -723,7 +729,7 @@ inline int Call::GetNArgs() const {
 inline bool IsPlaceholder(const String *name) {
     return !name ? false : (name->size() == 1 && name->data()[0] == '_');
 }
-    
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Factory
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -740,7 +746,7 @@ public:
                                       const Location &loc = Location{}) {
         return new (arena_) VarDeclaration(loc.begin_line, names, inits);
     }
-    
+
     PropertyDeclaration *NewPropertyDeclaration(Attributes *attrs,
                                                 VarDeclaration::NameList *names,
                                                 VarDeclaration::ExprList *inits,
@@ -749,32 +755,32 @@ public:
         ro = AttributesMatch(attrs, "rw", false, ro);
         return new (arena_) PropertyDeclaration(loc.begin_line, names, inits, ro);
     }
-    
+
     PropertyDeclaration *NewPropertyDeclaration(VarDeclaration::NameList *names,
                                                 VarDeclaration::ExprList *inits, bool readonly,
                                                 const Location &loc = Location{}) {
         return new (arena_) PropertyDeclaration(loc.begin_line, names, inits, readonly);
     }
-    
+
     FunctionDefinition *NewFunctionDefinition(Expression *self, const String *name,
                                               LambdaLiteral *literal,
                                               const Location &loc = Location{}) {
         return new (arena_) FunctionDefinition(loc.begin_line, self, name, literal);
     }
-    
+
     ObjectDefinition *NewObjectDefinition(Attributes *attrs, const String *name,
                                           ObjectDefinition::MemberList *members,
                                           const Location &loc = Location{}) {
         bool local = AttributesMatch(attrs, "local", true, false);
         return new (arena_) ObjectDefinition(loc.begin_line, loc.end_line, name, local, members);
     }
-    
+
     ObjectDefinition *NewObjectDefinition(const String *name, bool local,
                                           ObjectDefinition::MemberList *members,
                                           const Location &loc = Location{}) {
         return new (arena_) ObjectDefinition(loc.begin_line, loc.end_line, name, local, members);
     }
-    
+
     ClassDefinition *NewClassDefinition(Attributes *attrs, const String *name, Expression *base,
                                         ObjectDefinition::MemberList *members,
                                         const Location &loc = Location{}) {
@@ -782,33 +788,33 @@ public:
         return new (arena_) ClassDefinition(loc.begin_line, loc.end_line, name, local, base,
                                             members);
     }
-    
+
     ClassDefinition *NewClassDefinition(const String *name, bool local,
                                         ObjectDefinition::MemberList *members,
                                         const Location &loc = Location{}) {
         return new (arena_) ClassDefinition(loc.begin_line, loc.end_line, name, local, nullptr,
                                             members);
     }
-    
+
     Assignment *NewAssignment(Assignment::LValList *lvals, Assignment::RValList *rvals,
                               const Location &loc = Location{}) {
         return new (arena_) Assignment(loc.begin_line, lvals, rvals);
     }
-    
-    IfStatement *NewIfStatement(Expression *cond, Block *then_clause, Statement *else_clause,
-                                const Location &loc = Location{}) {
-        return new (arena_) IfStatement(loc.begin_line, cond, then_clause, else_clause);
+
+    IfStatement *NewIfStatement(int trace_id, Expression *cond, Block *then_clause,
+                                Statement *else_clause, const Location &loc = Location{}) {
+        return new (arena_) IfStatement(loc.begin_line, trace_id, cond, then_clause, else_clause);
     }
 
     WhileLoop *NewWhileLoop(Expression *cond, Block *body, const Location &loc = Location{}) {
         return new (arena_) WhileLoop(loc.begin_line, loc.end_line, cond, body);
     }
-    
+
     ForIterateLoop *NewForIterateLoop(ForIterateLoop::NameList *names, Expression *init,
                                       Block *body, const Location &loc = Location{}) {
         return new (arena_) ForIterateLoop(loc.begin_line, loc.end_line, names, init, body);
     }
-    
+
     ForStepLoop *NewForStepLoop(const ast::String *name, Expression *init, bool is_until,
                                 Expression *limit, Expression *step, Block *body,
                                 const Location &loc = Location{}) {
@@ -840,7 +846,7 @@ public:
                                     Block *body, const Location &loc = Location{}) {
         return new (arena_) LambdaLiteral(loc.begin_line, loc.end_line, params, vargs, body);
     }
-    
+
     MapInitializer *NewMapInitializer(MapInitializer::EntryList *entries,
                                       const Location &loc = Location{}) {
         return new (arena_) MapInitializer(loc.begin_line, loc.end_line, entries);
@@ -849,28 +855,28 @@ public:
     Variable *NewVariable(const String *name, const Location &loc = Location{}) {
         return new (arena_) Variable(loc.begin_line, name);
     }
-    
+
     VariableArguments *NewVariableArguments(const Location &loc = Location{}) {
         return new (arena_) VariableArguments(loc.begin_line);
     }
 
-    Call *NewCall(Expression *callee, Call::ArgumentList *args, const Location &loc = Location{}) {
-        return new (arena_) Call(loc.begin_line, callee, args);
+    Call *NewCall(int trace_id, Expression *callee, Call::ArgumentList *args, const Location &loc = Location{}) {
+        return new (arena_) Call(loc.begin_line, trace_id, callee, args);
     }
     
-    SelfCall *NewSelfCall(Expression *callee, const String *method, Call::ArgumentList *args,
-                          const Location &loc = Location{}) {
-        return new (arena_) SelfCall(loc.begin_line, callee, method, args);
+    SelfCall *NewSelfCall(int trace_id, Expression *callee, const String *method,
+                          Call::ArgumentList *args, const Location &loc = Location{}) {
+        return new (arena_) SelfCall(loc.begin_line, trace_id, callee, method, args);
     }
-    
+
     New *NewNew(Expression *callee, Call::ArgumentList *args, const Location &loc = Location{}) {
         return new (arena_) New(loc.begin_line, callee, args);
     }
-    
+
     Continue *NewContinue(const Location &loc = Location{}) {
         return new (arena_) Continue(loc.begin_line);
     }
-    
+
     Break *NewBreak(const Location &loc = Location{}) {
         return new (arena_) Break(loc.begin_line);
     }
@@ -887,27 +893,27 @@ public:
                         const Location &loc = Location{}) {
         return new (arena_) Multiple(loc.begin_line, op, lhs, rhs);
     }
-    
+
     Multiple *NewEntry(Expression *key, Expression *value, const Location &loc = Location{}) {
         return new (arena_) Multiple(loc.begin_line, Operator::kEntry, key, value);
     }
-    
+
     LogicSwitch *NewAnd(Expression *lhs, Expression *rhs, const Location &loc = Location{}) {
         return new (arena_) LogicSwitch(loc.begin_line, Operator::kAnd, lhs, rhs);
     }
-    
+
     LogicSwitch *NewOr(Expression *lhs, Expression *rhs, const Location &loc = Location{}) {
         return new (arena_) LogicSwitch(loc.begin_line, Operator::kOr, lhs, rhs);
     }
-    
+
     Concat *NewConcat(Concat::OperandList *ops, const Location &loc = Location{}) {
         return new (arena_) Concat(loc.begin_line, ops);
     }
-    
+
     Index *NewIndex(Expression *self, Expression *index, const Location &loc = Location{}) {
         return new (arena_) Index(loc.begin_line, self, index);
     }
-    
+
     DotField *NewDotField(Expression *self, const String *index, const Location &loc = Location{}) {
         return new (arena_) DotField(loc.begin_line, self, index);
     }
@@ -919,7 +925,7 @@ public:
         size_t len = ::strlen(z);
         return String::New(arena_, z + 1, len - 2);
     }
-    
+
     String *NewRawString(const char *z, size_t n) { return String::New(arena_, z, n); }
 
     String *NewStringEscaped(const char *z, int quote, bool *ok) {
@@ -941,7 +947,7 @@ public:
         }
         return rv;
     }
-    
+
     template<class T>
     T AttributesMatch(Attributes *attrs, const char *z, T value, T def_val) {
         T rv = def_val;

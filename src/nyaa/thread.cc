@@ -231,6 +231,7 @@ void NyThread::Raise(NyString *msg, Object *ex) {
         interruption_pending_ = CallFrame::kException;
         switch (owns_->stub()->exec()) {
             case Nyaa::kAOT:
+            case Nyaa::kAOT_And_JIT:
                 break; // Ingore: DO NOT throw anything.
             case Nyaa::kInterpreter:
                 throw interruption_pending_;
@@ -330,6 +331,7 @@ void NyThread::Yield() {
     interruption_pending_ = CallFrame::kYield;
     switch (owns_->stub()->exec()) {
         case Nyaa::kAOT:
+        case Nyaa::kAOT_And_JIT:
             break;
         case Nyaa::kInterpreter:
             throw interruption_pending_;
@@ -1118,7 +1120,7 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
             DCHECK_EQ(callee, frame_->callee());
             FunctionCallbackInfo<Object> info(base, nargs, owns_->stub());
             callee->Apply(info);
-            if (owns_->stub()->exec() == Nyaa::kAOT) {
+            if (owns_->stub()->use_aot()) {
                 if (interruption_pending_ == CallFrame::kYield) {
                     return frame_->nrets();
                 }

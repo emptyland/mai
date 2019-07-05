@@ -22,6 +22,7 @@ public:
     enum Execution {
         kInterpreter, // Interpreter only.
         kAOT, // AOT compiling.
+        kAOT_And_JIT, // AOT compiling and JIT
     };
 
     using Core = nyaa::NyaaCore;
@@ -37,7 +38,9 @@ public:
     int code_area_initial_size() const { return code_area_initial_size_; }
     int code_area_max_size() const { return code_area_max_size_; }
     Execution exec() const { return exec_; }
-    bool compact_source_line_info() const { return exec_ == kAOT; }
+    bool compact_source_line_info() const { return use_aot(); }
+    bool use_aot() const { return exec_ == kAOT || exec_ == kAOT_And_JIT; }
+    bool use_jit() const { return exec_ == kAOT_And_JIT; }
     const std::set<std::string> &find_paths() const { return find_paths_; }
     bool nogc() const { return nogc_; }
     Core *core() const { return core_.get(); }

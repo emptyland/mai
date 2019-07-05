@@ -21,7 +21,7 @@ struct parser_ctx {
     ast::Factory *factory = nullptr;
     base::Arena *arena = nullptr;
     ast::Block *block = nullptr;
-    
+    int next_trace_id = 0;
     const base::ArenaString *err_msg = nullptr;
     int err_line = 0;
     int err_column = 0;

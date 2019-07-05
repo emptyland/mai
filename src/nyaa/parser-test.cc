@@ -27,7 +27,7 @@ TEST_F(NyaaParserTest, Sanity) {
         "var e = t:f()['name']\n"
     };
     
-    auto result = Parser::Parse(z, &arena_);
+    auto result = Parser::Parse(z, 0, &arena_);
     ASSERT_EQ(nullptr, result.error) << result.ToString();
     ASSERT_NE(nullptr, result.block);
 }
@@ -38,7 +38,7 @@ TEST_F(NyaaParserTest, Expression) {
         "return a + b / c\n"
     };
     
-    auto result = Parser::Parse(z, &arena_);
+    auto result = Parser::Parse(z, 0, &arena_);
     ASSERT_EQ(nullptr, result.error) << result.ToString();
     ASSERT_NE(nullptr, result.block);
 }
@@ -49,7 +49,7 @@ TEST_F(NyaaParserTest, LambdaLiteral) {
         "return f(0)\n"
     };
     
-    auto result = Parser::Parse(z, &arena_);
+    auto result = Parser::Parse(z, 0, &arena_);
     ASSERT_EQ(nullptr, result.error) << result.ToString();
     ASSERT_NE(nullptr, result.block);
 }
@@ -60,13 +60,13 @@ TEST_F(NyaaParserTest, SanitySerialize) {
         "return f(0)\n"
     };
     
-    auto result = Parser::Parse(z, &arena_);
+    auto result = Parser::Parse(z, 0, &arena_);
     ASSERT_EQ(nullptr, result.error) << result.ToString();
     ASSERT_NE(nullptr, result.block);
     
     std::string buf;
     SerializeCompactedAST(result.block, &buf);
-    ASSERT_EQ(41, buf.size());
+    ASSERT_EQ(42, buf.size());
     
     ast::Factory factory(&arena_);
     ast::AstNode *ast = nullptr;
@@ -97,7 +97,7 @@ TEST_F(NyaaParserTest, ObjectDefinitionSerialize) {
         "}\n"
     };
     
-    auto result = Parser::Parse(z, &arena_);
+    auto result = Parser::Parse(z, 0, &arena_);
     ASSERT_EQ(nullptr, result.error) << result.ToString();
     ASSERT_NE(nullptr, result.block);
     

@@ -20,6 +20,7 @@ extern Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Bloc
             return Bytecode_CodeGenerate(file_name, root, arena, core);
             
         case Nyaa::kAOT:
+        case Nyaa::kAOT_And_JIT:
             return AOT_CodeGenerate(file_name, root, arena, core);
 
         default:
