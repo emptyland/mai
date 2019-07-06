@@ -25,6 +25,7 @@ class NyInt;
 class NyString;
 template<class T> class NyArrayBase;
 class NyByteArray;
+class NyBytecodeArray;
 class NyInt32Array;
 class NyArray;
 class NyTable;
@@ -652,6 +653,7 @@ public:
     
     DEF_VAL_GETTER(uint32_t, size);
     DEF_VAL_GETTER(uint32_t, capacity);
+    T *buf() { return elems_; }
     
     inline T Get(int64_t key) const {
         DCHECK_GE(key, 0);

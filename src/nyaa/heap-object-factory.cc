@@ -113,11 +113,22 @@ public:
         DCHECK_EQ(ob->PlacedSize(), required_size);
         return ob;
     }
+    
+    virtual NyBytecodeArray *NewBytecodeArray(NyInt32Array *source_lines, Address bytecodes,
+                                              size_t bytecode_bytes_size, bool old) override {
+        DCHECK_LE(bytecode_bytes_size, UINT32_MAX);
+        size_t required_size = NyBytecodeArray::RequiredSize(static_cast<uint32_t>(bytecode_bytes_size));
+        NEW_OBJECT(required_size,
+                   NyBytecodeArray(source_lines, bytecodes, static_cast<uint32_t>(bytecode_bytes_size),
+                                   core_),
+                   BytecodeArray);
+        DCHECK_EQ(ob->PlacedSize(), required_size);
+        return ob;
+    }
 
     virtual NyFunction *NewFunction(NyString *name, size_t n_params, bool vargs, size_t n_upvals,
-                                    size_t max_stack, NyString *file_name, NyInt32Array *file_info,
-                                    NyObject *exec, NyArray *proto_pool, NyArray *const_pool,
-                                    bool old) override {
+                                    size_t max_stack, NyString *file_name, NyObject *exec,
+                                    NyArray *proto_pool, NyArray *const_pool, bool old) override {
         DCHECK_LE(n_params, UINT8_MAX);
         DCHECK_LE(n_upvals, UINT32_MAX);
         DCHECK_LE(max_stack, UINT32_MAX);
@@ -129,7 +140,6 @@ public:
                               static_cast<uint32_t>(n_upvals),
                               static_cast<uint32_t>(max_stack),
                               file_name,
-                              file_info,
                               exec,
                               proto_pool,
                               const_pool,
@@ -139,7 +149,7 @@ public:
         return ob;
     }
 
-    virtual NyCode *NewCode(int kind, const uint8_t *instructions,
+    virtual NyCode *NewCode(int kind, NyInt32Array *source_lines, const uint8_t *instructions,
                             size_t instructions_bytes_size) override {
         DCHECK_LE(instructions_bytes_size, UINT32_MAX);
         size_t required_size = NyCode::RequiredSize(static_cast<uint32_t>(instructions_bytes_size));
@@ -148,8 +158,8 @@ public:
             return nullptr;
         }
         NyCode *ob = new (blk) NyCode(static_cast<NyCode::Kind>(kind),
-                                      instructions,
-                                      static_cast<uint32_t>(instructions_bytes_size));
+                                      source_lines, instructions,
+                                      static_cast<uint32_t>(instructions_bytes_size), core_);
         ob->SetMetatable(core_->kmt_pool()->kCode, core_);
         ob->SetColor(heap_->initial_color());
         ob->SetType(kTypeCode);

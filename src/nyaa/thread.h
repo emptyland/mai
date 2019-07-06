@@ -40,14 +40,15 @@ public:
     explicit CallFrame(int trace_id = -1) : trace_id_(trace_id) {}
     ~CallFrame() {}
     
-    void Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, NyArray *kpool, int wanted,
+    void Enter(NyThread *owns, NyRunnable *callee, NyObject *exec, NyArray *kpool, int wanted,
                size_t bp, size_t tp, NyMap *env);
     void Exit(NyThread *owns);
 
     DEF_VAL_GETTER(int, trace_id);
     DEF_PTR_GETTER(NyRunnable, callee);
     DEF_PTR_GETTER(NyMap, env);
-    DEF_PTR_GETTER(NyByteArray, bcbuf);
+    DEF_PTR_GETTER(NyBytecodeArray, bcbuf);
+    DEF_PTR_GETTER(NyCode, code);
     DEF_PTR_GETTER(NyArray, const_pool);
     DEF_PTR_GETTER(CallFrame, prev);
     DEF_VAL_GETTER(int, level);
@@ -58,7 +59,7 @@ public:
     DEF_VAL_GETTER(size_t, stack_bp);
     DEF_VAL_GETTER(size_t, stack_tp);
 
-    std::tuple<NyString *, NyInt32Array *> FileInfo() const;
+    std::tuple<NyString *, NyInt32Array *> SourceLines() const;
     
     NyFunction *proto() const {
         NyClosure *ob = DCHECK_NOTNULL(callee_->ToClosure());
@@ -77,7 +78,7 @@ public:
     
     void AddPC(int delta) {
         DCHECK_GE(pc_ + delta, 0);
-        DCHECK_LE(pc_ + delta, bcbuf_->size());
+        DCHECK_LE(pc_ + delta, bcbuf_->bytecode_bytes_size());
         pc_ += delta;
     }
     
@@ -92,14 +93,16 @@ public:
     }
     
     std::tuple<NyString *, NyString *, int> GetCurrentSourceInfo() {
-        if (NyClosure *fn = NyClosure::Cast(callee_)) {
-            int line = GetFileLine(proto()->file_info());
-            return {proto()->file_name(), proto()->name(), line};
+        NyString *file_name; NyInt32Array *source_lines;
+        std::tie(file_name, source_lines) = SourceLines();
+        if (!source_lines) {
+            return {nullptr, nullptr, 0};
+        } else {
+            return {file_name, proto()->name(), GetFileLine(source_lines)};
         }
-        return {nullptr, nullptr, 0};
     }
     
-    Byte BC() const { return bcbuf_->Get(pc_); }
+    Byte BC() const { return bcbuf_->byte(pc_); }
     
     void IterateRoot(RootVisitor *visitor);
 
@@ -109,10 +112,13 @@ private:
     int GetFileLine(const NyInt32Array *line_info);
 
     int trace_id_; // calling trace-id.
-    bool compact_file_info_ = false;
     NyRunnable *callee_; // [strong ref]
     NyMap *env_; // [strong ref]
-    NyByteArray *bcbuf_ = nullptr; // [strong ref]
+    union {
+        NyBytecodeArray *bcbuf_; // [strong ref]
+        NyCode *code_; // [strong ref]
+        Object *exec_ = nullptr;;
+    };
     NyArray *const_pool_ = nullptr; // [strong ref]
     CallFrame *prev_;
     int level_ = 0;
@@ -124,6 +130,7 @@ private:
     //ExceptionId eid_ = kNormal;
     int nrets_ = 0; // record real return results.
     int wanted_ = 0; // return wanted results.
+    bool compact_file_info_ = false;
 };
     
 class TryCatchCore {

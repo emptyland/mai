@@ -21,7 +21,6 @@ public:
                uint32_t n_upvals,
                uint32_t max_stack_size,
                NyString *file_name,
-               NyInt32Array *file_info,
                NyObject *exec,
                NyArray *proto_pool,
                NyArray *const_pool,
@@ -33,12 +32,12 @@ public:
     DEF_VAL_GETTER(uint64_t, call_count);
     DEF_VAL_GETTER(uint32_t, max_stack);
     DEF_PTR_GETTER(NyString, name);
+    DEF_PTR_GETTER(NyObject, exec);
     DEF_PTR_GETTER(NyString, file_name);
-    DEF_PTR_GETTER(NyInt32Array, file_info);
     DEF_PTR_GETTER(NyArray, proto_pool);
     DEF_PTR_GETTER(NyArray, const_pool);
     
-    NyByteArray *bcbuf() const {
+    NyBytecodeArray *bcbuf() const {
         DCHECK(IsInterpretationExec());
         return bcbuf_;
     }
@@ -51,13 +50,13 @@ public:
     void SetName(NyString *name, NyaaCore *N);
     
     bool IsNativeExec() const {
-        DCHECK(exec_->IsCode() || exec_->IsByteArray());
+        DCHECK(exec_->IsCode() || exec_->IsBytecodeArray());
         return exec_->IsCode();
     }
     
     bool IsInterpretationExec() const {
-        DCHECK(exec_->IsCode() || exec_->IsByteArray());
-        return exec_->IsByteArray();
+        DCHECK(exec_->IsCode() || exec_->IsBytecodeArray());
+        return exec_->IsBytecodeArray();
     }
     
     struct UpvalDesc {
@@ -97,16 +96,51 @@ private:
     uint64_t call_count_ = 0;
     NyString *name_; // [strong ref]
     NyString *file_name_; // [strong ref]
-    NyInt32Array *file_info_; // [strong ref]
     NyArray *proto_pool_; // [strong ref] internal defined functions.
     NyArray *const_pool_; // [strong ref]
     union {
-        NyByteArray *bcbuf_; // [strong ref]
+        NyBytecodeArray *bcbuf_; // [strong ref]
         NyCode *code_; // [strong ref]
         NyObject *exec_; // [strong ref] stub
     };
     UpvalDesc upvals_[0]; // elements [strong ref]
 }; // class NyCallable
+    
+class NyBytecodeArray : public NyObject {
+public:
+    NyBytecodeArray(NyInt32Array *source_lines, Address bytecodes, uint32_t bytecode_bytes_size,
+                    NyaaCore *N);
+    
+    DEF_PTR_GETTER(NyInt32Array, source_lines);
+    DEF_VAL_GETTER(uint32_t, bytecode_bytes_size);
+    
+    uint8_t byte(size_t i) const {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, bytecode_bytes_size_);
+        return buf_[i];
+    }
+    
+    inline View<Byte> GetView(uint32_t begin, uint32_t len) const {
+        DCHECK_LE(begin + len, bytecode_bytes_size_);
+        return MakeView(buf_ + begin, len);
+    }
+    
+    void Iterate(ObjectVisitor *visitor) {
+        visitor->VisitPointer(this, reinterpret_cast<Object **>(&source_lines_));
+    }
+    
+    size_t PlacedSize() const { return RequiredSize(bytecode_bytes_size_); }
+    
+    static size_t RequiredSize(uint32_t bytecode_bytes_size) {
+        return sizeof(NyBytecodeArray) + bytecode_bytes_size * sizeof(buf_[0]);
+    }
+    
+    DEF_HEAP_OBJECT(BytecodeArray);
+private:
+    NyInt32Array *source_lines_; // [strong ref]
+    uint32_t bytecode_bytes_size_;
+    Byte buf_[0];
+}; // class NyBytecodeArray
     
 // This object only in code area of heap
 class NyCode final : public NyObject {
@@ -124,13 +158,17 @@ public:
     static const int32_t kOffsetInstructionsBytesSize;
     static const int32_t kOffsetInstructions;
 
-    NyCode(Kind kind, const uint8_t *instructions, uint32_t instructions_bytes_size);
+    NyCode(Kind kind, NyInt32Array *source_lines, const uint8_t *instructions,
+           uint32_t instructions_bytes_size, NyaaCore *N);
     
+    DEF_PTR_GETTER(NyInt32Array, source_lines);
     DEF_VAL_GETTER(Kind, kind);
     DEF_VAL_GETTER(uint32_t, instructions_bytes_size);
     Address entry_address() { return instructions_; }
 
-    void Iterate(ObjectVisitor *visitor) {/*ignore*/}
+    void Iterate(ObjectVisitor *visitor) {
+        visitor->VisitPointer(this, reinterpret_cast<Object **>(&source_lines_));
+    }
     
     size_t PlacedSize() const { return RequiredSize(instructions_bytes_size_); }
     
@@ -138,6 +176,7 @@ public:
         return sizeof(NyCode) + instructions_bytes_size * sizeof(instructions_[0]);
     }
 private:
+    NyInt32Array *source_lines_; // [strong ref]
     Kind kind_;
     uint32_t instructions_bytes_size_;
     Byte instructions_[0];
@@ -206,7 +245,6 @@ private:
 class NyDelegated final : public NyRunnable {
 public:
     using Kind = DelegatedKind;
-    using FunctionCallbackApiFP = void (*)(const FunctionCallbackInfo<Value> &);
     using FunctionCallbackFP = void (*)(const FunctionCallbackInfo<Object> &);
     
     NyDelegated(Kind kind, Address fp, uint32_t n_upvals)

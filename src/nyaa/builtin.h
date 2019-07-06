@@ -27,6 +27,7 @@ class Nyaa;
     V(Int) \
     V(String) \
     V(ByteArray) \
+    V(BytecodeArray) \
     V(Int32Array) \
     V(Array) \
     V(Table) \

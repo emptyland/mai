@@ -37,7 +37,7 @@ const int32_t NyThread::kOffsetNaStBKSize = Template::OffsetOf(&NyThread::nast_b
 const int32_t CodeContextBundle::kOffsetNaStTP = Template::OffsetOf(&CodeContextBundle::nast_tp_);
 const int32_t CodeContextBundle::kOffsetNaStBP = Template::OffsetOf(&CodeContextBundle::nast_bp_);
     
-void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, NyArray *kpool,
+void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyObject *exec, NyArray *kpool,
                       int wanted, size_t bp, size_t tp, NyMap *env) {
     DCHECK_NE(this, owns->frame_);
 
@@ -49,7 +49,8 @@ void CallFrame::Enter(NyThread *owns, NyRunnable *callee, NyByteArray *bcbuf, Ny
 
     compact_file_info_ = owns->owns_->stub()->compact_source_line_info();
     callee_     = DCHECK_NOTNULL(callee);
-    bcbuf_      = bcbuf;
+    DCHECK(!exec || exec->IsCode() || exec->IsBytecodeArray());
+    exec_       = exec;
     const_pool_ = kpool;
     env_        = DCHECK_NOTNULL(env);
     wanted_     = wanted;
@@ -74,9 +75,12 @@ void CallFrame::Exit(NyThread *owns) {
     owns->frame_ = prev_;
 }
     
-std::tuple<NyString *, NyInt32Array *> CallFrame::FileInfo() const {
+std::tuple<NyString *, NyInt32Array *> CallFrame::SourceLines() const {
     if (NyClosure *ob = callee_->ToClosure()) {
-        return { ob->proto()->file_name(), ob->proto()->file_info() };
+        NyInt32Array *source_lines = ob->proto()->IsInterpretationExec() ?
+            DCHECK_NOTNULL(bcbuf_)->source_lines() :
+            DCHECK_NOTNULL(code_)->source_lines();
+        return { ob->proto()->file_name(), source_lines };
     } else {
         return { nullptr, nullptr };
     }
@@ -84,7 +88,7 @@ std::tuple<NyString *, NyInt32Array *> CallFrame::FileInfo() const {
 
 void CallFrame::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&callee_));
-    visitor->VisitRootPointer(reinterpret_cast<Object **>(&bcbuf_));
+    visitor->VisitRootPointer(&exec_);
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&const_pool_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&env_));
 }
@@ -205,7 +209,7 @@ void NyThread::Raise(NyString *msg, Object *ex) {
     while (x) {
         NyInt32Array *file_info;
         NyString *file_name;
-        std::tie(file_name, file_info) = x->FileInfo();
+        std::tie(file_name, file_info) = x->SourceLines();
 
         NyString *line = nullptr;
         if (file_info) {
@@ -352,8 +356,9 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *e
     int rv = -1;
     CallFrame *frame = new CallFrame;
     if (NyClosure *fn = rb->ToClosure()) {
-        NyByteArray *bcbuf = fn->proto()->IsInterpretationExec() ? fn->proto()->bcbuf() : nullptr;
-        frame->Enter(this, fn, bcbuf, fn->proto()->const_pool(),
+//        NyBytecodeArray *bcbuf = fn->proto()->IsInterpretationExec() ?
+//            fn->proto()->bcbuf() : nullptr;
+        frame->Enter(this, fn, fn->proto()->exec(), fn->proto()->const_pool(),
                      wanted, /* wanted */
                      top, /* frame_bp */
                      top + fn->proto()->max_stack() /* frame_tp */,
@@ -474,7 +479,7 @@ int NyThread::Run() {
     }
 
     state_ = kRunning;
-    while (frame_->pc() < frame_->bcbuf()->size()) {
+    while (frame_->pc() < frame_->bcbuf()->bytecode_bytes_size()) {
         Bytecode::ID id = static_cast<Bytecode::ID>(frame_->BC());
         int scale = 0;
         switch (id) {
@@ -1070,10 +1075,10 @@ int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted, int trac
             }
             
             CallFrame *frame = new CallFrame(trace_id);
-            NyByteArray *bcbuf =
-                callee->proto()->IsInterpretationExec() ? callee->proto()->bcbuf(): nullptr;
+//            NyBytecodeArray *bcbuf =
+//                callee->proto()->IsInterpretationExec() ? callee->proto()->bcbuf(): nullptr;
             frame->Enter(this, callee,
-                         bcbuf,
+                         callee->proto()->exec(),
                          callee->proto()->const_pool(),
                          wanted,
                          base_p + 1, /*frame_bp*/
@@ -1230,19 +1235,19 @@ int NyThread::ParseBytecodeInt32Params(int offset, int scale, int n, ...) {
 }
 
 int NyThread::ParseBytecodeSize(int offset) {
-    Bytecode::ID first = static_cast<Bytecode::ID>(frame_->bcbuf()->Get(offset));
+    Bytecode::ID first = static_cast<Bytecode::ID>(frame_->bcbuf()->byte(offset));
     int scale = 0;
     int size = 0;
     switch (first) {
         case Bytecode::kDouble:
             scale = 2;
             size = 2;
-            first = static_cast<Bytecode::ID>(frame_->bcbuf()->Get(offset + 1));
+            first = static_cast<Bytecode::ID>(frame_->bcbuf()->byte(offset + 1));
             break;
         case Bytecode::kQuadruple:
             scale = 4;
             size = 2;
-            first = static_cast<Bytecode::ID>(frame_->bcbuf()->Get(offset + 1));
+            first = static_cast<Bytecode::ID>(frame_->bcbuf()->byte(offset + 1));
             break;
         default:
             scale = 1;

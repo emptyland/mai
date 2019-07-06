@@ -92,7 +92,7 @@ public:
     
             auto buf = fun_scope.masm_.buf();
             Handle<NyCode> code =
-                core_->factory()->NewCode(NyCode::kFunction,
+                core_->factory()->NewCode(NyCode::kFunction, *info,
                                           reinterpret_cast<const uint8_t *>(buf.data()), buf.size());
             Handle<NyArray> kpool = fun_scope.kpool()->Build(core_);
             Handle<NyArray> fpool = fun_scope.BuildProtos(core_);
@@ -103,7 +103,7 @@ public:
                                                   fun_scope.upval_desc_size() /*n_upvals*/,
                                                   fun_scope.max_stack(),
                                                   file_name_.is_empty() ? nullptr : *file_name_,
-                                                  *info, *code, *fpool, *kpool);
+                                                  *code, *fpool, *kpool);
             size_t i = 0;
             for (auto upval : fun_scope.upval_desc()) {
                 NyString *name = core_->factory()->NewString(upval.name->data(), upval.name->size());
@@ -1316,7 +1316,7 @@ Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root
     info = info->Add(scope.line_info_.data(), scope.line_info_.size(), core);
 
     auto buf = scope.masm_.buf();
-    Handle<NyCode> code = core->factory()->NewCode(NyCode::kFunction,
+    Handle<NyCode> code = core->factory()->NewCode(NyCode::kFunction, *info,
                                                    reinterpret_cast<const uint8_t *>(buf.data()),
                                                    buf.size());
     Handle<NyArray> kpool = scope.kpool()->Build(core);
@@ -1324,8 +1324,7 @@ Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root
     Handle<NyFunction> result =
         core->factory()->NewFunction(nullptr/*name*/, 0/*nparams*/, true/*vargs*/, 0/*n_upvals*/,
                                      scope.max_stack(), *file_name,/*source file name*/
-                                     *info,/*source info */ *code,/*exec object*/
-                                     *fpool/*proto_pool*/, *kpool);
+                                     *code,/*exec object*/ *fpool/*proto_pool*/, *kpool);
     return handle_scope.CloseAndEscape(result);
 }
 

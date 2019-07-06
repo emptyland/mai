@@ -21,22 +21,20 @@ const int32_t NyFunction::kOffsetCode = Template::OffsetOf(&NyFunction::code_);
 const int32_t NyFunction::kOffsetBcbuf = Template::OffsetOf(&NyFunction::bcbuf_);
 
 NyFunction::NyFunction(NyString *name, uint8_t n_params, bool vargs, uint32_t n_upvals,
-                       uint32_t max_stack, NyString *file_name, NyInt32Array *file_info,
-                       NyObject *exec, NyArray *proto_pool, NyArray *const_pool, NyaaCore *N)
+                       uint32_t max_stack, NyString *file_name, NyObject *exec, NyArray *proto_pool,
+                       NyArray *const_pool, NyaaCore *N)
     : name_(name)
     , n_params_(n_params)
     , vargs_(vargs)
     , n_upvals_(n_upvals)
     , max_stack_(max_stack)
     , file_name_(file_name)
-    , file_info_(file_info)
     , exec_(exec)
     , proto_pool_(proto_pool)
     , const_pool_(const_pool) {
-    DCHECK(exec->IsByteArray() || exec->IsCode());
+    DCHECK(exec->IsBytecodeArray() || exec->IsCode());
     N->BarrierWr(this, &name_, name);
     N->BarrierWr(this, &file_name_, file_name);
-    N->BarrierWr(this, &file_info_, file_info);
     N->BarrierWr(this, &exec_, exec);
     N->BarrierWr(this, &proto_pool_, proto_pool);
     N->BarrierWr(this, &const_pool_, const_pool);
@@ -60,7 +58,6 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&name_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&exec_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_name_));
-    visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_info_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&proto_pool_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&const_pool_));
     for (uint32_t i = 0; i < n_upvals_; ++i) {
@@ -90,7 +87,19 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
     N->set_max_trace_id(result.next_trace_id);
     return CodeGen::Generate(N->factory()->NewString(file_name), result.block, &arena, N);
 }
-    
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyCode:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+NyBytecodeArray::NyBytecodeArray(NyInt32Array *source_lines, Address bytecodes,
+                                 uint32_t bytecode_bytes_size, NyaaCore *N)
+    : source_lines_(source_lines)
+    , bytecode_bytes_size_(bytecode_bytes_size) {
+    N->BarrierWr(this, &source_lines_, source_lines);
+        
+    ::memcpy(buf_, bytecodes, bytecode_bytes_size);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// class NyCode:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -99,9 +108,12 @@ const int32_t NyCode::kOffsetKind = Template::OffsetOf(&NyCode::kind_);
 const int32_t NyCode::kOffsetInstructionsBytesSize = Template::OffsetOf(&NyCode::instructions_bytes_size_);
 const int32_t NyCode::kOffsetInstructions = Template::OffsetOf(&NyCode::instructions_);
     
-NyCode::NyCode(Kind kind, const uint8_t *instructions, uint32_t instructions_bytes_size)
+NyCode::NyCode(Kind kind, NyInt32Array *source_lines, const uint8_t *instructions,
+               uint32_t instructions_bytes_size, NyaaCore *N)
     : kind_(kind)
+    , source_lines_(source_lines)
     , instructions_bytes_size_(instructions_bytes_size) {
+    N->BarrierWr(this, &source_lines_, source_lines);
     ::memcpy(instructions_, instructions, instructions_bytes_size);
 }
 

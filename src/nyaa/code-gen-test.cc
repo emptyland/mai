@@ -47,7 +47,8 @@ TEST_F(NyaaCodeGenTest, Sanity) {
     Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
     
     std::string buf;
-    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
+    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->bcbuf()->source_lines(), &buf,
+                                           512);
 
     static const char *z =
         "[000] LoadNil 0 3 ; line: 0\n"
@@ -73,7 +74,8 @@ TEST_F(NyaaCodeGenTest, VarInitializer) {
     Handle<NyFunction> script(CodeGen::Generate(Handle<NyString>::Null(), block, &arena_, core_));
 
     std::string buf;
-    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
+    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->bcbuf()->source_lines(), &buf,
+                                           512);
     static const char z[] = {
         "[000] LoadConst 0 0 ; line: 0\n"
         "[003] LoadGlobal 1 1 ; line: 0\n"
@@ -133,7 +135,8 @@ TEST_F(NyaaCodeGenTest, ReturnCallingInCall) {
         "[017] Ret 0 0 ; line: 0\n"
     };
     std::string buf;
-    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 512);
+    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->bcbuf()->source_lines(), &buf,
+                                           512);
     ASSERT_EQ(z, buf);
 }
     
@@ -292,7 +295,8 @@ TEST_F(NyaaCodeGenTest, CallRaise) {
     ASSERT_EQ(2, script->max_stack());
     
     std::string buf;
-    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->file_info(), &buf, 1024);
+    BytecodeArrayDisassembler::Disassembly(script->bcbuf(), script->bcbuf()->source_lines(), &buf,
+                                           1024);
     //puts(buf.c_str());
     ASSERT_EQ(z, buf);
 }

@@ -214,9 +214,7 @@ public:
             node->value()->Accept(this, &bix);
             builder()->Ret(IVal::Local(0), 0);
 
-            Handle<NyByteArray> bcbuf;
-            Handle<NyInt32Array> info;
-            std::tie(bcbuf, info) = fun_scope.builder_.Build(core_);
+            Handle<NyBytecodeArray> bcbuf = fun_scope.builder_.Build(core_);
             Handle<NyArray> kpool = fun_scope.kpool()->Build(core_);
             Handle<NyArray> fpool = fun_scope.BuildProtos(core_);
             
@@ -226,7 +224,7 @@ public:
                                                   fun_scope.upval_desc_size() /*n_upvals*/,
                                                   fun_scope.max_stack(),
                                                   file_name_.is_empty() ? nullptr : *file_name_,
-                                                  *info, *bcbuf, *fpool, *kpool);
+                                                  *bcbuf, *fpool, *kpool);
             size_t i = 0;
             for (auto upval : fun_scope.upval_desc()) {
                 NyString *name = core_->factory()->NewString(upval.name->data(), upval.name->size());
@@ -500,18 +498,15 @@ Handle<NyFunction> Bytecode_CodeGenerate(Handle<NyString> file_name, ast::Block 
     FunctionScopeBundle scope(&visitor);
     root->Accept(&visitor, nullptr);
     
-    Handle<NyByteArray> bcbuf;
-    Handle<NyInt32Array> info;
     scope.builder_.Ret(IVal::Local(0), 0); // last return
-    std::tie(bcbuf, info) = scope.builder_.Build(core);
+    Handle<NyBytecodeArray> bcbuf = scope.builder_.Build(core);
     Handle<NyArray> kpool = scope.kpool()->Build(core);
     Handle<NyArray> fpool = scope.BuildProtos(core);
     
     Handle<NyFunction> result =
         core->factory()->NewFunction(nullptr/*name*/, 0/*nparams*/, true/*vargs*/, 0/*n_upvals*/,
                                      scope.max_stack(), *file_name,/*source file name*/
-                                     *info,/*source info */ *bcbuf,/*exec object*/
-                                     *fpool/*proto_pool*/, *kpool);
+                                     *bcbuf,/*exec object*/ *fpool/*proto_pool*/, *kpool);
     return handle_scope.CloseAndEscape(result);
 }
     

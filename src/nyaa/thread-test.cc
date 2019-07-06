@@ -45,9 +45,11 @@ public:
         bcbuf->Add(0, core_); // ret offset+0, 4
         bcbuf->Add(4, core_);
         
+        Handle<NyBytecodeArray> bca(core_->factory()->NewBytecodeArray(nullptr, bcbuf->buf(),
+                                                                       bcbuf->size()));
         Handle<NyFunction> fn =
         factory_->NewFunction(nullptr/*name*/, 0/*n_params*/, false/*vargs*/, 0/*n_upvals*/,
-                              4/*max_stack*/, nullptr/*file_name*/, nullptr/*file_info*/, *bcbuf,
+                              4/*max_stack*/, nullptr/*file_name*/, *bca,
                               nullptr/*proto_pool*/, nullptr/*const_pool*/);
         core_->SetGlobal(factory_->NewString(name), factory_->NewClosure(*fn));
         return fn;
@@ -71,9 +73,11 @@ public:
         bcbuf->Add(0, core_); // ret offset+0, -1
         bcbuf->Add(-1, core_);
         
+        Handle<NyBytecodeArray> bca(core_->factory()->NewBytecodeArray(nullptr, bcbuf->buf(),
+                                                                       bcbuf->size()));
         Handle<NyFunction> fn =
         factory_->NewFunction(nullptr/*name*/, 0/*n_params*/, false/*vargs*/, 0/*n_upvals*/,
-                              4/*max_stack*/, nullptr/*file_name*/, nullptr/*file_info*/, *bcbuf,
+                              4/*max_stack*/, nullptr/*file_name*/, *bca,
                               nullptr/*proto_pool*/, *pool/*const_pool*/);
         core_->SetGlobal(factory_->NewString(name), factory_->NewClosure(*fn));
         return fn;
@@ -87,9 +91,11 @@ public:
     }
     
     Handle<NyClosure> NewClosure(Handle<NyByteArray> bcbuf, Handle<NyArray> kpool) {
+        Handle<NyBytecodeArray> bca(core_->factory()->NewBytecodeArray(nullptr, bcbuf->buf(),
+                                                                       bcbuf->size()));
         Handle<NyFunction> fn =
         factory_->NewFunction(nullptr/*name*/, 0/*n_params*/, false/*vargs*/, 0/*n_upvals*/,
-                              4/*max_stack*/, nullptr/*file_name*/, nullptr/*file_info*/, *bcbuf,
+                              4/*max_stack*/, nullptr/*file_name*/, *bca,
                               nullptr/*proto_pool*/, *kpool/*const_pool*/);
         return factory_->NewClosure(*fn);
     }

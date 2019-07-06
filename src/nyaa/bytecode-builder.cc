@@ -10,19 +10,18 @@ namespace mai {
     
 namespace nyaa {
     
-std::tuple<Handle<NyByteArray>, Handle<NyInt32Array>> BytecodeArrayBuilder::Build(NyaaCore *core) {
-    Handle<NyByteArray> bcs = core->factory()->NewByteArray(bcs_.size());
-    if (!bcs) {
-        return {};
-    }
-    bcs->Add(&bcs_[0], bcs_.size(), core);
-    
+Handle<NyBytecodeArray> BytecodeArrayBuilder::Build(NyaaCore *core) {
     Handle<NyInt32Array> info = core->factory()->NewInt32Array(line_info_.size());
     if (!info) {
-        return {};
+        return Handle<NyBytecodeArray>::Empty();
     }
-    info->Add(&line_info_[0], line_info_.size(), core);
-    return {bcs,info};
+    info = info->Add(&line_info_[0], line_info_.size(), core);
+    Handle<NyBytecodeArray> bcs =
+        core->factory()->NewBytecodeArray(*info, reinterpret_cast<Address>(&bcs_[0]), bcs_.size());
+    if (!bcs) {
+        return Handle<NyBytecodeArray>::Empty();
+    }
+    return bcs;
 }
     
 void BytecodeArrayBuilder::Load(IVal a, IVal b, int line) {
@@ -297,7 +296,7 @@ static void PrintFunctionDesc(NyaaCore *core, Handle<NyFunction> script, FILE *f
 void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyFunction> script, FILE *fp) {
     PrintFunctionDesc(core, script, fp);
     fprintf(fp, ".............................\n");
-    Disassembly(script->bcbuf(), script->file_info(), fp);
+    Disassembly(script->bcbuf(), script->bcbuf()->source_lines(), fp);
     
     if (script->proto_pool()) {
         for (size_t i = 0; i < script->proto_pool()->size(); ++i) {
@@ -305,13 +304,13 @@ void BytecodeArrayDisassembler::Disassembly(NyaaCore *core, Handle<NyFunction> s
             fprintf(fp, "-----------------------------\n");
             PrintFunctionDesc(core, proto, fp);
             fprintf(fp, ".............................\n");
-            Disassembly(proto->bcbuf(), proto->file_info(), fp);
+            Disassembly(proto->bcbuf(), proto->bcbuf()->source_lines(), fp);
         }
     }
 }
     
 /*static*/
-void BytecodeArrayDisassembler::Disassembly(Handle<NyByteArray> bcs, Handle<NyInt32Array> info,
+void BytecodeArrayDisassembler::Disassembly(Handle<NyBytecodeArray> bcs, Handle<NyInt32Array> info,
                                             std::string *buf, size_t limit) {
     buf->resize(limit);
     FILE *fp = ::fmemopen(&(*buf)[0], limit, "w");
@@ -324,7 +323,7 @@ void BytecodeArrayDisassembler::Disassembly(Handle<NyByteArray> bcs, Handle<NyIn
 }
 
 /*static*/
-void BytecodeArrayDisassembler::Disassembly(Handle<NyByteArray> bcs, Handle<NyInt32Array> info,
+void BytecodeArrayDisassembler::Disassembly(Handle<NyBytecodeArray> bcs, Handle<NyInt32Array> info,
                                             FILE *fp) {
     BytecodeArrayDisassembler dis(bcs, info, fp);
     dis.Disassembly();
@@ -336,7 +335,7 @@ bool BytecodeArrayDisassembler::ReadNext(BytecodeNode *bc) {
     }
     int scale = 0;
     bc->pc = pc_;
-    Bytecode::ID maybe_prefix = static_cast<Bytecode::ID>(bcs_->Get(pc_++));
+    Bytecode::ID maybe_prefix = static_cast<Bytecode::ID>(bcs_->byte(pc_++));
     switch (maybe_prefix) {
         case Bytecode::kDouble:
             scale = 2;
@@ -353,7 +352,7 @@ bool BytecodeArrayDisassembler::ReadNext(BytecodeNode *bc) {
     if (info_.is_valid()) {
         bc->line = info_->Get(pc_);
     }
-    bc->id = static_cast<Bytecode::ID>(bcs_->Get(pc_++));
+    bc->id = static_cast<Bytecode::ID>(bcs_->byte(pc_++));
     switch (bc->id) {
 #define DEFINE_READ_PARAMS(name, argc, ...) \
         case Bytecode::k##name: \
@@ -370,7 +369,7 @@ bool BytecodeArrayDisassembler::ReadNext(BytecodeNode *bc) {
 }
     
 bool BytecodeArrayDisassembler::IsEnd() const {
-    return pc_ >= bcs_->size();
+    return pc_ >= bcs_->bytecode_bytes_size();
 }
     
 void BytecodeArrayDisassembler::ParseInt32Params(int scale, int n, ...) {

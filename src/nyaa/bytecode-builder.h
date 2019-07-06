@@ -19,6 +19,7 @@ class NyaaCore;
 class ObjectFactory;
 class NyArray;
 class NyByteArray;
+class NyBytecodeArray;
 class NyInt32Array;
 class NyFunction;
 class Object;
@@ -66,7 +67,7 @@ public:
     BytecodeArrayBuilder() {}
     ~BytecodeArrayBuilder() {}
 
-    std::tuple<Handle<NyByteArray>, Handle<NyInt32Array>> Build(NyaaCore *core);
+    Handle<NyBytecodeArray> Build(NyaaCore *core);
     
     void Load(IVal a, IVal b, int line = 0);
     
@@ -327,7 +328,7 @@ private:
 
 class BytecodeArrayDisassembler {
 public:
-    BytecodeArrayDisassembler(Handle<NyByteArray> bcs, Handle<NyInt32Array> info, FILE *fp)
+    BytecodeArrayDisassembler(Handle<NyBytecodeArray> bcs, Handle<NyInt32Array> info, FILE *fp)
         : bcs_(bcs)
         , info_(info)
         , fp_(DCHECK_NOTNULL(fp)) {}
@@ -339,9 +340,9 @@ public:
 
     static void Disassembly(NyaaCore *core, Handle<NyFunction> script, FILE *fp);
 
-    static void Disassembly(Handle<NyByteArray> bcs, Handle<NyInt32Array> info, std::string *buf,
+    static void Disassembly(Handle<NyBytecodeArray> bcs, Handle<NyInt32Array> info, std::string *buf,
                             size_t limit);
-    static void Disassembly(Handle<NyByteArray> bcs, Handle<NyInt32Array> info, FILE *fp);
+    static void Disassembly(Handle<NyBytecodeArray> bcs, Handle<NyInt32Array> info, FILE *fp);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArrayDisassembler);
 private:
@@ -359,7 +360,7 @@ private:
     bool IsEnd() const;
     void ParseInt32Params(int scale, int n, ...);
 
-    Handle<NyByteArray> bcs_;
+    Handle<NyBytecodeArray> bcs_;
     Handle<NyInt32Array> info_;
     FILE *fp_;
     uint32_t pc_ = 0;

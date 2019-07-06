@@ -113,10 +113,16 @@ public:
         return ob;
     }
     
+    virtual NyBytecodeArray *NewBytecodeArray(NyInt32Array *source_lines, Address bytecodes,
+                                              size_t bytecode_bytes_size, bool old) override {
+        // TODO:
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+    
     virtual NyFunction *NewFunction(NyString *name, size_t n_params, bool vargs, size_t n_upvals,
-                                    size_t max_stack, NyString *file_name, NyInt32Array *file_info,
-                                    NyObject *exec, NyArray *proto_pool, NyArray *const_pool,
-                                    bool old) override {
+                                    size_t max_stack, NyString *file_name, NyObject *exec,
+                                    NyArray *proto_pool, NyArray *const_pool, bool old) override {
         DCHECK_LE(n_params, UINT8_MAX);
         DCHECK_LE(n_upvals, UINT32_MAX);
         DCHECK_LE(max_stack, UINT32_MAX);
@@ -127,7 +133,6 @@ public:
                                          static_cast<uint32_t>(n_upvals),
                                          static_cast<uint32_t>(max_stack),
                                          file_name,
-                                         file_info,
                                          exec,
                                          proto_pool,
                                          const_pool,
@@ -137,7 +142,7 @@ public:
         return ob;
     }
 
-    virtual NyCode *NewCode(int kind, const uint8_t *instructions,
+    virtual NyCode *NewCode(int kind, NyInt32Array *source_lines, const uint8_t *instructions,
                             size_t instructions_byte_size) override {
         // TODO:
         DLOG(FATAL) << "Noreached!";

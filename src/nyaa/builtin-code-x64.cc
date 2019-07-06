@@ -296,7 +296,7 @@ void CallRuntime(Assembler *masm, NyaaCore *N, Runtime::ExternalLink sym, bool m
 }
     
 static NyCode *BuildCode(const std::string &buf, NyaaCore *N) {
-    NyCode *code = N->factory()->NewCode(NyCode::kStub,
+    NyCode *code = N->factory()->NewCode(NyCode::kStub, nullptr,
                                          reinterpret_cast<const uint8_t *>(buf.data()), buf.size());
     return code;
 }

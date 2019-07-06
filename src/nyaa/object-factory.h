@@ -20,6 +20,7 @@ class NyMap;
 class NyTable;
 class NyArray;
 class NyByteArray;
+class NyBytecodeArray;
 class NyInt32Array;
 class NyDelegated;
 class NyFunction;
@@ -56,15 +57,18 @@ public:
     
     virtual NyArray *NewArray(size_t capacity, NyArray *base = nullptr, bool old = false) = 0;
     
+    virtual NyBytecodeArray *NewBytecodeArray(NyInt32Array *source_lines, Address bytecodes,
+                                              size_t bytecode_bytes_size, bool old = false) = 0;
+    
     virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, size_t n_upvals = 0,
                                       bool old = false) = 0;
     
     virtual NyFunction *NewFunction(NyString *name, size_t n_params, bool vargs, size_t n_upvals,
-                                    size_t max_stack, NyString *file_name, NyInt32Array *file_info,
-                                    NyObject *exec, NyArray *proto_pool, NyArray *const_pool,
-                                    bool old = false) = 0;
+                                    size_t max_stack, NyString *file_name, NyObject *exec,
+                                    NyArray *proto_pool, NyArray *const_pool, bool old = false) = 0;
 
-    virtual NyCode *NewCode(int kind, const uint8_t *instructions, size_t instructions_byte_size) = 0;
+    virtual NyCode *NewCode(int kind, NyInt32Array *source_lines, const uint8_t *instructions,
+                            size_t instructions_byte_size) = 0;
     
     virtual NyClosure *NewClosure(NyFunction *proto, bool old = false) = 0;
     

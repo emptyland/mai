@@ -218,7 +218,7 @@ TEST_F(NyaaValuesTest, CodeObject) {
     __ addl(rax, kRegArgv[1]);
     __ ret(0);
     
-    auto code = factory_->NewCode(NyCode::kOptimizedFunction,
+    auto code = factory_->NewCode(NyCode::kOptimizedFunction, nullptr,
                                   reinterpret_cast<const uint8_t *>(masm.buf().data()),
                                   masm.buf().size());
     CallStub<int (int, int)> stub(code);
