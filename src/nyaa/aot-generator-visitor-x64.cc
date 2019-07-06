@@ -1274,13 +1274,13 @@ private:
             __ movq(r1, Local(v1.index));
         }
         if (fallback) {
-            __ testq(r1, 0x1);
+            __ testq(r1, 0x1); // is not smi?
             __ UnlikelyJ(Zero, fallback, true/*far*/);
         }
     }
     
     void LoadLocalOrConst(Register r1, IVal v1, Register r2, IVal v2, Label *fallback) {
-        LoadLocalOrConst(r1, v1, fallback, v2.kind == IVal::kConst);
+        LoadLocalOrConst(r1, v1, nullptr, v2.kind == IVal::kConst);
         DCHECK_NE(r1.code(), r2.code());
         if (v2.kind == IVal::kConst) {
             __ movq(r2, ArrayAt(kScratch, v2.index));
@@ -1288,7 +1288,9 @@ private:
             __ movq(r2, Local(v2.index));
         }
         if (fallback) {
-            __ testq(r2, 0x1);
+            __ testq(r1, 0x1); // is not smi?
+            __ UnlikelyJ(Zero, fallback, true/*far*/);
+            __ testq(r2, 0x1); // is not smi?
             __ UnlikelyJ(Zero, fallback, true/*far*/);
         }
     }

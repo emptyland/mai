@@ -720,8 +720,7 @@ public:
     virtual IVal VisitForStepLoop(ast::ForStepLoop *node, ast::VisitorContext *x) override {
         WritePrefix(node);
         WriteInt(node->end_line());
-        WriteInt(node->trace_id1());
-        WriteInt(node->trace_id2());
+        WriteInt(node->trace_id_base()); // only need base of trace_id
         WriteString(node->name());
         WriteNode(node->init());
         WriteByte(node->is_until());
@@ -1064,7 +1063,8 @@ public:
     
     ast::ForStepLoop *ReadForStepLoop(int line) {
         int end_line = ReadInt();
-        return factory_->NewForStepLoop(ReadInt(), ReadInt(), ReadString(), ReadExpr(), ReadBool(),
+        int next_trace_id = ReadInt();
+        return factory_->NewForStepLoop(&next_trace_id, ReadString(), ReadExpr(), ReadBool(),
                                         ReadExpr(), ReadExprOptional(), ReadBlock(),
                                         Location(line, end_line));
     }

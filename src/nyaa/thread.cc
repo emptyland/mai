@@ -356,8 +356,6 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *e
     int rv = -1;
     CallFrame *frame = new CallFrame;
     if (NyClosure *fn = rb->ToClosure()) {
-//        NyBytecodeArray *bcbuf = fn->proto()->IsInterpretationExec() ?
-//            fn->proto()->bcbuf() : nullptr;
         frame->Enter(this, fn, fn->proto()->exec(), fn->proto()->const_pool(),
                      wanted, /* wanted */
                      top, /* frame_bp */
@@ -959,6 +957,7 @@ int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
         DCHECK_GE(frame_->trace_id(), 0);
         owns_->TraceCalling(frame_->trace_id(), rets, frame_->wanted() < 0 ? nrets : frame_->wanted());
     }
+    DCHECK_NOTNULL(frame_->proto())->IncreaseCalledCount();
 
     auto outter = frame_;
     outter->Exit(this);

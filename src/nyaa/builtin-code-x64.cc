@@ -131,12 +131,13 @@ static void BuildEntryTrampoline(Assembler *masm, NyaaCore *N) {
 //
 // protptype: void entry(int32_t callee, int32_t nargs, int32_t wanted, int32_t trace_id)
 static void BuildCallStub(Assembler *masm, NyaaCore *N) {
-    static constexpr int32_t kSavedSize = 32;
+    static constexpr int32_t kSavedSize = 48;
     static const Operand kSavedBP(rbp, -kPointerSize);
     static const Operand kArgCallee(rbp, -kPointerSize - 8);
     static const Operand kArgNArgs(rbp, -kPointerSize - 12);
     static const Operand kArgWanted(rbp, -kPointerSize - 16);
     static const Operand kArgTraceId(rbp, -kPointerSize - 20);
+    static const Operand kSavedRet(rbp, -kPointerSize - 24);
 
     __ pushq(rbp);
     __ movq(rbp, rsp);
@@ -186,16 +187,22 @@ static void BuildCallStub(Assembler *masm, NyaaCore *N) {
     __ lea(rax, Operand(rax, NyCode::kOffsetInstructions));
     // TODO: use call stub
     __ call(rax); // call generated native function
+    __ movl(kSavedRet, rax);
     
     //----------------------------------------------------------------------------------------------
     // Post GC
+    Label exit;
+    __ rdrand(rbx);
+    __ testq(rbx, 0x3);
+    __ UnlikelyJ(NotZero, &exit, true);
+    
     __ movq(kRegArgv[0], kCore);
     __ movq(kRegArgv[1], 0);
     __ movl(kRegArgv[2], 0);
     CallRuntime(masm, N, Runtime::kNyaaCore_GarbageCollectionSafepoint);
     //----------------------------------------------------------------------------------------------
     
-    Label exit;
+    __ movl(rax, kSavedRet);
     __ jmp(&exit, true);
     
     __ Bind(&fallback);

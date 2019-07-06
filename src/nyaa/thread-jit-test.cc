@@ -41,6 +41,37 @@ TEST_F(NyaaThreadJITTest, BranchProfiling) {
         << try_catch.ToString();
     ASSERT_FALSE(try_catch.has_caught()) << try_catch.ToString();
 }
+    
+TEST_F(NyaaThreadJITTest, CallingProfiling) {
+    static const char s[] = {
+        "def foo() { return 1 }\n"
+        "foo()\n"
+        "def bar() { return 1, 2 }\n"
+        "return bar()\n"
+    };
+    
+    HandleScope scope(N_);
+    TryCatchCore try_catch(core_);
+    auto script = NyClosure::Compile(s, core_);
+    ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+    EXPECT_EQ(2, script->Call(nullptr, 0, 0, core_)) << try_catch.ToString();
+    
+    auto profiler = core_->profiler();
+    ASSERT_TRUE(profiler.find(1) != profiler.end());
+    auto slot = profiler[1];
+    ASSERT_EQ(ProfileSlot::kCalling, slot.kind);
+    ASSERT_EQ(1, slot.hit);
+    ASSERT_EQ(1, slot.nrets);
+    ASSERT_EQ(kTypeSmi, slot.ret);
+    
+    ASSERT_TRUE(profiler.find(3) != profiler.end());
+    slot = profiler[3];
+    ASSERT_EQ(ProfileSlot::kCalling, slot.kind);
+    ASSERT_EQ(1, slot.hit);
+    ASSERT_EQ(2, slot.nrets);
+    ASSERT_EQ(kTypeSmi, slot.rets[0]);
+    ASSERT_EQ(kTypeSmi, slot.rets[1]);
+}
 
 }
 

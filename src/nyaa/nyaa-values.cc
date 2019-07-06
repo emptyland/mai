@@ -1076,7 +1076,8 @@ Object *NyInt::Shr(Object *rhs, NyaaCore *N) const {
             n = static_cast<int>(NyFloat64::Cast(rhs)->value());
             break;
         default:
-            N->Raisef("incorrect type %s attempt shr.", kBuiltinTypeName[GetType()]);
+            N->Raisef("incorrect type %s(%s) attempt shr.", kBuiltinTypeName[rhs->GetType()],
+                      rhs->ToString(N)->bytes());
             return Object::kNil;
     }
     return UnboxIfNeed(Clone(N->factory())->Shr(n, N));

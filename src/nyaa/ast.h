@@ -271,6 +271,7 @@ private:
     
 class ForStepLoop : public Loop {
 public:
+    int trace_id_base() const { return trace_id1(); }
     DEF_VAL_GETTER(int, trace_id1);
     DEF_VAL_GETTER(int, trace_id2);
     DEF_PTR_GETTER_NOTNULL(const ast::String, name);
@@ -837,11 +838,12 @@ public:
         return new (arena_) ForIterateLoop(loc.begin_line, loc.end_line, trace_id, names, init, body);
     }
 
-    ForStepLoop *NewForStepLoop(int trace_id1, int trace_id2, const ast::String *name,
-                                Expression *init, bool is_until, Expression *limit,
-                                Expression *step, Block *body, const Location &loc = Location{}) {
-        return new (arena_) ForStepLoop(loc.begin_line, loc.end_line, trace_id1, trace_id2, name,
-                                        init, is_until, limit, step, body);
+    ForStepLoop *NewForStepLoop(int *next_trace_id, const ast::String *name, Expression *init,
+                                bool is_until, Expression *limit, Expression *step, Block *body,
+                                const Location &loc = Location{}) {
+        return new (arena_) ForStepLoop(loc.begin_line, loc.end_line, (*next_trace_id)++,
+                                        (*next_trace_id)++, name, init, is_until, limit, step,
+                                        body);
     }
 
     NilLiteral *NewNilLiteral(const Location &loc = Location{}) {

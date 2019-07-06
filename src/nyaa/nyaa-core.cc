@@ -49,7 +49,7 @@ NyaaCore::NyaaCore(Nyaa *stub)
 NyaaCore::~NyaaCore() {
     for (auto pair : profiler_) {
         ProfileSlot *slot = &pair.second;
-        if (slot->kind == ProfileSlot::kCalling && slot->n > 1) {
+        if (slot->kind == ProfileSlot::kCalling && slot->nrets > 1) {
             ::free(slot->rets);
         }
     }
@@ -311,14 +311,14 @@ void NyaaCore::TraceCalling(int trace_id, Object **rets, size_t n) {
         ProfileSlot slot;
         slot.kind = ProfileSlot::kCalling;
         slot.hit  = 1;
-        slot.n    = static_cast<int32_t>(n);
+        slot.nrets    = static_cast<int32_t>(n);
         UpdateRets(&slot, rets, n);
         profiler_.insert({trace_id, slot});
     } else {
         ProfileSlot *slot = &iter->second;
         DCHECK_EQ(ProfileSlot::kCalling, slot->kind);
         slot->hit++;
-        if (slot->n > 1) {
+        if (slot->nrets > 1) {
             ::free(slot->rets);
         }
         UpdateRets(slot, rets, n);
@@ -335,7 +335,7 @@ void NyaaCore::PurgeProfilerIfNeeded() {
         ProfileSlot *slot = &pair.second;
         if (slot->hit <= profiling_level_) {
             for_clean.insert(pair.first);
-            if (slot->kind == ProfileSlot::kCalling && slot->n > 1) {
+            if (slot->kind == ProfileSlot::kCalling && slot->nrets > 1) {
                 ::free(slot->rets);
             }
         }

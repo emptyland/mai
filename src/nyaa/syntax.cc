@@ -1896,7 +1896,7 @@ yyreduce:
   case 27:
 #line 177 "syntax.y"
     {
-    (yyval.stmt) = ctx->factory->NewForStepLoop(NEXT_TRACE_ID, NEXT_TRACE_ID, (yyvsp[-6].name), (yyvsp[-4].expr), false, (yyvsp[-2].expr), nullptr, (yyvsp[0].block), Location::Concat((yylsp[-8]), (yylsp[0])));
+    (yyval.stmt) = ctx->factory->NewForStepLoop(&ctx->next_trace_id, (yyvsp[-6].name), (yyvsp[-4].expr), false, (yyvsp[-2].expr), nullptr, (yyvsp[0].block), Location::Concat((yylsp[-8]), (yylsp[0])));
 }
 #line 1902 "syntax.cc"
     break;
@@ -1904,7 +1904,7 @@ yyreduce:
   case 28:
 #line 180 "syntax.y"
     {
-    (yyval.stmt) = ctx->factory->NewForStepLoop(NEXT_TRACE_ID, NEXT_TRACE_ID, (yyvsp[-6].name), (yyvsp[-4].expr), true,  (yyvsp[-2].expr), nullptr, (yyvsp[0].block), Location::Concat((yylsp[-8]), (yylsp[0])));
+    (yyval.stmt) = ctx->factory->NewForStepLoop(&ctx->next_trace_id, (yyvsp[-6].name), (yyvsp[-4].expr), true,  (yyvsp[-2].expr), nullptr, (yyvsp[0].block), Location::Concat((yylsp[-8]), (yylsp[0])));
 }
 #line 1910 "syntax.cc"
     break;

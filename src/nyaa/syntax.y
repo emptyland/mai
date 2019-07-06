@@ -175,10 +175,10 @@ ForIterateLoop : FOR NameList IN Expression Block {
 }
 
 ForStepLoop : FOR '(' NAME IN Expression TO Expression ')' Block {
-    $$ = ctx->factory->NewForStepLoop(NEXT_TRACE_ID, NEXT_TRACE_ID, $3, $5, false, $7, nullptr, $9, Location::Concat(@1, @9));
+    $$ = ctx->factory->NewForStepLoop(&ctx->next_trace_id, $3, $5, false, $7, nullptr, $9, Location::Concat(@1, @9));
 }
 | FOR '(' NAME IN Expression UNTIL Expression ')' Block {
-    $$ = ctx->factory->NewForStepLoop(NEXT_TRACE_ID, NEXT_TRACE_ID, $3, $5, true,  $7, nullptr, $9, Location::Concat(@1, @9));
+    $$ = ctx->factory->NewForStepLoop(&ctx->next_trace_id, $3, $5, true,  $7, nullptr, $9, Location::Concat(@1, @9));
 }
 
 ObjectDefinition : OBJECT Attributes NAME '{' MemberList '}' {

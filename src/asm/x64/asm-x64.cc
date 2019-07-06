@@ -308,10 +308,10 @@ void Assembler::test(Register dst, Register src, int size) {
 }
 
 void Assembler::test(Register dst, Immediate mask, int size) {
-    if (IsUintN(mask.value(), 8)) {
-        // testb(reg, mask);
-        return;
-    }
+//    if (IsUintN(mask.value(), 8)) {
+//        // testb(reg, mask);
+//        return;
+//    }
     if (dst == rax) {
         EmitRex(rax, size);
         EmitB(0xA9);

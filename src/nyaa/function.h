@@ -29,7 +29,7 @@ public:
     DEF_VAL_GETTER(uint8_t, n_params);
     DEF_VAL_GETTER(bool, vargs);
     DEF_VAL_GETTER(uint32_t, n_upvals);
-    DEF_VAL_GETTER(uint64_t, call_count);
+    DEF_VAL_GETTER(uint32_t, called_count);
     DEF_VAL_GETTER(uint32_t, max_stack);
     DEF_PTR_GETTER(NyString, name);
     DEF_PTR_GETTER(NyObject, exec);
@@ -70,6 +70,8 @@ public:
         return upvals_[i];
     }
     
+    uint32_t IncreaseCalledCount() { return ++called_count_; }
+    
     void SetUpval(size_t i, NyString *name, bool in_stack, int32_t index,
                   NyaaCore *N);
     
@@ -93,7 +95,7 @@ private:
     bool vargs_;
     uint32_t n_upvals_;
     uint32_t max_stack_;
-    uint64_t call_count_ = 0;
+    uint32_t called_count_ = 0;
     NyString *name_; // [strong ref]
     NyString *file_name_; // [strong ref]
     NyArray *proto_pool_; // [strong ref] internal defined functions.
