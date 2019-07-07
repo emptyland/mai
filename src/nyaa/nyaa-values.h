@@ -614,9 +614,13 @@ private:
         }
     }
     
-    const Entry *GetSlot(Object *key, NyaaCore *N) const { return At(HashVal(key, N) % n_slots() + 1); }
+    inline const Entry *HashSlot(Object *key, NyaaCore *N) const {
+        return entries_ + HashVal(key, N) % n_slots() + 1;
+    }
     
-    Entry *GetSlot(Object *key, NyaaCore *N) { return At(HashVal(key, N) % n_slots() + 1); }
+    inline Entry *HashSlot(Object *key, NyaaCore *N) {
+        return entries_ + HashVal(key, N) % n_slots() + 1;
+    }
 
     inline uint32_t HashVal(Object *key, NyaaCore *N) const;
     

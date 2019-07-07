@@ -30,6 +30,7 @@ namespace nyaa {
             DLOG(FATAL) << "bad scale: " << scale;
             break;
     }
+    return -1;
 }
     
 /*static*/ const char *Bytecode::kNames[] = {

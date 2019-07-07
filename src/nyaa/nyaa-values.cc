@@ -1811,7 +1811,7 @@ std::tuple<Object *, Object *> NyTable::GetFirstPair() {
 }
 
 std::tuple<Object *, Object *> NyTable::GetNextPair(Object *key, NyaaCore *N) {
-    Entry *slot = GetSlot(key, N);
+    Entry *slot = HashSlot(key, N);
     DCHECK(slot >= entries_ + 1);
     Entry *last = entries_ + 1 + n_slots();
     DCHECK(slot < last);
@@ -1881,7 +1881,7 @@ Object *NyTable::RawGet(Object *key, NyaaCore *N) const {
         return kNil;
     }
 
-    const Entry *slot = GetSlot(key, N);
+    const Entry *slot = HashSlot(key, N);
     const Entry *p = slot;
     while (p) {
         if (Object::Equal(key, p->key, N)) {
@@ -1904,7 +1904,7 @@ NyTable *NyTable::Rehash(NyTable *origin, NyaaCore *N) {
 }
     
 bool NyTable::DoDelete(Object *key, NyaaCore *N) {
-    Entry *slot = GetSlot(key, N);
+    Entry *slot = HashSlot(key, N);
     DCHECK(slot >= entries_ + 1);
     DCHECK(slot < entries_ + 1 + n_slots());
     
@@ -1942,10 +1942,10 @@ bool NyTable::DoDelete(Object *key, NyaaCore *N) {
 }
 
 bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
-    Entry *slot = GetSlot(key, N);
+    Entry *slot = HashSlot(key, N);
     DCHECK(slot >= entries_ + 1);
     DCHECK(slot < entries_ + 1 + n_slots());
-    DCHECK_NOTNULL(value);
+    DCHECK(value);
 
     switch (slot->kind) {
         case kFree: {
@@ -1989,10 +1989,6 @@ void NyTable::Iterate(ObjectVisitor *visitor) {
     for (size_t i = 1; i < capacity_ + 1; ++i) {
         Entry *e = entries_ + i;
         if (e->kind != kFree) {
-//            if (NyString *s = NyString::Cast(e->key)) {
-//                printf("iterate: %s\n", s->bytes());
-//            }
-            //printf("table-iterate: %p\n", e->key);
             visitor->VisitPointer(this, &e->key);
             visitor->VisitPointer(this, &e->value);
         }

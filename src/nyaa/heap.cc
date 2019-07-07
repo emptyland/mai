@@ -144,8 +144,7 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
     if (owns_->stub()->nogc()) {
         return;
     }
-    DCHECK_NOTNULL(pzwr);
-    auto addr = reinterpret_cast<Address>(pzwr);
+    auto addr = reinterpret_cast<Address>(DCHECK_NOTNULL(pzwr));
 
     if (val == Object::kNil || !val->IsObject()) {
         auto iter = remember_set_.find(addr);
@@ -214,14 +213,11 @@ Object *Heap::MoveNewObject(Object *addr, size_t size, bool upgrade) {
     Address dst = nullptr;
     if (upgrade) {
         dst = old_space_->AllocateRaw(size);
-        DCHECK_NOTNULL(dst);
-        ::memcpy(dst, addr, size);
+        ::memcpy(DCHECK_NOTNULL(dst), addr, size);
     } else {
         SemiSpace *from_area = new_space_->from_area();
         dst = from_area->AllocateRaw(size);
-        DCHECK_NOTNULL(dst);
-        //printf("move: %p(%lu) <- %p\n", dst, size, addr);
-        ::memcpy(dst, addr, size);
+        ::memcpy(DCHECK_NOTNULL(dst), addr, size);
     }
 
     // Set foward address:
@@ -269,8 +265,7 @@ void Heap::IterateFinalizerRecords(ObjectVisitor *visitor) {
     FinalizerRecord dummy {.next = final_records_};
     FinalizerRecord *prev = &dummy, *p = dummy.next;
     while (p) {
-        DCHECK_NOTNULL(p->host);
-        NyUDO *host = p->host;
+        NyUDO *host = DCHECK_NOTNULL(p->host);
         visitor->VisitPointer(nullptr, reinterpret_cast<Object **>(&p->host));
         if (!p->host) {
             prev->next = p->next;

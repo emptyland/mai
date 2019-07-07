@@ -2,6 +2,7 @@
 #define MAI_NYAA_NYAA_CORE_H_
 
 #include "nyaa/memory.h"
+//#include "nyaa/heap.h"
 #include "asm/utils.h"
 #include "base/base.h"
 #include "mai/error.h"
@@ -89,6 +90,7 @@ public:
     inline V *BarrierWr(NyObject *host, T **pzwr, V *val) {
         T *test = val;
         InternalBarrierWr(host, reinterpret_cast<Object **>(pzwr), test);
+        //heap_->BarrierWr(host, reinterpret_cast<Object **>(pzwr), test);
         return val;
     }
     

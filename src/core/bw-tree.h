@@ -621,8 +621,7 @@ private:
     }
     
     std::tuple<DeltaNode *, size_t> FindGreaterOrEqual(Key key, bool trigger) {
-        DeltaNode *x = Base::GetNode(root_.load());
-        DCHECK_NOTNULL(x);
+        DeltaNode *x = DCHECK_NOTNULL(Base::GetNode(root_.load()));
         while (x) {
             bool found = false;
             size_t idx;
