@@ -26,6 +26,7 @@ class NyThread;
 class ObjectFactory;
 class RootVisitor;
 class StringPool;
+class Profiler;
 
 struct BuiltinStrPool;
 struct BuiltinMetatablePool;
@@ -38,22 +39,6 @@ struct HandleScopeSlot {
     Address          end;
     Address          limit;
 };
-    
-struct ProfileSlot {
-    enum Kind {
-        kBranch,
-        kCalling,
-    };
-    Kind kind;
-    int line; // line of source
-    int32_t nrets; // numbers of nrets
-    uint64_t hit; // total count
-    union {
-        uint64_t true_guard; // branch true guard count
-        int32_t ret; // if nrets <= 1
-        int32_t *rets; // if nrets > 1
-    };
-}; // struct ProfilingSlot
     
 class NyaaCore final {
 public:
@@ -93,9 +78,6 @@ public:
         //heap_->BarrierWr(host, reinterpret_cast<Object **>(pzwr), test);
         return val;
     }
-    
-    int TraceBranchGuard(int trace_id, int value);
-    void TraceCalling(int trace_id, Object **rets, size_t n);
 
     void IterateRoot(RootVisitor *visitor);
     
@@ -117,7 +99,7 @@ public:
     DEF_PTR_GETTER(NyMap, loads);
     DEF_PTR_GETTER(NyThread, main_thd);
     DEF_PTR_PROP_RW(NyThread, curr_thd);
-    const std::unordered_map<int, ProfileSlot> &profiler() const { return profiler_; }
+    Profiler *profiler() const { return profiler_.get(); }
     BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
     StringPool *kz_pool() const { return kz_pool_.get(); }
     BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
@@ -146,12 +128,10 @@ private:
     int32_t recover_point_pc_ = 0; // recover point pc for entry trampoline
     int32_t suspend_point_pc_ = 0; // suspend point pc
     int max_trace_id_ = 0;
-    std::unordered_map<int, ProfileSlot> profiler_; // profiling info
-    uint64_t profiling_level_ = 0; // latest profiling ticks
-    uint64_t profiling_ticks_ = 0; // profiling ticks
     uint64_t next_udo_kid_;
     FILE *logger_;
     std::unique_ptr<RandomGenerator> random_;
+    std::unique_ptr<Profiler> profiler_;
     std::unique_ptr<StringPool> kz_pool_; // elements [weak ref]
     std::unique_ptr<BuiltinStrPool> bkz_pool_; // elements [strong ref]
     std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // elements [strong ref]

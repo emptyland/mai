@@ -797,7 +797,7 @@ public:
         WriteInt(node->trace_id());
         WriteNodeOptional(node->self());
         WriteString(node->name());
-        WriteNode(node->literal());
+        //WriteNode(node->literal()); No need serialize lambda literal
         return IVal::Void();
     }
     virtual IVal VisitBlock(ast::Block *node, ast::VisitorContext *x) override {
@@ -1019,8 +1019,7 @@ public:
     
     ast::FunctionDefinition *ReadFunctionDefinition(int line) {
         return factory_->NewFunctionDefinition(ReadInt(), ReadExprOptional(), ReadString(),
-                                               DCHECK_NOTNULL(LoadNode()->ToLambdaLiteral()),
-                                               Location(line));
+                                               nullptr, Location(line));
     }
     
     ast::LambdaLiteral *ReadLambdaLiteral(int line) {

@@ -6,6 +6,7 @@
 #include "nyaa/builtin.h"
 #include "nyaa/visitors.h"
 #include "nyaa/string-pool.h"
+#include "nyaa/profiling.h"
 #include "nyaa/scavenger.h"
 #include "nyaa/marking-sweep.h"
 #include "nyaa/marking-compaction.h"
@@ -22,6 +23,7 @@ NyaaCore::NyaaCore(Nyaa *stub)
     : stub_(DCHECK_NOTNULL(stub))
     , page_alloc_(stub->isolate()->env()->GetLowLevelAllocator())
     , heap_(new Heap(this))
+    , profiler_(new Profiler(this))
     , bkz_pool_(new BuiltinStrPool())
     , kmt_pool_(new BuiltinMetatablePool())
     , code_pool_(new BuiltinCodePool())
@@ -47,12 +49,6 @@ NyaaCore::NyaaCore(Nyaa *stub)
 }
 
 NyaaCore::~NyaaCore() {
-    for (auto pair : profiler_) {
-        ProfileSlot *slot = &pair.second;
-        if (slot->kind == ProfileSlot::kCalling && slot->nrets > 1) {
-            ::free(slot->rets);
-        }
-    }
 }
     
 Error NyaaCore::Boot() {
@@ -268,82 +264,6 @@ void NyaaCore::GarbageCollectionSafepoint(const char *file, int line) {
 //               histogram.time_cost);
 //    }
     gc_ticks_++;
-}
-    
-int NyaaCore::TraceBranchGuard(int trace_id, int value) {
-    DCHECK_LT(trace_id, max_trace_id_);
-    auto iter = profiler_.find(trace_id);
-    if (iter == profiler_.end()) {
-        ProfileSlot slot;
-        slot.kind = ProfileSlot::kBranch;
-        slot.hit = 1;
-        slot.true_guard = value ? 1 : 0;
-        profiler_.insert({trace_id, slot});
-    } else {
-        DCHECK_EQ(ProfileSlot::kBranch, iter->second.kind);
-        iter->second.hit++;
-        iter->second.true_guard += (value ? 1 : 0);
-    }
-    PurgeProfilerIfNeeded();
-    return value;
-}
-    
-static inline void UpdateRets(ProfileSlot *slot, Object **rets, size_t n) {
-    switch (n) {
-        case 0:
-            break;
-        case 1:
-            slot->ret = rets[0]->GetType();
-            break;
-        default:
-            slot->rets = static_cast<int32_t *>(::malloc(n * sizeof(int32_t)));
-            for (size_t i = 0; i < n; ++i) {
-                slot->rets[i] = rets[i]->GetType();
-            }
-            break;
-    }
-}
-
-void NyaaCore::TraceCalling(int trace_id, Object **rets, size_t n) {
-    DCHECK_LT(trace_id, max_trace_id_);
-    auto iter = profiler_.find(trace_id);
-    if (iter == profiler_.end()) {
-        ProfileSlot slot;
-        slot.kind = ProfileSlot::kCalling;
-        slot.hit  = 1;
-        slot.nrets    = static_cast<int32_t>(n);
-        UpdateRets(&slot, rets, n);
-        profiler_.insert({trace_id, slot});
-    } else {
-        ProfileSlot *slot = &iter->second;
-        DCHECK_EQ(ProfileSlot::kCalling, slot->kind);
-        slot->hit++;
-        if (slot->nrets > 1) {
-            ::free(slot->rets);
-        }
-        UpdateRets(slot, rets, n);
-    }
-    PurgeProfilerIfNeeded();
-}
-    
-void NyaaCore::PurgeProfilerIfNeeded() {
-    if (profiling_ticks_++ < profiling_level_ + 10000) {
-        return;
-    }
-    std::set<int> for_clean;
-    for (auto pair : profiler_) {
-        ProfileSlot *slot = &pair.second;
-        if (slot->hit <= profiling_level_) {
-            for_clean.insert(pair.first);
-            if (slot->kind == ProfileSlot::kCalling && slot->nrets > 1) {
-                ::free(slot->rets);
-            }
-        }
-    }
-    for (auto trace_id : for_clean) {
-        profiler_.erase(trace_id);
-    }
-    profiling_level_ = profiling_ticks_;
 }
     
 void NyaaCore::IterateRoot(RootVisitor *visitor) {

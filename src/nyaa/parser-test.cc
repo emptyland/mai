@@ -103,7 +103,7 @@ TEST_F(NyaaParserTest, ObjectDefinitionSerialize) {
     
     std::string buf;
     SerializeCompactedAST(result.block, &buf);
-    ASSERT_EQ(39, buf.size());
+    ASSERT_EQ(30, buf.size());
     
     ast::Factory factory(&arena_);
     ast::AstNode *ast = nullptr;

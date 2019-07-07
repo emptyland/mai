@@ -36,6 +36,7 @@ public:
     DEF_PTR_GETTER(NyString, file_name);
     DEF_PTR_GETTER(NyArray, proto_pool);
     DEF_PTR_GETTER(NyArray, const_pool);
+    DEF_PTR_GETTER(NyString, packed_ast);
     
     NyBytecodeArray *bcbuf() const {
         DCHECK(IsInterpretationExec());
@@ -75,6 +76,8 @@ public:
     void SetUpval(size_t i, NyString *name, bool in_stack, int32_t index,
                   NyaaCore *N);
     
+    void SetPackedAST(NyString *packed, NyaaCore *N);
+    
     static Handle<NyFunction> Compile(const char *z, NyaaCore *N) {
         return Compile(z, !z ? 0 : ::strlen(z), N);
     }
@@ -105,6 +108,7 @@ private:
         NyCode *code_; // [strong ref]
         NyObject *exec_; // [strong ref] stub
     };
+    NyString *packed_ast_ = nullptr; // [strong ref] serialized ast data.
     UpvalDesc upvals_[0]; // elements [strong ref]
 }; // class NyCallable
     

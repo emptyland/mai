@@ -184,6 +184,7 @@
 		23BF17E621D4A96D00A722B9 /* transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E421D4A96D00A722B9 /* transaction-db.cc */; };
 		23BF17EB21D4C1D100A722B9 /* delta-amend-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */; };
 		23C2279E225AF683008B427A /* bytecode-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C2279D225AF683008B427A /* bytecode-builder.cc */; };
+		23C2D4D622D22BEE00537516 /* profiling.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C2D4D522D22BEE00537516 /* profiling.cc */; };
 		23C8BB5322A0C72C0081E697 /* function.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C8BB5222A0C72C0081E697 /* function.cc */; };
 		23CA8249225C338F00947EA8 /* bytecode.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA8248225C338F00947EA8 /* bytecode.cc */; };
 		23CA8251225CC8CE00947EA8 /* lex.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA824E225CC8CD00947EA8 /* lex.yy.cc */; };
@@ -544,6 +545,8 @@
 		23C1163721AFED5E00DE7321 /* test-main.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "test-main.cc"; path = "src/test/test-main.cc"; sourceTree = "<group>"; };
 		23C2279C225AF61E008B427A /* bytecode-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bytecode-builder.h"; sourceTree = "<group>"; };
 		23C2279D225AF683008B427A /* bytecode-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bytecode-builder.cc"; sourceTree = "<group>"; };
+		23C2D4D422D22BAD00537516 /* profiling.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = profiling.h; sourceTree = "<group>"; };
+		23C2D4D522D22BEE00537516 /* profiling.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = profiling.cc; sourceTree = "<group>"; };
 		23C54E0921B517AB0078E77A /* memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "memory-table.cc"; sourceTree = "<group>"; };
 		23C54E0C21B5263B0078E77A /* config.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = config.cc; sourceTree = "<group>"; };
 		23C54E1221B52EBA0078E77A /* config-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "config-test.cc"; sourceTree = "<group>"; };
@@ -837,6 +840,8 @@
 				2374DE4B223B581A00810B41 /* api.cc */,
 				2374DE48223B4C0C00810B41 /* nyaa-core.h */,
 				2374DE46223B4BFE00810B41 /* nyaa-core.cc */,
+				23C2D4D422D22BAD00537516 /* profiling.h */,
+				23C2D4D522D22BEE00537516 /* profiling.cc */,
 				23719D32223F72A80055D397 /* thread.h */,
 				23719D33223F73270055D397 /* thread.cc */,
 				2374DE4F223B937B00810B41 /* nyaa-values.h */,
@@ -1540,6 +1545,7 @@
 				2364B34321E451F9008519AE /* filter-block-builder-test.cc in Sources */,
 				232CD5202283CAEA00544808 /* string-pool-test.cc in Sources */,
 				230D7ACC21FDE8890019F7BB /* evaluation-test.cc in Sources */,
+				23C2D4D622D22BEE00537516 /* profiling.cc in Sources */,
 				2364B34421E451F9008519AE /* sst-table-builder-test.cc in Sources */,
 				2364B34521E451F9008519AE /* sst-table-reader-test.cc in Sources */,
 				237B0C0B21E4869400F3A099 /* sql.cc in Sources */,

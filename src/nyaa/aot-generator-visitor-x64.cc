@@ -104,6 +104,13 @@ public:
                                                   fun_scope.max_stack(),
                                                   file_name_.is_empty() ? nullptr : *file_name_,
                                                   *code, *fpool, *kpool);
+            if (core_->stub()->use_jit()) {
+                std::string ast;
+                SerializeCompactedAST(node, &ast);
+                if (!ast.empty()) {
+                    proto->SetPackedAST(core_->factory()->NewString(ast.data(), ast.size()), core_);
+                }
+            }
             size_t i = 0;
             for (auto upval : fun_scope.upval_desc()) {
                 NyString *name = core_->factory()->NewString(upval.name->data(), upval.name->size());
@@ -130,6 +137,9 @@ public:
             __ movq(kRegArgv[0], Local(cond.index));
             CallRuntime(Runtime::kObject_IsFalse);
             if (core_->stub()->use_jit()) {
+            #if defined(DEBUG) || (_DEBUG)
+                SaveRIP();
+            #endif
                 __ movq(kRegArgv[0], kCore);
                 __ movl(kRegArgv[1], node->trace_id());
                 __ movl(kRegArgv[2], rax);
@@ -1195,7 +1205,7 @@ private:
         fun_scope_->FreeVar(callee);
         __ Bind(&exit);
     }
-    
+
     void BitBinaryExpression(IVal ret, IVal lhs, IVal rhs, Operator::ID op, Runtime::ExternalLink rt,
                              int line) {
         FileLineScope fls(fun_scope_, line);
@@ -1327,6 +1337,13 @@ Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root
         core->factory()->NewFunction(nullptr/*name*/, 0/*nparams*/, true/*vargs*/, 0/*n_upvals*/,
                                      scope.max_stack(), *file_name,/*source file name*/
                                      *code,/*exec object*/ *fpool/*proto_pool*/, *kpool);
+    if (core->stub()->use_jit()) {
+        std::string ast;
+        SerializeCompactedAST(root, &ast);
+        if (!ast.empty()) {
+            result->SetPackedAST(core->factory()->NewString(ast.data(), ast.size()), core);
+        }
+    }
     return handle_scope.CloseAndEscape(result);
 }
 

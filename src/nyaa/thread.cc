@@ -4,6 +4,7 @@
 #include "nyaa/nyaa-values.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/visitors.h"
+#include "nyaa/profiling.h"
 #include "mai-lang/nyaa.h"
 #include "mai/env.h"
 
@@ -383,7 +384,7 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *e
         fn->Apply(info);
         rv = frame->nrets();
         if (rv >= 0) {
-            CopyResult(stack_ + frame->stack_bp() - 1, rv, wanted);
+            rv = CopyResult(stack_ + frame->stack_bp() - 1, rv, wanted);
         }
         frame->Exit(this);
         delete frame;
@@ -609,7 +610,7 @@ int NyThread::Run() {
                     stack_tp_ = (frame_bp() + ra) + n;
                 }
                 frame_->set_nrets(n);
-                CopyResult(stack_ + frame_->stack_be() - 1, n, frame_->wanted());
+                n = CopyResult(stack_ + frame_->stack_be() - 1, n, frame_->wanted());
                 frame_->AddPC(delta);
                 auto outter = frame_;
                 outter->Exit(this);
@@ -952,10 +953,14 @@ int NyThread::RuntimeRet(int32_t base, int32_t nrets) {
     frame_->set_nrets(nrets);
     
     Object **rets = stack_ + frame_->stack_be() - 1;
-    CopyResult(rets, nrets, frame_->wanted());
+    nrets = CopyResult(rets, nrets, frame_->wanted());
     if (owns_->stub()->use_jit() && frame_->prev()) {
         DCHECK_GE(frame_->trace_id(), 0);
-        owns_->TraceCalling(frame_->trace_id(), rets, frame_->wanted() < 0 ? nrets : frame_->wanted());
+        int line = 0;
+    #if defined(DEBUG) || defined(_DEBUG)
+        std::tie(std::ignore, std::ignore, line) = frame_->prev()->GetCurrentSourceInfo();
+    #endif
+        owns_->profiler()->TraceCalling(frame_->trace_id(), rets, nrets, line);
     }
     DCHECK_NOTNULL(frame_->proto())->IncreaseCalledCount();
 
@@ -1074,8 +1079,6 @@ int NyThread::PrepareCall(Object **base, int32_t nargs, int32_t wanted, int trac
             }
             
             CallFrame *frame = new CallFrame(trace_id);
-//            NyBytecodeArray *bcbuf =
-//                callee->proto()->IsInterpretationExec() ? callee->proto()->bcbuf(): nullptr;
             frame->Enter(this, callee,
                          callee->proto()->exec(),
                          callee->proto()->const_pool(),
@@ -1139,10 +1142,16 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
             int rv = outter->nrets();
             if (rv >= 0) {
                 Object **rets = stack_ + outter->stack_be() - 1;
-                CopyResult(rets, rv, wanted);
+                rv = CopyResult(rets, rv, wanted);
                 if (owns_->stub()->use_jit()) {
                     DCHECK_GE(outter->trace_id(), 0);
-                    owns_->TraceCalling(outter->trace_id(), rets, wanted < 0 ? rv : wanted);
+                    int line = 0;
+                #if defined(DEBUG) || defined(_DEBUG)
+                    if (CallFrame *up = frame_->prev()) {
+                        std::tie(std::ignore, std::ignore, line) = up->GetCurrentSourceInfo();
+                    }
+                #endif
+                    owns_->profiler()->TraceCalling(outter->trace_id(), rets, rv, line);
                 }
             }
             outter->Exit(this);
@@ -1157,14 +1166,14 @@ int NyThread::FinializeCall(Object **base, int32_t nargs, int32_t wanted) {
     return 0;
 }
 
-void NyThread::CopyResult(Object **ret, int nrets, int wanted) {
+int NyThread::CopyResult(Object **ret, int nrets, int wanted) {
     switch (wanted) {
         case -1:
             wanted = nrets;
             break;
         case 0:
             stack_tp_ = ret;
-            return;
+            return 0;
         case 1:
             if (nrets == 0) {
                 ret[0] = Object::kNil;
@@ -1172,7 +1181,7 @@ void NyThread::CopyResult(Object **ret, int nrets, int wanted) {
                 ret[0] = *(stack_tp_ - nrets);
             }
             stack_tp_ = ret + 1;
-            return;
+            return 1;
         default:
             break;
     }
@@ -1184,6 +1193,7 @@ void NyThread::CopyResult(Object **ret, int nrets, int wanted) {
         ret[i] = Object::kNil;
     }
     stack_tp_ = ret + wanted;
+    return wanted;
 }
 
 void NyThread::ProcessClass(NyMap *clazz) {

@@ -53,6 +53,11 @@ void NyFunction::SetUpval(size_t i, NyString *name, bool in_stack, int32_t index
     upvals_[i].in_stack = in_stack;
     upvals_[i].index = index;
 }
+    
+void NyFunction::SetPackedAST(NyString *packed, NyaaCore *N) {
+    N->BarrierWr(this, &packed_ast_, packed);
+    packed_ast_ = packed;
+}
 
 void NyFunction::Iterate(ObjectVisitor *visitor) {
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&name_));
@@ -60,6 +65,7 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_name_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&proto_pool_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&const_pool_));
+    visitor->VisitPointer(this, reinterpret_cast<Object **>(&packed_ast_));
     for (uint32_t i = 0; i < n_upvals_; ++i) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&upvals_[i].name));
     }

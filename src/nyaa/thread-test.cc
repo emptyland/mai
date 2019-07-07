@@ -120,8 +120,8 @@ TEST_F(NyaaThreadTest, Sanity) {
     
     Handle<NyClosure> script = NewClosure(bcbuf, Handle<NyArray>::Null());
     auto thd = N_->core()->curr_thd();
-    auto rv = thd->Run(*script, nullptr, 0);
-    ASSERT_EQ(1, rv);
+    auto rv = thd->Run(*script, nullptr/*argv*/, 0/*argc*/);
+    ASSERT_EQ(0, rv);
 }
     
 static void CallingTest1(const FunctionCallbackInfo<Object> &info) {
@@ -226,8 +226,8 @@ TEST_F(NyaaThreadTest, CallVarResults) {
     
     Handle<NyClosure> script = NewClosure(bcbuf, pool);
     auto thd = N_->core()->curr_thd();
-    auto rv = thd->Run(*script, nullptr, 0, 3);
-    ASSERT_EQ(4, rv);
+    auto rv = thd->Run(*script, nullptr/*argv*/, 0/*argc*/, 3/*wanted*/);
+    ASSERT_EQ(3, rv);
     ASSERT_EQ(3, thd->frame_size());
 }
     

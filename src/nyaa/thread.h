@@ -231,8 +231,8 @@ public:
         return stack_tp_ - stack_;
     }
     
-    int TryRun(NyRunnable *fn, Object *argv[], int argc, int nrets = 0, NyMap *env = nullptr);
-    int Run(NyRunnable *fn, Object *argv[], int argc, int nrets = 0, NyMap *env = nullptr);
+    int TryRun(NyRunnable *fn, Object *argv[], int argc, int wanted = 0, NyMap *env = nullptr);
+    int Run(NyRunnable *fn, Object *argv[], int argc, int wanted = 0, NyMap *env = nullptr);
     int Resume(Object *argv[], int argc, int wanted, NyMap *env);
     void Yield();
     
@@ -324,7 +324,7 @@ private:
 
     int CopyArgs(Object **args, int nargs, int nparams, bool vargs);
     
-    void CopyResult(Object **ret, int nrets, int wanted);
+    int CopyResult(Object **ret, int nrets, int wanted);
     inline void CopyResult(Object **ret, Object **argv, int argc, int wanted);
     
     void ProcessClass(NyMap *clazz);

@@ -1,6 +1,7 @@
 #include "nyaa/runtime.h"
 #include "nyaa/thread.h"
 #include "nyaa/nyaa-core.h"
+#include "nyaa/profiling.h"
 #include "nyaa/nyaa-values.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/function.h"
@@ -149,6 +150,14 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     return N->factory()->NewUninitializedString(init_size);
 }
     
+/*static*/ int Runtime::NyaaCore_TraceBranchGuard(NyaaCore *N, int trace_id, int inv) {
+    int line = 0;
+#if defined(DEBUG) || defined(_DEBUG)
+    std::tie(std::ignore, std::ignore, line) = N->curr_thd()->frame_->GetCurrentSourceInfo();
+#endif
+    return N->profiler()->TraceBranchGuard(trace_id, !inv, line);
+}
+    
 /*static*/ void Runtime::Test_PrintNaSt(Address tp, Address bp) {
     DCHECK_LE(tp, bp);
     for (Address i = tp; i < bp; i += kPointerSize) {
@@ -177,7 +186,7 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
     reinterpret_cast<Address>(&NyaaCore_TryMetaFunction),
     reinterpret_cast<Address>(&NyaaCore_NewUninitializedString),
     NyaaCoreTemplate::MethodAddress(&NyaaCore::GarbageCollectionSafepoint),
-    NyaaCoreTemplate::MethodAddress(&NyaaCore::TraceBranchGuard),
+    reinterpret_cast<Address>(&NyaaCore_TraceBranchGuard),
     
     reinterpret_cast<Address>(&Object_IsFalseWarp),
     reinterpret_cast<Address>(&Object_IsTrueWarp),

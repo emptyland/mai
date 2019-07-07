@@ -102,6 +102,7 @@ private:
     static Address NyaaCore_GetRecoverPoint(NyaaCore *N);
     static NyRunnable *NyaaCore_TryMetaFunction(NyaaCore *N, Object *ob, Operator::ID op);
     static NyString *NyaaCore_NewUninitializedString(NyaaCore *N, size_t init_size);
+    static int NyaaCore_TraceBranchGuard(NyaaCore *N, int trace_id, int value);
     
     static void Test_PrintNaSt(Address tp, Address bp);
 }; // class Runtime
