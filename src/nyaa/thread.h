@@ -332,7 +332,7 @@ private:
     int ParseBytecodeInt32Params(int offset, int scale, int n, ...);
     int ParseBytecodeSize(int offset);
     
-    void Bind(int i, NyClosure *closure, const NyFunction::UpvalDesc &desc) {
+    void Bind(int i, NyClosure *closure, const UpvalDesc &desc) {
         CallFrame *up = frame_;
         Object *val = desc.in_stack ? stack_[up->stack_bp() + desc.index] :
                       static_cast<NyClosure *>(up->callee())->upval(desc.index);

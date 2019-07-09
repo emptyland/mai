@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2300E92522CE0760009C545F /* ir-dag.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2300E92422CE0760009C545F /* ir-dag.cc */; };
-		2300E92722CE2BB5009C545F /* ir-dag-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2300E92622CE2BB5009C545F /* ir-dag-test.cc */; };
+		2300E92522CE0760009C545F /* high-level-ir.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2300E92422CE0760009C545F /* high-level-ir.cc */; };
+		2300E92722CE2BB5009C545F /* high-level-ir-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2300E92622CE2BB5009C545F /* high-level-ir-test.cc */; };
 		2303D93221F808C500075A99 /* storage-engine.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2303D93121F808C500075A99 /* storage-engine.cc */; };
 		2303D93521F84EF700075A99 /* result-set-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2303D93421F84EF700075A99 /* result-set-impl.cc */; };
 		2303D93721F863F300075A99 /* storage-engine-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2303D93621F863F300075A99 /* storage-engine-test.cc */; };
@@ -248,7 +248,7 @@
 		23DE184621D08AB800479C23 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
 		23DFE03722754D29005D489C /* big-number.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DFE03622754D29005D489C /* big-number.cc */; };
 		23DFE03822754D29005D489C /* big-number.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DFE03622754D29005D489C /* big-number.cc */; };
-		23F143EC22CEF58E00E0C59F /* ir-generator-visitor.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F143EB22CEF58E00E0C59F /* ir-generator-visitor.cc */; };
+		23F143EC22CEF58E00E0C59F /* hir-generator-visitor.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F143EB22CEF58E00E0C59F /* hir-generator-visitor.cc */; };
 		23F143EE22CF329700E0C59F /* thread-jit-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F143ED22CF329700E0C59F /* thread-jit-test.cc */; };
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
 		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
@@ -294,9 +294,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		2300E92322CE06CB009C545F /* ir-dag.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ir-dag.h"; sourceTree = "<group>"; };
-		2300E92422CE0760009C545F /* ir-dag.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "ir-dag.cc"; sourceTree = "<group>"; };
-		2300E92622CE2BB5009C545F /* ir-dag-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "ir-dag-test.cc"; sourceTree = "<group>"; };
+		2300E92322CE06CB009C545F /* high-level-ir.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "high-level-ir.h"; sourceTree = "<group>"; };
+		2300E92422CE0760009C545F /* high-level-ir.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "high-level-ir.cc"; sourceTree = "<group>"; };
+		2300E92622CE2BB5009C545F /* high-level-ir-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "high-level-ir-test.cc"; sourceTree = "<group>"; };
 		2302F6AE21AE3F6800AE0309 /* s1-table-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "s1-table-builder.h"; sourceTree = "<group>"; };
 		2302F6AF21AE3FA700AE0309 /* s1-table-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "s1-table-builder.cc"; sourceTree = "<group>"; };
 		2302F6B221AE473000AE0309 /* plain-block-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "plain-block-builder.h"; sourceTree = "<group>"; };
@@ -588,7 +588,7 @@
 		23E40C0B21CB416600B04858 /* block-cache.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-cache.cc"; sourceTree = "<group>"; };
 		23E85A06228C2B50001AE74A /* utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utils.h; sourceTree = "<group>"; };
 		23F0742521D1D209009D8EAA /* transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db-test.cc"; sourceTree = "<group>"; };
-		23F143EB22CEF58E00E0C59F /* ir-generator-visitor.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "ir-generator-visitor.cc"; sourceTree = "<group>"; };
+		23F143EB22CEF58E00E0C59F /* hir-generator-visitor.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-generator-visitor.cc"; sourceTree = "<group>"; };
 		23F143ED22CF329700E0C59F /* thread-jit-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "thread-jit-test.cc"; sourceTree = "<group>"; };
 		23F60601219BBE9600CE12D9 /* write-batch.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch.cc"; sourceTree = "<group>"; };
 		23F60604219BC3DA00CE12D9 /* db-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-impl.h"; sourceTree = "<group>"; };
@@ -792,7 +792,7 @@
 				232CD50D2283CAEA00544808 /* thread-test.cc */,
 				2349FDF122A40C98001861E0 /* thread-aot-test.cc */,
 				23F143ED22CF329700E0C59F /* thread-jit-test.cc */,
-				2300E92622CE2BB5009C545F /* ir-dag-test.cc */,
+				2300E92622CE2BB5009C545F /* high-level-ir-test.cc */,
 			);
 			name = nyaa;
 			path = src/nyaa;
@@ -891,9 +891,9 @@
 				2325865A22A175CA006AADE4 /* code-gen-utils.cc */,
 				2325865C22A17DB3006AADE4 /* bytecode-generator-visitor.cc */,
 				2349FDEF22A21C93001861E0 /* aot-generator-visitor-x64.cc */,
-				2300E92322CE06CB009C545F /* ir-dag.h */,
-				2300E92422CE0760009C545F /* ir-dag.cc */,
-				23F143EB22CEF58E00E0C59F /* ir-generator-visitor.cc */,
+				2300E92322CE06CB009C545F /* high-level-ir.h */,
+				2300E92422CE0760009C545F /* high-level-ir.cc */,
+				23F143EB22CEF58E00E0C59F /* hir-generator-visitor.cc */,
 			);
 			name = nyaa;
 			path = src/nyaa;
@@ -1550,7 +1550,7 @@
 				2364B34521E451F9008519AE /* sst-table-reader-test.cc in Sources */,
 				237B0C0B21E4869400F3A099 /* sql.cc in Sources */,
 				232CD51C2283CAEA00544808 /* scavenger-test.cc in Sources */,
-				2300E92722CE2BB5009C545F /* ir-dag-test.cc in Sources */,
+				2300E92722CE2BB5009C545F /* high-level-ir-test.cc in Sources */,
 				2349FDF522A4BA76001861E0 /* sha256.c in Sources */,
 				2364B34621E451F9008519AE /* s1-table-builder-test.cc in Sources */,
 				2364B34721E451F9008519AE /* s1-table-reader-test.cc in Sources */,
@@ -1560,7 +1560,7 @@
 				2325865D22A17DB3006AADE4 /* bytecode-generator-visitor.cc in Sources */,
 				2303D93221F808C500075A99 /* storage-engine.cc in Sources */,
 				2312DFBD2253503700689616 /* malloc-object-factory.cc in Sources */,
-				23F143EC22CEF58E00E0C59F /* ir-generator-visitor.cc in Sources */,
+				23F143EC22CEF58E00E0C59F /* hir-generator-visitor.cc in Sources */,
 				2364B34B21E451F9008519AE /* reference-count-test.cc in Sources */,
 				2349FDF222A40C98001861E0 /* thread-aot-test.cc in Sources */,
 				2364B34C21E451F9008519AE /* varint-encoding-test.cc in Sources */,
@@ -1568,7 +1568,7 @@
 				237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */,
 				2364B34E21E451F9008519AE /* io-utils-test.cc in Sources */,
 				2303D93721F863F300075A99 /* storage-engine-test.cc in Sources */,
-				2300E92522CE0760009C545F /* ir-dag.cc in Sources */,
+				2300E92522CE0760009C545F /* high-level-ir.cc in Sources */,
 				2374DE4C223B581A00810B41 /* api.cc in Sources */,
 				2364B34F21E451F9008519AE /* ebr-test.cc in Sources */,
 				2364B35021E451F9008519AE /* arena-utils-test.cc in Sources */,

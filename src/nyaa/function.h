@@ -12,6 +12,7 @@ namespace nyaa {
 class NyFunction final : public NyObject {
 public:
     using Template = arch::ObjectTemplate<NyFunction, int32_t>;
+    using UpvalDesc = mai::nyaa::UpvalDesc;
     static const int32_t kOffsetCode;
     static const int32_t kOffsetBcbuf;
     
@@ -59,12 +60,6 @@ public:
         DCHECK(exec_->IsCode() || exec_->IsBytecodeArray());
         return exec_->IsBytecodeArray();
     }
-    
-    struct UpvalDesc {
-        NyString *name; // [strong ref]
-        bool in_stack;
-        int32_t index;
-    };
     
     const UpvalDesc &upval(size_t i) const {
         DCHECK_LT(i, n_upvals_);

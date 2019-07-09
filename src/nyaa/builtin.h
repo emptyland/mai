@@ -8,7 +8,7 @@ namespace mai {
     
 namespace nyaa {
 
-namespace dag {
+namespace hir {
 class Value;
 }; // namespace dag
     
@@ -137,14 +137,14 @@ struct IVal {
         kConst,
         kFunction, // index = proto_pool_idx
         kUpval,
-        kDAG,
+        kHIR,
         kVoid,
     };
     Kind kind;
     
     union {
         int32_t index;
-        dag::Value *node;
+        hir::Value *node;
     };
     
     int32_t Encode() const { return kind == kConst ? -index-1 : index; }
@@ -155,7 +155,7 @@ struct IVal {
     static IVal Const(int32_t idx) { return {.kind = kConst, .index = idx}; }
     static IVal Function(int32_t idx) { return {.kind = kFunction, .index = idx}; }
     static IVal Global(int32_t idx) { return {.kind = kGlobal, .index = idx}; }
-    static IVal IR(dag::Value *node) { return {.kind = kDAG, .node = node}; }
+    static IVal HIR(hir::Value *node) { return {.kind = kHIR, .node = node}; }
 }; // struct IVal
     
 struct Operator {
@@ -197,7 +197,11 @@ struct NyaaNaFnEntry {
     
 extern const NyaaNaFnEntry kBuiltinFnEntries[];
     
-//Error LoadClassCoroutine(NyaaCore *N);
+struct UpvalDesc {
+    NyString *name; // [strong ref]
+    int32_t in_stack;
+    int32_t index;
+}; // struct UpvalDesc
     
 using f64_t = double;
 
