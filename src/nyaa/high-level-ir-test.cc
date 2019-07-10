@@ -1,7 +1,12 @@
 #include "nyaa/high-level-ir.h"
+#include "nyaa/thread.h"
+#include "nyaa/code-gen.h"
 #include "base/arenas.h"
+#include "test/nyaa-test.h"
+#include "mai-lang/nyaa.h"
 #include "mai/env.h"
 #include "gtest/gtest.h"
+
 
 namespace mai {
 
@@ -9,18 +14,39 @@ namespace nyaa {
 
 namespace hir {
 
-class NyaaHIRTest : public testing::Test {
+class NyaaHIRTest : public test::NyaaTest {
 public:
     NyaaHIRTest()
         : arena_(Env::Default()->GetLowLevelAllocator()) {
     }
 
     virtual void SetUp() override {
+        NyaaTest::SetUp();
+        NyaaOptions opts;
+        opts.exec = Nyaa::kAOT_And_JIT;
+        N_ = new Nyaa(opts, isolate_);
+        core_ = N_->core();
         fn_ = Function::New(&arena_);
+    }
+    
+    virtual void TearDown() override {
+        delete N_;
+        NyaaTest::TearDown();
+    }
+    
+    void GenerateHIRInMemory(const char *z, std::vector<BuiltinType> args, hir::Function **rv) {
+        TryCatchCore try_catch(core_);
+        auto script = NyClosure::Compile(z, core_);
+        ASSERT_TRUE(script.is_not_empty()) << try_catch.ToString();
+        
+        auto rs = CodeGen::GenerateHIR(script, &args[0], args.size(), rv, &arena_, core_);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
     }
     
     base::StandaloneArena arena_;
     Function *fn_;
+    Nyaa *N_ = nullptr;
+    NyaaCore *core_ = nullptr;
 };
     
 TEST_F(NyaaHIRTest, Sanity) {
@@ -54,7 +80,7 @@ TEST_F(NyaaHIRTest, Sanity) {
     EXPECT_EQ(1, ret->ret_vals().size());
     EXPECT_EQ(Value::kRet, ret->kind());
 
-    fn_->PrintTo(stdout);
+    //fn_->PrintTo(stdout);
 }
     
 TEST_F(NyaaHIRTest, BranchAndPhi) {
@@ -79,6 +105,16 @@ TEST_F(NyaaHIRTest, BranchAndPhi) {
     phi->AddIncoming(b2, v3);
     auto ret = fn_->Ret(b3, 2);
     ret->AddRetVal(phi);
+    //fn_->PrintTo(stdout);
+}
+    
+TEST_F(NyaaHIRTest, GenerateHIR) {
+    static const char z[] = {
+        "var a, b, c = t, 1, 2\n"
+        "return a, b, c\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(z, {}, &fn_);
     
     fn_->PrintTo(stdout);
 }

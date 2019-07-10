@@ -10,7 +10,12 @@ namespace mai {
     
 namespace nyaa {
     
-using ValueTable = std::unordered_map<const ast::String *, hir::Value *,
+struct ValueBundle {
+    hir::Value *value;
+    bool out_scope;
+}; // struct ValueBundle
+    
+using ValueTable = std::unordered_map<const ast::String *, ValueBundle,
     base::ArenaHash<const ast::String *>,
     base::ArenaEqualTo<const ast::String *>>;
     
@@ -30,9 +35,12 @@ public:
     }
     inline ~HIRBlockScope() {}
     
-    void PutValue(const ast::String *name, hir::Value *val) {
+    void PutValue(const ast::String *name, hir::Value *val, HIRBlockScope *scope) {
         DCHECK(!val->IsVoid());
-        values_.insert({name, val});
+        ValueBundle bundle;
+        bundle.value = val;
+        bundle.out_scope = (scope != this);
+        values_.insert({name, bundle});
     }
     
     inline std::tuple<hir::Value*, HIRBlockScope*> GetValueOrNullNested(const ast::String *name);
@@ -78,7 +86,7 @@ HIRBlockScope::GetValueOrNullNested(const ast::String *name) {
     while (p) {
         auto iter = p->values_.find(name);
         if (iter != p->values_.end()) {
-            return {iter->second, p};
+            return {iter->second.value, p};
         }
         p = p->prev_;
     }
@@ -103,16 +111,8 @@ inline static hir::Type::ID ConvType(BuiltinType ty) {
 }
     
 }; // namespace
-    
-//
-//                   +---------+
-//                   | calling |
-//                   +---------+
-//                   /          \
-// +----------------+           +------------+
-// | fallback point | <-------- | trunk node |
-// +----------------+           +------------+
-//
+
+
 class HIRGeneratorVisitor final : public ast::Visitor {
 public:
     HIRGeneratorVisitor(std::vector<hir::Type::ID> &&args, UpValTable &&upvals,
@@ -128,7 +128,7 @@ public:
     DEF_VAL_GETTER(Error, error);
     DEF_PTR_GETTER(hir::Function, target);
     
-#define ACCEPT(subx) (subx)->Accept(this, x); if (error_.fail()) return IVal::Void()
+#define ACCEPT(subx, ctx) (subx)->Accept(this, (ctx)); if (error_.fail()) return IVal::Void()
     
     virtual IVal VisitLambdaLiteral(ast::LambdaLiteral *node, ast::VisitorContext *x) override {
         target_ = hir::Function::New(arena_);
@@ -137,32 +137,33 @@ public:
         HIRGeneratorContext top_ctx;
         top_ctx.set_scope(&trunk_scope);
         
-        for (int i = 0; i < node->params()->size(); ++i) {
+        const size_t n_params = !node->params() ? 0 : node->params()->size();
+        for (int i = 0; i < n_params; ++i) {
             hir::Value *val = nullptr;
             if (i < args_.size()) {
                 val = target_->Parameter(args_[i], node->line());
             } else {
                 val = target_->Nil(node->line());
             }
-            trunk_scope.PutValue(node->params()->at(i), val);
+            trunk_scope.PutValue(node->params()->at(i), val, &trunk_scope);
             
         }
         if (node->vargs()) {
-            int64_t nvargs = args_.size() - node->params()->size();
+            int64_t nvargs = args_.size() - n_params;
             for (int64_t i = 0; i < nvargs; ++i) {
                 vargs_.push_back(args_[i]);
             }
         }
 
         top_ctx.set_bb(target_->NewBB(nullptr));
-        ACCEPT(node->value());
+        ACCEPT(node->value(), &top_ctx);
         return IVal::Void();
     }
     
     virtual IVal VisitBlock(ast::Block *node, ast::VisitorContext *x) override {
         if (node->stmts()) {
             for (auto stmt : *node->stmts()) {
-                ACCEPT(stmt);
+                ACCEPT(stmt, x);
             }
         }
         return IVal::Void();
@@ -175,32 +176,32 @@ public:
             HIRGeneratorContext rix(x);
             if (node->names()->size() > 1 && node->GetNWanted() < 0) {
                 rix.set_n_result(static_cast<int>(node->names()->size()));
-                IVal rval = ACCEPT(node->inits()->at(0));
+                IVal rval = ACCEPT(node->inits()->at(0), &rix);
                 for (size_t i = 0; i < node->names()->size(); ++i) {
                     hir::Value *val = rval.node;
                     if (i > 0) {
                         val = target_->BaseOfStack(ctx->bb(), rval.node, static_cast<int>(i),
                                                    node->line());
                     }
-                    ctx->scope()->PutValue(node->names()->at(i), val);
+                    ctx->scope()->PutValue(node->names()->at(i), val, ctx->scope());
                 }
             } else {
                 rix.set_n_result(1);
                 
                 for (size_t i = 0; i < node->names()->size(); ++i) {
                     if (i < node->inits()->size()) {
-                        ast::Expression *init = node->inits()->at(i);
-                        IVal rval = init->Accept(this, &rix);
-                        ctx->scope()->PutValue(node->names()->at(i), rval.node);
+                        IVal rval = ACCEPT(node->inits()->at(i), &rix);
+                        ctx->scope()->PutValue(node->names()->at(i), rval.node, ctx->scope());
                     } else {
-                        ctx->scope()->PutValue(node->names()->at(i), target_->Nil(node->line()));
+                        ctx->scope()->PutValue(node->names()->at(i), target_->Nil(node->line()),
+                                               ctx->scope());
                     }
                 }
             }
         } else {
             for (auto name : *node->names()) {
                 if (IsNotPlaceholder(name)) {
-                    ctx->scope()->PutValue(name, target_->Nil(node->line()));
+                    ctx->scope()->PutValue(name, target_->Nil(node->line()), ctx->scope());
                 }
             }
         }
@@ -224,7 +225,7 @@ public:
         std::tie(val, scope) = ctx->scope()->GetValueOrNullNested(node->name());
         if (ctx->lval()) {
             if (val) {
-                scope->PutValue(node->name(), val);
+                scope->PutValue(node->name(), val, scope);
                 return IVal::Void();
             }
             if (auto iter = upvals_.find(node->name()); iter != upvals_.end()) {
@@ -245,6 +246,63 @@ public:
             return IVal::HIR(val);
         }
     }
+    
+    virtual IVal VisitReturn(ast::Return *node, ast::VisitorContext *x) override {
+        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
+
+        hir::Ret *ret = target_->Ret(ctx->bb(), node->line());
+        if (!node->rets()) {
+            ret->set_wanted(0);
+            return IVal::Void();
+        }
+        
+        int nrets = node->GetNRets();
+        HIRGeneratorContext ix(x);
+        ix.set_n_result(nrets < 0 ? -1 : 1);
+        
+        IVal first = ACCEPT(node->rets()->at(0), &ix);
+        DCHECK_NE(IVal::kVoid, first.kind);
+        
+        ret->AddRetVal(first.node);
+        for (size_t i = 1; i < node->rets()->size(); ++i) {
+            IVal ret_val = ACCEPT(node->rets()->at(i), &ix);
+            ret->AddRetVal(ret_val.node);
+        }
+        ret->set_wanted(nrets);
+        return IVal::Void();
+    }
+    
+    virtual IVal VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) override {
+        return IVal::HIR(target_->Nil(node->line()));
+    }
+
+    virtual IVal VisitStringLiteral(ast::StringLiteral *node, ast::VisitorContext *x) override {
+        hir::Constant *val = target_->Constant(hir::Type::kString, node->line());
+        val->set_string_val(node->value());
+        return IVal::HIR(val);
+    }
+
+    virtual IVal VisitApproxLiteral(ast::ApproxLiteral *node, ast::VisitorContext *x) override {
+        hir::Constant *val = target_->Constant(hir::Type::kFloat, node->line());
+        val->set_float_val(node->value());
+        return IVal::HIR(val);
+    }
+
+    virtual IVal VisitSmiLiteral(ast::SmiLiteral *node, ast::VisitorContext *x) override {
+        hir::Constant *val = target_->Constant(hir::Type::kInt, node->line());
+        val->set_int_val(node->value());
+        return IVal::HIR(val);
+    }
+
+    virtual IVal VisitIntLiteral(ast::IntLiteral *node, ast::VisitorContext *x) override {
+        // TODO:
+        return IVal::Void();
+    }
+
+    virtual IVal VisitMapInitializer(ast::MapInitializer *node, ast::VisitorContext *x) override {
+        // TODO:
+        return IVal::Void();
+    }
 
     friend class HIRBlockScope;
 private:
@@ -263,8 +321,8 @@ private:
     hir::Function *target_ = nullptr;
 }; // class IRGeneratorVisitor
 
-Error HIR_GenerateHIR(int /*n_params*/, bool /*vargs*/, BuiltinType *argv, size_t argc,
-                      const UpvalDesc *desc, BuiltinType *upvals, size_t n_upvals, ast::AstNode *ast,
+Error HIR_GenerateHIR(const BuiltinType *argv, size_t argc, const UpvalDesc *desc,
+                      const BuiltinType *upvals, size_t n_upvals, ast::AstNode *ast,
                       hir::Function **rv, base::Arena *arena, NyaaCore *core) {
     std::vector<hir::Type::ID> args(argc);
     for (size_t i = 0; i < argc; ++i) {

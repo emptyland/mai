@@ -1314,8 +1314,8 @@ private:
     Assembler *masm() { return &static_cast<FunctionScopeBundle *>(fun_scope_)->masm_; }
 }; // class AOTGeneratorVisitor
     
-Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root,
-                                         base::Arena *arena, NyaaCore *core) {
+Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root, base::Arena *arena,
+                                    NyaaCore *core) {
     HandleScope handle_scope(core->stub());
     
     AOTGeneratorVisitor visitor(core, arena, file_name);
@@ -1338,8 +1338,10 @@ Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root
                                      scope.max_stack(), *file_name,/*source file name*/
                                      *code,/*exec object*/ *fpool/*proto_pool*/, *kpool);
     if (core->stub()->use_jit()) {
+        ast::Factory factory(arena);
+        ast::LambdaLiteral *lambda = factory.NewLambdaLiteral(nullptr, true, root);
         std::string ast;
-        SerializeCompactedAST(root, &ast);
+        SerializeCompactedAST(lambda, &ast);
         if (!ast.empty()) {
             result->SetPackedAST(core->factory()->NewString(ast.data(), ast.size()), core);
         }

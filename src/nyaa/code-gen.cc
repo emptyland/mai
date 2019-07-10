@@ -16,10 +16,9 @@ extern Handle<NyFunction> Bytecode_CodeGenerate(Handle<NyString> file_name, ast:
 extern Handle<NyFunction> AOT_CodeGenerate(Handle<NyString> file_name, ast::Block *root,
                                            base::Arena *arena, NyaaCore *core);
     
-extern Error HIR_GenerateHIR(int n_params, bool vargs, BuiltinType *argv, size_t argc,
-                             const UpvalDesc *desc, BuiltinType *upvals, size_t n_upvals,
-                             ast::AstNode *ast, hir::Function **rv, base::Arena *arena,
-                             NyaaCore *core);
+extern Error HIR_GenerateHIR(const BuiltinType *argv, size_t argc, const UpvalDesc *desc,
+                             const BuiltinType *upvals, size_t n_upvals, ast::AstNode *ast,
+                             hir::Function **rv, base::Arena *arena, NyaaCore *core);
     
 /*static*/ Handle<NyFunction> CodeGen::Generate(Handle<NyString> file_name, ast::Block *root,
                                                 base::Arena *arena, NyaaCore *core) {
@@ -38,7 +37,7 @@ extern Error HIR_GenerateHIR(int n_params, bool vargs, BuiltinType *argv, size_t
 }
     
 /*static*/ Error CodeGen::GenerateHIR(Handle<NyClosure> rb,
-                                      BuiltinType *args, // type of arguments
+                                      const BuiltinType *args, // type of arguments
                                       size_t argc, // number of arguments
                                       hir::Function **rv, // result
                                       // TODO: constant pool
@@ -65,20 +64,16 @@ extern Error HIR_GenerateHIR(int n_params, bool vargs, BuiltinType *argv, size_t
         return rs;
     }
     
-    return GenerateHIR(rb->proto()->n_params(),
-                       rb->proto()->vargs(),
-                       args, argc,
-                       &rb->proto()->upval(0),
+    return GenerateHIR(args, argc,
+                       rb->proto()->upvals(),
                        upvals.get(),
                        n_upvals, ast, rv, arena, core);
 }
 
-/*static*/ Error CodeGen::GenerateHIR(int n_params, // number of parameters in prototype function
-                                      bool vargs, // is variable arguments?
-                                      BuiltinType *args, // type of arguments
+/*static*/ Error CodeGen::GenerateHIR(const BuiltinType *args, // type of arguments
                                       size_t argc, // number of arguments
                                       const UpvalDesc *desc, // up-value descriptor
-                                      BuiltinType *upvals, // type of up-values
+                                      const BuiltinType *upvals, // type of up-values
                                       size_t n_upvals, // number of up-values
                                       ast::AstNode *ast, // AST for generate
                                       hir::Function **rv, // result
@@ -87,7 +82,7 @@ extern Error HIR_GenerateHIR(int n_params, bool vargs, BuiltinType *argv, size_t
                                       NyaaCore *core) {
     // TODO:
     
-    return HIR_GenerateHIR(n_params, vargs, args, argc, desc, upvals, n_upvals, ast, rv, arena, core);
+    return HIR_GenerateHIR(args, argc, desc, upvals, n_upvals, ast, rv, arena, core);
 }
     
 } // namespace nyaa

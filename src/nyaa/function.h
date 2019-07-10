@@ -66,6 +66,8 @@ public:
         return upvals_[i];
     }
     
+    const UpvalDesc *upvals() const { return upvals_; }
+    
     uint32_t IncreaseCalledCount() { return ++called_count_; }
     
     void SetUpval(size_t i, NyString *name, bool in_stack, int32_t index,

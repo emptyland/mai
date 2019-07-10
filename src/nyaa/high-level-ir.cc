@@ -49,6 +49,24 @@ void BasicBlock::PrintTo(FILE *fp) const {
     }
 }
     
+/*virtual*/ void Constant::PrintOperator(FILE *fp) const {
+    ::fprintf(fp, "%%%s ", Type::kNames[type()]);
+    switch (type()) {
+        case Type::kInt:
+            ::fprintf(fp, "%lld", smi_);
+            break;
+        case Type::kFloat:
+            ::fprintf(fp, "%f", f64_);
+            break;
+        case Type::kString:
+            ::fprintf(fp, "\'%s\'", str_->data());
+            break;
+        default:
+            DLOG(FATAL) << "Noreached!" << Type::kNames[type()];
+            break;
+    }
+}
+    
 /*virtual*/ void Branch::PrintOperator(FILE *fp) const {
     fprintf(fp, "br ");
     cond_->PrintValue(fp);

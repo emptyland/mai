@@ -10,7 +10,7 @@
 namespace mai {
     
 namespace nyaa {
-    
+class NyMap;
 namespace hir {
     
 #define DECL_DAG_NODES(V) \
@@ -65,7 +65,7 @@ struct UpvalDesc {
 };
     
 // https://www.oracle.com/technetwork/java/javase/tech/c2-ir95-150110.pdf
-class DAGNode {
+class HIRNode {
 public:
     void *operator new (size_t size, base::Arena *arena) {
         return arena->Allocate(size);
@@ -74,7 +74,7 @@ public:
     void operator delete (void *p) = delete;
 };
     
-class Function : public DAGNode {
+class Function : public HIRNode {
 public:
     using ValueSet = base::ArenaVector<Value *>;
     using BasicBlockSet = base::ArenaVector<BasicBlock *>;
@@ -88,6 +88,7 @@ public:
     inline Value *LoadGlobal(BasicBlock *bb, Type::ID type, const String *name, int line);
     inline Value *StoreGlobal(BasicBlock *bb, const String *name, Value *val, int line);
     inline Value *BaseOfStack(BasicBlock *bb, Value *base, int offset, int line);
+    inline Constant *Constant(Type::ID type, int line);
     inline Value *Nil(int line);
     inline Value *IMinus(BasicBlock *bb, Value *operand, int line);
     inline Value *IAdd(BasicBlock *bb, Value *lhs, Value *rhs, int line);
@@ -124,7 +125,7 @@ private:
     int next_val_id_ = 0;
 }; // class Function
     
-class BasicBlock : public DAGNode {
+class BasicBlock : public HIRNode {
 public:
     using EdgeSet = base::ArenaVector<BasicBlock *>;
     
@@ -157,8 +158,29 @@ private:
     Value *root_ = nullptr;
     Value *last_ = nullptr;
 }; // class BasicBlock
+    
+struct Use : public HIRNode {
+public:
+    Use(Value *v) : val(v) {}
+    
+    void RemoveFromList() {
+        prev->next = next;
+        next->prev = prev;
+    }
+    
+    void AddToList(Use *list) {
+        next = list;
+        prev = list->prev;
+        list->prev->next = this;
+        list->prev = this;
+    }
 
-class Value : public DAGNode {
+    Value *val;
+    Use *next;
+    Use *prev;
+}; // class Use
+
+class Value : public HIRNode {
 public:
     enum Kind {
     #define DEFINE_ENUM(name) k##name,
@@ -189,15 +211,22 @@ public:
     
     void PrintValue(FILE *fp) const {
         if (!IsVoid()) {
-            fprintf(fp, "%%%s v%d", Type::kNames[type_], index_);
+            if (kind() == kConstant) {
+                PrintOperator(fp);
+            } else {
+                fprintf(fp, "%%%s v%d", Type::kNames[type_], index_);
+            }
         }
     }
-    
+
     friend class Function;
 protected:
     Value(Function *top, BasicBlock *bb, Type::ID type, int line)
         : type_(type)
-        , line_(line) {
+        , line_(line)
+        , use_dummy_(nullptr) {
+            use_dummy_.next = &use_dummy_;
+            use_dummy_.prev = &use_dummy_;
             top->AddValue(this);
             if (bb) {
                 bb->AddValue(this);
@@ -208,12 +237,24 @@ protected:
     Value(Function *top, Type::ID type, int line)
         : type_(type)
         , index_(0)
-        , line_(line) {
+        , line_(line)
+        , use_dummy_(nullptr) {
+        use_dummy_.next = &use_dummy_;
+        use_dummy_.prev = &use_dummy_;
     }
+    
+    void Set(Value *v, base::Arena *arena) {
+        if (v) {
+            v->AddUse(new (arena) Use(this));
+        }
+    }
+    
+    void AddUse(Use *use) { use->AddToList(&use_dummy_); }
     
     Type::ID type_;
     int index_;
     int line_;
+    Use use_dummy_;
     Value *next_ = nullptr;
 };
     
@@ -230,11 +271,31 @@ protected:
     
 class Constant : public Value {
 public:
+    int64_t int_val() const { DCHECK(IsInt()); return smi_; }
+    void set_int_val(int64_t val) { DCHECK(IsInt()); smi_ = val; }
+    
+    double float_val() const { DCHECK(IsFloat()); return f64_; }
+    void set_float_val(double val) { DCHECK(IsFloat()); f64_ = val; }
+    
+    const String *string_val() const { DCHECK(IsString()); return str_; }
+    void set_string_val(const String *val) { DCHECK(IsString()); str_ = val; }
+    
+    NyMap *map_val() const { DCHECK(IsMap()); return map_; }
+    void set_map_val(NyMap *val) { DCHECK(IsMap()); map_ = val; }
+    
+    virtual void PrintOperator(FILE *fp) const override;
+
     DEFINE_DAG_INST_NODE(Constant);
-    virtual void PrintOperator(FILE *fp) const override {}
 private:
     Constant(Function *top, Type::ID type, int line)
         : Value(top, type, line) {}
+    
+    union {
+        int64_t smi_;
+        double f64_;
+        const String *str_;
+        NyMap *map_;
+    };
 }; // class Constant
     
 class Parameter : public Value {
@@ -279,7 +340,9 @@ private:
     StoreUp(Function *top, BasicBlock *bb, int slot, Value *val, int line)
         : Value(top, bb, Type::kVoid, line)
         , slot_(slot)
-        , src_(DCHECK_NOTNULL(val)) {}
+        , src_(DCHECK_NOTNULL(val)) {
+        Set(val, top->arena());
+    }
     
     int slot_; // upvalue slot in closure object
     Value *src_;
@@ -317,7 +380,9 @@ private:
     StoreGlobal(Function *top, BasicBlock *bb, const String *name, Value *src, int line)
         : Value(top, bb, Type::kVoid, line)
         , name_(DCHECK_NOTNULL(name))
-        , src_(DCHECK_NOTNULL(src)) {}
+        , src_(DCHECK_NOTNULL(src)) {
+        Set(src, top->arena());
+    }
 
     const String *name_;
     Value *src_;
@@ -339,7 +404,9 @@ private:
     BaseOfStack(Function *top, BasicBlock *bb, Value *base, int offset, int line)
         : Value(top, bb, DCHECK_NOTNULL(base)->hint(offset), line)
         , base_(DCHECK_NOTNULL(base))
-        , offset_(offset) {}
+        , offset_(offset) {
+        Set(base, top->arena());
+    }
 
     Value *base_;
     int offset_;
@@ -358,7 +425,9 @@ public:
 protected:
     Unary(Function *top, BasicBlock *bb, Type::ID type, Value *operand, int line)
         : Value(top, bb, type, line)
-        , operand_(DCHECK_NOTNULL(operand)) {}
+        , operand_(DCHECK_NOTNULL(operand)) {
+        Set(operand, top->arena());
+    }
 private:
     Value *operand_;
 }; // class Unary
@@ -379,7 +448,10 @@ protected:
     Binary(Function *top, BasicBlock *bb, Type::ID type, Value *lhs, Value *rhs, int line)
         : Value(top, bb, type, line)
         , lhs_(DCHECK_NOTNULL(lhs))
-        , rhs_(DCHECK_NOTNULL(rhs)) {}
+        , rhs_(DCHECK_NOTNULL(rhs)) {
+        Set(lhs, top->arena());
+        Set(rhs, top->arena());
+    }
 private:
     Value *lhs_;
     Value *rhs_;
@@ -436,6 +508,7 @@ private:
     Branch(Function *top, BasicBlock *bb, Value *cond, int line)
         : Value(top, bb, Type::kVoid, line)
         , cond_(cond) {
+        Set(cond, top->arena());
     }
     
     Value *cond_;
@@ -456,6 +529,7 @@ public:
     void AddIncoming(BasicBlock *bb, Value *value) {
         DCHECK(value->type() == type());
         incoming_.push_back({bb, value});
+        Set(value, owns_->arena());
     }
     
     inline Value *GetIncomingValue(BasicBlock *bb);
@@ -466,8 +540,10 @@ public:
 private:
     Phi(Function *top, BasicBlock *bb, Type::ID type, int line)
         : Value(top, bb, type, line)
+        , owns_(top)
         , incoming_(top->arena()) {}
     
+    Function *owns_;
     PathSet incoming_;
 }; // class Phi
     
@@ -476,13 +552,18 @@ public:
     using ValueSet = base::ArenaVector<Value *>;
     
     DEF_VAL_PROP_RMW(ValueSet, ret_vals);
+    DEF_VAL_PROP_RW(int, wanted);
     
-    void AddRetVal(Value *val) { ret_vals_.push_back(val); }
+    void AddRetVal(Value *val) {
+        ret_vals_.push_back(val);
+        Set(val, owns_->arena());
+    }
     
     virtual void PrintOperator(FILE *fp) const override {
-        ::fprintf(fp, "ret ");
+        ::fprintf(fp, "ret(%d) ", wanted_);
         for (auto val : ret_vals_) {
             val->PrintValue(fp);
+            ::fprintf(fp, " ");
         }
     }
     
@@ -490,9 +571,12 @@ public:
 private:
     Ret(Function *top, BasicBlock *bb, int line)
         : Value(top, bb, Type::kVoid, line)
+        , owns_(top)
         , ret_vals_(top->arena()) {}
     
+    Function *owns_;
     ValueSet ret_vals_;
+    int wanted_ = 0;
 }; // class Ret
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -541,6 +625,10 @@ inline Value *Function::StoreGlobal(BasicBlock *bb, const String *name, Value *v
     
 inline Value *Function::BaseOfStack(BasicBlock *bb, Value *base, int offset, int line) {
     return new (arena_) class BaseOfStack(this, bb, base, offset, line);
+}
+    
+inline Constant *Function::Constant(Type::ID type, int line) {
+    return new (arena_) class Constant(this, type, line);
 }
     
 inline Value *Function::Nil(int line) {

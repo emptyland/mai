@@ -32,7 +32,7 @@ public:
     
     // Generate high-level IR
     static Error GenerateHIR(Handle<NyClosure> rb,
-                             BuiltinType *args, // type of arguments
+                             const BuiltinType *args, // type of arguments
                              size_t argc, // number of arguments
                              hir::Function **rv, // result
                              // TODO: constant pool
@@ -40,12 +40,10 @@ public:
                              NyaaCore *core);
     
     // Generate high-level IR
-    static Error GenerateHIR(int n_params, // number of parameters in prototype function
-                             bool vargs, // is variable arguments?
-                             BuiltinType *args, // type of arguments
+    static Error GenerateHIR(const BuiltinType *args, // type of arguments
                              size_t argc, // number of arguments
                              const UpvalDesc *desc, // up-value descriptor
-                             BuiltinType *upvals, // type of up-values
+                             const BuiltinType *upvals, // type of up-values
                              size_t n_upvals, // number of up-values
                              ast::AstNode *ast, // AST for generate
                              hir::Function **rv, // result
