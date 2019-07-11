@@ -110,7 +110,19 @@ TEST_F(NyaaHIRTest, BranchAndPhi) {
     
 TEST_F(NyaaHIRTest, GenerateHIR) {
     static const char z[] = {
-        "var a, b, c = t, 1, 2\n"
+        "var a, b, c = t, 1, '2'\n"
+        "return a, b, c\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(z, {}, &fn_);
+    
+    fn_->PrintTo(stdout);
+}
+    
+TEST_F(NyaaHIRTest, GenerateIfBranchs) {
+    static const char z[] = {
+        "var a, b, c = t, 1, '2'\n"
+        "if (a) { return -1 } else { return 11 }\n"
         "return a, b, c\n"
     };
     HandleScope handle_scope(N_);
@@ -119,6 +131,31 @@ TEST_F(NyaaHIRTest, GenerateHIR) {
     fn_->PrintTo(stdout);
 }
 
+TEST_F(NyaaHIRTest, GenerateMulitIfBranchs) {
+    static const char z[] = {
+        "var a, b, c = t, 1, '2'\n"
+        "if (a) { return -1 } else if (b) { return 11 }\n"
+        "return a, b, c\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(z, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+    
+    fn_->PrintTo(stdout);
+}
+    
+TEST_F(NyaaHIRTest, GenerateIfBranchsPhiNode) {
+    static const char z[] = {
+        "var a, b, c = t, 1, '2'\n"
+        "if (a) { a = 1 }\n"
+        "return a\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(z, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+    
+    fn_->PrintTo(stdout);
+}
     
 } // namespace dag
 

@@ -50,7 +50,7 @@ void BasicBlock::PrintTo(FILE *fp) const {
 }
     
 /*virtual*/ void Constant::PrintOperator(FILE *fp) const {
-    ::fprintf(fp, "%%%s ", Type::kNames[type()]);
+    ::fprintf(fp, "%s ", Type::kNames[type()]);
     switch (type()) {
         case Type::kInt:
             ::fprintf(fp, "%lld", smi_);

@@ -1205,7 +1205,7 @@ private:
     
     ast::Statement *ReadStmtOptional() {
         ast::AstNode *node = ReadNodeOptional();
-        DCHECK(node || node->is_statement());
+        DCHECK(!node || node->is_statement());
         return static_cast<ast::Statement *>(node);
     }
     

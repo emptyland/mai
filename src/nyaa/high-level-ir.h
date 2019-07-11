@@ -21,10 +21,12 @@ namespace hir {
     V(StoreGlobal) \
     V(BaseOfStack) \
     V(Constant) \
+    V(Inbox) \
     V(IMinus) \
     V(IAdd) \
     V(ISub) \
     V(Branch) \
+    V(NoCondBranch) \
     V(Phi) \
     V(Ret)
     
@@ -87,6 +89,7 @@ public:
     inline Value *StoreUp(BasicBlock *bb, int slot, Value *val, int line);
     inline Value *LoadGlobal(BasicBlock *bb, Type::ID type, const String *name, int line);
     inline Value *StoreGlobal(BasicBlock *bb, const String *name, Value *val, int line);
+    inline Value *Inbox(BasicBlock *bb, Value *from, int line);
     inline Value *BaseOfStack(BasicBlock *bb, Value *base, int offset, int line);
     inline Constant *Constant(Type::ID type, int line);
     inline Value *Nil(int line);
@@ -94,6 +97,7 @@ public:
     inline Value *IAdd(BasicBlock *bb, Value *lhs, Value *rhs, int line);
     inline Value *ISub(BasicBlock *bb, Value *lhs, Value *rhs, int line);
     inline Branch *Branch(BasicBlock *bb, Value *cond, int line);
+    inline Value *NoCondBranch(BasicBlock *bb, BasicBlock *target, int line);
     inline Phi *Phi(BasicBlock *bb, Type::ID type, int line);
     inline Ret *Ret(BasicBlock *bb, int line);
 
@@ -107,19 +111,15 @@ public:
 private:
     Function(base::Arena *arena)
         : arena_(arena)
-        , basic_blocks_(arena)
-        , values_(arena) {}
+        , basic_blocks_(arena) {}
     
     int NextValId() { return next_val_id_++; }
     int NextBBId() { return next_bb_id_++; }
-    
-    inline void AddValue(Value *v);
 
     void AddBasicBlock(BasicBlock *bb) { basic_blocks_.push_back(DCHECK_NOTNULL(bb)); }
 
     base::Arena *arena_;
     BasicBlockSet basic_blocks_;
-    ValueSet values_;
     BasicBlock *entry_ = nullptr;
     int next_bb_id_ = 0;
     int next_val_id_ = 0;
@@ -214,7 +214,7 @@ public:
             if (kind() == kConstant) {
                 PrintOperator(fp);
             } else {
-                fprintf(fp, "%%%s v%d", Type::kNames[type_], index_);
+                fprintf(fp, "%s %%v%d", Type::kNames[type_], index_);
             }
         }
     }
@@ -223,11 +223,11 @@ public:
 protected:
     Value(Function *top, BasicBlock *bb, Type::ID type, int line)
         : type_(type)
+        , index_(type != Type::kVoid ? top->NextValId() : 0)
         , line_(line)
         , use_dummy_(nullptr) {
             use_dummy_.next = &use_dummy_;
             use_dummy_.prev = &use_dummy_;
-            top->AddValue(this);
             if (bb) {
                 bb->AddValue(this);
             }
@@ -388,6 +388,37 @@ private:
     Value *src_;
 }; // class LoadGlobal
 
+
+class CastInst : public Value {
+public:
+    DEF_PTR_GETTER(Value, from);
+    virtual const char *cast_name() const = 0;
+    
+    virtual void PrintOperator(FILE *fp) const override {
+        ::fprintf(fp, "%s ", cast_name());
+        from_->PrintValue(fp);
+    }
+protected:
+    CastInst(Function *top, BasicBlock *bb, Type::ID to, Value *from, int line)
+        : Value(top, bb, to, line)
+        , from_(DCHECK_NOTNULL(from)) {
+        Set(from, top->arena());
+    }
+
+    Value *from_;
+}; // class CastInst
+    
+class Inbox : public CastInst {
+public:
+    virtual const char *cast_name() const override { return "inbox"; }
+
+    DEFINE_DAG_INST_NODE(Inbox);
+private:
+    Inbox(Function *top, BasicBlock *bb, Value *from, int line)
+        : CastInst(top, bb, Type::kObject, from, line) {
+    }
+}; // class Inbox
+
 class BaseOfStack : public Value {
 public:
     DEF_PTR_GETTER(Value, base);
@@ -516,6 +547,24 @@ private:
     BasicBlock *if_false_ = nullptr;
 }; // class Branch
     
+class NoCondBranch : public Value {
+public:
+    DEF_PTR_GETTER(BasicBlock, target);
+    
+    virtual void PrintOperator(FILE *fp) const override {
+        ::fprintf(fp, "br l%d", target_->label());
+    }
+    
+    DEFINE_DAG_INST_NODE(NoCondBranch);
+private:
+    NoCondBranch(Function *top, BasicBlock *bb, BasicBlock *target, int line)
+        : Value(top, bb, Type::kVoid, line)
+        , target_(DCHECK_NOTNULL(target)) {
+    }
+    
+    BasicBlock *target_;
+}; // class NoCondBranch
+    
 class Phi : public Value {
 public:
     struct Path {
@@ -531,7 +580,7 @@ public:
         incoming_.push_back({bb, value});
         Set(value, owns_->arena());
     }
-    
+
     inline Value *GetIncomingValue(BasicBlock *bb);
     
     virtual void PrintOperator(FILE *fp) const override;
@@ -594,14 +643,6 @@ inline BasicBlock *Function::NewBB(BasicBlock *in_edge) {
     }
     return bb;
 }
-    
-inline void Function::AddValue(Value *v) {
-    DCHECK_NE(Type::kNil, v->type());
-    if (!v->IsVoid()) {
-        v->index_ = NextValId();
-        values_.push_back(DCHECK_NOTNULL(v));
-    }
-}
 
 inline Value *Function::Parameter(Type::ID type, int line) {
     return new (arena_) class Parameter(this, type, line);
@@ -621,6 +662,10 @@ inline Value *Function::LoadGlobal(BasicBlock *bb, Type::ID type, const String *
     
 inline Value *Function::StoreGlobal(BasicBlock *bb, const String *name, Value *val, int line) {
     return new (arena_) class StoreGlobal(this, bb, name, val, line);
+}
+
+inline Value *Function::Inbox(BasicBlock *bb, Value *from, int line) {
+    return new (arena_) class Inbox(this, bb, from, line);
 }
     
 inline Value *Function::BaseOfStack(BasicBlock *bb, Value *base, int offset, int line) {
@@ -649,6 +694,10 @@ inline Value *Function::ISub(BasicBlock *bb, Value *lhs, Value *rhs, int line) {
     
 inline Branch *Function::Branch(BasicBlock *bb, Value *cond, int line) {
     return new (arena_) class Branch(this, bb, cond, line);
+}
+    
+inline Value *Function::NoCondBranch(BasicBlock *bb, BasicBlock *target, int line) {
+    return new (arena_) class NoCondBranch(this, bb, target, line);
 }
 
 inline Phi *Function::Phi(BasicBlock *bb, Type::ID type, int line) {
