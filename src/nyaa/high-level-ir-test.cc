@@ -108,6 +108,13 @@ TEST_F(NyaaHIRTest, BranchAndPhi) {
     //fn_->PrintTo(stdout);
 }
     
+TEST_F(NyaaHIRTest, CastPriority) {
+    auto prio = GetCastPriority(Type::kInt, Type::kLong);
+    ASSERT_EQ(CastPriority::kLHS, prio.how);
+    ASSERT_EQ(Type::kLong, prio.type);
+    ASSERT_EQ(Value::kIntToLong, GetCastAction(Type::kLong, Type::kInt));
+}
+    
 TEST_F(NyaaHIRTest, GenerateHIR) {
     static const char z[] = {
         "var a, b, c = t, 1, '2'\n"
@@ -146,7 +153,7 @@ TEST_F(NyaaHIRTest, GenerateMulitIfBranchs) {
     
 TEST_F(NyaaHIRTest, GenerateIfBranchsPhiNode) {
     static const char z[] = {
-        "var a, b, c = t, 1, '2'\n"
+        "var a, b, c = 2, 1, '2'\n"
         "if (a) { a = 1 }\n"
         "return a\n"
     };
@@ -157,7 +164,7 @@ TEST_F(NyaaHIRTest, GenerateIfBranchsPhiNode) {
     fn_->PrintTo(stdout);
 }
     
-} // namespace dag
+} // namespace hir
 
 } // namespace nyaa
 

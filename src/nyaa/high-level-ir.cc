@@ -6,6 +6,192 @@ namespace nyaa {
 
 namespace hir {
 
+static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
+    /*LHS: Void*/[Type::kVoid] =  {
+        {CastPriority::kNever, Type::kVoid}, // Void
+        {CastPriority::kNever, Type::kVoid}, // Int
+        {CastPriority::kNever, Type::kVoid}, // Long
+        {CastPriority::kNever, Type::kVoid}, // Float
+        {CastPriority::kNever, Type::kVoid}, // String
+        {CastPriority::kNever, Type::kVoid}, // Array
+        {CastPriority::kNever, Type::kVoid}, // Map
+        {CastPriority::kNever, Type::kVoid}, // Object
+    },
+    
+    /*LHS: Int*/[Type::kInt] = {
+        {CastPriority::kNever, Type::kVoid}, // Void
+        {CastPriority::kKeep, Type::kInt}, // Int
+        {CastPriority::kLHS, Type::kLong}, // Long
+        {CastPriority::kLHS, Type::kFloat}, // Float
+        {CastPriority::kBoth, Type::kObject}, // String
+        {CastPriority::kBoth, Type::kObject}, // Array
+        {CastPriority::kBoth, Type::kObject}, // Map
+        {CastPriority::kLHS, Type::kObject}, // Object
+    },
+    
+    /*LHS: Long*/[Type::kLong] = {
+        {CastPriority::kNever, Type::kVoid}, // Void
+        {CastPriority::kRHS, Type::kLong}, // Int
+        {CastPriority::kKeep, Type::kLong}, // Long
+        {CastPriority::kLHS, Type::kFloat}, // Float
+        {CastPriority::kBoth, Type::kObject}, // String
+        {CastPriority::kBoth, Type::kObject}, // Array
+        {CastPriority::kBoth, Type::kObject}, // Map
+        {CastPriority::kLHS, Type::kObject}, // Object
+    },
+    
+    /*LHS: Float*/[Type::kFloat] = {
+        {CastPriority::kNever, Type::kVoid}, // Void
+        {CastPriority::kRHS, Type::kFloat}, // Int
+        {CastPriority::kRHS, Type::kFloat}, // Long
+        {CastPriority::kRHS, Type::kFloat}, // Float
+        {CastPriority::kBoth, Type::kObject}, // String
+        {CastPriority::kBoth, Type::kObject}, // Array
+        {CastPriority::kBoth, Type::kObject}, // Map
+        {CastPriority::kLHS, Type::kObject}, // Object
+    },
+    
+    /*LHS: String*/[Type::kString] = {
+        {CastPriority::kNever, Type::kVoid}, // Void
+        {CastPriority::kBoth, Type::kObject}, // Int
+        {CastPriority::kBoth, Type::kObject}, // Long
+        {CastPriority::kBoth, Type::kObject}, // Float
+        {CastPriority::kKeep, Type::kString}, // String
+        {CastPriority::kBoth, Type::kObject}, // Array
+        {CastPriority::kBoth, Type::kObject}, // Map
+        {CastPriority::kLHS, Type::kObject}, // Object
+    },
+    
+    /*LHS: Array*/[Type::kArray] = {
+        {CastPriority::kNever, Type::kVoid}, // Void
+        {CastPriority::kBoth, Type::kObject}, // Int
+        {CastPriority::kBoth, Type::kObject}, // Long
+        {CastPriority::kBoth, Type::kObject}, // Float
+        {CastPriority::kBoth, Type::kObject}, // String
+        {CastPriority::kKeep, Type::kArray}, // Array
+        {CastPriority::kLHS, Type::kMap}, // Map
+        {CastPriority::kLHS, Type::kObject}, // Object
+    },
+    
+    /*LHS: Map*/[Type::kMap] = {
+        {CastPriority::kNever, Type::kVoid}, // Void
+        {CastPriority::kBoth, Type::kObject}, // Int
+        {CastPriority::kBoth, Type::kObject}, // Long
+        {CastPriority::kBoth, Type::kObject}, // Float
+        {CastPriority::kBoth, Type::kObject}, // String
+        {CastPriority::kRHS, Type::kMap}, // Array
+        {CastPriority::kKeep, Type::kMap}, // Map
+        {CastPriority::kLHS, Type::kObject}, // Object
+    },
+    
+    /*LHS: Object*/[Type::kObject] = {
+        {CastPriority::kNever, Type::kVoid}, // Void
+        {CastPriority::kRHS, Type::kObject}, // Int
+        {CastPriority::kRHS, Type::kObject}, // Long
+        {CastPriority::kRHS, Type::kObject}, // Float
+        {CastPriority::kRHS, Type::kObject}, // String
+        {CastPriority::kRHS, Type::kObject}, // Array
+        {CastPriority::kRHS, Type::kObject}, // Map
+        {CastPriority::kKeep, Type::kObject}, // Object
+    },
+};
+    
+CastPriority GetCastPriority(Type::ID lhs, Type::ID rhs) {
+    DCHECK_LT(lhs, Type::kMaxTypes);
+    DCHECK_LT(rhs, Type::kMaxTypes);
+    return kCastPriorities[lhs][rhs];
+}
+    
+static const Value::Kind kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
+    // Void, Int, Long, Float, String, Array, Map, Object
+    [Type::kVoid] = {
+        Value::kMaxInsts, // Void
+        Value::kMaxInsts, // Int
+        Value::kMaxInsts, // Long,
+        Value::kMaxInsts, // Float,
+        Value::kMaxInsts, // String,
+        Value::kMaxInsts, // Array,
+        Value::kMaxInsts, // Map,
+        Value::kMaxInsts, // Object,
+    },
+    [Type::kInt] = {
+        Value::kMaxInsts, // Void
+        Value::kMaxInsts, // Int
+        Value::kIntToLong, // Long,
+        Value::kIntToLong, // Float,
+        Value::kMaxInsts, // String,
+        Value::kMaxInsts, // Array,
+        Value::kMaxInsts, // Map,
+        Value::kInbox, // Object,
+    },
+    [Type::kLong] = {
+        Value::kMaxInsts, // Void
+        Value::kLongToInt, // Int
+        Value::kMaxInsts, // Long,
+        Value::kLongToFloat, // Float,
+        Value::kMaxInsts, // String,
+        Value::kMaxInsts, // Array,
+        Value::kMaxInsts, // Map,
+        Value::kInbox, // Object,
+    },
+    [Type::kFloat] = {
+        Value::kMaxInsts, // Void
+        Value::kFloatToInt, // Int
+        Value::kFloatToLong, // Long,
+        Value::kMaxInsts, // Float,
+        Value::kMaxInsts, // String,
+        Value::kMaxInsts, // Array,
+        Value::kMaxInsts, // Map,
+        Value::kInbox, // Object,
+    },
+    [Type::kString] = {
+        Value::kMaxInsts, // Void
+        Value::kMaxInsts, // Int
+        Value::kMaxInsts, // Long,
+        Value::kMaxInsts, // Float,
+        Value::kMaxInsts, // String,
+        Value::kMaxInsts, // Array,
+        Value::kMaxInsts, // Map,
+        Value::kInbox, // Object,
+    },
+    [Type::kArray] = {
+        Value::kMaxInsts, // Void
+        Value::kMaxInsts, // Int
+        Value::kMaxInsts, // Long,
+        Value::kMaxInsts, // Float,
+        Value::kMaxInsts, // String,
+        Value::kMaxInsts, // Array,
+        Value::kInbox, // Map,
+        Value::kInbox, // Object,
+    },
+    [Type::kMap] = {
+        Value::kMaxInsts, // Void
+        Value::kMaxInsts, // Int
+        Value::kMaxInsts, // Long,
+        Value::kMaxInsts, // Float,
+        Value::kMaxInsts, // String,
+        Value::kInbox, // Array,
+        Value::kMaxInsts, // Map,
+        Value::kInbox, // Object,
+    },
+    [Type::kObject] = {
+        Value::kMaxInsts, // Void
+        Value::kInbox, // Int
+        Value::kInbox, // Long,
+        Value::kInbox, // Float,
+        Value::kInbox, // String,
+        Value::kInbox, // Array,
+        Value::kInbox, // Map,
+        Value::kMaxInsts, // Object,
+    },
+};
+
+Value::Kind GetCastAction(Type::ID dst, Type::ID src) {
+    DCHECK_LT(dst, Value::kMaxInsts);
+    DCHECK_LT(src, Value::kMaxInsts);
+    return kCastActions[src][dst];
+}
+
 const char *Type::kNames[] = {
 #define DEFINE_NAME(name, literal) literal,
     DECL_DAG_TYPES(DEFINE_NAME)
@@ -60,6 +246,9 @@ void BasicBlock::PrintTo(FILE *fp) const {
             break;
         case Type::kString:
             ::fprintf(fp, "\'%s\'", str_->data());
+            break;
+        case Type::kObject:
+            ::fprintf(fp, "nil");
             break;
         default:
             DLOG(FATAL) << "Noreached!" << Type::kNames[type()];

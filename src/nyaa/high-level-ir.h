@@ -11,6 +11,7 @@ namespace mai {
     
 namespace nyaa {
 class NyMap;
+class Object;
 namespace hir {
     
 #define DECL_DAG_NODES(V) \
@@ -22,6 +23,12 @@ namespace hir {
     V(BaseOfStack) \
     V(Constant) \
     V(Inbox) \
+    V(IntToLong) \
+    V(LongToInt) \
+    V(IntToFloat) \
+    V(FloatToInt) \
+    V(LongToFloat) \
+    V(FloatToLong) \
     V(IMinus) \
     V(IAdd) \
     V(ISub) \
@@ -32,8 +39,8 @@ namespace hir {
     
 #define DECL_DAG_TYPES(V) \
     V(Void,   "void") \
-    V(Nil,    "nil") \
     V(Int,    "int") \
+    V(Long,   "long") \
     V(Float,  "float") \
     V(String, "string") \
     V(Array,  "array") \
@@ -45,6 +52,7 @@ struct Type {
     #define DEFINE_ENUM(name, literal) k##name,
         DECL_DAG_TYPES(DEFINE_ENUM)
     #undef DEFINE_ENUM
+        kMaxTypes,
     };
     
     static const char *kNames[];
@@ -90,6 +98,12 @@ public:
     inline Value *LoadGlobal(BasicBlock *bb, Type::ID type, const String *name, int line);
     inline Value *StoreGlobal(BasicBlock *bb, const String *name, Value *val, int line);
     inline Value *Inbox(BasicBlock *bb, Value *from, int line);
+    inline Value *IntToLong(BasicBlock *bb, Value *from, int line);
+    inline Value *IntToFloat(BasicBlock *bb, Value *from, int line);
+    inline Value *LongToInt(BasicBlock *bb, Value *from, int line);
+    inline Value *LongToFloat(BasicBlock *bb, Value *from, int line);
+    inline Value *FloatToInt(BasicBlock *bb, Value *from, int line);
+    inline Value *FloatToLong(BasicBlock *bb, Value *from, int line);
     inline Value *BaseOfStack(BasicBlock *bb, Value *base, int offset, int line);
     inline Constant *Constant(Type::ID type, int line);
     inline Value *Nil(int line);
@@ -186,6 +200,7 @@ public:
     #define DEFINE_ENUM(name) k##name,
         DECL_DAG_NODES(DEFINE_ENUM)
     #undef DEFINE_ENUM
+        kMaxInsts,
     };
 
     DEF_VAL_GETTER(Type::ID, type);
@@ -283,6 +298,9 @@ public:
     NyMap *map_val() const { DCHECK(IsMap()); return map_; }
     void set_map_val(NyMap *val) { DCHECK(IsMap()); map_ = val; }
     
+    bool is_nil() const { return nil_stub_ == nullptr; }
+    void set_nil() { nil_stub_ = nullptr; }
+    
     virtual void PrintOperator(FILE *fp) const override;
 
     DEFINE_DAG_INST_NODE(Constant);
@@ -295,6 +313,7 @@ private:
         double f64_;
         const String *str_;
         NyMap *map_;
+        Object *nil_stub_;
     };
 }; // class Constant
     
@@ -407,17 +426,27 @@ protected:
 
     Value *from_;
 }; // class CastInst
-    
-class Inbox : public CastInst {
-public:
-    virtual const char *cast_name() const override { return "inbox"; }
 
-    DEFINE_DAG_INST_NODE(Inbox);
-private:
-    Inbox(Function *top, BasicBlock *bb, Value *from, int line)
-        : CastInst(top, bb, Type::kObject, from, line) {
-    }
-}; // class Inbox
+#define DEFINE_CAST_INST(name, short_name, dst_ty) \
+class name : public CastInst { \
+public: \
+    virtual const char *cast_name() const override { return short_name; } \
+    DEFINE_DAG_INST_NODE(name); \
+private: \
+    name(Function *top, BasicBlock *bb, Value *from, int line) \
+        : CastInst(top, bb, dst_ty, from, line) { \
+    } \
+}
+    
+DEFINE_CAST_INST(Inbox,       "inbox", Type::kObject);
+DEFINE_CAST_INST(IntToLong,   "itol",  Type::kLong);
+DEFINE_CAST_INST(IntToFloat,  "itof",  Type::kFloat);
+DEFINE_CAST_INST(LongToInt,   "ltoi",  Type::kInt);
+DEFINE_CAST_INST(LongToFloat, "ltof",  Type::kFloat);
+DEFINE_CAST_INST(FloatToInt,  "ftoi",  Type::kInt);
+DEFINE_CAST_INST(FloatToLong, "ftol",  Type::kLong);
+
+#undef DEFINE_CAST_INST
 
 class BaseOfStack : public Value {
 public:
@@ -627,6 +656,25 @@ private:
     ValueSet ret_vals_;
     int wanted_ = 0;
 }; // class Ret
+    
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Utils:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+struct CastPriority {
+    enum How {
+        kLHS,
+        kRHS,
+        kBoth,
+        kKeep,
+        kNever,
+    };
+    How how;
+    Type::ID type;
+};
+    
+CastPriority GetCastPriority(Type::ID lhs, Type::ID rhs);
+    
+Value::Kind GetCastAction(Type::ID dst, Type::ID src);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Inline Functions:
@@ -668,6 +716,30 @@ inline Value *Function::Inbox(BasicBlock *bb, Value *from, int line) {
     return new (arena_) class Inbox(this, bb, from, line);
 }
     
+inline Value *Function::IntToLong(BasicBlock *bb, Value *from, int line) {
+    return new (arena_) class IntToLong(this, bb, from, line);
+}
+
+inline Value *Function::IntToFloat(BasicBlock *bb, Value *from, int line) {
+    return new (arena_) class IntToLong(this, bb, from, line);
+}
+
+inline Value *Function::LongToInt(BasicBlock *bb, Value *from, int line) {
+    return new (arena_) class LongToInt(this, bb, from, line);
+}
+
+inline Value *Function::LongToFloat(BasicBlock *bb, Value *from, int line) {
+    return new (arena_) class LongToFloat(this, bb, from, line);
+}
+
+inline Value *Function::FloatToInt(BasicBlock *bb, Value *from, int line) {
+    return new (arena_) class FloatToInt(this, bb, from, line);
+}
+
+inline Value *Function::FloatToLong(BasicBlock *bb, Value *from, int line) {
+    return new (arena_) class FloatToLong(this, bb, from, line);
+}
+    
 inline Value *Function::BaseOfStack(BasicBlock *bb, Value *base, int offset, int line) {
     return new (arena_) class BaseOfStack(this, bb, base, offset, line);
 }
@@ -677,7 +749,9 @@ inline Constant *Function::Constant(Type::ID type, int line) {
 }
     
 inline Value *Function::Nil(int line) {
-    return new (arena_) class Constant(this, Type::kNil, line);
+    auto k = new (arena_) class Constant(this, Type::kObject, line);
+    k->set_nil();
+    return k;
 }
     
 inline Value *Function::IMinus(BasicBlock *bb, Value *operand, int line) {

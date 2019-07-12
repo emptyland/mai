@@ -55,19 +55,7 @@ public:
         return iter == values_.end() ? nullptr : iter->second.value;
     }
     
-    std::map<hir::Value *, hir::Value *> MergeBranch(HIRBlockScope *br) {
-        DCHECK(br->is_br_edge_);
-        std::map<hir::Value *, hir::Value *> rv;
-        for (const auto &pair : br->values_) {
-            if (!pair.second.out_scope) {
-                continue;
-            }
-            hir::Value *old_ver = DCHECK_NOTNULL(pair.second.out_scope->GetValueOrNull(pair.first));
-            hir::Value *new_ver = pair.second.value;
-            rv.insert({old_ver, new_ver});
-        }
-        return rv;
-    }
+    inline std::map<hir::Value *, hir::Value *> MergeBranch(HIRBlockScope *br);
     
 private:
     bool is_br_edge_;
@@ -140,10 +128,22 @@ HIRBlockScope::GetValueOrNullNested(const ast::String *name) {
     return {nullptr, nullptr};
 }
     
+inline std::map<hir::Value *, hir::Value *> HIRBlockScope::MergeBranch(HIRBlockScope *br) {
+    DCHECK(br->is_br_edge_);
+    std::map<hir::Value *, hir::Value *> rv;
+    for (const auto &pair : br->values_) {
+        if (!pair.second.out_scope) {
+            continue;
+        }
+        hir::Value *old_ver = DCHECK_NOTNULL(pair.second.out_scope->GetValueOrNull(pair.first));
+        hir::Value *new_ver = pair.second.value;
+        rv.insert({old_ver, new_ver});
+    }
+    return rv;
+}
+    
 inline static hir::Type::ID ConvType(BuiltinType ty) {
     switch (ty) {
-        case kTypeNil:
-            return hir::Type::kNil;
         case kTypeSmi:
         case kTypeInt:
             return hir::Type::kInt;
@@ -409,11 +409,11 @@ public:
         } else {
             auto info = ctx->scope()->MergeBranch(&if_true_scope);
             for (const auto &pair : info) {
-                // TODO: cast
-                hir::Value *val = target_->Inbox(out, pair.second, node->line());
-                hir::Phi *phi = target_->Phi(out, pair.first->type(), node->line());
-                phi->AddIncoming(ctx->bb(), pair.first);
-                phi->AddIncoming(if_true, val);
+                hir::Value *v1 = pair.first, *v2 = pair.second;
+                EmitCastIfNeed(ctx->bb(), &v1, if_true, &v2, node->line());
+                hir::Phi *phi = target_->Phi(out, v1->type(), node->line());
+                phi->AddIncoming(ctx->bb(), v1);
+                phi->AddIncoming(if_true, v2);
             }
         }
         
@@ -425,6 +425,52 @@ public:
         ctx->set_bb(out);
 
         return IVal::Void();
+    }
+    
+    void EmitCastIfNeed(hir::BasicBlock *lbb, hir::Value **lhs, hir::BasicBlock *rbb,
+                        hir::Value **rhs, int line) {
+        hir::CastPriority prio = hir::GetCastPriority((*lhs)->type(), (*rhs)->type());
+        switch (prio.how) {
+            case hir::CastPriority::kKeep:
+                return;
+            case hir::CastPriority::kLHS:
+                *lhs = EmitCast(lbb, hir::GetCastAction(prio.type, (*lhs)->type()), *lhs, line);
+                break;
+            case hir::CastPriority::kRHS:
+                *rhs = EmitCast(rbb, hir::GetCastAction(prio.type, (*rhs)->type()), *rhs, line);
+                break;
+            case hir::CastPriority::kBoth:
+                *lhs = EmitCast(lbb, hir::GetCastAction(prio.type, (*lhs)->type()), *lhs, line);
+                *rhs = EmitCast(rbb, hir::GetCastAction(prio.type, (*rhs)->type()), *rhs, line);
+                break;
+            case hir::CastPriority::kNever:
+            default:
+                DLOG(FATAL) << "Noreached!";
+                break;
+        }
+    }
+    
+    hir::Value *EmitCast(hir::BasicBlock *bb, hir::Value::Kind inst, hir::Value *from, int line) {
+        switch (inst) {
+            case hir::Value::kInbox:
+                return target_->Inbox(bb, from, line);
+            case hir::Value::kIntToLong:
+                return target_->IntToLong(bb, from, line);
+            case hir::Value::kIntToFloat:
+                return target_->IntToFloat(bb, from, line);
+            case hir::Value::kLongToInt:
+                return target_->LongToInt(bb, from, line);
+            case hir::Value::kLongToFloat:
+                return target_->LongToFloat(bb, from, line);
+            case hir::Value::kFloatToInt:
+                return target_->FloatToInt(bb, from, line);
+            case hir::Value::kFloatToLong:
+                return target_->FloatToLong(bb, from, line);
+            default:
+                DLOG(FATAL) << "Noreached!";
+                break;
+        }
+        return nullptr;
     }
 
     friend class HIRBlockScope;
