@@ -17,26 +17,46 @@ namespace hir {
 #define DECL_DAG_NODES(V) \
     V(Parameter) \
     V(LoadUp) \
-    V(StoreUp) \
     V(LoadGlobal) \
-    V(StoreGlobal) \
     V(BaseOfStack) \
     V(Constant) \
+    V(Branch) \
+    V(NoCondBranch) \
+    V(Phi) \
+    V(Ret) \
+    DECL_HIR_STORE(V) \
+    DECL_HIR_CAST(V) \
+    DECL_HIR_UNARY(V) \
+    DECL_HIR_BINARY(V)
+    
+#define DECL_HIR_STORE(V) \
+    V(StoreGlobal) \
+    V(StoreUp)
+
+#define DECL_HIR_UNARY(V) \
+    V(IMinus)
+    
+#define DECL_HIR_BINARY(V) \
+    V(IAdd) \
+    V(ISub) \
+    V(IMul) \
+    V(IDiv) \
+    V(IMod) \
+    V(FAdd) \
+    V(FSub) \
+    V(FMul) \
+    V(FDiv) \
+    V(FMod)
+    
+#define DECL_HIR_CAST(V) \
     V(Inbox) \
     V(IntToLong) \
     V(LongToInt) \
     V(IntToFloat) \
     V(FloatToInt) \
     V(LongToFloat) \
-    V(FloatToLong) \
-    V(IMinus) \
-    V(IAdd) \
-    V(ISub) \
-    V(Branch) \
-    V(NoCondBranch) \
-    V(Phi) \
-    V(Ret)
-    
+    V(FloatToLong)
+
 #define DECL_DAG_TYPES(V) \
     V(Void,   "void") \
     V(Int,    "int") \
@@ -61,8 +81,8 @@ struct Type {
 class Value;
 class Function;
 class BasicBlock;
-class Unary;
-class Binary;
+class UnaryInst;
+class BinaryInst;
 #define DEFINE_DECL(name) class name;
     DECL_DAG_NODES(DEFINE_DECL)
 #undef DEFINE_DECL
@@ -74,6 +94,7 @@ struct UpvalDesc {
     int slot;
 };
     
+// Sea-of-Nodes IR:
 // https://www.oracle.com/technetwork/java/javase/tech/c2-ir95-150110.pdf
 class HIRNode {
 public:
@@ -97,26 +118,39 @@ public:
     inline Value *StoreUp(BasicBlock *bb, int slot, Value *val, int line);
     inline Value *LoadGlobal(BasicBlock *bb, Type::ID type, const String *name, int line);
     inline Value *StoreGlobal(BasicBlock *bb, const String *name, Value *val, int line);
-    inline Value *Inbox(BasicBlock *bb, Value *from, int line);
-    inline Value *IntToLong(BasicBlock *bb, Value *from, int line);
-    inline Value *IntToFloat(BasicBlock *bb, Value *from, int line);
-    inline Value *LongToInt(BasicBlock *bb, Value *from, int line);
-    inline Value *LongToFloat(BasicBlock *bb, Value *from, int line);
-    inline Value *FloatToInt(BasicBlock *bb, Value *from, int line);
-    inline Value *FloatToLong(BasicBlock *bb, Value *from, int line);
     inline Value *BaseOfStack(BasicBlock *bb, Value *base, int offset, int line);
     inline Constant *Constant(Type::ID type, int line);
     inline Value *Nil(int line);
-    inline Value *IMinus(BasicBlock *bb, Value *operand, int line);
-    inline Value *IAdd(BasicBlock *bb, Value *lhs, Value *rhs, int line);
-    inline Value *ISub(BasicBlock *bb, Value *lhs, Value *rhs, int line);
     inline Branch *Branch(BasicBlock *bb, Value *cond, int line);
     inline Value *NoCondBranch(BasicBlock *bb, BasicBlock *target, int line);
     inline Phi *Phi(BasicBlock *bb, Type::ID type, int line);
     inline Ret *Ret(BasicBlock *bb, int line);
+    
+#define DECL_CAST_NEW(name) \
+    inline Value *name(BasicBlock *bb, Value *from, int line);
+    
+    DECL_HIR_CAST(DECL_CAST_NEW)
+    
+#undef DECL_CAST_NEW
+
+#define DECL_UNARY_NEW(name) \
+    inline Value *name(BasicBlock *bb, Value *operand, int line);
+    
+    DECL_HIR_UNARY(DECL_UNARY_NEW)
+    
+#undef DECL_UNARY_NEW
+    
+#define DECL_BINARY_NEW(name) \
+    inline Value *name(BasicBlock *bb, Value *lhs, Value *rhs, int line);
+
+    DECL_HIR_BINARY(DECL_BINARY_NEW)
+    
+#undef DECL_BINARY_NEW
 
     void PrintTo(std::string *buf, size_t limit) const;
     inline void PrintTo(FILE *fp) const;
+    
+    inline int ReplaceAllUses(Value *val, Value *new_val);
 
     static Function *New(base::Arena *arena) { return new (arena) Function(arena); }
     
@@ -212,27 +246,18 @@ public:
     DECL_DAG_TYPES(DEFINE_IS)
 #undef DEFINE_IS
     
-    virtual Kind kind() const = 0;
-    virtual void PrintOperator(FILE *fp) const = 0;
-    virtual Type::ID hint(int i) { DLOG(FATAL) << "No implement"; return Type::kVoid; }
-
-    void PrintTo(FILE *fp) const {
-        PrintValue(fp);
-        if (!IsVoid()) {
-            fprintf(fp, " = ");
-        }
-        PrintOperator(fp);
-    }
+    Use *uses_begin() const { return use_dummy_.next; }
+    Use *uses_end() const { return const_cast<Use *>(&use_dummy_); }
+    bool uses_empty() const { return use_dummy_.next == &use_dummy_; }
     
-    void PrintValue(FILE *fp) const {
-        if (!IsVoid()) {
-            if (kind() == kConstant) {
-                PrintOperator(fp);
-            } else {
-                fprintf(fp, "%s %%v%d", Type::kNames[type_], index_);
-            }
-        }
-    }
+    virtual Kind kind() const = 0;
+    virtual Type::ID hint(int i) { DLOG(FATAL) << "No implement"; return Type::kVoid; }
+    
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) { return false; }
+    virtual void PrintOperator(FILE *fp) const = 0;
+
+    inline void PrintTo(FILE *fp) const;
+    inline void PrintValue(FILE *fp) const;
 
     friend class Function;
 protected:
@@ -331,9 +356,7 @@ class LoadUp : public Value {
 public:
     DEF_VAL_GETTER(int, slot);
 
-    virtual void PrintOperator(FILE *fp) const override {
-        ::fprintf(fp, "upval $%d", slot_);
-    }
+    virtual void PrintOperator(FILE *fp) const override { ::fprintf(fp, "upval $%d", slot_); }
     
     DEFINE_DAG_INST_NODE(LoadUp);
 private:
@@ -344,10 +367,31 @@ private:
     int slot_; // upvalue slot in closure object
 }; // class LoadUp
     
-class StoreUp : public Value {
+class StoreInst : public Value {
+public:
+    DEF_PTR_PROP_RW_NOTNULL2(Value, src);
+
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override {
+        if (old_val == src_ && new_val->type() == src_->type()) {
+            src_ = new_val;
+            return true;
+        }
+        return false;
+    }
+
+protected:
+    StoreInst(Function *top, BasicBlock *bb, Value *src, int line)
+        : Value(top, bb, Type::kVoid, line)
+        , src_(DCHECK_NOTNULL(src)) {
+        Set(src, top->arena());
+    }
+    
+    Value *src_;
+}; // class StoreInst
+    
+class StoreUp : public StoreInst {
 public:
     DEF_VAL_GETTER(int, slot);
-    DEF_PTR_GETTER(Value, src);
     
     virtual void PrintOperator(FILE *fp) const override {
         ::fprintf(fp, "store upval $%d, ", slot_);
@@ -356,15 +400,11 @@ public:
 
     DEFINE_DAG_INST_NODE(StoreUp);
 private:
-    StoreUp(Function *top, BasicBlock *bb, int slot, Value *val, int line)
-        : Value(top, bb, Type::kVoid, line)
-        , slot_(slot)
-        , src_(DCHECK_NOTNULL(val)) {
-        Set(val, top->arena());
-    }
+    StoreUp(Function *top, BasicBlock *bb, int slot, Value *src, int line)
+        : StoreInst(top, bb, src, line)
+        , slot_(slot) {}
     
     int slot_; // upvalue slot in closure object
-    Value *src_;
 }; // class StoreUp
     
 class LoadGlobal : public Value {
@@ -384,11 +424,10 @@ private:
     const String *name_;
 }; // class LoadGlobal
     
-class StoreGlobal : public Value {
+class StoreGlobal : public StoreInst {
 public:
     DEF_PTR_GETTER(const String, name);
-    DEF_PTR_GETTER(Value, src);
-    
+
     virtual void PrintOperator(FILE *fp) const override {
         ::fprintf(fp, "store global $%s, ", name_->data());
         src_->PrintValue(fp);
@@ -397,21 +436,26 @@ public:
     DEFINE_DAG_INST_NODE(StoreGlobal);
 private:
     StoreGlobal(Function *top, BasicBlock *bb, const String *name, Value *src, int line)
-        : Value(top, bb, Type::kVoid, line)
-        , name_(DCHECK_NOTNULL(name))
-        , src_(DCHECK_NOTNULL(src)) {
-        Set(src, top->arena());
+        : StoreInst(top, bb, src, line)
+        , name_(DCHECK_NOTNULL(name)) {
     }
 
     const String *name_;
-    Value *src_;
 }; // class LoadGlobal
 
 
 class CastInst : public Value {
 public:
-    DEF_PTR_GETTER(Value, from);
+    DEF_PTR_PROP_RW_NOTNULL2(Value, from);
     virtual const char *cast_name() const = 0;
+    
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override {
+        if (old_val == from_ && new_val->type() == from_->type()) {
+            from_ = new_val;
+            return true;
+        }
+        return false;
+    }
     
     virtual void PrintOperator(FILE *fp) const override {
         ::fprintf(fp, "%s ", cast_name());
@@ -453,6 +497,14 @@ public:
     DEF_PTR_GETTER(Value, base);
     DEF_VAL_GETTER(int, offset);
     
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override {
+        if (old_val == base_ && new_val->type() == type()) {
+            base_ = new_val;
+            return true;
+        }
+        return false;
+    }
+    
     virtual void PrintOperator(FILE *fp) const override {
         ::fprintf(fp, "baseof ");
         base_->PrintValue(fp);
@@ -472,18 +524,26 @@ private:
     int offset_;
 }; // class BaseOfStack
     
-class Unary : public Value {
+class UnaryInst : public Value {
 public:
     DEF_PTR_PROP_RW(Value, operand);
     
     virtual const char *op() const = 0;
+    
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override {
+        if (old_val == operand_ && new_val->type() == operand_->type()) {
+            operand_ = new_val;
+            return true;
+        }
+        return false;
+    }
     
     virtual void PrintOperator(FILE *fp) const override {
         fprintf(fp, "%s ", op());
         operand()->PrintValue(fp);
     }
 protected:
-    Unary(Function *top, BasicBlock *bb, Type::ID type, Value *operand, int line)
+    UnaryInst(Function *top, BasicBlock *bb, Type::ID type, Value *operand, int line)
         : Value(top, bb, type, line)
         , operand_(DCHECK_NOTNULL(operand)) {
         Set(operand, top->arena());
@@ -492,12 +552,14 @@ private:
     Value *operand_;
 }; // class Unary
 
-class Binary : public Value {
+class BinaryInst : public Value {
 public:
     DEF_PTR_PROP_RW(Value, lhs);
     DEF_PTR_PROP_RW(Value, rhs);
 
     virtual const char *op() const = 0;
+    
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override;
     
     virtual void PrintOperator(FILE *fp) const override {
         lhs()->PrintValue(fp);
@@ -505,7 +567,7 @@ public:
         rhs()->PrintValue(fp);
     }
 protected:
-    Binary(Function *top, BasicBlock *bb, Type::ID type, Value *lhs, Value *rhs, int line)
+    BinaryInst(Function *top, BasicBlock *bb, Type::ID type, Value *lhs, Value *rhs, int line)
         : Value(top, bb, type, line)
         , lhs_(DCHECK_NOTNULL(lhs))
         , rhs_(DCHECK_NOTNULL(rhs)) {
@@ -517,43 +579,44 @@ private:
     Value *rhs_;
 }; // class Binary
     
-class IMinus : public Unary {
+class IMinus : public UnaryInst {
 public:
     virtual const char *op() const override { return "-"; }
     
     DEFINE_DAG_INST_NODE(IMinus);
 private:
     IMinus(Function *top, BasicBlock *bb, Value *operand, int line)
-        : Unary(top, bb, operand->type(), operand, line) {
+        : UnaryInst(top, bb, operand->type(), operand, line) {
         DCHECK(operand->IsInt());
     }
 }; // class IMinus
 
-class IAdd : public Binary {
-public:
-    virtual const char *op() const override { return "+"; }
     
-    DEFINE_DAG_INST_NODE(IAdd);
-private:
-    IAdd(Function *top, BasicBlock *bb, Value *lhs, Value *rhs, int line)
-        : Binary(top, bb, lhs->type(), lhs, rhs, line) {
-        DCHECK(lhs->IsInt());
-        DCHECK(rhs->IsInt());
-    }
-}; // class IAdd
-    
-class ISub : public Binary {
-public:
-    virtual const char *op() const override { return "-"; }
-    
-    DEFINE_DAG_INST_NODE(ISub);
-private:
-    ISub(Function *top, BasicBlock *bb, Value *lhs, Value *rhs, int line)
-        : Binary(top, bb, lhs->type(), lhs, rhs, line) {
-        DCHECK(lhs->IsInt());
-        DCHECK(rhs->IsInt());
-    }
-}; // class ISub
+#define DEFINE_BINARY_INST(name, op_name) \
+class name : public BinaryInst { \
+public: \
+    virtual const char *op() const override { return op_name; } \
+    DEFINE_DAG_INST_NODE(name); \
+private: \
+    name(Function *top, BasicBlock *bb, Value *lhs, Value *rhs, int line) \
+        : BinaryInst(top, bb, lhs->type(), lhs, rhs, line) { \
+        DCHECK(lhs->IsInt()); \
+        DCHECK(rhs->IsInt()); \
+    } \
+}
+
+DEFINE_BINARY_INST(IAdd, "+");
+DEFINE_BINARY_INST(ISub, "-");
+DEFINE_BINARY_INST(IMul, "*");
+DEFINE_BINARY_INST(IDiv, "/");
+DEFINE_BINARY_INST(IMod, "mod");
+DEFINE_BINARY_INST(FAdd, "+");
+DEFINE_BINARY_INST(FSub, "-");
+DEFINE_BINARY_INST(FMul, "*");
+DEFINE_BINARY_INST(FDiv, "/");
+DEFINE_BINARY_INST(FMod, "mod");
+
+#undef DEFINE_BINARY_INST
     
 class Branch : public Value {
 public:
@@ -561,7 +624,16 @@ public:
     DEF_PTR_PROP_RW(BasicBlock, if_true);
     DEF_PTR_PROP_RW(BasicBlock, if_false);
     
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override {
+        if (old_val == cond_) {
+            cond_ = new_val;
+            return true;
+        }
+        return false;
+    }
+    
     virtual void PrintOperator(FILE *fp) const override;
+
     
     DEFINE_DAG_INST_NODE(Branch);
 private:
@@ -604,13 +676,13 @@ public:
     
     DEF_VAL_PROP_RMW(PathSet, incoming);
     
-    void AddIncoming(BasicBlock *bb, Value *value) {
-        DCHECK(value->type() == type());
-        incoming_.push_back({bb, value});
-        Set(value, owns_->arena());
-    }
+    inline void AddIncoming(BasicBlock *bb, Value *value);
 
-    inline Value *GetIncomingValue(BasicBlock *bb);
+    inline Value *GetIncomingValue(BasicBlock *bb) const;
+    
+    inline BasicBlock *GetIncomingBasicBlock(Value *val) const;
+    
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override;
     
     virtual void PrintOperator(FILE *fp) const override;
     
@@ -632,18 +704,27 @@ public:
     DEF_VAL_PROP_RMW(ValueSet, ret_vals);
     DEF_VAL_PROP_RW(int, wanted);
     
-    void AddRetVal(Value *val) {
-        ret_vals_.push_back(val);
-        Set(val, owns_->arena());
+    Value *ret_val(size_t i) const {
+        DCHECK_LT(i, ret_vals_.size());
+        return ret_vals_[i];
     }
     
-    virtual void PrintOperator(FILE *fp) const override {
-        ::fprintf(fp, "ret(%d) ", wanted_);
-        for (auto val : ret_vals_) {
-            val->PrintValue(fp);
-            ::fprintf(fp, " ");
-        }
+    void set_ret_val(size_t i, Value *val) {
+        DCHECK_LT(i, ret_vals_.size());
+        ret_vals_[i] = val;
     }
+    
+    size_t ret_vals_size() const { return ret_vals_.size(); }
+
+    inline void AddRetVal(Value *val);
+    
+    bool RetValContain(Value *val) const {
+        return std::find(ret_vals_.begin(), ret_vals_.end(), val) != ret_vals_.end();
+    }
+    
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override;
+    
+    virtual void PrintOperator(FILE *fp) const override;
     
     DEFINE_DAG_INST_NODE(Ret);
 private:
@@ -711,34 +792,6 @@ inline Value *Function::LoadGlobal(BasicBlock *bb, Type::ID type, const String *
 inline Value *Function::StoreGlobal(BasicBlock *bb, const String *name, Value *val, int line) {
     return new (arena_) class StoreGlobal(this, bb, name, val, line);
 }
-
-inline Value *Function::Inbox(BasicBlock *bb, Value *from, int line) {
-    return new (arena_) class Inbox(this, bb, from, line);
-}
-    
-inline Value *Function::IntToLong(BasicBlock *bb, Value *from, int line) {
-    return new (arena_) class IntToLong(this, bb, from, line);
-}
-
-inline Value *Function::IntToFloat(BasicBlock *bb, Value *from, int line) {
-    return new (arena_) class IntToLong(this, bb, from, line);
-}
-
-inline Value *Function::LongToInt(BasicBlock *bb, Value *from, int line) {
-    return new (arena_) class LongToInt(this, bb, from, line);
-}
-
-inline Value *Function::LongToFloat(BasicBlock *bb, Value *from, int line) {
-    return new (arena_) class LongToFloat(this, bb, from, line);
-}
-
-inline Value *Function::FloatToInt(BasicBlock *bb, Value *from, int line) {
-    return new (arena_) class FloatToInt(this, bb, from, line);
-}
-
-inline Value *Function::FloatToLong(BasicBlock *bb, Value *from, int line) {
-    return new (arena_) class FloatToLong(this, bb, from, line);
-}
     
 inline Value *Function::BaseOfStack(BasicBlock *bb, Value *base, int offset, int line) {
     return new (arena_) class BaseOfStack(this, bb, base, offset, line);
@@ -754,22 +807,10 @@ inline Value *Function::Nil(int line) {
     return k;
 }
     
-inline Value *Function::IMinus(BasicBlock *bb, Value *operand, int line) {
-    return new (arena_) class IMinus(this, bb, operand, line);
-}
-
-inline Value *Function::IAdd(BasicBlock *bb, Value *lhs, Value *rhs, int line) {
-    return new (arena_) class IAdd(this, bb, lhs, rhs, line);
-}
-
-inline Value *Function::ISub(BasicBlock *bb, Value *lhs, Value *rhs, int line) {
-    return new (arena_) class ISub(this, bb, lhs, rhs, line);
-}
-    
 inline Branch *Function::Branch(BasicBlock *bb, Value *cond, int line) {
     return new (arena_) class Branch(this, bb, cond, line);
 }
-    
+
 inline Value *Function::NoCondBranch(BasicBlock *bb, BasicBlock *target, int line) {
     return new (arena_) class NoCondBranch(this, bb, target, line);
 }
@@ -777,15 +818,53 @@ inline Value *Function::NoCondBranch(BasicBlock *bb, BasicBlock *target, int lin
 inline Phi *Function::Phi(BasicBlock *bb, Type::ID type, int line) {
     return new (arena_) class Phi(this, bb, type, line);
 }
-    
+
 inline Ret *Function::Ret(BasicBlock *bb, int line) {
     return new (arena_) class Ret(this, bb, line);
 }
+    
+#define DEFINE_CAST_NEW(name) \
+inline Value *Function::name(BasicBlock *bb, Value *from, int line) { \
+    return new (arena_) class name(this, bb, from, line); \
+}
+    
+DECL_HIR_CAST(DEFINE_CAST_NEW)
+    
+#undef DEFINE_CAST_NEW
+    
+#define DEFINE_UNARY_NEW(name) \
+inline Value *Function::name(BasicBlock *bb, Value *operand, int line) { \
+    return new (arena_) class name(this, bb, operand, line); \
+}
+    
+DECL_HIR_UNARY(DEFINE_UNARY_NEW)
+    
+#undef DEFINE_UNARY_NEW
+
+#define DEFINE_BINARY_NEW(name) \
+inline Value *Function::name(BasicBlock *bb, Value *lhs, Value *rhs, int line) { \
+    return new (arena_) class name(this, bb, lhs, rhs, line); \
+}
+
+DECL_HIR_BINARY(DEFINE_BINARY_NEW)
+    
+#undef DEFINE_BINARY_NEW
     
 inline void Function::PrintTo(FILE *fp) const {
     for (auto bb : basic_blocks_) {
         bb->PrintTo(fp);
     }
+}
+    
+inline int Function::ReplaceAllUses(Value *old_val, Value *new_val) {
+    int n = 0;
+    for (Use *i = old_val->uses_begin(); i != old_val->uses_end(); i = i->next) {
+        bool ok = i->val->ReplaceUse(old_val, new_val);
+        DCHECK(ok); (void)ok;
+        i->val = new_val;
+        ++n;
+    }
+    return n;
 }
     
 inline void BasicBlock::AddValue(Value *v) {
@@ -798,13 +877,49 @@ inline void BasicBlock::AddValue(Value *v) {
     }
 }
     
-inline Value *Phi::GetIncomingValue(BasicBlock *bb) {
-    for (auto path : incoming_) {
-        if (path.incoming_bb == bb) {
-            return path.incoming_value;
+inline void Value::PrintTo(FILE *fp) const {
+    PrintValue(fp);
+    if (!IsVoid()) {
+        fprintf(fp, " = ");
+    }
+    PrintOperator(fp);
+}
+
+inline void Value::PrintValue(FILE *fp) const {
+    if (!IsVoid()) {
+        if (kind() == kConstant) {
+            PrintOperator(fp);
+        } else {
+            fprintf(fp, "%s %%v%d", Type::kNames[type_], index_);
         }
     }
-    return nullptr;
+}
+    
+inline void Phi::AddIncoming(BasicBlock *bb, Value *value) {
+    DCHECK(value->type() == type());
+    if (!GetIncomingBasicBlock(value)) {
+        Set(value, owns_->arena());
+    }
+    incoming_.push_back({bb, value});
+}
+    
+inline Value *Phi::GetIncomingValue(BasicBlock *bb) const {
+    auto iter = std::find_if(incoming_.begin(), incoming_.end(),
+                             [bb](auto path) { return path.incoming_bb == bb; });
+    return iter == incoming_.end() ? nullptr : iter->incoming_value;
+}
+    
+inline BasicBlock *Phi::GetIncomingBasicBlock(Value *val) const {
+    auto iter = std::find_if(incoming_.begin(), incoming_.end(),
+                             [val](auto path) { return path.incoming_value == val; });
+    return iter == incoming_.end() ? nullptr : iter->incoming_bb;
+}
+    
+inline void Ret::AddRetVal(Value *val) {
+    if (!RetValContain(val)) {
+        Set(val, owns_->arena());
+    }
+    ret_vals_.push_back(val);
 }
 
 } // namespace hir

@@ -97,8 +97,8 @@ static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
 };
     
 CastPriority GetCastPriority(Type::ID lhs, Type::ID rhs) {
-    DCHECK_LT(lhs, Type::kMaxTypes);
-    DCHECK_LT(rhs, Type::kMaxTypes);
+    DCHECK_LT(static_cast<int>(lhs), Type::kMaxTypes);
+    DCHECK_LT(static_cast<int>(rhs), Type::kMaxTypes);
     return kCastPriorities[lhs][rhs];
 }
     
@@ -187,8 +187,8 @@ static const Value::Kind kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
 };
 
 Value::Kind GetCastAction(Type::ID dst, Type::ID src) {
-    DCHECK_LT(dst, Value::kMaxInsts);
-    DCHECK_LT(src, Value::kMaxInsts);
+    DCHECK_LT(static_cast<int>(dst), Value::kMaxInsts);
+    DCHECK_LT(static_cast<int>(src), Value::kMaxInsts);
     return kCastActions[src][dst];
 }
 
@@ -235,6 +235,66 @@ void BasicBlock::PrintTo(FILE *fp) const {
     }
 }
     
+//bool Value::ReplaceUse(Value *old_val, Value *new_val) {
+//    switch (kind()) {
+//#define DEF_CASE(name) case k##name:
+//        DECL_HIR_BINARY(DEF_CASE) {
+//            BinaryInst *inst = static_cast<BinaryInst *>(this);
+//            if (inst->lhs() == old_val && inst->lhs()->type() == new_val->type()) {
+//                inst->set_lhs(new_val);
+//                return true;
+//            }
+//            if (inst->rhs() == old_val && inst->rhs()->type() == new_val->type()) {
+//                return true;
+//            }
+//        } break;
+//            
+//        DECL_HIR_UNARY(DEF_CASE) {
+//            UnaryInst *inst = static_cast<UnaryInst *>(this);
+//            if (inst->operand() == old_val && inst->operand()->type() == new_val->type()) {
+//                inst->set_operand(new_val);
+//                return true;
+//            }
+//        } break;
+//            
+//        DECL_HIR_CAST(DEF_CASE) {
+//            CastInst *inst = static_cast<CastInst *>(this);
+//            if (inst->from() == old_val && inst->from()->type() == new_val->type()) {
+//                inst->set_from(new_val);
+//                return true;
+//            }
+//        } break;
+//            
+//        DECL_HIR_STORE(DEF_CASE) {
+//            StoreInst *inst = static_cast<StoreInst *>(this);
+//            if (inst->src() == old_val && inst->src()->type() == new_val->type()) {
+//                inst->set_src(new_val);
+//                return true;
+//            }
+//        } break;
+//            
+//        case kRet: {
+//            Ret *inst = static_cast<Ret *>(this);
+//            bool ok = false;
+//            for (size_t i = 0; i < inst->ret_vals_size(); ++i) {
+//                if (inst->ret_val(i) == old_val) {
+//                    inst->set_ret_val(i, new_val);
+//                    ok = true;
+//                }
+//            }
+//            return ok;
+//        } break;
+//            
+//        // TODO:
+//          
+//#undef DEF_CASE
+//        default:
+//            DLOG(FATAL) << "Noreached!";
+//            break;
+//    }
+//    return false;
+//}
+    
 /*virtual*/ void Constant::PrintOperator(FILE *fp) const {
     ::fprintf(fp, "%s ", Type::kNames[type()]);
     switch (type()) {
@@ -256,6 +316,19 @@ void BasicBlock::PrintTo(FILE *fp) const {
     }
 }
     
+/*virtual*/ bool BinaryInst::ReplaceUse(Value *old_val, Value *new_val) {
+    bool ok = false;
+    if (old_val == lhs_ && new_val->type() == lhs_->type()) {
+        lhs_ = new_val;
+        ok = true;
+    }
+    if (old_val == rhs_ && new_val->type() == rhs_->type()) {
+        rhs_ = new_val;
+        ok = true;
+    }
+    return ok;
+}
+    
 /*virtual*/ void Branch::PrintOperator(FILE *fp) const {
     fprintf(fp, "br ");
     cond_->PrintValue(fp);
@@ -265,12 +338,47 @@ void BasicBlock::PrintTo(FILE *fp) const {
     }
 }
     
+/*virtual*/ bool Phi::ReplaceUse(Value *old_val, Value *new_val) {
+    bool ok = false;
+    for (size_t i = 0; i < incoming_.size(); ++i) {
+        if (incoming_[i].incoming_value == old_val &&
+            incoming_[i].incoming_value->type() == new_val->type()) {
+            incoming_[i].incoming_value = new_val;
+            ok = true;
+        }
+    }
+    return ok;
+}
+    
 /*virtual*/ void Phi::PrintOperator(FILE *fp) const {
     fprintf(fp, "phi ");
     for (const auto &path : incoming_) {
         fprintf(fp, "[l%d ", path.incoming_bb->label());
         path.incoming_value->PrintValue(fp);
         fprintf(fp, "] ");
+    }
+}
+    
+/*virtual*/ bool Ret::ReplaceUse(Value *old_val, Value *new_val) {
+    bool ok = false;
+    for (size_t i = 0; i < ret_vals_size(); ++i) {
+        if (ret_val(i) == old_val) {
+            set_ret_val(i, new_val);
+            ok = true;
+        }
+    }
+    return ok;
+}
+
+/*virtual*/ void Ret::PrintOperator(FILE *fp) const {
+    ::fprintf(fp, "ret(%d) ", wanted_);
+    bool enter = false;
+    for (auto val : ret_vals_) {
+        if (enter) {
+            ::fprintf(fp, ", ");
+        }
+        val->PrintValue(fp);
+        enter = true;
     }
 }
 

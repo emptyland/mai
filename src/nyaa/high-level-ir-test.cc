@@ -115,6 +115,23 @@ TEST_F(NyaaHIRTest, CastPriority) {
     ASSERT_EQ(Value::kIntToLong, GetCastAction(Type::kLong, Type::kInt));
 }
     
+TEST_F(NyaaHIRTest, ReplacementUses) {
+    auto entry = fn_->NewBB(nullptr);
+    auto a1 = fn_->Parameter(Type::kInt, 1);
+    auto a2 = fn_->Parameter(Type::kInt, 2);
+    auto v1 = fn_->IAdd(entry, a1, a2, 3);
+    ASSERT_NE(nullptr, v1);
+    auto ret = fn_->Ret(entry, 4);
+    ret->AddRetVal(a1);
+    ret->AddRetVal(a1);
+
+    auto k1 = fn_->Constant(Type::kInt, 4);
+    k1->set_int_val(100);
+    
+    fn_->ReplaceAllUses(a1, k1);
+    fn_->PrintTo(stdout);
+}
+    
 TEST_F(NyaaHIRTest, GenerateHIR) {
     static const char z[] = {
         "var a, b, c = t, 1, '2'\n"
