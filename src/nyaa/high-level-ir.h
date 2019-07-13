@@ -241,6 +241,7 @@ public:
     DEF_VAL_GETTER(int, index);
     DEF_VAL_GETTER(int, line);
     DEF_PTR_PROP_RW(Value, next);
+    DEF_PTR_GETTER(BasicBlock, owns);
     
 #define DEFINE_IS(name, literal) bool Is##name() const { return type_ == Type::k##name; }
     DECL_DAG_TYPES(DEFINE_IS)
@@ -265,7 +266,8 @@ protected:
         : type_(type)
         , index_(type != Type::kVoid ? top->NextValId() : 0)
         , line_(line)
-        , use_dummy_(nullptr) {
+        , use_dummy_(nullptr)
+        , owns_(bb) {
             use_dummy_.next = &use_dummy_;
             use_dummy_.prev = &use_dummy_;
             if (bb) {
@@ -295,6 +297,7 @@ protected:
     int index_;
     int line_;
     Use use_dummy_;
+    BasicBlock *owns_; // Which basic-block has in.
     Value *next_ = nullptr;
 };
     

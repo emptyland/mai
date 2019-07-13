@@ -171,7 +171,20 @@ TEST_F(NyaaHIRTest, GenerateMulitIfBranchs) {
 TEST_F(NyaaHIRTest, GenerateIfBranchsPhiNode) {
     static const char z[] = {
         "var a, b, c = 2, 1, '2'\n"
-        "if (a) { a = 1 }\n"
+        "if (a) { a = 1 } else { a = 'a' b = 3 }\n"
+        "return a\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(z, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+    
+    fn_->PrintTo(stdout);
+}
+    
+TEST_F(NyaaHIRTest, GenerateIfBranchsPhiNode2) {
+    static const char z[] = {
+        "var a, b, c = 2, 1, '2'\n"
+        "if (a) { a = 1 } else if (b) { a = 2 } else { a = 3 }\n"
         "return a\n"
     };
     HandleScope handle_scope(N_);

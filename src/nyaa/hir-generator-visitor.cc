@@ -30,6 +30,12 @@ public:
     using ValueTable = std::unordered_map<const ast::String *, ValueBundle,
         base::ArenaHash<const ast::String *>,
         base::ArenaEqualTo<const ast::String *>>;
+
+    using IncomingPathMap = std::unordered_map<
+        const ast::String *,
+        std::vector<hir::Phi::Path>,
+        base::ArenaHash<const ast::String *>,
+        base::ArenaEqualTo<const ast::String *>>;
     
     inline HIRBlockScope(HIRBlockScope *prev, bool is_br_edge = false)
         : is_br_edge_(is_br_edge)
@@ -38,6 +44,14 @@ public:
     }
     inline ~HIRBlockScope() {}
     
+    DEF_VAL_PROP_RMW(ValueTable, values);
+    
+//    void PutValueInplace(const ast::String *name, hir::Value *new_val) {
+//        HIRBlockScope *inplace = nullptr;
+//        std::tie(std::ignore, inplace) = GetValueOrNullNested(name);
+//        inplace->PutValue(name, new_val);
+//    }
+    
     void PutValueNested(const ast::String *name, hir::Value *val, HIRBlockScope *scope);
     
     void PutValue(const ast::String *name, hir::Value *val) {
@@ -45,7 +59,16 @@ public:
         ValueBundle bundle;
         bundle.value = val;
         bundle.out_scope = nullptr;
-        values_.insert({name, bundle});
+        values_[name] = bundle;
+    }
+    
+    HIRBlockScope *GetBranchEdge() {
+        for (HIRBlockScope *p = this; p != nullptr; p = p->prev_) {
+            if (p->is_br_edge_) {
+                return p;
+            }
+        }
+        return nullptr;
     }
     
     inline std::tuple<hir::Value*, HIRBlockScope*> GetValueOrNullNested(const ast::String *name);
@@ -56,6 +79,9 @@ public:
     }
     
     inline std::map<hir::Value *, hir::Value *> MergeBranch(HIRBlockScope *br);
+    
+    static IncomingPathMap
+    MergeBranchs(HIRBlockScope *brs[], hir::BasicBlock *bbs[], size_t n_brs);
     
 private:
     bool is_br_edge_;
@@ -103,14 +129,14 @@ void HIRBlockScope::PutValueNested(const ast::String *name, hir::Value *val, HIR
     if (bundle.out_scope) {
         for (HIRBlockScope *p = this; p; p = p->prev_) {
             if (p->is_br_edge_) {
-                p->values_.insert({name, bundle});
+                p->values_[name] = bundle;
                 return;
             }
         }
         bundle.out_scope = nullptr;
-        scope->values_.insert({name, bundle});
+        scope->values_[name] = bundle;
     } else {
-        values_.insert({name, bundle});
+        values_[name] = bundle;
     }
 }
     
@@ -142,6 +168,49 @@ inline std::map<hir::Value *, hir::Value *> HIRBlockScope::MergeBranch(HIRBlockS
     return rv;
 }
     
+/*static*/ HIRBlockScope::IncomingPathMap
+HIRBlockScope::MergeBranchs(HIRBlockScope *brs[], hir::BasicBlock *bbs[], size_t n) {
+    if (n < 2) {
+        return IncomingPathMap();
+    }
+
+    std::map<hir::Value *, hir::Value *> versions;
+    IncomingPathMap paths;
+    for (size_t i = 1; i < n; ++i) {
+        HIRBlockScope *br = brs[i];
+
+        for (const auto &pair : br->values_) {
+            if (!pair.second.out_scope) {
+                continue;
+            }
+            
+            hir::Value *old_ver = DCHECK_NOTNULL(pair.second.out_scope->GetValueOrNull(pair.first));
+            hir::Value *new_ver = pair.second.value;
+            
+            hir::Phi::Path path;
+            path.incoming_bb = bbs[i];
+            path.incoming_value = new_ver;
+            paths[pair.first].push_back(path);
+
+            versions.insert({new_ver, old_ver});
+        }
+    }
+
+    for (auto &pair : paths) {
+        DCHECK(!pair.second.empty());
+        if (pair.second.size() == 1) {
+            auto iter = versions.find(pair.second[0].incoming_value);
+            DCHECK(iter != versions.end());
+            
+            hir::Phi::Path path;
+            path.incoming_bb = bbs[0];
+            path.incoming_value = iter->second;
+            pair.second.push_back(path);
+        }
+    }
+    return paths;
+}
+
 inline static hir::Type::ID ConvType(BuiltinType ty) {
     switch (ty) {
         case kTypeSmi:
@@ -402,18 +471,33 @@ public:
             br->set_if_false(if_false);
         }
 
+        // TODO: reuse out basic block.
         hir::BasicBlock *out = target_->NewBB(if_true);
 
+        HIRBlockScope::IncomingPathMap paths;
         if (node->else_clause()) {
-            // TODO:
+            HIRBlockScope *brs[] = {ctx->scope(), &if_true_scope, &if_false_scope};
+            hir::BasicBlock *bbs[] = {ctx->bb(), if_true, if_false};
+            paths = HIRBlockScope::MergeBranchs(brs, bbs, 3);
         } else {
-            auto info = ctx->scope()->MergeBranch(&if_true_scope);
-            for (const auto &pair : info) {
-                hir::Value *v1 = pair.first, *v2 = pair.second;
-                EmitCastIfNeed(ctx->bb(), &v1, if_true, &v2, node->line());
-                hir::Phi *phi = target_->Phi(out, v1->type(), node->line());
-                phi->AddIncoming(ctx->bb(), v1);
-                phi->AddIncoming(if_true, v2);
+            HIRBlockScope *brs[] = {ctx->scope(), &if_true_scope};
+            hir::BasicBlock *bbs[] = {ctx->bb(), if_true};
+            paths = HIRBlockScope::MergeBranchs(brs, bbs, 2);
+    
+        }
+        for (auto &pair : paths) {
+            hir::Type::ID ty = EmitCastIfNeed(&pair.second, node->line());
+            hir::Phi *phi = target_->Phi(out, ty, node->line());
+            for (auto path : pair.second) {
+                phi->AddIncoming(path.incoming_bb, path.incoming_value);
+            }
+            
+            HIRBlockScope *scope = nullptr;
+            std::tie(std::ignore, scope) = ctx->scope()->GetValueOrNullNested(pair.first);
+            if (HIRBlockScope *edge = ctx->scope()->GetBranchEdge()) {
+                edge->PutValueNested(pair.first, phi, scope);
+            } else {
+                scope->PutValue(pair.first, phi);
             }
         }
         
@@ -426,28 +510,37 @@ public:
 
         return IVal::Void();
     }
-    
-    void EmitCastIfNeed(hir::BasicBlock *lbb, hir::Value **lhs, hir::BasicBlock *rbb,
-                        hir::Value **rhs, int line) {
-        hir::CastPriority prio = hir::GetCastPriority((*lhs)->type(), (*rhs)->type());
-        switch (prio.how) {
-            case hir::CastPriority::kKeep:
-                return;
-            case hir::CastPriority::kLHS:
-                *lhs = EmitCast(lbb, hir::GetCastAction(prio.type, (*lhs)->type()), *lhs, line);
-                break;
-            case hir::CastPriority::kRHS:
-                *rhs = EmitCast(rbb, hir::GetCastAction(prio.type, (*rhs)->type()), *rhs, line);
-                break;
-            case hir::CastPriority::kBoth:
-                *lhs = EmitCast(lbb, hir::GetCastAction(prio.type, (*lhs)->type()), *lhs, line);
-                *rhs = EmitCast(rbb, hir::GetCastAction(prio.type, (*rhs)->type()), *rhs, line);
-                break;
-            case hir::CastPriority::kNever:
-            default:
-                DLOG(FATAL) << "Noreached!";
-                break;
+
+    friend class HIRBlockScope;
+private:
+    hir::Type::ID EmitCastIfNeed(std::vector<hir::Phi::Path> *paths, int line) {
+        hir::Type::ID ty = paths->at(0).incoming_value->type();
+        for (size_t i = 1; i < paths->size(); ++i) {
+            hir::CastPriority prio = hir::GetCastPriority(ty, paths->at(i).incoming_value->type());
+            switch (prio.how) {
+                case hir::CastPriority::kKeep:
+                case hir::CastPriority::kRHS:
+                    break;
+                case hir::CastPriority::kBoth:
+                case hir::CastPriority::kLHS:
+                    ty = prio.type;
+                    break;
+                case hir::CastPriority::kNever:
+                default:
+                    DLOG(FATAL) << "Noreached!";
+                    break;
+            }
         }
+        
+        for (size_t i = 0; i < paths->size(); ++i) {
+            hir::Value *val = paths->at(i).incoming_value;
+            hir::BasicBlock *bb = paths->at(i).incoming_bb;
+            if (val->type() != ty) {
+                hir::Value::Kind inst = hir::GetCastAction(ty, val->type());
+                paths->at(i).incoming_value = EmitCast(bb, inst, val, line);
+            }
+        }
+        return ty;
     }
     
     hir::Value *EmitCast(hir::BasicBlock *bb, hir::Value::Kind inst, hir::Value *from, int line) {
@@ -466,6 +559,7 @@ public:
                 return target_->FloatToInt(bb, from, line);
             case hir::Value::kFloatToLong:
                 return target_->FloatToLong(bb, from, line);
+            case hir::Value::kMaxInsts:
             default:
                 DLOG(FATAL) << "Noreached!";
                 break;
@@ -473,8 +567,6 @@ public:
         return nullptr;
     }
 
-    friend class HIRBlockScope;
-private:
     static bool IsPlaceholder(const ast::String *name) {
         return name->size() == 1 && name->data()[0] == '_';
     }
