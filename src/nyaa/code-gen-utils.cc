@@ -731,6 +731,7 @@ public:
     }
     virtual IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
         WritePrefix(node);
+        WriteInt(node->end_line());
         WriteNode(node->cond());
         WriteNode(node->body());
         return IVal::Void();
@@ -1086,7 +1087,7 @@ public:
     ast::Assignment *ReadAssignment(int line) {
         return factory_->NewAssignment(ReadLvals(), ReadExprs(), Location(line));
     }
-    
+
     ast::Multiple *ReadMultiple(int line) {
         int trace_id = ReadInt();
         Operator::ID op = ReadOperator();

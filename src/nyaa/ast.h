@@ -747,7 +747,7 @@ inline int Call::GetNArgs() const {
         return static_cast<int>(args_->size());
     }
 }
-    
+
 inline bool IsPlaceholder(const String *name) {
     return !name ? false : (name->size() == 1 && name->data()[0] == '_');
 }

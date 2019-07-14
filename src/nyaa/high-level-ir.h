@@ -20,10 +20,13 @@ namespace hir {
     V(LoadGlobal) \
     V(BaseOfStack) \
     V(Constant) \
+    V(Invoke) \
     V(Branch) \
     V(NoCondBranch) \
     V(Phi) \
     V(Ret) \
+    V(ICmp) \
+    V(FCmp) \
     DECL_HIR_STORE(V) \
     DECL_HIR_CAST(V) \
     DECL_HIR_UNARY(V) \
@@ -46,7 +49,7 @@ namespace hir {
     V(FSub) \
     V(FMul) \
     V(FDiv) \
-    V(FMod)
+    V(FMod) \
     
 #define DECL_HIR_CAST(V) \
     V(Inbox) \
@@ -77,6 +80,19 @@ struct Type {
     
     static const char *kNames[];
 }; // struct Type
+    
+struct Compare {
+    enum Op {
+        kEQ,
+        kNE,
+        kLT,
+        kLE,
+        kGT,
+        kGE,
+    };
+    
+    static const char *kNames[];
+};
     
 class Value;
 class Function;
@@ -118,6 +134,8 @@ public:
     inline Value *StoreUp(BasicBlock *bb, int slot, Value *val, int line);
     inline Value *LoadGlobal(BasicBlock *bb, Type::ID type, const String *name, int line);
     inline Value *StoreGlobal(BasicBlock *bb, const String *name, Value *val, int line);
+    inline Invoke *Invoke(BasicBlock *bb, Type::ID type, Value *callee, int argc, int wanted,
+                          int line);
     inline Value *BaseOfStack(BasicBlock *bb, Value *base, int offset, int line);
     inline Constant *Constant(Type::ID type, int line);
     inline Value *Nil(int line);
@@ -125,6 +143,9 @@ public:
     inline Value *NoCondBranch(BasicBlock *bb, BasicBlock *target, int line);
     inline Phi *Phi(BasicBlock *bb, Type::ID type, int line);
     inline Ret *Ret(BasicBlock *bb, int line);
+    
+    inline Value *ICmp(BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line);
+    inline Value *FCmp(BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line);
     
 #define DECL_CAST_NEW(name) \
     inline Value *name(BasicBlock *bb, Value *from, int line);
@@ -247,12 +268,16 @@ public:
     DECL_DAG_TYPES(DEFINE_IS)
 #undef DEFINE_IS
     
+#define DEFINE_IS(name) bool IsFrom##name() const { return kind() == k##name; }
+    DECL_DAG_NODES(DEFINE_IS)
+#undef DEFINE_IS
+    
     Use *uses_begin() const { return use_dummy_.next; }
     Use *uses_end() const { return const_cast<Use *>(&use_dummy_); }
     bool uses_empty() const { return use_dummy_.next == &use_dummy_; }
     
     virtual Kind kind() const = 0;
-    virtual Type::ID hint(int i) { DLOG(FATAL) << "No implement"; return Type::kVoid; }
+    virtual Type::ID hint(int i) const { DLOG(FATAL) << "No implement"; return Type::kVoid; }
     
     virtual bool ReplaceUse(Value *old_val, Value *new_val) { return false; }
     virtual void PrintOperator(FILE *fp) const = 0;
@@ -494,6 +519,64 @@ DEFINE_CAST_INST(FloatToInt,  "ftoi",  Type::kInt);
 DEFINE_CAST_INST(FloatToLong, "ftol",  Type::kLong);
 
 #undef DEFINE_CAST_INST
+    
+class Invoke : public Value {
+public:
+    using RetSet = base::ArenaVector<Type::ID>;
+    
+    DEF_PTR_PROP_RW(Value, callee);
+
+    Value *argument(int i) const {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, argc_);
+        return args_[i];
+    }
+
+    inline void SetArgument(int i, Value *v);
+    
+    inline int GetArgument(Value *val) const;
+    
+    DEF_VAL_PROP_RMW(RetSet, rets);
+    DEF_VAL_GETTER(int, argc);
+    DEF_VAL_GETTER(int, wanted);
+    
+    void AddRetType(Type::ID type) { rets_.push_back(type); }
+    
+    virtual Type::ID hint(int i) const override {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i - 1, rets_.size());
+        return i == 0 ? type() : rets_[i - 1];
+    }
+    
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override;
+    
+    virtual void PrintOperator(FILE *fp) const override;
+
+    DEFINE_DAG_INST_NODE(Invoke);
+private:
+    Invoke(Function *top, BasicBlock *bb, Type::ID type, Value *callee, int nargs, int wanted,
+           int line)
+        : Value(top, bb, type, line)
+        , owns_(top)
+        , callee_(DCHECK_NOTNULL(callee))
+        , args_(nullptr)
+        , rets_(top->arena())
+        , nargs_(nargs)
+        , argc_(nargs < 0 ? 1 : nargs)
+        , wanted_(wanted) {
+        args_ = top->arena()->NewArray<Value *>(argc_);
+        ::memset(args_, 0, sizeof(argc_) * sizeof(args_[0]));
+        Set(callee, top->arena());
+    }
+
+    Function *owns_;
+    Value *callee_;
+    Value **args_;
+    RetSet rets_;
+    int argc_; // size of real args
+    int nargs_; // size of accept
+    int wanted_; // size of rets
+}; // class Invoke
 
 class BaseOfStack : public Value {
 public:
@@ -511,7 +594,7 @@ public:
     virtual void PrintOperator(FILE *fp) const override {
         ::fprintf(fp, "baseof ");
         base_->PrintValue(fp);
-        ::fprintf(fp, " $%d", offset_);
+        ::fprintf(fp, "[%d]", offset_);
     }
     
     DEFINE_DAG_INST_NODE(BaseOfStack);
@@ -582,6 +665,43 @@ private:
     Value *rhs_;
 }; // class Binary
     
+class Comparator : public BinaryInst {
+public:
+    DEF_VAL_GETTER(Compare::Op, op_code);
+    
+    virtual const char *op() const override {
+        switch (op_code_) {
+            case Compare::kEQ:
+                return "eq";
+            case Compare::kNE:
+                return "ne";
+            case Compare::kLT:
+                return "lt";
+            case Compare::kLE:
+                return "le";
+            case Compare::kGT:
+                return "gt";
+            case Compare::kGE:
+                return "ge";
+            default:
+                break;
+        }
+    }
+    
+    virtual void PrintOperator(FILE *fp) const override {
+        ::fprintf(fp, "cmp %s", op());
+        lhs()->PrintValue(fp);
+        ::fprintf(fp, " ");
+        rhs()->PrintValue(fp);
+    }
+protected:
+    Comparator(Function *top, BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line)
+        : BinaryInst(top, bb, Type::kInt, lhs, rhs, line)
+        , op_code_(op) {}
+private:
+    Compare::Op op_code_;
+}; // class Comparator
+    
 class IMinus : public UnaryInst {
 public:
     virtual const char *op() const override { return "-"; }
@@ -620,6 +740,28 @@ DEFINE_BINARY_INST(FDiv, "/");
 DEFINE_BINARY_INST(FMod, "mod");
 
 #undef DEFINE_BINARY_INST
+    
+class ICmp final : public Comparator {
+public:
+    DEFINE_DAG_INST_NODE(ICmp);
+private:
+    ICmp(Function *top, BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line)
+        : Comparator(top, bb, op, lhs, rhs, line) {
+        DCHECK(lhs->IsInt());
+        DCHECK(rhs->IsInt());
+    }
+}; // class ICmp
+    
+class FCmp final : public Comparator {
+public:
+    DEFINE_DAG_INST_NODE(FCmp);
+private:
+    FCmp(Function *top, BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line)
+        : Comparator(top, bb, op, lhs, rhs, line) {
+        DCHECK(lhs->IsFloat());
+        DCHECK(rhs->IsFloat());
+    }
+}; // class FCmp
     
 class Branch : public Value {
 public:
@@ -796,6 +938,11 @@ inline Value *Function::StoreGlobal(BasicBlock *bb, const String *name, Value *v
     return new (arena_) class StoreGlobal(this, bb, name, val, line);
 }
     
+inline Invoke *Function::Invoke(BasicBlock *bb, Type::ID type, Value *callee, int argc, int wanted,
+                                int line) {
+    return new (arena_) class Invoke(this, bb, type, callee, argc, wanted, line);
+}
+    
 inline Value *Function::BaseOfStack(BasicBlock *bb, Value *base, int offset, int line) {
     return new (arena_) class BaseOfStack(this, bb, base, offset, line);
 }
@@ -824,6 +971,14 @@ inline Phi *Function::Phi(BasicBlock *bb, Type::ID type, int line) {
 
 inline Ret *Function::Ret(BasicBlock *bb, int line) {
     return new (arena_) class Ret(this, bb, line);
+}
+    
+inline Value *Function::ICmp(BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line) {
+    return new (arena_) class ICmp(this, bb, op, lhs, rhs, line);
+}
+
+inline Value *Function::FCmp(BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line) {
+    return new (arena_) class FCmp(this, bb, op, lhs, rhs, line);
 }
     
 #define DEFINE_CAST_NEW(name) \
@@ -916,6 +1071,26 @@ inline BasicBlock *Phi::GetIncomingBasicBlock(Value *val) const {
     auto iter = std::find_if(incoming_.begin(), incoming_.end(),
                              [val](auto path) { return path.incoming_value == val; });
     return iter == incoming_.end() ? nullptr : iter->incoming_bb;
+}
+    
+void Invoke::SetArgument(int i, Value *v) {
+    DCHECK_GE(i, 0);
+    DCHECK_LT(i, argc_);
+    if (GetArgument(v) < argc_) {
+        Set(v, owns_->arena());
+    }
+    args_[i] = v;
+}
+    
+inline int Invoke::GetArgument(Value *val) const {
+    int found = argc_;
+    for (int i = 0; i < argc_; ++i) {
+        if (args_[i] == val) {
+            found = i;
+            break;
+        }
+    }
+    return found;
 }
     
 inline void Ret::AddRetVal(Value *val) {

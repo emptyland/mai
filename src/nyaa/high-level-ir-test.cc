@@ -143,6 +143,17 @@ TEST_F(NyaaHIRTest, GenerateHIR) {
     fn_->PrintTo(stdout);
 }
     
+TEST_F(NyaaHIRTest, GenerateCalling) {
+    static const char z[] = {
+        "var a, b, c = t(foo())\n"
+        "return a, b, c\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(z, {}, &fn_);
+    
+    fn_->PrintTo(stdout);
+}
+    
 TEST_F(NyaaHIRTest, GenerateIfBranchs) {
     static const char z[] = {
         "var a, b, c = t, 1, '2'\n"
@@ -185,6 +196,22 @@ TEST_F(NyaaHIRTest, GenerateIfBranchsPhiNode2) {
     static const char z[] = {
         "var a, b, c = 2, 1, '2'\n"
         "if (a) { a = 1 } else if (b) { a = 2 } else { a = 3 }\n"
+        "return a\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(z, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+    
+    fn_->PrintTo(stdout);
+}
+    
+TEST_F(NyaaHIRTest, GenerateWhileLoop) {
+    static const char z[] = {
+        "var a = 1\n"
+        "while (a) {\n"
+        "   print(a)\n"
+        "   a = 0\n"
+        "}"
         "return a\n"
     };
     HandleScope handle_scope(N_);

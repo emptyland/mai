@@ -410,6 +410,105 @@ public:
         return IVal::Void();
     }
     
+    virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
+        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
+        HIRGeneratorContext ix(ctx);
+        
+        std::vector<hir::Value *> operands;
+        for (int i = 0; i < node->n_operands(); ++i) {
+            IVal operand = ACCEPT(node->operand(i), &ix);
+            DCHECK_EQ(IVal::kHIR, operand.kind);
+            operands.push_back(operand.node);
+        }
+        
+        switch (node->op()) {
+            case Operator::kAdd:
+                if (operands[0]->IsFromConstant() && operands[1]->IsFromConstant()) {
+                    // TODO:
+                    return IVal::Void();
+                } else {
+                    return EmitAdd(ctx->bb(), operands[0], operands[1], node->line());
+                }
+                break;
+                
+            case Operator::kSub:
+                if (operands[0]->IsFromConstant() && operands[1]->IsFromConstant()) {
+                    // TODO:
+                    return IVal::Void();
+                } else {
+                    return EmitSub(ctx->bb(), operands[0], operands[1], node->line());
+                }
+                break;
+                
+            case Operator::kMul:
+                if (operands[0]->IsFromConstant() && operands[1]->IsFromConstant()) {
+                    // TODO:
+                    return IVal::Void();
+                } else {
+                    return EmitMul(ctx->bb(), operands[0], operands[1], node->line());
+                }
+                break;
+                
+            case Operator::kDiv:
+                if (operands[0]->IsFromConstant() && operands[1]->IsFromConstant()) {
+                    // TODO:
+                    return IVal::Void();
+                } else {
+                    return EmitDiv(ctx->bb(), operands[0], operands[1], node->line());
+                }
+                break;
+                
+            case Operator::kMod:
+                if (operands[0]->IsFromConstant() && operands[1]->IsFromConstant()) {
+                    // TODO:
+                    return IVal::Void();
+                } else {
+                    return EmitMod(ctx->bb(), operands[0], operands[1], node->line());
+                }
+                break;
+                
+            default:
+                DLOG(FATAL) << "Noreached!";
+                break;
+        }
+        return IVal::Void();
+    }
+    
+    virtual IVal VisitCall(ast::Call *node, ast::VisitorContext *x) override {
+        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
+        
+        int32_t nargs = node->GetNArgs();
+        HIRGeneratorContext ix(ctx);
+        ix.set_n_result(1);
+        
+        IVal callee = ACCEPT(node->callee(), &ix);
+        ix.set_n_result(nargs < 0 ? -1 : 1);
+        
+        int wanted = ctx->n_result() == 0 ? 1 : ctx->n_result();
+        hir::Type::ID ty;
+        if (wanted == 0) {
+            ty = hir::Type::kVoid;
+        } else {
+            ty = hir::Type::kObject;
+        }
+        std::vector<hir::Value *> args;
+        for (int i = 0; node->args() && i < node->args()->size(); ++i) {
+            IVal arg = ACCEPT(node->args()->at(i), &ix);
+            DCHECK_EQ(IVal::kHIR, arg.kind);
+            args.push_back(arg.node);
+        }
+        
+        hir::Invoke *invoke = target_->Invoke(ctx->bb(), ty, callee.node, nargs, wanted,
+                                              node->line());
+        for (int i = 0; i < wanted - 1; ++i) {
+            invoke->AddRetType(hir::Type::kObject);
+        }
+        for (int i = 0; i < args.size(); ++i) {
+            invoke->SetArgument(i, args[i]);
+        }
+        return IVal::HIR(invoke);
+    }
+    
     virtual IVal VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) override {
         return IVal::HIR(target_->Nil(node->line()));
     }
@@ -510,9 +609,59 @@ public:
 
         return IVal::Void();
     }
+    
+    IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
+        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
+        HIRGeneratorContext ix(ctx);
+        ix.set_n_result(1);
+        
+        HIRBlockScope while_scope(ix.scope());
+        hir::BasicBlock *while_bb = target_->NewBB(ctx->bb());
+        ix.set_bb(while_bb);
+        ix.set_scope(&while_scope);
+
+        IVal cond = ACCEPT(node->cond(), &ix);
+        hir::BasicBlock *out = target_->NewBB(while_bb);
+
+        DCHECK_EQ(IVal::kHIR, cond.kind);
+        hir::Branch *br = target_->Branch(while_bb, cond.node, node->cond()->line());
+        br->set_if_false(out);
+        
+        ACCEPT(node->body(), &ix);
+        
+        target_->NoCondBranch(while_bb, while_bb, node->end_line());
+    
+        ctx->set_bb(out);
+        return IVal::Void();
+    }
 
     friend class HIRBlockScope;
 private:
+    
+#define DEFINE_BINARY_OP(name) \
+    IVal Emit##name(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs, int line) { \
+        hir::Value *rv = nullptr; \
+        hir::Type::ID ty = EmitCastIfNeed(bb, &lhs, &rhs, line); \
+        switch (ty) { \
+            case hir::Type::kInt: \
+                rv = target_->I##name(bb, lhs, rhs, line); \
+                break; \
+            case hir::Type::kFloat: \
+                rv = target_->F##name(bb, lhs, rhs, line); \
+                break; \
+            default: \
+                DLOG(FATAL) << "Noreached!"; \
+                break; \
+        } \
+        return IVal::HIR(rv); \
+    }
+    
+    DEFINE_BINARY_OP(Add)
+    DEFINE_BINARY_OP(Sub)
+    DEFINE_BINARY_OP(Mul)
+    DEFINE_BINARY_OP(Div)
+    DEFINE_BINARY_OP(Mod)
+    
     hir::Type::ID EmitCastIfNeed(std::vector<hir::Phi::Path> *paths, int line) {
         hir::Type::ID ty = paths->at(0).incoming_value->type();
         for (size_t i = 1; i < paths->size(); ++i) {
@@ -541,6 +690,33 @@ private:
             }
         }
         return ty;
+    }
+    
+    hir::Type::ID EmitCastIfNeed(hir::BasicBlock *bb, hir::Value **lhs, hir::Value **rhs, int line) {
+        hir::Value::Kind inst;
+        hir::CastPriority prio = hir::GetCastPriority((*lhs)->type(), (*rhs)->type());
+        switch (prio.how) {
+            case hir::CastPriority::kKeep:
+                break;
+            case hir::CastPriority::kRHS:
+                inst = hir::GetCastAction(prio.type, (*rhs)->type());
+                *rhs = EmitCast(bb, inst, *rhs, line);
+                break;
+            case hir::CastPriority::kLHS:
+                inst = hir::GetCastAction(prio.type, (*lhs)->type());
+                *lhs = EmitCast(bb, inst, *lhs, line);
+                break;
+            case hir::CastPriority::kBoth:
+                inst = hir::GetCastAction(prio.type, (*lhs)->type());
+                *lhs = EmitCast(bb, inst, *lhs, line);
+                *rhs = EmitCast(bb, inst, *rhs, line);
+                break;
+            case hir::CastPriority::kNever:
+            default:
+                DLOG(FATAL) << "Noreached!";
+                return hir::Type::kVoid;
+        }
+        return prio.type;
     }
     
     hir::Value *EmitCast(hir::BasicBlock *bb, hir::Value::Kind inst, hir::Value *from, int line) {

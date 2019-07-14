@@ -198,6 +198,8 @@ const char *Type::kNames[] = {
 #undef DEFINE_NAME
 };
     
+const char *Compare::kNames[] = { "eq", "ne", "lt", "le", "gt", "ge", };
+    
 void Function::PrintTo(std::string *buf, size_t limit) const {
     buf->resize(limit);
     FILE *fp = ::fmemopen(&(*buf)[0], limit, "w");
@@ -235,66 +237,6 @@ void BasicBlock::PrintTo(FILE *fp) const {
     }
 }
     
-//bool Value::ReplaceUse(Value *old_val, Value *new_val) {
-//    switch (kind()) {
-//#define DEF_CASE(name) case k##name:
-//        DECL_HIR_BINARY(DEF_CASE) {
-//            BinaryInst *inst = static_cast<BinaryInst *>(this);
-//            if (inst->lhs() == old_val && inst->lhs()->type() == new_val->type()) {
-//                inst->set_lhs(new_val);
-//                return true;
-//            }
-//            if (inst->rhs() == old_val && inst->rhs()->type() == new_val->type()) {
-//                return true;
-//            }
-//        } break;
-//            
-//        DECL_HIR_UNARY(DEF_CASE) {
-//            UnaryInst *inst = static_cast<UnaryInst *>(this);
-//            if (inst->operand() == old_val && inst->operand()->type() == new_val->type()) {
-//                inst->set_operand(new_val);
-//                return true;
-//            }
-//        } break;
-//            
-//        DECL_HIR_CAST(DEF_CASE) {
-//            CastInst *inst = static_cast<CastInst *>(this);
-//            if (inst->from() == old_val && inst->from()->type() == new_val->type()) {
-//                inst->set_from(new_val);
-//                return true;
-//            }
-//        } break;
-//            
-//        DECL_HIR_STORE(DEF_CASE) {
-//            StoreInst *inst = static_cast<StoreInst *>(this);
-//            if (inst->src() == old_val && inst->src()->type() == new_val->type()) {
-//                inst->set_src(new_val);
-//                return true;
-//            }
-//        } break;
-//            
-//        case kRet: {
-//            Ret *inst = static_cast<Ret *>(this);
-//            bool ok = false;
-//            for (size_t i = 0; i < inst->ret_vals_size(); ++i) {
-//                if (inst->ret_val(i) == old_val) {
-//                    inst->set_ret_val(i, new_val);
-//                    ok = true;
-//                }
-//            }
-//            return ok;
-//        } break;
-//            
-//        // TODO:
-//          
-//#undef DEF_CASE
-//        default:
-//            DLOG(FATAL) << "Noreached!";
-//            break;
-//    }
-//    return false;
-//}
-    
 /*virtual*/ void Constant::PrintOperator(FILE *fp) const {
     ::fprintf(fp, "%s ", Type::kNames[type()]);
     switch (type()) {
@@ -329,10 +271,46 @@ void BasicBlock::PrintTo(FILE *fp) const {
     return ok;
 }
     
+/*virtual*/ bool Invoke::ReplaceUse(Value *old_val, Value *new_val) {
+    if (old_val == callee_ && new_val->type() == callee_->type()) {
+        callee_ = new_val;
+        return true;
+    }
+    int i = GetArgument(old_val);
+    if (i < argc_ && new_val->type() == args_[i]->type()) {
+        args_[i] = new_val;
+        return true;
+    }
+    return false;
+}
+
+/*virtual*/ void Invoke::PrintOperator(FILE *fp) const {
+    ::fprintf(fp, "invoke ");
+    callee_->PrintValue(fp);
+    ::fprintf(fp, "(");
+    
+    if (nargs_ >= 0) {
+        bool enter = true;
+        for (int i = 0; i < argc_; ++i) {
+            if (!enter) {
+                ::fprintf(fp, ", ");
+            }
+            args_[i]->PrintValue(fp);
+            enter = false;
+        }
+    } else {
+        args_[0]->PrintValue(fp);
+        ::fprintf(fp, ", ...");
+    }
+    ::fprintf(fp, ") wanted=%d nargs=%d", wanted_, nargs_);
+}
+    
 /*virtual*/ void Branch::PrintOperator(FILE *fp) const {
     fprintf(fp, "br ");
     cond_->PrintValue(fp);
-    fprintf(fp, " then l%d", if_true_->label());
+    if (if_true_) {
+        fprintf(fp, " then l%d", if_true_->label());
+    }
     if (if_false_) {
         fprintf(fp, " else l%d", if_false_->label());
     }
