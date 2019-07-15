@@ -213,20 +213,20 @@ void Function::PrintTo(std::string *buf, size_t limit) const {
     
 void BasicBlock::PrintTo(FILE *fp) const {
     fprintf(fp, "l%d:\n", label_);
-    if (!in_edges_.empty()) {
-        fprintf(fp, "[in]: ");
-        for (auto edge : in_edges_) {
-            fprintf(fp, "l%d ", edge->label_);
-        }
-        putc('\n', fp);
-    }
-    if (!out_edges_.empty()) {
-        fprintf(fp, "[out]: ");
-        for (auto edge : out_edges_) {
-            fprintf(fp, "l%d ", edge->label_);
-        }
-        putc('\n', fp);
-    }
+//    if (!in_edges_.empty()) {
+//        fprintf(fp, "[in]: ");
+//        for (auto edge : in_edges_) {
+//            fprintf(fp, "l%d ", edge->label_);
+//        }
+//        putc('\n', fp);
+//    }
+//    if (!out_edges_.empty()) {
+//        fprintf(fp, "[out]: ");
+//        for (auto edge : out_edges_) {
+//            fprintf(fp, "l%d ", edge->label_);
+//        }
+//        putc('\n', fp);
+//    }
     
     Value *inst = root_;
     while (inst) {

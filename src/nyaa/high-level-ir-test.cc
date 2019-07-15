@@ -209,8 +209,10 @@ TEST_F(NyaaHIRTest, GenerateWhileLoop) {
     static const char z[] = {
         "var a = 1\n"
         "while (a) {\n"
-        "   print(a)\n"
-        "   a = 0\n"
+        "   if (b) {\n"
+        "       print(a)\n"
+        "   }\n"
+        "   a = a + 1\n"
         "}"
         "return a\n"
     };

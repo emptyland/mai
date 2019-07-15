@@ -209,6 +209,12 @@ public:
         bb->out_edges_.push_back(this);
     }
     
+    inline void InsertHead(Value *val);
+    inline void InsertValueAfter(Value *after, Value *val);
+    inline void RemoveValue(Value *val);
+    
+    inline int ReplaceAllUses(Value *old_val, Value *new_val);
+    
     void PrintTo(FILE *fp) const;
     
     friend class Value;
@@ -262,7 +268,7 @@ public:
     DEF_VAL_GETTER(int, index);
     DEF_VAL_GETTER(int, line);
     DEF_PTR_PROP_RW(Value, next);
-    DEF_PTR_GETTER(BasicBlock, owns);
+    DEF_PTR_PROP_RW(BasicBlock, owns);
     
 #define DEFINE_IS(name, literal) bool Is##name() const { return type_ == Type::k##name; }
     DECL_DAG_TYPES(DEFINE_IS)
@@ -284,6 +290,8 @@ public:
 
     inline void PrintTo(FILE *fp) const;
     inline void PrintValue(FILE *fp) const;
+    
+    inline void RemoveFromBB();
 
     friend class Function;
 protected:
@@ -820,6 +828,7 @@ public:
     using PathSet = base::ArenaVector<Path>;
     
     DEF_VAL_PROP_RMW(PathSet, incoming);
+    DEF_VAL_SETTER(Type::ID, type);
     
     inline void AddIncoming(BasicBlock *bb, Value *value);
 
@@ -1025,6 +1034,20 @@ inline int Function::ReplaceAllUses(Value *old_val, Value *new_val) {
     return n;
 }
     
+inline int BasicBlock::ReplaceAllUses(Value *old_val, Value *new_val) {
+    int n = 0;
+    for (Use *i = old_val->uses_begin(); i != old_val->uses_end(); i = i->next) {
+        if (i->val->owns() != this) {
+            continue;
+        }
+        bool ok = i->val->ReplaceUse(old_val, new_val);
+        DCHECK(ok); (void)ok;
+        i->val = new_val;
+        ++n;
+    }
+    return n;
+}
+    
 inline void BasicBlock::AddValue(Value *v) {
     if (!root_) {
         root_ = v;
@@ -1034,6 +1057,52 @@ inline void BasicBlock::AddValue(Value *v) {
         last_ = v;
     }
 }
+    
+inline void BasicBlock::InsertHead(Value *val) {
+    //DCHECK_EQ(nullptr, val->owns());
+    val->set_next(root_);
+    root_ = val;
+    val->set_owns(this);
+}
+    
+inline void BasicBlock::InsertValueAfter(Value *after, Value *val) {
+    DCHECK_EQ(this, after->owns());
+    //DCHECK_EQ(this, val->owns());
+    val->set_owns(this);
+    val->set_next(after->next());
+    after->set_next(val);
+    if (after == last_) {
+        last_ = val;
+    }
+}
+    
+inline void BasicBlock::RemoveValue(Value *val) {
+    DCHECK_EQ(this, val->owns());
+    if (val == root_) {
+        root_ = root_->next();
+        val->set_owns(nullptr);
+        return;
+    }
+    Value *prev = root_;
+    Value *x = root_->next();
+    while (x) {
+        if (x == val) {
+            if (val == last_) {
+                last_ = prev;
+            }
+            prev->set_next(val->next());
+            val->set_next(nullptr);
+            val->set_owns(nullptr);
+            
+            return;
+        }
+        prev = x;
+        x = x->next();
+    }
+    DLOG(FATAL) << "val not found!";
+}
+    
+inline void Value::RemoveFromBB() { owns_->RemoveValue(this); }
     
 inline void Value::PrintTo(FILE *fp) const {
     PrintValue(fp);
