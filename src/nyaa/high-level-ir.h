@@ -319,7 +319,7 @@ protected:
             use_dummy_.next = &use_dummy_;
             use_dummy_.prev = &use_dummy_;
             if (bb) {
-                bb->InsertHead(this);
+                bb->InsertTail(this);
             }
         }
     
@@ -344,8 +344,10 @@ protected:
     void RemoveFromList() {
         prev_->next_ = next_;
         next_->prev_ = prev_;
+#if defined(DEBUG) || defined(_DEBUG)
         prev_ = nullptr;
         next_ = nullptr;
+#endif
     }
     
     Type::ID type_;
@@ -353,8 +355,8 @@ protected:
     int line_;
     Use use_dummy_;
     BasicBlock *owns_; // Which basic-block has in.
-    Value *prev_ = this;
-    Value *next_ = this;
+    Value *prev_ = nullptr;
+    Value *next_ = nullptr;
 };
     
 #define DEFINE_DAG_INST_NODE(name) \
@@ -1138,9 +1140,11 @@ inline BasicBlock::BasicBlock(Function *top, int label)
     , in_edges_(top->arena())
     , out_edges_(top->arena())
     , dummy_(new (top->arena()) Value(Type::kVoid, 0)) {
+    dummy_->next_ = dummy_;
+    dummy_->prev_ = dummy_;
 }
     
-inline bool BasicBlock::insts_empty() const { return dummy_->next_ == dummy_; }
+inline bool BasicBlock::insts_empty() const { return dummy_->prev_ == dummy_; }
 inline Value *BasicBlock::insts_begin() const { return dummy_->next_; }
 inline Value *BasicBlock::insts_end() const { return dummy_; }
 inline Value *BasicBlock::insts_head() const { return dummy_->next_; }
@@ -1153,7 +1157,7 @@ inline int BasicBlock::ReplaceAllUses(Value *old_val, Value *new_val) {
             continue;
         }
         bool ok = i->val->ReplaceUse(old_val, new_val);
-        DCHECK(ok); (void)ok;
+        /*DCHECK(ok);*/ (void)ok;
         i->val = new_val;
         ++n;
     }
@@ -1173,13 +1177,14 @@ inline int BasicBlock::ReplaceAllUsesBefore(Value *old_val, Value *new_val) {
 //(x)->prev->next = x;
 //(x)->next = h;
 //(h)->prev = x
-inline void BasicBlock::InsertValueBefore(Value *pos, Value *val) {
-    DCHECK(this == pos->owns() || pos == dummy_);
-    val->prev_ = pos->prev_;
-    val->prev_->next_ = val;
-    val->next_ = pos;
-    pos->prev_ = val;
-    val->owns_ = this;
+inline void BasicBlock::InsertValueBefore(Value *h, Value *x) {
+    //DCHECK(this == pos->owns() || pos == dummy_);
+    (x)->prev_ = (h)->prev_;
+    (x)->prev_->next_ = x;
+    (x)->next_ = h;
+    (h)->prev_ = x;
+    
+    x->owns_ = this;
 }
 
 //#define ngx_queue_insert_head(h, x)
@@ -1187,13 +1192,19 @@ inline void BasicBlock::InsertValueBefore(Value *pos, Value *val) {
 //(x)->next->prev = x;
 //(x)->prev = h;
 //(h)->next = x
-inline void BasicBlock::InsertValueAfter(Value *pos, Value *val) {
-    DCHECK(this == pos->owns() || pos == dummy_);
-    val->next_ = pos->next_;
-    val->next_->prev_ = val;
-    val->prev_ = pos;
-    pos->next_ = val;
-    val->owns_ = this;
+inline void BasicBlock::InsertValueAfter(Value *h, Value *x) {
+//    DCHECK(this == pos->owns() || pos == dummy_);
+//    val->next_ = pos->next_;
+//    val->next_->prev_ = val;
+//    val->prev_ = pos;
+//    pos->next_ = val;
+//    val->owns_ = this;
+    (x)->next_ = (h)->next_;
+    (x)->next_->prev_ = x;
+    (x)->prev_ = h;
+    (h)->next_ = x;
+
+    x->owns_ = this;
 }
     
 inline void BasicBlock::RemoveValue(Value *val) {

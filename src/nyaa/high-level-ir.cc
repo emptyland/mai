@@ -232,7 +232,6 @@ void BasicBlock::PrintTo(FILE *fp) const {
         fprintf(fp, "    ");
         inst->PrintTo(fp);
         fprintf(fp, "; line = %d\n", inst->line());
-        inst = inst->next();
     }
 }
     
