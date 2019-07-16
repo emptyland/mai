@@ -36,40 +36,24 @@ public:
     using ValueTable = std::unordered_map<const ast::String *, ValueBundle,
         base::ArenaHash<const ast::String *>,
         base::ArenaEqualTo<const ast::String *>>;
-
-    using IncomingPathMap = std::unordered_map<
-        const ast::String *,
-        std::vector<hir::Phi::Path>,
-        base::ArenaHash<const ast::String *>,
-        base::ArenaEqualTo<const ast::String *>>;
     
     inline HIRBlockScope(HIRBlockScope *prev, bool is_br_edge = false)
-        : is_br_edge_(is_br_edge)
-        , prev_(prev) {
+        : prev_(prev) {
         DCHECK_NE(this, prev);
     }
     inline ~HIRBlockScope() {}
     
-    DEF_VAL_GETTER(bool, is_br_edge);
     DEF_VAL_PROP_RMW(ValueTable, values);
-    
-    void PutValueNested(const ast::String *name, hir::Value *val, HIRBlockScope *scope);
+    DEF_PTR_GETTER(HIRBlockScope, prev);
+    DEF_PTR_PROP_RW(hir::BasicBlock, loop_entry);
+    DEF_PTR_PROP_RW(hir::BasicBlock, loop_exit);
     
     void PutValue(const ast::String *name, hir::Value *val) {
-        DCHECK(!val->IsVoidTy());
+        DCHECK(!val->IsVoid());
         ValueBundle bundle;
         bundle.value = val;
         bundle.out_scope = nullptr;
         values_[name] = bundle;
-    }
-    
-    HIRBlockScope *GetBranchEdge() {
-        for (HIRBlockScope *p = this; p != nullptr; p = p->prev_) {
-            if (p->is_br_edge_) {
-                return p;
-            }
-        }
-        return nullptr;
     }
     
     inline std::tuple<hir::Value*, HIRBlockScope*> GetValueOrNullNested(const ast::String *name);
@@ -79,15 +63,11 @@ public:
         return iter == values_.end() ? nullptr : iter->second.value;
     }
     
-    inline std::map<hir::Value *, hir::Value *> MergeBranch(HIRBlockScope *br);
-    
-    static IncomingPathMap
-    MergeBranchs(HIRBlockScope *brs[], hir::BasicBlock *bbs[], size_t n_brs);
-    
 private:
-    bool is_br_edge_;
     HIRBlockScope *prev_;
     ValueTable values_;
+    hir::BasicBlock *loop_entry_ = nullptr;
+    hir::BasicBlock *loop_exit_ = nullptr;
 }; // class BlockScope
     
 class HIRGeneratorContext : public ast::VisitorContext {
@@ -120,26 +100,6 @@ private:
     HIRBlockScope *scope_ = nullptr;
     //hir::BasicBlock *bb_ = nullptr;
 }; // CodeGeneratorContext
-
-
-void HIRBlockScope::PutValueNested(const ast::String *name, hir::Value *val, HIRBlockScope *scope) {
-    //DCHECK(!val->IsVoid());
-    ValueBundle bundle;
-    bundle.value = val;
-    bundle.out_scope = (scope == this) ? nullptr : scope;
-    if (bundle.out_scope) {
-        for (HIRBlockScope *p = this; p; p = p->prev_) {
-            if (p->is_br_edge_) {
-                p->values_[name] = bundle;
-                return;
-            }
-        }
-        bundle.out_scope = nullptr;
-        scope->values_[name] = bundle;
-    } else {
-        values_[name] = bundle;
-    }
-}
     
     
 inline std::tuple<hir::Value*, HIRBlockScope*>
@@ -156,63 +116,6 @@ HIRBlockScope::GetValueOrNullNested(const ast::String *name) {
         p = p->prev_;
     }
     return {nullptr, nullptr};
-}
-    
-inline std::map<hir::Value *, hir::Value *> HIRBlockScope::MergeBranch(HIRBlockScope *br) {
-    DCHECK(br->is_br_edge_);
-    std::map<hir::Value *, hir::Value *> rv;
-    for (const auto &pair : br->values_) {
-        if (!pair.second.out_scope) {
-            continue;
-        }
-        hir::Value *old_ver = DCHECK_NOTNULL(pair.second.out_scope->GetValueOrNull(pair.first));
-        hir::Value *new_ver = pair.second.value;
-        rv.insert({old_ver, new_ver});
-    }
-    return rv;
-}
-    
-/*static*/ HIRBlockScope::IncomingPathMap
-HIRBlockScope::MergeBranchs(HIRBlockScope *brs[], hir::BasicBlock *bbs[], size_t n) {
-    if (n < 2) {
-        return IncomingPathMap();
-    }
-
-    std::map<hir::Value *, hir::Value *> versions;
-    IncomingPathMap paths;
-    for (size_t i = 1; i < n; ++i) {
-        HIRBlockScope *br = brs[i];
-
-        for (const auto &pair : br->values_) {
-            if (!pair.second.out_scope) {
-                continue;
-            }
-            
-            hir::Value *old_ver = DCHECK_NOTNULL(pair.second.out_scope->GetValueOrNull(pair.first));
-            hir::Value *new_ver = pair.second.value;
-            
-            hir::Phi::Path path;
-            path.incoming_bb = bbs[i];
-            path.incoming_value = new_ver;
-            paths[pair.first].push_back(path);
-
-            versions.insert({new_ver, old_ver});
-        }
-    }
-
-    for (auto &pair : paths) {
-        DCHECK(!pair.second.empty());
-        if (pair.second.size() == 1) {
-            auto iter = versions.find(pair.second[0].incoming_value);
-            DCHECK(iter != versions.end());
-            
-            hir::Phi::Path path;
-            path.incoming_bb = bbs[0];
-            path.incoming_value = iter->second;
-            pair.second.push_back(path);
-        }
-    }
-    return paths;
 }
 
 inline static hir::Type::ID ConvType(BuiltinType ty) {
@@ -231,69 +134,6 @@ inline static hir::Type::ID ConvType(BuiltinType ty) {
 }
     
 }; // namespace
-    
-
-class HIRAnalyzeVisitor final : public ast::Visitor {
-public:
-    static hir::Value *const kPlaceholderVal;
-    
-    HIRAnalyzeVisitor(HIRBlockScope *scope)
-        : br_edge_(scope, true/*is_br_edge*/){
-    }
-
-    DEF_VAL_MUTABLE_GETTER(HIRBlockScope, br_edge);
-    
-    void Run(ast::Block *node) {
-        //DCHECK(scope->is_br_edge());
-        HIRGeneratorContext ix;
-        ix.set_scope(&br_edge_);
-        node->Accept(this, &ix);
-    }
-    
-private:
-    // Entry
-    virtual IVal VisitBlock(ast::Block *node, ast::VisitorContext *x) override {
-        HIRGeneratorContext ix(x);
-        if (node->stmts()) {
-            for (auto stmt : *node->stmts()) {
-                stmt->Accept(this, &ix);
-            }
-        }
-        return IVal::Void();
-    }
-    
-    virtual IVal VisitVarDeclaration(ast::VarDeclaration *node, ast::VisitorContext *x) override {
-        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
-        for (auto name : *node->names()) {
-            if (IsNotPlaceholder(name)) {
-                ctx->scope()->PutValue(name, kPlaceholderVal);
-            }
-        }
-        return IVal::Void();
-    }
-
-    virtual IVal VisitAssignment(ast::Assignment *node, ast::VisitorContext *x) override {
-        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
-        for (auto lval : *node->lvals()) {
-            if (lval->IsVariable()) {
-                ast::Variable *symbol = ast::Variable::Cast(lval);
-                
-                hir::Value *val = nullptr;
-                HIRBlockScope *owns = nullptr;
-                std::tie(val, owns) = ctx->scope()->GetValueOrNullNested(symbol->name());
-                if (val) {
-                    ctx->scope()->PutValueNested(symbol->name(), kPlaceholderVal, owns);
-                }
-            }
-        }
-        return IVal::Void();
-    }
-    
-    HIRBlockScope br_edge_;
-}; // class HIRanalyzeVisitor
-    
-hir::Value *const HIRAnalyzeVisitor::kPlaceholderVal = reinterpret_cast<hir::Value *>(0x1);
-
 
 class HIRGeneratorVisitor final : public ast::Visitor {
 public:
@@ -319,16 +159,19 @@ public:
         HIRGeneratorContext top_ctx;
         top_ctx.set_scope(&trunk_scope);
         
+        insert_ = target_->NewBB(nullptr);
+        target_->set_entry(insert_);
+        
         const size_t n_params = !node->params() ? 0 : node->params()->size();
         for (int i = 0; i < n_params; ++i) {
-            hir::Value *val = nullptr;
+            hir::Value *val = target_->Alloca(args_[i], node->line());
             if (i < args_.size()) {
-                val = target_->Parameter(args_[i], node->line());
+                // ignore
             } else {
-                val = target_->Nil(node->line());
+                target_->Store(insert_, val, target_->Nil(node->line()), node->line());
             }
+            target_->AddParameter(val);
             trunk_scope.PutValue(node->params()->at(i), val);
-            
         }
         if (node->vargs()) {
             int64_t nvargs = args_.size() - n_params;
@@ -336,17 +179,19 @@ public:
                 vargs_.push_back(args_[i]);
             }
         }
-
-        insert_ = target_->NewBB(nullptr);
-        target_->set_entry(insert_);
         ACCEPT(node->value(), &top_ctx);
         return IVal::Void();
     }
     
     virtual IVal VisitBlock(ast::Block *node, ast::VisitorContext *x) override {
+        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
+        
+        HIRBlockScope scope(ctx->scope());
+        HIRGeneratorContext ix;
+        ix.set_scope(&scope);
         if (node->stmts()) {
             for (auto stmt : *node->stmts()) {
-                ACCEPT(stmt, x);
+                ACCEPT(stmt, &ix);
             }
         }
         return IVal::Void();
@@ -366,6 +211,7 @@ public:
                         val = target_->BaseOfStack(insert_, rval.node, static_cast<int>(i),
                                                    node->line());
                     }
+                    
                     ctx->scope()->PutValue(node->names()->at(i), val);
                 }
             } else {
@@ -374,16 +220,22 @@ public:
                 for (size_t i = 0; i < node->names()->size(); ++i) {
                     if (i < node->inits()->size()) {
                         IVal rval = ACCEPT(node->inits()->at(i), &rix);
-                        ctx->scope()->PutValue(node->names()->at(i), rval.node);
+                        hir::Value *lval = target_->Alloca(rval.node->type(), node->line());
+                        target_->Store(insert_, lval, rval.node, node->line());
+                        ctx->scope()->PutValue(node->names()->at(i), lval);
                     } else {
-                        ctx->scope()->PutValue(node->names()->at(i), target_->Nil(node->line()));
+                        hir::Value *lval = target_->Alloca(hir::Type::kObject, node->line());
+                        target_->Store(insert_, lval, target_->Nil(node->line()), node->line());
+                        ctx->scope()->PutValue(node->names()->at(i), lval);
                     }
                 }
             }
         } else {
             for (auto name : *node->names()) {
                 if (IsNotPlaceholder(name)) {
-                    ctx->scope()->PutValue(name, target_->Nil(node->line()));
+                    hir::Value *lval = target_->Alloca(hir::Type::kObject, node->line());
+                    target_->Store(insert_, lval, target_->Nil(node->line()), node->line());
+                    ctx->scope()->PutValue(name, lval);
                 }
             }
         }
@@ -430,7 +282,11 @@ public:
         std::tie(val, scope) = ctx->scope()->GetValueOrNullNested(node->name());
         if (ctx->lval()) {
             if (val) {
-                ctx->scope()->PutValueNested(node->name(), ctx->rval().node, scope);
+                if (val->IsFromAlloca()) {
+                    target_->Store(insert_, val, ctx->rval().node, node->line());
+                } else {
+                    scope->PutValue(node->name(), ctx->rval().node);
+                }
                 return IVal::Void();
             }
             if (auto iter = upvals_.find(node->name()); iter != upvals_.end()) {
@@ -441,6 +297,9 @@ public:
             return IVal::Void();
         } else {
             if (val) {
+                if (val->IsFromAlloca()) {
+                    val = target_->Load(insert_, val, node->line());
+                }
                 return IVal::HIR(val);
             }
             if (auto iter = upvals_.find(node->name()); iter != upvals_.end()) {
@@ -453,8 +312,9 @@ public:
     }
     
     virtual IVal VisitReturn(ast::Return *node, ast::VisitorContext *x) override {
-        hir::Ret *ret = target_->Ret(insert_, node->line());
+        hir::Ret *ret = nullptr;
         if (!node->rets()) {
+            ret = target_->Ret(insert_, node->line());
             ret->set_wanted(0);
             return IVal::Void();
         }
@@ -462,14 +322,15 @@ public:
         int nrets = node->GetNRets();
         HIRGeneratorContext ix(x);
         ix.set_n_result(nrets < 0 ? -1 : 1);
-        
-        IVal first = ACCEPT(node->rets()->at(0), &ix);
-        DCHECK_NE(IVal::kVoid, first.kind);
-        
-        ret->AddRetVal(first.node);
-        for (size_t i = 1; i < node->rets()->size(); ++i) {
-            IVal ret_val = ACCEPT(node->rets()->at(i), &ix);
-            ret->AddRetVal(ret_val.node);
+        std::vector<hir::Value *> ret_vals;
+        for (auto rv : *node->rets()) {
+            IVal val = ACCEPT(rv, &ix);
+            DCHECK_NE(IVal::kVoid, val.kind);
+            ret_vals.push_back(val.node);
+        }
+        ret = target_->Ret(insert_, node->line());
+        for (auto rv : ret_vals) {
+            ret->AddRetVal(rv);
         }
         ret->set_wanted(nrets);
         return IVal::Void();
@@ -591,7 +452,6 @@ public:
         
         HIRGeneratorContext ix(ctx);
         ix.set_n_result(1);
-        hir::BasicBlock *origin = insert_;
 
         IVal cmp = ACCEPT(node->cond(), &ix);
         hir::Branch *br = target_->Branch(insert_, cmp.node, node->cond()->line());
@@ -599,60 +459,25 @@ public:
         insert_ = if_true;
         br->set_if_true(if_true);
         
-        HIRGeneratorContext if_true_ctx(ctx);
-        HIRBlockScope if_true_scope(ctx->scope(), true/*is_br*/);
-        if_true_ctx.set_scope(&if_true_scope);
-        ACCEPT(node->then_clause(), &if_true_ctx);
+        ACCEPT(node->then_clause(), x);
         
         hir::BasicBlock *if_false = nullptr;
         HIRBlockScope if_false_scope(ctx->scope(), true/*is_br*/);
         if (node->else_clause()) {
-            HIRGeneratorContext if_false_ctx(ctx);
             if_false = target_->NewBB(insert_);
             insert_ = if_false;
-            if_false_ctx.set_scope(&if_false_scope);
-            
-            ACCEPT(node->else_clause(), &if_false_ctx);
+            ACCEPT(node->else_clause(), x);
             br->set_if_false(if_false);
         }
 
-        // TODO: reuse out basic block.
         hir::BasicBlock *out = target_->NewBB(if_true);
         insert_ = out;
-
-        HIRBlockScope::IncomingPathMap paths;
-        if (node->else_clause()) {
-            HIRBlockScope *brs[] = {ctx->scope(), &if_true_scope, &if_false_scope};
-            hir::BasicBlock *bbs[] = {origin, if_true, if_false};
-            paths = HIRBlockScope::MergeBranchs(brs, bbs, 3);
-        } else {
-            HIRBlockScope *brs[] = {ctx->scope(), &if_true_scope};
-            hir::BasicBlock *bbs[] = {origin, if_true};
-            paths = HIRBlockScope::MergeBranchs(brs, bbs, 2);
-    
-        }
-        for (auto &pair : paths) {
-            hir::Type::ID ty = EmitCastIfNeed(&pair.second, node->line());
-            hir::Phi *phi = target_->Phi(out, ty, node->line());
-            for (auto path : pair.second) {
-                phi->AddIncoming(path.incoming_bb, path.incoming_value);
-            }
-            
-            HIRBlockScope *scope = nullptr;
-            std::tie(std::ignore, scope) = ctx->scope()->GetValueOrNullNested(pair.first);
-            if (HIRBlockScope *edge = ctx->scope()->GetBranchEdge()) {
-                edge->PutValueNested(pair.first, phi, scope);
-            } else {
-                scope->PutValue(pair.first, phi);
-            }
-        }
         
         target_->NoCondBranch(if_true, out, node->line());
         if (if_false) {
             out->AddInEdge(if_false);
             target_->NoCondBranch(if_false, out, node->line());
         }
-
         return IVal::Void();
     }
     
@@ -660,56 +485,45 @@ public:
         HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
         HIRGeneratorContext ix(ctx);
         ix.set_n_result(1);
-        hir::BasicBlock *origin = insert_;
         
-        HIRBlockScope while_scope(ix.scope(), true/*is_br_edge*/);
+        HIRBlockScope while_scope(ix.scope());
         hir::BasicBlock *while_bb = target_->NewBB(insert_);
+        hir::BasicBlock *out = target_->NewBB(insert_, true/*dont_insert*/);
+        while_scope.set_loop_entry(while_bb);
+        while_scope.set_loop_exit(out);
+        
         target_->NoCondBranch(insert_, while_bb, node->line());
         insert_ = while_bb;
         ix.set_scope(&while_scope);
-        
+
         IVal cond = ACCEPT(node->cond(), &ix);
 
         DCHECK_EQ(IVal::kHIR, cond.kind);
         hir::Branch *br = target_->Branch(while_bb, cond.node, node->cond()->line());
+        br->set_if_false(out);
 
         ACCEPT(node->body(), &ix);
         
         target_->NoCondBranch(insert_, while_bb, node->end_line());
-
-        std::vector<hir::Phi *> phi_nodes;
-        HIRBlockScope *brs[] = {ctx->scope(), &while_scope};
-        hir::BasicBlock *bbs[] = {origin, insert_};
-        HIRBlockScope::IncomingPathMap paths = HIRBlockScope::MergeBranchs(brs, bbs, 2);
-        for (auto &pair : paths) {
-            hir::Type::ID ty = EmitCastIfNeed(&pair.second, node->line());
-            hir::Phi *phi = target_->Phi(nullptr, ty, node->line());
-            phi_nodes.push_back(phi);
-            hir::Value *val = nullptr;
-            HIRBlockScope *scope = nullptr;
-            std::tie(val, scope) = ctx->scope()->GetValueOrNullNested(pair.first);
-            //target_->ReplaceAllUses(val, phi);
-            while_bb->ReplaceAllUsesBefore(val, phi);
-
-            for (auto path : pair.second) {
-                phi->AddIncoming(path.incoming_bb, path.incoming_value);
-            }
-            if (HIRBlockScope *edge = ctx->scope()->GetBranchEdge()) {
-                edge->PutValueNested(pair.first, phi, scope);
-            } else {
-                scope->PutValue(pair.first, phi);
-            }
-        }
-        for (auto phi : phi_nodes) { while_bb->InsertHead(phi); }
     
-        hir::BasicBlock *out = target_->NewBB(insert_);
-        br->set_if_false(out);
+        target_->AddBasicBlock(out);
         insert_ = out;
         return IVal::Void();
     }
     
     IVal VisitBreak(ast::Break *node, ast::VisitorContext *x) override {
-        // TODO:
+        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
+        HIRBlockScope *p = ctx->scope();
+        while (p) {
+            if (p->loop_exit()) {
+                target_->NoCondBranch(insert_, p->loop_exit(), node->line());
+                break;
+            }
+            p = p->prev();
+        }
+        if (!p) {
+            error_ = MAI_CORRUPTION("break not found loop.");
+        }
         return IVal::Void();
     }
 

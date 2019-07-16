@@ -118,7 +118,7 @@ static const Value::Kind kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
         Value::kMaxInsts, // Void
         Value::kMaxInsts, // Int
         Value::kIntToLong, // Long,
-        Value::kIntToLong, // Float,
+        Value::kIntToFloat, // Float,
         Value::kMaxInsts, // String,
         Value::kMaxInsts, // Array,
         Value::kMaxInsts, // Map,
@@ -228,8 +228,7 @@ void BasicBlock::PrintTo(FILE *fp) const {
 //        putc('\n', fp);
 //    }
     
-    Value *inst = root_;
-    while (inst) {
+    for (Value *inst = insts_begin(); inst != insts_end(); inst = inst->next_) {
         fprintf(fp, "    ");
         inst->PrintTo(fp);
         fprintf(fp, "; line = %d\n", inst->line());
@@ -357,6 +356,24 @@ void BasicBlock::PrintTo(FILE *fp) const {
         }
         val->PrintValue(fp);
         enter = true;
+    }
+}
+    
+Alloca::Alloca(Function *top, Type::ID type, int line)
+    : Value(top, nullptr, type, line) {
+    if (top->entry()->insts_empty() || !top->entry()->insts_head()->IsAlloca()) {
+        top->entry()->InsertHead(this);
+    } else {
+        Value *prev = top->entry()->insts_begin();
+        Value *p = prev->next();
+        while (p) {
+            if (!p->IsAlloca()) {
+                top->entry()->InsertValueAfter(prev, this);
+                break;
+            }
+            prev = p;
+            p = p->next();
+        }
     }
 }
 

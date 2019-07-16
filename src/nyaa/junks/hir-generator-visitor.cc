@@ -56,7 +56,7 @@ public:
     void PutValueNested(const ast::String *name, hir::Value *val, HIRBlockScope *scope);
     
     void PutValue(const ast::String *name, hir::Value *val) {
-        DCHECK(!val->IsVoidTy());
+        DCHECK(!val->IsVoid());
         ValueBundle bundle;
         bundle.value = val;
         bundle.out_scope = nullptr;
@@ -683,13 +683,14 @@ public:
         HIRBlockScope::IncomingPathMap paths = HIRBlockScope::MergeBranchs(brs, bbs, 2);
         for (auto &pair : paths) {
             hir::Type::ID ty = EmitCastIfNeed(&pair.second, node->line());
-            hir::Phi *phi = target_->Phi(nullptr, ty, node->line());
+            hir::Phi *phi = target_->Phi(while_bb, ty, node->line());
+            phi->RemoveFromBB();
             phi_nodes.push_back(phi);
             hir::Value *val = nullptr;
             HIRBlockScope *scope = nullptr;
             std::tie(val, scope) = ctx->scope()->GetValueOrNullNested(pair.first);
             //target_->ReplaceAllUses(val, phi);
-            while_bb->ReplaceAllUsesBefore(val, phi);
+            while_bb->ReplaceAllUsesAfter(val, phi);
 
             for (auto path : pair.second) {
                 phi->AddIncoming(path.incoming_bb, path.incoming_value);

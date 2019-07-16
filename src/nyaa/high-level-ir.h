@@ -16,6 +16,8 @@ namespace hir {
     
 #define DECL_DAG_NODES(V) \
     V(Parameter) \
+    V(Alloca) \
+    V(Load) \
     V(LoadUp) \
     V(LoadGlobal) \
     V(BaseOfStack) \
@@ -34,7 +36,8 @@ namespace hir {
     
 #define DECL_HIR_STORE(V) \
     V(StoreGlobal) \
-    V(StoreUp)
+    V(StoreUp) \
+    V(Store)
 
 #define DECL_HIR_UNARY(V) \
     V(IMinus)
@@ -126,10 +129,14 @@ public:
     using ValueSet = base::ArenaVector<Value *>;
     using BasicBlockSet = base::ArenaVector<BasicBlock *>;
     
+    DEF_PTR_PROP_RW(BasicBlock, entry);
     DEF_PTR_GETTER(base::Arena, arena);
     
-    inline BasicBlock *NewBB(BasicBlock *in_edge);
+    inline BasicBlock *NewBB(BasicBlock *in_edge, bool dont_insert = false);
     inline Value *Parameter(Type::ID type, int line);
+    inline Value *Alloca(Type::ID type, int line);
+    inline Value *Load(BasicBlock *bb, Value *src, int line);
+    inline Value *Store(BasicBlock *bb, Value *dst, Value *src, int line);
     inline Value *LoadUp(BasicBlock *bb, Type::ID type, int slot, int line);
     inline Value *StoreUp(BasicBlock *bb, int slot, Value *val, int line);
     inline Value *LoadGlobal(BasicBlock *bb, Type::ID type, const String *name, int line);
@@ -167,6 +174,10 @@ public:
     DECL_HIR_BINARY(DECL_BINARY_NEW)
     
 #undef DECL_BINARY_NEW
+    
+    void AddParameter(Value *val) { parameters_.push_back(DCHECK_NOTNULL(val)); }
+    
+    void AddBasicBlock(BasicBlock *bb) { basic_blocks_.push_back(DCHECK_NOTNULL(bb)); }
 
     void PrintTo(std::string *buf, size_t limit) const;
     inline void PrintTo(FILE *fp) const;
@@ -180,14 +191,14 @@ public:
 private:
     Function(base::Arena *arena)
         : arena_(arena)
+        , parameters_(arena)
         , basic_blocks_(arena) {}
     
     int NextValId() { return next_val_id_++; }
     int NextBBId() { return next_bb_id_++; }
 
-    void AddBasicBlock(BasicBlock *bb) { basic_blocks_.push_back(DCHECK_NOTNULL(bb)); }
-
     base::Arena *arena_;
+    ValueSet parameters_;
     BasicBlockSet basic_blocks_;
     BasicBlock *entry_ = nullptr;
     int next_bb_id_ = 0;
@@ -199,39 +210,41 @@ public:
     using EdgeSet = base::ArenaVector<BasicBlock *>;
     
     DEF_VAL_GETTER(int, label);
-    DEF_PTR_GETTER(Value, root);
-    DEF_PTR_GETTER(Value, last);
     DEF_VAL_PROP_RMW(EdgeSet, in_edges);
     DEF_VAL_PROP_RMW(EdgeSet, out_edges);
+    
+    inline bool insts_empty() const;
+    inline Value *insts_begin() const;
+    inline Value *insts_end() const;
+    
+    inline Value *insts_head() const;
+    inline Value *insts_tail() const;
     
     inline void AddInEdge(BasicBlock *bb) {
         in_edges_.push_back(bb);
         bb->out_edges_.push_back(this);
     }
     
-    inline void InsertHead(Value *val);
-    inline void InsertValueAfter(Value *after, Value *val);
+    void InsertHead(Value *val) { InsertValueAfter(dummy_, val); }
+    inline void InsertValueAfter(Value *pos, Value *val);
+    void InsertTail(Value *val) { InsertValueBefore(dummy_, val); }
+    inline void InsertValueBefore(Value *pos, Value *val);
     inline void RemoveValue(Value *val);
     
     inline int ReplaceAllUses(Value *old_val, Value *new_val);
+    inline int ReplaceAllUsesBefore(Value *old_val, Value *new_val);
     
     void PrintTo(FILE *fp) const;
     
     friend class Value;
     friend class Function;
 private:
-    BasicBlock(Function *top, int label, base::Arena *arena)
-        : label_(label)
-        , in_edges_(arena)
-        , out_edges_(arena) { top->AddBasicBlock(this); }
-    
-    inline void AddValue(Value *v);
+    inline BasicBlock(Function *top, int label);
 
     int label_;
     EdgeSet in_edges_;
     EdgeSet out_edges_;
-    Value *root_ = nullptr;
-    Value *last_ = nullptr;
+    Value *dummy_; // instructions list dummy
 }; // class BasicBlock
     
 struct Use : public HIRNode {
@@ -267,14 +280,15 @@ public:
     DEF_VAL_GETTER(Type::ID, type);
     DEF_VAL_GETTER(int, index);
     DEF_VAL_GETTER(int, line);
+    DEF_PTR_PROP_RW(Value, prev);
     DEF_PTR_PROP_RW(Value, next);
     DEF_PTR_PROP_RW(BasicBlock, owns);
     
-#define DEFINE_IS(name, literal) bool Is##name() const { return type_ == Type::k##name; }
+#define DEFINE_IS(name, literal) bool Is##name##Ty() const { return type_ == Type::k##name; }
     DECL_DAG_TYPES(DEFINE_IS)
 #undef DEFINE_IS
     
-#define DEFINE_IS(name) bool IsFrom##name() const { return kind() == k##name; }
+#define DEFINE_IS(name) bool Is##name() const { return kind() == k##name; }
     DECL_DAG_NODES(DEFINE_IS)
 #undef DEFINE_IS
     
@@ -282,17 +296,18 @@ public:
     Use *uses_end() const { return const_cast<Use *>(&use_dummy_); }
     bool uses_empty() const { return use_dummy_.next == &use_dummy_; }
     
-    virtual Kind kind() const = 0;
+    virtual Kind kind() const { return kMaxInsts; }
     virtual Type::ID hint(int i) const { DLOG(FATAL) << "No implement"; return Type::kVoid; }
     
     virtual bool ReplaceUse(Value *old_val, Value *new_val) { return false; }
-    virtual void PrintOperator(FILE *fp) const = 0;
+    virtual void PrintOperator(FILE *fp) const { DLOG(FATAL) << "Not implements"; }
 
     inline void PrintTo(FILE *fp) const;
     inline void PrintValue(FILE *fp) const;
     
-    inline void RemoveFromBB();
+    inline void RemoveFromOwns();
 
+    friend class BasicBlock;
     friend class Function;
 protected:
     Value(Function *top, BasicBlock *bb, Type::ID type, int line)
@@ -304,12 +319,12 @@ protected:
             use_dummy_.next = &use_dummy_;
             use_dummy_.prev = &use_dummy_;
             if (bb) {
-                bb->AddValue(this);
+                bb->InsertHead(this);
             }
         }
     
-    // pure constant value
-    Value(Function *top, Type::ID type, int line)
+    // pure value
+    Value(Type::ID type, int line)
         : type_(type)
         , index_(0)
         , line_(line)
@@ -326,12 +341,20 @@ protected:
     
     void AddUse(Use *use) { use->AddToList(&use_dummy_); }
     
+    void RemoveFromList() {
+        prev_->next_ = next_;
+        next_->prev_ = prev_;
+        prev_ = nullptr;
+        next_ = nullptr;
+    }
+    
     Type::ID type_;
     int index_;
     int line_;
     Use use_dummy_;
     BasicBlock *owns_; // Which basic-block has in.
-    Value *next_ = nullptr;
+    Value *prev_ = this;
+    Value *next_ = this;
 };
     
 #define DEFINE_DAG_INST_NODE(name) \
@@ -347,17 +370,17 @@ protected:
     
 class Constant : public Value {
 public:
-    int64_t int_val() const { DCHECK(IsInt()); return smi_; }
-    void set_int_val(int64_t val) { DCHECK(IsInt()); smi_ = val; }
+    int64_t int_val() const { DCHECK(IsIntTy()); return smi_; }
+    void set_int_val(int64_t val) { DCHECK(IsIntTy()); smi_ = val; }
     
-    double float_val() const { DCHECK(IsFloat()); return f64_; }
-    void set_float_val(double val) { DCHECK(IsFloat()); f64_ = val; }
+    double float_val() const { DCHECK(IsFloatTy()); return f64_; }
+    void set_float_val(double val) { DCHECK(IsFloatTy()); f64_ = val; }
     
-    const String *string_val() const { DCHECK(IsString()); return str_; }
-    void set_string_val(const String *val) { DCHECK(IsString()); str_ = val; }
+    const String *string_val() const { DCHECK(IsStringTy()); return str_; }
+    void set_string_val(const String *val) { DCHECK(IsStringTy()); str_ = val; }
     
-    NyMap *map_val() const { DCHECK(IsMap()); return map_; }
-    void set_map_val(NyMap *val) { DCHECK(IsMap()); map_ = val; }
+    NyMap *map_val() const { DCHECK(IsMapTy()); return map_; }
+    void set_map_val(NyMap *val) { DCHECK(IsMapTy()); map_ = val; }
     
     bool is_nil() const { return nil_stub_ == nullptr; }
     void set_nil() { nil_stub_ = nullptr; }
@@ -366,8 +389,7 @@ public:
 
     DEFINE_DAG_INST_NODE(Constant);
 private:
-    Constant(Function *top, Type::ID type, int line)
-        : Value(top, type, line) {}
+    Constant(Type::ID type, int line) : Value(type, line) {}
     
     union {
         int64_t smi_;
@@ -424,6 +446,75 @@ protected:
     
     Value *src_;
 }; // class StoreInst
+    
+class Alloca : public Value {
+public:
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override { return true; }
+    
+    virtual void PrintOperator(FILE *fp) const override { ::fprintf(fp, "alloca"); }
+    
+    DEFINE_DAG_INST_NODE(Alloca);
+private:
+    Alloca(Function *top, Type::ID type, int line);
+}; // class Alloca
+    
+class Load : public Value {
+public:
+    DEF_PTR_GETTER(Value, src);
+    
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override {
+        if (old_val == src_ && new_val->type() == src_->type()) {
+            src_ = new_val;
+            return true;
+        }
+        return false;
+    }
+    
+    virtual void PrintOperator(FILE *fp) const override {
+        ::fprintf(fp, "load ");
+        src_->PrintValue(fp);
+    }
+    
+    DEFINE_DAG_INST_NODE(Load);
+private:
+    Load(Function *top, BasicBlock *bb, Value *src, int line)
+        : Value(top, bb, src->type(), line)
+        , src_(src) {}
+
+    Value *src_;
+}; // class Load
+    
+class Store : public StoreInst {
+public:
+    DEF_PTR_GETTER(Value, dst);
+    
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override {
+        bool ok = StoreInst::ReplaceUse(old_val, new_val);
+        if (ok) {
+            return ok;
+        }
+        if (old_val == dst_ && new_val->type() == dst_->type()) {
+            dst_ = new_val;
+            return true;
+        }
+        return false;
+    }
+    
+    virtual void PrintOperator(FILE *fp) const override {
+        ::fprintf(fp, "store ");
+        dst_->PrintValue(fp);
+        ::fprintf(fp, ", ");
+        src_->PrintValue(fp);
+    }
+    
+    DEFINE_DAG_INST_NODE(Store);
+private:
+    Store(Function *top, BasicBlock *bb, Value *dst, Value *src, int line)
+        : StoreInst(top, bb, src, line)
+        , dst_(dst) {}
+    
+    Value *dst_;
+}; // class Store
     
 class StoreUp : public StoreInst {
 public:
@@ -718,7 +809,7 @@ public:
 private:
     IMinus(Function *top, BasicBlock *bb, Value *operand, int line)
         : UnaryInst(top, bb, operand->type(), operand, line) {
-        DCHECK(operand->IsInt());
+        DCHECK(operand->IsIntTy());
     }
 }; // class IMinus
 
@@ -731,8 +822,6 @@ public: \
 private: \
     name(Function *top, BasicBlock *bb, Value *lhs, Value *rhs, int line) \
         : BinaryInst(top, bb, lhs->type(), lhs, rhs, line) { \
-        DCHECK(lhs->IsInt()); \
-        DCHECK(rhs->IsInt()); \
     } \
 }
 
@@ -755,8 +844,8 @@ public:
 private:
     ICmp(Function *top, BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line)
         : Comparator(top, bb, op, lhs, rhs, line) {
-        DCHECK(lhs->IsInt());
-        DCHECK(rhs->IsInt());
+        DCHECK(lhs->IsIntTy());
+        DCHECK(rhs->IsIntTy());
     }
 }; // class ICmp
     
@@ -766,8 +855,8 @@ public:
 private:
     FCmp(Function *top, BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line)
         : Comparator(top, bb, op, lhs, rhs, line) {
-        DCHECK(lhs->IsFloat());
-        DCHECK(rhs->IsFloat());
+        DCHECK(lhs->IsFloatTy());
+        DCHECK(rhs->IsFloatTy());
     }
 }; // class FCmp
     
@@ -915,22 +1004,32 @@ Value::Kind GetCastAction(Type::ID dst, Type::ID src);
 /// Inline Functions:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-inline BasicBlock *Function::NewBB(BasicBlock *in_edge) {
-    BasicBlock *bb = new (arena_) BasicBlock(this, NextBBId(), arena_);
+inline BasicBlock *Function::NewBB(BasicBlock *in_edge, bool dont_insert) {
+    BasicBlock *bb = new (arena_) BasicBlock(this, NextBBId());
     if (in_edge) {
         bb->in_edges_.push_back(in_edge);
         in_edge->out_edges_.push_back(bb);
     }
-    if (!entry_) {
-        entry_ = bb;
-    }
+    if (!dont_insert) { AddBasicBlock(bb); }
     return bb;
 }
 
 inline Value *Function::Parameter(Type::ID type, int line) {
     return new (arena_) class Parameter(this, type, line);
 }
-    
+
+inline Value *Function::Alloca(Type::ID type, int line) {
+    return new (arena_) class Alloca(this, type, line);
+}
+
+inline Value *Function::Load(BasicBlock *bb, Value *src, int line) {
+    return new (arena_) class Load(this, bb, src, line);
+}
+
+inline Value *Function::Store(BasicBlock *bb, Value *dst, Value *src, int line) {
+    return new (arena_) class Store(this, bb, dst, src, line);
+}
+
 inline Value *Function::LoadUp(BasicBlock *bb, Type::ID type, int slot, int line) {
     return new (arena_) class LoadUp(this, bb, type, slot, line);
 }
@@ -957,11 +1056,11 @@ inline Value *Function::BaseOfStack(BasicBlock *bb, Value *base, int offset, int
 }
     
 inline Constant *Function::Constant(Type::ID type, int line) {
-    return new (arena_) class Constant(this, type, line);
+    return new (arena_) class Constant(type, line);
 }
     
 inline Value *Function::Nil(int line) {
-    auto k = new (arena_) class Constant(this, Type::kObject, line);
+    auto k = new (arena_) class Constant(Type::kObject, line);
     k->set_nil();
     return k;
 }
@@ -1034,6 +1133,19 @@ inline int Function::ReplaceAllUses(Value *old_val, Value *new_val) {
     return n;
 }
     
+inline BasicBlock::BasicBlock(Function *top, int label)
+    : label_(label)
+    , in_edges_(top->arena())
+    , out_edges_(top->arena())
+    , dummy_(new (top->arena()) Value(Type::kVoid, 0)) {
+}
+    
+inline bool BasicBlock::insts_empty() const { return dummy_->next_ == dummy_; }
+inline Value *BasicBlock::insts_begin() const { return dummy_->next_; }
+inline Value *BasicBlock::insts_end() const { return dummy_; }
+inline Value *BasicBlock::insts_head() const { return dummy_->next_; }
+inline Value *BasicBlock::insts_tail() const { return dummy_->prev_; }
+    
 inline int BasicBlock::ReplaceAllUses(Value *old_val, Value *new_val) {
     int n = 0;
     for (Use *i = old_val->uses_begin(); i != old_val->uses_end(); i = i->next) {
@@ -1048,72 +1160,64 @@ inline int BasicBlock::ReplaceAllUses(Value *old_val, Value *new_val) {
     return n;
 }
     
-inline void BasicBlock::AddValue(Value *v) {
-    if (!root_) {
-        root_ = v;
-        last_ = v;
-    } else {
-        last_->set_next(v);
-        last_ = v;
+inline int BasicBlock::ReplaceAllUsesBefore(Value *old_val, Value *new_val) {
+    int n = ReplaceAllUses(old_val, new_val);
+    for (auto edge : out_edges_) {
+        n += edge->ReplaceAllUsesBefore(old_val, new_val);
     }
+    return n;
 }
-    
-inline void BasicBlock::InsertHead(Value *val) {
-    //DCHECK_EQ(nullptr, val->owns());
-    val->set_next(root_);
-    root_ = val;
-    val->set_owns(this);
+
+//#define ngx_queue_insert_tail(h, x)
+//(x)->prev = (h)->prev;
+//(x)->prev->next = x;
+//(x)->next = h;
+//(h)->prev = x
+inline void BasicBlock::InsertValueBefore(Value *pos, Value *val) {
+    DCHECK(this == pos->owns() || pos == dummy_);
+    val->prev_ = pos->prev_;
+    val->prev_->next_ = val;
+    val->next_ = pos;
+    pos->prev_ = val;
+    val->owns_ = this;
 }
-    
-inline void BasicBlock::InsertValueAfter(Value *after, Value *val) {
-    DCHECK_EQ(this, after->owns());
-    //DCHECK_EQ(this, val->owns());
-    val->set_owns(this);
-    val->set_next(after->next());
-    after->set_next(val);
-    if (after == last_) {
-        last_ = val;
-    }
+
+//#define ngx_queue_insert_head(h, x)
+//(x)->next = (h)->next;
+//(x)->next->prev = x;
+//(x)->prev = h;
+//(h)->next = x
+inline void BasicBlock::InsertValueAfter(Value *pos, Value *val) {
+    DCHECK(this == pos->owns() || pos == dummy_);
+    val->next_ = pos->next_;
+    val->next_->prev_ = val;
+    val->prev_ = pos;
+    pos->next_ = val;
+    val->owns_ = this;
 }
     
 inline void BasicBlock::RemoveValue(Value *val) {
     DCHECK_EQ(this, val->owns());
-    if (val == root_) {
-        root_ = root_->next();
-        val->set_owns(nullptr);
-        return;
-    }
-    Value *prev = root_;
-    Value *x = root_->next();
-    while (x) {
-        if (x == val) {
-            if (val == last_) {
-                last_ = prev;
-            }
-            prev->set_next(val->next());
-            val->set_next(nullptr);
-            val->set_owns(nullptr);
-            
-            return;
-        }
-        prev = x;
-        x = x->next();
-    }
-    DLOG(FATAL) << "val not found!";
+    val->RemoveFromList();
+    val->set_owns(nullptr);
 }
     
-inline void Value::RemoveFromBB() { owns_->RemoveValue(this); }
+inline void Value::RemoveFromOwns() {
+    if (owns_) {
+        owns_->RemoveValue(this);
+    }
+}
     
 inline void Value::PrintTo(FILE *fp) const {
     PrintValue(fp);
-    if (!IsVoid()) {
+    if (!IsVoidTy()) {
         fprintf(fp, " = ");
     }
     PrintOperator(fp);
 }
 
 inline void Value::PrintValue(FILE *fp) const {
-    if (!IsVoid()) {
+    if (!IsVoidTy()) {
         if (kind() == kConstant) {
             PrintOperator(fp);
         } else {

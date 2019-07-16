@@ -54,29 +54,29 @@ TEST_F(NyaaHIRTest, Sanity) {
     ASSERT_EQ(0, bb->label());
     
     auto a1 = fn_->Parameter(Type::kInt, 1);
-    EXPECT_TRUE(a1->IsInt());
+    EXPECT_TRUE(a1->IsIntTy());
     EXPECT_EQ(0, a1->index());
     EXPECT_EQ(1, a1->line());
     auto a2 = fn_->Parameter(Type::kInt, 2);
-    EXPECT_TRUE(a2->IsInt());
+    EXPECT_TRUE(a2->IsIntTy());
     EXPECT_EQ(1, a2->index());
     EXPECT_EQ(2, a2->line());
     
     auto t1 = fn_->IAdd(bb, a1, a2, 3);
-    EXPECT_TRUE(t1->IsInt());
+    EXPECT_TRUE(t1->IsIntTy());
     EXPECT_EQ(2, t1->index());
     EXPECT_EQ(3, t1->line());
     EXPECT_EQ(Value::kIAdd, t1->kind());
     
     auto t2 = fn_->IMinus(bb, t1, 4);
-    EXPECT_TRUE(t2->IsInt());
+    EXPECT_TRUE(t2->IsIntTy());
     EXPECT_EQ(3, t2->index());
     EXPECT_EQ(4, t2->line());
     EXPECT_EQ(Value::kIMinus, t2->kind());
     
     auto ret = fn_->Ret(bb, 5);
     ret->AddRetVal(t2);
-    EXPECT_TRUE(ret->IsVoid());
+    EXPECT_TRUE(ret->IsVoidTy());
     EXPECT_EQ(1, ret->ret_vals().size());
     EXPECT_EQ(Value::kRet, ret->kind());
 
@@ -207,12 +207,11 @@ TEST_F(NyaaHIRTest, GenerateIfBranchsPhiNode2) {
     
 TEST_F(NyaaHIRTest, GenerateWhileLoop) {
     static const char z[] = {
-        "var a = 1\n"
+        "var a = 0\n"
         "while (a) {\n"
-        "   if (b) {\n"
-        "       print(a)\n"
-        "   }\n"
-        "   a = a + 1\n"
+        "   a = a + 2\n"
+        "   a = a + 1.0\n"
+        "   if (b) { break }\n"
         "}"
         "return a\n"
     };
