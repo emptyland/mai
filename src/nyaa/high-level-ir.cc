@@ -102,7 +102,7 @@ CastPriority GetCastPriority(Type::ID lhs, Type::ID rhs) {
     return kCastPriorities[lhs][rhs];
 }
     
-static const Value::Kind kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
+static const Value::InstID kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
     // Void, Int, Long, Float, String, Array, Map, Object
     [Type::kVoid] = {
         Value::kMaxInsts, // Void
@@ -186,7 +186,7 @@ static const Value::Kind kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
     },
 };
 
-Value::Kind GetCastAction(Type::ID dst, Type::ID src) {
+Value::InstID GetCastAction(Type::ID dst, Type::ID src) {
     DCHECK_LT(static_cast<int>(dst), Value::kMaxInsts);
     DCHECK_LT(static_cast<int>(src), Value::kMaxInsts);
     return kCastActions[src][dst];

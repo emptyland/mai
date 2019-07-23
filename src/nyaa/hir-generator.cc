@@ -1,10 +1,12 @@
 #include "nyaa/code-gen-utils.h"
+#include "nyaa/hir-rewrite.h"
 #include "nyaa/high-level-ir.h"
 #include "nyaa/ast.h"
 #include "nyaa/profiling.h"
 #include "nyaa/nyaa-values.h"
 #include "nyaa/builtin.h"
 #include "nyaa/function.h"
+#include <set>
 
 namespace mai {
     
@@ -50,8 +52,11 @@ public:
     }
     inline ~HIRBlockScope() {}
     
+    DEF_PTR_GETTER(HIRBlockScope, prev);
     DEF_VAL_GETTER(bool, is_br_edge);
     DEF_VAL_PROP_RMW(ValueTable, values);
+    DEF_PTR_PROP_RW(hir::BasicBlock, loop_retry);
+    DEF_PTR_PROP_RW(hir::BasicBlock, loop_exit);
     
     void PutValueNested(const ast::String *name, hir::Value *val, HIRBlockScope *scope);
     
@@ -88,6 +93,8 @@ private:
     bool is_br_edge_;
     HIRBlockScope *prev_;
     ValueTable values_;
+    hir::BasicBlock *loop_retry_ = nullptr;
+    hir::BasicBlock *loop_exit_ = nullptr;
 }; // class BlockScope
     
 class HIRGeneratorContext : public ast::VisitorContext {
@@ -231,7 +238,6 @@ inline static hir::Type::ID ConvType(BuiltinType ty) {
 }
     
 }; // namespace
-    
 
 class HIRAnalyzeVisitor final : public ast::Visitor {
 public:
@@ -619,6 +625,9 @@ public:
         // TODO: reuse out basic block.
         hir::BasicBlock *out = target_->NewBB(if_true);
         insert_ = out;
+        if (!node->else_clause()) {
+            br->set_if_false(out);
+        }
 
         HIRBlockScope::IncomingPathMap paths;
         if (node->else_clause()) {
@@ -663,19 +672,26 @@ public:
         hir::BasicBlock *origin = insert_;
         
         HIRBlockScope while_scope(ix.scope(), true/*is_br_edge*/);
-        hir::BasicBlock *while_bb = target_->NewBB(insert_);
-        target_->NoCondBranch(insert_, while_bb, node->line());
-        insert_ = while_bb;
+        hir::BasicBlock *retry = target_->NewBB(insert_);
+        target_->NoCondBranch(insert_, retry, node->line());
+        insert_ = retry;
         ix.set_scope(&while_scope);
         
         IVal cond = ACCEPT(node->cond(), &ix);
 
         DCHECK_EQ(IVal::kHIR, cond.kind);
-        hir::Branch *br = target_->Branch(while_bb, cond.node, node->cond()->line());
+        hir::Branch *br = target_->Branch(retry, cond.node, node->cond()->line());
+        hir::BasicBlock *body = target_->NewBB(retry);
+        br->set_if_true(body);
+        
+        hir::BasicBlock *out = target_->NewBB(nullptr, true/*dont_insert*/);
+        while_scope.set_loop_exit(out);
+        while_scope.set_loop_retry(retry);
 
+        insert_ = body;
         ACCEPT(node->body(), &ix);
         
-        target_->NoCondBranch(insert_, while_bb, node->end_line());
+        target_->NoCondBranch(insert_, retry, node->end_line());
 
         std::vector<hir::Phi *> phi_nodes;
         HIRBlockScope *brs[] = {ctx->scope(), &while_scope};
@@ -689,7 +705,8 @@ public:
             HIRBlockScope *scope = nullptr;
             std::tie(val, scope) = ctx->scope()->GetValueOrNullNested(pair.first);
             //target_->ReplaceAllUses(val, phi);
-            while_bb->ReplaceAllUsesBefore(val, phi);
+            //retry->ReplaceAllUsesAfter(val, phi);
+            hir::RewriteReplacement(target_, retry, insert_, val, phi);
 
             for (auto path : pair.second) {
                 phi->AddIncoming(path.incoming_bb, path.incoming_value);
@@ -700,16 +717,26 @@ public:
                 scope->PutValue(pair.first, phi);
             }
         }
-        for (auto phi : phi_nodes) { while_bb->InsertHead(phi); }
+        for (auto phi : phi_nodes) { retry->InsertHead(phi); }
     
-        hir::BasicBlock *out = target_->NewBB(insert_);
+        out->set_label(target_->NextBBId());
+        out->AddInEdge(insert_);
+        target_->AddBasicBlock(out);
         br->set_if_false(out);
         insert_ = out;
         return IVal::Void();
     }
     
     IVal VisitBreak(ast::Break *node, ast::VisitorContext *x) override {
-        // TODO:
+        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
+        HIRBlockScope *p = ctx->scope();
+        while (p) {
+            if (p->loop_exit()) {
+                target_->NoCondBranch(insert_, p->loop_exit(), node->line());
+                break;
+            }
+            p = p->prev();
+        }
         return IVal::Void();
     }
 
@@ -763,7 +790,7 @@ private:
             hir::Value *val = paths->at(i).incoming_value;
             hir::BasicBlock *bb = paths->at(i).incoming_bb;
             if (val->type() != ty) {
-                hir::Value::Kind inst = hir::GetCastAction(ty, val->type());
+                hir::Value::InstID inst = hir::GetCastAction(ty, val->type());
                 paths->at(i).incoming_value = EmitCast(bb, inst, val, line);
             }
         }
@@ -771,7 +798,7 @@ private:
     }
     
     hir::Type::ID EmitCastIfNeed(hir::BasicBlock *bb, hir::Value **lhs, hir::Value **rhs, int line) {
-        hir::Value::Kind inst;
+        hir::Value::InstID inst;
         hir::CastPriority prio = hir::GetCastPriority((*lhs)->type(), (*rhs)->type());
         switch (prio.how) {
             case hir::CastPriority::kKeep:
@@ -797,7 +824,7 @@ private:
         return prio.type;
     }
     
-    hir::Value *EmitCast(hir::BasicBlock *bb, hir::Value::Kind inst, hir::Value *from, int line) {
+    hir::Value *EmitCast(hir::BasicBlock *bb, hir::Value::InstID inst, hir::Value *from, int line) {
         switch (inst) {
             case hir::Value::kInbox:
                 return target_->Inbox(bb, from, line);

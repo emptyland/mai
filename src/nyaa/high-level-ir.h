@@ -6,6 +6,7 @@
 #include "base/slice.h"
 #include "base/base.h"
 #include "glog/logging.h"
+#include <set>
 
 namespace mai {
     
@@ -176,8 +177,10 @@ public:
 #undef DECL_BINARY_NEW
     
     void AddParameter(Value *val) { parameters_.push_back(DCHECK_NOTNULL(val)); }
+
+    inline void AddBasicBlock(BasicBlock *bb);
     
-    void AddBasicBlock(BasicBlock *bb) { basic_blocks_.push_back(DCHECK_NOTNULL(bb)); }
+    int NextBBId() { return next_bb_id_++; }
 
     void PrintTo(std::string *buf, size_t limit) const;
     inline void PrintTo(FILE *fp) const;
@@ -195,7 +198,6 @@ private:
         , basic_blocks_(arena) {}
     
     int NextValId() { return next_val_id_++; }
-    int NextBBId() { return next_bb_id_++; }
 
     base::Arena *arena_;
     ValueSet parameters_;
@@ -209,7 +211,8 @@ class BasicBlock : public HIRNode {
 public:
     using EdgeSet = base::ArenaVector<BasicBlock *>;
     
-    DEF_VAL_GETTER(int, label);
+    DEF_PTR_GETTER_NOTNULL(Function, owns);
+    DEF_VAL_PROP_RW(int, label);
     DEF_VAL_PROP_RMW(EdgeSet, in_edges);
     DEF_VAL_PROP_RMW(EdgeSet, out_edges);
     
@@ -225,6 +228,16 @@ public:
         bb->out_edges_.push_back(this);
     }
     
+    void GetAfterAll(std::set<BasicBlock *> *all) {
+        if (all->find(this) != all->end()) {
+            return;
+        }
+        all->insert(this);
+        for (auto edge: out_edges_) {
+            edge->GetAfterAll(all);
+        }
+    }
+    
     void InsertHead(Value *val) { InsertValueAfter(dummy_, val); }
     inline void InsertValueAfter(Value *pos, Value *val);
     void InsertTail(Value *val) { InsertValueBefore(dummy_, val); }
@@ -232,7 +245,7 @@ public:
     inline void RemoveValue(Value *val);
     
     inline int ReplaceAllUses(Value *old_val, Value *new_val);
-    inline int ReplaceAllUsesBefore(Value *old_val, Value *new_val);
+    inline int ReplaceAllUsesAfter(Value *old_val, Value *new_val);
     
     void PrintTo(FILE *fp) const;
     
@@ -242,6 +255,7 @@ private:
     inline BasicBlock(Function *top, int label);
 
     int label_;
+    Function *owns_;
     EdgeSet in_edges_;
     EdgeSet out_edges_;
     Value *dummy_; // instructions list dummy
@@ -270,7 +284,7 @@ public:
 
 class Value : public HIRNode {
 public:
-    enum Kind {
+    enum InstID {
     #define DEFINE_ENUM(name) k##name,
         DECL_DAG_NODES(DEFINE_ENUM)
     #undef DEFINE_ENUM
@@ -296,7 +310,7 @@ public:
     Use *uses_end() const { return const_cast<Use *>(&use_dummy_); }
     bool uses_empty() const { return use_dummy_.next == &use_dummy_; }
     
-    virtual Kind kind() const { return kMaxInsts; }
+    virtual InstID kind() const { return kMaxInsts; }
     virtual Type::ID hint(int i) const { DLOG(FATAL) << "No implement"; return Type::kVoid; }
     
     virtual bool ReplaceUse(Value *old_val, Value *new_val) { return false; }
@@ -360,7 +374,7 @@ protected:
 };
     
 #define DEFINE_DAG_INST_NODE(name) \
-    virtual Kind kind() const override { return k##name; } \
+    virtual InstID kind() const override { return k##name; } \
     static name *Cast(Value *node) { \
         return !node || node->kind() != k##name ? nullptr : reinterpret_cast<name *>(node); \
     } \
@@ -1000,14 +1014,14 @@ struct CastPriority {
     
 CastPriority GetCastPriority(Type::ID lhs, Type::ID rhs);
     
-Value::Kind GetCastAction(Type::ID dst, Type::ID src);
+Value::InstID GetCastAction(Type::ID dst, Type::ID src);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Inline Functions:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 inline BasicBlock *Function::NewBB(BasicBlock *in_edge, bool dont_insert) {
-    BasicBlock *bb = new (arena_) BasicBlock(this, NextBBId());
+    BasicBlock *bb = new (arena_) BasicBlock(this, !dont_insert ? NextBBId() : 0);
     if (in_edge) {
         bb->in_edges_.push_back(in_edge);
         in_edge->out_edges_.push_back(bb);
@@ -1118,6 +1132,11 @@ DECL_HIR_BINARY(DEFINE_BINARY_NEW)
     
 #undef DEFINE_BINARY_NEW
     
+inline void Function::AddBasicBlock(BasicBlock *bb) {
+    //bb->label_ = NextBBId();
+    basic_blocks_.push_back(DCHECK_NOTNULL(bb));
+}
+    
 inline void Function::PrintTo(FILE *fp) const {
     for (auto bb : basic_blocks_) {
         bb->PrintTo(fp);
@@ -1135,11 +1154,12 @@ inline int Function::ReplaceAllUses(Value *old_val, Value *new_val) {
     return n;
 }
     
-inline BasicBlock::BasicBlock(Function *top, int label)
+inline BasicBlock::BasicBlock(Function *owns, int label)
     : label_(label)
-    , in_edges_(top->arena())
-    , out_edges_(top->arena())
-    , dummy_(new (top->arena()) Value(Type::kVoid, 0)) {
+    , owns_(owns)
+    , in_edges_(owns->arena())
+    , out_edges_(owns->arena())
+    , dummy_(new (owns->arena()) Value(Type::kVoid, 0)) {
     dummy_->next_ = dummy_;
     dummy_->prev_ = dummy_;
 }
@@ -1157,17 +1177,17 @@ inline int BasicBlock::ReplaceAllUses(Value *old_val, Value *new_val) {
             continue;
         }
         bool ok = i->val->ReplaceUse(old_val, new_val);
-        /*DCHECK(ok);*/ (void)ok;
+        DCHECK(ok); (void)ok;
         i->val = new_val;
         ++n;
     }
     return n;
 }
     
-inline int BasicBlock::ReplaceAllUsesBefore(Value *old_val, Value *new_val) {
+inline int BasicBlock::ReplaceAllUsesAfter(Value *old_val, Value *new_val) {
     int n = ReplaceAllUses(old_val, new_val);
     for (auto edge : out_edges_) {
-        n += edge->ReplaceAllUsesBefore(old_val, new_val);
+        n += edge->ReplaceAllUsesAfter(old_val, new_val);
     }
     return n;
 }
