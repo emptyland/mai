@@ -45,6 +45,7 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
 #define DEFINE_CASE(name) case Value::k##name:
         DECL_HIR_BINARY(DEFINE_CASE) {
             BinaryInst *inst = down_cast<BinaryInst>(use->val);
+            Value::InstID kind = inst->kind(); (void)kind;
             Value *lhs = nullptr, *rhs = nullptr;
             CastPriority prio;
             if (inst->lhs() == old_val) {
@@ -75,35 +76,21 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
                     break;
                 case CastPriority::kKeep:
                     inst->ReplaceUse(old_val, new_val);
-                    //use->val = new_val;
+                    use->RemoveFromList();
+                    new_val->AddUse(new (target_->arena()) Use(inst));
                     return;
                 case CastPriority::kNever:
                 default:
                     DLOG(FATAL) << "Noreached!";
                     break;
             }
-            
-//            Value *repl = nullptr;
-//            switch (prio.type) {
-//                case Type::kInt:
-//                    break;
-//                case Type::kLong:
-//                    break;
-//                case Type::kFloat:
-//                    cast = target_->IntToFloat(nullptr, old_val, inst->line());
-//                    repl = target_->FAdd(nullptr, new_val, inst->rhs(), inst->line());
-//                    break;
-//
-//                default:
-//                    break;
-//            }
-//
-//
-//            inst->owns()->InsertValueBefore(inst, cast);
-//            inst->owns()->InsertValueBefore(inst, repl);
-//            inst->RemoveFromOwns();
-//            use->val = repl;
-//            Run(inst, repl);
+            Value::InstID iid = TransformBinaryInst(prio.type, inst->kind());
+            DCHECK_LT(iid, Value::kMaxInsts);
+            Value *repl = EmitBinary(target_, nullptr, iid, lhs, rhs, inst->line());
+            inst->owns()->InsertValueBefore(inst, repl);
+            inst->RemoveFromOwns();
+            use->RemoveFromList();
+            Run(inst, repl);
         } break;
             
         DECL_HIR_CAST(DEFINE_CASE) {
@@ -119,13 +106,16 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
                                          inst->line());
             inst->owns()->InsertValueBefore(inst, repl);
             inst->RemoveFromOwns();
-            use->val = repl;
+            use->RemoveFromList();
             Run(inst, repl);
         } break;
 
-        default:
-            DLOG(FATAL) << "Noreached!";
-            break;
+        default: {
+            bool ok = use->val->ReplaceUse(old_val, new_val);
+            DCHECK(ok); (void)ok;
+            use->RemoveFromList();
+            new_val->AddUse(new (target_->arena()) Use(use->val));
+        } break;
 #undef DEFINE_CASE
     }
 }
@@ -143,7 +133,23 @@ Value *EmitCast(Function *target, BasicBlock *bb, Value::InstID inst, Value *fro
     #define DEFINE_CAST(name) \
         case hir::Value::k##name: \
             return target->name(bb, from, line);
-            DECL_HIR_CAST(DEFINE_CAST)
+        DECL_HIR_CAST(DEFINE_CAST)
+    #undef DEFINE_CAST
+        case hir::Value::kMaxInsts:
+        default:
+            DLOG(FATAL) << "Noreached!";
+            break;
+    }
+    return nullptr;
+}
+    
+Value *EmitBinary(Function *target, BasicBlock *bb, Value::InstID inst, Value *lhs, Value *rhs,
+                  int line) {
+    switch (inst) {
+    #define DEFINE_CAST(name) \
+        case hir::Value::k##name: \
+            return target->name(bb, lhs, rhs, line);
+        DECL_HIR_BINARY(DEFINE_CAST)
     #undef DEFINE_CAST
         case hir::Value::kMaxInsts:
         default:

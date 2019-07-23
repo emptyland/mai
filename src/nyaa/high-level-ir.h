@@ -49,11 +49,21 @@ namespace hir {
     V(IMul) \
     V(IDiv) \
     V(IMod) \
+    V(LAdd) \
+    V(LSub) \
+    V(LMul) \
+    V(LDiv) \
+    V(LMod) \
     V(FAdd) \
     V(FSub) \
     V(FMul) \
     V(FDiv) \
     V(FMod) \
+    V(OAdd) \
+    V(OSub) \
+    V(OMul) \
+    V(ODiv) \
+    V(OMod)
     
 #define DECL_HIR_CAST(V) \
     V(Inbox) \
@@ -65,14 +75,16 @@ namespace hir {
     V(FloatToLong)
 
 #define DECL_DAG_TYPES(V) \
-    V(Void,   "void") \
-    V(Int,    "int") \
-    V(Long,   "long") \
-    V(Float,  "float") \
-    V(String, "string") \
-    V(Array,  "array") \
-    V(Map,    "map") \
-    V(Object, "object")
+    V(Void,    "void") \
+    V(Int,     "int") \
+    V(Long,    "long") \
+    V(Float,   "float") \
+    V(String,  "string") \
+    V(Array,   "array") \
+    V(Map,     "map") \
+    V(UDO,     "udo") \
+    V(Closure, "closure") \
+    V(Object,  "object")
     
 struct Type {
     enum ID {
@@ -309,6 +321,10 @@ public:
     Use *uses_begin() const { return use_dummy_.next; }
     Use *uses_end() const { return const_cast<Use *>(&use_dummy_); }
     bool uses_empty() const { return use_dummy_.next == &use_dummy_; }
+    void clear_uses() {
+        use_dummy_.next = &use_dummy_;
+        use_dummy_.prev = &use_dummy_;
+    }
     
     virtual InstID kind() const { return kMaxInsts; }
     virtual Type::ID hint(int i) const { DLOG(FATAL) << "No implement"; return Type::kVoid; }
@@ -318,6 +334,8 @@ public:
 
     inline void PrintTo(FILE *fp) const;
     inline void PrintValue(FILE *fp) const;
+    
+    void AddUse(Use *use) { use->AddToList(&use_dummy_); }
     
     inline void RemoveFromOwns();
 
@@ -352,8 +370,6 @@ protected:
             v->AddUse(new (arena) Use(this));
         }
     }
-    
-    void AddUse(Use *use) { use->AddToList(&use_dummy_); }
     
     void RemoveFromList() {
         prev_->next_ = next_;
@@ -846,12 +862,22 @@ DEFINE_BINARY_INST(ISub, "-");
 DEFINE_BINARY_INST(IMul, "*");
 DEFINE_BINARY_INST(IDiv, "/");
 DEFINE_BINARY_INST(IMod, "mod");
+DEFINE_BINARY_INST(LAdd, "+");
+DEFINE_BINARY_INST(LSub, "-");
+DEFINE_BINARY_INST(LMul, "*");
+DEFINE_BINARY_INST(LDiv, "/");
+DEFINE_BINARY_INST(LMod, "mod");
 DEFINE_BINARY_INST(FAdd, "+");
 DEFINE_BINARY_INST(FSub, "-");
 DEFINE_BINARY_INST(FMul, "*");
 DEFINE_BINARY_INST(FDiv, "/");
 DEFINE_BINARY_INST(FMod, "mod");
-
+DEFINE_BINARY_INST(OAdd, "+");
+DEFINE_BINARY_INST(OSub, "-");
+DEFINE_BINARY_INST(OMul, "*");
+DEFINE_BINARY_INST(ODiv, "/");
+DEFINE_BINARY_INST(OMod, "mod");
+    
 #undef DEFINE_BINARY_INST
     
 class ICmp final : public Comparator {
@@ -1015,6 +1041,8 @@ struct CastPriority {
 CastPriority GetCastPriority(Type::ID lhs, Type::ID rhs);
     
 Value::InstID GetCastAction(Type::ID dst, Type::ID src);
+    
+Value::InstID TransformBinaryInst(Type::ID ty, Value::InstID src);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Inline Functions:
@@ -1148,9 +1176,10 @@ inline int Function::ReplaceAllUses(Value *old_val, Value *new_val) {
     for (Use *i = old_val->uses_begin(); i != old_val->uses_end(); i = i->next) {
         bool ok = i->val->ReplaceUse(old_val, new_val);
         DCHECK(ok); (void)ok;
-        i->val = new_val;
+        new_val->AddUse(new (arena_) Use(i->val));
         ++n;
     }
+    old_val->clear_uses();
     return n;
 }
     
@@ -1172,13 +1201,19 @@ inline Value *BasicBlock::insts_tail() const { return dummy_->prev_; }
     
 inline int BasicBlock::ReplaceAllUses(Value *old_val, Value *new_val) {
     int n = 0;
-    for (Use *i = old_val->uses_begin(); i != old_val->uses_end(); i = i->next) {
-        if (i->val->owns() != this) {
+    Use *p = old_val->uses_begin();
+    while (p != old_val->uses_end()) {
+        if (p->val->owns() != this) {
+            p = p->next;
             continue;
         }
-        bool ok = i->val->ReplaceUse(old_val, new_val);
+        
+        Use *x = p;
+        bool ok = x->val->ReplaceUse(old_val, new_val);
         DCHECK(ok); (void)ok;
-        i->val = new_val;
+        p = p->next;
+        x->RemoveFromList();
+        new_val->AddUse(new (owns_->arena_) Use(x->val));
         ++n;
     }
     return n;

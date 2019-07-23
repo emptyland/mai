@@ -15,6 +15,8 @@ static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
         {CastPriority::kNever, Type::kVoid}, // String
         {CastPriority::kNever, Type::kVoid}, // Array
         {CastPriority::kNever, Type::kVoid}, // Map
+        {CastPriority::kNever, Type::kVoid}, // UDO
+        {CastPriority::kNever, Type::kVoid}, // Closure
         {CastPriority::kNever, Type::kVoid}, // Object
     },
     
@@ -26,6 +28,8 @@ static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
         {CastPriority::kBoth, Type::kObject}, // String
         {CastPriority::kBoth, Type::kObject}, // Array
         {CastPriority::kBoth, Type::kObject}, // Map
+        {CastPriority::kBoth, Type::kObject}, // UDO
+        {CastPriority::kBoth, Type::kObject}, // Closure
         {CastPriority::kLHS, Type::kObject}, // Object
     },
     
@@ -37,6 +41,8 @@ static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
         {CastPriority::kBoth, Type::kObject}, // String
         {CastPriority::kBoth, Type::kObject}, // Array
         {CastPriority::kBoth, Type::kObject}, // Map
+        {CastPriority::kBoth, Type::kObject}, // UDO
+        {CastPriority::kBoth, Type::kObject}, // Closure
         {CastPriority::kLHS, Type::kObject}, // Object
     },
     
@@ -44,10 +50,12 @@ static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
         {CastPriority::kNever, Type::kVoid}, // Void
         {CastPriority::kRHS, Type::kFloat}, // Int
         {CastPriority::kRHS, Type::kFloat}, // Long
-        {CastPriority::kRHS, Type::kFloat}, // Float
+        {CastPriority::kKeep, Type::kFloat}, // Float
         {CastPriority::kBoth, Type::kObject}, // String
         {CastPriority::kBoth, Type::kObject}, // Array
         {CastPriority::kBoth, Type::kObject}, // Map
+        {CastPriority::kBoth, Type::kObject}, // UDO
+        {CastPriority::kBoth, Type::kObject}, // Closure
         {CastPriority::kLHS, Type::kObject}, // Object
     },
     
@@ -59,6 +67,8 @@ static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
         {CastPriority::kKeep, Type::kString}, // String
         {CastPriority::kBoth, Type::kObject}, // Array
         {CastPriority::kBoth, Type::kObject}, // Map
+        {CastPriority::kBoth, Type::kObject}, // UDO
+        {CastPriority::kBoth, Type::kObject}, // Closure
         {CastPriority::kLHS, Type::kObject}, // Object
     },
     
@@ -70,6 +80,8 @@ static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
         {CastPriority::kBoth, Type::kObject}, // String
         {CastPriority::kKeep, Type::kArray}, // Array
         {CastPriority::kLHS, Type::kMap}, // Map
+        {CastPriority::kBoth, Type::kObject}, // UDO
+        {CastPriority::kBoth, Type::kObject}, // Closure
         {CastPriority::kLHS, Type::kObject}, // Object
     },
     
@@ -81,6 +93,34 @@ static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
         {CastPriority::kBoth, Type::kObject}, // String
         {CastPriority::kRHS, Type::kMap}, // Array
         {CastPriority::kKeep, Type::kMap}, // Map
+        {CastPriority::kBoth, Type::kObject}, // UDO
+        {CastPriority::kBoth, Type::kObject}, // Closure
+        {CastPriority::kLHS, Type::kObject}, // Object
+    },
+    
+    /*LHS: UDO*/[Type::kUDO] = {
+        {CastPriority::kNever, Type::kVoid}, // Void
+        {CastPriority::kBoth, Type::kObject}, // Int
+        {CastPriority::kBoth, Type::kObject}, // Long
+        {CastPriority::kBoth, Type::kObject}, // Float
+        {CastPriority::kBoth, Type::kObject}, // String
+        {CastPriority::kBoth, Type::kObject}, // Array
+        {CastPriority::kBoth, Type::kObject}, // Map
+        {CastPriority::kKeep, Type::kUDO}, // UDO
+        {CastPriority::kBoth, Type::kObject}, // Closure
+        {CastPriority::kLHS, Type::kObject}, // Object
+    },
+    
+    /*LHS: Closure*/[Type::kClosure] = {
+        {CastPriority::kNever, Type::kVoid}, // Void
+        {CastPriority::kBoth, Type::kObject}, // Int
+        {CastPriority::kBoth, Type::kObject}, // Long
+        {CastPriority::kBoth, Type::kObject}, // Float
+        {CastPriority::kBoth, Type::kObject}, // String
+        {CastPriority::kBoth, Type::kObject}, // Array
+        {CastPriority::kBoth, Type::kObject}, // Map
+        {CastPriority::kBoth, Type::kObject}, // UDO
+        {CastPriority::kKeep, Type::kClosure}, // Closure
         {CastPriority::kLHS, Type::kObject}, // Object
     },
     
@@ -92,6 +132,8 @@ static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
         {CastPriority::kRHS, Type::kObject}, // String
         {CastPriority::kRHS, Type::kObject}, // Array
         {CastPriority::kRHS, Type::kObject}, // Map
+        {CastPriority::kRHS, Type::kObject}, // UDO
+        {CastPriority::kRHS, Type::kObject}, // Closure
         {CastPriority::kKeep, Type::kObject}, // Object
     },
 };
@@ -102,8 +144,8 @@ CastPriority GetCastPriority(Type::ID lhs, Type::ID rhs) {
     return kCastPriorities[lhs][rhs];
 }
     
-static const Value::InstID kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
-    // Void, Int, Long, Float, String, Array, Map, Object
+static const Value::InstID kCastActions[Type::kMaxTypes][Type::kMaxTypes] = {
+    // Void, Int, Long, Float, String, Array, Map, UDO, Closure, Object
     [Type::kVoid] = {
         Value::kMaxInsts, // Void
         Value::kMaxInsts, // Int
@@ -112,6 +154,8 @@ static const Value::InstID kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
         Value::kMaxInsts, // String,
         Value::kMaxInsts, // Array,
         Value::kMaxInsts, // Map,
+        Value::kMaxInsts, // UDO,
+        Value::kMaxInsts, // Closure,
         Value::kMaxInsts, // Object,
     },
     [Type::kInt] = {
@@ -122,6 +166,8 @@ static const Value::InstID kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
         Value::kMaxInsts, // String,
         Value::kMaxInsts, // Array,
         Value::kMaxInsts, // Map,
+        Value::kMaxInsts, // UDO,
+        Value::kMaxInsts, // Closure,
         Value::kInbox, // Object,
     },
     [Type::kLong] = {
@@ -132,6 +178,8 @@ static const Value::InstID kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
         Value::kMaxInsts, // String,
         Value::kMaxInsts, // Array,
         Value::kMaxInsts, // Map,
+        Value::kMaxInsts, // UDO,
+        Value::kMaxInsts, // Closure,
         Value::kInbox, // Object,
     },
     [Type::kFloat] = {
@@ -142,6 +190,8 @@ static const Value::InstID kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
         Value::kMaxInsts, // String,
         Value::kMaxInsts, // Array,
         Value::kMaxInsts, // Map,
+        Value::kMaxInsts, // UDO,
+        Value::kMaxInsts, // Closure,
         Value::kInbox, // Object,
     },
     [Type::kString] = {
@@ -152,6 +202,8 @@ static const Value::InstID kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
         Value::kMaxInsts, // String,
         Value::kMaxInsts, // Array,
         Value::kMaxInsts, // Map,
+        Value::kMaxInsts, // UDO,
+        Value::kMaxInsts, // Closure,
         Value::kInbox, // Object,
     },
     [Type::kArray] = {
@@ -162,6 +214,8 @@ static const Value::InstID kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
         Value::kMaxInsts, // String,
         Value::kMaxInsts, // Array,
         Value::kInbox, // Map,
+        Value::kMaxInsts, // UDO,
+        Value::kMaxInsts, // Closure,
         Value::kInbox, // Object,
     },
     [Type::kMap] = {
@@ -172,24 +226,91 @@ static const Value::InstID kCastActions[Value::kMaxInsts][Value::kMaxInsts] = {
         Value::kMaxInsts, // String,
         Value::kInbox, // Array,
         Value::kMaxInsts, // Map,
+        Value::kMaxInsts, // UDO,
+        Value::kMaxInsts, // Closure,
+        Value::kInbox, // Object,
+    },
+    [Type::kUDO] = {
+        Value::kMaxInsts, // Void
+        Value::kMaxInsts, // Int
+        Value::kMaxInsts, // Long,
+        Value::kMaxInsts, // Float,
+        Value::kMaxInsts, // String,
+        Value::kMaxInsts, // Array,
+        Value::kMaxInsts, // Map,
+        Value::kMaxInsts, // UDO,
+        Value::kMaxInsts, // Closure,
         Value::kInbox, // Object,
     },
     [Type::kObject] = {
         Value::kMaxInsts, // Void
-        Value::kInbox, // Int
-        Value::kInbox, // Long,
-        Value::kInbox, // Float,
-        Value::kInbox, // String,
-        Value::kInbox, // Array,
-        Value::kInbox, // Map,
+        Value::kMaxInsts, // Int
+        Value::kMaxInsts, // Long,
+        Value::kMaxInsts, // Float,
+        Value::kMaxInsts, // String,
+        Value::kMaxInsts, // Array,
+        Value::kMaxInsts, // Map,
+        Value::kMaxInsts, // UDO,
+        Value::kMaxInsts, // Closure,
         Value::kMaxInsts, // Object,
     },
 };
 
 Value::InstID GetCastAction(Type::ID dst, Type::ID src) {
-    DCHECK_LT(static_cast<int>(dst), Value::kMaxInsts);
-    DCHECK_LT(static_cast<int>(src), Value::kMaxInsts);
+    DCHECK_LT(static_cast<int>(dst), Type::kMaxTypes);
+    DCHECK_LT(static_cast<int>(src), Type::kMaxTypes);
     return kCastActions[src][dst];
+}
+    
+static const Value::InstID kBinaryTransfer[20][Type::kMaxTypes] = {
+    // Void, Int, Long, Float, String, Array, Map, UDO, Closure, Object
+#define DEFINE_TRANSFER(op)  { \
+        Value::kMaxInsts, \
+        Value::kI##op, \
+        Value::kL##op, \
+        Value::kF##op, \
+        Value::kMaxInsts, \
+        Value::kMaxInsts, \
+        Value::kMaxInsts, \
+        Value::kMaxInsts, \
+        Value::kMaxInsts, \
+        Value::kO##op, \
+    }
+    /*IAdd*/ DEFINE_TRANSFER(Add),
+    /*ISub*/ DEFINE_TRANSFER(Sub),
+    /*IMul*/ DEFINE_TRANSFER(Mul),
+    /*IDiv*/ DEFINE_TRANSFER(Div),
+    /*IMod*/ DEFINE_TRANSFER(Mod),
+    /*LAdd*/ DEFINE_TRANSFER(Add),
+    /*LSub*/ DEFINE_TRANSFER(Sub),
+    /*LMul*/ DEFINE_TRANSFER(Mul),
+    /*LDiv*/ DEFINE_TRANSFER(Div),
+    /*LMod*/ DEFINE_TRANSFER(Mod),
+    /*FAdd*/ DEFINE_TRANSFER(Add),
+    /*FSub*/ DEFINE_TRANSFER(Sub),
+    /*FMul*/ DEFINE_TRANSFER(Mul),
+    /*FDiv*/ DEFINE_TRANSFER(Div),
+    /*FMod*/ DEFINE_TRANSFER(Mod),
+    /*OAdd*/ DEFINE_TRANSFER(Add),
+    /*OSub*/ DEFINE_TRANSFER(Sub),
+    /*OMul*/ DEFINE_TRANSFER(Mul),
+    /*ODiv*/ DEFINE_TRANSFER(Div),
+    /*OMod*/ DEFINE_TRANSFER(Mod),
+#undef DEFINE_TRANSFER
+};
+    
+Value::InstID TransformBinaryInst(Type::ID ty, Value::InstID src) {
+    switch (src) {
+    #define DEFINE_CASE(name) case Value::k##name:
+            DECL_HIR_BINARY(DEFINE_CASE)
+            break;
+    #undef DEFINE_CASE
+        default:
+            DLOG(FATAL) << "Not binary inst!";
+            break;
+    }
+    DCHECK_LT(static_cast<int>(ty), Type::kMaxTypes);
+    return kBinaryTransfer[static_cast<int>(src) - Value::kIAdd][ty];
 }
 
 const char *Type::kNames[] = {

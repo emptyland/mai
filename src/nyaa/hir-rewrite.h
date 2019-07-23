@@ -17,6 +17,9 @@ Value *EmitCastIfNeed(Function *target, BasicBlock *bb, Type::ID type, Value *fr
     
 Value *EmitCast(Function *target, BasicBlock *bb, Value::InstID inst, Value *from, int line);
     
+Value *EmitBinary(Function *target, BasicBlock *bb, Value::InstID inst, Value *lhs, Value *rhs,
+                  int line);
+    
 } // namespace hir
     
 } // namespace nyaa
