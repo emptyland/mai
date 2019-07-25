@@ -16,10 +16,9 @@ public:
     }
     
     void Run(Value *old_val, Value *new_val);
+private:
     
     void RunUse(Use *use, Value *old_val, Value *new_val);
-    
-private:
     
     Function *target_;
     std::set<BasicBlock *> filter_;
@@ -108,6 +107,13 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
             inst->RemoveFromOwns();
             use->RemoveFromList();
             Run(inst, repl);
+        } break;
+            
+        case Value::kBranch: {
+            Branch *inst = Branch::Cast(use->val);
+            DCHECK_EQ(inst->cond(), old_val);
+            
+            
         } break;
 
         default: {

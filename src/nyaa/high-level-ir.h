@@ -24,6 +24,7 @@ namespace hir {
     V(BaseOfStack) \
     V(Constant) \
     V(Invoke) \
+    V(CallBuiltin) \
     V(Branch) \
     V(NoCondBranch) \
     V(Phi) \
@@ -86,6 +87,9 @@ namespace hir {
     V(Closure, "closure") \
     V(Object,  "object")
     
+#define DECL_BUILTIN_FUNCTIONS(V) \
+    V(GarbageCollectionSafePoint, "nyaa.gc.safepoint", Void)
+    
 struct Type {
     enum ID {
     #define DEFINE_ENUM(name, literal) k##name,
@@ -109,12 +113,33 @@ struct Compare {
     
     static const char *kNames[];
 };
+
+struct BuiltinFunction {
+    enum ID {
+    #define DEFINE_ENUM(name, ...) k##name,
+        DECL_BUILTIN_FUNCTIONS(DEFINE_ENUM)
+    #undef DEFINE_ENUM
+        kMaxFuncs,
+    };
+    
+    const char *name;
+    const Type::ID return_ty;
+    
+    static const BuiltinFunction kDecls[];
+}; // struct BuiltinFunction
+    
+inline const BuiltinFunction *GetBuiltinFunctionProperty(BuiltinFunction::ID id) {
+    DCHECK_GE(static_cast<int>(id), 0);
+    DCHECK_LT(static_cast<int>(id), BuiltinFunction::kMaxFuncs);
+    return &BuiltinFunction::kDecls[static_cast<int>(id)];
+}
     
 class Value;
 class Function;
 class BasicBlock;
 class UnaryInst;
 class BinaryInst;
+class Terminator;
 #define DEFINE_DECL(name) class name;
     DECL_DAG_NODES(DEFINE_DECL)
 #undef DEFINE_DECL
@@ -156,6 +181,7 @@ public:
     inline Value *StoreGlobal(BasicBlock *bb, const String *name, Value *val, int line);
     inline Invoke *Invoke(BasicBlock *bb, Type::ID type, Value *callee, int argc, int wanted,
                           int line);
+    inline CallBuiltin *CallBuiltin(BasicBlock *bb, BuiltinFunction::ID callee, int argc, int line);
     inline Value *BaseOfStack(BasicBlock *bb, Value *base, int offset, int line);
     inline Constant *Constant(Type::ID type, int line);
     inline Value *Nil(int line);
@@ -230,10 +256,14 @@ public:
     
     inline bool insts_empty() const;
     inline Value *insts_begin() const;
+    inline Value *insts_last() const;
     inline Value *insts_end() const;
     
     inline Value *insts_head() const;
     inline Value *insts_tail() const;
+    
+    inline bool has_terminator() const;
+    inline Terminator *get_terminator() const;
     
     inline void AddInEdge(BasicBlock *bb) {
         in_edges_.push_back(bb);
@@ -651,24 +681,73 @@ DEFINE_CAST_INST(FloatToLong, "ftol",  Type::kLong);
 
 #undef DEFINE_CAST_INST
     
-class Invoke : public Value {
+template<class T>
+class Call : public Value {
 public:
-    using RetSet = base::ArenaVector<Type::ID>;
-    
-    DEF_PTR_PROP_RW(Value, callee);
+    DEF_VAL_PROP_RW(T, callee);
+    DEF_VAL_GETTER(int, argc);
 
-    Value *argument(int i) const {
+    inline Value *argument(int i) const {
         DCHECK_GE(i, 0);
         DCHECK_LT(i, argc_);
         return args_[i];
     }
-
-    inline void SetArgument(int i, Value *v);
     
-    inline int GetArgument(Value *val) const;
+    inline void SetArgument(int i, Value *v) {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, argc_);
+        if (GetArgument(v) < argc_) {
+            Set(v, arena_);
+        }
+        args_[i] = v;
+    }
+    
+    inline int GetArgument(Value *val) const {
+        int found = argc_;
+        for (int i = 0; i < argc_; ++i) {
+            if (args_[i] == val) {
+                found = i;
+                break;
+            }
+        }
+        return found;
+    }
+    
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override {
+        bool ok = false;
+        int i = GetArgument(old_val);
+        if (i < argc_ && new_val->type() == args_[i]->type()) {
+            args_[i] = new_val;
+            ok = true;
+        }
+        return ok;
+    }
+    
+protected:
+    inline Call(Function *top, BasicBlock *bb, Type::ID type, T callee, int argc, int line)
+        : Value(top, bb, type, line)
+        , arena_(top->arena())
+        , callee_(callee)
+        , argc_(argc) {
+        args_ = top->arena()->NewArray<Value *>(argc_);
+        ::memset(args_, 0, sizeof(argc_) * sizeof(args_[0]));
+    }
+    
+    base::Arena *arena_;
+    Value **args_;
+    T callee_;
+    int argc_; // size of real args
+}; // class Call
+    
+class Invoke final : public Call<Value *> {
+public:
+    using RetSet = base::ArenaVector<Type::ID>;
+    using Call<Value *>::argument;
+    using Call<Value *>::SetArgument;
+    using Call<Value *>::GetArgument;
     
     DEF_VAL_PROP_RMW(RetSet, rets);
-    DEF_VAL_GETTER(int, argc);
+    DEF_VAL_GETTER(int, nargs);
     DEF_VAL_GETTER(int, wanted);
     
     void AddRetType(Type::ID type) { rets_.push_back(type); }
@@ -680,34 +759,39 @@ public:
     }
     
     virtual bool ReplaceUse(Value *old_val, Value *new_val) override;
-    
     virtual void PrintOperator(FILE *fp) const override;
 
     DEFINE_DAG_INST_NODE(Invoke);
 private:
     Invoke(Function *top, BasicBlock *bb, Type::ID type, Value *callee, int nargs, int wanted,
            int line)
-        : Value(top, bb, type, line)
-        , owns_(top)
-        , callee_(DCHECK_NOTNULL(callee))
-        , args_(nullptr)
+        : Call(top, bb, type, callee, nargs < 0 ? 1 : nargs, line)
         , rets_(top->arena())
         , nargs_(nargs)
-        , argc_(nargs < 0 ? 1 : nargs)
         , wanted_(wanted) {
-        args_ = top->arena()->NewArray<Value *>(argc_);
-        ::memset(args_, 0, sizeof(argc_) * sizeof(args_[0]));
         Set(callee, top->arena());
     }
 
-    Function *owns_;
-    Value *callee_;
-    Value **args_;
     RetSet rets_;
-    int argc_; // size of real args
     int nargs_; // size of accept
     int wanted_; // size of rets
 }; // class Invoke
+    
+    
+class CallBuiltin final : public Call<BuiltinFunction::ID> {
+public:
+    using Call<BuiltinFunction::ID>::argument;
+    using Call<BuiltinFunction::ID>::SetArgument;
+    using Call<BuiltinFunction::ID>::GetArgument;
+    
+    virtual void PrintOperator(FILE *fp) const override;
+    DEFINE_DAG_INST_NODE(CallBuiltin);
+private:
+    CallBuiltin(Function *top, BasicBlock *bb, BuiltinFunction::ID callee, int argc, int line)
+        : Call(top, bb, GetBuiltinFunctionProperty(callee)->return_ty, callee, argc, line) {
+    }
+}; // class CallBuiltin
+
 
 class BaseOfStack : public Value {
 public:
@@ -902,12 +986,40 @@ private:
     }
 }; // class FCmp
     
-class Branch : public Value {
+class Terminator : public Value {
+public:
+    BasicBlock *alone_edge() const { return n_edges_ == 1 ? edges_[0] : nullptr; }
+
+    BasicBlock *edge(int i) const {
+        return i < 0 || i >= n_edges_ ? nullptr : DCHECK_NOTNULL(edges_[i]);
+    }
+protected:
+    Terminator(Function *top, BasicBlock *bb, int n_edges, int line)
+        : Value(top, bb, Type::kVoid, line)
+        , n_edges_(n_edges) {
+        DCHECK_GE(n_edges, 0);
+        DCHECK_LT(n_edges, arraysize(edges_));
+        ::memset(edges_, 0, n_edges_ * sizeof(edges_[0]));
+    }
+    
+    void set_edge(int i, BasicBlock *bb) {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, n_edges_);
+        edges_[i] = DCHECK_NOTNULL(bb);
+    }
+
+    BasicBlock *edges_[4];
+    int n_edges_;
+}; // class Terminator
+    
+class Branch : public Terminator {
 public:
     DEF_PTR_PROP_RW(Value, cond);
-    DEF_PTR_PROP_RW(BasicBlock, if_true);
-    DEF_PTR_PROP_RW(BasicBlock, if_false);
-    
+    BasicBlock *if_true() const { return edge(0); }
+    BasicBlock *if_false() const { return edge(1); }
+    void set_if_true(BasicBlock *bb) { set_edge(0, bb); }
+    void set_if_false(BasicBlock *bb) { set_edge(1, bb); }
+
     virtual bool ReplaceUse(Value *old_val, Value *new_val) override {
         if (old_val == cond_) {
             cond_ = new_val;
@@ -917,37 +1029,33 @@ public:
     }
     
     virtual void PrintOperator(FILE *fp) const override;
-
     
     DEFINE_DAG_INST_NODE(Branch);
 private:
     Branch(Function *top, BasicBlock *bb, Value *cond, int line)
-        : Value(top, bb, Type::kVoid, line)
+        : Terminator(top, bb, 2, line)
         , cond_(cond) {
         Set(cond, top->arena());
     }
     
     Value *cond_;
-    BasicBlock *if_true_ = nullptr;
-    BasicBlock *if_false_ = nullptr;
 }; // class Branch
     
-class NoCondBranch : public Value {
+class NoCondBranch : public Terminator {
 public:
-    DEF_PTR_GETTER(BasicBlock, target);
-    
+    BasicBlock *target() const { return alone_edge(); }
+    void set_target(BasicBlock *bb) { set_edge(0, bb); }
+
     virtual void PrintOperator(FILE *fp) const override {
-        ::fprintf(fp, "br l%d", target_->label());
+        ::fprintf(fp, "br l%d", target()->label());
     }
     
     DEFINE_DAG_INST_NODE(NoCondBranch);
 private:
     NoCondBranch(Function *top, BasicBlock *bb, BasicBlock *target, int line)
-        : Value(top, bb, Type::kVoid, line)
-        , target_(DCHECK_NOTNULL(target)) {
+        : Terminator(top, bb, 1, line) {
+        set_edge(0, bb);
     }
-    
-    BasicBlock *target_;
 }; // class NoCondBranch
     
 class Phi : public Value {
@@ -1195,9 +1303,18 @@ inline BasicBlock::BasicBlock(Function *owns, int label)
     
 inline bool BasicBlock::insts_empty() const { return dummy_->prev_ == dummy_; }
 inline Value *BasicBlock::insts_begin() const { return dummy_->next_; }
+inline Value *BasicBlock::insts_last() const { return dummy_->prev_; }
 inline Value *BasicBlock::insts_end() const { return dummy_; }
 inline Value *BasicBlock::insts_head() const { return dummy_->next_; }
 inline Value *BasicBlock::insts_tail() const { return dummy_->prev_; }
+    
+inline bool BasicBlock::has_terminator() const {
+    return insts_last()->IsBranch() || insts_last()->IsNoCondBranch();
+}
+
+inline Terminator *BasicBlock::get_terminator() const {
+    return has_terminator() ? down_cast<Terminator>(insts_last()) : nullptr;
+}
     
 inline int BasicBlock::ReplaceAllUses(Value *old_val, Value *new_val) {
     int n = 0;
@@ -1310,26 +1427,6 @@ inline BasicBlock *Phi::GetIncomingBasicBlock(Value *val) const {
     auto iter = std::find_if(incoming_.begin(), incoming_.end(),
                              [val](auto path) { return path.incoming_value == val; });
     return iter == incoming_.end() ? nullptr : iter->incoming_bb;
-}
-    
-void Invoke::SetArgument(int i, Value *v) {
-    DCHECK_GE(i, 0);
-    DCHECK_LT(i, argc_);
-    if (GetArgument(v) < argc_) {
-        Set(v, owns_->arena());
-    }
-    args_[i] = v;
-}
-    
-inline int Invoke::GetArgument(Value *val) const {
-    int found = argc_;
-    for (int i = 0; i < argc_; ++i) {
-        if (args_[i] == val) {
-            found = i;
-            break;
-        }
-    }
-    return found;
 }
     
 inline void Ret::AddRetVal(Value *val) {

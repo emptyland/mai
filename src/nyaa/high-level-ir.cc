@@ -5,6 +5,12 @@ namespace mai {
 namespace nyaa {
 
 namespace hir {
+    
+const BuiltinFunction BuiltinFunction::kDecls[] = {
+#define DEFINE_DECL(id, name, return_ty) {name, Type::k##return_ty},
+        DECL_BUILTIN_FUNCTIONS(DEFINE_DECL)
+#undef DEFINE_DECL
+};
 
 static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
     /*LHS: Void*/[Type::kVoid] =  {
@@ -391,16 +397,12 @@ void BasicBlock::PrintTo(FILE *fp) const {
 }
     
 /*virtual*/ bool Invoke::ReplaceUse(Value *old_val, Value *new_val) {
+    bool ok = false;
     if (old_val == callee_ && new_val->type() == callee_->type()) {
         callee_ = new_val;
-        return true;
+        ok = true;
     }
-    int i = GetArgument(old_val);
-    if (i < argc_ && new_val->type() == args_[i]->type()) {
-        args_[i] = new_val;
-        return true;
-    }
-    return false;
+    return Call::ReplaceUse(old_val, new_val) || ok;
 }
 
 /*virtual*/ void Invoke::PrintOperator(FILE *fp) const {
@@ -424,14 +426,28 @@ void BasicBlock::PrintTo(FILE *fp) const {
     ::fprintf(fp, ") wanted=%d nargs=%d", wanted_, nargs_);
 }
     
+/*virtual*/ void CallBuiltin::PrintOperator(FILE *fp) const {
+    const BuiltinFunction *prop = GetBuiltinFunctionProperty(callee());
+    ::fprintf(fp, " %s(", prop->name);
+    bool enter = true;
+    for (int i = 0; i < argc_; ++i) {
+        if (!enter) {
+            ::fprintf(fp, ", ");
+        }
+        args_[i]->PrintValue(fp);
+        enter = false;
+    }
+    ::fprintf(fp, ")");
+}
+    
 /*virtual*/ void Branch::PrintOperator(FILE *fp) const {
     fprintf(fp, "br ");
     cond_->PrintValue(fp);
-    if (if_true_) {
-        fprintf(fp, " then l%d", if_true_->label());
+    if (if_true()) {
+        fprintf(fp, " then l%d", if_true()->label());
     }
-    if (if_false_) {
-        fprintf(fp, " else l%d", if_false_->label());
+    if (if_false()) {
+        fprintf(fp, " else l%d", if_false()->label());
     }
 }
     

@@ -704,8 +704,6 @@ public:
             hir::Value *val = nullptr;
             HIRBlockScope *scope = nullptr;
             std::tie(val, scope) = ctx->scope()->GetValueOrNullNested(pair.first);
-            //target_->ReplaceAllUses(val, phi);
-            //retry->ReplaceAllUsesAfter(val, phi);
             hir::RewriteReplacement(target_, retry, insert_, val, phi);
 
             for (auto path : pair.second) {
@@ -791,7 +789,7 @@ private:
             hir::BasicBlock *bb = paths->at(i).incoming_bb;
             if (val->type() != ty) {
                 hir::Value::InstID inst = hir::GetCastAction(ty, val->type());
-                paths->at(i).incoming_value = EmitCast(bb, inst, val, line);
+                paths->at(i).incoming_value = hir::EmitCast(target_, bb, inst, val, line);
             }
         }
         return ty;
@@ -805,16 +803,16 @@ private:
                 break;
             case hir::CastPriority::kRHS:
                 inst = hir::GetCastAction(prio.type, (*rhs)->type());
-                *rhs = EmitCast(bb, inst, *rhs, line);
+                *rhs = hir::EmitCast(target_, bb, inst, *rhs, line);
                 break;
             case hir::CastPriority::kLHS:
                 inst = hir::GetCastAction(prio.type, (*lhs)->type());
-                *lhs = EmitCast(bb, inst, *lhs, line);
+                *lhs = hir::EmitCast(target_, bb, inst, *lhs, line);
                 break;
             case hir::CastPriority::kBoth:
                 inst = hir::GetCastAction(prio.type, (*lhs)->type());
-                *lhs = EmitCast(bb, inst, *lhs, line);
-                *rhs = EmitCast(bb, inst, *rhs, line);
+                *lhs = hir::EmitCast(target_, bb, inst, *lhs, line);
+                *rhs = hir::EmitCast(target_, bb, inst, *rhs, line);
                 break;
             case hir::CastPriority::kNever:
             default:
@@ -822,30 +820,6 @@ private:
                 return hir::Type::kVoid;
         }
         return prio.type;
-    }
-    
-    hir::Value *EmitCast(hir::BasicBlock *bb, hir::Value::InstID inst, hir::Value *from, int line) {
-        switch (inst) {
-            case hir::Value::kInbox:
-                return target_->Inbox(bb, from, line);
-            case hir::Value::kIntToLong:
-                return target_->IntToLong(bb, from, line);
-            case hir::Value::kIntToFloat:
-                return target_->IntToFloat(bb, from, line);
-            case hir::Value::kLongToInt:
-                return target_->LongToInt(bb, from, line);
-            case hir::Value::kLongToFloat:
-                return target_->LongToFloat(bb, from, line);
-            case hir::Value::kFloatToInt:
-                return target_->FloatToInt(bb, from, line);
-            case hir::Value::kFloatToLong:
-                return target_->FloatToLong(bb, from, line);
-            case hir::Value::kMaxInsts:
-            default:
-                DLOG(FATAL) << "Noreached!";
-                break;
-        }
-        return nullptr;
     }
     
     std::vector<hir::Type::ID> args_;
