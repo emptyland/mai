@@ -304,11 +304,12 @@ hir::Value *const HIRAnalyzeVisitor::kPlaceholderVal = reinterpret_cast<hir::Val
 class HIRGeneratorVisitor final : public ast::Visitor {
 public:
     HIRGeneratorVisitor(std::vector<hir::Type::ID> &&args, UpValTable &&upvals,
-                        base::Arena *arena, Profiler *profiler)
+                        base::Arena *arena, Profiler *profiler, NyaaCore *core)
         : args_(args)
         , upvals_(upvals)
         , arena_(arena)
-        , profiler_(profiler) {
+        , profiler_(profiler)
+        , N_(core) {
     }
 
     virtual ~HIRGeneratorVisitor() override {}
@@ -493,11 +494,12 @@ public:
         }
         
         switch (node->op()) {
-            case Operator::kAdd:
+            case Operator::kAdd: {
                 // TODO:
+                //node->trace_id()
                 return EmitAdd(insert_, operands[0], operands[1], node->line());
-                break;
-                
+            } break;
+
             case Operator::kSub:
                 // TODO:
                 return EmitSub(insert_, operands[0], operands[1], node->line());
@@ -516,6 +518,21 @@ public:
             case Operator::kMod:
                 // TODO:
                 return EmitMod(insert_, operands[0], operands[1], node->line());
+                break;
+
+            case Operator::kEQ:
+                break;
+
+            case Operator::kNE:
+                break;
+
+            case Operator::kLT:
+                break;
+            case Operator::kLE:
+                break;
+            case Operator::kGT:
+                break;
+            case Operator::kGE:
                 break;
                 
             default:
@@ -566,7 +583,8 @@ public:
 
     virtual IVal VisitStringLiteral(ast::StringLiteral *node, ast::VisitorContext *x) override {
         hir::Constant *val = target_->Constant(hir::Type::kString, node->line());
-        val->set_string_val(node->value());
+        NyString *s = N_->factory()->NewString(node->value()->data(), node->value()->size());
+        val->set_string_val(s);
         return IVal::HIR(val);
     }
 
@@ -578,13 +596,14 @@ public:
 
     virtual IVal VisitSmiLiteral(ast::SmiLiteral *node, ast::VisitorContext *x) override {
         hir::Constant *val = target_->Constant(hir::Type::kInt, node->line());
-        val->set_int_val(node->value());
+        val->set_smi_val(node->value());
         return IVal::HIR(val);
     }
 
     virtual IVal VisitIntLiteral(ast::IntLiteral *node, ast::VisitorContext *x) override {
-        // TODO:
-        return IVal::Void();
+        hir::Constant *val = target_->Constant(hir::Type::kLong, node->line());
+        val->set_long_val(NyInt::Parse(node->value()->data(), node->value()->size(), N_->factory()));
+        return IVal::HIR(val);
     }
 
     virtual IVal VisitMapInitializer(ast::MapInitializer *node, ast::VisitorContext *x) override {
@@ -690,7 +709,7 @@ public:
 
         insert_ = body;
         ACCEPT(node->body(), &ix);
-        
+
         target_->NoCondBranch(insert_, retry, node->end_line());
 
         std::vector<hir::Phi *> phi_nodes;
@@ -704,7 +723,7 @@ public:
             hir::Value *val = nullptr;
             HIRBlockScope *scope = nullptr;
             std::tie(val, scope) = ctx->scope()->GetValueOrNullNested(pair.first);
-            hir::RewriteReplacement(target_, retry, insert_, val, phi);
+            hir::RewriteReplacement(N_, target_, retry, insert_, val, phi);
 
             for (auto path : pair.second) {
                 phi->AddIncoming(path.incoming_bb, path.incoming_value);
@@ -752,6 +771,12 @@ private:
             case hir::Type::kFloat: \
                 rv = target_->F##name(bb, lhs, rhs, line); \
                 break; \
+            case hir::Type::kLong: \
+                rv = target_->L##name(bb, lhs, rhs, line); \
+                break; \
+            case hir::Type::kObject: \
+                rv = target_->O##name(bb, lhs, rhs, line); \
+                break; \
             default: \
                 DLOG(FATAL) << "Noreached!" << hir::Type::kNames[ty]; \
                 break; \
@@ -789,7 +814,7 @@ private:
             hir::BasicBlock *bb = paths->at(i).incoming_bb;
             if (val->type() != ty) {
                 hir::Value::InstID inst = hir::GetCastAction(ty, val->type());
-                paths->at(i).incoming_value = hir::EmitCast(target_, bb, inst, val, line);
+                paths->at(i).incoming_value = hir::EmitCast(N_, target_, bb, inst, val, line);
             }
         }
         return ty;
@@ -803,16 +828,16 @@ private:
                 break;
             case hir::CastPriority::kRHS:
                 inst = hir::GetCastAction(prio.type, (*rhs)->type());
-                *rhs = hir::EmitCast(target_, bb, inst, *rhs, line);
+                *rhs = hir::EmitCast(N_, target_, bb, inst, *rhs, line);
                 break;
             case hir::CastPriority::kLHS:
                 inst = hir::GetCastAction(prio.type, (*lhs)->type());
-                *lhs = hir::EmitCast(target_, bb, inst, *lhs, line);
+                *lhs = hir::EmitCast(N_, target_, bb, inst, *lhs, line);
                 break;
             case hir::CastPriority::kBoth:
                 inst = hir::GetCastAction(prio.type, (*lhs)->type());
-                *lhs = hir::EmitCast(target_, bb, inst, *lhs, line);
-                *rhs = hir::EmitCast(target_, bb, inst, *rhs, line);
+                *lhs = hir::EmitCast(N_, target_, bb, inst, *lhs, line);
+                *rhs = hir::EmitCast(N_, target_, bb, inst, *rhs, line);
                 break;
             case hir::CastPriority::kNever:
             default:
@@ -826,6 +851,7 @@ private:
     UpValTable upvals_;
     base::Arena *arena_;
     Profiler *profiler_;
+    NyaaCore *N_;
     Error error_;
     std::vector<hir::Type::ID> vargs_;
     hir::Function *target_ = nullptr;
@@ -850,7 +876,7 @@ Error HIR_GenerateHIR(const BuiltinType *argv, size_t argc, const UpvalDesc *des
         uvs.insert({name, ud});
     }
 
-    HIRGeneratorVisitor visitor(std::move(args), std::move(uvs), arena, core->profiler());
+    HIRGeneratorVisitor visitor(std::move(args), std::move(uvs), arena, core->profiler(), core);
     HIRGeneratorContext ctx;
     DCHECK_NOTNULL(ast)->Accept(&visitor, &ctx);
     if (visitor.error().fail()) {

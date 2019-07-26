@@ -1,4 +1,7 @@
 #include "nyaa/high-level-ir.h"
+#include "nyaa/nyaa-core.h"
+#include "nyaa/object-factory.h"
+#include "nyaa/nyaa-values.h"
 
 namespace mai {
     
@@ -67,9 +70,9 @@ static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
     
     /*LHS: String*/[Type::kString] = {
         {CastPriority::kNever, Type::kVoid}, // Void
-        {CastPriority::kBoth, Type::kObject}, // Int
-        {CastPriority::kBoth, Type::kObject}, // Long
-        {CastPriority::kBoth, Type::kObject}, // Float
+        {CastPriority::kLHS, Type::kInt}, // Int
+        {CastPriority::kLHS, Type::kLong}, // Long
+        {CastPriority::kLHS, Type::kFloat}, // Float
         {CastPriority::kKeep, Type::kString}, // String
         {CastPriority::kBoth, Type::kObject}, // Array
         {CastPriority::kBoth, Type::kObject}, // Map
@@ -167,8 +170,8 @@ static const Value::InstID kCastActions[Type::kMaxTypes][Type::kMaxTypes] = {
     [Type::kInt] = {
         Value::kMaxInsts, // Void
         Value::kMaxInsts, // Int
-        Value::kIntToLong, // Long,
-        Value::kIntToFloat, // Float,
+        Value::kIToL, // Long,
+        Value::kIToF, // Float,
         Value::kMaxInsts, // String,
         Value::kMaxInsts, // Array,
         Value::kMaxInsts, // Map,
@@ -178,9 +181,9 @@ static const Value::InstID kCastActions[Type::kMaxTypes][Type::kMaxTypes] = {
     },
     [Type::kLong] = {
         Value::kMaxInsts, // Void
-        Value::kLongToInt, // Int
+        Value::kLToI, // Int
         Value::kMaxInsts, // Long,
-        Value::kLongToFloat, // Float,
+        Value::kLToF, // Float,
         Value::kMaxInsts, // String,
         Value::kMaxInsts, // Array,
         Value::kMaxInsts, // Map,
@@ -190,8 +193,8 @@ static const Value::InstID kCastActions[Type::kMaxTypes][Type::kMaxTypes] = {
     },
     [Type::kFloat] = {
         Value::kMaxInsts, // Void
-        Value::kFloatToInt, // Int
-        Value::kFloatToLong, // Long,
+        Value::kFToI, // Int
+        Value::kFToL, // Long,
         Value::kMaxInsts, // Float,
         Value::kMaxInsts, // String,
         Value::kMaxInsts, // Array,
@@ -305,6 +308,26 @@ static const Value::InstID kBinaryTransfer[20][Type::kMaxTypes] = {
 #undef DEFINE_TRANSFER
 };
     
+static const Value::InstID kComparatorTranssfer[Type::kMaxTypes] = {
+    // Void, Int, Long, Float, String, Array, Map, UDO, Closure, Object
+    Value::kMaxInsts,
+    Value::kICmp,
+    Value::kLCmp,
+    Value::kFCmp,
+    Value::kMaxInsts,
+    Value::kMaxInsts,
+    Value::kMaxInsts,
+    Value::kMaxInsts,
+    Value::kMaxInsts,
+    Value::kOCmp,
+};
+    
+Value::InstID TransformComparatorInst(Type::ID ty) {
+    DCHECK_GE(static_cast<int>(ty), 0);
+    DCHECK_LT(static_cast<int>(ty), Type::kMaxTypes);
+    return kComparatorTranssfer[static_cast<int>(ty)];
+}
+    
 Value::InstID TransformBinaryInst(Type::ID ty, Value::InstID src) {
     switch (src) {
     #define DEFINE_CASE(name) case Value::k##name:
@@ -360,6 +383,25 @@ void BasicBlock::PrintTo(FILE *fp) const {
         inst->PrintTo(fp);
         fprintf(fp, "; line = %d\n", inst->line());
     }
+}
+    
+Object *Constant::AsObject(NyaaCore *N) const {
+    switch (type()) {
+        case Type::kInt:
+            return NySmi::New(smi_);
+        case Type::kFloat:
+            return N->factory()->NewFloat64(f64_);
+        case Type::kString:
+        case Type::kArray:
+        case Type::kMap:
+        case Type::kLong:
+        case Type::kObject:
+            return stub_;
+        default:
+            DLOG(FATAL) << "Noreached!";
+            break;
+    }
+    return nullptr;
 }
     
 /*virtual*/ void Constant::PrintOperator(FILE *fp) const {

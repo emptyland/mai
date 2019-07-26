@@ -7,15 +7,17 @@
 namespace mai {
     
 namespace nyaa {
-
+class NyaaCore;
 namespace hir {
     
-void RewriteReplacement(Function *target, BasicBlock *begin, BasicBlock *end, Value *old_val,
-                        Value *new_val);
+void RewriteReplacement(NyaaCore *N, Function *target, BasicBlock *begin, BasicBlock *end,
+                        Value *old_val, Value *new_val);
     
-Value *EmitCastIfNeed(Function *target, BasicBlock *bb, Type::ID type, Value *from, int line);
+Value *EmitCastIfNeed(NyaaCore *N, Function *target, BasicBlock *bb, Type::ID type, Value *from,
+                      int line);
     
-Value *EmitCast(Function *target, BasicBlock *bb, Value::InstID inst, Value *from, int line);
+Value *EmitCast(NyaaCore *N, Function *target, BasicBlock *bb, Value::InstID inst, Value *from,
+                int line);
     
 Value *EmitBinary(Function *target, BasicBlock *bb, Value::InstID inst, Value *lhs, Value *rhs,
                   int line);

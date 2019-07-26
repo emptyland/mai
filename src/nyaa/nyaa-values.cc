@@ -2059,7 +2059,7 @@ Object *NyString::TryNumeric(NyaaCore *N) const {
             rv = base::Slice::ParseO64(bytes(), size(), &u64);
             DCHECK_GE(rv, 0);
             if (rv > 0 || u64 > std::numeric_limits<int64_t>::max()) {
-                return NyInt::NewU64(u64, N->factory());
+                return NyInt::ParseOctLiteral(bytes(), size(), N->factory());
             }
             i64 = u64;
             break;
@@ -2067,15 +2067,21 @@ Object *NyString::TryNumeric(NyaaCore *N) const {
             rv = base::Slice::ParseH64(bytes(), size(), &u64);
             DCHECK_GE(rv, 0);
             if (rv > 0 || u64 > std::numeric_limits<int64_t>::max()) {
-                return NyInt::NewU64(u64, N->factory());
+                return NyInt::ParseHexLiteral(bytes(), size(), N->factory());
             }
             i64 = u64;
             break;
         case 'd':
             rv = base::Slice::ParseI64(bytes(), size(), &i64);
+            if (rv > 0 || i64 > NySmi::kMaxValue) {
+                return NyInt::ParseDecLiteral(bytes(), size(), N->factory());
+            }
             break;
         case 's':
             rv = base::Slice::ParseI64(bytes(), size(), &i64);
+            if (rv > 0 || (i64 > NySmi::kMaxValue || i64 < NySmi::kMinValue)) {
+                return NyInt::ParseDecLiteral(bytes(), size(), N->factory());
+            }
             break;
         case 'f':
         case 'e':
@@ -2085,6 +2091,127 @@ Object *NyString::TryNumeric(NyaaCore *N) const {
             return const_cast<NyString *>(this);
     }
     return NySmi::New(i64);
+}
+    
+int64_t NyString::TryI64(bool *ok) const {
+    int64_t i64 = 0;
+    uint64_t u64 = 0;
+    int rv = 0;
+    *ok = true;
+    switch (base::Slice::LikeNumber(bytes(), size())) {
+        case 'o':
+            if (size() > 22) {
+                rv = base::Slice::ParseO64(bytes() + size() - 22, 22, &u64);
+            } else {
+                rv = base::Slice::ParseO64(bytes(), size(), &u64);
+            }
+            DCHECK_GE(rv, 0);
+            return static_cast<int64_t>(u64);
+        case 'h':
+            if (size() > 16) {
+                rv = base::Slice::ParseH64(bytes() + size() - 16, 16, &u64);
+            } else {
+                rv = base::Slice::ParseH64(bytes(), size(), &u64);
+            }
+            DCHECK_GE(rv, 0);
+            return static_cast<int64_t>(u64);
+        case 'd':
+            if (size() > 19) {
+                rv = base::Slice::ParseI64(bytes() + size() - 19, 19, &i64);
+            } else {
+                rv = base::Slice::ParseI64(bytes(), size(), &i64);
+            }
+            return i64;
+        case 's':
+            if (size() > 20) {
+                rv = base::Slice::ParseI64(bytes() + size() - 20, 20, &i64);
+                DCHECK_GE(i64, 0);
+                i64 = -i64;
+            } else {
+                rv = base::Slice::ParseI64(bytes(), size(), &i64);
+            }
+            return i64;
+        case 'f':
+        case 'e':
+            return static_cast<int64_t>(::atof(bytes()));
+        case 0:
+        default:
+            *ok = false;
+            break;
+    }
+    return 0;
+}
+
+f64_t NyString::TryF64(bool *ok) const {
+    int64_t i64 = 0;
+    uint64_t u64 = 0;
+    int rv = 0;
+    *ok = true;
+    switch (base::Slice::LikeNumber(bytes(), size())) {
+        case 'o':
+            if (size() > 22) {
+                rv = base::Slice::ParseO64(bytes() + size() - 22, 22, &u64);
+            } else {
+                rv = base::Slice::ParseO64(bytes(), size(), &u64);
+            }
+            DCHECK_GE(rv, 0);
+            return static_cast<f64_t>(u64);
+        case 'h':
+            if (size() > 16) {
+                rv = base::Slice::ParseH64(bytes() + size() - 16, 16, &u64);
+            } else {
+                rv = base::Slice::ParseH64(bytes(), size(), &u64);
+            }
+            DCHECK_GE(rv, 0);
+            return static_cast<f64_t>(u64);
+        case 'd':
+            if (size() > 19) {
+                rv = base::Slice::ParseI64(bytes() + size() - 19, 19, &i64);
+            } else {
+                rv = base::Slice::ParseI64(bytes(), size(), &i64);
+            }
+            return static_cast<f64_t>(i64);
+        case 's':
+            if (size() > 20) {
+                rv = base::Slice::ParseI64(bytes() + size() - 20, 20, &i64);
+                DCHECK_GE(i64, 0);
+                i64 = -i64;
+            } else {
+                rv = base::Slice::ParseI64(bytes(), size(), &i64);
+            }
+            return static_cast<f64_t>(i64);
+        case 'f':
+        case 'e':
+            return ::atof(bytes());
+        case 0:
+        default:
+            *ok = false;
+            break;
+    }
+    return std::numeric_limits<f64_t>::quiet_NaN();
+}
+
+NyInt *NyString::TryInt(NyaaCore *N, bool *ok) const {
+    int64_t i64 = 0;
+    *ok = true;
+    switch (base::Slice::LikeNumber(bytes(), size())) {
+        case 'o':
+            return NyInt::ParseOctLiteral(bytes(), size(), N->factory());
+        case 'h':
+            return NyInt::ParseHexLiteral(bytes(), size(), N->factory());
+        case 'd':
+        case 's':
+            return NyInt::ParseDecLiteral(bytes(), size(), N->factory());
+        case 'f':
+        case 'e':
+            i64 = static_cast<int64_t>(::atof(bytes()));
+            return NyInt::NewI64(i64, N->factory());
+        case 0:
+        default:
+            *ok = false;
+            break;
+    }
+    return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

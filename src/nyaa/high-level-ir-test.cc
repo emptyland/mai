@@ -112,7 +112,7 @@ TEST_F(NyaaHIRTest, CastPriority) {
     auto prio = GetCastPriority(Type::kInt, Type::kLong);
     ASSERT_EQ(CastPriority::kLHS, prio.how);
     ASSERT_EQ(Type::kLong, prio.type);
-    ASSERT_EQ(Value::kIntToLong, GetCastAction(Type::kLong, Type::kInt));
+    ASSERT_EQ(Value::kIToL, GetCastAction(Type::kLong, Type::kInt));
 }
     
 TEST_F(NyaaHIRTest, ReplacementUses) {
@@ -126,7 +126,7 @@ TEST_F(NyaaHIRTest, ReplacementUses) {
     ret->AddRetVal(a1);
 
     auto k1 = fn_->Constant(Type::kInt, 4);
-    k1->set_int_val(100);
+    k1->set_smi_val(100);
     
     fn_->ReplaceAllUses(a1, k1);
     fn_->PrintTo(stdout);

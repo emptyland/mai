@@ -11,8 +11,11 @@
 namespace mai {
     
 namespace nyaa {
+class NyString;
 class NyMap;
+class NyInt;
 class Object;
+class NyaaCore;
 namespace hir {
     
 #define DECL_DAG_NODES(V) \
@@ -29,8 +32,7 @@ namespace hir {
     V(NoCondBranch) \
     V(Phi) \
     V(Ret) \
-    V(ICmp) \
-    V(FCmp) \
+    DECL_HIR_COMPARE(V) \
     DECL_HIR_STORE(V) \
     DECL_HIR_CAST(V) \
     DECL_HIR_UNARY(V) \
@@ -44,6 +46,12 @@ namespace hir {
 #define DECL_HIR_UNARY(V) \
     V(IMinus)
     
+#define DECL_HIR_COMPARE(V) \
+    V(ICmp) \
+    V(LCmp) \
+    V(FCmp) \
+    V(OCmp)
+
 #define DECL_HIR_BINARY(V) \
     V(IAdd) \
     V(ISub) \
@@ -65,15 +73,18 @@ namespace hir {
     V(OMul) \
     V(ODiv) \
     V(OMod)
-    
+
 #define DECL_HIR_CAST(V) \
     V(Inbox) \
-    V(IntToLong) \
-    V(LongToInt) \
-    V(IntToFloat) \
-    V(FloatToInt) \
-    V(LongToFloat) \
-    V(FloatToLong)
+    V(AToI) \
+    V(AToL) \
+    V(AToF) \
+    V(IToL) \
+    V(LToI) \
+    V(IToF) \
+    V(FToI) \
+    V(LToF) \
+    V(FToL)
 
 #define DECL_DAG_TYPES(V) \
     V(Void,    "void") \
@@ -88,7 +99,9 @@ namespace hir {
     V(Object,  "object")
     
 #define DECL_BUILTIN_FUNCTIONS(V) \
-    V(GarbageCollectionSafePoint, "nyaa.gc.safepoint", Void)
+    V(GarbageCollectionSafePoint, "nyaa.gc.safepoint", Void) \
+    V(Raise, "nyaa.raise", Void) \
+    V(IsTrue, "nyaa.object.is_true", Int)
     
 struct Type {
     enum ID {
@@ -121,19 +134,19 @@ struct BuiltinFunction {
     #undef DEFINE_ENUM
         kMaxFuncs,
     };
-    
+
     const char *name;
     const Type::ID return_ty;
-    
+
     static const BuiltinFunction kDecls[];
 }; // struct BuiltinFunction
-    
+
 inline const BuiltinFunction *GetBuiltinFunctionProperty(BuiltinFunction::ID id) {
     DCHECK_GE(static_cast<int>(id), 0);
     DCHECK_LT(static_cast<int>(id), BuiltinFunction::kMaxFuncs);
     return &BuiltinFunction::kDecls[static_cast<int>(id)];
 }
-    
+
 class Value;
 class Function;
 class BasicBlock;
@@ -190,28 +203,21 @@ public:
     inline Phi *Phi(BasicBlock *bb, Type::ID type, int line);
     inline Ret *Ret(BasicBlock *bb, int line);
     
-    inline Value *ICmp(BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line);
-    inline Value *FCmp(BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line);
+#define DECL_CMP_NEW(name) \
+    inline Value *name(BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line);
+    DECL_HIR_COMPARE(DECL_CMP_NEW)
+#undef DECL_CMP_NEW
     
-#define DECL_CAST_NEW(name) \
-    inline Value *name(BasicBlock *bb, Value *from, int line);
-    
+#define DECL_CAST_NEW(name) inline Value *name(BasicBlock *bb, Value *from, int line);
     DECL_HIR_CAST(DECL_CAST_NEW)
-    
 #undef DECL_CAST_NEW
 
-#define DECL_UNARY_NEW(name) \
-    inline Value *name(BasicBlock *bb, Value *operand, int line);
-    
+#define DECL_UNARY_NEW(name) inline Value *name(BasicBlock *bb, Value *operand, int line);
     DECL_HIR_UNARY(DECL_UNARY_NEW)
-    
 #undef DECL_UNARY_NEW
     
-#define DECL_BINARY_NEW(name) \
-    inline Value *name(BasicBlock *bb, Value *lhs, Value *rhs, int line);
-
+#define DECL_BINARY_NEW(name) inline Value *name(BasicBlock *bb, Value *lhs, Value *rhs, int line);
     DECL_HIR_BINARY(DECL_BINARY_NEW)
-    
 #undef DECL_BINARY_NEW
     
     void AddParameter(Value *val) { parameters_.push_back(DCHECK_NOTNULL(val)); }
@@ -432,20 +438,35 @@ protected:
     
 class Constant : public Value {
 public:
-    int64_t int_val() const { DCHECK(IsIntTy()); return smi_; }
-    void set_int_val(int64_t val) { DCHECK(IsIntTy()); smi_ = val; }
+    int64_t smi_val() const { DCHECK(IsIntTy()); return smi_; }
+    void set_smi_val(int64_t val) { DCHECK(IsIntTy()); smi_ = val; }
+    
+    NyInt *long_val() const { DCHECK(IsLongTy()); return long_; }
+    void set_long_val(NyInt *val) { DCHECK(IsLongTy()); long_ = val; }
     
     double float_val() const { DCHECK(IsFloatTy()); return f64_; }
     void set_float_val(double val) { DCHECK(IsFloatTy()); f64_ = val; }
     
-    const String *string_val() const { DCHECK(IsStringTy()); return str_; }
-    void set_string_val(const String *val) { DCHECK(IsStringTy()); str_ = val; }
+    NyString *string_val() const { DCHECK(IsStringTy()); return str_; }
+    void set_string_val(NyString *val) { DCHECK(IsStringTy()); str_ = val; }
     
     NyMap *map_val() const { DCHECK(IsMapTy()); return map_; }
     void set_map_val(NyMap *val) { DCHECK(IsMapTy()); map_ = val; }
+
+    bool is_nil() const { return stub_ == nullptr; }
+    void set_nil() { stub_ = nullptr; }
     
-    bool is_nil() const { return nil_stub_ == nullptr; }
-    void set_nil() { nil_stub_ = nullptr; }
+    Object *obj_val() const {
+        DCHECK(IsStringTy() || IsArrayTy() || IsMapTy() || IsObjectTy());
+        return stub_;
+    }
+    
+    void set_obj_val(Object *val) {
+        DCHECK(IsStringTy() || IsArrayTy() || IsMapTy() || IsObjectTy());
+        stub_ = val;
+    }
+    
+    Object *AsObject(NyaaCore *N) const;
     
     virtual void PrintOperator(FILE *fp) const override;
 
@@ -456,9 +477,10 @@ private:
     union {
         int64_t smi_;
         double f64_;
-        const String *str_;
+        NyString *str_;
         NyMap *map_;
-        Object *nil_stub_;
+        NyInt *long_;
+        Object *stub_;
     };
 }; // class Constant
     
@@ -671,13 +693,16 @@ private: \
     } \
 }
     
-DEFINE_CAST_INST(Inbox,       "inbox", Type::kObject);
-DEFINE_CAST_INST(IntToLong,   "itol",  Type::kLong);
-DEFINE_CAST_INST(IntToFloat,  "itof",  Type::kFloat);
-DEFINE_CAST_INST(LongToInt,   "ltoi",  Type::kInt);
-DEFINE_CAST_INST(LongToFloat, "ltof",  Type::kFloat);
-DEFINE_CAST_INST(FloatToInt,  "ftoi",  Type::kInt);
-DEFINE_CAST_INST(FloatToLong, "ftol",  Type::kLong);
+DEFINE_CAST_INST(Inbox, "inbox", Type::kObject);
+DEFINE_CAST_INST(AToI,  "atoi",  Type::kInt);
+DEFINE_CAST_INST(AToL,  "atol",  Type::kLong);
+DEFINE_CAST_INST(AToF,  "atof",  Type::kFloat);
+DEFINE_CAST_INST(IToL,  "itol",  Type::kLong);
+DEFINE_CAST_INST(IToF,  "itof",  Type::kFloat);
+DEFINE_CAST_INST(LToI,  "ltoi",  Type::kInt);
+DEFINE_CAST_INST(LToF,  "ltof",  Type::kFloat);
+DEFINE_CAST_INST(FToI,  "ftoi",  Type::kInt);
+DEFINE_CAST_INST(FToL,  "ftol",  Type::kLong);
 
 #undef DEFINE_CAST_INST
     
@@ -904,7 +929,7 @@ public:
     }
     
     virtual void PrintOperator(FILE *fp) const override {
-        ::fprintf(fp, "cmp %s", op());
+        ::fprintf(fp, "cmp %s ", op());
         lhs()->PrintValue(fp);
         ::fprintf(fp, " ");
         rhs()->PrintValue(fp);
@@ -974,7 +999,18 @@ private:
         DCHECK(rhs->IsIntTy());
     }
 }; // class ICmp
-    
+
+class LCmp final : public Comparator {
+public:
+    DEFINE_DAG_INST_NODE(LCmp);
+private:
+    LCmp(Function *top, BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line)
+        : Comparator(top, bb, op, lhs, rhs, line) {
+        DCHECK(lhs->IsLongTy());
+        DCHECK(rhs->IsLongTy());
+    }
+}; // class LCmp
+
 class FCmp final : public Comparator {
 public:
     DEFINE_DAG_INST_NODE(FCmp);
@@ -985,7 +1021,18 @@ private:
         DCHECK(rhs->IsFloatTy());
     }
 }; // class FCmp
-    
+
+class OCmp final : public Comparator {
+public:
+    DEFINE_DAG_INST_NODE(OCmp);
+private:
+    OCmp(Function *top, BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line)
+        : Comparator(top, bb, op, lhs, rhs, line) {
+        DCHECK(lhs->IsObjectTy());
+        DCHECK(rhs->IsObjectTy());
+    }
+}; // class OCmp
+
 class Terminator : public Value {
 public:
     BasicBlock *alone_edge() const { return n_edges_ == 1 ? edges_[0] : nullptr; }
@@ -1150,6 +1197,8 @@ CastPriority GetCastPriority(Type::ID lhs, Type::ID rhs);
     
 Value::InstID GetCastAction(Type::ID dst, Type::ID src);
     
+Value::InstID TransformComparatorInst(Type::ID ty);
+
 Value::InstID TransformBinaryInst(Type::ID ty, Value::InstID src);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1203,6 +1252,11 @@ inline Invoke *Function::Invoke(BasicBlock *bb, Type::ID type, Value *callee, in
     return new (arena_) class Invoke(this, bb, type, callee, argc, wanted, line);
 }
     
+inline CallBuiltin *Function::CallBuiltin(BasicBlock *bb, BuiltinFunction::ID callee, int argc,
+                                          int line) {
+    return new (arena_) class CallBuiltin(this, bb, callee, argc, line);
+}
+    
 inline Value *Function::BaseOfStack(BasicBlock *bb, Value *base, int offset, int line) {
     return new (arena_) class BaseOfStack(this, bb, base, offset, line);
 }
@@ -1233,14 +1287,15 @@ inline Ret *Function::Ret(BasicBlock *bb, int line) {
     return new (arena_) class Ret(this, bb, line);
 }
     
-inline Value *Function::ICmp(BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line) {
-    return new (arena_) class ICmp(this, bb, op, lhs, rhs, line);
-}
-
-inline Value *Function::FCmp(BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line) {
-    return new (arena_) class FCmp(this, bb, op, lhs, rhs, line);
+#define DEFINE_CMP_NEW(name) \
+inline Value *Function::name(BasicBlock *bb, Compare::Op op, Value *lhs, Value *rhs, int line) { \
+    return new (arena_) class name(this, bb, op, lhs, rhs, line); \
 }
     
+DECL_HIR_COMPARE(DEFINE_CMP_NEW)
+    
+#undef DEFINE_CMP_NEW
+
 #define DEFINE_CAST_NEW(name) \
 inline Value *Function::name(BasicBlock *bb, Value *from, int line) { \
     return new (arena_) class name(this, bb, from, line); \

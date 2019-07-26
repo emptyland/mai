@@ -755,6 +755,10 @@ public:
     
     Object *TryNumeric(NyaaCore *N) const;
     
+    int64_t TryI64(bool *ok) const;
+    f64_t TryF64(bool *ok) const;
+    NyInt *TryInt(NyaaCore *N, bool *ok) const;
+    
     void Iterate(ObjectVisitor *visitor) {}
     
     using NyByteArray::PlacedSize;

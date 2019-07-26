@@ -16,7 +16,7 @@
 		230D7ACC21FDE8890019F7BB /* evaluation-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230D7ACB21FDE8890019F7BB /* evaluation-test.cc */; };
 		2312DFBD2253503700689616 /* malloc-object-factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2312DFBC2253503700689616 /* malloc-object-factory.cc */; };
 		2312DFC022536B4300689616 /* scavenger.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2312DFBF22536B4300689616 /* scavenger.cc */; };
-		2317596921E5933F0025685F /* sql.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2317596821E5933F0025685F /* sql.yy.cc */; };
+		2317596921E5933F0025685F /* sql.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2317596821E5933F0025685F /* sql.yy.cc */; settings = {COMPILER_FLAGS = "-Wno-documentation -Wno-unused-parameter -Wno-unused-function"; }; };
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
 		23216A272201A2F900E1B816 /* types-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A262201A2F900E1B816 /* types-test.cc */; };
 		23216A2A2201BC8600E1B816 /* heap-tuple.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A292201BC8600E1B816 /* heap-tuple.cc */; };
@@ -188,8 +188,8 @@
 		23C2D4D622D22BEE00537516 /* profiling.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C2D4D522D22BEE00537516 /* profiling.cc */; };
 		23C8BB5322A0C72C0081E697 /* function.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C8BB5222A0C72C0081E697 /* function.cc */; };
 		23CA8249225C338F00947EA8 /* bytecode.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA8248225C338F00947EA8 /* bytecode.cc */; };
-		23CA8251225CC8CE00947EA8 /* lex.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA824E225CC8CD00947EA8 /* lex.yy.cc */; };
-		23CA8252225CC8CE00947EA8 /* syntax.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA824F225CC8CD00947EA8 /* syntax.cc */; };
+		23CA8251225CC8CE00947EA8 /* lex.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA824E225CC8CD00947EA8 /* lex.yy.cc */; settings = {COMPILER_FLAGS = "-Wno-documentation -Wno-unused-parameter -Wno-unused-function"; }; };
+		23CA8252225CC8CE00947EA8 /* syntax.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA824F225CC8CD00947EA8 /* syntax.cc */; settings = {COMPILER_FLAGS = "-Wno-documentation"; }; };
 		23CA8255225D82D900947EA8 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CA8254225D82D900947EA8 /* parser.cc */; };
 		23CC114F21D71F49001665AC /* transaction-lock-mgr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */; };
 		23CF40DD225A28280072CD91 /* ast.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CF40DC225A28280072CD91 /* ast.cc */; };
@@ -1855,6 +1855,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/third-party/libs",
@@ -1868,6 +1869,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/third-party/libs",
