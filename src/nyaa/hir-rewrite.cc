@@ -73,17 +73,25 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
             switch (prio.how) {
                 case CastPriority::kLHS:
                     lhs = EmitCastIfNeed(N_, target_, nullptr, prio.type, lhs, inst->line());
-                    inst->owns()->InsertValueBefore(inst, lhs);
+                    if (!lhs->IsConstant()) {
+                        inst->owns()->InsertValueBefore(inst, lhs);
+                    }
                     break;
                 case CastPriority::kRHS:
                     rhs = EmitCastIfNeed(N_, target_, nullptr, prio.type, rhs, inst->line());
-                    inst->owns()->InsertValueBefore(inst, rhs);
+                    if (!rhs->IsConstant()) {
+                        inst->owns()->InsertValueBefore(inst, rhs);
+                    }
                     break;
                 case CastPriority::kBoth:
                     lhs = EmitCastIfNeed(N_, target_, nullptr, prio.type, lhs, inst->line());
-                    inst->owns()->InsertValueBefore(inst, lhs);
+                    if (!lhs->IsConstant()) {
+                        inst->owns()->InsertValueBefore(inst, lhs);
+                    }
                     rhs = EmitCastIfNeed(N_, target_, nullptr, prio.type, rhs, inst->line());
-                    inst->owns()->InsertValueBefore(inst, rhs);
+                    if (!rhs->IsConstant()) {
+                        inst->owns()->InsertValueBefore(inst, rhs);
+                    }
                     break;
                 case CastPriority::kKeep:
                     inst->ReplaceUse(old_val, new_val);
@@ -115,7 +123,9 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
             
             Value *repl = EmitCastIfNeed(N_, target_, nullptr, new_val->type(), inst->from(),
                                          inst->line());
-            inst->owns()->InsertValueBefore(inst, repl);
+            if (!repl->IsConstant()) {
+                inst->owns()->InsertValueBefore(inst, repl);
+            }
             inst->RemoveFromOwns();
             use->RemoveFromList();
             Run(inst, repl);

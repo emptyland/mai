@@ -1230,12 +1230,17 @@ int64_t NyInt::ToI64() const {
 }
     
 NyString *NyInt::ToString(NyaaCore *N, int radix) const {
+    std::string buf(ToString(radix));
+    return N->factory()->NewString(buf.data(), buf.size());
+}
+    
+std::string NyInt::ToString(int radix) const {
     DCHECK_GE(radix, kMinRadix);
     DCHECK_LE(radix, kMaxRadix);
     if (IsZero()) {
-        return N->factory()->NewString("0");
+        return "0";
     }
-
+    
     base::ScopedArena scoped_buf;
     NyInt *q = NewUninitialized(capacity_, &scoped_buf);
     q->offset_ = offset_;
@@ -1250,11 +1255,11 @@ NyString *NyInt::ToString(NyaaCore *N, int radix) const {
         ::memcpy(p->segments(), q->segments(),
                  segments_size() * sizeof(uint32_t));
     }
-
+    
     if (negative()) {
         buf.insert(buf.begin(), '-');
     }
-    return N->factory()->NewString(buf.data(), buf.size());
+    return buf;
 }
     
 /*static*/ int NyInt::Compare(const NyInt *lhs, const NyInt *rhs) {

@@ -389,6 +389,7 @@ public:
     int64_t ToI64() const;
     
     NyString *ToString(NyaaCore *N, int radix = 10) const;
+    std::string ToString(int radix = 10) const;
     
     NyInt *Clone(base::Arena *arena) const { return New(segments(), segments_size(), arena); }
     NyInt *Clone(ObjectFactory *factory) const { return New(segments(), segments_size(), factory); }

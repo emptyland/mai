@@ -414,10 +414,21 @@ Object *Constant::AsObject(NyaaCore *N) const {
             ::fprintf(fp, "%f", f64_);
             break;
         case Type::kString:
-            ::fprintf(fp, "\'%s\'", str_->data());
+            ::fprintf(fp, "\'%s\'", str_->bytes());
             break;
+        case Type::kLong:
+            ::fprintf(fp, "%s", long_->ToString().c_str());
+            break;
+        case Type::kMap:
+        case Type::kArray:
+        case Type::kUDO:
+        case Type::kClosure:
         case Type::kObject:
-            ::fprintf(fp, "nil");
+            if (!stub_) {
+                ::fprintf(fp, "nil");
+            } else {
+                ::fprintf(fp, "[%p]", stub_);
+            }
             break;
         default:
             DLOG(FATAL) << "Noreached!" << Type::kNames[type()];

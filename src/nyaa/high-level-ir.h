@@ -440,34 +440,34 @@ class Constant : public Value {
 public:
     int64_t smi_val() const { DCHECK(IsIntTy()); return smi_; }
     void set_smi_val(int64_t val) { DCHECK(IsIntTy()); smi_ = val; }
-    
+
     NyInt *long_val() const { DCHECK(IsLongTy()); return long_; }
     void set_long_val(NyInt *val) { DCHECK(IsLongTy()); long_ = val; }
-    
+
     double float_val() const { DCHECK(IsFloatTy()); return f64_; }
     void set_float_val(double val) { DCHECK(IsFloatTy()); f64_ = val; }
-    
+
     NyString *string_val() const { DCHECK(IsStringTy()); return str_; }
     void set_string_val(NyString *val) { DCHECK(IsStringTy()); str_ = val; }
-    
+
     NyMap *map_val() const { DCHECK(IsMapTy()); return map_; }
     void set_map_val(NyMap *val) { DCHECK(IsMapTy()); map_ = val; }
 
     bool is_nil() const { return stub_ == nullptr; }
     void set_nil() { stub_ = nullptr; }
-    
+
     Object *obj_val() const {
-        DCHECK(IsStringTy() || IsArrayTy() || IsMapTy() || IsObjectTy());
+        DCHECK(IsLongTy() || IsStringTy() || IsArrayTy() || IsMapTy() || IsObjectTy());
         return stub_;
     }
-    
+
     void set_obj_val(Object *val) {
-        DCHECK(IsStringTy() || IsArrayTy() || IsMapTy() || IsObjectTy());
+        DCHECK(IsLongTy() || IsStringTy() || IsArrayTy() || IsMapTy() || IsObjectTy());
         stub_ = val;
     }
-    
+
     Object *AsObject(NyaaCore *N) const;
-    
+
     virtual void PrintOperator(FILE *fp) const override;
 
     DEFINE_DAG_INST_NODE(Constant);
@@ -1101,7 +1101,7 @@ public:
 private:
     NoCondBranch(Function *top, BasicBlock *bb, BasicBlock *target, int line)
         : Terminator(top, bb, 1, line) {
-        set_edge(0, bb);
+        set_edge(0, target);
     }
 }; // class NoCondBranch
     
