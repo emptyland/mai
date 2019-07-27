@@ -251,7 +251,57 @@ private:
     int next_val_id_ = 0;
 }; // class Function
     
-class BasicBlock : public HIRNode {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Use and Users:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+struct Use : public HIRNode {
+public:
+    Use(Value *v) : val(v) {}
+    
+    void RemoveFromList() {
+        prev->next = next;
+        next->prev = prev;
+    }
+    
+    void AddToList(Use *list) {
+        next = list;
+        prev = list->prev;
+        list->prev->next = this;
+        list->prev = this;
+    }
+    
+    Value *val;
+    Use *next;
+    Use *prev;
+}; // class Use
+
+class User : public HIRNode {
+public:
+    Use *uses_begin() const { return use_dummy_.next; }
+    Use *uses_end() const { return const_cast<Use *>(&use_dummy_); }
+    bool uses_empty() const { return use_dummy_.next == &use_dummy_; }
+    void clear_uses() {
+        use_dummy_.next = &use_dummy_;
+        use_dummy_.prev = &use_dummy_;
+    }
+    
+    void AddUse(Use *use) { use->AddToList(&use_dummy_); }
+    void AddUse(Value *v, base::Arena *arena) { AddUse(new (arena) Use(v)); }
+    
+protected:
+    User()
+        : use_dummy_(nullptr) {
+        use_dummy_.next = &use_dummy_;
+        use_dummy_.prev = &use_dummy_;
+    }
+
+    Use use_dummy_;
+}; // class User
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class BasicBlock:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+class BasicBlock final : public User {
 public:
     using EdgeSet = base::ArenaVector<BasicBlock *>;
     
@@ -308,29 +358,12 @@ private:
     EdgeSet out_edges_;
     Value *dummy_; // instructions list dummy
 }; // class BasicBlock
-    
-struct Use : public HIRNode {
-public:
-    Use(Value *v) : val(v) {}
-    
-    void RemoveFromList() {
-        prev->next = next;
-        next->prev = prev;
-    }
-    
-    void AddToList(Use *list) {
-        next = list;
-        prev = list->prev;
-        list->prev->next = this;
-        list->prev = this;
-    }
 
-    Value *val;
-    Use *next;
-    Use *prev;
-}; // class Use
-
-class Value : public HIRNode {
+    
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class Value (SSA Value):
+////////////////////////////////////////////////////////////////////////////////////////////////////
+class Value : public User {
 public:
     enum InstID {
     #define DEFINE_ENUM(name) k##name,
@@ -354,14 +387,6 @@ public:
     DECL_DAG_NODES(DEFINE_IS)
 #undef DEFINE_IS
     
-    Use *uses_begin() const { return use_dummy_.next; }
-    Use *uses_end() const { return const_cast<Use *>(&use_dummy_); }
-    bool uses_empty() const { return use_dummy_.next == &use_dummy_; }
-    void clear_uses() {
-        use_dummy_.next = &use_dummy_;
-        use_dummy_.prev = &use_dummy_;
-    }
-    
     virtual InstID kind() const { return kMaxInsts; }
     virtual Type::ID hint(int i) const { DLOG(FATAL) << "No implement"; return Type::kVoid; }
     
@@ -382,28 +407,28 @@ protected:
         : type_(type)
         , index_(type != Type::kVoid ? top->NextValId() : 0)
         , line_(line)
-        , use_dummy_(nullptr)
         , owns_(bb) {
-            use_dummy_.next = &use_dummy_;
-            use_dummy_.prev = &use_dummy_;
-            if (bb) {
-                bb->InsertTail(this);
-            }
+        if (bb) {
+            bb->InsertTail(this);
         }
+    }
     
     // pure value
     Value(Type::ID type, int line)
         : type_(type)
         , index_(0)
-        , line_(line)
-        , use_dummy_(nullptr) {
-        use_dummy_.next = &use_dummy_;
-        use_dummy_.prev = &use_dummy_;
+        , line_(line) {
     }
-    
+
     void Set(Value *v, base::Arena *arena) {
         if (v) {
             v->AddUse(new (arena) Use(this));
+        }
+    }
+    
+    void Set(BasicBlock *bb, base::Arena *arena) {
+        if (bb) {
+            bb->AddUse(new (arena) Use(this));
         }
     }
     
@@ -419,7 +444,6 @@ protected:
     Type::ID type_;
     int index_;
     int line_;
-    Use use_dummy_;
     BasicBlock *owns_; // Which basic-block has in.
     Value *prev_ = nullptr;
     Value *next_ = nullptr;
@@ -567,7 +591,7 @@ private:
 
     Value *src_;
 }; // class Load
-    
+
 class Store : public StoreInst {
 public:
     DEF_PTR_GETTER(Value, dst);
@@ -1053,6 +1077,7 @@ protected:
         DCHECK_GE(i, 0);
         DCHECK_LT(i, n_edges_);
         edges_[i] = DCHECK_NOTNULL(bb);
+        Set(bb, bb->owns()->arena());
     }
 
     BasicBlock *edges_[4];
@@ -1115,17 +1140,17 @@ public:
     
     DEF_VAL_PROP_RMW(PathSet, incoming);
     DEF_VAL_SETTER(Type::ID, type);
-    
+
     inline void AddIncoming(BasicBlock *bb, Value *value);
 
     inline Value *GetIncomingValue(BasicBlock *bb) const;
-    
+
     inline BasicBlock *GetIncomingBasicBlock(Value *val) const;
-    
+
     virtual bool ReplaceUse(Value *old_val, Value *new_val) override;
-    
+
     virtual void PrintOperator(FILE *fp) const override;
-    
+
     DEFINE_DAG_INST_NODE(Phi);
 private:
     Phi(Function *top, BasicBlock *bb, Type::ID type, int line)
@@ -1468,6 +1493,7 @@ inline void Phi::AddIncoming(BasicBlock *bb, Value *value) {
     DCHECK(value->type() == type());
     if (!GetIncomingBasicBlock(value)) {
         Set(value, owns_->arena());
+        Set(bb, owns_->arena());
     }
     incoming_.push_back({bb, value});
 }

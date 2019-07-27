@@ -221,6 +221,26 @@ TEST_F(NyaaHIRTest, GenerateWhileLoop) {
     
     fn_->PrintTo(stdout);
 }
+
+TEST_F(NyaaHIRTest, GenerateNestedWhileLoop) {
+    static const char z[] = {
+        "var a = 0\n"
+        "while (a) {\n"
+        "   while (a) {\n"
+        "       a = a + 2\n"
+        "       a = a + 1.0\n"
+        "       if (b) { break }\n"
+        "   }\n"
+        "   a = \"str\"\n"
+        "}\n"
+        "return a\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(z, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+    
+    fn_->PrintTo(stdout);
+}
     
 } // namespace hir
 

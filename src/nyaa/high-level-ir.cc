@@ -70,9 +70,9 @@ static const CastPriority kCastPriorities[Type::kMaxTypes][Type::kMaxTypes] = {
     
     /*LHS: String*/[Type::kString] = {
         {CastPriority::kNever, Type::kVoid}, // Void
-        {CastPriority::kLHS, Type::kInt}, // Int
-        {CastPriority::kLHS, Type::kLong}, // Long
-        {CastPriority::kLHS, Type::kFloat}, // Float
+        {CastPriority::kBoth, Type::kObject}, // Int
+        {CastPriority::kBoth, Type::kObject}, // Long
+        {CastPriority::kBoth, Type::kObject}, // Float
         {CastPriority::kKeep, Type::kString}, // String
         {CastPriority::kBoth, Type::kObject}, // Array
         {CastPriority::kBoth, Type::kObject}, // Map
@@ -205,9 +205,9 @@ static const Value::InstID kCastActions[Type::kMaxTypes][Type::kMaxTypes] = {
     },
     [Type::kString] = {
         Value::kMaxInsts, // Void
-        Value::kMaxInsts, // Int
-        Value::kMaxInsts, // Long,
-        Value::kMaxInsts, // Float,
+        Value::kAToI, // Int
+        Value::kAToL, // Long,
+        Value::kAToF, // Float,
         Value::kMaxInsts, // String,
         Value::kMaxInsts, // Array,
         Value::kMaxInsts, // Map,
@@ -427,7 +427,12 @@ Object *Constant::AsObject(NyaaCore *N) const {
             if (!stub_) {
                 ::fprintf(fp, "nil");
             } else {
-                ::fprintf(fp, "[%p]", stub_);
+                //::fprintf(fp, "[%p]", stub_);
+                if (stub_->IsSmi()) {
+                    ::fprintf(fp, "<Smi %lld>", stub_->ToSmi());
+                } else {
+                    ::fprintf(fp, "<%s>", kBuiltinTypeName[stub_->GetType()]);
+                }
             }
             break;
         default:
@@ -481,7 +486,7 @@ Object *Constant::AsObject(NyaaCore *N) const {
     
 /*virtual*/ void CallBuiltin::PrintOperator(FILE *fp) const {
     const BuiltinFunction *prop = GetBuiltinFunctionProperty(callee());
-    ::fprintf(fp, " %s(", prop->name);
+    ::fprintf(fp, "%s(", prop->name);
     bool enter = true;
     for (int i = 0; i < argc_; ++i) {
         if (!enter) {

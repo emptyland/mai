@@ -482,6 +482,11 @@ public:
         return IVal::Void();
     }
     
+//    hir::Value *DoEmitAdd(hir::Value *lhs, hir::Value *rhs, int line, int trace_id) {
+//         EmitCastIfNeed(insert_, &lhs, &rhs, line);
+//        return nullptr;
+//    }
+    
     virtual IVal VisitMultiple(ast::Multiple *node, ast::VisitorContext *x) override {
         HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
         HIRGeneratorContext ix(ctx);
@@ -522,10 +527,8 @@ public:
 
             case Operator::kEQ:
                 break;
-
             case Operator::kNE:
                 break;
-
             case Operator::kLT:
                 break;
             case Operator::kLE:
