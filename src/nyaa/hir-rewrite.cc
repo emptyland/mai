@@ -56,7 +56,7 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
 #define DEFINE_CASE(name) case Value::k##name:
         DECL_HIR_BINARY(DEFINE_CASE) {
             BinaryInst *inst = down_cast<BinaryInst>(use->val);
-            Value::InstID kind = inst->kind(); (void)kind;
+            //Value::InstID kind = inst->kind(); (void)kind;
             Value *lhs = nullptr, *rhs = nullptr;
             CastPriority prio;
             if (inst->lhs() == old_val) {
@@ -112,6 +112,64 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
             Run(inst, repl);
         } break;
             
+        DECL_HIR_COMPARE(DEFINE_CASE) {
+            Comparator *inst = down_cast<Comparator>(use->val);
+            Value *lhs = nullptr, *rhs = nullptr;
+            CastPriority prio;
+            if (inst->lhs() == old_val) {
+                lhs = new_val;
+                rhs = inst->rhs();
+                prio = hir::GetArithCastPriority(new_val->type(), inst->rhs()->type());
+            } else {
+                DCHECK_EQ(inst->rhs(), old_val);
+                lhs = inst->lhs();
+                rhs = new_val;
+                prio = hir::GetArithCastPriority(inst->lhs()->type(), new_val->type());
+            }
+            
+            switch (prio.how) {
+                case CastPriority::kLHS:
+                    lhs = EmitCastIfNeed(N_, target_, nullptr, prio.type, lhs, inst->line());
+                    if (!lhs->IsConstant()) {
+                        inst->owns()->InsertValueBefore(inst, lhs);
+                    }
+                    break;
+                case CastPriority::kRHS:
+                    rhs = EmitCastIfNeed(N_, target_, nullptr, prio.type, rhs, inst->line());
+                    if (!rhs->IsConstant()) {
+                        inst->owns()->InsertValueBefore(inst, rhs);
+                    }
+                    break;
+                case CastPriority::kBoth:
+                    lhs = EmitCastIfNeed(N_, target_, nullptr, prio.type, lhs, inst->line());
+                    if (!lhs->IsConstant()) {
+                        inst->owns()->InsertValueBefore(inst, lhs);
+                    }
+                    rhs = EmitCastIfNeed(N_, target_, nullptr, prio.type, rhs, inst->line());
+                    if (!rhs->IsConstant()) {
+                        inst->owns()->InsertValueBefore(inst, rhs);
+                    }
+                    break;
+                case CastPriority::kKeep:
+                    inst->ReplaceUse(old_val, new_val);
+                    use->RemoveFromList();
+                    new_val->AddUse(new (target_->arena()) Use(inst));
+                    return;
+                case CastPriority::kNever:
+                default:
+                    DLOG(FATAL) << "Noreached!";
+                    break;
+            }
+            Value::InstID iid = TransformComparatorInst(prio.type);
+            DCHECK_LT(iid, Value::kMaxInsts);
+            Value *repl = EmitComparator(target_, nullptr, iid, inst->op_code(), lhs, rhs,
+                                         inst->line());
+            inst->owns()->InsertValueBefore(inst, repl);
+            inst->RemoveFromOwns();
+            use->RemoveFromList();
+            Run(inst, repl);
+        } break;
+
         DECL_HIR_CAST(DEFINE_CASE) {
             CastInst *inst = down_cast<hir::CastInst>(use->val);
             if (new_val->type() == inst->type()) {
@@ -291,6 +349,22 @@ Value *EmitBinary(Function *target, BasicBlock *bb, Value::InstID inst, Value *l
         case hir::Value::k##name: \
             return target->name(bb, lhs, rhs, line);
         DECL_HIR_BINARY(DEFINE_CAST)
+    #undef DEFINE_CAST
+        case hir::Value::kMaxInsts:
+        default:
+            DLOG(FATAL) << "Noreached!";
+            break;
+    }
+    return nullptr;
+}
+    
+Value *EmitComparator(Function *target, BasicBlock *bb, Value::InstID inst, Compare::Op op,
+                      Value *lhs, Value *rhs, int line) {
+    switch (inst) {
+    #define DEFINE_CAST(name) \
+        case hir::Value::k##name: \
+            return target->name(bb, op, lhs, rhs, line);
+        DECL_HIR_COMPARE(DEFINE_CAST)
     #undef DEFINE_CAST
         case hir::Value::kMaxInsts:
         default:

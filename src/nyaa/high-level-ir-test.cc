@@ -226,7 +226,7 @@ TEST_F(NyaaHIRTest, GenerateNestedWhileLoop) {
     static const char z[] = {
         "var a = 0\n"
         "while (a) {\n"
-        "   while (a) {\n"
+        "   while (a < 100) {\n"
         "       a = a + 2\n"
         "       a = a + 1.0\n"
         "       if (b) { break }\n"

@@ -470,7 +470,7 @@ Value::InstID TransformComparatorInst(Type::ID ty) {
 Value::InstID TransformBinaryInst(Type::ID ty, Value::InstID src) {
     switch (src) {
     #define DEFINE_CASE(name) case Value::k##name:
-            DECL_HIR_BINARY(DEFINE_CASE)
+        DECL_HIR_BINARY(DEFINE_CASE)
             break;
     #undef DEFINE_CASE
         default:

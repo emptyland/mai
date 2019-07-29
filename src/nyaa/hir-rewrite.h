@@ -21,6 +21,9 @@ Value *EmitCast(NyaaCore *N, Function *target, BasicBlock *bb, Value::InstID ins
     
 Value *EmitBinary(Function *target, BasicBlock *bb, Value::InstID inst, Value *lhs, Value *rhs,
                   int line);
+
+Value *EmitComparator(Function *target, BasicBlock *bb, Value::InstID inst, Compare::Op op,
+                      Value *lhs, Value *rhs, int line);
     
 } // namespace hir
     

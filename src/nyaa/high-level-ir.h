@@ -44,7 +44,14 @@ namespace hir {
     V(Store)
 
 #define DECL_HIR_UNARY(V) \
-    V(IMinus)
+    V(IMinus) \
+    V(LMinus) \
+    V(FMinus) \
+    V(OMinus) \
+    V(INot) \
+    V(LNot) \
+    V(FNot) \
+    V(ONot)
     
 #define DECL_HIR_COMPARE(V) \
     V(ICmp) \
@@ -102,8 +109,10 @@ namespace hir {
     V(GarbageCollectionSafePoint, "nyaa.gc.safepoint", Void) \
     V(Raise, "nyaa.raise", Void) \
     V(IsTrue, "nyaa.object.is_true", Int) \
-    V(Lt, "nyaa.object.lt", Int) \
-    V(Le, "nyaa.object.le", Int) \
+    V(StringEq, "nyaa.string.eq", Int) \
+    V(StringNe, "nyaa.string.ne", Int) \
+    V(StringLt, "nyaa.string.lt", Int) \
+    V(StringLe, "nyaa.string.le", Int) \
     V(GetMetaFunction, "nyaa.object.getmetafunction", Closure)
     
 struct Type {
@@ -999,21 +1008,29 @@ protected:
 private:
     Compare::Op op_code_;
 }; // class Comparator
-    
-class IMinus : public UnaryInst {
-public:
-    virtual const char *op() const override { return "-"; }
-    
-    DEFINE_DAG_INST_NODE(IMinus);
-private:
-    IMinus(Function *top, BasicBlock *bb, Value *operand, int line)
-        : UnaryInst(top, bb, operand->type(), operand, line) {
-        DCHECK(operand->IsIntTy());
-    }
-}; // class IMinus
 
+#define DEFINE_UNARY_INST(name, op_name, ty_name) \
+class name : public UnaryInst { \
+public: \
+    virtual const char *op() const override { return op_name; } \
+    DEFINE_DAG_INST_NODE(name); \
+private: \
+    name(Function *top, BasicBlock *bb, Value *operand, int line) \
+        : UnaryInst(top, bb, operand->type(), operand, line) { \
+        DCHECK(operand->Is##ty_name##Ty()); \
+    } \
+}
+
+DEFINE_UNARY_INST(IMinus, "-", Int);
+DEFINE_UNARY_INST(LMinus, "-", Long);
+DEFINE_UNARY_INST(FMinus, "-", Float);
+DEFINE_UNARY_INST(OMinus, "-", Object);
+DEFINE_UNARY_INST(INot, "not", Int);
+DEFINE_UNARY_INST(LNot, "not", Long);
+DEFINE_UNARY_INST(FNot, "not", Float);
+DEFINE_UNARY_INST(ONot, "not", Object);
     
-#define DEFINE_BINARY_INST(name, op_name) \
+#define DEFINE_BINARY_INST(name, op_name, ty_name) \
 class name : public BinaryInst { \
 public: \
     virtual const char *op() const override { return op_name; } \
@@ -1021,29 +1038,31 @@ public: \
 private: \
     name(Function *top, BasicBlock *bb, Value *lhs, Value *rhs, int line) \
         : BinaryInst(top, bb, lhs->type(), lhs, rhs, line) { \
+        DCHECK(lhs->Is##ty_name##Ty()); \
+        DCHECK(rhs->Is##ty_name##Ty()); \
     } \
 }
 
-DEFINE_BINARY_INST(IAdd, "+");
-DEFINE_BINARY_INST(ISub, "-");
-DEFINE_BINARY_INST(IMul, "*");
-DEFINE_BINARY_INST(IDiv, "/");
-DEFINE_BINARY_INST(IMod, "mod");
-DEFINE_BINARY_INST(LAdd, "+");
-DEFINE_BINARY_INST(LSub, "-");
-DEFINE_BINARY_INST(LMul, "*");
-DEFINE_BINARY_INST(LDiv, "/");
-DEFINE_BINARY_INST(LMod, "mod");
-DEFINE_BINARY_INST(FAdd, "+");
-DEFINE_BINARY_INST(FSub, "-");
-DEFINE_BINARY_INST(FMul, "*");
-DEFINE_BINARY_INST(FDiv, "/");
-DEFINE_BINARY_INST(FMod, "mod");
-DEFINE_BINARY_INST(OAdd, "+");
-DEFINE_BINARY_INST(OSub, "-");
-DEFINE_BINARY_INST(OMul, "*");
-DEFINE_BINARY_INST(ODiv, "/");
-DEFINE_BINARY_INST(OMod, "mod");
+DEFINE_BINARY_INST(IAdd, "+", Int);
+DEFINE_BINARY_INST(ISub, "-", Int);
+DEFINE_BINARY_INST(IMul, "*", Int);
+DEFINE_BINARY_INST(IDiv, "/", Int);
+DEFINE_BINARY_INST(IMod, "mod", Int);
+DEFINE_BINARY_INST(LAdd, "+", Long);
+DEFINE_BINARY_INST(LSub, "-", Long);
+DEFINE_BINARY_INST(LMul, "*", Long);
+DEFINE_BINARY_INST(LDiv, "/", Long);
+DEFINE_BINARY_INST(LMod, "mod", Long);
+DEFINE_BINARY_INST(FAdd, "+", Float);
+DEFINE_BINARY_INST(FSub, "-", Float);
+DEFINE_BINARY_INST(FMul, "*", Float);
+DEFINE_BINARY_INST(FDiv, "/", Float);
+DEFINE_BINARY_INST(FMod, "mod", Float);
+DEFINE_BINARY_INST(OAdd, "+", Object);
+DEFINE_BINARY_INST(OSub, "-", Object);
+DEFINE_BINARY_INST(OMul, "*", Object);
+DEFINE_BINARY_INST(ODiv, "/", Object);
+DEFINE_BINARY_INST(OMod, "mod", Object);
     
 #undef DEFINE_BINARY_INST
     
