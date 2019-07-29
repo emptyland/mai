@@ -242,6 +242,20 @@ TEST_F(NyaaHIRTest, GenerateNestedWhileLoop) {
     fn_->PrintTo(stdout);
 }
     
+TEST_F(NyaaHIRTest, ConstantFolding) {
+    static const char z[] = {
+        "var a, b = 0, 1.1\n"
+        "a = a + b\n"
+        "a = a + 2.2\n"
+        "return a + b\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(z, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+    
+    fn_->PrintTo(stdout);
+}
+
 } // namespace hir
 
 } // namespace nyaa

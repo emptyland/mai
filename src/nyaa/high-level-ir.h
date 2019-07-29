@@ -433,7 +433,8 @@ protected:
     Value(Type::ID type, int line)
         : type_(type)
         , index_(0)
-        , line_(line) {
+        , line_(line)
+        , owns_(nullptr) {
     }
 
     void Set(Value *v, base::Arena *arena) {

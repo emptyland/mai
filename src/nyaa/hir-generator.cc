@@ -34,18 +34,6 @@ static bool IsPlaceholder(const ast::String *name) {
 
 static bool IsNotPlaceholder(const ast::String *name) { return !IsPlaceholder(name); }
     
-class HIRValueMappingSet final {
-public:
-    inline bool IsOutEdge(hir::Value *value, HIRBlockScope *scope) const;
-
-    friend class HIRBlockScope;
-private:
-    void Put(hir::Value *value, HIRBlockScope *owner) { values_[value] = owner; }
-    void Remove(hir::Value *value) { values_.erase(value); }
-    
-    std::map<hir::Value *, HIRBlockScope *> values_;
-}; // class HIRValueMappingSet
-    
 class HIRBlockScope final {
 public:
     using ValueTable = std::unordered_map<const ast::String *, ValueBundle,
@@ -58,20 +46,13 @@ public:
         base::ArenaHash<const ast::String *>,
         base::ArenaEqualTo<const ast::String *>>;
     
-    inline HIRBlockScope(HIRValueMappingSet *owns, HIRBlockScope *prev, bool is_br_edge = false)
+    inline HIRBlockScope(HIRBlockScope *prev, bool is_br_edge = false)
         : is_br_edge_(is_br_edge)
-        , owns_(owns)
         , prev_(prev) {
         DCHECK_NE(this, prev);
     }
 
-    inline ~HIRBlockScope() {
-        for (auto pair : values_) {
-            if (!pair.second.out_scope) {
-                owns_->Remove(pair.second.value);
-            }
-        }
-    }
+    inline ~HIRBlockScope() {}
     
     DEF_PTR_GETTER(HIRBlockScope, prev);
     DEF_VAL_GETTER(bool, is_br_edge);
@@ -87,7 +68,7 @@ public:
         bundle.value = val;
         bundle.out_scope = nullptr;
         values_[name] = bundle;
-        owns_->Put(val, this);
+        local_.insert(val);
     }
     
     HIRBlockScope *GetBranchEdge() {
@@ -97,6 +78,21 @@ public:
             }
         }
         return nullptr;
+    }
+    
+    bool IsInEdge(hir::Value *val) const { return !IsOutEdge(val); }
+    
+    bool IsOutEdge(hir::Value *val) const {
+        int n_edges = 0;
+        for (const HIRBlockScope *p = this; p != nullptr; p = p->prev_) {
+            if (p->is_br_edge_) {
+                n_edges++;
+            }
+            if (p->local_.find(val) != p->local_.end()) {
+                return n_edges > 0;
+            }
+        }
+        return false;
     }
     
     inline std::tuple<hir::Value*, HIRBlockScope*> GetValueOrNullNested(const ast::String *name);
@@ -113,9 +109,9 @@ public:
     
 private:
     bool is_br_edge_;
-    HIRValueMappingSet *owns_;
     HIRBlockScope *prev_;
     ValueTable values_;
+    std::set<hir::Value *> local_;
     hir::BasicBlock *loop_retry_ = nullptr;
     hir::BasicBlock *loop_exit_ = nullptr;
 }; // class BlockScope
@@ -125,7 +121,6 @@ public:
     explicit HIRGeneratorContext(ast::VisitorContext *x = nullptr) {
         if (HIRGeneratorContext *prev = Cast(x)) {
             scope_ = DCHECK_NOTNULL(prev->scope_);
-            //bb_    = prev->bb_;
         }
     }
     ~HIRGeneratorContext() {}
@@ -135,7 +130,6 @@ public:
     DEF_VAL_PROP_RW(int, lval_offset);
     DEF_VAL_PROP_RW(IVal, rval);
     DEF_PTR_PROP_RW_NOTNULL2(HIRBlockScope, scope);
-    //DEF_PTR_PROP_RW(hir::BasicBlock, bb);
     
     static HIRGeneratorContext *Cast(ast::VisitorContext *ctx) {
         return !ctx ? nullptr : down_cast<HIRGeneratorContext>(ctx);
@@ -150,20 +144,6 @@ private:
     HIRBlockScope *scope_ = nullptr;
     //hir::BasicBlock *bb_ = nullptr;
 }; // CodeGeneratorContext
-    
-inline bool HIRValueMappingSet::IsOutEdge(hir::Value *value, HIRBlockScope *) const {
-    auto iter = values_.find(value);
-    DCHECK(iter != values_.end());
-    HIRBlockScope *scope = iter->second;
-    while (scope) {
-        if (scope->is_br_edge()) {
-            return false;
-        }
-        scope = scope->prev();
-    }
-    DCHECK(scope == nullptr);
-    return true;
-}
 
 void HIRBlockScope::PutValueNested(const ast::String *name, hir::Value *val, HIRBlockScope *scope) {
     //DCHECK(!val->IsVoid());
@@ -179,14 +159,14 @@ void HIRBlockScope::PutValueNested(const ast::String *name, hir::Value *val, HIR
         }
         bundle.out_scope = nullptr;
         scope->values_[name] = bundle;
-        scope->owns_->Put(val, scope);
+        scope->local_.insert(val);
     } else {
         values_[name] = bundle;
-        owns_->Put(val, this);
+        local_.insert(val);
     }
 }
-    
-    
+
+
 inline std::tuple<hir::Value*, HIRBlockScope*>
 HIRBlockScope::GetValueOrNullNested(const ast::String *name) {
     HIRBlockScope *p = this;
@@ -202,7 +182,7 @@ HIRBlockScope::GetValueOrNullNested(const ast::String *name) {
     }
     return {nullptr, nullptr};
 }
-    
+
 inline std::map<hir::Value *, hir::Value *> HIRBlockScope::MergeBranch(HIRBlockScope *br) {
     DCHECK(br->is_br_edge_);
     std::map<hir::Value *, hir::Value *> rv;
@@ -877,7 +857,7 @@ public:
     virtual IVal VisitLambdaLiteral(ast::LambdaLiteral *node, ast::VisitorContext *x) override {
         target_ = hir::Function::New(arena_);
         
-        HIRBlockScope trunk_scope(&values_, nullptr);
+        HIRBlockScope trunk_scope(nullptr);
         HIRGeneratorContext top_ctx;
         top_ctx.set_scope(&trunk_scope);
         
@@ -1048,41 +1028,31 @@ public:
             operands.push_back(operand.node);
         }
         
+        bool should_eval = ShouldFoldConstants(operands, ctx->scope());
+        
         hir::Value *val = nullptr;
         switch (node->op()) {
-            case Operator::kAdd:
-                val = EmitAdd(operands[0], operands[1], node->line(), node->trace_id());
-                break;
-            case Operator::kSub:
-                val = EmitSub(operands[0], operands[1], node->line(), node->trace_id());
-                break;
-            case Operator::kMul:
-                val = EmitMul(operands[0], operands[1], node->line(), node->trace_id());
-                break;
-            case Operator::kDiv:
-                val = EmitDiv(operands[0], operands[1], node->line(), node->trace_id());
-                break;
-            case Operator::kMod:
-                val = EmitMod(operands[0], operands[1], node->line(), node->trace_id());
-                break;
-            case Operator::kEQ:
-                val = EmitEQ(operands[0], operands[1], node->line(), node->trace_id());
-                break;
-            case Operator::kNE:
-                val = EmitNE(operands[0], operands[1], node->line(), node->trace_id());
-                break;
-            case Operator::kLT:
-                val = EmitLT(operands[0], operands[1], node->line(), node->trace_id());
-                break;
-            case Operator::kLE:
-                val = EmitLE(operands[0], operands[1], node->line(), node->trace_id());
-                break;
-            case Operator::kGT:
-                val = EmitGT(operands[0], operands[1], node->line(), node->trace_id());
-                break;
-            case Operator::kGE:
-                val = EmitGE(operands[0], operands[1], node->line(), node->trace_id());
-                break;
+        #define PROCESS_BINARY(name) \
+            case Operator::k##name: \
+                if (should_eval) { \
+                    val = Eval##name(&operands[0], &operands[1], node->line(), node->trace_id()); \
+                } \
+                if (!val) { \
+                    val = Emit##name(operands[0], operands[1], node->line(), node->trace_id()); \
+                } \
+                break
+                PROCESS_BINARY(Add);
+                PROCESS_BINARY(Sub);
+                PROCESS_BINARY(Mul);
+                PROCESS_BINARY(Div);
+                PROCESS_BINARY(Mod);
+                PROCESS_BINARY(EQ);
+                PROCESS_BINARY(NE);
+                PROCESS_BINARY(LT);
+                PROCESS_BINARY(LE);
+                PROCESS_BINARY(GT);
+                PROCESS_BINARY(GE);
+        #undef PROCESS_BINARY
             default:
                 DLOG(FATAL) << "Noreached!";
                 break;
@@ -1174,12 +1144,12 @@ public:
         br->set_if_true(if_true);
         
         HIRGeneratorContext if_true_ctx(ctx);
-        HIRBlockScope if_true_scope(&values_, ctx->scope(), true/*is_br*/);
+        HIRBlockScope if_true_scope(ctx->scope(), true/*is_br*/);
         if_true_ctx.set_scope(&if_true_scope);
         ACCEPT(node->then_clause(), &if_true_ctx);
         
         hir::BasicBlock *if_false = nullptr;
-        HIRBlockScope if_false_scope(&values_, ctx->scope(), true/*is_br*/);
+        HIRBlockScope if_false_scope(ctx->scope(), true/*is_br*/);
         if (node->else_clause()) {
             HIRGeneratorContext if_false_ctx(ctx);
             if_false = target_->NewBB(insert_);
@@ -1212,7 +1182,11 @@ public:
             hir::Type::ID ty = EmitCastIfNeed(&pair.second, node->line());
             hir::Phi *phi = target_->Phi(out, ty, node->line());
             for (auto path : pair.second) {
-                phi->AddIncoming(path.incoming_bb, path.incoming_value);
+                if (path.incoming_value->owns() && path.incoming_value->owns() != path.incoming_bb) {
+                    phi->AddIncoming(path.incoming_value->owns(), path.incoming_value);
+                } else {
+                    phi->AddIncoming(path.incoming_bb, path.incoming_value);
+                }
             }
             
             HIRBlockScope *scope = nullptr;
@@ -1239,7 +1213,7 @@ public:
         ix.set_n_result(1);
         hir::BasicBlock *origin = insert_;
 
-        HIRBlockScope while_scope(&values_, ix.scope(), true/*is_br_edge*/);
+        HIRBlockScope while_scope(ix.scope(), true/*is_br_edge*/);
         hir::BasicBlock *retry = target_->NewBB(insert_);
         target_->NoCondBranch(insert_, retry, node->line());
         insert_ = retry;
@@ -1324,6 +1298,22 @@ private:
         return nullptr;
     }
     
+    hir::Value *EvalAdd(hir::Value **lhs, hir::Value **rhs, int line, int trace_id) {
+        hir::Type::ID ty = EmitCastIfNeed(insert_, lhs, rhs, line, true/*for_arith*/);
+        hir::Constant *lval = hir::Constant::Cast(*lhs), *rval = hir::Constant::Cast(*rhs);
+        switch (ty) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).Add(lval, rval);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+
     hir::Value *EmitSub(hir::Value *lhs, hir::Value *rhs, int line, int trace_id) {
         hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs, &rhs, line, true/*for_arith*/);
         switch (ty) {
@@ -1340,6 +1330,22 @@ private:
         return nullptr;
     }
     
+    hir::Value *EvalSub(hir::Value **lhs, hir::Value **rhs, int line, int trace_id) {
+        hir::Type::ID ty = EmitCastIfNeed(insert_, lhs, rhs, line, true/*for_arith*/);
+        hir::Constant *lval = hir::Constant::Cast(*lhs), *rval = hir::Constant::Cast(*rhs);
+        switch (ty) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).Sub(lval, rval);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+
     hir::Value *EmitMul(hir::Value *lhs, hir::Value *rhs, int line, int trace_id) {
         hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs, &rhs, line, true/*for_arith*/);
         switch (ty) {
@@ -1356,6 +1362,22 @@ private:
         return nullptr;
     }
     
+    hir::Value *EvalMul(hir::Value **lhs, hir::Value **rhs, int line, int trace_id) {
+        hir::Type::ID ty = EmitCastIfNeed(insert_, lhs, rhs, line, true/*for_arith*/);
+        hir::Constant *lval = hir::Constant::Cast(*lhs), *rval = hir::Constant::Cast(*rhs);
+        switch (ty) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).Mul(lval, rval);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+
     hir::Value *EmitDiv(hir::Value *lhs, hir::Value *rhs, int line, int trace_id) {
         hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs, &rhs, line, true/*for_arith*/);
         switch (ty) {
@@ -1372,6 +1394,24 @@ private:
         return nullptr;
     }
     
+    hir::Value *EvalDiv(hir::Value **lhs, hir::Value **rhs, int line, int trace_id) {
+        hir::Type::ID ty = EmitCastIfNeed(insert_, lhs, rhs, line, true/*for_arith*/);
+        bool ok = true;
+        hir::Constant *lval = hir::Constant::Cast(*lhs), *rval = hir::Constant::Cast(*rhs);
+        switch (ty) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id) \
+                      .Div(lval, rval, &ok);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+
     hir::Value *EmitMod(hir::Value *lhs, hir::Value *rhs, int line, int trace_id) {
         hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs, &rhs, line, true/*for_arith*/);
         switch (ty) {
@@ -1388,6 +1428,24 @@ private:
         return nullptr;
     }
     
+    hir::Value *EvalMod(hir::Value **lhs, hir::Value **rhs, int line, int trace_id) {
+        hir::Type::ID ty = EmitCastIfNeed(insert_, lhs, rhs, line, true/*for_arith*/);
+        bool ok = true;
+        hir::Constant *lval = hir::Constant::Cast(*lhs), *rval = hir::Constant::Cast(*rhs);
+        switch (ty) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id) \
+                      .Mod(lval, rval, &ok);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+
     hir::Value *EmitEQ(hir::Value *lhs, hir::Value *rhs, int line, int trace_id) {
         hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs, &rhs, line, true/*for_arith*/);
         switch (ty) {
@@ -1404,6 +1462,22 @@ private:
         return nullptr;
     }
     
+    hir::Value *EvalEQ(hir::Value **lhs, hir::Value **rhs, int line, int trace_id) {
+        hir::Type::ID ty = EmitCastIfNeed(insert_, lhs, rhs, line, true/*for_arith*/);
+        hir::Constant *lval = hir::Constant::Cast(*lhs), *rval = hir::Constant::Cast(*rhs);
+        switch (ty) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).EQ(lval, rval);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+   
     hir::Value *EmitNE(hir::Value *lhs, hir::Value *rhs, int line, int trace_id) {
         hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs, &rhs, line, true/*for_arith*/);
         switch (ty) {
@@ -1420,6 +1494,22 @@ private:
         return nullptr;
     }
     
+    hir::Value *EvalNE(hir::Value **lhs, hir::Value **rhs, int line, int trace_id) {
+        hir::Type::ID ty = EmitCastIfNeed(insert_, lhs, rhs, line, true/*for_arith*/);
+        hir::Constant *lval = hir::Constant::Cast(*lhs), *rval = hir::Constant::Cast(*rhs);
+        switch (ty) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).NE(lval, rval);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+
     hir::Value *EmitLT(hir::Value *lhs, hir::Value *rhs, int line, int trace_id) {
         hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs, &rhs, line, true/*for_arith*/);
         switch (ty) {
@@ -1436,6 +1526,22 @@ private:
         return nullptr;
     }
     
+    hir::Value *EvalLT(hir::Value **lhs, hir::Value **rhs, int line, int trace_id) {
+        hir::Type::ID ty = EmitCastIfNeed(insert_, lhs, rhs, line, true/*for_arith*/);
+        hir::Constant *lval = hir::Constant::Cast(*lhs), *rval = hir::Constant::Cast(*rhs);
+        switch (ty) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).LT(lval, rval);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+
     hir::Value *EmitLE(hir::Value *lhs, hir::Value *rhs, int line, int trace_id) {
         hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs, &rhs, line, true/*for_arith*/);
         switch (ty) {
@@ -1452,6 +1558,22 @@ private:
         return nullptr;
     }
     
+    hir::Value *EvalLE(hir::Value **lhs, hir::Value **rhs, int line, int trace_id) {
+        hir::Type::ID ty = EmitCastIfNeed(insert_, lhs, rhs, line, true/*for_arith*/);
+        hir::Constant *lval = hir::Constant::Cast(*lhs), *rval = hir::Constant::Cast(*rhs);
+        switch (ty) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).LE(lval, rval);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+
     hir::Value *EmitGT(hir::Value *lhs, hir::Value *rhs, int line, int trace_id) {
         hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs, &rhs, line, true/*for_arith*/);
         switch (ty) {
@@ -1468,6 +1590,22 @@ private:
         return nullptr;
     }
     
+    hir::Value *EvalGT(hir::Value **lhs, hir::Value **rhs, int line, int trace_id) {
+        hir::Type::ID ty = EmitCastIfNeed(insert_, lhs, rhs, line, true/*for_arith*/);
+        hir::Constant *lval = hir::Constant::Cast(*lhs), *rval = hir::Constant::Cast(*rhs);
+        switch (ty) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).GT(lval, rval);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+
     hir::Value *EmitGE(hir::Value *lhs, hir::Value *rhs, int line, int trace_id) {
         hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs, &rhs, line, true/*for_arith*/);
         switch (ty) {
@@ -1477,6 +1615,22 @@ private:
                       .GE(insert_, lhs, rhs);
             DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+    
+    hir::Value *EvalGE(hir::Value **lhs, hir::Value **rhs, int line, int trace_id) {
+        hir::Type::ID ty = EmitCastIfNeed(insert_, lhs, rhs, line, true/*for_arith*/);
+        hir::Constant *lval = hir::Constant::Cast(*lhs), *rval = hir::Constant::Cast(*rhs);
+        switch (ty) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).GE(lval, rval);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
             default:
                 break;
         }
@@ -1547,6 +1701,18 @@ private:
         return prio.type;
     }
     
+    bool ShouldFoldConstants(const std::vector<hir::Value *> &operands, HIRBlockScope *scope) const {
+        for (auto operand : operands) {
+            if (!operand->IsConstant()) {
+                return false;
+            }
+            if (scope->IsOutEdge(operand)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     std::vector<hir::Type::ID> args_;
     UpValTable upvals_;
     base::Arena *arena_;
@@ -1556,7 +1722,6 @@ private:
     std::vector<hir::Type::ID> vargs_;
     hir::Function *target_ = nullptr;
     hir::BasicBlock *insert_ = nullptr;
-    HIRValueMappingSet values_;
 }; // class IRGeneratorVisitor
 
 Error HIR_GenerateHIR(const BuiltinType *argv, size_t argc, const UpvalDesc *desc,
