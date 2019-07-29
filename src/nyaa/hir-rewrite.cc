@@ -62,12 +62,12 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
             if (inst->lhs() == old_val) {
                 lhs = new_val;
                 rhs = inst->rhs();
-                prio = hir::GetCastPriority(new_val->type(), inst->rhs()->type());
+                prio = hir::GetArithCastPriority(new_val->type(), inst->rhs()->type());
             } else {
                 DCHECK_EQ(inst->rhs(), old_val);
                 lhs = inst->lhs();
                 rhs = new_val;
-                prio = hir::GetCastPriority(inst->lhs()->type(), new_val->type());
+                prio = hir::GetArithCastPriority(inst->lhs()->type(), new_val->type());
             }
 
             switch (prio.how) {

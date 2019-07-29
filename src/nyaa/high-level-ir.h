@@ -101,7 +101,10 @@ namespace hir {
 #define DECL_BUILTIN_FUNCTIONS(V) \
     V(GarbageCollectionSafePoint, "nyaa.gc.safepoint", Void) \
     V(Raise, "nyaa.raise", Void) \
-    V(IsTrue, "nyaa.object.is_true", Int)
+    V(IsTrue, "nyaa.object.is_true", Int) \
+    V(Lt, "nyaa.object.lt", Int) \
+    V(Le, "nyaa.object.le", Int) \
+    V(GetMetaFunction, "nyaa.object.getmetafunction", Closure)
     
 struct Type {
     enum ID {
@@ -198,6 +201,10 @@ public:
     inline Value *BaseOfStack(BasicBlock *bb, Value *base, int offset, int line);
     inline Constant *Constant(Type::ID type, int line);
     inline Value *Nil(int line);
+    inline Value *Int(int64_t val, int line);
+    inline Value *Long(NyInt *val, int line);
+    inline Value *Float(double val, int line);
+    inline Value *String(NyString *val, int line);
     inline Branch *Branch(BasicBlock *bb, Value *cond, int line);
     inline Value *NoCondBranch(BasicBlock *bb, BasicBlock *target, int line);
     inline Phi *Phi(BasicBlock *bb, Type::ID type, int line);
@@ -462,6 +469,11 @@ protected:
     
 class Constant : public Value {
 public:
+    struct IntTag {};
+    struct LongTag {};
+    struct FloatTag {};
+    struct StringTag {};
+    
     int64_t smi_val() const { DCHECK(IsIntTy()); return smi_; }
     void set_smi_val(int64_t val) { DCHECK(IsIntTy()); smi_ = val; }
 
@@ -497,6 +509,26 @@ public:
     DEFINE_DAG_INST_NODE(Constant);
 private:
     Constant(Type::ID type, int line) : Value(type, line) {}
+    
+    Constant(const IntTag &, int64_t val, int line)
+        : Value(Type::kInt, line)
+        , smi_(val) {
+    }
+    
+    Constant(const LongTag &, NyInt *val, int line)
+        : Value(Type::kLong, line)
+        , long_(val) {
+    }
+    
+    Constant(const FloatTag &, double val, int line)
+        : Value(Type::kFloat, line)
+        , f64_(val) {
+    }
+    
+    Constant(const StringTag &, NyString *val, int line)
+        : Value(Type::kString, line)
+        , str_(val) {
+    }
     
     union {
         int64_t smi_;
@@ -798,6 +830,7 @@ public:
     DEF_VAL_PROP_RMW(RetSet, rets);
     DEF_VAL_GETTER(int, nargs);
     DEF_VAL_GETTER(int, wanted);
+    DEF_VAL_PROP_RW(int, trace_id);
     
     void AddRetType(Type::ID type) { rets_.push_back(type); }
     
@@ -824,6 +857,7 @@ private:
     RetSet rets_;
     int nargs_; // size of accept
     int wanted_; // size of rets
+    int trace_id_ = -1;
 }; // class Invoke
     
     
@@ -1220,6 +1254,8 @@ struct CastPriority {
     
 CastPriority GetCastPriority(Type::ID lhs, Type::ID rhs);
     
+CastPriority GetArithCastPriority(Type::ID lhs, Type::ID rhs);
+    
 Value::InstID GetCastAction(Type::ID dst, Type::ID src);
     
 Value::InstID TransformComparatorInst(Type::ID ty);
@@ -1264,11 +1300,11 @@ inline Value *Function::StoreUp(BasicBlock *bb, int slot, Value *val, int line) 
     return new (arena_) class StoreUp(this, bb, slot, val, line);
 }
     
-inline Value *Function::LoadGlobal(BasicBlock *bb, Type::ID type, const String *name, int line) {
+inline Value *Function::LoadGlobal(BasicBlock *bb, Type::ID type, const hir::String *name, int line) {
     return new (arena_) class LoadGlobal(this, bb, type, name, line);
 }
     
-inline Value *Function::StoreGlobal(BasicBlock *bb, const String *name, Value *val, int line) {
+    inline Value *Function::StoreGlobal(BasicBlock *bb, const hir::String *name, Value *val, int line) {
     return new (arena_) class StoreGlobal(this, bb, name, val, line);
 }
     
@@ -1288,6 +1324,22 @@ inline Value *Function::BaseOfStack(BasicBlock *bb, Value *base, int offset, int
     
 inline Constant *Function::Constant(Type::ID type, int line) {
     return new (arena_) class Constant(type, line);
+}
+    
+inline Value *Function::Int(int64_t val, int line) {
+    return new (arena_) class Constant(Constant::IntTag{}, val, line);
+}
+    
+inline Value *Function::Long(NyInt *val, int line) {
+    return new (arena_) class Constant(Constant::LongTag{}, val, line);
+}
+
+inline Value *Function::Float(double val, int line) {
+    return new (arena_) class Constant(Constant::FloatTag{}, val, line);
+}
+    
+inline Value *Function::String(NyString *val, int line) {
+    return new (arena_) class Constant(Constant::StringTag{}, val, line);
 }
     
 inline Value *Function::Nil(int line) {
