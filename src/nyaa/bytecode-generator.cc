@@ -143,7 +143,7 @@ public:
             step = fun_scope_->NewLocal();
             LoadImm(step, 1, node->line());
         }
-        
+
         BytecodeLabel body_label, in_label, out_label;
         // test
         builder()->Bind(&body_label, fun_scope_->kpool());

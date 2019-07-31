@@ -243,17 +243,59 @@ TEST_F(NyaaHIRTest, GenerateNestedWhileLoop) {
 }
     
 TEST_F(NyaaHIRTest, ConstantFolding) {
-    static const char z[] = {
+    static const char s[] = {
         "var a, b = 0, 1.1\n"
         "a = a + b\n"
         "a = a + 2.2\n"
         "return a + b\n"
     };
     HandleScope handle_scope(N_);
-    GenerateHIRInMemory(z, {}, &fn_);
+    GenerateHIRInMemory(s, {}, &fn_);
     ASSERT_NE(nullptr, fn_);
+
+    std::string buf;
+    fn_->PrintTo(&buf, 1024);
+
+    static const char z[] = {
+        "l0:\n"
+        "    ret(1) float 4.400000; line = 4\n"
+    };
+    ASSERT_EQ(z, buf) << buf;
+}
     
-    fn_->PrintTo(stdout);
+TEST_F(NyaaHIRTest, ForStepLoop) {
+    static const char s[] = {
+        "var a = 1\n"
+        "for (i in 0 to 100) {\n"
+        "   a = a + i * 4.0\n"
+        "}\n"
+        "return a\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(s, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+
+    std::string buf;
+    fn_->PrintTo(&buf, 1024);
+    static const char z[] = {
+        "l0:\n"
+        "    br l1; line = 2\n"
+        "l1:\n"
+        "    float %v6 = phi [l2 float %v4] [l0 float 1.000000] ; line = 2\n"
+        "    int %v0 = phi [l0 int 0] [l2 int %v5] ; line = 2\n"
+        "    int %v1 = cmp gt int %v0 int 100; line = 2\n"
+        "    br int %v1 then l3 else l2; line = 2\n"
+        "    br l2; line = 2\n"
+        "l2:\n"
+        "    float %v2 = itof int %v0; line = 3\n"
+        "    float %v3 = float %v2 * float 4.000000; line = 3\n"
+        "    float %v4 = float 1.000000 + float %v3; line = 3\n"
+        "    int %v5 = int %v0 + int 1; line = 2\n"
+        "    br l1; line = 4\n"
+        "l3:\n"
+        "    ret(1) float %v6; line = 5\n"
+    };
+    ASSERT_EQ(z, buf) << buf;
 }
 
 } // namespace hir

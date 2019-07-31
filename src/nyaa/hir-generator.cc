@@ -6,6 +6,7 @@
 #include "nyaa/nyaa-values.h"
 #include "nyaa/builtin.h"
 #include "nyaa/function.h"
+#include "nyaa/thread.h"
 #include "base/arenas.h"
 #include <set>
 
@@ -283,6 +284,8 @@ struct ConstFolding : public ConstFoldContext {
     inline hir::Value *LE(hir::Constant *lhs, hir::Constant *rhs) const { return nullptr; }
     inline hir::Value *GT(hir::Constant *lhs, hir::Constant *rhs) const { return nullptr; }
     inline hir::Value *GE(hir::Constant *lhs, hir::Constant *rhs) const { return nullptr; }
+    inline hir::Value *UMinus(hir::Constant *lhs) const { return nullptr; }
+    inline hir::Value *Not(hir::Constant *lhs) const { return nullptr; }
     
     inline ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
@@ -295,9 +298,9 @@ template<> struct ConstFolding<hir::Type::kInt> : public ConstFoldContext {
             ((rval < 0) && (lval < (NySmi::kMinValue - rval)))) {
             base::ScopedArena scoped_buf;
             NyInt *ll = NyInt::NewI64(lval, &scoped_buf);
-            return target_->Long(ll->Add(rval, N_), line_);
+            return target_->LongVal(ll->Add(rval, N_), line_);
         }
-        return target_->Int(lval + rval, line_);
+        return target_->IntVal(lval + rval, line_);
     }
 
     hir::Value *Sub(hir::Constant *lhs, hir::Constant *rhs) {
@@ -306,9 +309,9 @@ template<> struct ConstFolding<hir::Type::kInt> : public ConstFoldContext {
             ((rval < 0) && (lval > (NySmi::kMaxValue + rval)))) {
             base::ScopedArena scoped_buf;
             NyInt *ll = NyInt::NewI64(lval, &scoped_buf);
-            return target_->Long(ll->Sub(rval, N_), line_);
+            return target_->LongVal(ll->Sub(rval, N_), line_);
         }
-        return target_->Int(lval - rval, line_);
+        return target_->IntVal(lval - rval, line_);
     }
 
     hir::Value *Mul(hir::Constant *lhs, hir::Constant *rhs) {
@@ -338,9 +341,9 @@ template<> struct ConstFolding<hir::Type::kInt> : public ConstFoldContext {
         if (overflow) {
             base::ScopedArena scoped_buf;
             NyInt *ll = NyInt::NewI64(lval, &scoped_buf);
-            return target_->Long(ll->Mul(rval, N_), line_);
+            return target_->LongVal(ll->Mul(rval, N_), line_);
         }
-        return target_->Int(lval * rval, line_);
+        return target_->IntVal(lval * rval, line_);
     }
 
     inline hir::Value *Div(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
@@ -349,7 +352,7 @@ template<> struct ConstFolding<hir::Type::kInt> : public ConstFoldContext {
             return nullptr;
         }
         *ok = true;
-        return target_->Int(lhs->smi_val() / rhs->smi_val(), line_);
+        return target_->IntVal(lhs->smi_val() / rhs->smi_val(), line_);
     }
 
     inline hir::Value *Mod(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
@@ -358,26 +361,32 @@ template<> struct ConstFolding<hir::Type::kInt> : public ConstFoldContext {
             return nullptr;
         }
         *ok = true;
-        return target_->Int(lhs->smi_val() % rhs->smi_val(), line_);
+        return target_->IntVal(lhs->smi_val() % rhs->smi_val(), line_);
     }
     
     inline hir::Value *EQ(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(lhs->smi_val() == rhs->smi_val(), line_);
+        return target_->IntVal(lhs->smi_val() == rhs->smi_val(), line_);
     }
     inline hir::Value *NE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(lhs->smi_val() != rhs->smi_val(), line_);
+        return target_->IntVal(lhs->smi_val() != rhs->smi_val(), line_);
     }
     inline hir::Value *LT(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(lhs->smi_val() < rhs->smi_val(), line_);
+        return target_->IntVal(lhs->smi_val() < rhs->smi_val(), line_);
     }
     inline hir::Value *LE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(lhs->smi_val() <= rhs->smi_val(), line_);
+        return target_->IntVal(lhs->smi_val() <= rhs->smi_val(), line_);
     }
     inline hir::Value *GT(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(lhs->smi_val() > rhs->smi_val(), line_);
+        return target_->IntVal(lhs->smi_val() > rhs->smi_val(), line_);
     }
     inline hir::Value *GE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(lhs->smi_val() >= rhs->smi_val(), line_);
+        return target_->IntVal(lhs->smi_val() >= rhs->smi_val(), line_);
+    }
+    inline hir::Value *UMinus(hir::Constant *lhs) const {
+        return target_->IntVal(-lhs->smi_val(), line_);
+    }
+    inline hir::Value *Not(hir::Constant *lhs) const {
+        return target_->IntVal(!lhs->smi_val(), line_);
     }
     
     ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
@@ -386,88 +395,170 @@ template<> struct ConstFolding<hir::Type::kInt> : public ConstFoldContext {
     
 template<> struct ConstFolding<hir::Type::kLong> : public ConstFoldContext {
     inline hir::Value *Add(hir::Constant *lhs, hir::Constant *rhs) {
-        return target_->Long(lhs->long_val()->Add(rhs->long_val(), N_), line_);
+        return target_->LongVal(lhs->long_val()->Add(rhs->long_val(), N_), line_);
     }
     inline hir::Value *Sub(hir::Constant *lhs, hir::Constant *rhs) {
-        return target_->Long(lhs->long_val()->Sub(rhs->long_val(), N_), line_);
+        return target_->LongVal(lhs->long_val()->Sub(rhs->long_val(), N_), line_);
     }
     inline hir::Value *Mul(hir::Constant *lhs, hir::Constant *rhs) {
-        return target_->Long(lhs->long_val()->Mul(rhs->long_val(), N_), line_);
+        return target_->LongVal(lhs->long_val()->Mul(rhs->long_val(), N_), line_);
     }
     inline hir::Value *Div(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
         if (rhs->long_val()->IsZero()) {
             *ok = false;
             return nullptr;
         }
-        return target_->Long(lhs->long_val()->Div(rhs->long_val(), N_), line_);
+        return target_->LongVal(lhs->long_val()->Div(rhs->long_val(), N_), line_);
     }
     inline hir::Value *Mod(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
         if (rhs->long_val()->IsZero()) {
             *ok = false;
             return nullptr;
         }
-        return target_->Long(lhs->long_val()->Mod(rhs->long_val(), N_), line_);
+        return target_->LongVal(lhs->long_val()->Mod(rhs->long_val(), N_), line_);
     }
     inline hir::Value *EQ(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(lhs->long_val()->Equals(rhs->long_val()), line_);
+        return target_->IntVal(lhs->long_val()->Equals(rhs->long_val()), line_);
     }
     inline hir::Value *NE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(!lhs->long_val()->Equals(rhs->long_val()), line_);
+        return target_->IntVal(!lhs->long_val()->Equals(rhs->long_val()), line_);
     }
     inline hir::Value *LT(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(NyInt::Compare(lhs->long_val(), rhs->long_val()) < 0, line_);
+        return target_->IntVal(NyInt::Compare(lhs->long_val(), rhs->long_val()) < 0, line_);
     }
     inline hir::Value *LE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(NyInt::Compare(lhs->long_val(), rhs->long_val()) <= 0, line_);
+        return target_->IntVal(NyInt::Compare(lhs->long_val(), rhs->long_val()) <= 0, line_);
     }
     inline hir::Value *GT(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(NyInt::Compare(lhs->long_val(), rhs->long_val()) > 0, line_);
+        return target_->IntVal(NyInt::Compare(lhs->long_val(), rhs->long_val()) > 0, line_);
     }
     inline hir::Value *GE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(NyInt::Compare(lhs->long_val(), rhs->long_val()) >= 0, line_);
+        return target_->IntVal(NyInt::Compare(lhs->long_val(), rhs->long_val()) >= 0, line_);
     }
-    
+    inline hir::Value *UMinus(hir::Constant *lhs) const {
+        return target_->LongVal(lhs->long_val()->Minus(N_), line_);
+    }
+    inline hir::Value *Not(hir::Constant *lhs) const {
+        return target_->IntVal(lhs->long_val()->IsZero(), line_);
+    }
+
     inline ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
 }; // struct ConstFolding<hir::Type::kLong>
     
 template<> struct ConstFolding<hir::Type::kFloat> : public ConstFoldContext {
     inline hir::Value *Add(hir::Constant *lhs, hir::Constant *rhs) {
-        return target_->Float(lhs->float_val() + rhs->float_val(), line_);
+        return target_->FloatVal(lhs->float_val() + rhs->float_val(), line_);
     }
     inline hir::Value *Sub(hir::Constant *lhs, hir::Constant *rhs) {
-        return target_->Float(lhs->float_val() - rhs->float_val(), line_);
+        return target_->FloatVal(lhs->float_val() - rhs->float_val(), line_);
     }
     inline hir::Value *Mul(hir::Constant *lhs, hir::Constant *rhs) {
-        return target_->Float(lhs->float_val() * rhs->float_val(), line_);
+        return target_->FloatVal(lhs->float_val() * rhs->float_val(), line_);
     }
     inline hir::Value *Div(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
-        return target_->Float(lhs->float_val() / rhs->float_val(), line_);
+        return target_->FloatVal(lhs->float_val() / rhs->float_val(), line_);
     }
     inline hir::Value *Mod(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
-        return target_->Float(::fmod(lhs->float_val(), rhs->float_val()), line_);
+        return target_->FloatVal(::fmod(lhs->float_val(), rhs->float_val()), line_);
     }
     inline hir::Value *EQ(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(NyFloat64::Near(lhs->float_val(), rhs->float_val()), line_);
+        return target_->IntVal(NyFloat64::Near(lhs->float_val(), rhs->float_val()), line_);
     }
     inline hir::Value *NE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(!NyFloat64::Near(lhs->float_val(), rhs->float_val()), line_);
+        return target_->IntVal(!NyFloat64::Near(lhs->float_val(), rhs->float_val()), line_);
     }
     inline hir::Value *LT(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(lhs->float_val() < rhs->float_val(), line_);
+        return target_->IntVal(lhs->float_val() < rhs->float_val(), line_);
     }
     inline hir::Value *LE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(lhs->float_val() <= rhs->float_val(), line_);
+        return target_->IntVal(lhs->float_val() <= rhs->float_val(), line_);
     }
     inline hir::Value *GT(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(lhs->float_val() > rhs->float_val(), line_);
+        return target_->IntVal(lhs->float_val() > rhs->float_val(), line_);
     }
     inline hir::Value *GE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->Int(lhs->float_val() >= rhs->float_val(), line_);
+        return target_->IntVal(lhs->float_val() >= rhs->float_val(), line_);
+    }
+    inline hir::Value *UMinus(hir::Constant *lhs) const {
+        return target_->FloatVal(-lhs->float_val(), line_);
+    }
+    inline hir::Value *Not(hir::Constant *lhs) const {
+        return target_->IntVal(!lhs->float_val(), line_);
     }
     
     inline ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
+}; // struct ConstFolding<hir::Type::kLong>
+    
+    
+template<> struct ConstFolding<hir::Type::kObject> : public ConstFoldContext {
+    inline hir::Value *Add(hir::Constant *lhs, hir::Constant *rhs) {
+        TryCatchCore try_catch(N_);
+        Object *val = Object::Add(lhs->obj_val(), rhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->ObjectVal(val, line_);
+    }
+    inline hir::Value *Sub(hir::Constant *lhs, hir::Constant *rhs) {
+        TryCatchCore try_catch(N_);
+        Object *val = Object::Sub(lhs->obj_val(), rhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->ObjectVal(val, line_);
+    }
+    inline hir::Value *Mul(hir::Constant *lhs, hir::Constant *rhs) {
+        TryCatchCore try_catch(N_);
+        Object *val = Object::Mul(lhs->obj_val(), rhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->ObjectVal(val, line_);
+    }
+    inline hir::Value *Div(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
+        TryCatchCore try_catch(N_);
+        Object *val = Object::Div(lhs->obj_val(), rhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->ObjectVal(val, line_);
+    }
+    inline hir::Value *Mod(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
+        TryCatchCore try_catch(N_);
+        Object *val = Object::Mod(lhs->obj_val(), rhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->ObjectVal(val, line_);
+    }
+    inline hir::Value *EQ(hir::Constant *lhs, hir::Constant *rhs) const {
+        TryCatchCore try_catch(N_);
+        bool val = Object::Equal(lhs->obj_val(), rhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->IntVal(val, line_);
+    }
+    inline hir::Value *NE(hir::Constant *lhs, hir::Constant *rhs) const {
+        TryCatchCore try_catch(N_);
+        bool val = Object::Equal(lhs->obj_val(), rhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->IntVal(val, line_);
+    }
+    inline hir::Value *LT(hir::Constant *lhs, hir::Constant *rhs) const {
+        TryCatchCore try_catch(N_);
+        bool val = Object::LessThan(lhs->obj_val(), rhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->IntVal(val, line_);
+    }
+    inline hir::Value *LE(hir::Constant *lhs, hir::Constant *rhs) const {
+        TryCatchCore try_catch(N_);
+        bool val = Object::LessEqual(lhs->obj_val(), rhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->IntVal(val, line_);
+    }
+    inline hir::Value *GT(hir::Constant *lhs, hir::Constant *rhs) const {
+        TryCatchCore try_catch(N_);
+        bool val = Object::LessEqual(rhs->obj_val(), lhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->IntVal(val, line_);
+    }
+    inline hir::Value *GE(hir::Constant *lhs, hir::Constant *rhs) const {
+        TryCatchCore try_catch(N_);
+        bool val = Object::LessThan(rhs->obj_val(), lhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->IntVal(val, line_);
+    }
+    inline hir::Value *UMinus(hir::Constant *lhs) const {
+        TryCatchCore try_catch(N_);
+        Object *val = Object::Minus(lhs->obj_val(), N_);
+        return try_catch.has_caught() ? nullptr : target_->ObjectVal(val, line_);
+    }
+    inline hir::Value *Not(hir::Constant *lhs) const {
+        return target_->IntVal(lhs->obj_val()->IsFalse(), line_);
+    }
+    
+    inline ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
+    : ConstFoldContext(N, target, line, trace_id) {}
 }; // struct ConstFolding<hir::Type::kLong>
 
     
@@ -505,6 +596,12 @@ struct BinaryEmiting : public ConstFoldContext {
         return nullptr;
     }
     inline hir::Value *GE(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
+        return nullptr;
+    }
+    inline hir::Value *UMinus(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return nullptr;
+    }
+    inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
         return nullptr;
     }
 
@@ -547,6 +644,12 @@ template<> struct BinaryEmiting<hir::Type::kInt> : public ConstFoldContext {
     inline hir::Value *GE(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         return target_->ICmp(bb, hir::Compare::kGE, lhs, rhs, line_);
     }
+    inline hir::Value *UMinus(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return target_->IMinus(bb, lhs, line_);
+    }
+    inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return target_->INot(bb, lhs, line_);
+    }
     
     BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
@@ -585,6 +688,12 @@ template<> struct BinaryEmiting<hir::Type::kLong> : public ConstFoldContext {
     }
     inline hir::Value *GE(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         return target_->LCmp(bb, hir::Compare::kGE, lhs, rhs, line_);
+    }
+    inline hir::Value *UMinus(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return target_->LMinus(bb, lhs, line_);
+    }
+    inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return target_->LNot(bb, lhs, line_);
     }
     
     BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
@@ -625,6 +734,12 @@ template<> struct BinaryEmiting<hir::Type::kFloat> : public ConstFoldContext {
     inline hir::Value *GE(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         return target_->FCmp(bb, hir::Compare::kGE, lhs, rhs, line_);
     }
+    inline hir::Value *UMinus(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return target_->FMinus(bb, lhs, line_);
+    }
+    inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return target_->FNot(bb, lhs, line_);
+    }
     
     BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
@@ -663,6 +778,12 @@ template<> struct BinaryEmiting<hir::Type::kObject> : public ConstFoldContext {
     }
     inline hir::Value *GE(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         return target_->OCmp(bb, hir::Compare::kGE, lhs, rhs, line_);
+    }
+    inline hir::Value *UMinus(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return target_->OMinus(bb, lhs, line_);
+    }
+    inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return target_->ONot(bb, lhs, line_);
     }
     
     BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
@@ -730,6 +851,14 @@ template<> struct BinaryEmiting<hir::Type::kString> : public ConstFoldContext {
         val->SetArgument(0, rhs);
         val->SetArgument(1, lhs);
         return val;
+    }
+    inline hir::Value *UMinus(hir::BasicBlock *bb, hir::Value *lhs) const {
+        lhs = target_->Inbox(bb, lhs, line_);
+        return target_->OMinus(bb, lhs, line_);
+    }
+    inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
+        lhs = target_->Inbox(bb, lhs, line_);
+        return target_->ONot(bb, lhs, line_);
     }
     
     BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
@@ -807,17 +936,36 @@ template<> struct BinaryEmiting<hir::Type::kArray> : public ConstFoldContext {
     inline hir::Value *GE(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         return CallMetaFunction(N_->bkz_pool()->kInnerLt, bb, rhs, lhs);
     }
+    inline hir::Value *UMinus(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return CallMetaFunction(N_->bkz_pool()->kInnerUnm, bb, lhs);
+    }
+    inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
+        lhs = target_->Inbox(bb, lhs, line_);
+        return target_->ONot(bb, lhs, line_);
+    }
     
     inline hir::Value *CallMetaFunction(NyString *name,
                                         hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         hir::CallBuiltin *mfn = target_->CallBuiltin(bb, hir::BuiltinFunction::kGetMetaFunction,
                                                      2, line_);
         mfn->SetArgument(0, lhs);
-        mfn->SetArgument(1, target_->String(name, line_));
+        mfn->SetArgument(1, target_->StringVal(name, line_));
         
         hir::Invoke *val = target_->Invoke(bb, hir::Type::kObject, mfn, 2, 1, line_);
         val->SetArgument(0, lhs);
         val->SetArgument(1, rhs);
+        val->set_trace_id(trace_id_);
+        return val;
+    }
+    
+    inline hir::Value *CallMetaFunction(NyString *name, hir::BasicBlock *bb, hir::Value *lhs) const {
+        hir::CallBuiltin *mfn = target_->CallBuiltin(bb, hir::BuiltinFunction::kGetMetaFunction,
+                                                     2, line_);
+        mfn->SetArgument(0, lhs);
+        mfn->SetArgument(1, target_->StringVal(name, line_));
+        
+        hir::Invoke *val = target_->Invoke(bb, hir::Type::kObject, mfn, 1, 1, line_);
+        val->SetArgument(0, lhs);
         val->set_trace_id(trace_id_);
         return val;
     }
@@ -867,7 +1015,7 @@ public:
             if (i < args_.size()) {
                 val = target_->Parameter(args_[i], node->line());
             } else {
-                val = target_->Nil(node->line());
+                val = target_->NilVal(node->line());
             }
             trunk_scope.PutValue(node->params()->at(i), val);
             
@@ -918,14 +1066,14 @@ public:
                         IVal rval = ACCEPT(node->inits()->at(i), &rix);
                         ctx->scope()->PutValue(node->names()->at(i), rval.node);
                     } else {
-                        ctx->scope()->PutValue(node->names()->at(i), target_->Nil(node->line()));
+                        ctx->scope()->PutValue(node->names()->at(i), target_->NilVal(node->line()));
                     }
                 }
             }
         } else {
             for (auto name : *node->names()) {
                 if (IsNotPlaceholder(name)) {
-                    ctx->scope()->PutValue(name, target_->Nil(node->line()));
+                    ctx->scope()->PutValue(name, target_->NilVal(node->line()));
                 }
             }
         }
@@ -1053,6 +1201,18 @@ public:
                 PROCESS_BINARY(GT);
                 PROCESS_BINARY(GE);
         #undef PROCESS_BINARY
+        #define PROCESS_UNARY(name) \
+            case Operator::k##name: \
+                if (should_eval) { \
+                    val = Eval##name(operands[0], node->line(), node->trace_id()); \
+                } \
+                if (!val) { \
+                    val = Emit##name(operands[0], node->line(), node->trace_id()); \
+                } \
+                break
+                PROCESS_UNARY(Unm);
+                PROCESS_UNARY(Not);
+        #undef PROCESS_UNARY
             default:
                 DLOG(FATAL) << "Noreached!";
                 break;
@@ -1097,7 +1257,7 @@ public:
     }
     
     virtual IVal VisitNilLiteral(ast::NilLiteral *node, ast::VisitorContext *) override {
-        return IVal::HIR(target_->Nil(node->line()));
+        return IVal::HIR(target_->NilVal(node->line()));
     }
 
     virtual IVal VisitStringLiteral(ast::StringLiteral *node, ast::VisitorContext *x) override {
@@ -1206,6 +1366,71 @@ public:
 
         return IVal::Void();
     }
+    
+    virtual IVal VisitForStepLoop(ast::ForStepLoop *node, ast::VisitorContext *x) override {
+        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
+        HIRGeneratorContext ix(ctx);
+        ix.set_n_result(1);
+        hir::BasicBlock *origin = insert_;
+        
+        IVal init = ACCEPT(node->init(), &ix);
+        IVal limit = ACCEPT(node->limit(), &ix);
+        IVal step;
+        if (node->step()) {
+            step = ACCEPT(node->step(), &ix);
+        } else {
+            step = IVal::HIR(target_->IntVal(1, node->line()));
+        }
+
+        HIRBlockScope loop_scope(ix.scope(), true/*is_br_edge*/);
+        hir::BasicBlock *retry = target_->NewBB(insert_);
+        target_->NoCondBranch(insert_, retry, node->line());
+        insert_ = retry;
+        ix.set_scope(&loop_scope);
+        
+        hir::BasicBlock *out = target_->NewBB(nullptr, true/*dont_insert*/);
+        loop_scope.set_loop_exit(out);
+        loop_scope.set_loop_retry(retry);
+        
+        hir::Branch *br = nullptr;
+        hir::Phi *iter = target_->Phi(insert_, init.node->type(), node->line());
+        iter->AddIncoming(origin, init.node);
+        if (node->name()) {
+            loop_scope.PutValue(node->name(), iter);
+        }
+        if (node->is_until()) {
+            // >=
+            hir::Value *cond = EmitGE(iter, limit.node, node->line(), node->trace_id1());
+            br = target_->Branch(insert_, cond, node->line());
+            //br->set_if_true(out);
+        } else {
+            // >
+            hir::Value *cond = EmitGT(iter, limit.node, node->line(), node->trace_id1());
+            br = target_->Branch(insert_, cond, node->line());
+            //br->set_if_true(out);
+        }
+        hir::BasicBlock *body = target_->NewBB(insert_);
+        target_->NoCondBranch(insert_, body, node->line());
+        insert_ = body;
+        br->set_if_false(body);
+    
+        ACCEPT(node->body(), &ix);
+        
+        hir::Value *next = EmitAdd(iter, step.node, node->line(), node->trace_id2());
+        iter->AddIncoming(insert_, next);
+        target_->NoCondBranch(insert_, retry, node->end_line());
+
+        HIRBlockScope *brs[] = {ctx->scope(), &loop_scope};
+        hir::BasicBlock *bbs[] = {origin, insert_};
+        InsertPhiNodesIfNeeded(brs, bbs, 2, retry, ctx->scope(), node->line());
+
+        out->set_label(target_->NextBBId());
+        out->AddInEdge(insert_);
+        target_->AddBasicBlock(out);
+        br->set_if_true(out);
+        insert_ = out;
+        return IVal::Void();
+    }
 
     virtual IVal VisitWhileLoop(ast::WhileLoop *node, ast::VisitorContext *x) override {
         HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
@@ -1213,11 +1438,11 @@ public:
         ix.set_n_result(1);
         hir::BasicBlock *origin = insert_;
 
-        HIRBlockScope while_scope(ix.scope(), true/*is_br_edge*/);
+        HIRBlockScope loop_scope(ix.scope(), true/*is_br_edge*/);
         hir::BasicBlock *retry = target_->NewBB(insert_);
         target_->NoCondBranch(insert_, retry, node->line());
         insert_ = retry;
-        ix.set_scope(&while_scope);
+        ix.set_scope(&loop_scope);
 
         IVal cond = ACCEPT(node->cond(), &ix);
 
@@ -1227,37 +1452,17 @@ public:
         br->set_if_true(body);
 
         hir::BasicBlock *out = target_->NewBB(nullptr, true/*dont_insert*/);
-        while_scope.set_loop_exit(out);
-        while_scope.set_loop_retry(retry);
+        loop_scope.set_loop_exit(out);
+        loop_scope.set_loop_retry(retry);
 
         insert_ = body;
         ACCEPT(node->body(), &ix);
 
         target_->NoCondBranch(insert_, retry, node->end_line());
 
-        std::vector<hir::Phi *> phi_nodes;
-        HIRBlockScope *brs[] = {ctx->scope(), &while_scope};
+        HIRBlockScope *brs[] = {ctx->scope(), &loop_scope};
         hir::BasicBlock *bbs[] = {origin, insert_};
-        HIRBlockScope::IncomingPathMap paths = HIRBlockScope::MergeBranchs(brs, bbs, 2);
-        for (auto &pair : paths) {
-            hir::Type::ID ty = EmitCastIfNeed(&pair.second, node->line());
-            hir::Phi *phi = target_->Phi(nullptr, ty, node->line());
-            phi_nodes.push_back(phi);
-            hir::Value *val = nullptr;
-            HIRBlockScope *scope = nullptr;
-            std::tie(val, scope) = ctx->scope()->GetValueOrNullNested(pair.first);
-            hir::RewriteReplacement(N_, target_, retry, insert_, val, phi);
-
-            for (auto path : pair.second) {
-                phi->AddIncoming(path.incoming_bb, path.incoming_value);
-            }
-            if (HIRBlockScope *edge = ctx->scope()->GetBranchEdge()) {
-                edge->PutValueNested(pair.first, phi, scope);
-            } else {
-                scope->PutValue(pair.first, phi);
-            }
-        }
-        for (auto phi : phi_nodes) { retry->InsertHead(phi); }
+        InsertPhiNodesIfNeeded(brs, bbs, 2, retry, ctx->scope(), node->line());
 
         out->set_label(target_->NextBBId());
         out->AddInEdge(insert_);
@@ -1637,6 +1842,66 @@ private:
         DLOG(FATAL) << "Noreached!";
         return nullptr;
     }
+    
+    hir::Value *EmitUnm(hir::Value *lhs, int line, int trace_id) {
+        switch (lhs->type()) {
+        #define DEFINE_EMITING(name, ...) \
+            case hir::Type::k##name: \
+                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                      .UMinus(insert_, lhs);
+                DECL_DAG_TYPES(DEFINE_EMITING)
+        #undef DEFINE_EMITING
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+    
+    hir::Value *EvalUnm(hir::Value *lhs, int line, int trace_id) {
+        hir::Constant *lval = hir::Constant::Cast(lhs);
+        switch (lhs->type()) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).UMinus(lval);
+                DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+    
+    hir::Value *EmitNot(hir::Value *lhs, int line, int trace_id) {
+        switch (lhs->type()) {
+        #define DEFINE_EMITING(name, ...) \
+            case hir::Type::k##name: \
+                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                      .Not(insert_, lhs);
+            DECL_DAG_TYPES(DEFINE_EMITING)
+        #undef DEFINE_EMITING
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
+    
+    hir::Value *EvalNot(hir::Value *lhs, int line, int trace_id) {
+        hir::Constant *lval = hir::Constant::Cast(lhs);
+        switch (lhs->type()) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).Not(lval);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        DLOG(FATAL) << "Noreached!";
+        return nullptr;
+    }
 
     hir::Type::ID EmitCastIfNeed(std::vector<hir::Phi::Path> *paths, int line) {
         hir::Type::ID ty = paths->at(0).incoming_value->type();
@@ -1699,6 +1964,31 @@ private:
                 return hir::Type::kVoid;
         }
         return prio.type;
+    }
+    
+    void InsertPhiNodesIfNeeded(HIRBlockScope *brs[], hir::BasicBlock *bbs[], int nbrs,
+                                hir::BasicBlock *retry, HIRBlockScope *out_scope, int line) {
+        std::vector<hir::Phi *> phi_nodes;
+        HIRBlockScope::IncomingPathMap paths = HIRBlockScope::MergeBranchs(brs, bbs, nbrs);
+        for (auto &pair : paths) {
+            hir::Type::ID ty = EmitCastIfNeed(&pair.second, line);
+            hir::Phi *phi = target_->Phi(nullptr, ty, line);
+            phi_nodes.push_back(phi);
+            hir::Value *val = nullptr;
+            HIRBlockScope *scope = nullptr;
+            std::tie(val, scope) = out_scope->GetValueOrNullNested(pair.first);
+            hir::RewriteReplacement(N_, target_, retry, insert_, val, phi);
+            
+            for (auto path : pair.second) {
+                phi->AddIncoming(path.incoming_bb, path.incoming_value);
+            }
+            if (HIRBlockScope *edge = out_scope->GetBranchEdge()) {
+                edge->PutValueNested(pair.first, phi, scope);
+            } else {
+                scope->PutValue(pair.first, phi);
+            }
+        }
+        for (auto phi : phi_nodes) { retry->InsertHead(phi); }
     }
     
     bool ShouldFoldConstants(const std::vector<hir::Value *> &operands, HIRBlockScope *scope) const {

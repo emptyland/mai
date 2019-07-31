@@ -104,7 +104,7 @@ namespace hir {
     V(UDO,     "udo") \
     V(Closure, "closure") \
     V(Object,  "object")
-    
+
 #define DECL_BUILTIN_FUNCTIONS(V) \
     V(GarbageCollectionSafePoint, "nyaa.gc.safepoint", Void) \
     V(Raise, "nyaa.raise", Void) \
@@ -209,11 +209,12 @@ public:
     inline CallBuiltin *CallBuiltin(BasicBlock *bb, BuiltinFunction::ID callee, int argc, int line);
     inline Value *BaseOfStack(BasicBlock *bb, Value *base, int offset, int line);
     inline Constant *Constant(Type::ID type, int line);
-    inline Value *Nil(int line);
-    inline Value *Int(int64_t val, int line);
-    inline Value *Long(NyInt *val, int line);
-    inline Value *Float(double val, int line);
-    inline Value *String(NyString *val, int line);
+    inline Value *NilVal(int line);
+    inline Value *IntVal(int64_t val, int line);
+    inline Value *LongVal(NyInt *val, int line);
+    inline Value *FloatVal(double val, int line);
+    inline Value *StringVal(NyString *val, int line);
+    inline Value *ObjectVal(Object *val, int line);
     inline Branch *Branch(BasicBlock *bb, Value *cond, int line);
     inline Value *NoCondBranch(BasicBlock *bb, BasicBlock *target, int line);
     inline Phi *Phi(BasicBlock *bb, Type::ID type, int line);
@@ -483,6 +484,7 @@ public:
     struct LongTag {};
     struct FloatTag {};
     struct StringTag {};
+    struct ObjectTag {};
     
     int64_t smi_val() const { DCHECK(IsIntTy()); return smi_; }
     void set_smi_val(int64_t val) { DCHECK(IsIntTy()); smi_ = val; }
@@ -538,6 +540,11 @@ private:
     Constant(const StringTag &, NyString *val, int line)
         : Value(Type::kString, line)
         , str_(val) {
+    }
+    
+    Constant(const ObjectTag &, Object *val, int line)
+        : Value(Type::kObject, line)
+        , stub_(val) {
     }
     
     union {
@@ -1346,23 +1353,27 @@ inline Constant *Function::Constant(Type::ID type, int line) {
     return new (arena_) class Constant(type, line);
 }
     
-inline Value *Function::Int(int64_t val, int line) {
+inline Value *Function::IntVal(int64_t val, int line) {
     return new (arena_) class Constant(Constant::IntTag{}, val, line);
 }
     
-inline Value *Function::Long(NyInt *val, int line) {
+inline Value *Function::LongVal(NyInt *val, int line) {
     return new (arena_) class Constant(Constant::LongTag{}, val, line);
 }
 
-inline Value *Function::Float(double val, int line) {
+inline Value *Function::FloatVal(double val, int line) {
     return new (arena_) class Constant(Constant::FloatTag{}, val, line);
 }
     
-inline Value *Function::String(NyString *val, int line) {
+inline Value *Function::StringVal(NyString *val, int line) {
     return new (arena_) class Constant(Constant::StringTag{}, val, line);
 }
-    
-inline Value *Function::Nil(int line) {
+
+inline Value *Function::ObjectVal(Object *val, int line) {
+    return new (arena_) class Constant(Constant::ObjectTag{}, val, line);
+}
+
+inline Value *Function::NilVal(int line) {
     auto k = new (arena_) class Constant(Type::kObject, line);
     k->set_nil();
     return k;

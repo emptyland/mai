@@ -124,6 +124,9 @@ TryCatchCore::~TryCatchCore() {
     auto thrd = thread();
     DCHECK_EQ(thrd->catch_point_, this);
     thrd->catch_point_ = prev_;
+    if (thrd->interruption_pending_ == CallFrame::kException) {
+        thrd->interruption_pending_ = CallFrame::kNormal;
+    }
 }
     
 void TryCatchCore::Catch(NyString *message, Object *exception, NyArray *stack_trace) {
