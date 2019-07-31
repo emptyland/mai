@@ -25,6 +25,7 @@ namespace hir {
     V(LoadUp) \
     V(LoadGlobal) \
     V(BaseOfStack) \
+    V(Closure) \
     V(Constant) \
     V(Invoke) \
     V(CallBuiltin) \
@@ -208,6 +209,7 @@ public:
                           int line);
     inline CallBuiltin *CallBuiltin(BasicBlock *bb, BuiltinFunction::ID callee, int argc, int line);
     inline Value *BaseOfStack(BasicBlock *bb, Value *base, int offset, int line);
+    inline Value *Closure(BasicBlock *bb, int offset, int n_params, bool vargs, int line);
     inline Constant *Constant(Type::ID type, int line);
     inline Value *NilVal(int line);
     inline Value *IntVal(int64_t val, int line);
@@ -336,6 +338,7 @@ public:
     inline Value *insts_tail() const;
     
     inline bool has_terminator() const;
+    bool dont_have_terminator() const { return !has_terminator(); }
     inline Terminator *get_terminator() const;
     
     inline void AddInEdge(BasicBlock *bb) {
@@ -924,7 +927,34 @@ private:
     Value *base_;
     int offset_;
 }; // class BaseOfStack
+
+
+class Closure final : public Value {
+public:
+    DEF_VAL_GETTER(int, offset);
+    DEF_VAL_GETTER(int, n_params);
+    DEF_VAL_GETTER(bool, vargs);
+
+    virtual void PrintOperator(FILE *fp) const override {
+        ::fprintf(fp, "closure $%d, n_params=%d, vargs=%s", offset_, n_params_,
+                  vargs_ ? "true" : "false");
+    }
+
+    DEFINE_DAG_INST_NODE(Closure);
+private:
+    Closure(Function *top, BasicBlock *bb, int offset, int n_params, bool vargs, int line)
+        : Value(top, bb, Type::kClosure, line)
+        , offset_(offset)
+        , n_params_(n_params)
+        , vargs_(vargs) {
+    }
     
+    int offset_;
+    int n_params_;
+    bool vargs_;
+}; // class Closure
+
+
 class UnaryInst : public Value {
 public:
     DEF_PTR_PROP_RW(Value, operand);
@@ -1344,7 +1374,11 @@ inline CallBuiltin *Function::CallBuiltin(BasicBlock *bb, BuiltinFunction::ID ca
                                           int line) {
     return new (arena_) class CallBuiltin(this, bb, callee, argc, line);
 }
-    
+
+inline Value *Function::Closure(BasicBlock *bb, int offset, int n_params, bool vargs, int line) {
+    return new (arena_) class Closure(this, bb, offset, n_params, vargs, line);
+}
+
 inline Value *Function::BaseOfStack(BasicBlock *bb, Value *base, int offset, int line) {
     return new (arena_) class BaseOfStack(this, bb, base, offset, line);
 }
@@ -1472,7 +1506,7 @@ inline Value *BasicBlock::insts_head() const { return dummy_->next_; }
 inline Value *BasicBlock::insts_tail() const { return dummy_->prev_; }
     
 inline bool BasicBlock::has_terminator() const {
-    return insts_last()->IsBranch() || insts_last()->IsNoCondBranch();
+    return insts_last()->IsBranch() || insts_last()->IsNoCondBranch() || insts_last()->IsRet();
 }
 
 inline Terminator *BasicBlock::get_terminator() const {

@@ -1002,7 +1002,25 @@ public:
     
 #define ACCEPT(subx, ctx) (subx)->Accept(this, (ctx)); if (error_.fail()) return IVal::Void()
     
+    virtual IVal VisitFunctionDefinition(ast::FunctionDefinition *node,
+                                         ast::VisitorContext *x) override {
+        hir::Value *val = target_->Closure(insert_, proto_offset_++, 0, false, node->line());
+        if (node->self()) {
+            // TODO:
+        } else {
+            target_->StoreGlobal(insert_, node->name(), val, node->line());
+        }
+        return IVal::Void();
+    }
+    
     virtual IVal VisitLambdaLiteral(ast::LambdaLiteral *node, ast::VisitorContext *x) override {
+        if (target_) {
+            // nested lambda literal
+            hir::Value *val = target_->Closure(insert_, proto_offset_++,
+                                               static_cast<int>(node->params()->size()),
+                                               node->vargs(), node->line());
+            return IVal::HIR(val);
+        }
         target_ = hir::Function::New(arena_);
         
         HIRBlockScope trunk_scope(nullptr);
@@ -1143,8 +1161,9 @@ public:
     }
     
     virtual IVal VisitReturn(ast::Return *node, ast::VisitorContext *x) override {
-        hir::Ret *ret = target_->Ret(insert_, node->line());
+        hir::Ret *ret = target_->Ret(nullptr, node->line());
         if (!node->rets()) {
+            insert_->InsertTail(ret);
             ret->set_wanted(0);
             return IVal::Void();
         }
@@ -1162,6 +1181,7 @@ public:
             ret->AddRetVal(ret_val.node);
         }
         ret->set_wanted(nrets);
+        insert_->InsertTail(ret);
         return IVal::Void();
     }
     
@@ -1367,6 +1387,78 @@ public:
         return IVal::Void();
     }
     
+    virtual IVal VisitLogicSwitch(ast::LogicSwitch *node, ast::VisitorContext *x) override {
+        // TODO:
+        return IVal::Void();
+    }
+    
+    virtual IVal VisitForIterateLoop(ast::ForIterateLoop *node, ast::VisitorContext *x) override {
+        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
+        HIRGeneratorContext ix(ctx);
+        ix.set_n_result(1);
+        hir::BasicBlock *origin = insert_;
+    
+        IVal generator = ACCEPT(node->init(), &ix);
+        
+        HIRBlockScope loop_scope(ix.scope(), true/*is_br_edge*/);
+        ix.set_scope(&loop_scope);
+        
+        hir::BasicBlock *body = target_->NewBB(insert_);
+        insert_ = body;
+
+        int wanted = 0;
+        for (auto name : *node->names()) {
+            if (IsNotPlaceholder(name)) {
+                wanted++;
+                hir::Phi *phi = target_->Phi(insert_, hir::Type::kObject, node->line());
+                phi->AddIncoming(origin, target_->NilVal(node->line()));
+                loop_scope.PutValue(name, phi);
+            }
+        }
+        ACCEPT(node->body(), &ix);
+        
+        hir::BasicBlock *retry = target_->NewBB(nullptr, true/*dont_insert*/);
+        target_->NoCondBranch(origin, retry, node->line());
+        
+        hir::BasicBlock *out = target_->NewBB(nullptr, true/*dont_insert*/);
+        loop_scope.set_loop_exit(out);
+        loop_scope.set_loop_retry(retry);
+        
+        if (body->dont_have_terminator()) {
+            target_->NoCondBranch(body, retry, node->line());
+        }
+
+        retry->set_label(target_->NextBBId());
+        retry->AddInEdge(insert_);
+        target_->AddBasicBlock(retry);
+        if (insert_->dont_have_terminator()) {
+            target_->NoCondBranch(insert_, retry, node->line());
+        }
+        insert_ = retry;
+        
+        hir::Invoke *base = target_->Invoke(insert_, hir::Type::kObject, generator.node/*callee*/,
+                                            0/*argc*/, wanted, node->end_line());
+        for (size_t i = 0; i < node->names()->size(); ++i) {
+            base->AddRetType(hir::Type::kObject);
+            
+            hir::Phi *phi = hir::Phi::Cast(loop_scope.GetValueOrNull(node->names()->at(i)));
+            hir::Value *val = (i == 0) ? base
+                : target_->BaseOfStack(insert_, base, static_cast<int>(i), node->end_line());
+            phi->AddIncoming(insert_, val);
+        }
+        target_->NoCondBranch(insert_, body, node->end_line());
+        
+        HIRBlockScope *brs[] = {ctx->scope(), &loop_scope};
+        hir::BasicBlock *bbs[] = {origin, insert_};
+        InsertPhiNodesIfNeeded(brs, bbs, 2, body, ctx->scope(), node->line());
+        
+        out->set_label(target_->NextBBId());
+        out->AddInEdge(insert_);
+        target_->AddBasicBlock(out);
+        insert_ = out;
+        return IVal::Void();
+    }
+    
     virtual IVal VisitForStepLoop(ast::ForStepLoop *node, ast::VisitorContext *x) override {
         HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
         HIRGeneratorContext ix(ctx);
@@ -1399,15 +1491,11 @@ public:
             loop_scope.PutValue(node->name(), iter);
         }
         if (node->is_until()) {
-            // >=
             hir::Value *cond = EmitGE(iter, limit.node, node->line(), node->trace_id1());
             br = target_->Branch(insert_, cond, node->line());
-            //br->set_if_true(out);
         } else {
-            // >
             hir::Value *cond = EmitGT(iter, limit.node, node->line(), node->trace_id1());
             br = target_->Branch(insert_, cond, node->line());
-            //br->set_if_true(out);
         }
         hir::BasicBlock *body = target_->NewBB(insert_);
         target_->NoCondBranch(insert_, body, node->line());
@@ -2010,6 +2098,7 @@ private:
     NyaaCore *N_;
     Error error_;
     std::vector<hir::Type::ID> vargs_;
+    int proto_offset_ = 0;
     hir::Function *target_ = nullptr;
     hir::BasicBlock *insert_ = nullptr;
 }; // class IRGeneratorVisitor

@@ -144,14 +144,26 @@ TEST_F(NyaaHIRTest, GenerateHIR) {
 }
     
 TEST_F(NyaaHIRTest, GenerateCalling) {
-    static const char z[] = {
+    static const char s[] = {
         "var a, b, c = t(foo())\n"
         "return a, b, c\n"
     };
     HandleScope handle_scope(N_);
-    GenerateHIRInMemory(z, {}, &fn_);
+    GenerateHIRInMemory(s, {}, &fn_);
     
-    fn_->PrintTo(stdout);
+    std::string buf;
+    fn_->PrintTo(&buf, 1024);
+    static const char z[] = {
+        "l0:\n"
+        "    object %v0 = global $t; line = 1\n"
+        "    object %v1 = global $foo; line = 1\n"
+        "    object %v2 = invoke object %v1() wanted=-1 nargs=0; line = 1\n"
+        "    object %v3 = invoke object %v0(object %v2, ...) wanted=3 nargs=-1; line = 1\n"
+        "    object %v4 = baseof object %v3[1]; line = 1\n"
+        "    object %v5 = baseof object %v3[2]; line = 1\n"
+        "    ret(3) object %v3, object %v4, object %v5; line = 2\n"
+    };
+    ASSERT_EQ(z, buf) << buf;
 }
     
 TEST_F(NyaaHIRTest, GenerateIfBranchs) {
@@ -294,6 +306,77 @@ TEST_F(NyaaHIRTest, ForStepLoop) {
         "    br l1; line = 4\n"
         "l3:\n"
         "    ret(1) float %v6; line = 5\n"
+    };
+    ASSERT_EQ(z, buf) << buf;
+}
+
+TEST_F(NyaaHIRTest, GenerateForIterateLoop) {
+    static const char s[] = {
+        "var a = 0\n"
+        "for i, j in range(0, 100) {\n"
+        "   if (j > 100) {\n"
+        "       a = a + i\n"
+        "   } else {\n"
+        "       a = a - i\n"
+        "   }\n"
+        "}\n"
+        "return a\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(s, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+    
+    std::string buf;
+    fn_->PrintTo(&buf, 1024);
+    static const char z[] = {
+        "l0:\n"
+        "    object %v0 = global $range; line = 2\n"
+        "    object %v1 = invoke object %v0(int 0, int 100) wanted=1 nargs=2; line = 2\n"
+        "    br l5; line = 2\n"
+        "l1:\n"
+        "    object %v10 = phi [l5 object %v7] [l0 object <Smi 0>] ; line = 2\n"
+        "    object %v2 = phi [l0 object nil] [l5 object %v8] ; line = 2\n"
+        "    object %v3 = phi [l0 object nil] [l5 object %v9] ; line = 2\n"
+        "    int %v4 = cmp gt object %v3 object <Smi 100>; line = 3\n"
+        "    br int %v4 then l2 else l3; line = 3\n"
+        "l2:\n"
+        "    object %v5 = object <Smi 0> + object %v2; line = 4\n"
+        "    br l4; line = 3\n"
+        "l3:\n"
+        "    object %v6 = object <Smi 0> - object %v2; line = 6\n"
+        "    br l4; line = 3\n"
+        "l4:\n"
+        "    object %v7 = phi [l2 object %v5] [l3 object %v6] ; line = 3\n"
+        "    br l5; line = 2\n"
+        "l5:\n"
+        "    object %v8 = invoke object %v1() wanted=2 nargs=0; line = 8\n"
+        "    object %v9 = baseof object %v8[1]; line = 8\n"
+        "    br l1; line = 8\n"
+        "l6:\n"
+        "    ret(1) object %v10; line = 9\n"
+    };
+    ASSERT_EQ(z, buf) << buf;
+}
+
+TEST_F(NyaaHIRTest, GenerateNestedLambda) {
+    static const char s[] = {
+        "def foo(a, b, ...) { return a + b }\n"
+        "var foo = lambda (a, b) { erturn a / b }\n"
+        "return foo(1, 2)\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(s, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+    
+    std::string buf;
+    fn_->PrintTo(&buf, 1024);
+    static const char z[] = {
+        "l0:\n"
+        "    closure %v0 = closure $0, n_params=0, vargs=false; line = 1\n"
+        "    store global $foo, closure %v0; line = 1\n"
+        "    closure %v1 = closure $1, n_params=2, vargs=false; line = 2\n"
+        "    object %v2 = invoke closure %v1(int 1, int 2) wanted=-1 nargs=2; line = 3\n"
+        "    ret(-1) object %v2; line = 3\n"
     };
     ASSERT_EQ(z, buf) << buf;
 }
