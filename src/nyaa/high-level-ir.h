@@ -110,10 +110,14 @@ namespace hir {
     V(GarbageCollectionSafePoint, "nyaa.gc.safepoint", Void) \
     V(Raise, "nyaa.raise", Void) \
     V(IsTrue, "nyaa.object.is_true", Int) \
+    V(IsFalse, "nyaa.object.is_false", Int) \
+    V(IsLongZero, "nyaa.long.is_zero", Int) \
+    V(IsLongNotZero, "nyaa.long.not_zero", Int) \
     V(StringEq, "nyaa.string.eq", Int) \
     V(StringNe, "nyaa.string.ne", Int) \
     V(StringLt, "nyaa.string.lt", Int) \
     V(StringLe, "nyaa.string.le", Int) \
+    V(StringLen, "nyaa.string.len", Int) \
     V(GetMetaFunction, "nyaa.object.getmetafunction", Closure)
     
 struct Type {

@@ -1012,7 +1012,7 @@ public:
                 DECL_AST_NODES(DEFINE_CALL_READ)
         #undef DEFINE_CALL_READ
             default:
-                DLOG(FATAL) << "Noreached!" << kind << " line: " << line;
+                NOREACHED() << kind << " line: " << line;
                 break;
         }
         return nullptr;
@@ -1098,7 +1098,7 @@ public:
             case 2:
                 return factory_->NewBinary(trace_id, op, ReadExpr(), ReadExpr(), Location(line));
             default:
-                DLOG(FATAL) << "Noreached!";
+                NOREACHED();
                 break;
         }
         return nullptr;
@@ -1112,16 +1112,16 @@ public:
         Operator::ID op = ReadOperator();
         switch (op) {
             case Operator::kOr:
-                return factory_->NewOr(ReadExpr(), ReadExpr());
+                return factory_->NewOr(ReadExpr(), ReadExpr(), Location(line));
             case Operator::kAnd:
-                return factory_->NewAnd(ReadExpr(), ReadExpr());
+                return factory_->NewAnd(ReadExpr(), ReadExpr(), Location(line));
             default:
-                DLOG(FATAL) << "Noreached!";
+                NOREACHED();
                 break;
         }
         return nullptr;
     }
-    
+
     ast::Index *ReadIndex(int line) {
         return factory_->NewIndex(ReadInt(), ReadExpr(), ReadExpr(), Location(line));
     }

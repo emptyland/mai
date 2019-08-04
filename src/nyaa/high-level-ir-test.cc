@@ -380,6 +380,101 @@ TEST_F(NyaaHIRTest, GenerateNestedLambda) {
     };
     ASSERT_EQ(z, buf) << buf;
 }
+    
+TEST_F(NyaaHIRTest, GenerateAndOr) {
+    static const char s[] = {
+        "var i1 = a and b\n"
+        "var i2 = a or b\n"
+        "return i1, i2\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(s, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+    
+    std::string buf;
+    fn_->PrintTo(&buf, 1024);
+    static const char z[] = {
+        "l0:\n"
+        "    object %v0 = global $a; line = 1\n"
+        "    int %v1 = nyaa.object.is_true(object %v0); line = 1\n"
+        "    br int %v1 then l1 else l2; line = 1\n"
+        "l1:\n"
+        "    object %v2 = global $b; line = 1\n"
+        "    br l3; line = 1\n"
+        "l2:\n"
+        "    br l3; line = 1\n"
+        "l3:\n"
+        "    object %v3 = phi [l1 object %v2] [l2 object %v0] ; line = 1\n"
+        "    object %v4 = global $a; line = 2\n"
+        "    int %v5 = nyaa.object.is_true(object %v4); line = 2\n"
+        "    br int %v5 then l4 else l5; line = 2\n"
+        "l4:\n"
+        "    br l6; line = 2\n"
+        "l5:\n"
+        "    object %v6 = global $b; line = 2\n"
+        "    br l6; line = 2\n"
+        "l6:\n"
+        "    object %v7 = phi [l4 object %v4] [l5 object %v6] ; line = 2\n"
+        "    ret(2) object %v3, object %v7; line = 3\n"
+    };
+    ASSERT_EQ(z, buf) << buf;
+}
+
+TEST_F(NyaaHIRTest, GenerateTriAndOr) {
+    static const char s[] = {
+        "var i1 = (a and b) or c\n"
+        "return i1\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(s, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+    
+    std::string buf;
+    fn_->PrintTo(&buf, 4096);
+    static const char z[] = {
+        "l0:\n"
+        "    object %v0 = global $a; line = 1\n"
+        "    int %v1 = nyaa.object.is_true(object %v0); line = 1\n"
+        "    br int %v1 then l1 else l2; line = 1\n"
+        "l1:\n"
+        "    object %v2 = global $b; line = 1\n"
+        "    br l3; line = 1\n"
+        "l2:\n"
+        "    br l3; line = 1\n"
+        "l3:\n"
+        "    object %v3 = phi [l1 object %v2] [l2 object %v0] ; line = 1\n"
+        "    int %v4 = nyaa.object.is_true(object %v3); line = 1\n"
+        "    br int %v4 then l4 else l5; line = 1\n"
+        "l4:\n"
+        "    br l6; line = 1\n"
+        "l5:\n"
+        "    object %v5 = global $c; line = 1\n"
+        "    br l6; line = 1\n"
+        "l6:\n"
+        "    object %v6 = phi [l4 object %v3] [l5 object %v5] ; line = 1\n"
+        "    ret(1) object %v6; line = 2\n"
+    };
+    ASSERT_EQ(z, buf) << buf;
+}
+    
+TEST_F(NyaaHIRTest, GenerateConstAndOr) {
+    static const char s[] = {
+        "var a, b, c = 1, 0, 2\n"
+        "var i1, i2, i3 = a and b, b or c, (a and b) or 1.1\n"
+        "return i1, i2, i3\n"
+    };
+    HandleScope handle_scope(N_);
+    GenerateHIRInMemory(s, {}, &fn_);
+    ASSERT_NE(nullptr, fn_);
+    
+    std::string buf;
+    fn_->PrintTo(&buf, 4096);
+    static const char z[] = {
+        "l0:\n"
+        "    ret(3) int 0, int 2, float 1.100000; line = 3\n"
+    };
+    ASSERT_EQ(z, buf) << buf;
+}
 
 } // namespace hir
 

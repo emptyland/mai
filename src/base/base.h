@@ -213,6 +213,8 @@ inline MutView<T> MakeMutView(T *z, size_t n) { return MutView<T>{z, n}; }
 #if defined(__ARM64_ARCH_8__)
 #   define MAI_ARCH_ARM64 1
 #endif
+    
+#define NOREACHED() DLOG(FATAL) << "Noreached! "
 
 enum Initializer {
     LAZY_INSTANCE_INITIALIZER,

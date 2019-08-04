@@ -439,7 +439,7 @@ public:
     DEFINE_AST_NODE(LogicSwitch);
 private:
     LogicSwitch(int line, Operator::ID op, Expression *e1, Expression *e2)
-        : Multiple(line, 0, op, e1, e2) {}
+        : Multiple(line, -1, op, e1, e2) {}
 }; // class LogicSwitch
     
 class Concat : public Expression {

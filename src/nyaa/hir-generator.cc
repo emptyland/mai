@@ -286,6 +286,9 @@ struct ConstFolding : public ConstFoldContext {
     inline hir::Value *GE(hir::Constant *lhs, hir::Constant *rhs) const { return nullptr; }
     inline hir::Value *UMinus(hir::Constant *lhs) const { return nullptr; }
     inline hir::Value *Not(hir::Constant *lhs) const { return nullptr; }
+    inline hir::Value *ToBool(hir::Constant *lhs) const { return nullptr; }
+    inline bool IsTrue(hir::Constant *lhs) const { return false; }
+    
     
     inline ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
@@ -388,6 +391,10 @@ template<> struct ConstFolding<hir::Type::kInt> : public ConstFoldContext {
     inline hir::Value *Not(hir::Constant *lhs) const {
         return target_->IntVal(!lhs->smi_val(), line_);
     }
+    inline hir::Value *ToBool(hir::Constant *lhs) const {
+        return target_->IntVal(IsTrue(lhs), line_);
+    }
+    inline bool IsTrue(hir::Constant *lhs) const { return !!lhs->smi_val(); }
     
     ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
@@ -441,6 +448,12 @@ template<> struct ConstFolding<hir::Type::kLong> : public ConstFoldContext {
     inline hir::Value *Not(hir::Constant *lhs) const {
         return target_->IntVal(lhs->long_val()->IsZero(), line_);
     }
+    inline hir::Value *ToBool(hir::Constant *lhs) const {
+        return target_->IntVal(IsTrue(lhs), line_);
+    }
+    inline bool IsTrue(hir::Constant *lhs) const {
+        return !lhs->long_val()->IsZero();
+    }
 
     inline ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
@@ -486,6 +499,10 @@ template<> struct ConstFolding<hir::Type::kFloat> : public ConstFoldContext {
     inline hir::Value *Not(hir::Constant *lhs) const {
         return target_->IntVal(!lhs->float_val(), line_);
     }
+    inline hir::Value *ToBool(hir::Constant *lhs) const {
+        return target_->IntVal(IsTrue(lhs), line_);
+    }
+    inline bool IsTrue(hir::Constant *lhs) const { return lhs->float_val() != 0; }
     
     inline ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
@@ -556,6 +573,10 @@ template<> struct ConstFolding<hir::Type::kObject> : public ConstFoldContext {
     inline hir::Value *Not(hir::Constant *lhs) const {
         return target_->IntVal(lhs->obj_val()->IsFalse(), line_);
     }
+    inline hir::Value *ToBool(hir::Constant *lhs) const {
+        return target_->IntVal(IsTrue(lhs), line_);
+    }
+    inline bool IsTrue(hir::Constant *lhs) const { return lhs->obj_val()->IsTrue(); }
     
     inline ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
     : ConstFoldContext(N, target, line, trace_id) {}
@@ -563,7 +584,7 @@ template<> struct ConstFolding<hir::Type::kObject> : public ConstFoldContext {
 
     
 template<hir::Type::ID T>
-struct BinaryEmiting : public ConstFoldContext {
+struct TypedEmiting : public ConstFoldContext {
     
     inline hir::Value *Add(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         return nullptr;
@@ -604,13 +625,16 @@ struct BinaryEmiting : public ConstFoldContext {
     inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
         return nullptr;
     }
+    inline hir::Value *ToBool(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return nullptr;
+    }
 
-    BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
+    TypedEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
 };
     
     
-template<> struct BinaryEmiting<hir::Type::kInt> : public ConstFoldContext {
+template<> struct TypedEmiting<hir::Type::kInt> : public ConstFoldContext {
     inline hir::Value *Add(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         return target_->IAdd(bb, lhs, rhs, line_);
     }
@@ -650,12 +674,13 @@ template<> struct BinaryEmiting<hir::Type::kInt> : public ConstFoldContext {
     inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
         return target_->INot(bb, lhs, line_);
     }
+    inline hir::Value *ToBool(hir::BasicBlock *bb, hir::Value *lhs) const { return lhs; }
     
-    BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
+    TypedEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
 };
     
-template<> struct BinaryEmiting<hir::Type::kLong> : public ConstFoldContext {
+template<> struct TypedEmiting<hir::Type::kLong> : public ConstFoldContext {
     inline hir::Value *Add(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         return target_->LAdd(bb, lhs, rhs, line_);
     }
@@ -695,12 +720,17 @@ template<> struct BinaryEmiting<hir::Type::kLong> : public ConstFoldContext {
     inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
         return target_->LNot(bb, lhs, line_);
     }
+    inline hir::Value *ToBool(hir::BasicBlock *bb, hir::Value *lhs) const {
+        hir::CallBuiltin *rv = target_->CallBuiltin(bb, hir::BuiltinFunction::kIsLongNotZero, 1, line_);
+        rv->SetArgument(0, lhs);
+        return rv;
+    }
     
-    BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
+    TypedEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
 };
     
-template<> struct BinaryEmiting<hir::Type::kFloat> : public ConstFoldContext {
+template<> struct TypedEmiting<hir::Type::kFloat> : public ConstFoldContext {
     inline hir::Value *Add(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         return target_->FAdd(bb, lhs, rhs, line_);
     }
@@ -740,12 +770,15 @@ template<> struct BinaryEmiting<hir::Type::kFloat> : public ConstFoldContext {
     inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
         return target_->FNot(bb, lhs, line_);
     }
+    inline hir::Value *ToBool(hir::BasicBlock *bb, hir::Value *lhs) const {
+        return NE(bb, lhs, target_->FloatVal(0, line_));
+    }
     
-    BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
+    TypedEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
 };
     
-template<> struct BinaryEmiting<hir::Type::kObject> : public ConstFoldContext {
+template<> struct TypedEmiting<hir::Type::kObject> : public ConstFoldContext {
     inline hir::Value *Add(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         return target_->OAdd(bb, lhs, rhs, line_);
     }
@@ -785,12 +818,17 @@ template<> struct BinaryEmiting<hir::Type::kObject> : public ConstFoldContext {
     inline hir::Value *Not(hir::BasicBlock *bb, hir::Value *lhs) const {
         return target_->ONot(bb, lhs, line_);
     }
+    inline hir::Value *ToBool(hir::BasicBlock *bb, hir::Value *lhs) const {
+        hir::CallBuiltin *rv = target_->CallBuiltin(bb, hir::BuiltinFunction::kIsTrue, 1, line_);
+        rv->SetArgument(0, lhs);
+        return rv;
+    }
     
-    BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
+    TypedEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
 };
     
-template<> struct BinaryEmiting<hir::Type::kString> : public ConstFoldContext {
+template<> struct TypedEmiting<hir::Type::kString> : public ConstFoldContext {
     inline hir::Value *Add(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         lhs = target_->Inbox(bb, lhs, line_);
         rhs = target_->Inbox(bb, rhs, line_);
@@ -860,12 +898,17 @@ template<> struct BinaryEmiting<hir::Type::kString> : public ConstFoldContext {
         lhs = target_->Inbox(bb, lhs, line_);
         return target_->ONot(bb, lhs, line_);
     }
+    inline hir::Value *ToBool(hir::BasicBlock *bb, hir::Value *lhs) const {
+        hir::CallBuiltin *rv = target_->CallBuiltin(bb, hir::BuiltinFunction::kStringLen, 1, line_);
+        rv->SetArgument(0, lhs);
+        return target_->ICmp(bb, hir::Compare::kNE, rv, target_->IntVal(0, line_), line_);
+    }
     
-    BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
+    TypedEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
 };
     
-template<> struct BinaryEmiting<hir::Type::kClosure> : public BinaryEmiting<hir::Type::kString> {
+template<> struct TypedEmiting<hir::Type::kClosure> : public TypedEmiting<hir::Type::kString> {
     inline hir::Value *EQ(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         lhs = target_->Inbox(bb, lhs, line_);
         rhs = target_->Inbox(bb, rhs, line_);
@@ -896,12 +939,17 @@ template<> struct BinaryEmiting<hir::Type::kClosure> : public BinaryEmiting<hir:
         rhs = target_->Inbox(bb, rhs, line_);
         return target_->OCmp(bb, hir::Compare::kGE, lhs, rhs, line_);
     }
+    inline hir::Value *ToBool(hir::BasicBlock *bb, hir::Value *lhs) const {
+        hir::CallBuiltin *rv = target_->CallBuiltin(bb, hir::BuiltinFunction::kIsTrue, 1, line_);
+        rv->SetArgument(0, target_->Inbox(bb, lhs, line_));
+        return rv;
+    }
     
-    BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
-        : BinaryEmiting<hir::Type::kString>(N, target, line, trace_id) {}
+    TypedEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
+        : TypedEmiting<hir::Type::kString>(N, target, line, trace_id) {}
 };
     
-template<> struct BinaryEmiting<hir::Type::kArray> : public ConstFoldContext {
+template<> struct TypedEmiting<hir::Type::kArray> : public ConstFoldContext {
     inline hir::Value *Add(hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
         return CallMetaFunction(N_->bkz_pool()->kInnerAdd, bb, lhs, rhs);
     }
@@ -943,6 +991,11 @@ template<> struct BinaryEmiting<hir::Type::kArray> : public ConstFoldContext {
         lhs = target_->Inbox(bb, lhs, line_);
         return target_->ONot(bb, lhs, line_);
     }
+    inline hir::Value *ToBool(hir::BasicBlock *bb, hir::Value *lhs) const {
+        hir::CallBuiltin *rv = target_->CallBuiltin(bb, hir::BuiltinFunction::kIsTrue, 1, line_);
+        rv->SetArgument(0, target_->Inbox(bb, lhs, line_));
+        return rv;
+    }
     
     inline hir::Value *CallMetaFunction(NyString *name,
                                         hir::BasicBlock *bb, hir::Value *lhs, hir::Value *rhs) const {
@@ -970,18 +1023,18 @@ template<> struct BinaryEmiting<hir::Type::kArray> : public ConstFoldContext {
         return val;
     }
 
-    BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
+    TypedEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
 };
 
-template<> struct BinaryEmiting<hir::Type::kMap> : public BinaryEmiting<hir::Type::kArray> {
-    BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
-        : BinaryEmiting<hir::Type::kArray>(N, target, line, trace_id) {}
+template<> struct TypedEmiting<hir::Type::kMap> : public TypedEmiting<hir::Type::kArray> {
+    TypedEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
+        : TypedEmiting<hir::Type::kArray>(N, target, line, trace_id) {}
 };
     
-template<> struct BinaryEmiting<hir::Type::kUDO> : public BinaryEmiting<hir::Type::kArray> {
-    BinaryEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
-        : BinaryEmiting<hir::Type::kArray>(N, target, line, trace_id) {}
+template<> struct TypedEmiting<hir::Type::kUDO> : public TypedEmiting<hir::Type::kArray> {
+    TypedEmiting(NyaaCore *N, hir::Function *target, int line, int trace_id)
+        : TypedEmiting<hir::Type::kArray>(N, target, line, trace_id) {}
 };
 
 class HIRGeneratorVisitor final : public ast::Visitor {
@@ -1307,6 +1360,7 @@ public:
 
     virtual IVal VisitMapInitializer(ast::MapInitializer *node, ast::VisitorContext *x) override {
         // TODO:
+        DLOG(FATAL) << "TODO:";
         return IVal::Void();
     }
     
@@ -1388,7 +1442,81 @@ public:
     }
     
     virtual IVal VisitLogicSwitch(ast::LogicSwitch *node, ast::VisitorContext *x) override {
-        // TODO:
+        HIRGeneratorContext *ctx = HIRGeneratorContext::Cast(x);
+        HIRGeneratorContext ix(ctx);
+        ix.set_n_result(1);
+
+        switch (node->op()) {
+            case Operator::kAnd: {
+                IVal lhs = ACCEPT(node->lhs(), &ix);
+                DCHECK_EQ(IVal::kHIR, lhs.kind);
+                if (ShouldFoldConstant(lhs.node, ctx->scope())) {
+                    if (!EvalIsTrue(lhs.node, node->line(), node->trace_id())) {
+                        return lhs;
+                    }
+                    IVal rhs = ACCEPT(node->rhs(), &ix);
+                    return rhs;
+                }
+                
+                hir::Value *lhs_bool = EmitIsTrue(lhs.node, node->line(), node->trace_id());
+                hir::Branch *br = target_->Branch(insert_, lhs_bool, node->line());
+                hir::BasicBlock *is_true = target_->NewBB(insert_);
+                br->set_if_true(is_true);
+                hir::BasicBlock *is_false = target_->NewBB(insert_);
+                br->set_if_false(is_false);
+                
+                insert_ = is_true;
+                IVal rhs = ACCEPT(node->rhs(), &ix);
+                DCHECK_EQ(IVal::kHIR, rhs.kind);
+                
+                hir::BasicBlock *out = target_->NewBB(insert_);
+                target_->NoCondBranch(insert_, out, node->line());
+                target_->NoCondBranch(is_false, out, node->line());
+                insert_ = out;
+                
+                hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs.node, &rhs.node, node->line(), false);
+                hir::Phi *phi = target_->Phi(insert_, ty, node->line());
+                phi->AddIncoming(is_true, rhs.node);
+                phi->AddIncoming(is_false, lhs.node);
+                return IVal::HIR(phi);
+            } break;
+            case Operator::kOr: {
+                IVal lhs = ACCEPT(node->lhs(), &ix);
+                DCHECK_EQ(IVal::kHIR, lhs.kind);
+                if (ShouldFoldConstant(lhs.node, ctx->scope())) {
+                    if (EvalIsTrue(lhs.node, node->line(), node->trace_id())) {
+                        return lhs;
+                    }
+                    IVal rhs = ACCEPT(node->rhs(), &ix);
+                    return rhs;
+                }
+
+                hir::Value *lhs_bool = EmitIsTrue(lhs.node, node->line(), node->trace_id());
+                hir::Branch *br = target_->Branch(insert_, lhs_bool, node->line());
+                hir::BasicBlock *is_true = target_->NewBB(insert_);
+                br->set_if_true(is_true);
+                hir::BasicBlock *is_false = target_->NewBB(insert_);
+                br->set_if_false(is_false);
+                
+                insert_ = is_false;
+                IVal rhs = ACCEPT(node->rhs(), &ix);
+                DCHECK_EQ(IVal::kHIR, rhs.kind);
+                
+                hir::BasicBlock *out = target_->NewBB(insert_);
+                target_->NoCondBranch(is_true, out, node->line());
+                target_->NoCondBranch(insert_, out, node->line());
+                insert_ = out;
+                
+                hir::Type::ID ty = EmitCastIfNeed(insert_, &lhs.node, &rhs.node, node->line(), false);
+                hir::Phi *phi = target_->Phi(insert_, ty, node->line());
+                phi->AddIncoming(is_true, lhs.node);
+                phi->AddIncoming(is_false, rhs.node);
+                return IVal::HIR(phi);
+            } break;
+            default:
+                break;
+        }
+        NOREACHED();
         return IVal::Void();
     }
     
@@ -1580,14 +1708,14 @@ private:
         switch (ty) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .Add(insert_, lhs, rhs);
             DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1603,7 +1731,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
 
@@ -1612,14 +1740,14 @@ private:
         switch (ty) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .Sub(insert_, lhs, rhs);
             DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1635,7 +1763,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
 
@@ -1644,14 +1772,14 @@ private:
         switch (ty) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .Mul(insert_, lhs, rhs);
             DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1667,7 +1795,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
 
@@ -1676,14 +1804,14 @@ private:
         switch (ty) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .Div(insert_, lhs, rhs);
                 DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1701,7 +1829,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
 
@@ -1710,14 +1838,14 @@ private:
         switch (ty) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .Mod(insert_, lhs, rhs);
                 DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1735,7 +1863,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
 
@@ -1744,14 +1872,14 @@ private:
         switch (ty) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .EQ(insert_, lhs, rhs);
             DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1767,7 +1895,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
    
@@ -1776,14 +1904,14 @@ private:
         switch (ty) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .NE(insert_, lhs, rhs);
             DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1799,7 +1927,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
 
@@ -1808,14 +1936,14 @@ private:
         switch (ty) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .LT(insert_, lhs, rhs);
             DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1831,7 +1959,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
 
@@ -1840,14 +1968,14 @@ private:
         switch (ty) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .LE(insert_, lhs, rhs);
             DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1863,7 +1991,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
 
@@ -1872,14 +2000,14 @@ private:
         switch (ty) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .GT(insert_, lhs, rhs);
             DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1895,7 +2023,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
 
@@ -1904,14 +2032,14 @@ private:
         switch (ty) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .GE(insert_, lhs, rhs);
             DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1927,7 +2055,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1935,14 +2063,14 @@ private:
         switch (lhs->type()) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .UMinus(insert_, lhs);
                 DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1957,7 +2085,7 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1965,14 +2093,14 @@ private:
         switch (lhs->type()) {
         #define DEFINE_EMITING(name, ...) \
             case hir::Type::k##name: \
-                return BinaryEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
                       .Not(insert_, lhs);
             DECL_DAG_TYPES(DEFINE_EMITING)
         #undef DEFINE_EMITING
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
     }
     
@@ -1987,8 +2115,38 @@ private:
             default:
                 break;
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return nullptr;
+    }
+    
+    hir::Value *EmitIsTrue(hir::Value *lhs, int line, int trace_id) {
+        switch (lhs->type()) {
+        #define DEFINE_EMITING(name, ...) \
+            case hir::Type::k##name: \
+                return TypedEmiting<hir::Type::k##name>(N_, target_, line, trace_id) \
+                      .ToBool(insert_, lhs);
+            DECL_DAG_TYPES(DEFINE_EMITING)
+        #undef DEFINE_EMITING
+            default:
+                break;
+        }
+        NOREACHED();
+        return nullptr;
+    }
+    
+    bool EvalIsTrue(hir::Value *lhs, int line, int trace_id) {
+        hir::Constant *lval = hir::Constant::Cast(lhs);
+        switch (lval->type()) {
+        #define DEFINE_EVAL(name, ...) \
+            case hir::Type::k##name: \
+                return ConstFolding<hir::Type::k##name>(N_, target_, line, trace_id).IsTrue(lval);
+            DECL_DAG_TYPES(DEFINE_EVAL)
+        #undef DEFINE_EVAL
+            default:
+                break;
+        }
+        NOREACHED();
+        return false;
     }
 
     hir::Type::ID EmitCastIfNeed(std::vector<hir::Phi::Path> *paths, int line) {
@@ -2005,7 +2163,7 @@ private:
                     break;
                 case hir::CastPriority::kNever:
                 default:
-                    DLOG(FATAL) << "Noreached!";
+                    NOREACHED();
                     break;
             }
         }
@@ -2048,7 +2206,7 @@ private:
                 break;
             case hir::CastPriority::kNever:
             default:
-                DLOG(FATAL) << "Noreached!";
+                NOREACHED();
                 return hir::Type::kVoid;
         }
         return prio.type;
@@ -2087,6 +2245,16 @@ private:
             if (scope->IsOutEdge(operand)) {
                 return false;
             }
+        }
+        return true;
+    }
+    
+    bool ShouldFoldConstant(hir::Value *operand, HIRBlockScope *scope) const {
+        if (!operand->IsConstant()) {
+            return false;
+        }
+        if (scope->IsOutEdge(operand)) {
+            return false;
         }
         return true;
     }
