@@ -125,8 +125,7 @@ TEST_F(NyaaHIRTest, ReplacementUses) {
     ret->AddRetVal(a1);
     ret->AddRetVal(a1);
 
-    auto k1 = fn_->Constant(Type::kInt, 4);
-    k1->set_smi_val(100);
+    auto k1 = fn_->IntVal(100, 1);
     
     fn_->ReplaceAllUses(a1, k1);
     fn_->PrintTo(stdout);
@@ -468,7 +467,7 @@ TEST_F(NyaaHIRTest, GenerateConstAndOr) {
     ASSERT_NE(nullptr, fn_);
     
     std::string buf;
-    fn_->PrintTo(&buf, 4096);
+    fn_->PrintTo(&buf, 1024);
     static const char z[] = {
         "l0:\n"
         "    ret(3) int 0, int 2, float 1.100000; line = 3\n"

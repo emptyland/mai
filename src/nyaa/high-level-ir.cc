@@ -524,10 +524,83 @@ void BasicBlock::PrintTo(FILE *fp) const {
     }
 }
     
+
+bool ConstantPool::EqualTo::operator () (const Key &lhs, const Key &rhs) const {
+    if (lhs.kind != rhs.kind) {
+        return false;
+    }
+    switch (lhs.kind) {
+        case Type::kInt:
+            return lhs.i62 == rhs.i62;
+        case Type::kFloat:
+            return NyFloat64::Near(lhs.f64, rhs.f64);
+        case Type::kLong:
+            return NyInt::Compare(lhs.lll, rhs.lll) == 0;
+        case Type::kString:
+            return lhs.str->Compare(rhs.str) == 0;
+        case Type::kArray:
+        case Type::kMap:
+            return lhs.map == rhs.map;
+        case Type::kObject:
+            if (lhs.obj->GetType() != rhs.obj->GetType()) {
+                return false;
+            }
+            switch (lhs.obj->GetType()) {
+                case kTypeMap:
+                case kTypeUdo:
+                    return lhs.obj == rhs.obj;
+                default:
+                    return Object::Equal(lhs.obj, rhs.obj, nullptr);
+            }
+            break;
+        default:
+            break;
+    }
+    NOREACHED();
+    return false;
+}
+
+size_t ConstantPool::Hash::operator () (const Key &key) const {
+    switch (key.kind) {
+        case Type::kInt:
+            return key.i62;
+        case Type::kFloat: {
+            uint64_t bits = *reinterpret_cast<const uint64_t *>(&key.f64);
+            return static_cast<size_t>(bits * bits >> 16);
+        }
+        case Type::kLong:
+            return key.lll->HashVal();
+        case Type::kString:
+            return key.str->hash_val();
+        case Type::kArray:
+        case Type::kMap:
+            return reinterpret_cast<size_t>(key.map);
+        case Type::kObject:
+            switch (key.obj->GetType()) {
+                case kTypeNil:
+                    return 0;
+                case kTypeSmi:
+                case kTypeInt:
+                case kTypeString:
+                    return key.obj->HashVal(nullptr);
+                case kTypeMap:
+                    return reinterpret_cast<size_t>(key.obj);
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    return false;
+}
+    
 Object *Constant::AsObject(NyaaCore *N) const {
     switch (type()) {
         case Type::kInt:
-            return NySmi::New(smi_);
+            return NySmi::New(i62_);
         case Type::kFloat:
             return N->factory()->NewFloat64(f64_);
         case Type::kString:
@@ -547,7 +620,7 @@ Object *Constant::AsObject(NyaaCore *N) const {
     ::fprintf(fp, "%s ", Type::kNames[type()]);
     switch (type()) {
         case Type::kInt:
-            ::fprintf(fp, "%lld", smi_);
+            ::fprintf(fp, "%lld", i62_);
             break;
         case Type::kFloat:
             ::fprintf(fp, "%f", f64_);

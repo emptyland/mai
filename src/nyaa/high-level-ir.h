@@ -7,6 +7,7 @@
 #include "base/base.h"
 #include "glog/logging.h"
 #include <set>
+#include <unordered_map>
 
 namespace mai {
     
@@ -128,8 +129,19 @@ struct Type {
         kMaxTypes,
     };
     
+//    ID id;
+//    int pointer;
+
     static const char *kNames[];
 }; // struct Type
+    
+//struct Types {
+//#define DEFINE_TYPE(name, literal) static const Type *const name;
+//    DECL_DAG_TYPES(DEFINE_TYPE)
+//#undef DEFINE_TYPE
+//
+//    static const Type *kBuiltinTypes[];
+//}; // struct Types
     
 struct Compare {
     enum Op {
@@ -170,6 +182,7 @@ class BasicBlock;
 class UnaryInst;
 class BinaryInst;
 class Terminator;
+class ConstantPool;
 #define DEFINE_DECL(name) class name;
     DECL_DAG_NODES(DEFINE_DECL)
 #undef DEFINE_DECL
@@ -214,7 +227,6 @@ public:
     inline CallBuiltin *CallBuiltin(BasicBlock *bb, BuiltinFunction::ID callee, int argc, int line);
     inline Value *BaseOfStack(BasicBlock *bb, Value *base, int offset, int line);
     inline Value *Closure(BasicBlock *bb, int offset, int n_params, bool vargs, int line);
-    inline Constant *Constant(Type::ID type, int line);
     inline Value *NilVal(int line);
     inline Value *IntVal(int64_t val, int line);
     inline Value *LongVal(NyInt *val, int line);
@@ -259,10 +271,7 @@ public:
     friend class Value;
     friend class BasicBlock;
 private:
-    Function(base::Arena *arena)
-        : arena_(arena)
-        , parameters_(arena)
-        , basic_blocks_(arena) {}
+    inline Function(base::Arena *arena);
     
     int NextValId() { return next_val_id_++; }
 
@@ -273,6 +282,76 @@ private:
     int next_bb_id_ = 0;
     int next_val_id_ = 0;
 }; // class Function
+    
+class ConstantPool final : public HIRNode {
+public:
+    ConstantPool(base::Arena *arena)
+        : vals_(arena)
+        , val_to_k_(arena) {}
+    
+    Constant *GetI62OrNull(int64_t val) const {
+        return GetOrNull({.kind = Type::kInt, .i62 = val});
+    }
+    Constant *GetF64OrNull(double val) const {
+        return GetOrNull({.kind = Type::kFloat, .f64 = val});
+    }
+    Constant *GetStringOrNull(NyString *val) const {
+        return GetOrNull({.kind = Type::kString, .str = val});
+    }
+    Constant *GetLongOrNull(NyInt *val) const {
+        return GetOrNull({.kind = Type::kLong, .lll = val});
+    }
+    Constant *GetArrayOrNull(NyMap *val) const {
+        return GetOrNull({.kind = Type::kArray, .map = val});
+    }
+    Constant *GetMapOrNull(NyMap *val) const {
+        return GetOrNull({.kind = Type::kMap, .map = val});
+    }
+    Constant *GetObjectOrNull(Object *val) const {
+        return GetOrNull({.kind = Type::kObject, .obj = val});
+    }
+    
+    inline Constant *Add(Constant *value);
+private:
+    struct Key {
+        Type::ID kind;
+        union {
+            int64_t i62;
+            double  f64;
+            NyString *str;
+            NyMap *map;
+            NyInt *lll;
+            Object *obj;
+        };
+    }; // struct Key
+    
+    struct EqualTo : public std::binary_function<Key, Key, bool> {
+        bool operator () (const Key &lhs, const Key &rhs) const;
+    }; // struct EqualTo
+    struct Hash : public std::unary_function<Key, size_t> {
+        size_t operator () (const Key &key) const;
+    }; // struct Hash
+    
+    Constant *GetOrNull(const Key &key) const {
+        auto iter = val_to_k_.find(key);
+        return iter == val_to_k_.end() ? nullptr : vals_[iter->second];
+    }
+    
+    Constant *Add(const Key &key, Constant *val) {
+        if (auto iter = val_to_k_.find(key); iter != val_to_k_.end()) {
+            return nullptr;
+        }
+        size_t idx = vals_.size();
+        val_to_k_[key] = idx;
+        vals_.push_back(val);
+        return val;
+    }
+
+    using PoolMap = base::ArenaUnorderedMap<Key, size_t, Hash, EqualTo>;
+    
+    base::ArenaVector<Constant *> vals_;
+    PoolMap val_to_k_;
+}; // class HIRConstantPool
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Use and Users:
@@ -493,32 +572,23 @@ public:
     struct StringTag {};
     struct ObjectTag {};
     
-    int64_t smi_val() const { DCHECK(IsIntTy()); return smi_; }
-    void set_smi_val(int64_t val) { DCHECK(IsIntTy()); smi_ = val; }
+    int64_t i62_val() const { DCHECK(IsIntTy()); return i62_; }
+    
+    double f64_val() const { DCHECK(IsFloatTy()); return f64_; }
 
     NyInt *long_val() const { DCHECK(IsLongTy()); return long_; }
-    void set_long_val(NyInt *val) { DCHECK(IsLongTy()); long_ = val; }
-
-    double float_val() const { DCHECK(IsFloatTy()); return f64_; }
-    void set_float_val(double val) { DCHECK(IsFloatTy()); f64_ = val; }
 
     NyString *string_val() const { DCHECK(IsStringTy()); return str_; }
-    void set_string_val(NyString *val) { DCHECK(IsStringTy()); str_ = val; }
 
     NyMap *map_val() const { DCHECK(IsMapTy()); return map_; }
-    void set_map_val(NyMap *val) { DCHECK(IsMapTy()); map_ = val; }
+    
+    NyMap *array_val() const { DCHECK(IsArrayTy()); return map_; }
 
     bool is_nil() const { return stub_ == nullptr; }
-    void set_nil() { stub_ = nullptr; }
 
     Object *obj_val() const {
         DCHECK(IsLongTy() || IsStringTy() || IsArrayTy() || IsMapTy() || IsObjectTy());
         return stub_;
-    }
-
-    void set_obj_val(Object *val) {
-        DCHECK(IsLongTy() || IsStringTy() || IsArrayTy() || IsMapTy() || IsObjectTy());
-        stub_ = val;
     }
 
     Object *AsObject(NyaaCore *N) const;
@@ -531,7 +601,7 @@ private:
     
     Constant(const IntTag &, int64_t val, int line)
         : Value(Type::kInt, line)
-        , smi_(val) {
+        , i62_(val) {
     }
     
     Constant(const LongTag &, NyInt *val, int line)
@@ -555,7 +625,7 @@ private:
     }
     
     union {
-        int64_t smi_;
+        int64_t i62_;
         double f64_;
         NyString *str_;
         NyMap *map_;
@@ -1326,6 +1396,12 @@ Value::InstID TransformBinaryInst(Type::ID ty, Value::InstID src);
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Inline Functions:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+inline Function::Function(base::Arena *arena)
+    : arena_(arena)
+    , parameters_(arena)
+    , basic_blocks_(arena) {
+}
 
 inline BasicBlock *Function::NewBB(BasicBlock *in_edge, bool dont_insert) {
     BasicBlock *bb = new (arena_) BasicBlock(this, !dont_insert ? NextBBId() : 0);
@@ -1387,10 +1463,6 @@ inline Value *Function::BaseOfStack(BasicBlock *bb, Value *base, int offset, int
     return new (arena_) class BaseOfStack(this, bb, base, offset, line);
 }
     
-inline Constant *Function::Constant(Type::ID type, int line) {
-    return new (arena_) class Constant(type, line);
-}
-    
 inline Value *Function::IntVal(int64_t val, int line) {
     return new (arena_) class Constant(Constant::IntTag{}, val, line);
 }
@@ -1412,9 +1484,7 @@ inline Value *Function::ObjectVal(Object *val, int line) {
 }
 
 inline Value *Function::NilVal(int line) {
-    auto k = new (arena_) class Constant(Type::kObject, line);
-    k->set_nil();
-    return k;
+    return new (arena_) class Constant(Constant::ObjectTag{}, nullptr, line);
 }
     
 inline Branch *Function::Branch(BasicBlock *bb, Value *cond, int line) {
@@ -1490,6 +1560,27 @@ inline int Function::ReplaceAllUses(Value *old_val, Value *new_val) {
     }
     old_val->clear_uses();
     return n;
+}
+    
+inline Constant *ConstantPool::Add(Constant *value) {
+    switch (value->type()) {
+        case Type::kInt:
+            return Add({.kind = Type::kInt, .i62 = value->i62_val()}, value);
+        case Type::kFloat:
+            return Add({.kind = Type::kFloat, .f64 = value->f64_val()}, value);
+        case Type::kLong:
+            return Add({.kind = Type::kLong, .lll = value->long_val()}, value);
+        case Type::kString:
+            return Add({.kind = Type::kString, .str = value->string_val()}, value);
+        case Type::kArray:
+            return Add({.kind = Type::kArray, .map = value->array_val()}, value);
+        case Type::kObject:
+            return Add({.kind = Type::kObject, .obj = value->obj_val()}, value);
+        default:
+            break;
+    }
+    NOREACHED();
+    return nullptr;
 }
     
 inline BasicBlock::BasicBlock(Function *owns, int label)

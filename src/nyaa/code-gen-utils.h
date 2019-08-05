@@ -157,15 +157,6 @@ public:
     
     IVal PutVariable(const ast::String *name, const IVal *val);
     
-//    bool Protected(IVal val) {
-//        if (val.kind == IVal::kLocal) {
-//            DCHECK_GE(val.index, 0);
-//            DCHECK_LT(val.index, owns_->max_stack());
-//            return val.index < active_vars_;
-//        }
-//        return false;
-//    }
-    
     friend class CodeGeneratorVisitor;
 private:
     BlockScope *prev_;

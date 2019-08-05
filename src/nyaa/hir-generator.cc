@@ -296,7 +296,7 @@ struct ConstFolding : public ConstFoldContext {
     
 template<> struct ConstFolding<hir::Type::kInt> : public ConstFoldContext {
     hir::Value *Add(hir::Constant *lhs, hir::Constant *rhs) {
-        int64_t lval = lhs->smi_val(), rval = rhs->smi_val();
+        int64_t lval = lhs->i62_val(), rval = rhs->i62_val();
         if (((rval > 0) && (lval > (NySmi::kMaxValue - rval))) ||
             ((rval < 0) && (lval < (NySmi::kMinValue - rval)))) {
             base::ScopedArena scoped_buf;
@@ -307,7 +307,7 @@ template<> struct ConstFolding<hir::Type::kInt> : public ConstFoldContext {
     }
 
     hir::Value *Sub(hir::Constant *lhs, hir::Constant *rhs) {
-        int64_t lval = lhs->smi_val(), rval = rhs->smi_val();
+        int64_t lval = lhs->i62_val(), rval = rhs->i62_val();
         if (((rval > 0) && (lval < (NySmi::kMinValue + rval))) ||
             ((rval < 0) && (lval > (NySmi::kMaxValue + rval)))) {
             base::ScopedArena scoped_buf;
@@ -319,7 +319,7 @@ template<> struct ConstFolding<hir::Type::kInt> : public ConstFoldContext {
 
     hir::Value *Mul(hir::Constant *lhs, hir::Constant *rhs) {
         bool overflow = false;
-        int64_t lval = lhs->smi_val(), rval = rhs->smi_val();
+        int64_t lval = lhs->i62_val(), rval = rhs->i62_val();
         if (lval > 0) {  /* lval is positive */
             if (rval > 0) {  /* lval and rval are positive */
                 if (lval > (NySmi::kMaxValue / rval)) {
@@ -350,51 +350,51 @@ template<> struct ConstFolding<hir::Type::kInt> : public ConstFoldContext {
     }
 
     inline hir::Value *Div(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
-        if (rhs->smi_val() == 0) {
+        if (rhs->i62_val() == 0) {
             *ok = false;
             return nullptr;
         }
         *ok = true;
-        return target_->IntVal(lhs->smi_val() / rhs->smi_val(), line_);
+        return target_->IntVal(lhs->i62_val() / rhs->i62_val(), line_);
     }
 
     inline hir::Value *Mod(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
-        if (rhs->smi_val() == 0) {
+        if (rhs->i62_val() == 0) {
             *ok = false;
             return nullptr;
         }
         *ok = true;
-        return target_->IntVal(lhs->smi_val() % rhs->smi_val(), line_);
+        return target_->IntVal(lhs->i62_val() % rhs->i62_val(), line_);
     }
     
     inline hir::Value *EQ(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(lhs->smi_val() == rhs->smi_val(), line_);
+        return target_->IntVal(lhs->i62_val() == rhs->i62_val(), line_);
     }
     inline hir::Value *NE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(lhs->smi_val() != rhs->smi_val(), line_);
+        return target_->IntVal(lhs->i62_val() != rhs->i62_val(), line_);
     }
     inline hir::Value *LT(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(lhs->smi_val() < rhs->smi_val(), line_);
+        return target_->IntVal(lhs->i62_val() < rhs->i62_val(), line_);
     }
     inline hir::Value *LE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(lhs->smi_val() <= rhs->smi_val(), line_);
+        return target_->IntVal(lhs->i62_val() <= rhs->i62_val(), line_);
     }
     inline hir::Value *GT(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(lhs->smi_val() > rhs->smi_val(), line_);
+        return target_->IntVal(lhs->i62_val() > rhs->i62_val(), line_);
     }
     inline hir::Value *GE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(lhs->smi_val() >= rhs->smi_val(), line_);
+        return target_->IntVal(lhs->i62_val() >= rhs->i62_val(), line_);
     }
     inline hir::Value *UMinus(hir::Constant *lhs) const {
-        return target_->IntVal(-lhs->smi_val(), line_);
+        return target_->IntVal(-lhs->i62_val(), line_);
     }
     inline hir::Value *Not(hir::Constant *lhs) const {
-        return target_->IntVal(!lhs->smi_val(), line_);
+        return target_->IntVal(!lhs->i62_val(), line_);
     }
     inline hir::Value *ToBool(hir::Constant *lhs) const {
         return target_->IntVal(IsTrue(lhs), line_);
     }
-    inline bool IsTrue(hir::Constant *lhs) const { return !!lhs->smi_val(); }
+    inline bool IsTrue(hir::Constant *lhs) const { return !!lhs->i62_val(); }
     
     ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
@@ -461,48 +461,48 @@ template<> struct ConstFolding<hir::Type::kLong> : public ConstFoldContext {
     
 template<> struct ConstFolding<hir::Type::kFloat> : public ConstFoldContext {
     inline hir::Value *Add(hir::Constant *lhs, hir::Constant *rhs) {
-        return target_->FloatVal(lhs->float_val() + rhs->float_val(), line_);
+        return target_->FloatVal(lhs->f64_val() + rhs->f64_val(), line_);
     }
     inline hir::Value *Sub(hir::Constant *lhs, hir::Constant *rhs) {
-        return target_->FloatVal(lhs->float_val() - rhs->float_val(), line_);
+        return target_->FloatVal(lhs->f64_val() - rhs->f64_val(), line_);
     }
     inline hir::Value *Mul(hir::Constant *lhs, hir::Constant *rhs) {
-        return target_->FloatVal(lhs->float_val() * rhs->float_val(), line_);
+        return target_->FloatVal(lhs->f64_val() * rhs->f64_val(), line_);
     }
     inline hir::Value *Div(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
-        return target_->FloatVal(lhs->float_val() / rhs->float_val(), line_);
+        return target_->FloatVal(lhs->f64_val() / rhs->f64_val(), line_);
     }
     inline hir::Value *Mod(hir::Constant *lhs, hir::Constant *rhs, bool *ok) {
-        return target_->FloatVal(::fmod(lhs->float_val(), rhs->float_val()), line_);
+        return target_->FloatVal(::fmod(lhs->f64_val(), rhs->f64_val()), line_);
     }
     inline hir::Value *EQ(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(NyFloat64::Near(lhs->float_val(), rhs->float_val()), line_);
+        return target_->IntVal(NyFloat64::Near(lhs->f64_val(), rhs->f64_val()), line_);
     }
     inline hir::Value *NE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(!NyFloat64::Near(lhs->float_val(), rhs->float_val()), line_);
+        return target_->IntVal(!NyFloat64::Near(lhs->f64_val(), rhs->f64_val()), line_);
     }
     inline hir::Value *LT(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(lhs->float_val() < rhs->float_val(), line_);
+        return target_->IntVal(lhs->f64_val() < rhs->f64_val(), line_);
     }
     inline hir::Value *LE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(lhs->float_val() <= rhs->float_val(), line_);
+        return target_->IntVal(lhs->f64_val() <= rhs->f64_val(), line_);
     }
     inline hir::Value *GT(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(lhs->float_val() > rhs->float_val(), line_);
+        return target_->IntVal(lhs->f64_val() > rhs->f64_val(), line_);
     }
     inline hir::Value *GE(hir::Constant *lhs, hir::Constant *rhs) const {
-        return target_->IntVal(lhs->float_val() >= rhs->float_val(), line_);
+        return target_->IntVal(lhs->f64_val() >= rhs->f64_val(), line_);
     }
     inline hir::Value *UMinus(hir::Constant *lhs) const {
-        return target_->FloatVal(-lhs->float_val(), line_);
+        return target_->FloatVal(-lhs->f64_val(), line_);
     }
     inline hir::Value *Not(hir::Constant *lhs) const {
-        return target_->IntVal(!lhs->float_val(), line_);
+        return target_->IntVal(!lhs->f64_val(), line_);
     }
     inline hir::Value *ToBool(hir::Constant *lhs) const {
         return target_->IntVal(IsTrue(lhs), line_);
     }
-    inline bool IsTrue(hir::Constant *lhs) const { return lhs->float_val() != 0; }
+    inline bool IsTrue(hir::Constant *lhs) const { return lhs->f64_val() != 0; }
     
     inline ConstFolding(NyaaCore *N, hir::Function *target, int line, int trace_id)
         : ConstFoldContext(N, target, line, trace_id) {}
@@ -1334,28 +1334,21 @@ public:
     }
 
     virtual IVal VisitStringLiteral(ast::StringLiteral *node, ast::VisitorContext *x) override {
-        hir::Constant *val = target_->Constant(hir::Type::kString, node->line());
         NyString *s = N_->factory()->NewString(node->value()->data(), node->value()->size());
-        val->set_string_val(s);
-        return IVal::HIR(val);
+        return IVal::HIR(target_->StringVal(s, node->line()));
     }
 
     virtual IVal VisitApproxLiteral(ast::ApproxLiteral *node, ast::VisitorContext *x) override {
-        hir::Constant *val = target_->Constant(hir::Type::kFloat, node->line());
-        val->set_float_val(node->value());
-        return IVal::HIR(val);
+        return IVal::HIR(target_->FloatVal(node->value(), node->line()));
     }
 
     virtual IVal VisitSmiLiteral(ast::SmiLiteral *node, ast::VisitorContext *x) override {
-        hir::Constant *val = target_->Constant(hir::Type::kInt, node->line());
-        val->set_smi_val(node->value());
-        return IVal::HIR(val);
+        return IVal::HIR(target_->IntVal(node->value(), node->line()));
     }
 
     virtual IVal VisitIntLiteral(ast::IntLiteral *node, ast::VisitorContext *x) override {
-        hir::Constant *val = target_->Constant(hir::Type::kLong, node->line());
-        val->set_long_val(NyInt::Parse(node->value()->data(), node->value()->size(), N_->factory()));
-        return IVal::HIR(val);
+        NyInt *val = NyInt::Parse(node->value()->data(), node->value()->size(), N_->factory());
+        return IVal::HIR(target_->LongVal(val, node->line()));
     }
 
     virtual IVal VisitMapInitializer(ast::MapInitializer *node, ast::VisitorContext *x) override {

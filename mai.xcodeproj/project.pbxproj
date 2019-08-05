@@ -166,6 +166,7 @@
 		237B0C0B21E4869400F3A099 /* sql.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C0821E4869400F3A099 /* sql.cc */; };
 		237B0C1921E49D2B00F3A099 /* sql-parser-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1821E49D2B00F3A099 /* sql-parser-test.cc */; };
 		237B0C1E21E4A9C100F3A099 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237B0C1D21E4A9C100F3A099 /* parser.cc */; };
+		237D738F22F6BD5600B36D6C /* low-level-ir.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237D738E22F6BD5600B36D6C /* low-level-ir.cc */; };
 		237F504D21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
 		237F504E21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
 		237F505121EB74390069075D /* zone.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F505021EB74390069075D /* zone.cc */; };
@@ -451,6 +452,8 @@
 		237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "iterator-warpper.cc"; sourceTree = "<group>"; };
 		237CE4C22192EDE4004FB9BF /* merging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = merging.h; sourceTree = "<group>"; };
 		237CE4C32192EE17004FB9BF /* merging.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = merging.cc; sourceTree = "<group>"; };
+		237D738D22F6BCDC00B36D6C /* low-level-ir.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "low-level-ir.h"; sourceTree = "<group>"; };
+		237D738E22F6BD5600B36D6C /* low-level-ir.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "low-level-ir.cc"; sourceTree = "<group>"; };
 		237F504A21EB6DA90069075D /* arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arena.h; sourceTree = "<group>"; };
 		237F504C21EB72C90069075D /* arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = arena.cc; sourceTree = "<group>"; };
 		237F504F21EB73BE0069075D /* zone.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = zone.h; sourceTree = "<group>"; };
@@ -899,6 +902,8 @@
 				23F143EB22CEF58E00E0C59F /* hir-generator.cc */,
 				23348BFF22E59E9E00569582 /* hir-rewrite.h */,
 				23348C0022E59FB600569582 /* hir-rewrite.cc */,
+				237D738D22F6BCDC00B36D6C /* low-level-ir.h */,
+				237D738E22F6BD5600B36D6C /* low-level-ir.cc */,
 			);
 			name = nyaa;
 			path = src/nyaa;
@@ -1490,6 +1495,7 @@
 				2364B2FE21E451F9008519AE /* ordered-memory-table.cc in Sources */,
 				2364B30021E451F9008519AE /* unordered-memory-table.cc in Sources */,
 				2364B30121E451F9008519AE /* bytewise-comparator.cc in Sources */,
+				237D738F22F6BD5600B36D6C /* low-level-ir.cc in Sources */,
 				23216A272201A2F900E1B816 /* types-test.cc in Sources */,
 				23D2F6BC21F1C0A300A49B1A /* form-schema-test.cc in Sources */,
 				2365EC522206948600EE7103 /* ast-factory.cc in Sources */,

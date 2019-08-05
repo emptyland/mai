@@ -201,8 +201,8 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
 
             switch (new_val->type()) {
                 case Type::kFloat: {
-                    Constant *zero = target_->Constant(Type::kFloat, inst->line());
-                    zero->set_float_val(0);
+                    Value *zero = target_->FloatVal(0, inst->line());
+                    //zero->set_float_val(0);
                     
                     Value *cond = target_->FCmp(nullptr, Compare::kEQ, new_val, zero, inst->line());
                     inst->set_cond(cond);
@@ -252,55 +252,33 @@ Value *EmitCast(NyaaCore *N, Function *target, BasicBlock *bb, Value::InstID ins
     if (from->IsConstant()) {
         Constant *src = Constant::Cast(from);
         switch (inst) {
-            case Value::kInbox: {
-                Constant *k = target->Constant(Type::kObject, line);
-                k->set_obj_val(src->AsObject(N));
-                return k;
-            } break;
+            case Value::kInbox:
+                return target->ObjectVal(src->AsObject(N), line);
                 
-            case Value::kIToF: {
-                Constant *k = target->Constant(Type::kFloat, line);
-                k->set_float_val(static_cast<double>(src->smi_val()));
-                return k;
-            } break;
+            case Value::kIToF:
+                return target->FloatVal(static_cast<double>(src->i62_val()), line);
                 
-            case Value::kIToL: {
-                Constant *k = target->Constant(Type::kLong, line);
-                k->set_long_val(NyInt::NewI64(src->smi_val(), N->factory()));
-                return k;
-            } break;
+            case Value::kIToL:
+                return target->LongVal(NyInt::NewI64(src->i62_val(), N->factory()), line);
                 
-            case Value::kLToF: {
-                Constant *k = target->Constant(Type::kFloat, line);
-                k->set_float_val(src->long_val()->ToF64());
-                return k;
-            } break;
+            case Value::kLToF:
+                return target->FloatVal(src->long_val()->ToF64(), line);
                 
-            case Value::kLToI: {
-                Constant *k = target->Constant(Type::kInt, line);
-                k->set_smi_val(src->long_val()->ToI64());
-                return k;
-            } break;
+            case Value::kLToI:
+                return target->IntVal(src->long_val()->ToI64(), line);
                 
-            case Value::kFToI: {
-                Constant *k = target->Constant(Type::kInt, line);
-                k->set_smi_val(static_cast<int64_t>(src->float_val()));
-                return k;
-            } break;
+            case Value::kFToI:
+                return target->IntVal(static_cast<int64_t>(src->f64_val()), line);
                 
-            case Value::kFToL: {
-                Constant *k = target->Constant(Type::kLong, line);
-                k->set_long_val(NyInt::NewI64(static_cast<int64_t>(src->float_val()), N->factory()));
-                return k;
-            } break;
+            case Value::kFToL:
+                return target->LongVal(NyInt::NewI64(static_cast<int64_t>(src->f64_val()),
+                                                     N->factory()), line);
                 
             case Value::kAToI: {
                 bool ok;
                 int64_t i64 = src->string_val()->TryI64(&ok);
                 if (ok && (i64 >= NySmi::kMinValue && i64 <= NySmi::kMaxValue)) {
-                    Constant *k = target->Constant(Type::kInt, line);
-                    k->set_smi_val(i64);
-                    return k;
+                    return target->IntVal(i64, line);
                 }
             } break;
                 
@@ -308,9 +286,7 @@ Value *EmitCast(NyaaCore *N, Function *target, BasicBlock *bb, Value::InstID ins
                 bool ok;
                 NyInt *lll = src->string_val()->TryInt(N, &ok);
                 if (ok) {
-                    Constant *k = target->Constant(Type::kLong, line);
-                    k->set_long_val(lll);
-                    return k;
+                    return target->LongVal(lll, line);
                 }
             } break;
                 
@@ -318,9 +294,7 @@ Value *EmitCast(NyaaCore *N, Function *target, BasicBlock *bb, Value::InstID ins
                 bool ok;
                 f64_t f64 = src->string_val()->TryF64(&ok);
                 if (ok) {
-                    Constant *k = target->Constant(Type::kFloat, line);
-                    k->set_float_val(f64);
-                    return k;
+                    return target->FloatVal(f64, line);
                 }
             } break;
             default:
