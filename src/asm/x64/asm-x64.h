@@ -74,14 +74,6 @@ enum Cond {
     LastCond = Greater,
 }; // Cond;
     
-//#define RegBits(reg)   (1 << (reg).code)
-//#define RegHiBit(reg)  ((reg).code >> 3)
-//#define RegLoBits(reg) ((reg).code & 0x7)
-//#define RegIsByte(reg) ((reg).code <= 3)
-//    
-//#define XmmHiBit(reg)  RegHiBit(reg)
-//#define XmmLoBits(reg) RegLoBits(reg)
-    
 class Register {
 public:
     constexpr explicit Register(int code) : code_(code) {}
