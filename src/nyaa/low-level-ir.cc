@@ -1,4 +1,5 @@
 #include "nyaa/low-level-ir.h"
+#include "nyaa/runtime.h"
 #if defined(MAI_ARCH_X64)
 #include "asm/x64/asm-x64.h"
 #endif // defined(MAI_ARCH_X64)
@@ -114,9 +115,116 @@ const char *Architecture::kFPRegisterNames[kMaxFPRegisters] = {
     "xmm8",  "xmm9",  "xmm10", "xmm11",
     "xmm12", "xmm13", "xmm14", "xmm15",
 };
+    
+static constexpr int kNyaaBPCode = x64::kR13;
 
 #endif // defined(MAI_ARCH_X64)
     
+const char *kIRCodeNames[kMaxIRCodes] = {
+#define DEFINE_IR_CODE_NAME(name, ...) #name,
+    DECL_LIR_CODE(DEFINE_IR_CODE_NAME)
+#undef DEFINE_IR_CODE_NAME
+};
+    
+constexpr MemoryOperand kL32StackSlots[] = {
+    MemoryOperand(kNyaaBPCode, kPointerSize * 0),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 1),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 2),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 3),
+    
+    MemoryOperand(kNyaaBPCode, kPointerSize * 4),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 5),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 6),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 7),
+    
+    MemoryOperand(kNyaaBPCode, kPointerSize * 8),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 9),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 10),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 11),
+    
+    MemoryOperand(kNyaaBPCode, kPointerSize * 12),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 13),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 14),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 15),
+    
+    MemoryOperand(kNyaaBPCode, kPointerSize * 16),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 17),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 18),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 19),
+    
+    MemoryOperand(kNyaaBPCode, kPointerSize * 20),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 21),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 22),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 23),
+    
+    MemoryOperand(kNyaaBPCode, kPointerSize * 24),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 25),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 26),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 27),
+    
+    MemoryOperand(kNyaaBPCode, kPointerSize * 28),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 29),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 30),
+    MemoryOperand(kNyaaBPCode, kPointerSize * 31),
+};
+    
+const MemoryOperand *Architecture::kLowStackSlots[kMaxStackSlots] = {
+    &kL32StackSlots[0],  &kL32StackSlots[1],  &kL32StackSlots[2],  &kL32StackSlots[3],
+    &kL32StackSlots[4],  &kL32StackSlots[5],  &kL32StackSlots[6],  &kL32StackSlots[7],
+    &kL32StackSlots[8],  &kL32StackSlots[9],  &kL32StackSlots[10], &kL32StackSlots[11],
+    &kL32StackSlots[12], &kL32StackSlots[13], &kL32StackSlots[14], &kL32StackSlots[15],
+    &kL32StackSlots[16], &kL32StackSlots[17], &kL32StackSlots[18], &kL32StackSlots[19],
+    &kL32StackSlots[20], &kL32StackSlots[21], &kL32StackSlots[22], &kL32StackSlots[23],
+    &kL32StackSlots[24], &kL32StackSlots[25], &kL32StackSlots[26], &kL32StackSlots[27],
+    &kL32StackSlots[28], &kL32StackSlots[29], &kL32StackSlots[30], &kL32StackSlots[31],
+};
+    
+/*virtual*/ void ImmediateOperand::PrintTo(FILE *fp) const {
+    switch (bits_) {
+        case 0:
+            ::fprintf(fp, "%p", addr_value());
+            break;
+        case 1:
+            ::fprintf(fp, "#%d", i1_value());
+            break;
+        case 8:
+            ::fprintf(fp, "#%d", i8_value());
+            break;
+        case 16:
+            ::fprintf(fp, "#%d", i16_value());
+            break;
+        case 32:
+            ::fprintf(fp, "#%d", i32_value());
+            break;
+        case 64:
+            ::fprintf(fp, "#%" PRId64, i64_value());
+            break;
+        default:
+            break;
+    }
+}
+    
+void Instruction::PrintTo(FILE *fp) {
+    ::fprintf(fp, "%s", kIRCodeNames[op_]);
+    if (output_) {
+        ::fprintf(fp, " out ");
+        output_->PrintTo(fp);
+    }
+    if (n_inputs_ > 0) {
+        if (output_) {
+            ::fprintf(fp, ", in ");
+        } else {
+            ::fprintf(fp, " in ");
+        }
+        for (int i = 0; i < n_inputs_; ++i) {
+            if (i > 0) {
+                ::fprintf(fp, ", ");
+            }
+            input(i)->PrintTo(fp);
+        }
+    }
+}
+
 } // namespace lir
 
 } // namespace nyaa
