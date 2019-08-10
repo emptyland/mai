@@ -7,7 +7,6 @@
 #include "mai/env.h"
 #include "gtest/gtest.h"
 
-
 namespace mai {
 
 namespace nyaa {

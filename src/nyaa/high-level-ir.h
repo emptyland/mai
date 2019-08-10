@@ -33,6 +33,7 @@ namespace hir {
     V(Branch) \
     V(NoCondBranch) \
     V(Phi) \
+    V(Copy) \
     V(Ret) \
     DECL_HIR_COMPARE(V) \
     DECL_HIR_STORE(V) \
@@ -212,6 +213,8 @@ public:
     
     DEF_PTR_PROP_RW(BasicBlock, entry);
     DEF_PTR_GETTER(base::Arena, arena);
+    DEF_VAL_GETTER(BasicBlockSet, basic_blocks);
+    DEF_VAL_GETTER(ValueSet, parameters);
     
     inline BasicBlock *NewBB(BasicBlock *in_edge, bool dont_insert = false);
     inline Value *Parameter(Type::ID type, int line);
@@ -236,6 +239,7 @@ public:
     inline Branch *Branch(BasicBlock *bb, Value *cond, int line);
     inline Value *NoCondBranch(BasicBlock *bb, BasicBlock *target, int line);
     inline Phi *Phi(BasicBlock *bb, Type::ID type, int line);
+    inline Copy *Copy(BasicBlock *bb, Value *dst, Value *src, int line);
     inline Ret *Ret(BasicBlock *bb, int line);
     
 #define DECL_CMP_NEW(name) \
@@ -489,6 +493,10 @@ public:
 #define DEFINE_IS(name) bool Is##name() const { return kind() == k##name; }
     DECL_DAG_NODES(DEFINE_IS)
 #undef DEFINE_IS
+    
+    bool IsTerminator() const {
+        return IsBranch() || IsNoCondBranch() || IsRet();
+    }
     
     virtual InstID kind() const { return kMaxInsts; }
     virtual Type::ID hint(int i) const { DLOG(FATAL) << "No implement"; return Type::kVoid; }
@@ -1327,6 +1335,38 @@ private:
     PathSet incoming_;
 }; // class Phi
     
+// For replacement phi nodes
+class Copy final : public Value {
+public:
+    DEF_PTR_GETTER(Value, src);
+    DEF_PTR_GETTER(Value, dst);
+
+    virtual bool ReplaceUse(Value *old_val, Value *new_val) override;
+
+    virtual void PrintOperator(FILE *fp) const override {
+        dst_->PrintValue(fp);
+        ::fprintf(fp, " = ");
+        src_->PrintValue(fp);
+        ::fprintf(fp, " (copy)");
+    }
+    
+    DEFINE_DAG_INST_NODE(Copy);
+private:
+    Copy(Function *top, BasicBlock *bb, Value *dst, Value *src, int line)
+        : Value(top, bb, Type::kVoid, line)
+        , dst_(DCHECK_NOTNULL(dst))
+        , src_(DCHECK_NOTNULL(src)) {
+        DCHECK(!src_->IsVoidTy());
+        DCHECK(!dst_->IsVoidTy());
+        DCHECK_EQ(src_->type(), dst_->type());
+        Set(dst, top->arena());
+        Set(src, top->arena());
+    }
+
+    Value *dst_;
+    Value *src_;
+}; // class Copy
+    
 class Ret : public Value {
 public:
     using ValueSet = base::ArenaVector<Value *>;
@@ -1498,6 +1538,10 @@ inline Value *Function::NoCondBranch(BasicBlock *bb, BasicBlock *target, int lin
 inline Phi *Function::Phi(BasicBlock *bb, Type::ID type, int line) {
     return new (arena_) class Phi(this, bb, type, line);
 }
+    
+inline Copy *Function::Copy(BasicBlock *bb, Value *dst, Value *src, int line) {
+    return new (arena_) class Copy(this, bb, dst, src, line);
+}
 
 inline Ret *Function::Ret(BasicBlock *bb, int line) {
     return new (arena_) class Ret(this, bb, line);
@@ -1600,9 +1644,7 @@ inline Value *BasicBlock::insts_end() const { return dummy_; }
 inline Value *BasicBlock::insts_head() const { return dummy_->next_; }
 inline Value *BasicBlock::insts_tail() const { return dummy_->prev_; }
     
-inline bool BasicBlock::has_terminator() const {
-    return insts_last()->IsBranch() || insts_last()->IsNoCondBranch() || insts_last()->IsRet();
-}
+inline bool BasicBlock::has_terminator() const { return insts_last()->IsTerminator(); }
 
 inline Terminator *BasicBlock::get_terminator() const {
     return has_terminator() ? down_cast<Terminator>(insts_last()) : nullptr;

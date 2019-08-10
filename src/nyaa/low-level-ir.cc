@@ -115,8 +115,6 @@ const char *Architecture::kFPRegisterNames[kMaxFPRegisters] = {
     "xmm8",  "xmm9",  "xmm10", "xmm11",
     "xmm12", "xmm13", "xmm14", "xmm15",
 };
-    
-static constexpr int kNyaaBPCode = x64::kR13;
 
 #endif // defined(MAI_ARCH_X64)
     
@@ -127,45 +125,45 @@ const char *kIRCodeNames[kMaxIRCodes] = {
 };
     
 constexpr MemoryOperand kL32StackSlots[] = {
-    MemoryOperand(kNyaaBPCode, kPointerSize * 0),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 1),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 2),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 3),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 0),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 1),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 2),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 3),
     
-    MemoryOperand(kNyaaBPCode, kPointerSize * 4),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 5),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 6),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 7),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 4),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 5),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 6),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 7),
     
-    MemoryOperand(kNyaaBPCode, kPointerSize * 8),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 9),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 10),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 11),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 8),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 9),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 10),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 11),
     
-    MemoryOperand(kNyaaBPCode, kPointerSize * 12),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 13),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 14),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 15),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 12),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 13),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 14),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 15),
     
-    MemoryOperand(kNyaaBPCode, kPointerSize * 16),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 17),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 18),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 19),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 16),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 17),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 18),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 19),
     
-    MemoryOperand(kNyaaBPCode, kPointerSize * 20),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 21),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 22),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 23),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 20),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 21),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 22),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 23),
     
-    MemoryOperand(kNyaaBPCode, kPointerSize * 24),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 25),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 26),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 27),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 24),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 25),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 26),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 27),
     
-    MemoryOperand(kNyaaBPCode, kPointerSize * 28),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 29),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 30),
-    MemoryOperand(kNyaaBPCode, kPointerSize * 31),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 28),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 29),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 30),
+    MemoryOperand(Architecture::kVMBPCode, kPointerSize * 31),
 };
     
 const MemoryOperand *Architecture::kLowStackSlots[kMaxStackSlots] = {
@@ -207,14 +205,14 @@ const MemoryOperand *Architecture::kLowStackSlots[kMaxStackSlots] = {
 void Instruction::PrintTo(FILE *fp) {
     ::fprintf(fp, "%s", kIRCodeNames[op_]);
     if (output_) {
-        ::fprintf(fp, " out ");
+        ::fprintf(fp, " ");
         output_->PrintTo(fp);
     }
     if (n_inputs_ > 0) {
         if (output_) {
-            ::fprintf(fp, ", in ");
+            ::fprintf(fp, " <- ");
         } else {
-            ::fprintf(fp, " in ");
+            ::fprintf(fp, " ");
         }
         for (int i = 0; i < n_inputs_; ++i) {
             if (i > 0) {

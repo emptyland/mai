@@ -782,6 +782,19 @@ Alloca::Alloca(Function *top, Type::ID type, int line)
         }
     }
 }
+    
+/*virtual*/ bool Copy::ReplaceUse(Value *old_val, Value *new_val) {
+    bool ok = false;
+    if (old_val == src_ && new_val->type() == src_->type()) {
+        src_ = new_val;
+        ok = true;
+    }
+    if (old_val == dst_ && new_val->type() == dst_->type()) {
+        dst_ = new_val;
+        ok = true;
+    }
+    return ok;
+}
 
 } // namespace hir
 

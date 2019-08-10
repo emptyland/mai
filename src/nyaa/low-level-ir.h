@@ -47,6 +47,8 @@ struct Architecture final {
     static constexpr int kMaxRegisters = 16;
     static constexpr int kMaxFPRegisters = 16;
     static constexpr int kMaxAllocatableRegisters = 10;
+    
+    static constexpr int kVMBPCode = 13; // r13
 #endif // defined(MAI_ARCH_X64)
     
     static const RegisterOperand *kAllRegisters[kMaxRegisters];
