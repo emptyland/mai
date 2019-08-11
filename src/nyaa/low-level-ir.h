@@ -14,14 +14,34 @@ namespace nyaa {
 namespace lir {
     
 #define DECL_LIR_CODE(V) \
+    DECL_COMMON_LIR_CODE(V) \
+    DECL_ARCH_LIR_CODE(V)
+    
+#define DECL_COMMON_LIR_CODE(V) \
+    V(InboxSmi) \
+    V(InboxFloat64) \
+    V(Constant) \
+    V(SaveCallerRegisters) \
+    V(SaveCallerPartialRegisters) \
+    V(CallNative) \
+    V(RestoreCallerRegisters) \
+    V(RestoreCallerPartialRegisters) \
+    V(Breakpoint) \
+    V(Jump)
+
+#define DECL_ARCH_LIR_CODE(V) \
     V(Move) \
     V(Add) \
+    V(Add32) \
     V(Sub) \
+    V(Sub32) \
     V(Mul) \
+    V(Mul32) \
     V(Div) \
+    V(Div32) \
     V(Mod) \
-    V(CallNative) \
-    V(Jump)
+    V(Mod32) \
+    V(Ret)
     
 class Instruction;
 class Operand;
@@ -347,7 +367,9 @@ public:
     InstructionBundle(base::Arena *arena)
         : arena_(arena)
         , blocks_(arena) {}
-    
+
+    DEF_VAL_GETTER(BlockList, blocks);
+
     void PrintAll(FILE *fp) const {
         for (auto block : blocks_) {
             ::fprintf(fp, "l%d\n", block->label());

@@ -715,7 +715,6 @@ private:
                 __ movq(rax, Operand(kThread, NyThread::kOffsetFrame)); // rax = frame
                 __ movq(kScratch, Operand(rax, CallFrame::kOffsetConstPool)); // scratch = const_pool
                 __ movq(rax, ArrayAt(kScratch, val.index));
-                //__ Breakpoint();
                 __ movq(Local(ret.index), rax);
                 return ret;
             }

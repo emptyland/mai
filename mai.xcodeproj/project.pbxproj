@@ -63,6 +63,7 @@
 		23565910221E82EC00837F83 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
 		2358F21D22FBEE13000DA38C /* hir-passes.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2358F21C22FBEE13000DA38C /* hir-passes.cc */; };
 		2358F22022FC1BF5000DA38C /* hir-passes-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2358F21F22FC1BF5000DA38C /* hir-passes-test.cc */; };
+		2358F22222FE688A000DA38C /* code-generator-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2358F22122FE688A000DA38C /* code-generator-x64.cc */; };
 		235C1CCF21D1D63F0070A049 /* optimism-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */; };
 		235C1CD621D210520070A049 /* optimism-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CD421D210520070A049 /* optimism-transaction.cc */; };
 		235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */; };
@@ -417,6 +418,7 @@
 		2358F21C22FBEE13000DA38C /* hir-passes.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-passes.cc"; sourceTree = "<group>"; };
 		2358F21E22FBEE33000DA38C /* hir-passes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hir-passes.h"; sourceTree = "<group>"; };
 		2358F21F22FC1BF5000DA38C /* hir-passes-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-passes-test.cc"; sourceTree = "<group>"; };
+		2358F22122FE688A000DA38C /* code-generator-x64.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "code-generator-x64.cc"; sourceTree = "<group>"; };
 		235C1CCB21D1D5F70070A049 /* optimism-transaction-db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "optimism-transaction-db.h"; sourceTree = "<group>"; };
 		235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "optimism-transaction-db.cc"; sourceTree = "<group>"; };
 		235C1CD221D206F10070A049 /* optimism-transaction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "optimism-transaction.h"; sourceTree = "<group>"; };
@@ -915,6 +917,7 @@
 				2358F21C22FBEE13000DA38C /* hir-passes.cc */,
 				237D738D22F6BCDC00B36D6C /* low-level-ir.h */,
 				237D738E22F6BD5600B36D6C /* low-level-ir.cc */,
+				2358F22122FE688A000DA38C /* code-generator-x64.cc */,
 			);
 			name = nyaa;
 			path = src/nyaa;
@@ -1601,6 +1604,7 @@
 				2374DE47223B4BFE00810B41 /* nyaa-core.cc in Sources */,
 				23344CE921EF082D006BC6E4 /* mai-sql-test.cc in Sources */,
 				2364B35221E451F9008519AE /* compaction-test.cc in Sources */,
+				2358F22222FE688A000DA38C /* code-generator-x64.cc in Sources */,
 				23D2474E2255FC9700C96006 /* marking-sweep.cc in Sources */,
 				23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */,
 				23344CEC21EF0B5F006BC6E4 /* mai-sql-impl.cc in Sources */,

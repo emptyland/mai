@@ -18,18 +18,27 @@ class AstNode;
 namespace hir {
 class Function;
 } // namespace hir
+namespace lir {
+class InstructionBundle;
+} // namespace lir
 class NyaaCore;
 class NyClosure;
 class NyFunction;
 class NyString;
 struct UpvalDesc;
-    
+
 class CodeGen final {
 public:
-    
+    // Generate bytecode or AOT machine code
     static Handle<NyFunction> Generate(Handle<NyString> file_name, ast::Block *root,
                                        base::Arena *arena, NyaaCore *core);
-    
+
+    // Generate LIR code to machine code
+    static Handle<NyCode> Generate(const lir::InstructionBundle *ir_code, // low-level-ir code
+                                   const BuiltinType *args, // type of arguments
+                                   size_t argc, // number of arguments
+                                   NyaaCore *core);
+
     // Generate high-level IR
     static Error GenerateHIR(Handle<NyClosure> rb,
                              const BuiltinType *args, // type of arguments
@@ -38,7 +47,7 @@ public:
                              // TODO: constant pool
                              base::Arena *arena,
                              NyaaCore *core);
-    
+
     // Generate high-level IR
     static Error GenerateHIR(const BuiltinType *args, // type of arguments
                              size_t argc, // number of arguments
@@ -50,13 +59,13 @@ public:
                              // TODO: constant pool
                              base::Arena *arena,
                              NyaaCore *core);
-    
+
     DISALLOW_ALL_CONSTRUCTORS(CodeGen);
 }; // class CodeGen
 
-    
+
 } // namespace nyaa
-    
+
 } // namespace mai
 
 

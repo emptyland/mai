@@ -49,7 +49,7 @@ public:
 };
     
 TEST_F(NyaaHIRTest, Sanity) {
-    auto bb = fn_->NewBB(nullptr);
+    auto bb = fn_->NewBasicBlock(nullptr);
     ASSERT_EQ(0, bb->label());
     
     auto a1 = fn_->Parameter(Type::kInt, 1);
@@ -83,21 +83,21 @@ TEST_F(NyaaHIRTest, Sanity) {
 }
     
 TEST_F(NyaaHIRTest, BranchAndPhi) {
-    auto entry = fn_->NewBB(nullptr);
+    auto entry = fn_->NewBasicBlock(nullptr);
     auto a1 = fn_->Parameter(Type::kInt, 1);
     auto a2 = fn_->Parameter(Type::kInt, 2);
     auto v1 = fn_->IAdd(entry, a1, a2, 3);
     auto br = fn_->Branch(entry, v1, 4);
     
-    auto b1 = fn_->NewBB(entry);
-    auto b2 = fn_->NewBB(entry);
+    auto b1 = fn_->NewBasicBlock(entry);
+    auto b2 = fn_->NewBasicBlock(entry);
     br->set_if_true(b1);
     br->set_if_false(b2);
     
     auto v2 = fn_->IMinus(b1, v1, 1);
     auto v3 = fn_->IMinus(b2, v1, 1);
     
-    auto b3 = fn_->NewBB(b1);
+    auto b3 = fn_->NewBasicBlock(b1);
     b3->AddInEdge(b2);
     auto phi = fn_->Phi(b3, Type::kInt, 1);
     phi->AddIncoming(b1, v2);
@@ -115,7 +115,7 @@ TEST_F(NyaaHIRTest, CastPriority) {
 }
     
 TEST_F(NyaaHIRTest, ReplacementUses) {
-    auto entry = fn_->NewBB(nullptr);
+    auto entry = fn_->NewBasicBlock(nullptr);
     auto a1 = fn_->Parameter(Type::kInt, 1);
     auto a2 = fn_->Parameter(Type::kInt, 2);
     auto v1 = fn_->IAdd(entry, a1, a2, 3);

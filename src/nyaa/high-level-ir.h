@@ -216,7 +216,7 @@ public:
     DEF_VAL_GETTER(BasicBlockSet, basic_blocks);
     DEF_VAL_GETTER(ValueSet, parameters);
     
-    inline BasicBlock *NewBB(BasicBlock *in_edge, bool dont_insert = false);
+    inline BasicBlock *NewBasicBlock(BasicBlock *in_edge, bool dont_insert = false);
     inline Value *Parameter(Type::ID type, int line);
     inline Value *Alloca(Type::ID type, int line);
     inline Value *Load(BasicBlock *bb, Value *src, int line);
@@ -1443,7 +1443,7 @@ inline Function::Function(base::Arena *arena)
     , basic_blocks_(arena) {
 }
 
-inline BasicBlock *Function::NewBB(BasicBlock *in_edge, bool dont_insert) {
+inline BasicBlock *Function::NewBasicBlock(BasicBlock *in_edge, bool dont_insert) {
     BasicBlock *bb = new (arena_) BasicBlock(this, !dont_insert ? NextBBId() : 0);
     if (in_edge) {
         bb->in_edges_.push_back(in_edge);

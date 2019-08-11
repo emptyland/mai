@@ -42,7 +42,6 @@ const Register kRegAlloc[kMaxAllocRegs] {
     rdi,
     r8,
     r9,
-    r11, // 8
     r14,
     r15,
 };

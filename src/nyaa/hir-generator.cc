@@ -1098,7 +1098,7 @@ public:
             }
         }
 
-        insert_ = target_->NewBB(nullptr);
+        insert_ = target_->NewBasicBlock(nullptr);
         target_->set_entry(insert_);
         ACCEPT(node->value(), &top_ctx);
         return IVal::Void();
@@ -1366,7 +1366,7 @@ public:
 
         IVal cmp = ACCEPT(node->cond(), &ix);
         hir::Branch *br = target_->Branch(insert_, cmp.node, node->cond()->line());
-        hir::BasicBlock *if_true = target_->NewBB(insert_);
+        hir::BasicBlock *if_true = target_->NewBasicBlock(insert_);
         insert_ = if_true;
         br->set_if_true(if_true);
         
@@ -1379,7 +1379,7 @@ public:
         HIRBlockScope if_false_scope(ctx->scope(), true/*is_br*/);
         if (node->else_clause()) {
             HIRGeneratorContext if_false_ctx(ctx);
-            if_false = target_->NewBB(insert_);
+            if_false = target_->NewBasicBlock(insert_);
             insert_ = if_false;
             if_false_ctx.set_scope(&if_false_scope);
             
@@ -1388,7 +1388,7 @@ public:
         }
 
         // TODO: reuse out basic block.
-        hir::BasicBlock *out = target_->NewBB(if_true);
+        hir::BasicBlock *out = target_->NewBasicBlock(if_true);
         insert_ = out;
         if (!node->else_clause()) {
             br->set_if_false(out);
@@ -1453,16 +1453,16 @@ public:
                 
                 hir::Value *lhs_bool = EmitIsTrue(lhs.node, node->line(), node->trace_id());
                 hir::Branch *br = target_->Branch(insert_, lhs_bool, node->line());
-                hir::BasicBlock *is_true = target_->NewBB(insert_);
+                hir::BasicBlock *is_true = target_->NewBasicBlock(insert_);
                 br->set_if_true(is_true);
-                hir::BasicBlock *is_false = target_->NewBB(insert_);
+                hir::BasicBlock *is_false = target_->NewBasicBlock(insert_);
                 br->set_if_false(is_false);
                 
                 insert_ = is_true;
                 IVal rhs = ACCEPT(node->rhs(), &ix);
                 DCHECK_EQ(IVal::kHIR, rhs.kind);
                 
-                hir::BasicBlock *out = target_->NewBB(insert_);
+                hir::BasicBlock *out = target_->NewBasicBlock(insert_);
                 target_->NoCondBranch(insert_, out, node->line());
                 target_->NoCondBranch(is_false, out, node->line());
                 insert_ = out;
@@ -1486,16 +1486,16 @@ public:
 
                 hir::Value *lhs_bool = EmitIsTrue(lhs.node, node->line(), node->trace_id());
                 hir::Branch *br = target_->Branch(insert_, lhs_bool, node->line());
-                hir::BasicBlock *is_true = target_->NewBB(insert_);
+                hir::BasicBlock *is_true = target_->NewBasicBlock(insert_);
                 br->set_if_true(is_true);
-                hir::BasicBlock *is_false = target_->NewBB(insert_);
+                hir::BasicBlock *is_false = target_->NewBasicBlock(insert_);
                 br->set_if_false(is_false);
                 
                 insert_ = is_false;
                 IVal rhs = ACCEPT(node->rhs(), &ix);
                 DCHECK_EQ(IVal::kHIR, rhs.kind);
                 
-                hir::BasicBlock *out = target_->NewBB(insert_);
+                hir::BasicBlock *out = target_->NewBasicBlock(insert_);
                 target_->NoCondBranch(is_true, out, node->line());
                 target_->NoCondBranch(insert_, out, node->line());
                 insert_ = out;
@@ -1524,7 +1524,7 @@ public:
         HIRBlockScope loop_scope(ix.scope(), true/*is_br_edge*/);
         ix.set_scope(&loop_scope);
         
-        hir::BasicBlock *body = target_->NewBB(insert_);
+        hir::BasicBlock *body = target_->NewBasicBlock(insert_);
         insert_ = body;
 
         int wanted = 0;
@@ -1538,10 +1538,10 @@ public:
         }
         ACCEPT(node->body(), &ix);
         
-        hir::BasicBlock *retry = target_->NewBB(nullptr, true/*dont_insert*/);
+        hir::BasicBlock *retry = target_->NewBasicBlock(nullptr, true/*dont_insert*/);
         target_->NoCondBranch(origin, retry, node->line());
         
-        hir::BasicBlock *out = target_->NewBB(nullptr, true/*dont_insert*/);
+        hir::BasicBlock *out = target_->NewBasicBlock(nullptr, true/*dont_insert*/);
         loop_scope.set_loop_exit(out);
         loop_scope.set_loop_retry(retry);
         
@@ -1596,12 +1596,12 @@ public:
         }
 
         HIRBlockScope loop_scope(ix.scope(), true/*is_br_edge*/);
-        hir::BasicBlock *retry = target_->NewBB(insert_);
+        hir::BasicBlock *retry = target_->NewBasicBlock(insert_);
         target_->NoCondBranch(insert_, retry, node->line());
         insert_ = retry;
         ix.set_scope(&loop_scope);
         
-        hir::BasicBlock *out = target_->NewBB(nullptr, true/*dont_insert*/);
+        hir::BasicBlock *out = target_->NewBasicBlock(nullptr, true/*dont_insert*/);
         loop_scope.set_loop_exit(out);
         loop_scope.set_loop_retry(retry);
         
@@ -1618,7 +1618,7 @@ public:
             hir::Value *cond = EmitGT(iter, limit.node, node->line(), node->trace_id1());
             br = target_->Branch(insert_, cond, node->line());
         }
-        hir::BasicBlock *body = target_->NewBB(insert_);
+        hir::BasicBlock *body = target_->NewBasicBlock(insert_);
         target_->NoCondBranch(insert_, body, node->line());
         insert_ = body;
         br->set_if_false(body);
@@ -1648,7 +1648,7 @@ public:
         hir::BasicBlock *origin = insert_;
 
         HIRBlockScope loop_scope(ix.scope(), true/*is_br_edge*/);
-        hir::BasicBlock *retry = target_->NewBB(insert_);
+        hir::BasicBlock *retry = target_->NewBasicBlock(insert_);
         target_->NoCondBranch(insert_, retry, node->line());
         insert_ = retry;
         ix.set_scope(&loop_scope);
@@ -1657,10 +1657,10 @@ public:
 
         DCHECK_EQ(IVal::kHIR, cond.kind);
         hir::Branch *br = target_->Branch(retry, cond.node, node->cond()->line());
-        hir::BasicBlock *body = target_->NewBB(retry);
+        hir::BasicBlock *body = target_->NewBasicBlock(retry);
         br->set_if_true(body);
 
-        hir::BasicBlock *out = target_->NewBB(nullptr, true/*dont_insert*/);
+        hir::BasicBlock *out = target_->NewBasicBlock(nullptr, true/*dont_insert*/);
         loop_scope.set_loop_exit(out);
         loop_scope.set_loop_retry(retry);
 

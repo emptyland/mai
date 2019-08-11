@@ -45,12 +45,16 @@ private:
     
 class FunctionPass : public Pass {
 public:
-    explicit FunctionPass(const char *unique_id) : Pass(unique_id) {}
+    explicit FunctionPass(const char *unique_id, PassesManagement *owns)
+        : Pass(unique_id)
+        , owns_(DCHECK_NOTNULL(owns)) {}
     virtual ~FunctionPass() {}
 
     virtual int RunOnFunction(Function *input) = 0;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(FunctionPass);
+protected:
+    PassesManagement *owns_;
 }; // class HIRPass
     
 class BasicBlockPass : public Pass {
@@ -63,15 +67,20 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(BasicBlockPass);
 }; // class BasicBlockPass
     
-class PassManagement final {
-public:
-    PassManagement() {}
-    ~PassManagement();
+struct LiveInterval {
+    int begin;
+    int end;
+};
     
-    template<class T> inline T *AddPass() { return DoAddPass<T>([] () { return new T(); }); }
+class PassesManagement final {
+public:
+    PassesManagement() {}
+    ~PassesManagement();
+    
+    template<class T> inline T *AddPass() { return DoAddPass<T>([this] () { return new T(this); }); }
 
     template<class T> inline T *AddPass(base::Arena *arena) {
-        return DoAddPass<T>([arena]() { return new T(arena); });
+        return DoAddPass<T>([this, arena]() { return new T(this, arena); });
     }
 
     template<class T> inline T *GetPass() const {
@@ -104,6 +113,15 @@ public:
         return modified;
     }
 
+    const std::unordered_map<Value *, int> &virtual_live_orders() const {
+        return virtual_live_orders_;
+    }
+    
+    const std::unordered_map<Value *, LiveInterval> &virtual_live_intervals() const {
+        return virtual_live_intervals_;
+    }
+    
+    friend class LiveIntervalAnalysisPass;
 private:
     template<class T, class Ctor> inline T *DoAddPass(Ctor callback) {
         if (std::is_base_of<FunctionPass, T>::value) {
@@ -128,6 +146,9 @@ private:
     
     std::map<const char *, Pass *> basic_block_passes_;
     std::vector<Pass *> basic_block_pass_seq_;
+    
+    std::unordered_map<Value *, int> virtual_live_orders_;
+    std::unordered_map<Value *, LiveInterval> virtual_live_intervals_;
 }; // class PassManagement
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -136,7 +157,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class PhiEliminationPass final : public FunctionPass {
 public:
-    PhiEliminationPass() : FunctionPass(&ID) {}
+    PhiEliminationPass(PassesManagement *owns) : FunctionPass(&ID, owns) {}
     virtual ~PhiEliminationPass() override {}
 
     virtual int RunOnFunction(Function *input) override;
@@ -147,6 +168,22 @@ private:
     
     int modified_ = 0;
 }; // class PhiEliminationPass
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Virtual register live intervals analysis pass
+// Get all virtual registers live intervals for LSRA pass
+////////////////////////////////////////////////////////////////////////////////////////////////////
+class LiveIntervalAnalysisPass final : public FunctionPass {
+public:
+    LiveIntervalAnalysisPass(PassesManagement *owns) : FunctionPass(&ID, owns) {}
+    virtual ~LiveIntervalAnalysisPass() override {}
+    
+    virtual int RunOnFunction(Function *input) override;
+    
+    static const char ID;
+private:
+    void SetLiveInterval(Value *instr);
+}; // class LiveIntervalAnalysisPass
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Linear Scan Register Allocation Pass
@@ -156,31 +193,16 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class LSRAPass final : public FunctionPass {
 public:
-    struct LiveInterval {
-        int begin;
-        int end;
-    };
-    
-    LSRAPass(base::Arena *arena)
-        : FunctionPass(&ID)
+    LSRAPass(PassesManagement *owns, base::Arena *arena)
+        : FunctionPass(&ID, owns)
         , arena_(DCHECK_NOTNULL(arena)) {}
     virtual ~LSRAPass() override {}
     virtual int RunOnFunction(Function *input) override;
 
 private:
-    class RegisterSet;
-    
-    void PreparePass(Function *input);
-    const lir::RegisterOperand *AllocateRegister();
-    const lir::FPRegisterOperand *AllocateFPRegister();
-    const lir::MemoryOperand *AllocateStackSlot();
-    
     base::Arena *arena_;
-    std::unordered_map<Value *, int> virtual_live_orders_;
-    std::unordered_map<Value *, LiveInterval> virtual_live_intervals_;
-    std::unordered_map<Value *, const lir::Operand *> virtual_to_physical_;
     int stack_alive_ = 0;
-    
+
     static const char ID;
 }; // class LSRAPass
     

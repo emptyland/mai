@@ -151,14 +151,16 @@ constexpr XMMRegister xmm14(14); // 14
 
 constexpr XMMRegister xmm15(15); // 15
     
-static const constexpr int kMaxRegArgs = 8;
-static const constexpr int kMaxXmmArgs = 8;
-static const constexpr int kMaxAllocRegs = 11;
-static const constexpr int kMaxAllocXmms = 15;
+static constexpr int kMaxRegArgs = 8;
+static constexpr int kMaxXmmArgs = 8;
+static constexpr int kMaxAllocRegs = 10;
+static constexpr int kMaxAllocXmms = 15;
+static constexpr int kRegisterSize = 8;
     
 extern const Register kRegArgv[kMaxRegArgs];
 extern const XMMRegister kXmmArgv[kMaxXmmArgs];
 extern const Register kRegAlloc[kMaxAllocRegs];
+
     
 inline int IsIntN(int64_t x, uint32_t n) {
     DCHECK((0 < n) && (n < 64));
