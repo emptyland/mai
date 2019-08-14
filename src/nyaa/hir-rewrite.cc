@@ -100,7 +100,7 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
                     return;
                 case CastPriority::kNever:
                 default:
-                    DLOG(FATAL) << "Noreached!";
+                    NOREACHED();
                     break;
             }
             Value::InstID iid = TransformBinaryInst(prio.type, inst->kind());
@@ -157,7 +157,7 @@ void ReplacementRewriter::RunUse(Use *use, Value *old_val, Value *new_val) {
                     return;
                 case CastPriority::kNever:
                 default:
-                    DLOG(FATAL) << "Noreached!";
+                    NOREACHED();
                     break;
             }
             Value::InstID iid = TransformComparatorInst(prio.type);
@@ -310,7 +310,7 @@ Value *EmitCast(NyaaCore *N, Function *target, BasicBlock *bb, Value::InstID ins
     #undef DEFINE_CAST
         case hir::Value::kMaxInsts:
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return nullptr;
@@ -326,7 +326,7 @@ Value *EmitBinary(Function *target, BasicBlock *bb, Value::InstID inst, Value *l
     #undef DEFINE_CAST
         case hir::Value::kMaxInsts:
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return nullptr;
@@ -342,7 +342,7 @@ Value *EmitComparator(Function *target, BasicBlock *bb, Value::InstID inst, Comp
     #undef DEFINE_CAST
         case hir::Value::kMaxInsts:
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return nullptr;

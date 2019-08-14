@@ -215,6 +215,7 @@ inline MutView<T> MakeMutView(T *z, size_t n) { return MutView<T>{z, n}; }
 #endif
     
 #define NOREACHED() DLOG(FATAL) << "Noreached! "
+#define TODO()      DLOG(FATAL) << "TODO: "
 
 enum Initializer {
     LAZY_INSTANCE_INITIALIZER,

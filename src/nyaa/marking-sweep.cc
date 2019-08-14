@@ -110,7 +110,7 @@ public:
                 }
                 break;
             default:
-                DLOG(FATAL) << "noreached!" << space;
+                NOREACHED() << space;
                 break;
         }
     }
@@ -139,10 +139,10 @@ public:
         }
     }
     virtual void VisitPointers(Object *host, Object **begin, Object **end) override {
-        DLOG(FATAL) << "noreached!";
+        NOREACHED();
     }
     virtual void VisitMetatablePointer(Object *host, uintptr_t *word) override {
-        DLOG(FATAL) << "noreached!";
+        NOREACHED();
     }
     
 private:

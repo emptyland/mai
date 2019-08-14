@@ -1,5 +1,5 @@
-#ifndef MAI_NYAA_HIR_PASSES_H_
-#define MAI_NYAA_HIR_PASSES_H_
+#ifndef MAI_NYAA_IR_PASSES_H_
+#define MAI_NYAA_IR_PASSES_H_
 
 #include "base/base.h"
 #include "glog/logging.h"
@@ -21,13 +21,14 @@ class FPRegisterOperand;
 class Operand;
 } // namespace lir
 namespace hir {
-
-class PassesManagement;
-class FunctionPass;
 class Function;
 class BasicBlock;
 class Phi;
 class Value;
+} // namespace hir
+
+class PassesManagement;
+class FunctionPass;
     
 class Pass {
 public:
@@ -50,7 +51,7 @@ public:
         , owns_(DCHECK_NOTNULL(owns)) {}
     virtual ~FunctionPass() {}
 
-    virtual int RunOnFunction(Function *input) = 0;
+    virtual int RunOnFunction(hir::Function *input) = 0;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(FunctionPass);
 protected:
@@ -62,7 +63,7 @@ public:
     explicit BasicBlockPass(const char *unique_id) : Pass(unique_id) {}
     virtual ~BasicBlockPass() {}
     
-    virtual int RunOnBasicBlock(BasicBlock *input) = 0;
+    virtual int RunOnBasicBlock(hir::BasicBlock *input) = 0;
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(BasicBlockPass);
 }; // class BasicBlockPass
@@ -97,7 +98,7 @@ public:
         return nullptr;
     }
 
-    int RunOnFunction(Function *target) {
+    int RunOnFunction(hir::Function *target) {
         int modified = 0;
         for (Pass *pass : function_pass_seq_) {
             modified += static_cast<FunctionPass *>(pass)->RunOnFunction(target);
@@ -105,23 +106,13 @@ public:
         return modified;
     }
 
-    int RunOnBasicBlock(BasicBlock *block) {
+    int RunOnBasicBlock(hir::BasicBlock *block) {
         int modified = 0;
         for (Pass *pass : basic_block_pass_seq_) {
             modified += static_cast<BasicBlockPass *>(pass)->RunOnBasicBlock(block);
         }
         return modified;
     }
-
-    const std::unordered_map<Value *, int> &virtual_live_orders() const {
-        return virtual_live_orders_;
-    }
-    
-    const std::unordered_map<Value *, LiveInterval> &virtual_live_intervals() const {
-        return virtual_live_intervals_;
-    }
-    
-    friend class LiveIntervalAnalysisPass;
 private:
     template<class T, class Ctor> inline T *DoAddPass(Ctor callback) {
         if (std::is_base_of<FunctionPass, T>::value) {
@@ -146,9 +137,6 @@ private:
     
     std::map<const char *, Pass *> basic_block_passes_;
     std::vector<Pass *> basic_block_pass_seq_;
-    
-    std::unordered_map<Value *, int> virtual_live_orders_;
-    std::unordered_map<Value *, LiveInterval> virtual_live_intervals_;
 }; // class PassManagement
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -160,30 +148,14 @@ public:
     PhiEliminationPass(PassesManagement *owns) : FunctionPass(&ID, owns) {}
     virtual ~PhiEliminationPass() override {}
 
-    virtual int RunOnFunction(Function *input) override;
+    virtual int RunOnFunction(hir::Function *input) override;
     
     static const char ID;
 private:
-    void EliminatePhiNode(Function *target, Phi *phi);
+    void EliminatePhiNode(hir::Function *target, hir::Phi *phi);
     
     int modified_ = 0;
 }; // class PhiEliminationPass
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// Virtual register live intervals analysis pass
-// Get all virtual registers live intervals for LSRA pass
-////////////////////////////////////////////////////////////////////////////////////////////////////
-class LiveIntervalAnalysisPass final : public FunctionPass {
-public:
-    LiveIntervalAnalysisPass(PassesManagement *owns) : FunctionPass(&ID, owns) {}
-    virtual ~LiveIntervalAnalysisPass() override {}
-    
-    virtual int RunOnFunction(Function *input) override;
-    
-    static const char ID;
-private:
-    void SetLiveInterval(Value *instr);
-}; // class LiveIntervalAnalysisPass
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Linear Scan Register Allocation Pass
@@ -191,26 +163,10 @@ private:
 //     [1] http://www2.seas.gwu.edu/~hchoi/teaching/cs160d/linearscan.pdf
 //     [2] http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.1.9128&rep=rep1&type=pdf
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-class LSRAPass final : public FunctionPass {
-public:
-    LSRAPass(PassesManagement *owns, base::Arena *arena)
-        : FunctionPass(&ID, owns)
-        , arena_(DCHECK_NOTNULL(arena)) {}
-    virtual ~LSRAPass() override {}
-    virtual int RunOnFunction(Function *input) override;
-
-private:
-    base::Arena *arena_;
-    int stack_alive_ = 0;
-
-    static const char ID;
-}; // class LSRAPass
-    
-} // namespace nyaa
     
 } // namespace nyaa
 
 } // namespace mai
 
 
-#endif // MAI_NYAA_HIR_PASSES_H_
+#endif // MAI_NYAA_IR_PASSES_H_

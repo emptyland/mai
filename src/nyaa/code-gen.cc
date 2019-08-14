@@ -20,7 +20,7 @@ extern Error HIR_GenerateHIR(const BuiltinType *argv, size_t argc, const UpvalDe
                              const BuiltinType *upvals, size_t n_upvals, ast::AstNode *ast,
                              hir::Function **rv, base::Arena *arena, NyaaCore *core);
     
-extern Handle<NyCode> Code_CodeGenerateByLIR(const lir::InstructionBundle *ir_code,
+extern Handle<NyCode> Code_CodeGenerateByLIR(const lir::Function *ir_code,
                                              const BuiltinType *args, size_t argc, NyaaCore *core);
     
 /*static*/ Handle<NyFunction> CodeGen::Generate(Handle<NyString> file_name, ast::Block *root,
@@ -39,7 +39,7 @@ extern Handle<NyCode> Code_CodeGenerateByLIR(const lir::InstructionBundle *ir_co
     return Handle<NyFunction>::Empty();
 }
 
-/*static*/ Handle<NyCode> CodeGen::Generate(const lir::InstructionBundle *ir_code, // low-level-ir code
+/*static*/ Handle<NyCode> CodeGen::Generate(const lir::Function *ir_code, // low-level-ir code
                                             const BuiltinType *args, // type of arguments
                                             size_t argc, // number of arguments
                                             NyaaCore *core) {

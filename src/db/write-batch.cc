@@ -46,7 +46,7 @@ void WriteBatch::Delete(ColumnFamily *cf, std::string_view key) {
                 break;
 
             default:
-                DLOG(FATAL) << "Noreached!";
+                NOREACHED();
                 break;
         }
     }

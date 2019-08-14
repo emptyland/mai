@@ -295,7 +295,7 @@ uint32_t Big::DivAdd(MutView<uint32_t> a, MutView<uint32_t> r, size_t offset) {
     } else if (c >= 'A' && c <= 'F') {
         n = 10 + (c - 'A');
     } else {
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
     }
     return n;
 }

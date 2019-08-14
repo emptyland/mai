@@ -104,7 +104,7 @@ int CallFrame::GetFileLine(const NyInt32Array *line_info) {
             return line_info->Get(i + 2);
         }
     }
-    DLOG(FATAL) << "Noreached!";
+    NOREACHED();
     return 0;
 }
     
@@ -244,7 +244,7 @@ void NyThread::Raise(NyString *msg, Object *ex) {
             case Nyaa::kInterpreter:
                 throw interruption_pending_;
             default:
-                DLOG(FATAL) << "Noreached!";
+                NOREACHED();
                 break;
         }
     } else {
@@ -344,7 +344,7 @@ void NyThread::Yield() {
         case Nyaa::kInterpreter:
             throw interruption_pending_;
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
 }
@@ -392,7 +392,7 @@ int NyThread::Run(NyRunnable *rb, Object *argv[], int argc, int wanted, NyMap *e
         frame->Exit(this);
         delete frame;
     } else {
-        DLOG(FATAL) << "noreached!";
+        NOREACHED();
     }
     owns_->GarbageCollectionSafepoint(__FILE__, __LINE__);
     return rv;
@@ -1287,7 +1287,7 @@ int NyThread::GetLine(const NyInt32Array *line_info, int pc) const {
             return line_info->Get(i + 2);
         }
     }
-    DLOG(FATAL) << "Noreached!";
+    NOREACHED();
     return -1;
 }
 

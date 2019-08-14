@@ -19,7 +19,7 @@ namespace hir {
 class Function;
 } // namespace hir
 namespace lir {
-class InstructionBundle;
+class Function;
 } // namespace lir
 class NyaaCore;
 class NyClosure;
@@ -34,7 +34,7 @@ public:
                                        base::Arena *arena, NyaaCore *core);
 
     // Generate LIR code to machine code
-    static Handle<NyCode> Generate(const lir::InstructionBundle *ir_code, // low-level-ir code
+    static Handle<NyCode> Generate(const lir::Function *ir_code, // low-level-ir code
                                    const BuiltinType *args, // type of arguments
                                    size_t argc, // number of arguments
                                    NyaaCore *core);

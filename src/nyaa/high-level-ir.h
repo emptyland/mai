@@ -287,76 +287,6 @@ private:
     int next_val_id_ = 0;
 }; // class Function
     
-class ConstantPool final : public HIRNode {
-public:
-    ConstantPool(base::Arena *arena)
-        : vals_(arena)
-        , val_to_k_(arena) {}
-    
-    Constant *GetI62OrNull(int64_t val) const {
-        return GetOrNull({.kind = Type::kInt, .i62 = val});
-    }
-    Constant *GetF64OrNull(double val) const {
-        return GetOrNull({.kind = Type::kFloat, .f64 = val});
-    }
-    Constant *GetStringOrNull(NyString *val) const {
-        return GetOrNull({.kind = Type::kString, .str = val});
-    }
-    Constant *GetLongOrNull(NyInt *val) const {
-        return GetOrNull({.kind = Type::kLong, .lll = val});
-    }
-    Constant *GetArrayOrNull(NyMap *val) const {
-        return GetOrNull({.kind = Type::kArray, .map = val});
-    }
-    Constant *GetMapOrNull(NyMap *val) const {
-        return GetOrNull({.kind = Type::kMap, .map = val});
-    }
-    Constant *GetObjectOrNull(Object *val) const {
-        return GetOrNull({.kind = Type::kObject, .obj = val});
-    }
-    
-    inline Constant *Add(Constant *value);
-private:
-    struct Key {
-        Type::ID kind;
-        union {
-            int64_t i62;
-            double  f64;
-            NyString *str;
-            NyMap *map;
-            NyInt *lll;
-            Object *obj;
-        };
-    }; // struct Key
-    
-    struct EqualTo : public std::binary_function<Key, Key, bool> {
-        bool operator () (const Key &lhs, const Key &rhs) const;
-    }; // struct EqualTo
-    struct Hash : public std::unary_function<Key, size_t> {
-        size_t operator () (const Key &key) const;
-    }; // struct Hash
-    
-    Constant *GetOrNull(const Key &key) const {
-        auto iter = val_to_k_.find(key);
-        return iter == val_to_k_.end() ? nullptr : vals_[iter->second];
-    }
-    
-    Constant *Add(const Key &key, Constant *val) {
-        if (auto iter = val_to_k_.find(key); iter != val_to_k_.end()) {
-            return nullptr;
-        }
-        size_t idx = vals_.size();
-        val_to_k_[key] = idx;
-        vals_.push_back(val);
-        return val;
-    }
-
-    using PoolMap = base::ArenaUnorderedMap<Key, size_t, Hash, EqualTo>;
-    
-    base::ArenaVector<Constant *> vals_;
-    PoolMap val_to_k_;
-}; // class HIRConstantPool
-    
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Use and Users:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -416,13 +346,13 @@ public:
     DEF_VAL_PROP_RMW(EdgeSet, in_edges);
     DEF_VAL_PROP_RMW(EdgeSet, out_edges);
     
-    inline bool insts_empty() const;
-    inline Value *insts_begin() const;
-    inline Value *insts_last() const;
-    inline Value *insts_end() const;
+    inline bool instrs_empty() const;
+    inline Value *instrs_begin() const;
+    inline Value *instrs_last() const;
+    inline Value *instrs_end() const;
     
-    inline Value *insts_head() const;
-    inline Value *insts_tail() const;
+    inline Value *instrs_head() const;
+    inline Value *instrs_tail() const;
     
     inline bool has_terminator() const;
     bool dont_have_terminator() const { return !has_terminator(); }
@@ -1259,7 +1189,14 @@ protected:
     
 class Branch : public Terminator {
 public:
+    enum Preference {
+        kNone,
+        kLikelyTrue,
+        kLikelyFalse,
+    };
+    
     DEF_PTR_PROP_RW(Value, cond);
+    DEF_VAL_PROP_RW(Preference, pref);
     BasicBlock *if_true() const { return edge(0); }
     BasicBlock *if_false() const { return edge(1); }
     void set_if_true(BasicBlock *bb) { set_edge(0, bb); }
@@ -1282,8 +1219,9 @@ private:
         , cond_(cond) {
         Set(cond, top->arena());
     }
-    
+
     Value *cond_;
+    Preference pref_ = kNone;
 }; // class Branch
     
 class NoCondBranch : public Terminator {
@@ -1606,27 +1544,6 @@ inline int Function::ReplaceAllUses(Value *old_val, Value *new_val) {
     return n;
 }
     
-inline Constant *ConstantPool::Add(Constant *value) {
-    switch (value->type()) {
-        case Type::kInt:
-            return Add({.kind = Type::kInt, .i62 = value->i62_val()}, value);
-        case Type::kFloat:
-            return Add({.kind = Type::kFloat, .f64 = value->f64_val()}, value);
-        case Type::kLong:
-            return Add({.kind = Type::kLong, .lll = value->long_val()}, value);
-        case Type::kString:
-            return Add({.kind = Type::kString, .str = value->string_val()}, value);
-        case Type::kArray:
-            return Add({.kind = Type::kArray, .map = value->array_val()}, value);
-        case Type::kObject:
-            return Add({.kind = Type::kObject, .obj = value->obj_val()}, value);
-        default:
-            break;
-    }
-    NOREACHED();
-    return nullptr;
-}
-    
 inline BasicBlock::BasicBlock(Function *owns, int label)
     : label_(label)
     , owns_(owns)
@@ -1637,17 +1554,17 @@ inline BasicBlock::BasicBlock(Function *owns, int label)
     dummy_->prev_ = dummy_;
 }
     
-inline bool BasicBlock::insts_empty() const { return dummy_->prev_ == dummy_; }
-inline Value *BasicBlock::insts_begin() const { return dummy_->next_; }
-inline Value *BasicBlock::insts_last() const { return dummy_->prev_; }
-inline Value *BasicBlock::insts_end() const { return dummy_; }
-inline Value *BasicBlock::insts_head() const { return dummy_->next_; }
-inline Value *BasicBlock::insts_tail() const { return dummy_->prev_; }
+inline bool BasicBlock::instrs_empty() const { return dummy_->prev_ == dummy_; }
+inline Value *BasicBlock::instrs_begin() const { return dummy_->next_; }
+inline Value *BasicBlock::instrs_last() const { return dummy_->prev_; }
+inline Value *BasicBlock::instrs_end() const { return dummy_; }
+inline Value *BasicBlock::instrs_head() const { return dummy_->next_; }
+inline Value *BasicBlock::instrs_tail() const { return dummy_->prev_; }
     
-inline bool BasicBlock::has_terminator() const { return insts_last()->IsTerminator(); }
+inline bool BasicBlock::has_terminator() const { return instrs_last()->IsTerminator(); }
 
 inline Terminator *BasicBlock::get_terminator() const {
-    return has_terminator() ? down_cast<Terminator>(insts_last()) : nullptr;
+    return has_terminator() ? down_cast<Terminator>(instrs_last()) : nullptr;
 }
     
 inline int BasicBlock::ReplaceAllUses(Value *old_val, Value *new_val) {

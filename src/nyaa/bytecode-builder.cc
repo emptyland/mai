@@ -43,7 +43,7 @@ void BytecodeArrayBuilder::Load(IVal a, IVal b, int line) {
             Emit(Bytecode::kLoadConst, a.index, b.index, line);
             break;
         default:
-            DLOG(FATAL) << "noreached!";
+            NOREACHED();
             break;
     }
 }
@@ -228,7 +228,7 @@ bool ConstPoolBuilder::EqualTo::operator()(const Key &lhs, const Key &rhs) const
         default:
             break;
     }
-    DLOG(FATAL) << "noreached!";
+    NOREACHED();
     return false;
 }
 
@@ -245,7 +245,7 @@ size_t ConstPoolBuilder::Hash::operator()(const Key &key) const {
         default:
             break;
     }
-    DLOG(FATAL) << "noreached!";
+    NOREACHED();
     return 0;
 }
     

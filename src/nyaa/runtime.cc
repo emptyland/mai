@@ -131,7 +131,7 @@ using NyaaCoreTemplate = arch::ObjectTemplate<NyaaCore>;
             name = N->bkz_pool()->kInnerNewindex;
             break;
         default:
-            DLOG(FATAL) << "Noreached: " << op;
+            NOREACHED() << op;
             break;
     }
     switch (ob->GetType()) {

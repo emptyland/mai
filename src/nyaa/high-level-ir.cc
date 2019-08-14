@@ -517,84 +517,11 @@ void BasicBlock::PrintTo(FILE *fp) const {
 //        putc('\n', fp);
 //    }
     
-    for (Value *inst = insts_begin(); inst != insts_end(); inst = inst->next_) {
+    for (Value *inst = instrs_begin(); inst != instrs_end(); inst = inst->next_) {
         fprintf(fp, "    ");
         inst->PrintTo(fp);
         fprintf(fp, "; line = %d\n", inst->line());
     }
-}
-    
-
-bool ConstantPool::EqualTo::operator () (const Key &lhs, const Key &rhs) const {
-    if (lhs.kind != rhs.kind) {
-        return false;
-    }
-    switch (lhs.kind) {
-        case Type::kInt:
-            return lhs.i62 == rhs.i62;
-        case Type::kFloat:
-            return NyFloat64::Near(lhs.f64, rhs.f64);
-        case Type::kLong:
-            return NyInt::Compare(lhs.lll, rhs.lll) == 0;
-        case Type::kString:
-            return lhs.str->Compare(rhs.str) == 0;
-        case Type::kArray:
-        case Type::kMap:
-            return lhs.map == rhs.map;
-        case Type::kObject:
-            if (lhs.obj->GetType() != rhs.obj->GetType()) {
-                return false;
-            }
-            switch (lhs.obj->GetType()) {
-                case kTypeMap:
-                case kTypeUdo:
-                    return lhs.obj == rhs.obj;
-                default:
-                    return Object::Equal(lhs.obj, rhs.obj, nullptr);
-            }
-            break;
-        default:
-            break;
-    }
-    NOREACHED();
-    return false;
-}
-
-size_t ConstantPool::Hash::operator () (const Key &key) const {
-    switch (key.kind) {
-        case Type::kInt:
-            return key.i62;
-        case Type::kFloat: {
-            uint64_t bits = *reinterpret_cast<const uint64_t *>(&key.f64);
-            return static_cast<size_t>(bits * bits >> 16);
-        }
-        case Type::kLong:
-            return key.lll->HashVal();
-        case Type::kString:
-            return key.str->hash_val();
-        case Type::kArray:
-        case Type::kMap:
-            return reinterpret_cast<size_t>(key.map);
-        case Type::kObject:
-            switch (key.obj->GetType()) {
-                case kTypeNil:
-                    return 0;
-                case kTypeSmi:
-                case kTypeInt:
-                case kTypeString:
-                    return key.obj->HashVal(nullptr);
-                case kTypeMap:
-                    return reinterpret_cast<size_t>(key.obj);
-                default:
-                    NOREACHED();
-                    break;
-            }
-            break;
-        default:
-            NOREACHED();
-            break;
-    }
-    return false;
 }
     
 Object *Constant::AsObject(NyaaCore *N) const {
@@ -610,7 +537,7 @@ Object *Constant::AsObject(NyaaCore *N) const {
         case Type::kObject:
             return stub_;
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return nullptr;
@@ -648,7 +575,7 @@ Object *Constant::AsObject(NyaaCore *N) const {
             }
             break;
         default:
-            DLOG(FATAL) << "Noreached!" << Type::kNames[type()];
+            NOREACHED() << Type::kNames[type()];
             break;
     }
 }
@@ -767,10 +694,10 @@ Object *Constant::AsObject(NyaaCore *N) const {
     
 Alloca::Alloca(Function *top, Type::ID type, int line)
     : Value(top, nullptr, type, line) {
-    if (top->entry()->insts_empty() || !top->entry()->insts_head()->IsAlloca()) {
+    if (top->entry()->instrs_empty() || !top->entry()->instrs_head()->IsAlloca()) {
         top->entry()->InsertHead(this);
     } else {
-        Value *prev = top->entry()->insts_begin();
+        Value *prev = top->entry()->instrs_begin();
         Value *p = prev->next();
         while (p) {
             if (!p->IsAlloca()) {

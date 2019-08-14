@@ -35,7 +35,7 @@ static size_t GetSize(const HeapRawData &data, SQLType type) {
             return sizeof(data.dec);
 
         default:
-            DLOG(FATAL) << "noreached";
+            NOREACHED();
             break;
     }
     return 0;
@@ -296,7 +296,7 @@ HeapTuple *HeapTupleBuilder::Build() {
                 offset += sizeof(unpacked_[i].dec);
                 break;
             default:
-                DLOG(FATAL) << "noreached";
+                NOREACHED();
                 break;
         }
     }

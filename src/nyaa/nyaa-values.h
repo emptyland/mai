@@ -988,7 +988,7 @@ inline uint32_t Object::HashVal(NyaaCore *N) const {
         default:
             break;
     }
-    DLOG(FATAL) << "Noreached!";
+    NOREACHED();
     return 0;
 }
     

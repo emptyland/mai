@@ -616,7 +616,7 @@ private:
                 return base_line->overflow;
             }
         }
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
         return 0;
     }
     

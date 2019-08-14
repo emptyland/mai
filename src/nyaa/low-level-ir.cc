@@ -201,6 +201,11 @@ const MemoryOperand *Architecture::kLowStackSlots[kMaxStackSlots] = {
             break;
     }
 }
+
+/*virtual*/ void UnallocatedOperand::PrintTo(FILE *fp) const {
+    ::fprintf(fp, "v%d", vid_);
+    // TODO:
+}
     
 void Instruction::PrintTo(FILE *fp) {
     ::fprintf(fp, "%s", kIRCodeNames[op_]);

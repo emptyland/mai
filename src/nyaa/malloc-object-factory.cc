@@ -116,7 +116,7 @@ public:
     virtual NyBytecodeArray *NewBytecodeArray(NyInt32Array *source_lines, Address bytecodes,
                                               size_t bytecode_bytes_size, bool old) override {
         // TODO:
-        DLOG(FATAL) << "Noreached!";
+        TODO();
         return nullptr;
     }
     
@@ -145,7 +145,7 @@ public:
     virtual NyCode *NewCode(int kind, NyInt32Array *source_lines, const uint8_t *instructions,
                             size_t instructions_byte_size) override {
         // TODO:
-        DLOG(FATAL) << "Noreached!";
+        TODO();
         return nullptr;
     }
     

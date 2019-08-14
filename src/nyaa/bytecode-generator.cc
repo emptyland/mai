@@ -349,7 +349,7 @@ public:
                 builder()->Move(ret, rhs, node->line());
             } break;
             default:
-                DLOG(FATAL) << "Noreached:" << node->op();
+                NOREACHED() << node->op();
                 break;
         }
         fun_scope_->FreeVar(rhs);
@@ -435,7 +435,7 @@ private:
                 break;
             case IVal::kVoid:
             default:
-                DLOG(FATAL) << "noreached.";
+                NOREACHED();
                 break;
         }
         return val;

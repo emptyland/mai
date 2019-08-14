@@ -92,9 +92,9 @@ public:
     LIRSourceLineScope(int line) {}
 }; // class LIRSourceLineScope
     
-class LIRCodeGenerator final {
+class MachineCodeGenerator final {
 public:
-    LIRCodeGenerator(const lir::InstructionBundle *instrs)
+    MachineCodeGenerator(const lir::Function *instrs)
         : instrs_(DCHECK_NOTNULL(instrs)) {}
     
     void Run() {
@@ -158,7 +158,7 @@ private:
         return bytes;
     }
 
-    const lir::InstructionBundle *instrs_;
+    const lir::Function *instrs_;
     Assembler masm_;
     std::vector<int32_t> source_lines_;
 }; // class LIRCodeGenerator
@@ -217,7 +217,7 @@ do { \
     } \
 } while(0)
 
-void LIRCodeGenerator::AssembleInstr(const X64OperandConversion &instr) {
+void MachineCodeGenerator::AssembleInstr(const X64OperandConversion &instr) {
     LIRSourceLineScope scope(instr.ir()->line());
 
     switch (instr.Code()) {
@@ -330,11 +330,11 @@ void LIRCodeGenerator::AssembleInstr(const X64OperandConversion &instr) {
     }
 }
     
-Handle<NyCode> Code_CodeGenerateByLIR(const lir::InstructionBundle *ir_code, // low-level-ir code
+Handle<NyCode> Code_CodeGenerateByLIR(const lir::Function *ir_code, // low-level-ir code
                                       const BuiltinType *args, // type of arguments
                                       size_t argc, // number of arguments
                                       NyaaCore *core) {
-    LIRCodeGenerator generator(ir_code);
+    MachineCodeGenerator generator(ir_code);
     generator.Run();
     std::string code(generator.FullAlignmentCode());
     for (size_t i = 0; i < argc; ++i) {

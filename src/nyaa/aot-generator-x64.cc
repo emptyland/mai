@@ -470,7 +470,7 @@ public:
                 __ movq(Local(ret.index), rax);
             } break;
             default:
-                DLOG(FATAL) << "Noreached:" << node->op();
+                NOREACHED() << node->op();
                 break;
         }
         fun_scope_->FreeVar(rhs);
@@ -720,7 +720,7 @@ private:
             }
             case IVal::kVoid:
             default:
-                DLOG(FATAL) << "noreached.";
+                NOREACHED();
                 break;
         }
         return val;

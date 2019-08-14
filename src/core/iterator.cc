@@ -30,7 +30,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(ErrorInternalIterator);
 private:
     void Noreached() const {
-        LOG(FATAL) << "Noreached! " << error_.ToString();
+        NOREACHED() << error_.ToString();
     }
     
     Error error_;

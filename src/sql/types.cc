@@ -276,7 +276,7 @@ bool SQLValue::IsZero() const {
         case kDecimal:
             return dec_val->zero();
         default:
-            DLOG(FATAL) << "Noreached";
+            NOREACHED();
             break;
     }
     return false;
@@ -494,7 +494,7 @@ SQLValue SQLValue::ToNumeric(base::Arena *arena, Kind hint) const {
             break;
             
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return v;
@@ -523,7 +523,7 @@ SQLValue SQLValue::ToIntegral(base::Arena *arena, Kind hint) const {
             }
             break;
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return v;
@@ -549,7 +549,7 @@ SQLValue SQLValue::ToFloating(base::Arena *arena, Kind hint) const {
             v.f64_val = v.dec_val->ToF64();
             break;
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return v;
@@ -574,7 +574,7 @@ SQLValue SQLValue::ToDecimal(base::Arena *arena, Kind hint) const {
         case kDecimal:
             break;
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return v;
@@ -602,7 +602,7 @@ bool SQLValue::StrictEquals(const SQLValue &v) const {
         case kDateTime:
             return v.kind == kind && ::memcmp(&dt_val, &v.dt_val, sizeof(SQLDateTime)) == 0;
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return false;
@@ -674,7 +674,7 @@ int SQLValue::Compare(const SQLValue &rhs, base::Arena *arena) const {
             r = rhs.ToIntegral(arena, kDateTime);
             return COMPARE_VAL(dt_val.ToU64(), r.u64_val);
         default:
-            DLOG(FATAL) << "Noreached";
+            NOREACHED();
             break;
     }
     return 0;

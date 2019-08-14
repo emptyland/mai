@@ -27,6 +27,7 @@ namespace lir {
     V(RestoreCallerRegisters) \
     V(RestoreCallerPartialRegisters) \
     V(Breakpoint) \
+    V(Branch) \
     V(Jump)
 
 #define DECL_ARCH_LIR_CODE(V) \
@@ -41,6 +42,8 @@ namespace lir {
     V(Div32) \
     V(Mod) \
     V(Mod32) \
+    V(Cmp) \
+    V(Cmp32) \
     V(Ret)
     
 class Instruction;
@@ -48,7 +51,7 @@ class Operand;
 class MemoryOperand;
 class RegisterOperand;
 class FPRegisterOperand;
-class InstructionBundle;
+class Function;
 class Block;
     
 enum IRCode {
@@ -57,6 +60,25 @@ enum IRCode {
 #undef DEFINE_ENUM
     kMaxIRCodes,
 }; // enum IRCode
+    
+enum IRComparator {
+    kEqual,
+    kNotEqual,
+    kLessThan,
+    kLessThanOrEqual,
+    kGreaterThan,
+    kGreaterThanOrEqual,
+    kOverflow,
+    kNotOverflow,
+};
+    
+enum JumpPreference {
+    kNotSpecial,
+    kLikely0,
+    kLikely1,
+    kUnlikely0,
+    kUnlikely1,
+};
     
 extern const char *kIRCodeNames[kMaxIRCodes];
 
@@ -87,13 +109,14 @@ public:
     void *operator new (size_t size, base::Arena *arena) {
         return arena->Allocate(size);
     }
-    
+
     void operator delete (void *p) = delete;
 }; // class LIRNode
-    
+
 class Operand : public LIRNode {
 public:
     enum Kind {
+        kUnallocated,
         kLabel,
         kImmediate,
         kMemory,
@@ -110,6 +133,36 @@ public:
 private:
     Kind kind_;
 }; // class Operand
+
+class UnallocatedOperand final : public Operand {
+public:
+    enum Policy {
+        kNone,
+        kRegisterOrSlot,
+        kRegisterOrSlotOrConstant,
+        kFixedRegister,
+        kFixedFPRegister,
+        kMustHasRegister,
+        kMustHasSlot,
+    };
+    
+    explicit UnallocatedOperand(int vid, Policy policy = kNone)
+        : Operand(kUnallocated)
+        , vid_(vid)
+        , policy_(policy) {}
+    
+    static UnallocatedOperand *New(int vid, Policy policy, base::Arena *arena) {
+        return new (arena) UnallocatedOperand(vid, policy);
+    }
+    
+    DEF_VAL_GETTER(int, vid);
+    DEF_VAL_GETTER(Policy, policy);
+
+    virtual void PrintTo(FILE *fp) const override;
+private:
+    int vid_;
+    Policy policy_;
+}; // class UnallocatedOperand
     
 class ImmediateOperand : public Operand {
 public:
@@ -220,11 +273,7 @@ public:
     
     DEF_VAL_GETTER(int, base);
     DEF_VAL_GETTER(int, offset);
-    
-    void *operator new (size_t size, base::Arena *arena) {
-        return arena->Allocate(size);
-    }
-    
+
     const RegisterOperand &BaseRegister() const {
         return *Architecture::kAllRegisters[base_];
     }
@@ -253,16 +302,12 @@ private:
 class Block final : public Operand {
 public:
     using InstrList = base::ArenaVector<Instruction *>;
-
-    Block(int label, base::Arena *arena)
-        : Operand(kLabel)
-        , label_(label)
-        , instrs_(arena) {}
     
     DEF_VAL_GETTER(int, label);
     
     InstrList::const_iterator instr_begin() const { return instrs_.cbegin(); }
     InstrList::const_iterator instr_end() const { return instrs_.cend(); }
+    Instruction *instr_last() const { return instrs_.back(); }
     size_t instrs_size() const { return instrs_.size(); }
     Instruction *instr(size_t i) const { return instrs_[i]; }
     
@@ -271,6 +316,8 @@ public:
     inline void PrintAll(FILE *fp) const;
 
     virtual void PrintTo(FILE *fp) const override { ::fprintf(fp, "l%d", label_); }
+    
+    static Block *New(int label, base::Arena *arena) { return new (arena) Block(label, arena); }
 
     static const Block *Ensure(const Operand *op) {
         DCHECK_EQ(kLabel, op->kind());
@@ -282,6 +329,11 @@ public:
         return static_cast<Block *>(op);
     }
 private:
+    Block(int label, base::Arena *arena)
+        : Operand(kLabel)
+        , label_(label)
+        , instrs_(arena) {}
+    
     int label_;
     InstrList instrs_;
 }; // class Block
@@ -290,9 +342,11 @@ private:
 class Instruction final {
 public:
     DEF_VAL_GETTER(IRCode, op);
+    DEF_VAL_GETTER(int, subcode);
+    DEF_VAL_PROP_RW(int, hint);
     DEF_VAL_GETTER(int, line);
     DEF_VAL_GETTER(int, n_inputs);
-    DEF_PTR_GETTER(const Operand, output);
+    DEF_PTR_PROP_RW(const Operand, output);
 
     const Operand *input(int i) const {
         DCHECK_GE(i, 0);
@@ -310,14 +364,14 @@ public:
 
     static Instruction *New(IRCode op, const Operand *dst, int line, base::Arena *arena) {
         void *chunk = arena->Allocate(RequiredSize(0));
-        Instruction *instr = new (chunk) Instruction(op, dst, 0, line);
+        Instruction *instr = new (chunk) Instruction(op, 0, dst, 0, line);
         return instr;
     }
 
     static Instruction *New(IRCode op, const Operand *dst, const Operand *src, int line,
                             base::Arena *arena) {
         void *chunk = arena->Allocate(RequiredSize(1));
-        Instruction *instr = new (chunk) Instruction(op, dst, 1, line);
+        Instruction *instr = new (chunk) Instruction(op, 0, dst, 1, line);
         instr->input_[0] = src;
         return instr;
     }
@@ -325,16 +379,16 @@ public:
     static Instruction *New(IRCode op, const Operand *dst, const Operand *lhs, const Operand *rhs,
                             int line, base::Arena *arena) {
         void *chunk = arena->Allocate(RequiredSize(2));
-        Instruction *instr = new (chunk) Instruction(op, dst, 2, line);
+        Instruction *instr = new (chunk) Instruction(op, 0, dst, 2, line);
         instr->input_[0] = lhs;
         instr->input_[1] = rhs;
         return instr;
     }
     
-    static Instruction *New(IRCode op, const Operand *dst, int n_inputs, int line,
+    static Instruction *New(IRCode op, int subcode, const Operand *dst, int n_inputs, int line,
                             base::Arena *arena) {
         void *chunk = arena->Allocate(RequiredSize(n_inputs));
-        return new (chunk) Instruction(op, dst, n_inputs, line);
+        return new (chunk) Instruction(op, subcode, dst, n_inputs, line);
     }
     
     static size_t RequiredSize(int n_inputs) {
@@ -343,8 +397,9 @@ public:
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Instruction);
 private:
-    Instruction(IRCode op, const Operand *output, int n_inputs, int line)
+    Instruction(IRCode op, int subcode, const Operand *output, int n_inputs, int line)
         : op_(op)
+        , subcode_(subcode)
         , line_(line)
         , n_inputs_(n_inputs)
         , output_(output) {
@@ -354,19 +409,17 @@ private:
     }
 
     IRCode op_;
+    int subcode_;
     int line_;
     int n_inputs_;
-    const Operand *const output_;
+    int hint_ = 0;
+    const Operand *output_;
     const Operand *input_[1];
 }; // class Instruction
     
-class InstructionBundle final {
+class Function final : public LIRNode {
 public:
     using BlockList = base::ArenaVector<Block *>;
-    
-    InstructionBundle(base::Arena *arena)
-        : arena_(arena)
-        , blocks_(arena) {}
 
     DEF_VAL_GETTER(BlockList, blocks);
 
@@ -378,11 +431,19 @@ public:
     }
 
     Block *NewBlock(int label) {
-        Block *blk = new (arena_) Block(label, arena_);
+        Block *blk = Block::New(label, arena_);
         blocks_.push_back(blk);
         return blk;
     }
+    
+    void AddBlock(Block *block) { blocks_.push_back(block); }
+    
+    static Function *New(base::Arena *arena) { return new (arena) Function(arena); }
 private:
+    Function(base::Arena *arena)
+        : arena_(arena)
+        , blocks_(arena) {}
+    
     BlockList blocks_;
     base::Arena *arena_;
 }; // class InstructionBundle

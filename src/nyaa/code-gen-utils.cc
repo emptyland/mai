@@ -593,7 +593,7 @@ IVal CodeGeneratorVisitor::DefineClass(ast::ObjectDefinition *node, ast::Express
             } else if (ast::FunctionDefinition *func = stmt->ToFunctionDefinition()) {
                 DefineClassMethod(node->name(), func, &kvs);
             } else {
-                DLOG(FATAL) << "noreached!";
+                NOREACHED();
             }
         }
     }

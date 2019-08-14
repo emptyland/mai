@@ -41,7 +41,7 @@ public:
 private:
     void Noreached() {
         error_ = MAI_CORRUPTION("Noreached!");
-        DLOG(FATAL) << "Noreached!";
+        NOREACHED();
     }
 
     Table::Iterator iter_;

@@ -1287,7 +1287,7 @@ public:
                 PROCESS_UNARY(Not);
         #undef PROCESS_UNARY
             default:
-                DLOG(FATAL) << "Noreached!";
+                NOREACHED();
                 break;
         }
         return IVal::HIR(DCHECK_NOTNULL(val));

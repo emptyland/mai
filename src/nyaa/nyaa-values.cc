@@ -529,7 +529,7 @@ void NyObject::Iterate(ObjectVisitor *visitor) {
             static_cast<NyUDO *>(this)->Iterate(visitor);
             break;
         default:
-            DLOG(FATAL) << "Noreached";
+            NOREACHED();
             break;
     }
 }
@@ -548,7 +548,7 @@ size_t NyObject::PlacedSize() const {
             static_cast<const NyUDO *>(this)->PlacedSize();
             break;
         default:
-            DLOG(FATAL) << "Noreached";
+            NOREACHED();
             break;
     }
     return RoundUp(bytes, kAllocateAlignmentSize);
@@ -683,7 +683,7 @@ NyString *NyObject::ToString(NyaaCore *N) {
         default:
             break;
     }
-    DLOG(FATAL) << "Noreached!" << GetType();
+    NOREACHED() << GetType();
     return nullptr;
 }
 
@@ -1848,7 +1848,7 @@ std::tuple<Object *, Object *> NyTable::GetNextPair(Object *key, NyaaCore *N) {
         } break;
         case kNode:
         default:
-            DLOG(FATAL) << "noreached";
+            NOREACHED();
             break;
     }
     return {nullptr, nullptr};
@@ -1940,7 +1940,7 @@ bool NyTable::DoDelete(Object *key, NyaaCore *N) {
             break;
         case kNode:
         default:
-            DLOG(FATAL) << "noreached";
+            NOREACHED();
             break;
     }
     return false;
@@ -1984,7 +1984,7 @@ bool NyTable::DoPut(Object *key, Object *value, NyaaCore *N) {
         } break;
         case kNode:
         default:
-            DLOG(FATAL) << "noreached";
+            NOREACHED();
             break;
     }
     return false;
