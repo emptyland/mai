@@ -20,6 +20,11 @@ namespace lir {
 #define DECL_COMMON_LIR_CODE(V) \
     V(InboxSmi) \
     V(InboxFloat64) \
+    V(SmiAdd) \
+    V(SmiSub) \
+    V(SmiMul) \
+    V(SmiDiv) \
+    V(SmiMod) \
     V(Constant) \
     V(SaveCallerRegisters) \
     V(SaveCallerPartialRegisters) \
@@ -48,6 +53,7 @@ namespace lir {
     
 class Instruction;
 class Operand;
+class UnallocatedOperand;
 class MemoryOperand;
 class RegisterOperand;
 class FPRegisterOperand;
@@ -346,6 +352,7 @@ public:
     DEF_VAL_PROP_RW(int, hint);
     DEF_VAL_GETTER(int, line);
     DEF_VAL_GETTER(int, n_inputs);
+    DEF_PTR_PROP_RW(const Operand, temp);
     DEF_PTR_PROP_RW(const Operand, output);
 
     const Operand *input(int i) const {
@@ -414,14 +421,19 @@ private:
     int n_inputs_;
     int hint_ = 0;
     const Operand *output_;
+    const Operand *temp_ = nullptr;
     const Operand *input_[1];
 }; // class Instruction
     
 class Function final : public LIRNode {
 public:
     using BlockList = base::ArenaVector<Block *>;
+    using ParameterList = base::ArenaVector<const Operand *>;
 
     DEF_VAL_GETTER(BlockList, blocks);
+    DEF_VAL_GETTER(ParameterList, parameters);
+    
+    void AddParameter(const Operand *param) { parameters_.push_back(param); }
 
     void PrintAll(FILE *fp) const {
         for (auto block : blocks_) {
@@ -442,8 +454,10 @@ public:
 private:
     Function(base::Arena *arena)
         : arena_(arena)
+        , parameters_(arena)
         , blocks_(arena) {}
     
+    ParameterList parameters_;
     BlockList blocks_;
     base::Arena *arena_;
 }; // class InstructionBundle

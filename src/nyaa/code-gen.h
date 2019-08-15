@@ -25,6 +25,7 @@ class NyaaCore;
 class NyClosure;
 class NyFunction;
 class NyString;
+class NyArray;
 struct UpvalDesc;
 
 class CodeGen final {
@@ -57,6 +58,13 @@ public:
                              ast::AstNode *ast, // AST for generate
                              hir::Function **rv, // result
                              // TODO: constant pool
+                             base::Arena *arena,
+                             NyaaCore *core);
+    
+    // Generate low-level IR
+    static Error GenerateLIR(hir::Function *func, // high-level-ir function
+                             Handle<NyArray> *kpool, // received constant pool
+                             lir::Function **rv, // received low-level-ir function
                              base::Arena *arena,
                              NyaaCore *core);
 

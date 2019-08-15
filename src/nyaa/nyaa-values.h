@@ -133,6 +133,8 @@ public:
     //static constexpr const int64_t kMinValue = -0x1fffffffffffffffll;
     static constexpr const int64_t kMinValue = -0x2000000000000000ll;
     
+    static bool Contain(int64_t val) { return val >= kMinValue && val <= kMaxValue; }
+    
     static Object *New(int64_t value) {
         intptr_t word = value;
         return reinterpret_cast<Object *>((word << 2) | 1);

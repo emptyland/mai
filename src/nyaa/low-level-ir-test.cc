@@ -1,4 +1,5 @@
 #include "nyaa/low-level-ir.h"
+#include "nyaa/high-level-ir.h"
 #include "nyaa/thread.h"
 #include "nyaa/code-gen.h"
 #include "nyaa/runtime.h"

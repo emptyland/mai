@@ -23,6 +23,9 @@ extern Error HIR_GenerateHIR(const BuiltinType *argv, size_t argc, const UpvalDe
 extern Handle<NyCode> Code_CodeGenerateByLIR(const lir::Function *ir_code,
                                              const BuiltinType *args, size_t argc, NyaaCore *core);
     
+extern Error Arch_GenerateLIR(hir::Function *func, Handle<NyArray> *kpool, lir::Function **rv,
+                              base::Arena *arena, NyaaCore *core);
+    
 /*static*/ Handle<NyFunction> CodeGen::Generate(Handle<NyString> file_name, ast::Block *root,
                                                 base::Arena *arena, NyaaCore *core) {
     switch (core->stub()->exec()) {
@@ -93,6 +96,15 @@ extern Handle<NyCode> Code_CodeGenerateByLIR(const lir::Function *ir_code,
     // TODO:
     
     return HIR_GenerateHIR(args, argc, desc, upvals, n_upvals, ast, rv, arena, core);
+}
+    
+// Generate low-level IR
+/*static*/ Error CodeGen::GenerateLIR(hir::Function *func, // high-level-ir function
+                                      Handle<NyArray> *kpool, // received constant pool
+                                      lir::Function **rv, // received low-level-ir function
+                                      base::Arena *arena,
+                                      NyaaCore *core) {
+    return Arch_GenerateLIR(func, kpool, rv, arena, core);
 }
     
 } // namespace nyaa

@@ -245,10 +245,11 @@ void MachineCodeGenerator::AssembleInstr(const X64OperandConversion &instr) {
             }
             break;
 
+        // Constant rm <- subcode
         case lir::kConstant: {
             __ movq(Runtime::kScratch, Operand(Runtime::kThread, NyThread::kOffsetFrame));
             __ movq(Runtime::kScratch, Operand(Runtime::kScratch, CallFrame::kOffsetConstPool));
-            int index = instr.ImmediateInput(0)->i32_value();
+            int index = instr.ir()->subcode();
             int32_t disp = NyArray::kOffsetElems + (index << kPointerShift);
             if (instr.IsMemoryOutput()) {
                 __ movq(Runtime::kScratch, Operand(Runtime::kScratch, disp));
