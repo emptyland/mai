@@ -25,6 +25,7 @@ namespace lir {
     V(SmiMul) \
     V(SmiDiv) \
     V(SmiMod) \
+    V(MoveBaseOfStack) \
     V(Constant) \
     V(SaveCallerRegisters) \
     V(SaveCallerPartialRegisters) \
@@ -93,6 +94,7 @@ struct Architecture final {
 
 #if defined(MAI_ARCH_X64)
     static constexpr int kMaxRegisters = 16;
+    static constexpr int kMaxArgsRegisters = 8;
     static constexpr int kMaxFPRegisters = 16;
     static constexpr int kMaxAllocatableRegisters = 10;
     
@@ -100,6 +102,7 @@ struct Architecture final {
 #endif // defined(MAI_ARCH_X64)
     
     static const RegisterOperand *kAllRegisters[kMaxRegisters];
+    static const RegisterOperand *kArgvRegisters[kMaxArgsRegisters];
     static const FPRegisterOperand *kAllFPRegisters[kMaxFPRegisters];
     static const RegisterOperand *kAllocatableRegisters[kMaxAllocatableRegisters];
     static const MemoryOperand *kLowStackSlots[kMaxStackSlots];
@@ -152,21 +155,28 @@ public:
         kMustHasSlot,
     };
     
-    explicit UnallocatedOperand(int vid, Policy policy = kNone)
+    explicit UnallocatedOperand(int vid, int reserved, Policy policy)
         : Operand(kUnallocated)
         , vid_(vid)
+        , reserved_(reserved)
         , policy_(policy) {}
-    
+
     static UnallocatedOperand *New(int vid, Policy policy, base::Arena *arena) {
-        return new (arena) UnallocatedOperand(vid, policy);
+        return new (arena) UnallocatedOperand(vid, 1, policy);
+    }
+    
+    static UnallocatedOperand *New(int vid, int reserved, Policy policy, base::Arena *arena) {
+        return new (arena) UnallocatedOperand(vid, reserved, policy);
     }
     
     DEF_VAL_GETTER(int, vid);
     DEF_VAL_GETTER(Policy, policy);
+    DEF_VAL_GETTER(int, reserved);
 
     virtual void PrintTo(FILE *fp) const override;
 private:
     int vid_;
+    int reserved_;
     Policy policy_;
 }; // class UnallocatedOperand
     

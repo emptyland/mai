@@ -4,9 +4,7 @@
 
 `int` : 63 bits integer
 
-`float` : 63 bits float point number
-
-`decimal` : [object] fixed point number
+`float` : 64 bits float point number
 
 `string` : [object] binary strings
 
@@ -28,26 +26,18 @@ var t = {
 ```
 
 ```
-class bar(d, e) {
-    property rw d, e
-}
-class foo(a,b,c) : bar(a,b) {
-    
-    property [rw] a, b, c
-}
-
-class foo: bar {
-    def __init__ {
+class foo
+    def __init__
         m = 1, n = 1, o = 1, p = 1
         super:__init__(m, n)
-    }
-    def __apply__(a,b,c)
-    def __add__(a,b,c)
-    def doit = io.printf(‘%s’, m)
-    def doit2(m, n) = (m_, n_) = (m, n)
+    end
+    def __apply__(a,b,c) end
+    def __add__(a,b,c) end
+    def doit() io.printf(‘%s’, m) end
+    def doit2(self, m, n) self.m_, self.n_ = m, n end
     property [ro] m, n, o, p
     property [rw] a, b, c
-}
+end
 
 ```
 
@@ -61,6 +51,7 @@ int :
 ```
 var i = 1000
 var i, j, k = 1, 2, 3
+val m, n = -1, 0
 ```
 
 float : 
@@ -68,16 +59,10 @@ float :
 ```
 var i = 1.1
 var i, j, k = 1.1, .1, 1.1e-10
+val m = 1, n = 100
 ```
 
 #### 1.2 Object Types
-
-decimal :
-
-```
-var i = @1.1
-var i, j, k = @1.1, @.1, @1.1e-10
-```
 
 string :
 
@@ -114,14 +99,14 @@ var a = {1,2,3,4,5} // array like
 object :
 
 ```
-object foo {
-	def fn(a,b,c) = c, b, a
-	def fn2(a,b) = a + b
-	def setM(m) { m_ = m }
+object foo
+	def fn(a,b,c) return c, b, a end
+	def fn2(a,b) return a + b end
+	def setM(m) m_ = m end
 	
 	propery[ro] m, n, o, p, q
 	propery[rw] r, s, t = 1, 2, 3
-}
+end
 
 print(foo.m, foo.n)
 print(foo.fn(1,2,3))
@@ -132,22 +117,22 @@ print(foo.fn2(1,2))
 class :
 
 ```
-class foo(a, b, c) {
+class foo
 	property[ro] a, b, c
 	
-	def setA(self, a) { self.a_ = a }
-	
-}
+	def setA(self, a) self.a_ = a end
+end
 
 var o = new foo(1, 2, 3)
 print(o.a, o.b, o.c)
 
-class bar(a, b, c, d, e, f) : foo(a, b, c) {
-	def __init__(a, b, c, d, e, f) {
-	}
+class bar
+	def __init__(a, b, c, d, e, f)
+		self.a_, self.b_, self.c_, self.d_, self.e_, self.f_ = a, b, c, d, e, f
+	end
 	
-	property[ro] d, e, f
-}
+	property[ro] a, b, c, d, e, f
+end
 o = new bar(1, 2, 3, 4, 5, 6)
 print(o.d, o.e, o.f)
 
@@ -157,9 +142,9 @@ print(o.d, o.e, o.f)
 function :
 
 ```
-def fn(a) = a + 1
-def fn(t) = if (t) print (car(t)) else fn(cdr(t))
-var t = map({1, 2, 3}, lambda (a) = a + 1)
+def fn(a) return a + 1 end
+def fn(t) = if (t) print (car(t)) else fn(cdr(t)) end
+val t = map({1, 2, 3}, lambda (a) = a + 1)
 ```
 
 ### 2. Meta Table
@@ -212,6 +197,8 @@ var foo_class = {
 	d: {kDoffset, rw},
 	__total_size__: kSizeofFoo,
 }
+
+val a = name?.ook
 ```
 
 ### 3. Syntax

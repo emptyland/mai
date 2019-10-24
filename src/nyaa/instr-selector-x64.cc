@@ -250,6 +250,27 @@ void X64InstrSelector::GenerateInstr(lir::Block *block, hir::Value *val) {
                 block->Add(instr);
             }
         } break;
+            
+        case hir::Value::kRet: {
+            hir::Ret *ret = hir::Ret::Cast(val);
+            lir::Operand *base = lir::UnallocatedOperand::New(ret->index(),
+                                                              static_cast<int>(ret->ret_vals_size()),
+                                                              lir::UnallocatedOperand::kMustHasSlot,
+                                                              arena_);
+            instr = lir::Instruction::New(lir::kMoveBaseOfStack, 0/*subcode*/, base/*output*/,
+                                          static_cast<int>(ret->ret_vals_size()),
+                                          ret->line(), arena_);
+            for (size_t i = 0; i < ret->ret_vals().size(); ++i) {
+                instr->set_input(static_cast<int>(i), GetOrNew(block, ret->ret_val(i)));
+            }
+            block->Add(instr);
+            
+            instr = lir::Instruction::New(lir::kSaveCallerRegisters, nullptr, ret->line(), arena_);
+            block->Add(instr);
+            
+            instr = lir::Instruction::New(lir::kRestoreCallerRegisters, nullptr, ret->line(), arena_);
+            block->Add(instr);
+        } break;
 
         case hir::Value::kIAdd: {
             TwoAddress two = ToTwoAddress(block, static_cast<hir::BinaryInst *>(val));

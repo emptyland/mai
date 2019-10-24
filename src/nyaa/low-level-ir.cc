@@ -75,6 +75,17 @@ const RegisterOperand *Architecture::kAllRegisters[kMaxRegisters] = {
     &kAllX64Regs[8],  &kAllX64Regs[9],  &kAllX64Regs[10], &kAllX64Regs[11],
     &kAllX64Regs[12], &kAllX64Regs[13], &kAllX64Regs[14], &kAllX64Regs[15],
 };
+    
+const RegisterOperand *Architecture::kArgvRegisters[kMaxArgsRegisters] = {
+    kAllRegisters[x64::kRegArgv[0].code()],
+    kAllRegisters[x64::kRegArgv[1].code()],
+    kAllRegisters[x64::kRegArgv[2].code()],
+    kAllRegisters[x64::kRegArgv[3].code()],
+    kAllRegisters[x64::kRegArgv[4].code()],
+    kAllRegisters[x64::kRegArgv[5].code()],
+    kAllRegisters[x64::kRegArgv[6].code()],
+    kAllRegisters[x64::kRegArgv[7].code()],
+};
 
 const FPRegisterOperand *Architecture::kAllFPRegisters[kMaxFPRegisters] = {
     &kAllX64FPRegs[0],  &kAllX64FPRegs[1],  &kAllX64FPRegs[2],  &kAllX64FPRegs[3],

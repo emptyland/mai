@@ -49,12 +49,12 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
     bool bool_val;
 }
 
-%token DEF BEGIN END VAR VAL LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS OP_CONCAT NEW TO UNTIL
+%token DEF VAR LAMBDA NAME COMPARISON OP_OR OP_XOR OP_AND OP_LSHIFT OP_RSHIFT UMINUS OP_CONCAT NEW TO UNTIL
 %token IF ELSE WHILE FOR IN OBJECT CLASS PROPERTY BREAK CONTINUE RETURN VARGS DO THIN_ARROW FAT_ARROW
 %token STRING_LITERAL SMI_LITERAL APPROX_LITERAL INT_LITERAL NIL_LITERAL BOOL_LITERAL
 %token TOKEN_ERROR
 
-%type <block> Script Block FunctionBody
+%type <block> Script Block
 %type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration WhileLoop ForIterateLoop ForStepLoop
 %type <stmts> StatementList MemberList
 %type <expr> Expression Call LambdaLiteral MapInitializer InheritClause
@@ -105,9 +105,45 @@ StatementList : Statement {
 | StatementList Statement {
     $$->push_back($2);
 }
+| {
+    $$ = nullptr;
+}
 
 Statement : RETURN ExpressionList {
     $$ = ctx->factory->NewReturn($2, @2);
+}
+| VarDeclaration {
+    $$ = $1;
+}
+| ObjectDefinition {
+    $$ = $1;
+}
+| ClassDefinition {
+    $$ = $1;
+}
+| FunctionDefinition {
+    $$ = $1;
+}
+| Assignment {
+    $$ = $1;
+}
+| Expression {
+    $$ = $1;
+}
+| DO Block {
+    $$ = $2;
+}
+| IfStatement {
+    $$ = $1;
+}
+| WhileLoop {
+    $$ = $1;
+}
+| ForIterateLoop {
+    $$ = $1;
+}
+| ForStepLoop {
+    $$ = $1;
 }
 | BREAK {
     $$ = ctx->factory->NewBreak(@1);
@@ -115,25 +151,80 @@ Statement : RETURN ExpressionList {
 | CONTINUE {
     $$ = ctx->factory->NewContinue(@1);
 }
+
+IfStatement: IF '(' Expression ')' Block ElseClause {
+    $$ = ctx->factory->NewIfStatement(NEXT_TRACE_ID, $3, $5, $6, Location::Concat(@1, @6));
+}
+
+ElseClause: ELSE Block {
+    $$ = $2;
+}
+| ELSE IfStatement {
+    $$ = $2;
+}
+| {
+    $$ = nullptr;
+}
+
+WhileLoop : WHILE '(' Expression ')' Block {
+    $$ = ctx->factory->NewWhileLoop($3, $5, Location::Concat(@1, @5));
+}
+
+ForIterateLoop : FOR NameList IN Expression Block {
+    $$ = ctx->factory->NewForIterateLoop(NEXT_TRACE_ID, $2, $4, $5, Location::Concat(@1, @5));
+}
+
+ForStepLoop : FOR '(' NAME IN Expression TO Expression ')' Block {
+    $$ = ctx->factory->NewForStepLoop(&ctx->next_trace_id, $3, $5, false, $7, nullptr, $9, Location::Concat(@1, @9));
+}
+| FOR '(' NAME IN Expression UNTIL Expression ')' Block {
+    $$ = ctx->factory->NewForStepLoop(&ctx->next_trace_id, $3, $5, true,  $7, nullptr, $9, Location::Concat(@1, @9));
+}
+
+ObjectDefinition : OBJECT Attributes NAME '{' MemberList '}' {
+    $$ = ctx->factory->NewObjectDefinition($2, $3, $5, Location::Concat(@1, @6));
+}
+
+ClassDefinition : CLASS Attributes NAME InheritClause '{' MemberList '}' {
+    $$ = ctx->factory->NewClassDefinition($2, $3, $4, $6, Location::Concat(@1, @7));
+}
+
+InheritClause : ':' NAME {
+    $$ = ctx->factory->NewVariable($2, @2);
+}
+| {
+    $$ = nullptr;
+}
+
+MemberList : MemberDefinition {
+    $$ = ctx->factory->NewList($1);
+}
+| MemberList MemberDefinition {
+    $$->push_back($2);
+}
+| {
+    $$ = nullptr;
+}
+
+MemberDefinition : PropertyDeclaration {
+    $$ = $1;
+}
 | FunctionDefinition {
     $$ = $1;
 }
 
-FunctionDefinition : DEF NAME '.' NAME '(' Parameters ')' FunctionBody {
+PropertyDeclaration : PROPERTY Attributes NameList {
+    $$ = ctx->factory->NewPropertyDeclaration($2, $3, nullptr, Location::Concat(@1, @3));
+}
+
+FunctionDefinition : DEF NAME '.' NAME '(' Parameters ')' Block {
     auto lambda = ctx->factory->NewLambdaLiteral($6.params, $6.vargs, $8, Location::Concat(@5, @8));
     auto self = ctx->factory->NewVariable($2, @2);
     $$ =  ctx->factory->NewFunctionDefinition(NEXT_TRACE_ID, self, $4, lambda, Location::Concat(@1, @8));
 }
-| DEF NAME '(' Parameters ')' FunctionBody {
+| DEF NAME '(' Parameters ')' Block {
     auto lambda = ctx->factory->NewLambdaLiteral($4.params, $4.vargs, $6, Location::Concat(@3, @6));
     $$ =  ctx->factory->NewFunctionDefinition(NEXT_TRACE_ID, nullptr, $2, lambda, Location::Concat(@1, @6));
-}
-
-FunctionBody : Block {
-    $$ = $1;
-}
-| '=' ExpressionList {
-    $$ = nullptr; // TODO:
 }
 
 Parameters : NameList ParameterVargs {
@@ -159,11 +250,12 @@ ParameterVargs : ',' VARGS {
 VarDeclaration : VAR NameList '=' ExpressionList {
     $$ = ctx->factory->NewVarDeclaration($2, $4, Location::Concat(@1, @4));
 }
-| VAL NameList '=' ExpressionList {
-    $$ = ctx->factory->NewVarDeclaration($2, $4, Location::Concat(@1, @4)); // TODO: readonly
-}
 | VAR NameList {
     $$ = ctx->factory->NewVarDeclaration($2, nullptr, Location::Concat(@1, @2));
+}
+
+Assignment : LValList '=' ExpressionList {
+    $$ = ctx->factory->NewAssignment($1, $3, Location::Concat(@1, @3));
 }
 
 ExpressionList : Expression {
@@ -172,8 +264,17 @@ ExpressionList : Expression {
 | ExpressionList ',' Expression {
     $$->push_back($3);
 }
+| {
+    $$ = nullptr;
+}
 
-Expression : NIL_LITERAL {
+Expression : LValue {
+    $$ = $1;
+}
+| Call {
+    $$ = $1;
+}
+| NIL_LITERAL {
     $$ = ctx->factory->NewNilLiteral(@1);
 }
 | SMI_LITERAL {
@@ -190,6 +291,15 @@ Expression : NIL_LITERAL {
 }
 | STRING_LITERAL {
     $$ = ctx->factory->NewStringLiteral($1, @1);
+}
+| LambdaLiteral {
+    $$ = $1;
+}
+| MapInitializer {
+    $$ = $1;
+}
+| Concat {
+    $$ = ctx->factory->NewConcat($1, @1);
 }
 | VARGS {
     $$ = ctx->factory->NewVariableArguments(@1);
@@ -245,15 +355,24 @@ Expression : NIL_LITERAL {
 | '(' Expression ')' {
     $$ = $2;
 }
-| MapInitializer {
-    $$ = $1;
+
+Concat : Expression OP_CONCAT Expression {
+    $$ = ctx->factory->NewList($1);
+    $$->push_back($3);
 }
-| LambdaLiteral {
+| Concat OP_CONCAT Expression {
+    $1->push_back($3);
     $$ = $1;
 }
 
 LambdaLiteral : LAMBDA '(' Parameters ')' Block {
     $$ = ctx->factory->NewLambdaLiteral($3.params, $3.vargs, $5, Location::Concat(@1, @5));
+}
+| LAMBDA Parameters FAT_ARROW ExpressionList {
+    auto stmt = ctx->factory->NewReturn($4, @4);
+    auto stmts = ctx->factory->NewList<::mai::nyaa::ast::Statement *>(stmt);
+    auto block = ctx->factory->NewBlock(stmts, @4);
+    $$ = ctx->factory->NewLambdaLiteral($2.params, $2.vargs, block, Location::Concat(@1, @4));
 }
 
 MapInitializer : '{' MapEntryList '}' {
@@ -280,6 +399,50 @@ MapEntry : NAME ':' Expression {
 | '[' Expression ']' '=' Expression {
     $$ = ctx->factory->NewEntry($2, $5, Location::Concat(@1, @5));
 }
+
+LValList : LValue {
+    $$ = ctx->factory->NewList($1);
+}
+| LValList ',' LValue {
+    $$->push_back($3);
+}
+
+LValue : NAME {
+    $$ = ctx->factory->NewVariable($1, @1);
+}
+| Expression '[' Expression ']' {
+    $$ = ctx->factory->NewIndex(NEXT_TRACE_ID, $1, $3, Location::Concat(@1, @4));
+}
+| Expression '.' NAME {
+    $$ = ctx->factory->NewDotField(NEXT_TRACE_ID, $1, $3, Location::Concat(@1, @3));
+}
+
+Call : Expression Arguments {
+    $$ = ctx->factory->NewCall(NEXT_TRACE_ID, $1, $2, Location::Concat(@1, @2));
+}
+| Expression ':' NAME Arguments {
+    $$ = ctx->factory->NewSelfCall(NEXT_TRACE_ID, $1, $3, $4, Location::Concat(@1, @4));
+}
+| NEW NAME '(' ExpressionList ')' {
+    auto callee = ctx->factory->NewVariable($2, @2);
+    $$ = ctx->factory->NewNew(NEXT_TRACE_ID, callee, $4, Location::Concat(@1, @5));
+}
+
+Arguments : '(' ExpressionList ')' {
+    $$ = $2;
+}
+| STRING_LITERAL {
+    auto arg0 = ctx->factory->NewStringLiteral($1, @1);
+    $$ = ctx->factory->NewList<mai::nyaa::ast::Expression *>(arg0);
+}
+
+Attributes: '[' NameList ']' {
+    $$ = $2;
+}
+| {
+    $$ = nullptr;
+}
+
 
 NameList : NAME {
     $$ = ctx->factory->NewList($1);

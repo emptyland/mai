@@ -32,11 +32,8 @@ using namespace ::mai::nyaa::ast;
 %x COMMENT_MOD
 
 %%
-begin { return BEGIN; }
-end { return END; }
 def { return DEF; }
 var { return VAR; }
-val { return VAL; }
 new { return NEW; }
 do { return DO; }
 to { return TO; }
