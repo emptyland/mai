@@ -57,7 +57,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <block> Script Block FunctionBody
 %type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration WhileLoop ForIterateLoop ForStepLoop
 %type <stmts> StatementList MemberList
-%type <expr> Expression Call LambdaLiteral MapInitializer InheritClause
+%type <expr> Expression Call LambdaLiteral MapInitializer Primary
 %type <exprs> ExpressionList Arguments Concat
 %type <entry> MapEntry
 %type <entries> MapEntryList
@@ -118,6 +118,15 @@ Statement : RETURN ExpressionList {
 | FunctionDefinition {
     $$ = $1;
 }
+| VarDeclaration {
+    $$ = $1;
+}
+| Assignment {
+    $$ = $1;
+}
+| Call {
+    $$ = $1;
+}
 
 FunctionDefinition : DEF NAME '.' NAME '(' Parameters ')' FunctionBody {
     auto lambda = ctx->factory->NewLambdaLiteral($6.params, $6.vargs, $8, Location::Concat(@5, @8));
@@ -164,6 +173,10 @@ VarDeclaration : VAR NameList '=' ExpressionList {
 }
 | VAR NameList {
     $$ = ctx->factory->NewVarDeclaration($2, nullptr, Location::Concat(@1, @2));
+}
+
+Assignment : LValList '=' ExpressionList {
+    $$ = ctx->factory->NewAssignment($1, $3, Location::Concat(@1, @3));
 }
 
 ExpressionList : Expression {
@@ -245,6 +258,9 @@ Expression : NIL_LITERAL {
 | '(' Expression ')' {
     $$ = $2;
 }
+| Primary {
+    $$ = $1;
+}
 | MapInitializer {
     $$ = $1;
 }
@@ -270,7 +286,7 @@ MapEntryList : MapEntry {
     $$ = nullptr;
 }
 
-MapEntry : NAME ':' Expression {
+MapEntry : NAME THIN_ARROW Expression {
     auto key = ctx->factory->NewStringLiteral($1, @1);
     $$ = ctx->factory->NewEntry(key, $3, Location::Concat(@1, @3));
 }
@@ -279,6 +295,59 @@ MapEntry : NAME ':' Expression {
 }
 | '[' Expression ']' '=' Expression {
     $$ = ctx->factory->NewEntry($2, $5, Location::Concat(@1, @5));
+}
+
+Call : Primary Arguments {
+    $$ = ctx->factory->NewCall(NEXT_TRACE_ID, $1, $2, Location::Concat(@1, @2));
+}
+| NAME ':' NAME Arguments {
+    $$ = ctx->factory->NewSelfCall(NEXT_TRACE_ID, $1, $3, $4, Location::Concat(@1, @4));
+}
+| NEW NAME Arguments {
+    auto callee = ctx->factory->NewVariable($2, @2);
+    $$ = ctx->factory->NewNew(NEXT_TRACE_ID, callee, $3, Location::Concat(@1, @3));
+}
+
+Primary : LValue {
+    $$ = $1;
+}
+| Call {
+    $$ = $1;
+}
+
+LValList : LValue {
+    $$ = ctx->factory->NewList($1);
+}
+| LValList ',' LValue {
+    $$->push_back($3);
+}
+
+LValue : NAME {
+    $$ = ctx->factory->NewVariable($1, @1);
+}
+| LValue '[' Expression ']' {
+    $$ = ctx->factory->NewIndex(NEXT_TRACE_ID, $1, $3, Location::Concat(@1, @4));
+}
+| LValue '.' NAME {
+    $$ = ctx->factory->NewDotField(NEXT_TRACE_ID, $1, $3, Location::Concat(@1, @3));
+}
+
+Arguments : '(' ExpressionList ')' {
+    $$ = $2;
+}
+| STRING_LITERAL {
+    auto arg0 = ctx->factory->NewStringLiteral($1, @1);
+    $$ = ctx->factory->NewList<mai::nyaa::ast::Expression *>(arg0);
+}
+| '(' ')' {
+    $$ = nullptr;
+}
+
+Attributes: '[' NameList ']' {
+    $$ = $2;
+}
+| {
+    $$ = nullptr;
 }
 
 NameList : NAME {
