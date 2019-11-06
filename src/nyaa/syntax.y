@@ -58,7 +58,7 @@ void yyerror(YYLTYPE *, parser_ctx *, const char *);
 %type <stmt> Statement VarDeclaration FunctionDefinition Assignment IfStatement ElseClause ObjectDefinition ClassDefinition MemberDefinition PropertyDeclaration WhileLoop ForIterateLoop ForStepLoop
 %type <stmts> StatementList MemberList
 %type <expr> Expression Call LambdaLiteral MapInitializer Primary
-%type <exprs> ExpressionList Arguments Concat
+%type <exprs> ExpressionList Arguments
 %type <entry> MapEntry
 %type <entries> MapEntryList
 %type <lval> LValue
@@ -126,6 +126,79 @@ Statement : RETURN ExpressionList {
 }
 | Call {
     $$ = $1;
+}
+| IfStatement {
+    $$ = $1;
+}
+| WhileLoop {
+    $$ = $1;
+}
+| ForIterateLoop {
+    $$ = $1;
+}
+| ForStepLoop {
+    $$ = $1;
+}
+| ObjectDefinition {
+    $$ = $1;
+}
+| ClassDefinition {
+    $$ = $1;
+}
+
+IfStatement: IF '(' Expression ')' Block ElseClause {
+    $$ = ctx->factory->NewIfStatement(NEXT_TRACE_ID, $3, $5, $6, Location::Concat(@1, @6));
+}
+
+ElseClause: ELSE Block {
+    $$ = $2;
+}
+| ELSE IfStatement {
+    $$ = $2;
+}
+| {
+    $$ = nullptr;
+}
+
+WhileLoop : WHILE '(' Expression ')' Block {
+    $$ = ctx->factory->NewWhileLoop($3, $5, Location::Concat(@1, @5));
+}
+
+ForIterateLoop : FOR '(' NameList ':' Expression ')' Block {
+    $$ = ctx->factory->NewForIterateLoop(NEXT_TRACE_ID, $3, $5, $7, Location::Concat(@1, @7));
+}
+
+ForStepLoop : FOR '(' NAME IN Expression TO Expression ')' Block {
+    $$ = ctx->factory->NewForStepLoop(&ctx->next_trace_id, $3, $5, false, $7, nullptr, $9, Location::Concat(@1, @9));
+}
+| FOR '(' NAME IN Expression UNTIL Expression ')' Block {
+    $$ = ctx->factory->NewForStepLoop(&ctx->next_trace_id, $3, $5, true,  $7, nullptr, $9, Location::Concat(@1, @9));
+}
+
+ObjectDefinition : OBJECT Attributes NAME '{' MemberList '}' {
+    $$ = ctx->factory->NewObjectDefinition($2, $3, $5, Location::Concat(@1, @6));
+}
+
+ClassDefinition : CLASS Attributes NAME '{' MemberList '}' {
+    $$ = ctx->factory->NewClassDefinition($2, $3, nullptr, $5, Location::Concat(@1, @6));
+}
+
+MemberList : MemberDefinition {
+    $$ = ctx->factory->NewList($1);
+}
+| MemberList MemberDefinition {
+    $$->push_back($2);
+}
+
+MemberDefinition : PropertyDeclaration {
+    $$ = $1;
+}
+| FunctionDefinition {
+    $$ = $1;
+}
+
+PropertyDeclaration : PROPERTY Attributes NameList {
+    $$ = ctx->factory->NewPropertyDeclaration($2, $3, nullptr, Location::Concat(@1, @3));
 }
 
 FunctionDefinition : DEF NAME '.' NAME '(' Parameters ')' FunctionBody {
