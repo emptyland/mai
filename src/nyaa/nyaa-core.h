@@ -2,7 +2,6 @@
 #define MAI_NYAA_NYAA_CORE_H_
 
 #include "nyaa/memory.h"
-//#include "nyaa/heap.h"
 #include "asm/utils.h"
 #include "base/base.h"
 #include "mai/error.h"
@@ -22,11 +21,9 @@ class NyObject;
 class Object;
 class NyString;
 class NyMap;
-class NyThread;
 class ObjectFactory;
 class RootVisitor;
 class StringPool;
-class Profiler;
 
 struct BuiltinStrPool;
 struct BuiltinMetatablePool;
@@ -60,8 +57,8 @@ public:
     void Raisef(const char *fmt, ...);
     void Vraisef(const char *fmt, va_list ap);
     
-    void InsertThread(NyThread *thd);
-    void RemoveThread(NyThread *thd);
+//    void InsertThread(NyThread *thd);
+//    void RemoveThread(NyThread *thd);
     
     void EnterHandleScope(HandleScope *handle_scope);
     void ExitHandleScope();
@@ -97,9 +94,6 @@ public:
     DEF_PTR_GETTER(FILE, logger);
     DEF_PTR_GETTER(NyMap, g);
     DEF_PTR_GETTER(NyMap, loads);
-    DEF_PTR_GETTER(NyThread, main_thd);
-    DEF_PTR_PROP_RW(NyThread, curr_thd);
-    Profiler *profiler() const { return profiler_.get(); }
     BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
     StringPool *kz_pool() const { return kz_pool_.get(); }
     BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
@@ -131,7 +125,6 @@ private:
     uint64_t next_udo_kid_;
     FILE *logger_;
     std::unique_ptr<RandomGenerator> random_;
-    std::unique_ptr<Profiler> profiler_;
     std::unique_ptr<StringPool> kz_pool_; // elements [weak ref]
     std::unique_ptr<BuiltinStrPool> bkz_pool_; // elements [strong ref]
     std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // elements [strong ref]
@@ -139,8 +132,6 @@ private:
 
     NyMap *g_ = nullptr; // [strong ref]
     NyMap *loads_ = nullptr; // [strong ref]
-    NyThread *main_thd_ = nullptr; // [strong ref]
-    NyThread *curr_thd_ = nullptr; // [strong ref]
 };
     
 } // namespace nyaa

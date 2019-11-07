@@ -1,7 +1,6 @@
 #include "nyaa/nyaa-values.h"
-#include "nyaa/thread.h"
+#include "nyaa/function.h"
 #include "nyaa/parser.h"
-#include "nyaa/code-gen.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/heap.h"
 #include "nyaa/object-factory.h"
@@ -523,7 +522,7 @@ void NyObject::Iterate(ObjectVisitor *visitor) {
             static_cast<Ny##type *>(this)->Iterate(visitor); \
             break;
             
-        DECL_BUILTIN_TYPES(DEFINE_ITERATE)
+        // TODO: DECL_BUILTIN_TYPES(DEFINE_ITERATE)
     #undef DEFINE_PLACED_SIZE
         case kTypeUdo:
             static_cast<NyUDO *>(this)->Iterate(visitor);
@@ -542,7 +541,7 @@ size_t NyObject::PlacedSize() const {
         bytes = static_cast<const Ny##type *>(this)->PlacedSize(); \
         break;
 
-        DECL_BUILTIN_TYPES(DEFINE_PLACED_SIZE)
+        // TODO: DECL_BUILTIN_TYPES(DEFINE_PLACED_SIZE)
 #undef DEFINE_PLACED_SIZE
         case kTypeUdo:
             static_cast<const NyUDO *>(this)->PlacedSize();
@@ -689,11 +688,13 @@ NyString *NyObject::ToString(NyaaCore *N) {
 
 Object *NyObject::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N) {
     if (NyRunnable *fn = GetValidMetaFunction(name, N)) {
-        Object *args[] = {this, rhs};
-        N->curr_thd()->Run(fn, args, 2/*nargs*/, 1/*nrets*/, N->curr_thd()->CurrentEnv()/*env*/);
-        Object *rv = N->Get(-1);
-        N->Pop(1);
-        return rv;
+        // TODO: Object *args[] = {this, rhs};
+        // N->curr_thd()->Run(fn, args, 2/*nargs*/, 1/*nrets*/, N->curr_thd()->CurrentEnv()/*env*/);
+//        Object *rv = N->Get(-1);
+//        N->Pop(1);
+//        return rv;
+        TODO();
+        return Object::kNil;
     }
     N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
     return Object::kNil;
@@ -701,11 +702,13 @@ Object *NyObject::AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCor
 
 Object *NyObject::AttemptUnaryMetaFunction(NyString *name, NyaaCore *N) {
     if (NyRunnable *fn = GetValidMetaFunction(name, N)) {
-        Object *args[] = {this};
-        N->curr_thd()->Run(fn, args, 1/*nargs*/, 1/*nrets*/, N->curr_thd()->CurrentEnv()/*env*/);
-        Object *rv = N->Get(-1);
-        N->Pop(1);
-        return rv;
+        // TODO: Object *args[] = {this};
+        // N->curr_thd()->Run(fn, args, 1/*nargs*/, 1/*nrets*/, N->curr_thd()->CurrentEnv()/*env*/);
+//        Object *rv = N->Get(-1);
+//        N->Pop(1);
+//        return rv;
+        TODO();
+        return Object::kNil;
     }
     N->Raisef("attempt to call nil `%s' meta function.", name->bytes());
     return Object::kNil;
@@ -1632,9 +1635,11 @@ uint32_t NyMap::Length() const { return linear_ ? array_->size() : table_->size(
 NyString *NyMap::ToString(NyaaCore *N) {
     if (GetMetatable() != N->kmt_pool()->kMap) {
         if (NyRunnable *fn = GetValidMetaFunction(N->bkz_pool()->kInnerStr, N)) {
-            Object *args = this;
-            N->curr_thd()->Run(fn, &args, 1/*nargs*/, 1/*nrets*/);
-            return NyString::Cast(N->curr_thd()->Get(-1));
+            // TODO: Object *args = this;
+            // N->curr_thd()->Run(fn, &args, 1/*nargs*/, 1/*nrets*/);
+            // return NyString::Cast(N->curr_thd()->Get(-1));
+            TODO();
+            return nullptr;
         }
     }
 
@@ -1666,8 +1671,8 @@ void NyMap::Put(Object *key, Object *value, NyaaCore *N) {
     if (NyMap *mm = NyMap::Cast(mo)) {
         mm->RawPut(key, value, N);
     } else if (NyRunnable *mf = NyRunnable::Cast(mo)) {
-        Object *args[] = {this, key, value};
-        N->curr_thd()->Run(mf, args, 3/*nargs*/, 0/*nrets*/);
+        // TODO: Object *args[] = {this, key, value};
+        // N->curr_thd()->Run(mf, args, 3/*nargs*/, 0/*nrets*/);
     } else {
         RawPut(key, value, N);
     }
@@ -1684,10 +1689,10 @@ Object *NyMap::Get(Object *key, NyaaCore *N) const {
     if (NyMap *mm = NyMap::Cast(mo)) {
         val = mm->RawGet(key, N);
     } else if (NyRunnable *mf = NyRunnable::Cast(mo)) {
-        Object *args[] = {const_cast<NyMap *>(this), key};
-        N->curr_thd()->Run(mf, args, 2/*nargs*/, 1/*nrets*/);
-        val = N->Get(-1);
-        N->Pop();
+        // Object *args[] = {const_cast<NyMap *>(this), key};
+        // N->curr_thd()->Run(mf, args, 2/*nargs*/, 1/*nrets*/);
+        // val = N->Get(-1);
+        // N->Pop();
     } else {
         val = RawGet(key, N);
     }
@@ -2311,7 +2316,9 @@ void NyArray::Refill(const NyArray *base, NyaaCore *N) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
     
 int NyRunnable::Run(Object *argv[], int argc, int nrets, NyaaCore *N) {
-    return N->curr_thd()->TryRun(this, argv, argc, nrets);
+    // TODO: return N->curr_thd()->TryRun(this, argv, argc, nrets);
+    TODO();
+    return -1;
 }
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2326,7 +2333,9 @@ void NyDelegated::Bind(int i, Object *upval, NyaaCore *N) {
 }
     
 int NyDelegated::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
-    return N->curr_thd()->TryRun(this, argv, argc, wanted);
+    // TODO: return N->curr_thd()->TryRun(this, argv, argc, wanted);
+    TODO();
+    return -1;
 }
     
 int NyDelegated::Apply(const FunctionCallbackInfo<Object> &info) {
@@ -2351,17 +2360,20 @@ void NyUDO::SetFinalizer(Finalizer fp, NyaaCore *N) {
     
 NyString *NyUDO::ToString(NyaaCore *N) {
     if (NyRunnable *fn = GetValidMetaFunction(N->bkz_pool()->kInnerStr, N)) {
-        Object *args = this;
-        N->curr_thd()->Run(fn, &args, 1/*nargs*/, 1/*nrets*/);
-        return NyString::Cast(N->curr_thd()->Get(-1));
+        // TODO: Object *args = this;
+        // N->curr_thd()->Run(fn, &args, 1/*nargs*/, 1/*nrets*/);
+        // return NyString::Cast(N->curr_thd()->Get(-1));
+        TODO();
+        return nullptr;
     }
     return N->factory()->Sprintf("udo: %p", this);
 }
     
 void NyUDO::Put(Object *key, Object *value, NyaaCore *N) {
     if (NyRunnable *mf = GetValidMetaFunction(N->bkz_pool()->kInnerNewindex, N)) {
-        Object *args[] = {this, key, value};
-        N->curr_thd()->Run(mf, args, arraysize(args)/*argc*/, 0/*wanted*/, nullptr/*TODO: env*/);
+        // TODO: Object *args[] = {this, key, value};
+        // N->curr_thd()->Run(mf, args, arraysize(args)/*argc*/, 0/*wanted*/, nullptr/*TODO: env*/);
+        TODO();
     } else {
         RawPut(key, value, N);
     }
@@ -2370,10 +2382,10 @@ void NyUDO::Put(Object *key, Object *value, NyaaCore *N) {
 Object *NyUDO::Get(Object *key, NyaaCore *N) {
     Object *val = nullptr;
     if (NyRunnable *mf = GetValidMetaFunction(N->bkz_pool()->kInnerIndex, N)) {
-        Object *args[] = {this, key};
-        N->curr_thd()->Run(mf, args, arraysize(args)/*argc*/, 1/*wanted*/, nullptr/*TODO: env*/);
-        val = N->Get(-1);
-        N->Pop();
+        // TODO: Object *args[] = {this, key};
+        // N->curr_thd()->Run(mf, args, arraysize(args)/*argc*/, 1/*wanted*/, nullptr/*TODO: env*/);
+        // val = N->Get(-1);
+        // N->Pop();
     } else {
         val = RawGet(key, N);
     }
@@ -2514,7 +2526,7 @@ DEFINE_TYPE_CHECK(Int32Array, "array[int32]")
 DEFINE_TYPE_CHECK(Array, "array")
 DEFINE_TYPE_CHECK(Closure, "closure")
 DEFINE_TYPE_CHECK(Function, "function")
-DEFINE_TYPE_CHECK(Thread, "thread")
+// TODO: DEFINE_TYPE_CHECK(Thread, "thread")
 
 void MapIterator::SeekFirst() {
     if (table_) {

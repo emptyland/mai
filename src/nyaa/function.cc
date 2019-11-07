@@ -2,9 +2,9 @@
 #include "nyaa/nyaa-core.h"
 #include "nyaa/parser.h"
 #include "nyaa/ast.h"
-#include "nyaa/code-gen.h"
+//#include "nyaa/code-gen.h"
 #include "nyaa/object-factory.h"
-#include "nyaa/thread.h"
+//#include "nyaa/thread.h"
 #include "base/arenas.h"
 #include "mai-lang/isolate.h"
 #include "mai/env.h"
@@ -79,7 +79,9 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
         return Handle<NyFunction>();
     }
     N->set_max_trace_id(result.next_trace_id);
-    return CodeGen::Generate(N->factory()->NewString(":memory:"), result.block, &arena, N);
+    // TODO: return CodeGen::Generate(N->factory()->NewString(":memory:"), result.block, &arena, N);
+    TODO();
+    return Handle<NyFunction>::Empty();
 }
 
 /*static*/ Handle<NyFunction> NyFunction::Compile(const char *file_name, FILE *fp, NyaaCore *N) {
@@ -91,7 +93,9 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
         return Handle<NyFunction>();
     }
     N->set_max_trace_id(result.next_trace_id);
-    return CodeGen::Generate(N->factory()->NewString(file_name), result.block, &arena, N);
+    // TODO: return CodeGen::Generate(N->factory()->NewString(file_name), result.block, &arena, N);
+    TODO();
+    return Handle<NyFunction>::Empty();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -144,30 +148,20 @@ void NyClosure::Bind(int i, Object *upval, NyaaCore *N) {
 }
 
 int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
-    return N->curr_thd()->TryRun(this, argv, argc, wanted);
+    // TODO: return N->curr_thd()->TryRun(this, argv, argc, wanted);
+    TODO();
+    return -1;
 }
 
 /*static*/ Handle<NyClosure> NyClosure::Compile(const char *z, size_t n, NyaaCore *N) {
-    try {
-        Handle<NyFunction> script = NyFunction::Compile(z, n, N);
-        if (script.is_valid()) {
-            return N->factory()->NewClosure(*script);
-        }
-    } catch (CallFrame::ExceptionId e) {
-        // ignore
-    }
+    // TODO:
+    TODO();
     return Handle<NyClosure>::Empty();
 }
 
 /*static*/ Handle<NyClosure> NyClosure::Compile(const char *file_name, FILE *fp, NyaaCore *N) {
-    try {
-        Handle<NyFunction> script = NyFunction::Compile(file_name, fp, N);
-        if (script.is_valid()) {
-            return N->factory()->NewClosure(*script);
-        }
-    } catch (CallFrame::ExceptionId e) {
-        // ignore
-    }
+    // TODO:
+    TODO();
     return Handle<NyClosure>::Empty();
 }
 
@@ -176,7 +170,9 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
     if (script.is_not_valid()) {
         return -1;
     }
-    return N->curr_thd()->TryRun(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
+    // TODO: return N->curr_thd()->TryRun(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
+    TODO();
+    return -1;
 }
 
 /*static*/ int NyClosure::Do(const char *file_name, FILE *fp, int wanted, NyMap *env, NyaaCore *N) {
@@ -184,7 +180,9 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
     if (script.is_not_valid()) {
         return -1;
     }
-    return N->curr_thd()->TryRun(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
+    // TODO: return N->curr_thd()->TryRun(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
+    TODO();
+    return -1;
 }
 
 /*static*/ int NyClosure::DoFile(const char *file_name, int wanted, NyMap *env, NyaaCore *N) {

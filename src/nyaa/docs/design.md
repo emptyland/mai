@@ -231,3 +231,22 @@ Object Header:
 | Metatable Pointer | others ...
 +-------------------+-------------
 ```
+
+### 5. Execution
+
+rax: number of return
+rbx: ret0
+rcx: ret2
+rdx: ret3
+
+
+
+call r[i], n + 1
+
+multiret: rax = 0
+ret0: rax = 1
+ret1: rax = 2, rbx = val0
+ret2: rax = 3, rbx = val0, rcx = val1
+ret3: rax = 4, rbx = val0, rcx = val1, rdx = val2
+ret:  rax = n + 1, rbx = [base]
+

@@ -32,8 +32,8 @@ using namespace ::mai::nyaa::ast;
 %x COMMENT_MOD
 
 %%
-begin { return BEGIN; }
-end { return END; }
+begin { return BLOCK_BEGIN; }
+end { return BLOCK_END; }
 def { return DEF; }
 var { return VAR; }
 val { return VAL; }
@@ -44,6 +44,8 @@ until { return UNTIL; }
 lambda { return LAMBDA; }
 return { return RETURN; }
 if { return IF; }
+unless { return UNLESS; }
+then { return THEN; }
 else { return ELSE; }
 while { return WHILE; }
 for { return FOR; }

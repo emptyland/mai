@@ -1,7 +1,7 @@
 #include "nyaa/object-factory.h"
 #include "nyaa/string-pool.h"
 #include "nyaa/nyaa-values.h"
-#include "nyaa/thread.h"
+#include "nyaa/function.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/heap.h"
 #include "nyaa/builtin.h"
@@ -197,10 +197,9 @@ public:
     }
 
     virtual NyThread *NewThread(bool old) override {
-        NEW_OBJECT(sizeof(NyThread), NyThread(core_), Thread);
-        DCHECK_EQ(sizeof(NyThread), ob->PlacedSize());
-        //core_->InsertThread(ob);
-        return ob;
+        // TODO:
+        TODO();
+        return nullptr;
     }
 
 private:

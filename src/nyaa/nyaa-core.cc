@@ -1,12 +1,11 @@
 #include "nyaa/nyaa-core.h"
 #include "nyaa/nyaa-values.h"
-#include "nyaa/thread.h"
+#include "nyaa/function.h"
 #include "nyaa/heap.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/builtin.h"
 #include "nyaa/visitors.h"
 #include "nyaa/string-pool.h"
-#include "nyaa/profiling.h"
 #include "nyaa/scavenger.h"
 #include "nyaa/marking-sweep.h"
 #include "nyaa/marking-compaction.h"
@@ -23,7 +22,6 @@ NyaaCore::NyaaCore(Nyaa *stub)
     : stub_(DCHECK_NOTNULL(stub))
     , page_alloc_(stub->isolate()->env()->GetLowLevelAllocator())
     , heap_(new Heap(this))
-    , profiler_(new Profiler(this))
     , bkz_pool_(new BuiltinStrPool())
     , kmt_pool_(new BuiltinMetatablePool())
     , code_pool_(new BuiltinCodePool())
@@ -71,9 +69,9 @@ Error NyaaCore::Boot() {
     if (Error rs = kmt_pool_->Boot(this); !rs) {
         return rs;
     }
-    if (Error rs = code_pool_->Boot(this); !rs) {
-        return rs;
-    }
+// TODO: if (Error rs = code_pool_->Boot(this); !rs) {
+//        return rs;
+//    }
 
     // Set builtin global variables:
     g_ = NewEnv(nullptr);
@@ -83,13 +81,13 @@ Error NyaaCore::Boot() {
                               true/*old*/);
 
     // Setup main_thread
-    main_thd_ = factory_->NewThread(true /* old */);
-    main_thd_->next_ = main_thd_;
-    main_thd_->prev_ = main_thd_;
-    if (Error rs = main_thd_->Init(); !rs) {
-        return rs;
-    }
-    curr_thd_ = main_thd_;
+// TODO: main_thd_ = factory_->NewThread(true /* old */);
+//    main_thd_->next_ = main_thd_;
+//    main_thd_->prev_ = main_thd_;
+//    if (Error rs = main_thd_->Init(); !rs) {
+//        return rs;
+//    }
+//    curr_thd_ = main_thd_;
 
     // Setup builtin classes.
     SetGlobal(factory_->NewString("coroutine"), kmt_pool_->kThread);
@@ -98,15 +96,16 @@ Error NyaaCore::Boot() {
     initialized_ = true;
     return Error::OK();
 }
-    
-Object *NyaaCore::Get(int i) { return  curr_thd_->Get(i); }
+
+Object *NyaaCore::Get(int i) {
+    // TODO:
+    TODO();
+    return Object::kNil;
+}
 
 void NyaaCore::Pop(int n) {
-    if (main_thd_->stack_tp_ - n < main_thd_->frame_bp()) {
-        Raisef("stack pop: %d out of range.", n);
-    } else {
-        main_thd_->Pop(n);
-    }
+    // TODO:
+    TODO();
 }
     
 void NyaaCore::SetGlobal(NyString *name, Object *value) { g_->RawPut(name, value, this); }
@@ -130,14 +129,16 @@ NyMap *NyaaCore::NewEnv(NyMap *base) {
 }
     
 void NyaaCore::Raisef(const char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    curr_thd_->Vraisef(fmt, ap);
-    va_end(ap);
+// TODO: va_list ap;
+//    va_start(ap, fmt);
+//    curr_thd_->Vraisef(fmt, ap);
+//    va_end(ap);
+    TODO();
 }
 
 void NyaaCore::Vraisef(const char *fmt, va_list ap) {
-    curr_thd_->Vraisef(fmt, ap);
+// TODO: curr_thd_->Vraisef(fmt, ap);
+    TODO();
 }
     
 Isolate *NyaaCore::isolate() const { return stub_->isolate_; }
@@ -269,8 +270,8 @@ void NyaaCore::GarbageCollectionSafepoint(const char *file, int line) {
 void NyaaCore::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&g_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&loads_));
-    visitor->VisitRootPointer(reinterpret_cast<Object **>(&main_thd_));
-    visitor->VisitRootPointer(reinterpret_cast<Object **>(&curr_thd_));
+// TODO: visitor->VisitRootPointer(reinterpret_cast<Object **>(&main_thd_));
+//    visitor->VisitRootPointer(reinterpret_cast<Object **>(&curr_thd_));
     
     Object **pool_a = reinterpret_cast<Object **>(bkz_pool_.get());
     visitor->VisitRootPointers(pool_a, pool_a + kRawBuiltinKzsSize);
@@ -281,10 +282,10 @@ void NyaaCore::IterateRoot(RootVisitor *visitor) {
     pool_a = reinterpret_cast<Object **>(code_pool_.get());
     visitor->VisitRootPointers(pool_a, pool_a + kRawBuiltinCodeSize);
 
-    main_thd_->IterateRoot(visitor);
-    for (auto thd = main_thd_->next_; thd != main_thd_; thd = thd->next_) {
-        thd->IterateRoot(visitor);
-    }
+// TODO: main_thd_->IterateRoot(visitor);
+//    for (auto thd = main_thd_->next_; thd != main_thd_; thd = thd->next_) {
+//        thd->IterateRoot(visitor);
+//    }
 
     for (auto slot = top_slot_; slot != nullptr; slot = slot->prev) {
         visitor->VisitRootPointers(reinterpret_cast<Object **>(slot->base),
@@ -292,22 +293,22 @@ void NyaaCore::IterateRoot(RootVisitor *visitor) {
     }
 }
     
-void NyaaCore::InsertThread(NyThread *thd) {
-    thd->next_ = main_thd_;
-    auto *prev = main_thd_->prev_;
-    thd->prev_ = prev;
-    prev->next_ = thd;
-    main_thd_->prev_ = thd;
-}
-
-void NyaaCore::RemoveThread(NyThread *thd) {
-    thd->prev_->next_ = thd->next_;
-    thd->next_->prev_ = thd->prev_;
-#if defined(DEBUG) || defined(_DEBUG)
-    thd->next_ = nullptr;
-    thd->prev_ = nullptr;
-#endif
-}
+//void NyaaCore::InsertThread(NyThread *thd) {
+//    thd->next_ = main_thd_;
+//    auto *prev = main_thd_->prev_;
+//    thd->prev_ = prev;
+//    prev->next_ = thd;
+//    main_thd_->prev_ = thd;
+//}
+//
+//void NyaaCore::RemoveThread(NyThread *thd) {
+//    thd->prev_->next_ = thd->next_;
+//    thd->next_->prev_ = thd->prev_;
+//#if defined(DEBUG) || defined(_DEBUG)
+//    thd->next_ = nullptr;
+//    thd->prev_ = nullptr;
+//#endif
+//}
     
 void NyaaCore::InternalBarrierWr(NyObject *host, Object **pzwr, Object *val) {
     heap_->BarrierWr(host, pzwr, val);

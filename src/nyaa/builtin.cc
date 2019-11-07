@@ -1,7 +1,7 @@
 #include "nyaa/builtin.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/nyaa-values.h"
-#include "nyaa/thread.h"
+#include "nyaa/function.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/heap.h"
 #include "base/allocators.h"
@@ -128,7 +128,7 @@ static void BuiltinRaise(const FunctionCallbackInfo<Object> &info) {
     if (info.Length() >= 2) {
         ex = info[1];
     }
-    info.Core()->curr_thd()->Raise(*msg, *ex);
+    // TODO: info.Core()->curr_thd()->Raise(*msg, *ex);
 }
     
 static void BuiltinMapIter(const FunctionCallbackInfo<Object> &info) {
@@ -283,6 +283,7 @@ static void BuiltinLog(const FunctionCallbackInfo<Object> &info) {
         } break;
     }
 
+    /* TODO:
     auto logger = info.Core()->logger();
     auto ci = info.Core()->curr_thd()->call_info();
     auto [file_name, name, line] = ci->prev()->GetCurrentSourceInfo();
@@ -304,6 +305,7 @@ static void BuiltinLog(const FunctionCallbackInfo<Object> &info) {
     ::fputs(buf->bytes(), logger);
     ::fputc('\n', logger);
     ::fflush(logger);
+     */
 }
 
 static void BuiltinRequire(const FunctionCallbackInfo<Object> &info) {
@@ -355,10 +357,12 @@ static void BuiltinRequire(const FunctionCallbackInfo<Object> &info) {
     Handle<NyFunction> script = NyFunction::Compile(file_name.c_str(), fp, N);
     ::fclose(fp);
     Handle<NyClosure> fn = N->factory()->NewClosure(*script);
-    int rv = N->curr_thd()->Run(*fn, nullptr/*argv*/, 0/*argc*/, -1/*wanted*/, *env);
-    if (rv > 0) {
-        info.GetReturnValues().Set(rv);
-    }
+  
+    // TODO:
+//    int rv = N->curr_thd()->Run(*fn, nullptr/*argv*/, 0/*argc*/, -1/*wanted*/, *env);
+//    if (rv > 0) {
+//        info.GetReturnValues().Set(rv);
+//    }
 }
     
 static void BuiltinLoadFile(const FunctionCallbackInfo<Object> &info) {
@@ -384,14 +388,14 @@ static void BuiltinLoadFile(const FunctionCallbackInfo<Object> &info) {
         info.GetErrors().Raisef("can not open file: %s", arg0->bytes());
         return;
     }
-    TryCatchCore try_catch(info.Core());
+    // TODO: TryCatchCore try_catch(info.Core());
     Handle<NyClosure> fn = NyClosure::Compile(file_name.c_str(), fp, info.Core());
     ::fclose(fp);
-    if (try_catch.has_caught()) {
-        info.GetReturnValues().AddNil().Add(try_catch.message());
-    } else {
-        info.GetReturnValues().Add(fn);
-    }
+//    if (try_catch.has_caught()) {
+//        info.GetReturnValues().AddNil().Add(try_catch.message());
+//    } else {
+//        info.GetReturnValues().Add(fn);
+//    }
 }
     
 static void BuiltinLoadString(const FunctionCallbackInfo<Object> &info) {
@@ -404,13 +408,13 @@ static void BuiltinLoadString(const FunctionCallbackInfo<Object> &info) {
     
     NyaaCore *N = info.Core();
     Handle<NyString> source = info[0]->ToString(N);
-    TryCatchCore try_catch(info.Core());
+    //TODO: TryCatchCore try_catch(info.Core());
     Handle<NyClosure> fn = NyClosure::Compile(source->bytes(), source->size(), N);
-    if (try_catch.has_caught()) {
-        info.GetReturnValues().AddNil().Add(try_catch.message());
-    } else {
-        info.GetReturnValues().Add(fn);
-    }
+//    if (try_catch.has_caught()) {
+//        info.GetReturnValues().AddNil().Add(try_catch.message());
+//    } else {
+//        info.GetReturnValues().Add(fn);
+//    }
 }
     
 static void BuiltinPCall(const FunctionCallbackInfo<Object> &info) {
@@ -419,7 +423,7 @@ static void BuiltinPCall(const FunctionCallbackInfo<Object> &info) {
         return;
     }
     
-    NyaaCore *N = info.Core();
+    //NyaaCore *N = info.Core();
     NyRunnable *fn;
     base::ScopedMemoryTemplate<Object *, 8> scoped;
     int argc = static_cast<int>(info.Length() - 1);
@@ -431,13 +435,13 @@ static void BuiltinPCall(const FunctionCallbackInfo<Object> &info) {
             argv[i] = *info[i + 1];
         }
     }
-    TryCatchCore try_catch(info.Core());
-    int nrets = N->curr_thd()->TryRun(fn, argv, argc, -1/*wanted*/, N->curr_thd()->CurrentEnv()/*env*/);
-    if (try_catch.has_caught()) {
-        info.GetReturnValues().AddNil().Add(try_catch.GetFileLineMessage());
-    } else {
-        info.GetReturnValues().Set(nrets);
-    }
+    // TODO: TryCatchCore try_catch(info.Core());
+    // int nrets = N->curr_thd()->TryRun(fn, argv, argc, -1/*wanted*/, N->curr_thd()->CurrentEnv()/*env*/);
+//    if (try_catch.has_caught()) {
+//        info.GetReturnValues().AddNil().Add(try_catch.GetFileLineMessage());
+//    } else {
+//        info.GetReturnValues().Set(nrets);
+//    }
 }
 
 static void BuiltinGarbageCollect(const FunctionCallbackInfo<Object> &info) {
@@ -517,76 +521,76 @@ static void BuiltinTypeof(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void ThreadInit(const FunctionCallbackInfo<Object> &info) {
-    if (info.Length() < 2) {
-        info.GetErrors().Raisef("incorrect arguments length, required: >1");
-        return;
-    }
-    
-    HandleScope handle_scope(info.VM());
-    NyaaCore *N = info.Core();
-    Handle<NyUDO> udo = NyUDO::Cast(*info[0]);
-    if (udo.is_not_valid()) {
-        info.GetErrors().Raisef("incorrect constructor calling.");
-        return;
-    }
-    
-    Handle<NyRunnable> entry = NyRunnable::Cast(*info[1]);
-    if (entry.is_not_valid()) {
-        info.GetErrors().Raisef("incorrect argument[1] type, required: function");
-        return;
-    }
-    
-    Handle<NyThread> thread = new (*udo) NyThread(N);
-    auto rs = thread->Init();
-    if (!rs) {
-        info.GetErrors().Raisef("thread initialize fail: %s", rs.ToString().c_str());
-        return;
-    }
-    thread->set_entry(*entry);
-    thread->SetMetatable(N->kmt_pool()->kThread, N);
-    thread->SetType(kTypeThread); // FIXME
-    thread->SetColor(N->heap()->initial_color());
-    N->InsertThread(*thread);
+    // TODO:
+//    if (info.Length() < 2) {
+//        info.GetErrors().Raisef("incorrect arguments length, required: >1");
+//        return;
+//    }
+//
+//    HandleScope handle_scope(info.VM());
+//    NyaaCore *N = info.Core();
+//    Handle<NyUDO> udo = NyUDO::Cast(*info[0]);
+//    if (udo.is_not_valid()) {
+//        info.GetErrors().Raisef("incorrect constructor calling.");
+//        return;
+//    }
+//
+//    Handle<NyRunnable> entry = NyRunnable::Cast(*info[1]);
+//    if (entry.is_not_valid()) {
+//        info.GetErrors().Raisef("incorrect argument[1] type, required: function");
+//        return;
+//    }
+//
+//    Handle<NyThread> thread = new (*udo) NyThread(N);
+//    auto rs = thread->Init();
+//    if (!rs) {
+//        info.GetErrors().Raisef("thread initialize fail: %s", rs.ToString().c_str());
+//        return;
+//    }
+//    thread->set_entry(*entry);
+//    thread->SetMetatable(N->kmt_pool()->kThread, N);
+//    thread->SetType(kTypeThread); // FIXME
+//    thread->SetColor(N->heap()->initial_color());
+//    N->InsertThread(*thread);
 }
 
 static void ThreadIndex(const FunctionCallbackInfo<Object> &info) {
-    if (info.Length() < 2) {
-        info.GetErrors().Raisef("incorrect arguments length, required: >1");
-        return;
-    }
-
-    HandleScope handle_scope(info.VM());
-    NyaaCore *N = info.Core();
-    Handle<NyThread> thread = NyThread::Cast(*info[0]);
-    if (thread.is_not_valid()) {
-        info.GetErrors().Raisef("incorrect argument[0] type, required: thread");
-        return;
-    }
-    
-    Handle<NyString> key = info[1]->ToString(info.Core());
-    if (*key == N->factory()->NewString("status")) {
-        switch (thread->state()) {
-            case NyThread::kDead:
-                info.GetReturnValues().Add(N->bkz_pool()->kDead);
-                break;
-            case NyThread::kRunning:
-                info.GetReturnValues().Add(N->bkz_pool()->kRunning);
-                break;
-            case NyThread::kSuspended:
-                info.GetReturnValues().Add(N->bkz_pool()->kSuspended);
-                break;
-            default:
-                break;
-        }
-    } else {
-        info.GetReturnValues().Add(thread->GetMetatable()->RawGet(*key, N));
-    }
+    // TODO:
+//    if (info.Length() < 2) {
+//        info.GetErrors().Raisef("incorrect arguments length, required: >1");
+//        return;
+//    }
+//
+//    HandleScope handle_scope(info.VM());
+//    NyaaCore *N = info.Core();
+//    Handle<NyThread> thread = NyThread::Cast(*info[0]);
+//    if (thread.is_not_valid()) {
+//        info.GetErrors().Raisef("incorrect argument[0] type, required: thread");
+//        return;
+//    }
+//
+//    Handle<NyString> key = info[1]->ToString(info.Core());
+//    if (*key == N->factory()->NewString("status")) {
+//        switch (thread->state()) {
+//            case NyThread::kDead:
+//                info.GetReturnValues().Add(N->bkz_pool()->kDead);
+//                break;
+//            case NyThread::kRunning:
+//                info.GetReturnValues().Add(N->bkz_pool()->kRunning);
+//                break;
+//            case NyThread::kSuspended:
+//                info.GetReturnValues().Add(N->bkz_pool()->kSuspended);
+//                break;
+//            default:
+//                break;
+//        }
+//    } else {
+//        info.GetReturnValues().Add(thread->GetMetatable()->RawGet(*key, N));
+//    }
 }
     
 static void ThreadNewindex(const FunctionCallbackInfo<Object> &info) {
-    HandleScope handle_scope(info.VM());
     // TODO:
-    info.GetErrors().Raisef("TODO:");
 }
 
 static void BuiltinYield(const FunctionCallbackInfo<Object> &info) {
@@ -595,43 +599,44 @@ static void BuiltinYield(const FunctionCallbackInfo<Object> &info) {
 }
     
 static void ThreadResume(const FunctionCallbackInfo<Object> &info) {
-    if (info.Length() < 1) {
-        info.GetErrors().Raisef("incorrect arguments length, required: >1");
-        return;
-    }
-    
-    NyaaCore *N = info.Core();
-    NyThread *thread;
-    base::ScopedMemoryTemplate<Object *, 8> scoped;
-    int argc = static_cast<int>(info.Length() - 1);
-    Object **argv = scoped.New(argc);
-    {
-        HandleScope handle_scope(info.VM());
-        thread = NyThread::Cast(*info[0]);
-        if (!thread) {
-            info.GetErrors().Raisef("incorrect argument[0] type, unexpected: %d, requried: thread",
-                                    info[0]->GetType());
-            return;
-        }
-        for (int i = 0; i < argc; i++) {
-            argv[i] = *info[i + 1];
-        }
-    }
-    if (thread->state() == NyThread::kDead) {
-        info.GetErrors().Raisef("coroutine is dead.");
-        return;
-    }
-
-    TryCatchCore try_catch(N, thread);
-    int nrets = thread->Resume(argv, argc, -1, nullptr); // TODO: env
-
-    if (try_catch.has_caught()) {
-        info.GetReturnValues().AddNil().Add(try_catch.message());
-    } else {
-        for (int i = 0; i <  nrets; ++i) {
-            info.GetReturnValues().Add(thread->Get(-(nrets - i)));
-        }
-    }
+    // TODO:
+//    if (info.Length() < 1) {
+//        info.GetErrors().Raisef("incorrect arguments length, required: >1");
+//        return;
+//    }
+//
+//    NyaaCore *N = info.Core();
+//    NyThread *thread;
+//    base::ScopedMemoryTemplate<Object *, 8> scoped;
+//    int argc = static_cast<int>(info.Length() - 1);
+//    Object **argv = scoped.New(argc);
+//    {
+//        HandleScope handle_scope(info.VM());
+//        thread = NyThread::Cast(*info[0]);
+//        if (!thread) {
+//            info.GetErrors().Raisef("incorrect argument[0] type, unexpected: %d, requried: thread",
+//                                    info[0]->GetType());
+//            return;
+//        }
+//        for (int i = 0; i < argc; i++) {
+//            argv[i] = *info[i + 1];
+//        }
+//    }
+//    if (thread->state() == NyThread::kDead) {
+//        info.GetErrors().Raisef("coroutine is dead.");
+//        return;
+//    }
+//
+//    TryCatchCore try_catch(N, thread);
+//    int nrets = thread->Resume(argv, argc, -1, nullptr); // TODO: env
+//
+//    if (try_catch.has_caught()) {
+//        info.GetReturnValues().AddNil().Add(try_catch.message());
+//    } else {
+//        for (int i = 0; i <  nrets; ++i) {
+//            info.GetReturnValues().Add(thread->Get(-(nrets - i)));
+//        }
+//    }
 }
     
 
@@ -708,7 +713,7 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     kThread->RawPut(kzs->kInnerIndex, factory->NewDelegated(ThreadIndex, 0, true), N);
     kThread->RawPut(kzs->kInnerNewindex, factory->NewDelegated(ThreadNewindex, 0, true), N);
     kThread->RawPut(kzs->kResume, factory->NewDelegated(ThreadResume, 0, true), N);
-    kThread->RawPut(kzs->kInnerSize, NySmi::New(sizeof(NyThread)), N);
+    //kThread->RawPut(kzs->kInnerSize, NySmi::New(sizeof(NyThread)), N);
 
     //----------------------------------------------------------------------------------------------
     // NyByteArray

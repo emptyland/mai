@@ -1,7 +1,7 @@
 #include "nyaa/object-factory.h"
 #include "nyaa/string-pool.h"
 #include "nyaa/nyaa-values.h"
-#include "nyaa/thread.h"
+#include "nyaa/function.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/heap.h"
 #include "nyaa/builtin.h"
@@ -175,9 +175,12 @@ public:
     }
     
     virtual NyThread *NewThread(bool old) override {
-        auto ob = new NyThread(core_);
-        ob->SetMetatable(core_->kmt_pool()->kThread, core_);
-        return ob;
+//        auto ob = new NyThread(core_);
+//        ob->SetMetatable(core_->kmt_pool()->kThread, core_);
+//        return ob;
+        // TODO:
+        TODO();
+        return nullptr;
     }
         
 private:

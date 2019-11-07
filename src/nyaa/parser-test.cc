@@ -1,6 +1,5 @@
 #include "nyaa/parser.h"
 #include "nyaa/ast.h"
-#include "nyaa/code-gen-utils.h"
 #include "test/nyaa-test.h"
 #include "base/arenas.h"
 #include "mai-lang/nyaa.h"

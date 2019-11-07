@@ -752,6 +752,14 @@ inline bool IsPlaceholder(const String *name) {
     return !name ? false : (name->size() == 1 && name->data()[0] == '_');
 }
 
+//--------------------------------------------------------------------------------------------------
+// AST Serialization
+//--------------------------------------------------------------------------------------------------
+
+Error SerializeCompactedAST(ast::AstNode *node, std::string *buf);
+    
+Error LoadCompactedAST(std::string_view buf, ast::Factory *factory, ast::AstNode **rv);
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Factory
 ////////////////////////////////////////////////////////////////////////////////////////////////////

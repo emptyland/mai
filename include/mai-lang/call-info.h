@@ -187,7 +187,7 @@ public:
     
 private:
     Nyaa *const N_;
-    std::unique_ptr<TryCatchCore> catch_point_;
+    // TODO: std::unique_ptr<TryCatchCore> catch_point_;
 }; // class TryCatch
 } // namespace nyaa
     

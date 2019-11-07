@@ -58,8 +58,8 @@ extern int nyaa_yydebug;
   enum nyaa_yytokentype
   {
     DEF = 258,
-    BEGIN = 259,
-    END = 260,
+    BLOCK_BEGIN = 259,
+    BLOCK_END = 260,
     VAR = 261,
     VAL = 262,
     LAMBDA = 263,
@@ -90,15 +90,17 @@ extern int nyaa_yydebug;
     DO = 288,
     THIN_ARROW = 289,
     FAT_ARROW = 290,
-    STRING_LITERAL = 291,
-    SMI_LITERAL = 292,
-    APPROX_LITERAL = 293,
-    INT_LITERAL = 294,
-    NIL_LITERAL = 295,
-    BOOL_LITERAL = 296,
-    TOKEN_ERROR = 297,
-    IS = 298,
-    OP_NOT = 299
+    UNLESS = 291,
+    THEN = 292,
+    STRING_LITERAL = 293,
+    SMI_LITERAL = 294,
+    APPROX_LITERAL = 295,
+    INT_LITERAL = 296,
+    NIL_LITERAL = 297,
+    BOOL_LITERAL = 298,
+    TOKEN_ERROR = 299,
+    IS = 300,
+    OP_NOT = 301
   };
 #endif
 
@@ -130,7 +132,7 @@ union NYAA_YYSTYPE
     int64_t smi_val;
     bool bool_val;
 
-#line 134 "syntax.hh"
+#line 136 "syntax.hh"
 
 };
 typedef union NYAA_YYSTYPE NYAA_YYSTYPE;
