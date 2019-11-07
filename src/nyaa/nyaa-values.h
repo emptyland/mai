@@ -21,7 +21,6 @@ class ObjectFactory;
 class Object;
 class NyObject;
 class NyFloat64;
-class NyInt;
 class NyString;
 template<class T> class NyArrayBase;
 class NyByteArray;
@@ -242,7 +241,7 @@ public:
 #undef DECL_TYPE_CAST
     
     bool IsNumeric() const {
-        return IsFloat64() || IsInt(); // TODO:
+        return IsFloat64();
     }
 
     bool IsRunnable() const {
@@ -340,160 +339,6 @@ private:
     
     f64_t value_;
 }; // class NyFloat64
-
-
-class NyInt : public NyObject {
-public:
-    static constexpr const int kMinRadix = 2;
-    static constexpr const int kMaxRadix = 16;
-
-    NyInt(uint32_t capactiy);
-    
-    DEF_VAL_GETTER(uint32_t, capacity);
-    DEF_VAL_GETTER(uint32_t, offset);
-    DEF_VAL_GETTER(uint32_t, header);
-
-    bool IsZero() const;
-    
-    bool Equal(Object *rhs, NyaaCore *N) const;
-    bool LessThan(Object *rhs, NyaaCore *N) const;
-    bool LessEqual(Object *rhs, NyaaCore *N) const;
-    
-    NyInt *Shl(int bits, NyaaCore *N);
-    NyInt *Shr(int bits, NyaaCore *N);
-
-    Object *Add(Object *rhs, NyaaCore *N) const;
-    Object *Sub(Object *rhs, NyaaCore *N) const;
-    Object *Mul(Object *rhs, NyaaCore *N) const;
-    Object *Div(Object *rhs, NyaaCore *N) const;
-    Object *Mod(Object *rhs, NyaaCore *N) const;
-    Object *Shl(Object *rhs, NyaaCore *N) const;
-    Object *Shr(Object *rhs, NyaaCore *N) const;
-    
-    NyInt *Add(int64_t rhs, NyaaCore *N) const;
-    NyInt *Sub(int64_t rhs, NyaaCore *N) const;
-    NyInt *Mul(int64_t rhs, NyaaCore *N) const;
-    NyInt *Div(int64_t rhs, NyaaCore *N) const;
-    NyInt *Mod(int64_t rhs, NyaaCore *N) const;
-
-    NyInt *Add(const NyInt *rhs, NyaaCore *N) const;
-    NyInt *Sub(const NyInt *rhs, NyaaCore *N) const;
-    NyInt *Mul(const NyInt *rhs, NyaaCore *N) const;
-    NyInt *Div(const NyInt *rhs, NyaaCore *N) const { return std::get<0>(CompleteDiv(rhs, N)); }
-    NyInt *Mod(const NyInt *rhs, NyaaCore *N) const { return std::get<1>(CompleteDiv(rhs, N)); }
-    NyInt *Minus(NyaaCore *N) const;
-
-    std::tuple<NyInt *, NyInt *> CompleteDiv(const NyInt *rhs, NyaaCore *N) const;
-    
-    uint32_t HashVal() const;
-    
-    f64_t ToF64() const;
-    int64_t ToI64() const;
-    
-    NyString *ToString(NyaaCore *N, int radix = 10) const;
-    std::string ToString(int radix = 10) const;
-    
-    NyInt *Clone(base::Arena *arena) const { return New(segments(), segments_size(), arena); }
-    NyInt *Clone(ObjectFactory *factory) const { return New(segments(), segments_size(), factory); }
-    
-    void Fill(uint32_t s = 0) {
-        int64_t i = segments_size();
-        while (i-- > 0) { set_segment(i, s); }
-    }
-
-    bool Equals(const NyInt *rhs) const { return Compare(this, rhs) == 0; }
-    
-    static int Compare(const NyInt *lhs, const NyInt *rhs);
-    
-    void Iterate(ObjectVisitor *visitor) {}
-    
-    size_t PlacedSize() const { return RequiredSize(capacity_); }
-    
-    static size_t RequiredSize(uint32_t capacity) {
-        return sizeof(NyInt) + sizeof(uint32_t) * (capacity <= 2 ? 0 : capacity);
-    }
-    
-    static Object *UnboxIfNeed(NyInt *ob) {
-        if (ob->segments_size() <= 2) {
-            auto val = ob->ToI64();
-            if (val >= NySmi::kMinValue && val <= NySmi::kMaxValue) {
-                return NySmi::New(val);
-            }
-        }
-        return ob;
-    }
-    
-    static NyInt *Parse(const char *s, size_t n, ObjectFactory *factory);
-    static NyInt *ParseOctLiteral(const char *s, size_t n, ObjectFactory *factory);
-    static NyInt *ParseHexLiteral(const char *s, size_t n, ObjectFactory *factory);
-    static NyInt *ParseDecLiteral(const char *s, size_t n, ObjectFactory *factory);
-    static NyInt *ParseDigitals(const char *s, size_t n, int radix, ObjectFactory *factory);
-    static NyInt *NewI64(int64_t val, ObjectFactory *factory);
-    static NyInt *NewU64(uint64_t val, ObjectFactory *factory);
-    static NyInt *New(const uint32_t *s, size_t n, ObjectFactory *factory);
-
-    // for temp int objects
-    static NyInt *NewI64(int64_t val, base::Arena *arena);
-    static NyInt *NewU64(uint64_t val, base::Arena *arena);
-    static NyInt *New(const uint32_t *s, size_t n, base::Arena *arena);
-    static NyInt *NewUninitialized(size_t capacity, base::Arena *arena);
-    
-    DEF_HEAP_OBJECT(Int);
-private:
-    void InitI64(int64_t val) {
-        bool neg = val < 0;
-        if (neg) { val = -val; }
-        InitP64(val, neg, val > 0xffffffff ? 2 : 1);
-    }
-    
-    void InitP64(uint64_t val, bool neg, size_t reserved);
-    
-    bool negative() const { return header_ & 0x1; }
-    int sign() const { return negative() ? -1 : 1; }
-    size_t segments_size() const { return capacity_ - offset_; }
-    size_t segments_capacity() const { return capacity_;  }
-    const uint32_t *segments() const { return vals_ + offset_; }
-    uint32_t *segments() { return vals_ + offset_; }
-    View<uint32_t> segment_view() const { return MakeView(segments(), segments_size()); }
-    MutView<uint32_t> segment_mut_view() { return MakeMutView(segments(), segments_size()); }
-    
-    uint32_t segment(size_t i) const {
-        DCHECK_LT(i, segments_size());
-        return segments()[i];
-    }
-
-    void set_segment(size_t i, uint32_t s) {
-        DCHECK_LT(i, segments_size());
-        segments()[i] = s;
-    }
-    
-    void set_offset(size_t i) {
-        DCHECK_LE(i, capacity_);
-        offset_ = static_cast<uint32_t>(i);
-    }
-
-    void set_negative(bool neg) {
-        if (neg) {
-            header_ |= 0x1;
-        } else {
-            header_ &= ~0x1;
-        }
-    }
-    
-    static int AbsCompare(const NyInt *lhs, const NyInt *rhs);
-    static void AddRaw(const NyInt *lhs, const NyInt *rhs, NyInt *rv);
-    static std::tuple<NyInt *, NyInt *> DivRaw(const NyInt *lhs, const NyInt *rhs, NyaaCore *N);
-    NyInt *DivMagnitude(MutView<uint32_t> divisor, NyInt *rv, NyaaCore *N) const;
-    
-    void Normalize();
-    void Resize(size_t n);
-
-    uint32_t capacity_;
-    uint32_t offset_;
-    uint32_t header_;
-    uint32_t vals_[2];
-}; // class NyLong
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Maps:
@@ -760,7 +605,6 @@ public:
     
     int64_t TryI64(bool *ok) const;
     f64_t TryF64(bool *ok) const;
-    NyInt *TryInt(NyaaCore *N, bool *ok) const;
     
     void Iterate(ObjectVisitor *visitor) {}
     
@@ -985,8 +829,6 @@ inline uint32_t Object::HashVal(NyaaCore *N) const {
             return NyString::Cast(this)->hash_val();
         case kTypeFloat64:
             return NyFloat64::Cast(this)->HashVal();
-        case kTypeInt:
-            return NyInt::Cast(this)->HashVal();
         default:
             break;
     }
@@ -1049,8 +891,6 @@ inline bool NyFloat64::Equal(Object *rhs, NyaaCore *N) const {
     switch (rhs->GetType()) {
         case kTypeSmi:
             return NyFloat64::Near(value_, rhs->ToSmi());
-        case kTypeInt:
-            return NyFloat64::Near(value_, NyInt::Cast(rhs)->ToF64());
         case kTypeFloat64:
             return NyFloat64::Near(value_, NyFloat64::Cast(rhs)->value());
         default:
@@ -1063,8 +903,6 @@ inline bool NyFloat64::LessThan(Object *rhs, NyaaCore *N) const {
     switch (rhs->GetType()) {
         case kTypeSmi:
             return value_ < rhs->ToSmi();
-        case kTypeInt:
-            return value_ < NyInt::Cast(rhs)->ToF64();
         case kTypeFloat64:
             return value_ < NyFloat64::Cast(rhs)->value();
         default:
@@ -1077,8 +915,6 @@ inline bool NyFloat64::LessEqual(Object *rhs, NyaaCore *N) const {
     switch (rhs->GetType()) {
         case kTypeSmi:
             return value_ <= rhs->ToSmi();
-        case kTypeInt:
-            return value_ <= NyInt::Cast(rhs)->ToF64();
         case kTypeFloat64:
             return value_ <= NyFloat64::Cast(rhs)->value();
         default:

@@ -22,15 +22,6 @@ public:
         ob->SetMetatable(core_->kmt_pool()->kFloat64, core_);
         return ob;
     }
-    
-    virtual NyInt *NewUninitializedInt(size_t capacity, bool old) override {
-        size_t required_size = NyInt::RequiredSize(static_cast<uint32_t>(capacity));
-        void *chunk = ::malloc(required_size);
-        auto ob = new (chunk) NyInt(static_cast<uint32_t>(capacity));
-        DCHECK_EQ(ob->PlacedSize(), required_size);
-        ob->SetMetatable(core_->kmt_pool()->kInt, core_);
-        return ob;
-    }
 
     virtual NyString *NewString(const char *s, size_t n, bool old) override {
         if (core_->kz_pool()) {

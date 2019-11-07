@@ -210,10 +210,6 @@ int Objective::Call(Handle<Value> argv[], int argc, std::vector<Handle<Value>> *
 }
 
 /*static*/ Handle<Number> Number::NewI64(int64_t val) {
-    NyaaCore *N = NyaaCore::Current();
-    if (val > NySmi::kMaxValue || val < NySmi::kMinValue) {
-        return Handle<Number>(reinterpret_cast<Number *>(NyInt::NewI64(val, N->factory())));
-    }
     return Handle<Number>(reinterpret_cast<Number *>(NySmi::New(val)));
 }
     
@@ -227,8 +223,6 @@ int64_t Number::I64Value() const {
     switch (maybe->GetType()) {
         case kTypeSmi:
             return maybe->ToSmi();
-        case kTypeInt:
-            return NyInt::Cast(maybe)->ToI64();
         case kTypeFloat64:
             return static_cast<int64_t>(NyFloat64::Cast(maybe)->value());
         default:
@@ -242,8 +236,6 @@ double Number::F64Value() const {
     switch (maybe->GetType()) {
         case kTypeSmi:
             return maybe->ToSmi();
-        case kTypeInt:
-            return NyInt::Cast(maybe)->ToF64();
         case kTypeFloat64:
             return NyFloat64::Cast(maybe)->value();
         default:
@@ -446,11 +438,12 @@ ReturnValuesBase::ReturnValuesBase(Nyaa *N)
 }
     
 void ReturnValuesBase::Add(int64_t val) {
-    if (val > NySmi::kMaxValue || val < NySmi::kMinValue) {
-        AddInternal(NyInt::NewI64(val, N_->core()->factory()));
-    } else {
-        AddInternal(NySmi::New(val));
-    }
+// TODO:   if (val > NySmi::kMaxValue || val < NySmi::kMinValue) {
+//        AddInternal(NyInt::NewI64(val, N_->core()->factory()));
+//    } else {
+//        AddInternal(NySmi::New(val));
+//    }
+    AddInternal(NySmi::New(val));
 }
 
 void ReturnValuesBase::AddF64(double val) {

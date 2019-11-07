@@ -32,13 +32,6 @@ public:
         DCHECK_EQ(sizeof(NyFloat64), ob->PlacedSize());
         return ob;
     }
-        
-    virtual NyInt *NewUninitializedInt(size_t capacity, bool old) override {
-        size_t required_size = NyInt::RequiredSize(static_cast<uint32_t>(capacity));
-        NEW_OBJECT(required_size, NyInt(static_cast<uint32_t>(capacity)), Int);
-        DCHECK_EQ(required_size, ob->PlacedSize());
-        return ob;
-    }
 
     virtual NyString *NewString(const char *s, size_t n, bool old) override {
         if (core_->kz_pool()) {

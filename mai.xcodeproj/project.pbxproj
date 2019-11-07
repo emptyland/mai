@@ -1286,7 +1286,7 @@
 			isa = PBXProject;
 			attributes = {
 				DefaultBuildSystemTypeForWorkspace = Original;
-				LastUpgradeCheck = 0940;
+				LastUpgradeCheck = 1110;
 				ORGANIZATIONNAME = Niko;
 				TargetAttributes = {
 					2356590A221E82EC00837F83 = {
@@ -1760,6 +1760,7 @@
 		23B0E0E32187F9CE00F9E855 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				LIBRARY_SEARCH_PATHS = (
@@ -1774,6 +1775,7 @@
 		23B0E0E42187F9CE00F9E855 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				LIBRARY_SEARCH_PATHS = (
@@ -1789,6 +1791,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1803,6 +1806,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",

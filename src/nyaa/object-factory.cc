@@ -33,10 +33,6 @@ NyMap *ObjectFactory::NewMap(uint32_t capacity, uint32_t seed, uint64_t kid, boo
     return NewMap(maybe, kid, linear, old);
 }
     
-NyInt *ObjectFactory::NewLiteralInt(const char *z, size_t n, bool /*old*/) {
-    return NyInt::Parse(z, n, this);
-}
-    
 } // namespace nyaa
     
 } // namespace mai

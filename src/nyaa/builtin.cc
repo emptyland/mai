@@ -643,8 +643,7 @@ static void ThreadResume(const FunctionCallbackInfo<Object> &info) {
 Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     auto kzs = N->bkz_pool();
     auto factory = N->factory();
-    //Object *val;
-    
+
 #define NEW_METATABLE(kind) factory->NewMap(16, 0, kind, false, true)
     
     //----------------------------------------------------------------------------------------------
@@ -670,11 +669,6 @@ Error BuiltinMetatablePool::Boot(NyaaCore *N) {
     // NyFloat64
     kFloat64 = NEW_METATABLE(kTypeFloat64);
     kFloat64->RawPut(kzs->kInnerType, kzs->kFloat, N);
-    
-    //----------------------------------------------------------------------------------------------
-    // NyLong
-    kInt = NEW_METATABLE(kTypeInt);
-    kInt->RawPut(kzs->kInnerType, kzs->kInt, N);
     
     //----------------------------------------------------------------------------------------------
     // NyMap

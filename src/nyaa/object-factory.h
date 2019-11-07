@@ -13,7 +13,6 @@ namespace nyaa {
     
 class NyObject;
 class NyFloat64;
-class NyInt;
 class NyString;
 class NyClosure;
 class NyMap;
@@ -37,8 +36,6 @@ public:
     virtual ~ObjectFactory() {}
     
     virtual NyFloat64 *NewFloat64(f64_t value, bool old = false) = 0;
-    
-    virtual NyInt *NewUninitializedInt(size_t capacity, bool old = false) = 0;
     
     virtual NyString *NewString(const char *s, size_t n, bool old = false) = 0;
     
@@ -98,12 +95,6 @@ public:
                               bool old = false) {
         return NewDelegated(kFunctionCallback, reinterpret_cast<Address>(fp), n_upvals, old);
     }
-    
-    NyInt *NewLiteralInt(const char *z, bool old = false) {
-        return NewLiteralInt(z, !z ? 0 : ::strlen(z), old);
-    }
-
-    NyInt *NewLiteralInt(const char *z, size_t n, bool old = false);
     
     static ObjectFactory *NewHeapFactory(NyaaCore *core, Heap *heap);
     

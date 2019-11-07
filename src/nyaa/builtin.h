@@ -24,7 +24,6 @@ class Nyaa;
     
 #define DECL_BUILTIN_TYPES(V) \
     V(Float64) \
-    V(Int) \
     V(String) \
     V(ByteArray) \
     V(BytecodeArray) \
