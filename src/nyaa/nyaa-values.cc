@@ -1,5 +1,6 @@
 #include "nyaa/nyaa-values.h"
 #include "nyaa/function.h"
+#include "nyaa/thread.h"
 #include "nyaa/parser.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/heap.h"
@@ -213,7 +214,7 @@ NyString *Object::ToString(NyaaCore *N) {
     N->Raisef("smi attempt to call nil `__sub__' meta function.");
     return nullptr;
 }
-    
+
 /*static*/ Object *NySmi::Mul(Object *lhs, Object *rhs, NyaaCore *N) {
     DCHECK(lhs->IsSmi());
     auto lval = lhs->ToSmi();
@@ -480,7 +481,7 @@ void NyObject::Iterate(ObjectVisitor *visitor) {
             static_cast<Ny##type *>(this)->Iterate(visitor); \
             break;
             
-        // TODO: DECL_BUILTIN_TYPES(DEFINE_ITERATE)
+        DECL_BUILTIN_TYPES(DEFINE_ITERATE)
     #undef DEFINE_PLACED_SIZE
         case kTypeUdo:
             static_cast<NyUDO *>(this)->Iterate(visitor);
@@ -499,7 +500,7 @@ size_t NyObject::PlacedSize() const {
         bytes = static_cast<const Ny##type *>(this)->PlacedSize(); \
         break;
 
-        // TODO: DECL_BUILTIN_TYPES(DEFINE_PLACED_SIZE)
+        DECL_BUILTIN_TYPES(DEFINE_PLACED_SIZE)
 #undef DEFINE_PLACED_SIZE
         case kTypeUdo:
             static_cast<const NyUDO *>(this)->PlacedSize();

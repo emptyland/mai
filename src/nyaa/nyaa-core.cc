@@ -1,6 +1,7 @@
 #include "nyaa/nyaa-core.h"
-#include "nyaa/nyaa-values.h"
+#include "nyaa/thread.h"
 #include "nyaa/function.h"
+#include "nyaa/nyaa-values.h"
 #include "nyaa/heap.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/builtin.h"
@@ -81,13 +82,7 @@ Error NyaaCore::Boot() {
                               true/*old*/);
 
     // Setup main_thread
-// TODO: main_thd_ = factory_->NewThread(true /* old */);
-//    main_thd_->next_ = main_thd_;
-//    main_thd_->prev_ = main_thd_;
-//    if (Error rs = main_thd_->Init(); !rs) {
-//        return rs;
-//    }
-//    curr_thd_ = main_thd_;
+    current_thread_ = factory_->NewThread(stub_->init_thread_stack_size());
 
     // Setup builtin classes.
     SetGlobal(factory_->NewString("coroutine"), kmt_pool_->kThread);
@@ -270,8 +265,7 @@ void NyaaCore::GarbageCollectionSafepoint(const char *file, int line) {
 void NyaaCore::IterateRoot(RootVisitor *visitor) {
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&g_));
     visitor->VisitRootPointer(reinterpret_cast<Object **>(&loads_));
-// TODO: visitor->VisitRootPointer(reinterpret_cast<Object **>(&main_thd_));
-//    visitor->VisitRootPointer(reinterpret_cast<Object **>(&curr_thd_));
+    visitor->VisitRootPointer(reinterpret_cast<Object **>(&current_thread_));
     
     Object **pool_a = reinterpret_cast<Object **>(bkz_pool_.get());
     visitor->VisitRootPointers(pool_a, pool_a + kRawBuiltinKzsSize);
@@ -282,33 +276,15 @@ void NyaaCore::IterateRoot(RootVisitor *visitor) {
     pool_a = reinterpret_cast<Object **>(code_pool_.get());
     visitor->VisitRootPointers(pool_a, pool_a + kRawBuiltinCodeSize);
 
-// TODO: main_thd_->IterateRoot(visitor);
-//    for (auto thd = main_thd_->next_; thd != main_thd_; thd = thd->next_) {
-//        thd->IterateRoot(visitor);
-//    }
+    for (auto thread = current_thread_; thread != nullptr; thread = thread->prev()) {
+        thread->IterateRoot(visitor);
+    }
 
     for (auto slot = top_slot_; slot != nullptr; slot = slot->prev) {
         visitor->VisitRootPointers(reinterpret_cast<Object **>(slot->base),
                                    reinterpret_cast<Object **>(slot->end));
     }
 }
-    
-//void NyaaCore::InsertThread(NyThread *thd) {
-//    thd->next_ = main_thd_;
-//    auto *prev = main_thd_->prev_;
-//    thd->prev_ = prev;
-//    prev->next_ = thd;
-//    main_thd_->prev_ = thd;
-//}
-//
-//void NyaaCore::RemoveThread(NyThread *thd) {
-//    thd->prev_->next_ = thd->next_;
-//    thd->next_->prev_ = thd->prev_;
-//#if defined(DEBUG) || defined(_DEBUG)
-//    thd->next_ = nullptr;
-//    thd->prev_ = nullptr;
-//#endif
-//}
     
 void NyaaCore::InternalBarrierWr(NyObject *host, Object **pzwr, Object *val) {
     heap_->BarrierWr(host, pzwr, val);

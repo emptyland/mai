@@ -21,6 +21,7 @@ class NyObject;
 class Object;
 class NyString;
 class NyMap;
+class NyThread;
 class ObjectFactory;
 class RootVisitor;
 class StringPool;
@@ -109,8 +110,6 @@ public:
 private:
     void InternalBarrierWr(NyObject *host, Object **pzwr, Object *val);
     
-    void PurgeProfilerIfNeeded();
-    
     Nyaa *const stub_;
     Allocator *const page_alloc_;
     std::unique_ptr<Heap> heap_;
@@ -130,6 +129,7 @@ private:
     std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // elements [strong ref]
     std::unique_ptr<BuiltinCodePool> code_pool_; // elements [strong ref]
 
+    NyThread *current_thread_; // [strong ref]
     NyMap *g_ = nullptr; // [strong ref]
     NyMap *loads_ = nullptr; // [strong ref]
 };

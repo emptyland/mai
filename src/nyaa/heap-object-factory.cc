@@ -1,5 +1,6 @@
 #include "nyaa/object-factory.h"
 #include "nyaa/string-pool.h"
+#include "nyaa/thread.h"
 #include "nyaa/nyaa-values.h"
 #include "nyaa/function.h"
 #include "nyaa/nyaa-core.h"
@@ -189,10 +190,15 @@ public:
         return ob;
     }
 
-    virtual NyThread *NewThread(bool old) override {
-        // TODO:
-        TODO();
-        return nullptr;
+    virtual NyThread *NewThread(size_t initial_stack_size, bool old) override {
+        State *state = State::New(core_, initial_stack_size); // out of heap memory
+        if (!state) {
+            return nullptr;
+        }
+        static const size_t required_size = sizeof(NyThread);
+        NEW_OBJECT(required_size, NyThread(state), Thread);
+        DCHECK_EQ(ob->PlacedSize(), required_size);
+        return ob;
     }
 
 private:

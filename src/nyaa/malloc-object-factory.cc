@@ -165,7 +165,7 @@ public:
         return ob;
     }
     
-    virtual NyThread *NewThread(bool old) override {
+    virtual NyThread *NewThread(size_t initial_stack_size, bool old) override {
 //        auto ob = new NyThread(core_);
 //        ob->SetMetatable(core_->kmt_pool()->kThread, core_);
 //        return ob;

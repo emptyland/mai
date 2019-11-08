@@ -69,7 +69,7 @@ public:
     
     virtual NyClosure *NewClosure(NyFunction *proto, bool old = false) = 0;
     
-    virtual NyThread *NewThread(bool old = false) = 0;
+    virtual NyThread *NewThread(size_t initial_stack_size, bool old = false) = 0;
     
     virtual NyUDO *NewUninitializedUDO(size_t size, NyMap *clazz,
                                        bool ignore_managed, bool old = false) = 0;
