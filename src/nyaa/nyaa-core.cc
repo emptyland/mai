@@ -143,11 +143,13 @@ Isolate *NyaaCore::isolate() const { return stub_->isolate_; }
 }
     
 Address NyaaCore::GetRecoverPointAddress() {
-    return code_pool_->kEntryTrampoline->entry_address() + recover_point_pc_;
+    // TODO: return code_pool_->kEntryTrampoline->entry_address() + recover_point_pc_;
+    return nullptr;
 }
 
 Address NyaaCore::GetSuspendPointAddress() {
-    return code_pool_->kRecoverIfNeed->entry_address() + suspend_point_pc_;
+    // TODO: return code_pool_->kRecoverIfNeed->entry_address() + suspend_point_pc_;
+    return nullptr;
 }
 
 void NyaaCore::EnterHandleScope(HandleScope *handle_scope) {

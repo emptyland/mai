@@ -1,10 +1,9 @@
 #include "nyaa/function.h"
+#include "nyaa/thread.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/parser.h"
 #include "nyaa/ast.h"
-//#include "nyaa/code-gen.h"
 #include "nyaa/object-factory.h"
-//#include "nyaa/thread.h"
 #include "base/arenas.h"
 #include "mai-lang/isolate.h"
 #include "mai/env.h"
@@ -148,9 +147,7 @@ void NyClosure::Bind(int i, Object *upval, NyaaCore *N) {
 }
 
 int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
-    // TODO: return N->curr_thd()->TryRun(this, argv, argc, wanted);
-    TODO();
-    return -1;
+    return N->current_thread()->Run(this, argv, argc, wanted, N->g());
 }
 
 /*static*/ Handle<NyClosure> NyClosure::Compile(const char *z, size_t n, NyaaCore *N) {
@@ -170,9 +167,7 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
     if (script.is_not_valid()) {
         return -1;
     }
-    // TODO: return N->curr_thd()->TryRun(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
-    TODO();
-    return -1;
+    return N->current_thread()->Run(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
 }
 
 /*static*/ int NyClosure::Do(const char *file_name, FILE *fp, int wanted, NyMap *env, NyaaCore *N) {
@@ -180,9 +175,7 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
     if (script.is_not_valid()) {
         return -1;
     }
-    // TODO: return N->curr_thd()->TryRun(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
-    TODO();
-    return -1;
+    return N->current_thread()->Run(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
 }
 
 /*static*/ int NyClosure::DoFile(const char *file_name, int wanted, NyMap *env, NyaaCore *N) {

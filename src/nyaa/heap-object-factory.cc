@@ -198,6 +198,7 @@ public:
         static const size_t required_size = sizeof(NyThread);
         NEW_OBJECT(required_size, NyThread(state), Thread);
         DCHECK_EQ(ob->PlacedSize(), required_size);
+        heap_->AddFinalizer(ob, &NyThread::Finalizer);
         return ob;
     }
 

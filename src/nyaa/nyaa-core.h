@@ -95,6 +95,7 @@ public:
     DEF_PTR_GETTER(FILE, logger);
     DEF_PTR_GETTER(NyMap, g);
     DEF_PTR_GETTER(NyMap, loads);
+    DEF_PTR_GETTER(NyThread, current_thread);
     BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
     StringPool *kz_pool() const { return kz_pool_.get(); }
     BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }

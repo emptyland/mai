@@ -21,6 +21,7 @@ class Nyaa final {
 public:
     enum Execution {
         kInterpreter, // Interpreter only.
+        kInterpreter_And_JIT, // Interpreter and JIT
         kAOT, // AOT compiling.
         kAOT_And_JIT, // AOT compiling and JIT
     };

@@ -16,6 +16,9 @@
 		2312DFC022536B4300689616 /* scavenger.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2312DFBF22536B4300689616 /* scavenger.cc */; };
 		2317596921E5933F0025685F /* sql.yy.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2317596821E5933F0025685F /* sql.yy.cc */; settings = {COMPILER_FLAGS = "-Wno-documentation -Wno-unused-parameter -Wno-unused-function"; }; };
 		231A66312374209900FF7B5E /* thread.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231A66302374209900FF7B5E /* thread.cc */; };
+		231A66342375A35300FF7B5E /* bytecode.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231A66332375A35300FF7B5E /* bytecode.cc */; };
+		231A663623768CD500FF7B5E /* builtin-code-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231A663523768CD500FF7B5E /* builtin-code-x64.cc */; };
+		231A6639237AB0FB00FF7B5E /* thread-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231A6638237AB0FB00FF7B5E /* thread-test.cc */; };
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
 		23216A272201A2F900E1B816 /* types-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A262201A2F900E1B816 /* types-test.cc */; };
 		23216A2A2201BC8600E1B816 /* heap-tuple.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A292201BC8600E1B816 /* heap-tuple.cc */; };
@@ -302,6 +305,11 @@
 		2317596A21E5A1BA0025685F /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
 		231A662F2374205E00FF7B5E /* thread.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = thread.h; sourceTree = "<group>"; };
 		231A66302374209900FF7B5E /* thread.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = thread.cc; sourceTree = "<group>"; };
+		231A66322375A33400FF7B5E /* bytecode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bytecode.h; sourceTree = "<group>"; };
+		231A66332375A35300FF7B5E /* bytecode.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = bytecode.cc; sourceTree = "<group>"; };
+		231A663523768CD500FF7B5E /* builtin-code-x64.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "builtin-code-x64.cc"; sourceTree = "<group>"; };
+		231A66372376A1FA00FF7B5E /* runtime.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = runtime.h; sourceTree = "<group>"; };
+		231A6638237AB0FB00FF7B5E /* thread-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "thread-test.cc"; sourceTree = "<group>"; };
 		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
 		231C61F2219A6D54001A95C1 /* block-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-iterator.cc"; sourceTree = "<group>"; };
 		231C61F5219AA5EE001A95C1 /* io-utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "io-utils.h"; sourceTree = "<group>"; };
@@ -746,6 +754,7 @@
 				232CD5112283CAEA00544808 /* scavenger-test.cc */,
 				232CD5142283CAEA00544808 /* spaces-test.cc */,
 				232CD5152283CAEA00544808 /* string-pool-test.cc */,
+				231A6638237AB0FB00FF7B5E /* thread-test.cc */,
 			);
 			name = nyaa;
 			path = src/nyaa;
@@ -810,6 +819,9 @@
 				2312DFBC2253503700689616 /* malloc-object-factory.cc */,
 				23719D372240E2F20055D397 /* builtin.h */,
 				23719D382240E4860055D397 /* builtin.cc */,
+				231A663523768CD500FF7B5E /* builtin-code-x64.cc */,
+				231A66322375A33400FF7B5E /* bytecode.h */,
+				231A66332375A35300FF7B5E /* bytecode.cc */,
 				23D9E0C8224B524D00914076 /* visitors.h */,
 				23D9E0C9224B560800914076 /* visitors.cc */,
 				2312DFBE22536B3700689616 /* scavenger.h */,
@@ -829,6 +841,7 @@
 				23CA824C225CC0B200947EA8 /* parser-ctx.h */,
 				23CA8253225D828700947EA8 /* parser.h */,
 				23CA8254225D82D900947EA8 /* parser.cc */,
+				231A66372376A1FA00FF7B5E /* runtime.h */,
 			);
 			name = nyaa;
 			path = src/nyaa;
@@ -1427,6 +1440,7 @@
 				23B2C90B21F6C64600DF609E /* storage-engine-factory.cc in Sources */,
 				23D2F6BE21F1CC2300A49B1A /* types.cc in Sources */,
 				2364B30C21E451F9008519AE /* error.cc in Sources */,
+				231A6639237AB0FB00FF7B5E /* thread-test.cc in Sources */,
 				23344CF321EF1C05006BC6E4 /* form-schema.cc in Sources */,
 				2364B31021E451F9008519AE /* lru-cache-v1.cc in Sources */,
 				2364B31221E451F9008519AE /* delta-amend-iterator.cc in Sources */,
@@ -1477,6 +1491,7 @@
 				2364B34621E451F9008519AE /* s1-table-builder-test.cc in Sources */,
 				2364B34721E451F9008519AE /* s1-table-reader-test.cc in Sources */,
 				2364B34821E451F9008519AE /* file-test.cc in Sources */,
+				231A663623768CD500FF7B5E /* builtin-code-x64.cc in Sources */,
 				2364B34921E451F9008519AE /* arenas-test.cc in Sources */,
 				2364B34A21E451F9008519AE /* tls-test.cc in Sources */,
 				2303D93221F808C500075A99 /* storage-engine.cc in Sources */,
@@ -1492,6 +1507,7 @@
 				2364B35021E451F9008519AE /* arena-utils-test.cc in Sources */,
 				2364B35121E451F9008519AE /* config-test.cc in Sources */,
 				2374DE47223B4BFE00810B41 /* nyaa-core.cc in Sources */,
+				231A66342375A35300FF7B5E /* bytecode.cc in Sources */,
 				23344CE921EF082D006BC6E4 /* mai-sql-test.cc in Sources */,
 				2364B35221E451F9008519AE /* compaction-test.cc in Sources */,
 				23D2474E2255FC9700C96006 /* marking-sweep.cc in Sources */,

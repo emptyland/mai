@@ -104,10 +104,8 @@ public:
 
     virtual Kind kind() const = 0;
     virtual int line() const = 0;
-    //virtual int end_line() const = 0;
     virtual bool is_statement() const = 0;
     virtual bool is_expression() const = 0;
-    //virtual Object *Emit() const = 0;
     virtual IVal Accept(Visitor *, VisitorContext *) = 0;
     
 #define DEFINE_TYPE_CHECK(name) bool Is##name() const { return kind() == k##name; }

@@ -104,9 +104,8 @@ private:
 // All [strong ref]
 struct BuiltinCodePool final {
     NyCode *kEntryTrampoline = nullptr;
-    NyCode *kCallStub = nullptr;
-    NyCode *kRecoverIfNeed = nullptr;
-    
+
+    NyCode *kBytecodeHandlers[];
     friend class NyaaCore;
 private:
     Error Boot(NyaaCore *N);
