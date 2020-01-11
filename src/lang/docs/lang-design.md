@@ -1484,6 +1484,10 @@ movq Coroutine_sys_bp(CO), rbp
 movq Coroutine_sys_sp(CO), rsp
 movq Coroutine_sys_pc(CO), @suspend
 
+; if (coroutine.reentrant > 0) setup root exception is not need
+cmpl Coroutine_reentrant(CO), 0
+jg @entry
+
 ; Set root exception handler
 movq rbx, rbp
 subq rbx, stack_frame_caught_point
@@ -1520,7 +1524,7 @@ jg @resume ; if (coroutine->reentrant > 0)
 incl Coroutine_reentrant(CO) ; coroutine.reentrant++
 movq Argv_0, Coroutine_entry_point(CO)
 call InterpreterPump
-jmp far @done
+jmp far @uninstall
 
 @suspend:
 movq r11, Coroutine::Suspend
@@ -1544,13 +1548,15 @@ movq BC, rax
 JUMP_NEXT_BC()
 
 ; Restore native stack and frame
-@done:
 ; Unset root exception handler
+@uninstall
 movq rbx, rbp
 subq rbx, stack_frame_caught_point
 movq rax, CaughtNode_next(rbx) 
 movq Coroutine_caught(CO), rax ; coroutine.caught = caught.next
+
 ; Recover system stack
+@done:
 movq rbp, Coroutine_sys_bp(CO) ; recover system bp
 movq rsp, Coroutine_sys_sp(CO) ; recover system sp
 
