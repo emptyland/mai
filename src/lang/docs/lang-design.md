@@ -1493,25 +1493,26 @@ Argv_0...Argv_8 = rdi, rsi ...
 * `Trampoline`: 字节码执行的入口，负责从外部环境进入字节码执行环境。
 
 ```asm
+; Prototype: void Trampoline(Coroutine *co)
 ; Save registers
 ; TODO:
 
 ; Save native stack and frame
 call Coroutine::Current() ; rax = current_coroutine
-movq SCRATCH, rax
-movq Coroutine_bp(SCRATCH), rbp
-movq Coroutine_sp(SCRATCH), rsp
+movq CO, rax
+movq Coroutine_bp(CO), rbp
+movq Coroutine_sp(CO), rsp
 leaq rax, 0(rip)
-movq Coroutine_pc(SCRATCH), rax
+movq Coroutine_pc(CO), rax
 
 ; Set root exception handler
 movq rbx, rbp
 subq rbx, stack_frame_caught_point
-movq Coroutine_caught(SCRATCH), rbx ; coroutine.caught = &caught
+movq Coroutine_caught(CO), rbx ; coroutine.caught = &caught
 movq CaughtNode_next(rbx), 0 ; caught.next = nullptr
 movq CaughtNode_bp(rbx), rbp ; caught.bp = system rbp
 movq CaughtNode_sp(rbx), rsp ; caught.sp = system rsp
-movq rax, @exception_handler
+movq rax, @uncaught_handler
 movq CaughtNode_pc(rbx), rax ; caught.pc = @exception_handler
 jmp near @entry
 nop
@@ -1520,41 +1521,30 @@ nop
 nop
 
 ; Handler root exception
-@exception_handler: ; rax = top exception object
+@uncaught_handler: ; rax = top exception object
 ; switch to system stack
-movq SCRATCH, CO
-movq rbx, rbp
-movq rcx, rsp
-movq rbp, Coroutine_bp(SCRATCH) ; recover system bp
-movq rsp, Coroutine_sp(SCRATCH) ; recover system sp
-pushq rcx ; save mai sp
-pushq rbx ; save mai bp
-; call uncatch!
-movq Argv_0, rax ; argv[0] is exception object
-call Coroutine::Uncaught ; Coroutine::Uncaught(exception)
-; switch back to mai stack
-popq rbx
-popq rcx
-movq rsp, rcx
-movq rbp, rbx
+movq r11, Coroutine::Uncaught
+movq Argv_0, CO
+movq Argv_1, rax
+call SwitchSystemStackCall; call co->Uncaught(exception)
 jmp near @done
 
 ; function entry
 ; SCRATCH = coroutine
 @entry:
-movq rbp, Coroutine_bp(SCRATCH)
-movq rsp, Coroutine_sp(SCRATCH)
-cmpq Coroutine_reentrant(SCRATCH), 0
+movq rbp, Coroutine_bp(CO)
+movq rsp, Coroutine_sp(CO)
+cmpq Coroutine_reentrant(CO), 0
 jg @resume ; if (coroutine->reentrant > 0) 
 ; first calling
-incl Coroutine_reentrant(SCRATCH) ; coroutine.reentrant++
-movq Argv_0, Coroutine_entry_point(SCRATCH)
+incl Coroutine_reentrant(CO) ; coroutine.reentrant++
+movq Argv_0, Coroutine_entry_point(CO)
 call InterpreterPump
 jmp far @done
 
 ; coroutine->reentrant > 0, means: should resume this coroutine
 @resume:
-incl Coroutine_reentrant(SCRATCH) ; coroutine.reentrant++
+incl Coroutine_reentrant(CO) ; coroutine.reentrant++
 ; setup bytecode env
 movq rax, stack_frame_callee(rbp) ; rax = stack_frame.callee
 movq rax, Closure_mai_fn(rax) ; rax = callee->mai_fn
@@ -1572,12 +1562,10 @@ JUMP_NEXT_BC()
 movq rbx, rbp
 subq rbx, stack_frame_caught_point
 movq rax, CaughtNode_next(rbx) 
-movq Coroutine_caught(SCRATCH), rax ; coroutine.caught = caught.next
+movq Coroutine_caught(CO), rax ; coroutine.caught = caught.next
 ; Recover system stack
-call Coroutine::Current() ; rax = current_coroutine
-movq SCRATCH, rax
-movq rbp, Coroutine_bp(SCRATCH) ; recover system bp
-movq rsp, Coroutine_sp(SCRATCH) ; recover system sp
+movq rbp, Coroutine_bp(CO) ; recover system bp
+movq rsp, Coroutine_sp(CO) ; recover system sp
 
 ; TODO:
 ```
@@ -1599,8 +1587,40 @@ movq stack_frame_const_pool(rbp), rbx ; set const_pool
 movq rbx, Function_tags(rax) ; test tags
 test rbx, Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
 jz @start
+
 ; install caught handler
-call Coroutine::Current()
+movq rbx, rbp
+subq rbx, stack_frame_caught_point
+movq Coroutine_caught(CO), rbx ; coroutine.caught = &caught
+;movq CaughtNode_next(rbx), 0 ; caught.next = nullptr
+movq CaughtNode_bp(rbx), rbp ; caught.bp = system rbp
+movq CaughtNode_sp(rbx), rsp ; caught.sp = system rsp
+movq rax, @uncaught_handler
+movq CaughtNode_pc(rbx), rax ; caught.pc = @exception_dispatch
+jmp near @start
+nop
+nop
+... ; byte patches
+nop
+
+; exception caught dispatch 
+@exception_dispatch:
+movq SCRATCH, rax ; SCRATCH will be protectd by SwitchSystemStackCall
+movq r11, Closure::DispatchException ; call->DispatchException(exception)
+movq Argv_0, stack_frame_callee(rbp) ; argv[0] = callee
+movq Argv_1, SCRATCH ; argv[1] = exception
+call SwitchSystemStackCall ; switch system stack and call a c++ function
+movq rbx, rax
+cmpl rbx, 0
+jl @throw_again ; if (retval < 0)?
+jmp near 
+
+@throw_again:
+movq rbx, Coroutine_caught(CO)
+movq rbx, Caught_pc(rbx)
+movq rax, SCRATCH ; SCRATCH is saved to rax: current exception
+jmp far rbx ; throw again to prev handler
+
 ; TODO:
 
 ; goto first bytecode handler
@@ -1616,26 +1636,6 @@ andl rax, 0xff000000
 shrl rax, 24
 jmp far rbx*8(BC_ARRAY) ; jump to first bytecode handler
 
-; exception caught dispatch 
-@exception_dispatch:
-movq SCRATCH, rax ; SCRATCH will be protectd by SwitchSystemStackCall
-movq r11, Closure::ExceptionDispatch ; Dispatch(callee, thrown)
-movq Argv_0, stack_frame_callee(rbp) ; argv[0] = callee
-movq Argv_1, SCRATCH ; argv[1] = exception
-call SwitchSystemStackCall ; switch system stack and call a c++ function
-movq rbx, rax
-cmpl rbx, 0
-jl @throw_again ; if (retval < 0)?
-; TODO:
-
-@throw_again:
-movq rbx, Coroutine_caught(CO)
-movq rbx, Caught_pc(rbx)
-movq rax, SCRATCH ; SCRATCH is saved to rax: current exception
-jmp far rbx ; throw again to prev handler
-
-; TODO
-
 ; keep rax, beasue it's return value.
 movq rbx, stack_frame_callee(rbp)
 movq rbx, Closure_mai_fn(rbx)
@@ -1643,10 +1643,8 @@ movq rcx, Function_tags(rbx) ; rcx = mai_fn->tags
 test rcx, Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
 jz @done
 ; Uninstall caught handle
-movq Argv_0, rax
-call Coroutine::CurrentA
-movq SCRATCH, rax
-movq rax, Coroutine_acc(SCRATCH)
+movq SCRATCH, Coroutine_caught(CO)
+
 ; TODO:
 
 @done
