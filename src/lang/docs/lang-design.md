@@ -913,9 +913,11 @@ static_assert(sizeof(Span16) == 16, "");
 +-------------------+
 | constants pool    | 8 bytes
 +-------------------+
+| caught node       | 32 bytes
++-------------------+
 | local var span[0] | local variable spans
 +-------------------+
-| local var span[0] | N * Span16
+| local var span[1] | N * Span16
 +-------------------+
 | ... ... ... ...   |
 +-------------------+ --------
@@ -1749,17 +1751,17 @@ movq SCRATCH, Function_bytecodes(SCRATCH) ; SCRATCH = callee->mai_fn->bytecodes
 addq SCRATCH, BytecodeArray_instructions ; SCRATCH = &bytecodes->instructions
 movq rbx, stack_frame_pc(rbp)
 leaq BC, rbx*4(SCRATCH) ; [SCRATCH + rbx * 4]
-movq rax, 0(BC) ; get fist bytecode
-andl rax, 0xff000000
-shrl rax, 24
-jmp far rbx*8(BC_ARRAY) ; [BC_ARRAY + rbx * 8] jump to first bytecode handler
+movl ebx, 0(BC) ; get fist bytecode
+andl ebx, 0xff000000
+shrl ebx, 24
+j被bleebebbx*8(BC_ARRAY) ; [BC_ARRAY + rbx * 8] jump to first bytecode handler
 ```
 
 * `JUMP_NEXT_BC()` 宏，在解释器执行环境中，负责跳转到下一个`bytecode`的处理代码。
 
 ```asm
 ; move next BC and jump to handler
-incl stack_frame_pc(rbp) ; bc++ go to next bc
+incl stack_frame_pc(rbp) ; pc++ go to next bc
 addq BC, 4 ; BC++
 movq rbx, 0(BC) ; rbx = BC[0]
 andl rbx, 0xff000000
