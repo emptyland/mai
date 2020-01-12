@@ -396,9 +396,10 @@ for_loop := `for' `(' identifier `in' expr `..' expr `)' `{' block `}'
 | `for' `(' identifer [ `,' identifer ] in `)' `{' block `}'
 ```
 
-while 循环
+
 
 ```scala
+// while 循环
 while (true) {
     // 死循环
 }
@@ -407,6 +408,7 @@ while (val ok = check; ok) {
     // 当ok==true时循环
 }
 
+// for 循环
 for (i in 0..100) {
     // 循环100次，i的范围[0, 100)
 }
@@ -421,6 +423,37 @@ for (i, v in a) {
     // 遍历a，i为下标，v为值 a[i] == v
 }
 ```
+
+### 异常语句
+
+和常见的java、kotlin异常处理语句相似
+
+* `try` 子句
+* `catch` 子句
+* `finally` 子句
+
+```BFN
+throw_stmt := `throw' expr
+try_stmt := `try' `{' block `}' { `catch' `{' block `}' } [ `finally' `{' block `}' ]
+```
+
+
+
+```scala
+try {
+    foo()
+} catch (e: Error) {
+    e.printBacktrace
+} catch (e: Exception) {
+    println("e: $e")
+} catch (e: AppException) {
+    println("app: $e")
+} finally {
+    println("final")
+}
+```
+
+
 
 ### 协程语句
 
@@ -733,7 +766,6 @@ match (a) {
 }
 ```
 
-
 ## 实现
 
 ### 内存块(span)
@@ -853,7 +885,11 @@ static_assert(sizeof(Span16) == 16, "");
 
 ```
 
-### 栈
+#### 堆空间
+
+
+
+#### 栈空间
 
 * * *
 
@@ -927,6 +963,24 @@ static_assert(sizeof(Span16) == 16, "");
 | ... ... ... ...   |
 +-------------------+ --------
 ```
+
+### Handles
+
+```c++
+// protocode: s36:s
+String *Foo(String *arg0, mai::i32_t arg1, mai::f32_t arg2) {
+    Context *ctx = Context::Get();
+    HandleScope handle_scope(ctx);
+    
+    printf("%d\n", arg1);
+    printf("%f\n", arg2);
+    printf("%d\n", ctx->GetTid());
+    return *String::NewUtf8("ok")
+}
+
+```
+
+
 
 ### Isolate和Context
 
@@ -1117,8 +1171,8 @@ struct CaughtNode {
 +=========================================+
 [                 Closure                 ]
 +=========================================+
-|                               tags: u32 | is cxx fn or compiled fn?
-|----------------------+-------------------|
+|                Any Header               | heap object header
++-----------------------------------------+
 | cxx_fn: CxxFunction* | mai_fn :Function* | function proto or cxx function
 |----------------------+-------------------|
 |                  captured_var_size: u32 |
@@ -1319,11 +1373,11 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | code |     Parameter A     |      Parameter B     |
 +------+---------------------+----------------------+
 
-- ABC型：有3个参数
+- FA型：有2个参数
 
-|< 8b >|<-- 8 bits -->|<-- 8 bits -->|<-- 8 bits -->|
+|< 8b >|<-- 8 bits -->|<--------- 16 bits --------->|
 +------+--------------+--------------+--------------+
-| code | Parameter A  | Parameter B  | Parameter C  |
+| code |     Flags    |         Parameter A         |
 +------+--------------+--------------+--------------+
 ```
 
@@ -1422,8 +1476,11 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | `BitwiseShr64`      |    `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
 | `BitwiseLogicShr32` |   `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
 | `BitwiseLogicShr64` |    `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Throw`             |      `N` |      |                             |                |       |
+| `Throw`             |      `N` | 抛出异常 |                             |                |       |
 |  `Yield` | `A` | 让出控制权 | `u24` 控制代码 | | |
+|  `Goto` | `A` | 跳转到绝对位置 | `u24` PC位置 | | |
+| `JumpForward` | `A` | 向前跳转相对位置 | `u24`PC偏移量 | | |
+| `JumpBackward` | `A` | 向后跳闸相对位置 | `u24`PC偏移量 | | |
 
 类型转换：任意两类型间，最多只需要两步转换：
 规则：
@@ -1478,6 +1535,9 @@ Argv_0...Argv_8 = rdi, rsi ...
 pushq rbp
 movq rbp, rsp
 
+; Set bytecode handlers array
+movq BC_ARRAY, ... ; TODO
+
 ; Save system stack and frame
 movq CO, Argv_0
 movq Coroutine_sys_bp(CO), rbp
@@ -1489,14 +1549,13 @@ cmpl Coroutine_reentrant(CO), 0
 jg @entry
 
 ; Set root exception handler
-movq rbx, rbp
-subq rbx, stack_frame_caught_point
-movq Coroutine_caught(CO), rbx ; coroutine.caught = &caught
-movq CaughtNode_next(rbx), 0 ; caught.next = nullptr
-movq CaughtNode_bp(rbx), rbp ; caught.bp = system rbp
-movq CaughtNode_sp(rbx), rsp ; caught.sp = system rsp
+subq SCRATCH, stack_frame_caught_point(rbp)
+movq Coroutine_caught(CO), SCRATCH ; coroutine.caught = &caught
+movq CaughtNode_next(SCRATCH), 0 ; caught.next = nullptr
+movq CaughtNode_bp(SCRATCH), rbp ; caught.bp = system rbp
+movq CaughtNode_sp(SCRATCH), rsp ; caught.sp = system rsp
 movq rax, @uncaught_handler
-movq CaughtNode_pc(rbx), rax ; caught.pc = @exception_handler
+movq CaughtNode_pc(SCRATCH), rax ; caught.pc = @exception_handler
 jmp near @entry
 nop
 nop
@@ -1504,7 +1563,7 @@ nop
 nop
 
 ; Handler root exception
-@uncaught_handler: ; rax = top exception object
+uncaught_handler: ; rax = top exception object
 ; switch to system stack
 movq r11, Coroutine::Uncaught
 movq Argv_0, CO
@@ -1514,7 +1573,7 @@ jmp near @done
 
 ; function entry
 ; SCRATCH = coroutine
-@entry:
+entry:
 movq rbp, Coroutine_bp(CO) ; recover mai stack
 movq rsp, Coroutine_sp(CO) ; recover mai stack
 movl Coroutine_yield(CO) ; coroutine.yield = 0
@@ -1526,7 +1585,7 @@ movq Argv_0, Coroutine_entry_point(CO)
 call InterpreterPump
 jmp far @uninstall
 
-@suspend:
+suspend:
 movq r11, Coroutine::Suspend
 movq Argv_0, CO
 movq Argv_1, rax
@@ -1534,29 +1593,28 @@ call SwitchSystemStackCall; call co->Suspend(acc, xacc)
 jmp near @done
 
 ; coroutine->reentrant > 0, means: should resume this coroutine
-@resume:
+resume:
 incl Coroutine_reentrant(CO) ; coroutine.reentrant++
 ; setup bytecode env
-movq rax, stack_frame_callee(rbp) ; rax = stack_frame.callee
-movq rax, Closure_mai_fn(rax) ; rax = callee->mai_fn
-movq rax, Function_bytecodes(rax) ; rax = callee->mai_fn->bytecodes
-addq rax, BytecodeArray_instructions ; rax = &bytecodes->instructions
+movq SCRATCH, stack_frame_callee(rbp) ; rax = stack_frame.callee
+movq SCRATCH, Closure_mai_fn(SCRATCH) ; rax = callee->mai_fn
+movq SCRATCH, Function_bytecodes(SCRATCH) ; rax = callee->mai_fn->bytecodes
+addq SCRATCH, BytecodeArray_instructions ; rax = &bytecodes->instructions
 movq rbx, stack_frame_pc(rbp)
-shll rbx, 2 ; pc * 4
-addq rax, rbx
-movq BC, rax
+leaq BC, rbx*4(SCRATCH) ; [SCRATCH + rbx * 4]
+movq rax, Coroutine_acc(CO) ; recover mai ACC
+movsd xmm0, Coroutine_xacc(CO) ; recover mai XACC
 JUMP_NEXT_BC()
 
 ; Restore native stack and frame
 ; Unset root exception handler
-@uninstall
-movq rbx, rbp
-subq rbx, stack_frame_caught_point
+uninstall:
+leaq rbx, stack_frame_caught_point(rbp)
 movq rax, CaughtNode_next(rbx) 
 movq Coroutine_caught(CO), rax ; coroutine.caught = caught.next
 
 ; Recover system stack
-@done:
+done:
 movq rbp, Coroutine_sys_bp(CO) ; recover system bp
 movq rsp, Coroutine_sys_sp(CO) ; recover system sp
 
@@ -1573,27 +1631,25 @@ ret
 pushq rbp
 movq rbp, rsp
 
-movq rax, Closure_mai_fn(Argv_0) ; rax = callee->mai_fn
-subq rsp, Function_stack_size(rax) ; rsp -= mai_fn->stack_size and keep rbp
+movq SCRATCH, Closure_mai_fn(Argv_0) ; rax = callee->mai_fn
+subq rsp, Function_stack_size(SCRATCH) ; rsp -= mai_fn->stack_size and keep rbp
 movq stack_frame_maker(rbp), InterpreterFrame::kMaker
 movq stack_frame_pc(rbp), 0 ; set pc = 0
 movq stack_frame_callee(rbp), Argv_0 ; set callee
-movq rbx, Function_const_pool(rax) ; rbx = mai_fn->const_pool
+movq rbx, Function_const_pool(SCRATCH) ; rbx = mai_fn->const_pool
 movq stack_frame_const_pool(rbp), rbx ; set const_pool
-movq rbx, Function_tags(rax) ; test tags
-test rbx, Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
+test Function_tags(SCRATCH), Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
 jz @start
 
 ; install caught handler
-movq rbx, rbp
-subq rbx, stack_frame_caught_point
+leaq SCRATCH, stack_frame_caught_point(rbp)
 movq rax, Coroutine_caught(CO) ; rax = next caught
-movq Coroutine_caught(CO), rbx ; coroutine.caught = &caught
-movq CaughtNode_next(rbx), rax ; caught.next = coroutine.caught
-movq CaughtNode_bp(rbx), rbp ; caught.bp = system rbp
-movq CaughtNode_sp(rbx), rsp ; caught.sp = system rsp
+movq Coroutine_caught(CO), SCRATCH ; coroutine.caught = &caught
+movq CaughtNode_next(SCRATCH), rax ; caught.next = coroutine.caught
+movq CaughtNode_bp(SCRATCH), rbp ; caught.bp = system rbp
+movq CaughtNode_sp(SCRATCH), rsp ; caught.sp = system rsp
 movq rax, @exception_dispatch
-movq CaughtNode_pc(rbx), rax ; caught.pc = @exception_dispatch
+movq CaughtNode_pc(SCRATCH), rax ; caught.pc = @exception_dispatch
 jmp near @start
 nop
 nop
@@ -1601,7 +1657,7 @@ nop
 nop
 
 ; exception caught dispatch 
-@exception_dispatch:
+exception_dispatch:
 movq SCRATCH, rax ; SCRATCH will be protectd by SwitchSystemStackCall
 movq r11, Closure::DispatchException ; callee->DispatchException(exception, pc)
 movq Argv_0, stack_frame_callee(rbp) ; argv[0] = callee
@@ -1612,14 +1668,13 @@ cmpl rax, 0
 jl @throw_again ; if (retval < 0)?
 ; Do dispatch: rax is destination pc
 movq stack_frame_pc(rbp), rax ; update pc
-movq rbx, rbp
-subq rbx, stack_frame_caught_point
-movq rbp, CaughtNode_bp(rbx)
-movq rsp, CaughtNode_sp(rbx)
+leaq SCRATCH, stack_frame_caught_point(rbp)
+movq rbp, CaughtNode_bp(SCRATCH)
+movq rsp, CaughtNode_sp(SCRATCH)
 START_BC()
 
 ; uncaught exception, should throw again
-@throw_again:
+throw_again:
 movq rbx, Coroutine_caught(CO)
 movq rax, CaughtNode_next(rbx)
 movq Coroutine_caught(CO), rax ; coroutine.caught = coroutine.caught.next
@@ -1629,7 +1684,7 @@ jmp far rbx ; throw again to prev handler
 
 ; goto first bytecode handler
 ; the first bytecode can jump to second bytecode handler, and next and next next.
-@start:
+start:
 START_BC()
 
 ; keep rax, beasue it's return value.
@@ -1644,7 +1699,7 @@ movq SCRATCH, CaughtNode_next(SCRATCH)
 movq Coroutine_caught(CO), SCRATCH ; coroutine.caught = coroutine.caught.next
 
 ; keep rbx == callee->mai_fn
-@done
+done:
 addq rsp, Function_stack_size(rbx) ; recover stack
 popq rbp
 ret
@@ -1688,19 +1743,16 @@ ret
 
 ```asm
 ; jump to current pc's handler
-movq rax, stack_frame_callee(rbp)
-movq rax, Closure_mai_fn(rax)
-movq rax, Function_bytecodes(rax) ; rax = callee->mai_fn->bytecodes
-addq rax, BytecodeArray_instructions ; rax = &bytecodes->instructions
+movq SCRATCH, stack_frame_callee(rbp)
+movq SCRATCH, Closure_mai_fn(SCRATCH)
+movq SCRATCH, Function_bytecodes(SCRATCH) ; SCRATCH = callee->mai_fn->bytecodes
+addq SCRATCH, BytecodeArray_instructions ; SCRATCH = &bytecodes->instructions
 movq rbx, stack_frame_pc(rbp)
-shll rbx, 3 ; rbx = pc * 8
-addq rax, rbx
-shrl rbx, 3 ; rbx = pc
-movq BC, rax ; setup new BC
+leaq BC, rbx*4(SCRATCH) ; [SCRATCH + rbx * 4]
 movq rax, 0(BC) ; get fist bytecode
 andl rax, 0xff000000
 shrl rax, 24
-jmp far rbx*8(BC_ARRAY) ; jump to first bytecode handler
+jmp far rbx*8(BC_ARRAY) ; [BC_ARRAY + rbx * 8] jump to first bytecode handler
 ```
 
 * `JUMP_NEXT_BC()` 宏，在解释器执行环境中，负责跳转到下一个`bytecode`的处理代码。
@@ -1735,19 +1787,22 @@ jmp far rbx
 * Load to ACC
     * 作用：将栈中数据放入寄存器A中
     * 类型：`A`型
+        * `参数A`：栈偏移量
     * 副作用：改变`RA`
 
 ```asm
 ; [ Ldar32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xffffff
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+neg rbx
 | movl eax, rbx(rbp)
 | movq rax, rbx(rbp)
 JUMP_NEXT_BC()
 
 ; [ Ldaf32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xffffff
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+neg rbx
 | movss xmm0, rbx(rbp)
 | movsd xmm0, rbx(rbp)
 JUMP_NEXT_BC()
@@ -1760,15 +1815,15 @@ JUMP_NEXT_BC()
 
 ```asm
 ; [ Star32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xffffff
+movl ebx, 0(BC)
+andl ebx, 0xffffff
 | movl rbx(rbp), eax
 | movq rbx(rbp), rax
 JUMP_NEXT_BC()
 
 ; [ Staf32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xffffff
+movl ebx, 0(BC)
+andl ebx, 0xffffff
 | movss rbx(rbp), xmm0
 | movsd rbx(rbp), xmm0
 JUMP_NEXT_BC()
@@ -1783,13 +1838,13 @@ JUMP_NEXT_BC()
 
 ```asm
 ; [ Move32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff
+movl ebx, 0(BC)
+andl ebx, 0xfff
 | movl eax, rbx(rbp)
 | movq rax, rbx(rbp)
-movl rbx, NEXT_BC
-andl rbx, 0xfff000
-shrl rbx, 12
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
 | movl rbx(rbp), eax
 | movq rbx(rbp), rax
 JUMP_NEXT_BC()
@@ -1804,25 +1859,25 @@ JUMP_NEXT_BC()
 
 ```asm
 ; [ Add32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
 | movl eax, rbx(rbp)
 | movq rax, rbx(rbp)
-movl rbx, NEXT_BC
-andl rbx, 0xfff
+movl ebx, 0(BC)
+andl ebx, 0xfff
 | addl eax, rbx(rbp)
 | addq rax, rbx(rbp)
 JUMP_NEXT_BC()
 
 ; [ Addf32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
 | movss xmm0, rbx(rbp)
 | movsd xmm0, rbx(rbp)
-movl rbx, NEXT_BC
-andl rbx, 0xfff
+movl ebx, 0(BC)
+andl ebx, 0xfff
 | addss xmm0, rbx(rbp)
 | addsd xmm0, rbx(rbp)
 JUMP_NEXT_BC()
@@ -1837,25 +1892,25 @@ JUMP_NEXT_BC()
 
 ```asm
 ; [ Sub32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
 | movl eax, rbx(rbp)
 | movq rax, rbx(rbp)
-movl rbx, 0(BC)
-andl rbx, 0xfff
+movl ebx, 0(BC)
+andl ebx, 0xfff
 | subl eax, rbx(rbp)
 | subq rax, rbx(rbp)
 JUMP_NEXT_BC()
 
 ; [ Subf32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
 | movss xmm0, rbx(rbp)
 | movsd xmm0, rbx(rbp)
-movl rbx, 0(BC)
-andl rbx, 0xfff
+movl ebx, 0(BC)
+andl ebx, 0xfff
 | subss xmm0, rbx(rbp)
 | subsd xmm0, rbx(rbp)
 JUMP_NEXT_BC()
@@ -1870,25 +1925,25 @@ JUMP_NEXT_BC()
 
 ```asm
 ; [ Mul32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
 | movl eax, rbx(rbp)
 | movq rax, rbx(rbp)
-movl rbx, 0(BC)
-andl rbx, 0xfff
+movl ebx, 0(BC)
+andl ebx, 0xfff
 | mull eax, rbx(rbp)
 | mulq rax, rbx(rbp)
 JUMP_NEXT_BC()
 
 ; [ Mulf32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
 | movss xmm0, rbx(rbp)
 | movsd xmm0, rbx(rbp)
-movl rbx, 0(BC)
-andl rbx, 0xfff
+movl ebx, 0(BC)
+andl ebx, 0xfff
 | mulss xmm0, rbx(rbp)
 | mulsd xmm0, rbx(rbp)
 JUMP_NEXT_BC()
@@ -1931,8 +1986,7 @@ JUMP_NEXT_BC()
 ; Keep rax, it's return value
 movq SCRATCH, stack_frame_callee(rbp)
 movq SCRATCH, Closure_mai_fn(SCRATCH)
-movq rcx, Function_tags(SCRATCH) ; rcx = mai_fn->tags
-test rcx, Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
+test Function_tags(SCRATCH), Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
 jz @done
 
 ; Uninstall caught handle
@@ -1940,7 +1994,7 @@ movq SCRATCH, Coroutine_caught(CO)
 movq SCRATCH, CaughtNode_next(SCRATCH)
 movq Coroutine_caught(CO), SCRATCH ; coroutine.caught = coroutine.caught.next
 
-@done:
+done:
 JUMP_NEXT_BC()
 
 ```
@@ -1951,7 +2005,7 @@ JUMP_NEXT_BC()
     * `参数A` ：控制代码
         * `YIELD_FORCE` 强制让出控制权
         * `YIELD_PROPOSE` 建议让出
-        * `YIELD_RANDOM` 随机
+        * `YIELD_RANDOM` 随机1/8几率
     * 副作用：无
 
 ```asm
@@ -1967,12 +2021,12 @@ je @random
 ; bad bytecode
 PANIC(ERROR_BAD_BYTE_CODE, "incorrect yield control code.")
 
-@propose:
+propose:
 cmpl Coroutine_yield(CO), 0
 jg @force
 jmp near @done
 
-@random:
+random:
 rdrand ebx
 andl ebx, 0xfffffff0
 cmpl ebx, 0
@@ -1980,7 +2034,7 @@ je @force
 jmp near @done
 
 ; save acc, xacc, rsp, rbp, pc then jump to resume point
-@force:
+force:
 movq Coroutine_acc(CO), rax
 movsd Coroutine_xacc(CO), xmm0
 movl eax, stack_frame_pc(rbp)
@@ -1990,8 +2044,63 @@ movq Coroutine_sp(CO), rsp
 movq rbx, Coroutine_sys_pc(CO) ; rbx = suspend point
 jmp far rbx ; jump to suspend point
 
-@done:
+done:
 JUMP_NEXT_BC()
 
+```
+
+* Throw a Exception
+    * 作用：抛出ACC中的异常对象。
+    * 类型：`N`型
+    * 副作用：无
+
+```asm
+; [ Throw ]
+movq SCRATCH, Coroutine_caught(CO)
+movq rbx, CaughtNode_next(SCRATCH)
+movq Coroutine_caught(CO), rbx ; coroutine.caught = coroutine.caught.next
+movq rbx, CaughtNode_pc(SCRATCH)
+jmp far rbx ; throw again to prev handler
+```
+
+* Goto absolute position
+    * 作用：跳转到绝对位置。
+    * 类型：`A`型
+        * `参数A` ：绝对PC位置
+    * 副作用：无
+
+```asm
+; [ Goto ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+movl stack_frame_pc(rbp), ebx
+START_BC()
+```
+
+* Jump forward relatively position
+    * 作用：前进跳转到相对位置。
+    * 类型：`A`型
+        * `参数A` ：PC增量
+    * 副作用：无
+
+```asm
+; [ JumpForward ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+addl stack_frame_pc(rbp), ebx
+START_BC()
+```
+
+* Jump backward relatively position
+    * 作用：后退跳转到相对位置。
+    * 类型：`A`型
+        * `参数A` ：PC减量
+    * 副作用：无
+
+```asm
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+subl stack_frame_pc(rbp), ebx
+START_BC()
 ```
 
