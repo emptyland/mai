@@ -895,37 +895,53 @@ static_assert(sizeof(Span16) == 16, "");
 
 > 每个`routine`有一个自己的栈，参数全部通过栈传递，返回值通过寄存器传递(x64为`rax`)
 
+
+
+```c++
+struct Stack {
+    Stack *next;
+    Address guard0;
+    Address guard1;
+    Address hi;
+    Address lo;
+    size_t  size;
+    uint8_t bytes[16]
+};
+```
+
+
+
 * 调用者栈(`caller`)
 
 ```
 字节码函数的调用栈
 
-+-------------------+
++-------------------+ --------- stack begin -------
 | return address    | 8 bytes
 +-------------------+
-| saved sp          | 8 bytes
-+-------------------+ --------
+| saved bp          | 8 bytes -------->[ prev bp ]
++-------------------+ <================[ current bp ]
 | maker             | 4 bytes
 +-------------------+ --------
 | pc                | 4 bytes
 +-------------------+
 | callee function   | 8 bytes
 +-------------------+
+| bytecode array    | 8 bytes
++-------------------+
 | constants pool    | 8 bytes
 +-------------------+
-| caught node       | 32 bytes
+| caught node       | optional: 32 bytes
 +-------------------+
 | local var span[0] | local variable spans
 +-------------------+
 | local var span[1] | N * Span16
 +-------------------+
 | ... ... ... ...   |
-+-------------------+ --------
-| callee function   | 8 bytes
++-------------------+ <================[ current sp ]
+| argv[0]           | 4/8 bytes first argument
 +-------------------+ 
-| argv[1]           | first argument
-+-------------------+ 
-| argv[2]           | secrond argument
+| argv[1]           | 4/8 bytes secrond argument
 +-------------------+ 
 | ... ... ... ...   | ...others arguments
 +-------------------+ 
@@ -938,9 +954,9 @@ static_assert(sizeof(Span16) == 16, "");
 
 ```
 +-------------------+ -------- caller stack --------
-| argv[1]           | first argument
+| argv[1]           | 4/8 bytes first argument
 +-------------------+ 
-| argv[2]           | secrond argument
+| argv[2]           | 4/8 bytes secrond argument
 +-------------------+ 
 | ... ... ... ...   | ...others arguments
 +-------------------+ 
@@ -948,22 +964,26 @@ static_assert(sizeof(Span16) == 16, "");
 +-------------------+ --------- callee stack -------
 | return address    | 8 bytes
 +-------------------+
-| saved sp          | 8 bytes
-+-------------------+ --------
+| saved bp          | 8 bytes -------->[ prev bp ]
++-------------------+ <================[ current bp ]
 | maker             | 4 bytes
 +-------------------+
 | pc                | 4 bytes
 +-------------------+
 | callee function   | 8 bytes
 +-------------------+
+| bytecode array    | 8 bytes
++-------------------+
 | constants pool    | 8 bytes
-+-------------------+ --------
++-------------------+
+| caught node       | optional: 32 bytes
++-------------------+ -------- local vars ----------
 | local var span[0] | local variable spans
 +-------------------+
 | local var span[1] | N * Span16
 +-------------------+
 | ... ... ... ...   |
-+-------------------+ --------
++-------------------+ <================[ current sp ]
 ```
 
 ### Handles
@@ -1404,21 +1424,33 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | `LdaGlobal64` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
 | `LdaGlobalf32` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
 | `LdaGlobalf64` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
+| `LdaProperty8` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaProperty16` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaProperty32` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaProperty64` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaPropertyf32` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaPropertyf64` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `Star32` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
 | `Star64` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
 | `Staf32` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
 | `Staf64` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
+| `StaProperty8` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaProperty16` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaProperty32` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaProperty64` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaPropertyf32` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaPropertyf64` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `Move32` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `Move64` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `Truncate32To8` | `A` | 截断整数 | `u24` 栈偏移量 | |
 | `Truncate32To16` | `A` | 截断整数 | `u24` 栈偏移量 | |
 | `Truncate64To32` | `A` | 截断整数 | `u24` 栈偏移量 | |
-| `Zext8To32` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
-| `Zext16To32` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
-| `Zext32To64` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
-| `Sext8To32` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
-| `Sext16To32` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
-| `Sext32To64` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
+| `ZeroExtend8To32` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
+| `ZeroExtend16To32` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
+| `ZeroExtend32To64` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
+| `SignExtend8To32` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
+| `SignExtend16To32` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
+| `SignExtend32To64` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
 | `F32ToI32` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
 | `F64ToI32` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
 | `F32ToU32` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
@@ -1471,11 +1503,27 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | `BitwiseShr64` | `AB` | 按位右移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `BitwiseLogicShr32` | `AB` | 按位逻辑右移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `BitwiseLogicShr64` | `AB` | 按位逻辑右移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestEqual32` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestNotEqual32` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThan32` | `AB` | 测试小于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanOrEqual32` | `AB` | 测试小于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThan32` | `AB` | 测试大于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanEqual32` | `AB` | 测试大于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestEqual64` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestNotEqual64` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThan64` | `AB` | 测试小于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanOrEqual64` | `AB` | 测试小于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThan64` | `AB` | 测试大于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanEqual64` | `AB` | 测试大于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestIn` | `AB` | 测试元素是否在容器内 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestIs` | `AB` | 测试类型 | `u12` 栈偏移量 | `u12` 类型常量偏移 |
 | `Throw` | `N` | 抛出异常 | | |
 | `Yield` | `A` | 让出控制权 | `u24` 控制代码 | |
 | `Goto` | `A` | 跳转到绝对位置 | `u24` PC位置 | |
 | `JumpForward` | `A` | 向前跳转相对位置 | `u24`PC偏移量 | |
-| `JumpBackward` | `A` | 向后跳闸相对位置 | `u24`PC偏移量 | |
+| `JumpBackward` | `A` | 向后跳转相对位置 | `u24`PC偏移量 | |
+| `GotoIfTrue` | `A` | 测试结果为`true`跳转到绝对位置 | `u24`PC偏移量 | |
+| `GotoIfFalse` | `A` | 测试结果为`false`跳转到绝对位置 | `u24`PC偏移量 | |
 
 类型转换：任意两类型间，最多只需要两步转换：
 规则：
@@ -1582,7 +1630,7 @@ jmp near @done
 entry:
 movq rbp, Coroutine_bp(CO) ; recover mai stack
 movq rsp, Coroutine_sp(CO) ; recover mai stack
-movl Coroutine_yield(CO) ; coroutine.yield = 0
+movl Coroutine_yield(CO) 0 ; coroutine.yield = 0
 cmpl Coroutine_reentrant(CO), 0
 jg @resume ; if (coroutine->reentrant > 0) 
 ; first calling
@@ -1602,10 +1650,8 @@ jmp near @done
 resume:
 incl Coroutine_reentrant(CO) ; coroutine.reentrant++
 ; setup bytecode env
-movq SCRATCH, stack_frame_callee(rbp) ; rax = stack_frame.callee
-movq SCRATCH, Closure_mai_fn(SCRATCH) ; rax = callee->mai_fn
-movq SCRATCH, Function_bytecodes(SCRATCH) ; rax = callee->mai_fn->bytecodes
-addq SCRATCH, BytecodeArray_instructions ; rax = &bytecodes->instructions
+movq SCRATCH, stack_frame_bytecode_array(rbp) ; SCRATCH = bytecode array
+addq SCRATCH, BytecodeArray_instructions ; SCRATCH = &bytecodes->instructions
 movq rbx, stack_frame_pc(rbp)
 leaq BC, rbx*4(SCRATCH) ; [SCRATCH + rbx * 4]
 movq rax, Coroutine_acc(CO) ; recover mai ACC
@@ -1637,11 +1683,13 @@ ret
 pushq rbp
 movq rbp, rsp
 
-movq SCRATCH, Closure_mai_fn(Argv_0) ; rax = callee->mai_fn
+movq SCRATCH, Closure_mai_fn(Argv_0) ; SCRATCH = callee->mai_fn
 subq rsp, Function_stack_size(SCRATCH) ; rsp -= mai_fn->stack_size and keep rbp
-movq stack_frame_maker(rbp), InterpreterFrame::kMaker
+movq stack_frame_maker(rbp), InterpreterStackFrame::kMaker
 movq stack_frame_pc(rbp), 0 ; set pc = 0
 movq stack_frame_callee(rbp), Argv_0 ; set callee
+movq rbx, Function_bytecodes(SCRATCH) ; rbx = mai_fn->bytecodes
+movq stack_frame_bytecodearray(rbp), rbx ; set bytecode array
 movq rbx, Function_const_pool(SCRATCH) ; rbx = mai_fn->const_pool
 movq stack_frame_const_pool(rbp), rbx ; set const_pool
 test Function_tags(SCRATCH), Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
@@ -1692,23 +1740,8 @@ jmp far rbx ; throw again to prev handler
 ; the first bytecode can jump to second bytecode handler, and next and next next.
 start:
 START_BC()
-
-; keep rax, beasue it's return value.
-movq rbx, stack_frame_callee(rbp)
-movq rbx, Closure_mai_fn(rbx)
-movq rcx, Function_tags(rbx) ; rcx = mai_fn->tags
-test rcx, Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
-jz @done
-; Uninstall caught handle
-movq SCRATCH, Coroutine_caught(CO)
-movq SCRATCH, CaughtNode_next(SCRATCH)
-movq Coroutine_caught(CO), SCRATCH ; coroutine.caught = coroutine.caught.next
-
-; keep rbx == callee->mai_fn
-done:
-addq rsp, Function_stack_size(rbx) ; recover stack
-popq rbp
-ret
+; never goto this
+int 3
 ```
 
 * `SwitchSystemStackCall`函数，切换到系统栈执行一个C++函数。
@@ -1749,9 +1782,7 @@ ret
 
 ```asm
 ; jump to current pc's handler
-movq SCRATCH, stack_frame_callee(rbp)
-movq SCRATCH, Closure_mai_fn(SCRATCH)
-movq SCRATCH, Function_bytecodes(SCRATCH) ; SCRATCH = callee->mai_fn->bytecodes
+movq SCRATCH, stack_frame_bytecode_array(rbp) ; SCRATCH = callee->mai_fn->bytecodes
 addq SCRATCH, BytecodeArray_instructions ; SCRATCH = &bytecodes->instructions
 movq rbx, stack_frame_pc(rbp)
 leaq BC, rbx*4(SCRATCH) ; [SCRATCH + rbx * 4]
@@ -1791,10 +1822,10 @@ jmp far rbx
 #### 字节码详细
 
 * Load to ACC
-    * 作用：将栈中数据放入寄存器A中
+    * 作用：将栈中数据放入ACC中
     * 类型：`A`型
         * `参数A`：栈偏移量
-    * 副作用：改变`RA`
+    * 副作用：写入`ACC`
 
 ```asm
 ; [ Ldar32/64 ]
@@ -1814,9 +1845,61 @@ neg rbx
 JUMP_NEXT_BC()
 ```
 
+* Load property to ACC
+    * 作用：读取栈中对象的属性放入ACC中
+    * 类型：`AB`型
+        * `参数A`：对象地址的`u12` 栈偏移量
+        * `参数B`：对象属性的`u12`立即偏移量
+    * 副作用：写入ACC
+
+```asm
+; [ LdaProperty8/16/32/64/f32/f64 ]
+; SCRATCH
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl eax, 12
+neg eax
+movq SCRATCH, rbx(rbp)
+movl ebx, 0(BC)
+andl ebx, 0xfff
+| movb al, rbx(SCRATCH)    ; LdaProperty8
+| movw ax, rbx(SCRATCH)    ; LdaProperty16
+| movl eax, rbx(SCRATCH)   ; LdaProperty32
+| movq rax, rbx(SCRATCH)   ; LdaProperty64
+| movss xmm0, rbx(SCRATCH) ; LdaPropertyf32
+| movsd xmm0, rbx(SCRATCH) ; LdaPropertyf64
+JUMP_NEXT_BC()
+```
+
+* Store property from ACC
+    * 作用：读取栈中对象的属性放入ACC中
+    * 类型：`AB`型
+        * `参数A`：对象地址的`u12` 栈偏移量
+        * `参数B`：对象属性的`u12`立即偏移量
+    * 副作用：写入ACC
+
+```asm
+; [ StaProperty8/16/32/64/f32/f64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl eax, 12
+neg eax
+movq SCRATCH, rbx(rbp)
+movl ebx, 0(BC)
+andl ebx, 0xfff
+| movb rbx(SCRATCH), al    ; StaProperty8
+| movw rbx(SCRATCH), ax    ; StaProperty16
+| movl rbx(SCRATCH), eax   ; StaProperty32
+| movq rbx(SCRATCH), rax   ; StaProperty64
+| movss rbx(SCRATCH), xmm0 ; StaPropertyf32
+| movsd rbx(SCRATCH), xmm0 ; StaPropertyf64
+JUMP_NEXT_BC()
+```
+
 * Store from ACC
     * 作用：将寄存器A中数据放入栈中
     * 类型：`A`型
+        * `参数A`：源地址的栈偏移量
     * 副作用：无
 
 ```asm
@@ -1838,8 +1921,8 @@ JUMP_NEXT_BC()
 * Move Stack to Stack:
     * 作用：移动栈中数据
     * 类型：`AB`型
-    * `参数A`：目的地址
-    * `参数B`：源地址
+        * `参数A`：目的地址
+        * `参数B`：源地址
     * 副作用：无
 
 ```asm
@@ -1859,8 +1942,8 @@ JUMP_NEXT_BC()
 * Add Stack Values to ACC
     * 作用：栈中两个变量相加，结果放入`rax`中
     * 类型：`AB`型
-    * `参数A`：加数
-    * `参数B`：被加数
+        * `参数A`：加数
+        * `参数B`：被加数
     * 副作用：写入`ACC`
 
 ```asm
@@ -1925,8 +2008,8 @@ JUMP_NEXT_BC()
 * Multiply Two Stack Unsgined Values to ACC
     * 作用：栈中两个变量相减，结果放入`rax`中
     * 类型：`AB`型
-    * `参数A`：被减数
-    * `参数B`：减数
+        * `参数A`：被减数
+        * `参数B`：减数
     * 副作用：写入`ACC`
 
 ```asm
@@ -1958,7 +2041,7 @@ JUMP_NEXT_BC()
 * Truncate integer number
     * 作用：将一个整数类型截断到指定大小，常用于整数从大到小类型转换
     * 类型：`A`型
-    * `参数A`：源数的栈偏移量
+        * `参数A`：源数的栈偏移量
     * 副作用：写入`ACC`
 
 ```asm
@@ -1977,7 +2060,7 @@ JUMP_NEXT_BC()
 * Zero-Extend integer number
     * 作用：将一个整数0扩展到指定大小，常用于无符号整数从小到大转换
     * 类型：`A`型
-    * `参数A`：源数的栈偏移量
+        * `参数A`：源数的栈偏移量
     * 副作用：写入`ACC`
 
 ```asm
@@ -2011,7 +2094,7 @@ JUMP_NEXT_BC()
 * Cast number to 32 bits floating-number
     * 作用：将一个数值类型转换为32bit浮点数
     * 类型：`A`型
-    * `参数A`：源数的栈偏移量
+        * `参数A`：源数的栈偏移量
     * 副作用：写入`XACC`
 
 ```asm
@@ -2031,7 +2114,7 @@ JUMP_NEXT_BC()
 * Cast number to 64 bits floating-number
     * 作用：将一个数值类型转换为64bit浮点数
     * 类型：`A`型
-    * `参数A`：源数的栈偏移量
+        * `参数A`：源数的栈偏移量
     * 副作用：写入`XACC`
 
 ```asm
@@ -2051,30 +2134,75 @@ JUMP_NEXT_BC()
 
 * Call Bytecode Function
     * 作用：调用一个函数，函数对象指针放在`rax`中
-    * 类型：`AB`型
-    * `参数A`：参数开始地址
-    * `参数B`：参数结束地址
+    * 类型：`A`型
+        * `参数A`：参数字节数大小
     * 副作用：写入`ACC`或`XACC`
 
 ```asm
 ; [ CallBytecodeFunction ]
 
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+subq rsp, rbx ; adjust sp
+
+; call bytecode function
 movq Argv_0, rax
 call InterpreterPump
+
+; restore caller's BC register
+movq SCRATCH, stack_frame_bytecode_array(rbp)
+addq SCRATCH, BytecodeArray_instructions
+movl ebx, stack_frame_pc(rbp)
+leaq BC, rbx*4(SCRATCH) ; [SCRATCH + rcx * 4]
+
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+addq rsp rbx ; recover sp
+
 JUMP_NEXT_BC()
 ```
 
 * Call Native Function
     * 作用：调用一个`native`修饰函数，函数对象指针放在`rax`中
-    * 类型：`AB`型
-    * `参数A`：参数开始地址
-    * `参数B`：参数结束地址
+    * 类型：`FA`型
+        * `参数F`：...
+        * `参数A`：参数字节数大小
     * 副作用：写入`ACC`或`XACC`
 
 ```asm
 ; [ CallNativeFunction ]
 ...
 ```
+
+* Create a builtin object
+    * 作用：创建一个内建对象，例如`array`,` map`,`channel` ... 
+    * 类型：`FA`型
+        * `参数F`：对象类型代码
+        * `参数A`：参数字节数大小
+    * 副作用：写入`ACC`
+
+```asm
+; [ NewBuiltinObject ]
+
+movl ebx, 0(BC)
+andl ebx, 0xff0000
+shrl ebx, 16 ; param: F
+movl Argv_0, ebx
+
+movl ebx, 0(BC)
+andl ebx, 0xffff ; param A
+movq Argv_1, rsp
+addq rbx, rsp
+movq Argv_2, rbx
+
+; Any *NewBuiltinObject(int code, Address argv, Address end)
+movq r11, Runtime::NewBuiltinObject ; NewBuiltinObject(builtin_obj_code, argv, end)
+call SwitchSystemStackCall
+JUMP_NEXT_BC()
+
+```
+
+
 
 * Calling Return
     * 作用：从字节码函数中返回
@@ -2086,7 +2214,8 @@ JUMP_NEXT_BC()
 ; Keep rax, it's return value
 movq SCRATCH, stack_frame_callee(rbp)
 movq SCRATCH, Closure_mai_fn(SCRATCH)
-test Function_tags(SCRATCH), Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
+; has exception handlers ?
+test Function_tags(SCRATCH), Function::kExceptionHandleBit 
 jz @done
 
 ; Uninstall caught handle
@@ -2095,7 +2224,11 @@ movq SCRATCH, CaughtNode_next(SCRATCH)
 movq Coroutine_caught(CO), SCRATCH ; coroutine.caught = coroutine.caught.next
 
 done:
-JUMP_NEXT_BC()
+movq SCRATCH, stack_frame_callee(rbp)
+movq SCRATCH, Closure_mai_fn(SCRATCH)
+addq rsp, Function_stack_size(SCRATCH) ; recover stack
+popq rbp
+ret
 
 ```
 
@@ -2198,6 +2331,7 @@ START_BC()
     * 副作用：无
 
 ```asm
+; [ JumpBackward ]
 movl ebx, 0(BC)
 andl ebx, 0xffffff
 subl stack_frame_pc(rbp), ebx
