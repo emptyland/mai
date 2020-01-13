@@ -9,17 +9,15 @@ namespace nyaa {
 
 struct StackFrame {
     enum Type {
-        kEntryFrame,
+        kEntryTrampolineFrame,
+        kInterpreterPump,
         kInterpreterFrame,
     };
     
     constexpr static int32_t kMakerOffet = -1 * kPointerSize;
 }; // struct StackFrame
 
-struct EntryFrame final : public StackFrame {
-    constexpr static Type kType = kEntryFrame;
-    
-}; // struct EntryFrame
+
 
 struct InterpreterFrame final : public StackFrame {
     constexpr static Type kType = kInterpreterFrame;

@@ -1,6 +1,7 @@
 #include "nyaa/thread.h"
 #include "nyaa/nyaa-values.h"
 #include "nyaa/nyaa-core.h"
+#include "asm/utils.h"
 
 namespace mai {
 
@@ -24,7 +25,11 @@ State::State(NyaaCore *owns, size_t initial_stack_size)
     , stack_size_(initial_stack_size) {
     ::memset(stack_, 0, stack_size_ * sizeof(stack_[0]));
     stack_bottom_ = &stack_[initial_stack_size];
+    while (reinterpret_cast<uintptr_t>(stack_bottom_) % arch::kNativeStackAligment) {
+        stack_bottom_--;
+    }
     stack_top_ = stack_bottom_;
+    DCHECK_GT(stack_top_, stack_);
 }
 
 State::~State() {
@@ -60,6 +65,7 @@ void State::IterateRoot(RootVisitor *visitor) {
 }
 
 const int32_t NyThread::kOffsetCore = Template::OffsetOf(&NyThread::core_);
+const int32_t NyThread::kOffsetNestedEntries = Template::OffsetOf(&NyThread::nested_entries_);
 
 void NyThread::SetPrev(NyThread *prev, NyaaCore *N) {
     prev_ = prev;

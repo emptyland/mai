@@ -313,8 +313,8 @@ public:
         buf_.clear();
     }
     
-    void lea(Register dst, Operand src, int size = kDefaultSize) {
-        EmitRex(dst, src, size);
+    void leaq(Register dst, Operand src) {
+        EmitRex(dst, src, 8);
         EmitB(0x8D);
         EmitOperand(dst, src);
     }

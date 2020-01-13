@@ -103,9 +103,12 @@ private:
 
 // All [strong ref]
 struct BuiltinCodePool final {
+    static constexpr size_t kMaxBytecodeHandles = 256;
+    
+    NyCode *kInterpreterPump = nullptr;
     NyCode *kEntryTrampoline = nullptr;
 
-    NyCode *kBytecodeHandlers[];
+    NyCode *kBytecodeHandlers[kMaxBytecodeHandles];
     friend class NyaaCore;
 private:
     Error Boot(NyaaCore *N);

@@ -1386,103 +1386,96 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 #### 命令代码
 
 
-| Code                | 编码类型 | 作用 | 参数A                       | 参数B          | 参数C |
-| ------------------- | -------: | ---- | --------------------------- | -------------- | ----- |
-| `Ldar32`            |      `A` |      | `i24` 栈偏移量              |                |       |
-| `Ldar64`            |      `A` |      | `i24` 栈偏移量              |                |       |
-| `Ldaf32`            |      `A` |      | `i24` 栈偏移量              |                |       |
-| `Ldaf64`            |      `A` |      | `i24` 栈偏移量              |                |       |
-| `LdaZero`           |      `N` |      |                             |                |       |
-| `LdaSmi32`          |      `A` |      |                             |                |       |
-| `LdaTrue`           |      `N` |      |                             |                |       |
-| `LdaFalse`          |      `N` |      |                             |                |       |
-| `Ldak32`            |      `A` |      | `u24` `const_pool` 偏移量   |                |       |
-| `Ldak64`            |      `A` |      | `u24` `const_pool` 偏移量   |                |       |
-| `Ldakf32`           |      `A` |      | `u24` `const_pool` 偏移量   |                |       |
-| `Ldakf64`           |      `A` |      | `u24` `const_pool` 偏移量   |                |       |
-| `LdaGlobal32`       |      `A` |      | `u24` `global_space` 偏移量 |                |       |
-| `LdaGlobal64`       |      `A` |      | `u24` `global_space` 偏移量 |                |       |
-| `LdaGlobalf32`      |      `A` |      | `u24` `global_space` 偏移量 |                |       |
-| `LdaGlobalf64`      |      `A` |      | `u24` `global_space` 偏移量 |                |       |
-| `Star32`            |      `A` |      | `u24` 栈偏移量              |                |       |
-| `Star64`            |      `A` |      | `u24` 栈偏移量              |                |       |
-| `Staf32`            |      `A` |      | `u24` 栈偏移量              |                |       |
-| `Staf64`            |      `A` |      | `u24` 栈偏移量              |                |       |
-| `Move32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Move64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Add32`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Add64`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Addf32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Addf64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Sub32`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Sub64`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Subf32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Subf64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mul32`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mul64`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mulf32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mulf64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `IMul32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `IMul64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Div32`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Div64`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Divf32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Divf64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `IDiv32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `IDiv64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mod32`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mod64`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `I32toI8`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toI8`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toU8`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toU8`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toI16`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toU16`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I64toI32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U64toI32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F32toI32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F64toI32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I8toU32`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U8toU32`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I16toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U16toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I64toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U64toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F32toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F64toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toI64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toI64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F32toI64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F64toI64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toU64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toU64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F32toU64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F64toU64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toF32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toF32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I64toF32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U64toF32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toF64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toF64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I64toF64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U64toF64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `BitwiseOr32`       |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseOr64`       |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseAnd32`      |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseAnd64`      |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseNot32`      |    `AB` |      | `u24` 栈偏移量            |                |       |
-| `BitwiseNot64`      |    `AB` |      | `u24` 栈偏移量            |                |       |
-| `BitwiseShl32`      |    `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseShl64`      |    `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseShr32`      |    `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseShr64`      |    `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseLogicShr32` |   `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseLogicShr64` |    `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Throw`             |      `N` | 抛出异常 |                             |                |       |
-|  `Yield` | `A` | 让出控制权 | `u24` 控制代码 | | |
-|  `Goto` | `A` | 跳转到绝对位置 | `u24` PC位置 | | |
-| `JumpForward` | `A` | 向前跳转相对位置 | `u24`PC偏移量 | | |
-| `JumpBackward` | `A` | 向后跳闸相对位置 | `u24`PC偏移量 | | |
+| Code                | 编码类型 | 作用 | 参数F/A                     | 参数B          |
+| ------------------- | -------: | ---- | --------------------------- | -------------- |
+| `Ldar32` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
+| `Ldar64` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
+| `Ldaf32` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
+| `Ldaf64` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
+| `LdaZero` | `N` | 读取0到ACC | | |
+| `LdaSmi32` | `A` | 读取立即数到ACC | | |
+| `LdaTrue` | `N` | 读取`true`到ACC | | |
+| `LdaFalse` | `N` | 读取`false`到ACC | | |
+| `Ldak32` | `A` | 读取常数到ACC | `u24` `const_pool` 偏移量 | |
+| `Ldak64` | `A` | 读取常数到ACC | `u24` `const_pool` 偏移量 | |
+| `Ldakf32` | `A` | 读取常数到ACC | `u24` `const_pool` 偏移量 | |
+| `Ldakf64` | `A` | 读取常数到ACC | `u24` `const_pool` 偏移量 | |
+| `LdaGlobal32` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
+| `LdaGlobal64` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
+| `LdaGlobalf32` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
+| `LdaGlobalf64` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
+| `Star32` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
+| `Star64` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
+| `Staf32` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
+| `Staf64` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
+| `Move32` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Move64` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Truncate32To8` | `A` | 截断整数 | `u24` 栈偏移量 | |
+| `Truncate32To16` | `A` | 截断整数 | `u24` 栈偏移量 | |
+| `Truncate64To32` | `A` | 截断整数 | `u24` 栈偏移量 | |
+| `Zext8To32` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
+| `Zext16To32` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
+| `Zext32To64` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
+| `Sext8To32` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
+| `Sext16To32` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
+| `Sext32To64` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
+| `F32ToI32` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F64ToI32` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F32ToU32` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F64ToU32` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F32ToI64` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F64ToI64` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F32ToU64` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F64ToU64` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `I32ToF32` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `U32ToF32` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `I64ToF32` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `U64ToF32` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `I32ToF64` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `U32ToF64` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `I64ToF64` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `U64ToF64` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `F64ToF32` | `A` | 浮点转浮点 | `u24` 栈偏移量 | |
+| `F32ToF64` | `A` | 浮点转浮点 | `u24` 栈偏移量 | |
+| `Add32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Add64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Addf32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Addf64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Sub32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Sub64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Subf32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Subf64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mul32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mul64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mulf32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mulf64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IMul32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IMul64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Div32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Div64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Divf32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Divf64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IDiv32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IDiv64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mod32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mod64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseOr32` | `AB` | 按位或 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseOr64` | `AB` | 按位或 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseAnd32` | `AB` | 按位与 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseAnd64` | `AB` | 按位与 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseNot32` | `AB` | 按位非 | `u24` 栈偏移量 | |
+| `BitwiseNot64` | `AB` | 按位非 | `u24` 栈偏移量 | |
+| `BitwiseShl32` | `AB` | 按位左移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseShl64` | `AB` | 按位左移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseShr32` | `AB` | 按位右移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseShr64` | `AB` | 按位右移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseLogicShr32` | `AB` | 按位逻辑右移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseLogicShr64` | `AB` | 按位逻辑右移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Throw` | `N` | 抛出异常 | | |
+| `Yield` | `A` | 让出控制权 | `u24` 控制代码 | |
+| `Goto` | `A` | 跳转到绝对位置 | `u24` PC位置 | |
+| `JumpForward` | `A` | 向前跳转相对位置 | `u24`PC偏移量 | |
+| `JumpBackward` | `A` | 向后跳闸相对位置 | `u24`PC偏移量 | |
 
 类型转换：任意两类型间，最多只需要两步转换：
 规则：
@@ -1492,26 +1485,37 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 
 * From `i8`, To:
     * `i8` -> None
-    * `u8` -> `I8ToU32` + `U32ToU8`
-    * `i16` -> `I8ToI32` + `I32ToI16`
-    * `u16` -> `I8ToU32` + `U32ToU16`
-    * `i32` -> `I8ToI32`
-    * `u32` -> `I8ToU32`
-    * `i64` -> `I8ToI32` + `I32ToI64`
-    * `u64` -> `I8ToU32` + `I32ToU64`
-    * `f32` -> `I8ToI32` + `I32ToF32`
-    * `f64` -> `I8ToI32` + `I32ToF64`
-* From `u8`, To:
-    * `i8` -> `U8ToU32` + `U32ToI8`
     * `u8` -> None
-    * `i16` -> `U8ToI32` + `I32ToI16`
-    * `u16` -> `U8ToU32` + `U32ToU16`
-    * `i32` -> `U8ToI32`
-    * `u32` -> `U8ToU32`
-    * `i64` -> `U8ToI32` + `I32ToI64`
-    * `u64` -> `U8ToU32` + `I32ToU64`
-    * `f32` -> `U8ToI32` + `I32ToF32`
-    * `f64` -> `U8ToI32` + `I32ToF64`
+    * `i16` -> `SignExtend8To32` + `Truncate32To8`
+    * `u16` -> `ZeroExtend8To32` + `Truncate32To8`
+    * `i32` -> `SignExtend8To32`
+    * `u32` -> `ZeroExtend8To32`
+    * `i64` -> `SignExtend8To32` + `SignExtend32To64`
+    * `u64` -> `ZeroExtend8To32` + `ZeroExtend32To64`
+    * `f32` -> `SignExtend8To32` + `I32ToF32`
+    * `f64` -> `SignExtend8To32` + `I32ToF64`
+* From `u8`, To:
+    * `i8` -> None
+    * `u8` -> None
+    * `i16` -> `SignExtend8To32` + `Truncate32To8`
+    * `u16` -> `ZeroExtend8To32` + `Truncate32To8`
+    * `i32` -> `SignExtend8To32`
+    * `u32` -> `ZeroExtend8To32`
+    * `i64` -> `SignExtend8To32` + `SignExtend32To64`
+    * `u64` -> `ZeroExtend8To32` + `ZeroExtend32To64`
+    * `f32` -> `SignExtend8To32` + `I32ToF32`
+    * `f64` -> `SignExtend8To32` + `I32ToF64`
+* From i32, To:
+    * `i8` -> `Truncate32To8`
+    * `u8` -> `Truncate32To8`
+    * `i16` -> `Truncate32To16`
+    * `u16` -> `Truncate32To16`
+    * `i32` -> None
+    * `u32` -> None
+    * `i64` -> `SignExtend32To64`
+    * `u64` -> `ZeroExtend32To64`
+    * `f32` -> `I32ToF32`
+    * `f64` -> `I32ToF64`
 * 其他类型以此类推...
 
 #### 字节码执行
@@ -1754,7 +1758,7 @@ leaq BC, rbx*4(SCRATCH) ; [SCRATCH + rbx * 4]
 movl ebx, 0(BC) ; get fist bytecode
 andl ebx, 0xff000000
 shrl ebx, 24
-j被bleebebbx*8(BC_ARRAY) ; [BC_ARRAY + rbx * 8] jump to first bytecode handler
+jmp far rbx*8(BC_ARRAY) ; [BC_ARRAY + rbx * 8] jump to first bytecode handler
 ```
 
 * `JUMP_NEXT_BC()` 宏，在解释器执行环境中，负责跳转到下一个`bytecode`的处理代码。
@@ -1948,6 +1952,100 @@ movl ebx, 0(BC)
 andl ebx, 0xfff
 | mulss xmm0, rbx(rbp)
 | mulsd xmm0, rbx(rbp)
+JUMP_NEXT_BC()
+```
+
+* Truncate integer number
+    * 作用：将一个整数类型截断到指定大小，常用于整数从大到小类型转换
+    * 类型：`A`型
+    * `参数A`：源数的栈偏移量
+    * 副作用：写入`ACC`
+
+```asm
+; [ Truncate32To8/16 Truncate64To32 ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+neg ebx
+| movl eax, rbx(rbp) ; Truncate32To8
+| | andl eax, 0xff
+| movl eax, rbx(rbp) ; Truncate32To16
+| | andl eax, 0xffff
+| movl eax, rbx(rbp) ; Truncate64To32
+JUMP_NEXT_BC()
+```
+
+* Zero-Extend integer number
+    * 作用：将一个整数0扩展到指定大小，常用于无符号整数从小到大转换
+    * 类型：`A`型
+    * `参数A`：源数的栈偏移量
+    * 副作用：写入`ACC`
+
+```asm
+; [ ZeroExtend8/16To32 ZeroExtend32To64 ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+neg ebx
+| movzxb eax, rbx(rbp) ; ZeroExtend8To32
+| movzxw eax, rbx(rbp) ; ZeroExtend16To32
+| movl eax, rbx(rbp) ; ZeroExtend32To64
+JUMP_NEXT_BC()
+```
+
+* Sign-Extend integer number
+  * 作用：将一个整数符号扩展到指定大小，常用于有符号整数从小到大转换
+  * 类型：`A`型
+  * `参数A`：源数的栈偏移量
+  * 副作用：写入`ACC`
+
+```asm
+; [ SignExtend8/16To32 SignExtend32To64 ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+neg ebx
+| movsxb eax, rbx(rbp) ; SignExtend8To32
+| movsxw eax, rbx(rbp) ; SignExtend16To32
+| movsxd rax, rbx(rbp) ; SignExtend32To64
+JUMP_NEXT_BC()
+```
+
+* Cast number to 32 bits floating-number
+    * 作用：将一个数值类型转换为32bit浮点数
+    * 类型：`A`型
+    * `参数A`：源数的栈偏移量
+    * 副作用：写入`XACC`
+
+```asm
+; [ I32/U32/I64/U64/F64ToF32 ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+neg ebx
+; Convert Dword Integer to Scalar Single-Precision FP Value
+| cvtsi2ssl xmm0, rbx(rbp) ; I32/U32ToF32
+; Convert Scalar Single-Precision FP Value to Scalar Double-Precision FP Value
+| cvtsi2ssq xmm0, rbx(rbp) ; I64/U64ToF32
+; Convert Scalar Double-Precision FP Value to Scalar Single-Precision FP Value
+| cvtsd2ss xmm0, rbx(rbp) ; F64ToF32
+JUMP_NEXT_BC()
+```
+
+* Cast number to 64 bits floating-number
+    * 作用：将一个数值类型转换为64bit浮点数
+    * 类型：`A`型
+    * `参数A`：源数的栈偏移量
+    * 副作用：写入`XACC`
+
+```asm
+; [ I32/U32/I64/U64/F32ToF64 ]
+
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+neg ebx
+; Convert Dword Integer to Scalar Single-Precision FP Value
+| cvtsi2sdl xmm0, rbx(rbp) ; I32/U32ToF64
+; Convert Scalar Single-Precision FP Value to Scalar Double-Precision FP Value
+| cvtsi2sdq xmm0, rbx(rbp) ; I64/U64ToF64
+; Convert Scalar Double-Precision FP Value to Scalar Single-Precision FP Value
+| cvtss2sd xmm0, rbx(rbp) ; F32ToF64
 JUMP_NEXT_BC()
 ```
 

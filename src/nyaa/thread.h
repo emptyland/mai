@@ -48,6 +48,7 @@ public:
     using Template = arch::ObjectTemplate<NyThread, int32_t>;
     
     static const int32_t kOffsetCore;
+    static const int32_t kOffsetNestedEntries;
     
     explicit NyThread(Core *core)
         : NyUDO(0, true)
@@ -93,6 +94,7 @@ public:
 private:
     NyThread *next_ = nullptr; // [strong ref]
     NyThread *prev_ = nullptr; // [strong ref]
+    int nested_entries_ = 0;
     Core *const core_;
 }; // class NyThread
 

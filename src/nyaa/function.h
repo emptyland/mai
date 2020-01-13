@@ -15,6 +15,7 @@ public:
     using UpvalDesc = mai::nyaa::UpvalDesc;
     static const int32_t kOffsetCode;
     static const int32_t kOffsetBcbuf;
+    static const int32_t kOffsetConstPool;
     
     NyFunction(NyString *name,
                uint8_t n_params,
