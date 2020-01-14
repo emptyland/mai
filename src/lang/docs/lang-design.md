@@ -895,8 +895,6 @@ static_assert(sizeof(Span16) == 16, "");
 
 > 每个`routine`有一个自己的栈，参数全部通过栈传递，返回值通过寄存器传递(x64为`rax`)
 
-
-
 ```c++
 struct Stack {
     Stack *next;
@@ -1410,38 +1408,44 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | ------------------- | -------: | ---- | --------------------------- | -------------- |
 | `Ldar32` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
 | `Ldar64` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
+| `LdarPtr` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
 | `Ldaf32` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
 | `Ldaf64` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
 | `LdaZero` | `N` | 读取0到ACC | | |
 | `LdaSmi32` | `A` | 读取立即数到ACC | | |
 | `LdaTrue` | `N` | 读取`true`到ACC | | |
 | `LdaFalse` | `N` | 读取`false`到ACC | | |
-| `Ldak32` | `A` | 读取常数到ACC | `u24` `const_pool` 偏移量 | |
-| `Ldak64` | `A` | 读取常数到ACC | `u24` `const_pool` 偏移量 | |
-| `Ldakf32` | `A` | 读取常数到ACC | `u24` `const_pool` 偏移量 | |
-| `Ldakf64` | `A` | 读取常数到ACC | `u24` `const_pool` 偏移量 | |
+| `Ldak32` | `A` | 读取常数到ACC | `u24` 常量池偏移量 | |
+| `Ldak64` | `A` | 读取常数到ACC | `u24` 常量池偏移量 | |
+| `Ldakf32` | `A` | 读取常数到ACC | `u24` 常量池偏移量 | |
+| `Ldakf64` | `A` | 读取常数到ACC | `u24` 常量池偏移量 | |
 | `LdaGlobal32` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
 | `LdaGlobal64` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
+| `LdaGlobalPtr` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
 | `LdaGlobalf32` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
 | `LdaGlobalf64` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
 | `LdaProperty8` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `LdaProperty16` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `LdaProperty32` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `LdaProperty64` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaPropertyPtr` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `LdaPropertyf32` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `LdaPropertyf64` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `Star32` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
 | `Star64` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
+| `StarPtr` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
 | `Staf32` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
 | `Staf64` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
 | `StaProperty8` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `StaProperty16` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `StaProperty32` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `StaProperty64` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaPropertyPtr` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `StaPropertyf32` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `StaPropertyf64` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `Move32` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `Move64` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `MovePtr` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `Truncate32To8` | `A` | 截断整数 | `u24` 栈偏移量 | |
 | `Truncate32To16` | `A` | 截断整数 | `u24` 栈偏移量 | |
 | `Truncate64To32` | `A` | 截断整数 | `u24` 栈偏移量 | |
@@ -1515,6 +1519,26 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | `TestLessThanOrEqual64` | `AB` | 测试小于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `TestGreaterThan64` | `AB` | 测试大于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `TestGreaterThanEqual64` | `AB` | 测试大于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestEqualf32` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestNotEqualf32` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanf32` | `AB` | 测试小于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanOrEqualf32` | `AB` | 测试小于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanf32` | `AB` | 测试大于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanEqualf32` | `AB` | 测试大于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestEqualf64` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestNotEqualf64` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanf64` | `AB` | 测试小于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanOrEqualf64` | `AB` | 测试小于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanf64` | `AB` | 测试大于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanEqualf64` | `AB` | 测试大于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringEqual` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringNotEqual` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringLessThan` | `AB` | 测试小于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringLessThanOrEqual` | `AB` | 测试小于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringGreaterThan` | `AB` | 测试大于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringGreaterThanEqual` | `AB` | 测试大于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestPtrEqual` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestPtrNotEqual` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `TestIn` | `AB` | 测试元素是否在容器内 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `TestIs` | `AB` | 测试类型 | `u12` 栈偏移量 | `u12` 类型常量偏移 |
 | `Throw` | `N` | 抛出异常 | | |
@@ -1524,6 +1548,11 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | `JumpBackward` | `A` | 向后跳转相对位置 | `u24`PC偏移量 | |
 | `GotoIfTrue` | `A` | 测试结果为`true`跳转到绝对位置 | `u24`PC偏移量 | |
 | `GotoIfFalse` | `A` | 测试结果为`false`跳转到绝对位置 | `u24`PC偏移量 | |
+| `CallBytecodeFunction` | `A` | 调用函数 | `u24`栈偏移量 | |
+| `CallNativeFunction` | `A` | 调用函数 | `u24`栈偏移量 | |
+| `CallVtableFunction` | `A` | 调用函数 | `u12`栈偏移量 | |
+| `Return` | `N` | 调用返回 | | |
+| `NewBuiltinObject` | `FA` | 创建内建对象 | `u8`对象代码 | `u16` |
 
 类型转换：任意两类型间，最多只需要两步转换：
 规则：
@@ -1828,12 +1857,12 @@ jmp far rbx
     * 副作用：写入`ACC`
 
 ```asm
-; [ Ldar32/64 ]
+; [ Ldar32/64/Ptr ]
 movl ebx, 0(BC)
 andl ebx, 0xffffff
 neg rbx
-| movl eax, rbx(rbp)
-| movq rax, rbx(rbp)
+| movl eax, rbx(rbp) ; Ldar32
+| movq rax, rbx(rbp) ; Ldar64/LdarPtr
 JUMP_NEXT_BC()
 
 ; [ Ldaf32/64 ]
@@ -1853,7 +1882,7 @@ JUMP_NEXT_BC()
     * 副作用：写入ACC
 
 ```asm
-; [ LdaProperty8/16/32/64/f32/f64 ]
+; [ LdaProperty8/16/32/64/Ptr/f32/f64 ]
 ; SCRATCH
 movl ebx, 0(BC)
 andl ebx, 0xfff000
@@ -1865,7 +1894,7 @@ andl ebx, 0xfff
 | movb al, rbx(SCRATCH)    ; LdaProperty8
 | movw ax, rbx(SCRATCH)    ; LdaProperty16
 | movl eax, rbx(SCRATCH)   ; LdaProperty32
-| movq rax, rbx(SCRATCH)   ; LdaProperty64
+| movq rax, rbx(SCRATCH)   ; LdaProperty64/LdaPropertyPtr
 | movss xmm0, rbx(SCRATCH) ; LdaPropertyf32
 | movsd xmm0, rbx(SCRATCH) ; LdaPropertyf64
 JUMP_NEXT_BC()
@@ -1879,7 +1908,7 @@ JUMP_NEXT_BC()
     * 副作用：写入ACC
 
 ```asm
-; [ StaProperty8/16/32/64/f32/f64 ]
+; [ StaProperty8/16/32/64/Ptr/f32/f64 ]
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl eax, 12
@@ -1890,7 +1919,7 @@ andl ebx, 0xfff
 | movb rbx(SCRATCH), al    ; StaProperty8
 | movw rbx(SCRATCH), ax    ; StaProperty16
 | movl rbx(SCRATCH), eax   ; StaProperty32
-| movq rbx(SCRATCH), rax   ; StaProperty64
+| movq rbx(SCRATCH), rax   ; StaProperty64/StaPropertyPtr
 | movss rbx(SCRATCH), xmm0 ; StaPropertyf32
 | movsd rbx(SCRATCH), xmm0 ; StaPropertyf64
 JUMP_NEXT_BC()
@@ -1903,18 +1932,13 @@ JUMP_NEXT_BC()
     * 副作用：无
 
 ```asm
-; [ Star32/64 ]
+; [ Star32/64/Ptr/f32/f64 ]
 movl ebx, 0(BC)
 andl ebx, 0xffffff
-| movl rbx(rbp), eax
-| movq rbx(rbp), rax
-JUMP_NEXT_BC()
-
-; [ Staf32/64 ]
-movl ebx, 0(BC)
-andl ebx, 0xffffff
-| movss rbx(rbp), xmm0
-| movsd rbx(rbp), xmm0
+| movl rbx(rbp), eax ; Star32
+| movq rbx(rbp), rax ; Star64/StarPtr
+| movss rbx(rbp), xmm0 ; Staf32
+| movsd rbx(rbp), xmm0 ; Staf64
 JUMP_NEXT_BC()
 ```
 
@@ -1929,112 +1953,173 @@ JUMP_NEXT_BC()
 ; [ Move32/64 ]
 movl ebx, 0(BC)
 andl ebx, 0xfff
-| movl eax, rbx(rbp)
-| movq rax, rbx(rbp)
+| movl eax, rbx(rbp) ; Move32
+| movq rax, rbx(rbp) ; Move64/MovePtr
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
-| movl rbx(rbp), eax
-| movq rbx(rbp), rax
+| movl rbx(rbp), eax ; Move32
+| movq rbx(rbp), rax ; Move64/MovePtr
 JUMP_NEXT_BC()
 ```
 
 * Add Stack Values to ACC
     * 作用：栈中两个变量相加，结果放入`rax`中
     * 类型：`AB`型
-        * `参数A`：加数
-        * `参数B`：被加数
+        * `参数A`：被加数在栈中的偏移量
+        * `参数B`：加数在栈中的偏移量
     * 副作用：写入`ACC`
 
 ```asm
-; [ Add32/64 ]
+; [ Add32/64/f32/f64 ]
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
-| movl eax, rbx(rbp)
-| movq rax, rbx(rbp)
+| movl eax, rbx(rbp) ; Add32
+| movq rax, rbx(rbp) ; Add64
+| movss xmm0, rbx(rbp) ; Addf32
+| movsd xmm0, rbx(rbp) ; Addf64
 movl ebx, 0(BC)
 andl ebx, 0xfff
-| addl eax, rbx(rbp)
-| addq rax, rbx(rbp)
-JUMP_NEXT_BC()
-
-; [ Addf32/64 ]
-movl ebx, 0(BC)
-andl ebx, 0xfff000
-shrl ebx, 12
-| movss xmm0, rbx(rbp)
-| movsd xmm0, rbx(rbp)
-movl ebx, 0(BC)
-andl ebx, 0xfff
-| addss xmm0, rbx(rbp)
-| addsd xmm0, rbx(rbp)
+| addl eax, rbx(rbp) ; Add32
+| addq rax, rbx(rbp) ; Add64
+| addss xmm0, rbx(rbp) ; Addf32
+| addsd xmm0, rbx(rbp) ; Addf64
 JUMP_NEXT_BC()
 ```
 
 * Subtract Two Stack Values to ACC
     * 作用：栈中两个变量相减，结果放入`rax`中
     * 类型：`AB`型
-    * `参数A`：被减数
-    * `参数B`：减数
+    * `参数A`：被减数在栈中的偏移量
+    * `参数B`：减数在栈中的偏移量
     * 副作用：写入`ACC`
 
 ```asm
-; [ Sub32/64 ]
+; [ Sub32/64/f32/f64 ]
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
-| movl eax, rbx(rbp)
-| movq rax, rbx(rbp)
+| movl eax, rbx(rbp) ; Sub32
+| movq rax, rbx(rbp) ; Sub64
+| movss xmm0, rbx(rbp) ; Subf32
+| movsd xmm0, rbx(rbp) ; Subf64
 movl ebx, 0(BC)
 andl ebx, 0xfff
-| subl eax, rbx(rbp)
-| subq rax, rbx(rbp)
-JUMP_NEXT_BC()
-
-; [ Subf32/64 ]
-movl ebx, 0(BC)
-andl ebx, 0xfff000
-shrl ebx, 12
-| movss xmm0, rbx(rbp)
-| movsd xmm0, rbx(rbp)
-movl ebx, 0(BC)
-andl ebx, 0xfff
-| subss xmm0, rbx(rbp)
-| subsd xmm0, rbx(rbp)
+| subl eax, rbx(rbp) ; Sub32
+| subq rax, rbx(rbp) ; Sub64
+| subss xmm0, rbx(rbp) ; Subf32
+| subsd xmm0, rbx(rbp) ; Subf64
 JUMP_NEXT_BC()
 ```
 
-* Multiply Two Stack Unsgined Values to ACC
-    * 作用：栈中两个变量相减，结果放入`rax`中
+* Multiply Two Stack Values to ACC
+    * 作用：栈中两个数相乘，结果放入ACC中
     * 类型：`AB`型
-        * `参数A`：被减数
-        * `参数B`：减数
+        * `参数A`：被乘数在栈中的偏移量
+        * `参数B`：倍数在栈中的偏移量
     * 副作用：写入`ACC`
 
 ```asm
-; [ Mul32/64 ]
+; [ Mul32/64/f32/f64 IMul32/64 ]
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
-| movl eax, rbx(rbp)
-| movq rax, rbx(rbp)
+| movl eax, rbx(rbp) ; Mul32/IMul32
+| movq rax, rbx(rbp) ; Mul64/IMul64
+| movss xmm0, rbx(rbp) ; Mulf32
+| movsd xmm0, rbx(rbp) ; Mulf64
 movl ebx, 0(BC)
 andl ebx, 0xfff
-| mull eax, rbx(rbp)
-| mulq rax, rbx(rbp)
+| mull eax, rbx(rbp) ; Mul32
+| mulq rax, rbx(rbp) ; Mul64
+| imull eax, rbx(rbp) ; IMul32
+| imulq rax, rbx(rbp) ; IMul64
+| mulss xmm0, rbx(rbp) ; Mulf32
+| mulsd xmm0, rbx(rbp) ; Mulf64
+JUMP_NEXT_BC()
+```
+
+* Divide Two Stack Values to ACC
+    * 作用：栈中两个数相除，结果放入ACC中
+    * 类型：`AB`型
+        * `参数A`：被除数在栈中的偏移量
+        * `参数B`：倍数在栈中的偏移量，如果为0，会抛出错误
+    * 副作用：写入`ACC`
+
+```asm
+; [ Div32/64/f32/f64 IDiv32/64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+| cmpl rbx(rbp), 0 ; Mul32/IMul32
+| | je @error
+| | movl eax, rbx(rbp)
+| cmpq rbx(rbp), 0 ; Mul64/IMul64
+| | je @error
+| | movq rax, rbx(rbp)
+| ; TODO: compare .0
+| movss xmm0, rbx(rbp) ; Mulf32
+| movsd xmm0, rbx(rbp) ; Mulf64
+movl ebx, 0(BC)
+andl ebx, 0xfff
+| divl eax, rbx(rbp) ; Mul32
+| divq rax, rbx(rbp) ; Mul64
+| idivl eax, rbx(rbp) ; IMul32
+| idivq rax, rbx(rbp) ; IMul64
+| divss xmm0, rbx(rbp) ; Mulf32
+| divsd xmm0, rbx(rbp) ; Mulf64
 JUMP_NEXT_BC()
 
-; [ Mulf32/64 ]
+error:
+PANIC(ERROR_DIVIDE_BY_ZERO, "divide by zero!")
+; Never goto this
+int 3
+```
+
+* Test Compare Two Stack Values to ACC
+    * 作用：比较栈中两个值，结果放入ACC中(true/false)
+    * 类型：`AB`型
+        * `参数A`：操作数在栈中的偏移量
+        * `参数B`：操作数在栈中的偏移量
+    * 副作用：写入`ACC`
+
+```asm
+; [ TestEqual32/64/Ptr/f32/f64 ]
+; [ TestNotEqual32/64/Ptr/f32/f64 ]
+; [ TestLessThan32/64/Ptr/f32/f64 ]
+; [ TestLessThanOrEqual32/64/Ptr/f32/f64 ]
+; [ TestGreaterThan32/64/Ptr/f32/f64 ]
+; [ TestGreaterThanOrEqual32/64/Ptr/f32/f64 ]
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
-| movss xmm0, rbx(rbp)
-| movsd xmm0, rbx(rbp)
+negl ebx
+| movl eax, rbx(rbp) ; 32
+| movq rax, rbx(rbp) ; 64/Ptr
+| movss xmm0, rbx(rbp) ; f32
+| movsd xmm0, rbx(rbp) ; f64
 movl ebx, 0(BC)
 andl ebx, 0xfff
-| mulss xmm0, rbx(rbp)
-| mulsd xmm0, rbx(rbp)
+negl ebx
+| cmpl eax, rbx(rbp) ; 32
+| cmpq rax, rbx(rbp) ; 64/Ptr
+| comiss xmm0, rbx(rbp) ; f32
+| comisd xmm0, rbx(rbp) ; f64
+nop
+| je @true ; TestEqual32/64/Ptr/f32/f64
+| jne @true ; TestNotEqual32/64/Ptr/f32/f64
+| jl @true ; TestLessThan32/64/f32/f64
+| jle @true ; TestLessThanOrEqual32/64/f32/f64
+| jg @true ; TestGreaterThan32/64/f32/f64
+| jge @true ; TestGreaterThanOrEqual32/64/f32/f64
+false:
+xorq rax, rax ; set rax = 0
+jmp near @done
+true:
+movq rax, 1
+jmp near @done
+done:
 JUMP_NEXT_BC()
 ```
 
@@ -2143,7 +2228,8 @@ JUMP_NEXT_BC()
 
 movl ebx, 0(BC)
 andl ebx, 0xffffff
-subq rsp, rbx ; adjust sp
+subq rsp, rbx ; adjust sp to aligment of 16 bits(2 bytes)
+; TODO:
 
 ; call bytecode function
 movq Argv_0, rax
@@ -2202,15 +2288,13 @@ JUMP_NEXT_BC()
 
 ```
 
-
-
 * Calling Return
     * 作用：从字节码函数中返回
     * 类型：`N`型
     * 副作用：无
 
 ```asm
-; [ Ret ]
+; [ Return ]
 ; Keep rax, it's return value
 movq SCRATCH, stack_frame_callee(rbp)
 movq SCRATCH, Closure_mai_fn(SCRATCH)
@@ -2308,6 +2392,25 @@ movl ebx, 0(BC)
 andl ebx, 0xffffff
 movl stack_frame_pc(rbp), ebx
 START_BC()
+```
+
+* Condition Goto by ACC Boolean Value
+    * 作用：依赖ACC中的布尔值进行跳转
+    * 类型：`A`型
+        * `参数A`：PC绝对值，如果满足条件，直接跳转到这个位置
+    * 副作用：写入`ACC`
+
+```asm
+; [ GotoIfTrue GotoIfFalse ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+coml rax, 0
+| je @next ; GotoIfTrue
+| jne @next ; GotoIfFalse
+movl stack_frame_pc(rbp), ebx
+START_BC()
+next:
+JUMP_NEXT_BC()
 ```
 
 * Jump forward relatively position
