@@ -1174,6 +1174,70 @@ struct CaughtNode {
 * 函数只能在`Coroutine`里执行。
 * 每个`Context`会创建一个`Coroutine`用来执行入口函数`main.main()`
 
+### FunctionTemplate
+
+> 函数模板用于包装C++的函数调用。生成一个汇编器生成stub，通过stub间接调用C++函数。
+
+注册C++函数：
+
+```C++
+
+String *BarHandle(i32_t n, f32_t m) {
+    HandleScope handle_scope(INITIALIZER_LINKER);
+    char buf[128];
+    snprintf(buf, sizeof(buf), "%d+%f", n, m);
+    return *String::NewUtf8(buf);
+}
+
+void foo() {
+    HandleScope handle_scope(INITIALIZER_LINKER);
+
+    Context *context = Context::Get();
+    Handle<Closure> function = FunctionTemplate::New(BarHandle);
+    context->RegisterGlobalFunction("main.bar", function);
+}
+```
+
+生成的stub代码：
+
+```asm
+; [ stub for 'BarHandle' ]
+push rbp
+movq rbp, rsp
+subq rsp, 16 ; StubStackFrame::kSize
+movl stack_frame_maker(rbp), StubStackFrame::kMaker
+
+; -32 StubStackFrame::kSize
+; -16 Caller Argv[0]
+movl Argv_0, -48(rbp) ; argv[0]
+movss xmm0, -44(rbp) ; argv[1]
+movq r11, BarHandle
+call SwitchSystemStackCall
+
+addq rsp, 16 ; StubStackFrame::kSize
+popq rbp
+ret
+```
+
+在mai代码中调用C++函数：
+
+
+```scala
+// file: main/main.mai
+package main
+
+// implement by c++
+native def bar(n:i32, m:f32):string
+
+def main() {
+  	// invoke c++ native function
+    println(bar(1, .1))
+}
+
+```
+
+
+
 ### 函数
 
 函数对象称为: `Closure`
@@ -1796,6 +1860,8 @@ int 3
 ; switch to system stack and call
 pushq rbp
 movq rbp, rsp
+subq rsp, 16 ; SwitchSystemStackFrame::kSize
+movl stack_frame_maker(rbp), SwitchSystemStackFrame::kMaker
 
 movq rax, rbp
 movq rbx, rsp
@@ -1820,6 +1886,7 @@ popq rcx
 movq rsp, rcx
 movq rbp, rbx
 
+addq rsp, 16 ; SwitchSystemStackFrame::kSize
 popq rbp
 ret
 ```
