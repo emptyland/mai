@@ -1431,6 +1431,13 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | `LdaPropertyPtr` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `LdaPropertyf32` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `LdaPropertyf64` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaArrayElem8` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElem16` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElem32` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElem64` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElemPtr` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElemf32` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElemf64` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `Star32` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
 | `Star64` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
 | `StarPtr` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
@@ -1443,6 +1450,13 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | `StaPropertyPtr` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `StaPropertyf32` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
 | `StaPropertyf64` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaArrayElem8` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElem16` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElem32` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElem64` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElemPtr` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElemf32` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElemf64` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `Move32` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `Move64` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `MovePtr` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
@@ -1552,7 +1566,10 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | `CallNativeFunction` | `A` | 调用函数 | `u24`栈偏移量 | |
 | `CallVtableFunction` | `A` | 调用函数 | `u12`栈偏移量 | |
 | `Return` | `N` | 调用返回 | | |
-| `NewBuiltinObject` | `FA` | 创建内建对象 | `u8`对象代码 | `u16` |
+| `NewBuiltinObject` | `FA` | 创建内建对象 | `u8`对象代码 | `u16`立即数 |
+| `CheckStack` | `N` | 检查栈是否溢出 | | |
+| `CheckBound` | `AB` | 检查数组范围 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `CheckBoundImm` | `AB` | 检查数组范围 | `u12` 栈偏移量 | `u12` 立即数下标 |
 
 类型转换：任意两类型间，最多只需要两步转换：
 规则：
@@ -1846,8 +1863,6 @@ movq rbx, CaughtNode_pc(SCRATCH)
 jmp far rbx
 ```
 
-
-
 #### 字节码详细
 
 * Load to ACC
@@ -1886,8 +1901,8 @@ JUMP_NEXT_BC()
 ; SCRATCH
 movl ebx, 0(BC)
 andl ebx, 0xfff000
-shrl eax, 12
-neg eax
+shrl ebx, 12
+neg ebx
 movq SCRATCH, rbx(rbp)
 movl ebx, 0(BC)
 andl ebx, 0xfff
@@ -1900,7 +1915,43 @@ andl ebx, 0xfff
 JUMP_NEXT_BC()
 ```
 
-* Store property from ACC
+* Load array element to ACC
+    * 作用：读取数组的元素放入ACC中
+    * 类型：`AB`型
+        * `参数A`：数组地址的`u12` 栈偏移量
+        * `参数B`：下标地址的`u12` 栈偏移量
+    * 副作用：写入ACC
+
+```asm
+; [ LdaArrayElem8/16/32/64/Ptr/f32/f64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+neg ebx
+movq SCRATCH, rbx(rbp) ; SCRATCH = array
+movl ebx, 0(BC)
+andl ebx, 0xfff
+neg ebx
+movl eax, rbx(rbp) ; index
+cmpl eax, Array_len(SCRATCH) ; if (index >= array.len)
+jge @out_of_bound
+addq SCRATCH, Array_elems ; SCRATCH = &elems[0]
+xorq rax, rax ; clear ACC
+| movb al, rbx*1(SCRATCH) ; [ SCRATCH + rbx * 1 ] LdaArrayElem8
+| movw ax, rbx*2(SCRATCH) ; [ SCRATCH + rbx * 2 ] LdaArrayElem16
+| movl eax, rbx*4(SCRATCH) ; [ SCRATCH + rbx * 4 ] LdaArrayElem32
+| movq rax, rbx*8(SCRATCH) ; [ SCRATCH + rbx * 8 ] LdaArrayElem64/Ptr
+| movss xmm0, rbx*4(SCRATCH) ; [ SCRATCH + rbx * 4 ] LdaArrayElemf32
+| movsd xmm0, rbx*8(SCRATCH) ; [ SCRATCH + rbx * 8 ] LdaArrayElemf64
+JUMP_NEXT_BC()
+
+out_of_bound:
+PANIC(ERROR_OUT_OF_BOUND, "array out of bound!")
+; Never goto this
+int 3
+```
+
+* Store property by ACC
     * 作用：读取栈中对象的属性放入ACC中
     * 类型：`AB`型
         * `参数A`：对象地址的`u12` 栈偏移量
@@ -1919,10 +1970,47 @@ andl ebx, 0xfff
 | movb rbx(SCRATCH), al    ; StaProperty8
 | movw rbx(SCRATCH), ax    ; StaProperty16
 | movl rbx(SCRATCH), eax   ; StaProperty32
-| movq rbx(SCRATCH), rax   ; StaProperty64/StaPropertyPtr
+| movq rbx(SCRATCH), rax   ; StaProperty64
+| | ; TODO: StaPropertyPtr write-barrier
 | movss rbx(SCRATCH), xmm0 ; StaPropertyf32
 | movsd rbx(SCRATCH), xmm0 ; StaPropertyf64
 JUMP_NEXT_BC()
+```
+
+* Store array element by ACC
+    * 作用：将ACC中数据写入数组元素
+    * 类型：`AB`型
+        * `参数A`：数组地址的`u12` 栈偏移量
+        * `参数B`：下标地址的`u12` 栈偏移量
+    * 副作用：无
+
+```asm
+; [ StaArrayElem8/16/32/64/Ptr/f32/f64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+neg ebx
+movq SCRATCH, rbx(rbp) ; SCRATCH = array
+movl ebx, 0(BC)
+andl ebx, 0xfff
+neg ebx
+movl eax, rbx(rbp) ; index
+cmpl eax, Array_len(SCRATCH) ; if (index >= array.len)
+jge @out_of_bound
+addq SCRATCH, Array_elems ; SCRATCH = &elems[0]
+| movb rbx*1(SCRATCH), al ; [ SCRATCH + rbx * 1 ] StaArrayElem8
+| movw rbx*2(SCRATCH), ax ; [ SCRATCH + rbx * 2 ] StaArrayElem16
+| movl rbx*4(SCRATCH), eax ; [ SCRATCH + rbx * 4 ] StaArrayElem32
+| movq rbx*8(SCRATCH), rax ; [ SCRATCH + rbx * 8 ] StaArrayElem64
+| | ; TODO: StaArrayElemPtr write-barrier
+| movss rbx*4(SCRATCH), xmm0 ; [ SCRATCH + rbx * 4 ] StaArrayElemf32
+| movsd rbx*8(SCRATCH), xmm0 ; [ SCRATCH + rbx * 8 ] StaArrayElemf64
+JUMP_NEXT_BC()
+
+out_of_bound:
+PANIC(ERROR_OUT_OF_BOUND, "array out of bound!")
+; Never goto this
+int 3
 ```
 
 * Store from ACC
@@ -2087,10 +2175,10 @@ int 3
 ```asm
 ; [ TestEqual32/64/Ptr/f32/f64 ]
 ; [ TestNotEqual32/64/Ptr/f32/f64 ]
-; [ TestLessThan32/64/Ptr/f32/f64 ]
-; [ TestLessThanOrEqual32/64/Ptr/f32/f64 ]
-; [ TestGreaterThan32/64/Ptr/f32/f64 ]
-; [ TestGreaterThanOrEqual32/64/Ptr/f32/f64 ]
+; [ TestLessThan32/64/f32/f64 ]
+; [ TestLessThanOrEqual32/64/f32/f64 ]
+; [ TestGreaterThan32/64/f32/f64 ]
+; [ TestGreaterThanOrEqual32/64/f32/f64 ]
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
