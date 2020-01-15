@@ -529,6 +529,46 @@ TEST_F(X64AssemblerTest, RIP) {
         ASSERT_EQ(8, foo() - reinterpret_cast<intptr_t>(foo));
     }
 }
+
+int StubDemoFunction(int a, int b) {
+    //printf("hit it!\n");
+    return a + b;
+}
+
+TEST_F(X64AssemblerTest, CallStub) {
+    // Call this stub code
+    __ Reset();
+    __ pushq(rbp);
+    __ movq(rbp, rsp);
+    __ subq(rsp, 16);
+
+    __ movl(Operand(rbp, -4), kRegArgv[0]);
+    __ movl(Operand(rbp, -8), kRegArgv[1]);
+    
+    Label stub_label;
+    __ call(&stub_label);
+
+    __ addq(rsp, 16);
+    __ popq(rbp);
+    __ ret(0);
+    
+    // Make Stub code
+    __ Bind(&stub_label);
+    __ pushq(rbp);
+    __ movq(rbp, rsp);
+    
+    __ movl(kRegArgv[0], Operand(rbp, 28));
+    __ movl(kRegArgv[1], Operand(rbp, 24));
+    __ movq(rbx, reinterpret_cast<Address>(&StubDemoFunction));
+    __ call(rbx);
+
+    __ popq(rbp);
+    __ ret(0);
+    
+    auto foo = MakeFunction<int(int, int)>();
+    ASSERT_EQ(666, foo(233, 433));
+    ASSERT_EQ(3, foo(1, 2));
+}
     
 //static void TestStubThrowException() {
 //    printf("raise\n");

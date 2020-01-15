@@ -986,21 +986,187 @@ struct Stack {
 
 ### Handles
 
+> `Handle`用于在C++环境引用堆对象，防止其被垃圾回收器意外回收。同时因为GC会移动堆对象，`Handle`需要间接引用引用对象，不能直接持有对象指针。
+
+* `HandleScope`: 用于管理局部handle的声明周期；每个`HandleScope`只能在其所属的线程内有效。
+* `Handle`：局部引用，生命周期由`HandleScope`管理。
+* `Persistent`：全局引用，生命周期需要手动管理。
+
+```
+- HandleScope槽
+- 每一个Machine对象会持有一个HandleScopeSlot链表，来管理本线程的Handle，因此不需要线程安全。
+- 存储handle的内存按照page分配，然后每个slot拆分自己需要大小；如果需求超过1 page了，就再分配1 page。
++=============================+
+[       HandleScopeSlot       ]
++=============================+
+|         scope: HandleScope* | current HandleScope pointer
+|-----------------------------|
+|      prev: HandleScopeSlot* | previous slot pointer
+|-----------------------------|
+|               base: Address | handles begin address
+|-----------------------------|
+|                end: Address | handles end address 
+|-----------------------------|
+|              limit: Address | handles limit address(total end address)
+|-----------------------------|
+
+base == prev->end, 从上一个slot的end address开始为本slot分配内存。
+                    page-1                           page-2
+       [--------------------------------|-------------------------------]
+slot-1 [==========]                     |
+slot-2            [==========]          |
+slot-3                       [=======]  |
+                                        |
+slot-4                                  [========]
+slot-5                                  |        [==========]
+
+
+- Persistent节点：使用双链表的形式存储persistent handle（全局句柄）
+- Persistent节点链表保存在Isolate对象中，每个线程都可能访问到，因此必须是线程安全的。
++=============================+
+[        PersistentNode       ]
++=============================+
+|       next: PersistentNode* | next pointer for double-linkded list
+|-----------------------------|
+|       prev: PersistentNode* | next pointer for double-linkded list
+|-----------------------------|
+|             handle: Address | handle
+|-----------------------------|
+|                    tid: u32 | owner thread id
++-----------------------------+
+```
+
+
+
+```C++
+class HandleScope {
+public:
+  	// Into this scope
+    HandleScope(base::Initializer/*avoid c++ compiler optimize this object*/);
+  	// Out this scope
+    ~HandleScope();
+    
+    // New handle address and set heap object pointer
+    void **NewHandle(void *value);
+    
+  	// Escape a owned local handle
+    template<class T> inline Handle<T> CloseAndEscape(Handle<T> in_scope);
+    
+  	// Get the prev(scope) HandleScope 
+    HandleScope *GetPrev();
+
+  	// Get this scope's HandleScope
+    static HandleScope *Current();
+};
+
+template<class T>
+class HandleBase {
+public:
+    // Get heap object pointer, is value
+    T *get() const;
+
+    // Get handle address, not value
+    T **location() const;
+
+    // Test heap object pointer is null or not
+    bool is_value_null() const;
+    bool is_value_not_null() const;
+
+    // Test handle address is null or not
+    bool is_empty() const;
+    bool is_not_empty() const;
+protected:
+    // Raw initialize handle
+    inline HandleBase(T **location);
+private:
+    T **location_;
+}; // class HandleBase
+
+// Handle is thread local value, dont use it in other threads
+template<class T>
+class Handle : public HandleBase<T> {
+public:
+    // Initialize by a handle address
+    inline explicit Handle(T **location = nullptr);
+
+    // Initialize by heap object pointer
+    template<class S> inline explicit Handle(S *pointer);
+
+    // Initialize by other handle
+    template<class S> inline explicit Handle(Handle<S> other);
+
+    // Copy constructor
+    inline Handle(const Handle &other);
+
+    // Right reference constructor
+    inline Handle(Handle &&other);
+
+    // Getters
+    T *operator -> () const;
+    T *operator * () const;
+
+    // Tester
+    bool operator ! () const;
+    bool operator == (const Handle &) const;
+
+    // Assignment
+    void operator = (const Handle &);
+    void operator = (const Handle &&);
+    void operator = (T *pointer);
+
+    // Utils
+    // Handle cast
+    template<class S> static inline Handle<T> Cast(const Handle<S> other);
+    // Make a null heap pointer handle(handle address is not null)
+    static inline Handle<T> Null();
+    // Make a null handle address handle
+    static inline Handle<T> Empty();
+}; // class Handle
+
+template<class T>
+class Persistent : public HandleBase<T> {
+public:
+    // Initialize a empty handle
+    inline Persistent();
+    // Copy constructor
+    inline Persistent(const Persistent &);
+    // Right reference constructor
+    inline Persistent(Persistent &&);
+
+    // Manual drop this handle, object mybe release by next GC
+    inline void Dispose();
+  
+      // Getters
+    T *operator -> () const;
+    T *operator * () const;
+
+    // Tester
+    bool operator ! () const;
+    bool operator == (const Handle &) const;
+
+  	// Utils
+    // Handle cast
+    template<class S> static inline Persistent<T> Cast(const Persistent<S> other);
+		// Create by local handle
+  	static inline Persistent<T> New(const Handle<T> &local);
+}; // class Persistent
+```
+
+
+
 ```c++
-// protocode: s36:s
 String *Foo(String *arg0, mai::i32_t arg1, mai::f32_t arg2) {
-    Context *ctx = Context::Get();
-    HandleScope handle_scope(ctx);
+    HandleScope handle_scope(base::ON_EXIT_SCOPE_INITIALIZER);
     
     printf("%d\n", arg1);
     printf("%f\n", arg2);
+  
+	Context *ctx = Context::Get();
     printf("%d\n", ctx->GetTid());
     return *String::NewUtf8("ok")
 }
 
 ```
-
-
 
 ### Isolate和Context
 
@@ -1010,21 +1176,23 @@ String *Foo(String *arg0, mai::i32_t arg1, mai::f32_t arg2) {
 
 ```
 - 对虚拟机的抽象
-+=============================+
-[           Isolate           ]
-+=============================+
-|                 heap: Heap* | Heap memory management
-|-----------------------------|
-|         metadata: Metadata* | Metadata space
-|-----------------------------|
-|  global_space: GlobalSpace* | global variables space
-|-----------------------------|
-|      all_context: Context[] | All of contexts
-|-----------------------------|
-|      scheduler: Scheduler * | machines and coroutines management
-|-----------------------------|
-|          machine0: Machine* | The main os thread
-+-----------------------------+
++==================================+
+[              Isolate             ]
++==================================+
+|                      heap: Heap* | Heap memory management
+|----------------------------------|
+|              metadata: Metadata* | Metadata space
+|----------------------------------|
+|       global_space: GlobalSpace* | global variables space
+|----------------------------------|
+|                context: Context* | context pointer
+|----------------------------------|
+| dummy_persistent: PersistentNode | persistent double-linked list header
+|----------------------------------|
+|           scheduler: Scheduler * | machines and coroutines management
+|----------------------------------|
+|               machine0: Machine* | The main os thread
++----------------------------------+
 
 ```
 
@@ -1040,18 +1208,17 @@ int main(int argc, char *argv[]) {
     }
 
     mai::Context *context = Context::Get();
-    if (auto err = context->Compile(/*被编译的代码*/); err.fail()) {
+    if (auto err = context->Compile(/*be compiled code*/); err.fail()) {
         // handler errors
     }
-    context->NewArray();
-    context->LetString("hello");
-    context->LetString("world");
-    context->LetString("final");
-    context->Append(3);
-    context->SetArgv();
-
-    context->LetFunction("main.main");
-    context->Run();
+  	HandleScope handle_scope(base::ON_EXIT_SCOPE_INITIALIZER);
+  	std::vector<Handle<String>> vals;
+  	for (int i = 0; i < argc; i++) {
+        vals.push_back(String::NewUtf8(argv[i]));
+    }
+  	Handle<GenericArray> argv = GenericArray::New(vals);
+  	context->SetArgv(argv);
+    context->RunEntry();
     return 0;
 }
 ```
@@ -1106,6 +1273,9 @@ Machine::kRunning: 正在运行中
 |        running: Coroutine* | current running coroutine
 |----------------------------|
 |             exclusion: u64 | exclusion counter if > 0 can not be preempted
+|----------------------------|
+| top_slot: HandleScopeSlot* | top handle scope slots, this is linked list for handle scope
+|----------------------------|
 
 - 对协程的抽象
 -- 协程的状态:
@@ -1178,8 +1348,43 @@ struct CaughtNode {
 
 > 函数模板用于包装C++的函数调用。生成一个汇编器生成stub，通过stub间接调用C++函数。
 
-注册C++函数：
+函数模板类：
 
+```c++
+class FunctionTemplate {
+public:
+    template<class T>
+    struct ParameterTraits {
+    }
+
+    template<> struct ParameterTraits<int8_t> {
+        static constexpr int kType = Type::I8
+    }
+
+    template<> struct ParameterTraits<uint8_t> {
+        static constexpr int kType = Type::U8
+    }
+
+		template<R> static Handle<Closure> New(R(*ptr)(), int n);
+  	template<R,A0> static Handle<Closure> New(R(*ptr)(A0), int n);
+  	template<R,A0,A1> static Handle<Closure> New(R(*ptr)(A0,A1), int n);
+		...
+		template<R,A0,A1,A2,A3,A4> static inline Handle<Closure> New(R(*ptr)(A0,A1,A1,A2,A3,A4), int n) {
+      	int params_types[5] = {
+            ParameterTraits<A0>::kType,
+            ParameterTraits<A1>::kType,
+            ParameterTraits<A2>::kType,
+            ParameterTraits<A3>::kType,
+            ParameterTraits<A4>::kType,
+        };
+      	Code *code = Compiler::MakeNativeStub(Isolate::Get(), params_types, 5);
+      	return Handle<Closure>::New(Closure::NewFromStub(code, n));
+    }
+};
+```
+
+* 使用示例：
+* 注册C++函数：
 ```C++
 
 String *BarHandle(i32_t n, f32_t m) {
@@ -1198,8 +1403,7 @@ void foo() {
 }
 ```
 
-生成的stub代码：
-
+* 生成的stub代码：
 ```asm
 ; [ stub for 'BarHandle' ]
 push rbp
@@ -1207,11 +1411,13 @@ movq rbp, rsp
 subq rsp, 16 ; StubStackFrame::kSize
 movl stack_frame_maker(rbp), StubStackFrame::kMaker
 
-; +8 saved bp
+; +4 argv_1
+; +8 padding
 ; +8 return address
-; +16 Argv alignment size
-movl Argv_0, 32(rbp) ; argv[0]
-movss xmm0, 28(rbp) ; argv[1]
+; +8 saved bp
+; stub stack frame
+movl Argv_0, 28(rbp) ; argv[0] 16 + 12
+movss xmm0, 24(rbp) ; argv[1] 16 + 8
 movq r11, BarHandle
 call SwitchSystemStackCall
 
@@ -1220,8 +1426,7 @@ popq rbp
 ret
 ```
 
-在mai代码中调用C++函数：
-
+* 在mai代码中调用C++函数：
 
 ```scala
 // file: main/main.mai
@@ -1231,10 +1436,9 @@ package main
 native def bar(n:i32, m:f32):string
 
 def main() {
-  	// invoke c++ native function
+    // invoke c++ native function
     println(bar(1, .1))
 }
-
 ```
 
 
@@ -2406,8 +2610,7 @@ JUMP_NEXT_BC()
 
 * Call Native Function
     * 作用：调用一个`native`修饰函数，函数对象指针放在`rax`中
-    * 类型：`FA`型
-        * `参数F`：...
+    * 类型：`A`型
         * `参数A`：参数字节数大小
     * 副作用：写入`ACC`或`XACC`
 
