@@ -522,7 +522,7 @@ TEST_F(X64AssemblerTest, CallCxxMethod) {
 TEST_F(X64AssemblerTest, RIP) {
     __ Reset();
     __ nop();
-    __ lea(rax, Operand(rip, 0));
+    __ leaq(rax, Operand(rip, 0));
     __ ret(0);
     {
         auto foo = MakeFunction<intptr_t ()>();

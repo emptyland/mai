@@ -1207,10 +1207,11 @@ movq rbp, rsp
 subq rsp, 16 ; StubStackFrame::kSize
 movl stack_frame_maker(rbp), StubStackFrame::kMaker
 
-; -32 StubStackFrame::kSize
-; -16 Caller Argv[0]
-movl Argv_0, -48(rbp) ; argv[0]
-movss xmm0, -44(rbp) ; argv[1]
+; +8 saved bp
+; +8 return address
+; +16 Argv alignment size
+movl Argv_0, 32(rbp) ; argv[0]
+movss xmm0, 28(rbp) ; argv[1]
 movq r11, BarHandle
 call SwitchSystemStackCall
 
@@ -1257,7 +1258,7 @@ def main() {
 +=========================================+
 |                Any Header               | heap object header
 +-----------------------------------------+
-| cxx_fn: CxxFunction* | mai_fn :Function* | function proto or cxx function
+|   cxx_fn: Code*   |  mai_fn :Function*  | function proto or cxx function stub
 |----------------------+-------------------|
 |                  captured_var_size: u32 |
 |-----------------------------------------|
@@ -1860,8 +1861,8 @@ int 3
 ; switch to system stack and call
 pushq rbp
 movq rbp, rsp
-subq rsp, 16 ; SwitchSystemStackFrame::kSize
-movl stack_frame_maker(rbp), SwitchSystemStackFrame::kMaker
+subq rsp, 16 ; StubStackFrame::kSize
+movl stack_frame_maker(rbp), StubStackFrame::kMaker
 
 movq rax, rbp
 movq rbx, rsp
@@ -1886,7 +1887,7 @@ popq rcx
 movq rsp, rcx
 movq rbp, rbx
 
-addq rsp, 16 ; SwitchSystemStackFrame::kSize
+addq rsp, 16 ; StubStackFrame::kSize
 popq rbp
 ret
 ```
