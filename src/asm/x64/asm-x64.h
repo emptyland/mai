@@ -64,6 +64,7 @@ enum Cond {
     // Fake conditions
     Always       = 16,
     Never        = 17,
+    RCXZero      = 18,
     
     Carry    = Below,
     NotCarry = AboveEqual,
@@ -150,13 +151,23 @@ constexpr XMMRegister xmm13(13); // 13
 constexpr XMMRegister xmm14(14); // 14
 
 constexpr XMMRegister xmm15(15); // 15
-    
+
+
+constexpr Register Argv_0 = rdi; // {kRDI},
+constexpr Register Argv_1 = rsi; // {kRSI},
+constexpr Register Argv_2 = rdx; // {kRDX},
+constexpr Register Argv_3 = rcx; // {kRCX},
+constexpr Register Argv_4 = r8;  // {kR8},
+constexpr Register Argv_5 = r9;  // {kR9},
+constexpr Register Argv_6 = r10; // {kR10},
+constexpr Register Argv_7 = r11; // {kR11},
+
 static constexpr int kMaxRegArgs = 8;
 static constexpr int kMaxXmmArgs = 8;
 static constexpr int kMaxAllocRegs = 10;
 static constexpr int kMaxAllocXmms = 15;
 static constexpr int kRegisterSize = 8;
-    
+
 extern const Register kRegArgv[kMaxRegArgs];
 extern const XMMRegister kXmmArgv[kMaxXmmArgs];
 extern const Register kRegAlloc[kMaxAllocRegs];
@@ -793,26 +804,36 @@ public:
     // Neg/Not/Shift
     //----------------------------------------------------------------------------------------------
     // Neg
-    void neg(Register dst, int size = kDefaultSize) {
+    void negl(Register dst) { neg(dst, 4); }
+    void negl(Operand dst) { neg(dst, 4); }
+    void negq(Register dst) { neg(dst, 8); }
+    void negq(Operand dst) { neg(dst, 8); }
+    
+    void neg(Register dst, int size) {
         EmitRex(dst, size);
         EmitB(0xF7);
         EmitModRM(0x3, dst);
     }
 
-    void neg(Operand dst, int size = kDefaultSize) {
+    void neg(Operand dst, int size) {
         EmitRex(dst, size);
         EmitB(0xF7);
         EmitOperand(0x3, dst);
     }
+    
+    void notl(Register dst) { not_(dst, 4); }
+    void notl(Operand dst) { not_(dst, 4); }
+    void notq(Register dst) { not_(dst, 8); }
+    void notq(Operand dst) { not_(dst, 8); }
 
     // Not
-    void not_(Register dst, int size = kDefaultSize) {
+    void not_(Register dst, int size) {
         EmitRex(dst, size);
         EmitB(0xF7);
         EmitModRM(0x2, dst);
     }
 
-    void not_(Operand dst, int size = kDefaultSize) {
+    void not_(Operand dst, int size) {
         EmitRex(dst, size);
         EmitB(0xF7);
         EmitOperand(0x2, dst);

@@ -569,29 +569,102 @@ TEST_F(X64AssemblerTest, CallStub) {
     ASSERT_EQ(666, foo(233, 433));
     ASSERT_EQ(3, foo(1, 2));
 }
+
+class DemoHeaderStruct {
+public:
+    DemoHeaderStruct(int capacity)
+    : capacity_(capacity)
+    , len_(0) {
+        ::memset(buf_, 0, sizeof(int) * capacity_);
+    }
     
-//static void TestStubThrowException() {
-//    printf("raise\n");
-//    throw 123;
-//}
-//
-//TEST_F(X64AssemblerTest, CallThrowCxxException) {
-//    __ Reset();
-//    __ pushq(rbp);
-//    __ movq(rbp, rsp);
-//    __ call(kRegArgv[0]);
-//    __ popq(rbp);
-//    __ ret(0);
-//    {
-//        auto foo = MakeFunction<void (Address)>();
-//        try {
-//            foo(reinterpret_cast<Address>(&TestStubThrowException));
-//            //TestStubThrowException();
-//        } catch (int n) {
-//            printf("catch!\n");
-//        }
-//    }
-//}
+    int buf(int i) const { return buf_[i]; }
+    
+    static DemoHeaderStruct *New(int capacity) {
+        size_t n = sizeof(DemoHeaderStruct) + capacity * sizeof(int);
+        void *chunk = ::malloc(n);
+        return new (chunk) DemoHeaderStruct(capacity);
+    }
+private:
+    int capacity_;
+    int len_;
+    int buf_[0];
+};
+
+TEST_F(X64AssemblerTest, ComplexAddressAccessWay) {
+    __ Reset();
+    __ pushq(rbp);
+    __ movq(rbp, rsp);
+    __ movq(Operand(kRegArgv[0], kRegArgv[1], times_4, sizeof(DemoHeaderStruct)), kRegArgv[2]);
+    __ popq(rbp);
+    __ ret(0);
+    
+    auto demo = DemoHeaderStruct::New(16);
+    auto foo = MakeFunction<void (DemoHeaderStruct *, int, int)>();
+
+    foo(demo, 0, 233);
+    ASSERT_EQ(233, demo->buf(0));
+    
+    foo(demo, 1, 433);
+    ASSERT_EQ(433, demo->buf(1));
+    
+    foo(demo, 15, 333);
+    ASSERT_EQ(333, demo->buf(15));
+}
+
+// Return the smallest multiple of m which is >= x.
+// (x + m - 1) & -m
+TEST_F(X64AssemblerTest, RoundUp) {
+    // x: Argv_0, m: Argv_1
+    __ Reset();
+    __ pushq(rbp);
+    __ movq(rbp, rsp);
+    __ movl(rax, Argv_0);
+    __ addl(rax, Argv_1); // x + m
+    __ decl(rax); // - 1
+    __ negl(Argv_1); // -m
+    __ andl(rax, Argv_1);
+    __ popq(rbp);
+    __ ret(0);
+    
+    auto foo = MakeFunction<int (int, int)>();
+    ASSERT_EQ(16, foo(1, 16));
+    ASSERT_EQ(16, foo(16, 16));
+    ASSERT_EQ(32, foo(17, 16));
+    ASSERT_EQ(32, foo(32, 16));
+    ASSERT_EQ(48, foo(33, 16));
+}
+
+TEST_F(X64AssemblerTest, BytecodeDecode) {
+    __ Reset();
+    __ pushq(rbp);
+    __ movq(rbp, rsp);
+    __ subq(rsp, 16);
+    __ movl(Operand(rbp, -4), 1);
+    __ movl(Operand(rbp, -8), 2);
+    __ movl(Operand(rbp, -12), 3);
+    __ movl(Operand(rbp, -16), 4);
+    
+    __ movl(rbx, Argv_0);
+    __ andl(rbx, 0xfff000);
+    __ shrl(rbx, 12);
+    __ negq(rbx);
+    __ movl(rax, Operand(rbp, rbx, times_1, 0));
+    
+    __ movl(rbx, Argv_0);
+    __ andl(rbx, 0xfff);
+    __ negq(rbx);
+    
+    __ addl(rax, Operand(rbp, rbx, times_1, 0));
+    
+    __ addq(rsp, 16);
+    __ popq(rbp);
+    __ ret(0);
+    
+    auto foo = MakeFunction<int (uint32_t)>();
+    ASSERT_EQ(2, foo(0x00004004));
+    ASSERT_EQ(3, foo(0x00008004));
+}
 
 } // namespace x64
     

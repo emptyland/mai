@@ -1218,7 +1218,7 @@ int main(int argc, char *argv[]) {
     }
   	Handle<GenericArray> argv = GenericArray::New(vals);
   	context->SetArgv(argv);
-    context->RunEntry();
+    context->Run();
     return 0;
 }
 ```
@@ -1282,6 +1282,8 @@ Machine::kRunning: 正在运行中
 
 Coroutine::kDead: 协程死亡，协程入口函数执行完后处于此状态
 Coroutine::kIdle: 空闲，未被任何一个machine调度
+Coroutine::kWaitting: 等待中，一般是等待读写channel或者文件读写
+Coroutine::kRunnable: 可被执行
 Coroutine::kRunning: 正在运行中
 Coroutine::kFallIn: 在运行中，但是在调用一个Runtime的C++函数
 
@@ -1295,10 +1297,14 @@ Coroutine::kFallIn: 在运行中，但是在调用一个Runtime的C++函数
 |      entry_point: Closure* | entry function
 |----------------------------|
 |            owner: Machine* | owner machine
+|------------------------------|
+| waitting: WaittingQueueNode* | waitting node
+|------------------------------|
+|      exception: Exception* | native function thrown exception 
 |----------------------------|
 |        caught: CaughtNode* | exception hook for exception caught
 |----------------------------|
-|                 yield: i32 | yield requests, if yield > 0, need yield
+|                 yield: u32 | yield requests, if yield > 0, need yield
 |----------------------------|
 |            sys_bp: Address | mai frame pointer
 |----------------------------|
@@ -1344,6 +1350,133 @@ struct CaughtNode {
 * 函数只能在`Coroutine`里执行。
 * 每个`Context`会创建一个`Coroutine`用来执行入口函数`main.main()`
 
+### Channel
+
+> `channel`本质是一个线程安全的FIFO的队列，有一个固定大小（默认大小为1），操作`channel`的时候回自动触发重新调度。
+>
+> 写入`channel`时，如果队列已满，将会放弃控制权，调度其他coroutine执行。
+>
+> 读取`channel`时，如果队列已空，也会放弃控制权，调度其他coroutine执行。
+>
+> 使用ring-buffer来实现`channel`
+
+```
++================================+
+[             Channel            ]
++================================+
+|            Any Header          | heap object header
+|--------------------------------|
+|                    closed: u32 | is close ?
+|--------------------------------|
+|  send_queue: WaittingQueueNode | waitting-queue for send
+|--------------------------------|
+|  recv_queue: WaittingQueueNode | waitting-queue for recv
+|--------------------------------|
+|                    lock: mutex | lock
+|--------------------------------|
+|                  capacity: u32 | size of capacity
+|--------------------------------|
+|                       len: u32 | size of valid elements
+|--------------------------------|
+|                     start: i32 | start position
+|--------------------------------|
+|                       end: i32 | end position
+|--------------------------------|
+
+
++==========================+
+[     WaittingQueueNode    ]
++==========================+
+| next: WaittingQueueNode* |
+|--------------------------| double-linked list header
+| prev: WaittingQueueNode* |
+|--------------------------|
+|           co: Coroutine* | pointer of coroutine
+|--------------------------|
+|        received: Address | direct received address
+
+
+
+- 基础类型的Channel
+
++======================+
+[  Channel8(Channdle)  ]
++======================+
+|    Channel Header    | channel header
++----------------------+
+|            buf: u8[] | buffer
++----------------------+
+
++======================+
+[ Channel16(Channdle)  ]
++======================+
+|    Channel Header    | channel header
++----------------------+
+|           buf: u16[] | buffer
++----------------------+
+
++======================+
+[ Channel32(Channdle)  ]
++======================+
+|    Channel Header    | channel header
++----------------------+
+|           buf: u16[] | buffer
++----------------------+
+
++======================+
+[ Channel64(Channdle)  ]
++======================+
+|    Channel Header    | channel header
++----------------------+
+|           buf: u64[] | buffer
++----------------------+
+
++===========================+
+[ GenericChannel(Channdle)  ]
++===========================+
+|       Channel Header      | channel header
++---------------------------+
+|               buf: Any*[] | buffer
++---------------------------+
+
+
+Ring-Buffer:    |<------------- fixed size buffer ----------------->|
++---------------+---+---+---+---+---+---+---+---+---+---+---+---+---+
+| channel heaer | v | v | v | v | v |   |   |   |   |   |   |   |   |
++---------------+---+---+---+---+---+---+---+---+---+---+---+---+---+
+                  ^               ^
+                start            end
++---------------+---+---+---+---+---+---+---+---+---+---+---+---+---+
+| channel heaer | v | v | v |   |   |   |   |   |   |   |   | v | v |
++---------------+---+---+---+---+---+---+---+---+---+---+---+---+---+
+                          ^                                   ^
+                         end                                start
+
+channle一般会跨线程共享，必须要实现线程安全。
+入队列：
+end = (end + 1) % capacity
+buf[end] = value
+在end处添加元素，然后后移end指针，当end和start重叠，表示队列已满。
+
+出队列：
+value = buf[start]
+start = (start + 1) % capacity
+在start处获取元素，然后后移start指针，当start和end重叠，表示队列已空。
+
+队列中有效数据长度就是: abs(end - start)
+
+end或者start如果超过capacity之后，要绕回
+```
+
+* 发送
+    * 直接发送：接收等待队列`recv_queue`不为空；从中选出第一个陷入等待的`coroutine`来直接发送。
+    * 缓冲发送：缓冲区没有满；此时将数据写入缓冲区。
+    * 阻塞发送：发送的数据没法处理，接收队列为空、缓冲区已满；此时将当前`coroutine`放入发送等待队列，然后放弃控制权，触发重新调度。
+* 接收
+    * 直接接收：发送等待队列`send_queue`不为空；从中选出第一个陷入等待的`coroutine`来直接接收。
+    * 缓冲接收：缓冲区中有数据；此时直接从缓冲区中移动数据到目的地址（移动到`coroutine->acc/xacc`）
+    * 阻塞接收：发送等待队列`send_queue`为空，缓冲区中又没有数据；此时将当前`coroutine`放入接收等待队列，然后放弃控制权，触发重新调度。
+
 ### FunctionTemplate
 
 > 函数模板用于包装C++的函数调用。生成一个汇编器生成stub，通过stub间接调用C++函数。
@@ -1365,11 +1498,11 @@ public:
         static constexpr int kType = Type::U8
     }
 
-		template<R> static Handle<Closure> New(R(*ptr)(), int n);
+	template<R> static Handle<Closure> New(R(*ptr)(), int n);
   	template<R,A0> static Handle<Closure> New(R(*ptr)(A0), int n);
   	template<R,A0,A1> static Handle<Closure> New(R(*ptr)(A0,A1), int n);
 		...
-		template<R,A0,A1,A2,A3,A4> static inline Handle<Closure> New(R(*ptr)(A0,A1,A1,A2,A3,A4), int n) {
+	template<R,A0,A1,A2,A3,A4> static inline Handle<Closure> New(R(*ptr)(A0,A1,A1,A2,A3,A4), int n) {
       	int params_types[5] = {
             ParameterTraits<A0>::kType,
             ParameterTraits<A1>::kType,
@@ -1837,8 +1970,6 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | `Return` | `N` | 调用返回 | | |
 | `NewBuiltinObject` | `FA` | 创建内建对象 | `u8`对象代码 | `u16`立即数 |
 | `CheckStack` | `N` | 检查栈是否溢出 | | |
-| `CheckBound` | `AB` | 检查数组范围 | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `CheckBoundImm` | `AB` | 检查数组范围 | `u12` 栈偏移量 | `u12` 立即数下标 |
 
 类型转换：任意两类型间，最多只需要两步转换：
 规则：
@@ -2147,7 +2278,7 @@ jmp far rbx
 ; [ Ldar32/64/Ptr ]
 movl ebx, 0(BC)
 andl ebx, 0xffffff
-neg rbx
+negq rbx
 | movl eax, rbx(rbp) ; Ldar32
 | movq rax, rbx(rbp) ; Ldar64/LdarPtr
 JUMP_NEXT_BC()
@@ -2155,7 +2286,7 @@ JUMP_NEXT_BC()
 ; [ Ldaf32/64 ]
 movl ebx, 0(BC)
 andl ebx, 0xffffff
-neg rbx
+negq rbx
 | movss xmm0, rbx(rbp)
 | movsd xmm0, rbx(rbp)
 JUMP_NEXT_BC()
@@ -2174,7 +2305,7 @@ JUMP_NEXT_BC()
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
-neg ebx
+negq rbx
 movq SCRATCH, rbx(rbp)
 movl ebx, 0(BC)
 andl ebx, 0xfff
@@ -2199,22 +2330,21 @@ JUMP_NEXT_BC()
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
-neg ebx
+negq rbx
 movq SCRATCH, rbx(rbp) ; SCRATCH = array
 movl ebx, 0(BC)
 andl ebx, 0xfff
-neg ebx
+negq rbx
 movl eax, rbx(rbp) ; index
 cmpl eax, Array_len(SCRATCH) ; if (index >= array.len)
 jge @out_of_bound
-addq SCRATCH, Array_elems ; SCRATCH = &elems[0]
 xorq rax, rax ; clear ACC
-| movb al, rbx*1(SCRATCH) ; [ SCRATCH + rbx * 1 ] LdaArrayElem8
-| movw ax, rbx*2(SCRATCH) ; [ SCRATCH + rbx * 2 ] LdaArrayElem16
-| movl eax, rbx*4(SCRATCH) ; [ SCRATCH + rbx * 4 ] LdaArrayElem32
-| movq rax, rbx*8(SCRATCH) ; [ SCRATCH + rbx * 8 ] LdaArrayElem64/Ptr
-| movss xmm0, rbx*4(SCRATCH) ; [ SCRATCH + rbx * 4 ] LdaArrayElemf32
-| movsd xmm0, rbx*8(SCRATCH) ; [ SCRATCH + rbx * 8 ] LdaArrayElemf64
+| movb al, rbx*1+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 1 + Array_elems ] LdaArrayElem8
+| movw ax, rbx*2+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 2 + Array_elems ] LdaArrayElem16
+| movl eax, rbx*4+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 4 + Array_elems ] LdaArrayElem32
+| movq rax, rbx*8+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 8 + Array_elems ] LdaArrayElem64/Ptr
+| movss xmm0, rbx*4+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 4 + Array_elems ] LdaArrayElemf32
+| movsd xmm0, rbx*8+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 8 + Array_elems ] LdaArrayElemf64
 JUMP_NEXT_BC()
 
 out_of_bound:
@@ -2261,11 +2391,11 @@ JUMP_NEXT_BC()
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
-neg ebx
+negq rbx
 movq SCRATCH, rbx(rbp) ; SCRATCH = array
 movl ebx, 0(BC)
 andl ebx, 0xfff
-neg ebx
+negq rbx
 movl eax, rbx(rbp) ; index
 cmpl eax, Array_len(SCRATCH) ; if (index >= array.len)
 jge @out_of_bound
@@ -2433,12 +2563,10 @@ JUMP_NEXT_BC()
 
 error:
 PANIC(ERROR_DIVIDE_BY_ZERO, "divide by zero!")
-; Never goto this
-int 3
 ```
 
 * Test Compare Two Stack Values to ACC
-    * 作用：比较栈中两个值，结果放入ACC中(true/false)
+    * 作用：比较栈中两个值，结果放入ACC中(`true`/`false`)
     * 类型：`AB`型
         * `参数A`：操作数在栈中的偏移量
         * `参数B`：操作数在栈中的偏移量
@@ -2454,14 +2582,14 @@ int 3
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
-negl ebx
+negq rbx
 | movl eax, rbx(rbp) ; 32
 | movq rax, rbx(rbp) ; 64/Ptr
 | movss xmm0, rbx(rbp) ; f32
 | movsd xmm0, rbx(rbp) ; f64
 movl ebx, 0(BC)
 andl ebx, 0xfff
-negl ebx
+negq rbx
 | cmpl eax, rbx(rbp) ; 32
 | cmpq rax, rbx(rbp) ; 64/Ptr
 | comiss xmm0, rbx(rbp) ; f32
@@ -2478,10 +2606,45 @@ xorq rax, rax ; set rax = 0
 jmp near @done
 true:
 movq rax, 1
-jmp near @done
 done:
 JUMP_NEXT_BC()
 ```
+
+* Test Compare Two String Values to ACC
+    * 作用：比较栈中两个字符串，结果放入ACC中(`true`/`false`)
+    * 类型：`AB`型
+        * `参数A`：操作数在栈中的偏移量
+        * `参数B`：操作数在栈中的偏移量
+    * 副作用：写入`ACC`
+
+```asm
+; [ TestStringEqual TestStringNotEqual ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+negq rbx
+movq rax, rbx(rbp) ; rax = string1
+
+movl ebx, 0(BC)
+andl ebx, 0xfff
+negq rbx
+movq rbx, rbx(rbp) ; rbx = string2
+
+movl rcx, String_len(rax) ; rcx = string1.len
+cmpl rcx, String_len(rbx) ; if (string1.len == string2.len)
+| jne @false ; TestStringEqual
+| je @true   ; TestStringNotEqual
+
+false:
+xorq rax, rax ; set rax = 0
+jmp near @done
+true:
+movq rax, 1
+done:
+JUMP_NEXT_BC()
+```
+
+
 
 * Truncate integer number
     * 作用：将一个整数类型截断到指定大小，常用于整数从大到小类型转换
@@ -2493,7 +2656,7 @@ JUMP_NEXT_BC()
 ; [ Truncate32To8/16 Truncate64To32 ]
 movl ebx, 0(BC)
 andl ebx, 0xffffff
-neg ebx
+negq rbx
 | movl eax, rbx(rbp) ; Truncate32To8
 | | andl eax, 0xff
 | movl eax, rbx(rbp) ; Truncate32To16
@@ -2512,7 +2675,7 @@ JUMP_NEXT_BC()
 ; [ ZeroExtend8/16To32 ZeroExtend32To64 ]
 movl ebx, 0(BC)
 andl ebx, 0xffffff
-neg ebx
+negq rbx
 | movzxb eax, rbx(rbp) ; ZeroExtend8To32
 | movzxw eax, rbx(rbp) ; ZeroExtend16To32
 | movl eax, rbx(rbp) ; ZeroExtend32To64
@@ -2529,7 +2692,7 @@ JUMP_NEXT_BC()
 ; [ SignExtend8/16To32 SignExtend32To64 ]
 movl ebx, 0(BC)
 andl ebx, 0xffffff
-neg ebx
+negq rbx
 | movsxb eax, rbx(rbp) ; SignExtend8To32
 | movsxw eax, rbx(rbp) ; SignExtend16To32
 | movsxd rax, rbx(rbp) ; SignExtend32To64
@@ -2546,7 +2709,7 @@ JUMP_NEXT_BC()
 ; [ I32/U32/I64/U64/F64ToF32 ]
 movl ebx, 0(BC)
 andl ebx, 0xffffff
-neg ebx
+negq rbx
 ; Convert Dword Integer to Scalar Single-Precision FP Value
 | cvtsi2ssl xmm0, rbx(rbp) ; I32/U32ToF32
 ; Convert Scalar Single-Precision FP Value to Scalar Double-Precision FP Value
@@ -2567,7 +2730,7 @@ JUMP_NEXT_BC()
 
 movl ebx, 0(BC)
 andl ebx, 0xffffff
-neg ebx
+negq rbx
 ; Convert Dword Integer to Scalar Single-Precision FP Value
 | cvtsi2sdl xmm0, rbx(rbp) ; I32/U32ToF64
 ; Convert Scalar Single-Precision FP Value to Scalar Double-Precision FP Value
@@ -2588,8 +2751,9 @@ JUMP_NEXT_BC()
 
 movl ebx, 0(BC)
 andl ebx, 0xffffff
+addl ebx, 15  ; ebx = ebx + 16 - 1
+andl ebx, -16 ; ebx &= -16
 subq rsp, rbx ; adjust sp to aligment of 16 bits(2 bytes)
-; TODO:
 
 ; call bytecode function
 movq Argv_0, rax
@@ -2597,12 +2761,14 @@ call InterpreterPump
 
 ; restore caller's BC register
 movq SCRATCH, stack_frame_bytecode_array(rbp)
-addq SCRATCH, BytecodeArray_instructions
 movl ebx, stack_frame_pc(rbp)
-leaq BC, rbx*4(SCRATCH) ; [SCRATCH + rcx * 4]
+; [SCRATCH + rcx * 4 + BytecodeArray_instructions]
+leaq BC, rbx*4+BytecodeArray_instructions(SCRATCH) 
 
 movl ebx, 0(BC)
 andl ebx, 0xffffff
+addl ebx, 15  ; ebx = ebx + 16 - 1
+andl ebx, -16 ; ebx &= -16
 addq rsp rbx ; recover sp
 
 JUMP_NEXT_BC()
@@ -2616,7 +2782,49 @@ JUMP_NEXT_BC()
 
 ```asm
 ; [ CallNativeFunction ]
-...
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+; (x + m - 1) & -m
+addl ebx, 15  ; ebx = ebx + 16 - 1
+andl ebx, -16 ; ebx &= -16
+subq rsp, rbx ; adjust sp to aligment of 16 bits(2 bytes)
+
+movq SCRATCH, Closure_cxx_fn(rax)
+leaq SCRATCH, Code_instructions(SCRATCH)
+callq SCRATCH
+
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+addl ebx, 15  ; ebx = ebx + 16 - 1
+andl ebx, -16 ; ebx &= -16
+addq rsp rbx ; recover sp
+
+; test if throw exception in native function
+; Can not throw c++ exception in native function!
+cmpq Coroutine_exception(CO), 0
+jne @throw
+JUMP_NEXT_BC()
+
+throw:
+movq rax, Coroutine_exception(CO)
+THROW()
+```
+
+> 一些复杂操作通过调用内部函数实现，而不独立实现bytecode了
+
+```c++
+// 管道发送
+u32_t Runtime::ChannelSend32(Channel *chan, u32_t data);
+u32_t Runtime::ChannelSend64(Channel *chan, u64_t data);
+
+// 管道接收
+u32_t Runtime::ChannelRecv32(Channel *chan);
+u64_t Runtime::ChannelRecv64(Channel *chan);
+f32_t Runtime::ChannelRecvf32(Channel *chan);
+f64_t Runtime::ChannelRecvf64(Channel *chan);
+
+// 创建内建对象
+Any *Runtime::NewBuiltinObject(u8_t code, Address argv, Address end);
 ```
 
 * Create a builtin object
