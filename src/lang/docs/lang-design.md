@@ -2644,8 +2644,8 @@ pcmpestr_loop:
 cmpl ebx, 0
 jle near @pcmpestr_remain
 subl ebx, 16
-movdqu xmm0, rbx*1(r8) ; move string1's 16 bytes to xmm0
-pcmpestri xmm0, rbx*1(r9), EqualEach|NegativePolarity
+movdqu xmm0, rbx*1+String_data(r8) ; move string1's 16 bytes to xmm0
+pcmpestri xmm0, rbx*1+String_data(r9), EqualEach|NegativePolarity
 jc near @not_equals
 jmp near @pcmpestr_loop
 
@@ -2656,8 +2656,8 @@ movl eax, ebx ; string1.len = remain length
 movl edx, ebx ; string2.len = remain length
 movl ebx, String_len(r8) ; ebx = string1.len
 andl ebx, 0xfffffff0 ; ebx &= -16
-movdqu xmm0, rbx*1(r8) ; move string1's 16 bytes to xmm0
-pcmpestri xmm0, rbx*1(r9), EqualEach|NegativePolarity
+movdqu xmm0, rbx*1+String_data(r8) ; move string1's 16 bytes to xmm0
+pcmpestri xmm0, rbx*1+String_data(r9), EqualEach|NegativePolarity
 jc near @not_equals
 
 not_equals:
