@@ -666,6 +666,117 @@ TEST_F(X64AssemblerTest, BytecodeDecode) {
     ASSERT_EQ(3, foo(0x00008004));
 }
 
+TEST_F(X64AssemblerTest, SSE42strcmpDemo) {
+    __ Reset();
+    __ pushq(rbp);
+    __ movq(rbp, rsp);
+
+    __ movl(rax, 8);
+    __ movl(rdx, 8);
+    __ movdqu(xmm0, Operand(Argv_0, 0));
+    __ pcmpestri(xmm0, Operand(Argv_1, 0), PCMP::EqualEach|PCMP::NegativePolarity);
+    
+    Label if_false;
+    __ j(Carry, &if_false, false);
+    __ movl(rax, 1);
+    __ popq(rbp);
+    __ ret(0);
+    
+    __ Bind(&if_false);
+    __ xorq(rax, rax);
+    __ popq(rbp);
+    __ ret(0);
+    
+    char s1[17] = {"01234567"};
+    char s2[17] = {"01234567"};
+    auto foo = MakeFunction<int (const char *, const char *)>();
+    
+    ASSERT_TRUE(foo(s1, s2));
+    s2[1] = 'x';
+    ASSERT_FALSE(foo(s1, s2));
+}
+
+TEST_F(X64AssemblerTest, SSE42StringEqual) {
+    __ Reset();
+    __ pushq(rbp);
+    __ movq(rbp, rsp);
+    __ subq(rsp, 16);
+
+    __ movl(rbx, Argv_2); // len
+    __ movl(Operand(rbp, -4), Argv_2);
+    __ andl(rbx, 0xfffffff0);
+
+    __ movl(rax, 16); // string.1 len
+    __ movl(rdx, 16); // string.2 len
+    Label cmp_loop;
+    __ Bind(&cmp_loop);
+    __ cmpl(rbx, 0);
+    Label remain;
+    __ j(LessEqual, &remain, false);
+    __ subl(rbx, 16);
+    __ movdqu(xmm0, Operand(Argv_0, rbx, times_1, 0));
+    __ pcmpestri(xmm0, Operand(Argv_1, rbx, times_1, 0), PCMP::EqualEach|PCMP::NegativePolarity);
+    Label not_equal;
+    __ j(Carry, &not_equal, false);
+    __ jmp(&cmp_loop, false);
+
+    __ Bind(&remain);
+    __ movl(rbx, Operand(rbp, -4)); // len
+    __ andl(rbx, 0xf);
+    __ movl(rax, rbx); // string.1 len
+    __ movl(rdx, rbx); // string.2 len
+    
+    __ movl(rbx, Operand(rbp, -4));
+    __ andl(rbx, 0xfffffff0);
+    __ movdqu(xmm0, Operand(Argv_0, rbx, times_1, 0));
+    __ pcmpestri(xmm0, Operand(Argv_1, rbx, times_1, 0), PCMP::EqualEach|PCMP::NegativePolarity);
+    __ j(Carry, &not_equal, false);
+    
+    __ movl(rax, 1);
+    __ addq(rsp, 16);
+    __ popq(rbp);
+    __ ret(0);
+    
+    __ Bind(&not_equal);
+    __ xorq(rax, rax);
+    __ addq(rsp, 16);
+    __ popq(rbp);
+    __ ret(0);
+    
+    const char *s1 = "012345679";
+    const char *s2 = "012345679";
+    auto foo = MakeFunction<int (const char *, const char *, int)>();
+
+    ASSERT_TRUE(foo(s1, s2, static_cast<int>(strlen(s1))));
+
+    s2 = "112345679";
+    ASSERT_FALSE(foo(s1, s2, static_cast<int>(strlen(s1))));
+
+    s1 = "0123456789abcdef0";
+    s2 = "0123456789abcdef0";
+    ASSERT_TRUE(foo(s1, s2, static_cast<int>(strlen(s1))));
+    
+    s1 = "0123456789abcdef0";
+    s2 = "0123456789abcdef1";
+    ASSERT_FALSE(foo(s1, s2, static_cast<int>(strlen(s1))));
+    
+    s1 = "0123456789abcdef0123456789abcdef0";
+    s2 = "0123456789abcdef0123456789abcdef0";
+    ASSERT_TRUE(foo(s1, s2, static_cast<int>(strlen(s1))));
+    
+    s1 = "0123456789abcdef0123456789abcdef0";
+    s2 = "0123456789abcdef0123456789abcdefx";
+    ASSERT_FALSE(foo(s1, s2, static_cast<int>(strlen(s1))));
+    
+    s1 = "0123456789abcdef0123456789abcdef0";
+    s2 = "01x3456789abcdef0123456789abcdef0";
+    ASSERT_FALSE(foo(s1, s2, static_cast<int>(strlen(s1))));
+    
+    s1 = "0123456789abcdef0123456789abcdef0";
+    s2 = "0123456789abcdef0123x56789abcdef0";
+    ASSERT_FALSE(foo(s1, s2, static_cast<int>(strlen(s1))));
+}
+
 } // namespace x64
     
 } // namespace mai

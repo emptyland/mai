@@ -74,6 +74,59 @@ enum Cond {
     NotSign  = Positive,
     LastCond = Greater,
 }; // Cond;
+
+
+// Control Code:
+// [1:0] Source Data Format:
+// 00b: Unsigned byte
+// 01b: Signed byte
+// 10b: Unsigned word
+// 11b: Signed word
+//
+// [3:2]Aggregation Operation:
+// 00b: Equal any
+// 01b: Ranges
+// 10b: Equal each
+// 11b: Equal ordered
+//
+// [5:4]Polarity:
+// 00b: Positive Polarity (+)
+// 01b: Negative Polarity (-)
+// 10b: Masked (+)
+// 11b: Masked (-)
+//
+// [6] Output Selection:
+// For PCMPESTRI/PCMPISTRI
+// 0b: Least significant index
+// 1b: Most significant index
+// For PCMPESTRM/PCMPISTRM
+// 0b: Bit mask
+// 1b: Byte/word mask
+//
+struct PCMP {
+    static constexpr int8_t Byte = 0;
+    static constexpr int8_t Word = 1;
+    
+    static constexpr int8_t Unsigned = 0;
+    static constexpr int8_t Signed = 1 << 1;
+    
+    static constexpr int8_t EqualAny = 0;
+    static constexpr int8_t Ranges = 1 << 2;
+    static constexpr int8_t EqualEach = 2 << 2;
+    static constexpr int8_t EqualOrdered = 3 << 2;
+    
+    static constexpr int8_t PositivePolarity = 0;
+    static constexpr int8_t NegativePolarity = 1 << 4;
+    static constexpr int8_t PositiveMasked = 2 << 4;
+    static constexpr int8_t NegativeMasked = 3 << 4;
+    
+    static constexpr int8_t LeastSignificantIndex = 0;
+    static constexpr int8_t MostSignificantIndex = 1 << 6;
+    
+    static constexpr int8_t BitMask = 0;
+    static constexpr int8_t ByteWordMask = 1 << 6;
+    // Least significant index
+};
     
 class Register {
 public:
@@ -601,6 +654,13 @@ public:
     void movsd(XMMRegister dst, Operand src) { EmitSSEArith(0xF2, 0x10, dst, src); }
 
     void movsd(Operand dst, XMMRegister src) { EmitSSEArith(0xF2, 0x11, src, dst); }
+    
+    // Move Unaligned Double Quadword
+    void movdqu(XMMRegister dst, XMMRegister src) { EmitSSEArith(0xF3, 0x6F, dst, src); }
+    
+    void movdqu(XMMRegister dst, Operand src) { EmitSSEArith(0xF3, 0x6F, dst, src); }
+    
+    void movdqu(Operand dst, XMMRegister src) { EmitSSEArith(0xF3, 0x7F, src, dst); }
     
     // CMOVcc—Conditional Move
     void cmov(Cond cond, Register dst, Register src, int size) {
@@ -1205,6 +1265,55 @@ public:
 
 #undef DEF_SSE_ARITH
 #undef ARITH_SSE_OP_LIST
+
+    //----------------------------------------------------------------------------------------------
+    // String Compare
+    //----------------------------------------------------------------------------------------------
+    // Packed Compare Explicit Length Strings, Return Index
+    void pcmpestri(XMMRegister lhs, XMMRegister rhs, int8_t code) {
+        // 66 0F 3A 61 /r imm8
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0x3A);
+        EmitB(0x61);
+        EmitOperand(lhs, rhs);
+        EmitB(code);
+    }
+    
+    void pcmpestri(XMMRegister lhs, Operand rhs, int8_t code) {
+        // 66 0F 3A 61 /r imm8
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0x3A);
+        EmitB(0x61);
+        EmitOperand(lhs, rhs);
+        EmitB(code);
+    }
+    
+    // PCMPESTRM — Packed Compare Explicit Length Strings, Return Mask
+    void pcmpestrm(XMMRegister lhs, XMMRegister rhs, int8_t code) {
+        // 66 0F 3A 60 /r imm8
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0x3A);
+        EmitB(0x60);
+        EmitOperand(lhs, rhs);
+        EmitB(code);
+    }
+    
+    void pcmpestrm(XMMRegister lhs, Operand rhs, int8_t code) {
+        // 66 0F 3A 60 /r imm8
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0x3A);
+        EmitB(0x60);
+        EmitOperand(lhs, rhs);
+        EmitB(code);
+    }
     
     //----------------------------------------------------------------------------------------------
     // Utils

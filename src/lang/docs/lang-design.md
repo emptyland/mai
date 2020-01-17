@@ -2623,23 +2623,51 @@ movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
 negq rbx
-movq rax, rbx(rbp) ; rax = string1
+movq r8, rbx(rbp) ; r8 = string1
 
 movl ebx, 0(BC)
 andl ebx, 0xfff
 negq rbx
-movq rbx, rbx(rbp) ; rbx = string2
+cmpq r8, rbx(rbp) ; if (string1 == string2) then equals
+je near @equals
+movq r9, rbx(rbp) ; r9 = string2
 
-movl rcx, String_len(rax) ; rcx = string1.len
-cmpl rcx, String_len(rbx) ; if (string1.len == string2.len)
-| jne @false ; TestStringEqual
-| je @true   ; TestStringNotEqual
+movl ebx, String_len(r8) ; ebx = string1.len
+cmpl ebx, String_len(r9) ; if (string1.len == string2.len)
+jne near @not_equals
 
-false:
-xorq rax, rax ; set rax = 0
-jmp near @done
-true:
-movq rax, 1
+movl ebx, 0xfffffff0 ; rbx &= -16
+movl eax, 16 ; string1.len
+movl edx, 16 ; string2.len
+
+pcmpestr_loop:
+cmpl ebx, 0
+jle near @pcmpestr_remain
+subl ebx, 16
+movdqu xmm0, rbx*1(r8) ; move string1's 16 bytes to xmm0
+pcmpestri xmm0, rbx*1(r9), EqualEach|NegativePolarity
+jc near @not_equals
+jmp near @pcmpestr_loop
+
+pcmpestr_remain:
+movl ebx, String_len(r8) ; ebx = string1.len
+andl ebx, 0xf ; remain length
+movl eax, ebx ; string1.len = remain length
+movl edx, ebx ; string2.len = remain length
+movl ebx, String_len(r8) ; ebx = string1.len
+andl ebx, 0xfffffff0 ; ebx &= -16
+movdqu xmm0, rbx*1(r8) ; move string1's 16 bytes to xmm0
+pcmpestri xmm0, rbx*1(r9), EqualEach|NegativePolarity
+jc near @not_equals
+
+not_equals:
+| xorq rax, rax ; TestStringEqual
+| | jmp near @done
+| movq rax, 1   ; TestStringNotEqual
+| | jmp near @done
+equals:
+| xorq rax, rax ; TestStringNotEqual
+| movq rax, 1   ; TestStringEqual
 done:
 JUMP_NEXT_BC()
 ```
@@ -2752,7 +2780,7 @@ JUMP_NEXT_BC()
 movl ebx, 0(BC)
 andl ebx, 0xffffff
 addl ebx, 15  ; ebx = ebx + 16 - 1
-andl ebx, -16 ; ebx &= -16
+andl ebx, 0xfffffff0 ; ebx &= -16
 subq rsp, rbx ; adjust sp to aligment of 16 bits(2 bytes)
 
 ; call bytecode function
@@ -2768,8 +2796,8 @@ leaq BC, rbx*4+BytecodeArray_instructions(SCRATCH)
 movl ebx, 0(BC)
 andl ebx, 0xffffff
 addl ebx, 15  ; ebx = ebx + 16 - 1
-andl ebx, -16 ; ebx &= -16
-addq rsp rbx ; recover sp
+andl ebx, 0xfffffff0 ; ebx &= -16
+addq rsp, rbx ; recover sp
 
 JUMP_NEXT_BC()
 ```
@@ -2786,7 +2814,7 @@ movl ebx, 0(BC)
 andl ebx, 0xffffff
 ; (x + m - 1) & -m
 addl ebx, 15  ; ebx = ebx + 16 - 1
-andl ebx, -16 ; ebx &= -16
+andl ebx, 0xfffffff0 ; ebx &= -16
 subq rsp, rbx ; adjust sp to aligment of 16 bits(2 bytes)
 
 movq SCRATCH, Closure_cxx_fn(rax)
@@ -2796,8 +2824,8 @@ callq SCRATCH
 movl ebx, 0(BC)
 andl ebx, 0xffffff
 addl ebx, 15  ; ebx = ebx + 16 - 1
-andl ebx, -16 ; ebx &= -16
-addq rsp rbx ; recover sp
+andl ebx, 0xfffffff0 ; ebx &= -16
+addq rsp, rbx ; recover sp
 
 ; test if throw exception in native function
 ; Can not throw c++ exception in native function!
