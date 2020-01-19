@@ -887,6 +887,222 @@ static_assert(sizeof(Span16) == 16, "");
 
 #### 堆空间
 
+* 堆：分配、管理堆对象，除此之外的都是堆外内存了。
+
+```
++=============================+
+[             Heap            ]
++=============================+
+|        new_space: NewSpace* | new space
+|-----------------------------|
+|        old_space: OldSpace* | old space
+|-----------------------------|
+|    large_space: LargeSpace* | large space
+|-----------------------------|
+|        initial_color: Color | initial color for mark phase
+|-----------------------------|
+|       finalize_color: Color | finalize color for mark phase
+|-----------------------------+----------------|
+|  remember_set: map<Address, RememberRecord*> | remember set for write barrier
+|----------------------------------------------|
+
+
++=============================+
+[       RememberRecord        ]
++=============================+
+|                  host: Any* | host object pointer
+|-----------------------------|
+|                 pzwr: Any** | write address
+|-----------------------------|
+```
+
+* 年轻代：`new_space`
+    * 存活区：`survive_area` GC Scavenger 之后仍然存活的对象存储区
+    * 分配区：`original_area` 对象分配区
+
+```
++=============================+
+[       NewSpace(Space)       ]
++=============================+
+|         Space Header        | base of Space class
+|-----------------------------|
+|    survive_area: SemiSpace* | survive space
+|-----------------------------|
+|   original_area: SemiSpace* | allocation space
+|-----------------------------|
+|    latest_remaining: size_t | latest GC remaining size
+|-----------------------------|
+
+
++=============================+
+[      SemiSpace(Space)       ]
++=============================+
+|         Space Header        | base of Space class
+|-----------------------------|
+|                size: size_t | space size
+|-----------------------------|
+|              limit: Address | limit address
+|-----------------------------|
+|               free: Address | free address can be allocation (atomic)
+|-----------------------------|
+|               bitmap: u32[] | allocation bitmap 1 bit for 8 bytes
+|-----------------------------|
+|                 chunk: u8[] | chunk for allocation
+|-----------------------------|
+
+
+                    | bitmap |         free -----------------------------> limit
++-------------------+--------+----------|-------------------------- ~~~ ----+
+| semi-space header |xxxxxxxx|uuuuuuuuuu|                                   |
++-------------------+--------+----------|-------------------------- ~~~ ----+
+                                        |<---------- free chunk ----------->|
+```
+
+* 老对象空间：old_space
+    * 页：`page` 每页默认1MB并且地址需要对齐到1MB，对象从页中分配
+
+```
+- 老对象空间
+- 属于老年代空间
+-- GC算法可以使用标记-清除、标记-整理(解决碎片问题)
+
++=============================+
+[       OldSpace(Space)       ]
++=============================+
+|         Space Header        | base of Space class
+|-----------------------------|
+|     dummy_page: PageHeader* | page double-linked list dummy
+|-----------------------------|
+|      free_page: PageHeader* | free pages
+|-----------------------------|
+|        allocated_pages: u32 | number of allocated pages
+|-----------------------------|
+|          usage_size: size_t | usage size
+|-----------------------------|
+|          limit_size: size_t | size limit
+|-----------------------------|
+
++=============================+
+[             Region          ]
++=============================+
+|                tiny: Chunk* | [0, 64) bytes
+|-----------------------------|
+|               small: Chunk* | [64, 512) bytes
+|-----------------------------|
+|              medium: Chunk* | [512, 1024) bytes
+|-----------------------------|
+|              normal: Chunk* | [1024, 4096) bytes
+|-----------------------------|
+|                 big: Chunk* | >= 4096 bytes
+|-----------------------------|
+
++=============================+
+[            Chunk            ]
++=============================+
+|                next: Chunk* | to next free chunk
+|-----------------------------|
+|                   free: u32 | size
+|-----------------------------|
+
+```
+
+* 大对象空间：`large_space`
+    * 页：与分配的对象同大小
+
+```
+- 大对象空间，用于分配超大OldSpace分配不了的对象
+- 同样属于老年代空间
+-- GC算法只能用标记-清除
+
++=============================+
+[       LargeSpace(Space)     ]
++=============================+
+|         Space Header        | base of Space class
+|-----------------------------|
+|     dummy_page: PageHeader* | page double-linked list dummy
+|-----------------------------|
+|        allocated_pages: u32 | number of allocated pages
+|-----------------------------|
+|          usage_size: size_t | usage size
+|-----------------------------|
+|          limit_size: size_t | size limit
+|-----------------------------|
+```
+
+* 页：`page`
+    * 普通页：`Page`
+    * 大页：`LargePage`
+    * 线性页：`LinearPage`
+
+```
+- 页头：每一个页头部都是如此
+-- 标记了这个页属于哪个空间
+-- 页都对齐到1MB，指向页内的指针可以快速获取到页头指针
+
++=============================+
+[          PageHeader         ]
++=============================+
+|                  maker: u32 | maker for verification
+|-----------------------------|
+|             owns_space: u32 | owns space kind
+|-----------------------------|
+|           next: PageHeader* | double-linked list pointer
+|-----------------------------|
+|           prev: PageHeader* | double-linked list pointer
+|-----------------------------|
+
+- 固定大小页：用于OldSpace，固定大小为1MB
+-- bitmap标记了每一个对象的大小
+-- 可以随机分配
+
++=============================+
+[             Page            ]
++=============================+
+|          PageHeader         |
+|-----------------------------|
+|              region: Region | free regions 
+|-----------------------------|
+|           bitmap: u32[4096] | usage bitmap (4096 for 1MB page)
+|-----------------------------|
+|                 chunk: u8[] | chunk for allocation
+|-----------------------------|
+
+- 大页对象，用于LargeSpace
+-- 每一页就是一个对象
+-- 一次性分配完成，无法再分配，只能整个释放
+
++=============================+
+[          LargePage          ]
++=============================+
+|          PageHeader         |
+|-----------------------------|
+|                size: size_t | large object size
+|-----------------------------|
+|                 chunk: u8[] | chunk for allocation
+|-----------------------------|
+
+- 线性分配的页
+-- 只能线性分配
+
++=============================+
+[          LinearPage         ]
++=============================+
+|          PageHeader         |
+|-----------------------------|
+|              limit: Address | pointer last chunk address
+|-----------------------------|
+|               free: Address | pointer free chunk
+|-----------------------------|
+|                 chunk: u8[] | chunk for allocation
+|-----------------------------|
+
++-------------+--------+--------+--+-------+----+------------- ~~~ -------+
+| page header | region | bitmap |xx| chunk |xxxx| chunk                   |
++-------------+--------+--------+--+-------+----+------------- ~~~ -------+
+```
+
+
+
 
 
 #### 栈空间
@@ -898,13 +1114,19 @@ static_assert(sizeof(Span16) == 16, "");
 ```c++
 struct Stack {
     Stack *next;
-    Address guard0;
-    Address guard1;
     Address hi;
     Address lo;
     size_t  size;
     uint8_t bytes[16]
 };
+```
+
+```
+guard0      guard1
+  +-----------+-------------------------------------------------------+
+  |xxxxxxxxxxx|                                  |ooooooo|************|
+  +-----------+----------------------------------+-------+------------+
+  lo                                             sp      bp           hi
 ```
 
 
@@ -984,7 +1206,114 @@ struct Stack {
 +-------------------+ <================[ current sp ]
 ```
 
-### Handles
+#### 元数据空间
+
+> 元数据空间用于存储静态元数据
+>
+> 1. 类型信息
+> 2. 编译器生成的字节码
+> 3. 编译器或汇编器生成的机器码
+>
+> 这部分数据是静态且只读的，不需要GC算法处理。
+
+```
++=============================+
+[     MetadataSpace(Space)    ]
++=============================+
+|         Space Header        | base of Space class
+|-----------------------------|
+|     dummy_page: PageHeader* | linear page double-linked list dummy (LinearPage)
+|-----------------------------|
+|     dummy_code: PageHeader* | linear page double-linked list dummy (LinearPage)
+|-----------------------------|
+|    dummy_large: PageHeader* | large page double-linked list dummy (LargePage)
+|------------------------------------------|
+| type_name: map<std::string, const Type*> | all types name
+|------------------------------------------|
+|              types: Type*[] | all types object pointer
+|-----------------------------|
+|   bytecode_handers: Code*[] | all bytecode handlers
+|-----------------------------|
+| bytecode_entries: Address[] | all bytecode handler's entry pointer address
+|-----------------------------|
+|          usage_size: size_t | usage size
+|-----------------------------|
+
+```
+
+```c++
+class MetadataSpace : public Space {
+public:
+    // new type object by name
+    Type *NewType(const std::string &name);
+    
+    Type *GetTypeByName(const std::string &name) const;
+    Type *GetTypeById(uint32_t id) const;
+    
+    // new string
+    T *NewString(const char *z, size_t n);
+    
+    // new array
+    T *NewArray(size_t n);
+    
+    // new object
+    T *New();
+    
+    // allocate flat memory block
+    void *Allocate(size_t n, bool exec);
+    
+    // mark all pages to readonly
+ 	void MarkReadonly(bool readonly);
+}
+```
+
+### 垃圾回收
+
+> 使用分代式垃圾回收：
+>
+> 1. `NewSpace`年轻代，使用`Scavenger`算法将存活对象从`original_area`移动到`survive_area`，此时交换两个空间的指针，即完成垃圾回收。反复多次都存活的对象，就提升到老年代。
+> 2. `OldSpace`老年代，使用`Mark-sweep`清理不可达对象，释放空间链接到空闲链表中。如果碎片过多，选择使用`Mark-compcat`算法，将存活对象移动到新`page`，释放旧`page`。
+> 3. `LargeSpace`老年代大对象空间，只使用`Mark-sweep`
+>
+> * 主回收：`Major GC`回收老年代
+> * 次回收：`Minor GC`回收年轻代 ，次回收可以经常执行；主回收只能在高内存消耗条件下执行。
+
+* 遍历可达对象：
+    * 全局变量空间：`GlobalSpace`
+    * 所有协程的栈空间：`Stack`
+    * 各线程私有句柄：`HandleScopeSlot`
+    * 全局句柄：`PersistentNode`
+    * 其他持有的对象
+* 安全点：所有线程必须进入安全点`SafePoint`才能开始垃圾回收，此处和调度相关，调度点就是`SafePoint`
+* 并发标记：每个线程拥有自己的协程，因此每个线程可以并发标记自己的协程栈。
+
+* 根遍历：
+
+    ```c++
+    class RootVisitor {
+    public:
+    	virtual void VisitRootPointers(Any **begin, Any **end) = 0;
+        virtual void VisitRootPointer(Any **p) { VisitRootPointers(p, p + 1); }
+    }; // class RootVisitor
+    ```
+
+* 对象遍历：
+
+    ```C++
+    class ObjectVisitor {
+    public:
+    	virtual void VisitPointers(Any *host, Any **begin, Any **end) = 0;
+        virtual void VisitPointer(Any *host, Any **p) { VisitPointers(host, p, p + 1); }
+    }; // class ObjectVisitor
+    ```
+
+* 写屏障：老年代对象的成员变量指向年轻代的时候，其实年轻代中的对象是可达的，但是`Minor GC`可能会错误的回收这个年轻代对象，因此需要记录所有老年代指向年轻代的对象。
+
+    * 只处理写操作
+    * 涉及原生类型的写操作都可以忽略
+    * 写屏障操作必须快速实现，否则非常影响效率
+
+### 对象句柄
 
 > `Handle`用于在C++环境引用堆对象，防止其被垃圾回收器意外回收。同时因为GC会移动堆对象，`Handle`需要间接引用引用对象，不能直接持有对象指针。
 
@@ -1168,7 +1497,7 @@ String *Foo(String *arg0, mai::i32_t arg1, mai::f32_t arg2) {
 
 ```
 
-### Isolate和Context
+### 虚拟机
 
 * * *
 
@@ -1212,18 +1541,14 @@ int main(int argc, char *argv[]) {
         // handler errors
     }
   	HandleScope handle_scope(base::ON_EXIT_SCOPE_INITIALIZER);
-  	std::vector<Handle<String>> vals;
-  	for (int i = 0; i < argc; i++) {
-        vals.push_back(String::NewUtf8(argv[i]));
-    }
-  	Handle<GenericArray> argv = GenericArray::New(vals);
+  	Handle<GenericArray> argv = GenericArray::New(argc, argv);
   	context->SetArgv(argv);
     context->Run();
     return 0;
 }
 ```
 
-### Machine和Coroutine
+### 线程和协程
 
 * * *
 
@@ -1297,6 +1622,10 @@ Coroutine::kFallIn: 在运行中，但是在调用一个Runtime的C++函数
 |      entry_point: Closure* | entry function
 |----------------------------|
 |            owner: Machine* | owner machine
+|----------------------------|
+|      young_guard0: Address | new space address guard0 for write barrier
+|----------------------------|
+|      young_guard1: Address | new space address guard1 for write barrier
 |------------------------------|
 | waitting: WaittingQueueNode* | waitting node
 |------------------------------|
@@ -1322,7 +1651,11 @@ Coroutine::kFallIn: 在运行中，但是在调用一个Runtime的C++函数
 |----------------------------|
 |                  xacc: f64 | saved XACC
 |----------------------------|
-|              stack: Stack* | function stack
+|      stack_guard0: Address | guard0 of stack
+|----------------------------|
+|      stack_guard1: Address | guard1 of stack
+|----------------------------|
+|              stack: Stack* | coroutine owned calling stack
 
 ```
 
@@ -1350,7 +1683,7 @@ struct CaughtNode {
 * 函数只能在`Coroutine`里执行。
 * 每个`Context`会创建一个`Coroutine`用来执行入口函数`main.main()`
 
-### Channel
+### 管道
 
 > `channel`本质是一个线程安全的FIFO的队列，有一个固定大小（默认大小为1），操作`channel`的时候回自动触发重新调度。
 >
@@ -1477,7 +1810,7 @@ end或者start如果超过capacity之后，要绕回
     * 缓冲接收：缓冲区中有数据；此时直接从缓冲区中移动数据到目的地址（移动到`coroutine->acc/xacc`）
     * 阻塞接收：发送等待队列`send_queue`为空，缓冲区中又没有数据；此时将当前`coroutine`放入接收等待队列，然后放弃控制权，触发重新调度。
 
-### FunctionTemplate
+### 函数模板
 
 > 函数模板用于包装C++的函数调用。生成一个汇编器生成stub，通过stub间接调用C++函数。
 
@@ -1606,9 +1939,9 @@ def main() {
 +=========================================+
 [                 Function                ]
 +=========================================+
-|                             name: char* | function full name
+|                            name: char[] | function full name
 |-----------------------------------------|
-|                       proto_desc: char* | function prototye description
+|                      proto_desc: char[] | function prototye description
 |-----------------------------------------|
 |                         stack_size: u32 | stack size for invoking frame
 |-----------------------------------------|
@@ -1634,28 +1967,68 @@ def main() {
 * * *
 
 ```
-Type:
-    id: TypeId(u64)
-    name: String *
-    filed_size: i32
-    fields: Field *
-    fields_lookup: HashMap *
-    
-    
-Class(Type):
-    method_size: i32
-    methods: Method *
-    methods_lookup: HashMap *
++==========================+
+|           Type           |
++==========================+
+|                  id: u32 | type unique id
+|--------------------------|
+|                tags: u32 | flags
+|--------------------------|
+|             name: char[] | name
+|--------------------------|
+|          field_size: u32 | size of fields
+|--------------------------|
+|          fields: Field[] | fields
++--------------------------+
 
-Field: 
-    name: String *
-    type: Type *
-    index: u32
-    offset: u32
-    
-// Map
-Map(Any):
-    ...
+
++==========================+
+|        Class(Type)       |
++==========================+
+|        Type Header       |
+|--------------------------|
+|              base: Type* | base class
+|--------------------------|
+|            init: Method* | constructor
+|--------------------------|
+|         method_size: u32 | method table size
+|--------------------------|
+|        methods: Method[] | methods
++--------------------------+
+
+
++==========================+
+|           Method         |
++==========================+
+|             name: char[] | method name
+|--------------------------|
+|                 tag: u32 | tag
+|--------------------------|
+|             fn: Closure* | function object pointer
++--------------------------+
+
+
++==========================+
+|           Field          |
++==========================+
+|             name: char[] | field name
+|--------------------------|
+|              type: Type* | field type
+|--------------------------|
+|               flags: u32 | flags
+|--------------------------|
+|                 tag: u32 | field tag
+|--------------------------|
+|              offset: u32 | offset of field in object
++--------------------------+
+
+Field flags:
+
+Field::kRead = 0x1         (0001b)
+Field::kWrite = 0x2        (0010b)
+Field::kPublic = 0x4       (0100b)
+Field::kPrivate = 0x8      (1000b)
+Field::kProtected = 0xc    (1100b)
 ```
 
 #### Any结构
@@ -1668,7 +2041,7 @@ Map(Any):
 |         Any       |
 +===================+
 |      type: Type * |
-+-------------------+
+|-------------------|
 |         tags: u32 |
 +-------------------+
 
@@ -2227,6 +2600,34 @@ popq rbp
 ret
 ```
 
+* `WRITE_BARRIER($host, $host_dest_addr, $property)`处理写屏障
+
+```asm
+; write barrier when rax is young and rbx(SCRATCH) is old
+movq r8, $host
+andq r8, PageHeader::kMask ; page mask for fast get page-header
+cmpl PageHeader_maker(r8), PageHeader::kMaker
+jne near @store ; incorrect maker
+cmpl PageHeader_owns_space(r8), Space::kOld
+je near @check_young
+cmpl PageHeader_owns_space(r8), Space::kLarge
+je near @check_young
+jmp near @store
+check_young:
+cmpq $property, Coroutine_young_guard0(CO)
+jl near @store
+cmpq $property, Coroutine_young_guard1(CO)
+ja near @store
+movq r11, Runtime::WriteBarrier
+movq Argv_0, $host
+leaq Argv_1, $host_dest_addr
+call SwitchSystemStackCall ; Runtime::WriteBarrier(host, host_dest_addr)
+store:
+nop
+```
+
+
+
 * `START_BC()` 宏，在解释器执行环境中，开始执行当前PC的`bytecode` 处理代码
 
 ```asm
@@ -2365,7 +2766,7 @@ int 3
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl eax, 12
-neg eax
+negq rax
 movq SCRATCH, rbx(rbp)
 movl ebx, 0(BC)
 andl ebx, 0xfff
@@ -2373,9 +2774,11 @@ andl ebx, 0xfff
 | movw rbx(SCRATCH), ax    ; StaProperty16
 | movl rbx(SCRATCH), eax   ; StaProperty32
 | movq rbx(SCRATCH), rax   ; StaProperty64
-| | ; TODO: StaPropertyPtr write-barrier
 | movss rbx(SCRATCH), xmm0 ; StaPropertyf32
 | movsd rbx(SCRATCH), xmm0 ; StaPropertyf64
+| WRITE_BARRIER(SCRATCH, rbx(SCRATCH), rax)
+| | movq rbx(SCRATCH), rax   ; StaProperty64
+
 JUMP_NEXT_BC()
 ```
 
@@ -2399,14 +2802,21 @@ negq rbx
 movl eax, rbx(rbp) ; index
 cmpl eax, Array_len(SCRATCH) ; if (index >= array.len)
 jge @out_of_bound
-addq SCRATCH, Array_elems ; SCRATCH = &elems[0]
-| movb rbx*1(SCRATCH), al ; [ SCRATCH + rbx * 1 ] StaArrayElem8
-| movw rbx*2(SCRATCH), ax ; [ SCRATCH + rbx * 2 ] StaArrayElem16
-| movl rbx*4(SCRATCH), eax ; [ SCRATCH + rbx * 4 ] StaArrayElem32
-| movq rbx*8(SCRATCH), rax ; [ SCRATCH + rbx * 8 ] StaArrayElem64
-| | ; TODO: StaArrayElemPtr write-barrier
-| movss rbx*4(SCRATCH), xmm0 ; [ SCRATCH + rbx * 4 ] StaArrayElemf32
-| movsd rbx*8(SCRATCH), xmm0 ; [ SCRATCH + rbx * 8 ] StaArrayElemf64
+; [ SCRATCH + Array_elems + rbx * 1 ] StaArrayElem8
+| movb rbx*1+Array_elems(SCRATCH), al
+; [ SCRATCH + Array_elems + rbx * 2 ] StaArrayElem16
+| movw rbx*2+Array_elems(SCRATCH), ax
+; [ SCRATCH + Array_elems + rbx * 4 ] StaArrayElem32
+| movl rbx*4+Array_elems(SCRATCH), eax
+; [ SCRATCH + Array_elems + rbx * 8 ] StaArrayElem64
+| movq rbx*8+Array_elems(SCRATCH), rax
+; [ SCRATCH + Array_elems + rbx * 8 ] StaArrayElemPtr
+| WRITE_BARRIER(SCRATCH, rbx*8+Array_elems(SCRATCH), rax)
+| | movq rbx*8+Array_elems(SCRATCH), rax
+; [ SCRATCH + Array_elems + rbx * 4 ] StaArrayElemf32
+| movss rbx*4+Array_elems(SCRATCH), xmm0
+; [ SCRATCH + Array_elems + rbx * 8 ] StaArrayElemf64
+| movsd rbx*8+Array_elems(SCRATCH), xmm0
 JUMP_NEXT_BC()
 
 out_of_bound:
@@ -2853,6 +3263,9 @@ f64_t Runtime::ChannelRecvf64(Channel *chan);
 
 // 创建内建对象
 Any *Runtime::NewBuiltinObject(u8_t code, Address argv, Address end);
+
+// 写屏障
+void Runtime::WriteBarrier(Any *host, Any **dest)
 ```
 
 * Create a builtin object
