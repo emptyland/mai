@@ -1316,6 +1316,33 @@ public:
     }
     
     //----------------------------------------------------------------------------------------------
+    // Memory barrier
+    //----------------------------------------------------------------------------------------------
+    // Serializes load and store operations.
+    void mfence() {
+        // NP 0F AE F0
+        EmitB(0x0F);
+        EmitB(0xAE);
+        EmitB(0xF0);
+    }
+    
+    // Serializes load operations.
+    void lfence() {
+        // NP 0F AE E8
+        EmitB(0x0F);
+        EmitB(0xAE);
+        EmitB(0xE8);
+    }
+    
+    // Serializes store operations.
+    void sfence() {
+        // NP 0F AE F8
+        EmitB(0x0F);
+        EmitB(0xAE);
+        EmitB(0xF8);
+    }
+    
+    //----------------------------------------------------------------------------------------------
     // Utils
     //----------------------------------------------------------------------------------------------
     void rdrand(Register dst, int size = kDefaultSize) {

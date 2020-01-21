@@ -1044,7 +1044,7 @@ static_assert(sizeof(Span16) == 16, "");
 +=============================+
 |                  maker: u32 | maker for verification
 |-----------------------------|
-|             owns_space: u32 | owns space kind
+|            owner_space: u32 | owner space kind
 |-----------------------------|
 |           next: PageHeader* | double-linked list pointer
 |-----------------------------|
@@ -1233,8 +1233,6 @@ guard0      guard1
 |              types: Type*[] | all types object pointer
 |-----------------------------|
 |   bytecode_handers: Code*[] | all bytecode handlers
-|-----------------------------|
-| bytecode_entries: Address[] | all bytecode handler's entry pointer address
 |-----------------------------|
 |          usage_size: size_t | usage size
 |-----------------------------|
@@ -1521,6 +1519,8 @@ String *Foo(String *arg0, mai::i32_t arg1, mai::f32_t arg2) {
 |           scheduler: Scheduler * | machines and coroutines management
 |----------------------------------|
 |               machine0: Machine* | The main os thread
+|----------------------------------|
+|      bytecode_entries: Address[] | all bytecode handler's entry pointer address
 +----------------------------------+
 
 ```
@@ -1621,6 +1621,8 @@ Coroutine::kFallIn: 在运行中，但是在调用一个Runtime的C++函数
 |----------------------------|
 |      entry_point: Closure* | entry function
 |----------------------------|
+|          isolate: Isolate* | isolate
+|----------------------------|
 |            owner: Machine* | owner machine
 |----------------------------|
 |      young_guard0: Address | new space address guard0 for write barrier
@@ -1635,11 +1637,11 @@ Coroutine::kFallIn: 在运行中，但是在调用一个Runtime的C++函数
 |----------------------------|
 |                 yield: u32 | yield requests, if yield > 0, need yield
 |----------------------------|
-|            sys_bp: Address | mai frame pointer
+|            sys_bp: Address | system frame pointer
 |----------------------------|
-|            sys_sp: Address | mai stack pointer
+|            sys_sp: Address | system stack pointer
 |----------------------------|
-|            sys_pc: Address | mai program counter
+|            sys_pc: Address | system program counter
 |----------------------------|
 |                bp: Address | mai frame pointer
 |----------------------------|
@@ -1809,6 +1811,24 @@ end或者start如果超过capacity之后，要绕回
     * 直接接收：发送等待队列`send_queue`不为空；从中选出第一个陷入等待的`coroutine`来直接接收。
     * 缓冲接收：缓冲区中有数据；此时直接从缓冲区中移动数据到目的地址（移动到`coroutine->acc/xacc`）
     * 阻塞接收：发送等待队列`send_queue`为空，缓冲区中又没有数据；此时将当前`coroutine`放入接收等待队列，然后放弃控制权，触发重新调度。
+
+### 调度
+
+> 调度和管道、IO相关，也可以通过`Yield`指令主动让出控制权，触发调度。
+>
+> 调度在C++环境执行，调度算法本身使用C++实现，因此mai函数必须退出自己的执行环境才能重新调度，找到需要调度的`coroutine`之后，通过`Trampoline`重新进入mai环境。
+
+* 现场保护：
+    * `Coroutine::sys_sp`：C++环境栈顶指针
+    * `Coroutine::sys_bp`：C++环境栈帧指针
+    * `Coroutine::sys_pc`：C++环境程序计数器
+    * `Coroutine::sp`：mai环境栈顶指针
+    * `Coroutine::bp`：mai环境栈帧指针
+    * `Coroutine::pc`：mai环境程序计数器，可以是字节码的PC或者原生代码PC
+    * `Coroutine::acc`：mai环境整数ACC
+    * `Coroutine::xacc`：mai环境浮点数ACC
+
+
 
 ### 函数模板
 
@@ -2262,28 +2282,28 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | `U64ToF64` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
 | `F64ToF32` | `A` | 浮点转浮点 | `u24` 栈偏移量 | |
 | `F32ToF64` | `A` | 浮点转浮点 | `u24` 栈偏移量 | |
-| `Add32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Add64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Addf32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Addf64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Sub32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Sub64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Subf32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Subf64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Mul32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Mul64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Mulf32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Mulf64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `IMul32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `IMul64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Div32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Div64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Divf32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Divf64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `IDiv32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `IDiv64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Mod32` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
-| `Mod64` | `AB` | | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Add32` | `AB` | 算术加法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Add64` | `AB` | 算术加法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Addf32` | `AB` | 算术加法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Addf64` | `AB` | 算术加法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Sub32` | `AB` | 算术减法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Sub64` | `AB` | 算术减法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Subf32` | `AB` | 算术减法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Subf64` | `AB` | 算术减法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mul32` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mul64` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mulf32` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mulf64` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IMul32` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IMul64` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Div32` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Div64` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Divf32` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Divf64` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IDiv32` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IDiv64` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mod32` | `AB` | 取余 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mod64` | `AB` | 取余 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `BitwiseOr32` | `AB` | 按位或 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `BitwiseOr64` | `AB` | 按位或 | `u12` 栈偏移量 | `u12` 栈偏移量 |
 | `BitwiseAnd32` | `AB` | 按位与 | `u12` 栈偏移量 | `u12` 栈偏移量 |
@@ -2408,21 +2428,22 @@ Argv_0...Argv_8 = rdi, rsi ...
 pushq rbp
 movq rbp, rsp
 
-; Set bytecode handlers array
-movq BC_ARRAY, ... ; TODO
-
 ; Save system stack and frame
 movq CO, Argv_0
 movq Coroutine_sys_bp(CO), rbp
 movq Coroutine_sys_sp(CO), rsp
 movq Coroutine_sys_pc(CO), @suspend
 
+; Set bytecode handlers array
+movq SCRATCH, Coroutine_isolate(CO)
+movq BC_ARRAY, Isolate_bytecode_entries(SCRATCH)
+
 ; if (coroutine.reentrant > 0) setup root exception is not need
 cmpl Coroutine_reentrant(CO), 0
 jg @entry
 
 ; Set root exception handler
-subq SCRATCH, stack_frame_caught_point(rbp)
+leaq SCRATCH, stack_frame_caught_point(rbp)
 movq Coroutine_caught(CO), SCRATCH ; coroutine.caught = &caught
 movq CaughtNode_next(SCRATCH), 0 ; caught.next = nullptr
 movq CaughtNode_bp(SCRATCH), rbp ; caught.bp = system rbp
@@ -2778,6 +2799,7 @@ andl ebx, 0xfff
 | movsd rbx(SCRATCH), xmm0 ; StaPropertyf64
 | WRITE_BARRIER(SCRATCH, rbx(SCRATCH), rax)
 | | movq rbx(SCRATCH), rax   ; StaProperty64
+; sfence ; flush CPU cache to memory
 
 JUMP_NEXT_BC()
 ```
@@ -2817,12 +2839,11 @@ jge @out_of_bound
 | movss rbx*4+Array_elems(SCRATCH), xmm0
 ; [ SCRATCH + Array_elems + rbx * 8 ] StaArrayElemf64
 | movsd rbx*8+Array_elems(SCRATCH), xmm0
+; sfence ; flush CPU cache to memory
 JUMP_NEXT_BC()
 
 out_of_bound:
 PANIC(ERROR_OUT_OF_BOUND, "array out of bound!")
-; Never goto this
-int 3
 ```
 
 * Store from ACC
@@ -2952,23 +2973,31 @@ JUMP_NEXT_BC()
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
-| cmpl rbx(rbp), 0 ; Mul32/IMul32
+| cmpl rbx(rbp), 0 ; Div32/IDiv32
 | | je @error
 | | movl eax, rbx(rbp)
-| cmpq rbx(rbp), 0 ; Mul64/IMul64
+
+| cmpq rbx(rbp), 0 ; Div64/IDiv64
 | | je @error
 | | movq rax, rbx(rbp)
-| ; TODO: compare .0
-| movss xmm0, rbx(rbp) ; Mulf32
-| movsd xmm0, rbx(rbp) ; Mulf64
+
+| xorss xmm0, xmm0 ; Divf32
+| | comiss xmm0, rbx(rbp)
+| | je @error
+| | movss xmm0, rbx(rbp)
+
+| xorsd xmm0, xmm0 ; Divf64
+| | comisd xmm0, rbx(rbp)
+| | je @error
+| | movsd xmm0, rbx(rbp) ; Divf64
 movl ebx, 0(BC)
 andl ebx, 0xfff
-| divl eax, rbx(rbp) ; Mul32
-| divq rax, rbx(rbp) ; Mul64
-| idivl eax, rbx(rbp) ; IMul32
-| idivq rax, rbx(rbp) ; IMul64
-| divss xmm0, rbx(rbp) ; Mulf32
-| divsd xmm0, rbx(rbp) ; Mulf64
+| divl eax, rbx(rbp) ; Div32
+| divq rax, rbx(rbp) ; Div64
+| idivl eax, rbx(rbp) ; IDiv32
+| idivq rax, rbx(rbp) ; IDiv64
+| divss xmm0, rbx(rbp) ; Divf32
+| divsd xmm0, rbx(rbp) ; Divf64
 JUMP_NEXT_BC()
 
 error:
@@ -3081,8 +3110,6 @@ equals:
 done:
 JUMP_NEXT_BC()
 ```
-
-
 
 * Truncate integer number
     * 作用：将一个整数类型截断到指定大小，常用于整数从大到小类型转换

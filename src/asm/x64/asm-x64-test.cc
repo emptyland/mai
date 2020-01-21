@@ -742,7 +742,7 @@ TEST_F(X64AssemblerTest, SSE42StringEqual) {
     __ addq(rsp, 16);
     __ popq(rbp);
     __ ret(0);
-    
+
     const char *s1 = "012345679";
     const char *s2 = "012345679";
     auto foo = MakeFunction<int (const char *, const char *, int)>();
@@ -775,6 +775,23 @@ TEST_F(X64AssemblerTest, SSE42StringEqual) {
     s1 = "0123456789abcdef0123456789abcdef0";
     s2 = "0123456789abcdef0123x56789abcdef0";
     ASSERT_FALSE(foo(s1, s2, static_cast<int>(strlen(s1))));
+}
+
+TEST_F(X64AssemblerTest, MemoryBarrier) {
+    __ Reset();
+    __ pushq(rbp);
+    __ movq(rbp, rsp);
+
+    __ movl(Operand(Argv_0, 0), Argv_1);
+    __ sfence();
+
+    __ popq(rbp);
+    __ ret(0);
+    
+    auto foo = MakeFunction<void (int *, int)>();
+    int n = 0;
+    foo(&n, 996);
+    ASSERT_EQ(996, n);
 }
 
 } // namespace x64

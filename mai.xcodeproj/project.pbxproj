@@ -25,6 +25,9 @@
 		2349FDF522A4BA76001861E0 /* sha256.c in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF422A4BA76001861E0 /* sha256.c */; };
 		2349FDF722A4BAA0001861E0 /* sha256-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF622A4BAA0001861E0 /* sha256-test.cc */; };
 		23565910221E82EC00837F83 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
+		23599D3923D58DDF00F722D6 /* page.h in Headers */ = {isa = PBXBuildFile; fileRef = 23599D3823D58DDF00F722D6 /* page.h */; };
+		23599D3B23D58E3700F722D6 /* page.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23599D3A23D58E3700F722D6 /* page.cc */; };
+		23599D3D23D58F6D00F722D6 /* page-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23599D3C23D58F6D00F722D6 /* page-test.cc */; };
 		235C1CCF21D1D63F0070A049 /* optimism-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */; };
 		235C1CD621D210520070A049 /* optimism-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CD421D210520070A049 /* optimism-transaction.cc */; };
 		235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */; };
@@ -118,6 +121,7 @@
 		2364B35721E451F9008519AE /* transaction-db-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F0742521D1D209009D8EAA /* transaction-db-test.cc */; };
 		2364B35821E451F9008519AE /* pessimistic-transaction-db-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B7155821DDEEBB0054FCB0 /* pessimistic-transaction-db-test.cc */; };
 		2364B35A21E451F9008519AE /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163721AFED5E00DE7321 /* test-main.cc */; };
+		236EA78123D69A760071047C /* space.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA78023D69A760071047C /* space.cc */; };
 		237F504D21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
 		237F504E21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
 		237F505121EB74390069075D /* zone.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F505021EB74390069075D /* zone.cc */; };
@@ -286,6 +290,10 @@
 		2349FDF622A4BAA0001861E0 /* sha256-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "sha256-test.cc"; sourceTree = "<group>"; };
 		2356590B221E82EC00837F83 /* mai-tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "mai-tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2356590F221E82EC00837F83 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		23599D3723D58B8100F722D6 /* queue-macros.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "queue-macros.h"; sourceTree = "<group>"; };
+		23599D3823D58DDF00F722D6 /* page.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = page.h; sourceTree = "<group>"; };
+		23599D3A23D58E3700F722D6 /* page.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = page.cc; sourceTree = "<group>"; };
+		23599D3C23D58F6D00F722D6 /* page-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "page-test.cc"; sourceTree = "<group>"; };
 		235C1CCB21D1D5F70070A049 /* optimism-transaction-db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "optimism-transaction-db.h"; sourceTree = "<group>"; };
 		235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "optimism-transaction-db.cc"; sourceTree = "<group>"; };
 		235C1CD221D206F10070A049 /* optimism-transaction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "optimism-transaction.h"; sourceTree = "<group>"; };
@@ -296,6 +304,9 @@
 		236AC67521B768E60069A17B /* lru-cache-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lru-cache-v1.h"; sourceTree = "<group>"; };
 		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
 		236AC67921B769900069A17B /* lru-cache-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-test.cc"; sourceTree = "<group>"; };
+		236EA77E23D691E20071047C /* mm.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mm.h; sourceTree = "<group>"; };
+		236EA77F23D69A370071047C /* space.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = space.h; sourceTree = "<group>"; };
+		236EA78023D69A760071047C /* space.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = space.cc; sourceTree = "<group>"; };
 		237CE4B72192CD16004FB9BF /* memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "memory-table.h"; sourceTree = "<group>"; };
 		237CE4B82192D00B004FB9BF /* unordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "unordered-memory-table.h"; sourceTree = "<group>"; };
 		237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "unordered-memory-table.cc"; sourceTree = "<group>"; };
@@ -492,6 +503,11 @@
 		2329798123D03958009B4C1B /* lang */ = {
 			isa = PBXGroup;
 			children = (
+				23599D3823D58DDF00F722D6 /* page.h */,
+				23599D3A23D58E3700F722D6 /* page.cc */,
+				236EA77E23D691E20071047C /* mm.h */,
+				236EA77F23D69A370071047C /* space.h */,
+				236EA78023D69A760071047C /* space.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -501,6 +517,7 @@
 			isa = PBXGroup;
 			children = (
 				2329798323D03A60009B4C1B /* lang-test.cc */,
+				23599D3C23D58F6D00F722D6 /* page-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -674,6 +691,7 @@
 				23B8E68521E2E50F0001096E /* lock-group.cc */,
 				23DFE03522754CCD005D489C /* big-number.h */,
 				23DFE03622754D29005D489C /* big-number.cc */,
+				23599D3723D58B8100F722D6 /* queue-macros.h */,
 			);
 			name = base;
 			path = src/base;
@@ -908,6 +926,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23599D3923D58DDF00F722D6 /* page.h in Headers */,
 				23344CDC21EF0764006BC6E4 /* allocator.h in Headers */,
 				23344CDD21EF0764006BC6E4 /* comparator.h in Headers */,
 				23344CDE21EF0764006BC6E4 /* db.h in Headers */,
@@ -1081,6 +1100,7 @@
 				2364B2B721E451F8008519AE /* write-batch-with-index.cc in Sources */,
 				2364B2B821E451F8008519AE /* transaction-db.cc in Sources */,
 				2364B2BA21E451F8008519AE /* transaction-lock-mgr.cc in Sources */,
+				23599D3D23D58F6D00F722D6 /* page-test.cc in Sources */,
 				2364B2C121E451F9008519AE /* write-ahead-log.cc in Sources */,
 				237F504D21EB72C90069075D /* arena.cc in Sources */,
 				2364B2C321E451F9008519AE /* db-impl.cc in Sources */,
@@ -1111,6 +1131,7 @@
 				2364B2FE21E451F9008519AE /* ordered-memory-table.cc in Sources */,
 				2364B30021E451F9008519AE /* unordered-memory-table.cc in Sources */,
 				2364B30121E451F9008519AE /* bytewise-comparator.cc in Sources */,
+				236EA78123D69A760071047C /* space.cc in Sources */,
 				2364B30321E451F9008519AE /* key-boundle.cc in Sources */,
 				23804A0B228A6C400079C95C /* asm-x64.cc in Sources */,
 				2364B30421E451F9008519AE /* iterator.cc in Sources */,
@@ -1141,6 +1162,7 @@
 				2364B33A21E451F9008519AE /* hash-map-v1-test.cc in Sources */,
 				2364B33B21E451F9008519AE /* key-boundle-test.cc in Sources */,
 				2364B33C21E451F9008519AE /* merging-test.cc in Sources */,
+				23599D3B23D58E3700F722D6 /* page.cc in Sources */,
 				2364B33D21E451F9008519AE /* ordered-memory-table-test.cc in Sources */,
 				2364B33E21E451F9008519AE /* pipeline-queue-test.cc in Sources */,
 				23804A0F228ABADB0079C95C /* asm-x64-test.cc in Sources */,
