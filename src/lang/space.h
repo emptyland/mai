@@ -43,7 +43,7 @@ private:
 }; // class SemiSpace
 
 
-class OldSpace : public Space {
+class OldSpace final : public Space {
 public:
     OldSpace(Allocator *lla)
         : Space(kOldSpace, lla)

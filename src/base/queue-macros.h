@@ -24,6 +24,6 @@
     (x)->prev_ = NULL; \
     (x)->next_ = NULL
 
-#define QUEUE_EMPTY(h) (h)->next_ = (h)
+#define QUEUE_EMPTY(h) ((h)->next_ == (h))
 
 #endif // MAI_BASE_QUEUE_MACROS_H_

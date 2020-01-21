@@ -22,6 +22,7 @@ public:
 
     friend class OldSpace;
     friend class LargeSpace;
+    friend class MetadataSpace;
     DISALLOW_IMPLICIT_CONSTRUCTORS(PageHeader);
 protected:
     PageHeader(SpaceKind space)
@@ -59,10 +60,6 @@ public:
     
     inline size_t AllocatedSize(ptrdiff_t offset);
 
-    static inline AllocationBitmap *FromBits(uint32_t *bits) {
-        return reinterpret_cast<AllocationBitmap *>(bits);
-    }
-    
     static inline AllocationBitmap *FromArray(uint32_t bits[N]) {
         return reinterpret_cast<AllocationBitmap *>(bits);
     }
@@ -89,6 +86,7 @@ private:
 }; // template<size_t N> class Bitmap
 
 
+// Normal objects page
 class Page final : public PageHeader {
 public:
     struct Chunk {
@@ -108,12 +106,22 @@ public:
     static constexpr size_t kBitmapSize = kChunkSize / 256;
     
     using Bitmap = AllocationBitmap<kBitmapSize>;
-    
+
     static constexpr size_t kMaxRegionChunks = 5;
     static const size_t kRegionLimitSize[kMaxRegionChunks];
     
     Address chunk() { return chunk_; }
     Address limit() { return reinterpret_cast<Address>(this) + kPageSize; }
+
+    friend class OldSpace;
+    // For unit-tests:
+    FRIEND_UNITTEST_CASE(PageTest, AllocateNormalPage);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Page);
+private:
+    Page(SpaceKind space);
+    
+    void Dispose(Allocator *lla) { lla->Free(this, kPageSize); }
     
     static Page *New(SpaceKind space, int access, Allocator *lla) {
         void *chunk = AllocatePage(kPageSize, access, lla);
@@ -122,11 +130,6 @@ public:
         }
         return new (chunk) Page(space);
     }
-
-    friend class OldSpace;
-    DISALLOW_IMPLICIT_CONSTRUCTORS(Page);
-private:
-    Page(SpaceKind space);
     
     size_t FindFitRegion(size_t size) const {
         for (size_t i = 0; i < kMaxRegionChunks; ++i) {
@@ -151,21 +154,98 @@ private:
     Bitmap *bitmap() { return Bitmap::FromArray(bitmap_); }
     
     mutable Region region_; // free regions
+
     uint32_t bitmap_[kBitmapSize]; // usage bitmap
+    static_assert(sizeof(Bitmap) == sizeof(bitmap_), "Fixed bitmap size.");
+    
     uint8_t chunk_[0]; // chunk for allocation
 }; // class Page
 
 
+// Large object page
 class LargePage final : public PageHeader {
 public:
+    DEF_VAL_GETTER(size_t, size);
     Address chunk() { return chunk_; }
     Address limit() { return reinterpret_cast<Address>(this) + size_; }
     
+    friend class LargeSpace;
+    friend class MetadataSpace;
+    // For unit-tests:
+    FRIEND_UNITTEST_CASE(PageTest, AllocateLargePage);
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(LargePage);
 private:
+    LargePage(SpaceKind space, size_t size)
+        : PageHeader(space)
+        , size_(size) {
+        available_ = static_cast<uint32_t>(size - sizeof(LargePage));
+        DbgFillInitZag(chunk_, available_);
+    }
+
+    void Dispose(Allocator *lla) { lla->Free(this, size_); }
+    
+    static LargePage *New(SpaceKind space, int access, size_t size, Allocator *lla) {
+        size = RoundUp(size, kPageSize);
+        void *chunk = AllocatePage(size, access, lla);
+        if (!chunk) {
+            return nullptr;
+        }
+        return new (chunk) LargePage(space, size);
+    }
+
     size_t size_; // large object size
     uint8_t chunk_[0]; // chunk for allocation
-};
+}; // class LargePage
+
+
+// Linear page for metadata
+class LinearPage final : public PageHeader {
+public:
+    DEF_VAL_GETTER(Address, limit);
+    
+    size_t GetFreeSize() const { return limit_ - free_; }
+    
+    static bool IsLarge(size_t n) {
+        return n > ((kPageSize - sizeof(LinearPage)) >> 1);
+    }
+    
+    friend class MetadataSpace;
+private:
+    LinearPage(SpaceKind space)
+        : PageHeader(space) {
+        Address base = reinterpret_cast<Address>(this);
+        limit_ = base + kPageSize;
+        free_ = base + sizeof(LinearPage);
+        available_ = kPageSize - sizeof(LinearPage);
+        DbgFillInitZag(free_, available_);
+    }
+    
+    void Dispose(Allocator *lla) { lla->Free(this, kPageSize); }
+    
+    static LinearPage *New(SpaceKind space, int access, Allocator *lla) {
+        void *chunk = lla->Allocate(kPageSize);
+        if (!chunk) {
+            return nullptr;
+        }
+        lla->SetAccess(chunk, kPageSize, access);
+        return new (chunk) LinearPage(space);
+    }
+    
+    Address Advance(size_t size) {
+        Address next = RoundUp(free_ + size, kAligmentSize);
+        if (next >= limit()) {
+            return nullptr;
+        }
+        Address chunk = free_;
+        free_ = next;
+        return chunk;
+    }
+
+    Address limit_;
+    Address free_;
+    uint8_t chunk_[0];
+}; // class LinearPage
 
 template<size_t N>
 inline size_t AllocationBitmap<N>::AllocatedSize(ptrdiff_t offset) {

@@ -9,7 +9,10 @@ namespace mai {
 
 namespace lang {
 
+class Any;
+
 enum SpaceKind : int {
+    kDummySpace,
     kSemiSpace,
     kNewSpace,
     kOldSpace,
@@ -55,6 +58,78 @@ static inline void *DbgFillFreeZag(void *p, size_t n) {
 static inline void *DbgFillInitZag(void *p, size_t n) { return p; }
 static inline void *DbgFillFreeZag(void *p, size_t n) { return p; }
 #endif
+
+union SpanPart64 {
+    uint64_t u64;
+    int64_t  i64;
+    double   f64;
+};
+
+union SpanPart32 {
+    uint32_t u32;
+    int32_t  i32;
+    float    f32;
+};
+
+union SpanPartPtr {
+    void *pv;
+    uint8_t *addr;
+    Any *any;
+};
+
+#define DECLARE_SPAN_PARTS(n) \
+    SpanPartPtr ptr[n]; \
+    SpanPart64 v64[n]; \
+    SpanPart32 v32[n*2]; \
+    uint16_t u16[n*4]; \
+    int16_t i16[n*4]; \
+    int8_t i8[n*8]; \
+    uint8_t u8[n*8]
+    
+union Span16 {
+    DECLARE_SPAN_PARTS(2);
+};
+
+union Span32 {
+    DECLARE_SPAN_PARTS(4);
+};
+
+union Span64 {
+    DECLARE_SPAN_PARTS(8);
+};
+
+#undef DECLARE_SPAN_PARTS
+
+static_assert(sizeof(Span16) == 16, "Fixed span16 size");
+static_assert(sizeof(Span32) == 32, "Fixed span32 size");
+static_assert(sizeof(Span64) == 64, "Fixed span64 size");
+
+class AllocationResult final {
+public:
+    enum Result {
+        OK, // Allocation is ok, chunk is result memory block
+        FAIL, // Just fail
+        NOTHING, // Did not allocation, address is nullptr
+        NOT_ENOUGH_MEMORY, // Low-level-allocator return no memory, chunk is nullptr
+    };
+
+    DEF_VAL_GETTER(Result, result);
+    DEF_VAL_GETTER(Address, address);
+    
+    bool ok() const { return result_ == OK; }
+
+    void *ptr() const { return static_cast<void *>(address_); }
+    
+    friend class MetadataSpace;
+    friend class Heap;
+private:
+    AllocationResult(Result result, Address chunk)
+        : result_(result)
+        , address_(chunk) {}
+    
+    Result result_;
+    Address address_;
+};
 
 } // namespace lang
 
