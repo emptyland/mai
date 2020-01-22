@@ -1,6 +1,8 @@
 #ifndef MAI_LANG_TYPE_DEFS_H_
 #define MAI_LANG_TYPE_DEFS_H_
 
+#include <stdint.h>
+
 namespace mai {
 
 namespace lang {
@@ -27,6 +29,8 @@ enum BuiltinType: int {
     DECLARE_PRIMITIVE_TYPES(DEFINE_ENUM)
 #undef DEFINE_ENUM
 };
+
+static constexpr uint32_t kUserTypeIdBase = 0x1000;
 
 } // namespace lang
 

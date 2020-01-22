@@ -3,6 +3,9 @@
 
 #include "lang/metadata.h"
 #include "lang/space.h"
+#include "lang/type-defs.h"
+#include <map>
+#include <unordered_map>
 
 namespace mai {
 
@@ -10,28 +13,26 @@ namespace lang {
 
 class MetadataSpace final : public Space {
 public:
-    MetadataSpace(Allocator *lla)
-        : Space(kMetadataSpace, lla)
-        , dummy_page_(new PageHeader(kDummySpace))
-        , dummy_code_(new PageHeader(kDummySpace))
-        , dummy_large_(new PageHeader(kDummySpace))
-        , usage_(0) {
+    MetadataSpace(Allocator *lla);
+    ~MetadataSpace();
+    
+    // Init builtin types
+    Error Initialize();
+    
+    const Class *builtin_type(BuiltinType type) const {
+        DCHECK_GE(static_cast<int>(type), 0);
+        DCHECK_LT(static_cast<int>(type), classes_.size());
+        return classes_[static_cast<int>(type)];
     }
 
-    ~MetadataSpace() {
-        delete dummy_large_;
-        delete dummy_code_;
-        delete dummy_page_;
+    const Class *FindClassOrNull(const std::string &name) const {
+        auto iter = named_classes_.find(name);
+        return iter == named_classes_.end() ? nullptr : iter->second;
     }
     
-    template<class T>
-    inline T *NewArray(size_t n) {
-        auto result = Allocate(n * sizeof(T), false);
-        if (!result.ok()) {
-            return nullptr;
-        }
-        return static_cast<T *>(result.ptr());
-    }
+    DEF_VAL_GETTER(size_t, usage);
+    
+    size_t GetRSS() const { return n_pages_ * kPageSize + large_size_; }
     
     MDStr NewString(const char *s) { return NewString(s, strlen(s)); }
 
@@ -44,14 +45,47 @@ public:
         return str->data();
     }
     
+    Code *NewCode(Code::Kind kind, Address instructions, size_t size) {
+        auto result = Allocate(sizeof(Code) + size, true/*exec*/);
+        if (!result.ok()) {
+            return nullptr;
+        }
+        return new (result.ptr()) Code(kind, instructions, static_cast<uint32_t>(size));
+    }
+    
     // mark all pages to readonly
     void MarkReadonly(bool readonly) {
         // TODO:
     }
 
-private:
     // allocate flat memory block
     AllocationResult Allocate(size_t n, bool exec);
+    
+    friend class ClassBuilder;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(MetadataSpace);
+private:
+    template<class T>
+    inline T *NewArray(size_t n) {
+        auto result = Allocate(n * sizeof(T), false);
+        if (!result.ptr()) {
+            return nullptr;
+        }
+        T *arr = static_cast<T *>(result.ptr());
+        for (size_t i = 0; i  < n; i++) {
+            T *obj = new (arr + i) T();
+            DCHECK_EQ(obj, arr + i);
+        }
+        return arr;
+    }
+    
+    template<class T>
+    inline T *New() {
+        auto result = Allocate(sizeof(T), false);
+        if (!result.ptr()) {
+            return nullptr;
+        }
+        return new (result.ptr()) T();
+    }
     
     LinearPage *AppendPage(int access) {
         LinearPage *page = LinearPage::New(kind(), access, lla_);
@@ -59,22 +93,170 @@ private:
             return nullptr;
         }
         if (access & Allocator::kEx) {
-            QUEUE_INSERT_TAIL(dummy_code_, page);
+            QUEUE_INSERT_HEAD(dummy_code_, page);
         } else {
-            QUEUE_INSERT_TAIL(dummy_page_, page);
+            QUEUE_INSERT_HEAD(dummy_page_, page);
         }
+        n_pages_++;
         return page;
     }
     
-    LinearPage *code_head() const { return static_cast<LinearPage *>(dummy_code_->next_); }
+    uint32_t NextTypeId() { return next_type_id_++; }
     
-    LinearPage *page_head() const { return static_cast<LinearPage *>(dummy_page_->next_); }
+    void InsertClass(const std::string &name, Class *clazz) {
+#if defined(DEBUG) || defined(_DEBUG)
+        auto iter = named_classes_.find(name);
+        DCHECK(iter == named_classes_.end());
+#endif
+        classes_.push_back(clazz);
+        named_classes_[name] = clazz;
+    }
+
+    LinearPage *code_head() const { return LinearPage::Cast(dummy_code_->next_); }
+    
+    LinearPage *page_head() const { return LinearPage::Cast(dummy_page_->next_); }
     
     PageHeader *dummy_page_; // Linear page double-linked list dummy (LinearPage)
     PageHeader *dummy_code_; // Linear page double-linked list dummy (LinearPage)
     PageHeader *dummy_large_; // Large page double-linked list dummy (LargePage)
-    size_t usage_; // Allocated used bytes
+    std::vector<Class *> classes_; // All classes
+    std::unordered_map<std::string, Class *> named_classes_; // All named classes
+    uint32_t next_type_id_ = 0; // Next type unique id
+    size_t n_pages_ = 0; // Number of linear pages.
+    size_t large_size_ = 0; // All large page's size
+    size_t usage_ = 0; // Allocated used bytes
 }; // class MetadataSpace
+
+
+// Build classes
+class ClassBuilder {
+public:
+    class FieldBuilder {
+    public:
+        FieldBuilder(const std::string &name, ClassBuilder *owner)
+            : name_(name)
+            , owner_(owner) {}
+        
+        FieldBuilder &type(const Class *value) {
+            type_ = value;
+            return *this;
+        }
+        
+        FieldBuilder &tag(uint32_t value) {
+            tag_ = value;
+            return *this;
+        }
+        
+        FieldBuilder &flags(uint32_t value) {
+            flags_ = value;
+            return *this;
+        }
+        
+        FieldBuilder &offset(uint32_t value) {
+            offset_ = value;
+            return *this;
+        }
+        
+        ClassBuilder &End() { return *owner_; }
+        
+        friend class ClassBuilder;
+    private:
+        std::string name_;
+        ClassBuilder *owner_;
+        const Class *type_;
+        uint32_t tag_;
+        uint32_t flags_;
+        uint32_t offset_;
+    }; // class FieldBuilder
+    
+    
+    class MethodBuilder {
+    public:
+        MethodBuilder(const std::string &name, ClassBuilder *owner)
+            : name_(name)
+            , owner_(owner) {}
+        
+        MethodBuilder &tags(uint32_t value) {
+            tags_ = value;
+            return *this;
+        }
+        
+        MethodBuilder &fn(Closure *value) {
+            fn_ = value;
+            return *this;
+        }
+        
+        ClassBuilder &End() {
+            DCHECK_NOTNULL(fn_);
+            return *owner_;
+        }
+        
+        friend class ClassBuilder;
+    private:
+        std::string name_;
+        ClassBuilder *owner_;
+        uint32_t tags_ = 0;
+        Closure *fn_ = nullptr;
+    }; // class MethodBuilder
+    
+    ClassBuilder(const std::string &name) : name_(name) {}
+    
+    ~ClassBuilder() {
+        for (auto field : fields_) {
+            delete field;
+        }
+    }
+    
+    ClassBuilder &tags(uint32_t value) {
+        tags_ = value;
+        return *this;
+    }
+    
+    ClassBuilder &base(const Class *value) {
+        base_ = value;
+        return *this;
+    }
+    
+    FieldBuilder &field(const std::string &name) {
+        auto iter = named_fields_.find(name);
+        if (iter != named_fields_.end()) {
+            return *iter->second;
+        }
+        FieldBuilder *field = new FieldBuilder(name, this);
+        fields_.push_back(field);
+        named_fields_[name] = field;
+        return *field;
+    }
+    
+    MethodBuilder &method(const std::string &name) {
+        auto iter = named_methods_.find(name);
+        if (iter != named_methods_.end()) {
+            return *iter->second;
+        }
+        MethodBuilder *method = new MethodBuilder(name, this);
+        named_methods_[name] = method;
+        return *method;
+    }
+    
+    const Class *Build(MetadataSpace *space) const;
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(ClassBuilder);
+private:
+    void BuildField(Field *field, FieldBuilder *builder, MetadataSpace *space) const {
+        field->name_ = space->NewString(builder->name_.data(), builder->name_.size());
+        field->type_ = builder->type_;
+        field->tag_ = builder->tag_;
+        field->flags_ = builder->flags_;
+        field->offset_ = builder->offset_;
+    }
+    
+    std::string name_;
+    uint32_t tags_ = 0;
+    std::vector<FieldBuilder *> fields_;
+    std::map<std::string, FieldBuilder *> named_fields_;
+    std::map<std::string, MethodBuilder *> named_methods_;
+    const Class *base_ = nullptr;
+}; // class ClassBuilder
 
 } // namespace lang
 

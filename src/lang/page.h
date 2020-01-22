@@ -169,6 +169,8 @@ public:
     Address chunk() { return chunk_; }
     Address limit() { return reinterpret_cast<Address>(this) + size_; }
     
+    static LargePage *Cast(PageHeader *h) { return static_cast<LargePage *>(h); }
+    
     friend class LargeSpace;
     friend class MetadataSpace;
     // For unit-tests:
@@ -186,7 +188,7 @@ private:
     void Dispose(Allocator *lla) { lla->Free(this, size_); }
     
     static LargePage *New(SpaceKind space, int access, size_t size, Allocator *lla) {
-        size = RoundUp(size, kPageSize);
+        size = RoundUp(sizeof(LargePage) + size, lla->granularity());
         void *chunk = AllocatePage(size, access, lla);
         if (!chunk) {
             return nullptr;
@@ -210,16 +212,11 @@ public:
         return n > ((kPageSize - sizeof(LinearPage)) >> 1);
     }
     
+    static LinearPage *Cast(PageHeader *h) { return static_cast<LinearPage *>(h); }
+    
     friend class MetadataSpace;
 private:
-    LinearPage(SpaceKind space)
-        : PageHeader(space) {
-        Address base = reinterpret_cast<Address>(this);
-        limit_ = base + kPageSize;
-        free_ = base + sizeof(LinearPage);
-        available_ = kPageSize - sizeof(LinearPage);
-        DbgFillInitZag(free_, available_);
-    }
+    LinearPage(SpaceKind space);
     
     void Dispose(Allocator *lla) { lla->Free(this, kPageSize); }
     

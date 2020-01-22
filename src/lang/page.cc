@@ -90,6 +90,16 @@ Page::Page(SpaceKind space)
     region_array()[i] = chunk;
 }
 
+LinearPage::LinearPage(SpaceKind space)
+    : PageHeader(space) {
+    Address base = reinterpret_cast<Address>(this);
+    limit_ = base + kPageSize;
+    free_ = base + sizeof(LinearPage);
+    DCHECK_EQ(0, reinterpret_cast<uintptr_t>(free_) % kAligmentSize);
+    available_ = kPageSize - sizeof(LinearPage);
+    DbgFillInitZag(free_, available_);
+}
+
 } // namespace lang
 
 } // namespace mai

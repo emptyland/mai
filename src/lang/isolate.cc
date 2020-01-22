@@ -1,3 +1,4 @@
+#include "lang/metadata-space.h"
 #include "lang/isolate.h"
 #include "glog/logging.h"
 #include <mutex>

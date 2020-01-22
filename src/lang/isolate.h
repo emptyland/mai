@@ -3,12 +3,14 @@
 
 #include "mai/env.h"
 #include "mai/error.h"
+#include <memory>
 
 namespace mai {
 
 namespace lang {
 
 class Heap;
+class MetadataSpace;
 
 struct Options {
     Env *env = Env::Default(); // The base api env pointer
@@ -36,6 +38,8 @@ private:
     void Leave();
     
     Env *env_;
+    
+    std::unique_ptr<MetadataSpace> metadata_space_;
 }; // class Isolate
 
 
