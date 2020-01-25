@@ -86,6 +86,8 @@ public:
     static constexpr uint32_t kWrite = 1u << 3;
     static constexpr uint32_t kVolatile = 1u << 4;
     static constexpr uint32_t kRdWr = kRead | kWrite;
+    
+    static constexpr uint32_t kArray = 1u << 5;
 
     DEF_VAL_GETTER(MDStr, name);
     DEF_PTR_GETTER(const Class, type);

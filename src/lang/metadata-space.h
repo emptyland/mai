@@ -24,6 +24,11 @@ public:
         DCHECK_LT(static_cast<int>(type), classes_.size());
         return classes_[static_cast<int>(type)];
     }
+    
+    template<class T>
+    const Class *TypeOf() const {
+        return builtin_type(TypeTraits<T>::kType);
+    }
 
     const Class *FindClassOrNull(const std::string &name) const {
         auto iter = named_classes_.find(name);
@@ -238,7 +243,7 @@ public:
         return *method;
     }
     
-    const Class *Build(MetadataSpace *space) const;
+    Class *Build(MetadataSpace *space) const;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(ClassBuilder);
 private:

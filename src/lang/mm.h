@@ -120,6 +120,8 @@ public:
 
     void *ptr() const { return static_cast<void *>(address_); }
     
+    Any *object() const { return static_cast<Any *>(ptr()); }
+    
     friend class MetadataSpace;
     friend class Heap;
 private:

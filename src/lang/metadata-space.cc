@@ -1,4 +1,5 @@
 #include "lang/metadata-space.h"
+#include "lang/value-inl.h"
 
 namespace mai {
 
@@ -40,15 +41,83 @@ Error MetadataSpace::Initialize() {
     
 #define DEFINE_PRIMITIVE_CLASS(literal, ...) \
     clazz = New<Class>(); \
+    clazz->id_ = NextTypeId(); \
     clazz->name_ = NewString(#literal); \
     clazz->tags_ = Type::kBuiltinTag|Type::kPrimitiveTag; \
-    InsertClass(#literal, clazz);
+    InsertClass(#literal, clazz); \
+    DCHECK_EQ(kType_##literal, clazz->id()) << #literal;
 
     DECLARE_PRIMITIVE_TYPES(DEFINE_PRIMITIVE_CLASS)
 
 #undef DEFINE_PRIMITIVE_CLASS
     
+    // Any class
+    ClassBuilder("any")
+        .tags(Type::kBuiltinTag)
+    .Build(this);
+    
+    // MutableMap::Entry
+    clazz = ClassBuilder("mutable_map::entry")
+        .tags(Type::kBuiltinTag)
+        .field("next")
+            .type(builtin_type(kType_i8))
+            .flags(Field::kPublic|Field::kRead)
+            .tag(1)
+            .offset(MutableMapEntry::kOffsetNext)
+        .End()
+        .field("hash")
+            .type(builtin_type(kType_u32))
+            .flags(Field::kPublic|Field::kRead)
+            .tag(2)
+            .offset(MutableMapEntry::kOffsetHash)
+        .End()
+        .field("key")
+            .type(builtin_type(kType_any))
+            .flags(Field::kPublic|Field::kRdWr)
+            .tag(3)
+            .offset(MutableMapEntry::kOffsetKey)
+        .End()
+        .field("value")
+            .type(builtin_type(kType_any))
+            .flags(Field::kPublic|Field::kRdWr)
+            .tag(4)
+            .offset(MutableMapEntry::kOffsetValue)
+        .End()
+    .Build(this);
+    DCHECK_EQ(kType_mutable_map_entry, clazz->id());
+    clazz->fields_[0].type_ = clazz; // Fix self type
+
+#define DEFINE_BUILTIN_CLASS(literal, kind, ...) \
+    clazz = ClassBuilder(#literal) \
+        .tags(Type::kBuiltinTag) \
+        .field("capacity") \
+            .type(builtin_type(kType_u32)) \
+            .flags(Field::kPrivate|Field::kRead) \
+            .tag(1) \
+            .offset(Array<kind>::kOffsetCapacity) \
+        .End() \
+        .field("length") \
+            .type(builtin_type(kType_u32)) \
+            .flags(Field::kPublic|Field::kRead) \
+            .tag(2) \
+            .offset(Array<kind>::kOffsetLength) \
+        .End() \
+        .field("elems") \
+            .type(TypeOf<kind>()) \
+            .flags(Field::kPublic|Field::kRead|Field::kArray) \
+            .tag(3) \
+            .offset(Array<kind>::kOffsetElems) \
+        .End() \
+    .Build(this); \
+    DCHECK_EQ(kType_##literal, clazz->id()) << #literal;
+    
+    DECLARE_ARRAY_TYPES(DEFINE_BUILTIN_CLASS)
+    DECLARE_MUTABLE_ARRAY_TYPES(DEFINE_BUILTIN_CLASS)
+    
+#undef DEFINE_BUILTIN_CLASS
+    
     // Other types from this id;
+    DCHECK_LT(next_type_id_, kUserTypeIdBase);
     next_type_id_ = kUserTypeIdBase;
     return Error::OK();
 }
@@ -96,7 +165,7 @@ AllocationResult MetadataSpace::Allocate(size_t n, bool exec) {
     return AllocationResult(AllocationResult::OK, chunk);
 }
 
-const Class *ClassBuilder::Build(MetadataSpace *space) const {
+Class *ClassBuilder::Build(MetadataSpace *space) const {
     Class *clazz = space->New<Class>();
     clazz->name_ = space->NewString(name_.data(), name_.size());
     clazz->base_ = base_;

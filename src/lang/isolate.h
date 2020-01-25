@@ -25,21 +25,22 @@ public:
 
     Error Initialize();
     
-    static Isolate *Get();
+    inline Heap *heap() const;
+    inline MetadataSpace *metadata_space() const;
     
     friend class IsolateScope;
-    
     Isolate(const Isolate&) = delete;
     void operator = (const Isolate &) = delete;
 private:
     Isolate(const Options &opts);
+    ~Isolate();
     
     void Enter();
     void Leave();
     
     Env *env_;
-    
-    std::unique_ptr<MetadataSpace> metadata_space_;
+    Heap *heap_;
+    MetadataSpace *metadata_space_;
 }; // class Isolate
 
 

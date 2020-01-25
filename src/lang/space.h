@@ -17,6 +17,7 @@ class Space {
 public:
     DEF_VAL_GETTER(SpaceKind, kind);
     
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Space);
 protected:
     Space(SpaceKind kind, Allocator *lla)
         : kind_(kind)
@@ -29,7 +30,10 @@ protected:
 
 class NewSpace : public Space {
 public:
+    NewSpace(Allocator *lla)
+        : Space(kNewSpace, lla) {}
     
+    DISALLOW_IMPLICIT_CONSTRUCTORS(NewSpace);
 private:
     
 }; // class NewSpace
@@ -56,6 +60,7 @@ public:
         delete dummy_;
     }
     
+    DISALLOW_IMPLICIT_CONSTRUCTORS(OldSpace);
 private:
     PageHeader *dummy_; // Page double-linked list dummy
     PageHeader *free_;  // Free page double-linked list dummy
@@ -66,7 +71,10 @@ private:
 
 class LargeSpace : public Space {
 public:
+    LargeSpace(Allocator *lla)
+        : Space(kLargeSpace, lla) {}
     
+    DISALLOW_IMPLICIT_CONSTRUCTORS(LargeSpace);
 private:
     
 }; // class OldSpace

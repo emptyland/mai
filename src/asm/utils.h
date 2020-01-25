@@ -15,8 +15,10 @@ public:
     using type = T;
     using offset_type = O;
     
+    constexpr ObjectTemplate() {}
+    
     template<class F>
-    offset_type Offset(F T::*const field) {
+    inline constexpr offset_type Offset(F T::*const field) {
         static_assert(sizeof(field) == kPointerSize, "incorrect size");
         return static_cast<offset_type>(bit_cast<Address>(field) - static_cast<Address>(nullptr));
     }
