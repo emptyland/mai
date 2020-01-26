@@ -16,6 +16,8 @@ public:
     
     AllocationResult Allocate(size_t size, uint32_t tags);
  
+    //AllocationResult NewString(const char *z, size_t n, uint32_t flags);
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
 private:
     std::unique_ptr<NewSpace> new_space_;

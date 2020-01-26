@@ -11,6 +11,109 @@ namespace mai {
 class Allocator;
 namespace lang {
 
+
+template<class Base>
+class AllocationBitmap {
+public:
+    static constexpr int kBucketShift = 5;
+    static constexpr int kBucketBits = 1 << kBucketShift;
+    static constexpr size_t kBucketMask = kBucketBits - 1;
+    
+    inline void MarkAllocated(ptrdiff_t offset, size_t size);
+    
+    inline void ClearAllocated(ptrdiff_t offset);
+    
+    inline bool HasAllocated(ptrdiff_t offset) const {
+        DCHECK_GE(offset, 0);
+        DCHECK_EQ(0, offset % kPointerSize);
+        return base()->Test(offset >> kPointerShift);
+    }
+    
+    inline size_t AllocatedSize(ptrdiff_t offset) const;
+    
+    using ParentType = Base;
+private:
+    inline ParentType *base() { return reinterpret_cast<ParentType *>(this); }
+    inline const ParentType *base() const { return reinterpret_cast<const ParentType *>(this); }
+}; // class AllocationBitmap
+
+
+template<size_t N>
+class FixedAllocationBitmap final : public AllocationBitmap<FixedAllocationBitmap<N>> {
+public:
+    static inline FixedAllocationBitmap *FromArray(uint32_t bits[N]) {
+        return reinterpret_cast<FixedAllocationBitmap *>(bits);
+    }
+
+    friend class AllocationBitmap<FixedAllocationBitmap<N>>;
+private:
+    using AllocationBitmap<FixedAllocationBitmap<N>>::kBucketShift;
+    using AllocationBitmap<FixedAllocationBitmap<N>>::kBucketMask;
+    
+    inline bool Test(size_t i) const {
+        DCHECK_LT(i, N * 32);
+        return bits_[i >> kBucketShift] & (1u << (i & kBucketMask));
+    }
+    
+    inline void Set(size_t i) {
+        DCHECK_LT(i, N * 32);
+        bits_[i >> kBucketShift] |= 1u << (i & kBucketMask);
+    }
+    
+    inline void Clear(size_t i) {
+        DCHECK_LT(i, N * 32);
+        bits_[i >> kBucketShift] &= ~(1u << (i & kBucketMask));
+    }
+
+    // begins of b
+    inline size_t FindNextOne(size_t b) const;
+
+    uint32_t bits_[N];
+}; // template<size_t N> class Bitmap
+
+
+class RestrictAllocationBitmap final : public AllocationBitmap<RestrictAllocationBitmap> {
+public:
+    static inline RestrictAllocationBitmap *FromSizeAddress(uint32_t *address) {
+        return reinterpret_cast<RestrictAllocationBitmap *>(address);
+    }
+    
+    friend class AllocationBitmap<RestrictAllocationBitmap>;
+private:
+    RestrictAllocationBitmap() : length_(0) {}
+    
+    using AllocationBitmap<RestrictAllocationBitmap>::kBucketShift;
+    using AllocationBitmap<RestrictAllocationBitmap>::kBucketMask;
+    
+    inline bool Test(size_t i) const {
+        DCHECK_LT(i, length_ * 32);
+        DCHECK(bits_[i >> kBucketShift].is_lock_free());
+        //return bits_[i >> kBucketShift] & (1u << (i & kBucketMask));
+        return bits_[i >> kBucketShift].load() & (1u << (i & kBucketMask));
+    }
+
+    inline void Set(size_t i) {
+        DCHECK_LT(i, length_ * 32);
+        DCHECK(bits_[i >> kBucketShift].is_lock_free());
+        //bits_[i >> kBucketShift] |= 1u << (i & kBucketMask);
+        bits_[i >> kBucketShift].fetch_or(1u << (i & kBucketMask));
+    }
+
+    inline void Clear(size_t i) {
+        DCHECK_LT(i, length_ * 32);
+        DCHECK(bits_[i >> kBucketShift].is_lock_free());
+        //bits_[i >> kBucketShift] &= ~(1u << (i & kBucketMask));
+        bits_[i >> kBucketShift].fetch_and(~(1u << (i & kBucketMask)));
+    }
+    
+    inline size_t FindNextOne(size_t b) const;
+
+    const uint32_t length_;
+    std::atomic<uint32_t> bits_[0];
+    static_assert(sizeof(bits_[0]) == sizeof(uint32_t), "Bad type size!");
+}; // class RestrictAllocationBitmap
+
+
 class PageHeader {
 public:
     DEF_VAL_GETTER(SpaceKind, owner_space);
@@ -41,51 +144,6 @@ protected:
 }; // class PageHeader
 
 
-template<size_t N>
-class AllocationBitmap final {
-public:
-    static constexpr int kBucketShift = 5;
-    static constexpr int kBucketBits = 1 << kBucketShift;
-    static constexpr size_t kBucketMask = kBucketBits - 1;
-    
-    inline void MarkAllocated(ptrdiff_t offset, size_t size);
-    
-    inline void ClearAllocated(ptrdiff_t offset);
-    
-    inline bool HasAllocated(ptrdiff_t offset) {
-        DCHECK_GE(offset, 0);
-        DCHECK_EQ(0, offset % kPointerSize);
-        return Test(offset >> kPointerShift);
-    }
-    
-    inline size_t AllocatedSize(ptrdiff_t offset);
-
-    static inline AllocationBitmap *FromArray(uint32_t bits[N]) {
-        return reinterpret_cast<AllocationBitmap *>(bits);
-    }
-private:
-    inline bool Test(size_t i) const {
-        DCHECK_LT(i, N * 32);
-        return bits_[i >> kBucketShift] & (1u << (i & kBucketMask));
-    }
-    
-    inline void Set(size_t i) {
-        DCHECK_LT(i, N * 32);
-        bits_[i >> kBucketShift] |= 1u << (i & kBucketMask);
-    }
-    
-    inline void Clear(size_t i) {
-        DCHECK_LT(i, N * 32);
-        bits_[i >> kBucketShift] &= ~(1u << (i & kBucketMask));
-    }
-
-    // begins of b
-    inline size_t FindNextOne(size_t b);
-
-    uint32_t bits_[N];
-}; // template<size_t N> class Bitmap
-
-
 // Normal objects page
 class Page final : public PageHeader {
 public:
@@ -105,7 +163,7 @@ public:
     static constexpr size_t kChunkSize = ((kPageSize - sizeof(PageHeader) - sizeof(Region)) * 256) / 260;
     static constexpr size_t kBitmapSize = kChunkSize / 256;
     
-    using Bitmap = AllocationBitmap<kBitmapSize>;
+    using Bitmap = FixedAllocationBitmap<kBitmapSize>;
 
     static constexpr size_t kMaxRegionChunks = 5;
     static const size_t kRegionLimitSize[kMaxRegionChunks];
@@ -244,43 +302,44 @@ private:
     uint8_t chunk_[0];
 }; // class LinearPage
 
-template<size_t N>
-inline size_t AllocationBitmap<N>::AllocatedSize(ptrdiff_t offset) {
-    DCHECK_GE(offset, 0);
-    DCHECK_EQ(0, offset % kPointerSize);
-    size_t i = offset >> kPointerShift;
-    if (!Test(i)) {
-        return 0;
-    }
-    size_t j = FindNextOne(i + 1);
-    return (j - i + 1) << kPointerShift;
-}
-
-template<size_t N>
-inline void AllocationBitmap<N>::MarkAllocated(ptrdiff_t offset, size_t size) {
+template<class Base>
+inline void AllocationBitmap<Base>::MarkAllocated(ptrdiff_t offset, size_t size) {
     DCHECK_GE(size, 2 * kPointerSize);
     DCHECK_GE(offset, 0);
     DCHECK_EQ(0, offset % kPointerSize);
     size_t i = offset >> kPointerShift;
-    DCHECK(!Test(i));
+    DCHECK(!base()->Test(i));
     size_t j = i + (size >> kPointerShift) - 1;
-    DCHECK(!Test(j));
-    Set(i);
-    Set(j);
+    DCHECK(!base()->Test(j));
+    base()->Set(i);
+    base()->Set(j);
 }
 
-template<size_t N>
-inline void AllocationBitmap<N>::ClearAllocated(ptrdiff_t offset) {
+template<class Base>
+inline void AllocationBitmap<Base>::ClearAllocated(ptrdiff_t offset) {
     DCHECK_GE(offset, 0);
     DCHECK_EQ(0, offset % kPointerSize);
     size_t i = offset >> kPointerShift;
-    DCHECK(Test(i));
-    size_t j = FindNextOne(i + 1);
-    Clear(i);
-    Clear(j);
+    DCHECK(base()->Test(i));
+    size_t j = base()->FindNextOne(i + 1);
+    base()->Clear(i);
+    base()->Clear(j);
 }
 
-template<size_t N> inline size_t AllocationBitmap<N>::FindNextOne(size_t b) {
+template<class Base>
+inline size_t AllocationBitmap<Base>::AllocatedSize(ptrdiff_t offset) const {
+    DCHECK_GE(offset, 0);
+    DCHECK_EQ(0, offset % kPointerSize);
+    size_t i = offset >> kPointerShift;
+    if (!base()->Test(i)) {
+        return 0;
+    }
+    size_t j = base()->FindNextOne(i + 1);
+    return (j - i + 1) << kPointerShift;
+}
+
+
+template<size_t N> inline size_t FixedAllocationBitmap<N>::FindNextOne(size_t b) const {
     size_t x = b >> kBucketShift;
     if (uint32_t bits = bits_[x]; bits != 0) {
         for (size_t i = b & kBucketMask; i < 32; i++) {
@@ -290,6 +349,24 @@ template<size_t N> inline size_t AllocationBitmap<N>::FindNextOne(size_t b) {
         }
     }
     for (size_t i = x + 1; i < N; i++) {
+        if (bits_[i]) {
+            return (i << kBucketShift) + base::Bits::FindFirstOne32(bits_[i]);
+        }
+    }
+    NOREACHED();
+    return 0;
+}
+
+inline size_t RestrictAllocationBitmap::FindNextOne(size_t b) const {
+    size_t x = b >> kBucketShift;
+    if (uint32_t bits = bits_[x]; bits != 0) {
+        for (size_t i = b & kBucketMask; i < 32; i++) {
+            if (bits & (1u << i)) {
+                return (x << kBucketShift) + i;
+            }
+        }
+    }
+    for (size_t i = x + 1; i < length_; i++) {
         if (bits_[i]) {
             return (i << kBucketShift) + base::Bits::FindFirstOne32(bits_[i]);
         }

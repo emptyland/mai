@@ -24,6 +24,7 @@
 		23347C81225791B400ABAB3F /* thread-pool-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23347C80225791B400ABAB3F /* thread-pool-test.cc */; };
 		2349FDF522A4BA76001861E0 /* sha256.c in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF422A4BA76001861E0 /* sha256.c */; };
 		2349FDF722A4BAA0001861E0 /* sha256-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF622A4BAA0001861E0 /* sha256-test.cc */; };
+		235602A123DDC6DE00A799B9 /* space-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235602A023DDC6DE00A799B9 /* space-test.cc */; };
 		23565910221E82EC00837F83 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
 		23599D3923D58DDF00F722D6 /* page.h in Headers */ = {isa = PBXBuildFile; fileRef = 23599D3823D58DDF00F722D6 /* page.h */; };
 		23599D3B23D58E3700F722D6 /* page.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23599D3A23D58E3700F722D6 /* page.cc */; };
@@ -294,6 +295,7 @@
 		2349FDF322A4BA76001861E0 /* sha256.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sha256.h; sourceTree = "<group>"; };
 		2349FDF422A4BA76001861E0 /* sha256.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sha256.c; sourceTree = "<group>"; };
 		2349FDF622A4BAA0001861E0 /* sha256-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "sha256-test.cc"; sourceTree = "<group>"; };
+		235602A023DDC6DE00A799B9 /* space-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "space-test.cc"; sourceTree = "<group>"; };
 		2356590B221E82EC00837F83 /* mai-tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "mai-tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2356590F221E82EC00837F83 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		23599D3723D58B8100F722D6 /* queue-macros.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "queue-macros.h"; sourceTree = "<group>"; };
@@ -552,6 +554,7 @@
 				2329798323D03A60009B4C1B /* lang-test.cc */,
 				23599D3C23D58F6D00F722D6 /* page-test.cc */,
 				238F195223D7DECF00FF0D98 /* metadata-space-test.cc */,
+				235602A023DDC6DE00A799B9 /* space-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1182,6 +1185,7 @@
 				237F505121EB74390069075D /* zone.cc in Sources */,
 				2364B31F21E451F9008519AE /* varint-encoding.cc in Sources */,
 				236EA78A23D6E3C80071047C /* heap.cc in Sources */,
+				235602A123DDC6DE00A799B9 /* space-test.cc in Sources */,
 				2364B32221E451F9008519AE /* spin-locking.cc in Sources */,
 				2364B32921E451F9008519AE /* slice.cc in Sources */,
 				2364B32B21E451F9008519AE /* hash.cc in Sources */,

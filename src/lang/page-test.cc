@@ -9,7 +9,7 @@ namespace lang {
 
 class PageTest : public ::testing::Test {
 public:
-    using Bitmap = AllocationBitmap<32>;
+    using Bitmap = FixedAllocationBitmap<32>;
     
     // Dummy
     PageTest() {

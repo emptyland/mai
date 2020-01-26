@@ -34,6 +34,7 @@ static constexpr uint32_t kPageMaker = 0x9a6e0102u;
 static constexpr int kAllocateRetries = 16; // How many times to allocation retires?
 
 static constexpr size_t kAligmentSize = 4; // Heap allocation aligment to 4 bytes
+static constexpr size_t kAllocationMinSize = kPointerSize << 1; // Two-Pointers
 
 static constexpr uint32_t kFreeZag = 0xfeedfeed;
 static constexpr uint32_t kInitZag = 0xcccccccc;
@@ -122,8 +123,9 @@ public:
     
     Any *object() const { return static_cast<Any *>(ptr()); }
     
-    friend class MetadataSpace;
     friend class Heap;
+    friend class NewSpace;
+    friend class MetadataSpace;
 private:
     AllocationResult(Result result, Address chunk)
         : result_(result)
