@@ -132,10 +132,10 @@ AllocationResult MetadataSpace::Allocate(size_t n, bool exec) {
     if (LinearPage::IsLarge(n)) {
         auto page = LargePage::New(kind(), access, n, lla_);
         if (!page) {
-            return AllocationResult(AllocationResult::NOT_ENOUGH_MEMORY, nullptr);
+            return AllocationResult(AllocationResult::OOM, nullptr);
         }
         QUEUE_INSERT_TAIL(dummy_large_, page);
-        usage_ += n;
+        used_size_ += n;
         large_size_ += page->size();
         return AllocationResult(AllocationResult::OK, page->chunk());
     }
@@ -155,13 +155,13 @@ AllocationResult MetadataSpace::Allocate(size_t n, bool exec) {
         }
     }
     if (!page) {
-        return AllocationResult(AllocationResult::NOT_ENOUGH_MEMORY, nullptr);
+        return AllocationResult(AllocationResult::OOM, nullptr);
     }
     Address chunk = page->Advance(n);
     if (!chunk) {
         return AllocationResult(AllocationResult::FAIL, nullptr);
     }
-    usage_ += n;
+    used_size_ += n;
     return AllocationResult(AllocationResult::OK, chunk);
 }
 

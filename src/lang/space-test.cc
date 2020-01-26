@@ -29,11 +29,11 @@ TEST_F(SpaceTest, NewSpaceAllocation) {
     auto rv = space->Allocate(1);
     ASSERT_TRUE(rv.ok());
     ASSERT_EQ(0, reinterpret_cast<uintptr_t>(rv.address()) % kAligmentSize);
-    ASSERT_EQ(kAllocationMinSize, space->GetAllocatedSize(rv.address()));
+    ASSERT_EQ(kMinAllocationSize, space->GetAllocatedSize(rv.address()));
     
     auto addr = rv.address();
     rv = space->Allocate(1);
-    ASSERT_EQ(kAllocationMinSize, rv.address() - addr);
+    ASSERT_EQ(kMinAllocationSize, rv.address() - addr);
 }
 
 TEST_F(SpaceTest, NewSpaceIterator0) {
@@ -48,7 +48,7 @@ TEST_F(SpaceTest, NewSpaceIterator0) {
     iter.SeekToFirst();
     ASSERT_TRUE(iter.Valid());
     ASSERT_EQ(rv.address(), iter.address());
-    ASSERT_EQ(kAllocationMinSize, iter.object_size());
+    ASSERT_EQ(kMinAllocationSize, iter.object_size());
     
     iter.Next();
     ASSERT_FALSE(iter.Valid());
@@ -155,6 +155,18 @@ TEST_F(SpaceTest, NewSpaceConcurrentAllocation) {
     ASSERT_EQ(records[3], 10000);
 }
 
+
+TEST_F(SpaceTest, OldSpaceAllocation) {
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    ASSERT_EQ(0, space->allocated_pages());
+    ASSERT_EQ(0, space->used_size());
+    
+    auto rv = space->Allocate(1);
+    ASSERT_TRUE(rv.ok());
+    ASSERT_EQ(0, reinterpret_cast<uintptr_t>(rv.address()) % kAligmentSize);
+    ASSERT_EQ(1, space->allocated_pages());
+    ASSERT_EQ(kMinAllocationSize, space->used_size());
+}
 
 }
 

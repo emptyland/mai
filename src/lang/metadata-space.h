@@ -35,7 +35,7 @@ public:
         return iter == named_classes_.end() ? nullptr : iter->second;
     }
     
-    DEF_VAL_GETTER(size_t, usage);
+    DEF_VAL_GETTER(size_t, used_size);
     
     size_t GetRSS() const { return n_pages_ * kPageSize + large_size_; }
     
@@ -129,7 +129,7 @@ private:
     uint32_t next_type_id_ = 0; // Next type unique id
     size_t n_pages_ = 0; // Number of linear pages.
     size_t large_size_ = 0; // All large page's size
-    size_t usage_ = 0; // Allocated used bytes
+    size_t used_size_ = 0; // Allocated used bytes
 }; // class MetadataSpace
 
 

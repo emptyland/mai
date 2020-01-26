@@ -72,10 +72,8 @@ const size_t Page::kRegionLimitSize[kMaxRegionChunks] = {
     SIZE_T_MAX,
 };
 
-Page::Page(SpaceKind space)
-    : PageHeader(space) {
+void Page::Reinitialize() {
     ::memset(bitmap_, 0, sizeof(bitmap_[0]) * kBitmapSize);
-    DbgFillInitZag(chunk_, kChunkSize);
         
     Address align_addr = RoundUp(chunk(), kAligmentSize);
     DCHECK_EQ(align_addr, chunk());
@@ -87,7 +85,7 @@ Page::Page(SpaceKind space)
     
     size_t i = FindWantedRegion(chunk->size);
     DCHECK_LT(i, kMaxRegionChunks);
-    region_array()[i] = chunk;
+    set_region(i, chunk);
 }
 
 LinearPage::LinearPage(SpaceKind space)

@@ -34,7 +34,7 @@ static constexpr uint32_t kPageMaker = 0x9a6e0102u;
 static constexpr int kAllocateRetries = 16; // How many times to allocation retires?
 
 static constexpr size_t kAligmentSize = 4; // Heap allocation aligment to 4 bytes
-static constexpr size_t kAllocationMinSize = kPointerSize << 1; // Two-Pointers
+static constexpr size_t kMinAllocationSize = kPointerSize << 1; // Two-Pointers
 
 static constexpr uint32_t kFreeZag = 0xfeedfeed;
 static constexpr uint32_t kInitZag = 0xcccccccc;
@@ -105,13 +105,19 @@ static_assert(sizeof(Span16) == 16, "Fixed span16 size");
 static_assert(sizeof(Span32) == 32, "Fixed span32 size");
 static_assert(sizeof(Span64) == 64, "Fixed span64 size");
 
+
+inline size_t GetMinAllocationSize(size_t n) {
+    return n < kMinAllocationSize ? kMinAllocationSize : RoundUp(n, kPointerSize);
+}
+
 class AllocationResult final {
 public:
     enum Result {
         OK, // Allocation is ok, chunk is result memory block
         FAIL, // Just fail
+        LIMIT, // On soft capacity limit
         NOTHING, // Did not allocation, address is nullptr
-        NOT_ENOUGH_MEMORY, // Low-level-allocator return no memory, chunk is nullptr
+        OOM, // Low-level-allocator return no memory, chunk is nullptr
     };
 
     DEF_VAL_GETTER(Result, result);
@@ -125,6 +131,7 @@ public:
     
     friend class Heap;
     friend class NewSpace;
+    friend class OldSpace;
     friend class MetadataSpace;
 private:
     AllocationResult(Result result, Address chunk)

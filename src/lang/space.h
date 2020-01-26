@@ -71,7 +71,7 @@ private:
     ptrdiff_t GetFreeSize() const { return limit_ - free_.load(); }
     
     Address AquireSpace(size_t size) {
-        size_t request_size = size < kAllocationMinSize ? kAllocationMinSize : RoundUp(size, kPointerSize);
+        size_t request_size = GetMinAllocationSize(size);
         Address space = free_.fetch_add(request_size);
         if (space + request_size >= limit_) {
             return nullptr;
@@ -154,6 +154,7 @@ public:
         return Error::OK();
     }
     
+    // Thread safe:
     AllocationResult Allocate(size_t size) {
         DCHECK_NOTNULL(original_area_);
         DCHECK_GT(size, 0);
@@ -161,7 +162,7 @@ public:
         if (!space) {
             return AllocationResult(AllocationResult::FAIL, nullptr);
         }
-        DbgFillInitZag(space, size);
+        //DbgFillInitZag(space, size);
         return AllocationResult(AllocationResult::OK, space);
     }
     
@@ -188,21 +189,48 @@ class OldSpace final : public Space {
 public:
     OldSpace(Allocator *lla)
         : Space(kOldSpace, lla)
-        , dummy_(new PageHeader(kOldSpace))
-        , free_(new PageHeader(kOldSpace)) {
+        , dummy_(new PageHeader(kDummySpace))
+        , free_(new PageHeader(kDummySpace)) {
+    }
+    ~OldSpace();
+    
+    DEF_VAL_GETTER(int, allocated_pages);
+    DEF_VAL_GETTER(size_t, used_size);
+    
+    size_t GetRSS() const { return kPageSize << allocated_pages_; }
+
+    AllocationResult Allocate(size_t size) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return DoAllocate(size);
     }
     
-    ~OldSpace() {
-        delete free_;
-        delete dummy_;
+    void Free(Address addr, bool merge) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        DoFree(addr, merge);
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(OldSpace);
 private:
+    // Not thread safe:
+    AllocationResult DoAllocate(size_t size);
+    
+    void DoFree(Address addr, bool merge);
+    
+    Page *GetOrNewFreePage() {
+        Page *free_page = Page::Cast(free_->next());
+        if (free_page == free_) {
+            free_page = Page::New(kind(), Allocator::kRd|Allocator::kWr, lla_);
+            allocated_pages_++;
+        }
+        QUEUE_REMOVE(free_page);
+        return free_page;
+    }
+    
     PageHeader *dummy_; // Page double-linked list dummy
     PageHeader *free_;  // Free page double-linked list dummy
-    int allocated_pages_; // Number of allocated pages
-    size_t usage_size_; // Allocated bytes size
+    int allocated_pages_ = 0; // Number of allocated pages
+    size_t used_size_ = 0; // Allocated bytes size
+    std::mutex mutex_; // Allocation mutex
 }; // class OldSpace
 
 

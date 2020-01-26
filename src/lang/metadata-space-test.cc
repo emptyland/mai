@@ -29,17 +29,17 @@ TEST_F(MetadataSpaceTest, Sanity) {
     auto result = space_->Allocate(1024, false);
     ASSERT_TRUE(result.ok());
     
-    ASSERT_EQ(1024, space_->usage());
+    ASSERT_EQ(1024, space_->used_size());
     ASSERT_EQ(kPageSize, space_->GetRSS());
 }
 
 TEST_F(MetadataSpaceTest, MoreAllocation) {
-    while (space_->usage() < 10 * kPageSize) {
+    while (space_->used_size() < 10 * kPageSize) {
         auto result = space_->Allocate(1024, false);
         ASSERT_TRUE(result.ok());
         ASSERT_NE(nullptr, result.address());
     }
-    EXPECT_EQ(10 * kPageSize, space_->usage());
+    EXPECT_EQ(10 * kPageSize, space_->used_size());
     EXPECT_EQ(11 * kPageSize, space_->GetRSS());
 }
 
@@ -50,7 +50,7 @@ TEST_F(MetadataSpaceTest, LargeAllocation) {
         ASSERT_NE(nullptr, result.address());
     }
     
-    EXPECT_EQ(10 * kPageSize, space_->usage());
+    EXPECT_EQ(10 * kPageSize, space_->used_size());
     EXPECT_EQ(10526720, space_->GetRSS());
 }
 

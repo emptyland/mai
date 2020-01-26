@@ -136,6 +136,9 @@ protected:
         , prev_(this) {}
     
     static void *AllocatePage(size_t size, int access, Allocator *lla);
+    
+    DEF_PTR_GETTER(PageHeader, next);
+    DEF_PTR_GETTER(PageHeader, prev);
 
     uint32_t maker_; // maker for verification
     SpaceKind owner_space_; // owner space kind
@@ -170,6 +173,8 @@ public:
     
     Address chunk() { return chunk_; }
     Address limit() { return reinterpret_cast<Address>(this) + kPageSize; }
+    
+    static Page *Cast(PageHeader *h) { return static_cast<Page *>(h); }
 
     friend class OldSpace;
     // For unit-tests:
@@ -177,7 +182,9 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Page);
 private:
-    Page(SpaceKind space);
+    Page(SpaceKind space): PageHeader(space) { Reinitialize(); }
+    
+    void Reinitialize();
     
     void Dispose(Allocator *lla) { lla->Free(this, kPageSize); }
     
@@ -191,7 +198,7 @@ private:
     
     size_t FindFitRegion(size_t size) const {
         for (size_t i = 0; i < kMaxRegionChunks; ++i) {
-            if (size < kRegionLimitSize[i] && region_array()[i]) {
+            if (size < kRegionLimitSize[i] && region(i)) {
                 return i;
             }
         }
@@ -207,7 +214,17 @@ private:
         return kMaxRegionChunks;
     }
     
-    Chunk **region_array() const { return reinterpret_cast<Chunk **>(&region_); }
+    Chunk **regions() const { return reinterpret_cast<Chunk **>(&region_); }
+    
+    Chunk *region(size_t i) const {
+        DCHECK_LT(i, kMaxRegionChunks);
+        return regions()[i];
+    }
+    
+    void set_region(size_t i, Chunk *chunk) {
+        DCHECK_LT(i, kMaxRegionChunks);
+        regions()[i] = DCHECK_NOTNULL(chunk);
+    }
     
     Bitmap *bitmap() { return Bitmap::FromArray(bitmap_); }
     
