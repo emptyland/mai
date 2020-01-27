@@ -213,7 +213,7 @@ public:
 private:
     // Not thread safe:
     AllocationResult DoAllocate(size_t size);
-    
+
     void DoFree(Address addr, bool merge);
     
     Page *GetOrNewFreePage() {

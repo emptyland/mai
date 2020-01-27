@@ -30,6 +30,5 @@
 *.exe
 *.out
 *.app
-third-party
 mai.xcodeproj/xcuserdata
 mai.xcodeproj/project.xcworkspace
