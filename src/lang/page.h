@@ -156,11 +156,11 @@ public:
     }; // struct Chunk
     
     struct Region {
-        Chunk *tiny   = nullptr; // [0, 64) bytes
-        Chunk *small  = nullptr; // [64, 512) bytes
-        Chunk *medium = nullptr; // [512, 1024) bytes
-        Chunk *normal = nullptr; // [1024, 4096) bytes
-        Chunk *big    = nullptr; // >= 4096 bytes
+        Chunk *tiny;   // [0, 64) bytes
+        Chunk *small;  // [64, 512) bytes
+        Chunk *medium; // [512, 1024) bytes
+        Chunk *normal; // [1024, 4096) bytes
+        Chunk *big;    // >= 4096 bytes
     }; // struct Region
     
     static constexpr size_t kChunkSize = ((kPageSize - sizeof(PageHeader) - sizeof(Region)) * 256) / 260;
@@ -173,6 +173,12 @@ public:
     
     Address chunk() { return chunk_; }
     Address limit() { return reinterpret_cast<Address>(this) + kPageSize; }
+    
+    bool IsEmpty() { return limit() - chunk() == available_; }
+    
+    static Page *FromAddress(Address addr) {
+        return Cast(PageHeader::FromAddress(addr));
+    }
     
     static Page *Cast(PageHeader *h) { return static_cast<Page *>(h); }
 
@@ -196,6 +202,13 @@ private:
         return new (chunk) Page(space);
     }
     
+    void InsertFitRegion(size_t size, Chunk *chunk) {
+        size_t i = FindWantedRegion(size);
+        DCHECK_NE(kMaxRegionChunks, i);
+        chunk->next = region(i);
+        set_region(i, chunk);
+    }
+    
     size_t FindFitRegion(size_t size) const {
         for (size_t i = 0; i < kMaxRegionChunks; ++i) {
             if (size < kRegionLimitSize[i] && region(i)) {
@@ -213,6 +226,10 @@ private:
         }
         return kMaxRegionChunks;
     }
+    
+    void AddAvailable(size_t n) { available_ += n; }
+    
+    void SubAvailable(size_t n) { available_ -= n; }
     
     Chunk **regions() const { return reinterpret_cast<Chunk **>(&region_); }
     

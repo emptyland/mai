@@ -64,10 +64,10 @@ AllocationResult OldSpace::DoAllocate(size_t size) {
             page->set_region(fit, next);
             chunk->next = page->region(wanted);
         }
-        page->available_ -= request_size;
+        page->SubAvailable(request_size);
         page->set_region(wanted, chunk);
     } else{
-        page->available_ -= chunk->size;
+        page->SubAvailable(chunk->size);
         page->set_region(fit, chunk->next);
     }
     
@@ -77,7 +77,45 @@ AllocationResult OldSpace::DoAllocate(size_t size) {
 }
 
 void OldSpace::DoFree(Address addr, bool merge) {
-    TODO();
+    Page *page = Page::FromAddress(addr);
+    DCHECK_EQ(kind(), page->owner_space());
+    //DCHECK_NE(kColorFreed, GetAddressColor(addr)) << "Free freed block: " << addr;
+
+    const size_t size = page->bitmap()->AllocatedSize(addr - page->chunk());
+    DbgFillFreeZag(addr, size);
+    Page::Chunk *chunk = reinterpret_cast<Page::Chunk *>(addr);
+    chunk->size = static_cast<uint32_t>(size);
+
+    if (merge && addr + size < page->limit()) {
+//        HeapColor slibing_color = GetAddressColor(addr + chunk->size);
+//        if (slibing_color == kColorFreed) {
+//            Page::Chunk *slibing = reinterpret_cast<Page::Chunk *>(addr + size);
+//            chunk->size = static_cast<uint32_t>(size + slibing->size);
+//            page->RemoveFitRegion(slibing->size, slibing);
+//        }
+    }
+    page->InsertFitRegion(size, chunk);
+    page->AddAvailable(size);
+    used_size_ -= size;
+
+    if (page->IsEmpty()) {
+        QUEUE_REMOVE(page);
+        QUEUE_INSERT_HEAD(free_, page);
+        if (freed_pages_ >= max_freed_pages_) {
+            Page *tail = Page::Cast(free_->prev());
+            QUEUE_REMOVE(tail);
+            tail->Dispose(lla_);
+        } else {
+            page->Reinitialize();
+            freed_pages_++;
+        }
+    } else {
+        Page *head = Page::Cast(dummy_->next());
+        if (page != head && page->available() > head->available()) {
+            QUEUE_REMOVE(page);
+            QUEUE_INSERT_HEAD(dummy_, page);
+        }
+    }
 }
 
 } // namespace lang

@@ -3,6 +3,8 @@
 
 #include "lang/page.h"
 #include "glog/logging.h"
+#define DBG_MACRO_NO_WARNING
+#include "dbg/dbg.h"
 #include <atomic>
 
 namespace mai {
@@ -162,7 +164,6 @@ public:
         if (!space) {
             return AllocationResult(AllocationResult::FAIL, nullptr);
         }
-        //DbgFillInitZag(space, size);
         return AllocationResult(AllocationResult::OK, space);
     }
     
@@ -187,14 +188,16 @@ private:
 
 class OldSpace final : public Space {
 public:
-    OldSpace(Allocator *lla)
+    OldSpace(Allocator *lla, int max_freed_pages = 10)
         : Space(kOldSpace, lla)
         , dummy_(new PageHeader(kDummySpace))
-        , free_(new PageHeader(kDummySpace)) {
+        , free_(new PageHeader(kDummySpace))
+        , max_freed_pages_(max_freed_pages) {
     }
     ~OldSpace();
     
     DEF_VAL_GETTER(int, allocated_pages);
+    DEF_VAL_GETTER(int, freed_pages);
     DEF_VAL_GETTER(size_t, used_size);
     
     size_t GetRSS() const { return kPageSize << allocated_pages_; }
@@ -214,11 +217,13 @@ private:
     // Not thread safe:
     AllocationResult DoAllocate(size_t size);
 
+    // Not thread safe:
     void DoFree(Address addr, bool merge);
     
     Page *GetOrNewFreePage() {
         Page *free_page = Page::Cast(free_->next());
-        if (free_page == free_) {
+        if (free_page == free_) { // free list is empty
+            //dbg("Allocate new page", allocated_pages_);
             free_page = Page::New(kind(), Allocator::kRd|Allocator::kWr, lla_);
             allocated_pages_++;
         }
@@ -228,7 +233,9 @@ private:
     
     PageHeader *dummy_; // Page double-linked list dummy
     PageHeader *free_;  // Free page double-linked list dummy
+    const int max_freed_pages_; // Limit of freed pages
     int allocated_pages_ = 0; // Number of allocated pages
+    int freed_pages_ = 0; // Number of free pages
     size_t used_size_ = 0; // Allocated bytes size
     std::mutex mutex_; // Allocation mutex
 }; // class OldSpace

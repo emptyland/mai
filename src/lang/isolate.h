@@ -11,9 +11,12 @@ namespace lang {
 
 class Heap;
 class MetadataSpace;
+class Scheduler;
+struct TLSStorage;
 
 struct Options {
     Env *env = Env::Default(); // The base api env pointer
+    int concurrency = 0; // How many concrrent running
 };
 
 
@@ -27,7 +30,10 @@ public:
     
     inline Heap *heap() const;
     inline MetadataSpace *metadata_space() const;
+    inline TLSStorage *tls_storage() const;
+    inline Scheduler *scheduler() const;
     
+    friend class Machine;
     friend class IsolateScope;
     Isolate(const Isolate&) = delete;
     void operator = (const Isolate &) = delete;
@@ -38,9 +44,13 @@ private:
     void Enter();
     void Leave();
     
+    ThreadLocalSlot *tls() const { return tls_.get(); }
+    
     Env *env_;
     Heap *heap_;
     MetadataSpace *metadata_space_;
+    Scheduler *scheduler_;
+    std::unique_ptr<ThreadLocalSlot> tls_;
 }; // class Isolate
 
 

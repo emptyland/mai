@@ -1,4 +1,6 @@
 #include "lang/isolate-inl.h"
+#include "lang/scheduler.h"
+#include "lang/machine.h"
 #include "lang/heap.h"
 #include "lang/metadata-space.h"
 #include "glog/logging.h"
@@ -21,17 +23,20 @@ void Isolate::Dispose() {
 }
 
 Error Isolate::Initialize() {
-    // TODO:
+    auto err = env_->NewThreadLocalSlot("isolate.tls", &TLSStorage::Dtor, &tls_);
+    if (err.fail()) {
+        return err;
+    }
     return Error::OK();
 }
 
 Isolate::Isolate(const Options &opts)
-    : env_(opts.env) {
-    // TODO:
+    : env_(opts.env)
+    , scheduler_(new Scheduler(opts.concurrency <= 0 ? env_->GetNumberOfCPUCores() : opts.concurrency)) {
 }
 
 Isolate::~Isolate() {
-    
+    delete scheduler_;
 }
 
 void Isolate::Enter() {

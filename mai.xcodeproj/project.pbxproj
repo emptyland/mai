@@ -7,14 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2305109E23DF1CA400B89A7C /* logging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109623DF1CA300B89A7C /* logging.cc */; };
-		230510A023DF1CA400B89A7C /* symbolize.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109823DF1CA300B89A7C /* symbolize.cc */; };
-		230510A123DF1CA400B89A7C /* demangle.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109923DF1CA300B89A7C /* demangle.cc */; };
-		230510A223DF1CA400B89A7C /* vlog_is_on.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109A23DF1CA300B89A7C /* vlog_is_on.cc */; };
-		230510A423DF1CA400B89A7C /* signalhandler.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109C23DF1CA400B89A7C /* signalhandler.cc */; };
-		230510B123DF1CD600B89A7C /* raw_logging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510A623DF1CD500B89A7C /* raw_logging.cc */; };
-		230510B223DF1CD600B89A7C /* utilities.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510A923DF1CD500B89A7C /* utilities.cc */; };
-		230510B523DF1ED200B89A7C /* gtest-all.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510B423DF1ED200B89A7C /* gtest-all.cc */; };
+		2305109E23DF1CA400B89A7C /* logging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109623DF1CA300B89A7C /* logging.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
+		230510A023DF1CA400B89A7C /* symbolize.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109823DF1CA300B89A7C /* symbolize.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
+		230510A123DF1CA400B89A7C /* demangle.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109923DF1CA300B89A7C /* demangle.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
+		230510A223DF1CA400B89A7C /* vlog_is_on.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109A23DF1CA300B89A7C /* vlog_is_on.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
+		230510A423DF1CA400B89A7C /* signalhandler.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109C23DF1CA400B89A7C /* signalhandler.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
+		230510B123DF1CD600B89A7C /* raw_logging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510A623DF1CD500B89A7C /* raw_logging.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
+		230510B223DF1CD600B89A7C /* utilities.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510A923DF1CD500B89A7C /* utilities.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
+		230510B523DF1ED200B89A7C /* gtest-all.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510B423DF1ED200B89A7C /* gtest-all.cc */; settings = {COMPILER_FLAGS = "-Wno-unused-const-variable"; }; };
+		230510B823DF318100B89A7C /* machine.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510B723DF318100B89A7C /* machine.cc */; };
+		230510BB23DF368900B89A7C /* scheduler.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510BA23DF368900B89A7C /* scheduler.cc */; };
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
 		2329798423D03A60009B4C1B /* lang-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2329798323D03A60009B4C1B /* lang-test.cc */; };
 		23344CDC21EF0764006BC6E4 /* allocator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD621EF0751006BC6E4 /* allocator.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -266,7 +268,11 @@
 		230510AE23DF1CD500B89A7C /* stacktrace_powerpc-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_powerpc-inl.h"; path = "third-party/glog/src/stacktrace_powerpc-inl.h"; sourceTree = SOURCE_ROOT; };
 		230510AF23DF1CD600B89A7C /* stacktrace_x86-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_x86-inl.h"; path = "third-party/glog/src/stacktrace_x86-inl.h"; sourceTree = SOURCE_ROOT; };
 		230510B023DF1CD600B89A7C /* stacktrace_libunwind-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_libunwind-inl.h"; path = "third-party/glog/src/stacktrace_libunwind-inl.h"; sourceTree = SOURCE_ROOT; };
-		230510B423DF1ED200B89A7C /* gtest-all.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "gtest-all.cc"; path = "third-party/gtest/gtest-all.cc"; sourceTree = "<group>"; };
+		230510B423DF1ED200B89A7C /* gtest-all.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "gtest-all.cc"; sourceTree = "<group>"; };
+		230510B623DF315400B89A7C /* machine.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = machine.h; sourceTree = "<group>"; };
+		230510B723DF318100B89A7C /* machine.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = machine.cc; sourceTree = "<group>"; };
+		230510B923DF361800B89A7C /* scheduler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = scheduler.h; sourceTree = "<group>"; };
+		230510BA23DF368900B89A7C /* scheduler.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = scheduler.cc; sourceTree = "<group>"; };
 		230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map-v2.h"; sourceTree = "<group>"; };
 		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
 		231C61F2219A6D54001A95C1 /* block-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-iterator.cc"; sourceTree = "<group>"; };
@@ -552,6 +558,7 @@
 				230510B423DF1ED200B89A7C /* gtest-all.cc */,
 			);
 			name = gtest;
+			path = "third-party/gtest";
 			sourceTree = "<group>";
 		};
 		23283B6E21D612DE0011D680 /* txn */ = {
@@ -598,6 +605,10 @@
 				236EA78F23D72F0B0071047C /* metadata-space.h */,
 				236EA79023D72F3B0071047C /* metadata-space.cc */,
 				236EA78E23D6FCAF0071047C /* type-defs.h */,
+				230510B623DF315400B89A7C /* machine.h */,
+				230510B723DF318100B89A7C /* machine.cc */,
+				230510B923DF361800B89A7C /* scheduler.h */,
+				230510BA23DF368900B89A7C /* scheduler.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1227,6 +1238,7 @@
 				2364B2FA21E451F9008519AE /* memory-table.cc in Sources */,
 				236EA78523D6E3100071047C /* isolate.cc in Sources */,
 				2364B2FC21E451F9008519AE /* bw-tree-memory-table.cc in Sources */,
+				230510B823DF318100B89A7C /* machine.cc in Sources */,
 				2364B2FE21E451F9008519AE /* ordered-memory-table.cc in Sources */,
 				2364B30021E451F9008519AE /* unordered-memory-table.cc in Sources */,
 				2364B30121E451F9008519AE /* bytewise-comparator.cc in Sources */,
@@ -1261,6 +1273,7 @@
 				2364B33621E451F9008519AE /* bw-tree-test.cc in Sources */,
 				2364B33721E451F9008519AE /* hash-map-v2-test.cc in Sources */,
 				2364B33821E451F9008519AE /* bw-tree-memory-table-test.cc in Sources */,
+				230510BB23DF368900B89A7C /* scheduler.cc in Sources */,
 				2364B33921E451F9008519AE /* error-test.cc in Sources */,
 				2364B33A21E451F9008519AE /* hash-map-v1-test.cc in Sources */,
 				2364B33B21E451F9008519AE /* key-boundle-test.cc in Sources */,

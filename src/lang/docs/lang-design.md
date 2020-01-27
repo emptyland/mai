@@ -1573,7 +1573,7 @@ int main(int argc, char *argv[]) {
 |-----------------------------|
 |       coroutine_tls: TLSKey | current coroutine TLS
 |-----------------------------|
-|            unqiue_coid: u64 | coroutine id counter
+|              next_coid: u64 | coroutine id counter
 
 - 对操作系统线程的抽象
 -- 线程的状态:

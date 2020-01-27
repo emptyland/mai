@@ -74,6 +74,7 @@ const size_t Page::kRegionLimitSize[kMaxRegionChunks] = {
 
 void Page::Reinitialize() {
     ::memset(bitmap_, 0, sizeof(bitmap_[0]) * kBitmapSize);
+    ::memset(&region_, 0, sizeof(region_));
         
     Address align_addr = RoundUp(chunk(), kAligmentSize);
     DCHECK_EQ(align_addr, chunk());

@@ -168,6 +168,24 @@ TEST_F(SpaceTest, OldSpaceAllocation) {
     ASSERT_EQ(kMinAllocationSize, space->used_size());
 }
 
+TEST_F(SpaceTest, OldSpaceFree) {
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    
+    auto rv = space->Allocate(1);
+    ASSERT_TRUE(rv.ok());
+    ASSERT_EQ(1, space->allocated_pages());
+    ASSERT_EQ(kMinAllocationSize, space->used_size());
+    
+    space->Free(rv.address(), true);
+    ASSERT_EQ(1, space->allocated_pages());
+    ASSERT_EQ(0, space->used_size());
+    
+    rv = space->Allocate(1);
+    ASSERT_TRUE(rv.ok());
+    ASSERT_EQ(1, space->allocated_pages());
+    ASSERT_EQ(kMinAllocationSize, space->used_size());
+}
+
 }
 
 }

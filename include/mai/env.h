@@ -65,6 +65,8 @@ public:
                                      void (*dtor)(void *),
                                      std::unique_ptr<ThreadLocalSlot> *slot) = 0;
     
+    virtual int GetNumberOfCPUCores() = 0;
+    
 }; // class Env
     
 class SequentialFile {

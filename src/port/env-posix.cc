@@ -291,6 +291,10 @@ public:
                                      std::unique_ptr<ThreadLocalSlot> *result) override {
         return PosixThreadLocalSlot::New(name, dtor, result);
     }
+    
+    virtual int GetNumberOfCPUCores() override {
+        return static_cast<int>(sysconf(_SC_NPROCESSORS_ONLN));
+    }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(PosixEnv);
 private:
