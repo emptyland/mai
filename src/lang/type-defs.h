@@ -59,6 +59,7 @@ enum BuiltinType: int {
 #define DEFINE_ENUM(name, ...) kType_##name,
     DECLARE_PRIMITIVE_TYPES(DEFINE_ENUM)
     kType_any,
+    kType_string,
     kType_mutable_map_entry,
     DECLARE_CONTAINER_TYPES(DEFINE_ENUM)
 #undef DEFINE_ENUM
@@ -75,6 +76,12 @@ template<>
 struct TypeTraits<bool> {
     static constexpr BuiltinType kType = kType_bool;
     
+};
+
+template<>
+struct TypeTraits<char> {
+    static constexpr BuiltinType kType = kType_i8;
+
 };
 
 template<>

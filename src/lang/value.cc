@@ -1,4 +1,5 @@
 #include "lang/value-inl.h"
+#include "lang/machine.h"
 #include "asm/utils.h"
 
 namespace mai {
@@ -13,7 +14,15 @@ const int32_t MutableMapEntry::kOffsetHash = MEMBER_OFFSET_OF(MutableMapEntry, h
 const int32_t MutableMapEntry::kOffsetKey = MEMBER_OFFSET_OF(MutableMapEntry, key_);
 const int32_t MutableMapEntry::kOffsetValue = MEMBER_OFFSET_OF(MutableMapEntry, value_);
 
-MutableMap::MutableMap(Class *clazz, uint32_t initial_bucket_shift, uint32_t random_seed)
+/*static*/ Handle<String> String::NewUtf8(const char *utf8_string, size_t n) {
+    if (!utf8_string || n == 0) {
+        utf8_string = "";
+        n = 0;
+    }
+    return Handle<String>(Machine::Get()->NewUtf8String(utf8_string, n, 0/*flags*/));
+}
+
+MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32_t random_seed)
     : Any(clazz, 0) {
     TODO();
 }

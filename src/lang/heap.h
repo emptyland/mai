@@ -11,12 +11,17 @@ namespace lang {
 
 class Heap final {
 public:
+    static constexpr uint32_t kPinned   = 0x1;
+    static constexpr uint32_t kLarge    = 0x1;
+    static constexpr uint32_t kOld      = 1u << 1;
+    static constexpr uint32_t kMetadata = 1u << 2;
+
     Heap(Allocator *lla);
     ~Heap();
     
-    AllocationResult Allocate(size_t size, uint32_t tags);
- 
-    //AllocationResult NewString(const char *z, size_t n, uint32_t flags);
+    Error Initialize(size_t new_space_initial_size);
+    
+    AllocationResult Allocate(size_t size, uint32_t flags);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
 private:

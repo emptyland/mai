@@ -13,9 +13,6 @@ public:
     Scheduler(int concurrency);
     ~Scheduler();
     
-    // TODO:
-    void Schedule(Machine *m) { TODO(); } 
-    
     DEF_VAL_GETTER(int, concurrency);
     DEF_PTR_GETTER(Machine, machine0);
     

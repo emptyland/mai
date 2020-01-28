@@ -1,6 +1,7 @@
 #ifndef MAI_LANG_VALUE_H_
 #define MAI_LANG_VALUE_H_
 
+#include "lang/handle.h"
 #include <stdint.h>
 #include "glog/logging.h"
 
@@ -23,10 +24,10 @@ public:
     Any(const Any &) = delete;
     void operator = (const Any &) = delete;
     
-    void *operator new (size_t) = delete;
+    //void *operator new (size_t) = delete;
     void operator delete (void *) = delete;
 protected:
-    Any(Class *clazz, uint32_t tags)
+    Any(const Class *clazz, uint32_t tags)
         : forward_(reinterpret_cast<uintptr_t>(clazz))
         , tags_(tags) {}
     
@@ -43,8 +44,15 @@ public:
     static constexpr int32_t kOffsetLength = offsetof(Array, length_);
     static constexpr int32_t kOffsetElems = offsetof(Array, elems_);
     
-private:
-    Array(Class *clazz, uint32_t capacity, uint32_t length)
+    uint32_t capacity() const { return capacity_; }
+    
+    uint32_t length() const { return length_; }
+    
+    static inline constexpr size_t RequiredSize(size_t capacity) {
+        return sizeof(Array) + sizeof(T) * capacity;
+    }
+protected:
+    Array(const Class *clazz, uint32_t capacity, uint32_t length)
         : Any(clazz, 0)
         , capacity_(capacity)
         , length_(length) {}
@@ -54,6 +62,34 @@ private:
     T elems_[0]; // [? strong ref]
 }; //template<class T> class Array
 
+
+// The string header
+class String : public Array<char> {
+public:
+    static Handle<String> NewUtf8(const char *utf8_string, size_t n);
+    
+    static Handle<String> NewUtf8(const char *utf8_string) {
+        return NewUtf8(utf8_string, strlen(utf8_string));
+    }
+    
+    using Array<char>::capacity;
+    using Array<char>::length;
+    using Array<char>::elems_;
+    
+    const char *data() const { return elems_; }
+    
+    friend class Machine;
+private:
+    String(const Class *clazz, uint32_t capacity, const char *utf8_string, uint32_t length)
+        : Array<char>(clazz, capacity, length) {
+        ::memcpy(elems_, utf8_string, length);
+        elems_[length] = '\0'; // for c-style string
+    }
+    
+    static constexpr size_t RequiredSize(size_t capacity) {
+        return sizeof(String) + capacity;
+    }
+}; // class String
 
 // The Map's header
 template<class T>
@@ -68,7 +104,7 @@ public:
 private:
     static constexpr size_t kPaddingSize = sizeof(T) % 4;
     
-    inline Map(Class *clazz, uint32_t initial_bucket_shift, uint32_t random_seed)
+    inline Map(const Class *clazz, uint32_t initial_bucket_shift, uint32_t random_seed)
         : Any(clazz, 0)
         , bucket_shift_(initial_bucket_shift)
         , length_(0)
@@ -124,7 +160,7 @@ public:
     using Entry = MutableMapEntry;
     
 private:
-    MutableMap(Class *clazz, uint32_t initial_bucket_shift, uint32_t random_seed);
+    MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32_t random_seed);
     
     uint32_t bucket_shift_;
     uint32_t length_;

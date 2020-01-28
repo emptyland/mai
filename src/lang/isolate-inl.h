@@ -2,6 +2,7 @@
 #define MAI_LANG_ISOLATE_INL_H_
 
 #include "lang/isolate.h"
+#include "lang/metadata-space.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -30,7 +31,13 @@ inline TLSStorage *Isolate::tls_storage() const {
     return static_cast<TLSStorage *>(DCHECK_NOTNULL(tls_->Get()));
 }
 
+inline Machine *Isolate::tls_machine() const { return tls_storage()->machine; }
+
 inline Scheduler *Isolate::scheduler() const { return DCHECK_NOTNULL(scheduler_); }
+
+inline const Class *Isolate::builtin_type(BuiltinType type) const {
+    return metadata_space()->builtin_type(type);
+}
 
 } // namespace lang
 

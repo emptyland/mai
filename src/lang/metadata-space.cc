@@ -56,6 +56,29 @@ Error MetadataSpace::Initialize() {
         .tags(Type::kBuiltinTag)
     .Build(this);
     
+    // String class
+    ClassBuilder("string")
+        .tags(Type::kBuiltinTag)
+        .field("capacity")
+            .type(builtin_type(kType_u32))
+            .flags(Field::kPrivate|Field::kRead)
+            .tag(1)
+            .offset(String::kOffsetCapacity)
+        .End()
+        .field("length")
+            .type(builtin_type(kType_u32))
+            .flags(Field::kPublic|Field::kRead)
+            .tag(2)
+            .offset(String::kOffsetLength)
+        .End()
+        .field("elems")
+            .type(TypeOf<char>())
+            .flags(Field::kPublic|Field::kRead|Field::kArray)
+            .tag(3)
+            .offset(String::kOffsetElems)
+        .End()
+    .Build(this);
+
     // MutableMap::Entry
     clazz = ClassBuilder("mutable_map::entry")
         .tags(Type::kBuiltinTag)

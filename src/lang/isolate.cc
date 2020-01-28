@@ -23,20 +23,36 @@ void Isolate::Dispose() {
 }
 
 Error Isolate::Initialize() {
-    auto err = env_->NewThreadLocalSlot("isolate.tls", &TLSStorage::Dtor, &tls_);
-    if (err.fail()) {
+    if (new_space_initial_size_ < 10 * base::kMB) {
+        return MAI_CORRUPTION("new_space_initial_size too small(least than 10MB)");
+    }
+    
+    if (auto err = env_->NewThreadLocalSlot("isolate.tls", &TLSStorage::Dtor, &tls_); err.fail()) {
+        return err;
+    }
+    
+    if (auto err = heap_->Initialize(new_space_initial_size_); err.fail()) {
+        return err;
+    }
+
+    if (auto err = metadata_space_->Initialize(); err.fail()) {
         return err;
     }
     return Error::OK();
 }
 
 Isolate::Isolate(const Options &opts)
-    : env_(opts.env)
+    : new_space_initial_size_(opts.new_space_initial_size)
+    , env_(opts.env)
+    , heap_(new Heap(env_->GetLowLevelAllocator()))
+    , metadata_space_(new MetadataSpace(env_->GetLowLevelAllocator()))
     , scheduler_(new Scheduler(opts.concurrency <= 0 ? env_->GetNumberOfCPUCores() : opts.concurrency)) {
 }
 
 Isolate::~Isolate() {
+    delete metadata_space_;
     delete scheduler_;
+    delete heap_;
 }
 
 void Isolate::Enter() {
@@ -45,9 +61,15 @@ void Isolate::Enter() {
         __isolate = this;
     });
     DCHECK_EQ(this, __isolate);
+
+    // Init machine0
+    scheduler_->machine0()->Enter();
 }
 
-void Isolate::Leave() {
+void Isolate::Exit() {
+    // Exit machine0
+    scheduler_->machine0()->Exit();
+
     DCHECK_EQ(this, __isolate);
     __isolate = nullptr;
 }

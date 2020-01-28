@@ -181,6 +181,10 @@ public:
     }
     
     static Page *Cast(PageHeader *h) { return static_cast<Page *>(h); }
+    
+    static bool IsLarge(size_t n) {
+        return n > ((kPageSize - sizeof(Page)) >> 1);
+    }
 
     friend class OldSpace;
     // For unit-tests:
