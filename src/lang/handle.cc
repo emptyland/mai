@@ -6,6 +6,23 @@ namespace mai {
 
 namespace lang {
 
+// New global handle address and set heap object pointer
+/*static*/ void **GlobalHandles::NewHandle(const void *pointer) {
+    GlobalHandleNode *node = __isolate->NewGlobalHandle(pointer);
+    return reinterpret_cast<void **>(&node->handle);
+}
+
+// Delete global handle by location
+/*static*/ void GlobalHandles::DeleteHandle(void **location) {
+    Address head = reinterpret_cast<Address>(DCHECK_NOTNULL(location)) - GlobalHandleNode::kOffsetHandle;
+    GlobalHandleNode *node = reinterpret_cast<GlobalHandleNode *>(head);
+    __isolate->DeleteGlobalHandle(node);
+}
+
+/*static*/ int GlobalHandles::GetNumberOfHandles() {
+    return __isolate->GetNumberOfGlobalHandles();
+}
+
 // Into this scope
 HandleScope::HandleScope(Initializer/*avoid c++ compiler optimize this object*/) {
     DCHECK_NE(this, Machine::Get()->top_handle_scope());

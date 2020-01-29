@@ -23,6 +23,17 @@ public:
     
     AllocationResult Allocate(size_t size, uint32_t flags);
     
+    struct TotalMemoryUsage {
+        size_t rss;
+        size_t used;
+        
+        float GetUsageRate() const {
+            return static_cast<float>(used)/static_cast<float>(rss);
+        }
+    };
+    
+    TotalMemoryUsage ApproximateMemoryUsage() const;
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
 private:
     std::unique_ptr<NewSpace> new_space_;

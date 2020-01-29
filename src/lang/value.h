@@ -44,8 +44,18 @@ public:
     static constexpr int32_t kOffsetLength = offsetof(Array, length_);
     static constexpr int32_t kOffsetElems = offsetof(Array, elems_);
     
+    // Create new array with initialize-elements and length
+    static inline Handle<Array<T>> NewImmutable(const T *elems, size_t length);
+    // Create new array with length
+    static inline Handle<Array<T>> NewImmutable(size_t length);
+
+    // The + operator:
+    Handle<Array<T>> Plus(size_t index, T elem) const;
+    // The - operator:
+    Handle<Array<T>> Minus(size_t index) const;
+
     uint32_t capacity() const { return capacity_; }
-    
+
     uint32_t length() const { return length_; }
     
     static inline constexpr size_t RequiredSize(size_t capacity) {

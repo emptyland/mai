@@ -4,15 +4,6 @@ namespace mai {
 
 namespace lang {
 
-/*static*/ SemiSpace *SemiSpace::New(size_t size, Allocator *lla) {
-    size = RoundUp(size, lla->granularity());
-    void *chunk = lla->Allocate(size);
-    if (!chunk) {
-        return nullptr;
-    }
-    return new (chunk) SemiSpace(size);
-}
-
 OldSpace::~OldSpace() {
     while (!QUEUE_EMPTY(free_)) {
         auto x = Page::Cast(free_->next_);
@@ -76,7 +67,7 @@ AllocationResult OldSpace::DoAllocate(size_t size) {
     return AllocationResult(AllocationResult::OK, address);
 }
 
-void OldSpace::DoFree(Address addr, bool merge) {
+void OldSpace::Free(Address addr, bool merge) {
     Page *page = Page::FromAddress(addr);
     DCHECK_EQ(kind(), page->owner_space());
     //DCHECK_NE(kColorFreed, GetAddressColor(addr)) << "Free freed block: " << addr;
@@ -116,6 +107,21 @@ void OldSpace::DoFree(Address addr, bool merge) {
             QUEUE_INSERT_HEAD(dummy_, page);
         }
     }
+}
+
+AllocationResult LargeSpace::DoAllocate(size_t size) {
+    if (size == 0) {
+        return AllocationResult(AllocationResult::NOTHING, nullptr);
+    }
+    LargePage *page = LargePage::New(kind(), Allocator::kRdWr, size, lla_);
+    if (!page) {
+        return AllocationResult(AllocationResult::OOM, nullptr);
+    }
+    QUEUE_INSERT_TAIL(dummy_, page);
+    rss_size_ += page->size();
+    used_size_ += size;
+    DCHECK_EQ(0, reinterpret_cast<uintptr_t>(page->chunk()) % kAligmentSize);
+    return AllocationResult(AllocationResult::OK, page->chunk());
 }
 
 } // namespace lang

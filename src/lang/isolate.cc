@@ -10,9 +10,11 @@ namespace mai {
 
 namespace lang {
 
-static std::once_flag init_flag;
+static std::mutex init_mutex;
 
 Isolate *__isolate = nullptr; // Global isolate object
+
+const ptrdiff_t GlobalHandleNode::kOffsetHandle = offsetof(GlobalHandleNode, handle);
 
 /*static*/ Isolate *Isolate::New(const Options &opts) {
     return new Isolate(opts);
@@ -46,21 +48,30 @@ Isolate::Isolate(const Options &opts)
     , env_(opts.env)
     , heap_(new Heap(env_->GetLowLevelAllocator()))
     , metadata_space_(new MetadataSpace(env_->GetLowLevelAllocator()))
-    , scheduler_(new Scheduler(opts.concurrency <= 0 ? env_->GetNumberOfCPUCores() : opts.concurrency)) {
+    , scheduler_(new Scheduler(opts.concurrency <= 0 ? env_->GetNumberOfCPUCores() : opts.concurrency))
+    , persistent_dummy_(new GlobalHandleNode{}) {
 }
 
 Isolate::~Isolate() {
+    while (!QUEUE_EMPTY(persistent_dummy_)) {
+        auto x = persistent_dummy_->next_;
+        QUEUE_REMOVE(x);
+        delete x;
+    }
+    delete persistent_dummy_;
+
     delete metadata_space_;
     delete scheduler_;
     delete heap_;
 }
 
 void Isolate::Enter() {
-    std::call_once(init_flag, [this]() {
+    {
+        std::lock_guard<std::mutex> lock(init_mutex);
         DCHECK(__isolate == nullptr) << "Reinitialize isolate";
         __isolate = this;
-    });
-    DCHECK_EQ(this, __isolate);
+        DCHECK_EQ(this, __isolate);
+    }
 
     // Init machine0
     scheduler_->machine0()->Enter();
@@ -70,8 +81,11 @@ void Isolate::Exit() {
     // Exit machine0
     scheduler_->machine0()->Exit();
 
-    DCHECK_EQ(this, __isolate);
-    __isolate = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(init_mutex);
+        DCHECK_EQ(this, __isolate);
+        __isolate = nullptr;
+    }
 }
 
 } // namespace lang

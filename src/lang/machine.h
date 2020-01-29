@@ -44,6 +44,9 @@ public:
     // Value's factory
     String *NewUtf8String(const char *utf8_string, size_t n, uint32_t flags);
     
+    template<class T>
+    inline Array<T> *NewArray(size_t length, uint32_t flags);
+    
     // Handle scope enter
     void EnterHandleScope(HandleScope *handle_scope) {
         auto prev_slot = top_slot_;
@@ -75,7 +78,9 @@ private:
 
     void Enter() {
         DCHECK(__isolate->tls()->Get() == nullptr);
-        __isolate->tls()->Set(new TLSStorage(this));
+        TLSStorage *tlss = new TLSStorage(this);
+        tlss->mid = id_;
+        __isolate->tls()->Set(tlss);
     }
 
     void Exit() { DCHECK_EQ(this, __isolate->tls_storage()->machine); }

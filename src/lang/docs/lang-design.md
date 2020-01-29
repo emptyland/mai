@@ -1023,7 +1023,7 @@ static_assert(sizeof(Span16) == 16, "");
 |-----------------------------|
 |        allocated_pages: u32 | number of allocated pages
 |-----------------------------|
-|          usage_size: size_t | usage size
+|           used_size: size_t | used size
 |-----------------------------|
 |          limit_size: size_t | size limit
 |-----------------------------|

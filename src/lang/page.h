@@ -137,6 +137,7 @@ protected:
     
     static void *AllocatePage(size_t size, int access, Allocator *lla);
     
+    DEF_VAL_GETTER(uint32_t, maker);
     DEF_PTR_GETTER(PageHeader, next);
     DEF_PTR_GETTER(PageHeader, prev);
 
@@ -177,7 +178,7 @@ public:
     bool IsEmpty() { return limit() - chunk() == available_; }
     
     static Page *FromAddress(Address addr) {
-        return Cast(PageHeader::FromAddress(addr));
+        return !addr ? nullptr : Cast(PageHeader::FromAddress(addr));
     }
     
     static Page *Cast(PageHeader *h) { return static_cast<Page *>(h); }
@@ -265,6 +266,10 @@ public:
     Address chunk() { return chunk_; }
     Address limit() { return reinterpret_cast<Address>(this) + size_; }
     
+    static LargePage *FromAddress(Address addr) {
+        return !addr ? nullptr : Cast(PageHeader::FromAddress(addr));
+    }
+    
     static LargePage *Cast(PageHeader *h) { return static_cast<LargePage *>(h); }
     
     friend class LargeSpace;
@@ -278,18 +283,17 @@ private:
         : PageHeader(space)
         , size_(size) {
         available_ = static_cast<uint32_t>(size - sizeof(LargePage));
-        DbgFillInitZag(chunk_, available_);
     }
 
     void Dispose(Allocator *lla) { lla->Free(this, size_); }
     
     static LargePage *New(SpaceKind space, int access, size_t size, Allocator *lla) {
-        size = RoundUp(sizeof(LargePage) + size, lla->granularity());
-        void *chunk = AllocatePage(size, access, lla);
+        size_t request_size = RoundUp(sizeof(LargePage) + size, lla->granularity());
+        void *chunk = AllocatePage(request_size, access, lla);
         if (!chunk) {
             return nullptr;
         }
-        return new (chunk) LargePage(space, size);
+        return new (chunk) LargePage(space, request_size);
     }
 
     size_t size_; // large object size

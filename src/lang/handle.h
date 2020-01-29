@@ -12,7 +12,7 @@ template<class T> class Handle;
 class HandleScope {
 public:
     enum Initializer {
-        ON_EXIT_SCOPE_INITIALIZER
+        INITIALIZER
     };
     
     // Into this scope
@@ -46,6 +46,23 @@ private:
     bool close_ = true;
 }; // class HandleScope
 
+struct GlobalHandles {
+    
+    template<class T>
+    static inline T **NewLocation(T *value) {
+        return reinterpret_cast<T **>(NewHandle(value));
+    }
+
+    // New global handle address and set heap object pointer
+    static void **NewHandle(const void *pointer);
+
+    // Delete global handle by location
+    static void DeleteHandle(void **location);
+    
+    // Get number of global handles
+    static int GetNumberOfHandles();
+
+}; // struct GlobalHandles
 
 template<class T>
 class HandleBase {
@@ -74,9 +91,16 @@ protected:
 template<class T>
 class Handle : public HandleBase<T> {
 public:
-    // Initialize by a handle address
-    inline explicit Handle(T **location = nullptr) : HandleBase<T>(location) {}
-
+    using HandleBase<T>::location_;
+    using HandleBase<T>::is_value_null;
+    using HandleBase<T>::is_value_not_null;
+    using HandleBase<T>::is_empty;
+    using HandleBase<T>::is_not_empty;
+    using HandleBase<T>::get;
+    
+    // Initialize a empty handle
+    inline Handle() : Handle(static_cast<T **>(nullptr)) {}
+    
     // Initialize by heap object pointer
     template<class S> inline explicit Handle(S *pointer)
         : Handle(HandleScope::NewLocation<T>(pointer)) {
@@ -86,30 +110,21 @@ public:
 
     // Initialize by other handle
     template<class S> inline explicit Handle(const Handle<S> &other)
-        : Handle(other.is_empty() ? nullptr : HandleScope::NewLocation<T>(other.get())) {
+        : Handle(other.is_empty() ? nullptr : HandleScope::NewLocation<T>(*other)) {
         static_assert(std::is_convertible<S*, T*>::value || std::is_same<S, T>::value,
                       "can not cast to");
     }
-    
-    using HandleBase<T>::location_;
 
     // Copy constructor
     inline Handle(const Handle &other)
-        : Handle(other.is_empty() ? nullptr : HandleScope::NewLocation<T>(other.get())) {}
+        : Handle(other.is_empty() ? nullptr : HandleScope::NewLocation<T>(*other)) {}
 
     // Right reference constructor
     inline Handle(Handle &&other): Handle(other.location_) { other.location_ = nullptr; }
 
-    using HandleBase<T>::get;
-    
     // Getters
     inline T *operator -> () const { return get(); }
     inline T *operator * () const { return get(); }
-    
-    using HandleBase<T>::is_value_null;
-    using HandleBase<T>::is_value_not_null;
-    using HandleBase<T>::is_empty;
-    using HandleBase<T>::is_not_empty;
 
     // Tester
     inline bool operator ! () const { return is_value_not_null(); }
@@ -145,7 +160,10 @@ public:
     static inline Handle<T> Empty() { return Handle<T>(static_cast<T **>(nullptr)); }
     
 private:
-    void Assign(T **location) {
+    // Initialize by a handle address
+    inline explicit Handle(T **location) : HandleBase<T>(location) {}
+
+    inline void Assign(T **location) {
         if (location_ == location) {
             return;
         }
@@ -170,30 +188,104 @@ private:
 template<class T>
 class Persistent : public HandleBase<T> {
 public:
+    using HandleBase<T>::location_;
+    using HandleBase<T>::is_value_null;
+    using HandleBase<T>::is_value_not_null;
+    using HandleBase<T>::is_empty;
+    using HandleBase<T>::is_not_empty;
+    using HandleBase<T>::get;
+    
     // Initialize a empty handle
-    inline Persistent();
+    inline Persistent() : Persistent(nullptr) {}
+
     // Copy constructor
-    inline Persistent(const Persistent &);
+    inline Persistent(const Persistent &other)
+        : Persistent(other.is_empty() ? nullptr : GlobalHandles::NewLocation(*other)) {}
+
     // Right reference constructor
-    inline Persistent(Persistent &&);
+    inline Persistent(Persistent &&other)
+        : Persistent(other.location_) { other.location_ = nullptr; }
 
     // Manual drop this handle, object mybe release by next GC
-    inline void Dispose();
+    inline void Dispose() {
+        if (is_not_empty()) {
+            GlobalHandles::DeleteHandle(reinterpret_cast<void **>(location_));
+            location_ = nullptr;
+        }
+    }
   
       // Getters
-    T *operator -> () const;
-    T *operator * () const;
+    inline T *operator -> () const { return get(); }
+    inline T *operator * () const { return get(); }
 
     // Tester
-    bool operator ! () const;
-    bool operator == (const Handle<T> &) const;
+    inline bool operator ! () const { return is_value_not_null(); }
+    inline bool operator == (const Persistent<T> &other) const { return get() == *other; }
+    inline bool operator == (const Handle<T> &other) const { return get() == *other; }
+
+    // Assignment
+    inline void operator = (const Persistent &other) { Assign(other.location_); }
+
+    inline void operator = (Persistent &&other) {
+        if (Assign(other.location_)) {
+            other.location_ = nullptr;
+        }
+    }
+
+    inline void operator = (const Handle<T> &other) { Assign(other.location_); }
+
+    inline void operator = (T *pointer) {
+        if (location_ && *location_ == pointer) {
+            return;
+        }
+        if (is_empty()) {
+            location_ = GlobalHandles::NewLocation(pointer);
+        } else {
+            *location_ = pointer;
+        }
+    }
 
     // Utils
     // Handle cast
-    template<class S> static inline Persistent<T> Cast(const Persistent<S> other);
+    template<class S> static inline Persistent<T> Cast(const Persistent<S> other) {
+        static_assert(std::is_convertible<S*, T*>::value || std::is_same<S, T>::value,
+        "can not cast to");
+        if (other.is_empty()) {
+            return Persistent<T>();
+        }
+        return Persistent<T>(GlobalHandles::NewLocation(*other));
+    }
 
     // Create by local handle
-    static inline Persistent<T> New(const Handle<T> &local);
+    static inline Persistent<T> New(const Handle<T> &local) {
+        if (local.is_empty()) {
+            return Persistent<T>();
+        }
+        return Persistent<T>(GlobalHandles::NewLocation(*local));
+    }
+
+private:
+    inline Persistent(T **location): HandleBase<T>(location) {}
+    
+    inline bool Assign(T **location) {
+        if (location_ == location) {
+            return false;
+        }
+        if (is_empty()) {
+            if (location) {
+                operator=(*location);
+            } else {
+                // Nothing
+            }
+        } else { // No empty
+            if (location) {
+                *location_ = *location;
+            } else {
+                location_ = nullptr;
+            }
+        }
+        return true;
+    }
 }; // class Persistent
 
 

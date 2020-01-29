@@ -5,6 +5,7 @@
 #include "mai/env.h"
 #include "mai/error.h"
 #include <memory>
+#include <mutex>
 
 namespace mai {
 namespace test {
@@ -18,6 +19,7 @@ class Scheduler;
 class Machine;
 class Class;
 struct TLSStorage;
+struct GlobalHandleNode;
 
 struct Options {
     Env *env = Env::Default(); // The base api env pointer
@@ -46,6 +48,7 @@ public:
     
     friend class Machine;
     friend class IsolateScope;
+    friend class GlobalHandles;
     friend class test::IsolateInitializer;
     Isolate(const Isolate&) = delete;
     void operator = (const Isolate &) = delete;
@@ -56,15 +59,24 @@ private:
     void Enter();
     void Exit();
     
+    inline GlobalHandleNode *NewGlobalHandle(const void *pointer);
+    inline void DeleteGlobalHandle(GlobalHandleNode *node);
+    inline int GetNumberOfGlobalHandles() const;
+    
     ThreadLocalSlot *tls() const { return tls_.get(); }
-    
+
+    // New space initial bytes size
     const size_t new_space_initial_size_;
-    
+
     Env *env_;
     Heap *heap_;
     MetadataSpace *metadata_space_;
     Scheduler *scheduler_;
     std::unique_ptr<ThreadLocalSlot> tls_;
+    
+    GlobalHandleNode *persistent_dummy_;
+    int n_global_handles_ = 0;
+    mutable std::mutex persistent_mutex_;
 }; // class Isolate
 
 

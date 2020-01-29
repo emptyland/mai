@@ -82,8 +82,8 @@ TEST_F(PageTest, AllocateLargePage) {
     ASSERT_EQ(0, reinterpret_cast<uintptr_t>(page) % kPageSize);
     
     EXPECT_EQ(kLargeSpace, page->owner_space());
-    EXPECT_EQ(10485720, page->available());
-    EXPECT_EQ(10 * 1024 * 1024, page->size());
+    EXPECT_EQ(10489816, page->available());
+    EXPECT_EQ(10489856, page->size());
     
     page->Dispose(lla_);
 }

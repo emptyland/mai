@@ -38,7 +38,14 @@ public:
     using Bitmap = RestrictAllocationBitmap;
     using Iterator = SemiSpaceIterator;
 
-    static SemiSpace *New(size_t size, Allocator *lla);
+    static SemiSpace *New(size_t size, Allocator *lla) {
+        size_t request_size = RoundUp(size, lla->granularity());
+        void *chunk = lla->Allocate(request_size);
+        if (!chunk) {
+            return nullptr;
+        }
+        return new (chunk) SemiSpace(request_size);
+    }
     
     friend class Heap;
     friend class NewSpace;
@@ -59,6 +66,7 @@ private:
     
     Bitmap *bitmap() { return Bitmap::FromSizeAddress(&bitmap_length_); }
     
+    DEF_VAL_GETTER(size_t, size);
     DEF_VAL_GETTER(Address, chunk);
     DEF_VAL_GETTER(Address, limit);
     
@@ -167,6 +175,8 @@ public:
         return AllocationResult(AllocationResult::OK, space);
     }
     
+    bool Contains(Address addr) const { return addr >=original_chunk() || addr < original_limit(); }
+    
     size_t GetAllocatedSize(Address addr) {
         DCHECK_GE(addr, original_area_->chunk());
         DCHECK_LT(addr, original_area_->limit());
@@ -178,6 +188,10 @@ public:
     Address original_chunk() const { return original_area_->chunk(); }
     
     Address original_limit() const { return original_area_->limit(); }
+    
+    size_t GetRSS() const { return survive_area_->size() + original_area_->size(); }
+    
+    size_t GetUsedSize() const { return survive_area_->free() - survive_area_->chunk(); }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NewSpace);
 private:
@@ -206,19 +220,23 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         return DoAllocate(size);
     }
+
+    // Free lock is not need.
+    void Free(Address addr, bool merge);
     
-    void Free(Address addr, bool merge) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        DoFree(addr, merge);
+    bool Contains(Address addr) {
+        if (!addr) {
+            return false;
+        }
+        PageHeader *page = PageHeader::FromAddress(addr);
+        return page->maker() == kPageMaker && page->owner_space() == kind();
     }
     
+    friend class Heap;
     DISALLOW_IMPLICIT_CONSTRUCTORS(OldSpace);
 private:
     // Not thread safe:
     AllocationResult DoAllocate(size_t size);
-
-    // Not thread safe:
-    void DoFree(Address addr, bool merge);
     
     Page *GetOrNewFreePage() {
         Page *free_page = Page::Cast(free_->next());
@@ -231,6 +249,17 @@ private:
         return free_page;
     }
     
+    void ReclaimFreePages() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        while (!QUEUE_EMPTY(free_)) {
+            auto x = Page::Cast(free_->next());
+            QUEUE_REMOVE(x);
+            x->Dispose(lla_);
+        }
+        allocated_pages_ -= freed_pages_;
+        freed_pages_ = 0;
+    }
+    
     PageHeader *dummy_; // Page double-linked list dummy
     PageHeader *free_;  // Free page double-linked list dummy
     const int max_freed_pages_; // Limit of freed pages
@@ -241,14 +270,59 @@ private:
 }; // class OldSpace
 
 
+// Large and pinned object space
 class LargeSpace : public Space {
 public:
     LargeSpace(Allocator *lla)
-        : Space(kLargeSpace, lla) {}
+        : Space(kLargeSpace, lla)
+        , dummy_(new PageHeader(kDummySpace)) {}
+
+    ~LargeSpace() {
+        while (!QUEUE_EMPTY(dummy_)) {
+            auto x = dummy_->next();
+            QUEUE_REMOVE(x);
+            LargePage::Cast(x)->Dispose(lla_);
+        }
+        delete dummy_;
+    }
     
+    DEF_VAL_GETTER(size_t, rss_size);
+    DEF_VAL_GETTER(size_t, used_size);
+    
+    bool Contains(Address addr) {
+        if (!addr) {
+            return false;
+        }
+        PageHeader *page = PageHeader::FromAddress(addr);
+        return page->maker() == kPageMaker && page->owner_space() == kind();
+    }
+
+    AllocationResult Allocate(size_t size) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return DoAllocate(size);
+    }
+
+    // Free lock is not need.
+    void Free(Address addr) {
+        DCHECK(Contains(addr));
+        LargePage *page = LargePage::FromAddress(addr);
+        DbgFillFreeZag(page->chunk(), page->available());
+        QUEUE_REMOVE(page);
+        rss_size_ -= page->size();
+        used_size_ -= page->available();
+        page->Dispose(lla_);
+    }
+
+    friend class Heap;
     DISALLOW_IMPLICIT_CONSTRUCTORS(LargeSpace);
 private:
+    // Not thread safe:
+    AllocationResult DoAllocate(size_t size);
     
+    PageHeader *dummy_; // Page double-linked list dummy
+    size_t rss_size_ = 0; // OS Allocated bytes size
+    size_t used_size_ = 0; // Allocated bytes size
+    std::mutex mutex_; // Allocation mutex
 }; // class OldSpace
 
 } // namespace lang

@@ -13,6 +13,7 @@ public:
         kWr = 1,
         kRd = 1 << 1,
         kEx = 1 << 2,
+        kRdWr = kRd | kWr,
     };
     
     Allocator() {}

@@ -132,8 +132,11 @@ public:
     friend class Heap;
     friend class NewSpace;
     friend class OldSpace;
+    friend class LargeSpace;
     friend class MetadataSpace;
 private:
+    AllocationResult(): AllocationResult(NOTHING, nullptr) {}
+
     AllocationResult(Result result, Address chunk)
         : result_(result)
         , address_(chunk) {}
