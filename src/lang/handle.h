@@ -110,7 +110,7 @@ public:
 
     // Initialize by other handle
     template<class S> inline explicit Handle(const Handle<S> &other)
-        : Handle(other.is_empty() ? nullptr : HandleScope::NewLocation<T>(*other)) {
+        : Handle(other.is_empty() ? nullptr : HandleScope::NewLocation<T>(static_cast<T*>(*other))) {
         static_assert(std::is_convertible<S*, T*>::value || std::is_same<S, T>::value,
                       "can not cast to");
     }

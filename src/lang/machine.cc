@@ -74,6 +74,27 @@ String *Machine::NewUtf8String(const char *utf8_string, size_t n, uint32_t flags
     return obj;
 }
 
+Any *Machine::NewArraySlow(BuiltinType type, size_t length, uint32_t flags) {
+    const Class *clazz = DCHECK_NOTNULL(__isolate->builtin_type(type));
+    if (::strstr(clazz->name(), "array") != clazz->name()){
+        NOREACHED() << "class: " << clazz->name() << " is not array!";
+        return nullptr;
+    }
+
+    const Field *elems_field =
+        DCHECK_NOTNULL(__isolate->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
+
+    size_t request_size = sizeof(Array<Any *>) + elems_field->type()->ref_size() * length;
+    AllocationResult result = __isolate->heap()->Allocate(request_size, flags);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    Array<Any *> *obj = new (result.ptr()) Array<Any *>(clazz,
+                                                        static_cast<uint32_t>(length),
+                                                        static_cast<uint32_t>(length));
+    return obj;
+}
+
 } // namespace lang
 
 } // namespace mai

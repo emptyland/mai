@@ -4,7 +4,9 @@
 #include "lang/metadata.h"
 #include "lang/space.h"
 #include "lang/type-defs.h"
+#include "base/hash.h"
 #include <map>
+#include <mutex>
 #include <unordered_map>
 
 namespace mai {
@@ -19,12 +21,14 @@ public:
     // Init builtin types
     Error Initialize();
     
+    const Field *FindClassFieldOrNull(const Class *clazz, const char *field_name);
+    
     const Class *builtin_type(BuiltinType type) const {
         DCHECK_GE(static_cast<int>(type), 0);
         DCHECK_LT(static_cast<int>(type), classes_.size());
         return classes_[static_cast<int>(type)];
     }
-    
+
     template<class T>
     const Class *TypeOf() const {
         return builtin_type(TypeTraits<T>::kType);
@@ -61,6 +65,13 @@ public:
     // mark all pages to readonly
     void MarkReadonly(bool readonly) {
         // TODO:
+        TODO();
+    }
+    
+    void InvalidateAllLookupTables() {
+        std::lock_guard<std::mutex> lock(class_fields_mutex_);
+        named_class_fields_.clear();
+        // TODO:
     }
 
     // allocate flat memory block
@@ -69,6 +80,24 @@ public:
     friend class ClassBuilder;
     DISALLOW_IMPLICIT_CONSTRUCTORS(MetadataSpace);
 private:
+    struct ClassFieldKey {
+        const Class *clazz;
+        std::string_view field_name;
+    }; // struct ClassFieldKey
+
+    struct ClassFieldHash : public std::unary_function<ClassFieldKey, size_t> {
+        size_t operator () (ClassFieldKey key) const {
+            return std::hash<const Class *>{}(key.clazz) +
+                base::Hash::Js(key.field_name.data(), key.field_name.size());
+        }
+    }; // struct ClassFieldHash
+    
+    struct ClassFieldEqualTo : public std::binary_function<ClassFieldKey, ClassFieldKey, bool> {
+        bool operator () (ClassFieldKey lhs, ClassFieldKey rhs) const {
+            return lhs.clazz == rhs.clazz && lhs.field_name.compare(rhs.field_name) == 0;
+        }
+    }; // struct ClassFieldEqualTo
+
     template<class T>
     inline T *NewArray(size_t n) {
         auto result = Allocate(n * sizeof(T), false);
@@ -130,6 +159,12 @@ private:
     size_t n_pages_ = 0; // Number of linear pages.
     size_t large_size_ = 0; // All large page's size
     size_t used_size_ = 0; // Allocated used bytes
+    
+    // Class with field name
+    using ClassFieldMap = std::unordered_map<ClassFieldKey, const Field*, ClassFieldHash,
+        ClassFieldEqualTo>;
+    ClassFieldMap named_class_fields_;
+    std::mutex class_fields_mutex_;
 }; // class MetadataSpace
 
 
@@ -217,6 +252,11 @@ public:
         return *this;
     }
     
+    ClassBuilder &ref_size(uint32_t value) {
+        ref_size_ = value;
+        return *this;
+    }
+    
     ClassBuilder &base(const Class *value) {
         base_ = value;
         return *this;
@@ -257,6 +297,7 @@ private:
     
     std::string name_;
     uint32_t tags_ = 0;
+    uint32_t ref_size_ = 0;
     std::vector<FieldBuilder *> fields_;
     std::map<std::string, FieldBuilder *> named_fields_;
     std::map<std::string, MethodBuilder *> named_methods_;

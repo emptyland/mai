@@ -14,6 +14,14 @@ const int32_t MutableMapEntry::kOffsetHash = MEMBER_OFFSET_OF(MutableMapEntry, h
 const int32_t MutableMapEntry::kOffsetKey = MEMBER_OFFSET_OF(MutableMapEntry, key_);
 const int32_t MutableMapEntry::kOffsetValue = MEMBER_OFFSET_OF(MutableMapEntry, value_);
 
+/*static*/ Any *Any::NewArray(BuiltinType type, size_t length) {
+    uint32_t flags = 0;
+    if (length > 2 * base::kKB) { // bit array should in old-space
+        flags |= kOldSpace;
+    }
+    return Machine::Get()->NewArraySlow(type, length, flags);
+}
+
 /*static*/ Handle<String> String::NewUtf8(const char *utf8_string, size_t n) {
     if (!utf8_string || n == 0) {
         utf8_string = "";

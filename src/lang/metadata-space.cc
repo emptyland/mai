@@ -39,9 +39,10 @@ MetadataSpace::~MetadataSpace() {
 Error MetadataSpace::Initialize() {
     Class *clazz = nullptr;
     
-#define DEFINE_PRIMITIVE_CLASS(literal, ...) \
+#define DEFINE_PRIMITIVE_CLASS(literal, kind, ...) \
     clazz = New<Class>(); \
     clazz->id_ = NextTypeId(); \
+    clazz->ref_size_ = sizeof(kind); \
     clazz->name_ = NewString(#literal); \
     clazz->tags_ = Type::kBuiltinTag|Type::kPrimitiveTag; \
     InsertClass(#literal, clazz); \
@@ -54,11 +55,13 @@ Error MetadataSpace::Initialize() {
     // Any class
     ClassBuilder("any")
         .tags(Type::kBuiltinTag)
+        .ref_size(kPointerSize)
     .Build(this);
     
     // String class
     ClassBuilder("string")
         .tags(Type::kBuiltinTag)
+        .ref_size(kPointerSize)
         .field("capacity")
             .type(builtin_type(kType_u32))
             .flags(Field::kPrivate|Field::kRead)
@@ -82,6 +85,7 @@ Error MetadataSpace::Initialize() {
     // MutableMap::Entry
     clazz = ClassBuilder("mutable_map::entry")
         .tags(Type::kBuiltinTag)
+        .ref_size(kPointerSize)
         .field("next")
             .type(builtin_type(kType_i8))
             .flags(Field::kPublic|Field::kRead)
@@ -113,6 +117,7 @@ Error MetadataSpace::Initialize() {
 #define DEFINE_BUILTIN_CLASS(literal, kind, ...) \
     clazz = ClassBuilder(#literal) \
         .tags(Type::kBuiltinTag) \
+        .ref_size(kPointerSize) \
         .field("capacity") \
             .type(builtin_type(kType_u32)) \
             .flags(Field::kPrivate|Field::kRead) \
@@ -143,6 +148,34 @@ Error MetadataSpace::Initialize() {
     DCHECK_LT(next_type_id_, kUserTypeIdBase);
     next_type_id_ = kUserTypeIdBase;
     return Error::OK();
+}
+
+const Field *MetadataSpace::FindClassFieldOrNull(const Class *clazz, const char *field_name) {
+    ClassFieldKey key{clazz, field_name};
+    {
+        std::lock_guard<std::mutex> lock(class_fields_mutex_);
+        auto iter = named_class_fields_.find(key);
+        if (iter != named_class_fields_.end()) {
+            return iter->second;
+        }
+    }
+
+    const Field *field = nullptr;
+    for (uint32_t i = 0; i < clazz->n_fields(); i++) {
+        if (::strcmp(field_name, clazz->field(i)->name()) == 0) {
+            field = clazz->field(i);
+            break;
+        }
+    }
+    if (!field) {
+        return nullptr;
+    }
+    
+    // Use self space's string
+    key.field_name = field->name();
+    std::lock_guard<std::mutex> lock(class_fields_mutex_);
+    named_class_fields_[key] = field;
+    return field;
 }
 
 AllocationResult MetadataSpace::Allocate(size_t n, bool exec) {

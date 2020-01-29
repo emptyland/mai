@@ -44,8 +44,7 @@ public:
     // Value's factory
     String *NewUtf8String(const char *utf8_string, size_t n, uint32_t flags);
     
-    template<class T>
-    inline Array<T> *NewArray(size_t length, uint32_t flags);
+    Any *NewArraySlow(BuiltinType type, size_t length, uint32_t flags);
     
     // Handle scope enter
     void EnterHandleScope(HandleScope *handle_scope) {

@@ -1,6 +1,7 @@
 #ifndef MAI_LANG_VALUE_H_
 #define MAI_LANG_VALUE_H_
 
+#include "lang/type-defs.h"
 #include "lang/handle.h"
 #include <stdint.h>
 #include "glog/logging.h"
@@ -31,6 +32,8 @@ protected:
         : forward_(reinterpret_cast<uintptr_t>(clazz))
         , tags_(tags) {}
     
+    static Any *NewArray(BuiltinType type, size_t length);
+    
     uintptr_t forward_; // Forward pointer or Class pointer
     uint32_t tags_; // Tags for heap object
 }; // class Any
@@ -45,9 +48,25 @@ public:
     static constexpr int32_t kOffsetElems = offsetof(Array, elems_);
     
     // Create new array with initialize-elements and length
-    static inline Handle<Array<T>> NewImmutable(const T *elems, size_t length);
+    static inline Handle<Array<T>> NewImmutable(const T *elems, size_t length) {
+        Handle<Array<T>> array(NewImmutable(length));
+        for (size_t i = 0; i < length; i++) {
+            array->elems_[i] = elems[i];
+            // TODO: Write barrier
+        }
+        return array;
+    }
+
     // Create new array with length
-    static inline Handle<Array<T>> NewImmutable(size_t length);
+    static inline Handle<Array<T>> NewImmutable(size_t length) {
+        Handle<Any> any(NewArray(TypeTraits<Array<T>>::kType, length));
+        if (any.is_empty()) {
+            return Handle<Array<T>>::Empty();
+        }
+        return Handle<Array<T>>(static_cast<Array<T> *>(*any));
+    }
+
+    T At(int i) const { return (i >= 0 && i < length_) ? elems_[i] : T(); }
 
     // The + operator:
     Handle<Array<T>> Plus(size_t index, T elem) const;
@@ -61,16 +80,22 @@ public:
     static inline constexpr size_t RequiredSize(size_t capacity) {
         return sizeof(Array) + sizeof(T) * capacity;
     }
+
+    friend class Machine;
 protected:
     Array(const Class *clazz, uint32_t capacity, uint32_t length)
         : Any(clazz, 0)
         , capacity_(capacity)
-        , length_(length) {}
+        , length_(length) {
+        ::memset(elems_, 0, sizeof(T) * length);
+    }
 
     uint32_t capacity_;
     uint32_t length_;
     T elems_[0]; // [? strong ref]
 }; //template<class T> class Array
+
+
 
 
 // The string header
