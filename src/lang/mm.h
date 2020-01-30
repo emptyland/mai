@@ -34,7 +34,12 @@ static constexpr uint32_t kPageMaker = 0x9a6e0102u;
 static constexpr int kAllocateRetries = 16; // How many times to allocation retires?
 
 static constexpr size_t kAligmentSize = 4; // Heap allocation aligment to 4 bytes
+static constexpr size_t kStackAligmentSize = 16; // Stack alignment size
 static constexpr size_t kMinAllocationSize = kPointerSize << 1; // Two-Pointers
+
+static constexpr size_t kMaxStackPoolRSS = 10 * base::kMB;
+static constexpr size_t kCoroutine0StackSize = 80 * base::kMB;
+static constexpr size_t kDefaultStackSize = 10 * base::kMB;
 
 static constexpr uint32_t kFreeZag = 0xfeedfeed;
 static constexpr uint32_t kInitZag = 0xcccccccc;

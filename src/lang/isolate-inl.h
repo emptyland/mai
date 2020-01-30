@@ -11,7 +11,7 @@ namespace mai {
 namespace lang {
 
 class Machine;
-class Corouotine;
+class Coroutine;
 
 struct TLSStorage {
     TLSStorage(Machine *m) : machine(m) {}
@@ -20,7 +20,7 @@ struct TLSStorage {
 
     int mid = -1;
     Machine *machine;
-    Corouotine *coroutine = nullptr;
+    Coroutine *coroutine = nullptr;
 };
 
 struct GlobalHandleNode {

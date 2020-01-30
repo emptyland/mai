@@ -15,6 +15,7 @@ namespace lang {
 
 class Scheduler;
 class HandleScope;
+class Coroutine;
 
 struct HandleScopeSlot {
     HandleScope     *scope;
@@ -75,6 +76,7 @@ public:
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
 
     friend class Isolate;
+    friend class Scheduler;
     friend class MachineScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Machine);
 private:
@@ -96,6 +98,10 @@ private:
     Scheduler *const owner_; // Scheduler
     HandleScopeSlot *top_slot_ = nullptr; // Top of handle-scope slot pointer
     std::atomic<State> state_ = kDead; // Current machine state
+    uint64_t exclusion_ = 0; // Exclusion counter if > 0 can not be preempted
+    Coroutine *free_dummy_; // Local free coroutines(coroutine pool)
+    Coroutine *runnable_dummy_; // Waiting for running coroutines
+    Coroutine *running_ = nullptr; // Current running coroutine
     std::thread thread_; // Thread object
 }; // class Machine
 

@@ -36,6 +36,8 @@ public:
 
     Error Initialize();
 
+    Env *env() const { return env_; }
+    
     size_t new_space_initial_size() const { return new_space_initial_size_; }
     
     // Internal functions:

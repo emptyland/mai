@@ -142,6 +142,7 @@
 		236EA78D23D6FC620071047C /* metadata.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA78C23D6FC620071047C /* metadata.cc */; };
 		236EA79123D72F3B0071047C /* metadata-space.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA79023D72F3B0071047C /* metadata-space.cc */; };
 		2379A24F23E2B8E9003067E6 /* value-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2379A24E23E2B8E9003067E6 /* value-test.cc */; };
+		2379A25223E31A1F003067E6 /* coroutine.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2379A25123E31A1F003067E6 /* coroutine.cc */; };
 		237F504D21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
 		237F504E21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
 		237F505121EB74390069075D /* zone.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F505021EB74390069075D /* zone.cc */; };
@@ -362,6 +363,9 @@
 		236EA78F23D72F0B0071047C /* metadata-space.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "metadata-space.h"; sourceTree = "<group>"; };
 		236EA79023D72F3B0071047C /* metadata-space.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "metadata-space.cc"; sourceTree = "<group>"; };
 		2379A24E23E2B8E9003067E6 /* value-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "value-test.cc"; sourceTree = "<group>"; };
+		2379A25023E319E4003067E6 /* coroutine.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = coroutine.h; sourceTree = "<group>"; };
+		2379A25123E31A1F003067E6 /* coroutine.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = coroutine.cc; sourceTree = "<group>"; };
+		2379A25323E32741003067E6 /* stack.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stack.h; sourceTree = "<group>"; };
 		237CE4B72192CD16004FB9BF /* memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "memory-table.h"; sourceTree = "<group>"; };
 		237CE4B82192D00B004FB9BF /* unordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "unordered-memory-table.h"; sourceTree = "<group>"; };
 		237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "unordered-memory-table.cc"; sourceTree = "<group>"; };
@@ -600,6 +604,7 @@
 				23599D3823D58DDF00F722D6 /* page.h */,
 				23599D3A23D58E3700F722D6 /* page.cc */,
 				236EA77E23D691E20071047C /* mm.h */,
+				2379A25323E32741003067E6 /* stack.h */,
 				236EA77F23D69A370071047C /* space.h */,
 				236EA78023D69A760071047C /* space.cc */,
 				236EA78223D6E22F0071047C /* isolate.h */,
@@ -617,6 +622,8 @@
 				236EA78E23D6FCAF0071047C /* type-defs.h */,
 				230510B623DF315400B89A7C /* machine.h */,
 				230510B723DF318100B89A7C /* machine.cc */,
+				2379A25023E319E4003067E6 /* coroutine.h */,
+				2379A25123E31A1F003067E6 /* coroutine.cc */,
 				230510B923DF361800B89A7C /* scheduler.h */,
 				230510BA23DF368900B89A7C /* scheduler.cc */,
 				230510BC23E066C500B89A7C /* handle.h */,
@@ -1294,6 +1301,7 @@
 				2364B33721E451F9008519AE /* hash-map-v2-test.cc in Sources */,
 				2364B33821E451F9008519AE /* bw-tree-memory-table-test.cc in Sources */,
 				230510BB23DF368900B89A7C /* scheduler.cc in Sources */,
+				2379A25223E31A1F003067E6 /* coroutine.cc in Sources */,
 				2364B33921E451F9008519AE /* error-test.cc in Sources */,
 				2364B33A21E451F9008519AE /* hash-map-v1-test.cc in Sources */,
 				2364B33B21E451F9008519AE /* key-boundle-test.cc in Sources */,

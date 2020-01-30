@@ -66,6 +66,9 @@ public:
     
     uint64_t NextRememberRecordSequanceNumber() { return remember_record_sequance_.fetch_add(1); }
     
+    
+    NewSpace *new_space() const { return new_space_.get(); }
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
 private:
     std::unique_ptr<NewSpace> new_space_; // New generation space

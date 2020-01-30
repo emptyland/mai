@@ -1,4 +1,5 @@
 #include "lang/machine.h"
+#include "lang/coroutine.h"
 #include "lang/value-inl.h"
 #include "lang/heap.h"
 #include "mai/allocator.h"
@@ -10,7 +11,9 @@ namespace lang {
 
 Machine::Machine(int id, Scheduler *owner)
     : id_(id)
-    , owner_(owner) {
+    , owner_(owner)
+    , free_dummy_(Coroutine::NewDummy())
+    , runnable_dummy_(Coroutine::NewDummy()) {
     top_slot_ = new HandleScopeSlot;
     top_slot_->scope = nullptr;
     top_slot_->prev  = nullptr;
@@ -21,6 +24,19 @@ Machine::Machine(int id, Scheduler *owner)
 
 Machine::~Machine() {
     // TODO:
+    while (!QUEUE_EMPTY(runnable_dummy_)) {
+        auto x = runnable_dummy_->next();
+        QUEUE_REMOVE(x);
+        delete x;
+    }
+    Coroutine::DeleteDummy(runnable_dummy_);
+    
+    while (!QUEUE_EMPTY(free_dummy_)) {
+        auto x = free_dummy_->next();
+        QUEUE_REMOVE(x);
+        delete x;
+    }
+    Coroutine::DeleteDummy(free_dummy_);
 }
 
 void Machine::ExitHandleScope() {
