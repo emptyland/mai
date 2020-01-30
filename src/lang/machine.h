@@ -67,10 +67,11 @@ public:
     
     // Update local remember-set record
     int UpdateRememberRecords(Any *host, Any **address, size_t n) {
-        // TODO
+        // TODO:
+        DLOG(ERROR) << "TODO: batch write barrier : " << n;
         return 0;
     }
-    
+
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
 
     friend class Isolate;

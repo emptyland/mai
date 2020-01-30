@@ -103,7 +103,7 @@ public:
     
     // Initialize by heap object pointer
     template<class S> inline explicit Handle(S *pointer)
-        : Handle(HandleScope::NewLocation<T>(pointer)) {
+        : Handle(HandleScope::NewLocation<T>(static_cast<T *>(pointer))) {
         static_assert(std::is_convertible<S*, T*>::value || std::is_same<S, T>::value,
                       "can not cast to");
     }
@@ -129,6 +129,7 @@ public:
     // Tester
     inline bool operator ! () const { return is_value_not_null(); }
     inline bool operator == (const Handle &other) const { return get() == other.get(); }
+    inline bool operator != (const Handle &other) const { return !operator==(other); }
 
     // Assignment
     inline void operator = (const Handle &other) { Assign(other.location_); }

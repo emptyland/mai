@@ -19,8 +19,6 @@ const int32_t MutableMapEntry::kOffsetKey = MEMBER_OFFSET_OF(MutableMapEntry, ke
 const int32_t MutableMapEntry::kOffsetValue = MEMBER_OFFSET_OF(MutableMapEntry, value_);
 
 int Any::WriteBarrier(Any **address, size_t n) {
-    // TODO:
-    DLOG(ERROR) << "TODO: batch write barrier : " << n;
     if (__isolate->heap()->InNewArea(this)) {
         return 0;
     }
@@ -40,8 +38,7 @@ int Any::WriteBarrier(Any **address, size_t n) {
     if (origin->length() + increment > 2 * base::kKB) { // bit array should in old-space
         flags |= kOldSpace;
     }
-    // TODO:
-    return nullptr;
+    return Machine::Get()->NewArrayCopiedSlow(origin, increment, flags);
 }
 
 /*static*/ Handle<String> String::NewUtf8(const char *utf8_string, size_t n) {

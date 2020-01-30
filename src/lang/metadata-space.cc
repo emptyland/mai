@@ -226,6 +226,7 @@ Class *ClassBuilder::Build(MetadataSpace *space) const {
     clazz->name_ = space->NewString(name_.data(), name_.size());
     clazz->base_ = base_;
     clazz->tags_ = tags_;
+    clazz->ref_size_ = ref_size_;
     
     Field *fields = space->NewArray<Field>(fields_.size());
     clazz->n_fields_ = static_cast<uint32_t>(fields_.size());

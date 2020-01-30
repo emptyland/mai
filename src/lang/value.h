@@ -105,12 +105,12 @@ public:
         return Handle<Array<T>>(static_cast<Array<T> *>(*abstract));
     }
 
-    T At(int i) const { return (i >= 0 && i < length_) ? elems_[i] : T(); }
+    inline T At(size_t i) const { return (i < length_) ? elems_[i] : T(); }
 
     // The + operator:
-    Handle<Array<T>> Plus(size_t index, T elem) const {
+    inline Handle<Array<T>> Plus(size_t index, T elem) const {
         Handle<AbstractArray> abstract(NewArrayCopied(this, index == kAppendIndex ? 1 : 0));
-        if (abstract.is_empty()) {
+        if (abstract.is_empty() || abstract.is_value_null()) {
             return Handle<Array<T>>::Empty();
         }
         Handle<Array<T>> copied(static_cast<Array<T> *>(*abstract));
@@ -125,11 +125,11 @@ public:
     // The - operator:
     Handle<Array<T>> Minus(size_t index) const {
         if (index > length_) {
-            return Handle<Array<T>>(this);
+            return Handle<Array<T>>(const_cast<Array<T> *>(this));
         }
-        Handle<Array> copied(NewImmutable(length() - 1));
-        ::memcpy(copied->elems_, elems_, index);
-        ::memcpy(copied->elems_ + index, elems_ + index + 1, length_ - 1 - index);
+        Handle<Array<T>> copied(NewImmutable(length() - 1));
+        ::memcpy(copied->elems_, elems_, index * sizeof(T));
+        ::memcpy(copied->elems_ + index, elems_ + index + 1, (length_ - 1 - index) * sizeof(T));
         return copied;
     }
 
@@ -172,14 +172,38 @@ public:
     }
 
     // Accessor
-    Handle<CoreType> At(int i) const {
-        return (i >= 0 && i < length_) ? Handle<CoreType>(elems_[i]) : Handle<CoreType>::Empty();
+    Handle<CoreType> At(size_t i) const {
+        return (i < length_) ? Handle<CoreType>(elems_[i]) : Handle<CoreType>::Empty();
     }
 
     // The + operator:
-    Handle<Array<T>> Plus(size_t index, Handle<CoreType> elem) const;
+    Handle<Array<T>> Plus(size_t index, Handle<CoreType> elem) const {
+        Handle<AbstractArray> abstract(NewArrayCopied(this, index == kAppendIndex ? 1 : 0));
+        if (abstract.is_empty() || abstract.is_value_null()) {
+            return Handle<Array<T>>::Empty();
+        }
+        Handle<Array<T>> copied(static_cast<Array<T> *>(*abstract));
+        if (index == kAppendIndex) {
+            copied->elems_[length_] = *elem;
+            copied->WriteBarrier(reinterpret_cast<Any **>(&copied->elems_[length_]));
+        } else {
+            copied->elems_[index] = *elem;
+            copied->WriteBarrier(reinterpret_cast<Any **>(&copied->elems_[index]));
+        }
+        return copied;
+    }
+
     // The - operator:
-    Handle<Array<T>> Minus(size_t index) const;
+    Handle<Array<T>> Minus(size_t index) const {
+        if (index > length_) {
+            return Handle<Array<T>>(this);
+        }
+        Handle<Array> copied(NewImmutable(length_ - 1));
+        ::memcpy(copied->elems_, elems_, index * sizeof(T));
+        ::memcpy(copied->elems_ + index, elems_ + index + 1, (length_ - 1 - index) * sizeof(T));
+        copied->WriteBarrier(reinterpret_cast<Any **>(copied->elems_), copied->length_);
+        return copied;
+    }
 
     friend class Machine;
 protected:

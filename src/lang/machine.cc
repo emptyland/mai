@@ -106,7 +106,7 @@ AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t i
     }
     const Field *elems_field =
         DCHECK_NOTNULL(__isolate->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
-    
+
     uint32_t length = static_cast<uint32_t>(origin->length() + increment);
     size_t request_size = sizeof(AbstractArray) + elems_field->type()->ref_size() * length;
     AllocationResult result = __isolate->heap()->Allocate(request_size, flags);
@@ -114,10 +114,11 @@ AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t i
         return nullptr;
     }
     AbstractArray *obj = new (result.ptr()) AbstractArray(clazz, length, length);
+    Address dest = reinterpret_cast<Address>(obj) + elems_field->offset();
+    const Byte *sour = reinterpret_cast<const Byte *>(origin) + elems_field->offset();
 
-    Address dest = reinterpret_cast<Address>(obj + 1);
     // Copy data
-    ::memcpy(dest, origin + 1, origin->length() * elems_field->type()->ref_size());
+    ::memcpy(dest, sour, origin->length() * elems_field->type()->ref_size());
     if (elems_field->type()->is_reference()) {
         // Write-Barrier:
         UpdateRememberRecords(obj, reinterpret_cast<Any **>(dest), origin->length());
