@@ -133,7 +133,7 @@ public:
     // Assignment
     inline void operator = (const Handle &other) { Assign(other.location_); }
 
-    inline void operator = (const Handle &&other) {
+    inline void operator = (Handle &&other) {
         Assign(other.location_);
         other.location_ = nullptr;
     }

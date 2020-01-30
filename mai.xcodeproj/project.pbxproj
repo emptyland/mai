@@ -141,6 +141,7 @@
 		236EA78A23D6E3C80071047C /* heap.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA78923D6E3C80071047C /* heap.cc */; };
 		236EA78D23D6FC620071047C /* metadata.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA78C23D6FC620071047C /* metadata.cc */; };
 		236EA79123D72F3B0071047C /* metadata-space.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA79023D72F3B0071047C /* metadata-space.cc */; };
+		2379A24F23E2B8E9003067E6 /* value-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2379A24E23E2B8E9003067E6 /* value-test.cc */; };
 		237F504D21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
 		237F504E21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
 		237F505121EB74390069075D /* zone.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F505021EB74390069075D /* zone.cc */; };
@@ -360,6 +361,7 @@
 		236EA78E23D6FCAF0071047C /* type-defs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "type-defs.h"; sourceTree = "<group>"; };
 		236EA78F23D72F0B0071047C /* metadata-space.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "metadata-space.h"; sourceTree = "<group>"; };
 		236EA79023D72F3B0071047C /* metadata-space.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "metadata-space.cc"; sourceTree = "<group>"; };
+		2379A24E23E2B8E9003067E6 /* value-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "value-test.cc"; sourceTree = "<group>"; };
 		237CE4B72192CD16004FB9BF /* memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "memory-table.h"; sourceTree = "<group>"; };
 		237CE4B82192D00B004FB9BF /* unordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "unordered-memory-table.h"; sourceTree = "<group>"; };
 		237CE4BB2192D3C3004FB9BF /* unordered-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "unordered-memory-table.cc"; sourceTree = "<group>"; };
@@ -633,6 +635,7 @@
 				235602A023DDC6DE00A799B9 /* space-test.cc */,
 				230510BD23E067C300B89A7C /* handle-test.cc */,
 				230510C123E0831F00B89A7C /* isolate-test.cc */,
+				2379A24E23E2B8E9003067E6 /* value-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1286,6 +1289,7 @@
 				230510C223E0831F00B89A7C /* isolate-test.cc in Sources */,
 				23DFE03722754D29005D489C /* big-number.cc in Sources */,
 				2364B33521E451F9008519AE /* lock-group.cc in Sources */,
+				2379A24F23E2B8E9003067E6 /* value-test.cc in Sources */,
 				2364B33621E451F9008519AE /* bw-tree-test.cc in Sources */,
 				2364B33721E451F9008519AE /* hash-map-v2-test.cc in Sources */,
 				2364B33821E451F9008519AE /* bw-tree-memory-table-test.cc in Sources */,
@@ -1501,6 +1505,8 @@
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = YES;
+				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -1565,6 +1571,8 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_CPP_EXCEPTIONS = YES;
+				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = NDEBUG;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

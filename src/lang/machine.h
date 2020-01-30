@@ -39,12 +39,13 @@ public:
     
     static Machine *Get() { return __isolate->tls_storage()->machine; }
     
-    inline void Run();
-    
     // Value's factory
     String *NewUtf8String(const char *utf8_string, size_t n, uint32_t flags);
     
-    Any *NewArraySlow(BuiltinType type, size_t length, uint32_t flags);
+    // New (immutable) array slowly
+    AbstractArray *NewArraySlow(BuiltinType type, size_t length, uint32_t flags);
+    
+    AbstractArray *NewArrayCopiedSlow(const AbstractArray *origin, size_t increment, uint32_t flags);
     
     // Handle scope enter
     void EnterHandleScope(HandleScope *handle_scope) {
@@ -63,6 +64,12 @@ public:
     Address AdvanceHandleSlots(int n_slots);
 
     HandleScope *top_handle_scope() const { return !top_slot_ ? nullptr : top_slot_->scope; }
+    
+    // Update local remember-set record
+    int UpdateRememberRecords(Any *host, Any **address, size_t n) {
+        // TODO
+        return 0;
+    }
     
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
 
@@ -101,14 +108,6 @@ public:
 private:
     Machine *const owns_;
 }; // class MachineScope
-
-
-inline void Machine::Run() {
-    thread_ = std::thread([this] () {
-        MachineScope machine_scope(this);
-        Enter();
-    });
-}
 
 } // namespace lang
 

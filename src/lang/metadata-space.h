@@ -6,7 +6,7 @@
 #include "lang/type-defs.h"
 #include "base/hash.h"
 #include <map>
-#include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 
 namespace mai {
@@ -69,7 +69,7 @@ public:
     }
     
     void InvalidateAllLookupTables() {
-        std::lock_guard<std::mutex> lock(class_fields_mutex_);
+        std::lock_guard<std::shared_mutex> lock(class_fields_mutex_);
         named_class_fields_.clear();
         // TODO:
     }
@@ -164,7 +164,7 @@ private:
     using ClassFieldMap = std::unordered_map<ClassFieldKey, const Field*, ClassFieldHash,
         ClassFieldEqualTo>;
     ClassFieldMap named_class_fields_;
-    std::mutex class_fields_mutex_;
+    std::shared_mutex class_fields_mutex_;
 }; // class MetadataSpace
 
 

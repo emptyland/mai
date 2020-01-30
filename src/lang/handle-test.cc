@@ -1,5 +1,6 @@
 #include "lang/handle.h"
 #include "lang/value-inl.h"
+#include "lang/metadata.h"
 #include "test/isolate-initializer.h"
 #include "gtest/gtest.h"
 
@@ -32,6 +33,27 @@ TEST_F(HandleTest, StringHandle) {
     ASSERT_EQ(2, handle_scope.GetNumberOfHanldes());
 }
 
+template<class T, bool R = ElementTraits<T>::kIsReferenceType>
+class Dummy {
+public:
+    T To() { return T(0); }
+}; // class Dummy
+
+template<class T>
+class Dummy<T, true> {
+public:
+    Handle<T> To() { return Handle<T>::Empty(); }
+}; // class Dummy
+
+TEST_F(HandleTest, TypeTraitsDummy) {
+    Dummy<int> dummy1{};
+    ASSERT_EQ(0, dummy1.To());
+    
+    Dummy<String> dummy2{};
+    Handle<String> handle = dummy2.To();
+    ASSERT_TRUE(handle.is_empty());
+}
+
 TEST_F(HandleTest, ArrayHandle) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
     int data[4] = {1, 2, 3, 4};
@@ -44,6 +66,26 @@ TEST_F(HandleTest, ArrayHandle) {
     ASSERT_EQ(2, handle->At(1));
     ASSERT_EQ(3, handle->At(2));
     ASSERT_EQ(4, handle->At(3));
+}
+
+TEST_F(HandleTest, ReferenceArrayHandle) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Handle<String> init[4] = {
+        String::NewUtf8("1st"),
+        String::NewUtf8("2nd"),
+        String::NewUtf8("3rd"),
+        String::NewUtf8("4th"),
+    };
+    Handle<Array<String *>> handle = Array<String *>::NewImmutable(&init[0], arraysize(init));
+    ASSERT_EQ(4, handle->length());
+    ASSERT_EQ(4, handle->capacity());
+    ASSERT_EQ(__isolate->builtin_type(kType_array), handle->clazz());
+
+    Handle<String> elem = handle->At(0);
+    ASSERT_STREQ("1st", elem->data());
+    ASSERT_STREQ("2nd", handle->At(1)->data());
+    ASSERT_STREQ("3rd", handle->At(2)->data());
+    ASSERT_STREQ("4th", handle->At(3)->data());
 }
 
 TEST_F(HandleTest, GlobalHandle) {

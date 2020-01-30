@@ -23,7 +23,7 @@ struct GlobalHandleNode;
 
 struct Options {
     Env *env = Env::Default(); // The base api env pointer
-    int concurrency = 0; // How many concrrent running
+    int concurrency = 2; // How many concrrent running
     size_t new_space_initial_size = 100 * 1024 * 1024; // New space initial size: 100MB
 };
 
@@ -35,17 +35,17 @@ public:
     void Dispose();
 
     Error Initialize();
-    
+
     size_t new_space_initial_size() const { return new_space_initial_size_; }
     
+    // Internal functions:
     inline Heap *heap() const;
     inline MetadataSpace *metadata_space() const;
     inline TLSStorage *tls_storage() const;
     inline Machine *tls_machine() const;
     inline Scheduler *scheduler() const;
-    
     inline const Class *builtin_type(BuiltinType type) const;
-    
+
     friend class Machine;
     friend class IsolateScope;
     friend class GlobalHandles;

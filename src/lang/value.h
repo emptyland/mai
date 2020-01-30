@@ -4,7 +4,8 @@
 #include "lang/type-defs.h"
 #include "lang/handle.h"
 #include <stdint.h>
-#include "glog/logging.h"
+#include <string.h>
+#include <type_traits>
 
 namespace mai {
 
@@ -32,19 +33,58 @@ protected:
         : forward_(reinterpret_cast<uintptr_t>(clazz))
         , tags_(tags) {}
     
-    static Any *NewArray(BuiltinType type, size_t length);
+    // Write-Barrier for heap object writting
+    bool WriteBarrier(Any **address) { return WriteBarrier(address, 1) == 1; }
+    int WriteBarrier(Any **address, size_t n);
     
     uintptr_t forward_; // Forward pointer or Class pointer
     uint32_t tags_; // Tags for heap object
 }; // class Any
 
 
-// The Array's header
-template<class T>
-class Array : public Any {
+// All array bese class
+class AbstractArray : public Any {
 public:
-    static constexpr int32_t kOffsetCapacity = offsetof(Array, capacity_);
-    static constexpr int32_t kOffsetLength = offsetof(Array, length_);
+    static constexpr size_t kAppendIndex = -1;
+    static const int32_t kOffsetCapacity;
+    static const int32_t kOffsetLength;
+    
+    // How many elems to allocation
+    uint32_t capacity() const { return capacity_; }
+
+    // Number of elements
+    uint32_t length() const { return length_; }
+
+    friend class Machine;
+protected:
+    AbstractArray(const Class *clazz, uint32_t capacity, uint32_t length)
+        : Any(clazz, 0)
+        , capacity_(capacity)
+        , length_(length) {
+    }
+    
+    static AbstractArray *NewArray(BuiltinType type, size_t length);
+
+    static AbstractArray *NewArrayCopied(const AbstractArray *origin, size_t increment);
+    
+    uint32_t capacity_;
+    uint32_t length_;
+}; // class AbstractArray
+
+
+template<class T>
+struct ElementTraits {
+    using CoreType = typename std::remove_pointer<T>::type;
+    
+    static constexpr bool kIsReferenceType =
+        std::is_base_of<Any, CoreType>::value || std::is_same<Any, CoreType>::value;
+}; // template<class T> struct ElementTraits
+
+
+// The Array's header
+template<class T, bool R = ElementTraits<T>::kIsReferenceType >
+class Array : public AbstractArray {
+public:
     static constexpr int32_t kOffsetElems = offsetof(Array, elems_);
     
     // Create new array with initialize-elements and length
@@ -52,8 +92,73 @@ public:
         Handle<Array<T>> array(NewImmutable(length));
         for (size_t i = 0; i < length; i++) {
             array->elems_[i] = elems[i];
-            // TODO: Write barrier
         }
+        return array;
+    }
+
+    // Create new array with length
+    static inline Handle<Array<T>> NewImmutable(size_t length) {
+        Handle<AbstractArray> abstract(NewArray(TypeTraits<Array<T>>::kType, length));
+        if (abstract.is_empty()) {
+            return Handle<Array<T>>::Empty();
+        }
+        return Handle<Array<T>>(static_cast<Array<T> *>(*abstract));
+    }
+
+    T At(int i) const { return (i >= 0 && i < length_) ? elems_[i] : T(); }
+
+    // The + operator:
+    Handle<Array<T>> Plus(size_t index, T elem) const {
+        Handle<AbstractArray> abstract(NewArrayCopied(this, index == kAppendIndex ? 1 : 0));
+        if (abstract.is_empty()) {
+            return Handle<Array<T>>::Empty();
+        }
+        Handle<Array<T>> copied(static_cast<Array<T> *>(*abstract));
+        if (index == kAppendIndex) {
+            copied->elems_[length_] = elem;
+        } else {
+            copied->elems_[index] = elem;
+        }
+        return copied;
+    }
+
+    // The - operator:
+    Handle<Array<T>> Minus(size_t index) const {
+        if (index > length_) {
+            return Handle<Array<T>>(this);
+        }
+        Handle<Array> copied(NewImmutable(length() - 1));
+        ::memcpy(copied->elems_, elems_, index);
+        ::memcpy(copied->elems_ + index, elems_ + index + 1, length_ - 1 - index);
+        return copied;
+    }
+
+    friend class Machine;
+protected:
+    Array(const Class *clazz, uint32_t capacity, uint32_t length)
+        : AbstractArray(clazz, capacity, length) {
+        ::memset(elems_, 0, sizeof(T) * length);
+    }
+
+    T elems_[0];
+}; //template<class T> class Array
+
+
+template<class T>
+class Array<T, true> : public AbstractArray {
+public:
+    //using Any::WriteBarrier;
+    using CoreType = typename ElementTraits<T>::CoreType;
+
+    static constexpr int32_t kOffsetElems = offsetof(Array, elems_);
+
+    // Create new array with initialize-elements and length
+    static inline Handle<Array<T>> NewImmutable(Handle<CoreType> elems[], size_t length) {
+        Handle<Array<T>> array(NewImmutable(length));
+        for (size_t i = 0; i < length; i++) {
+            array->elems_[i] = *elems[i];
+        }
+        array->WriteBarrier(reinterpret_cast<Any **>(array->elems_), length);
         return array;
     }
 
@@ -66,35 +171,25 @@ public:
         return Handle<Array<T>>(static_cast<Array<T> *>(*any));
     }
 
-    T At(int i) const { return (i >= 0 && i < length_) ? elems_[i] : T(); }
+    // Accessor
+    Handle<CoreType> At(int i) const {
+        return (i >= 0 && i < length_) ? Handle<CoreType>(elems_[i]) : Handle<CoreType>::Empty();
+    }
 
     // The + operator:
-    Handle<Array<T>> Plus(size_t index, T elem) const;
+    Handle<Array<T>> Plus(size_t index, Handle<CoreType> elem) const;
     // The - operator:
     Handle<Array<T>> Minus(size_t index) const;
-
-    uint32_t capacity() const { return capacity_; }
-
-    uint32_t length() const { return length_; }
-    
-    static inline constexpr size_t RequiredSize(size_t capacity) {
-        return sizeof(Array) + sizeof(T) * capacity;
-    }
 
     friend class Machine;
 protected:
     Array(const Class *clazz, uint32_t capacity, uint32_t length)
-        : Any(clazz, 0)
-        , capacity_(capacity)
-        , length_(length) {
+        : AbstractArray(clazz, capacity, length) {
         ::memset(elems_, 0, sizeof(T) * length);
     }
 
-    uint32_t capacity_;
-    uint32_t length_;
-    T elems_[0]; // [? strong ref]
-}; //template<class T> class Array
-
+    T elems_[0]; // [strong ref]
+}; // template<class T> class Array<T, true>
 
 
 
@@ -102,17 +197,17 @@ protected:
 class String : public Array<char> {
 public:
     static Handle<String> NewUtf8(const char *utf8_string, size_t n);
-    
+
     static Handle<String> NewUtf8(const char *utf8_string) {
         return NewUtf8(utf8_string, strlen(utf8_string));
     }
-    
+
     using Array<char>::capacity;
     using Array<char>::length;
     using Array<char>::elems_;
-    
+
     const char *data() const { return elems_; }
-    
+
     friend class Machine;
 private:
     String(const Class *clazz, uint32_t capacity, const char *utf8_string, uint32_t length)

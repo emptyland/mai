@@ -8,7 +8,7 @@ namespace mai {
 namespace lang {
 
 class Any;
-template<class T> class Array;
+template<class T, bool R> class Array;
 
 // primitive
 #define DECLARE_PRIMITIVE_TYPES(V) \
@@ -152,67 +152,67 @@ struct TypeTraits<Any *> {
 };
 
 template<>
-struct TypeTraits<Array<int8_t>> {
+struct TypeTraits<Array<int8_t, false>> {
     static constexpr BuiltinType kType = kType_array8;
     
 };
 
 template<>
-struct TypeTraits<Array<uint8_t>> {
+struct TypeTraits<Array<uint8_t, false>> {
     static constexpr BuiltinType kType = kType_array8;
     
 };
 
 template<>
-struct TypeTraits<Array<int16_t>> {
+struct TypeTraits<Array<int16_t, false>> {
     static constexpr BuiltinType kType = kType_array16;
     
 };
 
 template<>
-struct TypeTraits<Array<uint16_t>> {
+struct TypeTraits<Array<uint16_t, false>> {
     static constexpr BuiltinType kType = kType_array16;
     
 };
 
 template<>
-struct TypeTraits<Array<int32_t>> {
+struct TypeTraits<Array<int32_t, false>> {
     static constexpr BuiltinType kType = kType_array32;
     
 };
 
 template<>
-struct TypeTraits<Array<uint32_t>> {
+struct TypeTraits<Array<uint32_t, false>> {
     static constexpr BuiltinType kType = kType_array32;
     
 };
 
 template<>
-struct TypeTraits<Array<int64_t>> {
+struct TypeTraits<Array<int64_t, false>> {
     static constexpr BuiltinType kType = kType_array64;
     
 };
 
 template<>
-struct TypeTraits<Array<uint64_t>> {
+struct TypeTraits<Array<uint64_t, false>> {
     static constexpr BuiltinType kType = kType_array64;
     
 };
 
 template<>
-struct TypeTraits<Array<float>> {
+struct TypeTraits<Array<float, false>> {
     static constexpr BuiltinType kType = kType_array32;
     
 };
 
 template<>
-struct TypeTraits<Array<double>> {
+struct TypeTraits<Array<double, false>> {
     static constexpr BuiltinType kType = kType_array64;
     
 };
 
-template<>
-struct TypeTraits<Array<Any *>> {
+template<class T>
+struct TypeTraits<Array<T, true>> {
     static constexpr BuiltinType kType = kType_array;
     
 };

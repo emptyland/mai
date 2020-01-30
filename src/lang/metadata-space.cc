@@ -153,7 +153,7 @@ Error MetadataSpace::Initialize() {
 const Field *MetadataSpace::FindClassFieldOrNull(const Class *clazz, const char *field_name) {
     ClassFieldKey key{clazz, field_name};
     {
-        std::lock_guard<std::mutex> lock(class_fields_mutex_);
+        std::shared_lock<std::shared_mutex> lock(class_fields_mutex_);
         auto iter = named_class_fields_.find(key);
         if (iter != named_class_fields_.end()) {
             return iter->second;
@@ -173,7 +173,7 @@ const Field *MetadataSpace::FindClassFieldOrNull(const Class *clazz, const char 
     
     // Use self space's string
     key.field_name = field->name();
-    std::lock_guard<std::mutex> lock(class_fields_mutex_);
+    std::lock_guard<std::shared_mutex> lock(class_fields_mutex_);
     named_class_fields_[key] = field;
     return field;
 }

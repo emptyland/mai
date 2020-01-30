@@ -33,6 +33,10 @@ public:
     static constexpr uint32_t kUserTag = 0;
     static constexpr uint32_t kPrimitiveTag = 1;
     static constexpr uint32_t kBuiltinTag = 1u << 1;
+    
+    bool is_primitive() const { return tags_ & kPrimitiveTag; }
+    bool is_reference() const { return !is_primitive(); }
+    bool is_builtin() const { return tags_ & kBuiltinTag; }
 
     DEF_VAL_GETTER(uint32_t, n_fields);
     DEF_VAL_GETTER(uint32_t, id);

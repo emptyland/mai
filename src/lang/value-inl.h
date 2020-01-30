@@ -3,6 +3,7 @@
 
 #include "lang/value.h"
 #include "base/base.h"
+#include "glog/logging.h"
 
 namespace mai {
 

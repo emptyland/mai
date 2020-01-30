@@ -74,7 +74,7 @@ String *Machine::NewUtf8String(const char *utf8_string, size_t n, uint32_t flags
     return obj;
 }
 
-Any *Machine::NewArraySlow(BuiltinType type, size_t length, uint32_t flags) {
+AbstractArray *Machine::NewArraySlow(BuiltinType type, size_t length, uint32_t flags) {
     const Class *clazz = DCHECK_NOTNULL(__isolate->builtin_type(type));
     if (::strstr(clazz->name(), "array") != clazz->name()){
         NOREACHED() << "class: " << clazz->name() << " is not array!";
@@ -84,14 +84,50 @@ Any *Machine::NewArraySlow(BuiltinType type, size_t length, uint32_t flags) {
     const Field *elems_field =
         DCHECK_NOTNULL(__isolate->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
 
-    size_t request_size = sizeof(Array<Any *>) + elems_field->type()->ref_size() * length;
+    size_t request_size = sizeof(AbstractArray) + elems_field->type()->ref_size() * length;
     AllocationResult result = __isolate->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
         return nullptr;
     }
-    Array<Any *> *obj = new (result.ptr()) Array<Any *>(clazz,
-                                                        static_cast<uint32_t>(length),
-                                                        static_cast<uint32_t>(length));
+    AbstractArray *obj = new (result.ptr()) AbstractArray(clazz,
+                                                          static_cast<uint32_t>(length),
+                                                          static_cast<uint32_t>(length));
+    // Zeroize all elements
+    ::memset(obj + 1, 0, elems_field->type()->ref_size() * length);
+    return obj;
+}
+
+AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t increment,
+                                           uint32_t flags) {
+    const Class *clazz = origin->clazz();
+    if (::strstr(clazz->name(), "array") != clazz->name()){
+        NOREACHED() << "class: " << clazz->name() << " is not array!";
+        return nullptr;
+    }
+    const Field *elems_field =
+        DCHECK_NOTNULL(__isolate->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
+    
+    uint32_t length = static_cast<uint32_t>(origin->length() + increment);
+    size_t request_size = sizeof(AbstractArray) + elems_field->type()->ref_size() * length;
+    AllocationResult result = __isolate->heap()->Allocate(request_size, flags);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    AbstractArray *obj = new (result.ptr()) AbstractArray(clazz, length, length);
+
+    Address dest = reinterpret_cast<Address>(obj + 1);
+    // Copy data
+    ::memcpy(dest, origin + 1, origin->length() * elems_field->type()->ref_size());
+    if (elems_field->type()->is_reference()) {
+        // Write-Barrier:
+        UpdateRememberRecords(obj, reinterpret_cast<Any **>(dest), origin->length());
+    }
+
+    if (increment > 0) {
+        dest += elems_field->type()->ref_size() * origin->length();
+        // Zeroize increment space
+        ::memset(dest, 0, elems_field->type()->ref_size() * increment);
+    }
     return obj;
 }
 

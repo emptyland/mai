@@ -1,5 +1,6 @@
 #include "lang/value-inl.h"
 #include "lang/machine.h"
+#include "lang/heap.h"
 #include "asm/utils.h"
 
 namespace mai {
@@ -9,17 +10,38 @@ namespace lang {
 #define MEMBER_OFFSET_OF(owns, field) \
     arch::ObjectTemplate<owns, int32_t>::OffsetOf(&owns :: field)
 
+const int32_t AbstractArray::kOffsetCapacity = MEMBER_OFFSET_OF(AbstractArray, capacity_);
+const int32_t AbstractArray::kOffsetLength = MEMBER_OFFSET_OF(AbstractArray, length_);
+
 const int32_t MutableMapEntry::kOffsetNext = MEMBER_OFFSET_OF(MutableMapEntry, next_);
 const int32_t MutableMapEntry::kOffsetHash = MEMBER_OFFSET_OF(MutableMapEntry, hash_);
 const int32_t MutableMapEntry::kOffsetKey = MEMBER_OFFSET_OF(MutableMapEntry, key_);
 const int32_t MutableMapEntry::kOffsetValue = MEMBER_OFFSET_OF(MutableMapEntry, value_);
 
-/*static*/ Any *Any::NewArray(BuiltinType type, size_t length) {
+int Any::WriteBarrier(Any **address, size_t n) {
+    // TODO:
+    DLOG(ERROR) << "TODO: batch write barrier : " << n;
+    if (__isolate->heap()->InNewArea(this)) {
+        return 0;
+    }
+    return Machine::Get()->UpdateRememberRecords(this, address, n);
+}
+
+/*static*/ AbstractArray *AbstractArray::NewArray(BuiltinType type, size_t length) {
     uint32_t flags = 0;
     if (length > 2 * base::kKB) { // bit array should in old-space
         flags |= kOldSpace;
     }
     return Machine::Get()->NewArraySlow(type, length, flags);
+}
+
+/*static*/ AbstractArray *AbstractArray::NewArrayCopied(const AbstractArray *origin, size_t increment) {
+    uint32_t flags = 0;
+    if (origin->length() + increment > 2 * base::kKB) { // bit array should in old-space
+        flags |= kOldSpace;
+    }
+    // TODO:
+    return nullptr;
 }
 
 /*static*/ Handle<String> String::NewUtf8(const char *utf8_string, size_t n) {
