@@ -2,6 +2,7 @@
 #define MAI_LANG_METADATA_H_
 
 #include "lang/type-defs.h"
+#include "lang/mm.h"
 #include "base/base.h"
 #include "glog/logging.h"
 
@@ -12,8 +13,15 @@ namespace lang {
 class Method;
 class Field;
 class Class;
+class ClassBuilder;
 class Type;
 class Closure;
+class Code;
+class Function;
+class FunctionBuilder;
+class SourceLineInfo;
+class BytecodeArray;
+
 
 class MetadataObject {
 public:
@@ -65,6 +73,8 @@ protected:
 // Metadata: class
 class Class : public Type {
 public:
+    using Builder = ClassBuilder;
+
     DEF_PTR_GETTER(const Class, base);
     DEF_PTR_GETTER(Method, init);
     DEF_VAL_GETTER(uint32_t, n_methods);
@@ -167,6 +177,74 @@ private:
 }; // class MDStrHeader
 
 
+// Mai compiled function protocol
+class Function : public MetadataObject {
+public:
+    enum CapturedVarKind {
+        IN_STACK,
+        IN_CAPTURED,
+    }; // enum CpaturedVarKind
+
+    struct CapturedVarDesc {
+        CapturedVarKind kind;
+        MDStr name;
+        int32_t index;
+    }; // struct CpaturedVarDesc
+    
+    struct ExceptionHandlerDesc {
+        const Class *expected_type = nullptr;
+        intptr_t start_pc = -1;
+        intptr_t stop_pc = -1;
+        intptr_t handler_pc = -1;
+    }; // struct ExceptionHandlerDesc
+    
+    enum Kind {
+        BYTECODE,
+        COMPILED,
+    }; // enum Kind
+    
+    using Builder = FunctionBuilder;
+
+    DEF_VAL_GETTER(MDStr, name);
+    DEF_VAL_GETTER(MDStr, prototype);
+    DEF_VAL_GETTER(Kind, kind);
+    DEF_PTR_GETTER(Code, code);
+    DEF_PTR_GETTER(BytecodeArray, bytecode);
+    DEF_VAL_GETTER(uint32_t, stack_size);
+    DEF_PTR_GETTER(uint32_t, stack_bitmap);
+    DEF_PTR_GETTER(SourceLineInfo, source_line_info);
+    DEF_VAL_GETTER(uint32_t, captured_var_size);
+    DEF_VAL_GETTER(uint32_t, exception_table_size);
+    
+    const CapturedVarDesc *captured_var(uint32_t i) const {
+        DCHECK_LT(i, captured_var_size_);
+        return captured_vars_ + i;
+    }
+
+    friend class FunctionBuilder;
+    friend class MetadataSpace;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Function);
+private:
+    Function() = default;
+
+    MDStr name_ = nullptr; // Function full name
+    MDStr prototype_ = nullptr; // Function prototype description
+    Kind kind_ = BYTECODE; // Kind of function
+    uint32_t stack_size_ = 0; // Stack size for invoking frame
+    uint32_t *stack_bitmap_ = nullptr; // Stack spans bitmap for GC
+    uint32_t const_pool_size_ = 0; // Bytes of constants value pool
+    Span32 *const_pool_ = nullptr; // Constants value pool
+    uint32_t *const_pool_bitmap_ = nullptr; // Constants value pool spans bitmap for GC
+    SourceLineInfo *source_line_info_ = nullptr; // Source info for debug and backtrace
+    Code *code_ = nullptr; // Native code
+    BytecodeArray *bytecode_ = nullptr; // Bytecodes or native code
+    uint32_t captured_var_size_ = 0;
+    CapturedVarDesc *captured_vars_ = nullptr; // Capture variable for closure
+    uint32_t exception_table_size_ = 0;
+    ExceptionHandlerDesc *exception_table_ = nullptr; // Exception handler table
+}; // class Function
+
+
 // Machine code object
 class Code : public MetadataObject {
 public:
@@ -182,6 +260,7 @@ public:
     Address entry() { return instructions_; }
     
     friend class MetadataSpace;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Code);
 private:
     Code(Kind kind, Address instructions, uint32_t size)
         : kind_(kind)
@@ -194,6 +273,92 @@ private:
     uint8_t instructions_[0];
 }; // class Code
 
+
+// Interpreter bytecode array object
+class BytecodeArray : public MetadataObject {
+public:
+    DEF_VAL_GETTER(uint32_t, size);
+    
+    BytecodeInstruction *entry() { return instructions_; }
+
+    friend class MetadataSpace;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArray);
+private:
+    BytecodeArray(const BytecodeInstruction *instructions, uint32_t size)
+        : size_(size) {
+        ::memcpy(instructions_, instructions, sizeof(BytecodeInstruction) * size);
+    }
+
+    uint32_t size_; // Number of instructions
+    BytecodeInstruction instructions_[0]; // Bytecode instructions
+}; // class BytecodeArray
+
+
+class SourceLineInfo : public MetadataObject {
+public:
+    struct Range {
+        intptr_t start_pc; // Start pc (contains)
+        intptr_t stop_pc; // Stop pc (not contains)
+        int line; // Source line number
+    }; // struct Range
+    
+    enum Kind {
+        RANGE,
+        SIMPLE,
+    };
+    
+    DEF_VAL_GETTER(MDStr, file_name);
+    DEF_VAL_GETTER(Kind, kind);
+    DEF_VAL_GETTER(uint32_t, length);
+    
+    bool range_format() const { return kind() == RANGE; }
+    bool simple_format() const { return kind() == SIMPLE; }
+    
+    const Range *range(uint32_t i) const {
+        DCHECK_LT(i, length_);
+        return ranges() + i;
+    }
+    
+    const Range *ranges() const {
+        DCHECK(range_format());
+        return reinterpret_cast<const Range *>(this + 1);
+    }
+    
+    int source_line(intptr_t pc) const {
+        DCHECK_GE(pc, 0);
+        DCHECK_LT(pc, length_);
+        return source_lines()[pc];
+    }
+
+    const int *source_lines() const {
+        DCHECK(simple_format());
+        return reinterpret_cast<const int *>(this + 1);
+    }
+    
+    inline int FindSourceLine(intptr_t pc) const;
+    
+    friend class MetadataSpace;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(SourceLineInfo);
+private:
+    SourceLineInfo(MDStr file_name, const Range *ranges, size_t n)
+        : file_name_(file_name)
+        , kind_(RANGE)
+        , length_(static_cast<uint32_t>(n)) {
+        ::memcpy(this + 1, ranges, sizeof(ranges[0]) * length_);
+    }
+
+    SourceLineInfo(MDStr file_name, const int *lines, size_t n)
+        : file_name_(file_name)
+        , kind_(SIMPLE)
+        , length_(static_cast<uint32_t>(n)) {
+        ::memcpy(this + 1, lines, sizeof(lines[0]) * length_);
+    }
+
+    MDStr file_name_; // Source code file name
+    Kind kind_; // Kind of source-line-info format
+    uint32_t length_; // Length of line info
+}; // class SourceLineInfo
+
 inline const Field *Type::field(uint32_t i) const {
     DCHECK_LT(i, n_fields_);
     return fields_ + i;
@@ -202,6 +367,19 @@ inline const Field *Type::field(uint32_t i) const {
 inline const Method *Class::method(uint32_t i) const {
     DCHECK_LT(i, n_methods_);
     return methods_ + i;
+}
+
+inline int SourceLineInfo::FindSourceLine(intptr_t pc) const {
+    if (simple_format()) {
+        return source_line(pc);
+    }
+    for (uint32_t i = 0; i < length_; i++) {
+        if (pc >= range(i)->start_pc && pc < range(i)->stop_pc) {
+            return range(i)->line;
+        }
+    }
+    NOREACHED();
+    return -1;
 }
 
 } // namespace lang

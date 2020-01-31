@@ -1,5 +1,6 @@
 #include "lang/metadata-space.h"
 #include "lang/value-inl.h"
+#include "lang/stack.h"
 
 namespace mai {
 
@@ -128,7 +129,7 @@ Error MetadataSpace::Initialize() {
         .field("captured_var")
             .type(builtin_type(kType_captured_value))
             .flags(Field::kPrivate|Field::kRead)
-            .tag(2)
+            .tag(3)
             .offset(Closure::kOffsetCapturedVar)
         .End()
     .Build(this);
@@ -159,7 +160,7 @@ Error MetadataSpace::Initialize() {
     .Build(this);
 
     // MutableMap::Entry
-    clazz = ClassBuilder("mutable_map::entry")
+    clazz = ClassBuilder("mutable_map.entry")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
         .ref_size(kPointerSize)
         .field("next")
@@ -299,7 +300,10 @@ AllocationResult MetadataSpace::Allocate(size_t n, bool exec) {
 
 Class *ClassBuilder::Build(MetadataSpace *space) const {
     Class *clazz = space->New<Class>();
-    clazz->name_ = space->NewString(name_.data(), name_.size());
+    if (!clazz) {
+        return nullptr;
+    }
+    clazz->name_ = space->NewString(name_);
     clazz->base_ = base_;
     clazz->tags_ = tags_;
     clazz->ref_size_ = ref_size_;
@@ -316,7 +320,7 @@ Class *ClassBuilder::Build(MetadataSpace *space) const {
     clazz->methods_ = methods;
     size_t i = 0;
     for (auto pair : named_methods_) {
-        methods[i].name_ = space->NewString(pair.first.data(), pair.first.size());
+        methods[i].name_ = space->NewString(pair.first);
         methods[i].tags_ = pair.second->tags_;
         methods[i].fn_ = pair.second->fn_;
         i++;
@@ -325,6 +329,86 @@ Class *ClassBuilder::Build(MetadataSpace *space) const {
     clazz->id_ = space->NextTypeId();
     space->InsertClass(name_, clazz);
     return clazz;
+}
+
+bool FunctionBuilder::Valid() const {
+    if (name_.empty() || prototype_.empty()) {
+        DLOG(ERROR) << "name or prototype is empty: " << name_ << ":" << prototype_;
+        return false;
+    }
+    
+    if (auto required = (const_pool_.size() + 31) / 32; const_pool_bitmap_.size() != required) {
+        DLOG(ERROR) << "Incorrect const_pool_bitmap_.size: "
+                    << const_pool_bitmap_.size() << " vs " << required;
+        return false;
+    }
+    
+    if (stack_size_ % kStackAligmentSize) {
+        DLOG(ERROR) << "stack_size_ is not aligment: " << stack_size_;
+        return false;
+    }
+    
+    if (auto required = ((stack_size_ / kStackAligmentSize) + 31) / 32; stack_bitmap_.size() != required) {
+        DLOG(ERROR) << "Incorrect stack_bitmap_.size: "
+                    << stack_bitmap_.size() << " vs " << required;
+        return false;
+    }
+
+    if (kind_ == Function::BYTECODE) {
+        if (!bytecode_) {
+            DLOG(ERROR) << "Bytecode function bytecode_ == nullptr";
+            return false;
+        }
+    }
+    
+    if (kind_ == Function::COMPILED) {
+        if (!code_) {
+            DLOG(ERROR) << "Compied function code_ == nullptr";
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+Function *FunctionBuilder::Build(MetadataSpace *space) const {
+    DCHECK(Valid()) << "Function is NOT valid";
+    
+    Function *func = space->New<Function>();
+    if (!func) {
+        return nullptr;
+    }
+    func->name_ = space->NewString(name_);
+    func->kind_ = kind_;
+    func->prototype_ = space->NewString(prototype_);
+    func->code_ = code_;
+    func->bytecode_ = bytecode_;
+    func->source_line_info_ = source_line_info_;
+    
+    func->stack_bitmap_ = space->NewArray<uint32_t>(stack_bitmap_.size());
+    ::memcpy(func->stack_bitmap_, &stack_bitmap_[0], stack_bitmap_.size() * sizeof(uint32_t));
+    func->stack_size_ = stack_size_;
+
+    func->const_pool_ = space->NewArray<Span32>(const_pool_.size());
+    ::memcpy(func->const_pool_, &const_pool_[0], const_pool_.size() * sizeof(Span32));
+    func->const_pool_size_ = static_cast<uint32_t>(const_pool_.size() * sizeof(Span32));
+    func->const_pool_bitmap_ = space->NewArray<uint32_t>(const_pool_bitmap_.size());
+    ::memcpy(func->const_pool_bitmap_, &const_pool_bitmap_[0],
+             const_pool_bitmap_.size() * sizeof(uint32_t));
+
+    func->captured_vars_ = space->NewArray<Function::CapturedVarDesc>(captured_vars_.size());
+    for (size_t i = 0; i < captured_vars_.size(); i++) {
+        func->captured_vars_[i].name  = space->NewString(captured_vars_[i].name);
+        func->captured_vars_[i].kind  = captured_vars_[i].kind;
+        func->captured_vars_[i].index = captured_vars_[i].index;
+    }
+    func->captured_var_size_ = static_cast<uint32_t>(captured_vars_.size());
+
+    func->exception_table_ = space->NewArray<Function::ExceptionHandlerDesc>(exception_table_.size());
+    ::memcpy(func->exception_table_, &exception_table_[0],
+             exception_table_.size() * sizeof(Function::ExceptionHandlerDesc));
+    func->exception_table_size_ = static_cast<uint32_t>(exception_table_.size());
+    return func;
 }
 
 } // namespace lang

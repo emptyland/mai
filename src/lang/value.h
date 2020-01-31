@@ -427,7 +427,7 @@ public:
     struct CapturedVar {
         CapturedValue *value;
     }; //struct CapturedVar
-    
+
     static const int32_t kOffsetProto;
     static const int32_t kOffsetCapturedVarSize;
     static const int32_t kOffsetCapturedVar;

@@ -43,6 +43,8 @@ public:
     
     size_t GetRSS() const { return n_pages_ * kPageSize + large_size_; }
     
+    MDStr NewString(const std::string &s) { return NewString(s.data(), s.size()); }
+    
     MDStr NewString(const char *s) { return NewString(s, strlen(s)); }
 
     MDStr NewString(const char *z, size_t n) {
@@ -62,6 +64,34 @@ public:
         return new (result.ptr()) Code(kind, instructions, static_cast<uint32_t>(size));
     }
     
+    BytecodeArray *NewBytecodeArray(const std::vector<BytecodeInstruction> &instructions) {
+        return NewBytecodeArray(instructions.data(), instructions.size());
+    }
+
+    BytecodeArray *NewBytecodeArray(const BytecodeInstruction *instructions, size_t size) {
+        auto result = Allocate(sizeof(BytecodeArray) + size * sizeof(instructions[0]), false/*exec*/);
+        if (!result.ok()) {
+            return nullptr;
+        }
+        return new (result.ptr()) BytecodeArray(instructions, static_cast<uint32_t>(size));
+    }
+    
+    SourceLineInfo *NewSourceLineInfo(const char *file_name, const std::vector<int> &lines) {
+        return NewSourceLineInfo(file_name, &lines[0], lines.size());
+    }
+
+    SourceLineInfo *NewSourceLineInfo(const char *file_name, const int *lines, size_t n) {
+        auto result = Allocate(sizeof(SourceLineInfo) + n * sizeof(lines[0]), false/*exec*/);
+        if (!result.ok()) {
+            return nullptr;
+        }
+        auto md_file_name = NewString(file_name);
+        if (!md_file_name) {
+            return nullptr;
+        }
+        return new (result.ptr()) SourceLineInfo(md_file_name, lines, n);
+    }
+    
     // mark all pages to readonly
     void MarkReadonly(bool readonly) {
         // TODO:
@@ -78,6 +108,7 @@ public:
     AllocationResult Allocate(size_t n, bool exec);
     
     friend class ClassBuilder;
+    friend class FunctionBuilder;
     DISALLOW_IMPLICIT_CONSTRUCTORS(MetadataSpace);
 private:
     struct ClassFieldKey {
@@ -303,6 +334,111 @@ private:
     std::map<std::string, MethodBuilder *> named_methods_;
     const Class *base_ = nullptr;
 }; // class ClassBuilder
+
+
+class FunctionBuilder final {
+public:
+    FunctionBuilder(const std::string name) : name_(name) {}
+    
+    FunctionBuilder &name(const std::string &value) {
+        name_ = value;
+        return *this;
+    }
+    
+    FunctionBuilder &kind(Function::Kind value) {
+        kind_ = value;
+        return *this;
+    }
+    
+    FunctionBuilder &prototype(const std::string &value) {
+        prototype_ = value;
+        return *this;
+    }
+
+    FunctionBuilder &code(Code *value) {
+        code_ = DCHECK_NOTNULL(value);
+        return *this;
+    }
+
+    FunctionBuilder &bytecode(BytecodeArray *value) {
+        bytecode_ = DCHECK_NOTNULL(value);
+        return *this;
+    }
+
+    FunctionBuilder &stack_size(uint32_t value) {
+        DCHECK_GT(0x1000, value) << "stack-size too big";
+        stack_size_ = value;
+        return *this;
+    }
+
+    FunctionBuilder &stack_bitmap(const uint32_t *value, size_t n) {
+        stack_bitmap_.resize(n);
+        ::memcpy(&stack_bitmap_[0], value, n * sizeof(value[0]));
+        return *this;
+    }
+    
+    FunctionBuilder &stack_bitmap(const std::vector<uint32_t> &value) {
+        stack_bitmap_ = value;
+        return *this;
+    }
+    
+    FunctionBuilder &const_pool(const Span32 *value, size_t n) {
+        const_pool_.resize(n);
+        ::memcpy(&const_pool_[0], value, n * sizeof(value[0]));
+        return *this;
+    }
+    
+    FunctionBuilder &const_pool_bitmap(const uint32_t *value, size_t n) {
+        const_pool_bitmap_.resize(n);
+        ::memcpy(&const_pool_bitmap_[0], value, n * sizeof(value[0]));
+        return *this;
+    }
+    
+    FunctionBuilder &source_line_info(SourceLineInfo *value) {
+        source_line_info_ = DCHECK_NOTNULL(value);
+        return *this;
+    }
+    
+    FunctionBuilder &AddCapturedVar(const std::string &name,
+                                    Function::CapturedVarKind kind,
+                                    int32_t index) {
+        captured_vars_.push_back({name, kind, index});
+        return *this;
+    }
+    
+    FunctionBuilder &AddExceptionHandle(const Class *expected,
+                                        intptr_t start_pc,
+                                        intptr_t stop_pc,
+                                        intptr_t handle_pc) {
+        exception_table_.push_back({expected, start_pc, stop_pc, handle_pc});
+        return *this;
+    }
+    
+    bool Valid() const;
+    
+    Function *Build(MetadataSpace *space) const;
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(FunctionBuilder);
+private:
+    struct CapturedVarDesc {
+        std::string name;
+        Function::CapturedVarKind kind;
+        int32_t index;
+    }; // struct CapturedVarDesc
+    
+    std::string name_;
+    std::string prototype_;
+    Function::Kind kind_ = Function::BYTECODE;
+    Code *code_ = nullptr;
+    BytecodeArray *bytecode_ = nullptr;
+    uint32_t stack_size_ = 0;
+    std::vector<uint32_t> stack_bitmap_;
+    std::vector<Span32> const_pool_;
+    std::vector<uint32_t> const_pool_bitmap_;
+    SourceLineInfo *source_line_info_ = nullptr;
+    std::vector<CapturedVarDesc> captured_vars_;
+    std::vector<Function::ExceptionHandlerDesc> exception_table_;
+}; // class FunctionBuilder
 
 } // namespace lang
 
