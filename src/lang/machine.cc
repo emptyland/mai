@@ -148,6 +148,21 @@ AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t i
     return obj;
 }
 
+void Machine::InsertFreeCoroutine(Coroutine *co) {
+    QUEUE_INSERT_HEAD(free_dummy_, co);
+    n_free_++;
+}
+
+Coroutine *Machine::TakeFreeCoroutine() {
+    Coroutine *co = free_dummy_->next();
+    if (co != free_dummy_) {
+        n_free_--;
+        QUEUE_REMOVE(co);
+        return co;
+    }
+    return nullptr;
+}
+
 } // namespace lang
 
 } // namespace mai

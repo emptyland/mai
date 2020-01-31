@@ -33,10 +33,14 @@ public:
         kRunning,
     };
     
+    static constexpr int kMaxFreeCoroutines = 10;
+    
     Machine(int id, Scheduler *owner);
     ~Machine();
     
     DEF_VAL_GETTER(int, id);
+    DEF_VAL_GETTER(int, n_free);
+    DEF_VAL_GETTER(int, n_runnable);
     
     static Machine *Get() { return __isolate->tls_storage()->machine; }
     
@@ -93,6 +97,10 @@ private:
     }
 
     void Exit() { DCHECK_EQ(this, __isolate->tls_storage()->machine); }
+    
+    void InsertFreeCoroutine(Coroutine *co);
+    
+    Coroutine *TakeFreeCoroutine();
 
     const int id_; // Machine id
     Scheduler *const owner_; // Scheduler
@@ -101,6 +109,8 @@ private:
     uint64_t exclusion_ = 0; // Exclusion counter if > 0 can not be preempted
     Coroutine *free_dummy_; // Local free coroutines(coroutine pool)
     Coroutine *runnable_dummy_; // Waiting for running coroutines
+    int n_free_ = 0; // Number of free coroutine
+    int n_runnable_ = 0; // Number of runnable coroutine
     Coroutine *running_ = nullptr; // Current running coroutine
     std::thread thread_; // Thread object
 }; // class Machine

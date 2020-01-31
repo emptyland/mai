@@ -10,6 +10,9 @@ namespace lang {
 #define MEMBER_OFFSET_OF(owns, field) \
     arch::ObjectTemplate<owns, int32_t>::OffsetOf(&owns :: field)
 
+const int32_t Any::kOffsetKlass = MEMBER_OFFSET_OF(Any, klass_);
+const int32_t Any::kOffsetTags = MEMBER_OFFSET_OF(Any, tags_);
+
 const int32_t AbstractArray::kOffsetCapacity = MEMBER_OFFSET_OF(AbstractArray, capacity_);
 const int32_t AbstractArray::kOffsetLength = MEMBER_OFFSET_OF(AbstractArray, length_);
 
@@ -17,6 +20,12 @@ const int32_t MutableMapEntry::kOffsetNext = MEMBER_OFFSET_OF(MutableMapEntry, n
 const int32_t MutableMapEntry::kOffsetHash = MEMBER_OFFSET_OF(MutableMapEntry, hash_);
 const int32_t MutableMapEntry::kOffsetKey = MEMBER_OFFSET_OF(MutableMapEntry, key_);
 const int32_t MutableMapEntry::kOffsetValue = MEMBER_OFFSET_OF(MutableMapEntry, value_);
+
+const int32_t AbstractValue::kOffsetValue = MEMBER_OFFSET_OF(AbstractValue, value_);
+
+const int32_t Closure::kOffsetProto = MEMBER_OFFSET_OF(Closure, cxx_fn_);
+const int32_t Closure::kOffsetCapturedVarSize = MEMBER_OFFSET_OF(Closure, captured_var_size_);
+const int32_t Closure::kOffsetCapturedVar = MEMBER_OFFSET_OF(Closure, captured_var_);
 
 int Any::WriteBarrier(Any **address, size_t n) {
     if (__isolate->heap()->InNewArea(this)) {

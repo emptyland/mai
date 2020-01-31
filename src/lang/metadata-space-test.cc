@@ -69,7 +69,7 @@ TEST_F(MetadataSpaceTest, ClassBuilder) {
     ASSERT_TRUE(err.ok());
     
     const Class *type = ClassBuilder("foo.foo")
-        .tags(Type::kUserTag)
+        .tags(Type::kReferenceTag)
         .field("a")
             .flags(Field::kPublic|Field::kRdWr)
             .offset(0)

@@ -35,9 +35,11 @@ public:
     Coroutine(uint64_t coid, Closure *entry, Stack *stack) {
         Reinitialize(coid, entry, stack);
     }
-    ~Coroutine();
+    ~Coroutine() { Dispose(); }
     
     void Reinitialize(uint64_t coid, Closure *entry, Stack *stack);
+    
+    void Dispose();
     
     static Coroutine *NewDummy() {
         void *chunk = ::malloc(sizeof(Coroutine *) * 2); // next_ and prev_

@@ -37,7 +37,15 @@ MetadataSpace::~MetadataSpace() {
 
 // Init builtin types
 Error MetadataSpace::Initialize() {
-    Class *clazz = nullptr;
+    // Void type
+    Class *clazz = New<Class>();
+    clazz->id_ = NextTypeId();
+    clazz->ref_size_ = 0;
+    clazz->base_ = nullptr;
+    clazz->name_ = NewString("void");
+    clazz->tags_ = Type::kBuiltinTag;
+    InsertClass("void", clazz);
+    DCHECK_EQ(kType_void, clazz->id()) << "void";
     
 #define DEFINE_PRIMITIVE_CLASS(literal, kind, ...) \
     clazz = New<Class>(); \
@@ -51,16 +59,84 @@ Error MetadataSpace::Initialize() {
     DECLARE_PRIMITIVE_TYPES(DEFINE_PRIMITIVE_CLASS)
 
 #undef DEFINE_PRIMITIVE_CLASS
-    
+
     // Any class
     ClassBuilder("any")
-        .tags(Type::kBuiltinTag)
+        .tags(Type::kBuiltinTag|Type::kReferenceTag)
         .ref_size(kPointerSize)
+        .field("klass")
+            .type(builtin_type(kType_u64))
+            .flags(Field::kPrivate|Field::kRdWr)
+            .tag(1)
+            .offset(Any::kOffsetKlass)
+        .End()
+        .field("tags")
+            .type(builtin_type(kType_u32))
+            .flags(Field::kPrivate|Field::kRdWr)
+            .tag(2)
+            .offset(Any::kOffsetTags)
+        .End()
     .Build(this);
+    
+#define DEFINE_BUILTIN_CLASS(literal, primitive, kind, ...) \
+    clazz = ClassBuilder(#literal) \
+        .tags(Type::kBuiltinTag|Type::kReferenceTag) \
+        .base(builtin_type(kType_any)) \
+        .ref_size(kPointerSize) \
+        .field("value") \
+            .type(builtin_type(kType_##primitive)) \
+            .flags(Field::kPrivate|Field::kRead) \
+            .tag(1) \
+            .offset(AbstractValue::kOffsetValue) \
+        .End() \
+    .Build(this); \
+    DCHECK_EQ(kType_##literal, clazz->id()) << #literal;
+
+    DECLARE_BOX_NUMBER_TYPES(DEFINE_BUILTIN_CLASS)
+        
+#undef DEFINE_BUILTIN_CLASS
+    
+    clazz = ClassBuilder("captured_value")
+        .tags(Type::kBuiltinTag|Type::kReferenceTag)
+        .base(builtin_type(kType_any))
+        .ref_size(kPointerSize)
+        .field("value")
+            .type(builtin_type(kType_any))
+            .flags(Field::kPrivate|Field::kRead)
+            .tag(1)
+            .offset(AbstractValue::kOffsetValue)
+        .End()
+    .Build(this);
+    DCHECK_EQ(kType_captured_value, clazz->id()) << "captured_value";
+    
+    clazz = ClassBuilder("closure")
+        .tags(Type::kBuiltinTag|Type::kReferenceTag)
+        .base(builtin_type(kType_any))
+        .ref_size(kPointerSize)
+        .field("proto")
+            .type(builtin_type(kType_u64))
+            .flags(Field::kPrivate|Field::kRead)
+            .tag(1)
+            .offset(Closure::kOffsetProto)
+        .End()
+        .field("captured_var_size")
+            .type(builtin_type(kType_u32))
+            .flags(Field::kPrivate|Field::kRead)
+            .tag(2)
+            .offset(Closure::kOffsetCapturedVarSize)
+        .End()
+        .field("captured_var")
+            .type(builtin_type(kType_captured_value))
+            .flags(Field::kPrivate|Field::kRead)
+            .tag(2)
+            .offset(Closure::kOffsetCapturedVar)
+        .End()
+    .Build(this);
+    DCHECK_EQ(kType_closure, clazz->id()) << "closure";
     
     // String class
     ClassBuilder("string")
-        .tags(Type::kBuiltinTag)
+        .tags(Type::kBuiltinTag|Type::kReferenceTag)
         .ref_size(kPointerSize)
         .field("capacity")
             .type(builtin_type(kType_u32))
@@ -84,7 +160,7 @@ Error MetadataSpace::Initialize() {
 
     // MutableMap::Entry
     clazz = ClassBuilder("mutable_map::entry")
-        .tags(Type::kBuiltinTag)
+        .tags(Type::kBuiltinTag|Type::kReferenceTag)
         .ref_size(kPointerSize)
         .field("next")
             .type(builtin_type(kType_i8))
@@ -116,7 +192,7 @@ Error MetadataSpace::Initialize() {
 
 #define DEFINE_BUILTIN_CLASS(literal, kind, ...) \
     clazz = ClassBuilder(#literal) \
-        .tags(Type::kBuiltinTag) \
+        .tags(Type::kBuiltinTag|Type::kReferenceTag) \
         .ref_size(kPointerSize) \
         .field("capacity") \
             .type(builtin_type(kType_u32)) \

@@ -17,6 +17,7 @@ Scheduler::Scheduler(int concurrency)
     }
     machine0_ = all_machines_[0];
     DCHECK_EQ(0, machine0_->id());
+    // TODO:
 }
 
 Scheduler::~Scheduler() {
@@ -37,16 +38,15 @@ Scheduler::~Scheduler() {
 }
 
 Coroutine *Scheduler::NewCoroutine(Closure *entry, bool co0) {
-    const size_t stack_size = co0 ? kCoroutine0StackSize : kDefaultStackSize;
+    const size_t stack_size = co0 ? kC0StackSize : kDefaultStackSize;
     Stack *stack = NewStack(stack_size);
     if (!stack) {
         return nullptr;
     }
 
     Machine *m = Machine::Get();
-    Coroutine *co = m->free_dummy_->next();
-    if (co != m->free_dummy_) {
-        QUEUE_REMOVE(co);
+    Coroutine *co = m->TakeFreeCoroutine();
+    if (co) {
         co->Reinitialize(next_coid_.fetch_add(1), entry, stack);
         return co;
     }
@@ -55,11 +55,32 @@ Coroutine *Scheduler::NewCoroutine(Closure *entry, bool co0) {
         co = free_dummy_->next();
         if (co != free_dummy_) {
             QUEUE_REMOVE(co);
+            n_free_--;
             co->Reinitialize(next_coid_.fetch_add(1), entry, stack);
             return co;
         }
     }
     return new Coroutine(next_coid_.fetch_add(1), entry, stack);
+}
+
+void Scheduler::PurgreCoroutine(Coroutine *co) {
+    co->Dispose();
+    
+    Machine *m = Machine::Get();
+    if (m->n_free() + 1 <= Machine::kMaxFreeCoroutines) {
+        m->InsertFreeCoroutine(co);
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(free_dummy_mutex_);
+        if (n_free_ + 1 <= kMaxFreeCoroutines) {
+            QUEUE_INSERT_HEAD(free_dummy_, co);
+            n_free_++;
+            return;
+        }
+    }
+    delete co;
 }
 
 } // namespace lang

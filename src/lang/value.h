@@ -13,10 +13,18 @@ namespace lang {
 
 class Class;
 class Type;
+class Function;
+class Code;
 
 // All heap object's base class.
 class Any {
 public:
+    static const int32_t kOffsetKlass;
+    static const int32_t kOffsetTags;
+    
+    static constexpr uint32_t kColorMask = 0x0ff;
+    static constexpr uint32_t kClosureMask = 0xf00;
+    
     // internal functions:
     inline bool is_forward() const;
     inline Class *clazz() const;
@@ -30,14 +38,14 @@ public:
     void operator delete (void *) = delete;
 protected:
     Any(const Class *clazz, uint32_t tags)
-        : forward_(reinterpret_cast<uintptr_t>(clazz))
+        : klass_(reinterpret_cast<uintptr_t>(clazz))
         , tags_(tags) {}
     
     // Write-Barrier for heap object writting
     bool WriteBarrier(Any **address) { return WriteBarrier(address, 1) == 1; }
     int WriteBarrier(Any **address, size_t n);
     
-    uintptr_t forward_; // Forward pointer or Class pointer
+    uintptr_t klass_; // Forward pointer or Class pointer
     uint32_t tags_; // Tags for heap object
 }; // class Any
 
@@ -323,6 +331,133 @@ private:
 }; // class MutableMap
 
 
+// Value Base Class
+class AbstractValue : public Any  {
+public:
+    static const int32_t kOffsetValue;
+    static constexpr size_t kMaxValueSize = sizeof(void *);
+
+protected:
+    AbstractValue(const Class *clazz, const void *data, size_t n)
+        : Any(clazz, 0) {
+        ::memcpy(value_, data, n);
+    }
+    
+    AbstractValue(const Class *clazz)
+        : Any(clazz, 0) {
+        ::memset(value_, 0, kMaxValueSize);
+    }
+    
+    void *address() { return value_; }
+    const void *address() const { return value_; }
+
+    uint32_t padding_; // Padding aligment to cache line
+    uint8_t value_[kMaxValueSize]; // Storage value
+}; // class AbstractValue
+
+
+// Heap boxed number
+template<class T>
+class Number : public AbstractValue {
+public:
+    using AbstractValue::kOffsetValue;
+    using AbstractValue::address;
+    using AbstractValue::value_;
+    
+    static_assert(sizeof(T) <= kMaxValueSize, "Bad type T!");
+    static_assert(std::is_floating_point<T>::value ||
+                  std::is_integral<T>::value, "T is not a number type");
+
+    inline T value() const { return *static_cast<T *>(address()); }
+    
+    inline Handle<Number<T>> New(T value) {
+        // TODO:
+        return Handle<Number<T>>::Empty();
+    }
+    
+    inline Handle<Number<T>> ValueOf(T value) {
+        // TODO:
+        return Handle<Number<T>>::Empty();
+    }
+    
+    friend class Machine;
+private:
+    inline Number(const Class *clazz, T value)
+        : AbstractValue(clazz, &value, sizeof(value)) {
+    }
+}; // template<class T> class Number
+
+
+// Closure's captured-value
+class CapturedValue : public AbstractValue {
+public:
+    // internal functions:
+    inline bool is_object_value() const;
+    inline bool is_primitive_value() const;
+    inline const void *value() const;
+    inline void *mutable_value();
+    
+    friend class Machine;
+private:
+    static constexpr uint32_t kObjectBit = 1;
+
+    // Create a primitive captured-value
+    CapturedValue(const Class *clazz, const void *value, size_t n)
+        : AbstractValue(clazz, value, n) {
+        padding_ = 0;
+    }
+    
+    // Create a object captured-value
+    CapturedValue(const Class *clazz, Any *value)
+        : AbstractValue(clazz, &value, sizeof(value)) {
+        padding_ = kObjectBit;
+    }
+
+    // Create a empty captured-value
+    CapturedValue(const Class *clazz, bool is_object)
+        : AbstractValue(clazz) {
+        padding_ = is_object ? kObjectBit : 0;
+    }
+}; // class CapturedValue
+
+
+// Callable closure function
+class Closure : public Any {
+public:
+    struct CapturedVar {
+        CapturedValue *value;
+    }; //struct CapturedVar
+    
+    static const int32_t kOffsetProto;
+    static const int32_t kOffsetCapturedVarSize;
+    static const int32_t kOffsetCapturedVar;
+
+    static constexpr uint32_t kCxxFunction = 0x100;
+    static constexpr uint32_t kMaiFunction = 0x200;
+
+    friend class Machine;
+private:
+    Closure(Class *clazz, Code *cxx_fn, uint32_t captured_var_size, uint32_t tags)
+        : Any(clazz, tags|kCxxFunction)
+        , cxx_fn_(cxx_fn)
+        , captured_var_size_(captured_var_size) {
+        ::memset(captured_var_, 0, sizeof(CapturedVar) * captured_var_size_);
+    }
+
+    Closure(Class *clazz, Function *mai_fn, uint32_t captured_var_size, uint32_t tags)
+        : Any(clazz, tags|kMaiFunction)
+        , mai_fn_(mai_fn)
+        , captured_var_size_(captured_var_size) {
+        ::memset(captured_var_, 0, sizeof(CapturedVar) * captured_var_size_);
+    }
+
+    union {
+        Code *cxx_fn_;
+        Function *mai_fn_;
+    }; // union: Function proto or cxx function stub
+    uint32_t captured_var_size_; // Number of captured_var_size_
+    CapturedVar captured_var_[0]; // Captured variables
+}; // class Closure
 
 } // namespace lang
 

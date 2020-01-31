@@ -9,6 +9,7 @@ namespace lang {
 
 class Any;
 template<class T, bool R> class Array;
+template<class T> class Number;
 
 // primitive
 #define DECLARE_PRIMITIVE_TYPES(V) \
@@ -25,6 +26,21 @@ template<class T, bool R> class Array;
     V(u64, uint64_t) \
     V(f32, float) \
     V(f64, double)
+
+#define DECLARE_BOX_NUMBER_TYPES(V) \
+    V(Bool, bool, bool) \
+    V(I8, i8, int8_t) \
+    V(U8, u8, uint8_t) \
+    V(I16, i16, int16_t) \
+    V(U16, u16, uint16_t) \
+    V(I32, i32, int32_t) \
+    V(U32, u32, uint32_t) \
+    V(Int, int, int32_t) \
+    V(UInt, uint, uint32_t) \
+    V(I64, i64, int64_t) \
+    V(U64, u64, uint64_t) \
+    V(F32, f32, float) \
+    V(F64, f64, double)
 
 #define DECLARE_ARRAY_TYPES(V) \
     V(array8, uint8_t) \
@@ -57,9 +73,13 @@ template<class T, bool R> class Array;
     DECLARE_MUTABLE_MAP_TYPES(V)
 
 enum BuiltinType: int {
+    kType_void,
 #define DEFINE_ENUM(name, ...) kType_##name,
     DECLARE_PRIMITIVE_TYPES(DEFINE_ENUM)
     kType_any,
+    DECLARE_BOX_NUMBER_TYPES(DEFINE_ENUM)
+    kType_captured_value,
+    kType_closure,
     kType_string,
     kType_mutable_map_entry,
     DECLARE_CONTAINER_TYPES(DEFINE_ENUM)
@@ -142,6 +162,78 @@ struct TypeTraits<float> {
 template<>
 struct TypeTraits<double> {
     static constexpr BuiltinType kType = kType_f64;
+    
+};
+
+template<>
+struct TypeTraits<Number<bool>> {
+    static constexpr BuiltinType kType = kType_Bool;
+    
+};
+
+template<>
+struct TypeTraits<Number<char>> {
+    static constexpr BuiltinType kType = kType_I8;
+
+};
+
+template<>
+struct TypeTraits<Number<int8_t>> {
+    static constexpr BuiltinType kType = kType_I8;
+    
+};
+
+template<>
+struct TypeTraits<Number<uint8_t>> {
+    static constexpr BuiltinType kType = kType_U8;
+    
+};
+
+template<>
+struct TypeTraits<Number<int16_t>> {
+    static constexpr BuiltinType kType = kType_I16;
+    
+};
+
+template<>
+struct TypeTraits<Number<uint16_t>> {
+    static constexpr BuiltinType kType = kType_U16;
+    
+};
+
+template<>
+struct TypeTraits<Number<int32_t>> {
+    static constexpr BuiltinType kType = kType_I32;
+    
+};
+
+template<>
+struct TypeTraits<Number<uint32_t>> {
+    static constexpr BuiltinType kType = kType_U32;
+    
+};
+
+template<>
+struct TypeTraits<Number<int64_t>> {
+    static constexpr BuiltinType kType = kType_I64;
+    
+};
+
+template<>
+struct TypeTraits<Number<uint64_t>> {
+    static constexpr BuiltinType kType = kType_U64;
+    
+};
+
+template<>
+struct TypeTraits<Number<float>> {
+    static constexpr BuiltinType kType = kType_F32;
+    
+};
+
+template<>
+struct TypeTraits<Number<double>> {
+    static constexpr BuiltinType kType = kType_F64;
     
 };
 

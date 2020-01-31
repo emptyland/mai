@@ -36,9 +36,13 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     stack_guard1_ = stack->guard1();
 }
 
-Coroutine::~Coroutine() {
+void Coroutine::Dispose() {
+    DCHECK_EQ(kDead, state_);
     // Free stack
-    __isolate->scheduler()->PurgreStack(stack_);
+    if (stack_) {
+        __isolate->scheduler()->PurgreStack(stack_);
+        stack_ = nullptr;
+    }
 }
 
 } // namespace lang

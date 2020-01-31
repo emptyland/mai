@@ -15,6 +15,8 @@ class Coroutine;
 
 class Scheduler final {
 public:
+    static constexpr int kMaxFreeCoroutines = 80;
+
     Scheduler(int concurrency);
     ~Scheduler();
     
@@ -22,6 +24,8 @@ public:
     DEF_PTR_GETTER(Machine, machine0);
     
     Coroutine *NewCoroutine(Closure *entry, bool co0);
+    
+    void PurgreCoroutine(Coroutine *co);
     
     Stack *NewStack(size_t size) {
         {
@@ -52,6 +56,7 @@ private:
     std::unique_ptr<Machine *[]> all_machines_;
     Coroutine *free_dummy_; // Free coroutines
     std::mutex free_dummy_mutex_; // mutex of free-dummy
+    int n_free_ = 0; // Number free coroutines
     
     Stack *stack_pool_; // Stack pool
     size_t stack_pool_rss_ = 0; // RSS size of stack-pool
