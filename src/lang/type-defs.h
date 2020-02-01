@@ -8,6 +8,8 @@ namespace mai {
 namespace lang {
 
 class Any;
+class String;
+class Closure;
 template<class T, bool R> class Array;
 template<class T> class Number;
 
@@ -83,6 +85,8 @@ enum BuiltinType: int {
     kType_string,
     kType_mutable_map_entry,
     DECLARE_CONTAINER_TYPES(DEFINE_ENUM)
+    
+    kMax_Types
 #undef DEFINE_ENUM
 };
 
@@ -91,222 +95,241 @@ static constexpr uint32_t kUserTypeIdBase = 0x1000;
 template<class T>
 struct TypeTraits {
     static constexpr BuiltinType kType = static_cast<BuiltinType>(-1);
+    static constexpr char kName[] = "";
+};
+
+template<>
+struct TypeTraits<void> {
+    static constexpr BuiltinType kType = kType_void;
+    static constexpr char kName[] = "void";
 };
 
 template<>
 struct TypeTraits<bool> {
     static constexpr BuiltinType kType = kType_bool;
-    
+    static constexpr char kName[] = "bool";
 };
 
 template<>
 struct TypeTraits<char> {
     static constexpr BuiltinType kType = kType_i8;
-
+    static constexpr char kName[] = "i8";
 };
 
 template<>
 struct TypeTraits<int8_t> {
     static constexpr BuiltinType kType = kType_i8;
-    
+    static constexpr char kName[] = "i8";
 };
 
 template<>
 struct TypeTraits<uint8_t> {
     static constexpr BuiltinType kType = kType_u8;
-    
+    static constexpr char kName[] = "u8";
 };
 
 template<>
 struct TypeTraits<int16_t> {
     static constexpr BuiltinType kType = kType_i16;
-    
+    static constexpr char kName[] = "i16";
 };
 
 template<>
 struct TypeTraits<uint16_t> {
     static constexpr BuiltinType kType = kType_u16;
-    
+    static constexpr char kName[] = "u16";
 };
 
 template<>
 struct TypeTraits<int32_t> {
     static constexpr BuiltinType kType = kType_i32;
-    
+    static constexpr char kName[] = "i32";
 };
 
 template<>
 struct TypeTraits<uint32_t> {
     static constexpr BuiltinType kType = kType_u32;
-    
+    static constexpr char kName[] = "u32";
 };
 
 template<>
 struct TypeTraits<int64_t> {
     static constexpr BuiltinType kType = kType_i64;
-    
+    static constexpr char kName[] = "i64";
 };
 
 template<>
 struct TypeTraits<uint64_t> {
     static constexpr BuiltinType kType = kType_u64;
-    
+    static constexpr char kName[] = "u64";
 };
 
 template<>
 struct TypeTraits<float> {
     static constexpr BuiltinType kType = kType_f32;
-    
+    static constexpr char kName[] = "f32";
 };
 
 template<>
 struct TypeTraits<double> {
     static constexpr BuiltinType kType = kType_f64;
-    
+    static constexpr char kName[] = "f64";
+};
+
+template<>
+struct TypeTraits<Closure> {
+    static constexpr BuiltinType kType = kType_closure;
+    static constexpr char kName[] = "closure";
+};
+
+template<>
+struct TypeTraits<String> {
+    static constexpr BuiltinType kType = kType_string;
+    static constexpr char kName[] = "string";
 };
 
 template<>
 struct TypeTraits<Number<bool>> {
     static constexpr BuiltinType kType = kType_Bool;
-    
+    static constexpr char kName[] = "Bool";
 };
 
 template<>
 struct TypeTraits<Number<char>> {
     static constexpr BuiltinType kType = kType_I8;
-
+    static constexpr char kName[] = "I8";
 };
 
 template<>
 struct TypeTraits<Number<int8_t>> {
     static constexpr BuiltinType kType = kType_I8;
-    
+    static constexpr char kName[] = "I8";
 };
 
 template<>
 struct TypeTraits<Number<uint8_t>> {
     static constexpr BuiltinType kType = kType_U8;
-    
+    static constexpr char kName[] = "U8";
 };
 
 template<>
 struct TypeTraits<Number<int16_t>> {
     static constexpr BuiltinType kType = kType_I16;
-    
+    static constexpr char kName[] = "I16";
 };
 
 template<>
 struct TypeTraits<Number<uint16_t>> {
     static constexpr BuiltinType kType = kType_U16;
-    
+    static constexpr char kName[] = "U16";
 };
 
 template<>
 struct TypeTraits<Number<int32_t>> {
     static constexpr BuiltinType kType = kType_I32;
-    
+    static constexpr char kName[] = "I32";
 };
 
 template<>
 struct TypeTraits<Number<uint32_t>> {
     static constexpr BuiltinType kType = kType_U32;
-    
+    static constexpr char kName[] = "U32";
 };
 
 template<>
 struct TypeTraits<Number<int64_t>> {
     static constexpr BuiltinType kType = kType_I64;
-    
+    static constexpr char kName[] = "I64";
 };
 
 template<>
 struct TypeTraits<Number<uint64_t>> {
     static constexpr BuiltinType kType = kType_U64;
-    
+    static constexpr char kName[] = "U64";
 };
 
 template<>
 struct TypeTraits<Number<float>> {
     static constexpr BuiltinType kType = kType_F32;
-    
+    static constexpr char kName[] = "F32";
 };
 
 template<>
 struct TypeTraits<Number<double>> {
     static constexpr BuiltinType kType = kType_F64;
-    
+    static constexpr char kName[] = "F64";
 };
 
 template<>
 struct TypeTraits<Any *> {
     static constexpr BuiltinType kType = kType_any;
-    
+    static constexpr char kName[] = "any";
 };
 
 template<>
 struct TypeTraits<Array<int8_t, false>> {
     static constexpr BuiltinType kType = kType_array8;
-    
+    static constexpr char kName[] = "array8";
 };
 
 template<>
 struct TypeTraits<Array<uint8_t, false>> {
     static constexpr BuiltinType kType = kType_array8;
-    
+    static constexpr char kName[] = "array8";
 };
 
 template<>
 struct TypeTraits<Array<int16_t, false>> {
     static constexpr BuiltinType kType = kType_array16;
-    
+    static constexpr char kName[] = "array16";
 };
 
 template<>
 struct TypeTraits<Array<uint16_t, false>> {
     static constexpr BuiltinType kType = kType_array16;
-    
+    static constexpr char kName[] = "array16";
 };
 
 template<>
 struct TypeTraits<Array<int32_t, false>> {
     static constexpr BuiltinType kType = kType_array32;
-    
+    static constexpr char kName[] = "array32";
 };
 
 template<>
 struct TypeTraits<Array<uint32_t, false>> {
     static constexpr BuiltinType kType = kType_array32;
-    
+    static constexpr char kName[] = "array32";
 };
 
 template<>
 struct TypeTraits<Array<int64_t, false>> {
     static constexpr BuiltinType kType = kType_array64;
-    
+    static constexpr char kName[] = "array64";
 };
 
 template<>
 struct TypeTraits<Array<uint64_t, false>> {
     static constexpr BuiltinType kType = kType_array64;
-    
+    static constexpr char kName[] = "array64";
 };
 
 template<>
 struct TypeTraits<Array<float, false>> {
     static constexpr BuiltinType kType = kType_array32;
-    
+    static constexpr char kName[] = "array32";
 };
 
 template<>
 struct TypeTraits<Array<double, false>> {
     static constexpr BuiltinType kType = kType_array64;
-    
+    static constexpr char kName[] = "array64";
 };
 
 template<class T>
 struct TypeTraits<Array<T, true>> {
     static constexpr BuiltinType kType = kType_array;
-    
+    static constexpr char kName[] = "array";
 };
 
 } // namespace lang

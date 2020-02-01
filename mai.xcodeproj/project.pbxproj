@@ -35,6 +35,8 @@
 		23344CE621EF0764006BC6E4 /* transaction.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD321EF0751006BC6E4 /* transaction.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		23344CE721EF0764006BC6E4 /* write-batch.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CDB21EF0751006BC6E4 /* write-batch.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		23347C81225791B400ABAB3F /* thread-pool-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23347C80225791B400ABAB3F /* thread-pool-test.cc */; };
+		2339B3F123E5B48300B07772 /* function-template-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2339B3F023E5B48300B07772 /* function-template-x64.cc */; };
+		2339B3F423E5B90700B07772 /* macro-assembler-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2339B3F323E5B90700B07772 /* macro-assembler-x64.cc */; };
 		2349FDF522A4BA76001861E0 /* sha256.c in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF422A4BA76001861E0 /* sha256.c */; };
 		2349FDF722A4BAA0001861E0 /* sha256-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF622A4BAA0001861E0 /* sha256-test.cc */; };
 		235602A123DDC6DE00A799B9 /* space-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235602A023DDC6DE00A799B9 /* space-test.cc */; };
@@ -327,6 +329,10 @@
 		23344CDA21EF0751006BC6E4 /* comparator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = comparator.h; sourceTree = "<group>"; };
 		23344CDB21EF0751006BC6E4 /* write-batch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "write-batch.h"; sourceTree = "<group>"; };
 		23347C80225791B400ABAB3F /* thread-pool-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "thread-pool-test.cc"; sourceTree = "<group>"; };
+		2339B3F023E5B48300B07772 /* function-template-x64.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "function-template-x64.cc"; sourceTree = "<group>"; };
+		2339B3F223E5B62000B07772 /* macro-assembler-x64.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "macro-assembler-x64.h"; sourceTree = "<group>"; };
+		2339B3F323E5B90700B07772 /* macro-assembler-x64.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "macro-assembler-x64.cc"; sourceTree = "<group>"; };
+		2339B3F523E5BC2A00B07772 /* stack-frame.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "stack-frame.h"; sourceTree = "<group>"; };
 		234372C921998C0A00427E83 /* write-ahead-log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-ahead-log.h"; sourceTree = "<group>"; };
 		2349FDF322A4BA76001861E0 /* sha256.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sha256.h; sourceTree = "<group>"; };
 		2349FDF422A4BA76001861E0 /* sha256.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sha256.c; sourceTree = "<group>"; };
@@ -605,6 +611,7 @@
 				23599D3A23D58E3700F722D6 /* page.cc */,
 				236EA77E23D691E20071047C /* mm.h */,
 				2379A25323E32741003067E6 /* stack.h */,
+				2339B3F523E5BC2A00B07772 /* stack-frame.h */,
 				236EA77F23D69A370071047C /* space.h */,
 				236EA78023D69A760071047C /* space.cc */,
 				236EA78223D6E22F0071047C /* isolate.h */,
@@ -615,6 +622,7 @@
 				236EA78323D6E3080071047C /* value.h */,
 				238F195523DC75D500FF0D98 /* value-inl.h */,
 				236EA78623D6E3980071047C /* value.cc */,
+				2339B3F023E5B48300B07772 /* function-template-x64.cc */,
 				236EA78B23D6F82D0071047C /* metadata.h */,
 				236EA78C23D6FC620071047C /* metadata.cc */,
 				236EA78F23D72F0B0071047C /* metadata-space.h */,
@@ -628,6 +636,8 @@
 				230510BA23DF368900B89A7C /* scheduler.cc */,
 				230510BC23E066C500B89A7C /* handle.h */,
 				230510BF23E06A1F00B89A7C /* handle.cc */,
+				2339B3F223E5B62000B07772 /* macro-assembler-x64.h */,
+				2339B3F323E5B90700B07772 /* macro-assembler-x64.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1227,6 +1237,7 @@
 				2364B2B721E451F8008519AE /* write-batch-with-index.cc in Sources */,
 				2364B2B821E451F8008519AE /* transaction-db.cc in Sources */,
 				2364B2BA21E451F8008519AE /* transaction-lock-mgr.cc in Sources */,
+				2339B3F123E5B48300B07772 /* function-template-x64.cc in Sources */,
 				23599D3D23D58F6D00F722D6 /* page-test.cc in Sources */,
 				2364B2C121E451F9008519AE /* write-ahead-log.cc in Sources */,
 				230510A023DF1CA400B89A7C /* symbolize.cc in Sources */,
@@ -1256,6 +1267,7 @@
 				2364B2EA21E451F9008519AE /* key-bloom-filter.cc in Sources */,
 				2364B2EC21E451F9008519AE /* block-iterator.cc in Sources */,
 				2364B2EE21E451F9008519AE /* block-cache.cc in Sources */,
+				2339B3F423E5B90700B07772 /* macro-assembler-x64.cc in Sources */,
 				2364B2F021E451F9008519AE /* plain-block-builder.cc in Sources */,
 				2364B2F121E451F9008519AE /* env-posix.cc in Sources */,
 				2364B2F321E451F9008519AE /* file-posix.cc in Sources */,

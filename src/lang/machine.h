@@ -52,6 +52,9 @@ public:
     
     AbstractArray *NewArrayCopiedSlow(const AbstractArray *origin, size_t increment, uint32_t flags);
     
+    // New native closure
+    Closure *NewClosure(Code *code, size_t captured_var_size, uint32_t flags);
+    
     // Handle scope enter
     void EnterHandleScope(HandleScope *handle_scope) {
         auto prev_slot = top_slot_;

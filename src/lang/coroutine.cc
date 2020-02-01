@@ -3,10 +3,21 @@
 #include "lang/scheduler.h"
 #include "lang/heap.h"
 #include "lang/stack.h"
+#include "asm/utils.h"
 
 namespace mai {
 
 namespace lang {
+
+#define MEMBER_OFFSET_OF(field) \
+    arch::ObjectTemplate<Coroutine, int32_t>::OffsetOf(&Coroutine :: field)
+
+const int32_t Coroutine::kOffsetSysBP = MEMBER_OFFSET_OF(sys_bp_);
+const int32_t Coroutine::kOffsetSysSP = MEMBER_OFFSET_OF(sys_sp_);
+const int32_t Coroutine::kOffsetSysPC = MEMBER_OFFSET_OF(sys_pc_);
+const int32_t Coroutine::kOffsetBP = MEMBER_OFFSET_OF(bp_);
+const int32_t Coroutine::kOffsetSP = MEMBER_OFFSET_OF(sp_);
+const int32_t Coroutine::kOffsetPC = MEMBER_OFFSET_OF(pc_);
 
 void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     // queue header:
@@ -20,6 +31,7 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     exception_ = nullptr;
     caught_    = nullptr;
     yield_     = 0;
+    reentrant_ = 0;
 
     new_guard0_ = __isolate->heap()->new_space()->original_chunk();
     new_guard1_ = __isolate->heap()->new_space()->original_limit();

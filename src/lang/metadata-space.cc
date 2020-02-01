@@ -1,6 +1,7 @@
 #include "lang/metadata-space.h"
 #include "lang/value-inl.h"
 #include "lang/stack.h"
+#include "lang/macro-assembler-x64.h"
 
 namespace mai {
 
@@ -224,6 +225,38 @@ Error MetadataSpace::Initialize() {
     // Other types from this id;
     DCHECK_LT(next_type_id_, kUserTypeIdBase);
     next_type_id_ = kUserTypeIdBase;
+    
+    if (Error err = GenerateBuiltinCode(); err.fail()) {
+        return err;
+    }
+    return Error::OK();
+}
+
+extern void Generate_ValidTestStub(MacroAssembler *masm);
+extern void Generate_SwitchSystemStackCall(MacroAssembler *masm);
+
+Error MetadataSpace::GenerateBuiltinCode() {
+    MacroAssembler masm;
+    
+    Generate_ValidTestStub(&masm);
+    valid_test_stub_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr);
+    if (!valid_test_stub_code_) {
+        return MAI_CORRUPTION("OOM by generate code");
+    }
+    masm.Reset();
+
+    CallStub<intptr_t(intptr_t, intptr_t)> call_stub(valid_test_stub_code_);
+    if (call_stub.entry()(1, -1) != 0) {
+        return MAI_CORRUPTION("Incorrect code generator");
+    }
+
+    Generate_SwitchSystemStackCall(&masm);
+    switch_system_stack_call_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr);
+    if (!switch_system_stack_call_code_) {
+        return MAI_CORRUPTION("OOM by generate code");
+    }
+    masm.Reset();
+
     return Error::OK();
 }
 
@@ -332,8 +365,8 @@ Class *ClassBuilder::Build(MetadataSpace *space) const {
 }
 
 bool FunctionBuilder::Valid() const {
-    if (name_.empty() || prototype_.empty()) {
-        DLOG(ERROR) << "name or prototype is empty: " << name_ << ":" << prototype_;
+    if (name_.empty() || prototype_.size() < 1) {
+        DLOG(ERROR) << "name or prototype is empty: " << name_ << ":" << prototype_.size();
         return false;
     }
     
@@ -375,12 +408,9 @@ Function *FunctionBuilder::Build(MetadataSpace *space) const {
     DCHECK(Valid()) << "Function is NOT valid";
     
     Function *func = space->New<Function>();
-    if (!func) {
-        return nullptr;
-    }
     func->name_ = space->NewString(name_);
     func->kind_ = kind_;
-    func->prototype_ = space->NewString(prototype_);
+    func->prototype_ = space->NewPrototypeDesc(prototype_, has_vargs_);
     func->code_ = code_;
     func->bytecode_ = bytecode_;
     func->source_line_info_ = source_line_info_;

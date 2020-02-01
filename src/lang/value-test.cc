@@ -13,6 +13,10 @@ public:
     // Dummy
 };
 
+TEST_F(ValueTest, TypeTraits) {
+    ASSERT_STREQ("void", TypeTraits<void>::kName);
+}
+
 TEST_F(ValueTest, PrimitiveArray) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     int init[4] = {111, 222, 333, 444};

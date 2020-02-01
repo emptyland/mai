@@ -25,8 +25,13 @@ public:
     
     const Class *builtin_type(BuiltinType type) const {
         DCHECK_GE(static_cast<int>(type), 0);
-        DCHECK_LT(static_cast<int>(type), classes_.size());
+        DCHECK_LT(static_cast<int>(type), kMax_Types);
         return classes_[static_cast<int>(type)];
+    }
+    
+    const Class *type(uint32_t id) const {
+        DCHECK_LT(id, classes_.size());
+        return classes_[id];
     }
 
     template<class T>
@@ -40,6 +45,9 @@ public:
     }
     
     DEF_VAL_GETTER(size_t, used_size);
+    
+    // Builtin Code:
+    DEF_PTR_GETTER_NOTNULL(Code, switch_system_stack_call_code);
     
     size_t GetRSS() const { return n_pages_ * kPageSize + large_size_; }
     
@@ -56,12 +64,18 @@ public:
         return str->data();
     }
     
-    Code *NewCode(Code::Kind kind, Address instructions, size_t size) {
+    Code *NewCode(Code::Kind kind, const std::string &instructions, PrototypeDesc *prototype) {
+        return NewCode(kind, reinterpret_cast<Address>(const_cast<char *>(instructions.data())),
+                       instructions.size(),
+                       prototype);
+    }
+    
+    Code *NewCode(Code::Kind kind, Address instructions, size_t size, PrototypeDesc *prototype) {
         auto result = Allocate(sizeof(Code) + size, true/*exec*/);
         if (!result.ok()) {
             return nullptr;
         }
-        return new (result.ptr()) Code(kind, instructions, static_cast<uint32_t>(size));
+        return new (result.ptr()) Code(kind, instructions, static_cast<uint32_t>(size), prototype);
     }
     
     BytecodeArray *NewBytecodeArray(const std::vector<BytecodeInstruction> &instructions) {
@@ -92,6 +106,21 @@ public:
         return new (result.ptr()) SourceLineInfo(md_file_name, lines, n);
     }
     
+    PrototypeDesc *NewPrototypeDesc(const std::vector<uint32_t> &desc, bool has_vargs) {
+        DCHECK_GT(desc.size(), 1) << "Tail must be return type.";
+        return NewPrototypeDesc(&desc[0], desc.size() - 1, has_vargs, desc.back());
+    }
+    
+    PrototypeDesc *NewPrototypeDesc(const uint32_t *parameters, size_t n, bool has_vargs,
+                                    uint32_t return_type) {
+        auto result = Allocate(sizeof(PrototypeDesc) + n *sizeof(parameters[0]), false/*exec*/);
+        if (!result.ok()) {
+            return nullptr;
+        }
+        return new (result.ptr()) PrototypeDesc(parameters, static_cast<uint32_t>(n), has_vargs,
+                                                return_type);
+    }
+    
     // mark all pages to readonly
     void MarkReadonly(bool readonly) {
         // TODO:
@@ -111,6 +140,8 @@ public:
     friend class FunctionBuilder;
     DISALLOW_IMPLICIT_CONSTRUCTORS(MetadataSpace);
 private:
+    Error GenerateBuiltinCode();
+    
     struct ClassFieldKey {
         const Class *clazz;
         std::string_view field_name;
@@ -196,6 +227,10 @@ private:
         ClassFieldEqualTo>;
     ClassFieldMap named_class_fields_;
     std::shared_mutex class_fields_mutex_;
+    
+    // Builtin codes:
+    Code *valid_test_stub_code_; // For code valid testing
+    Code *switch_system_stack_call_code_; // Switch system stack(C++ stack) and call a function
 }; // class MetadataSpace
 
 
@@ -350,8 +385,10 @@ public:
         return *this;
     }
     
-    FunctionBuilder &prototype(const std::string &value) {
-        prototype_ = value;
+    FunctionBuilder &prototype(const std::vector<uint32_t> &parameters, bool has_vargs, uint32_t return_type) {
+        prototype_ = parameters;
+        prototype_.push_back(return_type);
+        has_vargs_ = has_vargs;
         return *this;
     }
 
@@ -427,7 +464,8 @@ private:
     }; // struct CapturedVarDesc
     
     std::string name_;
-    std::string prototype_;
+    std::vector<uint32_t> prototype_;
+    bool has_vargs_ = false;
     Function::Kind kind_ = Function::BYTECODE;
     Code *code_ = nullptr;
     BytecodeArray *bytecode_ = nullptr;

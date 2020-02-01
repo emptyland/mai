@@ -64,6 +64,16 @@ TEST_F(MetadataSpaceTest, StringAllocation) {
     ASSERT_EQ(0, reinterpret_cast<uintptr_t>(str) % kAligmentSize);
 }
 
+TEST_F(MetadataSpaceTest, CodeAllocation) {
+    uint8_t dummy[] = {0xcc, 0xcc, 0xcc, 0xcc};
+    auto code =space_->NewCode(Code::STUB, dummy, arraysize(dummy), nullptr);
+    ASSERT_NE(nullptr, code);
+    ASSERT_EQ(Code::STUB, code->kind());
+    for (uint32_t i = 0; i < arraysize(dummy); i++) {
+        ASSERT_EQ(dummy[i], code->entry()[i]);
+    }
+}
+
 TEST_F(MetadataSpaceTest, ClassBuilder) {
     auto err = space_->Initialize();
     ASSERT_TRUE(err.ok());
@@ -113,7 +123,7 @@ TEST_F(MetadataSpaceTest, FunctionBuilder) {
     ASSERT_TRUE(err.ok());
     
     Function::Builder builder("foo");
-    auto func = builder.prototype("():void")
+    auto func = builder.prototype({kType_int}, kType_void, false)
            .kind(Function::BYTECODE)
            .stack_size(RoundUp(32 + 40, kStackAligmentSize))
            .stack_bitmap({0})
@@ -128,23 +138,24 @@ TEST_F(MetadataSpaceTest, FunctionBuilder) {
     ASSERT_EQ(RoundUp(32 + 40, kStackAligmentSize), func->stack_size());
     ASSERT_EQ(0, func->stack_bitmap()[0]);
     ASSERT_EQ(2, func->captured_var_size());
-    
+    ASSERT_EQ("(int):void", func->prototype()->ToString(space_.get()));
+
     ASSERT_EQ(4, func->bytecode()->size());
     ASSERT_EQ(4, func->source_line_info()->length());
     ASSERT_EQ(SourceLineInfo::SIMPLE, func->source_line_info()->kind());
-    
+
     const SourceLineInfo *source_lines = func->source_line_info();
     ASSERT_STREQ("foo.mai", source_lines->file_name());
     ASSERT_EQ(1, source_lines->source_line(0));
     ASSERT_EQ(2, source_lines->source_line(1));
     ASSERT_EQ(3, source_lines->source_line(2));
     ASSERT_EQ(4, source_lines->source_line(3));
-    
+
     auto desc = func->captured_var(0);
     ASSERT_EQ(0, desc->index);
     ASSERT_STREQ("a", desc->name);
     ASSERT_EQ(Function::IN_STACK, desc->kind);
-    
+
     desc = func->captured_var(1);
     ASSERT_EQ(4, desc->index);
     ASSERT_STREQ("b", desc->name);

@@ -5,6 +5,7 @@
 #include "lang/handle.h"
 #include <stdint.h>
 #include <string.h>
+#include <vector>
 #include <type_traits>
 
 namespace mai {
@@ -435,16 +436,18 @@ public:
     static constexpr uint32_t kCxxFunction = 0x100;
     static constexpr uint32_t kMaiFunction = 0x200;
 
+    static Handle<Closure> New(Code *stub, uint32_t captured_var_size);
+    
     friend class Machine;
 private:
-    Closure(Class *clazz, Code *cxx_fn, uint32_t captured_var_size, uint32_t tags)
+    Closure(const Class *clazz, Code *cxx_fn, uint32_t captured_var_size, uint32_t tags)
         : Any(clazz, tags|kCxxFunction)
         , cxx_fn_(cxx_fn)
         , captured_var_size_(captured_var_size) {
         ::memset(captured_var_, 0, sizeof(CapturedVar) * captured_var_size_);
     }
 
-    Closure(Class *clazz, Function *mai_fn, uint32_t captured_var_size, uint32_t tags)
+    Closure(const Class *clazz, Function *mai_fn, uint32_t captured_var_size, uint32_t tags)
         : Any(clazz, tags|kMaiFunction)
         , mai_fn_(mai_fn)
         , captured_var_size_(captured_var_size) {
@@ -458,6 +461,43 @@ private:
     uint32_t captured_var_size_; // Number of captured_var_size_
     CapturedVar captured_var_[0]; // Captured variables
 }; // class Closure
+
+
+// CXX Function template for binding
+class FunctionTemplate {
+public:
+    template<class R>
+    static inline Handle<Closure> New(R(*func)()) {
+        Code *stub = MakeStub({}/*parametres*/, false/*has_vargs*/, TypeTraits<R>::kType);
+        if (!stub) {
+            return Handle<Closure>::Empty();
+        } else {
+            return Closure::New(stub, 0/*captured_var_size*/);
+        }
+    }
+    
+    template<class R, class A>
+    static inline Handle<Closure> New(R(*func)(A)) {
+        Code *stub = MakeStub({TypeTraits<A>::kType}/*parametres*/, false/*has_vargs*/,
+                              TypeTraits<R>::kType);
+        if (!stub) {
+            return Handle<Closure>::Empty();
+        } else {
+            return Closure::New(stub, 0/*captured_var_size*/);
+        }
+    }
+
+    // Can not construction and destory
+    FunctionTemplate(const FunctionTemplate &) = delete;
+    void operator = (const FunctionTemplate &) = delete;
+    FunctionTemplate() = delete;
+    ~FunctionTemplate() = delete;
+private:
+    //static uint32_t GetTypeId(const Any *object);
+    
+    static Code *MakeStub(const std::vector<uint32_t> &parameters, bool has_vargs,
+                          uint32_t return_type);
+}; // class FunctionTemplate
 
 } // namespace lang
 

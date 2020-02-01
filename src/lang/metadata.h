@@ -21,7 +21,8 @@ class Function;
 class FunctionBuilder;
 class SourceLineInfo;
 class BytecodeArray;
-
+class PrototypeDesc;
+class MetadataSpace;
 
 class MetadataObject {
 public:
@@ -206,7 +207,7 @@ public:
     using Builder = FunctionBuilder;
 
     DEF_VAL_GETTER(MDStr, name);
-    DEF_VAL_GETTER(MDStr, prototype);
+    DEF_PTR_GETTER(PrototypeDesc, prototype);
     DEF_VAL_GETTER(Kind, kind);
     DEF_PTR_GETTER(Code, code);
     DEF_PTR_GETTER(BytecodeArray, bytecode);
@@ -228,7 +229,7 @@ private:
     Function() = default;
 
     MDStr name_ = nullptr; // Function full name
-    MDStr prototype_ = nullptr; // Function prototype description
+    PrototypeDesc *prototype_ = nullptr; // Function prototype description
     Kind kind_ = BYTECODE; // Kind of function
     uint32_t stack_size_ = 0; // Stack size for invoking frame
     uint32_t *stack_bitmap_ = nullptr; // Stack spans bitmap for GC
@@ -249,28 +250,32 @@ private:
 class Code : public MetadataObject {
 public:
     enum Kind {
-        kEntry,
-        kStub,
-        kHandler,
+        ENTRY,
+        STUB,
+        BUILTIN,
+        HANDLER,
     };
     
     DEF_VAL_GETTER(Kind, kind);
     DEF_VAL_GETTER(uint32_t, size);
+    DEF_PTR_GETTER(PrototypeDesc, prototype);
 
     Address entry() { return instructions_; }
     
     friend class MetadataSpace;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Code);
 private:
-    Code(Kind kind, Address instructions, uint32_t size)
+    Code(Kind kind, Address instructions, uint32_t size, PrototypeDesc *prototype)
         : kind_(kind)
-        , size_(size) {
+        , size_(size)
+        , prototype_(prototype) {
         ::memcpy(instructions_, instructions, size);
     }
     
-    Kind kind_;
-    uint32_t size_;
-    uint8_t instructions_[0];
+    Kind kind_; // Kind of code
+    uint32_t size_; // Bytes size of instructions
+    PrototypeDesc *prototype_; // Only STUB kind has prototype_ field.
+    uint8_t instructions_[0]; // Native instructions
 }; // class Code
 
 
@@ -358,6 +363,54 @@ private:
     Kind kind_; // Kind of source-line-info format
     uint32_t length_; // Length of line info
 }; // class SourceLineInfo
+
+
+// Function prototype description
+class PrototypeDesc : public MetadataObject {
+public:
+    DEF_VAL_GETTER(uint32_t, return_type);
+    DEF_VAL_GETTER(uint32_t, parameter_size);
+    
+    uint32_t parameter(uint32_t i) const {
+        DCHECK_LT(i, parameter_size_);
+        return parameters_[i];
+    }
+    
+    // Has variable arguments?
+    bool has_vargs() const { return vargs_; }
+
+    // To readable string
+    std::string ToString() const;
+
+    std::string ToString(const MetadataSpace *space) const;
+
+    friend class MetadataSpace;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(PrototypeDesc);
+private:
+    PrototypeDesc(const uint32_t *parameters, uint32_t parameter_size, int vargs,
+                  uint32_t return_type)
+        : return_type_(return_type)
+        , parameter_size_(parameter_size)
+        , vargs_(vargs) {
+        ::memcpy(parameters_, parameters, parameter_size_ * sizeof(parameters_[0]));
+    }
+
+    uint32_t return_type_; // Return type id
+    uint32_t parameter_size_; // Number of parameters
+    int vargs_; // Has variable arguments?
+    uint32_t parameters_[0]; // Type id of parameters
+}; // class PrototypeDesc
+
+
+template <class T>
+class CallStub {
+public:
+    CallStub(Code *code): code_(DCHECK_NOTNULL(code)) {}
+    
+    T *entry() const { return reinterpret_cast<T *>(code_->entry()); }
+private:
+    Code *const code_;
+};
 
 inline const Field *Type::field(uint32_t i) const {
     DCHECK_LT(i, n_fields_);

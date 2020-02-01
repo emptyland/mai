@@ -31,6 +31,13 @@ public:
         kRunning,
         kFallIn,
     }; // enum State
+    
+    static const int32_t kOffsetSysBP;
+    static const int32_t kOffsetSysSP;
+    static const int32_t kOffsetSysPC;
+    static const int32_t kOffsetBP;
+    static const int32_t kOffsetSP;
+    static const int32_t kOffsetPC;
 
     Coroutine(uint64_t coid, Closure *entry, Stack *stack) {
         Reinitialize(coid, entry, stack);
@@ -68,6 +75,7 @@ private:
     Any *exception_; // [strong ref] Native function thrown exception
     CaughtNode *caught_; // Exception hook for exception caught
     uint32_t yield_; // Yield requests, if yield > 0, need yield
+    uint32_t reentrant_; // Number of reentrant times
     Address sys_bp_; // System frame pointer
     Address sys_sp_; // System stack pointer
     Address sys_pc_; // System program counter

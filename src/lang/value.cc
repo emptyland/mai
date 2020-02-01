@@ -63,6 +63,10 @@ MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32
     TODO();
 }
 
+/*static*/ Handle<Closure> Closure::New(Code *stub, uint32_t captured_var_size) {
+    return Handle<Closure>(Machine::Get()->NewClosure(stub, captured_var_size, Heap::kOld));
+}
+
 } // namespace lang
 
 } // namespace mai
