@@ -256,6 +256,8 @@ public:
         HANDLER,
     };
     
+    static const int32_t kOffsetEntry;
+    
     DEF_VAL_GETTER(Kind, kind);
     DEF_VAL_GETTER(uint32_t, size);
     DEF_PTR_GETTER(PrototypeDesc, prototype);

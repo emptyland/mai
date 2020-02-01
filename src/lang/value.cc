@@ -23,7 +23,8 @@ const int32_t MutableMapEntry::kOffsetValue = MEMBER_OFFSET_OF(MutableMapEntry, 
 
 const int32_t AbstractValue::kOffsetValue = MEMBER_OFFSET_OF(AbstractValue, value_);
 
-const int32_t Closure::kOffsetProto = MEMBER_OFFSET_OF(Closure, cxx_fn_);
+const int32_t Closure::kOffsetProto = MEMBER_OFFSET_OF(Closure, mai_fn_);
+const int32_t Closure::kOffsetCode = MEMBER_OFFSET_OF(Closure, cxx_fn_);
 const int32_t Closure::kOffsetCapturedVarSize = MEMBER_OFFSET_OF(Closure, captured_var_size_);
 const int32_t Closure::kOffsetCapturedVar = MEMBER_OFFSET_OF(Closure, captured_var_);
 

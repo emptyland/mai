@@ -430,6 +430,7 @@ public:
     }; //struct CapturedVar
 
     static const int32_t kOffsetProto;
+    static const int32_t kOffsetCode;
     static const int32_t kOffsetCapturedVarSize;
     static const int32_t kOffsetCapturedVar;
 

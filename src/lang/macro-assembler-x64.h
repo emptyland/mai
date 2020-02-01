@@ -52,7 +52,9 @@ public:
         }
     }
     
-    ~StackFrameScope() {
+    ~StackFrameScope() { Escape(); }
+    
+    void Escape() {
         if (reserve_size_ > 0) {
             masm_->addq(rsp, reserve_size_);
         }

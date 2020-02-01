@@ -209,7 +209,6 @@ private:
     }
 
     LinearPage *code_head() const { return LinearPage::Cast(dummy_code_->next_); }
-    
     LinearPage *page_head() const { return LinearPage::Cast(dummy_page_->next_); }
     
     PageHeader *dummy_page_; // Linear page double-linked list dummy (LinearPage)
@@ -229,8 +228,14 @@ private:
     std::shared_mutex class_fields_mutex_;
     
     // Builtin codes:
-    Code *valid_test_stub_code_; // For code valid testing
-    Code *switch_system_stack_call_code_; // Switch system stack(C++ stack) and call a function
+    Code *sanity_test_stub_code_ = nullptr; // For code sanity testing
+
+    // For function template testing
+    // Prototype: Dummy(Coroutine *co, uint8_t data[32]);
+    Code *function_template_dummy_code_ = nullptr;
+
+    // Switch system stack(C++ stack) and call a function
+    Code *switch_system_stack_call_code_ = nullptr;
 }; // class MetadataSpace
 
 

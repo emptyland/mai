@@ -38,6 +38,10 @@ public:
     static const int32_t kOffsetBP;
     static const int32_t kOffsetSP;
     static const int32_t kOffsetPC;
+    static const int32_t kOffsetYield;
+    static const int32_t kOffsetReentrant;
+    static const int32_t kOffsetEntry;
+    
 
     Coroutine(uint64_t coid, Closure *entry, Stack *stack) {
         Reinitialize(coid, entry, stack);

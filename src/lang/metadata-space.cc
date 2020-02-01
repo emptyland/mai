@@ -232,20 +232,22 @@ Error MetadataSpace::Initialize() {
     return Error::OK();
 }
 
-extern void Generate_ValidTestStub(MacroAssembler *masm);
+extern void Generate_SanityTestStub(MacroAssembler *masm);
 extern void Generate_SwitchSystemStackCall(MacroAssembler *masm);
+extern void Generate_FunctionTemplateTestDummy(MacroAssembler *masm, Address switch_system_stack);
 
 Error MetadataSpace::GenerateBuiltinCode() {
     MacroAssembler masm;
-    
-    Generate_ValidTestStub(&masm);
-    valid_test_stub_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr);
-    if (!valid_test_stub_code_) {
+
+    Generate_SanityTestStub(&masm);
+    sanity_test_stub_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr);
+    if (!sanity_test_stub_code_) {
         return MAI_CORRUPTION("OOM by generate code");
     }
     masm.Reset();
 
-    CallStub<intptr_t(intptr_t, intptr_t)> call_stub(valid_test_stub_code_);
+    // Make sure code generation is ok
+    CallStub<intptr_t(intptr_t, intptr_t)> call_stub(sanity_test_stub_code_);
     if (call_stub.entry()(1, -1) != 0) {
         return MAI_CORRUPTION("Incorrect code generator");
     }
@@ -253,6 +255,13 @@ Error MetadataSpace::GenerateBuiltinCode() {
     Generate_SwitchSystemStackCall(&masm);
     switch_system_stack_call_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr);
     if (!switch_system_stack_call_code_) {
+        return MAI_CORRUPTION("OOM by generate code");
+    }
+    masm.Reset();
+    
+    Generate_FunctionTemplateTestDummy(&masm, switch_system_stack_call_code_->entry());
+    function_template_dummy_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr);
+    if (!function_template_dummy_code_) {
         return MAI_CORRUPTION("OOM by generate code");
     }
     masm.Reset();

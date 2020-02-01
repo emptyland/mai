@@ -1,10 +1,16 @@
 #include "lang/metadata.h"
 #include "lang/metadata-space.h"
 #include "lang/isolate-inl.h"
+#include "asm/utils.h"
 
 namespace mai {
 
 namespace lang {
+
+#define MEMBER_OFFSET_OF(owns, field) \
+    arch::ObjectTemplate<owns, int32_t>::OffsetOf(&owns :: field)
+
+const int32_t Code::kOffsetEntry = MEMBER_OFFSET_OF(Code, instructions_);
 
 std::string PrototypeDesc::ToString() const {
     return ToString(__isolate->metadata_space());

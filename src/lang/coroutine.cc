@@ -18,6 +18,9 @@ const int32_t Coroutine::kOffsetSysPC = MEMBER_OFFSET_OF(sys_pc_);
 const int32_t Coroutine::kOffsetBP = MEMBER_OFFSET_OF(bp_);
 const int32_t Coroutine::kOffsetSP = MEMBER_OFFSET_OF(sp_);
 const int32_t Coroutine::kOffsetPC = MEMBER_OFFSET_OF(pc_);
+const int32_t Coroutine::kOffsetYield = MEMBER_OFFSET_OF(yield_);
+const int32_t Coroutine::kOffsetReentrant = MEMBER_OFFSET_OF(reentrant_);
+const int32_t Coroutine::kOffsetEntry = MEMBER_OFFSET_OF(entry_);
 
 void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     // queue header:
