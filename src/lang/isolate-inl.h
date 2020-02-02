@@ -35,6 +35,8 @@ struct GlobalHandleNode {
 
 extern Isolate *__isolate;
 
+#define STATE (DCHECK_NOTNULL(__isolate))
+
 inline Heap *Isolate::heap() const { return DCHECK_NOTNULL(heap_); }
 
 inline MetadataSpace *Isolate::metadata_space() const { return DCHECK_NOTNULL(metadata_space_); }

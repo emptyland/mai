@@ -54,19 +54,9 @@ AllocationResult Heap::Allocate(size_t size, uint32_t flags) {
     }
 
     if (flags & (kOld | kMetadata)) {
-        AllocationResult result;
-        int retries = 2;
-        while (retries--) {
-            result = old_space_->Allocate(size);
-            if (result.ok()) {
-                DbgFillInitZag(result.address(), size);
-                break;
-            }
-            if (result.result() == AllocationResult::OOM) {
-                old_space_->ReclaimFreePages();
-            } else {
-                break;
-            }
+        AllocationResult result = old_space_->Allocate(size);
+        if (result.ok()) {
+            DbgFillInitZag(result.address(), size);
         }
         return result;
     }

@@ -2,29 +2,108 @@
 #include "lang/isolate-inl.h"
 #include "lang/metadata-space.h"
 #include "lang/macro-assembler-x64.h"
+#include "lang/stack-frame.h"
 
 namespace mai {
 
 namespace lang {
 
-#define __ macro_assembler_.
+struct StubPrototype {
+    const std::vector<uint32_t> parameters;
+    bool has_vargs;
+    uint32_t return_type;
+}; // struct StubPrototype
 
-class StubBuilderX64 {
+#define __ masm_.
+
+class StubBuilder {
 public:
-    StubBuilderX64(Isolate *isolate)
+    StubBuilder(Isolate *isolate)
         : isolate_(DCHECK_NOTNULL(isolate)) {}
     
-    // TODO:
+    void Build(const StubPrototype &prototype, Address cxx_func_entry) {
+        __ Reset();
+        StackFrameScope frame_scope(&masm_, StubStackFrame::kSize);
+        __ movl(Operand(rbp, StubStackFrame::kOffsetMaker), StubStackFrame::kMaker);
+        SetupArguments(prototype);
+        __ SwitchSystemStackCall(cxx_func_entry,
+                                 isolate_->metadata_space()->switch_system_stack_call_code()->entry());
+    }
+
+    const std::string &GetInstructionsBuf() const { return masm_.buf(); }
 private:
+    void SetupArguments(const StubPrototype &ctx) {
+        MetadataSpace *space = isolate_->metadata_space();
+        size_t args_size = 0;
+        for (size_t i = 0; i < ctx.parameters.size(); i++) {
+            const Class *param = space->type(ctx.parameters[i]);
+            args_size += RoundUp(param->ref_size(), 4); // Aligment of 4 bytes
+        }
+        args_size = RoundUp(args_size, kStackAligmentSize);
+        
+        int argc = 0, fargc = 0;
+        // arg0
+        // args ...
+        // padding
+        // +8 return address
+        // +8 saved bp
+        int32_t offset = static_cast<int>(kPointerSize * 2 + args_size);
+        for (size_t i = 0; i < ctx.parameters.size(); i++) {
+            const Class *param = space->type(ctx.parameters[i]);
+            if (param->id() == kType_f32 || param->id() == kType_f64) {
+                // Floating
+                switch (param->ref_size()) {
+                    case 4: // 32 bits
+                        offset -= 4;
+                        DCHECK_GE(offset, kPointerSize * 2);
+                        __ movss(kXmmArgv[fargc++], Operand(rbp, offset));
+                        break;
+                    case 8: // 64 bits
+                        offset -= 8;
+                        DCHECK_GE(offset, kPointerSize * 2);
+                        __ movsd(kXmmArgv[fargc++], Operand(rbp, offset));
+                        break;
+                    default:
+                        NOREACHED() << "incorrect type size: " << param->name();
+                        break;
+                }
+            } else {
+                // Integral and references
+                switch (param->ref_size()) {
+                    case 1: // 8 bits
+                    case 2: // 16 bits
+                    case 4: // 32 bits
+                        offset -= 4;
+                        DCHECK_GE(offset, kPointerSize * 2);
+                        __ movl(kRegArgv[argc++], Operand(rbp, offset));
+                        break;
+                    case 8: // 64 bits
+                        offset -= 8;
+                        DCHECK_GE(offset, kPointerSize * 2);
+                        __ movq(kRegArgv[argc++], Operand(rbp, offset));
+                        break;
+                    default:
+                        NOREACHED() << "incorrect type size: " << param->name();
+                        break;
+                }
+            }
+        }
+    }
+    
     Isolate *isolate_;
-    MacroAssembler macro_assembler_;
+    MacroAssembler masm_;
 }; // class StubBuilderX64
 
 /*static*/ Code *FunctionTemplate::MakeStub(const std::vector<uint32_t> &parameters, bool has_vargs,
-                                            uint32_t return_type) {
-    StubBuilderX64 builder(__isolate);
-    // TODO:
-    return nullptr;
+                                            uint32_t return_type, Address cxx_func_entry) {
+    
+    StubPrototype context{parameters, has_vargs, return_type};
+    StubBuilder builder(STATE);
+    builder.Build(context, cxx_func_entry);
+    PrototypeDesc *prototype = STATE->metadata_space()->NewPrototypeDesc(&parameters[0],
+                                                                         parameters.size(),
+                                                                         has_vargs, return_type);
+    return STATE->metadata_space()->NewCode(Code::STUB, builder.GetInstructionsBuf(), prototype);
 }
 
 } // namespace lang

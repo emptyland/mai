@@ -29,7 +29,7 @@ const int32_t Closure::kOffsetCapturedVarSize = MEMBER_OFFSET_OF(Closure, captur
 const int32_t Closure::kOffsetCapturedVar = MEMBER_OFFSET_OF(Closure, captured_var_);
 
 int Any::WriteBarrier(Any **address, size_t n) {
-    if (__isolate->heap()->InNewArea(this)) {
+    if (STATE->heap()->InNewArea(this)) {
         return 0;
     }
     return Machine::Get()->UpdateRememberRecords(this, address, n);

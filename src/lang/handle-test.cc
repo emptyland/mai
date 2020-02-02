@@ -79,7 +79,7 @@ TEST_F(HandleTest, ReferenceArrayHandle) {
     Handle<Array<String *>> handle = Array<String *>::NewImmutable(&init[0], arraysize(init));
     ASSERT_EQ(4, handle->length());
     ASSERT_EQ(4, handle->capacity());
-    ASSERT_EQ(__isolate->builtin_type(kType_array), handle->clazz());
+    ASSERT_EQ(STATE->builtin_type(kType_array), handle->clazz());
 
     Handle<String> elem = handle->At(0);
     ASSERT_STREQ("1st", elem->data());

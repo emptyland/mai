@@ -30,8 +30,9 @@ public:
     }
     
     const Class *type(uint32_t id) const {
-        DCHECK_LT(id, classes_.size());
-        return classes_[id];
+        size_t index = id >= kUserTypeIdBase ? id - kUserTypeIdBase + kMax_Types : id;
+        DCHECK_LT(index, classes_.size());
+        return classes_[index];
     }
 
     template<class T>

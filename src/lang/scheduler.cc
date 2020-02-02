@@ -5,8 +5,9 @@ namespace mai {
 
 namespace lang {
 
-Scheduler::Scheduler(int concurrency)
+Scheduler::Scheduler(int concurrency, Allocator *lla)
     : concurrency_(concurrency)
+    , lla_(DCHECK_NOTNULL(lla))
     , all_machines_(new Machine*[concurrency])
     , free_dummy_(Coroutine::NewDummy())
     , stack_pool_(Stack::NewDummy()) {
@@ -32,7 +33,7 @@ Scheduler::~Scheduler() {
     while (!QUEUE_EMPTY(stack_pool_)) {
         auto x = stack_pool_->next();
         QUEUE_REMOVE(x);
-        x->Dispose(__isolate->env()->GetLowLevelAllocator());
+        x->Dispose(lla_);
     }
     Stack::DeleteDummy(stack_pool_);
 }
@@ -44,6 +45,7 @@ Coroutine *Scheduler::NewCoroutine(Closure *entry, bool co0) {
         return nullptr;
     }
 
+    n_live_coroutines_.fetch_add(1);
     Machine *m = Machine::Get();
     Coroutine *co = m->TakeFreeCoroutine();
     if (co) {
@@ -65,6 +67,7 @@ Coroutine *Scheduler::NewCoroutine(Closure *entry, bool co0) {
 
 void Scheduler::PurgreCoroutine(Coroutine *co) {
     co->Dispose();
+    n_live_coroutines_.fetch_sub(1);
     
     Machine *m = Machine::Get();
     if (m->n_free() + 1 <= Machine::kMaxFreeCoroutines) {

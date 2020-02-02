@@ -101,6 +101,37 @@ TEST_F(ValueTest, PlusReferenceArray) {
     ASSERT_STREQ("second", handle->At(1)->data());
 }
 
+static void Dummy1() {}
+static void Dummy2(String *) {}
+static void Dummy3(int, Array<Any*> *) {}
+static String *Dummy4(float, int, void *) { return nullptr; }
+
+TEST_F(ValueTest, FunctionTemplate) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    Handle<Closure> handle(FunctionTemplate::New(Dummy1));
+    ASSERT_TRUE(handle.is_not_empty());
+    ASSERT_TRUE(handle->is_cxx_function());
+    auto code = handle->code();
+    ASSERT_NE(nullptr, code);
+    ASSERT_EQ(Code::STUB, code->kind());
+    ASSERT_EQ("():void", code->prototype()->ToString());
+
+    handle = FunctionTemplate::New(Dummy2);
+    ASSERT_TRUE(handle.is_not_empty());
+    code = handle->code();
+    ASSERT_NE(nullptr, code);
+    ASSERT_EQ(Code::STUB, code->kind());
+    ASSERT_EQ("(string):void", code->prototype()->ToString());
+    
+    handle = FunctionTemplate::New(Dummy3);
+    ASSERT_TRUE(handle.is_not_empty());
+    ASSERT_EQ("(i32,array):void", handle->code()->prototype()->ToString());
+    
+    handle = FunctionTemplate::New(Dummy4);
+    ASSERT_TRUE(handle.is_not_empty());
+    ASSERT_EQ("(f32,i32,u64):string", handle->code()->prototype()->ToString());
+}
+
 }
 
 }

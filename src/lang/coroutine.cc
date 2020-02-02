@@ -36,10 +36,13 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     yield_     = 0;
     reentrant_ = 0;
 
-    new_guard0_ = __isolate->heap()->new_space()->original_chunk();
-    new_guard1_ = __isolate->heap()->new_space()->original_limit();
-    DCHECK_LT(new_guard0_, new_guard1_);
+    heap_guard0_ = STATE->heap()->new_space()->original_chunk();
+    heap_guard1_ = STATE->heap()->new_space()->original_limit();
+    DCHECK_LT(heap_guard0_, heap_guard1_);
 
+    sys_bp_ = nullptr;
+    sys_sp_ = nullptr;
+    sys_pc_ = nullptr;
     sp_   = stack->stack_hi();
     bp_   = stack->stack_hi();
     acc_  = 0;
@@ -55,7 +58,7 @@ void Coroutine::Dispose() {
     DCHECK_EQ(kDead, state_);
     // Free stack
     if (stack_) {
-        __isolate->scheduler()->PurgreStack(stack_);
+        STATE->scheduler()->PurgreStack(stack_);
         stack_ = nullptr;
     }
 }

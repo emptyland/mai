@@ -10,11 +10,6 @@ namespace lang {
 class SpaceTest : public ::testing::Test {
 public:
     // Dummy
-    
-//    void SetUp() override {
-//        auto err = space_->Initialize();
-//        ASSERT_TRUE(err.ok());
-//    }
 
     Env *env_ = Env::Default();
     Allocator *lla_ = env_->GetLowLevelAllocator();

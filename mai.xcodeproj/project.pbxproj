@@ -20,6 +20,7 @@
 		230510BE23E067C300B89A7C /* handle-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510BD23E067C300B89A7C /* handle-test.cc */; };
 		230510C023E06A1F00B89A7C /* handle.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510BF23E06A1F00B89A7C /* handle.cc */; };
 		230510C223E0831F00B89A7C /* isolate-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510C123E0831F00B89A7C /* isolate-test.cc */; };
+		231ECF5C23E6FFC500B41869 /* scheduler-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF5B23E6FFC500B41869 /* scheduler-test.cc */; };
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
 		2329798423D03A60009B4C1B /* lang-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2329798323D03A60009B4C1B /* lang-test.cc */; };
 		23344CDC21EF0764006BC6E4 /* allocator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD621EF0751006BC6E4 /* allocator.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -291,6 +292,7 @@
 		231C61F5219AA5EE001A95C1 /* io-utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "io-utils.h"; sourceTree = "<group>"; };
 		231C61F7219AA67C001A95C1 /* io-utils-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "io-utils-test.cc"; sourceTree = "<group>"; };
 		231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-ahead-log.cc"; sourceTree = "<group>"; };
+		231ECF5B23E6FFC500B41869 /* scheduler-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "scheduler-test.cc"; sourceTree = "<group>"; };
 		23216A242201561B00E1B816 /* slice-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "slice-test.cc"; sourceTree = "<group>"; };
 		2326026121ABE7D8003F434C /* arenas.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arenas.h; sourceTree = "<group>"; };
 		2326026221ABE80D003F434C /* arenas.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = arenas.cc; sourceTree = "<group>"; };
@@ -614,11 +616,11 @@
 				2339B3F523E5BC2A00B07772 /* stack-frame.h */,
 				236EA77F23D69A370071047C /* space.h */,
 				236EA78023D69A760071047C /* space.cc */,
+				236EA78823D6E3BA0071047C /* heap.h */,
+				236EA78923D6E3C80071047C /* heap.cc */,
 				236EA78223D6E22F0071047C /* isolate.h */,
 				238F195423DC747700FF0D98 /* isolate-inl.h */,
 				236EA78423D6E3100071047C /* isolate.cc */,
-				236EA78823D6E3BA0071047C /* heap.h */,
-				236EA78923D6E3C80071047C /* heap.cc */,
 				236EA78323D6E3080071047C /* value.h */,
 				238F195523DC75D500FF0D98 /* value-inl.h */,
 				236EA78623D6E3980071047C /* value.cc */,
@@ -653,6 +655,7 @@
 				230510BD23E067C300B89A7C /* handle-test.cc */,
 				230510C123E0831F00B89A7C /* isolate-test.cc */,
 				2379A24E23E2B8E9003067E6 /* value-test.cc */,
+				231ECF5B23E6FFC500B41869 /* scheduler-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1232,6 +1235,7 @@
 				23216A252201561B00E1B816 /* slice-test.cc in Sources */,
 				2364B2AF21E451F8008519AE /* pessimistic-transaction.cc in Sources */,
 				2364B2B121E451F8008519AE /* optimism-transaction-db.cc in Sources */,
+				231ECF5C23E6FFC500B41869 /* scheduler-test.cc in Sources */,
 				2364B2B321E451F8008519AE /* optimism-transaction.cc in Sources */,
 				2364B2B521E451F8008519AE /* transaction-base.cc in Sources */,
 				2364B2B721E451F8008519AE /* write-batch-with-index.cc in Sources */,

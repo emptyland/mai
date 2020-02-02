@@ -37,7 +37,7 @@ static constexpr size_t kAligmentSize = 4; // Heap allocation aligment to 4 byte
 static constexpr size_t kStackAligmentSize = 16; // Stack alignment size
 static constexpr size_t kMinAllocationSize = kPointerSize << 1; // Two-Pointers
 
-static constexpr size_t kMaxStackPoolRSS = 100 * base::kMB;
+static constexpr size_t kMaxStackPoolRSS = 400 * base::kMB;
 static constexpr size_t kC0StackSize = 80 * base::kMB;
 static constexpr size_t kDefaultStackSize = 20 * base::kMB;
 

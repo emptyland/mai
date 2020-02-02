@@ -8,7 +8,7 @@ namespace lang {
 
 // New global handle address and set heap object pointer
 /*static*/ void **GlobalHandles::NewHandle(const void *pointer) {
-    GlobalHandleNode *node = __isolate->NewGlobalHandle(pointer);
+    GlobalHandleNode *node = STATE->NewGlobalHandle(pointer);
     return reinterpret_cast<void **>(&node->handle);
 }
 
@@ -16,11 +16,11 @@ namespace lang {
 /*static*/ void GlobalHandles::DeleteHandle(void **location) {
     Address head = reinterpret_cast<Address>(DCHECK_NOTNULL(location)) - GlobalHandleNode::kOffsetHandle;
     GlobalHandleNode *node = reinterpret_cast<GlobalHandleNode *>(head);
-    __isolate->DeleteGlobalHandle(node);
+    STATE->DeleteGlobalHandle(node);
 }
 
 /*static*/ int GlobalHandles::GetNumberOfHandles() {
-    return __isolate->GetNumberOfGlobalHandles();
+    return STATE->GetNumberOfGlobalHandles();
 }
 
 // Into this scope

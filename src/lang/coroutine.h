@@ -41,16 +41,33 @@ public:
     static const int32_t kOffsetYield;
     static const int32_t kOffsetReentrant;
     static const int32_t kOffsetEntry;
-    
 
     Coroutine(uint64_t coid, Closure *entry, Stack *stack) {
         Reinitialize(coid, entry, stack);
     }
     ~Coroutine() { Dispose(); }
-    
+
     void Reinitialize(uint64_t coid, Closure *entry, Stack *stack);
     
     void Dispose();
+    
+    DEF_VAL_GETTER(State, state);
+    DEF_VAL_GETTER(uint64_t, coid);
+    DEF_PTR_GETTER(Machine, owner);
+    DEF_PTR_GETTER(Closure, entry);
+    DEF_VAL_GETTER(Address, heap_guard0);
+    DEF_VAL_GETTER(Address, heap_guard1);
+    DEF_VAL_GETTER(uint32_t, yield);
+    DEF_VAL_GETTER(uint32_t, reentrant);
+    DEF_VAL_GETTER(Address, stack_guard0);
+    DEF_VAL_GETTER(Address, stack_guard1);
+    DEF_PTR_GETTER(Stack, stack);
+    DEF_VAL_GETTER(Address, bp);
+    DEF_VAL_GETTER(Address, sp);
+    DEF_VAL_GETTER(uint32_t, pc);
+    DEF_VAL_GETTER(Address, sys_bp);
+    DEF_VAL_GETTER(Address, sys_sp);
+    DEF_VAL_GETTER(Address, sys_pc);
     
     static Coroutine *NewDummy() {
         void *chunk = ::malloc(sizeof(Coroutine *) * 2); // next_ and prev_
@@ -73,8 +90,8 @@ private:
     uint64_t coid_; // Coroutine ID
     Machine *owner_; // Owner machine
     Closure *entry_; // [strong ref] Entry function
-    Address new_guard0_; // New space address guard0 for write barrier
-    Address new_guard1_; // New space address guard1 for write barrier
+    Address heap_guard0_; // New space address guard0 for write barrier
+    Address heap_guard1_; // New space address guard1 for write barrier
     State state_; // Coroutine current state
     Any *exception_; // [strong ref] Native function thrown exception
     CaughtNode *caught_; // Exception hook for exception caught
@@ -85,7 +102,7 @@ private:
     Address sys_pc_; // System program counter
     Address bp_; // Mai frame pointer
     Address sp_; // Mai stack pointer
-    Address pc_; // Mai program counter
+    uint32_t pc_; // Mai program counter
     intptr_t acc_;  // Saved ACC
     double facc_; // Saved FACC
     Address stack_guard0_; // guard0 of stack

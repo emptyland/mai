@@ -439,6 +439,12 @@ public:
 
     static Handle<Closure> New(Code *stub, uint32_t captured_var_size);
     
+    // Internal methods:
+    inline bool is_cxx_function() const;
+    inline bool is_mai_function() const;
+    inline Code *code() const;
+    inline Function *function() const;
+    
     friend class Machine;
 private:
     Closure(const Class *clazz, Code *cxx_fn, uint32_t captured_var_size, uint32_t tags)
@@ -467,9 +473,25 @@ private:
 // CXX Function template for binding
 class FunctionTemplate {
 public:
+    template<class T, bool Ref = ElementTraits<T>::kIsReferenceType>
+    struct ParameterTraits {
+        static constexpr uint32_t kType = TypeTraits<T>::kType;
+    }; // struct ParameterTraits
+    
+    template<class T>
+    struct ParameterTraits<T*, true> {
+        static constexpr uint32_t kType = TypeTraits<typename std::remove_pointer<T>::type>::kType;
+    }; // struct ParameterTraits
+    
+    template<class T>
+    struct ParameterTraits<T*, false> {
+        static constexpr uint32_t kType = kType_u64;
+    }; // struct ParameterTraits
+    
     template<class R>
     static inline Handle<Closure> New(R(*func)()) {
-        Code *stub = MakeStub({}/*parametres*/, false/*has_vargs*/, TypeTraits<R>::kType);
+        Code *stub = MakeStub({}/*parametres*/, false/*has_vargs*/, ParameterTraits<R>::kType,
+                              reinterpret_cast<uint8_t *>(func));
         if (!stub) {
             return Handle<Closure>::Empty();
         } else {
@@ -479,8 +501,34 @@ public:
     
     template<class R, class A>
     static inline Handle<Closure> New(R(*func)(A)) {
-        Code *stub = MakeStub({TypeTraits<A>::kType}/*parametres*/, false/*has_vargs*/,
-                              TypeTraits<R>::kType);
+        Code *stub = MakeStub({ParameterTraits<A>::kType}/*parametres*/, false/*has_vargs*/,
+                              ParameterTraits<R>::kType, reinterpret_cast<uint8_t *>(func));
+        if (!stub) {
+            return Handle<Closure>::Empty();
+        } else {
+            return Closure::New(stub, 0/*captured_var_size*/);
+        }
+    }
+    
+    template<class R, class A, class B>
+    static inline Handle<Closure> New(R(*func)(A, B)) {
+        Code *stub = MakeStub({ParameterTraits<A>::kType, ParameterTraits<B>::kType}/*parametres*/,
+                              false/*has_vargs*/, ParameterTraits<R>::kType,
+                              reinterpret_cast<uint8_t *>(func));
+        if (!stub) {
+            return Handle<Closure>::Empty();
+        } else {
+            return Closure::New(stub, 0/*captured_var_size*/);
+        }
+    }
+    
+    template<class R, class A, class B, class C>
+    static inline Handle<Closure> New(R(*func)(A, B, C)) {
+        Code *stub = MakeStub({ParameterTraits<A>::kType,
+                               ParameterTraits<B>::kType,
+                               ParameterTraits<C>::kType}/*parametres*/,
+                              false/*has_vargs*/, ParameterTraits<R>::kType,
+                              reinterpret_cast<uint8_t *>(func));
         if (!stub) {
             return Handle<Closure>::Empty();
         } else {
@@ -497,7 +545,7 @@ private:
     //static uint32_t GetTypeId(const Any *object);
     
     static Code *MakeStub(const std::vector<uint32_t> &parameters, bool has_vargs,
-                          uint32_t return_type);
+                          uint32_t return_type, uint8_t *cxx_func_entry);
 }; // class FunctionTemplate
 
 } // namespace lang

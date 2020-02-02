@@ -48,7 +48,9 @@ Isolate::Isolate(const Options &opts)
     , env_(opts.env)
     , heap_(new Heap(env_->GetLowLevelAllocator()))
     , metadata_space_(new MetadataSpace(env_->GetLowLevelAllocator()))
-    , scheduler_(new Scheduler(opts.concurrency <= 0 ? env_->GetNumberOfCPUCores() : opts.concurrency))
+    , scheduler_(new Scheduler(opts.concurrency <= 0 ?
+                               env_->GetNumberOfCPUCores() : opts.concurrency,
+                               opts.env->GetLowLevelAllocator()))
     , persistent_dummy_(new GlobalHandleNode{}) {
 }
 

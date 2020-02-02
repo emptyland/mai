@@ -31,6 +31,20 @@ inline const void *CapturedValue::value() const { return address(); }
 
 inline void *CapturedValue::mutable_value() { return address(); }
 
+inline bool Closure::is_cxx_function() const { return (tags_ & kClosureMask) == kCxxFunction; }
+
+inline bool Closure::is_mai_function() const { return (tags_ & kClosureMask) == kMaiFunction; }
+
+inline Code *Closure::code() const {
+    DCHECK(is_cxx_function());
+    return DCHECK_NOTNULL(cxx_fn_);
+}
+
+inline Function *Closure::function() const {
+    DCHECK(is_mai_function());
+    return DCHECK_NOTNULL(mai_fn_);
+}
+
 } // namespace lang
 
 } // namespace mai

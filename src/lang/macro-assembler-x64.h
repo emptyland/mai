@@ -36,6 +36,30 @@ public:
             int3();
         }
     }
+    
+    void SaveCxxCallerRegisters() {
+        pushq(r15);
+        pushq(r14);
+        pushq(r13);
+        pushq(r12);
+        pushq(rbx);
+        subq(rsp, kPointerSize); // for rsp alignment.
+    }
+    
+    void RecoverCxxCallerRegisters() {
+        addq(rsp, kPointerSize);
+        popq(rbx);
+        popq(r12);
+        popq(r13);
+        popq(r14);
+        popq(r15);
+    }
+    
+    void SwitchSystemStackCall(Address cxx_func_entry, Address switch_sys_stack) {
+        movq(r11, cxx_func_entry);
+        movq(rax, switch_sys_stack);
+        call(rax);
+    }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(MacroAssembler);
 }; // class MacroAssemblerX64
@@ -60,6 +84,7 @@ public:
         }
         masm_->popq(rbp);
         masm_->ret(0);
+        masm_->int3();
         masm_->AligmentPatch();
     }
     

@@ -141,10 +141,10 @@ protected:
     DEF_PTR_GETTER(PageHeader, next);
     DEF_PTR_GETTER(PageHeader, prev);
 
-    uint32_t maker_; // maker for verification
-    SpaceKind owner_space_; // owner space kind
-    uint32_t available_;
-    QUEUE_HEADER(PageHeader); // double-linked list pointer
+    uint32_t maker_; // Maker for verification
+    SpaceKind owner_space_; // Owner space kind
+    uint32_t available_; // Available bytes size
+    QUEUE_HEADER(PageHeader); // Double-linked list pointer
 }; // class PageHeader
 
 

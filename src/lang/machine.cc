@@ -40,7 +40,7 @@ Machine::~Machine() {
 }
 
 void Machine::ExitHandleScope() {
-    auto lla = __isolate->env_->GetLowLevelAllocator();
+    auto lla = STATE->env_->GetLowLevelAllocator();
     auto slot = top_slot_;
     DCHECK(slot->prev || slot->prev->end == slot->base);
     top_slot_ = slot->prev;
@@ -52,7 +52,7 @@ void Machine::ExitHandleScope() {
 }
 
 Address Machine::AdvanceHandleSlots(int n_slots) {
-    auto lla = __isolate->env_->GetLowLevelAllocator();
+    auto lla = STATE->env_->GetLowLevelAllocator();
     auto slot = top_slot_;
     DCHECK_GE(n_slots, 0);
     if (!n_slots) {
@@ -79,11 +79,11 @@ Address Machine::AdvanceHandleSlots(int n_slots) {
 // Factory for create a UTF-8 string
 String *Machine::NewUtf8String(const char *utf8_string, size_t n, uint32_t flags) {
     size_t request_size = String::RequiredSize(n + 1);
-    AllocationResult result = __isolate->heap()->Allocate(request_size, flags);
+    AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
         return nullptr;
     }
-    String *obj = new (result.ptr()) String(__isolate->builtin_type(kType_string),
+    String *obj = new (result.ptr()) String(STATE->builtin_type(kType_string),
                                             static_cast<uint32_t>(n + 1),
                                             utf8_string,
                                             static_cast<uint32_t>(n));
@@ -91,17 +91,17 @@ String *Machine::NewUtf8String(const char *utf8_string, size_t n, uint32_t flags
 }
 
 AbstractArray *Machine::NewArraySlow(BuiltinType type, size_t length, uint32_t flags) {
-    const Class *clazz = DCHECK_NOTNULL(__isolate->builtin_type(type));
+    const Class *clazz = DCHECK_NOTNULL(STATE->builtin_type(type));
     if (::strstr(clazz->name(), "array") != clazz->name()){
         NOREACHED() << "class: " << clazz->name() << " is not array!";
         return nullptr;
     }
 
     const Field *elems_field =
-        DCHECK_NOTNULL(__isolate->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
+        DCHECK_NOTNULL(STATE->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
 
     size_t request_size = sizeof(AbstractArray) + elems_field->type()->ref_size() * length;
-    AllocationResult result = __isolate->heap()->Allocate(request_size, flags);
+    AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
         return nullptr;
     }
@@ -121,11 +121,11 @@ AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t i
         return nullptr;
     }
     const Field *elems_field =
-        DCHECK_NOTNULL(__isolate->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
+        DCHECK_NOTNULL(STATE->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
 
     uint32_t length = static_cast<uint32_t>(origin->length() + increment);
     size_t request_size = sizeof(AbstractArray) + elems_field->type()->ref_size() * length;
-    AllocationResult result = __isolate->heap()->Allocate(request_size, flags);
+    AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
         return nullptr;
     }
@@ -151,11 +151,11 @@ AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t i
 Closure *Machine::NewClosure(Code *code, size_t captured_var_size, uint32_t flags) {
     DCHECK_EQ(0, captured_var_size % kPointerSize);
     size_t request_size = sizeof(Closure) + captured_var_size;
-    AllocationResult result = __isolate->heap()->Allocate(request_size, flags);
+    AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
         return nullptr;
     }
-    Closure *obj = new (result.ptr()) Closure(__isolate->builtin_type(kType_closure),
+    Closure *obj = new (result.ptr()) Closure(STATE->builtin_type(kType_closure),
                                               DCHECK_NOTNULL(code),
                                               static_cast<uint32_t>(captured_var_size), 0/*TODO: color*/);
     return obj;

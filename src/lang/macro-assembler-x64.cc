@@ -25,12 +25,7 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm, Address switch_sys
     //==============================================================================================
     // NOTICE: The fucking clang++ optimizer will proecte: r12~r15 and rbx registers.
     // =============================================================================================
-    __ pushq(r15);
-    __ pushq(r14);
-    __ pushq(r13);
-    __ pushq(r12);
-    __ pushq(rbx);
-    __ subq(rsp, kPointerSize); // for rsp alignment.
+    __ SaveCxxCallerRegisters();
     // =============================================================================================
 
     // Save system stack and frame
@@ -78,7 +73,7 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm, Address switch_sys
     __ jmp(&exit, false/*is_far*/);
     __ Bind(&fail);
     __ Breakpoint();
-    
+
     // Exit mai env:
     __ Bind(&exit);
     __ movq(rsp, Operand(CO, Coroutine::kOffsetSP));
@@ -86,12 +81,7 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm, Address switch_sys
     
     // =============================================================================================
     // Fuck C++!
-    __ addq(rsp, kPointerSize);
-    __ popq(rbx);
-    __ popq(r12);
-    __ popq(r13);
-    __ popq(r14);
-    __ popq(r15);
+    __ RecoverCxxCallerRegisters();
 }
 
 // Switch to system stack and call
