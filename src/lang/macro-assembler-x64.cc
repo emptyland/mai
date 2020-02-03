@@ -19,8 +19,6 @@ void Generate_SanityTestStub(MacroAssembler *masm) {
 // For function template testing
 // Prototype: Dummy(Coroutine *co, uint8_t data[32]);
 void Generate_FunctionTemplateTestDummy(MacroAssembler *masm) {
-    static const int32_t kDataSize = 32;
-    
     StackFrameScope frame_scope(masm);
     //==============================================================================================
     // NOTICE: The fucking clang++ optimizer will proecte: r12~r15 and rbx registers.

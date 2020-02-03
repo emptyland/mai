@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MAI_LANG_MACRO_ASSEMBLER_X64_H_
 #define MAI_LANG_MACRO_ASSEMBLER_X64_H_
 

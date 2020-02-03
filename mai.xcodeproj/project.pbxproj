@@ -22,6 +22,8 @@
 		230510C223E0831F00B89A7C /* isolate-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510C123E0831F00B89A7C /* isolate-test.cc */; };
 		231ECF5C23E6FFC500B41869 /* scheduler-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF5B23E6FFC500B41869 /* scheduler-test.cc */; };
 		231ECF5E23E7AE2B00B41869 /* coroutine-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF5D23E7AE2B00B41869 /* coroutine-test.cc */; };
+		231ECF6123E84C9E00B41869 /* bytecode.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF6023E84C9E00B41869 /* bytecode.cc */; };
+		231ECF6323E85AD600B41869 /* bytecode-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF6223E85AD600B41869 /* bytecode-test.cc */; };
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
 		2329798423D03A60009B4C1B /* lang-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2329798323D03A60009B4C1B /* lang-test.cc */; };
 		23344CDC21EF0764006BC6E4 /* allocator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD621EF0751006BC6E4 /* allocator.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -295,6 +297,9 @@
 		231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-ahead-log.cc"; sourceTree = "<group>"; };
 		231ECF5B23E6FFC500B41869 /* scheduler-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "scheduler-test.cc"; sourceTree = "<group>"; };
 		231ECF5D23E7AE2B00B41869 /* coroutine-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "coroutine-test.cc"; sourceTree = "<group>"; };
+		231ECF5F23E84C8C00B41869 /* bytecode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bytecode.h; sourceTree = "<group>"; };
+		231ECF6023E84C9E00B41869 /* bytecode.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = bytecode.cc; sourceTree = "<group>"; };
+		231ECF6223E85AD600B41869 /* bytecode-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bytecode-test.cc"; sourceTree = "<group>"; };
 		23216A242201561B00E1B816 /* slice-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "slice-test.cc"; sourceTree = "<group>"; };
 		2326026121ABE7D8003F434C /* arenas.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arenas.h; sourceTree = "<group>"; };
 		2326026221ABE80D003F434C /* arenas.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = arenas.cc; sourceTree = "<group>"; };
@@ -642,6 +647,8 @@
 				2339B3F023E5B48300B07772 /* function-template-x64.cc */,
 				2339B3F223E5B62000B07772 /* macro-assembler-x64.h */,
 				2339B3F323E5B90700B07772 /* macro-assembler-x64.cc */,
+				231ECF5F23E84C8C00B41869 /* bytecode.h */,
+				231ECF6023E84C9E00B41869 /* bytecode.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -659,6 +666,7 @@
 				2379A24E23E2B8E9003067E6 /* value-test.cc */,
 				231ECF5B23E6FFC500B41869 /* scheduler-test.cc */,
 				231ECF5D23E7AE2B00B41869 /* coroutine-test.cc */,
+				231ECF6223E85AD600B41869 /* bytecode-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1291,6 +1299,7 @@
 				23804A0B228A6C400079C95C /* asm-x64.cc in Sources */,
 				2364B30421E451F9008519AE /* iterator.cc in Sources */,
 				2364B30621E451F9008519AE /* internal-key-comparator.cc in Sources */,
+				231ECF6323E85AD600B41869 /* bytecode-test.cc in Sources */,
 				2364B30821E451F9008519AE /* iterator-warpper.cc in Sources */,
 				2364B30A21E451F9008519AE /* merging.cc in Sources */,
 				2364B30B21E451F9008519AE /* env.cc in Sources */,
@@ -1355,6 +1364,7 @@
 				2364B34F21E451F9008519AE /* ebr-test.cc in Sources */,
 				2364B35021E451F9008519AE /* arena-utils-test.cc in Sources */,
 				2364B35121E451F9008519AE /* config-test.cc in Sources */,
+				231ECF6123E84C9E00B41869 /* bytecode.cc in Sources */,
 				2364B35221E451F9008519AE /* compaction-test.cc in Sources */,
 				23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */,
 				2364B35321E451F9008519AE /* files-test.cc in Sources */,

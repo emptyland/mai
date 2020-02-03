@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MAI_LANG_STACK_FRAME_H_
 #define MAI_LANG_STACK_FRAME_H_
 
@@ -11,6 +12,7 @@ struct StackFrame {
     enum Maker: int32_t {
         kTrampoline,
         kStub,
+        kBytecode,
     };
     
     static constexpr int32_t kOffsetSavedBP = 0;
@@ -24,6 +26,19 @@ struct StubStackFrame : public StackFrame {
     
     static constexpr int32_t kSize = RoundUp(-kOffsetMaker, kStackAligmentSize);
 }; // struct StubStackFrame
+
+
+struct BytecodeStackFrame : public StackFrame {
+    static constexpr int32_t kMaker = kBytecode;
+    
+    static constexpr int32_t kOffsetPC = kOffsetMaker - static_cast<int>(sizeof(uint32_t));
+    static constexpr int32_t kOffsetCallee = kOffsetPC - static_cast<int>(kPointerSize);
+    static constexpr int32_t kOffsetBytecodeArray = kOffsetCallee - static_cast<int>(kPointerSize);
+    static constexpr int32_t kOffsetConstPool = kOffsetBytecodeArray - static_cast<int>(kPointerSize);
+    static constexpr int32_t kOffsetCaughtNode = kOffsetConstPool - 32;
+    static constexpr int32_t kOffsetLocalVars = kOffsetCaughtNode;
+    static constexpr int32_t kOffsetHeaderSize = -kOffsetLocalVars;
+}; // struct BytecodeStackFrame
 
 
 } // namespace lang

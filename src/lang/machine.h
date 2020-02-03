@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MAI_LANG_MACHINE_H_
 #define MAI_LANG_MACHINE_H_
 

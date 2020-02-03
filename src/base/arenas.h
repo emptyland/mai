@@ -66,9 +66,9 @@ private:
             std::atomic<char*> free;
         } u;
     };
-    
+
     static PageHead *const kBusyFlag;
-    
+
     void Link(std::atomic<PageHead*> *head, PageHead *page) {
         page->next.store(head->load(std::memory_order_acquire),
                          std::memory_order_relaxed);

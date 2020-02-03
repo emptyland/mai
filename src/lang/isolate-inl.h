@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MAI_LANG_ISOLATE_INL_H_
 #define MAI_LANG_ISOLATE_INL_H_
 
