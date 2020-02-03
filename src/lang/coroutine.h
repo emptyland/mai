@@ -53,12 +53,12 @@ public:
     
     DEF_VAL_GETTER(State, state);
     DEF_VAL_GETTER(uint64_t, coid);
-    DEF_PTR_GETTER(Machine, owner);
-    DEF_PTR_GETTER(Closure, entry);
+    DEF_PTR_PROP_RW(Machine, owner);
+    DEF_PTR_PROP_RW(Closure, entry);
     DEF_VAL_GETTER(Address, heap_guard0);
     DEF_VAL_GETTER(Address, heap_guard1);
     DEF_VAL_GETTER(uint32_t, yield);
-    DEF_VAL_GETTER(uint32_t, reentrant);
+    DEF_VAL_PROP_RW(uint32_t, reentrant);
     DEF_VAL_GETTER(Address, stack_guard0);
     DEF_VAL_GETTER(Address, stack_guard1);
     DEF_PTR_GETTER(Stack, stack);
@@ -68,6 +68,13 @@ public:
     DEF_VAL_GETTER(Address, sys_bp);
     DEF_VAL_GETTER(Address, sys_sp);
     DEF_VAL_GETTER(Address, sys_pc);
+    
+    void CopyArgv(void *data, size_t n) {
+        DCHECK_EQ(reentrant_, 0);
+        DCHECK_EQ(0, n % kStackAligmentSize);
+        sp_ -= n;
+        ::memcpy(sp_, data, n);
+    }
     
     static Coroutine *NewDummy() {
         void *chunk = ::malloc(sizeof(Coroutine *) * 2); // next_ and prev_

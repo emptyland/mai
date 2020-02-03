@@ -1,3 +1,7 @@
+#pragma once
+#ifndef MAI_TEST_ISOLATE_INITIALIZER_H_
+#define MAI_TEST_ISOLATE_INITIALIZER_H_
+
 #include "lang/isolate-inl.h"
 #include "gtest/gtest.h"
 
@@ -27,3 +31,5 @@ public:
 } // namespace test
     
 } // namespace mai
+
+#endif // MAI_TEST_ISOLATE_INITIALIZER_H_

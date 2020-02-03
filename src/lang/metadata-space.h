@@ -49,6 +49,7 @@ public:
     
     // Builtin Code:
     DEF_PTR_GETTER_NOTNULL(Code, switch_system_stack_call_code);
+    DEF_PTR_GETTER_NOTNULL(Code, function_template_dummy_code);
     
     size_t GetRSS() const { return n_pages_ * kPageSize + large_size_; }
     

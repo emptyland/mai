@@ -18,7 +18,7 @@ void Generate_SanityTestStub(MacroAssembler *masm) {
 
 // For function template testing
 // Prototype: Dummy(Coroutine *co, uint8_t data[32]);
-void Generate_FunctionTemplateTestDummy(MacroAssembler *masm, Address switch_system_stack) {
+void Generate_FunctionTemplateTestDummy(MacroAssembler *masm) {
     static const int32_t kDataSize = 32;
     
     StackFrameScope frame_scope(masm);
@@ -35,10 +35,11 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm, Address switch_sys
 
     // Set bytecode handlers array
     // No need
-    
+    //__ Breakpoint();
+
     // Enter mai env:
-    __ movq(rsp, Coroutine::kOffsetSP);
-    __ movq(rbp, Coroutine::kOffsetBP);
+    __ movq(rsp, Operand(CO, Coroutine::kOffsetSP));
+    __ movq(rbp, Operand(CO, Coroutine::kOffsetBP));
     __ incl(Operand(CO, Coroutine::kOffsetReentrant)); // ++co->reentrant_;
     __ movl(Operand(CO, Coroutine::kOffsetYield), 0); // co->yield_ = 0;
     
@@ -49,25 +50,10 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm, Address switch_sys
     Label fail;
     __ j(Zero, &fail, true/*is far*/);
 
-    // Copy test data
-    Label copy_retry, copy_done;
-    __ subq(rsp, kDataSize);
-    __ movq(rcx, kDataSize);
-    __ Bind(&copy_retry);
-    __ subq(rcx, kPointerSize);
-    __ movq(rax, Operand(Argv_1, rcx, times_1, 0));
-    __ movq(Operand(rsp, rcx, times_1, 0), rax);
-    __ j(Zero, &copy_done, false/*is_far*/);
-    __ jmp(&copy_retry, false/*is_far*/);
-    __ Bind(&copy_done);
-    
     __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetEntry));
-    __ movq(SCRATCH, Operand(SCRATCH, Closure::kOffsetProto));
-    __ leaq(r11, Operand(SCRATCH, Code::kOffsetEntry));
-    __ movq(SCRATCH, switch_system_stack);
-    __ call(SCRATCH);
-
-    __ addq(rsp, kDataSize);
+    __ movq(SCRATCH, Operand(SCRATCH, Closure::kOffsetCode));
+    __ leaq(rax, Operand(SCRATCH, Code::kOffsetEntry));
+    __ call(rax);
 
     Label exit;
     __ jmp(&exit, false/*is_far*/);
@@ -76,8 +62,8 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm, Address switch_sys
 
     // Exit mai env:
     __ Bind(&exit);
-    __ movq(rsp, Operand(CO, Coroutine::kOffsetSP));
-    __ movq(rbp, Operand(CO, Coroutine::kOffsetBP));
+    __ movq(rsp, Operand(CO, Coroutine::kOffsetSysSP));
+    __ movq(rbp, Operand(CO, Coroutine::kOffsetSysBP));
     
     // =============================================================================================
     // Fuck C++!
@@ -88,14 +74,14 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm, Address switch_sys
 void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
     StackFrameScope frame_scope(masm, StubStackFrame::kSize);
 
+    //__ Breakpoint();
     __ movq(Operand(rbp, StubStackFrame::kOffsetMaker), StubStackFrame::kMaker);
     
-    __ movq(rax, rbp);
-    __ movq(rbx, rsp);
+    __ movq(Operand(CO, Coroutine::kOffsetBP), rbp);
+    __ movq(Operand(CO, Coroutine::kOffsetSP), rsp);
     __ movq(rbp, Operand(CO, Coroutine::kOffsetSysBP)); // recover system bp
     __ movq(rsp, Operand(CO, Coroutine::kOffsetSysSP)); // recover system sp
-    __ pushq(rax); // save mai sp
-    __ pushq(rbx); // save mai bp
+
     __ pushq(SCRATCH);
     __ pushq(CO);
     __ pushq(BC);
@@ -107,11 +93,9 @@ void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
     __ popq(BC);
     __ popq(CO);
     __ popq(SCRATCH);
-    __ popq(rbx); // keep rax
-    __ popq(rcx);
 
-    __ movq(rsp, rcx); // recover mai sp
-    __ movq(rbp, rbx); // recover mai bp
+    __ movq(rbp, Operand(CO, Coroutine::kOffsetBP)); // recover mai sp
+    __ movq(rsp, Operand(CO, Coroutine::kOffsetSP)); // recover mai bp
 }
 
 } // namespace lang

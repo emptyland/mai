@@ -68,14 +68,14 @@ class StackFrameScope final {
 public:
     StackFrameScope(MacroAssembler *masm, int32_t reserve_size = 0)
         : masm_(masm)
-        , reserve_size_(reserve_size) {
+        , reserve_size_(RoundUp(reserve_size, kStackAligmentSize)) {
         masm_->pushq(rbp);
         masm_->movq(rbp, rsp);
         if (reserve_size_ > 0) {
-            masm_->subq(rsp, RoundUp(reserve_size_, kStackAligmentSize));
+            masm_->subq(rsp, reserve_size_);
         }
     }
-    
+
     ~StackFrameScope() { Escape(); }
     
     void Escape() {
@@ -88,18 +88,14 @@ public:
         masm_->AligmentPatch();
     }
     
-    void Reserve(int32_t size) {
-        if (reserve_size_ > 0) {
-            int32_t request_size = RoundUp(size, kStackAligmentSize);
-            masm_->subq(rsp, request_size);
-            reserve_size_ += request_size;
-        }
-    }
-    
 private:
     int32_t reserve_size_ = 0;
     MacroAssembler *masm_;
 }; // class StackFrameScope
+
+void Generate_SanityTestStub(MacroAssembler *masm);
+void Generate_SwitchSystemStackCall(MacroAssembler *masm);
+void Generate_FunctionTemplateTestDummy(MacroAssembler *masm);
 
 } // namespace lang
 

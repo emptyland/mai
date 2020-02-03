@@ -232,10 +232,6 @@ Error MetadataSpace::Initialize() {
     return Error::OK();
 }
 
-extern void Generate_SanityTestStub(MacroAssembler *masm);
-extern void Generate_SwitchSystemStackCall(MacroAssembler *masm);
-extern void Generate_FunctionTemplateTestDummy(MacroAssembler *masm, Address switch_system_stack);
-
 Error MetadataSpace::GenerateBuiltinCode() {
     MacroAssembler masm;
 
@@ -259,7 +255,7 @@ Error MetadataSpace::GenerateBuiltinCode() {
     }
     masm.Reset();
     
-    Generate_FunctionTemplateTestDummy(&masm, switch_system_stack_call_code_->entry());
+    Generate_FunctionTemplateTestDummy(&masm);
     function_template_dummy_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr);
     if (!function_template_dummy_code_) {
         return MAI_CORRUPTION("OOM by generate code");

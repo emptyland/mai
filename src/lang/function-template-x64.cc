@@ -25,6 +25,8 @@ public:
         __ Reset();
         StackFrameScope frame_scope(&masm_, StubStackFrame::kSize);
         __ movl(Operand(rbp, StubStackFrame::kOffsetMaker), StubStackFrame::kMaker);
+        
+        //__ Breakpoint();
         SetupArguments(prototype);
         __ SwitchSystemStackCall(cxx_func_entry,
                                  isolate_->metadata_space()->switch_system_stack_call_code()->entry());
@@ -55,18 +57,17 @@ private:
                 switch (param->ref_size()) {
                     case 4: // 32 bits
                         offset -= 4;
-                        DCHECK_GE(offset, kPointerSize * 2);
                         __ movss(kXmmArgv[fargc++], Operand(rbp, offset));
                         break;
                     case 8: // 64 bits
                         offset -= 8;
-                        DCHECK_GE(offset, kPointerSize * 2);
                         __ movsd(kXmmArgv[fargc++], Operand(rbp, offset));
                         break;
                     default:
                         NOREACHED() << "incorrect type size: " << param->name();
                         break;
                 }
+                DCHECK_GE(offset, kPointerSize * 2) << param->name();
             } else {
                 // Integral and references
                 switch (param->ref_size()) {
@@ -74,18 +75,17 @@ private:
                     case 2: // 16 bits
                     case 4: // 32 bits
                         offset -= 4;
-                        DCHECK_GE(offset, kPointerSize * 2);
                         __ movl(kRegArgv[argc++], Operand(rbp, offset));
                         break;
                     case 8: // 64 bits
                         offset -= 8;
-                        DCHECK_GE(offset, kPointerSize * 2);
                         __ movq(kRegArgv[argc++], Operand(rbp, offset));
                         break;
                     default:
                         NOREACHED() << "incorrect type size: " << param->name();
                         break;
                 }
+                DCHECK_GE(offset, kPointerSize * 2) << param->name();
             }
         }
     }
