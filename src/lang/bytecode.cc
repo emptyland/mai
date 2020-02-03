@@ -88,6 +88,9 @@ BytecodeInstruction BytecodeNode::To() const {
     return new (arena) BytecodeNode(desc.id, desc.kind, a, b, 0, 0);
 }
 
+/*virtual*/ AbstractBytecodeEmitter::~AbstractBytecodeEmitter() {
+}
+
 } // namespace lang
 
 } // namespace mai

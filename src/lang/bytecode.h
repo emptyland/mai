@@ -195,6 +195,9 @@ namespace lang {
     V(TestIn,                     AB, u12, u12) \
     V(TestIs,                     AB, u12, u12)
 
+class MacroAssembler;
+class Code;
+
 //using u8_t  = uint8_t;
 //using u12_t = uint16_t;
 //using u24_t = uint32_t;
@@ -306,6 +309,19 @@ struct Bytecodes<ID, kBytecode_TypeAB> {
         return new (arean) BytecodeNode(ID, kBytecode_TypeAB, a, b, 0, 0);
     }
 }; // struct BytecodeBuilder
+
+class AbstractBytecodeEmitter {
+public:
+    AbstractBytecodeEmitter() {}
+    virtual ~AbstractBytecodeEmitter();
+    
+#define DEFINE_METHOD(name, ...) \
+    virtual void Emit##name(MacroAssembler *masm) = 0;
+    DECLARE_ALL_BYTECODE(DEFINE_METHOD)
+#undef DEFINE_METHOD
+
+    DISALLOW_IMPLICIT_CONSTRUCTORS(AbstractBytecodeEmitter);
+}; // class AbstractBytecodeEmitter
 
 } // namespace lang
 

@@ -2,6 +2,7 @@
 #include "lang/stack-frame.h"
 #include "lang/coroutine.h"
 #include "lang/isolate-inl.h"
+#include "lang/bytecode.h"
 
 namespace mai {
 
@@ -94,6 +95,55 @@ void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
 
     __ movq(rbp, Operand(CO, Coroutine::kOffsetBP)); // recover mai sp
     __ movq(rsp, Operand(CO, Coroutine::kOffsetSP)); // recover mai bp
+}
+
+class PartialBytecodeEmitter : public AbstractBytecodeEmitter {
+public:
+    PartialBytecodeEmitter(Isolate *isolate): isolate_(DCHECK_NOTNULL(isolate)) {}
+    ~PartialBytecodeEmitter() override {}
+#define DEFINE_METHOD(name, ...) \
+    void Emit##name(MacroAssembler *masm) override { \
+        __ Reset(); \
+        __ int3(); \
+    }
+    DECLARE_ALL_BYTECODE(DEFINE_METHOD)
+#undef DEFINE_METHOD
+protected:
+    Isolate *isolate_;
+}; // class PartialBytecodeEmitter
+
+
+class BytecodeEmitter : public PartialBytecodeEmitter {
+public:
+    BytecodeEmitter(Isolate *isolate): PartialBytecodeEmitter(DCHECK_NOTNULL(isolate)) {}
+    ~BytecodeEmitter() override {}
+    
+    void EmitLdar64(MacroAssembler *masm) override {
+        __ Reset();
+        // TODO:
+    }
+    
+    void StartBCMacro(MacroAssembler *masm) {
+        // Jump to current pc's handler
+        // SCRATCH = callee->mai_fn->bytecodes
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetBytecodeArray));
+        // SCRATCH = &bytecodes->instructions
+        __ addq(SCRATCH, BytecodeArray::kOffsetEntry);
+        __ movl(rbx, Operand(rbp, BytecodeStackFrame::kOffsetPC));
+        __ leaq(BC, Operand(SCRATCH, rbx, times_4, 0)); // [SCRATCH + rbx * 4]
+        __ movl(rbx, Operand(BC, 0)); // get fist bytecode
+        __ andl(rbx, 0xff000000);
+        __ shrl(rbx, 24);
+        // [BC_ARRAY + rbx * 8] jump to first bytecode handler
+        __ jmp(Operand(BC_ARRAY, rbx, times_8, 0));
+    }
+
+}; // class BytecodeEmitter
+
+
+AbstractBytecodeEmitter *NewBytecodeEmitter(Isolate *isolate) {
+    TODO();
+    return nullptr;
 }
 
 } // namespace lang

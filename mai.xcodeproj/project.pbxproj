@@ -644,11 +644,11 @@
 				230510BA23DF368900B89A7C /* scheduler.cc */,
 				230510BC23E066C500B89A7C /* handle.h */,
 				230510BF23E06A1F00B89A7C /* handle.cc */,
+				231ECF5F23E84C8C00B41869 /* bytecode.h */,
+				231ECF6023E84C9E00B41869 /* bytecode.cc */,
 				2339B3F023E5B48300B07772 /* function-template-x64.cc */,
 				2339B3F223E5B62000B07772 /* macro-assembler-x64.h */,
 				2339B3F323E5B90700B07772 /* macro-assembler-x64.cc */,
-				231ECF5F23E84C8C00B41869 /* bytecode.h */,
-				231ECF6023E84C9E00B41869 /* bytecode.cc */,
 			);
 			name = lang;
 			path = src/lang;

@@ -285,6 +285,8 @@ private:
 // Interpreter bytecode array object
 class BytecodeArray : public MetadataObject {
 public:
+    static const int32_t kOffsetEntry;
+    
     DEF_VAL_GETTER(uint32_t, size);
     
     BytecodeInstruction *entry() { return instructions_; }

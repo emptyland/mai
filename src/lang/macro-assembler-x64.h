@@ -11,6 +11,9 @@ namespace lang {
 
 using namespace mai::x64;
 
+class AbstractBytecodeEmitter;
+class Isolate;
+
 //SCRATCH = r12
 //BC = r13
 //BC_ARRAY = r14
@@ -97,6 +100,8 @@ private:
 void Generate_SanityTestStub(MacroAssembler *masm);
 void Generate_SwitchSystemStackCall(MacroAssembler *masm);
 void Generate_FunctionTemplateTestDummy(MacroAssembler *masm);
+
+AbstractBytecodeEmitter *NewBytecodeEmitter(Isolate *isolate);
 
 } // namespace lang
 

@@ -12,6 +12,8 @@ namespace lang {
 
 const int32_t Code::kOffsetEntry = MEMBER_OFFSET_OF(Code, instructions_);
 
+const int32_t BytecodeArray::kOffsetEntry = MEMBER_OFFSET_OF(BytecodeArray, instructions_);
+
 std::string PrototypeDesc::ToString() const {
     return ToString(STATE->metadata_space());
 }
