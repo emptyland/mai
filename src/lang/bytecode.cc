@@ -57,7 +57,7 @@ BytecodeInstruction BytecodeNode::To() const {
 }
 
 /*static*/ BytecodeNode *BytecodeNode::From(base::Arena *arena, BytecodeInstruction instr) {
-    BytecodeID id = static_cast<BytecodeID>((instr & 0xff000000) >> 24);
+    BytecodeID id = static_cast<BytecodeID>((instr & kIDMask) >> 24);
     DCHECK_GE(id, 0);
     DCHECK_LT(id, kMax_Bytecodes);
     
@@ -68,17 +68,17 @@ BytecodeInstruction BytecodeNode::To() const {
             break;
             
         case kBytecode_TypeA:
-            a = static_cast<int>(instr & 0x00ffffff);
+            a = static_cast<int>(instr & kAOfAMask);
             break;
             
         case kBytecode_TypeFA:
-            a = static_cast<int>((instr & 0x00ff0000) >> 16);
-            b = static_cast<int>(instr & 0x0000ffff);
+            a = static_cast<int>((instr & kFOfFAMask) >> 16);
+            b = static_cast<int>(instr & kAOfFAMask);
             break;
             
         case kBytecode_TypeAB:
-            a = static_cast<int>((instr & 0x00fff000) >> 12);
-            b = static_cast<int>(instr & 0x00000fff);
+            a = static_cast<int>((instr & kAOfABMask) >> 12);
+            b = static_cast<int>(instr & kBOfABMask);
             break;
             
         default:

@@ -41,6 +41,12 @@ public:
         }
     }
     
+    void LandingPatch(size_t n) {
+        for (size_t i = 0; i < n; i++) {
+            nop();
+        }
+    }
+    
     void SaveCxxCallerRegisters() {
         pushq(r15);
         pushq(r14);
@@ -64,6 +70,10 @@ public:
         movq(rax, switch_sys_stack);
         call(rax);
     }
+    
+    void StartBC();
+    
+    void JumpNextBC();
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(MacroAssembler);
 }; // class MacroAssemblerX64
@@ -100,8 +110,7 @@ private:
 void Generate_SanityTestStub(MacroAssembler *masm);
 void Generate_SwitchSystemStackCall(MacroAssembler *masm);
 void Generate_FunctionTemplateTestDummy(MacroAssembler *masm);
-
-AbstractBytecodeEmitter *NewBytecodeEmitter(Isolate *isolate);
+void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump);
 
 } // namespace lang
 

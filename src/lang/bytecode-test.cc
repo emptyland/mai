@@ -43,7 +43,7 @@ TEST_F(BytecodeTest, Sanity) {
 TEST_F(BytecodeTest, Parsing) {
     auto node = Bytecodes<kLdar64>::New(arean_, 16);
     auto instr = node->To();
-    ASSERT_EQ(0x10, instr);
+    ASSERT_EQ(0x1000010, instr);
     
     node = BytecodeNode::From(arean_, instr);
     ASSERT_NE(nullptr, node);

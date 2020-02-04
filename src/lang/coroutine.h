@@ -22,6 +22,11 @@ struct CaughtNode {
     Address sp;
 }; // struct CaughtNode
 
+static constexpr int32_t kOffsetCaught_Next = offsetof(CaughtNode, next);
+static constexpr int32_t kOffsetCaught_PC = offsetof(CaughtNode, pc);
+static constexpr int32_t kOffsetCaught_BP = offsetof(CaughtNode, bp);
+static constexpr int32_t kOffsetCaught_SP = offsetof(CaughtNode, sp);
+
 class Coroutine final {
 public:
     enum State {
@@ -33,6 +38,9 @@ public:
         kFallIn,
     }; // enum State
     
+    static const int32_t kOffsetACC;
+    static const int32_t kOffsetFACC;
+    static const int32_t kOffsetCaught;
     static const int32_t kOffsetSysBP;
     static const int32_t kOffsetSysSP;
     static const int32_t kOffsetSysPC;
@@ -76,6 +84,9 @@ public:
         sp_ -= n;
         ::memcpy(sp_, data, n);
     }
+    
+    void Uncaught(Any *expection);
+    void Suspend(intptr_t acc, double facc);
     
     static Coroutine *NewDummy() {
         void *chunk = ::malloc(sizeof(Coroutine *) * 2); // next_ and prev_

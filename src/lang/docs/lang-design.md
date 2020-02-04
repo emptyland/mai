@@ -2702,15 +2702,15 @@ movl ebx, 0(BC)
 andl ebx, 0xffffff
 negq rbx
 | movl eax, rbx(rbp) ; Ldar32
-| movq rax, rbx(rbp) ; Ldar64/LdarPtr
+| movq rax, rbx*4(rbp) ; Ldar64/LdarPtr
 JUMP_NEXT_BC()
 
 ; [ Ldaf32/64 ]
 movl ebx, 0(BC)
 andl ebx, 0xffffff
 negq rbx
-| movss xmm0, rbx(rbp)
-| movsd xmm0, rbx(rbp)
+| movss xmm0, rbx*4(rbp)
+| movsd xmm0, rbx*4(rbp)
 JUMP_NEXT_BC()
 ```
 
@@ -2856,10 +2856,11 @@ PANIC(ERROR_OUT_OF_BOUND, "array out of bound!")
 ; [ Star32/64/Ptr/f32/f64 ]
 movl ebx, 0(BC)
 andl ebx, 0xffffff
-| movl rbx(rbp), eax ; Star32
-| movq rbx(rbp), rax ; Star64/StarPtr
-| movss rbx(rbp), xmm0 ; Staf32
-| movsd rbx(rbp), xmm0 ; Staf64
+negl ebx
+| movl rbx*4(rbp), eax ; Star32
+| movq rbx*4(rbp), rax ; Star64/StarPtr
+| movss rbx*4(rbp), xmm0 ; Staf32
+| movsd rbx*4(rbp), xmm0 ; Staf64
 JUMP_NEXT_BC()
 ```
 

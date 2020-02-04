@@ -206,6 +206,9 @@ public:
     }; // enum Kind
     
     using Builder = FunctionBuilder;
+    
+    static const int32_t kOffsetStackSize;
+    static const int32_t kOffsetExceptionTableSize;
 
     DEF_VAL_GETTER(MDStr, name);
     DEF_PTR_GETTER(PrototypeDesc, prototype);

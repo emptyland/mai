@@ -31,6 +31,8 @@ struct Options {
 // The virtual machine isolate object:
 class Isolate final {
 public:
+    static const int32_t kOffsetBytecodeHandlerEntries;
+    
     static Isolate *New(const Options &);
     void Dispose();
 
@@ -79,6 +81,8 @@ private:
     GlobalHandleNode *persistent_dummy_;
     int n_global_handles_ = 0;
     mutable std::mutex persistent_mutex_;
+    
+    uint8_t **bytecode_handler_entries_; // Entry address of all bytecode handlers
 }; // class Isolate
 
 

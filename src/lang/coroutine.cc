@@ -12,6 +12,9 @@ namespace lang {
 #define MEMBER_OFFSET_OF(field) \
     arch::ObjectTemplate<Coroutine, int32_t>::OffsetOf(&Coroutine :: field)
 
+const int32_t Coroutine::kOffsetACC = MEMBER_OFFSET_OF(acc_);
+const int32_t Coroutine::kOffsetFACC = MEMBER_OFFSET_OF(facc_);
+const int32_t Coroutine::kOffsetCaught = MEMBER_OFFSET_OF(caught_);
 const int32_t Coroutine::kOffsetSysBP = MEMBER_OFFSET_OF(sys_bp_);
 const int32_t Coroutine::kOffsetSysSP = MEMBER_OFFSET_OF(sys_sp_);
 const int32_t Coroutine::kOffsetSysPC = MEMBER_OFFSET_OF(sys_pc_);
@@ -61,6 +64,16 @@ void Coroutine::Dispose() {
         STATE->scheduler()->PurgreStack(stack_);
         stack_ = nullptr;
     }
+}
+
+void Coroutine::Uncaught(Any *expection) {
+    TODO();
+    // TODO:
+}
+
+void Coroutine::Suspend(intptr_t acc, double facc) {
+    TODO();
+    // TODO:
 }
 
 } // namespace lang

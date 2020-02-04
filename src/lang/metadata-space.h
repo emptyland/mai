@@ -3,6 +3,7 @@
 #define MAI_LANG_METADATA_SPACE_H_
 
 #include "lang/metadata.h"
+#include "lang/bytecode.h"
 #include "lang/space.h"
 #include "lang/type-defs.h"
 #include "base/hash.h"
@@ -51,6 +52,8 @@ public:
     // Builtin Code:
     DEF_PTR_GETTER_NOTNULL(Code, switch_system_stack_call_code);
     DEF_PTR_GETTER_NOTNULL(Code, function_template_dummy_code);
+    
+    Code **bytecode_handlers() { return bytecode_handlers_; }
     
     size_t GetRSS() const { return n_pages_ * kPageSize + large_size_; }
     
@@ -145,6 +148,8 @@ public:
 private:
     Error GenerateBuiltinCode();
     
+    Error GenerateBytecodeHandlerCode();
+    
     struct ClassFieldKey {
         const Class *clazz;
         std::string_view field_name;
@@ -231,6 +236,8 @@ private:
     std::shared_mutex class_fields_mutex_;
     
     // Builtin codes:
+    Code *bytecode_handlers_[kMax_Bytecodes]; // Bytecode handler array
+    
     Code *sanity_test_stub_code_ = nullptr; // For code sanity testing
 
     // For function template testing

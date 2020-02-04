@@ -3,10 +3,37 @@
 #include "lang/coroutine.h"
 #include "lang/isolate-inl.h"
 #include "lang/bytecode.h"
+#include "asm/utils.h"
 
 namespace mai {
 
 namespace lang {
+
+void MacroAssembler::StartBC() {
+    // Jump to current pc's handler
+    // SCRATCH = callee->mai_fn->bytecodes
+    movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetBytecodeArray));
+    // SCRATCH = &bytecodes->instructions
+    addq(SCRATCH, BytecodeArray::kOffsetEntry);
+    movl(rbx, Operand(rbp, BytecodeStackFrame::kOffsetPC));
+    leaq(BC, Operand(SCRATCH, rbx, times_4, 0)); // [SCRATCH + rbx * 4]
+    movl(rbx, Operand(BC, 0)); // get fist bytecode
+    andl(rbx, 0xff000000);
+    shrl(rbx, 24);
+    // [BC_ARRAY + rbx * 8] jump to first bytecode handler
+    jmp(Operand(BC_ARRAY, rbx, times_8, 0));
+}
+
+void MacroAssembler::JumpNextBC() {
+    // Move next BC and jump to handler
+    incl(Operand(rbp, BytecodeStackFrame::kOffsetPC)); // pc++ go to next bc
+    addq(BC, sizeof(BytecodeInstruction)); // BC++
+    movq(rbx, Operand(BC, 0)); // rbx = BC[0]
+    andl(rbx, BytecodeNode::kIDMask);
+    shrl(rbx, 24); // (bc & 0xff000000) >> 24
+    // Jump to next bytecode handler
+    jmp(Operand(BC_ARRAY, rbx, times_8, 0)); // [BC_ARRAY + rbx * 8]
+}
 
 #define __ masm->
 
@@ -97,53 +124,218 @@ void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
     __ movq(rsp, Operand(CO, Coroutine::kOffsetSP)); // recover mai bp
 }
 
+// Prototype: void Trampoline(Coroutine *co)
+void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump) {
+    StackFrameScope frame_scope(masm);
+    //==============================================================================================
+    // NOTICE: The fucking clang++ optimizer will proecte: r12~r15 and rbx registers.
+    // =============================================================================================
+    __ SaveCxxCallerRegisters();
+    // =============================================================================================
+    
+    // Save system stack and frame
+    __ movq(CO, Argv_0); // Install CO register
+    __ movq(Operand(CO, Coroutine::kOffsetSysBP), rbp);
+    __ movq(Operand(CO, Coroutine::kOffsetSysSP), rsp);
+    // TODO:
+//    movq Coroutine_sys_pc(CO), @suspend
+
+    // Set bytecode handlers array
+    __ movq(SCRATCH, reinterpret_cast<Address>(&__isolate));
+    __ movq(SCRATCH, Operand(SCRATCH, 0));
+    __ movq(BC_ARRAY, Operand(SCRATCH, Isolate::kOffsetBytecodeHandlerEntries));
+    
+    Label entry;
+    // if (coroutine.reentrant > 0) setup root exception is not need
+    __ cmpl(Operand(CO, Coroutine::kOffsetReentrant), 0);
+    __ j(Greater, &entry, true/*is_far*/);
+
+
+    // Set root exception handler
+    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtNode));
+    __ movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH); // coroutine.caught = &caught
+    __ movq(Operand(SCRATCH, kOffsetCaught_Next), static_cast<int32_t>(0));
+    __ movq(Operand(SCRATCH, kOffsetCaught_BP), rbp); // caught.bp = system rbp
+    __ movq(Operand(SCRATCH, kOffsetCaught_SP), rsp); // caught.sp = system rsp
+    __ leaq(rax, Operand(rip, masm->pc() + 20)); // @uncaught_handler
+    __ movq(Operand(SCRATCH, kOffsetCaught_PC), rax); // caught.pc = @exception_handler
+    __ jmp(&entry, true/*is_far*/);
+    __ LandingPatch(16); // Jump landing area
+    
+    // uncaught: -----------------------------------------------------------------------------------
+    // Handler root exception
+    __ movq(Argv_0, CO);
+    __ movq(Argv_1, rax);
+    __ SwitchSystemStackCall(arch::MethodAddress(&Coroutine::Uncaught), switch_call);
+    Label done;
+    __ jmp(&done, true/*is_far*/);
+    
+
+    // entry: --------------------------------------------------------------------------------------
+    // Function entry:
+    __ Bind(&entry);
+    __ movq(rbp, Operand(CO, Coroutine::kOffsetBP)); // recover mai stack
+    __ movq(rsp, Operand(CO, Coroutine::kOffsetSP)); // recover mai stack
+    __ movl(Operand(CO, Coroutine::kOffsetYield), 0); // coroutine.yield = 0
+    __ cmpl(Operand(CO, Coroutine::kOffsetReentrant), 0);
+    Label resume; // if (coroutine->reentrant > 0)
+    __ j(Greater, &resume, true/*is_far*/); // if (coroutine->reentrant > 0)
+    // first calling
+    __ incl(Operand(CO, Coroutine::kOffsetReentrant)); // coroutine.reentrant++
+    __ movq(Argv_0, Operand(CO, Coroutine::kOffsetEntry));
+    __ movq(rax, pump);
+    __ call(rax);
+    Label uninstall;
+    __ jmp(&uninstall, true/*is_far*/);
+
+
+    // suspend: ------------------------------------------------------------------------------------
+    // TODO: save pc;
+    __ movq(Argv_0, CO);
+    __ movq(Argv_1, rax);
+    // call co->Suspend(acc, xacc)
+    __ SwitchSystemStackCall(arch::MethodAddress(&Coroutine::Suspend), switch_call);
+    __ jmp(&done, true/*is_far*/);
+
+
+    // resume: -------------------------------------------------------------------------------------
+    // coroutine->reentrant > 0, means: should resume this coroutine
+    __ Bind(&resume);
+    __ incl(Operand(CO, Coroutine::kOffsetReentrant)); // coroutine.reentrant++
+    // Setup bytecode env
+    // SCRATCH = bytecode array
+    __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetBytecodeArray));
+    __ movq(rbx, Operand(rbp, BytecodeStackFrame::kOffsetPC));
+    // SCRATCH = &bytecodes->instructions
+    // [SCRATCH + rbx * 4 + BytecodeArray::kOffsetEntry]
+    __ leaq(BC, Operand(SCRATCH, rbx, times_4, BytecodeArray::kOffsetEntry));
+    __ movq(ACC, Operand(CO, Coroutine::kOffsetACC)); // recover mai ACC
+    __ movsd(FACC, Operand(CO, Coroutine::kOffsetFACC)); // recover mai FACC
+    __ JumpNextBC();
+
+
+    // uninstall: ----------------------------------------------------------------------------------
+    // Restore native stack and frame
+    // Unset root exception handler
+    __ Bind(&uninstall);
+    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtNode));
+    __ movq(rax, Operand(SCRATCH, kOffsetCaught_Next));
+    __ movq(Operand(CO, Coroutine::kOffsetCaught), rax); // coroutine.caught = caught.next
+
+
+    // done: ---------------------------------------------------------------------------------------
+    // Recover system stack
+    __ Bind(&done);
+    __ movq(rbp, Operand(CO, Coroutine::kOffsetSysBP)); // recover system bp
+    __ movq(rsp, Operand(CO, Coroutine::kOffsetSysSP)); // recover system sp
+    // =============================================================================================
+    // Fuck C++!
+    __ RecoverCxxCallerRegisters();
+}
+
 class PartialBytecodeEmitter : public AbstractBytecodeEmitter {
 public:
-    PartialBytecodeEmitter(Isolate *isolate): isolate_(DCHECK_NOTNULL(isolate)) {}
+    PartialBytecodeEmitter(MetadataSpace *space): space_(DCHECK_NOTNULL(space)) {}
     ~PartialBytecodeEmitter() override {}
 #define DEFINE_METHOD(name, ...) \
     void Emit##name(MacroAssembler *masm) override { \
-        __ Reset(); \
         __ int3(); \
     }
     DECLARE_ALL_BYTECODE(DEFINE_METHOD)
 #undef DEFINE_METHOD
 protected:
-    Isolate *isolate_;
+    MetadataSpace *space_;
 }; // class PartialBytecodeEmitter
 
 
 class BytecodeEmitter : public PartialBytecodeEmitter {
 public:
-    BytecodeEmitter(Isolate *isolate): PartialBytecodeEmitter(DCHECK_NOTNULL(isolate)) {}
+    class InstrAScope {
+    public:
+        InstrAScope(MacroAssembler *m)
+            : masm(m) {
+            __ movl(rbx, Operand(BC, 0));
+            __ andl(rbx, BytecodeNode::kAOfABMask);
+            __ negq(rbx);
+        }
+        
+        ~InstrAScope() {
+            __ JumpNextBC();
+        }
+    private:
+        MacroAssembler *masm;
+    }; // class TypeAScope
+    
+    BytecodeEmitter(MetadataSpace *space): PartialBytecodeEmitter(DCHECK_NOTNULL(space)) {}
     ~BytecodeEmitter() override {}
+
+    void EmitLdar32(MacroAssembler *masm) override {
+        InstrAScope instr_scope(masm);
+        __ movl(rax, Operand(rbp, rbx, times_4, 0));
+    }
     
     void EmitLdar64(MacroAssembler *masm) override {
-        __ Reset();
-        // TODO:
+        InstrAScope instr_scope(masm);
+        __ movq(rax, Operand(rbp, rbx, times_4, 0));
     }
     
-    void StartBCMacro(MacroAssembler *masm) {
-        // Jump to current pc's handler
-        // SCRATCH = callee->mai_fn->bytecodes
-        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetBytecodeArray));
-        // SCRATCH = &bytecodes->instructions
-        __ addq(SCRATCH, BytecodeArray::kOffsetEntry);
-        __ movl(rbx, Operand(rbp, BytecodeStackFrame::kOffsetPC));
-        __ leaq(BC, Operand(SCRATCH, rbx, times_4, 0)); // [SCRATCH + rbx * 4]
-        __ movl(rbx, Operand(BC, 0)); // get fist bytecode
-        __ andl(rbx, 0xff000000);
-        __ shrl(rbx, 24);
-        // [BC_ARRAY + rbx * 8] jump to first bytecode handler
-        __ jmp(Operand(BC_ARRAY, rbx, times_8, 0));
+    void EmitLdarPtr(MacroAssembler *masm) override {
+        InstrAScope instr_scope(masm);
+        __ movq(rax, Operand(rbp, rbx, times_4, 0));
+    }
+    
+    void EmitLdaf32(MacroAssembler *masm) override {
+        InstrAScope instr_scope(masm);
+        __ movss(xmm0, Operand(rbp, rbx, times_4, 0));
+    }
+    
+    void EmitLdaf64(MacroAssembler *masm) override {
+        InstrAScope instr_scope(masm);
+        __ movsd(xmm0, Operand(rbp, rbx, times_4, 0));
     }
 
+    void EmitStar32(MacroAssembler *masm) override {
+        InstrAScope instr_scope(masm);
+        __ movl(Operand(rbp, rbx, times_4, 0), rax);
+    }
+    
+    void EmitStar64(MacroAssembler *masm) override {
+        InstrAScope instr_scope(masm);
+        __ movq(Operand(rbp, rbx, times_4, 0), rax);
+    }
+    
+    void EmitStarPtr(MacroAssembler *masm) override {
+        InstrAScope instr_scope(masm);
+        __ movq(Operand(rbp, rbx, times_4, 0), rax);
+    }
+    
+    void EmitReturn(MacroAssembler *masm) override {
+        // Keep rax, it's return value
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+        __ movq(SCRATCH, Operand(SCRATCH, Closure::kOffsetProto));
+        // Has exception handlers ?
+        __ cmpl(Operand(SCRATCH, Function::kOffsetExceptionTableSize), 0);
+        Label done;
+        __ j(Equal, &done, true/*is far*/);
+
+        // Uninstall caught handle
+        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetCaught));
+        __ movq(SCRATCH, Operand(SCRATCH, kOffsetCaught_Next));
+        // coroutine.caught = coroutine.caught.next
+        __ movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH);
+
+        __ Bind(&done);
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+        __ movq(SCRATCH, Operand(SCRATCH, Closure::kOffsetProto));
+        __ addq(rsp, Operand(SCRATCH, Function::kOffsetStackSize)); // Recover stack
+        __ popq(rbp);
+        __ ret(0);
+    }
 }; // class BytecodeEmitter
 
 
-AbstractBytecodeEmitter *NewBytecodeEmitter(Isolate *isolate) {
-    TODO();
-    return nullptr;
+/*static*/ AbstractBytecodeEmitter *AbstractBytecodeEmitter::New(MetadataSpace *space) {
+    return new BytecodeEmitter(space);
 }
 
 } // namespace lang

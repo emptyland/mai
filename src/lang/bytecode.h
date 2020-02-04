@@ -34,6 +34,7 @@ namespace lang {
     V(CheckStack, N)
 
 #define DECLARE_LDAR_BYTECODE(V) \
+    V(Ldar32,          A, u24) \
     V(Ldar64,          A, u24) \
     V(LdarPtr,         A, u24) \
     V(Ldaf32,          A, u24) \
@@ -195,6 +196,8 @@ namespace lang {
     V(TestIn,                     AB, u12, u12) \
     V(TestIs,                     AB, u12, u12)
 
+class MetadataSpace;
+class Isolate;
 class MacroAssembler;
 class Code;
 
@@ -241,6 +244,13 @@ DECLARE_ALL_BYTECODE(DEFINE_BYTECODE_TRAITS)
 
 class BytecodeNode {
 public:
+    static constexpr BytecodeInstruction kIDMask    = 0xff000000u;
+    static constexpr BytecodeInstruction kFOfFAMask = 0x00ff0000u;
+    static constexpr BytecodeInstruction kAOfAMask  = 0x00ffffffu;
+    static constexpr BytecodeInstruction kAOfFAMask = 0x0000ffffu;
+    static constexpr BytecodeInstruction kAOfABMask = 0x00fff000u;
+    static constexpr BytecodeInstruction kBOfABMask = 0x00000fffu;
+    
     BytecodeNode(BytecodeID id, BytecodeKind kind, int a, int b, int c, int d)
         : id_(id)
         , kind_(kind) {
@@ -319,6 +329,8 @@ public:
     virtual void Emit##name(MacroAssembler *masm) = 0;
     DECLARE_ALL_BYTECODE(DEFINE_METHOD)
 #undef DEFINE_METHOD
+    
+    static AbstractBytecodeEmitter *New(MetadataSpace *space);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(AbstractBytecodeEmitter);
 }; // class AbstractBytecodeEmitter

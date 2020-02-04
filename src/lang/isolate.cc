@@ -1,8 +1,10 @@
 #include "lang/isolate-inl.h"
 #include "lang/scheduler.h"
 #include "lang/machine.h"
+#include "lang/bytecode.h"
 #include "lang/heap.h"
 #include "lang/metadata-space.h"
+#include "asm/utils.h"
 #include "glog/logging.h"
 #include <mutex>
 
@@ -14,7 +16,12 @@ static std::mutex init_mutex;
 
 Isolate *__isolate = nullptr; // Global isolate object
 
+#define MEMBER_OFFSET_OF(field) \
+    arch::ObjectTemplate<Isolate, int32_t>::OffsetOf(&Isolate :: field)
+
 const ptrdiff_t GlobalHandleNode::kOffsetHandle = offsetof(GlobalHandleNode, handle);
+
+const int32_t Isolate::kOffsetBytecodeHandlerEntries = MEMBER_OFFSET_OF(bytecode_handler_entries_);
 
 /*static*/ Isolate *Isolate::New(const Options &opts) {
     return new Isolate(opts);
@@ -40,6 +47,10 @@ Error Isolate::Initialize() {
     if (auto err = metadata_space_->Initialize(); err.fail()) {
         return err;
     }
+    
+    for (int i = 0; i < kMax_Bytecodes; i++) {
+        bytecode_handler_entries_[i] = metadata_space_->bytecode_handlers()[i]->entry();
+    }
     return Error::OK();
 }
 
@@ -51,10 +62,13 @@ Isolate::Isolate(const Options &opts)
     , scheduler_(new Scheduler(opts.concurrency <= 0 ?
                                env_->GetNumberOfCPUCores() : opts.concurrency,
                                opts.env->GetLowLevelAllocator()))
-    , persistent_dummy_(new GlobalHandleNode{}) {
+    , persistent_dummy_(new GlobalHandleNode{})
+    , bytecode_handler_entries_(new Address[kMax_Bytecodes]) {
 }
 
 Isolate::~Isolate() {
+    delete [] bytecode_handler_entries_;
+    
     while (!QUEUE_EMPTY(persistent_dummy_)) {
         auto x = persistent_dummy_->next_;
         QUEUE_REMOVE(x);

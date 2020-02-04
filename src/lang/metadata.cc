@@ -14,6 +14,9 @@ const int32_t Code::kOffsetEntry = MEMBER_OFFSET_OF(Code, instructions_);
 
 const int32_t BytecodeArray::kOffsetEntry = MEMBER_OFFSET_OF(BytecodeArray, instructions_);
 
+const int32_t Function::kOffsetStackSize = MEMBER_OFFSET_OF(Function, stack_size_);
+const int32_t Function::kOffsetExceptionTableSize = MEMBER_OFFSET_OF(Function, exception_table_size_);
+
 std::string PrototypeDesc::ToString() const {
     return ToString(STATE->metadata_space());
 }

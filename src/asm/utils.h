@@ -46,6 +46,9 @@ public:
     }
     
 }; //template<class T, class O> class ObjectTemplate
+
+template<class T, class F>
+constexpr Address MethodAddress(F T::* method) { return ObjectTemplate<T>::MethodAddress(method); }
     
 #if defined(MAI_ARCH_X64)
 union XMM128Value {

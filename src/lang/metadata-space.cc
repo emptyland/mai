@@ -12,6 +12,7 @@ MetadataSpace::MetadataSpace(Allocator *lla)
     , dummy_page_(new PageHeader(kDummySpace))
     , dummy_code_(new PageHeader(kDummySpace))
     , dummy_large_(new PageHeader(kDummySpace)) {
+    ::memset(bytecode_handlers_, 0, sizeof(bytecode_handlers_[0]) * kMax_Bytecodes);
 }
 
 MetadataSpace::~MetadataSpace() {
@@ -262,6 +263,27 @@ Error MetadataSpace::GenerateBuiltinCode() {
     }
     masm.Reset();
 
+    return Error::OK();
+}
+
+Error MetadataSpace::GenerateBytecodeHandlerCode() {
+    MacroAssembler masm;
+    std::unique_ptr<AbstractBytecodeEmitter> builder(AbstractBytecodeEmitter::New(this));
+
+#define DEFINE_BYTECODE_EMIT(name, kind, ...) \
+    builder->Emit##name(&masm); \
+    masm.int3(); \
+    masm.AligmentPatch(); \
+    bytecode_handlers_[k##name] = NewCode(Code::HANDLER, masm.buf(), nullptr); \
+    if (!bytecode_handlers_[k##name]) { \
+        return MAI_CORRUPTION("OOM by generate code"); \
+    } \
+    masm.Reset();
+    
+    DECLARE_ALL_BYTECODE(DEFINE_BYTECODE_EMIT)
+    
+#undef DEFINE_BYTECODE_EMIT
+    
     return Error::OK();
 }
 
