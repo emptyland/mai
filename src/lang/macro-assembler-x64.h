@@ -108,9 +108,11 @@ private:
 }; // class StackFrameScope
 
 void Generate_SanityTestStub(MacroAssembler *masm);
-void Generate_SwitchSystemStackCall(MacroAssembler *masm);
 void Generate_FunctionTemplateTestDummy(MacroAssembler *masm);
-void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump);
+void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump,
+                         int *suspend_point_pc);
+void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call);
+void Generate_SwitchSystemStackCall(MacroAssembler *masm);
 
 } // namespace lang
 

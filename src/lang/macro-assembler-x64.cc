@@ -112,7 +112,7 @@ void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
     __ pushq(CO);
     __ pushq(BC);
     __ pushq(BC_ARRAY);
-    
+
     __ call(r11); // Call real function
 
     __ popq(BC_ARRAY); // Switch back to mai stack
@@ -125,7 +125,7 @@ void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
 }
 
 // Prototype: void Trampoline(Coroutine *co)
-void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump) {
+void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump, int *suspend_point_pc) {
     StackFrameScope frame_scope(masm);
     //==============================================================================================
     // NOTICE: The fucking clang++ optimizer will proecte: r12~r15 and rbx registers.
@@ -137,13 +137,13 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ movq(CO, Argv_0); // Install CO register
     __ movq(Operand(CO, Coroutine::kOffsetSysBP), rbp);
     __ movq(Operand(CO, Coroutine::kOffsetSysSP), rsp);
-    // TODO:
-//    movq Coroutine_sys_pc(CO), @suspend
 
     // Set bytecode handlers array
     __ movq(SCRATCH, reinterpret_cast<Address>(&__isolate));
     __ movq(SCRATCH, Operand(SCRATCH, 0));
     __ movq(BC_ARRAY, Operand(SCRATCH, Isolate::kOffsetBytecodeHandlerEntries));
+    __ movq(rax, Operand(SCRATCH, Isolate::kOffsetSuspendPoint));
+    __ movq(Operand(CO, Coroutine::kOffsetSysPC), rax); // Setup suspend point
     
     Label entry;
     // if (coroutine.reentrant > 0) setup root exception is not need
@@ -152,15 +152,15 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
 
 
     // Set root exception handler
-    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtNode));
+    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtPoint));
     __ movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH); // coroutine.caught = &caught
     __ movq(Operand(SCRATCH, kOffsetCaught_Next), static_cast<int32_t>(0));
     __ movq(Operand(SCRATCH, kOffsetCaught_BP), rbp); // caught.bp = system rbp
     __ movq(Operand(SCRATCH, kOffsetCaught_SP), rsp); // caught.sp = system rsp
-    __ leaq(rax, Operand(rip, masm->pc() + 20)); // @uncaught_handler
+    __ leaq(rax, Operand(rip, 20)); // @uncaught_handler
     __ movq(Operand(SCRATCH, kOffsetCaught_PC), rax); // caught.pc = @exception_handler
     __ jmp(&entry, true/*is_far*/);
-    __ LandingPatch(16); // Jump landing area
+    __ LandingPatch(20); // Jump landing area
     
     // uncaught: -----------------------------------------------------------------------------------
     // Handler root exception
@@ -190,10 +190,10 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
 
 
     // suspend: ------------------------------------------------------------------------------------
-    // TODO: save pc;
+    *suspend_point_pc = masm->pc(); // Save PC
     __ movq(Argv_0, CO);
     __ movq(Argv_1, rax);
-    // call co->Suspend(acc, xacc)
+    // Call co->Suspend(acc, xacc)
     __ SwitchSystemStackCall(arch::MethodAddress(&Coroutine::Suspend), switch_call);
     __ jmp(&done, true/*is_far*/);
 
@@ -218,7 +218,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     // Restore native stack and frame
     // Unset root exception handler
     __ Bind(&uninstall);
-    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtNode));
+    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtPoint));
     __ movq(rax, Operand(SCRATCH, kOffsetCaught_Next));
     __ movq(Operand(CO, Coroutine::kOffsetCaught), rax); // coroutine.caught = caught.next
 
@@ -231,6 +231,75 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     // =============================================================================================
     // Fuck C++!
     __ RecoverCxxCallerRegisters();
+}
+
+// Prototype: InterpreterPump(Closure *callee)
+// make a interpreter env
+void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
+    StackFrameScope frame_scope(masm);
+    
+    __ movq(SCRATCH, Operand(Argv_0, Closure::kOffsetProto)); // SCRATCH = callee->mai_fn
+    // rsp -= mai_fn->stack_size and keep rbp
+    __ subq(rsp, Operand(SCRATCH, Function::kOffsetStackSize));
+    __ movl(Operand(rbp, BytecodeStackFrame::kOffsetMaker), BytecodeStackFrame::kMaker);
+    __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), 0); // set pc = 0
+    
+    __ movq(Operand(rbp, BytecodeStackFrame::kOffsetCallee), Argv_0); // set callee
+    __ movq(rbx, Operand(SCRATCH, Function::kOffsetBytecode)); // rbx = mai_fn->bytecodes
+    __ movq(Operand(rbp, BytecodeStackFrame::kOffsetBytecodeArray), rbx); // set bytecode array
+    __ movq(rbx, Operand(SCRATCH, Function::kOffsetConstPool)); // rbx = mai_fn->const_pool
+    __ movq(Operand(rbp, BytecodeStackFrame::kOffsetConstPool), rbx); // set const_pool
+    __ cmpl(Operand(SCRATCH, Function::kOffsetExceptionTableSize), 0);
+    Label start;
+    // if (mai_fn->has_execption_handle())
+    __ j(Equal, &start, true/*is_far*/);
+    
+    // install_caught_handler: ---------------------------------------------------------------------
+    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtPoint));
+    __ movq(rax, Operand(CO, Coroutine::kOffsetCaught)); // rax = next caught
+    __ movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH); // coroutine.caught = &caught
+    __ movq(Operand(SCRATCH, kOffsetCaught_Next), rax); // caught.next = coroutine.caught
+    __ movq(Operand(SCRATCH, kOffsetCaught_BP), rbp); // caught.bp = system rbp
+    __ movq(Operand(SCRATCH, kOffsetCaught_SP), rsp); // caught.sp = system rsp
+    __ leaq(rax, Operand(rip, 20));
+    __ movq(Operand(SCRATCH, kOffsetCaught_PC), rax); // caught.pc = @exception_dispatch
+    __ jmp(&start, true/*is_far*/);
+    __ LandingPatch(20);
+    
+    // exception_dispatch: -------------------------------------------------------------------------
+    __ movq(SCRATCH, rax); // SCRATCH will be protectd by SwitchSystemStackCall
+    __ movq(Argv_0, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+    __ movq(Argv_0, Operand(Argv_0, Closure::kOffsetProto));
+    __ movq(Argv_1, SCRATCH); // argv[1] = exception
+    __ movl(Argv_2, Operand(rbp, BytecodeStackFrame::kOffsetPC));
+    // Switch system stack and call a c++ function
+    __ SwitchSystemStackCall(arch::MethodAddress(&Function::DispatchException), switch_call);
+    __ cmpl(rax, 0); // if (retval < 0)
+    Label throw_again;
+    __ j(Less, &throw_again, true/*is_far*/);
+    // Do dispatch: rax is destination pc
+    __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rax); // Update PC
+    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtPoint));
+    __ movq(rbp, Operand(SCRATCH, kOffsetCaught_BP));
+    __ movq(rsp, Operand(SCRATCH, kOffsetCaught_SP));
+    __ StartBC();
+    
+    // throw_again: --------------------------------------------------------------------------------
+    // Uncaught exception, should throw again
+    __ Bind(&throw_again);
+    __ movq(rbx, Operand(CO, Coroutine::kOffsetCaught));
+    __ movq(rax, Operand(rbx, kOffsetCaught_Next));
+    __ movq(Operand(CO, Coroutine::kOffsetCaught), rax); // coroutine.caught = coroutine.caught.next
+    __ movq(rbx, Operand(rbx, kOffsetCaught_PC));
+    __ movq(rax, SCRATCH); // SCRATCH is saved to rax: current exception
+    __ jmp(rbx); // throw again to prev handler
+    
+    // start: --------------------------------------------------------------------------------------
+    // Goto first bytecode handler
+    // The first bytecode can jump to second bytecode handler, and next and next next.
+    __ Bind(&start);
+    __ StartBC();
+    // Never goto this
 }
 
 class PartialBytecodeEmitter : public AbstractBytecodeEmitter {

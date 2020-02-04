@@ -208,6 +208,8 @@ public:
     using Builder = FunctionBuilder;
     
     static const int32_t kOffsetStackSize;
+    static const int32_t kOffsetBytecode;
+    static const int32_t kOffsetConstPool;
     static const int32_t kOffsetExceptionTableSize;
 
     DEF_VAL_GETTER(MDStr, name);
@@ -225,6 +227,8 @@ public:
         DCHECK_LT(i, captured_var_size_);
         return captured_vars_ + i;
     }
+    
+    int32_t DispatchException(Any *exception, int32_t pc);
 
     friend class FunctionBuilder;
     friend class MetadataSpace;

@@ -237,10 +237,10 @@ Error MetadataSpace::GenerateBuiltinCode() {
     MacroAssembler masm;
 
     Generate_SanityTestStub(&masm);
-    sanity_test_stub_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr);
-    if (!sanity_test_stub_code_) {
+    if (!(sanity_test_stub_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr))) {
         return MAI_CORRUPTION("OOM by generate code");
     }
+    masm.AligmentPatch();
     masm.Reset();
 
     // Make sure code generation is ok
@@ -250,19 +250,36 @@ Error MetadataSpace::GenerateBuiltinCode() {
     }
 
     Generate_SwitchSystemStackCall(&masm);
-    switch_system_stack_call_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr);
-    if (!switch_system_stack_call_code_) {
+    if (!(switch_system_stack_call_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr))) {
         return MAI_CORRUPTION("OOM by generate code");
     }
+    masm.AligmentPatch();
     masm.Reset();
     
     Generate_FunctionTemplateTestDummy(&masm);
-    function_template_dummy_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr);
-    if (!function_template_dummy_code_) {
+    if (!(function_template_dummy_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr))) {
         return MAI_CORRUPTION("OOM by generate code");
     }
+    masm.AligmentPatch();
+    masm.Reset();
+    
+    Generate_InterpreterPump(&masm, switch_system_stack_call_code_->entry());
+    if (!(interpreter_pump_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr))) {
+        return MAI_CORRUPTION("OOM by generate code");
+    }
+    masm.AligmentPatch();
     masm.Reset();
 
+    int pc = 0;
+    Generate_Trampoline(&masm, switch_system_stack_call_code_->entry(),
+                        interpreter_pump_code_->entry(), &pc);
+    if (!(trampoline_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr))) {
+        return MAI_CORRUPTION("OOM by generate code");
+    }
+    masm.AligmentPatch();
+    masm.Reset();
+    trampoline_suspend_point_ = trampoline_code_->entry() + pc;
+    
     return Error::OK();
 }
 

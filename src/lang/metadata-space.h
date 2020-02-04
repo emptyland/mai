@@ -240,8 +240,17 @@ private:
     
     Code *sanity_test_stub_code_ = nullptr; // For code sanity testing
 
+    // For enter mai execution env
+    // Prototype: Trampoline(Coroutine *co);
+    Code *trampoline_code_ = nullptr;
+    Address trampoline_suspend_point_ = nullptr;
+    
+    // For bytecode execution
+    // Prototype: InterpreterPump(Closure *fn);
+    Code *interpreter_pump_code_ = nullptr;
+
     // For function template testing
-    // Prototype: Dummy(Coroutine *co, uint8_t data[32]);
+    // Prototype: Dummy(Coroutine *co);
     Code *function_template_dummy_code_ = nullptr;
 
     // Switch system stack(C++ stack) and call a function

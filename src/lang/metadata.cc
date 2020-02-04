@@ -15,6 +15,8 @@ const int32_t Code::kOffsetEntry = MEMBER_OFFSET_OF(Code, instructions_);
 const int32_t BytecodeArray::kOffsetEntry = MEMBER_OFFSET_OF(BytecodeArray, instructions_);
 
 const int32_t Function::kOffsetStackSize = MEMBER_OFFSET_OF(Function, stack_size_);
+const int32_t Function::kOffsetConstPool = MEMBER_OFFSET_OF(Function, const_pool_);
+const int32_t Function::kOffsetBytecode = MEMBER_OFFSET_OF(Function, bytecode_);
 const int32_t Function::kOffsetExceptionTableSize = MEMBER_OFFSET_OF(Function, exception_table_size_);
 
 std::string PrototypeDesc::ToString() const {
@@ -42,6 +44,12 @@ std::string PrototypeDesc::ToString(const MetadataSpace *space) const {
     const Class *type = space->type(return_type_);
     buf.append(type->name());
     return buf;
+}
+
+// TODO
+int32_t Function::DispatchException(Any *exception, int32_t pc) {
+    TODO();
+    return -1;
 }
 
 
