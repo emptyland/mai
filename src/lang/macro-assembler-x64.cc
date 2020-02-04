@@ -142,7 +142,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ movq(SCRATCH, reinterpret_cast<Address>(&__isolate));
     __ movq(SCRATCH, Operand(SCRATCH, 0));
     __ movq(BC_ARRAY, Operand(SCRATCH, Isolate::kOffsetBytecodeHandlerEntries));
-    __ movq(rax, Operand(SCRATCH, Isolate::kOffsetSuspendPoint));
+    __ movq(rax, Operand(SCRATCH, Isolate::kOffsetTrampolineSuspendPoint));
     __ movq(Operand(CO, Coroutine::kOffsetSysPC), rax); // Setup suspend point
     
     Label entry;

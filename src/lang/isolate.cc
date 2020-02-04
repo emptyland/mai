@@ -22,7 +22,7 @@ Isolate *__isolate = nullptr; // Global isolate object
 const ptrdiff_t GlobalHandleNode::kOffsetHandle = offsetof(GlobalHandleNode, handle);
 
 const int32_t Isolate::kOffsetBytecodeHandlerEntries = MEMBER_OFFSET_OF(bytecode_handler_entries_);
-const int32_t Isolate::kOffsetSuspendPoint = MEMBER_OFFSET_OF(suspend_point_);
+const int32_t Isolate::kOffsetTrampolineSuspendPoint = MEMBER_OFFSET_OF(trampoline_suspend_point_);
 
 static void BadSuspendPointDummy() {
     NOREACHED() << "Bad suspend-point";
@@ -56,6 +56,7 @@ Error Isolate::Initialize() {
     for (int i = 0; i < kMax_Bytecodes; i++) {
         bytecode_handler_entries_[i] = metadata_space_->bytecode_handlers()[i]->entry();
     }
+    trampoline_suspend_point_ = metadata_space_->trampoline_suspend_point();
     return Error::OK();
 }
 
@@ -69,7 +70,7 @@ Isolate::Isolate(const Options &opts)
                                opts.env->GetLowLevelAllocator()))
     , persistent_dummy_(new GlobalHandleNode{})
     , bytecode_handler_entries_(new Address[kMax_Bytecodes])
-    , suspend_point_(reinterpret_cast<Address>(BadSuspendPointDummy)) {
+    , trampoline_suspend_point_(reinterpret_cast<Address>(BadSuspendPointDummy)) {
 }
 
 Isolate::~Isolate() {

@@ -9,33 +9,33 @@ namespace lang {
 
 MetadataSpace::MetadataSpace(Allocator *lla)
     : Space(kMetadataSpace, lla)
-    , dummy_page_(new PageHeader(kDummySpace))
-    , dummy_code_(new PageHeader(kDummySpace))
-    , dummy_large_(new PageHeader(kDummySpace)) {
+    , page_dummy_(new PageHeader(kDummySpace))
+    , code_dummy_(new PageHeader(kDummySpace))
+    , large_dummy_(new PageHeader(kDummySpace)) {
     ::memset(bytecode_handlers_, 0, sizeof(bytecode_handlers_[0]) * kMax_Bytecodes);
 }
 
 MetadataSpace::~MetadataSpace() {
-    while (!QUEUE_EMPTY(dummy_large_)) {
-        auto x = LargePage::Cast(dummy_large_->next_);
+    while (!QUEUE_EMPTY(large_dummy_)) {
+        auto x = LargePage::Cast(large_dummy_->next_);
         QUEUE_REMOVE(x);
         x->Dispose(lla_);
     }
-    delete dummy_large_;
+    delete large_dummy_;
     
-    while (!QUEUE_EMPTY(dummy_code_)) {
-        auto x = LinearPage::Cast(dummy_code_->next_);
+    while (!QUEUE_EMPTY(code_dummy_)) {
+        auto x = LinearPage::Cast(code_dummy_->next_);
         QUEUE_REMOVE(x);
         x->Dispose(lla_);
     }
-    delete dummy_code_;
+    delete code_dummy_;
     
-    while (!QUEUE_EMPTY(dummy_page_)) {
-        auto x = LinearPage::Cast(dummy_page_->next_);
+    while (!QUEUE_EMPTY(page_dummy_)) {
+        auto x = LinearPage::Cast(page_dummy_->next_);
         QUEUE_REMOVE(x);
         x->Dispose(lla_);
     }
-    delete dummy_page_;
+    delete page_dummy_;
 }
 
 // Init builtin types
@@ -344,7 +344,7 @@ AllocationResult MetadataSpace::Allocate(size_t n, bool exec) {
         if (!page) {
             return AllocationResult(AllocationResult::OOM, nullptr);
         }
-        QUEUE_INSERT_TAIL(dummy_large_, page);
+        QUEUE_INSERT_TAIL(large_dummy_, page);
         used_size_ += n;
         large_size_ += page->size();
         return AllocationResult(AllocationResult::OK, page->chunk());
@@ -352,13 +352,13 @@ AllocationResult MetadataSpace::Allocate(size_t n, bool exec) {
 
     LinearPage *page = nullptr;
     if (exec) {
-        if (QUEUE_EMPTY(dummy_code_) || n > code_head()->GetFreeSize()) {
+        if (QUEUE_EMPTY(code_dummy_) || n > code_head()->GetFreeSize()) {
             page = AppendPage(access);
         } else {
             page = code_head();
         }
     } else {
-        if (QUEUE_EMPTY(dummy_page_) || n > page_head()->GetFreeSize()) {
+        if (QUEUE_EMPTY(page_dummy_) || n > page_head()->GetFreeSize()) {
             page = AppendPage(access);
         } else {
             page = page_head();

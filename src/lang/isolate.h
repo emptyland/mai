@@ -32,7 +32,7 @@ struct Options {
 class Isolate final {
 public:
     static const int32_t kOffsetBytecodeHandlerEntries;
-    static const int32_t kOffsetSuspendPoint;
+    static const int32_t kOffsetTrampolineSuspendPoint;
     
     static Isolate *New(const Options &);
     void Dispose();
@@ -84,7 +84,7 @@ private:
     mutable std::mutex persistent_mutex_;
     
     uint8_t **bytecode_handler_entries_; // Entry address of all bytecode handlers
-    uint8_t *suspend_point_; // Entry address of suspend
+    uint8_t *trampoline_suspend_point_; // Entry address of suspend
 }; // class Isolate
 
 

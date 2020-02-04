@@ -22,8 +22,6 @@ namespace lang {
     V(Throw, N) \
     V(Yield, A, u24) \
     V(Goto, A, u24) \
-    V(JumpForward, A, u24) \
-    V(JumpBackward, A, u24) \
     V(GotoIfTrue, A, u24) \
     V(GotoIfFalse, A, u24) \
     V(CallBytecodeFunction, A, u24) \
@@ -276,6 +274,8 @@ public:
     DEF_VAL_GETTER(BytecodeID, id);
     DEF_VAL_GETTER(BytecodeKind, kind);
     
+    friend class BytecodeLabel;
+    friend class BytecodeArrayBuilder;
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeNode);
 private:
     BytecodeID id_; // ID of bytecode

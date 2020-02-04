@@ -1,4 +1,5 @@
 #include "lang/bytecode.h"
+#include "lang/bytecode-array-builder.h"
 #include "test/isolate-initializer.h"
 #include "base/arenas.h"
 #include "gtest/gtest.h"
@@ -59,6 +60,37 @@ TEST_F(BytecodeTest, Parsing) {
     EXPECT_EQ(kBytecode_TypeAB, node->kind());
     EXPECT_EQ(0x10, node->param(0));
     EXPECT_EQ(0x20, node->param(1));
+}
+
+TEST_F(BytecodeTest, Builder) {
+    BytecodeArrayBuilder builder(arean_);
+    
+    EXPECT_EQ(0, builder.pc());
+    builder.Add<kLdaf32>(0);
+    builder.Add<kLdaPropertyPtr>(0, 1);
+    builder.Add<kReturn>();
+    EXPECT_EQ(3, builder.pc());
+    builder.Add<kLdaZero>();
+    
+    auto instrs = builder.Build();
+    EXPECT_EQ(4, instrs.size());
+}
+
+TEST_F(BytecodeTest, BuilderGoto) {
+    BytecodeArrayBuilder builder(arean_);
+    
+    builder.Add<kLdar32>(0); // 0
+    builder.Add<kLdar32>(1); // 1
+    BytecodeLabel label;
+    builder.Goto(&label);    // 2
+    builder.Add<kAdd32>(0, 1); // 3
+    builder.Bind(&label);
+    builder.Add<kReturn>(); // 4
+    
+    auto instrs = builder.Build();
+    auto node = BytecodeNode::From(arean_, instrs[2]);
+    ASSERT_EQ(kGoto, node->id());
+    ASSERT_EQ(4, node->param(0));
 }
 
 }

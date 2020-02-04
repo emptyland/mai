@@ -52,7 +52,10 @@ public:
     // Builtin Code:
     DEF_PTR_GETTER_NOTNULL(Code, switch_system_stack_call_code);
     DEF_PTR_GETTER_NOTNULL(Code, function_template_dummy_code);
-    
+    DEF_PTR_GETTER_NOTNULL(Code, trampoline_code);
+    DEF_VAL_GETTER(Address, trampoline_suspend_point);
+    DEF_PTR_GETTER_NOTNULL(Code, interpreter_pump_code);
+
     Code **bytecode_handlers() { return bytecode_handlers_; }
     
     size_t GetRSS() const { return n_pages_ * kPageSize + large_size_; }
@@ -72,8 +75,7 @@ public:
     
     Code *NewCode(Code::Kind kind, const std::string &instructions, PrototypeDesc *prototype) {
         return NewCode(kind, reinterpret_cast<Address>(const_cast<char *>(instructions.data())),
-                       instructions.size(),
-                       prototype);
+                       instructions.size(), prototype);
     }
     
     Code *NewCode(Code::Kind kind, Address instructions, size_t size, PrototypeDesc *prototype) {
@@ -168,42 +170,11 @@ private:
         }
     }; // struct ClassFieldEqualTo
 
-    template<class T>
-    inline T *NewArray(size_t n) {
-        auto result = Allocate(n * sizeof(T), false);
-        if (!result.ptr()) {
-            return nullptr;
-        }
-        T *arr = static_cast<T *>(result.ptr());
-        for (size_t i = 0; i  < n; i++) {
-            T *obj = new (arr + i) T();
-            DCHECK_EQ(obj, arr + i);
-        }
-        return arr;
-    }
+    template<class T> inline T *NewArray(size_t n);
+
+    template<class T> inline T *New();
     
-    template<class T>
-    inline T *New() {
-        auto result = Allocate(sizeof(T), false);
-        if (!result.ptr()) {
-            return nullptr;
-        }
-        return new (result.ptr()) T();
-    }
-    
-    LinearPage *AppendPage(int access) {
-        LinearPage *page = LinearPage::New(kind(), access, lla_);
-        if (!page) {
-            return nullptr;
-        }
-        if (access & Allocator::kEx) {
-            QUEUE_INSERT_HEAD(dummy_code_, page);
-        } else {
-            QUEUE_INSERT_HEAD(dummy_page_, page);
-        }
-        n_pages_++;
-        return page;
-    }
+    inline LinearPage *AppendPage(int access);
     
     uint32_t NextTypeId() { return next_type_id_++; }
     
@@ -216,12 +187,12 @@ private:
         named_classes_[name] = clazz;
     }
 
-    LinearPage *code_head() const { return LinearPage::Cast(dummy_code_->next_); }
-    LinearPage *page_head() const { return LinearPage::Cast(dummy_page_->next_); }
+    LinearPage *code_head() const { return LinearPage::Cast(code_dummy_->next_); }
+    LinearPage *page_head() const { return LinearPage::Cast(page_dummy_->next_); }
     
-    PageHeader *dummy_page_; // Linear page double-linked list dummy (LinearPage)
-    PageHeader *dummy_code_; // Linear page double-linked list dummy (LinearPage)
-    PageHeader *dummy_large_; // Large page double-linked list dummy (LargePage)
+    PageHeader *page_dummy_; // Linear page double-linked list dummy (LinearPage)
+    PageHeader *code_dummy_; // Linear page double-linked list dummy (LinearPage)
+    PageHeader *large_dummy_; // Large page double-linked list dummy (LargePage)
     std::vector<Class *> classes_; // All classes
     std::unordered_map<std::string, Class *> named_classes_; // All named classes
     uint32_t next_type_id_ = 0; // Next type unique id
@@ -501,6 +472,44 @@ private:
     std::vector<CapturedVarDesc> captured_vars_;
     std::vector<Function::ExceptionHandlerDesc> exception_table_;
 }; // class FunctionBuilder
+
+
+template<class T>
+inline T *MetadataSpace::NewArray(size_t n) {
+    auto result = Allocate(n * sizeof(T), false);
+    if (!result.ptr()) {
+        return nullptr;
+    }
+    T *arr = static_cast<T *>(result.ptr());
+    for (size_t i = 0; i  < n; i++) {
+        T *obj = new (arr + i) T();
+        DCHECK_EQ(obj, arr + i);
+    }
+    return arr;
+}
+
+template<class T>
+inline T *MetadataSpace::New() {
+    auto result = Allocate(sizeof(T), false);
+    if (!result.ptr()) {
+        return nullptr;
+    }
+    return new (result.ptr()) T();
+}
+
+inline LinearPage *MetadataSpace::AppendPage(int access) {
+    LinearPage *page = LinearPage::New(kind(), access, lla_);
+    if (!page) {
+        return nullptr;
+    }
+    if (access & Allocator::kEx) {
+        QUEUE_INSERT_HEAD(code_dummy_, page);
+    } else {
+        QUEUE_INSERT_HEAD(page_dummy_, page);
+    }
+    n_pages_++;
+    return page;
+}
 
 } // namespace lang
 
