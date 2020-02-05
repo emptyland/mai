@@ -230,6 +230,9 @@ Error MetadataSpace::Initialize() {
     if (Error err = GenerateBuiltinCode(); err.fail()) {
         return err;
     }
+    if (Error err = GenerateBytecodeHandlerCode(); err.fail()) {
+        return err;
+    }
     return Error::OK();
 }
 

@@ -2875,11 +2875,13 @@ JUMP_NEXT_BC()
 ; [ Move32/64 ]
 movl ebx, 0(BC)
 andl ebx, 0xfff
+negq rbx
 | movl eax, rbx(rbp) ; Move32
 | movq rax, rbx(rbp) ; Move64/MovePtr
 movl ebx, 0(BC)
 andl ebx, 0xfff000
 shrl ebx, 12
+negq rbx
 | movl rbx(rbp), eax ; Move32
 | movq rbx(rbp), rax ; Move64/MovePtr
 JUMP_NEXT_BC()
@@ -3242,8 +3244,9 @@ JUMP_NEXT_BC()
 
 * Call Native Function
     * 作用：调用一个`native`修饰函数，函数对象指针放在`rax`中
-    * 类型：`A`型
-        * `参数A`：参数字节数大小
+    * 类型：`AB`型
+        * `参数A`：闭包对象的栈偏移量
+        * `参数B`：参数字节数
     * 副作用：写入`ACC`或`XACC`
 
 ```asm

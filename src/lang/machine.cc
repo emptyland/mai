@@ -150,13 +150,26 @@ AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t i
 
 Closure *Machine::NewClosure(Code *code, size_t captured_var_size, uint32_t flags) {
     DCHECK_EQ(0, captured_var_size % kPointerSize);
-    size_t request_size = sizeof(Closure) + captured_var_size;
+    size_t request_size = sizeof(Closure) + captured_var_size * sizeof(Closure::CapturedVar);
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
         return nullptr;
     }
     Closure *obj = new (result.ptr()) Closure(STATE->builtin_type(kType_closure),
                                               DCHECK_NOTNULL(code),
+                                              static_cast<uint32_t>(captured_var_size), 0/*TODO: color*/);
+    return obj;
+}
+
+Closure *Machine::NewClosure(Function *func, size_t captured_var_size, uint32_t flags) {
+    DCHECK_EQ(0, captured_var_size % kPointerSize);
+    size_t request_size = sizeof(Closure) + captured_var_size * sizeof(Closure::CapturedVar);
+    AllocationResult result = STATE->heap()->Allocate(request_size, flags);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    Closure *obj = new (result.ptr()) Closure(STATE->builtin_type(kType_closure),
+                                              DCHECK_NOTNULL(func),
                                               static_cast<uint32_t>(captured_var_size), 0/*TODO: color*/);
     return obj;
 }

@@ -35,21 +35,15 @@ private:
 class BytecodeArrayBuilder final {
 public:
     BytecodeArrayBuilder(base::Arena *arena): arena_(DCHECK_NOTNULL(arena)) {}
-    
+
     template<BytecodeID ID>
-    inline void Add() {
-        nodes_.push_back(Bytecodes<ID>::New(arena_));
-    }
-    
+    inline void Add() { nodes_.push_back(Bytecodes<ID>::New(arena_)); }
+   
     template<BytecodeID ID>
-    inline void Add(int a) {
-        nodes_.push_back(Bytecodes<ID>::New(arena_, a));
-    }
-    
+    inline void Add(int a) { nodes_.push_back(Bytecodes<ID>::New(arena_, a)); }
+
     template<BytecodeID ID>
-    inline void Add(int a, int b) {
-        nodes_.push_back(Bytecodes<ID>::New(arena_, a, b));
-    }
+    inline void Add(int a, int b) { nodes_.push_back(Bytecodes<ID>::New(arena_, a, b)); }
     
     void Goto(BytecodeLabel *label) {
         if (label->is_bind()) {

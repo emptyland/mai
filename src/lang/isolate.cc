@@ -16,6 +16,8 @@ static std::mutex init_mutex;
 
 Isolate *__isolate = nullptr; // Global isolate object
 
+thread_local TLSStorage *__tls_storage; // Global tls 
+
 #define MEMBER_OFFSET_OF(field) \
     arch::ObjectTemplate<Isolate, int32_t>::OffsetOf(&Isolate :: field)
 
@@ -40,11 +42,11 @@ Error Isolate::Initialize() {
     if (new_space_initial_size_ < 10 * base::kMB) {
         return MAI_CORRUPTION("new_space_initial_size too small(least than 10MB)");
     }
-    
-    if (auto err = env_->NewThreadLocalSlot("isolate.tls", &TLSStorage::Dtor, &tls_); err.fail()) {
-        return err;
-    }
-    
+
+//    if (auto err = env_->NewThreadLocalSlot("isolate.tls", &TLSStorage::Dtor, &tls_); err.fail()) {
+//        return err;
+//    }
+
     if (auto err = heap_->Initialize(new_space_initial_size_); err.fail()) {
         return err;
     }
@@ -54,7 +56,7 @@ Error Isolate::Initialize() {
     }
     
     for (int i = 0; i < kMax_Bytecodes; i++) {
-        bytecode_handler_entries_[i] = metadata_space_->bytecode_handlers()[i]->entry();
+        bytecode_handler_entries_[i] = DCHECK_NOTNULL(metadata_space_->bytecode_handlers()[i])->entry();
     }
     trampoline_suspend_point_ = metadata_space_->trampoline_suspend_point();
     return Error::OK();

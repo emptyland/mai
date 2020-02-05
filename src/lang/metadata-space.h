@@ -115,7 +115,7 @@ public:
     }
     
     PrototypeDesc *NewPrototypeDesc(const std::vector<uint32_t> &desc, bool has_vargs) {
-        DCHECK_GT(desc.size(), 1) << "Tail must be return type.";
+        DCHECK_GT(desc.size(), 0) << "Tail must be return type.";
         return NewPrototypeDesc(&desc[0], desc.size() - 1, has_vargs, desc.back());
     }
     

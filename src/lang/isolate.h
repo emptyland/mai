@@ -37,19 +37,21 @@ public:
     static Isolate *New(const Options &);
     void Dispose();
 
+    // Initialize Virtual-Machine state
     Error Initialize();
 
+    // Get base api env object
     Env *env() const { return env_; }
     
+    // Get new generation memory size in heap
     size_t new_space_initial_size() const { return new_space_initial_size_; }
-    
+
     // Internal functions:
     inline Heap *heap() const;
     inline MetadataSpace *metadata_space() const;
-    inline TLSStorage *tls_storage() const;
-    inline Machine *tls_machine() const;
     inline Scheduler *scheduler() const;
     inline const Class *builtin_type(BuiltinType type) const;
+    inline uint8_t **bytecode_handler_entries() const;
 
     friend class Machine;
     friend class IsolateScope;
@@ -67,21 +69,19 @@ private:
     inline GlobalHandleNode *NewGlobalHandle(const void *pointer);
     inline void DeleteGlobalHandle(GlobalHandleNode *node);
     inline int GetNumberOfGlobalHandles() const;
-    
-    ThreadLocalSlot *tls() const { return tls_.get(); }
 
     // New space initial bytes size
     const size_t new_space_initial_size_;
 
-    Env *env_;
-    Heap *heap_;
-    MetadataSpace *metadata_space_;
-    Scheduler *scheduler_;
-    std::unique_ptr<ThreadLocalSlot> tls_;
     
-    GlobalHandleNode *persistent_dummy_;
-    int n_global_handles_ = 0;
-    mutable std::mutex persistent_mutex_;
+    Env *env_; // The base api env object
+    Heap *heap_; // Heap allocator
+    MetadataSpace *metadata_space_; // Metadata memory space
+    Scheduler *scheduler_; // Scheduler
+    
+    GlobalHandleNode *persistent_dummy_; // Global handle double-linked list dummy
+    int n_global_handles_ = 0; // Number of global handles
+    mutable std::mutex persistent_mutex_; // Mutex for persistent_dummy_
     
     uint8_t **bytecode_handler_entries_; // Entry address of all bytecode handlers
     uint8_t *trampoline_suspend_point_; // Entry address of suspend

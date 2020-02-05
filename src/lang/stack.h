@@ -13,7 +13,7 @@ class Stack final {
 public:
     static constexpr size_t kGuard0Size = kStackAligmentSize * 50 - sizeof(size_t) - kPointerSize * 4;
     static constexpr size_t kGuard1Size = kStackAligmentSize * 2;
-    
+
     void Reinitialize() {
         next_ = this;
         prev_ = this;
@@ -21,16 +21,16 @@ public:
         ::memset(guard1() - kGuard1Size, 0xcc, kGuard1Size);
         DbgFillInitZag(stack_lo_, GetAvailableSize());
     }
-    
+
     Address guard0() { return guard0_; }
     Address guard1() { return reinterpret_cast<Address>(this) + size_; }
-    
+
     size_t GetAvailableSize() const { return stack_hi_ - stack_lo_; }
-    
+
     DEF_VAL_GETTER(size_t, size);
     DEF_VAL_GETTER(Address, stack_lo);
     DEF_VAL_GETTER(Address, stack_hi);
-    
+
     static Stack *New(size_t available_size, Allocator *lla) {
         const size_t total_size = available_size + sizeof(Stack) + kGuard1Size + kStackAligmentSize * 2;
         const size_t request_size = RoundUp(total_size, lla->granularity());
@@ -40,7 +40,7 @@ public:
         }
         return new (chunk) Stack(request_size);
     }
-    
+
     void Dispose(Allocator *lla) { lla->Free(this, size_); }
 
     static Stack *NewDummy() {
@@ -49,9 +49,9 @@ public:
         dummy->prev_ = dummy;
         return dummy;
     }
-    
+
     static void DeleteDummy(Stack *dummy) { ::free(dummy); }
-    
+
     friend class Scheduler;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Stack);
 private:
@@ -60,10 +60,10 @@ private:
         stack_hi_ = RoundDown(reinterpret_cast<Address>(this) + size - kGuard1Size, kStackAligmentSize);
         Reinitialize();
     }
-    
+
     DEF_PTR_GETTER(Stack, next);
     DEF_PTR_GETTER(Stack, prev);
-    
+
     QUEUE_HEADER(Stack);
     size_t size_; // Total size of stack
     Address stack_lo_; // Low address of stack

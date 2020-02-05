@@ -38,15 +38,13 @@ extern Isolate *__isolate;
 
 #define STATE (DCHECK_NOTNULL(__isolate))
 
+extern thread_local TLSStorage *__tls_storage;
+
+#define TLS_STORAGE (DCHECK_NOTNULL(__tls_storage))
+
 inline Heap *Isolate::heap() const { return DCHECK_NOTNULL(heap_); }
 
 inline MetadataSpace *Isolate::metadata_space() const { return DCHECK_NOTNULL(metadata_space_); }
-
-inline TLSStorage *Isolate::tls_storage() const {
-    return static_cast<TLSStorage *>(DCHECK_NOTNULL(tls_->Get()));
-}
-
-inline Machine *Isolate::tls_machine() const { return tls_storage()->machine; }
 
 inline Scheduler *Isolate::scheduler() const { return DCHECK_NOTNULL(scheduler_); }
 
@@ -54,10 +52,14 @@ inline const Class *Isolate::builtin_type(BuiltinType type) const {
     return metadata_space()->builtin_type(type);
 }
 
+inline uint8_t **Isolate::bytecode_handler_entries() const {
+    return DCHECK_NOTNULL(bytecode_handler_entries_);
+}
+
 inline GlobalHandleNode *Isolate::NewGlobalHandle(const void *pointer) {
     GlobalHandleNode *node = new GlobalHandleNode();
     node->handle = static_cast<Any *>(const_cast<void *>(pointer));
-    node->mid = tls_storage()->mid;
+    node->mid = TLS_STORAGE->mid;
     
     std::lock_guard<std::mutex> lock(persistent_mutex_);
     QUEUE_INSERT_TAIL(persistent_dummy_, node);

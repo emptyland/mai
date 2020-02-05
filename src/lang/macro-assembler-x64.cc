@@ -10,6 +10,7 @@ namespace mai {
 namespace lang {
 
 void MacroAssembler::StartBC() {
+    //Breakpoint();
     // Jump to current pc's handler
     // SCRATCH = callee->mai_fn->bytecodes
     movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetBytecodeArray));
@@ -21,7 +22,7 @@ void MacroAssembler::StartBC() {
     andl(rbx, 0xff000000);
     shrl(rbx, 24);
     // [BC_ARRAY + rbx * 8] jump to first bytecode handler
-    jmp(Operand(BC_ARRAY, rbx, times_8, 0));
+    jmp(Operand(BC_ARRAY, rbx, times_ptr_size, 0));
 }
 
 void MacroAssembler::JumpNextBC() {
@@ -152,6 +153,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
 
 
     // Set root exception handler
+    //__ Breakpoint();
     __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtPoint));
     __ movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH); // coroutine.caught = &caught
     __ movq(Operand(SCRATCH, kOffsetCaught_Next), static_cast<int32_t>(0));
@@ -184,6 +186,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ incl(Operand(CO, Coroutine::kOffsetReentrant)); // coroutine.reentrant++
     __ movq(Argv_0, Operand(CO, Coroutine::kOffsetEntry));
     __ movq(rax, pump);
+    //__ Breakpoint();
     __ call(rax);
     Label uninstall;
     __ jmp(&uninstall, true/*is_far*/);
@@ -237,10 +240,11 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
 // make a interpreter env
 void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
     StackFrameScope frame_scope(masm);
-    
+
     __ movq(SCRATCH, Operand(Argv_0, Closure::kOffsetProto)); // SCRATCH = callee->mai_fn
     // rsp -= mai_fn->stack_size and keep rbp
-    __ subq(rsp, Operand(SCRATCH, Function::kOffsetStackSize));
+    __ movl(rbx, Operand(SCRATCH, Function::kOffsetStackSize));
+    __ subq(rsp, rbx);
     __ movl(Operand(rbp, BytecodeStackFrame::kOffsetMaker), BytecodeStackFrame::kMaker);
     __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), 0); // set pc = 0
     
@@ -319,25 +323,50 @@ protected:
 
 class BytecodeEmitter : public PartialBytecodeEmitter {
 public:
-    class InstrAScope {
+    class InstrBaseScope {
+    public:
+        InstrBaseScope(MacroAssembler *m)
+            : masm(m) {
+        }
+        
+        ~InstrBaseScope() {
+            __ JumpNextBC();
+        }
+    protected:
+        MacroAssembler *masm;
+    }; // class InstrBaseScope
+    
+    class InstrAScope : public InstrBaseScope {
     public:
         InstrAScope(MacroAssembler *m)
-            : masm(m) {
+            : InstrBaseScope(m) {
             __ movl(rbx, Operand(BC, 0));
-            __ andl(rbx, BytecodeNode::kAOfABMask);
+            __ andl(rbx, BytecodeNode::kAOfAMask);
+            __ negq(rbx);
+        }
+    }; // class TypeAScope
+    
+    class InstrBAScope : public InstrBaseScope {
+    public:
+        InstrBAScope(MacroAssembler *m)
+            : InstrBaseScope(m) {
+            __ movl(rbx, Operand(BC, 0));
+            __ andl(rbx, BytecodeNode::kBOfABMask);
             __ negq(rbx);
         }
         
-        ~InstrAScope() {
-            __ JumpNextBC();
+        void GetAToRBX() {
+            __ movl(rbx, Operand(BC, 0));
+            __ andl(rbx, BytecodeNode::kAOfABMask);
+            __ shrl(rbx, 12);
+            __ negq(rbx);
         }
-    private:
-        MacroAssembler *masm;
     }; // class TypeAScope
     
     BytecodeEmitter(MetadataSpace *space): PartialBytecodeEmitter(DCHECK_NOTNULL(space)) {}
     ~BytecodeEmitter() override {}
 
+    // Load to ACC ---------------------------------------------------------------------------------
     void EmitLdar32(MacroAssembler *masm) override {
         InstrAScope instr_scope(masm);
         __ movl(rax, Operand(rbp, rbx, times_4, 0));
@@ -348,10 +377,7 @@ public:
         __ movq(rax, Operand(rbp, rbx, times_4, 0));
     }
     
-    void EmitLdarPtr(MacroAssembler *masm) override {
-        InstrAScope instr_scope(masm);
-        __ movq(rax, Operand(rbp, rbx, times_4, 0));
-    }
+    void EmitLdarPtr(MacroAssembler *masm) override { EmitLdar64(masm); }
     
     void EmitLdaf32(MacroAssembler *masm) override {
         InstrAScope instr_scope(masm);
@@ -363,6 +389,7 @@ public:
         __ movsd(xmm0, Operand(rbp, rbx, times_4, 0));
     }
 
+    // Store from ACC ------------------------------------------------------------------------------
     void EmitStar32(MacroAssembler *masm) override {
         InstrAScope instr_scope(masm);
         __ movl(Operand(rbp, rbx, times_4, 0), rax);
@@ -373,11 +400,26 @@ public:
         __ movq(Operand(rbp, rbx, times_4, 0), rax);
     }
     
-    void EmitStarPtr(MacroAssembler *masm) override {
-        InstrAScope instr_scope(masm);
+    void EmitStarPtr(MacroAssembler *masm) override { EmitStar64(masm); }
+    
+    // Move from Stack to Stack --------------------------------------------------------------------
+    void EmitMove32(MacroAssembler *masm) override {
+        InstrBAScope instr_scope(masm);
+        __ movl(rax, Operand(rbp, rbx, times_4, 0));
+        instr_scope.GetAToRBX();
+        __ movl(Operand(rbp, rbx, times_4, 0), rax);
+    }
+    
+    void EmitMove64(MacroAssembler *masm) override {
+        InstrBAScope instr_scope(masm);
+        __ movq(rax, Operand(rbp, rbx, times_4, 0));
+        instr_scope.GetAToRBX();
         __ movq(Operand(rbp, rbx, times_4, 0), rax);
     }
     
+    void EmitMovePtr(MacroAssembler *masm) override { EmitMove64(masm); }
+
+    // Flow Control --------------------------------------------------------------------------------
     void EmitReturn(MacroAssembler *masm) override {
         // Keep rax, it's return value
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
@@ -394,11 +436,21 @@ public:
         __ movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH);
 
         __ Bind(&done);
+        //__ Breakpoint();
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
         __ movq(SCRATCH, Operand(SCRATCH, Closure::kOffsetProto));
-        __ addq(rsp, Operand(SCRATCH, Function::kOffsetStackSize)); // Recover stack
+        __ movl(rbx, Operand(SCRATCH, Function::kOffsetStackSize));
+        __ addq(rsp, rbx); // Recover stack
         __ popq(rbp);
         __ ret(0);
+    }
+    
+    // Checking ------------------------------------------------------------------------------------
+    void EmitCheckStack(MacroAssembler *masm) override {
+        // TODO:
+        //__ Breakpoint();
+        __ nop();
+        __ JumpNextBC();
     }
 }; // class BytecodeEmitter
 

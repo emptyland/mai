@@ -43,7 +43,7 @@ public:
     DEF_VAL_GETTER(int, n_free);
     DEF_VAL_GETTER(int, n_runnable);
     
-    static Machine *Get() { return STATE->tls_storage()->machine; }
+    static Machine *Get() { return TLS_STORAGE->machine; }
     
     // Value's factory
     String *NewUtf8String(const char *utf8_string, size_t n, uint32_t flags);
@@ -55,6 +55,9 @@ public:
     
     // New native closure
     Closure *NewClosure(Code *code, size_t captured_var_size, uint32_t flags);
+    
+    // New bytecode closure
+    Closure *NewClosure(Function *func, size_t captured_var_size, uint32_t flags);
     
     // Handle scope enter
     void EnterHandleScope(HandleScope *handle_scope) {
@@ -94,13 +97,19 @@ private:
     }
 
     void Enter() {
-        DCHECK(STATE->tls()->Get() == nullptr);
+        //DCHECK(STATE->tls()->Get() == nullptr);
+        DCHECK(__tls_storage == nullptr);
         TLSStorage *tlss = new TLSStorage(this);
         tlss->mid = id_;
-        STATE->tls()->Set(tlss);
+        //STATE->tls()->Set(tlss);
+        __tls_storage = tlss;
     }
 
-    void Exit() { DCHECK_EQ(this, STATE->tls_storage()->machine); }
+    void Exit() {
+        DCHECK_EQ(this, TLS_STORAGE->machine);
+        delete __tls_storage;
+        __tls_storage = nullptr;
+    }
     
     void InsertFreeCoroutine(Coroutine *co);
     
