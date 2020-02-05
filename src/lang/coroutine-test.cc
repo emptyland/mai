@@ -42,19 +42,25 @@ public:
         metadata_ = nullptr;
         test::IsolateInitializer::TearDown();
     }
-    
-    Handle<Closure> BuildDummyClosure(const std::vector<BytecodeInstruction> &instrs) {
-        Function *func = BuildDummyFunction(instrs);
+
+    Handle<Closure> BuildDummyClosure(const std::vector<BytecodeInstruction> &instrs,
+                                      const std::vector<Span32> &const_pool = {},
+                                      const std::vector<uint32_t> &const_pool_bitmap = {}) {
+        Function *func = BuildDummyFunction(instrs, const_pool, const_pool_bitmap);
         Closure *closure = Machine::Get()->NewClosure(func, 0, Closure::kMaiFunction);
         return Handle<Closure>(closure);
     }
-    
-    Function *BuildDummyFunction(const std::vector<BytecodeInstruction> &instrs) {
+
+    Function *BuildDummyFunction(const std::vector<BytecodeInstruction> &instrs,
+                                 const std::vector<Span32> &const_pool,
+                                 const std::vector<uint32_t> &const_pool_bitmap) {
         BytecodeArray *bc_array = metadata_->NewBytecodeArray(instrs);
         return FunctionBuilder("test.dummy")
             .prototype({}, false, kType_void)
-            .stack_size(RoundUp(BytecodeStackFrame::kOffsetHeaderSize + 32, 16))
+            .stack_size(RoundUp(BytecodeStackFrame::kOffsetHeaderSize + 32, kStackAligmentSize))
             .stack_bitmap({0})
+            .const_pool(const_pool)
+            .const_pool_bitmap(const_pool_bitmap)
             .bytecode(bc_array)
         .Build(metadata_);
     }
@@ -187,6 +193,34 @@ TEST_F(CoroutineTest, RunBytecodeFunctionSanity) {
     builder.Add<kReturn>();
     
     Handle<Closure> entry(BuildDummyClosure(builder.Build()));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
+    trampoline.entry()(co);
+    ASSERT_EQ(0, co->yield());
+    ASSERT_EQ(1, co->reentrant());
+}
+
+static void Dummy5() {
+    printf("Hello, World\n");
+}
+
+TEST_F(CoroutineTest, BytecodeCallNativeFunction) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    int32_t local_var_base = RoundUp(BytecodeStackFrame::kOffsetHeaderSize, kStackAligmentSize);
+    
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kStarPtr>(local_var_base);
+    builder.Add<kCallNativeFunction>(local_var_base, 0);
+    builder.Add<kReturn>();
+    
+    Handle<Closure> dummy(FunctionTemplate::New(Dummy5));
+    Span32 span;
+    span.ptr[0].any = *dummy;
+    
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
     trampoline.entry()(co);

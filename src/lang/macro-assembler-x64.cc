@@ -36,6 +36,13 @@ void MacroAssembler::JumpNextBC() {
     jmp(Operand(BC_ARRAY, rbx, times_8, 0)); // [BC_ARRAY + rbx * 8]
 }
 
+void MacroAssembler::Throw() {
+    movq(SCRATCH, Operand(CO, Coroutine::kOffsetCaught));
+    movq(rbx, Operand(SCRATCH, kOffsetCaught_PC));
+    jmp(rbx);
+    int3(); // Never goto there
+}
+
 #define __ masm->
 
 // For code valid testing
@@ -344,7 +351,7 @@ public:
             __ andl(rbx, BytecodeNode::kAOfAMask);
             __ negq(rbx);
         }
-    }; // class TypeAScope
+    }; // class InstrAScope
     
     class InstrBAScope : public InstrBaseScope {
     public:
@@ -361,7 +368,24 @@ public:
             __ shrl(rbx, 12);
             __ negq(rbx);
         }
-    }; // class TypeAScope
+    }; // class InstrBAScope
+    
+    class InstrABScope : public InstrBaseScope {
+    public:
+        InstrABScope(MacroAssembler *m)
+            : InstrBaseScope(m) {
+            __ movl(rbx, Operand(BC, 0));
+            __ andl(rbx, BytecodeNode::kAOfABMask);
+            __ shrl(rbx, 12);
+            __ negq(rbx);
+        }
+
+        void GetBToRBX() {
+            __ movl(rbx, Operand(BC, 0));
+            __ andl(rbx, BytecodeNode::kBOfABMask);
+            __ negq(rbx);
+        }
+    }; // class InstrABScope
     
     BytecodeEmitter(MetadataSpace *space): PartialBytecodeEmitter(DCHECK_NOTNULL(space)) {}
     ~BytecodeEmitter() override {}
@@ -369,35 +393,63 @@ public:
     // Load to ACC ---------------------------------------------------------------------------------
     void EmitLdar32(MacroAssembler *masm) override {
         InstrAScope instr_scope(masm);
-        __ movl(rax, Operand(rbp, rbx, times_4, 0));
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
     }
     
     void EmitLdar64(MacroAssembler *masm) override {
         InstrAScope instr_scope(masm);
-        __ movq(rax, Operand(rbp, rbx, times_4, 0));
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
     }
     
     void EmitLdarPtr(MacroAssembler *masm) override { EmitLdar64(masm); }
     
     void EmitLdaf32(MacroAssembler *masm) override {
         InstrAScope instr_scope(masm);
-        __ movss(xmm0, Operand(rbp, rbx, times_4, 0));
+        __ movss(FACC, Operand(rbp, rbx, times_2, 0));
     }
     
     void EmitLdaf64(MacroAssembler *masm) override {
         InstrAScope instr_scope(masm);
-        __ movsd(xmm0, Operand(rbp, rbx, times_4, 0));
+        __ movsd(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitLdaConst32(MacroAssembler *masm) override {
+        InstrAScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+        __ movl(ACC, Operand(SCRATCH, rbx, times_4, 0));
+    }
+    
+    void EmitLdaConst64(MacroAssembler *masm) override {
+        //__ Breakpoint();
+        InstrAScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+        __ movq(ACC, Operand(SCRATCH, rbx, times_4, 0));
+    }
+
+    void EmitLdaConstPtr(MacroAssembler *masm) override { EmitLdaConst64(masm); }
+
+    void EmitLdaConstf32(MacroAssembler *masm) override {
+        InstrAScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+        __ movss(FACC, Operand(SCRATCH, rbx, times_4, 0));
+    }
+    
+    void EmitLdaConstf64(MacroAssembler *masm) override {
+        InstrAScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+        __ movsd(FACC, Operand(SCRATCH, rbx, times_4, 0));
     }
 
     // Store from ACC ------------------------------------------------------------------------------
     void EmitStar32(MacroAssembler *masm) override {
         InstrAScope instr_scope(masm);
-        __ movl(Operand(rbp, rbx, times_4, 0), rax);
+        __ movl(Operand(rbp, rbx, times_2, 0), ACC);
     }
     
     void EmitStar64(MacroAssembler *masm) override {
+        //__ Breakpoint();
         InstrAScope instr_scope(masm);
-        __ movq(Operand(rbp, rbx, times_4, 0), rax);
+        __ movq(Operand(rbp, rbx, times_2, 0), ACC);
     }
     
     void EmitStarPtr(MacroAssembler *masm) override { EmitStar64(masm); }
@@ -405,16 +457,16 @@ public:
     // Move from Stack to Stack --------------------------------------------------------------------
     void EmitMove32(MacroAssembler *masm) override {
         InstrBAScope instr_scope(masm);
-        __ movl(rax, Operand(rbp, rbx, times_4, 0));
+        __ movl(rax, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetAToRBX();
-        __ movl(Operand(rbp, rbx, times_4, 0), rax);
+        __ movl(Operand(rbp, rbx, times_2, 0), rax);
     }
     
     void EmitMove64(MacroAssembler *masm) override {
         InstrBAScope instr_scope(masm);
-        __ movq(rax, Operand(rbp, rbx, times_4, 0));
+        __ movq(rax, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetAToRBX();
-        __ movq(Operand(rbp, rbx, times_4, 0), rax);
+        __ movq(Operand(rbp, rbx, times_2, 0), rax);
     }
     
     void EmitMovePtr(MacroAssembler *masm) override { EmitMove64(masm); }
@@ -443,6 +495,44 @@ public:
         __ addq(rsp, rbx); // Recover stack
         __ popq(rbp);
         __ ret(0);
+    }
+    
+    // Calling -------------------------------------------------------------------------------------
+    void EmitCallNativeFunction(MacroAssembler *masm) override {
+        InstrABScope instr_scope(masm);
+        __ movq(rax, Operand(rbp, rbx, times_2, 0));
+        __ movq(SCRATCH, Operand(rax, Closure::kOffsetCode));
+
+        instr_scope.GetBToRBX();
+
+        // Adjust Caller Stack
+        __ addl(rbx, 15); // ebx = ebx + 16 - 1
+        __ andl(rbx, 0xfffffff0); // ebx &= -16
+        __ subq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
+
+        __ leaq(rax, Operand(SCRATCH, Code::kOffsetEntry));
+        __ call(rax); // Call stub code
+        // The stub code should switch to system stack and call real function.
+
+        instr_scope.GetBToRBX();
+
+        // Recover Caller Stack
+        __ addl(rbx, 15); // ebx = ebx + 16 - 1
+        __ andl(rbx, 0xfffffff0); // ebx &= -16
+        __ addq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
+
+        // Test if throw exception in native function
+        // Can not throw c++ exception in native function!
+        __ cmpq(Operand(CO, Coroutine::kOffsetException), 0);
+        Label done;
+        __ j(Equal, &done, false/*is_far*/); // if (!co->exception) { goto done: }
+
+        // Move native function throws exception to ACC
+        __ movq(ACC, Operand(CO, Coroutine::kOffsetException));
+        // Then throw in mai env:
+        __ Throw();
+
+        __ Bind(&done);
     }
     
     // Checking ------------------------------------------------------------------------------------

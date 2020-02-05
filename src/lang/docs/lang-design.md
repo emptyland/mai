@@ -3259,7 +3259,7 @@ andl ebx, 0xfffffff0 ; ebx &= -16
 subq rsp, rbx ; adjust sp to aligment of 16 bits(2 bytes)
 
 movq SCRATCH, Closure_cxx_fn(rax)
-leaq SCRATCH, Code_instructions(SCRATCH)
+leaq SCRATCH, Code_entry(SCRATCH)
 callq SCRATCH
 
 movl ebx, 0(BC)

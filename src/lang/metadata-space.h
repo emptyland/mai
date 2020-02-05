@@ -414,9 +414,19 @@ public:
         return *this;
     }
     
+    FunctionBuilder &const_pool(const std::vector<Span32> &value) {
+        const_pool_ = value;
+        return *this;
+    }
+    
     FunctionBuilder &const_pool(const Span32 *value, size_t n) {
         const_pool_.resize(n);
         ::memcpy(&const_pool_[0], value, n * sizeof(value[0]));
+        return *this;
+    }
+    
+    FunctionBuilder &const_pool_bitmap(const std::vector<uint32_t> &value) {
+        const_pool_bitmap_ = value;
         return *this;
     }
     

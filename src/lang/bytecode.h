@@ -40,10 +40,11 @@ namespace lang {
     V(LdaSmi32, BytecodeType::A, BytecodeParam::kImmediate) \
     V(LdaTrue, BytecodeType::N) \
     V(LdaFalse, BytecodeType::N) \
-    V(Ldak32, BytecodeType::A, BytecodeParam::kConstOffset) \
-    V(Ldak64, BytecodeType::A, BytecodeParam::kConstOffset) \
-    V(Ldakf32, BytecodeType::A, BytecodeParam::kConstOffset) \
-    V(Ldakf64, BytecodeType::A, BytecodeParam::kConstOffset) \
+    V(LdaConst32, BytecodeType::A, BytecodeParam::kConstOffset) \
+    V(LdaConst64, BytecodeType::A, BytecodeParam::kConstOffset) \
+    V(LdaConstPtr, BytecodeType::A, BytecodeParam::kConstOffset) \
+    V(LdaConstf32, BytecodeType::A, BytecodeParam::kConstOffset) \
+    V(LdaConstf64, BytecodeType::A, BytecodeParam::kConstOffset) \
     V(LdaGlobal32, BytecodeType::A, BytecodeParam::kGlobalOffset) \
     V(LdaGlobal64, BytecodeType::A, BytecodeParam::kGlobalOffset) \
     V(LdaGlobalPtr, BytecodeType::A, BytecodeParam::kGlobalOffset) \
