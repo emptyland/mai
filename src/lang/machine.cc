@@ -90,6 +90,17 @@ String *Machine::NewUtf8String(const char *utf8_string, size_t n, uint32_t flags
     return obj;
 }
 
+AbstractValue *Machine::NewNumber(BuiltinType primitive_type, const void *value, size_t n,
+                                  uint32_t flags) {
+    AllocationResult result = STATE->heap()->Allocate(sizeof(AbstractValue), flags);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    const Class *clazz = STATE->metadata_space()->GetNumberClassOrNull(primitive_type);
+    DCHECK(clazz != nullptr) << "Bad type: " << primitive_type;
+    return new (result.ptr()) AbstractValue(DCHECK_NOTNULL(clazz), value, n);
+}
+
 AbstractArray *Machine::NewArraySlow(BuiltinType type, size_t length, uint32_t flags) {
     const Class *clazz = DCHECK_NOTNULL(STATE->builtin_type(type));
     if (::strstr(clazz->name(), "array") != clazz->name()){

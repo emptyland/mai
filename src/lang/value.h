@@ -339,6 +339,7 @@ public:
     static const int32_t kOffsetValue;
     static constexpr size_t kMaxValueSize = sizeof(void *);
 
+    friend class Machine;
 protected:
     AbstractValue(const Class *clazz, const void *data, size_t n)
         : Any(clazz, 0) {
@@ -352,6 +353,8 @@ protected:
     
     void *address() { return value_; }
     const void *address() const { return value_; }
+    
+    static AbstractValue *ValueOf(BuiltinType type, const void *value, size_t n);
 
     uint32_t padding_; // Padding aligment to cache line
     uint8_t value_[kMaxValueSize]; // Storage value
@@ -371,15 +374,14 @@ public:
                   std::is_integral<T>::value, "T is not a number type");
 
     inline T value() const { return *static_cast<T *>(address()); }
-    
-    inline Handle<Number<T>> New(T value) {
-        // TODO:
-        return Handle<Number<T>>::Empty();
-    }
-    
-    inline Handle<Number<T>> ValueOf(T value) {
-        // TODO:
-        return Handle<Number<T>>::Empty();
+
+    static inline Handle<Number<T>> ValueOf(T value) {
+        Handle<AbstractValue> abstract(AbstractValue::ValueOf(TypeTraits<T>::kType, &value,
+                                                              sizeof(value)));
+        if (abstract.is_empty() || abstract.is_value_null()) {
+            return Handle<Number<T>>::Empty();
+        }
+        return Handle<Number<T>>(static_cast<Number *>(*abstract));
     }
     
     friend class Machine;

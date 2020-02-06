@@ -23,8 +23,8 @@ namespace lang {
     V(Goto, BytecodeType::A, BytecodeParam::kImmediate) \
     V(GotoIfTrue, BytecodeType::A, BytecodeParam::kImmediate) \
     V(GotoIfFalse, BytecodeType::A, BytecodeParam::kImmediate) \
-    V(CallBytecodeFunction, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
-    V(CallNativeFunction, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
+    V(CallBytecodeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
+    V(CallNativeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
     V(CallVtableFunction, BytecodeType::A, BytecodeParam::kImmediate) \
     V(Return, BytecodeType::N) \
     V(NewBuiltinObject, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate) \
@@ -40,6 +40,11 @@ namespace lang {
     V(LdaSmi32, BytecodeType::A, BytecodeParam::kImmediate) \
     V(LdaTrue, BytecodeType::N) \
     V(LdaFalse, BytecodeType::N) \
+    V(LdaCaptured32, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
+    V(LdaCaptured64, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
+    V(LdaCapturedPtr, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
+    V(LdaCapturedf32, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
+    V(LdaCapturedf64, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
     V(LdaConst32, BytecodeType::A, BytecodeParam::kConstOffset) \
     V(LdaConst64, BytecodeType::A, BytecodeParam::kConstOffset) \
     V(LdaConstPtr, BytecodeType::A, BytecodeParam::kConstOffset) \
@@ -71,6 +76,11 @@ namespace lang {
     V(StarPtr, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(Staf32, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(Staf64, BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(StaCaptured32, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
+    V(StaCaptured64, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
+    V(StaCapturedPtr, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
+    V(StaCapturedf32, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
+    V(StaCapturedf64, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
     V(StaProperty8, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(StaProperty16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(StaProperty32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
@@ -205,9 +215,9 @@ class Code;
 using BytecodeInstruction = uint32_t;
 
 // Yield Instruction Command Code:
-constexpr uint32_t kYieldForce   = 1;
-constexpr uint32_t kYieldPropose = 2;
-constexpr uint32_t kYieldRandom  = 3;
+constexpr uint32_t YIELD_FORCE   = 1;
+constexpr uint32_t YIELD_PROPOSE = 2;
+constexpr uint32_t YIELD_RANDOM  = 3;
 
 struct BytecodeType {
     enum Kind {

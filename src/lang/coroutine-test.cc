@@ -85,6 +85,8 @@ static void Dummy2(int64_t a, float b) {
 }
 
 TEST_F(CoroutineTest, Sanity) {
+    printf("Max bytecodes: %d\n", kMax_Bytecodes);
+    
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     Handle<Closure> entry(FunctionTemplate::New(Dummy1));
     
@@ -215,15 +217,14 @@ static void Dummy5() {
 TEST_F(CoroutineTest, BytecodeCallNativeFunction) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     
-    int32_t local_var_base = RoundUp(BytecodeStackFrame::kOffsetHeaderSize, kStackAligmentSize);
+    //int32_t local_var_base = RoundUp(BytecodeStackFrame::kOffsetHeaderSize, kStackAligmentSize);
     
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kStarPtr>(local_var_base - kPointerSize);
-    builder.Add<kCallNativeFunction>(local_var_base - kPointerSize, 0);
+    builder.Add<kCallNativeFunction>(0);
     builder.Add<kReturn>();
-    
+
     Handle<Closure> dummy(FunctionTemplate::New(Dummy5));
     Span32 span;
     span.ptr[0].any = *dummy;
@@ -238,26 +239,67 @@ TEST_F(CoroutineTest, BytecodeCallNativeFunction) {
     ASSERT_EQ(3, dummy_result.i32_3);
 }
 
-static void Dummy6() {
-    printf("yield: %d\n", dummy_result.i32_1++);
+static void Dummy6(int a, int64_t b, float c) {
+    dummy_result.i32_1 = a;
+    dummy_result.i64_1 = b;
+    dummy_result.f32_1 = c;
+}
+
+TEST_F(CoroutineTest, BytecodeCallNativeFunctionWithArguments) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+
+    builder.Add<kLdaConstf32>(9);
+    builder.Add<kStaf32>((kStackSize + 16)/2);
+    
+    builder.Add<kLdaConst64>(10);
+    builder.Add<kStar64>((kStackSize + 12)/2);
+    
+    builder.Add<kLdaConst32>(8);
+    builder.Add<kStar32>((kStackSize + 4)/2);
+    
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(16);
+    builder.Add<kReturn>();
+
+    Handle<Closure> dummy(FunctionTemplate::New(Dummy6));
+    Span32 span[2];
+    span[0].ptr[0].any = *dummy;
+    span[1].v32[0].i32 = 101;
+    span[1].v32[1].f32 = 101.1112;
+    span[1].v64[1].i64 = -1;
+
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span[0], span[1]}, {0x1}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
+    co->set_state(Coroutine::kRunnable);
+    trampoline.entry()(co);
+    
+    ASSERT_EQ(101, dummy_result.i32_1);
+    ASSERT_EQ(-1, dummy_result.i64_1);
+    ASSERT_NEAR(101.1112, dummy_result.f32_1, 0.0001);
+}
+
+static void Dummy7() {
+    dummy_result.i32_2 = 404;
+    dummy_result.i32_1++;
 }
 
 TEST_F(CoroutineTest, BytecodeYield) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
 
-    int32_t local_var_base = RoundUp(BytecodeStackFrame::kOffsetHeaderSize, kStackAligmentSize);
-    printf("%d, %d\n", local_var_base, kStackSize);
-
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kStarPtr>(local_var_base - kPointerSize);
-    builder.Add<kCallNativeFunction>(local_var_base - kPointerSize, 0);
-    builder.Add<kYield>(kYieldForce);
-    //builder.Add<kCallNativeFunction>(local_var_base - kPointerSize, 0);
+    builder.Add<kCallNativeFunction>(0);
+    builder.Add<kYield>(YIELD_FORCE);
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(0);
     builder.Add<kReturn>();
 
-    Handle<Closure> dummy(FunctionTemplate::New(Dummy6));
+    Handle<Closure> dummy(FunctionTemplate::New(Dummy7));
     Span32 span;
     span.ptr[0].any = *dummy;
 
@@ -267,10 +309,12 @@ TEST_F(CoroutineTest, BytecodeYield) {
     co->set_state(Coroutine::kRunnable);
     trampoline.entry()(co);
     ASSERT_EQ(Coroutine::kInterrupted, co->state());
+    ASSERT_EQ(1, dummy_result.i32_1);
 
     co->set_state(Coroutine::kRunnable);
     trampoline.entry()(co);
     ASSERT_EQ(Coroutine::kDead, co->state());
+    ASSERT_EQ(2, dummy_result.i32_1);
 }
 
 } // namespace lang

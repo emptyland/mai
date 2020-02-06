@@ -70,6 +70,10 @@ public:
         movq(rax, switch_sys_stack);
         call(rax);
     }
+    
+    void SaveState0(Register scratch);
+    
+    void SaveState1(Register scratch);
 
     void Abort(const char *message);
 

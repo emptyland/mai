@@ -41,6 +41,8 @@ public:
     const Class *TypeOf() const {
         return builtin_type(TypeTraits<T>::kType);
     }
+    
+    const Class *GetNumberClassOrNull(BuiltinType primitive_type) const;
 
     const Class *FindClassOrNull(const std::string &name) const {
         auto iter = named_classes_.find(name);

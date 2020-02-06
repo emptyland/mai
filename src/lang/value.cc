@@ -68,6 +68,10 @@ MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32
     return Handle<Closure>(Machine::Get()->NewClosure(stub, captured_var_size, Heap::kOld));
 }
 
+/*static*/ AbstractValue *AbstractValue::ValueOf(BuiltinType type, const void *value, size_t n) {
+    return Machine::Get()->NewNumber(type, value, n, 0);
+}
+
 } // namespace lang
 
 } // namespace mai

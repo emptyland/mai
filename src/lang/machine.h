@@ -47,6 +47,11 @@ public:
     static Machine *Get() { return TLS_STORAGE->machine; }
     
     // Value's factory
+    
+    // New a box-in number object
+    AbstractValue *NewNumber(BuiltinType primitive_type, const void *value, size_t n, uint32_t flags);
+    
+    // New a UTF-8 encoding string
     String *NewUtf8String(const char *utf8_string, size_t n, uint32_t flags);
     
     // New (immutable) array slowly

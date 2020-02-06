@@ -307,6 +307,20 @@ Error MetadataSpace::GenerateBytecodeHandlerCode() {
     return Error::OK();
 }
 
+const Class *MetadataSpace::GetNumberClassOrNull(BuiltinType primitive_type) const {
+    switch (primitive_type) {
+    #define DEFINE_TYPE_CASE(src, dst, ...) \
+        case kType_##dst: \
+            return builtin_type(kType_##src);
+
+        DECLARE_BOX_NUMBER_TYPES(DEFINE_TYPE_CASE)
+
+    #undef DEFINE_TYPE_CASE
+        default:
+            return nullptr;
+    }
+}
+
 const Field *MetadataSpace::FindClassFieldOrNull(const Class *clazz, const char *field_name) {
     ClassFieldKey key{clazz, field_name};
     {
