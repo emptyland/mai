@@ -13,12 +13,12 @@ namespace lang {
 class Any;
 
 enum SpaceKind : int {
-    kDummySpace,
-    kSemiSpace,
-    kNewSpace,
-    kOldSpace,
-    kLargeSpace,
-    kMetadataSpace,
+    kDummySpace, // Dummy space, only for double-linked list dummy header
+    kSemiSpace, // Semi space: the part of new space
+    kNewSpace, // New space: Has two semi-spaces, survive area and original area
+    kOldSpace, // Old space: For old object
+    kLargeSpace, // Large space: Large object allocated in this
+    kMetadataSpace, // Metadata storage
 };
 
 enum HeapColor : int {
@@ -28,19 +28,21 @@ enum HeapColor : int {
     kColorBlack = 3,
 };
 
-static constexpr int kPageShift = 20;
-static constexpr size_t kPageSize = 1u << kPageShift; // 1MB
-static constexpr uintptr_t kPageMask = ~((1lu << kPageShift) - 1);
-static constexpr uint32_t kPageMaker = 0x9a6e0102u;
+static constexpr int kPageShift = 20; // Shift of heap page size
+static constexpr size_t kPageSize = 1u << kPageShift; // Heap page size: 1MB
+static constexpr uintptr_t kPageMask = ~((1lu << kPageShift) - 1); // Heap page size mask
+static constexpr uint32_t kPageMaker = 0x9a6e0102u; // Heap page maker tag
 static constexpr int kAllocateRetries = 16; // How many times to allocation retires?
 
 static constexpr size_t kAligmentSize = 4; // Heap allocation aligment to 4 bytes
 static constexpr size_t kStackAligmentSize = 16; // Stack alignment size
-static constexpr size_t kMinAllocationSize = kPointerSize << 1; // Two-Pointers
 
-static constexpr size_t kMaxStackPoolRSS = 400 * base::kMB;
-static constexpr size_t kC0StackSize = 80 * base::kMB;
-static constexpr size_t kDefaultStackSize = 20 * base::kMB;
+// Min allocation size in heap is Two-Pointers
+static constexpr size_t kMinAllocationSize = kPointerSize << 1;
+
+static constexpr size_t kMaxStackPoolRSS = 400 * base::kMB; // Max stack RSS in stack pool keeped
+static constexpr size_t kC0StackSize = 80 * base::kMB; // Coroutine 0's stack size
+static constexpr size_t kDefaultStackSize = 20 * base::kMB; // Others coroutines stack size
 
 static constexpr uint32_t kFreeZag = 0xfeedfeed;
 static constexpr uint32_t kInitZag = 0xcccccccc;
@@ -61,10 +63,10 @@ static inline void *DbgFillFreeZag(void *p, size_t n) {
     base::Round32BytesFill(kFreeZag, p, n);
     return p;
 }
-#else
-static inline void *DbgFillInitZag(void *p, size_t n) { return p; }
-static inline void *DbgFillFreeZag(void *p, size_t n) { return p; }
-#endif
+#else // defined(_DEBUG) || defined(DEBUG)
+static inline void *DbgFillInitZag(void *p, size_t) { return p; }
+static inline void *DbgFillFreeZag(void *p, size_t) { return p; }
+#endif // !defined(_DEBUG) && !defined(DEBUG)
 
 union SpanPart64 {
     uint64_t u64;
@@ -130,7 +132,7 @@ public:
         OK, // Allocation is ok, chunk is result memory block
         FAIL, // Just fail
         LIMIT, // On soft capacity limit
-        NOTHING, // Did not allocation, address is nullptr
+        NOTHING, // Has not allocated, address is nullptr
         OOM, // Low-level-allocator return no memory, chunk is nullptr
     };
 

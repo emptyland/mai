@@ -12,15 +12,19 @@ namespace lang {
 #define MEMBER_OFFSET_OF(field) \
     arch::ObjectTemplate<Coroutine, int32_t>::OffsetOf(&Coroutine :: field)
 
-const int32_t Coroutine::kOffsetACC = MEMBER_OFFSET_OF(acc_);
-const int32_t Coroutine::kOffsetFACC = MEMBER_OFFSET_OF(facc_);
+const int32_t Coroutine::kOffsetState = MEMBER_OFFSET_OF(state_);
 const int32_t Coroutine::kOffsetCaught = MEMBER_OFFSET_OF(caught_);
 const int32_t Coroutine::kOffsetSysBP = MEMBER_OFFSET_OF(sys_bp_);
 const int32_t Coroutine::kOffsetSysSP = MEMBER_OFFSET_OF(sys_sp_);
 const int32_t Coroutine::kOffsetSysPC = MEMBER_OFFSET_OF(sys_pc_);
-const int32_t Coroutine::kOffsetBP = MEMBER_OFFSET_OF(bp_);
-const int32_t Coroutine::kOffsetSP = MEMBER_OFFSET_OF(sp_);
-const int32_t Coroutine::kOffsetPC = MEMBER_OFFSET_OF(pc_);
+const int32_t Coroutine::kOffsetBP = MEMBER_OFFSET_OF(saved_state0_);
+const int32_t Coroutine::kOffsetSP = kOffsetBP + kPointerSize;
+const int32_t Coroutine::kOffsetPC = kOffsetSP + kPointerSize;
+const int32_t Coroutine::kOffsetACC = kOffsetPC + kPointerSize;
+const int32_t Coroutine::kOffsetFACC = kOffsetACC + kPointerSize;
+const int32_t Coroutine::kOffsetBP1 = MEMBER_OFFSET_OF(saved_state1_);
+const int32_t Coroutine::kOffsetSP1 = kOffsetBP1 + kPointerSize;
+const int32_t Coroutine::kOffsetPC1 = kOffsetSP1 + kPointerSize;
 const int32_t Coroutine::kOffsetYield = MEMBER_OFFSET_OF(yield_);
 const int32_t Coroutine::kOffsetReentrant = MEMBER_OFFSET_OF(reentrant_);
 const int32_t Coroutine::kOffsetEntry = MEMBER_OFFSET_OF(entry_);
@@ -47,10 +51,10 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     sys_bp_ = nullptr;
     sys_sp_ = nullptr;
     sys_pc_ = nullptr;
-    sp_   = stack->stack_hi();
-    bp_   = stack->stack_hi();
-    acc_  = 0;
-    facc_ = .0;
+    saved_state0_[kSPIndex]   = bit_cast<intptr_t>(stack->stack_hi());
+    saved_state0_[kBPIndex]   = bit_cast<intptr_t>(stack->stack_hi());
+    saved_state0_[kACCIndex]  = 0;
+    saved_state0_[kFACCIndex] = 0;
 
     // TODO:
     stack_ = DCHECK_NOTNULL(stack);
@@ -59,7 +63,7 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
 }
 
 void Coroutine::Dispose() {
-    DCHECK_EQ(kDead, state_);
+    //DCHECK_EQ(kDead, state_);
     // Free stack
     if (stack_) {
         STATE->scheduler()->PurgreStack(stack_);
@@ -72,8 +76,7 @@ void Coroutine::Uncaught(Any *expection) {
     // TODO:
 }
 
-void Coroutine::Suspend(intptr_t acc, double facc) {
-    TODO();
+void Coroutine::Suspend(intptr_t /*acc*/, double /*facc*/) {
     // TODO:
 }
 

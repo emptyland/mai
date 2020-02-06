@@ -20,14 +20,14 @@ public:
 
     Scheduler(int concurrency, Allocator *lla);
     ~Scheduler();
-    
+
     DEF_VAL_GETTER(int, concurrency);
     DEF_PTR_GETTER(Machine, machine0);
-    
+
     size_t n_live_coroutines() const { return n_live_coroutines_.load(); }
     size_t n_live_stacks() const { return n_live_stacks_.load(); }
     size_t stack_pool_rss() const { return stack_pool_rss_.load(); }
-    
+
     Coroutine *NewCoroutine(Closure *entry, bool co0);
     void PurgreCoroutine(Coroutine *co);
 

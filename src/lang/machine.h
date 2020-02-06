@@ -42,6 +42,7 @@ public:
     DEF_VAL_GETTER(int, id);
     DEF_VAL_GETTER(int, n_free);
     DEF_VAL_GETTER(int, n_runnable);
+    DEF_PTR_GETTER(Coroutine, running);
     
     static Machine *Get() { return TLS_STORAGE->machine; }
     

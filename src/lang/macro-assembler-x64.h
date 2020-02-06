@@ -46,7 +46,7 @@ public:
             nop();
         }
     }
-    
+
     void SaveCxxCallerRegisters() {
         pushq(r15);
         pushq(r14);
@@ -55,7 +55,7 @@ public:
         pushq(rbx);
         subq(rsp, kPointerSize); // for rsp alignment.
     }
-    
+
     void RecoverCxxCallerRegisters() {
         addq(rsp, kPointerSize);
         popq(rbx);
@@ -64,17 +64,19 @@ public:
         popq(r14);
         popq(r15);
     }
-    
+
     void SwitchSystemStackCall(Address cxx_func_entry, Address switch_sys_stack) {
         movq(r11, cxx_func_entry);
         movq(rax, switch_sys_stack);
         call(rax);
     }
-    
+
+    void Abort(const char *message);
+
     void StartBC();
-    
+
     void JumpNextBC();
-    
+
     void Throw();
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(MacroAssembler);

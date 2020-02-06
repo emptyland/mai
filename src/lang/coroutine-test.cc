@@ -42,6 +42,9 @@ public:
         metadata_ = nullptr;
         test::IsolateInitializer::TearDown();
     }
+    
+    static constexpr int32_t kStackSize = RoundUp(BytecodeStackFrame::kOffsetHeaderSize + 32,
+                                                  kStackAligmentSize);
 
     Handle<Closure> BuildDummyClosure(const std::vector<BytecodeInstruction> &instrs,
                                       const std::vector<Span32> &const_pool = {},
@@ -57,7 +60,7 @@ public:
         BytecodeArray *bc_array = metadata_->NewBytecodeArray(instrs);
         return FunctionBuilder("test.dummy")
             .prototype({}, false, kType_void)
-            .stack_size(RoundUp(BytecodeStackFrame::kOffsetHeaderSize + 32, kStackAligmentSize))
+            .stack_size(kStackSize)
             .stack_bitmap({0})
             .const_pool(const_pool)
             .const_pool_bitmap(const_pool_bitmap)
@@ -195,13 +198,18 @@ TEST_F(CoroutineTest, RunBytecodeFunctionSanity) {
     Handle<Closure> entry(BuildDummyClosure(builder.Build()));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
+    co->set_state(Coroutine::kRunnable);
     trampoline.entry()(co);
+    ASSERT_EQ(Coroutine::kDead, co->state());
     ASSERT_EQ(0, co->yield());
     ASSERT_EQ(1, co->reentrant());
 }
 
 static void Dummy5() {
     printf("Hello, World\n");
+    dummy_result.i32_1 = 1;
+    dummy_result.i32_2 = 2;
+    dummy_result.i32_3 = 3;
 }
 
 TEST_F(CoroutineTest, BytecodeCallNativeFunction) {
@@ -212,8 +220,8 @@ TEST_F(CoroutineTest, BytecodeCallNativeFunction) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kStarPtr>(local_var_base);
-    builder.Add<kCallNativeFunction>(local_var_base, 0);
+    builder.Add<kStarPtr>(local_var_base - kPointerSize);
+    builder.Add<kCallNativeFunction>(local_var_base - kPointerSize, 0);
     builder.Add<kReturn>();
     
     Handle<Closure> dummy(FunctionTemplate::New(Dummy5));
@@ -223,9 +231,46 @@ TEST_F(CoroutineTest, BytecodeCallNativeFunction) {
     Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
+    co->set_state(Coroutine::kRunnable);
     trampoline.entry()(co);
-    ASSERT_EQ(0, co->yield());
-    ASSERT_EQ(1, co->reentrant());
+    ASSERT_EQ(1, dummy_result.i32_1);
+    ASSERT_EQ(2, dummy_result.i32_2);
+    ASSERT_EQ(3, dummy_result.i32_3);
+}
+
+static void Dummy6() {
+    printf("yield: %d\n", dummy_result.i32_1++);
+}
+
+TEST_F(CoroutineTest, BytecodeYield) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+
+    int32_t local_var_base = RoundUp(BytecodeStackFrame::kOffsetHeaderSize, kStackAligmentSize);
+    printf("%d, %d\n", local_var_base, kStackSize);
+
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kStarPtr>(local_var_base - kPointerSize);
+    builder.Add<kCallNativeFunction>(local_var_base - kPointerSize, 0);
+    builder.Add<kYield>(kYieldForce);
+    //builder.Add<kCallNativeFunction>(local_var_base - kPointerSize, 0);
+    builder.Add<kReturn>();
+
+    Handle<Closure> dummy(FunctionTemplate::New(Dummy6));
+    Span32 span;
+    span.ptr[0].any = *dummy;
+
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
+    co->set_state(Coroutine::kRunnable);
+    trampoline.entry()(co);
+    ASSERT_EQ(Coroutine::kInterrupted, co->state());
+
+    co->set_state(Coroutine::kRunnable);
+    trampoline.entry()(co);
+    ASSERT_EQ(Coroutine::kDead, co->state());
 }
 
 } // namespace lang

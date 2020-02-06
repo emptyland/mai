@@ -204,6 +204,11 @@ class Code;
 //using u24_t = uint32_t;
 using BytecodeInstruction = uint32_t;
 
+// Yield Instruction Command Code:
+constexpr uint32_t kYieldForce   = 1;
+constexpr uint32_t kYieldPropose = 2;
+constexpr uint32_t kYieldRandom  = 3;
+
 struct BytecodeType {
     enum Kind {
         N, // No params

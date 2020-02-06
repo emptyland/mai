@@ -33,11 +33,14 @@ public:
         kDead,
         kIdle,
         kWaitting,
-        kRunnable,
-        kRunning,
-        kFallIn,
+        kRunnable, // Can runnable
+        kRunning, // Is runing
+        kFallIn, // In C++ function calling
+        kInterrupted, // Yied
+        kPanic, // Uncaught exception, unable recover
     }; // enum State
     
+    static const int32_t kOffsetState;
     static const int32_t kOffsetACC;
     static const int32_t kOffsetFACC;
     static const int32_t kOffsetCaught;
@@ -47,10 +50,22 @@ public:
     static const int32_t kOffsetBP;
     static const int32_t kOffsetSP;
     static const int32_t kOffsetPC;
+    static const int32_t kOffsetBP1;
+    static const int32_t kOffsetSP1;
+    static const int32_t kOffsetPC1;
     static const int32_t kOffsetYield;
     static const int32_t kOffsetReentrant;
     static const int32_t kOffsetEntry;
     static const int32_t kOffsetException;
+  
+    enum SavedStateIndex {
+        kBPIndex, // Mai frame pointer
+        kSPIndex, // Mai stack pointer
+        kPCIndex, // Mai program counter
+        kACCIndex, // Saved ACC
+        kFACCIndex, // Saved ACC
+        kMaxSavedState,
+    };
 
     Coroutine(uint64_t coid, Closure *entry, Stack *stack) {
         Reinitialize(coid, entry, stack);
@@ -61,7 +76,7 @@ public:
     
     void Dispose();
     
-    DEF_VAL_GETTER(State, state);
+    DEF_VAL_PROP_RW(State, state);
     DEF_VAL_GETTER(uint64_t, coid);
     DEF_PTR_PROP_RW(Machine, owner);
     DEF_PTR_PROP_RW(Closure, entry);
@@ -72,18 +87,25 @@ public:
     DEF_VAL_GETTER(Address, stack_guard0);
     DEF_VAL_GETTER(Address, stack_guard1);
     DEF_PTR_GETTER(Stack, stack);
-    DEF_VAL_GETTER(Address, bp);
-    DEF_VAL_GETTER(Address, sp);
-    DEF_VAL_GETTER(uint32_t, pc);
     DEF_VAL_GETTER(Address, sys_bp);
     DEF_VAL_GETTER(Address, sys_sp);
     DEF_VAL_GETTER(Address, sys_pc);
     
+    Address sp() const { return bit_cast<Address>(saved_state0_[kSPIndex]); }
+    Address bp() const { return bit_cast<Address>(saved_state0_[kBPIndex]); }
+    
+    void SwitchState(State expected, State want) {
+        DCHECK_EQ(state_, expected);
+        if (state_ == expected) {
+            state_ = want;
+        }
+    }
+    
     void CopyArgv(void *data, size_t n) {
         DCHECK_EQ(reentrant_, 0);
         DCHECK_EQ(0, n % kStackAligmentSize);
-        sp_ -= n;
-        ::memcpy(sp_, data, n);
+        saved_state0_[kSPIndex] -= n;
+        ::memcpy(sp(), data, n);
     }
     
     void Uncaught(Any *expection);
@@ -120,11 +142,8 @@ private:
     Address sys_bp_; // System frame pointer
     Address sys_sp_; // System stack pointer
     Address sys_pc_; // System program counter
-    Address bp_; // Mai frame pointer
-    Address sp_; // Mai stack pointer
-    uint32_t pc_; // Mai program counter
-    intptr_t acc_;  // Saved ACC
-    double facc_; // Saved FACC
+    uintptr_t saved_state0_[kMaxSavedState]; // Main mai-execution state
+    uintptr_t saved_state1_[kMaxSavedState]; // Secondare saved state
     Address stack_guard0_; // guard0 of stack
     Address stack_guard1_; // guard1 of stack
     Stack *stack_; // Coroutine owned calling stack

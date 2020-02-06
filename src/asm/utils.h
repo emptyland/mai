@@ -49,6 +49,12 @@ public:
 
 template<class T, class F>
 constexpr Address MethodAddress(F T::* method) { return ObjectTemplate<T>::MethodAddress(method); }
+
+template<class T>
+constexpr Address FuncAddress(T *func) {
+    static_assert(std::is_function<T>::value, "Input is not function!");
+    return reinterpret_cast<Address>(func);
+}
     
 #if defined(MAI_ARCH_X64)
 union XMM128Value {
