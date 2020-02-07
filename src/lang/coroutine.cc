@@ -63,7 +63,7 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
 }
 
 void Coroutine::Dispose() {
-    //DCHECK_EQ(kDead, state_);
+    DCHECK_EQ(kDead, state_);
     // Free stack
     if (stack_) {
         STATE->scheduler()->PurgreStack(stack_);

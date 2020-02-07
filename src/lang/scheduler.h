@@ -50,6 +50,8 @@ private:
     std::mutex stack_pool_mutex_; // mutex of stack-pool
     Machine *machine0_ = nullptr; // Machine No.0 (main thread)
     std::atomic<uint64_t> next_coid_ = 0; // Next coroutine-id
+    
+    std::atomic<int> shutting_down_ = 0; // Scheduling should shutdown?
 }; // class Scheduler
 
 inline Stack *Scheduler::NewStack(size_t size) {

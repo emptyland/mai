@@ -103,6 +103,7 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm) {
     __ movq(rbp, Operand(CO, Coroutine::kOffsetBP));
     __ incl(Operand(CO, Coroutine::kOffsetReentrant)); // ++co->reentrant_;
     __ movl(Operand(CO, Coroutine::kOffsetYield), 0); // co->yield_ = 0;
+    __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kRunning);
     
     // Test co->entry_;
     __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetEntry));
@@ -123,6 +124,7 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm) {
 
     // Exit mai env:
     __ Bind(&exit);
+    __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kDead);
     __ movq(rsp, Operand(CO, Coroutine::kOffsetSysSP));
     __ movq(rbp, Operand(CO, Coroutine::kOffsetSysBP));
     
@@ -375,23 +377,15 @@ class BytecodeEmitter : public PartialBytecodeEmitter {
 public:
     class InstrBaseScope {
     public:
-        InstrBaseScope(MacroAssembler *m)
-            : masm(m) {
-        }
-        
-        ~InstrBaseScope() {
-            __ JumpNextBC();
-        }
+        InstrBaseScope(MacroAssembler *m): masm(m) {}
+        ~InstrBaseScope() { __ JumpNextBC(); }
     protected:
         MacroAssembler *masm;
     }; // class InstrBaseScope
     
     class InstrStackAScope : public InstrBaseScope {
     public:
-        InstrStackAScope(MacroAssembler *m)
-            : InstrBaseScope(m) {
-            GetAToRBX();
-        }
+        InstrStackAScope(MacroAssembler *m): InstrBaseScope(m) { GetAToRBX(); }
         
         void GetAToRBX() {
             __ movl(rbx, Operand(BC, 0));
@@ -402,10 +396,7 @@ public:
     
     class InstrImmAScope : public InstrBaseScope {
     public:
-        InstrImmAScope(MacroAssembler *m)
-            : InstrBaseScope(m) {
-            GetAToRBX();
-        }
+        InstrImmAScope(MacroAssembler *m): InstrBaseScope(m) { GetAToRBX(); }
         
         void GetAToRBX() {
             __ movl(rbx, Operand(BC, 0));
@@ -668,6 +659,13 @@ public:
         __ addl(rbx, 15); // ebx = ebx + 16 - 1
         __ andl(rbx, 0xfffffff0); // ebx &= -16
         __ addq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
+        
+        // Recover BC Register
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetBytecodeArray));
+        // SCRATCH = &bytecodes->instructions
+        __ addq(SCRATCH, BytecodeArray::kOffsetEntry);
+        __ movl(rbx, Operand(rbp, BytecodeStackFrame::kOffsetPC));
+        __ leaq(BC, Operand(SCRATCH, rbx, times_4, 0)); // [SCRATCH + rbx * 4]
     }
 
     // Checking ------------------------------------------------------------------------------------

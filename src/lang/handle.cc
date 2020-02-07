@@ -25,8 +25,8 @@ namespace lang {
 
 // Into this scope
 HandleScope::HandleScope(Initializer/*avoid c++ compiler optimize this object*/) {
-    DCHECK_NE(this, Machine::Get()->top_handle_scope());
-    Machine::Get()->EnterHandleScope(this);
+    DCHECK_NE(this, Machine::This()->top_handle_scope());
+    Machine::This()->EnterHandleScope(this);
     close_ = false;
 }
 
@@ -39,29 +39,29 @@ HandleScope::~HandleScope() {
 
 // Get number of handles
 int HandleScope::GetNumberOfHanldes() const {
-    auto slot = Machine::Get()->top_slot();
+    auto slot = Machine::This()->top_slot();
     return static_cast<int>((slot->end - slot->base) >> kPointerShift);
 }
 
 void HandleScope::Close() {
     DCHECK(!close_);
-    DCHECK_EQ(this, Machine::Get()->top_handle_scope());
-    Machine::Get()->ExitHandleScope();
+    DCHECK_EQ(this, Machine::This()->top_handle_scope());
+    Machine::This()->ExitHandleScope();
     close_ = true;
 }
 
 // Get the prev(scope) HandleScope
-HandleScope *HandleScope::GetPrev() { return Machine::Get()->top_slot()->prev->scope; }
+HandleScope *HandleScope::GetPrev() { return Machine::This()->top_slot()->prev->scope; }
 
 // Get this scope's HandleScope
-/*static*/ HandleScope *HandleScope::Current() { return Machine::Get()->top_handle_scope(); }
+/*static*/ HandleScope *HandleScope::Current() { return Machine::This()->top_handle_scope(); }
 
 // New handle address and set heap object pointer
 void **HandleScope::NewHandle(const void *value) {
-    DCHECK_EQ(this, Machine::Get()->top_handle_scope()) << "Not any HandleScope in current scope.";
+    DCHECK_EQ(this, Machine::This()->top_handle_scope()) << "Not any HandleScope in current scope.";
     DCHECK(!close_) << "HandleScope is close!";
 
-    void **location = reinterpret_cast<void **>(Machine::Get()->AdvanceHandleSlots(1));
+    void **location = reinterpret_cast<void **>(Machine::This()->AdvanceHandleSlots(1));
     *location = const_cast<void *>(value);
     return location;
 }

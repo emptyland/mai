@@ -3,6 +3,7 @@
 #define MAI_LANG_ISOLATE_INL_H_
 
 #include "lang/isolate.h"
+#include "lang/type-defs.h"
 #include "lang/metadata-space.h"
 #include "base/queue-macros.h"
 #include "glog/logging.h"
@@ -22,7 +23,7 @@ struct TLSStorage {
     int mid = -1;
     Machine *machine;
     Coroutine *coroutine = nullptr;
-};
+}; // struct TLSStorage
 
 struct GlobalHandleNode {
     static const ptrdiff_t kOffsetHandle;
@@ -33,6 +34,23 @@ struct GlobalHandleNode {
     Any *handle = nullptr; // Handle address
     int mid = 0; // Onwer thread id(machine-id)
 }; // struct PersistentNode
+
+struct NumberValueSlot {
+    enum Index {
+        kIndexUnused, // Skip type: void
+    #define DEFINE_ENUM(name, ...) kIndex_##name,
+        DECLARE_PRIMITIVE_TYPES(DEFINE_ENUM)
+    #undef DEFINE_ENUM
+        kMaxSlots,
+    }; // enum Index
+    
+    static constexpr uintptr_t kPendingMask = 1;
+    static constexpr uintptr_t kCreatedMask = ~kPendingMask;
+
+    std::atomic<AbstractValue *> *values;
+}; // struct NumberValueSlot
+
+static_assert(static_cast<int>(kType_bool) == static_cast<int>(NumberValueSlot::kIndex_bool), "");
 
 extern Isolate *__isolate;
 
@@ -54,6 +72,18 @@ inline const Class *Isolate::builtin_type(BuiltinType type) const {
 
 inline uint8_t **Isolate::bytecode_handler_entries() const {
     return DCHECK_NOTNULL(bytecode_handler_entries_);
+}
+
+inline NumberValueSlot *Isolate::cached_number_slot(int index) {
+    DCHECK_GT(index, NumberValueSlot::kIndexUnused);
+    DCHECK_LT(index, NumberValueSlot::kMaxSlots);
+    return &cached_number_slots_[index];
+}
+
+inline std::atomic<AbstractValue *> *Isolate::cached_number_value(int slot, int64_t index) {
+    DCHECK_GE(index, 0);
+    DCHECK_LT(index, kNumberOfCachedNumberValues);
+    return cached_number_slot(slot)->values + index;
 }
 
 inline GlobalHandleNode *Isolate::NewGlobalHandle(const void *pointer) {

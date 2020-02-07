@@ -50,7 +50,7 @@ public:
                                       const std::vector<Span32> &const_pool = {},
                                       const std::vector<uint32_t> &const_pool_bitmap = {}) {
         Function *func = BuildDummyFunction(instrs, const_pool, const_pool_bitmap);
-        Closure *closure = Machine::Get()->NewClosure(func, 0, Closure::kMaiFunction);
+        Closure *closure = Machine::This()->NewClosure(func, 0, Closure::kMaiFunction);
         return Handle<Closure>(closure);
     }
 
@@ -314,6 +314,61 @@ TEST_F(CoroutineTest, BytecodeYield) {
     co->set_state(Coroutine::kRunnable);
     trampoline.entry()(co);
     ASSERT_EQ(Coroutine::kDead, co->state());
+    ASSERT_EQ(2, dummy_result.i32_1);
+}
+
+static void Dummy8() {
+    dummy_result.i32_2 = 108;
+    dummy_result.i32_1++;
+    //printf("Hello, Internal\n");
+}
+
+TEST_F(CoroutineTest, BytecodeCallBytecodeFunction) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    Handle<Closure> callee;
+    {
+        BytecodeArrayBuilder builder(arena_);
+        builder.Add<kCheckStack>();
+        builder.Add<kLdaConstPtr>(0);
+        builder.Add<kCallNativeFunction>(0);
+        builder.Add<kYield>(YIELD_FORCE);
+        builder.Add<kLdaConstPtr>(0);
+        builder.Add<kCallNativeFunction>(0);
+        builder.Add<kReturn>();
+
+        Handle<Closure> dummy(FunctionTemplate::New(Dummy8));
+        Span32 span;
+        span.ptr[0].any = *dummy;
+        
+        callee = BuildDummyClosure(builder.Build(), {span}, {0x1});
+    }
+
+    Handle<Closure> caller;
+    {
+        BytecodeArrayBuilder builder(arena_);
+        builder.Add<kCheckStack>();
+        builder.Add<kLdaConstPtr>(0);
+        builder.Add<kCallBytecodeFunction>(0);
+        builder.Add<kReturn>();
+        
+        Span32 span;
+        span.ptr[0].any = *callee;
+        
+        caller = BuildDummyClosure(builder.Build(), {span}, {0x1});
+    }
+    
+    Coroutine *co = scheduler_->NewCoroutine(*caller, false/*co0*/);
+    CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
+    co->set_state(Coroutine::kRunnable);
+    trampoline.entry()(co);
+    ASSERT_EQ(Coroutine::kInterrupted, co->state());
+
+    co->SwitchState(Coroutine::kInterrupted, Coroutine::kRunnable);
+    trampoline.entry()(co);
+    ASSERT_EQ(Coroutine::kDead, co->state());
+    
+    ASSERT_EQ(108, dummy_result.i32_2);
     ASSERT_EQ(2, dummy_result.i32_1);
 }
 

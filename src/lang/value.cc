@@ -28,11 +28,14 @@ const int32_t Closure::kOffsetCode = MEMBER_OFFSET_OF(Closure, cxx_fn_);
 const int32_t Closure::kOffsetCapturedVarSize = MEMBER_OFFSET_OF(Closure, captured_var_size_);
 const int32_t Closure::kOffsetCapturedVar = MEMBER_OFFSET_OF(Closure, captured_var_);
 
+// Use function call, it's slowly calling...
+bool Any::SlowlyIs(uint32_t type_id) const { return QuicklyIs(type_id); }
+
 int Any::WriteBarrier(Any **address, size_t n) {
     if (STATE->heap()->InNewArea(this)) {
         return 0;
     }
-    return Machine::Get()->UpdateRememberRecords(this, address, n);
+    return Machine::This()->UpdateRememberRecords(this, address, n);
 }
 
 /*static*/ AbstractArray *AbstractArray::NewArray(BuiltinType type, size_t length) {
@@ -40,7 +43,7 @@ int Any::WriteBarrier(Any **address, size_t n) {
     if (length > 2 * base::kKB) { // bit array should in old-space
         flags |= kOldSpace;
     }
-    return Machine::Get()->NewArraySlow(type, length, flags);
+    return Machine::This()->NewArraySlow(type, length, flags);
 }
 
 /*static*/ AbstractArray *AbstractArray::NewArrayCopied(const AbstractArray *origin, size_t increment) {
@@ -48,7 +51,7 @@ int Any::WriteBarrier(Any **address, size_t n) {
     if (origin->length() + increment > 2 * base::kKB) { // bit array should in old-space
         flags |= kOldSpace;
     }
-    return Machine::Get()->NewArrayCopiedSlow(origin, increment, flags);
+    return Machine::This()->NewArrayCopiedSlow(origin, increment, flags);
 }
 
 /*static*/ Handle<String> String::NewUtf8(const char *utf8_string, size_t n) {
@@ -56,7 +59,7 @@ int Any::WriteBarrier(Any **address, size_t n) {
         utf8_string = "";
         n = 0;
     }
-    return Handle<String>(Machine::Get()->NewUtf8String(utf8_string, n, 0/*flags*/));
+    return Handle<String>(Machine::This()->NewUtf8String(utf8_string, n, 0/*flags*/));
 }
 
 MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32_t random_seed)
@@ -65,11 +68,11 @@ MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32
 }
 
 /*static*/ Handle<Closure> Closure::New(Code *stub, uint32_t captured_var_size) {
-    return Handle<Closure>(Machine::Get()->NewClosure(stub, captured_var_size, Heap::kOld));
+    return Handle<Closure>(Machine::This()->NewClosure(stub, captured_var_size, Heap::kOld));
 }
 
 /*static*/ AbstractValue *AbstractValue::ValueOf(BuiltinType type, const void *value, size_t n) {
-    return Machine::Get()->NewNumber(type, value, n, 0);
+    return Machine::This()->ValueOfNumber(type, value, n);
 }
 
 } // namespace lang

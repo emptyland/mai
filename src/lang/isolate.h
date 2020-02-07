@@ -18,6 +18,8 @@ class MetadataSpace;
 class Scheduler;
 class Machine;
 class Class;
+class AbstractValue;
+struct NumberValueSlot;
 struct TLSStorage;
 struct GlobalHandleNode;
 
@@ -31,6 +33,7 @@ struct Options {
 // The virtual machine isolate object:
 class Isolate final {
 public:
+    static constexpr int64_t kNumberOfCachedNumberValues = 128;
     static const int32_t kOffsetBytecodeHandlerEntries;
     static const int32_t kOffsetTrampolineSuspendPoint;
     
@@ -52,6 +55,7 @@ public:
     inline Scheduler *scheduler() const;
     inline const Class *builtin_type(BuiltinType type) const;
     inline uint8_t **bytecode_handler_entries() const;
+    inline std::atomic<AbstractValue *> *cached_number_value(int slot, int64_t index);
 
     friend class Machine;
     friend class IsolateScope;
@@ -69,11 +73,12 @@ private:
     inline GlobalHandleNode *NewGlobalHandle(const void *pointer);
     inline void DeleteGlobalHandle(GlobalHandleNode *node);
     inline int GetNumberOfGlobalHandles() const;
+    
+    inline NumberValueSlot *cached_number_slot(int index);
 
     // New space initial bytes size
     const size_t new_space_initial_size_;
 
-    
     Env *env_; // The base api env object
     Heap *heap_; // Heap allocator
     MetadataSpace *metadata_space_; // Metadata memory space
@@ -85,6 +90,9 @@ private:
     
     uint8_t **bytecode_handler_entries_; // Entry address of all bytecode handlers
     uint8_t *trampoline_suspend_point_; // Entry address of suspend
+    
+    // Cached numbers for ValueOf() functions
+    std::unique_ptr<NumberValueSlot[]> cached_number_slots_;
 }; // class Isolate
 
 

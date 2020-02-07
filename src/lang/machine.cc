@@ -90,6 +90,70 @@ String *Machine::NewUtf8String(const char *utf8_string, size_t n, uint32_t flags
     return obj;
 }
 
+static bool NeedInit(std::atomic<AbstractValue *> *address) {
+    static AbstractValue *const kPendingValue = reinterpret_cast<AbstractValue *>(NumberValueSlot::kPendingMask);
+    AbstractValue *e = nullptr;
+    if (address->compare_exchange_weak(e, kPendingValue)) {
+        return true;
+    }
+    while (address->load(std::memory_order_acquire) == kPendingValue) {
+        std::this_thread::yield();
+    }
+    return false;
+}
+
+template<class T>
+static AbstractValue *GetOrInstallNumber(BuiltinType primitive_type, const void *value, size_t n) {
+    int64_t index = *static_cast<const T *>(value);
+    if (index < 0 || index >= Isolate::kNumberOfCachedNumberValues) {
+        return Machine::This()->NewNumber(primitive_type, value, n, 0);
+    }
+    auto address = DCHECK_NOTNULL(STATE->cached_number_value(primitive_type, index));
+    if (!(reinterpret_cast<uintptr_t>(address->load(std::memory_order_acquire)) & NumberValueSlot::kCreatedMask) &&
+        NeedInit(address)) {
+        AbstractValue *instance = Machine::This()->NewNumber(primitive_type, value, n, Heap::kOld);
+        address->store(instance, std::memory_order_release);
+    }
+    return address->load();
+}
+
+AbstractValue *Machine::ValueOfNumber(BuiltinType primitive_type, const void *value, size_t n) {
+    switch (primitive_type) {
+        case kType_bool: {
+            int index = *static_cast<const bool *>(value);
+            return STATE->cached_number_value(primitive_type, index)->load(std::memory_order_relaxed);
+        }
+        case kType_f32:
+        case kType_f64:
+            return NewNumber(primitive_type, value, n, 0);
+
+        case kType_i8:
+            return GetOrInstallNumber<int8_t>(primitive_type, value, n);
+        case kType_u8:
+            return GetOrInstallNumber<uint8_t>(primitive_type, value, n);
+        case kType_i16:
+            return GetOrInstallNumber<int16_t>(primitive_type, value, n);
+        case kType_u16:
+            return GetOrInstallNumber<uint16_t>(primitive_type, value, n);
+        case kType_i32:
+            return GetOrInstallNumber<int32_t>(primitive_type, value, n);
+        case kType_u32:
+            return GetOrInstallNumber<uint32_t>(primitive_type, value, n);
+        case kType_int:
+            return GetOrInstallNumber<int32_t>(primitive_type, value, n);
+        case kType_uint:
+            return GetOrInstallNumber<uint32_t>(primitive_type, value, n);
+        case kType_i64:
+            return GetOrInstallNumber<int64_t>(primitive_type, value, n);
+        case kType_u64:
+            return GetOrInstallNumber<uint64_t>(primitive_type, value, n);
+        default:
+            NOREACHED();
+            break;
+    }
+    return nullptr;
+}
+
 AbstractValue *Machine::NewNumber(BuiltinType primitive_type, const void *value, size_t n,
                                   uint32_t flags) {
     AllocationResult result = STATE->heap()->Allocate(sizeof(AbstractValue), flags);
@@ -98,7 +162,7 @@ AbstractValue *Machine::NewNumber(BuiltinType primitive_type, const void *value,
     }
     const Class *clazz = STATE->metadata_space()->GetNumberClassOrNull(primitive_type);
     DCHECK(clazz != nullptr) << "Bad type: " << primitive_type;
-    return new (result.ptr()) AbstractValue(DCHECK_NOTNULL(clazz), value, n);
+    return new (result.ptr()) AbstractValue(DCHECK_NOTNULL(clazz), value, n, 0);
 }
 
 AbstractArray *Machine::NewArraySlow(BuiltinType type, size_t length, uint32_t flags) {

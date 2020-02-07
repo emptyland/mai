@@ -8,24 +8,25 @@ namespace mai {
 namespace lang {
 
 template<class T> class Number;
+class AbstractValue;
 
 // The runtime functions definition
 struct Runtime {
 
     // Box in functions
-    static Number<bool> *BoolValueOf(intptr_t value);
-    static Number<int8_t> *I8ValueOf(intptr_t value);
-    static Number<uint8_t> *U8ValueOf(uintptr_t value);
-    static Number<int16_t> *I16ValueOf(intptr_t value);
-    static Number<uint16_t> *U16ValueOf(uintptr_t value);
-    static Number<int32_t> *I32ValueOf(intptr_t value);
-    static Number<uint32_t> *U32ValueOf(uintptr_t value);
-    static Number<int32_t> *IntValueOf(intptr_t value);
-    static Number<uint32_t> *UIntValueOf(uintptr_t value);
-    static Number<int64_t> *I64ValueOf(intptr_t value);
-    static Number<uint64_t> *U64ValueOf(uintptr_t value);
-    static Number<float> *F32ValueOf(float value);
-    static Number<double> *F64ValueOf(double value);
+    static AbstractValue *BoolValueOf(intptr_t value);
+    static AbstractValue *I8ValueOf(intptr_t value);
+    static AbstractValue *U8ValueOf(uintptr_t value);
+    static AbstractValue *I16ValueOf(intptr_t value);
+    static AbstractValue *U16ValueOf(uintptr_t value);
+    static AbstractValue *I32ValueOf(intptr_t value);
+    static AbstractValue *U32ValueOf(uintptr_t value);
+    static AbstractValue *IntValueOf(intptr_t value);
+    static AbstractValue *UIntValueOf(uintptr_t value);
+    static AbstractValue *I64ValueOf(intptr_t value);
+    static AbstractValue *U64ValueOf(uintptr_t value);
+    static AbstractValue *F32ValueOf(float value);
+    static AbstractValue *F64ValueOf(double value);
 
     // Box out functions
 //    static intptr_t BoolValue(Number<bool> *value);

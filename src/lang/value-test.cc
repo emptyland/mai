@@ -132,6 +132,40 @@ TEST_F(ValueTest, FunctionTemplate) {
     ASSERT_EQ("(f32,i32,u64):string", handle->code()->prototype()->ToString());
 }
 
+TEST_F(ValueTest, AnyIsAs) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    Handle<Any> handle(Number<int>::ValueOf(0));
+    ASSERT_TRUE(handle->Is<Number<int>>());
+    
+    Handle<Number<int>> num = handle->As<Number<int>>();
+    ASSERT_EQ(0, num->value());
+    
+    handle = Handle<Any>(String::NewUtf8("Hello"));
+    ASSERT_TRUE(handle->Is<String>());
+    
+    Handle<String> str = handle->As<String>();
+    ASSERT_STREQ("Hello", str->data());
+}
+
+TEST_F(ValueTest, ValueOfNumber) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    Handle<Number<bool>> b1(Number<bool>::ValueOf(true));
+    ASSERT_TRUE(b1->value());
+    Handle<Number<bool>> b2(Number<bool>::ValueOf(false));
+    ASSERT_FALSE(b2->value());
+    ASSERT_TRUE(b1 == Number<bool>::ValueOf(true));
+    ASSERT_TRUE(b2 == Number<bool>::ValueOf(false));
+    
+    Handle<Number<int8_t>> i8(Number<int8_t>::ValueOf(100));
+    ASSERT_EQ(100, i8->value());
+    
+    Handle<Number<int8_t>> i8_2(Number<int8_t>::ValueOf(100));
+    ASSERT_EQ(100, i8_2->value());
+    ASSERT_TRUE(i8 == i8_2);
+}
+
 }
 
 }

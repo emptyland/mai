@@ -43,10 +43,12 @@ public:
     DEF_VAL_GETTER(int, n_free);
     DEF_VAL_GETTER(int, n_runnable);
     DEF_PTR_GETTER(Coroutine, running);
-    
-    static Machine *Get() { return TLS_STORAGE->machine; }
-    
+
+    // Get current thread machine object
+    static Machine *This() { return TLS_STORAGE->machine; }
+
     // Value's factory
+    AbstractValue *ValueOfNumber(BuiltinType primitive_type, const void *value, size_t n);
     
     // New a box-in number object
     AbstractValue *NewNumber(BuiltinType primitive_type, const void *value, size_t n, uint32_t flags);
@@ -103,11 +105,9 @@ private:
     }
 
     void Enter() {
-        //DCHECK(STATE->tls()->Get() == nullptr);
         DCHECK(__tls_storage == nullptr);
         TLSStorage *tlss = new TLSStorage(this);
         tlss->mid = id_;
-        //STATE->tls()->Set(tlss);
         __tls_storage = tlss;
     }
 

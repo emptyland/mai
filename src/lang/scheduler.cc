@@ -46,7 +46,7 @@ Coroutine *Scheduler::NewCoroutine(Closure *entry, bool co0) {
     }
 
     n_live_coroutines_.fetch_add(1);
-    Machine *m = Machine::Get();
+    Machine *m = Machine::This();
     Coroutine *co = m->TakeFreeCoroutine();
     if (co) {
         co->Reinitialize(next_coid_.fetch_add(1), entry, stack);
@@ -69,7 +69,7 @@ void Scheduler::PurgreCoroutine(Coroutine *co) {
     co->Dispose();
     n_live_coroutines_.fetch_sub(1);
     
-    Machine *m = Machine::Get();
+    Machine *m = Machine::This();
     if (m->n_free() + 1 <= Machine::kMaxFreeCoroutines) {
         m->InsertFreeCoroutine(co);
         return;

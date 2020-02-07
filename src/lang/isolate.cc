@@ -43,10 +43,6 @@ Error Isolate::Initialize() {
         return MAI_CORRUPTION("new_space_initial_size too small(least than 10MB)");
     }
 
-//    if (auto err = env_->NewThreadLocalSlot("isolate.tls", &TLSStorage::Dtor, &tls_); err.fail()) {
-//        return err;
-//    }
-
     if (auto err = heap_->Initialize(new_space_initial_size_); err.fail()) {
         return err;
     }
@@ -72,7 +68,19 @@ Isolate::Isolate(const Options &opts)
                                opts.env->GetLowLevelAllocator()))
     , persistent_dummy_(new GlobalHandleNode{})
     , bytecode_handler_entries_(new Address[kMax_Bytecodes])
-    , trampoline_suspend_point_(reinterpret_cast<Address>(BadSuspendPointDummy)) {
+    , trampoline_suspend_point_(reinterpret_cast<Address>(BadSuspendPointDummy))
+    , cached_number_slots_(new NumberValueSlot[NumberValueSlot::kMaxSlots]) {
+
+    cached_number_slots_[NumberValueSlot::kIndexUnused].values = nullptr;
+    // Bool only has true or false
+    cached_number_slots_[NumberValueSlot::kIndex_bool].values = new std::atomic<AbstractValue *>[2];
+    cached_number_slots_[NumberValueSlot::kIndex_bool].values[0].store(nullptr);
+    cached_number_slots_[NumberValueSlot::kIndex_bool].values[1].store(nullptr);
+    for (int i = NumberValueSlot::kIndexUnused + 2; i < NumberValueSlot::kMaxSlots; i++) {
+        cached_number_slots_[i].values = new std::atomic<AbstractValue *>[kNumberOfCachedNumberValues];
+        ::memset(cached_number_slots_[i].values, 0,
+                 kNumberOfCachedNumberValues * sizeof(cached_number_slots_[i].values[0]));
+    }
 }
 
 Isolate::~Isolate() {
@@ -100,6 +108,18 @@ void Isolate::Enter() {
 
     // Init machine0
     scheduler_->machine0()->Enter();
+
+    // Init True and False values
+    if (!cached_number_slot(kType_bool)->values[0].load()) {
+        int8_t false_val = 0;
+        AbstractValue *val = scheduler_->machine0()->NewNumber(kType_bool, &false_val, 1,
+                                                               Heap::kOld);
+        cached_number_slot(kType_bool)->values[0].store(val);
+
+        int8_t true_val = 1;
+        val = scheduler_->machine0()->NewNumber(kType_bool, &true_val, 1, Heap::kOld);
+        cached_number_slot(kType_bool)->values[1].store(val);
+    }
 }
 
 void Isolate::Exit() {

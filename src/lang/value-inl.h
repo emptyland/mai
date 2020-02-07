@@ -3,6 +3,7 @@
 #define MAI_LANG_VALUE_INL_H_
 
 #include "lang/value.h"
+#include "lang/metadata.h"
 #include "base/base.h"
 #include "glog/logging.h"
 
@@ -23,6 +24,8 @@ inline Any *Any::forward() const {
 }
 
 inline uint32_t Any::tags() const { return tags_; }
+
+inline bool Any::QuicklyIs(uint32_t type_id) const { return clazz()->id() == type_id; }
 
 inline bool CapturedValue::is_object_value() const { return padding_ & kObjectBit; }
 

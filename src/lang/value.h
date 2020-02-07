@@ -32,6 +32,15 @@ public:
     inline Class *clazz() const;
     inline Any *forward() const;
     inline uint32_t tags() const;
+    inline bool QuicklyIs(uint32_t type_id) const;
+
+    template<class T>
+    inline bool Is() const { return SlowlyIs(TypeTraits<T>::kType); }
+    
+    template<class T>
+    inline Handle<T> As() {
+        return Is<T>() ? Handle<T>(static_cast<T *>(this)) : Handle<T>::Empty();
+    }
 
     Any(const Any &) = delete;
     void operator = (const Any &) = delete;
@@ -43,6 +52,10 @@ protected:
         : klass_(reinterpret_cast<uintptr_t>(clazz))
         , tags_(tags) {}
     
+    // Type test
+    // For API
+    bool SlowlyIs(uint32_t type_id) const;
+        
     // Write-Barrier for heap object writting
     bool WriteBarrier(Any **address) { return WriteBarrier(address, 1) == 1; }
     int WriteBarrier(Any **address, size_t n);
@@ -341,13 +354,13 @@ public:
 
     friend class Machine;
 protected:
-    AbstractValue(const Class *clazz, const void *data, size_t n)
-        : Any(clazz, 0) {
+    AbstractValue(const Class *clazz, const void *data, size_t n, uint32_t tags)
+        : Any(clazz, tags) {
         ::memcpy(value_, data, n);
     }
     
-    AbstractValue(const Class *clazz)
-        : Any(clazz, 0) {
+    AbstractValue(const Class *clazz, uint32_t tags)
+        : Any(clazz, tags) {
         ::memset(value_, 0, kMaxValueSize);
     }
     
@@ -373,7 +386,7 @@ public:
     static_assert(std::is_floating_point<T>::value ||
                   std::is_integral<T>::value, "T is not a number type");
 
-    inline T value() const { return *static_cast<T *>(address()); }
+    inline T value() const { return *static_cast<const T *>(address()); }
 
     static inline Handle<Number<T>> ValueOf(T value) {
         Handle<AbstractValue> abstract(AbstractValue::ValueOf(TypeTraits<T>::kType, &value,
@@ -406,20 +419,20 @@ private:
     static constexpr uint32_t kObjectBit = 1;
 
     // Create a primitive captured-value
-    CapturedValue(const Class *clazz, const void *value, size_t n)
-        : AbstractValue(clazz, value, n) {
+    CapturedValue(const Class *clazz, const void *value, size_t n, uint32_t tags)
+        : AbstractValue(clazz, value, n, tags) {
         padding_ = 0;
     }
     
     // Create a object captured-value
-    CapturedValue(const Class *clazz, Any *value)
-        : AbstractValue(clazz, &value, sizeof(value)) {
+    CapturedValue(const Class *clazz, Any *value, uint32_t tags)
+        : AbstractValue(clazz, &value, sizeof(value), tags) {
         padding_ = kObjectBit;
     }
 
     // Create a empty captured-value
-    CapturedValue(const Class *clazz, bool is_object)
-        : AbstractValue(clazz) {
+    CapturedValue(const Class *clazz, bool is_object, uint32_t tags)
+        : AbstractValue(clazz, tags) {
         padding_ = is_object ? kObjectBit : 0;
     }
 }; // class CapturedValue
@@ -530,6 +543,37 @@ public:
         Code *stub = MakeStub({ParameterTraits<A>::kType,
                                ParameterTraits<B>::kType,
                                ParameterTraits<C>::kType}/*parametres*/,
+                              false/*has_vargs*/, ParameterTraits<R>::kType,
+                              reinterpret_cast<uint8_t *>(func));
+        if (!stub) {
+            return Handle<Closure>::Empty();
+        } else {
+            return Closure::New(stub, 0/*captured_var_size*/);
+        }
+    }
+    
+    template<class R, class A, class B, class C, class D>
+    static inline Handle<Closure> New(R(*func)(A, B, C, D)) {
+        Code *stub = MakeStub({ParameterTraits<A>::kType,
+                               ParameterTraits<B>::kType,
+                               ParameterTraits<C>::kType,
+                               ParameterTraits<D>::kType}/*parametres*/,
+                              false/*has_vargs*/, ParameterTraits<R>::kType,
+                              reinterpret_cast<uint8_t *>(func));
+        if (!stub) {
+            return Handle<Closure>::Empty();
+        } else {
+            return Closure::New(stub, 0/*captured_var_size*/);
+        }
+    }
+    
+    template<class R, class A, class B, class C, class D, class E>
+    static inline Handle<Closure> New(R(*func)(A, B, C, D, E)) {
+        Code *stub = MakeStub({ParameterTraits<A>::kType,
+                               ParameterTraits<B>::kType,
+                               ParameterTraits<C>::kType,
+                               ParameterTraits<D>::kType,
+                               ParameterTraits<E>::kType}/*parametres*/,
                               false/*has_vargs*/, ParameterTraits<R>::kType,
                               reinterpret_cast<uint8_t *>(func));
         if (!stub) {
