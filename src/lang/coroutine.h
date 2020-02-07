@@ -29,7 +29,7 @@ static constexpr int32_t kOffsetCaught_SP = offsetof(CaughtNode, sp);
 
 class Coroutine final {
 public:
-    enum State {
+    enum State: int32_t {
         kDead,
         kIdle,
         kWaitting,

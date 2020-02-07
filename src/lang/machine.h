@@ -33,6 +33,7 @@ public:
         kIdle,
         kRunning,
     };
+    using TaskFunc = void (*)();
     
     static constexpr int kMaxFreeCoroutines = 10;
     
@@ -41,21 +42,33 @@ public:
     
     DEF_VAL_GETTER(int, id);
     DEF_VAL_GETTER(int, n_free);
-    DEF_VAL_GETTER(int, n_runnable);
     DEF_PTR_GETTER(Coroutine, running);
+    
+    State state() const { return state_.load(std::memory_order_acquire); }
+    
+    int GetNumberOfRunnable() const {
+        std::lock_guard<std::mutex> lock(runnable_mutex_);
+        return n_runnable_;
+    }
+    
+    // Start Machine
+    void Start();
+    
+    // Post coroutine to runnable
+    void PostRunnable(Coroutine *co, bool now = true);
 
     // Get current thread machine object
     static Machine *This() { return TLS_STORAGE->machine; }
 
     // Value's factory
     AbstractValue *ValueOfNumber(BuiltinType primitive_type, const void *value, size_t n);
-    
+
     // New a box-in number object
     AbstractValue *NewNumber(BuiltinType primitive_type, const void *value, size_t n, uint32_t flags);
-    
+
     // New a UTF-8 encoding string
     String *NewUtf8String(const char *utf8_string, size_t n, uint32_t flags);
-    
+
     // New (immutable) array slowly
     AbstractArray *NewArraySlow(BuiltinType type, size_t length, uint32_t flags);
     
@@ -99,10 +112,7 @@ public:
     friend class MachineScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Machine);
 private:
-    void Entry() {
-        // TODO:
-        TODO();
-    }
+    void Entry();
 
     void Enter() {
         DCHECK(__tls_storage == nullptr);
@@ -128,9 +138,12 @@ private:
     uint64_t exclusion_ = 0; // Exclusion counter if > 0 can not be preempted
     Coroutine *free_dummy_; // Local free coroutines(coroutine pool)
     Coroutine *runnable_dummy_; // Waiting for running coroutines
+    mutable std::mutex runnable_mutex_; // Mutex for runnable_dummy_
     int n_free_ = 0; // Number of free coroutine
     int n_runnable_ = 0; // Number of runnable coroutine
     Coroutine *running_ = nullptr; // Current running coroutine
+    std::condition_variable cond_var_; // Condition variable for scheduling
+    std::mutex mutex_; // Total mutex
     std::thread thread_; // Thread object
 }; // class Machine
 

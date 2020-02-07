@@ -48,21 +48,23 @@ public:
     }
 
     void SaveCxxCallerRegisters() {
-        pushq(r15);
+//        pushfq();
+//        pushq(r15);
         pushq(r14);
-        pushq(r13);
-        pushq(r12);
+//        pushq(r13);
+//        pushq(r12);
         pushq(rbx);
-        subq(rsp, kPointerSize); // for rsp alignment.
+//        subq(rsp, kPointerSize); // for rsp alignment.
     }
 
     void RecoverCxxCallerRegisters() {
-        addq(rsp, kPointerSize);
+//        addq(rsp, kPointerSize);
         popq(rbx);
-        popq(r12);
-        popq(r13);
+//        popq(r12);
+//        popq(r13);
         popq(r14);
-        popq(r15);
+//        popq(r15);
+//        popfq();
     }
 
     void SwitchSystemStackCall(Address cxx_func_entry, Address switch_sys_stack) {

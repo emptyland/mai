@@ -23,10 +23,28 @@ public:
 
     DEF_VAL_GETTER(int, concurrency);
     DEF_PTR_GETTER(Machine, machine0);
+    
+    int shutting_down() const { return shutting_down_.load(std::memory_order_acquire); }
 
     size_t n_live_coroutines() const { return n_live_coroutines_.load(); }
     size_t n_live_stacks() const { return n_live_stacks_.load(); }
     size_t stack_pool_rss() const { return stack_pool_rss_.load(); }
+    
+    Machine *machine(int i) const {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, concurrency_);
+        return all_machines_[i];
+    }
+
+    void Schedule();
+    
+    void Shutdown();
+    
+    void Start() {
+        for (int i = 1; i < concurrency_; i++) {
+            all_machines_[i]->Start();
+        }
+    }
 
     Coroutine *NewCoroutine(Closure *entry, bool co0);
     void PurgreCoroutine(Coroutine *co);

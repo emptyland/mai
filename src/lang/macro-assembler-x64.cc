@@ -96,7 +96,6 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm) {
 
     // Set bytecode handlers array
     // No need
-    //__ Breakpoint();
 
     // Enter mai env:
     __ movq(rsp, Operand(CO, Coroutine::kOffsetSP));
@@ -171,7 +170,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     // =============================================================================================
     __ SaveCxxCallerRegisters();
     // =============================================================================================
-    
+
     // Save system stack and frame
     __ movq(CO, Argv_0); // Install CO register
     __ movq(Operand(CO, Coroutine::kOffsetSysBP), rbp);
@@ -234,7 +233,9 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kRunning);
     __ movq(Argv_0, Operand(CO, Coroutine::kOffsetEntry));
     __ movq(rax, pump);
+    //__ Breakpoint();
     __ call(rax);
+    //__ Breakpoint();
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kDead);
     Label uninstall;
     __ jmp(&uninstall, true/*is_far*/);
@@ -246,6 +247,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ movq(Argv_1, rax);
     // Call co->Suspend(acc, xacc)
     __ SwitchSystemStackCall(arch::MethodAddress(&Coroutine::Suspend), switch_call);
+    //__ Breakpoint();
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kInterrupted);
     __ jmp(&done, true/*is_far*/);
 

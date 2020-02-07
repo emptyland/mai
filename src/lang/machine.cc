@@ -1,4 +1,5 @@
 #include "lang/machine.h"
+#include "lang/scheduler.h"
 #include "lang/coroutine.h"
 #include "lang/value-inl.h"
 #include "lang/heap.h"
@@ -37,6 +38,89 @@ Machine::~Machine() {
         delete x;
     }
     Coroutine::DeleteDummy(free_dummy_);
+}
+
+void Machine::PostRunnable(Coroutine *co, bool now) {
+    DCHECK_EQ(Coroutine::kRunnable, co->state());
+    std::lock_guard<std::mutex> lock(runnable_mutex_);
+    {
+        if (now) {
+            QUEUE_INSERT_HEAD(runnable_dummy_, co);
+        } else {
+            QUEUE_INSERT_TAIL(runnable_dummy_, co);
+        }
+        n_runnable_++;
+    }
+
+    if (Machine::This() != this) {
+        if (state_.load(std::memory_order_acquire) == kIdle) {
+            cond_var_.notify_one();
+        }
+    }
+}
+
+void Machine::Start() {
+    DCHECK(!thread_.joinable()); // Not running
+    DCHECK_EQ(kDead, state_.load());
+    thread_ = std::thread([this] () {
+        MachineScope machine_scope(this);
+        Entry();
+    });
+}
+
+void Machine::Entry() {
+    state_.store(kRunning, std::memory_order_relaxed);
+    
+    int span_shift = 1;
+    while (owner_->shutting_down() <= 0) {
+        Coroutine *co = nullptr;
+        {
+            std::lock_guard<std::mutex> lock(runnable_mutex_);
+            if (n_runnable_ > 0) {
+                DCHECK(!QUEUE_EMPTY(runnable_dummy_));
+                co = runnable_dummy_->next();
+                QUEUE_REMOVE(co);
+                n_runnable_--;
+            } else {
+                if (id_ == 0) {
+                    break;
+                }
+            }
+        }
+
+        if (co) {
+            CallStub<intptr_t(Coroutine *)> trampoline(STATE->metadata_space()->trampoline_code());
+            
+            DCHECK_EQ(Coroutine::kRunnable, co->state());
+            running_ = co;
+            TLS_STORAGE->coroutine = co;
+            trampoline.entry()(co);
+            
+            if (co->state() == Coroutine::kDead || co->state() == Coroutine::kPanic) {
+                owner_->Schedule();
+            } else if (co->state() == Coroutine::kInterrupted) {
+                // Yield coroutine to re-schedule
+                owner_->Schedule();
+            } else {
+                NOREACHED();
+            }
+        }
+
+        int span_count = 0;
+        while (span_count++ < span_shift) {
+            std::this_thread::yield();
+        }
+        span_shift <<= 1;
+
+        if (span_shift >= 1024) {
+            span_shift = 1;
+            state_.store(kIdle, std::memory_order_release);
+            std::unique_lock<std::mutex> lock(mutex_);
+            cond_var_.wait(lock);
+        }
+    }
+
+    state_.store(kDead, std::memory_order_relaxed);
 }
 
 void Machine::ExitHandleScope() {

@@ -42,6 +42,9 @@ public:
 
     // Initialize Virtual-Machine state
     Error Initialize();
+    
+    // Run Virtual-Machine
+    void Run();
 
     // Get base api env object
     Env *env() const { return env_; }
@@ -93,6 +96,8 @@ private:
     
     // Cached numbers for ValueOf() functions
     std::unique_ptr<NumberValueSlot[]> cached_number_slots_;
+    
+    bool initialized_ = false;
 }; // class Isolate
 
 

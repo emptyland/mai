@@ -38,6 +38,63 @@ Scheduler::~Scheduler() {
     Stack::DeleteDummy(stack_pool_);
 }
 
+void Scheduler::Schedule() {
+    Machine *m = DCHECK_NOTNULL(Machine::This());
+    
+    
+    switch (DCHECK_NOTNULL(m->running())->state()) {
+        case Coroutine::kPanic:
+        case Coroutine::kDead: {
+            // TODO: works steal
+            
+            PurgreCoroutine(m->running());
+            m->running_ = nullptr;
+            TLS_STORAGE->coroutine = nullptr;
+        } break;
+            
+        case Coroutine::kInterrupted: {
+            int n = all_machines_[0]->GetNumberOfRunnable();
+            Machine *target = all_machines_[0];
+            for (int i = 1; i < concurrency_; i++) {
+                if (all_machines_[i]->state() == Machine::kIdle) {
+                    target = all_machines_[i];
+                    break;
+                }
+                if (all_machines_[i]->GetNumberOfRunnable() < n) {
+                    n = all_machines_[i]->GetNumberOfRunnable();
+                    target = all_machines_[i];
+                }
+            }
+
+            Coroutine *co = m->running();
+            m->running_ = nullptr;
+            TLS_STORAGE->coroutine = nullptr;
+
+            target->PostRunnable(co, false/**/);
+        } break;
+            
+        default:
+            NOREACHED();
+            break;
+    }
+}
+
+void Scheduler::Shutdown() {
+    //std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    DCHECK_EQ(0, shutting_down_.load());
+    shutting_down_.fetch_add(1);
+
+    for (int i = 1; i < concurrency_; i++) {
+        Machine *m = all_machines_[i];
+        if (m->state() == Machine::kIdle) {
+            m->cond_var_.notify_one();
+        }
+        m->thread_.join();
+        DCHECK_EQ(Machine::kDead, m->state());
+    }
+}
+
 Coroutine *Scheduler::NewCoroutine(Closure *entry, bool co0) {
     const size_t stack_size = co0 ? kC0StackSize : kDefaultStackSize;
     Stack *stack = NewStack(stack_size);

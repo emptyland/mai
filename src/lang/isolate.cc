@@ -55,7 +55,21 @@ Error Isolate::Initialize() {
         bytecode_handler_entries_[i] = DCHECK_NOTNULL(metadata_space_->bytecode_handlers()[i])->entry();
     }
     trampoline_suspend_point_ = metadata_space_->trampoline_suspend_point();
+    
+    initialized_ = true;
     return Error::OK();
+}
+
+void Isolate::Run() {
+    DCHECK(initialized_);
+    scheduler_->Start(); // Start worker threads
+    
+    // Run main thread
+    scheduler_->machine0()->Entry();
+    
+    // Main thread finished
+    // Should shutdown others worker threads
+    scheduler_->Shutdown();
 }
 
 Isolate::Isolate(const Options &opts)
