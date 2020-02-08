@@ -17,6 +17,7 @@ class Class;
 class Type;
 class Function;
 class Code;
+class CapturedValue;
 
 // All heap object's base class.
 class Any {
@@ -358,15 +359,15 @@ protected:
         : Any(clazz, tags) {
         ::memcpy(value_, data, n);
     }
-    
+
     AbstractValue(const Class *clazz, uint32_t tags)
         : Any(clazz, tags) {
         ::memset(value_, 0, kMaxValueSize);
     }
-    
+
     void *address() { return value_; }
     const void *address() const { return value_; }
-    
+
     static AbstractValue *ValueOf(BuiltinType type, const void *value, size_t n);
 
     uint32_t padding_; // Padding aligment to cache line
@@ -404,38 +405,6 @@ private:
     }
 }; // template<class T> class Number
 
-
-// Closure's captured-value
-class CapturedValue : public AbstractValue {
-public:
-    // internal functions:
-    inline bool is_object_value() const;
-    inline bool is_primitive_value() const;
-    inline const void *value() const;
-    inline void *mutable_value();
-    
-    friend class Machine;
-private:
-    static constexpr uint32_t kObjectBit = 1;
-
-    // Create a primitive captured-value
-    CapturedValue(const Class *clazz, const void *value, size_t n, uint32_t tags)
-        : AbstractValue(clazz, value, n, tags) {
-        padding_ = 0;
-    }
-    
-    // Create a object captured-value
-    CapturedValue(const Class *clazz, Any *value, uint32_t tags)
-        : AbstractValue(clazz, &value, sizeof(value), tags) {
-        padding_ = kObjectBit;
-    }
-
-    // Create a empty captured-value
-    CapturedValue(const Class *clazz, bool is_object, uint32_t tags)
-        : AbstractValue(clazz, tags) {
-        padding_ = is_object ? kObjectBit : 0;
-    }
-}; // class CapturedValue
 
 
 // Callable closure function
@@ -484,6 +453,77 @@ private:
     uint32_t captured_var_size_; // Number of captured_var_size_
     CapturedVar captured_var_[0]; // Captured variables
 }; // class Closure
+
+
+// All exception's base class
+class Throwable : public Any {
+public:
+    static const int32_t kOffsetStacktraceBP;
+    static const int32_t kOffsetStacktraceSP;
+    static const int32_t kOffsetStacktracePC;
+    
+    // Internal functions:
+    inline uint8_t *stacktrace_bp() const;
+    inline uint8_t *stacktrace_sp() const;
+    inline intptr_t stacktrace_pc() const;
+    
+    // Print stack strace to file
+    void PrintStackstrace(FILE *file) const;
+
+    // Throw a exception
+    static void Throw(Handle<Throwable> exception);
+
+    friend class Machine;
+protected:
+    Throwable(const Class *clazz, uint8_t *stacktrace_bp, uint8_t *stacktrace_sp,
+              intptr_t stacktrace_pc, uint32_t tags)
+        : Any(clazz, tags)
+        , stacktrace_bp_(stacktrace_bp)
+        , stacktrace_sp_(stacktrace_sp)
+        , stacktrace_pc_(stacktrace_pc) {}
+    
+    static Throwable *NewPanic(int code, String *message);
+
+    uint8_t *stacktrace_bp_; // Stack frame base pointer for backtrace
+    uint8_t *stacktrace_sp_; // Stack frame top pointer for backtrace
+    intptr_t stacktrace_pc_; // PC for backtrace
+}; // class Exception
+
+
+
+// Internal error exception
+// Panic can not be catch
+class Panic : public Throwable {
+public:
+    static const int32_t kOffsetCode;
+    static const int32_t kOffsetMessage;
+    
+    // Code of panic reason
+    int code() const { return code_; }
+
+    // Message of panic information
+    Handle<String> message() const { return Handle<String>(quickly_message()); }
+
+    // Internal functions
+    inline String *quickly_message() const;
+
+    // New a panic
+    static Handle<Panic> New(int code, Handle<String> message) {
+        Handle<Throwable> throwable(NewPanic(code, *message));
+        if (throwable.is_empty()) {
+            return Handle<Panic>::Empty();
+        }
+        return Handle<Panic>(static_cast<Panic *>(*throwable));
+    }
+
+    friend class Machine;
+private:
+    Panic(const Class *clazz, uint8_t *stacktrace_bp, uint8_t *stacktrace_sp,
+          intptr_t stacktrace_pc, int code, String *message, uint32_t tags);
+
+    int code_; // code of error
+    String *message_; // [strong ref] Message of error
+}; // class Panic
 
 
 // CXX Function template for binding

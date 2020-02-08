@@ -58,7 +58,7 @@ public:
     void PostRunnable(Coroutine *co, bool now = true);
 
     // Get current thread machine object
-    static Machine *This() { return TLS_STORAGE->machine; }
+    static Machine *This() { return DCHECK_NOTNULL(TLS_STORAGE->machine); }
 
     // Value's factory
     AbstractValue *ValueOfNumber(BuiltinType primitive_type, const void *value, size_t n);
@@ -79,6 +79,9 @@ public:
     
     // New bytecode closure
     Closure *NewClosure(Function *func, size_t captured_var_size, uint32_t flags);
+    
+    // New Panic error object
+    Throwable *NewPanic(int code, String *message, uint32_t flags);
     
     // Handle scope enter
     void EnterHandleScope(HandleScope *handle_scope) {

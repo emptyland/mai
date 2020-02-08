@@ -43,11 +43,11 @@ struct NumberValueSlot {
     #undef DEFINE_ENUM
         kMaxSlots,
     }; // enum Index
-    
+
     static constexpr uintptr_t kPendingMask = 1;
     static constexpr uintptr_t kCreatedMask = ~kPendingMask;
 
-    std::atomic<AbstractValue *> *values;
+    std::atomic<AbstractValue *> *values; // [strong ref]
 }; // struct NumberValueSlot
 
 static_assert(static_cast<int>(kType_bool) == static_cast<int>(NumberValueSlot::kIndex_bool), "");

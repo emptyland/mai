@@ -65,8 +65,8 @@ TEST_F(SchedulerTest, NewCoroutine) {
     EXPECT_NE(nullptr, co->stack());
     EXPECT_EQ(co->stack()->guard0(), co->stack_guard0());
     EXPECT_EQ(co->stack()->guard1(), co->stack_guard1());
-    EXPECT_EQ(co->bp(), co->stack()->stack_hi());
-    EXPECT_EQ(co->sp(), co->stack()->stack_hi());
+    EXPECT_EQ(co->bp0(), co->stack()->stack_hi());
+    EXPECT_EQ(co->sp0(), co->stack()->stack_hi());
     EXPECT_EQ(heap->new_space()->original_chunk(), co->heap_guard0());
     EXPECT_EQ(heap->new_space()->original_limit(), co->heap_guard1());
     

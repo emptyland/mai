@@ -43,7 +43,8 @@ Error MetadataSpace::Initialize() {
     // Void type
     Class *clazz = New<Class>();
     clazz->id_ = NextTypeId();
-    clazz->ref_size_ = 0;
+    clazz->reference_size_ = 0;
+    clazz->instrance_size_ = 0;
     clazz->base_ = nullptr;
     clazz->name_ = NewString("void");
     clazz->tags_ = Type::kBuiltinTag;
@@ -53,7 +54,8 @@ Error MetadataSpace::Initialize() {
 #define DEFINE_PRIMITIVE_CLASS(literal, kind, ...) \
     clazz = New<Class>(); \
     clazz->id_ = NextTypeId(); \
-    clazz->ref_size_ = sizeof(kind); \
+    clazz->reference_size_ = sizeof(kind); \
+    clazz->instrance_size_ = sizeof(kind); \
     clazz->name_ = NewString(#literal); \
     clazz->tags_ = Type::kBuiltinTag|Type::kPrimitiveTag; \
     InsertClass(#literal, clazz); \
@@ -66,7 +68,8 @@ Error MetadataSpace::Initialize() {
     // Any class
     ClassBuilder("any")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
-        .ref_size(kPointerSize)
+        .reference_size(kPointerSize)
+        .instrance_size(sizeof(Any))
         .field("klass")
             .type(builtin_type(kType_u64))
             .flags(Field::kPrivate|Field::kRdWr)
@@ -85,7 +88,8 @@ Error MetadataSpace::Initialize() {
     clazz = ClassBuilder(#literal) \
         .tags(Type::kBuiltinTag|Type::kReferenceTag) \
         .base(builtin_type(kType_any)) \
-        .ref_size(kPointerSize) \
+        .reference_size(kPointerSize) \
+        .instrance_size(sizeof(Number<kind>)) \
         .field("value") \
             .type(builtin_type(kType_##primitive)) \
             .flags(Field::kPrivate|Field::kRead) \
@@ -102,7 +106,8 @@ Error MetadataSpace::Initialize() {
     clazz = ClassBuilder("captured_value")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
         .base(builtin_type(kType_any))
-        .ref_size(kPointerSize)
+        .reference_size(kPointerSize)
+        .instrance_size(sizeof(CapturedValue))
         .field("value")
             .type(builtin_type(kType_any))
             .flags(Field::kPrivate|Field::kRead)
@@ -115,7 +120,8 @@ Error MetadataSpace::Initialize() {
     clazz = ClassBuilder("closure")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
         .base(builtin_type(kType_any))
-        .ref_size(kPointerSize)
+        .reference_size(kPointerSize)
+        .instrance_size(sizeof(Closure))
         .field("proto")
             .type(builtin_type(kType_u64))
             .flags(Field::kPrivate|Field::kRead)
@@ -140,7 +146,9 @@ Error MetadataSpace::Initialize() {
     // String class
     ClassBuilder("string")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
-        .ref_size(kPointerSize)
+        .reference_size(kPointerSize)
+        .instrance_size(sizeof(String))
+        .base(builtin_type(kType_any))
         .field("capacity")
             .type(builtin_type(kType_u32))
             .flags(Field::kPrivate|Field::kRead)
@@ -164,7 +172,9 @@ Error MetadataSpace::Initialize() {
     // MutableMap::Entry
     clazz = ClassBuilder("mutable_map.entry")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
-        .ref_size(kPointerSize)
+        .reference_size(kPointerSize)
+        .instrance_size(sizeof(MutableMapEntry))
+        .base(builtin_type(kType_any))
         .field("next")
             .type(builtin_type(kType_i8))
             .flags(Field::kPublic|Field::kRead)
@@ -196,7 +206,9 @@ Error MetadataSpace::Initialize() {
 #define DEFINE_BUILTIN_CLASS(literal, kind, ...) \
     clazz = ClassBuilder(#literal) \
         .tags(Type::kBuiltinTag|Type::kReferenceTag) \
-        .ref_size(kPointerSize) \
+        .reference_size(kPointerSize) \
+        .instrance_size(sizeof(Array<kind>)) \
+        .base(builtin_type(kType_any)) \
         .field("capacity") \
             .type(builtin_type(kType_u32)) \
             .flags(Field::kPrivate|Field::kRead) \
@@ -222,6 +234,54 @@ Error MetadataSpace::Initialize() {
     DECLARE_MUTABLE_ARRAY_TYPES(DEFINE_BUILTIN_CLASS)
     
 #undef DEFINE_BUILTIN_CLASS
+    
+    // TODO: maps
+
+    clazz = ClassBuilder("Throwable")
+        .tags(Type::kBuiltinTag|Type::kReferenceTag)
+        .reference_size(kPointerSize)
+        .instrance_size(sizeof(Throwable))
+        .base(builtin_type(kType_any))
+        .field("stacktrace_bp")
+            .type(builtin_type(kType_u64))
+            .flags(Field::kPrivate|Field::kRead)
+            .tag(1)
+            .offset(Throwable::kOffsetStacktraceBP)
+        .End()
+        .field("stacktrace_sp")
+            .type(builtin_type(kType_u64))
+            .flags(Field::kPrivate|Field::kRead)
+            .tag(2)
+            .offset(Throwable::kOffsetStacktraceSP)
+        .End()
+        .field("stacktrace_pc")
+            .type(builtin_type(kType_u64))
+            .flags(Field::kPrivate|Field::kRead)
+            .tag(3)
+            .offset(Throwable::kOffsetStacktracePC)
+        .End()
+    .Build(this);
+    DCHECK_EQ(kType_Throwable, clazz->id()) << "Throwable";
+    
+    clazz = ClassBuilder("Panic")
+        .tags(Type::kBuiltinTag|Type::kReferenceTag)
+        .reference_size(kPointerSize)
+        .instrance_size(sizeof(Panic))
+        .base(builtin_type(kType_Throwable))
+        .field("code")
+            .type(builtin_type(kType_int))
+            .flags(Field::kPrivate|Field::kRead)
+            .tag(1)
+            .offset(Panic::kOffsetCode)
+        .End()
+        .field("message")
+            .type(builtin_type(kType_string))
+            .flags(Field::kPrivate|Field::kRead)
+            .tag(2)
+            .offset(Panic::kOffsetMessage)
+        .End()
+    .Build(this);
+    DCHECK_EQ(kType_Panic, clazz->id()) << "Panic";
     
     // Other types from this id;
     DCHECK_LT(next_type_id_, kUserTypeIdBase);
@@ -400,7 +460,8 @@ Class *ClassBuilder::Build(MetadataSpace *space) const {
     clazz->name_ = space->NewString(name_);
     clazz->base_ = base_;
     clazz->tags_ = tags_;
-    clazz->ref_size_ = ref_size_;
+    clazz->reference_size_ = reference_size_;
+    clazz->instrance_size_ = instrance_size_;
     
     Field *fields = space->NewArray<Field>(fields_.size());
     clazz->n_fields_ = static_cast<uint32_t>(fields_.size());

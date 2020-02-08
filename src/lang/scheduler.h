@@ -24,6 +24,8 @@ public:
     DEF_VAL_GETTER(int, concurrency);
     DEF_PTR_GETTER(Machine, machine0);
     
+    int MarkShuttingDown() { return shutting_down_.fetch_add(1); }
+    
     int shutting_down() const { return shutting_down_.load(std::memory_order_acquire); }
 
     size_t n_live_coroutines() const { return n_live_coroutines_.load(); }

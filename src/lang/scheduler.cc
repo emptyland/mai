@@ -40,13 +40,13 @@ Scheduler::~Scheduler() {
 
 void Scheduler::Schedule() {
     Machine *m = DCHECK_NOTNULL(Machine::This());
-    
-    
+
     switch (DCHECK_NOTNULL(m->running())->state()) {
         case Coroutine::kPanic:
+            m->running()->SwitchState(Coroutine::kPanic, Coroutine::kDead);
+            // Fallthrough
         case Coroutine::kDead: {
             // TODO: works steal
-            
             PurgreCoroutine(m->running());
             m->running_ = nullptr;
             TLS_STORAGE->coroutine = nullptr;
@@ -69,7 +69,6 @@ void Scheduler::Schedule() {
             Coroutine *co = m->running();
             m->running_ = nullptr;
             TLS_STORAGE->coroutine = nullptr;
-
             target->PostRunnable(co, false/**/);
         } break;
             
@@ -80,9 +79,7 @@ void Scheduler::Schedule() {
 }
 
 void Scheduler::Shutdown() {
-    //std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    DCHECK_EQ(0, shutting_down_.load());
+    DCHECK_LE(0, shutting_down_.load());
     shutting_down_.fetch_add(1);
 
     for (int i = 1; i < concurrency_; i++) {

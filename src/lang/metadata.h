@@ -53,7 +53,8 @@ public:
     DEF_VAL_GETTER(uint32_t, n_fields);
     DEF_VAL_GETTER(uint32_t, id);
     DEF_VAL_GETTER(uint32_t, tags);
-    DEF_VAL_GETTER(uint32_t, ref_size);
+    DEF_VAL_GETTER(uint32_t, reference_size);
+    DEF_VAL_GETTER(uint32_t, instrance_size);
     DEF_VAL_GETTER(MDStr, name);
     
     inline const Field *field(uint32_t i) const;
@@ -66,7 +67,8 @@ protected:
 
     uint32_t id_ = 0; // Type unique id
     uint32_t tags_ = 0; // Flags
-    uint32_t ref_size_ = 0; // Reference size
+    uint32_t reference_size_ = 0; // Reference size
+    uint32_t instrance_size_ = 0; // Instrance size
     MDStr name_ = nullptr; // Name of type
     uint32_t n_fields_ = 0; // Number of fields
     Field *fields_ = nullptr; // All fields

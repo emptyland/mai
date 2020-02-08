@@ -95,7 +95,7 @@ private:
     uint8_t *trampoline_suspend_point_; // Entry address of suspend
     
     // Cached numbers for ValueOf() functions
-    std::unique_ptr<NumberValueSlot[]> cached_number_slots_;
+    std::unique_ptr<NumberValueSlot[]> cached_number_slots_; // [strong ref]
     
     bool initialized_ = false;
 }; // class Isolate

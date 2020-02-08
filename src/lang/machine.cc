@@ -51,6 +51,7 @@ void Machine::PostRunnable(Coroutine *co, bool now) {
         }
         n_runnable_++;
     }
+    co->set_owner(this);
 
     if (Machine::This() != this) {
         if (state_.load(std::memory_order_acquire) == kIdle) {
@@ -94,7 +95,12 @@ void Machine::Entry() {
             DCHECK_EQ(Coroutine::kRunnable, co->state());
             running_ = co;
             TLS_STORAGE->coroutine = co;
+            
+            CaughtNode caught;
+
+            co->caught_ = &caught;
             trampoline.entry()(co);
+            co->caught_ = nullptr;
             
             if (co->state() == Coroutine::kDead || co->state() == Coroutine::kPanic) {
                 owner_->Schedule();
@@ -259,7 +265,7 @@ AbstractArray *Machine::NewArraySlow(BuiltinType type, size_t length, uint32_t f
     const Field *elems_field =
         DCHECK_NOTNULL(STATE->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
 
-    size_t request_size = sizeof(AbstractArray) + elems_field->type()->ref_size() * length;
+    size_t request_size = sizeof(AbstractArray) + elems_field->type()->reference_size() * length;
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
         return nullptr;
@@ -268,7 +274,7 @@ AbstractArray *Machine::NewArraySlow(BuiltinType type, size_t length, uint32_t f
                                                           static_cast<uint32_t>(length),
                                                           static_cast<uint32_t>(length));
     // Zeroize all elements
-    ::memset(obj + 1, 0, elems_field->type()->ref_size() * length);
+    ::memset(obj + 1, 0, elems_field->type()->reference_size() * length);
     return obj;
 }
 
@@ -283,7 +289,7 @@ AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t i
         DCHECK_NOTNULL(STATE->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
 
     uint32_t length = static_cast<uint32_t>(origin->length() + increment);
-    size_t request_size = sizeof(AbstractArray) + elems_field->type()->ref_size() * length;
+    size_t request_size = sizeof(AbstractArray) + elems_field->type()->reference_size() * length;
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
         return nullptr;
@@ -293,16 +299,16 @@ AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t i
     const Byte *sour = reinterpret_cast<const Byte *>(origin) + elems_field->offset();
 
     // Copy data
-    ::memcpy(dest, sour, origin->length() * elems_field->type()->ref_size());
+    ::memcpy(dest, sour, origin->length() * elems_field->type()->reference_size());
     if (elems_field->type()->is_reference()) {
         // Write-Barrier:
         UpdateRememberRecords(obj, reinterpret_cast<Any **>(dest), origin->length());
     }
 
     if (increment > 0) {
-        dest += elems_field->type()->ref_size() * origin->length();
+        dest += elems_field->type()->reference_size() * origin->length();
         // Zeroize increment space
-        ::memset(dest, 0, elems_field->type()->ref_size() * increment);
+        ::memset(dest, 0, elems_field->type()->reference_size() * increment);
     }
     return obj;
 }
@@ -331,6 +337,22 @@ Closure *Machine::NewClosure(Function *func, size_t captured_var_size, uint32_t 
                                               DCHECK_NOTNULL(func),
                                               static_cast<uint32_t>(captured_var_size), 0/*TODO: color*/);
     return obj;
+}
+
+Throwable *Machine::NewPanic(int code, String *message, uint32_t flags) {
+    AllocationResult result = STATE->heap()->Allocate(sizeof(Panic), flags);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    DCHECK(running_ != nullptr);
+    
+    return new (result.ptr()) Panic(STATE->builtin_type(kType_Panic),
+                                    running_->bp1(),
+                                    running_->sp1(),
+                                    running_->pc1(),
+                                    code,
+                                    message,
+                                    0/*tags*/);
 }
 
 void Machine::InsertFreeCoroutine(Coroutine *co) {

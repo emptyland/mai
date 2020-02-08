@@ -10,6 +10,8 @@ namespace lang {
 class Any;
 class String;
 class Closure;
+class Panic;
+class Throwable;
 template<class T, bool R> class Array;
 template<class T> class Number;
 
@@ -70,9 +72,9 @@ template<class T> class Number;
 
 #define DECLARE_CONTAINER_TYPES(V) \
     DECLARE_ARRAY_TYPES(V) \
-    DECLARE_MUTABLE_ARRAY_TYPES(V) \
-    DECLARE_MAP_TYPES(V) \
-    DECLARE_MUTABLE_MAP_TYPES(V)
+    DECLARE_MUTABLE_ARRAY_TYPES(V)
+    //DECLARE_MAP_TYPES(V) \
+    //DECLARE_MUTABLE_MAP_TYPES(V)
 
 enum BuiltinType: int {
     kType_void,
@@ -85,7 +87,9 @@ enum BuiltinType: int {
     kType_string,
     kType_mutable_map_entry,
     DECLARE_CONTAINER_TYPES(DEFINE_ENUM)
-    
+    kType_Throwable,
+    kType_Panic,
+
     kMax_Types
 #undef DEFINE_ENUM
 };
@@ -330,6 +334,12 @@ template<class T>
 struct TypeTraits<Array<T, true>> {
     static constexpr BuiltinType kType = kType_array;
     static constexpr char kName[] = "array";
+};
+
+template<>
+struct TypeTraits<Panic> {
+    static constexpr BuiltinType kType = kType_Panic;
+    static constexpr char kName[] = "Panic";
 };
 
 } // namespace lang

@@ -39,7 +39,7 @@ private:
         size_t args_size = 0;
         for (size_t i = 0; i < ctx.parameters.size(); i++) {
             const Class *param = space->type(ctx.parameters[i]);
-            args_size += RoundUp(param->ref_size(), 4); // Aligment of 4 bytes
+            args_size += RoundUp(param->reference_size(), 4); // Aligment of 4 bytes
         }
         args_size = RoundUp(args_size, kStackAligmentSize);
         
@@ -54,7 +54,7 @@ private:
             const Class *param = space->type(ctx.parameters[i]);
             if (param->id() == kType_f32 || param->id() == kType_f64) {
                 // Floating
-                switch (param->ref_size()) {
+                switch (param->reference_size()) {
                     case 4: // 32 bits
                         offset -= 4;
                         __ movss(kXmmArgv[fargc++], Operand(rbp, offset));
@@ -70,7 +70,7 @@ private:
                 DCHECK_GE(offset, kPointerSize * 2) << param->name();
             } else {
                 // Integral and references
-                switch (param->ref_size()) {
+                switch (param->reference_size()) {
                     case 1: // 8 bits
                     case 2: // 16 bits
                     case 4: // 32 bits

@@ -1,5 +1,6 @@
 #include "lang/value-inl.h"
 #include "lang/machine.h"
+#include "lang/coroutine.h"
 #include "lang/heap.h"
 #include "asm/utils.h"
 
@@ -27,6 +28,13 @@ const int32_t Closure::kOffsetProto = MEMBER_OFFSET_OF(Closure, mai_fn_);
 const int32_t Closure::kOffsetCode = MEMBER_OFFSET_OF(Closure, cxx_fn_);
 const int32_t Closure::kOffsetCapturedVarSize = MEMBER_OFFSET_OF(Closure, captured_var_size_);
 const int32_t Closure::kOffsetCapturedVar = MEMBER_OFFSET_OF(Closure, captured_var_);
+
+const int32_t Throwable::kOffsetStacktraceBP = MEMBER_OFFSET_OF(Throwable, stacktrace_bp_);
+const int32_t Throwable::kOffsetStacktraceSP = MEMBER_OFFSET_OF(Throwable, stacktrace_sp_);
+const int32_t Throwable::kOffsetStacktracePC = MEMBER_OFFSET_OF(Throwable, stacktrace_pc_);
+
+const int32_t Panic::kOffsetCode = MEMBER_OFFSET_OF(Panic, code_);
+const int32_t Panic::kOffsetMessage = MEMBER_OFFSET_OF(Panic, message_);
 
 // Use function call, it's slowly calling...
 bool Any::SlowlyIs(uint32_t type_id) const { return QuicklyIs(type_id); }
@@ -73,6 +81,29 @@ MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32
 
 /*static*/ AbstractValue *AbstractValue::ValueOf(BuiltinType type, const void *value, size_t n) {
     return Machine::This()->ValueOfNumber(type, value, n);
+}
+
+/*static*/ Throwable *Throwable::NewPanic(int code, String *message) {
+    return Machine::This()->NewPanic(code, message, 0/*flags*/);
+}
+
+void Throwable::PrintStackstrace(FILE *file) const {
+    ::fprintf(file, "👎TODO:\n");
+}
+
+/*static*/ void Throwable::Throw(Handle<Throwable> exception) {
+    Coroutine::This()->set_exception(*exception);
+}
+
+Panic::Panic(const Class *clazz, uint8_t *stacktrace_bp, uint8_t *stacktrace_sp,
+             intptr_t stacktrace_pc, int code, String *message, uint32_t tags)
+    : Throwable(clazz, stacktrace_bp, stacktrace_sp, stacktrace_pc, tags)
+    , code_(code)
+    , message_(message) {
+
+    if (message) {
+        WriteBarrier(reinterpret_cast<Any **>(&message_));
+    }
 }
 
 } // namespace lang

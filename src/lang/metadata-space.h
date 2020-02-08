@@ -315,8 +315,13 @@ public:
         return *this;
     }
     
-    ClassBuilder &ref_size(uint32_t value) {
-        ref_size_ = value;
+    ClassBuilder &reference_size(uint32_t value) {
+        reference_size_ = value;
+        return *this;
+    }
+    
+    ClassBuilder &instrance_size(uint32_t value) {
+        instrance_size_ = value;
         return *this;
     }
     
@@ -360,7 +365,8 @@ private:
     
     std::string name_;
     uint32_t tags_ = 0;
-    uint32_t ref_size_ = 0;
+    uint32_t reference_size_ = 0;
+    uint32_t instrance_size_ = 0;
     std::vector<FieldBuilder *> fields_;
     std::map<std::string, FieldBuilder *> named_fields_;
     std::map<std::string, MethodBuilder *> named_methods_;

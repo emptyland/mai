@@ -11,6 +11,43 @@ namespace mai {
 
 namespace lang {
 
+// Closure's captured-value
+class CapturedValue : public AbstractValue {
+public:
+    // internal functions:
+    inline bool is_object_value() const { return padding_ & kObjectBit; }
+
+    inline bool is_primitive_value() const { return !is_object_value(); }
+
+    inline const void *value() const { return address(); }
+
+    inline void *mutable_value() { return address(); }
+    
+    friend class Machine;
+private:
+    static constexpr uint32_t kObjectBit = 1;
+
+    // Create a primitive captured-value
+    CapturedValue(const Class *clazz, const void *value, size_t n, uint32_t tags)
+        : AbstractValue(clazz, value, n, tags) {
+        padding_ = 0;
+    }
+    
+    // Create a object captured-value
+    CapturedValue(const Class *clazz, Any *value, uint32_t tags)
+        : AbstractValue(clazz, &value, sizeof(value), tags) {
+        padding_ = kObjectBit;
+    }
+
+    // Create a empty captured-value
+    CapturedValue(const Class *clazz, bool is_object, uint32_t tags)
+        : AbstractValue(clazz, tags) {
+        padding_ = is_object ? kObjectBit : 0;
+    }
+}; // class CapturedValue
+
+
+
 inline bool Any::is_forward() const { return klass_ & 1; }
 
 inline Class *Any::clazz() const {
@@ -27,14 +64,6 @@ inline uint32_t Any::tags() const { return tags_; }
 
 inline bool Any::QuicklyIs(uint32_t type_id) const { return clazz()->id() == type_id; }
 
-inline bool CapturedValue::is_object_value() const { return padding_ & kObjectBit; }
-
-inline bool CapturedValue::is_primitive_value() const { return !is_object_value(); }
-
-inline const void *CapturedValue::value() const { return address(); }
-
-inline void *CapturedValue::mutable_value() { return address(); }
-
 inline bool Closure::is_cxx_function() const { return (tags_ & kClosureMask) == kCxxFunction; }
 
 inline bool Closure::is_mai_function() const { return (tags_ & kClosureMask) == kMaiFunction; }
@@ -48,6 +77,14 @@ inline Function *Closure::function() const {
     DCHECK(is_mai_function());
     return DCHECK_NOTNULL(mai_fn_);
 }
+
+inline uint8_t *Throwable::stacktrace_bp() const { return stacktrace_bp_; }
+
+inline uint8_t *Throwable::stacktrace_sp() const { return stacktrace_sp_; }
+
+inline intptr_t Throwable::stacktrace_pc() const { return stacktrace_pc_; }
+
+inline String *Panic::quickly_message() const { return message_; }
 
 } // namespace lang
 

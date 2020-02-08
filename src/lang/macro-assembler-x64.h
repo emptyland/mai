@@ -77,7 +77,7 @@ public:
 
     void JumpNextBC();
 
-    void Throw();
+    void Throw(Register scratch0, Register scratch1);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(MacroAssembler);
 }; // class MacroAssemblerX64

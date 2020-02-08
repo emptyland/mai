@@ -37,10 +37,10 @@ void MacroAssembler::JumpNextBC() {
     jmp(Operand(BC_ARRAY, rbx, times_8, 0)); // [BC_ARRAY + rbx * 8]
 }
 
-void MacroAssembler::Throw() {
-    movq(SCRATCH, Operand(CO, Coroutine::kOffsetCaught));
-    movq(rbx, Operand(SCRATCH, kOffsetCaught_PC));
-    jmp(rbx);
+void MacroAssembler::Throw(Register scratch0, Register scratch1) {
+    movq(scratch0, Operand(CO, Coroutine::kOffsetCaught));
+    movq(scratch1, Operand(scratch0, kOffsetCaught_PC));
+    jmp(scratch1);
     int3(); // Never goto there
 }
 
@@ -48,9 +48,9 @@ void MacroAssembler::SaveState0(Register scratch) {
     movq(Operand(CO, Coroutine::kOffsetACC), ACC);
     movsd(Operand(CO, Coroutine::kOffsetFACC), FACC);
     movl(scratch, Operand(rbp, BytecodeStackFrame::kOffsetPC));
-    movq(Operand(CO, Coroutine::kOffsetPC), scratch);
-    movq(Operand(CO, Coroutine::kOffsetBP), rbp);
-    movq(Operand(CO, Coroutine::kOffsetSP), rsp);
+    movq(Operand(CO, Coroutine::kOffsetPC0), scratch);
+    movq(Operand(CO, Coroutine::kOffsetBP0), rbp);
+    movq(Operand(CO, Coroutine::kOffsetSP0), rsp);
 }
 
 void MacroAssembler::SaveState1(Register scratch) {
@@ -98,8 +98,8 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm) {
     // No need
 
     // Enter mai env:
-    __ movq(rsp, Operand(CO, Coroutine::kOffsetSP));
-    __ movq(rbp, Operand(CO, Coroutine::kOffsetBP));
+    __ movq(rsp, Operand(CO, Coroutine::kOffsetSP0));
+    __ movq(rbp, Operand(CO, Coroutine::kOffsetBP0));
     __ incl(Operand(CO, Coroutine::kOffsetReentrant)); // ++co->reentrant_;
     __ movl(Operand(CO, Coroutine::kOffsetYield), 0); // co->yield_ = 0;
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kRunning);
@@ -199,8 +199,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
 
     // Set root exception handler
     //__ Breakpoint();
-    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtPoint));
-    __ movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH); // coroutine.caught = &caught
+    __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetCaught));
     __ movq(Operand(SCRATCH, kOffsetCaught_Next), static_cast<int32_t>(0));
     __ movq(Operand(SCRATCH, kOffsetCaught_BP), rbp); // caught.bp = system rbp
     __ movq(Operand(SCRATCH, kOffsetCaught_SP), rsp); // caught.sp = system rsp
@@ -222,8 +221,8 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     // entry: --------------------------------------------------------------------------------------
     // Function entry:
     __ Bind(&entry);
-    __ movq(rbp, Operand(CO, Coroutine::kOffsetBP)); // recover mai stack
-    __ movq(rsp, Operand(CO, Coroutine::kOffsetSP)); // recover mai stack
+    __ movq(rbp, Operand(CO, Coroutine::kOffsetBP0)); // recover mai stack
+    __ movq(rsp, Operand(CO, Coroutine::kOffsetSP0)); // recover mai stack
     __ movl(Operand(CO, Coroutine::kOffsetYield), 0); // coroutine.yield = 0
     __ cmpl(Operand(CO, Coroutine::kOffsetReentrant), 0);
     Label resume; // if (coroutine->reentrant > 0)
@@ -640,7 +639,7 @@ public:
         // Move native function throws exception to ACC
         __ movq(ACC, Operand(CO, Coroutine::kOffsetException));
         // Then throw in mai env:
-        __ Throw();
+        __ Throw(SCRATCH, rbx);
 
         __ Bind(&done);
     }

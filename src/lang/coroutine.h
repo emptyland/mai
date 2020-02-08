@@ -47,9 +47,9 @@ public:
     static const int32_t kOffsetSysBP;
     static const int32_t kOffsetSysSP;
     static const int32_t kOffsetSysPC;
-    static const int32_t kOffsetBP;
-    static const int32_t kOffsetSP;
-    static const int32_t kOffsetPC;
+    static const int32_t kOffsetBP0;
+    static const int32_t kOffsetSP0;
+    static const int32_t kOffsetPC0;
     static const int32_t kOffsetBP1;
     static const int32_t kOffsetSP1;
     static const int32_t kOffsetPC1;
@@ -90,9 +90,14 @@ public:
     DEF_VAL_GETTER(Address, sys_bp);
     DEF_VAL_GETTER(Address, sys_sp);
     DEF_VAL_GETTER(Address, sys_pc);
+    DEF_PTR_PROP_RW(Throwable, exception);
     
-    Address sp() const { return bit_cast<Address>(saved_state0_[kSPIndex]); }
-    Address bp() const { return bit_cast<Address>(saved_state0_[kBPIndex]); }
+    Address sp0() const { return bit_cast<Address>(saved_state0_[kSPIndex]); }
+    Address bp0() const { return bit_cast<Address>(saved_state0_[kBPIndex]); }
+
+    Address sp1() const { return bit_cast<Address>(saved_state1_[kSPIndex]); }
+    Address bp1() const { return bit_cast<Address>(saved_state1_[kBPIndex]); }
+    intptr_t pc1() const { return saved_state1_[kPCIndex]; }
     
     void SwitchState(State expected, State want) {
         DCHECK_EQ(state_, expected);
@@ -105,11 +110,13 @@ public:
         DCHECK_EQ(reentrant_, 0);
         DCHECK_EQ(0, n % kStackAligmentSize);
         saved_state0_[kSPIndex] -= n;
-        ::memcpy(sp(), data, n);
+        ::memcpy(sp0(), data, n);
     }
     
-    void Uncaught(Any *expection);
+    void Uncaught(Throwable *expection);
     void Suspend(intptr_t acc, double facc);
+    
+    static Coroutine *This() { return DCHECK_NOTNULL(TLS_STORAGE->coroutine); }
     
     static Coroutine *NewDummy() {
         void *chunk = ::malloc(sizeof(Coroutine *) * 2); // next_ and prev_
@@ -135,7 +142,7 @@ private:
     Address heap_guard0_; // New space address guard0 for write barrier
     Address heap_guard1_; // New space address guard1 for write barrier
     State state_; // Coroutine current state
-    Any *exception_; // [strong ref] Native function thrown exception
+    Throwable *exception_; // [strong ref] Native function thrown exception
     CaughtNode *caught_; // Exception hook for exception caught
     uint32_t yield_; // Yield requests, if yield > 0, need yield
     uint32_t reentrant_; // Number of reentrant times

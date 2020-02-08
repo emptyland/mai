@@ -202,7 +202,6 @@ TEST_F(CoroutineTest, RunBytecodeFunctionSanity) {
     CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
     co->set_state(Coroutine::kRunnable);
     trampoline.entry()(co);
-    //Use(co);
     ASSERT_EQ(Coroutine::kDead, co->state());
     ASSERT_EQ(0, co->yield());
     ASSERT_EQ(1, co->reentrant());
@@ -395,6 +394,36 @@ TEST_F(CoroutineTest, ScheduleSanity) {
     scheduler_->machine(1)->PostRunnable(co);
 
     STATE->Run();
+}
+
+static void Dummy9() {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    dummy_result.i32_2 = 250;
+    dummy_result.i32_1++;
+    
+    Handle<Throwable> exception(Panic::New(0, String::NewUtf8("Test")));
+    Throwable::Throw(exception);
+}
+
+TEST_F(CoroutineTest, ThrowException) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(0);
+    builder.Add<kReturn>();
+
+    Handle<Closure> dummy(FunctionTemplate::New(Dummy9));
+    Span32 span;
+    span.ptr[0].any = *dummy;
+    
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+    
+    isolate_->Run();
 }
 
 } // namespace lang
