@@ -136,15 +136,14 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm) {
 void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
     StackFrameScope frame_scope(masm, StubStackFrame::kSize);
 
-    //__ Breakpoint();
     __ movq(Operand(rbp, StubStackFrame::kOffsetMaker), StubStackFrame::kMaker);
-    
+
     __ movq(Operand(CO, Coroutine::kOffsetBP1), rbp);
     __ movq(Operand(CO, Coroutine::kOffsetSP1), rsp);
     __ movq(rbp, Operand(CO, Coroutine::kOffsetSysBP)); // recover system bp
     __ movq(rsp, Operand(CO, Coroutine::kOffsetSysSP)); // recover system sp
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kFallIn);
-    
+
     __ pushq(SCRATCH);
     __ pushq(CO);
     __ pushq(BC);
@@ -156,7 +155,7 @@ void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
     __ popq(BC);
     __ popq(CO);
     __ popq(SCRATCH);
-    
+
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kRunning);
     __ movq(rbp, Operand(CO, Coroutine::kOffsetBP1)); // recover mai sp
     __ movq(rsp, Operand(CO, Coroutine::kOffsetSP1)); // recover mai bp
@@ -164,12 +163,15 @@ void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
 
 // Prototype: void Trampoline(Coroutine *co)
 void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump, int *suspend_point_pc) {
-    StackFrameScope frame_scope(masm);
+    StackFrameScope frame_scope(masm, TrampolineStackFrame::kSize);
     //==============================================================================================
     // NOTICE: The fucking clang++ optimizer will proecte: r12~r15 and rbx registers.
     // =============================================================================================
     __ SaveCxxCallerRegisters();
     // =============================================================================================
+    
+    // Setup stack maker
+    __ movl(Operand(rbp, StackFrame::kOffsetMaker), TrampolineStackFrame::kMaker);
 
     // Save system stack and frame
     __ movq(CO, Argv_0); // Install CO register
@@ -196,10 +198,9 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ cmpl(Operand(CO, Coroutine::kOffsetReentrant), 0);
     __ j(Greater, &entry, true/*is_far*/);
 
-
     // Set root exception handler
-    //__ Breakpoint();
-    __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetCaught));
+    __ leaq(SCRATCH, Operand(rbp, TrampolineStackFrame::kOffsetCaughtPoint));
+    __ movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH);
     __ movq(Operand(SCRATCH, kOffsetCaught_Next), static_cast<int32_t>(0));
     __ movq(Operand(SCRATCH, kOffsetCaught_BP), rbp); // caught.bp = system rbp
     __ movq(Operand(SCRATCH, kOffsetCaught_SP), rsp); // caught.sp = system rsp
@@ -232,12 +233,10 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kRunning);
     __ movq(Argv_0, Operand(CO, Coroutine::kOffsetEntry));
     __ movq(rax, pump);
-    //__ Breakpoint();
     __ call(rax);
-    //__ Breakpoint();
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kDead);
-    Label uninstall;
-    __ jmp(&uninstall, true/*is_far*/);
+    __ movq(Operand(CO, Coroutine::kOffsetCaught), static_cast<int32_t>(0));
+    __ jmp(&done, true/*is_far*/);
 
 
     // suspend: ------------------------------------------------------------------------------------
@@ -266,18 +265,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ movq(ACC, Operand(CO, Coroutine::kOffsetACC)); // recover mai ACC
     __ movsd(FACC, Operand(CO, Coroutine::kOffsetFACC)); // recover mai FACC
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kRunning);
-    //__ Breakpoint();
     __ JumpNextBC();
-
-
-    // uninstall: ----------------------------------------------------------------------------------
-    // Restore native stack and frame
-    // Unset root exception handler
-    __ Bind(&uninstall);
-    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtPoint));
-    __ movq(rax, Operand(SCRATCH, kOffsetCaught_Next));
-    __ movq(Operand(CO, Coroutine::kOffsetCaught), rax); // coroutine.caught = caught.next
-
 
     // done: ---------------------------------------------------------------------------------------
     // Recover system stack

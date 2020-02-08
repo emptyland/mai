@@ -64,6 +64,13 @@ inline uint32_t Any::tags() const { return tags_; }
 
 inline bool Any::QuicklyIs(uint32_t type_id) const { return clazz()->id() == type_id; }
 
+template<class T>
+inline void Array<T, true>::quickly_set_nobarrier(size_t i, T value) {
+    DCHECK_GE(i, 0);
+    DCHECK_LT(i, length_);
+    elems_[i] = value;
+}
+
 inline bool Closure::is_cxx_function() const { return (tags_ & kClosureMask) == kCxxFunction; }
 
 inline bool Closure::is_mai_function() const { return (tags_ & kClosureMask) == kMaiFunction; }
@@ -78,11 +85,7 @@ inline Function *Closure::function() const {
     return DCHECK_NOTNULL(mai_fn_);
 }
 
-inline uint8_t *Throwable::stacktrace_bp() const { return stacktrace_bp_; }
-
-inline uint8_t *Throwable::stacktrace_sp() const { return stacktrace_sp_; }
-
-inline intptr_t Throwable::stacktrace_pc() const { return stacktrace_pc_; }
+inline Array<String *> *Throwable::stacktrace() const { return stacktrace_; }
 
 inline String *Panic::quickly_message() const { return message_; }
 

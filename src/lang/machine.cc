@@ -95,12 +95,8 @@ void Machine::Entry() {
             DCHECK_EQ(Coroutine::kRunnable, co->state());
             running_ = co;
             TLS_STORAGE->coroutine = co;
-            
-            CaughtNode caught;
 
-            co->caught_ = &caught;
             trampoline.entry()(co);
-            co->caught_ = nullptr;
             
             if (co->state() == Coroutine::kDead || co->state() == Coroutine::kPanic) {
                 owner_->Schedule();
@@ -345,14 +341,12 @@ Throwable *Machine::NewPanic(int code, String *message, uint32_t flags) {
         return nullptr;
     }
     DCHECK(running_ != nullptr);
-    
-    return new (result.ptr()) Panic(STATE->builtin_type(kType_Panic),
-                                    running_->bp1(),
-                                    running_->sp1(),
-                                    running_->pc1(),
-                                    code,
-                                    message,
-                                    0/*tags*/);
+    Array<String *> *stacktrace = Throwable::MakeStacktrace(running_->bp1());
+    if (!stacktrace) {
+        return nullptr;
+    }
+    return new (result.ptr()) Panic(STATE->builtin_type(kType_Panic), stacktrace, code, message,
+                                    0/*TODO: color*/);
 }
 
 void Machine::InsertFreeCoroutine(Coroutine *co) {

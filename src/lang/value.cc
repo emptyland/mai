@@ -2,6 +2,8 @@
 #include "lang/machine.h"
 #include "lang/coroutine.h"
 #include "lang/heap.h"
+#include "lang/stack.h"
+#include "lang/stack-frame.h"
 #include "asm/utils.h"
 
 namespace mai {
@@ -29,9 +31,7 @@ const int32_t Closure::kOffsetCode = MEMBER_OFFSET_OF(Closure, cxx_fn_);
 const int32_t Closure::kOffsetCapturedVarSize = MEMBER_OFFSET_OF(Closure, captured_var_size_);
 const int32_t Closure::kOffsetCapturedVar = MEMBER_OFFSET_OF(Closure, captured_var_);
 
-const int32_t Throwable::kOffsetStacktraceBP = MEMBER_OFFSET_OF(Throwable, stacktrace_bp_);
-const int32_t Throwable::kOffsetStacktraceSP = MEMBER_OFFSET_OF(Throwable, stacktrace_sp_);
-const int32_t Throwable::kOffsetStacktracePC = MEMBER_OFFSET_OF(Throwable, stacktrace_pc_);
+const int32_t Throwable::kOffsetStacktrace = MEMBER_OFFSET_OF(Throwable, stacktrace_);
 
 const int32_t Panic::kOffsetCode = MEMBER_OFFSET_OF(Panic, code_);
 const int32_t Panic::kOffsetMessage = MEMBER_OFFSET_OF(Panic, message_);
@@ -88,19 +88,48 @@ MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32
 }
 
 void Throwable::PrintStackstrace(FILE *file) const {
-    ::fprintf(file, "👎TODO:\n");
+    Coroutine *co = Coroutine::This();
+    if (co == nullptr) {
+        ::fprintf(file, "👎Call PrintStackstrace() must be in executing");
+        return;
+    }
+    
+    // TODO:
+}
+
+/*static*/ Array<String *> *Throwable::MakeStacktrace(Address frame_bp) {
+    Coroutine *co = Coroutine::This();
+    std::vector<String *> lines;
+    if (!co) {
+        char s[] = "👎Call PrintStackstrace() must be in executing";
+        lines.push_back(Machine::This()->NewUtf8String(s, sizeof(s)-1, 0));
+    } else {
+        printf("hi: %p, lo: %p, sp: %p, bp: %p\n", co->stack()->stack_hi(),
+               co->stack()->stack_lo(), co->sp1(), co->bp1());
+        frame_bp = co->sp1();
+        while (frame_bp < co->stack()->stack_hi()) {
+            printf("%p: 0x%016lx\n", frame_bp, *reinterpret_cast<intptr_t *>(frame_bp));
+            frame_bp += 8;
+        }
+    }
+    
+    Array<String *> *trace =
+        static_cast<Array<String *> *>(Machine::This()->NewArraySlow(kType_array, lines.size(), 0));
+    for (size_t i = 0; i < lines.size(); i++) {
+        trace->quickly_set_nobarrier(i, lines[i]);
+    }
+    return trace;
 }
 
 /*static*/ void Throwable::Throw(Handle<Throwable> exception) {
     Coroutine::This()->set_exception(*exception);
 }
 
-Panic::Panic(const Class *clazz, uint8_t *stacktrace_bp, uint8_t *stacktrace_sp,
-             intptr_t stacktrace_pc, int code, String *message, uint32_t tags)
-    : Throwable(clazz, stacktrace_bp, stacktrace_sp, stacktrace_pc, tags)
+Panic::Panic(const Class *clazz, Array<String *> *stacktrace, int code, String *message, uint32_t tags)
+    : Throwable(clazz, stacktrace, tags)
     , code_(code)
     , message_(message) {
-
+    
     if (message) {
         WriteBarrier(reinterpret_cast<Any **>(&message_));
     }

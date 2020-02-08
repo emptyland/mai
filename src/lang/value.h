@@ -229,6 +229,8 @@ public:
         return copied;
     }
 
+    inline void quickly_set_nobarrier(size_t i, T value);
+    
     friend class Machine;
 protected:
     Array(const Class *clazz, uint32_t capacity, uint32_t length)
@@ -458,14 +460,10 @@ private:
 // All exception's base class
 class Throwable : public Any {
 public:
-    static const int32_t kOffsetStacktraceBP;
-    static const int32_t kOffsetStacktraceSP;
-    static const int32_t kOffsetStacktracePC;
+    static const int32_t kOffsetStacktrace;
     
     // Internal functions:
-    inline uint8_t *stacktrace_bp() const;
-    inline uint8_t *stacktrace_sp() const;
-    inline intptr_t stacktrace_pc() const;
+    inline Array<String *> *stacktrace() const;
     
     // Print stack strace to file
     void PrintStackstrace(FILE *file) const;
@@ -475,18 +473,19 @@ public:
 
     friend class Machine;
 protected:
-    Throwable(const Class *clazz, uint8_t *stacktrace_bp, uint8_t *stacktrace_sp,
-              intptr_t stacktrace_pc, uint32_t tags)
+    Throwable(const Class *clazz, Array<String *> *stacktrace, uint32_t tags)
         : Any(clazz, tags)
-        , stacktrace_bp_(stacktrace_bp)
-        , stacktrace_sp_(stacktrace_sp)
-        , stacktrace_pc_(stacktrace_pc) {}
+        , stacktrace_(stacktrace) {
+        if (stacktrace) {
+            WriteBarrier(reinterpret_cast<Any **>(&stacktrace_));
+        }
+    }
     
     static Throwable *NewPanic(int code, String *message);
+    
+    static Array<String *> *MakeStacktrace(uint8_t *frame_bp);
 
-    uint8_t *stacktrace_bp_; // Stack frame base pointer for backtrace
-    uint8_t *stacktrace_sp_; // Stack frame top pointer for backtrace
-    intptr_t stacktrace_pc_; // PC for backtrace
+    Array<String *> *stacktrace_; // [strong ref] stacktrace information
 }; // class Exception
 
 
@@ -518,8 +517,7 @@ public:
 
     friend class Machine;
 private:
-    Panic(const Class *clazz, uint8_t *stacktrace_bp, uint8_t *stacktrace_sp,
-          intptr_t stacktrace_pc, int code, String *message, uint32_t tags);
+    Panic(const Class *clazz, Array<String *> *stacktrace, int code, String *message, uint32_t tags);
 
     int code_; // code of error
     String *message_; // [strong ref] Message of error

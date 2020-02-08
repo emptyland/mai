@@ -20,6 +20,12 @@ struct StackFrame {
     static constexpr int32_t kOffsetMaker = kOffsetSavedBP - static_cast<int>(sizeof(Maker));
 }; // struct StackFrame
 
+struct TrampolineStackFrame : public StackFrame {
+    static constexpr int32_t kMaker = kTrampoline;
+
+    static constexpr int32_t kOffsetCaughtPoint = kOffsetMaker - 32;
+    static constexpr int32_t kSize = RoundUp(-kOffsetCaughtPoint, kStackAligmentSize);
+}; // struct TrampolineStackFrame
 
 struct StubStackFrame : public StackFrame {
     static constexpr int32_t kMaker = kStub;
