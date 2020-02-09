@@ -15,6 +15,7 @@ namespace lang {
 
 class Heap;
 class MetadataSpace;
+class Factory;
 class Scheduler;
 class Machine;
 class Class;
@@ -33,7 +34,6 @@ struct Options {
 // The virtual machine isolate object:
 class Isolate final {
 public:
-    static constexpr int64_t kNumberOfCachedNumberValues = 128;
     static const int32_t kOffsetBytecodeHandlerEntries;
     static const int32_t kOffsetTrampolineSuspendPoint;
     
@@ -59,6 +59,7 @@ public:
     inline const Class *builtin_type(BuiltinType type) const;
     inline uint8_t **bytecode_handler_entries() const;
     inline std::atomic<AbstractValue *> *cached_number_value(int slot, int64_t index);
+    inline Factory *factory() const;
 
     friend class Machine;
     friend class IsolateScope;
@@ -85,6 +86,7 @@ private:
     Env *env_; // The base api env object
     Heap *heap_; // Heap allocator
     MetadataSpace *metadata_space_; // Metadata memory space
+    Factory *factory_; // Some Heap object collection
     Scheduler *scheduler_; // Scheduler
     
     GlobalHandleNode *persistent_dummy_; // Global handle double-linked list dummy
@@ -93,9 +95,6 @@ private:
     
     uint8_t **bytecode_handler_entries_; // Entry address of all bytecode handlers
     uint8_t *trampoline_suspend_point_; // Entry address of suspend
-    
-    // Cached numbers for ValueOf() functions
-    std::unique_ptr<NumberValueSlot[]> cached_number_slots_; // [strong ref]
     
     bool initialized_ = false;
 }; // class Isolate

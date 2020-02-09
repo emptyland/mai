@@ -176,7 +176,7 @@ public:
         return AllocationResult(AllocationResult::OK, space);
     }
     
-    bool Contains(Address addr) const { return addr >=original_chunk() || addr < original_limit(); }
+    bool Contains(Address addr) const { return addr >=original_chunk() && addr < original_limit(); }
     
     size_t GetAllocatedSize(Address addr) {
         DCHECK_GE(addr, original_area_->chunk());

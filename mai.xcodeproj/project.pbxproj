@@ -166,6 +166,7 @@
 		23BF17E621D4A96D00A722B9 /* transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E421D4A96D00A722B9 /* transaction-db.cc */; };
 		23BF17EB21D4C1D100A722B9 /* delta-amend-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */; };
 		23CC114F21D71F49001665AC /* transaction-lock-mgr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */; };
+		23D48A4823F05D260010A17E /* factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D48A4723F05D260010A17E /* factory.cc */; };
 		23DE180F21D088B000479C23 /* write-ahead-log.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */; };
 		23DE181021D088B000479C23 /* write-batch.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60601219BBE9600CE12D9 /* write-batch.cc */; };
 		23DE181121D088B000479C23 /* db-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60605219BC40E00CE12D9 /* db-impl.cc */; };
@@ -487,6 +488,8 @@
 		23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-tree-memory-table.cc"; sourceTree = "<group>"; };
 		23CC114B21D71EB1001665AC /* transaction-lock-mgr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "transaction-lock-mgr.h"; sourceTree = "<group>"; };
 		23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-lock-mgr.cc"; sourceTree = "<group>"; };
+		23D48A4623F05A090010A17E /* factory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = factory.h; sourceTree = "<group>"; };
+		23D48A4723F05D260010A17E /* factory.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = factory.cc; sourceTree = "<group>"; };
 		23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pipeline-queue.h"; sourceTree = "<group>"; };
 		23DE17A521D07CD200479C23 /* benchmark */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = benchmark; sourceTree = BUILT_PRODUCTS_DIR; };
 		23DE17F021D07D9400479C23 /* benchmark-main.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "benchmark-main.cc"; sourceTree = "<group>"; };
@@ -641,6 +644,8 @@
 				236EA78C23D6FC620071047C /* metadata.cc */,
 				236EA78F23D72F0B0071047C /* metadata-space.h */,
 				236EA79023D72F3B0071047C /* metadata-space.cc */,
+				23D48A4623F05A090010A17E /* factory.h */,
+				23D48A4723F05D260010A17E /* factory.cc */,
 				236EA78E23D6FCAF0071047C /* type-defs.h */,
 				230510B623DF315400B89A7C /* machine.h */,
 				230510B723DF318100B89A7C /* machine.cc */,
@@ -1305,6 +1310,7 @@
 				2364B30021E451F9008519AE /* unordered-memory-table.cc in Sources */,
 				2364B30121E451F9008519AE /* bytewise-comparator.cc in Sources */,
 				236EA78123D69A760071047C /* space.cc in Sources */,
+				23D48A4823F05D260010A17E /* factory.cc in Sources */,
 				2364B30321E451F9008519AE /* key-boundle.cc in Sources */,
 				23804A0B228A6C400079C95C /* asm-x64.cc in Sources */,
 				2364B30421E451F9008519AE /* iterator.cc in Sources */,

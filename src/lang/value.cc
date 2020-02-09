@@ -103,7 +103,7 @@ void Throwable::PrintStackstrace(FILE *file) const {
 }
 
 /*static*/ Array<String *> *Throwable::MakeStacktrace(Address frame_bp) {
-    Coroutine *co = Coroutine::This();
+    Coroutine *co = TLS_STORAGE->coroutine;
     std::vector<String *> lines;
     if (!co) {
         char s[] = "👎Call PrintStackstrace() must be in executing";
@@ -213,6 +213,12 @@ void IncrementalStringBuilder::AppendString(const char *z, size_t n) {
 }
 
 String *IncrementalStringBuilder::Finish() const {
+    if (!incomplete_ || !incomplete()) {
+        return nullptr;
+    }
+    if (incomplete()->length() == 0) {
+        return STATE->factory()->empty_string();
+    }
     String *result = Machine::This()->Array8ToString(incomplete());
     *incomplete_ = nullptr;
     return result;

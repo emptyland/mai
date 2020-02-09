@@ -116,7 +116,7 @@ public:
     // Update local remember-set record
     int UpdateRememberRecords(Any *host, Any **address, size_t n) {
         // TODO:
-        DLOG(ERROR) << "TODO: batch write barrier : " << n;
+        //DLOG(ERROR) << "TODO: batch write barrier : " << n;
         return 0;
     }
 

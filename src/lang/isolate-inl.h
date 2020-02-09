@@ -3,6 +3,7 @@
 #define MAI_LANG_ISOLATE_INL_H_
 
 #include "lang/isolate.h"
+#include "lang/factory.h"
 #include "lang/type-defs.h"
 #include "lang/metadata-space.h"
 #include "base/queue-macros.h"
@@ -35,21 +36,6 @@ struct GlobalHandleNode {
     int mid = 0; // Onwer thread id(machine-id)
 }; // struct PersistentNode
 
-struct NumberValueSlot {
-    enum Index {
-        kIndexUnused, // Skip type: void
-    #define DEFINE_ENUM(name, ...) kIndex_##name,
-        DECLARE_PRIMITIVE_TYPES(DEFINE_ENUM)
-    #undef DEFINE_ENUM
-        kMaxSlots,
-    }; // enum Index
-
-    static constexpr uintptr_t kPendingMask = 1;
-    static constexpr uintptr_t kCreatedMask = ~kPendingMask;
-
-    std::atomic<AbstractValue *> *values; // [strong ref]
-}; // struct NumberValueSlot
-
 static_assert(static_cast<int>(kType_bool) == static_cast<int>(NumberValueSlot::kIndex_bool), "");
 
 extern Isolate *__isolate;
@@ -64,6 +50,8 @@ inline Heap *Isolate::heap() const { return DCHECK_NOTNULL(heap_); }
 
 inline MetadataSpace *Isolate::metadata_space() const { return DCHECK_NOTNULL(metadata_space_); }
 
+inline Factory *Isolate::factory() const { return DCHECK_NOTNULL(factory_); }
+
 inline Scheduler *Isolate::scheduler() const { return DCHECK_NOTNULL(scheduler_); }
 
 inline const Class *Isolate::builtin_type(BuiltinType type) const {
@@ -75,15 +63,11 @@ inline uint8_t **Isolate::bytecode_handler_entries() const {
 }
 
 inline NumberValueSlot *Isolate::cached_number_slot(int index) {
-    DCHECK_GT(index, NumberValueSlot::kIndexUnused);
-    DCHECK_LT(index, NumberValueSlot::kMaxSlots);
-    return &cached_number_slots_[index];
+    return factory_->cached_number_slot(index);
 }
 
 inline std::atomic<AbstractValue *> *Isolate::cached_number_value(int slot, int64_t index) {
-    DCHECK_GE(index, 0);
-    DCHECK_LT(index, kNumberOfCachedNumberValues);
-    return cached_number_slot(slot)->values + index;
+    return factory_->cached_number_value(slot, index);
 }
 
 inline GlobalHandleNode *Isolate::NewGlobalHandle(const void *pointer) {

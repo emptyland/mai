@@ -192,7 +192,7 @@ static bool NeedInit(std::atomic<AbstractValue *> *address) {
 template<class T>
 static AbstractValue *GetOrInstallNumber(BuiltinType primitive_type, const void *value, size_t n) {
     int64_t index = *static_cast<const T *>(value);
-    if (index < 0 || index >= Isolate::kNumberOfCachedNumberValues) {
+    if (index < 0 || index >= Factory::kNumberOfCachedNumberValues) {
         return Machine::This()->NewNumber(primitive_type, value, n, 0);
     }
     auto address = DCHECK_NOTNULL(STATE->cached_number_value(primitive_type, index));
@@ -399,8 +399,7 @@ Throwable *Machine::NewPanic(int code, String *message, uint32_t flags) {
     if (!result.ok()) {
         return nullptr;
     }
-    DCHECK(running_ != nullptr);
-    Array<String *> *stacktrace = Throwable::MakeStacktrace(running_->bp1());
+    Array<String *> *stacktrace = Throwable::MakeStacktrace(!running_ ? nullptr : running_->bp1());
     if (!stacktrace) {
         return nullptr;
     }
