@@ -69,11 +69,20 @@ public:
     // New a UTF-8 encoding string
     String *NewUtf8String(const char *utf8_string, size_t n, uint32_t flags);
 
-    // New (immutable) array slowly
-    AbstractArray *NewArraySlow(BuiltinType type, size_t length, uint32_t flags);
+    // New (immutable/mutable) array slowly
+    AbstractArray *NewArray(BuiltinType type, size_t length, size_t capacity, uint32_t flags);
+
+    AbstractArray *NewArrayCopied(const AbstractArray *origin, size_t increment, uint32_t flags);
     
-    AbstractArray *NewArrayCopiedSlow(const AbstractArray *origin, size_t increment, uint32_t flags);
+    // New (mutable) array
+    AbstractArray *NewMutableArray(BuiltinType type, size_t length, size_t capacity, uint32_t flags);
     
+    AbstractArray *NewMutableArray8(const void *init_data, size_t length, size_t capacity, uint32_t flags);
+    
+    AbstractArray *ResizeMutableArray(AbstractArray *origin, size_t new_size);
+    
+    String *Array8ToString(AbstractArray *from);
+
     // New native closure
     Closure *NewClosure(Code *code, size_t captured_var_size, uint32_t flags);
     
@@ -82,6 +91,9 @@ public:
     
     // New Panic error object
     Throwable *NewPanic(int code, String *message, uint32_t flags);
+    
+    // New base of Exception object
+    Exception *NewException(uint32_t type, String *message, Exception *cause, uint32_t flags);
     
     // Handle scope enter
     void EnterHandleScope(HandleScope *handle_scope) {

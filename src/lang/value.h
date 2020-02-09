@@ -8,6 +8,8 @@
 #include <string.h>
 #include <vector>
 #include <type_traits>
+#include <string_view>
+#include <string>
 
 namespace mai {
 
@@ -31,6 +33,7 @@ public:
     // internal functions:
     inline bool is_forward() const;
     inline Class *clazz() const;
+    inline void set_clazz(const Class *clazz);
     inline Any *forward() const;
     inline uint32_t tags() const;
     inline bool QuicklyIs(uint32_t type_id) const;
@@ -81,8 +84,8 @@ public:
 
     friend class Machine;
 protected:
-    AbstractArray(const Class *clazz, uint32_t capacity, uint32_t length)
-        : Any(clazz, 0)
+    AbstractArray(const Class *clazz, uint32_t capacity, uint32_t length, uint32_t tags)
+        : Any(clazz, tags)
         , capacity_(capacity)
         , length_(length) {
     }
@@ -156,11 +159,16 @@ public:
         ::memcpy(copied->elems_ + index, elems_ + index + 1, (length_ - 1 - index) * sizeof(T));
         return copied;
     }
+    
+    // Internal functions
+    inline T quickly_get(size_t i) const;
+    inline void quickly_set(size_t i, T value);
+    inline void QuicklyAppendNoResize(const T *data, size_t n);
 
     friend class Machine;
 protected:
-    Array(const Class *clazz, uint32_t capacity, uint32_t length)
-        : AbstractArray(clazz, capacity, length) {
+    Array(const Class *clazz, uint32_t capacity, uint32_t length, uint32_t tags)
+        : AbstractArray(clazz, capacity, length, tags) {
         ::memset(elems_, 0, sizeof(T) * length);
     }
 
@@ -196,7 +204,7 @@ public:
     }
 
     // Accessor
-    Handle<CoreType> At(size_t i) const {
+    inline Handle<CoreType> At(size_t i) const {
         return (i < length_) ? Handle<CoreType>(elems_[i]) : Handle<CoreType>::Empty();
     }
 
@@ -229,12 +237,14 @@ public:
         return copied;
     }
 
+    // Internal functions
+    inline T quickly_get(size_t i) const;
     inline void quickly_set_nobarrier(size_t i, T value);
     
     friend class Machine;
 protected:
-    Array(const Class *clazz, uint32_t capacity, uint32_t length)
-        : AbstractArray(clazz, capacity, length) {
+    Array(const Class *clazz, uint32_t capacity, uint32_t length, uint32_t tags)
+        : AbstractArray(clazz, capacity, length, tags) {
         ::memset(elems_, 0, sizeof(T) * length);
     }
 
@@ -260,8 +270,8 @@ public:
 
     friend class Machine;
 private:
-    String(const Class *clazz, uint32_t capacity, const char *utf8_string, uint32_t length)
-        : Array<char>(clazz, capacity, length) {
+    String(const Class *clazz, uint32_t capacity, const char *utf8_string, uint32_t length, uint32_t tags)
+        : Array<char>(clazz, capacity, length, tags) {
         ::memcpy(elems_, utf8_string, length);
         elems_[length] = '\0'; // for c-style string
     }
@@ -483,6 +493,8 @@ protected:
     
     static Throwable *NewPanic(int code, String *message);
     
+    static Throwable *NewException(String *message, Exception *cause);
+    
     static Array<String *> *MakeStacktrace(uint8_t *frame_bp);
 
     Array<String *> *stacktrace_; // [strong ref] stacktrace information
@@ -490,7 +502,6 @@ protected:
 
 
 
-// Internal error exception
 // Panic can not be catch
 class Panic : public Throwable {
 public:
@@ -523,6 +534,93 @@ private:
     String *message_; // [strong ref] Message of error
 }; // class Panic
 
+
+// All Exception's base class
+class Exception : public Throwable {
+public:
+    // Message of exception information
+    Handle<String> message() const { return Handle<String>(quickly_message()); }
+    
+    // Cause of exception
+    Handle<Exception> cause() const { return Handle<Exception>(quickly_exception()); }
+
+    // Internal functions
+    inline String *quickly_message() const;
+    inline Exception *quickly_exception() const;
+
+    // New a panic
+    static Handle<Exception> New(Handle<String> message, Handle<Exception> cause) {
+        Handle<Throwable> throwable(NewException(*message, *cause));
+        if (throwable.is_empty()) {
+            return Handle<Exception>::Empty();
+        }
+        return Handle<Exception>(static_cast<Exception *>(*throwable));
+    }
+    
+    friend class Machine;
+private:
+    Exception(const Class *clazz, Array<String *> *stacktrace, Exception *cause, String *message,
+              uint32_t tags);
+
+    Exception *cause_; // [strong ref] cause exception
+    String *message_; // [strong ref] Message of error
+}; // class Exception
+
+
+// String builder
+class IncrementalStringBuilder {
+public:
+    static constexpr size_t kInitSize = 16;
+    
+    IncrementalStringBuilder(): IncrementalStringBuilder("", 0) {}
+    
+    IncrementalStringBuilder(Handle<String> init)
+        : IncrementalStringBuilder(init->data(), init->length()) {}
+
+    ~IncrementalStringBuilder() {
+        if (incomplete_) {
+            GlobalHandles::DeleteHandle(reinterpret_cast<void **>(incomplete_));
+        }
+    }
+    
+    void AppendString(Handle<String> handle) {
+        if (handle.is_not_empty()) {
+            AppendString(handle->data(), handle->length());
+        }
+    }
+
+    void AppendString(const std::string &str) { AppendString(str.data(), str.size()); }
+
+    void AppendString(const std::string_view &str) { AppendString(str.data(), str.size()); }
+
+    void AppendFormat(const char *fmt, ...);
+
+    void AppendVFormat(const char *fmt, va_list va);
+
+    void AppendString(const char *z) {
+        if (z) {
+            AppendString(z, ::strlen(z));
+        }
+    }
+
+    void AppendString(const char *z, size_t n);
+
+    Handle<String> Build() const { return Handle<String>(Finish()); }
+    
+    // Internal functions
+    inline String* QuickBuild() const;
+    
+    IncrementalStringBuilder(const IncrementalStringBuilder &) = delete;
+    void operator = (const IncrementalStringBuilder &) = delete;
+private:
+    IncrementalStringBuilder(const char *z, size_t n);
+    
+    String *Finish() const;
+    
+    Array<char> *incomplete() const { return *incomplete_; }
+    
+    Array<char> **incomplete_ = nullptr; // [global handle] incomplete buffer.
+}; // class IncrementalStringBuilder
 
 // CXX Function template for binding
 class FunctionTemplate {

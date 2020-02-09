@@ -55,6 +55,11 @@ inline Class *Any::clazz() const {
     return reinterpret_cast<Class *>(klass_);
 }
 
+inline void Any::set_clazz(const Class *clazz) {
+    DCHECK(!is_forward());
+    klass_ = reinterpret_cast<uintptr_t>(DCHECK_NOTNULL(clazz));
+}
+
 inline Any *Any::forward() const {
     DCHECK(is_forward());
     return reinterpret_cast<Any *>(klass_ & ~1);
@@ -64,11 +69,39 @@ inline uint32_t Any::tags() const { return tags_; }
 
 inline bool Any::QuicklyIs(uint32_t type_id) const { return clazz()->id() == type_id; }
 
+template<class T, bool R>
+inline T Array<T, R>::quickly_get(size_t i) const {
+    DCHECK_GE(i, 0);
+    DCHECK_LT(i, length_);
+    return elems_[i];
+}
+
+template<class T, bool R>
+inline void Array<T, R>::quickly_set(size_t i, T value) {
+    DCHECK_GE(i, 0);
+    DCHECK_LT(i, length_);
+    elems_[i] = value;
+}
+
+template<class T, bool R>
+inline void Array<T, R>::QuicklyAppendNoResize(const T *data, size_t n) {
+    DCHECK_LT(length_ + n, capacity_);
+    ::memcpy(&elems_[length_], data, n);
+    length_ += n;
+}
+
 template<class T>
 inline void Array<T, true>::quickly_set_nobarrier(size_t i, T value) {
     DCHECK_GE(i, 0);
     DCHECK_LT(i, length_);
     elems_[i] = value;
+}
+
+template<class T>
+inline T Array<T, true>::quickly_get(size_t i) const {
+    DCHECK_GE(i, 0);
+    DCHECK_LT(i, length_);
+    return elems_[i];
 }
 
 inline bool Closure::is_cxx_function() const { return (tags_ & kClosureMask) == kCxxFunction; }
@@ -88,6 +121,12 @@ inline Function *Closure::function() const {
 inline Array<String *> *Throwable::stacktrace() const { return stacktrace_; }
 
 inline String *Panic::quickly_message() const { return message_; }
+
+inline String *Exception::quickly_message() const { return message_; }
+
+inline Exception *Exception::quickly_exception() const { return cause_; }
+
+inline String *IncrementalStringBuilder::QuickBuild() const { return Finish(); }
 
 } // namespace lang
 

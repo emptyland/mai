@@ -5,6 +5,8 @@
 #include "lang/stack.h"
 #include "lang/stack-frame.h"
 #include "asm/utils.h"
+#include "base/slice.h"
+#include <stdarg.h>
 
 namespace mai {
 
@@ -51,7 +53,7 @@ int Any::WriteBarrier(Any **address, size_t n) {
     if (length > 2 * base::kKB) { // bit array should in old-space
         flags |= kOldSpace;
     }
-    return Machine::This()->NewArraySlow(type, length, flags);
+    return Machine::This()->NewArray(type, length, length, flags);
 }
 
 /*static*/ AbstractArray *AbstractArray::NewArrayCopied(const AbstractArray *origin, size_t increment) {
@@ -59,7 +61,7 @@ int Any::WriteBarrier(Any **address, size_t n) {
     if (origin->length() + increment > 2 * base::kKB) { // bit array should in old-space
         flags |= kOldSpace;
     }
-    return Machine::This()->NewArrayCopiedSlow(origin, increment, flags);
+    return Machine::This()->NewArrayCopied(origin, increment, flags);
 }
 
 /*static*/ Handle<String> String::NewUtf8(const char *utf8_string, size_t n) {
@@ -87,14 +89,17 @@ MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32
     return Machine::This()->NewPanic(code, message, 0/*flags*/);
 }
 
+// Handle<Any> argv[2] = { Handle<Any>::Null(), String::New("fail") };
+// Handle<Throwable> e = NewUserObject<Throwable>("foo.DokiException", argv)
+// Throwable::Throw(e);
+/*static*/ Throwable *Throwable::NewException(String *message, Exception *cause) {
+    return Machine::This()->NewException(kType_Exception, message, cause, 0/*flags*/);
+}
+
 void Throwable::PrintStackstrace(FILE *file) const {
-    Coroutine *co = Coroutine::This();
-    if (co == nullptr) {
-        ::fprintf(file, "👎Call PrintStackstrace() must be in executing");
-        return;
+    for (int i = 0; i < stacktrace_->length(); i++) {
+        ::fprintf(file, "    at %s\n", stacktrace_->quickly_get(i)->data());
     }
-    
-    // TODO:
 }
 
 /*static*/ Array<String *> *Throwable::MakeStacktrace(Address frame_bp) {
@@ -104,17 +109,40 @@ void Throwable::PrintStackstrace(FILE *file) const {
         char s[] = "👎Call PrintStackstrace() must be in executing";
         lines.push_back(Machine::This()->NewUtf8String(s, sizeof(s)-1, 0));
     } else {
-        printf("hi: %p, lo: %p, sp: %p, bp: %p\n", co->stack()->stack_hi(),
-               co->stack()->stack_lo(), co->sp1(), co->bp1());
-        frame_bp = co->sp1();
         while (frame_bp < co->stack()->stack_hi()) {
-            printf("%p: 0x%016lx\n", frame_bp, *reinterpret_cast<intptr_t *>(frame_bp));
-            frame_bp += 8;
+            StackFrame::Maker maker = StackFrame::GetMaker(frame_bp);
+            switch (maker) {
+                case StackFrame::kStub:
+                    // Ignore
+                    break;
+                case StackFrame::kBytecode: {
+                    IncrementalStringBuilder builder;
+                    Closure *callee = BytecodeStackFrame::GetCallee(frame_bp);
+                    int32_t pc = BytecodeStackFrame::GetPC(frame_bp);
+                    
+                    builder.AppendString(callee->function()->name());
+                    const SourceLineInfo *info = callee->function()->source_line_info();
+                    if (info) {
+                        builder.AppendFormat("(%s:%d)", info->file_name(), info->FindSourceLine(pc));
+                    } else {
+                        builder.AppendString("()");
+                    }
+                    lines.push_back(builder.QuickBuild());
+                } break;
+                case StackFrame::kTrampoline:
+                    goto out;
+                default:
+                    NOREACHED();
+                    break;
+            }
+
+            frame_bp = *reinterpret_cast<Address *>(frame_bp);
         }
     }
     
+out:
     Array<String *> *trace =
-        static_cast<Array<String *> *>(Machine::This()->NewArraySlow(kType_array, lines.size(), 0));
+        static_cast<Array<String *> *>(Machine::This()->NewArray(kType_array, lines.size(), lines.size(), 0/*flags*/));
     for (size_t i = 0; i < lines.size(); i++) {
         trace->quickly_set_nobarrier(i, lines[i]);
     }
@@ -133,6 +161,61 @@ Panic::Panic(const Class *clazz, Array<String *> *stacktrace, int code, String *
     if (message) {
         WriteBarrier(reinterpret_cast<Any **>(&message_));
     }
+}
+
+Exception::Exception(const Class *clazz, Array<String *> *stacktrace, Exception *cause,
+                     String *message, uint32_t tags)
+    : Throwable(clazz, stacktrace, tags)
+    , cause_(cause)
+    , message_(message) {
+    if (cause) {
+        WriteBarrier(reinterpret_cast<Any **>(&cause_));
+    }
+    if (message) {
+        WriteBarrier(reinterpret_cast<Any **>(&message_));
+    }
+}
+
+IncrementalStringBuilder::IncrementalStringBuilder(const char *z, size_t n) {
+    size_t length = 0, capacity = 0;
+    if (!z || n == 0) {
+        z = "";
+        length = 0;
+        capacity = kInitSize;
+    } else {
+        length = n;
+        capacity = n + kInitSize;
+    }
+    AbstractArray *incomplete = Machine::This()->NewMutableArray8(z, length, capacity, 0);
+    incomplete_ = reinterpret_cast<Array<char> **>(GlobalHandles::NewHandle(incomplete));
+}
+
+void IncrementalStringBuilder::AppendFormat(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    AppendVFormat(fmt, ap);
+    va_end(ap);
+}
+
+void IncrementalStringBuilder::AppendVFormat(const char *fmt, va_list ap) {
+    AppendString(base::Vsprintf(fmt, ap));
+}
+
+void IncrementalStringBuilder::AppendString(const char *z, size_t n) {
+    if (incomplete()->length() + n + 1 > incomplete()->capacity()) {
+        size_t new_capacity = incomplete()->capacity() ? incomplete()->capacity() << 1 : kInitSize;
+        new_capacity += n + 1;
+        *incomplete_ =
+            static_cast<Array<char> *>(Machine::This()->ResizeMutableArray(incomplete(),
+                                                                           new_capacity));
+    }
+    incomplete()->QuicklyAppendNoResize(z, n);
+}
+
+String *IncrementalStringBuilder::Finish() const {
+    String *result = Machine::This()->Array8ToString(incomplete());
+    *incomplete_ = nullptr;
+    return result;
 }
 
 } // namespace lang

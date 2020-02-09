@@ -28,8 +28,7 @@ public:
         
         //__ Breakpoint();
         SetupArguments(prototype);
-        __ SwitchSystemStackCall(cxx_func_entry,
-                                 isolate_->metadata_space()->switch_system_stack_call_code()->entry());
+        __ InlineSwitchSystemStackCall(cxx_func_entry);
     }
 
     const std::string &GetInstructionsBuf() const { return masm_.buf(); }

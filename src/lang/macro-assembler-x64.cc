@@ -44,6 +44,31 @@ void MacroAssembler::Throw(Register scratch0, Register scratch1) {
     int3(); // Never goto there
 }
 
+void MacroAssembler::InlineSwitchSystemStackCall(Address cxx_func_entry) {
+    movq(Operand(CO, Coroutine::kOffsetBP1), rbp);
+    movq(Operand(CO, Coroutine::kOffsetSP1), rsp);
+    movq(rbp, Operand(CO, Coroutine::kOffsetSysBP)); // recover system bp
+    movq(rsp, Operand(CO, Coroutine::kOffsetSysSP)); // recover system sp
+    movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kFallIn);
+
+    pushq(SCRATCH);
+    pushq(CO);
+    pushq(BC);
+    pushq(BC_ARRAY);
+
+    movq(rax, cxx_func_entry);
+    call(rax); // Call real function
+
+    popq(BC_ARRAY); // Switch back to mai stack
+    popq(BC);
+    popq(CO);
+    popq(SCRATCH);
+
+    movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kRunning);
+    movq(rbp, Operand(CO, Coroutine::kOffsetBP1)); // recover mai sp
+    movq(rsp, Operand(CO, Coroutine::kOffsetSP1)); // recover mai bp
+}
+
 void MacroAssembler::SaveState0(Register scratch) {
     movq(Operand(CO, Coroutine::kOffsetACC), ACC);
     movsd(Operand(CO, Coroutine::kOffsetFACC), FACC);

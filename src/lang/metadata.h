@@ -85,6 +85,8 @@ public:
     
     inline const Method *method(uint32_t i) const;
     
+    inline bool IsBaseOf(const Class *base) const;
+    
     friend class ClassBuilder;
     friend class MetadataSpace;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Class);
@@ -434,6 +436,17 @@ inline const Field *Type::field(uint32_t i) const {
 inline const Method *Class::method(uint32_t i) const {
     DCHECK_LT(i, n_methods_);
     return methods_ + i;
+}
+
+inline bool Class::IsBaseOf(const Class *base) const {
+    const Class *clazz = this;
+    while (clazz) {
+        if (clazz == base) {
+            return true;
+        }
+        clazz = clazz->base();
+    }
+    return false;
 }
 
 inline int SourceLineInfo::FindSourceLine(intptr_t pc) const {

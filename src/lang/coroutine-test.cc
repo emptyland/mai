@@ -57,6 +57,15 @@ public:
     Function *BuildDummyFunction(const std::vector<BytecodeInstruction> &instrs,
                                  const std::vector<Span32> &const_pool,
                                  const std::vector<uint32_t> &const_pool_bitmap) {
+        SourceLineInfo *info = nullptr;
+        if (!instrs.empty()) {
+            std::vector<int> lines;
+            for (size_t i = 0; i < instrs.size(); i++) {
+                lines.push_back(static_cast<int>(i + 1));
+            }
+            info = metadata_->NewSourceLineInfo("dummy.mai", lines);
+        }
+        
         BytecodeArray *bc_array = metadata_->NewBytecodeArray(instrs);
         return FunctionBuilder("test.dummy")
             .prototype({}, false, kType_void)
@@ -65,6 +74,7 @@ public:
             .const_pool(const_pool)
             .const_pool_bitmap(const_pool_bitmap)
             .bytecode(bc_array)
+            .source_line_info(info)
         .Build(metadata_);
     }
 

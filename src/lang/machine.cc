@@ -172,7 +172,8 @@ String *Machine::NewUtf8String(const char *utf8_string, size_t n, uint32_t flags
     String *obj = new (result.ptr()) String(STATE->builtin_type(kType_string),
                                             static_cast<uint32_t>(n + 1),
                                             utf8_string,
-                                            static_cast<uint32_t>(n));
+                                            static_cast<uint32_t>(n),
+                                            0/*TODO: color*/);
     return obj;
 }
 
@@ -251,9 +252,10 @@ AbstractValue *Machine::NewNumber(BuiltinType primitive_type, const void *value,
     return new (result.ptr()) AbstractValue(DCHECK_NOTNULL(clazz), value, n, 0);
 }
 
-AbstractArray *Machine::NewArraySlow(BuiltinType type, size_t length, uint32_t flags) {
+AbstractArray *Machine::NewArray(BuiltinType type, size_t length, size_t capacity, uint32_t flags) {
     const Class *clazz = DCHECK_NOTNULL(STATE->builtin_type(type));
-    if (::strstr(clazz->name(), "array") != clazz->name()){
+    if (::strstr(clazz->name(), "array") != clazz->name() &&
+        ::strstr(clazz->name(), "mutable_array") != clazz->name()) {
         NOREACHED() << "class: " << clazz->name() << " is not array!";
         return nullptr;
     }
@@ -261,20 +263,23 @@ AbstractArray *Machine::NewArraySlow(BuiltinType type, size_t length, uint32_t f
     const Field *elems_field =
         DCHECK_NOTNULL(STATE->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
 
-    size_t request_size = sizeof(AbstractArray) + elems_field->type()->reference_size() * length;
+    DCHECK_LE(length, capacity);
+    size_t request_size = sizeof(AbstractArray) + elems_field->type()->reference_size() * capacity;
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
         return nullptr;
     }
     AbstractArray *obj = new (result.ptr()) AbstractArray(clazz,
+                                                          static_cast<uint32_t>(capacity),
                                                           static_cast<uint32_t>(length),
-                                                          static_cast<uint32_t>(length));
+                                                          0/*TODO: color*/);
     // Zeroize all elements
-    ::memset(obj + 1, 0, elems_field->type()->reference_size() * length);
+    ::memset(reinterpret_cast<Address>(obj) + elems_field->offset(), 0,
+             elems_field->type()->reference_size() * length);
     return obj;
 }
 
-AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t increment,
+AbstractArray *Machine::NewArrayCopied(const AbstractArray *origin, size_t increment,
                                            uint32_t flags) {
     const Class *clazz = origin->clazz();
     if (::strstr(clazz->name(), "array") != clazz->name()){
@@ -290,7 +295,7 @@ AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t i
     if (!result.ok()) {
         return nullptr;
     }
-    AbstractArray *obj = new (result.ptr()) AbstractArray(clazz, length, length);
+    AbstractArray *obj = new (result.ptr()) AbstractArray(clazz, length, length, 0/*TODO: color*/);
     Address dest = reinterpret_cast<Address>(obj) + elems_field->offset();
     const Byte *sour = reinterpret_cast<const Byte *>(origin) + elems_field->offset();
 
@@ -307,6 +312,60 @@ AbstractArray *Machine::NewArrayCopiedSlow(const AbstractArray *origin, size_t i
         ::memset(dest, 0, elems_field->type()->reference_size() * increment);
     }
     return obj;
+}
+
+AbstractArray *Machine::NewMutableArray8(const void *init_data, size_t length, size_t capacity,
+                                         uint32_t flags) {
+    size_t request_size = sizeof(Array<uint8_t>) + 1 * capacity;
+    AllocationResult result = STATE->heap()->Allocate(request_size, flags);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    
+    DCHECK_GE(capacity, length);
+    Array<uint8_t> *obj = new (result.ptr()) Array<uint8_t>(STATE->builtin_type(kType_mutable_array8),
+                                                            static_cast<uint32_t>(capacity),
+                                                            static_cast<uint32_t>(length),
+                                                            0/*TODO: color*/);
+    ::memcpy(obj->elems_, init_data, length);
+    return obj;
+}
+
+AbstractArray *Machine::ResizeMutableArray(AbstractArray *origin, size_t new_size) {
+    if (!origin || origin->capacity() == new_size) {
+        return origin;
+    }
+    
+    const Class *clazz = origin->clazz();
+    AbstractArray *copied = NewArray(static_cast<BuiltinType>(clazz->id()), origin->length(),
+                                     new_size, 0/*flags*/);
+
+    const Field *elems_field =
+        DCHECK_NOTNULL(STATE->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
+    
+    Address dest = reinterpret_cast<Address>(copied) + elems_field->offset();
+    Address sour = reinterpret_cast<Address>(origin) + elems_field->offset();
+
+    // Copy data
+    ::memcpy(dest, sour, origin->length() * elems_field->type()->reference_size());
+    if (elems_field->type()->is_reference()) {
+        // Write-Barrier:
+        UpdateRememberRecords(copied, reinterpret_cast<Any **>(dest), origin->length());
+    }
+    
+    return copied;
+}
+
+String *Machine::Array8ToString(AbstractArray *from) {
+    DCHECK(from->clazz() == STATE->builtin_type(kType_mutable_array8) ||
+           from->clazz() == STATE->builtin_type(kType_array8));
+    DCHECK_GT(from->capacity(), from->length());
+
+    // Fill term zero
+    static_cast<Array<char> *>(from)->elems_[from->length()] = 0;
+
+    from->set_clazz(STATE->builtin_type(kType_string));
+    return reinterpret_cast<String *>(from);
 }
 
 Closure *Machine::NewClosure(Code *code, size_t captured_var_size, uint32_t flags) {
@@ -347,6 +406,11 @@ Throwable *Machine::NewPanic(int code, String *message, uint32_t flags) {
     }
     return new (result.ptr()) Panic(STATE->builtin_type(kType_Panic), stacktrace, code, message,
                                     0/*TODO: color*/);
+}
+
+Exception *Machine::NewException(uint32_t type, String *message, Exception *cause, uint32_t flags) {
+    TODO();
+    return nullptr;
 }
 
 void Machine::InsertFreeCoroutine(Coroutine *co) {

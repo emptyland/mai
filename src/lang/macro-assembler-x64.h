@@ -67,6 +67,8 @@ public:
         call(rax);
     }
     
+    void InlineSwitchSystemStackCall(Address cxx_func_entry);
+    
     void SaveState0(Register scratch);
     
     void SaveState1(Register scratch);

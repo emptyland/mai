@@ -78,18 +78,9 @@ void Coroutine::Uncaught(Throwable *thrown) {
         fprintf(stderr, "❌Uncaught: M:NONE:C:%lld:", coid_);
     }
     
-    bool ensure_throwable = false;
-    const Class *clazz = thrown->clazz();
-    while (clazz) {
-        if (clazz->id() == kType_Throwable) {
-            ensure_throwable = true;
-            break;
-        }
-        clazz = clazz->base();
-    }
-    DCHECK(ensure_throwable) << "thrown is not Throwable: " << thrown->clazz()->name();
-    (void)ensure_throwable;
-    
+    DCHECK(thrown->clazz()->IsBaseOf(STATE->builtin_type(kType_Throwable)))
+        << "thrown is not Throwable: " << thrown->clazz()->name();
+
     if (thrown->Is<Panic>()) {
         Panic *error = static_cast<Panic *>(thrown);
 
@@ -100,6 +91,7 @@ void Coroutine::Uncaught(Throwable *thrown) {
         fprintf(stderr, "😱[Panic](%d) %s\n", error->code(), error->quickly_message()->data());
     } else {
         // TODO: Exception
+        TODO();
     }
     thrown->PrintStackstrace(stderr);
 }

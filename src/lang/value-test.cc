@@ -166,6 +166,19 @@ TEST_F(ValueTest, ValueOfNumber) {
     ASSERT_TRUE(i8 == i8_2);
 }
 
+TEST_F(ValueTest, StringBuilder) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    IncrementalStringBuilder builder;
+    builder.AppendString("Hello");
+    builder.AppendString(", ");
+    builder.AppendString("World");
+    builder.AppendFormat("! %d", 101);
+    
+    Handle<String> handle(builder.Build());
+    ASSERT_STREQ("Hello, World! 101", handle->data());
+}
+
 }
 
 }
