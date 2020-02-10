@@ -119,6 +119,7 @@ TEST_F(X64AssemblerTest, Shift) {
     }
 }
 
+#if defined(DEBUG) || defined(_DEBUG)
 TEST_F(X64AssemblerTest, UnsignedDiv) {
     
     __ Reset();
@@ -149,6 +150,7 @@ TEST_F(X64AssemblerTest, UnsignedDiv) {
         EXPECT_EQ(a % b, c);
     }
 }
+#endif // #if defined(DEBUG) || defined(_DEBUG)
 
 TEST_F(X64AssemblerTest, UnsignedMul) {
     
@@ -451,10 +453,11 @@ TEST_F(X64AssemblerTest, SetStruct) {
     ASSERT_EQ(3, foo.c);
 }
 
+#if defined(DEBUG) || defined(_DEBUG)
 TEST_F(X64AssemblerTest, SetArray) {
     Register a0 = kRegArgv[0];
     Register a1 = kRegArgv[1];
-    
+
     asm_.movq(Operand(a0, a1, times_4, 0), 999);
     asm_.ret(0);
 
@@ -467,6 +470,7 @@ TEST_F(X64AssemblerTest, SetArray) {
     EXPECT_EQ(d[2], 0);
     EXPECT_EQ(d[3], 999);
 }
+#endif // #if defined(DEBUG) || defined(_DEBUG)
     
 TEST_F(X64AssemblerTest, Loop) {
     Label out, retry;
@@ -696,6 +700,7 @@ TEST_F(X64AssemblerTest, SSE42strcmpDemo) {
     ASSERT_FALSE(foo(s1, s2));
 }
 
+#if defined(DEBUG) || defined(_DEBUG)
 TEST_F(X64AssemblerTest, SSE42StringEqual) {
     __ Reset();
     __ pushq(rbp);
@@ -776,6 +781,7 @@ TEST_F(X64AssemblerTest, SSE42StringEqual) {
     s2 = "0123456789abcdef0123x56789abcdef0";
     ASSERT_FALSE(foo(s1, s2, static_cast<int>(strlen(s1))));
 }
+#endif // #if defined(DEBUG) || defined(_DEBUG)
 
 TEST_F(X64AssemblerTest, MemoryBarrier) {
     __ Reset();
@@ -793,6 +799,7 @@ TEST_F(X64AssemblerTest, MemoryBarrier) {
     foo(&n, 996);
     ASSERT_EQ(996, n);
 }
+
 
 } // namespace x64
     

@@ -381,10 +381,8 @@ public:
     
     void Put(Key key) {
         Pid parent_id;
-        DeltaNode *leaf = FindRoomFor(key, &parent_id, false);
-        DCHECK_NOTNULL(leaf);
-        DeltaKey *p = Base::NewDeltaKey(leaf->pid, key, leaf);
-        DCHECK_NOTNULL(p);
+        DeltaNode *leaf = DCHECK_NOTNULL(FindRoomFor(key, &parent_id, false));
+        DeltaKey *p = DCHECK_NOTNULL(Base::NewDeltaKey(leaf->pid, key, leaf));
 
         if (NeedsSplit(p)) {
             SplitInner(p, parent_id);
@@ -491,8 +489,7 @@ private:
     
     Pid FindParent(Pid pid, Key key) const {
         Pid parent_id = 0;
-        const DeltaNode *x = Base::GetNode(root_.load());
-        DCHECK_NOTNULL(x);
+        const DeltaNode *x = DCHECK_NOTNULL(Base::GetNode(root_.load()));
 
         while (x->pid != pid) {
             bool found = false;
@@ -509,8 +506,7 @@ private:
     
     DeltaNode *FindRoomFor(Key key, Pid *parent_id, bool trigger) {
         *parent_id = 0;
-        DeltaNode *x = Base::GetNode(root_.load());
-        DCHECK_NOTNULL(x);
+        DeltaNode *x = DCHECK_NOTNULL(Base::GetNode(root_.load()));
 
         while (x) {
             bool has_overflow = false;
@@ -730,7 +726,7 @@ private:
     }
     
     Key GetLargestKey(const DeltaNode *x, bool trigger) {
-        DCHECK_NOTNULL(x);
+        DCHECK(x != nullptr);
         
         const DeltaNode *t;
         Pid child = 0;
@@ -844,9 +840,8 @@ private:
         }
         Pid overflow = 0;
         View view = MakeView(old, &overflow);
-        BaseLine *n = Base::NewBaseLine(0, view.size(), old->sibling);
-        DCHECK_NOTNULL(n);
-        
+        BaseLine *n = DCHECK_NOTNULL(Base::NewBaseLine(0, view.size(), old->sibling));
+
         size_t i = 0;
         for (auto pair : view) {
             n->set_entry(i++, {pair.first, pair.second});

@@ -537,7 +537,8 @@ TEST_F(CoroutineTest, NewChannel) {
 }
 
 static void Dummy13(int32_t value) {
-    printf("Recv: %d\n", value);
+    //printf("Recv: %d\n", value);
+    dummy_result.i32_1 = value;
 }
 
 TEST_F(CoroutineTest, SendRecvChannel) {
@@ -583,6 +584,8 @@ TEST_F(CoroutineTest, SendRecvChannel) {
     scheduler_->machine(1)->PostRunnable(co);
 
     isolate_->Run();
+    
+    ASSERT_EQ(404, dummy_result.i32_1);
 }
 
 } // namespace lang

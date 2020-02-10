@@ -66,70 +66,35 @@ public:
     
     MDStr NewString(const char *s) { return NewString(s, strlen(s)); }
 
-    MDStr NewString(const char *z, size_t n) {
-        auto result = Allocate(sizeof(MDStrHeader) + n + 1, false/*exec*/);
-        if (!result.ok()) {
-            return nullptr;
-        }
-        MDStrHeader *str = new (result.ptr()) MDStrHeader(z, n);
-        return str->data();
-    }
+    inline MDStr NewString(const char *z, size_t n);
     
     Code *NewCode(Code::Kind kind, const std::string &instructions, PrototypeDesc *prototype) {
         return NewCode(kind, reinterpret_cast<Address>(const_cast<char *>(instructions.data())),
                        instructions.size(), prototype);
     }
     
-    Code *NewCode(Code::Kind kind, Address instructions, size_t size, PrototypeDesc *prototype) {
-        auto result = Allocate(sizeof(Code) + size, true/*exec*/);
-        if (!result.ok()) {
-            return nullptr;
-        }
-        return new (result.ptr()) Code(kind, instructions, static_cast<uint32_t>(size), prototype);
-    }
+    inline Code *NewCode(Code::Kind kind, Address instructions, size_t size,
+                         PrototypeDesc *prototype);
     
     BytecodeArray *NewBytecodeArray(const std::vector<BytecodeInstruction> &instructions) {
         return NewBytecodeArray(instructions.data(), instructions.size());
     }
 
-    BytecodeArray *NewBytecodeArray(const BytecodeInstruction *instructions, size_t size) {
-        auto result = Allocate(sizeof(BytecodeArray) + size * sizeof(instructions[0]), false/*exec*/);
-        if (!result.ok()) {
-            return nullptr;
-        }
-        return new (result.ptr()) BytecodeArray(instructions, static_cast<uint32_t>(size));
-    }
+    inline BytecodeArray *NewBytecodeArray(const BytecodeInstruction *instructions, size_t size);
     
     SourceLineInfo *NewSourceLineInfo(const char *file_name, const std::vector<int> &lines) {
         return NewSourceLineInfo(file_name, &lines[0], lines.size());
     }
 
-    SourceLineInfo *NewSourceLineInfo(const char *file_name, const int *lines, size_t n) {
-        auto result = Allocate(sizeof(SourceLineInfo) + n * sizeof(lines[0]), false/*exec*/);
-        if (!result.ok()) {
-            return nullptr;
-        }
-        auto md_file_name = NewString(file_name);
-        if (!md_file_name) {
-            return nullptr;
-        }
-        return new (result.ptr()) SourceLineInfo(md_file_name, lines, n);
-    }
+    inline SourceLineInfo *NewSourceLineInfo(const char *file_name, const int *lines, size_t n);
     
     PrototypeDesc *NewPrototypeDesc(const std::vector<uint32_t> &desc, bool has_vargs) {
         DCHECK_GT(desc.size(), 0) << "Tail must be return type.";
         return NewPrototypeDesc(&desc[0], desc.size() - 1, has_vargs, desc.back());
     }
     
-    PrototypeDesc *NewPrototypeDesc(const uint32_t *parameters, size_t n, bool has_vargs,
-                                    uint32_t return_type) {
-        auto result = Allocate(sizeof(PrototypeDesc) + n *sizeof(parameters[0]), false/*exec*/);
-        if (!result.ok()) {
-            return nullptr;
-        }
-        return new (result.ptr()) PrototypeDesc(parameters, static_cast<uint32_t>(n), has_vargs,
-                                                return_type);
-    }
+    inline PrototypeDesc *NewPrototypeDesc(const uint32_t *parameters, size_t n, bool has_vargs,
+                                           uint32_t return_type);
     
     // mark all pages to readonly
     void MarkReadonly(bool readonly) {
@@ -290,7 +255,7 @@ public:
         }
         
         ClassBuilder &End() {
-            DCHECK_NOTNULL(fn_);
+            DCHECK(fn_ != nullptr);
             return *owner_;
         }
         
@@ -491,6 +456,56 @@ private:
     std::vector<Function::ExceptionHandlerDesc> exception_table_;
 }; // class FunctionBuilder
 
+
+inline MDStr MetadataSpace::NewString(const char *z, size_t n) {
+    auto result = Allocate(sizeof(MDStrHeader) + n + 1, false/*exec*/);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    MDStrHeader *str = new (result.ptr()) MDStrHeader(z, n);
+    return str->data();
+}
+
+inline Code *MetadataSpace::NewCode(Code::Kind kind, Address instructions, size_t size,
+                                    PrototypeDesc *prototype) {
+    auto result = Allocate(sizeof(Code) + size, true/*exec*/);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    return new (result.ptr()) Code(kind, instructions, static_cast<uint32_t>(size), prototype);
+}
+
+inline BytecodeArray *MetadataSpace::NewBytecodeArray(const BytecodeInstruction *instructions,
+                                                      size_t size) {
+    auto result = Allocate(sizeof(BytecodeArray) + size * sizeof(instructions[0]), false/*exec*/);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    return new (result.ptr()) BytecodeArray(instructions, static_cast<uint32_t>(size));
+}
+
+inline SourceLineInfo *MetadataSpace::NewSourceLineInfo(const char *file_name, const int *lines,
+                                                        size_t n) {
+    auto result = Allocate(sizeof(SourceLineInfo) + n * sizeof(lines[0]), false/*exec*/);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    auto md_file_name = NewString(file_name);
+    if (!md_file_name) {
+        return nullptr;
+    }
+    return new (result.ptr()) SourceLineInfo(md_file_name, lines, n);
+}
+
+inline PrototypeDesc *MetadataSpace::NewPrototypeDesc(const uint32_t *parameters, size_t n,
+                                                      bool has_vargs, uint32_t return_type) {
+    auto result = Allocate(sizeof(PrototypeDesc) + n *sizeof(parameters[0]), false/*exec*/);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    return new (result.ptr()) PrototypeDesc(parameters, static_cast<uint32_t>(n), has_vargs,
+                                            return_type);
+}
 
 template<class T>
 inline T *MetadataSpace::NewArray(size_t n) {

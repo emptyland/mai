@@ -121,7 +121,7 @@ void PessimisticTransactionDB::RegisterTransaction(Transaction *txn) {
 }
     
 void PessimisticTransactionDB::UnregisterTransaction(Transaction *txn) {
-    DCHECK_NOTNULL(txn);
+    DCHECK(txn != nullptr);
     std::lock_guard<std::mutex> lock(name_mutex_);
     auto iter = txns_.find(txn->name());
     DCHECK(iter != txns_.end());

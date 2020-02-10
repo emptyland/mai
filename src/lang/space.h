@@ -167,9 +167,8 @@ public:
     
     // Thread safe:
     AllocationResult Allocate(size_t size) {
-        DCHECK_NOTNULL(original_area_);
         DCHECK_GT(size, 0);
-        Address space = original_area_->AquireSpace(size);
+        Address space = DCHECK_NOTNULL(original_area_)->AquireSpace(size);
         if (!space) {
             return AllocationResult(AllocationResult::FAIL, nullptr);
         }

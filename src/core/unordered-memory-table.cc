@@ -67,8 +67,7 @@ UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
                                            SequenceNumber version, uint8_t flag) {
     const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag,
                                              base::DelegatedAllocator{&arena_});
-    DCHECK_NOTNULL(ikey);
-    table_.Put(ikey);
+    table_.Put(DCHECK_NOTNULL(ikey));
     //mem_usage_.fetch_add(ikey->size(), std::memory_order_acq_rel);
 }
     

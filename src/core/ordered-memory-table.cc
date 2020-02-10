@@ -65,8 +65,7 @@ OrderedMemoryTable::Put(std::string_view key, std::string_view value,
     const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag,
                                              base::DelegatedAllocator{&arena_});
     //const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag);
-    DCHECK_NOTNULL(ikey);
-    table_.Put(ikey);
+    table_.Put(DCHECK_NOTNULL(ikey));
     n_entries_.fetch_add(1);
 }
     

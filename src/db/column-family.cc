@@ -166,7 +166,7 @@ bool ColumnFamilyImpl::PickCompaction(CompactionContext *ctx) {
     }
 
     bool size_compaction = (current()->compaction_score_ >= 1.0);
-    DCHECK_NOTNULL(ctx);
+    DCHECK(ctx != nullptr);
     if (size_compaction) {
         ctx->level = current_->compaction_level_;
         DCHECK_GE(ctx->level, 0);

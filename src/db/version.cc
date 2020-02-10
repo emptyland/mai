@@ -415,8 +415,7 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
             uint32_t id = patch.cf_deletion();
             DCHECK_NE(0, id);
             ColumnFamilyImpl *cfd = column_families_->GetColumnFamily(id);
-            DCHECK_NOTNULL(cfd);
-            cfd->Drop();
+            DCHECK_NOTNULL(cfd)->Drop();
         }
         if (patch.has_deletion() || patch.has_creation()) {
             VersionBuilder builder(this);
@@ -436,8 +435,7 @@ Error VersionSet::Recovery(const std::map<std::string, ColumnFamilyOptions> &des
         if (patch.has_redo_log()) {
             uint32_t id = patch.redo_log().cfid;
             ColumnFamilyImpl *cfd = column_families_->GetColumnFamily(id);
-            DCHECK_NOTNULL(cfd);
-            cfd->redo_log_number_ = patch.redo_log().number;
+            DCHECK_NOTNULL(cfd)->redo_log_number_ = patch.redo_log().number;
         }
         if (patch.has_last_sequence_number()) {
             last_sequence_number_ = patch.last_sequence_number();
@@ -493,7 +491,7 @@ Error VersionSet::LogAndApply(const ColumnFamilyOptions &cf_opts,
     if (patch->has_redo_log()) {
         uint32_t id = patch->redo_log().cfid;
         ColumnFamilyImpl *cfd = column_families_->GetColumnFamily(id);
-        DCHECK_NOTNULL(cfd);
+        DCHECK(cfd != nullptr);
         DCHECK_GE(patch->redo_log().number, cfd->redo_log_number_);
         DCHECK_LT(patch->redo_log().number, next_file_number_);
         cfd->redo_log_number_ = patch->redo_log().number;
@@ -503,8 +501,7 @@ Error VersionSet::LogAndApply(const ColumnFamilyOptions &cf_opts,
         uint32_t id = patch->cf_deletion();
         DCHECK_NE(0, id);
         ColumnFamilyImpl *cfd = column_families_->GetColumnFamily(id);
-        DCHECK_NOTNULL(cfd);
-        cfd->Drop();
+        DCHECK_NOTNULL(cfd)->Drop();
     }
     
     if (log_file_.get() == nullptr) {
