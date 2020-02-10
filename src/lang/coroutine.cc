@@ -38,6 +38,7 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     coid_      = coid;
     state_     = kDead;
     entry_     = entry;
+    waitting_  = nullptr;
     owner_     = nullptr;
     exception_ = nullptr;
     caught_    = nullptr;

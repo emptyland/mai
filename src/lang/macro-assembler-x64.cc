@@ -491,6 +491,11 @@ public:
         __ xorpd(FACC, FACC);
     }
 
+    void EmitLdaSmi32(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        __ movq(ACC, rbx);
+    }
+
     void EmitLdaConst32(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));

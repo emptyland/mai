@@ -5,6 +5,7 @@
 #include "base/slice.h"
 #include "base/base.h"
 #include <memory>
+#include <atomic>
 
 namespace mai {
 
@@ -162,6 +163,12 @@ private:
 };
 
 #define STR_WITH_LEN(s) s, (arraysize(s) - 1)
+
+template<class T>
+inline std::atomic<T> *OfAtmoic(T *addr) {
+    static_assert(sizeof(T) == sizeof(std::atomic<T>), "Incorrect atomic size");
+    return reinterpret_cast<std::atomic<T> *>(addr);
+}
 
 } // namespace lang
 

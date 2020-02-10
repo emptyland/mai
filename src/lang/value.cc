@@ -153,7 +153,7 @@ out:
 }
 
 /*static*/ void Throwable::Throw(Handle<Throwable> exception) {
-    Coroutine::This()->set_exception(*exception);
+    Coroutine::This()->AssociateException(*exception);
 }
 
 Panic::Panic(const Class *clazz, Array<String *> *stacktrace, Level code, String *message,

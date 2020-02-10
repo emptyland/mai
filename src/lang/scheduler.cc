@@ -53,6 +53,15 @@ void Scheduler::Schedule() {
         } break;
             
         case Coroutine::kInterrupted: {
+            if (m->running()->waitting()) {
+                m->running()->set_state(Coroutine::kWaitting);
+                Coroutine *co = m->running();
+                m->running_ = nullptr;
+                TLS_STORAGE->coroutine = nullptr;
+                m->PostWaitting(co); // Post for waitting
+                break;
+            }
+
             int n = all_machines_[0]->GetNumberOfRunnable();
             Machine *target = all_machines_[0];
             for (int i = 1; i < concurrency_; i++) {

@@ -14,6 +14,7 @@ namespace lang {
 
 class Machine;
 class Stack;
+class WaittingRequest;
 
 struct CaughtNode {
     CaughtNode *next;
@@ -90,7 +91,7 @@ public:
     DEF_VAL_GETTER(Address, sys_bp);
     DEF_VAL_GETTER(Address, sys_sp);
     DEF_VAL_GETTER(Address, sys_pc);
-    DEF_PTR_PROP_RW(Throwable, exception);
+    DEF_PTR_PROP_RW(WaittingRequest, waitting);
     
     Address sp0() const { return bit_cast<Address>(saved_state0_[kSPIndex]); }
     Address bp0() const { return bit_cast<Address>(saved_state0_[kBPIndex]); }
@@ -99,12 +100,33 @@ public:
     Address bp1() const { return bit_cast<Address>(saved_state1_[kBPIndex]); }
     intptr_t pc1() const { return saved_state1_[kPCIndex]; }
     
+    void set_acc0(uintptr_t value) { saved_state0_[kACCIndex] = value; }
+    void set_facc0(double value) { saved_state0_[kFACCIndex] = bit_cast<uintptr_t>(value); }
+    
+    void SetACC0(const void *data, size_t n) {
+        DCHECK_LE(n, kPointerSize);
+        ::memcpy(&saved_state0_[kACCIndex], data, n);
+    }
+    
+    void SetFACC0(const void *data, size_t n) {
+        DCHECK_LE(n, kPointerSize);
+        ::memcpy(&saved_state0_[kFACCIndex], data, n);
+    }
+    
+    void AssociateException(Throwable *exception) {
+        if (!exception_) {
+            exception_ = exception;
+        }
+    }
+    
     void SwitchState(State expected, State want) {
         DCHECK_EQ(state_, expected);
         if (state_ == expected) {
             state_ = want;
         }
     }
+    
+    int RequestYield() { return yield_++; }
     
     void CopyArgv(void *data, size_t n) {
         DCHECK_EQ(reentrant_, 0);
@@ -128,6 +150,7 @@ public:
 
     static void DeleteDummy(Coroutine *dummy) { ::free(dummy); }
     
+    friend class Channel;
     friend class Machine;
     friend class Scheduler;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Coroutine);
@@ -138,6 +161,7 @@ private:
     QUEUE_HEADER(Coroutine); // NOTICE: MUST BE HEADER!!
     uint64_t coid_; // Coroutine ID
     Machine *owner_; // Owner machine
+    WaittingRequest *waitting_; // Node of waitting request
     Closure *entry_; // [strong ref] Entry function
     Address heap_guard0_; // New space address guard0 for write barrier
     Address heap_guard1_; // New space address guard1 for write barrier

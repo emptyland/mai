@@ -1,6 +1,7 @@
 #include "lang/machine.h"
 #include "lang/scheduler.h"
 #include "lang/coroutine.h"
+#include "lang/channel.h"
 #include "lang/value-inl.h"
 #include "lang/heap.h"
 #include "lang/stack-frame.h"
@@ -21,7 +22,8 @@ Machine::Machine(int id, Scheduler *owner)
     : id_(id)
     , owner_(owner)
     , free_dummy_(Coroutine::NewDummy())
-    , runnable_dummy_(Coroutine::NewDummy()) {
+    , runnable_dummy_(Coroutine::NewDummy())
+    , waitting_dummy_(Coroutine::NewDummy()) {
     top_slot_ = new HandleScopeSlot;
     top_slot_->scope = nullptr;
     top_slot_->prev  = nullptr;
@@ -32,6 +34,13 @@ Machine::Machine(int id, Scheduler *owner)
 
 Machine::~Machine() {
     // TODO:
+    while (!QUEUE_EMPTY(waitting_dummy_)) {
+        auto x = waitting_dummy_->next();
+        QUEUE_REMOVE(x);
+        delete x;
+    }
+    Coroutine::DeleteDummy(waitting_dummy_);
+    
     while (!QUEUE_EMPTY(runnable_dummy_)) {
         auto x = runnable_dummy_->next();
         QUEUE_REMOVE(x);
@@ -49,8 +58,8 @@ Machine::~Machine() {
 
 void Machine::PostRunnable(Coroutine *co, bool now) {
     DCHECK_EQ(Coroutine::kRunnable, co->state());
-    std::lock_guard<std::mutex> lock(runnable_mutex_);
     {
+        std::lock_guard<std::mutex> lock(runnable_mutex_);
         if (now) {
             QUEUE_INSERT_HEAD(runnable_dummy_, co);
         } else {
@@ -65,6 +74,24 @@ void Machine::PostRunnable(Coroutine *co, bool now) {
             cond_var_.notify_one();
         }
     }
+}
+
+// Post coroutine to waitting list
+void Machine::PostWaitting(Coroutine *co) {
+    std::lock_guard<std::mutex> lock(waitting_mutex_);
+    DCHECK_EQ(Coroutine::kWaitting, co->state());
+    QUEUE_INSERT_TAIL(waitting_dummy_, co);
+    n_waitting_++;
+    co->set_owner(this);
+}
+
+void Machine::TakeWaittingCoroutine(Coroutine *co) {
+    std::lock_guard<std::mutex> lock(waitting_mutex_);
+    DCHECK_EQ(this, co->owner());
+    DCHECK_EQ(Coroutine::kWaitting, co->state());
+    QUEUE_REMOVE(co);
+    n_waitting_--;
+    co->set_owner(nullptr);
 }
 
 void Machine::Start() {
@@ -82,6 +109,7 @@ void Machine::Entry() {
     int span_shift = 1;
     while (owner_->shutting_down() <= 0) {
         Coroutine *co = nullptr;
+        bool should_exit = (id_ == 0);
         {
             std::lock_guard<std::mutex> lock(runnable_mutex_);
             if (n_runnable_ > 0) {
@@ -89,11 +117,16 @@ void Machine::Entry() {
                 co = runnable_dummy_->next();
                 QUEUE_REMOVE(co);
                 n_runnable_--;
-            } else {
-                if (id_ == 0) {
-                    break;
-                }
+                should_exit = false;
             }
+        } {
+            std::lock_guard<std::mutex> lock(waitting_mutex_);
+            if (n_waitting_ > 0) {
+                should_exit = false;
+            }
+        }
+        if (should_exit) {
+            break;
         }
 
         if (co) {
@@ -448,6 +481,21 @@ Exception *Machine::NewException(uint32_t type, String *message, Exception *caus
                                         message, color_tags());
 }
 
+Channel *Machine::NewChannel(uint32_t data_typeid, size_t capacity, uint32_t flags) {
+    const Class *data_type = STATE->metadata_space()->type(data_typeid);
+    AllocationResult result =
+        STATE->heap()->Allocate(Channel::RequiredSize(data_type, static_cast<uint32_t>(capacity)),
+                                flags);
+    if (!result.ok()) {
+        AllocationPanic(result);
+        return nullptr;
+    }
+    
+    return new (result.ptr()) Channel(data_type, data_type,
+                                      static_cast<uint32_t>(capacity),
+                                      color_tags());
+}
+
 void Machine::AllocationPanic(AllocationResult::Result result) {
     switch (result) {
         case AllocationResult::FAIL:
@@ -455,7 +503,7 @@ void Machine::AllocationPanic(AllocationResult::Result result) {
         case AllocationResult::LIMIT:
             PrintStacktrace(STATE->factory()->oom_string()->data()); // OOM: Should print stackstrace right now
             if (running_) {
-                running_->set_exception(STATE->factory()->oom_panic());
+                running_->AssociateException(STATE->factory()->oom_panic());
             }
             break;
         case AllocationResult::NOTHING:

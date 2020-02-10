@@ -1,4 +1,5 @@
 #include "lang/metadata-space.h"
+#include "lang/channel.h"
 #include "lang/value-inl.h"
 #include "lang/stack.h"
 #include "lang/macro-assembler-x64.h"
@@ -144,7 +145,7 @@ Error MetadataSpace::Initialize() {
     DCHECK_EQ(kType_closure, clazz->id()) << "closure";
     
     // String class
-    ClassBuilder("string")
+    clazz = ClassBuilder("string")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
         .reference_size(kPointerSize)
         .instrance_size(sizeof(String))
@@ -168,7 +169,34 @@ Error MetadataSpace::Initialize() {
             .offset(String::kOffsetElems)
         .End()
     .Build(this);
-
+    DCHECK_EQ(kType_string, clazz->id()) << "string";
+    
+    clazz = ClassBuilder("channel")
+        .tags(Type::kBuiltinTag|Type::kReferenceTag)
+        .reference_size(kPointerSize)
+        .instrance_size(sizeof(Channel))
+        .base(builtin_type(kType_any))
+        .field("close")
+            .type(builtin_type(kType_bool))
+            .flags(Field::kPublic|Field::kRead)
+            .tag(1)
+            .offset(Channel::kOffsetClose)
+        .End()
+        .field("capacity")
+            .type(builtin_type(kType_u32))
+            .flags(Field::kPublic|Field::kRead)
+            .tag(1)
+            .offset(Channel::kOffsetCapacity)
+        .End()
+        .field("length")
+            .type(builtin_type(kType_u32))
+            .flags(Field::kPublic|Field::kRead)
+            .tag(1)
+            .offset(Channel::kOffsetLength)
+        .End()
+    .Build(this);
+    DCHECK_EQ(kType_channel, clazz->id()) << "channel";
+    
     // MutableMap::Entry
     clazz = ClassBuilder("mutable_map.entry")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)

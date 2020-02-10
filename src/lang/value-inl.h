@@ -11,6 +11,8 @@ namespace mai {
 
 namespace lang {
 
+class Channel;
+
 // Closure's captured-value
 class CapturedValue : public AbstractValue {
 public:

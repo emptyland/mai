@@ -9,6 +9,8 @@ namespace lang {
 
 template<class T> class Number;
 class AbstractValue;
+class Channel;
+class Any;
 
 // The runtime functions definition
 struct Runtime {
@@ -42,6 +44,17 @@ struct Runtime {
 //    static uintptr_t U64Value(Number<uint64_t> *value);
 //    static float F32Value(Number<float> *value);
 //    static double F64Value(Number<double> *value);
+    
+    static Channel *NewChannel(uint32_t data_typeid, uint32_t capacity);
+    
+    static int32_t ChannelRecv32(Channel *chan);
+    static float ChannelRecvF32(Channel *chan);
+    static double ChannelRecvF64(Channel *chan);
+
+    static void ChannelSend32(Channel *chan, int32_t value);
+    static void ChannelSendPtr(Channel *chan, Any *value);
+    static void ChannelSendF32(Channel *chan, float value);
+    static void ChannelSendF64(Channel *chan, double value);
 
     // Debug abort message output and fast abort code execution
     static void DebugAbort(const char *message);

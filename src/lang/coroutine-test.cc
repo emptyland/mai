@@ -3,6 +3,8 @@
 #include "lang/heap.h"
 #include "lang/metadata-space.h"
 #include "lang/value-inl.h"
+#include "lang/runtime.h"
+#include "lang/channel.h"
 #include "lang/bytecode-array-builder.h"
 #include "lang/stack-frame.h"
 #include "test/isolate-initializer.h"
@@ -499,10 +501,86 @@ TEST_F(CoroutineTest, ThrowUserException) {
     span.ptr[0].any = *dummy;
     span.ptr[1].any = *String::NewUtf8("Test exception");
 
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
     scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+}
+
+TEST_F(CoroutineTest, NewChannel) {
+//    constexpr int32_t kLocalVarBase = RoundUp(BytecodeStackFrame::kOffsetHeaderSize,
+//                                              kStackAligmentSize);
+    
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaSmi32>(kType_int);
+    builder.Add<kStar32>((kStackSize + 4)/2);
+    builder.Add<kLdaZero>();
+    builder.Add<kStar32>((kStackSize + 8)/2);
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(8);
+    builder.Add<kReturn>();
+
+    Span32 span;
+    span.ptr[0].any = *FunctionTemplate::New(&Runtime::NewChannel);
+    span.ptr[1].any = *FunctionTemplate::New(&Runtime::ChannelSend32);
+
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+}
+
+static void Dummy13(int32_t value) {
+    printf("Recv: %d\n", value);
+}
+
+TEST_F(CoroutineTest, SendRecvChannel) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    Span32 span;
+    span.ptr[0].any = *FunctionTemplate::New(&Runtime::ChannelSend32);
+    span.ptr[1].any = *FunctionTemplate::New(&Runtime::ChannelRecv32);
+    span.ptr[2].any = Machine::This()->NewChannel(kType_int, 0, 0);
+    span.ptr[3].any = *FunctionTemplate::New(Dummy13);
+    
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaConstPtr>(4);
+    builder.Add<kStarPtr>((kStackSize + 8)/2);
+    builder.Add<kLdaSmi32>(404);
+    builder.Add<kStar32>((kStackSize + 12)/2);
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(12);
+    builder.Add<kYield>(YIELD_PROPOSE);
+    builder.Add<kReturn>();
+
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    builder.Abandon();
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaConstPtr>(4);
+    builder.Add<kStarPtr>((kStackSize + 8)/2);
+    builder.Add<kLdaConstPtr>(2);
+    builder.Add<kCallNativeFunction>(8);
+    builder.Add<kYield>(YIELD_PROPOSE);
+    builder.Add<kStar32>((kStackSize + 4)/2);
+    builder.Add<kLdaConstPtr>(6);
+    builder.Add<kCallNativeFunction>(4);
+    builder.Add<kReturn>();
+    
+    entry = BuildDummyClosure(builder.Build(), {span}, {0x3});
+    co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(1)->PostRunnable(co);
 
     isolate_->Run();
 }

@@ -11,6 +11,7 @@ class Any;
 class String;
 class Closure;
 class Panic;
+class Channel;
 class Exception;
 class Throwable;
 template<class T, bool R> class Array;
@@ -86,6 +87,7 @@ enum BuiltinType: int {
     kType_captured_value,
     kType_closure,
     kType_string,
+    kType_channel,
     kType_mutable_map_entry,
     DECLARE_CONTAINER_TYPES(DEFINE_ENUM)
     kType_Throwable,
@@ -171,6 +173,18 @@ struct TypeTraits<uint64_t> {
 };
 
 template<>
+struct TypeTraits<intptr_t> {
+    static constexpr BuiltinType kType = kType_i64;
+    static constexpr char kName[] = "i64";
+};
+
+template<>
+struct TypeTraits<uintptr_t> {
+    static constexpr BuiltinType kType = kType_u64;
+    static constexpr char kName[] = "u64";
+};
+
+template<>
 struct TypeTraits<float> {
     static constexpr BuiltinType kType = kType_f32;
     static constexpr char kName[] = "f32";
@@ -192,6 +206,12 @@ template<>
 struct TypeTraits<String> {
     static constexpr BuiltinType kType = kType_string;
     static constexpr char kName[] = "string";
+};
+
+template<>
+struct TypeTraits<Channel> {
+    static constexpr BuiltinType kType = kType_channel;
+    static constexpr char kName[] = "channel";
 };
 
 template<>

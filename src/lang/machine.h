@@ -66,6 +66,9 @@ public:
     
     // Post coroutine to runnable
     void PostRunnable(Coroutine *co, bool now = true);
+    
+    // Post coroutine to waitting list
+    void PostWaitting(Coroutine *co);
 
     // Get current thread machine object
     static Machine *This() { return DCHECK_NOTNULL(TLS_STORAGE->machine); }
@@ -105,6 +108,9 @@ public:
     // New base of Exception object
     Exception *NewException(uint32_t type, String *message, Exception *cause, uint32_t flags);
     
+    // New channel
+    Channel *NewChannel(uint32_t data_type, size_t capacity, uint32_t flags);
+    
     // Handle scope enter
     void EnterHandleScope(HandleScope *handle_scope) {
         auto prev_slot = top_slot_;
@@ -131,6 +137,8 @@ public:
     }
 
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
+    
+    void TakeWaittingCoroutine(Coroutine *co);
 
     friend class Isolate;
     friend class Scheduler;
@@ -170,9 +178,12 @@ private:
     uint64_t exclusion_ = 0; // Exclusion counter if > 0 can not be preempted
     Coroutine *free_dummy_; // Local free coroutines(coroutine pool)
     Coroutine *runnable_dummy_; // Waiting for running coroutines
+    Coroutine *waitting_dummy_; // Waiting for wakeup coroutines
     mutable std::mutex runnable_mutex_; // Mutex for runnable_dummy_
+    mutable std::mutex waitting_mutex_; // Mutex for waitting_dummy_
     int n_free_ = 0; // Number of free coroutine
-    int n_runnable_ = 0; // Number of runnable coroutine
+    int n_runnable_ = 0; // Number of runnable coroutines
+    int n_waitting_ = 0; // Number of waitting coroutines
     Coroutine *running_ = nullptr; // Current running coroutine
     std::condition_variable cond_var_; // Condition variable for scheduling
     std::mutex mutex_; // Total mutex

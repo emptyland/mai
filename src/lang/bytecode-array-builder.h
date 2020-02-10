@@ -3,6 +3,7 @@
 #define MAI_LANG_BYTECODE_ARRAY_BUILDER_H_
 
 #include "lang/bytecode.h"
+#include "base/arena-utils.h"
 
 namespace mai {
 
@@ -34,7 +35,9 @@ private:
 
 class BytecodeArrayBuilder final {
 public:
-    BytecodeArrayBuilder(base::Arena *arena): arena_(DCHECK_NOTNULL(arena)) {}
+    BytecodeArrayBuilder(base::Arena *arena)
+        : arena_(DCHECK_NOTNULL(arena))
+        , nodes_(arena) {}
 
     template<BytecodeID ID>
     inline void Add() { nodes_.push_back(Bytecodes<ID>::New(arena_)); }
@@ -94,6 +97,8 @@ public:
         return instrs;
     }
     
+    void Abandon() { nodes_.clear(); }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArrayBuilder);
 private:
     void Link(BytecodeNode *bc, int pc) {
@@ -109,7 +114,7 @@ private:
         }
     }
     
-    std::vector<BytecodeNode *> nodes_;
+    base::ArenaVector<BytecodeNode *> nodes_;
     base::Arena *arena_;
 }; // class BytecodeArrayBuilder
 

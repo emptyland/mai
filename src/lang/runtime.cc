@@ -1,5 +1,6 @@
 #include "lang/runtime.h"
 #include "lang/isolate-inl.h"
+#include "lang/channel.h"
 #include "lang/value-inl.h"
 #include "lang/machine.h"
 #include "lang/coroutine.h"
@@ -12,12 +13,12 @@ namespace lang {
 template<class T>
 static inline AbstractValue *ValueOf(intptr_t input) {
     T value = static_cast<T>(input);
-    return Machine::This()->ValueOfNumber(kType_i8, &value, sizeof(value));
+    return Machine::This()->ValueOfNumber(TypeTraits<T>::kType, &value, sizeof(value));
 }
 
 /*static*/ AbstractValue *Runtime::BoolValueOf(intptr_t input) {
     int8_t value = static_cast<int8_t>(input);
-    return Machine::This()->ValueOfNumber(kType_i8, &value, sizeof(value));
+    return Machine::This()->ValueOfNumber(kType_bool, &value, sizeof(value));
 }
 
 /*static*/ AbstractValue *Runtime::I8ValueOf(intptr_t value) { return ValueOf<int8_t>(value); }
@@ -37,6 +38,61 @@ static inline AbstractValue *ValueOf(intptr_t input) {
 
 /*static*/ AbstractValue *Runtime::F64ValueOf(double value) {
     return Machine::This()->ValueOfNumber(kType_f64, &value, sizeof(value));
+}
+
+/*static*/ Channel *Runtime::NewChannel(uint32_t data_typeid, uint32_t capacity) {
+    return Machine::This()->NewChannel(data_typeid, capacity, 0/*flags*/);
+}
+
+/*static*/ int32_t Runtime::ChannelRecv32(Channel *chan) {
+    if (chan->has_close()) {
+        return 0;
+    }
+    int32_t value = 0;
+    chan->Recv(&value, sizeof(value));
+    return value;
+}
+
+/*static*/ float Runtime::ChannelRecvF32(Channel *chan) {
+    if (chan->has_close()) {
+        return 0;
+    }
+    float value = 0;
+    chan->Recv(&value, sizeof(value));
+    return value;
+}
+
+/*static*/ double Runtime::ChannelRecvF64(Channel *chan) {
+    if (chan->has_close()) {
+        return 0;
+    }
+    double value = 0;
+    chan->Recv(&value, sizeof(value));
+    return value;
+}
+
+/*static*/ void Runtime::ChannelSend32(Channel *chan, int32_t value) {
+    if (!chan->has_close()) {
+        chan->SendNoBarrier(&value, sizeof(value));
+    }
+}
+
+/*static*/ void Runtime::ChannelSendPtr(Channel *chan, Any *value) {
+    if (chan->has_close()) {
+        chan->SendAny(value);
+    }
+}
+
+/*static*/ void Runtime::ChannelSendF32(Channel *chan, float value) {
+    if (chan->has_close()) {
+        chan->SendNoBarrier(&value, sizeof(value));
+    }
+}
+
+/*static*/ void Runtime::ChannelSendF64(Channel *chan, double value) {
+    if (chan->has_close()) {
+        chan->SendNoBarrier(&value, sizeof(value));
+    }
 }
 
 /*static*/ void Runtime::DebugAbort(const char *message) {
