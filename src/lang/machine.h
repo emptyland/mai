@@ -32,6 +32,7 @@ public:
         kDead,
         kIdle,
         kRunning,
+        kPanic,
     };
     using TaskFunc = void (*)();
     
@@ -43,8 +44,17 @@ public:
     DEF_VAL_GETTER(int, id);
     DEF_VAL_GETTER(int, n_free);
     DEF_PTR_GETTER(Coroutine, running);
-    
+
+    // Get machine state
     State state() const { return state_.load(std::memory_order_acquire); }
+
+    // Set machine state
+    void set_state(State state) { state_.store(state, std::memory_order_release); }
+
+    // Add counter when some exception uncaught.
+    void IncrmentUncaughtCount() { uncaught_count_++; }
+    
+    DEF_VAL_GETTER(int, uncaught_count);
     
     int GetNumberOfRunnable() const {
         std::lock_guard<std::mutex> lock(runnable_mutex_);
@@ -90,7 +100,7 @@ public:
     Closure *NewClosure(Function *func, size_t captured_var_size, uint32_t flags);
     
     // New Panic error object
-    Throwable *NewPanic(int code, String *message, uint32_t flags);
+    Throwable *NewPanic(Panic::Level code, String *message, uint32_t flags);
     
     // New base of Exception object
     Exception *NewException(uint32_t type, String *message, Exception *cause, uint32_t flags);
@@ -127,7 +137,7 @@ public:
     friend class MachineScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Machine);
 private:
-    void Entry();
+    void Entry(); // Machine entry point
 
     void Enter() {
         DCHECK(__tls_storage == nullptr);
@@ -142,6 +152,12 @@ private:
         __tls_storage = nullptr;
     }
     
+    void AllocationPanic(AllocationResult result) { AllocationPanic(result.result()); }
+    
+    void AllocationPanic(AllocationResult::Result result);
+    
+    void PrintStacktrace(const char *message);
+    
     void InsertFreeCoroutine(Coroutine *co);
     
     Coroutine *TakeFreeCoroutine();
@@ -150,6 +166,7 @@ private:
     Scheduler *const owner_; // Scheduler
     HandleScopeSlot *top_slot_ = nullptr; // Top of handle-scope slot pointer
     std::atomic<State> state_ = kDead; // Current machine state
+    int uncaught_count_ = 0; // Counter of uncaught
     uint64_t exclusion_ = 0; // Exclusion counter if > 0 can not be preempted
     Coroutine *free_dummy_; // Local free coroutines(coroutine pool)
     Coroutine *runnable_dummy_; // Waiting for running coroutines

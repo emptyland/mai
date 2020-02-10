@@ -36,6 +36,15 @@ Error Heap::Initialize(size_t new_space_initial_size) {
 }
 
 AllocationResult Heap::Allocate(size_t size, uint32_t flags) {
+    // For testing, if trap is setting, should return the fake error
+    if (test_trap_ != AllocationResult::OK && test_trap_count_-- == 0) {
+        // Reset trap setting
+        AllocationResult::Result trap = test_trap_;
+        test_trap_ = AllocationResult::OK;
+        test_trap_count_ = 0;
+        return AllocationResult(trap, nullptr);
+    }
+    
     if (size == 0) {
         return AllocationResult(AllocationResult::NOTHING, nullptr);
     }

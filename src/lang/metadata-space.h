@@ -28,13 +28,13 @@ public:
     const Class *builtin_type(BuiltinType type) const {
         DCHECK_GE(static_cast<int>(type), 0);
         DCHECK_LT(static_cast<int>(type), kMax_Types);
-        return classes_[static_cast<int>(type)];
+        return DCHECK_NOTNULL(classes_[static_cast<int>(type)]);
     }
     
     const Class *type(uint32_t id) const {
         size_t index = id >= kUserTypeIdBase ? id - kUserTypeIdBase + kMax_Types : id;
         DCHECK_LT(index, classes_.size());
-        return classes_[index];
+        return DCHECK_NOTNULL(classes_[index]);
     }
 
     template<class T>

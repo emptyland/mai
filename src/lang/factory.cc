@@ -28,8 +28,9 @@ Factory::~Factory() {
 void Factory::Initialize() {
     // Init heap values:
     empty_string_ = Machine::This()->NewUtf8String("", 0, Heap::kOld);
-    oom_string_ = Machine::This()->NewUtf8String("OOM", 3, Heap::kOld);
-    oom_panic_ = static_cast<Panic *>(Machine::This()->NewPanic(0, oom_string_, Heap::kOld));
+    oom_string_ = Machine::This()->NewUtf8String(STR_WITH_LEN("Doki Doki Panic-OOM"), Heap::kOld);
+    oom_panic_ = static_cast<Panic *>(Machine::This()->NewPanic(Panic::kCrash, oom_string_,
+                                                                Heap::kOld));
     
     // Init True and False values
     if (!cached_number_slot(kType_bool)->values[0].load()) {

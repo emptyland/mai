@@ -271,6 +271,27 @@ Error MetadataSpace::Initialize() {
     .Build(this);
     DCHECK_EQ(kType_Panic, clazz->id()) << "Panic";
     
+    clazz = ClassBuilder("Exception")
+        .tags(Type::kBuiltinTag|Type::kReferenceTag)
+        .reference_size(kPointerSize)
+        .instrance_size(sizeof(Exception))
+        .base(builtin_type(kType_Throwable))
+        .field("message")
+            .type(builtin_type(kType_string))
+            .flags(Field::kPublic|Field::kRead)
+            .tag(1)
+            .offset(Exception::kOffsetMessage)
+        .End()
+        .field("cause")
+            .type(nullptr)
+            .flags(Field::kPublic|Field::kRead)
+            .tag(2)
+            .offset(Exception::kOffsetCause)
+        .End()
+    .Build(this);
+    DCHECK_EQ(kType_Exception, clazz->id()) << "Exception";
+    clazz->fields_[1].type_ = clazz; // Set cause type
+    
     // Other types from this id;
     DCHECK_LT(next_type_id_, kUserTypeIdBase);
     next_type_id_ = kUserTypeIdBase;

@@ -3,12 +3,19 @@
 #include "lang/coroutine.h"
 #include "lang/value-inl.h"
 #include "lang/heap.h"
+#include "lang/stack-frame.h"
 #include "mai/allocator.h"
 #include <memory>
 
 namespace mai {
 
 namespace lang {
+
+inline uint32_t color_tags() {
+    uint32_t tags = STATE->heap()->initialize_color();
+    DCHECK(tags & Any::kColorMask);
+    return tags;
+}
 
 Machine::Machine(int id, Scheduler *owner)
     : id_(id)
@@ -97,7 +104,7 @@ void Machine::Entry() {
             TLS_STORAGE->coroutine = co;
 
             trampoline.entry()(co);
-            
+
             if (co->state() == Coroutine::kDead || co->state() == Coroutine::kPanic) {
                 owner_->Schedule();
             } else if (co->state() == Coroutine::kInterrupted) {
@@ -164,21 +171,26 @@ Address Machine::AdvanceHandleSlots(int n_slots) {
 
 // Factory for create a UTF-8 string
 String *Machine::NewUtf8String(const char *utf8_string, size_t n, uint32_t flags) {
+    if (running_ && (!utf8_string || n == 0)) {
+        return STATE->factory()->empty_string();
+    }
     size_t request_size = String::RequiredSize(n + 1);
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
+        AllocationPanic(result);
         return nullptr;
     }
     String *obj = new (result.ptr()) String(STATE->builtin_type(kType_string),
                                             static_cast<uint32_t>(n + 1),
                                             utf8_string,
                                             static_cast<uint32_t>(n),
-                                            0/*TODO: color*/);
+                                            color_tags());
     return obj;
 }
 
 static bool NeedInit(std::atomic<AbstractValue *> *address) {
-    static AbstractValue *const kPendingValue = reinterpret_cast<AbstractValue *>(NumberValueSlot::kPendingMask);
+    static AbstractValue *const kPendingValue =
+        reinterpret_cast<AbstractValue *>(NumberValueSlot::kPendingMask);
     AbstractValue *e = nullptr;
     if (address->compare_exchange_weak(e, kPendingValue)) {
         return true;
@@ -196,8 +208,8 @@ static AbstractValue *GetOrInstallNumber(BuiltinType primitive_type, const void 
         return Machine::This()->NewNumber(primitive_type, value, n, 0);
     }
     auto address = DCHECK_NOTNULL(STATE->cached_number_value(primitive_type, index));
-    if (!(reinterpret_cast<uintptr_t>(address->load(std::memory_order_acquire)) & NumberValueSlot::kCreatedMask) &&
-        NeedInit(address)) {
+    if (!(reinterpret_cast<uintptr_t>(address->load(std::memory_order_acquire)) &
+          NumberValueSlot::kCreatedMask) && NeedInit(address)) {
         AbstractValue *instance = Machine::This()->NewNumber(primitive_type, value, n, Heap::kOld);
         address->store(instance, std::memory_order_release);
     }
@@ -245,6 +257,7 @@ AbstractValue *Machine::NewNumber(BuiltinType primitive_type, const void *value,
                                   uint32_t flags) {
     AllocationResult result = STATE->heap()->Allocate(sizeof(AbstractValue), flags);
     if (!result.ok()) {
+        AllocationPanic(result);
         return nullptr;
     }
     const Class *clazz = STATE->metadata_space()->GetNumberClassOrNull(primitive_type);
@@ -267,12 +280,13 @@ AbstractArray *Machine::NewArray(BuiltinType type, size_t length, size_t capacit
     size_t request_size = sizeof(AbstractArray) + elems_field->type()->reference_size() * capacity;
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
+        AllocationPanic(result);
         return nullptr;
     }
     AbstractArray *obj = new (result.ptr()) AbstractArray(clazz,
                                                           static_cast<uint32_t>(capacity),
                                                           static_cast<uint32_t>(length),
-                                                          0/*TODO: color*/);
+                                                          color_tags());
     // Zeroize all elements
     ::memset(reinterpret_cast<Address>(obj) + elems_field->offset(), 0,
              elems_field->type()->reference_size() * length);
@@ -293,9 +307,10 @@ AbstractArray *Machine::NewArrayCopied(const AbstractArray *origin, size_t incre
     size_t request_size = sizeof(AbstractArray) + elems_field->type()->reference_size() * length;
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
+        AllocationPanic(result);
         return nullptr;
     }
-    AbstractArray *obj = new (result.ptr()) AbstractArray(clazz, length, length, 0/*TODO: color*/);
+    AbstractArray *obj = new (result.ptr()) AbstractArray(clazz, length, length, color_tags());
     Address dest = reinterpret_cast<Address>(obj) + elems_field->offset();
     const Byte *sour = reinterpret_cast<const Byte *>(origin) + elems_field->offset();
 
@@ -319,6 +334,7 @@ AbstractArray *Machine::NewMutableArray8(const void *init_data, size_t length, s
     size_t request_size = sizeof(Array<uint8_t>) + 1 * capacity;
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
+        AllocationPanic(result);
         return nullptr;
     }
     
@@ -326,7 +342,7 @@ AbstractArray *Machine::NewMutableArray8(const void *init_data, size_t length, s
     Array<uint8_t> *obj = new (result.ptr()) Array<uint8_t>(STATE->builtin_type(kType_mutable_array8),
                                                             static_cast<uint32_t>(capacity),
                                                             static_cast<uint32_t>(length),
-                                                            0/*TODO: color*/);
+                                                            color_tags());
     ::memcpy(obj->elems_, init_data, length);
     return obj;
 }
@@ -339,6 +355,9 @@ AbstractArray *Machine::ResizeMutableArray(AbstractArray *origin, size_t new_siz
     const Class *clazz = origin->clazz();
     AbstractArray *copied = NewArray(static_cast<BuiltinType>(clazz->id()), origin->length(),
                                      new_size, 0/*flags*/);
+    if (!copied) {
+        return nullptr;
+    }
 
     const Field *elems_field =
         DCHECK_NOTNULL(STATE->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
@@ -373,11 +392,13 @@ Closure *Machine::NewClosure(Code *code, size_t captured_var_size, uint32_t flag
     size_t request_size = sizeof(Closure) + captured_var_size * sizeof(Closure::CapturedVar);
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
+        AllocationPanic(result);
         return nullptr;
     }
     Closure *obj = new (result.ptr()) Closure(STATE->builtin_type(kType_closure),
                                               DCHECK_NOTNULL(code),
-                                              static_cast<uint32_t>(captured_var_size), 0/*TODO: color*/);
+                                              static_cast<uint32_t>(captured_var_size),
+                                              Closure::kCxxFunction|color_tags());
     return obj;
 }
 
@@ -386,30 +407,101 @@ Closure *Machine::NewClosure(Function *func, size_t captured_var_size, uint32_t 
     size_t request_size = sizeof(Closure) + captured_var_size * sizeof(Closure::CapturedVar);
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {
+        AllocationPanic(result);
         return nullptr;
     }
     Closure *obj = new (result.ptr()) Closure(STATE->builtin_type(kType_closure),
                                               DCHECK_NOTNULL(func),
-                                              static_cast<uint32_t>(captured_var_size), 0/*TODO: color*/);
+                                              static_cast<uint32_t>(captured_var_size),
+                                              Closure::kMaiFunction|color_tags());
     return obj;
 }
 
-Throwable *Machine::NewPanic(int code, String *message, uint32_t flags) {
+Throwable *Machine::NewPanic(Panic::Level code, String *message, uint32_t flags) {
     AllocationResult result = STATE->heap()->Allocate(sizeof(Panic), flags);
     if (!result.ok()) {
+        AllocationPanic(result);
         return nullptr;
     }
     Array<String *> *stacktrace = Throwable::MakeStacktrace(!running_ ? nullptr : running_->bp1());
     if (!stacktrace) {
+        AllocationPanic(AllocationResult::OOM);
         return nullptr;
     }
     return new (result.ptr()) Panic(STATE->builtin_type(kType_Panic), stacktrace, code, message,
-                                    0/*TODO: color*/);
+                                    color_tags());
 }
 
 Exception *Machine::NewException(uint32_t type, String *message, Exception *cause, uint32_t flags) {
-    TODO();
-    return nullptr;
+    AllocationResult result = STATE->heap()->Allocate(sizeof(Exception), flags);
+    if (!result.ok()) {
+        AllocationPanic(result);
+        return nullptr;
+    }
+    Array<String *> *stacktrace = Throwable::MakeStacktrace(!running_ ? nullptr : running_->bp1());
+    if (!stacktrace) {
+        AllocationPanic(AllocationResult::OOM);
+        return nullptr;
+    }
+    
+    return new (result.ptr()) Exception(STATE->builtin_type(kType_Exception), stacktrace, cause,
+                                        message, color_tags());
+}
+
+void Machine::AllocationPanic(AllocationResult::Result result) {
+    switch (result) {
+        case AllocationResult::FAIL:
+        case AllocationResult::OOM:
+        case AllocationResult::LIMIT:
+            PrintStacktrace(STATE->factory()->oom_string()->data()); // OOM: Should print stackstrace right now
+            if (running_) {
+                running_->set_exception(STATE->factory()->oom_panic());
+            }
+            break;
+        case AllocationResult::NOTHING:
+        case AllocationResult::OK:
+        default:
+            NOREACHED();
+            break;
+    }
+}
+
+void Machine::PrintStacktrace(const char *message) {
+    if (!running_) {
+        ::fprintf(stderr, "👎Call PrintStackstrace() must be in executing\n");
+        return;
+    }
+
+    ::fprintf(stderr, "❌Stacktrace: M:%d:C:%lld:😱[Panic](0) %s\n", id_, running_->coid(), message);
+
+    Address frame_bp = running_->bp1();
+    while (frame_bp < running_->stack()->stack_hi()) {
+        StackFrame::Maker maker = StackFrame::GetMaker(frame_bp);
+        switch (maker) {
+            case StackFrame::kStub:
+                // Ignore
+                break;
+            case StackFrame::kBytecode: {
+                Closure *callee = BytecodeStackFrame::GetCallee(frame_bp);
+                int32_t pc = BytecodeStackFrame::GetPC(frame_bp);
+                
+                ::fprintf(stderr, "    at %s", callee->function()->name());
+                const SourceLineInfo *info = callee->function()->source_line_info();
+                if (info) {
+                    ::fprintf(stderr, "(%s:%d)\n", info->file_name(), info->FindSourceLine(pc));
+                } else {
+                    ::fprintf(stderr, "()\n");
+                }
+            } break;
+            case StackFrame::kTrampoline:
+                // Finalize
+                return;
+            default:
+                NOREACHED();
+                break;
+        }
+        frame_bp = *reinterpret_cast<Address *>(frame_bp);
+    }
 }
 
 void Machine::InsertFreeCoroutine(Coroutine *co) {

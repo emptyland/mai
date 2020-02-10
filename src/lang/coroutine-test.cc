@@ -1,5 +1,6 @@
 #include "lang/coroutine.h"
 #include "lang/scheduler.h"
+#include "lang/heap.h"
 #include "lang/metadata-space.h"
 #include "lang/value-inl.h"
 #include "lang/bytecode-array-builder.h"
@@ -440,6 +441,69 @@ TEST_F(CoroutineTest, ThrowException) {
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
     scheduler_->machine(0)->PostRunnable(co);
     
+    isolate_->Run();
+}
+
+static String *Dummy10() {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    STATE->heap()->TEST_set_trap(AllocationResult::OOM, 0);
+    return *String::NewUtf8("Name ok");
+}
+
+TEST_F(CoroutineTest, OOMThrowPanic) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(0);
+    builder.Add<kReturn>();
+
+    Handle<Closure> dummy(FunctionTemplate::New(Dummy10));
+    Span32 span;
+    span.ptr[0].any = *dummy;
+
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+
+    ASSERT_EQ(1, scheduler_->machine0()->uncaught_count());
+}
+
+static void Dummy11(String *message) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+
+    Handle<Throwable> e(Exception::New(Handle<String>(message), Handle<Exception>::Null()));
+    if (e.is_empty()) {
+        return;
+    }
+    Throwable::Throw(e);
+}
+
+TEST_F(CoroutineTest, ThrowUserException) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+
+    builder.Add<kLdaConstPtr>(2);
+    builder.Add<kStarPtr>((kStackSize + 8)/2);
+
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(kPointerSize);
+    builder.Add<kReturn>();
+
+    Handle<Closure> dummy(FunctionTemplate::New(Dummy11));
+    Span32 span;
+    span.ptr[0].any = *dummy;
+    span.ptr[1].any = *String::NewUtf8("Test exception");
+
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
     isolate_->Run();
 }
 

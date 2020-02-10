@@ -67,15 +67,33 @@ public:
     
     uint64_t NextRememberRecordSequanceNumber() { return remember_record_sequance_.fetch_add(1); }
     
-    
     NewSpace *new_space() const { return new_space_.get(); }
+    
+    DEF_VAL_GETTER(HeapColor, initialize_color);
+    DEF_VAL_GETTER(HeapColor, finalize_color);
+    
+    uint32_t initialize_color_tags() const { return static_cast<uint32_t>(initialize_color()); }
+    
+    uint32_t finalize_color_tags() const { return static_cast<uint32_t>(finalize_color()); }
 
+    // TEST functions:
+    void TEST_set_trap(AllocationResult::Result trap, int count) {
+        test_trap_ = trap;
+        test_trap_count_ = count;
+    }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
 private:
     std::unique_ptr<NewSpace> new_space_; // New generation space
     std::unique_ptr<OldSpace> old_space_; // Old generation space
     std::unique_ptr<LargeSpace> large_space_; // Large object area(Old-Generation)
     std::mutex mutex_; // mutex
+    
+    AllocationResult::Result test_trap_ = AllocationResult::OK; // Trap for test
+    int test_trap_count_ = 0; // Trap counter for test
+    
+    HeapColor initialize_color_ = kColorWhite; // Initialize object color for GC
+    HeapColor finalize_color_ = kColorBlack; // Finalize object color for GC
 
     std::atomic<uint64_t> remember_record_sequance_ = 0;
     // Remember set record for old-generation -> new-generation

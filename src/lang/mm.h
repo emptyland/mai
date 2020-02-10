@@ -161,6 +161,8 @@ private:
     Address address_;
 };
 
+#define STR_WITH_LEN(s) s, (arraysize(s) - 1)
+
 } // namespace lang
 
 } // namespace mai

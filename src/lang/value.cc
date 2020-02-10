@@ -38,6 +38,9 @@ const int32_t Throwable::kOffsetStacktrace = MEMBER_OFFSET_OF(Throwable, stacktr
 const int32_t Panic::kOffsetCode = MEMBER_OFFSET_OF(Panic, code_);
 const int32_t Panic::kOffsetMessage = MEMBER_OFFSET_OF(Panic, message_);
 
+const int32_t Exception::kOffsetMessage = MEMBER_OFFSET_OF(Exception, message_);
+const int32_t Exception::kOffsetCause = MEMBER_OFFSET_OF(Exception, cause_);
+
 // Use function call, it's slowly calling...
 bool Any::SlowlyIs(uint32_t type_id) const { return QuicklyIs(type_id); }
 
@@ -86,7 +89,7 @@ MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32
 }
 
 /*static*/ Throwable *Throwable::NewPanic(int code, String *message) {
-    return Machine::This()->NewPanic(code, message, 0/*flags*/);
+    return Machine::This()->NewPanic(static_cast<Panic::Level>(code), message, 0/*flags*/);
 }
 
 // Handle<Any> argv[2] = { Handle<Any>::Null(), String::New("fail") };
@@ -153,7 +156,8 @@ out:
     Coroutine::This()->set_exception(*exception);
 }
 
-Panic::Panic(const Class *clazz, Array<String *> *stacktrace, int code, String *message, uint32_t tags)
+Panic::Panic(const Class *clazz, Array<String *> *stacktrace, Level code, String *message,
+             uint32_t tags)
     : Throwable(clazz, stacktrace, tags)
     , code_(code)
     , message_(message) {

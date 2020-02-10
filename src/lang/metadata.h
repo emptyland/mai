@@ -85,7 +85,10 @@ public:
     
     inline const Method *method(uint32_t i) const;
     
+    bool IsSameOrBaseOf(const Class *base) { return IsSameOf(base) || IsBaseOf(base); }
+    bool IsSameOf(const Class *base) const { return this == DCHECK_NOTNULL(base); }
     inline bool IsBaseOf(const Class *base) const;
+    
     
     friend class ClassBuilder;
     friend class MetadataSpace;
@@ -439,12 +442,11 @@ inline const Method *Class::method(uint32_t i) const {
 }
 
 inline bool Class::IsBaseOf(const Class *base) const {
-    const Class *clazz = this;
-    while (clazz) {
+    DCHECK(base != nullptr);
+    for (const Class *clazz = this->base_; clazz; clazz = clazz->base()) {
         if (clazz == base) {
             return true;
         }
-        clazz = clazz->base();
     }
     return false;
 }

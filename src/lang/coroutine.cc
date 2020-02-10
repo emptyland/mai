@@ -72,28 +72,52 @@ void Coroutine::Dispose() {
 }
 
 void Coroutine::Uncaught(Throwable *thrown) {
-    if (owner_) {
-        fprintf(stderr, "❌Uncaught: M:%d:C:%lld:", owner_->id(), coid_);
-    } else {
-        fprintf(stderr, "❌Uncaught: M:NONE:C:%lld:", coid_);
-    }
-    
     DCHECK(thrown->clazz()->IsBaseOf(STATE->builtin_type(kType_Throwable)))
         << "thrown is not Throwable: " << thrown->clazz()->name();
 
+    bool should_print_stackstrace = true;
     if (thrown->Is<Panic>()) {
         Panic *error = static_cast<Panic *>(thrown);
 
-        if (error->code() == 0) {
+        if (error->code() == Panic::kCrash) {
             // Fatal: Should shutdown scheduler
+            owner_->set_state(Machine::kPanic);
             STATE->scheduler()->MarkShuttingDown();
         }
-        fprintf(stderr, "😱[Panic](%d) %s\n", error->code(), error->quickly_message()->data());
+        
+        should_print_stackstrace = false;
     } else {
-        // TODO: Exception
-        TODO();
+        DCHECK(thrown->clazz()->IsSameOrBaseOf(STATE->builtin_type(kType_Exception)));
+
+        should_print_stackstrace = true;
     }
-    thrown->PrintStackstrace(stderr);
+
+    owner_->IncrmentUncaughtCount();
+    if (!should_print_stackstrace) {
+        return;
+    }
+    
+    if (owner_) {
+        ::fprintf(stderr, "❌Uncaught: M:%d:C:%lld:", owner_->id(), coid_);
+    } else {
+        ::fprintf(stderr, "❌Uncaught: M:NONE:C:%lld:", coid_);
+    }
+    if (thrown->Is<Panic>()) {
+        Panic *error = static_cast<Panic *>(thrown);
+        ::fprintf(stderr, "😱[Panic](%d) %s\n", error->code(), error->quickly_message()->data());
+        thrown->PrintStackstrace(stderr);
+    } else {
+        Exception *exception = static_cast<Exception *>(thrown);
+        ::fprintf(stderr, "🤔[Exception] %s\n", exception->quickly_message()->data());
+        exception->PrintStackstrace(stderr);
+
+        Exception *cause = exception->quickly_cause();
+        while (cause) {
+            ::fprintf(stderr, "🔗Cause: [Exception] %s\n", exception->quickly_message()->data());
+            cause->PrintStackstrace(stderr);
+            cause = cause->quickly_cause();
+        }
+    }
 }
 
 void Coroutine::Suspend(intptr_t /*acc*/, double /*facc*/) {

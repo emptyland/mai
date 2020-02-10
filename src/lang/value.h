@@ -508,8 +508,14 @@ public:
     static const int32_t kOffsetCode;
     static const int32_t kOffsetMessage;
     
+    enum Level {
+        kCrash,
+        kFatal,
+        kError,
+    };
+    
     // Code of panic reason
-    int code() const { return code_; }
+    Level code() const { return code_; }
 
     // Message of panic information
     Handle<String> message() const { return Handle<String>(quickly_message()); }
@@ -528,9 +534,9 @@ public:
 
     friend class Machine;
 private:
-    Panic(const Class *clazz, Array<String *> *stacktrace, int code, String *message, uint32_t tags);
+    Panic(const Class *clazz, Array<String *> *stacktrace, Level code, String *message, uint32_t tags);
 
-    int code_; // code of error
+    Level code_; // code of error
     String *message_; // [strong ref] Message of error
 }; // class Panic
 
@@ -538,15 +544,18 @@ private:
 // All Exception's base class
 class Exception : public Throwable {
 public:
+    static const int32_t kOffsetMessage;
+    static const int32_t kOffsetCause;
+    
     // Message of exception information
-    Handle<String> message() const { return Handle<String>(quickly_message()); }
+    Handle<String> message() const { return Handle<String>(message_); }
     
     // Cause of exception
-    Handle<Exception> cause() const { return Handle<Exception>(quickly_exception()); }
+    Handle<Exception> cause() const { return Handle<Exception>(cause_); }
 
     // Internal functions
     inline String *quickly_message() const;
-    inline Exception *quickly_exception() const;
+    inline Exception *quickly_cause() const;
 
     // New a panic
     static Handle<Exception> New(Handle<String> message, Handle<Exception> cause) {
