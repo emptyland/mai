@@ -56,6 +56,7 @@ static inline AbstractValue *ValueOf(intptr_t input) {
         return;
     }
     chan->CloseLockless();
+    DCHECK(chan->has_close());
 }
 
 template<class T>

@@ -512,7 +512,7 @@ TEST_F(CoroutineTest, ThrowUserException) {
 TEST_F(CoroutineTest, NewChannel) {
 //    constexpr int32_t kLocalVarBase = RoundUp(BytecodeStackFrame::kOffsetHeaderSize,
 //                                              kStackAligmentSize);
-    
+
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
@@ -521,12 +521,15 @@ TEST_F(CoroutineTest, NewChannel) {
     builder.Add<kLdaZero>();
     builder.Add<kStar32>((kStackSize + 8)/2);
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(8);
+    builder.Add<kCallNativeFunction>(8); // NewChannel
+    builder.Add<kStarPtr>((kStackSize + 8)/2);
+    builder.Add<kLdaConstPtr>(2);
+    builder.Add<kCallNativeFunction>(8); // ChannelClose
     builder.Add<kReturn>();
 
     Span32 span;
     span.ptr[0].any = *FunctionTemplate::New(&Runtime::NewChannel);
-    span.ptr[1].any = *FunctionTemplate::New(&Runtime::ChannelSend32);
+    span.ptr[1].any = *FunctionTemplate::New(&Runtime::ChannelClose);
 
     Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);

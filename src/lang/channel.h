@@ -40,6 +40,7 @@ public:
 
     DEF_PTR_GETTER(const Class, data_type);
     DEF_VAL_GETTER(uint32_t, capacity);
+    DEF_VAL_GETTER(uint32_t, length);
     DEF_VAL_MUTABLE_GETTER(std::mutex, mutex);
     
     bool is_buffered() const { return capacity_ > 0; }
@@ -59,6 +60,9 @@ public:
 
     void CloseLockless();
     
+    FRIEND_UNITTEST_CASE(ChannelTest, AddBufferTail);
+    FRIEND_UNITTEST_CASE(ChannelTest, TakeBufferHead);
+    FRIEND_UNITTEST_CASE(ChannelTest, RingBuffer);
     friend class Machine;
 private:
     Channel(const Class *clazz, const Class *data_class, uint32_t capacity, uint32_t tags)
@@ -78,13 +82,13 @@ private:
     
     Address TakeBufferHead(void *data, size_t n) {
         Address addr = TakeBufferHead();
-        ::memcpy(addr, data, n);
+        ::memcpy(data, addr, n);
         return addr;
     }
     
     // Take ring-buffer head element
     Address TakeBufferHead() {
-        DCHECK_LT(length_, capacity_);
+        DCHECK_LE(length_, capacity_);
         Address addr = buffer_base() + (start_ * data_type_->reference_size());
         start_ = (start_ + 1) % capacity_;
         length_--;

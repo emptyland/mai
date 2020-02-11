@@ -16,71 +16,69 @@ int32_t Channel::kOffsetLength = MEMBER_OFFSET_OF(length_);
 int32_t Channel::kOffsetClose = MEMBER_OFFSET_OF(close_);
 int32_t Channel::kOffsetBuffer = MEMBER_OFFSET_OF(buffer_);
 
-//void Channel::SendIxx(intptr_t value) {
-//
-//}
-//
-//void Channel::SendAny(Any *value) {
-//
-//}
-
 Address Channel::SendNoBarrier(const void *data, size_t n) {
-    DCHECK_EQ(data_type_->reference_size(), n);
+    DCHECK_LE(data_type_->reference_size(), n);
+    DCHECK(!has_close());
+    const size_t size = std::min(n, static_cast<size_t>(data_type_->reference_size()));
     
     Coroutine *co = Coroutine::This();
     std::lock_guard<std::mutex> lock(mutex_);
     if (is_not_buffered()) { // No buffered send
         if (QUEUE_EMPTY(recv_queue())) {
-            AddSendQueue(data, n, co);
+            AddSendQueue(data, size, co);
         } else {
-            WakeupRecvQueue(data, n);
+            WakeupRecvQueue(data, size);
         }
         return nullptr;
     }
 
     if (is_buffer_full()) {
         if (QUEUE_EMPTY(recv_queue())) {
-            AddSendQueue(data, n, co);
+            AddSendQueue(data, size, co);
             return nullptr;
         } else {
-            Address head = TakeBufferHead();
-            WakeupRecvQueue(head, n);
-            return AddBufferTail(data, n);
+            WakeupRecvQueue(TakeBufferHead(), size);
+            return AddBufferTail(data, size);
         }
     }
 
     // On buffered send: just add data to buffer tail
-    return AddBufferTail(data, n);
+    return AddBufferTail(data, size);
 }
 
 void Channel::Recv(void *data, size_t n) {
-    DCHECK_EQ(data_type_->reference_size(), n);
+    DCHECK_LE(data_type_->reference_size(), n);
+    DCHECK(!has_close());
+    const size_t size = std::min(n, static_cast<size_t>(data_type_->reference_size()));
     
     Coroutine *co = Coroutine::This();
     std::lock_guard<std::mutex> lock(mutex_);
     if (is_not_buffered()) { // No buffered send
         if (QUEUE_EMPTY(send_queue())) {
-            AddRecvQueue(data, n, co);
+            AddRecvQueue(data, size, co);
         } else {
-            WakeupSendQueue(data, n);
+            WakeupSendQueue(data, size);
         }
         return;
     }
     
     if (is_buffer_full()) {
         if (QUEUE_EMPTY(send_queue())) {
-            AddRecvQueue(data, n, co);
+            AddRecvQueue(data, size, co);
         } else {
-            TakeBufferHead(data, n);
-            WakeupSendQueue(AddBufferTail(), n);
+            TakeBufferHead(data, size);
+            WakeupSendQueue(AddBufferTail(), size);
         }
         return;
     }
     
-    TakeBufferHead(data, n);
+    // On buffered recv: just take data from buffer head
+    TakeBufferHead(data, size);
 }
 
 void Channel::CloseLockless() {
+    DCHECK(!has_close());
+
     while (!QUEUE_EMPTY(send_queue())) {
         Request *req = send_queue()->next_;
         QUEUE_REMOVE(req);

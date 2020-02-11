@@ -15,6 +15,8 @@ public:
 
 TEST_F(ValueTest, TypeTraits) {
     ASSERT_STREQ("void", TypeTraits<void>::kName);
+    ASSERT_STREQ("i32", TypeTraits<int32_t>::kName);
+    ASSERT_STREQ("I32", TypeTraits<Number<int32_t>>::kName);
 }
 
 TEST_F(ValueTest, PrimitiveArray) {
