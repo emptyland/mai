@@ -40,6 +40,11 @@ public:
 
     DEF_PTR_GETTER(const Class, data_type);
     DEF_VAL_GETTER(uint32_t, capacity);
+    DEF_VAL_MUTABLE_GETTER(std::mutex, mutex);
+    
+    bool is_buffered() const { return capacity_ > 0; }
+    bool is_not_buffered() const { return !is_buffered(); }
+    bool is_buffer_full() { return length_ == capacity_; }
     
     inline void SendAny(Any *any);
  
@@ -47,7 +52,12 @@ public:
 
     void Recv(void *data, size_t n);
     
-    void Close();
+    void Close() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        CloseLockless();
+    }
+
+    void CloseLockless();
     
     friend class Machine;
 private:
@@ -59,6 +69,41 @@ private:
     
     Request *send_queue() { return &send_queue_; }
     Request *recv_queue() { return &recv_queue_; }
+    Address buffer_base() { return &buffer_[0]; }
+    
+    void AddSendQueue(const void *data, size_t n, Coroutine *co);
+    void AddRecvQueue(void *data, size_t n, Coroutine *co);
+    void WakeupRecvQueue(const void *data, size_t n);
+    void WakeupSendQueue(void *data, size_t n);
+    
+    Address TakeBufferHead(void *data, size_t n) {
+        Address addr = TakeBufferHead();
+        ::memcpy(addr, data, n);
+        return addr;
+    }
+    
+    // Take ring-buffer head element
+    Address TakeBufferHead() {
+        DCHECK_LT(length_, capacity_);
+        Address addr = buffer_base() + (start_ * data_type_->reference_size());
+        start_ = (start_ + 1) % capacity_;
+        length_--;
+        return addr;
+    }
+    
+    Address AddBufferTail(const void *data, size_t n) {
+        Address addr = AddBufferTail();
+        ::memcpy(addr, data, n);
+        return addr;
+    }
+    
+    Address AddBufferTail() {
+        DCHECK_LT(length_, capacity_);
+        Address addr = buffer_base() + (end_ * data_type_->reference_size());
+        end_ = (end_ + 1) % capacity_;
+        length_++;
+        return addr;
+    }
     
     static size_t RequiredSize(const Class *data_class, uint32_t capacity) {
         return sizeof(Channel) + data_class->reference_size() * capacity;

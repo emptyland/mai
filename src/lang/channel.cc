@@ -25,70 +25,62 @@ int32_t Channel::kOffsetBuffer = MEMBER_OFFSET_OF(buffer_);
 //}
 
 Address Channel::SendNoBarrier(const void *data, size_t n) {
-    Coroutine *co = Coroutine::This();
+    DCHECK_EQ(data_type_->reference_size(), n);
     
+    Coroutine *co = Coroutine::This();
     std::lock_guard<std::mutex> lock(mutex_);
-    if (capacity_ == 0) { // No buffered send
+    if (is_not_buffered()) { // No buffered send
         if (QUEUE_EMPTY(recv_queue())) {
-            Request *req = new Request;
-            req->co = co;
-            ::memcpy(&req->data, data, n);
-            QUEUE_INSERT_TAIL(send_queue(), req);
-            
-            co->set_waitting(req);
-            co->RequestYield();
+            AddSendQueue(data, n, co);
         } else {
-            Request *req = recv_queue()->next_;
-            QUEUE_REMOVE(req);
-            if (data_type_->id() == kType_f32 || data_type_->id() == kType_f64) {
-                req->co->SetFACC0(data, n);
-            } else {
-                req->co->SetACC0(data, n);
-            }
-            Machine *owner = req->co->owner();
-            owner->TakeWaittingCoroutine(req->co);
-            req->co->SwitchState(Coroutine::kWaitting, Coroutine::kRunnable);
-            owner->PostRunnable(req->co);
-            delete req;
+            WakeupRecvQueue(data, n);
         }
         return nullptr;
     }
-    // TODO:
-    return nullptr;
+
+    if (is_buffer_full()) {
+        if (QUEUE_EMPTY(recv_queue())) {
+            AddSendQueue(data, n, co);
+            return nullptr;
+        } else {
+            Address head = TakeBufferHead();
+            WakeupRecvQueue(head, n);
+            return AddBufferTail(data, n);
+        }
+    }
+
+    // On buffered send: just add data to buffer tail
+    return AddBufferTail(data, n);
 }
 
 void Channel::Recv(void *data, size_t n) {
-    Coroutine *co = Coroutine::This();
+    DCHECK_EQ(data_type_->reference_size(), n);
     
+    Coroutine *co = Coroutine::This();
     std::lock_guard<std::mutex> lock(mutex_);
-    if (capacity_ == 0) { // No buffered send
+    if (is_not_buffered()) { // No buffered send
         if (QUEUE_EMPTY(send_queue())) {
-            Request *req = new Request;
-            req->co = co;
-            req->received = static_cast<Address>(data);
-            QUEUE_INSERT_TAIL(recv_queue(), req);
-            
-            co->set_waitting(req);
-            co->RequestYield();
+            AddRecvQueue(data, n, co);
         } else {
-            Request *req = send_queue()->next_;
-            QUEUE_REMOVE(req);
-            ::memcpy(data, &req->data, n);
-
-            Machine *owner = req->co->owner();
-            owner->TakeWaittingCoroutine(req->co);
-            req->co->SwitchState(Coroutine::kWaitting, Coroutine::kRunnable);
-            owner->PostRunnable(req->co);
-            delete req;
+            WakeupSendQueue(data, n);
         }
         return;
     }
-    // TODO:
+    
+    if (is_buffer_full()) {
+        if (QUEUE_EMPTY(send_queue())) {
+            AddRecvQueue(data, n, co);
+        } else {
+            TakeBufferHead(data, n);
+            WakeupSendQueue(AddBufferTail(), n);
+        }
+        return;
+    }
+    
+    TakeBufferHead(data, n);
 }
 
-void Channel::Close() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    
+void Channel::CloseLockless() {
     while (!QUEUE_EMPTY(send_queue())) {
         Request *req = send_queue()->next_;
         QUEUE_REMOVE(req);
@@ -116,6 +108,53 @@ void Channel::Close() {
         delete req;
     }
     OfAtmoic(&close_)->store(1, std::memory_order_release);
+}
+
+void Channel::AddSendQueue(const void *data, size_t n, Coroutine *co) {
+    Request *req = new Request;
+    req->co = co;
+    ::memcpy(&req->data, data, n);
+    QUEUE_INSERT_TAIL(send_queue(), req);
+    
+    co->set_waitting(req);
+    co->RequestYield();
+}
+
+void Channel::AddRecvQueue(void *data, size_t n, Coroutine *co) {
+    Request *req = new Request;
+    req->co = co;
+    req->received = static_cast<Address>(data);
+    QUEUE_INSERT_TAIL(recv_queue(), req);
+    
+    co->set_waitting(req);
+    co->RequestYield();
+}
+
+void Channel::WakeupRecvQueue(const void *data, size_t n) {
+    Request *req = recv_queue()->next_;
+    QUEUE_REMOVE(req);
+    if (data_type_->id() == kType_f32 || data_type_->id() == kType_f64) {
+        req->co->SetFACC0(data, n);
+    } else {
+        req->co->SetACC0(data, n);
+    }
+    Machine *owner = req->co->owner();
+    owner->TakeWaittingCoroutine(req->co);
+    req->co->SwitchState(Coroutine::kWaitting, Coroutine::kRunnable);
+    owner->PostRunnable(req->co);
+    delete req;
+}
+
+void Channel::WakeupSendQueue(void *data, size_t n) {
+    Request *req = send_queue()->next_;
+    QUEUE_REMOVE(req);
+    ::memcpy(data, &req->data, n);
+
+    Machine *owner = req->co->owner();
+    owner->TakeWaittingCoroutine(req->co);
+    req->co->SwitchState(Coroutine::kWaitting, Coroutine::kRunnable);
+    owner->PostRunnable(req->co);
+    delete req;
 }
 
 } // namespace lang

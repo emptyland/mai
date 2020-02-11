@@ -496,12 +496,20 @@ Channel *Machine::NewChannel(uint32_t data_typeid, size_t capacity, uint32_t fla
                                       color_tags());
 }
 
+void Machine::ThrowPanic(Panic::Level level, String *message) {
+    Throwable *panic = NewPanic(level, message, 0);
+    if (running_) {
+        running_->AssociateException(panic);
+    }
+}
+
 void Machine::AllocationPanic(AllocationResult::Result result) {
     switch (result) {
         case AllocationResult::FAIL:
         case AllocationResult::OOM:
         case AllocationResult::LIMIT:
-            PrintStacktrace(STATE->factory()->oom_string()->data()); // OOM: Should print stackstrace right now
+            // OOM: Should print stackstrace right now
+            PrintStacktrace(STATE->factory()->oom_text()->data());
             if (running_) {
                 running_->AssociateException(STATE->factory()->oom_panic());
             }

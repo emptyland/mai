@@ -10,6 +10,27 @@ namespace mai {
 
 namespace lang {
 
+// The byte desciption:
+//
+// Prefix:
+//     Lda* : Load to ACC/FACC
+//     Sta* : Store from ACC/FACC
+// Postfix:
+//     32 : 32 bits register data
+//     64 : 64 bits register data
+//    Ptr : Pointer size register data
+//    f32 : 32 bits floating register data
+//    f64 : 64 bits floating register data
+// Operand kind:
+//    kStackOffset : Stack offset, for access stack data
+//    kConstOffset : Constant pool offset, for load constant data
+//    kGlobalOffset : Global pool offset, for load/store global data
+//    kCapturedVarIndex : The index of captured-variable slot, for access closure's captured-var
+//    kAddressOffset : The address offset of object, for access object properties
+//    kImmediate : 32 bits immediate number in instruction.
+//    kCode : Some code numbers use by instruction parameter.
+//
+
 #define DECLARE_ALL_BYTECODE(V) \
     DECLARE_LDAR_BYTECODE(V) \
     DECLARE_STAR_BYTECODE(V) \
@@ -40,6 +61,11 @@ namespace lang {
     V(LdaSmi32, BytecodeType::A, BytecodeParam::kImmediate) \
     V(LdaTrue, BytecodeType::N) \
     V(LdaFalse, BytecodeType::N) \
+    V(LdaArgument32, BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(LdaArgument64, BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(LdaArgumentPtr, BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(LdaArgumentf32, BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(LdaArgumentf64, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(LdaCaptured32, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
     V(LdaCaptured64, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
     V(LdaCapturedPtr, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
@@ -62,13 +88,13 @@ namespace lang {
     V(LdaPropertyPtr, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(LdaPropertyf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(LdaPropertyf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
-    V(LdaArrayElem8, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(LdaArrayElem16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(LdaArrayElem32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(LdaArrayElem64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(LdaArrayElemPtr, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(LdaArrayElemf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(LdaArrayElemf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
+    V(LdaArrayAt8, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(LdaArrayAt16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(LdaArrayAt32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(LdaArrayAt64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(LdaArrayAtPtr, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(LdaArrayAtf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(LdaArrayAtf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
 
 #define DECLARE_STAR_BYTECODE(V) \
     V(Star32, BytecodeType::A, BytecodeParam::kStackOffset) \
@@ -88,13 +114,13 @@ namespace lang {
     V(StaPropertyPtr, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(StaPropertyf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(StaPropertyf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
-    V(StaArrayElem8, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(StaArrayElem16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(StaArrayElem32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(StaArrayElem64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(StaArrayElemPtr, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(StaArrayElemf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
-    V(StaArrayElemf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kIndex) \
+    V(StaArrayAt8, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(StaArrayAt16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(StaArrayAt32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(StaArrayAt64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(StaArrayAtPtr, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(StaArrayAtf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(StaArrayAtf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
 
 #define DECLARE_MOVE_BYTECODE(V) \
     V(Move32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
@@ -231,14 +257,13 @@ struct BytecodeType {
 struct BytecodeParam {
     enum Kind {
         kNone,
-        kStackOffset,
-        kConstOffset,
-        kGlobalOffset,
-        kCapturedVarIndex,
-        kAddressOffset,
-        kImmediate,
-        kIndex,
-        kCode,
+        kStackOffset, // Stack offset, for access stack data
+        kConstOffset, // Constant pool offset, for load constant data
+        kGlobalOffset, // Global pool offset, for load/store global data
+        kCapturedVarIndex, // The index of captured-variable slot, for access closure's captured-var
+        kAddressOffset, // The address offset of object, for access object properties
+        kImmediate, // 32 bits immediate number in instruction.
+        kCode, // Some code numbers use by instruction parameter.
     }; // enum BytecodeParam
 }; // struct BytecodeParam
 

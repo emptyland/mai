@@ -41,6 +41,7 @@ static_assert(static_cast<int>(kType_bool) == static_cast<int>(NumberValueSlot::
 extern Isolate *__isolate;
 
 #define STATE (DCHECK_NOTNULL(__isolate))
+#define FACTORY (STATE->factory())
 
 extern thread_local TLSStorage *__tls_storage;
 

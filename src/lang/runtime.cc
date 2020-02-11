@@ -44,55 +44,87 @@ static inline AbstractValue *ValueOf(intptr_t input) {
     return Machine::This()->NewChannel(data_typeid, capacity, 0/*flags*/);
 }
 
-/*static*/ int32_t Runtime::ChannelRecv32(Channel *chan) {
+/*static*/ void Runtime::ChannelClose(Channel *chan) {
+    if (!chan) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(*chan->mutable_mutex());
+    if (chan->has_close()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->dup_close_chan_error_text());
+        return;
+    }
+    chan->CloseLockless();
+}
+
+template<class T>
+static inline T InternalChannelRecv(Channel *chan) {
+    if (!chan) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return 0;
+    }
     if (chan->has_close()) {
         return 0;
     }
-    int32_t value = 0;
+    T value = 0;
     chan->Recv(&value, sizeof(value));
     return value;
 }
 
-/*static*/ float Runtime::ChannelRecvF32(Channel *chan) {
-    if (chan->has_close()) {
-        return 0;
+template<class T>
+static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
+    if (!chan) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
     }
-    float value = 0;
-    chan->Recv(&value, sizeof(value));
-    return value;
-}
-
-/*static*/ double Runtime::ChannelRecvF64(Channel *chan) {
-    if (chan->has_close()) {
-        return 0;
-    }
-    double value = 0;
-    chan->Recv(&value, sizeof(value));
-    return value;
-}
-
-/*static*/ void Runtime::ChannelSend32(Channel *chan, int32_t value) {
     if (!chan->has_close()) {
         chan->SendNoBarrier(&value, sizeof(value));
     }
 }
 
+/*static*/ int32_t Runtime::ChannelRecv32(Channel *chan) {
+    return InternalChannelRecv<int32_t>(chan);
+}
+
+/*static*/ int64_t Runtime::ChannelRecv64(Channel *chan) {
+    return InternalChannelRecv<int64_t>(chan);
+}
+
+/*static*/ Any *Runtime::ChannelRecvPtr(Channel *chan) {
+    return InternalChannelRecv<Any *>(chan);
+}
+
+/*static*/ float Runtime::ChannelRecvF32(Channel *chan) {
+    return InternalChannelRecv<float>(chan);
+}
+
+/*static*/ double Runtime::ChannelRecvF64(Channel *chan) {
+    return InternalChannelRecv<double>(chan);
+}
+
+/*static*/ void Runtime::ChannelSend64(Channel *chan, int64_t value) {
+    InternalChannelSendNoBarrier<int64_t>(chan, value);
+}
+
+/*static*/ void Runtime::ChannelSend32(Channel *chan, int32_t value) {
+    InternalChannelSendNoBarrier<int32_t>(chan, value);
+}
+
 /*static*/ void Runtime::ChannelSendPtr(Channel *chan, Any *value) {
+    if (!chan) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+    }
     if (chan->has_close()) {
         chan->SendAny(value);
     }
 }
 
 /*static*/ void Runtime::ChannelSendF32(Channel *chan, float value) {
-    if (chan->has_close()) {
-        chan->SendNoBarrier(&value, sizeof(value));
-    }
+    InternalChannelSendNoBarrier<float>(chan, value);
 }
 
 /*static*/ void Runtime::ChannelSendF64(Channel *chan, double value) {
-    if (chan->has_close()) {
-        chan->SendNoBarrier(&value, sizeof(value));
-    }
+    InternalChannelSendNoBarrier<double>(chan, value);
 }
 
 /*static*/ void Runtime::DebugAbort(const char *message) {

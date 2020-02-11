@@ -46,12 +46,16 @@ struct Runtime {
 //    static double F64Value(Number<double> *value);
     
     static Channel *NewChannel(uint32_t data_typeid, uint32_t capacity);
+    static void ChannelClose(Channel *chan);
     
     static int32_t ChannelRecv32(Channel *chan);
+    static int64_t ChannelRecv64(Channel *chan);
+    static Any *ChannelRecvPtr(Channel *chan);
     static float ChannelRecvF32(Channel *chan);
     static double ChannelRecvF64(Channel *chan);
 
     static void ChannelSend32(Channel *chan, int32_t value);
+    static void ChannelSend64(Channel *chan, int64_t value);
     static void ChannelSendPtr(Channel *chan, Any *value);
     static void ChannelSendF32(Channel *chan, float value);
     static void ChannelSendF64(Channel *chan, double value);

@@ -111,6 +111,9 @@ public:
     // New channel
     Channel *NewChannel(uint32_t data_type, size_t capacity, uint32_t flags);
     
+    // Throw a panic
+    void ThrowPanic(Panic::Level level, String *message);
+    
     // Handle scope enter
     void EnterHandleScope(HandleScope *handle_scope) {
         auto prev_slot = top_slot_;

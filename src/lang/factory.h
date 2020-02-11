@@ -12,7 +12,9 @@ namespace lang {
 
 #define DECLARE_FACTORY_VALUES(V) \
     V(empty_string, String) \
-    V(oom_string, String) \
+    V(oom_text, String) \
+    V(nil_error_text, String) \
+    V(dup_close_chan_error_text, String) \
     V(oom_panic, Panic)
 
 struct NumberValueSlot {
@@ -57,7 +59,7 @@ public:
 
 private:
 #define DEFINE_VALUE(name, type) type *name##_ = nullptr;
-    DECLARE_FACTORY_VALUES(DEFINE_VALUE)
+    DECLARE_FACTORY_VALUES(DEFINE_VALUE) // [strong ref]
 #undef  DEFINE_VALUE
     
     // Cached numbers for ValueOf() functions

@@ -148,9 +148,6 @@ void BytecodeNode::PrintParam(std::string *output, BytecodeParam::Kind kind, int
         case BytecodeParam::kImmediate:
             output->append(base::Sprintf("#%d", param));
             break;
-        case BytecodeParam::kIndex:
-            output->append(base::Sprintf("[%d]", param));
-            break;
         case BytecodeParam::kCode:
             output->append(base::Sprintf("%d", param));
             break;
