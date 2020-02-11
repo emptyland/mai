@@ -4,6 +4,7 @@
 #include "lang/value-inl.h"
 #include "lang/machine.h"
 #include "lang/coroutine.h"
+#include "lang/scheduler.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -126,6 +127,32 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 
 /*static*/ void Runtime::ChannelSendF64(Channel *chan, double value) {
     InternalChannelSendNoBarrier<double>(chan, value);
+}
+
+/*static*/ Coroutine *Runtime::RunCoroutine(uint32_t flags, Closure *entry_point, Address params,
+                                            uint32_t params_bytes_size) {
+    if (!entry_point) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    if (STATE->scheduler()->shutting_down() > 0) {
+        // Is shutting-donw, Ignore coroutine creation
+        Coroutine::This()->RequestYield();
+        return nullptr;
+    }
+
+    Coroutine *co = STATE->scheduler()->NewCoroutine(entry_point, false/*co0*/);
+    if (!co) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->new_coroutine_error_text());
+        return nullptr;
+    }
+    
+    // Prepare coroutine
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    co->CopyArgv(params, params_bytes_size);
+
+    STATE->scheduler()->PostRunnableBalanced(co, true/*now*/);
+    return co;
 }
 
 /*static*/ void Runtime::DebugAbort(const char *message) {

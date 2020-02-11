@@ -44,7 +44,7 @@ void MacroAssembler::Throw(Register scratch0, Register scratch1) {
     int3(); // Never goto there
 }
 
-void MacroAssembler::InlineSwitchSystemStackCall(Address cxx_func_entry) {
+void MacroAssembler::SaveBytecodeEnv() {
     movq(Operand(CO, Coroutine::kOffsetBP1), rbp);
     movq(Operand(CO, Coroutine::kOffsetSP1), rsp);
     movq(rbp, Operand(CO, Coroutine::kOffsetSysBP)); // recover system bp
@@ -55,10 +55,9 @@ void MacroAssembler::InlineSwitchSystemStackCall(Address cxx_func_entry) {
     pushq(CO);
     pushq(BC);
     pushq(BC_ARRAY);
+}
 
-    movq(rax, cxx_func_entry);
-    call(rax); // Call real function
-
+void MacroAssembler::RecoverBytecodeEnv() {
     popq(BC_ARRAY); // Switch back to mai stack
     popq(BC);
     popq(CO);
@@ -160,30 +159,11 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm) {
 // Switch to system stack and call
 void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
     StackFrameScope frame_scope(masm, StubStackFrame::kSize);
-
     __ movq(Operand(rbp, StubStackFrame::kOffsetMaker), StubStackFrame::kMaker);
 
-    __ movq(Operand(CO, Coroutine::kOffsetBP1), rbp);
-    __ movq(Operand(CO, Coroutine::kOffsetSP1), rsp);
-    __ movq(rbp, Operand(CO, Coroutine::kOffsetSysBP)); // recover system bp
-    __ movq(rsp, Operand(CO, Coroutine::kOffsetSysSP)); // recover system sp
-    __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kFallIn);
-
-    __ pushq(SCRATCH);
-    __ pushq(CO);
-    __ pushq(BC);
-    __ pushq(BC_ARRAY);
-
+    __ SaveBytecodeEnv();
     __ call(r11); // Call real function
-
-    __ popq(BC_ARRAY); // Switch back to mai stack
-    __ popq(BC);
-    __ popq(CO);
-    __ popq(SCRATCH);
-
-    __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kRunning);
-    __ movq(rbp, Operand(CO, Coroutine::kOffsetBP1)); // recover mai sp
-    __ movq(rsp, Operand(CO, Coroutine::kOffsetSP1)); // recover mai bp
+    __ RecoverBytecodeEnv();
 }
 
 // Prototype: void Trampoline(Coroutine *co)
@@ -452,6 +432,36 @@ public:
         }
     }; // class InstrABScope
     
+    class InstrFABaseScope : public InstrBaseScope {
+    public:
+        InstrFABaseScope(MacroAssembler *m): InstrBaseScope(m) {}
+        
+        void GetFToRBX() {
+            __ movl(rbx, Operand(BC, 0));
+            __ andl(rbx, BytecodeNode::kFOfFAMask);
+            __ shrl(rbx, 16);
+        }
+        
+        void GetAToRBX() {
+            __ movl(rbx, Operand(BC, 0));
+            __ andl(rbx, BytecodeNode::kAOfFAMask);
+        }
+    }; // class InstrFABaseScope
+    
+    class InstrImmFAScope : public InstrFABaseScope{
+    public:
+        InstrImmFAScope(MacroAssembler *m): InstrFABaseScope(m) {
+            GetFToRBX();
+        }
+    }; // class InstrImmFAScope
+    
+    class InstrImmAFScope : public InstrFABaseScope{
+    public:
+        InstrImmAFScope(MacroAssembler *m): InstrFABaseScope(m) {
+            GetAToRBX();
+        }
+    }; // class InstrImmFAScope
+    
     BytecodeEmitter(MetadataSpace *space): PartialBytecodeEmitter(DCHECK_NOTNULL(space)) {}
     ~BytecodeEmitter() override {}
 
@@ -494,6 +504,32 @@ public:
     void EmitLdaSmi32(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ movq(ACC, rbx);
+    }
+
+    void EmitLdaArgument32(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        __ addl(rbx, 8); // Skip saved rbp and return address
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitLdaArgument64(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        __ addl(rbx, 8); // Skip saved rbp and return address
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitLdaArgumentPtr(MacroAssembler *masm) override { EmitLdaArgument64(masm); }
+    
+    void EmitLdaArgumentf32(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        __ addl(rbx, 8); // Skip saved rbp and return address
+        __ movss(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitLdaArgumentf64(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        __ addl(rbx, 8); // Skip saved rbp and return address
+        __ movsd(FACC, Operand(rbp, rbx, times_2, 0));
     }
 
     void EmitLdaConst32(MacroAssembler *masm) override {
@@ -685,6 +721,37 @@ public:
         __ addq(SCRATCH, BytecodeArray::kOffsetEntry);
         __ movl(rbx, Operand(rbp, BytecodeStackFrame::kOffsetPC));
         __ leaq(BC, Operand(SCRATCH, rbx, times_4, 0)); // [SCRATCH + rbx * 4]
+    }
+    
+    // Coroutine *RunCoroutine(uint32_t flags, Closure *entry_point, Address params,
+    //                         uint32_t params_bytes_size)
+    void EmitRunCoroutine(MacroAssembler *masm) override {
+        InstrImmAFScope instr_scope(masm);
+        // Adjust Caller Stack
+        __ addl(rbx, 15); // ebx = ebx + 16 - 1
+        __ andl(rbx, 0xfffffff0); // ebx &= -16
+        __ movl(Argv_3, rbx); // 'uint32_t params_bytes_size'
+        instr_scope.GetFToRBX();
+        __ movl(Argv_0, rbx); // 'uint32_t flags'
+        __ movq(Argv_1, ACC); // 'Closure *entry_point' ACC store enter point
+        __ movq(Argv_2, rsp); // 'Address params'
+
+        // Switch and run RunCoroutine
+        // Must inline call this function!
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::RunCoroutine));
+        
+        // Test if throw exception in native function
+        // Can not throw c++ exception in native function!
+        __ cmpq(Operand(CO, Coroutine::kOffsetException), 0);
+        Label done;
+        __ j(Equal, &done, false/*is_far*/); // if (!co->exception) { goto done: }
+
+        // Move native function throws exception to ACC
+        __ movq(ACC, Operand(CO, Coroutine::kOffsetException));
+        // Then throw in mai env:
+        __ Throw(SCRATCH, rbx);
+
+        __ Bind(&done);
     }
 
     // Checking ------------------------------------------------------------------------------------

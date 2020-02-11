@@ -31,6 +31,18 @@ namespace lang {
 //    kCode : Some code numbers use by instruction parameter.
 //
 
+
+//--------------------------------------------------------------------------------------------------
+// RunCoroutine: Create a coroutine and run
+// Kind: TypeFA
+// Params:
+//     ACC: Closure type coroutine entry point
+//     F(Code): Code of coroutine creation
+//     A(Immediate): Params's bytes size for coroutine entry
+// Return:
+//     ACC: Coroutine's coid
+//
+
 #define DECLARE_ALL_BYTECODE(V) \
     DECLARE_LDAR_BYTECODE(V) \
     DECLARE_STAR_BYTECODE(V) \
@@ -47,6 +59,7 @@ namespace lang {
     V(CallBytecodeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
     V(CallNativeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
     V(CallVtableFunction, BytecodeType::A, BytecodeParam::kImmediate) \
+    V(RunCoroutine, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate) \
     V(Return, BytecodeType::N) \
     V(NewBuiltinObject, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate) \
     V(CheckStack, BytecodeType::N)
@@ -85,9 +98,12 @@ namespace lang {
     V(LdaProperty16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(LdaProperty32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(LdaProperty64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
-    V(LdaPropertyPtr, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
-    V(LdaPropertyf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
-    V(LdaPropertyf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
+    V(LdaPropertyPtr, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kAddressOffset) \
+    V(LdaPropertyf32, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kAddressOffset) \
+    V(LdaPropertyf64, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kAddressOffset) \
     V(LdaArrayAt8, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(LdaArrayAt16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(LdaArrayAt32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
@@ -111,9 +127,12 @@ namespace lang {
     V(StaProperty16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(StaProperty32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(StaProperty64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
-    V(StaPropertyPtr, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
-    V(StaPropertyf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
-    V(StaPropertyf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
+    V(StaPropertyPtr, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kAddressOffset) \
+    V(StaPropertyf32, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kAddressOffset) \
+    V(StaPropertyf64, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kAddressOffset) \
     V(StaArrayAt8, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(StaArrayAt16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(StaArrayAt32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
@@ -191,40 +210,58 @@ namespace lang {
     V(BitwiseShl64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseShr32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseShr64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(BitwiseLogicShr32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(BitwiseLogicShr32, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
     V(BitwiseLogicShr64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset)
 
 #define DECLARE_TEST_BYTECODE(V) \
     V(TestEqual32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestNotEqual32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestLessThan32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestLessThanOrEqual32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestGreaterThan32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestGreaterThanEqual32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(TestLessThanOrEqual32, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThan32, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThanEqual32, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
     V(TestEqual64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestNotEqual64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestLessThan64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestLessThanOrEqual64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestGreaterThan64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestGreaterThanEqual64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(TestLessThanOrEqual64, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThan64, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThanEqual64, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
     V(TestEqualf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestNotEqualf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestLessThanf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestLessThanOrEqualf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestGreaterThanf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestGreaterThanEqualf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(TestLessThanOrEqualf32, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThanf32, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThanEqualf32, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
     V(TestEqualf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestNotEqualf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestLessThanf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestLessThanOrEqualf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestGreaterThanf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestGreaterThanEqualf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(TestLessThanOrEqualf64, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThanf64, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThanEqualf64, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
     V(TestStringEqual, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestStringNotEqual, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestStringLessThan, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestStringLessThanOrEqual, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestStringGreaterThan, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestStringGreaterThanEqual, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(TestStringNotEqual, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestStringLessThan, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestStringLessThanOrEqual, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestStringGreaterThan, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestStringGreaterThanEqual, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
     V(TestPtrEqual, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestPtrNotEqual, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestIn, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \

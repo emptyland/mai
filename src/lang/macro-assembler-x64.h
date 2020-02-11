@@ -71,7 +71,16 @@ public:
         call(rax);
     }
     
-    void InlineSwitchSystemStackCall(Address cxx_func_entry);
+    void InlineSwitchSystemStackCall(Address cxx_func_entry) {
+        SaveBytecodeEnv();
+        movq(rax, cxx_func_entry);
+        call(rax); // Call real function
+        RecoverBytecodeEnv();
+    }
+    
+    void SaveBytecodeEnv();
+    
+    void RecoverBytecodeEnv();
     
     void SaveState0(Register scratch);
     

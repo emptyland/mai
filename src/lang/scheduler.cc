@@ -101,6 +101,19 @@ void Scheduler::Shutdown() {
     }
 }
 
+void Scheduler::PostRunnableBalanced(Coroutine *co, bool now) {
+    Machine *target = machine(0);
+    int load = target->GetNumberOfRunnable();
+    for (int i = 1; i < concurrency_; i++) {
+        Machine *m = all_machines_[i];
+        if (int n = m->GetNumberOfRunnable(); n < load) {
+            load = n;
+            target = m;
+        }
+    }
+    target->PostRunnable(co, now);
+}
+
 Coroutine *Scheduler::NewCoroutine(Closure *entry, bool co0) {
     const size_t stack_size = co0 ? kC0StackSize : kDefaultStackSize;
     Stack *stack = NewStack(stack_size);

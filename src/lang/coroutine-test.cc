@@ -591,6 +591,47 @@ TEST_F(CoroutineTest, SendRecvChannel) {
     ASSERT_EQ(404, dummy_result.i32_1);
 }
 
+static void Dummy14(int32_t a, double b) {
+    //printf("Recv: %x %d %f\n", a, a, b);
+    dummy_result.i32_1 = a;
+    dummy_result.f64_1 = b;
+}
+
+TEST_F(CoroutineTest, LoadArgumentToACC) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    Span32 span;
+    span.ptr[0].any = *FunctionTemplate::New(Dummy14);
+    
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaArgument32>((16 - 4)/2);
+    builder.Add<kStar32>((kStackSize + 4)/2);
+    builder.Add<kLdaArgumentf64>((16 - 12)/2);
+    builder.Add<kStaf64>((kStackSize + 12)/2);
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(12);
+    builder.Add<kReturn>();
+
+    uint8_t mock_data[16];
+    ::memset(mock_data, 0xcc, sizeof(mock_data));
+
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+
+    *reinterpret_cast<int32_t *>(&mock_data[12]) = 270; // arg0
+    *reinterpret_cast<double *>(&mock_data[4]) = 3.1415f; // arg1
+    co->CopyArgv(mock_data, sizeof(mock_data));
+
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+    
+    ASSERT_EQ(270, dummy_result.i32_1);
+    ASSERT_NEAR(3.1415f, dummy_result.f64_1, 0.0001);
+}
+
 } // namespace lang
 
 } // namespace mai

@@ -38,8 +38,10 @@ public:
         return all_machines_[i];
     }
 
+    // Re-Schedule coroutines with machine
     void Schedule();
-    
+
+    // Shutdown all machines, and waitting for all machines done
     void Shutdown();
     
     void Start() {
@@ -47,6 +49,9 @@ public:
             all_machines_[i]->Start();
         }
     }
+    
+    // Balanced post a runnable coroutine to machine
+    void PostRunnableBalanced(Coroutine *co, bool now);
 
     Coroutine *NewCoroutine(Closure *entry, bool co0);
     void PurgreCoroutine(Coroutine *co);

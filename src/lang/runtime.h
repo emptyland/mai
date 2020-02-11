@@ -10,7 +10,9 @@ namespace lang {
 template<class T> class Number;
 class AbstractValue;
 class Channel;
+class Closure;
 class Any;
+class Coroutine;
 
 // The runtime functions definition
 struct Runtime {
@@ -45,6 +47,7 @@ struct Runtime {
 //    static float F32Value(Number<float> *value);
 //    static double F64Value(Number<double> *value);
     
+    // Channel functions:
     static Channel *NewChannel(uint32_t data_typeid, uint32_t capacity);
     static void ChannelClose(Channel *chan);
     
@@ -59,6 +62,10 @@ struct Runtime {
     static void ChannelSendPtr(Channel *chan, Any *value);
     static void ChannelSendF32(Channel *chan, float value);
     static void ChannelSendF64(Channel *chan, double value);
+    
+    // Coroutine
+    static Coroutine *RunCoroutine(uint32_t flags, Closure *entry_point, Address params,
+                                   uint32_t params_bytes_size);
 
     // Debug abort message output and fast abort code execution
     static void DebugAbort(const char *message);
