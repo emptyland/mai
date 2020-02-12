@@ -5,6 +5,7 @@
 #include "lang/machine.h"
 #include "lang/coroutine.h"
 #include "lang/stack.h"
+#include "base/bit-ops.h"
 #include "glog/logging.h"
 #include <mutex>
 
@@ -25,7 +26,7 @@ public:
     DEF_PTR_GETTER(Machine, machine0);
     
     int MarkShuttingDown() { return shutting_down_.fetch_add(1); }
-    
+
     int shutting_down() const { return shutting_down_.load(std::memory_order_acquire); }
 
     size_t n_live_coroutines() const { return n_live_coroutines_.load(); }
@@ -44,6 +45,7 @@ public:
     // Shutdown all machines, and waitting for all machines done
     void Shutdown();
     
+    // Start all machines thread, expect main machine(machine0)
     void Start() {
         for (int i = 1; i < concurrency_; i++) {
             all_machines_[i]->Start();
@@ -52,6 +54,25 @@ public:
     
     // Balanced post a runnable coroutine to machine
     void PostRunnableBalanced(Coroutine *co, bool now);
+    
+    static constexpr int kBitmapShift = 5;
+    static constexpr int kBitmapBits = 1 << kBitmapShift;
+    static constexpr size_t kBitmapMask = kBitmapBits - 1;
+    
+    // Mark a machine is idle
+    void MarkIdle(Machine *m) {
+        DCHECK_EQ(m, Machine::This());
+        DCHECK_EQ(Machine::kIdle, m->state());
+        DCHECK_LT(m->id(), concurrency_);
+        machine_bitmap_[m->id() >> kBitmapShift].fetch_or(1u << (m->id() & kBitmapMask));
+    }
+
+    // Clear a machine idle marked
+    void ClearIdle(Machine *m) {
+        DCHECK_EQ(Machine::kRunning, m->state());
+        DCHECK_LT(m->id(), concurrency_);
+        machine_bitmap_[m->id() >> kBitmapShift].fetch_and(~(1u << (m->id() & kBitmapMask)));
+    }
 
     Coroutine *NewCoroutine(Closure *entry, bool co0);
     void PurgreCoroutine(Coroutine *co);
@@ -61,9 +82,30 @@ public:
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Scheduler);
 private:
+    size_t machine_bitmap_size() const { return (concurrency_ + 31) >> kBitmapShift; }
+
+//    Machine *FindFirstIdleMachine() {
+//        int i = 0;
+//        for (i = 0; i < machine_bitmap_size(); i++) {
+//            if (machine_bitmap_[0].load() != 0) {
+//                break;
+//            }
+//        }
+//        if (i == machine_bitmap_size()) {
+//            return nullptr;
+//        }
+//        int bit = base::Bits::FindFirstOne32(machine_bitmap_[0].load());
+//        int index = (i << kBitmapShift) + bit;
+//    }
+    
     int concurrency_; // Number of machines
     Allocator *const lla_; // Low-Level Allocator
     std::unique_ptr<Machine *[]> all_machines_; // All machines(threads)
+    
+    // The one bits means: Machine is idle
+    // The zero bits means: Machine is running
+    std::unique_ptr<std::atomic<uint32_t>[]> machine_bitmap_; // Bitmap of machines
+
     Coroutine *free_dummy_; // Free coroutines
     std::mutex free_dummy_mutex_; // mutex of free-dummy
     int n_free_ = 0; // Number free coroutines

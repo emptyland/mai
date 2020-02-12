@@ -43,6 +43,16 @@ namespace lang {
 //     ACC: Coroutine's coid
 //
 
+//--------------------------------------------------------------------------------------------------
+// NewObject: Create a user definition object
+// Kind: TypeFA
+// Params:
+//     F(Code): Code of object creation
+//     A(ConstOffset): Class pointer in constant pool offset
+// Return:
+//     ACC: Object pointer
+//
+
 #define DECLARE_ALL_BYTECODE(V) \
     DECLARE_LDAR_BYTECODE(V) \
     DECLARE_STAR_BYTECODE(V) \
@@ -58,10 +68,11 @@ namespace lang {
     V(GotoIfFalse, BytecodeType::A, BytecodeParam::kImmediate) \
     V(CallBytecodeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
     V(CallNativeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
-    V(CallVtableFunction, BytecodeType::A, BytecodeParam::kImmediate) \
+    V(CallVtableFunction, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate) \
     V(RunCoroutine, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate) \
     V(Return, BytecodeType::N) \
     V(NewBuiltinObject, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate) \
+    V(NewObject, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kConstOffset) \
     V(CheckStack, BytecodeType::N)
 
 #define DECLARE_LDAR_BYTECODE(V) \

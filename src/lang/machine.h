@@ -44,6 +44,7 @@ public:
     DEF_VAL_GETTER(int, id);
     DEF_VAL_GETTER(int, n_free);
     DEF_PTR_GETTER(Coroutine, running);
+    DEF_VAL_GETTER(uint64_t, user_time);
 
     // Get machine state
     State state() const { return state_.load(std::memory_order_acquire); }
@@ -72,6 +73,10 @@ public:
 
     // Get current thread machine object
     static Machine *This() { return DCHECK_NOTNULL(TLS_STORAGE->machine); }
+
+    // New object by type information
+    // NOTICE: Just allocation object and initialize Any class
+    Any *NewObject(const Class *clazz, uint32_t flags);
 
     // Value's factory
     AbstractValue *ValueOfNumber(BuiltinType primitive_type, const void *value, size_t n);
@@ -188,6 +193,7 @@ private:
     int n_runnable_ = 0; // Number of runnable coroutines
     int n_waitting_ = 0; // Number of waitting coroutines
     Coroutine *running_ = nullptr; // Current running coroutine
+    uint64_t user_time_ = 0; // User time for realy code execution
     std::condition_variable cond_var_; // Condition variable for scheduling
     std::mutex mutex_; // Total mutex
     std::thread thread_; // Thread object

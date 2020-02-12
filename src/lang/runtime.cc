@@ -11,6 +11,14 @@ namespace mai {
 
 namespace lang {
 
+/*static*/ Any *Runtime::NewObject(const Class *clazz, uint32_t flags) {
+    if (!clazz) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    return Machine::This()->NewObject(clazz, flags);
+}
+
 template<class T>
 static inline AbstractValue *ValueOf(intptr_t input) {
     T value = static_cast<T>(input);

@@ -9,6 +9,7 @@ Scheduler::Scheduler(int concurrency, Allocator *lla)
     : concurrency_(concurrency)
     , lla_(DCHECK_NOTNULL(lla))
     , all_machines_(new Machine*[concurrency])
+    , machine_bitmap_(new std::atomic<uint32_t>[(concurrency + 31)/32])
     , free_dummy_(Coroutine::NewDummy())
     , stack_pool_(Stack::NewDummy()) {
     DCHECK_GT(concurrency, 0);
@@ -18,7 +19,8 @@ Scheduler::Scheduler(int concurrency, Allocator *lla)
     }
     machine0_ = all_machines_[0];
     DCHECK_EQ(0, machine0_->id());
-    // TODO:
+
+    ::memset(&machine_bitmap_[0], 0, machine_bitmap_size() * sizeof(uint32_t));
 }
 
 Scheduler::~Scheduler() {

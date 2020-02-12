@@ -13,9 +13,12 @@ class Channel;
 class Closure;
 class Any;
 class Coroutine;
+class Class;
 
 // The runtime functions definition
 struct Runtime {
+    
+    static Any *NewObject(const Class *clazz, uint32_t flags);
 
     // Box in functions
     static AbstractValue *BoolValueOf(intptr_t value);
@@ -33,19 +36,6 @@ struct Runtime {
     static AbstractValue *F64ValueOf(double value);
 
     // Box out functions
-//    static intptr_t BoolValue(Number<bool> *value);
-//    static intptr_t I8Value(Number<int8_t> * value);
-//    static uintptr_t U8Value(Number<uint8_t> * value);
-//    static intptr_t I16Value(Number<int16_t> * value);
-//    static uintptr_t U16Value(Number<uint16_t> * value);
-//    static intptr_t I32Value(Number<int32_t> * value);
-//    static uintptr_t U32Value(Number<uint32_t> * value);
-//    static intptr_t IntValue(Number<int32_t> * value);
-//    static uintptr_t UIntValue(Number<uint32_t> * value);
-//    static intptr_t I64Value(Number<int64_t> * value);
-//    static uintptr_t U64Value(Number<uint64_t> *value);
-//    static float F32Value(Number<float> *value);
-//    static double F64Value(Number<double> *value);
     
     // Channel functions:
     static Channel *NewChannel(uint32_t data_typeid, uint32_t capacity);

@@ -7,6 +7,7 @@
 #include "lang/channel.h"
 #include "lang/bytecode-array-builder.h"
 #include "lang/stack-frame.h"
+#include "asm/utils.h"
 #include "test/isolate-initializer.h"
 #include "base/arenas.h"
 #include "gtest/gtest.h"
@@ -27,6 +28,20 @@ struct DummyResult {
 };
 
 static DummyResult dummy_result;
+
+class DummyClass : public Any {
+public:
+    DummyClass(const Class *clazz, uint32_t tags): Any(clazz, tags) {}
+    
+    int8_t i8_1_;
+    int8_t i8_2_;
+    int16_t i16_1_;
+    int32_t i32_1_;
+    int64_t i64_1_;
+    float f32_1_;
+    double f64_1_;
+    Any *any_1_;
+};
 
 class CoroutineTest : public test::IsolateInitializer {
 public:
@@ -79,6 +94,65 @@ public:
             .bytecode(bc_array)
             .source_line_info(info)
         .Build(metadata_);
+    }
+    
+    const Class *RegisterDummyClass() {
+        constexpr arch::ObjectTemplate<DummyClass, uint32_t> templ;
+        
+        return ClassBuilder("dummy.DummyClass")
+            .base(STATE->builtin_type(kType_any))
+            .tags(Type::kReferenceTag)
+            .reference_size(kPointerSize)
+            .instrance_size(sizeof(DummyClass))
+            /*[0]*/ .field("i8_1_")
+                .type(STATE->builtin_type(kType_i8))
+                .flags(Field::kRdWr|Field::kPublic)
+                .tag(1)
+                .offset(templ.Offset(&DummyClass::i8_1_))
+            .End()
+            /*[1]*/ .field("i8_2_")
+                .type(STATE->builtin_type(kType_i8))
+                .flags(Field::kRdWr|Field::kPublic)
+                .tag(2)
+                .offset(templ.Offset(&DummyClass::i8_2_))
+            .End()
+            /*[2]*/ .field("i16_1_")
+                .type(STATE->builtin_type(kType_i16))
+                .flags(Field::kRdWr|Field::kPublic)
+                .tag(3)
+                .offset(templ.Offset(&DummyClass::i16_1_))
+            .End()
+            /*[3]*/ .field("i32_1_")
+                .type(STATE->builtin_type(kType_i32))
+                .flags(Field::kRdWr|Field::kPublic)
+                .tag(4)
+                .offset(templ.Offset(&DummyClass::i32_1_))
+            .End()
+            /*[4]*/ .field("i64_1_")
+                .type(STATE->builtin_type(kType_i64))
+                .flags(Field::kRdWr|Field::kPublic)
+                .tag(5)
+                .offset(templ.Offset(&DummyClass::i64_1_))
+            .End()
+            /*[5]*/ .field("f32_1_")
+                .type(STATE->builtin_type(kType_f32))
+                .flags(Field::kRdWr|Field::kPublic)
+                .tag(6)
+                .offset(templ.Offset(&DummyClass::f32_1_))
+            .End()
+            /*[6]*/ .field("f64_1_")
+                .type(STATE->builtin_type(kType_f64))
+                .flags(Field::kRdWr|Field::kPublic)
+                .tag(7)
+                .offset(templ.Offset(&DummyClass::f64_1_))
+            .End()
+            /*[7]*/ .field("any_1_")
+                .type(STATE->builtin_type(kType_any))
+                .flags(Field::kRdWr|Field::kPublic)
+                .tag(8)
+                .offset(templ.Offset(&DummyClass::any_1_))
+            .End()
+        .Build(STATE->metadata_space());
     }
 
     Scheduler *scheduler_ = nullptr;
@@ -630,6 +704,197 @@ TEST_F(CoroutineTest, LoadArgumentToACC) {
     
     ASSERT_EQ(270, dummy_result.i32_1);
     ASSERT_NEAR(3.1415f, dummy_result.f64_1, 0.0001);
+}
+
+static void Dummy15(Any *any) {
+    DummyClass *d = static_cast<DummyClass *>(any);
+    dummy_result.any_1 = d;
+}
+
+TEST_F(CoroutineTest, NewObject) {
+    const Class *clazz = RegisterDummyClass();
+
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    Span32 span;
+    span.ptr[0].any = *FunctionTemplate::New(Dummy15);
+    span.ptr[1].pv = const_cast<Class *>(clazz);
+    
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kNewObject>(Heap::kOld/*flags*/, 2/*const_offset*/);
+    builder.Add<kStarPtr>((kStackSize + 8)/2);
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(8);
+    builder.Add<kReturn>();
+    
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+    
+    ASSERT_NE(nullptr, dummy_result.any_1);
+    DummyClass *d = static_cast<DummyClass *>(dummy_result.any_1);
+    ASSERT_EQ(0, d->i8_1_);
+    ASSERT_EQ(0, d->i8_2_);
+    ASSERT_EQ(0, d->i16_1_);
+    ASSERT_EQ(0, d->i32_1_);
+    ASSERT_EQ(0, d->i64_1_);
+}
+
+static void Dummy16(int8_t a, int16_t b, int32_t c, int64_t d) {
+    dummy_result.i8_1 = a;
+    dummy_result.i16_1 = b;
+    dummy_result.i32_1 = c;
+    dummy_result.i64_1 = d;
+}
+
+TEST_F(CoroutineTest, LoadPropertyToACC) {
+    constexpr int32_t kLocalVarBase = RoundUp(BytecodeStackFrame::kOffsetHeaderSize,
+                                              kStackAligmentSize);
+    const Class *clazz = RegisterDummyClass();
+
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    Handle<DummyClass> obj(static_cast<DummyClass *>(Machine::This()->NewObject(clazz, 0)));
+    
+    obj->i8_1_ = 112;
+    obj->i8_2_ = 119;
+    obj->i16_1_ = 226;
+    obj->i32_1_ = 321;
+    obj->i64_1_ = 641;
+    
+    Span32 span;
+    span.ptr[0].any = *FunctionTemplate::New(Dummy16);
+    span.ptr[1].any = *obj;
+
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaConstPtr>(2);
+    auto v1 = (kLocalVarBase + 8)/2;
+    builder.Add<kStarPtr>(v1);
+    builder.Add<kLdaProperty8>(v1, clazz->field(0)->offset());
+    builder.Add<kStar32>((kStackSize + 4)/2);
+    builder.Add<kLdaProperty16>(v1, clazz->field(2)->offset());
+    builder.Add<kStar32>((kStackSize + 8)/2);
+    builder.Add<kLdaProperty32>(v1, clazz->field(3)->offset());
+    builder.Add<kStar32>((kStackSize + 12)/2);
+    builder.Add<kLdaProperty64>(v1, clazz->field(4)->offset());
+    builder.Add<kStar64>((kStackSize + 20)/2);
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(20);
+    builder.Add<kReturn>();
+    
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+    
+    ASSERT_EQ(112, dummy_result.i8_1);
+    ASSERT_EQ(226, dummy_result.i16_1);
+    ASSERT_EQ(321, dummy_result.i32_1);
+    ASSERT_EQ(641, dummy_result.i64_1);
+}
+
+static void Dummy17(float a, double b, Any *c) {
+    dummy_result.f32_1 = a;
+    dummy_result.f64_1 = b;
+    dummy_result.any_1 = c;
+}
+
+TEST_F(CoroutineTest, LoadPropertyToACC2) {
+    constexpr int32_t kLocalVarBase = RoundUp(BytecodeStackFrame::kOffsetHeaderSize,
+                                              kStackAligmentSize);
+    const Class *clazz = RegisterDummyClass();
+
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    Handle<DummyClass> obj(static_cast<DummyClass *>(Machine::This()->NewObject(clazz, 0)));
+
+    obj->i32_1_ = 321;
+    obj->i64_1_ = 641;
+    obj->f32_1_ = 2.718281828f;
+    obj->f64_1_ = 22.0f/7.0f;
+    Handle<String> handle(String::NewUtf8("22.0f/7.0f"));
+    obj->any_1_ = *handle;
+
+    Span32 span;
+    span.ptr[0].any = *FunctionTemplate::New(Dummy17);
+    span.ptr[1].any = *obj;
+    
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaConstPtr>(2);
+    auto v1 = (kLocalVarBase + 8)/2;
+    builder.Add<kStarPtr>(v1);
+    builder.Add<kLdaPropertyf32>(v1, clazz->field(5)->offset());
+    builder.Add<kStaf32>((kStackSize + 4)/2);
+    builder.Add<kLdaPropertyf64>(v1, clazz->field(6)->offset());
+    builder.Add<kStaf64>((kStackSize + 12)/2);
+    builder.Add<kLdaPropertyPtr>(v1, clazz->field(7)->offset());
+    builder.Add<kStarPtr>((kStackSize + 20)/2);
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(20);
+    builder.Add<kReturn>();
+    
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+    
+    ASSERT_NEAR(2.718281828f, dummy_result.f32_1, 0.00000001);
+    ASSERT_NEAR(3.142857f, dummy_result.f64_1, 0.000001);
+    ASSERT_EQ(*handle, dummy_result.any_1);
+}
+
+TEST_F(CoroutineTest, StorePropertyFromACC) {
+    constexpr int32_t kLocalVarBase = RoundUp(BytecodeStackFrame::kOffsetHeaderSize,
+                                              kStackAligmentSize);
+    const Class *clazz = RegisterDummyClass();
+
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    Handle<DummyClass> obj(static_cast<DummyClass *>(Machine::This()->NewObject(clazz, 0)));
+    
+    Span32 span;
+    span.ptr[0].any = *obj;
+    
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaConstPtr>(0);
+    auto v1 = (kLocalVarBase + 8)/2;
+    builder.Add<kStarPtr>(v1);
+    builder.Add<kLdaSmi32>(81);
+    builder.Add<kStaProperty8>(v1, clazz->field(0)->offset());
+    builder.Add<kLdaSmi32>(82);
+    builder.Add<kStaProperty8>(v1, clazz->field(1)->offset());
+    builder.Add<kLdaSmi32>(161);
+    builder.Add<kStaProperty16>(v1, clazz->field(2)->offset());
+    builder.Add<kLdaSmi32>(321);
+    builder.Add<kStaProperty32>(v1, clazz->field(3)->offset());
+    builder.Add<kLdaSmi32>(641);
+    builder.Add<kStaProperty64>(v1, clazz->field(4)->offset());
+    builder.Add<kReturn>();
+    
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+    
+    ASSERT_EQ(81, obj->i8_1_);
+    ASSERT_EQ(82, obj->i8_2_);
+    ASSERT_EQ(161, obj->i16_1_);
+    ASSERT_EQ(321, obj->i32_1_);
+    ASSERT_EQ(641, obj->i64_1_);
 }
 
 } // namespace lang

@@ -287,6 +287,12 @@ struct TypeTraits<Number<double>> {
 };
 
 template<>
+struct TypeTraits<Any> {
+    static constexpr BuiltinType kType = kType_any;
+    static constexpr char kName[] = "any";
+};
+
+template<>
 struct TypeTraits<Any *> {
     static constexpr BuiltinType kType = kType_any;
     static constexpr char kName[] = "any";

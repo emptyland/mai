@@ -432,6 +432,22 @@ public:
         }
     }; // class InstrABScope
     
+    class InstrStackOffsetABScope : public InstrBaseScope {
+    public:
+        InstrStackOffsetABScope(MacroAssembler *m)
+            : InstrBaseScope(m) {
+            __ movl(rbx, Operand(BC, 0));
+            __ andl(rbx, BytecodeNode::kAOfABMask);
+            __ shrl(rbx, 12);
+            __ negq(rbx);
+        }
+        
+        void GetBToRBX() {
+            __ movl(rbx, Operand(BC, 0));
+            __ andl(rbx, BytecodeNode::kBOfABMask);
+        }
+    }; // class InstrStackOffsetABScope
+    
     class InstrFABaseScope : public InstrBaseScope {
     public:
         InstrFABaseScope(MacroAssembler *m): InstrBaseScope(m) {}
@@ -488,6 +504,7 @@ public:
         __ movsd(FACC, Operand(rbp, rbx, times_2, 0));
     }
 
+    // Load imm
     void EmitLdaTrue(MacroAssembler *masm) override {
         InstrBaseScope instr_scope(masm);
         __ movq(ACC, 1);
@@ -506,6 +523,7 @@ public:
         __ movq(ACC, rbx);
     }
 
+    // Load argument
     void EmitLdaArgument32(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ addl(rbx, 8); // Skip saved rbp and return address
@@ -517,27 +535,28 @@ public:
         __ addl(rbx, 8); // Skip saved rbp and return address
         __ movq(ACC, Operand(rbp, rbx, times_2, 0));
     }
-    
+
     void EmitLdaArgumentPtr(MacroAssembler *masm) override { EmitLdaArgument64(masm); }
-    
+
     void EmitLdaArgumentf32(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ addl(rbx, 8); // Skip saved rbp and return address
         __ movss(FACC, Operand(rbp, rbx, times_2, 0));
     }
-    
+
     void EmitLdaArgumentf64(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ addl(rbx, 8); // Skip saved rbp and return address
         __ movsd(FACC, Operand(rbp, rbx, times_2, 0));
     }
 
+    // Load constant
     void EmitLdaConst32(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movl(ACC, Operand(SCRATCH, rbx, times_4, 0));
     }
-    
+
     void EmitLdaConst64(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
@@ -551,11 +570,65 @@ public:
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movss(FACC, Operand(SCRATCH, rbx, times_4, 0));
     }
-    
+
     void EmitLdaConstf64(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movsd(FACC, Operand(SCRATCH, rbx, times_4, 0));
+    }
+
+    // Load Property
+    void EmitLdaProperty8(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        //__ Breakpoint();
+        __ xorq(ACC, ACC);
+        __ lfence(); // XXX
+        __ movb(ACC, Operand(SCRATCH, rbx, times_1, 0));
+    }
+    
+    void EmitLdaProperty16(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ xorq(ACC, ACC);
+        __ lfence(); // XXX
+        __ movw(ACC, Operand(SCRATCH, rbx, times_1, 0));
+    }
+
+    void EmitLdaProperty32(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ lfence(); // XXX
+        __ movl(ACC, Operand(SCRATCH, rbx, times_1, 0));
+    }
+    
+    void EmitLdaProperty64(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ lfence(); // XXX
+        __ movq(ACC, Operand(SCRATCH, rbx, times_1, 0));
+    }
+    
+    void EmitLdaPropertyPtr(MacroAssembler *masm) override { EmitLdaProperty64(masm); }
+    
+    void EmitLdaPropertyf32(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ lfence(); // XXX
+        __ movss(FACC, Operand(SCRATCH, rbx, times_1, 0));
+    }
+
+    void EmitLdaPropertyf64(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ lfence(); // XXX
+        __ movsd(FACC, Operand(SCRATCH, rbx, times_1, 0));
     }
 
     // Store from ACC ------------------------------------------------------------------------------
@@ -570,7 +643,7 @@ public:
     }
 
     void EmitStarPtr(MacroAssembler *masm) override { EmitStar64(masm); }
-    
+
     void EmitStaf32(MacroAssembler *masm) override {
         InstrStackAScope instr_scope(masm);
         __ movss(Operand(rbp, rbx, times_2, 0), FACC);
@@ -579,6 +652,57 @@ public:
     void EmitStaf64(MacroAssembler *masm) override {
         InstrStackAScope instr_scope(masm);
         __ movsd(Operand(rbp, rbx, times_2, 0), FACC);
+    }
+    
+    // Store Property
+    void EmitStaProperty8(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movb(Operand(SCRATCH, rbx, times_1, 0), ACC);
+        __ sfence(); // XXX
+    }
+    
+    void EmitStaProperty16(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movw(Operand(SCRATCH, rbx, times_1, 0), ACC);
+        __ sfence(); // XXX
+    }
+
+    void EmitStaProperty32(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movl(Operand(SCRATCH, rbx, times_1, 0), ACC);
+        __ sfence(); // XXX
+    }
+    
+    void EmitStaProperty64(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movq(Operand(SCRATCH, rbx, times_1, 0), ACC);
+        __ sfence(); // XXX
+    }
+    
+    void EmitStaPropertyPtr(MacroAssembler *masm) override { EmitStaProperty64(masm); }
+    
+    void EmitStaPropertyf32(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movss(Operand(SCRATCH, rbx, times_1, 0), FACC);
+        __ sfence(); // XXX
+    }
+
+    void EmitStaPropertyf64(MacroAssembler *masm) override {
+        InstrStackOffsetABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movsd(Operand(SCRATCH, rbx, times_1, 0), FACC);
+        __ sfence(); // XXX
     }
 
     // Move from Stack to Stack --------------------------------------------------------------------
@@ -684,18 +808,7 @@ public:
         __ andl(rbx, 0xfffffff0); // ebx &= -16
         __ addq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
 
-        // Test if throw exception in native function
-        // Can not throw c++ exception in native function!
-        __ cmpq(Operand(CO, Coroutine::kOffsetException), 0);
-        Label done;
-        __ j(Equal, &done, false/*is_far*/); // if (!co->exception) { goto done: }
-
-        // Move native function throws exception to ACC
-        __ movq(ACC, Operand(CO, Coroutine::kOffsetException));
-        // Then throw in mai env:
-        __ Throw(SCRATCH, rbx);
-
-        __ Bind(&done);
+        EmitCheckException(masm);
     }
 
     void EmitCallBytecodeFunction(MacroAssembler *masm) override {
@@ -739,7 +852,32 @@ public:
         // Switch and run RunCoroutine
         // Must inline call this function!
         __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::RunCoroutine));
-        
+        EmitCheckException(masm);
+    }
+    
+    void EmitNewObject(MacroAssembler *masm) override {
+        InstrImmAFScope instr_scope(masm);
+        // Load class pointer
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+        __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0));
+
+        instr_scope.GetFToRBX(); // flags
+        __ movl(Argv_1, rbx);
+    
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewObject));
+        EmitCheckException(masm);
+    }
+
+    // Checking ------------------------------------------------------------------------------------
+    void EmitCheckStack(MacroAssembler *masm) override {
+        // TODO:
+        //__ Breakpoint();
+        __ nop();
+        __ JumpNextBC();
+    }
+    
+private:
+    void EmitCheckException(MacroAssembler *masm) {
         // Test if throw exception in native function
         // Can not throw c++ exception in native function!
         __ cmpq(Operand(CO, Coroutine::kOffsetException), 0);
@@ -752,14 +890,6 @@ public:
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&done);
-    }
-
-    // Checking ------------------------------------------------------------------------------------
-    void EmitCheckStack(MacroAssembler *masm) override {
-        // TODO:
-        //__ Breakpoint();
-        __ nop();
-        __ JumpNextBC();
     }
 }; // class BytecodeEmitter
 

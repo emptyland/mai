@@ -48,9 +48,9 @@ public:
 
     Any(const Any &) = delete;
     void operator = (const Any &) = delete;
-    
-    //void *operator new (size_t) = delete;
     void operator delete (void *) = delete;
+
+    friend class Machine;
 protected:
     Any(const Class *clazz, uint32_t tags)
         : klass_(reinterpret_cast<uintptr_t>(clazz))

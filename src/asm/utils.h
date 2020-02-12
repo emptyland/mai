@@ -18,16 +18,16 @@ public:
     constexpr ObjectTemplate() {}
     
     template<class F>
-    inline constexpr offset_type Offset(F T::*const field) {
+    inline constexpr offset_type Offset(F T::*const field) const {
         static_assert(sizeof(field) == kPointerSize, "incorrect size");
         return static_cast<offset_type>(bit_cast<Address>(field) - static_cast<Address>(nullptr));
     }
     
     template<class F>
-    Address Method(F T::*const method) { return MethodAddress(method); }
+    Address Method(F T::*const method) const { return MethodAddress(method); }
     
     template<class E, class F>
-    offset_type Between(E T::*const f0, F T::*const f1) {
+    offset_type Between(E T::*const f0, F T::*const f1) const {
         static_assert(sizeof(f0) == kPointerSize && sizeof(f1) == kPointerSize, "incorrect size");
         return static_cast<offset_type>(bit_cast<Address>(f0) - bit_cast<Address>(f1));
     }

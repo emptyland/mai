@@ -136,7 +136,9 @@ void Machine::Entry() {
             running_ = co;
             TLS_STORAGE->coroutine = co;
 
+            uint64_t delta = STATE->env()->CurrentTimeMicros();
             trampoline.entry()(co);
+            user_time_ += STATE->env()->CurrentTimeMicros() - delta;
 
             if (co->state() == Coroutine::kDead || co->state() == Coroutine::kPanic) {
                 owner_->Schedule();
@@ -156,9 +158,15 @@ void Machine::Entry() {
 
         if (span_shift >= 1024) {
             span_shift = 1;
-            state_.store(kIdle, std::memory_order_release);
+
+            state_.store(kIdle, std::memory_order_relaxed);
+            owner_->MarkIdle(this);
+            
             std::unique_lock<std::mutex> lock(mutex_);
             cond_var_.wait(lock);
+            
+            state_.store(kRunning, std::memory_order_relaxed);
+            owner_->ClearIdle(this);
         }
     }
 
@@ -200,6 +208,26 @@ Address Machine::AdvanceHandleSlots(int n_slots) {
     auto slot_addr = slot->end;
     slot->end += size;
     return slot_addr;
+}
+
+Any *Machine::NewObject(const Class *clazz, uint32_t flags) {
+    DCHECK(!clazz->is_builtin());
+    DCHECK(!clazz->is_primitive());
+    DCHECK_GE(clazz->instrance_size(), sizeof(Any));
+
+    AllocationResult result = STATE->heap()->Allocate(clazz->instrance_size(), flags);
+    if (!result.ok()) {
+        AllocationPanic(result);
+        return nullptr;
+    }
+    
+    Any *any = new (result.ptr()) Any(clazz, color_tags());
+    
+    if (clazz->n_fields() > 0) {
+        Address base = reinterpret_cast<Address>(any) + clazz->field(0)->offset();
+        ::memset(base, 0, clazz->instrance_size() - sizeof(Any)); // Zeroize object fields
+    }
+    return any;
 }
 
 // Factory for create a UTF-8 string
