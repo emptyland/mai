@@ -425,6 +425,7 @@ public:
     struct CapturedVar {
         CapturedValue *value;
     }; //struct CapturedVar
+    static_assert(sizeof(CapturedVar) == sizeof(CapturedVar::value), "Incorrect captured var size");
 
     static const int32_t kOffsetProto;
     static const int32_t kOffsetCode;
@@ -441,6 +442,9 @@ public:
     inline bool is_mai_function() const;
     inline Code *code() const;
     inline Function *function() const;
+    inline void SetCapturedVar(uint32_t i, CapturedValue *value);
+    inline void set_captured_var_no_barrier(uint32_t i, CapturedValue *value);
+    inline CapturedValue *captured_var(uint32_t i) const;
     
     friend class Machine;
 private:

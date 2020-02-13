@@ -484,24 +484,28 @@ Closure *Machine::CloseFunction(Function *func, uint32_t flags) {
     StackFrame::Maker maker = StackFrame::GetMaker(DCHECK_NOTNULL(frame_bp));
 
     Closure *closure = NewClosure(func, func->captured_var_size(), flags);
+    if (!closure) {
+        return nullptr;
+    }
     for (uint32_t i = 0; i < func->captured_var_size(); i++) {
-        auto desc = func->captured_var(i);
+        const Function::CapturedVarDesc *desc = func->captured_var(i);
         switch (desc->kind) {
             case Function::IN_CAPTURED:
                 if (maker == StackFrame::kBytecode) {
                     Closure *callee = BytecodeStackFrame::GetCallee(frame_bp);
-                    closure->captured_var_[i].value = callee->captured_var_[desc->index].value;
-                    closure->WriteBarrier(reinterpret_cast<Any **>(&closure->captured_var_[i].value));
+                    closure->SetCapturedVar(i, callee->captured_var_[desc->index].value);
                 } else {
                     NOREACHED();
                 }
                 break;
             case Function::IN_STACK: {
                 Address addr = frame_bp - (desc->index * 2);
-                closure->captured_var_[i].value = NewCapturedValue(desc->type, addr,
-                                                                   desc->type->reference_size(),
-                                                                   flags);
-                closure->WriteBarrier(reinterpret_cast<Any **>(&closure->captured_var_[i].value));
+                CapturedValue *val = NewCapturedValue(desc->type, addr, desc->type->reference_size(),
+                                                      flags);
+                if (!val) {
+                    return nullptr;
+                }
+                closure->SetCapturedVar(i, val);
             } break;
             default:
                 NOREACHED();
@@ -512,7 +516,6 @@ Closure *Machine::CloseFunction(Function *func, uint32_t flags) {
 }
 
 Closure *Machine::NewClosure(Function *func, size_t captured_var_size, uint32_t flags) {
-    DCHECK_EQ(0, captured_var_size % kPointerSize);
     size_t request_size = sizeof(Closure) + captured_var_size * sizeof(Closure::CapturedVar);
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {

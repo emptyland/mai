@@ -16,14 +16,16 @@ class Channel;
 // Closure's captured-value
 class CapturedValue : public AbstractValue {
 public:
-    // internal functions:
-    inline bool is_object_value() const { return padding_ & kObjectBit; }
+    bool is_object_value() const { return padding_ & kObjectBit; }
 
-    inline bool is_primitive_value() const { return !is_object_value(); }
+    bool is_primitive_value() const { return !is_object_value(); }
 
-    inline const void *value() const { return address(); }
+    const void *value() const { return address(); }
 
-    inline void *mutable_value() { return address(); }
+    void *mutable_value() { return address(); }
+    
+    template<class T>
+    inline T unsafe_typed_value() const { return *static_cast<const T *>(address()); }
     
     friend class Machine;
 private:
@@ -119,6 +121,21 @@ inline Code *Closure::code() const {
 inline Function *Closure::function() const {
     DCHECK(is_mai_function());
     return DCHECK_NOTNULL(mai_fn_);
+}
+
+inline void Closure::SetCapturedVar(uint32_t i, CapturedValue *value) {
+    set_captured_var_no_barrier(i, value);
+    WriteBarrier(reinterpret_cast<Any **>(&captured_var_[i].value));
+}
+
+inline void Closure::set_captured_var_no_barrier(uint32_t i, CapturedValue *value) {
+    DCHECK_LT(i, captured_var_size_);
+    captured_var_[i].value = DCHECK_NOTNULL(value);
+}
+
+inline CapturedValue *Closure::captured_var(uint32_t i) const {
+    DCHECK_LT(i, captured_var_size_);
+    return DCHECK_NOTNULL(captured_var_[i].value);
 }
 
 inline Array<String *> *Throwable::stacktrace() const { return stacktrace_; }

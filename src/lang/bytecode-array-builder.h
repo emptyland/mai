@@ -99,6 +99,8 @@ public:
     
     void Abandon() { nodes_.clear(); }
     
+    void Print(base::AbstractPrinter *output, bool ownership = false) const;
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeArrayBuilder);
 private:
     void Link(BytecodeNode *bc, int pc) {

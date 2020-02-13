@@ -151,7 +151,7 @@ public:
                 if (*address == nullptr) {
                     remember_set_.erase(address);
                 } else if (STATE->heap()->InNewArea(*address)) {
-                    UpdateRememberRecord(host, address);
+                    AddRememberRecord(host, address);
                 }
             }
         }
@@ -160,16 +160,6 @@ public:
     
     ALWAYS_INLINE static bool ShouldRemember(Any *host, Any *val) {
         return STATE->heap()->InOldArea(host) && val != nullptr && STATE->heap()->InNewArea(val);
-    }
-
-    ALWAYS_INLINE void UpdateRememberRecord(Any *host, Any **address) {
-        DCHECK(ShouldRemember(host, *address));
-        RememberRecord rd {
-            STATE->heap()->NextRememberRecordSequanceNumber(),
-            host,
-            address,
-        };
-        remember_set_[address] = rd;
     }
 
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
@@ -182,6 +172,16 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(Machine);
 private:
     using RememberSet = std::map<void *, RememberRecord>;
+    
+    ALWAYS_INLINE void AddRememberRecord(Any *host, Any **address) {
+        DCHECK(ShouldRemember(host, *address));
+        RememberRecord rd {
+            STATE->heap()->NextRememberRecordSequanceNumber(),
+            host,
+            address,
+        };
+        remember_set_[address] = rd;
+    }
     
     void Entry(); // Machine entry point
 

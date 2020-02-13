@@ -10,6 +10,7 @@
 #include "asm/utils.h"
 #include "test/isolate-initializer.h"
 #include "base/arenas.h"
+#include "base/slice.h"
 #include "gtest/gtest.h"
 #include <thread>
 
@@ -61,6 +62,13 @@ public:
         test::IsolateInitializer::TearDown();
     }
     
+    template<class T>
+    inline Handle<CapturedValue> NewCapturedValue(T value) {
+        CapturedValue *val = Machine::This()->NewCapturedValue(STATE->builtin_type(TypeTraits<T>::kType),
+                                                               &value, sizeof(value), 0);
+        return Handle<CapturedValue>(val);
+    }
+    
     static constexpr int32_t kStackSize = RoundUp(BytecodeStackFrame::kOffsetHeaderSize + 32,
                                                   kStackAligmentSize);
 
@@ -68,7 +76,7 @@ public:
                                       const std::vector<Span32> &const_pool = {},
                                       const std::vector<uint32_t> &const_pool_bitmap = {}) {
         Function *func = BuildDummyFunction(instrs, const_pool, const_pool_bitmap);
-        Closure *closure = Machine::This()->NewClosure(func, 0, Closure::kMaiFunction);
+        Closure *closure = Machine::This()->NewClosure(func, 5, Closure::kMaiFunction);
         return Handle<Closure>(closure);
     }
 
@@ -914,6 +922,107 @@ TEST_F(CoroutineTest, StorePropertyFromACC) {
     ASSERT_EQ(161, obj->i16_1_);
     ASSERT_EQ(321, obj->i32_1_);
     ASSERT_EQ(641, obj->i64_1_);
+}
+
+static void Dummy18(int32_t a, int64_t b, float c, double d) {
+    //printf("%d %lld %f %f\n", a, b, c, d);
+    dummy_result.i32_1 = a;
+    dummy_result.i64_1 = b;
+    dummy_result.f32_1 = c;
+    dummy_result.f64_1 = d;
+}
+
+TEST_F(CoroutineTest, LoadCapturedVarToACC) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    
+    builder.Add<kLdaCaptured32>(0);
+    builder.Add<kStar32>((kStackSize + 4)/2);
+
+    builder.Add<kLdaCaptured64>(1);
+    builder.Add<kStar64>((kStackSize + 12)/2);
+    
+    builder.Add<kLdaCapturedf32>(2);
+    builder.Add<kStaf32>((kStackSize + 16)/2);
+    
+    builder.Add<kLdaCapturedf64>(3);
+    builder.Add<kStaf64>((kStackSize + 24)/2);
+    
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(24);
+    builder.Add<kReturn>();
+    
+    Span32 span;
+    span.ptr[0].any = *FunctionTemplate::New(Dummy18);
+    
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    constexpr int32_t i = 100102;
+    entry->set_captured_var_no_barrier(0, *NewCapturedValue(i));
+    constexpr int64_t l = 640001;
+    entry->set_captured_var_no_barrier(1, *NewCapturedValue(l));
+    constexpr float   f = 0.1754321;
+    entry->set_captured_var_no_barrier(2, *NewCapturedValue(f));
+    constexpr double  d = 22/7.0;
+    entry->set_captured_var_no_barrier(3, *NewCapturedValue(d));
+    
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+    
+    ASSERT_EQ(i, dummy_result.i32_1);
+    ASSERT_EQ(l, dummy_result.i64_1);
+    ASSERT_EQ(f, dummy_result.f32_1);
+    ASSERT_EQ(d, dummy_result.f64_1);
+}
+
+TEST_F(CoroutineTest, StoreCapturedVarFromACC) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+
+    builder.Add<kLdaConst32>(0);
+    builder.Add<kStaCaptured32>(0);
+
+    builder.Add<kLdaConstf32>(1);
+    builder.Add<kStaCapturedf32>(2);
+
+    builder.Add<kLdaConst64>(2);
+    builder.Add<kStaCaptured64>(1);
+
+    builder.Add<kLdaConstf64>(4);
+    builder.Add<kStaCapturedf64>(3);
+
+    builder.Add<kReturn>();
+
+    //builder.Print(new base::StdFilePrinter(stdout), true);
+
+    Span32 span;
+    span.v32[0].i32 = 132001;
+    span.v32[1].f32 = 0.1754321;
+    span.v64[1].i64 = 164001;
+    span.v64[2].f64 = 22/7.0;
+    
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0}));
+    entry->set_captured_var_no_barrier(0, *NewCapturedValue(0)); // i32
+    entry->set_captured_var_no_barrier(1, *NewCapturedValue(0)); // i64
+    entry->set_captured_var_no_barrier(2, *NewCapturedValue(0)); // f32
+    entry->set_captured_var_no_barrier(3, *NewCapturedValue(0)); // f64
+    
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+    
+    ASSERT_EQ(span.v32[0].i32, entry->captured_var(0)->unsafe_typed_value<int32_t>());
+    ASSERT_EQ(span.v64[1].i64, entry->captured_var(1)->unsafe_typed_value<int64_t>());
+    ASSERT_EQ(span.v32[1].f32, entry->captured_var(2)->unsafe_typed_value<float>());
+    ASSERT_EQ(span.v64[2].f64, entry->captured_var(3)->unsafe_typed_value<double>());
 }
 
 } // namespace lang

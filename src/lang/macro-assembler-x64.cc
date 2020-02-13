@@ -377,17 +377,6 @@ public:
         MacroAssembler *masm;
     }; // class InstrBaseScope
     
-    class InstrStackAScope : public InstrBaseScope {
-    public:
-        InstrStackAScope(MacroAssembler *m): InstrBaseScope(m) { GetAToRBX(); }
-        
-        void GetAToRBX() {
-            __ movl(rbx, Operand(BC, 0));
-            __ andl(rbx, BytecodeNode::kAOfAMask);
-            __ negq(rbx);
-        }
-    }; // class InstrStackAScope
-    
     class InstrImmAScope : public InstrBaseScope {
     public:
         InstrImmAScope(MacroAssembler *m): InstrBaseScope(m) { GetAToRBX(); }
@@ -398,53 +387,69 @@ public:
         }
     }; // class InstrImmAScope
     
-    class InstrStackBAScope : public InstrBaseScope {
+    class InstrStackAScope : public InstrImmAScope {
     public:
-        InstrStackBAScope(MacroAssembler *m)
-            : InstrBaseScope(m) {
-            __ movl(rbx, Operand(BC, 0));
-            __ andl(rbx, BytecodeNode::kBOfABMask);
+        InstrStackAScope(MacroAssembler *m): InstrImmAScope(m) { GetAToRBX(); }
+        
+        void GetAToRBX() {
+            InstrImmAScope::GetAToRBX();
             __ negq(rbx);
+        }
+    }; // class InstrStackAScope
+    
+    class InstrImmABScope : public InstrBaseScope {
+    public:
+        InstrImmABScope(MacroAssembler *m)
+            : InstrBaseScope(m) {
+            GetAToRBX();
         }
         
         void GetAToRBX() {
             __ movl(rbx, Operand(BC, 0));
             __ andl(rbx, BytecodeNode::kAOfABMask);
             __ shrl(rbx, 12);
-            __ negq(rbx);
-        }
-    }; // class InstrBAScope
-    
-    class InstrStackABScope : public InstrBaseScope {
-    public:
-        InstrStackABScope(MacroAssembler *m)
-            : InstrBaseScope(m) {
-            __ movl(rbx, Operand(BC, 0));
-            __ andl(rbx, BytecodeNode::kAOfABMask);
-            __ shrl(rbx, 12);
-            __ negq(rbx);
-        }
-
-        void GetBToRBX() {
-            __ movl(rbx, Operand(BC, 0));
-            __ andl(rbx, BytecodeNode::kBOfABMask);
-            __ negq(rbx);
-        }
-    }; // class InstrABScope
-    
-    class InstrStackImmABScope : public InstrBaseScope {
-    public:
-        InstrStackImmABScope(MacroAssembler *m)
-            : InstrBaseScope(m) {
-            __ movl(rbx, Operand(BC, 0));
-            __ andl(rbx, BytecodeNode::kAOfABMask);
-            __ shrl(rbx, 12);
-            __ negq(rbx);
         }
         
         void GetBToRBX() {
             __ movl(rbx, Operand(BC, 0));
             __ andl(rbx, BytecodeNode::kBOfABMask);
+        }
+    }; // class InstrImmABScope
+    
+    class InstrStackBAScope : public InstrImmABScope {
+    public:
+        InstrStackBAScope(MacroAssembler *m)
+            : InstrImmABScope(m) {
+            GetBToRBX();
+            __ negq(rbx);
+        }
+        
+        void GetAToRBX() {
+            InstrImmABScope::GetAToRBX();
+            __ negq(rbx);
+        }
+    }; // class InstrBAScope
+    
+    class InstrStackABScope : public InstrImmABScope {
+    public:
+        InstrStackABScope(MacroAssembler *m)
+            : InstrImmABScope(m) {
+            GetAToRBX();
+            __ negq(rbx);
+        }
+
+        void GetBToRBX() {
+            InstrImmABScope::GetBToRBX();
+            __ negq(rbx);
+        }
+    }; // class InstrABScope
+    
+    class InstrStackImmABScope : public InstrImmABScope {
+    public:
+        InstrStackImmABScope(MacroAssembler *m)
+            : InstrImmABScope(m) {
+            GetAToRBX();
+            __ negq(rbx);
         }
     }; // class InstrStackOffsetABScope
     
@@ -550,6 +555,53 @@ public:
         __ movsd(FACC, Operand(rbp, rbx, times_2, 0));
     }
 
+    #if defined(DEBUG) || defined(_DEBUG)
+    #define CHECK_CAPTURED_VAR_INDEX() \
+        __ cmpl(rbx, Operand(SCRATCH, Closure::kOffsetCapturedVarSize)); \
+        Label ok1; \
+        __ j(Less, &ok1, false); \
+        __ Abort("CapturedVarIndex out of bound!"); \
+        __ Bind(&ok1)
+    #else
+    #define CHECK_CAPTURED_VAR_INDEX() (void)0
+    #endif // defined(DEBUG) || defined(_DEBUG)
+    
+    class InstrCapturedVarScope : public InstrImmAScope {
+    public:
+        InstrCapturedVarScope(MacroAssembler *m)
+            : InstrImmAScope(m) {
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+            CHECK_CAPTURED_VAR_INDEX();
+            __ movq(SCRATCH, Operand(SCRATCH, rbx, times_ptr_size, Closure::kOffsetCapturedVar));
+        }
+    };
+
+    void EmitLdaCaptured32(MacroAssembler *masm) override {
+        InstrCapturedVarScope instr_scope(masm);
+        __ lfence();
+        __ movl(ACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
+    }
+    
+    void EmitLdaCaptured64(MacroAssembler *masm) override {
+        InstrCapturedVarScope instr_scope(masm);
+        __ lfence();
+        __ movq(ACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
+    }
+    
+    void EmitLdaCapturedPtr(MacroAssembler *masm) override { EmitLdaCaptured64(masm); }
+    
+    void EmitLdaCapturedf32(MacroAssembler *masm) override {
+        InstrCapturedVarScope instr_scope(masm);
+        __ lfence();
+        __ movss(FACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
+    }
+    
+    void EmitLdaCapturedf64(MacroAssembler *masm) override {
+        InstrCapturedVarScope instr_scope(masm);
+        __ lfence();
+        __ movsd(FACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
+    }
+
     // Load constant
     void EmitLdaConst32(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
@@ -582,9 +634,8 @@ public:
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
-        //__ Breakpoint();
         __ xorq(ACC, ACC);
-        __ lfence(); // XXX
+        //__ lfence(); // XXX
         __ movb(ACC, Operand(SCRATCH, rbx, times_1, 0));
     }
     
@@ -593,7 +644,7 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ xorq(ACC, ACC);
-        __ lfence(); // XXX
+        //__ lfence(); // XXX
         __ movw(ACC, Operand(SCRATCH, rbx, times_1, 0));
     }
 
@@ -601,7 +652,7 @@ public:
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
-        __ lfence(); // XXX
+        //__ lfence(); // XXX
         __ movl(ACC, Operand(SCRATCH, rbx, times_1, 0));
     }
     
@@ -609,7 +660,7 @@ public:
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
-        __ lfence(); // XXX
+        //__ lfence(); // XXX
         __ movq(ACC, Operand(SCRATCH, rbx, times_1, 0));
     }
     
@@ -619,7 +670,7 @@ public:
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
-        __ lfence(); // XXX
+        //__ lfence(); // XXX
         __ movss(FACC, Operand(SCRATCH, rbx, times_1, 0));
     }
 
@@ -627,7 +678,7 @@ public:
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
-        __ lfence(); // XXX
+        //__ lfence(); // XXX
         __ movsd(FACC, Operand(SCRATCH, rbx, times_1, 0));
     }
     
@@ -677,13 +728,41 @@ public:
         __ movsd(Operand(rbp, rbx, times_2, 0), FACC);
     }
     
+    void EmitStaCaptured32(MacroAssembler *masm) override {
+        InstrCapturedVarScope instr_scope(masm);
+        __ movl(Operand(SCRATCH, CapturedValue::kOffsetValue), ACC);
+        __ sfence();
+    }
+    
+    void EmitStaCaptured64(MacroAssembler *masm) override {
+        InstrCapturedVarScope instr_scope(masm);
+        __ movq(Operand(SCRATCH, CapturedValue::kOffsetValue), ACC);
+        __ sfence();
+    }
+    
+    void EmitStaCapturedPtr(MacroAssembler *masm) override {
+        __ Abort("TODO: Write barrier");
+    }
+    
+    void EmitStaCapturedf32(MacroAssembler *masm) override {
+        InstrCapturedVarScope instr_scope(masm);
+        __ movss(Operand(SCRATCH, CapturedValue::kOffsetValue), FACC);
+        __ sfence();
+    }
+    
+    void EmitStaCapturedf64(MacroAssembler *masm) override {
+        InstrCapturedVarScope instr_scope(masm);
+        __ movsd(Operand(SCRATCH, CapturedValue::kOffsetValue), FACC);
+        __ sfence();
+    }
+    
     // Store Property
     void EmitStaProperty8(MacroAssembler *masm) override {
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movb(Operand(SCRATCH, rbx, times_1, 0), ACC);
-        __ sfence(); // XXX
+        //__ sfence(); // XXX
     }
     
     void EmitStaProperty16(MacroAssembler *masm) override {
@@ -691,7 +770,7 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movw(Operand(SCRATCH, rbx, times_1, 0), ACC);
-        __ sfence(); // XXX
+        //__ sfence(); // XXX
     }
 
     void EmitStaProperty32(MacroAssembler *masm) override {
@@ -699,7 +778,7 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movl(Operand(SCRATCH, rbx, times_1, 0), ACC);
-        __ sfence(); // XXX
+        //__ sfence(); // XXX
     }
     
     void EmitStaProperty64(MacroAssembler *masm) override {
@@ -707,7 +786,7 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movq(Operand(SCRATCH, rbx, times_1, 0), ACC);
-        __ sfence(); // XXX
+        //__ sfence(); // XXX
     }
     
     void EmitStaPropertyPtr(MacroAssembler *masm) override {
@@ -719,7 +798,7 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movss(Operand(SCRATCH, rbx, times_1, 0), FACC);
-        __ sfence(); // XXX
+        //__ sfence(); // XXX
     }
 
     void EmitStaPropertyf64(MacroAssembler *masm) override {
@@ -727,7 +806,7 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movsd(Operand(SCRATCH, rbx, times_1, 0), FACC);
-        __ sfence(); // XXX
+        //__ sfence(); // XXX
     }
 
     // Move from Stack to Stack --------------------------------------------------------------------
