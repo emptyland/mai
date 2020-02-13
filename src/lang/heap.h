@@ -31,18 +31,18 @@ public:
     AllocationResult Allocate(size_t size, uint32_t flags);
     
     // Test object in new-geneation
-    bool InNewArea(Any *host) const {
-        return FromObject(host) == kNewSpace;
+    ALWAYS_INLINE bool InNewArea(Any *host) const {
+        return new_space_->Contains(DCHECK_NOTNULL(reinterpret_cast<Address>(host)));
     }
     
     // Test object in old-geneation
-    bool InOldArea(Any *host) const {
+    ALWAYS_INLINE bool InOldArea(Any *host) const {
         SpaceKind space = FromObject(host);
         return space == kOldSpace || space == kLargeSpace;
     }
     
     // Test object's generation
-    SpaceKind FromObject(Any *object) const {
+    ALWAYS_INLINE SpaceKind FromObject(Any *object) const {
         return FromAddress(reinterpret_cast<Address>(object));
     }
 
@@ -95,10 +95,9 @@ private:
     HeapColor initialize_color_ = kColorWhite; // Initialize object color for GC
     HeapColor finalize_color_ = kColorBlack; // Finalize object color for GC
 
-    std::atomic<uint64_t> remember_record_sequance_ = 0;
     // Remember set record for old-generation -> new-generation
-//    std::map<Address, RememberRecord> remember_set_;
-//    std::mutex remember_set_mutex_; // For remember_set_
+    // Remember record version number
+    std::atomic<uint64_t> remember_record_sequance_ = 0;
 }; // class Heap
 
 } // namespace lang

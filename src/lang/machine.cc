@@ -3,7 +3,6 @@
 #include "lang/coroutine.h"
 #include "lang/channel.h"
 #include "lang/value-inl.h"
-#include "lang/heap.h"
 #include "lang/stack-frame.h"
 #include "mai/allocator.h"
 #include <memory>
@@ -615,6 +614,7 @@ void Machine::AllocationPanic(AllocationResult::Result result) {
         frame_bp = *reinterpret_cast<Address *>(frame_bp);
     }
     NOREACHED();
+    return nullptr;
 }
 
 void Machine::PrintStacktrace(const char *message) {

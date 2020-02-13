@@ -4,7 +4,7 @@
 
 #include "lang/isolate-inl.h"
 #include "lang/value-inl.h"
-#include "lang/mm.h"
+#include "lang/heap.h"
 #include "base/base.h"
 #include "glog/logging.h"
 #include <thread>
@@ -144,10 +144,32 @@ public:
     HandleScope *top_handle_scope() const { return !top_slot_ ? nullptr : top_slot_->scope; }
     
     // Update local remember-set record
-    int UpdateRememberRecords(Any *host, Any **address, size_t n) {
-        // TODO:
-        //DLOG(ERROR) << "TODO: batch write barrier : " << n;
-        return 0;
+    ALWAYS_INLINE int UpdateRememberRecords(Any *host, Any **address, size_t n) {
+        int count = 0;
+        for (size_t i = 0; i < n; i++) {
+            if (STATE->heap()->InOldArea(host)) {
+                if (*address == nullptr) {
+                    remember_set_.erase(address);
+                } else if (STATE->heap()->InNewArea(*address)) {
+                    UpdateRememberRecord(host, address);
+                }
+            }
+        }
+        return count;
+    }
+    
+    ALWAYS_INLINE static bool ShouldRemember(Any *host, Any *val) {
+        return STATE->heap()->InOldArea(host) && val != nullptr && STATE->heap()->InNewArea(val);
+    }
+
+    ALWAYS_INLINE void UpdateRememberRecord(Any *host, Any **address) {
+        DCHECK(ShouldRemember(host, *address));
+        RememberRecord rd {
+            STATE->heap()->NextRememberRecordSequanceNumber(),
+            host,
+            address,
+        };
+        remember_set_[address] = rd;
     }
 
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
@@ -159,6 +181,8 @@ public:
     friend class MachineScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Machine);
 private:
+    using RememberSet = std::map<void *, RememberRecord>;
+    
     void Entry(); // Machine entry point
 
     void Enter() {
@@ -205,6 +229,7 @@ private:
     std::condition_variable cond_var_; // Condition variable for scheduling
     std::mutex mutex_; // Total mutex
     std::thread thread_; // Thread object
+    RememberSet remember_set_; // elements [weak ref] Local remember set
 }; // class Machine
 
 

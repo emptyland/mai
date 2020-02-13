@@ -95,7 +95,7 @@ private:
     
     uint8_t **bytecode_handler_entries_; // Entry address of all bytecode handlers
     uint8_t *trampoline_suspend_point_; // Entry address of suspend
-    
+
     bool initialized_ = false;
 }; // class Isolate
 

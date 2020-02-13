@@ -120,7 +120,7 @@ public:
     DEF_VAL_GETTER(SpaceKind, owner_space);
     DEF_VAL_GETTER(uint32_t, available);
     
-    static PageHeader *FromAddress(Address addr) {
+    ALWAYS_INLINE static PageHeader *FromAddress(Address addr) {
         return reinterpret_cast<PageHeader *>(reinterpret_cast<uintptr_t>(addr) & kPageMask);
     }
 
