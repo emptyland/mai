@@ -78,6 +78,9 @@ protected:
 class Class : public Type {
 public:
     using Builder = ClassBuilder;
+    
+    static const int32_t kOffsetNMethods;
+    static const int32_t kOffsetMethods;
 
     DEF_PTR_GETTER(const Class, base);
     DEF_PTR_GETTER(Method, init);
@@ -88,8 +91,7 @@ public:
     bool IsSameOrBaseOf(const Class *base) { return IsSameOf(base) || IsBaseOf(base); }
     bool IsSameOf(const Class *base) const { return this == DCHECK_NOTNULL(base); }
     inline bool IsBaseOf(const Class *base) const;
-    
-    
+        
     friend class ClassBuilder;
     friend class MetadataSpace;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Class);
@@ -147,8 +149,12 @@ private:
     uint32_t offset_ = 0; // Offset of object address
 }; // class Field
 
+
+// The method function of class
 class Method : public MetadataObject {
 public:
+    static const int32_t kOffsetFunction;
+    
     DEF_VAL_GETTER(MDStr, name);
     DEF_VAL_GETTER(uint32_t, tags);
     
@@ -162,6 +168,7 @@ private:
     uint32_t tags_ = 0; // Tag for serializition
     Closure *fn_ = nullptr; // [strong ref]
 }; // class Method
+
 
 class MDStrHeader {
 public:
@@ -195,8 +202,9 @@ public:
     }; // enum CpaturedVarKind
 
     struct CapturedVarDesc {
-        CapturedVarKind kind;
         MDStr name;
+        const Class *type;
+        CapturedVarKind kind;
         int32_t index;
     }; // struct CpaturedVarDesc
     

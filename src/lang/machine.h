@@ -83,6 +83,9 @@ public:
 
     // New a box-in number object
     AbstractValue *NewNumber(BuiltinType primitive_type, const void *value, size_t n, uint32_t flags);
+    
+    // Create a captured value
+    CapturedValue *NewCapturedValue(const Class *clazz, const void *value, size_t n, uint32_t flags);
 
     // New a UTF-8 encoding string
     String *NewUtf8String(const char *utf8_string, size_t n, uint32_t flags);
@@ -106,6 +109,9 @@ public:
     
     // New bytecode closure
     Closure *NewClosure(Function *func, size_t captured_var_size, uint32_t flags);
+    
+    // Close function and make a closure
+    Closure *CloseFunction(Function *func, uint32_t flags);
     
     // New Panic error object
     Throwable *NewPanic(Panic::Level code, String *message, uint32_t flags);
@@ -173,6 +179,8 @@ private:
     void AllocationPanic(AllocationResult::Result result);
     
     void PrintStacktrace(const char *message);
+    
+    static Address GetPrevStackFrame(Address frame_bp, Address stack_hi);
     
     void InsertFreeCoroutine(Coroutine *co);
     

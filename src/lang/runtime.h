@@ -13,7 +13,11 @@ class Channel;
 class Closure;
 class Any;
 class Coroutine;
+class Throwable;
+
 class Class;
+class Function;
+
 
 // The runtime functions definition
 struct Runtime {
@@ -52,6 +56,12 @@ struct Runtime {
     static void ChannelSendPtr(Channel *chan, Any *value);
     static void ChannelSendF32(Channel *chan, float value);
     static void ChannelSendF64(Channel *chan, double value);
+    
+    // Panic Object
+    static Throwable *NewNilPointerPanic();
+    
+    // Close Function and make a closure
+    static Closure *CloseFunction(Function *func, uint32_t flags);
     
     // Coroutine
     static Coroutine *RunCoroutine(uint32_t flags, Closure *entry_point, Address params,

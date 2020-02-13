@@ -589,6 +589,7 @@ Function *FunctionBuilder::Build(MetadataSpace *space) const {
     for (size_t i = 0; i < captured_vars_.size(); i++) {
         func->captured_vars_[i].name  = space->NewString(captured_vars_[i].name);
         func->captured_vars_[i].kind  = captured_vars_[i].kind;
+        func->captured_vars_[i].type  = captured_vars_[i].type;
         func->captured_vars_[i].index = captured_vars_[i].index;
     }
     func->captured_var_size_ = static_cast<uint32_t>(captured_vars_.size());

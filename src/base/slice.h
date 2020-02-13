@@ -311,6 +311,52 @@ std::string Vsprintf(const char *fmt, va_list ap);
 void *Round16BytesFill(const uint16_t zag, void *chunk, size_t n);
 void *Round32BytesFill(const uint32_t zag, void *chunk, size_t n);
 void *Round64BytesFill(const uint64_t zag, void *chunk, size_t n);
+
+
+class AbstractPrinter {
+public:
+    AbstractPrinter() {}
+    virtual ~AbstractPrinter();
+    
+    void Append(const char *z) { Append(z, ::strlen(z)); }
+    void Append(const std::string &s) { Append(s.data(), s.size()); }
+    void Append(const std::string_view &s) { Append(s.data(), s.size()); }
+
+    virtual void Append(const char *s, size_t n) = 0;
+    
+    __attribute__ (( __format__ (__printf__, 2, 3)))
+    virtual void Printf(const char *fmt, ...);
+
+    virtual void VPrintf(const char *fmt, va_list ap) = 0;
+}; // class AbstractPrinter
+
+
+class StringBuildingPrinter : public AbstractPrinter {
+public:
+    StringBuildingPrinter() {}
+    ~StringBuildingPrinter() override {}
+    
+    DEF_VAL_GETTER(std::string, buffer);
+private:
+    void VPrintf(const char *fmt, va_list ap) override { buffer_.append(Vsprintf(fmt, ap)); }
+    void Append(const char *s, size_t n) override { buffer_.append(s, n); }
+
+    std::string buffer_;
+}; // class AbstractPrinter
+
+
+class StdFilePrinter : public AbstractPrinter {
+public:
+    StdFilePrinter(FILE *file): file_(file) {}
+    ~StdFilePrinter() override {}
+
+private:
+    void VPrintf(const char *fmt, va_list ap) override { ::vprintf(fmt, ap); }
+    void Append(const char *s, size_t n) override { ::fwrite(s, 1, n, file_); }
+    
+    FILE *file_;
+}; // class StdFilePrinter
+
     
 } // namespace base
     

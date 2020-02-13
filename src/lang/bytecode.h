@@ -7,7 +7,9 @@
 #include "glog/logging.h"
 
 namespace mai {
-
+namespace base {
+class AbstractPrinter;
+} // namespace base
 namespace lang {
 
 // The byte desciption:
@@ -53,6 +55,23 @@ namespace lang {
 //     ACC: Object pointer
 //
 
+//--------------------------------------------------------------------------------------------------
+// LdaVtableFunction : Load class's method to ACC
+// Kind: TypeAB
+// Params:
+//     A(StackOffset): Stack offset of object pointer
+//     B(Immediate): Index of method
+// Return:
+//     ACC: Closure pointer
+
+//--------------------------------------------------------------------------------------------------
+// Close : Close stack variable and make a closure
+// Kind: TypeA
+// Params:
+//     A(ConstOffset): Constant pool offset of Function pointer
+// Return:
+//     ACC: Closure pointer
+
 #define DECLARE_ALL_BYTECODE(V) \
     DECLARE_LDAR_BYTECODE(V) \
     DECLARE_STAR_BYTECODE(V) \
@@ -68,12 +87,14 @@ namespace lang {
     V(GotoIfFalse, BytecodeType::A, BytecodeParam::kImmediate) \
     V(CallBytecodeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
     V(CallNativeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
-    V(CallVtableFunction, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate) \
+    V(CallFunction, BytecodeType::A, BytecodeParam::kImmediate) \
     V(RunCoroutine, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate) \
+    V(Close, BytecodeType::A, BytecodeParam::kConstOffset) \
     V(Return, BytecodeType::N) \
     V(NewBuiltinObject, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate) \
     V(NewObject, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kConstOffset) \
-    V(CheckStack, BytecodeType::N)
+    V(CheckStack, BytecodeType::N) \
+    V(AssertNotNull, BytecodeType::A, BytecodeParam::kStackOffset)
 
 #define DECLARE_LDAR_BYTECODE(V) \
     V(Ldar32, BytecodeType::A, BytecodeParam::kStackOffset) \
@@ -122,6 +143,7 @@ namespace lang {
     V(LdaArrayAtPtr, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(LdaArrayAtf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(LdaArrayAtf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(LdaVtableFunction, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate)
 
 #define DECLARE_STAR_BYTECODE(V) \
     V(Star32, BytecodeType::A, BytecodeParam::kStackOffset) \
@@ -404,8 +426,8 @@ public:
     static BytecodeNode *From(base::Arena *arena, BytecodeInstruction instr);
     
     // Print bytecode to string
-    void Print(std::string *output) const;
-    void PrintSimple(std::string *output) const;
+    void Print(base::AbstractPrinter *output) const;
+    void PrintSimple(base::AbstractPrinter *output) const;
     
     DEF_VAL_GETTER(BytecodeID, id);
     DEF_VAL_GETTER(BytecodeType::Kind, kind);
@@ -414,7 +436,7 @@ public:
     friend class BytecodeArrayBuilder;
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeNode);
 private:
-    void PrintParam(std::string *output, BytecodeParam::Kind kind, int param) const;
+    void PrintParam(base::AbstractPrinter *output, BytecodeParam::Kind kind, int param) const;
     
     BytecodeID id_; // ID of bytecode
     BytecodeType::Kind kind_; // Kind of bytecode

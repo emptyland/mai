@@ -392,6 +392,11 @@ public:
         return *this;
     }
     
+    FunctionBuilder &const_pool(std::vector<Span32> &&value) {
+        const_pool_ = value;
+        return *this;
+    }
+    
     FunctionBuilder &const_pool(const Span32 *value, size_t n) {
         const_pool_.resize(n);
         ::memcpy(&const_pool_[0], value, n * sizeof(value[0]));
@@ -399,6 +404,11 @@ public:
     }
     
     FunctionBuilder &const_pool_bitmap(const std::vector<uint32_t> &value) {
+        const_pool_bitmap_ = value;
+        return *this;
+    }
+    
+    FunctionBuilder &const_pool_bitmap(std::vector<uint32_t> &&value) {
         const_pool_bitmap_ = value;
         return *this;
     }
@@ -415,9 +425,10 @@ public:
     }
     
     FunctionBuilder &AddCapturedVar(const std::string &name,
+                                    const Class *type,
                                     Function::CapturedVarKind kind,
                                     int32_t index) {
-        captured_vars_.push_back({name, kind, index});
+        captured_vars_.push_back({name, type, kind, index});
         return *this;
     }
     
@@ -437,6 +448,7 @@ public:
 private:
     struct CapturedVarDesc {
         std::string name;
+        const Class *type;
         Function::CapturedVarKind kind;
         int32_t index;
     }; // struct CapturedVarDesc

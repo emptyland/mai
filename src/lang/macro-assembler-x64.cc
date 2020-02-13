@@ -432,9 +432,9 @@ public:
         }
     }; // class InstrABScope
     
-    class InstrStackOffsetABScope : public InstrBaseScope {
+    class InstrStackImmABScope : public InstrBaseScope {
     public:
-        InstrStackOffsetABScope(MacroAssembler *m)
+        InstrStackImmABScope(MacroAssembler *m)
             : InstrBaseScope(m) {
             __ movl(rbx, Operand(BC, 0));
             __ andl(rbx, BytecodeNode::kAOfABMask);
@@ -579,7 +579,7 @@ public:
 
     // Load Property
     void EmitLdaProperty8(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         //__ Breakpoint();
@@ -589,7 +589,7 @@ public:
     }
     
     void EmitLdaProperty16(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ xorq(ACC, ACC);
@@ -598,7 +598,7 @@ public:
     }
 
     void EmitLdaProperty32(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ lfence(); // XXX
@@ -606,7 +606,7 @@ public:
     }
     
     void EmitLdaProperty64(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ lfence(); // XXX
@@ -616,7 +616,7 @@ public:
     void EmitLdaPropertyPtr(MacroAssembler *masm) override { EmitLdaProperty64(masm); }
     
     void EmitLdaPropertyf32(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ lfence(); // XXX
@@ -624,11 +624,34 @@ public:
     }
 
     void EmitLdaPropertyf64(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ lfence(); // XXX
         __ movsd(FACC, Operand(SCRATCH, rbx, times_1, 0));
+    }
+    
+    void EmitLdaVtableFunction(MacroAssembler *masm) override {
+        InstrStackImmABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        __ cmpq(SCRATCH, 0);
+        
+        __ movq(SCRATCH, Operand(SCRATCH, Any::kOffsetKlass));
+        __ andq(SCRATCH, ~1); // SCRATCH = class
+    #if defined(DEBUG) || defined(_DEBUG)
+        __ cmpq(SCRATCH, 0);
+        Label ok1;
+        __ j(NotEqual, &ok1, false/*is_far*/);
+        __ Abort("nil kclass field!");
+        __ Bind(&ok1);
+    #endif // defined(DEBUG) || defined(_DEBUG)
+
+        __ movq(SCRATCH, Operand(SCRATCH, Class::kOffsetMethods));
+        instr_scope.GetBToRBX();
+        __ movq(rax, static_cast<int32_t>(sizeof(Method)));
+        __ mulq(rbx); // rax = rax * rbx;
+        __ leaq(SCRATCH, Operand(SCRATCH, rax, times_1, 0));
+        __ movq(rax, Operand(SCRATCH, Method::kOffsetFunction));
     }
 
     // Store from ACC ------------------------------------------------------------------------------
@@ -656,7 +679,7 @@ public:
     
     // Store Property
     void EmitStaProperty8(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movb(Operand(SCRATCH, rbx, times_1, 0), ACC);
@@ -664,7 +687,7 @@ public:
     }
     
     void EmitStaProperty16(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movw(Operand(SCRATCH, rbx, times_1, 0), ACC);
@@ -672,7 +695,7 @@ public:
     }
 
     void EmitStaProperty32(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movl(Operand(SCRATCH, rbx, times_1, 0), ACC);
@@ -680,17 +703,19 @@ public:
     }
     
     void EmitStaProperty64(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movq(Operand(SCRATCH, rbx, times_1, 0), ACC);
         __ sfence(); // XXX
     }
     
-    void EmitStaPropertyPtr(MacroAssembler *masm) override { EmitStaProperty64(masm); }
+    void EmitStaPropertyPtr(MacroAssembler *masm) override {
+        __ Abort("TODO: Write barrier");
+    }
     
     void EmitStaPropertyf32(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movss(Operand(SCRATCH, rbx, times_1, 0), FACC);
@@ -698,7 +723,7 @@ public:
     }
 
     void EmitStaPropertyf64(MacroAssembler *masm) override {
-        InstrStackOffsetABScope instr_scope(masm);
+        InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movsd(Operand(SCRATCH, rbx, times_1, 0), FACC);
@@ -874,6 +899,25 @@ public:
         //__ Breakpoint();
         __ nop();
         __ JumpNextBC();
+    }
+    
+    void EmitAssertNotNull(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ cmpq(Operand(rbp, rbx, times_2, 0), 0);
+        Label ok;
+        __ LikelyJ(NotEqual, &ok, false/*is_far*/);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic));
+        __ Throw(SCRATCH, rbx);
+
+        __ Bind(&ok);
+    }
+    
+    // Close ---------------------------------------------------------------------------------------
+    void EmitClose(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+        __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0));
+        // Call close_function
     }
     
 private:

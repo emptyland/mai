@@ -19,6 +19,11 @@ const int32_t Function::kOffsetConstPool = MEMBER_OFFSET_OF(Function, const_pool
 const int32_t Function::kOffsetBytecode = MEMBER_OFFSET_OF(Function, bytecode_);
 const int32_t Function::kOffsetExceptionTableSize = MEMBER_OFFSET_OF(Function, exception_table_size_);
 
+const int32_t Class::kOffsetNMethods = MEMBER_OFFSET_OF(Class, n_methods_);
+const int32_t Class::kOffsetMethods = MEMBER_OFFSET_OF(Class, methods_);
+
+const int32_t Method::kOffsetFunction = MEMBER_OFFSET_OF(Method, fn_);
+
 std::string PrototypeDesc::ToString() const {
     return ToString(STATE->metadata_space());
 }

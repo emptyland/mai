@@ -326,6 +326,23 @@ AbstractValue *Machine::NewNumber(BuiltinType primitive_type, const void *value,
     return new (result.ptr()) AbstractValue(DCHECK_NOTNULL(clazz), value, n, 0);
 }
 
+CapturedValue *Machine::NewCapturedValue(const Class *clazz, const void *value, size_t n,
+                                         uint32_t flags) {
+    DCHECK_LE(clazz->reference_size(), n);
+    AllocationResult result = STATE->heap()->Allocate(sizeof(CapturedValue), flags);
+    if (!result.ok()) {
+        AllocationPanic(result);
+        return nullptr;
+    }
+    if (clazz->is_reference()) {
+        return new (result.ptr()) CapturedValue(STATE->builtin_type(kType_captured_value),
+                                                *static_cast<Any *const *>(value), color_tags());
+    } else {
+        return new (result.ptr()) CapturedValue(STATE->builtin_type(kType_captured_value),
+                                                value, n, color_tags());
+    }
+}
+
 AbstractArray *Machine::NewArray(BuiltinType type, size_t length, size_t capacity, uint32_t flags) {
     const Class *clazz = DCHECK_NOTNULL(STATE->builtin_type(type));
     if (::strstr(clazz->name(), "array") != clazz->name() &&
@@ -463,6 +480,38 @@ Closure *Machine::NewClosure(Code *code, size_t captured_var_size, uint32_t flag
     return obj;
 }
 
+Closure *Machine::CloseFunction(Function *func, uint32_t flags) {
+    Address frame_bp = GetPrevStackFrame(running_->bp1(), running_->stack()->stack_hi());
+    StackFrame::Maker maker = StackFrame::GetMaker(DCHECK_NOTNULL(frame_bp));
+
+    Closure *closure = NewClosure(func, func->captured_var_size(), flags);
+    for (uint32_t i = 0; i < func->captured_var_size(); i++) {
+        auto desc = func->captured_var(i);
+        switch (desc->kind) {
+            case Function::IN_CAPTURED:
+                if (maker == StackFrame::kBytecode) {
+                    Closure *callee = BytecodeStackFrame::GetCallee(frame_bp);
+                    closure->captured_var_[i].value = callee->captured_var_[desc->index].value;
+                    closure->WriteBarrier(reinterpret_cast<Any **>(&closure->captured_var_[i].value));
+                } else {
+                    NOREACHED();
+                }
+                break;
+            case Function::IN_STACK: {
+                Address addr = frame_bp - (desc->index * 2);
+                closure->captured_var_[i].value = NewCapturedValue(desc->type, addr,
+                                                                   desc->type->reference_size(),
+                                                                   flags);
+                closure->WriteBarrier(reinterpret_cast<Any **>(&closure->captured_var_[i].value));
+            } break;
+            default:
+                NOREACHED();
+                break;
+        }
+    }
+    return closure;
+}
+
 Closure *Machine::NewClosure(Function *func, size_t captured_var_size, uint32_t flags) {
     DCHECK_EQ(0, captured_var_size % kPointerSize);
     size_t request_size = sizeof(Closure) + captured_var_size * sizeof(Closure::CapturedVar);
@@ -548,6 +597,24 @@ void Machine::AllocationPanic(AllocationResult::Result result) {
             NOREACHED();
             break;
     }
+}
+
+/*static*/ Address Machine::GetPrevStackFrame(Address frame_bp, Address stack_hi) {
+    while (frame_bp < stack_hi) {
+        StackFrame::Maker maker = StackFrame::GetMaker(frame_bp);
+        switch (maker) {
+            case StackFrame::kStub:
+                break;
+            case StackFrame::kBytecode:
+                return *reinterpret_cast<Address *>(frame_bp);
+            case StackFrame::kTrampoline:
+            default:
+                NOREACHED();
+                break;
+        }
+        frame_bp = *reinterpret_cast<Address *>(frame_bp);
+    }
+    NOREACHED();
 }
 
 void Machine::PrintStacktrace(const char *message) {

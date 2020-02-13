@@ -84,9 +84,8 @@ void Coroutine::Uncaught(Throwable *thrown) {
             // Fatal: Should shutdown scheduler
             owner_->set_state(Machine::kPanic);
             STATE->scheduler()->MarkShuttingDown();
+            should_print_stackstrace = false;
         }
-        
-        should_print_stackstrace = false;
     } else {
         DCHECK(thrown->clazz()->IsSameOrBaseOf(STATE->builtin_type(kType_Exception)));
 

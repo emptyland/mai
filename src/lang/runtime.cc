@@ -163,6 +163,14 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     return co;
 }
 
+/*static*/ Throwable *Runtime::NewNilPointerPanic() {
+    return Machine::This()->NewPanic(Panic::kFatal, STATE->factory()->nil_error_text(), 0);
+}
+
+/*static*/ Closure *CloseFunction(Function *func, uint32_t flags) {
+    return Machine::This()->CloseFunction(func, flags);
+}
+
 /*static*/ void Runtime::DebugAbort(const char *message) {
     Machine *m = Machine::This();
     Coroutine *co = m->running();

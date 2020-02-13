@@ -548,6 +548,28 @@ TEST_F(CoroutineTest, OOMThrowPanic) {
     ASSERT_EQ(1, scheduler_->machine0()->uncaught_count());
 }
 
+TEST_F(CoroutineTest, NilPointerPanic) {
+    constexpr int32_t kLocalVarBase = RoundUp(BytecodeStackFrame::kOffsetHeaderSize,
+                                              kStackAligmentSize);
+    
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaZero>();
+    int32_t v1 = (kLocalVarBase + 8) / 2;
+    builder.Add<kStarPtr>(v1);
+    builder.Add<kAssertNotNull>(v1);
+    builder.Add<kLdaPropertyPtr>(v1, 0);
+    builder.Add<kReturn>();
+    
+    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {}, {}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+}
+
 static void Dummy11(String *message) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
 
@@ -584,9 +606,6 @@ TEST_F(CoroutineTest, ThrowUserException) {
 }
 
 TEST_F(CoroutineTest, NewChannel) {
-//    constexpr int32_t kLocalVarBase = RoundUp(BytecodeStackFrame::kOffsetHeaderSize,
-//                                              kStackAligmentSize);
-
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();

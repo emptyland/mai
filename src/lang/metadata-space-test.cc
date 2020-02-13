@@ -129,8 +129,8 @@ TEST_F(MetadataSpaceTest, FunctionBuilder) {
            .stack_bitmap({0})
            .bytecode(space_->NewBytecodeArray({0, 0, 0, 0}))
            .source_line_info(space_->NewSourceLineInfo("foo.mai", {1,2,3,4}))
-           .AddCapturedVar("a", Function::IN_STACK, 0)
-           .AddCapturedVar("b", Function::IN_STACK, 4)
+           .AddCapturedVar("a", space_->builtin_type(kType_int), Function::IN_STACK, 0)
+           .AddCapturedVar("b", space_->builtin_type(kType_int), Function::IN_STACK, 4)
     .Build(space_.get());
 
     ASSERT_NE(nullptr, func);

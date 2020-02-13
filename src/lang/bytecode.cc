@@ -84,22 +84,22 @@ BytecodeInstruction BytecodeNode::To() const {
     return new (arena) BytecodeNode(desc.id, desc.kind, a, b, 0, 0);
 }
 
-void BytecodeNode::Print(std::string *output) const {
+void BytecodeNode::Print(base::AbstractPrinter *output) const {
     const BytecodeDesc desc = kBytecodeDesc[id_];
     
-    output->append(desc.name);
+    output->Append(desc.name);
     switch (kind_) {
         case BytecodeType::N:
             break;
         case BytecodeType::A:
-            output->append(" ");
+            output->Append(" ");
             PrintParam(output, desc.params[0], param(0));
             break;
         case BytecodeType::FA:
         case BytecodeType::AB:
-            output->append(" ");
+            output->Append(" ");
             PrintParam(output, desc.params[0], param(0));
-            output->append(", ");
+            output->Append(", ");
             PrintParam(output, desc.params[1], param(1));
             break;
         default:
@@ -108,19 +108,19 @@ void BytecodeNode::Print(std::string *output) const {
     }
 }
 
-void BytecodeNode::PrintSimple(std::string *output) const {
+void BytecodeNode::PrintSimple(base::AbstractPrinter *output) const {
     const BytecodeDesc desc = kBytecodeDesc[id_];
     
-    output->append(desc.name);
+    output->Append(desc.name);
     switch (kind_) {
         case BytecodeType::N:
             break;
         case BytecodeType::A:
-            output->append(base::Sprintf(" %d", param(0)));
+            output->Printf(" %d", param(0));
             break;
         case BytecodeType::FA:
         case BytecodeType::AB:
-            output->append(base::Sprintf(" %d, %d", param(0), param(1)));
+            output->Printf(" %d, %d", param(0), param(1));
             break;
         default:
             NOREACHED();
@@ -128,28 +128,28 @@ void BytecodeNode::PrintSimple(std::string *output) const {
     }
 }
 
-void BytecodeNode::PrintParam(std::string *output, BytecodeParam::Kind kind, int param) const {
+void BytecodeNode::PrintParam(base::AbstractPrinter *output, BytecodeParam::Kind kind, int param) const {
     switch (kind) {
         case BytecodeParam::kStackOffset:
-            output->append(base::Sprintf("[BP-%d]", param));
+            output->Printf("[BP-%d]", param);
             break;
         case BytecodeParam::kConstOffset:
-            output->append(base::Sprintf("[KP+%d]", param));
+            output->Printf("[KP+%d]", param);
             break;
         case BytecodeParam::kGlobalOffset:
-            output->append(base::Sprintf("[GS+%d]", param));
+            output->Printf("[GS+%d]", param);
             break;
         case BytecodeParam::kCapturedVarIndex:
-            output->append(base::Sprintf("UP[%d]", param));
+            output->Printf("UP[%d]", param);
             break;
         case BytecodeParam::kAddressOffset:
-            output->append(base::Sprintf("@%x", param));
+            output->Printf("@%x", param);
             break;
         case BytecodeParam::kImmediate:
-            output->append(base::Sprintf("#%d", param));
+            output->Printf("#%d", param);
             break;
         case BytecodeParam::kCode:
-            output->append(base::Sprintf("%d", param));
+            output->Printf("%d", param);
             break;
         case BytecodeParam::kNone:
         default:

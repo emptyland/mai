@@ -39,6 +39,7 @@ private:
     CapturedValue(const Class *clazz, Any *value, uint32_t tags)
         : AbstractValue(clazz, &value, sizeof(value), tags) {
         padding_ = kObjectBit;
+        WriteBarrier(reinterpret_cast<Any **>(address()));
     }
 
     // Create a empty captured-value
