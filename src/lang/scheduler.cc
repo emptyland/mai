@@ -46,7 +46,7 @@ void Scheduler::Schedule() {
     switch (DCHECK_NOTNULL(m->running())->state()) {
         case Coroutine::kPanic:
             m->running()->SwitchState(Coroutine::kPanic, Coroutine::kDead);
-            // Fallthrough
+            [[fallthrough]];
         case Coroutine::kDead: {
             // TODO: works steal
             PurgreCoroutine(m->running());

@@ -68,18 +68,18 @@ public:
     virtual int GetNumberOfCPUCores() = 0;
     
 }; // class Env
-    
+
 class SequentialFile {
 public:
     SequentialFile() {}
     virtual ~SequentialFile() {}
-    
+
     virtual Error Read(size_t n, std::string_view *result,
                        std::string *scratch) = 0;
     virtual Error Skip(size_t n) = 0;
     virtual Error GetFileSize(uint64_t *size) = 0;
 }; // class SequentialFile
-    
+
 class WritableFile {
 public:
     WritableFile() {}
@@ -93,7 +93,7 @@ public:
     virtual Error Truncate(uint64_t size) = 0;
     
 }; // class WritableFile
-    
+
 class RandomAccessFile {
 public:
     RandomAccessFile() {}
@@ -104,7 +104,7 @@ public:
     
     virtual Error GetFileSize(uint64_t *size) = 0;
 }; // class RandomAccessFile
-    
+
 class ThreadLocalSlot {
 public:
     ThreadLocalSlot() {};
@@ -114,7 +114,7 @@ public:
     virtual void *Get() = 0;
     virtual void Set(void *value) = 0;
 }; // class ThreadLocalSlot
-    
+
 class RandomGenerator {
 public:
     RandomGenerator() {}

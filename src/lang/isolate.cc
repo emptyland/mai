@@ -31,6 +31,9 @@ static void BadSuspendPointDummy() {
     NOREACHED() << "Bad suspend-point";
 }
 
+extern void InitializeSyntaxLibrary();
+extern void FreeSyntaxLibrary();
+
 /*static*/ Isolate *Isolate::New(const Options &opts) {
     return new Isolate(opts);
 }
@@ -56,7 +59,7 @@ Error Isolate::Initialize() {
         bytecode_handler_entries_[i] = DCHECK_NOTNULL(metadata_space_->bytecode_handlers()[i])->entry();
     }
     trampoline_suspend_point_ = metadata_space_->trampoline_suspend_point();
-    
+
     initialized_ = true;
     return Error::OK();
 }
@@ -110,6 +113,7 @@ void Isolate::Enter() {
         __isolate = this;
         DCHECK_EQ(this, __isolate);
     }
+    InitializeSyntaxLibrary();
 
     // Init machine0
     scheduler_->machine0()->Enter();
@@ -122,6 +126,7 @@ void Isolate::Exit() {
     // Exit machine0
     scheduler_->machine0()->Exit();
 
+    FreeSyntaxLibrary();
     {
         std::lock_guard<std::mutex> lock(init_mutex);
         DCHECK_EQ(this, __isolate);

@@ -216,6 +216,10 @@
 		23DFE03722754D29005D489C /* big-number.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DFE03622754D29005D489C /* big-number.cc */; };
 		23DFE03822754D29005D489C /* big-number.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DFE03622754D29005D489C /* big-number.cc */; };
 		23ECE89523F259DB00B3C83B /* channel-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE89423F259DB00B3C83B /* channel-test.cc */; };
+		23ECE89823F57C9800B3C83B /* token.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE89723F57C9800B3C83B /* token.cc */; };
+		23ECE89A23F63D5B00B3C83B /* token-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE89923F63D5B00B3C83B /* token-test.cc */; };
+		23ECE89E23F643D000B3C83B /* lexer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE89D23F643D000B3C83B /* lexer.cc */; };
+		23ECE8A023F68B5400B3C83B /* lexer-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE89F23F68B5400B3C83B /* lexer-test.cc */; };
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
 		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
 /* End PBXBuildFile section */
@@ -505,6 +509,13 @@
 		23E40C0B21CB416600B04858 /* block-cache.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-cache.cc"; sourceTree = "<group>"; };
 		23E85A06228C2B50001AE74A /* utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utils.h; sourceTree = "<group>"; };
 		23ECE89423F259DB00B3C83B /* channel-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "channel-test.cc"; sourceTree = "<group>"; };
+		23ECE89623F57BEC00B3C83B /* token.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = token.h; sourceTree = "<group>"; };
+		23ECE89723F57C9800B3C83B /* token.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = token.cc; sourceTree = "<group>"; };
+		23ECE89923F63D5B00B3C83B /* token-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "token-test.cc"; sourceTree = "<group>"; };
+		23ECE89B23F63F7400B3C83B /* parser-utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "parser-utils.h"; sourceTree = "<group>"; };
+		23ECE89C23F643B500B3C83B /* lexer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lexer.h; sourceTree = "<group>"; };
+		23ECE89D23F643D000B3C83B /* lexer.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = lexer.cc; sourceTree = "<group>"; };
+		23ECE89F23F68B5400B3C83B /* lexer-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lexer-test.cc"; sourceTree = "<group>"; };
 		23F0742521D1D209009D8EAA /* transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db-test.cc"; sourceTree = "<group>"; };
 		23F60601219BBE9600CE12D9 /* write-batch.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch.cc"; sourceTree = "<group>"; };
 		23F60604219BC3DA00CE12D9 /* db-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-impl.h"; sourceTree = "<group>"; };
@@ -671,6 +682,11 @@
 				2339B3F023E5B48300B07772 /* function-template-x64.cc */,
 				2339B3F223E5B62000B07772 /* macro-assembler-x64.h */,
 				2339B3F323E5B90700B07772 /* macro-assembler-x64.cc */,
+				23ECE89623F57BEC00B3C83B /* token.h */,
+				23ECE89723F57C9800B3C83B /* token.cc */,
+				23ECE89B23F63F7400B3C83B /* parser-utils.h */,
+				23ECE89C23F643B500B3C83B /* lexer.h */,
+				23ECE89D23F643D000B3C83B /* lexer.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -690,6 +706,8 @@
 				231ECF5D23E7AE2B00B41869 /* coroutine-test.cc */,
 				231ECF6223E85AD600B41869 /* bytecode-test.cc */,
 				23ECE89423F259DB00B3C83B /* channel-test.cc */,
+				23ECE89923F63D5B00B3C83B /* token-test.cc */,
+				23ECE89F23F68B5400B3C83B /* lexer-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1267,6 +1285,7 @@
 				2364B2AD21E451F8008519AE /* pessimistic-transaction-db.cc in Sources */,
 				2349FDF722A4BAA0001861E0 /* sha256-test.cc in Sources */,
 				23216A252201561B00E1B816 /* slice-test.cc in Sources */,
+				23ECE89E23F643D000B3C83B /* lexer.cc in Sources */,
 				2364B2AF21E451F8008519AE /* pessimistic-transaction.cc in Sources */,
 				2364B2B121E451F8008519AE /* optimism-transaction-db.cc in Sources */,
 				231ECF5C23E6FFC500B41869 /* scheduler-test.cc in Sources */,
@@ -1281,6 +1300,7 @@
 				2364B2C121E451F9008519AE /* write-ahead-log.cc in Sources */,
 				23ECE89523F259DB00B3C83B /* channel-test.cc in Sources */,
 				230510A023DF1CA400B89A7C /* symbolize.cc in Sources */,
+				23ECE8A023F68B5400B3C83B /* lexer-test.cc in Sources */,
 				237F504D21EB72C90069075D /* arena.cc in Sources */,
 				2364B2C321E451F9008519AE /* db-impl.cc in Sources */,
 				2364B2C521E451F9008519AE /* column-family.cc in Sources */,
@@ -1295,6 +1315,7 @@
 				2364B2D621E451F9008519AE /* write-batch.cc in Sources */,
 				2364B2D821E451F9008519AE /* table-test.cc in Sources */,
 				236EA78723D6E3980071047C /* value.cc in Sources */,
+				23ECE89A23F63D5B00B3C83B /* token-test.cc in Sources */,
 				2364B2DB21E451F9008519AE /* sst-table-builder.cc in Sources */,
 				230510BE23E067C300B89A7C /* handle-test.cc in Sources */,
 				2364B2DD21E451F9008519AE /* sst-table-reader.cc in Sources */,
@@ -1391,6 +1412,7 @@
 				2364B34E21E451F9008519AE /* io-utils-test.cc in Sources */,
 				2364B34F21E451F9008519AE /* ebr-test.cc in Sources */,
 				2364B35021E451F9008519AE /* arena-utils-test.cc in Sources */,
+				23ECE89823F57C9800B3C83B /* token.cc in Sources */,
 				2364B35121E451F9008519AE /* config-test.cc in Sources */,
 				231ECF6123E84C9E00B41869 /* bytecode.cc in Sources */,
 				2364B35221E451F9008519AE /* compaction-test.cc in Sources */,
