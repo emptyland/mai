@@ -142,6 +142,10 @@ inline MutView<T> MakeMutView(T *z, size_t n) { return MutView<T>{z, n}; }
     DEF_VAL_MUTABLE_GETTER(type, name) \
     DEF_VAL_SETTER(type, name)
 
+#define DEF_VAL_PROP_RM(type, name) \
+    DEF_VAL_GETTER(type, name) \
+    DEF_VAL_MUTABLE_GETTER(type, name)
+
 #define DEF_VAL_PROP_RW(type, name) \
     DEF_VAL_GETTER(type, name) \
     DEF_VAL_SETTER(type, name)

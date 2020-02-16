@@ -84,7 +84,10 @@ using ASTString = base::ArenaString;
     V(Map, "map", none) \
     V(MutableMap, "mutable_map", none) \
     V(Channel, "channel", none) \
-    V(Run, "run", none)
+    V(Run, "run", none) \
+    V(Import, "import", none) \
+    V(Package, "package", none) \
+    V(As, "as", none)
 
 class Token final {
 public:

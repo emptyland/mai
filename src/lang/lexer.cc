@@ -228,7 +228,7 @@ Token Lexer::MatchIdentifier() {
     std::string buf;
     for (;;) {
         int ch = Peek();
-        if (ch == -1 || ch == '\r' || ch == '\n') {
+        if (ch == -1) {
             error_feedback_->Printf(loc, "Unexpected identifier character, expected %x", ch);
             return Token(Token::kError, loc);
         } else if (IsTermChar(ch)) {
@@ -490,6 +490,8 @@ int Lexer::Peek() {
         case '$':
         case ' ':
         case '\t':
+        case '\r':
+        case '\n':
             return true;
         default:
             break;
