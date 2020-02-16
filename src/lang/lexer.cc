@@ -91,9 +91,51 @@ Token Lexer::Next() {
                 
             case '*':
                 return Token(Token::kStar, SourceLocation::One(line_, row_));
-                
+
             case '_':
                 return MatchIdentifier();
+                
+            case '<': {
+                int begin_line = line_, begin_row = row_;
+                ch = MoveNext();
+                if (ch == '=') { // <=
+                    MoveNext();
+                    return Token(Token::kLessEqual, {begin_line, begin_row, line_, row_});
+                } else if (ch == '<') { // <<
+                    MoveNext();
+                    return Token(Token::kLShift, {begin_line, begin_row, line_, row_});
+                } else if (ch == '-') { // <-
+                    MoveNext();
+                    return Token(Token::kLArrow, {begin_line, begin_row, line_, row_});
+                } else {
+                    return Token(Token::kLess, SourceLocation::One(begin_line, begin_row));
+                }
+            } break;
+                
+            case '>': {
+                int begin_line = line_, begin_row = row_;
+                ch = MoveNext();
+                if (ch == '=') { // >=
+                    MoveNext();
+                    return Token(Token::kGreaterEqual, {begin_line, begin_row, line_, row_});
+                } else if (ch == '>') { // >>
+                    MoveNext();
+                    return Token(Token::kRShift, {begin_line, begin_row, line_, row_});
+                } else {
+                    return Token(Token::kGreater, SourceLocation::One(begin_line, begin_row));
+                }
+            } break;
+                
+            case '=': {
+                int begin_line = line_, begin_row = row_;
+                ch = MoveNext();
+                if (ch == '=') {
+                    MoveNext();
+                    return Token(Token::kEqual, {begin_line, begin_row, line_, row_});
+                } else {
+                    return Token(Token::kAssign, SourceLocation::One(begin_line, begin_row));
+                }
+            } break;
 
             case '+': {
                 int begin_line = line_, begin_row = row_;
@@ -104,37 +146,33 @@ Token Lexer::Next() {
                 } else if (ch == '+') {
                     MoveNext();
                     return Token(Token::kPlusPlus, {begin_line, begin_row, line_, row_});
-                } else if (IsTerm(ch)) {
-                    return Token(Token::kPlus, SourceLocation::One(begin_line, begin_row));
                 } else {
-                    SourceLocation loc = SourceLocation::One(line_, row_);
-                    error_feedback_->Printf(loc, "Unexpected `+' postfix");
-                    return Token(Token::kError, SourceLocation::One(line_, row_));
+                    return Token(Token::kPlus, SourceLocation::One(begin_line, begin_row));
                 }
             } break;
                 
             case '-': {
                 int begin_line = line_, begin_row = row_;
                 ch = MoveNext();
-                if (ch == '=') {
+                if (ch == '=') { // -=
                     MoveNext();
                     return Token(Token::kMinusEqual, {begin_line, begin_row, line_, row_});
-                } else if (ch == '-') {
+                } else if (ch == '-') { // --
                     MoveNext();
                     return Token(Token::kMinusMinus, {begin_line, begin_row, line_, row_});
-                } else if (IsTerm(ch)) {
-                    return Token(Token::kMinus, SourceLocation::One(begin_line, begin_row));
+                } else if (ch == '>') { // ->
+                    MoveNext();
+                    return Token(Token::kRArrow, {begin_line, begin_row, line_, row_});
                 } else {
-                    SourceLocation loc = SourceLocation::One(line_, row_);
-                    error_feedback_->Printf(loc, "Unexpected `-' postfix");
-                    return Token(Token::kError, SourceLocation::One(line_, row_));
+                    return Token(Token::kMinus, SourceLocation::One(begin_line, begin_row));
                 }
             } break;
                 
             default:
-                if (ch < 0) {
+                if (ch == -1) {
                     return Token(Token::kError, SourceLocation::One(line_, row_));
-                } else {
+                }
+                if (IsUtf8Prefix(ch) && !IsTermChar(ch)) {
                     return MatchIdentifier();
                 }
                 break;
@@ -148,15 +186,10 @@ Token Lexer::MatchIdentifier() {
     std::string buf;
     for (;;) {
         int ch = Peek();
-        if (::isdigit(ch) || ::isalpha(ch) || ch == '_') {
-            loc.end_line = line_;
-            loc.end_row  = row_;
-            MoveNext();
-            buf.append(1, ch);
-        } else if (ch < 0 || ch == '\r' || ch == '\n') {
-            error_feedback_->Printf(loc, "Unexpected identifier character, expected %c", ch);
+        if (ch == -1 || ch == '\r' || ch == '\n') {
+            error_feedback_->Printf(loc, "Unexpected identifier character, expected %x", ch);
             return Token(Token::kError, loc);
-        } else if (IsTerm(ch)) {
+        } else if (IsTermChar(ch)) {
             Token::Kind keyword = Token::IsKeyword(buf);
             if (keyword != Token::kError) {
                 return Token(keyword, loc);
@@ -166,8 +199,9 @@ Token Lexer::MatchIdentifier() {
         } else {
             loc.end_line = line_;
             loc.end_row  = row_;
-            MoveNext();
-            buf.append(1, ch);
+            if (!MatchUtf8Character(&buf)) {
+                return Token(Token::kError, SourceLocation::One(line_, row_));
+            }
         }
     }
 }
@@ -204,15 +238,18 @@ Token Lexer::MatchSimpleTemplateString() {
                 return MatchIdentifier();
             }
         } else if (ch == '\\') {
-            // TODO:
+            if (!MatchEscapeCharacter(&buf)) {
+                return Token(Token::kError, SourceLocation::One(line_, row_));
+            }
         } else if (ch == '\r' || ch == '\n') {
             loc.end_line = line_;
             loc.end_row  = row_;
             error_feedback_->Printf(loc, "Unexpected string term, expected '\\r' '\\n'");
             return Token(Token::kError, loc);
         } else {
-            buf.append(1, ch);
-            ch = MoveNext();
+            if (!MatchUtf8Character(&buf)) {
+                return Token(Token::kError, SourceLocation::One(line_, row_));
+            }
         }
     }
     return Token(Token::kError, {});
@@ -234,8 +271,10 @@ Token Lexer::MatchString() {
             const ASTString *asts = ASTString::New(arena_, buf.data(), buf.size());
             return Token(Token::kStringTempletePrefix,
                          {begin_line, begin_row, line_, row_}).With(asts);
-        } else if (ch == '\\') {
-            // TODO
+        } else if (ch == '\\') { // Escape
+            if (!MatchEscapeCharacter(&buf)) {
+                return Token(Token::kError, SourceLocation::One(line_, row_));
+            }
         } else if (ch == '\n' || ch == '\r') {
             SourceLocation loc = SourceLocation::One(line_, row_);
             error_feedback_->Printf(loc, "Unexpected string term, expected '\\r' '\\n'");
@@ -245,10 +284,95 @@ Token Lexer::MatchString() {
             error_feedback_->Printf(loc, "Unexpected string term, expected EOF");
             return Token(Token::kError, loc);
         } else {
-            MoveNext();
-            buf.append(1, ch);
+            if (!MatchUtf8Character(&buf)) {
+                return Token(Token::kError, SourceLocation::One(line_, row_));
+            }
         }
     }
+}
+
+bool Lexer::MatchUtf8Character(std::string *buf) {
+    int ch = Peek();
+    int remain = IsUtf8Prefix(ch) - 1;
+    if (remain < 0) {
+        error_feedback_->Printf(SourceLocation::One(line_, row_), "Incorrect UTF8 character: '%x'",
+                                ch);
+        return false;
+    }
+    MoveNext();
+    buf->append(1, ch);
+    for (int i = 0; i < remain; i++) {
+        ch = Peek();
+        if (ch == 0) {
+            error_feedback_->Printf(SourceLocation::One(line_, row_), "Unexpected EOF");
+            return false;
+        } else if (ch == -1) {
+            error_feedback_->Printf(SourceLocation::One(line_, row_), "I/O Error");
+            return false;
+        }
+
+        if ((ch & 0xc0) != 0x80) {
+            error_feedback_->Printf(SourceLocation::One(line_, row_),
+                                    "Incorrect UTF8 character: '%x'", ch);
+            return false;
+        }
+        MoveNext();
+        buf->append(1, ch);
+    }
+    return true;
+}
+
+bool Lexer::MatchEscapeCharacter(std::string *buf) {
+    int ch = MoveNext();
+    switch (ch) {
+        case '$':
+            MoveNext();
+            buf->append(1, '$');
+            break;
+        case 'r':
+            MoveNext();
+            buf->append(1, '\r');
+            break;
+        case 'n':
+            MoveNext();
+            buf->append(1, '\n');
+            break;
+        case 't':
+            MoveNext();
+            buf->append(1, '\t');
+            break;
+        case 'b':
+            MoveNext();
+            buf->append(1, '\b');
+            break;
+        case 'x':
+        case 'X': {
+            uint8_t byte = 0;
+            ch = MoveNext();
+            if (!IsHexChar(ch)) {
+                error_feedback_->Printf(SourceLocation::One(line_, row_),
+                                        "Incorrect hex character: %c", ch);
+                return false;
+            }
+            byte = static_cast<uint8_t>(HexCharToInt(ch)) << 4;
+            ch = MoveNext();
+            if (!IsHexChar(ch)) {
+                error_feedback_->Printf(SourceLocation::One(line_, row_),
+                                        "Incorrect hex character: %c", ch);
+                return false;
+            }
+            byte |= static_cast<uint8_t>(HexCharToInt(ch));
+            buf->append(1, byte);
+            MoveNext();
+        } break;
+        case 'u':
+        case 'U': {
+            TODO();
+        } break;
+        default:
+            break;
+    }
+    return true;
 }
 
 int Lexer::Peek() {
@@ -267,10 +391,10 @@ int Lexer::Peek() {
     }
     available_ -= wanted;
     buffer_position_ = 0;
-    return buffered_[buffer_position_];
+    return bit_cast<int>(static_cast<uint32_t>(buffered_[buffer_position_]));
 }
 
-/*static*/ bool Lexer::IsTerm(int ch) {
+/*static*/ bool Lexer::IsTermChar(int ch) {
     switch (ch) {
         case 0:
         case '+':
@@ -305,11 +429,7 @@ int Lexer::Peek() {
         case ' ':
         case '\t':
             return true;
-            
         default:
-            if (::isalpha(ch) || ::isdigit(ch)) {
-                return true;
-            }
             break;
     }
     return false;

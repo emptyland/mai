@@ -220,6 +220,7 @@
 		23ECE89A23F63D5B00B3C83B /* token-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE89923F63D5B00B3C83B /* token-test.cc */; };
 		23ECE89E23F643D000B3C83B /* lexer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE89D23F643D000B3C83B /* lexer.cc */; };
 		23ECE8A023F68B5400B3C83B /* lexer-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE89F23F68B5400B3C83B /* lexer-test.cc */; };
+		23ECE8A323F9052D00B3C83B /* ast.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE8A223F9052D00B3C83B /* ast.cc */; };
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
 		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
 /* End PBXBuildFile section */
@@ -512,10 +513,12 @@
 		23ECE89623F57BEC00B3C83B /* token.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = token.h; sourceTree = "<group>"; };
 		23ECE89723F57C9800B3C83B /* token.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = token.cc; sourceTree = "<group>"; };
 		23ECE89923F63D5B00B3C83B /* token-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "token-test.cc"; sourceTree = "<group>"; };
-		23ECE89B23F63F7400B3C83B /* parser-utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "parser-utils.h"; sourceTree = "<group>"; };
+		23ECE89B23F63F7400B3C83B /* syntax.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = syntax.h; sourceTree = "<group>"; };
 		23ECE89C23F643B500B3C83B /* lexer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lexer.h; sourceTree = "<group>"; };
 		23ECE89D23F643D000B3C83B /* lexer.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = lexer.cc; sourceTree = "<group>"; };
 		23ECE89F23F68B5400B3C83B /* lexer-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lexer-test.cc"; sourceTree = "<group>"; };
+		23ECE8A123F9050C00B3C83B /* ast.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ast.h; sourceTree = "<group>"; };
+		23ECE8A223F9052D00B3C83B /* ast.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ast.cc; sourceTree = "<group>"; };
 		23F0742521D1D209009D8EAA /* transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db-test.cc"; sourceTree = "<group>"; };
 		23F60601219BBE9600CE12D9 /* write-batch.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch.cc"; sourceTree = "<group>"; };
 		23F60604219BC3DA00CE12D9 /* db-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-impl.h"; sourceTree = "<group>"; };
@@ -684,9 +687,11 @@
 				2339B3F323E5B90700B07772 /* macro-assembler-x64.cc */,
 				23ECE89623F57BEC00B3C83B /* token.h */,
 				23ECE89723F57C9800B3C83B /* token.cc */,
-				23ECE89B23F63F7400B3C83B /* parser-utils.h */,
+				23ECE89B23F63F7400B3C83B /* syntax.h */,
 				23ECE89C23F643B500B3C83B /* lexer.h */,
 				23ECE89D23F643D000B3C83B /* lexer.cc */,
+				23ECE8A123F9050C00B3C83B /* ast.h */,
+				23ECE8A223F9052D00B3C83B /* ast.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1334,6 +1339,7 @@
 				2364B2F121E451F9008519AE /* env-posix.cc in Sources */,
 				2364B2F321E451F9008519AE /* file-posix.cc in Sources */,
 				2364B2FA21E451F9008519AE /* memory-table.cc in Sources */,
+				23ECE8A323F9052D00B3C83B /* ast.cc in Sources */,
 				236EA78523D6E3100071047C /* isolate.cc in Sources */,
 				2364B2FC21E451F9008519AE /* bw-tree-memory-table.cc in Sources */,
 				230510B823DF318100B89A7C /* machine.cc in Sources */,

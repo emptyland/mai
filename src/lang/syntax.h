@@ -1,6 +1,6 @@
 #pragma once
-#ifndef MAI_LANG_PARSER_UTILS_H_
-#define MAI_LANG_PARSER_UTILS_H_
+#ifndef MAI_LANG_SYNTAX_H_
+#define MAI_LANG_SYNTAX_H_
 
 #include "base/arena.h"
 #include "base/slice.h"
@@ -51,8 +51,12 @@ protected:
     std::string file_name_;
 }; // class SyntaxFeedback
 
+void InitializeSyntaxLibrary();
+
+void FreeSyntaxLibrary();
+
 } // namespace lang
 
 } // namespace mai
 
-#endif // MAI_LANG_PARSER_UTILS_H_
+#endif // MAI_LANG_SYNTAX_H_

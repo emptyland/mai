@@ -2,7 +2,7 @@
 #ifndef MAI_LANG_TOKEN_H_
 #define MAI_LANG_TOKEN_H_
 
-#include "lang/parser-utils.h"
+#include "lang/syntax.h"
 
 namespace mai {
 namespace base {
@@ -39,8 +39,12 @@ using ASTString = base::ArenaString;
     V(RBrack, "]", none) \
     V(Less, "<", none) \
     V(LessEqual, "<=", none) \
+    V(LShift, "<<", none) \
+    V(LArrow, "<-", none) \
     V(Greater, ">", none) \
     V(GreaterEqual, ">=", none) \
+    V(RShift, ">>", none) \
+    V(RArrow, "->", none) \
     V(Equal, "==", none) \
     V(Assign, "=", none) \
     DECLARE_KEYWORDS_TOKEN(V)
@@ -62,6 +66,8 @@ using ASTString = base::ArenaString;
     V(U32, "u32", none) \
     V(I64, "i64", none) \
     V(U64, "u64", none) \
+    V(Int, "int", none) \
+    V(UInt, "uint", none) \
     V(F32, "f32", none) \
     V(F64, "f64", none) \
     V(Any, "any", none) \
@@ -70,7 +76,8 @@ using ASTString = base::ArenaString;
     V(MutableArray, "mutable_array", none) \
     V(Map, "map", none) \
     V(MutableMap, "mutable_map", none) \
-    V(Channel, "channel", none)
+    V(Channel, "channel", none) \
+    V(Run, "run", none)
 
 class Token final {
 public:
@@ -101,6 +108,8 @@ public:
     DEF_VAL_PROP_RW(uint32_t, u32_val);
     DEF_VAL_PROP_RW(int64_t, i64_val);
     DEF_VAL_PROP_RW(uint64_t, u64_val);
+    
+    //std::string GetTextString() const { return text_val_->ToString(); }
     
     static Kind IsKeyword(const std::string &text);
 private:
@@ -158,9 +167,6 @@ private:
     };
 }; // class Token
 
-
-void InitializeSyntaxLibrary();
-void FreeSyntaxLibrary();
 
 } // namespace lang
 

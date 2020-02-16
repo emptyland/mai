@@ -106,7 +106,7 @@ TEST_F(LexerTest, String) {
     lexer_.SwitchInputFile("demo.mai", &file);
     
     Token token = lexer_.Next();
-    EXPECT_EQ(Token::kStringVal, token.kind());
+    ASSERT_EQ(Token::kStringVal, token.kind());
     EXPECT_EQ(" aaavvv ", token.text_val()->ToString());
     EXPECT_EQ(1, token.source_location().begin_line);
     EXPECT_EQ(1, token.source_location().begin_row);
@@ -119,23 +119,23 @@ TEST_F(LexerTest, StringTemplate) {
     lexer_.SwitchInputFile("demo.mai", &file);
     
     Token token = lexer_.Next();
-    EXPECT_EQ(Token::kStringTempletePrefix, token.kind());
+    ASSERT_EQ(Token::kStringTempletePrefix, token.kind());
     EXPECT_EQ("a=", token.text_val()->ToString());
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kIdentifier, token.kind());
+    ASSERT_EQ(Token::kIdentifier, token.kind());
     EXPECT_EQ("bbc", token.text_val()->ToString());
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kStringTempletePart, token.kind());
+    ASSERT_EQ(Token::kStringTempletePart, token.kind());
     EXPECT_EQ(" b=", token.text_val()->ToString());
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kIdentifier, token.kind());
+    ASSERT_EQ(Token::kIdentifier, token.kind());
     EXPECT_EQ("ccd", token.text_val()->ToString());
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kStringTempleteSuffix, token.kind());
+    ASSERT_EQ(Token::kStringTempleteSuffix, token.kind());
     EXPECT_EQ("", token.text_val()->ToString());
     
     token = lexer_.Next();
@@ -153,7 +153,7 @@ TEST_F(LexerTest, StringTemplateExpression) {
     lexer_.SwitchInputFile("demo.mai", &file);
     
     Token token = lexer_.Next();
-    EXPECT_EQ(Token::kStringTempletePrefix, token.kind());
+    ASSERT_EQ(Token::kStringTempletePrefix, token.kind());
     EXPECT_EQ("a=", token.text_val()->ToString());
     EXPECT_EQ(1, token.source_location().begin_line);
     EXPECT_EQ(1, token.source_location().begin_row);
@@ -161,14 +161,14 @@ TEST_F(LexerTest, StringTemplateExpression) {
     EXPECT_EQ(4, token.source_location().end_row);
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kStringTempleteExpressBegin, token.kind());
+    ASSERT_EQ(Token::kStringTempleteExpressBegin, token.kind());
     EXPECT_EQ(1, token.source_location().begin_line);
     EXPECT_EQ(4, token.source_location().begin_row);
     EXPECT_EQ(1, token.source_location().end_line);
     EXPECT_EQ(5, token.source_location().end_row);
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kIdentifier, token.kind());
+    ASSERT_EQ(Token::kIdentifier, token.kind());
     EXPECT_EQ("b", token.text_val()->ToString());
     EXPECT_EQ(1, token.source_location().begin_line);
     EXPECT_EQ(6, token.source_location().begin_row);
@@ -176,14 +176,14 @@ TEST_F(LexerTest, StringTemplateExpression) {
     EXPECT_EQ(6, token.source_location().end_row);
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kPlus, token.kind());
+    ASSERT_EQ(Token::kPlus, token.kind());
     EXPECT_EQ(1, token.source_location().begin_line);
     EXPECT_EQ(8, token.source_location().begin_row);
     EXPECT_EQ(1, token.source_location().end_line);
     EXPECT_EQ(8, token.source_location().end_row);
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kIdentifier, token.kind());
+    ASSERT_EQ(Token::kIdentifier, token.kind());
     EXPECT_EQ("c", token.text_val()->ToString());
     EXPECT_EQ(1, token.source_location().begin_line);
     EXPECT_EQ(10, token.source_location().begin_row);
@@ -194,7 +194,7 @@ TEST_F(LexerTest, StringTemplateExpression) {
     EXPECT_EQ(Token::kStringTempleteExpressEnd, token.kind());
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kStringTempleteSuffix, token.kind());
+    ASSERT_EQ(Token::kStringTempleteSuffix, token.kind());
     EXPECT_EQ("km", token.text_val()->ToString());
     
     token = lexer_.Next();
@@ -206,36 +206,36 @@ TEST_F(LexerTest, StringTemplateContinuous) {
     lexer_.SwitchInputFile("demo.mai", &file);
     
     Token token = lexer_.Next();
-    EXPECT_EQ(Token::kStringTempletePrefix, token.kind());
+    ASSERT_EQ(Token::kStringTempletePrefix, token.kind());
     EXPECT_EQ("", token.text_val()->ToString());
 
     token = lexer_.Next();
-    EXPECT_EQ(Token::kIdentifier, token.kind());
+    ASSERT_EQ(Token::kIdentifier, token.kind());
     EXPECT_EQ("a", token.text_val()->ToString());
     
     token = lexer_.Next();
     EXPECT_EQ(Token::kStringTempleteExpressBegin, token.kind());
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kIdentifier, token.kind());
+    ASSERT_EQ(Token::kIdentifier, token.kind());
     EXPECT_EQ("b", token.text_val()->ToString());
     
     token = lexer_.Next();
     EXPECT_EQ(Token::kMinus, token.kind());
 
     token = lexer_.Next();
-    EXPECT_EQ(Token::kIdentifier, token.kind());
+    ASSERT_EQ(Token::kIdentifier, token.kind());
     EXPECT_EQ("c", token.text_val()->ToString());
     
     token = lexer_.Next();
     EXPECT_EQ(Token::kStringTempleteExpressEnd, token.kind());
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kIdentifier, token.kind());
+    ASSERT_EQ(Token::kIdentifier, token.kind());
     EXPECT_EQ("b", token.text_val()->ToString());
     
     token = lexer_.Next();
-    EXPECT_EQ(Token::kStringTempleteSuffix, token.kind());
+    ASSERT_EQ(Token::kStringTempleteSuffix, token.kind());
     EXPECT_EQ("", token.text_val()->ToString());
     
     token = lexer_.Next();
@@ -260,6 +260,53 @@ TEST_F(LexerTest, Keywords) {
     
     token = lexer_.Next();
     EXPECT_EQ(Token::kEOF, token.kind());
+}
+
+TEST_F(LexerTest, StringEscapeCharacter) {
+    MockFile file1("\"\\r\\n\\t\\$\"");
+    lexer_.SwitchInputFile("demo.mai", &file1);
+
+    Token token = lexer_.Next();
+    ASSERT_EQ(Token::kStringVal, token.kind());
+    EXPECT_EQ("\r\n\t$", token.text_val()->ToString());
+    
+    MockFile file2("\"\\x00\\x01\"");
+    lexer_.SwitchInputFile("demo.mai", &file2);
+    
+    token = lexer_.Next();
+    ASSERT_EQ(Token::kStringVal, token.kind());
+    EXPECT_EQ(2, token.text_val()->size());
+    EXPECT_EQ(0, token.text_val()->data()[0]);
+    EXPECT_EQ(1, token.text_val()->data()[1]);
+}
+
+TEST_F(LexerTest, StringUtf8Character) {
+    MockFile file1("\"汉字\" \"🤔\"");
+    lexer_.SwitchInputFile("demo.mai", &file1);
+
+    Token token = lexer_.Next();
+    ASSERT_EQ(Token::kStringVal, token.kind());
+    EXPECT_EQ("汉字", token.text_val()->ToString());
+    
+    token = lexer_.Next();
+    ASSERT_EQ(Token::kStringVal, token.kind());
+    EXPECT_EQ("🤔", token.text_val()->ToString());
+}
+
+TEST_F(LexerTest, Utf8Identifier) {
+    MockFile file("汉字=\"CN_zh\"");
+    lexer_.SwitchInputFile("demo.mai", &file);
+
+    Token token = lexer_.Next();
+    ASSERT_EQ(Token::kIdentifier, token.kind());
+    EXPECT_EQ("汉字", token.text_val()->ToString());
+    
+    token = lexer_.Next();
+    EXPECT_EQ(Token::kAssign, token.kind());
+    
+    token = lexer_.Next();
+    ASSERT_EQ(Token::kStringVal, token.kind());
+    EXPECT_EQ("CN_zh", token.text_val()->ToString());
 }
 
 }
