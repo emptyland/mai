@@ -36,7 +36,7 @@ private:
         kExpressionTemplate,
     };
 
-    Token MatchString();
+    Token MatchString(int quote, bool escape, bool block);
     Token MatchSimpleTemplateString();
     Token MatchIdentifier();
     

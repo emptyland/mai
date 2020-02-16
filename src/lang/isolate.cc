@@ -5,6 +5,7 @@
 #include "lang/heap.h"
 #include "lang/metadata-space.h"
 #include "lang/factory.h"
+#include "lang/syntax.h"
 #include "asm/utils.h"
 #include "glog/logging.h"
 #include <mutex>
@@ -30,9 +31,6 @@ const int32_t Isolate::kOffsetTrampolineSuspendPoint = MEMBER_OFFSET_OF(trampoli
 static void BadSuspendPointDummy() {
     NOREACHED() << "Bad suspend-point";
 }
-
-extern void InitializeSyntaxLibrary();
-extern void FreeSyntaxLibrary();
 
 /*static*/ Isolate *Isolate::New(const Options &opts) {
     return new Isolate(opts);

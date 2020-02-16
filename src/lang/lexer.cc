@@ -67,10 +67,16 @@ Token Lexer::Next() {
                 line_++;
                 row_ = 1;
                 break;
-                
+
             case '\"':
-                return MatchString();
+                return MatchString(ch, true/*escape*/, false/*block*/);
                 
+            case '\'':
+                return MatchString(ch, false/*escape*/, false/*block*/);
+                
+            case '`':
+                return MatchString(ch, false/*escape*/, true/*block*/);
+
             case '(':
                 return Token(Token::kLParen, SourceLocation::One(line_, row_));
                 
@@ -91,9 +97,45 @@ Token Lexer::Next() {
                 
             case '*':
                 return Token(Token::kStar, SourceLocation::One(line_, row_));
+                
+            case '/':
+                return Token(Token::kDiv, SourceLocation::One(line_, row_));
+                
+            case '%':
+                return Token(Token::kPercent, SourceLocation::One(line_, row_));
 
             case '_':
                 return MatchIdentifier();
+                
+            case '.': {
+                SourceLocation loc{line_, row_};
+                ch = MoveNext();
+                if (ch == '.') {
+                    for (int i = 0; i < 2; i++) {
+                        loc.end_line = line_;
+                        loc.end_row = row_;
+                        ch = MoveNext();
+                        if (ch != '.') {
+                            error_feedback_->Printf(loc, "Unexpected `...', expected: %c", ch);
+                            return Token(Token::kError, loc);
+                        }
+                    }
+                } else {
+                    return Token(Token::kDot, SourceLocation::One(loc.begin_line, loc.begin_row));
+                }
+            } break;
+                
+            case ':': {
+                SourceLocation loc{line_, row_};
+                ch = MoveNext();
+                if (ch == ':') {
+                    loc.end_line = line_;
+                    loc.end_row = row_;
+                    return Token(Token::k2Colon, loc);
+                } else {
+                    return Token(Token::kColon, SourceLocation::One(loc.begin_line, loc.begin_row));
+                }
+            } break;
                 
             case '<': {
                 int begin_line = line_, begin_row = row_;
@@ -145,7 +187,7 @@ Token Lexer::Next() {
                     return Token(Token::kPlusEqual, {begin_line, begin_row, line_, row_});
                 } else if (ch == '+') {
                     MoveNext();
-                    return Token(Token::kPlusPlus, {begin_line, begin_row, line_, row_});
+                    return Token(Token::k2Plus, {begin_line, begin_row, line_, row_});
                 } else {
                     return Token(Token::kPlus, SourceLocation::One(begin_line, begin_row));
                 }
@@ -159,7 +201,7 @@ Token Lexer::Next() {
                     return Token(Token::kMinusEqual, {begin_line, begin_row, line_, row_});
                 } else if (ch == '-') { // --
                     MoveNext();
-                    return Token(Token::kMinusMinus, {begin_line, begin_row, line_, row_});
+                    return Token(Token::k2Minus, {begin_line, begin_row, line_, row_});
                 } else if (ch == '>') { // ->
                     MoveNext();
                     return Token(Token::kRArrow, {begin_line, begin_row, line_, row_});
@@ -255,32 +297,52 @@ Token Lexer::MatchSimpleTemplateString() {
     return Token(Token::kError, {});
 }
 
-Token Lexer::MatchString() {
-    int begin_line = line_, begin_row = row_;
+Token Lexer::MatchString(int quote, bool escape, bool block) {
+    SourceLocation loc{line_, row_};
     MoveNext();
     
     std::string buf;
     for (;;) {
         int ch = Peek();
-        if (ch == '\"') {
+        if (ch == quote) {
+            loc.end_line = line_;
+            loc.end_row  = row_;
             MoveNext();
             const ASTString *asts = ASTString::New(arena_, buf.data(), buf.size());
-            return Token(Token::kStringVal, {begin_line, begin_row, line_, row_}).With(asts);
+            return Token(Token::kStringLine, loc).With(asts);
         } else if (ch == '$') {
-            in_string_template_.push(kSimpleTemplate);
-            const ASTString *asts = ASTString::New(arena_, buf.data(), buf.size());
-            return Token(Token::kStringTempletePrefix,
-                         {begin_line, begin_row, line_, row_}).With(asts);
+            if (escape) {
+                loc.end_line = line_;
+                loc.end_row  = row_;
+                in_string_template_.push(kSimpleTemplate);
+                const ASTString *asts = ASTString::New(arena_, buf.data(), buf.size());
+                return Token(Token::kStringTempletePrefix, loc).With(asts);
+            }
+            MoveNext();
+            buf.append(1, ch);
         } else if (ch == '\\') { // Escape
-            if (!MatchEscapeCharacter(&buf)) {
-                return Token(Token::kError, SourceLocation::One(line_, row_));
+            if (escape) {
+                if (!MatchEscapeCharacter(&buf)) {
+                    return Token(Token::kError, SourceLocation::One(line_, row_));
+                }
+            } else {
+                MoveNext();
+                buf.append(1, ch);
             }
         } else if (ch == '\n' || ch == '\r') {
-            SourceLocation loc = SourceLocation::One(line_, row_);
-            error_feedback_->Printf(loc, "Unexpected string term, expected '\\r' '\\n'");
-            return Token(Token::kError, SourceLocation::One(line_, row_));
+            if (!block) {
+                SourceLocation loc = SourceLocation::One(line_, row_);
+                error_feedback_->Printf(loc, "Unexpected string term, expected '\\r' '\\n'");
+                return Token(Token::kError, SourceLocation::One(line_, row_));
+            } else {
+                MoveNext();
+                line_++;
+                row_ = 1;
+                buf.append(1, ch);
+            }
         } else if (ch == 0) {
-            SourceLocation loc{begin_line, begin_row, line_, row_};
+            loc.end_line = line_;
+            loc.end_row  = row_;
             error_feedback_->Printf(loc, "Unexpected string term, expected EOF");
             return Token(Token::kError, loc);
         } else {

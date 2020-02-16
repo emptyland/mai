@@ -16,7 +16,8 @@ using ASTString = base::ArenaString;
     V(EOF, nullptr, none) \
     V(Error, nullptr, none) \
     V(Identifier, nullptr, text) \
-    V(StringVal, nullptr, text) \
+    V(StringLine, nullptr, text) \
+    V(StringBlock, nullptr, text) \
     V(StringTempletePrefix, nullptr, text) \
     V(StringTempletePart, nullptr, text) \
     V(StringTempleteSuffix, nullptr, text) \
@@ -25,18 +26,24 @@ using ASTString = base::ArenaString;
     V(I32Val, nullptr, i32) \
     V(Comma, ",", none) \
     V(Plus, "+", none) \
-    V(PlusPlus, "++", none) \
+    V(2Plus, "++", none) \
     V(PlusEqual, "+=", none) \
     V(Minus, "-", none) \
-    V(MinusMinus, "--". none) \
+    V(2Minus, "--". none) \
     V(MinusEqual, "-=", none) \
     V(Star, "*", none) \
+    V(Div, "/", none) \
+    V(Percent, "%", none) \
     V(LBrace, "{", none) \
     V(RBrace, "}", none) \
     V(LParen, "(", none) \
     V(RParen, ")", none) \
     V(LBrack, "[", none) \
     V(RBrack, "]", none) \
+    V(Dot, ".", none) \
+    V(Vargs, "...", none) \
+    V(Colon, ":", none) \
+    V(2Colon, "::", none) \
     V(Less, "<", none) \
     V(LessEqual, "<=", none) \
     V(LShift, "<<", none) \
