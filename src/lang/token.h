@@ -29,7 +29,7 @@ using ASTString = base::ArenaString;
     V(2Plus, "++", none) \
     V(PlusEqual, "+=", none) \
     V(Minus, "-", none) \
-    V(2Minus, "--". none) \
+    V(2Minus, "--", none) \
     V(MinusEqual, "-=", none) \
     V(Star, "*", none) \
     V(Div, "/", none) \
@@ -40,7 +40,14 @@ using ASTString = base::ArenaString;
     V(RParen, ")", none) \
     V(LBrack, "[", none) \
     V(RBrack, "]", none) \
+    V(Wave, "~", none) \
     V(Dot, ".", none) \
+    V(BitwiseAnd, "&", none) \
+    V(BitwiseOr, "|", none) \
+    V(BitwiseXor, "^", none) \
+    V(And, "&&", none) \
+    V(Or, "||", none) \
+    V(Not, "!", none) \
     V(Vargs, "...", none) \
     V(Colon, ":", none) \
     V(2Colon, "::", none) \
@@ -53,6 +60,7 @@ using ASTString = base::ArenaString;
     V(RShift, ">>", none) \
     V(RArrow, "->", none) \
     V(Equal, "==", none) \
+    V(NotEqual, "!=", none) \
     V(Assign, "=", none) \
     DECLARE_KEYWORDS_TOKEN(V)
 
@@ -63,7 +71,28 @@ using ASTString = base::ArenaString;
     V(Val, "val", none) \
     V(Var, "var", none) \
     V(Def, "def", none) \
+    V(Native, "native", none) \
+    V(Class, "class", none) \
+    V(Object, "object", none) \
+    V(Interface, "interface", none) \
+    V(Implements, "implements", none) \
     V(Lambda, "lambda", none) \
+    V(Array, "array", none) \
+    V(MutableArray, "mutable_array", none) \
+    V(Map, "map", none) \
+    V(MutableMap, "mutable_map", none) \
+    V(Channel, "channel", none) \
+    V(Run, "run", none) \
+    V(Import, "import", none) \
+    V(Package, "package", none) \
+    V(Public, "public", none) \
+    V(Protected, "protected", none) \
+    V(Private, "private", none) \
+    V(As, "as", none) \
+    DECLARE_BASE_TYPE_TOKEN(V)
+
+#define DECLARE_BASE_TYPE_TOKEN(V) \
+    V(Void, "void", none) \
     V(Bool, "bool", none) \
     V(I8, "i8", none) \
     V(U8, "u8", none) \
@@ -78,16 +107,7 @@ using ASTString = base::ArenaString;
     V(F32, "f32", none) \
     V(F64, "f64", none) \
     V(Any, "any", none) \
-    V(String, "string", none) \
-    V(Array, "array", none) \
-    V(MutableArray, "mutable_array", none) \
-    V(Map, "map", none) \
-    V(MutableMap, "mutable_map", none) \
-    V(Channel, "channel", none) \
-    V(Run, "run", none) \
-    V(Import, "import", none) \
-    V(Package, "package", none) \
-    V(As, "as", none)
+    V(String, "string", none)
 
 class Token final {
 public:
@@ -95,6 +115,7 @@ public:
     #define DEFINE_ENUM(name, ...) k##name,
         DECLARE_ALL_TOKEN(DEFINE_ENUM)
     #undef  DEFINE_ENUM
+        kMax,
     }; // enum Kind
     
     Token(Kind kind, const SourceLocation &position)
@@ -119,9 +140,31 @@ public:
     DEF_VAL_PROP_RW(int64_t, i64_val);
     DEF_VAL_PROP_RW(uint64_t, u64_val);
     
-    //std::string GetTextString() const { return text_val_->ToString(); }
+    struct NamePair {
+        const char *const name;
+        const char *const literal;
+    }; // struct NamePair
+
+    const NamePair &name_pair() const { return GetNamePair(kind_); }
     
+    std::string ToString() const { return ToString(kind_); }
+    
+    // Test: Is a keyword?
     static Kind IsKeyword(const std::string &text);
+    
+    static const NamePair &GetNamePair(Kind kind) {
+        DCHECK(static_cast<int>(kind) >= 0 && static_cast<int>(kind) < kMax);
+        return kNameTable[kind];
+    }
+    
+    static std::string ToString(Kind kind) {
+        const NamePair &pair = GetNamePair(kind);
+        std::string buf(pair.name);
+        if (pair.literal) {
+            buf.append(" `").append(pair.literal).append("'");
+        }
+        return buf;
+    }
 private:
     template<class T>
     struct Setter {
@@ -162,6 +205,8 @@ private:
     struct Setter<double> {
         void Set(Token *token, double value) { token->f64_val_ = value; }
     };
+    
+    static NamePair kNameTable[kMax];
     
     Kind kind_;
     SourceLocation source_location_;

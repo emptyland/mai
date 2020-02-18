@@ -46,7 +46,7 @@ TEST_F(ParserTest, Import) {
     MockFile file("package demo\n"
                   "import testing.foo.bar.baz\n");
     parser_.SwitchInputFile("demos/demo.mai", &file);
-    
+
     bool ok = true;
     FileUnit *ast = parser_.Parse(&ok);
     ASSERT_TRUE(ok);
@@ -56,6 +56,29 @@ TEST_F(ParserTest, Import) {
     auto stmt = ast->import_packages()[0];
     ASSERT_EQ("testing.foo.bar.baz", stmt->original_package_name()->ToString());
     ASSERT_EQ(nullptr, stmt->alias());
+}
+
+TEST_F(ParserTest, ImportBlock) {
+    MockFile file("package demo\n"
+                  "import {\n"
+                  "    testing.foo as Foo\n"
+                  "    testing.bar as Bar\n"
+                  "}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    FileUnit *ast = parser_.Parse(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_EQ(2, ast->import_packages().size());
+    auto stmt = ast->import_packages()[0];
+    ASSERT_EQ("testing.foo", stmt->original_package_name()->ToString());
+    ASSERT_EQ("Foo", stmt->alias()->ToString());
+    
+    stmt = ast->import_packages()[1];
+    ASSERT_EQ("testing.bar", stmt->original_package_name()->ToString());
+    ASSERT_EQ("Bar", stmt->alias()->ToString());
 }
 
 

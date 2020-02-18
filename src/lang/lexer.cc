@@ -78,31 +78,31 @@ Token Lexer::Next() {
                 return MatchString(ch, false/*escape*/, true/*block*/);
 
             case '(':
-                return Token(Token::kLParen, SourceLocation::One(line_, row_));
+                return MatchOne(Token::kLParen);
                 
             case ')':
-                return Token(Token::kRParen, SourceLocation::One(line_, row_));
+                return MatchOne(Token::kRParen);
 
             case '[':
-                return Token(Token::kLBrack, SourceLocation::One(line_, row_));
+                return MatchOne(Token::kLBrack);
                 
             case ']':
-                return Token(Token::kRBrack, SourceLocation::One(line_, row_));
+                return MatchOne(Token::kRBrack);
                 
             case '{':
-                return Token(Token::kLBrace, SourceLocation::One(line_, row_));
+                return MatchOne(Token::kLBrace);
                 
             case '}':
-                return Token(Token::kRBrace, SourceLocation::One(line_, row_));
+                return MatchOne(Token::kRBrace);
                 
             case '*':
-                return Token(Token::kStar, SourceLocation::One(line_, row_));
+                return MatchOne(Token::kStar);
                 
             case '/':
-                return Token(Token::kDiv, SourceLocation::One(line_, row_));
+                return MatchOne(Token::kDiv);
                 
             case '%':
-                return Token(Token::kPercent, SourceLocation::One(line_, row_));
+                return MatchOne(Token::kPercent);
 
             case '_':
                 return MatchIdentifier();

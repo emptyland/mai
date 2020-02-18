@@ -16,10 +16,35 @@ using ASTString = base::ArenaString;
 
 struct Operator {
     enum Kind {
+        NOT_BINARY, // Flag value
+        NOT_UNARY, // Flag value
+        
         kAdd,
         kSub,
         kMul,
         kDiv,
+        kMod,
+        kMinus,
+        
+        kBitwiseShl,
+        kBitwiseShr,
+        kBitwiseAnd,
+        kBitwiseOr,
+        kBitwiseNot,
+        kBitwiseXor,
+        
+        kEqual,
+        kNotEqual,
+        kLess,
+        kLessEqual,
+        kGreater,
+        kGreaterEqual,
+        
+        kAnd,
+        kOr,
+        kNot,
+        
+        kContcat
     };
     Kind kind;
     int operands;
@@ -30,10 +55,45 @@ struct Operator {
 }; // struct Operator
 
 struct Operators {
-    static constexpr auto kAdd = Operator(Operator::kAdd, 2, 1, 0);
-    static constexpr auto kSub = Operator(Operator::kSub, 2, 1, 0);
-    static constexpr auto kMul = Operator(Operator::kMul, 2, 1, 0);
-    static constexpr auto kDiv = Operator(Operator::kDiv, 2, 1, 0);
+    static constexpr int kUnaryPrio = 110;
+    
+    // Unary:
+    static constexpr auto kNot = Operator(Operator::kNot, 1, kUnaryPrio, kUnaryPrio); // !
+    static constexpr auto kBitwiseNot = Operator(Operator::kBitwiseNot, 1, kUnaryPrio, kUnaryPrio); // ^
+    static constexpr auto kMinus = Operator(Operator::kMinus, 1, kUnaryPrio, kUnaryPrio); // -
+
+    // Binary:
+    static constexpr auto kAdd = Operator(Operator::kAdd, 2, 90, 90); // +
+    static constexpr auto kSub = Operator(Operator::kSub, 2, 90, 90); // -
+    static constexpr auto kMul = Operator(Operator::kMul, 2, 100, 100); // *
+    static constexpr auto kDiv = Operator(Operator::kDiv, 2, 100, 100); // /
+    static constexpr auto kMod = Operator(Operator::kMod, 2, 100, 100); // %
+    
+    // Bitwise op
+    static constexpr auto kBitwiseShl = Operator(Operator::kBitwiseShl, 2, 70, 70); // <<
+    static constexpr auto kBitwiseShr = Operator(Operator::kBitwiseShr, 2, 70, 70); // >>
+    
+    // Compare
+    static constexpr auto kEqual = Operator(Operator::kEqual, 2, 60, 60); // ==
+    static constexpr auto kNotEqual = Operator(Operator::kNotEqual, 2, 60, 60); // !=
+    static constexpr auto kLess = Operator(Operator::kLess, 2, 60, 60); // <
+    static constexpr auto kLessEqual = Operator(Operator::kLessEqual, 2, 60, 60); // <=
+    static constexpr auto kGreater = Operator(Operator::kGreater, 2, 60, 60); // >
+    static constexpr auto kGreaterEqual = Operator(Operator::kGreaterEqual, 2, 60, 60); // >=
+
+    // Or/Xor/And
+    static constexpr auto kBitwiseOr = Operator(Operator::kBitwiseOr, 2, 30, 30); // |
+    static constexpr auto kBitwiseXor = Operator(Operator::kBitwiseXor, 2, 40, 40); // ^
+    static constexpr auto kBitwiseAnd = Operator(Operator::kBitwiseAnd, 2, 40, 40); // &
+    
+    // And/Or
+    static constexpr auto kAnd = Operator(Operator::kAnd, 2, 20, 20); // &&
+    static constexpr auto kOr = Operator(Operator::kOr, 2, 10, 10); // ||
+    
+    static constexpr auto kContact = Operator(Operator::kContcat, 2, 10, 10); // string concat
+    
+    static constexpr auto NOT_UNARY = Operator(Operator::NOT_UNARY, 0, 0, 0);
+    static constexpr auto NOT_BINARY = Operator(Operator::NOT_BINARY, 0, 0, 0);
 }; // struct Operators
 
 struct SourceLocation {

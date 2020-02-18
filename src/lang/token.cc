@@ -27,6 +27,12 @@ std::unordered_map<std::string, Token::Kind> *all_keywords = nullptr;
     return iter == all_keywords->end() ? kError : iter->second;
 }
 
+Token::NamePair Token::kNameTable[kMax] = {
+#define DEFINE_NAME_PAIR(name, literal, ...) { #name, literal, },
+    DECLARE_ALL_TOKEN(DEFINE_NAME_PAIR)
+#undef DEFINE_NAME_PAIR
+}; // Token::kNameTable[kMax]
+
 void InitializeSyntaxLibrary() {
     all_keywords = new std::unordered_map<std::string, Token::Kind>();
 

@@ -25,7 +25,7 @@ public:
     }
     
     Error SwitchInputFile(const std::string &name, SequentialFile *file);
-    
+
     Token Next();
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Lexer);
@@ -39,6 +39,10 @@ private:
     Token MatchString(int quote, bool escape, bool block);
     Token MatchSimpleTemplateString();
     Token MatchIdentifier();
+    Token MatchOne(Token::Kind kind) {
+        MoveNext();
+        return Token(kind, SourceLocation::One(line_, row_));
+    }
     
     bool MatchEscapeCharacter(std::string *buf);
     bool MatchUtf8Character(std::string *buf);
