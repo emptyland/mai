@@ -81,6 +81,33 @@ TEST_F(ParserTest, ImportBlock) {
     ASSERT_EQ("Bar", stmt->alias()->ToString());
 }
 
+TEST_F(ParserTest, ValDeclaration) {
+    MockFile file("var a: int\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+    
+    bool ok = true;
+    auto ast = parser_.ParseVariableDeclaration(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+
+    ASSERT_STREQ("a", ast->identifier()->data());
+    ASSERT_EQ(VariableDeclaration::VAR, ast->kind());
+    ASSERT_EQ(Token::kInt, ast->type()->id());
+
+    MockFile file1("val a = 1\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file1);
+    // var a: func (int, int): void
+    ast = parser_.ParseVariableDeclaration(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_STREQ("a", ast->identifier()->data());
+    ASSERT_EQ(VariableDeclaration::VAL, ast->kind());
+    ASSERT_EQ(nullptr, ast->type());
+    ASSERT_NE(nullptr, ast->initializer());
+    ASSERT_TRUE(ast->initializer()->IsIntLiteral());
+    ASSERT_EQ(1, ast->initializer()->AsIntLiteral()->value());
+}
 
 }
 

@@ -175,6 +175,9 @@ public:
     
     void InsertParameter(TypeSign *type) { DCHECK_NOTNULL(parameters_)->push_back(type); }
     
+    int id() const { return kind_; }
+    DEF_PTR_GETTER(const ASTString, symbol);
+    
     DEFINE_AST_NODE(TypeSign);
 private:
     const int kind_;
@@ -273,7 +276,7 @@ class Literal : public Expression {
 public:
     DEF_PTR_GETTER(TypeSign, type);
 protected:
-    Literal(int position, Kind kind, TypeSign *type): Expression(position, kind) {}
+    Literal(int position, Kind kind, TypeSign *type): Expression(position, kind), type_(type) {}
     TypeSign *type_;
 }; // class Literal
 
@@ -284,7 +287,8 @@ public:
     DEF_VAL_GETTER(T, value);
 protected:
     LiteralBase(int position, Kind kind, TypeSign *type, T value)
-        : Literal(position, kind, type) {}
+        : Literal(position, kind, type)
+        , value_(value) {}
     T value_;
 }; // class LiteralBase
 
@@ -292,21 +296,21 @@ protected:
     class name##Literal : public LiteralBase< value_type > { \
     public: \
         name##Literal(int position, TypeSign *type, value_type value) \
-            : LiteralBase(position, kStringLiteral, type, value) {} \
+            : LiteralBase(position, k##name##Literal, type, value) {} \
         DEFINE_AST_NODE(name##Literal); \
     }
 
 DEFINE_SIMPLE_LITERAL(Bool, bool);
-DEFINE_SIMPLE_LITERAL(I8, int8_t);
-DEFINE_SIMPLE_LITERAL(U8, uint8_t);
-DEFINE_SIMPLE_LITERAL(I16, int16_t);
-DEFINE_SIMPLE_LITERAL(U16, uint16_t);
+DEFINE_SIMPLE_LITERAL(I8, int32_t);
+DEFINE_SIMPLE_LITERAL(U8, uint32_t);
+DEFINE_SIMPLE_LITERAL(I16, int32_t);
+DEFINE_SIMPLE_LITERAL(U16, uint32_t);
 DEFINE_SIMPLE_LITERAL(I32, int32_t);
 DEFINE_SIMPLE_LITERAL(U32, uint32_t);
 DEFINE_SIMPLE_LITERAL(I64, int64_t);
 DEFINE_SIMPLE_LITERAL(U64, uint64_t);
-DEFINE_SIMPLE_LITERAL(Int, int64_t);
-DEFINE_SIMPLE_LITERAL(UInt, uint64_t);
+DEFINE_SIMPLE_LITERAL(Int, int32_t);
+DEFINE_SIMPLE_LITERAL(UInt, uint32_t);
 DEFINE_SIMPLE_LITERAL(F32, float);
 DEFINE_SIMPLE_LITERAL(F64, double);
 DEFINE_SIMPLE_LITERAL(String, const ASTString *);

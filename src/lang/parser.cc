@@ -143,14 +143,13 @@ VariableDeclaration *Parser::ParseVariableDeclaration(bool *ok) {
     SourceLocation loc = lookahead_.source_location();
     
     VariableDeclaration::Kind kind;
-    if (Peek().kind() == Token::kVal) {
-        Match(Token::kVal, CHECK_OK);
+    if (Test(Token::kVal)) {
         kind = VariableDeclaration::VAL;
     } else {
         Match(Token::kVar, CHECK_OK);
         kind = VariableDeclaration::VAR;
     }
-    
+
     const ASTString *name = ParseIdentifier(CHECK_OK);
     TypeSign *type = nullptr;
     if (Test(Token::kColon)) {
@@ -451,6 +450,20 @@ Expression *Parser::ParsePrimary(bool *ok) {
             return new (arena_) Identifier(position, name);
         } break;
             
+        case Token::kIntVal: {
+            int32_t val = Peek().i32_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) IntLiteral(position, &kTypeInt, val);
+        } break;
+            
+        case Token::kUIntVal: {
+            uint32_t val = Peek().u32_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) UIntLiteral(position, &kTypeUInt, val);
+        } break;
+
         default:
             error_feedback_->Printf(Peek().source_location(), "Unexpected");
             *ok = false;
