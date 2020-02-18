@@ -23,7 +23,18 @@ using ASTString = base::ArenaString;
     V(StringTempleteSuffix, nullptr, text) \
     V(StringTempleteExpressBegin, "{", text) \
     V(StringTempleteExpressEnd, "}", text) \
+    V(I8Val, nullptr, i32) \
+    V(U8Val, nullptr, u32) \
+    V(I16Val, nullptr, i32) \
+    V(U16Val, nullptr, u32) \
     V(I32Val, nullptr, i32) \
+    V(IntVal, nullptr, i32) \
+    V(UIntVal, nullptr, u32) \
+    V(U32Val, nullptr, u32) \
+    V(I64Val, nullptr, i64) \
+    V(U64Val, nullptr, u64) \
+    V(F32Val, nullptr, f32) \
+    V(F64Val, nullptr, f64) \
     V(Comma, ",", none) \
     V(Plus, "+", none) \
     V(2Plus, "++", none) \
@@ -129,7 +140,7 @@ public:
         Setter<T>{}.Set(this, val);
         return *this;
     }
-    
+
     DEF_VAL_GETTER(Kind, kind);
     DEF_PTR_PROP_RW(const ASTString, text_val);
     DEF_VAL_GETTER(SourceLocation, source_location);

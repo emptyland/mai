@@ -44,8 +44,12 @@ private:
         return Token(kind, SourceLocation::One(line_, row_));
     }
     
+    Token MatchNumber(int sign, int line, int row);
+    
     bool MatchEscapeCharacter(std::string *buf);
     bool MatchUtf8Character(std::string *buf);
+    
+    Token OneCharacterError(int line, int row, const char *fmt, ...);
     
     static bool IsTerm(int ch) { return ::isalpha(ch) || ::isdigit(ch) || IsTermChar(ch); }
     static bool IsTermChar(int ch);

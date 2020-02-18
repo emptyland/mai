@@ -354,7 +354,7 @@ Expression *Parser::ParseSimple(bool *ok) {
             int position = file_unit_->InsertSourceLocation(loc);
             return new (arena_) NilLiteral(position, &kTypeAny, nullptr);
         } break;
-            
+
         case Token::kTrue: {
             MoveNext();
             int position = file_unit_->InsertSourceLocation(loc);
@@ -366,7 +366,7 @@ Expression *Parser::ParseSimple(bool *ok) {
             int position = file_unit_->InsertSourceLocation(loc);
             return new (arena_) BoolLiteral(position, &kTypeBool, false);
         } break;
-            
+
         case Token::kStringLine:
         case Token::kStringBlock: {
             const ASTString *literal = Peek().text_val();
@@ -374,7 +374,7 @@ Expression *Parser::ParseSimple(bool *ok) {
             int position = file_unit_->InsertSourceLocation(loc);
             return new (arena_) StringLiteral(position, &kTypeString, literal);
         } break;
-            
+
         case Token::kStringTempletePrefix: {
             return ParseStringTemplate(ok);
         } break;

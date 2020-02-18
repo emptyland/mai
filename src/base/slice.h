@@ -150,9 +150,9 @@ public:
     static int ParseU64(const char *s, uint64_t *val) {
         return ParseU64(s, !s ? 0 : strlen(s), val);
     }
-    
+
     static int ParseU64(const char *s, size_t n, uint64_t *val);
-    
+
     // return:
     //  0 = parse ok
     // > 0 = overflow
@@ -160,9 +160,9 @@ public:
     static int ParseH64(const char *s, uint64_t *val) {
         return ParseH64(s, !s ? 0 : strlen(s), val);
     }
-    
+
     static int ParseH64(const char *s, size_t n, uint64_t *val);
-    
+
     // return:
     //  0 = parse ok
     // > 0 = overflow
@@ -170,7 +170,7 @@ public:
     static int ParseO64(const char *s, uint64_t *val) {
         return ParseO64(s, !s ? 0 : strlen(s), val);
     }
-    
+
     static int ParseO64(const char *s, size_t n, uint64_t *val);
 
     // return:
@@ -180,9 +180,9 @@ public:
     static int ParseI32(const char *s, int32_t *val) {
         return ParseI32(s, !s ? 0 : strlen(s), val);
     }
-    
+
     static int ParseI32(const char *s, size_t n, int32_t *val);
-    
+
     // return:
     // 0 = not a date/date-time/time
     // 'c' = date-time : 0000-00-00 00:00:00
@@ -191,7 +191,7 @@ public:
     static int LikeDateTime(const char *s) {
         return LikeDateTime(s, !s ? 0 : ::strlen(s));
     }
-    
+
     static int LikeDateTime(const char *s, size_t n) { return 0; }
     
     // escape char:

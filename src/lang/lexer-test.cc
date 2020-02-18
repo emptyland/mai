@@ -291,6 +291,56 @@ TEST_F(LexerTest, Utf8Identifier) {
     EXPECT_EQ("CN_zh", token.text_val()->ToString());
 }
 
+TEST_F(LexerTest, NumberLiteral) {
+    MockFile file("1 0 -1 0.0");
+    lexer_.SwitchInputFile("demo.mai", &file);
+    
+    Token token = lexer_.Next();
+    ASSERT_EQ(Token::kIntVal, token.kind());
+    EXPECT_EQ(1, token.i32_val());
+    
+    token = lexer_.Next();
+    ASSERT_EQ(Token::kIntVal, token.kind());
+    EXPECT_EQ(0, token.i32_val());
+    
+    token = lexer_.Next();
+    ASSERT_EQ(Token::kIntVal, token.kind());
+    EXPECT_EQ(-1, token.i32_val());
+    
+    token = lexer_.Next();
+    ASSERT_EQ(Token::kF32Val, token.kind());
+    EXPECT_EQ(0, token.f32_val());
+}
+
+TEST_F(LexerTest, NumberLiteralPostfix) {
+    MockFile file("255u8 -128i8 1i16 -1i16 65535u16 1u");
+    lexer_.SwitchInputFile("demo.mai", &file);
+    
+    Token token = lexer_.Next();
+    ASSERT_EQ(Token::kU8Val, token.kind());
+    EXPECT_EQ(255, token.u32_val());
+    
+    token = lexer_.Next();
+    ASSERT_EQ(Token::kI8Val, token.kind());
+    EXPECT_EQ(-128, token.i32_val());
+    
+    token = lexer_.Next();
+    ASSERT_EQ(Token::kI16Val, token.kind());
+    EXPECT_EQ(1, token.i32_val());
+    
+    token = lexer_.Next();
+    ASSERT_EQ(Token::kI16Val, token.kind());
+    EXPECT_EQ(-1, token.i32_val());
+    
+    token = lexer_.Next();
+    ASSERT_EQ(Token::kU16Val, token.kind());
+    EXPECT_EQ(65535, token.u32_val());
+    
+    token = lexer_.Next();
+    ASSERT_EQ(Token::kUIntVal, token.kind());
+    EXPECT_EQ(1, token.u32_val());
+}
+
 }
 
 }
