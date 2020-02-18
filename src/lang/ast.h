@@ -35,7 +35,10 @@ namespace lang {
     V(DotExpression) \
     V(IndexExpression) \
     V(StringTemplateExpression) \
-    V(CallExpression)
+    V(CallExpression) \
+    V(PairExpression) \
+    V(ArrayInitializer) \
+    V(MapInitializer)
 
 #define DEFINE_DECLARE(name) class name;
 DECLARE_ALL_AST(DEFINE_DECLARE)
@@ -82,7 +85,6 @@ public:
     DECLARE_ALL_AST(DEFINE_TYPE_CHECKER)
     
 #undef DEFINE_TYPE_CHECKER
-    
 
     ALWAYS_INLINE
     void *operator new (size_t size, base::Arena *arena) { return arena->Allocate(size); }
@@ -146,25 +148,21 @@ private:
     base::ArenaVector<SourceLocation> source_location_map_;
 }; // class FileUnit
 
+class FunctionPrototype;
 
 class TypeSign : public ASTNode {
 public:
-    TypeSign(int kind)
-        : ASTNode(0, kTypeSign), kind_(kind) {}
+    TypeSign(int position, int kind): ASTNode(position, kTypeSign), kind_(kind) {}
+    TypeSign(int position, const ASTString *symbol);
+    TypeSign(int position, FunctionPrototype *prototype);
 
-    TypeSign(base::Arena *arena, int position, int kind, const ASTString *symbol)
-        : ASTNode(position, kTypeSign)
-        , kind_(kind)
-        , symbol_(symbol)
-        , parameters_(nullptr) {}
-    
     TypeSign(base::Arena *arena, int position, int kind, TypeSign *param)
         : ASTNode(position, kTypeSign)
         , kind_(kind)
         , parameters_(new (arena) base::ArenaVector<TypeSign *>(arena)) {
         InsertParameter(param);
     }
-    
+
     TypeSign(base::Arena *arena, int position, int kind, TypeSign *param0, TypeSign *param1)
         : ASTNode(position, kTypeSign)
         , kind_(kind)
@@ -177,13 +175,52 @@ public:
     
     int id() const { return kind_; }
     DEF_PTR_GETTER(const ASTString, symbol);
+    DEF_PTR_GETTER(FunctionPrototype, prototype);
     
     DEFINE_AST_NODE(TypeSign);
 private:
     const int kind_;
-    const ASTString *symbol_ = nullptr;
-    base::ArenaVector<TypeSign *> *parameters_ = nullptr;
+    union {
+        const ASTString *symbol_;
+        base::ArenaVector<TypeSign *> *parameters_;
+        FunctionPrototype *prototype_;
+    };
 }; // class TypeLink
+
+class FunctionPrototype {
+public:
+    struct Parameter {
+        const ASTString *name;
+        TypeSign *type;
+    };
+    FunctionPrototype(base::Arena *arena): parameters_(arena) {}
+    
+    DEF_PTR_PROP_RW(TypeSign, return_type);
+    DEF_VAL_PROP_RW(bool, vargs);
+    
+    size_t parameters_size() const { return parameters_.size(); }
+    
+    const Parameter &parameter(size_t i) const {
+        DCHECK_LT(i, parameters_.size());
+        return parameters_[i];
+    }
+    
+    Parameter *mutable_parameter(size_t i) {
+        DCHECK_LT(i, parameters_.size());
+        return &parameters_[i];
+    }
+    
+    ALWAYS_INLINE
+    void *operator new (size_t size, base::Arena *arena) { return arena->Allocate(size); }
+    
+    void InsertParameter(const ASTString *name, TypeSign *type) {
+        parameters_.push_back({name, type});
+    }
+private:
+    base::ArenaVector<Parameter> parameters_;
+    TypeSign *return_type_;
+    bool vargs_ = false;
+}; // class FunctionPrototype
 
 class Statement : public ASTNode {
 public:
@@ -213,6 +250,10 @@ private:
 class Expression : public ASTNode {
 public:
     virtual Operator GetOperator() const { return Operators::NOT_BINARY; }
+
+    bool IsLValue() const {
+        return IsIdentifier() || IsDotExpression() || IsIndexExpression();
+    }
 protected:
     Expression(int position, Kind kind): ASTNode(position, kind) {}
 }; // // class Statement
@@ -270,6 +311,7 @@ private:
     TypeSign *type_;
     Expression *initializer_;
 }; // class VariableDeclaration
+
 
 
 class Literal : public Expression {
@@ -437,6 +479,32 @@ public:
     
     DEFINE_AST_NODE(CallExpression);
 }; // class CallExpression
+
+
+class PairExpression : public Expression {
+public:
+    PairExpression(int position, Expression *value)
+        : Expression(position, kPairExpression)
+        , addition_key_(true)
+        , key_(nullptr)
+        , value_(value) {}
+
+    PairExpression(int position, Expression *key, Expression *value)
+        : Expression(position, kPairExpression)
+        , addition_key_(false)
+        , key_(key)
+        , value_(value) {}
+
+    DEF_VAL_GETTER(bool, addition_key);
+    DEF_PTR_PROP_RW(Expression, key);
+    DEF_PTR_PROP_RW(Expression, value);
+    
+    DEFINE_AST_NODE(PairExpression);
+private:
+    bool addition_key_;
+    Expression *key_;
+    Expression *value_;
+}; // class PairExpression
 
 } // namespace lang
 

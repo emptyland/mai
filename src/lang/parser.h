@@ -16,7 +16,7 @@ class VariableDeclaration;
 class TypeSign;
 class StringTemplateExpression;
 class Expression;
-
+class FunctionPrototype;
 
 class Parser final {
 public:
@@ -33,7 +33,9 @@ public:
     ImportStatement *ParseImportStatement(SourceLocation *loc, bool *ok);
     VariableDeclaration *ParseVariableDeclaration(bool *ok);
     TypeSign *ParseTypeSign(bool *ok);
-    Expression *ParseExpression(int limit, bool *ok);
+    FunctionPrototype *ParseFunctionPrototype(bool requrie_param_name, SourceLocation *loc, bool *ok);
+    Expression *ParseExpression(bool *ok) { return ParseExpression(0, nullptr, ok); }
+    Expression *ParseExpression(int limit, Operator *op, bool *ok);
     Expression *ParseSimple(bool *ok);
     Expression *ParseSuffixed(bool *ok);
     Expression *ParsePrimary(bool *ok);

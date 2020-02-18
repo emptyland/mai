@@ -59,6 +59,7 @@ using ASTString = base::ArenaString;
     V(And, "&&", none) \
     V(Or, "||", none) \
     V(Not, "!", none) \
+    V(More, "..", none) \
     V(Vargs, "...", none) \
     V(Colon, ":", none) \
     V(2Colon, "::", none) \
@@ -88,6 +89,7 @@ using ASTString = base::ArenaString;
     V(Interface, "interface", none) \
     V(Implements, "implements", none) \
     V(Lambda, "lambda", none) \
+    V(Fun, "fun", none) \
     V(Array, "array", none) \
     V(MutableArray, "mutable_array", none) \
     V(Map, "map", none) \

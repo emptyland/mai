@@ -116,6 +116,9 @@ Token Lexer::Next() {
             case '!':
                 return MatchOne(Token::kNot);
                 
+            case ',':
+                return MatchOne(Token::kComma);
+                
             case '|': {
                 SourceLocation loc{line_, row_};
                 ch = MoveNext();
@@ -150,15 +153,16 @@ Token Lexer::Next() {
                 SourceLocation loc{line_, row_};
                 ch = MoveNext();
                 if (ch == '.') {
-                    for (int i = 0; i < 2; i++) {
+                    int i;
+                    for (i = 0; i < 2; i++) {
                         loc.end_line = line_;
                         loc.end_row = row_;
                         ch = MoveNext();
                         if (ch != '.') {
-                            error_feedback_->Printf(loc, "Unexpected `...', expected: %c", ch);
-                            return Token(Token::kError, loc);
+                            break;
                         }
                     }
+                    return i == 1 ? Token(Token::kVargs, loc) : Token(Token::kMore, loc);
                 } else {
                     return Token(Token::kDot, SourceLocation::One(loc.begin_line, loc.begin_row));
                 }
@@ -266,7 +270,9 @@ Token Lexer::Next() {
                 if (IsUtf8Prefix(ch) && !IsTermChar(ch)) {
                     return MatchIdentifier();
                 }
-                break;
+                error_feedback_->Printf(SourceLocation::One(line_, row_), "Unexpected: %c(%x)",
+                                        ch, ch);
+                return Token(Token::kError, SourceLocation::One(line_, row_));
         }
     }
 }

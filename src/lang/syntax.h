@@ -52,6 +52,7 @@ struct Operator {
     int right;
     
     constexpr Operator(Kind k, int o, int l, int r): kind(k), operands(o), left(l), right(r) {}
+    Operator() {}
 }; // struct Operator
 
 struct Operators {
