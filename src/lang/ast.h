@@ -121,7 +121,9 @@ public:
     
     DEF_PTR_PROP_RW(const ASTString, file_name);
     DEF_PTR_PROP_RW(const ASTString, package_name);
-    DEF_VAL_PROP_RM(base::ArenaVector<ImportStatement *>, import_packages);
+    DEF_ARENA_VECTOR_GETTER(ImportStatement *, import_package);
+    DEF_ARENA_VECTOR_GETTER(Declaration *, global_variable);
+    DEF_ARENA_VECTOR_GETTER(Definition *, function);
     
     void InsertImportStatement(ImportStatement *stmt) { import_packages_.push_back(stmt); }
     void InsertGlobalVariable(Declaration *decl) { global_variables_.push_back(decl); }
@@ -451,8 +453,10 @@ class MultiExpression : public Expression {
 public:
     void InsertOperand(Expression *expr) { operands_.push_back(expr); }
     
+    DEF_ARENA_VECTOR_GETTER(Expression *, operand);
 protected:
-    MultiExpression(base::Arena *arena, int position, Kind kind, const std::vector<Expression *> parts)
+    MultiExpression(base::Arena *arena, int position, Kind kind,
+                    const std::vector<Expression *> &parts)
         : Expression(position, kind)
         , operands_(arena) {
         for (auto expr : parts) { InsertOperand(expr); }
@@ -505,6 +509,76 @@ private:
     Expression *key_;
     Expression *value_;
 }; // class PairExpression
+
+
+// array[type](reserve)
+// array[type]{1,2,3}
+// array{"ok", "no", "over"}
+class ArrayInitializer : public MultiExpression {
+public:
+    ArrayInitializer(base::Arena *arena, int position, bool mutable_container,
+                     TypeSign *element_type, const std::vector<Expression *> &elements)
+        : MultiExpression(arena, position, kArrayInitializer, elements)
+        , mutable_container_(mutable_container)
+        , element_type_(element_type) {}
+    ArrayInitializer(base::Arena *arena, int position, bool mutable_container,
+                     TypeSign *element_type, Expression *reserve)
+        : MultiExpression(arena, position, kArrayInitializer, {})
+        , mutable_container_(mutable_container)
+        , element_type_(element_type)
+        , reserve_(reserve) {}
+
+    DEF_VAL_GETTER(bool, mutable_container);
+    DEF_PTR_PROP_RW(Expression, reserve);
+    DEF_PTR_PROP_RW(TypeSign, element_type);
+    
+    DEFINE_AST_NODE(ArrayInitializer);
+private:
+    bool mutable_container_;
+    Expression *reserve_; // reserve parameter
+    TypeSign *element_type_;
+}; // class ArrayInitializer
+
+class MapInitializer : public MultiExpression {
+public:
+    MapInitializer(base::Arena *arena, int position, bool mutable_container, TypeSign *key_type,
+                   TypeSign *value_type, const std::vector<Expression *> &elements)
+        : MultiExpression(arena, position, kArrayInitializer, elements)
+        , mutable_container_(mutable_container)
+        , reserve_(nullptr)
+        , load_factor_(nullptr)
+        , key_type_(key_type)
+        , value_type_(value_type) {
+    #if defined(DEBUG) || defined(_DEBUG)
+        for (auto pair : elements) {
+            DCHECK(pair->IsPairExpression());
+        }
+    #endif
+    }
+
+    MapInitializer(base::Arena *arena, int position, bool mutable_container, TypeSign *key_type,
+                   TypeSign *value_type, Expression *reserve, Expression *load_factor)
+        : MultiExpression(arena, position, kArrayInitializer, {})
+        , mutable_container_(mutable_container)
+        , reserve_(reserve)
+        , load_factor_(load_factor)
+        , key_type_(key_type)
+        , value_type_(value_type) {}
+
+    DEF_VAL_GETTER(bool, mutable_container);
+    DEF_PTR_PROP_RW(Expression, reserve);
+    DEF_PTR_PROP_RW(Expression, load_factor);
+    DEF_PTR_PROP_RW(TypeSign, key_type);
+    DEF_PTR_PROP_RW(TypeSign, value_type);
+    
+    DEFINE_AST_NODE(MapInitializer);
+private:
+    bool mutable_container_;
+    Expression *reserve_; // reserve parameter
+    Expression *load_factor_; // factor for hash map
+    TypeSign *key_type_;
+    TypeSign *value_type_;
+}; // class MapInitializer
 
 } // namespace lang
 

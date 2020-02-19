@@ -262,6 +262,15 @@ struct ArenaUtils {
     template<class T>
     static inline bool IsNotEmpty(const ArenaVector<T> *a) { return !IsEmpty(a); }
 };
+
+#define DEF_ARENA_VECTOR_GETTER(__element_type, __name) \
+    inline size_t __name##s_size() const { return __name##s_.size(); } \
+    inline __element_type __name(size_t i) const { \
+        DCHECK_LT(i, __name##s_.size()); \
+        return __name##s_[i]; \
+    } \
+    inline const base::ArenaVector<__element_type> &__name##s() const { return __name##s_; } \
+    inline base::ArenaVector<__element_type> *mutable_##__name##s() { return &__name##s_; }
     
 } // namespace base
     

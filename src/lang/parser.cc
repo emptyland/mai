@@ -334,7 +334,8 @@ static Operator GetUnaryOp(Token::Kind kind) {
             return Operators::kBitwiseNot;
         case Token::kMinus:
             return Operators::kMinus;
-
+        case Token::kLArrow:
+            return Operators::kRecv;
         default:
             return Operators::NOT_UNARY;
     }
@@ -352,6 +353,8 @@ static Operator GetBinaryOp(Token::Kind kind) {
             return Operators::kDiv;
         case Token::kPercent:
             return Operators::kMod;
+        case Token::kLArrow:
+            return Operators::kSend;
         case Token::kLShift:
             return Operators::kBitwiseShl;
         case Token::kRShift:
@@ -501,7 +504,7 @@ Expression *Parser::ParsePrimary(bool *ok) {
         case Token::kLParen: { // `(' expr `)'
             MoveNext();
             if (Test(Token::kMore)) { // `(' `..' -> expr `)'
-                Match(Token::kLArrow, CHECK_OK);
+                Match(Token::kRArrow, CHECK_OK);
                 Expression *value = ParseExpression(CHECK_OK);
                 loc.LinkEnd(Peek().source_location());
                 Match(Token::kRParen, CHECK_OK);
@@ -509,7 +512,7 @@ Expression *Parser::ParsePrimary(bool *ok) {
                 return new (arena_) PairExpression(position, value);
             }
             Expression *expr = ParseExpression(CHECK_OK);
-            if (Test(Token::kLArrow)) { // `(' expr -> expr `)'
+            if (Test(Token::kRArrow)) { // `(' expr -> expr `)'
                 Expression *value = ParseExpression(CHECK_OK);
                 loc.LinkEnd(Peek().source_location());
                 Match(Token::kRParen, CHECK_OK);
@@ -541,11 +544,138 @@ Expression *Parser::ParsePrimary(bool *ok) {
             return new (arena_) UIntLiteral(position, nullptr, val);
         } break;
 
+        // TODO:
+
+        case Token::kF32Val: {
+            float val = Peek().f32_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) F32Literal(position, nullptr, val);
+        } break;
+            
+        case Token::kF64Val: {
+            double val = Peek().f64_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) F64Literal(position, nullptr, val);
+        } break;
+            
+        case Token::kArray:
+        case Token::kMutableArray: {
+            return ParseArrayInitializer(ok);
+        } break;
+            
+        case Token::kMap:
+        case Token::kMutableMap: {
+            return ParseMapInitializer(ok);
+        } break;
+
         default:
             error_feedback_->Printf(Peek().source_location(), "Unexpected");
             *ok = false;
             return nullptr;
     }
+}
+
+ArrayInitializer *Parser::ParseArrayInitializer(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    bool mut = true;
+    if (Test(Token::kArray)) {
+        mut = false;
+    } else {
+        Match(Token::kMutableArray, CHECK_OK);
+    }
+
+    TypeSign *element_type = nullptr;
+    if (Test(Token::kLBrack)) { // `['
+        element_type = ParseTypeSign(CHECK_OK);
+        Match(Token::kRBrack, CHECK_OK);
+    }
+
+    if (Test(Token::kLParen)) { // `('
+        Expression *reserve = ParseExpression(CHECK_OK);
+        loc.LinkEnd(Peek().source_location());
+        int position = file_unit_->InsertSourceLocation(loc);
+        Match(Token::kRParen, CHECK_OK);
+        return new (arena_) ArrayInitializer(arena_, position, mut, element_type, reserve);
+    }
+
+    std::vector<Expression *> elements;
+    Match(Token::kLBrace, CHECK_OK); // `{'
+    loc.LinkEnd(Peek().source_location());
+    if (!Test(Token::kRBrace)) {
+        Expression *elem = ParseExpression(CHECK_OK);
+        elements.push_back(elem);
+        while (Test(Token::kComma)) {
+            elem = ParseExpression(CHECK_OK);
+            elements.push_back(elem);
+        }
+        loc.LinkEnd(Peek().source_location());
+        Match(Token::kRBrace, CHECK_OK); // `}'
+    }
+
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) ArrayInitializer(arena_, position, mut, element_type, elements);
+}
+
+MapInitializer *Parser::ParseMapInitializer(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    bool mut = true;
+    if (Test(Token::kMap)) {
+        mut = false;
+    } else {
+        Match(Token::kMutableMap, CHECK_OK);
+    }
+    
+    TypeSign *key_type = nullptr, *value_type = nullptr;
+    if (Test(Token::kLBrack)) { // `['
+        key_type = ParseTypeSign(CHECK_OK);
+        Match(Token::kComma, CHECK_OK);
+        value_type = ParseTypeSign(CHECK_OK);
+        Match(Token::kRBrack, CHECK_OK);
+    }
+    
+    // map[string, int](128, 1.2)
+    if (Test(Token::kLParen)) { // `('
+        Expression *reserve = ParseExpression(CHECK_OK);
+        Expression *load_factor = nullptr;
+        if (Test(Token::kComma)) {
+            load_factor = ParseExpression(CHECK_OK);
+        }
+
+        loc.LinkEnd(Peek().source_location());
+        int position = file_unit_->InsertSourceLocation(loc);
+        Match(Token::kRParen, CHECK_OK);
+        return new (arena_) MapInitializer(arena_, position, mut, key_type, value_type, reserve,
+                                           load_factor);
+    }
+
+    std::vector<Expression *> pairs;
+    Match(Token::kLBrace, CHECK_OK); // `{'
+    loc.LinkEnd(Peek().source_location());
+    if (!Test(Token::kRBrace)) {
+        Expression *pair = ParsePairExpression(CHECK_OK);
+        
+        pairs.push_back(pair);
+        while (Test(Token::kComma)) {
+            pair = ParsePairExpression(CHECK_OK);
+            pairs.push_back(pair);
+        }
+        loc.LinkEnd(Peek().source_location());
+        Match(Token::kRBrace, CHECK_OK); // `}'
+    }
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) MapInitializer(arena_, position, mut, key_type, value_type, pairs);
+}
+
+PairExpression *Parser::ParsePairExpression(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    Expression *key = ParseExpression(CHECK_OK);
+    Match(Token::kRArrow, CHECK_OK);
+    Expression *value = ParseExpression(CHECK_OK);
+    loc.LinkEnd(file_unit_->FindSourceLocation(value));
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) PairExpression(position, key, value);
 }
 
 StringTemplateExpression *Parser::ParseStringTemplate(bool *ok) {

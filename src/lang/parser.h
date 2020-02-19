@@ -17,6 +17,9 @@ class TypeSign;
 class StringTemplateExpression;
 class Expression;
 class FunctionPrototype;
+class ArrayInitializer;
+class MapInitializer;
+class PairExpression;
 
 class Parser final {
 public:
@@ -40,6 +43,9 @@ public:
     Expression *ParseSuffixed(bool *ok);
     Expression *ParsePrimary(bool *ok);
     StringTemplateExpression *ParseStringTemplate(bool *ok);
+    ArrayInitializer *ParseArrayInitializer(bool *ok);
+    MapInitializer *ParseMapInitializer(bool *ok);
+    PairExpression *ParsePairExpression(bool *ok);
 private:
     const Token &Peek() const { return lookahead_; }
     void Match(Token::Kind kind, bool *ok);

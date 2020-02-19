@@ -44,7 +44,9 @@ struct Operator {
         kOr,
         kNot,
         
-        kContcat
+        kContcat,
+        kRecv, // Channel receive
+        kSend, // Channel send
     };
     Kind kind;
     int operands;
@@ -62,6 +64,7 @@ struct Operators {
     static constexpr auto kNot = Operator(Operator::kNot, 1, kUnaryPrio, kUnaryPrio); // !
     static constexpr auto kBitwiseNot = Operator(Operator::kBitwiseNot, 1, kUnaryPrio, kUnaryPrio); // ^
     static constexpr auto kMinus = Operator(Operator::kMinus, 1, kUnaryPrio, kUnaryPrio); // -
+    static constexpr auto kRecv = Operator(Operator::kRecv, 1, kUnaryPrio, kUnaryPrio); // <-
 
     // Binary:
     static constexpr auto kAdd = Operator(Operator::kAdd, 2, 90, 90); // +
@@ -69,6 +72,8 @@ struct Operators {
     static constexpr auto kMul = Operator(Operator::kMul, 2, 100, 100); // *
     static constexpr auto kDiv = Operator(Operator::kDiv, 2, 100, 100); // /
     static constexpr auto kMod = Operator(Operator::kMod, 2, 100, 100); // %
+
+    static constexpr auto kSend = Operator(Operator::kSend, 2, 100, 100); // chan <- data
     
     // Bitwise op
     static constexpr auto kBitwiseShl = Operator(Operator::kBitwiseShl, 2, 70, 70); // <<

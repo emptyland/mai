@@ -52,8 +52,8 @@ TEST_F(ParserTest, Import) {
     ASSERT_TRUE(ok);
     ASSERT_NE(nullptr, ast);
     
-    ASSERT_EQ(1, ast->import_packages().size());
-    auto stmt = ast->import_packages()[0];
+    ASSERT_EQ(1, ast->import_packages_size());
+    auto stmt = ast->import_package(0);
     ASSERT_EQ("testing.foo.bar.baz", stmt->original_package_name()->ToString());
     ASSERT_EQ(nullptr, stmt->alias());
 }
@@ -71,12 +71,12 @@ TEST_F(ParserTest, ImportBlock) {
     ASSERT_TRUE(ok);
     ASSERT_NE(nullptr, ast);
     
-    ASSERT_EQ(2, ast->import_packages().size());
-    auto stmt = ast->import_packages()[0];
+    ASSERT_EQ(2, ast->import_packages_size());
+    auto stmt = ast->import_package(0);
     ASSERT_EQ("testing.foo", stmt->original_package_name()->ToString());
     ASSERT_EQ("Foo", stmt->alias()->ToString());
     
-    stmt = ast->import_packages()[1];
+    stmt = ast->import_package(1);
     ASSERT_EQ("testing.bar", stmt->original_package_name()->ToString());
     ASSERT_EQ("Bar", stmt->alias()->ToString());
 }
@@ -126,7 +126,7 @@ TEST_F(ParserTest, FunctionTypeSign) {
 }
 
 TEST_F(ParserTest, PairExpression) {
-    MockFile file("(a <- b)\n");
+    MockFile file("(a -> b)\n");
     parser_.SwitchInputFile("demos/demo.mai", &file);
 
     bool ok = true;
@@ -140,7 +140,7 @@ TEST_F(ParserTest, PairExpression) {
     ASSERT_STREQ("a", pair->key()->AsIdentifier()->name()->data());
     ASSERT_STREQ("b", pair->value()->AsIdentifier()->name()->data());
     
-    MockFile file1("(.. <- b)\n");
+    MockFile file1("(.. -> b)\n");
     parser_.SwitchInputFile("demos/demo.mai", &file1);
 
     ast = parser_.ParseExpression(&ok);
@@ -171,6 +171,95 @@ TEST_F(ParserTest, ParenExpression) {
     ASSERT_STREQ("a", bin->lhs()->AsIdentifier()->name()->data());
     ASSERT_STREQ("b", bin->rhs()->AsIdentifier()->name()->data());
     ASSERT_EQ(Operator::kAdd, bin->op().kind);
+}
+
+TEST_F(ParserTest, ArrayInitializer) {
+    MockFile file("array[int](100)\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+    
+    bool ok = true;
+    auto ast = parser_.ParseArrayInitializer(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_FALSE(ast->mutable_container());
+    ASSERT_EQ(Token::kInt, ast->element_type()->id());
+    ASSERT_EQ(100, ast->reserve()->AsIntLiteral()->value());
+    
+    MockFile file1("mutable_array{\"ok\", \"no\", \"over\"}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file1);
+    
+    ok = true;
+    ast = parser_.ParseArrayInitializer(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_TRUE(ast->mutable_container());
+    ASSERT_EQ(nullptr, ast->element_type());
+    ASSERT_EQ(3, ast->operands_size());
+    ASSERT_STREQ("ok", ast->operand(0)->AsStringLiteral()->value()->data());
+    ASSERT_STREQ("no", ast->operand(1)->AsStringLiteral()->value()->data());
+    ASSERT_STREQ("over", ast->operand(2)->AsStringLiteral()->value()->data());
+}
+
+TEST_F(ParserTest, MapInitializer) {
+    MockFile file("map[string, int](100, 1.2)\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+    
+    bool ok = true;
+    auto ast = parser_.ParseMapInitializer(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_FALSE(ast->mutable_container());
+    ASSERT_EQ(Token::kString, ast->key_type()->id());
+    ASSERT_EQ(Token::kInt, ast->value_type()->id());
+    ASSERT_EQ(100, ast->reserve()->AsIntLiteral()->value());
+    ASSERT_NEAR(1.2, ast->load_factor()->AsF32Literal()->value(), 0.01);
+    
+    MockFile file1("map{a+b->1, \"ok\"->a/b}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file1);
+
+    ok = true;
+    ast = parser_.ParseMapInitializer(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+
+    ASSERT_FALSE(ast->mutable_container());
+    ASSERT_EQ(nullptr, ast->key_type());
+    ASSERT_EQ(nullptr, ast->value_type());
+    ASSERT_EQ(2, ast->operands_size());
+    ASSERT_TRUE(ast->operand(0)->IsPairExpression());
+    ASSERT_TRUE(ast->operand(1)->IsPairExpression());
+}
+
+TEST_F(ParserTest, ChannelRecvSend) {
+    MockFile file("<- ch\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseExpression(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+
+    auto unary = ast->AsUnaryExpression();
+    ASSERT_NE(nullptr, unary);
+    ASSERT_EQ(Operator::kRecv, unary->op().kind);
+    ASSERT_STREQ("ch", unary->operand()->AsIdentifier()->name()->data());
+
+    MockFile file1("ch <- data\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file1);
+
+    ok = true;
+    ast = parser_.ParseExpression(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+
+    auto bin = ast->AsBinaryExpression();
+    ASSERT_NE(nullptr, bin);
+    ASSERT_EQ(Operator::kSend, bin->op().kind);
+    ASSERT_STREQ("ch", bin->lhs()->AsIdentifier()->name()->data());
+    ASSERT_STREQ("data", bin->rhs()->AsIdentifier()->name()->data());
 }
 
 }
