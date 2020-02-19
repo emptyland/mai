@@ -14,6 +14,9 @@ namespace lang {
     V(FileUnit) \
     V(ImportStatement) \
     V(VariableDeclaration) \
+    V(FunctionDefinition) \
+    V(AssignmentStatement) \
+    V(BreakableStatement) \
     V(StringLiteral) \
     V(BoolLiteral) \
     V(I8Literal) \
@@ -199,13 +202,7 @@ public:
     
     DEF_PTR_PROP_RW(TypeSign, return_type);
     DEF_VAL_PROP_RW(bool, vargs);
-    
-    size_t parameters_size() const { return parameters_.size(); }
-    
-    const Parameter &parameter(size_t i) const {
-        DCHECK_LT(i, parameters_.size());
-        return parameters_[i];
-    }
+    DEF_ARENA_VECTOR_GETTER(Parameter, parameter);
     
     Parameter *mutable_parameter(size_t i) {
         DCHECK_LT(i, parameters_.size());
@@ -220,7 +217,7 @@ public:
     }
 private:
     base::ArenaVector<Parameter> parameters_;
-    TypeSign *return_type_;
+    TypeSign *return_type_ = nullptr;
     bool vargs_ = false;
 }; // class FunctionPrototype
 
@@ -249,15 +246,15 @@ private:
 }; // class ImportStatement
 
 
-class Expression : public ASTNode {
+class Expression : public Statement {
 public:
-    virtual Operator GetOperator() const { return Operators::NOT_BINARY; }
+    virtual Operator GetOperator() const { return Operators::NOT_OPERATOR; }
 
     bool IsLValue() const {
         return IsIdentifier() || IsDotExpression() || IsIndexExpression();
     }
 protected:
-    Expression(int position, Kind kind): ASTNode(position, kind) {}
+    Expression(int position, Kind kind): Statement(position, kind) {}
 }; // // class Statement
 
 
@@ -314,6 +311,74 @@ private:
     Expression *initializer_;
 }; // class VariableDeclaration
 
+
+class FunctionDefinition : public Definition {
+public:
+    FunctionDefinition(int position, bool native, const ASTString *identifier,
+                       FunctionPrototype *prototype, base::ArenaVector<Statement *> &&statements)
+        : Definition(position, kFunctionDefinition, identifier)
+        , native_(native)
+        , prototype_(prototype)
+        , statements_(statements) {}
+
+    DEF_VAL_GETTER(bool, native);
+    DEF_PTR_GETTER(FunctionPrototype, prototype);
+    DEF_ARENA_VECTOR_GETTER(Statement *, statement);
+    
+    DEFINE_AST_NODE(FunctionDefinition);
+private:
+    bool native_;
+    FunctionPrototype *prototype_;
+    base::ArenaVector<Statement *> statements_;
+}; // class FunctionDefinition
+
+
+class AssignmentStatement : public Statement {
+public:
+    AssignmentStatement(int position, Operator assignment_op, Expression *lval, Expression *rval)
+        : Statement(position, kAssignmentStatement)
+        , assignment_op_(assignment_op)
+        , lval_(lval)
+        , rval_(rval) {
+        DCHECK(lval->IsLValue());
+    }
+    
+    DEF_VAL_GETTER(Operator, assignment_op);
+    DEF_PTR_PROP_RW(Expression, lval);
+    DEF_PTR_PROP_RW(Expression, rval);
+
+    DEFINE_AST_NODE(AssignmentStatement);
+private:
+    Operator assignment_op_;
+    Expression *lval_;
+    Expression *rval_;
+}; // class AssignmentStatement
+
+
+class BreakableStatement : public Statement {
+public:
+    enum Control {
+        RETURN,
+        BREAK,
+        CONTINUE,
+    }; // enum Control
+    
+    BreakableStatement(int position, Control control, Expression *value = nullptr)
+        : Statement(position, kBreakableStatement)
+        , control_(control)
+        , value_(value) {}
+    
+    bool IsReturn() const { return control_ == RETURN; }
+    bool IsBreak() const { return control_ == BREAK; }
+    bool IsContinue() const { return control_ == CONTINUE; }
+
+    DEF_PTR_PROP_RW(Expression, value);
+
+    DEFINE_AST_NODE(BreakableStatement);
+private:
+    Control control_;
+    Expression *value_;
+}; // class BreakableStatement
 
 
 class Literal : public Expression {

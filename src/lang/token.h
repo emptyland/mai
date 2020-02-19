@@ -62,6 +62,7 @@ using ASTString = base::ArenaString;
     V(More, "..", none) \
     V(Vargs, "...", none) \
     V(Colon, ":", none) \
+    V(Semi, ";", none) \
     V(2Colon, "::", none) \
     V(Less, "<", none) \
     V(LessEqual, "<=", none) \
@@ -102,6 +103,9 @@ using ASTString = base::ArenaString;
     V(Protected, "protected", none) \
     V(Private, "private", none) \
     V(As, "as", none) \
+    V(Return, "return", none) \
+    V(Break, "break", none) \
+    V(Continue, "continue", none) \
     DECLARE_BASE_TYPE_TOKEN(V)
 
 #define DECLARE_BASE_TYPE_TOKEN(V) \

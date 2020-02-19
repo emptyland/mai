@@ -119,6 +119,9 @@ Token Lexer::Next() {
             case ',':
                 return MatchOne(Token::kComma);
                 
+            case ';':
+                return MatchOne(Token::kSemi);
+                
             case '|': {
                 SourceLocation loc{line_, row_};
                 ch = MoveNext();

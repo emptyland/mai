@@ -173,6 +173,83 @@ TEST_F(ParserTest, ParenExpression) {
     ASSERT_EQ(Operator::kAdd, bin->op().kind);
 }
 
+TEST_F(ParserTest, IncrementExpression) {
+    MockFile file("a + a++\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseExpression(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+
+    auto bin = ast->AsBinaryExpression();
+    ASSERT_NE(nullptr, bin);
+    ASSERT_STREQ("a", bin->lhs()->AsIdentifier()->name()->data());
+    ASSERT_EQ(Operator::kAdd, bin->op().kind);
+
+    auto una = bin->rhs()->AsUnaryExpression();
+    ASSERT_NE(nullptr, una);
+    ASSERT_STREQ("a", una->operand()->AsIdentifier()->name()->data());
+    ASSERT_EQ(Operator::kIncrementPost, una->op().kind);
+}
+
+TEST_F(ParserTest, AssignmentStatement) {
+    MockFile file("a += (.. -> 100)\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseAssignmentOrExpression(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    auto ass = ast->AsAssignmentStatement();
+    ASSERT_NE(nullptr, ass);
+    
+    ASSERT_EQ(Operator::kAdd, ass->assignment_op().kind);
+    ASSERT_STREQ("a", ass->lval()->AsIdentifier()->name()->data());
+    auto pair = ass->rval()->AsPairExpression();
+    ASSERT_NE(nullptr, pair);
+    ASSERT_TRUE(pair->addition_key());
+    ASSERT_EQ(100, pair->value()->AsIntLiteral()->value());
+}
+
+TEST_F(ParserTest, NativeFunctionDeclaration) {
+    MockFile file("native fun foo(a:int, b:int)\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseFunctionDefinition(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_TRUE(ast->native());
+    ASSERT_STREQ("foo", ast->identifier()->data());
+    ASSERT_EQ(2, ast->prototype()->parameters_size());
+    ASSERT_STREQ("a", ast->prototype()->parameter(0).name->data());
+    ASSERT_EQ(Token::kInt, ast->prototype()->parameter(0).type->id());
+    ASSERT_STREQ("b", ast->prototype()->parameter(1).name->data());
+    ASSERT_EQ(Token::kInt, ast->prototype()->parameter(1).type->id());
+    ASSERT_EQ(Token::kVoid, ast->prototype()->return_type()->id());
+}
+
+TEST_F(ParserTest, FunctionDefinition) {
+    MockFile file("fun foo(a:int, b:int) = a + b\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseFunctionDefinition(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_EQ(1, ast->statements_size());
+    auto ret = ast->statement(0)->AsBreakableStatement();
+    ASSERT_TRUE(ret->IsReturn());
+    auto bin = ret->value()->AsBinaryExpression();
+    ASSERT_NE(nullptr, bin);
+    ASSERT_STREQ("a", bin->lhs()->AsIdentifier()->name()->data());
+    ASSERT_STREQ("b", bin->rhs()->AsIdentifier()->name()->data());
+}
+
 TEST_F(ParserTest, ArrayInitializer) {
     MockFile file("array[int](100)\n");
     parser_.SwitchInputFile("demos/demo.mai", &file);

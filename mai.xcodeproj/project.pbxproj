@@ -26,7 +26,6 @@
 		231ECF6323E85AD600B41869 /* bytecode-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF6223E85AD600B41869 /* bytecode-test.cc */; };
 		23216A252201561B00E1B816 /* slice-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23216A242201561B00E1B816 /* slice-test.cc */; };
 		23219F0523E9B021006CF83B /* bytecode-array-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23219F0423E9B021006CF83B /* bytecode-array-builder.cc */; };
-		2329798423D03A60009B4C1B /* lang-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2329798323D03A60009B4C1B /* lang-test.cc */; };
 		23344CDC21EF0764006BC6E4 /* allocator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD621EF0751006BC6E4 /* allocator.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		23344CDD21EF0764006BC6E4 /* comparator.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CDA21EF0751006BC6E4 /* comparator.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		23344CDE21EF0764006BC6E4 /* db.h in Headers */ = {isa = PBXBuildFile; fileRef = 23344CD921EF0751006BC6E4 /* db.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -322,7 +321,6 @@
 		2326A42A21A507590040BE53 /* key-boundle.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "key-boundle.cc"; sourceTree = "<group>"; };
 		2326A42D21A54A740040BE53 /* db-impl-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "db-impl-test.cc"; sourceTree = "<group>"; };
 		23283B6B21D612560011D680 /* pessimistic-transaction-db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pessimistic-transaction-db.h"; sourceTree = "<group>"; };
-		2329798323D03A60009B4C1B /* lang-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lang-test.cc"; sourceTree = "<group>"; };
 		232AA2332193E506007EF228 /* skip-list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "skip-list.h"; sourceTree = "<group>"; };
 		232AA2372193E754007EF228 /* ordered-memory-table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ordered-memory-table.h"; sourceTree = "<group>"; };
 		232AA2382193E780007EF228 /* ordered-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "ordered-memory-table.cc"; sourceTree = "<group>"; };
@@ -708,7 +706,6 @@
 		2329798223D039AC009B4C1B /* lang */ = {
 			isa = PBXGroup;
 			children = (
-				2329798323D03A60009B4C1B /* lang-test.cc */,
 				23599D3C23D58F6D00F722D6 /* page-test.cc */,
 				238F195223D7DECF00FF0D98 /* metadata-space-test.cc */,
 				235602A023DDC6DE00A799B9 /* space-test.cc */,
@@ -1367,7 +1364,6 @@
 				2364B30A21E451F9008519AE /* merging.cc in Sources */,
 				23ECE8A923F98A1900B3C83B /* parser-test.cc in Sources */,
 				2364B30B21E451F9008519AE /* env.cc in Sources */,
-				2329798423D03A60009B4C1B /* lang-test.cc in Sources */,
 				2364B30C21E451F9008519AE /* error.cc in Sources */,
 				2364B31021E451F9008519AE /* lru-cache-v1.cc in Sources */,
 				2364B31221E451F9008519AE /* delta-amend-iterator.cc in Sources */,

@@ -13,9 +13,11 @@ class Lexer;
 class FileUnit;
 class ImportStatement;
 class VariableDeclaration;
+class FunctionDefinition;
 class TypeSign;
 class StringTemplateExpression;
 class Expression;
+class Statement;
 class FunctionPrototype;
 class ArrayInitializer;
 class MapInitializer;
@@ -35,6 +37,9 @@ public:
     ImportStatement *ParseImportBlock(bool *ok);
     ImportStatement *ParseImportStatement(SourceLocation *loc, bool *ok);
     VariableDeclaration *ParseVariableDeclaration(bool *ok);
+    FunctionDefinition *ParseFunctionDefinition(bool *ok);
+    Statement *ParseStatement(bool *ok);
+    Statement *ParseAssignmentOrExpression(bool *ok);
     TypeSign *ParseTypeSign(bool *ok);
     FunctionPrototype *ParseFunctionPrototype(bool requrie_param_name, SourceLocation *loc, bool *ok);
     Expression *ParseExpression(bool *ok) { return ParseExpression(0, nullptr, ok); }

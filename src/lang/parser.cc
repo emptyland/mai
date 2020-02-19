@@ -55,11 +55,13 @@ FileUnit *Parser::Parse(bool *ok) {
             } break;
                 
             case Token::kNative: {
-                TODO();
+                Definition *def = ParseFunctionDefinition(CHECK_OK);
+                file_unit_->InsertFunction(def);
             } break;
                 
-            case Token::kDef: {
-                TODO();
+            case Token::kFun: {
+                Definition *def = ParseFunctionDefinition(CHECK_OK);
+                file_unit_->InsertFunction(def);
             } break;
 
             case Token::kVal:
@@ -171,6 +173,123 @@ VariableDeclaration *Parser::ParseVariableDeclaration(bool *ok) {
 
     int position = file_unit_->InsertSourceLocation(loc);
     return new (arena_) VariableDeclaration(position, kind, name, type, init);
+}
+
+FunctionDefinition *Parser::ParseFunctionDefinition(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    bool native = Test(Token::kNative);
+    Match(Token::kFun, CHECK_OK);
+    
+    const ASTString *name = ParseIdentifier(CHECK_OK);
+    SourceLocation end;
+    FunctionPrototype *proto = ParseFunctionPrototype(true, &end, CHECK_OK);
+
+    base::ArenaVector<Statement *> stmts(arena_);
+    if (native) {
+        loc.LinkEnd(end);
+        int position = file_unit_->InsertSourceLocation(loc);
+        return new (arena_) FunctionDefinition(position, native, name, proto, std::move(stmts));
+    }
+
+    if (Test(Token::kAssign)) {
+        Expression *expr = ParseExpression(CHECK_OK);
+        BreakableStatement *stmt = new (arena_) BreakableStatement(expr->position(),
+                                                                   BreakableStatement::RETURN, expr);
+        stmts.push_back(stmt);
+    } else {
+        Match(Token::kLBrace, CHECK_OK);
+        
+        while (!Test(Token::kRBrace)) {
+            loc.LinkEnd(Peek().source_location());
+            Statement *stmt = ParseStatement(CHECK_OK);
+            stmts.push_back(stmt);
+        }
+    }
+    
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) FunctionDefinition(position, native, name, proto, std::move(stmts));
+}
+
+Statement *Parser::ParseStatement(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    switch (Peek().kind()) {
+        case Token::kVar:
+        case Token::kVal:
+            return ParseVariableDeclaration(ok);
+            
+        case Token::kFun:
+            return ParseFunctionDefinition(ok);
+            
+        case Token::kReturn: {
+            MoveNext();
+            if (Peek().kind() == Token::kRBrace || Peek().kind() == Token::kSemi) {
+                loc.LinkEnd(Peek().source_location());
+                MoveNext();
+                int position = file_unit_->InsertSourceLocation(loc);
+                return new (arena_) BreakableStatement(position, BreakableStatement::RETURN);
+            } else {
+                Expression *val = ParseExpression(CHECK_OK);
+                loc.LinkEnd(file_unit_->FindSourceLocation(val));
+                int position = file_unit_->InsertSourceLocation(loc);
+                return new (arena_) BreakableStatement(position, BreakableStatement::RETURN, val);
+            }
+        } break;
+
+        case Token::kBreak: {
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) BreakableStatement(position, BreakableStatement::BREAK);
+        } break;
+
+        case Token::kContinue: {
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) BreakableStatement(position, BreakableStatement::CONTINUE);
+        } break;
+
+        default:
+            return ParseAssignmentOrExpression(ok);
+    }
+}
+
+Statement *Parser::ParseAssignmentOrExpression(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    Expression *lval = ParseExpression(CHECK_OK);
+    switch (Peek().kind()) {
+        case Token::kPlusEqual: // expr += expr
+        case Token::kMinusEqual: // expr -= expr
+        case Token::kAssign: { // expr = expr
+            if (!lval->IsLValue()) {
+                error_feedback_->Printf(loc, "Can not assign non-lval");
+                *ok = false;
+                return nullptr;
+            }
+        } break;
+        default:
+            return lval;
+    }
+
+    Operator op;
+    switch (Peek().kind()) {
+        case Token::kPlusEqual:
+            op = Operators::kAdd;
+            break;
+        case Token::kMinusEqual:
+            op = Operators::kSub;
+            break;
+        case Token::kAssign:
+            op = Operators::NOT_OPERATOR;
+            break;
+        default:
+            NOREACHED();
+            return nullptr;
+    }
+    
+    MoveNext();
+    Expression *rval = ParseExpression(CHECK_OK);
+    loc.LinkEnd(file_unit_->FindSourceLocation(rval));
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) AssignmentStatement(position, op, lval, rval);
 }
 
 TypeSign *Parser::ParseTypeSign(bool *ok) {
@@ -311,7 +430,7 @@ FunctionPrototype *Parser::ParseFunctionPrototype(bool requrie_param_name, Sourc
             Match(Token::kColon, CHECK_OK);
         }
         param = ParseTypeSign(CHECK_OK);
-        proto->InsertParameter(nullptr, param);
+        proto->InsertParameter(name, param);
     }
 
     *loc = Peek().source_location();
@@ -321,12 +440,16 @@ FunctionPrototype *Parser::ParseFunctionPrototype(bool requrie_param_name, Sourc
         TypeSign *type = ParseTypeSign(CHECK_OK);
         proto->set_return_type(type);
         *loc = file_unit_->FindSourceLocation(type);
+    } else {
+        int position = file_unit_->InsertSourceLocation(*loc);
+        TypeSign *type = new (arena_) TypeSign(position, Token::kVoid);
+        proto->set_return_type(type);
     }
     
     return proto;
 }
 
-static Operator GetUnaryOp(Token::Kind kind) {
+static Operator GetPrefixOp(Token::Kind kind) {
     switch (kind) {
         case Token::kNot:
             return Operators::kNot;
@@ -336,12 +459,16 @@ static Operator GetUnaryOp(Token::Kind kind) {
             return Operators::kMinus;
         case Token::kLArrow:
             return Operators::kRecv;
+        case Token::k2Plus:
+            return Operators::kIncrement;
+        case Token::k2Minus:
+            return Operators::kDecrement;
         default:
-            return Operators::NOT_UNARY;
+            return Operators::NOT_OPERATOR;
     }
 }
 
-static Operator GetBinaryOp(Token::Kind kind) {
+static Operator GetPostfixOp(Token::Kind kind) {
     switch (kind) {
         case Token::kPlus:
             return Operators::kAdd;
@@ -376,35 +503,58 @@ static Operator GetBinaryOp(Token::Kind kind) {
         case Token::kAnd:
             return Operators::kAnd;
         case Token::kOr:
-            return Operators::kOr;    
+            return Operators::kOr;
+        case Token::k2Plus:
+            return Operators::kIncrementPost;
+        case Token::k2Minus:
+            return Operators::kDecrementPost;
         default:
-            return Operators::NOT_BINARY;
+            return Operators::NOT_OPERATOR;
     }
 }
 
 Expression *Parser::ParseExpression(int limit, Operator *receiver, bool *ok) {
     SourceLocation loc = Peek().source_location();
     Expression *expr = nullptr;
-    Operator op = GetUnaryOp(Peek().kind());
-    if (op.kind != Operator::NOT_UNARY) {
-        Match(Peek().kind(), CHECK_OK);
+    Operator op = GetPrefixOp(Peek().kind());
+    if (op.kind != Operator::NOT_OPERATOR) {
+        MoveNext();
         Expression *operand = ParseExpression(Operators::kUnaryPrio, nullptr, CHECK_OK);
+        if (op.assignment && !operand->IsLValue()) {
+            error_feedback_->Printf(loc, "Can not assign non-lval");
+            *ok = false;
+            return nullptr;
+        }
         loc.LinkEnd(file_unit_->FindSourceLocation(operand));
         int position = file_unit_->InsertSourceLocation(loc);
         return new (arena_) UnaryExpression(position, op, operand);
     } else {
         expr = ParseSimple(CHECK_OK);
     }
-    op = GetBinaryOp(Peek().kind());
-    while (op.kind != Operator::NOT_BINARY && op.left > limit) {
+    
+    op = GetPostfixOp(Peek().kind());
+    while (op.kind != Operator::NOT_OPERATOR && op.left > limit) {
+        if (op.assignment && !expr->IsLValue()) {
+            error_feedback_->Printf(loc, "Can not assign non-lval");
+            *ok = false;
+            return nullptr;
+        }
+
         MoveNext();
-        Operator next_op;
-        Expression *rhs = ParseExpression(op.right, &next_op, CHECK_OK);
-        
-        loc.LinkEnd(file_unit_->FindSourceLocation(rhs));
-        int position = file_unit_->InsertSourceLocation(loc);
-        expr = new (arena_) BinaryExpression(position, op, expr, rhs);
-        op = next_op;
+        if (op.operands == 1) { // Post unary operator
+            loc.LinkEnd(file_unit_->FindSourceLocation(expr));
+            int position = file_unit_->InsertSourceLocation(loc);
+            expr = new (arena_) UnaryExpression(position, op, expr);
+            op = GetPostfixOp(Peek().kind());
+        } else {
+            Operator next_op;
+            Expression *rhs = ParseExpression(op.right, &next_op, CHECK_OK);
+            
+            loc.LinkEnd(file_unit_->FindSourceLocation(rhs));
+            int position = file_unit_->InsertSourceLocation(loc);
+            expr = new (arena_) BinaryExpression(position, op, expr, rhs);
+            op = next_op;
+        }
     }
     if (receiver) { *receiver = op; }
     return expr;
@@ -529,6 +679,62 @@ Expression *Parser::ParsePrimary(bool *ok) {
             int position = file_unit_->InsertSourceLocation(loc);
             return new (arena_) Identifier(position, name);
         } break;
+
+        case Token::kI8Val: {
+            int32_t val = Peek().i32_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) I8Literal(position, nullptr, val);
+        } break;
+            
+        case Token::kU8Val: {
+            uint32_t val = Peek().u32_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) U8Literal(position, nullptr, val);
+        } break;
+
+        case Token::kI16Val: {
+            int32_t val = Peek().i32_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) I16Literal(position, nullptr, val);
+        } break;
+
+        case Token::kU16Val: {
+            uint32_t val = Peek().u32_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) U16Literal(position, nullptr, val);
+        } break;
+
+        case Token::kI32Val: {
+            int32_t val = Peek().i32_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) I32Literal(position, nullptr, val);
+        } break;
+
+        case Token::kU32Val: {
+            uint32_t val = Peek().u32_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) U32Literal(position, nullptr, val);
+        } break;
+        
+        case Token::kI64Val: {
+            int64_t val = Peek().i64_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) I64Literal(position, nullptr, val);
+        } break;
+
+        case Token::kU64Val: {
+            uint64_t val = Peek().u64_val();
+            MoveNext();
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) U64Literal(position, nullptr, val);
+        } break;
             
         case Token::kIntVal: {
             int32_t val = Peek().i32_val();
@@ -543,8 +749,6 @@ Expression *Parser::ParsePrimary(bool *ok) {
             int position = file_unit_->InsertSourceLocation(loc);
             return new (arena_) UIntLiteral(position, nullptr, val);
         } break;
-
-        // TODO:
 
         case Token::kF32Val: {
             float val = Peek().f32_val();
@@ -571,7 +775,9 @@ Expression *Parser::ParsePrimary(bool *ok) {
         } break;
 
         default:
-            error_feedback_->Printf(Peek().source_location(), "Unexpected");
+            error_feedback_->Printf(Peek().source_location(),
+                                    "Unexpected primary expression, expected: %s",
+                                    Peek().ToString().c_str());
             *ok = false;
             return nullptr;
     }

@@ -16,8 +16,7 @@ using ASTString = base::ArenaString;
 
 struct Operator {
     enum Kind {
-        NOT_BINARY, // Flag value
-        NOT_UNARY, // Flag value
+        NOT_OPERATOR, // Flag value
         
         kAdd,
         kSub,
@@ -25,6 +24,10 @@ struct Operator {
         kDiv,
         kMod,
         kMinus,
+        kIncrement,
+        kIncrementPost,
+        kDecrement,
+        kDecrementPost,
         
         kBitwiseShl,
         kBitwiseShr,
@@ -52,8 +55,10 @@ struct Operator {
     int operands;
     int left;
     int right;
+    bool assignment;
     
-    constexpr Operator(Kind k, int o, int l, int r): kind(k), operands(o), left(l), right(r) {}
+    constexpr Operator(Kind k, int o, int l, int r, bool a = false)
+        : kind(k), operands(o), left(l), right(r), assignment(a) {}
     Operator() {}
 }; // struct Operator
 
@@ -65,6 +70,10 @@ struct Operators {
     static constexpr auto kBitwiseNot = Operator(Operator::kBitwiseNot, 1, kUnaryPrio, kUnaryPrio); // ^
     static constexpr auto kMinus = Operator(Operator::kMinus, 1, kUnaryPrio, kUnaryPrio); // -
     static constexpr auto kRecv = Operator(Operator::kRecv, 1, kUnaryPrio, kUnaryPrio); // <-
+    static constexpr auto kIncrement = Operator(Operator::kIncrement, 1, kUnaryPrio, kUnaryPrio, true); // expr++
+    static constexpr auto kIncrementPost = Operator(Operator::kIncrementPost, 1, kUnaryPrio, kUnaryPrio, true); // ++expr
+    static constexpr auto kDecrement = Operator(Operator::kDecrement, 1, kUnaryPrio, kUnaryPrio, true); // expr--
+    static constexpr auto kDecrementPost = Operator(Operator::kDecrementPost, 1, kUnaryPrio, kUnaryPrio, true); // --expr
 
     // Binary:
     static constexpr auto kAdd = Operator(Operator::kAdd, 2, 90, 90); // +
@@ -98,8 +107,7 @@ struct Operators {
     
     static constexpr auto kContact = Operator(Operator::kContcat, 2, 10, 10); // string concat
     
-    static constexpr auto NOT_UNARY = Operator(Operator::NOT_UNARY, 0, 0, 0);
-    static constexpr auto NOT_BINARY = Operator(Operator::NOT_BINARY, 0, 0, 0);
+    static constexpr auto NOT_OPERATOR = Operator(Operator::NOT_OPERATOR, 0, 0, 0);
 }; // struct Operators
 
 struct SourceLocation {
