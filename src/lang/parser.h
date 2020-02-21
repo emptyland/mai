@@ -14,6 +14,8 @@ class FileUnit;
 class ImportStatement;
 class VariableDeclaration;
 class FunctionDefinition;
+class ClassDefinition;
+class ClassImplementsBlock;
 class TypeSign;
 class StringTemplateExpression;
 class Expression;
@@ -22,6 +24,8 @@ class FunctionPrototype;
 class ArrayInitializer;
 class MapInitializer;
 class PairExpression;
+class LambdaLiteral;
+struct IncompleteClassDefinition;
 
 class Parser final {
 public:
@@ -38,6 +42,8 @@ public:
     ImportStatement *ParseImportStatement(SourceLocation *loc, bool *ok);
     VariableDeclaration *ParseVariableDeclaration(bool *ok);
     FunctionDefinition *ParseFunctionDefinition(bool *ok);
+    ClassDefinition *ParseClassDefinition(bool *ok);
+    ClassImplementsBlock *ParseClassImplementsBlock(bool *ok);
     Statement *ParseStatement(bool *ok);
     Statement *ParseAssignmentOrExpression(bool *ok);
     TypeSign *ParseTypeSign(bool *ok);
@@ -51,7 +57,11 @@ public:
     ArrayInitializer *ParseArrayInitializer(bool *ok);
     MapInitializer *ParseMapInitializer(bool *ok);
     PairExpression *ParsePairExpression(bool *ok);
+    LambdaLiteral *ParseLambdaLiteral(bool *ok);
 private:
+    void *ParseConstructor(IncompleteClassDefinition *def, bool *ok);
+    const ASTString *ParseDotName(SourceLocation *loc, bool *ok);
+    
     const Token &Peek() const { return lookahead_; }
     void Match(Token::Kind kind, bool *ok);
     bool Test(Token::Kind kind);

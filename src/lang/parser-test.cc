@@ -250,6 +250,107 @@ TEST_F(ParserTest, FunctionDefinition) {
     ASSERT_STREQ("b", bin->rhs()->AsIdentifier()->name()->data());
 }
 
+TEST_F(ParserTest, ClassDefinition) {
+    MockFile file("class Foo { val i = 1 }\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+    
+    bool ok = true;
+    auto ast = parser_.ParseClassDefinition(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_STREQ("Foo", ast->identifier()->data());
+    ASSERT_EQ(1, ast->fields_size());
+    ASSERT_FALSE(ast->field(0).in_constructor);
+    ASSERT_EQ(ClassDefinition::kPublic, ast->field(0).access);
+    ASSERT_EQ(VariableDeclaration::VAL, ast->field(0).declaration->kind());
+    ASSERT_STREQ("i", ast->field(0).declaration->identifier()->data());
+    ASSERT_EQ(1, ast->field(0).declaration->initializer()->AsIntLiteral()->value());
+
+    MockFile file1("class Foo(\n"
+                   "private:\n"
+                   "    val a: int,\n"
+                   "public:\n"
+                   "    val b: int,\n"
+                   "    c: int,\n"
+                   "    d: int\n"
+                   "): foo.Bar(c, d) {}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file1);
+    
+    ok = true;
+    ast = parser_.ParseClassDefinition(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_STREQ("Foo", ast->identifier()->data());
+    ASSERT_EQ(4, ast->parameters_size());
+
+    ASSERT_TRUE(ast->parameter(0).field_declaration);
+    ASSERT_EQ(0, ast->parameter(0).as_field);
+
+    ASSERT_TRUE(ast->parameter(1).field_declaration);
+    ASSERT_EQ(1, ast->parameter(1).as_field);
+    
+    ASSERT_FALSE(ast->parameter(2).field_declaration);
+    ASSERT_STREQ("c", ast->parameter(2).as_parameter.name->data());
+    ASSERT_EQ(Token::kInt, ast->parameter(2).as_parameter.type->id());
+    
+    ASSERT_FALSE(ast->parameter(3).field_declaration);
+    ASSERT_STREQ("d", ast->parameter(3).as_parameter.name->data());
+    ASSERT_EQ(Token::kInt, ast->parameter(3).as_parameter.type->id());
+    
+    ASSERT_STREQ("foo.Bar", ast->base()->data());
+    ASSERT_EQ(2, ast->arguments_size());
+    ASSERT_STREQ("c", ast->argument(0)->AsIdentifier()->name()->data());
+    ASSERT_STREQ("d", ast->argument(1)->AsIdentifier()->name()->data());
+    
+    ASSERT_EQ(2, ast->fields_size());
+    ASSERT_EQ(ClassDefinition::kPrivate, ast->field(0).access);
+    ASSERT_TRUE(ast->field(0).in_constructor);
+    ASSERT_EQ(0, ast->field(0).as_constructor);
+    ASSERT_STREQ("a", ast->field(0).declaration->identifier()->data());
+    ASSERT_EQ(Token::kInt, ast->field(0).declaration->type()->id());
+    
+    ASSERT_EQ(ClassDefinition::kPublic, ast->field(1).access);
+    ASSERT_TRUE(ast->field(1).in_constructor);
+    ASSERT_EQ(1, ast->field(1).as_constructor);
+    ASSERT_STREQ("b", ast->field(1).declaration->identifier()->data());
+    ASSERT_EQ(Token::kInt, ast->field(1).declaration->type()->id());
+}
+
+TEST_F(ParserTest, ClassImplementsBlock) {
+    MockFile file("implements Foo {\n"
+                  "    native fun doIt()\n"
+                  "    native fun doThat(a:int): string\n"
+                  "    fun doThis(a:int, b:int) = a + b\n"
+                  "}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseClassImplementsBlock(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_EQ(3, ast->methods_size());
+    ASSERT_STREQ("doIt", ast->method(0)->identifier()->data());
+    ASSERT_TRUE(ast->method(0)->native());
+    ASSERT_EQ(0, ast->method(0)->prototype()->parameters_size());
+    
+    ASSERT_STREQ("doThat", ast->method(1)->identifier()->data());
+    ASSERT_TRUE(ast->method(1)->native());
+    ASSERT_EQ(1, ast->method(1)->parameters_size());
+    ASSERT_STREQ("a", ast->method(1)->parameter(0).name->data());
+    ASSERT_EQ(Token::kInt, ast->method(1)->parameter(0).type->id());
+    
+    ASSERT_STREQ("doThis", ast->method(2)->identifier()->data());
+    ASSERT_FALSE(ast->method(2)->native());
+    ASSERT_EQ(2, ast->method(2)->parameters_size());
+    ASSERT_STREQ("a", ast->method(2)->parameter(0).name->data());
+    ASSERT_EQ(Token::kInt, ast->method(2)->parameter(0).type->id());
+    ASSERT_STREQ("b", ast->method(2)->parameter(1).name->data());
+    ASSERT_EQ(Token::kInt, ast->method(2)->parameter(1).type->id());
+}
+
 TEST_F(ParserTest, ArrayInitializer) {
     MockFile file("array[int](100)\n");
     parser_.SwitchInputFile("demos/demo.mai", &file);

@@ -346,6 +346,7 @@ interface Baz {
 class Foo(
 private:
     val i: int,
+public:
     val j: int,
     val k: f32,
     l: int,

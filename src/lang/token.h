@@ -83,7 +83,6 @@ using ASTString = base::ArenaString;
     V(False, "false", none) \
     V(Val, "val", none) \
     V(Var, "var", none) \
-    V(Def, "def", none) \
     V(Native, "native", none) \
     V(Class, "class", none) \
     V(Object, "object", none) \

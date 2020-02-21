@@ -15,6 +15,8 @@ namespace lang {
     V(ImportStatement) \
     V(VariableDeclaration) \
     V(FunctionDefinition) \
+    V(ClassDefinition) \
+    V(ClassImplementsBlock) \
     V(AssignmentStatement) \
     V(BreakableStatement) \
     V(StringLiteral) \
@@ -32,6 +34,7 @@ namespace lang {
     V(F32Literal) \
     V(F64Literal) \
     V(NilLiteral) \
+    V(LambdaLiteral) \
     V(Identifier) \
     V(UnaryExpression) \
     V(BinaryExpression) \
@@ -119,18 +122,18 @@ public:
         : ASTNode(0, kFileUnit)
         , import_packages_(arena)
         , global_variables_(arena)
-        , functions_(arena)
+        , definitions_(arena)
         , source_location_map_(arena) {}
     
     DEF_PTR_PROP_RW(const ASTString, file_name);
     DEF_PTR_PROP_RW(const ASTString, package_name);
     DEF_ARENA_VECTOR_GETTER(ImportStatement *, import_package);
     DEF_ARENA_VECTOR_GETTER(Declaration *, global_variable);
-    DEF_ARENA_VECTOR_GETTER(Definition *, function);
+    DEF_ARENA_VECTOR_GETTER(Definition *, definition);
     
     void InsertImportStatement(ImportStatement *stmt) { import_packages_.push_back(stmt); }
     void InsertGlobalVariable(Declaration *decl) { global_variables_.push_back(decl); }
-    void InsertFunction(Definition *def) { functions_.push_back(def); }
+    void InsertDefinition(Definition *def) { definitions_.push_back(def); }
 
     int InsertSourceLocation(const SourceLocation loc) {
         int position = static_cast<int>(source_location_map_.size());
@@ -149,7 +152,7 @@ private:
     const ASTString *package_name_ = nullptr;
     base::ArenaVector<ImportStatement *> import_packages_;
     base::ArenaVector<Declaration *> global_variables_;
-    base::ArenaVector<Definition *> functions_;
+    base::ArenaVector<Definition *> definitions_;
     base::ArenaVector<SourceLocation> source_location_map_;
 }; // class FileUnit
 
@@ -314,23 +317,121 @@ private:
 
 class FunctionDefinition : public Definition {
 public:
-    FunctionDefinition(int position, bool native, const ASTString *identifier,
-                       FunctionPrototype *prototype, base::ArenaVector<Statement *> &&statements)
+    FunctionDefinition(int position, const ASTString *identifier, LambdaLiteral *body)
         : Definition(position, kFunctionDefinition, identifier)
-        , native_(native)
-        , prototype_(prototype)
-        , statements_(statements) {}
+        , native_(false)
+        , body_(body) {}
+    
+    FunctionDefinition(int position, const ASTString *identifier, FunctionPrototype *prototype)
+        : Definition(position, kFunctionDefinition, identifier)
+        , native_(true)
+        , prototype_(prototype) {}
 
     DEF_VAL_GETTER(bool, native);
-    DEF_PTR_GETTER(FunctionPrototype, prototype);
-    DEF_ARENA_VECTOR_GETTER(Statement *, statement);
+    DEF_PTR_PROP_RW(LambdaLiteral, body);
+    inline size_t parameters_size() const;
+    inline FunctionPrototype::Parameter parameter(size_t i) const;
+    inline TypeSign *return_type() const;
+    inline FunctionPrototype *prototype() const;
+    inline size_t statements_size() const;
+    inline Statement *statement(size_t i) const;
     
     DEFINE_AST_NODE(FunctionDefinition);
 private:
     bool native_;
-    FunctionPrototype *prototype_;
-    base::ArenaVector<Statement *> statements_;
+    union {
+        LambdaLiteral *body_;
+        FunctionPrototype *prototype_;
+    };
 }; // class FunctionDefinition
+
+
+class ClassDefinition : public Definition {
+public:
+    enum Access {
+        kPublic,
+        kProtected,
+        kPrivate,
+    }; // enum Access
+    
+    struct Field {
+        Access access;
+        bool in_constructor; // in constructor
+        int  as_constructor; // index of constructor parameter
+        VariableDeclaration *declaration;
+    }; // struct Field
+    
+    struct Parameter {
+        bool field_declaration;
+        union {
+            int as_field; // index of field
+            FunctionPrototype::Parameter as_parameter;
+        };
+    }; // struct Field
+
+    ClassDefinition(int position,
+                    const ASTString *name,
+                    base::ArenaVector<Parameter> &&constructor,
+                    base::ArenaVector<Field> &&fields,
+                    const ASTString *base,
+                    base::ArenaVector<Expression *> &&arguments)
+        : Definition(position, kClassDefinition, name)
+        , parameters_(constructor)
+        , fields_(fields)
+        , base_(base)
+        , arguments_(arguments) {}
+
+    DEF_ARENA_VECTOR_GETTER(Field, field);
+    DEF_ARENA_VECTOR_GETTER(Parameter, parameter);
+    DEF_ARENA_VECTOR_GETTER(Expression *, argument);
+    DEF_PTR_PROP_RW(const ASTString, base);
+
+//    void InsertField(Access access, VariableDeclaration *declaration) {
+//        fields_.push_back({access, false, 0/*as_constructor*/, declaration});
+//    }
+//
+//    void InsertConstructorField(Access access, VariableDeclaration *declaration) {
+//        Parameter param;
+//        param.field_declaration = true;
+//        param.as_field = static_cast<int>(fields_.size());
+//
+//        int as_constructor = static_cast<int>(parameters_.size());
+//        fields_.push_back({access, true/*in_constructor*/, as_constructor, declaration});
+//        parameters_.push_back(param);
+//    }
+//
+//    void InsertConstructorParameter(const ASTString *name, TypeSign *type) {
+//        Parameter param;
+//        param.field_declaration = false;
+//        param.as_parameter.name = name;
+//        param.as_parameter.type = type;
+//        parameters_.push_back(param);
+//    }
+
+    DEFINE_AST_NODE(ClassDefinition);
+private:
+    base::ArenaVector<Parameter> parameters_;
+    base::ArenaVector<Field> fields_;
+    const ASTString *base_;
+    base::ArenaVector<Expression *> arguments_;
+}; // class ClassDefinition
+
+
+class ClassImplementsBlock : public Definition {
+public:
+    ClassImplementsBlock(int position, const ASTString *class_name,
+                         base::ArenaVector<FunctionDefinition *> &&methods)
+        : Definition(position, kClassImplementsBlock, class_name)
+        , methods_(methods) {}
+    
+    
+    const ASTString *class_name() const { return identifier(); }
+    DEF_ARENA_VECTOR_GETTER(FunctionDefinition *, method);
+    
+    DEFINE_AST_NODE(ClassImplementsBlock);
+private:
+    base::ArenaVector<FunctionDefinition *> methods_;
+}; // class ClassImplementsBlock
 
 
 class AssignmentStatement : public Statement {
@@ -383,7 +484,7 @@ private:
 
 class Literal : public Expression {
 public:
-    DEF_PTR_GETTER(TypeSign, type);
+    DEF_PTR_PROP_RW(TypeSign, type);
 protected:
     Literal(int position, Kind kind, TypeSign *type): Expression(position, kind), type_(type) {}
     TypeSign *type_;
@@ -426,6 +527,22 @@ DEFINE_SIMPLE_LITERAL(String, const ASTString *);
 DEFINE_SIMPLE_LITERAL(Nil, void *);
 
 #undef DEFINE_SIMPLE_LITERAL
+
+class LambdaLiteral : public Literal {
+public:
+    LambdaLiteral(int position, TypeSign *type, base::ArenaVector<Statement *> &&statements)
+        : Literal(position, kLambdaLiteral, type)
+        , prototype_(DCHECK_NOTNULL(type->prototype()))
+        , statements_(statements) {}
+
+    DEF_PTR_GETTER(FunctionPrototype, prototype);
+    DEF_ARENA_VECTOR_GETTER(Statement *, statement);
+
+    DEFINE_AST_NODE(LambdaLiteral);
+private:
+    FunctionPrototype *prototype_;
+    base::ArenaVector<Statement *> statements_;
+}; // class LambdaLiteral
 
 class Identifier : public Expression {
 public:
@@ -520,21 +637,22 @@ public:
     
     DEF_ARENA_VECTOR_GETTER(Expression *, operand);
 protected:
-    MultiExpression(base::Arena *arena, int position, Kind kind,
-                    const std::vector<Expression *> &parts)
+    MultiExpression(int position, Kind kind, base::ArenaVector<Expression *> &&parts)
         : Expression(position, kind)
-        , operands_(arena) {
-        for (auto expr : parts) { InsertOperand(expr); }
-    }
+        , operands_(parts) {}
     
+    MultiExpression(base::Arena *arena, int position, Kind kind)
+        : Expression(position, kind)
+        , operands_(arena) {}
+
     base::ArenaVector<Expression *> operands_;
 }; // class MultiExpression
 
 
 class StringTemplateExpression : public MultiExpression {
 public:
-    StringTemplateExpression(base::Arena *arena, int position, const std::vector<Expression *> parts)
-        : MultiExpression(arena, position, kStringTemplateExpression, parts) {}
+    StringTemplateExpression(int position, base::ArenaVector<Expression *> &&parts)
+        : MultiExpression(position, kStringTemplateExpression, std::move(parts)) {}
         
     DEFINE_AST_NODE(StringTemplateExpression);
 }; // class StringTemplateExpression
@@ -543,10 +661,15 @@ public:
 
 class CallExpression : public MultiExpression {
 public:
-    CallExpression(base::Arena *arena, int position, const std::vector<Expression *> argv)
-        : MultiExpression(arena, position, kCallExpression, argv) {}
+    CallExpression(int position, Expression *callee, base::ArenaVector<Expression *> &&argv)
+        : MultiExpression(position, kCallExpression, std::move(argv))
+        , callee_(callee) {}
+    
+    DEF_PTR_PROP_RW(Expression, callee);
     
     DEFINE_AST_NODE(CallExpression);
+private:
+    Expression *callee_;
 }; // class CallExpression
 
 
@@ -581,14 +704,14 @@ private:
 // array{"ok", "no", "over"}
 class ArrayInitializer : public MultiExpression {
 public:
-    ArrayInitializer(base::Arena *arena, int position, bool mutable_container,
-                     TypeSign *element_type, const std::vector<Expression *> &elements)
-        : MultiExpression(arena, position, kArrayInitializer, elements)
+    ArrayInitializer(int position, bool mutable_container, TypeSign *element_type,
+                     base::ArenaVector<Expression *> &&elements)
+        : MultiExpression(position, kArrayInitializer, std::move(elements))
         , mutable_container_(mutable_container)
         , element_type_(element_type) {}
     ArrayInitializer(base::Arena *arena, int position, bool mutable_container,
                      TypeSign *element_type, Expression *reserve)
-        : MultiExpression(arena, position, kArrayInitializer, {})
+        : MultiExpression(arena, position, kArrayInitializer)
         , mutable_container_(mutable_container)
         , element_type_(element_type)
         , reserve_(reserve) {}
@@ -606,9 +729,9 @@ private:
 
 class MapInitializer : public MultiExpression {
 public:
-    MapInitializer(base::Arena *arena, int position, bool mutable_container, TypeSign *key_type,
-                   TypeSign *value_type, const std::vector<Expression *> &elements)
-        : MultiExpression(arena, position, kArrayInitializer, elements)
+    MapInitializer(int position, bool mutable_container, TypeSign *key_type,
+                   TypeSign *value_type, base::ArenaVector<Expression *> &&elements)
+        : MultiExpression(position, kArrayInitializer, std::move(elements))
         , mutable_container_(mutable_container)
         , reserve_(nullptr)
         , load_factor_(nullptr)
@@ -623,7 +746,7 @@ public:
 
     MapInitializer(base::Arena *arena, int position, bool mutable_container, TypeSign *key_type,
                    TypeSign *value_type, Expression *reserve, Expression *load_factor)
-        : MultiExpression(arena, position, kArrayInitializer, {})
+        : MultiExpression(arena, position, kArrayInitializer)
         , mutable_container_(mutable_container)
         , reserve_(reserve)
         , load_factor_(load_factor)
@@ -644,6 +767,30 @@ private:
     TypeSign *key_type_;
     TypeSign *value_type_;
 }; // class MapInitializer
+
+inline size_t FunctionDefinition::parameters_size() const {
+    return prototype()->parameters_size();
+}
+
+inline FunctionPrototype::Parameter FunctionDefinition::parameter(size_t i) const {
+    return prototype()->parameter(i);
+}
+
+inline TypeSign *FunctionDefinition::return_type() const {
+    return prototype()->return_type();
+}
+
+inline FunctionPrototype * FunctionDefinition::prototype() const {
+    return native_ ? prototype_ : body_->prototype();
+}
+
+inline size_t FunctionDefinition::statements_size() const {
+    return native_ ? 0 : body_->statements_size();
+}
+
+inline Statement *FunctionDefinition::statement(size_t i) const {
+    return native_ ? nullptr : body_->statement(i);
+}
 
 } // namespace lang
 

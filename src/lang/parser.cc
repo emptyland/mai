@@ -39,7 +39,8 @@ FileUnit *Parser::Parse(bool *ok) {
             } break;
 
             case Token::kClass: {
-                TODO();
+                Definition *def = ParseClassDefinition(CHECK_OK);
+                file_unit_->InsertDefinition(def);
             } break;
 
             case Token::kObject: {
@@ -51,17 +52,18 @@ FileUnit *Parser::Parse(bool *ok) {
             } break;
 
             case Token::kImplements: {
-                TODO();
+                Definition *def = ParseClassImplementsBlock(CHECK_OK);
+                file_unit_->InsertDefinition(def);
             } break;
-                
+
             case Token::kNative: {
                 Definition *def = ParseFunctionDefinition(CHECK_OK);
-                file_unit_->InsertFunction(def);
+                file_unit_->InsertDefinition(def);
             } break;
-                
+
             case Token::kFun: {
                 Definition *def = ParseFunctionDefinition(CHECK_OK);
-                file_unit_->InsertFunction(def);
+                file_unit_->InsertDefinition(def);
             } break;
 
             case Token::kVal:
@@ -120,16 +122,8 @@ ImportStatement *Parser::ParseImportBlock(bool *ok) {
 }
 
 ImportStatement *Parser::ParseImportStatement(SourceLocation *loc, bool *ok) {
-    std::string buf;
-    const ASTString *part = ParseIdentifier(CHECK_OK);
-    buf.append(part->ToString());
-    while (Test(Token::kDot)) {
-        loc->LinkEnd(Peek().source_location());
-        part = ParseIdentifier(CHECK_OK);
-        buf.append(1, '.');
-        buf.append(part->ToString());
-    }
-    
+    const ASTString *original = ParseDotName(loc, CHECK_OK);
+
     const ASTString *alias = nullptr;
     if (Test(Token::kAs)) {
         loc->LinkEnd(Peek().source_location());
@@ -137,7 +131,7 @@ ImportStatement *Parser::ParseImportStatement(SourceLocation *loc, bool *ok) {
     }
 
     int position = file_unit_->InsertSourceLocation(*loc);
-    return new (arena_) ImportStatement(position, alias, ASTString::New(arena_, buf.c_str()));
+    return new (arena_) ImportStatement(position, alias, original);
 }
 
 // variable_declaration := <`val'|`var'> identifier [`:' type [= initializer]]
@@ -181,33 +175,178 @@ FunctionDefinition *Parser::ParseFunctionDefinition(bool *ok) {
     Match(Token::kFun, CHECK_OK);
     
     const ASTString *name = ParseIdentifier(CHECK_OK);
-    SourceLocation end;
-    FunctionPrototype *proto = ParseFunctionPrototype(true, &end, CHECK_OK);
-
-    base::ArenaVector<Statement *> stmts(arena_);
     if (native) {
+        SourceLocation end;
+        FunctionPrototype *proto = ParseFunctionPrototype(true, &end, CHECK_OK);
         loc.LinkEnd(end);
         int position = file_unit_->InsertSourceLocation(loc);
-        return new (arena_) FunctionDefinition(position, native, name, proto, std::move(stmts));
-    }
-
-    if (Test(Token::kAssign)) {
-        Expression *expr = ParseExpression(CHECK_OK);
-        BreakableStatement *stmt = new (arena_) BreakableStatement(expr->position(),
-                                                                   BreakableStatement::RETURN, expr);
-        stmts.push_back(stmt);
+        return new (arena_) FunctionDefinition(position, name, proto);
     } else {
-        Match(Token::kLBrace, CHECK_OK);
+        LambdaLiteral *body = ParseLambdaLiteral(CHECK_OK);
+        loc.LinkEnd(file_unit_->FindSourceLocation(body));
+        int position = file_unit_->InsertSourceLocation(loc);
+        return new (arena_) FunctionDefinition(position, name, body);
+    }
+}
+
+struct IncompleteClassDefinition {
+    IncompleteClassDefinition(base::Arena *arena)
+        : args(arena)
+        , fields(arena)
+        , params(arena) {}
+
+    bool need_comma = false;
+    const ASTString *name = nullptr;
+    const ASTString *base = nullptr;
+    base::ArenaVector<Expression *> args;
+    base::ArenaVector<ClassDefinition::Field> fields;
+    base::ArenaVector<ClassDefinition::Parameter> params;
+    ClassDefinition::Access access = ClassDefinition::kPublic;
+};
+
+ClassDefinition *Parser::ParseClassDefinition(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    Match(Token::kClass, CHECK_OK);
+    
+    IncompleteClassDefinition incomplete(arena_);
+    incomplete.name = ParseIdentifier(CHECK_OK);
+    
+    if (Test(Token::kLParen)) { // `('
+        incomplete.access = ClassDefinition::kPublic;
         
-        while (!Test(Token::kRBrace)) {
-            loc.LinkEnd(Peek().source_location());
-            Statement *stmt = ParseStatement(CHECK_OK);
-            stmts.push_back(stmt);
+        while (!Test(Token::kRParen)) {
+            ParseConstructor(&incomplete, CHECK_OK);
         }
     }
     
+    if (Test(Token::kColon)) { // `:'
+        incomplete.base = ParseDotName(&loc, CHECK_OK);
+        if (Test(Token::kLParen)) {
+            if (!Test(Token::kRParen)) {
+                Expression *arg = ParseExpression(CHECK_OK);
+                incomplete.args.push_back(arg);
+                while (Test(Token::kComma)) {
+                    arg = ParseExpression(CHECK_OK);
+                    incomplete.args.push_back(arg);
+                }
+                Match(Token::kRParen, CHECK_OK);
+            }
+        }
+    }
+
+    incomplete.access = ClassDefinition::kPublic;
+    Match(Token::kLBrace, CHECK_OK);
+    loc.LinkEnd(Peek().source_location());
+    while (!Test(Token::kRBrace)) {
+        switch (Peek().kind()) {
+            case Token::kPublic:
+                incomplete.access = ClassDefinition::kPublic;
+                break;
+            case Token::kProtected:
+                incomplete.access = ClassDefinition::kProtected;
+                break;
+            case Token::kPrivate:
+                incomplete.access = ClassDefinition::kPrivate;
+                break;
+            case Token::kVal:
+            case Token::kVar: {
+                ClassDefinition::Field field;
+                field.access = incomplete.access;
+                field.as_constructor = -1;
+                field.in_constructor = false;
+                field.declaration = ParseVariableDeclaration(CHECK_OK);
+                incomplete.fields.push_back(field);
+            } break;
+            default:
+                error_feedback_->Printf(Peek().source_location(),
+                                        "Unexpected class field, exprected: %s",
+                                        Peek().ToString().c_str());
+                *ok = false;
+                return nullptr;
+        }
+        loc.LinkEnd(Peek().source_location());
+    }
+
     int position = file_unit_->InsertSourceLocation(loc);
-    return new (arena_) FunctionDefinition(position, native, name, proto, std::move(stmts));
+    return new (arena_) ClassDefinition(position, incomplete.name, std::move(incomplete.params),
+                                        std::move(incomplete.fields), incomplete.base,
+                                        std::move(incomplete.args));
+}
+
+ClassImplementsBlock *Parser::ParseClassImplementsBlock(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    Match(Token::kImplements, CHECK_OK);
+    const ASTString *class_name = ParseDotName(&loc, CHECK_OK);
+    
+    base::ArenaVector<FunctionDefinition *> methods(arena_);
+    Match(Token::kLBrace, CHECK_OK);
+    while (!Test(Token::kRBrace)) {
+        FunctionDefinition *fun = ParseFunctionDefinition(CHECK_OK);
+        methods.push_back(fun);
+    }
+
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) ClassImplementsBlock(position, class_name, std::move(methods));
+}
+
+void *Parser::ParseConstructor(IncompleteClassDefinition *def, bool *ok) {
+    if (def->need_comma) {
+        Match(Token::kComma, CHECK_OK);
+    }
+    switch (Peek().kind()) {
+        case Token::kPublic:
+            MoveNext();
+            Match(Token::kColon, CHECK_OK);
+            def->access = ClassDefinition::kPublic;
+            def->need_comma = false;
+            break;
+        case Token::kProtected:
+            MoveNext();
+            Match(Token::kColon, CHECK_OK);
+            def->access = ClassDefinition::kProtected;
+            def->need_comma = false;
+            break;
+        case Token::kPrivate:
+            MoveNext();
+            Match(Token::kColon, CHECK_OK);
+            def->access = ClassDefinition::kPrivate;
+            def->need_comma = false;
+            break;
+        case Token::kIdentifier: {
+            ClassDefinition::Parameter param;
+            param.as_parameter.name = ParseIdentifier(CHECK_OK);
+            Match(Token::kColon, CHECK_OK);
+            param.as_parameter.type = ParseTypeSign(CHECK_OK);
+            def->params.push_back(param);
+            def->need_comma = true;
+        } break;
+        case Token::kVal:
+        case Token::kVar: {
+            VariableDeclaration::Kind kind = Peek().kind() == Token::kVal ?
+            VariableDeclaration::VAL : VariableDeclaration::VAR;
+            MoveNext();
+            const ASTString *field_name = ParseIdentifier(CHECK_OK);
+            Match(Token::kColon, CHECK_OK);
+            TypeSign *type = ParseTypeSign(CHECK_OK);
+            
+            ClassDefinition::Field field;
+            field.access = def->access;
+            field.in_constructor = true;
+            field.as_constructor = static_cast<int>(def->params.size());
+            field.declaration = new (arena_) VariableDeclaration(0, kind, field_name, type, nullptr);
+            
+            ClassDefinition::Parameter param;
+            param.as_field = static_cast<int>(def->fields.size());
+            param.field_declaration = true;
+            
+            def->fields.push_back(field);
+            def->params.push_back(param);
+            def->need_comma = true;
+        } break;
+        default:
+            break;
+    }
+    return nullptr;
 }
 
 Statement *Parser::ParseStatement(bool *ok) {
@@ -398,43 +537,44 @@ TypeSign *Parser::ParseTypeSign(bool *ok) {
 FunctionPrototype *Parser::ParseFunctionPrototype(bool requrie_param_name, SourceLocation *loc,
                                                   bool *ok) {
     Match(Token::kLParen, CHECK_OK);
-    
     FunctionPrototype *proto = new (arena_) FunctionPrototype(arena_);
-    const ASTString *name = nullptr;
-    if (Test(Token::kVargs)) {
-        proto->set_vargs(true);
-        *loc = Peek().source_location();
-        Match(Token::kRParen, CHECK_OK);
-
-        if (Test(Token::kColon)) {
-            TypeSign *type = ParseTypeSign(CHECK_OK);
-            proto->set_return_type(type);
-            *loc = file_unit_->FindSourceLocation(type);
-        }
-        return proto;
-    }
-
-    if (requrie_param_name) {
-        name = ParseIdentifier(CHECK_OK);
-        Match(Token::kColon, CHECK_OK);
-    }
-    TypeSign *param = ParseTypeSign(CHECK_OK);
-    proto->InsertParameter(name, param);
-    while (Test(Token::kComma)) {
+    if (!Test(Token::kRParen)) {
+        const ASTString *name = nullptr;
         if (Test(Token::kVargs)) {
             proto->set_vargs(true);
-            break;
+            *loc = Peek().source_location();
+            Match(Token::kRParen, CHECK_OK);
+
+            if (Test(Token::kColon)) {
+                TypeSign *type = ParseTypeSign(CHECK_OK);
+                proto->set_return_type(type);
+                *loc = file_unit_->FindSourceLocation(type);
+            }
+            return proto;
         }
+
         if (requrie_param_name) {
             name = ParseIdentifier(CHECK_OK);
             Match(Token::kColon, CHECK_OK);
         }
-        param = ParseTypeSign(CHECK_OK);
+        TypeSign *param = ParseTypeSign(CHECK_OK);
         proto->InsertParameter(name, param);
-    }
+        while (Test(Token::kComma)) {
+            if (Test(Token::kVargs)) {
+                proto->set_vargs(true);
+                break;
+            }
+            if (requrie_param_name) {
+                name = ParseIdentifier(CHECK_OK);
+                Match(Token::kColon, CHECK_OK);
+            }
+            param = ParseTypeSign(CHECK_OK);
+            proto->InsertParameter(name, param);
+        }
 
-    *loc = Peek().source_location();
-    Match(Token::kRParen, CHECK_OK);
+        *loc = Peek().source_location();
+        Match(Token::kRParen, CHECK_OK);
+    }
 
     if (Test(Token::kColon)) {
         TypeSign *type = ParseTypeSign(CHECK_OK);
@@ -592,6 +732,10 @@ Expression *Parser::ParseSimple(bool *ok) {
         case Token::kStringTempletePrefix: {
             return ParseStringTemplate(ok);
         } break;
+            
+        case Token::kLambda: {
+            return ParseLambdaLiteral(ok);
+        } break;
 
         default:
             return ParseSuffixed(ok);
@@ -622,13 +766,13 @@ Expression *Parser::ParseSuffixed(bool *ok) {
                 
             case Token::kLParen: { // (
                 MoveNext();
+                base::ArenaVector<Expression *> argv(arena_);
                 if (Peek().kind() == Token::kRParen) { // call()
                     loc.LinkEnd(Peek().source_location());
                     MoveNext();
                     int position = file_unit_->InsertSourceLocation(loc);
-                    expr = new (arena_) CallExpression(arena_, position, {});
+                    expr = new (arena_) CallExpression(position, expr, std::move(argv));
                 } else {
-                    std::vector<Expression *> argv;
                     Expression *arg = ParseExpression(CHECK_OK);
                     argv.push_back(arg);
                     while (Test(Token::kComma)) {
@@ -638,7 +782,7 @@ Expression *Parser::ParseSuffixed(bool *ok) {
                     loc.LinkEnd(Peek().source_location());
                     Match(Token::kRParen, CHECK_OK);
                     int position = file_unit_->InsertSourceLocation(loc);
-                    expr = new (arena_) CallExpression(arena_, position, argv);
+                    expr = new (arena_) CallExpression(position, expr, std::move(argv));
                 }
             } break;
 
@@ -806,7 +950,7 @@ ArrayInitializer *Parser::ParseArrayInitializer(bool *ok) {
         return new (arena_) ArrayInitializer(arena_, position, mut, element_type, reserve);
     }
 
-    std::vector<Expression *> elements;
+    base::ArenaVector<Expression *> elements(arena_);
     Match(Token::kLBrace, CHECK_OK); // `{'
     loc.LinkEnd(Peek().source_location());
     if (!Test(Token::kRBrace)) {
@@ -821,7 +965,7 @@ ArrayInitializer *Parser::ParseArrayInitializer(bool *ok) {
     }
 
     int position = file_unit_->InsertSourceLocation(loc);
-    return new (arena_) ArrayInitializer(arena_, position, mut, element_type, elements);
+    return new (arena_) ArrayInitializer(position, mut, element_type, std::move(elements));
 }
 
 MapInitializer *Parser::ParseMapInitializer(bool *ok) {
@@ -856,7 +1000,7 @@ MapInitializer *Parser::ParseMapInitializer(bool *ok) {
                                            load_factor);
     }
 
-    std::vector<Expression *> pairs;
+    base::ArenaVector<Expression *> pairs(arena_);
     Match(Token::kLBrace, CHECK_OK); // `{'
     loc.LinkEnd(Peek().source_location());
     if (!Test(Token::kRBrace)) {
@@ -871,7 +1015,7 @@ MapInitializer *Parser::ParseMapInitializer(bool *ok) {
         Match(Token::kRBrace, CHECK_OK); // `}'
     }
     int position = file_unit_->InsertSourceLocation(loc);
-    return new (arena_) MapInitializer(arena_, position, mut, key_type, value_type, pairs);
+    return new (arena_) MapInitializer(position, mut, key_type, value_type, std::move(pairs));
 }
 
 PairExpression *Parser::ParsePairExpression(bool *ok) {
@@ -884,6 +1028,34 @@ PairExpression *Parser::ParsePairExpression(bool *ok) {
     return new (arena_) PairExpression(position, key, value);
 }
 
+LambdaLiteral *Parser::ParseLambdaLiteral(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    Test(Token::kLambda);
+    
+    SourceLocation end;
+    FunctionPrototype *proto = ParseFunctionPrototype(true, &end, CHECK_OK);
+    
+    base::ArenaVector<Statement *> stmts(arena_);
+    if (Test(Token::kAssign)) {
+        Expression *expr = ParseExpression(CHECK_OK);
+        BreakableStatement *stmt = new (arena_) BreakableStatement(expr->position(),
+                                                                   BreakableStatement::RETURN, expr);
+        stmts.push_back(stmt);
+    } else {
+        Match(Token::kLBrace, CHECK_OK);
+        
+        while (!Test(Token::kRBrace)) {
+            loc.LinkEnd(Peek().source_location());
+            Statement *stmt = ParseStatement(CHECK_OK);
+            stmts.push_back(stmt);
+        }
+    }
+    
+    int position = file_unit_->InsertSourceLocation(loc);
+    TypeSign *type = new (arena_) TypeSign(file_unit_->InsertSourceLocation(end), proto);
+    return new (arena_) LambdaLiteral(position, type, std::move(stmts));
+}
+
 StringTemplateExpression *Parser::ParseStringTemplate(bool *ok) {
     SourceLocation loc = Peek().source_location();
 
@@ -891,7 +1063,7 @@ StringTemplateExpression *Parser::ParseStringTemplate(bool *ok) {
     MoveNext();
     int position = file_unit_->InsertSourceLocation(loc);
     Expression *prefix = new (arena_) StringLiteral(position, nullptr, literal);
-    std::vector<Expression *> parts;
+    base::ArenaVector<Expression *> parts(arena_);
     parts.push_back(prefix);
     
     for (;;) {
@@ -932,7 +1104,20 @@ StringTemplateExpression *Parser::ParseStringTemplate(bool *ok) {
         }
     }
 done:
-    return new (arena_) StringTemplateExpression(arena_, position, parts);
+    return new (arena_) StringTemplateExpression(position, std::move(parts));
+}
+
+const ASTString *Parser::ParseDotName(SourceLocation *loc, bool *ok) {
+    std::string buf;
+    const ASTString *part = ParseIdentifier(CHECK_OK);
+    buf.append(part->ToString());
+    while (Test(Token::kDot)) {
+        loc->LinkEnd(Peek().source_location());
+        part = ParseIdentifier(CHECK_OK);
+        buf.append(1, '.');
+        buf.append(part->ToString());
+    }
+    return ASTString::New(arena_, buf.data(), buf.size());
 }
 
 const ASTString *Parser::ParseStrictIdentifier(bool *ok) {
