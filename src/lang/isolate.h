@@ -6,6 +6,7 @@
 #include "mai/error.h"
 #include <memory>
 #include <mutex>
+#include <set>
 
 namespace mai {
 namespace test {
@@ -28,6 +29,8 @@ struct Options {
     Env *env = Env::Default(); // The base api env pointer
     int concurrency = 2; // How many concrrent running
     size_t new_space_initial_size = 100 * 1024 * 1024; // New space initial size: 100MB
+    std::string base_pkg_dir = "src/lang/pkg"; // Language base pkg path
+    std::set<std::string> search_pkg_dir;
 };
 
 
@@ -42,6 +45,9 @@ public:
 
     // Initialize Virtual-Machine state
     Error Initialize();
+    
+    // Compile project
+    Error Compile(const std::string &dir);
     
     // Run Virtual-Machine
     void Run();
@@ -82,6 +88,7 @@ private:
 
     // New space initial bytes size
     const size_t new_space_initial_size_;
+    const std::string base_pkg_dir_;
 
     Env *env_; // The base api env object
     Heap *heap_; // Heap allocator

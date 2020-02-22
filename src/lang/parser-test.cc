@@ -54,7 +54,7 @@ TEST_F(ParserTest, Import) {
     
     ASSERT_EQ(1, ast->import_packages_size());
     auto stmt = ast->import_package(0);
-    ASSERT_EQ("testing.foo.bar.baz", stmt->original_package_name()->ToString());
+    ASSERT_EQ("testing.foo.bar.baz", stmt->original_path()->ToString());
     ASSERT_EQ(nullptr, stmt->alias());
 }
 
@@ -73,11 +73,11 @@ TEST_F(ParserTest, ImportBlock) {
     
     ASSERT_EQ(2, ast->import_packages_size());
     auto stmt = ast->import_package(0);
-    ASSERT_EQ("testing.foo", stmt->original_package_name()->ToString());
+    ASSERT_EQ("testing.foo", stmt->original_path()->ToString());
     ASSERT_EQ("Foo", stmt->alias()->ToString());
     
     stmt = ast->import_package(1);
-    ASSERT_EQ("testing.bar", stmt->original_package_name()->ToString());
+    ASSERT_EQ("testing.bar", stmt->original_path()->ToString());
     ASSERT_EQ("Bar", stmt->alias()->ToString());
 }
 
@@ -299,7 +299,7 @@ TEST_F(ParserTest, ClassDefinition) {
     ASSERT_STREQ("d", ast->parameter(3).as_parameter.name->data());
     ASSERT_EQ(Token::kInt, ast->parameter(3).as_parameter.type->id());
     
-    ASSERT_STREQ("foo.Bar", ast->base()->data());
+    ASSERT_STREQ("foo.Bar", ast->base_name()->data());
     ASSERT_EQ(2, ast->arguments_size());
     ASSERT_STREQ("c", ast->argument(0)->AsIdentifier()->name()->data());
     ASSERT_STREQ("d", ast->argument(1)->AsIdentifier()->name()->data());

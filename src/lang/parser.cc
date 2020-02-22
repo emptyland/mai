@@ -6,6 +6,8 @@ namespace mai {
 
 namespace lang {
 
+#define CHECK_OK ok); if (!*ok) { return nullptr; } ((void)0
+
 #define MoveNext() lookahead_ = lexer_->Next()
 
 Parser::Parser(base::Arena *arena, SyntaxFeedback *error_feedback)
@@ -52,8 +54,8 @@ FileUnit *Parser::Parse(bool *ok) {
             } break;
 
             case Token::kImplements: {
-                Definition *def = ParseClassImplementsBlock(CHECK_OK);
-                file_unit_->InsertDefinition(def);
+                ClassImplementsBlock *impl = ParseClassImplementsBlock(CHECK_OK);
+                file_unit_->InsertImplement(impl);
             } break;
 
             case Token::kNative: {
@@ -268,15 +270,46 @@ ClassDefinition *Parser::ParseClassDefinition(bool *ok) {
     }
 
     int position = file_unit_->InsertSourceLocation(loc);
-    return new (arena_) ClassDefinition(position, incomplete.name, std::move(incomplete.params),
-                                        std::move(incomplete.fields), incomplete.base,
-                                        std::move(incomplete.args));
+    ClassDefinition *clazz = new (arena_) ClassDefinition(arena_, position, incomplete.name,
+                                                          std::move(incomplete.params),
+                                                          std::move(incomplete.fields),
+                                                          incomplete.base,
+                                                          std::move(incomplete.args));
+    if (int err = clazz->MakeParameterLookupTable(); err < 0) {
+        auto param = clazz->parameter(-err - 1);
+        SourceLocation loc;
+        const ASTString *name = nullptr;
+        if (param.field_declaration) {
+            loc = file_unit_->FindSourceLocation(clazz->field(param.as_field).declaration);
+            name = clazz->field(param.as_field).declaration->identifier();
+        } else {
+            loc = file_unit_->FindSourceLocation(param.as_parameter.type);
+            name = param.as_parameter.name;
+        }
+        error_feedback_->Printf(loc, "Duplicated constructor parameter: %s", name->data());
+        *ok = false;
+        return nullptr;
+    }
+
+    if (int err = clazz->MakeFieldLookupTable(); err < 0) {
+        VariableDeclaration *decl = clazz->field(-err - 1).declaration;
+        SourceLocation loc = file_unit_->FindSourceLocation(decl);
+        error_feedback_->Printf(loc, "Duplicated class field: %s", decl->identifier()->data());
+        *ok = false;
+        return nullptr;
+    }
+    return clazz;
 }
 
 ClassImplementsBlock *Parser::ParseClassImplementsBlock(bool *ok) {
     SourceLocation loc = Peek().source_location();
     Match(Token::kImplements, CHECK_OK);
-    const ASTString *class_name = ParseDotName(&loc, CHECK_OK);
+    const ASTString *prefix = nullptr;
+    const ASTString *name = ParseIdentifier(CHECK_OK);
+    if (Test(Token::kDot)) {
+        prefix = name;
+        name = ParseIdentifier(CHECK_OK);
+    }
     
     base::ArenaVector<FunctionDefinition *> methods(arena_);
     Match(Token::kLBrace, CHECK_OK);
@@ -286,7 +319,7 @@ ClassImplementsBlock *Parser::ParseClassImplementsBlock(bool *ok) {
     }
 
     int position = file_unit_->InsertSourceLocation(loc);
-    return new (arena_) ClassImplementsBlock(position, class_name, std::move(methods));
+    return new (arena_) ClassImplementsBlock(position, prefix, name, std::move(methods));
 }
 
 void *Parser::ParseConstructor(IncompleteClassDefinition *def, bool *ok) {

@@ -1,0 +1,5 @@
+package lang
+
+native fun println(s: string)
+
+

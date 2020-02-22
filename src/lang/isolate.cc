@@ -5,6 +5,7 @@
 #include "lang/heap.h"
 #include "lang/metadata-space.h"
 #include "lang/factory.h"
+#include "lang/compiler.h"
 #include "lang/syntax.h"
 #include "asm/utils.h"
 #include "glog/logging.h"
@@ -62,6 +63,28 @@ Error Isolate::Initialize() {
     return Error::OK();
 }
 
+Error Isolate::Compile(const std::string &dir) {
+    DCHECK(initialized_);
+    if (!initialized_) {
+        return MAI_CORRUPTION("Not initialize yet");
+    }
+    
+    std::vector<std::string> source_files;
+    if (auto rs = Compiler::FindSourceFiles(base_pkg_dir_, env_, false/*unittest*/, &source_files);
+        rs.fail()) {
+        return rs;
+    }
+    if (auto rs = Compiler::FindSourceFiles(dir, env_, false/*unittest*/, &source_files);
+        rs.fail()) {
+        return rs;
+    }
+    if (source_files.empty()) {
+        return MAI_CORRUPTION("No file to be compile");
+    }
+    
+    return Error::OK();
+}
+
 void Isolate::Run() {
     DCHECK(initialized_);
     scheduler_->Start(); // Start worker threads
@@ -76,6 +99,7 @@ void Isolate::Run() {
 
 Isolate::Isolate(const Options &opts)
     : new_space_initial_size_(opts.new_space_initial_size)
+    , base_pkg_dir_(opts.base_pkg_dir)
     , env_(opts.env)
     , heap_(new Heap(env_->GetLowLevelAllocator()))
     , metadata_space_(new MetadataSpace(env_->GetLowLevelAllocator()))

@@ -51,12 +51,15 @@ DECLARE_ALL_AST(DEFINE_DECLARE)
 #undef DEFINE_DECLARE
 
 class HValue;
+class Class;
 
 struct ASTVisitorResult {
     int kind;
     union {
         int index;
         HValue *hval;
+        Class *clazz;
+        TypeSign *sign;
     };
 };
 
@@ -71,6 +74,16 @@ public:
     DECLARE_ALL_AST(DEFINE_METHOD)
 #undef DEFINE_METHOD
 }; // class ASTVisitor
+
+class PartialASTVisitor : public ASTVisitor {
+public:
+    PartialASTVisitor() {}
+    ~PartialASTVisitor() override {}
+    
+#define DEFINE_METHOD(name) Result Visit##name(name *) override { TODO(); return Result{}; }
+    DECLARE_ALL_AST(DEFINE_METHOD)
+#undef DEFINE_METHOD
+}; // class PartialASTVisito
 
 class ASTNode {
 public:
@@ -123,6 +136,7 @@ public:
         , import_packages_(arena)
         , global_variables_(arena)
         , definitions_(arena)
+        , implements_(arena)
         , source_location_map_(arena) {}
     
     DEF_PTR_PROP_RW(const ASTString, file_name);
@@ -130,10 +144,25 @@ public:
     DEF_ARENA_VECTOR_GETTER(ImportStatement *, import_package);
     DEF_ARENA_VECTOR_GETTER(Declaration *, global_variable);
     DEF_ARENA_VECTOR_GETTER(Definition *, definition);
+    DEF_ARENA_VECTOR_GETTER(ClassImplementsBlock *, implement);
+    
+    std::string GetPathName(const std::string &ext_name) const {
+        std::string buf(file_name()->ToString());
+        if (!ext_name.empty() && buf.length() - buf.rfind(ext_name) == ext_name.length()) {
+            buf = buf.substr(buf.rfind(ext_name));
+        }
+        for (size_t i = 0; i < buf.size(); i++) {
+            if (buf[i] == '/' || buf[i] == '\\') {
+                buf[i] = '.';
+            }
+        }
+        return buf;
+    }
     
     void InsertImportStatement(ImportStatement *stmt) { import_packages_.push_back(stmt); }
     void InsertGlobalVariable(Declaration *decl) { global_variables_.push_back(decl); }
     void InsertDefinition(Definition *def) { definitions_.push_back(def); }
+    void InsertImplement(ClassImplementsBlock *impl) { implements_.push_back(impl); }
 
     int InsertSourceLocation(const SourceLocation loc) {
         int position = static_cast<int>(source_location_map_.size());
@@ -153,6 +182,7 @@ private:
     base::ArenaVector<ImportStatement *> import_packages_;
     base::ArenaVector<Declaration *> global_variables_;
     base::ArenaVector<Definition *> definitions_;
+    base::ArenaVector<ClassImplementsBlock *> implements_;
     base::ArenaVector<SourceLocation> source_location_map_;
 }; // class FileUnit
 
@@ -160,7 +190,7 @@ class FunctionPrototype;
 
 class TypeSign : public ASTNode {
 public:
-    TypeSign(int position, int kind): ASTNode(position, kTypeSign), kind_(kind) {}
+    constexpr TypeSign(int position, int kind): ASTNode(position, kTypeSign), kind_(kind), symbol_(nullptr) {}
     TypeSign(int position, const ASTString *symbol);
     TypeSign(int position, FunctionPrototype *prototype);
 
@@ -184,12 +214,22 @@ public:
     int id() const { return kind_; }
     DEF_PTR_GETTER(const ASTString, symbol);
     DEF_PTR_GETTER(FunctionPrototype, prototype);
+    DEF_PTR_GETTER(ClassDefinition, clazz);
+
+    size_t parameters_size() const { return parameters_->size(); }
+    TypeSign *parameter(size_t i) const {
+        DCHECK_LT(i, parameters_size());
+        return parameters_->at(i);
+    }
+    
+    bool Convertible(TypeSign *type) const;
     
     DEFINE_AST_NODE(TypeSign);
 private:
     const int kind_;
     union {
         const ASTString *symbol_;
+        ClassDefinition *clazz_;
         base::ArenaVector<TypeSign *> *parameters_;
         FunctionPrototype *prototype_;
     };
@@ -234,18 +274,18 @@ protected:
 
 class ImportStatement : public Statement {
 public:
-    ImportStatement(int position, const ASTString *alias, const ASTString *original_package_name)
+    ImportStatement(int position, const ASTString *alias, const ASTString *original_path)
         : Statement(position, kImportStatement)
         , alias_(alias)
-        , original_package_name_(original_package_name) {}
+        , original_path_(original_path) {}
     
     DEF_PTR_GETTER(const ASTString, alias);
-    DEF_PTR_GETTER(const ASTString, original_package_name);
+    DEF_PTR_GETTER(const ASTString, original_path);
     
     DEFINE_AST_NODE(ImportStatement);
 private:
     const ASTString *alias_;
-    const ASTString *original_package_name_;
+    const ASTString *original_path_;
 }; // class ImportStatement
 
 
@@ -304,8 +344,8 @@ public:
         , initializer_(initializer) {}
     
     DEF_VAL_GETTER(Kind, kind);
-    DEF_PTR_GETTER(TypeSign, type);
-    DEF_PTR_GETTER(Expression, initializer);
+    DEF_PTR_PROP_RW(TypeSign, type);
+    DEF_PTR_PROP_RW(Expression, initializer);
     
     DEFINE_AST_NODE(VariableDeclaration);
 private:
@@ -369,67 +409,85 @@ public:
         };
     }; // struct Field
 
-    ClassDefinition(int position,
+    ClassDefinition(base::Arena *arena,
+                    int position,
                     const ASTString *name,
                     base::ArenaVector<Parameter> &&constructor,
                     base::ArenaVector<Field> &&fields,
-                    const ASTString *base,
-                    base::ArenaVector<Expression *> &&arguments)
-        : Definition(position, kClassDefinition, name)
-        , parameters_(constructor)
-        , fields_(fields)
-        , base_(base)
-        , arguments_(arguments) {}
+                    const ASTString *base_name,
+                    base::ArenaVector<Expression *> &&arguments);
 
     DEF_ARENA_VECTOR_GETTER(Field, field);
     DEF_ARENA_VECTOR_GETTER(Parameter, parameter);
     DEF_ARENA_VECTOR_GETTER(Expression *, argument);
-    DEF_PTR_PROP_RW(const ASTString, base);
-
-//    void InsertField(Access access, VariableDeclaration *declaration) {
-//        fields_.push_back({access, false, 0/*as_constructor*/, declaration});
-//    }
-//
-//    void InsertConstructorField(Access access, VariableDeclaration *declaration) {
-//        Parameter param;
-//        param.field_declaration = true;
-//        param.as_field = static_cast<int>(fields_.size());
-//
-//        int as_constructor = static_cast<int>(parameters_.size());
-//        fields_.push_back({access, true/*in_constructor*/, as_constructor, declaration});
-//        parameters_.push_back(param);
-//    }
-//
-//    void InsertConstructorParameter(const ASTString *name, TypeSign *type) {
-//        Parameter param;
-//        param.field_declaration = false;
-//        param.as_parameter.name = name;
-//        param.as_parameter.type = type;
-//        parameters_.push_back(param);
-//    }
+    DEF_ARENA_VECTOR_GETTER(FunctionDefinition *, method);
+    DEF_PTR_PROP_RW(const ASTString, base_name);
+    DEF_PTR_PROP_RW(ClassDefinition, base);
+    
+    bool InsertMethod(FunctionDefinition *method) {
+        if (FindFieldOrNull(method->identifier()->ToSlice()) ||
+            FindMethodOrNull(method->identifier()->ToSlice())) {
+            return false;
+        }
+        methods_.push_back(method);
+        named_methods_[method->identifier()->ToSlice()] = method;
+        return true;
+    }
+    
+    int MakeParameterLookupTable();
+    
+    int MakeFieldLookupTable() {
+        for (size_t i = 0; i < fields_size(); i++) {
+            const ASTString *name = field(i).declaration->identifier();
+            if (auto iter = named_fields_.find(name->ToSlice()); iter != named_fields_.end()) {
+                return -static_cast<int>(i + 1);
+            }
+            named_fields_[name->ToSlice()] = i;
+        }
+        return 0;
+    }
+    
+    Field *FindFieldOrNull(std::string_view name) {
+        auto iter = named_fields_.find(name);
+        return iter == named_fields_.end() ? nullptr : &fields_[iter->second];
+    }
+    
+    FunctionDefinition *FindMethodOrNull(std::string_view name) {
+        auto iter = named_methods_.find(name);
+        return iter == named_methods_.end() ? nullptr : iter->second;
+    }
 
     DEFINE_AST_NODE(ClassDefinition);
 private:
     base::ArenaVector<Parameter> parameters_;
+    base::ArenaMap<std::string_view, size_t> named_parameters_;
     base::ArenaVector<Field> fields_;
-    const ASTString *base_;
+    base::ArenaMap<std::string_view, size_t> named_fields_;
+    const ASTString *base_name_;
+    ClassDefinition *base_;
     base::ArenaVector<Expression *> arguments_;
+    base::ArenaVector<FunctionDefinition *> methods_;
+    base::ArenaMap<std::string_view, FunctionDefinition *> named_methods_;
 }; // class ClassDefinition
 
 
-class ClassImplementsBlock : public Definition {
+class ClassImplementsBlock : public Statement {
 public:
-    ClassImplementsBlock(int position, const ASTString *class_name,
+    ClassImplementsBlock(int position, const ASTString *prefix, const ASTString *name,
                          base::ArenaVector<FunctionDefinition *> &&methods)
-        : Definition(position, kClassImplementsBlock, class_name)
+        : Statement(position, kClassImplementsBlock)
+        , prefix_(prefix)
+        , name_(name)
         , methods_(methods) {}
-    
-    
-    const ASTString *class_name() const { return identifier(); }
+
+    DEF_PTR_GETTER(const ASTString, prefix);
+    DEF_PTR_GETTER(const ASTString, name);
     DEF_ARENA_VECTOR_GETTER(FunctionDefinition *, method);
     
     DEFINE_AST_NODE(ClassImplementsBlock);
 private:
+    const ASTString *prefix_;
+    const ASTString *name_;
     base::ArenaVector<FunctionDefinition *> methods_;
 }; // class ClassImplementsBlock
 

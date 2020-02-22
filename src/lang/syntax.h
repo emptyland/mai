@@ -152,11 +152,10 @@ protected:
     std::string file_name_;
 }; // class SyntaxFeedback
 
+
 void InitializeSyntaxLibrary();
 
 void FreeSyntaxLibrary();
-
-#define CHECK_OK ok); if (!*ok) { return nullptr; } ((void)0
 
 } // namespace lang
 

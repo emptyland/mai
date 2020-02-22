@@ -41,6 +41,8 @@ public:
     
     virtual Error FileExists(const std::string &file_name) = 0;
     
+    virtual Error IsDirectory(const std::string &file_name, bool *isdir) = 0;
+    
     virtual Error GetChildren(const std::string &dir_name,
                               std::vector<std::string> *children) = 0;
     
