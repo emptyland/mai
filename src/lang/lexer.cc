@@ -766,7 +766,11 @@ int Lexer::Peek() {
     }
     
     size_t wanted = std::min(static_cast<size_t>(available_), kBufferSize);
-    if (auto rs = input_file_->Read(wanted, &buffered_, &scratch_); rs.fail()) {
+    auto rs = input_file_->Read(wanted, &buffered_, &scratch_);
+    if (rs.IsEof()) {
+        return 0;
+    }
+    if (rs.fail()) {
         error_feedback_->Printf(SourceLocation::One(line_, row_), "Read file error: %s",
                                 rs.ToString().c_str());
         return -1;

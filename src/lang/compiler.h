@@ -24,6 +24,9 @@ public:
 
     Error Resolve(const std::string &dot_path, std::vector<FileUnit *> *file_units);
     Error ParseAll(const std::vector<std::string> &source_files, std::vector<FileUnit *> *file_units);
+    
+    DEF_VAL_PROP_RMW(std::set<std::string>, search_path);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(SourceFileResolve);
 private:
     Env *env_;
     base::Arena *arena_;

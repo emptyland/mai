@@ -146,17 +146,18 @@ public:
     DEF_ARENA_VECTOR_GETTER(Definition *, definition);
     DEF_ARENA_VECTOR_GETTER(ClassImplementsBlock *, implement);
     
-    std::string GetPathName(const std::string &ext_name) const {
+    std::string GetPathName(size_t prefix, const std::string &ext_name) const {
         std::string buf(file_name()->ToString());
         if (!ext_name.empty() && buf.length() - buf.rfind(ext_name) == ext_name.length()) {
-            buf = buf.substr(buf.rfind(ext_name));
+            buf = buf.substr(prefix);
+            buf = buf.substr(0, buf.length() - ext_name.length());
         }
         for (size_t i = 0; i < buf.size(); i++) {
             if (buf[i] == '/' || buf[i] == '\\') {
                 buf[i] = '.';
             }
         }
-        return buf;
+        return buf.substr(0, buf.rfind('.'));
     }
     
     void InsertImportStatement(ImportStatement *stmt) { import_packages_.push_back(stmt); }
@@ -425,8 +426,7 @@ public:
     DEF_PTR_PROP_RW(ClassDefinition, base);
     
     bool InsertMethod(FunctionDefinition *method) {
-        if (FindFieldOrNull(method->identifier()->ToSlice()) ||
-            FindMethodOrNull(method->identifier()->ToSlice())) {
+        if (FindFieldOrNull(method->identifier()->ToSlice())) {
             return false;
         }
         methods_.push_back(method);

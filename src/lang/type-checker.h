@@ -23,14 +23,43 @@ public:
     TypeChecker(base::Arena *arena, SyntaxFeedback *feedback);
     ~TypeChecker() override {}
     
-    Error AddBootFileUnits(const std::vector<FileUnit *> &file_units, SourceFileResolve *resolve);
-    
-    bool ResolveSymbols();
-    
+    Error AddBootFileUnits(const std::string &original_path,
+                           const std::vector<FileUnit *> &file_units, SourceFileResolve *resolve);
+    bool Prepare();
     bool Check();
     
+    Result VisitBoolLiteral(BoolLiteral *) override;
+    Result VisitI8Literal(I8Literal *) override;
+    Result VisitU8Literal(U8Literal *) override;
+    Result VisitI16Literal(I16Literal *) override;
+    Result VisitU16Literal(U16Literal *) override;
+    Result VisitI32Literal(I32Literal *) override;
+    Result VisitU32Literal(U32Literal *) override;
+    Result VisitIntLiteral(IntLiteral *) override;
+    Result VisitUIntLiteral(UIntLiteral *) override;
+    Result VisitI64Literal(I64Literal *) override;
+    Result VisitU64Literal(U64Literal *) override;
+    Result VisitF32Literal(F32Literal *) override;
+    Result VisitF64Literal(F64Literal *) override;
+    Result VisitStringLiteral(StringLiteral *) override;
+    Result VisitNilLiteral(NilLiteral *) override;
     Result VisitVariableDeclaration(VariableDeclaration *) override;
     Result VisitDotExpression(DotExpression *) override;
+    
+    std::vector<FileUnit *> FindPathUnits(const std::string &path) const {
+        auto iter = path_units_.find(path);
+        return iter == path_units_.end() ? std::vector<FileUnit *>{} : iter->second;
+    }
+    
+    std::vector<FileUnit *> FindPackageUnits(const std::string &pkg) const {
+        auto iter = pkg_units_.find(pkg);
+        return iter == pkg_units_.end() ? std::vector<FileUnit *>{} : iter->second;
+    }
+    
+    Symbolize *FindSymbolOrNull(const std::string &name) const {
+        auto iter = symbols_.find(name);
+        return iter == symbols_.end() ? nullptr : iter->second;
+    }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(TypeChecker);
 private:

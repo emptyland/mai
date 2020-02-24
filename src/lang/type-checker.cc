@@ -1,6 +1,7 @@
 #include "lang/type-checker.h"
 #include "lang/compiler.h"
 #include "lang/token.h"
+#include <deque>
 
 namespace mai {
 
@@ -22,34 +23,50 @@ TypeChecker::TypeChecker(base::Arena *arena, SyntaxFeedback *feedback)
 }
 
 
-Error TypeChecker::AddBootFileUnits(const std::vector<FileUnit *> &file_units,
+Error TypeChecker::AddBootFileUnits(const std::string &original_path,
+                                    const std::vector<FileUnit *> &file_units,
                                     SourceFileResolve *resolve) {
+    std::map<std::string, std::vector<FileUnit *>> external_units;
     for (auto unit : file_units) {
-        path_units_[unit->GetPathName(Compiler::kFileExtName)].push_back(unit);
-        pkg_units_[unit->package_name()->ToString()].push_back(unit);
-        all_units_.push_back(unit);
+        //DCHECK(unit->package_name()->ToString().find(original_path) == 0);
+        auto key = unit->GetPathName(original_path.back() == '/' || original_path.back() == '\\' ?
+                                     original_path.size() : original_path.size() + 1,
+                                     Compiler::kFileExtName);
+        //printf("key = %s\n", key.c_str());
+        external_units[key].push_back(unit);
     }
     
-    for (auto unit : file_units) {
-        for (auto import : unit->import_packages()) {
-            auto iter = path_units_.find(import->original_path()->data());
-            if (iter != path_units_.end()) {
-                continue;
-            }
-
-            std::vector<FileUnit *> import_units;
-            resolve->Resolve(import->original_path()->data(), &import_units);
-            for (auto unit : file_units) {
-                path_units_[unit->GetPathName(Compiler::kFileExtName)].push_back(unit);
-                pkg_units_[unit->package_name()->ToString()].push_back(unit);
-                all_units_.push_back(unit);
+    while (!external_units.empty()) {
+        std::vector<FileUnit *> units = std::move(external_units.begin()->second);
+        std::string path = external_units.begin()->first;
+        external_units.erase(external_units.begin());
+        
+        for (auto unit : units) {
+            path_units_[path].push_back(unit);
+            pkg_units_[unit->package_name()->ToString()].push_back(unit);
+            all_units_.push_back(unit);
+            
+            for (auto import : unit->import_packages()) {
+                auto iter = path_units_.find(import->original_path()->data());
+                if (iter != path_units_.end()) {
+                    continue;
+                }
+                std::vector<FileUnit *> import_units;
+                if (auto rs = resolve->Resolve(import->original_path()->data(), &import_units);
+                    rs.fail()) {
+                    return rs;
+                }
+                auto key = unit->GetPathName(original_path.back() == '/' || original_path.back() == '\\' ?
+                                             original_path.size() : original_path.size() + 1,
+                                             Compiler::kFileExtName);
+                external_units[key] = std::move(import_units);
             }
         }
     }
     return Error::OK();
 }
 
-bool TypeChecker::ResolveSymbols() {
+bool TypeChecker::Prepare() {
     int fail = 0;
     for (auto pair : pkg_units_) {
         const std::string &pkg_name = pair.first;
@@ -154,6 +171,10 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
         }
     }
 
+    for (auto def : unit->definitions()) {
+        (void)def;
+    }
+
     for (auto decl : unit->global_variables()) {
         auto rv = decl->Accept(this);
         if (rv.sign == kError) {
@@ -198,6 +219,66 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
     }
 }
 
+ASTVisitor::Result TypeChecker::VisitBoolLiteral(BoolLiteral *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitI8Literal(I8Literal *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitU8Literal(U8Literal *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitI16Literal(I16Literal *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitU16Literal(U16Literal *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitI32Literal(I32Literal *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitU32Literal(U32Literal *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitIntLiteral(IntLiteral *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitUIntLiteral(UIntLiteral *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitI64Literal(I64Literal *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitU64Literal(U64Literal *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitF32Literal(F32Literal *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitF64Literal(F64Literal *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitNilLiteral(NilLiteral *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitStringLiteral(StringLiteral *ast) /*override*/ {
+    return ResultWithType(ast->type());
+}
+
 ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *ast) /*override*/ {
     if (ast->initializer()) {
         auto rv = ast->initializer()->Accept(this);
@@ -210,7 +291,7 @@ ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *as
             TODO();
             return ResultWithType(kError);
         }
-        
+
         if (!ast->type()) {
             ast->set_type(rv.sign);
         } else {

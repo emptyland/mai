@@ -16,6 +16,20 @@ Error SourceFileResolve::Resolve(const std::string &dot_path, std::vector<FileUn
         }
     }
     
+    if (auto rs = env_->FileExists(dir); rs.fail()) {
+        bool ok = false;
+        for (auto search : search_path_) {
+            if (rs = env_->FileExists(search + "/" + dir); rs.ok()) {
+                dir = search + "/" + dir;
+                ok = true;
+                break;
+            }
+        }
+        if (!ok) {
+            return rs;
+        }
+    }
+
     std::vector<std::string> files;
     if (auto rs = Compiler::FindSourceFiles(dir, env_, false, &files); rs.fail()) {
         return rs;
@@ -90,11 +104,11 @@ Error SourceFileResolve::ParseAll(const std::vector<std::string> &source_files,
     }
     
     TypeChecker checker(arena, feedback);
-    if (auto rs = checker.AddBootFileUnits(file_units, &resolve); rs.fail()) {
+    if (auto rs = checker.AddBootFileUnits("TODO:", file_units, &resolve); rs.fail()) {
         return rs;
     }
     
-    if (!checker.ResolveSymbols()) {
+    if (!checker.Prepare()) {
         return MAI_CORRUPTION("Resolve symbols fail");
     }
     

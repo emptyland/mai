@@ -71,6 +71,21 @@ private:
     std::unique_ptr<Lexer> lexer_; // Lexer of parser
     Token lookahead_ = Token(Token::kError, {}); // Look a head token
     FileUnit *file_unit_ = nullptr;
+    TypeSign *bool_ = nullptr;
+    TypeSign *i8_ = nullptr;
+    TypeSign *u8_ = nullptr;
+    TypeSign *i16_ = nullptr;
+    TypeSign *u16_ = nullptr;
+    TypeSign *i32_ = nullptr;
+    TypeSign *u32_ = nullptr;
+    TypeSign *int_ = nullptr;
+    TypeSign *uint_ = nullptr;
+    TypeSign *i64_ = nullptr;
+    TypeSign *u64_ = nullptr;
+    TypeSign *f32_ = nullptr;
+    TypeSign *f64_ = nullptr;
+    TypeSign *any_ = nullptr;
+    TypeSign *string_ = nullptr;
 }; // class Parser
 
 
