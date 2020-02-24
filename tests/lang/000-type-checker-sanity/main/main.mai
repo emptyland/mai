@@ -1,0 +1,11 @@
+package main
+
+import foo
+
+val i = 1
+
+fun main() {
+    println("Hello, World")
+}
+
+
