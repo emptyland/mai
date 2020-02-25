@@ -16,6 +16,8 @@ namespace lang {
     V(VariableDeclaration) \
     V(FunctionDefinition) \
     V(ClassDefinition) \
+    V(ObjectDefinition) \
+    V(InterfaceDefinition) \
     V(ClassImplementsBlock) \
     V(AssignmentStatement) \
     V(BreakableStatement) \
@@ -98,8 +100,8 @@ public:
     
 #define DEFINE_TYPE_CHECKER(name) \
     inline bool Is##name() const { return kind() == k##name; } \
-    inline name *As##name() { return !Is##name() ? nullptr : reinterpret_cast<name *>(this); } \
-    inline const name *As##name() const { return !Is##name() ? nullptr : reinterpret_cast<const name *>(this); }
+    inline name *As##name() { return !this || !Is##name() ? nullptr : reinterpret_cast<name *>(this); } \
+    inline const name *As##name() const { return !this || !Is##name() ? nullptr : reinterpret_cast<const name *>(this); }
     
     DECLARE_ALL_AST(DEFINE_TYPE_CHECKER)
     
@@ -191,9 +193,13 @@ class FunctionPrototype;
 
 class TypeSign : public ASTNode {
 public:
-    constexpr TypeSign(int position, int kind): ASTNode(position, kTypeSign), kind_(kind), symbol_(nullptr) {}
-    TypeSign(int position, const ASTString *symbol);
+    constexpr TypeSign(int position, int kind)
+        : ASTNode(position, kTypeSign), kind_(kind), prefix_(nullptr) {}
+    TypeSign(int position, const ASTString *prefix, const ASTString *name);
     TypeSign(int position, FunctionPrototype *prototype);
+    TypeSign(int position, ClassDefinition *clazz);
+    TypeSign(int position, ObjectDefinition *object);
+    TypeSign(int position, InterfaceDefinition *interface);
 
     TypeSign(base::Arena *arena, int position, int kind, TypeSign *param)
         : ASTNode(position, kTypeSign)
@@ -209,31 +215,48 @@ public:
         InsertParameter(param0);
         InsertParameter(param1);
     }
-    
+
     void InsertParameter(TypeSign *type) { DCHECK_NOTNULL(parameters_)->push_back(type); }
-    
+
     int id() const { return kind_; }
-    DEF_PTR_GETTER(const ASTString, symbol);
+    void set_id(int id) { kind_ = id; }
+    DEF_PTR_GETTER(const ASTString, prefix);
+    DEF_PTR_GETTER(const ASTString, name);
     DEF_PTR_GETTER(FunctionPrototype, prototype);
-    DEF_PTR_GETTER(ClassDefinition, clazz);
+    DEF_PTR_PROP_RW(ClassDefinition, clazz);
+    DEF_PTR_PROP_RW(ObjectDefinition, object);
 
     size_t parameters_size() const { return parameters_->size(); }
     TypeSign *parameter(size_t i) const {
         DCHECK_LT(i, parameters_size());
         return parameters_->at(i);
     }
-    
+
     bool Convertible(TypeSign *type) const;
-    
+
+    std::string ToSymbolString() const;
+
     DEFINE_AST_NODE(TypeSign);
 private:
-    const int kind_;
+    // kind:
+    // Token::kIdentifier                -> prefix_, name_
+    // Token::kClass                     -> clazz_
+    // Token::kObject                    -> object_
+    // Token::kInterface                 -> interface_
+    // Token::kArray/Token::MutableArray -> parameters_[0]
+    // Token::kMap/Token::MutableMap     -> parameters_[0], parameters_[1]
+    // Token::kFun                       -> prototype_
+    // Others...
+    int kind_;
     union {
-        const ASTString *symbol_;
+        const ASTString *prefix_;
         ClassDefinition *clazz_;
+        InterfaceDefinition *interface_;
+        ObjectDefinition *object_;
         base::ArenaVector<TypeSign *> *parameters_;
         FunctionPrototype *prototype_;
     };
+    const ASTString *name_ = nullptr;
 }; // class TypeLink
 
 class FunctionPrototype {
@@ -358,17 +381,25 @@ private:
 
 class FunctionDefinition : public Definition {
 public:
+    enum Type {
+        NATIVE,
+        DECLARE,
+        LITERAL,
+    };
+    
     FunctionDefinition(int position, const ASTString *identifier, LambdaLiteral *body)
         : Definition(position, kFunctionDefinition, identifier)
-        , native_(false)
+        , type_(LITERAL)
         , body_(body) {}
     
-    FunctionDefinition(int position, const ASTString *identifier, FunctionPrototype *prototype)
+    FunctionDefinition(int position, bool native, const ASTString *identifier, FunctionPrototype *prototype)
         : Definition(position, kFunctionDefinition, identifier)
-        , native_(true)
+        , type_(native ? NATIVE : DECLARE)
         , prototype_(prototype) {}
 
-    DEF_VAL_GETTER(bool, native);
+    bool is_native() const { return type_ == NATIVE; }
+    bool is_declare() const { return type_ == DECLARE; }
+    bool is_literal() const { return type_ == LITERAL; }
     DEF_PTR_PROP_RW(LambdaLiteral, body);
     inline size_t parameters_size() const;
     inline FunctionPrototype::Parameter parameter(size_t i) const;
@@ -379,7 +410,7 @@ public:
     
     DEFINE_AST_NODE(FunctionDefinition);
 private:
-    bool native_;
+    Type type_;
     union {
         LambdaLiteral *body_;
         FunctionPrototype *prototype_;
@@ -387,7 +418,47 @@ private:
 }; // class FunctionDefinition
 
 
-class ClassDefinition : public Definition {
+class PartialInterfaceDefinition : public Definition {
+public:
+    DEF_ARENA_VECTOR_GETTER(FunctionDefinition *, method);
+    
+    virtual bool FieldExist(std::string_view name) = 0;
+    
+    bool InsertMethod(FunctionDefinition *method) {
+        if (FieldExist(method->identifier()->ToSlice())) {
+            return false;
+        }
+        methods_.push_back(method);
+        named_methods_[method->identifier()->ToSlice()] = method;
+        return true;
+    }
+    
+    FunctionDefinition *FindMethodOrNull(std::string_view name) {
+        auto iter = named_methods_.find(name);
+        return iter == named_methods_.end() ? nullptr : iter->second;
+    }
+protected:
+    PartialInterfaceDefinition(int position, Kind kind,
+                               const ASTString *identifier,
+                               base::ArenaVector<FunctionDefinition *> &&methods,
+                               base::ArenaMap<std::string_view, FunctionDefinition *> &&named_methods)
+        : Definition(position, kind, identifier)
+        , methods_(std::move(methods))
+        , named_methods_(named_methods) {}
+
+    PartialInterfaceDefinition(base::Arena *arena, int position, Kind kind,
+                               const ASTString *identifier)
+        : Definition(position, kind, identifier)
+        , methods_(arena)
+        , named_methods_(arena) {
+    }
+    
+    base::ArenaVector<FunctionDefinition *> methods_;
+    base::ArenaMap<std::string_view, FunctionDefinition *> named_methods_;
+}; // class PartialInterfaceDefinition
+
+
+class StructureDefinition : public PartialInterfaceDefinition {
 public:
     enum Access {
         kPublic,
@@ -401,40 +472,8 @@ public:
         int  as_constructor; // index of constructor parameter
         VariableDeclaration *declaration;
     }; // struct Field
-    
-    struct Parameter {
-        bool field_declaration;
-        union {
-            int as_field; // index of field
-            FunctionPrototype::Parameter as_parameter;
-        };
-    }; // struct Field
-
-    ClassDefinition(base::Arena *arena,
-                    int position,
-                    const ASTString *name,
-                    base::ArenaVector<Parameter> &&constructor,
-                    base::ArenaVector<Field> &&fields,
-                    const ASTString *base_name,
-                    base::ArenaVector<Expression *> &&arguments);
 
     DEF_ARENA_VECTOR_GETTER(Field, field);
-    DEF_ARENA_VECTOR_GETTER(Parameter, parameter);
-    DEF_ARENA_VECTOR_GETTER(Expression *, argument);
-    DEF_ARENA_VECTOR_GETTER(FunctionDefinition *, method);
-    DEF_PTR_PROP_RW(const ASTString, base_name);
-    DEF_PTR_PROP_RW(ClassDefinition, base);
-    
-    bool InsertMethod(FunctionDefinition *method) {
-        if (FindFieldOrNull(method->identifier()->ToSlice())) {
-            return false;
-        }
-        methods_.push_back(method);
-        named_methods_[method->identifier()->ToSlice()] = method;
-        return true;
-    }
-    
-    int MakeParameterLookupTable();
     
     int MakeFieldLookupTable() {
         for (size_t i = 0; i < fields_size(); i++) {
@@ -451,23 +490,89 @@ public:
         auto iter = named_fields_.find(name);
         return iter == named_fields_.end() ? nullptr : &fields_[iter->second];
     }
-    
-    FunctionDefinition *FindMethodOrNull(std::string_view name) {
-        auto iter = named_methods_.find(name);
-        return iter == named_methods_.end() ? nullptr : iter->second;
+protected:
+    StructureDefinition(base::Arena *arena, int position, Kind kind, const ASTString *identifier,
+                        base::ArenaVector<Field> &&fields)
+        : PartialInterfaceDefinition(arena, position, kind, identifier)
+        , fields_(std::move(fields))
+        , named_fields_(arena) {}
+
+    bool FieldExist(std::string_view name) override {
+        return FindFieldOrNull(name) != nullptr;
     }
+
+    base::ArenaVector<Field> fields_;
+    base::ArenaMap<std::string_view, size_t> named_fields_;
+}; // class StructureDefinition
+
+
+class InterfaceDefinition : public PartialInterfaceDefinition {
+public:
+    InterfaceDefinition(int position, const ASTString *identifier,
+                        base::ArenaVector<FunctionDefinition *> &&methods,
+                        base::ArenaMap<std::string_view, FunctionDefinition *> &&named_methods)
+        : PartialInterfaceDefinition(position, kInterfaceDefinition, identifier, std::move(methods),
+                                     std::move(named_methods)) {}
+    
+    DEFINE_AST_NODE(InterfaceDefinition);
+private:
+    bool FieldExist(std::string_view name) override { return FindMethodOrNull(name) != nullptr; }
+}; // class InterfaceDefinition
+
+
+class ObjectDefinition : public StructureDefinition {
+public:
+    ObjectDefinition(base::Arena *arena, int position, const ASTString *name,
+                     base::ArenaVector<Field> &&fields)
+        : StructureDefinition(arena, position, kObjectDefinition, name, std::move(fields)) {}
+    
+    DEFINE_AST_NODE(ObjectDefinition);
+}; // class ObjectDefinition
+
+
+class ClassDefinition : public StructureDefinition {
+public:
+    struct Parameter {
+        bool field_declaration;
+        union {
+            int as_field; // index of field
+            FunctionPrototype::Parameter as_parameter;
+        };
+    }; // struct Field
+
+    ClassDefinition(base::Arena *arena,
+                    int position,
+                    const ASTString *name,
+                    base::ArenaVector<Parameter> &&constructor,
+                    base::ArenaVector<Field> &&fields,
+                    const ASTString *base_name,
+                    base::ArenaVector<Expression *> &&arguments);
+
+    DEF_ARENA_VECTOR_GETTER(Parameter, parameter);
+    DEF_ARENA_VECTOR_GETTER(Expression *, argument);
+    DEF_PTR_PROP_RW(const ASTString, base_name);
+    DEF_PTR_PROP_RW(ClassDefinition, base);
+    
+    bool SameOrBaseOf(ClassDefinition *base) const { return base == this || BaseOf(base); }
+
+    bool BaseOf(ClassDefinition *base) const {
+        for (ClassDefinition *i = base_; i != nullptr; i = i->base()) {
+            if (i == base) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    int MakeParameterLookupTable();
 
     DEFINE_AST_NODE(ClassDefinition);
 private:
     base::ArenaVector<Parameter> parameters_;
     base::ArenaMap<std::string_view, size_t> named_parameters_;
-    base::ArenaVector<Field> fields_;
-    base::ArenaMap<std::string_view, size_t> named_fields_;
     const ASTString *base_name_;
     ClassDefinition *base_;
     base::ArenaVector<Expression *> arguments_;
-    base::ArenaVector<FunctionDefinition *> methods_;
-    base::ArenaMap<std::string_view, FunctionDefinition *> named_methods_;
 }; // class ClassDefinition
 
 
@@ -483,6 +588,14 @@ public:
     DEF_PTR_GETTER(const ASTString, prefix);
     DEF_PTR_GETTER(const ASTString, name);
     DEF_ARENA_VECTOR_GETTER(FunctionDefinition *, method);
+    
+    std::string ToSymbolString() const {
+        std::string buf(!prefix_ ? "" : prefix_->ToString());
+        if (prefix_) {
+            buf.append(1, '.');
+        }
+        return buf.append(name_->ToString());
+    }
     
     DEFINE_AST_NODE(ClassImplementsBlock);
 private:
@@ -609,10 +722,22 @@ public:
         , name_(name) {}
     
     DEF_PTR_GETTER(const ASTString, name);
+    DEF_PTR_PROP_RW(ASTNode, scope);
+    DEF_PTR_PROP_RW(Symbolize, original);
     
+    bool IsFromGlobalScope() const { return scope_ && scope_->IsFileUnit(); }
+    bool IsFromFunctionScope() const { return scope_ && scope_->IsFunctionDefinition(); }
+    bool IsFromConstructorScope() const { return scope_ && scope_->IsClassDefinition(); }
+    
+    TypeSign *type() const {
+        return !original_ ? nullptr : original_->AsVariableDeclaration()->type();
+    }
+
     DEFINE_AST_NODE(Identifier);
 private:
     const ASTString *name_;
+    ASTNode *scope_;
+    Symbolize *original_;
 }; // class Identifier
 
 class UnaryExpression : public Expression {
@@ -839,15 +964,15 @@ inline TypeSign *FunctionDefinition::return_type() const {
 }
 
 inline FunctionPrototype * FunctionDefinition::prototype() const {
-    return native_ ? prototype_ : body_->prototype();
+    return is_literal() ? body_->prototype() : prototype_;
 }
 
 inline size_t FunctionDefinition::statements_size() const {
-    return native_ ? 0 : body_->statements_size();
+    return is_literal() ? body_->statements_size() : 0;
 }
 
 inline Statement *FunctionDefinition::statement(size_t i) const {
-    return native_ ? nullptr : body_->statement(i);
+    return is_literal() ? body_->statement(i) : nullptr;
 }
 
 } // namespace lang

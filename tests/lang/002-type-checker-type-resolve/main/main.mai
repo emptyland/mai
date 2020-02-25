@@ -1,0 +1,9 @@
+package main
+
+import foo
+
+var o1: foo.Foo
+
+fun main() {
+
+}

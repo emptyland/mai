@@ -222,7 +222,7 @@ TEST_F(ParserTest, NativeFunctionDeclaration) {
     ASSERT_TRUE(ok);
     ASSERT_NE(nullptr, ast);
     
-    ASSERT_TRUE(ast->native());
+    ASSERT_TRUE(ast->is_native());
     ASSERT_STREQ("foo", ast->identifier()->data());
     ASSERT_EQ(2, ast->prototype()->parameters_size());
     ASSERT_STREQ("a", ast->prototype()->parameter(0).name->data());
@@ -318,6 +318,54 @@ TEST_F(ParserTest, ClassDefinition) {
     ASSERT_EQ(Token::kInt, ast->field(1).declaration->type()->id());
 }
 
+TEST_F(ParserTest, ObjectDefinition) {
+    MockFile file("object Foo { val i = 1 }\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseObjectDefinition(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_STREQ("Foo", ast->identifier()->data());
+    ASSERT_EQ(1, ast->fields_size());
+    ASSERT_STREQ("i", ast->field(0).declaration->identifier()->data());
+    ASSERT_FALSE(ast->field(0).in_constructor);
+    ASSERT_EQ(1, ast->field(0).declaration->initializer()->AsIntLiteral()->value());
+}
+
+TEST_F(ParserTest, InterfaceDefinition) {
+    MockFile file("interface Foo {\n"
+                  "    doIt(i:int, j:string)\n"
+                  "    doThat(): int\n"
+                  "    doThis(m:string)\n"
+                  "}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseInterfaceDefinition(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_STREQ("Foo", ast->identifier()->data());
+    ASSERT_EQ(3, ast->methods_size());
+    ASSERT_STREQ("doIt", ast->method(0)->identifier()->data());
+    ASSERT_STREQ("doThat", ast->method(1)->identifier()->data());
+    ASSERT_STREQ("doThis", ast->method(2)->identifier()->data());
+    
+    auto method = ast->FindMethodOrNull("doIt");
+    ASSERT_NE(nullptr, method);
+    ASSERT_TRUE(method->is_declare());
+    
+    method = ast->FindMethodOrNull("doThat");
+    ASSERT_NE(nullptr, method);
+    ASSERT_TRUE(method->is_declare());
+    
+    method = ast->FindMethodOrNull("doThis");
+    ASSERT_NE(nullptr, method);
+    ASSERT_TRUE(method->is_declare());
+}
+
 TEST_F(ParserTest, ClassImplementsBlock) {
     MockFile file("implements Foo {\n"
                   "    native fun doIt()\n"
@@ -333,17 +381,17 @@ TEST_F(ParserTest, ClassImplementsBlock) {
     
     ASSERT_EQ(3, ast->methods_size());
     ASSERT_STREQ("doIt", ast->method(0)->identifier()->data());
-    ASSERT_TRUE(ast->method(0)->native());
+    ASSERT_TRUE(ast->method(0)->is_native());
     ASSERT_EQ(0, ast->method(0)->prototype()->parameters_size());
     
     ASSERT_STREQ("doThat", ast->method(1)->identifier()->data());
-    ASSERT_TRUE(ast->method(1)->native());
+    ASSERT_TRUE(ast->method(1)->is_native());
     ASSERT_EQ(1, ast->method(1)->parameters_size());
     ASSERT_STREQ("a", ast->method(1)->parameter(0).name->data());
     ASSERT_EQ(Token::kInt, ast->method(1)->parameter(0).type->id());
     
     ASSERT_STREQ("doThis", ast->method(2)->identifier()->data());
-    ASSERT_FALSE(ast->method(2)->native());
+    ASSERT_FALSE(ast->method(2)->is_native());
     ASSERT_EQ(2, ast->method(2)->parameters_size());
     ASSERT_STREQ("a", ast->method(2)->parameter(0).name->data());
     ASSERT_EQ(Token::kInt, ast->method(2)->parameter(0).type->id());

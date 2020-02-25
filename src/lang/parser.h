@@ -15,6 +15,8 @@ class ImportStatement;
 class VariableDeclaration;
 class FunctionDefinition;
 class ClassDefinition;
+class ObjectDefinition;
+class InterfaceDefinition;
 class ClassImplementsBlock;
 class TypeSign;
 class StringTemplateExpression;
@@ -42,6 +44,8 @@ public:
     ImportStatement *ParseImportStatement(SourceLocation *loc, bool *ok);
     VariableDeclaration *ParseVariableDeclaration(bool *ok);
     FunctionDefinition *ParseFunctionDefinition(bool *ok);
+    InterfaceDefinition *ParseInterfaceDefinition(bool *ok);
+    ObjectDefinition *ParseObjectDefinition(bool *ok);
     ClassDefinition *ParseClassDefinition(bool *ok);
     ClassImplementsBlock *ParseClassImplementsBlock(bool *ok);
     Statement *ParseStatement(bool *ok);

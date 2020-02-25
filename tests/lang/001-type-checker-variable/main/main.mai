@@ -1,0 +1,6 @@
+package main
+
+var i = 1
+var j = 1.1
+var k = "string"
+val l: i8 = 100i8

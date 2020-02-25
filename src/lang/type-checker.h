@@ -44,7 +44,12 @@ public:
     Result VisitStringLiteral(StringLiteral *) override;
     Result VisitNilLiteral(NilLiteral *) override;
     Result VisitVariableDeclaration(VariableDeclaration *) override;
+    Result VisitIdentifier(Identifier *) override;
     Result VisitDotExpression(DotExpression *) override;
+    Result VisitFunctionDefinition(FunctionDefinition *) override;
+    Result VisitInterfaceDefinition(InterfaceDefinition *) override;
+    Result VisitObjectDefinition(ObjectDefinition *) override;
+    Result VisitClassDefinition(ClassDefinition *) override;
     
     std::vector<FileUnit *> FindPathUnits(const std::string &path) const {
         auto iter = path_units_.find(path);
@@ -66,6 +71,8 @@ private:
     bool CheckFileUnit(const std::string &pkg_name, FileUnit *unit);
     
     Result CheckDotExpression(TypeSign *type, DotExpression *ast);
+    
+    inline SourceLocation FindSourceLocation(ASTNode *ast);
     
     base::Arena *arena_;
     SyntaxFeedback *error_feedback_;
@@ -96,7 +103,16 @@ public:
     DEF_VAL_GETTER(Kind, kind);
     DEF_PTR_GETTER(AbstractScope, prev);
     
-    virtual Symbolize *ResolveOrNull(const ASTString *name) { return nullptr; }
+    virtual Symbolize *FindOrNull(const ASTString *name) { return nullptr; }
+    
+    std::tuple<AbstractScope *, Symbolize *> Resolve(const ASTString *name) {
+        for (auto i = this; i != nullptr; i = i->prev_) {
+            if (Symbolize *sym = i->FindOrNull(name); sym != nullptr) {
+                return {i, sym};
+            }
+        }
+        return {nullptr, nullptr};
+    }
 
     AbstractScope *GetScope(Kind kind) {
         for (AbstractScope *scope = this; scope != nullptr; scope = scope->prev_) {
@@ -108,6 +124,10 @@ public:
     }
     
     FileScope *GetFileScope() { return reinterpret_cast<FileScope *>(GetScope(kFileScope)); }
+
+    FunctionScope *GetFunctionScope() {
+        return reinterpret_cast<FunctionScope *>(GetScope(kFunctionScope));
+    }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(AbstractScope);
 protected:
@@ -136,9 +156,9 @@ public:
     
     DEF_PTR_GETTER(FileUnit, file_unit);
     
-    Symbolize *ResolveOrNull(const ASTString *name) override;
-    Symbolize *ResolveOrNull(const ASTString *prefix, const ASTString *name);
-    
+    Symbolize *FindOrNull(const ASTString *name) override;
+    Symbolize *FindOrNull(const ASTString *prefix, const ASTString *name);
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(FileScope);
 private:
     FileUnit *file_unit_;
@@ -147,14 +167,37 @@ private:
     std::map<std::string, std::string> alias_name_space_;
 }; // class FileScope
 
-class ClassScope {
+class ClassScope : public AbstractScope {
 public:
+    ClassScope(ClassDefinition *clazz, AbstractScope **current)
+        : AbstractScope(kClassScope, current)
+        , clazz_(clazz) {
+    }
+
     
+private:
+    ClassDefinition *clazz_;
 }; // class ClassScope
 
-class FunctionScope {
+class FunctionScope : public AbstractScope {
 public:
+    FunctionScope(FunctionDefinition *function, AbstractScope **current)
+        : AbstractScope(kFunctionScope, current)
+        , function_(function) {
+    }
     
+    DEF_PTR_GETTER(FunctionDefinition, function);
+    
+    bool Initialize(SyntaxFeedback *feedback);
+    
+    Symbolize *FindOrNull(const ASTString *name) override {
+        auto iter = parameters_.find(name->ToSlice());
+        return iter == parameters_.end() ? nullptr : iter->second;
+    }
+    
+private:
+    FunctionDefinition *function_;
+    std::map<std::string_view, Symbolize *> parameters_;
 }; // class FunctionScope
 
 class BlockScope {
@@ -163,19 +206,9 @@ public:
 }; // class BlockScope
 
 
-//inline FileScope *AbstractScope::GetFileScope() {
-//    if (kind() == kFileScope) {
-//        return static_cast<FileScope *>(this);
-//    }
-//
-//    AbstractScope *scope = prev_;
-//    while (scope) {
-//        if (scope->kind() == kFileScope) {
-//            reutrn
-//        }
-//        scope = scope->prev_;
-//    }
-//}
+inline SourceLocation TypeChecker::FindSourceLocation(ASTNode *ast) {
+    return current_->GetFileScope()->file_unit()->FindSourceLocation(ast);
+}
 
 } // namespace lang
 

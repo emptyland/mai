@@ -5,16 +5,35 @@ namespace mai {
 
 namespace lang {
 
-TypeSign::TypeSign(int position, const ASTString *symbol)
+TypeSign::TypeSign(int position, const ASTString *prefix, const ASTString *name)
     : ASTNode(position, kTypeSign)
     , kind_(Token::kIdentifier)
-    , symbol_(symbol) {
+    , prefix_(prefix)
+    , name_(name) {
 }
 
 TypeSign::TypeSign(int position, FunctionPrototype *prototype)
     : ASTNode(position, kTypeSign)
     , kind_(Token::kFun)
-    , prototype_(prototype) {
+    , prototype_(DCHECK_NOTNULL(prototype)) {
+}
+
+TypeSign::TypeSign(int position, ClassDefinition *clazz)
+    : ASTNode(position, kTypeSign)
+    , kind_(Token::kClass)
+    , clazz_(DCHECK_NOTNULL(clazz)) {
+}
+
+TypeSign::TypeSign(int position, ObjectDefinition *object)
+    : ASTNode(position, kTypeSign)
+    , kind_(Token::kObject)
+    , object_(DCHECK_NOTNULL(object)) {
+}
+
+TypeSign::TypeSign(int position, InterfaceDefinition *interface)
+    : ASTNode(position, kTypeSign)
+    , kind_(Token::kInterface)
+    , interface_(DCHECK_NOTNULL(interface)) {
 }
 
 bool TypeSign::Convertible(TypeSign *rhs) const {
@@ -23,9 +42,13 @@ bool TypeSign::Convertible(TypeSign *rhs) const {
     }
     switch (id()) {
         case Token::kIdentifier:
-            return id() == rhs->id() && symbol_->Equal(rhs->symbol_->data());
-        case Token::kClass:
-            return id() == rhs->id() && clazz() == rhs->clazz();
+            return id() == rhs->id() && ToSymbolString() == rhs->ToSymbolString();
+        case Token::kClass: {
+            if (id() != rhs->id()) {
+                return false;
+            }
+            return clazz()->BaseOf(rhs->clazz());
+        } break;
         case Token::kFun: {
             if (!prototype()->return_type()->Convertible(rhs->prototype()->return_type()) ||
                 prototype()->parameters_size() != rhs->prototype()->parameters_size() ||
@@ -55,6 +78,13 @@ bool TypeSign::Convertible(TypeSign *rhs) const {
     }
 }
 
+std::string TypeSign::ToSymbolString() const {
+    DCHECK_EQ(Token::kIdentifier, kind_);
+    std::string buf(!prefix_ ? "" : prefix_->ToString());
+    if (prefix_) { buf.append(1, '.'); }
+    return buf.append(DCHECK_NOTNULL(name_)->ToString());
+}
+
 ClassDefinition::ClassDefinition(base::Arena *arena,
                                  int position,
                                  const ASTString *name,
@@ -62,15 +92,11 @@ ClassDefinition::ClassDefinition(base::Arena *arena,
                                  base::ArenaVector<Field> &&fields,
                                  const ASTString *base_name,
                                  base::ArenaVector<Expression *> &&arguments)
-    : Definition(position, kClassDefinition, name)
+    : StructureDefinition(arena, position, kClassDefinition, name, std::move(fields))
     , parameters_(constructor)
     , named_parameters_(arena)
-    , fields_(fields)
-    , named_fields_(arena)
     , base_name_(base_name)
-    , arguments_(arguments)
-    , methods_(arena)
-    , named_methods_(arena) {
+    , arguments_(arguments) {
 }
 
 int ClassDefinition::MakeParameterLookupTable() {

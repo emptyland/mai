@@ -91,7 +91,7 @@ TEST_F(TypeCheckerTest, Prepare) {
     ASSERT_NE(nullptr, sym);
     ASSERT_TRUE(sym->IsFunctionDefinition());
     ASSERT_STREQ("println", sym->AsFunctionDefinition()->identifier()->data());
-    ASSERT_TRUE(sym->AsFunctionDefinition()->native());
+    ASSERT_TRUE(sym->AsFunctionDefinition()->is_native());
     
     sym = checker_.FindSymbolOrNull("foo.i");
     ASSERT_NE(nullptr, sym);
@@ -104,7 +104,47 @@ TEST_F(TypeCheckerTest, Prepare) {
     sym = checker_.FindSymbolOrNull("main.main");
     ASSERT_NE(nullptr, sym);
     ASSERT_TRUE(sym->IsFunctionDefinition());
-    ASSERT_FALSE(sym->AsFunctionDefinition()->native());
+    ASSERT_FALSE(sym->AsFunctionDefinition()->is_native());
+}
+
+TEST_F(TypeCheckerTest, SimpleGlobalVariableTypeReduce) {
+    auto rs = Parse("tests/lang/001-type-checker-variable");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_TRUE(checker_.Prepare());
+    ASSERT_TRUE(checker_.Check());
+    
+    auto sym = checker_.FindSymbolOrNull("main.i");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_TRUE(sym->IsVariableDeclaration());
+    ASSERT_STREQ("i", sym->identifier()->data());
+    ASSERT_EQ(Token::kInt, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.j");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_TRUE(sym->IsVariableDeclaration());
+    ASSERT_STREQ("j", sym->identifier()->data());
+    ASSERT_EQ(Token::kF32, sym->AsVariableDeclaration()->type()->id());
+}
+
+TEST_F(TypeCheckerTest, TypeNameResolve) {
+    auto rs = Parse("tests/lang/002-type-checker-type-resolve");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_TRUE(checker_.Prepare());
+    ASSERT_TRUE(checker_.Check());
+    
+    auto sym = checker_.FindSymbolOrNull("main.o1");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_TRUE(sym->IsVariableDeclaration());
+    
+    auto var = sym->AsVariableDeclaration();
+    ASSERT_NE(nullptr, var);
+    ASSERT_EQ(Token::kClass, var->type()->id());
+    
+    auto clazz = var->type()->clazz();
+    ASSERT_NE(nullptr, clazz);
+    ASSERT_STREQ("Foo", clazz->identifier()->data());
+    
+    
 }
 
 }

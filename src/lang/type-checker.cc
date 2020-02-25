@@ -107,6 +107,7 @@ bool TypeChecker::Prepare() {
                         fail++;
                         continue;
                     }
+                    symbols_[name] = def;
                     classes_objects_[name] = def;
                 }
             }
@@ -120,6 +121,7 @@ bool TypeChecker::Check() {
         //const std::string &pkg_name = pair.first;
         
         for (auto unit : pair.second) {
+            //printf("%s\n", pair.first.c_str());
             if (!CheckFileUnit(pair.first, unit)) {
                 return false;
             }
@@ -141,15 +143,10 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
     file_scope.Initialize(path_units_);
     
     for (auto impl : unit->implements()) {
-        Symbolize *sym = file_scope.ResolveOrNull(impl->prefix(), impl->name());
+        Symbolize *sym = file_scope.FindOrNull(impl->prefix(), impl->name());
         if (!sym) {
             SourceLocation loc = unit->FindSourceLocation(impl);
-            if (impl->prefix()) {
-                error_feedback_->Printf(loc, "Unresolve symbol: %s.%s", impl->prefix()->data(),
-                                        impl->name()->data());
-            } else {
-                error_feedback_->Printf(loc, "Unresolve symbol: %s", impl->name()->data());
-            }
+            error_feedback_->Printf(loc, "Unresolve symbol: %s", impl->ToSymbolString().c_str());
             return false;
         }
         
@@ -160,19 +157,10 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
             }
         } else {
             SourceLocation loc = unit->FindSourceLocation(impl);
-            if (impl->prefix()) {
-                error_feedback_->Printf(loc, "Symbol: %s.%s is not class or object",
-                                        impl->prefix()->data(), impl->name()->data());
-            } else {
-                error_feedback_->Printf(loc, "Symbol: %s is not class or object",
-                                        impl->name()->data());
-            }
+            error_feedback_->Printf(loc, "Symbol: %s is not class or object",
+                                    impl->ToSymbolString().c_str());
             return false;
         }
-    }
-
-    for (auto def : unit->definitions()) {
-        (void)def;
     }
 
     for (auto decl : unit->global_variables()) {
@@ -181,7 +169,14 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
             return false;
         }
     }
-    return false;
+
+    for (auto def : unit->definitions()) {
+        auto rv = def->Accept(this);
+        if (rv.sign == kError) {
+            return false;
+        }
+    }
+    return true;
 }
 
 ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression *ast) {
@@ -207,13 +202,12 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
                 TypeSign *type = new (arena_) TypeSign(method->position(), method->prototype());
                 return ResultWithType(type);
             }
-            SourceLocation loc = current_->GetFileScope()->file_unit()->FindSourceLocation(ast);
-            error_feedback_->Printf(loc, "No field or method named: %s", ast->rhs()->data());
+            error_feedback_->Printf(FindSourceLocation(ast), "No field or method named: %s",
+                                    ast->rhs()->data());
             return ResultWithType(kError);
         } break;
         default: {
-            SourceLocation loc = current_->GetFileScope()->file_unit()->FindSourceLocation(ast);
-            error_feedback_->Printf(loc, "Incorrect type to get field");
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type to get field");
             return ResultWithType(kError);
         } break;
     }
@@ -280,27 +274,34 @@ ASTVisitor::Result TypeChecker::VisitStringLiteral(StringLiteral *ast) /*overrid
 }
 
 ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *ast) /*override*/ {
+    if (ast->type() && ast->type()->id() == Token::kIdentifier) {
+        Symbolize *sym = current_->GetFileScope()->FindOrNull(ast->type()->prefix(),
+                                                              ast->type()->name());
+        if (auto clazz = sym->AsClassDefinition()) {
+            ast->type()->set_id(Token::kClass);
+            ast->type()->set_clazz(clazz);
+        } else {
+            error_feedback_->Printf(FindSourceLocation(ast), "Type name: %s not found",
+                                    ast->type()->ToSymbolString().c_str());
+            return ResultWithType(kError);
+        }
+    }
+    
     if (ast->initializer()) {
         auto rv = ast->initializer()->Accept(this);
         if (rv.sign == kError) {
             return rv;
         }
         if (rv.sign->id() == Token::kVoid) {
-            
-            error_feedback_->Printf({}, "Void type for variable declaration");
-            TODO();
+            error_feedback_->Printf(FindSourceLocation(ast), "Void type for variable declaration");
             return ResultWithType(kError);
         }
 
         if (!ast->type()) {
             ast->set_type(rv.sign);
         } else {
-            if (ast->type()->id() == Token::kClass && rv.sign->id() == Token::kObject) {
-                ast->set_type(rv.sign);
-            }
             if (!ast->type()->Convertible(rv.sign)) {
-                error_feedback_->Printf({}, "Un-convertible type");
-                TODO();
+                error_feedback_->Printf(FindSourceLocation(ast), "Un-convertible type");
                 return ResultWithType(kError);
             }
         }
@@ -308,34 +309,65 @@ ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *as
     return ResultWithType(kVoid);
 }
 
+ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
+    auto [scope, sym] = current_->Resolve(ast->name());
+    if (!sym) {
+        error_feedback_->Printf(FindSourceLocation(ast), "Unresolve symbol: %s",
+                                ast->name()->data());
+        return ResultWithType(kError);
+    }
+    
+    ast->set_original(sym);
+    if (scope->kind() == AbstractScope::kFileScope) {
+        ast->set_scope(static_cast<FileScope *>(scope)->file_unit());
+    } else if (scope->kind() == AbstractScope::kBlockScope) {
+        ast->set_scope(scope->GetFunctionScope()->function());
+    } else if (scope->kind() == AbstractScope::kFunctionScope) {
+        ast->set_scope(static_cast<FunctionScope *>(scope)->function());
+    } else {
+        NOREACHED();
+    }
+    
+    if (sym->IsClassDefinition()) {
+        TypeSign *type = new (arena_) TypeSign(ast->position(), sym->AsClassDefinition());
+        return ResultWithType(type);
+    } else if (sym->IsObjectDefinition()) {
+        TypeSign *type = new (arena_) TypeSign(ast->position(), sym->AsObjectDefinition());
+        return ResultWithType(type);
+    } else if (sym->IsInterfaceDefinition()) {
+        TypeSign *type = new (arena_) TypeSign(ast->position(), sym->AsInterfaceDefinition());
+        return ResultWithType(type);
+    }
+    DCHECK(sym->IsVariableDeclaration());
+    return ResultWithType(DCHECK_NOTNULL(sym->AsVariableDeclaration()->type()));
+}
+
 ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
     if (auto id = ast->primary()->AsIdentifier()) {
-        Symbolize *sym = current_->ResolveOrNull(id->name());
+        Symbolize *sym = std::get<1>(current_->Resolve(id->name()));
         if (sym) {
             if (auto decl = sym->AsVariableDeclaration()) {
                 return CheckDotExpression(DCHECK_NOTNULL(decl->type()), ast);
             // TODO: Object
             } else {
-                SourceLocation loc = current_->GetFileScope()->file_unit()->FindSourceLocation(ast);
-                error_feedback_->Printf(loc, "Incorrect type to get field");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type to get field");
                 return ResultWithType(kError);
             }
         }
         DCHECK(sym == nullptr);
         FileScope *file_scope = current_->GetFileScope();
-        sym = file_scope->ResolveOrNull(id->name(), ast->rhs());
+        sym = file_scope->FindOrNull(id->name(), ast->rhs());
         if (sym) {
             if (auto decl = sym->AsVariableDeclaration()) {
                 return CheckDotExpression(DCHECK_NOTNULL(decl->type()), ast);
             // TODO: Object
             } else {
-                SourceLocation loc = current_->GetFileScope()->file_unit()->FindSourceLocation(ast);
-                error_feedback_->Printf(loc, "Incorrect type to get field");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type to get field");
                 return ResultWithType(kError);
             }
         }
-        SourceLocation loc = file_scope->file_unit()->FindSourceLocation(ast);
-        error_feedback_->Printf(loc, "Unresolve symbol: %s.%s", id->name()->data(), ast->rhs()->data());
+        error_feedback_->Printf(FindSourceLocation(ast), "Unresolve symbol: %s.%s",
+                                id->name()->data(), ast->rhs()->data());
         return ResultWithType(kError);
     } else {
         auto rv = ast->primary()->Accept(this);
@@ -344,6 +376,30 @@ ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
         }
         return CheckDotExpression(DCHECK_NOTNULL(rv.sign), ast);
     }
+    return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::VisitInterfaceDefinition(InterfaceDefinition *ast) /*override*/ {
+    TODO();
+    return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::VisitObjectDefinition(ObjectDefinition *ast) /*override*/ {
+    TODO();
+    return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::VisitClassDefinition(ClassDefinition *ast) /*override*/ {
+    TODO();
+    return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::VisitFunctionDefinition(FunctionDefinition *ast) /*override*/ {
+    if (ast->is_native()) {
+        return ResultWithType(kVoid);
+    }
+
+    TODO();
     return ResultWithType(kVoid);
 }
 
@@ -365,7 +421,7 @@ void FileScope::Initialize(const std::map<std::string, std::vector<FileUnit *>> 
     }
 }
 
-Symbolize *FileScope::ResolveOrNull(const ASTString *name) {
+Symbolize *FileScope::FindOrNull(const ASTString *name) {
     for (auto full_name : all_name_space_) {
         full_name.append(".").append(name->ToString());
         if (auto iter = all_symbols_->find(full_name); iter != all_symbols_->end()) {
@@ -375,9 +431,9 @@ Symbolize *FileScope::ResolveOrNull(const ASTString *name) {
     return nullptr;
 }
 
-Symbolize *FileScope::ResolveOrNull(const ASTString *prefix, const ASTString *name) {
+Symbolize *FileScope::FindOrNull(const ASTString *prefix, const ASTString *name) {
     if (!prefix) {
-        return ResolveOrNull(name);
+        return FindOrNull(name);
     }
     if (auto iter = alias_name_space_.find(prefix->ToString()); iter == alias_name_space_.end()) {
         return nullptr;

@@ -46,11 +46,13 @@ FileUnit *Parser::Parse(bool *ok) {
             } break;
 
             case Token::kObject: {
-                TODO();
+                Definition *def = ParseObjectDefinition(CHECK_OK);
+                file_unit_->InsertDefinition(def);
             } break;
 
             case Token::kInterface: {
-                TODO();
+                Definition *def = ParseInterfaceDefinition(CHECK_OK);
+                file_unit_->InsertDefinition(def);
             } break;
 
             case Token::kImplements: {
@@ -182,7 +184,7 @@ FunctionDefinition *Parser::ParseFunctionDefinition(bool *ok) {
         FunctionPrototype *proto = ParseFunctionPrototype(true, &end, CHECK_OK);
         loc.LinkEnd(end);
         int position = file_unit_->InsertSourceLocation(loc);
-        return new (arena_) FunctionDefinition(position, name, proto);
+        return new (arena_) FunctionDefinition(position, native, name, proto);
     } else {
         LambdaLiteral *body = ParseLambdaLiteral(CHECK_OK);
         loc.LinkEnd(file_unit_->FindSourceLocation(body));
@@ -205,6 +207,69 @@ struct IncompleteClassDefinition {
     base::ArenaVector<ClassDefinition::Parameter> params;
     ClassDefinition::Access access = ClassDefinition::kPublic;
 };
+
+InterfaceDefinition *Parser::ParseInterfaceDefinition(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    Match(Token::kInterface, CHECK_OK);
+    const ASTString *name = ParseIdentifier(CHECK_OK);
+    Match(Token::kLBrace, CHECK_OK);
+    
+    base::ArenaVector<FunctionDefinition *> methods(arena_);
+    base::ArenaMap<std::string_view, FunctionDefinition *> named_methods(arena_);
+    
+    while (!Test(Token::kRBrace)) {
+        const ASTString *method_name = ParseIdentifier(CHECK_OK);
+        if (auto iter = named_methods.find(method_name->ToSlice()); iter != named_methods.end()) {
+            *ok = false;
+            error_feedback_->Printf(loc, "Duplicated interface method: %s", method_name->data());
+            return nullptr;
+        }
+        
+        SourceLocation end;
+        FunctionPrototype *proto = ParseFunctionPrototype(true, &end, CHECK_OK);
+        
+        int position = file_unit_->InsertSourceLocation(end);
+        FunctionDefinition *fun = new (arena_) FunctionDefinition(position, false/*native*/,
+                                                                  method_name, proto);
+        methods.push_back(fun);
+        named_methods[method_name->ToSlice()] = fun;
+        loc.LinkEnd(Peek().source_location());
+    }
+
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) InterfaceDefinition(position, name, std::move(methods),
+                                            std::move(named_methods));
+}
+
+ObjectDefinition *Parser::ParseObjectDefinition(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    Match(Token::kObject, CHECK_OK);
+    const ASTString *name = ParseIdentifier(CHECK_OK);
+    Match(Token::kLBrace, CHECK_OK);
+    
+    base::ArenaVector<StructureDefinition::Field> fields(arena_);
+    while (!Test(Token::kRBrace)) {
+        StructureDefinition::Field field;
+        field.in_constructor = false;
+        field.access = StructureDefinition::kPublic;
+        field.declaration = ParseVariableDeclaration(CHECK_OK);
+        fields.push_back(field);
+        
+        loc.LinkEnd(Peek().source_location());
+    }
+
+    int position = file_unit_->InsertSourceLocation(loc);
+    ObjectDefinition *object = new (arena_) ObjectDefinition(arena_, position, name,
+                                                             std::move(fields));
+    if (int err = object->MakeFieldLookupTable(); err < 0) {
+        VariableDeclaration *decl = object->field(-err - 1).declaration;
+        SourceLocation loc = file_unit_->FindSourceLocation(decl);
+        error_feedback_->Printf(loc, "Duplicated object field: %s", decl->identifier()->data());
+        *ok = false;
+        return nullptr;
+    }
+    return object;
+}
 
 ClassDefinition *Parser::ParseClassDefinition(bool *ok) {
     SourceLocation loc = Peek().source_location();
@@ -477,8 +542,13 @@ TypeSign *Parser::ParseTypeSign(bool *ok) {
             
         case Token::kIdentifier: {
             const ASTString *name = ParseIdentifier(CHECK_OK);
+            const ASTString *prefix = nullptr;
+            if (Test(Token::kDot)) {
+                prefix = name;
+                name = ParseIdentifier(CHECK_OK);
+            }
             int position = file_unit_->InsertSourceLocation(loc);
-            return new (arena_) TypeSign(position, name);
+            return new (arena_) TypeSign(position, prefix, name);
         } break;
 
         // array := `array' `[' type `]'
