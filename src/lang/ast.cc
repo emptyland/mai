@@ -36,6 +36,12 @@ TypeSign::TypeSign(int position, InterfaceDefinition *interface)
     , interface_(DCHECK_NOTNULL(interface)) {
 }
 
+StructureDefinition *TypeSign::structure() const {
+    DCHECK(kind_ == Token::kClass || kind_ == Token::kObject);
+    DCHECK(structure_->IsClassDefinition() || structure_->IsObjectDefinition());
+    return structure_;
+}
+
 bool TypeSign::Convertible(TypeSign *rhs) const {
     if (id() == Token::kAny) { // Any type!
         return true;
@@ -90,12 +96,15 @@ ClassDefinition::ClassDefinition(base::Arena *arena,
                                  const ASTString *name,
                                  base::ArenaVector<Parameter> &&constructor,
                                  base::ArenaVector<Field> &&fields,
+                                 const ASTString *base_prefix,
                                  const ASTString *base_name,
                                  base::ArenaVector<Expression *> &&arguments)
     : StructureDefinition(arena, position, kClassDefinition, name, std::move(fields))
     , parameters_(constructor)
     , named_parameters_(arena)
+    , base_prefix_(base_prefix)
     , base_name_(base_name)
+    , base_(nullptr)
     , arguments_(arguments) {
 }
 
@@ -106,7 +115,7 @@ int ClassDefinition::MakeParameterLookupTable() {
         if (param.field_declaration) {
             name = field(param.as_field).declaration->identifier();
         } else {
-            name = param.as_parameter.name;
+            name = param.as_parameter->identifier();
         }
         if (auto iter = named_parameters_.find(name->ToSlice()); iter != named_parameters_.end()) {
             return -static_cast<int>(i + 1);

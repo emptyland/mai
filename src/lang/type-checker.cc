@@ -99,8 +99,8 @@ bool TypeChecker::Prepare() {
                     }
                     symbols_[name] = def;
                 } else if (def->IsClassDefinition()) {
-                    auto iter = classes_objects_.find(name);
-                    if (iter != classes_objects_.end()) {
+                    auto iter = symbols_.find(name);
+                    if (iter != symbols_.end()) {
                         error_feedback_->Printf(unit->FindSourceLocation(def),
                                                 "Duplicated class or object: %s",
                                                 def->identifier()->data());
@@ -108,37 +108,28 @@ bool TypeChecker::Prepare() {
                         continue;
                     }
                     symbols_[name] = def;
-                    classes_objects_[name] = def;
+                    //classes_objects_[name] = def;
                 }
+            }
+        }
+    }
+
+    for (auto pair : pkg_units_) {
+        for (auto unit : pair.second) {
+            if (!PrepareClassDefinition(unit)) {
+                fail++;
             }
         }
     }
     return !fail;
 }
 
-bool TypeChecker::Check() {
-    for (auto pair : pkg_units_) {
-        //const std::string &pkg_name = pair.first;
-        
-        for (auto unit : pair.second) {
-            //printf("%s\n", pair.first.c_str());
-            if (!CheckFileUnit(pair.first, unit)) {
-                return false;
-            }
-            
-            // TODO:
-        }
-    }
-
-    return true;
-}
-
-bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
+bool TypeChecker::PrepareClassDefinition(FileUnit *unit) {
     // import mai.lang as *
     ImportStatement *base = new (arena_) ImportStatement(0, ASTString::New(arena_, "*"),
                                                          ASTString::New(arena_, "mai.lang"));
     unit->InsertImportStatement(base);
-    
+
     FileScope file_scope(&symbols_, unit, &current_);
     file_scope.Initialize(path_units_);
     
@@ -162,6 +153,37 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
             return false;
         }
     }
+
+    for (auto def : unit->definitions()) {
+        if (auto ast = def->AsClassDefinition(); ast != nullptr && ast->base_name()) {
+            Symbolize *sym = file_scope.FindOrNull(ast->base_prefix(), ast->base_name());
+            if (!sym || !sym->IsClassDefinition()) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Base class not found: %s",
+                                        ast->ToBaseSymbolString().c_str());
+                return false;
+            }
+            ast->set_base(sym->AsClassDefinition());
+        }
+    }
+    return true;
+}
+
+bool TypeChecker::Check() {
+    for (auto pair : pkg_units_) {
+        for (auto unit : pair.second) {
+            if (!CheckFileUnit(pair.first, unit)) {
+                return false;
+            }
+            
+            // TODO:
+        }
+    }
+    return true;
+}
+
+bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
+    FileScope file_scope(&symbols_, unit, &current_);
+    file_scope.Initialize(path_units_);
 
     for (auto decl : unit->global_variables()) {
         auto rv = decl->Accept(this);
@@ -192,12 +214,23 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
         case Token::kChannel:
             TODO();
             break;
+        case Token::kInterface: {
+            auto method = type->interface()->FindMethodOrNull(ast->rhs()->ToSlice());
+            if (!method) {
+                error_feedback_->Printf(FindSourceLocation(ast), "No field or method named: %s",
+                                        ast->rhs()->data());
+                return ResultWithType(kError);
+            }
+            TypeSign *type = new (arena_) TypeSign(method->position(), method->prototype());
+            return ResultWithType(type);
+        } break;
+        case Token::kClass:
         case Token::kObject: {
-            auto field = type->clazz()->FindFieldOrNull(ast->rhs()->ToSlice());
+            auto field = type->structure()->FindFieldOrNull(ast->rhs()->ToSlice());
             if (field) {
                 return ResultWithType(DCHECK_NOTNULL(field->declaration->type()));
             }
-            auto method = type->clazz()->FindMethodOrNull(ast->rhs()->ToSlice());
+            auto method = type->structure()->FindMethodOrNull(ast->rhs()->ToSlice());
             if (method) {
                 TypeSign *type = new (arena_) TypeSign(method->position(), method->prototype());
                 return ResultWithType(type);
@@ -211,6 +244,28 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
             return ResultWithType(kError);
         } break;
     }
+}
+
+ASTVisitor::Result TypeChecker::VisitTypeSign(TypeSign *ast) /*override*/ {
+    if (ast->id() == Token::kIdentifier) {
+        Symbolize *sym = current_->GetFileScope()->FindOrNull(ast->prefix(),
+                                                              ast->name());
+        if (auto clazz = sym->AsClassDefinition()) {
+            ast->set_id(Token::kClass);
+            ast->set_clazz(clazz);
+        } else if (auto object = sym->AsObjectDefinition()) {
+            ast->set_id(Token::kObject);
+            ast->set_object(object);
+        } else if (auto interf = sym->AsInterfaceDefinition()) {
+            ast->set_id(Token::kInterface);
+            ast->set_interface(interf);
+        } else {
+            error_feedback_->Printf(FindSourceLocation(ast), "Type name: %s not found",
+                                    ast->ToSymbolString().c_str());
+            return ResultWithType(kError);
+        }
+    }
+    return ResultWithType(ast);
 }
 
 ASTVisitor::Result TypeChecker::VisitBoolLiteral(BoolLiteral *ast) /*override*/ {
@@ -275,14 +330,7 @@ ASTVisitor::Result TypeChecker::VisitStringLiteral(StringLiteral *ast) /*overrid
 
 ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *ast) /*override*/ {
     if (ast->type() && ast->type()->id() == Token::kIdentifier) {
-        Symbolize *sym = current_->GetFileScope()->FindOrNull(ast->type()->prefix(),
-                                                              ast->type()->name());
-        if (auto clazz = sym->AsClassDefinition()) {
-            ast->type()->set_id(Token::kClass);
-            ast->type()->set_clazz(clazz);
-        } else {
-            error_feedback_->Printf(FindSourceLocation(ast), "Type name: %s not found",
-                                    ast->type()->ToSymbolString().c_str());
+        if (auto rv = ast->type()->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
         }
     }
@@ -316,7 +364,7 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
                                 ast->name()->data());
         return ResultWithType(kError);
     }
-    
+
     ast->set_original(sym);
     if (scope->kind() == AbstractScope::kFileScope) {
         ast->set_scope(static_cast<FileScope *>(scope)->file_unit());
@@ -324,10 +372,12 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
         ast->set_scope(scope->GetFunctionScope()->function());
     } else if (scope->kind() == AbstractScope::kFunctionScope) {
         ast->set_scope(static_cast<FunctionScope *>(scope)->function());
+    } else if (scope->kind() == AbstractScope::kClassScope) {
+        ast->set_scope(static_cast<ClassScope *>(scope)->clazz());
     } else {
         NOREACHED();
     }
-    
+
     if (sym->IsClassDefinition()) {
         TypeSign *type = new (arena_) TypeSign(ast->position(), sym->AsClassDefinition());
         return ResultWithType(type);
@@ -380,7 +430,11 @@ ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
 }
 
 ASTVisitor::Result TypeChecker::VisitInterfaceDefinition(InterfaceDefinition *ast) /*override*/ {
-    TODO();
+    for (auto method : ast->methods()) {
+        if (auto rv = method->Accept(this); rv.sign == kError) {
+            return ResultWithType(kVoid);
+        }
+    }
     return ResultWithType(kVoid);
 }
 
@@ -390,16 +444,68 @@ ASTVisitor::Result TypeChecker::VisitObjectDefinition(ObjectDefinition *ast) /*o
 }
 
 ASTVisitor::Result TypeChecker::VisitClassDefinition(ClassDefinition *ast) /*override*/ {
-    TODO();
+    for (auto param : ast->parameters()) {
+        if (param.field_declaration) {
+            continue;
+        }
+        if (auto rv = param.as_parameter->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
+    
+    for (auto field : ast->fields()) {
+        if (auto rv = field.declaration->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
+    
+    if (ast->base()) {
+        ClassScope class_scope(ast, &current_);
+        
+        if (ast->arguments_size() != ast->base()->parameters_size()) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Unexpected base class constructor "
+                                    "expected %ld parameters", ast->arguments_size());
+            return ResultWithType(kError);
+        }
+        
+        for (size_t i = 0; i < ast->arguments_size(); i++) {
+            auto rv = ast->argument(i)->Accept(this);
+            if (rv.sign == kError) {
+                return ResultWithType(kError);
+            }
+            auto param = ast->base()->parameter(i);
+            auto type = param.field_declaration
+                ? ast->base()->field(param.as_field).declaration->type()
+                : param.as_parameter->type();
+            if (!type->Convertible(rv.sign)) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected base class constructor");
+                return ResultWithType(kError);
+            }
+        }
+    }
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::VisitFunctionDefinition(FunctionDefinition *ast) /*override*/ {
-    if (ast->is_native()) {
+    for (size_t i = 0; i < ast->prototype()->parameters_size(); i++) {
+        auto param = &ast->prototype()->mutable_parameters()->at(i);
+        if (param->type->id() == Token::kIdentifier) {
+            if (auto rv = param->type->Accept(this); rv.sign == kError) {
+                return ResultWithType(kError);
+            }
+        }
+    }
+    if (ast->return_type()->id() == Token::kIdentifier) {
+        if (auto rv = ast->return_type()->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
+
+    if (ast->is_native() || ast->is_declare()) {
         return ResultWithType(kVoid);
     }
 
-    TODO();
+    // TODO();
     return ResultWithType(kVoid);
 }
 
@@ -419,6 +525,7 @@ void FileScope::Initialize(const std::map<std::string, std::vector<FileUnit *>> 
             alias_name_space_[pkg] = pkg;
         }
     }
+    all_name_space_.insert(file_unit_->package_name()->ToString());
 }
 
 Symbolize *FileScope::FindOrNull(const ASTString *name) {
@@ -442,6 +549,23 @@ Symbolize *FileScope::FindOrNull(const ASTString *prefix, const ASTString *name)
     full_name.append(".").append(name->ToString());
     auto iter = all_symbols_->find(full_name);
     return iter == all_symbols_->end() ? nullptr : iter->second;
+}
+
+ClassScope::ClassScope(ClassDefinition *clazz, AbstractScope **current)
+    : AbstractScope(kClassScope, current)
+    , clazz_(clazz) {
+    for (auto param : clazz_->parameters()) {
+        if (param.field_declaration) {
+            // Ignore
+        } else {
+            parameters_[param.as_parameter->identifier()->ToSlice()] = param.as_parameter;
+        }
+    }
+}
+
+Symbolize *ClassScope::FindOrNull(const ASTString *name) /*override*/ {
+    auto iter = parameters_.find(name->ToSlice());
+    return iter == parameters_.end() ? nullptr : iter->second;
 }
 
 } // namespace lang

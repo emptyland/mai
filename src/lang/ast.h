@@ -130,6 +130,8 @@ class Declaration;
 class Definition;
 class Statement;
 class Expression;
+class StructureDefinition;
+class PartialInterfaceDefinition;
 
 class FileUnit : public ASTNode {
 public:
@@ -225,6 +227,13 @@ public:
     DEF_PTR_GETTER(FunctionPrototype, prototype);
     DEF_PTR_PROP_RW(ClassDefinition, clazz);
     DEF_PTR_PROP_RW(ObjectDefinition, object);
+    DEF_PTR_PROP_RW(InterfaceDefinition, interface);
+    
+#if defined(DEBUG) || defined(_DEBUG)
+    StructureDefinition *structure() const;
+#else
+    DEF_PTR_GETTER(StructureDefinition, structure);
+#endif // defined(DEBUG) || defined(_DEBUG)
 
     size_t parameters_size() const { return parameters_->size(); }
     TypeSign *parameter(size_t i) const {
@@ -250,9 +259,10 @@ private:
     int kind_;
     union {
         const ASTString *prefix_;
-        ClassDefinition *clazz_;
         InterfaceDefinition *interface_;
+        StructureDefinition *structure_;
         ObjectDefinition *object_;
+        ClassDefinition *clazz_;
         base::ArenaVector<TypeSign *> *parameters_;
         FunctionPrototype *prototype_;
     };
@@ -358,6 +368,7 @@ public:
     enum Kind {
         VAL,
         VAR,
+        PARAMETER,
     };
 
     VariableDeclaration(int position, Kind kind, const ASTString *identifier, TypeSign *type,
@@ -536,7 +547,7 @@ public:
         bool field_declaration;
         union {
             int as_field; // index of field
-            FunctionPrototype::Parameter as_parameter;
+            VariableDeclaration *as_parameter;
         };
     }; // struct Field
 
@@ -545,11 +556,13 @@ public:
                     const ASTString *name,
                     base::ArenaVector<Parameter> &&constructor,
                     base::ArenaVector<Field> &&fields,
+                    const ASTString *base_prefix,
                     const ASTString *base_name,
                     base::ArenaVector<Expression *> &&arguments);
 
     DEF_ARENA_VECTOR_GETTER(Parameter, parameter);
     DEF_ARENA_VECTOR_GETTER(Expression *, argument);
+    DEF_PTR_PROP_RW(const ASTString, base_prefix);
     DEF_PTR_PROP_RW(const ASTString, base_name);
     DEF_PTR_PROP_RW(ClassDefinition, base);
     
@@ -565,11 +578,20 @@ public:
     }
     
     int MakeParameterLookupTable();
+    
+    std::string ToBaseSymbolString() const {
+        std::string buf(!base_prefix_ ? "" : base_prefix_->ToString());
+        if (base_prefix_) {
+            buf.append(1, '.');
+        }
+        return buf.append(DCHECK_NOTNULL(base_name_)->ToString());
+    }
 
     DEFINE_AST_NODE(ClassDefinition);
 private:
     base::ArenaVector<Parameter> parameters_;
     base::ArenaMap<std::string_view, size_t> named_parameters_;
+    const ASTString *base_prefix_;
     const ASTString *base_name_;
     ClassDefinition *base_;
     base::ArenaVector<Expression *> arguments_;

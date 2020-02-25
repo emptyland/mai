@@ -292,12 +292,12 @@ TEST_F(ParserTest, ClassDefinition) {
     ASSERT_EQ(1, ast->parameter(1).as_field);
     
     ASSERT_FALSE(ast->parameter(2).field_declaration);
-    ASSERT_STREQ("c", ast->parameter(2).as_parameter.name->data());
-    ASSERT_EQ(Token::kInt, ast->parameter(2).as_parameter.type->id());
+    ASSERT_STREQ("c", ast->parameter(2).as_parameter->identifier()->data());
+    ASSERT_EQ(Token::kInt, ast->parameter(2).as_parameter->type()->id());
     
     ASSERT_FALSE(ast->parameter(3).field_declaration);
-    ASSERT_STREQ("d", ast->parameter(3).as_parameter.name->data());
-    ASSERT_EQ(Token::kInt, ast->parameter(3).as_parameter.type->id());
+    ASSERT_STREQ("d", ast->parameter(3).as_parameter->identifier()->data());
+    ASSERT_EQ(Token::kInt, ast->parameter(3).as_parameter->type()->id());
     
     ASSERT_STREQ("foo.Bar", ast->base_name()->data());
     ASSERT_EQ(2, ast->arguments_size());

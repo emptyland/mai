@@ -28,6 +28,7 @@ public:
     bool Prepare();
     bool Check();
     
+    Result VisitTypeSign(TypeSign *) override;
     Result VisitBoolLiteral(BoolLiteral *) override;
     Result VisitI8Literal(I8Literal *) override;
     Result VisitU8Literal(U8Literal *) override;
@@ -68,6 +69,7 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(TypeChecker);
 private:
+    bool PrepareClassDefinition(FileUnit *unit);
     bool CheckFileUnit(const std::string &pkg_name, FileUnit *unit);
     
     Result CheckDotExpression(TypeSign *type, DotExpression *ast);
@@ -169,14 +171,16 @@ private:
 
 class ClassScope : public AbstractScope {
 public:
-    ClassScope(ClassDefinition *clazz, AbstractScope **current)
-        : AbstractScope(kClassScope, current)
-        , clazz_(clazz) {
-    }
+    ClassScope(ClassDefinition *clazz, AbstractScope **current);
 
+    Symbolize *FindOrNull(const ASTString *name) override;
     
+    DEF_PTR_GETTER(ClassDefinition, clazz);
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(ClassScope);
 private:
     ClassDefinition *clazz_;
+    std::map<std::string_view, VariableDeclaration*> parameters_;
 }; // class ClassScope
 
 class FunctionScope : public AbstractScope {

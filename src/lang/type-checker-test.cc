@@ -143,8 +143,24 @@ TEST_F(TypeCheckerTest, TypeNameResolve) {
     auto clazz = var->type()->clazz();
     ASSERT_NE(nullptr, clazz);
     ASSERT_STREQ("Foo", clazz->identifier()->data());
+}
+
+TEST_F(TypeCheckerTest, ClassDefinitionBaseClass) {
+    auto rs = Parse("tests/lang/003-type-checker-class-definition");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_TRUE(checker_.Prepare());
+    ASSERT_TRUE(checker_.Check());
     
+    auto sym = checker_.FindSymbolOrNull("main.Bar");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_TRUE(sym->IsClassDefinition());
     
+    auto clazz = sym->AsClassDefinition();
+    ASSERT_STREQ("Bar", clazz->identifier()->data());
+    
+    clazz = clazz->base();
+    ASSERT_NE(nullptr, clazz);
+    ASSERT_STREQ("Foo", clazz->identifier()->data());
 }
 
 }

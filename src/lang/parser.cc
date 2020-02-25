@@ -193,21 +193,6 @@ FunctionDefinition *Parser::ParseFunctionDefinition(bool *ok) {
     }
 }
 
-struct IncompleteClassDefinition {
-    IncompleteClassDefinition(base::Arena *arena)
-        : args(arena)
-        , fields(arena)
-        , params(arena) {}
-
-    bool need_comma = false;
-    const ASTString *name = nullptr;
-    const ASTString *base = nullptr;
-    base::ArenaVector<Expression *> args;
-    base::ArenaVector<ClassDefinition::Field> fields;
-    base::ArenaVector<ClassDefinition::Parameter> params;
-    ClassDefinition::Access access = ClassDefinition::kPublic;
-};
-
 InterfaceDefinition *Parser::ParseInterfaceDefinition(bool *ok) {
     SourceLocation loc = Peek().source_location();
     Match(Token::kInterface, CHECK_OK);
@@ -271,6 +256,22 @@ ObjectDefinition *Parser::ParseObjectDefinition(bool *ok) {
     return object;
 }
 
+struct IncompleteClassDefinition {
+    IncompleteClassDefinition(base::Arena *arena)
+        : args(arena)
+        , fields(arena)
+        , params(arena) {}
+
+    bool need_comma = false;
+    const ASTString *name = nullptr;
+    const ASTString *base_prefix = nullptr;
+    const ASTString *base_name = nullptr;
+    base::ArenaVector<Expression *> args;
+    base::ArenaVector<ClassDefinition::Field> fields;
+    base::ArenaVector<ClassDefinition::Parameter> params;
+    ClassDefinition::Access access = ClassDefinition::kPublic;
+};
+
 ClassDefinition *Parser::ParseClassDefinition(bool *ok) {
     SourceLocation loc = Peek().source_location();
     Match(Token::kClass, CHECK_OK);
@@ -287,7 +288,11 @@ ClassDefinition *Parser::ParseClassDefinition(bool *ok) {
     }
     
     if (Test(Token::kColon)) { // `:'
-        incomplete.base = ParseDotName(&loc, CHECK_OK);
+        incomplete.base_name = ParseIdentifier(CHECK_OK);
+        if (Test(Token::kDot)) {
+            incomplete.base_prefix = incomplete.base_name;
+            incomplete.base_name = ParseIdentifier(CHECK_OK);
+        }
         if (Test(Token::kLParen)) {
             if (!Test(Token::kRParen)) {
                 Expression *arg = ParseExpression(CHECK_OK);
@@ -338,7 +343,8 @@ ClassDefinition *Parser::ParseClassDefinition(bool *ok) {
     ClassDefinition *clazz = new (arena_) ClassDefinition(arena_, position, incomplete.name,
                                                           std::move(incomplete.params),
                                                           std::move(incomplete.fields),
-                                                          incomplete.base,
+                                                          incomplete.base_prefix,
+                                                          incomplete.base_name,
                                                           std::move(incomplete.args));
     if (int err = clazz->MakeParameterLookupTable(); err < 0) {
         auto param = clazz->parameter(-err - 1);
@@ -348,8 +354,8 @@ ClassDefinition *Parser::ParseClassDefinition(bool *ok) {
             loc = file_unit_->FindSourceLocation(clazz->field(param.as_field).declaration);
             name = clazz->field(param.as_field).declaration->identifier();
         } else {
-            loc = file_unit_->FindSourceLocation(param.as_parameter.type);
-            name = param.as_parameter.name;
+            loc = file_unit_->FindSourceLocation(param.as_parameter);
+            name = param.as_parameter->identifier();
         }
         error_feedback_->Printf(loc, "Duplicated constructor parameter: %s", name->data());
         *ok = false;
@@ -388,6 +394,7 @@ ClassImplementsBlock *Parser::ParseClassImplementsBlock(bool *ok) {
 }
 
 void *Parser::ParseConstructor(IncompleteClassDefinition *def, bool *ok) {
+    SourceLocation loc = Peek().source_location();
     if (def->need_comma) {
         Match(Token::kComma, CHECK_OK);
     }
@@ -412,9 +419,14 @@ void *Parser::ParseConstructor(IncompleteClassDefinition *def, bool *ok) {
             break;
         case Token::kIdentifier: {
             ClassDefinition::Parameter param;
-            param.as_parameter.name = ParseIdentifier(CHECK_OK);
+            const ASTString *name = ParseIdentifier(CHECK_OK);
             Match(Token::kColon, CHECK_OK);
-            param.as_parameter.type = ParseTypeSign(CHECK_OK);
+            TypeSign *type = ParseTypeSign(CHECK_OK);
+            loc.LinkEnd(file_unit_->FindSourceLocation(type));
+            int position = file_unit_->InsertSourceLocation(loc);
+            param.as_parameter = new (arena_) VariableDeclaration(position,
+                                                                  VariableDeclaration::PARAMETER,
+                                                                  name, type, nullptr/*initializer*/);
             def->params.push_back(param);
             def->need_comma = true;
         } break;
@@ -431,7 +443,10 @@ void *Parser::ParseConstructor(IncompleteClassDefinition *def, bool *ok) {
             field.access = def->access;
             field.in_constructor = true;
             field.as_constructor = static_cast<int>(def->params.size());
-            field.declaration = new (arena_) VariableDeclaration(0, kind, field_name, type, nullptr);
+            loc.LinkEnd(file_unit_->FindSourceLocation(type));
+            int position = file_unit_->InsertSourceLocation(loc);
+            field.declaration = new (arena_) VariableDeclaration(position, kind, field_name, type,
+                                                                 nullptr/*initializer*/);
             
             ClassDefinition::Parameter param;
             param.as_field = static_cast<int>(def->fields.size());
