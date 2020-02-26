@@ -44,6 +44,16 @@ public:
     Result VisitF64Literal(F64Literal *) override;
     Result VisitStringLiteral(StringLiteral *) override;
     Result VisitNilLiteral(NilLiteral *) override;
+    Result VisitLambdaLiteral(LambdaLiteral *) override;
+    Result VisitCallExpression(CallExpression *) override;
+    Result VisitPairExpression(PairExpression *) override;
+    Result VisitIndexExpression(IndexExpression *) override;
+    Result VisitUnaryExpression(UnaryExpression *) override;
+    Result VisitArrayInitializer(ArrayInitializer *) override;
+    Result VisitBinaryExpression(BinaryExpression *) override;
+    Result VisitBreakableStatement(BreakableStatement *) override;
+    Result VisitAssignmentStatement(AssignmentStatement *) override;
+    Result VisitStringTemplateExpression(StringTemplateExpression *) override;
     Result VisitVariableDeclaration(VariableDeclaration *) override;
     Result VisitIdentifier(Identifier *) override;
     Result VisitDotExpression(DotExpression *) override;
@@ -51,6 +61,7 @@ public:
     Result VisitInterfaceDefinition(InterfaceDefinition *) override;
     Result VisitObjectDefinition(ObjectDefinition *) override;
     Result VisitClassDefinition(ClassDefinition *) override;
+    Result VisitClassImplementsBlock(ClassImplementsBlock *) override;
     
     std::vector<FileUnit *> FindPathUnits(const std::string &path) const {
         auto iter = path_units_.find(path);
@@ -125,11 +136,9 @@ public:
         return nullptr;
     }
     
-    FileScope *GetFileScope() { return reinterpret_cast<FileScope *>(GetScope(kFileScope)); }
-
-    FunctionScope *GetFunctionScope() {
-        return reinterpret_cast<FunctionScope *>(GetScope(kFunctionScope));
-    }
+    inline FileScope *GetFileScope();
+    inline ClassScope *GetClassScope();
+    inline FunctionScope *GetFunctionScope();
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(AbstractScope);
 protected:
@@ -185,14 +194,14 @@ private:
 
 class FunctionScope : public AbstractScope {
 public:
-    FunctionScope(FunctionDefinition *function, AbstractScope **current)
+    FunctionScope(LambdaLiteral *function, AbstractScope **current)
         : AbstractScope(kFunctionScope, current)
         , function_(function) {
     }
     
-    DEF_PTR_GETTER(FunctionDefinition, function);
+    DEF_PTR_GETTER(LambdaLiteral, function);
     
-    bool Initialize(SyntaxFeedback *feedback);
+    bool Initialize(base::Arena *arena, SyntaxFeedback *feedback);
     
     Symbolize *FindOrNull(const ASTString *name) override {
         auto iter = parameters_.find(name->ToSlice());
@@ -200,7 +209,7 @@ public:
     }
     
 private:
-    FunctionDefinition *function_;
+    LambdaLiteral *function_;
     std::map<std::string_view, Symbolize *> parameters_;
 }; // class FunctionScope
 
@@ -212,6 +221,18 @@ public:
 
 inline SourceLocation TypeChecker::FindSourceLocation(ASTNode *ast) {
     return current_->GetFileScope()->file_unit()->FindSourceLocation(ast);
+}
+
+inline FileScope *AbstractScope::GetFileScope() {
+    return down_cast<FileScope>(GetScope(kFileScope));
+}
+
+inline ClassScope *AbstractScope::GetClassScope() {
+    return down_cast<ClassScope>(GetScope(kClassScope));
+}
+
+inline FunctionScope *AbstractScope::GetFunctionScope() {
+    return down_cast<FunctionScope>(GetScope(kFunctionScope));
 }
 
 } // namespace lang

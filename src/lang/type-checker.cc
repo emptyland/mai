@@ -144,8 +144,13 @@ bool TypeChecker::PrepareClassDefinition(FileUnit *unit) {
         if (auto clazz = sym->AsClassDefinition()) {
             for (auto method : impl->methods()) {
                 clazz->InsertMethod(method);
-                // TODO:
             }
+            impl->set_owner(clazz);
+        } else if (auto object = sym->AsObjectDefinition()) {
+            for (auto method : impl->methods()) {
+                object->InsertMethod(method);
+            }
+            impl->set_owner(object);
         } else {
             SourceLocation loc = unit->FindSourceLocation(impl);
             error_feedback_->Printf(loc, "Symbol: %s is not class or object",
@@ -186,64 +191,23 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
     file_scope.Initialize(path_units_);
 
     for (auto decl : unit->global_variables()) {
-        auto rv = decl->Accept(this);
-        if (rv.sign == kError) {
+        if (auto rv = decl->Accept(this); rv.sign == kError) {
             return false;
         }
     }
 
     for (auto def : unit->definitions()) {
-        auto rv = def->Accept(this);
-        if (rv.sign == kError) {
+        if (auto rv = def->Accept(this); rv.sign == kError) {
+            return false;
+        }
+    }
+    
+    for (auto impl : unit->implements()) {
+        if (auto rv = impl->Accept(this); rv.sign == kError) {
             return false;
         }
     }
     return true;
-}
-
-ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression *ast) {
-    switch (type->id()) {
-        case Token::kArray:
-        case Token::kMutableArray:
-            TODO();
-            break;
-        case Token::kMap:
-        case Token::kMutableMap:
-            TODO();
-            break;
-        case Token::kChannel:
-            TODO();
-            break;
-        case Token::kInterface: {
-            auto method = type->interface()->FindMethodOrNull(ast->rhs()->ToSlice());
-            if (!method) {
-                error_feedback_->Printf(FindSourceLocation(ast), "No field or method named: %s",
-                                        ast->rhs()->data());
-                return ResultWithType(kError);
-            }
-            TypeSign *type = new (arena_) TypeSign(method->position(), method->prototype());
-            return ResultWithType(type);
-        } break;
-        case Token::kClass:
-        case Token::kObject: {
-            auto field = type->structure()->FindFieldOrNull(ast->rhs()->ToSlice());
-            if (field) {
-                return ResultWithType(DCHECK_NOTNULL(field->declaration->type()));
-            }
-            auto method = type->structure()->FindMethodOrNull(ast->rhs()->ToSlice());
-            if (method) {
-                TypeSign *type = new (arena_) TypeSign(method->position(), method->prototype());
-                return ResultWithType(type);
-            }
-            error_feedback_->Printf(FindSourceLocation(ast), "No field or method named: %s",
-                                    ast->rhs()->data());
-            return ResultWithType(kError);
-        } break;
-        default: {
-            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type to get field");
-            return ResultWithType(kError);
-        } break;
-    }
 }
 
 ASTVisitor::Result TypeChecker::VisitTypeSign(TypeSign *ast) /*override*/ {
@@ -328,6 +292,125 @@ ASTVisitor::Result TypeChecker::VisitStringLiteral(StringLiteral *ast) /*overrid
     return ResultWithType(ast->type());
 }
 
+ASTVisitor::Result TypeChecker::VisitLambdaLiteral(LambdaLiteral *ast) /*override*/ {
+    FunctionScope function_scope(ast, &current_);
+    if (!function_scope.Initialize(arena_, error_feedback_)) {
+        return ResultWithType(kError);
+    }
+    
+    for (auto stmt : ast->statements()) {
+        if (auto rv = stmt->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
+    return ResultWithType(new (arena_) TypeSign(ast->position(), ast->prototype()));
+}
+
+ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*override*/ {
+    TypeSign *callee = nullptr;
+    if (auto rv = ast->callee()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    } else {
+        callee = rv.sign;
+    }
+    
+    if (callee->id() == Token::kClass) { // Constructor
+        if (ast->operands_size() != callee->clazz()->parameters_size()) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Unexpected class contructor: %s",
+                                    callee->clazz()->identifier()->data());
+            return ResultWithType(kError);
+        }
+        
+        for (size_t i = 0; i < ast->operands_size(); i++) {
+            TypeSign *argument_type = nullptr;
+            if (auto rv = ast->operand(i)->Accept(this); rv.sign == kError) {
+                return ResultWithType(kError);
+            } else {
+                argument_type = rv.sign;
+            }
+            
+            TypeSign *parameter_type = nullptr;
+            if (callee->clazz()->parameter(i).field_declaration) {
+                parameter_type = callee->clazz()->field(i).declaration->type();
+            } else {
+                parameter_type = callee->clazz()->parameter(i).as_parameter->type();
+            }
+            if (!parameter_type->Convertible(argument_type)) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected class contructor: %s",
+                                        callee->clazz()->identifier()->data());
+                return ResultWithType(kError);
+            }
+        }
+        return ResultWithType(new (arena_) TypeSign(callee->position(), Token::kRef,
+                                                    callee->clazz()));
+    } else if (callee->id() == Token::kFun) { // Function
+        if (callee->prototype()->vargs()) {
+            if (ast->operands_size() < callee->prototype()->parameters_size()) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function calling: %s",
+                                        callee->clazz()->identifier()->data());
+                return ResultWithType(kError);
+            }
+        } else {
+            if (ast->operands_size() != callee->prototype()->parameters_size()) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function calling: %s",
+                                        callee->clazz()->identifier()->data());
+                return ResultWithType(kError);
+            }
+        }
+        
+        size_t n = std::min(ast->operands_size(), callee->parameters_size());
+        for (size_t i = 0; i < n; i++) {
+            TypeSign *parameter_type = nullptr;
+            if (auto rv = ast->operand(i)->Accept(this); rv.sign == kError) {
+                return ResultWithType(kError);
+            } else {
+                parameter_type = rv.sign;
+            }
+            if (!parameter_type->Convertible(callee->prototype()->parameter(i).type)) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function calling: %s",
+                                        callee->clazz()->identifier()->data());
+                return ResultWithType(kError);
+            }
+        }
+        return ResultWithType(callee->prototype()->return_type());
+    }
+    
+    error_feedback_->Printf(FindSourceLocation(ast), "Incorrect calling type");
+    return ResultWithType(kError);
+}
+
+ASTVisitor::Result TypeChecker::VisitPairExpression(PairExpression *) /*override*/ {
+    TODO();
+}
+
+ASTVisitor::Result TypeChecker::VisitIndexExpression(IndexExpression *) /*override*/ {
+    TODO();
+}
+
+ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *) /*override*/ {
+    TODO();
+}
+
+ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *) /*override*/ {
+    TODO();
+}
+
+ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *) /*override*/ {
+    TODO();
+}
+
+ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *) /*override*/ {
+    TODO();
+}
+
+ASTVisitor::Result TypeChecker::VisitAssignmentStatement(AssignmentStatement *) /*override*/ {
+    TODO();
+}
+
+ASTVisitor::Result TypeChecker::VisitStringTemplateExpression(StringTemplateExpression *) /*override*/ {
+    TODO();
+}
+
 ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *ast) /*override*/ {
     if (ast->type() && ast->type()->id() == Token::kIdentifier) {
         if (auto rv = ast->type()->Accept(this); rv.sign == kError) {
@@ -366,16 +449,21 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
     }
 
     ast->set_original(sym);
-    if (scope->kind() == AbstractScope::kFileScope) {
-        ast->set_scope(static_cast<FileScope *>(scope)->file_unit());
-    } else if (scope->kind() == AbstractScope::kBlockScope) {
-        ast->set_scope(scope->GetFunctionScope()->function());
-    } else if (scope->kind() == AbstractScope::kFunctionScope) {
-        ast->set_scope(static_cast<FunctionScope *>(scope)->function());
-    } else if (scope->kind() == AbstractScope::kClassScope) {
-        ast->set_scope(static_cast<ClassScope *>(scope)->clazz());
-    } else {
-        NOREACHED();
+    switch (scope->kind()) {
+        case AbstractScope::kFileScope:
+            ast->set_scope(static_cast<FileScope *>(scope)->file_unit());
+            break;
+        case AbstractScope::kClassScope:
+            ast->set_scope(static_cast<ClassScope *>(scope)->clazz());
+            break;
+        case AbstractScope::kFunctionScope:
+            ast->set_scope(scope->GetFunctionScope()->function());
+            break;
+        case AbstractScope::kBlockScope:
+            // TODO:
+        default:
+            NOREACHED();
+            break;
     }
 
     if (sym->IsClassDefinition()) {
@@ -398,7 +486,9 @@ ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
         if (sym) {
             if (auto decl = sym->AsVariableDeclaration()) {
                 return CheckDotExpression(DCHECK_NOTNULL(decl->type()), ast);
-            // TODO: Object
+            } else if (auto object = sym->AsObjectDefinition()) {
+                // TODO: Object
+                TODO();
             } else {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type to get field");
                 return ResultWithType(kError);
@@ -439,7 +529,11 @@ ASTVisitor::Result TypeChecker::VisitInterfaceDefinition(InterfaceDefinition *as
 }
 
 ASTVisitor::Result TypeChecker::VisitObjectDefinition(ObjectDefinition *ast) /*override*/ {
-    TODO();
+    for (auto field : ast->fields()) {
+        if (auto rv = field.declaration->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
     return ResultWithType(kVoid);
 }
 
@@ -505,8 +599,57 @@ ASTVisitor::Result TypeChecker::VisitFunctionDefinition(FunctionDefinition *ast)
         return ResultWithType(kVoid);
     }
 
-    // TODO();
+    if (auto rv = ast->body()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
     return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::VisitClassImplementsBlock(ClassImplementsBlock *ast) /*override*/ {
+    for (auto method : ast->methods()) {
+        if (auto rv = method->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
+    return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression *ast) {
+    switch (type->id()) {
+        case Token::kArray:
+        case Token::kMutableArray:
+            TODO();
+            break;
+        case Token::kMap:
+        case Token::kMutableMap:
+            TODO();
+            break;
+        case Token::kChannel:
+            TODO();
+            break;
+        case Token::kRef:
+        case Token::kObject: {
+            if (type->definition()->IsClassDefinition() ||
+                type->definition()->IsObjectDefinition()) {
+                auto field = type->structure()->FindFieldOrNull(ast->rhs()->ToSlice());
+                if (field) {
+                    return ResultWithType(DCHECK_NOTNULL(field->declaration->type()));
+                }
+            }
+            auto method = type->definition()->AsPartialInterfaceDefinition()->FindMethodOrNull(ast->rhs()->ToSlice());
+            if (method) {
+                TypeSign *type = new (arena_) TypeSign(method->position(), method->prototype());
+                return ResultWithType(type);
+            }
+            error_feedback_->Printf(FindSourceLocation(ast), "No field or method named: %s",
+                                    ast->rhs()->data());
+            return ResultWithType(kError);
+        } break;
+        default: {
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type to get field");
+            return ResultWithType(kError);
+        } break;
+    }
 }
 
 void FileScope::Initialize(const std::map<std::string, std::vector<FileUnit *>> &path_units) {
@@ -566,6 +709,41 @@ ClassScope::ClassScope(ClassDefinition *clazz, AbstractScope **current)
 Symbolize *ClassScope::FindOrNull(const ASTString *name) /*override*/ {
     auto iter = parameters_.find(name->ToSlice());
     return iter == parameters_.end() ? nullptr : iter->second;
+}
+
+bool FunctionScope::Initialize(base::Arena *arena, SyntaxFeedback *feedback) {
+    if (ClassScope *class_scope = GetClassScope()) {
+        TypeSign *type = new (arena) TypeSign(function_->position(), class_scope->clazz());
+        VariableDeclaration *self = new (arena) VariableDeclaration(type->position(),
+                                                                    VariableDeclaration::PARAMETER,
+                                                                    ASTString::New(arena, "this"),
+                                                                    type, nullptr);
+        parameters_[self->identifier()->ToSlice()] = self;
+    }
+    
+    if (function_->prototype()->vargs()) {
+        TypeSign *any = new (arena) TypeSign(function_->position(), Token::kAny);
+        TypeSign *argv = new (arena) TypeSign(arena, function_->position(), Token::kArray, any);
+        VariableDeclaration *vargs = new (arena) VariableDeclaration(argv->position(),
+                                                                     VariableDeclaration::PARAMETER,
+                                                                     ASTString::New(arena, "argv"),
+                                                                     argv, nullptr);
+        parameters_[vargs->identifier()->ToSlice()] = vargs;
+    }
+    
+    for (auto param : function_->prototype()->parameters()) {
+        if (auto iter = parameters_.find(param.name->ToSlice()); iter != parameters_.end()) {
+            SourceLocation loc = GetFileScope()->file_unit()->FindSourceLocation(param.type);
+            feedback->Printf(loc, "Duplicated parameter: %s", param.name->data());
+            return false;
+        }
+        
+        VariableDeclaration *var = new (arena) VariableDeclaration(param.type->position(),
+                                                                   VariableDeclaration::PARAMETER,
+                                                                   param.name, param.type, nullptr);
+        parameters_[var->identifier()->ToSlice()] = var;
+    }
+    return true;
 }
 
 } // namespace lang

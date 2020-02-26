@@ -202,6 +202,7 @@ public:
     TypeSign(int position, ClassDefinition *clazz);
     TypeSign(int position, ObjectDefinition *object);
     TypeSign(int position, InterfaceDefinition *interface);
+    TypeSign(int position, int kind, Definition *def);
 
     TypeSign(base::Arena *arena, int position, int kind, TypeSign *param)
         : ASTNode(position, kTypeSign)
@@ -231,8 +232,10 @@ public:
     
 #if defined(DEBUG) || defined(_DEBUG)
     StructureDefinition *structure() const;
+    Definition *definition() const;
 #else
     DEF_PTR_GETTER(StructureDefinition, structure);
+    DEF_PTR_GETTER(Definition, definition);
 #endif // defined(DEBUG) || defined(_DEBUG)
 
     size_t parameters_size() const { return parameters_->size(); }
@@ -249,6 +252,7 @@ public:
 private:
     // kind:
     // Token::kIdentifier                -> prefix_, name_
+    // Token::kRef                       -> definition_
     // Token::kClass                     -> clazz_
     // Token::kObject                    -> object_
     // Token::kInterface                 -> interface_
@@ -261,6 +265,7 @@ private:
         const ASTString *prefix_;
         InterfaceDefinition *interface_;
         StructureDefinition *structure_;
+        Definition *definition_;
         ObjectDefinition *object_;
         ClassDefinition *clazz_;
         base::ArenaVector<TypeSign *> *parameters_;
@@ -355,6 +360,12 @@ protected:
 
 
 class Definition : public Symbolize {
+public:
+    PartialInterfaceDefinition *AsPartialInterfaceDefinition() {
+        return IsInterfaceDefinition() || IsClassDefinition() || IsObjectDefinition() ?
+               reinterpret_cast<PartialInterfaceDefinition *>(this) : nullptr;
+    }
+    
 protected:
     Definition(int position, Kind kind, const ASTString *identifier)
         : Symbolize(position, kind, identifier) {}
@@ -605,10 +616,12 @@ public:
         : Statement(position, kClassImplementsBlock)
         , prefix_(prefix)
         , name_(name)
+        , owner_(nullptr)
         , methods_(methods) {}
 
     DEF_PTR_GETTER(const ASTString, prefix);
     DEF_PTR_GETTER(const ASTString, name);
+    DEF_PTR_PROP_RW(StructureDefinition, owner);
     DEF_ARENA_VECTOR_GETTER(FunctionDefinition *, method);
     
     std::string ToSymbolString() const {
@@ -623,6 +636,7 @@ public:
 private:
     const ASTString *prefix_;
     const ASTString *name_;
+    StructureDefinition *owner_;
     base::ArenaVector<FunctionDefinition *> methods_;
 }; // class ClassImplementsBlock
 

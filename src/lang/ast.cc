@@ -36,11 +36,30 @@ TypeSign::TypeSign(int position, InterfaceDefinition *interface)
     , interface_(DCHECK_NOTNULL(interface)) {
 }
 
+TypeSign::TypeSign(int position, int kind, Definition *def)
+    : ASTNode(position, kTypeSign)
+    , kind_(kind)
+    , definition_(DCHECK_NOTNULL(def)) {
+    DCHECK((kind == Token::kInterface && def->IsInterfaceDefinition()) ||
+           (kind == Token::kClass && def->IsClassDefinition()) ||
+           (kind == Token::kObject && def->IsObjectDefinition()) ||
+           kind == Token::kRef);
+}
+
+#if defined(DEBUG) || defined(_DEBUG)
 StructureDefinition *TypeSign::structure() const {
     DCHECK(kind_ == Token::kClass || kind_ == Token::kObject);
     DCHECK(structure_->IsClassDefinition() || structure_->IsObjectDefinition());
     return structure_;
 }
+
+Definition *TypeSign::definition() const {
+    DCHECK(kind_ == Token::kClass || kind_ == Token::kObject || kind_ == Token::kInterface);
+    DCHECK(definition_->IsClassDefinition() || definition_->IsObjectDefinition() ||
+           definition_->IsInterfaceDefinition());
+    return definition_;
+}
+#endif // defined(DEBUG) || defined(_DEBUG)
 
 bool TypeSign::Convertible(TypeSign *rhs) const {
     if (id() == Token::kAny) { // Any type!

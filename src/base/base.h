@@ -45,7 +45,7 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 template<class T, class F>
 inline T *down_cast(F *from) {
 #if defined(DEBUG) || defined(_DEBUG)
-    assert(dynamic_cast<T *>(from) && "Can not cast to.");
+    assert(!from || dynamic_cast<T *>(from) && "Can not cast to.");
 #endif
     return static_cast<T *>(from);
 }

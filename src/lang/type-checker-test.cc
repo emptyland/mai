@@ -157,6 +157,7 @@ TEST_F(TypeCheckerTest, ClassDefinitionBaseClass) {
     
     auto clazz = sym->AsClassDefinition();
     ASSERT_STREQ("Bar", clazz->identifier()->data());
+    ASSERT_EQ(Token::kInt, clazz->FindFieldOrNull("max")->declaration->type()->id());
     
     clazz = clazz->base();
     ASSERT_NE(nullptr, clazz);
