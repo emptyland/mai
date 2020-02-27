@@ -67,12 +67,12 @@ int Any::WriteBarrier(Any **address, size_t n) {
     return Machine::This()->NewArrayCopied(origin, increment, flags);
 }
 
-/*static*/ Handle<String> String::NewUtf8(const char *utf8_string, size_t n) {
+/*static*/ Local<String> String::NewUtf8(const char *utf8_string, size_t n) {
     if (!utf8_string || n == 0) {
         utf8_string = "";
         n = 0;
     }
-    return Handle<String>(Machine::This()->NewUtf8String(utf8_string, n, 0/*flags*/));
+    return Local<String>(Machine::This()->NewUtf8String(utf8_string, n, 0/*flags*/));
 }
 
 MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32_t random_seed)
@@ -80,8 +80,8 @@ MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32
     TODO();
 }
 
-/*static*/ Handle<Closure> Closure::New(Code *stub, uint32_t captured_var_size) {
-    return Handle<Closure>(Machine::This()->NewClosure(stub, captured_var_size, Heap::kOld));
+/*static*/ Local<Closure> Closure::New(Code *stub, uint32_t captured_var_size) {
+    return Local<Closure>(Machine::This()->NewClosure(stub, captured_var_size, Heap::kOld));
 }
 
 /*static*/ AbstractValue *AbstractValue::ValueOf(BuiltinType type, const void *value, size_t n) {

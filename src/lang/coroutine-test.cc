@@ -63,21 +63,21 @@ public:
     }
     
     template<class T>
-    inline Handle<CapturedValue> NewCapturedValue(T value) {
+    inline Local<CapturedValue> NewCapturedValue(T value) {
         CapturedValue *val = Machine::This()->NewCapturedValue(STATE->builtin_type(TypeTraits<T>::kType),
                                                                &value, sizeof(value), 0);
-        return Handle<CapturedValue>(val);
+        return Local<CapturedValue>(val);
     }
     
     static constexpr int32_t kStackSize = RoundUp(BytecodeStackFrame::kOffsetHeaderSize + 32,
                                                   kStackAligmentSize);
 
-    Handle<Closure> BuildDummyClosure(const std::vector<BytecodeInstruction> &instrs,
+    Local<Closure> BuildDummyClosure(const std::vector<BytecodeInstruction> &instrs,
                                       const std::vector<Span32> &const_pool = {},
                                       const std::vector<uint32_t> &const_pool_bitmap = {}) {
         Function *func = BuildDummyFunction(instrs, const_pool, const_pool_bitmap);
         Closure *closure = Machine::This()->NewClosure(func, 5, Closure::kMaiFunction);
-        return Handle<Closure>(closure);
+        return Local<Closure>(closure);
     }
 
     Function *BuildDummyFunction(const std::vector<BytecodeInstruction> &instrs,
@@ -183,7 +183,7 @@ TEST_F(CoroutineTest, Sanity) {
     printf("Max bytecodes: %d\n", kMax_Bytecodes);
     
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    Handle<Closure> entry(FunctionTemplate::New(Dummy1));
+    Local<Closure> entry(FunctionTemplate::New(Dummy1));
     
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     ASSERT_NE(nullptr, co);
@@ -233,7 +233,7 @@ static void Dummy3(int64_t a, float b, String *c) {
 
 TEST_F(CoroutineTest, CallNativeFunctionDummy3) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    Handle<Closure> entry(FunctionTemplate::New(Dummy3));
+    Local<Closure> entry(FunctionTemplate::New(Dummy3));
     
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     ASSERT_NE(nullptr, co);
@@ -243,7 +243,7 @@ TEST_F(CoroutineTest, CallNativeFunctionDummy3) {
     ::memset(mock_data, 0xcc, sizeof(mock_data));
     
     CallStub<intptr_t(Coroutine *)> call_stub(metadata_->function_template_dummy_code());
-    Handle<String> handle(String::NewUtf8("Hello"));
+    Local<String> handle(String::NewUtf8("Hello"));
     
     *reinterpret_cast<String **>(&mock_data[12]) = *handle;
     *reinterpret_cast<float *>(&mock_data[20]) = 1.12;
@@ -261,13 +261,13 @@ static void Dummy4(int16_t a, int8_t b) {
     dummy_result.i16_1 = a;
     dummy_result.i8_1 = b;
     
-    Handle<String> handle(String::NewUtf8("Hello"));
+    Local<String> handle(String::NewUtf8("Hello"));
     dummy_result.any_1 = *handle;
 }
 
 TEST_F(CoroutineTest, CallNativeFunctionDummy4) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    Handle<Closure> entry(FunctionTemplate::New(Dummy4));
+    Local<Closure> entry(FunctionTemplate::New(Dummy4));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
 
     uint8_t mock_data[16] = {0};
@@ -281,7 +281,7 @@ TEST_F(CoroutineTest, CallNativeFunctionDummy4) {
     
     ASSERT_EQ(270, dummy_result.i16_1);
     ASSERT_EQ(127, dummy_result.i8_1);
-    Handle<String> handle(static_cast<String *>(dummy_result.any_1));
+    Local<String> handle(static_cast<String *>(dummy_result.any_1));
     ASSERT_STREQ("Hello", handle->data());
 }
 
@@ -292,7 +292,7 @@ TEST_F(CoroutineTest, RunBytecodeFunctionSanity) {
     builder.Add<kCheckStack>();
     builder.Add<kReturn>();
 
-    Handle<Closure> entry(BuildDummyClosure(builder.Build()));
+    Local<Closure> entry(BuildDummyClosure(builder.Build()));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
 
@@ -322,11 +322,11 @@ TEST_F(CoroutineTest, BytecodeCallNativeFunction) {
     builder.Add<kCallNativeFunction>(0);
     builder.Add<kReturn>();
 
-    Handle<Closure> dummy(FunctionTemplate::New(Dummy5));
+    Local<Closure> dummy(FunctionTemplate::New(Dummy5));
     Span32 span;
     span.ptr[0].any = *dummy;
 
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
     
@@ -363,14 +363,14 @@ TEST_F(CoroutineTest, BytecodeCallNativeFunctionWithArguments) {
     builder.Add<kCallNativeFunction>(16);
     builder.Add<kReturn>();
 
-    Handle<Closure> dummy(FunctionTemplate::New(Dummy6));
+    Local<Closure> dummy(FunctionTemplate::New(Dummy6));
     Span32 span[2];
     span[0].ptr[0].any = *dummy;
     span[1].v32[0].i32 = 101;
     span[1].v32[1].f32 = 101.1112;
     span[1].v64[1].i64 = -1;
 
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span[0], span[1]}, {0x1}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span[0], span[1]}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
     
@@ -399,11 +399,11 @@ TEST_F(CoroutineTest, BytecodeYield) {
     builder.Add<kCallNativeFunction>(0);
     builder.Add<kReturn>();
 
-    Handle<Closure> dummy(FunctionTemplate::New(Dummy7));
+    Local<Closure> dummy(FunctionTemplate::New(Dummy7));
     Span32 span;
     span.ptr[0].any = *dummy;
 
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
 
@@ -427,7 +427,7 @@ static void Dummy8() {
 TEST_F(CoroutineTest, BytecodeCallBytecodeFunction) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     
-    Handle<Closure> callee;
+    Local<Closure> callee;
     {
         BytecodeArrayBuilder builder(arena_);
         builder.Add<kCheckStack>();
@@ -438,14 +438,14 @@ TEST_F(CoroutineTest, BytecodeCallBytecodeFunction) {
         builder.Add<kCallNativeFunction>(0);
         builder.Add<kReturn>();
 
-        Handle<Closure> dummy(FunctionTemplate::New(Dummy8));
+        Local<Closure> dummy(FunctionTemplate::New(Dummy8));
         Span32 span;
         span.ptr[0].any = *dummy;
         
         callee = BuildDummyClosure(builder.Build(), {span}, {0x1});
     }
 
-    Handle<Closure> caller;
+    Local<Closure> caller;
     {
         BytecodeArrayBuilder builder(arena_);
         builder.Add<kCheckStack>();
@@ -482,11 +482,11 @@ TEST_F(CoroutineTest, ScheduleSanity) {
     builder.Add<kCallNativeFunction>(0);
     builder.Add<kReturn>();
 
-    Handle<Closure> dummy(FunctionTemplate::New(Dummy5));
+    Local<Closure> dummy(FunctionTemplate::New(Dummy5));
     Span32 span;
     span.ptr[0].any = *dummy;
     
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
     scheduler_->machine(0)->PostRunnable(co);
@@ -504,7 +504,7 @@ static void Dummy9() {
     dummy_result.i32_2 = 250;
     dummy_result.i32_1++;
     
-    Handle<Throwable> exception(Panic::New(1, String::NewUtf8("Test")));
+    Local<Throwable> exception(Panic::New(1, String::NewUtf8("Test")));
     Throwable::Throw(exception);
 }
 
@@ -516,11 +516,11 @@ TEST_F(CoroutineTest, ThrowException) {
     builder.Add<kCallNativeFunction>(0);
     builder.Add<kReturn>();
 
-    Handle<Closure> dummy(FunctionTemplate::New(Dummy9));
+    Local<Closure> dummy(FunctionTemplate::New(Dummy9));
     Span32 span;
     span.ptr[0].any = *dummy;
     
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
     scheduler_->machine(0)->PostRunnable(co);
@@ -542,11 +542,11 @@ TEST_F(CoroutineTest, OOMThrowPanic) {
     builder.Add<kCallNativeFunction>(0);
     builder.Add<kReturn>();
 
-    Handle<Closure> dummy(FunctionTemplate::New(Dummy10));
+    Local<Closure> dummy(FunctionTemplate::New(Dummy10));
     Span32 span;
     span.ptr[0].any = *dummy;
 
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
     scheduler_->machine(0)->PostRunnable(co);
@@ -570,7 +570,7 @@ TEST_F(CoroutineTest, NilPointerPanic) {
     builder.Add<kLdaPropertyPtr>(v1, 0);
     builder.Add<kReturn>();
     
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {}, {}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {}, {}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
     scheduler_->machine(0)->PostRunnable(co);
@@ -581,7 +581,7 @@ TEST_F(CoroutineTest, NilPointerPanic) {
 static void Dummy11(String *message) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
 
-    Handle<Throwable> e(Exception::New(Handle<String>(message), Handle<Exception>::Null()));
+    Local<Throwable> e(Exception::New(Local<String>(message), Local<Exception>::Null()));
     if (e.is_empty()) {
         return;
     }
@@ -600,12 +600,12 @@ TEST_F(CoroutineTest, ThrowUserException) {
     builder.Add<kCallNativeFunction>(kPointerSize);
     builder.Add<kReturn>();
 
-    Handle<Closure> dummy(FunctionTemplate::New(Dummy11));
+    Local<Closure> dummy(FunctionTemplate::New(Dummy11));
     Span32 span;
     span.ptr[0].any = *dummy;
     span.ptr[1].any = *String::NewUtf8("Test exception");
 
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
     scheduler_->machine(0)->PostRunnable(co);
@@ -632,7 +632,7 @@ TEST_F(CoroutineTest, NewChannel) {
     span.ptr[0].any = *FunctionTemplate::New(&Runtime::NewChannel);
     span.ptr[1].any = *FunctionTemplate::New(&Runtime::ChannelClose);
 
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
     scheduler_->machine(0)->PostRunnable(co);
@@ -665,7 +665,7 @@ TEST_F(CoroutineTest, SendRecvChannel) {
     builder.Add<kYield>(YIELD_PROPOSE);
     builder.Add<kReturn>();
 
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
     scheduler_->machine(0)->PostRunnable(co);
@@ -717,7 +717,7 @@ TEST_F(CoroutineTest, LoadArgumentToACC) {
     uint8_t mock_data[16];
     ::memset(mock_data, 0xcc, sizeof(mock_data));
 
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
 
     *reinterpret_cast<int32_t *>(&mock_data[12]) = 270; // arg0
@@ -755,7 +755,7 @@ TEST_F(CoroutineTest, NewObject) {
     builder.Add<kCallNativeFunction>(8);
     builder.Add<kReturn>();
     
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
@@ -785,7 +785,7 @@ TEST_F(CoroutineTest, LoadPropertyToACC) {
     const Class *clazz = RegisterDummyClass();
 
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    Handle<DummyClass> obj(static_cast<DummyClass *>(Machine::This()->NewObject(clazz, 0)));
+    Local<DummyClass> obj(static_cast<DummyClass *>(Machine::This()->NewObject(clazz, 0)));
     
     obj->i8_1_ = 112;
     obj->i8_2_ = 119;
@@ -814,7 +814,7 @@ TEST_F(CoroutineTest, LoadPropertyToACC) {
     builder.Add<kCallNativeFunction>(20);
     builder.Add<kReturn>();
     
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
@@ -840,13 +840,13 @@ TEST_F(CoroutineTest, LoadPropertyToACC2) {
     const Class *clazz = RegisterDummyClass();
 
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    Handle<DummyClass> obj(static_cast<DummyClass *>(Machine::This()->NewObject(clazz, 0)));
+    Local<DummyClass> obj(static_cast<DummyClass *>(Machine::This()->NewObject(clazz, 0)));
 
     obj->i32_1_ = 321;
     obj->i64_1_ = 641;
     obj->f32_1_ = 2.718281828f;
     obj->f64_1_ = 22.0f/7.0f;
-    Handle<String> handle(String::NewUtf8("22.0f/7.0f"));
+    Local<String> handle(String::NewUtf8("22.0f/7.0f"));
     obj->any_1_ = *handle;
 
     Span32 span;
@@ -868,7 +868,7 @@ TEST_F(CoroutineTest, LoadPropertyToACC2) {
     builder.Add<kCallNativeFunction>(20);
     builder.Add<kReturn>();
     
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
@@ -887,7 +887,7 @@ TEST_F(CoroutineTest, StorePropertyFromACC) {
     const Class *clazz = RegisterDummyClass();
 
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    Handle<DummyClass> obj(static_cast<DummyClass *>(Machine::This()->NewObject(clazz, 0)));
+    Local<DummyClass> obj(static_cast<DummyClass *>(Machine::This()->NewObject(clazz, 0)));
     
     Span32 span;
     span.ptr[0].any = *obj;
@@ -909,7 +909,7 @@ TEST_F(CoroutineTest, StorePropertyFromACC) {
     builder.Add<kStaProperty64>(v1, clazz->field(4)->offset());
     builder.Add<kReturn>();
     
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
@@ -957,7 +957,7 @@ TEST_F(CoroutineTest, LoadCapturedVarToACC) {
     Span32 span;
     span.ptr[0].any = *FunctionTemplate::New(Dummy18);
     
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     constexpr int32_t i = 100102;
     entry->set_captured_var_no_barrier(0, *NewCapturedValue(i));
     constexpr int64_t l = 640001;
@@ -1007,7 +1007,7 @@ TEST_F(CoroutineTest, StoreCapturedVarFromACC) {
     span.v64[1].i64 = 164001;
     span.v64[2].f64 = 22/7.0;
     
-    Handle<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0}));
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0}));
     entry->set_captured_var_no_barrier(0, *NewCapturedValue(0)); // i32
     entry->set_captured_var_no_barrier(1, *NewCapturedValue(0)); // i64
     entry->set_captured_var_no_barrier(2, *NewCapturedValue(0)); // f32

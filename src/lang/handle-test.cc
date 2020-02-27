@@ -15,7 +15,7 @@ public:
 
 TEST_F(HandleTest, StringHandle) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    Handle<String> handle = String::NewUtf8("Hello, 世界!");
+    Local<String> handle = String::NewUtf8("Hello, 世界!");
     
     ASSERT_EQ(1, handle_scope.GetNumberOfHanldes());
     ASSERT_EQ(&handle_scope, HandleScope::Current());
@@ -29,7 +29,7 @@ TEST_F(HandleTest, StringHandle) {
     ASSERT_NE(nullptr, handle->clazz());
     ASSERT_STREQ("string", handle->clazz()->name());
 
-    Handle<Any> other(handle);
+    Local<Any> other(handle);
     ASSERT_EQ(2, handle_scope.GetNumberOfHanldes());
 }
 
@@ -42,7 +42,7 @@ public:
 template<class T>
 class Dummy<T, true> {
 public:
-    Handle<T> To() { return Handle<T>::Empty(); }
+    Local<T> To() { return Local<T>::Empty(); }
 }; // class Dummy
 
 TEST_F(HandleTest, TypeTraitsDummy) {
@@ -50,14 +50,14 @@ TEST_F(HandleTest, TypeTraitsDummy) {
     ASSERT_EQ(0, dummy1.To());
     
     Dummy<String> dummy2{};
-    Handle<String> handle = dummy2.To();
+    Local<String> handle = dummy2.To();
     ASSERT_TRUE(handle.is_empty());
 }
 
 TEST_F(HandleTest, ArrayHandle) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
     int data[4] = {1, 2, 3, 4};
-    Handle<Array<int32_t>> handle = Array<int32_t>::NewImmutable(data, arraysize(data));
+    Local<Array<int32_t>> handle = Array<int32_t>::NewImmutable(data, arraysize(data));
     ASSERT_TRUE(handle.is_not_empty());
     ASSERT_TRUE(handle.is_value_not_null());
     ASSERT_EQ(4, handle->length());
@@ -70,18 +70,18 @@ TEST_F(HandleTest, ArrayHandle) {
 
 TEST_F(HandleTest, ReferenceArrayHandle) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    Handle<String> init[4] = {
+    Local<String> init[4] = {
         String::NewUtf8("1st"),
         String::NewUtf8("2nd"),
         String::NewUtf8("3rd"),
         String::NewUtf8("4th"),
     };
-    Handle<Array<String *>> handle = Array<String *>::NewImmutable(&init[0], arraysize(init));
+    Local<Array<String *>> handle = Array<String *>::NewImmutable(&init[0], arraysize(init));
     ASSERT_EQ(4, handle->length());
     ASSERT_EQ(4, handle->capacity());
     ASSERT_EQ(STATE->builtin_type(kType_array), handle->clazz());
 
-    Handle<String> elem = handle->At(0);
+    Local<String> elem = handle->At(0);
     ASSERT_STREQ("1st", elem->data());
     ASSERT_STREQ("2nd", handle->At(1)->data());
     ASSERT_STREQ("3rd", handle->At(2)->data());
@@ -90,7 +90,7 @@ TEST_F(HandleTest, ReferenceArrayHandle) {
 
 TEST_F(HandleTest, GlobalHandle) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    Handle<String> local = String::NewUtf8("123");
+    Local<String> local = String::NewUtf8("123");
     Persistent<String> handle = Persistent<String>::New(local);
     
     ASSERT_TRUE(handle.is_not_empty());

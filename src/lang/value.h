@@ -42,8 +42,8 @@ public:
     inline bool Is() const { return SlowlyIs(TypeTraits<T>::kType); }
     
     template<class T>
-    inline Handle<T> As() {
-        return Is<T>() ? Handle<T>(static_cast<T *>(this)) : Handle<T>::Empty();
+    inline Local<T> As() {
+        return Is<T>() ? Local<T>(static_cast<T *>(this)) : Local<T>::Empty();
     }
 
     Any(const Any &) = delete;
@@ -115,8 +115,8 @@ public:
     static constexpr int32_t kOffsetElems = offsetof(Array, elems_);
     
     // Create new array with initialize-elements and length
-    static inline Handle<Array<T>> NewImmutable(const T *elems, size_t length) {
-        Handle<Array<T>> array(NewImmutable(length));
+    static inline Local<Array<T>> NewImmutable(const T *elems, size_t length) {
+        Local<Array<T>> array(NewImmutable(length));
         for (size_t i = 0; i < length; i++) {
             array->elems_[i] = elems[i];
         }
@@ -124,23 +124,23 @@ public:
     }
 
     // Create new array with length
-    static inline Handle<Array<T>> NewImmutable(size_t length) {
-        Handle<AbstractArray> abstract(NewArray(TypeTraits<Array<T>>::kType, length));
+    static inline Local<Array<T>> NewImmutable(size_t length) {
+        Local<AbstractArray> abstract(NewArray(TypeTraits<Array<T>>::kType, length));
         if (abstract.is_empty()) {
-            return Handle<Array<T>>::Empty();
+            return Local<Array<T>>::Empty();
         }
-        return Handle<Array<T>>(static_cast<Array<T> *>(*abstract));
+        return Local<Array<T>>(static_cast<Array<T> *>(*abstract));
     }
 
     inline T At(size_t i) const { return (i < length_) ? elems_[i] : T(); }
 
     // The + operator:
-    inline Handle<Array<T>> Plus(size_t index, T elem) const {
-        Handle<AbstractArray> abstract(NewArrayCopied(this, index == kAppendIndex ? 1 : 0));
+    inline Local<Array<T>> Plus(size_t index, T elem) const {
+        Local<AbstractArray> abstract(NewArrayCopied(this, index == kAppendIndex ? 1 : 0));
         if (abstract.is_empty() || abstract.is_value_null()) {
-            return Handle<Array<T>>::Empty();
+            return Local<Array<T>>::Empty();
         }
-        Handle<Array<T>> copied(static_cast<Array<T> *>(*abstract));
+        Local<Array<T>> copied(static_cast<Array<T> *>(*abstract));
         if (index == kAppendIndex) {
             copied->elems_[length_] = elem;
         } else {
@@ -150,11 +150,11 @@ public:
     }
 
     // The - operator:
-    Handle<Array<T>> Minus(size_t index) const {
+    Local<Array<T>> Minus(size_t index) const {
         if (index > length_) {
-            return Handle<Array<T>>(const_cast<Array<T> *>(this));
+            return Local<Array<T>>(const_cast<Array<T> *>(this));
         }
-        Handle<Array<T>> copied(NewImmutable(length() - 1));
+        Local<Array<T>> copied(NewImmutable(length() - 1));
         ::memcpy(copied->elems_, elems_, index * sizeof(T));
         ::memcpy(copied->elems_ + index, elems_ + index + 1, (length_ - 1 - index) * sizeof(T));
         return copied;
@@ -185,8 +185,8 @@ public:
     static constexpr int32_t kOffsetElems = offsetof(Array, elems_);
 
     // Create new array with initialize-elements and length
-    static inline Handle<Array<T>> NewImmutable(Handle<CoreType> elems[], size_t length) {
-        Handle<Array<T>> array(NewImmutable(length));
+    static inline Local<Array<T>> NewImmutable(Handle<CoreType> elems[], size_t length) {
+        Local<Array<T>> array(NewImmutable(length));
         for (size_t i = 0; i < length; i++) {
             array->elems_[i] = *elems[i];
         }
@@ -195,26 +195,26 @@ public:
     }
 
     // Create new array with length
-    static inline Handle<Array<T>> NewImmutable(size_t length) {
-        Handle<Any> any(NewArray(TypeTraits<Array<T>>::kType, length));
+    static inline Local<Array<T>> NewImmutable(size_t length) {
+        Local<Any> any(NewArray(TypeTraits<Array<T>>::kType, length));
         if (any.is_empty()) {
-            return Handle<Array<T>>::Empty();
+            return Local<Array<T>>::Empty();
         }
-        return Handle<Array<T>>(static_cast<Array<T> *>(*any));
+        return Local<Array<T>>(static_cast<Array<T> *>(*any));
     }
 
     // Accessor
-    inline Handle<CoreType> At(size_t i) const {
-        return (i < length_) ? Handle<CoreType>(elems_[i]) : Handle<CoreType>::Empty();
+    inline Local<CoreType> At(size_t i) const {
+        return (i < length_) ? Local<CoreType>(elems_[i]) : Local<CoreType>::Empty();
     }
 
     // The + operator:
-    Handle<Array<T>> Plus(size_t index, Handle<CoreType> elem) const {
-        Handle<AbstractArray> abstract(NewArrayCopied(this, index == kAppendIndex ? 1 : 0));
+    Local<Array<T>> Plus(size_t index, Handle<CoreType> elem) const {
+        Local<AbstractArray> abstract(NewArrayCopied(this, index == kAppendIndex ? 1 : 0));
         if (abstract.is_empty() || abstract.is_value_null()) {
-            return Handle<Array<T>>::Empty();
+            return Local<Array<T>>::Empty();
         }
-        Handle<Array<T>> copied(static_cast<Array<T> *>(*abstract));
+        Local<Array<T>> copied(static_cast<Array<T> *>(*abstract));
         if (index == kAppendIndex) {
             copied->elems_[length_] = *elem;
             copied->WriteBarrier(reinterpret_cast<Any **>(&copied->elems_[length_]));
@@ -226,11 +226,11 @@ public:
     }
 
     // The - operator:
-    Handle<Array<T>> Minus(size_t index) const {
+    Local<Array<T>> Minus(size_t index) const {
         if (index > length_) {
-            return Handle<Array<T>>(this);
+            return Local<Array<T>>(this);
         }
-        Handle<Array> copied(NewImmutable(length_ - 1));
+        Local<Array> copied(NewImmutable(length_ - 1));
         ::memcpy(copied->elems_, elems_, index * sizeof(T));
         ::memcpy(copied->elems_ + index, elems_ + index + 1, (length_ - 1 - index) * sizeof(T));
         copied->WriteBarrier(reinterpret_cast<Any **>(copied->elems_), copied->length_);
@@ -256,9 +256,9 @@ protected:
 // The string header
 class String : public Array<char> {
 public:
-    static Handle<String> NewUtf8(const char *utf8_string, size_t n);
+    static Local<String> NewUtf8(const char *utf8_string, size_t n);
 
-    static Handle<String> NewUtf8(const char *utf8_string) {
+    static Local<String> NewUtf8(const char *utf8_string) {
         return NewUtf8(utf8_string, strlen(utf8_string));
     }
 
@@ -401,13 +401,13 @@ public:
 
     inline T value() const { return *static_cast<const T *>(address()); }
 
-    static inline Handle<Number<T>> ValueOf(T value) {
-        Handle<AbstractValue> abstract(AbstractValue::ValueOf(TypeTraits<T>::kType, &value,
+    static inline Local<Number<T>> ValueOf(T value) {
+        Local<AbstractValue> abstract(AbstractValue::ValueOf(TypeTraits<T>::kType, &value,
                                                               sizeof(value)));
         if (abstract.is_empty() || abstract.is_value_null()) {
-            return Handle<Number<T>>::Empty();
+            return Local<Number<T>>::Empty();
         }
-        return Handle<Number<T>>(static_cast<Number *>(*abstract));
+        return Local<Number<T>>(static_cast<Number *>(*abstract));
     }
     
     friend class Machine;
@@ -435,7 +435,7 @@ public:
     static constexpr uint32_t kCxxFunction = 0x100;
     static constexpr uint32_t kMaiFunction = 0x200;
 
-    static Handle<Closure> New(Code *stub, uint32_t captured_var_size);
+    static Local<Closure> New(Code *stub, uint32_t captured_var_size);
     
     // Internal methods:
     inline bool is_cxx_function() const;
@@ -522,18 +522,18 @@ public:
     Level code() const { return code_; }
 
     // Message of panic information
-    Handle<String> message() const { return Handle<String>(quickly_message()); }
+    Local<String> message() const { return Local<String>(quickly_message()); }
 
     // Internal functions
     inline String *quickly_message() const;
 
     // New a panic
-    static Handle<Panic> New(int code, Handle<String> message) {
-        Handle<Throwable> throwable(NewPanic(code, *message));
+    static Local<Panic> New(int code, Handle<String> message) {
+        Local<Throwable> throwable(NewPanic(code, *message));
         if (throwable.is_empty()) {
-            return Handle<Panic>::Empty();
+            return Local<Panic>::Empty();
         }
-        return Handle<Panic>(static_cast<Panic *>(*throwable));
+        return Local<Panic>(static_cast<Panic *>(*throwable));
     }
 
     friend class Machine;
@@ -552,22 +552,22 @@ public:
     static const int32_t kOffsetCause;
     
     // Message of exception information
-    Handle<String> message() const { return Handle<String>(message_); }
+    Local<String> message() const { return Local<String>(message_); }
     
     // Cause of exception
-    Handle<Exception> cause() const { return Handle<Exception>(cause_); }
+    Local<Exception> cause() const { return Local<Exception>(cause_); }
 
     // Internal functions
     inline String *quickly_message() const;
     inline Exception *quickly_cause() const;
 
     // New a panic
-    static Handle<Exception> New(Handle<String> message, Handle<Exception> cause) {
-        Handle<Throwable> throwable(NewException(*message, *cause));
+    static Local<Exception> New(Handle<String> message, Handle<Exception> cause) {
+        Local<Throwable> throwable(NewException(*message, *cause));
         if (throwable.is_empty()) {
-            return Handle<Exception>::Empty();
+            return Local<Exception>::Empty();
         }
-        return Handle<Exception>(static_cast<Exception *>(*throwable));
+        return Local<Exception>(static_cast<Exception *>(*throwable));
     }
     
     friend class Machine;
@@ -618,7 +618,7 @@ public:
 
     void AppendString(const char *z, size_t n);
 
-    Handle<String> Build() const { return Handle<String>(Finish()); }
+    Local<String> Build() const { return Local<String>(Finish()); }
     
     // Internal functions
     inline String* QuickBuild() const;
@@ -654,55 +654,55 @@ public:
     }; // struct ParameterTraits
     
     template<class R>
-    static inline Handle<Closure> New(R(*func)()) {
+    static inline Local<Closure> New(R(*func)()) {
         Code *stub = MakeStub({}/*parametres*/, false/*has_vargs*/, ParameterTraits<R>::kType,
                               reinterpret_cast<uint8_t *>(func));
         if (!stub) {
-            return Handle<Closure>::Empty();
+            return Local<Closure>::Empty();
         } else {
             return Closure::New(stub, 0/*captured_var_size*/);
         }
     }
     
     template<class R, class A>
-    static inline Handle<Closure> New(R(*func)(A)) {
+    static inline Local<Closure> New(R(*func)(A)) {
         Code *stub = MakeStub({ParameterTraits<A>::kType}/*parametres*/, false/*has_vargs*/,
                               ParameterTraits<R>::kType, reinterpret_cast<uint8_t *>(func));
         if (!stub) {
-            return Handle<Closure>::Empty();
+            return Local<Closure>::Empty();
         } else {
             return Closure::New(stub, 0/*captured_var_size*/);
         }
     }
     
     template<class R, class A, class B>
-    static inline Handle<Closure> New(R(*func)(A, B)) {
+    static inline Local<Closure> New(R(*func)(A, B)) {
         Code *stub = MakeStub({ParameterTraits<A>::kType, ParameterTraits<B>::kType}/*parametres*/,
                               false/*has_vargs*/, ParameterTraits<R>::kType,
                               reinterpret_cast<uint8_t *>(func));
         if (!stub) {
-            return Handle<Closure>::Empty();
+            return Local<Closure>::Empty();
         } else {
             return Closure::New(stub, 0/*captured_var_size*/);
         }
     }
     
     template<class R, class A, class B, class C>
-    static inline Handle<Closure> New(R(*func)(A, B, C)) {
+    static inline Local<Closure> New(R(*func)(A, B, C)) {
         Code *stub = MakeStub({ParameterTraits<A>::kType,
                                ParameterTraits<B>::kType,
                                ParameterTraits<C>::kType}/*parametres*/,
                               false/*has_vargs*/, ParameterTraits<R>::kType,
                               reinterpret_cast<uint8_t *>(func));
         if (!stub) {
-            return Handle<Closure>::Empty();
+            return Local<Closure>::Empty();
         } else {
             return Closure::New(stub, 0/*captured_var_size*/);
         }
     }
     
     template<class R, class A, class B, class C, class D>
-    static inline Handle<Closure> New(R(*func)(A, B, C, D)) {
+    static inline Local<Closure> New(R(*func)(A, B, C, D)) {
         Code *stub = MakeStub({ParameterTraits<A>::kType,
                                ParameterTraits<B>::kType,
                                ParameterTraits<C>::kType,
@@ -710,14 +710,14 @@ public:
                               false/*has_vargs*/, ParameterTraits<R>::kType,
                               reinterpret_cast<uint8_t *>(func));
         if (!stub) {
-            return Handle<Closure>::Empty();
+            return Local<Closure>::Empty();
         } else {
             return Closure::New(stub, 0/*captured_var_size*/);
         }
     }
     
     template<class R, class A, class B, class C, class D, class E>
-    static inline Handle<Closure> New(R(*func)(A, B, C, D, E)) {
+    static inline Local<Closure> New(R(*func)(A, B, C, D, E)) {
         Code *stub = MakeStub({ParameterTraits<A>::kType,
                                ParameterTraits<B>::kType,
                                ParameterTraits<C>::kType,
@@ -726,7 +726,7 @@ public:
                               false/*has_vargs*/, ParameterTraits<R>::kType,
                               reinterpret_cast<uint8_t *>(func));
         if (!stub) {
-            return Handle<Closure>::Empty();
+            return Local<Closure>::Empty();
         } else {
             return Closure::New(stub, 0/*captured_var_size*/);
         }

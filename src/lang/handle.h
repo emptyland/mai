@@ -7,7 +7,7 @@ namespace mai {
 
 namespace lang {
 
-template<class T> class Handle;
+template<class T> class Local;
 
 class HandleScope {
 public:
@@ -27,7 +27,7 @@ public:
     static HandleScope *Current();
     
     // Escape a owned local handle
-    template<class T> inline Handle<T> CloseAndEscape(Handle<T> in_scope);
+    template<class T> inline Local<T> CloseAndEscape(Local<T> in_scope);
     
     template<class T>
     static inline T **NewLocation(T *value) {
@@ -65,8 +65,17 @@ struct GlobalHandles {
 }; // struct GlobalHandles
 
 template<class T>
-class HandleBase {
+class Handle {
 public:
+    // Getters
+    inline T *operator -> () const { return get(); }
+    inline T *operator * () const { return get(); }
+
+    // Tester
+    inline bool operator ! () const { return is_value_not_null(); }
+    inline bool operator == (const Handle &other) const { return get() == other.get(); }
+    inline bool operator != (const Handle &other) const { return !operator==(other); }
+    
     // Get heap object pointer, is value
     inline T *get() const { return *location_; }
 
@@ -82,59 +91,50 @@ public:
     inline bool is_not_empty() const { return !is_empty(); }
 protected:
     // Raw initialize handle
-    inline HandleBase(T **location) : location_(location) {}
+    inline Handle(T **location) : location_(location) {}
     T **location_;
 }; // class HandleBase
 
 
 // Handle is thread local value, dont use it in other threads
 template<class T>
-class Handle : public HandleBase<T> {
+class Local : public Handle<T> {
 public:
-    using HandleBase<T>::location_;
-    using HandleBase<T>::is_value_null;
-    using HandleBase<T>::is_value_not_null;
-    using HandleBase<T>::is_empty;
-    using HandleBase<T>::is_not_empty;
-    using HandleBase<T>::get;
+    using Handle<T>::location_;
+    using Handle<T>::is_value_null;
+    using Handle<T>::is_value_not_null;
+    using Handle<T>::is_empty;
+    using Handle<T>::is_not_empty;
+    using Handle<T>::get;
     
     // Initialize a empty handle
-    inline Handle() : Handle(static_cast<T **>(nullptr)) {}
+    inline Local() : Local(static_cast<T **>(nullptr)) {}
     
     // Initialize by heap object pointer
-    template<class S> inline explicit Handle(S *pointer)
-        : Handle(HandleScope::NewLocation<T>(static_cast<T *>(pointer))) {
+    template<class S> inline explicit Local(S *pointer)
+        : Local(HandleScope::NewLocation<T>(static_cast<T *>(pointer))) {
         static_assert(std::is_convertible<S*, T*>::value || std::is_same<S, T>::value,
                       "can not cast to");
     }
 
     // Initialize by other handle
-    template<class S> inline explicit Handle(const Handle<S> &other)
-        : Handle(other.is_empty() ? nullptr : HandleScope::NewLocation<T>(static_cast<T*>(*other))) {
+    template<class S> inline explicit Local(const Local<S> &other)
+        : Local(other.is_empty() ? nullptr : HandleScope::NewLocation<T>(static_cast<T*>(*other))) {
         static_assert(std::is_convertible<S*, T*>::value || std::is_same<S, T>::value,
                       "can not cast to");
     }
 
     // Copy constructor
-    inline Handle(const Handle &other)
-        : Handle(other.is_empty() ? nullptr : HandleScope::NewLocation<T>(*other)) {}
+    inline Local(const Local &other)
+        : Local(other.is_empty() ? nullptr : HandleScope::NewLocation<T>(*other)) {}
 
     // Right reference constructor
-    inline Handle(Handle &&other): Handle(other.location_) { other.location_ = nullptr; }
-
-    // Getters
-    inline T *operator -> () const { return get(); }
-    inline T *operator * () const { return get(); }
-
-    // Tester
-    inline bool operator ! () const { return is_value_not_null(); }
-    inline bool operator == (const Handle &other) const { return get() == other.get(); }
-    inline bool operator != (const Handle &other) const { return !operator==(other); }
+    inline Local(Local &&other): Local(other.location_) { other.location_ = nullptr; }
 
     // Assignment
-    inline void operator = (const Handle &other) { Assign(other.location_); }
+    inline void operator = (const Local &other) { Assign(other.location_); }
 
-    inline void operator = (Handle &&other) {
+    inline void operator = (Local &&other) {
         Assign(other.location_);
         other.location_ = nullptr;
     }
@@ -152,17 +152,17 @@ public:
 
     // Utils
     // Handle cast
-    template<class S> static inline Handle<T> Cast(const Handle<S> &other) {
-        return Handle<T>(other);
+    template<class S> static inline Local<T> Cast(const Local<S> &other) {
+        return Local<T>(other);
     }
     // Make a null heap pointer handle(handle address is not null)
-    static inline Handle<T> Null() { return Handle<T>(static_cast<T *>(nullptr)); }
+    static inline Local<T> Null() { return Local<T>(static_cast<T *>(nullptr)); }
     // Make a null handle address handle
-    static inline Handle<T> Empty() { return Handle<T>(static_cast<T **>(nullptr)); }
+    static inline Local<T> Empty() { return Local<T>(static_cast<T **>(nullptr)); }
     
 private:
     // Initialize by a handle address
-    inline explicit Handle(T **location) : HandleBase<T>(location) {}
+    inline explicit Local(T **location) : Handle<T>(location) {}
 
     inline void Assign(T **location) {
         if (location_ == location) {
@@ -187,14 +187,14 @@ private:
 
 
 template<class T>
-class Persistent : public HandleBase<T> {
+class Persistent : public Handle<T> {
 public:
-    using HandleBase<T>::location_;
-    using HandleBase<T>::is_value_null;
-    using HandleBase<T>::is_value_not_null;
-    using HandleBase<T>::is_empty;
-    using HandleBase<T>::is_not_empty;
-    using HandleBase<T>::get;
+    using Handle<T>::location_;
+    using Handle<T>::is_value_null;
+    using Handle<T>::is_value_not_null;
+    using Handle<T>::is_empty;
+    using Handle<T>::is_not_empty;
+    using Handle<T>::get;
     
     // Initialize a empty handle
     inline Persistent() : Persistent(nullptr) {}
@@ -214,15 +214,6 @@ public:
             location_ = nullptr;
         }
     }
-  
-      // Getters
-    inline T *operator -> () const { return get(); }
-    inline T *operator * () const { return get(); }
-
-    // Tester
-    inline bool operator ! () const { return is_value_not_null(); }
-    inline bool operator == (const Persistent<T> &other) const { return get() == *other; }
-    inline bool operator == (const Handle<T> &other) const { return get() == *other; }
 
     // Assignment
     inline void operator = (const Persistent &other) { Assign(other.location_); }
@@ -233,7 +224,7 @@ public:
         }
     }
 
-    inline void operator = (const Handle<T> &other) { Assign(other.location_); }
+    inline void operator = (const Local<T> &other) { Assign(other.location_); }
 
     inline void operator = (T *pointer) {
         if (location_ && *location_ == pointer) {
@@ -258,7 +249,7 @@ public:
     }
 
     // Create by local handle
-    static inline Persistent<T> New(const Handle<T> &local) {
+    static inline Persistent<T> New(const Local<T> &local) {
         if (local.is_empty()) {
             return Persistent<T>();
         }
@@ -266,7 +257,7 @@ public:
     }
 
 private:
-    inline Persistent(T **location): HandleBase<T>(location) {}
+    inline Persistent(T **location): Handle<T>(location) {}
     
     inline bool Assign(T **location) {
         if (location_ == location) {
@@ -292,11 +283,11 @@ private:
 
 // Escape a owned local handle
 template<class T>
-inline Handle<T> HandleScope::CloseAndEscape(Handle<T> in_scope) {
+inline Local<T> HandleScope::CloseAndEscape(Local<T> in_scope) {
     if (in_scope.is_empty()) {
-        return Handle<T>::Empty();
+        return Local<T>::Empty();
     }
-    Handle<T> escaped(GetPrev()->NewLocation(in_scope.get()));
+    Local<T> escaped(GetPrev()->NewLocation(in_scope.get()));
     Close();
     return escaped;
 }

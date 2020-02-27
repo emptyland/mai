@@ -23,7 +23,7 @@ TEST_F(ValueTest, PrimitiveArray) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     int init[4] = {111, 222, 333, 444};
     
-    Handle<Array<int>> handle(Array<int>::NewImmutable(init, arraysize(init)));
+    Local<Array<int>> handle(Array<int>::NewImmutable(init, arraysize(init)));
     ASSERT_TRUE(handle.is_not_empty());
     ASSERT_EQ(4, handle->length());
     ASSERT_EQ(4, handle->capacity());
@@ -35,7 +35,7 @@ TEST_F(ValueTest, PrimitiveArray) {
 
 TEST_F(ValueTest, PlusPrimitiveArray) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    Handle<Array<int>> handle(Array<int>::NewImmutable(0));
+    Local<Array<int>> handle(Array<int>::NewImmutable(0));
     ASSERT_TRUE(handle.is_not_empty());
     ASSERT_EQ(0, handle->length());
     ASSERT_EQ(0, handle->capacity());
@@ -58,11 +58,11 @@ TEST_F(ValueTest, MinusPrimitiveArray) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     
     int init_data[4] = {0, 1, 2, 3};
-    Handle<Array<int>> handle(Array<int>::NewImmutable(init_data, arraysize(init_data)));
+    Local<Array<int>> handle(Array<int>::NewImmutable(init_data, arraysize(init_data)));
     ASSERT_EQ(4, handle->length());
     ASSERT_EQ(4, handle->capacity());
     
-    Handle<Array<int>> other = handle->Minus(0);
+    Local<Array<int>> other = handle->Minus(0);
     ASSERT_TRUE(other != handle);
     ASSERT_EQ(3, other->length());
     ASSERT_EQ(3, other->capacity());
@@ -81,7 +81,7 @@ TEST_F(ValueTest, MinusPrimitiveArray) {
 
 TEST_F(ValueTest, PlusReferenceArray) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    Handle<Array<String *>> handle(Array<String *>::NewImmutable(0));
+    Local<Array<String *>> handle(Array<String *>::NewImmutable(0));
     
     handle = handle->Plus(-1, String::NewUtf8("1st"));
     ASSERT_EQ(1, handle->length());
@@ -110,7 +110,7 @@ static String *Dummy4(float, int, void *) { return nullptr; }
 
 TEST_F(ValueTest, FunctionTemplate) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    Handle<Closure> handle(FunctionTemplate::New(Dummy1));
+    Local<Closure> handle(FunctionTemplate::New(Dummy1));
     ASSERT_TRUE(handle.is_not_empty());
     ASSERT_TRUE(handle->is_cxx_function());
     auto code = handle->code();
@@ -137,33 +137,33 @@ TEST_F(ValueTest, FunctionTemplate) {
 TEST_F(ValueTest, AnyIsAs) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     
-    Handle<Any> handle(Number<int>::ValueOf(0));
+    Local<Any> handle(Number<int>::ValueOf(0));
     ASSERT_TRUE(handle->Is<Number<int>>());
     
-    Handle<Number<int>> num = handle->As<Number<int>>();
+    Local<Number<int>> num = handle->As<Number<int>>();
     ASSERT_EQ(0, num->value());
     
-    handle = Handle<Any>(String::NewUtf8("Hello"));
+    handle = Local<Any>(String::NewUtf8("Hello"));
     ASSERT_TRUE(handle->Is<String>());
     
-    Handle<String> str = handle->As<String>();
+    Local<String> str = handle->As<String>();
     ASSERT_STREQ("Hello", str->data());
 }
 
 TEST_F(ValueTest, ValueOfNumber) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     
-    Handle<Number<bool>> b1(Number<bool>::ValueOf(true));
+    Local<Number<bool>> b1(Number<bool>::ValueOf(true));
     ASSERT_TRUE(b1->value());
-    Handle<Number<bool>> b2(Number<bool>::ValueOf(false));
+    Local<Number<bool>> b2(Number<bool>::ValueOf(false));
     ASSERT_FALSE(b2->value());
     ASSERT_TRUE(b1 == Number<bool>::ValueOf(true));
     ASSERT_TRUE(b2 == Number<bool>::ValueOf(false));
     
-    Handle<Number<int8_t>> i8(Number<int8_t>::ValueOf(100));
+    Local<Number<int8_t>> i8(Number<int8_t>::ValueOf(100));
     ASSERT_EQ(100, i8->value());
     
-    Handle<Number<int8_t>> i8_2(Number<int8_t>::ValueOf(100));
+    Local<Number<int8_t>> i8_2(Number<int8_t>::ValueOf(100));
     ASSERT_EQ(100, i8_2->value());
     ASSERT_TRUE(i8 == i8_2);
 }
@@ -177,7 +177,7 @@ TEST_F(ValueTest, StringBuilder) {
     builder.AppendString("World");
     builder.AppendFormat("! %d", 101);
     
-    Handle<String> handle(builder.Build());
+    Local<String> handle(builder.Build());
     ASSERT_STREQ("Hello, World! 101", handle->data());
 }
 

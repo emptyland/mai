@@ -17,7 +17,7 @@ public:
 
 TEST_F(ChannelTest, NewChannel) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    Handle<Channel> chan(Machine::This()->NewChannel(kType_i8, 0, 0));
+    Local<Channel> chan(Machine::This()->NewChannel(kType_i8, 0, 0));
     ASSERT_TRUE(chan->is_not_buffered());
     ASSERT_FALSE(chan->is_buffered());
     ASSERT_EQ(0, chan->capacity());
@@ -29,7 +29,7 @@ TEST_F(ChannelTest, NewChannel) {
 
 TEST_F(ChannelTest, AddBufferTail) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    Handle<Channel> chan(Machine::This()->NewChannel(kType_i8, 3, 0));
+    Local<Channel> chan(Machine::This()->NewChannel(kType_i8, 3, 0));
     ASSERT_EQ(3, chan->capacity());
 
     int8_t data = 1;
@@ -44,7 +44,7 @@ TEST_F(ChannelTest, AddBufferTail) {
 
 TEST_F(ChannelTest, TakeBufferHead) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    Handle<Channel> chan(Machine::This()->NewChannel(kType_int, 3, 0));
+    Local<Channel> chan(Machine::This()->NewChannel(kType_int, 3, 0));
     ASSERT_EQ(3, chan->capacity());
     
     int data = 1;
@@ -68,7 +68,7 @@ TEST_F(ChannelTest, TakeBufferHead) {
 
 TEST_F(ChannelTest, RingBuffer) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    Handle<Channel> chan(Machine::This()->NewChannel(kType_i8, 3, 0));
+    Local<Channel> chan(Machine::This()->NewChannel(kType_i8, 3, 0));
     ASSERT_EQ(3, chan->capacity());
     
     int data = 1;
