@@ -50,6 +50,7 @@ public:
     Result VisitIndexExpression(IndexExpression *) override;
     Result VisitUnaryExpression(UnaryExpression *) override;
     Result VisitArrayInitializer(ArrayInitializer *) override;
+    Result VisitMapInitializer(MapInitializer *) override;
     Result VisitBinaryExpression(BinaryExpression *) override;
     Result VisitBreakableStatement(BreakableStatement *) override;
     Result VisitAssignmentStatement(AssignmentStatement *) override;
@@ -84,6 +85,8 @@ private:
     bool CheckFileUnit(const std::string &pkg_name, FileUnit *unit);
     
     Result CheckDotExpression(TypeSign *type, DotExpression *ast);
+    Result CheckClassOrObjectFieldAccess(TypeSign *type, DotExpression *ast);
+    Result CheckInDecrementAssignment(ASTNode *ast, TypeSign *lval, TypeSign *rval, const char *op);
     
     inline SourceLocation FindSourceLocation(ASTNode *ast);
     
@@ -116,7 +119,13 @@ public:
     DEF_VAL_GETTER(Kind, kind);
     DEF_PTR_GETTER(AbstractScope, prev);
     
+    bool is_file_scope() const { return kind_ == kFileScope; }
+    bool is_class_scope() const { return kind_ == kClassScope; }
+    bool is_function_scope() const { return kind_ == kFunctionScope; }
+    bool is_block_scope() const { return kind_ == kBlockScope; }
+    
     virtual Symbolize *FindOrNull(const ASTString *name) { return nullptr; }
+    virtual Symbolize *Register(Symbolize *sym) { return nullptr; }
     
     std::tuple<AbstractScope *, Symbolize *> Resolve(const ASTString *name) {
         for (auto i = this; i != nullptr; i = i->prev_) {
@@ -180,43 +189,71 @@ private:
 
 class ClassScope : public AbstractScope {
 public:
-    ClassScope(ClassDefinition *clazz, AbstractScope **current);
+    ClassScope(StructureDefinition *clazz, AbstractScope **current)
+        : AbstractScope(kClassScope, current) , clazz_(clazz) {}
+    
+    ClassDefinition *clazz() { return DCHECK_NOTNULL(clazz_->AsClassDefinition()); }
+    ObjectDefinition *object() { return DCHECK_NOTNULL(clazz_->AsObjectDefinition()); }
 
-    Symbolize *FindOrNull(const ASTString *name) override;
-    
-    DEF_PTR_GETTER(ClassDefinition, clazz);
-    
     DISALLOW_IMPLICIT_CONSTRUCTORS(ClassScope);
 private:
-    ClassDefinition *clazz_;
-    std::map<std::string_view, VariableDeclaration*> parameters_;
+    StructureDefinition *clazz_;
 }; // class ClassScope
 
-class FunctionScope : public AbstractScope {
+class BlockScope : public AbstractScope {
 public:
-    FunctionScope(LambdaLiteral *function, AbstractScope **current)
-        : AbstractScope(kFunctionScope, current)
-        , function_(function) {
-    }
+    enum BlockKind {
+        kIfBlock,
+        kForBlock,
+        kWhileBlock,
+        kNormalBlock,
+        kFunctionBlock,
+    };
     
-    DEF_PTR_GETTER(LambdaLiteral, function);
-    
-    bool Initialize(base::Arena *arena, SyntaxFeedback *feedback);
+    BlockScope(BlockKind block_kind, Statement *stmt, AbstractScope **current)
+        : BlockScope(kBlockScope, block_kind, stmt, current) {}
     
     Symbolize *FindOrNull(const ASTString *name) override {
-        auto iter = parameters_.find(name->ToSlice());
-        return iter == parameters_.end() ? nullptr : iter->second;
+        auto iter = locals_.find(name->ToSlice());
+        return iter == locals_.end() ? nullptr : iter->second;
+    }
+
+    Symbolize *Register(Symbolize *sym) override {
+        if (auto iter = locals_.find(sym->identifier()->ToSlice()); iter != locals_.end()) {
+            return iter->second;
+        }
+        locals_[sym->identifier()->ToSlice()] = sym;
+        return nullptr;
+    }
+protected:
+    BlockScope(Kind kind, BlockKind block_kind, Statement *stmt, AbstractScope **current)
+        : AbstractScope(kind, current)
+        , block_kind_(block_kind)
+        , stmt_(stmt) {
+    }
+
+    BlockKind block_kind_;
+    Statement *stmt_;
+    std::map<std::string_view, Symbolize *> locals_;
+}; // class BlockScope
+
+
+class FunctionScope : public BlockScope {
+public:
+    FunctionScope(LambdaLiteral *function, AbstractScope **current)
+        : BlockScope(kFunctionScope, kFunctionBlock, function, current)
+        , function_(function)
+        , constructor_(nullptr) {
     }
     
+    FunctionScope(ClassDefinition *constructor, AbstractScope **current);
+    
+    DEF_PTR_GETTER(LambdaLiteral, function);
+    DEF_PTR_GETTER(ClassDefinition, constructor);
 private:
     LambdaLiteral *function_;
-    std::map<std::string_view, Symbolize *> parameters_;
+    ClassDefinition *constructor_;
 }; // class FunctionScope
-
-class BlockScope {
-public:
-    
-}; // class BlockScope
 
 
 inline SourceLocation TypeChecker::FindSourceLocation(ASTNode *ast) {

@@ -299,7 +299,8 @@ TEST_F(ParserTest, ClassDefinition) {
     ASSERT_STREQ("d", ast->parameter(3).as_parameter->identifier()->data());
     ASSERT_EQ(Token::kInt, ast->parameter(3).as_parameter->type()->id());
     
-    ASSERT_STREQ("foo.Bar", ast->base_name()->data());
+    ASSERT_STREQ("Bar", ast->base_name()->data());
+    ASSERT_STREQ("foo", ast->base_prefix()->data());
     ASSERT_EQ(2, ast->arguments_size());
     ASSERT_STREQ("c", ast->argument(0)->AsIdentifier()->name()->data());
     ASSERT_STREQ("d", ast->argument(1)->AsIdentifier()->name()->data());

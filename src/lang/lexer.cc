@@ -98,9 +98,6 @@ Token Lexer::Next() {
             case '*':
                 return MatchOne(Token::kStar);
                 
-            case '/':
-                return MatchOne(Token::kDiv);
-                
             case '%':
                 return MatchOne(Token::kPercent);
                 
@@ -121,6 +118,18 @@ Token Lexer::Next() {
                 
             case ';':
                 return MatchOne(Token::kSemi);
+                
+            case '/': {
+                SourceLocation loc{line_, row_};
+                ch = MoveNext();
+                if (ch == '/') { // `//'
+                    while (ch != '\n' && ch != '\r') {
+                        ch = MoveNext();
+                    }
+                } else {
+                    return Token(Token::kDiv, loc);
+                }
+            } break;
                 
             case '|': {
                 SourceLocation loc{line_, row_};

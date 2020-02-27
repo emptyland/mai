@@ -54,12 +54,45 @@ StructureDefinition *TypeSign::structure() const {
 }
 
 Definition *TypeSign::definition() const {
-    DCHECK(kind_ == Token::kClass || kind_ == Token::kObject || kind_ == Token::kInterface);
+    DCHECK(kind_ == Token::kClass ||
+           kind_ == Token::kObject ||
+           kind_ == Token::kInterface ||
+           kind_ == Token::kRef) << Token::ToString(static_cast<Token::Kind>(kind_));
     DCHECK(definition_->IsClassDefinition() || definition_->IsObjectDefinition() ||
            definition_->IsInterfaceDefinition());
     return definition_;
 }
 #endif // defined(DEBUG) || defined(_DEBUG)
+
+bool TypeSign::IsSignedIntegral() const {
+    switch (id()) {
+        case Token::kI8:
+        case Token::kI16:
+        case Token::kI32:
+        case Token::kInt:
+        case Token::kI64:
+            return true;
+            
+        default:
+            return false;
+    }
+}
+
+bool TypeSign::IsUnsignedIntegral() const {
+    switch (id()) {
+        case Token::kU8:
+        case Token::kU16:
+        case Token::kU32:
+        case Token::kUInt:
+        case Token::kU64:
+            return true;
+            
+        default:
+            return false;
+    }
+}
+
+bool TypeSign::IsFloating() const { return id() == Token::kF32 || id() == Token::kF64; }
 
 bool TypeSign::Convertible(TypeSign *rhs) const {
     if (id() == Token::kAny) { // Any type!

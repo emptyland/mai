@@ -189,6 +189,9 @@ bool TypeChecker::Check() {
 bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
     FileScope file_scope(&symbols_, unit, &current_);
     file_scope.Initialize(path_units_);
+    
+    error_feedback_->set_file_name(unit->file_name()->ToString());
+    error_feedback_->set_package_name(unit->package_name()->ToString());
 
     for (auto decl : unit->global_variables()) {
         if (auto rv = decl->Accept(this); rv.sign == kError) {
@@ -293,11 +296,40 @@ ASTVisitor::Result TypeChecker::VisitStringLiteral(StringLiteral *ast) /*overrid
 }
 
 ASTVisitor::Result TypeChecker::VisitLambdaLiteral(LambdaLiteral *ast) /*override*/ {
-    FunctionScope function_scope(ast, &current_);
-    if (!function_scope.Initialize(arena_, error_feedback_)) {
-        return ResultWithType(kError);
+    std::vector<VariableDeclaration *> parameters;
+    if (ClassScope *class_scope = current_->GetClassScope()) {
+        TypeSign *type = new (arena_) TypeSign(ast->position(), Token::kRef, class_scope->clazz());
+        VariableDeclaration *self = new (arena_) VariableDeclaration(type->position(),
+                                                                     VariableDeclaration::PARAMETER,
+                                                                     ASTString::New(arena_, "self"),
+                                                                     type, nullptr);
+        parameters.push_back(self);
     }
     
+    if (ast->prototype()->vargs()) {
+        TypeSign *any = new (arena_) TypeSign(ast->position(), Token::kAny);
+        TypeSign *argv = new (arena_) TypeSign(arena_, ast->position(), Token::kArray, any);
+        VariableDeclaration *vargs = new (arena_) VariableDeclaration(argv->position(),
+                                                                      VariableDeclaration::PARAMETER,
+                                                                      ASTString::New(arena_, "argv"),
+                                                                      argv, nullptr);
+        parameters.push_back(vargs);
+    }
+    
+    for (auto param : ast->prototype()->parameters()) {
+        VariableDeclaration *var = new (arena_) VariableDeclaration(param.type->position(),
+                                                                   VariableDeclaration::PARAMETER,
+                                                                   param.name, param.type, nullptr);
+        parameters.push_back(var);
+    }
+    
+    FunctionScope function_scope(ast, &current_);
+    for (auto param : parameters) {
+        if (auto rv = param->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
+
     for (auto stmt : ast->statements()) {
         if (auto rv = stmt->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
@@ -379,8 +411,24 @@ ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*overr
     return ResultWithType(kError);
 }
 
-ASTVisitor::Result TypeChecker::VisitPairExpression(PairExpression *) /*override*/ {
-    TODO();
+ASTVisitor::Result TypeChecker::VisitPairExpression(PairExpression *ast) /*override*/ {
+    TypeSign *key = nullptr;
+    if (!ast->addition_key()) {
+        if (auto rv = ast->key()->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        } else {
+            key = rv.sign;
+        }
+    }
+    
+    TypeSign *value = nullptr;
+    if (auto rv = ast->value()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    } else {
+        value = rv.sign;
+    }
+    
+    return ResultWithType(new (arena_) TypeSign(arena_, ast->position(), Token::kPair, key, value));
 }
 
 ASTVisitor::Result TypeChecker::VisitIndexExpression(IndexExpression *) /*override*/ {
@@ -391,7 +439,57 @@ ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *) /*overri
     TODO();
 }
 
-ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *) /*override*/ {
+ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*override*/ {
+    if (ast->reserve()) {
+        if (auto rv = ast->reserve()->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        } else {
+            if (!rv.sign->IsIntegral()) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Array constructor parameter is "
+                                        "not integral type");
+                return ResultWithType(kError);
+            }
+        }
+        return ResultWithType(new (arena_) TypeSign(arena_, ast->position(),
+                                                    ast->mutable_container()
+                                                    ? Token::kMutableArray : Token::kArray,
+                                                    ast->element_type()));
+    }
+
+    TypeSign *defined_element_type = ast->element_type();
+    for (auto element : ast->operands()) {
+        auto rv = element->Accept(this);
+        if (rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+        if (rv.sign->id() == Token::kVoid) {
+            error_feedback_->Printf(FindSourceLocation(element), "Attempt void type element");
+            return ResultWithType(kError);
+        }
+        if (!defined_element_type) {
+            defined_element_type = rv.sign;
+        }
+        if (!defined_element_type->Convertible(rv.sign)) {
+            defined_element_type->set_id(Token::kAny);
+        }
+    }
+    
+    if (ast->element_type()) {
+        if (!ast->element_type()->Convertible(defined_element_type)) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Attempt unconvertible element type");
+            return ResultWithType(kError);
+        }
+    } else {
+        ast->set_element_type(defined_element_type);
+    }
+
+    return ResultWithType(new (arena_) TypeSign(arena_, ast->position(),
+                                                ast->mutable_container()
+                                                ? Token::kMutableArray : Token::kArray,
+                                                ast->element_type()));
+}
+
+ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *) /*override*/ {
     TODO();
 }
 
@@ -403,15 +501,108 @@ ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *) /*
     TODO();
 }
 
-ASTVisitor::Result TypeChecker::VisitAssignmentStatement(AssignmentStatement *) /*override*/ {
-    TODO();
+ASTVisitor::Result TypeChecker::VisitAssignmentStatement(AssignmentStatement *ast) /*override*/ {
+    TypeSign *rval = nullptr, *lval = nullptr;
+    if (auto rv = ast->rval()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    } else {
+        rval = rv.sign;
+    }
+    if (auto rv = ast->lval()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    } else {
+        lval = rv.sign;
+    }
+
+    switch (ast->lval()->kind()) {
+        case ASTNode::kIdentifier: {
+            Symbolize *sym = std::get<1>(current_->Resolve(ast->lval()->AsIdentifier()->name()));
+            if (!sym->IsVariableDeclaration()) {
+                error_feedback_->Printf(FindSourceLocation(ast->lval()), "Incorrect lval type in "
+                                        "assignment");
+                return ResultWithType(kError);
+            }
+            if (sym->AsVariableDeclaration()->kind() != VariableDeclaration::VAR) {
+                error_feedback_->Printf(FindSourceLocation(ast->lval()), "Val can not be assign");
+                return ResultWithType(kError);
+            }
+        } break;
+
+        case ASTNode::kIndexExpression: {
+            if (lval->id() == Token::kMutableArray) {
+                lval = lval->parameter(0);
+            } else if (lval->id() == Token::kMutableMap) {
+                lval = lval->parameter(1);
+            } else {
+                error_feedback_->Printf(FindSourceLocation(ast->lval()), "Incorrect lval type in "
+                                        "assignment");
+                return ResultWithType(kError);
+            }
+        } break;
+
+        case ASTNode::kDotExpression: {
+            TypeSign *primary = nullptr;
+            DotExpression *dot = DCHECK_NOTNULL(ast->lval()->AsDotExpression());
+            if (auto rv = dot->primary()->Accept(this); rv.sign == kError) {
+                return ResultWithType(kError);
+            } else {
+                primary = rv.sign;
+            }
+            
+            if (primary->id() == Token::kRef) {
+                auto [clazz, field] = primary->clazz()->ResolveField(dot->rhs()->ToSlice());
+                if (!field) {
+                    error_feedback_->Printf(FindSourceLocation(ast->lval()), "Incorrect field for "
+                                            "assigning %s", dot->rhs()->data());
+                    return ResultWithType(kError);
+                }
+                if (field->declaration->kind() != VariableDeclaration::VAR) {
+                    error_feedback_->Printf(FindSourceLocation(ast->lval()),
+                                            "Attempt assign val field: %s", dot->rhs()->data());
+                    return ResultWithType(kError);
+                }
+            }
+        } break;
+
+        default:
+            NOREACHED();
+            break;
+    }
+
+    switch (ast->assignment_op().kind) {
+        case Operator::kAdd: // +=
+            return CheckInDecrementAssignment(ast, lval, rval, "+=");
+        case Operator::kSub: // -=
+            return CheckInDecrementAssignment(ast, lval, rval, "-=");
+        case Operator::NOT_OPERATOR: // =
+            if (!lval->Convertible(rval)) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type in `=' expression");
+                return ResultWithType(kError);
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    return ResultWithType(kVoid);
 }
 
-ASTVisitor::Result TypeChecker::VisitStringTemplateExpression(StringTemplateExpression *) /*override*/ {
-    TODO();
+ASTVisitor::Result TypeChecker::VisitStringTemplateExpression(StringTemplateExpression *ast) /*override*/ {
+    for (auto operand : ast->operands()) {
+        if (auto rv = operand->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kString));
 }
 
 ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *ast) /*override*/ {
+    if (auto err = current_->Register(ast)) {
+        error_feedback_->Printf(FindSourceLocation(ast), "Duplicated variable declaration: %s",
+                                err->identifier()->data());
+        return ResultWithType(kError);
+    }
+
     if (ast->type() && ast->type()->id() == Token::kIdentifier) {
         if (auto rv = ast->type()->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
@@ -474,6 +665,9 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
         return ResultWithType(type);
     } else if (sym->IsInterfaceDefinition()) {
         TypeSign *type = new (arena_) TypeSign(ast->position(), sym->AsInterfaceDefinition());
+        return ResultWithType(type);
+    } else if (sym->IsFunctionDefinition()) {
+        TypeSign *type = new (arena_) TypeSign(ast->position(), sym->AsFunctionDefinition()->prototype());
         return ResultWithType(type);
     }
     DCHECK(sym->IsVariableDeclaration());
@@ -554,8 +748,8 @@ ASTVisitor::Result TypeChecker::VisitClassDefinition(ClassDefinition *ast) /*ove
     }
     
     if (ast->base()) {
-        ClassScope class_scope(ast, &current_);
-        
+        FunctionScope constructor_scope(ast, &current_);
+
         if (ast->arguments_size() != ast->base()->parameters_size()) {
             error_feedback_->Printf(FindSourceLocation(ast), "Unexpected base class constructor "
                                     "expected %ld parameters", ast->arguments_size());
@@ -606,6 +800,8 @@ ASTVisitor::Result TypeChecker::VisitFunctionDefinition(FunctionDefinition *ast)
 }
 
 ASTVisitor::Result TypeChecker::VisitClassImplementsBlock(ClassImplementsBlock *ast) /*override*/ {
+    ClassScope class_scope(ast->owner(), &current_);
+
     for (auto method : ast->methods()) {
         if (auto rv = method->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
@@ -628,28 +824,100 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
             TODO();
             break;
         case Token::kRef:
-        case Token::kObject: {
-            if (type->definition()->IsClassDefinition() ||
-                type->definition()->IsObjectDefinition()) {
-                auto field = type->structure()->FindFieldOrNull(ast->rhs()->ToSlice());
-                if (field) {
-                    return ResultWithType(DCHECK_NOTNULL(field->declaration->type()));
-                }
-            }
-            auto method = type->definition()->AsPartialInterfaceDefinition()->FindMethodOrNull(ast->rhs()->ToSlice());
-            if (method) {
-                TypeSign *type = new (arena_) TypeSign(method->position(), method->prototype());
-                return ResultWithType(type);
-            }
-            error_feedback_->Printf(FindSourceLocation(ast), "No field or method named: %s",
-                                    ast->rhs()->data());
-            return ResultWithType(kError);
-        } break;
+        case Token::kObject:
+            return CheckClassOrObjectFieldAccess(type, ast);
         default: {
-            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type to get field");
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s) to get field",
+                                    Token::ToString(static_cast<Token::Kind>(type->id())).c_str());
             return ResultWithType(kError);
         } break;
     }
+}
+
+ASTVisitor::Result TypeChecker::CheckClassOrObjectFieldAccess(TypeSign *type, DotExpression *ast) {
+    if (auto clazz = type->definition()->AsClassDefinition()) {
+        auto [layout, field] = clazz->ResolveField(ast->rhs()->ToSlice());
+        if (field) {
+            if (field->access == StructureDefinition::kPrivate) {
+                if (auto scope = current_->GetClassScope(); !scope || layout != scope->clazz()) {
+                    error_feedback_->Printf(FindSourceLocation(ast),
+                                            "Attempt access private field: %s", ast->rhs()->data());
+                    return ResultWithType(kError);
+                }
+            } else if (field->access == StructureDefinition::kProtected) {
+                if (auto scope = current_->GetClassScope();
+                    !scope || layout != scope->clazz()->base()) {
+                    error_feedback_->Printf(FindSourceLocation(ast),
+                                            "Attempt assign protected field: %s", ast->rhs()->data());
+                    return ResultWithType(kError);
+                }
+            }
+            return ResultWithType(DCHECK_NOTNULL(field->declaration->type()));
+        }
+    } else if (ObjectDefinition *object = type->definition()->AsObjectDefinition()) {
+        if (auto field = object->FindFieldOrNull(ast->rhs()->ToSlice())) {
+            return ResultWithType(DCHECK_NOTNULL(field->declaration->type()));
+        }
+    }
+
+    auto method = type->definition()->AsPartialInterfaceDefinition()->FindMethodOrNull(ast->rhs()->ToSlice());
+    if (method) {
+        TypeSign *type = new (arena_) TypeSign(method->position(), method->prototype());
+        return ResultWithType(type);
+    }
+    error_feedback_->Printf(FindSourceLocation(ast), "No field or method named: %s",
+                            ast->rhs()->data());
+    return ResultWithType(kError);
+}
+
+ASTVisitor::Result TypeChecker::CheckInDecrementAssignment(ASTNode *ast, TypeSign *lval,
+                                                           TypeSign *rval, const char *op) {
+    if (lval->id() == Token::kArray || lval->id() == Token::kMutableArray) {
+        if (rval->id() != Token::kPair) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type in "
+                                    "array's `%s' expression", op);
+            return ResultWithType(kError);
+        }
+        
+        if (rval->parameter(0) && rval->parameter(0)->id() != Token::kInt) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect array index type");
+            return ResultWithType(kError);
+        }
+        
+        if (!lval->parameter(0)->Convertible(rval->parameter(1))) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect array element type");
+            return ResultWithType(kError);
+        }
+    } else if (lval->id() == Token::kMap || lval->id() == Token::kMutableMap) {
+        if (rval->id() != Token::kPair) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type in "
+                                    "map's `+=' expression");
+            return ResultWithType(kError);
+        }
+        
+        if (!rval->parameter(0) || !lval->parameter(0)->Convertible(rval->parameter(0))) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map key type");
+            return ResultWithType(kError);
+        }
+        
+        if (!lval->parameter(1)->Convertible(rval->parameter(1))) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map value type");
+            return ResultWithType(kError);
+        }
+    }
+    
+    if (!lval->IsNumber() || rval->IsNumber()) {
+        error_feedback_->Printf(FindSourceLocation(ast), "Operand is not a number");
+        return ResultWithType(kError);
+    }
+    
+    if (!lval->Convertible(rval)) {
+        error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type in `%s' "
+                                "expression", op);
+        return ResultWithType(kError);
+    }
+    
+    return ResultWithType(kVoid);
 }
 
 void FileScope::Initialize(const std::map<std::string, std::vector<FileUnit *>> &path_units) {
@@ -694,56 +962,19 @@ Symbolize *FileScope::FindOrNull(const ASTString *prefix, const ASTString *name)
     return iter == all_symbols_->end() ? nullptr : iter->second;
 }
 
-ClassScope::ClassScope(ClassDefinition *clazz, AbstractScope **current)
-    : AbstractScope(kClassScope, current)
-    , clazz_(clazz) {
-    for (auto param : clazz_->parameters()) {
+FunctionScope::FunctionScope(ClassDefinition *constructor, AbstractScope **current)
+    : BlockScope(kFunctionScope, kFunctionBlock, constructor, current)
+    , function_(nullptr)
+    , constructor_(DCHECK_NOTNULL(constructor)) {
+    for (auto param : constructor_->parameters()) {
+        VariableDeclaration *var = nullptr;
         if (param.field_declaration) {
-            // Ignore
+            var = constructor_->field(param.as_field).declaration;
         } else {
-            parameters_[param.as_parameter->identifier()->ToSlice()] = param.as_parameter;
+            var = param.as_parameter;
         }
+        locals_[var->identifier()->ToSlice()] = var;
     }
-}
-
-Symbolize *ClassScope::FindOrNull(const ASTString *name) /*override*/ {
-    auto iter = parameters_.find(name->ToSlice());
-    return iter == parameters_.end() ? nullptr : iter->second;
-}
-
-bool FunctionScope::Initialize(base::Arena *arena, SyntaxFeedback *feedback) {
-    if (ClassScope *class_scope = GetClassScope()) {
-        TypeSign *type = new (arena) TypeSign(function_->position(), class_scope->clazz());
-        VariableDeclaration *self = new (arena) VariableDeclaration(type->position(),
-                                                                    VariableDeclaration::PARAMETER,
-                                                                    ASTString::New(arena, "this"),
-                                                                    type, nullptr);
-        parameters_[self->identifier()->ToSlice()] = self;
-    }
-    
-    if (function_->prototype()->vargs()) {
-        TypeSign *any = new (arena) TypeSign(function_->position(), Token::kAny);
-        TypeSign *argv = new (arena) TypeSign(arena, function_->position(), Token::kArray, any);
-        VariableDeclaration *vargs = new (arena) VariableDeclaration(argv->position(),
-                                                                     VariableDeclaration::PARAMETER,
-                                                                     ASTString::New(arena, "argv"),
-                                                                     argv, nullptr);
-        parameters_[vargs->identifier()->ToSlice()] = vargs;
-    }
-    
-    for (auto param : function_->prototype()->parameters()) {
-        if (auto iter = parameters_.find(param.name->ToSlice()); iter != parameters_.end()) {
-            SourceLocation loc = GetFileScope()->file_unit()->FindSourceLocation(param.type);
-            feedback->Printf(loc, "Duplicated parameter: %s", param.name->data());
-            return false;
-        }
-        
-        VariableDeclaration *var = new (arena) VariableDeclaration(param.type->position(),
-                                                                   VariableDeclaration::PARAMETER,
-                                                                   param.name, param.type, nullptr);
-        parameters_[var->identifier()->ToSlice()] = var;
-    }
-    return true;
 }
 
 } // namespace lang

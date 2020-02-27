@@ -230,6 +230,12 @@ public:
     DEF_PTR_PROP_RW(ObjectDefinition, object);
     DEF_PTR_PROP_RW(InterfaceDefinition, interface);
     
+    bool IsNumber() const { return IsIntegral() || IsFloating(); }
+    bool IsIntegral() const { return IsSignedIntegral() || IsUnsignedIntegral(); }
+    bool IsSignedIntegral() const;
+    bool IsUnsignedIntegral() const;
+    bool IsFloating() const;
+    
 #if defined(DEBUG) || defined(_DEBUG)
     StructureDefinition *structure() const;
     Definition *definition() const;
@@ -258,6 +264,7 @@ private:
     // Token::kInterface                 -> interface_
     // Token::kArray/Token::MutableArray -> parameters_[0]
     // Token::kMap/Token::MutableMap     -> parameters_[0], parameters_[1]
+    // Token::kPair                      -> parameters_[0], parameters_[1]
     // Token::kFun                       -> prototype_
     // Others...
     int kind_;
@@ -597,6 +604,15 @@ public:
         }
         return buf.append(DCHECK_NOTNULL(base_name_)->ToString());
     }
+    
+    std::tuple<ClassDefinition*, Field*> ResolveField(std::string_view name) {
+        for (ClassDefinition *clazz = this; clazz != nullptr; clazz = clazz->base_) {
+            if (auto found = clazz->FindFieldOrNull(name)) {
+                return {clazz, found};
+            }
+        }
+        return {nullptr, nullptr};
+    }
 
     DEFINE_AST_NODE(ClassDefinition);
 private:
@@ -667,6 +683,7 @@ class BreakableStatement : public Statement {
 public:
     enum Control {
         RETURN,
+        THROW,
         BREAK,
         CONTINUE,
     }; // enum Control

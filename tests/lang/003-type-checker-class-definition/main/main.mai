@@ -18,4 +18,6 @@ class Bar(
 fun main() {
 	val foo = Foo(1, 2)
 	val bar = Bar(3, 4)
+	val i = bar.i
+	val j = bar.j
 }

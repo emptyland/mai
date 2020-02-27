@@ -164,6 +164,13 @@ TEST_F(TypeCheckerTest, ClassDefinitionBaseClass) {
     ASSERT_STREQ("Foo", clazz->identifier()->data());
 }
 
+TEST_F(TypeCheckerTest, ClassDefinitionFieldPerm) {
+    auto rs = Parse("tests/lang/004-type-checker-class-perm");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_TRUE(checker_.Prepare());
+    ASSERT_TRUE(checker_.Check());
+}
+
 }
 
 }

@@ -1,0 +1,29 @@
+package main
+
+class Foo(
+public:
+	val i: int,
+	var j: int,
+private:
+	var k: string
+) {}
+
+
+implements Foo {
+	
+fun doIt() {
+	self.k = "hello"
+}
+
+fun doThat() {
+	self.j = 0
+}
+
+} // implements Foo
+
+fun main() {
+    val foo = Foo(1, 2, "ok")
+    println("${foo.i} ${foo.j}")
+    foo.doIt()
+    foo.doThat()
+}

@@ -36,6 +36,7 @@ using ASTString = base::ArenaString;
     V(F32Val, nullptr, f32) \
     V(F64Val, nullptr, f64) \
     V(Ref, nullptr, none) \
+    V(Pair, nullptr, none) \
     V(Comma, ",", none) \
     V(Plus, "+", none) \
     V(2Plus, "++", none) \
