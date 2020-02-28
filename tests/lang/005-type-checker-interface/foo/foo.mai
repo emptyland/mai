@@ -1,0 +1,7 @@
+package foo
+
+interface Foo {
+	doIt(i:int, j:int): int
+	doThat(i:string)
+	doThis(): string
+}

@@ -169,8 +169,23 @@ TEST_F(TypeCheckerTest, ClassDefinitionFieldPerm) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_TRUE(checker_.Prepare());
     ASSERT_TRUE(checker_.Check());
+    
+    auto sym = checker_.FindSymbolOrNull("main.Foo");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_TRUE(sym->IsClassDefinition());
+    
+    auto clazz = sym->AsClassDefinition();
+    ASSERT_NE(nullptr, clazz->base());
+    ASSERT_STREQ("Any", clazz->base()->identifier()->data());
 }
 
+TEST_F(TypeCheckerTest, InterfaceSanity) {
+    auto rs = Parse("tests/lang/005-type-checker-interface");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_TRUE(checker_.Prepare());
+    ASSERT_TRUE(checker_.Check());
 }
 
-}
+} // namespace lang
+
+} // namespace mai

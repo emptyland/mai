@@ -304,6 +304,19 @@ public:
     void InsertParameter(const ASTString *name, TypeSign *type) {
         parameters_.push_back({name, type});
     }
+    
+    bool IsAccept(FunctionPrototype *rhs) const {
+        if (!return_type()->Convertible(rhs->return_type()) ||
+            parameters_size() != rhs->parameters_size() || vargs() != rhs->vargs()) {
+            return false;
+        }
+        for (size_t i = 0; i < parameters_size(); i++) {
+            if (!parameter(i).type->Convertible(rhs->parameter(i).type)) {
+                return false;
+            }
+        }
+        return true;
+    }
 private:
     base::ArenaVector<Parameter> parameters_;
     TypeSign *return_type_ = nullptr;
@@ -543,6 +556,19 @@ public:
         : PartialInterfaceDefinition(position, kInterfaceDefinition, identifier, std::move(methods),
                                      std::move(named_methods)) {}
     
+    bool HasImplement(StructureDefinition *def) const {
+        for (auto method : methods()) {
+            if (auto impl = def->FindMethodOrNull(method->identifier()->ToSlice()); !impl) {
+                return false;
+            } else {
+                if (!method->prototype()->IsAccept(impl->prototype())) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    
     DEFINE_AST_NODE(InterfaceDefinition);
 private:
     bool FieldExist(std::string_view name) override { return FindMethodOrNull(name) != nullptr; }
@@ -608,6 +634,16 @@ public:
     std::tuple<ClassDefinition*, Field*> ResolveField(std::string_view name) {
         for (ClassDefinition *clazz = this; clazz != nullptr; clazz = clazz->base_) {
             if (auto found = clazz->FindFieldOrNull(name)) {
+                return {clazz, found};
+            }
+        }
+        return {nullptr, nullptr};
+    }
+    
+    std::tuple<ClassDefinition*, FunctionDefinition *> ResolveMethod(std::string_view name) {
+        for (ClassDefinition *clazz = this; clazz != nullptr; clazz = clazz->base_) {
+            //printf("clazz: %s\n", clazz->identifier()->data());
+            if (auto found = clazz->FindMethodOrNull(name)) {
                 return {clazz, found};
             }
         }
@@ -697,6 +733,7 @@ public:
     bool IsBreak() const { return control_ == BREAK; }
     bool IsContinue() const { return control_ == CONTINUE; }
 
+    DEF_VAL_GETTER(Control, control);
     DEF_PTR_PROP_RW(Expression, value);
 
     DEFINE_AST_NODE(BreakableStatement);

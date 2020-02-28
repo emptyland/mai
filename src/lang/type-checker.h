@@ -22,12 +22,15 @@ class TypeChecker : public PartialASTVisitor {
 public:
     TypeChecker(base::Arena *arena, SyntaxFeedback *feedback);
     ~TypeChecker() override {}
+
+    DEF_PTR_GETTER(ClassDefinition, class_any);
+    DEF_PTR_GETTER(ClassDefinition, class_exception);
     
     Error AddBootFileUnits(const std::string &original_path,
                            const std::vector<FileUnit *> &file_units, SourceFileResolve *resolve);
     bool Prepare();
     bool Check();
-    
+
     Result VisitTypeSign(TypeSign *) override;
     Result VisitBoolLiteral(BoolLiteral *) override;
     Result VisitI8Literal(I8Literal *) override;
@@ -86,6 +89,7 @@ private:
     
     Result CheckDotExpression(TypeSign *type, DotExpression *ast);
     Result CheckClassOrObjectFieldAccess(TypeSign *type, DotExpression *ast);
+    Result CheckObjectFieldAccess(ObjectDefinition *object, DotExpression *ast);
     Result CheckInDecrementAssignment(ASTNode *ast, TypeSign *lval, TypeSign *rval, const char *op);
     
     inline SourceLocation FindSourceLocation(ASTNode *ast);
@@ -94,6 +98,8 @@ private:
     SyntaxFeedback *error_feedback_;
     TypeSign *const kVoid;
     TypeSign *const kError;
+    ClassDefinition *class_exception_ = nullptr;
+    ClassDefinition *class_any_ = nullptr;
     
     AbstractScope *current_ = nullptr;
     std::map<std::string, std::vector<FileUnit *>> path_units_;
@@ -115,18 +121,18 @@ public:
         DCHECK_EQ(this, *current_);
         *current_ = prev_;
     }
-    
+
     DEF_VAL_GETTER(Kind, kind);
     DEF_PTR_GETTER(AbstractScope, prev);
-    
+
     bool is_file_scope() const { return kind_ == kFileScope; }
     bool is_class_scope() const { return kind_ == kClassScope; }
     bool is_function_scope() const { return kind_ == kFunctionScope; }
     bool is_block_scope() const { return kind_ == kBlockScope; }
-    
+
     virtual Symbolize *FindOrNull(const ASTString *name) { return nullptr; }
     virtual Symbolize *Register(Symbolize *sym) { return nullptr; }
-    
+
     std::tuple<AbstractScope *, Symbolize *> Resolve(const ASTString *name) {
         for (auto i = this; i != nullptr; i = i->prev_) {
             if (Symbolize *sym = i->FindOrNull(name); sym != nullptr) {
@@ -144,11 +150,11 @@ public:
         }
         return nullptr;
     }
-    
+
     inline FileScope *GetFileScope();
     inline ClassScope *GetClassScope();
     inline FunctionScope *GetFunctionScope();
-    
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(AbstractScope);
 protected:
     AbstractScope(Kind kind, AbstractScope **current)

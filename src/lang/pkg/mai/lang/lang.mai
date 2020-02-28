@@ -1,5 +1,23 @@
 package lang
 
+class Any {}
+
+class Exception(
+	val message: string,
+	val cause: Exception
+) {}
+
+
+implements Any {
+
+native fun hashCode(): int
+
+} // implements Any
+
+implements Exception {
+
+native fun printStackstrace()
+
+} // implements Exception
+
 native fun println(s: string)
-
-

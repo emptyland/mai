@@ -48,7 +48,10 @@ TypeSign::TypeSign(int position, int kind, Definition *def)
 
 #if defined(DEBUG) || defined(_DEBUG)
 StructureDefinition *TypeSign::structure() const {
-    DCHECK(kind_ == Token::kClass || kind_ == Token::kObject);
+    DCHECK(kind_ == Token::kClass ||
+           kind_ == Token::kObject ||
+           kind_ == Token::kRef)
+        << Token::ToString(static_cast<Token::Kind>(kind_));
     DCHECK(structure_->IsClassDefinition() || structure_->IsObjectDefinition());
     return structure_;
 }
@@ -98,28 +101,22 @@ bool TypeSign::Convertible(TypeSign *rhs) const {
     if (id() == Token::kAny) { // Any type!
         return true;
     }
-    switch (id()) {
+    switch (static_cast<Token::Kind>(id())) {
         case Token::kIdentifier:
             return id() == rhs->id() && ToSymbolString() == rhs->ToSymbolString();
-        case Token::kClass: {
-            if (id() != rhs->id()) {
-                return false;
+        case Token::kInterface:
+            if (id() == rhs->id() && interface_ == rhs->interface_) {
+                return true;
             }
-            return clazz()->BaseOf(rhs->clazz());
-        } break;
-        case Token::kFun: {
-            if (!prototype()->return_type()->Convertible(rhs->prototype()->return_type()) ||
-                prototype()->parameters_size() != rhs->prototype()->parameters_size() ||
-                prototype()->vargs() != rhs->prototype()->vargs()) {
-                return false;
-            }
-            for (size_t i = 0; i < prototype()->parameters_size(); i++) {
-                if (!prototype()->parameter(i).type->Convertible(rhs->prototype()->parameter(i).type)) {
-                    return false;
-                }
-            }
-            return true;
-        } break;
+            return (rhs->id() == Token::kObject || rhs->id() == Token::kRef) &&
+                   interface_->HasImplement(rhs->structure());
+        case Token::kObject:
+            return id() == rhs->id() && object_ == rhs->object_;
+        case Token::kRef:
+        case Token::kClass:
+            return id() == rhs->id() && clazz()->BaseOf(rhs->clazz());
+        case Token::kFun:
+            return id() == rhs->id() && prototype()->IsAccept(rhs->prototype());
         case Token::kArray:
         case Token::kMutableArray:
             return rhs->id() == id() && parameter(0)->Convertible(rhs->parameter(0));

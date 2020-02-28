@@ -28,11 +28,9 @@ Error TypeChecker::AddBootFileUnits(const std::string &original_path,
                                     SourceFileResolve *resolve) {
     std::map<std::string, std::vector<FileUnit *>> external_units;
     for (auto unit : file_units) {
-        //DCHECK(unit->package_name()->ToString().find(original_path) == 0);
         auto key = unit->GetPathName(original_path.back() == '/' || original_path.back() == '\\' ?
                                      original_path.size() : original_path.size() + 1,
                                      Compiler::kFileExtName);
-        //printf("key = %s\n", key.c_str());
         external_units[key].push_back(unit);
     }
     
@@ -56,7 +54,8 @@ Error TypeChecker::AddBootFileUnits(const std::string &original_path,
                     rs.fail()) {
                     return rs;
                 }
-                auto key = unit->GetPathName(original_path.back() == '/' || original_path.back() == '\\' ?
+                auto key = unit->GetPathName(original_path.back() == '/' ||
+                                             original_path.back() == '\\' ?
                                              original_path.size() : original_path.size() + 1,
                                              Compiler::kFileExtName);
                 external_units[key] = std::move(import_units);
@@ -92,13 +91,15 @@ bool TypeChecker::Prepare() {
                 if (def->IsFunctionDefinition()) {
                     auto iter = symbols_.find(name);
                     if (iter != symbols_.end()) {
-                        error_feedback_->Printf(unit->FindSourceLocation(def), "Duplicated symbol: %s",
+                        error_feedback_->Printf(unit->FindSourceLocation(def),
+                                                "Duplicated function: %s",
                                                 def->identifier()->data());
                         fail++;
                         continue;
                     }
                     symbols_[name] = def;
-                } else if (def->IsClassDefinition()) {
+                } else if (def->IsClassDefinition() || def->IsObjectDefinition() ||
+                           def->IsInterfaceDefinition()) {
                     auto iter = symbols_.find(name);
                     if (iter != symbols_.end()) {
                         error_feedback_->Printf(unit->FindSourceLocation(def),
@@ -108,11 +109,13 @@ bool TypeChecker::Prepare() {
                         continue;
                     }
                     symbols_[name] = def;
-                    //classes_objects_[name] = def;
                 }
             }
         }
     }
+    
+    class_any_ = DCHECK_NOTNULL(FindSymbolOrNull("lang.Any")->AsClassDefinition());
+    class_exception_ = DCHECK_NOTNULL(FindSymbolOrNull("lang.Exception")->AsClassDefinition());
 
     for (auto pair : pkg_units_) {
         for (auto unit : pair.second) {
@@ -168,6 +171,11 @@ bool TypeChecker::PrepareClassDefinition(FileUnit *unit) {
                 return false;
             }
             ast->set_base(sym->AsClassDefinition());
+        }
+        
+        if (auto ast = def->AsClassDefinition();
+            ast != nullptr && !ast->base_name() && ast != class_any_) {
+            ast->set_base(class_any_);
         }
     }
     return true;
@@ -497,8 +505,48 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *) /*over
     TODO();
 }
 
-ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *) /*override*/ {
-    TODO();
+ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *ast) /*override*/ {
+    switch (ast->control()) {
+        case BreakableStatement::BREAK:
+            TODO(); // TODO
+            break;
+        case BreakableStatement::CONTINUE:
+            TODO(); // TODO
+            break;
+        case BreakableStatement::THROW:
+            TODO(); // TODO
+            break;
+        case BreakableStatement::RETURN: {
+            TypeSign *ret_type = kVoid;
+            if (ast->value()) {
+                if (auto rv = ast->value()->Accept(this); rv.sign == kError) {
+                    return ResultWithType(kError);
+                } else {
+                    ret_type = rv.sign;
+                }
+                if (ret_type->id() == Token::kVoid) {
+                    error_feedback_->Printf(FindSourceLocation(ast), "Attempt return void type");
+                    return ResultWithType(kError);
+                }
+            }
+
+            FunctionScope *function_scope = current_->GetFunctionScope();
+            if (!function_scope) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Attempt return in function "
+                                        "outside");
+                return ResultWithType(kError);
+            }
+            
+            if (!function_scope->function()->prototype()->return_type()->Convertible(ret_type)) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Unconvertible return type");
+                return ResultWithType(kError);
+            }
+        } break;
+        default:
+            NOREACHED();
+            break;
+    }
+    return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::VisitAssignmentStatement(AssignmentStatement *ast) /*override*/ {
@@ -576,7 +624,8 @@ ASTVisitor::Result TypeChecker::VisitAssignmentStatement(AssignmentStatement *as
             return CheckInDecrementAssignment(ast, lval, rval, "-=");
         case Operator::NOT_OPERATOR: // =
             if (!lval->Convertible(rval)) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type in `=' expression");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type in `=' "
+                                        "expression");
                 return ResultWithType(kError);
             }
             break;
@@ -587,7 +636,8 @@ ASTVisitor::Result TypeChecker::VisitAssignmentStatement(AssignmentStatement *as
     return ResultWithType(kVoid);
 }
 
-ASTVisitor::Result TypeChecker::VisitStringTemplateExpression(StringTemplateExpression *ast) /*override*/ {
+ASTVisitor::Result TypeChecker::VisitStringTemplateExpression(StringTemplateExpression *ast)
+/*override*/ {
     for (auto operand : ast->operands()) {
         if (auto rv = operand->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
@@ -623,7 +673,7 @@ ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *as
             ast->set_type(rv.sign);
         } else {
             if (!ast->type()->Convertible(rv.sign)) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Un-convertible type");
+                error_feedback_->Printf(FindSourceLocation(ast), "Unconvertible type");
                 return ResultWithType(kError);
             }
         }
@@ -667,7 +717,8 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
         TypeSign *type = new (arena_) TypeSign(ast->position(), sym->AsInterfaceDefinition());
         return ResultWithType(type);
     } else if (sym->IsFunctionDefinition()) {
-        TypeSign *type = new (arena_) TypeSign(ast->position(), sym->AsFunctionDefinition()->prototype());
+        TypeSign *type = new (arena_) TypeSign(ast->position(),
+                                               sym->AsFunctionDefinition()->prototype());
         return ResultWithType(type);
     }
     DCHECK(sym->IsVariableDeclaration());
@@ -681,8 +732,7 @@ ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
             if (auto decl = sym->AsVariableDeclaration()) {
                 return CheckDotExpression(DCHECK_NOTNULL(decl->type()), ast);
             } else if (auto object = sym->AsObjectDefinition()) {
-                // TODO: Object
-                TODO();
+                return CheckObjectFieldAccess(object, ast);
             } else {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type to get field");
                 return ResultWithType(kError);
@@ -694,7 +744,8 @@ ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
         if (sym) {
             if (auto decl = sym->AsVariableDeclaration()) {
                 return CheckDotExpression(DCHECK_NOTNULL(decl->type()), ast);
-            // TODO: Object
+            } else if (auto object = sym->AsObjectDefinition()) {
+                return CheckObjectFieldAccess(object, ast);
             } else {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type to get field");
                 return ResultWithType(kError);
@@ -766,7 +817,8 @@ ASTVisitor::Result TypeChecker::VisitClassDefinition(ClassDefinition *ast) /*ove
                 ? ast->base()->field(param.as_field).declaration->type()
                 : param.as_parameter->type();
             if (!type->Convertible(rv.sign)) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected base class constructor");
+                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected base class "
+                                        "constructor");
                 return ResultWithType(kError);
             }
         }
@@ -811,7 +863,7 @@ ASTVisitor::Result TypeChecker::VisitClassImplementsBlock(ClassImplementsBlock *
 }
 
 ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression *ast) {
-    switch (type->id()) {
+    switch (static_cast<Token::Kind>(type->id())) {
         case Token::kArray:
         case Token::kMutableArray:
             TODO();
@@ -823,14 +875,14 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
         case Token::kChannel:
             TODO();
             break;
+        case Token::kInterface:
         case Token::kRef:
         case Token::kObject:
             return CheckClassOrObjectFieldAccess(type, ast);
-        default: {
+        default:
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s) to get field",
                                     Token::ToString(static_cast<Token::Kind>(type->id())).c_str());
             return ResultWithType(kError);
-        } break;
     }
 }
 
@@ -848,19 +900,39 @@ ASTVisitor::Result TypeChecker::CheckClassOrObjectFieldAccess(TypeSign *type, Do
                 if (auto scope = current_->GetClassScope();
                     !scope || layout != scope->clazz()->base()) {
                     error_feedback_->Printf(FindSourceLocation(ast),
-                                            "Attempt assign protected field: %s", ast->rhs()->data());
+                                            "Attempt assign protected field: %s",
+                                            ast->rhs()->data());
                     return ResultWithType(kError);
                 }
             }
             return ResultWithType(DCHECK_NOTNULL(field->declaration->type()));
         }
-    } else if (ObjectDefinition *object = type->definition()->AsObjectDefinition()) {
-        if (auto field = object->FindFieldOrNull(ast->rhs()->ToSlice())) {
-            return ResultWithType(DCHECK_NOTNULL(field->declaration->type()));
+        
+        auto method = std::get<1>(clazz->ResolveMethod(ast->rhs()->ToSlice()));
+        if (method) {
+            return ResultWithType(new (arena_) TypeSign(method->position(), method->prototype()));
         }
+    } else if (ObjectDefinition *object = type->definition()->AsObjectDefinition()) {
+        return CheckObjectFieldAccess(object, ast);
     }
 
-    auto method = type->definition()->AsPartialInterfaceDefinition()->FindMethodOrNull(ast->rhs()->ToSlice());
+    auto method = type->interface()->FindMethodOrNull(ast->rhs()->ToSlice());
+    if (method) {
+        TypeSign *type = new (arena_) TypeSign(method->position(), method->prototype());
+        return ResultWithType(type);
+    }
+    error_feedback_->Printf(FindSourceLocation(ast), "No field or method named: %s",
+                            ast->rhs()->data());
+    return ResultWithType(kError);
+}
+
+ASTVisitor::Result TypeChecker::CheckObjectFieldAccess(ObjectDefinition *object,
+                                                       DotExpression *ast) {
+    if (auto field = object->FindFieldOrNull(ast->rhs()->ToSlice())) {
+        return ResultWithType(DCHECK_NOTNULL(field->declaration->type()));
+    }
+    
+    auto method = object->FindMethodOrNull(ast->rhs()->ToSlice());
     if (method) {
         TypeSign *type = new (arena_) TypeSign(method->position(), method->prototype());
         return ResultWithType(type);

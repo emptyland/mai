@@ -9,6 +9,13 @@ private:
 ) {}
 
 
+object Bar {
+	val i = 1
+	val j = 2
+	var k = "string"
+}
+
+
 implements Foo {
 	
 fun doIt() {
@@ -26,4 +33,7 @@ fun main() {
     println("${foo.i} ${foo.j}")
     foo.doIt()
     foo.doThat()
+    foo.hashCode()
+
+    println("${Bar.i} ${Bar.j} ${Bar.k}")
 }

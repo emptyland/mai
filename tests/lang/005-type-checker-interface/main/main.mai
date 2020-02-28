@@ -1,0 +1,28 @@
+package main
+
+import foo
+
+class Foo(
+	val i: int,
+	val j: int
+) {}
+
+implements Foo {
+
+fun doIt(i:int, j:int): int = 100
+
+fun doThat(i:string) {
+	println(i)
+}
+
+fun doThis(): string {
+	return "Hello, World"
+}
+
+} // implements Foo
+
+fun main() {
+	val foo = Foo(1,2)
+	val iff: foo.Foo = foo
+	println("test = ${iff.doIt(1,2)}")
+}

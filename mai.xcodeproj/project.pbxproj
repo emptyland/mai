@@ -720,6 +720,7 @@
 		2329798223D039AC009B4C1B /* lang */ = {
 			isa = PBXGroup;
 			children = (
+				23ECE8A723F9898D00B3C83B /* syntax-mock-test.h */,
 				23599D3C23D58F6D00F722D6 /* page-test.cc */,
 				238F195223D7DECF00FF0D98 /* metadata-space-test.cc */,
 				235602A023DDC6DE00A799B9 /* space-test.cc */,
@@ -734,7 +735,6 @@
 				23ECE89F23F68B5400B3C83B /* lexer-test.cc */,
 				23ECE8A823F98A1900B3C83B /* parser-test.cc */,
 				2306103B23FFBADF0024361F /* compiler-test.cc */,
-				23ECE8A723F9898D00B3C83B /* syntax-mock-test.h */,
 				236290F524037193004FB689 /* type-checker-test.cc */,
 			);
 			name = lang;
