@@ -522,12 +522,16 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
         case Operator::kAdd:
             if (!CheckAddExpression(ast, lhs, rhs)) {
                 return ResultWithType(kError);
+            } else {
+                return ResultWithType(lhs);
             }
             break;
 
         case Operator::kSub:
             if (!CheckSubExpression(ast, lhs, rhs)) {
                 return ResultWithType(kError);
+            } else {
+                return ResultWithType(lhs);
             }
             break;
             
@@ -609,8 +613,8 @@ ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*o
             return ResultWithType(kError);
         } else {
             if (!rv.sign->IsIntegral()) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Array constructor parameter is "
-                                        "not integral type");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect array constructor "
+                                        "parameter[0] type, need integral number");
                 return ResultWithType(kError);
             }
         }
@@ -653,8 +657,90 @@ ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*o
                                                 ast->element_type()));
 }
 
-ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *) /*override*/ {
-    TODO();
+ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*override*/ {
+    if (ast->reserve()) {
+        Result rv = ast->reserve()->Accept(this);
+        if (rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+        if (!rv.sign->IsIntegral()) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map constructor "
+                                    "parameter[0] type, need integral number");
+            return ResultWithType(kError);
+        }
+        
+        if (ast->load_factor()) {
+            if (rv = ast->load_factor()->Accept(this); rv.sign == kError) {
+                return ResultWithType(kError);
+            }
+            if (!rv.sign->IsFloating()) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map constructor "
+                                        "parameter[1] type, need floating number");
+                return ResultWithType(kError);
+            }
+        }
+        TypeSign *map = new (arena_) TypeSign(arena_, ast->position(), ast->mutable_container()
+                                              ? Token::kMutableMap : Token::kMap,
+                                              DCHECK_NOTNULL(ast->key_type()),
+                                              DCHECK_NOTNULL(ast->value_type()));
+        return ResultWithType(map);
+    }
+    
+    TypeSign *defined_key_type = ast->key_type(), *defined_value_type = ast->value_type();
+    for (auto pair : ast->operands()) {
+        auto rv = DCHECK_NOTNULL(pair->AsPairExpression())->key()->Accept(this);
+        if (rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+        if (rv.sign->id() == Token::kVoid) {
+            error_feedback_->Printf(FindSourceLocation(pair), "Attempt void type key");
+            return ResultWithType(kError);
+        }
+        if (!defined_key_type) {
+            defined_key_type = rv.sign;
+        }
+        if (!defined_key_type->Convertible(rv.sign)) {
+            defined_key_type->set_id(Token::kAny);
+        }
+        
+        if (rv = DCHECK_NOTNULL(pair->AsPairExpression())->value()->Accept(this);
+            rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+        if (rv.sign->id() == Token::kVoid) {
+            error_feedback_->Printf(FindSourceLocation(pair), "Attempt void type value");
+            return ResultWithType(kError);
+        }
+        if (!defined_value_type) {
+            defined_value_type = rv.sign;
+        }
+        if (!defined_value_type->Convertible(rv.sign)) {
+            defined_value_type->set_id(Token::kAny);
+        }
+    }
+    
+    if (ast->key_type()) {
+        if (!ast->key_type()->Convertible(defined_key_type)) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Attempt unconvertible key type");
+            return ResultWithType(kError);
+        }
+    } else {
+        ast->set_key_type(defined_key_type);
+    }
+    if (ast->value_type()) {
+        if (!ast->value_type()->Convertible(defined_value_type)) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Attempt unconvertible value type");
+            return ResultWithType(kError);
+        }
+    } else {
+        ast->set_value_type(defined_value_type);
+    }
+
+    TypeSign *map = new (arena_) TypeSign(arena_, ast->position(), ast->mutable_container()
+                                          ? Token::kMutableMap : Token::kMap,
+                                          DCHECK_NOTNULL(ast->key_type()),
+                                          DCHECK_NOTNULL(ast->value_type()));
+    return ResultWithType(map);
 }
 
 ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *ast) /*override*/ {
@@ -971,6 +1057,27 @@ ASTVisitor::Result TypeChecker::VisitClassImplementsBlock(ClassImplementsBlock *
 
 ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression *ast) {
     switch (static_cast<Token::Kind>(type->id())) {
+        case Token::kI8:
+        case Token::kU8:
+        case Token::kI16:
+        case Token::kU16:
+        case Token::kI32:
+        case Token::kU32:
+        case Token::kI64:
+        case Token::kU64:
+        case Token::kInt:
+        case Token::kUInt:
+        case Token::kF32:
+        case Token::kF64: {
+            Token::Kind dest_type =
+                static_cast<Token::Kind>(type->FindNumberCastHint(ast->rhs()->ToSlice()));
+            if (dest_type == Token::kError) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s) to get field",
+                                        Token::ToString(static_cast<Token::Kind>(type->id())).c_str());
+                return ResultWithType(kError);
+            }
+            return ResultWithType(new (arena_) TypeSign(ast->position(), dest_type));
+        } break;
         case Token::kArray:
         case Token::kMutableArray:
             TODO();

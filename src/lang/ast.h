@@ -3,6 +3,7 @@
 #define MAI_LANG_AST_H_
 
 #include "lang/syntax.h"
+#include "lang/type-defs.h"
 #include "base/arena-utils.h"
 
 namespace mai {
@@ -254,6 +255,15 @@ public:
     bool Convertible(TypeSign *type) const;
 
     std::string ToSymbolString() const;
+    
+    BuiltinType ToBuiltinType() const;
+    
+    static BuiltinType GetArrayBuiltinType(bool is_mutable, TypeSign *element);
+    static BuiltinType GetMapBuiltinType(bool is_mutable, TypeSign *key);
+    
+    int FindNumberCastHint(std::string_view name) const;
+    
+    std::string ToString() const;
 
     DEFINE_AST_NODE(TypeSign);
 private:
@@ -983,7 +993,8 @@ public:
                      base::ArenaVector<Expression *> &&elements)
         : MultiExpression(position, kArrayInitializer, std::move(elements))
         , mutable_container_(mutable_container)
-        , element_type_(element_type) {}
+        , element_type_(element_type)
+        , reserve_(nullptr) {}
     ArrayInitializer(base::Arena *arena, int position, bool mutable_container,
                      TypeSign *element_type, Expression *reserve)
         : MultiExpression(arena, position, kArrayInitializer)

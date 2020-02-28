@@ -109,15 +109,23 @@ Token Lexer::Next() {
 
             case '_':
                 return MatchIdentifier();
-                
-            case '!':
-                return MatchOne(Token::kNot);
-                
+
             case ',':
                 return MatchOne(Token::kComma);
                 
             case ';':
                 return MatchOne(Token::kSemi);
+                
+            case '!': {
+                SourceLocation loc{line_, row_};
+                if (ch = MoveNext(); ch == '=') {
+                    loc.end_line = line_;
+                    loc.end_row  = row_;
+                    MoveNext();
+                    return Token(Token::kNotEqual, loc);
+                }
+                return Token(Token::kNot, loc);
+            }
                 
             case '/': {
                 SourceLocation loc{line_, row_};
@@ -457,13 +465,13 @@ Token Lexer::MatchNumber(int sign, int line, int row) {
         case Token::kUIntVal: {
             int rv = 0;
             if (base == 8) {
-                rv = base::Slice::ParseO64(buf.c_str(), &val);
+                rv = base::Slice::ParseO64(buf.c_str() + 1, buf.length() - 1, &val);
             } else if (base == 10) {
                 int64_t tmp;
                 rv = base::Slice::ParseI64(buf.c_str(), &tmp);
                 val = tmp;
             } else if (base == 16) {
-                rv = base::Slice::ParseH64(buf.c_str(), &val);
+                rv = base::Slice::ParseH64(buf.c_str() + 2, buf.length() - 2, &val);
             }
             DCHECK(rv >= 0);
             if (rv > 0) {

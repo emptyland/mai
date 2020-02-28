@@ -1,0 +1,19 @@
+package main
+
+val a = 1
+val b = a.toI8
+val c = b.toU8
+val d = c.toI16
+val e = d.toU16
+val f = e.toI32
+val g = f.toU32
+val h = g.toInt
+val i = h.toUInt
+val j = i.toI64
+val k = j.toU64
+val l = k.toF32
+val m = l.toF64
+
+fun main() {
+	println("$a $b $c $d")
+}

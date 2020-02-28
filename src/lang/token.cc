@@ -8,6 +8,8 @@ namespace mai {
 
 namespace lang {
 
+namespace { // internal
+
 struct KeywordEntry {
     Token::Kind kind;
     const char *literal;
@@ -22,6 +24,8 @@ const KeywordEntry kKeywordEntries[] = {
 
 std::unordered_map<std::string, Token::Kind> *all_keywords = nullptr;
 
+} // namespace
+
 /*static*/ Token::Kind Token::IsKeyword(const std::string &text) {
     auto iter = DCHECK_NOTNULL(all_keywords)->find(text);
     return iter == all_keywords->end() ? kError : iter->second;
@@ -33,7 +37,7 @@ Token::NamePair Token::kNameTable[kMax] = {
 #undef DEFINE_NAME_PAIR
 }; // Token::kNameTable[kMax]
 
-void InitializeSyntaxLibrary() {
+void InitializeTokenKeywordTable() {
     all_keywords = new std::unordered_map<std::string, Token::Kind>();
 
     const KeywordEntry *entry = &kKeywordEntries[0];
@@ -43,7 +47,7 @@ void InitializeSyntaxLibrary() {
     }
 }
 
-void FreeSyntaxLibrary() {
+void FreeTokenKeywordTable() {
     delete all_keywords;
     all_keywords = nullptr;
 }

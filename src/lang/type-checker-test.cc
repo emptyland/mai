@@ -191,6 +191,65 @@ TEST_F(TypeCheckerTest, Expressions) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_TRUE(checker_.Prepare());
     ASSERT_TRUE(checker_.Check());
+    
+    auto sym = checker_.FindSymbolOrNull("main.c");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kInt, sym->AsVariableDeclaration()->type()->id());
+}
+
+TEST_F(TypeCheckerTest, NumberCast) {
+    auto rs = Parse("tests/lang/007-type-checker-number-cast");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_TRUE(checker_.Prepare());
+    ASSERT_TRUE(checker_.Check());
+    
+    auto sym = checker_.FindSymbolOrNull("main.b");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kI8, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.c");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kU8, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.d");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kI16, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.e");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kU16, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.f");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kI32, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.g");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kU32, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.h");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kInt, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.i");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kUInt, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.j");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kI64, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.k");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kU64, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.l");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kF32, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.m");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kF64, sym->AsVariableDeclaration()->type()->id());
 }
 
 } // namespace lang

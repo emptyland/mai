@@ -226,6 +226,7 @@
 		23ECE8A323F9052D00B3C83B /* ast.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE8A223F9052D00B3C83B /* ast.cc */; };
 		23ECE8A623F924F100B3C83B /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE8A523F924F100B3C83B /* parser.cc */; };
 		23ECE8A923F98A1900B3C83B /* parser-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE8A823F98A1900B3C83B /* parser-test.cc */; };
+		23F31A53240955BF00515795 /* syntax.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F31A52240955BF00515795 /* syntax.cc */; };
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
 		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
 /* End PBXBuildFile section */
@@ -534,6 +535,7 @@
 		23ECE8A723F9898D00B3C83B /* syntax-mock-test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "syntax-mock-test.h"; sourceTree = "<group>"; };
 		23ECE8A823F98A1900B3C83B /* parser-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "parser-test.cc"; sourceTree = "<group>"; };
 		23F0742521D1D209009D8EAA /* transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db-test.cc"; sourceTree = "<group>"; };
+		23F31A52240955BF00515795 /* syntax.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = syntax.cc; sourceTree = "<group>"; };
 		23F60601219BBE9600CE12D9 /* write-batch.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch.cc"; sourceTree = "<group>"; };
 		23F60604219BC3DA00CE12D9 /* db-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-impl.h"; sourceTree = "<group>"; };
 		23F60605219BC40E00CE12D9 /* db-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "db-impl.cc"; sourceTree = "<group>"; };
@@ -702,6 +704,7 @@
 				23ECE89623F57BEC00B3C83B /* token.h */,
 				23ECE89723F57C9800B3C83B /* token.cc */,
 				23ECE89B23F63F7400B3C83B /* syntax.h */,
+				23F31A52240955BF00515795 /* syntax.cc */,
 				23ECE89C23F643B500B3C83B /* lexer.h */,
 				23ECE89D23F643D000B3C83B /* lexer.cc */,
 				23ECE8A123F9050C00B3C83B /* ast.h */,
@@ -1381,6 +1384,7 @@
 				231ECF6323E85AD600B41869 /* bytecode-test.cc in Sources */,
 				2364B30821E451F9008519AE /* iterator-warpper.cc in Sources */,
 				2364B30A21E451F9008519AE /* merging.cc in Sources */,
+				23F31A53240955BF00515795 /* syntax.cc in Sources */,
 				23ECE8A923F98A1900B3C83B /* parser-test.cc in Sources */,
 				2364B30B21E451F9008519AE /* env.cc in Sources */,
 				2364B30C21E451F9008519AE /* error.cc in Sources */,

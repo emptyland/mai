@@ -750,6 +750,10 @@ static Operator GetPostfixOp(Token::Kind kind) {
             return Operators::kBitwiseOr;
         case Token::kBitwiseXor:
             return Operators::kBitwiseXor;
+        case Token::kEqual:
+            return Operators::kEqual;
+        case Token::kNotEqual:
+            return Operators::kNotEqual;
         case Token::kLess:
             return Operators::kLess;
         case Token::kLessEqual:
