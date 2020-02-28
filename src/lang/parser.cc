@@ -427,6 +427,7 @@ void *Parser::ParseConstructor(IncompleteClassDefinition *def, bool *ok) {
             param.as_parameter = new (arena_) VariableDeclaration(position,
                                                                   VariableDeclaration::PARAMETER,
                                                                   name, type, nullptr/*initializer*/);
+            param.field_declaration = false;
             def->params.push_back(param);
             def->need_comma = true;
         } break;
@@ -918,6 +919,22 @@ Expression *Parser::ParseSuffixed(bool *ok) {
                     int position = file_unit_->InsertSourceLocation(loc);
                     expr = new (arena_) CallExpression(position, expr, std::move(argv));
                 }
+            } break;
+
+            case Token::kIs: { // is
+                MoveNext();
+                TypeSign *type = ParseTypeSign(CHECK_OK);
+                loc.LinkEnd(file_unit_->FindSourceLocation(type));
+                int position = file_unit_->InsertSourceLocation(loc);
+                expr = new (arena_) TypeTestExpression(position, expr, type);
+            } break;
+
+            case Token::kAs: { // as
+                MoveNext();
+                TypeSign *type = ParseTypeSign(CHECK_OK);
+                loc.LinkEnd(file_unit_->FindSourceLocation(type));
+                int position = file_unit_->InsertSourceLocation(loc);
+                expr = new (arena_) TypeCastExpression(position, expr, type);
             } break;
 
             default:

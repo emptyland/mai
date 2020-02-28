@@ -103,6 +103,7 @@ using ASTString = base::ArenaString;
     V(Public, "public", none) \
     V(Protected, "protected", none) \
     V(Private, "private", none) \
+    V(Is, "is", none) \
     V(As, "as", none) \
     V(Return, "return", none) \
     V(Break, "break", none) \

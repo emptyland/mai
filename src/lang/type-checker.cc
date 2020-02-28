@@ -442,6 +442,7 @@ ASTVisitor::Result TypeChecker::VisitPairExpression(PairExpression *ast) /*overr
 ASTVisitor::Result TypeChecker::VisitIndexExpression(IndexExpression *) /*override*/ {
     // TODO:
     TODO();
+    return ResultWithType(kError);
 }
 
 ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *ast) /*override*/ {
@@ -605,6 +606,33 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
     }
     DCHECK_EQ(lhs->id(), rhs->id());
     return ResultWithType(lhs);
+}
+
+ASTVisitor::Result TypeChecker::VisitTypeCastExpression(TypeCastExpression *ast) /*override*/ {
+    TypeSign *operand = nullptr;
+    if (auto rv = ast->operand()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    } else {
+        operand = rv.sign;
+    }
+    if (auto rv = ast->type()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    if (!operand->Convertible(ast->type())) {
+        error_feedback_->Printf(FindSourceLocation(ast), "Impossible casting");
+        return ResultWithType(kError);
+    }
+    return ResultWithType(ast->type());
+}
+
+ASTVisitor::Result TypeChecker::VisitTypeTestExpression(TypeTestExpression *ast) /*override*/ {
+    if (auto rv = ast->operand()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    if (auto rv = ast->type()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kBool));
 }
 
 ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*override*/ {
@@ -1081,14 +1109,14 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
         case Token::kArray:
         case Token::kMutableArray:
             TODO();
-            break;
+            return ResultWithType(kError);
         case Token::kMap:
         case Token::kMutableMap:
             TODO();
-            break;
+            return ResultWithType(kError);
         case Token::kChannel:
             TODO();
-            break;
+            return ResultWithType(kError);
         case Token::kInterface:
         case Token::kRef:
         case Token::kObject:

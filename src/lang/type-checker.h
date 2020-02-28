@@ -55,6 +55,8 @@ public:
     Result VisitArrayInitializer(ArrayInitializer *) override;
     Result VisitMapInitializer(MapInitializer *) override;
     Result VisitBinaryExpression(BinaryExpression *) override;
+    Result VisitTypeCastExpression(TypeCastExpression *) override;
+    Result VisitTypeTestExpression(TypeTestExpression *) override;
     Result VisitBreakableStatement(BreakableStatement *) override;
     Result VisitAssignmentStatement(AssignmentStatement *) override;
     Result VisitStringTemplateExpression(StringTemplateExpression *) override;

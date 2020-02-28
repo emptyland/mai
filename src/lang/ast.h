@@ -23,6 +23,8 @@ namespace lang {
     V(AssignmentStatement) \
     V(BreakableStatement) \
     V(IfExpression) \
+    V(TypeCastExpression) \
+    V(TypeTestExpression) \
     V(StringLiteral) \
     V(BoolLiteral) \
     V(I8Literal) \
@@ -1058,13 +1060,46 @@ private:
 class IfExpression : public Expression {
 public:
     
-    
+    DEFINE_AST_NODE(IfExpression);
 private:
     Statement *extra_statement_;
     Expression *condition_;
     Statement *branch_true_;
     Statement *branch_false_;
 }; // class IfExpression
+
+class TypeExpression : public Expression {
+public:
+    DEF_PTR_PROP_RW(Expression, operand);
+    DEF_PTR_PROP_RW(TypeSign, type);
+protected:
+    TypeExpression(int position, Kind kind, Expression *operand, TypeSign *type)
+        : Expression(position, kind)
+        , operand_(operand)
+        , type_(type) {}
+    
+    Expression *operand_;
+    TypeSign *type_;
+}; // class TypeExpression
+
+
+class TypeCastExpression : public TypeExpression {
+public:
+    TypeCastExpression(int position, Expression *operand, TypeSign *type)
+        : TypeExpression(position, kTypeCastExpression, operand, type) {}
+
+    DEFINE_AST_NODE(TypeCastExpression);
+}; // class TypeCastExpression
+
+
+class TypeTestExpression : public TypeExpression {
+public:
+    TypeTestExpression(int position, Expression *operand, TypeSign *type)
+        : TypeExpression(position, kTypeTestExpression, operand, type) {}
+
+    DEFINE_AST_NODE(TypeTestExpression);
+}; // class TypeCastExpression
+
 
 inline size_t FunctionDefinition::parameters_size() const {
     return prototype()->parameters_size();

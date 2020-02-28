@@ -359,7 +359,7 @@ bool TypeSign::Convertible(TypeSign *rhs) const {
             return id() == rhs->id() && object_ == rhs->object_;
         case Token::kRef:
         case Token::kClass:
-            return id() == rhs->id() && clazz()->BaseOf(rhs->clazz());
+            return clazz()->BaseOf(rhs->clazz());
         case Token::kFun:
             return id() == rhs->id() && prototype()->IsAccept(rhs->prototype());
         case Token::kArray:
