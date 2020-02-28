@@ -90,7 +90,9 @@ private:
     Result CheckDotExpression(TypeSign *type, DotExpression *ast);
     Result CheckClassOrObjectFieldAccess(TypeSign *type, DotExpression *ast);
     Result CheckObjectFieldAccess(ObjectDefinition *object, DotExpression *ast);
-    Result CheckInDecrementAssignment(ASTNode *ast, TypeSign *lval, TypeSign *rval, const char *op);
+    bool CheckModifitionAccess(ASTNode *ast);
+    bool CheckAddExpression(ASTNode *ast, TypeSign *lhs, TypeSign *rhs);
+    bool CheckSubExpression(ASTNode *ast, TypeSign *lhs, TypeSign *rhs);
     
     inline SourceLocation FindSourceLocation(ASTNode *ast);
     
@@ -231,6 +233,8 @@ public:
         locals_[sym->identifier()->ToSlice()] = sym;
         return nullptr;
     }
+    
+    int MarkBroke() { return broke_++; }
 protected:
     BlockScope(Kind kind, BlockKind block_kind, Statement *stmt, AbstractScope **current)
         : AbstractScope(kind, current)
@@ -240,6 +244,7 @@ protected:
 
     BlockKind block_kind_;
     Statement *stmt_;
+    int broke_ = 0;
     std::map<std::string_view, Symbolize *> locals_;
 }; // class BlockScope
 

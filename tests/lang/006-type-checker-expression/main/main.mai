@@ -1,0 +1,15 @@
+package main
+
+
+fun main() {
+	var a = array[int](0)
+	a += (.. -> 1)
+	a += (.. -> 2)
+	a -= 0
+
+	var b: map[string, int]
+	b += ("1st" -> 1)
+	b += ("2nd" -> 2)
+	b += ("3th" -> 3)
+	b -= "1st"
+}

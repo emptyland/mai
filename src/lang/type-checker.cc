@@ -440,11 +440,167 @@ ASTVisitor::Result TypeChecker::VisitPairExpression(PairExpression *ast) /*overr
 }
 
 ASTVisitor::Result TypeChecker::VisitIndexExpression(IndexExpression *) /*override*/ {
+    // TODO:
     TODO();
 }
 
-ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *) /*override*/ {
-    TODO();
+ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *ast) /*override*/ {
+    Result rv;
+    if (rv = ast->operand()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    TypeSign *operand = rv.sign;
+    switch (ast->op().kind) {
+        case Operator::kNot:
+            if (operand->id() != Token::kBool) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need bool");
+                return ResultWithType(kError);
+            }
+            break;
+        case Operator::kBitwiseNot:
+            if (!operand->IsIntegral()) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need integral "
+                                        "type");
+                return ResultWithType(kError);
+            }
+            break;
+        case Operator::kMinus:
+            if (!operand->IsNumber()) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need number "
+                                        "type");
+                return ResultWithType(kError);
+            }
+            break;
+        case Operator::kRecv:
+            if (operand->id() != Token::kChannel) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need channel "
+                                        "type");
+                return ResultWithType(kError);
+            }
+            return ResultWithType(operand->parameter(0));
+        case Operator::kIncrement:
+        case Operator::kIncrementPost:
+            if (!CheckModifitionAccess(ast)) {
+                return ResultWithType(kError);
+            }
+            if (!operand->IsIntegral()) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need integral "
+                                        "type");
+                return ResultWithType(kError);
+            }
+            break;
+        case Operator::kDecrement:
+        case Operator::kDecrementPost:
+            if (!CheckModifitionAccess(ast)) {
+                return ResultWithType(kError);
+            }
+            if (!operand->IsIntegral()) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need integral "
+                                        "type");
+                return ResultWithType(kError);
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    return ResultWithType(operand);
+}
+
+ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*override*/ {
+    Result rv;
+    if (rv = ast->lhs()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    TypeSign *lhs = rv.sign;
+    if (rv = ast->rhs()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    TypeSign *rhs = rv.sign;
+
+    switch (ast->op().kind) {
+        case Operator::kAdd:
+            if (!CheckAddExpression(ast, lhs, rhs)) {
+                return ResultWithType(kError);
+            }
+            break;
+
+        case Operator::kSub:
+            if (!CheckSubExpression(ast, lhs, rhs)) {
+                return ResultWithType(kError);
+            }
+            break;
+            
+        case Operator::kMul:
+        case Operator::kDiv:
+            if (!lhs->IsNumber() || !lhs->Convertible(rhs)) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need number");
+                return ResultWithType(kError);
+            }
+            break;
+            
+        case Operator::kMod:
+        case Operator::kBitwiseAnd:
+        case Operator::kBitwiseOr:
+        case Operator::kBitwiseXor:
+            if (!lhs->IsIntegral() || !lhs->Convertible(rhs)) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need integral "
+                                        "number");
+                return ResultWithType(kError);
+            }
+            break;
+            
+        case Operator::kBitwiseShl:
+        case Operator::kBitwiseShr:
+            if (!lhs->IsIntegral() || !rhs->IsIntegral()) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need integral "
+                                        "number");
+                return ResultWithType(kError);
+            }
+            return ResultWithType(lhs);
+            
+        case Operator::kSend:
+            if (lhs->id() != Token::kChannel) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need channel");
+                return ResultWithType(kError);
+            }
+            if (!lhs->parameter(0)->Convertible(rhs)) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect send type");
+                return ResultWithType(kError);
+            }
+            return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kBool));
+            
+        case Operator::kEqual:
+        case Operator::kNotEqual:
+        case Operator::kLess:
+        case Operator::kLessEqual:
+        case Operator::kGreater:
+        case Operator::kGreaterEqual:
+            if (lhs->IsNumber() && lhs->Convertible(rhs)) {
+                // ok
+            } else if (lhs->id() == Token::kString && lhs->Convertible(rhs)) {
+                // ok
+            } else {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need number or "
+                                        "string");
+                return ResultWithType(kError);
+            }
+            return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kBool));
+            
+        case Operator::kAnd:
+        case Operator::kOr:
+            if (lhs->id() != Token::kBool || !lhs->Convertible(rhs)) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need bool");
+                return ResultWithType(kError);
+            }
+            break;
+
+        default:
+            NOREACHED();
+            break;
+    }
+    DCHECK_EQ(lhs->id(), rhs->id());
+    return ResultWithType(lhs);
 }
 
 ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*override*/ {
@@ -498,10 +654,6 @@ ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*o
 }
 
 ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *) /*override*/ {
-    TODO();
-}
-
-ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *) /*override*/ {
     TODO();
 }
 
@@ -561,67 +713,22 @@ ASTVisitor::Result TypeChecker::VisitAssignmentStatement(AssignmentStatement *as
     } else {
         lval = rv.sign;
     }
-
-    switch (ast->lval()->kind()) {
-        case ASTNode::kIdentifier: {
-            Symbolize *sym = std::get<1>(current_->Resolve(ast->lval()->AsIdentifier()->name()));
-            if (!sym->IsVariableDeclaration()) {
-                error_feedback_->Printf(FindSourceLocation(ast->lval()), "Incorrect lval type in "
-                                        "assignment");
-                return ResultWithType(kError);
-            }
-            if (sym->AsVariableDeclaration()->kind() != VariableDeclaration::VAR) {
-                error_feedback_->Printf(FindSourceLocation(ast->lval()), "Val can not be assign");
-                return ResultWithType(kError);
-            }
-        } break;
-
-        case ASTNode::kIndexExpression: {
-            if (lval->id() == Token::kMutableArray) {
-                lval = lval->parameter(0);
-            } else if (lval->id() == Token::kMutableMap) {
-                lval = lval->parameter(1);
-            } else {
-                error_feedback_->Printf(FindSourceLocation(ast->lval()), "Incorrect lval type in "
-                                        "assignment");
-                return ResultWithType(kError);
-            }
-        } break;
-
-        case ASTNode::kDotExpression: {
-            TypeSign *primary = nullptr;
-            DotExpression *dot = DCHECK_NOTNULL(ast->lval()->AsDotExpression());
-            if (auto rv = dot->primary()->Accept(this); rv.sign == kError) {
-                return ResultWithType(kError);
-            } else {
-                primary = rv.sign;
-            }
-            
-            if (primary->id() == Token::kRef) {
-                auto [clazz, field] = primary->clazz()->ResolveField(dot->rhs()->ToSlice());
-                if (!field) {
-                    error_feedback_->Printf(FindSourceLocation(ast->lval()), "Incorrect field for "
-                                            "assigning %s", dot->rhs()->data());
-                    return ResultWithType(kError);
-                }
-                if (field->declaration->kind() != VariableDeclaration::VAR) {
-                    error_feedback_->Printf(FindSourceLocation(ast->lval()),
-                                            "Attempt assign val field: %s", dot->rhs()->data());
-                    return ResultWithType(kError);
-                }
-            }
-        } break;
-
-        default:
-            NOREACHED();
-            break;
+    
+    if (!CheckModifitionAccess(ast->lval())) {
+        return ResultWithType(kError);
     }
 
     switch (ast->assignment_op().kind) {
         case Operator::kAdd: // +=
-            return CheckInDecrementAssignment(ast, lval, rval, "+=");
+            if (!CheckAddExpression(ast, lval, rval)) {
+                return ResultWithType(kError);
+            }
+            break;
         case Operator::kSub: // -=
-            return CheckInDecrementAssignment(ast, lval, rval, "-=");
+            if (!CheckSubExpression(ast, lval, rval)) {
+                return ResultWithType(kError);
+            }
+            break;
         case Operator::NOT_OPERATOR: // =
             if (!lval->Convertible(rval)) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type in `=' "
@@ -633,7 +740,7 @@ ASTVisitor::Result TypeChecker::VisitAssignmentStatement(AssignmentStatement *as
             NOREACHED();
             break;
     }
-    return ResultWithType(kVoid);
+    return ResultWithType(lval);
 }
 
 ASTVisitor::Result TypeChecker::VisitStringTemplateExpression(StringTemplateExpression *ast)
@@ -942,54 +1049,139 @@ ASTVisitor::Result TypeChecker::CheckObjectFieldAccess(ObjectDefinition *object,
     return ResultWithType(kError);
 }
 
-ASTVisitor::Result TypeChecker::CheckInDecrementAssignment(ASTNode *ast, TypeSign *lval,
-                                                           TypeSign *rval, const char *op) {
+bool TypeChecker::CheckModifitionAccess(ASTNode *ast) {
+    switch (ast->kind()) {
+        case ASTNode::kIdentifier: {
+            Symbolize *sym = std::get<1>(current_->Resolve(ast->AsIdentifier()->name()));
+            if (!sym->IsVariableDeclaration()) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect lval type in "
+                                        "assignment");
+                return false;
+            }
+            if (sym->AsVariableDeclaration()->kind() != VariableDeclaration::VAR) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Val can not be assign");
+                return false;
+            }
+        } break;
+
+        case ASTNode::kIndexExpression: {
+            TypeSign *primary = nullptr;
+            if (auto rv = ast->AsIndexExpression()->primary()->Accept(this); rv.sign == kError) {
+                return false;
+            } else {
+                primary = rv.sign;
+            }
+
+            if (primary->id() == Token::kArray || primary->id() == Token::kMap) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Attempt modify immutable "
+                                        "containtor");
+                return false;
+            }
+        } break;
+
+        case ASTNode::kDotExpression: {
+            TypeSign *primary = nullptr;
+            DotExpression *dot = DCHECK_NOTNULL(ast->AsDotExpression());
+            if (auto rv = dot->primary()->Accept(this); rv.sign == kError) {
+                return false;
+            } else {
+                primary = rv.sign;
+            }
+            
+            if (primary->id() == Token::kRef) {
+                auto [clazz, field] = primary->clazz()->ResolveField(dot->rhs()->ToSlice());
+                if (!field) {
+                    error_feedback_->Printf(FindSourceLocation(ast), "Field not found: %s",
+                                            dot->rhs()->data());
+                    return false;
+                }
+                if (field->declaration->kind() != VariableDeclaration::VAR) {
+                    error_feedback_->Printf(FindSourceLocation(ast),
+                                            "Attempt modify val field: %s", dot->rhs()->data());
+                    return false;
+                }
+            } else if (primary->id() == Token::kObject) {
+                auto field = primary->object()->FindFieldOrNull(dot->rhs()->ToSlice());
+                if (!field) {
+                    error_feedback_->Printf(FindSourceLocation(ast), "Field not found: %s",
+                                            dot->rhs()->data());
+                    return false;
+                }
+                if (field->declaration->kind() != VariableDeclaration::VAR) {
+                    error_feedback_->Printf(FindSourceLocation(ast),
+                                            "Attempt modify val field: %s", dot->rhs()->data());
+                    return false;
+                }
+            } else {
+                NOREACHED();
+            }
+        } break;
+
+        default:
+            NOREACHED();
+            break;
+    }
+    return true;
+}
+
+bool TypeChecker::CheckAddExpression(ASTNode *ast, TypeSign *lval, TypeSign *rval) {
     if (lval->id() == Token::kArray || lval->id() == Token::kMutableArray) {
         if (rval->id() != Token::kPair) {
-            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type in "
-                                    "array's `%s' expression", op);
-            return ResultWithType(kError);
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rhs type, need "
+                                    "pair(expr<-expr)");
+            return false;
         }
-        
         if (rval->parameter(0) && rval->parameter(0)->id() != Token::kInt) {
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect array index type");
-            return ResultWithType(kError);
+            return false;
         }
-        
         if (!lval->parameter(0)->Convertible(rval->parameter(1))) {
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect array element type");
-            return ResultWithType(kError);
+            return false;
         }
+        return true;
     } else if (lval->id() == Token::kMap || lval->id() == Token::kMutableMap) {
         if (rval->id() != Token::kPair) {
-            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type in "
-                                    "map's `+=' expression");
-            return ResultWithType(kError);
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rhs type, need "
+                                    "pair(expr<-expr)");
+            return false;
         }
-        
         if (!rval->parameter(0) || !lval->parameter(0)->Convertible(rval->parameter(0))) {
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map key type");
-            return ResultWithType(kError);
+            return false;
         }
-        
         if (!lval->parameter(1)->Convertible(rval->parameter(1))) {
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map value type");
-            return ResultWithType(kError);
+            return false;
         }
+        return true;
     }
-    
-    if (!lval->IsNumber() || rval->IsNumber()) {
+    if (!lval->IsNumber() || !lval->Convertible(rval)) {
         error_feedback_->Printf(FindSourceLocation(ast), "Operand is not a number");
-        return ResultWithType(kError);
+        return false;
     }
-    
-    if (!lval->Convertible(rval)) {
-        error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type in `%s' "
-                                "expression", op);
-        return ResultWithType(kError);
+    return true;
+}
+
+bool TypeChecker::CheckSubExpression(ASTNode *ast, TypeSign *lval, TypeSign *rval) {
+    if (lval->id() == Token::kArray || lval->id() == Token::kMutableArray) {
+        if (!lval->parameter(0)->Convertible(rval)) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect array element type");
+            return false;
+        }
+        return true;
+    } else if (lval->id() == Token::kMap || lval->id() == Token::kMutableMap) {
+        if (!lval->parameter(0)->Convertible(rval)) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map value type");
+            return false;
+        }
+        return true;
     }
-    
-    return ResultWithType(kVoid);
+    if (!lval->IsNumber() || !lval->Convertible(rval)) {
+        error_feedback_->Printf(FindSourceLocation(ast), "Operand is not a number");
+        return false;
+    }
+    return true;
 }
 
 void FileScope::Initialize(const std::map<std::string, std::vector<FileUnit *>> &path_units) {

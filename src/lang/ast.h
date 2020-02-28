@@ -21,6 +21,7 @@ namespace lang {
     V(ClassImplementsBlock) \
     V(AssignmentStatement) \
     V(BreakableStatement) \
+    V(IfExpression) \
     V(StringLiteral) \
     V(BoolLiteral) \
     V(I8Literal) \
@@ -262,6 +263,7 @@ private:
     // Token::kClass                     -> clazz_
     // Token::kObject                    -> object_
     // Token::kInterface                 -> interface_
+    // Token::kChannel                   -> parameters_[0]
     // Token::kArray/Token::MutableArray -> parameters_[0]
     // Token::kMap/Token::MutableMap     -> parameters_[0], parameters_[1]
     // Token::kPair                      -> parameters_[0], parameters_[1]
@@ -1040,6 +1042,18 @@ private:
     TypeSign *key_type_;
     TypeSign *value_type_;
 }; // class MapInitializer
+
+
+class IfExpression : public Expression {
+public:
+    
+    
+private:
+    Statement *extra_statement_;
+    Expression *condition_;
+    Statement *branch_true_;
+    Statement *branch_false_;
+}; // class IfExpression
 
 inline size_t FunctionDefinition::parameters_size() const {
     return prototype()->parameters_size();
