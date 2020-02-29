@@ -252,6 +252,25 @@ TEST_F(TypeCheckerTest, NumberCast) {
     ASSERT_EQ(Token::kF64, sym->AsVariableDeclaration()->type()->id());
 }
 
+TEST_F(TypeCheckerTest, IfElseExpression) {
+    auto rs = Parse("tests/lang/008-type-checker-if-else");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_TRUE(checker_.Prepare());
+    ASSERT_TRUE(checker_.Check());
+    
+    auto sym = checker_.FindSymbolOrNull("main.c");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kString, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("main.e");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kI8, sym->AsVariableDeclaration()->type()->id());
+    
+    sym = checker_.FindSymbolOrNull("foo.a");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_EQ(Token::kI8, sym->AsVariableDeclaration()->type()->id());
+}
+
 } // namespace lang
 
 } // namespace mai

@@ -13,7 +13,9 @@ namespace lang {
 #define DECLARE_ALL_AST(V) \
     V(TypeSign) \
     V(FileUnit) \
+    V(StatementBlock) \
     V(ImportStatement) \
+    V(WhileLoop) \
     V(VariableDeclaration) \
     V(FunctionDefinition) \
     V(ClassDefinition) \
@@ -134,6 +136,7 @@ class Declaration;
 class Definition;
 class Statement;
 class Expression;
+class Circulation;
 class StructureDefinition;
 class PartialInterfaceDefinition;
 
@@ -339,10 +342,31 @@ private:
 
 class Statement : public ASTNode {
 public:
+    virtual bool IsExpression() const { return false; }
+    
+    Expression *AsExpression() {
+        return !IsExpression() ? nullptr : reinterpret_cast<Expression *>(this);
+    }
     
 protected:
     Statement(int position, Kind kind): ASTNode(position, kind) {}
 }; // class Statement
+
+
+class StatementBlock : public Statement {
+public:
+    StatementBlock(int position, base::ArenaVector<Statement *> &&statements)
+        : Statement(position, kStatementBlock)
+        , statements_(std::move(statements)) {}
+    
+    DEF_ARENA_VECTOR_GETTER(Statement *, statement);
+    DEF_PTR_PROP_RW(Statement, owner);
+    
+    DEFINE_AST_NODE(StatementBlock);
+private:
+    base::ArenaVector<Statement *> statements_;
+    Statement *owner_ = nullptr;
+}; // class StatementBlock
 
 
 class ImportStatement : public Statement {
@@ -362,13 +386,42 @@ private:
 }; // class ImportStatement
 
 
+class Circulation : public Statement {
+public:
+    Circulation(int position, Kind kind, base::ArenaVector<Statement *> &&statements)
+        : Statement(position, kind)
+        , statements_(std::move(statements)) {}
+    
+    DEF_ARENA_VECTOR_GETTER(Statement *, statement);
+    DEF_PTR_PROP_RW(Statement, owner);
+protected:
+    base::ArenaVector<Statement *> statements_;
+    Statement *owner_ = nullptr;
+}; // class Circulation
+
+
+class WhileLoop : public Circulation {
+public:
+    WhileLoop(int position, Expression *condition, base::ArenaVector<Statement *> &&statements)
+        : Circulation(position, kWhileLoop, std::move(statements))
+        , condition_(DCHECK_NOTNULL(condition)) {}
+    
+    DEF_PTR_PROP_RW(Expression, condition);
+    
+    DEFINE_AST_NODE(WhileLoop);
+private:
+    Expression *condition_;
+}; // class WhileLoop
+
+
 class Expression : public Statement {
 public:
-    virtual Operator GetOperator() const { return Operators::NOT_OPERATOR; }
-
+    bool IsExpression() const override { return true; }
+    
     bool IsLValue() const {
         return IsIdentifier() || IsDotExpression() || IsIndexExpression();
     }
+    
 protected:
     Expression(int position, Kind kind): Statement(position, kind) {}
 }; // // class Statement
@@ -426,12 +479,14 @@ public:
     DEF_VAL_GETTER(Kind, kind);
     DEF_PTR_PROP_RW(TypeSign, type);
     DEF_PTR_PROP_RW(Expression, initializer);
+    DEF_PTR_PROP_RW(FileUnit, file_unit);
     
     DEFINE_AST_NODE(VariableDeclaration);
 private:
     Kind kind_;
     TypeSign *type_;
     Expression *initializer_;
+    FileUnit *file_unit_ = nullptr;
 }; // class VariableDeclaration
 
 
@@ -758,11 +813,8 @@ private:
 
 
 class Literal : public Expression {
-public:
-    DEF_PTR_PROP_RW(TypeSign, type);
 protected:
-    Literal(int position, Kind kind, TypeSign *type): Expression(position, kind), type_(type) {}
-    TypeSign *type_;
+    Literal(int position, Kind kind): Expression(position, kind) {}
 }; // class Literal
 
 
@@ -771,8 +823,8 @@ class LiteralBase : public Literal {
 public:
     DEF_VAL_GETTER(T, value);
 protected:
-    LiteralBase(int position, Kind kind, TypeSign *type, T value)
-        : Literal(position, kind, type)
+    LiteralBase(int position, Kind kind, T value)
+        : Literal(position, kind)
         , value_(value) {}
     T value_;
 }; // class LiteralBase
@@ -780,8 +832,8 @@ protected:
 #define DEFINE_SIMPLE_LITERAL(name, value_type) \
     class name##Literal : public LiteralBase< value_type > { \
     public: \
-        name##Literal(int position, TypeSign *type, value_type value) \
-            : LiteralBase(position, k##name##Literal, type, value) {} \
+        name##Literal(int position, value_type value) \
+            : LiteralBase(position, k##name##Literal, value) {} \
         DEFINE_AST_NODE(name##Literal); \
     }
 
@@ -805,9 +857,9 @@ DEFINE_SIMPLE_LITERAL(Nil, void *);
 
 class LambdaLiteral : public Literal {
 public:
-    LambdaLiteral(int position, TypeSign *type, base::ArenaVector<Statement *> &&statements)
-        : Literal(position, kLambdaLiteral, type)
-        , prototype_(DCHECK_NOTNULL(type->prototype()))
+    LambdaLiteral(int position, FunctionPrototype *proto, base::ArenaVector<Statement *> &&statements)
+        : Literal(position, kLambdaLiteral)
+        , prototype_(DCHECK_NOTNULL(proto))
         , statements_(statements) {}
 
     DEF_PTR_GETTER(FunctionPrototype, prototype);
@@ -854,7 +906,8 @@ public:
     DEF_VAL_GETTER(Operator, op);
     DEF_PTR_PROP_RW(Expression, operand);
     
-    Operator GetOperator() const override { return op(); }
+    //Operator GetOperator() const override { return op(); }
+    
 
     DEFINE_AST_NODE(UnaryExpression);
 private:
@@ -875,7 +928,7 @@ public:
     DEF_PTR_PROP_RW(Expression, lhs);
     DEF_PTR_PROP_RW(Expression, rhs);
     
-    Operator GetOperator() const override { return op(); }
+    //Operator GetOperator() const override { return op(); }
     
     DEFINE_AST_NODE(BinaryExpression);
 private:
@@ -1059,6 +1112,19 @@ private:
 
 class IfExpression : public Expression {
 public:
+    IfExpression(int position, Statement *extra_statement, Expression *condition,
+                 Statement *branch_true, Statement *branch_false)
+        : Expression(position, kIfExpression)
+        , extra_statement_(extra_statement)
+        , condition_(DCHECK_NOTNULL(condition))
+        , branch_true_(DCHECK_NOTNULL(branch_true))
+        , branch_false_(branch_false) {
+    }
+
+    DEF_PTR_PROP_RW(Statement, extra_statement);
+    DEF_PTR_PROP_RW(Expression, condition);
+    DEF_PTR_PROP_RW(Statement, branch_true);
+    DEF_PTR_PROP_RW(Statement, branch_false);
     
     DEFINE_AST_NODE(IfExpression);
 private:
@@ -1067,6 +1133,7 @@ private:
     Statement *branch_true_;
     Statement *branch_false_;
 }; // class IfExpression
+
 
 class TypeExpression : public Expression {
 public:

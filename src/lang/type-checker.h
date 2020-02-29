@@ -68,6 +68,9 @@ public:
     Result VisitObjectDefinition(ObjectDefinition *) override;
     Result VisitClassDefinition(ClassDefinition *) override;
     Result VisitClassImplementsBlock(ClassImplementsBlock *) override;
+    Result VisitWhileLoop(WhileLoop *) override;
+    Result VisitIfExpression(IfExpression *) override;
+    Result VisitStatementBlock(StatementBlock *) override;
     
     std::vector<FileUnit *> FindPathUnits(const std::string &path) const {
         auto iter = path_units_.find(path);
@@ -95,8 +98,11 @@ private:
     bool CheckModifitionAccess(ASTNode *ast);
     bool CheckAddExpression(ASTNode *ast, TypeSign *lhs, TypeSign *rhs);
     bool CheckSubExpression(ASTNode *ast, TypeSign *lhs, TypeSign *rhs);
+    bool CheckVariableDependence(VariableDeclaration *var);
+    bool CheckDuplicatedSymbol(const std::string &pkg_name, const Symbolize *sym,
+                               FileScope *file_scope);
     
-    inline SourceLocation FindSourceLocation(ASTNode *ast);
+    inline SourceLocation FindSourceLocation(const ASTNode *ast);
     
     base::Arena *arena_;
     SyntaxFeedback *error_feedback_;
@@ -108,9 +114,7 @@ private:
     AbstractScope *current_ = nullptr;
     std::map<std::string, std::vector<FileUnit *>> path_units_;
     std::map<std::string, std::vector<FileUnit *>> pkg_units_;
-    base::ArenaVector<FileUnit *> all_units_;
     std::map<std::string, Symbolize *> symbols_;
-    std::map<std::string, Definition *> classes_objects_;
 }; // class TypeChecker
 
 class AbstractScope {
@@ -119,7 +123,9 @@ public:
         kFileScope,
         kClassScope,
         kFunctionScope,
-        kBlockScope,
+        kLoopBlockScope,
+        kIfBlockScope,
+        kPlainBlockScope,
     };
     ~AbstractScope() {
         DCHECK_EQ(this, *current_);
@@ -132,7 +138,13 @@ public:
     bool is_file_scope() const { return kind_ == kFileScope; }
     bool is_class_scope() const { return kind_ == kClassScope; }
     bool is_function_scope() const { return kind_ == kFunctionScope; }
-    bool is_block_scope() const { return kind_ == kBlockScope; }
+    bool is_block_scope() const {
+        return kind_ == kLoopBlockScope || kind_ == kIfBlockScope || kind_ == kPlainBlockScope;
+    }
+    
+    bool has_broke() const { return broke_ > 0; }
+    
+    int MarkBroke() { return broke_++; }
 
     virtual Symbolize *FindOrNull(const ASTString *name) { return nullptr; }
     virtual Symbolize *Register(Symbolize *sym) { return nullptr; }
@@ -158,6 +170,7 @@ public:
     inline FileScope *GetFileScope();
     inline ClassScope *GetClassScope();
     inline FunctionScope *GetFunctionScope();
+    inline BlockScope *GetLoopScope();
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(AbstractScope);
 protected:
@@ -171,6 +184,7 @@ protected:
     Kind kind_;
     AbstractScope *prev_;
     AbstractScope **current_;
+    int broke_ = 0;
 }; // class AbstractScope
 
 
@@ -186,7 +200,12 @@ public:
     
     DEF_PTR_GETTER(FileUnit, file_unit);
     
-    Symbolize *FindOrNull(const ASTString *name) override;
+    Symbolize *FindOrNull(const ASTString *name) override {
+        std::string_view exists;
+        return FindExcludePackageNameOrNull(name, "", &exists);
+    }
+    Symbolize *FindExcludePackageNameOrNull(const ASTString *name, std::string_view exclude,
+                                            std::string_view *exists);
     Symbolize *FindOrNull(const ASTString *prefix, const ASTString *name);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(FileScope);
@@ -212,17 +231,11 @@ private:
 
 class BlockScope : public AbstractScope {
 public:
-    enum BlockKind {
-        kIfBlock,
-        kForBlock,
-        kWhileBlock,
-        kNormalBlock,
-        kFunctionBlock,
-    };
-    
-    BlockScope(BlockKind block_kind, Statement *stmt, AbstractScope **current)
-        : BlockScope(kBlockScope, block_kind, stmt, current) {}
-    
+    BlockScope(Kind kind, Statement *stmt, AbstractScope **current)
+        : AbstractScope(kind, current)
+        , stmt_(stmt) {
+    }
+
     Symbolize *FindOrNull(const ASTString *name) override {
         auto iter = locals_.find(name->ToSlice());
         return iter == locals_.end() ? nullptr : iter->second;
@@ -236,17 +249,8 @@ public:
         return nullptr;
     }
     
-    int MarkBroke() { return broke_++; }
 protected:
-    BlockScope(Kind kind, BlockKind block_kind, Statement *stmt, AbstractScope **current)
-        : AbstractScope(kind, current)
-        , block_kind_(block_kind)
-        , stmt_(stmt) {
-    }
-
-    BlockKind block_kind_;
     Statement *stmt_;
-    int broke_ = 0;
     std::map<std::string_view, Symbolize *> locals_;
 }; // class BlockScope
 
@@ -254,7 +258,7 @@ protected:
 class FunctionScope : public BlockScope {
 public:
     FunctionScope(LambdaLiteral *function, AbstractScope **current)
-        : BlockScope(kFunctionScope, kFunctionBlock, function, current)
+        : BlockScope(kFunctionScope, function, current)
         , function_(function)
         , constructor_(nullptr) {
     }
@@ -269,7 +273,7 @@ private:
 }; // class FunctionScope
 
 
-inline SourceLocation TypeChecker::FindSourceLocation(ASTNode *ast) {
+inline SourceLocation TypeChecker::FindSourceLocation(const ASTNode *ast) {
     return current_->GetFileScope()->file_unit()->FindSourceLocation(ast);
 }
 
@@ -283,6 +287,18 @@ inline ClassScope *AbstractScope::GetClassScope() {
 
 inline FunctionScope *AbstractScope::GetFunctionScope() {
     return down_cast<FunctionScope>(GetScope(kFunctionScope));
+}
+
+inline BlockScope *AbstractScope::GetLoopScope() {
+    for (AbstractScope *scope = this; scope != nullptr; scope = scope->prev_) {
+        if (scope->kind_ == kFunctionScope) {
+            break;
+        }
+        if (scope->kind_ == kLoopBlockScope) {
+            return down_cast<BlockScope>(scope);
+        }
+    }
+    return nullptr;
 }
 
 } // namespace lang

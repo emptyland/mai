@@ -131,7 +131,7 @@ Token Lexer::Next() {
                 SourceLocation loc{line_, row_};
                 ch = MoveNext();
                 if (ch == '/') { // `//'
-                    while (ch != '\n' && ch != '\r') {
+                    while (ch != '\n' && ch != '\r' && ch != 0) {
                         ch = MoveNext();
                     }
                 } else {

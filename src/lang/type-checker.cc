@@ -17,7 +17,6 @@ static inline ASTVisitor::Result ResultWithType(TypeSign *type) {
 TypeChecker::TypeChecker(base::Arena *arena, SyntaxFeedback *feedback)
     : arena_(arena)
     , error_feedback_(feedback)
-    , all_units_(arena)
     , kVoid(new (arena) TypeSign(0, Token::kVoid))
     , kError(new (arena) TypeSign(0, Token::kError)) {
 }
@@ -42,11 +41,15 @@ Error TypeChecker::AddBootFileUnits(const std::string &original_path,
         for (auto unit : units) {
             path_units_[path].push_back(unit);
             pkg_units_[unit->package_name()->ToString()].push_back(unit);
-            all_units_.push_back(unit);
+            //all_units_.push_back(unit);
             
             for (auto import : unit->import_packages()) {
-                auto iter = path_units_.find(import->original_path()->data());
-                if (iter != path_units_.end()) {
+                auto it1 = path_units_.find(import->original_path()->data());
+                if (it1 != path_units_.end()) {
+                    continue;
+                }
+                auto it2 = external_units.find(import->original_path()->data());
+                if (it2 != external_units.end()) {
                     continue;
                 }
                 std::vector<FileUnit *> import_units;
@@ -71,17 +74,22 @@ bool TypeChecker::Prepare() {
         const std::string &pkg_name = pair.first;
         
         for (auto unit : pair.second) {
+            error_feedback_->set_file_name(unit->file_name()->ToString());
+            error_feedback_->set_package_name(unit->package_name()->ToString());
             for (auto decl : unit->global_variables()) {
                 std::string name(pkg_name);
                 name.append(".").append(decl->identifier()->ToString());
                 auto iter = symbols_.find(name);
                 if (iter != symbols_.end()) {
                     error_feedback_->Printf(unit->FindSourceLocation(decl), "Duplicated symbol: %s",
-                                            decl->identifier()->data());
+                                            name.c_str());
                     fail++;
                     continue;
                 }
                 symbols_[name] = decl;
+                if (decl->IsVariableDeclaration()) {
+                    decl->AsVariableDeclaration()->set_file_unit(unit);
+                }
             }
             
             for (auto def : unit->definitions()) {
@@ -201,18 +209,25 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
     error_feedback_->set_file_name(unit->file_name()->ToString());
     error_feedback_->set_package_name(unit->package_name()->ToString());
 
+    std::string exits_pkg_name;
     for (auto decl : unit->global_variables()) {
+        if (!CheckDuplicatedSymbol(pkg_name, decl, &file_scope)) {
+            return false;
+        }
         if (auto rv = decl->Accept(this); rv.sign == kError) {
             return false;
         }
     }
 
     for (auto def : unit->definitions()) {
+        if (!CheckDuplicatedSymbol(pkg_name, def, &file_scope)) {
+            return false;
+        }
         if (auto rv = def->Accept(this); rv.sign == kError) {
             return false;
         }
     }
-    
+
     for (auto impl : unit->implements()) {
         if (auto rv = impl->Accept(this); rv.sign == kError) {
             return false;
@@ -244,63 +259,63 @@ ASTVisitor::Result TypeChecker::VisitTypeSign(TypeSign *ast) /*override*/ {
 }
 
 ASTVisitor::Result TypeChecker::VisitBoolLiteral(BoolLiteral *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kBool));
 }
 
 ASTVisitor::Result TypeChecker::VisitI8Literal(I8Literal *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kI8));
 }
 
 ASTVisitor::Result TypeChecker::VisitU8Literal(U8Literal *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kU8));
 }
 
 ASTVisitor::Result TypeChecker::VisitI16Literal(I16Literal *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kI16));
 }
 
 ASTVisitor::Result TypeChecker::VisitU16Literal(U16Literal *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kU16));
 }
 
 ASTVisitor::Result TypeChecker::VisitI32Literal(I32Literal *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kI32));
 }
 
 ASTVisitor::Result TypeChecker::VisitU32Literal(U32Literal *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kU32));
 }
 
 ASTVisitor::Result TypeChecker::VisitIntLiteral(IntLiteral *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kInt));
 }
 
 ASTVisitor::Result TypeChecker::VisitUIntLiteral(UIntLiteral *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kUInt));
 }
 
 ASTVisitor::Result TypeChecker::VisitI64Literal(I64Literal *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kI64));
 }
 
 ASTVisitor::Result TypeChecker::VisitU64Literal(U64Literal *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kU64));
 }
 
 ASTVisitor::Result TypeChecker::VisitF32Literal(F32Literal *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kF32));
 }
 
 ASTVisitor::Result TypeChecker::VisitF64Literal(F64Literal *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kF64));
 }
 
 ASTVisitor::Result TypeChecker::VisitNilLiteral(NilLiteral *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kNil));
 }
 
 ASTVisitor::Result TypeChecker::VisitStringLiteral(StringLiteral *ast) /*override*/ {
-    return ResultWithType(ast->type());
+    return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kString));
 }
 
 ASTVisitor::Result TypeChecker::VisitLambdaLiteral(LambdaLiteral *ast) /*override*/ {
@@ -342,6 +357,11 @@ ASTVisitor::Result TypeChecker::VisitLambdaLiteral(LambdaLiteral *ast) /*overrid
         if (auto rv = stmt->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
         }
+    }
+    
+    if (ast->prototype()->return_type()->id() != Token::kVoid && !function_scope.has_broke()) {
+        error_feedback_->Printf(FindSourceLocation(ast), "Return statement not found");
+        return ResultWithType(kError);
     }
     return ResultWithType(new (arena_) TypeSign(ast->position(), ast->prototype()));
 }
@@ -774,15 +794,28 @@ ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*overr
 ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *ast) /*override*/ {
     switch (ast->control()) {
         case BreakableStatement::BREAK:
-            TODO(); // TODO
-            break;
-        case BreakableStatement::CONTINUE:
-            TODO(); // TODO
-            break;
+        case BreakableStatement::CONTINUE: {
+            BlockScope *scope = current_->GetLoopScope();
+            if (!scope) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Break statement outside loop");
+                return ResultWithType(kError);
+            }
+            if (current_->MarkBroke() > 0) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Useless break statement");
+                return ResultWithType(kError);
+            }
+        } break;
         case BreakableStatement::THROW:
             TODO(); // TODO
             break;
         case BreakableStatement::RETURN: {
+            FunctionScope *scope = current_->GetFunctionScope();
+            if (!scope) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Attempt return in function "
+                                        "outside");
+                return ResultWithType(kError);
+            }
+            
             TypeSign *ret_type = kVoid;
             if (ast->value()) {
                 if (auto rv = ast->value()->Accept(this); rv.sign == kError) {
@@ -796,15 +829,13 @@ ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *ast)
                 }
             }
 
-            FunctionScope *function_scope = current_->GetFunctionScope();
-            if (!function_scope) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Attempt return in function "
-                                        "outside");
+            if (!scope->function()->prototype()->return_type()->Convertible(ret_type)) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Unconvertible return type");
                 return ResultWithType(kError);
             }
             
-            if (!function_scope->function()->prototype()->return_type()->Convertible(ret_type)) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Unconvertible return type");
+            if (current_->MarkBroke() > 0) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Useless return statement");
                 return ResultWithType(kError);
             }
         } break;
@@ -921,7 +952,7 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
         case AbstractScope::kFunctionScope:
             ast->set_scope(scope->GetFunctionScope()->function());
             break;
-        case AbstractScope::kBlockScope:
+        case AbstractScope::kPlainBlockScope:
             // TODO:
         default:
             NOREACHED();
@@ -942,28 +973,38 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
                                                sym->AsFunctionDefinition()->prototype());
         return ResultWithType(type);
     }
-    DCHECK(sym->IsVariableDeclaration());
-    return ResultWithType(DCHECK_NOTNULL(sym->AsVariableDeclaration()->type()));
+    VariableDeclaration *var = DCHECK_NOTNULL(sym->AsVariableDeclaration());
+    if (!var->type() && !CheckVariableDependence(var)) {
+        return ResultWithType(kError);
+    }
+    return ResultWithType(DCHECK_NOTNULL(var->type()));
 }
 
 ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
     if (auto id = ast->primary()->AsIdentifier()) {
-        Symbolize *sym = std::get<1>(current_->Resolve(id->name()));
+        FileScope *file_scope = current_->GetFileScope();
+        Symbolize *sym = file_scope->FindOrNull(id->name(), ast->rhs());
         if (sym) {
             if (auto decl = sym->AsVariableDeclaration()) {
-                return CheckDotExpression(DCHECK_NOTNULL(decl->type()), ast);
+                if (!decl->type() && !CheckVariableDependence(decl)) {
+                    return ResultWithType(kError);
+                }
+                return ResultWithType(DCHECK_NOTNULL(decl->type()));
             } else if (auto object = sym->AsObjectDefinition()) {
-                return CheckObjectFieldAccess(object, ast);
+                return ResultWithType(new (arena_) TypeSign(ast->position(), object));
             } else {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type to get field");
                 return ResultWithType(kError);
             }
         }
+
         DCHECK(sym == nullptr);
-        FileScope *file_scope = current_->GetFileScope();
-        sym = file_scope->FindOrNull(id->name(), ast->rhs());
+        sym = std::get<1>(current_->Resolve(id->name()));
         if (sym) {
             if (auto decl = sym->AsVariableDeclaration()) {
+                if (!decl->type() && !CheckVariableDependence(decl)) {
+                    return ResultWithType(kError);
+                }
                 return CheckDotExpression(DCHECK_NOTNULL(decl->type()), ast);
             } else if (auto object = sym->AsObjectDefinition()) {
                 return CheckObjectFieldAccess(object, ast);
@@ -1077,6 +1118,81 @@ ASTVisitor::Result TypeChecker::VisitClassImplementsBlock(ClassImplementsBlock *
 
     for (auto method : ast->methods()) {
         if (auto rv = method->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
+    return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::VisitWhileLoop(WhileLoop *ast) /*override*/ {
+    Result rv = ast->condition()->Accept(this);
+    if (rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    if (rv.sign->id() != Token::kBool) {
+        error_feedback_->Printf(FindSourceLocation(ast->condition()), "Incorrect condition type, "
+                                "need bool");
+        return ResultWithType(kError);
+    }
+    
+    BlockScope block_scope(AbstractScope::kLoopBlockScope, ast, &current_);
+    for (auto stmt : ast->statements()) {
+        if (auto rv = stmt->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
+    return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::VisitIfExpression(IfExpression *ast) /*override*/ {
+    BlockScope block_scope(AbstractScope::kIfBlockScope, ast, &current_);
+    TypeSign *type = nullptr;
+    do {
+        if (ast->extra_statement()) {
+            if (auto rv = ast->extra_statement()->Accept(this); rv.sign == kError) {
+                return ResultWithType(kError);
+            }
+        }
+
+        auto rv = ast->branch_true()->Accept(this);
+        if (rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+        if (!type) {
+            type = rv.sign;
+        }
+        if (type->id() == Token::kVoid || rv.sign->id() == Token::kVoid) {
+            type->set_id(Token::kVoid);
+        } else if (!type->Convertible(rv.sign)) {
+            type->set_id(Token::kAny);
+        }
+
+        if (!ast->branch_false()) {
+            type->set_id(Token::kVoid);
+            break;
+        }
+        if (ast->branch_false()) {
+            IfExpression *next = ast->branch_false()->AsIfExpression(); // else if
+            if (!next) {
+                if (rv = ast->branch_false()->Accept(this); rv.sign == kError) {
+                    return ResultWithType(kError);
+                }
+                if (type->id() == Token::kVoid || rv.sign->id() == Token::kVoid) {
+                    type->set_id(Token::kVoid);
+                } else if (!type->Convertible(rv.sign)) {
+                    type = new (arena_) TypeSign(ast->position(), Token::kAny);
+                }
+            }
+            ast = next;
+        }
+    } while (ast);
+    return ResultWithType(DCHECK_NOTNULL(type));
+}
+
+ASTVisitor::Result TypeChecker::VisitStatementBlock(StatementBlock *ast) /*override*/ {
+    BlockScope block_scope(AbstractScope::kPlainBlockScope, ast, &current_);
+    for (auto stmt : ast->statements()) {
+        if (auto rv = stmt->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
         }
     }
@@ -1319,6 +1435,38 @@ bool TypeChecker::CheckSubExpression(ASTNode *ast, TypeSign *lval, TypeSign *rva
     return true;
 }
 
+bool TypeChecker::CheckVariableDependence(VariableDeclaration *var) {
+    if (var->file_unit() && current_->GetFileScope()->file_unit() != var->file_unit()) {
+        auto saved = current_;
+        current_ = nullptr;
+        {
+            FileScope file_scope(&symbols_, var->file_unit(), &current_);
+            if (auto rv = var->Accept(this); rv.sign == kError) {
+                return false;
+            }
+        }
+        DCHECK(current_ == nullptr);
+        current_ = saved;
+    } else {
+        if (auto rv = var->Accept(this); rv.sign == kError) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool TypeChecker::CheckDuplicatedSymbol(const std::string &pkg_name, const Symbolize *sym,
+                                        FileScope *file_scope) {
+    std::string_view exits_pkg_name;
+    if (file_scope->FindExcludePackageNameOrNull(sym->identifier(), pkg_name, &exits_pkg_name)) {
+        error_feedback_->Printf(FindSourceLocation(sym), "Duplicated symbol '%s', already exist at "
+                                "package %s", sym->identifier()->data(),
+                                exits_pkg_name.data());
+        return false;
+    }
+    return true;
+}
+
 void FileScope::Initialize(const std::map<std::string, std::vector<FileUnit *>> &path_units) {
     for (auto stmt : file_unit()->import_packages()) {
         auto iter = path_units.find(stmt->original_path()->ToString());
@@ -1338,10 +1486,16 @@ void FileScope::Initialize(const std::map<std::string, std::vector<FileUnit *>> 
     all_name_space_.insert(file_unit_->package_name()->ToString());
 }
 
-Symbolize *FileScope::FindOrNull(const ASTString *name) {
-    for (auto full_name : all_name_space_) {
+Symbolize *FileScope::FindExcludePackageNameOrNull(const ASTString *name, std::string_view exclude,
+                                                   std::string_view *exists) {
+    for (const auto &pkg : all_name_space_) {
+        if (exclude.compare(pkg) == 0) {
+            continue;
+        }
+        std::string full_name(pkg);
         full_name.append(".").append(name->ToString());
         if (auto iter = all_symbols_->find(full_name); iter != all_symbols_->end()) {
+            *exists = pkg;
             return iter->second;
         }
     }
@@ -1362,7 +1516,7 @@ Symbolize *FileScope::FindOrNull(const ASTString *prefix, const ASTString *name)
 }
 
 FunctionScope::FunctionScope(ClassDefinition *constructor, AbstractScope **current)
-    : BlockScope(kFunctionScope, kFunctionBlock, constructor, current)
+    : BlockScope(kFunctionScope, constructor, current)
     , function_(nullptr)
     , constructor_(DCHECK_NOTNULL(constructor)) {
     for (auto param : constructor_->parameters()) {

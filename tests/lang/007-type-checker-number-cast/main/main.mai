@@ -24,6 +24,10 @@ class C : B {
 	var j: int
 }
 
+fun foo(): int {
+	return a + h
+}
+
 fun main() {
 	println("$a $b $c $d")
 

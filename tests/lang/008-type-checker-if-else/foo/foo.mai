@@ -1,0 +1,6 @@
+package foo
+
+import main
+
+val a = (100).toI8
+val b = main.a

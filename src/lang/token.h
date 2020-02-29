@@ -105,6 +105,11 @@ using ASTString = base::ArenaString;
     V(Private, "private", none) \
     V(Is, "is", none) \
     V(As, "as", none) \
+    V(If, "if", none) \
+    V(Else, "else", none) \
+    V(While, "while", none) \
+    V(Unless, "unless", none) \
+    V(For, "for", none) \
     V(Return, "return", none) \
     V(Break, "break", none) \
     V(Continue, "continue", none) \

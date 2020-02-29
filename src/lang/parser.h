@@ -21,7 +21,10 @@ class ClassImplementsBlock;
 class TypeSign;
 class StringTemplateExpression;
 class Expression;
+class IfExpression;
 class Statement;
+class StatementBlock;
+class WhileLoop;
 class FunctionPrototype;
 class ArrayInitializer;
 class MapInitializer;
@@ -49,6 +52,8 @@ public:
     ClassDefinition *ParseClassDefinition(bool *ok);
     ClassImplementsBlock *ParseClassImplementsBlock(bool *ok);
     Statement *ParseStatement(bool *ok);
+    StatementBlock *ParseStatementBlock(bool *ok);
+    WhileLoop *ParseWhileLoop(bool *ok);
     Statement *ParseAssignmentOrExpression(bool *ok);
     TypeSign *ParseTypeSign(bool *ok);
     FunctionPrototype *ParseFunctionPrototype(bool requrie_param_name, SourceLocation *loc, bool *ok);
@@ -62,6 +67,7 @@ public:
     MapInitializer *ParseMapInitializer(bool *ok);
     PairExpression *ParsePairExpression(bool *ok);
     LambdaLiteral *ParseLambdaLiteral(bool *ok);
+    IfExpression *ParseIfExpression(bool *ok);
 private:
     void *ParseConstructor(IncompleteClassDefinition *def, bool *ok);
     const ASTString *ParseDotName(SourceLocation *loc, bool *ok);
@@ -75,21 +81,6 @@ private:
     std::unique_ptr<Lexer> lexer_; // Lexer of parser
     Token lookahead_ = Token(Token::kError, {}); // Look a head token
     FileUnit *file_unit_ = nullptr;
-    TypeSign *bool_ = nullptr;
-    TypeSign *i8_ = nullptr;
-    TypeSign *u8_ = nullptr;
-    TypeSign *i16_ = nullptr;
-    TypeSign *u16_ = nullptr;
-    TypeSign *i32_ = nullptr;
-    TypeSign *u32_ = nullptr;
-    TypeSign *int_ = nullptr;
-    TypeSign *uint_ = nullptr;
-    TypeSign *i64_ = nullptr;
-    TypeSign *u64_ = nullptr;
-    TypeSign *f32_ = nullptr;
-    TypeSign *f64_ = nullptr;
-    TypeSign *any_ = nullptr;
-    TypeSign *string_ = nullptr;
 }; // class Parser
 
 

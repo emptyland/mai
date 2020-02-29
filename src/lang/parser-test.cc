@@ -233,7 +233,7 @@ TEST_F(ParserTest, NativeFunctionDeclaration) {
 }
 
 TEST_F(ParserTest, FunctionDefinition) {
-    MockFile file("fun foo(a:int, b:int) = a + b\n");
+    MockFile file("fun foo(a:int, b:int): int { return a + b }\n");
     parser_.SwitchInputFile("demos/demo.mai", &file);
 
     bool ok = true;
@@ -371,7 +371,7 @@ TEST_F(ParserTest, ClassImplementsBlock) {
     MockFile file("implements Foo {\n"
                   "    native fun doIt()\n"
                   "    native fun doThat(a:int): string\n"
-                  "    fun doThis(a:int, b:int) = a + b\n"
+                  "    fun doThis(a:int, b:int): int { return a + b }\n"
                   "}\n");
     parser_.SwitchInputFile("demos/demo.mai", &file);
 
@@ -489,6 +489,103 @@ TEST_F(ParserTest, ChannelRecvSend) {
     ASSERT_STREQ("data", bin->rhs()->AsIdentifier()->name()->data());
 }
 
+TEST_F(ParserTest, IfExpression) {
+    MockFile file("if (ok) 1\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseIfExpression(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_EQ(nullptr, ast->extra_statement());
+    ASSERT_TRUE(ast->condition()->IsIdentifier());
+    ASSERT_STREQ("ok", ast->condition()->AsIdentifier()->name()->data());
+    ASSERT_TRUE(ast->branch_true()->IsIntLiteral());
+    ASSERT_EQ(1, ast->branch_true()->AsIntLiteral()->value());
+    ASSERT_EQ(nullptr, ast->branch_false());
+    
+    MockFile file1("if (val i = 1; ok) 1 else 2\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file1);
+
+    ok = true;
+    ast = parser_.ParseIfExpression(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_NE(nullptr, ast->extra_statement());
+    ASSERT_TRUE(ast->extra_statement()->IsVariableDeclaration());
+    ASSERT_STREQ("i", ast->extra_statement()->AsVariableDeclaration()->identifier()->data());
+    ASSERT_EQ(1, ast->extra_statement()->AsVariableDeclaration()->initializer()->AsIntLiteral()->value());
+    ASSERT_TRUE(ast->branch_true()->IsIntLiteral());
+    ASSERT_EQ(1, ast->branch_true()->AsIntLiteral()->value());
+    ASSERT_TRUE(ast->branch_false()->IsIntLiteral());
+    ASSERT_EQ(2, ast->branch_false()->AsIntLiteral()->value());
 }
 
+TEST_F(ParserTest, IfElseIfExpression) {
+    MockFile file("if (a) 1 else if (b) 2 else if (c) 3 else 4\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseIfExpression(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_EQ(nullptr, ast->extra_statement());
+    ASSERT_TRUE(ast->condition()->IsIdentifier());
+    ASSERT_STREQ("a", ast->condition()->AsIdentifier()->name()->data());
+    ASSERT_TRUE(ast->branch_true()->IsIntLiteral());
+    ASSERT_EQ(1, ast->branch_true()->AsIntLiteral()->value());
+    ASSERT_TRUE(ast->branch_false()->IsIfExpression());
+    
+    ast = ast->branch_false()->AsIfExpression();
+    ASSERT_EQ(nullptr, ast->extra_statement());
+    ASSERT_TRUE(ast->condition()->IsIdentifier());
+    ASSERT_STREQ("b", ast->condition()->AsIdentifier()->name()->data());
+    ASSERT_TRUE(ast->branch_true()->IsIntLiteral());
+    ASSERT_EQ(2, ast->branch_true()->AsIntLiteral()->value());
+    ASSERT_TRUE(ast->branch_false()->IsIfExpression());
+    
+    ast = ast->branch_false()->AsIfExpression();
+    ASSERT_EQ(nullptr, ast->extra_statement());
+    ASSERT_TRUE(ast->condition()->IsIdentifier());
+    ASSERT_STREQ("c", ast->condition()->AsIdentifier()->name()->data());
+    ASSERT_TRUE(ast->branch_true()->IsIntLiteral());
+    ASSERT_EQ(3, ast->branch_true()->AsIntLiteral()->value());
+    ASSERT_TRUE(ast->branch_false()->IsIntLiteral());
+    ASSERT_EQ(4, ast->branch_false()->AsIntLiteral()->value());
 }
+
+TEST_F(ParserTest, WhileLoop) {
+    MockFile file("while (ok) {}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseWhileLoop(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_TRUE(ast->condition()->IsIdentifier());
+    ASSERT_STREQ("ok", ast->condition()->AsIdentifier()->name()->data());
+    ASSERT_EQ(0, ast->statements_size());
+    
+    MockFile file1("unless (ok) {val i = 1}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file1);
+
+    ok = true;
+    ast = parser_.ParseWhileLoop(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_TRUE(ast->condition()->IsUnaryExpression());
+    ASSERT_EQ(Operator::kNot, ast->condition()->AsUnaryExpression()->op().kind);
+    ASSERT_STREQ("ok", ast->condition()->AsUnaryExpression()->operand()->AsIdentifier()->name()->data());
+    ASSERT_EQ(1, ast->statements_size());
+    ASSERT_STREQ("i", ast->statement(0)->AsVariableDeclaration()->identifier()->data());
+    ASSERT_EQ(1, ast->statement(0)->AsVariableDeclaration()->initializer()->AsIntLiteral()->value());
+}
+
+} // namespace lang
+
+} // namespace mai
