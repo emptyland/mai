@@ -37,6 +37,7 @@ fun main() {
 	a += (.. -> 1)
 	a += (.. -> 2)
 	a -= 0
+	var v: int = a[1]
 
 	var b: map[string, int]
 	b += ("1st" -> 1)
@@ -44,5 +45,6 @@ fun main() {
 	b += ("3th" -> 3)
 	b -= "1st"
 
+	v = b["1st"]
 	foo()
 }

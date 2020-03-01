@@ -359,7 +359,7 @@ bool TypeSign::Convertible(TypeSign *rhs) const {
             return id() == rhs->id() && object_ == rhs->object_;
         case Token::kRef:
         case Token::kClass:
-            return clazz()->BaseOf(rhs->clazz());
+            return clazz()->SameOrBaseOf(rhs->clazz());
         case Token::kFun:
             return id() == rhs->id() && prototype()->IsAccept(rhs->prototype());
         case Token::kArray:
@@ -476,9 +476,114 @@ int TypeSign::FindNumberCastHint(std::string_view name) const {
 }
 
 std::string TypeSign::ToString() const {
-    // TODO:
-    TODO();
-    return "";
+    // Token::kIdentifier                -> prefix_, name_
+    // Token::kRef                       -> definition_
+    // Token::kClass                     -> clazz_
+    // Token::kObject                    -> object_
+    // Token::kInterface                 -> interface_
+    // Token::kChannel                   -> parameters_[0]
+    // Token::kArray/Token::MutableArray -> parameters_[0]
+    // Token::kMap/Token::MutableMap     -> parameters_[0], parameters_[1]
+    // Token::kPair                      -> parameters_[0], parameters_[1]
+    // Token::kFun                       -> prototype_
+    switch (static_cast<Token::Kind>(id())) {
+        case Token::kIdentifier:
+            return base::Sprintf("identifier('%s')", ToSymbolString().c_str());
+        case Token::kRef:
+        case Token::kClass:
+            return base::Sprintf("class('%s')", clazz_->identifier()->data());
+        case Token::kObject:
+            return base::Sprintf("object('%s')", object_->identifier()->data());
+        case Token::kInterface:
+            return base::Sprintf("interface('%s')", interface_->identifier()->data());
+        case Token::kChannel:
+            return base::Sprintf("channel[%s]", parameter(0)->ToString().c_str());
+        case Token::kArray:
+            return base::Sprintf("array[%s]", parameter(0)->ToString().c_str());
+        case Token::kMutableArray:
+            return base::Sprintf("mutable_array[%s]", parameter(0)->ToString().c_str());
+        case Token::kMap:
+            return base::Sprintf("map[%s,%s]", parameter(0)->ToString().c_str(),
+                                 parameter(1)->ToString().c_str());
+        case Token::kMutableMap:
+            return base::Sprintf("mutable_map[%s,%s]", parameter(0)->ToString().c_str(),
+                                 parameter(1)->ToString().c_str());
+        case Token::kPair:
+            return base::Sprintf("(%s->%s)", parameter(0)->ToString().c_str(),
+                                 parameter(1)->ToString().c_str());
+        case Token::kFun:
+            return base::Sprintf("fun %s", prototype_->ToString().c_str());
+        case Token::kBool:
+            return "bool";
+        case Token::kI8:
+            return "i8";
+        case Token::kU8:
+            return "u8";
+        case Token::kI16:
+            return "i16";
+        case Token::kU16:
+            return "u16";
+        case Token::kI32:
+            return "i32";
+        case Token::kU32:
+            return "u32";
+        case Token::kInt:
+            return "int";
+        case Token::kUInt:
+            return "uint";
+        case Token::kI64:
+            return "i64";
+        case Token::kU64:
+            return "u64";
+        case Token::kF32:
+            return "f32";
+        case Token::kF64:
+            return "f64";
+        case Token::kAny:
+            return "any";
+        case Token::kString:
+            return "string";
+        case Token::kVoid:
+            return "void";
+        default:
+            NOREACHED();
+            break;
+    }
+    return "TODO";
+}
+
+std::string FunctionPrototype::ToString() const {
+    std::string buf("(");
+    bool need_comma = false;
+    if (owner_) {
+        buf.append("self: ").append(owner_->identifier()->ToString());
+        need_comma = true;
+    }
+    
+    for (auto param : parameters_) {
+        if (need_comma) {
+            buf.append(",");
+        }
+        if (param.name) {
+            buf.append(param.name->ToString()).append(": ");
+        }
+        buf.append(param.type->ToString());
+        need_comma = true;
+    }
+    
+    if (vargs_) {
+        if (need_comma) {
+            buf.append(",");
+        }
+        buf.append("...");
+    }
+    buf.append("): ");
+    if (return_type_) {
+        buf.append(return_type_->ToString());
+    } else {
+        buf.append("[NONE]");
+    }
+    return buf;
 }
 
 ClassDefinition::ClassDefinition(base::Arena *arena,

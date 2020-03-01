@@ -269,6 +269,13 @@ public:
     int FindNumberCastHint(std::string_view name) const;
     
     std::string ToString() const;
+    
+    TypeSign *Clone(base::Arena *arena) const {
+        TypeSign *copied = new (arena) TypeSign(position(), kind_);
+        copied->data_ = data_;
+        copied->name_ = name_;
+        return copied;
+    }
 
     DEFINE_AST_NODE(TypeSign);
 private:
@@ -294,6 +301,7 @@ private:
         ClassDefinition *clazz_;
         base::ArenaVector<TypeSign *> *parameters_;
         FunctionPrototype *prototype_;
+        void *data_;
     };
     const ASTString *name_ = nullptr;
 }; // class TypeLink
@@ -307,6 +315,7 @@ public:
     FunctionPrototype(base::Arena *arena): parameters_(arena) {}
     
     DEF_PTR_PROP_RW(TypeSign, return_type);
+    DEF_PTR_PROP_RW(StructureDefinition, owner);
     DEF_VAL_PROP_RW(bool, vargs);
     DEF_ARENA_VECTOR_GETTER(Parameter, parameter);
     
@@ -334,9 +343,12 @@ public:
         }
         return true;
     }
+    
+    std::string ToString() const;
 private:
     base::ArenaVector<Parameter> parameters_;
     TypeSign *return_type_ = nullptr;
+    StructureDefinition *owner_ = nullptr;
     bool vargs_ = false;
 }; // class FunctionPrototype
 
@@ -494,7 +506,7 @@ class FunctionDefinition : public Definition {
 public:
     enum Type {
         NATIVE,
-        DECLARE,
+        DECLARE, // Only in interface
         LITERAL,
     };
     

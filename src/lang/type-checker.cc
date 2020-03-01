@@ -16,8 +16,6 @@ static inline ASTVisitor::Result ResultWithType(TypeSign *type) {
     return rv;
 }
 
-//std::unordered_set<void *> symbol_track
-
 class SymbolTrackScope {
 public:
     SymbolTrackScope(Symbolize *sym, std::unordered_set<void *> *symbol_track)
@@ -201,6 +199,7 @@ bool TypeChecker::PrepareClassDefinition(FileUnit *unit) {
                 .append("::")
                 .append(method->identifier()->ToString());
             symbols_[full_name] = method;
+            method->prototype()->set_owner(impl->owner());
         }
     }
 
@@ -278,8 +277,8 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
 
 ASTVisitor::Result TypeChecker::VisitTypeSign(TypeSign *ast) /*override*/ {
     if (ast->id() == Token::kIdentifier) {
-        Symbolize *sym = current_->GetFileScope()->FindOrNull(ast->prefix(),
-                                                              ast->name());
+        Symbolize *sym = current_->GetFileScope()->FindOrNull(ast->prefix(), ast->name());
+
         if (auto clazz = sym->AsClassDefinition()) {
             ast->set_id(Token::kClass);
             ast->set_clazz(clazz);
@@ -446,14 +445,14 @@ ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*overr
     } else if (callee->id() == Token::kFun) { // Function
         if (callee->prototype()->vargs()) {
             if (ast->operands_size() < callee->prototype()->parameters_size()) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function calling: %s",
-                                        callee->clazz()->identifier()->data());
+                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function prototype: %s",
+                                        callee->ToString().c_str());
                 return ResultWithType(kError);
             }
         } else {
             if (ast->operands_size() != callee->prototype()->parameters_size()) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function calling: %s",
-                                        callee->clazz()->identifier()->data());
+                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function prototype: %s",
+                                        callee->ToString().c_str());
                 return ResultWithType(kError);
             }
         }
@@ -467,15 +466,16 @@ ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*overr
                 parameter_type = rv.sign;
             }
             if (!parameter_type->Convertible(callee->prototype()->parameter(i).type)) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function calling: %s",
-                                        callee->clazz()->identifier()->data());
+                error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function prototype: "
+                                        " %s at parameter[%ld]", callee->ToString().c_str(), i);
                 return ResultWithType(kError);
             }
         }
         return ResultWithType(callee->prototype()->return_type());
     }
     
-    error_feedback_->Printf(FindSourceLocation(ast), "Incorrect calling type");
+    error_feedback_->Printf(FindSourceLocation(ast), "Incorrect calling type(%s)",
+                            callee->ToString().c_str());
     return ResultWithType(kError);
 }
 
@@ -499,9 +499,40 @@ ASTVisitor::Result TypeChecker::VisitPairExpression(PairExpression *ast) /*overr
     return ResultWithType(new (arena_) TypeSign(arena_, ast->position(), Token::kPair, key, value));
 }
 
-ASTVisitor::Result TypeChecker::VisitIndexExpression(IndexExpression *) /*override*/ {
-    // TODO:
-    TODO();
+ASTVisitor::Result TypeChecker::VisitIndexExpression(IndexExpression *ast) /*override*/ {
+    Result rv = ast->primary()->Accept(this);
+    if (rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    
+    TypeSign *primary = rv.sign;
+    if (rv = ast->index()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    TypeSign *index = rv.sign;
+    switch (static_cast<Token::Kind>(primary->id())) {
+        case Token::kArray:
+        case Token::kMutableArray:
+            if (!index->IsIntegral()) {
+                error_feedback_->Printf(FindSourceLocation(index), "Incorrect type(%s) for array "
+                                        "index, need integral type", index->ToString().c_str());
+                return ResultWithType(kError);
+            }
+            return ResultWithType(primary->parameter(0)->Clone(arena_));
+        case Token::kMap:
+        case Token::kMutableMap:
+            if (!primary->parameter(0)->Convertible(index)) {
+                error_feedback_->Printf(FindSourceLocation(index), "Incorrect type for map "
+                                        "key, %s vs %s", primary->parameter(0)->ToString().c_str(),
+                                        index->ToString().c_str());
+                return ResultWithType(kError);
+            }
+            return ResultWithType(primary->parameter(1)->Clone(arena_));
+        default:
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s) for `[]' operator",
+                                    primary->ToString().c_str());
+            return ResultWithType(kError);
+    }
     return ResultWithType(kError);
 }
 
@@ -514,28 +545,29 @@ ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *ast) /*ove
     switch (ast->op().kind) {
         case Operator::kNot:
             if (operand->id() != Token::kBool) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need bool");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s), need bool",
+                                        operand->ToString().c_str());
                 return ResultWithType(kError);
             }
             break;
         case Operator::kBitwiseNot:
             if (!operand->IsIntegral()) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need integral "
-                                        "type");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s), need integral"
+                                        " type", operand->ToString().c_str());
                 return ResultWithType(kError);
             }
             break;
         case Operator::kMinus:
             if (!operand->IsNumber()) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need number "
-                                        "type");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s), need number "
+                                        "type", operand->ToString().c_str());
                 return ResultWithType(kError);
             }
             break;
         case Operator::kRecv:
             if (operand->id() != Token::kChannel) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need channel "
-                                        "type");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s), need channel "
+                                        " type", operand->ToString().c_str());
                 return ResultWithType(kError);
             }
             return ResultWithType(operand->parameter(0));
@@ -545,8 +577,8 @@ ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *ast) /*ove
                 return ResultWithType(kError);
             }
             if (!operand->IsIntegral()) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need integral "
-                                        "type");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s), need integral"
+                                        " type", operand->ToString().c_str());
                 return ResultWithType(kError);
             }
             break;
@@ -556,8 +588,8 @@ ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *ast) /*ove
                 return ResultWithType(kError);
             }
             if (!operand->IsIntegral()) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need integral "
-                                        "type");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s), need integral"
+                                        " type", operand->ToString().c_str());
                 return ResultWithType(kError);
             }
             break;
@@ -599,7 +631,9 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
         case Operator::kMul:
         case Operator::kDiv:
             if (!lhs->IsNumber() || !lhs->Convertible(rhs)) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need number");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need number;"
+                                        "%s and %s", lhs->ToString().c_str(),
+                                        rhs->ToString().c_str());
                 return ResultWithType(kError);
             }
             break;
@@ -610,7 +644,8 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
         case Operator::kBitwiseXor:
             if (!lhs->IsIntegral() || !lhs->Convertible(rhs)) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need integral "
-                                        "number");
+                                        "number; %s and %s", lhs->ToString().c_str(),
+                                        rhs->ToString().c_str());
                 return ResultWithType(kError);
             }
             break;
@@ -619,18 +654,22 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
         case Operator::kBitwiseShr:
             if (!lhs->IsIntegral() || !rhs->IsIntegral()) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need integral "
-                                        "number");
+                                        "number; %s and %s", lhs->ToString().c_str(),
+                                        rhs->ToString().c_str());
                 return ResultWithType(kError);
             }
             return ResultWithType(lhs);
             
         case Operator::kSend:
             if (lhs->id() != Token::kChannel) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need channel");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s), need channel",
+                                        lhs->ToString().c_str());
                 return ResultWithType(kError);
             }
             if (!lhs->parameter(0)->Convertible(rhs)) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect send type");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect send type, %s vs %s",
+                                        lhs->parameter(0)->ToString().c_str(),
+                                        rhs->ToString().c_str());
                 return ResultWithType(kError);
             }
             return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kBool));
@@ -646,8 +685,8 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
             } else if (lhs->id() == Token::kString && lhs->Convertible(rhs)) {
                 // ok
             } else {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need number or "
-                                        "string");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s), need number "
+                                        "or string", rhs->ToString().c_str());
                 return ResultWithType(kError);
             }
             return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kBool));
@@ -655,7 +694,8 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
         case Operator::kAnd:
         case Operator::kOr:
             if (lhs->id() != Token::kBool || !lhs->Convertible(rhs)) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type, need bool");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s), need bool",
+                                        rhs->ToString().c_str());
                 return ResultWithType(kError);
             }
             break;
@@ -682,7 +722,7 @@ ASTVisitor::Result TypeChecker::VisitTypeCastExpression(TypeCastExpression *ast)
         error_feedback_->Printf(FindSourceLocation(ast), "Impossible casting");
         return ResultWithType(kError);
     }
-    return ResultWithType(ast->type());
+    return ResultWithType(ast->type()->Clone(arena_));
 }
 
 ASTVisitor::Result TypeChecker::VisitTypeTestExpression(TypeTestExpression *ast) /*override*/ {
@@ -702,7 +742,8 @@ ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*o
         } else {
             if (!rv.sign->IsIntegral()) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect array constructor "
-                                        "parameter[0] type, need integral number");
+                                        "parameter[0] type(%s), need integral number",
+                                        rv.sign->ToString().c_str());
                 return ResultWithType(kError);
             }
         }
@@ -732,7 +773,9 @@ ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*o
     
     if (ast->element_type()) {
         if (!ast->element_type()->Convertible(defined_element_type)) {
-            error_feedback_->Printf(FindSourceLocation(ast), "Attempt unconvertible element type");
+            error_feedback_->Printf(FindSourceLocation(ast), "Attempt unconvertible element type, "
+                                    "%s vs %s", ast->element_type()->ToString().c_str(),
+                                    defined_element_type->ToString().c_str());
             return ResultWithType(kError);
         }
     } else {
@@ -753,7 +796,8 @@ ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*overr
         }
         if (!rv.sign->IsIntegral()) {
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map constructor "
-                                    "parameter[0] type, need integral number");
+                                    "parameter[0] type(%s), need integral number",
+                                    rv.sign->ToString().c_str());
             return ResultWithType(kError);
         }
         
@@ -763,7 +807,8 @@ ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*overr
             }
             if (!rv.sign->IsFloating()) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map constructor "
-                                        "parameter[1] type, need floating number");
+                                        "parameter[1] type(%s), need floating number",
+                                        rv.sign->ToString().c_str());
                 return ResultWithType(kError);
             }
         }
@@ -809,7 +854,9 @@ ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*overr
     
     if (ast->key_type()) {
         if (!ast->key_type()->Convertible(defined_key_type)) {
-            error_feedback_->Printf(FindSourceLocation(ast), "Attempt unconvertible key type");
+            error_feedback_->Printf(FindSourceLocation(ast), "Attempt unconvertible key type, "
+                                    "%s vs %s", ast->key_type()->ToString().c_str(),
+                                    defined_key_type->ToString().c_str());
             return ResultWithType(kError);
         }
     } else {
@@ -817,7 +864,9 @@ ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*overr
     }
     if (ast->value_type()) {
         if (!ast->value_type()->Convertible(defined_value_type)) {
-            error_feedback_->Printf(FindSourceLocation(ast), "Attempt unconvertible value type");
+            error_feedback_->Printf(FindSourceLocation(ast), "Attempt unconvertible value type, "
+                                    "%s vs %s", ast->value_type()->ToString().c_str(),
+                                    defined_key_type->ToString().c_str());
             return ResultWithType(kError);
         }
     } else {
@@ -869,8 +918,11 @@ ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *ast)
                 }
             }
 
-            if (!scope->function()->prototype()->return_type()->Convertible(ret_type)) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Unconvertible return type");
+            TypeSign *decl_type = scope->function()->prototype()->return_type();
+            if (!decl_type->Convertible(ret_type)) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Unconvertible return type, "
+                                        "%s vs %s", decl_type->ToString().c_str(),
+                                        ret_type->ToString().c_str());
                 return ResultWithType(kError);
             }
             
@@ -1009,7 +1061,7 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
             NOREACHED();
             break;
     }
-    
+
     if (!HasSymbolChecked(sym) && !CheckSymbolDependence(sym)) {
         return ResultWithType(kError);
     }
@@ -1029,7 +1081,7 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
         return ResultWithType(type);
     }
     DCHECK(sym->IsVariableDeclaration());
-    return ResultWithType(DCHECK_NOTNULL(sym->AsVariableDeclaration()->type()));
+    return ResultWithType(DCHECK_NOTNULL(sym->AsVariableDeclaration()->type())->Clone(arena_));
 }
 
 ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
@@ -1041,7 +1093,7 @@ ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
                 return ResultWithType(kError);
             }
             if (auto decl = sym->AsVariableDeclaration()) {
-                return ResultWithType(DCHECK_NOTNULL(decl->type()));
+                return ResultWithType(DCHECK_NOTNULL(decl->type())->Clone(arena_));
             } else if (auto object = sym->AsObjectDefinition()) {
                 return ResultWithType(new (arena_) TypeSign(ast->position(), object));
             } else {
@@ -1334,7 +1386,7 @@ ASTVisitor::Result TypeChecker::CheckClassOrObjectFieldAccess(TypeSign *type, Do
                     return ResultWithType(kError);
                 }
             }
-            return ResultWithType(DCHECK_NOTNULL(field->declaration->type()));
+            return ResultWithType(DCHECK_NOTNULL(field->declaration->type())->Clone(arena_));
         }
         
         auto method = std::get<1>(clazz->ResolveMethod(ast->rhs()->ToSlice()));
@@ -1358,7 +1410,7 @@ ASTVisitor::Result TypeChecker::CheckClassOrObjectFieldAccess(TypeSign *type, Do
 ASTVisitor::Result TypeChecker::CheckObjectFieldAccess(ObjectDefinition *object,
                                                        DotExpression *ast) {
     if (auto field = object->FindFieldOrNull(ast->rhs()->ToSlice())) {
-        return ResultWithType(DCHECK_NOTNULL(field->declaration->type()));
+        return ResultWithType(DCHECK_NOTNULL(field->declaration->type())->Clone(arena_));
     }
     
     auto method = object->FindMethodOrNull(ast->rhs()->ToSlice());
