@@ -184,6 +184,18 @@ TEST_F(TypeCheckerTest, InterfaceSanity) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_TRUE(checker_.Prepare());
     ASSERT_TRUE(checker_.Check());
+    
+    auto sym = checker_.FindSymbolOrNull("main.Foo::doIt");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_TRUE(sym->IsFunctionDefinition());
+    
+    sym = checker_.FindSymbolOrNull("main.Foo::doThat");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_TRUE(sym->IsFunctionDefinition());
+    
+    sym = checker_.FindSymbolOrNull("main.Foo::doThis");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_TRUE(sym->IsFunctionDefinition());
 }
 
 TEST_F(TypeCheckerTest, Expressions) {
@@ -269,6 +281,15 @@ TEST_F(TypeCheckerTest, IfElseExpression) {
     sym = checker_.FindSymbolOrNull("foo.a");
     ASSERT_NE(nullptr, sym);
     ASSERT_EQ(Token::kI8, sym->AsVariableDeclaration()->type()->id());
+}
+
+TEST_F(TypeCheckerTest, WhileLoop) {
+    auto rs = Parse("tests/lang/009-type-checker-while-loop");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_TRUE(checker_.Prepare());
+    ASSERT_TRUE(checker_.Check());
+    
+    
 }
 
 } // namespace lang

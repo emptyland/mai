@@ -16,9 +16,11 @@ fun main() {
 }
 
 fun foo(): int {
-	return a + b
+	return a + b + foo()
 }
 
-// fun println() {
-	
-// }
+fun bar() {
+	val a = 1
+	val b = 2
+	fun foo(): int { return a + b + foo() }
+}

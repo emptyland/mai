@@ -7,12 +7,39 @@ namespace mai {
 
 namespace lang {
 
+namespace {
+
 static inline ASTVisitor::Result ResultWithType(TypeSign *type) {
     ASTVisitor::Result rv;
     rv.kind = 0;
     rv.sign = type;
     return rv;
 }
+
+//std::unordered_set<void *> symbol_track
+
+class SymbolTrackScope {
+public:
+    SymbolTrackScope(Symbolize *sym, std::unordered_set<void *> *symbol_track)
+        : symbol_(sym)
+        , symbol_track_(symbol_track)
+        , has_tracked_(symbol_track_->find(sym) != symbol_track_->end()) {
+        if (!has_tracked_) { symbol_track_->insert(symbol_); }
+    }
+    
+    ~SymbolTrackScope() {
+        if (!has_tracked_) { symbol_track_->erase(symbol_); }
+    }
+
+    DEF_VAL_GETTER(bool, has_tracked);
+    
+private:
+    Symbolize *symbol_;
+    std::unordered_set<void *> *symbol_track_;
+    bool has_tracked_;
+}; // class SymbolTrackScope
+
+} // namespace
 
 TypeChecker::TypeChecker(base::Arena *arena, SyntaxFeedback *feedback)
     : arena_(arena)
@@ -87,9 +114,7 @@ bool TypeChecker::Prepare() {
                     continue;
                 }
                 symbols_[name] = decl;
-                if (decl->IsVariableDeclaration()) {
-                    decl->AsVariableDeclaration()->set_file_unit(unit);
-                }
+                decl->set_file_unit(unit);
             }
             
             for (auto def : unit->definitions()) {
@@ -118,6 +143,7 @@ bool TypeChecker::Prepare() {
                     }
                     symbols_[name] = def;
                 }
+                def->set_file_unit(unit);
             }
         }
     }
@@ -168,6 +194,14 @@ bool TypeChecker::PrepareClassDefinition(FileUnit *unit) {
                                     impl->ToSymbolString().c_str());
             return false;
         }
+        
+        for (auto method : impl->methods()) {
+            std::string full_name =
+                (impl->ToSymbolString(!impl->prefix() ? unit->package_name() : impl->prefix()))
+                .append("::")
+                .append(method->identifier()->ToString());
+            symbols_[full_name] = method;
+        }
     }
 
     for (auto def : unit->definitions()) {
@@ -214,6 +248,9 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
         if (!CheckDuplicatedSymbol(pkg_name, decl, &file_scope)) {
             return false;
         }
+        if (HasSymbolChecked(decl)) {
+            continue;
+        }
         if (auto rv = decl->Accept(this); rv.sign == kError) {
             return false;
         }
@@ -222,6 +259,9 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
     for (auto def : unit->definitions()) {
         if (!CheckDuplicatedSymbol(pkg_name, def, &file_scope)) {
             return false;
+        }
+        if (HasSymbolChecked(def)) {
+            continue;
         }
         if (auto rv = def->Accept(this); rv.sign == kError) {
             return false;
@@ -501,7 +541,7 @@ ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *ast) /*ove
             return ResultWithType(operand->parameter(0));
         case Operator::kIncrement:
         case Operator::kIncrementPost:
-            if (!CheckModifitionAccess(ast)) {
+            if (!CheckModifitionAccess(ast->operand())) {
                 return ResultWithType(kError);
             }
             if (!operand->IsIntegral()) {
@@ -512,7 +552,7 @@ ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *ast) /*ove
             break;
         case Operator::kDecrement:
         case Operator::kDecrementPost:
-            if (!CheckModifitionAccess(ast)) {
+            if (!CheckModifitionAccess(ast->operand())) {
                 return ResultWithType(kError);
             }
             if (!operand->IsIntegral()) {
@@ -905,12 +945,19 @@ ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *as
         return ResultWithType(kError);
     }
 
+    SymbolTrackScope track_scope(ast, &symbol_track_);
+    if (track_scope.has_tracked()) {
+        error_feedback_->Printf(FindSourceLocation(ast), "Dependence circle reference: %s",
+                                ast->identifier()->data());
+        return ResultWithType(kError);
+    }
+
     if (ast->type() && ast->type()->id() == Token::kIdentifier) {
         if (auto rv = ast->type()->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
         }
     }
-    
+
     if (ast->initializer()) {
         auto rv = ast->initializer()->Accept(this);
         if (rv.sign == kError) {
@@ -930,6 +977,7 @@ ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *as
             }
         }
     }
+    symbol_trace_.insert(ast);
     return ResultWithType(kVoid);
 }
 
@@ -953,10 +1001,17 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
             ast->set_scope(scope->GetFunctionScope()->function());
             break;
         case AbstractScope::kPlainBlockScope:
-            // TODO:
+        case AbstractScope::kIfBlockScope:
+        case AbstractScope::kLoopBlockScope:
+            ast->set_scope(down_cast<BlockScope>(scope)->stmt());
+            break;
         default:
             NOREACHED();
             break;
+    }
+    
+    if (!HasSymbolChecked(sym) && !CheckSymbolDependence(sym)) {
+        return ResultWithType(kError);
     }
 
     if (sym->IsClassDefinition()) {
@@ -973,11 +1028,8 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
                                                sym->AsFunctionDefinition()->prototype());
         return ResultWithType(type);
     }
-    VariableDeclaration *var = DCHECK_NOTNULL(sym->AsVariableDeclaration());
-    if (!var->type() && !CheckVariableDependence(var)) {
-        return ResultWithType(kError);
-    }
-    return ResultWithType(DCHECK_NOTNULL(var->type()));
+    DCHECK(sym->IsVariableDeclaration());
+    return ResultWithType(DCHECK_NOTNULL(sym->AsVariableDeclaration()->type()));
 }
 
 ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
@@ -985,10 +1037,10 @@ ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
         FileScope *file_scope = current_->GetFileScope();
         Symbolize *sym = file_scope->FindOrNull(id->name(), ast->rhs());
         if (sym) {
+            if (!HasSymbolChecked(sym) && !CheckSymbolDependence(sym)) {
+                return ResultWithType(kError);
+            }
             if (auto decl = sym->AsVariableDeclaration()) {
-                if (!decl->type() && !CheckVariableDependence(decl)) {
-                    return ResultWithType(kError);
-                }
                 return ResultWithType(DCHECK_NOTNULL(decl->type()));
             } else if (auto object = sym->AsObjectDefinition()) {
                 return ResultWithType(new (arena_) TypeSign(ast->position(), object));
@@ -1001,10 +1053,10 @@ ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
         DCHECK(sym == nullptr);
         sym = std::get<1>(current_->Resolve(id->name()));
         if (sym) {
+            if (!HasSymbolChecked(sym) && !CheckSymbolDependence(sym)) {
+                return ResultWithType(kError);
+            }
             if (auto decl = sym->AsVariableDeclaration()) {
-                if (!decl->type() && !CheckVariableDependence(decl)) {
-                    return ResultWithType(kError);
-                }
                 return CheckDotExpression(DCHECK_NOTNULL(decl->type()), ast);
             } else if (auto object = sym->AsObjectDefinition()) {
                 return CheckObjectFieldAccess(object, ast);
@@ -1041,10 +1093,18 @@ ASTVisitor::Result TypeChecker::VisitObjectDefinition(ObjectDefinition *ast) /*o
             return ResultWithType(kError);
         }
     }
+    symbol_trace_.insert(ast);
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::VisitClassDefinition(ClassDefinition *ast) /*override*/ {
+    SymbolTrackScope track_scope(ast, &symbol_track_);
+    if (track_scope.has_tracked()) {
+        error_feedback_->Printf(FindSourceLocation(ast), "Dependence circle reference: %s",
+                                ast->identifier()->data());
+        return ResultWithType(kError);
+    }
+
     for (auto param : ast->parameters()) {
         if (param.field_declaration) {
             continue;
@@ -1085,10 +1145,16 @@ ASTVisitor::Result TypeChecker::VisitClassDefinition(ClassDefinition *ast) /*ove
             }
         }
     }
+    symbol_trace_.insert(ast);
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::VisitFunctionDefinition(FunctionDefinition *ast) /*override*/ {
+    SymbolTrackScope track_scope(ast, &symbol_track_);
+    if (track_scope.has_tracked()) {
+        return ResultWithType(kVoid); // Recursive calling
+    }
+    
     for (size_t i = 0; i < ast->prototype()->parameters_size(); i++) {
         auto param = &ast->prototype()->mutable_parameters()->at(i);
         if (param->type->id() == Token::kIdentifier) {
@@ -1110,6 +1176,7 @@ ASTVisitor::Result TypeChecker::VisitFunctionDefinition(FunctionDefinition *ast)
     if (auto rv = ast->body()->Accept(this); rv.sign == kError) {
         return ResultWithType(kError);
     }
+    symbol_trace_.insert(ast);
     return ResultWithType(kVoid);
 }
 
@@ -1117,6 +1184,9 @@ ASTVisitor::Result TypeChecker::VisitClassImplementsBlock(ClassImplementsBlock *
     ClassScope class_scope(ast->owner(), &current_);
 
     for (auto method : ast->methods()) {
+        if (HasSymbolChecked(method)) {
+            continue;
+        }
         if (auto rv = method->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
         }
@@ -1125,6 +1195,8 @@ ASTVisitor::Result TypeChecker::VisitClassImplementsBlock(ClassImplementsBlock *
 }
 
 ASTVisitor::Result TypeChecker::VisitWhileLoop(WhileLoop *ast) /*override*/ {
+    BlockScope block_scope(AbstractScope::kLoopBlockScope, ast, &current_);
+
     Result rv = ast->condition()->Accept(this);
     if (rv.sign == kError) {
         return ResultWithType(kError);
@@ -1134,8 +1206,7 @@ ASTVisitor::Result TypeChecker::VisitWhileLoop(WhileLoop *ast) /*override*/ {
                                 "need bool");
         return ResultWithType(kError);
     }
-    
-    BlockScope block_scope(AbstractScope::kLoopBlockScope, ast, &current_);
+
     for (auto stmt : ast->statements()) {
         if (auto rv = stmt->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
@@ -1310,7 +1381,8 @@ bool TypeChecker::CheckModifitionAccess(ASTNode *ast) {
                 return false;
             }
             if (sym->AsVariableDeclaration()->kind() != VariableDeclaration::VAR) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Val can not be assign");
+                error_feedback_->Printf(FindSourceLocation(ast), "Attempt modify val variable: %s",
+                                        sym->identifier()->data());
                 return false;
             }
         } break;
@@ -1435,20 +1507,21 @@ bool TypeChecker::CheckSubExpression(ASTNode *ast, TypeSign *lval, TypeSign *rva
     return true;
 }
 
-bool TypeChecker::CheckVariableDependence(VariableDeclaration *var) {
-    if (var->file_unit() && current_->GetFileScope()->file_unit() != var->file_unit()) {
+bool TypeChecker::CheckSymbolDependence(Symbolize *sym) {
+    if (sym->file_unit() && current_->GetFileScope()->file_unit() != sym->file_unit()) {
         auto saved = current_;
         current_ = nullptr;
         {
-            FileScope file_scope(&symbols_, var->file_unit(), &current_);
-            if (auto rv = var->Accept(this); rv.sign == kError) {
+            FileScope file_scope(&symbols_, sym->file_unit(), &current_);
+            file_scope.Initialize(path_units_);
+            if (auto rv = sym->Accept(this); rv.sign == kError) {
                 return false;
             }
         }
         DCHECK(current_ == nullptr);
         current_ = saved;
     } else {
-        if (auto rv = var->Accept(this); rv.sign == kError) {
+        if (auto rv = sym->Accept(this); rv.sign == kError) {
             return false;
         }
     }

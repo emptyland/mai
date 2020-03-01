@@ -6,6 +6,7 @@
 #include "lang/syntax.h"
 #include <map>
 #include <set>
+#include <unordered_set>
 
 namespace mai {
 
@@ -30,7 +31,24 @@ public:
                            const std::vector<FileUnit *> &file_units, SourceFileResolve *resolve);
     bool Prepare();
     bool Check();
-
+    
+    std::vector<FileUnit *> FindPathUnits(const std::string &path) const {
+        auto iter = path_units_.find(path);
+        return iter == path_units_.end() ? std::vector<FileUnit *>{} : iter->second;
+    }
+    
+    std::vector<FileUnit *> FindPackageUnits(const std::string &pkg) const {
+        auto iter = pkg_units_.find(pkg);
+        return iter == pkg_units_.end() ? std::vector<FileUnit *>{} : iter->second;
+    }
+    
+    Symbolize *FindSymbolOrNull(const std::string &name) const {
+        auto iter = symbols_.find(name);
+        return iter == symbols_.end() ? nullptr : iter->second;
+    }
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(TypeChecker);
+private:
     Result VisitTypeSign(TypeSign *) override;
     Result VisitBoolLiteral(BoolLiteral *) override;
     Result VisitI8Literal(I8Literal *) override;
@@ -71,24 +89,7 @@ public:
     Result VisitWhileLoop(WhileLoop *) override;
     Result VisitIfExpression(IfExpression *) override;
     Result VisitStatementBlock(StatementBlock *) override;
-    
-    std::vector<FileUnit *> FindPathUnits(const std::string &path) const {
-        auto iter = path_units_.find(path);
-        return iter == path_units_.end() ? std::vector<FileUnit *>{} : iter->second;
-    }
-    
-    std::vector<FileUnit *> FindPackageUnits(const std::string &pkg) const {
-        auto iter = pkg_units_.find(pkg);
-        return iter == pkg_units_.end() ? std::vector<FileUnit *>{} : iter->second;
-    }
-    
-    Symbolize *FindSymbolOrNull(const std::string &name) const {
-        auto iter = symbols_.find(name);
-        return iter == symbols_.end() ? nullptr : iter->second;
-    }
-    
-    DISALLOW_IMPLICIT_CONSTRUCTORS(TypeChecker);
-private:
+
     bool PrepareClassDefinition(FileUnit *unit);
     bool CheckFileUnit(const std::string &pkg_name, FileUnit *unit);
     
@@ -98,11 +99,15 @@ private:
     bool CheckModifitionAccess(ASTNode *ast);
     bool CheckAddExpression(ASTNode *ast, TypeSign *lhs, TypeSign *rhs);
     bool CheckSubExpression(ASTNode *ast, TypeSign *lhs, TypeSign *rhs);
-    bool CheckVariableDependence(VariableDeclaration *var);
+    bool CheckSymbolDependence(Symbolize *sym);
     bool CheckDuplicatedSymbol(const std::string &pkg_name, const Symbolize *sym,
                                FileScope *file_scope);
     
     inline SourceLocation FindSourceLocation(const ASTNode *ast);
+    
+    bool HasSymbolChecked(Symbolize *sym) const {
+        return symbol_trace_.find(sym) != symbol_trace_.end();
+    }
     
     base::Arena *arena_;
     SyntaxFeedback *error_feedback_;
@@ -115,6 +120,8 @@ private:
     std::map<std::string, std::vector<FileUnit *>> path_units_;
     std::map<std::string, std::vector<FileUnit *>> pkg_units_;
     std::map<std::string, Symbolize *> symbols_;
+    std::unordered_set<void *> symbol_trace_;
+    std::unordered_set<void *> symbol_track_;
 }; // class TypeChecker
 
 class AbstractScope {
@@ -235,6 +242,8 @@ public:
         : AbstractScope(kind, current)
         , stmt_(stmt) {
     }
+    
+    DEF_PTR_GETTER(Statement, stmt);
 
     Symbolize *FindOrNull(const ASTString *name) override {
         auto iter = locals_.find(name->ToSlice());

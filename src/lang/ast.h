@@ -434,8 +434,10 @@ public:
         , identifier_(identifier) {}
     
     DEF_PTR_GETTER(const ASTString, identifier);
+    DEF_PTR_PROP_RW(FileUnit, file_unit);
 protected:
     const ASTString *identifier_;
+    FileUnit *file_unit_ = nullptr; // Only for global symbol
 }; // class Symbolize
 
 
@@ -479,14 +481,12 @@ public:
     DEF_VAL_GETTER(Kind, kind);
     DEF_PTR_PROP_RW(TypeSign, type);
     DEF_PTR_PROP_RW(Expression, initializer);
-    DEF_PTR_PROP_RW(FileUnit, file_unit);
     
     DEFINE_AST_NODE(VariableDeclaration);
 private:
     Kind kind_;
     TypeSign *type_;
     Expression *initializer_;
-    FileUnit *file_unit_ = nullptr;
 }; // class VariableDeclaration
 
 
@@ -745,9 +745,11 @@ public:
     DEF_PTR_PROP_RW(StructureDefinition, owner);
     DEF_ARENA_VECTOR_GETTER(FunctionDefinition *, method);
     
-    std::string ToSymbolString() const {
-        std::string buf(!prefix_ ? "" : prefix_->ToString());
-        if (prefix_) {
+    std::string ToSymbolString() const { return ToSymbolString(prefix_); }
+    
+    std::string ToSymbolString(const ASTString *prefix) const {
+        std::string buf(!prefix ? "" : prefix->ToString());
+        if (prefix) {
             buf.append(1, '.');
         }
         return buf.append(name_->ToString());
