@@ -138,7 +138,7 @@ TEST_F(TypeCheckerTest, TypeNameResolve) {
     
     auto var = sym->AsVariableDeclaration();
     ASSERT_NE(nullptr, var);
-    ASSERT_EQ(Token::kClass, var->type()->id());
+    ASSERT_EQ(Token::kRef, var->type()->id());
     
     auto clazz = var->type()->clazz();
     ASSERT_NE(nullptr, clazz);
@@ -290,6 +290,18 @@ TEST_F(TypeCheckerTest, WhileLoop) {
     ASSERT_TRUE(checker_.Check());
     
     
+}
+
+TEST_F(TypeCheckerTest, TryCatchFinally) {
+    auto rs = Parse("tests/lang/010-type-checker-try-catch-finally");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_TRUE(checker_.Prepare());
+    ASSERT_TRUE(checker_.Check());
+    
+    auto sym = checker_.FindSymbolOrNull("main.MyException");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_TRUE(sym->IsClassDefinition());
+    ASSERT_STREQ("Exception", sym->AsClassDefinition()->base()->identifier()->data());
 }
 
 } // namespace lang

@@ -5,7 +5,7 @@ class Any {}
 class Exception(
 	val message: string,
 	val cause: Exception
-) {}
+)
 
 
 implements Any {

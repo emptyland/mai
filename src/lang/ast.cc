@@ -350,25 +350,27 @@ bool TypeSign::Convertible(TypeSign *rhs) const {
         case Token::kIdentifier:
             return id() == rhs->id() && ToSymbolString() == rhs->ToSymbolString();
         case Token::kInterface:
-            if (id() == rhs->id() && interface_ == rhs->interface_) {
+            if ((id() == rhs->id() && interface_ == rhs->interface_) || rhs->id() == Token::kNil) {
                 return true;
             }
             return (rhs->id() == Token::kObject || rhs->id() == Token::kRef) &&
                    interface_->HasImplement(rhs->structure());
         case Token::kObject:
-            return id() == rhs->id() && object_ == rhs->object_;
+            return (id() == rhs->id() && object_ == rhs->object_) || rhs->id() == Token::kNil;
         case Token::kRef:
         case Token::kClass:
-            return clazz()->SameOrBaseOf(rhs->clazz());
+            return clazz()->SameOrBaseOf(rhs->clazz()) || rhs->id() == Token::kNil;
         case Token::kFun:
-            return id() == rhs->id() && prototype()->IsAccept(rhs->prototype());
+            return (id() == rhs->id() && prototype()->IsAccept(rhs->prototype())) ||
+                   rhs->id() == Token::kNil;
         case Token::kArray:
         case Token::kMutableArray:
-            return rhs->id() == id() && parameter(0)->Convertible(rhs->parameter(0));
+            return (rhs->id() == id() && parameter(0)->Convertible(rhs->parameter(0))) ||
+                   rhs->id() == Token::kNil;
         case Token::kMap:
         case Token::kMutableMap:
-            return rhs->id() == id() && parameter(0)->Convertible(rhs->parameter(0)) &&
-                   parameter(1)->Convertible(rhs->parameter(1));
+            return (rhs->id() == id() && parameter(0)->Convertible(rhs->parameter(0)) &&
+                   parameter(1)->Convertible(rhs->parameter(1))) || rhs->id() == Token::kNil;
         case Token::kInt:
             return rhs->id() == Token::kInt || rhs->id() == Token::kI32;
         case Token::kUInt:
@@ -490,6 +492,7 @@ std::string TypeSign::ToString() const {
         case Token::kIdentifier:
             return base::Sprintf("identifier('%s')", ToSymbolString().c_str());
         case Token::kRef:
+            return base::Sprintf("udo('%s')", clazz_->identifier()->data());
         case Token::kClass:
             return base::Sprintf("class('%s')", clazz_->identifier()->data());
         case Token::kObject:
@@ -513,6 +516,8 @@ std::string TypeSign::ToString() const {
                                  parameter(1)->ToString().c_str());
         case Token::kFun:
             return base::Sprintf("fun %s", prototype_->ToString().c_str());
+        case Token::kNil:
+            return "nil";
         case Token::kBool:
             return "bool";
         case Token::kI8:
@@ -618,6 +623,17 @@ int ClassDefinition::MakeParameterLookupTable() {
         named_parameters_[name->ToSlice()] = i;
     }
     return 0;
+}
+
+TryCatchFinallyBlock::TryCatchFinallyBlock(int position,
+                                           base::ArenaVector<Statement *> &&try_statements,
+                                           base::ArenaVector<CatchBlock *> &&catch_blocks,
+                                           base::ArenaVector<Statement *> &&finally_statements)
+    : Statement(position, kTryCatchFinallyBlock)
+    , try_statements_(std::move(try_statements))
+    , catch_blocks_(std::move(catch_blocks))
+    , finally_statements_(std::move(finally_statements)) {
+    for (auto block : catch_blocks_) { block->set_owner(this); }
 }
 
 } // namespace lang

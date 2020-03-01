@@ -24,6 +24,7 @@ class Expression;
 class IfExpression;
 class Statement;
 class StatementBlock;
+class TryCatchFinallyBlock;
 class WhileLoop;
 class FunctionPrototype;
 class ArrayInitializer;
@@ -68,6 +69,7 @@ public:
     PairExpression *ParsePairExpression(bool *ok);
     LambdaLiteral *ParseLambdaLiteral(bool *ok);
     IfExpression *ParseIfExpression(bool *ok);
+    TryCatchFinallyBlock *ParseTryCatchFinallyBlock(bool *ok);
 private:
     void *ParseConstructor(IncompleteClassDefinition *def, bool *ok);
     const ASTString *ParseDotName(SourceLocation *loc, bool *ok);

@@ -586,6 +586,28 @@ TEST_F(ParserTest, WhileLoop) {
     ASSERT_EQ(1, ast->statement(0)->AsVariableDeclaration()->initializer()->AsIntLiteral()->value());
 }
 
+TEST_F(ParserTest, TryCatchFinallyBlock) {
+    MockFile file("try {\n"
+                  "    throw a\n"
+                  "} catch(e: Exception) {\n"
+                  "    e.printStackstrace()\n"
+                  "} catch(e: Error) {\n"
+                  "    e.printStackstrace()\n"
+                  "} finally {\n"
+                  "    clean()"
+                  "}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseTryCatchFinallyBlock(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_EQ(1, ast->try_statements_size());
+    ASSERT_EQ(2, ast->catch_blocks_size());
+    ASSERT_EQ(1, ast->finally_statements_size());
+}
+
 } // namespace lang
 
 } // namespace mai

@@ -894,9 +894,28 @@ ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *ast)
                 return ResultWithType(kError);
             }
         } break;
-        case BreakableStatement::THROW:
-            TODO(); // TODO
-            break;
+        case BreakableStatement::THROW: {
+            Result rv = ast->value()->Accept(this);
+            if (rv.sign == kError) {
+                return ResultWithType(kError);
+            }
+            TypeSign *expect = rv.sign;
+            if (expect->id() != Token::kRef) {
+                error_feedback_->Printf(FindSourceLocation(ast->value()), "Incorrect throw "
+                                        "type(%s)", expect->ToString().c_str());
+                return ResultWithType(kError);
+            }
+            if (!expect->clazz()->SameOrBaseOf(class_exception_)) {
+                error_feedback_->Printf(FindSourceLocation(ast->value()), "Incorrect throw "
+                                        "type(%s), need base of Expected class",
+                                        expect->ToString().c_str());
+                return ResultWithType(kError);
+            }
+            if (current_->MarkBroke() > 0) {
+                error_feedback_->Printf(FindSourceLocation(ast), "Useless throw statement");
+                return ResultWithType(kError);
+            }
+        } break;
         case BreakableStatement::RETURN: {
             FunctionScope *scope = current_->GetFunctionScope();
             if (!scope) {
@@ -1028,6 +1047,10 @@ ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *as
                 return ResultWithType(kError);
             }
         }
+    }
+
+    if (ast->type()->id() == Token::kClass) {
+        ast->type()->set_id(Token::kRef);
     }
     symbol_trace_.insert(ast);
     return ResultWithType(kVoid);
@@ -1315,6 +1338,49 @@ ASTVisitor::Result TypeChecker::VisitIfExpression(IfExpression *ast) /*override*
 ASTVisitor::Result TypeChecker::VisitStatementBlock(StatementBlock *ast) /*override*/ {
     BlockScope block_scope(AbstractScope::kPlainBlockScope, ast, &current_);
     for (auto stmt : ast->statements()) {
+        if (auto rv = stmt->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
+    return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::VisitTryCatchFinallyBlock(TryCatchFinallyBlock *ast) /*override*/ {
+    {
+        BlockScope block_scope(AbstractScope::kPlainBlockScope, ast, &current_);
+        for (auto stmt : ast->try_statements()) {
+            if (auto rv = stmt->Accept(this); rv.sign == kError) {
+                return ResultWithType(kError);
+            }
+        }
+    }
+    for (auto block : ast->catch_blocks()) {
+        BlockScope block_scope(AbstractScope::kPlainBlockScope, ast, &current_);
+        if (auto rv = block->expected_declaration()->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+        TypeSign *expect = block->expected_declaration()->type();
+        if (expect->id() != Token::kRef) {
+            error_feedback_->Printf(FindSourceLocation(block->expected_declaration()), "Incorrect "
+                                    "catch block expected type(%s)", expect->ToString().c_str());
+            return ResultWithType(kError);
+        }
+        if (!expect->clazz()->SameOrBaseOf(class_exception_)) {
+            error_feedback_->Printf(FindSourceLocation(block->expected_declaration()), "Incorrect "
+                                    "catch block expected type(%s), need base of Expected class",
+                                    expect->ToString().c_str());
+            return ResultWithType(kError);
+        }
+
+        for (auto stmt : block->statements()) {
+            if (auto rv = stmt->Accept(this); rv.sign == kError) {
+                return ResultWithType(kError);
+            }
+        }
+    }
+    
+    BlockScope block_scope(AbstractScope::kPlainBlockScope, ast, &current_);
+    for (auto stmt : ast->finally_statements()) {
         if (auto rv = stmt->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
         }

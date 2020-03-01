@@ -306,37 +306,38 @@ ClassDefinition *Parser::ParseClassDefinition(bool *ok) {
         }
     }
 
-    incomplete.access = ClassDefinition::kPublic;
-    Match(Token::kLBrace, CHECK_OK);
-    loc.LinkEnd(Peek().source_location());
-    while (!Test(Token::kRBrace)) {
-        switch (Peek().kind()) {
-            case Token::kPublic:
-                incomplete.access = ClassDefinition::kPublic;
-                break;
-            case Token::kProtected:
-                incomplete.access = ClassDefinition::kProtected;
-                break;
-            case Token::kPrivate:
-                incomplete.access = ClassDefinition::kPrivate;
-                break;
-            case Token::kVal:
-            case Token::kVar: {
-                ClassDefinition::Field field;
-                field.access = incomplete.access;
-                field.as_constructor = -1;
-                field.in_constructor = false;
-                field.declaration = ParseVariableDeclaration(CHECK_OK);
-                incomplete.fields.push_back(field);
-            } break;
-            default:
-                error_feedback_->Printf(Peek().source_location(),
-                                        "Unexpected class field, exprected: %s",
-                                        Peek().ToString().c_str());
-                *ok = false;
-                return nullptr;
-        }
+    if (Test(Token::kLBrace)) {
+        incomplete.access = ClassDefinition::kPublic;
         loc.LinkEnd(Peek().source_location());
+        while (!Test(Token::kRBrace)) {
+            switch (Peek().kind()) {
+                case Token::kPublic:
+                    incomplete.access = ClassDefinition::kPublic;
+                    break;
+                case Token::kProtected:
+                    incomplete.access = ClassDefinition::kProtected;
+                    break;
+                case Token::kPrivate:
+                    incomplete.access = ClassDefinition::kPrivate;
+                    break;
+                case Token::kVal:
+                case Token::kVar: {
+                    ClassDefinition::Field field;
+                    field.access = incomplete.access;
+                    field.as_constructor = -1;
+                    field.in_constructor = false;
+                    field.declaration = ParseVariableDeclaration(CHECK_OK);
+                    incomplete.fields.push_back(field);
+                } break;
+                default:
+                    error_feedback_->Printf(Peek().source_location(),
+                                            "Unexpected class field, exprected: %s",
+                                            Peek().ToString().c_str());
+                    *ok = false;
+                    return nullptr;
+            }
+            loc.LinkEnd(Peek().source_location());
+        }
     }
 
     int position = file_unit_->InsertSourceLocation(loc);
@@ -470,17 +471,20 @@ Statement *Parser::ParseStatement(bool *ok) {
         case Token::kVar:
         case Token::kVal:
             return ParseVariableDeclaration(ok);
-            
+
         case Token::kFun:
             return ParseFunctionDefinition(ok);
-            
+
         case Token::kLBrace:
             return ParseStatementBlock(ok);
-            
+
         case Token::kUnless:
         case Token::kWhile:
             return ParseWhileLoop(ok);
-            
+
+        case Token::kTry:
+            return ParseTryCatchFinallyBlock(ok);
+
         case Token::kReturn: {
             MoveNext();
             if (Peek().kind() == Token::kRBrace || Peek().kind() == Token::kSemi) {
@@ -494,6 +498,14 @@ Statement *Parser::ParseStatement(bool *ok) {
                 int position = file_unit_->InsertSourceLocation(loc);
                 return new (arena_) BreakableStatement(position, BreakableStatement::RETURN, val);
             }
+        } break;
+
+        case Token::kThrow: {
+            MoveNext();
+            Expression *val = ParseExpression(CHECK_OK);
+            loc.LinkEnd(file_unit_->FindSourceLocation(val));
+            int position = file_unit_->InsertSourceLocation(loc);
+            return new (arena_) BreakableStatement(position, BreakableStatement::THROW, val);
         } break;
 
         case Token::kBreak: {
@@ -1268,6 +1280,70 @@ IfExpression *Parser::ParseIfExpression(bool *ok) {
 
     int position = file_unit_->InsertSourceLocation(loc);
     return new (arena_) IfExpression(position, stmt, condition, branch_true, branch_false);
+}
+
+TryCatchFinallyBlock *Parser::ParseTryCatchFinallyBlock(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    Match(Token::kTry, CHECK_OK);
+    Match(Token::kLBrace, CHECK_OK);
+
+    base::ArenaVector<Statement *> try_block(arena_);
+    while (!Test(Token::kRBrace)) {
+        Statement *stmt = ParseStatement(CHECK_OK);
+        try_block.push_back(stmt);
+    }
+
+    base::ArenaVector<CatchBlock *> catch_blocks(arena_);
+    while (Test(Token::kCatch)) {
+        SourceLocation sub = Peek().source_location();
+        Match(Token::kLParen, CHECK_OK);
+        const ASTString *name = ParseIdentifier(CHECK_OK);
+        Match(Token::kColon, CHECK_OK);
+        TypeSign *type = ParseTypeSign(CHECK_OK);
+        loc.LinkEnd(Peek().source_location());
+        sub.LinkEnd(Peek().source_location());
+        Match(Token::kRParen, CHECK_OK);
+        
+        int position = file_unit_->InsertSourceLocation(sub);
+        VariableDeclaration *decl = new (arena_) VariableDeclaration(position,
+                                                                     VariableDeclaration::VAL,
+                                                                     name, type, nullptr);
+        
+        Match(Token::kLBrace, CHECK_OK);
+        base::ArenaVector<Statement *> stmts(arena_);
+        loc.LinkEnd(Peek().source_location());
+        sub.LinkEnd(Peek().source_location());
+        while (!Test(Token::kRBrace)) {
+            Statement *stmt = ParseStatement(CHECK_OK);
+            stmts.push_back(stmt);
+            loc.LinkEnd(Peek().source_location());
+            sub.LinkEnd(Peek().source_location());
+        }
+        position = file_unit_->InsertSourceLocation(sub);
+        CatchBlock *block = new (arena_) CatchBlock(position, decl, std::move(stmts));
+        catch_blocks.push_back(block);
+    }
+
+    base::ArenaVector<Statement *> finally_block(arena_);
+    if (Test(Token::kFinally)) {
+        loc.LinkEnd(Peek().source_location());
+        Match(Token::kLBrace, CHECK_OK);
+        while (!Test(Token::kRBrace)) {
+            Statement *stmt = ParseStatement(CHECK_OK);
+            finally_block.push_back(stmt);
+            loc.LinkEnd(Peek().source_location());
+        }
+    }
+
+    if (finally_block.empty() && catch_blocks.empty()) {
+        *ok = false;
+        error_feedback_->Printf(loc, "Unexpected finally or catch block");
+        return nullptr;
+    }
+
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) TryCatchFinallyBlock(position, std::move(try_block),
+                                             std::move(catch_blocks), std::move(finally_block));
 }
 
 StringTemplateExpression *Parser::ParseStringTemplate(bool *ok) {

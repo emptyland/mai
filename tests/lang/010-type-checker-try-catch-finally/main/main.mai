@@ -1,0 +1,17 @@
+package main
+
+class MyException(message: string, cause: Exception): Exception(message, cause)
+
+fun main() {
+    try {
+    	foo()
+    } catch(e: MyException) {
+    	e.printStackstrace()
+    } finally {
+    	println("finally")
+    }
+}
+
+fun foo() {
+	throw MyException("Hello", nil)
+}

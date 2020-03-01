@@ -21,6 +21,7 @@ namespace lang {
     V(ClassDefinition) \
     V(ObjectDefinition) \
     V(InterfaceDefinition) \
+    V(TryCatchFinallyBlock) \
     V(ClassImplementsBlock) \
     V(AssignmentStatement) \
     V(BreakableStatement) \
@@ -368,14 +369,17 @@ protected:
 class StatementBlock : public Statement {
 public:
     StatementBlock(int position, base::ArenaVector<Statement *> &&statements)
-        : Statement(position, kStatementBlock)
-        , statements_(std::move(statements)) {}
+        : StatementBlock(position, kStatementBlock, std::move(statements)) {}
     
     DEF_ARENA_VECTOR_GETTER(Statement *, statement);
     DEF_PTR_PROP_RW(Statement, owner);
     
     DEFINE_AST_NODE(StatementBlock);
-private:
+protected:
+    StatementBlock(int position, Kind kind, base::ArenaVector<Statement *> &&statements)
+        : Statement(position, kind)
+        , statements_(std::move(statements)) {}
+    
     base::ArenaVector<Statement *> statements_;
     Statement *owner_ = nullptr;
 }; // class StatementBlock
@@ -398,17 +402,10 @@ private:
 }; // class ImportStatement
 
 
-class Circulation : public Statement {
-public:
-    Circulation(int position, Kind kind, base::ArenaVector<Statement *> &&statements)
-        : Statement(position, kind)
-        , statements_(std::move(statements)) {}
-    
-    DEF_ARENA_VECTOR_GETTER(Statement *, statement);
-    DEF_PTR_PROP_RW(Statement, owner);
+class Circulation : public StatementBlock {
 protected:
-    base::ArenaVector<Statement *> statements_;
-    Statement *owner_ = nullptr;
+    Circulation(int position, Kind kind, base::ArenaVector<Statement *> &&statements)
+        : StatementBlock(position, kind, std::move(statements)) {}
 }; // class Circulation
 
 
@@ -774,6 +771,37 @@ private:
     StructureDefinition *owner_;
     base::ArenaVector<FunctionDefinition *> methods_;
 }; // class ClassImplementsBlock
+
+
+class CatchBlock : public StatementBlock {
+public:
+    CatchBlock(int position, VariableDeclaration *declaration,
+               base::ArenaVector<Statement *> &&statements)
+        : StatementBlock(position, kStatementBlock, std::move(statements))
+        , expected_declaration_(DCHECK_NOTNULL(declaration)) {}
+    
+    DEF_PTR_PROP_RW(VariableDeclaration, expected_declaration);
+private:
+    VariableDeclaration *expected_declaration_;
+}; // class CatchBlock
+
+
+class TryCatchFinallyBlock : public Statement {
+public:
+    TryCatchFinallyBlock(int position, base::ArenaVector<Statement *> &&try_statements,
+                         base::ArenaVector<CatchBlock *> &&catch_blocks,
+                         base::ArenaVector<Statement *> &&finally_statements);
+    
+    DEF_ARENA_VECTOR_GETTER(Statement *, try_statement);
+    DEF_ARENA_VECTOR_GETTER(Statement *, finally_statement);
+    DEF_ARENA_VECTOR_GETTER(CatchBlock *, catch_block);
+    
+    DEFINE_AST_NODE(TryCatchFinallyBlock);
+private:
+    base::ArenaVector<Statement *> try_statements_;
+    base::ArenaVector<CatchBlock *> catch_blocks_;
+    base::ArenaVector<Statement *> finally_statements_;
+}; // class TryCatchFinallyBlock
 
 
 class AssignmentStatement : public Statement {

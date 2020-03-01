@@ -113,6 +113,10 @@ using ASTString = base::ArenaString;
     V(Return, "return", none) \
     V(Break, "break", none) \
     V(Continue, "continue", none) \
+    V(Throw, "throw", none) \
+    V(Try, "try", none) \
+    V(Catch, "catch", none) \
+    V(Finally, "finally", none) \
     DECLARE_BASE_TYPE_TOKEN(V)
 
 #define DECLARE_BASE_TYPE_TOKEN(V) \
