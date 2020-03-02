@@ -414,6 +414,28 @@ BuiltinType TypeSign::ToBuiltinType() const {
     }
 }
 
+PlainType TypeSign::ToPlanType() const {
+    switch (static_cast<Token::Kind>(id())) {
+    #define DEFINE_PRIMITIVE_TYPE(token, type, kind) case Token::k##token: \
+        return static_cast<PlainType>(sizeof(kind));
+        DECLARE_BOX_NUMBER_TYPES(DEFINE_PRIMITIVE_TYPE)
+    #undef DEFINE_PRIMITIVE_TYPE
+        case Token::kArray:
+        case Token::kMutableArray:
+        case Token::kMap:
+        case Token::kMutableMap:
+        case Token::kInterface:
+        case Token::kObject:
+        case Token::kRef:
+        case Token::kFun:
+            return kRef;
+        case Token::kClass:
+        default:
+            NOREACHED();
+            return static_cast<PlainType>(-1);
+    }
+}
+
 /*static*/ BuiltinType TypeSign::GetArrayBuiltinType(bool is_mutable, TypeSign *element) {
     switch (static_cast<Token::Kind>(element->id())) {
         case Token::kBool:

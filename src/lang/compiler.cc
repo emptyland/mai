@@ -1,5 +1,7 @@
 #include "lang/compiler.h"
 #include "lang/type-checker.h"
+#include "lang/bytecode-generator.h"
+#include "lang/isolate-inl.h"
 #include "lang/parser.h"
 #include "lang/ast.h"
 #include "lang/lexer.h"
@@ -91,30 +93,38 @@ Error SourceFileResolve::ParseAll(const std::vector<std::string> &source_files,
     return Error::OK();
 }
 
-/*static*/ Error Compiler::CompileInterpretion(const std::vector<std::string> &source_files,
-                                               SyntaxFeedback *feedback,
-                                               base::Arena *arena,
-                                               Env *env) {
-    DCHECK(!source_files.empty());
-    std::vector<FileUnit *> file_units;
-    SourceFileResolve resolve(env, arena, feedback, {});
-
-    if (auto rs = resolve.ParseAll(source_files, &file_units); rs.fail()) {
+/*static*/ Error Compiler::CompileInterpretion(Isolate *isolate, const std::string &dir,
+                                               SyntaxFeedback *feedback, base::Arena *arena) {
+    std::vector<std::string> files;
+    if (auto rs = Compiler::FindSourceFiles(isolate->base_pkg_dir(), isolate->env(), false, &files);
+        !rs) {
+        return rs;
+    }
+    SourceFileResolve resolver(isolate->env(), arena, feedback, {}/*TODO*/);
+    std::vector<FileUnit *> base_units;
+    if (auto rs = resolver.ParseAll(files, &base_units); !rs) {
         return rs;
     }
     
     TypeChecker checker(arena, feedback);
-    if (auto rs = checker.AddBootFileUnits("TODO:", file_units, &resolve); rs.fail()) {
+    if (auto rs = checker.AddBootFileUnits(isolate->base_pkg_dir(), base_units, &resolver); !rs) {
         return rs;
     }
-    
-    if (!checker.Prepare()) {
-        return MAI_CORRUPTION("Resolve symbols fail");
+
+    files.clear();
+    if (auto rs = Compiler::FindSourceFiles(dir, isolate->env(), false, &files); !rs) {
+        return rs;
     }
+    resolver.mutable_search_path()->insert(dir);
     
-    
-    return Error::OK();
+    std::vector<FileUnit *> units;
+    if (auto rs = resolver.ParseAll(files, &units); !rs) {
+        return rs;
+    }
+    return checker.AddBootFileUnits(dir, units, &resolver);
+    // TODO
 }
+
 
 } // namespace lang
 

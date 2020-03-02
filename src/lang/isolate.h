@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <map>
 
 namespace mai {
 namespace test {
@@ -14,6 +15,7 @@ class IsolateInitializer;
 } // namespace test
 namespace lang {
 
+union Span32;
 class Heap;
 class MetadataSpace;
 class Factory;
@@ -24,6 +26,7 @@ class AbstractValue;
 struct NumberValueSlot;
 struct TLSStorage;
 struct GlobalHandleNode;
+template<class T> class Handle;
 
 struct Options {
     Env *env = Env::Default(); // The base api env pointer
@@ -46,6 +49,9 @@ public:
     // Initialize Virtual-Machine state
     Error Initialize();
     
+    // Add a native function for external linker
+    Error AddExternalLinkingFunction(const Handle<Closure> &fun);
+    
     // Compile project
     Error Compile(const std::string &dir);
     
@@ -57,6 +63,9 @@ public:
     
     // Get new generation memory size in heap
     size_t new_space_initial_size() const { return new_space_initial_size_; }
+    
+    // Get system base pkg dir
+    const std::string &base_pkg_dir() const { return base_pkg_dir_; }
 
     // Internal functions:
     inline Heap *heap() const;
@@ -66,6 +75,8 @@ public:
     inline uint8_t **bytecode_handler_entries() const;
     inline std::atomic<AbstractValue *> *cached_number_value(int slot, int64_t index);
     inline Factory *factory() const;
+    inline Closure *FindExternalLinkageOrNull(std::string_view name) const;
+    inline Closure *TakeExternalLinkageOrNull(std::string_view name);
 
     friend class Machine;
     friend class IsolateScope;
@@ -89,6 +100,9 @@ private:
     // New space initial bytes size
     const size_t new_space_initial_size_;
     const std::string base_pkg_dir_;
+
+    // External linking native functions
+    std::map<std::string_view, Closure*> external_linkers_;
 
     Env *env_; // The base api env object
     Heap *heap_; // Heap allocator

@@ -93,6 +93,21 @@ inline int Isolate::GetNumberOfGlobalHandles() const {
     return n_global_handles_;
 }
 
+inline Closure *Isolate::FindExternalLinkageOrNull(std::string_view name) const {
+    auto iter = external_linkers_.find(name);
+    return iter == external_linkers_.end() ? nullptr : iter->second;
+}
+
+inline Closure *Isolate::TakeExternalLinkageOrNull(std::string_view name) {
+    auto iter = external_linkers_.find(name);
+    if (iter == external_linkers_.end()) {
+        return nullptr;
+    }
+    Closure *fun = iter->second;
+    external_linkers_.erase(iter);
+    return fun;
+}
+
 } // namespace lang
 
 } // namespace mai

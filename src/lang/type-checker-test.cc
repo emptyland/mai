@@ -288,8 +288,6 @@ TEST_F(TypeCheckerTest, WhileLoop) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
     ASSERT_TRUE(checker_.Prepare());
     ASSERT_TRUE(checker_.Check());
-    
-    
 }
 
 TEST_F(TypeCheckerTest, TryCatchFinally) {

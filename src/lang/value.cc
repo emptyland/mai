@@ -152,7 +152,7 @@ out:
     return trace;
 }
 
-/*static*/ void Throwable::Throw(Handle<Throwable> exception) {
+/*static*/ void Throwable::Throw(const Handle<Throwable> &exception) {
     Coroutine::This()->AssociateException(*exception);
 }
 

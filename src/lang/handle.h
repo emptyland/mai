@@ -67,6 +67,15 @@ struct GlobalHandles {
 template<class T>
 class Handle {
 public:
+    // Right reference constructor
+    inline Handle(Handle &&other): Handle(other.location_) { other.location_ = nullptr; }
+    
+    // Assignment
+    inline void operator = (Handle &&other) {
+        location_ = other.location_;
+        other.location_ = nullptr;
+    }
+    
     // Getters
     inline T *operator -> () const { return get(); }
     inline T *operator * () const { return get(); }
@@ -129,7 +138,7 @@ public:
         : Local(other.is_empty() ? nullptr : HandleScope::NewLocation<T>(*other)) {}
 
     // Right reference constructor
-    inline Local(Local &&other): Local(other.location_) { other.location_ = nullptr; }
+    //inline Local(Local &&other): Local(other.location_) { other.location_ = nullptr; }
 
     // Assignment
     inline void operator = (const Local &other) { Assign(other.location_); }
@@ -204,8 +213,8 @@ public:
         : Persistent(other.is_empty() ? nullptr : GlobalHandles::NewLocation(*other)) {}
 
     // Right reference constructor
-    inline Persistent(Persistent &&other)
-        : Persistent(other.location_) { other.location_ = nullptr; }
+    //inline Persistent(Persistent &&other)
+    //    : Persistent(other.location_) { other.location_ = nullptr; }
 
     // Manual drop this handle, object mybe release by next GC
     inline void Dispose() {

@@ -8,6 +8,7 @@
 #include "lang/compiler.h"
 #include "lang/syntax.h"
 #include "asm/utils.h"
+#include "base/arenas.h"
 #include "glog/logging.h"
 #include <mutex>
 
@@ -28,6 +29,14 @@ const ptrdiff_t GlobalHandleNode::kOffsetHandle = offsetof(GlobalHandleNode, han
 
 const int32_t Isolate::kOffsetBytecodeHandlerEntries = MEMBER_OFFSET_OF(bytecode_handler_entries_);
 const int32_t Isolate::kOffsetTrampolineSuspendPoint = MEMBER_OFFSET_OF(trampoline_suspend_point_);
+
+class ErrorFeedback : public SyntaxFeedback {
+public:
+    void DidFeedback(const SourceLocation &location, const char *z, size_t n) override {
+        ::printf("%s:%d:%d-%d:%d %s\n", file_name_.c_str(), location.begin_line, location.begin_row,
+                 location.end_line, location.end_row, z);
+    }
+};
 
 static void BadSuspendPointDummy() {
     NOREACHED() << "Bad suspend-point";
@@ -63,26 +72,28 @@ Error Isolate::Initialize() {
     return Error::OK();
 }
 
+Error Isolate::AddExternalLinkingFunction(const Handle<Closure> &fun) {
+    if (!fun->is_cxx_function()) {
+        return MAI_CORRUPTION("Invalid function type");
+    }
+    std::string_view key = MDStrHeader::ToStringView(fun->function()->name());
+    if (auto iter = external_linkers_.find(key); iter != external_linkers_.end()) {
+        return MAI_CORRUPTION("Duplicated function name");
+    }
+    external_linkers_[key] = *fun;
+    return Error::OK();
+}
+
 Error Isolate::Compile(const std::string &dir) {
     DCHECK(initialized_);
     if (!initialized_) {
         return MAI_CORRUPTION("Not initialize yet");
     }
     
-    std::vector<std::string> source_files;
-    if (auto rs = Compiler::FindSourceFiles(base_pkg_dir_, env_, false/*unittest*/, &source_files);
-        rs.fail()) {
-        return rs;
-    }
-    if (auto rs = Compiler::FindSourceFiles(dir, env_, false/*unittest*/, &source_files);
-        rs.fail()) {
-        return rs;
-    }
-    if (source_files.empty()) {
-        return MAI_CORRUPTION("No file to be compile");
-    }
-    
-    return Error::OK();
+    ErrorFeedback feedback;
+    base::StandaloneArena arena(env_->GetLowLevelAllocator());
+
+    return Compiler::CompileInterpretion(this, dir, &feedback, &arena);
 }
 
 void Isolate::Run() {

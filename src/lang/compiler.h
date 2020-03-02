@@ -12,11 +12,12 @@ class Env;
 namespace lang {
 
 class FileUnit;
+class Isolate;
 
 class SourceFileResolve {
 public:
     SourceFileResolve(Env *env, base::Arena *arena, SyntaxFeedback *feedback,
-                      std::set<std::string> search_path)
+                      const std::set<std::string> &search_path)
         : env_(env)
         , arena_(arena)
         , feedback_(feedback)
@@ -42,10 +43,8 @@ struct Compiler {
     static Error FindSourceFiles(const std::string &dir, Env *env, bool unittest,
                                  std::vector<std::string> *files);
     
-    static Error CompileInterpretion(const std::vector<std::string> &source_files,
-                                     SyntaxFeedback *feedback,
-                                     base::Arena *arena,
-                                     Env *env);
+    static Error CompileInterpretion(Isolate *isolate, const std::string &dir,
+                                     SyntaxFeedback *feedback, base::Arena *arena);
     
 }; // struct Compiler
 

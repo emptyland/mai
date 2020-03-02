@@ -3,6 +3,7 @@
 #define MAI_LANG_AST_H_
 
 #include "lang/syntax.h"
+#include "lang/mm.h"
 #include "lang/type-defs.h"
 #include "base/arena-utils.h"
 
@@ -65,7 +66,10 @@ class Class;
 struct ASTVisitorResult {
     int kind;
     union {
-        int index;
+        struct {
+            int index;
+            int type;
+        } bundle;
         HValue *hval;
         Class *clazz;
         TypeSign *sign;
@@ -264,6 +268,8 @@ public:
     
     BuiltinType ToBuiltinType() const;
     
+    PlainType ToPlanType() const;
+    
     static BuiltinType GetArrayBuiltinType(bool is_mutable, TypeSign *element);
     static BuiltinType GetMapBuiltinType(bool is_mutable, TypeSign *key);
     
@@ -431,6 +437,13 @@ public:
         return IsIdentifier() || IsDotExpression() || IsIndexExpression();
     }
     
+    bool IsLiteral() const {
+        return IsBoolLiteral() || IsI8Literal() || IsU8Literal() || IsI16Literal() ||
+               IsU16Literal() || IsI32Literal() || IsU32Literal() || IsI64Literal() ||
+               IsU64Literal() || IsIntLiteral() || IsUIntLiteral() || IsLambdaLiteral() ||
+               IsStringLiteral();
+    }
+
 protected:
     Expression(int position, Kind kind): Statement(position, kind) {}
 }; // // class Statement
@@ -444,9 +457,11 @@ public:
     
     DEF_PTR_GETTER(const ASTString, identifier);
     DEF_PTR_PROP_RW(FileUnit, file_unit);
+    DEF_VAL_PROP_RW(int, location);
 protected:
     const ASTString *identifier_;
     FileUnit *file_unit_ = nullptr; // Only for global symbol
+    int location_ = -1; // Compiler allocated location address
 }; // class Symbolize
 
 

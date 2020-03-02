@@ -209,7 +209,7 @@ public:
     }
 
     // The + operator:
-    Local<Array<T>> Plus(size_t index, Handle<CoreType> elem) const {
+    Local<Array<T>> Plus(size_t index, const Handle<CoreType> &elem) const {
         Local<AbstractArray> abstract(NewArrayCopied(this, index == kAppendIndex ? 1 : 0));
         if (abstract.is_empty() || abstract.is_value_null()) {
             return Local<Array<T>>::Empty();
@@ -483,7 +483,7 @@ public:
     void PrintStackstrace(FILE *file) const;
 
     // Throw a exception
-    static void Throw(Handle<Throwable> exception);
+    static void Throw(const Handle<Throwable> &exception);
 
     friend class Machine;
 protected:
@@ -587,7 +587,7 @@ public:
     
     IncrementalStringBuilder(): IncrementalStringBuilder("", 0) {}
     
-    IncrementalStringBuilder(Handle<String> init)
+    IncrementalStringBuilder(const Handle<String> &init)
         : IncrementalStringBuilder(init->data(), init->length()) {}
 
     ~IncrementalStringBuilder() {
@@ -596,7 +596,7 @@ public:
         }
     }
     
-    void AppendString(Handle<String> handle) {
+    void AppendString(const Handle<String> &handle) {
         if (handle.is_not_empty()) {
             AppendString(handle->data(), handle->length());
         }

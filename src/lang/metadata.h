@@ -179,6 +179,11 @@ public:
         return reinterpret_cast<const MDStrHeader *>(z - sizeof(MDStrHeader));
     }
     
+    static std::string_view ToStringView(MDStr z) {
+        const MDStrHeader *header = FromStr(z);
+        return std::string_view(header->data(), header->length());
+    }
+    
     friend class ClassBuilder;
     friend class MetadataSpace;
 private:

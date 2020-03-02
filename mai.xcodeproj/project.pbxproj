@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		23048451240CBB5900480C15 /* bytecode-generator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23048450240CBB5900480C15 /* bytecode-generator.cc */; };
+		23048454240D050700480C15 /* stable-space-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23048453240D050700480C15 /* stable-space-builder.cc */; };
+		23048456240D08D800480C15 /* stable-space-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23048455240D08D800480C15 /* stable-space-builder-test.cc */; };
 		2305109E23DF1CA400B89A7C /* logging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109623DF1CA300B89A7C /* logging.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
 		230510A023DF1CA400B89A7C /* symbolize.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109823DF1CA300B89A7C /* symbolize.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
 		230510A123DF1CA400B89A7C /* demangle.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109923DF1CA300B89A7C /* demangle.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
@@ -278,6 +281,11 @@
 		2302F6B921AE803700AE0309 /* s1-table-reader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "s1-table-reader.h"; sourceTree = "<group>"; };
 		2302F6BA21AE80AB00AE0309 /* s1-table-reader.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "s1-table-reader.cc"; sourceTree = "<group>"; };
 		2302F6BD21AE961200AE0309 /* s1-table-reader-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "s1-table-reader-test.cc"; sourceTree = "<group>"; };
+		2304844F240CBADE00480C15 /* bytecode-generator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bytecode-generator.h"; sourceTree = "<group>"; };
+		23048450240CBB5900480C15 /* bytecode-generator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bytecode-generator.cc"; sourceTree = "<group>"; };
+		23048452240CF6AD00480C15 /* stable-space-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "stable-space-builder.h"; sourceTree = "<group>"; };
+		23048453240D050700480C15 /* stable-space-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "stable-space-builder.cc"; sourceTree = "<group>"; };
+		23048455240D08D800480C15 /* stable-space-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "stable-space-builder-test.cc"; sourceTree = "<group>"; };
 		2305109623DF1CA300B89A7C /* logging.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = logging.cc; path = "third-party/glog/src/logging.cc"; sourceTree = SOURCE_ROOT; };
 		2305109823DF1CA300B89A7C /* symbolize.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = symbolize.cc; path = "third-party/glog/src/symbolize.cc"; sourceTree = SOURCE_ROOT; };
 		2305109923DF1CA300B89A7C /* demangle.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = demangle.cc; path = "third-party/glog/src/demangle.cc"; sourceTree = SOURCE_ROOT; };
@@ -715,6 +723,10 @@
 				2306103923FFB4710024361F /* compiler.cc */,
 				2306103D23FFD7B40024361F /* type-checker.h */,
 				2306103E23FFD7CF0024361F /* type-checker.cc */,
+				2304844F240CBADE00480C15 /* bytecode-generator.h */,
+				23048450240CBB5900480C15 /* bytecode-generator.cc */,
+				23048452240CF6AD00480C15 /* stable-space-builder.h */,
+				23048453240D050700480C15 /* stable-space-builder.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -739,6 +751,7 @@
 				23ECE8A823F98A1900B3C83B /* parser-test.cc */,
 				2306103B23FFBADF0024361F /* compiler-test.cc */,
 				236290F524037193004FB689 /* type-checker-test.cc */,
+				23048455240D08D800480C15 /* stable-space-builder-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1337,6 +1350,7 @@
 				2364B2C321E451F9008519AE /* db-impl.cc in Sources */,
 				2364B2C521E451F9008519AE /* column-family.cc in Sources */,
 				2364B2C721E451F9008519AE /* version.cc in Sources */,
+				23048451240CBB5900480C15 /* bytecode-generator.cc in Sources */,
 				2364B2C921E451F9008519AE /* files.cc in Sources */,
 				230510B523DF1ED200B89A7C /* gtest-all.cc in Sources */,
 				2364B2CB21E451F9008519AE /* factory.cc in Sources */,
@@ -1357,6 +1371,7 @@
 				2364B2E121E451F9008519AE /* s1-table-reader.cc in Sources */,
 				230510B223DF1CD600B89A7C /* utilities.cc in Sources */,
 				2364B2E321E451F9008519AE /* data-block-builder.cc in Sources */,
+				23048456240D08D800480C15 /* stable-space-builder-test.cc in Sources */,
 				2305109E23DF1CA400B89A7C /* logging.cc in Sources */,
 				2364B2E821E451F9008519AE /* table.cc in Sources */,
 				2364B2EA21E451F9008519AE /* key-bloom-filter.cc in Sources */,
@@ -1400,6 +1415,7 @@
 				2364B32921E451F9008519AE /* slice.cc in Sources */,
 				2364B32B21E451F9008519AE /* hash.cc in Sources */,
 				2364B32C21E451F9008519AE /* crc32.c in Sources */,
+				23048454240D050700480C15 /* stable-space-builder.cc in Sources */,
 				23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */,
 				2373EFD623EBA2C400B5CD88 /* runtime.cc in Sources */,
 				230510A223DF1CA400B89A7C /* vlog_is_on.cc in Sources */,
