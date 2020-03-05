@@ -108,6 +108,20 @@ inline Closure *Isolate::TakeExternalLinkageOrNull(std::string_view name) {
     return fun;
 }
 
+inline void Isolate::SetGlobalSpace(Span64 *spans, uint32_t *bitmap, size_t capacity,
+                                    size_t length) {
+    if (spans != global_space_) {
+        delete[] global_space_;
+        global_space_ = spans;
+    }
+    if (bitmap != global_space_bitmap_) {
+        delete[] global_space_bitmap_;
+        global_space_bitmap_ = bitmap;
+    }
+    global_space_capacity_ = capacity;
+    global_space_length_ = length;
+}
+
 } // namespace lang
 
 } // namespace mai

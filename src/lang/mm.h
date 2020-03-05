@@ -48,6 +48,11 @@ static constexpr size_t kDefaultStackSize = 20 * base::kMB; // Others coroutines
 static constexpr uint32_t kFreeZag = 0xfeedfeed;
 static constexpr uint32_t kInitZag = 0xcccccccc;
 
+static constexpr size_t kConstPoolOffsetGranularity = 4;
+static constexpr size_t kGlobalSpaceOffsetGranularity = 4;
+static constexpr size_t kStackOffsetGranularity = 2;
+
+
 #if defined(_DEBUG) || defined(DEBUG)
 static inline void *DbgFillInitZag(void *p, size_t n) {
     if (!p || n == 0) {

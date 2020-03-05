@@ -156,6 +156,11 @@ namespace lang {
     V(StaCapturedPtr, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
     V(StaCapturedf32, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
     V(StaCapturedf64, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
+    V(StaGlobal32, BytecodeType::A, BytecodeParam::kGlobalOffset) \
+    V(StaGlobal64, BytecodeType::A, BytecodeParam::kGlobalOffset) \
+    V(StaGlobalPtr, BytecodeType::A, BytecodeParam::kGlobalOffset) \
+    V(StaGlobalf32, BytecodeType::A, BytecodeParam::kGlobalOffset) \
+    V(StaGlobalf64, BytecodeType::A, BytecodeParam::kGlobalOffset) \
     V(StaProperty8, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(StaProperty16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \
     V(StaProperty32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kAddressOffset) \

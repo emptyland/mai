@@ -15,7 +15,7 @@ class IsolateInitializer;
 } // namespace test
 namespace lang {
 
-union Span32;
+union Span64;
 class Heap;
 class MetadataSpace;
 class Factory;
@@ -77,6 +77,7 @@ public:
     inline Factory *factory() const;
     inline Closure *FindExternalLinkageOrNull(std::string_view name) const;
     inline Closure *TakeExternalLinkageOrNull(std::string_view name);
+    inline void SetGlobalSpace(Span64 *spans, uint32_t *bitmap, size_t capacity, size_t length);
 
     friend class Machine;
     friend class IsolateScope;
@@ -109,6 +110,11 @@ private:
     MetadataSpace *metadata_space_; // Metadata memory space
     Factory *factory_; // Some Heap object collection
     Scheduler *scheduler_; // Scheduler
+    
+    Span64 *global_space_ = nullptr; // Global space
+    uint32_t *global_space_bitmap_ = nullptr; // Bitmap of global space
+    size_t global_space_capacity_ = 0; // Capacity of global space
+    size_t global_space_length_ = 0; // Length of global space
     
     GlobalHandleNode *persistent_dummy_; // Global handle double-linked list dummy
     int n_global_handles_ = 0; // Number of global handles

@@ -2,73 +2,66 @@
 #ifndef MAI_LANG_STABLE_SPACE_BUILDER_H_
 #define MAI_LANG_STABLE_SPACE_BUILDER_H_
 
+#include "lang/value-inl.h"
 #include "lang/mm.h"
+#include "lang/type-defs.h"
+#include "base/hash.h"
+#include <type_traits>
+#include <unordered_map>
 
 namespace mai {
 
 namespace lang {
 
-class Any;
-
-class GlobalSpaceBuilder {
+template<class T>
+class StableSpaceBuilder {
 public:
     static constexpr size_t kAligmentSize = 2;
+    using SpanType = T;
     
-    GlobalSpaceBuilder();
+    static_assert(std::is_same<T, Span16>::value ||
+                  std::is_same<T, Span32>::value ||
+                  std::is_same<T, Span64>::value, "T must be span type");
+    
+    StableSpaceBuilder();
 
-    ~GlobalSpaceBuilder() {
+    ~StableSpaceBuilder() {
         delete[] spans_;
         delete[] bitmap_;
     }
     
-    int Reserve(PlainType type) {
-        if (type == kRef) {
+    int Reserve(size_t size) {
+        if (size == 0) {
             return ReserveRef();
         } else {
-            return Reserve(&r_, static_cast<size_t>(type), false/*isref*/);
+            return Reserve(&r_, size, false/*isref*/);
         }
     }
 
     int ReserveRef() { return Reserve(&r_, kPointerSize, true/*isref*/); }
     
-    int AppendI32(int32_t val) { return Append(val); }
-    int AppendU32(uint32_t val) { return Append(val); }
-    int AppendI64(int64_t val) { return Append(val); }
-    int AppendU64(uint64_t val) { return Append(val); }
-    int AppendF32(float val) { return Append(val); }
-    int AppendF64(double val) { return Append(val); }
     int AppendAny(Any *val) {
         int location = Reserve(&r_, sizeof(val), true/*isref*/);
         *reinterpret_cast<Any **>(address(location)) = val;
         return location;
     }
     
-    Span32 *TakeSpans() {
-        Span32 *rv = spans_;
-        spans_ = nullptr;
-        return rv;
-    }
-
-    uint32_t *TakeBitmap() {
-        uint32_t *rv = bitmap_;
-        bitmap_ = nullptr;
-        return rv;
-    }
-    
+    DEF_PTR_GETTER(T, spans);
+    DEF_PTR_GETTER(uint32_t, bitmap);
     DEF_VAL_GETTER(size_t, capacity);
     DEF_VAL_GETTER(size_t, length);
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(GlobalSpaceBuilder);
-private:
+    DISALLOW_IMPLICIT_CONSTRUCTORS(StableSpaceBuilder);
+protected:
     struct SpanState {
         size_t used;
         size_t index;
     }; // struct SpanState
     
-    template<class T>
-    inline int Append(T value) {
+    template<class V>
+    inline int Append(V value) {
         int location = Reserve(&p_, sizeof(value), false/*isref*/);
-        *reinterpret_cast<T *>(address(location)) = value;
+        *reinterpret_cast<V *>(address(location)) = value;
         return location;
     }
     
@@ -78,17 +71,193 @@ private:
     
     Address address(int pos) {
         DCHECK_GE(pos, 0);
-        DCHECK_LT(pos, length_ * sizeof(Span32));
+        DCHECK_LT(pos, length_ * sizeof(T));
         return reinterpret_cast<Address>(spans_) + pos;
     }
     
-    Span32 *spans_;
+    T *spans_;
     uint32_t *bitmap_;
     size_t capacity_;
     size_t length_ = 0;
     SpanState p_; // primitive type
     SpanState r_; // reference type
 }; // class GlobalSpaceBuilder
+
+
+class GlobalSpaceBuilder final : public StableSpaceBuilder<Span64> {
+public:
+    GlobalSpaceBuilder() = default;
+    int AppendI32(int32_t val) { return Append(val); }
+    int AppendU32(uint32_t val) { return Append(val); }
+    int AppendI64(int64_t val) { return Append(val); }
+    int AppendU64(uint64_t val) { return Append(val); }
+    int AppendF32(float val) { return Append(val); }
+    int AppendF64(double val) { return Append(val); }
+    
+    SpanType *TakeSpans() {
+        SpanType *rv = spans_;
+        spans_ = nullptr;
+        return rv;
+    }
+
+    uint32_t *TakeBitmap() {
+        uint32_t *rv = bitmap_;
+        bitmap_ = nullptr;
+        return rv;
+    }
+
+    DISALLOW_IMPLICIT_CONSTRUCTORS(GlobalSpaceBuilder);
+}; // class ConstantPoolBuilder
+
+
+
+class ConstantPoolBuilder final : public StableSpaceBuilder<Span32> {
+public:
+    ConstantPoolBuilder() = default;
+
+    int FindOrInsertI32(int32_t val) {
+        return FindOrInsert({.kind = Key::kP32, .p32 = static_cast<uint32_t>(val)}, val);
+    }
+    
+    int FindOrInsertU32(uint32_t val) {
+        return FindOrInsert({.kind = Key::kP32, .p32 = val}, val);
+    }
+
+    int FindOrInsertI64(int64_t val) {
+        return FindOrInsert({.kind = Key::kP64, .p64 = static_cast<uint64_t>(val)}, val);
+    }
+
+    int FindOrInsertU64(uint64_t val) {
+        return FindOrInsert({.kind = Key::kP64, .p64 = val}, val);
+    }
+
+    int FindOrInsertF32(float val) {
+        return FindOrInsert({.kind = Key::kF32, .f32 = val}, val);
+    }
+
+    int FindOrInsertF64(double val) {
+        return FindOrInsert({.kind = Key::kF64, .f64 = val}, val);
+    }
+    
+    int FindString(std::string_view val) {
+        Key key{.kind = Key::kString, .string = val};
+        if (auto iter = constants_.find(key); iter == constants_.end()) {
+            return -1;
+        } else {
+            return iter->second;
+        }
+    }
+    
+    int FindOrInsertString(String *val) {
+        return FindOrInsertAny({
+            .kind = Key::kString,
+            .string = std::string_view(val->data(), val->length())
+        }, val);
+    }
+    
+    int FindOrInsertMetadata(MetadataObject *val) {
+        return FindOrInsert({.kind = Key::kMetadata, .metadata = val}, val);
+    }
+
+private:
+    struct Key {
+        enum Kind {
+            kP32,
+            kP64,
+            kF32,
+            kF64,
+            kString,
+            kMetadata,
+        };
+        Kind kind;
+        union {
+            uint32_t  p32;
+            uint64_t  p64;
+            float     f32;
+            double    f64;
+            MetadataObject *metadata;
+            std::string_view string;
+        };
+    };
+    
+    struct KeyHash : public std::unary_function<size_t, Key> {
+        size_t operator () (Key key) const;
+    };
+
+    struct KeyEqualTo : public std::binary_function<Key, Key, bool> {
+        bool operator () (Key lhs, Key rhs) const;
+    };
+    
+    template<class T>
+    int FindOrInsert(const Key &key, T value) {
+        if(auto iter = constants_.find(key); iter != constants_.end()) {
+            return iter->second;
+        }
+        int location = Append(value);
+        constants_[key] = location;
+        return location;
+    }
+    
+    int FindOrInsertAny(const Key &key, Any *value) {
+        if(auto iter = constants_.find(key); iter != constants_.end()) {
+            return iter->second;
+        }
+        int location = AppendAny(value);
+        constants_[key] = location;
+        return location;
+    }
+
+    std::unordered_map<Key, int, KeyHash, KeyEqualTo> constants_;
+}; // class ConstantPoolBuilder
+
+
+template<class T>
+StableSpaceBuilder<T>::StableSpaceBuilder()
+    : spans_(new T[2])
+    , capacity_(2)
+    , length_(2)
+    , bitmap_(new uint32_t[1]) {
+    bitmap_[0] = 0x2;
+    r_.index = 1;
+    r_.used = 0;
+    p_.index = 0;
+    p_.used = 0;
+}
+
+template<class T>
+int StableSpaceBuilder<T>::Reserve(SpanState *state, size_t size, bool isref) {
+    if (state->used + size > sizeof(T)) {
+        CheckCapacity();
+        state->index = std::max(p_.index, r_.index) + 1;
+        if (isref) {
+            ::memset(spans_ + state->index, 0, sizeof(T));
+            bitmap_[state->index / 32] |= 1 << (state->index % 32);
+        }
+        length_++;
+        state->used = 0;
+    }
+    int location = static_cast<int>(state->index * sizeof(T) + state->used);
+    state->used += size;
+    return location;
+}
+
+template<class T>
+void StableSpaceBuilder<T>::CheckCapacity() {
+    if (length_ + 1 < capacity_) {
+        return;
+    }
+    size_t old_bmp_size = (capacity_ + 31) / 32;
+    capacity_ <<= 1;
+    size_t bmp_size = (capacity_ + 31) / 32;
+    T *new_spans = new T[capacity_];
+    ::memcpy(new_spans, spans_, length_ * sizeof(T));
+    uint32_t *new_bmp = new uint32_t[bmp_size];
+    ::memcpy(new_bmp, bitmap_, old_bmp_size * sizeof(uint32_t));
+    delete [] spans_;
+    spans_ = new_spans;
+    delete [] bitmap_;
+    bitmap_ = new_bmp;
+}
 
 } // namespace lang
 
