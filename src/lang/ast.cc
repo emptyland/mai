@@ -414,10 +414,10 @@ BuiltinType TypeSign::ToBuiltinType() const {
     }
 }
 
-PlainType TypeSign::ToPlanType() const {
+size_t TypeSign::GetReferenceSize() const {
     switch (static_cast<Token::Kind>(id())) {
     #define DEFINE_PRIMITIVE_TYPE(token, type, kind) case Token::k##token: \
-        return static_cast<PlainType>(sizeof(kind));
+        return sizeof(kind);
         DECLARE_BOX_NUMBER_TYPES(DEFINE_PRIMITIVE_TYPE)
     #undef DEFINE_PRIMITIVE_TYPE
         case Token::kArray:
@@ -428,11 +428,11 @@ PlainType TypeSign::ToPlanType() const {
         case Token::kObject:
         case Token::kRef:
         case Token::kFun:
-            return kRef;
+            return kPointerSize;
         case Token::kClass:
         default:
             NOREACHED();
-            return static_cast<PlainType>(-1);
+            return 0;
     }
 }
 

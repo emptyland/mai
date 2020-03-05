@@ -2,6 +2,7 @@
 #ifndef MAI_LANG_STABLE_SPACE_BUILDER_H_
 #define MAI_LANG_STABLE_SPACE_BUILDER_H_
 
+#include "lang/stack-frame.h"
 #include "lang/value-inl.h"
 #include "lang/mm.h"
 #include "lang/type-defs.h"
@@ -13,10 +14,86 @@ namespace mai {
 
 namespace lang {
 
+class StackSpaceScope;
+
+class StackSpaceAllocator {
+public:
+    using Scope = StackSpaceScope;
+    static constexpr size_t kOffsetGranularity = kStackOffsetGranularity;
+    static constexpr size_t kSizeGranularity = 4;
+    static constexpr size_t kSpanSize = sizeof(Span16);
+    static constexpr size_t kSlotBase = BytecodeStackFrame::kOffsetHeaderSize;
+    
+    struct Level {
+        int p;
+        int r;
+    }; // struct Level
+    
+    StackSpaceAllocator() = default;
+    
+    DEF_VAL_PROP_RW(Level, level);
+    DEF_VAL_GETTER(std::vector<uint32_t>, bitmap);
+    DEF_VAL_GETTER(size_t, max_spans);
+
+    void set_level(int p_level, int r_level) {
+        level_.p = p_level;
+        level_.r = r_level;
+    }
+    
+    int Reserve(size_t size);
+
+    int ReserveRef();
+    
+    void Fallback(int index, size_t size) {
+        DCHECK_EQ(level_.p, index - kSlotBase);
+        level_.p -= RoundUp(size, kSizeGranularity);
+        while (Test(level_.p) && level_.p > 0) {
+            DCHECK_EQ(0, level_.p % kSpanSize);
+            level_.p -= kSpanSize;
+        }
+    }
+    
+    void FallbackRef(int index) {
+        DCHECK_EQ(level_.r, index - kSlotBase);
+        level_.r -= kPointerSize;
+        while (!Test(level_.r) && level_.r > 0) {
+            DCHECK_EQ(0, level_.r % kSpanSize);
+            level_.r -= kSpanSize;
+        }
+    }
+    
+    uint32_t GetMaxStackSize() const {
+        return static_cast<uint32_t>(max_spans_ * kSpanSize + kSlotBase);
+    }
+    
+    friend class StackSpaceScope;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(StackSpaceAllocator);
+private:
+    void AdvanceSpan(bool isref);
+    
+    bool Test(int level) const {
+        size_t index = level / kSpanSize;
+        return bitmap_[index / 32] & (1u << (index % 32));
+    }
+    
+    std::vector<uint32_t> bitmap_;
+    Level level_{0, 0};
+    size_t max_spans_ = 0;
+}; // class StackSpaceAllocator
+
+
+class StackSpaceScope {
+public:
+    StackSpaceScope(StackSpaceAllocator *stack): stack_(stack), saved_(stack->level()) {}
+    ~StackSpaceScope() { stack_->set_level(saved_); }
+private:
+    StackSpaceAllocator *const stack_;
+    StackSpaceAllocator::Level const saved_;
+}; // class StackSpaceScope
+
 template<class T>
 class StableSpaceBuilder {
 public:
-    static constexpr size_t kAligmentSize = 2;
     using SpanType = T;
     
     static_assert(std::is_same<T, Span16>::value ||

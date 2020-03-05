@@ -74,14 +74,6 @@ static inline void *DbgFillInitZag(void *p, size_t) { return p; }
 static inline void *DbgFillFreeZag(void *p, size_t) { return p; }
 #endif // !defined(_DEBUG) && !defined(DEBUG)
 
-enum PlainType {
-    kRef = 0,
-    kP8  = 1,
-    kP16 = 2,
-    kP32 = 4,
-    kP64 = 8,
-}; // enum PlainType
-
 union SpanPart64 {
     uint64_t u64;
     int64_t  i64;

@@ -268,7 +268,7 @@ public:
     
     BuiltinType ToBuiltinType() const;
     
-    PlainType ToPlanType() const;
+    size_t GetReferenceSize() const;
     
     static BuiltinType GetArrayBuiltinType(bool is_mutable, TypeSign *element);
     static BuiltinType GetMapBuiltinType(bool is_mutable, TypeSign *key);

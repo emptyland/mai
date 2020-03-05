@@ -12,6 +12,68 @@ public:
     // Dummy
 };
 
+TEST_F(StableSpaceBuilderTest, StackSpaceAllocation) {
+    StackSpaceAllocator stack;
+    
+    ASSERT_EQ(68, stack.Reserve(1));
+    ASSERT_EQ(72, stack.Reserve(1));
+    
+    ASSERT_EQ(1, stack.max_spans());
+    
+    ASSERT_EQ(88, stack.ReserveRef());
+    ASSERT_EQ(2, stack.max_spans());
+    ASSERT_EQ(76, stack.Reserve(4));
+    ASSERT_EQ(80, stack.Reserve(4));
+    
+    ASSERT_EQ(96, stack.ReserveRef());
+    
+    ASSERT_EQ(100, stack.Reserve(4));
+    ASSERT_EQ(3, stack.max_spans());
+}
+
+TEST_F(StableSpaceBuilderTest, StackSpaceFallback) {
+    StackSpaceAllocator stack;
+    
+    ASSERT_EQ(68, stack.Reserve(1));
+    ASSERT_EQ(72, stack.Reserve(1));
+    ASSERT_EQ(8, stack.level().p);
+    
+    stack.Fallback(72, 1);
+    ASSERT_EQ(4, stack.level().p);
+    
+    stack.Fallback(68, 1);
+    ASSERT_EQ(0, stack.level().p);
+    
+    ASSERT_EQ(88, stack.ReserveRef());
+    ASSERT_EQ(96, stack.ReserveRef());
+    ASSERT_EQ(32, stack.level().r);
+    ASSERT_EQ(104, stack.ReserveRef());
+    ASSERT_EQ(40, stack.level().r);
+    stack.FallbackRef(104);
+    ASSERT_EQ(32, stack.level().r);
+    
+    ASSERT_EQ(72, stack.Reserve(8));
+    ASSERT_EQ(8, stack.level().p);
+    stack.Fallback(72, 8);
+    ASSERT_EQ(0, stack.level().p);
+}
+
+TEST_F(StableSpaceBuilderTest, StackSpaceFallbackRef) {
+    StackSpaceAllocator stack;
+    
+    ASSERT_EQ(68, stack.Reserve(1));
+    ASSERT_EQ(72, stack.Reserve(1));
+    ASSERT_EQ(8, stack.level().p);
+    
+    ASSERT_EQ(0, stack.level().r);
+    ASSERT_EQ(88, stack.ReserveRef());
+    ASSERT_EQ(24, stack.level().r);
+    stack.FallbackRef(88);
+    ASSERT_EQ(16, stack.level().r);
+    
+    ASSERT_EQ(88, stack.ReserveRef());
+    ASSERT_EQ(24, stack.level().r);
+}
 
 TEST_F(StableSpaceBuilderTest, GlobalSapce) {
     GlobalSpaceBuilder builder;
@@ -61,6 +123,8 @@ TEST_F(StableSpaceBuilderTest, ConstantPool) {
     
     ASSERT_EQ(32, builder.FindString("ok"));
 }
+
+
 
 } // namespace lang
 

@@ -29,7 +29,7 @@ public:
             kACC,
         };
         Linkage linkage;
-        Class *type;
+        const Class *type;
         int index;
     }; // struct BytecodeGenerator::Value
 
