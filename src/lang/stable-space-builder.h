@@ -299,6 +299,7 @@ StableSpaceBuilder<T>::StableSpaceBuilder()
     r_.used = 0;
     p_.index = 0;
     p_.used = 0;
+    ::memset(spans_, 0, sizeof(T) * length_);
 }
 
 template<class T>

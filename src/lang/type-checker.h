@@ -91,6 +91,7 @@ private:
     Result VisitIfExpression(IfExpression *) override;
     Result VisitStatementBlock(StatementBlock *) override;
     Result VisitTryCatchFinallyBlock(TryCatchFinallyBlock *) override;
+    Result VisitRunStatement(RunStatement *) override;
 
     bool PrepareClassDefinition(FileUnit *unit);
     bool CheckFileUnit(const std::string &pkg_name, FileUnit *unit);

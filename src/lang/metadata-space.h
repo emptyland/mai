@@ -107,6 +107,12 @@ public:
         named_class_fields_.clear();
         // TODO:
     }
+    
+    Class *PrepareClass() {
+        Class *clazz = New<Class>();
+        clazz->id_ = NextTypeId();
+        return clazz;
+    }
 
     // allocate flat memory block
     AllocationResult Allocate(size_t n, bool exec);
@@ -317,6 +323,8 @@ public:
     }
     
     Class *Build(MetadataSpace *space) const;
+    
+    Class *BuildWithPreparedClass(MetadataSpace *space, Class *clazz) const;
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(ClassBuilder);
 private:

@@ -79,6 +79,11 @@ using ASTString = base::ArenaString;
     V(Assign, "=", none) \
     DECLARE_KEYWORDS_TOKEN(V)
 
+// Ξ random
+// val a = <-ch
+//⟻ ᐊ
+//val i = ᐊ ch
+// val a = ←ch ⟲ entry()
 #define DECLARE_KEYWORDS_TOKEN(V) \
     V(Nil, "nil", none) \
     V(True, "true", none) \
@@ -91,6 +96,8 @@ using ASTString = base::ArenaString;
     V(Interface, "interface", none) \
     V(Implements, "implements", none) \
     V(Lambda, "lambda", none) \
+    V(LambdaS, "λ", none) \
+    V(RandomS, "Ξ", none) \
     V(Fun, "fun", none) \
     V(Array, "array", none) \
     V(MutableArray, "mutable_array", none) \
@@ -98,6 +105,7 @@ using ASTString = base::ArenaString;
     V(MutableMap, "mutable_map", none) \
     V(Channel, "channel", none) \
     V(Run, "run", none) \
+    V(RunS, "⟲", none) \
     V(Import, "import", none) \
     V(Package, "package", none) \
     V(Public, "public", none) \

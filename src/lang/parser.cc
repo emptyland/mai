@@ -1233,7 +1233,14 @@ PairExpression *Parser::ParsePairExpression(bool *ok) {
 
 LambdaLiteral *Parser::ParseLambdaLiteral(bool *ok) {
     SourceLocation loc = Peek().source_location();
-    Test(Token::kLambda);
+    switch (Peek().kind()) {
+        case Token::kLambdaS:
+        case Token::kLambda:
+            MoveNext();
+            break;
+        default:
+            break;
+    }
 
     SourceLocation end;
     FunctionPrototype *proto = ParseFunctionPrototype(true, &end, CHECK_OK);
@@ -1344,6 +1351,31 @@ TryCatchFinallyBlock *Parser::ParseTryCatchFinallyBlock(bool *ok) {
     int position = file_unit_->InsertSourceLocation(loc);
     return new (arena_) TryCatchFinallyBlock(position, std::move(try_block),
                                              std::move(catch_blocks), std::move(finally_block));
+}
+
+RunStatement *Parser::ParseRunStatement(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    switch (Peek().kind()) {
+        case Token::kRun:
+        case Token::kRunS:
+            MoveNext();
+            break;
+        default:
+            *ok = false;
+            error_feedback_->Printf(loc, "Unexpected `run' expected: %s", Peek().ToString().c_str());
+            return nullptr;
+    }
+    
+    Expression *calling = ParseExpression(CHECK_OK);
+    if (!calling->IsCallExpression()) {
+        *ok = false;
+        error_feedback_->Printf(loc, "Unexpected calling expression");
+        return nullptr;
+    }
+    
+    loc.LinkEnd(file_unit_->FindSourceLocation(calling));
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) RunStatement(position, calling->AsCallExpression());
 }
 
 StringTemplateExpression *Parser::ParseStringTemplate(bool *ok) {

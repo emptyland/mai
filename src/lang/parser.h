@@ -25,6 +25,7 @@ class IfExpression;
 class Statement;
 class StatementBlock;
 class TryCatchFinallyBlock;
+class RunStatement;
 class WhileLoop;
 class FunctionPrototype;
 class ArrayInitializer;
@@ -70,6 +71,7 @@ public:
     LambdaLiteral *ParseLambdaLiteral(bool *ok);
     IfExpression *ParseIfExpression(bool *ok);
     TryCatchFinallyBlock *ParseTryCatchFinallyBlock(bool *ok);
+    RunStatement *ParseRunStatement(bool *ok);
 private:
     void *ParseConstructor(IncompleteClassDefinition *def, bool *ok);
     const ASTString *ParseDotName(SourceLocation *loc, bool *ok);

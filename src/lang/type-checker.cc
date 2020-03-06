@@ -1574,6 +1574,13 @@ ASTVisitor::Result TypeChecker::VisitTryCatchFinallyBlock(TryCatchFinallyBlock *
     return ResultWithType(kVoid);
 }
 
+ASTVisitor::Result TypeChecker::VisitRunStatement(RunStatement *ast) /*override*/ {
+    if (auto rv = ast->calling()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    return ResultWithType(kVoid);
+}
+
 ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression *ast) {
     switch (static_cast<Token::Kind>(type->id())) {
         case Token::kI8:

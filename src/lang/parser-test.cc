@@ -460,6 +460,18 @@ TEST_F(ParserTest, MapInitializer) {
     ASSERT_TRUE(ast->operand(1)->IsPairExpression());
 }
 
+TEST_F(ParserTest, LambdaLiteral) {
+    MockFile file("λ (a: int, b: int) { return a + b }\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+    
+    // val i = ◁ ch
+    // ch ◁ i
+    bool ok = true;
+    auto ast = parser_.ParseLambdaLiteral(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+}
+
 TEST_F(ParserTest, ChannelRecvSend) {
     MockFile file("<- ch\n");
     parser_.SwitchInputFile("demos/demo.mai", &file);

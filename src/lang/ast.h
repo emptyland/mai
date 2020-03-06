@@ -26,6 +26,7 @@ namespace lang {
     V(ClassImplementsBlock) \
     V(AssignmentStatement) \
     V(BreakableStatement) \
+    V(RunStatement) \
     V(IfExpression) \
     V(TypeCastExpression) \
     V(TypeTestExpression) \
@@ -62,6 +63,7 @@ DECLARE_ALL_AST(DEFINE_DECLARE)
 
 class HValue;
 class Class;
+class Function;
 
 struct ASTVisitorResult {
     int kind;
@@ -73,6 +75,7 @@ struct ASTVisitorResult {
         HValue *hval;
         Class *clazz;
         TypeSign *sign;
+        Function *fun;
     };
 };
 
@@ -609,6 +612,7 @@ public:
     }; // struct Field
 
     DEF_ARENA_VECTOR_GETTER(Field, field);
+    DEF_PTR_PROP_RW(Class, clazz);
     
     int MakeFieldLookupTable() {
         for (size_t i = 0; i < fields_size(); i++) {
@@ -638,6 +642,7 @@ protected:
 
     base::ArenaVector<Field> fields_;
     base::ArenaMap<std::string_view, size_t> named_fields_;
+    Class *clazz_ = nullptr;
 }; // class StructureDefinition
 
 
@@ -868,6 +873,19 @@ private:
     Expression *value_;
 }; // class BreakableStatement
 
+
+class RunStatement : public Statement {
+public:
+    RunStatement(int position, CallExpression *calling)
+        : Statement(position, kRunStatement)
+        , calling_(DCHECK_NOTNULL(calling)) {}
+
+    DEF_PTR_PROP_RW(CallExpression, calling);
+
+    DEFINE_AST_NODE(RunStatement);
+private:
+    CallExpression *calling_;
+}; // class RunStatement
 
 class Literal : public Expression {
 protected:

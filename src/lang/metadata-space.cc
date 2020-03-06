@@ -494,6 +494,15 @@ Class *ClassBuilder::Build(MetadataSpace *space) const {
     if (!clazz) {
         return nullptr;
     }
+    BuildWithPreparedClass(space, clazz);
+    clazz->id_ = space->NextTypeId();
+    return clazz;
+}
+
+Class *ClassBuilder::BuildWithPreparedClass(MetadataSpace *space, Class *clazz) const {
+    if (!clazz) {
+        return nullptr;
+    }
     clazz->name_ = space->NewString(name_);
     clazz->base_ = base_;
     clazz->tags_ = tags_;
@@ -518,7 +527,6 @@ Class *ClassBuilder::Build(MetadataSpace *space) const {
         i++;
     }
 
-    clazz->id_ = space->NextTypeId();
     space->InsertClass(name_, clazz);
     return clazz;
 }

@@ -27,7 +27,7 @@ public:
             kConstant,
             kCaptured,
             kACC,
-        };
+        }; // enum Linkage
         Linkage linkage;
         const Class *type;
         int index;
@@ -40,11 +40,14 @@ public:
                       std::map<std::string, std::vector<FileUnit *>> &&pkg_units);
     
     BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback);
+    
+    bool Prepare();
 
     bool Generate();
 private:
     class AbstractScope;
     class FileScope;
+    class ClassScope;
     class FunctionScope;
     class BlockScope;
     
@@ -70,6 +73,8 @@ private:
     Result VisitF64Literal(F64Literal *) override;
     Result VisitNilLiteral(NilLiteral *) override;
     Result VisitStringLiteral(StringLiteral *) override;
+    
+    SourceLocation FindSourceLocation(const ASTNode *ast);
     
     void LdaIfNeeded(const Class *clazz, int index, int linkage, BytecodeArrayBuilder *emitter);
     void LdaStack(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
@@ -101,6 +106,7 @@ private:
     GlobalSpaceBuilder global_space_;
     AbstractScope *current_ = nullptr;
     FunctionScope *current_fun_ = nullptr;
+    ClassScope    *current_class_ = nullptr;
     FileScope     *current_file_ = nullptr;
     Function *generated_init0_fun_ = nullptr;
     Function *generated_main_fun_ = nullptr;
