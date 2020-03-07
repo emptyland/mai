@@ -49,8 +49,11 @@ public:
     // Initialize Virtual-Machine state
     Error Initialize();
     
+    // Load base native functions
+    Error LoadBaseLibraries();
+    
     // Add a native function for external linker
-    Error AddExternalLinkingFunction(const Handle<Closure> &fun);
+    Error AddExternalLinkingFunction(const std::string &name, const Handle<Closure> &fun);
     
     // Compile project
     Error Compile(const std::string &dir);
@@ -75,9 +78,13 @@ public:
     inline uint8_t **bytecode_handler_entries() const;
     inline std::atomic<AbstractValue *> *cached_number_value(int slot, int64_t index);
     inline Factory *factory() const;
-    inline Closure *FindExternalLinkageOrNull(std::string_view name) const;
-    inline Closure *TakeExternalLinkageOrNull(std::string_view name);
+    inline Closure *FindExternalLinkageOrNull(const std::string &name) const;
+    inline Closure *TakeExternalLinkageOrNull(const std::string &name);
+    inline Span64 *global_space() const;
+    inline size_t global_space_length() const;
     inline void SetGlobalSpace(Span64 *spans, uint32_t *bitmap, size_t capacity, size_t length);
+    template<class T>
+    inline T* global_offset(int location) const;
 
     friend class Machine;
     friend class IsolateScope;
@@ -103,7 +110,7 @@ private:
     const std::string base_pkg_dir_;
 
     // External linking native functions
-    std::map<std::string_view, Closure*> external_linkers_;
+    std::map<std::string, Closure*> external_linkers_;
 
     Env *env_; // The base api env object
     Heap *heap_; // Heap allocator

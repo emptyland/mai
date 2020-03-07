@@ -42,8 +42,15 @@ public:
     BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback);
     
     bool Prepare();
-
     bool Generate();
+    
+    Value FindValue(const std::string &name) {
+        if (auto iter = symbols_.find(name); iter != symbols_.end()) {
+            return iter->second;
+        } else {
+            return {Value::kError, 0, 0};
+        }
+    }
 private:
     class AbstractScope;
     class FileScope;

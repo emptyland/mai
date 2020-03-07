@@ -1,4 +1,5 @@
 #include "lang/bytecode-generator.h"
+#include "lang/token.h"
 #include "lang/bytecode-array-builder.h"
 #include "lang/machine.h"
 #include "lang/isolate-inl.h"
@@ -86,6 +87,11 @@ public:
     
     DEF_PTR_GETTER(FileUnit, file_unit);
     
+    void Register(const std::string &name, Value value) override {
+        DCHECK(symbols_->find(name) == symbols_->end());
+        (*symbols_)[name] = value;
+    }
+    
     Value Find(const ASTString *prefix, const ASTString *name);
     Value Find(const ASTString *name) override {
         std::string_view exists;
@@ -102,6 +108,33 @@ private:
     std::map<std::string, std::string> alias_name_space_;
     FileScope **current_file_;
 }; // class BytecodeGenerator::FileScope
+
+BytecodeGenerator::FileScope::FileScope(const std::map<std::string, std::vector<FileUnit *>> &path_units,
+                                        std::map<std::string, Value> *symbols, FileUnit *file_unit,
+                                        AbstractScope **current, FileScope **current_file)
+    : AbstractScope(kFileScope, current)
+    , file_unit_(file_unit)
+    , symbols_(symbols)
+    , current_file_(current_file) {
+    for (auto stmt : file_unit->import_packages()) {
+        auto iter = path_units.find(stmt->original_path()->ToString());
+        DCHECK(iter != path_units.end());
+        auto pkg = iter->second.front()->package_name()->ToString();
+        
+        if (stmt->alias() && stmt->alias()->Equal("*")) {
+            all_name_space_.insert(pkg);
+        }
+        
+        if (stmt->alias()) {
+            alias_name_space_[stmt->alias()->ToString()] = pkg;
+        } else {
+            alias_name_space_[pkg] = pkg;
+        }
+    }
+    all_name_space_.insert(file_unit->package_name()->ToString());
+    DCHECK(*current_file_ == nullptr);
+    *current_file_ = this;
+}
 
 BytecodeGenerator::Value BytecodeGenerator::FileScope::Find(const ASTString *prefix,
                                                             const ASTString *name) {
@@ -135,32 +168,6 @@ BytecodeGenerator::FileScope::FindExcludePackageName(const ASTString *name, std:
         }
     }
     return {Value::kError};
-}
-
-BytecodeGenerator::FileScope::FileScope(const std::map<std::string, std::vector<FileUnit *>> &path_units,
-                                        std::map<std::string, Value> *symbols, FileUnit *file_unit,
-                                        AbstractScope **current, FileScope **current_file)
-    : AbstractScope(kFileScope, current)
-    , file_unit_(file_unit)
-    , symbols_(symbols) {
-    for (auto stmt : file_unit->import_packages()) {
-        auto iter = path_units.find(stmt->original_path()->ToString());
-        DCHECK(iter != path_units.end());
-        auto pkg = iter->second.front()->package_name()->ToString();
-        
-        if (stmt->alias() && stmt->alias()->Equal("*")) {
-            all_name_space_.insert(pkg);
-        }
-        
-        if (stmt->alias()) {
-            alias_name_space_[stmt->alias()->ToString()] = pkg;
-        } else {
-            alias_name_space_[pkg] = pkg;
-        }
-    }
-    all_name_space_.insert(file_unit->package_name()->ToString());
-    DCHECK(*current_file == nullptr);
-    *current_file = this;
 }
 
 class BytecodeGenerator::ClassScope : public AbstractScope {
@@ -277,6 +284,32 @@ inline ASTVisitor::Result ResultWithError() {
 
 inline ASTVisitor::Result ResultWithVoid() { return ResultWith(BValue::kStack, kType_void, 0); }
 
+inline int stack_offset(int off) {
+    DCHECK_GE(off, 0);
+    DCHECK_LT(off, 0x1000 - kParameterSpaceOffset);
+    DCHECK_EQ(0, off % kStackOffsetGranularity);
+    return (kParameterSpaceOffset + off) / kStackOffsetGranularity;
+}
+
+inline int parameter_offset(int off) {
+    DCHECK_GE(off, 0);
+    DCHECK_LT(off, kParameterSpaceOffset - kPointerSize * 2);
+    DCHECK_EQ(0, off % kStackOffsetGranularity);
+    return (kParameterSpaceOffset - off - kPointerSize * 2) / kStackOffsetGranularity;
+}
+
+inline int const_offset(int off) {
+    DCHECK_GE(off, 0);
+    DCHECK_EQ(0, off % kConstPoolOffsetGranularity);
+    return off / kConstPoolOffsetGranularity;
+}
+
+inline int global_offset(int off) {
+    DCHECK_GE(off, 0);
+    DCHECK_EQ(0, off % kGlobalSpaceOffsetGranularity);
+    return off / kGlobalSpaceOffsetGranularity;
+}
+
 } // namespace
 
 BytecodeGenerator::BytecodeGenerator(Isolate *isolate,
@@ -292,6 +325,10 @@ BytecodeGenerator::BytecodeGenerator(Isolate *isolate,
     , class_any_(class_any)
     , path_units_(std::move(path_units))
     , pkg_units_(std::move(pkg_units)) {
+    stack_offset(0);
+    parameter_offset(0);
+    const_offset(0);
+    global_offset(0);
 }
 
 BytecodeGenerator::BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback)
@@ -327,12 +364,14 @@ bool BytecodeGenerator::Prepare() {
             for (auto ast : unit->global_variables()) {
                 std::string name = pkg_name + "." + ast->identifier()->ToString();
         
+                //printf("var: %s\n", name.c_str());
                 if (auto decl_ast = ast->AsVariableDeclaration()) {
                     int index = LinkGlobalVariable(decl_ast);
                     Result rv;
                     if (rv = decl_ast->type()->Accept(this); rv.kind == Value::kError) {
                         return false;
                     }
+                    DCHECK_EQ(Value::kMetadata, rv.kind);
                     const Class *clazz = metadata_space_->type(rv.bundle.index);
                     current_->Register(name, {Value::kGlobal, clazz, index});
                 }
@@ -355,12 +394,12 @@ bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit)
     for (auto ast : unit->definitions()) {
         std::string name = pkg_name + "." + ast->identifier()->ToString();
         
-        if (auto clazz_ast = ast->AsClassDefinition(); ast != class_any_/*filter class Any*/) {
-            Class *clazz = metadata_space_->PrepareClass();
+        if (auto clazz_ast = ast->AsClassDefinition(); clazz_ast && ast != class_any_/*filter class Any*/) {
+            Class *clazz = metadata_space_->PrepareClass(name);
             clazz_ast->set_clazz(clazz);
             current_->Register(name, {Value::kMetadata, clazz, static_cast<int>(clazz->id())});
         } else if (auto object_ast = ast->AsObjectDefinition()) {
-            Class *clazz = metadata_space_->PrepareClass();
+            Class *clazz = metadata_space_->PrepareClass(name);
             object_ast->set_clazz(clazz);
             // object foo ==> main.foo$class
             current_->Register(name + "$class", {Value::kMetadata, clazz, static_cast<int>(clazz->id())});
@@ -418,9 +457,19 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitTypeSign(TypeSign *ast) /*override*/ {
-    // TODO:
-    TODO();
-    return ResultWith(Value::kMetadata, ast->ToBuiltinType(), 0/*TODO*/);
+    switch (static_cast<Token::Kind>(ast->id())) {
+        case Token::kRef:
+        case Token::kObject: {
+            int type_id = DCHECK_NOTNULL(ast->structure()->clazz())->id();
+            return ResultWith(Value::kMetadata, type_id, type_id);
+        }
+        case Token::kClass:
+            NOREACHED();
+            break;
+        default:
+            break;
+    }
+    return ResultWith(Value::kMetadata, ast->ToBuiltinType(), ast->ToBuiltinType());
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast) /*override*/ {
@@ -744,8 +793,7 @@ void BytecodeGenerator::LdaIfNeeded(const Class *clazz, int index, int linkage,
 }
 
 void BytecodeGenerator::LdaStack(const Class *clazz, int index, BytecodeArrayBuilder *emitter) {
-    DCHECK_EQ(0, index % kStackOffsetGranularity);
-    int offset = index / kStackOffsetGranularity;
+    int offset = stack_offset(index);
     if (clazz->is_reference()) {
         emitter->Add<kLdarPtr>(offset);
         return;
@@ -774,8 +822,7 @@ void BytecodeGenerator::LdaStack(const Class *clazz, int index, BytecodeArrayBui
 }
 
 void BytecodeGenerator::LdaConst(const Class *clazz, int index, BytecodeArrayBuilder *emitter) {
-    DCHECK_EQ(0, index % kConstPoolOffsetGranularity);
-    int offset = index / kConstPoolOffsetGranularity;
+    int offset = const_offset(index);
     if (clazz->is_reference()) {
         emitter->Add<kLdaConstPtr>(offset);
         return;
@@ -804,8 +851,7 @@ void BytecodeGenerator::LdaConst(const Class *clazz, int index, BytecodeArrayBui
 }
 
 void BytecodeGenerator::LdaGlobal(const Class *clazz, int index, BytecodeArrayBuilder *emitter) {
-    DCHECK_EQ(0, index % kGlobalSpaceOffsetGranularity);
-    int offset = index / kGlobalSpaceOffsetGranularity;
+    int offset = global_offset(index);
     if (clazz->is_reference()) {
         emitter->Add<kLdaGlobalPtr>(offset);
         return;
@@ -884,8 +930,7 @@ void BytecodeGenerator::StaIfNeeded(const Class *clazz, int index, int linkage,
 }
 
 void BytecodeGenerator::StaStack(const Class *clazz, int index, BytecodeArrayBuilder *emitter) {
-    DCHECK_EQ(0, index % kStackOffsetGranularity);
-    int offset = index / kStackOffsetGranularity;
+    int offset = stack_offset(index);
     if (clazz->is_reference()) {
         emitter->Add<kStarPtr>(offset);
         return;
@@ -914,8 +959,7 @@ void BytecodeGenerator::StaStack(const Class *clazz, int index, BytecodeArrayBui
 }
 
 void BytecodeGenerator::StaGlobal(const Class *clazz, int index, BytecodeArrayBuilder *emitter) {
-    DCHECK_EQ(0, index % kGlobalSpaceOffsetGranularity);
-    int offset = index / kGlobalSpaceOffsetGranularity;
+    int offset = global_offset(index);
     if (clazz->is_reference()) {
         emitter->Add<kStaGlobalPtr>(offset);
         return;

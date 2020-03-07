@@ -18,6 +18,9 @@ public:
             FAIL() << err.ToString();
         }
         isolate_->Enter();
+        if (auto err = isolate_->LoadBaseLibraries(); err.fail()) {
+            FAIL() << err.ToString();
+        }
     }
     
     void TearDown() override {

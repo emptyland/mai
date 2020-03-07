@@ -1,0 +1,10 @@
+package main
+
+import foo
+
+val a = "Hello, World"
+var b: foo.Foo
+
+fun main() {
+    println(a)
+}

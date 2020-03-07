@@ -58,6 +58,8 @@ public:
     static const int32_t kOffsetReentrant;
     static const int32_t kOffsetEntry;
     static const int32_t kOffsetException;
+    static const int32_t kOffsetGlobalGuard;
+    static const int32_t kOffsetGlobalLength;
   
     enum SavedStateIndex {
         kBPIndex, // Mai frame pointer
@@ -165,6 +167,8 @@ private:
     Closure *entry_; // [strong ref] Entry function
     Address heap_guard0_; // New space address guard0 for write barrier
     Address heap_guard1_; // New space address guard1 for write barrier
+    Address global_guard_; // Global space guard
+    size_t  global_length_; // Global space length
     State state_; // Coroutine current state
     Throwable *exception_; // [strong ref] Native function thrown exception
     CaughtNode *caught_; // Exception hook for exception caught

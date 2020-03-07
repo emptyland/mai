@@ -187,6 +187,11 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 #endif
 }
 
+/*static*/ void Runtime::lang_println(String *input) {
+    // TODO:
+    ::puts(input->data());
+}
+
 } // namespace lang
 
 } // namespace mai

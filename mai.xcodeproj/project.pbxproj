@@ -57,6 +57,7 @@
 		235C1CCF21D1D63F0070A049 /* optimism-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CCD21D1D63F0070A049 /* optimism-transaction-db.cc */; };
 		235C1CD621D210520070A049 /* optimism-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CD421D210520070A049 /* optimism-transaction.cc */; };
 		235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */; };
+		2360F1772413F1F60011898D /* bytecode-generator-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2360F1762413F1F60011898D /* bytecode-generator-test.cc */; };
 		236290F624037193004FB689 /* type-checker-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236290F524037193004FB689 /* type-checker-test.cc */; };
 		2364B2AD21E451F8008519AE /* pessimistic-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A6F21D615890088F382 /* pessimistic-transaction-db.cc */; };
 		2364B2AF21E451F8008519AE /* pessimistic-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7421D6171E0088F382 /* pessimistic-transaction.cc */; };
@@ -390,6 +391,7 @@
 		235C1CD721D2166B0070A049 /* write-batch-with-index.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-batch-with-index.h"; sourceTree = "<group>"; };
 		235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch-with-index.cc"; sourceTree = "<group>"; };
 		235C1CE021D22F550070A049 /* mock-column-family.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "mock-column-family.h"; sourceTree = "<group>"; };
+		2360F1762413F1F60011898D /* bytecode-generator-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bytecode-generator-test.cc"; sourceTree = "<group>"; };
 		236290F524037193004FB689 /* type-checker-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "type-checker-test.cc"; sourceTree = "<group>"; };
 		236AC67521B768E60069A17B /* lru-cache-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lru-cache-v1.h"; sourceTree = "<group>"; };
 		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
@@ -752,6 +754,7 @@
 				2306103B23FFBADF0024361F /* compiler-test.cc */,
 				236290F524037193004FB689 /* type-checker-test.cc */,
 				23048455240D08D800480C15 /* stable-space-builder-test.cc */,
+				2360F1762413F1F60011898D /* bytecode-generator-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1460,6 +1463,7 @@
 				238F195323D7DECF00FF0D98 /* metadata-space-test.cc in Sources */,
 				2364B34921E451F9008519AE /* arenas-test.cc in Sources */,
 				2364B34A21E451F9008519AE /* tls-test.cc in Sources */,
+				2360F1772413F1F60011898D /* bytecode-generator-test.cc in Sources */,
 				2364B34B21E451F9008519AE /* reference-count-test.cc in Sources */,
 				2364B34C21E451F9008519AE /* varint-encoding-test.cc in Sources */,
 				23347C81225791B400ABAB3F /* thread-pool-test.cc in Sources */,

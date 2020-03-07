@@ -21,6 +21,8 @@ public:
 
     DEF_PTR_GETTER(ClassDefinition, class_any);
     DEF_PTR_GETTER(ClassDefinition, class_exception);
+    std::map<std::string, std::vector<FileUnit *>> *mutable_path_units() { return &path_units_; };
+    std::map<std::string, std::vector<FileUnit *>> *mutable_pkg_units() { return &pkg_units_; }
     
     Error AddBootFileUnits(const std::string &original_path,
                            const std::vector<FileUnit *> &file_units, SourceFileResolve *resolve);

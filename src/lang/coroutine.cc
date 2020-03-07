@@ -29,6 +29,8 @@ const int32_t Coroutine::kOffsetYield = MEMBER_OFFSET_OF(yield_);
 const int32_t Coroutine::kOffsetReentrant = MEMBER_OFFSET_OF(reentrant_);
 const int32_t Coroutine::kOffsetEntry = MEMBER_OFFSET_OF(entry_);
 const int32_t Coroutine::kOffsetException = MEMBER_OFFSET_OF(exception_);
+const int32_t Coroutine::kOffsetGlobalGuard = MEMBER_OFFSET_OF(global_guard_);
+const int32_t Coroutine::kOffsetGlobalLength = MEMBER_OFFSET_OF(global_length_);
 
 void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     // queue header:
@@ -48,6 +50,8 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     heap_guard0_ = STATE->heap()->new_space()->original_chunk();
     heap_guard1_ = STATE->heap()->new_space()->original_limit();
     DCHECK_LT(heap_guard0_, heap_guard1_);
+    global_guard_ = reinterpret_cast<Address>(STATE->global_space());
+    global_length_ = STATE->global_space_length() * sizeof(*STATE->global_space());
 
     sys_bp_ = nullptr;
     sys_sp_ = nullptr;

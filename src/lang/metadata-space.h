@@ -102,15 +102,23 @@ public:
         TODO();
     }
     
+    // Rollback to snapshot type id
+    void Rollback(uint32_t snapshot) {
+        // TODO:
+        TODO();
+    }
+    
     void InvalidateAllLookupTables() {
         std::lock_guard<std::shared_mutex> lock(class_fields_mutex_);
         named_class_fields_.clear();
         // TODO:
     }
     
-    Class *PrepareClass() {
+    Class *PrepareClass(const std::string &name) {
         Class *clazz = New<Class>();
         clazz->id_ = NextTypeId();
+        clazz->name_ = NewString(name);
+        InsertClass(name, clazz);
         return clazz;
     }
 

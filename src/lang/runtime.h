@@ -14,7 +14,7 @@ class Closure;
 class Any;
 class Coroutine;
 class Throwable;
-
+class String;
 class Class;
 class Function;
 
@@ -69,6 +69,10 @@ struct Runtime {
 
     // Debug abort message output and fast abort code execution
     static void DebugAbort(const char *message);
+    
+    
+    // Stand library native functions
+    static void lang_println(String *input);
 
 }; // struct Runtime
 

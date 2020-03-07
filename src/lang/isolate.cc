@@ -7,6 +7,8 @@
 #include "lang/factory.h"
 #include "lang/compiler.h"
 #include "lang/syntax.h"
+#include "lang/runtime.h"
+#include "lang/value-inl.h"
 #include "asm/utils.h"
 #include "base/arenas.h"
 #include "glog/logging.h"
@@ -72,15 +74,24 @@ Error Isolate::Initialize() {
     return Error::OK();
 }
 
-Error Isolate::AddExternalLinkingFunction(const Handle<Closure> &fun) {
+Error Isolate::LoadBaseLibraries() {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Local<Closure> fun(FunctionTemplate::New(Runtime::lang_println));
+    if (auto rs = AddExternalLinkingFunction("lang.println", fun); !rs) {
+        return rs;
+    }
+    
+    return Error::OK();
+}
+
+Error Isolate::AddExternalLinkingFunction(const std::string &name, const Handle<Closure> &fun) {
     if (!fun->is_cxx_function()) {
         return MAI_CORRUPTION("Invalid function type");
     }
-    std::string_view key = MDStrHeader::ToStringView(fun->function()->name());
-    if (auto iter = external_linkers_.find(key); iter != external_linkers_.end()) {
+    if (auto iter = external_linkers_.find(name); iter != external_linkers_.end()) {
         return MAI_CORRUPTION("Duplicated function name");
     }
-    external_linkers_[key] = *fun;
+    external_linkers_[name] = *fun;
     return Error::OK();
 }
 

@@ -369,6 +369,8 @@ protected:
 
 class BytecodeEmitter : public PartialBytecodeEmitter {
 public:
+    static constexpr int kStackDelta = static_cast<int>(kParameterSpaceOffset/kStackOffsetGranularity);
+    
     class InstrBaseScope {
     public:
         InstrBaseScope(MacroAssembler *m): masm(m) {}
@@ -379,21 +381,24 @@ public:
     
     class InstrImmAScope : public InstrBaseScope {
     public:
-        InstrImmAScope(MacroAssembler *m): InstrBaseScope(m) { GetAToRBX(); }
+        InstrImmAScope(MacroAssembler *m): InstrBaseScope(m) { GetATo(rbx); }
         
-        void GetAToRBX() {
-            __ movl(rbx, Operand(BC, 0));
-            __ andl(rbx, BytecodeNode::kAOfAMask);
+        void GetATo(Register dst) {
+            __ movl(dst, Operand(BC, 0));
+            __ andl(dst, BytecodeNode::kAOfAMask);
         }
+        
+        void GetAToRBX() { GetATo(rbx); }
     }; // class InstrImmAScope
     
     class InstrStackAScope : public InstrImmAScope {
     public:
         InstrStackAScope(MacroAssembler *m): InstrImmAScope(m) { GetAToRBX(); }
-        
+
         void GetAToRBX() {
-            InstrImmAScope::GetAToRBX();
-            __ negq(rbx);
+            GetATo(rcx);
+            __ movq(rbx, kStackDelta);
+            __ subq(rbx, rcx);
         }
     }; // class InstrStackAScope
     
@@ -401,18 +406,18 @@ public:
     public:
         InstrImmABScope(MacroAssembler *m)
             : InstrBaseScope(m) {
-            GetAToRBX();
+            GetATo(rbx);
         }
         
-        void GetAToRBX() {
-            __ movl(rbx, Operand(BC, 0));
-            __ andl(rbx, BytecodeNode::kAOfABMask);
-            __ shrl(rbx, 12);
+        void GetATo(Register dst) {
+            __ movl(dst, Operand(BC, 0));
+            __ andl(dst, BytecodeNode::kAOfABMask);
+            __ shrl(dst, 12);
         }
         
-        void GetBToRBX() {
-            __ movl(rbx, Operand(BC, 0));
-            __ andl(rbx, BytecodeNode::kBOfABMask);
+        void GetBTo(Register dst) {
+            __ movl(dst, Operand(BC, 0));
+            __ andl(dst, BytecodeNode::kBOfABMask);
         }
     }; // class InstrImmABScope
     
@@ -421,12 +426,18 @@ public:
         InstrStackBAScope(MacroAssembler *m)
             : InstrImmABScope(m) {
             GetBToRBX();
-            __ negq(rbx);
+        }
+        
+        void GetBToRBX() {
+            GetBTo(rcx);
+            __ movq(rbx, kStackDelta);
+            __ subq(rbx, rcx);
         }
         
         void GetAToRBX() {
-            InstrImmABScope::GetAToRBX();
-            __ negq(rbx);
+            GetATo(rcx);
+            __ movq(rbx, kStackDelta);
+            __ subq(rbx, rcx);
         }
     }; // class InstrBAScope
     
@@ -435,12 +446,18 @@ public:
         InstrStackABScope(MacroAssembler *m)
             : InstrImmABScope(m) {
             GetAToRBX();
-            __ negq(rbx);
         }
 
         void GetBToRBX() {
-            InstrImmABScope::GetBToRBX();
-            __ negq(rbx);
+            GetBTo(rcx);
+            __ movq(rbx, kStackDelta);
+            __ subq(rbx, rcx);
+        }
+        
+        void GetAToRBX() {
+            GetATo(rcx);
+            __ movq(rbx, kStackDelta);
+            __ subq(rbx, rcx);
         }
     }; // class InstrABScope
     
@@ -448,9 +465,12 @@ public:
     public:
         InstrStackImmABScope(MacroAssembler *m)
             : InstrImmABScope(m) {
-            GetAToRBX();
-            __ negq(rbx);
+            GetATo(rcx);
+            __ movq(rbx, kStackDelta);
+            __ subq(rbx, rcx);
         }
+        
+        void GetBToRBX() { GetBTo(rbx); }
     }; // class InstrStackOffsetABScope
     
     class InstrFABaseScope : public InstrBaseScope {
@@ -528,33 +548,6 @@ public:
         __ movq(ACC, rbx);
     }
 
-    // Load argument
-    void EmitLdaArgument32(MacroAssembler *masm) override {
-        InstrImmAScope instr_scope(masm);
-        __ addl(rbx, 8); // Skip saved rbp and return address
-        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
-    }
-    
-    void EmitLdaArgument64(MacroAssembler *masm) override {
-        InstrImmAScope instr_scope(masm);
-        __ addl(rbx, 8); // Skip saved rbp and return address
-        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
-    }
-
-    void EmitLdaArgumentPtr(MacroAssembler *masm) override { EmitLdaArgument64(masm); }
-
-    void EmitLdaArgumentf32(MacroAssembler *masm) override {
-        InstrImmAScope instr_scope(masm);
-        __ addl(rbx, 8); // Skip saved rbp and return address
-        __ movss(FACC, Operand(rbp, rbx, times_2, 0));
-    }
-
-    void EmitLdaArgumentf64(MacroAssembler *masm) override {
-        InstrImmAScope instr_scope(masm);
-        __ addl(rbx, 8); // Skip saved rbp and return address
-        __ movsd(FACC, Operand(rbp, rbx, times_2, 0));
-    }
-
     #if defined(DEBUG) || defined(_DEBUG)
     #define CHECK_CAPTURED_VAR_INDEX() \
         __ cmpl(rbx, Operand(SCRATCH, Closure::kOffsetCapturedVarSize)); \
@@ -626,6 +619,50 @@ public:
     void EmitLdaConstf64(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+        __ movsd(FACC, Operand(SCRATCH, rbx, times_4, 0));
+    }
+    
+    #if defined(DEBUG) || defined(_DEBUG)
+    #define CHECK_GLOBAL_OFFSET() \
+        __ movq(rcx, rbx); \
+        __ shlq(rcx, kGlobalSpaceOffsetGranularityShift); \
+        __ cmpl(rcx, Operand(CO, Coroutine::kOffsetGlobalLength)); \
+        Label ok; \
+        __ j(Less, &ok, false/*is_far*/); \
+        __ Abort("Global offset out of bound"); \
+        __ Bind(&ok)
+    #else // defined(DEBUG) || defined(_DEBUG)
+    #define CHECK_GLOBAL_OFFSET()
+    #endif // !defined(DEBUG) && !defined(_DEBUG)
+    
+    // Load Global
+    void EmitLdaGlobal32(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        CHECK_GLOBAL_OFFSET();
+        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetGlobalGuard));
+        __ movl(ACC, Operand(SCRATCH, rbx, times_4, 0));
+    }
+    
+    void EmitLdaGlobal64(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        CHECK_GLOBAL_OFFSET();
+        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetGlobalGuard));
+        __ movq(ACC, Operand(SCRATCH, rbx, times_4, 0));
+    }
+    
+    void EmitLdaGlobalPtr(MacroAssembler *masm) override { EmitLdaGlobal64(masm); }
+
+    void EmitLdaGlobalf32(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        CHECK_GLOBAL_OFFSET();
+        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetGlobalGuard));
+        __ movss(FACC, Operand(SCRATCH, rbx, times_4, 0));
+    }
+    
+    void EmitLdaGlobalf64(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        CHECK_GLOBAL_OFFSET();
+        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetGlobalGuard));
         __ movsd(FACC, Operand(SCRATCH, rbx, times_4, 0));
     }
 
@@ -719,6 +756,7 @@ public:
     void EmitStarPtr(MacroAssembler *masm) override { EmitStar64(masm); }
 
     void EmitStaf32(MacroAssembler *masm) override {
+        //__ Breakpoint();
         InstrStackAScope instr_scope(masm);
         __ movss(Operand(rbp, rbx, times_2, 0), FACC);
     }
@@ -754,6 +792,37 @@ public:
         InstrCapturedVarScope instr_scope(masm);
         __ movsd(Operand(SCRATCH, CapturedValue::kOffsetValue), FACC);
         __ sfence();
+    }
+    
+    // Store Global
+    void EmitStaGlobal32(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        CHECK_GLOBAL_OFFSET();
+        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetGlobalGuard));
+        __ movl(Operand(SCRATCH, rbx, times_4, 0), ACC);
+    }
+    
+    void EmitStaGlobal64(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        CHECK_GLOBAL_OFFSET();
+        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetGlobalGuard));
+        __ movq(Operand(SCRATCH, rbx, times_4, 0), ACC);
+    }
+    
+    void EmitStaGlobalPtr(MacroAssembler *masm) override { EmitStaGlobal64(masm); }
+    
+    void EmitStaGlobalf32(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        CHECK_GLOBAL_OFFSET();
+        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetGlobalGuard));
+        __ movss(Operand(SCRATCH, rbx, times_4, 0), FACC);
+    }
+    
+    void EmitStaGlobalf64(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        CHECK_GLOBAL_OFFSET();
+        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetGlobalGuard));
+        __ movsd(Operand(SCRATCH, rbx, times_4, 0), FACC);
     }
     
     // Store Property

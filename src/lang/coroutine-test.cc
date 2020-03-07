@@ -7,12 +7,14 @@
 #include "lang/channel.h"
 #include "lang/bytecode-array-builder.h"
 #include "lang/stack-frame.h"
+#include "lang/stable-space-builder.h"
 #include "asm/utils.h"
 #include "test/isolate-initializer.h"
 #include "base/arenas.h"
 #include "base/slice.h"
 #include "gtest/gtest.h"
 #include <thread>
+//#include <sys/time.h>
 
 namespace mai {
 
@@ -161,6 +163,24 @@ public:
                 .offset(templ.Offset(&DummyClass::any_1_))
             .End()
         .Build(STATE->metadata_space());
+    }
+    
+    // 257 : -1
+    // 255 : 1
+    int stack_offset(int off) {
+        return (kParameterSpaceOffset + off) / kStackOffsetGranularity;
+    }
+    
+    int parameter_offset(int off) {
+        return (kParameterSpaceOffset - off - kPointerSize * 2) / kStackOffsetGranularity;
+    }
+    
+    int global_offset(int off) {
+        return off / kGlobalSpaceOffsetGranularity;
+    }
+    
+    int const_offset(int off) {
+        return off / kConstPoolOffsetGranularity;
     }
 
     Scheduler *scheduler_ = nullptr;
@@ -351,13 +371,13 @@ TEST_F(CoroutineTest, BytecodeCallNativeFunctionWithArguments) {
     builder.Add<kCheckStack>();
 
     builder.Add<kLdaConstf32>(9);
-    builder.Add<kStaf32>((kStackSize + 16)/2);
+    builder.Add<kStaf32>(stack_offset(kStackSize + 16));
     
     builder.Add<kLdaConst64>(10);
-    builder.Add<kStar64>((kStackSize + 12)/2);
+    builder.Add<kStar64>(stack_offset(kStackSize + 12));
     
     builder.Add<kLdaConst32>(8);
-    builder.Add<kStar32>((kStackSize + 4)/2);
+    builder.Add<kStar32>(stack_offset(kStackSize + 4));
     
     builder.Add<kLdaConstPtr>(0);
     builder.Add<kCallNativeFunction>(16);
@@ -564,7 +584,7 @@ TEST_F(CoroutineTest, NilPointerPanic) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaZero>();
-    int32_t v1 = (kLocalVarBase + 8) / 2;
+    int32_t v1 = stack_offset(kLocalVarBase + 8);
     builder.Add<kStarPtr>(v1);
     builder.Add<kAssertNotNull>(v1);
     builder.Add<kLdaPropertyPtr>(v1, 0);
@@ -594,7 +614,7 @@ TEST_F(CoroutineTest, ThrowUserException) {
     builder.Add<kCheckStack>();
 
     builder.Add<kLdaConstPtr>(2);
-    builder.Add<kStarPtr>((kStackSize + 8)/2);
+    builder.Add<kStarPtr>(stack_offset(kStackSize + 8));
 
     builder.Add<kLdaConstPtr>(0);
     builder.Add<kCallNativeFunction>(kPointerSize);
@@ -618,12 +638,12 @@ TEST_F(CoroutineTest, NewChannel) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaSmi32>(kType_int);
-    builder.Add<kStar32>((kStackSize + 4)/2);
+    builder.Add<kStar32>(stack_offset(kStackSize + 4));
     builder.Add<kLdaZero>();
-    builder.Add<kStar32>((kStackSize + 8)/2);
+    builder.Add<kStar32>(stack_offset(kStackSize + 8));
     builder.Add<kLdaConstPtr>(0);
     builder.Add<kCallNativeFunction>(8); // NewChannel
-    builder.Add<kStarPtr>((kStackSize + 8)/2);
+    builder.Add<kStarPtr>(stack_offset(kStackSize + 8));
     builder.Add<kLdaConstPtr>(2);
     builder.Add<kCallNativeFunction>(8); // ChannelClose
     builder.Add<kReturn>();
@@ -657,9 +677,9 @@ TEST_F(CoroutineTest, SendRecvChannel) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(4);
-    builder.Add<kStarPtr>((kStackSize + 8)/2);
+    builder.Add<kStarPtr>(stack_offset(kStackSize + 8));
     builder.Add<kLdaSmi32>(404);
-    builder.Add<kStar32>((kStackSize + 12)/2);
+    builder.Add<kStar32>(stack_offset(kStackSize + 12));
     builder.Add<kLdaConstPtr>(0);
     builder.Add<kCallNativeFunction>(12);
     builder.Add<kYield>(YIELD_PROPOSE);
@@ -673,11 +693,11 @@ TEST_F(CoroutineTest, SendRecvChannel) {
     builder.Abandon();
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(4);
-    builder.Add<kStarPtr>((kStackSize + 8)/2);
+    builder.Add<kStarPtr>(stack_offset(kStackSize + 8));
     builder.Add<kLdaConstPtr>(2);
     builder.Add<kCallNativeFunction>(8);
     builder.Add<kYield>(YIELD_PROPOSE);
-    builder.Add<kStar32>((kStackSize + 4)/2);
+    builder.Add<kStar32>(stack_offset(kStackSize + 4));
     builder.Add<kLdaConstPtr>(6);
     builder.Add<kCallNativeFunction>(4);
     builder.Add<kReturn>();
@@ -700,16 +720,14 @@ static void Dummy14(int32_t a, double b) {
 
 TEST_F(CoroutineTest, LoadArgumentToACC) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    
+
     Span32 span;
     span.ptr[0].any = *FunctionTemplate::New(Dummy14);
-    
+
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
-    builder.Add<kLdaArgument32>((16 - 4)/2);
-    builder.Add<kStar32>((kStackSize + 4)/2);
-    builder.Add<kLdaArgumentf64>((16 - 12)/2);
-    builder.Add<kStaf64>((kStackSize + 12)/2);
+    builder.Add<kMove32>(stack_offset(kStackSize + 4), parameter_offset(16 - 4));
+    builder.Add<kMove64>(stack_offset(kStackSize + 12), parameter_offset(16 - 12));
     builder.Add<kLdaConstPtr>(0);
     builder.Add<kCallNativeFunction>(12);
     builder.Add<kReturn>();
@@ -720,7 +738,7 @@ TEST_F(CoroutineTest, LoadArgumentToACC) {
     Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
 
-    *reinterpret_cast<int32_t *>(&mock_data[12]) = 270; // arg0
+    *reinterpret_cast<int32_t *>(&mock_data[12]) = 999810; // arg0
     *reinterpret_cast<double *>(&mock_data[4]) = 3.1415f; // arg1
     co->CopyArgv(mock_data, sizeof(mock_data));
 
@@ -728,8 +746,8 @@ TEST_F(CoroutineTest, LoadArgumentToACC) {
     scheduler_->machine(0)->PostRunnable(co);
 
     isolate_->Run();
-    
-    ASSERT_EQ(270, dummy_result.i32_1);
+
+    ASSERT_EQ(999810, dummy_result.i32_1);
     ASSERT_NEAR(3.1415f, dummy_result.f64_1, 0.0001);
 }
 
@@ -750,7 +768,7 @@ TEST_F(CoroutineTest, NewObject) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kNewObject>(Heap::kOld/*flags*/, 2/*const_offset*/);
-    builder.Add<kStarPtr>((kStackSize + 8)/2);
+    builder.Add<kStarPtr>(stack_offset(kStackSize + 8));
     builder.Add<kLdaConstPtr>(0);
     builder.Add<kCallNativeFunction>(8);
     builder.Add<kReturn>();
@@ -800,16 +818,16 @@ TEST_F(CoroutineTest, LoadPropertyToACC) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(2);
-    auto v1 = (kLocalVarBase + 8)/2;
+    auto v1 = stack_offset(kLocalVarBase + 8);
     builder.Add<kStarPtr>(v1);
     builder.Add<kLdaProperty8>(v1, clazz->field(0)->offset());
-    builder.Add<kStar32>((kStackSize + 4)/2);
+    builder.Add<kStar32>(stack_offset(kStackSize + 4));
     builder.Add<kLdaProperty16>(v1, clazz->field(2)->offset());
-    builder.Add<kStar32>((kStackSize + 8)/2);
+    builder.Add<kStar32>(stack_offset(kStackSize + 8));
     builder.Add<kLdaProperty32>(v1, clazz->field(3)->offset());
-    builder.Add<kStar32>((kStackSize + 12)/2);
+    builder.Add<kStar32>(stack_offset(kStackSize + 12));
     builder.Add<kLdaProperty64>(v1, clazz->field(4)->offset());
-    builder.Add<kStar64>((kStackSize + 20)/2);
+    builder.Add<kStar64>(stack_offset(kStackSize + 20));
     builder.Add<kLdaConstPtr>(0);
     builder.Add<kCallNativeFunction>(20);
     builder.Add<kReturn>();
@@ -856,14 +874,14 @@ TEST_F(CoroutineTest, LoadPropertyToACC2) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(2);
-    auto v1 = (kLocalVarBase + 8)/2;
+    auto v1 = stack_offset(kLocalVarBase + 8);
     builder.Add<kStarPtr>(v1);
     builder.Add<kLdaPropertyf32>(v1, clazz->field(5)->offset());
-    builder.Add<kStaf32>((kStackSize + 4)/2);
+    builder.Add<kStaf32>(stack_offset(kStackSize + 4));
     builder.Add<kLdaPropertyf64>(v1, clazz->field(6)->offset());
-    builder.Add<kStaf64>((kStackSize + 12)/2);
+    builder.Add<kStaf64>(stack_offset(kStackSize + 12));
     builder.Add<kLdaPropertyPtr>(v1, clazz->field(7)->offset());
-    builder.Add<kStarPtr>((kStackSize + 20)/2);
+    builder.Add<kStarPtr>(stack_offset(kStackSize + 20));
     builder.Add<kLdaConstPtr>(0);
     builder.Add<kCallNativeFunction>(20);
     builder.Add<kReturn>();
@@ -895,7 +913,7 @@ TEST_F(CoroutineTest, StorePropertyFromACC) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(0);
-    auto v1 = (kLocalVarBase + 8)/2;
+    auto v1 = stack_offset(kLocalVarBase + 8);
     builder.Add<kStarPtr>(v1);
     builder.Add<kLdaSmi32>(81);
     builder.Add<kStaProperty8>(v1, clazz->field(0)->offset());
@@ -939,16 +957,16 @@ TEST_F(CoroutineTest, LoadCapturedVarToACC) {
     builder.Add<kCheckStack>();
     
     builder.Add<kLdaCaptured32>(0);
-    builder.Add<kStar32>((kStackSize + 4)/2);
+    builder.Add<kStar32>(stack_offset(kStackSize + 4));
 
     builder.Add<kLdaCaptured64>(1);
-    builder.Add<kStar64>((kStackSize + 12)/2);
+    builder.Add<kStar64>(stack_offset(kStackSize + 12));
     
     builder.Add<kLdaCapturedf32>(2);
-    builder.Add<kStaf32>((kStackSize + 16)/2);
+    builder.Add<kStaf32>(stack_offset(kStackSize + 16));
     
     builder.Add<kLdaCapturedf64>(3);
-    builder.Add<kStaf64>((kStackSize + 24)/2);
+    builder.Add<kStaf64>(stack_offset(kStackSize + 24));
     
     builder.Add<kLdaConstPtr>(0);
     builder.Add<kCallNativeFunction>(24);
@@ -1023,6 +1041,100 @@ TEST_F(CoroutineTest, StoreCapturedVarFromACC) {
     ASSERT_EQ(span.v64[1].i64, entry->captured_var(1)->unsafe_typed_value<int64_t>());
     ASSERT_EQ(span.v32[1].f32, entry->captured_var(2)->unsafe_typed_value<float>());
     ASSERT_EQ(span.v64[2].f64, entry->captured_var(3)->unsafe_typed_value<double>());
+}
+
+static void Dummy19(int32_t a, int64_t b, float c, double d) {
+    dummy_result.i32_1 = a;
+    dummy_result.i64_1 = b;
+    dummy_result.f32_1 = c;
+    dummy_result.f64_1 = d;
+}
+
+TEST_F(CoroutineTest, LoadGlobalSpace) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    GlobalSpaceBuilder global;
+    int l1 = global.AppendI32(100);
+    int l2 = global.AppendI64(996);
+    int l3 = global.AppendF32(9.99);
+    int l4 = global.AppendF64(3.14);
+    isolate_->SetGlobalSpace(global.TakeSpans(), global.TakeBitmap(), global.capacity(),
+                             global.length());
+    
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaGlobal32>(global_offset(l1));
+    builder.Add<kStar32>(stack_offset(kStackSize + 4));
+    builder.Add<kLdaGlobal64>(global_offset(l2));
+    builder.Add<kStar64>(stack_offset(kStackSize + 12));
+    builder.Add<kLdaGlobalf32>(global_offset(l3));
+    builder.Add<kStaf32>(stack_offset(kStackSize + 16));
+    builder.Add<kLdaGlobalf64>(global_offset(l4));
+    builder.Add<kStaf64>(stack_offset(kStackSize + 24));
+    builder.Add<kLdaConstPtr>(0);
+    builder.Add<kCallNativeFunction>(24);
+    builder.Add<kReturn>();
+    
+    Span32 span;
+    span.ptr[0].any = *FunctionTemplate::New(Dummy19);
+    
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+
+    ASSERT_EQ(100, dummy_result.i32_1);
+    ASSERT_EQ(996, dummy_result.i64_1);
+    ASSERT_NEAR(9.99, dummy_result.f32_1, 0.001);
+    ASSERT_NEAR(3.14, dummy_result.f64_1, 0.001);
+}
+
+TEST_F(CoroutineTest, StoreGlobalSpace) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+
+    GlobalSpaceBuilder global;
+    int l1 = global.AppendI32(0);
+    int l2 = global.AppendI64(0);
+    int l3 = global.AppendF32(0);
+    int l4 = global.AppendAny(nullptr);
+    isolate_->SetGlobalSpace(global.TakeSpans(), global.TakeBitmap(), global.capacity(),
+                             global.length());
+    
+    ConstantPoolBuilder pool;
+    int k1 = pool.FindOrInsertI32(199);
+    int k2 = pool.FindOrInsertI64(2789999);
+    int k3 = pool.FindOrInsertF32(3.14);
+    int k4 = pool.FindOrInsertString(*String::NewUtf8("Hello"));
+    
+    BytecodeArrayBuilder builder(arena_);
+    builder.Add<kCheckStack>();
+    builder.Add<kLdaConst32>(const_offset(k1));
+    builder.Add<kStaGlobal32>(global_offset(l1));
+    builder.Add<kLdaConst64>(const_offset(k2));
+    builder.Add<kStaGlobal64>(global_offset(l2));
+    builder.Add<kLdaConstf32>(const_offset(k3));
+    builder.Add<kStaGlobalf32>(global_offset(l3));
+    builder.Add<kLdaConstPtr>(const_offset(k4));
+    builder.Add<kStaGlobalPtr>(global_offset(l4));
+    builder.Add<kReturn>();
+    
+    Local<Closure> entry(BuildDummyClosure(builder.Build(), pool.ToSpanVector(),
+                                           pool.ToBitmapVector()));
+    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine(0)->PostRunnable(co);
+
+    isolate_->Run();
+    
+    ASSERT_EQ(199, *isolate_->global_offset<int32_t>(l1));
+    ASSERT_EQ(2789999, *isolate_->global_offset<int64_t>(l2));
+    ASSERT_NEAR(3.14, *isolate_->global_offset<float>(l3), 0.001);
+    Local<String> s(*isolate_->global_offset<String *>(l4));
+    ASSERT_TRUE(s.is_not_empty());
+    ASSERT_TRUE(s.is_value_not_null());
+    ASSERT_STREQ("Hello", s->data());
 }
 
 } // namespace lang

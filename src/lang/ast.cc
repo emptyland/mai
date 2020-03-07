@@ -394,6 +394,8 @@ BuiltinType TypeSign::ToBuiltinType() const {
     #undef DEFINE_PRIMITIVE_TYPE
         case Token::kVoid:
             return kType_void;
+        case Token::kString:
+            return kType_string;
         case Token::kArray:
             return GetArrayBuiltinType(false/*is_mutable*/, parameter(0));
         case Token::kMutableArray:
@@ -402,14 +404,15 @@ BuiltinType TypeSign::ToBuiltinType() const {
             return GetMapBuiltinType(false/*is_mutable*/, parameter(0));
         case Token::kMutableMap:
             return GetMapBuiltinType(true/*is_mutable*/, parameter(0));
+        case Token::kFun:
+            return kType_closure;
         case Token::kInterface:
         case Token::kObject:
         case Token::kRef:
-        case Token::kFun:
             return kType_any;
         case Token::kClass:
         default:
-            NOREACHED();
+            NOREACHED() << Token::ToString(static_cast<Token::Kind>(id()));
             return static_cast<BuiltinType>(-1);
     }
 }

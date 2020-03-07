@@ -49,8 +49,11 @@ static constexpr uint32_t kFreeZag = 0xfeedfeed;
 static constexpr uint32_t kInitZag = 0xcccccccc;
 
 static constexpr size_t kConstPoolOffsetGranularity = 4;
-static constexpr size_t kGlobalSpaceOffsetGranularity = 4;
+static constexpr size_t kGlobalSpaceOffsetGranularityShift = 2;
+static constexpr size_t kGlobalSpaceOffsetGranularity = 1u << kGlobalSpaceOffsetGranularityShift;
 static constexpr size_t kStackOffsetGranularity = 2;
+
+static constexpr int kParameterSpaceOffset = 256;
 
 
 #if defined(_DEBUG) || defined(DEBUG)

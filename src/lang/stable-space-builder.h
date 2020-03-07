@@ -128,6 +128,9 @@ public:
     DEF_VAL_GETTER(size_t, capacity);
     DEF_VAL_GETTER(size_t, length);
     
+    template<class S>
+    inline S *offset(int location) { return reinterpret_cast<S *>(address(location)); }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(StableSpaceBuilder);
 protected:
     struct SpanState {
@@ -234,6 +237,18 @@ public:
     
     int FindOrInsertMetadata(MetadataObject *val) {
         return FindOrInsert({.kind = Key::kMetadata, .metadata = val}, val);
+    }
+    
+    std::vector<Span32> ToSpanVector() const {
+        std::vector<Span32> rv(length());
+        ::memcpy(&rv[0], spans(), rv.size() * sizeof(Span32));
+        return rv;
+    }
+
+    std::vector<uint32_t> ToBitmapVector() const {
+        std::vector<uint32_t> rv((length() + 31) / 32);
+        ::memcpy(&rv[0], bitmap(), rv.size() * sizeof(uint32_t));
+        return rv;
     }
 
 private:

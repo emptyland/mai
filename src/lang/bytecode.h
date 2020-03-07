@@ -96,6 +96,12 @@ namespace lang {
     V(CheckStack, BytecodeType::N) \
     V(AssertNotNull, BytecodeType::A, BytecodeParam::kStackOffset)
 
+//V(LdaArgument32, BytecodeType::A, BytecodeParam::kStackOffset) \
+//V(LdaArgument64, BytecodeType::A, BytecodeParam::kStackOffset) \
+//V(LdaArgumentPtr, BytecodeType::A, BytecodeParam::kStackOffset) \
+//V(LdaArgumentf32, BytecodeType::A, BytecodeParam::kStackOffset) \
+//V(LdaArgumentf64, BytecodeType::A, BytecodeParam::kStackOffset)
+
 #define DECLARE_LDAR_BYTECODE(V) \
     V(Ldar32, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(Ldar64, BytecodeType::A, BytecodeParam::kStackOffset) \
@@ -106,11 +112,6 @@ namespace lang {
     V(LdaSmi32, BytecodeType::A, BytecodeParam::kImmediate) \
     V(LdaTrue, BytecodeType::N) \
     V(LdaFalse, BytecodeType::N) \
-    V(LdaArgument32, BytecodeType::A, BytecodeParam::kStackOffset) \
-    V(LdaArgument64, BytecodeType::A, BytecodeParam::kStackOffset) \
-    V(LdaArgumentPtr, BytecodeType::A, BytecodeParam::kStackOffset) \
-    V(LdaArgumentf32, BytecodeType::A, BytecodeParam::kStackOffset) \
-    V(LdaArgumentf64, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(LdaCaptured32, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
     V(LdaCaptured64, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \
     V(LdaCapturedPtr, BytecodeType::A, BytecodeParam::kCapturedVarIndex) \

@@ -93,12 +93,12 @@ inline int Isolate::GetNumberOfGlobalHandles() const {
     return n_global_handles_;
 }
 
-inline Closure *Isolate::FindExternalLinkageOrNull(std::string_view name) const {
+inline Closure *Isolate::FindExternalLinkageOrNull(const std::string &name) const {
     auto iter = external_linkers_.find(name);
     return iter == external_linkers_.end() ? nullptr : iter->second;
 }
 
-inline Closure *Isolate::TakeExternalLinkageOrNull(std::string_view name) {
+inline Closure *Isolate::TakeExternalLinkageOrNull(const std::string &name) {
     auto iter = external_linkers_.find(name);
     if (iter == external_linkers_.end()) {
         return nullptr;
@@ -106,6 +106,15 @@ inline Closure *Isolate::TakeExternalLinkageOrNull(std::string_view name) {
     Closure *fun = iter->second;
     external_linkers_.erase(iter);
     return fun;
+}
+
+Span64 *Isolate::global_space() const { return global_space_; }
+
+size_t Isolate::global_space_length() const { return global_space_length_; }
+
+template<class T>
+inline T* Isolate::global_offset(int location) const {
+    return reinterpret_cast<T *>(reinterpret_cast<Address>(global_space()) + location);
 }
 
 inline void Isolate::SetGlobalSpace(Span64 *spans, uint32_t *bitmap, size_t capacity,
