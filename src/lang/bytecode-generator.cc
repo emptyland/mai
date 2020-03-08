@@ -21,6 +21,9 @@ public:
         kPlainBlockScope,
     };
     
+    DEF_VAL_GETTER(Kind, kind);
+    DEF_PTR_GETTER(AbstractScope, prev);
+    
     bool is_file_scope() const { return kind_ == kFileScope; }
     bool is_class_scope() const { return kind_ == kClassScope; }
     bool is_function_scope() const { return kind_ == kFunctionScope; }
@@ -77,7 +80,7 @@ protected:
 class BytecodeGenerator::FileScope : public AbstractScope {
 public:
     FileScope(const std::map<std::string, std::vector<FileUnit *>> &path_units,
-              std::map<std::string, Value> *symbols,
+              std::unordered_map<std::string, Value> *symbols,
               FileUnit *file_unit, AbstractScope **current, FileScope **current_file);
     
     ~FileScope() {
@@ -99,18 +102,22 @@ public:
     }
     Value FindExcludePackageName(const ASTString *name, std::string_view exclude,
                                  std::string_view *exists);
+    
+    std::string LocalFileFullName(const ASTString *name) const {
+        return file_unit_->package_name()->ToString() + "." + name->ToString();
+    }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(FileScope);
 private:
     FileUnit *const file_unit_;
-    std::map<std::string, Value> *symbols_;
+    std::unordered_map<std::string, Value> *symbols_;
     std::set<std::string> all_name_space_;
     std::map<std::string, std::string> alias_name_space_;
     FileScope **current_file_;
 }; // class BytecodeGenerator::FileScope
 
 BytecodeGenerator::FileScope::FileScope(const std::map<std::string, std::vector<FileUnit *>> &path_units,
-                                        std::map<std::string, Value> *symbols, FileUnit *file_unit,
+                                        std::unordered_map<std::string, Value> *symbols, FileUnit *file_unit,
                                         AbstractScope **current, FileScope **current_file)
     : AbstractScope(kFileScope, current)
     , file_unit_(file_unit)
@@ -226,6 +233,7 @@ public:
         , builder_(arena)
         , current_fun_(current_fun) {
         DCHECK_NE(this, *current_fun_);
+        *current_fun_ = this;
     }
     
     ~FunctionScope() {
@@ -363,17 +371,17 @@ bool BytecodeGenerator::Prepare() {
             error_feedback_->set_package_name(unit->package_name()->ToString());
             for (auto ast : unit->global_variables()) {
                 std::string name = pkg_name + "." + ast->identifier()->ToString();
-        
-                //printf("var: %s\n", name.c_str());
+
                 if (auto decl_ast = ast->AsVariableDeclaration()) {
                     int index = LinkGlobalVariable(decl_ast);
+                    //printf("%s GS+%d\n", name.c_str(), index);
                     Result rv;
                     if (rv = decl_ast->type()->Accept(this); rv.kind == Value::kError) {
                         return false;
                     }
                     DCHECK_EQ(Value::kMetadata, rv.kind);
                     const Class *clazz = metadata_space_->type(rv.bundle.index);
-                    current_->Register(name, {Value::kGlobal, clazz, index});
+                    current_->Register(name, {Value::kGlobal, clazz, index, ast});
                 }
             }
         }
@@ -382,7 +390,27 @@ bool BytecodeGenerator::Prepare() {
 }
 
 bool BytecodeGenerator::Generate() {
+    base::StandaloneArena arena(isolate_->env()->GetLowLevelAllocator());
+    FunctionScope function_scope(&arena, nullptr, &current_, &current_fun_);
+    
+    function_scope.IncomingWithLine(0)->Add<kCheckStack>();
+    
+    for (auto pair : pkg_units_) {
+        const std::string &pkg_name = pair.first;
+        
+        for (auto unit : pair.second) {
+            error_feedback_->set_file_name(unit->file_name()->ToString());
+            error_feedback_->set_package_name(unit->package_name()->ToString());
+            function_scope.set_file_unit(unit);
 
+            if (!GenerateUnit(pkg_name, unit)) {
+                return false;
+            }
+        }
+    }
+
+    function_scope.IncomingWithLine(0)->Add<kReturn>();
+    generated_init0_fun_ = BuildFunction("init0", &function_scope);
     isolate_->SetGlobalSpace(global_space_.TakeSpans(), global_space_.TakeBitmap(),
                              global_space_.capacity(), global_space_.length());
     return true;
@@ -397,14 +425,14 @@ bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit)
         if (auto clazz_ast = ast->AsClassDefinition(); clazz_ast && ast != class_any_/*filter class Any*/) {
             Class *clazz = metadata_space_->PrepareClass(name);
             clazz_ast->set_clazz(clazz);
-            current_->Register(name, {Value::kMetadata, clazz, static_cast<int>(clazz->id())});
+            current_->Register(name, {Value::kMetadata, clazz, static_cast<int>(clazz->id()), ast});
         } else if (auto object_ast = ast->AsObjectDefinition()) {
             Class *clazz = metadata_space_->PrepareClass(name);
             object_ast->set_clazz(clazz);
             // object foo ==> main.foo$class
-            current_->Register(name + "$class", {Value::kMetadata, clazz, static_cast<int>(clazz->id())});
+            current_->Register(name + "$class", {Value::kMetadata, clazz, static_cast<int>(clazz->id()), ast});
             int index = global_space_.ReserveRef();
-            current_->Register(name, {Value::kGlobal, clazz, index});
+            current_->Register(name, {Value::kGlobal, clazz, index, ast});
         } else if (auto fun_ast = ast->AsFunctionDefinition()) {
             const Class *clazz = metadata_space_->builtin_type(kType_closure);
             if (fun_ast->is_native()) {
@@ -416,10 +444,12 @@ bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit)
                     return false;
                 }
                 int index = global_space_.AppendAny(closure);
-                current_->Register(name, {Value::kGlobal, clazz, index});
+                //printf("%s GS+%d\n", name.c_str(), index);
+                current_->Register(name, {Value::kGlobal, clazz, index, ast});
             } else {
                 int index = global_space_.ReserveRef();
-                current_->Register(name, {Value::kGlobal, clazz, index});
+                //printf("%s GS+%d\n", name.c_str(), index);
+                current_->Register(name, {Value::kGlobal, clazz, index, ast});
             }
         }
     }
@@ -430,10 +460,59 @@ bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit)
                 ast->identifier()->ToString();
             const Class *clazz = metadata_space_->builtin_type(kType_closure);
             int index = global_space_.ReserveRef();
-            current_->Register(name, {Value::kGlobal, clazz, index});
+            //printf("%s GS+%d\n", name.c_str(), index);
+            current_->Register(name, {Value::kGlobal, clazz, index, ast});
         }
     }
     return true;
+}
+
+bool BytecodeGenerator::GenerateUnit(const std::string &pkg_name, FileUnit *unit) {
+    FileScope file_scope(path_units_, &symbols_, unit, &current_, &current_file_);
+    
+    for (auto ast : unit->global_variables()) {
+        if (HasGenerated(ast)) {
+            continue;
+        }
+
+        if (auto decl_ast = ast->AsVariableDeclaration()) {
+            if (auto rv = decl_ast->Accept(this); rv.kind == Value::kError) {
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+bool BytecodeGenerator::GenerateSymbolDependence(Value value) {
+    DCHECK_EQ(Value::kGlobal, value.linkage);
+    DCHECK(value.ast != nullptr);
+    if (!value.ast->file_unit()) {
+        return true; // ignore
+    }
+    if (value.ast->file_unit() == current_file_->file_unit()) {
+        if (auto rv = value.ast->Accept(this); rv.kind == Value::kError) {
+            return false;
+        }
+    }
+    
+    FileScope *saved_file = current_file_;
+    DCHECK_EQ(saved_file, current_);
+    current_file_ = nullptr;
+    current_ = nullptr;
+    {
+        FileScope file_scope(path_units_, &symbols_, value.ast->file_unit(), &current_,
+                             &current_file_);
+        current_fun_->set_file_unit(value.ast->file_unit());
+        if (auto rv = value.ast->Accept(this); rv.kind == Value::kError) {
+            return false;
+        }
+    }
+    current_file_ = saved_file;
+    current_ = saved_file;
+    current_fun_->set_file_unit(saved_file->file_unit());
+    return false;
 }
 
 Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScope *scope) {
@@ -444,10 +523,18 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
     ConstantPoolBuilder *const_pool = scope->constant_pool();
     StackSpaceAllocator *stack = scope->stack();
 
+    std::vector<uint32_t> stack_bitmap(stack->bitmap());
+    if (stack_bitmap.empty()) {
+        stack_bitmap.resize(1); // Placeholder
+    }
+
+    base::StdFilePrinter printer(stdout);
+    scope->builder()->Print(&printer);
+    
     return FunctionBuilder(name)
         // TODO:
-        .stack_size(stack->GetMaxStackSize())
-        .stack_bitmap(stack->bitmap())
+        .stack_size(RoundUp(stack->GetMaxStackSize(), kStackAligmentSize))
+        .stack_bitmap(stack_bitmap)
         .prototype({}/*parameters*/, false/*vargs*/, kType_void)
         .source_line_info(source_info)
         .bytecode(bytecodes)
@@ -532,7 +619,7 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
     
     base::StandaloneArena arena(isolate_->env()->GetLowLevelAllocator());
     FunctionScope function_scope(&arena, current_file_->file_unit(), &current_, &current_fun_);
-    // TODO:
+    // TODO: constructor
 
     builder
         .tags(Type::kReferenceTag)
@@ -546,27 +633,31 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
 
 ASTVisitor::Result BytecodeGenerator::VisitObjectDefinition(ObjectDefinition *ast) /*override*/ {
     // TODO:
+    TODO();
     return ResultWithError();
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition *ast) /*override*/ {
     //if (cur)
+    TODO();
     return ResultWithError();
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclaration *ast) /*override*/ {
     if (current_->is_file_scope()) { // It's global variable
-        int index = LinkGlobalVariable(ast);
-        if (!HasGenerated(ast)) {
-            if (ast->initializer()) {
-                ASTVisitor::Result rv = ast->initializer()->Accept(this);
-                if (rv.kind == Value::kError) {
-                    return ResultWithError();
-                }
-                const Class *clazz = metadata_space_->type(rv.bundle.type);
-                LdaIfNeeded(clazz, rv.bundle.index, rv.kind, current_fun_->Incoming(ast->initializer()));
-                StaGlobal(clazz, index, current_fun_->Incoming(ast));
+        Value value = EnsureFindValue(current_file_->LocalFileFullName(ast->identifier()));
+        if (HasGenerated(ast)) {
+            return ResultWithVoid();
+        }
+
+        if (ast->initializer()) {
+            ASTVisitor::Result rv = ast->initializer()->Accept(this);
+            if (rv.kind == Value::kError) {
+                return ResultWithError();
             }
+            const Class *clazz = metadata_space_->type(rv.bundle.type);
+            LdaIfNeeded(clazz, rv.bundle.index, rv.kind, current_fun_->Incoming(ast->initializer()));
+            StaGlobal(clazz, value.index, current_fun_->Incoming(ast));
         }
         symbol_trace_.insert(ast);
         return ResultWithVoid();
@@ -579,7 +670,7 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
     DCHECK_EQ(rv.kind, Value::kMetadata);
     const Class *clazz = metadata_space_->type(rv.bundle.index);
     
-    Value local{Value::kStack, clazz, 0};
+    Value local{Value::kStack, clazz};
     if (clazz->is_reference()) {
         local.index = current_fun_->stack()->ReserveRef();
     } else {
@@ -594,6 +685,66 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
     LdaIfNeeded(clazz, rv.bundle.index, rv.kind, current_fun_->Incoming(ast->initializer()));
     StaStack(clazz, local.index, current_fun_->Incoming(ast));
     return ResultWithVoid();
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitDotExpression(DotExpression *ast) /*override*/ {
+    if (!ast->primary()->IsIdentifier()) {
+        auto rv = ast->primary()->Accept(this);
+        if (rv.kind == Value::kError) {
+            return ResultWithError();
+        }
+        const Class *clazz = metadata_space_->type(rv.bundle.type);
+        return GenerateDotExpression(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                                     ast);
+    }
+    
+    Identifier *id = DCHECK_NOTNULL(ast->primary()->AsIdentifier());
+    Value value = current_file_->Find(id->name(), ast->rhs());
+    if (value.linkage != Value::kError) { // Found
+        if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
+            return ResultWithError();
+        }
+        return ResultWith(value.linkage, value.type->id(), value.index);
+    }
+    
+    auto found = current_->Resolve(id->name());
+    value = std::get<1>(found);
+    if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
+        return ResultWithError();
+    }
+    // TODO: Captured var
+
+    return GenerateDotExpression(value.type, value.index, value.linkage, ast);
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*override*/ {
+    auto [scope, value] = current_->Resolve(ast->name());
+    DCHECK(scope != nullptr && value.linkage != Value::kError);
+
+    if (!HasGenerated(ast)) {
+        if (!GenerateSymbolDependence(value)) {
+            return ResultWithError();
+        }
+    }
+    DCHECK(HasGenerated(value.ast));
+
+    switch (scope->kind()) {
+        case AbstractScope::kFunctionScope:
+            if (scope == current_fun_) {
+                return ResultWith(value.linkage, value.type->id(), value.index);
+            }
+            TODO(); // TODO: Captured var
+            break;
+        case AbstractScope::kFileScope:
+        case AbstractScope::kLoopBlockScope:
+        case AbstractScope::kPlainBlockScope:
+            return ResultWith(value.linkage, value.type->id(), value.index);
+        case AbstractScope::kClassScope:
+        default:
+            NOREACHED();
+            break;
+    }
+    return ResultWithError();
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitBoolLiteral(BoolLiteral *ast) /*override*/ {
@@ -681,40 +832,55 @@ SourceLocation BytecodeGenerator::FindSourceLocation(const ASTNode *ast) {
     return DCHECK_NOTNULL(current_file_)->file_unit()->FindSourceLocation(ast);
 }
 
-//ASTVisitor::Result BytecodeGenerator::GenerateSymbolDependence(Symbolize *sym) {
-//    Result rv;
-//    if (sym->file_unit() && current_->GetFileScope()->file_unit() != sym->file_unit()) {
-//        auto saved = current_;
-//        auto saved_file = current_file_;
-//        auto saved_class = current_class_;
-//        auto saved_fun = current_fun_;
-//        current_ = nullptr;
-//        current_file_ = nullptr;
-//        current_fun_ = nullptr;
-//        current_class_ = nullptr;
-//        if (current_->is_file_scope()) {
-//            current_fun_ = saved_fun;
-//            current_ = saved_fun;
-//        }
-//        do {
-//            FileScope file_scope(path_units_, &symbols_, sym->file_unit(), &current_,
-//                                 &current_file_);
-//            if (rv = sym->Accept(this); rv.kind == Value::kError) {
-//                return ResultWithError();
-//            }
-//        } while (0);
-//        DCHECK(current_ == nullptr);
-//        current_ = saved;
-//        current_file_ = saved_file;
-//        current_class_ = saved_class;
-//        current_fun_ = saved_fun;
-//    } else {
-//        if (rv = sym->Accept(this); rv.kind == Value::kError) {
-//            return ResultWithError();
-//        }
-//    }
-//    return rv;
-//}
+ASTVisitor::Result BytecodeGenerator::GenerateDotExpression(const Class *clazz, int index,
+                                                            Value::Linkage linkage,
+                                                            DotExpression *ast) {
+    const Field *field = metadata_space_->FindClassFieldOrNull(clazz, ast->rhs()->data());
+    if (field) {
+        if (linkage != Value::kACC) {
+            LdaIfNeeded(clazz, index, linkage, current_fun_->Incoming(ast));
+        }
+        DCHECK(clazz->is_reference());
+        int self = current_fun_->stack()->ReserveRef();
+        StaStack(clazz, self, current_fun_->Incoming(ast));
+        
+        if (field->type()->is_reference()) {
+            current_fun_->Incoming(ast)->Add<kLdaPropertyPtr>(self, field->offset());
+            return ResultWith(Value::kACC, field->type()->id(), 0);
+        }
+        
+        switch (field->type()->reference_size()) {
+            case 1:
+                current_fun_->Incoming(ast)->Add<kLdaProperty8>(self, field->offset());
+                break;
+            case 2:
+                current_fun_->Incoming(ast)->Add<kLdaProperty16>(self, field->offset());
+                break;
+            case 4:
+                if (field->type()->id() == kType_f32) {
+                    current_fun_->Incoming(ast)->Add<kLdaPropertyf32>(self, field->offset());
+                } else {
+                    current_fun_->Incoming(ast)->Add<kLdaProperty32>(self, field->offset());
+                }
+                break;
+            case 8:
+                if (field->type()->id() == kType_f64) {
+                    current_fun_->Incoming(ast)->Add<kLdaPropertyf64>(self, field->offset());
+                } else {
+                    current_fun_->Incoming(ast)->Add<kLdaProperty64>(self, field->offset());
+                }
+                break;
+            default:
+                NOREACHED();
+                break;
+        }
+        return ResultWith(Value::kACC, field->type()->id(), 0);
+    }
+    
+    // TODO: load method
+    TODO();
+    return ResultWithError();
+}
 
 int BytecodeGenerator::LinkGlobalVariable(VariableDeclaration *var) {
     if (!var->initializer()) {

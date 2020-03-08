@@ -8,6 +8,7 @@
 #include <map>
 #include <set>
 #include <unordered_set>
+#include <unordered_map>
 
 namespace mai {
 
@@ -28,9 +29,10 @@ public:
             kCaptured,
             kACC,
         }; // enum Linkage
-        Linkage linkage;
-        const Class *type;
-        int index;
+        Linkage linkage = kError;
+        const Class *type = nullptr;
+        int index = 0;
+        Symbolize *ast = nullptr;
     }; // struct BytecodeGenerator::Value
 
     BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback,
@@ -44,12 +46,18 @@ public:
     bool Prepare();
     bool Generate();
     
-    Value FindValue(const std::string &name) {
+    Value FindValue(const std::string &name) const {
         if (auto iter = symbols_.find(name); iter != symbols_.end()) {
             return iter->second;
         } else {
-            return {Value::kError, 0, 0};
+            return {Value::kError};
         }
+    }
+    
+    Value EnsureFindValue(const std::string &name) const {
+        Value value = FindValue(name);
+        DCHECK_NE(value.linkage, Value::kError);
+        return value;
     }
 private:
     class AbstractScope;
@@ -58,6 +66,9 @@ private:
     class FunctionScope;
     class BlockScope;
     
+    bool PrepareUnit(const std::string &pkg_name, FileUnit *unit);
+    bool GenerateUnit(const std::string &pkg_name, FileUnit *unit);
+
     Function *BuildFunction(const std::string &name, FunctionScope *scope);
     
     Result VisitTypeSign(TypeSign *) override;
@@ -65,6 +76,8 @@ private:
     Result VisitObjectDefinition(ObjectDefinition *) override;
     Result VisitFunctionDefinition(FunctionDefinition *) override;
     Result VisitVariableDeclaration(VariableDeclaration *) override;
+    Result VisitDotExpression(DotExpression *) override;
+    Result VisitIdentifier(Identifier *) override;
     Result VisitBoolLiteral(BoolLiteral *) override;
     Result VisitI8Literal(I8Literal *) override;
     Result VisitU8Literal(U8Literal *) override;
@@ -83,6 +96,7 @@ private:
     
     SourceLocation FindSourceLocation(const ASTNode *ast);
     
+    Result GenerateDotExpression(const Class *clazz, int index, Value::Linkage linkage, DotExpression *ast);
     void LdaIfNeeded(const Class *clazz, int index, int linkage, BytecodeArrayBuilder *emitter);
     void LdaStack(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
     void LdaConst(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
@@ -94,7 +108,8 @@ private:
     void StaGlobal(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
     void StaCaptured(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
     
-    bool PrepareUnit(const std::string &pkg_name, FileUnit *unit);
+    bool GenerateSymbolDependence(Value value);
+    
     int LinkGlobalVariable(VariableDeclaration *var);
     
     bool HasGenerated(ASTNode *ast) const {
@@ -108,7 +123,7 @@ private:
     ClassDefinition *class_any_;
     std::map<std::string, std::vector<FileUnit *>> path_units_;
     std::map<std::string, std::vector<FileUnit *>> pkg_units_;
-    std::map<std::string, Value> symbols_;
+    std::unordered_map<std::string, Value> symbols_;
     std::unordered_set<void *> symbol_trace_;
     GlobalSpaceBuilder global_space_;
     AbstractScope *current_ = nullptr;

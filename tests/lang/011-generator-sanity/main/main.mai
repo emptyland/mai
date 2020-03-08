@@ -2,9 +2,14 @@ package main
 
 import foo
 
-val a = "Hello, World"
+
 var b: foo.Foo
 
 fun main() {
     println(a)
+    println(c)
 }
+
+val a = "Hello, World"
+val c = foo.a
+val d = foo.b

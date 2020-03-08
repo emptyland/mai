@@ -12,7 +12,7 @@ namespace lang {
 class BytecodeLabel {
 public:
     BytecodeLabel() {}
-    ~BytecodeLabel() { DCHECK(is_bind_) << "Not bind yet!"; }
+    ~BytecodeLabel() { if (!is_bind_) { DLOG(ERROR) << "Not bind yet!"; } }
     
     DEF_VAL_PROP_RW(bool, is_bind);
     DEF_VAL_PROP_RW(int, pc);

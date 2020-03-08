@@ -423,6 +423,7 @@ size_t TypeSign::GetReferenceSize() const {
         return sizeof(kind);
         DECLARE_BOX_NUMBER_TYPES(DEFINE_PRIMITIVE_TYPE)
     #undef DEFINE_PRIMITIVE_TYPE
+        case Token::kString:
         case Token::kArray:
         case Token::kMutableArray:
         case Token::kMap:

@@ -101,13 +101,13 @@ public:
         // TODO:
         TODO();
     }
-    
+
     // Rollback to snapshot type id
     void Rollback(uint32_t snapshot) {
         // TODO:
         TODO();
     }
-    
+
     void InvalidateAllLookupTables() {
         std::lock_guard<std::shared_mutex> lock(class_fields_mutex_);
         named_class_fields_.clear();

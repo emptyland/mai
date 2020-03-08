@@ -1,5 +1,7 @@
 #include "lang/bytecode.h"
+#include "lang/mm.h"
 #include "base/slice.h"
+
 
 namespace mai {
 
@@ -137,7 +139,7 @@ void BytecodeNode::PrintParam(base::AbstractPrinter *output, BytecodeParam::Kind
             output->Printf("[KP+%d]", param);
             break;
         case BytecodeParam::kGlobalOffset:
-            output->Printf("[GS+%d]", param);
+            output->Printf("[GS+%d]", static_cast<int>(param * kGlobalSpaceOffsetGranularity));
             break;
         case BytecodeParam::kCapturedVarIndex:
             output->Printf("UP[%d]", param);

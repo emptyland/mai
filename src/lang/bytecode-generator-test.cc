@@ -99,6 +99,8 @@ TEST_F(BytecodeGeneratorTest, Sanity) {
     value = generator_->FindValue("runtime.VERSION");
     ASSERT_EQ(Value::kGlobal, value.linkage);
     ASSERT_EQ(isolate_->builtin_type(kType_string), value.type) << value.type->name();
+    
+    ASSERT_TRUE(generator_->Generate());
 }
 
 } // namespace lang
