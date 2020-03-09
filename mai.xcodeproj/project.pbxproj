@@ -10,13 +10,6 @@
 		23048451240CBB5900480C15 /* bytecode-generator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23048450240CBB5900480C15 /* bytecode-generator.cc */; };
 		23048454240D050700480C15 /* stable-space-builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23048453240D050700480C15 /* stable-space-builder.cc */; };
 		23048456240D08D800480C15 /* stable-space-builder-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23048455240D08D800480C15 /* stable-space-builder-test.cc */; };
-		2305109E23DF1CA400B89A7C /* logging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109623DF1CA300B89A7C /* logging.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
-		230510A023DF1CA400B89A7C /* symbolize.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109823DF1CA300B89A7C /* symbolize.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
-		230510A123DF1CA400B89A7C /* demangle.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109923DF1CA300B89A7C /* demangle.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
-		230510A223DF1CA400B89A7C /* vlog_is_on.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109A23DF1CA300B89A7C /* vlog_is_on.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
-		230510A423DF1CA400B89A7C /* signalhandler.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2305109C23DF1CA400B89A7C /* signalhandler.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
-		230510B123DF1CD600B89A7C /* raw_logging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510A623DF1CD500B89A7C /* raw_logging.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
-		230510B223DF1CD600B89A7C /* utilities.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510A923DF1CD500B89A7C /* utilities.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
 		230510B523DF1ED200B89A7C /* gtest-all.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510B423DF1ED200B89A7C /* gtest-all.cc */; settings = {COMPILER_FLAGS = "-Wno-unused-const-variable"; }; };
 		230510B823DF318100B89A7C /* machine.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510B723DF318100B89A7C /* machine.cc */; };
 		230510BB23DF368900B89A7C /* scheduler.cc in Sources */ = {isa = PBXBuildFile; fileRef = 230510BA23DF368900B89A7C /* scheduler.cc */; };
@@ -58,6 +51,13 @@
 		235C1CD621D210520070A049 /* optimism-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CD421D210520070A049 /* optimism-transaction.cc */; };
 		235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */; };
 		2360F1772413F1F60011898D /* bytecode-generator-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2360F1762413F1F60011898D /* bytecode-generator-test.cc */; };
+		2360F1882415F9620011898D /* signalhandler.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2360F1782415F9610011898D /* signalhandler.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32"; }; };
+		2360F1892415F9620011898D /* symbolize.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2360F1792415F9610011898D /* symbolize.cc */; };
+		2360F18A2415F9620011898D /* raw_logging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2360F17D2415F9610011898D /* raw_logging.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32 -Wno-deprecated-declarations"; }; };
+		2360F18B2415F9620011898D /* demangle.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2360F1822415F9610011898D /* demangle.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32"; }; };
+		2360F18C2415F9620011898D /* logging.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2360F1832415F9610011898D /* logging.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32"; }; };
+		2360F18D2415F9620011898D /* utilities.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2360F1852415F9610011898D /* utilities.cc */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
+		2360F18E2415F9620011898D /* vlog_is_on.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2360F1872415F9610011898D /* vlog_is_on.cc */; settings = {COMPILER_FLAGS = "-Wno-shorten-64-to-32"; }; };
 		236290F624037193004FB689 /* type-checker-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236290F524037193004FB689 /* type-checker-test.cc */; };
 		2364B2AD21E451F8008519AE /* pessimistic-transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A6F21D615890088F382 /* pessimistic-transaction-db.cc */; };
 		2364B2AF21E451F8008519AE /* pessimistic-transaction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 239B2A7421D6171E0088F382 /* pessimistic-transaction.cc */; };
@@ -287,23 +287,6 @@
 		23048452240CF6AD00480C15 /* stable-space-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "stable-space-builder.h"; sourceTree = "<group>"; };
 		23048453240D050700480C15 /* stable-space-builder.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "stable-space-builder.cc"; sourceTree = "<group>"; };
 		23048455240D08D800480C15 /* stable-space-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "stable-space-builder-test.cc"; sourceTree = "<group>"; };
-		2305109623DF1CA300B89A7C /* logging.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = logging.cc; path = "third-party/glog/src/logging.cc"; sourceTree = SOURCE_ROOT; };
-		2305109823DF1CA300B89A7C /* symbolize.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = symbolize.cc; path = "third-party/glog/src/symbolize.cc"; sourceTree = SOURCE_ROOT; };
-		2305109923DF1CA300B89A7C /* demangle.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = demangle.cc; path = "third-party/glog/src/demangle.cc"; sourceTree = SOURCE_ROOT; };
-		2305109A23DF1CA300B89A7C /* vlog_is_on.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vlog_is_on.cc; path = "third-party/glog/src/vlog_is_on.cc"; sourceTree = SOURCE_ROOT; };
-		2305109C23DF1CA400B89A7C /* signalhandler.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = signalhandler.cc; path = "third-party/glog/src/signalhandler.cc"; sourceTree = SOURCE_ROOT; };
-		230510A523DF1CD500B89A7C /* stacktrace_x86_64-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_x86_64-inl.h"; path = "third-party/glog/src/stacktrace_x86_64-inl.h"; sourceTree = SOURCE_ROOT; };
-		230510A623DF1CD500B89A7C /* raw_logging.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = raw_logging.cc; path = "third-party/glog/src/raw_logging.cc"; sourceTree = SOURCE_ROOT; };
-		230510A723DF1CD500B89A7C /* symbolize.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = symbolize.h; path = "third-party/glog/src/symbolize.h"; sourceTree = SOURCE_ROOT; };
-		230510A823DF1CD500B89A7C /* stacktrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = stacktrace.h; path = "third-party/glog/src/stacktrace.h"; sourceTree = SOURCE_ROOT; };
-		230510A923DF1CD500B89A7C /* utilities.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = utilities.cc; path = "third-party/glog/src/utilities.cc"; sourceTree = SOURCE_ROOT; };
-		230510AA23DF1CD500B89A7C /* demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = demangle.h; path = "third-party/glog/src/demangle.h"; sourceTree = SOURCE_ROOT; };
-		230510AB23DF1CD500B89A7C /* stacktrace_generic-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_generic-inl.h"; path = "third-party/glog/src/stacktrace_generic-inl.h"; sourceTree = SOURCE_ROOT; };
-		230510AC23DF1CD500B89A7C /* utilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utilities.h; path = "third-party/glog/src/utilities.h"; sourceTree = SOURCE_ROOT; };
-		230510AD23DF1CD500B89A7C /* googletest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = googletest.h; path = "third-party/glog/src/googletest.h"; sourceTree = SOURCE_ROOT; };
-		230510AE23DF1CD500B89A7C /* stacktrace_powerpc-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_powerpc-inl.h"; path = "third-party/glog/src/stacktrace_powerpc-inl.h"; sourceTree = SOURCE_ROOT; };
-		230510AF23DF1CD600B89A7C /* stacktrace_x86-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_x86-inl.h"; path = "third-party/glog/src/stacktrace_x86-inl.h"; sourceTree = SOURCE_ROOT; };
-		230510B023DF1CD600B89A7C /* stacktrace_libunwind-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_libunwind-inl.h"; path = "third-party/glog/src/stacktrace_libunwind-inl.h"; sourceTree = SOURCE_ROOT; };
 		230510B423DF1ED200B89A7C /* gtest-all.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "gtest-all.cc"; sourceTree = "<group>"; };
 		230510B623DF315400B89A7C /* machine.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = machine.h; sourceTree = "<group>"; };
 		230510B723DF318100B89A7C /* machine.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = machine.cc; sourceTree = "<group>"; };
@@ -392,6 +375,22 @@
 		235C1CDA21D223BF0070A049 /* write-batch-with-index.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch-with-index.cc"; sourceTree = "<group>"; };
 		235C1CE021D22F550070A049 /* mock-column-family.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "mock-column-family.h"; sourceTree = "<group>"; };
 		2360F1762413F1F60011898D /* bytecode-generator-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bytecode-generator-test.cc"; sourceTree = "<group>"; };
+		2360F1782415F9610011898D /* signalhandler.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = signalhandler.cc; path = "third-party/glog/signalhandler.cc"; sourceTree = SOURCE_ROOT; };
+		2360F1792415F9610011898D /* symbolize.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = symbolize.cc; path = "third-party/glog/symbolize.cc"; sourceTree = SOURCE_ROOT; };
+		2360F17A2415F9610011898D /* stacktrace_generic-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_generic-inl.h"; path = "third-party/glog/stacktrace_generic-inl.h"; sourceTree = SOURCE_ROOT; };
+		2360F17B2415F9610011898D /* stacktrace_x86-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_x86-inl.h"; path = "third-party/glog/stacktrace_x86-inl.h"; sourceTree = SOURCE_ROOT; };
+		2360F17C2415F9610011898D /* stacktrace_x86_64-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_x86_64-inl.h"; path = "third-party/glog/stacktrace_x86_64-inl.h"; sourceTree = SOURCE_ROOT; };
+		2360F17D2415F9610011898D /* raw_logging.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = raw_logging.cc; path = "third-party/glog/raw_logging.cc"; sourceTree = SOURCE_ROOT; };
+		2360F17E2415F9610011898D /* stacktrace_libunwind-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_libunwind-inl.h"; path = "third-party/glog/stacktrace_libunwind-inl.h"; sourceTree = SOURCE_ROOT; };
+		2360F17F2415F9610011898D /* symbolize.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = symbolize.h; path = "third-party/glog/symbolize.h"; sourceTree = SOURCE_ROOT; };
+		2360F1802415F9610011898D /* stacktrace_powerpc-inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "stacktrace_powerpc-inl.h"; path = "third-party/glog/stacktrace_powerpc-inl.h"; sourceTree = SOURCE_ROOT; };
+		2360F1812415F9610011898D /* utilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utilities.h; path = "third-party/glog/utilities.h"; sourceTree = SOURCE_ROOT; };
+		2360F1822415F9610011898D /* demangle.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = demangle.cc; path = "third-party/glog/demangle.cc"; sourceTree = SOURCE_ROOT; };
+		2360F1832415F9610011898D /* logging.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = logging.cc; path = "third-party/glog/logging.cc"; sourceTree = SOURCE_ROOT; };
+		2360F1842415F9610011898D /* demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = demangle.h; path = "third-party/glog/demangle.h"; sourceTree = SOURCE_ROOT; };
+		2360F1852415F9610011898D /* utilities.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = utilities.cc; path = "third-party/glog/utilities.cc"; sourceTree = SOURCE_ROOT; };
+		2360F1862415F9610011898D /* stacktrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = stacktrace.h; path = "third-party/glog/stacktrace.h"; sourceTree = SOURCE_ROOT; };
+		2360F1872415F9610011898D /* vlog_is_on.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vlog_is_on.cc; path = "third-party/glog/vlog_is_on.cc"; sourceTree = SOURCE_ROOT; };
 		236290F524037193004FB689 /* type-checker-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "type-checker-test.cc"; sourceTree = "<group>"; };
 		236AC67521B768E60069A17B /* lru-cache-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lru-cache-v1.h"; sourceTree = "<group>"; };
 		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
@@ -614,23 +613,22 @@
 		2305109423DF1C3600B89A7C /* glog */ = {
 			isa = PBXGroup;
 			children = (
-				230510AA23DF1CD500B89A7C /* demangle.h */,
-				230510AD23DF1CD500B89A7C /* googletest.h */,
-				230510A623DF1CD500B89A7C /* raw_logging.cc */,
-				230510AB23DF1CD500B89A7C /* stacktrace_generic-inl.h */,
-				230510B023DF1CD600B89A7C /* stacktrace_libunwind-inl.h */,
-				230510AE23DF1CD500B89A7C /* stacktrace_powerpc-inl.h */,
-				230510A523DF1CD500B89A7C /* stacktrace_x86_64-inl.h */,
-				230510AF23DF1CD600B89A7C /* stacktrace_x86-inl.h */,
-				230510A823DF1CD500B89A7C /* stacktrace.h */,
-				230510A723DF1CD500B89A7C /* symbolize.h */,
-				230510A923DF1CD500B89A7C /* utilities.cc */,
-				230510AC23DF1CD500B89A7C /* utilities.h */,
-				2305109923DF1CA300B89A7C /* demangle.cc */,
-				2305109623DF1CA300B89A7C /* logging.cc */,
-				2305109C23DF1CA400B89A7C /* signalhandler.cc */,
-				2305109823DF1CA300B89A7C /* symbolize.cc */,
-				2305109A23DF1CA300B89A7C /* vlog_is_on.cc */,
+				2360F1822415F9610011898D /* demangle.cc */,
+				2360F1842415F9610011898D /* demangle.h */,
+				2360F1832415F9610011898D /* logging.cc */,
+				2360F17D2415F9610011898D /* raw_logging.cc */,
+				2360F1782415F9610011898D /* signalhandler.cc */,
+				2360F17A2415F9610011898D /* stacktrace_generic-inl.h */,
+				2360F17E2415F9610011898D /* stacktrace_libunwind-inl.h */,
+				2360F1802415F9610011898D /* stacktrace_powerpc-inl.h */,
+				2360F17C2415F9610011898D /* stacktrace_x86_64-inl.h */,
+				2360F17B2415F9610011898D /* stacktrace_x86-inl.h */,
+				2360F1862415F9610011898D /* stacktrace.h */,
+				2360F1792415F9610011898D /* symbolize.cc */,
+				2360F17F2415F9610011898D /* symbolize.h */,
+				2360F1852415F9610011898D /* utilities.cc */,
+				2360F1812415F9610011898D /* utilities.h */,
+				2360F1872415F9610011898D /* vlog_is_on.cc */,
 			);
 			path = glog;
 			sourceTree = "<group>";
@@ -1333,6 +1331,7 @@
 				2349FDF722A4BAA0001861E0 /* sha256-test.cc in Sources */,
 				23216A252201561B00E1B816 /* slice-test.cc in Sources */,
 				23ECE89E23F643D000B3C83B /* lexer.cc in Sources */,
+				2360F1882415F9620011898D /* signalhandler.cc in Sources */,
 				2364B2AF21E451F8008519AE /* pessimistic-transaction.cc in Sources */,
 				2364B2B121E451F8008519AE /* optimism-transaction-db.cc in Sources */,
 				231ECF5C23E6FFC500B41869 /* scheduler-test.cc in Sources */,
@@ -1347,10 +1346,10 @@
 				2306103A23FFB4710024361F /* compiler.cc in Sources */,
 				2364B2C121E451F9008519AE /* write-ahead-log.cc in Sources */,
 				23ECE89523F259DB00B3C83B /* channel-test.cc in Sources */,
-				230510A023DF1CA400B89A7C /* symbolize.cc in Sources */,
 				23ECE8A023F68B5400B3C83B /* lexer-test.cc in Sources */,
 				237F504D21EB72C90069075D /* arena.cc in Sources */,
 				2364B2C321E451F9008519AE /* db-impl.cc in Sources */,
+				2360F18C2415F9620011898D /* logging.cc in Sources */,
 				2364B2C521E451F9008519AE /* column-family.cc in Sources */,
 				2364B2C721E451F9008519AE /* version.cc in Sources */,
 				23048451240CBB5900480C15 /* bytecode-generator.cc in Sources */,
@@ -1372,10 +1371,8 @@
 				2364B2DF21E451F9008519AE /* s1-table-builder.cc in Sources */,
 				231ECF5E23E7AE2B00B41869 /* coroutine-test.cc in Sources */,
 				2364B2E121E451F9008519AE /* s1-table-reader.cc in Sources */,
-				230510B223DF1CD600B89A7C /* utilities.cc in Sources */,
 				2364B2E321E451F9008519AE /* data-block-builder.cc in Sources */,
 				23048456240D08D800480C15 /* stable-space-builder-test.cc in Sources */,
-				2305109E23DF1CA400B89A7C /* logging.cc in Sources */,
 				2364B2E821E451F9008519AE /* table.cc in Sources */,
 				2364B2EA21E451F9008519AE /* key-bloom-filter.cc in Sources */,
 				2364B2EC21E451F9008519AE /* block-iterator.cc in Sources */,
@@ -1387,6 +1384,7 @@
 				2364B2FA21E451F9008519AE /* memory-table.cc in Sources */,
 				2306103F23FFD7CF0024361F /* type-checker.cc in Sources */,
 				23ECE8A323F9052D00B3C83B /* ast.cc in Sources */,
+				2360F18A2415F9620011898D /* raw_logging.cc in Sources */,
 				236EA78523D6E3100071047C /* isolate.cc in Sources */,
 				2364B2FC21E451F9008519AE /* bw-tree-memory-table.cc in Sources */,
 				230510B823DF318100B89A7C /* machine.cc in Sources */,
@@ -1414,14 +1412,13 @@
 				236EA78A23D6E3C80071047C /* heap.cc in Sources */,
 				235602A123DDC6DE00A799B9 /* space-test.cc in Sources */,
 				2364B32221E451F9008519AE /* spin-locking.cc in Sources */,
-				230510A423DF1CA400B89A7C /* signalhandler.cc in Sources */,
 				2364B32921E451F9008519AE /* slice.cc in Sources */,
 				2364B32B21E451F9008519AE /* hash.cc in Sources */,
 				2364B32C21E451F9008519AE /* crc32.c in Sources */,
 				23048454240D050700480C15 /* stable-space-builder.cc in Sources */,
 				23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */,
 				2373EFD623EBA2C400B5CD88 /* runtime.cc in Sources */,
-				230510A223DF1CA400B89A7C /* vlog_is_on.cc in Sources */,
+				2360F18E2415F9620011898D /* vlog_is_on.cc in Sources */,
 				2364B33021E451F9008519AE /* arena-utils.cc in Sources */,
 				2364B33121E451F9008519AE /* arenas.cc in Sources */,
 				2364B33321E451F9008519AE /* ebr.cc in Sources */,
@@ -1431,6 +1428,7 @@
 				2379A24F23E2B8E9003067E6 /* value-test.cc in Sources */,
 				2364B33621E451F9008519AE /* bw-tree-test.cc in Sources */,
 				2364B33721E451F9008519AE /* hash-map-v2-test.cc in Sources */,
+				2360F18D2415F9620011898D /* utilities.cc in Sources */,
 				2364B33821E451F9008519AE /* bw-tree-memory-table-test.cc in Sources */,
 				230510BB23DF368900B89A7C /* scheduler.cc in Sources */,
 				2379A25223E31A1F003067E6 /* coroutine.cc in Sources */,
@@ -1440,14 +1438,12 @@
 				2364B33C21E451F9008519AE /* merging-test.cc in Sources */,
 				23599D3B23D58E3700F722D6 /* page.cc in Sources */,
 				2364B33D21E451F9008519AE /* ordered-memory-table-test.cc in Sources */,
-				230510A123DF1CA400B89A7C /* demangle.cc in Sources */,
 				2364B33E21E451F9008519AE /* pipeline-queue-test.cc in Sources */,
 				23804A0F228ABADB0079C95C /* asm-x64-test.cc in Sources */,
 				2306103C23FFBADF0024361F /* compiler-test.cc in Sources */,
 				2364B33F21E451F9008519AE /* skip-list-test.cc in Sources */,
 				2364B34021E451F9008519AE /* lru-cache-test.cc in Sources */,
 				2364B34121E451F9008519AE /* unordered-memory-table-test.cc in Sources */,
-				230510B123DF1CD600B89A7C /* raw_logging.cc in Sources */,
 				2364B34221E451F9008519AE /* data-block-builder-test.cc in Sources */,
 				23219F0523E9B021006CF83B /* bytecode-array-builder.cc in Sources */,
 				2364B34321E451F9008519AE /* filter-block-builder-test.cc in Sources */,
@@ -1465,10 +1461,12 @@
 				2364B34A21E451F9008519AE /* tls-test.cc in Sources */,
 				2360F1772413F1F60011898D /* bytecode-generator-test.cc in Sources */,
 				2364B34B21E451F9008519AE /* reference-count-test.cc in Sources */,
+				2360F1892415F9620011898D /* symbolize.cc in Sources */,
 				2364B34C21E451F9008519AE /* varint-encoding-test.cc in Sources */,
 				23347C81225791B400ABAB3F /* thread-pool-test.cc in Sources */,
 				2364B34E21E451F9008519AE /* io-utils-test.cc in Sources */,
 				2364B34F21E451F9008519AE /* ebr-test.cc in Sources */,
+				2360F18B2415F9620011898D /* demangle.cc in Sources */,
 				2364B35021E451F9008519AE /* arena-utils-test.cc in Sources */,
 				23ECE89823F57C9800B3C83B /* token.cc in Sources */,
 				2364B35121E451F9008519AE /* config-test.cc in Sources */,

@@ -22,7 +22,7 @@ set(PORT_SOURCE_DIR ${PROJECT_SOURCE_DIR}/src/port)
 set(TXN_SOURCE_DIR ${PROJECT_SOURCE_DIR}/src/txn)
 set(TABLE_SOURCE_DIR ${PROJECT_SOURCE_DIR}/src/table)
 set(LANG_SOURCE_DIR ${PROJECT_SOURCE_DIR}/src/lang)
-set(GLOG_SOURCE_DIR ${PROJECT_SOURCE_DIR}/third-party/glog/src)
+set(GLOG_SOURCE_DIR ${PROJECT_SOURCE_DIR}/third-party/glog)
 set(GFLAGS_SOURCE_DIR ${PROJECT_SOURCE_DIR}/third-party/gflags)
 
 set(BASE_SOURCES
@@ -155,7 +155,6 @@ set(UNIT_TEST_SOURCES
     ${PROJECT_SOURCE_DIR}/src/lang/compiler-test.cc
     ${PROJECT_SOURCE_DIR}/src/lang/scheduler-test.cc
     ${PROJECT_SOURCE_DIR}/src/lang/channel-test.cc
-    ${PROJECT_SOURCE_DIR}/src/lang/lang-test.cc
     ${PROJECT_SOURCE_DIR}/src/lang/lexer-test.cc
     ${PROJECT_SOURCE_DIR}/src/lang/parser-test.cc
     ${PROJECT_SOURCE_DIR}/src/lang/value-test.cc
