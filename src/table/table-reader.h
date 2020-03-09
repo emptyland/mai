@@ -1,7 +1,7 @@
 #ifndef MAI_TABLE_TABLE_READER_H_
 #define MAI_TABLE_TABLE_READER_H_
 
-#include "reference-count.h"
+#include "base/reference-count.h"
 #include "base/base.h"
 #include "mai/error.h"
 #include <string_view>

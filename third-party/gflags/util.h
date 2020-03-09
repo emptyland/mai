@@ -34,10 +34,10 @@
 #ifndef GFLAGS_UTIL_H_
 #define GFLAGS_UTIL_H_
 
-#include "config.h"
+#include "gflags/config.h"
 
 #include <assert.h>
-#include <config.h>
+//#include <config.h>
 #ifdef HAVE_INTTYPES_H
 #  include <inttypes.h>
 #endif

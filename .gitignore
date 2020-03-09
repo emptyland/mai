@@ -32,3 +32,4 @@
 *.app
 mai.xcodeproj/xcuserdata
 mai.xcodeproj/project.xcworkspace
+build
