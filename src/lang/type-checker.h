@@ -46,7 +46,7 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(TypeChecker);
 private:
-    class AbstractScope;
+    class Scope;
     class FileScope;
     class ClassScope;
     class FunctionScope;
@@ -120,8 +120,7 @@ private:
     TypeSign *const kError;
     ClassDefinition *class_exception_ = nullptr;
     ClassDefinition *class_any_ = nullptr;
-    
-    AbstractScope *current_ = nullptr;
+    Scope *current_ = nullptr;
     std::map<std::string, std::vector<FileUnit *>> path_units_;
     std::map<std::string, std::vector<FileUnit *>> pkg_units_;
     std::map<std::string, Symbolize *> symbols_;

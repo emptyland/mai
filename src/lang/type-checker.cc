@@ -7,7 +7,7 @@ namespace mai {
 
 namespace lang {
 
-class TypeChecker::AbstractScope {
+class TypeChecker::Scope : public AbstractScope {
 public:
     enum Kind {
         kFileScope,
@@ -17,10 +17,7 @@ public:
         kIfBlockScope,
         kPlainBlockScope,
     };
-    ~AbstractScope() {
-        DCHECK_EQ(this, *current_);
-        *current_ = prev_;
-    }
+    ~Scope() override = default;
 
     DEF_VAL_GETTER(Kind, kind);
     DEF_PTR_GETTER(AbstractScope, prev);
@@ -38,8 +35,21 @@ public:
 
     virtual Symbolize *FindOrNull(const ASTString *name) { return nullptr; }
     virtual Symbolize *Register(Symbolize *sym) { return nullptr; }
+    
+    AbstractScope *Enter() override {
+        DCHECK_NE(this, *current_);
+        prev_ = *current_;
+        *current_ = this;
+        return prev_;
+    }
+    
+    AbstractScope *Exit() override {
+        DCHECK_EQ(this, *current_);
+        *current_ = prev_;
+        return prev_;
+    }
 
-    std::tuple<AbstractScope *, Symbolize *> Resolve(const ASTString *name) {
+    std::tuple<Scope *, Symbolize *> Resolve(const ASTString *name) {
         for (auto i = this; i != nullptr; i = i->prev_) {
             if (Symbolize *sym = i->FindOrNull(name); sym != nullptr) {
                 return {i, sym};
@@ -48,8 +58,8 @@ public:
         return {nullptr, nullptr};
     }
 
-    AbstractScope *GetScope(Kind kind) {
-        for (AbstractScope *scope = this; scope != nullptr; scope = scope->prev_) {
+    Scope *GetScope(Kind kind) {
+        for (Scope *scope = this; scope != nullptr; scope = scope->prev_) {
             if (scope->kind_ == kind) {
                 return scope;
             }
@@ -57,37 +67,40 @@ public:
         return nullptr;
     }
 
-    inline FileScope *GetFileScope();
-    inline ClassScope *GetClassScope();
-    inline FunctionScope *GetFunctionScope();
-    inline BlockScope *GetLoopScope();
+    FileScope *GetFileScope() { return down_cast<FileScope>(GetScope(kFileScope)); }
+    ClassScope *GetClassScope() { return down_cast<ClassScope>(GetScope(kClassScope)); }
+    FunctionScope *GetFunctionScope() { return down_cast<FunctionScope>(GetScope(kFunctionScope)); }
+    BlockScope *GetLoopScope() {
+        for (Scope *scope = this; scope != nullptr; scope = scope->prev_) {
+            if (scope->kind_ == kFunctionScope) {
+                break;
+            }
+            if (scope->kind_ == kLoopBlockScope) {
+                return down_cast<BlockScope>(scope);
+            }
+        }
+        return nullptr;
+    }
 
-    DISALLOW_IMPLICIT_CONSTRUCTORS(AbstractScope);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Scope);
 protected:
-    AbstractScope(Kind kind, AbstractScope **current)
+    Scope(Kind kind, Scope **current)
         : kind_(kind)
-        , prev_(*current)
         , current_(current) {
-        *current_ = this;
     }
     
     Kind kind_;
-    AbstractScope *prev_;
-    AbstractScope **current_;
+    Scope **current_;
+    Scope *prev_ = nullptr;
     int broke_ = 0;
-}; // class AbstractScope
+}; // class Scope
 
-
-class TypeChecker::FileScope : public TypeChecker::AbstractScope {
+class TypeChecker::FileScope : public Scope {
 public:
-    FileScope(const std::map<std::string, Symbolize *> *symbols, FileUnit *file_unit, AbstractScope **current)
-        : AbstractScope(kFileScope, current)
-        , file_unit_(file_unit)
-        , all_symbols_(symbols) {
-    }
-    
-    void Initialize(const std::map<std::string, std::vector<FileUnit *>> &path_units);
-    
+    FileScope(const std::map<std::string, std::vector<FileUnit *>> &path_units,
+              const std::map<std::string, Symbolize *> *symbols, FileUnit *file_unit,
+              Scope **current);
+
     DEF_PTR_GETTER(FileUnit, file_unit);
     
     Symbolize *FindOrNull(const ASTString *name) override {
@@ -106,10 +119,69 @@ private:
     std::map<std::string, std::string> alias_name_space_;
 }; // class FileScope
 
-class TypeChecker::ClassScope : public TypeChecker::AbstractScope {
+TypeChecker::FileScope::FileScope(const std::map<std::string, std::vector<FileUnit *>> &path_units,
+                                  const std::map<std::string, Symbolize *> *symbols,
+                                  FileUnit *file_unit, Scope **current)
+    : Scope(kFileScope, current)
+    , file_unit_(file_unit)
+    , all_symbols_(symbols) {
+    for (auto stmt : file_unit_->import_packages()) {
+        auto iter = path_units.find(stmt->original_path()->ToString());
+        DCHECK(iter != path_units.end());
+        auto pkg = iter->second.front()->package_name()->ToString();
+        
+        if (stmt->alias() && stmt->alias()->Equal("*")) {
+            all_name_space_.insert(pkg);
+        }
+        
+        if (stmt->alias()) {
+            alias_name_space_[stmt->alias()->ToString()] = pkg;
+        } else {
+            alias_name_space_[pkg] = pkg;
+        }
+    }
+    all_name_space_.insert(file_unit_->package_name()->ToString());
+}
+
+Symbolize *
+TypeChecker::FileScope::FindExcludePackageNameOrNull(const ASTString *name,
+                                                     std::string_view exclude,
+                                                     std::string_view *exists) {
+    for (const auto &pkg : all_name_space_) {
+        if (exclude.compare(pkg) == 0) {
+            continue;
+        }
+        std::string full_name(pkg);
+        full_name.append(".").append(name->ToString());
+        if (auto iter = all_symbols_->find(full_name); iter != all_symbols_->end()) {
+            *exists = pkg;
+            return iter->second;
+        }
+    }
+    return nullptr;
+}
+
+Symbolize *TypeChecker::FileScope::FindOrNull(const ASTString *prefix, const ASTString *name) {
+    if (!prefix) {
+        return FindOrNull(name);
+    }
+    if (auto iter = alias_name_space_.find(prefix->ToString()); iter == alias_name_space_.end()) {
+        return nullptr;
+    }
+    std::string full_name(prefix->ToString());
+    full_name.append(".").append(name->ToString());
+    auto iter = all_symbols_->find(full_name);
+    return iter == all_symbols_->end() ? nullptr : iter->second;
+}
+
+class TypeChecker::ClassScope : public Scope {
 public:
-    ClassScope(StructureDefinition *clazz, AbstractScope **current)
-        : AbstractScope(kClassScope, current) , clazz_(clazz) {}
+    ClassScope(StructureDefinition *clazz, Scope **current)
+        : Scope(kClassScope, current)
+        , clazz_(clazz) {
+        Enter();
+    }
+    ~ClassScope() override { Exit(); }
     
     ClassDefinition *clazz() { return DCHECK_NOTNULL(clazz_->AsClassDefinition()); }
     ObjectDefinition *object() { return DCHECK_NOTNULL(clazz_->AsObjectDefinition()); }
@@ -119,12 +191,15 @@ private:
     StructureDefinition *clazz_;
 }; // class ClassScope
 
-class TypeChecker::BlockScope : public TypeChecker::AbstractScope {
+class TypeChecker::BlockScope : public Scope {
 public:
-    BlockScope(Kind kind, Statement *stmt, AbstractScope **current)
-        : AbstractScope(kind, current)
+    BlockScope(Kind kind, Statement *stmt, Scope **current)
+        : Scope(kind, current)
         , stmt_(stmt) {
+        Enter();
     }
+    
+    ~BlockScope() override { Exit(); }
     
     DEF_PTR_GETTER(Statement, stmt);
 
@@ -147,15 +222,15 @@ protected:
 }; // class BlockScope
 
 
-class TypeChecker::FunctionScope : public TypeChecker::BlockScope {
+class TypeChecker::FunctionScope : public BlockScope {
 public:
-    FunctionScope(LambdaLiteral *function, AbstractScope **current)
+    FunctionScope(LambdaLiteral *function, Scope **current)
         : BlockScope(kFunctionScope, function, current)
         , function_(function)
         , constructor_(nullptr) {
     }
     
-    FunctionScope(ClassDefinition *constructor, AbstractScope **current);
+    FunctionScope(ClassDefinition *constructor, Scope **current);
     
     DEF_PTR_GETTER(LambdaLiteral, function);
     DEF_PTR_GETTER(ClassDefinition, constructor);
@@ -164,33 +239,23 @@ private:
     ClassDefinition *constructor_;
 }; // class FunctionScope
 
+TypeChecker::FunctionScope::FunctionScope(ClassDefinition *constructor, Scope **current)
+    : BlockScope(kFunctionScope, constructor, current)
+    , function_(nullptr)
+    , constructor_(DCHECK_NOTNULL(constructor)) {
+    for (auto param : constructor_->parameters()) {
+        VariableDeclaration *var = nullptr;
+        if (param.field_declaration) {
+            var = constructor_->field(param.as_field).declaration;
+        } else {
+            var = param.as_parameter;
+        }
+        locals_[var->identifier()->ToSlice()] = var;
+    }
+}
 
 inline SourceLocation TypeChecker::FindSourceLocation(const ASTNode *ast) {
     return current_->GetFileScope()->file_unit()->FindSourceLocation(ast);
-}
-
-inline TypeChecker::FileScope *TypeChecker::AbstractScope::GetFileScope() {
-    return down_cast<FileScope>(GetScope(kFileScope));
-}
-
-inline TypeChecker::ClassScope *TypeChecker::AbstractScope::GetClassScope() {
-    return down_cast<ClassScope>(GetScope(kClassScope));
-}
-
-inline TypeChecker::FunctionScope *TypeChecker::AbstractScope::GetFunctionScope() {
-    return down_cast<FunctionScope>(GetScope(kFunctionScope));
-}
-
-inline TypeChecker::BlockScope *TypeChecker::AbstractScope::GetLoopScope() {
-    for (AbstractScope *scope = this; scope != nullptr; scope = scope->prev_) {
-        if (scope->kind_ == kFunctionScope) {
-            break;
-        }
-        if (scope->kind_ == kLoopBlockScope) {
-            return down_cast<BlockScope>(scope);
-        }
-    }
-    return nullptr;
 }
 
 namespace {
@@ -337,6 +402,9 @@ bool TypeChecker::Prepare() {
 
     for (auto pair : pkg_units_) {
         for (auto unit : pair.second) {
+            error_feedback_->set_file_name(unit->file_name()->ToString());
+            error_feedback_->set_package_name(unit->package_name()->ToString());
+            
             if (!PrepareClassDefinition(unit)) {
                 fail++;
             }
@@ -350,12 +418,13 @@ bool TypeChecker::PrepareClassDefinition(FileUnit *unit) {
     ImportStatement *base = new (arena_) ImportStatement(0, ASTString::New(arena_, "*"),
                                                          ASTString::New(arena_, "mai.lang"));
     unit->InsertImportStatement(base);
+    unit->set_scope(new FileScope(path_units_, &symbols_, unit, &current_));
 
-    FileScope file_scope(&symbols_, unit, &current_);
-    file_scope.Initialize(path_units_);
+    FileScope::Holder holder(unit->scope());
+    FileScope *file_scope = down_cast<FileScope>(unit->scope());
     
     for (auto impl : unit->implements()) {
-        Symbolize *sym = file_scope.FindOrNull(impl->prefix(), impl->name());
+        Symbolize *sym = file_scope->FindOrNull(impl->prefix(), impl->name());
         if (!sym) {
             SourceLocation loc = unit->FindSourceLocation(impl);
             error_feedback_->Printf(loc, "Unresolve symbol: %s", impl->ToSymbolString().c_str());
@@ -391,7 +460,7 @@ bool TypeChecker::PrepareClassDefinition(FileUnit *unit) {
 
     for (auto def : unit->definitions()) {
         if (auto ast = def->AsClassDefinition(); ast != nullptr && ast->base_name()) {
-            Symbolize *sym = file_scope.FindOrNull(ast->base_prefix(), ast->base_name());
+            Symbolize *sym = file_scope->FindOrNull(ast->base_prefix(), ast->base_name());
             if (!sym || !sym->IsClassDefinition()) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Base class not found: %s",
                                         ast->ToBaseSymbolString().c_str());
@@ -414,23 +483,27 @@ bool TypeChecker::Check() {
             if (!CheckFileUnit(pair.first, unit)) {
                 return false;
             }
-            
-            // TODO:
+        }
+    }
+
+    for (auto pair : pkg_units_) {
+        for (auto unit : pair.second) {
+            delete unit->scope();
+            unit->set_scope(nullptr);
         }
     }
     return true;
 }
 
 bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
-    FileScope file_scope(&symbols_, unit, &current_);
-    file_scope.Initialize(path_units_);
-    
     error_feedback_->set_file_name(unit->file_name()->ToString());
     error_feedback_->set_package_name(unit->package_name()->ToString());
+    FileScope::Holder holder(unit->scope());
+    FileScope *file_scope = down_cast<FileScope>(unit->scope());
 
     std::string exits_pkg_name;
     for (auto decl : unit->global_variables()) {
-        if (!CheckDuplicatedSymbol(pkg_name, decl, &file_scope)) {
+        if (!CheckDuplicatedSymbol(pkg_name, decl, file_scope)) {
             return false;
         }
         if (HasSymbolChecked(decl)) {
@@ -442,7 +515,7 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
     }
 
     for (auto def : unit->definitions()) {
-        if (!CheckDuplicatedSymbol(pkg_name, def, &file_scope)) {
+        if (!CheckDuplicatedSymbol(pkg_name, def, file_scope)) {
             return false;
         }
         if (HasSymbolChecked(def)) {
@@ -1252,18 +1325,18 @@ ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
 
     ast->set_original(sym);
     switch (scope->kind()) {
-        case AbstractScope::kFileScope:
+        case Scope::kFileScope:
             ast->set_scope(static_cast<FileScope *>(scope)->file_unit());
             break;
-        case AbstractScope::kClassScope:
+        case Scope::kClassScope:
             ast->set_scope(static_cast<ClassScope *>(scope)->clazz());
             break;
-        case AbstractScope::kFunctionScope:
+        case Scope::kFunctionScope:
             ast->set_scope(scope->GetFunctionScope()->function());
             break;
-        case AbstractScope::kPlainBlockScope:
-        case AbstractScope::kIfBlockScope:
-        case AbstractScope::kLoopBlockScope:
+        case Scope::kPlainBlockScope:
+        case Scope::kIfBlockScope:
+        case Scope::kLoopBlockScope:
             ast->set_scope(down_cast<BlockScope>(scope)->stmt());
             break;
         default:
@@ -1456,7 +1529,7 @@ ASTVisitor::Result TypeChecker::VisitClassImplementsBlock(ClassImplementsBlock *
 }
 
 ASTVisitor::Result TypeChecker::VisitWhileLoop(WhileLoop *ast) /*override*/ {
-    BlockScope block_scope(AbstractScope::kLoopBlockScope, ast, &current_);
+    BlockScope block_scope(Scope::kLoopBlockScope, ast, &current_);
 
     Result rv = ast->condition()->Accept(this);
     if (rv.sign == kError) {
@@ -1477,7 +1550,7 @@ ASTVisitor::Result TypeChecker::VisitWhileLoop(WhileLoop *ast) /*override*/ {
 }
 
 ASTVisitor::Result TypeChecker::VisitIfExpression(IfExpression *ast) /*override*/ {
-    BlockScope block_scope(AbstractScope::kIfBlockScope, ast, &current_);
+    BlockScope block_scope(Scope::kIfBlockScope, ast, &current_);
     TypeSign *type = nullptr;
     do {
         if (ast->extra_statement()) {
@@ -1522,7 +1595,7 @@ ASTVisitor::Result TypeChecker::VisitIfExpression(IfExpression *ast) /*override*
 }
 
 ASTVisitor::Result TypeChecker::VisitStatementBlock(StatementBlock *ast) /*override*/ {
-    BlockScope block_scope(AbstractScope::kPlainBlockScope, ast, &current_);
+    BlockScope block_scope(Scope::kPlainBlockScope, ast, &current_);
     for (auto stmt : ast->statements()) {
         if (auto rv = stmt->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
@@ -1533,7 +1606,7 @@ ASTVisitor::Result TypeChecker::VisitStatementBlock(StatementBlock *ast) /*overr
 
 ASTVisitor::Result TypeChecker::VisitTryCatchFinallyBlock(TryCatchFinallyBlock *ast) /*override*/ {
     {
-        BlockScope block_scope(AbstractScope::kPlainBlockScope, ast, &current_);
+        BlockScope block_scope(Scope::kPlainBlockScope, ast, &current_);
         for (auto stmt : ast->try_statements()) {
             if (auto rv = stmt->Accept(this); rv.sign == kError) {
                 return ResultWithType(kError);
@@ -1541,7 +1614,7 @@ ASTVisitor::Result TypeChecker::VisitTryCatchFinallyBlock(TryCatchFinallyBlock *
         }
     }
     for (auto block : ast->catch_blocks()) {
-        BlockScope block_scope(AbstractScope::kPlainBlockScope, ast, &current_);
+        BlockScope block_scope(Scope::kPlainBlockScope, ast, &current_);
         if (auto rv = block->expected_declaration()->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
         }
@@ -1565,7 +1638,7 @@ ASTVisitor::Result TypeChecker::VisitTryCatchFinallyBlock(TryCatchFinallyBlock *
         }
     }
     
-    BlockScope block_scope(AbstractScope::kPlainBlockScope, ast, &current_);
+    BlockScope block_scope(Scope::kPlainBlockScope, ast, &current_);
     for (auto stmt : ast->finally_statements()) {
         if (auto rv = stmt->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);
@@ -1823,8 +1896,7 @@ bool TypeChecker::CheckSymbolDependence(Symbolize *sym) {
         auto saved = current_;
         current_ = nullptr;
         {
-            FileScope file_scope(&symbols_, sym->file_unit(), &current_);
-            file_scope.Initialize(path_units_);
+            FileScope::Holder holder(sym->file_unit()->scope());
             if (auto rv = sym->Accept(this); rv.sign == kError) {
                 return false;
             }
@@ -1849,71 +1921,6 @@ bool TypeChecker::CheckDuplicatedSymbol(const std::string &pkg_name, const Symbo
         return false;
     }
     return true;
-}
-
-void TypeChecker::FileScope::Initialize(const std::map<std::string, std::vector<FileUnit *>> &path_units) {
-    for (auto stmt : file_unit()->import_packages()) {
-        auto iter = path_units.find(stmt->original_path()->ToString());
-        DCHECK(iter != path_units.end());
-        auto pkg = iter->second.front()->package_name()->ToString();
-        
-        if (stmt->alias() && stmt->alias()->Equal("*")) {
-            all_name_space_.insert(pkg);
-        }
-        
-        if (stmt->alias()) {
-            alias_name_space_[stmt->alias()->ToString()] = pkg;
-        } else {
-            alias_name_space_[pkg] = pkg;
-        }
-    }
-    all_name_space_.insert(file_unit_->package_name()->ToString());
-}
-
-Symbolize *
-TypeChecker::FileScope::FindExcludePackageNameOrNull(const ASTString *name,
-                                                     std::string_view exclude,
-                                                     std::string_view *exists) {
-    for (const auto &pkg : all_name_space_) {
-        if (exclude.compare(pkg) == 0) {
-            continue;
-        }
-        std::string full_name(pkg);
-        full_name.append(".").append(name->ToString());
-        if (auto iter = all_symbols_->find(full_name); iter != all_symbols_->end()) {
-            *exists = pkg;
-            return iter->second;
-        }
-    }
-    return nullptr;
-}
-
-Symbolize *TypeChecker::FileScope::FindOrNull(const ASTString *prefix, const ASTString *name) {
-    if (!prefix) {
-        return FindOrNull(name);
-    }
-    if (auto iter = alias_name_space_.find(prefix->ToString()); iter == alias_name_space_.end()) {
-        return nullptr;
-    }
-    std::string full_name(prefix->ToString());
-    full_name.append(".").append(name->ToString());
-    auto iter = all_symbols_->find(full_name);
-    return iter == all_symbols_->end() ? nullptr : iter->second;
-}
-
-TypeChecker::FunctionScope::FunctionScope(ClassDefinition *constructor, AbstractScope **current)
-    : BlockScope(kFunctionScope, constructor, current)
-    , function_(nullptr)
-    , constructor_(DCHECK_NOTNULL(constructor)) {
-    for (auto param : constructor_->parameters()) {
-        VariableDeclaration *var = nullptr;
-        if (param.field_declaration) {
-            var = constructor_->field(param.as_field).declaration;
-        } else {
-            var = param.as_parameter;
-        }
-        locals_[var->identifier()->ToSlice()] = var;
-    }
 }
 
 } // namespace lang

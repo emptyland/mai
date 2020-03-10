@@ -368,14 +368,7 @@ BytecodeGenerator::BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback)
     , class_any_(nullptr) {
 }
 
-BytecodeGenerator::~BytecodeGenerator() {
-    for (auto &pair : path_units_) {
-        for (auto unit : pair.second) {
-            delete unit->scope();
-            unit->set_scope(nullptr);
-        }
-    }
-}
+BytecodeGenerator::~BytecodeGenerator() {}
 
 bool BytecodeGenerator::Prepare() {
     symbol_trace_.insert(class_any_); // ignore class any
@@ -444,6 +437,13 @@ bool BytecodeGenerator::Generate() {
     generated_init0_fun_ = BuildFunction("init0", &function_scope);
     isolate_->SetGlobalSpace(global_space_.TakeSpans(), global_space_.TakeBitmap(),
                              global_space_.capacity(), global_space_.length());
+    
+    for (auto &pair : path_units_) {
+        for (auto unit : pair.second) {
+            delete unit->scope();
+            unit->set_scope(nullptr);
+        }
+    }
     return true;
 }
 
