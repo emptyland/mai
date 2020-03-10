@@ -43,6 +43,8 @@ public:
     
     BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback);
     
+    ~BytecodeGenerator();
+    
     bool Prepare();
     bool Generate();
     
@@ -60,7 +62,7 @@ public:
         return value;
     }
 private:
-    class AbstractScope;
+    class Scope;
     class FileScope;
     class ClassScope;
     class FunctionScope;
@@ -126,10 +128,10 @@ private:
     std::unordered_map<std::string, Value> symbols_;
     std::unordered_set<void *> symbol_trace_;
     GlobalSpaceBuilder global_space_;
-    AbstractScope *current_ = nullptr;
     FunctionScope *current_fun_ = nullptr;
     ClassScope    *current_class_ = nullptr;
     FileScope     *current_file_ = nullptr;
+    Scope         *current_ = nullptr;
     Function *generated_init0_fun_ = nullptr;
     Function *generated_main_fun_ = nullptr;
 }; // class BytecodeGenerator

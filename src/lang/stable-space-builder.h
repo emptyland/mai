@@ -23,12 +23,12 @@ public:
     static constexpr size_t kSizeGranularity = 4;
     static constexpr size_t kSpanSize = sizeof(Span16);
     static constexpr size_t kSlotBase = BytecodeStackFrame::kOffsetHeaderSize;
-    
+
     struct Level {
         int p;
         int r;
     }; // struct Level
-    
+
     StackSpaceAllocator() = default;
     
     DEF_VAL_PROP_RW(Level, level);
@@ -43,7 +43,7 @@ public:
     int Reserve(size_t size);
 
     int ReserveRef();
-    
+
     void Fallback(int index, size_t size) {
         DCHECK_EQ(level_.p, index - kSlotBase);
         level_.p -= RoundUp(size, kSizeGranularity);
@@ -52,7 +52,7 @@ public:
             level_.p -= kSpanSize;
         }
     }
-    
+
     void FallbackRef(int index) {
         DCHECK_EQ(level_.r, index - kSlotBase);
         level_.r -= kPointerSize;
@@ -61,7 +61,7 @@ public:
             level_.r -= kSpanSize;
         }
     }
-    
+
     uint32_t GetMaxStackSize() const {
         return static_cast<uint32_t>(max_spans_ * kSpanSize + kSlotBase);
     }

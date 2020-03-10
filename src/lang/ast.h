@@ -101,6 +101,26 @@ public:
 #undef DEFINE_METHOD
 }; // class PartialASTVisito
 
+// Dummy scope class
+class AbstractScope {
+public:
+    class Holder {
+    public:
+        Holder(AbstractScope *owns): owns_(owns) { owns_->Enter(); }
+        ~Holder() { owns_->Exit(); }
+    private:
+        AbstractScope *owns_;
+    }; // Holder
+    
+    AbstractScope() = default;
+    virtual ~AbstractScope() = default;
+    
+    virtual AbstractScope *Enter() = 0;
+    virtual AbstractScope *Exit() = 0;
+
+    DISALLOW_IMPLICIT_CONSTRUCTORS(AbstractScope);
+};
+
 class ASTNode {
 public:
     enum Kind {
@@ -148,6 +168,7 @@ class Circulation;
 class StructureDefinition;
 class PartialInterfaceDefinition;
 
+
 class FileUnit : public ASTNode {
 public:
     FileUnit(base::Arena *arena)
@@ -160,6 +181,7 @@ public:
     
     DEF_PTR_PROP_RW(const ASTString, file_name);
     DEF_PTR_PROP_RW(const ASTString, package_name);
+    DEF_PTR_PROP_RW(AbstractScope, scope);
     DEF_ARENA_VECTOR_GETTER(ImportStatement *, import_package);
     DEF_ARENA_VECTOR_GETTER(Declaration *, global_variable);
     DEF_ARENA_VECTOR_GETTER(Definition *, definition);
@@ -199,6 +221,7 @@ public:
 private:
     const ASTString *file_name_ = nullptr;
     const ASTString *package_name_ = nullptr;
+    AbstractScope *scope_ = nullptr;
     base::ArenaVector<ImportStatement *> import_packages_;
     base::ArenaVector<Declaration *> global_variables_;
     base::ArenaVector<Definition *> definitions_;

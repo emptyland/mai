@@ -11,7 +11,7 @@ namespace mai {
 
 namespace lang {
 
-class BytecodeGenerator::AbstractScope {
+class BytecodeGenerator::Scope : public AbstractScope {
 public:
     enum Kind {
         kFileScope,
@@ -29,9 +29,10 @@ public:
     bool is_function_scope() const { return kind_ == kFunctionScope; }
     
     virtual Value Find(const ASTString *name) { return {Value::kError}; }
+
     virtual void Register(const std::string &name, Value value) {}
 
-    std::tuple<AbstractScope *, Value> Resolve(const ASTString *name) {
+    std::tuple<Scope *, Value> Resolve(const ASTString *name) {
         for (auto i = this; i != nullptr; i = i->prev_) {
             if (Value value = i->Find(name); value.linkage != Value::kError) {
                 return {i, value};
@@ -40,8 +41,8 @@ public:
         return {nullptr, {Value::kError}};
     }
     
-    AbstractScope *GetScope(Kind kind) {
-        for (AbstractScope *scope = this; scope != nullptr; scope = scope->prev_) {
+    Scope *GetScope(Kind kind) {
+        for (Scope *scope = this; scope != nullptr; scope = scope->prev_) {
             if (scope->kind_ == kind) {
                 return scope;
             }
@@ -57,36 +58,38 @@ public:
         return down_cast<FunctionScope>(GetScope(kFunctionScope));
     }
     
-    DISALLOW_IMPLICIT_CONSTRUCTORS(AbstractScope);
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Scope);
 protected:
-    AbstractScope(Kind kind, AbstractScope **current)
+    Scope(Kind kind, Scope **current)
         : kind_(kind)
-        , prev_(*current)
-        , current_(current) {
+        , current_(current) {}
+    
+    ~Scope() {}
+    
+    virtual AbstractScope *Enter() override {
+        prev_ = *current_;
         DCHECK_NE(*current_, this);
         *current_ = this;
+        return prev_;
     }
-    
-    ~AbstractScope() {
+
+    virtual AbstractScope *Exit() override {
         DCHECK_EQ(*current_, this);
         *current_ = prev_;
+        return prev_;
     }
 
     Kind kind_;
-    AbstractScope *prev_;
-    AbstractScope **current_;
+    Scope **current_;
+    Scope *prev_ = nullptr;
 }; // class BytecodeGenerator::AbstractScope
 
-class BytecodeGenerator::FileScope : public AbstractScope {
+class BytecodeGenerator::FileScope : public Scope {
 public:
     FileScope(const std::map<std::string, std::vector<FileUnit *>> &path_units,
               std::unordered_map<std::string, Value> *symbols,
-              FileUnit *file_unit, AbstractScope **current, FileScope **current_file);
-    
-    ~FileScope() {
-        DCHECK_EQ(this, *current_file_);
-        *current_file_ = nullptr;
-    }
+              FileUnit *file_unit, Scope **current, FileScope **current_file);
+    ~FileScope() override = default;
     
     DEF_PTR_GETTER(FileUnit, file_unit);
     
@@ -109,6 +112,19 @@ public:
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(FileScope);
 private:
+    AbstractScope *Enter() override {
+        auto old = Scope::Enter();
+        DCHECK(*current_file_ == nullptr);
+        *current_file_ = this;
+        return old;
+    }
+
+    AbstractScope *Exit() override {
+        DCHECK_EQ(this, *current_file_);
+        *current_file_ = nullptr;
+        return Scope::Exit();
+    }
+
     FileUnit *const file_unit_;
     std::unordered_map<std::string, Value> *symbols_;
     std::set<std::string> all_name_space_;
@@ -118,8 +134,8 @@ private:
 
 BytecodeGenerator::FileScope::FileScope(const std::map<std::string, std::vector<FileUnit *>> &path_units,
                                         std::unordered_map<std::string, Value> *symbols, FileUnit *file_unit,
-                                        AbstractScope **current, FileScope **current_file)
-    : AbstractScope(kFileScope, current)
+                                        Scope **current, FileScope **current_file)
+    : Scope(kFileScope, current)
     , file_unit_(file_unit)
     , symbols_(symbols)
     , current_file_(current_file) {
@@ -139,8 +155,7 @@ BytecodeGenerator::FileScope::FileScope(const std::map<std::string, std::vector<
         }
     }
     all_name_space_.insert(file_unit->package_name()->ToString());
-    DCHECK(*current_file_ == nullptr);
-    *current_file_ = this;
+    
 }
 
 BytecodeGenerator::Value BytecodeGenerator::FileScope::Find(const ASTString *prefix,
@@ -177,18 +192,20 @@ BytecodeGenerator::FileScope::FindExcludePackageName(const ASTString *name, std:
     return {Value::kError};
 }
 
-class BytecodeGenerator::ClassScope : public AbstractScope {
+class BytecodeGenerator::ClassScope : public Scope {
 public:
-    ClassScope(StructureDefinition *clazz, AbstractScope **current, ClassScope **current_class)
-        : AbstractScope(kClassScope, current)
+    ClassScope(StructureDefinition *clazz, Scope **current, ClassScope **current_class)
+        : Scope(kClassScope, current)
         , clazz_(clazz)
         , current_class_(current_class) {
+        Enter();
         DCHECK_NE(this, *current_class_);
     }
 
     ~ClassScope() {
         DCHECK_EQ(this, *current_class_);
         *current_class_ = !prev_ ? nullptr : prev_->GetClassScope();
+        Exit();
     }
     
     DEF_PTR_GETTER(StructureDefinition, clazz);
@@ -200,9 +217,15 @@ private:
 }; // class BytecodeGenerator::ClassScope
 
 
-class BytecodeGenerator::BlockScope : public AbstractScope {
+class BytecodeGenerator::BlockScope : public Scope {
 public:
-    BlockScope(Kind kind, AbstractScope **current): AbstractScope(kind, current) {}
+    BlockScope(Kind kind, Scope **current)
+        : Scope(kind, current) {
+        Enter();
+    }
+    ~BlockScope() override {
+        Exit();
+    }
     
     Value Find(const ASTString *name) override {
         if (auto iter = symbols_.find(name->ToString()); iter == symbols_.end()) {
@@ -226,7 +249,7 @@ private:
 
 class BytecodeGenerator::FunctionScope : public BlockScope {
 public:
-    FunctionScope(base::Arena *arena, FileUnit *file_unit, AbstractScope **current,
+    FunctionScope(base::Arena *arena, FileUnit *file_unit, Scope **current,
                   FunctionScope **current_fun)
         : BlockScope(kFunctionScope, current)
         , file_unit_(file_unit)
@@ -235,8 +258,7 @@ public:
         DCHECK_NE(this, *current_fun_);
         *current_fun_ = this;
     }
-    
-    ~FunctionScope() {
+    ~FunctionScope() override {
         DCHECK_EQ(this, *current_fun_);
         *current_fun_ = !prev_ ? nullptr : prev_->GetFunctionScope();
     }
@@ -261,7 +283,7 @@ public:
     ConstantPoolBuilder *constant_pool() { return &constants_; }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(FunctionScope);
-private:
+private:    
     FileUnit *file_unit_;
     std::vector<int> source_lines_;
     BytecodeArrayBuilder builder_;
@@ -346,6 +368,15 @@ BytecodeGenerator::BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback)
     , class_any_(nullptr) {
 }
 
+BytecodeGenerator::~BytecodeGenerator() {
+    for (auto &pair : path_units_) {
+        for (auto unit : pair.second) {
+            delete unit->scope();
+            unit->set_scope(nullptr);
+        }
+    }
+}
+
 bool BytecodeGenerator::Prepare() {
     symbol_trace_.insert(class_any_); // ignore class any
     
@@ -355,6 +386,7 @@ bool BytecodeGenerator::Prepare() {
         for (auto unit : pair.second) {
             error_feedback_->set_file_name(unit->file_name()->ToString());
             error_feedback_->set_package_name(unit->package_name()->ToString());
+            unit->set_scope(new FileScope(path_units_, &symbols_, unit, &current_, &current_file_));
             if (!PrepareUnit(pkg_name, unit)) {
                 return false;
             }
@@ -365,7 +397,7 @@ bool BytecodeGenerator::Prepare() {
         const std::string &pkg_name = pair.first;
         
         for (auto unit : pair.second) {
-            FileScope file_scope(path_units_, &symbols_, unit, &current_, &current_file_);
+            FileScope::Holder file_holder(unit->scope());
 
             error_feedback_->set_file_name(unit->file_name()->ToString());
             error_feedback_->set_package_name(unit->package_name()->ToString());
@@ -374,7 +406,6 @@ bool BytecodeGenerator::Prepare() {
 
                 if (auto decl_ast = ast->AsVariableDeclaration()) {
                     int index = LinkGlobalVariable(decl_ast);
-                    //printf("%s GS+%d\n", name.c_str(), index);
                     Result rv;
                     if (rv = decl_ast->type()->Accept(this); rv.kind == Value::kError) {
                         return false;
@@ -392,7 +423,7 @@ bool BytecodeGenerator::Prepare() {
 bool BytecodeGenerator::Generate() {
     base::StandaloneArena arena(isolate_->env()->GetLowLevelAllocator());
     FunctionScope function_scope(&arena, nullptr, &current_, &current_fun_);
-    
+
     function_scope.IncomingWithLine(0)->Add<kCheckStack>();
     
     for (auto pair : pkg_units_) {
@@ -417,7 +448,7 @@ bool BytecodeGenerator::Generate() {
 }
 
 bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit) {
-    FileScope file_scope(path_units_, &symbols_, unit, &current_, &current_file_);
+    FileScope::Holder file_holder(unit->scope());
 
     for (auto ast : unit->definitions()) {
         std::string name = pkg_name + "." + ast->identifier()->ToString();
@@ -468,7 +499,7 @@ bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit)
 }
 
 bool BytecodeGenerator::GenerateUnit(const std::string &pkg_name, FileUnit *unit) {
-    FileScope file_scope(path_units_, &symbols_, unit, &current_, &current_file_);
+    FileScope::Holder file_holder(unit->scope());
     
     for (auto ast : unit->global_variables()) {
         if (HasGenerated(ast)) {
@@ -502,8 +533,7 @@ bool BytecodeGenerator::GenerateSymbolDependence(Value value) {
     current_file_ = nullptr;
     current_ = nullptr;
     {
-        FileScope file_scope(path_units_, &symbols_, value.ast->file_unit(), &current_,
-                             &current_file_);
+        FileScope::Holder file_holder(value.ast->file_unit()->scope());
         current_fun_->set_file_unit(value.ast->file_unit());
         if (auto rv = value.ast->Accept(this); rv.kind == Value::kError) {
             return false;
@@ -721,25 +751,23 @@ ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*overrid
     auto [scope, value] = current_->Resolve(ast->name());
     DCHECK(scope != nullptr && value.linkage != Value::kError);
 
-    if (!HasGenerated(ast)) {
-        if (!GenerateSymbolDependence(value)) {
-            return ResultWithError();
-        }
+    if (!HasGenerated(ast) || !GenerateSymbolDependence(value)) {
+        return ResultWithError();
     }
     DCHECK(HasGenerated(value.ast));
 
     switch (scope->kind()) {
-        case AbstractScope::kFunctionScope:
+        case Scope::kFunctionScope:
             if (scope == current_fun_) {
                 return ResultWith(value.linkage, value.type->id(), value.index);
             }
             TODO(); // TODO: Captured var
             break;
-        case AbstractScope::kFileScope:
-        case AbstractScope::kLoopBlockScope:
-        case AbstractScope::kPlainBlockScope:
+        case Scope::kFileScope:
+        case Scope::kLoopBlockScope:
+        case Scope::kPlainBlockScope:
             return ResultWith(value.linkage, value.type->id(), value.index);
-        case AbstractScope::kClassScope:
+        case Scope::kClassScope:
         default:
             NOREACHED();
             break;
