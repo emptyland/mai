@@ -144,6 +144,8 @@ public:
     }
     
     virtual void DidFeedback(const SourceLocation &location, const char *z, size_t n) = 0;
+    
+    virtual void DidFeedback(const char *z) = 0;
 
     DEF_VAL_PROP_RW(std::string, package_name);
     DEF_VAL_PROP_RW(std::string, file_name);

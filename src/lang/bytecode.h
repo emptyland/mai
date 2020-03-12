@@ -424,6 +424,12 @@ public:
         DCHECK_LT(i, arraysize(params_));
         return params_[i];
     }
+    
+    void set_param(int i, int p) {
+        DCHECK_GE(i, 0);
+        DCHECK_LT(i, arraysize(params_));
+        params_[i] = p;
+    }
 
     // Build instruction
     BytecodeInstruction To() const;

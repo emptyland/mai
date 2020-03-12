@@ -101,6 +101,12 @@ TEST_F(BytecodeGeneratorTest, Sanity) {
     ASSERT_EQ(isolate_->builtin_type(kType_string), value.type) << value.type->name();
     
     ASSERT_TRUE(generator_->Generate());
+    
+    value = generator_->FindValue("main.main");
+    Local<Closure> main(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(main.is_value_not_null());
+    ASSERT_TRUE(main->is_mai_function());
+    ASSERT_FALSE(main->is_cxx_function());
 }
 
 } // namespace lang

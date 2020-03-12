@@ -38,6 +38,10 @@ public:
         ::printf("%s:%d:%d-%d:%d %s\n", file_name_.c_str(), location.begin_line, location.begin_row,
                  location.end_line, location.end_row, z);
     }
+    
+    void DidFeedback(const char *z) override {
+        ::puts(z);
+    }
 };
 
 static void BadSuspendPointDummy() {
@@ -137,6 +141,8 @@ Isolate::Isolate(const Options &opts)
 }
 
 Isolate::~Isolate() {
+    delete [] global_space_;
+    delete [] global_space_bitmap_;
     delete factory_;
     delete [] bytecode_handler_entries_;
     

@@ -56,10 +56,14 @@ public:
         }
     }
     
-    Value EnsureFindValue(const std::string &name) const {
+    template<class T>
+    inline T *FindGlobalOrNull(const std::string &name) {
         Value value = FindValue(name);
-        DCHECK_NE(value.linkage, Value::kError);
-        return value;
+        if (value.linkage == Value::kError) {
+            return nullptr;
+        }
+        DCHECK_EQ(Value::kGlobal, value.linkage);
+        return reinterpret_cast<T *>(global_space_.address(value.index));
     }
 private:
     class Scope;
@@ -100,6 +104,8 @@ private:
     
     SourceLocation FindSourceLocation(const ASTNode *ast);
     
+    Result GenerateRegularCalling(CallExpression *ast);
+    Result GenerateMethodCalling(Value primary, CallExpression *ast);
     Result GenerateNewObject(const Class *clazz, CallExpression *ast);
     int GenerateArguments(const base::ArenaVector<Expression *> &args,
                           const std::vector<const Class *> &params,
@@ -109,6 +115,7 @@ private:
     Result GenerateDotExpression(const Class *clazz, int index, Value::Linkage linkage, DotExpression *ast);
     
     void InboxIfNeeded(const Class *clazz, int index, Value::Linkage, const Class *lval, ASTNode *ast);
+    void MoveToStackIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest, ASTNode *ast);
     void MoveToArgumentIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest, ASTNode *ast);
     void LdaIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
     void LdaStack(const Class *clazz, int index, ASTNode *ast);
@@ -125,6 +132,12 @@ private:
     
     int LinkGlobalVariable(VariableDeclaration *var);
     Value FindOrInsertExternalFunction(const std::string &name);
+    
+    Value EnsureFindValue(const std::string &name) const {
+        Value value = FindValue(name);
+        DCHECK_NE(value.linkage, Value::kError);
+        return value;
+    }
     
     bool HasGenerated(ASTNode *ast) const {
         return symbol_trace_.find(ast) != symbol_trace_.end();
@@ -145,7 +158,6 @@ private:
     FileScope     *current_file_ = nullptr;
     Scope         *current_ = nullptr;
     Function *generated_init0_fun_ = nullptr;
-    Function *generated_main_fun_ = nullptr;
 }; // class BytecodeGenerator
 
 } // namespace lang

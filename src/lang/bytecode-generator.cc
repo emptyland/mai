@@ -397,7 +397,7 @@ bool BytecodeGenerator::Prepare() {
     
     for (auto pair : pkg_units_) {
         const std::string &pkg_name = pair.first;
-        
+
         for (auto unit : pair.second) {
             error_feedback_->set_file_name(unit->file_name()->ToString());
             error_feedback_->set_package_name(unit->package_name()->ToString());
@@ -455,7 +455,20 @@ bool BytecodeGenerator::Generate() {
         }
     }
 
-    function_scope.IncomingWithLine(0)->Add<kReturn>();
+    Value fun_main_main = FindValue("main.main");
+    if (fun_main_main.linkage == Value::kError) {
+        error_feedback_->DidFeedback("Unservole 'main.main' entery function");
+        return false;
+    }
+    DCHECK_EQ(Value::kGlobal, fun_main_main.linkage);
+    Closure *main = *global_space_.offset<Closure *>(fun_main_main.index);
+    function_scope.IncomingWithLine(1)->Add<kLdaGlobalPtr>(fun_main_main.index);
+    if (main->is_mai_function()) {
+        function_scope.IncomingWithLine(1)->Add<kCallBytecodeFunction>(0);
+    } else {
+        function_scope.IncomingWithLine(1)->Add<kCallNativeFunction>(0);
+    }
+    function_scope.IncomingWithLine(1)->Add<kReturn>();
     generated_init0_fun_ = BuildFunction("init0", &function_scope);
     isolate_->SetGlobalSpace(global_space_.TakeSpans(), global_space_.TakeBitmap(),
                              global_space_.capacity(), global_space_.length());
@@ -585,28 +598,36 @@ bool BytecodeGenerator::GenerateSymbolDependence(Value value) {
     current_file_ = saved_file;
     current_ = saved_file;
     current_fun_->set_file_unit(saved_file->file_unit());
-    return false;
+    return true;
 }
 
 Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScope *scope) {
     const char *file_name = scope->file_unit() ? scope->file_unit()->file_name()->data() : "init0";
     SourceLineInfo *source_info = metadata_space_->NewSourceLineInfo(file_name,
                                                                      scope->source_lines());
-    BytecodeArray *bytecodes = metadata_space_->NewBytecodeArray(scope->builder()->Build());
     ConstantPoolBuilder *const_pool = scope->constant_pool();
     StackSpaceAllocator *stack = scope->stack();
+    uint32_t stack_size = RoundUp(stack->GetMaxStackSize(), kStackAligmentSize);
+    std::vector<BytecodeInstruction> instrs =
+        scope->builder()->BuildWithRewrite([stack_size](int index) {
+            if (index >= 0) {
+                return index;
+            }
+            return stack_offset(stack_size - index);
+        });
+    BytecodeArray *bytecodes = metadata_space_->NewBytecodeArray(instrs);
 
     std::vector<uint32_t> stack_bitmap(stack->bitmap());
     if (stack_bitmap.empty()) {
         stack_bitmap.resize(1); // Placeholder
     }
 
-    base::StdFilePrinter printer(stdout);
-    scope->builder()->Print(&printer);
+//    base::StdFilePrinter printer(stdout);
+//    scope->builder()->Print(&printer);
     
     return FunctionBuilder(name)
         // TODO:
-        .stack_size(RoundUp(stack->GetMaxStackSize(), kStackAligmentSize))
+        .stack_size(stack_size)
         .stack_bitmap(stack_bitmap)
         .prototype({}/*parameters*/, false/*vargs*/, kType_void)
         .source_line_info(source_info)
@@ -817,34 +838,119 @@ ASTVisitor::Result BytecodeGenerator::VisitLambdaLiteral(LambdaLiteral *ast) /*o
 
 ASTVisitor::Result BytecodeGenerator::VisitCallExpression(CallExpression *ast) /*override*/ {
     if (!ast->callee()->IsDotExpression()) {
-        auto rv = ast->callee()->Accept(this);
+        return GenerateRegularCalling(ast);
+    }
+
+    DotExpression *dot = DCHECK_NOTNULL(ast->callee()->AsDotExpression());
+    if (!dot->primary()->IsIdentifier()) {
+        auto rv = dot->primary()->Accept(this);
         if (rv.kind == Value::kError) {
             return ResultWithError();
         }
-        if (rv.kind == Value::kMetadata) {
-            const Class *clazz = metadata_space_->type(rv.bundle.index);
-            return GenerateNewObject(clazz, ast);
-        }
-
-        DCHECK_EQ(kType_closure, rv.bundle.type);
-        const Class *clazz = metadata_space_->builtin_type(kType_closure);
-        bool native = false;
-        if (rv.kind == Value::kGlobal) {
-            Closure *closure = *global_space_.offset<Closure *>(rv.bundle.index);
-            native = closure->is_cxx_function();
-        }
-        if (rv.kind != Value::kACC) {
-            LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), ast->callee());
-        }
-        if (native) {
-            current_fun_->Incoming(ast)->Add<kCallNativeFunction>(0/*TODO*/);
-        } else {
-            current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(0/*TODO*/);
-        }
+        const Class *clazz = metadata_space_->type(rv.bundle.type);
+        Value::Linkage linkage = static_cast<Value::Linkage>(rv.kind);
+        return GenerateMethodCalling({linkage, clazz, rv.bundle.index}, ast);
     }
-    // TODO: dot expression callee
-    TODO();
-    return ResultWithError();
+
+    Identifier *id = DCHECK_NOTNULL(dot->primary()->AsIdentifier());
+    Value value = current_file_->Find(id->name(), dot->rhs());
+    if (value.linkage != Value::kError) { // Found: pcakgeName.identifer
+        if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
+            return ResultWithError();
+        }
+        return GenerateRegularCalling(ast);
+    }
+
+    auto found = current_->Resolve(id->name());
+    value = std::get<1>(found);
+    if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
+        return ResultWithError();
+    }
+    // TODO: Captured var
+
+    return GenerateMethodCalling(value, ast);
+}
+
+ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallExpression *ast) {
+    DotExpression *dot = DCHECK_NOTNULL(ast->callee()->AsDotExpression());
+    const Class *clazz = primary.type;
+    DCHECK(clazz->is_reference());
+    StackSpaceAllocator::Scope stack_scope(current_fun_->stack());
+    
+    int self = current_fun_->stack()->ReserveRef();
+    MoveToStackIfNeeded(clazz, primary.index, primary.linkage, self, dot);
+    
+    auto proto = ast->prototype();
+    std::vector<const Class *> params;
+    for (auto param : proto->parameters()) {
+        auto rv = param.type->Accept(this);
+        if (rv.kind == Value::kError) {
+            return ResultWithError();
+        }
+        params.push_back(metadata_space_->type(rv.bundle.index));
+    }
+    int arg_size = GenerateArguments(ast->operands(), params, dot->primary(), self, proto->vargs());
+    if (arg_size < 0) {
+        return ResultWithError();
+    }
+
+    if (clazz->id() == kType_any) { // interface
+        // TODO:
+        TODO();
+    }
+
+    const Method *method =
+        DCHECK_NOTNULL(metadata_space_->FindClassMethodOrNull(clazz, dot->rhs()->data()));
+    int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
+    LdaConst(metadata_space_->builtin_type(kType_closure), kidx, dot);
+    if (method->fn()->is_cxx_function()) {
+        current_fun_->Incoming(ast)->Add<kCallNativeFunction>(arg_size);
+    } else {
+        current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
+    }
+    //current_fun_->stack()->FallbackRef(self);
+    return proto->return_type()->Accept(this);
+}
+
+ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast) {
+    auto rv = ast->callee()->Accept(this);
+    if (rv.kind == Value::kError) {
+        return ResultWithError();
+    }
+    if (rv.kind == Value::kMetadata) {
+        const Class *clazz = metadata_space_->type(rv.bundle.index);
+        return GenerateNewObject(clazz, ast);
+    }
+
+    StackSpaceAllocator::Scope stack_scope(current_fun_->stack());
+    DCHECK_EQ(kType_closure, rv.bundle.type);
+    const Class *clazz = metadata_space_->builtin_type(kType_closure);
+    bool native = false;
+    if (rv.kind == Value::kGlobal) {
+        Closure *closure = *global_space_.offset<Closure *>(rv.bundle.index);
+        native = closure->is_cxx_function();
+    }
+    auto proto = ast->prototype();
+    std::vector<const Class *> params;
+    for (auto param : proto->parameters()) {
+        auto param_rv = param.type->Accept(this);
+        if (param_rv.kind == Value::kError) {
+            return ResultWithError();
+        }
+        params.push_back(metadata_space_->type(param_rv.bundle.index));
+    }
+    int arg_size = GenerateArguments(ast->operands(), params, nullptr, -1, proto->vargs());
+    if (arg_size < 0) {
+        return ResultWithError();
+    }
+    LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), ast->callee());
+    if (native) {
+        current_fun_->Incoming(ast)->Add<kCallNativeFunction>(arg_size);
+    } else {
+        current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
+    }
+
+    return proto->return_type()->Accept(this);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclaration *ast) /*override*/ {
@@ -926,7 +1032,7 @@ ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*overrid
     DCHECK(scope != nullptr && value.linkage != Value::kError);
 
     if (!HasGenerated(ast) || !GenerateSymbolDependence(value)) {
-        return ResultWithError();
+        return ResultWith(value.linkage, value.type->id(), value.index);
     }
     DCHECK(HasGenerated(value.ast));
 
@@ -1055,6 +1161,8 @@ ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, Call
     kidx = current_fun_->constants()->FindOrInsertClosure(clazz->init()->fn());
     LdaConst(metadata_space_->builtin_type(kType_closure), kidx, ast);
     current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(argument_size);
+    
+    current_fun_->stack()->FallbackRef(self);
     return ResultWith(Value::kACC, clazz->id(), 0);
 }
 
@@ -1079,8 +1187,7 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
     int argument_offset = 0;
     if (self >= 0) {
         argument_offset += kPointerSize;
-        current_fun_->Incoming(callee)->Incomplete<kMovePtr>(-stack_offset(argument_offset),
-                                                             stack_offset(self));
+        current_fun_->Incoming(callee)->Incomplete<kMovePtr>(-(argument_offset), stack_offset(self));
     }
 
     for (size_t i = 0; i < operands.size(); i++) {
@@ -1091,11 +1198,11 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
                                    StackSpaceAllocator::kSizeGranularity);
         if (value.type->is_reference()) {
             if (value.linkage == Value::kStack) {
-                current_fun_->Incoming(arg)->Incomplete<kMovePtr>(-stack_offset(argument_offset),
+                current_fun_->Incoming(arg)->Incomplete<kMovePtr>(-(argument_offset),
                                                                   stack_offset(value.index));
             } else {
                 LdaIfNeeded(value.type, value.index, value.linkage, arg);
-                current_fun_->Incoming(arg)->Incomplete<kStarPtr>(-stack_offset(argument_offset));
+                current_fun_->Incoming(arg)->Incomplete<kStarPtr>(-(argument_offset));
             }
             continue;
         }
@@ -1249,25 +1356,22 @@ BytecodeGenerator::Value BytecodeGenerator::FindOrInsertExternalFunction(const s
     return value;
 }
 
-void BytecodeGenerator::MoveToArgumentIfNeeded(const Class *clazz, int index,
-                                               Value::Linkage linkage, int dest, ASTNode *ast) {
+void BytecodeGenerator::MoveToStackIfNeeded(const Class *clazz, int index, Value::Linkage linkage,
+                                            int dest, ASTNode *ast) {
     if (linkage == Value::kStack) {
         DCHECK_GE(index, 0);
         if (clazz->is_reference()) {
-            current_fun_->Incoming(ast)->Incomplete<kMovePtr>(-stack_offset(dest),
-                                                              stack_offset(index));
+            current_fun_->Incoming(ast)->Add<kMovePtr>(stack_offset(dest), stack_offset(index));
             return;
         }
         switch (clazz->reference_size()) {
             case 1:
             case 2:
             case 4:
-                current_fun_->Incoming(ast)->Incomplete<kMove32>(-stack_offset(dest),
-                                                                 stack_offset(index));
+                current_fun_->Incoming(ast)->Add<kMove32>(stack_offset(dest), stack_offset(index));
                 return;
             case 8:
-                current_fun_->Incoming(ast)->Incomplete<kMove64>(-stack_offset(dest),
-                                                                 stack_offset(index));
+                current_fun_->Incoming(ast)->Add<kMove64>(stack_offset(dest), stack_offset(index));
                 return;
             default:
                 NOREACHED();
@@ -1278,7 +1382,7 @@ void BytecodeGenerator::MoveToArgumentIfNeeded(const Class *clazz, int index,
         LdaIfNeeded(clazz, index, linkage, ast);
     }
     if (clazz->is_reference()) {
-        current_fun_->Incoming(ast)->Incomplete<kStarPtr>(-stack_offset(dest));
+        current_fun_->Incoming(ast)->Add<kStarPtr>(stack_offset(dest));
         return;
     }
     switch (clazz->reference_size()) {
@@ -1286,16 +1390,68 @@ void BytecodeGenerator::MoveToArgumentIfNeeded(const Class *clazz, int index,
         case 2:
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Incomplete<kStaf32>(-stack_offset(dest));
+                current_fun_->Incoming(ast)->Add<kStaf32>(stack_offset(dest));
             } else {
-                current_fun_->Incoming(ast)->Incomplete<kStar32>(-stack_offset(dest));
+                current_fun_->Incoming(ast)->Add<kStar32>(stack_offset(dest));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Incomplete<kStaf64>(-stack_offset(dest));
+                current_fun_->Incoming(ast)->Add<kStaf64>(stack_offset(dest));
             } else {
-                current_fun_->Incoming(ast)->Incomplete<kStar64>(-stack_offset(dest));
+                current_fun_->Incoming(ast)->Add<kStar64>(stack_offset(dest));
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+}
+
+void BytecodeGenerator::MoveToArgumentIfNeeded(const Class *clazz, int index,
+                                               Value::Linkage linkage, int dest, ASTNode *ast) {
+    if (linkage == Value::kStack) {
+        DCHECK_GE(index, 0);
+        if (clazz->is_reference()) {
+            current_fun_->Incoming(ast)->Incomplete<kMovePtr>(-(dest), stack_offset(index));
+            return;
+        }
+        switch (clazz->reference_size()) {
+            case 1:
+            case 2:
+            case 4:
+                current_fun_->Incoming(ast)->Incomplete<kMove32>(-(dest), stack_offset(index));
+                return;
+            case 8:
+                current_fun_->Incoming(ast)->Incomplete<kMove64>(-(dest), stack_offset(index));
+                return;
+            default:
+                NOREACHED();
+                return;
+        }
+    }
+    if (linkage != Value::kACC) {
+        LdaIfNeeded(clazz, index, linkage, ast);
+    }
+    if (clazz->is_reference()) {
+        current_fun_->Incoming(ast)->Incomplete<kStarPtr>(-(dest));
+        return;
+    }
+    switch (clazz->reference_size()) {
+        case 1:
+        case 2:
+        case 4:
+            if (clazz->id() == kType_f32) {
+                current_fun_->Incoming(ast)->Incomplete<kStaf32>(-(dest));
+            } else {
+                current_fun_->Incoming(ast)->Incomplete<kStar32>(-(dest));
+            }
+            break;
+        case 8:
+            if (clazz->id() == kType_f64) {
+                current_fun_->Incoming(ast)->Incomplete<kStaf64>(-(dest));
+            } else {
+                current_fun_->Incoming(ast)->Incomplete<kStar64>(-(dest));
             }
             break;
         default:

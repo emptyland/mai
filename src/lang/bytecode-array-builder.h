@@ -3,6 +3,7 @@
 #define MAI_LANG_BYTECODE_ARRAY_BUILDER_H_
 
 #include "lang/bytecode.h"
+#include "lang/mm.h"
 #include "base/arena-utils.h"
 
 namespace mai {
@@ -111,6 +112,16 @@ public:
             instrs.push_back(node->To());
         }
         return instrs;
+    }
+    
+    std::vector<BytecodeInstruction> BuildWithRewrite(std::function<int(int)> callback) {
+        for (auto node : incomplete_) {
+            for (int i = 0; i < 4; i++) {
+                node->set_param(i, callback(node->param(i)));
+            }
+        }
+        incomplete_.clear();
+        return Build();
     }
     
     void Abandon() { nodes_.clear(); }

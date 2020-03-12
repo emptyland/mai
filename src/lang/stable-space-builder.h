@@ -131,6 +131,12 @@ public:
     template<class S>
     inline S *offset(int location) { return reinterpret_cast<S *>(address(location)); }
     
+    Address address(int pos) {
+        DCHECK_GE(pos, 0);
+        DCHECK_LT(pos, length_ * sizeof(T));
+        return reinterpret_cast<Address>(spans_) + pos;
+    }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(StableSpaceBuilder);
 protected:
     struct SpanState {
@@ -148,12 +154,6 @@ protected:
     int Reserve(SpanState *state, size_t size, bool isref);
     
     void CheckCapacity();
-    
-    Address address(int pos) {
-        DCHECK_GE(pos, 0);
-        DCHECK_LT(pos, length_ * sizeof(T));
-        return reinterpret_cast<Address>(spans_) + pos;
-    }
     
     T *spans_;
     uint32_t *bitmap_;
