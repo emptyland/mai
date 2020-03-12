@@ -187,9 +187,21 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 #endif
 }
 
-/*static*/ void Runtime::lang_println(String *input) {
+/*static*/ void Runtime::Println(String *input) {
     // TODO:
     ::puts(input->data());
+}
+
+/*static*/ int Runtime::Any_HashCode(Any *any) {
+    if (!any) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return -1;
+    }
+    return static_cast<int>(bit_cast<intptr_t>(any) >> 2) | 0x1;
+}
+
+/*static*/ void Runtime::Exception_PrintStackstrace(Any *any) {
+    // TODO:
 }
 
 } // namespace lang

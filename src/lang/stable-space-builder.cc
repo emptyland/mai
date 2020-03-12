@@ -69,8 +69,11 @@ size_t ConstantPoolBuilder::KeyHash::operator () (Key key) const {
         case Key::kString:
             code = base::Hash::Js(key.string.data(), key.string.size());
             break;
+        case Key::kClosure:
+            code = (bit_cast<size_t>(key.closure) >> 1) | 0x1;
+            break;
         case Key::kMetadata:
-            code = bit_cast<size_t>(key.metadata);
+            code = (bit_cast<size_t>(key.metadata) >> 1) | 0x1;
             break;
         default:
             NOREACHED();
@@ -94,6 +97,8 @@ bool ConstantPoolBuilder::KeyEqualTo::operator () (Key lhs, Key rhs) const {
             return lhs.f64 == rhs.f64;
         case Key::kString:
             return lhs.string.compare(rhs.string) == 0;
+        case Key::kClosure:
+            return lhs.closure == rhs.closure;
         case Key::kMetadata:
             return lhs.metadata == rhs.metadata;
         default:

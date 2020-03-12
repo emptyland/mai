@@ -157,6 +157,7 @@ public:
     
     DEF_VAL_GETTER(MDStr, name);
     DEF_VAL_GETTER(uint32_t, tags);
+    DEF_PTR_GETTER(Closure, fn);
     
     friend class ClassBuilder;
     friend class MetadataSpace;

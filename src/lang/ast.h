@@ -61,7 +61,7 @@ namespace lang {
 DECLARE_ALL_AST(DEFINE_DECLARE)
 #undef DEFINE_DECLARE
 
-class HValue;
+class ASTNode;
 class Class;
 class Function;
 
@@ -72,10 +72,10 @@ struct ASTVisitorResult {
             int index;
             int type;
         } bundle;
-        HValue *hval;
         Class *clazz;
         TypeSign *sign;
         Function *fun;
+        ASTNode *ast;
     };
 };
 
@@ -1104,10 +1104,12 @@ public:
         , callee_(callee) {}
     
     DEF_PTR_PROP_RW(Expression, callee);
+    DEF_PTR_PROP_RW(FunctionPrototype, prototype);
     
     DEFINE_AST_NODE(CallExpression);
 private:
     Expression *callee_;
+    FunctionPrototype *prototype_ = nullptr;
 }; // class CallExpression
 
 

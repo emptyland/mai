@@ -76,10 +76,12 @@ Error Isolate::Initialize() {
 
 Error Isolate::LoadBaseLibraries() {
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    Local<Closure> fun(FunctionTemplate::New(Runtime::lang_println));
-    if (auto rs = AddExternalLinkingFunction("lang.println", fun); !rs) {
-        return rs;
+#define ADD_EXTERNAL_RUNTIME_FUNCTION(name, symbol) \
+    if (auto rs = AddExternalLinkingFunction(symbol, FunctionTemplate::New(Runtime::name)); !rs) { \
+        return rs; \
     }
+    DECLARE_RUNTIME_FUNCTIONS(ADD_EXTERNAL_RUNTIME_FUNCTION)
+#undef ADD_EXTERNAL_RUNTIME_FUNCTION
     
     return Error::OK();
 }

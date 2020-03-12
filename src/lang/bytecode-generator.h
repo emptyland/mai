@@ -77,7 +77,9 @@ private:
     Result VisitClassDefinition(ClassDefinition *) override;
     Result VisitObjectDefinition(ObjectDefinition *) override;
     Result VisitFunctionDefinition(FunctionDefinition *) override;
+    Result VisitLambdaLiteral(LambdaLiteral *) override;
     Result VisitVariableDeclaration(VariableDeclaration *) override;
+    Result VisitCallExpression(CallExpression *) override;
     Result VisitDotExpression(DotExpression *) override;
     Result VisitIdentifier(Identifier *) override;
     Result VisitBoolLiteral(BoolLiteral *) override;
@@ -98,21 +100,31 @@ private:
     
     SourceLocation FindSourceLocation(const ASTNode *ast);
     
+    Result GenerateNewObject(const Class *clazz, CallExpression *ast);
+    int GenerateArguments(const base::ArenaVector<Expression *> &args,
+                          const std::vector<const Class *> &params,
+                          ASTNode *self_ast,
+                          int self_idx,
+                          bool vargs);
     Result GenerateDotExpression(const Class *clazz, int index, Value::Linkage linkage, DotExpression *ast);
-    void LdaIfNeeded(const Class *clazz, int index, int linkage, BytecodeArrayBuilder *emitter);
-    void LdaStack(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
-    void LdaConst(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
-    void LdaGlobal(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
-    void LdaCaptured(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
-    void StaIfNeeded(const Class *clazz, int index, int linkage, BytecodeArrayBuilder *emitter);
-    void StaStack(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
-    void StaConst(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
-    void StaGlobal(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
-    void StaCaptured(const Class *clazz, int index, BytecodeArrayBuilder *emitter);
+    
+    void InboxIfNeeded(const Class *clazz, int index, Value::Linkage, const Class *lval, ASTNode *ast);
+    void MoveToArgumentIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest, ASTNode *ast);
+    void LdaIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
+    void LdaStack(const Class *clazz, int index, ASTNode *ast);
+    void LdaConst(const Class *clazz, int index, ASTNode *ast);
+    void LdaGlobal(const Class *clazz, int index, ASTNode *ast);
+    void LdaCaptured(const Class *clazz, int index, ASTNode *ast);
+    void StaIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
+    void StaStack(const Class *clazz, int index, ASTNode *ast);
+    void StaConst(const Class *clazz, int index, ASTNode *ast);
+    void StaGlobal(const Class *clazz, int index, ASTNode *ast);
+    void StaCaptured(const Class *clazz, int index, ASTNode *ast);
     
     bool GenerateSymbolDependence(Value value);
     
     int LinkGlobalVariable(VariableDeclaration *var);
+    Value FindOrInsertExternalFunction(const std::string &name);
     
     bool HasGenerated(ASTNode *ast) const {
         return symbol_trace_.find(ast) != symbol_trace_.end();

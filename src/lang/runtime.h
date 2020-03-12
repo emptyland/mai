@@ -18,9 +18,31 @@ class String;
 class Class;
 class Function;
 
+#define DECLARE_RUNTIME_FUNCTIONS(V) \
+    V(BoolValueOf, "lang.Bool::valueOf") \
+    V(I8ValueOf, "lang.I8::valueOf") \
+    V(U8ValueOf, "lang.U8::valueOf") \
+    V(I16ValueOf, "lang.I16::valueOf") \
+    V(U16ValueOf, "lang.U16::valueOf") \
+    V(I32ValueOf, "lang.I32::valueOf") \
+    V(U32ValueOf, "lang.U32::valueOf") \
+    V(IntValueOf, "lang.Int::valueOf") \
+    V(UIntValueOf, "lang.UInt::valueOf") \
+    V(I64ValueOf, "lang.I64::valueOf") \
+    V(U64ValueOf, "lang.U64::valueOf") \
+    V(F32ValueOf, "lang.F32::valueOf") \
+    V(F64ValueOf, "lang.F64::valueOf") \
+    V(Println, "lang.println") \
+    V(Any_HashCode, "lang.Any::hashCode") \
+    V(Exception_PrintStackstrace, "lang.Exception::printStackstrace")
 
 // The runtime functions definition
 struct Runtime {
+    enum Id {
+    #define DEFINE_RUNTIME_ID(name, ...) k##name,
+        DECLARE_RUNTIME_FUNCTIONS(DEFINE_RUNTIME_ID)
+    #undef DEFINE_RUNTIME_ID
+    };
     
     static Any *NewObject(const Class *clazz, uint32_t flags);
 
@@ -72,8 +94,11 @@ struct Runtime {
     
     
     // Stand library native functions
-    static void lang_println(String *input);
+    static void Println(String *input);
 
+    static int Any_HashCode(Any *any);
+    
+    static void Exception_PrintStackstrace(Any *any);
 }; // struct Runtime
 
 } // namespace lang

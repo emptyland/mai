@@ -37,7 +37,8 @@ class BytecodeArrayBuilder final {
 public:
     BytecodeArrayBuilder(base::Arena *arena)
         : arena_(DCHECK_NOTNULL(arena))
-        , nodes_(arena) {}
+        , nodes_(arena)
+        , incomplete_(arena) {}
 
     template<BytecodeID ID>
     inline void Add() { nodes_.push_back(Bytecodes<ID>::New(arena_)); }
@@ -47,6 +48,20 @@ public:
 
     template<BytecodeID ID>
     inline void Add(int a, int b) { nodes_.push_back(Bytecodes<ID>::New(arena_, a, b)); }
+    
+    template<BytecodeID ID>
+    inline void Incomplete(int a) {
+        BytecodeNode *node = Bytecodes<ID>::New(arena_, a);
+        nodes_.push_back(node);
+        incomplete_.push_back(node);
+    }
+
+    template<BytecodeID ID>
+    inline void Incomplete(int a, int b) {
+        BytecodeNode *node = Bytecodes<ID>::New(arena_, a, b);
+        nodes_.push_back(node);
+        incomplete_.push_back(node);
+    }
     
     void Goto(BytecodeLabel *label) {
         if (label->is_bind()) {
@@ -89,6 +104,7 @@ public:
     int pc() const { return static_cast<int>(nodes_.size()); }
 
     std::vector<BytecodeInstruction> Build() const {
+        DCHECK(incomplete_.empty());
         std::vector<BytecodeInstruction> instrs;
         instrs.reserve(nodes_.size());
         for (BytecodeNode *node : nodes_) {
@@ -117,6 +133,7 @@ private:
     }
     
     base::ArenaVector<BytecodeNode *> nodes_;
+    base::ArenaVector<BytecodeNode *> incomplete_;
     base::Arena *arena_;
 }; // class BytecodeArrayBuilder
 

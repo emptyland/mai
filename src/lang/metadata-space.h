@@ -25,6 +25,8 @@ public:
     
     const Field *FindClassFieldOrNull(const Class *clazz, const char *field_name);
     
+    const Method *FindClassMethodOrNull(const Class *clazz, const char *method_name);
+    
     const Class *builtin_type(BuiltinType type) const {
         DCHECK_GE(static_cast<int>(type), 0);
         DCHECK_LT(static_cast<int>(type), kMax_Types);
@@ -47,6 +49,10 @@ public:
     const Class *FindClassOrNull(const std::string &name) const {
         auto iter = named_classes_.find(name);
         return iter == named_classes_.end() ? nullptr : iter->second;
+    }
+    
+    void RenameFunction(Function *fun, const std::string &name) {
+        fun->name_ = NewString(name);
     }
     
     DEF_VAL_GETTER(size_t, used_size);
@@ -184,8 +190,12 @@ private:
     // Class with field name
     using ClassFieldMap = std::unordered_map<ClassFieldKey, const Field*, ClassFieldHash,
         ClassFieldEqualTo>;
+    using ClassMethodMap = std::unordered_map<ClassFieldKey, const Method*, ClassFieldHash,
+        ClassFieldEqualTo>;
     ClassFieldMap named_class_fields_;
+    ClassMethodMap named_class_methods_;
     std::shared_mutex class_fields_mutex_;
+    std::shared_mutex class_methods_mutex_;
     
     // Builtin codes:
     Code *bytecode_handlers_[kMax_Bytecodes]; // Bytecode handler array

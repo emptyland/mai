@@ -446,6 +446,34 @@ const Field *MetadataSpace::FindClassFieldOrNull(const Class *clazz, const char 
     return field;
 }
 
+const Method *MetadataSpace::FindClassMethodOrNull(const Class *clazz, const char *method_name) {
+    ClassFieldKey key{clazz, method_name};
+    {
+        std::shared_lock<std::shared_mutex> lock(class_methods_mutex_);
+        auto iter = named_class_methods_.find(key);
+        if (iter != named_class_methods_.end()) {
+            return iter->second;
+        }
+    }
+
+    const Method *method = nullptr;
+    for (uint32_t i = 0; i < clazz->n_methods(); i++) {
+        if (::strcmp(method_name, clazz->method(i)->name()) == 0) {
+            method = clazz->method(i);
+            break;
+        }
+    }
+    if (!method) {
+        return nullptr;
+    }
+    
+    // Use self space's string
+    key.field_name = method->name();
+    std::lock_guard<std::shared_mutex> lock(class_methods_mutex_);
+    named_class_methods_[key] = method;
+    return method;
+}
+
 AllocationResult MetadataSpace::Allocate(size_t n, bool exec) {
     if (!n) {
         return AllocationResult(AllocationResult::NOTHING, nullptr);

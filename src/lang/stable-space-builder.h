@@ -117,9 +117,9 @@ public:
 
     int ReserveRef() { return Reserve(&r_, kPointerSize, true/*isref*/); }
     
-    int AppendAny(Any *val) {
+    int AppendAny(const Any *val) {
         int location = Reserve(&r_, sizeof(val), true/*isref*/);
-        *reinterpret_cast<Any **>(address(location)) = val;
+        *reinterpret_cast<Any const**>(address(location)) = val;
         return location;
     }
     
@@ -228,14 +228,21 @@ public:
         }
     }
     
-    int FindOrInsertString(String *val) {
+    int FindOrInsertString(const String *val) {
         return FindOrInsertAny({
             .kind = Key::kString,
             .string = std::string_view(val->data(), val->length())
         }, val);
     }
     
-    int FindOrInsertMetadata(MetadataObject *val) {
+    int FindOrInsertClosure(const Closure *val) {
+        return FindOrInsertAny({
+            .kind = Key::kClosure,
+            .closure = val
+        }, val);
+    }
+    
+    int FindOrInsertMetadata(const MetadataObject *val) {
         return FindOrInsert({.kind = Key::kMetadata, .metadata = val}, val);
     }
     
@@ -259,6 +266,7 @@ private:
             kF32,
             kF64,
             kString,
+            kClosure,
             kMetadata,
         };
         Kind kind;
@@ -267,7 +275,8 @@ private:
             uint64_t  p64;
             float     f32;
             double    f64;
-            MetadataObject *metadata;
+            const MetadataObject *metadata;
+            const Closure  *closure;
             std::string_view string;
         };
     };
@@ -290,7 +299,7 @@ private:
         return location;
     }
     
-    int FindOrInsertAny(const Key &key, Any *value) {
+    int FindOrInsertAny(const Key &key, const Any *value) {
         if(auto iter = constants_.find(key); iter != constants_.end()) {
             return iter->second;
         }

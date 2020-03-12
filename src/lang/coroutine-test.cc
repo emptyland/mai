@@ -1060,7 +1060,7 @@ TEST_F(CoroutineTest, LoadGlobalSpace) {
     int l4 = global.AppendF64(3.14);
     isolate_->SetGlobalSpace(global.TakeSpans(), global.TakeBitmap(), global.capacity(),
                              global.length());
-    
+
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaGlobal32>(global_offset(l1));
@@ -1074,10 +1074,10 @@ TEST_F(CoroutineTest, LoadGlobalSpace) {
     builder.Add<kLdaConstPtr>(0);
     builder.Add<kCallNativeFunction>(24);
     builder.Add<kReturn>();
-    
+
     Span32 span;
     span.ptr[0].any = *FunctionTemplate::New(Dummy19);
-    
+
     Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);

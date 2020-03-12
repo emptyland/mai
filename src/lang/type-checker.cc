@@ -702,6 +702,7 @@ ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*overr
         return ResultWithType(new (arena_) TypeSign(callee->position(), Token::kRef,
                                                     callee->clazz()));
     } else if (callee->id() == Token::kFun) { // Function
+        ast->set_prototype(callee->prototype());
         if (callee->prototype()->vargs()) {
             if (ast->operands_size() < callee->prototype()->parameters_size()) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function prototype: %s",
