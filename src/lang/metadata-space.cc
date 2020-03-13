@@ -518,12 +518,11 @@ AllocationResult MetadataSpace::Allocate(size_t n, bool exec) {
 }
 
 Class *ClassBuilder::Build(MetadataSpace *space) const {
-    Class *clazz = space->PrepareClass(name_);
+    Class *clazz = space->PrepareClass(name_, tags_, reference_size_);
     if (!clazz) {
         return nullptr;
     }
     BuildWithPreparedClass(space, clazz);
-    //clazz->id_ = space->NextTypeId();
     return clazz;
 }
 
@@ -536,7 +535,11 @@ Class *ClassBuilder::BuildWithPreparedClass(MetadataSpace *space, Class *clazz) 
     clazz->tags_ = tags_;
     clazz->reference_size_ = reference_size_;
     clazz->instrance_size_ = instrance_size_;
-    
+    clazz->init_ = space->New<Method>();
+    clazz->init_->name_ = clazz->name_;
+    clazz->init_->tags_ = 0;
+    clazz->init_->fn_   = init_;
+
     Field *fields = space->NewArray<Field>(fields_.size());
     clazz->n_fields_ = static_cast<uint32_t>(fields_.size());
     clazz->fields_ = fields;

@@ -45,10 +45,17 @@ public:
     inline void Add() { nodes_.push_back(Bytecodes<ID>::New(arena_)); }
    
     template<BytecodeID ID>
-    inline void Add(int a) { nodes_.push_back(Bytecodes<ID>::New(arena_, a)); }
+    inline void Add(int a) {
+        DCHECK_GE(a, 0);
+        nodes_.push_back(Bytecodes<ID>::New(arena_, a));
+    }
 
     template<BytecodeID ID>
-    inline void Add(int a, int b) { nodes_.push_back(Bytecodes<ID>::New(arena_, a, b)); }
+    inline void Add(int a, int b) {
+        DCHECK_GE(a, 0);
+        DCHECK_GE(b, 0);
+        nodes_.push_back(Bytecodes<ID>::New(arena_, a, b));
+    }
     
     template<BytecodeID ID>
     inline void Incomplete(int a) {

@@ -39,14 +39,17 @@ public:
                       ClassDefinition *class_exception,
                       ClassDefinition *class_any,
                       std::map<std::string, std::vector<FileUnit *>> &&path_units,
-                      std::map<std::string, std::vector<FileUnit *>> &&pkg_units);
+                      std::map<std::string, std::vector<FileUnit *>> &&pkg_units,
+                      base::Arena *arena);
     
-    BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback);
+    BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback, base::Arena *arena);
     
     ~BytecodeGenerator();
     
     bool Prepare();
     bool Generate();
+    
+    DEF_PTR_GETTER(Function, generated_init0_fun);
     
     Value FindValue(const std::string &name) const {
         if (auto iter = symbols_.find(name); iter != symbols_.end()) {
@@ -71,6 +74,12 @@ private:
     class ClassScope;
     class FunctionScope;
     class BlockScope;
+    
+    struct FieldDesc {
+        const ASTString *name;
+        const Class *type;
+        uint32_t offset;
+    };
     
     bool PrepareUnit(const std::string &pkg_name, FileUnit *unit);
     bool GenerateUnit(const std::string &pkg_name, FileUnit *unit);
@@ -104,6 +113,8 @@ private:
     
     SourceLocation FindSourceLocation(const ASTNode *ast);
     
+    Function *GenerateClassConstructor(const std::vector<FieldDesc> &fields_desc,
+                                       ClassDefinition *ast);
     Result GenerateRegularCalling(CallExpression *ast);
     Result GenerateMethodCalling(Value primary, CallExpression *ast);
     Result GenerateNewObject(const Class *clazz, CallExpression *ast);
@@ -127,8 +138,10 @@ private:
     void StaConst(const Class *clazz, int index, ASTNode *ast);
     void StaGlobal(const Class *clazz, int index, ASTNode *ast);
     void StaCaptured(const Class *clazz, int index, ASTNode *ast);
+    void StaProperty(const Class *clazz, int index, int offset, ASTNode *ast);
     
     bool GenerateSymbolDependence(Value value);
+    bool GenerateSymbolDependence(Symbolize *ast);
     
     int LinkGlobalVariable(VariableDeclaration *var);
     Value FindOrInsertExternalFunction(const std::string &name);
@@ -152,6 +165,7 @@ private:
     std::map<std::string, std::vector<FileUnit *>> pkg_units_;
     std::unordered_map<std::string, Value> symbols_;
     std::unordered_set<void *> symbol_trace_;
+    base::Arena *arena_;
     GlobalSpaceBuilder global_space_;
     FunctionScope *current_fun_ = nullptr;
     ClassScope    *current_class_ = nullptr;

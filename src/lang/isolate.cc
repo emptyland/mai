@@ -107,10 +107,17 @@ Error Isolate::Compile(const std::string &dir) {
         return MAI_CORRUPTION("Not initialize yet");
     }
     
+    Function *init0_fun = nullptr;
     ErrorFeedback feedback;
     base::StandaloneArena arena(env_->GetLowLevelAllocator());
-
-    return Compiler::CompileInterpretion(this, dir, &feedback, &arena);
+    if (auto rs = Compiler::CompileInterpretion(this, dir, &feedback, &init0_fun, &arena); !rs) {
+        return rs;
+    }
+    Closure *init0 = scheduler_->machine0()->NewClosure(init0_fun, 0, Heap::kOld);
+    Coroutine *co = scheduler_->NewCoroutine(init0, true/*co0*/);
+    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+    scheduler_->machine0()->PostRunnable(co, true/*now*/);
+    return Error::OK();
 }
 
 void Isolate::Run() {

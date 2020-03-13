@@ -93,8 +93,11 @@ Error SourceFileResolve::ParseAll(const std::vector<std::string> &source_files,
     return Error::OK();
 }
 
-/*static*/ Error Compiler::CompileInterpretion(Isolate *isolate, const std::string &dir,
-                                               SyntaxFeedback *feedback, base::Arena *arena) {
+/*static*/ Error Compiler::CompileInterpretion(Isolate *isolate,
+                                               const std::string &dir,
+                                               SyntaxFeedback *feedback,
+                                               Function **init0,
+                                               base::Arena *arena) {
     std::vector<std::string> files;
     if (auto rs = Compiler::FindSourceFiles(isolate->base_pkg_dir(), isolate->env(), false, &files);
         !rs) {
@@ -121,8 +124,23 @@ Error SourceFileResolve::ParseAll(const std::vector<std::string> &source_files,
     if (auto rs = resolver.ParseAll(files, &units); !rs) {
         return rs;
     }
-    return checker.AddBootFileUnits(dir, units, &resolver);
-    // TODO
+    if (auto rs = checker.AddBootFileUnits(dir, units, &resolver); !rs) {
+        return rs;
+    }
+    if (!checker.Prepare() || !checker.Check()) {
+        return MAI_CORRUPTION("Type check fail");
+    }
+
+    BytecodeGenerator generator(isolate, feedback, checker.class_exception(), checker.class_any(),
+                                std::move(*checker.mutable_path_units()),
+                                std::move(*checker.mutable_pkg_units()),
+                                arena);
+    if (!generator.Prepare() || !generator.Generate()) {
+        return MAI_CORRUPTION("Code generated fail!");
+    }
+
+    *init0 = generator.generated_init0_fun();
+    return Error::OK();
 }
 
 

@@ -11,6 +11,7 @@ namespace mai {
 
 namespace lang {
 
+class Isolate;
 class Method;
 class Field;
 class Class;
@@ -99,9 +100,9 @@ private:
     Class() = default;
     
     const Class *base_ = nullptr; // Base class
-    Method *init_ = nullptr; // Constructor method
+    Method *init_ = nullptr; // [strong ref] Constructor method
     uint32_t n_methods_ = 0; // Number of method
-    Method *methods_ = nullptr; // All methods
+    Method *methods_ = nullptr; // [strong ref] All methods
 }; // class Class
 
 class Field : public MetadataObject {
@@ -249,7 +250,13 @@ public:
         return captured_vars_ + i;
     }
     
+    uint32_t const_pool_spans_size() const { return const_pool_size_ / sizeof(Span32); }
+    
     int32_t DispatchException(Any *exception, int32_t pc);
+    
+    void Print(base::AbstractPrinter *output) const;
+    
+    //bool Verify(base::AbstractPrinter *feedback, Isolate *isolate) const;
 
     friend class FunctionBuilder;
     friend class MetadataSpace;

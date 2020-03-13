@@ -2,6 +2,7 @@
 #include "lang/metadata-space.h"
 #include "lang/isolate-inl.h"
 #include "asm/utils.h"
+#include "base/arenas.h"
 
 namespace mai {
 
@@ -57,6 +58,58 @@ int32_t Function::DispatchException(Any *exception, int32_t pc) {
     return -1;
 }
 
+void Function::Print(base::AbstractPrinter *out) const {
+    out->Printf("%s%s\n", name(), prototype()->ToString().c_str());
+    out->Printf("stack-size: %u\n", stack_size_);
+    out->Printf("const-pool-bytes: %u\n", const_pool_size_);
+    out->Printf("const-pool-bitmap:");
+    for (size_t i = 0; i < (const_pool_spans_size() + 31)/32; i++) {
+        out->Printf(" %08x", const_pool_bitmap_[i]);
+    }
+    out->Append("\n");
+//    if (const_pool_size_ > 0) {
+//        out->Printf("const-pool: \n");
+//    }
+//    for (size_t i = 0; i < const_pool_spans_size(); i++) {
+//        Span32 *span = const_pool_ + i;
+//        out->Printf("    %08x %08x %08x %08x\n", span->v32[0].u32, span->v32[1].u32, span->v32[2].u32,
+//                    span->v32[3].u32);
+//    }
+    out->Printf("captured-var-size: %u\n", captured_var_size_);
+    if (captured_var_size_ > 0) {
+        out->Printf("captured-var: \n");
+    }
+    for (size_t i = 0; i < captured_var_size_; i++) {
+        if (captured_vars_[i].kind == IN_STACK) {
+            out->Printf("    IN_STACK ");
+        } else {
+            out->Printf("    IN_CAPTURED ");
+        }
+        out->Printf("[%d] ", captured_vars_[i].index);
+        out->Printf("%s: %s\n", captured_vars_[i].name, captured_vars_[i].type->name());
+    }
+    out->Printf("exception-table-size: %u\n", exception_table_size_);
+    if (exception_table_size_ > 0) {
+        out->Printf("exception-table: \n");
+    }
+    for (size_t i = 0; i < exception_table_size_; i++) {
+        auto handler = exception_table_ + i;
+        out->Printf("    %s %ld %ld %ld\n",
+                    !handler->expected_type? "nil" : handler->expected_type->name(),
+                    handler->start_pc, handler->stop_pc, handler->handler_pc);
+    }
+    if (kind_ == BYTECODE) {
+        out->Printf("bytecode-size: %u\n", bytecode_->size());
+        out->Printf("bytecode: \n");
+        base::ScopedArena arena;
+        for (size_t i = 0; i < bytecode_->size(); i++) {
+            BytecodeNode *node = BytecodeNode::From(&arena, bytecode_->entry()[i]);
+            out->Append("    ");
+            node->Print(out);
+            out->Append("\n");
+        }
+    }
+}
 
 } // namespace lang
 

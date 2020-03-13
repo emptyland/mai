@@ -120,10 +120,12 @@ public:
         // TODO:
     }
     
-    Class *PrepareClass(const std::string &name) {
+    Class *PrepareClass(const std::string &name, uint32_t tags, uint32_t reference_size) {
         Class *clazz = New<Class>();
         clazz->id_ = NextTypeId();
         clazz->name_ = NewString(name);
+        clazz->tags_ = tags;
+        clazz->reference_size_ = reference_size;
         InsertClass(name, clazz);
         return clazz;
     }
@@ -252,6 +254,7 @@ public:
         ClassBuilder &End() { return *owner_; }
         
         friend class ClassBuilder;
+        DISALLOW_IMPLICIT_CONSTRUCTORS(FieldBuilder);
     private:
         std::string name_;
         ClassBuilder *owner_;
@@ -284,6 +287,7 @@ public:
         }
         
         friend class ClassBuilder;
+        DISALLOW_IMPLICIT_CONSTRUCTORS(MethodBuilder);
     private:
         std::string name_;
         ClassBuilder *owner_;
@@ -297,6 +301,11 @@ public:
         for (auto field : fields_) {
             delete field;
         }
+    }
+    
+    ClassBuilder &init(Closure *value) {
+        init_ = value;
+        return *this;
     }
     
     ClassBuilder &tags(uint32_t value) {
@@ -358,6 +367,7 @@ private:
     uint32_t tags_ = 0;
     uint32_t reference_size_ = 0;
     uint32_t instrance_size_ = 0;
+    Closure *init_ = 0;
     std::vector<FieldBuilder *> fields_;
     std::map<std::string, FieldBuilder *> named_fields_;
     std::map<std::string, MethodBuilder *> named_methods_;

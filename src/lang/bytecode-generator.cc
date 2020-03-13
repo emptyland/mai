@@ -315,18 +315,21 @@ inline ASTVisitor::Result ResultWithError() {
 
 inline ASTVisitor::Result ResultWithVoid() { return ResultWith(BValue::kStack, kType_void, 0); }
 
-inline int stack_offset(int off) {
-    DCHECK_GE(off, 0);
-    DCHECK_LT(off, 0x1000 - kParameterSpaceOffset);
-    DCHECK_EQ(0, off % kStackOffsetGranularity);
-    return (kParameterSpaceOffset + off) / kStackOffsetGranularity;
-}
-
 inline int parameter_offset(int off) {
     DCHECK_GE(off, 0);
     DCHECK_LT(off, kParameterSpaceOffset - kPointerSize * 2);
     DCHECK_EQ(0, off % kStackOffsetGranularity);
     return (kParameterSpaceOffset - off - kPointerSize * 2) / kStackOffsetGranularity;
+}
+
+inline int stack_offset(int off) {
+    if (off < 0) {
+        return parameter_offset(-off);
+    }
+    //DCHECK_GE(off, 0);
+    DCHECK_LT(off, 0x1000 - kParameterSpaceOffset);
+    DCHECK_EQ(0, off % kStackOffsetGranularity);
+    return (kParameterSpaceOffset + off) / kStackOffsetGranularity;
 }
 
 inline int const_offset(int off) {
@@ -369,25 +372,28 @@ BytecodeGenerator::BytecodeGenerator(Isolate *isolate,
                                      ClassDefinition *class_exception,
                                      ClassDefinition *class_any,
                                      std::map<std::string, std::vector<FileUnit *>> &&path_units,
-                                     std::map<std::string, std::vector<FileUnit *>> &&pkg_units)
+                                     std::map<std::string, std::vector<FileUnit *>> &&pkg_units,
+                                     base::Arena *arena)
     : isolate_(isolate)
     , metadata_space_(isolate->metadata_space())
     , error_feedback_(DCHECK_NOTNULL(feedback))
     , class_exception_(class_exception)
     , class_any_(class_any)
     , path_units_(std::move(path_units))
-    , pkg_units_(std::move(pkg_units)) {
+    , pkg_units_(std::move(pkg_units))
+    , arena_(arena) {
     stack_offset(0);
     parameter_offset(0);
     const_offset(0);
     global_offset(0);
 }
 
-BytecodeGenerator::BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback)
+BytecodeGenerator::BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback, base::Arena *arena)
     : isolate_(isolate)
     , error_feedback_(DCHECK_NOTNULL(feedback))
     , class_exception_(nullptr)
-    , class_any_(nullptr) {
+    , class_any_(nullptr)
+    , arena_(arena) {
 }
 
 BytecodeGenerator::~BytecodeGenerator() {}
@@ -436,8 +442,8 @@ bool BytecodeGenerator::Prepare() {
 }
 
 bool BytecodeGenerator::Generate() {
-    base::StandaloneArena arena(isolate_->env()->GetLowLevelAllocator());
-    FunctionScope function_scope(&arena, nullptr, &current_, &current_fun_);
+    //base::StandaloneArena arena(isolate_->env()->GetLowLevelAllocator());
+    FunctionScope function_scope(arena_, nullptr, &current_, &current_fun_);
 
     function_scope.IncomingWithLine(0)->Add<kCheckStack>();
     
@@ -462,7 +468,7 @@ bool BytecodeGenerator::Generate() {
     }
     DCHECK_EQ(Value::kGlobal, fun_main_main.linkage);
     Closure *main = *global_space_.offset<Closure *>(fun_main_main.index);
-    function_scope.IncomingWithLine(1)->Add<kLdaGlobalPtr>(fun_main_main.index);
+    function_scope.IncomingWithLine(1)->Add<kLdaGlobalPtr>(global_offset(fun_main_main.index));
     if (main->is_mai_function()) {
         function_scope.IncomingWithLine(1)->Add<kCallBytecodeFunction>(0);
     } else {
@@ -489,11 +495,11 @@ bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit)
         std::string name = pkg_name + "." + ast->identifier()->ToString();
         
         if (auto clazz_ast = ast->AsClassDefinition(); clazz_ast && ast != class_any_/*filter class Any*/) {
-            Class *clazz = metadata_space_->PrepareClass(name);
+            Class *clazz = metadata_space_->PrepareClass(name, Type::kReferenceTag, kPointerSize);
             clazz_ast->set_clazz(clazz);
             current_->Register(name, {Value::kMetadata, clazz, static_cast<int>(clazz->id()), ast});
         } else if (auto object_ast = ast->AsObjectDefinition()) {
-            Class *clazz = metadata_space_->PrepareClass(name);
+            Class *clazz = metadata_space_->PrepareClass(name, Type::kReferenceTag, kPointerSize);
             object_ast->set_clazz(clazz);
             // object foo ==> main.foo$class
             current_->Register(name + "$class", {Value::kMetadata, clazz, static_cast<int>(clazz->id()), ast});
@@ -573,31 +579,36 @@ bool BytecodeGenerator::GenerateUnit(const std::string &pkg_name, FileUnit *unit
 }
 
 bool BytecodeGenerator::GenerateSymbolDependence(Value value) {
-    DCHECK_EQ(Value::kGlobal, value.linkage);
+    DCHECK(Value::kGlobal == value.linkage || Value::kMetadata == value.linkage);
     DCHECK(value.ast != nullptr);
     if (!value.ast->file_unit()) {
         return true; // ignore
     }
-    if (value.ast->file_unit() == current_file_->file_unit()) {
-        if (auto rv = value.ast->Accept(this); rv.kind == Value::kError) {
-            return false;
-        }
+    return GenerateSymbolDependence(value.ast);
+}
+
+bool BytecodeGenerator::GenerateSymbolDependence(Symbolize *ast) {
+    if (!ast->file_unit()) {
+        return true; // ignore
+    }
+    if (ast->file_unit() == current_file_->file_unit()) {
+        return ast->Accept(this).kind != Value::kError;
     }
     
     FileScope *saved_file = current_file_;
-    DCHECK_EQ(saved_file, current_);
+    //DCHECK_EQ(saved_file, current_);
     current_file_ = nullptr;
     current_ = nullptr;
     {
-        FileScope::Holder file_holder(value.ast->file_unit()->scope());
-        current_fun_->set_file_unit(value.ast->file_unit());
-        if (auto rv = value.ast->Accept(this); rv.kind == Value::kError) {
+        FileScope::Holder file_holder(ast->file_unit()->scope());
+        DCHECK_NOTNULL(current_fun_)->set_file_unit(ast->file_unit());
+        if (auto rv = ast->Accept(this); rv.kind == Value::kError) {
             return false;
         }
     }
     current_file_ = saved_file;
     current_ = saved_file;
-    current_fun_->set_file_unit(saved_file->file_unit());
+    DCHECK_NOTNULL(current_fun_)->set_file_unit(saved_file->file_unit());
     return true;
 }
 
@@ -657,6 +668,12 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
     std::string name(DCHECK_NOTNULL(current_file_)->file_unit()->package_name()->ToString());
     name.append(".").append(ast->identifier()->ToString());
     symbol_trace_.insert(ast);
+    
+    if (ast->base() && !HasGenerated(ast->base())) {
+        if (!GenerateSymbolDependence(ast->base())) {
+            return ResultWithError();
+        }
+    }
 
     ClassScope class_scope(ast, &current_, &current_class_);
     ClassBuilder builder(name);
@@ -672,9 +689,11 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
         builder.base(ast->base()->clazz());
         offset = ast->base()->clazz()->instrance_size();
     }
+    
+    std::vector<FieldDesc> fields_desc;
     int tag = 1;
     for (auto field : ast->fields()) {
-        auto field_builder = builder.field(field.declaration->identifier()->ToString());
+        auto &field_builder = builder.field(field.declaration->identifier()->ToString());
         Result rv = field.declaration->type()->Accept(this);
         if (rv.kind == Value::kError) {
             return ResultWithError();
@@ -692,22 +711,21 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
         }
         
         DCHECK_EQ(rv.kind, Value::kMetadata);
+        uint32_t field_offset = 0;
         const Class *field_class = metadata_space_->type(rv.bundle.index);
         if ((offset + field_class->reference_size()) % 2 == 0) {
-            field_builder.offset(offset);
+            field_offset = offset;
             offset += field_class->reference_size();
         } else {
-            field_builder.offset(RoundUp(offset, 2));
-            offset = RoundUp(offset, 2) + field_class->reference_size();
+            field_offset = RoundUp(offset, 2);
+            offset = field_offset + field_class->reference_size();
         }
-        field_builder
-            .tag(tag++)
-            .flags(flags)
-            .End();
+        field_builder.type(field_class).offset(field_offset).tag(tag++).flags(flags).End();
+        fields_desc.push_back({field.declaration->identifier(), field_class, field_offset});
     }
     
     for (auto method : ast->methods()) {
-        auto method_builder = builder.method(method->identifier()->ToString());
+        auto &method_builder = builder.method(method->identifier()->ToString());
         auto full_name = current_file_->LocalFileFullName(ast->identifier()) + "::" +
             method->identifier()->ToString();
         Value value = EnsureFindValue(full_name);
@@ -725,15 +743,16 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
         method_builder.End();
         *global_space_.offset<Closure *>(value.index) = closure;
     }
-    
-    base::StandaloneArena arena(isolate_->env()->GetLowLevelAllocator());
-    FunctionScope function_scope(&arena, current_file_->file_unit(), &current_, &current_fun_);
-    // TODO: constructor
 
+    Function *ctor = GenerateClassConstructor(fields_desc, ast);
+    if (!ctor) {
+        return ResultWithError();
+    }
     builder
         .tags(Type::kReferenceTag)
         .reference_size(kPointerSize)
         .instrance_size(offset)
+        .init(Machine::This()->NewClosure(ctor, 0, Heap::kMetadata))
         .BuildWithPreparedClass(metadata_space_, ast->clazz());
 
     symbol_trace_.insert(ast);
@@ -747,6 +766,10 @@ ASTVisitor::Result BytecodeGenerator::VisitObjectDefinition(ObjectDefinition *as
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition *ast) /*override*/ {
+    if (ast->is_native()) {
+        return ResultWithVoid();
+    }
+
     const bool is_method = current_->is_class_scope();
     auto rv = ast->body()->Accept(this);
     if (rv.kind == Value::kError) {
@@ -783,8 +806,8 @@ ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition
 ASTVisitor::Result BytecodeGenerator::VisitLambdaLiteral(LambdaLiteral *ast) /*override*/ {
     const bool is_method = current_->is_class_scope();
     
-    base::StandaloneArena arena(isolate_->env()->GetLowLevelAllocator());
-    FunctionScope function_scope(&arena, current_file_->file_unit(), &current_, &current_fun_);
+    //base::StandaloneArena arena(isolate_->env()->GetLowLevelAllocator());
+    FunctionScope function_scope(arena_, current_file_->file_unit(), &current_, &current_fun_);
     current_fun_->Incoming(ast)->Add<kCheckStack>();
     
     int param_size = 0;
@@ -801,9 +824,8 @@ ASTVisitor::Result BytecodeGenerator::VisitLambdaLiteral(LambdaLiteral *ast) /*o
     int param_offset = 0;
     if (is_method) { // Method!
         param_offset += kPointerSize;
-        current_->Register("self",
-                           {Value::kStack, current_class_->clazz()->clazz(),
-                            parameter_offset(param_size - param_offset)});
+        current_->Register("self", {Value::kStack, current_class_->clazz()->clazz(),
+            -(param_size - param_offset)});
     }
     for (auto param : ast->prototype()->parameters()) {
         auto rv = param.type->Accept(this);
@@ -813,15 +835,14 @@ ASTVisitor::Result BytecodeGenerator::VisitLambdaLiteral(LambdaLiteral *ast) /*o
         const Class *clazz = DCHECK_NOTNULL(metadata_space_->type(rv.bundle.type));
         param_offset += clazz->reference_size();
         current_->Register(param.name->ToString(),
-                           {Value::kStack, clazz, parameter_offset(param_size - param_offset)});
+                           {Value::kStack, clazz, -(param_size - param_offset)});
     }
     if (ast->prototype()->vargs()) {
         const Class *clazz = metadata_space_->builtin_type(kType_array);
         param_offset += clazz->reference_size();
-        current_->Register("argv",
-                           {Value::kStack, clazz, parameter_offset(param_size - param_offset)});
+        current_->Register("argv", {Value::kStack, clazz, -(param_size - param_offset)});
     }
-    
+
     for (auto stmt : ast->statements()) {
         if (auto rv = stmt->Accept(this); rv.kind == Value::kError) {
             return ResultWithError();
@@ -912,6 +933,105 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
     return proto->return_type()->Accept(this);
 }
 
+Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDesc> &fields_desc,
+                                                      ClassDefinition *ast) {
+    FunctionScope function_scope(arena_, current_file_->file_unit(), &current_, &current_fun_);
+    current_fun_->Incoming(ast)->Add<kCheckStack>();
+    
+    int param_size = kPointerSize; // self
+    for (auto param : ast->parameters()) {
+        size_t size = 0;
+        if (param.field_declaration) {
+            size = ast->field(param.as_field).declaration->type()->GetReferenceSize();
+        } else {
+            size = param.as_parameter->type()->GetReferenceSize();
+        }
+        param_size += RoundUp(size, StackSpaceAllocator::kSizeGranularity);
+    }
+    param_size = RoundUp(param_size, kStackAligmentSize);
+
+    int param_offset = kPointerSize; // self
+    Value self{Value::kStack, ast->clazz(), -(param_size - param_offset)};
+    current_->Register("self", self);
+    for (auto param : ast->parameters()) {
+        VariableDeclaration *decl = param.field_declaration
+                                  ? ast->field(param.as_field).declaration : param.as_parameter;
+        auto rv = decl->type()->Accept(this);
+        if (rv.kind == Value::kError) {
+            return nullptr;
+        }
+        const Class *clazz = DCHECK_NOTNULL(metadata_space_->type(rv.bundle.type));
+        param_offset += RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity);
+        Value value{Value::kStack, clazz, -(param_size - param_offset)};
+        current_->Register(decl->identifier()->ToString(), value);
+        
+        if (param.field_declaration) {
+            DCHECK_LT(param.as_field, fields_desc.size());
+            auto field = fields_desc[param.as_field];
+            LdaStack(clazz, value.index, decl);
+            StaProperty(field.type, self.index, field.offset, decl);
+        }
+    }
+    
+    for (size_t i = 0; i < ast->fields_size(); i++) {
+        DCHECK_LT(i, fields_desc.size());
+
+        auto field = ast->field(i);
+        if (field.in_constructor) {
+            continue;
+        }
+        
+        auto rv = field.declaration->type()->Accept(this);
+        if (rv.kind == Value::kError) {
+            return nullptr;
+        }
+        const Class *field_type = metadata_space_->type(rv.bundle.index);
+        if (!field.declaration->initializer()) {
+            current_fun_->Incoming(field.declaration)->Add<kLdaZero>();
+            StaProperty(field_type, self.index, fields_desc[i].offset, field.declaration);
+            continue;
+        }
+
+        if (rv = field.declaration->initializer()->Accept(this); rv.kind == Value::kError) {
+            return nullptr;
+        }
+        
+        const Class *clazz = metadata_space_->type(rv.bundle.type);
+        if (NeedInbox(field_type, clazz)) {
+            InboxIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), field_type,
+                          field.declaration);
+        } else {
+            LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                        field.declaration);
+        }
+        StaProperty(field_type, self.index, fields_desc[i].offset, field.declaration);
+    }
+    
+    if (!ast->arguments().empty()) {
+        ClassDefinition *base_ast = DCHECK_NOTNULL(ast->base());
+        std::vector<const Class *> params;
+        for (auto param : base_ast->parameters()) {
+            auto rv = param.field_declaration
+                    ? base_ast->field(param.as_field).declaration->type()->Accept(this)
+                    : param.as_parameter->type()->Accept(this);
+            if (rv.kind == Value::kError) {
+                return nullptr;
+            }
+            params.push_back(metadata_space_->type(rv.bundle.index));
+        }
+        int arg_size = GenerateArguments(ast->arguments(), params, ast, self.index, false/*vargs*/);
+        const Class *base = DCHECK_NOTNULL(ast->clazz()->base());
+        int kidx = current_fun_->constants()->FindOrInsertClosure(DCHECK_NOTNULL(base->init())->fn());
+        current_fun_->Incoming(ast)->Add<kLdaConstPtr>(kidx);
+        current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
+    }
+    
+    // return self
+    LdaStack(ast->clazz(), self.index, ast);
+    current_fun_->Incoming(ast)->Add<kReturn>();
+    return BuildFunction(ast->identifier()->ToString(), &function_scope);
+}
+
 ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast) {
     auto rv = ast->callee()->Accept(this);
     if (rv.kind == Value::kError) {
@@ -939,7 +1059,8 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
         }
         params.push_back(metadata_space_->type(param_rv.bundle.index));
     }
-    int arg_size = GenerateArguments(ast->operands(), params, nullptr, -1, proto->vargs());
+    int arg_size = GenerateArguments(ast->operands(), params, nullptr/*callee*/, 0/*self*/,
+                                     proto->vargs());
     if (arg_size < 0) {
         return ResultWithError();
     }
@@ -1031,8 +1152,8 @@ ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*overrid
     auto [scope, value] = current_->Resolve(ast->name());
     DCHECK(scope != nullptr && value.linkage != Value::kError);
 
-    if (!HasGenerated(ast) || !GenerateSymbolDependence(value)) {
-        return ResultWith(value.linkage, value.type->id(), value.index);
+    if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
+        return ResultWithError();
     }
     DCHECK(HasGenerated(value.ast));
 
@@ -1052,7 +1173,7 @@ ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*overrid
             NOREACHED();
             break;
     }
-    return ResultWithError();
+    return ResultWith(value.linkage, value.type->id(), value.index);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitBoolLiteral(BoolLiteral *ast) /*override*/ {
@@ -1185,7 +1306,7 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
         }
     }
     int argument_offset = 0;
-    if (self >= 0) {
+    if (callee) {
         argument_offset += kPointerSize;
         current_fun_->Incoming(callee)->Incomplete<kMovePtr>(-(argument_offset), stack_offset(self));
     }
@@ -1700,6 +1821,39 @@ void BytecodeGenerator::StaCaptured(const Class *clazz, int index, ASTNode *ast)
                 current_fun_->Incoming(ast)->Add<kStaCapturedf64>(index);
             } else {
                 current_fun_->Incoming(ast)->Add<kStaCaptured64>(index);
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+}
+
+void BytecodeGenerator::StaProperty(const Class *clazz, int index, int offset, ASTNode *ast) {
+    index = stack_offset(index);
+    if (clazz->is_reference()) {
+        current_fun_->Incoming(ast)->Add<kStaPropertyPtr>(index, offset);
+        return;
+    }
+    switch (clazz->reference_size()) {
+        case 1:
+            current_fun_->Incoming(ast)->Add<kStaProperty8>(index, offset);
+            break;
+        case 2:
+            current_fun_->Incoming(ast)->Add<kStaProperty16>(index, offset);
+            break;
+        case 4:
+            if (clazz->id() == kType_f32) {
+                current_fun_->Incoming(ast)->Add<kStaPropertyf32>(index, offset);
+            } else {
+                current_fun_->Incoming(ast)->Add<kStaProperty32>(index, offset);
+            }
+            break;
+        case 8:
+            if (clazz->id() == kType_f64) {
+                current_fun_->Incoming(ast)->Add<kStaPropertyf64>(index, offset);
+            } else {
+                current_fun_->Incoming(ast)->Add<kStaProperty64>(index, offset);
             }
             break;
         default:

@@ -132,9 +132,14 @@ void BytecodeNode::PrintSimple(base::AbstractPrinter *output) const {
 
 void BytecodeNode::PrintParam(base::AbstractPrinter *output, BytecodeParam::Kind kind, int param) const {
     switch (kind) {
-        case BytecodeParam::kStackOffset:
-            output->Printf("[BP-%d]", static_cast<int>(param * kStackOffsetGranularity - kParameterSpaceOffset));
-            break;
+        case BytecodeParam::kStackOffset: {
+            int idx = static_cast<int>(param * kStackOffsetGranularity - kParameterSpaceOffset);
+            if (idx >= 0) {
+                output->Printf("[BP-%d]", idx);
+            } else {
+                output->Printf("[BP+%d]", -idx);
+            }
+        } break;
         case BytecodeParam::kConstOffset:
             output->Printf("[KP+%d]", static_cast<int>(param * kConstPoolOffsetGranularity));
             break;

@@ -67,7 +67,8 @@ public:
                                            checker_.class_exception(),
                                            checker_.class_any(),
                                            std::move(*checker_.mutable_path_units()),
-                                           std::move(*checker_.mutable_pkg_units()));
+                                           std::move(*checker_.mutable_pkg_units()),
+                                           &arena_);
         return Error::OK();
     }
     
@@ -107,6 +108,22 @@ TEST_F(BytecodeGeneratorTest, Sanity) {
     ASSERT_TRUE(main.is_value_not_null());
     ASSERT_TRUE(main->is_mai_function());
     ASSERT_FALSE(main->is_cxx_function());
+    
+    base::StdFilePrinter printer(stdout);
+    main->function()->Print(&printer);
+//    generator_->generated_init0_fun()->Print(&printer);
+    
+    auto clazz = isolate_->metadata_space()->FindClassOrNull("foo.Foo");
+    clazz->init()->fn()->function()->Print(&printer);
+}
+
+TEST_F(BytecodeGeneratorTest, DemoRun) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    
+    auto rs = isolate_->Compile("tests/lang/011-generator-sanity");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
 }
 
 } // namespace lang

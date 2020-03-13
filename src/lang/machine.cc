@@ -223,8 +223,8 @@ Any *Machine::NewObject(const Class *clazz, uint32_t flags) {
     Any *any = new (result.ptr()) Any(clazz, color_tags());
     
     if (clazz->n_fields() > 0) {
-        Address base = reinterpret_cast<Address>(any) + clazz->field(0)->offset();
-        ::memset(base, 0, clazz->instrance_size() - sizeof(Any)); // Zeroize object fields
+        Address base = reinterpret_cast<Address>(any);// + clazz->field(0)->offset();
+        ::memset(base, 0, clazz->instrance_size() - clazz->base()->instrance_size()); // Zeroize object fields
     }
     return any;
 }

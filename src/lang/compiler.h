@@ -13,6 +13,7 @@ namespace lang {
 
 class FileUnit;
 class Isolate;
+class Function;
 
 class SourceFileResolve {
 public:
@@ -43,8 +44,11 @@ struct Compiler {
     static Error FindSourceFiles(const std::string &dir, Env *env, bool unittest,
                                  std::vector<std::string> *files);
     
-    static Error CompileInterpretion(Isolate *isolate, const std::string &dir,
-                                     SyntaxFeedback *feedback, base::Arena *arena);
+    static Error CompileInterpretion(Isolate *isolate,
+                                     const std::string &dir,
+                                     SyntaxFeedback *feedback,
+                                     Function **init0,
+                                     base::Arena *arena);
     
 }; // struct Compiler
 
