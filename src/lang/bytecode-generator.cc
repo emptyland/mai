@@ -315,30 +315,33 @@ inline ASTVisitor::Result ResultWithError() {
 
 inline ASTVisitor::Result ResultWithVoid() { return ResultWith(BValue::kStack, kType_void, 0); }
 
-inline int parameter_offset(int off) {
-    DCHECK_GE(off, 0);
-    DCHECK_LT(off, kParameterSpaceOffset - kPointerSize * 2);
-    DCHECK_EQ(0, off % kStackOffsetGranularity);
-    return (kParameterSpaceOffset - off - kPointerSize * 2) / kStackOffsetGranularity;
+inline int GetParameterOffset(int param_size, int index) {
+    return -(param_size - index) - kPointerSize * 2;
 }
 
-inline int stack_offset(int off) {
+// off = -idx - k = -(idx + k)
+// -off = idx + k
+// -off -k
+inline int GetStackOffset(int off) {
     if (off < 0) {
-        return parameter_offset(-off);
+        off = -off - kPointerSize * 2;
+        DCHECK_LT(off, kParameterSpaceOffset - kPointerSize * 2);
+        DCHECK_EQ(0, off % kStackOffsetGranularity);
+        return (kParameterSpaceOffset - off - kPointerSize * 2) / kStackOffsetGranularity;
+    } else {
+        DCHECK_LT(off, 0x1000 - kParameterSpaceOffset);
+        DCHECK_EQ(0, off % kStackOffsetGranularity);
+        return (kParameterSpaceOffset + off) / kStackOffsetGranularity;
     }
-    //DCHECK_GE(off, 0);
-    DCHECK_LT(off, 0x1000 - kParameterSpaceOffset);
-    DCHECK_EQ(0, off % kStackOffsetGranularity);
-    return (kParameterSpaceOffset + off) / kStackOffsetGranularity;
 }
 
-inline int const_offset(int off) {
+inline int GetConstOffset(int off) {
     DCHECK_GE(off, 0);
     DCHECK_EQ(0, off % kConstPoolOffsetGranularity);
     return off / kConstPoolOffsetGranularity;
 }
 
-inline int global_offset(int off) {
+inline int GetGlobalOffset(int off) {
     DCHECK_GE(off, 0);
     DCHECK_EQ(0, off % kGlobalSpaceOffsetGranularity);
     return off / kGlobalSpaceOffsetGranularity;
@@ -382,10 +385,10 @@ BytecodeGenerator::BytecodeGenerator(Isolate *isolate,
     , path_units_(std::move(path_units))
     , pkg_units_(std::move(pkg_units))
     , arena_(arena) {
-    stack_offset(0);
-    parameter_offset(0);
-    const_offset(0);
-    global_offset(0);
+    GetStackOffset(0);
+    GetParameterOffset(0, 0);
+    GetConstOffset(0);
+    GetGlobalOffset(0);
 }
 
 BytecodeGenerator::BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback, base::Arena *arena)
@@ -468,7 +471,7 @@ bool BytecodeGenerator::Generate() {
     }
     DCHECK_EQ(Value::kGlobal, fun_main_main.linkage);
     Closure *main = *global_space_.offset<Closure *>(fun_main_main.index);
-    function_scope.IncomingWithLine(1)->Add<kLdaGlobalPtr>(global_offset(fun_main_main.index));
+    function_scope.IncomingWithLine(1)->Add<kLdaGlobalPtr>(GetGlobalOffset(fun_main_main.index));
     if (main->is_mai_function()) {
         function_scope.IncomingWithLine(1)->Add<kCallBytecodeFunction>(0);
     } else {
@@ -624,7 +627,7 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
             if (index >= 0) {
                 return index;
             }
-            return stack_offset(stack_size - index);
+            return GetStackOffset(stack_size - index);
         });
     BytecodeArray *bytecodes = metadata_space_->NewBytecodeArray(instrs);
 
@@ -767,6 +770,9 @@ ASTVisitor::Result BytecodeGenerator::VisitObjectDefinition(ObjectDefinition *as
 
 ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition *ast) /*override*/ {
     if (ast->is_native()) {
+        if (ast->file_unit()) {
+            symbol_trace_.insert(ast);
+        }
         return ResultWithVoid();
     }
 
@@ -790,6 +796,7 @@ ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition
         Value value = EnsureFindValue(name);
         DCHECK_EQ(Value::kGlobal, value.linkage);
         *global_space_.offset<Closure *>(value.index) = closure;
+        symbol_trace_.insert(ast);
         return ResultWithVoid();
     }
     
@@ -824,8 +831,11 @@ ASTVisitor::Result BytecodeGenerator::VisitLambdaLiteral(LambdaLiteral *ast) /*o
     int param_offset = 0;
     if (is_method) { // Method!
         param_offset += kPointerSize;
-        current_->Register("self", {Value::kStack, current_class_->clazz()->clazz(),
-            -(param_size - param_offset)});
+        current_->Register("self", {
+            Value::kStack,
+            current_class_->clazz()->clazz(),
+            GetParameterOffset(param_size, param_offset)
+        });
     }
     for (auto param : ast->prototype()->parameters()) {
         auto rv = param.type->Accept(this);
@@ -833,14 +843,21 @@ ASTVisitor::Result BytecodeGenerator::VisitLambdaLiteral(LambdaLiteral *ast) /*o
             return ResultWithError();
         }
         const Class *clazz = DCHECK_NOTNULL(metadata_space_->type(rv.bundle.type));
-        param_offset += clazz->reference_size();
-        current_->Register(param.name->ToString(),
-                           {Value::kStack, clazz, -(param_size - param_offset)});
+        param_offset += RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity);
+        current_->Register(param.name->ToString(), {
+            Value::kStack,
+            clazz,
+            GetParameterOffset(param_size, param_offset)
+        });
     }
     if (ast->prototype()->vargs()) {
         const Class *clazz = metadata_space_->builtin_type(kType_array);
-        param_offset += clazz->reference_size();
-        current_->Register("argv", {Value::kStack, clazz, -(param_size - param_offset)});
+        param_offset += RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity);
+        current_->Register("argv", {
+            Value::kStack,
+            clazz,
+            GetParameterOffset(param_size, param_offset)
+        });
     }
 
     for (auto stmt : ast->statements()) {
@@ -951,7 +968,7 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
     param_size = RoundUp(param_size, kStackAligmentSize);
 
     int param_offset = kPointerSize; // self
-    Value self{Value::kStack, ast->clazz(), -(param_size - param_offset)};
+    Value self{Value::kStack, ast->clazz(), GetParameterOffset(param_size, param_offset)};
     current_->Register("self", self);
     for (auto param : ast->parameters()) {
         VariableDeclaration *decl = param.field_declaration
@@ -962,7 +979,7 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
         }
         const Class *clazz = DCHECK_NOTNULL(metadata_space_->type(rv.bundle.type));
         param_offset += RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity);
-        Value value{Value::kStack, clazz, -(param_size - param_offset)};
+        Value value{Value::kStack, clazz, GetParameterOffset(param_size, param_offset)};
         current_->Register(decl->identifier()->ToString(), value);
         
         if (param.field_declaration) {
@@ -1152,10 +1169,12 @@ ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*overrid
     auto [scope, value] = current_->Resolve(ast->name());
     DCHECK(scope != nullptr && value.linkage != Value::kError);
 
-    if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
-        return ResultWithError();
+    if (scope->is_file_scope()) {
+        if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
+            return ResultWithError();
+        }
+        DCHECK(HasGenerated(value.ast));
     }
-    DCHECK(HasGenerated(value.ast));
 
     switch (scope->kind()) {
         case Scope::kFunctionScope:
@@ -1308,7 +1327,7 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
     int argument_offset = 0;
     if (callee) {
         argument_offset += kPointerSize;
-        current_fun_->Incoming(callee)->Incomplete<kMovePtr>(-(argument_offset), stack_offset(self));
+        current_fun_->Incoming(callee)->Incomplete<kMovePtr>(-(argument_offset), GetStackOffset(self));
     }
 
     for (size_t i = 0; i < operands.size(); i++) {
@@ -1320,7 +1339,7 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
         if (value.type->is_reference()) {
             if (value.linkage == Value::kStack) {
                 current_fun_->Incoming(arg)->Incomplete<kMovePtr>(-(argument_offset),
-                                                                  stack_offset(value.index));
+                                                                  GetStackOffset(value.index));
             } else {
                 LdaIfNeeded(value.type, value.index, value.linkage, arg);
                 current_fun_->Incoming(arg)->Incomplete<kStarPtr>(-(argument_offset));
@@ -1482,17 +1501,17 @@ void BytecodeGenerator::MoveToStackIfNeeded(const Class *clazz, int index, Value
     if (linkage == Value::kStack) {
         DCHECK_GE(index, 0);
         if (clazz->is_reference()) {
-            current_fun_->Incoming(ast)->Add<kMovePtr>(stack_offset(dest), stack_offset(index));
+            current_fun_->Incoming(ast)->Add<kMovePtr>(GetStackOffset(dest), GetStackOffset(index));
             return;
         }
         switch (clazz->reference_size()) {
             case 1:
             case 2:
             case 4:
-                current_fun_->Incoming(ast)->Add<kMove32>(stack_offset(dest), stack_offset(index));
+                current_fun_->Incoming(ast)->Add<kMove32>(GetStackOffset(dest), GetStackOffset(index));
                 return;
             case 8:
-                current_fun_->Incoming(ast)->Add<kMove64>(stack_offset(dest), stack_offset(index));
+                current_fun_->Incoming(ast)->Add<kMove64>(GetStackOffset(dest), GetStackOffset(index));
                 return;
             default:
                 NOREACHED();
@@ -1503,7 +1522,7 @@ void BytecodeGenerator::MoveToStackIfNeeded(const Class *clazz, int index, Value
         LdaIfNeeded(clazz, index, linkage, ast);
     }
     if (clazz->is_reference()) {
-        current_fun_->Incoming(ast)->Add<kStarPtr>(stack_offset(dest));
+        current_fun_->Incoming(ast)->Add<kStarPtr>(GetStackOffset(dest));
         return;
     }
     switch (clazz->reference_size()) {
@@ -1511,16 +1530,16 @@ void BytecodeGenerator::MoveToStackIfNeeded(const Class *clazz, int index, Value
         case 2:
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Add<kStaf32>(stack_offset(dest));
+                current_fun_->Incoming(ast)->Add<kStaf32>(GetStackOffset(dest));
             } else {
-                current_fun_->Incoming(ast)->Add<kStar32>(stack_offset(dest));
+                current_fun_->Incoming(ast)->Add<kStar32>(GetStackOffset(dest));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Add<kStaf64>(stack_offset(dest));
+                current_fun_->Incoming(ast)->Add<kStaf64>(GetStackOffset(dest));
             } else {
-                current_fun_->Incoming(ast)->Add<kStar64>(stack_offset(dest));
+                current_fun_->Incoming(ast)->Add<kStar64>(GetStackOffset(dest));
             }
             break;
         default:
@@ -1534,17 +1553,17 @@ void BytecodeGenerator::MoveToArgumentIfNeeded(const Class *clazz, int index,
     if (linkage == Value::kStack) {
         DCHECK_GE(index, 0);
         if (clazz->is_reference()) {
-            current_fun_->Incoming(ast)->Incomplete<kMovePtr>(-(dest), stack_offset(index));
+            current_fun_->Incoming(ast)->Incomplete<kMovePtr>(-(dest), GetStackOffset(index));
             return;
         }
         switch (clazz->reference_size()) {
             case 1:
             case 2:
             case 4:
-                current_fun_->Incoming(ast)->Incomplete<kMove32>(-(dest), stack_offset(index));
+                current_fun_->Incoming(ast)->Incomplete<kMove32>(-(dest), GetStackOffset(index));
                 return;
             case 8:
-                current_fun_->Incoming(ast)->Incomplete<kMove64>(-(dest), stack_offset(index));
+                current_fun_->Incoming(ast)->Incomplete<kMove64>(-(dest), GetStackOffset(index));
                 return;
             default:
                 NOREACHED();
@@ -1607,7 +1626,7 @@ void BytecodeGenerator::LdaIfNeeded(const Class *clazz, int index, Value::Linkag
 }
 
 void BytecodeGenerator::LdaStack(const Class *clazz, int index, ASTNode *ast) {
-    int offset = stack_offset(index);
+    int offset = GetStackOffset(index);
     if (clazz->is_reference()) {
         current_fun_->Incoming(ast)->Add<kLdarPtr>(offset);
         return;
@@ -1636,7 +1655,7 @@ void BytecodeGenerator::LdaStack(const Class *clazz, int index, ASTNode *ast) {
 }
 
 void BytecodeGenerator::LdaConst(const Class *clazz, int index, ASTNode *ast) {
-    int offset = const_offset(index);
+    int offset = GetConstOffset(index);
     if (clazz->is_reference()) {
         current_fun_->Incoming(ast)->Add<kLdaConstPtr>(offset);
         return;
@@ -1665,7 +1684,7 @@ void BytecodeGenerator::LdaConst(const Class *clazz, int index, ASTNode *ast) {
 }
 
 void BytecodeGenerator::LdaGlobal(const Class *clazz, int index, ASTNode *ast) {
-    int offset = global_offset(index);
+    int offset = GetGlobalOffset(index);
     if (clazz->is_reference()) {
         current_fun_->Incoming(ast)->Add<kLdaGlobalPtr>(offset);
         return;
@@ -1744,7 +1763,7 @@ void BytecodeGenerator::StaIfNeeded(const Class *clazz, int index, Value::Linkag
 }
 
 void BytecodeGenerator::StaStack(const Class *clazz, int index, ASTNode *ast) {
-    int offset = stack_offset(index);
+    int offset = GetStackOffset(index);
     if (clazz->is_reference()) {
         current_fun_->Incoming(ast)->Add<kStarPtr>(offset);
         return;
@@ -1773,7 +1792,7 @@ void BytecodeGenerator::StaStack(const Class *clazz, int index, ASTNode *ast) {
 }
 
 void BytecodeGenerator::StaGlobal(const Class *clazz, int index, ASTNode *ast) {
-    int offset = global_offset(index);
+    int offset = GetGlobalOffset(index);
     if (clazz->is_reference()) {
         current_fun_->Incoming(ast)->Add<kStaGlobalPtr>(offset);
         return;
@@ -1830,7 +1849,7 @@ void BytecodeGenerator::StaCaptured(const Class *clazz, int index, ASTNode *ast)
 }
 
 void BytecodeGenerator::StaProperty(const Class *clazz, int index, int offset, ASTNode *ast) {
-    index = stack_offset(index);
+    index = GetStackOffset(index);
     if (clazz->is_reference()) {
         current_fun_->Incoming(ast)->Add<kStaPropertyPtr>(index, offset);
         return;

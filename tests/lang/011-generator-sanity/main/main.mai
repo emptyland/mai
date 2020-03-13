@@ -8,10 +8,15 @@ var b: foo.Foo
 fun main() {
     //println(a)
     //println(c)
-    val a = foo.Foo(1)
+    //val a = foo.Foo(1)
+    bar("a", "b")
+    foo.Foo(1)
 }
 
-class Foo(val i: int)
+fun bar(a: string, b: string) {
+	println(a)
+	println(b)
+}
 
 val a = "Hello, World"
 val c = foo.a

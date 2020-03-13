@@ -143,7 +143,6 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm) {
     Label exit;
     __ jmp(&exit, false/*is_far*/);
     __ Bind(&fail);
-    //__ Breakpoint();
 
     // Exit mai env:
     __ Bind(&exit);
@@ -250,7 +249,6 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ movq(Argv_1, rax);
     // Call co->Suspend(acc, xacc)
     __ SwitchSystemStackCall(arch::MethodAddress(&Coroutine::Suspend), switch_call);
-    //__ Breakpoint();
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kInterrupted);
     __ jmp(&done, true/*is_far*/);
 
@@ -285,7 +283,8 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
 // Prototype: InterpreterPump(Closure *callee)
 // make a interpreter env
 void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
-    StackFrameScope frame_scope(masm);
+    __ pushq(rbp);
+    __ movq(rbp, rsp);
 
     __ movq(SCRATCH, Operand(Argv_0, Closure::kOffsetProto)); // SCRATCH = callee->mai_fn
     // rsp -= mai_fn->stack_size and keep rbp
@@ -756,7 +755,6 @@ public:
     void EmitStarPtr(MacroAssembler *masm) override { EmitStar64(masm); }
 
     void EmitStaf32(MacroAssembler *masm) override {
-        //__ Breakpoint();
         InstrStackAScope instr_scope(masm);
         __ movss(Operand(rbp, rbx, times_2, 0), FACC);
     }
@@ -986,6 +984,7 @@ public:
 
     void EmitCallBytecodeFunction(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
+    
         // Adjust Caller Stack
         __ addl(rbx, 15); // ebx = ebx + 16 - 1
         __ andl(rbx, 0xfffffff0); // ebx &= -16
@@ -994,19 +993,20 @@ public:
         __ movq(Argv_0, ACC);
         __ movq(SCRATCH, space_->interpreter_pump_code()->entry());
         __ call(SCRATCH);
-
-        // Recover Caller Stack
-        instr_scope.GetAToRBX();
-        __ addl(rbx, 15); // ebx = ebx + 16 - 1
-        __ andl(rbx, 0xfffffff0); // ebx &= -16
-        __ addq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
         
         // Recover BC Register
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetBytecodeArray));
         // SCRATCH = &bytecodes->instructions
         __ addq(SCRATCH, BytecodeArray::kOffsetEntry);
         __ movl(rbx, Operand(rbp, BytecodeStackFrame::kOffsetPC));
+        // XXX: Recover BC register first!
         __ leaq(BC, Operand(SCRATCH, rbx, times_4, 0)); // [SCRATCH + rbx * 4]
+
+        // Recover Caller Stack
+        instr_scope.GetAToRBX();
+        __ addl(rbx, 15); // ebx = ebx + 16 - 1
+        __ andl(rbx, 0xfffffff0); // ebx &= -16
+        __ addq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
     }
     
     // Coroutine *RunCoroutine(uint32_t flags, Closure *entry_point, Address params,

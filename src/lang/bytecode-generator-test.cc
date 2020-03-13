@@ -109,17 +109,27 @@ TEST_F(BytecodeGeneratorTest, Sanity) {
     ASSERT_TRUE(main->is_mai_function());
     ASSERT_FALSE(main->is_cxx_function());
     
-    base::StdFilePrinter printer(stdout);
-    main->function()->Print(&printer);
-//    generator_->generated_init0_fun()->Print(&printer);
+    value = generator_->FindValue("main.bar");
+    Local<Closure> bar(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(bar.is_value_not_null());
+    ASSERT_TRUE(bar->is_mai_function());
+    ASSERT_FALSE(bar->is_cxx_function());
     
+    base::StdFilePrinter printer(stdout);
+    
+    generator_->generated_init0_fun()->Print(&printer);
+    ::puts("----------------------------------");
+    main->function()->Print(&printer);
+    ::puts("----------------------------------");
+    bar->function()->Print(&printer);
+    ::puts("----------------------------------");
     auto clazz = isolate_->metadata_space()->FindClassOrNull("foo.Foo");
     clazz->init()->fn()->function()->Print(&printer);
 }
 
 TEST_F(BytecodeGeneratorTest, DemoRun) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    
+
     auto rs = isolate_->Compile("tests/lang/011-generator-sanity");
     ASSERT_TRUE(rs.ok()) << rs.ToString();
 
