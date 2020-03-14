@@ -6,4 +6,7 @@ fun main() {
     val a = 119
     val b = 220.1
     println("[${runtime.VERSION}:$a:$b]")
+    val c = 120
+    println("a < c: ${a < c}")
+    println("a > c: ${a > c}")
 }

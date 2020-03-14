@@ -163,7 +163,9 @@ public:
     // Internal functions
     inline T quickly_get(size_t i) const;
     inline void quickly_set(size_t i, T value);
+    inline void quickly_set_length(size_t length);
     inline void QuicklyAppendNoResize(const T *data, size_t n);
+    inline T *QuicklyAppendNoResize(size_t n);
 
     friend class Machine;
 protected:

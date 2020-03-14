@@ -102,9 +102,9 @@ void Coroutine::Uncaught(Throwable *thrown) {
     }
     
     if (owner_) {
-        ::fprintf(stderr, "❌Uncaught: M:%d:C:%lld:", owner_->id(), coid_);
+        ::fprintf(stderr, "❌Uncaught: M:%d:C:%" PRId64 ":", owner_->id(), coid_);
     } else {
-        ::fprintf(stderr, "❌Uncaught: M:NONE:C:%lld:", coid_);
+        ::fprintf(stderr, "❌Uncaught: M:NONE:C:%" PRId64 ":", coid_);
     }
     if (thrown->Is<Panic>()) {
         Panic *error = static_cast<Panic *>(thrown);

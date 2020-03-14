@@ -5,6 +5,7 @@
 #include "lang/value-inl.h"
 #include "lang/stack-frame.h"
 #include "mai/allocator.h"
+#include <stdarg.h>
 #include <memory>
 
 namespace mai {
@@ -246,6 +247,64 @@ String *Machine::NewUtf8String(const char *utf8_string, size_t n, uint32_t flags
                                             static_cast<uint32_t>(n),
                                             color_tags());
     return obj;
+}
+
+///*static*/ std::string Sprintf(const char *fmt, ...) {
+//    va_list ap;
+//    va_start(ap, fmt);
+//    std::string str(Vsprintf(fmt, ap));
+//    va_end(ap);
+//    return str;
+//}
+//
+///*static*/ std::string Vsprintf(const char *fmt, va_list ap) {
+//    va_list copied;
+//    int len = 128, rv = len;
+//    std::unique_ptr<char[]> buf;
+//    do {
+//        len = rv + 128;
+//        buf.reset(new char[len]);
+//        va_copy(copied, ap);
+//        rv = ::vsnprintf(buf.get(), len, fmt, ap);
+//        va_copy(ap, copied);
+//    } while (rv > len);
+//    //buf[rv] = 0;
+//    return std::string(buf.get());
+//}
+
+String *Machine::NewUtf8StringWithFormat(uint32_t flags, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    String *rv = NewUtf8StringWithFormatV(flags, fmt, ap);
+    va_end(ap);
+    return rv;
+}
+
+String *Machine::NewUtf8StringWithFormatV(uint32_t flags, const char *fmt, va_list ap) {
+    int len = static_cast<int>(::strlen(fmt));
+    if (len == 0) {
+        return STATE->factory()->empty_string();
+    }
+    va_list copied;
+    Array<char> *buf = static_cast<Array<char> *>(NewMutableArray8("", 0, len + 12, flags));
+    if (!buf) {
+        return nullptr;
+    }
+    int rv = len;
+    do {
+        len = rv + 12;
+        if (len + 1 > buf->capacity()) {
+            buf = static_cast<Array<char> *>(ResizeMutableArray(buf, len + 1));
+            if (!buf) {
+                return nullptr;
+            }
+        }
+        va_copy(copied, ap);
+        rv = ::vsnprintf(buf->QuicklyAppendNoResize(len), len, fmt, ap);
+        va_copy(ap, copied);
+    } while (rv > len);
+    buf->quickly_set_length(rv);
+    return static_cast<String *>(buf);
 }
 
 static bool NeedInit(std::atomic<AbstractValue *> *address) {
@@ -626,7 +685,8 @@ void Machine::PrintStacktrace(const char *message) {
         return;
     }
 
-    ::fprintf(stderr, "❌Stacktrace: M:%d:C:%lld:😱[Panic](0) %s\n", id_, running_->coid(), message);
+    ::fprintf(stderr, "❌Stacktrace: M:%d:C:%" PRId64 ":😱[Panic](0) %s\n", id_, running_->coid(),
+              message);
 
     Address frame_bp = running_->bp1();
     while (frame_bp < running_->stack()->stack_hi()) {

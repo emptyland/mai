@@ -95,6 +95,8 @@ private:
     Result VisitCallExpression(CallExpression *) override;
     Result VisitDotExpression(DotExpression *) override;
     Result VisitStringTemplateExpression(StringTemplateExpression *) override;
+    Result VisitUnaryExpression(UnaryExpression *) override;
+    Result VisitBinaryExpression(BinaryExpression *) override;
     Result VisitIdentifier(Identifier *) override;
     Result VisitBoolLiteral(BoolLiteral *) override;
     Result VisitI8Literal(I8Literal *) override;
@@ -126,6 +128,7 @@ private:
                           bool vargs);
     Result GenerateDotExpression(const Class *clazz, int index, Value::Linkage linkage, DotExpression *ast);
     
+    void GenerateComparation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
     void ToStringIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
     void InboxIfNeeded(const Class *clazz, int index, Value::Linkage, const Class *lval, ASTNode *ast);
     void MoveToStackIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest, ASTNode *ast);

@@ -90,6 +90,11 @@ public:
     // New a UTF-8 encoding string
     String *NewUtf8String(const char *utf8_string, size_t n, uint32_t flags);
 
+    __attribute__ (( __format__ (__printf__, 3, 4)))
+    String *NewUtf8StringWithFormat(uint32_t flags, const char *fmt, ...);
+
+    String *NewUtf8StringWithFormatV(uint32_t flags, const char *fmt, va_list ap);
+
     // New (immutable/mutable) array slowly
     AbstractArray *NewArray(BuiltinType type, size_t length, size_t capacity, uint32_t flags);
 

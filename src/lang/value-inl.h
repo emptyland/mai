@@ -89,10 +89,24 @@ inline void Array<T, R>::quickly_set(size_t i, T value) {
 }
 
 template<class T, bool R>
+inline void Array<T, R>::quickly_set_length(size_t length) {
+    DCHECK_LT(length_, capacity_);
+    length_ = static_cast<uint32_t>(length);
+}
+
+template<class T, bool R>
 inline void Array<T, R>::QuicklyAppendNoResize(const T *data, size_t n) {
     DCHECK_LT(length_ + n, capacity_);
     ::memcpy(&elems_[length_], data, n);
     length_ += n;
+}
+
+template<class T, bool R>
+inline T *Array<T, R>::QuicklyAppendNoResize(size_t n) {
+    DCHECK_LT(length_ + n, capacity_);
+    T *base = &elems_[length_];
+    length_ += n;
+    return base;
 }
 
 template<class T>

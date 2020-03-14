@@ -94,7 +94,7 @@ void Function::Print(base::AbstractPrinter *out) const {
     }
     for (size_t i = 0; i < exception_table_size_; i++) {
         auto handler = exception_table_ + i;
-        out->Printf("    %s %ld %ld %ld\n",
+        out->Printf("    %s %" PRIdPTR " %" PRIdPTR " %" PRIdPTR "\n",
                     !handler->expected_type? "nil" : handler->expected_type->name(),
                     handler->start_pc, handler->stop_pc, handler->handler_pc);
     }

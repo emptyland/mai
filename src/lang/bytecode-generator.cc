@@ -272,6 +272,22 @@ public:
     ConstantPoolBuilder *constants() { return &constants_; }
     StackSpaceAllocator *stack() { return &stack_; }
     
+    int StackReserve(const Class *clazz) {
+        if (clazz->is_reference()) {
+            return stack_.ReserveRef();
+        } else {
+            return stack_.Reserve(clazz->reference_size());
+        }
+    }
+    
+    void StackFallback(const Class *clazz, int index) {
+        if (clazz->is_reference()) {
+            stack_.FallbackRef(index);
+        } else {
+            stack_.Fallback(index, clazz->reference_size());
+        }
+    }
+    
     BytecodeArrayBuilder *Incoming(ASTNode *ast) {
         SourceLocation loc = file_unit_->FindSourceLocation(ast);
         source_lines_.push_back(loc.begin_line);
@@ -1207,6 +1223,81 @@ ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTempla
     return ResultWith(Value::kACC, kType_string, 0);
 }
 
+ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast) /*override*/ {
+    TODO();
+    return ResultWithError();
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *ast) /*override*/ {
+    switch (ast->op().kind) {
+        case Operator::kEqual:
+        case Operator::kNotEqual:
+        case Operator::kLess:
+        case Operator::kLessEqual:
+        case Operator::kGreater:
+        case Operator::kGreaterEqual: {
+            auto rv = ast->lhs()->Accept(this);
+            if (rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+            const Class *clazz = metadata_space_->type(rv.bundle.type);
+            int lhsidx = rv.bundle.index;
+            bool lhstmp = false;
+            if (rv.kind != Value::kStack) {
+                lhsidx = current_fun_->StackReserve(clazz);
+                lhstmp = true;
+                MoveToStackIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                                    lhsidx, ast->lhs());
+            }
+            if (rv = ast->rhs()->Accept(this); rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+            int rhsidx = rv.bundle.index;
+            bool rhstmp = false;
+            if (rv.kind != Value::kStack) {
+                rhstmp = true;
+                rhsidx = current_fun_->StackReserve(clazz);
+                MoveToStackIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                                    rhsidx, ast->lhs());
+            }
+            GenerateComparation(clazz, ast->op(), lhsidx, rhsidx, ast);
+            if (rhstmp) {
+                current_fun_->StackFallback(clazz, rhsidx);
+            }
+            if (lhstmp) {
+                current_fun_->StackFallback(clazz, lhsidx);
+            }
+        } return ResultWith(Value::kACC, kType_bool, 0);
+            
+        case Operator::kAnd: {
+            auto rv = ast->lhs()->Accept(this);
+            if (rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+            const Class *clazz = metadata_space_->type(rv.bundle.type);
+            DCHECK_EQ(kType_bool, clazz->id());
+            LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), ast->lhs());
+            BytecodeLabel done;
+            current_fun_->Incoming(ast)->GotoIfFalse(&done);
+            
+            if (rv = ast->rhs()->Accept(this); rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+            clazz = metadata_space_->type(rv.bundle.type);
+            DCHECK_EQ(kType_bool, clazz->id());
+            LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), ast->lhs());
+
+            current_fun_->builder()->Bind(&done);
+        } break;
+            
+        default:
+            NOREACHED();
+            break;
+    }
+    TODO();
+    return ResultWithError();
+}
+
 ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*override*/ {
     auto [scope, value] = current_->Resolve(ast->name());
     DCHECK(scope != nullptr && value.linkage != Value::kError);
@@ -1537,6 +1628,150 @@ int BytecodeGenerator::LinkGlobalVariable(VariableDeclaration *var) {
         default:
             symbol_trace_.erase(var);
             return global_space_.Reserve(var->type()->GetReferenceSize());
+    }
+}
+
+void BytecodeGenerator::GenerateComparation(const Class *clazz, Operator op, int lhs, int rhs,
+                                            ASTNode *ast) {
+    const int loff = GetStackOffset(lhs);
+    const int roff = GetStackOffset(rhs);
+    switch (static_cast<BuiltinType>(clazz->id())) {
+        case kType_i8:
+        case kType_u8:
+        case kType_i16:
+        case kType_u16:
+        case kType_i32:
+        case kType_u32:
+        case kType_int:
+        case kType_uint:
+            switch (op.kind) {
+                case Operator::kEqual:
+                    current_fun_->Incoming(ast)->Add<kTestEqual32>(loff, roff);
+                    break;
+                case Operator::kNotEqual:
+                    current_fun_->Incoming(ast)->Add<kTestNotEqual32>(loff, roff);
+                    break;
+                case Operator::kLess:
+                    current_fun_->Incoming(ast)->Add<kTestLessThan32>(loff, roff);
+                    break;
+                case Operator::kLessEqual:
+                    current_fun_->Incoming(ast)->Add<kTestLessThanOrEqual32>(loff, roff);
+                    break;
+                case Operator::kGreater:
+                    current_fun_->Incoming(ast)->Add<kTestGreaterThan32>(loff, roff);
+                    break;
+                case Operator::kGreaterEqual:
+                    current_fun_->Incoming(ast)->Add<kTestGreaterThanOrEqual32>(loff, roff);
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
+        case kType_i64:
+        case kType_u64:
+            switch (op.kind) {
+                case Operator::kEqual:
+                    current_fun_->Incoming(ast)->Add<kTestEqual64>(loff, roff);
+                    break;
+                case Operator::kNotEqual:
+                    current_fun_->Incoming(ast)->Add<kTestNotEqual64>(loff, roff);
+                    break;
+                case Operator::kLess:
+                    current_fun_->Incoming(ast)->Add<kTestLessThan64>(loff, roff);
+                    break;
+                case Operator::kLessEqual:
+                    current_fun_->Incoming(ast)->Add<kTestLessThanOrEqual64>(loff, roff);
+                    break;
+                case Operator::kGreater:
+                    current_fun_->Incoming(ast)->Add<kTestGreaterThan64>(loff, roff);
+                    break;
+                case Operator::kGreaterEqual:
+                    current_fun_->Incoming(ast)->Add<kTestGreaterThanOrEqual64>(loff, roff);
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
+        case kType_f32:
+            switch (op.kind) {
+                case Operator::kEqual:
+                    current_fun_->Incoming(ast)->Add<kTestEqualf32>(loff, roff);
+                    break;
+                case Operator::kNotEqual:
+                    current_fun_->Incoming(ast)->Add<kTestNotEqualf32>(loff, roff);
+                    break;
+                case Operator::kLess:
+                    current_fun_->Incoming(ast)->Add<kTestLessThanf32>(loff, roff);
+                    break;
+                case Operator::kLessEqual:
+                    current_fun_->Incoming(ast)->Add<kTestLessThanOrEqualf32>(loff, roff);
+                    break;
+                case Operator::kGreater:
+                    current_fun_->Incoming(ast)->Add<kTestGreaterThanf32>(loff, roff);
+                    break;
+                case Operator::kGreaterEqual:
+                    current_fun_->Incoming(ast)->Add<kTestGreaterThanOrEqualf32>(loff, roff);
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
+        case kType_f64:
+            switch (op.kind) {
+                case Operator::kEqual:
+                    current_fun_->Incoming(ast)->Add<kTestEqualf64>(loff, roff);
+                    break;
+                case Operator::kNotEqual:
+                    current_fun_->Incoming(ast)->Add<kTestNotEqualf64>(loff, roff);
+                    break;
+                case Operator::kLess:
+                    current_fun_->Incoming(ast)->Add<kTestLessThanf64>(loff, roff);
+                    break;
+                case Operator::kLessEqual:
+                    current_fun_->Incoming(ast)->Add<kTestLessThanOrEqualf64>(loff, roff);
+                    break;
+                case Operator::kGreater:
+                    current_fun_->Incoming(ast)->Add<kTestGreaterThanf64>(loff, roff);
+                    break;
+                case Operator::kGreaterEqual:
+                    current_fun_->Incoming(ast)->Add<kTestGreaterThanOrEqualf64>(loff, roff);
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
+        case kType_string:
+            switch (op.kind) {
+                case Operator::kEqual:
+                    current_fun_->Incoming(ast)->Add<kTestStringEqual>(loff, roff);
+                    break;
+                case Operator::kNotEqual:
+                    current_fun_->Incoming(ast)->Add<kTestStringNotEqual>(loff, roff);
+                    break;
+                case Operator::kLess:
+                    current_fun_->Incoming(ast)->Add<kTestStringLessThan>(loff, roff);
+                    break;
+                case Operator::kLessEqual:
+                    current_fun_->Incoming(ast)->Add<kTestStringLessThanOrEqual>(loff, roff);
+                    break;
+                case Operator::kGreater:
+                    current_fun_->Incoming(ast)->Add<kTestStringGreaterThan>(loff, roff);
+                    break;
+                case Operator::kGreaterEqual:
+                    current_fun_->Incoming(ast)->Add<kTestStringLessThanOrEqual>(loff, roff);
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
     }
 }
 

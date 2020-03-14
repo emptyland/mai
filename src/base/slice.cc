@@ -201,7 +201,7 @@ namespace base {
     //buf[rv] = 0;
     return std::string(buf.get());
 }
-    
+
 // return:
 // 0 = not a number
 // 'o' = octal

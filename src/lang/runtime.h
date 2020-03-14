@@ -76,13 +76,13 @@ struct Runtime {
     static AbstractValue *F64ValueOf(double value);
 
     // Box out functions
-    static String *BoolToString(intptr_t value);
-    static String *I8ToString(intptr_t value);
-    static String *U8ToString(uintptr_t value);
-    static String *I16ToString(intptr_t value);
-    static String *U16ToString(uintptr_t value);
-    static String *I32ToString(intptr_t value);
-    static String *U32ToString(uintptr_t value);
+    static String *BoolToString(int value);
+    static String *I8ToString(int8_t value);
+    static String *U8ToString(uint8_t value);
+    static String *I16ToString(int16_t value);
+    static String *U16ToString(uint16_t value);
+    static String *I32ToString(int32_t value);
+    static String *U32ToString(uint32_t value);
     static String *IntToString(int value);
     static String *UIntToString(unsigned value);
     static String *I64ToString(int64_t value);

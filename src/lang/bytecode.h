@@ -262,7 +262,7 @@ namespace lang {
       BytecodeParam::kStackOffset) \
     V(TestGreaterThan32, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
-    V(TestGreaterThanEqual32, BytecodeType::AB, BytecodeParam::kStackOffset, \
+    V(TestGreaterThanOrEqual32, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
     V(TestEqual64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestNotEqual64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
@@ -271,7 +271,7 @@ namespace lang {
       BytecodeParam::kStackOffset) \
     V(TestGreaterThan64, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
-    V(TestGreaterThanEqual64, BytecodeType::AB, BytecodeParam::kStackOffset, \
+    V(TestGreaterThanOrEqual64, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
     V(TestEqualf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestNotEqualf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
@@ -280,7 +280,7 @@ namespace lang {
       BytecodeParam::kStackOffset) \
     V(TestGreaterThanf32, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
-    V(TestGreaterThanEqualf32, BytecodeType::AB, BytecodeParam::kStackOffset, \
+    V(TestGreaterThanOrEqualf32, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
     V(TestEqualf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestNotEqualf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
@@ -289,7 +289,7 @@ namespace lang {
       BytecodeParam::kStackOffset) \
     V(TestGreaterThanf64, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
-    V(TestGreaterThanEqualf64, BytecodeType::AB, BytecodeParam::kStackOffset, \
+    V(TestGreaterThanOrEqualf64, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
     V(TestStringEqual, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestStringNotEqual, BytecodeType::AB, BytecodeParam::kStackOffset, \
@@ -300,7 +300,7 @@ namespace lang {
       BytecodeParam::kStackOffset) \
     V(TestStringGreaterThan, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
-    V(TestStringGreaterThanEqual, BytecodeType::AB, BytecodeParam::kStackOffset, \
+    V(TestStringGreaterThanOrEqual, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
     V(TestPtrEqual, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestPtrNotEqual, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \

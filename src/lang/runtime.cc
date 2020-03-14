@@ -49,70 +49,56 @@ static inline AbstractValue *ValueOf(intptr_t input) {
     return Machine::This()->ValueOfNumber(kType_f64, &value, sizeof(value));
 }
 
-/*static*/ String *Runtime::BoolToString(intptr_t value) {
+/*static*/ String *Runtime::BoolToString(int value) {
     return value ? STATE->factory()->true_string() : STATE->factory()->false_string();
 }
 
-/*static*/ String *Runtime::I8ToString(intptr_t value) {
-    TODO();
-    return nullptr;
+/*static*/ String *Runtime::I8ToString(int8_t value) {
+    return Machine::This()->NewUtf8StringWithFormat(0, "%" PRId8, value);
 }
 
-/*static*/ String *Runtime::U8ToString(uintptr_t value) {
-    TODO();
-    return nullptr;
+/*static*/ String *Runtime::U8ToString(uint8_t value) {
+    return Machine::This()->NewUtf8StringWithFormat(0, "%" PRIu8, value);
 }
 
-/*static*/ String *Runtime::I16ToString(intptr_t value) {
-    TODO();
-    return nullptr;
+/*static*/ String *Runtime::I16ToString(int16_t value) {
+    return Machine::This()->NewUtf8StringWithFormat(0, "%" PRId16, value);
 }
 
-/*static*/ String *Runtime::U16ToString(uintptr_t value) {
-    TODO();
-    return nullptr;
+/*static*/ String *Runtime::U16ToString(uint16_t value) {
+    return Machine::This()->NewUtf8StringWithFormat(0, "%" PRIu16, value);
 }
 
-/*static*/ String *Runtime::I32ToString(intptr_t value) {
-    TODO();
-    return nullptr;
+/*static*/ String *Runtime::I32ToString(int32_t value) {
+    return Machine::This()->NewUtf8StringWithFormat(0, "%" PRId32, value);
 }
 
-/*static*/ String *Runtime::U32ToString(uintptr_t value) {
-    TODO();
-    return nullptr;
+/*static*/ String *Runtime::U32ToString(uint32_t value) {
+    return Machine::This()->NewUtf8StringWithFormat(0, "%" PRIu32, value);
 }
 
 /*static*/ String *Runtime::IntToString(int value) {
-    char buf[64] = {0};
-    ::snprintf(buf, sizeof(buf), "%d", value);
-    return Machine::This()->NewUtf8String(buf, ::strlen(buf), 0);
+    return Machine::This()->NewUtf8StringWithFormat(0, "%d", value);
 }
 
 /*static*/ String *Runtime::UIntToString(unsigned value) {
-    TODO();
-    return nullptr;
+    return Machine::This()->NewUtf8StringWithFormat(0, "%u", value);
 }
 
 /*static*/ String *Runtime::I64ToString(int64_t value) {
-    TODO();
-    return nullptr;
+    return Machine::This()->NewUtf8StringWithFormat(0, "%" PRId64, value);
 }
 
 /*static*/ String *Runtime::U64ToString(uint64_t value) {
-    TODO();
-    return nullptr;
+    return Machine::This()->NewUtf8StringWithFormat(0, "%" PRIu64, value);
 }
 
 /*static*/ String *Runtime::F32ToString(float value) {
-    char buf[64] = {0};
-    ::snprintf(buf, sizeof(buf), "%f", value);
-    return Machine::This()->NewUtf8String(buf, ::strlen(buf), 0);
+    return Machine::This()->NewUtf8StringWithFormat(0, "%f", value);
 }
 
 /*static*/ String *Runtime::F64ToString(double value) {
-    TODO();
-    return nullptr;
+    return Machine::This()->NewUtf8StringWithFormat(0, "%f", value);
 }
 
 /*static*/ String *Runtime::StringContact(String **parts, String **end) {
@@ -257,7 +243,7 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 #if defined(DEBUG) || defined(_DEBUG)
     DLOG(FATAL) << "‼️ Coroutine ABORT:\n    ☠️M:" << m->id() << ":C:" << coid << message;
 #else
-    fprintf(stdout, "‼️ Coroutine ABORT:\n    ☠️M:%dC:%lld:%s", m->id(), coid, message);
+    fprintf(stdout, "‼️ Coroutine ABORT:\n    ☠️M:%dC:%" PRIu64 ":%s", m->id(), coid, message);
     abort();
 #endif
 }
@@ -277,7 +263,11 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 
 /*static*/ String *Runtime::Any_ToString(Any *any) {
     // TODO:
-    return Machine::This()->NewUtf8String("[any]", 5, 0);
+    if (!any) {
+        return Machine::This()->NewUtf8String("nil", 3, 0);
+    } else {
+        return Machine::This()->NewUtf8String("[any]", 5, 0);
+    }
 }
 
 /*static*/ void Runtime::Exception_PrintStackstrace(Any *any) {
