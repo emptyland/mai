@@ -28,6 +28,8 @@ Factory::~Factory() {
 void Factory::Initialize() {
     // Init heap values:
     empty_string_ = Machine::This()->NewUtf8String("", 0, Heap::kOld);
+    true_string_ = Machine::This()->NewUtf8String(STR_WITH_LEN("true"), Heap::kOld);
+    false_string_ = Machine::This()->NewUtf8String(STR_WITH_LEN("false"), Heap::kOld);
     oom_text_ = Machine::This()->NewUtf8String(STR_WITH_LEN("Doki Doki Panic-OOM"), Heap::kOld);
     oom_panic_ = static_cast<Panic *>(Machine::This()->NewPanic(Panic::kCrash, oom_text_,
                                                                 Heap::kOld));

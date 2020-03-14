@@ -49,6 +49,81 @@ static inline AbstractValue *ValueOf(intptr_t input) {
     return Machine::This()->ValueOfNumber(kType_f64, &value, sizeof(value));
 }
 
+/*static*/ String *Runtime::BoolToString(intptr_t value) {
+    return value ? STATE->factory()->true_string() : STATE->factory()->false_string();
+}
+
+/*static*/ String *Runtime::I8ToString(intptr_t value) {
+    TODO();
+    return nullptr;
+}
+
+/*static*/ String *Runtime::U8ToString(uintptr_t value) {
+    TODO();
+    return nullptr;
+}
+
+/*static*/ String *Runtime::I16ToString(intptr_t value) {
+    TODO();
+    return nullptr;
+}
+
+/*static*/ String *Runtime::U16ToString(uintptr_t value) {
+    TODO();
+    return nullptr;
+}
+
+/*static*/ String *Runtime::I32ToString(intptr_t value) {
+    TODO();
+    return nullptr;
+}
+
+/*static*/ String *Runtime::U32ToString(uintptr_t value) {
+    TODO();
+    return nullptr;
+}
+
+/*static*/ String *Runtime::IntToString(int value) {
+    char buf[64] = {0};
+    ::snprintf(buf, sizeof(buf), "%d", value);
+    return Machine::This()->NewUtf8String(buf, ::strlen(buf), 0);
+}
+
+/*static*/ String *Runtime::UIntToString(unsigned value) {
+    TODO();
+    return nullptr;
+}
+
+/*static*/ String *Runtime::I64ToString(int64_t value) {
+    TODO();
+    return nullptr;
+}
+
+/*static*/ String *Runtime::U64ToString(uint64_t value) {
+    TODO();
+    return nullptr;
+}
+
+/*static*/ String *Runtime::F32ToString(float value) {
+    char buf[64] = {0};
+    ::snprintf(buf, sizeof(buf), "%f", value);
+    return Machine::This()->NewUtf8String(buf, ::strlen(buf), 0);
+}
+
+/*static*/ String *Runtime::F64ToString(double value) {
+    TODO();
+    return nullptr;
+}
+
+/*static*/ String *Runtime::StringContact(String **parts, String **end) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    IncrementalStringBuilder builder;
+    for (auto i = end - 1; i >= parts; i--) {
+        builder.AppendString(Local<String>(*i));
+    }
+    return builder.QuickBuild();
+}
+
 /*static*/ Channel *Runtime::NewChannel(uint32_t data_typeid, uint32_t capacity) {
     return Machine::This()->NewChannel(data_typeid, capacity, 0/*flags*/);
 }
@@ -198,6 +273,11 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
         return -1;
     }
     return static_cast<int>(bit_cast<intptr_t>(any) >> 2) | 0x1;
+}
+
+/*static*/ String *Runtime::Any_ToString(Any *any) {
+    // TODO:
+    return Machine::This()->NewUtf8String("[any]", 5, 0);
 }
 
 /*static*/ void Runtime::Exception_PrintStackstrace(Any *any) {

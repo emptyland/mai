@@ -136,6 +136,35 @@ TEST_F(BytecodeGeneratorTest, DemoRun) {
     isolate_->Run();
 }
 
+TEST_F(BytecodeGeneratorTest, StringTemplate) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto err = Parse("tests/lang/012-string-template");
+    ASSERT_TRUE(err.ok()) << err.ToString();
+    ASSERT_TRUE(generator_->Prepare());
+    ASSERT_TRUE(generator_->Generate());
+    
+    auto value = generator_->FindValue("main.main");
+    Local<Closure> main(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(main.is_value_not_null());
+    ASSERT_TRUE(main->is_mai_function());
+    ASSERT_FALSE(main->is_cxx_function());
+    
+    base::StdFilePrinter printer(stdout);
+    main->function()->Print(&printer);
+}
+
+TEST_F(BytecodeGeneratorTest, RunStringTemplate) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/012-string-template");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    //auto jiffies = env_->CurrentTimeMicros();
+    isolate_->Run();
+    //printf("%f\n", (env_->CurrentTimeMicros() - jiffies)/1000.0);
+}
+
 } // namespace lang
 
 } // namespace mai

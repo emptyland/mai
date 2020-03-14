@@ -11,6 +11,7 @@ class Exception(
 implements Any {
 
 native fun hashCode(): int
+native fun toString(): string
 
 } // implements Any
 

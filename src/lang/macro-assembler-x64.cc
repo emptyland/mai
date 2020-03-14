@@ -1065,7 +1065,27 @@ public:
         InstrImmAScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0));
-        // Call close_function
+        // TODO: Call close_function
+    }
+    
+    void EmitContact(MacroAssembler *masm) override {
+        InstrImmAScope instr_scope(masm);
+        __ movq(Argv_0, rsp);
+        __ subq(Argv_0, rbx);
+        //__ shrl(rbx, kPointerShift);
+        __ movq(Argv_1, rsp);
+        
+//        // Adjust Caller Stack
+//        __ addl(rbx, 15); // ebx = ebx + 16 - 1
+//        __ andl(rbx, 0xfffffff0); // ebx &= -16
+//        __ subq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
+//
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::StringContact));
+//        
+//        instr_scope.GetAToRBX();
+//        __ addl(rbx, 15); // ebx = ebx + 16 - 1
+//        __ andl(rbx, 0xfffffff0); // ebx &= -16
+//        __ addq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
     }
     
 private:

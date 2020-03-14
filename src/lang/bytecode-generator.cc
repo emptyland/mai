@@ -133,8 +133,10 @@ private:
 }; // class BytecodeGenerator::FileScope
 
 BytecodeGenerator::FileScope::FileScope(const std::map<std::string, std::vector<FileUnit *>> &path_units,
-                                        std::unordered_map<std::string, Value> *symbols, FileUnit *file_unit,
-                                        Scope **current, FileScope **current_file)
+                                        std::unordered_map<std::string, Value> *symbols,
+                                        FileUnit *file_unit,
+                                        Scope **current,
+                                        FileScope **current_file)
     : Scope(kFileScope, current)
     , file_unit_(file_unit)
     , symbols_(symbols)
@@ -280,8 +282,6 @@ public:
         source_lines_.push_back(line);
         return &builder_;
     }
-
-    ConstantPoolBuilder *constant_pool() { return &constants_; }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(FunctionScope);
 private:    
@@ -619,7 +619,7 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
     const char *file_name = scope->file_unit() ? scope->file_unit()->file_name()->data() : "init0";
     SourceLineInfo *source_info = metadata_space_->NewSourceLineInfo(file_name,
                                                                      scope->source_lines());
-    ConstantPoolBuilder *const_pool = scope->constant_pool();
+    ConstantPoolBuilder *const_pool = scope->constants();
     StackSpaceAllocator *stack = scope->stack();
     uint32_t stack_size = RoundUp(stack->GetMaxStackSize(), kStackAligmentSize);
     std::vector<BytecodeInstruction> instrs =
@@ -1165,6 +1165,48 @@ ASTVisitor::Result BytecodeGenerator::VisitDotExpression(DotExpression *ast) /*o
     return GenerateDotExpression(value.type, value.index, value.linkage, ast);
 }
 
+ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTemplateExpression *ast)
+/*override*/ {
+    StackSpaceAllocator::Scope stack_scope(current_fun_->stack());
+    std::vector<Value> parts;
+    for (auto part : ast->operands()) {
+        Result rv;
+        if (auto literal = part->AsStringLiteral()) {
+            if (literal->value()->empty()) {
+                continue;
+            }
+            if (rv = literal->Accept(this); rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+        } else {
+            if (rv = part->Accept(this); rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+        }
+        const Class *clazz = metadata_space_->type(rv.bundle.type);
+        if (clazz->id() == kType_string && rv.kind != Value::kStack) {
+            Value value{static_cast<Value::Linkage>(rv.kind), clazz, rv.bundle.index};
+            parts.push_back(value);
+            continue;
+        }
+        ToStringIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), part);
+        int index = current_fun_->stack()->ReserveRef();
+        const Class *type = metadata_space_->builtin_type(kType_string);
+        StaStack(type, index, part);
+        Value value{Value::kStack, type, index};
+        parts.push_back(value);
+    }
+    
+    int argument_offset = 0;
+    for(auto part : parts) {
+        argument_offset += kPointerSize; // Must be string
+        MoveToArgumentIfNeeded(part.type, part.index, part.linkage, argument_offset, ast);
+    }
+    
+    current_fun_->Incoming(ast)->Add<kContact>(argument_offset);
+    return ResultWith(Value::kACC, kType_string, 0);
+}
+
 ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*override*/ {
     auto [scope, value] = current_->Resolve(ast->name());
     DCHECK(scope != nullptr && value.linkage != Value::kError);
@@ -1196,83 +1238,117 @@ ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*overrid
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitBoolLiteral(BoolLiteral *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertI32(ast->value());
-    return ResultWith(Value::kConstant, kType_bool, index);
+    current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+    //int index = current_fun_->constants()->FindOrInsertI32(ast->value());
+    return ResultWith(Value::kACC, kType_bool, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitI8Literal(I8Literal *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertI32(ast->value());
-    return ResultWith(Value::kConstant, kType_i8, index);
+    current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+    //int index = current_fun_->constants()->FindOrInsertI32(ast->value());
+    return ResultWith(Value::kACC, kType_i8, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitU8Literal(U8Literal *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertU32(ast->value());
-    return ResultWith(Value::kConstant, kType_u8, index);
+    current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+    //int index = current_fun_->constants()->FindOrInsertU32(ast->value());
+    return ResultWith(Value::kACC, kType_u8, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitI16Literal(I16Literal *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertI32(ast->value());
+    int index = current_fun_->constants()->FindOrInsertI32(ast->value());
     return ResultWith(Value::kConstant, kType_i16, index);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitU16Literal(U16Literal *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertU32(ast->value());
-    return ResultWith(Value::kConstant, kType_u16, index);
+    current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+    //int index = current_fun_->constants()->FindOrInsertU32(ast->value());
+    return ResultWith(Value::kACC, kType_u16, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitI32Literal(I32Literal *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertI32(ast->value());
-    return ResultWith(Value::kConstant, kType_i32, index);
+    if (ast->value() >= 0 && ast->value() <= BytecodeNode::kMaxUSmi32) {
+        current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+        return ResultWith(Value::kACC, kType_i32, 0);
+    } else {
+        int index = current_fun_->constants()->FindOrInsertI32(ast->value());
+        return ResultWith(Value::kConstant, kType_i32, index);
+    }
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitU32Literal(U32Literal *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertU32(ast->value());
-    return ResultWith(Value::kConstant, kType_u32, index);
+    if (ast->value() <= BytecodeNode::kMaxUSmi32) {
+        current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+        return ResultWith(Value::kACC, kType_u32, 0);
+    } else {
+        int index = current_fun_->constants()->FindOrInsertU32(ast->value());
+        return ResultWith(Value::kConstant, kType_u32, index);
+    }
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitIntLiteral(IntLiteral *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertI32(ast->value());
-    return ResultWith(Value::kConstant, kType_int, index);
+    if (ast->value() >= 0 && ast->value() <= BytecodeNode::kMaxUSmi32) {
+        current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+        return ResultWith(Value::kACC, kType_int, 0);
+    } else {
+        int index = current_fun_->constants()->FindOrInsertI32(ast->value());
+        return ResultWith(Value::kConstant, kType_int, index);
+    }
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitUIntLiteral(UIntLiteral *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertU32(ast->value());
-    return ResultWith(Value::kConstant, kType_uint, index);
+    if (ast->value() >= 0 && ast->value() <= BytecodeNode::kMaxUSmi32) {
+        current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+        return ResultWith(Value::kACC, kType_uint, 0);
+    } else {
+        int index = current_fun_->constants()->FindOrInsertU32(ast->value());
+        return ResultWith(Value::kConstant, kType_uint, index);
+    }
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitI64Literal(I64Literal *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertI64(ast->value());
-    return ResultWith(Value::kConstant, kType_i64, index);
+    if (ast->value() == 0) {
+        current_fun_->Incoming(ast)->Add<kLdaZero>();
+        return ResultWith(Value::kACC, kType_i64, 0);
+    } else {
+        int index = current_fun_->constants()->FindOrInsertI64(ast->value());
+        return ResultWith(Value::kConstant, kType_i64, index);
+    }
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitU64Literal(U64Literal *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertU64(ast->value());
-    return ResultWith(Value::kConstant, kType_u64, index);
+    if (ast->value() == 0) {
+        current_fun_->Incoming(ast)->Add<kLdaZero>();
+        return ResultWith(Value::kACC, kType_u64, 0);
+    } else {
+        int index = current_fun_->constants()->FindOrInsertU64(ast->value());
+        return ResultWith(Value::kConstant, kType_u64, index);
+    }
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitF32Literal(F32Literal *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertF32(ast->value());
+    int index = current_fun_->constants()->FindOrInsertF32(ast->value());
     return ResultWith(Value::kConstant, kType_f32, index);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitF64Literal(F64Literal *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertF64(ast->value());
+    int index = current_fun_->constants()->FindOrInsertF64(ast->value());
     return ResultWith(Value::kConstant, kType_f64, index);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitNilLiteral(NilLiteral *ast) /*override*/ {
-    int index = current_fun_->constant_pool()->FindOrInsertU64(0);
+    int index = current_fun_->constants()->FindOrInsertU64(0);
     return ResultWith(Value::kConstant, kType_any, index);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitStringLiteral(StringLiteral *ast) /*override*/ {
     std::string_view key = ast->value()->ToSlice();
-    int index = current_fun_->constant_pool()->FindString(key);
+    int index = current_fun_->constants()->FindString(key);
     if (index >= 0) {
         return ResultWith(Value::kConstant, kType_string, index);
     }
     String *s = Machine::This()->NewUtf8String(key.data(), key.size(), Heap::kOld);
-    index = current_fun_->constant_pool()->FindOrInsertString(s);
+    index = current_fun_->constants()->FindOrInsertString(s);
     return ResultWith(Value::kConstant, kType_string, index);
 }
 
@@ -1461,6 +1537,41 @@ int BytecodeGenerator::LinkGlobalVariable(VariableDeclaration *var) {
         default:
             symbol_trace_.erase(var);
             return global_space_.Reserve(var->type()->GetReferenceSize());
+    }
+}
+
+void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::Linkage linkage,
+                                         ASTNode *ast) {
+    switch (static_cast<BuiltinType>(clazz->id())) {
+#define DEFINE_TO_STRING(dest, name, ...) \
+        case kType_##name: { \
+            int args_size = RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity); \
+            MoveToArgumentIfNeeded(clazz, index, linkage, args_size, ast); \
+            Value value = FindOrInsertExternalFunction("lang." #dest "::toString"); \
+            LdaGlobal(value.type, value.index, ast); \
+            current_fun_->Incoming(ast)->Add<kCallNativeFunction>(args_size); \
+        } break;
+        DECLARE_BOX_NUMBER_TYPES(DEFINE_TO_STRING)
+#undef DEFINE_TO_STRING
+        case kType_string:
+            LdaIfNeeded(clazz, index, linkage, ast);
+            break;
+        default: {
+            auto method = metadata_space_->FindClassMethodOrNull(clazz, "toString");
+            if (!method) {
+                auto any = metadata_space_->builtin_type(kType_any);
+                method = DCHECK_NOTNULL(metadata_space_->FindClassMethodOrNull(any, "toString"));
+            }
+            int argument_offset = kPointerSize;
+            MoveToArgumentIfNeeded(clazz, index, linkage, argument_offset, ast);
+            int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
+            LdaConst(method->fn()->clazz(), kidx, ast);
+            if (method->fn()->is_cxx_function()) {
+                current_fun_->Incoming(ast)->Add<kCallNativeFunction>(argument_offset);
+            } else {
+                current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(argument_offset);
+            }
+        } break;
     }
 }
 

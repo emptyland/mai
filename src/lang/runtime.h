@@ -32,8 +32,22 @@ class Function;
     V(U64ValueOf, "lang.U64::valueOf") \
     V(F32ValueOf, "lang.F32::valueOf") \
     V(F64ValueOf, "lang.F64::valueOf") \
+    V(BoolToString, "lang.Bool::toString") \
+    V(I8ToString, "lang.I8::toString") \
+    V(U8ToString, "lang.U8::toString") \
+    V(I16ToString, "lang.I16::toString") \
+    V(U16ToString, "lang.U16::toString") \
+    V(I32ToString, "lang.I32::toString") \
+    V(U32ToString, "lang.U32::toString") \
+    V(IntToString, "lang.Int::toString") \
+    V(UIntToString, "lang.UInt::toString") \
+    V(I64ToString, "lang.I64::toString") \
+    V(U64ToString, "lang.U64::toString") \
+    V(F32ToString, "lang.F32::toString") \
+    V(F64ToString, "lang.F64::toString") \
     V(Println, "lang.println") \
     V(Any_HashCode, "lang.Any::hashCode") \
+    V(Any_ToString, "lang.Any::toString") \
     V(Exception_PrintStackstrace, "lang.Exception::printStackstrace")
 
 // The runtime functions definition
@@ -62,6 +76,21 @@ struct Runtime {
     static AbstractValue *F64ValueOf(double value);
 
     // Box out functions
+    static String *BoolToString(intptr_t value);
+    static String *I8ToString(intptr_t value);
+    static String *U8ToString(uintptr_t value);
+    static String *I16ToString(intptr_t value);
+    static String *U16ToString(uintptr_t value);
+    static String *I32ToString(intptr_t value);
+    static String *U32ToString(uintptr_t value);
+    static String *IntToString(int value);
+    static String *UIntToString(unsigned value);
+    static String *I64ToString(int64_t value);
+    static String *U64ToString(uint64_t value);
+    static String *F32ToString(float value);
+    static String *F64ToString(double value);
+    
+    static String *StringContact(String **parts, String **end);
     
     // Channel functions:
     static Channel *NewChannel(uint32_t data_typeid, uint32_t capacity);
@@ -97,6 +126,7 @@ struct Runtime {
     static void Println(String *input);
 
     static int Any_HashCode(Any *any);
+    static String *Any_ToString(Any *any);
     
     static void Exception_PrintStackstrace(Any *any);
 }; // struct Runtime

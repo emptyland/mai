@@ -1,0 +1,9 @@
+package main
+
+import mai.runtime
+
+fun main() {
+    val a = 119
+    val b = 220.1
+    println("[${runtime.VERSION}:$a:$b]")
+}

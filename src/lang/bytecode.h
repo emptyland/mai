@@ -94,7 +94,8 @@ namespace lang {
     V(NewBuiltinObject, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate) \
     V(NewObject, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kConstOffset) \
     V(CheckStack, BytecodeType::N) \
-    V(AssertNotNull, BytecodeType::A, BytecodeParam::kStackOffset)
+    V(AssertNotNull, BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(Contact, BytecodeType::A, BytecodeParam::kImmediate)
 
 //V(LdaArgument32, BytecodeType::A, BytecodeParam::kStackOffset) \
 //V(LdaArgument64, BytecodeType::A, BytecodeParam::kStackOffset) \
@@ -405,6 +406,8 @@ public:
     static constexpr BytecodeInstruction kAOfFAMask = 0x0000ffffu;
     static constexpr BytecodeInstruction kAOfABMask = 0x00fff000u;
     static constexpr BytecodeInstruction kBOfABMask = 0x00000fffu;
+    
+    static constexpr int kMaxUSmi32 = kAOfAMask;
     
     BytecodeNode(BytecodeID id, BytecodeType::Kind kind, int a, int b, int c, int d)
         : id_(id)

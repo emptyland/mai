@@ -12,6 +12,8 @@ namespace lang {
 
 #define DECLARE_FACTORY_VALUES(V) \
     V(empty_string, String) \
+    V(true_string, String) \
+    V(false_string, String) \
     V(oom_text, String) \
     V(nil_error_text, String) \
     V(dup_close_chan_error_text, String) \
