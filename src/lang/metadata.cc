@@ -104,7 +104,7 @@ void Function::Print(base::AbstractPrinter *out) const {
         base::ScopedArena arena;
         for (size_t i = 0; i < bytecode_->size(); i++) {
             BytecodeNode *node = BytecodeNode::From(&arena, bytecode_->entry()[i]);
-            out->Append("    ");
+            out->Printf("    %03zd ", i);
             node->Print(out);
             out->Append("\n");
         }

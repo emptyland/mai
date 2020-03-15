@@ -1008,6 +1008,42 @@ public:
         // Done:
         __ Bind(&done);
     }
+    
+    void EmitGoto(MacroAssembler *masm) override {
+        InstrImmABScope instr_scope(masm);
+        // TODO A of tracing
+        instr_scope.GetBTo(rbx);
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+        __ StartBC();
+    }
+    
+    void EmitGotoIfTrue(MacroAssembler *masm) override {
+        __ cmpl(ACC, 0);
+        Label done;
+        __ j(Equal, &done, false/*is_far*/);
+
+        InstrImmABScope instr_scope(masm);
+        // TODO A of tracing
+        instr_scope.GetBTo(rbx);
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+        __ StartBC();
+        
+        __ Bind(&done);
+    }
+    
+    void EmitGotoIfFalse(MacroAssembler *masm) override {
+        __ cmpl(ACC, 0);
+        Label done;
+        __ j(NotEqual, &done, false/*is_far*/);
+
+        InstrImmABScope instr_scope(masm);
+        // TODO A of tracing
+        instr_scope.GetBTo(rbx);
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+        __ StartBC();
+        
+        __ Bind(&done);
+    }
 
     // Calling -------------------------------------------------------------------------------------
     void EmitCallNativeFunction(MacroAssembler *masm) override {

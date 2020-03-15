@@ -71,32 +71,32 @@ public:
         incomplete_.push_back(node);
     }
     
-    void Goto(BytecodeLabel *label) {
+    void Goto(BytecodeLabel *label, int slot) {
         if (label->is_bind()) {
-            Add<kGoto>(label->pc());
+            Add<kGoto>(slot, label->pc());
             return;
         }
-        BytecodeNode *node = Bytecodes<kGoto>::New(arena_, pc());
+        BytecodeNode *node = Bytecodes<kGoto>::New(arena_, slot, pc());
         label->Associate(node);
         nodes_.push_back(node);
     }
     
-    void GotoIfTrue(BytecodeLabel *label) {
+    void GotoIfTrue(BytecodeLabel *label, int slot) {
         if (label->is_bind()) {
-            Add<kGotoIfTrue>(label->pc());
+            Add<kGotoIfTrue>(slot, label->pc());
             return;
         }
-        BytecodeNode *node = Bytecodes<kGotoIfTrue>::New(arena_, pc());
+        BytecodeNode *node = Bytecodes<kGotoIfTrue>::New(arena_, slot, pc());
         label->Associate(node);
         nodes_.push_back(node);
     }
     
-    void GotoIfFalse(BytecodeLabel *label) {
+    void GotoIfFalse(BytecodeLabel *label, int slot) {
         if (label->is_bind()) {
-            Add<kGotoIfFalse>(label->pc());
+            Add<kGotoIfFalse>(slot, label->pc());
             return;
         }
-        BytecodeNode *node = Bytecodes<kGotoIfFalse>::New(arena_, pc());
+        BytecodeNode *node = Bytecodes<kGotoIfFalse>::New(arena_, slot, pc());
         label->Associate(node);
         nodes_.push_back(node);
     }
@@ -142,7 +142,8 @@ private:
             case kGoto:
             case kGotoIfTrue:
             case kGotoIfFalse:
-                bc->params_[0] = pc;
+                // bc->params_[0]: slot
+                bc->params_[1] = pc;
                 break;
             default:
                 NOREACHED();

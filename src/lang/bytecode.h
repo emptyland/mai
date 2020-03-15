@@ -82,9 +82,9 @@ namespace lang {
     DECLARE_TEST_BYTECODE(V) \
     V(Throw, BytecodeType::N) \
     V(Yield, BytecodeType::A, BytecodeParam::kCode) \
-    V(Goto, BytecodeType::A, BytecodeParam::kImmediate) \
-    V(GotoIfTrue, BytecodeType::A, BytecodeParam::kImmediate) \
-    V(GotoIfFalse, BytecodeType::A, BytecodeParam::kImmediate) \
+    V(Goto, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
+    V(GotoIfTrue, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
+    V(GotoIfFalse, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
     V(CallBytecodeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
     V(CallNativeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
     V(CallFunction, BytecodeType::A, BytecodeParam::kImmediate) \

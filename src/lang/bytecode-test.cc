@@ -82,7 +82,7 @@ TEST_F(BytecodeTest, BuilderGoto) {
     builder.Add<kLdar32>(0); // 0
     builder.Add<kLdar32>(1); // 1
     BytecodeLabel label;
-    builder.Goto(&label);    // 2
+    builder.Goto(&label, 0);    // 2
     builder.Add<kAdd32>(0, 1); // 3
     builder.Bind(&label);
     builder.Add<kReturn>(); // 4
@@ -90,7 +90,8 @@ TEST_F(BytecodeTest, BuilderGoto) {
     auto instrs = builder.Build();
     auto node = BytecodeNode::From(arean_, instrs[2]);
     ASSERT_EQ(kGoto, node->id());
-    ASSERT_EQ(4, node->param(0));
+    ASSERT_EQ(0, node->param(0));
+    ASSERT_EQ(4, node->param(1));
 }
 
 }

@@ -615,6 +615,7 @@ bool BytecodeGenerator::GenerateSymbolDependence(Symbolize *ast) {
     }
     
     FileScope *saved_file = current_file_;
+    Scope *saved_current = current_;
     //DCHECK_EQ(saved_file, current_);
     current_file_ = nullptr;
     current_ = nullptr;
@@ -626,7 +627,7 @@ bool BytecodeGenerator::GenerateSymbolDependence(Symbolize *ast) {
         }
     }
     current_file_ = saved_file;
-    current_ = saved_file;
+    current_ = saved_current;
     DCHECK_NOTNULL(current_fun_)->set_file_unit(saved_file->file_unit());
     return true;
 }
@@ -1268,7 +1269,8 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
                 current_fun_->StackFallback(clazz, lhsidx);
             }
         } return ResultWith(Value::kACC, kType_bool, 0);
-            
+        
+        case Operator::kOr:
         case Operator::kAnd: {
             auto rv = ast->lhs()->Accept(this);
             if (rv.kind == Value::kError) {
@@ -1278,7 +1280,11 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
             DCHECK_EQ(kType_bool, clazz->id());
             LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), ast->lhs());
             BytecodeLabel done;
-            current_fun_->Incoming(ast)->GotoIfFalse(&done);
+            if (ast->op().kind == Operator::kOr) {
+                current_fun_->Incoming(ast)->GotoIfTrue(&done, 0/*slot*/);
+            } else {
+                current_fun_->Incoming(ast)->GotoIfFalse(&done, 0/*slot*/);
+            }
             
             if (rv = ast->rhs()->Accept(this); rv.kind == Value::kError) {
                 return ResultWithError();
@@ -1288,7 +1294,7 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
             LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), ast->lhs());
 
             current_fun_->builder()->Bind(&done);
-        } break;
+        } return ResultWith(Value::kACC, kType_bool, 0);
             
         default:
             NOREACHED();
