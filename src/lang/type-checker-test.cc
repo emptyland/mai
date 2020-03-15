@@ -302,6 +302,13 @@ TEST_F(TypeCheckerTest, TryCatchFinally) {
     ASSERT_STREQ("Exception", sym->AsClassDefinition()->base()->identifier()->data());
 }
 
+TEST_F(TypeCheckerTest, LambdaExpression) {
+    auto rs = Parse("tests/lang/013-type-checker-lambda-expr");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_TRUE(checker_.Prepare());
+    ASSERT_TRUE(checker_.Check());
+}
+
 } // namespace lang
 
 } // namespace mai

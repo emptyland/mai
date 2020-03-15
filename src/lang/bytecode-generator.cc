@@ -5,6 +5,7 @@
 #include "lang/isolate-inl.h"
 #include "lang/metadata-space.h"
 #include "lang/metadata.h"
+#include "lang/stack-frame.h"
 #include "base/arenas.h"
 
 namespace mai {
@@ -252,6 +253,13 @@ private:
 
 class BytecodeGenerator::FunctionScope : public BlockScope {
 public:
+    struct CapturedVarDesc {
+        std::string name;
+        const Class *type;
+        Function::CapturedVarKind kind;
+        int32_t index;
+    };
+
     FunctionScope(base::Arena *arena, FileUnit *file_unit, Scope **current,
                   FunctionScope **current_fun)
         : BlockScope(kFunctionScope, current)
@@ -265,9 +273,18 @@ public:
         DCHECK_EQ(this, *current_fun_);
         *current_fun_ = !prev_ ? nullptr : prev_->GetFunctionScope();
     }
+    
+    int AddCapturedVarDesc(const std::string &name, const Class *type,
+                           Function::CapturedVarKind kind, int index) {
+        int cidx = static_cast<int>(captured_vars_.size());
+        CapturedVarDesc desc{name, type, kind, index};
+        captured_vars_.push_back(desc);
+        return cidx;
+    }
 
     DEF_PTR_PROP_RW(FileUnit, file_unit);
     DEF_VAL_GETTER(std::vector<int>, source_lines);
+    DEF_VAL_GETTER(std::vector<CapturedVarDesc>, captured_vars);
     BytecodeArrayBuilder *builder() { return &builder_; }
     ConstantPoolBuilder *constants() { return &constants_; }
     StackSpaceAllocator *stack() { return &stack_; }
@@ -300,9 +317,10 @@ public:
     }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(FunctionScope);
-private:    
+private:
     FileUnit *file_unit_;
     std::vector<int> source_lines_;
+    std::vector<CapturedVarDesc> captured_vars_;
     BytecodeArrayBuilder builder_;
     ConstantPoolBuilder constants_;
     StackSpaceAllocator stack_;
@@ -318,6 +336,15 @@ inline ASTVisitor::Result ResultWith(BValue::Linkage linkage, int type, int inde
     rv.kind = linkage;
     rv.bundle.index = index;
     rv.bundle.type  = type;
+    return rv;
+}
+
+inline ASTVisitor::Result ResultWith(const BValue &value) {
+    ASTVisitor::Result rv;
+    rv.kind = value.linkage;
+    rv.bundle.index = value.index;
+    rv.bundle.type  = value.type->id();
+    rv.bundle.flags = value.flags;
     return rv;
 }
 
@@ -536,12 +563,12 @@ bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit)
                 }
                 int index = global_space_.AppendAny(closure);
                 //printf("%s GS+%d\n", name.c_str(), index);
-                current_->Register(name, {Value::kGlobal, clazz, index, ast});
+                current_->Register(name, {Value::kGlobal, clazz, index, ast, 1/*is_native*/});
                 symbol_trace_.insert(ast);
             } else {
                 int index = global_space_.ReserveRef();
                 //printf("%s GS+%d\n", name.c_str(), index);
-                current_->Register(name, {Value::kGlobal, clazz, index, ast});
+                current_->Register(name, {Value::kGlobal, clazz, index, ast, 0/*is_native*/});
             }
         }
     }
@@ -653,10 +680,11 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
         stack_bitmap.resize(1); // Placeholder
     }
 
-//    base::StdFilePrinter printer(stdout);
-//    scope->builder()->Print(&printer);
-    
-    return FunctionBuilder(name)
+    FunctionBuilder builder(name);
+    for (auto var : scope->captured_vars()) {
+        builder.AddCapturedVar(var.name, var.type, var.kind, var.index);
+    }
+    return builder
         // TODO:
         .stack_size(stack_size)
         .stack_bitmap(stack_bitmap)
@@ -786,30 +814,40 @@ ASTVisitor::Result BytecodeGenerator::VisitObjectDefinition(ObjectDefinition *as
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition *ast) /*override*/ {
+    if (ast->file_unit()) {
+        symbol_trace_.insert(ast);
+    }
     if (ast->is_native()) {
-        if (ast->file_unit()) {
-            symbol_trace_.insert(ast);
-        }
         return ResultWithVoid();
     }
 
     const bool is_method = current_->is_class_scope();
-    auto rv = ast->body()->Accept(this);
-    if (rv.kind == Value::kError) {
+    const std::string name = ast->file_unit() ?
+        current_file_->LocalFileFullName(ast->identifier()) : ast->identifier()->ToString();
+    const Class *clazz = metadata_space_->builtin_type(kType_closure);
+    Function *fun = nullptr;
+    {
+        FunctionScope function_scope(arena_, current_file_->file_unit(), &current_, &current_fun_);
+        current_->Register(ast->identifier()->ToString(),
+                           {Value::kStack, clazz, -BytecodeStackFrame::kOffsetCallee});
+        fun = GenerateLambdaLiteral(name, is_method, ast->body());
+    }
+    if (!fun) {
         return ResultWithError();
     }
     if (is_method) {
         std::string name = ast->file_unit()->package_name()->ToString() + "." +
             current_class_->clazz()->identifier()->ToString() + "::" +
             ast->identifier()->ToString();
-        metadata_space_->RenameFunction(rv.fun, name);
+        metadata_space_->RenameFunction(fun, name);
+        Result rv;
+        rv.kind = Value::kMetadata;
+        rv.fun  = fun;
         return rv;
     }
     if (ast->file_unit()) { // Global var
-        Closure *closure = Machine::This()->NewClosure(rv.fun, 0/*captured_var_size*/, 0/*flags*/);
+        Closure *closure = Machine::This()->NewClosure(fun, 0/*captured_var_size*/, 0/*flags*/);
         DCHECK_EQ(ast->file_unit(), current_file_->file_unit());
-        const std::string name = current_file_->LocalFileFullName(ast->identifier());
-        metadata_space_->RenameFunction(rv.fun, name);
         Value value = EnsureFindValue(name);
         DCHECK_EQ(Value::kGlobal, value.linkage);
         *global_space_.offset<Closure *>(value.index) = closure;
@@ -818,77 +856,37 @@ ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition
     }
     
     // Local var
-    metadata_space_->RenameFunction(rv.fun, ast->identifier()->ToString());
-    int kidx = current_fun_->constants()->FindOrInsertMetadata(rv.fun);
-    current_fun_->Incoming(ast)->Add<kClose>(kidx);
-    int location = current_fun_->stack()->ReserveRef();
-    const Class *clazz = metadata_space_->builtin_type(kType_closure);
-    current_->Register(ast->identifier()->ToString(), {Value::kStack, clazz, location});
+    int local = current_fun_->stack()->ReserveRef();
+    current_->Register(ast->identifier()->ToString(), {Value::kStack, clazz, local});
+
+    if (fun->captured_var_size() > 0) {
+        int kidx = current_fun_->constants()->FindOrInsertMetadata(fun);
+        current_fun_->Incoming(ast)->Add<kClose>(GetConstOffset(kidx));
+        StaStack(clazz, local, ast);
+    } else {
+        Closure *closure = Machine::This()->NewClosure(fun, 0/*captured_var_size*/, 0/*flags*/);
+        int kidx = current_fun_->constants()->FindOrInsertClosure(closure);
+        LdaConst(clazz, kidx, ast);
+        StaStack(clazz, local, ast);
+    }
     return ResultWithVoid();
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitLambdaLiteral(LambdaLiteral *ast) /*override*/ {
-    const bool is_method = current_->is_class_scope();
-    
-    //base::StandaloneArena arena(isolate_->env()->GetLowLevelAllocator());
     FunctionScope function_scope(arena_, current_file_->file_unit(), &current_, &current_fun_);
-    current_fun_->Incoming(ast)->Add<kCheckStack>();
-    
-    int param_size = 0;
-    for (auto param : ast->prototype()->parameters()) {
-        param_size += RoundUp(param.type->GetReferenceSize(), StackSpaceAllocator::kSizeGranularity);
+    Function *fun = GenerateLambdaLiteral("$lambda$"/*name*/, false/*is_method*/, ast);
+    if (!fun) {
+        return ResultWithError();
     }
-    if (ast->prototype()->vargs()) {
-        param_size += kPointerSize;
+    if (fun->captured_var_size() > 0) {
+        int kidx = current_fun_->constants()->FindOrInsertMetadata(fun);
+        current_fun_->Incoming(ast)->Add<kClose>(GetConstOffset(kidx));
+        return ResultWith(Value::kACC, kType_closure, 0);
+    } else {
+        Closure *closure = Machine::This()->NewClosure(fun, 0/*captured_var_size*/, 0/*flags*/);
+        int kidx = current_fun_->constants()->FindOrInsertClosure(closure);
+        return ResultWith(Value::kConstant, kType_closure, kidx);
     }
-    if (is_method) {
-        param_size += kPointerSize;
-    }
-    param_size = RoundUp(param_size, kStackAligmentSize);
-    int param_offset = 0;
-    if (is_method) { // Method!
-        param_offset += kPointerSize;
-        current_->Register("self", {
-            Value::kStack,
-            current_class_->clazz()->clazz(),
-            GetParameterOffset(param_size, param_offset)
-        });
-    }
-    for (auto param : ast->prototype()->parameters()) {
-        auto rv = param.type->Accept(this);
-        if (rv.kind == Value::kError) {
-            return ResultWithError();
-        }
-        const Class *clazz = DCHECK_NOTNULL(metadata_space_->type(rv.bundle.type));
-        param_offset += RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity);
-        current_->Register(param.name->ToString(), {
-            Value::kStack,
-            clazz,
-            GetParameterOffset(param_size, param_offset)
-        });
-    }
-    if (ast->prototype()->vargs()) {
-        const Class *clazz = metadata_space_->builtin_type(kType_array);
-        param_offset += RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity);
-        current_->Register("argv", {
-            Value::kStack,
-            clazz,
-            GetParameterOffset(param_size, param_offset)
-        });
-    }
-
-    for (auto stmt : ast->statements()) {
-        if (auto rv = stmt->Accept(this); rv.kind == Value::kError) {
-            return ResultWithError();
-        }
-    }
-
-    current_fun_->Incoming(ast)->Add<kReturn>();
-    Function *fun = BuildFunction("$lambda$", &function_scope);
-    Result result;
-    result.kind = Value::kMetadata;
-    result.fun  = fun;
-    return result;
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitCallExpression(CallExpression *ast) /*override*/ {
@@ -965,6 +963,63 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
     }
     //current_fun_->stack()->FallbackRef(self);
     return proto->return_type()->Accept(this);
+}
+
+Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool is_method,
+                                                   LambdaLiteral *ast) {
+    current_fun_->Incoming(ast)->Add<kCheckStack>();
+
+    int param_size = 0;
+    for (auto param : ast->prototype()->parameters()) {
+        param_size += RoundUp(param.type->GetReferenceSize(), StackSpaceAllocator::kSizeGranularity);
+    }
+    if (ast->prototype()->vargs()) {
+        param_size += kPointerSize;
+    }
+    if (is_method) {
+        param_size += kPointerSize;
+    }
+    param_size = RoundUp(param_size, kStackAligmentSize);
+    int param_offset = 0;
+    if (is_method) { // Method!
+        param_offset += kPointerSize;
+        current_->Register("self", {
+            Value::kStack,
+            current_class_->clazz()->clazz(),
+            GetParameterOffset(param_size, param_offset)
+        });
+    }
+    for (auto param : ast->prototype()->parameters()) {
+        auto rv = param.type->Accept(this);
+        if (rv.kind == Value::kError) {
+            return nullptr;
+        }
+        const Class *clazz = DCHECK_NOTNULL(metadata_space_->type(rv.bundle.type));
+        param_offset += RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity);
+        current_->Register(param.name->ToString(), {
+            Value::kStack,
+            clazz,
+            GetParameterOffset(param_size, param_offset)
+        });
+    }
+    if (ast->prototype()->vargs()) {
+        const Class *clazz = metadata_space_->builtin_type(kType_array);
+        param_offset += RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity);
+        current_->Register("argv", {
+            Value::kStack,
+            clazz,
+            GetParameterOffset(param_size, param_offset)
+        });
+    }
+
+    for (auto stmt : ast->statements()) {
+        if (auto rv = stmt->Accept(this); rv.kind == Value::kError) {
+            return nullptr;
+        }
+    }
+
+    current_fun_->Incoming(ast)->Add<kReturn>();
+    return BuildFunction(name, current_fun_);
 }
 
 Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDesc> &fields_desc,
@@ -1081,8 +1136,8 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
     const Class *clazz = metadata_space_->builtin_type(kType_closure);
     bool native = false;
     if (rv.kind == Value::kGlobal) {
-        Closure *closure = *global_space_.offset<Closure *>(rv.bundle.index);
-        native = closure->is_cxx_function();
+        //Closure *closure = *global_space_.offset<Closure *>(rv.bundle.index);
+        native = rv.bundle.flags;
     }
     auto proto = ast->prototype();
     std::vector<const Class *> params;
@@ -1169,7 +1224,7 @@ ASTVisitor::Result BytecodeGenerator::VisitDotExpression(DotExpression *ast) /*o
         if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
             return ResultWithError();
         }
-        return ResultWith(value.linkage, value.type->id(), value.index);
+        return ResultWith(value);
     }
     
     auto found = current_->Resolve(id->name());
@@ -1177,8 +1232,13 @@ ASTVisitor::Result BytecodeGenerator::VisitDotExpression(DotExpression *ast) /*o
     if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
         return ResultWithError();
     }
-    // TODO: Captured var
-
+    if (ShouldCaptureVar(std::get<0>(found), value)) {
+        auto rv = CaptureVar(id->name()->ToString(), std::get<0>(found), value);
+        DCHECK_NE(Value::kError, rv.kind);
+        value.linkage = static_cast<Value::Linkage>(rv.kind);
+        DCHECK_EQ(rv.bundle.type, value.type->id());
+        value.index = rv.bundle.index;
+    }
     return GenerateDotExpression(value.type, value.index, value.linkage, ast);
 }
 
@@ -1305,33 +1365,32 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*override*/ {
-    auto [scope, value] = current_->Resolve(ast->name());
-    DCHECK(scope != nullptr && value.linkage != Value::kError);
+    auto [owns, value] = current_->Resolve(ast->name());
+    DCHECK(owns != nullptr && value.linkage != Value::kError);
 
-    if (scope->is_file_scope()) {
+    if (owns->is_file_scope()) {
         if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
             return ResultWithError();
         }
         DCHECK(HasGenerated(value.ast));
     }
 
-    switch (scope->kind()) {
+    switch (owns->kind()) {
         case Scope::kFunctionScope:
-            if (scope == current_fun_) {
-                return ResultWith(value.linkage, value.type->id(), value.index);
-            }
-            TODO(); // TODO: Captured var
-            break;
         case Scope::kFileScope:
         case Scope::kLoopBlockScope:
         case Scope::kPlainBlockScope:
-            return ResultWith(value.linkage, value.type->id(), value.index);
+            if (ShouldCaptureVar(owns, value)) {
+                return CaptureVar(ast->name()->ToString(), owns, value);
+            } else {
+                return ResultWith(value);
+            }
         case Scope::kClassScope:
         default:
             NOREACHED();
             break;
     }
-    return ResultWith(value.linkage, value.type->id(), value.index);
+    return ResultWith(value);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitBoolLiteral(BoolLiteral *ast) /*override*/ {
@@ -1449,6 +1508,89 @@ ASTVisitor::Result BytecodeGenerator::VisitStringLiteral(StringLiteral *ast) /*o
     return ResultWith(Value::kConstant, kType_string, index);
 }
 
+ASTVisitor::Result BytecodeGenerator::VisitBreakableStatement(BreakableStatement *ast) /*override*/ {
+    switch (ast->control()) {
+        case BreakableStatement::THROW:
+        case BreakableStatement::RETURN: {
+            auto rv = ast->value()->Accept(this);
+            if (rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+            const Class *clazz = metadata_space_->type(rv.bundle.type);
+            LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), ast->value());
+            if (ast->IsReturn()) {
+                current_fun_->Incoming(ast)->Add<kReturn>();
+            } else {
+                current_fun_->Incoming(ast)->Add<kThrow>();
+            }
+        } break;
+        case BreakableStatement::BREAK:
+            TODO();
+            break;
+        case BreakableStatement::CONTINUE:
+            TODO();
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    return ResultWithVoid();
+}
+
+bool BytecodeGenerator::ShouldCaptureVar(Scope *owns, Value value) {
+    if (owns->is_file_scope()) {
+        return false;
+    }
+    switch (value.linkage) {
+        case Value::kMetadata:
+        case Value::kACC:
+        case Value::kGlobal:
+        case Value::kConstant:
+        case Value::kError:
+            return false;
+        default:
+            break;
+    }
+    DCHECK(value.linkage == Value::kStack || value.linkage == Value::kCaptured);
+    bool out_bound = false;
+    for (Scope *scope = current_; scope; scope = down_cast<Scope>(scope->prev())) {
+        if (scope == owns) {
+            return out_bound;
+        }
+        if (scope == current_fun_) {
+            out_bound = true;
+        }
+    }
+    return false;
+}
+
+ASTVisitor::Result BytecodeGenerator::CaptureVar(const std::string &name, Scope *owns,
+                                                 Value value) {
+    std::deque<FunctionScope *> links;
+    for (Scope *scope = current_fun_; scope; scope = down_cast<Scope>(scope->prev())) {
+        if (scope == owns) {
+            break;
+        } else if (scope->is_function_scope()) {
+            links.push_front(down_cast<FunctionScope>(scope));
+        }
+    }
+    DCHECK(!links.empty());
+
+    for (auto fun : links) {
+        if (value.linkage == Value::kCaptured) {
+            value.index = fun->AddCapturedVarDesc(name, value.type, Function::IN_CAPTURED,
+                                                  value.index);
+        } else {
+            DCHECK_EQ(Value::kStack, value.linkage);
+            value.index = fun->AddCapturedVarDesc(name, value.type, Function::IN_STACK,
+                                                  value.index);
+        }
+        value.linkage = Value::kCaptured;
+    }
+    current_->Register(name, value);
+    return ResultWith(value);
+}
+
 SourceLocation BytecodeGenerator::FindSourceLocation(const ASTNode *ast) {
     return DCHECK_NOTNULL(current_file_)->file_unit()->FindSourceLocation(ast);
 }
@@ -1500,7 +1642,8 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
     int argument_offset = 0;
     if (callee) {
         argument_offset += kPointerSize;
-        current_fun_->Incoming(callee)->Incomplete<kMovePtr>(-(argument_offset), GetStackOffset(self));
+        current_fun_->Incoming(callee)->Incomplete<kMovePtr>(-(argument_offset),
+                                                             GetStackOffset(self));
     }
 
     for (size_t i = 0; i < operands.size(); i++) {
@@ -1903,7 +2046,6 @@ void BytecodeGenerator::MoveToStackIfNeeded(const Class *clazz, int index, Value
 void BytecodeGenerator::MoveToArgumentIfNeeded(const Class *clazz, int index,
                                                Value::Linkage linkage, int dest, ASTNode *ast) {
     if (linkage == Value::kStack) {
-        DCHECK_GE(index, 0);
         if (clazz->is_reference()) {
             current_fun_->Incoming(ast)->Incomplete<kMovePtr>(-(dest), GetStackOffset(index));
             return;

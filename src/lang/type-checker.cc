@@ -1491,7 +1491,10 @@ ASTVisitor::Result TypeChecker::VisitFunctionDefinition(FunctionDefinition *ast)
     if (track_scope.has_tracked()) {
         return ResultWithType(kVoid); // Recursive calling
     }
-    
+    if (!current_->is_file_scope()) { // embed function
+        current_->Register(ast);
+    }
+
     for (size_t i = 0; i < ast->prototype()->parameters_size(); i++) {
         auto param = &ast->prototype()->mutable_parameters()->at(i);
         if (param->type->id() == Token::kIdentifier) {

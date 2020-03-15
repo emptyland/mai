@@ -1,0 +1,12 @@
+package main
+
+fun main() {
+	//println("never!")
+	main()
+	// fun foo(a: int) {
+	// 	println("a=$a")
+	// 	foo(a)
+	// }
+	// foo(1)
+	// foo(2)
+}

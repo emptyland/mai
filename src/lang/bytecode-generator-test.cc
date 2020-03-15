@@ -165,6 +165,33 @@ TEST_F(BytecodeGeneratorTest, RunStringTemplate) {
     //printf("%f\n", (env_->CurrentTimeMicros() - jiffies)/1000.0);
 }
 
+// 014-embed-function-and-lambda
+TEST_F(BytecodeGeneratorTest, EmbedFunctionAndLambda) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto err = Parse("tests/lang/014-embed-function-and-lambda");
+    ASSERT_TRUE(err.ok()) << err.ToString();
+    ASSERT_TRUE(generator_->Prepare());
+    ASSERT_TRUE(generator_->Generate());
+    
+    auto value = generator_->FindValue("main.main");
+    Local<Closure> main(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(main.is_value_not_null());
+    ASSERT_TRUE(main->is_mai_function());
+    ASSERT_FALSE(main->is_cxx_function());
+    
+    base::StdFilePrinter printer(stdout);
+    main->function()->Print(&printer);
+}
+
+//TEST_F(BytecodeGeneratorTest, RunEmbedFunctionAndLambda) {
+//    HandleScope handle_scope(HandleScope::INITIALIZER);
+//
+//    auto rs = isolate_->Compile("tests/lang/014-embed-function-and-lambda");
+//    ASSERT_TRUE(rs.ok()) << rs.ToString();
+//    isolate_->Run();
+//}
+
 } // namespace lang
 
 } // namespace mai

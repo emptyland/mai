@@ -69,7 +69,8 @@ struct ASTVisitorResult {
     int kind;
     union {
         struct {
-            int index;
+            int flags: 8;
+            int index: 24;
             int type;
         } bundle;
         Class *clazz;

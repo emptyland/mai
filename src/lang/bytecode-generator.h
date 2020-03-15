@@ -33,6 +33,7 @@ public:
         const Class *type = nullptr;
         int index = 0;
         Symbolize *ast = nullptr;
+        int flags = 0;
     }; // struct BytecodeGenerator::Value
 
     BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback,
@@ -113,9 +114,13 @@ private:
     Result VisitF64Literal(F64Literal *) override;
     Result VisitNilLiteral(NilLiteral *) override;
     Result VisitStringLiteral(StringLiteral *) override;
-    
+    Result VisitBreakableStatement(BreakableStatement *) override;
+
+    bool ShouldCaptureVar(Scope *owns, Value value);
+    Result CaptureVar(const std::string &name, Scope *owns, Value value);
     SourceLocation FindSourceLocation(const ASTNode *ast);
     
+    Function *GenerateLambdaLiteral(const std::string &name, bool is_method, LambdaLiteral *ast);
     Function *GenerateClassConstructor(const std::vector<FieldDesc> &fields_desc,
                                        ClassDefinition *ast);
     Result GenerateRegularCalling(CallExpression *ast);
