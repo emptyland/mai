@@ -625,7 +625,9 @@ bool BytecodeGenerator::GenerateUnit(const std::string &pkg_name, FileUnit *unit
 }
 
 bool BytecodeGenerator::GenerateSymbolDependence(Value value) {
-    DCHECK(Value::kGlobal == value.linkage || Value::kMetadata == value.linkage);
+    if (Value::kGlobal != value.linkage && Value::kMetadata != value.linkage) {
+        return true;
+    }
     DCHECK(value.ast != nullptr);
     if (!value.ast->file_unit()) {
         return true; // ignore
@@ -873,8 +875,11 @@ ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitLambdaLiteral(LambdaLiteral *ast) /*override*/ {
-    FunctionScope function_scope(arena_, current_file_->file_unit(), &current_, &current_fun_);
-    Function *fun = GenerateLambdaLiteral("$lambda$"/*name*/, false/*is_method*/, ast);
+    Function *fun = nullptr;
+    {
+        FunctionScope function_scope(arena_, current_file_->file_unit(), &current_, &current_fun_);
+        fun = GenerateLambdaLiteral("$lambda$"/*name*/, false/*is_method*/, ast);
+    }
     if (!fun) {
         return ResultWithError();
     }
@@ -919,8 +924,16 @@ ASTVisitor::Result BytecodeGenerator::VisitCallExpression(CallExpression *ast) /
     if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
         return ResultWithError();
     }
-    // TODO: Captured var
-
+    if (ShouldCaptureVar(std::get<0>(found), value)) {
+        if (auto rv = CaptureVar(id->name()->ToString(), std::get<0>(found), value);
+            rv.kind == Value::kError) {
+            return ResultWithError();
+        } else {
+            value.linkage = static_cast<Value::Linkage>(rv.kind);
+            value.index   = rv.bundle.index;
+            value.flags   = rv.bundle.flags;
+        }
+    }
     return GenerateMethodCalling(value, ast);
 }
 
@@ -1134,11 +1147,17 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
     StackSpaceAllocator::Scope stack_scope(current_fun_->stack());
     DCHECK_EQ(kType_closure, rv.bundle.type);
     const Class *clazz = metadata_space_->builtin_type(kType_closure);
-    bool native = false;
-    if (rv.kind == Value::kGlobal) {
-        //Closure *closure = *global_space_.offset<Closure *>(rv.bundle.index);
-        native = rv.bundle.flags;
+
+    bool saved_callee = false;
+    int callee = 0;
+    if (rv.kind == Value::kACC && (ast->prototype()->vargs() || ast->operands_size() > 0)) {
+        saved_callee = true;
+        callee = current_fun_->stack()->ReserveRef();
+        StaStack(clazz, callee, ast->callee());
     }
+
+    bool native = false;
+    if (rv.kind == Value::kGlobal) { native = rv.bundle.flags; }
     auto proto = ast->prototype();
     std::vector<const Class *> params;
     for (auto param : proto->parameters()) {
@@ -1153,14 +1172,21 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
     if (arg_size < 0) {
         return ResultWithError();
     }
-    LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), ast->callee());
+    if (saved_callee) {
+        LdaStack(clazz, callee, ast->callee());
+    } else {
+        LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), ast->callee());
+    }
     if (native) {
         current_fun_->Incoming(ast)->Add<kCallNativeFunction>(arg_size);
     } else {
         current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
     }
 
-    return proto->return_type()->Accept(this);
+    if (rv = proto->return_type()->Accept(this); rv.kind == Value::kError) {
+        return ResultWithError();
+    }
+    return ResultWith(Value::kACC, rv.bundle.type, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclaration *ast) /*override*/ {
@@ -1693,25 +1719,26 @@ ASTVisitor::Result BytecodeGenerator::GenerateDotExpression(const Class *clazz, 
             return ResultWith(Value::kACC, field->type()->id(), 0);
         }
         
+        int offset = GetStackOffset(self);
         switch (field->type()->reference_size()) {
             case 1:
-                current_fun_->Incoming(ast)->Add<kLdaProperty8>(self, field->offset());
+                current_fun_->Incoming(ast)->Add<kLdaProperty8>(offset, field->offset());
                 break;
             case 2:
-                current_fun_->Incoming(ast)->Add<kLdaProperty16>(self, field->offset());
+                current_fun_->Incoming(ast)->Add<kLdaProperty16>(offset, field->offset());
                 break;
             case 4:
                 if (field->type()->id() == kType_f32) {
-                    current_fun_->Incoming(ast)->Add<kLdaPropertyf32>(self, field->offset());
+                    current_fun_->Incoming(ast)->Add<kLdaPropertyf32>(offset, field->offset());
                 } else {
-                    current_fun_->Incoming(ast)->Add<kLdaProperty32>(self, field->offset());
+                    current_fun_->Incoming(ast)->Add<kLdaProperty32>(offset, field->offset());
                 }
                 break;
             case 8:
                 if (field->type()->id() == kType_f64) {
-                    current_fun_->Incoming(ast)->Add<kLdaPropertyf64>(self, field->offset());
+                    current_fun_->Incoming(ast)->Add<kLdaPropertyf64>(offset, field->offset());
                 } else {
-                    current_fun_->Incoming(ast)->Add<kLdaProperty64>(self, field->offset());
+                    current_fun_->Incoming(ast)->Add<kLdaProperty64>(offset, field->offset());
                 }
                 break;
             default:
@@ -1720,7 +1747,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateDotExpression(const Class *clazz, 
         }
         return ResultWith(Value::kACC, field->type()->id(), 0);
     }
-    
+
     // load method
     const Method *method = DCHECK_NOTNULL(metadata_space_->FindClassMethodOrNull(clazz,
                                                                                  ast->rhs()->data()));

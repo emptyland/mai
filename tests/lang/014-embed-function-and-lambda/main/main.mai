@@ -1,12 +1,42 @@
 package main
 
+class Foo(val i: int)
+
+implements Foo {
+
+// fun doIt() {
+// 	println("${self.i}")
+// }
+
+} // implements Foo
+
 fun main() {
+	val foo = Foo(100)
+	//foo.doIt()
+	println("${foo.i}")
+	bar(200)(1)
 	//println("never!")
-	main()
+	//main()
+	// val b = -3
 	// fun foo(a: int) {
+	// 	println("foo---")
 	// 	println("a=$a")
-	// 	foo(a)
+	// 	println("b=$b")
 	// }
 	// foo(1)
 	// foo(2)
+
+	// val f = bar(-1)
+	// f(-2)
+	// f(200)
+}
+
+fun bar(a: int): fun (int) {
+	val c = 100
+	return lambda (b: int) {
+		println("bar---")
+		println("a=$a")
+		println("b=$b")
+		println("c=$c")
+	}
 }

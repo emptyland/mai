@@ -59,7 +59,9 @@ int32_t Function::DispatchException(Any *exception, int32_t pc) {
 }
 
 void Function::Print(base::AbstractPrinter *out) const {
-    out->Printf("%s%s\n", name(), prototype()->ToString().c_str());
+    out->Append("+-------------------------------\n");
+    out->Printf("| %s%s\n", name(), prototype()->ToString().c_str());
+    out->Append("+-------------------------------\n");
     out->Printf("stack-size: %u\n", stack_size_);
     out->Printf("const-pool-bytes: %u\n", const_pool_size_);
     out->Printf("const-pool-bitmap:");

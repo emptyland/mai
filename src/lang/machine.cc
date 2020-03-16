@@ -539,7 +539,7 @@ Closure *Machine::NewClosure(Code *code, size_t captured_var_size, uint32_t flag
 }
 
 Closure *Machine::CloseFunction(Function *func, uint32_t flags) {
-    Address frame_bp = GetPrevStackFrame(running_->bp1(), running_->stack()->stack_hi());
+    Address frame_bp = running_->bp1(); //GetPrevStackFrame(running_->bp1(), running_->stack()->stack_hi());
     StackFrame::Maker maker = StackFrame::GetMaker(DCHECK_NOTNULL(frame_bp));
 
     Closure *closure = NewClosure(func, func->captured_var_size(), flags);
@@ -558,9 +558,9 @@ Closure *Machine::CloseFunction(Function *func, uint32_t flags) {
                 }
                 break;
             case Function::IN_STACK: {
-                Address addr = frame_bp - (desc->index * 2);
-                CapturedValue *val = NewCapturedValue(desc->type, addr, desc->type->reference_size(),
-                                                      flags);
+                Address addr = frame_bp - desc->index;
+                size_t size = RoundUp(desc->type->reference_size(), kStackSizeGranularity);
+                CapturedValue *val = NewCapturedValue(desc->type, addr, size, flags);
                 if (!val) {
                     return nullptr;
                 }

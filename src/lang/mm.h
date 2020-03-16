@@ -52,6 +52,7 @@ static constexpr size_t kConstPoolOffsetGranularity = 4;
 static constexpr size_t kGlobalSpaceOffsetGranularityShift = 2;
 static constexpr size_t kGlobalSpaceOffsetGranularity = 1u << kGlobalSpaceOffsetGranularityShift;
 static constexpr size_t kStackOffsetGranularity = 2;
+static constexpr size_t kStackSizeGranularity = 4;
 
 static constexpr int kParameterSpaceOffset = 256;
 

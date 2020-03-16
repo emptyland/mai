@@ -1149,8 +1149,9 @@ public:
     void EmitClose(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
-        __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0));
-        // TODO: Call close_function
+        __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0)); // func
+        __ movl(Argv_1, 0); // flags
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::CloseFunction));
     }
     
     void EmitContact(MacroAssembler *masm) override {
@@ -1158,7 +1159,6 @@ public:
         __ movq(Argv_0, rsp);
         __ subq(Argv_0, rbx);
         __ movq(Argv_1, rsp);
-
         __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::StringContact));
     }
     

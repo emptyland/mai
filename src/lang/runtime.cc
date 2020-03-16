@@ -228,7 +228,7 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     return Machine::This()->NewPanic(Panic::kFatal, STATE->factory()->nil_error_text(), 0);
 }
 
-/*static*/ Closure *CloseFunction(Function *func, uint32_t flags) {
+/*static*/ Closure *Runtime::CloseFunction(Function *func, uint32_t flags) {
     return Machine::This()->CloseFunction(func, flags);
 }
 

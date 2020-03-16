@@ -20,7 +20,7 @@ class StackSpaceAllocator {
 public:
     using Scope = StackSpaceScope;
     static constexpr size_t kOffsetGranularity = kStackOffsetGranularity;
-    static constexpr size_t kSizeGranularity = 4;
+    static constexpr size_t kSizeGranularity = kStackSizeGranularity;
     static constexpr size_t kSpanSize = sizeof(Span16);
     static constexpr size_t kSlotBase = BytecodeStackFrame::kOffsetHeaderSize;
 
