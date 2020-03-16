@@ -25,6 +25,32 @@ const int32_t Class::kOffsetMethods = MEMBER_OFFSET_OF(Class, methods_);
 
 const int32_t Method::kOffsetFunction = MEMBER_OFFSET_OF(Method, fn_);
 
+bool Type::IsUnsignedIntegral() const {
+    switch (static_cast<BuiltinType>(id_)) {
+        case kType_u8:
+        case kType_u16:
+        case kType_u32:
+        case kType_uint:
+        case kType_u64:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool Type::IsSignedIntegral() const {
+    switch (static_cast<BuiltinType>(id_)) {
+        case kType_i8:
+        case kType_i16:
+        case kType_i32:
+        case kType_int:
+        case kType_i64:
+            return true;
+        default:
+            return false;
+    }
+}
+
 std::string PrototypeDesc::ToString() const {
     return ToString(STATE->metadata_space());
 }

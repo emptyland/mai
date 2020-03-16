@@ -131,7 +131,7 @@ Error SourceFileResolve::ParseAll(const std::vector<std::string> &source_files,
         return MAI_CORRUPTION("Type check fail");
     }
 
-    BytecodeGenerator generator(isolate, feedback, checker.class_exception(), checker.class_any(),
+    BytecodeGenerator generator(isolate, feedback, checker.class_exception(), checker.class_object(),
                                 std::move(*checker.mutable_path_units()),
                                 std::move(*checker.mutable_pkg_units()),
                                 arena);

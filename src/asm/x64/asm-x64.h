@@ -1066,6 +1066,12 @@ public:
         EmitOperand(7, divsor);
     }
     
+    void idivl(Register divsor) { idiv(divsor, 4); }
+    void idivl(Operand divsor) { idiv(divsor, 4); }
+    
+    void idivq(Register divsor) { idiv(divsor, 8); }
+    void idivq(Operand divsor) { idiv(divsor, 8); }
+    
     void imull(Register rhs) { imul(rhs, 4); }
     void imull(Operand rhs) { imul(rhs, 4); }
     void imull(Register dst, Register rhs) { imul(dst, rhs, 4); }

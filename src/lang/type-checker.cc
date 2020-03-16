@@ -397,7 +397,7 @@ bool TypeChecker::Prepare() {
         }
     }
     
-    class_any_ = DCHECK_NOTNULL(FindSymbolOrNull("lang.Any")->AsClassDefinition());
+    class_object_ = DCHECK_NOTNULL(FindSymbolOrNull("lang.Object")->AsClassDefinition());
     class_exception_ = DCHECK_NOTNULL(FindSymbolOrNull("lang.Exception")->AsClassDefinition());
 
     for (auto pair : pkg_units_) {
@@ -470,8 +470,8 @@ bool TypeChecker::PrepareClassDefinition(FileUnit *unit) {
         }
         
         if (auto ast = def->AsClassDefinition();
-            ast != nullptr && !ast->base_name() && ast != class_any_) {
-            ast->set_base(class_any_);
+            ast != nullptr && !ast->base_name() && ast != class_object_) {
+            ast->set_base(class_object_);
         }
     }
     return true;

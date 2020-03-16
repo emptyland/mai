@@ -50,6 +50,12 @@ public:
     bool is_void() const { return !(tags_ & (kReferenceTag | kPrimitiveTag)); }
     bool is_builtin() const { return tags_ & kBuiltinTag; }
     bool is_user() const { return !is_builtin(); }
+    
+    bool IsNumber() const { return IsIntegral() || IsFloating(); }
+    bool IsIntegral() const { return IsUnsignedIntegral() || IsSignedIntegral(); }
+    bool IsUnsignedIntegral() const;
+    bool IsSignedIntegral() const;
+    bool IsFloating() const { return id_ == kType_f32 || id_ == kType_f64; }
 
     DEF_VAL_GETTER(uint32_t, n_fields);
     DEF_VAL_GETTER(uint32_t, id);

@@ -1,6 +1,7 @@
 package lang
 
-class Any {}
+// Base of all classes
+class Object {}
 
 class Exception(
 	val message: string,
@@ -8,12 +9,12 @@ class Exception(
 )
 
 
-implements Any {
+implements Object {
 
 native fun hashCode(): int
 native fun toString(): string
 
-} // implements Any
+} // implements Object
 
 implements Exception {
 

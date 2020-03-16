@@ -65,7 +65,7 @@ public:
         
         generator_ = new BytecodeGenerator(isolate_, &feedback_,
                                            checker_.class_exception(),
-                                           checker_.class_any(),
+                                           checker_.class_object(),
                                            std::move(*checker_.mutable_path_units()),
                                            std::move(*checker_.mutable_pkg_units()),
                                            &arena_);
@@ -196,7 +196,10 @@ TEST_F(BytecodeGeneratorTest, RunEmbedFunctionAndLambda) {
 
     auto rs = isolate_->Compile("tests/lang/014-embed-function-and-lambda");
     ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    //auto jiffies = env_->CurrentTimeMicros();
     isolate_->Run();
+    //printf("%f\n", (env_->CurrentTimeMicros() - jiffies)/1000.0);
 }
 
 } // namespace lang

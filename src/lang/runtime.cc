@@ -250,10 +250,11 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 
 /*static*/ void Runtime::Println(String *input) {
     // TODO:
-    ::puts(input->data());
+    ::fwrite(input->data(), 1, input->length(), stdout);
+    ::puts("");
 }
 
-/*static*/ int Runtime::Any_HashCode(Any *any) {
+/*static*/ int Runtime::Object_HashCode(Any *any) {
     if (!any) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
         return -1;
@@ -261,7 +262,7 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     return static_cast<int>(bit_cast<intptr_t>(any) >> 2) | 0x1;
 }
 
-/*static*/ String *Runtime::Any_ToString(Any *any) {
+/*static*/ String *Runtime::Object_ToString(Any *any) {
     // TODO:
     if (!any) {
         return Machine::This()->NewUtf8String("nil", 3, 0);

@@ -206,13 +206,14 @@ public:
         , clazz_(clazz)
         , current_class_(current_class) {
         Enter();
+        prev_class_ = *current_class_;
         DCHECK_NE(this, *current_class_);
         *current_class_ = this;
     }
 
     ~ClassScope() {
         DCHECK_EQ(this, *current_class_);
-        *current_class_ = !prev_ ? nullptr : prev_->GetClassScope();
+        *current_class_ = prev_class_;
         Exit();
     }
     
@@ -221,6 +222,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(ClassScope);
 private:
     StructureDefinition *clazz_;
+    ClassScope *prev_class_;
     ClassScope **current_class_;
 }; // class BytecodeGenerator::ClassScope
 
@@ -270,12 +272,13 @@ public:
         , file_unit_(file_unit)
         , builder_(arena)
         , current_fun_(current_fun) {
+        prev_fun_ = *current_fun_;
         DCHECK_NE(this, *current_fun_);
         *current_fun_ = this;
     }
     ~FunctionScope() override {
         DCHECK_EQ(this, *current_fun_);
-        *current_fun_ = !prev_ ? nullptr : prev_->GetFunctionScope();
+        *current_fun_ = prev_fun_;
     }
     
     int AddCapturedVarDesc(const std::string &name, const Class *type,
@@ -329,6 +332,7 @@ private:
     ConstantPoolBuilder constants_;
     StackSpaceAllocator stack_;
     FunctionScope **current_fun_;
+    FunctionScope *prev_fun_;
 }; // class BytecodeGenerator::FunctionScope
 
 using BValue = BytecodeGenerator::Value;
@@ -420,7 +424,7 @@ inline bool NeedInbox(const Class *lval, const Class *rval) {
 BytecodeGenerator::BytecodeGenerator(Isolate *isolate,
                                      SyntaxFeedback *feedback,
                                      ClassDefinition *class_exception,
-                                     ClassDefinition *class_any,
+                                     ClassDefinition *class_object,
                                      std::map<std::string, std::vector<FileUnit *>> &&path_units,
                                      std::map<std::string, std::vector<FileUnit *>> &&pkg_units,
                                      base::Arena *arena)
@@ -428,7 +432,7 @@ BytecodeGenerator::BytecodeGenerator(Isolate *isolate,
     , metadata_space_(isolate->metadata_space())
     , error_feedback_(DCHECK_NOTNULL(feedback))
     , class_exception_(class_exception)
-    , class_any_(class_any)
+    , class_object_(class_object)
     , path_units_(std::move(path_units))
     , pkg_units_(std::move(pkg_units))
     , arena_(arena) {
@@ -442,15 +446,15 @@ BytecodeGenerator::BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback,
     : isolate_(isolate)
     , error_feedback_(DCHECK_NOTNULL(feedback))
     , class_exception_(nullptr)
-    , class_any_(nullptr)
+    , class_object_(nullptr)
     , arena_(arena) {
 }
 
 BytecodeGenerator::~BytecodeGenerator() {}
 
 bool BytecodeGenerator::Prepare() {
-    symbol_trace_.insert(class_any_); // ignore class any
-    
+    //symbol_trace_.insert(class_any_); // ignore class any
+
     for (auto pair : pkg_units_) {
         const std::string &pkg_name = pair.first;
 
@@ -544,7 +548,7 @@ bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit)
     for (auto ast : unit->definitions()) {
         std::string name = pkg_name + "." + ast->identifier()->ToString();
         
-        if (auto clazz_ast = ast->AsClassDefinition(); clazz_ast && ast != class_any_/*filter class Any*/) {
+        if (auto clazz_ast = ast->AsClassDefinition()) {
             Class *clazz = metadata_space_->PrepareClass(name, Type::kReferenceTag, kPointerSize);
             clazz_ast->set_clazz(clazz);
             current_->Register(name, {Value::kMetadata, clazz, static_cast<int>(clazz->id()), ast});
@@ -721,7 +725,6 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeSign(TypeSign *ast) /*override*/ 
 ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast) /*override*/ {
     std::string name(DCHECK_NOTNULL(current_file_)->file_unit()->package_name()->ToString());
     name.append(".").append(ast->identifier()->ToString());
-    symbol_trace_.insert(ast);
     
     if (ast->base() && !HasGenerated(ast->base())) {
         if (!GenerateSymbolDependence(ast->base())) {
@@ -733,14 +736,14 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
     ClassBuilder builder(name);
 
     uint32_t offset = 0;
-    if (ast->base() == class_any_) {
+    if (ast == class_object_) {
         builder.base(metadata_space_->builtin_type(kType_any));
         offset = metadata_space_->builtin_type(kType_any)->instrance_size();
     } else if (ast == class_exception_) {
         builder.base(metadata_space_->builtin_type(kType_Throwable));
         offset = metadata_space_->builtin_type(kType_Throwable)->instrance_size();
     } else {
-        builder.base(ast->base()->clazz());
+        builder.base(DCHECK_NOTNULL(ast->base())->clazz());
         offset = ast->base()->clazz()->instrance_size();
     }
     
@@ -979,16 +982,16 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
         return ResultWithError();
     }
 
-    const Method *method = metadata_space_->FindClassMethodOrNull(clazz, dot->rhs()->data());
+    auto [owns, method] = metadata_space_->FindClassMethod(clazz, dot->rhs()->data());
     if (!method) {
-        // TODO: interface load vtable
         auto key = dot->rhs()->ToSlice();
         int kidx = current_fun_->constants()->FindString(key);
         if (kidx < 0) {
             String *name = Machine::This()->NewUtf8String(key.data(), key.size(), Heap::kMetadata);
-            current_fun_->constants()->FindOrInsertString(name);
+            kidx = current_fun_->constants()->FindOrInsertString(name);
         }
-        TODO();
+        current_fun_->Incoming(ast)->Add<kLdaVtableFunction>(self, GetConstOffset(kidx));
+        current_fun_->Incoming(ast)->Add<kCallFunction>(arg_size);
     } else if (method->fn()) {
         int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
         LdaConst(metadata_space_->builtin_type(kType_closure), kidx, dot);
@@ -998,7 +1001,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
             current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
         }
     } else {
-        std::string name = std::string(clazz->name()) + "::" + dot->rhs()->ToString();
+        std::string name = std::string(owns->name()) + "::" + dot->rhs()->ToString();
         Value value = EnsureFindValue(name);
         DCHECK_EQ(Value::kGlobal, value.linkage);
         LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
@@ -1022,7 +1025,7 @@ Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool
 
     int param_size = 0;
     for (auto param : ast->prototype()->parameters()) {
-        param_size += RoundUp(param.type->GetReferenceSize(), StackSpaceAllocator::kSizeGranularity);
+        param_size += RoundUp(param.type->GetReferenceSize(), kStackSizeGranularity);
     }
     if (ast->prototype()->vargs()) {
         param_size += kPointerSize;
@@ -1046,7 +1049,7 @@ Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool
             return nullptr;
         }
         const Class *clazz = DCHECK_NOTNULL(metadata_space_->type(rv.bundle.type));
-        param_offset += RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity);
+        param_offset += RoundUp(clazz->reference_size(), kStackSizeGranularity);
         current_->Register(param.name->ToString(), {
             Value::kStack,
             clazz,
@@ -1055,7 +1058,7 @@ Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool
     }
     if (ast->prototype()->vargs()) {
         const Class *clazz = metadata_space_->builtin_type(kType_array);
-        param_offset += RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity);
+        param_offset += RoundUp(clazz->reference_size(), kStackSizeGranularity);
         current_->Register("argv", {
             Value::kStack,
             clazz,
@@ -1086,7 +1089,7 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
         } else {
             size = param.as_parameter->type()->GetReferenceSize();
         }
-        param_size += RoundUp(size, StackSpaceAllocator::kSizeGranularity);
+        param_size += RoundUp(size, kStackSizeGranularity);
     }
     param_size = RoundUp(param_size, kStackAligmentSize);
 
@@ -1101,7 +1104,7 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
             return nullptr;
         }
         const Class *clazz = DCHECK_NOTNULL(metadata_space_->type(rv.bundle.type));
-        param_offset += RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity);
+        param_offset += RoundUp(clazz->reference_size(), kStackSizeGranularity);
         Value value{Value::kStack, clazz, GetParameterOffset(param_size, param_offset)};
         current_->Register(decl->identifier()->ToString(), value);
         
@@ -1356,6 +1359,55 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
 
 ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *ast) /*override*/ {
     switch (ast->op().kind) {
+        case Operator::kAdd:
+        case Operator::kSub:
+        case Operator::kMul:
+        case Operator::kDiv:
+        case Operator::kMod:
+        case Operator::kBitwiseOr:
+        case Operator::kBitwiseAnd:
+        case Operator::kBitwiseXor:
+        case Operator::kBitwiseShl:
+        case Operator::kBitwiseShr: {
+            auto rv = ast->lhs()->Accept(this);
+            if (rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+            const Class *type = metadata_space_->type(rv.bundle.type);
+            int lhs = rv.bundle.index;
+            bool lhs_tmp = false;
+            if (rv.kind != Value::kStack) {
+                lhs = current_fun_->StackReserve(type);
+                lhs_tmp = true;
+                MoveToStackIfNeeded(type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                                    lhs, ast->lhs());
+            }
+            if (ast->rhs()->IsPairExpression()) {
+                // TODO: array or map +
+                TODO();
+            }
+            
+            if (rv = ast->rhs()->Accept(this); rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+            int rhs = rv.bundle.index;
+            bool rhs_tmp = false;
+            if (rv.kind != Value::kStack) {
+                rhs_tmp = true;
+                rhs = current_fun_->StackReserve(type);
+                MoveToStackIfNeeded(type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                                    rhs, ast->lhs());
+            }
+            GenerateOperation(type, ast->op(), lhs, rhs, ast);
+            if (rhs_tmp) {
+                current_fun_->StackFallback(type, rhs);
+            }
+            if (lhs_tmp) {
+                current_fun_->StackFallback(type, lhs);
+            }
+            return ResultWith(Value::kACC, type->id(), 0);
+        } break;
+            
         case Operator::kEqual:
         case Operator::kNotEqual:
         case Operator::kLess:
@@ -1367,31 +1419,31 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
                 return ResultWithError();
             }
             const Class *clazz = metadata_space_->type(rv.bundle.type);
-            int lhsidx = rv.bundle.index;
-            bool lhstmp = false;
+            int lhs = rv.bundle.index;
+            bool lhs_tmp = false;
             if (rv.kind != Value::kStack) {
-                lhsidx = current_fun_->StackReserve(clazz);
-                lhstmp = true;
+                lhs = current_fun_->StackReserve(clazz);
+                lhs_tmp = true;
                 MoveToStackIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
-                                    lhsidx, ast->lhs());
+                                    lhs, ast->lhs());
             }
             if (rv = ast->rhs()->Accept(this); rv.kind == Value::kError) {
                 return ResultWithError();
             }
-            int rhsidx = rv.bundle.index;
-            bool rhstmp = false;
+            int rhs = rv.bundle.index;
+            bool rhs_tmp = false;
             if (rv.kind != Value::kStack) {
-                rhstmp = true;
-                rhsidx = current_fun_->StackReserve(clazz);
+                rhs_tmp = true;
+                rhs = current_fun_->StackReserve(clazz);
                 MoveToStackIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
-                                    rhsidx, ast->lhs());
+                                    rhs, ast->lhs());
             }
-            GenerateComparation(clazz, ast->op(), lhsidx, rhsidx, ast);
-            if (rhstmp) {
-                current_fun_->StackFallback(clazz, rhsidx);
+            GenerateComparation(clazz, ast->op(), lhs, rhs, ast);
+            if (rhs_tmp) {
+                current_fun_->StackFallback(clazz, rhs);
             }
-            if (lhstmp) {
-                current_fun_->StackFallback(clazz, lhsidx);
+            if (lhs_tmp) {
+                current_fun_->StackFallback(clazz, lhs);
             }
         } return ResultWith(Value::kACC, kType_bool, 0);
         
@@ -1715,8 +1767,7 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
         Expression *arg = operands[i];
         Value value = args[i];
         
-        argument_offset += RoundUp(value.type->reference_size(),
-                                   StackSpaceAllocator::kSizeGranularity);
+        argument_offset += RoundUp(value.type->reference_size(), kStackSizeGranularity);
         if (value.type->is_reference()) {
             if (value.linkage == Value::kStack) {
                 current_fun_->Incoming(arg)->Incomplete<kMovePtr>(-(argument_offset),
@@ -1851,6 +1902,161 @@ int BytecodeGenerator::LinkGlobalVariable(VariableDeclaration *var) {
         default:
             symbol_trace_.erase(var);
             return global_space_.Reserve(var->type()->GetReferenceSize());
+    }
+}
+
+void BytecodeGenerator::GenerateOperation(const Class *clazz, Operator op, int lhs, int rhs,
+                                          ASTNode *ast) {
+    const int loff = GetStackOffset(lhs);
+    const int roff = GetStackOffset(rhs);
+    switch (static_cast<BuiltinType>(clazz->id())) {
+        case kType_i8:
+        case kType_u8:
+        case kType_i16:
+        case kType_u16:
+        case kType_i32:
+        case kType_u32:
+        case kType_int:
+        case kType_uint:
+            switch (op.kind) {
+                case Operator::kAdd:
+                    current_fun_->Incoming(ast)->Add<kAdd32>(loff, roff);
+                    break;
+                case Operator::kSub:
+                    current_fun_->Incoming(ast)->Add<kSub32>(loff, roff);
+                    break;
+                case Operator::kMul:
+                    if (clazz->IsUnsignedIntegral()) {
+                        current_fun_->Incoming(ast)->Add<kMul32>(loff, roff);
+                    } else {
+                        current_fun_->Incoming(ast)->Add<kIMul32>(loff, roff);
+                    }
+                    break;
+                case Operator::kDiv:
+                    if (clazz->IsUnsignedIntegral()) {
+                        current_fun_->Incoming(ast)->Add<kDiv32>(loff, roff);
+                    } else {
+                        current_fun_->Incoming(ast)->Add<kIDiv32>(loff, roff);
+                    }
+                    break;
+                case Operator::kMod:
+                    current_fun_->Incoming(ast)->Add<kMod32>(loff, roff);
+                    break;
+                case Operator::kBitwiseOr:
+                    current_fun_->Incoming(ast)->Add<kBitwiseOr32>(loff, roff);
+                    break;
+                case Operator::kBitwiseAnd:
+                    current_fun_->Incoming(ast)->Add<kBitwiseAnd32>(loff, roff);
+                    break;
+                case Operator::kBitwiseXor:
+                    current_fun_->Incoming(ast)->Add<kBitwiseXor32>(loff, roff);
+                    break;
+                case Operator::kBitwiseShl:
+                    current_fun_->Incoming(ast)->Add<kBitwiseShl32>(loff, roff);
+                    break;
+                case Operator::kBitwiseShr:
+                    if (clazz->IsUnsignedIntegral()) {
+                        current_fun_->Incoming(ast)->Add<kBitwiseShr32>(loff, roff);
+                    } else {
+                        current_fun_->Incoming(ast)->Add<kBitwiseLogicShr32>(loff, roff);
+                    }
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
+        case kType_i64:
+        case kType_U64:
+            switch (op.kind) {
+                case Operator::kAdd:
+                    current_fun_->Incoming(ast)->Add<kAdd64>(loff, roff);
+                    break;
+                case Operator::kSub:
+                    current_fun_->Incoming(ast)->Add<kSub64>(loff, roff);
+                    break;
+                case Operator::kMul:
+                    if (clazz->IsUnsignedIntegral()) {
+                        current_fun_->Incoming(ast)->Add<kMul64>(loff, roff);
+                    } else {
+                        current_fun_->Incoming(ast)->Add<kIMul64>(loff, roff);
+                    }
+                    break;
+                case Operator::kDiv:
+                    if (clazz->IsUnsignedIntegral()) {
+                        current_fun_->Incoming(ast)->Add<kDiv64>(loff, roff);
+                    } else {
+                        current_fun_->Incoming(ast)->Add<kIDiv64>(loff, roff);
+                    }
+                    break;
+                case Operator::kMod:
+                    current_fun_->Incoming(ast)->Add<kMod64>(loff, roff);
+                    break;
+                case Operator::kBitwiseOr:
+                    current_fun_->Incoming(ast)->Add<kBitwiseOr64>(loff, roff);
+                    break;
+                case Operator::kBitwiseAnd:
+                    current_fun_->Incoming(ast)->Add<kBitwiseAnd64>(loff, roff);
+                    break;
+                case Operator::kBitwiseXor:
+                    current_fun_->Incoming(ast)->Add<kBitwiseXor64>(loff, roff);
+                    break;
+                case Operator::kBitwiseShl:
+                    current_fun_->Incoming(ast)->Add<kBitwiseShl64>(loff, roff);
+                    break;
+                case Operator::kBitwiseShr:
+                    if (clazz->IsUnsignedIntegral()) {
+                        current_fun_->Incoming(ast)->Add<kBitwiseShr64>(loff, roff);
+                    } else {
+                        current_fun_->Incoming(ast)->Add<kBitwiseLogicShr64>(loff, roff);
+                    }
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
+        case kType_f32:
+            switch (op.kind) {
+                case Operator::kAdd:
+                    current_fun_->Incoming(ast)->Add<kAddf32>(loff, roff);
+                    break;
+                case Operator::kSub:
+                    current_fun_->Incoming(ast)->Add<kSubf32>(loff, roff);
+                    break;
+                case Operator::kMul:
+                    current_fun_->Incoming(ast)->Add<kMulf32>(loff, roff);
+                    break;
+                case Operator::kDiv:
+                    current_fun_->Incoming(ast)->Add<kDivf32>(loff, roff);
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
+        case kType_f64:
+            switch (op.kind) {
+                case Operator::kAdd:
+                    current_fun_->Incoming(ast)->Add<kAddf64>(loff, roff);
+                    break;
+                case Operator::kSub:
+                    current_fun_->Incoming(ast)->Add<kSubf64>(loff, roff);
+                    break;
+                case Operator::kMul:
+                    current_fun_->Incoming(ast)->Add<kMulf64>(loff, roff);
+                    break;
+                case Operator::kDiv:
+                    current_fun_->Incoming(ast)->Add<kDivf64>(loff, roff);
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
     }
 }
 
@@ -2003,7 +2209,7 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
     switch (static_cast<BuiltinType>(clazz->id())) {
 #define DEFINE_TO_STRING(dest, name, ...) \
         case kType_##name: { \
-            int args_size = RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity); \
+            int args_size = RoundUp(clazz->reference_size(), kStackSizeGranularity); \
             MoveToArgumentIfNeeded(clazz, index, linkage, args_size, ast); \
             Value value = FindOrInsertExternalFunction("lang." #dest "::toString"); \
             LdaGlobal(value.type, value.index, ast); \
@@ -2038,7 +2244,7 @@ void BytecodeGenerator::InboxIfNeeded(const Class *clazz, int index, Value::Link
     switch (static_cast<BuiltinType>(clazz->id())) {
 #define DEFINE_INBOX_PRIMITIVE(dest, name, ...) \
         case kType_##name: { \
-            int args_size = RoundUp(clazz->reference_size(), StackSpaceAllocator::kSizeGranularity); \
+            int args_size = RoundUp(clazz->reference_size(), kStackSizeGranularity); \
             MoveToArgumentIfNeeded(clazz, index, linkage, args_size, ast); \
             Value value = FindOrInsertExternalFunction("lang." #dest "::valueOf"); \
             LdaGlobal(value.type, value.index, ast); \

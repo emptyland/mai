@@ -38,7 +38,7 @@ public:
 
     BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback,
                       ClassDefinition *class_exception,
-                      ClassDefinition *class_any,
+                      ClassDefinition *class_object,
                       std::map<std::string, std::vector<FileUnit *>> &&path_units,
                       std::map<std::string, std::vector<FileUnit *>> &&pkg_units,
                       base::Arena *arena);
@@ -134,6 +134,7 @@ private:
     Result GenerateDotExpression(const Class *clazz, int index, Value::Linkage linkage, DotExpression *ast);
     
     void GenerateComparation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
+    void GenerateOperation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
     void ToStringIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
     void InboxIfNeeded(const Class *clazz, int index, Value::Linkage, const Class *lval, ASTNode *ast);
     void MoveToStackIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest, ASTNode *ast);
@@ -170,7 +171,7 @@ private:
     MetadataSpace *metadata_space_;
     SyntaxFeedback *error_feedback_;
     ClassDefinition *class_exception_;
-    ClassDefinition *class_any_;
+    ClassDefinition *class_object_;
     std::map<std::string, std::vector<FileUnit *>> path_units_;
     std::map<std::string, std::vector<FileUnit *>> pkg_units_;
     std::unordered_map<std::string, Value> symbols_;

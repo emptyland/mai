@@ -893,6 +893,169 @@ public:
 
     void EmitMovePtr(MacroAssembler *masm) override { EmitMove64(masm); }
     
+    // Binary Operation ----------------------------------------------------------------------------
+    void EmitAdd32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ addl(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitAdd64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ addq(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitAddf32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movss(FACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ addss(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitAddf64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movsd(FACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ addsd(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitSub32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ subl(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitSub64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ subq(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitSubf32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movss(FACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ subss(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitSubf64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movsd(FACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ subsd(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitMul32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        // rax:rdx <- rax * operand
+        __ mull(Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitMul64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        // rax:rdx <- rax * operand
+        __ mulq(Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitMulf32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movss(FACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ mulss(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitMulf64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movsd(FACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ mulsd(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitIMul32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ imull(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitIMul64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(rax, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ imulq(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitDiv32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        // rax:rdx <- rax * operand
+        __ divl(Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitDiv64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        // rax:rdx <- rax * operand
+        __ divq(Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitDivf32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movss(FACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ divss(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitDivf64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movsd(FACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ divsd(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitIDiv32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ idivl(Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitIDiv64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ idivq(Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitMod32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        // rax:rdx <- rax * operand
+        __ divl(Operand(rbp, rbx, times_2, 0));
+        __ movl(ACC, rdx);
+    }
+    
+    void EmitMod64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        // rax:rdx <- rax * operand
+        __ divq(Operand(rbp, rbx, times_2, 0));
+        __ movq(ACC, rdx);
+    }
+
     // Comparation ---------------------------------------------------------------------------------
     void EmitTestEqual32(MacroAssembler *masm) override { EmitCompare32(masm, Equal); }
     

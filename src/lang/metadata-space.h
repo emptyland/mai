@@ -25,7 +25,12 @@ public:
     
     const Field *FindClassFieldOrNull(const Class *clazz, const char *field_name);
     
-    const Method *FindClassMethodOrNull(const Class *clazz, const char *method_name);
+    const Method *FindClassMethodOrNull(const Class *clazz, const char *method_name) {
+        return std::get<1>(FindClassMethod(clazz, method_name));
+    }
+    
+    std::tuple<const Class *, const Method *>
+    FindClassMethod(const Class *clazz, const char *method_name);
     
     const Class *builtin_type(BuiltinType type) const {
         DCHECK_GE(static_cast<int>(type), 0);
@@ -139,19 +144,24 @@ private:
     
     struct ClassFieldKey {
         const Class *clazz;
-        std::string_view field_name;
+        std::string_view name;
     }; // struct ClassFieldKey
+    
+    struct ClassMethodPair {
+        const Class *owns;
+        const Method *method;
+    }; // struct ClassMethodPair
 
     struct ClassFieldHash : public std::unary_function<ClassFieldKey, size_t> {
         size_t operator () (ClassFieldKey key) const {
             return std::hash<const Class *>{}(key.clazz) +
-                base::Hash::Js(key.field_name.data(), key.field_name.size());
+                base::Hash::Js(key.name.data(), key.name.size());
         }
     }; // struct ClassFieldHash
     
     struct ClassFieldEqualTo : public std::binary_function<ClassFieldKey, ClassFieldKey, bool> {
         bool operator () (ClassFieldKey lhs, ClassFieldKey rhs) const {
-            return lhs.clazz == rhs.clazz && lhs.field_name.compare(rhs.field_name) == 0;
+            return lhs.clazz == rhs.clazz && lhs.name.compare(rhs.name) == 0;
         }
     }; // struct ClassFieldEqualTo
 
@@ -188,7 +198,7 @@ private:
     // Class with field name
     using ClassFieldMap = std::unordered_map<ClassFieldKey, const Field*, ClassFieldHash,
         ClassFieldEqualTo>;
-    using ClassMethodMap = std::unordered_map<ClassFieldKey, const Method*, ClassFieldHash,
+    using ClassMethodMap = std::unordered_map<ClassFieldKey, ClassMethodPair, ClassFieldHash,
         ClassFieldEqualTo>;
     ClassFieldMap named_class_fields_;
     ClassMethodMap named_class_methods_;

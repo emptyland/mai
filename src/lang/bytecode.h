@@ -97,12 +97,6 @@ namespace lang {
     V(AssertNotNull, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(Contact, BytecodeType::A, BytecodeParam::kImmediate)
 
-//V(LdaArgument32, BytecodeType::A, BytecodeParam::kStackOffset) \
-//V(LdaArgument64, BytecodeType::A, BytecodeParam::kStackOffset) \
-//V(LdaArgumentPtr, BytecodeType::A, BytecodeParam::kStackOffset) \
-//V(LdaArgumentf32, BytecodeType::A, BytecodeParam::kStackOffset) \
-//V(LdaArgumentf64, BytecodeType::A, BytecodeParam::kStackOffset)
-
 #define DECLARE_LDAR_BYTECODE(V) \
     V(Ldar32, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(Ldar64, BytecodeType::A, BytecodeParam::kStackOffset) \
@@ -145,7 +139,7 @@ namespace lang {
     V(LdaArrayAtPtr, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(LdaArrayAtf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(LdaArrayAtf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(LdaVtableFunction, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate)
+    V(LdaVtableFunction, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kConstOffset)
 
 #define DECLARE_STAR_BYTECODE(V) \
     V(Star32, BytecodeType::A, BytecodeParam::kStackOffset) \
@@ -244,6 +238,8 @@ namespace lang {
     V(BitwiseOr64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseAnd32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseAnd64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(BitwiseXor32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(BitwiseXor64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseNot32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseNot64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseShl32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \

@@ -440,24 +440,26 @@ const Field *MetadataSpace::FindClassFieldOrNull(const Class *clazz, const char 
     }
     
     // Use self space's string
-    key.field_name = field->name();
+    key.name = field->name();
     std::lock_guard<std::shared_mutex> lock(class_fields_mutex_);
     named_class_fields_[key] = field;
     return field;
 }
 
-const Method *MetadataSpace::FindClassMethodOrNull(const Class *clazz, const char *method_name) {
+std::tuple<const Class *, const Method *>
+MetadataSpace::FindClassMethod(const Class *clazz, const char *method_name) {
     ClassFieldKey key{clazz, method_name};
     {
         std::shared_lock<std::shared_mutex> lock(class_methods_mutex_);
         auto iter = named_class_methods_.find(key);
         if (iter != named_class_methods_.end()) {
-            return iter->second;
+            return {iter->second.owns, iter->second.method};
         }
     }
 
     const Method *method = nullptr;
-    for (const Class *klass = clazz; klass != nullptr; klass = klass->base()) {
+    const Class *klass = nullptr;
+    for (klass = clazz; klass != nullptr; klass = klass->base()) {
         for (uint32_t i = 0; i < klass->n_methods(); i++) {
             if (::strcmp(method_name, klass->method(i)->name()) == 0) {
                 method = klass->method(i);
@@ -469,14 +471,14 @@ const Method *MetadataSpace::FindClassMethodOrNull(const Class *clazz, const cha
         }
     }
     if (!method) {
-        return nullptr;
+        return {nullptr, nullptr};
     }
 
     // Use self space's string
-    key.field_name = method->name();
+    key.name = method->name();
     std::lock_guard<std::shared_mutex> lock(class_methods_mutex_);
-    named_class_methods_[key] = method;
-    return method;
+    named_class_methods_[key] = ClassMethodPair{klass, method};
+    return {klass, method};
 }
 
 AllocationResult MetadataSpace::Allocate(size_t n, bool exec) {

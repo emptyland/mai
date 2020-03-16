@@ -19,7 +19,7 @@ public:
     TypeChecker(base::Arena *arena, SyntaxFeedback *feedback);
     ~TypeChecker() override {}
 
-    DEF_PTR_GETTER(ClassDefinition, class_any);
+    DEF_PTR_GETTER(ClassDefinition, class_object);
     DEF_PTR_GETTER(ClassDefinition, class_exception);
     std::map<std::string, std::vector<FileUnit *>> *mutable_path_units() { return &path_units_; };
     std::map<std::string, std::vector<FileUnit *>> *mutable_pkg_units() { return &pkg_units_; }
@@ -119,7 +119,7 @@ private:
     TypeSign *const kVoid;
     TypeSign *const kError;
     ClassDefinition *class_exception_ = nullptr;
-    ClassDefinition *class_any_ = nullptr;
+    ClassDefinition *class_object_ = nullptr;
     Scope *current_ = nullptr;
     std::map<std::string, std::vector<FileUnit *>> path_units_;
     std::map<std::string, std::vector<FileUnit *>> pkg_units_;
