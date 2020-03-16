@@ -108,7 +108,11 @@ public:
                                  std::string_view *exists);
     
     std::string LocalFileFullName(const ASTString *name) const {
-        return file_unit_->package_name()->ToString() + "." + name->ToString();
+        return LocalFileFullName(file_unit_, name);
+    }
+    
+    static std::string LocalFileFullName(const FileUnit *unit, const ASTString *name) {
+        return unit->package_name()->ToString() + "." + name->ToString();
     }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(FileScope);
@@ -775,23 +779,17 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
     }
     
     for (auto method : ast->methods()) {
-        auto &method_builder = builder.method(method->identifier()->ToString());
-        auto full_name = current_file_->LocalFileFullName(ast->identifier()) + "::" +
-            method->identifier()->ToString();
-        Value value = EnsureFindValue(full_name);
-        DCHECK_EQ(Value::kGlobal, value.linkage);
+        // Placeholder:
+        uint32_t tags = 0;
         if (method->is_native()) {
-            method_builder.fn(*global_space_.offset<Closure *>(value.index));
-            continue;
+            tags = Method::kNative;
+        } else {
+            tags = Method::kBytecode;
         }
-        auto rv = method->Accept(this);
-        if (rv.kind == Value::kError) {
-            return ResultWithError();
-        }
-        Closure *closure = Machine::This()->NewClosure(rv.fun, 0, Heap::kOld);
-        method_builder.fn(closure);
-        method_builder.End();
-        *global_space_.offset<Closure *>(value.index) = closure;
+        builder.method(method->identifier()->ToString())
+            .fn(nullptr)
+            .tags(tags)
+        .End();
     }
 
     Function *ctor = GenerateClassConstructor(fields_desc, ast);
@@ -804,6 +802,25 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
         .instrance_size(offset)
         .init(Machine::This()->NewClosure(ctor, 0, Heap::kMetadata))
         .BuildWithPreparedClass(metadata_space_, ast->clazz());
+    
+    for (uint32_t i = 0; i < ast->methods_size(); i++) {
+        FunctionDefinition *method = ast->method(i);
+        auto full_name = current_file_->LocalFileFullName(ast->identifier()) + "::" +
+            method->identifier()->ToString();
+        Value value = EnsureFindValue(full_name);
+        DCHECK_EQ(Value::kGlobal, value.linkage);
+        if (method->is_native()) {
+            ast->clazz()->set_method_function(i, *global_space_.offset<Closure *>(value.index));
+            continue;
+        }
+        auto rv = method->Accept(this);
+        if (rv.kind == Value::kError) {
+            return ResultWithError();
+        }
+        Closure *closure = Machine::This()->NewClosure(rv.fun, 0, Heap::kOld);
+        ast->clazz()->set_method_function(i, closure);
+        *global_space_.offset<Closure *>(value.index) = closure;
+    }
 
     symbol_trace_.insert(ast);
     return ResultWithVoid();
@@ -824,8 +841,14 @@ ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition
     }
 
     const bool is_method = current_->is_class_scope();
-    const std::string name = ast->file_unit() ?
-        current_file_->LocalFileFullName(ast->identifier()) : ast->identifier()->ToString();
+    std::string name;
+    if (is_method) {
+        name = current_file_->LocalFileFullName(ast->identifier()) + "::" +
+            ast->identifier()->ToString();
+    } else {
+        name = ast->file_unit() ?
+            current_file_->LocalFileFullName(ast->identifier()) : ast->identifier()->ToString();
+    }
     const Class *clazz = metadata_space_->builtin_type(kType_closure);
     Function *fun = nullptr;
     {
@@ -838,10 +861,6 @@ ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition
         return ResultWithError();
     }
     if (is_method) {
-        std::string name = ast->file_unit()->package_name()->ToString() + "." +
-            current_class_->clazz()->identifier()->ToString() + "::" +
-            ast->identifier()->ToString();
-        metadata_space_->RenameFunction(fun, name);
         Result rv;
         rv.kind = Value::kMetadata;
         rv.fun  = fun;
@@ -960,22 +979,41 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
         return ResultWithError();
     }
 
-    if (clazz->id() == kType_any) { // interface
-        // TODO:
+    const Method *method = metadata_space_->FindClassMethodOrNull(clazz, dot->rhs()->data());
+    if (!method) {
+        // TODO: interface load vtable
+        auto key = dot->rhs()->ToSlice();
+        int kidx = current_fun_->constants()->FindString(key);
+        if (kidx < 0) {
+            String *name = Machine::This()->NewUtf8String(key.data(), key.size(), Heap::kMetadata);
+            current_fun_->constants()->FindOrInsertString(name);
+        }
         TODO();
+    } else if (method->fn()) {
+        int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
+        LdaConst(metadata_space_->builtin_type(kType_closure), kidx, dot);
+        if (method->is_native()) {
+            current_fun_->Incoming(ast)->Add<kCallNativeFunction>(arg_size);
+        } else {
+            current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
+        }
+    } else {
+        std::string name = std::string(clazz->name()) + "::" + dot->rhs()->ToString();
+        Value value = EnsureFindValue(name);
+        DCHECK_EQ(Value::kGlobal, value.linkage);
+        LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
+        if (method->is_native()) {
+            current_fun_->Incoming(ast)->Add<kCallNativeFunction>(arg_size);
+        } else {
+            current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
+        }
     }
 
-    const Method *method =
-        DCHECK_NOTNULL(metadata_space_->FindClassMethodOrNull(clazz, dot->rhs()->data()));
-    int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
-    LdaConst(metadata_space_->builtin_type(kType_closure), kidx, dot);
-    if (method->fn()->is_cxx_function()) {
-        current_fun_->Incoming(ast)->Add<kCallNativeFunction>(arg_size);
+    if (auto rv = proto->return_type()->Accept(this); rv.kind == Value::kError) {
+        return ResultWithError();
     } else {
-        current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
+        return ResultWith(Value::kACC, rv.bundle.type, 0);
     }
-    //current_fun_->stack()->FallbackRef(self);
-    return proto->return_type()->Accept(this);
 }
 
 Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool is_method,
@@ -1202,7 +1240,8 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
                 return ResultWithError();
             }
             const Class *clazz = metadata_space_->type(rv.bundle.type);
-            LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), ast->initializer());
+            LdaIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                        ast->initializer());
             StaGlobal(clazz, value.index, ast);
         }
         symbol_trace_.insert(ast);
@@ -1749,10 +1788,18 @@ ASTVisitor::Result BytecodeGenerator::GenerateDotExpression(const Class *clazz, 
     }
 
     // load method
-    const Method *method = DCHECK_NOTNULL(metadata_space_->FindClassMethodOrNull(clazz,
-                                                                                 ast->rhs()->data()));
-    int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
-    return ResultWith(Value::kConstant, kType_closure, kidx);
+    const Method *method =
+        DCHECK_NOTNULL(metadata_space_->FindClassMethodOrNull(clazz, ast->rhs()->data()));
+    if (method->fn()) {
+        int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
+        return ResultWith(Value::kConstant, kType_closure, kidx);
+    }
+    
+    // Method function is not generated yet
+    std::string name = std::string(clazz->name()) + "::" + ast->rhs()->ToString();
+    Value value = EnsureFindValue(name);
+    DCHECK_EQ(Value::kGlobal, value.linkage);
+    return ResultWith(value);
 }
 
 int BytecodeGenerator::LinkGlobalVariable(VariableDeclaration *var) {
@@ -1977,7 +2024,7 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
             MoveToArgumentIfNeeded(clazz, index, linkage, argument_offset, ast);
             int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
             LdaConst(method->fn()->clazz(), kidx, ast);
-            if (method->fn()->is_cxx_function()) {
+            if (method->is_native()) {
                 current_fun_->Incoming(ast)->Add<kCallNativeFunction>(argument_offset);
             } else {
                 current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(argument_offset);

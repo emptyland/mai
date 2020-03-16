@@ -88,6 +88,7 @@ public:
     DEF_VAL_GETTER(uint32_t, n_methods);
     
     inline const Method *method(uint32_t i) const;
+    inline void set_method_function(uint32_t i, Closure *fn);
     
     bool IsSameOrBaseOf(const Class *base) { return IsSameOf(base) || IsBaseOf(base); }
     bool IsSameOf(const Class *base) const { return this == DCHECK_NOTNULL(base); }
@@ -156,10 +157,18 @@ class Method : public MetadataObject {
 public:
     static const int32_t kOffsetFunction;
     
+    static constexpr uint32_t kKindMask = 3;
+    static constexpr uint32_t kNative = 1;
+    static constexpr uint32_t kBytecode = 0;
+    
     DEF_VAL_GETTER(MDStr, name);
     DEF_VAL_GETTER(uint32_t, tags);
     DEF_PTR_GETTER(Closure, fn);
     
+    bool is_native() const { return (tags_ & kKindMask) == kNative; }
+    bool is_bytecode() const { return (tags_ & kKindMask) == kBytecode; }
+    
+    friend class Class;
     friend class ClassBuilder;
     friend class MetadataSpace;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Method);
@@ -460,6 +469,11 @@ inline const Field *Type::field(uint32_t i) const {
 inline const Method *Class::method(uint32_t i) const {
     DCHECK_LT(i, n_methods_);
     return methods_ + i;
+}
+
+inline void Class::set_method_function(uint32_t i, Closure *fn) {
+    DCHECK_LT(i, n_methods_);
+    methods_->fn_ = fn;
 }
 
 inline bool Class::IsBaseOf(const Class *base) const {

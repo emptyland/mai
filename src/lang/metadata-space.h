@@ -51,10 +51,6 @@ public:
         return iter == named_classes_.end() ? nullptr : iter->second;
     }
     
-    void RenameFunction(Function *fun, const std::string &name) {
-        fun->name_ = NewString(name);
-    }
-    
     DEF_VAL_GETTER(size_t, used_size);
     
     // Builtin Code:
@@ -282,7 +278,7 @@ public:
         }
         
         ClassBuilder &End() {
-            DCHECK(fn_ != nullptr);
+            //DCHECK(fn_ != nullptr);
             return *owner_;
         }
         
@@ -459,7 +455,7 @@ public:
         source_line_info_ = DCHECK_NOTNULL(value);
         return *this;
     }
-    
+
     FunctionBuilder &AddCapturedVar(const std::string &name,
                                     const Class *type,
                                     Function::CapturedVarKind kind,
@@ -467,7 +463,7 @@ public:
         captured_vars_.push_back({name, type, kind, index});
         return *this;
     }
-    
+
     FunctionBuilder &AddExceptionHandle(const Class *expected,
                                         intptr_t start_pc,
                                         intptr_t stop_pc,
@@ -475,11 +471,11 @@ public:
         exception_table_.push_back({expected, start_pc, stop_pc, handle_pc});
         return *this;
     }
-    
+
     bool Valid() const;
-    
+
     Function *Build(MetadataSpace *space) const;
-    
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(FunctionBuilder);
 private:
     struct CapturedVarDesc {
