@@ -46,6 +46,7 @@ class Function;
     V(F32ToString, "lang.F32::toString") \
     V(F64ToString, "lang.F64::toString") \
     V(Println, "lang.println") \
+    V(Assert, "lang.assert") \
     V(Object_HashCode, "lang.Object::hashCode") \
     V(Object_ToString, "lang.Object::toString") \
     V(Exception_PrintStackstrace, "lang.Exception::printStackstrace")
@@ -125,6 +126,8 @@ struct Runtime {
     
     // Stand library native functions
     static void Println(String *input);
+    static void Assert(int expect, String *message);
+    
 
     static int Object_HashCode(Any *any);
     static String *Object_ToString(Any *any);

@@ -23,3 +23,5 @@ native fun printStackstrace()
 } // implements Exception
 
 native fun println(s: string)
+
+native fun assert(e: bool, s: string)

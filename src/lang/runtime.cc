@@ -259,6 +259,19 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     ::puts("");
 }
 
+/*static*/ void Runtime::Assert(int expect, String *message) {
+    if (expect) { return; }
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    IncrementalStringBuilder builder;
+    builder.AppendString("Assert fail: ");
+    if (message) {
+        builder.AppendString(Local<String>(message));
+    } else {
+        builder.AppendString("\"\"");
+    }
+    Machine::This()->ThrowPanic(Panic::kFatal, builder.QuickBuild());
+}
+
 /*static*/ int Runtime::Object_HashCode(Any *any) {
     if (!any) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());

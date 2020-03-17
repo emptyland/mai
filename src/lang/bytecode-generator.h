@@ -98,6 +98,8 @@ private:
     Result VisitStringTemplateExpression(StringTemplateExpression *) override;
     Result VisitUnaryExpression(UnaryExpression *) override;
     Result VisitBinaryExpression(BinaryExpression *) override;
+    Result VisitIfExpression(IfExpression *) override;
+    Result VisitStatementBlock(StatementBlock *) override;
     Result VisitIdentifier(Identifier *) override;
     Result VisitBoolLiteral(BoolLiteral *) override;
     Result VisitI8Literal(I8Literal *) override;
@@ -139,6 +141,7 @@ private:
     void InboxIfNeeded(const Class *clazz, int index, Value::Linkage, const Class *lval, ASTNode *ast);
     void MoveToStackIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest, ASTNode *ast);
     void MoveToArgumentIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest, ASTNode *ast);
+    void LdaIfNeeded(const Result &rv, ASTNode *ast);
     void LdaIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
     void LdaStack(const Class *clazz, int index, ASTNode *ast);
     void LdaConst(const Class *clazz, int index, ASTNode *ast);

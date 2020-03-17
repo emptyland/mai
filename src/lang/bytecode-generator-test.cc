@@ -186,9 +186,24 @@ TEST_F(BytecodeGeneratorTest, EmbedFunctionAndLambda) {
     ASSERT_TRUE(bar->is_mai_function());
     ASSERT_FALSE(bar->is_cxx_function());
     
+    value = generator_->FindValue("main.Foo::doIt");
+    Local<Closure> do_it(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(do_it.is_value_not_null());
+    ASSERT_TRUE(do_it->is_mai_function());
+    ASSERT_FALSE(do_it->is_cxx_function());
+    
+    value = generator_->FindValue("main.Foo::doThat");
+    ASSERT_NE(Value::kError, value.linkage);
+    Local<Closure> do_that(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(do_that.is_value_not_null());
+    ASSERT_TRUE(do_that->is_mai_function());
+    ASSERT_FALSE(do_that->is_cxx_function());
+
     base::StdFilePrinter printer(stdout);
     main->function()->Print(&printer);
-    bar->function()->Print(&printer);
+//    bar->function()->Print(&printer);
+//    do_it->function()->Print(&printer);
+//    do_that->function()->Print(&printer);
 }
 
 TEST_F(BytecodeGeneratorTest, RunEmbedFunctionAndLambda) {

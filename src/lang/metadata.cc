@@ -126,6 +126,10 @@ void Function::Print(base::AbstractPrinter *out) const {
                     !handler->expected_type? "nil" : handler->expected_type->name(),
                     handler->start_pc, handler->stop_pc, handler->handler_pc);
     }
+    if (source_line_info_) {
+        out->Printf("souce-line-size: %u\n", source_line_info_->length());
+        out->Printf("souce-file-name: %s\n", source_line_info_->file_name());
+    }
     if (kind_ == BYTECODE) {
         out->Printf("bytecode-size: %u\n", bytecode_->size());
         out->Printf("bytecode: \n");
@@ -134,6 +138,10 @@ void Function::Print(base::AbstractPrinter *out) const {
             BytecodeNode *node = BytecodeNode::From(&arena, bytecode_->entry()[i]);
             out->Printf("    %03zd ", i);
             node->Print(out);
+            if (source_line_info_) {
+                int line = source_line_info_->FindSourceLine(i);
+                out->Printf("; (%d)", line);
+            }
             out->Append("\n");
         }
     }
