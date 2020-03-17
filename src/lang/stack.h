@@ -17,12 +17,14 @@ public:
     void Reinitialize() {
         next_ = this;
         prev_ = this;
+    #if defined(DEBUG) || defined(_DEBUG)
         ::memset(guard0_, 0xcc, kGuard0Size);
         ::memset(guard1() - kGuard1Size, 0xcc, kGuard1Size);
+    #endif // defined(DEBUG) || defined(_DEBUG)
         DbgFillInitZag(stack_lo_, GetAvailableSize());
     }
 
-    Address guard0() { return guard0_; }
+    Address guard0() { return &guard0_[0] + kGuard0Size; }
     Address guard1() { return reinterpret_cast<Address>(this) + size_; }
 
     size_t GetAvailableSize() const { return stack_hi_ - stack_lo_; }

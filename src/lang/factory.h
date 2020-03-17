@@ -16,6 +16,7 @@ namespace lang {
     V(false_string, String) \
     V(oom_text, String) \
     V(nil_error_text, String) \
+    V(stack_overflow_error_text, String) \
     V(dup_close_chan_error_text, String) \
     V(new_coroutine_error_text, String) \
     V(oom_panic, Panic)

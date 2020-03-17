@@ -54,6 +54,8 @@ public:
     static const int32_t kOffsetBP1;
     static const int32_t kOffsetSP1;
     static const int32_t kOffsetPC1;
+    static const int32_t kOffsetStackGuard0;
+    static const int32_t kOffsetStackGuard1;
     static const int32_t kOffsetYield;
     static const int32_t kOffsetReentrant;
     static const int32_t kOffsetEntry;

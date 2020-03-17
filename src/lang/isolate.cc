@@ -126,7 +126,7 @@ void Isolate::Run() {
     
     // Run main thread
     scheduler_->machine0()->Entry();
-    
+
     // Main thread finished
     // Should shutdown others worker threads
     scheduler_->Shutdown();

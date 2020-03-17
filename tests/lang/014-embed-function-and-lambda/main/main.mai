@@ -5,14 +5,14 @@ class Foo(val i: int)
 implements Foo {
 
 fun doIt() {
-	println("dotIt:${self.i + 10}")
+	println("dotIt:${self.i << 3}")
 }
 
 } // implements Foo
 
 fun main() {
-	val foo = Foo(100)
-	foo.doIt()
+	//val foo = Foo(100)
+	//foo.doIt()
 	// println("${foo.toString()}")
 	// bar(200)(1)
 	// val b = -3
@@ -27,8 +27,12 @@ fun main() {
 	// val f = bar(-1)
 	// f(-2)
 	// f(200)
+	fn0(1)
+}
 
-	//main()
+fun fn0(a: int): int {
+	println("level: $a")
+	return fn0(a + 1)
 }
 
 fun bar(a: int): fun (int) {

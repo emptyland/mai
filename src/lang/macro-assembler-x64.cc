@@ -166,7 +166,8 @@ void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
 }
 
 // Prototype: void Trampoline(Coroutine *co)
-void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump, int *suspend_point_pc) {
+void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump,
+                         int *suspend_point_pc) {
     StackFrameScope frame_scope(masm, TrampolineStackFrame::kSize);
     //==============================================================================================
     // NOTICE: The fucking clang++ optimizer will proecte: r12~r15 and rbx registers.
@@ -1055,6 +1056,96 @@ public:
         __ divq(Operand(rbp, rbx, times_2, 0));
         __ movq(ACC, rdx);
     }
+    
+    void EmitBitwiseAnd32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ andl(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitBitwiseAnd64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ andq(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitBitwiseOr32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ orl(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitBitwiseOr64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ orq(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitBitwiseXor32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ xorl(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitBitwiseXor64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ xorq(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitBitwiseShl32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movl(rcx, Operand(rbp, rbx, times_2, 0));
+        __ shll(ACC);
+    }
+    
+    void EmitBitwiseShl64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movl(rcx, Operand(rbp, rbx, times_2, 0));
+        __ shlq(ACC);
+    }
+    
+    void EmitBitwiseShr32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movl(rcx, Operand(rbp, rbx, times_2, 0));
+        __ sarl(ACC);
+    }
+    
+    void EmitBitwiseShr64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movl(rcx, Operand(rbp, rbx, times_2, 0));
+        __ sarq(ACC);
+    }
+    
+    void EmitBitwiseLogicShr32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movl(rcx, Operand(rbp, rbx, times_2, 0));
+        __ shrl(ACC);
+    }
+    
+    void EmitBitwiseLogicShr64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movl(rcx, Operand(rbp, rbx, times_2, 0));
+        __ shrq(ACC);
+    }
 
     // Comparation ---------------------------------------------------------------------------------
     void EmitTestEqual32(MacroAssembler *masm) override { EmitCompare32(masm, Equal); }
@@ -1063,11 +1154,15 @@ public:
     
     void EmitTestLessThan32(MacroAssembler *masm) override { EmitCompare32(masm, Less); }
     
-    void EmitTestLessThanOrEqual32(MacroAssembler *masm) override { EmitCompare32(masm, LessEqual); }
+    void EmitTestLessThanOrEqual32(MacroAssembler *masm) override {
+        EmitCompare32(masm, LessEqual);
+    }
     
     void EmitTestGreaterThan32(MacroAssembler *masm) override { EmitCompare32(masm, Greater); }
     
-    void EmitTestGreaterThanOrEqual32(MacroAssembler *masm) override { EmitCompare32(masm, GreaterEqual); }
+    void EmitTestGreaterThanOrEqual32(MacroAssembler *masm) override {
+        EmitCompare32(masm, GreaterEqual);
+    }
     
     void EmitTestEqual64(MacroAssembler *masm) override { EmitCompare64(masm, Equal); }
     
@@ -1075,11 +1170,15 @@ public:
     
     void EmitTestLessThan64(MacroAssembler *masm) override { EmitCompare64(masm, Less); }
     
-    void EmitTestLessThanOrEqual64(MacroAssembler *masm) override { EmitCompare64(masm, LessEqual); }
+    void EmitTestLessThanOrEqual64(MacroAssembler *masm) override {
+        EmitCompare64(masm, LessEqual);
+    }
     
     void EmitTestGreaterThan64(MacroAssembler *masm) override { EmitCompare64(masm, Greater); }
     
-    void EmitTestGreaterThanOrEqual64(MacroAssembler *masm) override { EmitCompare64(masm, GreaterEqual); }
+    void EmitTestGreaterThanOrEqual64(MacroAssembler *masm) override {
+        EmitCompare64(masm, GreaterEqual);
+    }
     
     void EmitTestEqualf32(MacroAssembler *masm) override { EmitComparef32(masm, Equal); }
     
@@ -1087,11 +1186,15 @@ public:
     
     void EmitTestLessThanf32(MacroAssembler *masm) override { EmitComparef32(masm, Less); }
     
-    void EmitTestLessThanOrEqualf32(MacroAssembler *masm) override { EmitComparef32(masm, LessEqual); }
+    void EmitTestLessThanOrEqualf32(MacroAssembler *masm) override {
+        EmitComparef32(masm, LessEqual);
+    }
     
     void EmitTestGreaterThanf32(MacroAssembler *masm) override { EmitComparef32(masm, Greater); }
     
-    void EmitTestGreaterThanOrEqualf32(MacroAssembler *masm) override { EmitComparef32(masm, GreaterEqual); }
+    void EmitTestGreaterThanOrEqualf32(MacroAssembler *masm) override {
+        EmitComparef32(masm, GreaterEqual);
+    }
     
     void EmitTestEqualf64(MacroAssembler *masm) override { EmitComparef64(masm, Equal); }
     
@@ -1099,11 +1202,15 @@ public:
     
     void EmitTestLessThanf64(MacroAssembler *masm) override { EmitComparef64(masm, Less); }
     
-    void EmitTestLessThanOrEqualf64(MacroAssembler *masm) override { EmitComparef64(masm, LessEqual); }
+    void EmitTestLessThanOrEqualf64(MacroAssembler *masm) override {
+        EmitComparef64(masm, LessEqual);
+    }
     
     void EmitTestGreaterThanf64(MacroAssembler *masm) override { EmitComparef64(masm, Greater); }
     
-    void EmitTestGreaterThanOrEqualf64(MacroAssembler *masm) override { EmitComparef64(masm, GreaterEqual); }
+    void EmitTestGreaterThanOrEqualf64(MacroAssembler *masm) override {
+        EmitComparef64(masm, GreaterEqual);
+    }
 
     // Flow Control --------------------------------------------------------------------------------
     void EmitReturn(MacroAssembler *masm) override {
@@ -1291,9 +1398,12 @@ public:
 
     // Checking ------------------------------------------------------------------------------------
     void EmitCheckStack(MacroAssembler *masm) override {
-        // TODO:
-        //__ Breakpoint();
-        __ nop();
+        __ cmpq(rsp, Operand(CO, Coroutine::kOffsetStackGuard0));
+        Label ok;
+        __ j(GreaterEqual, &ok, false/*is_far*/);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewStackoverflowPanic));
+        __ Throw(SCRATCH, rbx);
+        __ Bind(&ok);
         __ JumpNextBC();
     }
     

@@ -30,9 +30,11 @@ void Factory::Initialize() {
     empty_string_ = Machine::This()->NewUtf8String("", 0, Heap::kOld);
     true_string_ = Machine::This()->NewUtf8String(STR_WITH_LEN("true"), Heap::kOld);
     false_string_ = Machine::This()->NewUtf8String(STR_WITH_LEN("false"), Heap::kOld);
-    oom_text_ = Machine::This()->NewUtf8String(STR_WITH_LEN("Doki Doki Panic-OOM"), Heap::kOld);
+    oom_text_ = Machine::This()->NewUtf8String(STR_WITH_LEN("Doki Doki Panic: OOM"), Heap::kOld);
     oom_panic_ = static_cast<Panic *>(Machine::This()->NewPanic(Panic::kCrash, oom_text_,
                                                                 Heap::kOld));
+    stack_overflow_error_text_ =
+        Machine::This()->NewUtf8String(STR_WITH_LEN("Doki Doki Panic: Stackoverflow"), Heap::kOld);
     nil_error_text_ = Machine::This()->NewUtf8String(STR_WITH_LEN("Attempt nil object"), Heap::kOld);
     dup_close_chan_error_text_ =
         Machine::This()->NewUtf8String(STR_WITH_LEN("Duplicated close channel"), Heap::kOld);

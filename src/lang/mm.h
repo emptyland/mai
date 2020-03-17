@@ -42,8 +42,8 @@ static constexpr size_t kStackAligmentSize = 16; // Stack alignment size
 static constexpr size_t kMinAllocationSize = kPointerSize << 1;
 
 static constexpr size_t kMaxStackPoolRSS = 400 * base::kMB; // Max stack RSS in stack pool keeped
-static constexpr size_t kC0StackSize = 80 * base::kMB; // Coroutine 0's stack size
-static constexpr size_t kDefaultStackSize = 20 * base::kMB; // Others coroutines stack size
+static constexpr size_t kC0StackSize = 16 * base::kMB; // Coroutine 0's stack size
+static constexpr size_t kDefaultStackSize = 4 * base::kMB; // Others coroutines stack size
 
 static constexpr uint32_t kFreeZag = 0xfeedfeed;
 static constexpr uint32_t kInitZag = 0xcccccccc;
@@ -55,6 +55,8 @@ static constexpr size_t kStackOffsetGranularity = 2;
 static constexpr size_t kStackSizeGranularity = 4;
 
 static constexpr int kParameterSpaceOffset = 256;
+
+static constexpr size_t kMaxStacktraceLevels = 32;
 
 
 #if defined(_DEBUG) || defined(DEBUG)

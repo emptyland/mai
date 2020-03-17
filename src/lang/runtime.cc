@@ -228,6 +228,11 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     return Machine::This()->NewPanic(Panic::kFatal, STATE->factory()->nil_error_text(), 0);
 }
 
+/*static*/ Throwable *Runtime::NewStackoverflowPanic() {
+    return Machine::This()->NewPanic(Panic::kFatal, STATE->factory()->stack_overflow_error_text(),
+                                     0);
+}
+
 /*static*/ Closure *Runtime::CloseFunction(Function *func, uint32_t flags) {
     return Machine::This()->CloseFunction(func, flags);
 }

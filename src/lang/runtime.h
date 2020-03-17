@@ -110,6 +110,7 @@ struct Runtime {
     
     // Panic Object
     static Throwable *NewNilPointerPanic();
+    static Throwable *NewStackoverflowPanic();
     
     // Close Function and make a closure
     static Closure *CloseFunction(Function *func, uint32_t flags);

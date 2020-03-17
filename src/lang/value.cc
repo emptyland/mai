@@ -131,6 +131,10 @@ void Throwable::PrintStackstrace(FILE *file) const {
                         builder.AppendString("()");
                     }
                     lines.push_back(builder.QuickBuild());
+                    if (lines.size() >= kMaxStacktraceLevels) {
+                        lines.push_back(Machine::This()->NewUtf8String("...", 3, 0));
+                        goto out;
+                    }
                 } break;
                 case StackFrame::kTrampoline:
                     goto out;
