@@ -92,7 +92,6 @@ enum BuiltinType: int {
     DECLARE_CONTAINER_TYPES(DEFINE_ENUM)
     kType_Throwable,
     kType_Panic,
-    kType_Exception,
 
     kMax_Types
 #undef DEFINE_ENUM
@@ -368,12 +367,6 @@ template<>
 struct TypeTraits<Panic> {
     static constexpr BuiltinType kType = kType_Panic;
     static constexpr char kName[] = "Panic";
-};
-
-template<>
-struct TypeTraits<Exception> {
-    static constexpr BuiltinType kType = kType_Exception;
-    static constexpr char kName[] = "Exception";
 };
 
 } // namespace lang

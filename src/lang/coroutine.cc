@@ -102,7 +102,7 @@ void Coroutine::Uncaught(Throwable *thrown) {
     if (!should_print_stackstrace) {
         return;
     }
-    
+
     if (owner_) {
         ::fprintf(stderr, "❌Uncaught: M:%d:C:%" PRId64 ":", owner_->id(), coid_);
     } else {
@@ -112,22 +112,23 @@ void Coroutine::Uncaught(Throwable *thrown) {
         Panic *error = static_cast<Panic *>(thrown);
         ::fprintf(stderr, "😱[Panic](%d) %s\n", error->code(), error->quickly_message()->data());
         thrown->PrintStackstrace(stderr);
-    } else {
-        const Class *type = STATE->metadata_space()->class_exception();
-        const Field *msg_field = STATE->metadata_space()->FindClassFieldOrNull(type, "message");
-        
-        const String *message = thrown->UnsafeGetField<const String *>(DCHECK_NOTNULL(msg_field));
-        ::fprintf(stderr, "🤔[Exception] %s\n", message->data());
-        thrown->PrintStackstrace(stderr);
-        
-        const Field *cause_field = STATE->metadata_space()->FindClassFieldOrNull(type, "cause");
-        Throwable *cause = thrown->UnsafeGetField<Throwable *>(DCHECK_NOTNULL(cause_field));
-        while (cause) {
-            message = cause->UnsafeGetField<const String *>(DCHECK_NOTNULL(msg_field));
-            ::fprintf(stderr, "🔗Cause: [Exception] %s\n", message->data());
-            cause->PrintStackstrace(stderr);
-            cause = cause->UnsafeGetField<Throwable *>(DCHECK_NOTNULL(cause_field));
-        }
+        return;
+    }
+
+    const Class *type = STATE->metadata_space()->class_exception();
+    const Field *msg_field = STATE->metadata_space()->FindClassFieldOrNull(type, "message");
+    
+    const String *message = thrown->UnsafeGetField<const String *>(DCHECK_NOTNULL(msg_field));
+    ::fprintf(stderr, "🤔[Exception] %s\n", message->data());
+    thrown->PrintStackstrace(stderr);
+    
+    const Field *cause_field = STATE->metadata_space()->FindClassFieldOrNull(type, "cause");
+    Throwable *cause = thrown->UnsafeGetField<Throwable *>(DCHECK_NOTNULL(cause_field));
+    while (cause) {
+        message = cause->UnsafeGetField<const String *>(DCHECK_NOTNULL(msg_field));
+        ::fprintf(stderr, "🔗Cause: [Exception] %s\n", message->data());
+        cause->PrintStackstrace(stderr);
+        cause = cause->UnsafeGetField<Throwable *>(DCHECK_NOTNULL(cause_field));
     }
 }
 

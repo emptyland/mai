@@ -38,9 +38,6 @@ const int32_t Throwable::kOffsetStacktrace = MEMBER_OFFSET_OF(Throwable, stacktr
 const int32_t Panic::kOffsetCode = MEMBER_OFFSET_OF(Panic, code_);
 const int32_t Panic::kOffsetMessage = MEMBER_OFFSET_OF(Panic, message_);
 
-const int32_t Exception::kOffsetMessage = MEMBER_OFFSET_OF(Exception, message_);
-const int32_t Exception::kOffsetCause = MEMBER_OFFSET_OF(Exception, cause_);
-
 // Use function call, it's slowly calling...
 bool Any::SlowlyIs(uint32_t type_id) const { return QuicklyIs(type_id); }
 
@@ -90,13 +87,6 @@ MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32
 
 /*static*/ Throwable *Throwable::NewPanic(int code, String *message) {
     return Machine::This()->NewPanic(static_cast<Panic::Level>(code), message, 0/*flags*/);
-}
-
-// Handle<Any> argv[2] = { Handle<Any>::Null(), String::New("fail") };
-// Handle<Throwable> e = NewUserObject<Throwable>("foo.DokiException", argv)
-// Throwable::Throw(e);
-/*static*/ Throwable *Throwable::NewException(String *message, Exception *cause) {
-    return Machine::This()->NewException(kType_Exception, message, cause, 0/*flags*/);
 }
 
 void Throwable::PrintStackstrace(FILE *file) const {
@@ -170,19 +160,6 @@ Panic::Panic(const Class *clazz, Array<String *> *stacktrace, Level code, String
     , code_(code)
     , message_(message) {
     
-    if (message) {
-        WriteBarrier(reinterpret_cast<Any **>(&message_));
-    }
-}
-
-Exception::Exception(const Class *clazz, Array<String *> *stacktrace, Exception *cause,
-                     String *message, uint32_t tags)
-    : Throwable(clazz, stacktrace, tags)
-    , cause_(cause)
-    , message_(message) {
-    if (cause) {
-        WriteBarrier(reinterpret_cast<Any **>(&cause_));
-    }
     if (message) {
         WriteBarrier(reinterpret_cast<Any **>(&message_));
     }

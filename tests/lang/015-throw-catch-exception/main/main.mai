@@ -1,9 +1,19 @@
 package main
 
 class MyException(message: string, cause: Exception): Exception(message, cause)
+class MeException(message: string, cause: Exception): Exception(message, cause)
 
 fun main() {
-	throw MyException("my error", nil)
+	//throw MyException("my error", nil)
+	try {
+		throw MeException("my error", nil)
+	} catch (e: MyException) {
+		println('Handler my')
+	} catch (e: MeException) {
+		println('Handler me')
+	} finally {
+		println('finally')
+	}
 }
 
 

@@ -80,8 +80,20 @@ std::string PrototypeDesc::ToString(const MetadataSpace *space) const {
 
 // TODO
 int32_t Function::DispatchException(Any *exception, int32_t pc) {
-    TODO();
-    return -1;
+    DCHECK(exception != nullptr);
+    DCHECK_GT(exception_table_size(), 0);
+    int min_level = 0x7fffffff, handler_pc = -1;
+    for (uint32_t i = 0; i < exception_table_size_; i++) {
+        const ExceptionHandlerDesc *handler = exception_table_ + i;
+        if (auto level = exception->clazz()->GetSameOrBaseOf(handler->expected_type); level > 0) {
+            if (level < min_level) {
+                min_level = level;
+                handler_pc = static_cast<int>(handler->handler_pc);
+            }
+        }
+    }
+    //printf("exception: %p\n", exception);
+    return handler_pc;
 }
 
 void Function::Print(base::AbstractPrinter *out) const {

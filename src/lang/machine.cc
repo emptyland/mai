@@ -224,8 +224,10 @@ Any *Machine::NewObject(const Class *clazz, uint32_t flags) {
     Any *any = new (result.ptr()) Any(clazz, color_tags());
     
     if (clazz->n_fields() > 0) {
-        Address base = reinterpret_cast<Address>(any);// + clazz->field(0)->offset();
-        ::memset(base, 0, clazz->instrance_size() - clazz->base()->instrance_size()); // Zeroize object fields
+        // XXX:
+        Address base = reinterpret_cast<Address>(any) + sizeof(Any);
+        // Zeroize object fields
+        ::memset(base, 0, clazz->instrance_size() - sizeof(Any));
     }
     return any;
 }
@@ -578,22 +580,6 @@ Throwable *Machine::NewPanic(Panic::Level code, String *message, uint32_t flags)
     }
     return new (result.ptr()) Panic(STATE->builtin_type(kType_Panic), stacktrace, code, message,
                                     color_tags());
-}
-
-Exception *Machine::NewException(uint32_t type, String *message, Exception *cause, uint32_t flags) {
-    AllocationResult result = STATE->heap()->Allocate(sizeof(Exception), flags);
-    if (!result.ok()) {
-        AllocationPanic(result);
-        return nullptr;
-    }
-    Array<String *> *stacktrace = Throwable::MakeStacktrace(!running_ ? nullptr : running_->bp1());
-    if (!stacktrace) {
-        AllocationPanic(AllocationResult::OOM);
-        return nullptr;
-    }
-    
-    return new (result.ptr()) Exception(STATE->builtin_type(kType_Exception), stacktrace, cause,
-                                        message, color_tags());
 }
 
 Channel *Machine::NewChannel(uint32_t data_typeid, size_t capacity, uint32_t flags) {

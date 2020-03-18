@@ -25,16 +25,16 @@ TEST_F(SchedulerTest, NewStack) {
     ASSERT_NE(nullptr, stack);
     EXPECT_EQ(stack->size(), scheduler->stack_pool_rss());
     EXPECT_EQ(1, scheduler->n_live_stacks());
-    EXPECT_EQ(0x1400000, kDefaultStackSize);
-    EXPECT_EQ(0x1401000, stack->size());
-    EXPECT_EQ(0x1400cc0, stack->GetAvailableSize());
+    EXPECT_EQ(0x400000, kDefaultStackSize);
+    EXPECT_EQ(0x401000, stack->size());
+    EXPECT_EQ(0x400cc0, stack->GetAvailableSize());
     EXPECT_EQ(0, reinterpret_cast<uintptr_t>(stack->stack_hi()) % kStackAligmentSize);
     EXPECT_EQ(0, reinterpret_cast<uintptr_t>(stack->stack_lo()) % kStackAligmentSize);
-    EXPECT_LT(stack->guard0(), stack->stack_lo());
+    EXPECT_LE(stack->guard0(), stack->stack_lo());
     EXPECT_GT(stack->guard1(), stack->stack_hi());
 
     scheduler->PurgreStack(stack);
-    EXPECT_EQ(0x1401000, scheduler->stack_pool_rss());
+    EXPECT_EQ(0x401000, scheduler->stack_pool_rss());
     EXPECT_EQ(0, scheduler->n_live_stacks());
 }
 
@@ -48,9 +48,9 @@ TEST_F(SchedulerTest, CacheStack) {
         n++;
     } while (!scheduler->PurgreStack(stack));
     
-    EXPECT_EQ(19, n);
+    EXPECT_EQ(99, n);
     EXPECT_EQ(0, scheduler->n_live_stacks());
-    EXPECT_EQ(0x16812000, scheduler->stack_pool_rss());
+    EXPECT_EQ(0x18862000, scheduler->stack_pool_rss());
 }
 
 TEST_F(SchedulerTest, NewCoroutine) {

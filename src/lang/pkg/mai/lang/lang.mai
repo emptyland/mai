@@ -3,6 +3,7 @@ package lang
 // Base of all classes
 class Object {}
 
+// Base of all exceptions
 class Exception(
 	val message: string,
 	val cause: Exception

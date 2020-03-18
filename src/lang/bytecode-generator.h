@@ -117,6 +117,7 @@ private:
     Result VisitNilLiteral(NilLiteral *) override;
     Result VisitStringLiteral(StringLiteral *) override;
     Result VisitBreakableStatement(BreakableStatement *) override;
+    Result VisitTryCatchFinallyBlock(TryCatchFinallyBlock *) override;
 
     bool ShouldCaptureVar(Scope *owns, Value value);
     Result CaptureVar(const std::string &name, Scope *owns, Value value);

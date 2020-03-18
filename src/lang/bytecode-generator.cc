@@ -229,13 +229,8 @@ private:
 
 class BytecodeGenerator::BlockScope : public Scope {
 public:
-    BlockScope(Kind kind, Scope **current)
-        : Scope(kind, current) {
-        Enter();
-    }
-    ~BlockScope() override {
-        Exit();
-    }
+    inline BlockScope(Kind kind, Scope **current);
+    ~BlockScope() override;
     
     Value Find(const ASTString *name) override {
         if (auto iter = symbols_.find(name->ToString()); iter == symbols_.end()) {
@@ -255,6 +250,7 @@ private:
     std::map<std::string, Value> symbols_;
     BytecodeLabel retry_label_;
     BytecodeLabel out_label_;
+    StackSpaceAllocator::Level stack_level_{0, 0};
 }; // class BytecodeGenerator::BlockScope
 
 class BytecodeGenerator::FunctionScope : public BlockScope {
@@ -288,10 +284,16 @@ public:
         captured_vars_.push_back(desc);
         return cidx;
     }
+    
+    void AddExceptionHandler(const Class *expect_type, intptr_t start_pc, intptr_t stop_pc,
+                             intptr_t handler_pc) {
+        exception_handlers_.push_back({expect_type, start_pc, stop_pc, handler_pc});
+    }
 
     DEF_PTR_PROP_RW(FileUnit, file_unit);
     DEF_VAL_GETTER(std::vector<int>, source_lines);
     DEF_VAL_GETTER(std::vector<CapturedVarDesc>, captured_vars);
+    DEF_VAL_GETTER(std::vector<Function::ExceptionHandlerDesc>, exception_handlers);
     BytecodeArrayBuilder *builder() { return &builder_; }
     ConstantPoolBuilder *constants() { return &constants_; }
     StackSpaceAllocator *stack() { return &stack_; }
@@ -328,12 +330,29 @@ private:
     FileUnit *file_unit_;
     std::vector<int> source_lines_;
     std::vector<CapturedVarDesc> captured_vars_;
+    std::vector<Function::ExceptionHandlerDesc> exception_handlers_;
     BytecodeArrayBuilder builder_;
     ConstantPoolBuilder constants_;
     StackSpaceAllocator stack_;
     FunctionScope **current_fun_;
     FunctionScope *prev_fun_;
 }; // class BytecodeGenerator::FunctionScope
+
+
+inline BytecodeGenerator::BlockScope::BlockScope(Scope::Kind kind, Scope **current)
+    : Scope(kind, current) {
+    Enter();
+    if (kind != kFunctionScope) {
+        stack_level_ = GetFunctionScope()->stack()->level();
+    }
+}
+
+BytecodeGenerator::BlockScope::~BlockScope() /*override*/ {
+    if (kind() != kFunctionScope) {
+        GetFunctionScope()->stack()->set_level(stack_level_);
+    }
+    Exit();
+}
 
 using BValue = BytecodeGenerator::Value;
 
@@ -695,6 +714,10 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
     FunctionBuilder builder(name);
     for (auto var : scope->captured_vars()) {
         builder.AddCapturedVar(var.name, var.type, var.kind, var.index);
+    }
+    for (auto handler : scope->exception_handlers()) {
+        builder.AddExceptionHandle(handler.expected_type, handler.start_pc, handler.stop_pc,
+                                   handler.handler_pc);
     }
     return builder
         // TODO:
@@ -1668,7 +1691,8 @@ ASTVisitor::Result BytecodeGenerator::VisitStringLiteral(StringLiteral *ast) /*o
     return ResultWith(Value::kConstant, kType_string, index);
 }
 
-ASTVisitor::Result BytecodeGenerator::VisitBreakableStatement(BreakableStatement *ast) /*override*/ {
+ASTVisitor::Result BytecodeGenerator::VisitBreakableStatement(BreakableStatement *ast)
+/*override*/ {
     switch (ast->control()) {
         case BreakableStatement::THROW:
         case BreakableStatement::RETURN: {
@@ -1692,6 +1716,62 @@ ASTVisitor::Result BytecodeGenerator::VisitBreakableStatement(BreakableStatement
         default:
             NOREACHED();
             break;
+    }
+    return ResultWithVoid();
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyBlock *ast)
+/*override*/ {
+    ASTNode *dummy = ast;
+    intptr_t start_pc = current_fun_->builder()->pc();
+    BytecodeLabel finally;
+    if (ast->try_statements_size() > 0) {
+        BlockScope block_scope(Scope::kPlainBlockScope, &current_);
+        for (auto stmt : ast->try_statements()) {
+            if (auto rv = stmt->Accept(this); rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+            dummy = stmt;
+        }
+    }
+    intptr_t stop_pc = current_fun_->builder()->pc();
+    current_fun_->Incoming(dummy)->Goto(&finally, 0/*slot*/);
+    
+    for (auto block : ast->catch_blocks()) {
+        BlockScope block_scope(Scope::kPlainBlockScope, &current_);
+        intptr_t handler_pc = current_fun_->builder()->pc();
+        
+        auto rv = block->expected_declaration()->type()->Accept(this);
+        if (rv.kind == Value::kError) {
+            return ResultWithError();
+        }
+        const Class *clazz = metadata_space_->type(rv.bundle.type);
+        DCHECK(clazz->IsSameOrBaseOf(class_exception_->clazz()));
+        Value value{Value::kStack, clazz, current_fun_->stack()->ReserveRef()};
+        StaStack(clazz, value.index, block->expected_declaration());
+        block_scope.Register(block->expected_declaration()->identifier()->ToString(), value);
+        
+        dummy = block->expected_declaration();
+        for (auto stmt : block->statements()) {
+            if (auto rv = stmt->Accept(this); rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+            dummy = stmt;
+        }
+        current_fun_->Incoming(dummy)->Goto(&finally, 0/*slot*/);
+        current_fun_->AddExceptionHandler(clazz, start_pc, stop_pc, handler_pc);
+    }
+
+    if (!finally.unlinked_nodes().empty()) {
+        current_fun_->builder()->Bind(&finally);
+    }
+    if (ast->finally_statements_size() > 0) {
+        BlockScope block_scope(Scope::kPlainBlockScope, &current_);
+        for (auto stmt : ast->finally_statements()) {
+            if (auto rv = stmt->Accept(this); rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+        }
     }
     return ResultWithVoid();
 }

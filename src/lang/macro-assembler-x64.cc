@@ -324,7 +324,7 @@ void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
     __ movq(Argv_1, SCRATCH); // argv[1] = exception
     __ movl(Argv_2, Operand(rbp, BytecodeStackFrame::kOffsetPC));
     // Switch system stack and call a c++ function
-    __ SwitchSystemStackCall(arch::MethodAddress(&Function::DispatchException), switch_call);
+    __ InlineSwitchSystemStackCall(arch::MethodAddress(&Function::DispatchException));
     __ cmpl(rax, 0); // if (retval < 0)
     Label throw_again;
     __ j(Less, &throw_again, true/*is_far*/);
@@ -341,7 +341,7 @@ void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
     __ movq(rbx, Operand(CO, Coroutine::kOffsetCaught));
     __ movq(rax, Operand(rbx, kOffsetCaught_Next));
     __ movq(Operand(CO, Coroutine::kOffsetCaught), rax); // coroutine.caught = coroutine.caught.next
-    __ movq(rbx, Operand(rbx, kOffsetCaught_PC));
+    __ movq(rbx, Operand(rax, kOffsetCaught_PC));
     __ movq(rax, SCRATCH); // SCRATCH is saved to rax: current exception
     __ jmp(rbx); // throw again to prev handler
 

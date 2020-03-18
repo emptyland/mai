@@ -36,6 +36,7 @@ class DummyClass : public Any {
 public:
     DummyClass(const Class *clazz, uint32_t tags): Any(clazz, tags) {}
     
+    int32_t padding_;
     int8_t i8_1_;
     int8_t i8_2_;
     int16_t i16_1_;
@@ -598,40 +599,40 @@ TEST_F(CoroutineTest, NilPointerPanic) {
     isolate_->Run();
 }
 
-static void Dummy11(String *message) {
-    HandleScope handle_scpoe(HandleScope::INITIALIZER);
-
-    Local<Throwable> e(Exception::New(Local<String>(message), Local<Exception>::Null()));
-    if (e.is_empty()) {
-        return;
-    }
-    Throwable::Throw(e);
-}
-
-TEST_F(CoroutineTest, ThrowUserException) {
-    HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    BytecodeArrayBuilder builder(arena_);
-    builder.Add<kCheckStack>();
-
-    builder.Add<kLdaConstPtr>(2);
-    builder.Add<kStarPtr>(stack_offset(kStackSize + 8));
-
-    builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(kPointerSize);
-    builder.Add<kReturn>();
-
-    Local<Closure> dummy(FunctionTemplate::New(Dummy11));
-    Span32 span;
-    span.ptr[0].any = *dummy;
-    span.ptr[1].any = *String::NewUtf8("Test exception");
-
-    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
-    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
-    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
-    scheduler_->machine(0)->PostRunnable(co);
-
-    isolate_->Run();
-}
+//static void Dummy11(String *message) {
+//    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+//
+//    Local<Throwable> e(Exception::New(Local<String>(message), Local<Exception>::Null()));
+//    if (e.is_empty()) {
+//        return;
+//    }
+//    Throwable::Throw(e);
+//}
+//
+//TEST_F(CoroutineTest, ThrowUserException) {
+//    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+//    BytecodeArrayBuilder builder(arena_);
+//    builder.Add<kCheckStack>();
+//
+//    builder.Add<kLdaConstPtr>(2);
+//    builder.Add<kStarPtr>(stack_offset(kStackSize + 8));
+//
+//    builder.Add<kLdaConstPtr>(0);
+//    builder.Add<kCallNativeFunction>(kPointerSize);
+//    builder.Add<kReturn>();
+//
+//    Local<Closure> dummy(FunctionTemplate::New(Dummy11));
+//    Span32 span;
+//    span.ptr[0].any = *dummy;
+//    span.ptr[1].any = *String::NewUtf8("Test exception");
+//
+//    Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
+//    Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
+//    co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
+//    scheduler_->machine(0)->PostRunnable(co);
+//
+//    isolate_->Run();
+//}
 
 TEST_F(CoroutineTest, NewChannel) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);

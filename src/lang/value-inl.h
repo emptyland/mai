@@ -167,10 +167,6 @@ inline void Throwable::QuickSetStacktrace(Array<String *> *stacktrace) {
 
 inline String *Panic::quickly_message() const { return message_; }
 
-inline String *Exception::quickly_message() const { return message_; }
-
-inline Exception *Exception::quickly_cause() const { return cause_; }
-
 inline String *IncrementalStringBuilder::QuickBuild() const { return Finish(); }
 
 } // namespace lang

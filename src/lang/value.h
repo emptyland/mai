@@ -554,42 +554,6 @@ private:
     String *message_; // [strong ref] Message of error
 }; // class Panic
 
-
-// All Exception's base class
-class Exception : public Throwable {
-public:
-    static const int32_t kOffsetMessage;
-    static const int32_t kOffsetCause;
-    
-    // Message of exception information
-    Local<String> message() const { return Local<String>(message_); }
-    
-    // Cause of exception
-    Local<Exception> cause() const { return Local<Exception>(cause_); }
-
-    // Internal functions
-    inline String *quickly_message() const;
-    inline Exception *quickly_cause() const;
-
-    // New a panic
-    static Local<Exception> New(Handle<String> message, Handle<Exception> cause) {
-        Local<Throwable> throwable(NewException(*message, *cause));
-        if (throwable.is_empty()) {
-            return Local<Exception>::Empty();
-        }
-        return Local<Exception>(static_cast<Exception *>(*throwable));
-    }
-    
-    friend class Machine;
-private:
-    Exception(const Class *clazz, Array<String *> *stacktrace, Exception *cause, String *message,
-              uint32_t tags);
-
-    Exception *cause_; // [strong ref] cause exception
-    String *message_; // [strong ref] Message of error
-}; // class Exception
-
-
 // String builder
 class IncrementalStringBuilder {
 public:

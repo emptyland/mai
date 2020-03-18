@@ -176,7 +176,7 @@ TEST_F(TypeCheckerTest, ClassDefinitionFieldPerm) {
     
     auto clazz = sym->AsClassDefinition();
     ASSERT_NE(nullptr, clazz->base());
-    ASSERT_STREQ("Any", clazz->base()->identifier()->data());
+    ASSERT_STREQ("Object", clazz->base()->identifier()->data());
 }
 
 TEST_F(TypeCheckerTest, InterfaceSanity) {

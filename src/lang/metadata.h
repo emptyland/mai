@@ -96,9 +96,10 @@ public:
     inline const Method *method(uint32_t i) const;
     inline void set_method_function(uint32_t i, Closure *fn);
     
-    bool IsSameOrBaseOf(const Class *base) { return IsSameOf(base) || IsBaseOf(base); }
+    bool IsSameOrBaseOf(const Class *base) const { return IsSameOf(base) || IsBaseOf(base); }
     bool IsSameOf(const Class *base) const { return this == DCHECK_NOTNULL(base); }
     inline bool IsBaseOf(const Class *base) const;
+    inline int GetSameOrBaseOf(const Class *base) const;
         
     friend class ClassBuilder;
     friend class MetadataSpace;
@@ -490,6 +491,16 @@ inline bool Class::IsBaseOf(const Class *base) const {
         }
     }
     return false;
+}
+
+inline int Class::GetSameOrBaseOf(const Class *base) const {
+    int level = 1;
+    for (const Class *clazz = this; clazz; clazz = clazz->base(), level++) {
+        if (clazz == base) {
+            return level;
+        }
+    }
+    return 0;
 }
 
 inline int SourceLineInfo::FindSourceLine(intptr_t pc) const {
