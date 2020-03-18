@@ -93,7 +93,7 @@ void Coroutine::Uncaught(Throwable *thrown) {
             should_print_stackstrace = false;
         }
     } else {
-        DCHECK(thrown->clazz()->IsSameOrBaseOf(STATE->builtin_type(kType_Exception)));
+        DCHECK(thrown->clazz()->IsSameOrBaseOf(STATE->metadata_space()->class_exception()));
 
         should_print_stackstrace = true;
     }
@@ -113,15 +113,20 @@ void Coroutine::Uncaught(Throwable *thrown) {
         ::fprintf(stderr, "😱[Panic](%d) %s\n", error->code(), error->quickly_message()->data());
         thrown->PrintStackstrace(stderr);
     } else {
-        Exception *exception = static_cast<Exception *>(thrown);
-        ::fprintf(stderr, "🤔[Exception] %s\n", exception->quickly_message()->data());
-        exception->PrintStackstrace(stderr);
-
-        Exception *cause = exception->quickly_cause();
+        const Class *type = STATE->metadata_space()->class_exception();
+        const Field *msg_field = STATE->metadata_space()->FindClassFieldOrNull(type, "message");
+        
+        const String *message = thrown->UnsafeGetField<const String *>(DCHECK_NOTNULL(msg_field));
+        ::fprintf(stderr, "🤔[Exception] %s\n", message->data());
+        thrown->PrintStackstrace(stderr);
+        
+        const Field *cause_field = STATE->metadata_space()->FindClassFieldOrNull(type, "cause");
+        Throwable *cause = thrown->UnsafeGetField<Throwable *>(DCHECK_NOTNULL(cause_field));
         while (cause) {
-            ::fprintf(stderr, "🔗Cause: [Exception] %s\n", exception->quickly_message()->data());
+            message = cause->UnsafeGetField<const String *>(DCHECK_NOTNULL(msg_field));
+            ::fprintf(stderr, "🔗Cause: [Exception] %s\n", message->data());
             cause->PrintStackstrace(stderr);
-            cause = cause->quickly_cause();
+            cause = cause->UnsafeGetField<Throwable *>(DCHECK_NOTNULL(cause_field));
         }
     }
 }

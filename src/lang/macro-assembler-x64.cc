@@ -287,6 +287,7 @@ void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
     __ pushq(rbp);
     __ movq(rbp, rsp);
 
+    //__ Breakpoint();
     __ movq(SCRATCH, Operand(Argv_0, Closure::kOffsetProto)); // SCRATCH = callee->mai_fn
     // rsp -= mai_fn->stack_size and keep rbp
     __ movl(rbx, Operand(SCRATCH, Function::kOffsetStackSize));
@@ -858,7 +859,8 @@ public:
     }
     
     void EmitStaPropertyPtr(MacroAssembler *masm) override {
-        __ Abort("TODO: Write barrier");
+        // TODO: __ Abort("TODO: Write barrier");
+        EmitStaProperty64(masm);
     }
     
     void EmitStaPropertyf32(MacroAssembler *masm) override {
@@ -1345,6 +1347,7 @@ public:
         __ andl(rbx, 0xfffffff0); // ebx &= -16
         __ subq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
 
+        //__ Breakpoint();
         __ movq(Argv_0, ACC);
         __ movq(SCRATCH, space_->interpreter_pump_code()->entry());
         __ call(SCRATCH);
@@ -1418,7 +1421,7 @@ public:
         __ Bind(&ok);
     }
     
-    // Close ---------------------------------------------------------------------------------------
+    // Others ---------------------------------------------------------------------------------------
     void EmitClose(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
@@ -1426,7 +1429,7 @@ public:
         __ movl(Argv_1, 0); // flags
         __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::CloseFunction));
     }
-    
+
     void EmitContact(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
         __ movq(Argv_0, rsp);
@@ -1434,7 +1437,31 @@ public:
         __ movq(Argv_1, rsp);
         __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::StringContact));
     }
-    
+
+    void EmitThrow(MacroAssembler *masm) override {
+        InstrBaseScope instr_scope(masm);
+        __ cmpq(ACC, 0);
+        Label ok;
+        __ j(NotEqual, &ok, false/*is_far*/);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic));
+        __ Throw(SCRATCH, rbx);
+
+        __ Bind(&ok);
+        __ movq(Argv_0, ACC);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::MakeStacktrace));
+        __ cmpq(ACC, 0);
+        Label done;
+        __ j(NotEqual, &done, false/*is_far*/);
+
+        // TODO: OOM
+        __ nop();
+//        __ SaveState0(SCRATCH);
+//        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetSysPC)); // SCRATCH = suspend point
+//        __ jmp(SCRATCH); // Jump to suspend point
+
+        __ Bind(&done);
+        __ Throw(SCRATCH, rbx);
+    }
 private:
     void EmitCompare32(MacroAssembler *masm, Cond cond) {
         InstrStackABScope instr_scope(masm);

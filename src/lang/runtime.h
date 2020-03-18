@@ -113,6 +113,9 @@ struct Runtime {
     static Throwable *NewNilPointerPanic();
     static Throwable *NewStackoverflowPanic();
     
+    // Make current stackstrace
+    static Throwable *MakeStacktrace(Throwable *expect);
+    
     // Close Function and make a closure
     static Closure *CloseFunction(Function *func, uint32_t flags);
     

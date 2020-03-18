@@ -532,6 +532,8 @@ bool BytecodeGenerator::Generate() {
     generated_init0_fun_ = BuildFunction("init0", &function_scope);
     isolate_->SetGlobalSpace(global_space_.TakeSpans(), global_space_.TakeBitmap(),
                              global_space_.capacity(), global_space_.length());
+    isolate_->metadata_space()->InvalidateAllLookupTables();
+    isolate_->metadata_space()->InvalidateLanguageClasses();
     
     for (auto &pair : path_units_) {
         for (auto unit : pair.second) {
@@ -736,14 +738,15 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
     ClassBuilder builder(name);
 
     uint32_t offset = 0;
+    const Class *base = nullptr;
     if (ast == class_object_) {
-        builder.base(metadata_space_->builtin_type(kType_any));
+        base = metadata_space_->builtin_type(kType_any);
         offset = metadata_space_->builtin_type(kType_any)->instrance_size();
     } else if (ast == class_exception_) {
-        builder.base(metadata_space_->builtin_type(kType_Throwable));
+        base = metadata_space_->builtin_type(kType_Throwable);
         offset = metadata_space_->builtin_type(kType_Throwable)->instrance_size();
     } else {
-        builder.base(DCHECK_NOTNULL(ast->base())->clazz());
+        base = DCHECK_NOTNULL(ast->base())->clazz();
         offset = ast->base()->clazz()->instrance_size();
     }
     
@@ -795,12 +798,13 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
         .End();
     }
 
-    Function *ctor = GenerateClassConstructor(fields_desc, ast);
+    Function *ctor = GenerateClassConstructor(fields_desc, base, ast);
     if (!ctor) {
         return ResultWithError();
     }
     builder
         .tags(Type::kReferenceTag)
+        .base(base)
         .reference_size(kPointerSize)
         .instrance_size(offset)
         .init(Machine::This()->NewClosure(ctor, 0, Heap::kMetadata))
@@ -1069,7 +1073,7 @@ Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool
 }
 
 Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDesc> &fields_desc,
-                                                      ClassDefinition *ast) {
+                                                      const Class *base, ClassDefinition *ast) {
     FunctionScope function_scope(arena_, current_file_->file_unit(), &current_, &current_fun_);
     current_fun_->Incoming(ast)->Add<kCheckStack>();
     
@@ -1154,14 +1158,16 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
             params.push_back(metadata_space_->type(rv.bundle.index));
         }
         int arg_size = GenerateArguments(ast->arguments(), params, ast, self.index, false/*vargs*/);
-        const Class *base = DCHECK_NOTNULL(ast->clazz()->base());
-        int kidx = current_fun_->constants()->FindOrInsertClosure(DCHECK_NOTNULL(base->init())->fn());
-        current_fun_->Incoming(ast)->Add<kLdaConstPtr>(kidx);
+        Closure *ctor = DCHECK_NOTNULL(DCHECK_NOTNULL(base->init())->fn());
+        int kidx = current_fun_->constants()->FindOrInsertClosure(ctor);
+        current_fun_->Incoming(ast)->Add<kLdaConstPtr>(GetConstOffset(kidx));
         current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
     }
-    
-    // return self
-    LdaStack(ast->clazz(), self.index, ast);
+
+    if (ast->arguments().empty()) {
+        // return self
+        LdaStack(ast->clazz(), self.index, ast);
+    }
     current_fun_->Incoming(ast)->Add<kReturn>();
     return BuildFunction(ast->identifier()->ToString(), &function_scope);
 }

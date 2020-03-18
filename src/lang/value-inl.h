@@ -74,6 +74,12 @@ inline uint32_t Any::tags() const { return tags_; }
 
 inline bool Any::QuicklyIs(uint32_t type_id) const { return clazz()->id() == type_id; }
 
+template<class T>
+inline T Any::UnsafeGetField(const Field *field) const {
+    const void *addr = reinterpret_cast<const uint8_t *>(this) + field->offset();
+    return *static_cast<T const*>(addr);
+}
+
 template<class T, bool R>
 inline T Array<T, R>::quickly_get(size_t i) const {
     DCHECK_GE(i, 0);
@@ -153,6 +159,11 @@ inline CapturedValue *Closure::captured_var(uint32_t i) const {
 }
 
 inline Array<String *> *Throwable::stacktrace() const { return stacktrace_; }
+
+inline void Throwable::QuickSetStacktrace(Array<String *> *stacktrace) {
+    stacktrace_ = stacktrace;
+    WriteBarrier(reinterpret_cast<Any **>(&stacktrace_));
+}
 
 inline String *Panic::quickly_message() const { return message_; }
 

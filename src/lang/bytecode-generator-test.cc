@@ -217,6 +217,45 @@ TEST_F(BytecodeGeneratorTest, RunEmbedFunctionAndLambda) {
     //printf("%f\n", (env_->CurrentTimeMicros() - jiffies)/1000.0);
 }
 
+TEST_F(BytecodeGeneratorTest, ThrowCatchException) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto err = Parse("tests/lang/015-throw-catch-exception");
+    ASSERT_TRUE(err.ok()) << err.ToString();
+    ASSERT_TRUE(generator_->Prepare());
+    ASSERT_TRUE(generator_->Generate());
+    
+    base::StdFilePrinter printer(stdout);
+    
+    auto value = generator_->FindValue("main.main");
+    Local<Closure> main(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(main.is_value_not_null());
+    ASSERT_TRUE(main->is_mai_function());
+    ASSERT_FALSE(main->is_cxx_function());
+    main->function()->Print(&printer);
+    
+    auto clazz = isolate_->metadata_space()->FindClassOrNull("main.MyException");
+    ASSERT_NE(nullptr, clazz);
+    clazz->init()->fn()->function()->Print(&printer);
+    
+    clazz = isolate_->metadata_space()->FindClassOrNull("lang.Exception");
+    ASSERT_NE(nullptr, clazz);
+    clazz->init()->fn()->function()->Print(&printer);
+}
+
+TEST_F(BytecodeGeneratorTest, RunThrowCatchException) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/015-throw-catch-exception");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    
+    //auto jiffies = env_->CurrentTimeMicros();
+    isolate_->Run();
+    //printf("%f\n", (env_->CurrentTimeMicros() - jiffies)/1000.0);
+}
+
+// 015-throw-catch-exception
+
 } // namespace lang
 
 } // namespace mai

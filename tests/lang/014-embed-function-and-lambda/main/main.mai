@@ -11,7 +11,7 @@ fun doIt() {
 
 fun doThat() {
 	println("doThat:${self.j}")
-	assert(false, "")
+	//assert(false, "")
 }
 
 } // implements Foo

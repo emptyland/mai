@@ -1,0 +1,9 @@
+package main
+
+class MyException(message: string, cause: Exception): Exception(message, cause)
+
+fun main() {
+	throw MyException("my error", nil)
+}
+
+

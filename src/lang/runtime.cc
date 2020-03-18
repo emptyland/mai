@@ -233,6 +233,16 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
                                      0);
 }
 
+/*static*/ Throwable *Runtime::MakeStacktrace(Throwable *expect) {
+    Address frame_bp = TLS_STORAGE->coroutine->bp1();
+    Array<String *> *stackstrace = Throwable::MakeStacktrace(frame_bp);
+    if (!stackstrace) {
+        return nullptr;
+    }
+    DCHECK_NOTNULL(expect)->QuickSetStacktrace(stackstrace);
+    return expect;
+}
+
 /*static*/ Closure *Runtime::CloseFunction(Function *func, uint32_t flags) {
     return Machine::This()->CloseFunction(func, flags);
 }

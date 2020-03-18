@@ -149,7 +149,11 @@ void Throwable::PrintStackstrace(FILE *file) const {
     
 out:
     Array<String *> *trace =
-        static_cast<Array<String *> *>(Machine::This()->NewArray(kType_array, lines.size(), lines.size(), 0/*flags*/));
+        static_cast<Array<String *> *>(Machine::This()->NewArray(kType_array, lines.size(),
+                                                                 lines.size(), 0/*flags*/));
+    if (!trace) {
+        return nullptr;
+    }
     for (size_t i = 0; i < lines.size(); i++) {
         trace->quickly_set_nobarrier(i, lines[i]);
     }

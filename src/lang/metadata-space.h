@@ -58,6 +58,9 @@ public:
     
     DEF_VAL_GETTER(size_t, used_size);
     
+    // Language Classes:
+    DEF_PTR_GETTER_NOTNULL(const Class, class_object);
+    DEF_PTR_GETTER_NOTNULL(const Class, class_exception);
     // Builtin Code:
     DEF_PTR_GETTER_NOTNULL(Code, switch_system_stack_call_code);
     DEF_PTR_GETTER_NOTNULL(Code, function_template_dummy_code);
@@ -116,9 +119,19 @@ public:
     }
 
     void InvalidateAllLookupTables() {
-        std::lock_guard<std::shared_mutex> lock(class_fields_mutex_);
-        named_class_fields_.clear();
+        {
+            std::lock_guard<std::shared_mutex> lock(class_fields_mutex_);
+            named_class_fields_.clear();
+        } {
+            std::lock_guard<std::shared_mutex> lock(class_methods_mutex_);
+            named_class_methods_.clear();
+        }
         // TODO:
+    }
+    
+    void InvalidateLanguageClasses() {
+        class_object_ = DCHECK_NOTNULL(FindClassOrNull("lang.Object"));
+        class_exception_ = DCHECK_NOTNULL(FindClassOrNull("lang.Exception"));
     }
     
     Class *PrepareClass(const std::string &name, uint32_t tags, uint32_t reference_size) {
@@ -204,6 +217,10 @@ private:
     ClassMethodMap named_class_methods_;
     std::shared_mutex class_fields_mutex_;
     std::shared_mutex class_methods_mutex_;
+    
+    // Language classes:
+    const Class *class_object_ = nullptr;
+    const Class *class_exception_ = nullptr;
     
     // Builtin codes:
     Code *bytecode_handlers_[kMax_Bytecodes]; // Bytecode handler array

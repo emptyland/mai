@@ -123,7 +123,7 @@ private:
     SourceLocation FindSourceLocation(const ASTNode *ast);
     
     Function *GenerateLambdaLiteral(const std::string &name, bool is_method, LambdaLiteral *ast);
-    Function *GenerateClassConstructor(const std::vector<FieldDesc> &fields_desc,
+    Function *GenerateClassConstructor(const std::vector<FieldDesc> &fields_desc, const Class *base,
                                        ClassDefinition *ast);
     Result GenerateRegularCalling(CallExpression *ast);
     Result GenerateMethodCalling(Value primary, CallExpression *ast);
