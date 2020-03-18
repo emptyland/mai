@@ -85,6 +85,9 @@ int32_t Function::DispatchException(Any *exception, int32_t pc) {
     int min_level = 0x7fffffff, handler_pc = -1;
     for (uint32_t i = 0; i < exception_table_size_; i++) {
         const ExceptionHandlerDesc *handler = exception_table_ + i;
+        if (pc < handler->start_pc || pc > handler->stop_pc) {
+            continue;
+        }
         if (auto level = exception->clazz()->GetSameOrBaseOf(handler->expected_type); level > 0) {
             if (level < min_level) {
                 min_level = level;
