@@ -318,11 +318,14 @@ void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
     __ LandingPatch(20);
 
     // exception_dispatch: -------------------------------------------------------------------------
+    __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetCaught));
+    __ movq(rbp, Operand(SCRATCH, kOffsetCaught_BP));
+    __ movq(rsp, Operand(SCRATCH, kOffsetCaught_SP)); // Recover BP and SP first
     __ movq(SCRATCH, rax); // SCRATCH will be protectd by SwitchSystemStackCall
     __ movq(Argv_0, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
     __ movq(Argv_0, Operand(Argv_0, Closure::kOffsetProto));
     __ movq(Argv_1, SCRATCH); // argv[1] = exception
-    __ movl(Argv_2, Operand(rbp, BytecodeStackFrame::kOffsetPC));
+    __ movl(Argv_2, Operand(rbp, BytecodeStackFrame::kOffsetPC)); // argv[2] = pc
     // Switch system stack and call a c++ function
     __ InlineSwitchSystemStackCall(arch::MethodAddress(&Function::DispatchException));
     __ cmpl(rax, 0); // if (retval < 0)
@@ -330,9 +333,6 @@ void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
     __ j(Less, &throw_again, true/*is_far*/);
     // Do dispatch: rax is destination pc
     __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rax); // Update PC
-    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtPoint));
-    __ movq(rbp, Operand(SCRATCH, kOffsetCaught_BP));
-    __ movq(rsp, Operand(SCRATCH, kOffsetCaught_SP));
     __ StartBC();
 
     // throw_again: --------------------------------------------------------------------------------
@@ -1455,9 +1455,6 @@ public:
 
         // TODO: OOM
         __ nop();
-//        __ SaveState0(SCRATCH);
-//        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetSysPC)); // SCRATCH = suspend point
-//        __ jmp(SCRATCH); // Jump to suspend point
 
         __ Bind(&done);
         __ Throw(SCRATCH, rbx);

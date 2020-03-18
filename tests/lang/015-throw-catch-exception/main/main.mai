@@ -6,14 +6,19 @@ class MeException(message: string, cause: Exception): Exception(message, cause)
 fun main() {
 	//throw MyException("my error", nil)
 	try {
-		throw MeException("my error", nil)
-	} catch (e: MyException) {
+		foo()
+	} catch (e: Exception) {
 		println('Handler my')
+		throw MyException('nested', nil)
 	} catch (e: MeException) {
 		println('Handler me')
 	} finally {
 		println('finally')
 	}
+}
+
+fun foo() {
+	throw MeException("my error", nil)
 }
 
 
