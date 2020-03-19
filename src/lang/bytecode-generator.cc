@@ -517,7 +517,7 @@ bool BytecodeGenerator::Prepare() {
 bool BytecodeGenerator::Generate() {
     //base::StandaloneArena arena(isolate_->env()->GetLowLevelAllocator());
     FunctionScope function_scope(arena_, nullptr, &current_, &current_fun_);
-
+    current_init0_fun_ = &function_scope;
     function_scope.IncomingWithLine(0)->Add<kCheckStack>();
     
     for (auto pair : pkg_units_) {
@@ -529,6 +529,7 @@ bool BytecodeGenerator::Generate() {
             function_scope.set_file_unit(unit);
 
             if (!GenerateUnit(pkg_name, unit)) {
+                current_init0_fun_ = nullptr;
                 return false;
             }
         }
@@ -537,6 +538,7 @@ bool BytecodeGenerator::Generate() {
     Value fun_main_main = FindValue("main.main");
     if (fun_main_main.linkage == Value::kError) {
         error_feedback_->DidFeedback("Unservole 'main.main' entery function");
+        current_init0_fun_ = nullptr;
         return false;
     }
     DCHECK_EQ(Value::kGlobal, fun_main_main.linkage);
@@ -560,6 +562,7 @@ bool BytecodeGenerator::Generate() {
             unit->set_scope(nullptr);
         }
     }
+    current_init0_fun_ = nullptr;
     return true;
 }
 
@@ -672,22 +675,25 @@ bool BytecodeGenerator::GenerateSymbolDependence(Symbolize *ast) {
         return ast->Accept(this).kind != Value::kError;
     }
     
+    bool ok = true;
     FileScope *saved_file = current_file_;
     Scope *saved_current = current_;
-    //DCHECK_EQ(saved_file, current_);
+    FunctionScope *saved_fun = current_fun_;
+    current_fun_ = current_init0_fun_;
     current_file_ = nullptr;
     current_ = nullptr;
     {
         FileScope::Holder file_holder(ast->file_unit()->scope());
         DCHECK_NOTNULL(current_fun_)->set_file_unit(ast->file_unit());
         if (auto rv = ast->Accept(this); rv.kind == Value::kError) {
-            return false;
+            ok = false;
         }
     }
-    current_file_ = saved_file;
     current_ = saved_current;
+    current_file_ = saved_file;
+    current_fun_ = saved_fun;
     DCHECK_NOTNULL(current_fun_)->set_file_unit(saved_file->file_unit());
-    return true;
+    return ok;
 }
 
 Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScope *scope) {
@@ -798,13 +804,21 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
         const Class *field_class = metadata_space_->type(rv.bundle.index);
         if ((offset + field_class->reference_size()) % 2 == 0) {
             field_offset = offset;
-            offset += field_class->reference_size();
         } else {
             field_offset = RoundUp(offset, 2);
+        }
+        field_builder
+            .type(field_class)
+            .offset(field_offset)
+            .tag(tag++)
+            .flags(flags)
+        .End();
+        fields_desc.push_back({field.declaration->identifier(), field_class, field_offset});
+        if ((offset + field_class->reference_size()) % 2 == 0) {
+            offset += field_class->reference_size();
+        } else {
             offset = field_offset + field_class->reference_size();
         }
-        field_builder.type(field_class).offset(field_offset).tag(tag++).flags(flags).End();
-        fields_desc.push_back({field.declaration->identifier(), field_class, field_offset});
     }
     
     for (auto method : ast->methods()) {
@@ -1332,6 +1346,8 @@ ASTVisitor::Result BytecodeGenerator::VisitDotExpression(DotExpression *ast) /*o
 ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTemplateExpression *ast)
 /*override*/ {
     StackSpaceAllocator::Scope stack_scope(current_fun_->stack());
+    
+    const Class *type = metadata_space_->builtin_type(kType_string);
     std::vector<Value> parts;
     for (auto part : ast->operands()) {
         Result rv;
@@ -1347,26 +1363,24 @@ ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTempla
                 return ResultWithError();
             }
         }
+
         const Class *clazz = metadata_space_->type(rv.bundle.type);
-        if (clazz->id() == kType_string && rv.kind != Value::kStack) {
-            Value value{static_cast<Value::Linkage>(rv.kind), clazz, rv.bundle.index};
-            parts.push_back(value);
-            continue;
+        Value value{Value::kStack, clazz, current_fun_->stack()->ReserveRef()};
+        if (clazz->id() == kType_string) {
+            MoveToStackIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                                value.index, part);
+        } else {
+            ToStringIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), part);
+            StaStack(type, value.index, part);
         }
-        ToStringIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), part);
-        int index = current_fun_->stack()->ReserveRef();
-        const Class *type = metadata_space_->builtin_type(kType_string);
-        StaStack(type, index, part);
-        Value value{Value::kStack, type, index};
         parts.push_back(value);
     }
-    
+
     int argument_offset = 0;
-    for(auto part : parts) {
-        argument_offset += kPointerSize; // Must be string
-        MoveToArgumentIfNeeded(part.type, part.index, part.linkage, argument_offset, ast);
+    for (auto part : parts) {
+        argument_offset += kPointerSize;
+        MoveToArgumentIfNeeded(type, part.index, part.linkage, argument_offset, ast);
     }
-    
     current_fun_->Incoming(ast)->Add<kContact>(argument_offset);
     return ResultWith(Value::kACC, kType_string, 0);
 }
@@ -1919,15 +1933,17 @@ ASTVisitor::Result BytecodeGenerator::GenerateDotExpression(const Class *clazz, 
                                                             DotExpression *ast) {
     const Field *field = metadata_space_->FindClassFieldOrNull(clazz, ast->rhs()->data());
     if (field) {
-        if (linkage != Value::kACC) {
-            LdaIfNeeded(clazz, index, linkage, ast);
+        int self = 0;
+        if (linkage == Value::kStack) {
+            self = index;
+        } else {
+            self = current_fun_->stack()->ReserveRef();
+            MoveToStackIfNeeded(clazz, index, linkage, self, ast);
         }
         DCHECK(clazz->is_reference());
-        int self = current_fun_->stack()->ReserveRef();
-        StaStack(clazz, self, ast);
-        
+    
         if (field->type()->is_reference()) {
-            current_fun_->Incoming(ast)->Add<kLdaPropertyPtr>(self, field->offset());
+            current_fun_->Incoming(ast)->Add<kLdaPropertyPtr>(GetStackOffset(self), field->offset());
             return ResultWith(Value::kACC, field->type()->id(), 0);
         }
         

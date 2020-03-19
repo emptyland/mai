@@ -8,8 +8,8 @@ fun main() {
 	try {
 		foo()
 	} catch (e: Exception) {
-		println('Handler my')
-		throw MyException('nested', nil)
+		println("Handler my:${e.message}")
+		throw MyException('nested', e)
 	} catch (e: MeException) {
 		println('Handler me')
 	} finally {
@@ -18,7 +18,7 @@ fun main() {
 }
 
 fun foo() {
-	throw MeException("my error", nil)
+	throw Exception("my error", nil)
 }
 
 

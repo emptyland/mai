@@ -182,6 +182,7 @@ private:
     std::unordered_set<void *> symbol_trace_;
     base::Arena *arena_;
     GlobalSpaceBuilder global_space_;
+    FunctionScope *current_init0_fun_ = nullptr;
     FunctionScope *current_fun_ = nullptr;
     ClassScope    *current_class_ = nullptr;
     FileScope     *current_file_ = nullptr;

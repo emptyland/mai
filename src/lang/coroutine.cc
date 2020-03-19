@@ -121,7 +121,7 @@ void Coroutine::Uncaught(Throwable *thrown) {
     const String *message = thrown->UnsafeGetField<const String *>(DCHECK_NOTNULL(msg_field));
     ::fprintf(stderr, "🤔[Exception] %s\n", message->data());
     thrown->PrintStackstrace(stderr);
-    
+
     const Field *cause_field = STATE->metadata_space()->FindClassFieldOrNull(type, "cause");
     Throwable *cause = thrown->UnsafeGetField<Throwable *>(DCHECK_NOTNULL(cause_field));
     while (cause) {

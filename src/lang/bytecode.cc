@@ -150,7 +150,7 @@ void BytecodeNode::PrintParam(base::AbstractPrinter *output, BytecodeParam::Kind
             output->Printf("UP[%d]", param);
             break;
         case BytecodeParam::kAddressOffset:
-            output->Printf("@%x", param);
+            output->Printf("@%d", param);
             break;
         case BytecodeParam::kImmediate:
             output->Printf("#%d", param);

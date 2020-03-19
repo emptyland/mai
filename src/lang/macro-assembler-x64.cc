@@ -333,6 +333,7 @@ void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
     __ j(Less, &throw_again, true/*is_far*/);
     // Do dispatch: rax is destination pc
     __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rax); // Update PC
+    __ movq(rax, SCRATCH); // Recover saved exception
     __ StartBC();
 
     // throw_again: --------------------------------------------------------------------------------
@@ -1432,6 +1433,7 @@ public:
 
     void EmitContact(MacroAssembler *masm) override {
         InstrImmAScope instr_scope(masm);
+        //__ Breakpoint();
         __ movq(Argv_0, rsp);
         __ subq(Argv_0, rbx);
         __ movq(Argv_1, rsp);

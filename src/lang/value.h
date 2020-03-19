@@ -93,7 +93,7 @@ protected:
         , capacity_(capacity)
         , length_(length) {
     }
-    
+
     static AbstractArray *NewArray(BuiltinType type, size_t length);
 
     static AbstractArray *NewArrayCopied(const AbstractArray *origin, size_t increment);

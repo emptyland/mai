@@ -101,6 +101,7 @@ static inline AbstractValue *ValueOf(intptr_t input) {
     return Machine::This()->NewUtf8StringWithFormat(0, "%f", value);
 }
 
+// Safepoint
 /*static*/ String *Runtime::StringContact(String **parts, String **end) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
     IncrementalStringBuilder builder;
