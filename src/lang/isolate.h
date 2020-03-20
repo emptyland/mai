@@ -23,6 +23,7 @@ class Scheduler;
 class Machine;
 class Class;
 class AbstractValue;
+class RootVisitor;
 struct NumberValueSlot;
 struct TLSStorage;
 struct GlobalHandleNode;
@@ -35,7 +36,6 @@ struct Options {
     std::string base_pkg_dir = "src/lang/pkg"; // Language base pkg path
     std::set<std::string> search_pkg_dir;
 };
-
 
 // The virtual machine isolate object:
 class Isolate final {
@@ -99,6 +99,8 @@ private:
     void Enter();
     void Exit();
     
+    void VisitRoot(RootVisitor *visitor);
+    
     inline GlobalHandleNode *NewGlobalHandle(const void *pointer);
     inline void DeleteGlobalHandle(GlobalHandleNode *node);
     inline int GetNumberOfGlobalHandles() const;
@@ -123,7 +125,7 @@ private:
     size_t global_space_capacity_ = 0; // Capacity of global space
     size_t global_space_length_ = 0; // Length of global space
     
-    GlobalHandleNode *persistent_dummy_; // Global handle double-linked list dummy
+    GlobalHandleNode *persistent_dummy_; // [in strong ref] Global handle double-linked list dummy
     int n_global_handles_ = 0; // Number of global handles
     mutable std::mutex persistent_mutex_; // Mutex for persistent_dummy_
     

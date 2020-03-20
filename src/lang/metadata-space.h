@@ -15,6 +15,8 @@ namespace mai {
 
 namespace lang {
 
+class RootVisitor;
+
 class MetadataSpace final : public Space {
 public:
     MetadataSpace(Allocator *lla);
@@ -22,6 +24,8 @@ public:
     
     // Init builtin types
     Error Initialize();
+    
+    void VisitRoot(RootVisitor *visitor);
     
     const Field *FindClassFieldOrNull(const Class *clazz, const char *field_name);
     

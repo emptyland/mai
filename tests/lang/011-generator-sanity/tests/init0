@@ -1,0 +1,30 @@
++-------------------------------
+| init0():void
++-------------------------------
+stack-size: 80
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 18
+souce-file-name: src/lang/pkg/mai/runtime/runtime.mai
+bytecode-size: 18
+bytecode: 
+    000 CheckStack; (0)
+    001 LdaGlobalPtr [GS+156]; (7)
+    002 StaGlobalPtr [GS+120]; (7)
+    003 LdaGlobalPtr [GS+120]; (19)
+    004 StaGlobalPtr [GS+144]; (19)
+    005 LdaGlobalf32 [GS+0]; (20)
+    006 StaGlobalf32 [GS+152]; (20)
+    007 LdaConstPtr [KP+32]; (4)
+    008 StarPtr [BP-72]; (4)
+    009 LdaGlobalPtr [GS+156]; (4)
+    010 StarPtr [BP-80]; (4)
+    011 MovePtr [BP-88], [BP-72]; (4)
+    012 MovePtr [BP-96], [BP-80]; (4)
+    013 Contact #16; (4)
+    014 StaGlobalPtr [GS+164]; (4)
+    015 LdaGlobalPtr [GS+104]; (1)
+    016 CallBytecodeFunction #0; (1)
+    017 Return; (1)

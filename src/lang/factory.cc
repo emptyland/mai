@@ -2,6 +2,7 @@
 #include "lang/isolate-inl.h"
 #include "lang/heap.h"
 #include "lang/scheduler.h"
+#include "lang/object-visitor.h"
 
 namespace mai {
 
@@ -49,6 +50,19 @@ void Factory::Initialize() {
         int8_t true_val = 1;
         val = m0->NewNumber(kType_bool, &true_val, 1, Heap::kOld);
         cached_number_slot(kType_bool)->values[1].store(val);
+    }
+}
+
+void Factory::VisitRoot(RootVisitor *visitor) {
+#define DEFINE_VISIT(name, ...) visitor->VisitRootPointer(reinterpret_cast<Any **>(&name##_));
+    DECLARE_FACTORY_VALUES(DEFINE_VISIT)
+#undef DEFINE_VISIT
+    
+    for (int i = 1/*skip void type*/; i < NumberValueSlot::kMaxSlots; i++) {
+        NumberValueSlot *slot = cached_number_slot(i);
+        Any **begin = reinterpret_cast<Any **>(slot->values);
+        Any **end = reinterpret_cast<Any **>(slot->values + kNumberOfCachedNumberValues);
+        visitor->VisitRootPointers(begin, end);
     }
 }
 

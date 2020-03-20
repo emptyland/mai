@@ -334,6 +334,7 @@
 		232AA248219432BB007EF228 /* slice.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = slice.cc; sourceTree = "<group>"; };
 		232AA24B21943B88007EF228 /* filter-block-builder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "filter-block-builder.h"; sourceTree = "<group>"; };
 		232AA24C219440F5007EF228 /* filter-block-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "filter-block-builder-test.cc"; sourceTree = "<group>"; };
+		232C0DBA242470C50088BF79 /* object-visitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "object-visitor.h"; sourceTree = "<group>"; };
 		232E1E6D21A2578000F408D7 /* version-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "version-test.cc"; sourceTree = "<group>"; };
 		232E1E7021A2C0C200F408D7 /* factory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = factory.h; sourceTree = "<group>"; };
 		232E1E7121A2C0FC00F408D7 /* factory.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = factory.cc; sourceTree = "<group>"; };
@@ -727,6 +728,7 @@
 				23048450240CBB5900480C15 /* bytecode-generator.cc */,
 				23048452240CF6AD00480C15 /* stable-space-builder.h */,
 				23048453240D050700480C15 /* stable-space-builder.cc */,
+				232C0DBA242470C50088BF79 /* object-visitor.h */,
 			);
 			name = lang;
 			path = src/lang;

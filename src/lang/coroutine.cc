@@ -3,6 +3,7 @@
 #include "lang/scheduler.h"
 #include "lang/heap.h"
 #include "lang/stack.h"
+#include "lang/object-visitor.h"
 #include "asm/utils.h"
 
 namespace mai {
@@ -134,6 +135,18 @@ void Coroutine::Uncaught(Throwable *thrown) {
 
 void Coroutine::Suspend(intptr_t /*acc*/, double /*facc*/) {
     // TODO:
+}
+
+void Coroutine::VisitRoot(RootVisitor *visitor) {
+    if (entry_) {
+        visitor->VisitRootPointer(reinterpret_cast<Any **>(&entry_));
+    }
+    if (exception_) {
+        visitor->VisitRootPointer(reinterpret_cast<Any **>(&exception_));
+    }
+
+    // TODO: Visit STACK
+    TODO();
 }
 
 } // namespace lang

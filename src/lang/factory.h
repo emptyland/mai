@@ -21,6 +21,8 @@ namespace lang {
     V(new_coroutine_error_text, String) \
     V(oom_panic, Panic)
 
+class RootVisitor;
+
 struct NumberValueSlot {
     enum Index {
         kIndexUnused, // Skip type: void
@@ -45,6 +47,8 @@ public:
 
     void Initialize();
     
+    void VisitRoot(RootVisitor *visitor);
+    
     NumberValueSlot *cached_number_slot(int index) {
         DCHECK_GT(index, NumberValueSlot::kIndexUnused);
         DCHECK_LT(index, NumberValueSlot::kMaxSlots);
@@ -67,7 +71,7 @@ private:
 #undef  DEFINE_VALUE
     
     // Cached numbers for ValueOf() functions
-    std::unique_ptr<NumberValueSlot[]> cached_number_slots_; // [strong ref]
+    std::unique_ptr<NumberValueSlot[]> cached_number_slots_; // [nested strong ref]
 }; // class Factory
 
 } // namespace lang

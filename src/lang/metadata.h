@@ -108,9 +108,9 @@ private:
     Class() = default;
     
     const Class *base_ = nullptr; // Base class
-    Method *init_ = nullptr; // [strong ref] Constructor method
+    Method *init_ = nullptr; // [nested strong ref] Constructor method
     uint32_t n_methods_ = 0; // Number of method
-    Method *methods_ = nullptr; // [strong ref] All methods
+    Method *methods_ = nullptr; // [nested strong ref] All methods
 }; // class Class
 
 class Field : public MetadataObject {

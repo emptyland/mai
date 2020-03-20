@@ -33,45 +33,18 @@ public:
         generator_ = nullptr;
     }
     
-    Error Parse(const std::string &dir) {
-        std::vector<std::string> files;
-        if (auto rs = Compiler::FindSourceFiles("src/lang/pkg", env_, false, &files); !rs) {
-            return rs;
-        }
-        std::vector<FileUnit *> base_units;
-        if (auto rs = resolver_.ParseAll(files, &base_units); !rs) {
-            return rs;
-        }
-        if (auto rs = checker_.AddBootFileUnits("src/lang/pkg", base_units, &resolver_); !rs){
-            return rs;
-        }
-
-        files.clear();
-        if (auto rs = Compiler::FindSourceFiles(dir, env_, false, &files); !rs) {
-            return rs;
-        }
-        resolver_.mutable_search_path()->insert(dir);
-        
-        std::vector<FileUnit *> units;
-        if (auto rs = resolver_.ParseAll(files, &units); !rs) {
-            return rs;
-        }
-        if (auto rs = checker_.AddBootFileUnits(dir, units, &resolver_); !rs) {
-            return rs;
-        }
-        if (!checker_.Prepare() || !checker_.Check()) {
-            return MAI_CORRUPTION("Check fail!");
-        }
-        
-        generator_ = new BytecodeGenerator(isolate_, &feedback_,
-                                           checker_.class_exception(),
-                                           checker_.class_object(),
-                                           std::move(*checker_.mutable_path_units()),
-                                           std::move(*checker_.mutable_pkg_units()),
-                                           &arena_);
-        return Error::OK();
-    }
+    Error Parse() { return Parse(suit_path_); }
     
+    Error Parse(const std::string &dir);
+    
+    void AssertFunction(const std::string &name, const Function *fun);
+    
+    void Define(const std::string &suit_name) {
+        ASSERT_TRUE(suit_path_.empty());
+        suit_path_ = "tests/lang/" + suit_name;
+    }
+
+    std::string suit_path_;
     MockFeedback feedback_;
     base::StandaloneArena arena_;
     Env *env_;
@@ -80,12 +53,85 @@ public:
     BytecodeGenerator *generator_ = nullptr;
 }; // class BytecodeGeneratorTest
 
+
+Error BytecodeGeneratorTest::Parse(const std::string &dir) {
+    std::vector<std::string> files;
+    if (auto rs = Compiler::FindSourceFiles("src/lang/pkg", env_, false, &files); !rs) {
+        return rs;
+    }
+    std::vector<FileUnit *> base_units;
+    if (auto rs = resolver_.ParseAll(files, &base_units); !rs) {
+        return rs;
+    }
+    if (auto rs = checker_.AddBootFileUnits("src/lang/pkg", base_units, &resolver_); !rs){
+        return rs;
+    }
+
+    files.clear();
+    if (auto rs = Compiler::FindSourceFiles(dir, env_, false, &files); !rs) {
+        return rs;
+    }
+    resolver_.mutable_search_path()->insert(dir);
+    
+    std::vector<FileUnit *> units;
+    if (auto rs = resolver_.ParseAll(files, &units); !rs) {
+        return rs;
+    }
+    if (auto rs = checker_.AddBootFileUnits(dir, units, &resolver_); !rs) {
+        return rs;
+    }
+    if (!checker_.Prepare() || !checker_.Check()) {
+        return MAI_CORRUPTION("Check fail!");
+    }
+    
+    generator_ = new BytecodeGenerator(isolate_, &feedback_,
+                                       checker_.class_exception(),
+                                       checker_.class_object(),
+                                       std::move(*checker_.mutable_path_units()),
+                                       std::move(*checker_.mutable_pkg_units()),
+                                       &arena_);
+    return Error::OK();
+}
+
+void BytecodeGeneratorTest::AssertFunction(const std::string &name, const Function *fun) {
+    ASSERT_FALSE(suit_path_.empty());
+    base::StringBuildingPrinter printer;
+    fun->Print(&printer);
+    
+    std::string expect_file = suit_path_ + "/tests/" + name;
+    if (auto rs = env_->FileExists(expect_file); !rs) {
+        std::unique_ptr<WritableFile> file;
+        rs = env_->NewWritableFile(expect_file + ".tmp", false, &file);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        
+        rs = file->Append(printer.buffer());
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        FAIL() << "Expect file: " << expect_file + " not found";
+    } else {
+        std::unique_ptr<SequentialFile> file;
+        rs = env_->NewSequentialFile(expect_file, &file);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        
+        uint64_t size = 0;
+        rs = file->GetFileSize(&size);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+        
+        std::string_view result;
+        std::string scratch;
+        rs = file->Read(size, &result, &scratch);
+        ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+        ASSERT_EQ(printer.buffer(), result);
+    }
+}
+
 using Value = BytecodeGenerator::Value;
 
 TEST_F(BytecodeGeneratorTest, Sanity) {
+    Define("011-generator-sanity");
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    
-    auto err = Parse("tests/lang/011-generator-sanity");
+
+    auto err = Parse();
     ASSERT_TRUE(err.ok()) << err.ToString();
     ASSERT_TRUE(generator_->Prepare());
     
@@ -115,16 +161,11 @@ TEST_F(BytecodeGeneratorTest, Sanity) {
     ASSERT_TRUE(bar->is_mai_function());
     ASSERT_FALSE(bar->is_cxx_function());
     
-    base::StdFilePrinter printer(stdout);
-    
-    generator_->generated_init0_fun()->Print(&printer);
-    ::puts("----------------------------------");
-    main->function()->Print(&printer);
-    ::puts("----------------------------------");
-    bar->function()->Print(&printer);
-    ::puts("----------------------------------");
+    AssertFunction("init0", generator_->generated_init0_fun());
+    AssertFunction("main", main->function());
+    AssertFunction("bar", bar->function());
     auto clazz = isolate_->metadata_space()->FindClassOrNull("foo.Foo");
-    clazz->init()->fn()->function()->Print(&printer);
+    AssertFunction("Foo_init", clazz->init()->fn()->function());
 }
 
 TEST_F(BytecodeGeneratorTest, DemoRun) {
@@ -137,9 +178,10 @@ TEST_F(BytecodeGeneratorTest, DemoRun) {
 }
 
 TEST_F(BytecodeGeneratorTest, StringTemplate) {
+    Define("012-string-template");
     HandleScope handle_scope(HandleScope::INITIALIZER);
 
-    auto err = Parse("tests/lang/012-string-template");
+    auto err = Parse();
     ASSERT_TRUE(err.ok()) << err.ToString();
     ASSERT_TRUE(generator_->Prepare());
     ASSERT_TRUE(generator_->Generate());
@@ -149,9 +191,8 @@ TEST_F(BytecodeGeneratorTest, StringTemplate) {
     ASSERT_TRUE(main.is_value_not_null());
     ASSERT_TRUE(main->is_mai_function());
     ASSERT_FALSE(main->is_cxx_function());
-    
-    base::StdFilePrinter printer(stdout);
-    main->function()->Print(&printer);
+
+    AssertFunction("main", main->function());
 }
 
 TEST_F(BytecodeGeneratorTest, RunStringTemplate) {
@@ -167,9 +208,10 @@ TEST_F(BytecodeGeneratorTest, RunStringTemplate) {
 
 // 014-embed-function-and-lambda
 TEST_F(BytecodeGeneratorTest, EmbedFunctionAndLambda) {
+    Define("014-embed-function-and-lambda");
     HandleScope handle_scope(HandleScope::INITIALIZER);
 
-    auto err = Parse("tests/lang/014-embed-function-and-lambda");
+    auto err = Parse();
     ASSERT_TRUE(err.ok()) << err.ToString();
     ASSERT_TRUE(generator_->Prepare());
     ASSERT_TRUE(generator_->Generate());

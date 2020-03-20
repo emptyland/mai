@@ -2,6 +2,7 @@
 #include "lang/channel.h"
 #include "lang/value-inl.h"
 #include "lang/stack.h"
+#include "lang/object-visitor.h"
 #include "lang/macro-assembler-x64.h"
 
 namespace mai {
@@ -310,6 +311,19 @@ Error MetadataSpace::Initialize() {
         return err;
     }
     return Error::OK();
+}
+
+void MetadataSpace::VisitRoot(RootVisitor *visitor) {
+    for (auto klass : classes_) {
+        if (klass->init()) {
+            visitor->VisitRootPointer(reinterpret_cast<Any **>(&klass->init()->fn_));
+        }
+        
+        for (uint32_t i = 0; i < klass->n_methods(); i++) {
+            Method *method = klass->methods_ + i;
+            visitor->VisitRootPointer(reinterpret_cast<Any **>(&method->fn_));
+        }
+    }
 }
 
 Error MetadataSpace::GenerateBuiltinCode() {

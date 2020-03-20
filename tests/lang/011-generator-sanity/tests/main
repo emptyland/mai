@@ -1,0 +1,28 @@
++-------------------------------
+| main.main():void
++-------------------------------
+stack-size: 96
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 16
+souce-file-name: tests/lang/011-generator-sanity/main/main.mai
+bytecode-size: 16
+bytecode: 
+    000 CheckStack; (8)
+    001 LdaConstPtr [KP+32]; (9)
+    002 StarPtr [BP-104]; (9)
+    003 LdaConstPtr [KP+40]; (9)
+    004 StarPtr [BP-112]; (9)
+    005 LdaGlobalPtr [GS+112]; (9)
+    006 CallBytecodeFunction #16; (9)
+    007 NewObject 0, [KP+0]; (10)
+    008 StarPtr [BP-72]; (10)
+    009 LdaSmi32 #1; (10)
+    010 Star32 [BP-84]; (10)
+    011 MovePtr [BP-104], [BP-72]; (10)
+    012 Move32 [BP-108], [BP-84]; (10)
+    013 LdaConstPtr [KP+48]; (10)
+    014 CallBytecodeFunction #12; (10)
+    015 Return; (8)

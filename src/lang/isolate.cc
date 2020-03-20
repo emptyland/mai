@@ -193,6 +193,12 @@ void Isolate::Exit() {
     }
 }
 
+void Isolate::VisitRoot(RootVisitor *visitor) {
+    metadata_space_->VisitRoot(visitor);
+    factory_->VisitRoot(visitor);
+    scheduler_->VisitRoot(visitor);
+}
+
 } // namespace lang
 
 } // namespace mai

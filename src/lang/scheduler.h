@@ -5,6 +5,7 @@
 #include "lang/machine.h"
 #include "lang/coroutine.h"
 #include "lang/stack.h"
+#include "lang/object-visitor.h"
 #include "base/bit-ops.h"
 #include "glog/logging.h"
 #include <mutex>
@@ -79,6 +80,13 @@ public:
 
     inline Stack *NewStack(size_t size);
     inline bool PurgreStack(Stack *stack);
+    
+    // For GC
+    void VisitRoot(RootVisitor *visitor) {
+        for (int i = 0; i < concurrency_; i++) {
+            machine(i)->VisitRoot(visitor);
+        }
+    }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Scheduler);
 private:

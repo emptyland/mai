@@ -4,6 +4,7 @@
 #include "lang/channel.h"
 #include "lang/value-inl.h"
 #include "lang/stack-frame.h"
+#include "lang/object-visitor.h"
 #include "mai/allocator.h"
 #include <stdarg.h>
 #include <memory>
@@ -101,6 +102,22 @@ void Machine::Start() {
         MachineScope machine_scope(this);
         Entry();
     });
+}
+
+void Machine::VisitRoot(RootVisitor *visitor) {
+    for (HandleScopeSlot *slot = top_slot_; slot != nullptr; slot = slot->prev) {
+        visitor->VisitRootPointers(reinterpret_cast<Any **>(slot->base),
+                                   reinterpret_cast<Any **>(slot->end));
+    }
+    if (running_) {
+        running_->VisitRoot(visitor);
+    }
+    for (Coroutine *co = runnable_dummy_->next(); co != runnable_dummy_; co = co->next()) {
+        co->VisitRoot(visitor);
+    }
+    for (Coroutine *co = waitting_dummy_->next(); co != waitting_dummy_; co = co->next()) {
+        co->VisitRoot(visitor);
+    }
 }
 
 void Machine::Entry() {

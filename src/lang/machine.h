@@ -17,6 +17,7 @@ namespace lang {
 class Scheduler;
 class HandleScope;
 class Coroutine;
+class RootVisitor;
 
 struct HandleScopeSlot {
     HandleScope     *scope;
@@ -170,6 +171,8 @@ public:
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
     
     void TakeWaittingCoroutine(Coroutine *co);
+    
+    void VisitRoot(RootVisitor *visitor);
 
     friend class Isolate;
     friend class Scheduler;
@@ -217,19 +220,19 @@ private:
 
     const int id_; // Machine id
     Scheduler *const owner_; // Scheduler
-    HandleScopeSlot *top_slot_ = nullptr; // Top of handle-scope slot pointer
+    HandleScopeSlot *top_slot_ = nullptr; // [nested strong ref] Top of handle-scope slot pointer
     std::atomic<State> state_ = kDead; // Current machine state
     int uncaught_count_ = 0; // Counter of uncaught
     uint64_t exclusion_ = 0; // Exclusion counter if > 0 can not be preempted
     Coroutine *free_dummy_; // Local free coroutines(coroutine pool)
-    Coroutine *runnable_dummy_; // Waiting for running coroutines
-    Coroutine *waitting_dummy_; // Waiting for wakeup coroutines
+    Coroutine *runnable_dummy_; // [nested strong ref] Waiting for running coroutines
+    Coroutine *waitting_dummy_; // [nested strong ref] Waiting for wakeup coroutines
     mutable std::mutex runnable_mutex_; // Mutex for runnable_dummy_
     mutable std::mutex waitting_mutex_; // Mutex for waitting_dummy_
     int n_free_ = 0; // Number of free coroutine
     int n_runnable_ = 0; // Number of runnable coroutines
     int n_waitting_ = 0; // Number of waitting coroutines
-    Coroutine *running_ = nullptr; // Current running coroutine
+    Coroutine *running_ = nullptr; // [nested strong ref] Current running coroutine
     uint64_t user_time_ = 0; // User time for realy code execution
     std::condition_variable cond_var_; // Condition variable for scheduling
     std::mutex mutex_; // Total mutex

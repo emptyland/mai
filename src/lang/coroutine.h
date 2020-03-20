@@ -78,9 +78,11 @@ public:
     ~Coroutine() { Dispose(); }
 
     void Reinitialize(uint64_t coid, Closure *entry, Stack *stack);
-    
+
     void Dispose();
-    
+
+    void VisitRoot(RootVisitor *visitor);
+
     DEF_VAL_PROP_RW(State, state);
     DEF_VAL_GETTER(uint64_t, coid);
     DEF_PTR_PROP_RW(Machine, owner);
@@ -96,42 +98,42 @@ public:
     DEF_VAL_GETTER(Address, sys_sp);
     DEF_VAL_GETTER(Address, sys_pc);
     DEF_PTR_PROP_RW(WaittingRequest, waitting);
-    
+
     Address sp0() const { return bit_cast<Address>(saved_state0_[kSPIndex]); }
     Address bp0() const { return bit_cast<Address>(saved_state0_[kBPIndex]); }
 
     Address sp1() const { return bit_cast<Address>(saved_state1_[kSPIndex]); }
     Address bp1() const { return bit_cast<Address>(saved_state1_[kBPIndex]); }
     intptr_t pc1() const { return saved_state1_[kPCIndex]; }
-    
+
     void set_acc0(uintptr_t value) { saved_state0_[kACCIndex] = value; }
     void set_facc0(double value) { saved_state0_[kFACCIndex] = bit_cast<uintptr_t>(value); }
-    
+
     void SetACC0(const void *data, size_t n) {
         DCHECK_LE(n, kPointerSize);
         ::memcpy(&saved_state0_[kACCIndex], data, n);
     }
-    
+
     void SetFACC0(const void *data, size_t n) {
         DCHECK_LE(n, kPointerSize);
         ::memcpy(&saved_state0_[kFACCIndex], data, n);
     }
-    
+
     void AssociateException(Throwable *exception) {
         if (!exception_) {
             exception_ = exception;
         }
     }
-    
+
     void SwitchState(State expected, State want) {
         DCHECK_EQ(state_, expected);
         if (state_ == expected) {
             state_ = want;
         }
     }
-    
+
     int RequestYield() { return yield_++; }
-    
+
     void CopyArgv(void *data, size_t n) {
         DCHECK_EQ(reentrant_, 0);
         DCHECK_EQ(0, n % kStackAligmentSize);
@@ -183,7 +185,7 @@ private:
     uintptr_t saved_state1_[kMaxSavedState]; // Secondare saved state
     Address stack_guard0_; // guard0 of stack
     Address stack_guard1_; // guard1 of stack
-    Stack *stack_; // Coroutine owned calling stack
+    Stack *stack_; // [nested strong ref] Coroutine owned calling stack
 }; //class Coroutine
 
 } // namespace lang
