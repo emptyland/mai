@@ -44,7 +44,8 @@ struct BytecodeStackFrame : public StackFrame {
     static constexpr int32_t kMaker = kBytecode;
     
     static constexpr int32_t kOffsetPC = kOffsetMaker - static_cast<int>(sizeof(uint32_t));
-    static constexpr int32_t kOffsetCallee = kOffsetPC - static_cast<int>(kPointerSize);
+    static constexpr int32_t kOffsetTop = kOffsetPC - static_cast<int>(sizeof(uint32_t));
+    static constexpr int32_t kOffsetCallee = kOffsetTop - static_cast<int>(kPointerSize);
     static constexpr int32_t kOffsetBytecodeArray = kOffsetCallee - static_cast<int>(kPointerSize);
     static constexpr int32_t kOffsetConstPool = kOffsetBytecodeArray - static_cast<int>(kPointerSize);
     static constexpr int32_t kOffsetCaughtPoint = kOffsetConstPool - 32;

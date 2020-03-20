@@ -86,6 +86,8 @@ public:
     template<class T>
     inline T* global_offset(int location) const;
 
+    void VisitRoot(RootVisitor *visitor);
+
     friend class Machine;
     friend class IsolateScope;
     friend class GlobalHandles;
@@ -98,8 +100,6 @@ private:
 
     void Enter();
     void Exit();
-    
-    void VisitRoot(RootVisitor *visitor);
     
     inline GlobalHandleNode *NewGlobalHandle(const void *pointer);
     inline void DeleteGlobalHandle(GlobalHandleNode *node);
@@ -120,12 +120,12 @@ private:
     Factory *factory_; // Some Heap object collection
     Scheduler *scheduler_; // Scheduler
     
-    Span64 *global_space_ = nullptr; // Global space
+    Span64 *global_space_ = nullptr; // [nested strong ref] Global space
     uint32_t *global_space_bitmap_ = nullptr; // Bitmap of global space
     size_t global_space_capacity_ = 0; // Capacity of global space
     size_t global_space_length_ = 0; // Length of global space
     
-    GlobalHandleNode *persistent_dummy_; // [in strong ref] Global handle double-linked list dummy
+    GlobalHandleNode *persistent_dummy_; // [nested strong ref] Global handle double-linked list dummy
     int n_global_handles_ = 0; // Number of global handles
     mutable std::mutex persistent_mutex_; // Mutex for persistent_dummy_
     

@@ -193,7 +193,19 @@ void Isolate::Exit() {
     }
 }
 
+template<class T>
+inline size_t GetBitmapSize(size_t n_items) {
+    return (n_items + (sizeof(T) * CHAR_BIT) - 1) / (sizeof(T) * CHAR_BIT);
+}
+
 void Isolate::VisitRoot(RootVisitor *visitor) {
+    for (size_t i = 0; i < global_space_length_; i++) {
+        if (global_space_bitmap_[i / 32] & (1u << (i % 32))) {
+            Address base = reinterpret_cast<Address>(global_space_ + i);
+            visitor->VisitRootPointers(reinterpret_cast<Any **>(base),
+                                       reinterpret_cast<Any **>(base + sizeof(Span64)));
+        }
+    }
     metadata_space_->VisitRoot(visitor);
     factory_->VisitRoot(visitor);
     scheduler_->VisitRoot(visitor);
