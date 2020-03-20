@@ -1,0 +1,32 @@
++-------------------------------
+| main.Foo::doIt():void
++-------------------------------
+stack-size: 128
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 20
+souce-file-name: tests/lang/014-embed-function-and-lambda/main/main.mai
+bytecode-size: 20
+bytecode: 
+    000 CheckStack; (7)
+    001 LdaConstPtr [KP+32]; (8)
+    002 StarPtr [BP-76]; (8)
+    003 LdaProperty32 [BP+24], @16; (8)
+    004 Star32 [BP-132]; (8)
+    005 LdaGlobalPtr [GS+160]; (8)
+    006 CallNativeFunction #84, #4; (8)
+    007 StarPtr [BP-84]; (8)
+    008 MovePtr [BP-136], [BP-76]; (8)
+    009 MovePtr [BP-144], [BP-84]; (8)
+    010 Contact #84, #16; (8)
+    011 StarPtr [BP-92]; (8)
+    012 MovePtr [BP-136], [BP-92]; (8)
+    013 LdaGlobalPtr [GS+64]; (8)
+    014 CallNativeFunction #68, #8; (8)
+    015 MovePtr [BP-108], [BP+24]; (9)
+    016 MovePtr [BP-136], [BP-108]; (9)
+    017 LdaGlobalPtr [GS+136]; (9)
+    018 CallBytecodeFunction #108, #8; (9)
+    019 Return; (7)

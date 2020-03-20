@@ -1,0 +1,52 @@
++-------------------------------
+| main.main():void
++-------------------------------
+stack-size: 144
+const-pool-bytes: 96
+const-pool-bitmap: 00000006
+captured-var-size: 0
+exception-table-size: 2
+exception-table: 
+    lang.Exception 1 3 4
+    main.MeException 1 3 26
+souce-line-size: 37
+souce-file-name: tests/lang/015-throw-catch-exception/main/main.mai
+bytecode-size: 37
+bytecode: 
+    000 CheckStack; (6)
+    001 LdaGlobalPtr [GS+112]; (9)
+    002 CallBytecodeFunction #68, #0; (9)
+    003 Goto 0, #32; (9)
+    004 StarPtr [BP-76]; (10)
+    005 LdaConstPtr [KP+32]; (11)
+    006 StarPtr [BP-84]; (11)
+    007 LdaPropertyPtr [BP-76], @24; (11)
+    008 StarPtr [BP-92]; (11)
+    009 MovePtr [BP-152], [BP-84]; (11)
+    010 MovePtr [BP-160], [BP-92]; (11)
+    011 Contact #92, #16; (11)
+    012 StarPtr [BP-108]; (11)
+    013 MovePtr [BP-152], [BP-108]; (11)
+    014 LdaGlobalPtr [GS+64]; (11)
+    015 CallNativeFunction #76, #8; (11)
+    016 NewObject #76, [KP+0]; (12)
+    017 StarPtr [BP-84]; (12)
+    018 MovePtr [BP-152], [BP-84]; (12)
+    019 LdaConstPtr [KP+40]; (12)
+    020 StarPtr [BP-160]; (12)
+    021 MovePtr [BP-168], [BP-76]; (12)
+    022 LdaConstPtr [KP+48]; (12)
+    023 CallBytecodeFunction #84, #24; (12)
+    024 Throw; (12)
+    025 Goto 0, #32; (12)
+    026 StarPtr [BP-124]; (13)
+    027 LdaConstPtr [KP+56]; (14)
+    028 StarPtr [BP-152]; (14)
+    029 LdaGlobalPtr [GS+64]; (14)
+    030 CallNativeFunction #124, #8; (14)
+    031 Goto 0, #32; (14)
+    032 LdaConstPtr [KP+64]; (16)
+    033 StarPtr [BP-152]; (16)
+    034 LdaGlobalPtr [GS+64]; (16)
+    035 CallNativeFunction #68, #8; (16)
+    036 Return; (6)

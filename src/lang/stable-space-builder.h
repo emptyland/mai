@@ -61,6 +61,8 @@ public:
             level_.r -= kSpanSize;
         }
     }
+    
+    int GetTopRef() const { return kSlotBase + level_.r; }
 
     uint32_t GetMaxStackSize() const {
         return static_cast<uint32_t>(max_spans_ * kSpanSize + kSlotBase);

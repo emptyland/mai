@@ -72,6 +72,8 @@ namespace lang {
 // Return:
 //     ACC: Closure pointer
 
+// V(NewBuiltinObject, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate)
+
 #define DECLARE_ALL_BYTECODE(V) \
     DECLARE_LDAR_BYTECODE(V) \
     DECLARE_STAR_BYTECODE(V) \
@@ -85,17 +87,17 @@ namespace lang {
     V(Goto, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
     V(GotoIfTrue, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
     V(GotoIfFalse, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
-    V(CallBytecodeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
-    V(CallNativeFunction, BytecodeType::A, BytecodeParam::kImmediate) \
-    V(CallFunction, BytecodeType::A, BytecodeParam::kImmediate) \
+    V(CallBytecodeFunction, BytecodeType::AB, BytecodeParam::kImmediate, \
+        BytecodeParam::kImmediate) \
+    V(CallNativeFunction, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate) \
+    V(CallFunction, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate) \
     V(RunCoroutine, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate) \
     V(Close, BytecodeType::A, BytecodeParam::kConstOffset) \
     V(Return, BytecodeType::N) \
-    V(NewBuiltinObject, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate) \
-    V(NewObject, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kConstOffset) \
+    V(NewObject, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kConstOffset) \
     V(CheckStack, BytecodeType::N) \
     V(AssertNotNull, BytecodeType::A, BytecodeParam::kStackOffset) \
-    V(Contact, BytecodeType::A, BytecodeParam::kImmediate)
+    V(Contact, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate)
 
 #define DECLARE_LDAR_BYTECODE(V) \
     V(Ldar32, BytecodeType::A, BytecodeParam::kStackOffset) \

@@ -358,6 +358,10 @@ using BValue = BytecodeGenerator::Value;
 
 namespace {
 
+#define TOP_REF (current_fun_->stack()->GetTopRef())
+#define EMIT(ast, action) current_fun_->Incoming(ast)->action
+
+
 inline ASTVisitor::Result ResultWith(BValue::Linkage linkage, int type, int index) {
     ASTVisitor::Result rv;
     rv.kind = linkage;
@@ -545,9 +549,11 @@ bool BytecodeGenerator::Generate() {
     Closure *main = *global_space_.offset<Closure *>(fun_main_main.index);
     function_scope.IncomingWithLine(1)->Add<kLdaGlobalPtr>(GetGlobalOffset(fun_main_main.index));
     if (main->is_mai_function()) {
-        function_scope.IncomingWithLine(1)->Add<kCallBytecodeFunction>(0);
+        function_scope.IncomingWithLine(1)
+            ->Add<kCallBytecodeFunction>(function_scope.stack()->GetTopRef(), 0);
     } else {
-        function_scope.IncomingWithLine(1)->Add<kCallNativeFunction>(0);
+        function_scope.IncomingWithLine(1)
+            ->Add<kCallNativeFunction>(function_scope.stack()->GetTopRef(), 0);
     }
     function_scope.IncomingWithLine(1)->Add<kReturn>();
     generated_init0_fun_ = BuildFunction("init0", &function_scope);
@@ -580,7 +586,8 @@ bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit)
             Class *clazz = metadata_space_->PrepareClass(name, Type::kReferenceTag, kPointerSize);
             object_ast->set_clazz(clazz);
             // object foo ==> main.foo$class
-            current_->Register(name + "$class", {Value::kMetadata, clazz, static_cast<int>(clazz->id()), ast});
+            current_->Register(name + "$class", {Value::kMetadata, clazz,
+                                                 static_cast<int>(clazz->id()), ast});
             int index = global_space_.ReserveRef();
             current_->Register(name, {Value::kGlobal, clazz, index, ast});
         } else if (auto fun_ast = ast->AsFunctionDefinition()) {
@@ -876,7 +883,8 @@ ASTVisitor::Result BytecodeGenerator::VisitObjectDefinition(ObjectDefinition *as
     return ResultWithError();
 }
 
-ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition *ast) /*override*/ {
+ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition *ast)
+/*override*/ {
     if (ast->file_unit()) {
         symbol_trace_.insert(ast);
     }
@@ -926,7 +934,8 @@ ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition
 
     if (fun->captured_var_size() > 0) {
         int kidx = current_fun_->constants()->FindOrInsertMetadata(fun);
-        current_fun_->Incoming(ast)->Add<kClose>(GetConstOffset(kidx));
+        //current_fun_->Incoming(ast)->Add<kClose>(GetConstOffset(kidx));
+        EMIT(ast, Add<kClose>(GetConstOffset(kidx)));
         StaStack(clazz, local, ast);
     } else {
         Closure *closure = Machine::This()->NewClosure(fun, 0/*captured_var_size*/, 0/*flags*/);
@@ -948,7 +957,8 @@ ASTVisitor::Result BytecodeGenerator::VisitLambdaLiteral(LambdaLiteral *ast) /*o
     }
     if (fun->captured_var_size() > 0) {
         int kidx = current_fun_->constants()->FindOrInsertMetadata(fun);
-        current_fun_->Incoming(ast)->Add<kClose>(GetConstOffset(kidx));
+        //current_fun_->Incoming(ast)->Add<kClose>(GetConstOffset(kidx));
+        EMIT(ast, Add<kClose>(GetConstOffset(kidx)));
         return ResultWith(Value::kACC, kType_closure, 0);
     } else {
         Closure *closure = Machine::This()->NewClosure(fun, 0/*captured_var_size*/, 0/*flags*/);
@@ -1031,17 +1041,17 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
             String *name = Machine::This()->NewUtf8String(key.data(), key.size(), Heap::kMetadata);
             kidx = current_fun_->constants()->FindOrInsertString(name);
         }
-        current_fun_->Incoming(ast)->Add<kLdaVtableFunction>(self, GetConstOffset(kidx));
-        current_fun_->Incoming(ast)->Add<kCallFunction>(arg_size);
+        EMIT(ast, Add<kLdaVtableFunction>(self, GetConstOffset(kidx)));
+        EMIT(ast, Add<kCallFunction>(TOP_REF, arg_size));
     } else {
         std::string name = std::string(owns->name()) + "::" + dot->rhs()->ToString();
         Value value = EnsureFindValue(name);
         DCHECK_EQ(Value::kGlobal, value.linkage);
         LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
         if (method->is_native()) {
-            current_fun_->Incoming(ast)->Add<kCallNativeFunction>(arg_size);
+            EMIT(ast, Add<kCallNativeFunction>(TOP_REF, arg_size));
         } else {
-            current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
+            EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, arg_size));
         }
     }
 
@@ -1054,7 +1064,8 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
 
 Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool is_method,
                                                    LambdaLiteral *ast) {
-    current_fun_->Incoming(ast)->Add<kCheckStack>();
+    //current_fun_->Incoming(ast)->Add<kCheckStack>();
+    EMIT(ast, Add<kCheckStack>());
 
     int param_size = 0;
     for (auto param : ast->prototype()->parameters()) {
@@ -1105,14 +1116,16 @@ Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool
         }
     }
 
-    current_fun_->Incoming(ast)->Add<kReturn>();
+    //current_fun_->Incoming(ast)->Add<kReturn>();
+    EMIT(ast, Add<kReturn>());
     return BuildFunction(name, current_fun_);
 }
 
 Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDesc> &fields_desc,
                                                       const Class *base, ClassDefinition *ast) {
     FunctionScope function_scope(arena_, current_file_->file_unit(), &current_, &current_fun_);
-    current_fun_->Incoming(ast)->Add<kCheckStack>();
+    //current_fun_->Incoming(ast)->Add<kCheckStack>();
+    EMIT(ast, Add<kCheckStack>());
     
     int param_size = kPointerSize; // self
     for (auto param : ast->parameters()) {
@@ -1163,7 +1176,8 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
         }
         const Class *field_type = metadata_space_->type(rv.bundle.index);
         if (!field.declaration->initializer()) {
-            current_fun_->Incoming(field.declaration)->Add<kLdaZero>();
+            //current_fun_->Incoming(field.declaration)->Add<kLdaZero>();
+            EMIT(field.declaration, Add<kLdaZero>());
             StaProperty(field_type, self.index, fields_desc[i].offset, field.declaration);
             continue;
         }
@@ -1197,15 +1211,15 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
         int arg_size = GenerateArguments(ast->arguments(), params, ast, self.index, false/*vargs*/);
         Closure *ctor = DCHECK_NOTNULL(DCHECK_NOTNULL(base->init())->fn());
         int kidx = current_fun_->constants()->FindOrInsertClosure(ctor);
-        current_fun_->Incoming(ast)->Add<kLdaConstPtr>(GetConstOffset(kidx));
-        current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
+        EMIT(ast, Add<kLdaConstPtr>(GetConstOffset(kidx)));
+        EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, arg_size));
     }
 
     if (ast->arguments().empty()) {
         // return self
         LdaStack(ast->clazz(), self.index, ast);
     }
-    current_fun_->Incoming(ast)->Add<kReturn>();
+    EMIT(ast, Add<kReturn>());
     return BuildFunction(ast->identifier()->ToString(), &function_scope);
 }
 
@@ -1253,9 +1267,9 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
         LdaIfNeeded(rv, ast->callee());
     }
     if (native) {
-        current_fun_->Incoming(ast)->Add<kCallNativeFunction>(arg_size);
+        EMIT(ast, Add<kCallNativeFunction>(TOP_REF, arg_size));
     } else {
-        current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(arg_size);
+        EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, arg_size));
     }
 
     if (rv = proto->return_type()->Accept(this); rv.kind == Value::kError) {
@@ -1264,7 +1278,8 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
     return ResultWith(Value::kACC, rv.bundle.type, 0);
 }
 
-ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclaration *ast) /*override*/ {
+ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclaration *ast)
+/*override*/ {
     if (current_->is_file_scope()) { // It's global variable
         Value value = EnsureFindValue(current_file_->LocalFileFullName(ast->identifier()));
         if (HasGenerated(ast)) {
@@ -1381,11 +1396,12 @@ ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTempla
         argument_offset += kPointerSize;
         MoveToArgumentIfNeeded(type, part.index, part.linkage, argument_offset, ast);
     }
-    current_fun_->Incoming(ast)->Add<kContact>(argument_offset);
+    EMIT(ast, Add<kContact>(TOP_REF, argument_offset));
     return ResultWith(Value::kACC, kType_string, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast) /*override*/ {
+    // TODO:
     TODO();
     return ResultWithError();
 }
@@ -1490,9 +1506,9 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
             LdaIfNeeded(rv, ast->lhs());
             BytecodeLabel done;
             if (ast->op().kind == Operator::kOr) {
-                current_fun_->Incoming(ast)->GotoIfTrue(&done, 0/*slot*/);
+                EMIT(ast, GotoIfTrue(&done, 0/*slot*/));
             } else {
-                current_fun_->Incoming(ast)->GotoIfFalse(&done, 0/*slot*/);
+                EMIT(ast, GotoIfFalse(&done, 0/*slot*/));
             }
             
             if (rv = ast->rhs()->Accept(this); rv.kind == Value::kError) {
@@ -1530,7 +1546,7 @@ ASTVisitor::Result BytecodeGenerator::VisitIfExpression(IfExpression *ast) /*ove
     DCHECK_EQ(kType_bool, rv.bundle.type);
     LdaIfNeeded(rv, ast->condition());
     BytecodeLabel br_false;
-    current_fun_->Incoming(ast->condition())->GotoIfFalse(&br_false, 0/*slot*/);
+    EMIT(ast->condition(), GotoIfFalse(&br_false, 0/*slot*/));
     
     if (rv = ast->branch_true()->Accept(this); rv.kind == Value::kError) {
         return ResultWithError();
@@ -1595,17 +1611,17 @@ ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*overrid
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitBoolLiteral(BoolLiteral *ast) /*override*/ {
-    current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+    EMIT(ast, Add<kLdaSmi32>(ast->value()));
     return ResultWith(Value::kACC, kType_bool, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitI8Literal(I8Literal *ast) /*override*/ {
-    current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+    EMIT(ast, Add<kLdaSmi32>(ast->value()));
     return ResultWith(Value::kACC, kType_i8, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitU8Literal(U8Literal *ast) /*override*/ {
-    current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+    EMIT(ast, Add<kLdaSmi32>(ast->value()));
     return ResultWith(Value::kACC, kType_u8, 0);
 }
 
@@ -1615,13 +1631,13 @@ ASTVisitor::Result BytecodeGenerator::VisitI16Literal(I16Literal *ast) /*overrid
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitU16Literal(U16Literal *ast) /*override*/ {
-    current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+    EMIT(ast, Add<kLdaSmi32>(ast->value()));
     return ResultWith(Value::kACC, kType_u16, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitI32Literal(I32Literal *ast) /*override*/ {
     if (ast->value() >= 0 && ast->value() <= BytecodeNode::kMaxUSmi32) {
-        current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+        EMIT(ast, Add<kLdaSmi32>(ast->value()));
         return ResultWith(Value::kACC, kType_i32, 0);
     } else {
         int index = current_fun_->constants()->FindOrInsertI32(ast->value());
@@ -1631,7 +1647,7 @@ ASTVisitor::Result BytecodeGenerator::VisitI32Literal(I32Literal *ast) /*overrid
 
 ASTVisitor::Result BytecodeGenerator::VisitU32Literal(U32Literal *ast) /*override*/ {
     if (ast->value() <= BytecodeNode::kMaxUSmi32) {
-        current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+        EMIT(ast, Add<kLdaSmi32>(ast->value()));
         return ResultWith(Value::kACC, kType_u32, 0);
     } else {
         int index = current_fun_->constants()->FindOrInsertU32(ast->value());
@@ -1641,7 +1657,7 @@ ASTVisitor::Result BytecodeGenerator::VisitU32Literal(U32Literal *ast) /*overrid
 
 ASTVisitor::Result BytecodeGenerator::VisitIntLiteral(IntLiteral *ast) /*override*/ {
     if (ast->value() >= 0 && ast->value() <= BytecodeNode::kMaxUSmi32) {
-        current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+        EMIT(ast, Add<kLdaSmi32>(ast->value()));
         return ResultWith(Value::kACC, kType_int, 0);
     } else {
         int index = current_fun_->constants()->FindOrInsertI32(ast->value());
@@ -1651,7 +1667,7 @@ ASTVisitor::Result BytecodeGenerator::VisitIntLiteral(IntLiteral *ast) /*overrid
 
 ASTVisitor::Result BytecodeGenerator::VisitUIntLiteral(UIntLiteral *ast) /*override*/ {
     if (ast->value() >= 0 && ast->value() <= BytecodeNode::kMaxUSmi32) {
-        current_fun_->Incoming(ast)->Add<kLdaSmi32>(ast->value());
+        EMIT(ast, Add<kLdaSmi32>(ast->value()));
         return ResultWith(Value::kACC, kType_uint, 0);
     } else {
         int index = current_fun_->constants()->FindOrInsertU32(ast->value());
@@ -1661,7 +1677,7 @@ ASTVisitor::Result BytecodeGenerator::VisitUIntLiteral(UIntLiteral *ast) /*overr
 
 ASTVisitor::Result BytecodeGenerator::VisitI64Literal(I64Literal *ast) /*override*/ {
     if (ast->value() == 0) {
-        current_fun_->Incoming(ast)->Add<kLdaZero>();
+        EMIT(ast, Add<kLdaZero>());
         return ResultWith(Value::kACC, kType_i64, 0);
     } else {
         int index = current_fun_->constants()->FindOrInsertI64(ast->value());
@@ -1671,7 +1687,7 @@ ASTVisitor::Result BytecodeGenerator::VisitI64Literal(I64Literal *ast) /*overrid
 
 ASTVisitor::Result BytecodeGenerator::VisitU64Literal(U64Literal *ast) /*override*/ {
     if (ast->value() == 0) {
-        current_fun_->Incoming(ast)->Add<kLdaZero>();
+        EMIT(ast, Add<kLdaZero>());
         return ResultWith(Value::kACC, kType_u64, 0);
     } else {
         int index = current_fun_->constants()->FindOrInsertU64(ast->value());
@@ -1716,9 +1732,9 @@ ASTVisitor::Result BytecodeGenerator::VisitBreakableStatement(BreakableStatement
             }
             LdaIfNeeded(rv, ast->value());
             if (ast->IsReturn()) {
-                current_fun_->Incoming(ast)->Add<kReturn>();
+                EMIT(ast, Add<kReturn>());
             } else {
-                current_fun_->Incoming(ast)->Add<kThrow>();
+                EMIT(ast, Add<kThrow>());
             }
         } break;
         case BreakableStatement::BREAK:
@@ -1749,7 +1765,7 @@ ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyB
         }
     }
     intptr_t stop_pc = current_fun_->builder()->pc();
-    current_fun_->Incoming(dummy)->Goto(&finally, 0/*slot*/);
+    EMIT(dummy, Goto(&finally, 0/*slot*/));
     
     for (auto block : ast->catch_blocks()) {
         BlockScope block_scope(Scope::kPlainBlockScope, &current_);
@@ -1772,7 +1788,7 @@ ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyB
             }
             dummy = stmt;
         }
-        current_fun_->Incoming(dummy)->Goto(&finally, 0/*slot*/);
+        EMIT(dummy, Goto(&finally, 0/*slot*/));
         current_fun_->AddExceptionHandler(clazz, start_pc, stop_pc, handler_pc);
     }
 
@@ -1850,7 +1866,7 @@ SourceLocation BytecodeGenerator::FindSourceLocation(const ASTNode *ast) {
 
 ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, CallExpression *ast) {
     int kidx = current_fun_->constants()->FindOrInsertMetadata(clazz);
-    current_fun_->Incoming(ast)->Add<kNewObject>(0, kidx);
+    EMIT(ast, Add<kNewObject>(TOP_REF, GetConstOffset(kidx)));
     if (!clazz->init()) {
         return ResultWith(Value::kACC, clazz->id(), 0);
     }
@@ -1868,7 +1884,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, Call
 
     kidx = current_fun_->constants()->FindOrInsertClosure(clazz->init()->fn());
     LdaConst(metadata_space_->builtin_type(kType_closure), kidx, ast);
-    current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(argument_size);
+    EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, argument_size));
     
     current_fun_->stack()->FallbackRef(self);
     return ResultWith(Value::kACC, clazz->id(), 0);
@@ -1895,8 +1911,7 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
     int argument_offset = 0;
     if (callee) {
         argument_offset += kPointerSize;
-        current_fun_->Incoming(callee)->Incomplete<kMovePtr>(-(argument_offset),
-                                                             GetStackOffset(self));
+        EMIT(callee, Incomplete<kMovePtr>(-(argument_offset), GetStackOffset(self)));
     }
 
     for (size_t i = 0; i < operands.size(); i++) {
@@ -1906,11 +1921,10 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
         argument_offset += RoundUp(value.type->reference_size(), kStackSizeGranularity);
         if (value.type->is_reference()) {
             if (value.linkage == Value::kStack) {
-                current_fun_->Incoming(arg)->Incomplete<kMovePtr>(-(argument_offset),
-                                                                  GetStackOffset(value.index));
+                EMIT(arg, Incomplete<kMovePtr>(-argument_offset, GetStackOffset(value.index)));
             } else {
                 LdaIfNeeded(value.type, value.index, value.linkage, arg);
-                current_fun_->Incoming(arg)->Incomplete<kStarPtr>(-(argument_offset));
+                EMIT(arg, Incomplete<kStarPtr>(-argument_offset));
             }
             continue;
         }
@@ -1943,30 +1957,30 @@ ASTVisitor::Result BytecodeGenerator::GenerateDotExpression(const Class *clazz, 
         DCHECK(clazz->is_reference());
     
         if (field->type()->is_reference()) {
-            current_fun_->Incoming(ast)->Add<kLdaPropertyPtr>(GetStackOffset(self), field->offset());
+            EMIT(ast, Add<kLdaPropertyPtr>(GetStackOffset(self), field->offset()));
             return ResultWith(Value::kACC, field->type()->id(), 0);
         }
         
         int offset = GetStackOffset(self);
         switch (field->type()->reference_size()) {
             case 1:
-                current_fun_->Incoming(ast)->Add<kLdaProperty8>(offset, field->offset());
+                EMIT(ast, Add<kLdaProperty8>(offset, field->offset()));
                 break;
             case 2:
-                current_fun_->Incoming(ast)->Add<kLdaProperty16>(offset, field->offset());
+                EMIT(ast, Add<kLdaProperty16>(offset, field->offset()));
                 break;
             case 4:
                 if (field->type()->id() == kType_f32) {
-                    current_fun_->Incoming(ast)->Add<kLdaPropertyf32>(offset, field->offset());
+                    EMIT(ast, Add<kLdaPropertyf32>(offset, field->offset()));
                 } else {
-                    current_fun_->Incoming(ast)->Add<kLdaProperty32>(offset, field->offset());
+                    EMIT(ast, Add<kLdaProperty32>(offset, field->offset()));
                 }
                 break;
             case 8:
                 if (field->type()->id() == kType_f64) {
-                    current_fun_->Incoming(ast)->Add<kLdaPropertyf64>(offset, field->offset());
+                    EMIT(ast, Add<kLdaPropertyf64>(offset, field->offset()));
                 } else {
-                    current_fun_->Incoming(ast)->Add<kLdaProperty64>(offset, field->offset());
+                    EMIT(ast, Add<kLdaProperty64>(offset, field->offset()));
                 }
                 break;
             default:
@@ -2055,45 +2069,45 @@ void BytecodeGenerator::GenerateOperation(const Class *clazz, Operator op, int l
         case kType_uint:
             switch (op.kind) {
                 case Operator::kAdd:
-                    current_fun_->Incoming(ast)->Add<kAdd32>(loff, roff);
+                    EMIT(ast, Add<kAdd32>(loff, roff));
                     break;
                 case Operator::kSub:
-                    current_fun_->Incoming(ast)->Add<kSub32>(loff, roff);
+                    EMIT(ast, Add<kSub32>(loff, roff));
                     break;
                 case Operator::kMul:
                     if (clazz->IsUnsignedIntegral()) {
-                        current_fun_->Incoming(ast)->Add<kMul32>(loff, roff);
+                        EMIT(ast, Add<kMul32>(loff, roff));
                     } else {
-                        current_fun_->Incoming(ast)->Add<kIMul32>(loff, roff);
+                        EMIT(ast, Add<kIMul32>(loff, roff));
                     }
                     break;
                 case Operator::kDiv:
                     if (clazz->IsUnsignedIntegral()) {
-                        current_fun_->Incoming(ast)->Add<kDiv32>(loff, roff);
+                        EMIT(ast, Add<kDiv32>(loff, roff));
                     } else {
-                        current_fun_->Incoming(ast)->Add<kIDiv32>(loff, roff);
+                        EMIT(ast, Add<kIDiv32>(loff, roff));
                     }
                     break;
                 case Operator::kMod:
-                    current_fun_->Incoming(ast)->Add<kMod32>(loff, roff);
+                    EMIT(ast, Add<kMod32>(loff, roff));
                     break;
                 case Operator::kBitwiseOr:
-                    current_fun_->Incoming(ast)->Add<kBitwiseOr32>(loff, roff);
+                    EMIT(ast, Add<kBitwiseOr32>(loff, roff));
                     break;
                 case Operator::kBitwiseAnd:
-                    current_fun_->Incoming(ast)->Add<kBitwiseAnd32>(loff, roff);
+                    EMIT(ast, Add<kBitwiseAnd32>(loff, roff));
                     break;
                 case Operator::kBitwiseXor:
-                    current_fun_->Incoming(ast)->Add<kBitwiseXor32>(loff, roff);
+                    EMIT(ast, Add<kBitwiseXor32>(loff, roff));
                     break;
                 case Operator::kBitwiseShl:
-                    current_fun_->Incoming(ast)->Add<kBitwiseShl32>(loff, roff);
+                    EMIT(ast, Add<kBitwiseShl32>(loff, roff));
                     break;
                 case Operator::kBitwiseShr:
                     if (clazz->IsUnsignedIntegral()) {
-                        current_fun_->Incoming(ast)->Add<kBitwiseShr32>(loff, roff);
+                        EMIT(ast, Add<kBitwiseShr32>(loff, roff));
                     } else {
-                        current_fun_->Incoming(ast)->Add<kBitwiseLogicShr32>(loff, roff);
+                        EMIT(ast, Add<kBitwiseLogicShr32>(loff, roff));
                     }
                     break;
                 default:
@@ -2105,45 +2119,45 @@ void BytecodeGenerator::GenerateOperation(const Class *clazz, Operator op, int l
         case kType_U64:
             switch (op.kind) {
                 case Operator::kAdd:
-                    current_fun_->Incoming(ast)->Add<kAdd64>(loff, roff);
+                    EMIT(ast, Add<kAdd64>(loff, roff));
                     break;
                 case Operator::kSub:
-                    current_fun_->Incoming(ast)->Add<kSub64>(loff, roff);
+                    EMIT(ast, Add<kSub64>(loff, roff));
                     break;
                 case Operator::kMul:
                     if (clazz->IsUnsignedIntegral()) {
-                        current_fun_->Incoming(ast)->Add<kMul64>(loff, roff);
+                        EMIT(ast, Add<kMul64>(loff, roff));
                     } else {
-                        current_fun_->Incoming(ast)->Add<kIMul64>(loff, roff);
+                        EMIT(ast, Add<kIMul64>(loff, roff));
                     }
                     break;
                 case Operator::kDiv:
                     if (clazz->IsUnsignedIntegral()) {
-                        current_fun_->Incoming(ast)->Add<kDiv64>(loff, roff);
+                        EMIT(ast, Add<kDiv64>(loff, roff));
                     } else {
-                        current_fun_->Incoming(ast)->Add<kIDiv64>(loff, roff);
+                        EMIT(ast, Add<kIDiv64>(loff, roff));
                     }
                     break;
                 case Operator::kMod:
-                    current_fun_->Incoming(ast)->Add<kMod64>(loff, roff);
+                    EMIT(ast, Add<kMod64>(loff, roff));
                     break;
                 case Operator::kBitwiseOr:
-                    current_fun_->Incoming(ast)->Add<kBitwiseOr64>(loff, roff);
+                    EMIT(ast, Add<kBitwiseOr64>(loff, roff));
                     break;
                 case Operator::kBitwiseAnd:
-                    current_fun_->Incoming(ast)->Add<kBitwiseAnd64>(loff, roff);
+                    EMIT(ast, Add<kBitwiseAnd64>(loff, roff));
                     break;
                 case Operator::kBitwiseXor:
-                    current_fun_->Incoming(ast)->Add<kBitwiseXor64>(loff, roff);
+                    EMIT(ast, Add<kBitwiseXor64>(loff, roff));
                     break;
                 case Operator::kBitwiseShl:
-                    current_fun_->Incoming(ast)->Add<kBitwiseShl64>(loff, roff);
+                    EMIT(ast, Add<kBitwiseShl64>(loff, roff));
                     break;
                 case Operator::kBitwiseShr:
                     if (clazz->IsUnsignedIntegral()) {
-                        current_fun_->Incoming(ast)->Add<kBitwiseShr64>(loff, roff);
+                        EMIT(ast, Add<kBitwiseShr64>(loff, roff));
                     } else {
-                        current_fun_->Incoming(ast)->Add<kBitwiseLogicShr64>(loff, roff);
+                        EMIT(ast, Add<kBitwiseLogicShr64>(loff, roff));
                     }
                     break;
                 default:
@@ -2154,16 +2168,16 @@ void BytecodeGenerator::GenerateOperation(const Class *clazz, Operator op, int l
         case kType_f32:
             switch (op.kind) {
                 case Operator::kAdd:
-                    current_fun_->Incoming(ast)->Add<kAddf32>(loff, roff);
+                    EMIT(ast, Add<kAddf32>(loff, roff));
                     break;
                 case Operator::kSub:
-                    current_fun_->Incoming(ast)->Add<kSubf32>(loff, roff);
+                    EMIT(ast, Add<kSubf32>(loff, roff));
                     break;
                 case Operator::kMul:
-                    current_fun_->Incoming(ast)->Add<kMulf32>(loff, roff);
+                    EMIT(ast, Add<kMulf32>(loff, roff));
                     break;
                 case Operator::kDiv:
-                    current_fun_->Incoming(ast)->Add<kDivf32>(loff, roff);
+                    EMIT(ast, Add<kDivf32>(loff, roff));
                     break;
                 default:
                     NOREACHED();
@@ -2173,16 +2187,16 @@ void BytecodeGenerator::GenerateOperation(const Class *clazz, Operator op, int l
         case kType_f64:
             switch (op.kind) {
                 case Operator::kAdd:
-                    current_fun_->Incoming(ast)->Add<kAddf64>(loff, roff);
+                    EMIT(ast, Add<kAddf64>(loff, roff));
                     break;
                 case Operator::kSub:
-                    current_fun_->Incoming(ast)->Add<kSubf64>(loff, roff);
+                    EMIT(ast, Add<kSubf64>(loff, roff));
                     break;
                 case Operator::kMul:
-                    current_fun_->Incoming(ast)->Add<kMulf64>(loff, roff);
+                    EMIT(ast, Add<kMulf64>(loff, roff));
                     break;
                 case Operator::kDiv:
-                    current_fun_->Incoming(ast)->Add<kDivf64>(loff, roff);
+                    EMIT(ast, Add<kDivf64>(loff, roff));
                     break;
                 default:
                     NOREACHED();
@@ -2210,22 +2224,22 @@ void BytecodeGenerator::GenerateComparation(const Class *clazz, Operator op, int
         case kType_uint:
             switch (op.kind) {
                 case Operator::kEqual:
-                    current_fun_->Incoming(ast)->Add<kTestEqual32>(loff, roff);
+                    EMIT(ast, Add<kTestEqual32>(loff, roff));
                     break;
                 case Operator::kNotEqual:
-                    current_fun_->Incoming(ast)->Add<kTestNotEqual32>(loff, roff);
+                    EMIT(ast, Add<kTestNotEqual32>(loff, roff));
                     break;
                 case Operator::kLess:
-                    current_fun_->Incoming(ast)->Add<kTestLessThan32>(loff, roff);
+                    EMIT(ast, Add<kTestLessThan32>(loff, roff));
                     break;
                 case Operator::kLessEqual:
-                    current_fun_->Incoming(ast)->Add<kTestLessThanOrEqual32>(loff, roff);
+                    EMIT(ast, Add<kTestLessThanOrEqual32>(loff, roff));
                     break;
                 case Operator::kGreater:
-                    current_fun_->Incoming(ast)->Add<kTestGreaterThan32>(loff, roff);
+                    EMIT(ast, Add<kTestGreaterThan32>(loff, roff));
                     break;
                 case Operator::kGreaterEqual:
-                    current_fun_->Incoming(ast)->Add<kTestGreaterThanOrEqual32>(loff, roff);
+                    EMIT(ast, Add<kTestGreaterThanOrEqual32>(loff, roff));
                     break;
                 default:
                     NOREACHED();
@@ -2236,22 +2250,22 @@ void BytecodeGenerator::GenerateComparation(const Class *clazz, Operator op, int
         case kType_u64:
             switch (op.kind) {
                 case Operator::kEqual:
-                    current_fun_->Incoming(ast)->Add<kTestEqual64>(loff, roff);
+                    EMIT(ast, Add<kTestEqual64>(loff, roff));
                     break;
                 case Operator::kNotEqual:
-                    current_fun_->Incoming(ast)->Add<kTestNotEqual64>(loff, roff);
+                    EMIT(ast, Add<kTestNotEqual64>(loff, roff));
                     break;
                 case Operator::kLess:
-                    current_fun_->Incoming(ast)->Add<kTestLessThan64>(loff, roff);
+                    EMIT(ast, Add<kTestLessThan64>(loff, roff));
                     break;
                 case Operator::kLessEqual:
-                    current_fun_->Incoming(ast)->Add<kTestLessThanOrEqual64>(loff, roff);
+                    EMIT(ast, Add<kTestLessThanOrEqual64>(loff, roff));
                     break;
                 case Operator::kGreater:
-                    current_fun_->Incoming(ast)->Add<kTestGreaterThan64>(loff, roff);
+                    EMIT(ast, Add<kTestGreaterThan64>(loff, roff));
                     break;
                 case Operator::kGreaterEqual:
-                    current_fun_->Incoming(ast)->Add<kTestGreaterThanOrEqual64>(loff, roff);
+                    EMIT(ast, Add<kTestGreaterThanOrEqual64>(loff, roff));
                     break;
                 default:
                     NOREACHED();
@@ -2261,22 +2275,22 @@ void BytecodeGenerator::GenerateComparation(const Class *clazz, Operator op, int
         case kType_f32:
             switch (op.kind) {
                 case Operator::kEqual:
-                    current_fun_->Incoming(ast)->Add<kTestEqualf32>(loff, roff);
+                    EMIT(ast, Add<kTestEqualf32>(loff, roff));
                     break;
                 case Operator::kNotEqual:
-                    current_fun_->Incoming(ast)->Add<kTestNotEqualf32>(loff, roff);
+                    EMIT(ast, Add<kTestNotEqualf32>(loff, roff));
                     break;
                 case Operator::kLess:
-                    current_fun_->Incoming(ast)->Add<kTestLessThanf32>(loff, roff);
+                    EMIT(ast, Add<kTestLessThanf32>(loff, roff));
                     break;
                 case Operator::kLessEqual:
-                    current_fun_->Incoming(ast)->Add<kTestLessThanOrEqualf32>(loff, roff);
+                    EMIT(ast, Add<kTestLessThanOrEqualf32>(loff, roff));
                     break;
                 case Operator::kGreater:
-                    current_fun_->Incoming(ast)->Add<kTestGreaterThanf32>(loff, roff);
+                    EMIT(ast, Add<kTestGreaterThanf32>(loff, roff));
                     break;
                 case Operator::kGreaterEqual:
-                    current_fun_->Incoming(ast)->Add<kTestGreaterThanOrEqualf32>(loff, roff);
+                    EMIT(ast, Add<kTestGreaterThanOrEqualf32>(loff, roff));
                     break;
                 default:
                     NOREACHED();
@@ -2286,22 +2300,22 @@ void BytecodeGenerator::GenerateComparation(const Class *clazz, Operator op, int
         case kType_f64:
             switch (op.kind) {
                 case Operator::kEqual:
-                    current_fun_->Incoming(ast)->Add<kTestEqualf64>(loff, roff);
+                    EMIT(ast, Add<kTestEqualf64>(loff, roff));
                     break;
                 case Operator::kNotEqual:
-                    current_fun_->Incoming(ast)->Add<kTestNotEqualf64>(loff, roff);
+                    EMIT(ast, Add<kTestNotEqualf64>(loff, roff));
                     break;
                 case Operator::kLess:
-                    current_fun_->Incoming(ast)->Add<kTestLessThanf64>(loff, roff);
+                    EMIT(ast, Add<kTestLessThanf64>(loff, roff));
                     break;
                 case Operator::kLessEqual:
-                    current_fun_->Incoming(ast)->Add<kTestLessThanOrEqualf64>(loff, roff);
+                    EMIT(ast, Add<kTestLessThanOrEqualf64>(loff, roff));
                     break;
                 case Operator::kGreater:
-                    current_fun_->Incoming(ast)->Add<kTestGreaterThanf64>(loff, roff);
+                    EMIT(ast, Add<kTestGreaterThanf64>(loff, roff));
                     break;
                 case Operator::kGreaterEqual:
-                    current_fun_->Incoming(ast)->Add<kTestGreaterThanOrEqualf64>(loff, roff);
+                    EMIT(ast, Add<kTestGreaterThanOrEqualf64>(loff, roff));
                     break;
                 default:
                     NOREACHED();
@@ -2311,22 +2325,22 @@ void BytecodeGenerator::GenerateComparation(const Class *clazz, Operator op, int
         case kType_string:
             switch (op.kind) {
                 case Operator::kEqual:
-                    current_fun_->Incoming(ast)->Add<kTestStringEqual>(loff, roff);
+                    EMIT(ast, Add<kTestStringEqual>(loff, roff));
                     break;
                 case Operator::kNotEqual:
-                    current_fun_->Incoming(ast)->Add<kTestStringNotEqual>(loff, roff);
+                    EMIT(ast, Add<kTestStringNotEqual>(loff, roff));
                     break;
                 case Operator::kLess:
-                    current_fun_->Incoming(ast)->Add<kTestStringLessThan>(loff, roff);
+                    EMIT(ast, Add<kTestStringLessThan>(loff, roff));
                     break;
                 case Operator::kLessEqual:
-                    current_fun_->Incoming(ast)->Add<kTestStringLessThanOrEqual>(loff, roff);
+                    EMIT(ast, Add<kTestStringLessThanOrEqual>(loff, roff));
                     break;
                 case Operator::kGreater:
-                    current_fun_->Incoming(ast)->Add<kTestStringGreaterThan>(loff, roff);
+                    EMIT(ast, Add<kTestStringGreaterThan>(loff, roff));
                     break;
                 case Operator::kGreaterEqual:
-                    current_fun_->Incoming(ast)->Add<kTestStringLessThanOrEqual>(loff, roff);
+                    EMIT(ast, Add<kTestStringLessThanOrEqual>(loff, roff));
                     break;
                 default:
                     NOREACHED();
@@ -2348,7 +2362,7 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
             MoveToArgumentIfNeeded(clazz, index, linkage, args_size, ast); \
             Value value = FindOrInsertExternalFunction("lang." #dest "::toString"); \
             LdaGlobal(value.type, value.index, ast); \
-            current_fun_->Incoming(ast)->Add<kCallNativeFunction>(args_size); \
+            EMIT(ast, Add<kCallNativeFunction>(TOP_REF, args_size)); \
         } break;
         DECLARE_BOX_NUMBER_TYPES(DEFINE_TO_STRING)
 #undef DEFINE_TO_STRING
@@ -2366,9 +2380,9 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
             int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
             LdaConst(method->fn()->clazz(), kidx, ast);
             if (method->is_native()) {
-                current_fun_->Incoming(ast)->Add<kCallNativeFunction>(argument_offset);
+                EMIT(ast, Add<kCallNativeFunction>(TOP_REF, argument_offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kCallBytecodeFunction>(argument_offset);
+                EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, argument_offset));
             }
         } break;
     }
@@ -2383,7 +2397,7 @@ void BytecodeGenerator::InboxIfNeeded(const Class *clazz, int index, Value::Link
             MoveToArgumentIfNeeded(clazz, index, linkage, args_size, ast); \
             Value value = FindOrInsertExternalFunction("lang." #dest "::valueOf"); \
             LdaGlobal(value.type, value.index, ast); \
-            current_fun_->Incoming(ast)->Add<kCallNativeFunction>(args_size); \
+            EMIT(ast, Add<kCallNativeFunction>(TOP_REF, args_size)); \
         } break;
         DECLARE_BOX_NUMBER_TYPES(DEFINE_INBOX_PRIMITIVE)
 #undef DEFINE_INBOX_PRIMITIVE
@@ -2410,17 +2424,17 @@ void BytecodeGenerator::MoveToStackIfNeeded(const Class *clazz, int index, Value
                                             int dest, ASTNode *ast) {
     if (linkage == Value::kStack) {
         if (clazz->is_reference()) {
-            current_fun_->Incoming(ast)->Add<kMovePtr>(GetStackOffset(dest), GetStackOffset(index));
+            EMIT(ast, Add<kMovePtr>(GetStackOffset(dest), GetStackOffset(index)));
             return;
         }
         switch (clazz->reference_size()) {
             case 1:
             case 2:
             case 4:
-                current_fun_->Incoming(ast)->Add<kMove32>(GetStackOffset(dest), GetStackOffset(index));
+                EMIT(ast, Add<kMove32>(GetStackOffset(dest), GetStackOffset(index)));
                 return;
             case 8:
-                current_fun_->Incoming(ast)->Add<kMove64>(GetStackOffset(dest), GetStackOffset(index));
+                EMIT(ast, Add<kMove64>(GetStackOffset(dest), GetStackOffset(index)));
                 return;
             default:
                 NOREACHED();
@@ -2431,7 +2445,7 @@ void BytecodeGenerator::MoveToStackIfNeeded(const Class *clazz, int index, Value
         LdaIfNeeded(clazz, index, linkage, ast);
     }
     if (clazz->is_reference()) {
-        current_fun_->Incoming(ast)->Add<kStarPtr>(GetStackOffset(dest));
+        EMIT(ast, Add<kStarPtr>(GetStackOffset(dest)));
         return;
     }
     switch (clazz->reference_size()) {
@@ -2439,16 +2453,16 @@ void BytecodeGenerator::MoveToStackIfNeeded(const Class *clazz, int index, Value
         case 2:
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Add<kStaf32>(GetStackOffset(dest));
+                EMIT(ast, Add<kStaf32>(GetStackOffset(dest)));
             } else {
-                current_fun_->Incoming(ast)->Add<kStar32>(GetStackOffset(dest));
+                EMIT(ast, Add<kStar32>(GetStackOffset(dest)));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Add<kStaf64>(GetStackOffset(dest));
+                EMIT(ast, Add<kStaf64>(GetStackOffset(dest)));
             } else {
-                current_fun_->Incoming(ast)->Add<kStar64>(GetStackOffset(dest));
+                EMIT(ast, Add<kStar64>(GetStackOffset(dest)));
             }
             break;
         default:
@@ -2461,17 +2475,17 @@ void BytecodeGenerator::MoveToArgumentIfNeeded(const Class *clazz, int index,
                                                Value::Linkage linkage, int dest, ASTNode *ast) {
     if (linkage == Value::kStack) {
         if (clazz->is_reference()) {
-            current_fun_->Incoming(ast)->Incomplete<kMovePtr>(-(dest), GetStackOffset(index));
+            EMIT(ast, Incomplete<kMovePtr>(-dest, GetStackOffset(index)));
             return;
         }
         switch (clazz->reference_size()) {
             case 1:
             case 2:
             case 4:
-                current_fun_->Incoming(ast)->Incomplete<kMove32>(-(dest), GetStackOffset(index));
+                EMIT(ast, Incomplete<kMove32>(-dest, GetStackOffset(index)));
                 return;
             case 8:
-                current_fun_->Incoming(ast)->Incomplete<kMove64>(-(dest), GetStackOffset(index));
+                EMIT(ast, Incomplete<kMove64>(-dest, GetStackOffset(index)));
                 return;
             default:
                 NOREACHED();
@@ -2482,7 +2496,7 @@ void BytecodeGenerator::MoveToArgumentIfNeeded(const Class *clazz, int index,
         LdaIfNeeded(clazz, index, linkage, ast);
     }
     if (clazz->is_reference()) {
-        current_fun_->Incoming(ast)->Incomplete<kStarPtr>(-(dest));
+        EMIT(ast, Incomplete<kStarPtr>(-dest));
         return;
     }
     switch (clazz->reference_size()) {
@@ -2490,16 +2504,16 @@ void BytecodeGenerator::MoveToArgumentIfNeeded(const Class *clazz, int index,
         case 2:
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Incomplete<kStaf32>(-(dest));
+                EMIT(ast, Incomplete<kStaf32>(-dest));
             } else {
-                current_fun_->Incoming(ast)->Incomplete<kStar32>(-(dest));
+                EMIT(ast, Incomplete<kStar32>(-dest));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Incomplete<kStaf64>(-(dest));
+                EMIT(ast, Incomplete<kStaf64>(-dest));
             } else {
-                current_fun_->Incoming(ast)->Incomplete<kStar64>(-(dest));
+                EMIT(ast, Incomplete<kStar64>(-dest));
             }
             break;
         default:
@@ -2542,7 +2556,7 @@ void BytecodeGenerator::LdaIfNeeded(const Class *clazz, int index, Value::Linkag
 void BytecodeGenerator::LdaStack(const Class *clazz, int index, ASTNode *ast) {
     int offset = GetStackOffset(index);
     if (clazz->is_reference()) {
-        current_fun_->Incoming(ast)->Add<kLdarPtr>(offset);
+        EMIT(ast, Add<kLdarPtr>(offset));
         return;
     }
     switch (clazz->reference_size()) {
@@ -2550,16 +2564,16 @@ void BytecodeGenerator::LdaStack(const Class *clazz, int index, ASTNode *ast) {
         case 2:
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Add<kLdaf32>(offset);
+                EMIT(ast, Add<kLdaf32>(offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kLdar32>(offset);
+                EMIT(ast, Add<kLdar32>(offset));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Add<kLdaf64>(offset);
+                EMIT(ast, Add<kLdaf64>(offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kLdar64>(offset);
+                EMIT(ast, Add<kLdar64>(offset));
             }
             break;
         default:
@@ -2571,7 +2585,7 @@ void BytecodeGenerator::LdaStack(const Class *clazz, int index, ASTNode *ast) {
 void BytecodeGenerator::LdaConst(const Class *clazz, int index, ASTNode *ast) {
     int offset = GetConstOffset(index);
     if (clazz->is_reference()) {
-        current_fun_->Incoming(ast)->Add<kLdaConstPtr>(offset);
+        EMIT(ast, Add<kLdaConstPtr>(offset));
         return;
     }
     switch (clazz->reference_size()) {
@@ -2579,16 +2593,16 @@ void BytecodeGenerator::LdaConst(const Class *clazz, int index, ASTNode *ast) {
         case 2:
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Add<kLdaConstf32>(offset);
+                EMIT(ast, Add<kLdaConstf32>(offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kLdaConst32>(offset);
+                EMIT(ast, Add<kLdaConst32>(offset));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Add<kLdaConstf64>(offset);
+                EMIT(ast, Add<kLdaConstf64>(offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kLdaConst64>(offset);
+                EMIT(ast, Add<kLdaConst64>(offset));
             }
             break;
         default:
@@ -2608,16 +2622,16 @@ void BytecodeGenerator::LdaGlobal(const Class *clazz, int index, ASTNode *ast) {
         case 2:
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Add<kLdaGlobalf32>(offset);
+                EMIT(ast, Add<kLdaGlobalf32>(offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kLdaGlobal32>(offset);
+                EMIT(ast, Add<kLdaGlobal32>(offset));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Add<kLdaGlobalf64>(offset);
+                EMIT(ast, Add<kLdaGlobalf64>(offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kLdaGlobal64>(offset);
+                EMIT(ast, Add<kLdaGlobal64>(offset));
             }
             break;
         default:
@@ -2628,7 +2642,7 @@ void BytecodeGenerator::LdaGlobal(const Class *clazz, int index, ASTNode *ast) {
 
 void BytecodeGenerator::LdaCaptured(const Class *clazz, int index, ASTNode *ast) {
     if (clazz->is_reference()) {
-        current_fun_->Incoming(ast)->Add<kLdaCapturedPtr>(index);
+        EMIT(ast, Add<kLdaCapturedPtr>(index));
         return;
     }
     switch (clazz->reference_size()) {
@@ -2636,16 +2650,16 @@ void BytecodeGenerator::LdaCaptured(const Class *clazz, int index, ASTNode *ast)
         case 2:
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Add<kLdaCapturedf32>(index);
+                EMIT(ast, Add<kLdaCapturedf32>(index));
             } else {
-                current_fun_->Incoming(ast)->Add<kLdaCaptured32>(index);
+                EMIT(ast, Add<kLdaCaptured32>(index));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Add<kLdaCapturedf64>(index);
+                EMIT(ast, Add<kLdaCapturedf64>(index));
             } else {
-                current_fun_->Incoming(ast)->Add<kLdaCaptured64>(index);
+                EMIT(ast, Add<kLdaCaptured64>(index));
             }
             break;
         default:
@@ -2679,7 +2693,7 @@ void BytecodeGenerator::StaIfNeeded(const Class *clazz, int index, Value::Linkag
 void BytecodeGenerator::StaStack(const Class *clazz, int index, ASTNode *ast) {
     int offset = GetStackOffset(index);
     if (clazz->is_reference()) {
-        current_fun_->Incoming(ast)->Add<kStarPtr>(offset);
+        EMIT(ast, Add<kStarPtr>(offset));
         return;
     }
     switch (clazz->reference_size()) {
@@ -2687,16 +2701,16 @@ void BytecodeGenerator::StaStack(const Class *clazz, int index, ASTNode *ast) {
         case 2:
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Add<kStaf32>(offset);
+                EMIT(ast, Add<kStaf32>(offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kStar32>(offset);
+                EMIT(ast, Add<kStar32>(offset));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Add<kStaf64>(offset);
+                EMIT(ast, Add<kStaf64>(offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kStar64>(offset);
+                EMIT(ast, Add<kStar64>(offset));
             }
             break;
         default:
@@ -2708,7 +2722,7 @@ void BytecodeGenerator::StaStack(const Class *clazz, int index, ASTNode *ast) {
 void BytecodeGenerator::StaGlobal(const Class *clazz, int index, ASTNode *ast) {
     int offset = GetGlobalOffset(index);
     if (clazz->is_reference()) {
-        current_fun_->Incoming(ast)->Add<kStaGlobalPtr>(offset);
+        EMIT(ast, Add<kStaGlobalPtr>(offset));
         return;
     }
     switch (clazz->reference_size()) {
@@ -2716,16 +2730,16 @@ void BytecodeGenerator::StaGlobal(const Class *clazz, int index, ASTNode *ast) {
         case 2:
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Add<kStaGlobalf32>(offset);
+                EMIT(ast, Add<kStaGlobalf32>(offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kStaGlobal32>(offset);
+                EMIT(ast, Add<kStaGlobal32>(offset));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Add<kStaGlobalf64>(offset);
+                EMIT(ast, Add<kStaGlobalf64>(offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kStaGlobal64>(offset);
+                EMIT(ast, Add<kStaGlobal64>(offset));
             }
             break;
         default:
@@ -2736,7 +2750,7 @@ void BytecodeGenerator::StaGlobal(const Class *clazz, int index, ASTNode *ast) {
 
 void BytecodeGenerator::StaCaptured(const Class *clazz, int index, ASTNode *ast) {
     if (clazz->is_reference()) {
-        current_fun_->Incoming(ast)->Add<kStaCapturedPtr>(index);
+        EMIT(ast, Add<kStaCapturedPtr>(index));
         return;
     }
     switch (clazz->reference_size()) {
@@ -2744,16 +2758,16 @@ void BytecodeGenerator::StaCaptured(const Class *clazz, int index, ASTNode *ast)
         case 2:
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Add<kStaCapturedf32>(index);
+                EMIT(ast, Add<kStaCapturedf32>(index));
             } else {
-                current_fun_->Incoming(ast)->Add<kStaCaptured32>(index);
+                EMIT(ast, Add<kStaCaptured32>(index));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Add<kStaCapturedf64>(index);
+                EMIT(ast, Add<kStaCapturedf64>(index));
             } else {
-                current_fun_->Incoming(ast)->Add<kStaCaptured64>(index);
+                EMIT(ast, Add<kStaCaptured64>(index));
             }
             break;
         default:
@@ -2765,28 +2779,28 @@ void BytecodeGenerator::StaCaptured(const Class *clazz, int index, ASTNode *ast)
 void BytecodeGenerator::StaProperty(const Class *clazz, int index, int offset, ASTNode *ast) {
     index = GetStackOffset(index);
     if (clazz->is_reference()) {
-        current_fun_->Incoming(ast)->Add<kStaPropertyPtr>(index, offset);
+        EMIT(ast, Add<kStaPropertyPtr>(index, offset));
         return;
     }
     switch (clazz->reference_size()) {
         case 1:
-            current_fun_->Incoming(ast)->Add<kStaProperty8>(index, offset);
+            EMIT(ast, Add<kStaProperty8>(index, offset));
             break;
         case 2:
-            current_fun_->Incoming(ast)->Add<kStaProperty16>(index, offset);
+            EMIT(ast, Add<kStaProperty16>(index, offset));
             break;
         case 4:
             if (clazz->id() == kType_f32) {
-                current_fun_->Incoming(ast)->Add<kStaPropertyf32>(index, offset);
+                EMIT(ast, Add<kStaPropertyf32>(index, offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kStaProperty32>(index, offset);
+                EMIT(ast, Add<kStaProperty32>(index, offset));
             }
             break;
         case 8:
             if (clazz->id() == kType_f64) {
-                current_fun_->Incoming(ast)->Add<kStaPropertyf64>(index, offset);
+                EMIT(ast, Add<kStaPropertyf64>(index, offset));
             } else {
-                current_fun_->Incoming(ast)->Add<kStaProperty64>(index, offset);
+                EMIT(ast, Add<kStaProperty64>(index, offset));
             }
             break;
         default:

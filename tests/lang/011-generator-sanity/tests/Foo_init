@@ -1,7 +1,7 @@
 +-------------------------------
 | Foo():void
 +-------------------------------
-stack-size: 64
+stack-size: 80
 const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0

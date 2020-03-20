@@ -340,7 +340,7 @@ TEST_F(CoroutineTest, BytecodeCallNativeFunction) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(0);
+    builder.Add<kCallNativeFunction>(0, 0);
     builder.Add<kReturn>();
 
     Local<Closure> dummy(FunctionTemplate::New(Dummy5));
@@ -381,7 +381,7 @@ TEST_F(CoroutineTest, BytecodeCallNativeFunctionWithArguments) {
     builder.Add<kStar32>(stack_offset(kStackSize + 4));
     
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(16);
+    builder.Add<kCallNativeFunction>(0, 16);
     builder.Add<kReturn>();
 
     Local<Closure> dummy(FunctionTemplate::New(Dummy6));
@@ -414,10 +414,10 @@ TEST_F(CoroutineTest, BytecodeYield) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(0);
+    builder.Add<kCallNativeFunction>(0, 0);
     builder.Add<kYield>(YIELD_FORCE);
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(0);
+    builder.Add<kCallNativeFunction>(0, 0);
     builder.Add<kReturn>();
 
     Local<Closure> dummy(FunctionTemplate::New(Dummy7));
@@ -453,10 +453,10 @@ TEST_F(CoroutineTest, BytecodeCallBytecodeFunction) {
         BytecodeArrayBuilder builder(arena_);
         builder.Add<kCheckStack>();
         builder.Add<kLdaConstPtr>(0);
-        builder.Add<kCallNativeFunction>(0);
+        builder.Add<kCallNativeFunction>(0, 0);
         builder.Add<kYield>(YIELD_FORCE);
         builder.Add<kLdaConstPtr>(0);
-        builder.Add<kCallNativeFunction>(0);
+        builder.Add<kCallNativeFunction>(0, 0);
         builder.Add<kReturn>();
 
         Local<Closure> dummy(FunctionTemplate::New(Dummy8));
@@ -471,7 +471,7 @@ TEST_F(CoroutineTest, BytecodeCallBytecodeFunction) {
         BytecodeArrayBuilder builder(arena_);
         builder.Add<kCheckStack>();
         builder.Add<kLdaConstPtr>(0);
-        builder.Add<kCallBytecodeFunction>(0);
+        builder.Add<kCallBytecodeFunction>(0, 0);
         builder.Add<kReturn>();
         
         Span32 span;
@@ -500,7 +500,7 @@ TEST_F(CoroutineTest, ScheduleSanity) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(0);
+    builder.Add<kCallNativeFunction>(0, 0);
     builder.Add<kReturn>();
 
     Local<Closure> dummy(FunctionTemplate::New(Dummy5));
@@ -534,7 +534,7 @@ TEST_F(CoroutineTest, ThrowException) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(0);
+    builder.Add<kCallNativeFunction>(0, 0);
     builder.Add<kReturn>();
 
     Local<Closure> dummy(FunctionTemplate::New(Dummy9));
@@ -560,7 +560,7 @@ TEST_F(CoroutineTest, OOMThrowPanic) {
     BytecodeArrayBuilder builder(arena_);
     builder.Add<kCheckStack>();
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(0);
+    builder.Add<kCallNativeFunction>(0, 0);
     builder.Add<kReturn>();
 
     Local<Closure> dummy(FunctionTemplate::New(Dummy10));
@@ -643,10 +643,10 @@ TEST_F(CoroutineTest, NewChannel) {
     builder.Add<kLdaZero>();
     builder.Add<kStar32>(stack_offset(kStackSize + 8));
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(8); // NewChannel
+    builder.Add<kCallNativeFunction>(0, 8); // NewChannel
     builder.Add<kStarPtr>(stack_offset(kStackSize + 8));
     builder.Add<kLdaConstPtr>(2);
-    builder.Add<kCallNativeFunction>(8); // ChannelClose
+    builder.Add<kCallNativeFunction>(0, 8); // ChannelClose
     builder.Add<kReturn>();
 
     Span32 span;
@@ -682,7 +682,7 @@ TEST_F(CoroutineTest, SendRecvChannel) {
     builder.Add<kLdaSmi32>(404);
     builder.Add<kStar32>(stack_offset(kStackSize + 12));
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(12);
+    builder.Add<kCallNativeFunction>(0, 12);
     builder.Add<kYield>(YIELD_PROPOSE);
     builder.Add<kReturn>();
 
@@ -696,11 +696,11 @@ TEST_F(CoroutineTest, SendRecvChannel) {
     builder.Add<kLdaConstPtr>(4);
     builder.Add<kStarPtr>(stack_offset(kStackSize + 8));
     builder.Add<kLdaConstPtr>(2);
-    builder.Add<kCallNativeFunction>(8);
+    builder.Add<kCallNativeFunction>(0, 8);
     builder.Add<kYield>(YIELD_PROPOSE);
     builder.Add<kStar32>(stack_offset(kStackSize + 4));
     builder.Add<kLdaConstPtr>(6);
-    builder.Add<kCallNativeFunction>(4);
+    builder.Add<kCallNativeFunction>(0, 4);
     builder.Add<kReturn>();
     
     entry = BuildDummyClosure(builder.Build(), {span}, {0x3});
@@ -730,7 +730,7 @@ TEST_F(CoroutineTest, LoadArgumentToACC) {
     builder.Add<kMove32>(stack_offset(kStackSize + 4), parameter_offset(16 - 4));
     builder.Add<kMove64>(stack_offset(kStackSize + 12), parameter_offset(16 - 12));
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(12);
+    builder.Add<kCallNativeFunction>(0, 12);
     builder.Add<kReturn>();
 
     uint8_t mock_data[16];
@@ -771,7 +771,7 @@ TEST_F(CoroutineTest, NewObject) {
     builder.Add<kNewObject>(Heap::kOld/*flags*/, 2/*const_offset*/);
     builder.Add<kStarPtr>(stack_offset(kStackSize + 8));
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(8);
+    builder.Add<kCallNativeFunction>(0, 8);
     builder.Add<kReturn>();
     
     Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
@@ -830,7 +830,7 @@ TEST_F(CoroutineTest, LoadPropertyToACC) {
     builder.Add<kLdaProperty64>(v1, clazz->field(4)->offset());
     builder.Add<kStar64>(stack_offset(kStackSize + 20));
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(20);
+    builder.Add<kCallNativeFunction>(0, 20);
     builder.Add<kReturn>();
     
     Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
@@ -884,7 +884,7 @@ TEST_F(CoroutineTest, LoadPropertyToACC2) {
     builder.Add<kLdaPropertyPtr>(v1, clazz->field(7)->offset());
     builder.Add<kStarPtr>(stack_offset(kStackSize + 20));
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(20);
+    builder.Add<kCallNativeFunction>(0, 20);
     builder.Add<kReturn>();
     
     Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
@@ -970,7 +970,7 @@ TEST_F(CoroutineTest, LoadCapturedVarToACC) {
     builder.Add<kStaf64>(stack_offset(kStackSize + 24));
     
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(24);
+    builder.Add<kCallNativeFunction>(0, 24);
     builder.Add<kReturn>();
     
     Span32 span;
@@ -1073,7 +1073,7 @@ TEST_F(CoroutineTest, LoadGlobalSpace) {
     builder.Add<kLdaGlobalf64>(global_offset(l4));
     builder.Add<kStaf64>(stack_offset(kStackSize + 24));
     builder.Add<kLdaConstPtr>(0);
-    builder.Add<kCallNativeFunction>(24);
+    builder.Add<kCallNativeFunction>(0, 24);
     builder.Add<kReturn>();
 
     Span32 span;

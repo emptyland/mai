@@ -120,8 +120,16 @@ void BytecodeGeneratorTest::AssertFunction(const std::string &name, const Functi
         std::string scratch;
         rs = file->Read(size, &result, &scratch);
         ASSERT_TRUE(rs.ok()) << rs.ToString();
-
-        ASSERT_EQ(printer.buffer(), result);
+        
+        if (printer.buffer().compare(result) != 0) {
+            std::unique_ptr<WritableFile> file;
+            rs = env_->NewWritableFile(expect_file + ".tmp", false, &file);
+            ASSERT_TRUE(rs.ok()) << rs.ToString();
+            
+            rs = file->Append(printer.buffer());
+            ASSERT_TRUE(rs.ok()) << rs.ToString();
+            FAIL() << "Assert function fail! " << name << "\n" << printer.buffer();
+        }
     }
 }
 
@@ -241,11 +249,10 @@ TEST_F(BytecodeGeneratorTest, EmbedFunctionAndLambda) {
     ASSERT_TRUE(do_that->is_mai_function());
     ASSERT_FALSE(do_that->is_cxx_function());
 
-    base::StdFilePrinter printer(stdout);
-    main->function()->Print(&printer);
-//    bar->function()->Print(&printer);
-//    do_it->function()->Print(&printer);
-//    do_that->function()->Print(&printer);
+    AssertFunction("main", main->function());
+    AssertFunction("bar", bar->function());
+    AssertFunction("do_it", do_it->function());
+    AssertFunction("do_that", do_that->function());
 }
 
 TEST_F(BytecodeGeneratorTest, RunEmbedFunctionAndLambda) {
@@ -260,29 +267,31 @@ TEST_F(BytecodeGeneratorTest, RunEmbedFunctionAndLambda) {
 }
 
 TEST_F(BytecodeGeneratorTest, ThrowCatchException) {
+    Define("015-throw-catch-exception");
     HandleScope handle_scope(HandleScope::INITIALIZER);
 
-    auto err = Parse("tests/lang/015-throw-catch-exception");
+    auto err = Parse();
     ASSERT_TRUE(err.ok()) << err.ToString();
     ASSERT_TRUE(generator_->Prepare());
     ASSERT_TRUE(generator_->Generate());
     
-    base::StdFilePrinter printer(stdout);
+    //base::StdFilePrinter printer(stdout);
     
     auto value = generator_->FindValue("main.main");
     Local<Closure> main(*isolate_->global_offset<Closure *>(value.index));
     ASSERT_TRUE(main.is_value_not_null());
     ASSERT_TRUE(main->is_mai_function());
     ASSERT_FALSE(main->is_cxx_function());
-    main->function()->Print(&printer);
+    
+    AssertFunction("main", main->function());
     
     auto clazz = isolate_->metadata_space()->FindClassOrNull("main.MyException");
     ASSERT_NE(nullptr, clazz);
-    clazz->init()->fn()->function()->Print(&printer);
+    AssertFunction("main_MyException_init", clazz->init()->fn()->function());
     
     clazz = isolate_->metadata_space()->FindClassOrNull("lang.Exception");
     ASSERT_NE(nullptr, clazz);
-    clazz->init()->fn()->function()->Print(&printer);
+    AssertFunction("lang_Exception_init", clazz->init()->fn()->function());
 }
 
 TEST_F(BytecodeGeneratorTest, RunThrowCatchException) {

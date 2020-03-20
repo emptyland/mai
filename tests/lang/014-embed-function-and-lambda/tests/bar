@@ -1,0 +1,18 @@
++-------------------------------
+| main.bar():void
++-------------------------------
+stack-size: 96
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 6
+souce-file-name: tests/lang/014-embed-function-and-lambda/main/main.mai
+bytecode-size: 6
+bytecode: 
+    000 CheckStack; (48)
+    001 LdaSmi32 #100; (49)
+    002 Star32 [BP-72]; (49)
+    003 Close [KP+0]; (50)
+    004 Return; (50)
+    005 Return; (48)

@@ -1,7 +1,7 @@
 +-------------------------------
 | main.bar():void
 +-------------------------------
-stack-size: 64
+stack-size: 80
 const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0
@@ -11,10 +11,10 @@ souce-file-name: tests/lang/011-generator-sanity/main/main.mai
 bytecode-size: 8
 bytecode: 
     000 CheckStack; (13)
-    001 MovePtr [BP-72], [BP+24]; (14)
+    001 MovePtr [BP-88], [BP+24]; (14)
     002 LdaGlobalPtr [GS+64]; (14)
-    003 CallNativeFunction #8; (14)
-    004 MovePtr [BP-72], [BP+16]; (15)
+    003 CallNativeFunction #68, #8; (14)
+    004 MovePtr [BP-88], [BP+16]; (15)
     005 LdaGlobalPtr [GS+64]; (15)
-    006 CallNativeFunction #8; (15)
+    006 CallNativeFunction #68, #8; (15)
     007 Return; (13)

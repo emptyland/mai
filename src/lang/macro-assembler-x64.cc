@@ -294,6 +294,7 @@ void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
     __ subq(rsp, rbx);
     __ movl(Operand(rbp, BytecodeStackFrame::kOffsetMaker), BytecodeStackFrame::kMaker);
     __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), 0); // set pc = 0
+    __ movl(Operand(rbp, BytecodeStackFrame::kOffsetTop), 0); // set top = 0
 
     __ movq(Operand(rbp, BytecodeStackFrame::kOffsetCallee), Argv_0); // set callee
     __ movq(rbx, Operand(SCRATCH, Function::kOffsetBytecode)); // rbx = mai_fn->bytecodes
@@ -1320,8 +1321,12 @@ public:
 
     // Calling -------------------------------------------------------------------------------------
     void EmitCallNativeFunction(MacroAssembler *masm) override {
-        InstrImmAScope instr_scope(masm);
+        InstrImmABScope instr_scope(masm);
+        // Set top
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetTop), rbx);
+        
         // Adjust Caller Stack
+        instr_scope.GetBTo(rbx);
         __ addl(rbx, 15); // ebx = ebx + 16 - 1
         __ andl(rbx, 0xfffffff0); // ebx &= -16
         __ subq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
@@ -1332,7 +1337,7 @@ public:
         // The stub code should switch to system stack and call real function.
 
         // Recover Caller Stack
-        instr_scope.GetAToRBX();
+        instr_scope.GetBTo(rbx);
         __ addl(rbx, 15); // ebx = ebx + 16 - 1
         __ andl(rbx, 0xfffffff0); // ebx &= -16
         __ addq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
@@ -1341,14 +1346,16 @@ public:
     }
 
     void EmitCallBytecodeFunction(MacroAssembler *masm) override {
-        InstrImmAScope instr_scope(masm);
+        InstrImmABScope instr_scope(masm);
+        // Set top
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetTop), rbx);
     
         // Adjust Caller Stack
+        instr_scope.GetBTo(rbx);
         __ addl(rbx, 15); // ebx = ebx + 16 - 1
         __ andl(rbx, 0xfffffff0); // ebx &= -16
         __ subq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
 
-        //__ Breakpoint();
         __ movq(Argv_0, ACC);
         __ movq(SCRATCH, space_->interpreter_pump_code()->entry());
         __ call(SCRATCH);
@@ -1362,7 +1369,7 @@ public:
         __ leaq(BC, Operand(SCRATCH, rbx, times_4, 0)); // [SCRATCH + rbx * 4]
 
         // Recover Caller Stack
-        instr_scope.GetAToRBX();
+        instr_scope.GetBTo(rbx);
         __ addl(rbx, 15); // ebx = ebx + 16 - 1
         __ andl(rbx, 0xfffffff0); // ebx &= -16
         __ addq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
@@ -1388,13 +1395,14 @@ public:
     }
     
     void EmitNewObject(MacroAssembler *masm) override {
-        InstrImmAFScope instr_scope(masm);
+        InstrImmABScope instr_scope(masm);
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetTop), rbx);
+
         // Load class pointer
+        instr_scope.GetBTo(rbx); // class
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0));
-
-        instr_scope.GetFToRBX(); // flags
-        __ movl(Argv_1, rbx);
+        __ movq(Argv_1, 0);
     
         __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewObject));
         EmitCheckException(masm);
@@ -1432,8 +1440,10 @@ public:
     }
 
     void EmitContact(MacroAssembler *masm) override {
-        InstrImmAScope instr_scope(masm);
-        //__ Breakpoint();
+        InstrImmABScope instr_scope(masm);
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetTop), rbx);
+        
+        instr_scope.GetBTo(rbx);
         __ movq(Argv_0, rsp);
         __ subq(Argv_0, rbx);
         __ movq(Argv_1, rsp);
