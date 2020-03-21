@@ -109,6 +109,10 @@ struct Runtime {
     static void ChannelSendF32(Channel *chan, float value);
     static void ChannelSendF64(Channel *chan, double value);
     
+    // WriteBarrier
+    static Any *WriteBarrierWithOffset(Any *host, int32_t offset);
+    static Any *WriteBarrierWithAddress(Any *host, Any **address);
+    
     // Panic Object
     static Throwable *NewNilPointerPanic();
     static Throwable *NewStackoverflowPanic();

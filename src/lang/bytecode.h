@@ -233,7 +233,11 @@ namespace lang {
     V(IDiv32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(IDiv64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Mod32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(Mod64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset)
+    V(Mod64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(Increment32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
+    V(Increment64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
+    V(IncrementPost32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
+    V(IncrementPost64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate)
 
 #define DECLARE_BITWISE_BYTECODE(V) \
     V(BitwiseOr32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \

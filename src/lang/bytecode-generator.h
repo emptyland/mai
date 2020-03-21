@@ -118,6 +118,7 @@ private:
     Result VisitStringLiteral(StringLiteral *) override;
     Result VisitBreakableStatement(BreakableStatement *) override;
     Result VisitTryCatchFinallyBlock(TryCatchFinallyBlock *) override;
+    Result VisitAssignmentStatement(AssignmentStatement *) override;
 
     bool ShouldCaptureVar(Scope *owns, Value value);
     Result CaptureVar(const std::string &name, Scope *owns, Value value);
@@ -130,24 +131,38 @@ private:
     Result GenerateMethodCalling(Value primary, CallExpression *ast);
     Result GenerateNewObject(const Class *clazz, CallExpression *ast);
     int GenerateArguments(const base::ArenaVector<Expression *> &args,
-                          const std::vector<const Class *> &params,
-                          ASTNode *self_ast,
-                          int self_idx,
+                          const std::vector<const Class *> &params, ASTNode *self_ast, int self_idx,
                           bool vargs);
-    Result GenerateDotExpression(const Class *clazz, int index, Value::Linkage linkage, DotExpression *ast);
+    Result GeneratePropertyAssignment(const ASTString *name, Value self, Scope *owns, Operator op,
+                                      Expression *rhs, DotExpression *ast);
+    Result GenerateVariableAssignment(const ASTString *name, Value lval, Scope *owns, Operator op,
+                                      Expression *rhs, ASTNode *ast);
+    Result GenerateIncrement(const Class *lval_type, int lval_index, Value::Linkage lval_linkage,
+                             Operator op);
+    Result GenerateStoreProperty(const Class *clazz, int index, Value::Linkage linkage,
+                                 DotExpression *ast);
+    Result GenerateLoadProperty(const Class *clazz, int index, Value::Linkage linkage,
+                                DotExpression *ast);
     
     void GenerateComparation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
+    void GenerateOperation(const Class *clazz, Operator op, int lhs_index,
+                           Value::Linkage lhs_linkage, int rhs_index, Value::Linkage rhs_linkage,
+                           ASTNode *ast);
     void GenerateOperation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
     void ToStringIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
-    void InboxIfNeeded(const Class *clazz, int index, Value::Linkage, const Class *lval, ASTNode *ast);
-    void MoveToStackIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest, ASTNode *ast);
-    void MoveToArgumentIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest, ASTNode *ast);
+    void InboxIfNeeded(const Class *clazz, int index, Value::Linkage linkage, const Class *lval,
+                       ASTNode *ast);
+    void MoveToStackIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest,
+                             ASTNode *ast);
+    void MoveToArgumentIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest,
+                                ASTNode *ast);
     void LdaIfNeeded(const Result &rv, ASTNode *ast);
     void LdaIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
     void LdaStack(const Class *clazz, int index, ASTNode *ast);
     void LdaConst(const Class *clazz, int index, ASTNode *ast);
     void LdaGlobal(const Class *clazz, int index, ASTNode *ast);
     void LdaCaptured(const Class *clazz, int index, ASTNode *ast);
+    void LdaProperty(const Class *clazz, int index, int offset, ASTNode *ast);
     void StaIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
     void StaStack(const Class *clazz, int index, ASTNode *ast);
     void StaConst(const Class *clazz, int index, ASTNode *ast);

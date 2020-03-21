@@ -1,0 +1,16 @@
+package main
+
+
+class Foo {
+	var name: string
+	var id: int
+}
+
+native Foo newOldFoo()
+
+native string newNewString()
+
+fun main() {
+	val foo = newOldFoo()
+	foo.name = newNewString()
+}

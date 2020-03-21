@@ -781,7 +781,27 @@ public:
     }
     
     void EmitStaCapturedPtr(MacroAssembler *masm) override {
-        __ Abort("TODO: Write barrier");
+        //__ Abort("TODO: Write barrier");
+        InstrCapturedVarScope instr_scope(masm);
+        __ movq(Operand(SCRATCH, CapturedValue::kOffsetValue), ACC);
+        __ sfence();
+        
+        // Write Barrier
+        // Check host is new-generation ?
+        __ cmpq(SCRATCH, Operand(CO, Coroutine::kOffsetHeapGuard0));
+        Label host_is_old;
+        __ j(Less, &host_is_old, false/*is_far*/);
+        __ cmpq(SCRATCH, Operand(CO, Coroutine::kOffsetHeapGuard1));
+        __ j(GreaterEqual, &host_is_old, false/*is_far*/);
+        Label store_free;
+        __ jmp(&store_free, false/*is_far*/);
+
+        __ Bind(&host_is_old); // Host ensure is old-generation
+        __ movq(Argv_0, SCRATCH); // argv[0] = host
+        __ leaq(Argv_1, Operand(SCRATCH, CapturedValue::kOffsetValue)); // argv[1] = address
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::WriteBarrierWithAddress));
+
+        __ Bind(&store_free);
     }
     
     void EmitStaCapturedf32(MacroAssembler *masm) override {
@@ -861,8 +881,27 @@ public:
     }
     
     void EmitStaPropertyPtr(MacroAssembler *masm) override {
-        // TODO: __ Abort("TODO: Write barrier");
-        EmitStaProperty64(masm);
+        InstrStackImmABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movq(Operand(SCRATCH, rbx, times_1, 0), ACC);
+        
+        // Write Barrier
+        // Check host is new-generation ?
+        __ cmpq(SCRATCH, Operand(CO, Coroutine::kOffsetHeapGuard0));
+        Label host_is_old;
+        __ j(Less, &host_is_old, false/*is_far*/);
+        __ cmpq(SCRATCH, Operand(CO, Coroutine::kOffsetHeapGuard1));
+        __ j(GreaterEqual, &host_is_old, false/*is_far*/);
+        Label store_free;
+        __ jmp(&store_free, false/*is_far*/);
+
+        __ Bind(&host_is_old); // Host ensure is old-generation
+        __ movq(Argv_0, SCRATCH); // argv[0] = host
+        __ movl(Argv_1, rbx); // argv[1] = offset
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::WriteBarrierWithOffset));
+
+        __ Bind(&store_free);
     }
     
     void EmitStaPropertyf32(MacroAssembler *masm) override {

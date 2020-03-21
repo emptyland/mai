@@ -1330,7 +1330,7 @@ ASTVisitor::Result BytecodeGenerator::VisitDotExpression(DotExpression *ast) /*o
             return ResultWithError();
         }
         const Class *clazz = metadata_space_->type(rv.bundle.type);
-        return GenerateDotExpression(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+        return GenerateLoadProperty(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
                                      ast);
     }
     
@@ -1355,7 +1355,7 @@ ASTVisitor::Result BytecodeGenerator::VisitDotExpression(DotExpression *ast) /*o
         DCHECK_EQ(rv.bundle.type, value.type->id());
         value.index = rv.bundle.index;
     }
-    return GenerateDotExpression(value.type, value.index, value.linkage, ast);
+    return GenerateLoadProperty(value.type, value.index, value.linkage, ast);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTemplateExpression *ast)
@@ -1806,6 +1806,52 @@ ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyB
     return ResultWithVoid();
 }
 
+ASTVisitor::Result BytecodeGenerator::VisitAssignmentStatement(AssignmentStatement *ast)
+/*override*/ {
+    switch(ast->lval()->kind()) {
+        case ASTNode::kIdentifier: {
+            const ASTString *name = ast->lval()->AsIdentifier()->name();
+            auto [owns, lval] = current_->Resolve(name);
+            return GenerateVariableAssignment(name, lval, owns, ast->assignment_op(), ast->rval(),
+                                              ast);
+        } break;
+
+        case ASTNode::kDotExpression: {
+            DotExpression *dot = ast->lval()->AsDotExpression();
+            if (!dot->primary()->IsIdentifier()) {
+                Result rv;
+                if (rv = dot->primary()->Accept(this); rv.kind == Value::kError) {
+                    return ResultWithError();
+                }
+                Value self {
+                    static_cast<Value::Linkage>(rv.kind),
+                    metadata_space_->type(rv.bundle.type),
+                    rv.bundle.index,
+                };
+                return GeneratePropertyAssignment(nullptr/*name*/, self, current_file_,
+                                                  ast->assignment_op(), ast->rval(), dot);
+            }
+
+            Identifier *id = DCHECK_NOTNULL(dot->primary()->AsIdentifier());
+            Value value = current_file_->Find(id->name(), dot->rhs());
+            if (value.linkage != Value::kError) { // Found
+                return GenerateVariableAssignment(id->name(), value, current_file_,
+                                                  ast->assignment_op(), ast->rval(), ast);
+            }
+            
+            auto [owns, self] = current_->Resolve(id->name());
+            return GeneratePropertyAssignment(id->name(), self, current_file_, ast->assignment_op(),
+                                              ast->rval(), dot);
+        } break;
+
+        case ASTNode::kIndexExpression:
+            TODO();
+        default:
+            NOREACHED();
+    }
+    return ResultWithVoid();
+}
+
 bool BytecodeGenerator::ShouldCaptureVar(Scope *owns, Value value) {
     if (owns->is_file_scope()) {
         return false;
@@ -1942,50 +1988,165 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
     return argument_offset;
 }
 
-ASTVisitor::Result BytecodeGenerator::GenerateDotExpression(const Class *clazz, int index,
-                                                            Value::Linkage linkage,
-                                                            DotExpression *ast) {
-    const Field *field = metadata_space_->FindClassFieldOrNull(clazz, ast->rhs()->data());
+ASTVisitor::Result
+BytecodeGenerator::GeneratePropertyAssignment(const ASTString *name, Value self, Scope *owns,
+                                              Operator op, Expression *rhs, DotExpression *ast) {
+    Value rval{Value::kError};
+    if (!rhs->IsPairExpression()) {
+        auto rv = rhs->Accept(this);
+        if (rv.kind != Value::kError) {
+            return ResultWithError();
+        }
+        
+        rval.linkage = static_cast<Value::Linkage>(rv.kind);
+        rval.type = metadata_space_->type(rv.bundle.type);
+        rval.index = rv.bundle.index;
+    }
+    
+    if (!owns->is_file_scope()) {
+        if (!HasGenerated(self.ast) && !GenerateSymbolDependence(self)) {
+            return ResultWithError();
+        }
+        DCHECK(HasGenerated(self.ast));
+    }
+    
+    if (ShouldCaptureVar(owns, self)) {
+        auto rv = CaptureVar(name->ToString(), owns, self);
+        DCHECK_NE(Value::kError, rv.kind);
+        self.linkage = static_cast<Value::Linkage>(rv.kind);
+        DCHECK_EQ(rv.bundle.type, self.type->id());
+        self.index = rv.bundle.index;
+    }
+    
+    switch (op.kind) {
+        case Operator::kAdd:
+        case Operator::kSub: {
+            if (rhs->IsPairExpression()) {
+                // TODO: map or array putting
+                TODO();
+            }
+            GenerateLoadProperty(self.type, self.index, self.linkage, ast);
+            GenerateOperation(rval.type, op, 0/*lhs_index*/, Value::kACC/*lhs_linkage*/,
+                              rval.index, rval.linkage, ast);
+        } break;
+        case Operator::NOT_OPERATOR: {
+            const Field *field =
+                DCHECK_NOTNULL(metadata_space_->FindClassFieldOrNull(self.type, ast->rhs()->data()));
+            if (NeedInbox(field->type(), rval.type)) {
+                InboxIfNeeded(rval.type, rval.index, rval.linkage, field->type(), ast);
+            } else {
+                LdaIfNeeded(rval.type, rval.index, rval.linkage, ast);
+            }
+        } break;
+        default:
+            NOREACHED();
+            break;
+    }
+    return GenerateStoreProperty(self.type, self.index, self.linkage, ast);
+}
+
+ASTVisitor::Result
+BytecodeGenerator::GenerateVariableAssignment(const ASTString *name, Value lval, Scope *owns,
+                                              Operator op, Expression *rhs, ASTNode *ast) {
+    Value rval{Value::kError};
+    if (!rhs->IsPairExpression()) {
+        auto rv = rhs->Accept(this);
+        if (rv.kind != Value::kError) {
+            return ResultWithError();
+        }
+        
+        rval.linkage = static_cast<Value::Linkage>(rv.kind);
+        rval.type = metadata_space_->type(rv.bundle.type);
+        rval.index = rv.bundle.index;
+    }
+    
+    if (!owns->is_file_scope()) {
+        if (!HasGenerated(lval.ast) && !GenerateSymbolDependence(lval)) {
+            return ResultWithError();
+        }
+        DCHECK(HasGenerated(lval.ast));
+    }
+    if (ShouldCaptureVar(owns, lval)) {
+        auto rv = CaptureVar(name->ToString(), owns, lval);
+        lval.linkage = static_cast<Value::Linkage>(rv.kind);
+        lval.type = metadata_space_->type(rv.bundle.type);
+        lval.index = rv.bundle.index;
+    }
+
+    switch (op.kind) {
+        case Operator::kAdd:
+        case Operator::kSub:
+            if (rhs->IsPairExpression()) {
+                // TODO: map or array putting
+                TODO();
+            }
+            GenerateOperation(rval.type, op, lval.index, lval.linkage,
+                              rval.index, rval.linkage, ast);
+            break;
+        case Operator::NOT_OPERATOR:
+            if (NeedInbox(lval.type, rval.type)) {
+                InboxIfNeeded(rval.type, rval.index, rval.linkage, lval.type, ast);
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    StaIfNeeded(lval.type, lval.index, lval.linkage, ast);
+    return ResultWith(lval);
+}
+
+ASTVisitor::Result
+BytecodeGenerator::GenerateIncrement(const Class *lval_type, int lval_index,
+                                     Value::Linkage lval_linkage, Operator op) {
+    
+    TODO();
+    return ResultWithError();
+}
+
+ASTVisitor::Result
+BytecodeGenerator::GenerateStoreProperty(const Class *clazz, int index, Value::Linkage linkage,
+                                         DotExpression *ast) {
+    DCHECK(clazz->is_reference());
+    const Field *field = DCHECK_NOTNULL(metadata_space_->FindClassFieldOrNull(clazz,
+                                                                              ast->rhs()->data()));
+    bool has_reserve_self = true;
+    int self = 0;
+    if (linkage == Value::kStack) {
+        self = index;
+        has_reserve_self = false;
+    } else {
+        self = current_fun_->stack()->ReserveRef();
+        MoveToStackIfNeeded(clazz, index, linkage, self, ast);
+    }
+    StaProperty(field->type(), self, field->offset(), ast);
+    
+    if (has_reserve_self) {
+        current_fun_->stack()->FallbackRef(self);
+    }
+    return ResultWithVoid();
+}
+
+ASTVisitor::Result
+BytecodeGenerator::GenerateLoadProperty(const Class *clazz, int index, Value::Linkage linkage,
+                                        DotExpression *ast) {
+    DCHECK(clazz->is_reference());
+    const Field *field = DCHECK_NOTNULL(metadata_space_->FindClassFieldOrNull(clazz,
+                                                                              ast->rhs()->data()));
     if (field) {
+        bool has_reserve_self = true;
         int self = 0;
         if (linkage == Value::kStack) {
             self = index;
+            has_reserve_self = false;
         } else {
             self = current_fun_->stack()->ReserveRef();
             MoveToStackIfNeeded(clazz, index, linkage, self, ast);
         }
-        DCHECK(clazz->is_reference());
-    
-        if (field->type()->is_reference()) {
-            EMIT(ast, Add<kLdaPropertyPtr>(GetStackOffset(self), field->offset()));
-            return ResultWith(Value::kACC, field->type()->id(), 0);
-        }
-        
-        int offset = GetStackOffset(self);
-        switch (field->type()->reference_size()) {
-            case 1:
-                EMIT(ast, Add<kLdaProperty8>(offset, field->offset()));
-                break;
-            case 2:
-                EMIT(ast, Add<kLdaProperty16>(offset, field->offset()));
-                break;
-            case 4:
-                if (field->type()->id() == kType_f32) {
-                    EMIT(ast, Add<kLdaPropertyf32>(offset, field->offset()));
-                } else {
-                    EMIT(ast, Add<kLdaProperty32>(offset, field->offset()));
-                }
-                break;
-            case 8:
-                if (field->type()->id() == kType_f64) {
-                    EMIT(ast, Add<kLdaPropertyf64>(offset, field->offset()));
-                } else {
-                    EMIT(ast, Add<kLdaProperty64>(offset, field->offset()));
-                }
-                break;
-            default:
-                NOREACHED();
-                break;
+        LdaProperty(field->type(), self, field->offset(), ast);
+
+        if (has_reserve_self) {
+            current_fun_->stack()->FallbackRef(self);
         }
         return ResultWith(Value::kACC, field->type()->id(), 0);
     }
@@ -2051,6 +2212,36 @@ int BytecodeGenerator::LinkGlobalVariable(VariableDeclaration *var) {
         default:
             symbol_trace_.erase(var);
             return global_space_.Reserve(var->type()->GetReferenceSize());
+    }
+}
+
+void BytecodeGenerator::GenerateOperation(const Class *clazz, Operator op, int lhs_index,
+                                          Value::Linkage lhs_linkage, int rhs_index,
+                                          Value::Linkage rhs_linkage,
+                                          ASTNode *ast) {
+    bool has_reserve_lhs = false;
+    int lhs = lhs_index;
+    if (lhs_linkage != Value::kStack) {
+        has_reserve_lhs = true;
+        lhs = current_fun_->StackReserve(clazz);
+        MoveToStackIfNeeded(clazz, lhs_index, lhs_linkage, lhs, ast);
+    }
+    
+    bool has_reserve_rhs = false;
+    int rhs = rhs_index;
+    if (rhs_linkage != Value::kStack) {
+        has_reserve_rhs = true;
+        rhs = current_fun_->StackReserve(clazz);
+        MoveToStackIfNeeded(clazz, rhs_index, rhs_linkage, rhs, ast);
+    }
+    
+    GenerateOperation(clazz, op, lhs, rhs, ast);
+    
+    if (has_reserve_rhs) {
+        current_fun_->StackFallback(clazz, rhs);
+    }
+    if (has_reserve_lhs) {
+        current_fun_->StackFallback(clazz, lhs);
     }
 }
 
@@ -2660,6 +2851,39 @@ void BytecodeGenerator::LdaCaptured(const Class *clazz, int index, ASTNode *ast)
                 EMIT(ast, Add<kLdaCapturedf64>(index));
             } else {
                 EMIT(ast, Add<kLdaCaptured64>(index));
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+}
+
+void BytecodeGenerator::LdaProperty(const Class *clazz, int index, int offset, ASTNode *ast) {
+    index = GetStackOffset(index);
+    if (clazz->is_reference()) {
+        EMIT(ast, Add<kLdaPropertyPtr>(index, offset));
+        return;
+    }
+    switch (clazz->reference_size()) {
+        case 1:
+            EMIT(ast, Add<kLdaProperty8>(index, offset));
+            break;
+        case 2:
+            EMIT(ast, Add<kLdaProperty16>(index, offset));
+            break;
+        case 4:
+            if (clazz->id() == kType_f32) {
+                EMIT(ast, Add<kLdaPropertyf32>(index, offset));
+            } else {
+                EMIT(ast, Add<kLdaProperty32>(index, offset));
+            }
+            break;
+        case 8:
+            if (clazz->id() == kType_f64) {
+                EMIT(ast, Add<kLdaPropertyf64>(index, offset));
+            } else {
+                EMIT(ast, Add<kLdaProperty64>(index, offset));
             }
             break;
         default:

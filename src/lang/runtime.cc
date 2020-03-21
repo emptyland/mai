@@ -199,6 +199,22 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     InternalChannelSendNoBarrier<double>(chan, value);
 }
 
+/*static*/ Any *Runtime::WriteBarrierWithOffset(Any *host, int32_t offset) {
+    DCHECK(STATE->heap()->InNewArea(host));
+    DCHECK_GT(offset, sizeof(Any));
+    Address address = reinterpret_cast<Address>(host) + offset;
+    Machine::This()->UpdateRememberRecords(host, reinterpret_cast<Any **>(address), 1);
+    printf("%p(%s)[%d]\n", host, host->clazz()->name(), offset);
+    return host;
+}
+
+/*static*/ Any *Runtime::WriteBarrierWithAddress(Any *host, Any **address) {
+    DCHECK(STATE->heap()->InNewArea(host));
+    Machine::This()->UpdateRememberRecords(host, address, 1);
+    printf("%p(%s)[%p]\n", host, host->clazz()->name(), address);
+    return host;
+}
+
 /*static*/ Coroutine *Runtime::RunCoroutine(uint32_t flags, Closure *entry_point, Address params,
                                             uint32_t params_bytes_size) {
     if (!entry_point) {
