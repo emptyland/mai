@@ -519,7 +519,6 @@ bool BytecodeGenerator::Prepare() {
 }
 
 bool BytecodeGenerator::Generate() {
-    //base::StandaloneArena arena(isolate_->env()->GetLowLevelAllocator());
     FunctionScope function_scope(arena_, nullptr, &current_, &current_fun_);
     current_init0_fun_ = &function_scope;
     function_scope.IncomingWithLine(0)->Add<kCheckStack>();
@@ -930,7 +929,7 @@ ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition
 
     // Local var
     int local = current_fun_->stack()->ReserveRef();
-    current_->Register(ast->identifier()->ToString(), {Value::kStack, clazz, local});
+    current_->Register(ast->identifier()->ToString(), {Value::kStack, clazz, local, ast});
 
     if (fun->captured_var_size() > 0) {
         int kidx = current_fun_->constants()->FindOrInsertMetadata(fun);
@@ -1312,6 +1311,7 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
     } else {
         local.index = current_fun_->stack()->Reserve(clazz->reference_size());
     }
+    local.ast = ast;
     current_->Register(ast->identifier()->ToString(), local);
 
     StackSpaceScope scope(current_fun_->stack());
@@ -1777,7 +1777,12 @@ ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyB
         }
         const Class *clazz = metadata_space_->type(rv.bundle.type);
         DCHECK(clazz->IsSameOrBaseOf(class_exception_->clazz()));
-        Value value{Value::kStack, clazz, current_fun_->stack()->ReserveRef()};
+        Value value {
+            Value::kStack,
+            clazz,
+            current_fun_->stack()->ReserveRef(),
+            block->expected_declaration()
+        };
         StaStack(clazz, value.index, block->expected_declaration());
         block_scope.Register(block->expected_declaration()->identifier()->ToString(), value);
         
