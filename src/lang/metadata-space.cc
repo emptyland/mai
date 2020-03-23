@@ -558,7 +558,6 @@ Class *ClassBuilder::BuildWithPreparedClass(MetadataSpace *space, Class *clazz) 
         i++;
     }
 
-    //space->InsertClass(name_, clazz);
     return clazz;
 }
 
@@ -637,6 +636,11 @@ Function *FunctionBuilder::Build(MetadataSpace *space) const {
     ::memcpy(func->exception_table_, &exception_table_[0],
              exception_table_.size() * sizeof(Function::ExceptionHandlerDesc));
     func->exception_table_size_ = static_cast<uint32_t>(exception_table_.size());
+    
+    func->invoking_hint_ = space->NewArray<Function::InvokingHint>(invoking_hint_.size());
+    ::memcpy(func->invoking_hint_, &invoking_hint_[0],
+             invoking_hint_.size() * sizeof(Function::InvokingHint));
+    func->invoking_hint_size_ = static_cast<uint32_t>(invoking_hint_.size());
     return func;
 }
 

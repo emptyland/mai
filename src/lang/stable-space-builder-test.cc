@@ -15,63 +15,82 @@ public:
 TEST_F(StableSpaceBuilderTest, StackSpaceAllocation) {
     StackSpaceAllocator stack;
     
-    ASSERT_EQ(72, stack.Reserve(1));
-    ASSERT_EQ(76, stack.Reserve(1));
+    int off1 = BytecodeStackFrame::kOffsetHeaderSize + kStackSizeGranularity;
+    ASSERT_EQ(off1, stack.Reserve(1));
+    off1 += kStackSizeGranularity;
+    ASSERT_EQ(off1, stack.Reserve(1));
     
     ASSERT_EQ(1, stack.max_spans());
     
-    ASSERT_EQ(92, stack.ReserveRef());
+    int off2 = BytecodeStackFrame::kOffsetHeaderSize + StackSpaceAllocator::kSpanSize + kPointerSize;
+    ASSERT_EQ(off2, stack.ReserveRef());
     ASSERT_EQ(2, stack.max_spans());
-    ASSERT_EQ(80, stack.Reserve(4));
-    ASSERT_EQ(84, stack.Reserve(4));
+    off1 += 4;
+    ASSERT_EQ(off1, stack.Reserve(4));
+    off1 += 4;
+    ASSERT_EQ(off1, stack.Reserve(4));
     
-    ASSERT_EQ(100, stack.ReserveRef());
+    off2 += kPointerSize;
+    ASSERT_EQ(off2, stack.ReserveRef());
     
-    ASSERT_EQ(104, stack.Reserve(4));
+    off1 = off2 + 4;
+    ASSERT_EQ(off1, stack.Reserve(4));
     ASSERT_EQ(3, stack.max_spans());
 }
 
 TEST_F(StableSpaceBuilderTest, StackSpaceFallback) {
     StackSpaceAllocator stack;
     
-    ASSERT_EQ(72, stack.Reserve(1));
-    ASSERT_EQ(76, stack.Reserve(1));
+    int off1 = BytecodeStackFrame::kOffsetHeaderSize + kStackSizeGranularity;
+    ASSERT_EQ(off1, stack.Reserve(1));
+    off1 += kStackSizeGranularity;
+    ASSERT_EQ(off1, stack.Reserve(1));
     ASSERT_EQ(8, stack.level().p);
     
-    stack.Fallback(76, 1);
+    stack.Fallback(off1, 1);
+    off1 -= kStackSizeGranularity;
     ASSERT_EQ(4, stack.level().p);
     
-    stack.Fallback(72, 1);
+    stack.Fallback(off1, 1);
+    off1 -= kStackSizeGranularity;
     ASSERT_EQ(0, stack.level().p);
     
-    ASSERT_EQ(92, stack.ReserveRef());
-    ASSERT_EQ(100, stack.ReserveRef());
+    int off2 = BytecodeStackFrame::kOffsetHeaderSize + StackSpaceAllocator::kSpanSize + kPointerSize;
+    ASSERT_EQ(off2, stack.ReserveRef());
+    off2 += kPointerSize;
+    ASSERT_EQ(off2, stack.ReserveRef());
     ASSERT_EQ(32, stack.level().r);
-    ASSERT_EQ(108, stack.ReserveRef());
+    off2 += kPointerSize;
+    ASSERT_EQ(off2, stack.ReserveRef());
     ASSERT_EQ(40, stack.level().r);
-    stack.FallbackRef(108);
+    stack.FallbackRef(off2);
+    off2 -= kPointerSize;
     ASSERT_EQ(32, stack.level().r);
     
-    ASSERT_EQ(76, stack.Reserve(8));
+    off1 += 8;
+    ASSERT_EQ(off1, stack.Reserve(8));
     ASSERT_EQ(8, stack.level().p);
-    stack.Fallback(76, 8);
+    stack.Fallback(off1, 8);
     ASSERT_EQ(0, stack.level().p);
 }
 
 TEST_F(StableSpaceBuilderTest, StackSpaceFallbackRef) {
     StackSpaceAllocator stack;
     
-    ASSERT_EQ(72, stack.Reserve(1));
-    ASSERT_EQ(76, stack.Reserve(1));
+    int off1 = BytecodeStackFrame::kOffsetHeaderSize + kStackSizeGranularity;
+    ASSERT_EQ(off1, stack.Reserve(1));
+    off1 += kStackSizeGranularity;
+    ASSERT_EQ(off1, stack.Reserve(1));
     ASSERT_EQ(8, stack.level().p);
     
     ASSERT_EQ(0, stack.level().r);
-    ASSERT_EQ(92, stack.ReserveRef());
+    int off2 = BytecodeStackFrame::kOffsetHeaderSize + StackSpaceAllocator::kSpanSize + kPointerSize;
+    ASSERT_EQ(off2, stack.ReserveRef());
     ASSERT_EQ(24, stack.level().r);
-    stack.FallbackRef(92);
+    stack.FallbackRef(off2);
     ASSERT_EQ(16, stack.level().r);
     
-    ASSERT_EQ(92, stack.ReserveRef());
+    ASSERT_EQ(off2, stack.ReserveRef());
     ASSERT_EQ(24, stack.level().r);
 }
 

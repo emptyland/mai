@@ -1,7 +1,7 @@
 +-------------------------------
 | main.bar():void
 +-------------------------------
-stack-size: 96
+stack-size: 80
 const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0
@@ -12,7 +12,7 @@ bytecode-size: 6
 bytecode: 
     000 CheckStack; (48)
     001 LdaSmi32 #100; (49)
-    002 Star32 [BP-72]; (49)
+    002 Star32 [BP-68]; (49)
     003 Close [KP+0]; (50)
     004 Return; (50)
     005 Return; (48)

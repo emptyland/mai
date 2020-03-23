@@ -238,6 +238,12 @@ public:
         intptr_t handler_pc = -1;
     }; // struct ExceptionHandlerDesc
     
+    struct InvokingHint {
+        intptr_t pc;
+        uint32_t flags;
+        int stack_ref_top; // for gc
+    }; // struct InvokingHint
+    
     enum Kind {
         BYTECODE,
         COMPILED,
@@ -260,16 +266,22 @@ public:
     DEF_PTR_GETTER(SourceLineInfo, source_line_info);
     DEF_VAL_GETTER(uint32_t, captured_var_size);
     DEF_VAL_GETTER(uint32_t, exception_table_size);
-    
+    DEF_VAL_GETTER(uint32_t, invoking_hint_size);
+
     const CapturedVarDesc *captured_var(uint32_t i) const {
-        DCHECK_LT(i, captured_var_size_);
+        DCHECK_LT(i, captured_var_size());
         return captured_vars_ + i;
     }
-    
+
+    const InvokingHint *invoking_hint(uint32_t i) const {
+        DCHECK_LT(i, invoking_hint_size());
+        return invoking_hint_ + i;
+    }
+
     uint32_t const_pool_spans_size() const { return const_pool_size_ / sizeof(Span32); }
-    
+
     int32_t DispatchException(Any *exception, int32_t pc);
-    
+
     void Print(base::AbstractPrinter *output) const;
     
     //bool Verify(base::AbstractPrinter *feedback, Isolate *isolate) const;
@@ -295,6 +307,8 @@ private:
     CapturedVarDesc *captured_vars_ = nullptr; // Capture variable for closure
     uint32_t exception_table_size_ = 0;
     ExceptionHandlerDesc *exception_table_ = nullptr; // Exception handler table
+    uint32_t invoking_hint_size_ = 0;
+    InvokingHint *invoking_hint_ = nullptr; // Invoking hint information
 }; // class Function
 
 

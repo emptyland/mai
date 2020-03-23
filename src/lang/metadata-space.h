@@ -487,6 +487,16 @@ public:
         return *this;
     }
 
+    FunctionBuilder &movable_invoking_hint(std::vector<Function::InvokingHint> &&value) {
+        invoking_hint_ = std::move(value);
+        return *this;
+    }
+
+    FunctionBuilder &movable_exception_table(std::vector<Function::ExceptionHandlerDesc> &&value) {
+        exception_table_ = std::move(value);
+        return *this;
+    }
+
     FunctionBuilder &AddCapturedVar(const std::string &name,
                                     const Class *type,
                                     Function::CapturedVarKind kind,
@@ -500,6 +510,11 @@ public:
                                         intptr_t stop_pc,
                                         intptr_t handle_pc) {
         exception_table_.push_back({expected, start_pc, stop_pc, handle_pc});
+        return *this;
+    }
+    
+    FunctionBuilder &AddInvokingHint(intptr_t pc, uint32_t flags, int stack_ref_top) {
+        invoking_hint_.push_back({pc, flags, stack_ref_top});
         return *this;
     }
 
@@ -529,6 +544,7 @@ private:
     SourceLineInfo *source_line_info_ = nullptr;
     std::vector<CapturedVarDesc> captured_vars_;
     std::vector<Function::ExceptionHandlerDesc> exception_table_;
+    std::vector<Function::InvokingHint> invoking_hint_;
 }; // class FunctionBuilder
 
 

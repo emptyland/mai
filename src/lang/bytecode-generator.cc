@@ -291,9 +291,10 @@ public:
     }
 
     DEF_PTR_PROP_RW(FileUnit, file_unit);
-    DEF_VAL_GETTER(std::vector<int>, source_lines);
-    DEF_VAL_GETTER(std::vector<CapturedVarDesc>, captured_vars);
-    DEF_VAL_GETTER(std::vector<Function::ExceptionHandlerDesc>, exception_handlers);
+    DEF_VAL_PROP_RM(std::vector<int>, source_lines);
+    DEF_VAL_PROP_RM(std::vector<CapturedVarDesc>, captured_vars);
+    DEF_VAL_PROP_RM(std::vector<Function::ExceptionHandlerDesc>, exception_handlers);
+    DEF_VAL_PROP_RM(std::vector<Function::InvokingHint>, invoking_hint);
     BytecodeArrayBuilder *builder() { return &builder_; }
     ConstantPoolBuilder *constants() { return &constants_; }
     StackSpaceAllocator *stack() { return &stack_; }
@@ -314,6 +315,29 @@ public:
         }
     }
     
+    void EmitDirectlyCallFunction(ASTNode *ast, bool native, int slot, int params_size) {
+        invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
+        if (native) {
+            Incoming(ast)->Add<kCallNativeFunction>(slot, params_size);
+        } else {
+            Incoming(ast)->Add<kCallBytecodeFunction>(slot, params_size);
+        }
+    }
+    
+    void EmitDirectlyCallFunctionWithLine(int line, bool native, int slot, int params_size) {
+        invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
+        if (native) {
+            IncomingWithLine(line)->Add<kCallNativeFunction>(slot, params_size);
+        } else {
+            IncomingWithLine(line)->Add<kCallBytecodeFunction>(slot, params_size);
+        }
+    }
+
+    void EmitVirtualCallFunction(ASTNode *ast, int slot, int params_size) {
+        invoking_hint_.push_back({builder_.pc(), 2, stack_.GetTopRef()});
+        Incoming(ast)->Add<kCallFunction>(slot, params_size);
+    }
+
     BytecodeArrayBuilder *Incoming(ASTNode *ast) {
         SourceLocation loc = file_unit_->FindSourceLocation(ast);
         source_lines_.push_back(loc.begin_line);
@@ -325,12 +349,17 @@ public:
         return &builder_;
     }
     
+    void AddInvokingHint(uint32_t flags) {
+        invoking_hint_.push_back({builder_.pc(), flags, stack_.GetTopRef()});
+    }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(FunctionScope);
 private:
     FileUnit *file_unit_;
     std::vector<int> source_lines_;
     std::vector<CapturedVarDesc> captured_vars_;
     std::vector<Function::ExceptionHandlerDesc> exception_handlers_;
+    std::vector<Function::InvokingHint> invoking_hint_;
     BytecodeArrayBuilder builder_;
     ConstantPoolBuilder constants_;
     StackSpaceAllocator stack_;
@@ -547,13 +576,8 @@ bool BytecodeGenerator::Generate() {
     DCHECK_EQ(Value::kGlobal, fun_main_main.linkage);
     Closure *main = *global_space_.offset<Closure *>(fun_main_main.index);
     function_scope.IncomingWithLine(1)->Add<kLdaGlobalPtr>(GetGlobalOffset(fun_main_main.index));
-    if (main->is_mai_function()) {
-        function_scope.IncomingWithLine(1)
-            ->Add<kCallBytecodeFunction>(function_scope.stack()->GetTopRef(), 0);
-    } else {
-        function_scope.IncomingWithLine(1)
-            ->Add<kCallNativeFunction>(function_scope.stack()->GetTopRef(), 0);
-    }
+    function_scope.EmitDirectlyCallFunctionWithLine(1, main->is_cxx_function(), 0/*slot*/,
+                                                    0/*args_size*/);
     function_scope.IncomingWithLine(1)->Add<kReturn>();
     generated_init0_fun_ = BuildFunction("init0", &function_scope);
     isolate_->SetGlobalSpace(global_space_.TakeSpans(), global_space_.TakeBitmap(),
@@ -727,16 +751,14 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
     for (auto var : scope->captured_vars()) {
         builder.AddCapturedVar(var.name, var.type, var.kind, var.index);
     }
-    for (auto handler : scope->exception_handlers()) {
-        builder.AddExceptionHandle(handler.expected_type, handler.start_pc, handler.stop_pc,
-                                   handler.handler_pc);
-    }
     return builder
         // TODO:
         .stack_size(stack_size)
         .stack_bitmap(stack_bitmap)
         .prototype({}/*parameters*/, false/*vargs*/, kType_void)
         .source_line_info(source_info)
+        .movable_exception_table(std::move(*scope->mutable_exception_handlers()))
+        .movable_invoking_hint(std::move(*scope->mutable_invoking_hint()))
         .bytecode(bytecodes)
         .const_pool(const_pool->spans(), const_pool->length())
         .const_pool_bitmap(const_pool->bitmap(), (const_pool->length() + 31) / 32)
@@ -1041,17 +1063,13 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
             kidx = current_fun_->constants()->FindOrInsertString(name);
         }
         EMIT(ast, Add<kLdaVtableFunction>(self, GetConstOffset(kidx)));
-        EMIT(ast, Add<kCallFunction>(TOP_REF, arg_size));
+        current_fun_->EmitVirtualCallFunction(ast, 0/*slot*/, arg_size);
     } else {
         std::string name = std::string(owns->name()) + "::" + dot->rhs()->ToString();
         Value value = EnsureFindValue(name);
         DCHECK_EQ(Value::kGlobal, value.linkage);
         LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
-        if (method->is_native()) {
-            EMIT(ast, Add<kCallNativeFunction>(TOP_REF, arg_size));
-        } else {
-            EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, arg_size));
-        }
+        current_fun_->EmitDirectlyCallFunction(ast, method->is_native(), 0/*slot*/, arg_size);
     }
 
     if (auto rv = proto->return_type()->Accept(this); rv.kind == Value::kError) {
@@ -1211,7 +1229,7 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
         Closure *ctor = DCHECK_NOTNULL(DCHECK_NOTNULL(base->init())->fn());
         int kidx = current_fun_->constants()->FindOrInsertClosure(ctor);
         EMIT(ast, Add<kLdaConstPtr>(GetConstOffset(kidx)));
-        EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, arg_size));
+        current_fun_->EmitDirectlyCallFunction(ast, false/*native*/, 0/*slot*/, arg_size);
     }
 
     if (ast->arguments().empty()) {
@@ -1265,11 +1283,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
     } else {
         LdaIfNeeded(rv, ast->callee());
     }
-    if (native) {
-        EMIT(ast, Add<kCallNativeFunction>(TOP_REF, arg_size));
-    } else {
-        EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, arg_size));
-    }
+    current_fun_->EmitDirectlyCallFunction(ast, native, 0/*slot*/, arg_size);
 
     if (rv = proto->return_type()->Accept(this); rv.kind == Value::kError) {
         return ResultWithError();
@@ -1935,7 +1949,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, Call
 
     kidx = current_fun_->constants()->FindOrInsertClosure(clazz->init()->fn());
     LdaConst(metadata_space_->builtin_type(kType_closure), kidx, ast);
-    EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, argument_size));
+    current_fun_->EmitDirectlyCallFunction(ast, false/*native*/, 0/*slot*/, argument_size);
     
     current_fun_->stack()->FallbackRef(self);
     return ResultWith(Value::kACC, clazz->id(), 0);
@@ -2558,11 +2572,12 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
             MoveToArgumentIfNeeded(clazz, index, linkage, args_size, ast); \
             Value value = FindOrInsertExternalFunction("lang." #dest "::toString"); \
             LdaGlobal(value.type, value.index, ast); \
-            EMIT(ast, Add<kCallNativeFunction>(TOP_REF, args_size)); \
+            current_fun_->EmitDirectlyCallFunction(ast, true, 0, args_size); \
         } break;
         DECLARE_BOX_NUMBER_TYPES(DEFINE_TO_STRING)
 #undef DEFINE_TO_STRING
         case kType_string:
+    
             LdaIfNeeded(clazz, index, linkage, ast);
             break;
         default: {
@@ -2575,11 +2590,8 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
             MoveToArgumentIfNeeded(clazz, index, linkage, argument_offset, ast);
             int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
             LdaConst(method->fn()->clazz(), kidx, ast);
-            if (method->is_native()) {
-                EMIT(ast, Add<kCallNativeFunction>(TOP_REF, argument_offset));
-            } else {
-                EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, argument_offset));
-            }
+            current_fun_->EmitDirectlyCallFunction(ast, method->is_native(), 0/*slot*/,
+                                                   argument_offset);
         } break;
     }
 }
@@ -2593,7 +2605,7 @@ void BytecodeGenerator::InboxIfNeeded(const Class *clazz, int index, Value::Link
             MoveToArgumentIfNeeded(clazz, index, linkage, args_size, ast); \
             Value value = FindOrInsertExternalFunction("lang." #dest "::valueOf"); \
             LdaGlobal(value.type, value.index, ast); \
-            EMIT(ast, Add<kCallNativeFunction>(TOP_REF, args_size)); \
+            current_fun_->EmitDirectlyCallFunction(ast, true, 0, args_size); \
         } break;
         DECLARE_BOX_NUMBER_TYPES(DEFINE_INBOX_PRIMITIVE)
 #undef DEFINE_INBOX_PRIMITIVE
