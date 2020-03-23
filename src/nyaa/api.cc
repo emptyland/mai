@@ -1,8 +1,7 @@
 #include "nyaa/nyaa-core.h"
-#include "nyaa/thread.h"
+#include "nyaa/function.h"
 #include "nyaa/object-factory.h"
 #include "nyaa/nyaa-values.h"
-#include "nyaa/thread.h"
 #include "base/slice.h"
 #include "mai-lang/nyaa.h"
 #include <shared_mutex>
@@ -211,10 +210,6 @@ int Objective::Call(Handle<Value> argv[], int argc, std::vector<Handle<Value>> *
 }
 
 /*static*/ Handle<Number> Number::NewI64(int64_t val) {
-    NyaaCore *N = NyaaCore::Current();
-    if (val > NySmi::kMaxValue || val < NySmi::kMinValue) {
-        return Handle<Number>(reinterpret_cast<Number *>(NyInt::NewI64(val, N->factory())));
-    }
     return Handle<Number>(reinterpret_cast<Number *>(NySmi::New(val)));
 }
     
@@ -228,8 +223,6 @@ int64_t Number::I64Value() const {
     switch (maybe->GetType()) {
         case kTypeSmi:
             return maybe->ToSmi();
-        case kTypeInt:
-            return NyInt::Cast(maybe)->ToI64();
         case kTypeFloat64:
             return static_cast<int64_t>(NyFloat64::Cast(maybe)->value());
         default:
@@ -243,8 +236,6 @@ double Number::F64Value() const {
     switch (maybe->GetType()) {
         case kTypeSmi:
             return maybe->ToSmi();
-        case kTypeInt:
-            return NyInt::Cast(maybe)->ToF64();
         case kTypeFloat64:
             return NyFloat64::Cast(maybe)->value();
         default:
@@ -419,8 +410,10 @@ FunctionCallbackBase::FunctionCallbackBase(size_t length, Nyaa *N)
 NyaaCore *FunctionCallbackBase::Core() const { return N_->core(); }
     
 Object *FunctionCallbackBase::CurrentEnv() const {
-    auto ci = N_->core()->curr_thd()->call_info();
-    return ci->env();
+// TODO: auto ci = N_->core()->curr_thd()->call_info();
+//    return ci->env();
+    TODO();
+    return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -434,9 +427,10 @@ void ErrorsBase::Raisef(const char *fmt, ...) {
 }
 
 void ErrorsBase::Raise(const char *z, size_t n, void *ex) {
-    auto core = N_->core();
-    core->curr_thd()->Raise(core->factory()->NewString(z, n),
-                            static_cast<Object *>(ex));
+// TODO: auto core = N_->core();
+//    core->curr_thd()->Raise(core->factory()->NewString(z, n),
+//                            static_cast<Object *>(ex));
+    TODO();
 }
     
 ReturnValuesBase::ReturnValuesBase(Nyaa *N)
@@ -444,11 +438,12 @@ ReturnValuesBase::ReturnValuesBase(Nyaa *N)
 }
     
 void ReturnValuesBase::Add(int64_t val) {
-    if (val > NySmi::kMaxValue || val < NySmi::kMinValue) {
-        AddInternal(NyInt::NewI64(val, N_->core()->factory()));
-    } else {
-        AddInternal(NySmi::New(val));
-    }
+// TODO:   if (val > NySmi::kMaxValue || val < NySmi::kMinValue) {
+//        AddInternal(NyInt::NewI64(val, N_->core()->factory()));
+//    } else {
+//        AddInternal(NySmi::New(val));
+//    }
+    AddInternal(NySmi::New(val));
 }
 
 void ReturnValuesBase::AddF64(double val) {
@@ -460,9 +455,10 @@ void ReturnValuesBase::Add(const char *z, size_t n) {
 }
 
 void ReturnValuesBase::AddInternal(Object *val) {
-    auto ci = N_->core()->curr_thd()->call_info();
-    ci->set_nrets(ci->nrets() + 1);
-    N_->core()->curr_thd()->Push(val);
+// TODO: auto ci = N_->core()->curr_thd()->call_info();
+//    ci->set_nrets(ci->nrets() + 1);
+//    N_->core()->curr_thd()->Push(val);
+    TODO();
 }
 
 void ReturnValuesBase::AddInternalSome(int nrets, ...) {
@@ -475,11 +471,15 @@ void ReturnValuesBase::AddInternalSome(int nrets, ...) {
 }
     
 void ReturnValuesBase::Set(int nrets) {
-    auto ci = N_->core()->curr_thd()->call_info();
-    ci->set_nrets(nrets);
+// TODO: auto ci = N_->core()->curr_thd()->call_info();
+//    ci->set_nrets(nrets);
+    TODO();
 }
     
-void ReturnValuesBase::Yield() { N_->core()->curr_thd()->Yield(); }
+void ReturnValuesBase::Yield() {
+    // TODO: N_->core()->curr_thd()->Yield();
+    TODO();
+}
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // TryCatch:
@@ -497,26 +497,35 @@ int Raisef(const char *fmt, ...) {
 
 TryCatch::TryCatch(Nyaa *N)
     : N_(N)
-    , catch_point_(new TryCatchCore(N->core())) {
+    /* TODO: , catch_point_(new TryCatchCore(N->core()))*/ {
+    TODO();
 }
 
 TryCatch::~TryCatch() {
 }
 
 Handle<Value> TryCatch::Exception() const {
-    return Handle<Value>(reinterpret_cast<Value *>(catch_point_->exception()));
+    // TODO: return Handle<Value>(reinterpret_cast<Value *>(catch_point_->exception()));
+    TODO();
+    return Handle<Value>::Empty();
 }
     
 bool TryCatch::HasCaught() const {
-    return catch_point_->has_caught();
+    // TODO: return catch_point_->has_caught();
+    TODO();
+    return false;
 }
 
 Handle<String> TryCatch::Message() const {
-    return Handle<String>(reinterpret_cast<String *>(catch_point_->message()));
+    // TODO: return Handle<String>(reinterpret_cast<String *>(catch_point_->message()));
+    TODO();
+    return Handle<String>::Empty();
 }
     
 Handle<Value> TryCatch::StackTrace() const {
-    return Handle<Value>(reinterpret_cast<Value *>(catch_point_->stack_trace()));
+    // TODO: return Handle<Value>(reinterpret_cast<Value *>(catch_point_->stack_trace()));
+    TODO();
+    return Handle<Value>::Empty();
 }
 
 } // namespace nyaa

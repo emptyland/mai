@@ -48,35 +48,6 @@ const size_t Page::kRegionLimitSize[kMaxRegionChunks] = {
     SIZE_T_MAX,
 };
     
-///*static*/ Page *Page::NewRegular(HeapSpace space, int scale, int access, Isolate *isolate) {
-//    Allocator *lla = isolate->env()->GetLowLevelAllocator();
-//    DCHECK_GE(kPageSize, lla->granularity());
-//    DCHECK_EQ(kPageSize % lla->granularity(), 0);
-//    DCHECK_GT(scale, 0);
-//    
-//    size_t requried_size = kPageSize * scale;
-//    
-//    void *chunk = nullptr;
-//    for (int i = 0; i < kAllocateRetries; ++i) {
-//        if ((chunk = PageAllocate(requried_size, kPageSize, lla)) != nullptr) {
-//            break;
-//        }
-//        DLOG(INFO) << "Retry page allocating: " << i;
-//    }
-//    if (!chunk) {
-//        PLOG(INFO) << "Allocation fail!";
-//        return nullptr; // Failed!
-//    }
-//    DCHECK_EQ(reinterpret_cast<uintptr_t>(chunk) % kPageSize, 0);
-//
-//    auto rs = lla->SetAccess(chunk, requried_size, access);
-//    if (!rs) {
-//        DLOG(ERROR) << rs.ToString();
-//        return nullptr; // Failed!
-//    }
-//    return new (chunk) Page(space, static_cast<uint32_t>(requried_size));
-//}
-    
 void Page::SetUpRegion() {
     DCHECK(region_ == nullptr);
     
@@ -84,7 +55,7 @@ void Page::SetUpRegion() {
     Chunk *chunk = reinterpret_cast<Page::Chunk *>(align_addr);
     chunk->next = nullptr;
     chunk->size = static_cast<uint32_t>(area_limit_ - align_addr);
-    DCHECK_EQ(chunk->size, available_);
+    available_ = chunk->size;
     
     region_ = new Region{};
     size_t i = Page::FindWantedRegion(chunk->size);
@@ -117,14 +88,6 @@ void Page::SetUpRegion() {
         DLOG(ERROR) << rs.ToString();
         return nullptr; // Failed!
     }
-//    auto end = static_cast<Address>(chunk) + requried_size;
-//    for (auto p = static_cast<Address>(chunk); p < end; p += lla->granularity()) {
-//        auto rs = lla->SetAccess(p, lla->granularity(), access);
-//        if (!rs) {
-//            DLOG(ERROR) << rs.ToString();
-//            return nullptr; // Failed!
-//        }
-//    }
     return new (chunk) Page(space, static_cast<uint32_t>(requried_size));
 }
     
@@ -437,6 +400,7 @@ Address LargeSpace::AllocateRaw(size_t size, bool executable) {
     if (!page) {
         return nullptr;
     }
+    page->available_ = static_cast<uint32_t>(page->usable_size() - size);
     Page::Insert(dummy_, page);
     pages_total_size_ += page->page_size();
     

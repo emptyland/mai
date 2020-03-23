@@ -241,11 +241,11 @@ StorageOperation *StorageEngine::NewWriter() {
             
         case SQL_ROW_STORE:
             // TODO:
-            DLOG(FATAL) << "TODO:";
+            TODO();
             return nullptr;
             
         default:
-            DLOG(FATAL) << "Noreached";
+            NOREACHED();
             break;
     }
     return nullptr;

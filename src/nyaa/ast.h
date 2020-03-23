@@ -5,6 +5,7 @@
 #include "nyaa/builtin.h"
 #include "base/arena-utils.h"
 #include "base/arena.h"
+#include "base/slice.h"
 #include "base/base.h"
 #include "mai-lang/handles.h"
 
@@ -26,6 +27,7 @@ namespace ast {
     V(IfStatement) \
     V(WhileLoop) \
     V(ForIterateLoop) \
+    V(ForStepLoop) \
     V(Multiple) \
     V(LogicSwitch) \
     V(Concat) \
@@ -102,10 +104,8 @@ public:
 
     virtual Kind kind() const = 0;
     virtual int line() const = 0;
-    //virtual int end_line() const = 0;
     virtual bool is_statement() const = 0;
     virtual bool is_expression() const = 0;
-    //virtual Object *Emit() const = 0;
     virtual IVal Accept(Visitor *, VisitorContext *) = 0;
     
 #define DEFINE_TYPE_CHECK(name) bool Is##name() const { return kind() == k##name; }
@@ -134,6 +134,8 @@ protected:
 #define DEFINE_AST_NODE(name) \
     virtual Kind kind() const override { return k##name; } \
     virtual IVal Accept(Visitor *v, VisitorContext *ctx) override { return v->Visit##name(this, ctx); } \
+    static name *Cast(AstNode *node) { return !node ? nullptr : node->To##name(); } \
+    static const name *Cast(const AstNode *node) { return !node ? nullptr : node->To##name(); } \
     friend class Factory; \
     DISALLOW_IMPLICIT_CONSTRUCTORS(name)
     
@@ -142,10 +144,16 @@ using Attributes = base::ArenaVector<const String *>;
 class Statement : public AstNode {
 public:
     virtual int line() const override { return line_; }
-    //virtual int end_line() const override { return line_; }
     virtual bool is_statement() const override { return true; }
     virtual bool is_expression() const override { return false; }
-    //virtual Object *Emit() const override { return Object::kNil; }
+    
+    static Statement *Cast(AstNode *node) {
+        return (!node || !node->is_statement()) ? nullptr : static_cast<Statement *>(node);
+    }
+    
+    static const Statement *Cast(const AstNode *node) {
+        return (!node || !node->is_statement()) ? nullptr : static_cast<const Statement *>(node);
+    }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Statement);
 protected:
@@ -195,17 +203,20 @@ private:
     
 class IfStatement : public Statement {
 public:
+    DEF_VAL_PROP_RW(int, trace_id);
     DEF_PTR_GETTER_NOTNULL(Expression, cond);
     DEF_PTR_GETTER_NOTNULL(Block, then_clause);
     DEF_PTR_GETTER(Statement, else_clause);
     DEFINE_AST_NODE(IfStatement);
 private:
-    IfStatement(int line, Expression *cond, Block *then_clause, Statement *else_clause)
+    IfStatement(int line, int trace_id, Expression *cond, Block *then_clause, Statement *else_clause)
         : Statement(line)
+        , trace_id_(trace_id)
         , cond_(DCHECK_NOTNULL(cond))
         , then_clause_(DCHECK_NOTNULL(then_clause))
         , else_clause_(else_clause) {}
 
+    int trace_id_;
     Expression *cond_;
     Block *then_clause_;
     Statement *else_clause_;
@@ -239,17 +250,54 @@ private:
 class ForIterateLoop : public Loop {
 public:
     using NameList = base::ArenaVector<const String *>;
+    DEF_VAL_GETTER(int, trace_id);
     DEF_PTR_GETTER_NOTNULL(NameList, names);
     DEF_PTR_GETTER_NOTNULL(Expression, init);
     DEFINE_AST_NODE(ForIterateLoop);
 private:
-    ForIterateLoop(int begin_line, int end_line, NameList *names, Expression *init, Block *body)
+    ForIterateLoop(int begin_line, int end_line, int trace_id, NameList *names, Expression *init,
+                   Block *body)
         : Loop(begin_line, end_line, body)
+        , trace_id_(trace_id)
         , names_(DCHECK_NOTNULL(names))
         , init_(DCHECK_NOTNULL(init)) {}
+    
+    int trace_id_;
     NameList *names_;
     Expression *init_;
 }; // class ForIterateLoop
+    
+class ForStepLoop : public Loop {
+public:
+    int trace_id_base() const { return trace_id1(); }
+    DEF_VAL_GETTER(int, trace_id1);
+    DEF_VAL_GETTER(int, trace_id2);
+    DEF_PTR_GETTER_NOTNULL(const ast::String, name);
+    DEF_VAL_GETTER(bool, is_until);
+    DEF_PTR_GETTER_NOTNULL(Expression, init);
+    DEF_PTR_GETTER_NOTNULL(Expression, limit);
+    DEF_PTR_GETTER(Expression, step);
+    DEFINE_AST_NODE(ForStepLoop);
+private:
+    ForStepLoop(int begin_line, int end_line, int trace_id1, int trace_id2, const ast::String *name,
+                Expression *init, bool is_until, Expression *limit, Expression *step, Block *body)
+        : Loop(begin_line, end_line, body)
+        , trace_id1_(trace_id1)
+        , trace_id2_(trace_id2)
+        , name_(DCHECK_NOTNULL(name))
+        , init_(DCHECK_NOTNULL(init))
+        , is_until_(is_until)
+        , limit_(DCHECK_NOTNULL(limit))
+        , step_(step) {}
+    
+    int trace_id1_;
+    int trace_id2_;
+    const ast::String *name_;
+    Expression *init_;
+    bool is_until_;
+    Expression *limit_;
+    Expression *step_;
+}; // class ForStepLoop
     
 class Continue : public Statement {
 public:
@@ -308,6 +356,14 @@ public:
     virtual bool is_lval() const { return false; }
     virtual bool is_rval() const { return true; }
     
+    static Expression *Cast(AstNode *node) {
+        return (!node || !node->is_expression()) ? nullptr : static_cast<Expression *>(node);
+    }
+    
+    static const Expression *Cast(const AstNode *node) {
+        return (!node || !node->is_expression()) ? nullptr : static_cast<const Expression *>(node);
+    }
+    
 protected:
     Expression(int line) : Statement(line) {}
 }; // class Expression
@@ -316,6 +372,15 @@ protected:
 class LValue : public Expression {
 public:
     virtual bool is_lval() const { return true; }
+    
+    static LValue *Cast(AstNode *node) {
+        Expression *expr = Expression::Cast(node);
+        return (!expr || !expr->is_lval()) ? nullptr : static_cast<LValue *>(node);
+    }
+    static const LValue *Cast(const AstNode *node) {
+        const Expression *expr = Expression::Cast(node);
+        return (!expr || !expr->is_lval()) ? nullptr : static_cast<const LValue *>(node);
+    }
 protected:
     LValue(int line) : Expression(line) {}
 }; // class LVal
@@ -325,6 +390,7 @@ class Multiple : public Expression {
 public:
     static constexpr const int kLimitOperands = 4;
     
+    DEF_VAL_GETTER(int, trace_id);
     DEF_VAL_GETTER(Operator::ID, op);
     DEF_VAL_GETTER(int, n_operands);
     
@@ -342,7 +408,7 @@ public:
     
     DEFINE_AST_NODE(Multiple);
 protected:
-    Multiple(int line, Operator::ID op, Expression *expr)
+    Multiple(int line, int trace_id, Operator::ID op, Expression *expr)
         : Expression(line)
         , op_(op)
         , n_operands_(1) {
@@ -350,7 +416,7 @@ protected:
         operands_[0] = expr;
     }
     
-    Multiple(int line, Operator::ID op, Expression *e1, Expression *e2)
+    Multiple(int line, int trace_id, Operator::ID op, Expression *e1, Expression *e2)
         : Expression(line)
         , op_(op)
         , n_operands_(2) {
@@ -360,6 +426,7 @@ protected:
     }
 
 private:
+    int trace_id_;
     Operator::ID op_;
     int n_operands_;
     Expression *operands_[kLimitOperands];
@@ -370,7 +437,7 @@ public:
     DEFINE_AST_NODE(LogicSwitch);
 private:
     LogicSwitch(int line, Operator::ID op, Expression *e1, Expression *e2)
-        : Multiple(line, op, e1, e2) {}
+        : Multiple(line, -1, op, e1, e2) {}
 }; // class LogicSwitch
     
 class Concat : public Expression {
@@ -471,6 +538,7 @@ class Call : public Expression {
 public:
     using ArgumentList = base::ArenaVector<Expression *>;
     
+    DEF_VAL_GETTER(int, trace_id);
     DEF_PTR_GETTER_NOTNULL(Expression, callee);
     DEF_PTR_GETTER(ArgumentList, args);
 
@@ -478,12 +546,14 @@ public:
 
     DEFINE_AST_NODE(Call);
 protected:
-    Call(int line, Expression *callee, ArgumentList *args)
+    Call(int line, int trace_id, Expression *callee, ArgumentList *args)
         : Expression(line)
         , callee_(DCHECK_NOTNULL(callee))
-        , args_(args) {}
+        , args_(args)
+        , trace_id_(trace_id) {}
     
 private:
+    int trace_id_;
     Expression *callee_;
     ArgumentList *args_;
 }; // class Call
@@ -493,8 +563,8 @@ public:
     DEF_PTR_GETTER_NOTNULL(const String, method);
     DEFINE_AST_NODE(SelfCall);
 private:
-    SelfCall(int line, Expression *callee, const String *method, ArgumentList *args)
-        : Call(line, callee, args)
+    SelfCall(int line, int trace_id, Expression *callee, const String *method, ArgumentList *args)
+        : Call(line, trace_id, callee, args)
         , method_(DCHECK_NOTNULL(method)) {}
 
     const String *method_;
@@ -504,7 +574,8 @@ class New : public Call {
 public:
     DEFINE_AST_NODE(New);
 private:
-    New(int line, Expression *callee, ArgumentList *args) : Call(line, callee, args) {}
+    New(int line, int trace_id, Expression *callee, ArgumentList *args)
+        : Call(line, trace_id, callee, args) {}
 }; // class NewCall
     
 class Variable : public LValue {
@@ -529,16 +600,19 @@ private:
 template<class T>
 class GenericIndex : public LValue {
 public:
+    DEF_VAL_GETTER(int, trace_id);
     DEF_PTR_GETTER_NOTNULL(Expression, self);
     DEF_VAL_GETTER(T, index);
     DISALLOW_IMPLICIT_CONSTRUCTORS(GenericIndex);
 protected:
-    GenericIndex(int line, Expression *self, T index)
+    GenericIndex(int line, int trace_id, Expression *self, T index)
         : LValue(line)
+        , trace_id_(trace_id)
         , self_(DCHECK_NOTNULL(self))
         , index_(index) {
     }
 
+    int trace_id_;
     Expression *self_;
     T index_;
 }; // class Index
@@ -547,16 +621,16 @@ class Index : public GenericIndex<Expression *> {
 public:
     DEFINE_AST_NODE(Index);
 private:
-    Index(int line, Expression *self, Expression *index)
-        : GenericIndex<Expression *>(line, self, index) {}
+    Index(int line, int trace_id, Expression *self, Expression *index)
+        : GenericIndex<Expression *>(line, trace_id, self, index) {}
 }; // class Index
     
 class DotField : public GenericIndex<const String *> {
 public:
     DEFINE_AST_NODE(DotField);
 private:
-    DotField(int line, Expression *self, const String *index)
-        : GenericIndex<const String *>(line, self, index) {}
+    DotField(int line, int trace_id, Expression *self, const String *index)
+        : GenericIndex<const String *>(line, trace_id, self, index) {}
 }; // class DotField
     
 class PropertyDeclaration : public VarDeclaration {
@@ -609,18 +683,22 @@ private:
 
 class FunctionDefinition : public Statement {
 public:
+    DEF_VAL_GETTER(int, trace_id);
     DEF_PTR_GETTER(Expression, self);
     DEF_PTR_GETTER(const String, name);
     DEF_PTR_GETTER(LambdaLiteral, literal);
 
     DEFINE_AST_NODE(FunctionDefinition);
 private:
-    FunctionDefinition(int line, Expression *self, const String *name, LambdaLiteral *literal)
+    FunctionDefinition(int line, int trace_id, Expression *self, const String *name,
+                       LambdaLiteral *literal)
         : Statement(line)
+        , trace_id_(trace_id)
         , self_(self)
         , name_(name)
         , literal_(literal) {}
 
+    int trace_id_;
     Expression *self_; // def foo.name(a,b) { retunr 1 }
     const String *name_;
     LambdaLiteral *literal_; // lambda (a,b) { return 1 }
@@ -667,11 +745,19 @@ inline int Call::GetNArgs() const {
         return static_cast<int>(args_->size());
     }
 }
-    
+
 inline bool IsPlaceholder(const String *name) {
     return !name ? false : (name->size() == 1 && name->data()[0] == '_');
 }
+
+//--------------------------------------------------------------------------------------------------
+// AST Serialization
+//--------------------------------------------------------------------------------------------------
+
+Error SerializeCompactedAST(ast::AstNode *node, std::string *buf);
     
+Error LoadCompactedAST(std::string_view buf, ast::Factory *factory, ast::AstNode **rv);
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Factory
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -688,7 +774,7 @@ public:
                                       const Location &loc = Location{}) {
         return new (arena_) VarDeclaration(loc.begin_line, names, inits);
     }
-    
+
     PropertyDeclaration *NewPropertyDeclaration(Attributes *attrs,
                                                 VarDeclaration::NameList *names,
                                                 VarDeclaration::ExprList *inits,
@@ -697,44 +783,73 @@ public:
         ro = AttributesMatch(attrs, "rw", false, ro);
         return new (arena_) PropertyDeclaration(loc.begin_line, names, inits, ro);
     }
-    
-    FunctionDefinition *NewFunctionDefinition(Expression *self, const String *name,
+
+    PropertyDeclaration *NewPropertyDeclaration(VarDeclaration::NameList *names,
+                                                VarDeclaration::ExprList *inits, bool readonly,
+                                                const Location &loc = Location{}) {
+        return new (arena_) PropertyDeclaration(loc.begin_line, names, inits, readonly);
+    }
+
+    FunctionDefinition *NewFunctionDefinition(int trace_id, Expression *self, const String *name,
                                               LambdaLiteral *literal,
                                               const Location &loc = Location{}) {
-        return new (arena_) FunctionDefinition(loc.begin_line, self, name, literal);
+        return new (arena_) FunctionDefinition(loc.begin_line, trace_id, self, name, literal);
     }
-    
+
     ObjectDefinition *NewObjectDefinition(Attributes *attrs, const String *name,
                                           ObjectDefinition::MemberList *members,
                                           const Location &loc = Location{}) {
         bool local = AttributesMatch(attrs, "local", true, false);
         return new (arena_) ObjectDefinition(loc.begin_line, loc.end_line, name, local, members);
     }
-    
+
+    ObjectDefinition *NewObjectDefinition(const String *name, bool local,
+                                          ObjectDefinition::MemberList *members,
+                                          const Location &loc = Location{}) {
+        return new (arena_) ObjectDefinition(loc.begin_line, loc.end_line, name, local, members);
+    }
+
     ClassDefinition *NewClassDefinition(Attributes *attrs, const String *name, Expression *base,
                                         ObjectDefinition::MemberList *members,
                                         const Location &loc = Location{}) {
         bool local = AttributesMatch(attrs, "local", true, false);
-        return new (arena_) ClassDefinition(loc.begin_line, loc.end_line, name, local, base, members);
+        return new (arena_) ClassDefinition(loc.begin_line, loc.end_line, name, local, base,
+                                            members);
     }
-    
+
+    ClassDefinition *NewClassDefinition(const String *name, bool local,
+                                        ObjectDefinition::MemberList *members,
+                                        const Location &loc = Location{}) {
+        return new (arena_) ClassDefinition(loc.begin_line, loc.end_line, name, local, nullptr,
+                                            members);
+    }
+
     Assignment *NewAssignment(Assignment::LValList *lvals, Assignment::RValList *rvals,
                               const Location &loc = Location{}) {
         return new (arena_) Assignment(loc.begin_line, lvals, rvals);
     }
-    
-    IfStatement *NewIfStatement(Expression *cond, Block *then_clause, Statement *else_clause,
-                                const Location &loc = Location{}) {
-        return new (arena_) IfStatement(loc.begin_line, cond, then_clause, else_clause);
+
+    IfStatement *NewIfStatement(int trace_id, Expression *cond, Block *then_clause,
+                                Statement *else_clause, const Location &loc = Location{}) {
+        return new (arena_) IfStatement(loc.begin_line, trace_id, cond, then_clause, else_clause);
     }
-    
+
     WhileLoop *NewWhileLoop(Expression *cond, Block *body, const Location &loc = Location{}) {
         return new (arena_) WhileLoop(loc.begin_line, loc.end_line, cond, body);
     }
-    
-    ForIterateLoop *NewForIterateLoop(ForIterateLoop::NameList *names, Expression *init,
-                                      Block *body, const Location &loc = Location{}) {
-        return new (arena_) ForIterateLoop(loc.begin_line, loc.end_line, names, init, body);
+
+    ForIterateLoop *NewForIterateLoop(int trace_id, ForIterateLoop::NameList *names,
+                                      Expression *init, Block *body,
+                                      const Location &loc = Location{}) {
+        return new (arena_) ForIterateLoop(loc.begin_line, loc.end_line, trace_id, names, init, body);
+    }
+
+    ForStepLoop *NewForStepLoop(int *next_trace_id, const ast::String *name, Expression *init,
+                                bool is_until, Expression *limit, Expression *step, Block *body,
+                                const Location &loc = Location{}) {
+        return new (arena_) ForStepLoop(loc.begin_line, loc.end_line, (*next_trace_id)++,
+                                        (*next_trace_id)++, name, init, is_until, limit, step,
+                                        body);
     }
 
     NilLiteral *NewNilLiteral(const Location &loc = Location{}) {
@@ -761,7 +876,7 @@ public:
                                     Block *body, const Location &loc = Location{}) {
         return new (arena_) LambdaLiteral(loc.begin_line, loc.end_line, params, vargs, body);
     }
-    
+
     MapInitializer *NewMapInitializer(MapInitializer::EntryList *entries,
                                       const Location &loc = Location{}) {
         return new (arena_) MapInitializer(loc.begin_line, loc.end_line, entries);
@@ -770,28 +885,30 @@ public:
     Variable *NewVariable(const String *name, const Location &loc = Location{}) {
         return new (arena_) Variable(loc.begin_line, name);
     }
-    
+
     VariableArguments *NewVariableArguments(const Location &loc = Location{}) {
         return new (arena_) VariableArguments(loc.begin_line);
     }
 
-    Call *NewCall(Expression *callee, Call::ArgumentList *args, const Location &loc = Location{}) {
-        return new (arena_) Call(loc.begin_line, callee, args);
+    Call *NewCall(int trace_id, Expression *callee, Call::ArgumentList *args,
+                  const Location &loc = Location{}) {
+        return new (arena_) Call(loc.begin_line, trace_id, callee, args);
     }
     
-    SelfCall *NewSelfCall(Expression *callee, const String *method, Call::ArgumentList *args,
-                          const Location &loc = Location{}) {
-        return new (arena_) SelfCall(loc.begin_line, callee, method, args);
+    SelfCall *NewSelfCall(int trace_id, Expression *callee, const String *method,
+                          Call::ArgumentList *args, const Location &loc = Location{}) {
+        return new (arena_) SelfCall(loc.begin_line, trace_id, callee, method, args);
     }
-    
-    New *NewNew(Expression *callee, Call::ArgumentList *args, const Location &loc = Location{}) {
-        return new (arena_) New(loc.begin_line, callee, args);
+
+    New *NewNew(int trace_id, Expression *callee, Call::ArgumentList *args,
+                const Location &loc = Location{}) {
+        return new (arena_) New(loc.begin_line, trace_id, callee, args);
     }
-    
+
     Continue *NewContinue(const Location &loc = Location{}) {
         return new (arena_) Continue(loc.begin_line);
     }
-    
+
     Break *NewBreak(const Location &loc = Location{}) {
         return new (arena_) Break(loc.begin_line);
     }
@@ -800,37 +917,40 @@ public:
         return new (arena_) Return(loc.begin_line, rets);
     }
 
-    Multiple *NewUnary(Operator::ID op, Expression *operand, const Location &loc = Location{}) {
-        return new (arena_) Multiple(loc.begin_line, op, operand);
+    Multiple *NewUnary(int trace_id, Operator::ID op, Expression *operand,
+                       const Location &loc = Location{}) {
+        return new (arena_) Multiple(loc.begin_line, trace_id, op, operand);
     }
 
-    Multiple *NewBinary(Operator::ID op, Expression *lhs, Expression *rhs,
+    Multiple *NewBinary(int trace_id, Operator::ID op, Expression *lhs, Expression *rhs,
                         const Location &loc = Location{}) {
-        return new (arena_) Multiple(loc.begin_line, op, lhs, rhs);
+        return new (arena_) Multiple(loc.begin_line, trace_id, op, lhs, rhs);
     }
-    
+
     Multiple *NewEntry(Expression *key, Expression *value, const Location &loc = Location{}) {
-        return new (arena_) Multiple(loc.begin_line, Operator::kEntry, key, value);
+        return new (arena_) Multiple(loc.begin_line, 0, Operator::kEntry, key, value);
     }
-    
+
     LogicSwitch *NewAnd(Expression *lhs, Expression *rhs, const Location &loc = Location{}) {
         return new (arena_) LogicSwitch(loc.begin_line, Operator::kAnd, lhs, rhs);
     }
-    
+
     LogicSwitch *NewOr(Expression *lhs, Expression *rhs, const Location &loc = Location{}) {
         return new (arena_) LogicSwitch(loc.begin_line, Operator::kOr, lhs, rhs);
     }
-    
+
     Concat *NewConcat(Concat::OperandList *ops, const Location &loc = Location{}) {
         return new (arena_) Concat(loc.begin_line, ops);
     }
-    
-    Index *NewIndex(Expression *self, Expression *index, const Location &loc = Location{}) {
-        return new (arena_) Index(loc.begin_line, self, index);
+
+    Index *NewIndex(int trace_id, Expression *self, Expression *index,
+                    const Location &loc = Location{}) {
+        return new (arena_) Index(loc.begin_line, trace_id, self, index);
     }
-    
-    DotField *NewDotField(Expression *self, const String *index, const Location &loc = Location{}) {
-        return new (arena_) DotField(loc.begin_line, self, index);
+
+    DotField *NewDotField(int trace_id, Expression *self, const String *index,
+                          const Location &loc = Location{}) {
+        return new (arena_) DotField(loc.begin_line, trace_id, self, index);
     }
 
     String *NewString(const char *z, int quote) {
@@ -841,6 +961,19 @@ public:
         return String::New(arena_, z + 1, len - 2);
     }
 
+    String *NewRawString(const char *z, size_t n) { return String::New(arena_, z, n); }
+
+    String *NewStringEscaped(const char *z, int quote, bool *ok) {
+        std::string buf;
+        if (quote == 0) {
+            *ok = (base::Slice::ParseEscaped(z, &buf) == 0);
+        } else {
+            size_t len = ::strlen(z);
+            *ok = (base::Slice::ParseEscaped(z + 1, len - 2, &buf) == 0);
+        }
+        return !*ok ? nullptr : String::New(arena_, buf.data(), buf.size());
+    }
+
     template<class T>
     base::ArenaVector<T> *NewList(T init) {
         auto rv = new (arena_) base::ArenaVector<T>(arena_);
@@ -849,7 +982,7 @@ public:
         }
         return rv;
     }
-    
+
     template<class T>
     T AttributesMatch(Attributes *attrs, const char *z, T value, T def_val) {
         T rv = def_val;

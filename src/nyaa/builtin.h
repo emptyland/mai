@@ -7,6 +7,10 @@
 namespace mai {
     
 namespace nyaa {
+
+namespace hir {
+class Value;
+}; // namespace dag
     
 class Object;
 class NyString;
@@ -20,9 +24,9 @@ class Nyaa;
     
 #define DECL_BUILTIN_TYPES(V) \
     V(Float64) \
-    V(Int) \
     V(String) \
     V(ByteArray) \
+    V(BytecodeArray) \
     V(Int32Array) \
     V(Array) \
     V(Table) \
@@ -56,6 +60,7 @@ struct BuiltinStrPool {
     NyString *kInnerSize = nullptr;
     NyString *kInnerBase = nullptr;
     NyString *kInnerWeak = nullptr;
+    NyString *kInnerG = nullptr;
     NyString *kNil = nullptr;
     NyString *kTrue = nullptr;
     NyString *kFalse = nullptr;
@@ -98,10 +103,12 @@ private:
 
 // All [strong ref]
 struct BuiltinCodePool final {
-    NyCode *kEntryTrampoline = nullptr;
-    NyCode *kCallStub = nullptr;
-    NyCode *kRecoverIfNeed = nullptr;
+    static constexpr size_t kMaxBytecodeHandles = 256;
     
+    NyCode *kInterpreterPump = nullptr;
+    NyCode *kEntryTrampoline = nullptr;
+
+    NyCode *kBytecodeHandlers[kMaxBytecodeHandles];
     friend class NyaaCore;
 private:
     Error Boot(NyaaCore *N);
@@ -131,19 +138,25 @@ struct IVal {
         kConst,
         kFunction, // index = proto_pool_idx
         kUpval,
+        kHIR,
         kVoid,
     };
     Kind kind;
-    int32_t index;
+    
+    union {
+        int32_t index;
+        hir::Value *node;
+    };
     
     int32_t Encode() const { return kind == kConst ? -index-1 : index; }
     
-    static IVal Void() { return {kVoid, -1}; }
-    static IVal Local(int32_t idx) { return {kLocal, idx}; }
-    static IVal Upval(int32_t idx) { return {kUpval, idx}; }
-    static IVal Const(int32_t idx) { return {kConst, idx}; }
-    static IVal Function(int32_t idx) { return {kFunction, idx}; }
-    static IVal Global(int32_t idx) { return {kGlobal, idx}; }
+    static IVal Void() { return {.kind = kVoid, .index = -1}; }
+    static IVal Local(int32_t idx) { return {.kind = kLocal, .index = idx}; }
+    static IVal Upval(int32_t idx) { return {.kind = kUpval, .index = idx}; }
+    static IVal Const(int32_t idx) { return {.kind = kConst, .index = idx}; }
+    static IVal Function(int32_t idx) { return {.kind = kFunction, .index = idx}; }
+    static IVal Global(int32_t idx) { return {.kind = kGlobal, .index = idx}; }
+    static IVal HIR(hir::Value *node) { return {.kind = kHIR, .node = node}; }
 }; // struct IVal
     
 struct Operator {
@@ -154,7 +167,6 @@ struct Operator {
         kMul,
         kDiv,
         kMod,
-        kNeg,
         kUnm,
         kConcat,
         kShl,
@@ -171,6 +183,7 @@ struct Operator {
         kBitAnd,
         kBitOr,
         kBitXor,
+        kBitInv,
         kIndex,
         kNewindex,
     };
@@ -185,7 +198,11 @@ struct NyaaNaFnEntry {
     
 extern const NyaaNaFnEntry kBuiltinFnEntries[];
     
-//Error LoadClassCoroutine(NyaaCore *N);
+struct UpvalDesc {
+    NyString *name; // [strong ref]
+    int32_t in_stack;
+    int32_t index;
+}; // struct UpvalDesc
     
 using f64_t = double;
 

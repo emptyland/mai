@@ -1,4 +1,4 @@
-/* A Bison parser, made by GNU Bison 3.3.2.  */
+/* A Bison parser, made by GNU Bison 3.4.1.  */
 
 /* Bison interface for Yacc-like parsers in C
 
@@ -58,50 +58,57 @@ extern int nyaa_yydebug;
   enum nyaa_yytokentype
   {
     DEF = 258,
-    VAR = 259,
-    LAMBDA = 260,
-    NAME = 261,
-    COMPARISON = 262,
-    OP_OR = 263,
-    OP_XOR = 264,
-    OP_AND = 265,
-    OP_LSHIFT = 266,
-    OP_RSHIFT = 267,
-    UMINUS = 268,
-    OP_CONCAT = 269,
-    NEW = 270,
-    IF = 271,
-    ELSE = 272,
-    WHILE = 273,
-    FOR = 274,
-    IN = 275,
-    OBJECT = 276,
-    CLASS = 277,
-    PROPERTY = 278,
-    BREAK = 279,
-    CONTINUE = 280,
-    RETURN = 281,
-    VARGS = 282,
-    DO = 283,
-    TINY_ARROW = 284,
-    STRING_LITERAL = 285,
-    SMI_LITERAL = 286,
-    APPROX_LITERAL = 287,
-    INT_LITERAL = 288,
-    NIL_LITERAL = 289,
-    BOOL_LITERAL = 290,
-    TOKEN_ERROR = 291,
-    IS = 292,
-    OP_NOT = 293
+    BLOCK_BEGIN = 259,
+    BLOCK_END = 260,
+    VAR = 261,
+    VAL = 262,
+    LAMBDA = 263,
+    NAME = 264,
+    COMPARISON = 265,
+    OP_OR = 266,
+    OP_XOR = 267,
+    OP_AND = 268,
+    OP_LSHIFT = 269,
+    OP_RSHIFT = 270,
+    UMINUS = 271,
+    OP_CONCAT = 272,
+    NEW = 273,
+    TO = 274,
+    UNTIL = 275,
+    IF = 276,
+    ELSE = 277,
+    WHILE = 278,
+    FOR = 279,
+    IN = 280,
+    OBJECT = 281,
+    CLASS = 282,
+    PROPERTY = 283,
+    BREAK = 284,
+    CONTINUE = 285,
+    RETURN = 286,
+    VARGS = 287,
+    DO = 288,
+    THIN_ARROW = 289,
+    FAT_ARROW = 290,
+    UNLESS = 291,
+    THEN = 292,
+    STRING_LITERAL = 293,
+    SMI_LITERAL = 294,
+    APPROX_LITERAL = 295,
+    INT_LITERAL = 296,
+    NIL_LITERAL = 297,
+    BOOL_LITERAL = 298,
+    TOKEN_ERROR = 299,
+    IS = 300,
+    OP_NOT = 301
   };
 #endif
 
 /* Value type.  */
 #if ! defined NYAA_YYSTYPE && ! defined NYAA_YYSTYPE_IS_DECLARED
-
 union NYAA_YYSTYPE
 {
-#line 27 "syntax.y" /* yacc.c:1927  */
+#line 28 "syntax.y"
 
     const ::mai::nyaa::ast::String *name;
     ::mai::nyaa::ast::VarDeclaration::NameList *names;
@@ -125,9 +132,9 @@ union NYAA_YYSTYPE
     int64_t smi_val;
     bool bool_val;
 
-#line 129 "syntax.hh" /* yacc.c:1927  */
-};
+#line 136 "syntax.hh"
 
+};
 typedef union NYAA_YYSTYPE NYAA_YYSTYPE;
 # define NYAA_YYSTYPE_IS_TRIVIAL 1
 # define NYAA_YYSTYPE_IS_DECLARED 1

@@ -1,0 +1,20 @@
+package main
+
+import foo
+
+
+var b: foo.Foo
+
+fun main() {
+    bar("a", "b")
+    foo.Foo(1)
+}
+
+fun bar(a: string, b: string) {
+	println(a)
+	println(b)
+}
+
+val a = "Hello, World"
+val c = foo.a
+val d = foo.b

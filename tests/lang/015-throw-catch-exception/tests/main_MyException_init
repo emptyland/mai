@@ -1,0 +1,19 @@
++-------------------------------
+| MyException():void
++-------------------------------
+stack-size: 80
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 7
+souce-file-name: tests/lang/015-throw-catch-exception/main/main.mai
+bytecode-size: 7
+bytecode: 
+    000 CheckStack; (3)
+    001 MovePtr [BP-88], [BP+40]; (3)
+    002 MovePtr [BP-96], [BP+32]; (3)
+    003 MovePtr [BP-104], [BP+24]; (3)
+    004 LdaConstPtr [KP+32]; (3)
+    005 CallBytecodeFunction #68, #24; (3)
+    006 Return; (3)

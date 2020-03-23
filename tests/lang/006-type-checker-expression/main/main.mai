@@ -1,0 +1,50 @@
+package main
+
+val a = 1
+val b = 2
+
+val c = a + 1
+val d = b - 1
+val e = -a
+val f = a ^ 0xff
+val g = a | b
+val h = a & b
+val i = a << 1
+val j = a >> 2
+val k = a == b
+val l = a != b
+val m = a < b
+val n = a <= b
+val o = a > b
+val p = a >= b
+val q = !k
+val r = m || n
+val s = m && n
+val t = ~a
+val u = a * 1
+val v = a / 1
+val w = a % 10
+
+fun foo() {
+	val a = array{1,2,3,4}
+	val b = a + (.. -> 5)
+	val c = map{"1st" -> 1, "2nd" -> 2, "3th" -> 3}
+	val d = c + ('4th' -> 4)
+}
+
+fun main() {
+	var a = array[int](0)
+	a += (.. -> 1)
+	a += (.. -> 2)
+	a -= 0
+	var v: int = a[1]
+
+	var b: map[string, int]
+	b += ("1st" -> 1)
+	b += ("2nd" -> 2)
+	b += ("3th" -> 3)
+	b -= "1st"
+
+	v = b["1st"]
+	foo()
+}

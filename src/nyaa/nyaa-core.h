@@ -5,6 +5,8 @@
 #include "asm/utils.h"
 #include "base/base.h"
 #include "mai/error.h"
+#include <unordered_map>
+#include <set>
 
 namespace mai {
 class Allocator;
@@ -56,8 +58,8 @@ public:
     void Raisef(const char *fmt, ...);
     void Vraisef(const char *fmt, va_list ap);
     
-    void InsertThread(NyThread *thd);
-    void RemoveThread(NyThread *thd);
+//    void InsertThread(NyThread *thd);
+//    void RemoveThread(NyThread *thd);
     
     void EnterHandleScope(HandleScope *handle_scope);
     void ExitHandleScope();
@@ -65,12 +67,13 @@ public:
     Address AdvanceHandleSlots(int n_slot);
     
     void GarbageCollect(GarbageCollectionMethod method, GarbageCollectionHistogram *histogram);
-    void GarbageCollectionSafepoint(const char *file, int line) {} // TODO:
+    void GarbageCollectionSafepoint(const char *file, int line);
     
     template<class T, class V>
     inline V *BarrierWr(NyObject *host, T **pzwr, V *val) {
         T *test = val;
         InternalBarrierWr(host, reinterpret_cast<Object **>(pzwr), test);
+        //heap_->BarrierWr(host, reinterpret_cast<Object **>(pzwr), test);
         return val;
     }
 
@@ -85,19 +88,20 @@ public:
     Heap *heap() const { return heap_.get(); }
     ObjectFactory *factory() const { return factory_.get(); }
     DEF_VAL_GETTER(bool, initialized);
+    DEF_VAL_PROP_RW(int, gc_force_count);
+    DEF_VAL_PROP_RW(int, max_trace_id);
     DEF_VAL_PROP_RW(int32_t, recover_point_pc);
     DEF_VAL_PROP_RW(int32_t, suspend_point_pc);
     DEF_PTR_GETTER(FILE, logger);
     DEF_PTR_GETTER(NyMap, g);
     DEF_PTR_GETTER(NyMap, loads);
-    DEF_PTR_GETTER(NyThread, main_thd);
-    DEF_PTR_PROP_RW(NyThread, curr_thd);
+    DEF_PTR_GETTER(NyThread, current_thread);
     BuiltinMetatablePool *kmt_pool() const { return kmt_pool_.get(); }
     StringPool *kz_pool() const { return kz_pool_.get(); }
     BuiltinStrPool *bkz_pool() const { return bkz_pool_.get(); }
     BuiltinCodePool *code_pool() const { return code_pool_.get(); }
     Isolate *isolate() const;
-    
+
     Address GetRecoverPointAddress();
     Address GetSuspendPointAddress();
     
@@ -113,8 +117,11 @@ private:
     std::unique_ptr<ObjectFactory> factory_;
     HandleScopeSlot *top_slot_;
     bool initialized_ = false;
+    int gc_force_count_ = 0;
+    int gc_ticks_ = 0;
     int32_t recover_point_pc_ = 0; // recover point pc for entry trampoline
     int32_t suspend_point_pc_ = 0; // suspend point pc
+    int max_trace_id_ = 0;
     uint64_t next_udo_kid_;
     FILE *logger_;
     std::unique_ptr<RandomGenerator> random_;
@@ -123,10 +130,9 @@ private:
     std::unique_ptr<BuiltinMetatablePool> kmt_pool_; // elements [strong ref]
     std::unique_ptr<BuiltinCodePool> code_pool_; // elements [strong ref]
 
+    NyThread *current_thread_; // [strong ref]
     NyMap *g_ = nullptr; // [strong ref]
     NyMap *loads_ = nullptr; // [strong ref]
-    NyThread *main_thd_ = nullptr; // [strong ref]
-    NyThread *curr_thd_ = nullptr; // [strong ref]
 };
     
 } // namespace nyaa

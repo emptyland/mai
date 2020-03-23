@@ -1,7 +1,7 @@
 #include "nyaa/object-factory.h"
 #include "nyaa/string-pool.h"
 #include "nyaa/nyaa-values.h"
-#include "nyaa/thread.h"
+#include "nyaa/function.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/heap.h"
 #include "nyaa/builtin.h"
@@ -20,15 +20,6 @@ public:
     virtual NyFloat64 *NewFloat64(f64_t value, bool old) override {
         auto ob = new NyFloat64(value);
         ob->SetMetatable(core_->kmt_pool()->kFloat64, core_);
-        return ob;
-    }
-    
-    virtual NyInt *NewUninitializedInt(size_t capacity, bool old) override {
-        size_t required_size = NyInt::RequiredSize(static_cast<uint32_t>(capacity));
-        void *chunk = ::malloc(required_size);
-        auto ob = new (chunk) NyInt(static_cast<uint32_t>(capacity));
-        DCHECK_EQ(ob->PlacedSize(), required_size);
-        ob->SetMetatable(core_->kmt_pool()->kInt, core_);
         return ob;
     }
 
@@ -113,10 +104,16 @@ public:
         return ob;
     }
     
+    virtual NyBytecodeArray *NewBytecodeArray(NyInt32Array *source_lines, Address bytecodes,
+                                              size_t bytecode_bytes_size, bool old) override {
+        // TODO:
+        TODO();
+        return nullptr;
+    }
+    
     virtual NyFunction *NewFunction(NyString *name, size_t n_params, bool vargs, size_t n_upvals,
-                                    size_t max_stack, NyString *file_name, NyInt32Array *file_info,
-                                    NyObject *exec, NyArray *proto_pool, NyArray *const_pool,
-                                    bool old) override {
+                                    size_t max_stack, NyString *file_name, NyObject *exec,
+                                    NyArray *proto_pool, NyArray *const_pool, bool old) override {
         DCHECK_LE(n_params, UINT8_MAX);
         DCHECK_LE(n_upvals, UINT32_MAX);
         DCHECK_LE(max_stack, UINT32_MAX);
@@ -127,7 +124,6 @@ public:
                                          static_cast<uint32_t>(n_upvals),
                                          static_cast<uint32_t>(max_stack),
                                          file_name,
-                                         file_info,
                                          exec,
                                          proto_pool,
                                          const_pool,
@@ -137,10 +133,10 @@ public:
         return ob;
     }
 
-    virtual NyCode *NewCode(int kind, const uint8_t *instructions,
+    virtual NyCode *NewCode(int kind, NyInt32Array *source_lines, const uint8_t *instructions,
                             size_t instructions_byte_size) override {
         // TODO:
-        DLOG(FATAL) << "Noreached!";
+        TODO();
         return nullptr;
     }
     
@@ -169,10 +165,13 @@ public:
         return ob;
     }
     
-    virtual NyThread *NewThread(bool old) override {
-        auto ob = new NyThread(core_);
-        ob->SetMetatable(core_->kmt_pool()->kThread, core_);
-        return ob;
+    virtual NyThread *NewThread(size_t initial_stack_size, bool old) override {
+//        auto ob = new NyThread(core_);
+//        ob->SetMetatable(core_->kmt_pool()->kThread, core_);
+//        return ob;
+        // TODO:
+        TODO();
+        return nullptr;
     }
         
 private:

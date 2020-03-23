@@ -285,7 +285,7 @@ Error MaiSQLConnectionImpl::SetValue(const ColumnDescriptor *cd, const SQLValue 
             // TODO:
             
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return Error::OK();

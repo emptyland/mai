@@ -64,6 +64,7 @@ enum Cond {
     // Fake conditions
     Always       = 16,
     Never        = 17,
+    RCXZero      = 18,
     
     Carry    = Below,
     NotCarry = AboveEqual,
@@ -73,14 +74,59 @@ enum Cond {
     NotSign  = Positive,
     LastCond = Greater,
 }; // Cond;
+
+
+// Control Code:
+// [1:0] Source Data Format:
+// 00b: Unsigned byte
+// 01b: Signed byte
+// 10b: Unsigned word
+// 11b: Signed word
+//
+// [3:2]Aggregation Operation:
+// 00b: Equal any
+// 01b: Ranges
+// 10b: Equal each
+// 11b: Equal ordered
+//
+// [5:4]Polarity:
+// 00b: Positive Polarity (+)
+// 01b: Negative Polarity (-)
+// 10b: Masked (+)
+// 11b: Masked (-)
+//
+// [6] Output Selection:
+// For PCMPESTRI/PCMPISTRI
+// 0b: Least significant index
+// 1b: Most significant index
+// For PCMPESTRM/PCMPISTRM
+// 0b: Bit mask
+// 1b: Byte/word mask
+//
+struct PCMP {
+    static constexpr int8_t Byte = 0;
+    static constexpr int8_t Word = 1;
     
-//#define RegBits(reg)   (1 << (reg).code)
-//#define RegHiBit(reg)  ((reg).code >> 3)
-//#define RegLoBits(reg) ((reg).code & 0x7)
-//#define RegIsByte(reg) ((reg).code <= 3)
-//    
-//#define XmmHiBit(reg)  RegHiBit(reg)
-//#define XmmLoBits(reg) RegLoBits(reg)
+    static constexpr int8_t Unsigned = 0;
+    static constexpr int8_t Signed = 1 << 1;
+    
+    static constexpr int8_t EqualAny = 0;
+    static constexpr int8_t Ranges = 1 << 2;
+    static constexpr int8_t EqualEach = 2 << 2;
+    static constexpr int8_t EqualOrdered = 3 << 2;
+    
+    static constexpr int8_t PositivePolarity = 0;
+    static constexpr int8_t NegativePolarity = 1 << 4;
+    static constexpr int8_t PositiveMasked = 2 << 4;
+    static constexpr int8_t NegativeMasked = 3 << 4;
+    
+    static constexpr int8_t LeastSignificantIndex = 0;
+    static constexpr int8_t MostSignificantIndex = 1 << 6;
+    
+    static constexpr int8_t BitMask = 0;
+    static constexpr int8_t ByteWordMask = 1 << 6;
+    // Least significant index
+};
     
 class Register {
 public:
@@ -158,15 +204,27 @@ constexpr XMMRegister xmm13(13); // 13
 constexpr XMMRegister xmm14(14); // 14
 
 constexpr XMMRegister xmm15(15); // 15
-    
-static const constexpr int kMaxRegArgs = 8;
-static const constexpr int kMaxXmmArgs = 8;
-static const constexpr int kMaxAllocRegs = 11;
-static const constexpr int kMaxAllocXmms = 15;
-    
+
+
+constexpr Register Argv_0 = rdi; // {kRDI},
+constexpr Register Argv_1 = rsi; // {kRSI},
+constexpr Register Argv_2 = rdx; // {kRDX},
+constexpr Register Argv_3 = rcx; // {kRCX},
+constexpr Register Argv_4 = r8;  // {kR8},
+constexpr Register Argv_5 = r9;  // {kR9},
+constexpr Register Argv_6 = r10; // {kR10},
+constexpr Register Argv_7 = r11; // {kR11},
+
+static constexpr int kMaxRegArgs = 8;
+static constexpr int kMaxXmmArgs = 8;
+static constexpr int kMaxAllocRegs = 10;
+static constexpr int kMaxAllocXmms = 15;
+static constexpr int kRegisterSize = 8;
+
 extern const Register kRegArgv[kMaxRegArgs];
 extern const XMMRegister kXmmArgv[kMaxXmmArgs];
 extern const Register kRegAlloc[kMaxAllocRegs];
+
     
 inline int IsIntN(int64_t x, uint32_t n) {
     DCHECK((0 < n) && (n < 64));
@@ -294,7 +352,7 @@ public:
             return -pos_ - 1;
         if (pos_ > 0)
             return pos_ - 1;
-        DLOG(FATAL) << "noreached";
+        NOREACHED();
         return 0;
     }
     
@@ -319,8 +377,8 @@ public:
         buf_.clear();
     }
     
-    void lea(Register dst, Operand src, int size = kDefaultSize) {
-        EmitRex(dst, src, size);
+    void leaq(Register dst, Operand src) {
+        EmitRex(dst, src, 8);
         EmitB(0x8D);
         EmitOperand(dst, src);
     }
@@ -597,6 +655,13 @@ public:
 
     void movsd(Operand dst, XMMRegister src) { EmitSSEArith(0xF2, 0x11, src, dst); }
     
+    // Move Unaligned Double Quadword
+    void movdqu(XMMRegister dst, XMMRegister src) { EmitSSEArith(0xF3, 0x6F, dst, src); }
+    
+    void movdqu(XMMRegister dst, Operand src) { EmitSSEArith(0xF3, 0x6F, dst, src); }
+    
+    void movdqu(Operand dst, XMMRegister src) { EmitSSEArith(0xF3, 0x7F, src, dst); }
+    
     // CMOVcc—Conditional Move
     void cmov(Cond cond, Register dst, Register src, int size) {
         EmitRex(dst, src, size);
@@ -799,26 +864,36 @@ public:
     // Neg/Not/Shift
     //----------------------------------------------------------------------------------------------
     // Neg
-    void neg(Register dst, int size = kDefaultSize) {
+    void negl(Register dst) { neg(dst, 4); }
+    void negl(Operand dst) { neg(dst, 4); }
+    void negq(Register dst) { neg(dst, 8); }
+    void negq(Operand dst) { neg(dst, 8); }
+    
+    void neg(Register dst, int size) {
         EmitRex(dst, size);
         EmitB(0xF7);
         EmitModRM(0x3, dst);
     }
 
-    void neg(Operand dst, int size = kDefaultSize) {
+    void neg(Operand dst, int size) {
         EmitRex(dst, size);
         EmitB(0xF7);
         EmitOperand(0x3, dst);
     }
+    
+    void notl(Register dst) { not_(dst, 4); }
+    void notl(Operand dst) { not_(dst, 4); }
+    void notq(Register dst) { not_(dst, 8); }
+    void notq(Operand dst) { not_(dst, 8); }
 
     // Not
-    void not_(Register dst, int size = kDefaultSize) {
+    void not_(Register dst, int size) {
         EmitRex(dst, size);
         EmitB(0xF7);
         EmitModRM(0x2, dst);
     }
 
-    void not_(Operand dst, int size = kDefaultSize) {
+    void not_(Operand dst, int size) {
         EmitRex(dst, size);
         EmitB(0xF7);
         EmitOperand(0x2, dst);
@@ -991,6 +1066,12 @@ public:
         EmitOperand(7, divsor);
     }
     
+    void idivl(Register divsor) { idiv(divsor, 4); }
+    void idivl(Operand divsor) { idiv(divsor, 4); }
+    
+    void idivq(Register divsor) { idiv(divsor, 8); }
+    void idivq(Operand divsor) { idiv(divsor, 8); }
+    
     void imull(Register rhs) { imul(rhs, 4); }
     void imull(Operand rhs) { imul(rhs, 4); }
     void imull(Register dst, Register rhs) { imul(dst, rhs, 4); }
@@ -1158,7 +1239,7 @@ public:
     inline void name(Register lhs, int32_t val) { EmitArith(ri, lhs, val, size); } \
     inline void name(Register lhs, Operand rhs) { EmitArith(ro, lhs, rhs, size); } \
     inline void name(Operand lhs, Register rhs) { EmitArith(or, rhs, lhs, size); } \
-    inline void name(Operand lhs, int32_t val) { EmitArith(or, lhs, val, size); }
+    inline void name(Operand lhs, int32_t val) { EmitArith(oi, lhs, val, size); }
 
     ARITH_OP_LIST(DEF_ARITH)
     
@@ -1190,6 +1271,82 @@ public:
 
 #undef DEF_SSE_ARITH
 #undef ARITH_SSE_OP_LIST
+
+    //----------------------------------------------------------------------------------------------
+    // String Compare
+    //----------------------------------------------------------------------------------------------
+    // Packed Compare Explicit Length Strings, Return Index
+    void pcmpestri(XMMRegister lhs, XMMRegister rhs, int8_t code) {
+        // 66 0F 3A 61 /r imm8
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0x3A);
+        EmitB(0x61);
+        EmitOperand(lhs, rhs);
+        EmitB(code);
+    }
+    
+    void pcmpestri(XMMRegister lhs, Operand rhs, int8_t code) {
+        // 66 0F 3A 61 /r imm8
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0x3A);
+        EmitB(0x61);
+        EmitOperand(lhs, rhs);
+        EmitB(code);
+    }
+    
+    // PCMPESTRM — Packed Compare Explicit Length Strings, Return Mask
+    void pcmpestrm(XMMRegister lhs, XMMRegister rhs, int8_t code) {
+        // 66 0F 3A 60 /r imm8
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0x3A);
+        EmitB(0x60);
+        EmitOperand(lhs, rhs);
+        EmitB(code);
+    }
+    
+    void pcmpestrm(XMMRegister lhs, Operand rhs, int8_t code) {
+        // 66 0F 3A 60 /r imm8
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0x3A);
+        EmitB(0x60);
+        EmitOperand(lhs, rhs);
+        EmitB(code);
+    }
+    
+    //----------------------------------------------------------------------------------------------
+    // Memory barrier
+    //----------------------------------------------------------------------------------------------
+    // Serializes load and store operations.
+    void mfence() {
+        // NP 0F AE F0
+        EmitB(0x0F);
+        EmitB(0xAE);
+        EmitB(0xF0);
+    }
+    
+    // Serializes load operations.
+    void lfence() {
+        // NP 0F AE E8
+        EmitB(0x0F);
+        EmitB(0xAE);
+        EmitB(0xE8);
+    }
+    
+    // Serializes store operations.
+    void sfence() {
+        // NP 0F AE F8
+        EmitB(0x0F);
+        EmitB(0xAE);
+        EmitB(0xF8);
+    }
     
     //----------------------------------------------------------------------------------------------
     // Utils

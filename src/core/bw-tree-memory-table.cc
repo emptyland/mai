@@ -59,8 +59,7 @@ void BwTreeMemoryTable::Put(std::string_view key, std::string_view value,
                             SequenceNumber version, uint8_t flag) {
     const KeyBoundle *ikey = KeyBoundle::New(key, value, version, flag,
                                              base::DelegatedAllocator{&arena_});
-    DCHECK_NOTNULL(ikey);
-    table_.Put(ikey);
+    table_.Put(DCHECK_NOTNULL(ikey));
     n_entries_.fetch_add(1);
 }
 

@@ -1,0 +1,14 @@
+# bit ops tests:
+
+var a = 996
+assert(a ^ a == 0)
+assert(a ^ 996 == 0)
+a = 2
+assert(a | 1 == 3)
+assert(a & 1 == 0)
+a = 3
+assert(a | 1 == 3)
+assert(a & 1 == 1)
+
+assert(pcall(lambda => a & 'a') == nil)
+assert(pcall(lambda => a | '3') == 3)

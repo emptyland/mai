@@ -32,13 +32,20 @@ using namespace ::mai::nyaa::ast;
 %x COMMENT_MOD
 
 %%
+begin { return BLOCK_BEGIN; }
+end { return BLOCK_END; }
 def { return DEF; }
 var { return VAR; }
+val { return VAL; }
 new { return NEW; }
 do { return DO; }
+to { return TO; }
+until { return UNTIL; }
 lambda { return LAMBDA; }
 return { return RETURN; }
 if { return IF; }
+unless { return UNLESS; }
+then { return THEN; }
 else { return ELSE; }
 while { return WHILE; }
 for { return FOR; }
@@ -67,10 +74,15 @@ not { return OP_NOT; }
     return NAME;
 }
 
-'(\\.|''|[^'\n'])*' |
-\"(\\.|\"\"|[^"\n])*\" {
+'(\\.|''|[^'\n'])*' {
 	yylval->str_val = yyextra->factory->NewString(yytext, yytext[0]);
-    return STRING_LITERAL;	
+	return STRING_LITERAL;
+}
+
+\"(\\.|\"\"|[^"\n])*\" {
+	bool ok = true;
+	yylval->str_val = yyextra->factory->NewStringEscaped(yytext, yytext[0], &ok);
+    return ok ? STRING_LITERAL : TOKEN_ERROR;
 }
 
 -?[0-9]+ {
@@ -138,11 +150,13 @@ not { return OP_NOT; }
 "]" { return ']'; }
 "..." { return VARGS; }
 ".." { return OP_CONCAT; }
-"->" { return TINY_ARROW; }
+"->" { return THIN_ARROW; }
+"=>" { return FAT_ARROW; }
 
 [-=+&~|^/%!()*.,;:{}] { return yytext[0]; }
 
-"--"[ \t].* ;
+"//"[ \t].* ;
+"#"[ \t].* ;
 
 "/*"          { yyextra->old_state = YY_START; BEGIN COMMENT_MOD; }
 <COMMENT_MOD>"*/" { BEGIN yyextra->old_state; }

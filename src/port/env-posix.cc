@@ -191,6 +191,17 @@ public:
         }
     }
     
+    virtual Error IsDirectory(const std::string &file_name, bool *isdir) override {
+        struct stat s;
+        if (::stat(file_name.c_str(), &s) < 0) {
+            *isdir = false;
+            return MAI_IO_ERROR(strerror(errno));
+        } else {
+            *isdir = (s.st_mode & S_IFDIR);
+            return Error::OK();
+        }
+    }
+    
     virtual Error GetFileSize(const std::string &file_name, uint64_t *size) override {
         struct stat s;
         if (::stat(file_name.c_str(), &s) < 0) {
@@ -290,6 +301,10 @@ public:
                                      void (*dtor)(void *),
                                      std::unique_ptr<ThreadLocalSlot> *result) override {
         return PosixThreadLocalSlot::New(name, dtor, result);
+    }
+    
+    virtual int GetNumberOfCPUCores() override {
+        return static_cast<int>(sysconf(_SC_NPROCESSORS_ONLN));
     }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(PosixEnv);

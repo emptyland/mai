@@ -1,0 +1,29 @@
++-------------------------------
+| main.main():void
++-------------------------------
+stack-size: 112
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 17
+souce-file-name: tests/lang/014-embed-function-and-lambda/main/main.mai
+bytecode-size: 17
+bytecode: 
+    000 CheckStack; (19)
+    001 NewObject #76, [KP+0]; (20)
+    002 StarPtr [BP-84]; (20)
+    003 LdaSmi32 #100; (20)
+    004 Star32 [BP-88]; (20)
+    005 MovePtr [BP-120], [BP-84]; (20)
+    006 Move32 [BP-124], [BP-88]; (20)
+    007 LdaConstf32 [KP+8]; (20)
+    008 Staf32 [BP-128]; (20)
+    009 LdaConstPtr [KP+32]; (20)
+    010 CallBytecodeFunction #84, #16; (20)
+    011 StarPtr [BP-76]; (20)
+    012 MovePtr [BP-84], [BP-76]; (22)
+    013 MovePtr [BP-120], [BP-84]; (22)
+    014 LdaGlobalPtr [GS+128]; (22)
+    015 CallBytecodeFunction #84, #8; (22)
+    016 Return; (19)

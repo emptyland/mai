@@ -21,10 +21,10 @@ class ObjectFactory;
 class Object;
 class NyObject;
 class NyFloat64;
-class NyInt;
 class NyString;
 template<class T> class NyArrayBase;
 class NyByteArray;
+class NyBytecodeArray;
 class NyInt32Array;
 class NyArray;
 class NyTable;
@@ -87,7 +87,7 @@ public:
     
     bool IsNotKey(NyaaCore *N) const { return !IsKey(N); }
 
-    uint32_t HashVal(NyaaCore *N) const;
+    inline uint32_t HashVal(NyaaCore *N) const;
     
     static bool Equal(Object *lhs, Object *rhs, NyaaCore *N);
     static bool LessThan(Object *lhs, Object *rhs, NyaaCore *N);
@@ -98,6 +98,14 @@ public:
     static Object *Mul(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Div(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Mod(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Minus(Object *lhs, NyaaCore *N);
+    
+    static Object *Shl(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Shr(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitAnd(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitOr(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitXor(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitInv(Object *lhs, NyaaCore *N);
     
     static Object *Get(Object *lhs, Object *key, NyaaCore *N);
     static void Put(Object *lhs, Object *key, Object *value, NyaaCore *N);
@@ -124,6 +132,8 @@ public:
     //static constexpr const int64_t kMinValue = -0x1fffffffffffffffll;
     static constexpr const int64_t kMinValue = -0x2000000000000000ll;
     
+    static bool Contain(int64_t val) { return val >= kMinValue && val <= kMaxValue; }
+    
     static Object *New(int64_t value) {
         intptr_t word = value;
         return reinterpret_cast<Object *>((word << 2) | 1);
@@ -134,6 +144,14 @@ public:
     static Object *Mul(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Div(Object *lhs, Object *rhs, NyaaCore *N);
     static Object *Mod(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Minus(Object *lhs, NyaaCore *N) { return New(-lhs->ToSmi()); }
+    
+    static Object *Shl(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *Shr(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitAnd(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitOr(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitXor(Object *lhs, Object *rhs, NyaaCore *N);
+    static Object *BitInv(Object *lhs, NyaaCore *N) { return New(~lhs->ToSmi()); }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(NySmi);
 }; // class NyInt32
@@ -201,7 +219,15 @@ public:
     Object *Mul(Object *rhs, NyaaCore *N);
     Object *Div(Object *rhs, NyaaCore *N);
     Object *Mod(Object *rhs, NyaaCore *N);
-    
+    Object *Minus(NyaaCore *N);
+
+    Object *Shl(Object *rhs, NyaaCore *N);
+    Object *Shr(Object *rhs, NyaaCore *N);
+    Object *BitAnd(Object *rhs, NyaaCore *N);
+    Object *BitOr(Object *rhs, NyaaCore *N);
+    Object *BitXor(Object *rhs, NyaaCore *N);
+    Object *BitInv(NyaaCore *N);
+
     NyString *ToString(NyaaCore *N);
     
 #define DECL_TYPE_CHECK(type) inline bool Is##type() const;
@@ -215,7 +241,7 @@ public:
 #undef DECL_TYPE_CAST
     
     bool IsNumeric() const {
-        return IsFloat64() || IsInt(); // TODO:
+        return IsFloat64();
     }
 
     bool IsRunnable() const {
@@ -233,6 +259,9 @@ public:
     inline bool IsUDO() const;
     inline const NyUDO *ToUDO() const;
     inline NyUDO *ToUDO();
+    
+    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N);
+    Object *AttemptUnaryMetaFunction(NyString *name, NyaaCore *N);
     
     inline Object *GetMetaFunction(NyString *name, NyaaCore *N) const;
     inline NyRunnable *GetValidMetaFunction(NyString *name, NyaaCore *N) const;
@@ -289,6 +318,8 @@ public:
     Object *Mul(Object *rhs, NyaaCore *N) const;
     Object *Div(Object *rhs, NyaaCore *N) const;
     Object *Mod(Object *rhs, NyaaCore *N) const;
+    Object *Shl(Object *rhs, NyaaCore *N) const;
+    Object *Shr(Object *rhs, NyaaCore *N) const;
     
     static bool Near(f64_t lhs, f64_t rhs) {
         return ::fabs(lhs - rhs) <= std::numeric_limits<f64_t>::epsilon();
@@ -308,156 +339,6 @@ private:
     
     f64_t value_;
 }; // class NyFloat64
-
-
-class NyInt : public NyObject {
-public:
-    static constexpr const int kMinRadix = 2;
-    static constexpr const int kMaxRadix = 16;
-
-    NyInt(uint32_t capactiy);
-    
-    DEF_VAL_GETTER(uint32_t, capacity);
-    DEF_VAL_GETTER(uint32_t, offset);
-    DEF_VAL_GETTER(uint32_t, header);
-
-    bool IsZero() const;
-    
-    bool Equal(Object *rhs, NyaaCore *N) const;
-    bool LessThan(Object *rhs, NyaaCore *N) const;
-    bool LessEqual(Object *rhs, NyaaCore *N) const;
-    
-    NyInt *Shl(int bits, NyaaCore *N);
-    NyInt *Shr(int bits, NyaaCore *N);
-
-    Object *Add(Object *rhs, NyaaCore *N) const;
-    Object *Sub(Object *rhs, NyaaCore *N) const;
-    Object *Mul(Object *rhs, NyaaCore *N) const;
-    Object *Div(Object *rhs, NyaaCore *N) const;
-    Object *Mod(Object *rhs, NyaaCore *N) const;
-    
-    NyInt *Add(int64_t rhs, NyaaCore *N) const;
-    NyInt *Sub(int64_t rhs, NyaaCore *N) const;
-    NyInt *Mul(int64_t rhs, NyaaCore *N) const;
-    NyInt *Div(int64_t rhs, NyaaCore *N) const;
-    NyInt *Mod(int64_t rhs, NyaaCore *N) const;
-    
-    NyInt *Add(const NyInt *rhs, NyaaCore *N) const;
-    NyInt *Sub(const NyInt *rhs, NyaaCore *N) const;
-    NyInt *Mul(const NyInt *rhs, NyaaCore *N) const;
-    NyInt *Div(const NyInt *rhs, NyaaCore *N) const { return std::get<0>(CompleteDiv(rhs, N)); }
-    NyInt *Mod(const NyInt *rhs, NyaaCore *N) const { return std::get<1>(CompleteDiv(rhs, N)); }
-
-    std::tuple<NyInt *, NyInt *> CompleteDiv(const NyInt *rhs, NyaaCore *N) const;
-    
-    uint32_t HashVal() const;
-    
-    f64_t ToF64() const;
-    int64_t ToI64() const;
-    
-    NyString *ToString(NyaaCore *N, int radix = 10) const;
-    
-    NyInt *Clone(base::Arena *arena) const { return New(segments(), segments_size(), arena); }
-    NyInt *Clone(ObjectFactory *factory) const { return New(segments(), segments_size(), factory); }
-    
-    void Fill(uint32_t s = 0) {
-        int64_t i = segments_size();
-        while (i-- > 0) { set_segment(i, s); }
-    }
-
-    bool Equals(const NyInt *rhs) const { return Compare(this, rhs) == 0; }
-    
-    static int Compare(const NyInt *lhs, const NyInt *rhs);
-    
-    void Iterate(ObjectVisitor *visitor) {}
-    
-    size_t PlacedSize() const { return RequiredSize(capacity_); }
-    
-    static size_t RequiredSize(uint32_t capacity) {
-        return sizeof(NyInt) + sizeof(uint32_t) * (capacity <= 2 ? 0 : capacity);
-    }
-    
-    static Object *UnboxIfNeed(NyInt *ob) {
-        if (ob->segments_size() <= 2) {
-            auto val = ob->ToI64();
-            if (val >= NySmi::kMinValue && val <= NySmi::kMaxValue) {
-                return NySmi::New(val);
-            }
-        }
-        return ob;
-    }
-    
-    static NyInt *Parse(const char *s, size_t n, ObjectFactory *factory);
-    static NyInt *ParseOctLiteral(const char *s, size_t n, ObjectFactory *factory);
-    static NyInt *ParseHexLiteral(const char *s, size_t n, ObjectFactory *factory);
-    static NyInt *ParseDecLiteral(const char *s, size_t n, ObjectFactory *factory);
-    static NyInt *ParseDigitals(const char *s, size_t n, int radix, ObjectFactory *factory);
-    static NyInt *NewI64(int64_t val, ObjectFactory *factory);
-    static NyInt *NewU64(uint64_t val, ObjectFactory *factory);
-    static NyInt *New(const uint32_t *s, size_t n, ObjectFactory *factory);
-
-    // for temp int objects
-    static NyInt *NewI64(int64_t val, base::Arena *arena);
-    static NyInt *NewU64(uint64_t val, base::Arena *arena);
-    static NyInt *New(const uint32_t *s, size_t n, base::Arena *arena);
-    static NyInt *NewUninitialized(size_t capacity, base::Arena *arena);
-    
-    DEF_HEAP_OBJECT(Int);
-private:
-    void InitI64(int64_t val) {
-        bool neg = val < 0;
-        if (neg) { val = -val; }
-        InitP64(val, neg, val > 0xffffffff ? 2 : 1);
-    }
-    
-    void InitP64(uint64_t val, bool neg, size_t reserved);
-    
-    bool negative() const { return header_ & 0x1; }
-    int sign() const { return negative() ? -1 : 1; }
-    size_t segments_size() const { return capacity_ - offset_; }
-    size_t segments_capacity() const { return capacity_;  }
-    const uint32_t *segments() const { return vals_ + offset_; }
-    uint32_t *segments() { return vals_ + offset_; }
-    View<uint32_t> segment_view() const { return MakeView(segments(), segments_size()); }
-    MutView<uint32_t> segment_mut_view() { return MakeMutView(segments(), segments_size()); }
-    
-    uint32_t segment(size_t i) const {
-        DCHECK_LT(i, segments_size());
-        return segments()[i];
-    }
-
-    void set_segment(size_t i, uint32_t s) {
-        DCHECK_LT(i, segments_size());
-        segments()[i] = s;
-    }
-    
-    void set_offset(size_t i) {
-        DCHECK_LE(i, capacity_);
-        offset_ = static_cast<uint32_t>(i);
-    }
-
-    void set_negative(bool neg) {
-        if (neg) {
-            header_ |= 0x1;
-        } else {
-            header_ &= ~0x1;
-        }
-    }
-    
-    static int AbsCompare(const NyInt *lhs, const NyInt *rhs);
-    static void AddRaw(const NyInt *lhs, const NyInt *rhs, NyInt *rv);
-    static std::tuple<NyInt *, NyInt *> DivRaw(const NyInt *lhs, const NyInt *rhs, NyaaCore *N);
-    NyInt *DivMagnitude(MutView<uint32_t> divisor, NyInt *rv, NyaaCore *N) const;
-    
-    void Normalize();
-    void Resize(size_t n);
-
-    uint32_t capacity_;
-    uint32_t offset_;
-    uint32_t header_;
-    uint32_t vals_[2];
-}; // class NyLong
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Maps:
@@ -498,6 +379,7 @@ public:
     Object *Mul(Object *rhs, NyaaCore *N);
     Object *Div(Object *rhs, NyaaCore *N);
     Object *Mod(Object *rhs, NyaaCore *N);
+    Object *Minus(NyaaCore *N);
 
     void Iterate(ObjectVisitor *visitor) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&generic_));
@@ -508,8 +390,6 @@ public:
     friend class MapIterator;
     DEF_HEAP_OBJECT(Map);
 private:
-    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N);
-    
     union {
         NyTable *table_; // [strong ref]
         NyArray *array_; // [strong ref]
@@ -582,13 +462,15 @@ private:
         }
     }
     
-    const Entry *GetSlot(Object *key, NyaaCore *N) const { return At(HashVal(key, N) % n_slots() + 1); }
-    
-    Entry *GetSlot(Object *key, NyaaCore *N) { return At(HashVal(key, N) % n_slots() + 1); }
-    
-    uint32_t HashVal(Object *key, NyaaCore *N) const {
-        return ((!key ? 0 : key->HashVal(N)) | 1u) ^ seed_;
+    inline const Entry *HashSlot(Object *key, NyaaCore *N) const {
+        return entries_ + HashVal(key, N) % n_slots() + 1;
     }
+    
+    inline Entry *HashSlot(Object *key, NyaaCore *N) {
+        return entries_ + HashVal(key, N) % n_slots() + 1;
+    }
+
+    inline uint32_t HashVal(Object *key, NyaaCore *N) const;
     
     Entry *At(int pos) { return pos == 0 ? nullptr : entries_ + pos; }
     
@@ -623,6 +505,7 @@ public:
     
     DEF_VAL_GETTER(uint32_t, size);
     DEF_VAL_GETTER(uint32_t, capacity);
+    T *buf() { return elems_; }
     
     inline T Get(int64_t key) const {
         DCHECK_GE(key, 0);
@@ -711,7 +594,7 @@ public:
     NyString *Add(const char *s, size_t n, NyaaCore *N) {
         return static_cast<NyString *>(NyByteArray::Add(s, n, N));
     }
-    
+
     NyString *Add(const NyString *s, NyaaCore *N) { return Add(s->bytes(), s->size(), N); }
 
     int Compare(const char *z, size_t n) const;
@@ -719,6 +602,9 @@ public:
     int Compare(const NyString *s) const { return Compare(s->bytes(), s->size()); }
     
     Object *TryNumeric(NyaaCore *N) const;
+    
+    int64_t TryI64(bool *ok) const;
+    f64_t TryF64(bool *ok) const;
     
     void Iterate(ObjectVisitor *visitor) {}
     
@@ -833,6 +719,7 @@ public:
     Object *Mul(Object *rhs, NyaaCore *N);
     Object *Div(Object *rhs, NyaaCore *N);
     Object *Mod(Object *rhs, NyaaCore *N);
+    Object *Minus(NyaaCore *N);
     
     void Iterate(ObjectVisitor *visitor) {
         if (!ignore_managed()) {
@@ -856,8 +743,6 @@ private:
     static uintptr_t MakeTag(size_t n_fields, bool ignore_managed) {
         return static_cast<uintptr_t>(n_fields << 1 | (ignore_managed ? 0x1 : 0));
     }
-    
-    Object *AttemptBinaryMetaFunction(Object *rhs, NyString *name, NyaaCore *N);
 
     uintptr_t tag_;
     Object *fields_[0];
@@ -878,7 +763,7 @@ public:
         if (table_) {
             return index_ < table_->capacity();
         } else {
-            return index_ < array_->capacity();
+            return index_ < array_->size();
         }
     }
 
@@ -896,7 +781,7 @@ public:
         if (table_) {
             return table_->entries_[index_ + 1].value;
         } else {
-            return array_->Get(index_);
+            return index_ < array_->size() ? array_->Get(index_) : Object::kNil;
         }
     }
 
@@ -936,9 +821,40 @@ inline BuiltinType Object::GetType() const {
     return ToHeapObject()->GetType();
 }
     
+inline uint32_t Object::HashVal(NyaaCore *N) const {
+    switch (GetType()) {
+        case kTypeSmi:
+            return static_cast<uint32_t>(ToSmi());
+        case kTypeString:
+            return NyString::Cast(this)->hash_val();
+        case kTypeFloat64:
+            return NyFloat64::Cast(this)->HashVal();
+        default:
+            break;
+    }
+    NOREACHED();
+    return 0;
+}
+    
+/*static*/ inline bool Object::Equal(Object *lhs, Object *rhs, NyaaCore *N) {
+    if (lhs == rhs) {
+        return true;
+    }
+    if (lhs == kNil || rhs == kNil) {
+        return false;
+    }
+    if (lhs->IsSmi()) {
+        if (rhs->IsSmi()) {
+            return lhs->ToSmi() == rhs->ToSmi();
+        } else {
+            return rhs->ToHeapObject()->Equal(lhs, N);
+        }
+    }
+    return lhs->ToHeapObject()->Equal(rhs, N);
+}
+    
 #if defined(NYAA_USE_POINTER_TYPE)
 inline BuiltinType NyObject::GetType() const {
-    //printf("hit!\n");
     return static_cast<BuiltinType>((mtword_ & kTypeMask) >> kTypeBitsOrder);
 }
 
@@ -946,7 +862,6 @@ inline void NyObject::SetType(BuiltinType type) {
     DCHECK_NE(kTypeSmi, type);
     DCHECK_NE(kTypeNil, type);
     DCHECK_EQ(0, GetType()) << "Type can set once!";
-    //printf("hit %d!\n", type);
     mtword_ &= ~kTypeMask;
     mtword_ |= ((static_cast<uintptr_t>(type) & 0xffull) << kTypeBitsOrder);
 }
@@ -976,8 +891,6 @@ inline bool NyFloat64::Equal(Object *rhs, NyaaCore *N) const {
     switch (rhs->GetType()) {
         case kTypeSmi:
             return NyFloat64::Near(value_, rhs->ToSmi());
-        case kTypeInt:
-            return NyFloat64::Near(value_, NyInt::Cast(rhs)->ToF64());
         case kTypeFloat64:
             return NyFloat64::Near(value_, NyFloat64::Cast(rhs)->value());
         default:
@@ -990,8 +903,6 @@ inline bool NyFloat64::LessThan(Object *rhs, NyaaCore *N) const {
     switch (rhs->GetType()) {
         case kTypeSmi:
             return value_ < rhs->ToSmi();
-        case kTypeInt:
-            return value_ < NyInt::Cast(rhs)->ToF64();
         case kTypeFloat64:
             return value_ < NyFloat64::Cast(rhs)->value();
         default:
@@ -1004,8 +915,6 @@ inline bool NyFloat64::LessEqual(Object *rhs, NyaaCore *N) const {
     switch (rhs->GetType()) {
         case kTypeSmi:
             return value_ <= rhs->ToSmi();
-        case kTypeInt:
-            return value_ <= NyInt::Cast(rhs)->ToF64();
         case kTypeFloat64:
             return value_ <= NyFloat64::Cast(rhs)->value();
         default:
@@ -1056,6 +965,14 @@ inline std::tuple<Object *, Object *> NyArray::GetNextPair(Object *key) {
         }
     }
     return {nullptr, nullptr};
+}
+    
+inline uint32_t NyTable::HashVal(Object *key, NyaaCore *N) const {
+    if (NyString *s = NyString::Cast(key)) {
+        return (s->hash_val() | 1u) ^ seed_;
+    } else {
+        return ((!key ? 0 : key->HashVal(N)) | 1u) ^ seed_;
+    }
 }
 
 inline NyUDO *NyObject::ToUDO() { return !IsUDO() ? nullptr : static_cast<NyUDO *>(this); }

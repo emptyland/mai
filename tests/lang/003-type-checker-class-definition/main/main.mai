@@ -1,0 +1,23 @@
+package main
+
+class Foo(
+	val i: int,
+	val j: int
+) {}
+
+class Bar(
+	i: int,
+	j: int
+): Foo(i, j) {
+	var k: string
+	var l: string
+	val max = 100
+	var next: Bar
+}
+
+fun main() {
+	val foo = Foo(1, 2)
+	val bar = Bar(3, 4)
+	val i = bar.i
+	val j = bar.j
+}

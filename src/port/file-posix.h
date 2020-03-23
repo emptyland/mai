@@ -31,7 +31,7 @@ private:
         , position_(0) {
         DCHECK_GE(fd_, 0);
         if (file_size > 0) {
-            DCHECK_NOTNULL(mapped_mem_);
+            DCHECK(mapped_mem_ != nullptr);
         }
     }
 

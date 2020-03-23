@@ -52,8 +52,7 @@ public:
 
     using Statistics = ArenaStatistics;
     
-    void GetUsageStatistics(std::vector<Statistics> *normal,
-                            std::vector<Statistics> *large) const;
+    void GetUsageStatistics(std::vector<Statistics> *normal, std::vector<Statistics> *large) const;
     
     Allocator *ll_allocator() const { return ll_allocator_; }
     
@@ -66,19 +65,16 @@ private:
             std::atomic<char*> free;
         } u;
     };
-    
+
     static PageHead *const kBusyFlag;
-    
+
     void Link(std::atomic<PageHead*> *head, PageHead *page) {
-        page->next.store(head->load(std::memory_order_acquire),
-                         std::memory_order_relaxed);
+        page->next.store(head->load(std::memory_order_acquire), std::memory_order_relaxed);
         head->store(page, std::memory_order_release);
     }
 
     PageHead *NewPage(size_t page_size) {
-        PageHead *page =
-            static_cast<PageHead *>(ll_allocator_->Allocate(page_size,
-                                                            kAlignment));
+        PageHead *page = static_cast<PageHead *>(ll_allocator_->Allocate(page_size, kAlignment));
         page->next = nullptr;
         page->u.free = reinterpret_cast<char *>(page + 1);
         return page;

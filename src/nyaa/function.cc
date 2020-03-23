@@ -1,10 +1,9 @@
 #include "nyaa/function.h"
+#include "nyaa/thread.h"
 #include "nyaa/nyaa-core.h"
 #include "nyaa/parser.h"
 #include "nyaa/ast.h"
-#include "nyaa/code-gen.h"
 #include "nyaa/object-factory.h"
-#include "nyaa/thread.h"
 #include "base/arenas.h"
 #include "mai-lang/isolate.h"
 #include "mai/env.h"
@@ -21,22 +20,20 @@ const int32_t NyFunction::kOffsetCode = Template::OffsetOf(&NyFunction::code_);
 const int32_t NyFunction::kOffsetBcbuf = Template::OffsetOf(&NyFunction::bcbuf_);
 
 NyFunction::NyFunction(NyString *name, uint8_t n_params, bool vargs, uint32_t n_upvals,
-                       uint32_t max_stack, NyString *file_name, NyInt32Array *file_info,
-                       NyObject *exec, NyArray *proto_pool, NyArray *const_pool, NyaaCore *N)
+                       uint32_t max_stack, NyString *file_name, NyObject *exec, NyArray *proto_pool,
+                       NyArray *const_pool, NyaaCore *N)
     : name_(name)
     , n_params_(n_params)
     , vargs_(vargs)
     , n_upvals_(n_upvals)
     , max_stack_(max_stack)
     , file_name_(file_name)
-    , file_info_(file_info)
     , exec_(exec)
     , proto_pool_(proto_pool)
     , const_pool_(const_pool) {
-    DCHECK(exec->IsByteArray() || exec->IsCode());
+    DCHECK(exec->IsBytecodeArray() || exec->IsCode());
     N->BarrierWr(this, &name_, name);
     N->BarrierWr(this, &file_name_, file_name);
-    N->BarrierWr(this, &file_info_, file_info);
     N->BarrierWr(this, &exec_, exec);
     N->BarrierWr(this, &proto_pool_, proto_pool);
     N->BarrierWr(this, &const_pool_, const_pool);
@@ -55,14 +52,19 @@ void NyFunction::SetUpval(size_t i, NyString *name, bool in_stack, int32_t index
     upvals_[i].in_stack = in_stack;
     upvals_[i].index = index;
 }
+    
+void NyFunction::SetPackedAST(NyString *packed, NyaaCore *N) {
+    N->BarrierWr(this, &packed_ast_, packed);
+    packed_ast_ = packed;
+}
 
 void NyFunction::Iterate(ObjectVisitor *visitor) {
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&name_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&exec_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_name_));
-    visitor->VisitPointer(this, reinterpret_cast<Object **>(&file_info_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&proto_pool_));
     visitor->VisitPointer(this, reinterpret_cast<Object **>(&const_pool_));
+    visitor->VisitPointer(this, reinterpret_cast<Object **>(&packed_ast_));
     for (uint32_t i = 0; i < n_upvals_; ++i) {
         visitor->VisitPointer(this, reinterpret_cast<Object **>(&upvals_[i].name));
     }
@@ -70,25 +72,43 @@ void NyFunction::Iterate(ObjectVisitor *visitor) {
 
 /*static*/ Handle<NyFunction> NyFunction::Compile(const char *z, size_t n, NyaaCore *N) {
     base::StandaloneArena arena(N->isolate()->env()->GetLowLevelAllocator());
-    Parser::Result result = Parser::Parse(z, n, &arena);
+    Parser::Result result = Parser::Parse(z, n, N->max_trace_id(), &arena);
     if (result.error) {
         N->Raisef("[%d:%d] %s", result.error_line, result.error_column, result.error->data());
         return Handle<NyFunction>();
     }
-    return CodeGen::Generate(N->factory()->NewString(":memory:"), result.block, &arena, N);
+    N->set_max_trace_id(result.next_trace_id);
+    // TODO: return CodeGen::Generate(N->factory()->NewString(":memory:"), result.block, &arena, N);
+    TODO();
+    return Handle<NyFunction>::Empty();
 }
 
 /*static*/ Handle<NyFunction> NyFunction::Compile(const char *file_name, FILE *fp, NyaaCore *N) {
     base::StandaloneArena arena(N->isolate()->env()->GetLowLevelAllocator());
-    Parser::Result result = Parser::Parse(fp, &arena);
+    Parser::Result result = Parser::Parse(fp, N->max_trace_id(), &arena);
     if (result.error) {
         N->Raisef("%s [%d:%d] %s", file_name, result.error_line, result.error_column,
                   result.error->data());
         return Handle<NyFunction>();
     }
-    return CodeGen::Generate(N->factory()->NewString(file_name), result.block, &arena, N);
+    N->set_max_trace_id(result.next_trace_id);
+    // TODO: return CodeGen::Generate(N->factory()->NewString(file_name), result.block, &arena, N);
+    TODO();
+    return Handle<NyFunction>::Empty();
 }
-    
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// class NyCode:
+////////////////////////////////////////////////////////////////////////////////////////////////////
+NyBytecodeArray::NyBytecodeArray(NyInt32Array *source_lines, Address bytecodes,
+                                 uint32_t bytecode_bytes_size, NyaaCore *N)
+    : source_lines_(source_lines)
+    , bytecode_bytes_size_(bytecode_bytes_size) {
+    N->BarrierWr(this, &source_lines_, source_lines);
+        
+    ::memcpy(buf_, bytecodes, bytecode_bytes_size);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// class NyCode:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -97,9 +117,12 @@ const int32_t NyCode::kOffsetKind = Template::OffsetOf(&NyCode::kind_);
 const int32_t NyCode::kOffsetInstructionsBytesSize = Template::OffsetOf(&NyCode::instructions_bytes_size_);
 const int32_t NyCode::kOffsetInstructions = Template::OffsetOf(&NyCode::instructions_);
     
-NyCode::NyCode(Kind kind, const uint8_t *instructions, uint32_t instructions_bytes_size)
+NyCode::NyCode(Kind kind, NyInt32Array *source_lines, const uint8_t *instructions,
+               uint32_t instructions_bytes_size, NyaaCore *N)
     : kind_(kind)
+    , source_lines_(source_lines)
     , instructions_bytes_size_(instructions_bytes_size) {
+    N->BarrierWr(this, &source_lines_, source_lines);
     ::memcpy(instructions_, instructions, instructions_bytes_size);
 }
 
@@ -124,30 +147,18 @@ void NyClosure::Bind(int i, Object *upval, NyaaCore *N) {
 }
 
 int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
-    return N->curr_thd()->TryRun(this, argv, argc, wanted);
+    return N->current_thread()->Run(this, argv, argc, wanted, N->g());
 }
 
 /*static*/ Handle<NyClosure> NyClosure::Compile(const char *z, size_t n, NyaaCore *N) {
-    try {
-        Handle<NyFunction> script = NyFunction::Compile(z, n, N);
-        if (script.is_valid()) {
-            return N->factory()->NewClosure(*script);
-        }
-    } catch (CallFrame::ExceptionId e) {
-        // ignore
-    }
+    // TODO:
+    TODO();
     return Handle<NyClosure>::Empty();
 }
 
 /*static*/ Handle<NyClosure> NyClosure::Compile(const char *file_name, FILE *fp, NyaaCore *N) {
-    try {
-        Handle<NyFunction> script = NyFunction::Compile(file_name, fp, N);
-        if (script.is_valid()) {
-            return N->factory()->NewClosure(*script);
-        }
-    } catch (CallFrame::ExceptionId e) {
-        // ignore
-    }
+    // TODO:
+    TODO();
     return Handle<NyClosure>::Empty();
 }
 
@@ -156,7 +167,7 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
     if (script.is_not_valid()) {
         return -1;
     }
-    return N->curr_thd()->TryRun(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
+    return N->current_thread()->Run(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
 }
 
 /*static*/ int NyClosure::Do(const char *file_name, FILE *fp, int wanted, NyMap *env, NyaaCore *N) {
@@ -164,7 +175,7 @@ int NyClosure::Call(Object *argv[], int argc, int wanted, NyaaCore *N) {
     if (script.is_not_valid()) {
         return -1;
     }
-    return N->curr_thd()->TryRun(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
+    return N->current_thread()->Run(*script, nullptr/*argv*/, 0/*argc*/, wanted, env);
 }
 
 /*static*/ int NyClosure::DoFile(const char *file_name, int wanted, NyMap *env, NyaaCore *N) {

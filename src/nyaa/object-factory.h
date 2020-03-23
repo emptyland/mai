@@ -13,13 +13,13 @@ namespace nyaa {
     
 class NyObject;
 class NyFloat64;
-class NyInt;
 class NyString;
 class NyClosure;
 class NyMap;
 class NyTable;
 class NyArray;
 class NyByteArray;
+class NyBytecodeArray;
 class NyInt32Array;
 class NyDelegated;
 class NyFunction;
@@ -36,8 +36,6 @@ public:
     virtual ~ObjectFactory() {}
     
     virtual NyFloat64 *NewFloat64(f64_t value, bool old = false) = 0;
-    
-    virtual NyInt *NewUninitializedInt(size_t capacity, bool old = false) = 0;
     
     virtual NyString *NewString(const char *s, size_t n, bool old = false) = 0;
     
@@ -56,19 +54,22 @@ public:
     
     virtual NyArray *NewArray(size_t capacity, NyArray *base = nullptr, bool old = false) = 0;
     
+    virtual NyBytecodeArray *NewBytecodeArray(NyInt32Array *source_lines, Address bytecodes,
+                                              size_t bytecode_bytes_size, bool old = false) = 0;
+    
     virtual NyDelegated *NewDelegated(DelegatedKind kind, Address fp, size_t n_upvals = 0,
                                       bool old = false) = 0;
     
     virtual NyFunction *NewFunction(NyString *name, size_t n_params, bool vargs, size_t n_upvals,
-                                    size_t max_stack, NyString *file_name, NyInt32Array *file_info,
-                                    NyObject *exec, NyArray *proto_pool, NyArray *const_pool,
-                                    bool old = false) = 0;
+                                    size_t max_stack, NyString *file_name, NyObject *exec,
+                                    NyArray *proto_pool, NyArray *const_pool, bool old = false) = 0;
 
-    virtual NyCode *NewCode(int kind, const uint8_t *instructions, size_t instructions_byte_size) = 0;
+    virtual NyCode *NewCode(int kind, NyInt32Array *source_lines, const uint8_t *instructions,
+                            size_t instructions_byte_size) = 0;
     
     virtual NyClosure *NewClosure(NyFunction *proto, bool old = false) = 0;
     
-    virtual NyThread *NewThread(bool old = false) = 0;
+    virtual NyThread *NewThread(size_t initial_stack_size, bool old = false) = 0;
     
     virtual NyUDO *NewUninitializedUDO(size_t size, NyMap *clazz,
                                        bool ignore_managed, bool old = false) = 0;
@@ -94,12 +95,6 @@ public:
                               bool old = false) {
         return NewDelegated(kFunctionCallback, reinterpret_cast<Address>(fp), n_upvals, old);
     }
-    
-    NyInt *NewLiteralInt(const char *z, bool old = false) {
-        return NewLiteralInt(z, !z ? 0 : ::strlen(z), old);
-    }
-
-    NyInt *NewLiteralInt(const char *z, size_t n, bool old = false);
     
     static ObjectFactory *NewHeapFactory(NyaaCore *core, Heap *heap);
     

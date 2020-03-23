@@ -1,0 +1,24 @@
+package main
+
+class MyException(message: string, cause: Exception): Exception(message, cause)
+class MeException(message: string, cause: Exception): Exception(message, cause)
+
+fun main() {
+	//throw MyException("my error", nil)
+	try {
+		foo()
+	} catch (e: Exception) {
+		println("Handler my:${e.message}")
+		throw MyException('nested', e)
+	} catch (e: MeException) {
+		println('Handler me')
+	} finally {
+		println('finally')
+	}
+}
+
+fun foo() {
+	throw Exception("my error", nil)
+}
+
+

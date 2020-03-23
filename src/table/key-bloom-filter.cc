@@ -12,7 +12,7 @@ KeyBloomFilter::KeyBloomFilter(const uint32_t *buckets, size_t n_buckets,
     , n_buckets_(n_buckets)
     , hashs_(DCHECK_NOTNULL(hashs))
     , n_hashs_(n_hashs) {
-    DCHECK_NOTNULL(buckets);
+    DCHECK(buckets != nullptr);
     DCHECK_GT(n_buckets_, 0);
 
     memcpy(buckets_.get(), buckets, n_buckets * sizeof(uint32_t));

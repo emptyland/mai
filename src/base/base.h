@@ -45,7 +45,7 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 template<class T, class F>
 inline T *down_cast(F *from) {
 #if defined(DEBUG) || defined(_DEBUG)
-    assert(dynamic_cast<T *>(from) && "Can not cast to.");
+    assert(!from || dynamic_cast<T *>(from) && "Can not cast to.");
 #endif
     return static_cast<T *>(from);
 }
@@ -142,6 +142,10 @@ inline MutView<T> MakeMutView(T *z, size_t n) { return MutView<T>{z, n}; }
     DEF_VAL_MUTABLE_GETTER(type, name) \
     DEF_VAL_SETTER(type, name)
 
+#define DEF_VAL_PROP_RM(type, name) \
+    DEF_VAL_GETTER(type, name) \
+    DEF_VAL_MUTABLE_GETTER(type, name)
+
 #define DEF_VAL_PROP_RW(type, name) \
     DEF_VAL_GETTER(type, name) \
     DEF_VAL_SETTER(type, name)
@@ -204,6 +208,12 @@ inline MutView<T> MakeMutView(T *z, size_t n) { return MutView<T>{z, n}; }
 #   define MAI_OS_POSIX  1
 #endif
 
+#if defined(DEBUG) || defined(_DEBUG)
+#define ALWAYS_INLINE inline
+#else
+#define ALWAYS_INLINE [[gnu::always_inline]]
+#endif // defined(DEBUG) || defined(_DEBUG)
+
 // CPU Arch macros
     
 #if defined(__amd64) || defined(__amd64__) || defined(__x86_64) || defined(__x86_64__)
@@ -213,6 +223,9 @@ inline MutView<T> MakeMutView(T *z, size_t n) { return MutView<T>{z, n}; }
 #if defined(__ARM64_ARCH_8__)
 #   define MAI_ARCH_ARM64 1
 #endif
+    
+#define NOREACHED() DLOG(FATAL) << "Noreached! "
+#define TODO()      DLOG(FATAL) << "TODO: "
 
 enum Initializer {
     LAZY_INSTANCE_INITIALIZER,

@@ -1,0 +1,7 @@
+package foo
+
+class Foo(
+	val i: int,
+	val j: int,
+	val k: int
+) {}

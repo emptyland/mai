@@ -17,38 +17,14 @@ namespace base {
     
 class ArenaString {
 public:
-    enum Kind {
-        kSmall,
-        kLarge,
-        kOverflow,
-    };
-    
-    static const int kMinLargetSize = 0x8000;
     static const ArenaString *const kEmpty;
     
     DEF_VAL_GETTER(uint32_t, hash_val);
+    size_t size() const { return len_;}
+
+    const char *data() const { return buf_; }
     
-    size_t size() const {
-        Kind k = kind();
-        DCHECK_NE(kOverflow, k);
-        if (k == kSmall) {
-            return Decode16(buf_);
-        } else { // kLarge
-            return Decode32(buf_) & ~0xc0000000u;
-        }
-    }
-    
-    const char *data() const {
-        Kind k = kind();
-        DCHECK_NE(kOverflow, k);
-        if (k == kSmall) {
-            return reinterpret_cast<const char *>(this + 1);
-        } else { // kLarge
-            return reinterpret_cast<const char *>(this + 1) + 2;
-        }
-    }
-    
-    bool empty() const { return buf_[0] == 0 && buf_[1] == 0; }
+    bool empty() const { return len_ == 0; }
     
     bool full() const { return !empty(); }
     
@@ -56,22 +32,7 @@ public:
     
     std::string ToString() const { return std::string(data(), size()); }
     
-    std::string_view ToSlice() const {
-        return std::string_view(data(), size());
-    }
-    
-    Kind kind() const {
-        // 1000 0000
-        // 0xxx xxxx
-        if ((buf_[0] & 0x80) == 0) {
-            return kSmall;
-        // 1100 0000
-        // 10xx xxxx
-        } else if ((buf_[0] & 0xc0) == 0x80) {
-            return kLarge;
-        }
-        return kOverflow;
-    }
+    std::string_view ToSlice() const { return std::string_view(data(), size()); }
     
     static ArenaString *New(base::Arena *arena, const char *s, size_t n);
     
@@ -83,57 +44,14 @@ public:
         return New(arena, s.data(), s.size());
     }
 
-protected:
-    static ArenaString *NewPrepare(base::Arena *arena, size_t n);
-    
-    char *prepared() {
-        Kind k = kind();
-        DCHECK_NE(kOverflow, k);
-        if (k == kSmall) {
-            return reinterpret_cast<char *>(this + 1);
-        } else { // kLarge
-            return reinterpret_cast<char *>(this + 1) + 2;
-        }
-    }
-
 private:
-    ArenaString(const char *s, size_t n, Kind kind);
+    ArenaString(const char *s, size_t n);
     
-    ArenaString(size_t n, Kind kind);
-    
-    static std::tuple<void *, Kind> Allocate(base::Arena *arena, size_t n);
-    
-    static Kind GetKind(size_t n) {
-        if (n < 0x8000) {
-            return kSmall;
-        // 0100 0000
-        // 0011 1111
-        } else if (n >= 0x8000 && n < 0x40000000u) {
-            return kLarge;
-        }
-        return kOverflow;
-    }
-    
-    static uint16_t Decode16(const void *x) {
-        const uint8_t *buf = static_cast<const uint8_t *>(x);
-        uint16_t val = 0;
-        val |= (static_cast<uint16_t>(buf[0]) << 8);
-        val |= static_cast<uint16_t>(buf[1]);
-        return val;
-    }
-    
-    static uint32_t Decode32(const void *x) {
-        const uint8_t *buf = static_cast<const uint8_t *>(x);
-        uint32_t val = 0;
-        val |= (static_cast<uint16_t>(buf[0]) << 24);
-        val |= (static_cast<uint16_t>(buf[1]) << 16);
-        val |= (static_cast<uint16_t>(buf[2]) << 8);
-        val |= static_cast<uint16_t>(buf[3]);
-        return val;
-    }
+    ArenaString(size_t n);
     
     const uint32_t hash_val_;
-    char buf_[2];
+    const uint32_t len_;
+    char buf_[0];
 }; // class ArenaString
     
 
@@ -344,6 +262,15 @@ struct ArenaUtils {
     template<class T>
     static inline bool IsNotEmpty(const ArenaVector<T> *a) { return !IsEmpty(a); }
 };
+
+#define DEF_ARENA_VECTOR_GETTER(__element_type, __name) \
+    inline size_t __name##s_size() const { return __name##s_.size(); } \
+    inline __element_type __name(size_t i) const { \
+        DCHECK_LT(i, __name##s_.size()); \
+        return __name##s_[i]; \
+    } \
+    inline const base::ArenaVector<__element_type> &__name##s() const { return __name##s_; } \
+    inline base::ArenaVector<__element_type> *mutable_##__name##s() { return &__name##s_; }
     
 } // namespace base
     

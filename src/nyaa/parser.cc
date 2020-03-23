@@ -18,11 +18,12 @@ std::string Parser::Result::ToString() const {
     return base::Sprintf("[%d:%d] %s", error_line, error_column, error->data());
 }
     
-/*static*/ Parser::Result Parser::Parse(const char *s, base::Arena *arena) {
+/*static*/ Parser::Result Parser::Parse(const char *s, int max_trace_id, base::Arena *arena) {
     ast::Factory factory(arena);
     parser_ctx ctx;
     ctx.arena = arena;
     ctx.factory = &factory;
+    ctx.next_trace_id = max_trace_id;
     
     lexer_extra extra;
     extra.arena = arena;
@@ -37,17 +38,19 @@ std::string Parser::Result::ToString() const {
 
     return {
         .block = ctx.block,
+        .next_trace_id = ctx.next_trace_id,
         .error = ctx.err_msg,
         .error_line = ctx.err_line,
         .error_column = ctx.err_column,
     };
 }
 
-/*static*/ Parser::Result Parser::Parse(const char *s, size_t n, base::Arena *arena) {
+/*static*/ Parser::Result Parser::Parse(const char *s, size_t n, int max_trace_id, base::Arena *arena) {
     ast::Factory factory(arena);
     parser_ctx ctx;
     ctx.arena = arena;
     ctx.factory = &factory;
+    ctx.next_trace_id = max_trace_id;
     
     lexer_extra extra;
     extra.arena = arena;
@@ -62,17 +65,19 @@ std::string Parser::Result::ToString() const {
     
     return {
         .block = ctx.block,
+        .next_trace_id = ctx.next_trace_id,
         .error = ctx.err_msg,
         .error_line = ctx.err_line,
         .error_column = ctx.err_column,
     };
 }
     
-/*static*/ Parser::Result Parser::Parse(FILE *fp, base::Arena *arena) {
+/*static*/ Parser::Result Parser::Parse(FILE *fp, int max_trace_id, base::Arena *arena) {
     ast::Factory factory(arena);
     parser_ctx ctx;
     ctx.arena = arena;
     ctx.factory = &factory;
+    ctx.next_trace_id = max_trace_id;
     
     lexer_extra extra;
     extra.arena = arena;
@@ -85,6 +90,7 @@ std::string Parser::Result::ToString() const {
 
     return {
         .block = ctx.block,
+        .next_trace_id = ctx.next_trace_id,
         .error = ctx.err_msg,
         .error_line = ctx.err_line,
         .error_column = ctx.err_column,

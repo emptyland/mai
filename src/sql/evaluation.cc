@@ -417,12 +417,12 @@ static inline void AdjustPrecision(SQLDecimal const**lhs,
                 v.kind = Value::kDateTime;
                 break;
             default:
-                DLOG(FATAL) << "noreached";
+                NOREACHED();
                 break;
         }
         v.dt_val = ctx->input()->GetDateTime(cd);
     } else {
-        DLOG(FATAL) << "noreached";
+        NOREACHED();
     }
     
     ctx->set_result(v);
@@ -591,7 +591,7 @@ Error Aggregate::SUM(Value arg0, Context *ctx) {
             break;
             
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return Error::OK();
@@ -640,7 +640,7 @@ Error Aggregate::AVG(Value arg0, Context *ctx) {
             break;
             
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     return rs;
@@ -714,7 +714,7 @@ public:
                 Raise(MAI_CORRUPTION("Placeholder: Unbinded"));
                 break;
             default:
-                DLOG(FATAL) << "Noreached";
+                NOREACHED();
                 break;
         }
     }

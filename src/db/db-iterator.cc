@@ -144,7 +144,7 @@ void DBIterator::FindNextUserEntry(bool skipping, std::string *skip) {
                     break;
                     
                 default:
-                    DCHECK(false) << "noreached";
+                    NOREACHED();
                     break;
             }
         }

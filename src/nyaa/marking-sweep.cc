@@ -97,11 +97,6 @@ public:
             case kOldSpace:
             case kCodeSpace:
                 if (ob->GetColor() == owns_->heap()->initial_color()) {
-//                    printf("%d\n", ob->GetMetatable()->kid());
-//                    auto fn = NyDelegated::Cast(ob);
-//                    if (fn) {
-//                        printf("fn = %p\n", fn);
-//                    }
                     static_cast<OldSpace *>(owns)->Free(addr, placed_size, false);
                     owns_->collected_bytes_ += placed_size;
                     owns_->collected_objs_++;
@@ -115,7 +110,7 @@ public:
                 }
                 break;
             default:
-                DLOG(FATAL) << "noreached!" << space;
+                NOREACHED() << space;
                 break;
         }
     }
@@ -144,10 +139,10 @@ public:
         }
     }
     virtual void VisitPointers(Object *host, Object **begin, Object **end) override {
-        DLOG(FATAL) << "noreached!";
+        NOREACHED();
     }
     virtual void VisitMetatablePointer(Object *host, uintptr_t *word) override {
-        DLOG(FATAL) << "noreached!";
+        NOREACHED();
     }
     
 private:
@@ -175,7 +170,6 @@ void MarkingSweep::Run() {
         gray_.pop();
 
         if (ob->GetColor() == KColorGray) {
-            //printf("mark: %p\n", ob);
             ob->SetColor(heap_->finalize_color());
             ob->Iterate(&obj_visitor);
         } else {
@@ -201,7 +195,7 @@ void MarkingSweep::Run() {
 
     // Weak table sweeping:
     WeakVisitorImpl weak_visitor(this);
-    heap_->IterateRememberSet(&weak_visitor, true/*for_host*/, false/*after_clean*/);
+    heap_->IterateRememberSet(&weak_visitor, true/*for_host*/);
     heap_->IterateFinalizerRecords(&weak_visitor);
     core_->kz_pool()->Iterate(&weak_visitor);
     

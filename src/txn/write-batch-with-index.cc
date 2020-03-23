@@ -90,7 +90,7 @@ void WriteBatchWithIndex::IteratorImpl::Update() {
         case core::Tag::kFlagDeletion:
             break;
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
 
@@ -170,7 +170,7 @@ void WriteBatchWithIndex::AddOrUpdate(ColumnFamily *cf,
             Delete(cf, key);
             break;
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     WriteBatchEntry put;
@@ -234,7 +234,7 @@ Error WriteBatchWithIndex::RawGet(ColumnFamily *cf, std::string_view key,
         case core::Tag::kFlagDeletion:
             break;
         default:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
     }
     

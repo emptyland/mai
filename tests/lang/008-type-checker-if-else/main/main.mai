@@ -1,0 +1,28 @@
+package main
+
+import foo
+
+val e = foo.a
+val d = if (val i = foo(); i > 0) "yes" else if (i < 0) "no" else "unknown"
+val c = if (a < b) "less" else "greater"
+val cond = a < b
+var b = 2
+val a = 1
+
+
+fun main() {
+	println("$c")
+	val i: int = foo()
+}
+
+fun foo(): int {
+	return a + b + foo()
+}
+
+fun bar() {
+	val a = 1
+	val b = 2
+	fun foo(): int { return a + b + foo() }
+}
+
+

@@ -1,0 +1,19 @@
+package main
+
+import mai.runtime
+
+fun main() {
+    val a = 119
+    val b = 220.1
+    println("[${runtime.ENV}:$a:$b]")
+    val c = 120
+    println("a < c: ${a < c}")
+    println("a > c: ${a > c}")
+    println("and: ${a > c && a < c}")
+    println("or : ${a > c || a < c || a == c}")
+
+    val 🤧 = "感冒"
+    val 🤮 = "呕吐"
+
+    println("$🤧 $🤮")
+}

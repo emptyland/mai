@@ -14,7 +14,7 @@ namespace ast {
             return true;
 
         case SQL_MAX_OP:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
             
         default:
@@ -29,7 +29,7 @@ namespace ast {
             return true;
 
         case SQL_MAX_OP:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
             
         default:
@@ -44,7 +44,7 @@ namespace ast {
             return true;
             
         case SQL_MAX_OP:
-            DLOG(FATAL) << "Noreached!";
+            NOREACHED();
             break;
             
         default:

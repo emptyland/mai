@@ -1,0 +1,52 @@
+// class meta functions test:
+/* Block comment */
+# line comment
+
+class Foo {
+    def __init__(self, a, b, c) {
+        self.a = a
+        self.b = b
+        self.c = c
+    }
+
+    def getall(self) { return self.a, self.b, self.c }
+
+    def __lt__(self, other) {
+        return self.a < other.a
+    }
+
+    def __le__(self, other) {
+        return self.a <= other.a
+    }
+
+    def __add__(self, other) {
+        return new Foo(self.a + other.a)
+    }
+
+    def __sub__(self, other) {
+        return new Foo(self.a - other.a)
+    }
+
+    def __mul__(self, other) {
+        return new Foo(self.a * other.a)
+    }
+
+    def __div__(self, other) {
+        return new Foo(self.a / other.a)
+    }
+
+    property [rw] a, b, c
+}
+
+var o = new Foo(1, 2, 3)
+assert(o.a == 1)
+assert(o.b == 2)
+assert(o.c == 3)
+
+var a, b = o, new Foo(2)
+assert(a < b)
+assert(a <= b)
+assert(b > a)
+assert(b >= a)
+
+assert((a + b / a * b).a == 5)

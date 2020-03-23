@@ -13,12 +13,12 @@
 * `i16`
 * `i32`
 * `i64`
-* `int`: 64 bits 有符号整数 
+* `int`: 32 bits 有符号整数 
 * `u8`: 无符号整数
 * `u16`
 * `u32`
 * `u64`
-* `uint`: 64 bits 无符号整数 
+* `uint`: 32 bits 无符号整数 
 
 浮点型
 * `f32`: float
@@ -346,6 +346,7 @@ interface Baz {
 class Foo(
 private:
     val i: int,
+public:
     val j: int,
     val k: f32,
     l: int,
@@ -396,9 +397,10 @@ for_loop := `for' `(' identifier `in' expr `..' expr `)' `{' block `}'
 | `for' `(' identifer [ `,' identifer ] in `)' `{' block `}'
 ```
 
-while 循环
+
 
 ```scala
+// while 循环
 while (true) {
     // 死循环
 }
@@ -407,6 +409,7 @@ while (val ok = check; ok) {
     // 当ok==true时循环
 }
 
+// for 循环
 for (i in 0..100) {
     // 循环100次，i的范围[0, 100)
 }
@@ -421,6 +424,37 @@ for (i, v in a) {
     // 遍历a，i为下标，v为值 a[i] == v
 }
 ```
+
+### 异常语句
+
+和常见的java、kotlin异常处理语句相似
+
+* `try` 子句
+* `catch` 子句
+* `finally` 子句
+
+```BFN
+throw_stmt := `throw' expr
+try_stmt := `try' `{' block `}' { `catch' `{' block `}' } [ `finally' `{' block `}' ]
+```
+
+
+
+```scala
+try {
+    foo()
+} catch (e: Error) {
+    e.printBacktrace
+} catch (e: Exception) {
+    println("e: $e")
+} catch (e: AppException) {
+    println("app: $e")
+} finally {
+    println("final")
+}
+```
+
+
 
 ### 协程语句
 
@@ -733,7 +767,6 @@ match (a) {
 }
 ```
 
-
 ## 实现
 
 ### 内存块(span)
@@ -853,41 +886,283 @@ static_assert(sizeof(Span16) == 16, "");
 
 ```
 
-### 栈
+#### 堆空间
+
+* 堆：分配、管理堆对象，除此之外的都是堆外内存了。
+
+```
++=============================+
+[             Heap            ]
++=============================+
+|        new_space: NewSpace* | new space
+|-----------------------------|
+|        old_space: OldSpace* | old space
+|-----------------------------|
+|    large_space: LargeSpace* | large space
+|-----------------------------|
+|        initial_color: Color | initial color for mark phase
+|-----------------------------|
+|       finalize_color: Color | finalize color for mark phase
+|-----------------------------+----------------|
+|  remember_set: map<Address, RememberRecord*> | remember set for write barrier
+|----------------------------------------------|
+
+
++=============================+
+[       RememberRecord        ]
++=============================+
+|                  host: Any* | host object pointer
+|-----------------------------|
+|                 pzwr: Any** | write address
+|-----------------------------|
+```
+
+* 年轻代：`new_space`
+    * 存活区：`survive_area` GC Scavenger 之后仍然存活的对象存储区
+    * 分配区：`original_area` 对象分配区
+
+```
++=============================+
+[       NewSpace(Space)       ]
++=============================+
+|         Space Header        | base of Space class
+|-----------------------------|
+|    survive_area: SemiSpace* | survive space
+|-----------------------------|
+|   original_area: SemiSpace* | allocation space
+|-----------------------------|
+|    latest_remaining: size_t | latest GC remaining size
+|-----------------------------|
+
+
++=============================+
+[      SemiSpace(Space)       ]
++=============================+
+|         Space Header        | base of Space class
+|-----------------------------|
+|                size: size_t | space size
+|-----------------------------|
+|              limit: Address | limit address
+|-----------------------------|
+|               free: Address | free address can be allocation (atomic)
+|-----------------------------|
+|               bitmap: u32[] | allocation bitmap 1 bit for 8 bytes
+|-----------------------------|
+|                 chunk: u8[] | chunk for allocation
+|-----------------------------|
+
+
+                    | bitmap |         free -----------------------------> limit
++-------------------+--------+----------|-------------------------- ~~~ ----+
+| semi-space header |xxxxxxxx|uuuuuuuuuu|                                   |
++-------------------+--------+----------|-------------------------- ~~~ ----+
+                                        |<---------- free chunk ----------->|
+```
+
+* 老对象空间：old_space
+    * 页：`page` 每页默认1MB并且地址需要对齐到1MB，对象从页中分配
+
+```
+- 老对象空间
+- 属于老年代空间
+-- GC算法可以使用标记-清除、标记-整理(解决碎片问题)
+
++=============================+
+[       OldSpace(Space)       ]
++=============================+
+|         Space Header        | base of Space class
+|-----------------------------|
+|     dummy_page: PageHeader* | page double-linked list dummy
+|-----------------------------|
+|      free_page: PageHeader* | free pages
+|-----------------------------|
+|        allocated_pages: u32 | number of allocated pages
+|-----------------------------|
+|          usage_size: size_t | usage size
+|-----------------------------|
+|          limit_size: size_t | size limit
+|-----------------------------|
+
++=============================+
+[             Region          ]
++=============================+
+|                tiny: Chunk* | [0, 64) bytes
+|-----------------------------|
+|               small: Chunk* | [64, 512) bytes
+|-----------------------------|
+|              medium: Chunk* | [512, 1024) bytes
+|-----------------------------|
+|              normal: Chunk* | [1024, 4096) bytes
+|-----------------------------|
+|                 big: Chunk* | >= 4096 bytes
+|-----------------------------|
+
++=============================+
+[            Chunk            ]
++=============================+
+|                next: Chunk* | to next free chunk
+|-----------------------------|
+|                   free: u32 | size
+|-----------------------------|
+
+```
+
+* 大对象空间：`large_space`
+    * 页：与分配的对象同大小
+
+```
+- 大对象空间，用于分配超大OldSpace分配不了的对象
+- 同样属于老年代空间
+-- GC算法只能用标记-清除
+
++=============================+
+[       LargeSpace(Space)     ]
++=============================+
+|         Space Header        | base of Space class
+|-----------------------------|
+|     dummy_page: PageHeader* | page double-linked list dummy
+|-----------------------------|
+|        allocated_pages: u32 | number of allocated pages
+|-----------------------------|
+|           used_size: size_t | used size
+|-----------------------------|
+|          limit_size: size_t | size limit
+|-----------------------------|
+```
+
+* 页：`page`
+    * 普通页：`Page`
+    * 大页：`LargePage`
+    * 线性页：`LinearPage`
+
+```
+- 页头：每一个页头部都是如此
+-- 标记了这个页属于哪个空间
+-- 页都对齐到1MB，指向页内的指针可以快速获取到页头指针
+
++=============================+
+[          PageHeader         ]
++=============================+
+|                  maker: u32 | maker for verification
+|-----------------------------|
+|            owner_space: u32 | owner space kind
+|-----------------------------|
+|           next: PageHeader* | double-linked list pointer
+|-----------------------------|
+|           prev: PageHeader* | double-linked list pointer
+|-----------------------------|
+
+- 固定大小页：用于OldSpace，固定大小为1MB
+-- bitmap标记了每一个对象的大小
+-- 可以随机分配
+
++=============================+
+[             Page            ]
++=============================+
+|          PageHeader         |
+|-----------------------------|
+|              region: Region | free regions 
+|-----------------------------|
+|           bitmap: u32[4096] | usage bitmap (4096 for 1MB page)
+|-----------------------------|
+|                 chunk: u8[] | chunk for allocation
+|-----------------------------|
+
+- 大页对象，用于LargeSpace
+-- 每一页就是一个对象
+-- 一次性分配完成，无法再分配，只能整个释放
+
++=============================+
+[          LargePage          ]
++=============================+
+|          PageHeader         |
+|-----------------------------|
+|                size: size_t | large object size
+|-----------------------------|
+|                 chunk: u8[] | chunk for allocation
+|-----------------------------|
+
+- 线性分配的页
+-- 只能线性分配
+
++=============================+
+[          LinearPage         ]
++=============================+
+|          PageHeader         |
+|-----------------------------|
+|              limit: Address | pointer last chunk address
+|-----------------------------|
+|               free: Address | pointer free chunk
+|-----------------------------|
+|                 chunk: u8[] | chunk for allocation
+|-----------------------------|
+
++-------------+--------+--------+--+-------+----+------------- ~~~ -------+
+| page header | region | bitmap |xx| chunk |xxxx| chunk                   |
++-------------+--------+--------+--+-------+----+------------- ~~~ -------+
+```
+
+
+
+
+
+#### 栈空间
 
 * * *
 
 > 每个`routine`有一个自己的栈，参数全部通过栈传递，返回值通过寄存器传递(x64为`rax`)
+
+```c++
+struct Stack {
+    Stack *next;
+    Address hi;
+    Address lo;
+    size_t  size;
+    uint8_t bytes[16]
+};
+```
+
+```
+guard0      guard1
+  +-----------+-------------------------------------------------------+
+  |xxxxxxxxxxx|                                  |ooooooo|************|
+  +-----------+----------------------------------+-------+------------+
+  lo                                             sp      bp           hi
+```
+
+
 
 * 调用者栈(`caller`)
 
 ```
 字节码函数的调用栈
 
-+-------------------+
++-------------------+ --------- stack begin -------
 | return address    | 8 bytes
 +-------------------+
-| saved sp          | 8 bytes
-+-------------------+ --------
+| saved bp          | 8 bytes -------->[ prev bp ]
++-------------------+ <================[ current bp ]
 | maker             | 4 bytes
 +-------------------+ --------
 | pc                | 4 bytes
 +-------------------+
 | callee function   | 8 bytes
 +-------------------+
+| bytecode array    | 8 bytes
++-------------------+
 | constants pool    | 8 bytes
++-------------------+
+| caught node       | optional: 32 bytes
 +-------------------+
 | local var span[0] | local variable spans
 +-------------------+
-| local var span[0] | N * Span16
+| local var span[1] | N * Span16
 +-------------------+
 | ... ... ... ...   |
-+-------------------+ --------
-| callee function   | 8 bytes
++-------------------+ <================[ current sp ]
+| argv[0]           | 4/8 bytes first argument
 +-------------------+ 
-| argv[1]           | first argument
-+-------------------+ 
-| argv[2]           | secrond argument
+| argv[1]           | 4/8 bytes secrond argument
 +-------------------+ 
 | ... ... ... ...   | ...others arguments
 +-------------------+ 
@@ -900,9 +1175,9 @@ static_assert(sizeof(Span16) == 16, "");
 
 ```
 +-------------------+ -------- caller stack --------
-| argv[1]           | first argument
+| argv[1]           | 4/8 bytes first argument
 +-------------------+ 
-| argv[2]           | secrond argument
+| argv[2]           | 4/8 bytes secrond argument
 +-------------------+ 
 | ... ... ... ...   | ...others arguments
 +-------------------+ 
@@ -910,25 +1185,318 @@ static_assert(sizeof(Span16) == 16, "");
 +-------------------+ --------- callee stack -------
 | return address    | 8 bytes
 +-------------------+
-| saved sp          | 8 bytes
-+-------------------+ --------
+| saved bp          | 8 bytes -------->[ prev bp ]
++-------------------+ <================[ current bp ]
 | maker             | 4 bytes
 +-------------------+
 | pc                | 4 bytes
 +-------------------+
 | callee function   | 8 bytes
 +-------------------+
+| bytecode array    | 8 bytes
++-------------------+
 | constants pool    | 8 bytes
-+-------------------+ --------
++-------------------+
+| caught node       | optional: 32 bytes
++-------------------+ -------- local vars ----------
 | local var span[0] | local variable spans
 +-------------------+
 | local var span[1] | N * Span16
 +-------------------+
 | ... ... ... ...   |
-+-------------------+ --------
++-------------------+ <================[ current sp ]
 ```
 
-### Isolate和Context
+#### 元数据空间
+
+> 元数据空间用于存储静态元数据
+>
+> 1. 类型信息
+> 2. 编译器生成的字节码
+> 3. 编译器或汇编器生成的机器码
+>
+> 这部分数据是静态且只读的，不需要GC算法处理。
+
+```
++=============================+
+[     MetadataSpace(Space)    ]
++=============================+
+|         Space Header        | base of Space class
+|-----------------------------|
+|     dummy_page: PageHeader* | linear page double-linked list dummy (LinearPage)
+|-----------------------------|
+|     dummy_code: PageHeader* | linear page double-linked list dummy (LinearPage)
+|-----------------------------|
+|    dummy_large: PageHeader* | large page double-linked list dummy (LargePage)
+|------------------------------------------|
+| type_name: map<std::string, const Type*> | all types name
+|------------------------------------------|
+|              types: Type*[] | all types object pointer
+|-----------------------------|
+|   bytecode_handers: Code*[] | all bytecode handlers
+|-----------------------------|
+|          usage_size: size_t | usage size
+|-----------------------------|
+
+```
+
+```c++
+class MetadataSpace : public Space {
+public:
+    // new type object by name
+    Type *NewType(const std::string &name);
+    
+    Type *GetTypeByName(const std::string &name) const;
+    Type *GetTypeById(uint32_t id) const;
+    
+    // new string
+    T *NewString(const char *z, size_t n);
+    
+    // new array
+    T *NewArray(size_t n);
+    
+    // new object
+    T *New();
+    
+    // allocate flat memory block
+    void *Allocate(size_t n, bool exec);
+    
+    // mark all pages to readonly
+ 	void MarkReadonly(bool readonly);
+}
+```
+
+### 垃圾回收
+
+> 使用分代式垃圾回收：
+>
+> 1. `NewSpace`年轻代，使用`Scavenger`算法将存活对象从`original_area`移动到`survive_area`，此时交换两个空间的指针，即完成垃圾回收。反复多次都存活的对象，就提升到老年代。
+> 2. `OldSpace`老年代，使用`Mark-sweep`清理不可达对象，释放空间链接到空闲链表中。如果碎片过多，选择使用`Mark-compcat`算法，将存活对象移动到新`page`，释放旧`page`。
+> 3. `LargeSpace`老年代大对象空间，只使用`Mark-sweep`
+>
+> * 主回收：`Major GC`回收老年代
+> * 次回收：`Minor GC`回收年轻代 ，次回收可以经常执行；主回收只能在高内存消耗条件下执行。
+
+* 遍历可达对象：
+    * 全局变量空间：`GlobalSpace`
+    * 所有协程的栈空间：`Stack`
+    * 各线程私有句柄：`HandleScopeSlot`
+    * 全局句柄：`PersistentNode`
+    * 其他持有的对象
+* 安全点：所有线程必须进入安全点`SafePoint`才能开始垃圾回收，此处和调度相关，调度点就是`SafePoint`
+* 并发标记：每个线程拥有自己的协程，因此每个线程可以并发标记自己的协程栈。
+
+* 根遍历：
+
+    ```c++
+    class RootVisitor {
+    public:
+    	virtual void VisitRootPointers(Any **begin, Any **end) = 0;
+        virtual void VisitRootPointer(Any **p) { VisitRootPointers(p, p + 1); }
+    }; // class RootVisitor
+    ```
+
+* 对象遍历：
+
+    ```C++
+    class ObjectVisitor {
+    public:
+    	virtual void VisitPointers(Any *host, Any **begin, Any **end) = 0;
+        virtual void VisitPointer(Any *host, Any **p) { VisitPointers(host, p, p + 1); }
+    }; // class ObjectVisitor
+    ```
+
+* 写屏障：老年代对象的成员变量指向年轻代的时候，其实年轻代中的对象是可达的，但是`Minor GC`可能会错误的回收这个年轻代对象，因此需要记录所有老年代指向年轻代的对象。
+
+    * 只处理写操作
+    * 涉及原生类型的写操作都可以忽略
+    * 写屏障操作必须快速实现，否则非常影响效率
+
+### 对象句柄
+
+> `Handle`用于在C++环境引用堆对象，防止其被垃圾回收器意外回收。同时因为GC会移动堆对象，`Handle`需要间接引用引用对象，不能直接持有对象指针。
+
+* `HandleScope`: 用于管理局部handle的声明周期；每个`HandleScope`只能在其所属的线程内有效。
+* `Handle`：局部引用，生命周期由`HandleScope`管理。
+* `Persistent`：全局引用，生命周期需要手动管理。
+
+```
+- HandleScope槽
+- 每一个Machine对象会持有一个HandleScopeSlot链表，来管理本线程的Handle，因此不需要线程安全。
+- 存储handle的内存按照page分配，然后每个slot拆分自己需要大小；如果需求超过1 page了，就再分配1 page。
++=============================+
+[       HandleScopeSlot       ]
++=============================+
+|         scope: HandleScope* | current HandleScope pointer
+|-----------------------------|
+|      prev: HandleScopeSlot* | previous slot pointer
+|-----------------------------|
+|               base: Address | handles begin address
+|-----------------------------|
+|                end: Address | handles end address 
+|-----------------------------|
+|              limit: Address | handles limit address(total end address)
+|-----------------------------|
+
+base == prev->end, 从上一个slot的end address开始为本slot分配内存。
+                    page-1                           page-2
+       [--------------------------------|-------------------------------]
+slot-1 [==========]                     |
+slot-2            [==========]          |
+slot-3                       [=======]  |
+                                        |
+slot-4                                  [========]
+slot-5                                  |        [==========]
+
+
+- Persistent节点：使用双链表的形式存储persistent handle（全局句柄）
+- Persistent节点链表保存在Isolate对象中，每个线程都可能访问到，因此必须是线程安全的。
++=============================+
+[        PersistentNode       ]
++=============================+
+|       next: PersistentNode* | next pointer for double-linkded list
+|-----------------------------|
+|       prev: PersistentNode* | next pointer for double-linkded list
+|-----------------------------|
+|             handle: Address | handle
+|-----------------------------|
+|                    tid: u32 | owner thread id
++-----------------------------+
+```
+
+
+
+```C++
+class HandleScope {
+public:
+  	// Into this scope
+    HandleScope(base::Initializer/*avoid c++ compiler optimize this object*/);
+  	// Out this scope
+    ~HandleScope();
+    
+    // New handle address and set heap object pointer
+    void **NewHandle(void *value);
+    
+  	// Escape a owned local handle
+    template<class T> inline Handle<T> CloseAndEscape(Handle<T> in_scope);
+    
+  	// Get the prev(scope) HandleScope 
+    HandleScope *GetPrev();
+
+  	// Get this scope's HandleScope
+    static HandleScope *Current();
+};
+
+template<class T>
+class HandleBase {
+public:
+    // Get heap object pointer, is value
+    T *get() const;
+
+    // Get handle address, not value
+    T **location() const;
+
+    // Test heap object pointer is null or not
+    bool is_value_null() const;
+    bool is_value_not_null() const;
+
+    // Test handle address is null or not
+    bool is_empty() const;
+    bool is_not_empty() const;
+protected:
+    // Raw initialize handle
+    inline HandleBase(T **location);
+private:
+    T **location_;
+}; // class HandleBase
+
+// Handle is thread local value, dont use it in other threads
+template<class T>
+class Handle : public HandleBase<T> {
+public:
+    // Initialize by a handle address
+    inline explicit Handle(T **location = nullptr);
+
+    // Initialize by heap object pointer
+    template<class S> inline explicit Handle(S *pointer);
+
+    // Initialize by other handle
+    template<class S> inline explicit Handle(Handle<S> other);
+
+    // Copy constructor
+    inline Handle(const Handle &other);
+
+    // Right reference constructor
+    inline Handle(Handle &&other);
+
+    // Getters
+    T *operator -> () const;
+    T *operator * () const;
+
+    // Tester
+    bool operator ! () const;
+    bool operator == (const Handle &) const;
+
+    // Assignment
+    void operator = (const Handle &);
+    void operator = (const Handle &&);
+    void operator = (T *pointer);
+
+    // Utils
+    // Handle cast
+    template<class S> static inline Handle<T> Cast(const Handle<S> other);
+    // Make a null heap pointer handle(handle address is not null)
+    static inline Handle<T> Null();
+    // Make a null handle address handle
+    static inline Handle<T> Empty();
+}; // class Handle
+
+template<class T>
+class Persistent : public HandleBase<T> {
+public:
+    // Initialize a empty handle
+    inline Persistent();
+    // Copy constructor
+    inline Persistent(const Persistent &);
+    // Right reference constructor
+    inline Persistent(Persistent &&);
+
+    // Manual drop this handle, object mybe release by next GC
+    inline void Dispose();
+  
+      // Getters
+    T *operator -> () const;
+    T *operator * () const;
+
+    // Tester
+    bool operator ! () const;
+    bool operator == (const Handle &) const;
+
+  	// Utils
+    // Handle cast
+    template<class S> static inline Persistent<T> Cast(const Persistent<S> other);
+		// Create by local handle
+  	static inline Persistent<T> New(const Handle<T> &local);
+}; // class Persistent
+```
+
+
+
+```c++
+String *Foo(String *arg0, mai::i32_t arg1, mai::f32_t arg2) {
+    HandleScope handle_scope(base::ON_EXIT_SCOPE_INITIALIZER);
+    
+    printf("%d\n", arg1);
+    printf("%f\n", arg2);
+  
+	Context *ctx = Context::Get();
+    printf("%d\n", ctx->GetTid());
+    return *String::NewUtf8("ok")
+}
+
+```
+
+### 虚拟机
 
 * * *
 
@@ -936,21 +1504,25 @@ static_assert(sizeof(Span16) == 16, "");
 
 ```
 - 对虚拟机的抽象
-+=============================+
-[           Isolate           ]
-+=============================+
-|                 heap: Heap* | Heap memory management
-|-----------------------------|
-|         metadata: Metadata* | Metadata space
-|-----------------------------|
-|  global_space: GlobalSpace* | global variables space
-|-----------------------------|
-|      all_context: Context[] | All of contexts
-|-----------------------------|
-|      scheduler: Scheduler * | machines and coroutines management
-|-----------------------------|
-|          machine0: Machine* | The main os thread
-+-----------------------------+
++==================================+
+[              Isolate             ]
++==================================+
+|                      heap: Heap* | Heap memory management
+|----------------------------------|
+|              metadata: Metadata* | Metadata space
+|----------------------------------|
+|       global_space: GlobalSpace* | global variables space
+|----------------------------------|
+|                context: Context* | context pointer
+|----------------------------------|
+| dummy_persistent: PersistentNode | persistent double-linked list header
+|----------------------------------|
+|           scheduler: Scheduler * | machines and coroutines management
+|----------------------------------|
+|               machine0: Machine* | The main os thread
+|----------------------------------|
+|      bytecode_entries: Address[] | all bytecode handler's entry pointer address
++----------------------------------+
 
 ```
 
@@ -966,23 +1538,18 @@ int main(int argc, char *argv[]) {
     }
 
     mai::Context *context = Context::Get();
-    if (auto err = context->Compile(/*被编译的代码*/); err.fail()) {
+    if (auto err = context->Compile(/*be compiled code*/); err.fail()) {
         // handler errors
     }
-    context->NewArray();
-    context->LetString("hello");
-    context->LetString("world");
-    context->LetString("final");
-    Mcontext->Append(3)
-    context->SetArgv();
-
-    context->LetFunction("main.main");
+  	HandleScope handle_scope(base::ON_EXIT_SCOPE_INITIALIZER);
+  	Handle<GenericArray> argv = GenericArray::New(argc, argv);
+  	context->SetArgv(argv);
     context->Run();
     return 0;
 }
 ```
 
-### Machine和Coroutine
+### 线程和协程
 
 * * *
 
@@ -1007,7 +1574,7 @@ int main(int argc, char *argv[]) {
 |-----------------------------|
 |       coroutine_tls: TLSKey | current coroutine TLS
 |-----------------------------|
-|            unqiue_coid: u64 | coroutine id counter
+|              next_coid: u64 | coroutine id counter
 
 - 对操作系统线程的抽象
 -- 线程的状态:
@@ -1032,12 +1599,17 @@ Machine::kRunning: 正在运行中
 |        running: Coroutine* | current running coroutine
 |----------------------------|
 |             exclusion: u64 | exclusion counter if > 0 can not be preempted
+|----------------------------|
+| top_slot: HandleScopeSlot* | top handle scope slots, this is linked list for handle scope
+|----------------------------|
 
 - 对协程的抽象
 -- 协程的状态:
 
 Coroutine::kDead: 协程死亡，协程入口函数执行完后处于此状态
 Coroutine::kIdle: 空闲，未被任何一个machine调度
+Coroutine::kWaitting: 等待中，一般是等待读写channel或者文件读写
+Coroutine::kRunnable: 可被执行
 Coroutine::kRunning: 正在运行中
 Coroutine::kFallIn: 在运行中，但是在调用一个Runtime的C++函数
 
@@ -1050,53 +1622,44 @@ Coroutine::kFallIn: 在运行中，但是在调用一个Runtime的C++函数
 |----------------------------|
 |      entry_point: Closure* | entry function
 |----------------------------|
+|          isolate: Isolate* | isolate
+|----------------------------|
 |            owner: Machine* | owner machine
+|----------------------------|
+|      young_guard0: Address | new space address guard0 for write barrier
+|----------------------------|
+|      young_guard1: Address | new space address guard1 for write barrier
+|------------------------------|
+| waitting: WaittingQueueNode* | waitting node
+|------------------------------|
+|      exception: Exception* | native function thrown exception 
 |----------------------------|
 |        caught: CaughtNode* | exception hook for exception caught
 |----------------------------|
-|                bp: Address | saved frame pointer
+|                 yield: u32 | yield requests, if yield > 0, need yield
 |----------------------------|
-|                sp: Address | saved stack pointer
+|            sys_bp: Address | system frame pointer
 |----------------------------|
-|                pc: Address | program counter
+|            sys_sp: Address | system stack pointer
 |----------------------------|
-|                   acc: u64 | tmp saved ACC
+|            sys_pc: Address | system program counter
 |----------------------------|
-|                  xacc: f64 | tmp saved XACC
+|                bp: Address | mai frame pointer
 |----------------------------|
-|              stack: Stack* | function stack
+|                sp: Address | mai stack pointer
+|----------------------------|
+|                pc: Address | mai program counter
+|----------------------------|
+|                   acc: u64 | saved ACC
+|----------------------------|
+|                  xacc: f64 | saved XACC
+|----------------------------|
+|      stack_guard0: Address | guard0 of stack
+|----------------------------|
+|      stack_guard1: Address | guard1 of stack
+|----------------------------|
+|              stack: Stack* | coroutine owned calling stack
 
-```
-
-```asm
-SCRATCH = r10
-
-call Coroutine::Current ; get coroutine tls
-movq rbx, rax ; backup
-movq SCRATCH, Coroutine_caught(rax) ; SCRATCH = coroutine.caught
-movq caught_point(rbp), SCRATCH ; caught.next = coroutine.caught
-leaq rax, caught_point(rbp)
-movq Coroutine_caught(rbx), rax ; coroutine.caught = &caught
-
-; save stack env to caught_node
-movq SCRATCH, Coroutine_caught(rbx)
-movq CaughtNode_bp(SCRATCH), rbp
-movq CaughtNode_sp(SCRATCH), rsp
-movq rax, @exception_handler
-movq CaughtNode_sp(SCRATCH), rax
-jmp near @done
-nop
-... ; byte patches
-nop
-@exception_handler:
-...
-@done:
-...
-
-
-movq rax, Coroutine_caught(r15)
-movq rax, CaughtNode_pc(rax)
-jmp far rax
 ```
 
 ```C++
@@ -1123,6 +1686,250 @@ struct CaughtNode {
 * 函数只能在`Coroutine`里执行。
 * 每个`Context`会创建一个`Coroutine`用来执行入口函数`main.main()`
 
+### 管道
+
+> `channel`本质是一个线程安全的FIFO的队列，有一个固定大小（默认大小为1），操作`channel`的时候回自动触发重新调度。
+>
+> 写入`channel`时，如果队列已满，将会放弃控制权，调度其他coroutine执行。
+>
+> 读取`channel`时，如果队列已空，也会放弃控制权，调度其他coroutine执行。
+>
+> 使用ring-buffer来实现`channel`
+
+```
++================================+
+[             Channel            ]
++================================+
+|            Any Header          | heap object header
+|--------------------------------|
+|                    closed: u32 | is close ?
+|--------------------------------|
+|  send_queue: WaittingQueueNode | waitting-queue for send
+|--------------------------------|
+|  recv_queue: WaittingQueueNode | waitting-queue for recv
+|--------------------------------|
+|                    lock: mutex | lock
+|--------------------------------|
+|                  capacity: u32 | size of capacity
+|--------------------------------|
+|                       len: u32 | size of valid elements
+|--------------------------------|
+|                     start: i32 | start position
+|--------------------------------|
+|                       end: i32 | end position
+|--------------------------------|
+
+
++==========================+
+[     WaittingQueueNode    ]
++==========================+
+| next: WaittingQueueNode* |
+|--------------------------| double-linked list header
+| prev: WaittingQueueNode* |
+|--------------------------|
+|           co: Coroutine* | pointer of coroutine
+|--------------------------|
+|        received: Address | direct received address
+
+
+
+- 基础类型的Channel
+
++======================+
+[  Channel8(Channdle)  ]
++======================+
+|    Channel Header    | channel header
++----------------------+
+|            buf: u8[] | buffer
++----------------------+
+
++======================+
+[ Channel16(Channdle)  ]
++======================+
+|    Channel Header    | channel header
++----------------------+
+|           buf: u16[] | buffer
++----------------------+
+
++======================+
+[ Channel32(Channdle)  ]
++======================+
+|    Channel Header    | channel header
++----------------------+
+|           buf: u16[] | buffer
++----------------------+
+
++======================+
+[ Channel64(Channdle)  ]
++======================+
+|    Channel Header    | channel header
++----------------------+
+|           buf: u64[] | buffer
++----------------------+
+
++===========================+
+[ GenericChannel(Channdle)  ]
++===========================+
+|       Channel Header      | channel header
++---------------------------+
+|               buf: Any*[] | buffer
++---------------------------+
+
+
+Ring-Buffer:    |<------------- fixed size buffer ----------------->|
++---------------+---+---+---+---+---+---+---+---+---+---+---+---+---+
+| channel heaer | v | v | v | v | v |   |   |   |   |   |   |   |   |
++---------------+---+---+---+---+---+---+---+---+---+---+---+---+---+
+                  ^               ^
+                start            end
++---------------+---+---+---+---+---+---+---+---+---+---+---+---+---+
+| channel heaer | v | v | v |   |   |   |   |   |   |   |   | v | v |
++---------------+---+---+---+---+---+---+---+---+---+---+---+---+---+
+                          ^                                   ^
+                         end                                start
+
+channle一般会跨线程共享，必须要实现线程安全。
+入队列：
+end = (end + 1) % capacity
+buf[end] = value
+在end处添加元素，然后后移end指针，当end和start重叠，表示队列已满。
+
+出队列：
+value = buf[start]
+start = (start + 1) % capacity
+在start处获取元素，然后后移start指针，当start和end重叠，表示队列已空。
+
+队列中有效数据长度就是: abs(end - start)
+
+end或者start如果超过capacity之后，要绕回
+```
+
+* 发送
+    * 直接发送：接收等待队列`recv_queue`不为空；从中选出第一个陷入等待的`coroutine`来直接发送。
+    * 缓冲发送：缓冲区没有满；此时将数据写入缓冲区。
+    * 阻塞发送：发送的数据没法处理，接收队列为空、缓冲区已满；此时将当前`coroutine`放入发送等待队列，然后放弃控制权，触发重新调度。
+* 接收
+    * 直接接收：发送等待队列`send_queue`不为空；从中选出第一个陷入等待的`coroutine`来直接接收。
+    * 缓冲接收：缓冲区中有数据；此时直接从缓冲区中移动数据到目的地址（移动到`coroutine->acc/xacc`）
+    * 阻塞接收：发送等待队列`send_queue`为空，缓冲区中又没有数据；此时将当前`coroutine`放入接收等待队列，然后放弃控制权，触发重新调度。
+
+### 调度
+
+> 调度和管道、IO相关，也可以通过`Yield`指令主动让出控制权，触发调度。
+>
+> 调度在C++环境执行，调度算法本身使用C++实现，因此mai函数必须退出自己的执行环境才能重新调度，找到需要调度的`coroutine`之后，通过`Trampoline`重新进入mai环境。
+
+* 现场保护：
+    * `Coroutine::sys_sp`：C++环境栈顶指针
+    * `Coroutine::sys_bp`：C++环境栈帧指针
+    * `Coroutine::sys_pc`：C++环境程序计数器
+    * `Coroutine::sp`：mai环境栈顶指针
+    * `Coroutine::bp`：mai环境栈帧指针
+    * `Coroutine::pc`：mai环境程序计数器，可以是字节码的PC或者原生代码PC
+    * `Coroutine::acc`：mai环境整数ACC
+    * `Coroutine::xacc`：mai环境浮点数ACC
+
+
+
+### 函数模板
+
+> 函数模板用于包装C++的函数调用。生成一个汇编器生成stub，通过stub间接调用C++函数。
+
+函数模板类：
+
+```c++
+class FunctionTemplate {
+public:
+    template<class T>
+    struct ParameterTraits {
+    }
+
+    template<> struct ParameterTraits<int8_t> {
+        static constexpr int kType = Type::I8
+    }
+
+    template<> struct ParameterTraits<uint8_t> {
+        static constexpr int kType = Type::U8
+    }
+
+	template<R> static Handle<Closure> New(R(*ptr)(), int n);
+  	template<R,A0> static Handle<Closure> New(R(*ptr)(A0), int n);
+  	template<R,A0,A1> static Handle<Closure> New(R(*ptr)(A0,A1), int n);
+		...
+	template<R,A0,A1,A2,A3,A4> static inline Handle<Closure> New(R(*ptr)(A0,A1,A1,A2,A3,A4), int n) {
+      	int params_types[5] = {
+            ParameterTraits<A0>::kType,
+            ParameterTraits<A1>::kType,
+            ParameterTraits<A2>::kType,
+            ParameterTraits<A3>::kType,
+            ParameterTraits<A4>::kType,
+        };
+      	Code *code = Compiler::MakeNativeStub(Isolate::Get(), params_types, 5);
+      	return Handle<Closure>::New(Closure::NewFromStub(code, n));
+    }
+};
+```
+
+* 使用示例：
+* 注册C++函数：
+```C++
+
+String *BarHandle(i32_t n, f32_t m) {
+    HandleScope handle_scope(INITIALIZER_LINKER);
+    char buf[128];
+    snprintf(buf, sizeof(buf), "%d+%f", n, m);
+    return *String::NewUtf8(buf);
+}
+
+void foo() {
+    HandleScope handle_scope(INITIALIZER_LINKER);
+
+    Context *context = Context::Get();
+    Handle<Closure> function = FunctionTemplate::New(BarHandle);
+    context->RegisterGlobalFunction("main.bar", function);
+}
+```
+
+* 生成的stub代码：
+```asm
+; [ stub for 'BarHandle' ]
+push rbp
+movq rbp, rsp
+subq rsp, 16 ; StubStackFrame::kSize
+movl stack_frame_maker(rbp), StubStackFrame::kMaker
+
+; +4 argv_1
+; +8 padding
+; +8 return address
+; +8 saved bp
+; stub stack frame
+movl Argv_0, 28(rbp) ; argv[0] 16 + 12
+movss xmm0, 24(rbp) ; argv[1] 16 + 8
+movq r11, BarHandle
+call SwitchSystemStackCall
+
+addq rsp, 16 ; StubStackFrame::kSize
+popq rbp
+ret
+```
+
+* 在mai代码中调用C++函数：
+
+```scala
+// file: main/main.mai
+package main
+
+// implement by c++
+native def bar(n:i32, m:f32):string
+
+def main() {
+    // invoke c++ native function
+    println(bar(1, .1))
+}
+```
+
+
+
 ### 函数
 
 函数对象称为: `Closure`
@@ -1140,9 +1947,9 @@ struct CaughtNode {
 +=========================================+
 [                 Closure                 ]
 +=========================================+
-|                               tags: u32 | is cxx fn or compiled fn?
-|----------------------+-------------------|
-| cxx_fn: CxxFunction* | mai_fn :Function* | function proto or cxx function
+|                Any Header               | heap object header
++-----------------------------------------+
+|   cxx_fn: Code*   |  mai_fn :Function*  | function proto or cxx function stub
 |----------------------+-------------------|
 |                  captured_var_size: u32 |
 |-----------------------------------------|
@@ -1153,9 +1960,9 @@ struct CaughtNode {
 +=========================================+
 [                 Function                ]
 +=========================================+
-|                             name: char* | function full name
+|                            name: char[] | function full name
 |-----------------------------------------|
-|                       proto_desc: char* | function prototye description
+|                      proto_desc: char[] | function prototye description
 |-----------------------------------------|
 |                         stack_size: u32 | stack size for invoking frame
 |-----------------------------------------|
@@ -1181,28 +1988,68 @@ struct CaughtNode {
 * * *
 
 ```
-Type:
-    id: TypeId(u64)
-    name: String *
-    filed_size: i32
-    fields: Field *
-    fields_lookup: HashMap *
-    
-    
-Class(Type):
-    method_size: i32
-    methods: Method *
-    methods_lookup: HashMap *
++==========================+
+|           Type           |
++==========================+
+|                  id: u32 | type unique id
+|--------------------------|
+|                tags: u32 | flags
+|--------------------------|
+|             name: char[] | name
+|--------------------------|
+|          field_size: u32 | size of fields
+|--------------------------|
+|          fields: Field[] | fields
++--------------------------+
 
-Field: 
-    name: String *
-    type: Type *
-    index: u32
-    offset: u32
-    
-// Map
-Map(Any):
-    ...
+
++==========================+
+|        Class(Type)       |
++==========================+
+|        Type Header       |
+|--------------------------|
+|              base: Type* | base class
+|--------------------------|
+|            init: Method* | constructor
+|--------------------------|
+|         method_size: u32 | method table size
+|--------------------------|
+|        methods: Method[] | methods
++--------------------------+
+
+
++==========================+
+|           Method         |
++==========================+
+|             name: char[] | method name
+|--------------------------|
+|                 tag: u32 | tag
+|--------------------------|
+|             fn: Closure* | function object pointer
++--------------------------+
+
+
++==========================+
+|           Field          |
++==========================+
+|             name: char[] | field name
+|--------------------------|
+|              type: Type* | field type
+|--------------------------|
+|               flags: u32 | flags
+|--------------------------|
+|                 tag: u32 | field tag
+|--------------------------|
+|              offset: u32 | offset of field in object
++--------------------------+
+
+Field flags:
+
+Field::kRead = 0x1         (0001b)
+Field::kWrite = 0x2        (0010b)
+Field::kPublic = 0x4       (0100b)
+Field::kPrivate = 0x8      (1000b)
+Field::kProtected = 0xc    (1100b)
 ```
 
 #### Any结构
@@ -1215,7 +2062,7 @@ Map(Any):
 |         Any       |
 +===================+
 |      type: Type * |
-+-------------------+
+|-------------------|
 |         tags: u32 |
 +-------------------+
 
@@ -1342,138 +2189,221 @@ maker == 0: 表示此队形未移动，type:ptr指向类型对象
 | code |     Parameter A     |      Parameter B     |
 +------+---------------------+----------------------+
 
-- ABC型：有3个参数
+- FA型：有2个参数
 
-|< 8b >|<-- 8 bits -->|<-- 8 bits -->|<-- 8 bits -->|
+|< 8b >|<-- 8 bits -->|<--------- 16 bits --------->|
 +------+--------------+--------------+--------------+
-| code | Parameter A  | Parameter B  | Parameter C  |
+| code |     Flags    |         Parameter A         |
 +------+--------------+--------------+--------------+
 ```
 
 #### 命令代码
 
 
-| Code                | 编码类型 | 作用 | 参数A                       | 参数B          | 参数C |
-| ------------------- | -------: | ---- | --------------------------- | -------------- | ----- |
-| `Ldar32`            |      `A` |      | `i24` 栈偏移量              |                |       |
-| `Ldar64`            |      `A` |      | `i24` 栈偏移量              |                |       |
-| `Ldaf32`            |      `A` |      | `i24` 栈偏移量              |                |       |
-| `Ldaf64`            |      `A` |      | `i24` 栈偏移量              |                |       |
-| `LdaZero`           |      `N` |      |                             |                |       |
-| `LdaSmi32`          |      `A` |      |                             |                |       |
-| `LdaTrue`           |      `N` |      |                             |                |       |
-| `LdaFalse`          |      `N` |      |                             |                |       |
-| `Ldak32`            |      `A` |      | `u24` `const_pool` 偏移量   |                |       |
-| `Ldak64`            |      `A` |      | `u24` `const_pool` 偏移量   |                |       |
-| `Ldakf32`           |      `A` |      | `u24` `const_pool` 偏移量   |                |       |
-| `Ldakf64`           |      `A` |      | `u24` `const_pool` 偏移量   |                |       |
-| `LdaGlobal32`       |      `A` |      | `u24` `global_space` 偏移量 |                |       |
-| `LdaGlobal64`       |      `A` |      | `u24` `global_space` 偏移量 |                |       |
-| `LdaGlobalf32`      |      `A` |      | `u24` `global_space` 偏移量 |                |       |
-| `LdaGlobalf64`      |      `A` |      | `u24` `global_space` 偏移量 |                |       |
-| `Star32`            |      `A` |      | `u24` 栈偏移量              |                |       |
-| `Star64`            |      `A` |      | `u24` 栈偏移量              |                |       |
-| `Staf32`            |      `A` |      | `u24` 栈偏移量              |                |       |
-| `Staf64`            |      `A` |      | `u24` 栈偏移量              |                |       |
-| `Move32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Move64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Add32`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Add64`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Addf32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Addf64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Sub32`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Sub64`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Subf32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Subf64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mul32`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mul64`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mulf32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mulf64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `IMul32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `IMul64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Div32`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Div64`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Divf32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Divf64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `IDiv32`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `IDiv64`            |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mod32`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `Mod64`             |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `I32toI8`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toI8`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toU8`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toU8`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toI16`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toU16`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I64toI32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U64toI32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F32toI32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F64toI32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I8toU32`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U8toU32`           |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I16toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U16toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I64toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U64toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F32toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F64toU32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toI64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toI64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F32toI64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F64toI64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toU64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toU64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F32toU64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `F64toU64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toF32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toF32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I64toF32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U64toF32`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I32toF64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U32toF64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `I64toF64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `U64toF64`          |      `A` |      | `u24` 栈偏移量              |                |       |
-| `BitwiseOr32`       |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseOr64`       |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseAnd32`      |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseAnd64`      |     `AB` |      | `u12` 栈偏移量              | `u12` 栈偏移量 |       |
-| `BitwiseNot32`      |      `A` |      | `u12` 栈偏移量              |                |       |
-| `BitwiseNot64`      |      `A` |      | `u12` 栈偏移量              |                |       |
-| `BitwiseShl32`      |      `A` |      | `u12` 栈偏移量              |                |       |
-| `BitwiseShl64`      |      `A` |      | `u12` 栈偏移量              |                |       |
-| `BitwiseShr32`      |      `A` |      | `u12` 栈偏移量              |                |       |
-| `BitwiseShr64`      |      `A` |      | `u12` 栈偏移量              |                |       |
-| `BitwiseLogicShr32` |      `A` |      | `u12` 栈偏移量              |                |       |
-| `BitwiseLogicShr64` |      `A` |      | `u12` 栈偏移量              |                |       |
-| `Throw`             |      `N` |      |                             |                |       |
+| Code                | 编码类型 | 作用 | 参数F/A                     | 参数B          |
+| ------------------- | -------: | ---- | --------------------------- | -------------- |
+| `Ldar32` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
+| `Ldar64` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
+| `LdarPtr` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
+| `Ldaf32` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
+| `Ldaf64` | `A` | 读取数据到ACC | `u24` 栈偏移量 | |
+| `LdaZero` | `N` | 读取0到ACC | | |
+| `LdaSmi32` | `A` | 读取立即数到ACC | | |
+| `LdaTrue` | `N` | 读取`true`到ACC | | |
+| `LdaFalse` | `N` | 读取`false`到ACC | | |
+| `Ldak32` | `A` | 读取常数到ACC | `u24` 常量池偏移量 | |
+| `Ldak64` | `A` | 读取常数到ACC | `u24` 常量池偏移量 | |
+| `Ldakf32` | `A` | 读取常数到ACC | `u24` 常量池偏移量 | |
+| `Ldakf64` | `A` | 读取常数到ACC | `u24` 常量池偏移量 | |
+| `LdaGlobal32` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
+| `LdaGlobal64` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
+| `LdaGlobalPtr` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
+| `LdaGlobalf32` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
+| `LdaGlobalf64` | `A` | 读取全局变量到ACC | `u24` `global_space` 偏移量 | |
+| `LdaProperty8` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaProperty16` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaProperty32` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaProperty64` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaPropertyPtr` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaPropertyf32` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaPropertyf64` | `A` | 读取对象属性到ACC | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `LdaArrayElem8` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElem16` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElem32` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElem64` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElemPtr` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElemf32` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `LdaArrayElemf64` | `AB` | 读取数组元素到ACC | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Star32` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
+| `Star64` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
+| `StarPtr` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
+| `Staf32` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
+| `Staf64` | `A` | 写入数据到栈 | `u24` 栈偏移量 | |
+| `StaProperty8` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaProperty16` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaProperty32` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaProperty64` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaPropertyPtr` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaPropertyf32` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaPropertyf64` | `A` | 写入对象属性 | `u12` 栈偏移量 | `u12` 立即偏移量 |
+| `StaArrayElem8` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElem16` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElem32` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElem64` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElemPtr` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElemf32` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `StaArrayElemf64` | `AB` | 写入数组元素 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Move32` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Move64` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `MovePtr` | `AB` | 栈中移动数据 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Truncate32To8` | `A` | 截断整数 | `u24` 栈偏移量 | |
+| `Truncate32To16` | `A` | 截断整数 | `u24` 栈偏移量 | |
+| `Truncate64To32` | `A` | 截断整数 | `u24` 栈偏移量 | |
+| `ZeroExtend8To32` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
+| `ZeroExtend16To32` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
+| `ZeroExtend32To64` | `A` | 0扩展整数 | `u24` 栈偏移量 | |
+| `SignExtend8To32` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
+| `SignExtend16To32` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
+| `SignExtend32To64` | `A` | 符号扩展整数 | `u24` 栈偏移量 | |
+| `F32ToI32` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F64ToI32` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F32ToU32` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F64ToU32` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F32ToI64` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F64ToI64` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F32ToU64` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `F64ToU64` | `A` | 浮点转整数 | `u24` 栈偏移量 | |
+| `I32ToF32` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `U32ToF32` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `I64ToF32` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `U64ToF32` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `I32ToF64` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `U32ToF64` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `I64ToF64` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `U64ToF64` | `A` | 整数转浮点 | `u24` 栈偏移量 | |
+| `F64ToF32` | `A` | 浮点转浮点 | `u24` 栈偏移量 | |
+| `F32ToF64` | `A` | 浮点转浮点 | `u24` 栈偏移量 | |
+| `Add32` | `AB` | 算术加法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Add64` | `AB` | 算术加法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Addf32` | `AB` | 算术加法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Addf64` | `AB` | 算术加法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Sub32` | `AB` | 算术减法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Sub64` | `AB` | 算术减法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Subf32` | `AB` | 算术减法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Subf64` | `AB` | 算术减法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mul32` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mul64` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mulf32` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mulf64` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IMul32` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IMul64` | `AB` | 算术乘法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Div32` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Div64` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Divf32` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Divf64` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IDiv32` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `IDiv64` | `AB` | 算术除法 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mod32` | `AB` | 取余 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `Mod64` | `AB` | 取余 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseOr32` | `AB` | 按位或 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseOr64` | `AB` | 按位或 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseAnd32` | `AB` | 按位与 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseAnd64` | `AB` | 按位与 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseNot32` | `AB` | 按位非 | `u24` 栈偏移量 | |
+| `BitwiseNot64` | `AB` | 按位非 | `u24` 栈偏移量 | |
+| `BitwiseShl32` | `AB` | 按位左移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseShl64` | `AB` | 按位左移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseShr32` | `AB` | 按位右移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseShr64` | `AB` | 按位右移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseLogicShr32` | `AB` | 按位逻辑右移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `BitwiseLogicShr64` | `AB` | 按位逻辑右移 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestEqual32` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestNotEqual32` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThan32` | `AB` | 测试小于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanOrEqual32` | `AB` | 测试小于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThan32` | `AB` | 测试大于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanEqual32` | `AB` | 测试大于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestEqual64` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestNotEqual64` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThan64` | `AB` | 测试小于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanOrEqual64` | `AB` | 测试小于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThan64` | `AB` | 测试大于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanEqual64` | `AB` | 测试大于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestEqualf32` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestNotEqualf32` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanf32` | `AB` | 测试小于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanOrEqualf32` | `AB` | 测试小于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanf32` | `AB` | 测试大于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanEqualf32` | `AB` | 测试大于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestEqualf64` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestNotEqualf64` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanf64` | `AB` | 测试小于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestLessThanOrEqualf64` | `AB` | 测试小于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanf64` | `AB` | 测试大于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestGreaterThanEqualf64` | `AB` | 测试大于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringEqual` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringNotEqual` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringLessThan` | `AB` | 测试小于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringLessThanOrEqual` | `AB` | 测试小于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringGreaterThan` | `AB` | 测试大于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestStringGreaterThanEqual` | `AB` | 测试大于等于 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestPtrEqual` | `AB` | 测试相等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestPtrNotEqual` | `AB` | 测试不等 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestIn` | `AB` | 测试元素是否在容器内 | `u12` 栈偏移量 | `u12` 栈偏移量 |
+| `TestIs` | `AB` | 测试类型 | `u12` 栈偏移量 | `u12` 类型常量偏移 |
+| `Throw` | `N` | 抛出异常 | | |
+| `Yield` | `A` | 让出控制权 | `u24` 控制代码 | |
+| `Goto` | `A` | 跳转到绝对位置 | `u24` PC位置 | |
+| `JumpForward` | `A` | 向前跳转相对位置 | `u24`PC偏移量 | |
+| `JumpBackward` | `A` | 向后跳转相对位置 | `u24`PC偏移量 | |
+| `GotoIfTrue` | `A` | 测试结果为`true`跳转到绝对位置 | `u24`PC偏移量 | |
+| `GotoIfFalse` | `A` | 测试结果为`false`跳转到绝对位置 | `u24`PC偏移量 | |
+| `CallBytecodeFunction` | `A` | 调用函数 | `u24`栈偏移量 | |
+| `CallNativeFunction` | `A` | 调用函数 | `u24`栈偏移量 | |
+| `CallVtableFunction` | `A` | 调用函数 | `u12`栈偏移量 | |
+| `Return` | `N` | 调用返回 | | |
+| `NewBuiltinObject` | `FA` | 创建内建对象 | `u8`对象代码 | `u16`立即数 |
+| `CheckStack` | `N` | 检查栈是否溢出 | | |
 
 类型转换：任意两类型间，最多只需要两步转换：
 规则：
+
 1. 非`i32`,`u32`类型，先按有无符号，转换到`i32`，`u32`。
 2. 再从`i32`,`u32`类型转换到目标类型。
 
 * From `i8`, To:
     * `i8` -> None
-    * `u8` -> `I8ToU32` + `U32ToU8`
-    * `i16` -> `I8ToI32` + `I32ToI16`
-    * `u16` -> `I8ToU32` + `U32ToU16`
-    * `i32` -> `I8ToI32`
-    * `u32` -> `I8ToU32`
-    * `i64` -> `I8ToI32` + `I32ToI64`
-    * `u64` -> `I8ToU32` + `I32ToU64`
-    * `f32` -> `I8ToI32` + `I32ToF32`
-    * `f64` -> `I8ToI32` + `I32ToF64`
-* From `u8`, To:
-    * `i8` -> `U8ToU32` + `U32ToI8`
     * `u8` -> None
-    * `i16` -> `U8ToI32` + `I32ToI16`
-    * `u16` -> `U8ToU32` + `U32ToU16`
-    * `i32` -> `U8ToI32`
-    * `u32` -> `U8ToU32`
-    * `i64` -> `U8ToI32` + `I32ToI64`
-    * `u64` -> `U8ToU32` + `I32ToU64`
-    * `f32` -> `U8ToI32` + `I32ToF32`
-    * `f64` -> `U8ToI32` + `I32ToF64`
+    * `i16` -> `SignExtend8To32` + `Truncate32To8`
+    * `u16` -> `ZeroExtend8To32` + `Truncate32To8`
+    * `i32` -> `SignExtend8To32`
+    * `u32` -> `ZeroExtend8To32`
+    * `i64` -> `SignExtend8To32` + `SignExtend32To64`
+    * `u64` -> `ZeroExtend8To32` + `ZeroExtend32To64`
+    * `f32` -> `SignExtend8To32` + `I32ToF32`
+    * `f64` -> `SignExtend8To32` + `I32ToF64`
+* From `u8`, To:
+    * `i8` -> None
+    * `u8` -> None
+    * `i16` -> `SignExtend8To32` + `Truncate32To8`
+    * `u16` -> `ZeroExtend8To32` + `Truncate32To8`
+    * `i32` -> `SignExtend8To32`
+    * `u32` -> `ZeroExtend8To32`
+    * `i64` -> `SignExtend8To32` + `SignExtend32To64`
+    * `u64` -> `ZeroExtend8To32` + `ZeroExtend32To64`
+    * `f32` -> `SignExtend8To32` + `I32ToF32`
+    * `f64` -> `SignExtend8To32` + `I32ToF64`
+* From i32, To:
+    * `i8` -> `Truncate32To8`
+    * `u8` -> `Truncate32To8`
+    * `i16` -> `Truncate32To16`
+    * `u16` -> `Truncate32To16`
+    * `i32` -> None
+    * `u32` -> None
+    * `i64` -> `SignExtend32To64`
+    * `u64` -> `ZeroExtend32To64`
+    * `f32` -> `I32ToF32`
+    * `f64` -> `I32ToF64`
 * 其他类型以此类推...
 
 #### 字节码执行
@@ -1490,30 +2420,37 @@ XACC = xmm0
 Argv_0...Argv_8 = rdi, rsi ...
 ```
 
-* `Trampoline`: 字节码执行的入口，负责从外部环境进入字节码执行环境。
+* `Trampoline(Coroutine *co)`: 字节码执行的入口，负责从外部环境进入字节码执行环境。
 
 ```asm
 ; Prototype: void Trampoline(Coroutine *co)
 ; Save registers
 ; TODO:
+pushq rbp
+movq rbp, rsp
 
-; Save native stack and frame
-call Coroutine::Current() ; rax = current_coroutine
-movq CO, rax
-movq Coroutine_bp(CO), rbp
-movq Coroutine_sp(CO), rsp
-leaq rax, 0(rip)
-movq Coroutine_pc(CO), rax
+; Save system stack and frame
+movq CO, Argv_0
+movq Coroutine_sys_bp(CO), rbp
+movq Coroutine_sys_sp(CO), rsp
+movq Coroutine_sys_pc(CO), @suspend
+
+; Set bytecode handlers array
+movq SCRATCH, Coroutine_isolate(CO)
+movq BC_ARRAY, Isolate_bytecode_entries(SCRATCH)
+
+; if (coroutine.reentrant > 0) setup root exception is not need
+cmpl Coroutine_reentrant(CO), 0
+jg @entry
 
 ; Set root exception handler
-movq rbx, rbp
-subq rbx, stack_frame_caught_point
-movq Coroutine_caught(CO), rbx ; coroutine.caught = &caught
-movq CaughtNode_next(rbx), 0 ; caught.next = nullptr
-movq CaughtNode_bp(rbx), rbp ; caught.bp = system rbp
-movq CaughtNode_sp(rbx), rsp ; caught.sp = system rsp
+leaq SCRATCH, stack_frame_caught_point(rbp)
+movq Coroutine_caught(CO), SCRATCH ; coroutine.caught = &caught
+movq CaughtNode_next(SCRATCH), 0 ; caught.next = nullptr
+movq CaughtNode_bp(SCRATCH), rbp ; caught.bp = system rbp
+movq CaughtNode_sp(SCRATCH), rsp ; caught.sp = system rsp
 movq rax, @uncaught_handler
-movq CaughtNode_pc(rbx), rax ; caught.pc = @exception_handler
+movq CaughtNode_pc(SCRATCH), rax ; caught.pc = @exception_handler
 jmp near @entry
 nop
 nop
@@ -1521,7 +2458,7 @@ nop
 nop
 
 ; Handler root exception
-@uncaught_handler: ; rax = top exception object
+uncaught_handler: ; rax = top exception object
 ; switch to system stack
 movq r11, Coroutine::Uncaught
 movq Argv_0, CO
@@ -1531,72 +2468,83 @@ jmp near @done
 
 ; function entry
 ; SCRATCH = coroutine
-@entry:
-movq rbp, Coroutine_bp(CO)
-movq rsp, Coroutine_sp(CO)
-cmpq Coroutine_reentrant(CO), 0
+entry:
+movq rbp, Coroutine_bp(CO) ; recover mai stack
+movq rsp, Coroutine_sp(CO) ; recover mai stack
+movl Coroutine_yield(CO) 0 ; coroutine.yield = 0
+cmpl Coroutine_reentrant(CO), 0
 jg @resume ; if (coroutine->reentrant > 0) 
 ; first calling
 incl Coroutine_reentrant(CO) ; coroutine.reentrant++
 movq Argv_0, Coroutine_entry_point(CO)
 call InterpreterPump
-jmp far @done
+jmp far @uninstall
+
+suspend:
+movq r11, Coroutine::Suspend
+movq Argv_0, CO
+movq Argv_1, rax
+call SwitchSystemStackCall; call co->Suspend(acc, xacc)
+jmp near @done
 
 ; coroutine->reentrant > 0, means: should resume this coroutine
-@resume:
+resume:
 incl Coroutine_reentrant(CO) ; coroutine.reentrant++
 ; setup bytecode env
-movq rax, stack_frame_callee(rbp) ; rax = stack_frame.callee
-movq rax, Closure_mai_fn(rax) ; rax = callee->mai_fn
-movq rax, Function_bytecodes(rax) ; rax = callee->mai_fn->bytecodes
-addq rax, BytecodeArray_instructions ; rax = &bytecodes->instructions
+movq SCRATCH, stack_frame_bytecode_array(rbp) ; SCRATCH = bytecode array
+addq SCRATCH, BytecodeArray_instructions ; SCRATCH = &bytecodes->instructions
 movq rbx, stack_frame_pc(rbp)
-shll rbx, 2 ; pc * 4
-addq rax, rbx
-movq BC, rax
+leaq BC, rbx*4(SCRATCH) ; [SCRATCH + rbx * 4]
+movq rax, Coroutine_acc(CO) ; recover mai ACC
+movsd xmm0, Coroutine_xacc(CO) ; recover mai XACC
 JUMP_NEXT_BC()
 
 ; Restore native stack and frame
-@done:
 ; Unset root exception handler
-movq rbx, rbp
-subq rbx, stack_frame_caught_point
+uninstall:
+leaq rbx, stack_frame_caught_point(rbp)
 movq rax, CaughtNode_next(rbx) 
 movq Coroutine_caught(CO), rax ; coroutine.caught = caught.next
+
 ; Recover system stack
-movq rbp, Coroutine_bp(CO) ; recover system bp
-movq rsp, Coroutine_sp(CO) ; recover system sp
+done:
+movq rbp, Coroutine_sys_bp(CO) ; recover system bp
+movq rsp, Coroutine_sys_sp(CO) ; recover system sp
 
 ; TODO:
+popq rbp
+ret
 ```
 
 * `InterpreterPump(Closure *callee)` 函数，调用一个字节码函数
 
 ```asm
+; Prototype: InterpreterPump(Closure *callee)
 ; make a interpreter env
 pushq rbp
 movq rbp, rsp
 
-movq rax, Closure_mai_fn(Argv_0) ; rax = callee->mai_fn
-subq rsp, Function_stack_size(rax) ; rsp -= mai_fn->stack_size and keep rbp
-movq stack_frame_maker(rbp), InterpreterFrame::kMaker
+movq SCRATCH, Closure_mai_fn(Argv_0) ; SCRATCH = callee->mai_fn
+subq rsp, Function_stack_size(SCRATCH) ; rsp -= mai_fn->stack_size and keep rbp
+movq stack_frame_maker(rbp), InterpreterStackFrame::kMaker
 movq stack_frame_pc(rbp), 0 ; set pc = 0
-movq stack_frame_callee(rbp), Coroutine_entry_point(rax) ; set callee
-movq rbx, Function_const_pool(rax) ; rbx = mai_fn->const_pool
+movq stack_frame_callee(rbp), Argv_0 ; set callee
+movq rbx, Function_bytecodes(SCRATCH) ; rbx = mai_fn->bytecodes
+movq stack_frame_bytecodearray(rbp), rbx ; set bytecode array
+movq rbx, Function_const_pool(SCRATCH) ; rbx = mai_fn->const_pool
 movq stack_frame_const_pool(rbp), rbx ; set const_pool
-movq rbx, Function_tags(rax) ; test tags
-test rbx, Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
+test Function_tags(SCRATCH), Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
 jz @start
 
 ; install caught handler
-movq rbx, rbp
-subq rbx, stack_frame_caught_point
-movq Coroutine_caught(CO), rbx ; coroutine.caught = &caught
-;movq CaughtNode_next(rbx), 0 ; caught.next = nullptr
-movq CaughtNode_bp(rbx), rbp ; caught.bp = system rbp
-movq CaughtNode_sp(rbx), rsp ; caught.sp = system rsp
-movq rax, @uncaught_handler
-movq CaughtNode_pc(rbx), rax ; caught.pc = @exception_dispatch
+leaq SCRATCH, stack_frame_caught_point(rbp)
+movq rax, Coroutine_caught(CO) ; rax = next caught
+movq Coroutine_caught(CO), SCRATCH ; coroutine.caught = &caught
+movq CaughtNode_next(SCRATCH), rax ; caught.next = coroutine.caught
+movq CaughtNode_bp(SCRATCH), rbp ; caught.bp = system rbp
+movq CaughtNode_sp(SCRATCH), rsp ; caught.sp = system rsp
+movq rax, @exception_dispatch
+movq CaughtNode_pc(SCRATCH), rax ; caught.pc = @exception_dispatch
 jmp near @start
 nop
 nop
@@ -1604,53 +2552,37 @@ nop
 nop
 
 ; exception caught dispatch 
-@exception_dispatch:
+exception_dispatch:
 movq SCRATCH, rax ; SCRATCH will be protectd by SwitchSystemStackCall
-movq r11, Closure::DispatchException ; call->DispatchException(exception)
+movq r11, Closure::DispatchException ; callee->DispatchException(exception, pc)
 movq Argv_0, stack_frame_callee(rbp) ; argv[0] = callee
 movq Argv_1, SCRATCH ; argv[1] = exception
+movl Argv_2, stack_frame_pc(rbp)
 call SwitchSystemStackCall ; switch system stack and call a c++ function
-movq rbx, rax
-cmpl rbx, 0
+cmpl rax, 0
 jl @throw_again ; if (retval < 0)?
-jmp near 
+; Do dispatch: rax is destination pc
+movq stack_frame_pc(rbp), rax ; update pc
+leaq SCRATCH, stack_frame_caught_point(rbp)
+movq rbp, CaughtNode_bp(SCRATCH)
+movq rsp, CaughtNode_sp(SCRATCH)
+START_BC()
 
-@throw_again:
+; uncaught exception, should throw again
+throw_again:
 movq rbx, Coroutine_caught(CO)
-movq rbx, Caught_pc(rbx)
+movq rax, CaughtNode_next(rbx)
+movq Coroutine_caught(CO), rax ; coroutine.caught = coroutine.caught.next
+movq rbx, CaughtNode_pc(rbx)
 movq rax, SCRATCH ; SCRATCH is saved to rax: current exception
 jmp far rbx ; throw again to prev handler
 
-; TODO:
-
 ; goto first bytecode handler
 ; the first bytecode can jump to second bytecode handler, and next and next next.
-@start:
-movq rax, stack_frame_callee(rbp)
-movq rax, Closure_mai_fn(rax)
-movq rax, Function_bytecodes(rax) ; rax = callee->mai_fn->bytecodes
-addq rax, BytecodeArray_instructions ; rax = &bytecodes->instructions
-movq BC, rax ; setup new BC
-movq rax, 0(BC) ; get fist bytecode
-andl rax, 0xff000000
-shrl rax, 24
-jmp far rbx*8(BC_ARRAY) ; jump to first bytecode handler
-
-; keep rax, beasue it's return value.
-movq rbx, stack_frame_callee(rbp)
-movq rbx, Closure_mai_fn(rbx)
-movq rcx, Function_tags(rbx) ; rcx = mai_fn->tags
-test rcx, Function::kExceptionHandleBit ; if (mai_fn->has_execption_handle())
-jz @done
-; Uninstall caught handle
-movq SCRATCH, Coroutine_caught(CO)
-
-; TODO:
-
-@done
-addq rsp, Function_stack_size(rbx) ; recover stack
-popq rbp
-ret
+start:
+START_BC()
+; never goto this
+int 3
 ```
 
 * `SwitchSystemStackCall`函数，切换到系统栈执行一个C++函数。
@@ -1659,11 +2591,13 @@ ret
 ; switch to system stack and call
 pushq rbp
 movq rbp, rsp
+subq rsp, 16 ; StubStackFrame::kSize
+movl stack_frame_maker(rbp), StubStackFrame::kMaker
 
 movq rax, rbp
 movq rbx, rsp
-movq rbp, Coroutine_bp(CO) ; recover system bp
-movq rsp, Coroutine_sp(CO) ; recover system sp
+movq rbp, Coroutine_sys_bp(CO) ; recover system bp
+movq rsp, Coroutine_sys_sp(CO) ; recover system sp
 pushq rax ; save mai sp
 pushq rbx ; save mai bp
 pushq SCRATCH
@@ -1683,17 +2617,58 @@ popq rcx
 movq rsp, rcx
 movq rbp, rbx
 
+addq rsp, 16 ; StubStackFrame::kSize
 popq rbp
 ret
 ```
 
+* `WRITE_BARRIER($host, $host_dest_addr, $property)`处理写屏障
 
+```asm
+; write barrier when rax is young and rbx(SCRATCH) is old
+movq r8, $host
+andq r8, PageHeader::kMask ; page mask for fast get page-header
+cmpl PageHeader_maker(r8), PageHeader::kMaker
+jne near @store ; incorrect maker
+cmpl PageHeader_owns_space(r8), Space::kOld
+je near @check_young
+cmpl PageHeader_owns_space(r8), Space::kLarge
+je near @check_young
+jmp near @store
+check_young:
+cmpq $property, Coroutine_young_guard0(CO)
+jl near @store
+cmpq $property, Coroutine_young_guard1(CO)
+ja near @store
+movq r11, Runtime::WriteBarrier
+movq Argv_0, $host
+leaq Argv_1, $host_dest_addr
+call SwitchSystemStackCall ; Runtime::WriteBarrier(host, host_dest_addr)
+store:
+nop
+```
+
+
+
+* `START_BC()` 宏，在解释器执行环境中，开始执行当前PC的`bytecode` 处理代码
+
+```asm
+; jump to current pc's handler
+movq SCRATCH, stack_frame_bytecode_array(rbp) ; SCRATCH = callee->mai_fn->bytecodes
+addq SCRATCH, BytecodeArray_instructions ; SCRATCH = &bytecodes->instructions
+movq rbx, stack_frame_pc(rbp)
+leaq BC, rbx*4(SCRATCH) ; [SCRATCH + rbx * 4]
+movl ebx, 0(BC) ; get fist bytecode
+andl ebx, 0xff000000
+shrl ebx, 24
+jmp far rbx*8(BC_ARRAY) ; [BC_ARRAY + rbx * 8] jump to first bytecode handler
+```
 
 * `JUMP_NEXT_BC()` 宏，在解释器执行环境中，负责跳转到下一个`bytecode`的处理代码。
 
 ```asm
 ; move next BC and jump to handler
-incl stack_frame_pc(rbp) ; bc++ go to next bc
+incl stack_frame_pc(rbp) ; pc++ go to next bc
 addq BC, 4 ; BC++
 movq rbx, 0(BC) ; rbx = BC[0]
 andl rbx, 0xff000000
@@ -1701,195 +2676,808 @@ shrl rbx, 24 ; (bc & 0xff000000) >> 24
 jmp far rbx*8(BC_ARRAY) ; jump to next bytecode handler
 ```
 
+* `PANIC(err_code, msg)`宏，在解释器环境中，快速抛出致命异常，结束协程执行。
+
+```asm
+; PANIC(err_code, msg)
+movq r11, Runtime::NewError
+movl Argv_0, $err_code
+movq Argv_1, $msg
+call SwitchSystemStackCall ; Runtime::NewError(err_code, msg)
+movq SCRATCH, Coroutine_caught(CO)
+movq rbx, CaughtNode_pc(SCRATCH)
+jmp far rbx
+```
+
 #### 字节码详细
 
 * Load to ACC
-    * 作用：将栈中数据放入寄存器A中
+    * 作用：将栈中数据放入ACC中
     * 类型：`A`型
-    * 副作用：改变`RA`
+        * `参数A`：栈偏移量
+    * 副作用：写入`ACC`
 
 ```asm
-; [ Ldar32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xffffff
-| movl eax, rbx(rbp)
-| movq rax, rbx(rbp)
+; [ Ldar32/64/Ptr ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+negq rbx
+| movl eax, rbx(rbp) ; Ldar32
+| movq rax, rbx*4(rbp) ; Ldar64/LdarPtr
 JUMP_NEXT_BC()
 
 ; [ Ldaf32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xffffff
-| movss xmm0, rbx(rbp)
-| movsd xmm0, rbx(rbp)
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+negq rbx
+| movss xmm0, rbx*4(rbp)
+| movsd xmm0, rbx*4(rbp)
 JUMP_NEXT_BC()
+```
+
+* Load property to ACC
+    * 作用：读取栈中对象的属性放入ACC中
+    * 类型：`AB`型
+        * `参数A`：对象地址的`u12` 栈偏移量
+        * `参数B`：对象属性的`u12`立即偏移量
+    * 副作用：写入ACC
+
+```asm
+; [ LdaProperty8/16/32/64/Ptr/f32/f64 ]
+; SCRATCH
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+negq rbx
+movq SCRATCH, rbx(rbp)
+movl ebx, 0(BC)
+andl ebx, 0xfff
+| movb al, rbx(SCRATCH)    ; LdaProperty8
+| movw ax, rbx(SCRATCH)    ; LdaProperty16
+| movl eax, rbx(SCRATCH)   ; LdaProperty32
+| movq rax, rbx(SCRATCH)   ; LdaProperty64/LdaPropertyPtr
+| movss xmm0, rbx(SCRATCH) ; LdaPropertyf32
+| movsd xmm0, rbx(SCRATCH) ; LdaPropertyf64
+JUMP_NEXT_BC()
+```
+
+* Load array element to ACC
+    * 作用：读取数组的元素放入ACC中
+    * 类型：`AB`型
+        * `参数A`：数组地址的`u12` 栈偏移量
+        * `参数B`：下标地址的`u12` 栈偏移量
+    * 副作用：写入ACC
+
+```asm
+; [ LdaArrayElem8/16/32/64/Ptr/f32/f64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+negq rbx
+movq SCRATCH, rbx(rbp) ; SCRATCH = array
+movl ebx, 0(BC)
+andl ebx, 0xfff
+negq rbx
+movl eax, rbx(rbp) ; index
+cmpl eax, Array_len(SCRATCH) ; if (index >= array.len)
+jge @out_of_bound
+xorq rax, rax ; clear ACC
+| movb al, rbx*1+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 1 + Array_elems ] LdaArrayElem8
+| movw ax, rbx*2+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 2 + Array_elems ] LdaArrayElem16
+| movl eax, rbx*4+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 4 + Array_elems ] LdaArrayElem32
+| movq rax, rbx*8+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 8 + Array_elems ] LdaArrayElem64/Ptr
+| movss xmm0, rbx*4+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 4 + Array_elems ] LdaArrayElemf32
+| movsd xmm0, rbx*8+Array_elems(SCRATCH) ; [ SCRATCH + rbx * 8 + Array_elems ] LdaArrayElemf64
+JUMP_NEXT_BC()
+
+out_of_bound:
+PANIC(ERROR_OUT_OF_BOUND, "array out of bound!")
+; Never goto this
+int 3
+```
+
+* Store property by ACC
+    * 作用：读取栈中对象的属性放入ACC中
+    * 类型：`AB`型
+        * `参数A`：对象地址的`u12` 栈偏移量
+        * `参数B`：对象属性的`u12`立即偏移量
+    * 副作用：写入ACC
+
+```asm
+; [ StaProperty8/16/32/64/Ptr/f32/f64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl eax, 12
+negq rax
+movq SCRATCH, rbx(rbp)
+movl ebx, 0(BC)
+andl ebx, 0xfff
+| movb rbx(SCRATCH), al    ; StaProperty8
+| movw rbx(SCRATCH), ax    ; StaProperty16
+| movl rbx(SCRATCH), eax   ; StaProperty32
+| movq rbx(SCRATCH), rax   ; StaProperty64
+| movss rbx(SCRATCH), xmm0 ; StaPropertyf32
+| movsd rbx(SCRATCH), xmm0 ; StaPropertyf64
+| WRITE_BARRIER(SCRATCH, rbx(SCRATCH), rax)
+| | movq rbx(SCRATCH), rax   ; StaProperty64
+; sfence ; flush CPU cache to memory
+
+JUMP_NEXT_BC()
+```
+
+* Store array element by ACC
+    * 作用：将ACC中数据写入数组元素
+    * 类型：`AB`型
+        * `参数A`：数组地址的`u12` 栈偏移量
+        * `参数B`：下标地址的`u12` 栈偏移量
+    * 副作用：无
+
+```asm
+; [ StaArrayElem8/16/32/64/Ptr/f32/f64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+negq rbx
+movq SCRATCH, rbx(rbp) ; SCRATCH = array
+movl ebx, 0(BC)
+andl ebx, 0xfff
+negq rbx
+movl eax, rbx(rbp) ; index
+cmpl eax, Array_len(SCRATCH) ; if (index >= array.len)
+jge @out_of_bound
+; [ SCRATCH + Array_elems + rbx * 1 ] StaArrayElem8
+| movb rbx*1+Array_elems(SCRATCH), al
+; [ SCRATCH + Array_elems + rbx * 2 ] StaArrayElem16
+| movw rbx*2+Array_elems(SCRATCH), ax
+; [ SCRATCH + Array_elems + rbx * 4 ] StaArrayElem32
+| movl rbx*4+Array_elems(SCRATCH), eax
+; [ SCRATCH + Array_elems + rbx * 8 ] StaArrayElem64
+| movq rbx*8+Array_elems(SCRATCH), rax
+; [ SCRATCH + Array_elems + rbx * 8 ] StaArrayElemPtr
+| WRITE_BARRIER(SCRATCH, rbx*8+Array_elems(SCRATCH), rax)
+| | movq rbx*8+Array_elems(SCRATCH), rax
+; [ SCRATCH + Array_elems + rbx * 4 ] StaArrayElemf32
+| movss rbx*4+Array_elems(SCRATCH), xmm0
+; [ SCRATCH + Array_elems + rbx * 8 ] StaArrayElemf64
+| movsd rbx*8+Array_elems(SCRATCH), xmm0
+; sfence ; flush CPU cache to memory
+JUMP_NEXT_BC()
+
+out_of_bound:
+PANIC(ERROR_OUT_OF_BOUND, "array out of bound!")
 ```
 
 * Store from ACC
     * 作用：将寄存器A中数据放入栈中
     * 类型：`A`型
+        * `参数A`：源地址的栈偏移量
     * 副作用：无
 
 ```asm
-; [ Star32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xffffff
-| movl rbx(rbp), eax
-| movq rbx(rbp), rax
-JUMP_NEXT_BC()
-
-; [ Staf32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xffffff
-| movss rbx(rbp), xmm0
-| movsd rbx(rbp), xmm0
+; [ Star32/64/Ptr/f32/f64 ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+negl ebx
+| movl rbx*4(rbp), eax ; Star32
+| movq rbx*4(rbp), rax ; Star64/StarPtr
+| movss rbx*4(rbp), xmm0 ; Staf32
+| movsd rbx*4(rbp), xmm0 ; Staf64
 JUMP_NEXT_BC()
 ```
 
 * Move Stack to Stack:
     * 作用：移动栈中数据
     * 类型：`AB`型
-    * `参数A`：目的地址
-    * `参数B`：源地址
+        * `参数A`：目的地址
+        * `参数B`：源地址
     * 副作用：无
 
 ```asm
 ; [ Move32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff
-| movl eax, rbx(rbp)
-| movq rax, rbx(rbp)
-movl rbx, NEXT_BC
-andl rbx, 0xfff000
-shrl rbx, 12
-| movl rbx(rbp), eax
-| movq rbx(rbp), rax
+movl ebx, 0(BC)
+andl ebx, 0xfff
+negq rbx
+| movl eax, rbx(rbp) ; Move32
+| movq rax, rbx(rbp) ; Move64/MovePtr
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+negq rbx
+| movl rbx(rbp), eax ; Move32
+| movq rbx(rbp), rax ; Move64/MovePtr
 JUMP_NEXT_BC()
 ```
 
 * Add Stack Values to ACC
     * 作用：栈中两个变量相加，结果放入`rax`中
     * 类型：`AB`型
-    * `参数A`：加数
-    * `参数B`：被加数
+        * `参数A`：被加数在栈中的偏移量
+        * `参数B`：加数在栈中的偏移量
     * 副作用：写入`ACC`
 
 ```asm
-; [ Add32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
-| movl eax, rbx(rbp)
-| movq rax, rbx(rbp)
-movl rbx, NEXT_BC
-andl rbx, 0xfff
-| addl eax, rbx(rbp)
-| addq rax, rbx(rbp)
-JUMP_NEXT_BC()
-
-; [ Addf32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
-| movss xmm0, rbx(rbp)
-| movsd xmm0, rbx(rbp)
-movl rbx, NEXT_BC
-andl rbx, 0xfff
-| addss xmm0, rbx(rbp)
-| addsd xmm0, rbx(rbp)
+; [ Add32/64/f32/f64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+| movl eax, rbx(rbp) ; Add32
+| movq rax, rbx(rbp) ; Add64
+| movss xmm0, rbx(rbp) ; Addf32
+| movsd xmm0, rbx(rbp) ; Addf64
+movl ebx, 0(BC)
+andl ebx, 0xfff
+| addl eax, rbx(rbp) ; Add32
+| addq rax, rbx(rbp) ; Add64
+| addss xmm0, rbx(rbp) ; Addf32
+| addsd xmm0, rbx(rbp) ; Addf64
 JUMP_NEXT_BC()
 ```
 
 * Subtract Two Stack Values to ACC
     * 作用：栈中两个变量相减，结果放入`rax`中
     * 类型：`AB`型
-    * `参数A`：被减数
-    * `参数B`：减数
+    * `参数A`：被减数在栈中的偏移量
+    * `参数B`：减数在栈中的偏移量
     * 副作用：写入`ACC`
 
 ```asm
-; [ Sub32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
-| movl eax, rbx(rbp)
-| movq rax, rbx(rbp)
-movl rbx, 0(BC)
-andl rbx, 0xfff
-| subl eax, rbx(rbp)
-| subq rax, rbx(rbp)
-JUMP_NEXT_BC()
-
-; [ Subf32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
-| movss xmm0, rbx(rbp)
-| movsd xmm0, rbx(rbp)
-movl rbx, 0(BC)
-andl rbx, 0xfff
-| subss xmm0, rbx(rbp)
-| subsd xmm0, rbx(rbp)
+; [ Sub32/64/f32/f64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+| movl eax, rbx(rbp) ; Sub32
+| movq rax, rbx(rbp) ; Sub64
+| movss xmm0, rbx(rbp) ; Subf32
+| movsd xmm0, rbx(rbp) ; Subf64
+movl ebx, 0(BC)
+andl ebx, 0xfff
+| subl eax, rbx(rbp) ; Sub32
+| subq rax, rbx(rbp) ; Sub64
+| subss xmm0, rbx(rbp) ; Subf32
+| subsd xmm0, rbx(rbp) ; Subf64
 JUMP_NEXT_BC()
 ```
 
-* Multiply Two Stack Unsgined Values to ACC
-    * 作用：栈中两个变量相减，结果放入`rax`中
+* Multiply Two Stack Values to ACC
+    * 作用：栈中两个数相乘，结果放入ACC中
     * 类型：`AB`型
-    * `参数A`：被减数
-    * `参数B`：减数
+        * `参数A`：被乘数在栈中的偏移量
+        * `参数B`：倍数在栈中的偏移量
     * 副作用：写入`ACC`
 
 ```asm
-; [ Mul32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
-| movl eax, rbx(rbp)
-| movq rax, rbx(rbp)
-movl rbx, 0(BC)
-andl rbx, 0xfff
-| mull eax, rbx(rbp)
-| mulq rax, rbx(rbp)
-JUMP_NEXT_BC()
-
-; [ Mulf32/64 ]
-movl rbx, 0(BC)
-andl rbx, 0xfff000
-shrl rbx, 12
-| movss xmm0, rbx(rbp)
-| movsd xmm0, rbx(rbp)
-movl rbx, 0(BC)
-andl rbx, 0xfff
-| mulss xmm0, rbx(rbp)
-| mulsd xmm0, rbx(rbp)
+; [ Mul32/64/f32/f64 IMul32/64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+| movl eax, rbx(rbp) ; Mul32/IMul32
+| movq rax, rbx(rbp) ; Mul64/IMul64
+| movss xmm0, rbx(rbp) ; Mulf32
+| movsd xmm0, rbx(rbp) ; Mulf64
+movl ebx, 0(BC)
+andl ebx, 0xfff
+| mull eax, rbx(rbp) ; Mul32
+| mulq rax, rbx(rbp) ; Mul64
+| imull eax, rbx(rbp) ; IMul32
+| imulq rax, rbx(rbp) ; IMul64
+| mulss xmm0, rbx(rbp) ; Mulf32
+| mulsd xmm0, rbx(rbp) ; Mulf64
 JUMP_NEXT_BC()
 ```
 
-* Call Function
+* Divide Two Stack Values to ACC
+    * 作用：栈中两个数相除，结果放入ACC中
+    * 类型：`AB`型
+        * `参数A`：被除数在栈中的偏移量
+        * `参数B`：倍数在栈中的偏移量，如果为0，会抛出错误
+    * 副作用：写入`ACC`
+
+```asm
+; [ Div32/64/f32/f64 IDiv32/64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+| cmpl rbx(rbp), 0 ; Div32/IDiv32
+| | je @error
+| | movl eax, rbx(rbp)
+
+| cmpq rbx(rbp), 0 ; Div64/IDiv64
+| | je @error
+| | movq rax, rbx(rbp)
+
+| xorss xmm0, xmm0 ; Divf32
+| | comiss xmm0, rbx(rbp)
+| | je @error
+| | movss xmm0, rbx(rbp)
+
+| xorsd xmm0, xmm0 ; Divf64
+| | comisd xmm0, rbx(rbp)
+| | je @error
+| | movsd xmm0, rbx(rbp) ; Divf64
+movl ebx, 0(BC)
+andl ebx, 0xfff
+| divl eax, rbx(rbp) ; Div32
+| divq rax, rbx(rbp) ; Div64
+| idivl eax, rbx(rbp) ; IDiv32
+| idivq rax, rbx(rbp) ; IDiv64
+| divss xmm0, rbx(rbp) ; Divf32
+| divsd xmm0, rbx(rbp) ; Divf64
+JUMP_NEXT_BC()
+
+error:
+PANIC(ERROR_DIVIDE_BY_ZERO, "divide by zero!")
+```
+
+* Test Compare Two Stack Values to ACC
+    * 作用：比较栈中两个值，结果放入ACC中(`true`/`false`)
+    * 类型：`AB`型
+        * `参数A`：操作数在栈中的偏移量
+        * `参数B`：操作数在栈中的偏移量
+    * 副作用：写入`ACC`
+
+```asm
+; [ TestEqual32/64/Ptr/f32/f64 ]
+; [ TestNotEqual32/64/Ptr/f32/f64 ]
+; [ TestLessThan32/64/f32/f64 ]
+; [ TestLessThanOrEqual32/64/f32/f64 ]
+; [ TestGreaterThan32/64/f32/f64 ]
+; [ TestGreaterThanOrEqual32/64/f32/f64 ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+negq rbx
+| movl eax, rbx(rbp) ; 32
+| movq rax, rbx(rbp) ; 64/Ptr
+| movss xmm0, rbx(rbp) ; f32
+| movsd xmm0, rbx(rbp) ; f64
+movl ebx, 0(BC)
+andl ebx, 0xfff
+negq rbx
+| cmpl eax, rbx(rbp) ; 32
+| cmpq rax, rbx(rbp) ; 64/Ptr
+| comiss xmm0, rbx(rbp) ; f32
+| comisd xmm0, rbx(rbp) ; f64
+nop
+| je @true ; TestEqual32/64/Ptr/f32/f64
+| jne @true ; TestNotEqual32/64/Ptr/f32/f64
+| jl @true ; TestLessThan32/64/f32/f64
+| jle @true ; TestLessThanOrEqual32/64/f32/f64
+| jg @true ; TestGreaterThan32/64/f32/f64
+| jge @true ; TestGreaterThanOrEqual32/64/f32/f64
+false:
+xorq rax, rax ; set rax = 0
+jmp near @done
+true:
+movq rax, 1
+done:
+JUMP_NEXT_BC()
+```
+
+* Test Compare Two String Values to ACC
+    * 作用：比较栈中两个字符串，结果放入ACC中(`true`/`false`)
+    * 类型：`AB`型
+        * `参数A`：操作数在栈中的偏移量
+        * `参数B`：操作数在栈中的偏移量
+    * 副作用：写入`ACC`
+
+```asm
+; [ TestStringEqual TestStringNotEqual ]
+movl ebx, 0(BC)
+andl ebx, 0xfff000
+shrl ebx, 12
+negq rbx
+movq r8, rbx(rbp) ; r8 = string1
+
+movl ebx, 0(BC)
+andl ebx, 0xfff
+negq rbx
+cmpq r8, rbx(rbp) ; if (string1 == string2) then equals
+je near @equals
+movq r9, rbx(rbp) ; r9 = string2
+
+movl ebx, String_len(r8) ; ebx = string1.len
+cmpl ebx, String_len(r9) ; if (string1.len == string2.len)
+jne near @not_equals
+
+movl ebx, 0xfffffff0 ; rbx &= -16
+movl eax, 16 ; string1.len
+movl edx, 16 ; string2.len
+
+pcmpestr_loop:
+cmpl ebx, 0
+jle near @pcmpestr_remain
+subl ebx, 16
+movdqu xmm0, rbx*1+String_data(r8) ; move string1's 16 bytes to xmm0
+pcmpestri xmm0, rbx*1+String_data(r9), EqualEach|NegativePolarity
+jc near @not_equals
+jmp near @pcmpestr_loop
+
+pcmpestr_remain:
+movl ebx, String_len(r8) ; ebx = string1.len
+andl ebx, 0xf ; remain length
+movl eax, ebx ; string1.len = remain length
+movl edx, ebx ; string2.len = remain length
+movl ebx, String_len(r8) ; ebx = string1.len
+andl ebx, 0xfffffff0 ; ebx &= -16
+movdqu xmm0, rbx*1+String_data(r8) ; move string1's 16 bytes to xmm0
+pcmpestri xmm0, rbx*1+String_data(r9), EqualEach|NegativePolarity
+jc near @not_equals
+
+not_equals:
+| xorq rax, rax ; TestStringEqual
+| | jmp near @done
+| movq rax, 1   ; TestStringNotEqual
+| | jmp near @done
+equals:
+| xorq rax, rax ; TestStringNotEqual
+| movq rax, 1   ; TestStringEqual
+done:
+JUMP_NEXT_BC()
+```
+
+* Truncate integer number
+    * 作用：将一个整数类型截断到指定大小，常用于整数从大到小类型转换
+    * 类型：`A`型
+        * `参数A`：源数的栈偏移量
+    * 副作用：写入`ACC`
+
+```asm
+; [ Truncate32To8/16 Truncate64To32 ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+negq rbx
+| movl eax, rbx(rbp) ; Truncate32To8
+| | andl eax, 0xff
+| movl eax, rbx(rbp) ; Truncate32To16
+| | andl eax, 0xffff
+| movl eax, rbx(rbp) ; Truncate64To32
+JUMP_NEXT_BC()
+```
+
+* Zero-Extend integer number
+    * 作用：将一个整数0扩展到指定大小，常用于无符号整数从小到大转换
+    * 类型：`A`型
+        * `参数A`：源数的栈偏移量
+    * 副作用：写入`ACC`
+
+```asm
+; [ ZeroExtend8/16To32 ZeroExtend32To64 ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+negq rbx
+| movzxb eax, rbx(rbp) ; ZeroExtend8To32
+| movzxw eax, rbx(rbp) ; ZeroExtend16To32
+| movl eax, rbx(rbp) ; ZeroExtend32To64
+JUMP_NEXT_BC()
+```
+
+* Sign-Extend integer number
+  * 作用：将一个整数符号扩展到指定大小，常用于有符号整数从小到大转换
+  * 类型：`A`型
+  * `参数A`：源数的栈偏移量
+  * 副作用：写入`ACC`
+
+```asm
+; [ SignExtend8/16To32 SignExtend32To64 ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+negq rbx
+| movsxb eax, rbx(rbp) ; SignExtend8To32
+| movsxw eax, rbx(rbp) ; SignExtend16To32
+| movsxd rax, rbx(rbp) ; SignExtend32To64
+JUMP_NEXT_BC()
+```
+
+* Cast number to 32 bits floating-number
+    * 作用：将一个数值类型转换为32bit浮点数
+    * 类型：`A`型
+        * `参数A`：源数的栈偏移量
+    * 副作用：写入`XACC`
+
+```asm
+; [ I32/U32/I64/U64/F64ToF32 ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+negq rbx
+; Convert Dword Integer to Scalar Single-Precision FP Value
+| cvtsi2ssl xmm0, rbx(rbp) ; I32/U32ToF32
+; Convert Scalar Single-Precision FP Value to Scalar Double-Precision FP Value
+| cvtsi2ssq xmm0, rbx(rbp) ; I64/U64ToF32
+; Convert Scalar Double-Precision FP Value to Scalar Single-Precision FP Value
+| cvtsd2ss xmm0, rbx(rbp) ; F64ToF32
+JUMP_NEXT_BC()
+```
+
+* Cast number to 64 bits floating-number
+    * 作用：将一个数值类型转换为64bit浮点数
+    * 类型：`A`型
+        * `参数A`：源数的栈偏移量
+    * 副作用：写入`XACC`
+
+```asm
+; [ I32/U32/I64/U64/F32ToF64 ]
+
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+negq rbx
+; Convert Dword Integer to Scalar Single-Precision FP Value
+| cvtsi2sdl xmm0, rbx(rbp) ; I32/U32ToF64
+; Convert Scalar Single-Precision FP Value to Scalar Double-Precision FP Value
+| cvtsi2sdq xmm0, rbx(rbp) ; I64/U64ToF64
+; Convert Scalar Double-Precision FP Value to Scalar Single-Precision FP Value
+| cvtss2sd xmm0, rbx(rbp) ; F32ToF64
+JUMP_NEXT_BC()
+```
+
+* Call Bytecode Function
     * 作用：调用一个函数，函数对象指针放在`rax`中
-    * 类型：`AB`型
-    * `参数A`：参数开始地址
-    * `参数B`：参数结束地址
-    * 副作用：写入`RA`或`XA`
+    * 类型：`A`型
+        * `参数A`：参数字节数大小
+    * 副作用：写入`ACC`或`XACC`
 
-```
-; [ Call ]
-...
+```asm
+; [ CallBytecodeFunction ]
+
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+addl ebx, 15  ; ebx = ebx + 16 - 1
+andl ebx, 0xfffffff0 ; ebx &= -16
+subq rsp, rbx ; adjust sp to aligment of 16 bits(2 bytes)
+
+; call bytecode function
+movq Argv_0, rax
+call InterpreterPump
+
+; restore caller's BC register
+movq SCRATCH, stack_frame_bytecode_array(rbp)
+movl ebx, stack_frame_pc(rbp)
+; [SCRATCH + rcx * 4 + BytecodeArray_instructions]
+leaq BC, rbx*4+BytecodeArray_instructions(SCRATCH) 
+
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+addl ebx, 15  ; ebx = ebx + 16 - 1
+andl ebx, 0xfffffff0 ; ebx &= -16
+addq rsp, rbx ; recover sp
+
+JUMP_NEXT_BC()
 ```
 
 * Call Native Function
     * 作用：调用一个`native`修饰函数，函数对象指针放在`rax`中
     * 类型：`AB`型
-    * `参数A`：参数开始地址
-    * `参数B`：参数结束地址
-    * 副作用：写入`RA`或`XA`
+        * `参数A`：闭包对象的栈偏移量
+        * `参数B`：参数字节数
+    * 副作用：写入`ACC`或`XACC`
+
+```asm
+; [ CallNativeFunction ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+; (x + m - 1) & -m
+addl ebx, 15  ; ebx = ebx + 16 - 1
+andl ebx, 0xfffffff0 ; ebx &= -16
+subq rsp, rbx ; adjust sp to aligment of 16 bits(2 bytes)
+
+movq SCRATCH, Closure_cxx_fn(rax)
+leaq SCRATCH, Code_entry(SCRATCH)
+callq SCRATCH
+
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+addl ebx, 15  ; ebx = ebx + 16 - 1
+andl ebx, 0xfffffff0 ; ebx &= -16
+addq rsp, rbx ; recover sp
+
+; test if throw exception in native function
+; Can not throw c++ exception in native function!
+cmpq Coroutine_exception(CO), 0
+jne @throw
+JUMP_NEXT_BC()
+
+throw:
+movq rax, Coroutine_exception(CO)
+THROW()
+```
+
+> 一些复杂操作通过调用内部函数实现，而不独立实现bytecode了
+
+```c++
+// 管道发送
+u32_t Runtime::ChannelSend32(Channel *chan, u32_t data);
+u32_t Runtime::ChannelSend64(Channel *chan, u64_t data);
+
+// 管道接收
+u32_t Runtime::ChannelRecv32(Channel *chan);
+u64_t Runtime::ChannelRecv64(Channel *chan);
+f32_t Runtime::ChannelRecvf32(Channel *chan);
+f64_t Runtime::ChannelRecvf64(Channel *chan);
+
+// 创建内建对象
+Any *Runtime::NewBuiltinObject(u8_t code, Address argv, Address end);
+
+// 写屏障
+void Runtime::WriteBarrier(Any *host, Any **dest)
+```
+
+* Create a builtin object
+    * 作用：创建一个内建对象，例如`array`,` map`,`channel` ... 
+    * 类型：`FA`型
+        * `参数F`：对象类型代码
+        * `参数A`：参数字节数大小
+    * 副作用：写入`ACC`
+
+```asm
+; [ NewBuiltinObject ]
+
+movl ebx, 0(BC)
+andl ebx, 0xff0000
+shrl ebx, 16 ; param: F
+movl Argv_0, ebx
+
+movl ebx, 0(BC)
+andl ebx, 0xffff ; param A
+movq Argv_1, rsp
+addq rbx, rsp
+movq Argv_2, rbx
+
+; Any *NewBuiltinObject(int code, Address argv, Address end)
+movq r11, Runtime::NewBuiltinObject ; NewBuiltinObject(builtin_obj_code, argv, end)
+call SwitchSystemStackCall
+JUMP_NEXT_BC()
 
 ```
-; [ CallNative ]
-...
+
+* Calling Return
+    * 作用：从字节码函数中返回
+    * 类型：`N`型
+    * 副作用：无
+
+```asm
+; [ Return ]
+; Keep rax, it's return value
+movq SCRATCH, stack_frame_callee(rbp)
+movq SCRATCH, Closure_mai_fn(SCRATCH)
+; has exception handlers ?
+test Function_tags(SCRATCH), Function::kExceptionHandleBit 
+jz @done
+
+; Uninstall caught handle
+movq SCRATCH, Coroutine_caught(CO)
+movq SCRATCH, CaughtNode_next(SCRATCH)
+movq Coroutine_caught(CO), SCRATCH ; coroutine.caught = coroutine.caught.next
+
+done:
+movq SCRATCH, stack_frame_callee(rbp)
+movq SCRATCH, Closure_mai_fn(SCRATCH)
+addq rsp, Function_stack_size(SCRATCH) ; recover stack
+popq rbp
+ret
+
 ```
 
+* Yield
+    * 作用：主动让出控制权，让其他协程得到调度机会。
+    * 类型：`A`型
+    * `参数A` ：控制代码
+        * `YIELD_FORCE` 强制让出控制权
+        * `YIELD_PROPOSE` 建议让出
+        * `YIELD_RANDOM` 随机1/8几率
+    * 副作用：无
 
+```asm
+; [ Yield ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+cmpl ebx, YIELD_FORCE
+je @force
+cmpl ebx, YIELD_PROPOSE
+je @propose
+cmpl ebx, YIELD_RANDOM
+je @random
+; bad bytecode
+PANIC(ERROR_BAD_BYTE_CODE, "incorrect yield control code.")
 
+propose:
+cmpl Coroutine_yield(CO), 0
+jg @force
+jmp near @done
 
+random:
+rdrand ebx
+andl ebx, 0xfffffff0
+cmpl ebx, 0
+je @force
+jmp near @done
+
+; save acc, xacc, rsp, rbp, pc then jump to resume point
+force:
+movq Coroutine_acc(CO), rax
+movsd Coroutine_xacc(CO), xmm0
+movl eax, stack_frame_pc(rbp)
+movq Coroutine_pc(CO), rax
+movq Coroutine_bp(CO), rbp
+movq Coroutine_sp(CO), rsp
+movq rbx, Coroutine_sys_pc(CO) ; rbx = suspend point
+jmp far rbx ; jump to suspend point
+
+done:
+JUMP_NEXT_BC()
+
+```
+
+* Throw a Exception
+    * 作用：抛出ACC中的异常对象。
+    * 类型：`N`型
+    * 副作用：无
+
+```asm
+; [ Throw ]
+movq SCRATCH, Coroutine_caught(CO)
+movq rbx, CaughtNode_next(SCRATCH)
+movq Coroutine_caught(CO), rbx ; coroutine.caught = coroutine.caught.next
+movq rbx, CaughtNode_pc(SCRATCH)
+jmp far rbx ; throw again to prev handler
+```
+
+* Goto absolute position
+    * 作用：跳转到绝对位置。
+    * 类型：`A`型
+        * `参数A` ：绝对PC位置
+    * 副作用：无
+
+```asm
+; [ Goto ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+movl stack_frame_pc(rbp), ebx
+START_BC()
+```
+
+* Condition Goto by ACC Boolean Value
+    * 作用：依赖ACC中的布尔值进行跳转
+    * 类型：`A`型
+        * `参数A`：PC绝对值，如果满足条件，直接跳转到这个位置
+    * 副作用：写入`ACC`
+
+```asm
+; [ GotoIfTrue GotoIfFalse ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+coml rax, 0
+| je @next ; GotoIfTrue
+| jne @next ; GotoIfFalse
+movl stack_frame_pc(rbp), ebx
+START_BC()
+next:
+JUMP_NEXT_BC()
+```
+
+* Jump forward relatively position
+    * 作用：前进跳转到相对位置。
+    * 类型：`A`型
+        * `参数A` ：PC增量
+    * 副作用：无
+
+```asm
+; [ JumpForward ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+addl stack_frame_pc(rbp), ebx
+START_BC()
+```
+
+* Jump backward relatively position
+    * 作用：后退跳转到相对位置。
+    * 类型：`A`型
+        * `参数A` ：PC减量
+    * 副作用：无
+
+```asm
+; [ JumpBackward ]
+movl ebx, 0(BC)
+andl ebx, 0xffffff
+subl stack_frame_pc(rbp), ebx
+START_BC()
+```
 

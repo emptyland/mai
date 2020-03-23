@@ -27,6 +27,9 @@ Heap::Heap(NyaaCore *N)
         p->fp(p->host, owns_);
         delete p;
     }
+    for (const auto &pair : remember_set_) {
+        delete pair.second;
+    }
     
     delete large_space_;
     delete code_space_;
@@ -60,6 +63,25 @@ Error Heap::Init() {
     large_space_->SetAddressColor(probe, initial_color_);
     large_space_->Free(probe);
     return Error::OK();
+}
+    
+void Heap::GetInfo(Info *info) const {
+    info->major_usage     = new_space_->UsageMemory(&info->major_size);
+    info->major_rss_size  = new_space_->pages_total_size();
+
+    info->old_usage    = old_space_->MemoryUsage(&info->old_size);
+    info->code_usage   = code_space_->MemoryUsage(&info->code_size);
+    info->large_usage  = large_space_->MemoryUsage(&info->large_size);
+    info->minor_size   = info->old_size;
+    info->minor_size  += info->code_size;
+    info->minor_size  += info->large_size;
+    info->minor_usage  = info->old_usage;
+    info->minor_usage += info->code_usage;
+    info->minor_usage += info->large_usage;
+    
+    info->minor_rss_size  = large_space_->pages_total_size();
+    info->minor_rss_size += old_space_->pages_total_size();
+    info->minor_rss_size += code_space_->pages_total_size();
 }
 
 NyObject *Heap::Allocate(size_t request_size, HeapSpace space) {
@@ -122,8 +144,7 @@ void Heap::BarrierWr(NyObject *host, Object **pzwr, Object *val, bool ismt) {
     if (owns_->stub()->nogc()) {
         return;
     }
-    DCHECK_NOTNULL(pzwr);
-    auto addr = reinterpret_cast<Address>(pzwr);
+    auto addr = reinterpret_cast<Address>(DCHECK_NOTNULL(pzwr));
 
     if (val == Object::kNil || !val->IsObject()) {
         auto iter = remember_set_.find(addr);
@@ -192,16 +213,13 @@ Object *Heap::MoveNewObject(Object *addr, size_t size, bool upgrade) {
     Address dst = nullptr;
     if (upgrade) {
         dst = old_space_->AllocateRaw(size);
-        DCHECK_NOTNULL(dst);
-        ::memcpy(dst, addr, size);
+        ::memcpy(DCHECK_NOTNULL(dst), addr, size);
     } else {
         SemiSpace *from_area = new_space_->from_area();
         dst = from_area->AllocateRaw(size);
-        DCHECK_NOTNULL(dst);
-        //printf("move: %p(%lu) <- %p\n", dst, size, addr);
-        ::memcpy(dst, addr, size);
+        ::memcpy(DCHECK_NOTNULL(dst), addr, size);
     }
-    
+
     // Set foward address:
 #if defined(NYAA_USE_POINTER_COLOR) || defined(NYAA_USE_POINTER_TYPE)
     uintptr_t word = *reinterpret_cast<uintptr_t *>(addr);
@@ -217,7 +235,7 @@ Object *Heap::MoveNewObject(Object *addr, size_t size, bool upgrade) {
     return reinterpret_cast<Object *>(dst);
 }
     
-void Heap::IterateRememberSet(ObjectVisitor *visitor, bool for_host, bool after_clean) {
+void Heap::IterateRememberSet(ObjectVisitor *visitor, bool for_host) {
     if (for_host) {
         std::set<Address> for_clean;
         for (const auto &pair : remember_set_) {
@@ -239,12 +257,6 @@ void Heap::IterateRememberSet(ObjectVisitor *visitor, bool for_host, bool after_
             } else {
                 visitor->VisitPointer(wr->host, wr->pzwr);
             }
-            if (after_clean) {
-                delete wr;
-            }
-        }
-        if (after_clean) {
-            remember_set_.clear();
         }
     }
 }
@@ -253,8 +265,7 @@ void Heap::IterateFinalizerRecords(ObjectVisitor *visitor) {
     FinalizerRecord dummy {.next = final_records_};
     FinalizerRecord *prev = &dummy, *p = dummy.next;
     while (p) {
-        DCHECK_NOTNULL(p->host);
-        NyUDO *host = p->host;
+        NyUDO *host = DCHECK_NOTNULL(p->host);
         visitor->VisitPointer(nullptr, reinterpret_cast<Object **>(&p->host));
         if (!p->host) {
             prev->next = p->next;
@@ -280,19 +291,6 @@ std::vector<Heap::RememberHost> Heap::GetRememberHosts(NyObject *host) const {
         }
     }
     return result;
-}
-
-/*virtual*/ void *Heap::Allocate(size_t size, size_t /*alignment*/) {
-    return Allocate(size, kNewSpace);
-}
-
-/*virtual*/ void Heap::Purge(bool reinit) {
-    // TODO:
-}
-
-/*virtual*/ size_t Heap::memory_usage() const {
-    // TODO:
-    return 0;
 }
     
 } // namespace nyaa

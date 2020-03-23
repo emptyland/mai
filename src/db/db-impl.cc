@@ -79,7 +79,7 @@ public:
     ColumnFamilyImpl *EnsureGetColumnFamily(uint32_t cfid) {
         ColumnFamilyImpl *impl = (cfid == 0) ? column_families_->GetDefault() :
             column_families_->GetColumnFamily(cfid);
-        DCHECK_NOTNULL(impl);
+        DCHECK(impl != nullptr);
         DCHECK(impl->initialized());
         return impl;
     }

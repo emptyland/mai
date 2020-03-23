@@ -1,0 +1,39 @@
+package main
+
+class Foo(
+public:
+	val i: int,
+	var j: int,
+private:
+	var k: string
+) {}
+
+
+object Bar {
+	val i = 1
+	val j = 2
+	var k = "string"
+}
+
+
+implements Foo {
+	
+fun doIt() {
+	self.k = "hello"
+}
+
+fun doThat() {
+	self.j = 0
+}
+
+} // implements Foo
+
+fun main() {
+    val foo = Foo(1, 2, "ok")
+    println("${foo.i} ${foo.j}")
+    foo.doIt()
+    foo.doThat()
+    foo.hashCode()
+
+    println("${Bar.i} ${Bar.j} ${Bar.k}")
+}

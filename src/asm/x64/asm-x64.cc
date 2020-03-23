@@ -42,7 +42,6 @@ const Register kRegAlloc[kMaxAllocRegs] {
     rdi,
     r8,
     r9,
-    r11, // 8
     r14,
     r15,
 };
@@ -239,9 +238,9 @@ void Assembler::jmp(Label *l, bool is_far) {
     }
 }
     
-void Assembler::j(Cond cc, Label *l, bool is_far) {
+void Assembler::j(Cond cc, Label *label, bool is_far) {
     if (cc == Always) {
-        jmp(l, is_far);
+        jmp(label, is_far);
         return;
     }
     if (cc == Never) {
@@ -249,49 +248,60 @@ void Assembler::j(Cond cc, Label *l, bool is_far) {
     }
     
     DCHECK(IsUintN(cc, 4));
-    if (l->IsBound()) {
+    if (label->IsBound()) {
         static const int kShortSize = 2;
         static const int kLongSize  = 6;
     
-        int off = l->GetPosition() - pc();
+        int off = label->GetPosition() - pc();
         DCHECK_LE(off, 0);
         
         if (IsIntN(off - kShortSize, 8)) {
             // 0111 tttn #8-bit disp
-            EmitB(0x70 | cc);
+            if (cc == RCXZero) {
+                EmitB(0xE3);
+            } else {
+                EmitB(0x70 | cc);
+            }
             EmitB((off - kShortSize) & 0xFF);
         } else {
             // 0000 1111 1000 tttn #32-bit disp
+            DCHECK_NE(cc, RCXZero);
             EmitB(0x0F);
             EmitB(0x80 | cc);
             EmitDW((off - kLongSize));
         }
     } else if (!is_far) { // near
         // 0111 tttn #8-bit disp
-        EmitB(0x70 | cc);
+        if (cc == RCXZero) {
+            EmitB(0xE3);
+        } else {
+            EmitB(0x70 | cc);
+        }
         uint8_t disp = 0x0;
         
-        if (l->IsNearLinked()) {
-            int off = l->GetNearLinkPosition() - pc();
+        if (label->IsNearLinked()) {
+            int off = label->GetNearLinkPosition() - pc();
             DCHECK(IsIntN(off, 8));
             disp = static_cast<uint8_t>(off & 0xFF);
         }
-        l->LinkTo(pc(), false);
+        label->LinkTo(pc(), false);
         EmitB(disp);
-    } else if (l->IsLinked()) {
+    } else if (label->IsLinked()) {
         // 0000 1111 1000 tttn #32-bit disp
+        DCHECK_NE(cc, RCXZero);
         EmitB(0x0F);
         EmitB(0x80 | cc);
-        EmitDW(l->GetPosition());
-        l->LinkTo(pc() - sizeof(uint32_t), true);
+        EmitDW(label->GetPosition());
+        label->LinkTo(pc() - sizeof(uint32_t), true);
     } else {
-        DCHECK(l->IsUnused());
+        DCHECK(label->IsUnused());
+        DCHECK_NE(cc, RCXZero);
         EmitB(0x0F);
         EmitB(0x80 | cc);
-        
+
         int32_t curr = pc();
         EmitDW(curr);
-        l->LinkTo(curr, true);
+        label->LinkTo(curr, true);
     }
 }
     
@@ -308,10 +318,10 @@ void Assembler::test(Register dst, Register src, int size) {
 }
 
 void Assembler::test(Register dst, Immediate mask, int size) {
-    if (IsUintN(mask.value(), 8)) {
-        // testb(reg, mask);
-        return;
-    }
+//    if (IsUintN(mask.value(), 8)) {
+//        // testb(reg, mask);
+//        return;
+//    }
     if (dst == rax) {
         EmitRex(rax, size);
         EmitB(0xA9);
@@ -354,21 +364,7 @@ void Assembler::BindTo(Label *l, int pos) {
         int last_i32 = pos - (curr + sizeof(uint32_t));
         LongPut(curr, last_i32);
     }
-    
-//    while (L->is_near_linked()) {
-//        int fixup_pos = L->near_link_pos();
-//        int offset_to_next =
-//        static_cast<int>(*reinterpret_cast<int8_t*>(addr_at(fixup_pos)));
-//        DCHECK_LE(offset_to_next, 0);
-//        int disp = pos - (fixup_pos + sizeof(int8_t));
-//        CHECK(is_int8(disp));
-//        set_byte_at(fixup_pos, disp);
-//        if (offset_to_next < 0) {
-//            L->link_to(fixup_pos + offset_to_next, Label::kNear);
-//        } else {
-//            L->UnuseNear();
-//        }
-//    }
+
     while (l->IsNearLinked()) {
         int fixup_pos = l->GetNearLinkPosition();
         int off_to_next = *reinterpret_cast<int8_t *>(AddrAt(fixup_pos));

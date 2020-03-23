@@ -1,0 +1,16 @@
+package main
+
+val f = lambda (a: int) { println("a=$a") }
+val 👨 = 119
+
+fun main() {
+	f(👨)
+	val cb = generate(👨)
+	cb(1)
+}
+
+fun generate(a: int): fun(int): int {
+	return lambda (b: int): int {
+		return a + b
+	}
+}

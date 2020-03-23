@@ -1,0 +1,56 @@
+package main
+
+class Foo(val i: int, val j: f32)
+
+implements Foo {
+
+fun doIt() {
+	println("dotIt:${self.i}")
+	self.doThat()
+}
+
+fun doThat() {
+	println("doThat:${self.j}")
+	//assert(false, "")
+}
+
+} // implements Foo
+
+fun main() {
+	val foo = Foo(100, 1.2)
+	//foo.doThat()
+	foo.doIt()
+	// println("${foo.toString()}")
+	// bar(200)(1)
+	// val b = -3
+	// fun baz(a: int) {
+	// 	println("foo---")
+	// 	println("a=$a")
+	// 	println("b=$b")
+	// }
+	// baz(1)
+	// baz(2)
+
+	// val f = bar(-1)
+	// f(-2)
+	// f(200)
+
+	// println("${factorial(9)}")
+	// println("${factorial(10)}")
+	// println("${factorial(14)}")
+	// assert(factorial(9) == 362880, "")
+}
+
+fun factorial(n: int): int {
+	return if (n == 0) 1 else n * factorial(n - 1)
+}
+
+fun bar(a: int): fun (int) {
+	val c = 100
+	return lambda (b: int) {
+		println("bar---")
+		println("a=$a")
+		println("b=$b")
+		println("c=$c")
+	}
+}

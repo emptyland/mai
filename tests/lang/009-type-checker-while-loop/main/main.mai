@@ -1,0 +1,26 @@
+package main
+
+import mai.runtime
+
+fun main() {
+	while (foo() < 0) {
+		a += 0.2
+	}
+	println(runtime.VERSION)
+}
+
+var a = (lambda (i: int): f32 { return i.toF32 + 0.1 })(foo())
+
+fun foo(): int {
+	return 101
+}
+
+fun bar(): Foo {
+    return Foo(1,2,3)
+}
+
+class Foo(
+	val a: int,
+	val b: int,
+	val c: int
+) {}

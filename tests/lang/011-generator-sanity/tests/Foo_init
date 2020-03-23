@@ -1,0 +1,17 @@
++-------------------------------
+| Foo():void
++-------------------------------
+stack-size: 80
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 5
+souce-file-name: tests/lang/011-generator-sanity/foo/foo.mai
+bytecode-size: 5
+bytecode: 
+    000 CheckStack; (5)
+    001 Ldar32 [BP+20]; (5)
+    002 StaProperty32 [BP+24], @16; (5)
+    003 LdarPtr [BP+24]; (5)
+    004 Return; (5)

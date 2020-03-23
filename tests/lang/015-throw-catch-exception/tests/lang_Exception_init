@@ -1,0 +1,19 @@
++-------------------------------
+| Exception():void
++-------------------------------
+stack-size: 80
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 7
+souce-file-name: src/lang/pkg/mai/lang/lang.mai
+bytecode-size: 7
+bytecode: 
+    000 CheckStack; (7)
+    001 LdarPtr [BP+32]; (8)
+    002 StaPropertyPtr [BP+40], @24; (8)
+    003 LdarPtr [BP+24]; (8)
+    004 StaPropertyPtr [BP+40], @32; (8)
+    005 LdarPtr [BP+40]; (7)
+    006 Return; (7)
