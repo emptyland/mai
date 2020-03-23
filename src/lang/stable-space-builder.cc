@@ -4,50 +4,17 @@ namespace mai {
 
 namespace lang {
 
-int StackSpaceAllocator::Reserve(size_t size) {
-    if (level_.p == 0 && level_.r == 0) {
-        AdvanceSpan(false/*isref*/);
-    }
-    while (Test(level_.p) && level_.p < max_spans_ * kSpanSize) {
-        DCHECK_EQ(0, level_.p % kSpanSize);
-        level_.p += kSpanSize;
-    }
-    size_t request_size = RoundUp(size, kSizeGranularity);
-    if (level_.p >= max_spans_ * kSpanSize || level_.p % kSpanSize + request_size > kSpanSize) {
-        AdvanceSpan(false/*isref*/);
-    }
-    level_.p += request_size;
-    return level_.p + kSlotBase;
-}
-
-int StackSpaceAllocator::ReserveRef() {
-    if (level_.p == 0 && level_.r == 0) {
-        AdvanceSpan(true/*isref*/);
-    }
-    while (!Test(level_.r) && level_.r < max_spans_ * kSpanSize) {
-        DCHECK_EQ(0, level_.r % kSpanSize);
-        level_.r += kSpanSize;
-    }
-    if (level_.r >= max_spans_ * kSpanSize || level_.r % kSpanSize + kPointerSize > kSpanSize) {
-        AdvanceSpan(true/*isref*/);
-    }
-    level_.r += kPointerSize;
-    return level_.r + kSlotBase;
-}
-
-void StackSpaceAllocator::AdvanceSpan(bool isref) {
-    if (isref) {
-        level_.r = static_cast<int>(max_spans_ * kSpanSize);
-    } else {
-        level_.p = static_cast<int>(max_spans_ * kSpanSize);
-    }
-    max_spans_++;
-    if ((max_spans_ + 31) / 32 > bitmap_.size()) {
-        bitmap_.push_back(0);
-    }
-    if (isref) {
-        size_t index = level_.r / kSpanSize;
-        bitmap_[index / 32] |= (1u << (index % 32));
+StackSpaceAllocator::StackSpaceAllocator(StackFrame::Maker maker) {
+    switch (maker) {
+        case StackFrame::kBytecode:
+            level_ = BytecodeStackFrame::kOffsetHeaderSize;
+            max_   = level_;
+            break;
+        case StackFrame::kStub:
+        case StackFrame::kTrampoline:
+        default:
+            NOREACHED();
+            break;
     }
 }
 

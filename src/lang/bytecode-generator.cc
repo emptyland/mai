@@ -30,8 +30,9 @@ public:
     bool is_function_scope() const { return kind_ == kFunctionScope; }
     
     virtual Value Find(const ASTString *name) { return {Value::kError}; }
-
     virtual void Register(const std::string &name, Value value) {}
+    virtual void DidRegistered(const Value &value) {}
+    
 
     std::tuple<Scope *, Value> Resolve(const ASTString *name) {
         for (auto i = this; i != nullptr; i = i->prev_) {
@@ -245,12 +246,16 @@ public:
         symbols_[name] = value;
     }
     
+    void DidRegistered(const Value &value) override {
+        prev_->DidRegistered(value);
+    }
+    
     DISALLOW_IMPLICIT_CONSTRUCTORS(BlockScope);
 private:
     std::map<std::string, Value> symbols_;
     BytecodeLabel retry_label_;
     BytecodeLabel out_label_;
-    StackSpaceAllocator::Level stack_level_{0, 0};
+    StackSpaceAllocator::Level stack_level_;
 }; // class BytecodeGenerator::BlockScope
 
 class BytecodeGenerator::FunctionScope : public BlockScope {
@@ -267,6 +272,7 @@ public:
         : BlockScope(kFunctionScope, current)
         , file_unit_(file_unit)
         , builder_(arena)
+        , stack_(StackFrame::kBytecode)
         , current_fun_(current_fun) {
         prev_fun_ = *current_fun_;
         DCHECK_NE(this, *current_fun_);
@@ -277,6 +283,20 @@ public:
         *current_fun_ = prev_fun_;
     }
     
+    void DidRegistered(const Value &value) override {
+        DCHECK(value.index % kStackSizeGranularity);
+        int index = value.index / kStackSizeGranularity;
+        size_t required_size = (index + 31) / 32;
+        if (required_size > stack_bitmap_.size()) {
+            stack_bitmap_.resize(required_size, 0);
+        }
+        if (value.type->is_reference()) {
+            stack_bitmap_[index/32] |= (1u << (index % 32));
+        } else {
+            DCHECK((stack_bitmap_[index/32] & (1u << (index % 32))) == 0);
+        }
+    }
+
     int AddCapturedVarDesc(const std::string &name, const Class *type,
                            Function::CapturedVarKind kind, int index) {
         int cidx = static_cast<int>(captured_vars_.size());
@@ -292,28 +312,19 @@ public:
 
     DEF_PTR_PROP_RW(FileUnit, file_unit);
     DEF_VAL_GETTER(std::vector<int>, source_lines);
+    DEF_VAL_GETTER(std::vector<uint32_t>, stack_bitmap);
     DEF_VAL_GETTER(std::vector<CapturedVarDesc>, captured_vars);
     DEF_VAL_GETTER(std::vector<Function::ExceptionHandlerDesc>, exception_handlers);
     BytecodeArrayBuilder *builder() { return &builder_; }
     ConstantPoolBuilder *constants() { return &constants_; }
     StackSpaceAllocator *stack() { return &stack_; }
     
-    int StackReserve(const Class *clazz) {
-        if (clazz->is_reference()) {
-            return stack_.ReserveRef();
-        } else {
-            return stack_.Reserve(clazz->reference_size());
-        }
-    }
+    int StackReserve(const Class *clazz) { return stack_.Reserve(clazz->reference_size()); }
     
     void StackFallback(const Class *clazz, int index) {
-        if (clazz->is_reference()) {
-            stack_.FallbackRef(index);
-        } else {
-            stack_.Fallback(index, clazz->reference_size());
-        }
+        stack_.Fallback(index, clazz->reference_size());
     }
-    
+
     BytecodeArrayBuilder *Incoming(ASTNode *ast) {
         SourceLocation loc = file_unit_->FindSourceLocation(ast);
         source_lines_.push_back(loc.begin_line);
@@ -334,6 +345,7 @@ private:
     BytecodeArrayBuilder builder_;
     ConstantPoolBuilder constants_;
     StackSpaceAllocator stack_;
+    std::vector<uint32_t> stack_bitmap_;
     FunctionScope **current_fun_;
     FunctionScope *prev_fun_;
 }; // class BytecodeGenerator::FunctionScope
@@ -358,7 +370,7 @@ using BValue = BytecodeGenerator::Value;
 
 namespace {
 
-#define TOP_REF (current_fun_->stack()->GetTopRef())
+#define STACK_TOP (current_fun_->stack()->GetTop())
 #define EMIT(ast, action) current_fun_->Incoming(ast)->action
 
 
@@ -549,10 +561,10 @@ bool BytecodeGenerator::Generate() {
     function_scope.IncomingWithLine(1)->Add<kLdaGlobalPtr>(GetGlobalOffset(fun_main_main.index));
     if (main->is_mai_function()) {
         function_scope.IncomingWithLine(1)
-            ->Add<kCallBytecodeFunction>(function_scope.stack()->GetTopRef(), 0);
+            ->Add<kCallBytecodeFunction>(function_scope.stack()->GetTop(), 0);
     } else {
         function_scope.IncomingWithLine(1)
-            ->Add<kCallNativeFunction>(function_scope.stack()->GetTopRef(), 0);
+            ->Add<kCallNativeFunction>(function_scope.stack()->GetTop(), 0);
     }
     function_scope.IncomingWithLine(1)->Add<kReturn>();
     generated_init0_fun_ = BuildFunction("init0", &function_scope);
@@ -708,7 +720,7 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
                                                                      scope->source_lines());
     ConstantPoolBuilder *const_pool = scope->constants();
     StackSpaceAllocator *stack = scope->stack();
-    uint32_t stack_size = RoundUp(stack->GetMaxStackSize(), kStackAligmentSize);
+    uint32_t stack_size = static_cast<uint32_t>(RoundUp(stack->max(), kStackAligmentSize));
     std::vector<BytecodeInstruction> instrs =
         scope->builder()->BuildWithRewrite([stack_size](int index) {
             if (index >= 0) {
@@ -717,11 +729,6 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
             return GetStackOffset(stack_size - index);
         });
     BytecodeArray *bytecodes = metadata_space_->NewBytecodeArray(instrs);
-
-    std::vector<uint32_t> stack_bitmap(stack->bitmap());
-    if (stack_bitmap.empty()) {
-        stack_bitmap.resize(1); // Placeholder
-    }
 
     FunctionBuilder builder(name);
     for (auto var : scope->captured_vars()) {
@@ -734,7 +741,7 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
     return builder
         // TODO:
         .stack_size(stack_size)
-        .stack_bitmap(stack_bitmap)
+        .stack_bitmap(scope->stack_bitmap())
         .prototype({}/*parameters*/, false/*vargs*/, kType_void)
         .source_line_info(source_info)
         .bytecode(bytecodes)
@@ -928,7 +935,7 @@ ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition
     }
 
     // Local var
-    int local = current_fun_->stack()->ReserveRef();
+    int local = current_fun_->stack()->Reserve(kPointerSize);
     current_->Register(ast->identifier()->ToString(), {Value::kStack, clazz, local, ast});
 
     if (fun->captured_var_size() > 0) {
@@ -1015,7 +1022,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
     DCHECK(clazz->is_reference());
     StackSpaceAllocator::Scope stack_scope(current_fun_->stack());
     
-    int self = current_fun_->stack()->ReserveRef();
+    int self = current_fun_->stack()->Reserve(kPointerSize);
     MoveToStackIfNeeded(clazz, primary.index, primary.linkage, self, dot);
     
     auto proto = ast->prototype();
@@ -1041,16 +1048,16 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
             kidx = current_fun_->constants()->FindOrInsertString(name);
         }
         EMIT(ast, Add<kLdaVtableFunction>(self, GetConstOffset(kidx)));
-        EMIT(ast, Add<kCallFunction>(TOP_REF, arg_size));
+        EMIT(ast, Add<kCallFunction>(STACK_TOP, arg_size));
     } else {
         std::string name = std::string(owns->name()) + "::" + dot->rhs()->ToString();
         Value value = EnsureFindValue(name);
         DCHECK_EQ(Value::kGlobal, value.linkage);
         LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
         if (method->is_native()) {
-            EMIT(ast, Add<kCallNativeFunction>(TOP_REF, arg_size));
+            EMIT(ast, Add<kCallNativeFunction>(STACK_TOP, arg_size));
         } else {
-            EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, arg_size));
+            EMIT(ast, Add<kCallBytecodeFunction>(STACK_TOP, arg_size));
         }
     }
 
@@ -1211,7 +1218,7 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
         Closure *ctor = DCHECK_NOTNULL(DCHECK_NOTNULL(base->init())->fn());
         int kidx = current_fun_->constants()->FindOrInsertClosure(ctor);
         EMIT(ast, Add<kLdaConstPtr>(GetConstOffset(kidx)));
-        EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, arg_size));
+        EMIT(ast, Add<kCallBytecodeFunction>(STACK_TOP, arg_size));
     }
 
     if (ast->arguments().empty()) {
@@ -1236,11 +1243,11 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
     DCHECK_EQ(kType_closure, rv.bundle.type);
     const Class *clazz = metadata_space_->builtin_type(kType_closure);
 
-    bool saved_callee = false;
+    bool has_reserve_callee = false;
     int callee = 0;
     if (rv.kind == Value::kACC && (ast->prototype()->vargs() || ast->operands_size() > 0)) {
-        saved_callee = true;
-        callee = current_fun_->stack()->ReserveRef();
+        has_reserve_callee = true;
+        callee = current_fun_->stack()->Reserve(kPointerSize);
         StaStack(clazz, callee, ast->callee());
     }
 
@@ -1260,15 +1267,18 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
     if (arg_size < 0) {
         return ResultWithError();
     }
-    if (saved_callee) {
+    if (has_reserve_callee) {
         LdaStack(clazz, callee, ast->callee());
     } else {
         LdaIfNeeded(rv, ast->callee());
     }
     if (native) {
-        EMIT(ast, Add<kCallNativeFunction>(TOP_REF, arg_size));
+        EMIT(ast, Add<kCallNativeFunction>(STACK_TOP, arg_size));
     } else {
-        EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, arg_size));
+        EMIT(ast, Add<kCallBytecodeFunction>(STACK_TOP, arg_size));
+    }
+    if (has_reserve_callee) {
+        current_fun_->stack()->Fallback(callee, kPointerSize);
     }
 
     if (rv = proto->return_type()->Accept(this); rv.kind == Value::kError) {
@@ -1306,11 +1316,7 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
     const Class *clazz = metadata_space_->type(rv.bundle.index);
     
     Value local{Value::kStack, clazz};
-    if (clazz->is_reference()) {
-        local.index = current_fun_->stack()->ReserveRef();
-    } else {
-        local.index = current_fun_->stack()->Reserve(clazz->reference_size());
-    }
+    local.index = current_fun_->stack()->Reserve(clazz->reference_size());
     local.ast = ast;
     current_->Register(ast->identifier()->ToString(), local);
 
@@ -1380,7 +1386,7 @@ ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTempla
         }
 
         const Class *clazz = metadata_space_->type(rv.bundle.type);
-        Value value{Value::kStack, clazz, current_fun_->stack()->ReserveRef()};
+        Value value{Value::kStack, clazz, current_fun_->stack()->Reserve(kPointerSize)};
         if (clazz->id() == kType_string) {
             MoveToStackIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
                                 value.index, part);
@@ -1396,7 +1402,7 @@ ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTempla
         argument_offset += kPointerSize;
         MoveToArgumentIfNeeded(type, part.index, part.linkage, argument_offset, ast);
     }
-    EMIT(ast, Add<kContact>(TOP_REF, argument_offset));
+    EMIT(ast, Add<kContact>(STACK_TOP, argument_offset));
     return ResultWith(Value::kACC, kType_string, 0);
 }
 
@@ -1780,7 +1786,7 @@ ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyB
         Value value {
             Value::kStack,
             clazz,
-            current_fun_->stack()->ReserveRef(),
+            current_fun_->stack()->Reserve(kPointerSize),
             block->expected_declaration()
         };
         StaStack(clazz, value.index, block->expected_declaration());
@@ -1917,14 +1923,14 @@ SourceLocation BytecodeGenerator::FindSourceLocation(const ASTNode *ast) {
 
 ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, CallExpression *ast) {
     int kidx = current_fun_->constants()->FindOrInsertMetadata(clazz);
-    EMIT(ast, Add<kNewObject>(TOP_REF, GetConstOffset(kidx)));
+    EMIT(ast, Add<kNewObject>(STACK_TOP, GetConstOffset(kidx)));
     if (!clazz->init()) {
         return ResultWith(Value::kACC, clazz->id(), 0);
     }
     StackSpaceAllocator::Scope stack_scope(current_fun_->stack());
 
     // first argument
-    int self = current_fun_->stack()->ReserveRef();
+    int self = current_fun_->stack()->Reserve(kPointerSize);
     StaStack(clazz, self, ast);
 
     int argument_size = 0;
@@ -1935,9 +1941,9 @@ ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, Call
 
     kidx = current_fun_->constants()->FindOrInsertClosure(clazz->init()->fn());
     LdaConst(metadata_space_->builtin_type(kType_closure), kidx, ast);
-    EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, argument_size));
+    EMIT(ast, Add<kCallBytecodeFunction>(STACK_TOP, argument_size));
     
-    current_fun_->stack()->FallbackRef(self);
+    current_fun_->stack()->Fallback(self, kPointerSize);
     return ResultWith(Value::kACC, clazz->id(), 0);
 }
 
@@ -2121,13 +2127,13 @@ BytecodeGenerator::GenerateStoreProperty(const Class *clazz, int index, Value::L
         self = index;
         has_reserve_self = false;
     } else {
-        self = current_fun_->stack()->ReserveRef();
+        self = current_fun_->stack()->Reserve(kPointerSize);
         MoveToStackIfNeeded(clazz, index, linkage, self, ast);
     }
     StaProperty(field->type(), self, field->offset(), ast);
     
     if (has_reserve_self) {
-        current_fun_->stack()->FallbackRef(self);
+        current_fun_->stack()->Fallback(self, kPointerSize);
     }
     return ResultWithVoid();
 }
@@ -2145,13 +2151,13 @@ BytecodeGenerator::GenerateLoadProperty(const Class *clazz, int index, Value::Li
             self = index;
             has_reserve_self = false;
         } else {
-            self = current_fun_->stack()->ReserveRef();
+            self = current_fun_->stack()->Reserve(kPointerSize);
             MoveToStackIfNeeded(clazz, index, linkage, self, ast);
         }
         LdaProperty(field->type(), self, field->offset(), ast);
 
         if (has_reserve_self) {
-            current_fun_->stack()->FallbackRef(self);
+            current_fun_->stack()->Fallback(self, kPointerSize);
         }
         return ResultWith(Value::kACC, field->type()->id(), 0);
     }
@@ -2558,7 +2564,7 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
             MoveToArgumentIfNeeded(clazz, index, linkage, args_size, ast); \
             Value value = FindOrInsertExternalFunction("lang." #dest "::toString"); \
             LdaGlobal(value.type, value.index, ast); \
-            EMIT(ast, Add<kCallNativeFunction>(TOP_REF, args_size)); \
+            EMIT(ast, Add<kCallNativeFunction>(STACK_TOP, args_size)); \
         } break;
         DECLARE_BOX_NUMBER_TYPES(DEFINE_TO_STRING)
 #undef DEFINE_TO_STRING
@@ -2576,9 +2582,9 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
             int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
             LdaConst(method->fn()->clazz(), kidx, ast);
             if (method->is_native()) {
-                EMIT(ast, Add<kCallNativeFunction>(TOP_REF, argument_offset));
+                EMIT(ast, Add<kCallNativeFunction>(STACK_TOP, argument_offset));
             } else {
-                EMIT(ast, Add<kCallBytecodeFunction>(TOP_REF, argument_offset));
+                EMIT(ast, Add<kCallBytecodeFunction>(STACK_TOP, argument_offset));
             }
         } break;
     }
@@ -2593,7 +2599,7 @@ void BytecodeGenerator::InboxIfNeeded(const Class *clazz, int index, Value::Link
             MoveToArgumentIfNeeded(clazz, index, linkage, args_size, ast); \
             Value value = FindOrInsertExternalFunction("lang." #dest "::valueOf"); \
             LdaGlobal(value.type, value.index, ast); \
-            EMIT(ast, Add<kCallNativeFunction>(TOP_REF, args_size)); \
+            EMIT(ast, Add<kCallNativeFunction>(STACK_TOP, args_size)); \
         } break;
         DECLARE_BOX_NUMBER_TYPES(DEFINE_INBOX_PRIMITIVE)
 #undef DEFINE_INBOX_PRIMITIVE

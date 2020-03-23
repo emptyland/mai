@@ -294,7 +294,6 @@ void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
     __ subq(rsp, rbx);
     __ movl(Operand(rbp, BytecodeStackFrame::kOffsetMaker), BytecodeStackFrame::kMaker);
     __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), 0); // set pc = 0
-    __ movl(Operand(rbp, BytecodeStackFrame::kOffsetTop), 0); // set top = 0
 
     __ movq(Operand(rbp, BytecodeStackFrame::kOffsetCallee), Argv_0); // set callee
     __ movq(rbx, Operand(SCRATCH, Function::kOffsetBytecode)); // rbx = mai_fn->bytecodes
@@ -1361,9 +1360,7 @@ public:
     // Calling -------------------------------------------------------------------------------------
     void EmitCallNativeFunction(MacroAssembler *masm) override {
         InstrImmABScope instr_scope(masm);
-        // Set top
-        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetTop), rbx);
-        
+
         // Adjust Caller Stack
         instr_scope.GetBTo(rbx);
         __ addl(rbx, 15); // ebx = ebx + 16 - 1
@@ -1386,8 +1383,6 @@ public:
 
     void EmitCallBytecodeFunction(MacroAssembler *masm) override {
         InstrImmABScope instr_scope(masm);
-        // Set top
-        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetTop), rbx);
     
         // Adjust Caller Stack
         instr_scope.GetBTo(rbx);
@@ -1435,7 +1430,6 @@ public:
     
     void EmitNewObject(MacroAssembler *masm) override {
         InstrImmABScope instr_scope(masm);
-        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetTop), rbx);
 
         // Load class pointer
         instr_scope.GetBTo(rbx); // class
@@ -1480,8 +1474,7 @@ public:
 
     void EmitContact(MacroAssembler *masm) override {
         InstrImmABScope instr_scope(masm);
-        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetTop), rbx);
-        
+
         instr_scope.GetBTo(rbx);
         __ movq(Argv_0, rsp);
         __ subq(Argv_0, rbx);

@@ -21,66 +21,34 @@ public:
     using Scope = StackSpaceScope;
     static constexpr size_t kOffsetGranularity = kStackOffsetGranularity;
     static constexpr size_t kSizeGranularity = kStackSizeGranularity;
-    static constexpr size_t kSpanSize = sizeof(Span16);
-    static constexpr size_t kSlotBase = BytecodeStackFrame::kOffsetHeaderSize;
-
-    struct Level {
-        int p;
-        int r;
-    }; // struct Level
-
-    StackSpaceAllocator() = default;
     
+    using Level = int;
+
+    explicit StackSpaceAllocator(StackFrame::Maker maker);
+
     DEF_VAL_PROP_RW(Level, level);
-    DEF_VAL_GETTER(std::vector<uint32_t>, bitmap);
-    DEF_VAL_GETTER(size_t, max_spans);
-
-    void set_level(int p_level, int r_level) {
-        level_.p = p_level;
-        level_.r = r_level;
-    }
+    DEF_VAL_GETTER(size_t, max);
     
-    int Reserve(size_t size);
-
-    int ReserveRef();
+    int Reserve(size_t size) {
+        level_ += RoundUp(size, kSizeGranularity);
+        if (level_ > max_) {
+            max_ = level_;
+        }
+        return level_;
+    }
 
     void Fallback(int index, size_t size) {
-        DCHECK_EQ(level_.p, index - kSlotBase);
-        level_.p -= RoundUp(size, kSizeGranularity);
-        while (Test(level_.p) && level_.p > 0) {
-            DCHECK_EQ(0, level_.p % kSpanSize);
-            level_.p -= kSpanSize;
-        }
+        DCHECK_EQ(index, level_);
+        level_ -= RoundUp(size, kSizeGranularity);
     }
 
-    void FallbackRef(int index) {
-        DCHECK_EQ(level_.r, index - kSlotBase);
-        level_.r -= kPointerSize;
-        while (!Test(level_.r) && level_.r > 0) {
-            DCHECK_EQ(0, level_.r % kSpanSize);
-            level_.r -= kSpanSize;
-        }
-    }
-    
-    int GetTopRef() const { return kSlotBase + level_.r; }
-
-    uint32_t GetMaxStackSize() const {
-        return static_cast<uint32_t>(max_spans_ * kSpanSize + kSlotBase);
-    }
+    int GetTop() const { return level_; }
     
     friend class StackSpaceScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(StackSpaceAllocator);
 private:
-    void AdvanceSpan(bool isref);
-    
-    bool Test(int level) const {
-        size_t index = level / kSpanSize;
-        return bitmap_[index / 32] & (1u << (index % 32));
-    }
-    
-    std::vector<uint32_t> bitmap_;
-    Level level_{0, 0};
-    size_t max_spans_ = 0;
+    Level level_;
+    size_t max_ = 0;
 }; // class StackSpaceAllocator
 
 
