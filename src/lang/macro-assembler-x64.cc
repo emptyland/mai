@@ -1358,6 +1358,10 @@ public:
     }
 
     // Calling -------------------------------------------------------------------------------------
+    void EmitCallFunction(MacroAssembler *masm) override {
+        __ Abort("TODO:");
+    }
+    
     void EmitCallNativeFunction(MacroAssembler *masm) override {
         InstrImmABScope instr_scope(masm);
         // TODO: slot

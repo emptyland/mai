@@ -18,6 +18,7 @@ class Scheduler;
 class HandleScope;
 class Coroutine;
 class RootVisitor;
+class Tracing;
 
 struct HandleScopeSlot {
     HandleScope     *scope;
@@ -238,6 +239,7 @@ private:
     std::mutex mutex_; // Total mutex
     std::thread thread_; // Thread object
     RememberSet remember_set_; // elements [weak ref] Local remember set
+    Tracing *tracing_ = nullptr; // Tracing for PGO
 }; // class Machine
 
 

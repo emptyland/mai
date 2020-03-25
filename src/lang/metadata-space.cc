@@ -15,6 +15,7 @@ MetadataSpace::MetadataSpace(Allocator *lla)
     , code_dummy_(new PageHeader(kDummySpace))
     , large_dummy_(new PageHeader(kDummySpace)) {
     ::memset(bytecode_handlers_, 0, sizeof(bytecode_handlers_[0]) * kMax_Bytecodes);
+    ::memset(tracing_proxies_, 0, sizeof(tracing_proxies_[0]) * kMax_Bytecodes);
 }
 
 MetadataSpace::~MetadataSpace() {

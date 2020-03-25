@@ -316,19 +316,21 @@ public:
     }
     
     void EmitDirectlyCallFunction(ASTNode *ast, bool native, int slot, int params_size) {
-        invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
         if (native) {
+            invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
             Incoming(ast)->Add<kCallNativeFunction>(slot, params_size);
         } else {
+            invoking_hint_.push_back({builder_.pc(), 1, stack_.GetTopRef()});
             Incoming(ast)->Add<kCallBytecodeFunction>(slot, params_size);
         }
     }
     
     void EmitDirectlyCallFunctionWithLine(int line, bool native, int slot, int params_size) {
-        invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
         if (native) {
+            invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
             IncomingWithLine(line)->Add<kCallNativeFunction>(slot, params_size);
         } else {
+            invoking_hint_.push_back({builder_.pc(), 1, stack_.GetTopRef()});
             IncomingWithLine(line)->Add<kCallBytecodeFunction>(slot, params_size);
         }
     }

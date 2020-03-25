@@ -228,6 +228,7 @@ private:
     
     // Builtin codes:
     Code *bytecode_handlers_[kMax_Bytecodes]; // Bytecode handler array
+    Code *tracing_proxies_[kMax_Bytecodes]; // Tracing Proxies for bytecode handler array
     
     Code *sanity_test_stub_code_ = nullptr; // For code sanity testing
 
