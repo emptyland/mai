@@ -4,5 +4,10 @@ import mai.runtime
 
 class Foo(val i: int)
 
+class Bar {
+	var nestd: Foo
+	var bar: Bar
+}
+
 val a = runtime.VERSION
 val b = 1.1

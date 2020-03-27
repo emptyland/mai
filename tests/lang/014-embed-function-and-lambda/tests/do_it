@@ -1,5 +1,5 @@
 +-------------------------------
-| main.Foo::doIt():void
+| main.Foo::doIt(main.Foo):void
 +-------------------------------
 stack-size: 112
 const-pool-bytes: 64
@@ -15,7 +15,7 @@ bytecode:
     002 StarPtr [BP-72]; (8)
     003 LdaProperty32 [BP+24], @16; (8)
     004 Star32 [BP-116]; (8)
-    005 LdaGlobalPtr [GS+160]; (8)
+    005 LdaGlobalPtr [GS+184]; (8)
     006 CallNativeFunction #0, #4; (8)
     007 StarPtr [BP-80]; (8)
     008 MovePtr [BP-120], [BP-72]; (8)
@@ -23,10 +23,10 @@ bytecode:
     010 Contact #80, #16; (8)
     011 StarPtr [BP-88]; (8)
     012 MovePtr [BP-120], [BP-88]; (8)
-    013 LdaGlobalPtr [GS+64]; (8)
+    013 LdaGlobalPtr [GS+72]; (8)
     014 CallNativeFunction #0, #8; (8)
     015 MovePtr [BP-104], [BP+24]; (9)
     016 MovePtr [BP-120], [BP-104]; (9)
-    017 LdaGlobalPtr [GS+136]; (9)
+    017 LdaGlobalPtr [GS+160]; (9)
     018 CallBytecodeFunction #0, #8; (9)
     019 Return; (7)

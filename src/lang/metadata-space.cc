@@ -53,7 +53,7 @@ Error MetadataSpace::Initialize() {
     clazz->tags_ = Type::kBuiltinTag;
     InsertClass("void", clazz);
     DCHECK_EQ(kType_void, clazz->id()) << "void";
-    
+
 #define DEFINE_PRIMITIVE_CLASS(literal, kind, ...) \
     clazz = New<Class>(); \
     clazz->id_ = NextTypeId(); \
@@ -86,7 +86,7 @@ Error MetadataSpace::Initialize() {
             .offset(Any::kOffsetTags)
         .End()
     .Build(this);
-    
+
 #define DEFINE_BUILTIN_CLASS(literal, primitive, kind, ...) \
     clazz = ClassBuilder(#literal) \
         .tags(Type::kBuiltinTag|Type::kReferenceTag) \
@@ -103,9 +103,9 @@ Error MetadataSpace::Initialize() {
     DCHECK_EQ(kType_##literal, clazz->id()) << #literal;
 
     DECLARE_BOX_NUMBER_TYPES(DEFINE_BUILTIN_CLASS)
-        
+
 #undef DEFINE_BUILTIN_CLASS
-    
+
     clazz = ClassBuilder("captured_value")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
         .base(builtin_type(kType_any))
@@ -119,7 +119,7 @@ Error MetadataSpace::Initialize() {
         .End()
     .Build(this);
     DCHECK_EQ(kType_captured_value, clazz->id()) << "captured_value";
-    
+
     clazz = ClassBuilder("closure")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
         .base(builtin_type(kType_any))
@@ -145,7 +145,7 @@ Error MetadataSpace::Initialize() {
         .End()
     .Build(this);
     DCHECK_EQ(kType_closure, clazz->id()) << "closure";
-    
+
     // String class
     clazz = ClassBuilder("string")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
@@ -172,7 +172,7 @@ Error MetadataSpace::Initialize() {
         .End()
     .Build(this);
     DCHECK_EQ(kType_string, clazz->id()) << "string";
-    
+
     clazz = ClassBuilder("channel")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
         .reference_size(kPointerSize)
@@ -198,7 +198,7 @@ Error MetadataSpace::Initialize() {
         .End()
     .Build(this);
     DCHECK_EQ(kType_channel, clazz->id()) << "channel";
-    
+
     // MutableMap::Entry
     clazz = ClassBuilder("mutable_map.entry")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)

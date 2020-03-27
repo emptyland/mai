@@ -49,7 +49,9 @@ class Function;
     V(Assert, "lang.assert") \
     V(Object_HashCode, "lang.Object::hashCode") \
     V(Object_ToString, "lang.Object::toString") \
-    V(Exception_PrintStackstrace, "lang.Exception::printStackstrace")
+    V(Exception_PrintStackstrace, "lang.Exception::printStackstrace") \
+    V(System_CurrentTimeMillis, "lang.System::currentTimeMillis") \
+    V(System_MicroTime, "lang.System::microTime")
 
 // The runtime functions definition
 struct Runtime {
@@ -140,6 +142,9 @@ struct Runtime {
     static String *Object_ToString(Any *any);
     
     static void Exception_PrintStackstrace(Any *any);
+    
+    static int64_t System_CurrentTimeMillis(Any *any);
+    static int64_t System_MicroTime(Any *any);
 }; // struct Runtime
 
 } // namespace lang

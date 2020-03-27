@@ -1,5 +1,5 @@
 +-------------------------------
-| main.bar():void
+| main.bar(int):closure
 +-------------------------------
 stack-size: 80
 const-pool-bytes: 64

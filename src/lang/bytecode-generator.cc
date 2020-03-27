@@ -295,6 +295,10 @@ public:
     DEF_VAL_PROP_RM(std::vector<CapturedVarDesc>, captured_vars);
     DEF_VAL_PROP_RM(std::vector<Function::ExceptionHandlerDesc>, exception_handlers);
     DEF_VAL_PROP_RM(std::vector<Function::InvokingHint>, invoking_hint);
+    DEF_VAL_PROP_RM(std::vector<uint32_t>, proto_params);
+    DEF_VAL_PROP_RW(uint32_t, proto_ret_type);
+    DEF_VAL_PROP_RW(bool, proto_vargs);
+
     BytecodeArrayBuilder *builder() { return &builder_; }
     ConstantPoolBuilder *constants() { return &constants_; }
     StackSpaceAllocator *stack() { return &stack_; }
@@ -358,15 +362,18 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(FunctionScope);
 private:
     FileUnit *file_unit_;
-    std::vector<int> source_lines_;
-    std::vector<CapturedVarDesc> captured_vars_;
-    std::vector<Function::ExceptionHandlerDesc> exception_handlers_;
-    std::vector<Function::InvokingHint> invoking_hint_;
     BytecodeArrayBuilder builder_;
     ConstantPoolBuilder constants_;
     StackSpaceAllocator stack_;
     FunctionScope **current_fun_;
     FunctionScope *prev_fun_;
+    std::vector<int> source_lines_;
+    std::vector<CapturedVarDesc> captured_vars_;
+    std::vector<Function::ExceptionHandlerDesc> exception_handlers_;
+    std::vector<Function::InvokingHint> invoking_hint_;
+    std::vector<uint32_t> proto_params_;
+    uint32_t proto_ret_type_ = kType_void;
+    bool proto_vargs_ = false;
 }; // class BytecodeGenerator::FunctionScope
 
 
@@ -757,7 +764,7 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
         // TODO:
         .stack_size(stack_size)
         .stack_bitmap(stack_bitmap)
-        .prototype({}/*parameters*/, false/*vargs*/, kType_void)
+        .prototype(scope->proto_params(), scope->proto_vargs(), scope->proto_ret_type())
         .source_line_info(source_info)
         .movable_exception_table(std::move(*scope->mutable_exception_handlers()))
         .movable_invoking_hint(std::move(*scope->mutable_invoking_hint()))
@@ -810,12 +817,105 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
     }
     
     std::vector<FieldDesc> fields_desc;
+    uint32_t size = ProcessStructure(ast, offset, &builder, &fields_desc);
+    if (!size) {
+        return ResultWithError();
+    }
+
+    builder
+        .tags(Type::kReferenceTag)
+        .base(base)
+        .reference_size(kPointerSize)
+        .instrance_size(size)
+        .BuildWithPreparedClass(metadata_space_, ast->clazz());
+    Function *ctor = GenerateClassConstructor(fields_desc, base, ast);
+    if (!ctor) {
+        return ResultWithError();
+    }
+    if (!ProcessMethodsPost(ctor, ast)) {
+        return ResultWithError();
+    }
+    symbol_trace_.insert(ast);
+    return ResultWithVoid();
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitObjectDefinition(ObjectDefinition *ast) /*override*/ {
+    std::string name(DCHECK_NOTNULL(current_file_)->file_unit()->package_name()->ToString());
+    name.append(".").append(ast->identifier()->ToString());
+    std::string class_name = name + "$class";
+    
+    ClassScope class_scope(ast, &current_, &current_class_);
+    ClassBuilder builder(class_name);
+    const Class *base = metadata_space_->builtin_type(kType_any);
+    std::vector<FieldDesc> fields_desc;
+    uint32_t size = ProcessStructure(ast, base->instrance_size(), &builder, &fields_desc);
+    if (!size) {
+        return ResultWithError();
+    }
+    Class *clazz = builder
+        .tags(Type::kReferenceTag)
+        .base(base)
+        .reference_size(kPointerSize)
+        .instrance_size(size)
+        .BuildWithPreparedClass(metadata_space_, ast->clazz());
+    Function *ctor = GenerateObjectConstructor(fields_desc, ast);
+    if (!ctor) {
+        return ResultWithError();
+    }
+    if (!ProcessMethodsPost(ctor, ast)) {
+        return ResultWithError();
+    }
+    
+    int kidx = current_fun_->constants()->FindOrInsertMetadata(clazz);
+    EMIT(ast, Add<kNewObject>(TOP_REF, GetConstOffset(kidx)));
+    EMIT(ast, Incomplete<kStarPtr>(-kPointerSize)); // argv[0] = self
+
+    kidx = current_fun_->constants()->FindOrInsertClosure(clazz->init()->fn());
+    LdaConst(metadata_space_->builtin_type(kType_closure), kidx, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, false/*native*/, 0/*slot*/,
+                                           kPointerSize/*argument_size*/);
+    Value value = EnsureFindValue(name);
+    StaGlobal(clazz, value.index, ast);
+
+    symbol_trace_.insert(ast);
+    return ResultWithVoid();
+}
+
+bool BytecodeGenerator::ProcessMethodsPost(Function *ctor, StructureDefinition *ast) {
+    if (ctor) {
+        ast->clazz()->set_init_function(Machine::This()->NewClosure(ctor, 0, Heap::kMetadata));
+    }
+
+    for (uint32_t i = 0; i < ast->methods_size(); i++) {
+        FunctionDefinition *method = ast->method(i);
+        auto full_name = current_file_->LocalFileFullName(ast->identifier()) + "::" +
+            method->identifier()->ToString();
+        Value value = EnsureFindValue(full_name);
+        DCHECK_EQ(Value::kGlobal, value.linkage);
+        if (method->is_native()) {
+            ast->clazz()->set_method_function(i, *global_space_.offset<Closure *>(value.index));
+            continue;
+        }
+        auto rv = method->Accept(this);
+        if (rv.kind == Value::kError) {
+            return false;
+        }
+        Closure *closure = Machine::This()->NewClosure(rv.fun, 0/*captured_var_size*/, Heap::kOld);
+        ast->clazz()->set_method_function(i, closure);
+        *global_space_.offset<Closure *>(value.index) = closure;
+    }
+    return true;
+}
+
+uint32_t BytecodeGenerator::ProcessStructure(StructureDefinition *ast, uint32_t offset,
+                                             ClassBuilder *builder,
+                                             std::vector<FieldDesc> *fields_desc) {
     int tag = 1;
     for (auto field : ast->fields()) {
-        auto &field_builder = builder.field(field.declaration->identifier()->ToString());
+        auto &field_builder = builder->field(field.declaration->identifier()->ToString());
         Result rv = field.declaration->type()->Accept(this);
         if (rv.kind == Value::kError) {
-            return ResultWithError();
+            return 0;
         }
         uint32_t flags = 0;
         if (field.access == StructureDefinition::kPublic) {
@@ -843,7 +943,7 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
             .tag(tag++)
             .flags(flags)
         .End();
-        fields_desc.push_back({field.declaration->identifier(), field_class, field_offset});
+        fields_desc->push_back({field.declaration->identifier(), field_class, field_offset});
         if ((offset + field_class->reference_size()) % 2 == 0) {
             offset += field_class->reference_size();
         } else {
@@ -859,51 +959,13 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
         } else {
             tags = Method::kBytecode;
         }
-        builder.method(method->identifier()->ToString())
+        builder->method(method->identifier()->ToString())
             .fn(nullptr)
             .tags(tags)
         .End();
     }
-
-    Function *ctor = GenerateClassConstructor(fields_desc, base, ast);
-    if (!ctor) {
-        return ResultWithError();
-    }
-    builder
-        .tags(Type::kReferenceTag)
-        .base(base)
-        .reference_size(kPointerSize)
-        .instrance_size(offset)
-        .init(Machine::This()->NewClosure(ctor, 0, Heap::kMetadata))
-        .BuildWithPreparedClass(metadata_space_, ast->clazz());
     
-    for (uint32_t i = 0; i < ast->methods_size(); i++) {
-        FunctionDefinition *method = ast->method(i);
-        auto full_name = current_file_->LocalFileFullName(ast->identifier()) + "::" +
-            method->identifier()->ToString();
-        Value value = EnsureFindValue(full_name);
-        DCHECK_EQ(Value::kGlobal, value.linkage);
-        if (method->is_native()) {
-            ast->clazz()->set_method_function(i, *global_space_.offset<Closure *>(value.index));
-            continue;
-        }
-        auto rv = method->Accept(this);
-        if (rv.kind == Value::kError) {
-            return ResultWithError();
-        }
-        Closure *closure = Machine::This()->NewClosure(rv.fun, 0/*captured_var_size*/, Heap::kOld);
-        ast->clazz()->set_method_function(i, closure);
-        *global_space_.offset<Closure *>(value.index) = closure;
-    }
-
-    symbol_trace_.insert(ast);
-    return ResultWithVoid();
-}
-
-ASTVisitor::Result BytecodeGenerator::VisitObjectDefinition(ObjectDefinition *ast) /*override*/ {
-    // TODO:
-    TODO();
-    return ResultWithError();
+    return offset;
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition *ast)
@@ -957,7 +1019,6 @@ ASTVisitor::Result BytecodeGenerator::VisitFunctionDefinition(FunctionDefinition
 
     if (fun->captured_var_size() > 0) {
         int kidx = current_fun_->constants()->FindOrInsertMetadata(fun);
-        //current_fun_->Incoming(ast)->Add<kClose>(GetConstOffset(kidx));
         EMIT(ast, Add<kClose>(GetConstOffset(kidx)));
         StaStack(clazz, local, ast);
     } else {
@@ -1105,6 +1166,7 @@ Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool
             current_class_->clazz()->clazz(),
             GetParameterOffset(param_size, param_offset)
         });
+        current_fun_->mutable_proto_params()->push_back(current_class_->clazz()->clazz()->id());
     }
     for (auto param : ast->prototype()->parameters()) {
         auto rv = param.type->Accept(this);
@@ -1118,6 +1180,7 @@ Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool
             clazz,
             GetParameterOffset(param_size, param_offset)
         });
+        current_fun_->mutable_proto_params()->push_back(clazz->id());
     }
     if (ast->prototype()->vargs()) {
         const Class *clazz = metadata_space_->builtin_type(kType_array);
@@ -1128,6 +1191,12 @@ Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool
             GetParameterOffset(param_size, param_offset)
         });
     }
+    current_fun_->set_proto_vargs(ast->prototype()->vargs());
+    if (auto rv = ast->prototype()->return_type()->Accept(this); rv.kind == Value::kError) {
+        return nullptr;
+    } else {
+        current_fun_->set_proto_ret_type(rv.bundle.index);
+    }
 
     for (auto stmt : ast->statements()) {
         if (auto rv = stmt->Accept(this); rv.kind == Value::kError) {
@@ -1135,7 +1204,6 @@ Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool
         }
     }
 
-    //current_fun_->Incoming(ast)->Add<kReturn>();
     EMIT(ast, Add<kReturn>());
     return BuildFunction(name, current_fun_);
 }
@@ -1143,7 +1211,6 @@ Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool
 Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDesc> &fields_desc,
                                                       const Class *base, ClassDefinition *ast) {
     FunctionScope function_scope(arena_, current_file_->file_unit(), &current_, &current_fun_);
-    //current_fun_->Incoming(ast)->Add<kCheckStack>();
     EMIT(ast, Add<kCheckStack>());
     
     int param_size = kPointerSize; // self
@@ -1161,6 +1228,7 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
     int param_offset = kPointerSize; // self
     Value self{Value::kStack, ast->clazz(), GetParameterOffset(param_size, param_offset)};
     current_->Register("self", self);
+    current_fun_->mutable_proto_params()->push_back(ast->clazz()->id());
     for (auto param : ast->parameters()) {
         VariableDeclaration *decl = param.field_declaration
                                   ? ast->field(param.as_field).declaration : param.as_parameter;
@@ -1179,40 +1247,12 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
             LdaStack(clazz, value.index, decl);
             StaProperty(field.type, self.index, field.offset, decl);
         }
+        current_fun_->mutable_proto_params()->push_back(clazz->id());
     }
+    current_fun_->set_proto_ret_type(ast->clazz()->id());
     
-    for (size_t i = 0; i < ast->fields_size(); i++) {
-        DCHECK_LT(i, fields_desc.size());
-
-        auto field = ast->field(i);
-        if (field.in_constructor) {
-            continue;
-        }
-        
-        auto rv = field.declaration->type()->Accept(this);
-        if (rv.kind == Value::kError) {
-            return nullptr;
-        }
-        const Class *field_type = metadata_space_->type(rv.bundle.index);
-        if (!field.declaration->initializer()) {
-            //current_fun_->Incoming(field.declaration)->Add<kLdaZero>();
-            EMIT(field.declaration, Add<kLdaZero>());
-            StaProperty(field_type, self.index, fields_desc[i].offset, field.declaration);
-            continue;
-        }
-
-        if (rv = field.declaration->initializer()->Accept(this); rv.kind == Value::kError) {
-            return nullptr;
-        }
-        
-        const Class *clazz = metadata_space_->type(rv.bundle.type);
-        if (NeedInbox(field_type, clazz)) {
-            InboxIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), field_type,
-                          field.declaration);
-        } else {
-            LdaIfNeeded(rv, field.declaration);
-        }
-        StaProperty(field_type, self.index, fields_desc[i].offset, field.declaration);
+    if (!ProcessStructureInitializer(fields_desc, self.index, ast)) {
+        return nullptr;
     }
     
     if (!ast->arguments().empty()) {
@@ -1239,7 +1279,64 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
         LdaStack(ast->clazz(), self.index, ast);
     }
     EMIT(ast, Add<kReturn>());
-    return BuildFunction(ast->identifier()->ToString(), &function_scope);
+    return BuildFunction("$init", &function_scope);
+}
+
+Function *BytecodeGenerator::GenerateObjectConstructor(const std::vector<FieldDesc> &fields_desc,
+                                                       ObjectDefinition *ast) {
+    FunctionScope function_scope(arena_, current_file_->file_unit(), &current_, &current_fun_);
+    EMIT(ast, Add<kCheckStack>());
+
+    Value self{Value::kStack, ast->clazz(), GetParameterOffset(kPointerSize, 0)};
+    current_->Register("self", self);
+    current_fun_->mutable_proto_params()->push_back(ast->clazz()->id());
+    current_fun_->set_proto_ret_type(ast->clazz()->id());
+    
+    if (!ProcessStructureInitializer(fields_desc, self.index, ast)) {
+        return nullptr;
+    }
+
+    LdaStack(ast->clazz(), self.index, ast);
+    EMIT(ast, Add<kReturn>());
+    return BuildFunction("$init", &function_scope);
+}
+
+bool BytecodeGenerator::ProcessStructureInitializer(const std::vector<FieldDesc> &fields_desc,
+                                                    int self_index, StructureDefinition *ast) {
+
+    for (size_t i = 0; i < ast->fields_size(); i++) {
+        DCHECK_LT(i, fields_desc.size());
+
+        auto field = ast->field(i);
+        if (field.in_constructor) {
+            continue;
+        }
+        
+        auto rv = field.declaration->type()->Accept(this);
+        if (rv.kind == Value::kError) {
+            return false;
+        }
+        const Class *field_type = metadata_space_->type(rv.bundle.index);
+        if (!field.declaration->initializer()) {
+            EMIT(field.declaration, Add<kLdaZero>());
+            StaProperty(field_type, self_index, fields_desc[i].offset, field.declaration);
+            continue;
+        }
+
+        if (rv = field.declaration->initializer()->Accept(this); rv.kind == Value::kError) {
+            return false;
+        }
+        
+        const Class *clazz = metadata_space_->type(rv.bundle.type);
+        if (NeedInbox(field_type, clazz)) {
+            InboxIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), field_type,
+                          field.declaration);
+        } else {
+            LdaIfNeeded(rv, field.declaration);
+        }
+        StaProperty(field_type, self_index, fields_desc[i].offset, field.declaration);
+    }
+    return true;
 }
 
 ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast) {
@@ -1978,7 +2075,7 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
     int argument_offset = 0;
     if (callee) {
         argument_offset += kPointerSize;
-        EMIT(callee, Incomplete<kMovePtr>(-(argument_offset), GetStackOffset(self)));
+        EMIT(callee, Incomplete<kMovePtr>(-argument_offset, GetStackOffset(self)));
     }
 
     for (size_t i = 0; i < operands.size(); i++) {

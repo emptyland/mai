@@ -16,4 +16,5 @@ fun main() {
     val 🤮 = "呕吐"
 
     println("$🤧 $🤮")
+    println("cost: ${System.microTime() - System.startJiffy}")
 }

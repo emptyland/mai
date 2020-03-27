@@ -230,27 +230,29 @@ public:
         , constructor_(nullptr) {
     }
     
-    FunctionScope(ClassDefinition *constructor, Scope **current);
+    FunctionScope(StructureDefinition *constructor, Scope **current);
     
     DEF_PTR_GETTER(LambdaLiteral, function);
-    DEF_PTR_GETTER(ClassDefinition, constructor);
+    DEF_PTR_GETTER(StructureDefinition, constructor);
 private:
     LambdaLiteral *function_;
-    ClassDefinition *constructor_;
+    StructureDefinition *constructor_;
 }; // class FunctionScope
 
-TypeChecker::FunctionScope::FunctionScope(ClassDefinition *constructor, Scope **current)
+TypeChecker::FunctionScope::FunctionScope(StructureDefinition *constructor, Scope **current)
     : BlockScope(kFunctionScope, constructor, current)
     , function_(nullptr)
     , constructor_(DCHECK_NOTNULL(constructor)) {
-    for (auto param : constructor_->parameters()) {
-        VariableDeclaration *var = nullptr;
-        if (param.field_declaration) {
-            var = constructor_->field(param.as_field).declaration;
-        } else {
-            var = param.as_parameter;
+    if (constructor->IsClassDefinition()) {
+        for (auto param : constructor_->AsClassDefinition()->parameters()) {
+            VariableDeclaration *var = nullptr;
+            if (param.field_declaration) {
+                var = constructor_->field(param.as_field).declaration;
+            } else {
+                var = param.as_parameter;
+            }
+            locals_[var->identifier()->ToSlice()] = var;
         }
-        locals_[var->identifier()->ToSlice()] = var;
     }
 }
 
@@ -1425,6 +1427,15 @@ ASTVisitor::Result TypeChecker::VisitInterfaceDefinition(InterfaceDefinition *as
 }
 
 ASTVisitor::Result TypeChecker::VisitObjectDefinition(ObjectDefinition *ast) /*override*/ {
+    FunctionScope constructor_scope(ast, &current_);
+    TypeSign *type = new (arena_) TypeSign(ast->position(), Token::kRef, ast);
+    VariableDeclaration *self = new (arena_) VariableDeclaration(type->position(),
+                                                                 VariableDeclaration::PARAMETER,
+                                                                 ASTString::New(arena_, "self"),
+                                                                 type, nullptr);
+    constructor_scope.Register(self);
+    symbol_trace_.insert(self);
+    
     for (auto field : ast->fields()) {
         if (auto rv = field.declaration->Accept(this); rv.sign == kError) {
             return ResultWithType(kError);

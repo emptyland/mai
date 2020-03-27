@@ -174,6 +174,8 @@ TEST_F(BytecodeGeneratorTest, Sanity) {
     AssertFunction("bar", bar->function());
     auto clazz = isolate_->metadata_space()->FindClassOrNull("foo.Foo");
     AssertFunction("Foo_init", clazz->init()->fn()->function());
+    clazz = isolate_->metadata_space()->FindClassOrNull("lang.System");
+    AssertFunction("System_init", clazz->init()->fn()->function());
 }
 
 TEST_F(BytecodeGeneratorTest, DemoRun) {

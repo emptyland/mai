@@ -3,6 +3,7 @@
 #include "lang/scheduler.h"
 #include "lang/heap.h"
 #include "lang/stack.h"
+#include "lang/stack-frame.h"
 #include "lang/object-visitor.h"
 #include "asm/utils.h"
 
@@ -113,7 +114,8 @@ void Coroutine::Uncaught(Throwable *thrown) {
     }
     if (thrown->Is<Panic>()) {
         Panic *error = static_cast<Panic *>(thrown);
-        ::fprintf(stderr, "😱[Panic](%d) %s\n", error->code(), error->quickly_message()->data());
+        ::fprintf(stderr, "😱[%s](%d) %s\n", error->clazz()->name(), error->code(),
+                  error->quickly_message()->data());
         thrown->PrintStackstrace(stderr);
         return;
     }
@@ -122,14 +124,14 @@ void Coroutine::Uncaught(Throwable *thrown) {
     const Field *msg_field = STATE->metadata_space()->FindClassFieldOrNull(type, "message");
     
     const String *message = thrown->UnsafeGetField<const String *>(DCHECK_NOTNULL(msg_field));
-    ::fprintf(stderr, "🤔[Exception] %s\n", message->data());
+    ::fprintf(stderr, "🤔[%s] %s\n", thrown->clazz()->name(), message->data());
     thrown->PrintStackstrace(stderr);
 
     const Field *cause_field = STATE->metadata_space()->FindClassFieldOrNull(type, "cause");
     Throwable *cause = thrown->UnsafeGetField<Throwable *>(DCHECK_NOTNULL(cause_field));
     while (cause) {
         message = cause->UnsafeGetField<const String *>(DCHECK_NOTNULL(msg_field));
-        ::fprintf(stderr, "🔗Cause: [Exception] %s\n", message->data());
+        ::fprintf(stderr, "🔗Cause: [%s] %s\n", cause->clazz()->name(), message->data());
         cause->PrintStackstrace(stderr);
         cause = cause->UnsafeGetField<Throwable *>(DCHECK_NOTNULL(cause_field));
     }
@@ -147,8 +149,41 @@ void Coroutine::VisitRoot(RootVisitor *visitor) {
         visitor->VisitRootPointer(reinterpret_cast<Any **>(&exception_));
     }
 
-    // TODO: Visit STACK
-    TODO();
+    Address frame_bp = state_ == kFallIn ? bp1() : bp0();
+    while (frame_bp < stack()->stack_hi()) {
+        StackFrame::Maker maker = StackFrame::GetMaker(frame_bp);
+        switch (maker) {
+            case StackFrame::kStub:
+                // Ignore
+                break;
+            case StackFrame::kBytecode: {
+                Closure *callee = BytecodeStackFrame::GetCallee(frame_bp);
+                int32_t pc = BytecodeStackFrame::GetPC(frame_bp);
+                Function *fun = callee->function();
+                int stack_ref_top = fun->FindStackRefTop(pc);
+
+                int offset = BytecodeStackFrame::kOffsetHeaderSize;
+                DCHECK_GE(stack_ref_top, offset);
+                while (offset < stack_ref_top) {
+                    if (fun->TestStackBitmap(offset - BytecodeStackFrame::kOffsetHeaderSize)) {
+                        visitor->VisitRootPointer(reinterpret_cast<Any **>(frame_bp + offset));
+                        offset += kPointerSize;
+                    } else {
+                        offset += kStackSizeGranularity;
+                    }
+                }
+                
+                // Scan Arguments
+            } break;
+            case StackFrame::kTrampoline:
+                // Finalize
+                return;
+            default:
+                NOREACHED();
+                break;
+        }
+        frame_bp = *reinterpret_cast<Address *>(frame_bp);
+    }
 }
 
 } // namespace lang

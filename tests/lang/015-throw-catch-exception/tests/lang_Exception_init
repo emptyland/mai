@@ -1,5 +1,5 @@
 +-------------------------------
-| Exception():void
+| $init(lang.Exception,string,lang.Exception):lang.Exception
 +-------------------------------
 stack-size: 64
 const-pool-bytes: 64
@@ -11,9 +11,9 @@ souce-file-name: src/lang/pkg/mai/lang/lang.mai
 bytecode-size: 7
 bytecode: 
     000 CheckStack; (7)
-    001 LdarPtr [BP+32]; (8)
-    002 StaPropertyPtr [BP+40], @24; (8)
-    003 LdarPtr [BP+24]; (8)
-    004 StaPropertyPtr [BP+40], @32; (8)
+    001 LdarPtr [BP+32]; (7)
+    002 StaPropertyPtr [BP+40], @24; (7)
+    003 LdarPtr [BP+24]; (7)
+    004 StaPropertyPtr [BP+40], @32; (7)
     005 LdarPtr [BP+40]; (7)
     006 Return; (7)

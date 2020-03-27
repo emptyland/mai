@@ -320,6 +320,14 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     // TODO:
 }
 
+/*static*/ int64_t Runtime::System_CurrentTimeMillis(Any */*any*/) {
+    return STATE->env()->CurrentTimeMicros() / 1000L;
+}
+
+/*static*/ int64_t Runtime::System_MicroTime(Any */*any*/) {
+    return STATE->env()->CurrentTimeMicros();
+}
+
 } // namespace lang
 
 } // namespace mai

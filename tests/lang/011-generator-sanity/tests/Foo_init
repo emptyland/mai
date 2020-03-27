@@ -1,5 +1,5 @@
 +-------------------------------
-| Foo():void
+| $init(foo.Foo,int):foo.Foo
 +-------------------------------
 stack-size: 64
 const-pool-bytes: 64

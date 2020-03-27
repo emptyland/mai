@@ -95,6 +95,7 @@ public:
     
     inline const Method *method(uint32_t i) const;
     inline void set_method_function(uint32_t i, Closure *fn);
+    inline void set_init_function(Closure *fn);
     
     bool IsSameOrBaseOf(const Class *base) const { return IsSameOf(base) || IsBaseOf(base); }
     bool IsSameOf(const Class *base) const { return this == DCHECK_NOTNULL(base); }
@@ -281,6 +282,21 @@ public:
     uint32_t const_pool_spans_size() const { return const_pool_size_ / sizeof(Span32); }
 
     int32_t DispatchException(Any *exception, int32_t pc);
+    
+    int32_t FindStackRefTop(intptr_t pc) const {
+        for (uint32_t i = 0; i < invoking_hint_size_; i++) {
+            if (invoking_hint_[i].pc == pc) {
+                return invoking_hint_[i].stack_ref_top;
+            }
+        }
+        return -1;
+    }
+    
+    bool TestStackBitmap(int offset) const {
+        DCHECK_LT(offset, stack_size_);
+        int index = offset / sizeof(Span16);
+        return stack_bitmap_[index / 32] & (1u << (index % 32));
+    }
 
     void Print(base::AbstractPrinter *output) const;
     
@@ -494,7 +510,11 @@ inline const Method *Class::method(uint32_t i) const {
 
 inline void Class::set_method_function(uint32_t i, Closure *fn) {
     DCHECK_LT(i, n_methods_);
-    methods_->fn_ = fn;
+    methods_->fn_ = DCHECK_NOTNULL(fn);
+}
+
+inline void Class::set_init_function(Closure *fn) {
+    DCHECK_NOTNULL(init_)->fn_ = DCHECK_NOTNULL(fn);
 }
 
 inline bool Class::IsBaseOf(const Class *base) const {

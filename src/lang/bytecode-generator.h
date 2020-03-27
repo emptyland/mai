@@ -119,6 +119,9 @@ private:
     Result VisitBreakableStatement(BreakableStatement *) override;
     Result VisitTryCatchFinallyBlock(TryCatchFinallyBlock *) override;
     Result VisitAssignmentStatement(AssignmentStatement *) override;
+    //bool SetFunctionPrototype(const FunctionPrototype *proto);
+    uint32_t ProcessStructure(StructureDefinition *ast, uint32_t offset, ClassBuilder *builder,
+                              std::vector<FieldDesc> *fields_desc);
 
     bool ShouldCaptureVar(Scope *owns, Value value);
     Result CaptureVar(const std::string &name, Scope *owns, Value value);
@@ -127,6 +130,11 @@ private:
     Function *GenerateLambdaLiteral(const std::string &name, bool is_method, LambdaLiteral *ast);
     Function *GenerateClassConstructor(const std::vector<FieldDesc> &fields_desc, const Class *base,
                                        ClassDefinition *ast);
+    Function *GenerateObjectConstructor(const std::vector<FieldDesc> &fields_desc,
+                                        ObjectDefinition *ast);
+    bool ProcessStructureInitializer(const std::vector<FieldDesc> &fields_desc, int self_index,
+                                     StructureDefinition *ast);
+    bool ProcessMethodsPost(Function *ctor, StructureDefinition *ast);
     Result GenerateRegularCalling(CallExpression *ast);
     Result GenerateMethodCalling(Value primary, CallExpression *ast);
     Result GenerateNewObject(const Class *clazz, CallExpression *ast);

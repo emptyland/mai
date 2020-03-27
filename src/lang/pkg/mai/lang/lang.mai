@@ -4,10 +4,13 @@ package lang
 class Object {}
 
 // Base of all exceptions
-class Exception(
-	val message: string,
-	val cause: Exception
-)
+class Exception(val message: string, val cause: Exception)
+
+// System object
+object System {
+	val placeholder = 1
+	val startJiffy = self.microTime()
+}
 
 
 implements Object {
@@ -17,11 +20,21 @@ native fun toString(): string
 
 } // implements Object
 
+
 implements Exception {
 
 native fun printStackstrace()
 
 } // implements Exception
+
+
+implements System {
+
+native fun currentTimeMillis(): i64
+native fun microTime(): i64
+
+} // implements System
+
 
 native fun println(s: string)
 

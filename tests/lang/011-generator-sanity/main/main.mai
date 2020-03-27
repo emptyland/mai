@@ -8,6 +8,7 @@ var b: foo.Foo
 fun main() {
     bar("a", "b")
     foo.Foo(1)
+    foo.Bar()
 }
 
 fun bar(a: string, b: string) {
