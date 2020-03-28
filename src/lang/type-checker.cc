@@ -1383,6 +1383,8 @@ ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
                 return ResultWithType(new (arena_) TypeSign(ast->position(), object));
             } else if (auto clazz = sym->AsClassDefinition()) {
                 return ResultWithType(new (arena_) TypeSign(ast->position(), clazz));
+            } else if (auto fun = sym->AsFunctionDefinition()) {
+                return ResultWithType(new (arena_) TypeSign(ast->position(), fun->prototype()));
             } else {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type to get field");
                 return ResultWithType(kError);

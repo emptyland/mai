@@ -5,6 +5,7 @@
 #include "lang/machine.h"
 #include "lang/coroutine.h"
 #include "lang/scheduler.h"
+#include "lang/stack-frame.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -299,6 +300,14 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     Machine::This()->ThrowPanic(Panic::kFatal, builder.QuickBuild());
 }
 
+/*static*/ void Runtime::Abort(String *message) {
+    Machine::This()->ThrowPanic(Panic::kError, DCHECK_NOTNULL(message));
+}
+
+/*static*/ void Runtime::Fatal(String *message) {
+    Machine::This()->ThrowPanic(Panic::kFatal, DCHECK_NOTNULL(message));
+}
+
 /*static*/ int Runtime::Object_HashCode(Any *any) {
     if (!any) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
@@ -326,6 +335,68 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 
 /*static*/ int64_t Runtime::System_MicroTime(Any */*any*/) {
     return STATE->env()->CurrentTimeMicros();
+}
+
+/*static*/ void Runtime::System_GC(Any *any) {
+    // TODO:
+}
+
+/*static*/ int Runtime::CurrentSourceLine(int level) {
+    Address frame_bp = Coroutine::This()->bp1();
+    while (frame_bp < Coroutine::This()->stack()->stack_hi()) {
+        StackFrame::Maker maker = StackFrame::GetMaker(frame_bp);
+        switch (maker) {
+            case StackFrame::kBytecode: {
+                Function *fun = BytecodeStackFrame::GetCallee(frame_bp)->function();
+                if (!level--) {
+                    if (!fun->source_line_info()) {
+                        return 0;
+                    }
+                    intptr_t pc = BytecodeStackFrame::GetPC(frame_bp);
+                    return fun->source_line_info()->FindSourceLine(pc);
+                }
+            } break;
+            case StackFrame::kStub:
+                // Skip stub frame
+                break;
+            case StackFrame::kTrampoline:
+                return 0;
+            default:
+                NOREACHED();
+                break;
+        }
+        frame_bp = *reinterpret_cast<Address *>(frame_bp);
+    }
+    return 0;
+}
+
+/*static*/ String *Runtime::CurrentSourceName(int level) {
+    Address frame_bp = Coroutine::This()->bp1();
+    while (frame_bp < Coroutine::This()->stack()->stack_hi()) {
+        StackFrame::Maker maker = StackFrame::GetMaker(frame_bp);
+        switch (maker) {
+            case StackFrame::kBytecode: {
+                Function *fun = BytecodeStackFrame::GetCallee(frame_bp)->function();
+                if (!level--) {
+                    if (!fun->source_line_info()) {
+                        return STATE->factory()->empty_string();
+                    }
+                    const MDStrHeader *name = MDStrHeader::FromStr(fun->source_line_info()->file_name());
+                    return Machine::This()->NewUtf8String(name->data(), name->length(), 0);
+                }
+            } break;
+            case StackFrame::kStub:
+                // Skip stub frame
+                break;
+            case StackFrame::kTrampoline:
+                return STATE->factory()->empty_string();
+            default:
+                NOREACHED();
+                break;
+        }
+        frame_bp = *reinterpret_cast<Address *>(frame_bp);
+    }
+    return STATE->factory()->empty_string();
 }
 
 } // namespace lang

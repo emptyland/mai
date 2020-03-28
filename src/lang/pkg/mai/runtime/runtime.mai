@@ -2,3 +2,8 @@ package runtime
 
 val VERSION = "0.0.1"
 val ENV = "mai-lang v$VERSION"
+
+
+native fun currentSourceLine(level: int): int
+
+native fun currentSourceName(level: int): string

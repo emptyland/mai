@@ -47,7 +47,7 @@ public:
     void Fallback(int index, size_t size) {
         DCHECK_EQ(level_.p, index - kSlotBase);
         level_.p -= RoundUp(size, kSizeGranularity);
-        while (Test(level_.p) && level_.p > 0) {
+        while (level_.p >= kSpanSize && Test(level_.p - kSpanSize)) {
             DCHECK_EQ(0, level_.p % kSpanSize);
             level_.p -= kSpanSize;
         }
@@ -56,7 +56,7 @@ public:
     void FallbackRef(int index) {
         DCHECK_EQ(level_.r, index - kSlotBase);
         level_.r -= kPointerSize;
-        while (!Test(level_.r) && level_.r > 0) {
+        while (level_.r >= kSpanSize && !Test(level_.r - kSpanSize)) {
             DCHECK_EQ(0, level_.r % kSpanSize);
             level_.r -= kSpanSize;
         }
@@ -74,7 +74,7 @@ private:
     void AdvanceSpan(bool isref);
     
     bool Test(int level) const {
-        size_t index = level / kSpanSize;
+        size_t index = (level / kSpanSize);
         return bitmap_[index / 32] & (1u << (index % 32));
     }
     

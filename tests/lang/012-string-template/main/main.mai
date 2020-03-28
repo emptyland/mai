@@ -11,6 +11,8 @@ fun main() {
     println("a > c: ${a > c}")
     println("and: ${a > c && a < c}")
     println("or : ${a > c || a < c || a == c}")
+    println("location: ${runtime.currentSourceName(0)}:${runtime.currentSourceLine(0)}")
+    assert(runtime.currentSourceLine(0) == 15, "error")
 
     val 🤧 = "感冒"
     val 🤮 = "呕吐"

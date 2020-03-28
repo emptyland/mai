@@ -10,6 +10,7 @@ class Exception(val message: string, val cause: Exception)
 object System {
 	val placeholder = 1
 	val startJiffy = self.microTime()
+	val gcTicks = 0
 }
 
 
@@ -31,7 +32,10 @@ native fun printStackstrace()
 implements System {
 
 native fun currentTimeMillis(): i64
+
 native fun microTime(): i64
+
+native fun gc()
 
 } // implements System
 
@@ -39,3 +43,7 @@ native fun microTime(): i64
 native fun println(s: string)
 
 native fun assert(e: bool, s: string)
+
+native fun abort(message: string)
+
+native fun fatal(message: string)
