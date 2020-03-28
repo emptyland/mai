@@ -19,6 +19,7 @@ struct StackFrame {
     
     static constexpr int32_t kOffsetSavedBP = 0;
     static constexpr int32_t kOffsetReturnAddress = kOffsetSavedBP + sizeof(Address);
+    static constexpr int32_t kBaseSize = kOffsetReturnAddress + sizeof(Address);
     static constexpr int32_t kOffsetMaker = kOffsetSavedBP - static_cast<int>(sizeof(Maker));
     
     static Maker GetMaker(Address frame_bp) {

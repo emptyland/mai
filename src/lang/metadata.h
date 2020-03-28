@@ -265,6 +265,7 @@ public:
     DEF_VAL_GETTER(uint32_t, stack_size);
     DEF_PTR_GETTER(uint32_t, stack_bitmap);
     DEF_PTR_GETTER(SourceLineInfo, source_line_info);
+    DEF_PTR_GETTER(Span32, const_pool);
     DEF_VAL_GETTER(uint32_t, captured_var_size);
     DEF_VAL_GETTER(uint32_t, exception_table_size);
     DEF_VAL_GETTER(uint32_t, invoking_hint_size);
@@ -281,6 +282,8 @@ public:
 
     uint32_t const_pool_spans_size() const { return const_pool_size_ / sizeof(Span32); }
 
+    uint32_t stack_bitmap_size() const;
+
     int32_t DispatchException(Any *exception, int32_t pc);
     
     int32_t FindStackRefTop(intptr_t pc) const {
@@ -296,6 +299,11 @@ public:
         DCHECK_LT(offset, stack_size_);
         int index = offset / sizeof(Span16);
         return stack_bitmap_[index / 32] & (1u << (index % 32));
+    }
+    
+    bool TestConstBitmap(int index) const {
+        DCHECK_LT(index, const_pool_spans_size());
+        return const_pool_bitmap_[index / 32] & (1u << (index % 32));
     }
 
     void Print(base::AbstractPrinter *output) const;
@@ -461,9 +469,17 @@ public:
         DCHECK_LT(i, parameter_size_);
         return parameters_[i];
     }
-    
+
     // Has variable arguments?
     bool has_vargs() const { return vargs_; }
+    
+    size_t GetParametersPlacedSize() const;
+    
+    size_t GetParametersPlacedSize(const MetadataSpace *space) const {
+        return RoundUp(GetParametersRealSize(space), kStackAligmentSize);
+    }
+    
+    size_t GetParametersRealSize(const MetadataSpace *space) const;
 
     // To readable string
     std::string ToString() const;

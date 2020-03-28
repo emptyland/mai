@@ -30,7 +30,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(ObjectVisitor);
 }; // class ObjectVisitor
     
-//void IterateObject(Object *host, ObjectVisitor *visitor);
+void IterateObject(Any *host, ObjectVisitor *visitor);
 
 } // namespace lang
     

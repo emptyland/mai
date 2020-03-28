@@ -6,11 +6,22 @@ class Foo {
 	var id: int
 }
 
-native Foo newOldFoo()
+native fun newOldFoo(): Foo
 
-native string newNewString()
+native fun newNewString(): string
+
+native fun testVisit()
 
 fun main() {
 	val foo = newOldFoo()
 	foo.name = newNewString()
+	bar(foo.name, foo, 0)
+}
+
+fun bar(s: string, o: Foo, i: int) {
+	val foo = o
+	val j = 1
+	val msg = s
+	val k = 0.1
+	testVisit()
 }

@@ -25,8 +25,7 @@ public:
         __ Reset();
         StackFrameScope frame_scope(&masm_, StubStackFrame::kSize);
         __ movl(Operand(rbp, StubStackFrame::kOffsetMaker), StubStackFrame::kMaker);
-        
-        //__ Breakpoint();
+
         SetupArguments(prototype);
         __ InlineSwitchSystemStackCall(cxx_func_entry);
     }
@@ -38,7 +37,7 @@ private:
         size_t args_size = 0;
         for (size_t i = 0; i < ctx.parameters.size(); i++) {
             const Class *param = space->type(ctx.parameters[i]);
-            args_size += RoundUp(param->reference_size(), 4); // Aligment of 4 bytes
+            args_size += RoundUp(param->reference_size(), kStackSizeGranularity);
         }
         args_size = RoundUp(args_size, kStackAligmentSize);
         

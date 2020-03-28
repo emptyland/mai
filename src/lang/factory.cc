@@ -61,7 +61,7 @@ void Factory::VisitRoot(RootVisitor *visitor) {
     for (int i = 1/*skip void type*/; i < NumberValueSlot::kMaxSlots; i++) {
         NumberValueSlot *slot = cached_number_slot(i);
         Any **begin = reinterpret_cast<Any **>(slot->values);
-        Any **end = reinterpret_cast<Any **>(slot->values + kNumberOfCachedNumberValues);
+        Any **end = reinterpret_cast<Any **>(slot->values + (i == 1 ? 2 : kNumberOfCachedNumberValues));
         visitor->VisitRootPointers(begin, end);
     }
 }

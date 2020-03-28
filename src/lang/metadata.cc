@@ -1,6 +1,7 @@
 #include "lang/metadata.h"
 #include "lang/metadata-space.h"
 #include "lang/isolate-inl.h"
+#include "lang/stack-frame.h"
 #include "asm/utils.h"
 #include "base/arenas.h"
 
@@ -51,6 +52,23 @@ bool Type::IsSignedIntegral() const {
     }
 }
 
+size_t PrototypeDesc::GetParametersPlacedSize() const {
+    return GetParametersPlacedSize(STATE->metadata_space());
+}
+
+size_t PrototypeDesc::GetParametersRealSize(const MetadataSpace *space) const {
+    size_t size = 0;
+    for (int i = 0; i < parameter_size_; i++) {
+        const Class *type = space->type(parameters_[i]);
+        size += RoundUp(type->reference_size(), kStackSizeGranularity);
+    }
+    if (vargs_) {
+        const Class *type = space->builtin_type(kType_array);
+        size += RoundUp(type->reference_size(), kStackSizeGranularity);
+    }
+    return size;
+}
+
 std::string PrototypeDesc::ToString() const {
     return ToString(STATE->metadata_space());
 }
@@ -99,25 +117,29 @@ int32_t Function::DispatchException(Any *exception, int32_t pc) {
     return handler_pc;
 }
 
+uint32_t Function::stack_bitmap_size() const {
+    return ((stack_size_ - BytecodeStackFrame::kOffsetHeaderSize + 15)/16 + 31)/32;
+}
+
 void Function::Print(base::AbstractPrinter *out) const {
-    out->Append("+-------------------------------\n");
+    out->Append("+------------------------------------------------------------------------------\n");
     out->Printf("| %s%s\n", name(), prototype()->ToString().c_str());
-    out->Append("+-------------------------------\n");
+    out->Append("+------------------------------------------------------------------------------\n");
     out->Printf("stack-size: %u\n", stack_size_);
+    const uint32_t n_bitmap = stack_bitmap_size();
+    if (n_bitmap > 0) {
+        out->Printf("stack-bitmap:");
+        for (uint32_t i = 0; i < n_bitmap; i++) {
+            out->Printf(" %08x", stack_bitmap_[i]);
+        }
+        out->Append("\n");
+    }
     out->Printf("const-pool-bytes: %u\n", const_pool_size_);
     out->Printf("const-pool-bitmap:");
     for (size_t i = 0; i < (const_pool_spans_size() + 31)/32; i++) {
         out->Printf(" %08x", const_pool_bitmap_[i]);
     }
     out->Append("\n");
-//    if (const_pool_size_ > 0) {
-//        out->Printf("const-pool: \n");
-//    }
-//    for (size_t i = 0; i < const_pool_spans_size(); i++) {
-//        Span32 *span = const_pool_ + i;
-//        out->Printf("    %08x %08x %08x %08x\n", span->v32[0].u32, span->v32[1].u32, span->v32[2].u32,
-//                    span->v32[3].u32);
-//    }
     out->Printf("captured-var-size: %u\n", captured_var_size_);
     if (captured_var_size_ > 0) {
         out->Printf("captured-var: \n");

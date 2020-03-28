@@ -328,7 +328,7 @@ public:
             Incoming(ast)->Add<kCallBytecodeFunction>(slot, params_size);
         }
     }
-    
+
     void EmitDirectlyCallFunctionWithLine(int line, bool native, int slot, int params_size) {
         if (native) {
             invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
@@ -2112,7 +2112,7 @@ BytecodeGenerator::GeneratePropertyAssignment(const ASTString *name, Value self,
     Value rval{Value::kError};
     if (!rhs->IsPairExpression()) {
         auto rv = rhs->Accept(this);
-        if (rv.kind != Value::kError) {
+        if (rv.kind == Value::kError) {
             return ResultWithError();
         }
         

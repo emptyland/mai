@@ -4,6 +4,8 @@
 #include "lang/lexer.h"
 #include "lang/ast.h"
 #include "lang/syntax-mock-test.h"
+#include "lang/machine.h"
+#include "lang/object-visitor.h"
 #include "test/isolate-initializer.h"
 #include "base/arenas.h"
 #include "base/slice.h"
@@ -301,13 +303,48 @@ TEST_F(BytecodeGeneratorTest, RunThrowCatchException) {
 
     auto rs = isolate_->Compile("tests/lang/015-throw-catch-exception");
     ASSERT_TRUE(rs.ok()) << rs.ToString();
-    
-    //auto jiffies = env_->CurrentTimeMicros();
+
     isolate_->Run();
-    //printf("%f\n", (env_->CurrentTimeMicros() - jiffies)/1000.0);
 }
 
-// 015-throw-catch-exception
+Any *Demo_NewOldFoo() {
+    const Class *type = STATE->metadata_space()->FindClassOrNull("main.Foo");
+    return Machine::This()->NewObject(type, Heap::kOld);
+}
+
+Any *Demo_NewNewString() {
+    return Machine::This()->NewUtf8String("Hello", 5, 0);
+}
+
+class RootVisitorPrinter : public RootVisitor {
+public:
+    void VisitRootPointers(Any **begin, Any **end) override {
+        for (Any **i = begin; i < end; i++) {
+            if (Any *ob = *i) {
+                printf("[%d] %p(%s)\n", count_++, ob, ob->clazz()->name());
+            }
+        }
+    }
+    
+    int count_ = 0;
+}; // class RootVisitor
+
+void Demo_TestVisit() {
+    RootVisitorPrinter visitor;
+    STATE->VisitRoot(&visitor);
+}
+
+TEST_F(BytecodeGeneratorTest, RunWriteBarrierDemo) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    
+    isolate_->AddExternalLinkingFunction("main.newOldFoo", FunctionTemplate::New(Demo_NewOldFoo));
+    isolate_->AddExternalLinkingFunction("main.newNewString", FunctionTemplate::New(Demo_NewNewString));
+    isolate_->AddExternalLinkingFunction("main.testVisit", FunctionTemplate::New(Demo_TestVisit));
+    auto rs = isolate_->Compile("tests/lang/016-write-barrier-demo");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+}
 
 } // namespace lang
 
