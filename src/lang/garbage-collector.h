@@ -23,6 +23,13 @@ struct RememberRecord {
 
 using RememberSet = std::map<void *, RememberRecord>;
 
+struct GarbageCollectionHistogram {
+    size_t collected_bytes  = 0;
+    size_t collected_objs   = 0;
+    int64_t micro_time_cost = 0;
+}; // struct GarbageCollectionHistogram
+
+
 class GarbageCollector final {
 public:
     GarbageCollector(Isolate *isolate): isolate_(isolate) {}
@@ -34,7 +41,9 @@ public:
 
     uint64_t NextRememberRecordSequanceNumber() { return remember_record_sequance_.fetch_add(1); }
     
-    RememberSet MergeRememberSet(bool keep_after) const;
+    RememberSet MergeRememberSet(bool keep_after);
+    
+    void InvalidateHeapGuards(Address guard0, Address guard1);
 private:
     Isolate *const isolate_;
     // Remember set record for old-generation -> new-generation
@@ -44,12 +53,6 @@ private:
     size_t latest_minor_remaining_size_ = 0;
 }; // class GarbageCollector
 
-
-struct GarbageCollectionHistogram {
-    size_t collected_bytes  = 0;
-    size_t collected_objs   = 0;
-    int64_t micro_time_cost = 0;
-}; // struct GarbageCollectionHistogram
 
 class GarbageCollectionPolicy {
 public:

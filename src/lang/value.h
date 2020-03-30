@@ -21,6 +21,7 @@ class Type;
 class Function;
 class Code;
 class CapturedValue;
+class ObjectVisitor;
 
 // All heap object's base class.
 class Any {
@@ -248,6 +249,7 @@ public:
     // Internal functions
     inline T quickly_get(size_t i) const;
     inline void quickly_set_nobarrier(size_t i, T value);
+    inline void Iterate(ObjectVisitor *visitor);
     
     friend class Machine;
 protected:
@@ -445,6 +447,8 @@ public:
 
     static Local<Closure> New(Code *stub, uint32_t captured_var_size);
     
+    uint32_t captured_var_size() const { return captured_var_size_; }
+    
     // Internal methods:
     inline bool is_cxx_function() const;
     inline bool is_mai_function() const;
@@ -453,6 +457,7 @@ public:
     inline void SetCapturedVar(uint32_t i, CapturedValue *value);
     inline void set_captured_var_no_barrier(uint32_t i, CapturedValue *value);
     inline CapturedValue *captured_var(uint32_t i) const;
+    inline void Iterate(ObjectVisitor *visitor);
     
     friend class Machine;
 private:

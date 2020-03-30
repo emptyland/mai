@@ -213,6 +213,18 @@ String *IncrementalStringBuilder::Finish() const {
     return result;
 }
 
+void Object::Iterate(ObjectVisitor *visitor) {
+    const Class *type = is_forward() ? forward()->clazz() : clazz();
+    for (uint32_t i = 0; i < type->n_methods(); i++) {
+        const Field *field = type->field(i);
+        if (field->type()->is_reference()) {
+            Any **addr = reinterpret_cast<Any **>(GetFieldAddress(field));
+            if (*addr) {
+                visitor->VisitPointer(this, addr);
+            }
+        }
+    }
+}
 
 } // namespace lang
 

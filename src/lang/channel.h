@@ -60,6 +60,8 @@ public:
 
     void CloseLockless();
     
+    inline void Iterate(ObjectVisitor *visitor);
+    
     FRIEND_UNITTEST_CASE(ChannelTest, AddBufferTail);
     FRIEND_UNITTEST_CASE(ChannelTest, TakeBufferHead);
     FRIEND_UNITTEST_CASE(ChannelTest, RingBuffer);
@@ -136,6 +138,18 @@ inline void Channel::SendAny(Any *any) {
     } else {
         if (addr) {
             WriteBarrier(reinterpret_cast<Any **>(addr));
+        }
+    }
+}
+
+inline void Channel::Iterate(ObjectVisitor *visitor) {
+    if (length_ > 0) {
+        Any **elems = reinterpret_cast<Any **>(&buffer_[0]);
+        if (end_ > start_) {
+            visitor->VisitPointers(this, elems + start_, elems + end_);
+        } else {
+            visitor->VisitPointers(this, elems, elems + start_);
+            visitor->VisitPointers(this, elems + end_, elems + capacity_);
         }
     }
 }

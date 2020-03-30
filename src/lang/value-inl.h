@@ -4,6 +4,7 @@
 
 #include "lang/value.h"
 #include "lang/metadata.h"
+#include "lang/object-visitor.h"
 #include "base/base.h"
 #include "glog/logging.h"
 
@@ -51,7 +52,18 @@ private:
     }
 }; // class CapturedValue
 
-
+// The stub class for user-defined-object
+// Support some useful method.
+class Object : public Any {
+public:
+    void Iterate(ObjectVisitor *visitor);
+    
+private:
+    Address GetFieldAddress(const Field *field) {
+        return reinterpret_cast<Address>(this) + field->offset();
+    }
+}; // class Object
+static_assert(sizeof(Any) == sizeof(Object), "Incorrect Object size");
 
 inline bool Any::is_forward() const { return klass_ & 1; }
 
@@ -66,8 +78,8 @@ inline void Any::set_clazz(const Class *clazz) {
 }
 
 inline Any *Any::forward() const {
-    DCHECK(is_forward());
-    return reinterpret_cast<Any *>(klass_ & ~1);
+    //DCHECK(is_forward());
+    return is_forward() ? reinterpret_cast<Any *>(klass_ & ~1) : nullptr;
 }
 
 inline void Any::set_forward(Any *addr) { set_forward_address(reinterpret_cast<Address>(addr)); }
@@ -137,6 +149,11 @@ inline T Array<T, true>::quickly_get(size_t i) const {
     return elems_[i];
 }
 
+template<class T>
+inline void Array<T, true>::Iterate(ObjectVisitor *visitor) {
+    visitor->VisitPointers(this, &elems_[0], &elems_[length_]);
+}
+
 inline bool Closure::is_cxx_function() const { return (tags_ & kClosureMask) == kCxxFunction; }
 
 inline bool Closure::is_mai_function() const { return (tags_ & kClosureMask) == kMaiFunction; }
@@ -164,6 +181,11 @@ inline void Closure::set_captured_var_no_barrier(uint32_t i, CapturedValue *valu
 inline CapturedValue *Closure::captured_var(uint32_t i) const {
     DCHECK_LT(i, captured_var_size_);
     return DCHECK_NOTNULL(captured_var_[i].value);
+}
+
+inline void Closure::Iterate(ObjectVisitor *visitor) {
+    visitor->VisitPointers(this, reinterpret_cast<Any **>(&captured_var_[0]),
+                           reinterpret_cast<Any **>(&captured_var_[captured_var_size_]));
 }
 
 inline Array<String *> *Throwable::stacktrace() const { return stacktrace_; }

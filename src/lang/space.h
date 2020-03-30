@@ -222,9 +222,9 @@ public:
     
     size_t Flip(bool reinit) {
         std::swap(survive_area_, original_area_);
-        size_t remaining = original_area_->Purge();
+        size_t remaining = survive_area_->Purge();
         if (reinit) {
-            survive_area_->Purge();
+            original_area_->Purge();
         }
         return remaining;
     }

@@ -120,6 +120,19 @@ void Machine::VisitRoot(RootVisitor *visitor) {
     }
 }
 
+void Machine::InvalidateHeapGuards(Address guard0, Address guard1) {
+    if (running_) {
+        DCHECK(running_->state() != Coroutine::kRunning);
+        running_->InvalidateHeapGuards(guard0, guard1);
+    }
+    for (Coroutine *co = runnable_dummy_->next(); co != runnable_dummy_; co = co->next()) {
+        co->InvalidateHeapGuards(guard0, guard1);
+    }
+    for (Coroutine *co = waitting_dummy_->next(); co != waitting_dummy_; co = co->next()) {
+        co->InvalidateHeapGuards(guard0, guard1);
+    }
+}
+
 void Machine::Entry() {
     state_.store(kRunning, std::memory_order_relaxed);
     

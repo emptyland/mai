@@ -14,7 +14,7 @@ void GarbageCollector::MinorCollect() {
     scavenger.Run();
 }
 
-RememberSet GarbageCollector::MergeRememberSet(bool keep_after) const {
+RememberSet GarbageCollector::MergeRememberSet(bool keep_after) {
     RememberSet rset;
     for (int i = 0; i < isolate_->scheduler()->concurrency(); i++) {
         Machine *m = isolate_->scheduler()->machine(i);
@@ -29,7 +29,14 @@ RememberSet GarbageCollector::MergeRememberSet(bool keep_after) const {
             m->PurgeRememberSet();
         }
     }
+    if (!keep_after) {
+        remember_record_sequance_.store(0, std::memory_order_relaxed);
+    }
     return rset;
+}
+
+void GarbageCollector::InvalidateHeapGuards(Address guard0, Address guard1) {
+    
 }
 
 } // namespace lang

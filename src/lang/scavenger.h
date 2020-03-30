@@ -14,12 +14,12 @@ class Scavenger final : public GarbageCollectionPolicy {
 public:
     Scavenger(Isolate *isolate, Heap *heap): GarbageCollectionPolicy(isolate, heap) {}
     ~Scavenger() override;
-    
+
     void Run() override;
 private:
     class RootVisitorImpl;
     class ObjectVisitorImpl;
-    
+
     bool force_promote_ = false;
     Address promote_level_ = nullptr;
     std::deque<Any *> promoted_obs_;

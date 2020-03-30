@@ -65,8 +65,7 @@ private:
     Scavenger *owns_;
 }; // class Scavenger::ObjectVisitorImpl
 
-Scavenger::~Scavenger() /*override*/ {
-}
+Scavenger::~Scavenger() /*override*/ {}
 
 void Scavenger::Run() /*override*/ {
     Env *env = isolate_->env();
@@ -94,8 +93,25 @@ void Scavenger::Run() /*override*/ {
     for (const auto &pair : rset) {
         object_visitor.VisitPointer(pair.second.host, pair.second.address);
     }
+    
+    SemiSpace *original_area = heap_->new_space()->original_area();
+    SemiSpaceIterator iter(original_area);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        IterateObject(iter.object(), &object_visitor);
+    }
+
+    while (!promoted_obs_.empty()) {
+        Any *object = promoted_obs_.front();
+        promoted_obs_.pop_front();
+        if (object) {
+            IterateObject(object, &object_visitor);
+        }
+    }
 
     size_t remaining = heap_->new_space()->Flip(false/*reinit*/);
+    // After new space flip, should update all coroutine's heap guards
+    original_area = heap_->new_space()->original_area();
+    isolate_->gc()->InvalidateHeapGuards(original_area->chunk(), original_area->limit());
     isolate_->gc()->set_latest_minor_remaining_size(remaining);
     
     histogram_.micro_time_cost = env->CurrentTimeMicros() - jiffy;

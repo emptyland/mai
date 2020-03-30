@@ -145,6 +145,11 @@ public:
     
     void Uncaught(Throwable *expection);
     void Suspend(intptr_t acc, double facc);
+
+    void InvalidateHeapGuards(Address guard0, Address guard1) {
+        heap_guard0_ = guard0;
+        heap_guard1_ = guard1;
+    }
     
     static Coroutine *This() { return DCHECK_NOTNULL(TLS_STORAGE->coroutine); }
     

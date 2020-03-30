@@ -273,7 +273,7 @@ Error MetadataSpace::Initialize() {
         .instrance_size(sizeof(Throwable))
         .base(builtin_type(kType_any))
         .field("stacktrace")
-            .type(builtin_type(kType_u64))
+            .type(builtin_type(kType_array))
             .flags(Field::kPrivate|Field::kRead)
             .tag(1)
             .offset(Throwable::kOffsetStacktrace)

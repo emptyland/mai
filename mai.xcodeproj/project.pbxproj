@@ -44,6 +44,8 @@
 		2349FDF722A4BAA0001861E0 /* sha256-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF622A4BAA0001861E0 /* sha256-test.cc */; };
 		2354C9E4243048E900E0B9BE /* garbage-collector.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2354C9E3243048E900E0B9BE /* garbage-collector.cc */; };
 		2354C9E724306ADA00E0B9BE /* scavenger.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2354C9E624306ADA00E0B9BE /* scavenger.cc */; };
+		2354C9E92431C92600E0B9BE /* object-visitor.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2354C9E82431C92600E0B9BE /* object-visitor.cc */; };
+		2354C9EB2431D76000E0B9BE /* scavenger-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2354C9EA2431D76000E0B9BE /* scavenger-test.cc */; };
 		235602A123DDC6DE00A799B9 /* space-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235602A023DDC6DE00A799B9 /* space-test.cc */; };
 		23565910221E82EC00837F83 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
 		23599D3923D58DDF00F722D6 /* page.h in Headers */ = {isa = PBXBuildFile; fileRef = 23599D3823D58DDF00F722D6 /* page.h */; };
@@ -368,6 +370,8 @@
 		2354C9E3243048E900E0B9BE /* garbage-collector.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "garbage-collector.cc"; sourceTree = "<group>"; };
 		2354C9E524306A7F00E0B9BE /* scavenger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = scavenger.h; sourceTree = "<group>"; };
 		2354C9E624306ADA00E0B9BE /* scavenger.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = scavenger.cc; sourceTree = "<group>"; };
+		2354C9E82431C92600E0B9BE /* object-visitor.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "object-visitor.cc"; sourceTree = "<group>"; };
+		2354C9EA2431D76000E0B9BE /* scavenger-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "scavenger-test.cc"; sourceTree = "<group>"; };
 		235602A023DDC6DE00A799B9 /* space-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "space-test.cc"; sourceTree = "<group>"; };
 		2356590B221E82EC00837F83 /* mai-tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "mai-tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2356590F221E82EC00837F83 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -738,6 +742,7 @@
 				23048452240CF6AD00480C15 /* stable-space-builder.h */,
 				23048453240D050700480C15 /* stable-space-builder.cc */,
 				232C0DBA242470C50088BF79 /* object-visitor.h */,
+				2354C9E82431C92600E0B9BE /* object-visitor.cc */,
 				2396C9902428B869009E8D83 /* pgo.h */,
 				2396C9912428B88A009E8D83 /* pgo.cc */,
 				2354C9E2243048B200E0B9BE /* garbage-collector.h */,
@@ -770,6 +775,7 @@
 				236290F524037193004FB689 /* type-checker-test.cc */,
 				23048455240D08D800480C15 /* stable-space-builder-test.cc */,
 				2360F1762413F1F60011898D /* bytecode-generator-test.cc */,
+				2354C9EA2431D76000E0B9BE /* scavenger-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1364,6 +1370,7 @@
 				2364B2C121E451F9008519AE /* write-ahead-log.cc in Sources */,
 				23ECE89523F259DB00B3C83B /* channel-test.cc in Sources */,
 				23ECE8A023F68B5400B3C83B /* lexer-test.cc in Sources */,
+				2354C9EB2431D76000E0B9BE /* scavenger-test.cc in Sources */,
 				237F504D21EB72C90069075D /* arena.cc in Sources */,
 				2364B2C321E451F9008519AE /* db-impl.cc in Sources */,
 				2360F18C2415F9620011898D /* logging.cc in Sources */,
@@ -1417,6 +1424,7 @@
 				2364B30621E451F9008519AE /* internal-key-comparator.cc in Sources */,
 				231ECF6323E85AD600B41869 /* bytecode-test.cc in Sources */,
 				2364B30821E451F9008519AE /* iterator-warpper.cc in Sources */,
+				2354C9E92431C92600E0B9BE /* object-visitor.cc in Sources */,
 				2364B30A21E451F9008519AE /* merging.cc in Sources */,
 				23F31A53240955BF00515795 /* syntax.cc in Sources */,
 				23ECE8A923F98A1900B3C83B /* parser-test.cc in Sources */,

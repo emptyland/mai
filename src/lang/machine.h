@@ -176,6 +176,8 @@ public:
     void TakeWaittingCoroutine(Coroutine *co);
     
     void VisitRoot(RootVisitor *visitor);
+    
+    void InvalidateHeapGuards(Address guard0, Address guard1);
 
     friend class Isolate;
     friend class Scheduler;
