@@ -48,6 +48,12 @@ public:
         return new (chunk) SemiSpace(request_size);
     }
     
+    DEF_VAL_GETTER(size_t, size);
+    DEF_VAL_GETTER(Address, chunk);
+    DEF_VAL_GETTER(Address, limit);
+
+    Address surive_level() const { return free(); }
+    
     friend class Heap;
     friend class NewSpace;
     friend class SemiSpaceIterator;
@@ -65,13 +71,16 @@ private:
     
     void Dispose(Allocator *lla) { lla->Free(this, size_); }
     
+    size_t Purge() {
+        size_t remaining = free_.load(std::memory_order_relaxed) - chunk();
+        DbgFillFreeZag(chunk(), remaining);
+        free_.store(chunk(), std::memory_order_relaxed);
+        return remaining;
+    }
+    
     Bitmap *bitmap() { return Bitmap::FromSizeAddress(&bitmap_length_); }
     
-    DEF_VAL_GETTER(size_t, size);
-    DEF_VAL_GETTER(Address, chunk);
-    DEF_VAL_GETTER(Address, limit);
-    
-    Address free() const { return free_.load(); }
+    Address free() const { return free_.load(std::memory_order_relaxed); }
     
     size_t GetChunkSize() const {
         return ((size_ - sizeof(SemiSpace)) * 256) / 260;
@@ -80,6 +89,13 @@ private:
     size_t GetBitmapLength() const { return GetChunkSize() / 256 - 1; }
     
     ptrdiff_t GetFreeSize() const { return limit_ - free_.load(); }
+    
+    bool Contains(Address addr) const { return addr >= chunk() && addr < limit(); }
+    
+    size_t AllocatedSize(Address addr) {
+        DCHECK(Contains(addr));
+        return bitmap()->AllocatedSize(addr - chunk());
+    }
     
     Address AquireSpace(size_t size) {
         size_t request_size = GetMinAllocationSize(size);
@@ -165,6 +181,13 @@ public:
         return Error::OK();
     }
     
+    DEF_PTR_GETTER(SemiSpace, survive_area);
+    DEF_PTR_GETTER(SemiSpace, original_area);
+    
+    bool InSuriveArea(Address addr) const { return survive_area_->Contains(addr); }
+    
+    bool InOriginalArea(Address addr) const { return original_area_->Contains(addr); }
+    
     // Thread safe:
     AllocationResult Allocate(size_t size) {
         DCHECK_GT(size, 0);
@@ -193,13 +216,23 @@ public:
     
     size_t GetRSS() const { return survive_area_->size() + original_area_->size(); }
     
-    size_t GetUsedSize() const { return survive_area_->free() - survive_area_->chunk(); }
+    size_t GetUsedSize() const { return original_area_->free() - original_area_->chunk(); }
+    
+    size_t Available() const { return original_area_->limit() - original_area_->free(); }
+    
+    size_t Flip(bool reinit) {
+        std::swap(survive_area_, original_area_);
+        size_t remaining = original_area_->Purge();
+        if (reinit) {
+            survive_area_->Purge();
+        }
+        return remaining;
+    }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NewSpace);
 private:
     SemiSpace *survive_area_ = nullptr; // survive space
     SemiSpace *original_area_ = nullptr; // allocation space
-    size_t latest_remaining_ = 0; // latest GC remaining size
 }; // class NewSpace
 
 class OldSpace final : public Space {

@@ -95,6 +95,30 @@ Heap::TotalMemoryUsage Heap::ApproximateMemoryUsage() const {
     return usage;
 }
 
+Any *Heap::PromoteObject(Any *object, bool promote) {
+    SemiSpace *original_area = new_space_->original_area();
+    DCHECK(original_area->Contains(reinterpret_cast<Address>(object)));
+    size_t placed_size = original_area->AllocatedSize(reinterpret_cast<Address>(object));
+    
+    Address dest = nullptr;
+    if (promote) {
+        auto rv = old_space_->Allocate(placed_size);
+        if (!rv.ok()) {
+            return nullptr;
+        }
+        dest = rv.address();
+    } else {
+        SemiSpace *survie_area = new_space_->survive_area();
+        dest = survie_area->AquireSpace(placed_size);
+        if (!dest) {
+            return nullptr;
+        }
+    }
+    ::memcpy(dest, object, placed_size);
+    object->set_forward_address(dest);
+    return reinterpret_cast<Any *>(dest);
+}
+
 } // namespace lang
 
 } // namespace mai

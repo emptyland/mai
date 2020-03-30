@@ -127,13 +127,6 @@ static_assert(sizeof(Span64) == 64, "Fixed span64 size");
 
 using BytecodeInstruction = uint32_t;
 
-// Remember set record for old-generation -> new-generation
-struct RememberRecord {
-    uint64_t seuqnce_number; // Sequence number
-    Any *host; // Host object pointer
-    Any **address; // Write to address
-}; //struct RememberRecord
-
 inline size_t GetMinAllocationSize(size_t n) {
     return n < kMinAllocationSize ? kMinAllocationSize : RoundUp(n, kPointerSize);
 }

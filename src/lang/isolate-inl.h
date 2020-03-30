@@ -55,6 +55,8 @@ inline Factory *Isolate::factory() const { return DCHECK_NOTNULL(factory_); }
 
 inline Scheduler *Isolate::scheduler() const { return DCHECK_NOTNULL(scheduler_); }
 
+inline GarbageCollector *Isolate::gc() const { return DCHECK_NOTNULL(gc_); }
+
 inline const Class *Isolate::builtin_type(BuiltinType type) const {
     return metadata_space()->builtin_type(type);
 }

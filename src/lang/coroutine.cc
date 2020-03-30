@@ -149,9 +149,10 @@ void VisitBytecodeFunctionStackFrame(Address frame_bp, RootVisitor *visitor) {
     int stack_ref_top = fun->FindStackRefTop(pc);
 
     // Scan stack local variables
-    printf("fun %s %08x\n", fun->name(), fun->stack_bitmap()[0]);
+    //printf("fun %s %08x\n", fun->name(), fun->stack_bitmap()[0]);
     visitor->VisitRootPointer(reinterpret_cast<Any **>(frame_bp + BytecodeStackFrame::kOffsetCallee));
     
+    //printf("locals----------------------\n");
     int offset = BytecodeStackFrame::kOffsetHeaderSize;
     DCHECK_GE(stack_ref_top, offset);
     while (offset < stack_ref_top) {
@@ -164,6 +165,7 @@ void VisitBytecodeFunctionStackFrame(Address frame_bp, RootVisitor *visitor) {
     }
     
     // Scan Arguments
+    //printf("args----------------------\n");
     int32_t args_size = static_cast<int32_t>(fun->prototype()->GetParametersPlacedSize());
     offset = StackFrame::kBaseSize + args_size;
     for (uint32_t i = 0; i < fun->prototype()->parameter_size(); i++) {
@@ -175,6 +177,7 @@ void VisitBytecodeFunctionStackFrame(Address frame_bp, RootVisitor *visitor) {
     }
     
     // Scan Constant Pool
+    //printf("const---------------------\n");
     for (uint32_t i = 0; i < fun->const_pool_spans_size(); i++) {
         Span32 *span = fun->const_pool() + i;
         if (fun->TestConstBitmap(i)) {
@@ -183,7 +186,7 @@ void VisitBytecodeFunctionStackFrame(Address frame_bp, RootVisitor *visitor) {
         }
     }
     
-    printf("==========================\n");
+    //printf("==========================\n");
 }
 
 void Coroutine::VisitRoot(RootVisitor *visitor) {

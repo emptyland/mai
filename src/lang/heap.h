@@ -64,9 +64,7 @@ public:
     };
 
     TotalMemoryUsage ApproximateMemoryUsage() const;
-    
-    uint64_t NextRememberRecordSequanceNumber() { return remember_record_sequance_.fetch_add(1); }
-    
+
     NewSpace *new_space() const { return new_space_.get(); }
     
     DEF_VAL_GETTER(HeapColor, initialize_color);
@@ -75,6 +73,8 @@ public:
     uint32_t initialize_color_tags() const { return static_cast<uint32_t>(initialize_color()); }
     
     uint32_t finalize_color_tags() const { return static_cast<uint32_t>(finalize_color()); }
+    
+    Any *PromoteObject(Any *object, bool should_promote);
 
     // TEST functions:
     void TEST_set_trap(AllocationResult::Result trap, int count) {
@@ -94,10 +94,6 @@ private:
     
     HeapColor initialize_color_ = kColorWhite; // Initialize object color for GC
     HeapColor finalize_color_ = kColorBlack; // Finalize object color for GC
-
-    // Remember set record for old-generation -> new-generation
-    // Remember record version number
-    std::atomic<uint64_t> remember_record_sequance_ = 0;
 }; // class Heap
 
 } // namespace lang

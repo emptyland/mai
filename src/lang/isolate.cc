@@ -1,4 +1,5 @@
 #include "lang/isolate-inl.h"
+#include "lang/garbage-collector.h"
 #include "lang/scheduler.h"
 #include "lang/machine.h"
 #include "lang/bytecode.h"
@@ -141,6 +142,7 @@ Isolate::Isolate(const Options &opts)
     , scheduler_(new Scheduler(opts.concurrency <= 0 ?
                                env_->GetNumberOfCPUCores() : opts.concurrency,
                                opts.env->GetLowLevelAllocator()))
+    , gc_(new GarbageCollector(this))
     , persistent_dummy_(new GlobalHandleNode{})
     , bytecode_handler_entries_(new Address[kMax_Bytecodes])
     , trampoline_suspend_point_(reinterpret_cast<Address>(BadSuspendPointDummy))
@@ -160,6 +162,7 @@ Isolate::~Isolate() {
     }
     delete persistent_dummy_;
 
+    delete gc_;
     delete metadata_space_;
     delete scheduler_;
     delete heap_;

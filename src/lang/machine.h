@@ -4,6 +4,7 @@
 
 #include "lang/isolate-inl.h"
 #include "lang/value-inl.h"
+#include "lang/garbage-collector.h"
 #include "lang/heap.h"
 #include "base/base.h"
 #include "glog/logging.h"
@@ -47,6 +48,9 @@ public:
     DEF_VAL_GETTER(int, n_free);
     DEF_PTR_GETTER(Coroutine, running);
     DEF_VAL_GETTER(uint64_t, user_time);
+    DEF_PTR_GETTER(HandleScopeSlot, top_slot);
+    DEF_VAL_GETTER(RememberSet, remember_set);
+    DEF_VAL_GETTER(int, uncaught_count);
 
     // Get machine state
     State state() const { return state_.load(std::memory_order_acquire); }
@@ -56,13 +60,13 @@ public:
 
     // Add counter when some exception uncaught.
     void IncrmentUncaughtCount() { uncaught_count_++; }
-    
-    DEF_VAL_GETTER(int, uncaught_count);
-    
+
     int GetNumberOfRunnable() const {
         std::lock_guard<std::mutex> lock(runnable_mutex_);
         return n_runnable_;
     }
+    
+    void PurgeRememberSet() { remember_set_.clear(); }
     
     // Start Machine
     void Start();
@@ -168,8 +172,6 @@ public:
     ALWAYS_INLINE static bool ShouldRemember(Any *host, Any *val) {
         return STATE->heap()->InOldArea(host) && val != nullptr && STATE->heap()->InNewArea(val);
     }
-
-    DEF_PTR_GETTER(HandleScopeSlot, top_slot);
     
     void TakeWaittingCoroutine(Coroutine *co);
     
@@ -180,12 +182,10 @@ public:
     friend class MachineScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Machine);
 private:
-    using RememberSet = std::map<void *, RememberRecord>;
-    
     ALWAYS_INLINE void AddRememberRecord(Any *host, Any **address) {
         DCHECK(ShouldRemember(host, *address));
         RememberRecord rd {
-            STATE->heap()->NextRememberRecordSequanceNumber(),
+            STATE->gc()->NextRememberRecordSequanceNumber(),
             host,
             address,
         };

@@ -213,6 +213,7 @@ String *IncrementalStringBuilder::Finish() const {
     return result;
 }
 
+
 } // namespace lang
 
 } // namespace mai

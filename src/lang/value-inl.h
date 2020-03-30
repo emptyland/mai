@@ -70,6 +70,14 @@ inline Any *Any::forward() const {
     return reinterpret_cast<Any *>(klass_ & ~1);
 }
 
+inline void Any::set_forward(Any *addr) { set_forward_address(reinterpret_cast<Address>(addr)); }
+
+inline void Any::set_forward_address(Address addr) {
+    uintptr_t word = reinterpret_cast<uintptr_t>(addr);
+    DCHECK((word & 1) == 0);
+    klass_ = word | 1;
+}
+
 inline uint32_t Any::tags() const { return tags_; }
 
 inline bool Any::QuicklyIs(uint32_t type_id) const { return clazz()->id() == type_id; }

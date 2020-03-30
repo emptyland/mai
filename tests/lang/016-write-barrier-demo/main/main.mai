@@ -23,5 +23,8 @@ fun bar(s: string, o: Foo, i: int) {
 	val j = 1
 	val msg = s
 	val k = 0.1
+	val mm0 = "Hello"
+	val mm1 = "World"
+	val l = 100
 	testVisit()
 }

@@ -24,6 +24,7 @@ class Machine;
 class Class;
 class AbstractValue;
 class RootVisitor;
+class GarbageCollector;
 struct NumberValueSlot;
 struct TLSStorage;
 struct GlobalHandleNode;
@@ -78,6 +79,7 @@ public:
     inline uint8_t **bytecode_handler_entries() const;
     inline std::atomic<AbstractValue *> *cached_number_value(int slot, int64_t index);
     inline Factory *factory() const;
+    inline GarbageCollector *gc() const;
     inline Closure *FindExternalLinkageOrNull(const std::string &name) const;
     inline Closure *TakeExternalLinkageOrNull(const std::string &name);
     inline Span64 *global_space() const;
@@ -119,6 +121,7 @@ private:
     MetadataSpace *metadata_space_; // Metadata memory space
     Factory *factory_; // Some Heap object collection
     Scheduler *scheduler_; // Scheduler
+    GarbageCollector *gc_; // Garbage Collector
     
     Span64 *global_space_ = nullptr; // [nested strong ref] Global space
     uint32_t *global_space_bitmap_ = nullptr; // Bitmap of global space

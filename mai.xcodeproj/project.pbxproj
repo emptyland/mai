@@ -42,6 +42,8 @@
 		2339B3F423E5B90700B07772 /* macro-assembler-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2339B3F323E5B90700B07772 /* macro-assembler-x64.cc */; };
 		2349FDF522A4BA76001861E0 /* sha256.c in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF422A4BA76001861E0 /* sha256.c */; };
 		2349FDF722A4BAA0001861E0 /* sha256-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF622A4BAA0001861E0 /* sha256-test.cc */; };
+		2354C9E4243048E900E0B9BE /* garbage-collector.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2354C9E3243048E900E0B9BE /* garbage-collector.cc */; };
+		2354C9E724306ADA00E0B9BE /* scavenger.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2354C9E624306ADA00E0B9BE /* scavenger.cc */; };
 		235602A123DDC6DE00A799B9 /* space-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235602A023DDC6DE00A799B9 /* space-test.cc */; };
 		23565910221E82EC00837F83 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
 		23599D3923D58DDF00F722D6 /* page.h in Headers */ = {isa = PBXBuildFile; fileRef = 23599D3823D58DDF00F722D6 /* page.h */; };
@@ -362,6 +364,10 @@
 		2349FDF322A4BA76001861E0 /* sha256.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sha256.h; sourceTree = "<group>"; };
 		2349FDF422A4BA76001861E0 /* sha256.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sha256.c; sourceTree = "<group>"; };
 		2349FDF622A4BAA0001861E0 /* sha256-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "sha256-test.cc"; sourceTree = "<group>"; };
+		2354C9E2243048B200E0B9BE /* garbage-collector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "garbage-collector.h"; sourceTree = "<group>"; };
+		2354C9E3243048E900E0B9BE /* garbage-collector.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "garbage-collector.cc"; sourceTree = "<group>"; };
+		2354C9E524306A7F00E0B9BE /* scavenger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = scavenger.h; sourceTree = "<group>"; };
+		2354C9E624306ADA00E0B9BE /* scavenger.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = scavenger.cc; sourceTree = "<group>"; };
 		235602A023DDC6DE00A799B9 /* space-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "space-test.cc"; sourceTree = "<group>"; };
 		2356590B221E82EC00837F83 /* mai-tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "mai-tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2356590F221E82EC00837F83 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -734,6 +740,10 @@
 				232C0DBA242470C50088BF79 /* object-visitor.h */,
 				2396C9902428B869009E8D83 /* pgo.h */,
 				2396C9912428B88A009E8D83 /* pgo.cc */,
+				2354C9E2243048B200E0B9BE /* garbage-collector.h */,
+				2354C9E3243048E900E0B9BE /* garbage-collector.cc */,
+				2354C9E524306A7F00E0B9BE /* scavenger.h */,
+				2354C9E624306ADA00E0B9BE /* scavenger.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1396,6 +1406,7 @@
 				2364B2FC21E451F9008519AE /* bw-tree-memory-table.cc in Sources */,
 				230510B823DF318100B89A7C /* machine.cc in Sources */,
 				2364B2FE21E451F9008519AE /* ordered-memory-table.cc in Sources */,
+				2354C9E724306ADA00E0B9BE /* scavenger.cc in Sources */,
 				2364B30021E451F9008519AE /* unordered-memory-table.cc in Sources */,
 				2364B30121E451F9008519AE /* bytewise-comparator.cc in Sources */,
 				236EA78123D69A760071047C /* space.cc in Sources */,
@@ -1429,6 +1440,7 @@
 				2364B33021E451F9008519AE /* arena-utils.cc in Sources */,
 				2364B33121E451F9008519AE /* arenas.cc in Sources */,
 				2364B33321E451F9008519AE /* ebr.cc in Sources */,
+				2354C9E4243048E900E0B9BE /* garbage-collector.cc in Sources */,
 				230510C223E0831F00B89A7C /* isolate-test.cc in Sources */,
 				23DFE03722754D29005D489C /* big-number.cc in Sources */,
 				2364B33521E451F9008519AE /* lock-group.cc in Sources */,
