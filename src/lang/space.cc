@@ -120,7 +120,7 @@ AllocationResult LargeSpace::DoAllocate(size_t size) {
     }
     QUEUE_INSERT_TAIL(dummy_, page);
     rss_size_ += page->size();
-    used_size_ += size;
+    used_size_ += page->size();
     DCHECK_EQ(0, reinterpret_cast<uintptr_t>(page->chunk()) % kAligmentSize);
     return AllocationResult(AllocationResult::OK, page->chunk());
 }

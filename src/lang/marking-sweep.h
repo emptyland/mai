@@ -14,7 +14,7 @@ class Any;
 class MarkingSweep final : public GarbageCollectionPolicy {
 public:
     MarkingSweep(Isolate *isolate, Heap *heap): GarbageCollectionPolicy(isolate, heap) {}
-    ~MarkingSweep() override;
+    ~MarkingSweep() override = default;
     
     DEF_VAL_PROP_RW(bool, full);
 

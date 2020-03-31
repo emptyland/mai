@@ -3,8 +3,28 @@ package runtime
 val VERSION = "0.0.1"
 val ENV = "mai-lang v$VERSION"
 
-
+// Get current source file line number
 native fun currentSourceLine(level: int): int
 
+// Get current source file name
 native fun currentSourceName(level: int): string
 
+// Run minor GC once
+native fun minorGC()
+
+// Run major GC once
+native fun majorGC()
+
+
+class MemoryHistogram (
+	val newSpaceSize: u64,
+	val oldSpaceSize: u64,
+	val newSpaceUsed: u64,
+	val oldSpaceUsed: u64,
+	val newSpaceRSS: u64,
+	val oldSpaceRSS: u64,
+	val gcTick: u64
+)
+
+// Get current memory histogram 
+native fun getMemoryHistogram(): MemoryHistogram

@@ -47,6 +47,9 @@ public:
     
     template<class T>
     inline T UnsafeGetField(const Field *field) const;
+    
+    template<class T>
+    inline void UnsafeSetField(const Field *field, T value);
 
     template<class T>
     inline bool Is() const { return SlowlyIs(TypeTraits<T>::kType); }
@@ -585,6 +588,8 @@ public:
             AppendString(handle->data(), handle->length());
         }
     }
+    
+    void AppendString(const String *str) { AppendString(str->data(), str->length()); }
 
     void AppendString(const std::string &str) { AppendString(str.data(), str.size()); }
 

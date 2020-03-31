@@ -777,13 +777,15 @@ Function *BytecodeGenerator::BuildFunction(const std::string &name, FunctionScop
 ASTVisitor::Result BytecodeGenerator::VisitTypeSign(TypeSign *ast) /*override*/ {
     switch (static_cast<Token::Kind>(ast->id())) {
         case Token::kRef:
-        case Token::kObject: {
+        case Token::kObject:
+        case Token::kClass: {
+            if (current_fun_ && !HasGenerated(ast->structure()) &&
+                !GenerateSymbolDependence(ast->structure())) {
+                return ResultWithError();
+            }
             int type_id = DCHECK_NOTNULL(ast->structure()->clazz())->id();
             return ResultWith(Value::kMetadata, type_id, type_id);
         }
-        case Token::kClass:
-            NOREACHED();
-            break;
         default:
             break;
     }
@@ -815,7 +817,8 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
         base = DCHECK_NOTNULL(ast->base())->clazz();
         offset = ast->base()->clazz()->instrance_size();
     }
-    
+    symbol_trace_.insert(ast);
+
     std::vector<FieldDesc> fields_desc;
     uint32_t size = ProcessStructure(ast, offset, &builder, &fields_desc);
     if (!size) {
@@ -835,7 +838,6 @@ ASTVisitor::Result BytecodeGenerator::VisitClassDefinition(ClassDefinition *ast)
     if (!ProcessMethodsPost(ctor, ast)) {
         return ResultWithError();
     }
-    symbol_trace_.insert(ast);
     return ResultWithVoid();
 }
 
@@ -2680,17 +2682,26 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
             LdaIfNeeded(clazz, index, linkage, ast);
             break;
         default: {
-            auto method = metadata_space_->FindClassMethodOrNull(clazz, "toString");
-            if (!method) {
-                auto any = metadata_space_->builtin_type(kType_any);
-                method = DCHECK_NOTNULL(metadata_space_->FindClassMethodOrNull(any, "toString"));
-            }
-            int argument_offset = kPointerSize;
-            MoveToArgumentIfNeeded(clazz, index, linkage, argument_offset, ast);
-            int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
-            LdaConst(method->fn()->clazz(), kidx, ast);
+            //auto method = metadata_space_->FindClassMethodOrNull(clazz, "toString");
+            auto [owns, method] = metadata_space_->FindClassMethod(clazz, "toString");
+            MoveToArgumentIfNeeded(clazz, index, linkage, kPointerSize/*arg_offset*/, ast);
+            std::string name = std::string(owns->name()) + "::toString";
+            Value value = EnsureFindValue(name);
+            DCHECK_EQ(Value::kGlobal, value.linkage);
+            LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
             current_fun_->EmitDirectlyCallFunction(ast, method->is_native(), 0/*slot*/,
-                                                   argument_offset);
+                                                   kPointerSize/*arg_size*/);
+//            auto method = metadata_space_->FindClassMethodOrNull(clazz, "toString");
+//            if (!method) {
+//                auto object = DCHECK_NOTNULL(metadata_space_->FindClassOrNull("lang.Object"));
+//                method = DCHECK_NOTNULL(metadata_space_->FindClassMethodOrNull(object, "toString"));
+//            }
+//            int argument_offset = kPointerSize;
+//            MoveToArgumentIfNeeded(clazz, index, linkage, argument_offset, ast);
+//            int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
+//            LdaConst(method->fn()->clazz(), kidx, ast);
+//            current_fun_->EmitDirectlyCallFunction(ast, method->is_native(), 0/*slot*/,
+//                                                   argument_offset);
         } break;
     }
 }

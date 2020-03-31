@@ -91,21 +91,18 @@ private:
     inline bool Test(size_t i) const {
         DCHECK_LT(i, length_ * 32);
         DCHECK(bits_[i >> kBucketShift].is_lock_free());
-        //return bits_[i >> kBucketShift] & (1u << (i & kBucketMask));
         return bits_[i >> kBucketShift].load() & (1u << (i & kBucketMask));
     }
 
     inline void Set(size_t i) {
         DCHECK_LT(i, length_ * 32);
         DCHECK(bits_[i >> kBucketShift].is_lock_free());
-        //bits_[i >> kBucketShift] |= 1u << (i & kBucketMask);
         bits_[i >> kBucketShift].fetch_or(1u << (i & kBucketMask));
     }
 
     inline void Clear(size_t i) {
         DCHECK_LT(i, length_ * 32);
         DCHECK(bits_[i >> kBucketShift].is_lock_free());
-        //bits_[i >> kBucketShift] &= ~(1u << (i & kBucketMask));
         bits_[i >> kBucketShift].fetch_and(~(1u << (i & kBucketMask)));
     }
     
@@ -272,7 +269,7 @@ private:
     }
     
     void AddAvailable(size_t n) { available_ += n; }
-    
+
     void SubAvailable(size_t n) { available_ -= n; }
     
     Bitmap *bitmap() { return Bitmap::FromArray(bitmap_); }

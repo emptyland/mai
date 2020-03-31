@@ -1,5 +1,6 @@
 #include "lang/garbage-collector.h"
 #include "lang/scavenger.h"
+#include "lang/marking-sweep.h"
 #include "lang/isolate-inl.h"
 #include "lang/heap.h"
 #include "lang/machine.h"
@@ -66,11 +67,21 @@ void GarbageCollector::MinorCollect() {
 }
 
 void GarbageCollector::MajorCollect() {
-    // TODO:
+    set_state(kMajorCollect);
+    MarkingSweep marking_sweep(isolate_, isolate_->heap());
+    base::StdFilePrinter printer(stdout);
+    marking_sweep.set_full(false);
+    marking_sweep.Run(&printer);
+    set_state(kDone);
 }
 
 void GarbageCollector::FullCollect() {
-    // TODO:
+    set_state(kMajorCollect);
+    MarkingSweep marking_sweep(isolate_, isolate_->heap());
+    base::StdFilePrinter printer(stdout);
+    marking_sweep.set_full(true);
+    marking_sweep.Run(&printer);
+    set_state(kDone);
 }
 
 RememberSet GarbageCollector::MergeRememberSet(bool keep_after) {

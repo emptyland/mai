@@ -218,13 +218,88 @@ void Object::Iterate(ObjectVisitor *visitor) {
     for (uint32_t i = 0; i < type->n_methods(); i++) {
         const Field *field = type->field(i);
         if (field->type()->is_reference()) {
-            //printf("field: %s %d\n", field->name(), field->offset());
             Any **addr = reinterpret_cast<Any **>(GetFieldAddress(field));
             if (*addr) {
                 visitor->VisitPointer(this, addr);
             }
         }
     }
+}
+
+String *Object::ToString() const {
+    IncrementalStringBuilder builder;
+    const Class *klass = clazz();
+    builder.AppendFormat("%s(", klass->name());
+    
+    for (uint32_t i = 0; i <klass->n_fields(); i++) {
+        if (i > 0) {
+            builder.AppendString(", ");
+        }
+        const Field *field = klass->field(i);
+        builder.AppendFormat("%s:", field->name());
+        switch (static_cast<BuiltinType>(field->type()->id())) {
+            case kType_bool:
+                if (UnsafeGetField<bool>(field)) {
+                    builder.AppendString(STATE->factory()->true_string());
+                } else {
+                    builder.AppendString(STATE->factory()->false_string());
+                }
+                break;
+            case kType_i8:
+                builder.AppendFormat("%" PRIu8, UnsafeGetField<int8_t>(field));
+                break;
+            case kType_u8:
+                builder.AppendFormat("%" PRIi8, UnsafeGetField<uint8_t>(field));
+                break;
+            case kType_i16:
+                builder.AppendFormat("%" PRIi16, UnsafeGetField<int16_t>(field));
+                break;
+            case kType_u16:
+                builder.AppendFormat("%" PRIu16, UnsafeGetField<uint16_t>(field));
+                break;
+            case kType_i32:
+                builder.AppendFormat("%" PRIi32, UnsafeGetField<int32_t>(field));
+                break;
+            case kType_u32:
+                builder.AppendFormat("%" PRIu32, UnsafeGetField<uint32_t>(field));
+                break;
+            case kType_int:
+                builder.AppendFormat("%d", UnsafeGetField<int>(field));
+                break;
+            case kType_uint:
+                builder.AppendFormat("%u", UnsafeGetField<unsigned>(field));
+                break;
+            case kType_i64:
+                builder.AppendFormat("%" PRIi64, UnsafeGetField<int64_t>(field));
+                break;
+            case kType_u64:
+                builder.AppendFormat("%" PRIu64, UnsafeGetField<uint64_t>(field));
+                break;
+            case kType_f32:
+                builder.AppendFormat("%f", UnsafeGetField<float>(field));
+                break;
+            case kType_f64:
+                builder.AppendFormat("%f", UnsafeGetField<double>(field));
+                break;
+            case kType_string:
+                builder.AppendFormat("\"%s\"", UnsafeGetField<String *>(field));
+                break;
+            case kType_closure:
+                // TODO:
+                break;
+            case kType_channel:
+                // TODO:
+                break;
+            default:
+                if (field->type()->id() >= kUserTypeIdBase) {
+                    Object *obj = UnsafeGetField<Object *>(field);
+                    builder.AppendFormat("%s(...)", obj->clazz()->name());
+                }
+                break;
+        }
+    }
+    builder.AppendString(")");
+    return builder.QuickBuild();
 }
 
 } // namespace lang

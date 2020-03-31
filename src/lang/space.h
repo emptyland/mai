@@ -307,7 +307,7 @@ public:
         DbgFillFreeZag(page->chunk(), page->available());
         QUEUE_REMOVE(page);
         rss_size_ -= page->size();
-        used_size_ -= page->available();
+        used_size_ -= page->size();
         page->Dispose(lla_);
     }
 

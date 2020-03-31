@@ -57,7 +57,8 @@ private:
 class Object : public Any {
 public:
     void Iterate(ObjectVisitor *visitor);
-    
+
+    String *ToString() const;
 private:
     Address GetFieldAddress(const Field *field) {
         return reinterpret_cast<Address>(this) + field->offset();
@@ -103,6 +104,13 @@ template<class T>
 inline T Any::UnsafeGetField(const Field *field) const {
     const void *addr = reinterpret_cast<const uint8_t *>(this) + field->offset();
     return *static_cast<T const*>(addr);
+}
+
+template<class T>
+inline void Any::UnsafeSetField(const Field *field, T value) {
+    void *addr = reinterpret_cast<Address>(this) + field->offset();
+    *static_cast<T *>(addr) = value;
+    // TODO Barriar
 }
 
 template<class T, bool R>

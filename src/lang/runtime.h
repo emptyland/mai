@@ -56,7 +56,11 @@ class Function;
     V(System_MicroTime, "lang.System::microTime") \
     V(System_GC, "lang.System::gc") \
     V(CurrentSourceLine, "runtime.currentSourceLine") \
-    V(CurrentSourceName, "runtime.currentSourceName")
+    V(CurrentSourceName, "runtime.currentSourceName") \
+    V(MinorGC, "runtime.minorGC") \
+    V(MajorGC, "runtime.majorGC") \
+    V(GetMemoryHistogram, "runtime.getMemoryHistogram")
+
 
 // The runtime functions definition
 struct Runtime {
@@ -155,6 +159,9 @@ struct Runtime {
     
     static int CurrentSourceLine(int level);
     static String *CurrentSourceName(int level);
+    static void MinorGC();
+    static void MajorGC();
+    static Any *GetMemoryHistogram();
 }; // struct Runtime
 
 } // namespace lang

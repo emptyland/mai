@@ -322,11 +322,11 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 }
 
 /*static*/ String *Runtime::Object_ToString(Any *any) {
-    // TODO:
+    HandleScope handle_scope(HandleScope::INITIALIZER);
     if (!any) {
         return Machine::This()->NewUtf8String("nil", 3, 0);
     } else {
-        return Machine::This()->NewUtf8String("[any]", 5, 0);
+        return static_cast<Object *>(any)->ToString();
     }
 }
 
@@ -411,6 +411,65 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
         frame_bp = *reinterpret_cast<Address *>(frame_bp);
     }
     return STATE->factory()->empty_string();
+}
+
+/*static*/ void Runtime::MinorGC() {
+    if (!STATE->gc()->AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady)) {
+        Machine::This()->Park();
+        return;
+    }
+    STATE->scheduler()->Pause();
+    STATE->gc()->MinorCollect();
+    bool ok = STATE->gc()->AcquireState(GarbageCollector::kDone, GarbageCollector::kIdle);
+    DCHECK(ok);
+    (void)ok;
+    STATE->scheduler()->Resume();
+}
+
+/*static*/ void Runtime::MajorGC() {
+    if (!STATE->gc()->AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady)) {
+        Machine::This()->Park();
+        return;
+    }
+    STATE->scheduler()->Pause();
+    STATE->gc()->MajorCollect();
+    bool ok = STATE->gc()->AcquireState(GarbageCollector::kDone, GarbageCollector::kIdle);
+    DCHECK(ok);
+    (void)ok;
+    STATE->scheduler()->Resume();
+}
+
+// [Safepoint]
+/*static*/ Any *Runtime::GetMemoryHistogram() {
+    SafepointScope safepoint_scope(STATE->gc());
+    const Class *type = STATE->metadata_space()->FindClassOrNull("runtime.MemoryHistogram");
+    Object *histogram = static_cast<Object *>(Machine::This()->NewObject(type, 0));
+    MetadataSpace *ms = STATE->metadata_space();
+    Heap *heap = STATE->heap();
+    
+    const Field *field = ms->FindClassFieldOrNull(type, "newSpaceSize");
+    histogram->UnsafeSetField<uint64_t>(field, STATE->new_space_initial_size());
+    
+    field = ms->FindClassFieldOrNull(type, "oldSpaceSize");
+    histogram->UnsafeSetField<uint64_t>(field, STATE->old_space_limit_size());
+    
+    field = ms->FindClassFieldOrNull(type, "newSpaceUsed");
+    histogram->UnsafeSetField<uint64_t>(field, heap->new_space()->GetUsedSize());
+    
+    field = ms->FindClassFieldOrNull(type, "oldSpaceUsed");
+    histogram->UnsafeSetField<uint64_t>(field, heap->old_space()->used_size() +
+                                        heap->large_space()->used_size());
+    
+    field = ms->FindClassFieldOrNull(type, "newSpaceRSS");
+    histogram->UnsafeSetField<uint64_t>(field, heap->new_space()->GetRSS());
+    
+    field = ms->FindClassFieldOrNull(type, "oldSpaceRSS");
+    histogram->UnsafeSetField<uint64_t>(field, heap->old_space()->GetRSS() +
+                                        heap->large_space()->rss_size());
+    
+    field = ms->FindClassFieldOrNull(type, "gcTick");
+    histogram->UnsafeSetField<uint64_t>(field, STATE->gc()->tick());
+    return histogram;
 }
 
 } // namespace lang

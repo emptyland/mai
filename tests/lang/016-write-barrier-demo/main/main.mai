@@ -1,5 +1,6 @@
 package main
 
+import mai.runtime
 
 class Foo {
 	var name: string
@@ -18,6 +19,7 @@ fun main() {
 	bar(foo.name, foo, 0)
 	System.gc()
 	println("name: ${foo.name}")
+	println("${runtime.getMemoryHistogram()}")
 }
 
 fun bar(s: string, o: Foo, i: int) {
