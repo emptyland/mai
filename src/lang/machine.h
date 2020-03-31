@@ -35,6 +35,7 @@ public:
         kDead,
         kIdle,
         kRunning,
+        kStop, // STW: Stop world
         kPanic,
     };
     using TaskFunc = void (*)();
@@ -76,6 +77,9 @@ public:
     
     // Post coroutine to waitting list
     void PostWaitting(Coroutine *co);
+    
+    // Touch machine for resume
+    void Touch() { cond_var_.notify_one(); }
 
     // Get current thread machine object
     static Machine *This() { return DCHECK_NOTNULL(TLS_STORAGE->machine); }

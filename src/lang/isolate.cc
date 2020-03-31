@@ -209,6 +209,10 @@ void Isolate::VisitRoot(RootVisitor *visitor) {
                                        reinterpret_cast<Any **>(base + sizeof(Span64)));
         }
     }
+    for (GlobalHandleNode *node = persistent_dummy_->next_; node != persistent_dummy_;
+         node = node->next_) {
+        visitor->VisitRootPointer(&node->handle);
+    }
     metadata_space_->VisitRoot(visitor);
     factory_->VisitRoot(visitor);
     scheduler_->VisitRoot(visitor);

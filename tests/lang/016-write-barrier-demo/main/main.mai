@@ -16,6 +16,8 @@ fun main() {
 	val foo = newOldFoo()
 	foo.name = newNewString()
 	bar(foo.name, foo, 0)
+	System.gc()
+	println("name: ${foo.name}")
 }
 
 fun bar(s: string, o: Foo, i: int) {
@@ -26,5 +28,6 @@ fun bar(s: string, o: Foo, i: int) {
 	val mm0 = "Hello"
 	val mm1 = "World"
 	val l = 100
-	testVisit()
+	//testVisit()
+	System.gc()
 }

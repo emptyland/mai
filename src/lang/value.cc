@@ -218,6 +218,7 @@ void Object::Iterate(ObjectVisitor *visitor) {
     for (uint32_t i = 0; i < type->n_methods(); i++) {
         const Field *field = type->field(i);
         if (field->type()->is_reference()) {
+            //printf("field: %s %d\n", field->name(), field->offset());
             Any **addr = reinterpret_cast<Any **>(GetFieldAddress(field));
             if (*addr) {
                 visitor->VisitPointer(this, addr);

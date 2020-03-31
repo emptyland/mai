@@ -103,6 +103,66 @@ void Scheduler::Shutdown() {
     }
 }
 
+void Scheduler::Pause() {
+    Machine *self = Machine::This();
+    //int pause_request = 1;
+    pause_request_.store(1, std::memory_order_relaxed);
+    for (int i = 1; i < concurrency_; i++) {
+        Machine *m = all_machines_[i];
+        if (m == self) {
+            continue;
+        }
+        switch (m->state()) {
+            case Machine::kIdle:
+                m->set_state(Machine::kStop);
+                m->Touch();
+                break;
+            case Machine::kRunning:
+                pause_request_.fetch_add(1, std::memory_order_relaxed);
+                break;
+            case Machine::kStop:
+            case Machine::kDead:
+            case Machine::kPanic:
+                // Ignore
+                break;
+            default:
+                NOREACHED();
+                break;
+        }
+    }
+    while (pause_request_.load(std::memory_order_acquire) > 1) {
+        // Waiting for others machine paused
+        std::this_thread::yield();
+    }
+    self->set_state(Machine::kStop); // Then stop self
+}
+
+void Scheduler::Resume() {
+    Machine *self = Machine::This();
+    pause_request_.store(0, std::memory_order_release);
+    for (int i = 1; i < concurrency_; i++) {
+        Machine *m = all_machines_[i];
+        if (m == self) {
+            continue;
+        }
+        switch (m->state()) {
+            case Machine::kStop:
+                m->Touch();
+                break;
+            case Machine::kIdle:
+            case Machine::kDead:
+            case Machine::kPanic:
+                // Ignore
+                break;
+            case Machine::kRunning:
+            default:
+                NOREACHED();
+                break;
+        }
+    }
+    self->set_state(Machine::kRunning);
+}
+
 void Scheduler::PostRunnableBalanced(Coroutine *co, bool now) {
     Machine *target = machine(0);
     int load = target->GetNumberOfRunnable();

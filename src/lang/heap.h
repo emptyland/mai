@@ -74,7 +74,7 @@ public:
     
     uint32_t finalize_color_tags() const { return static_cast<uint32_t>(finalize_color()); }
     
-    Any *PromoteObject(Any *object, bool should_promote);
+    Any *MoveNewSpaceObject(Any *object, bool promote);
 
     // TEST functions:
     void TEST_set_trap(AllocationResult::Result trap, int count) {

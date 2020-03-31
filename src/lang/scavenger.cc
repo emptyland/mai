@@ -2,6 +2,7 @@
 #include "lang/isolate-inl.h"
 #include "lang/heap.h"
 #include "lang/object-visitor.h"
+#include "base/slice.h"
 
 namespace mai {
 
@@ -24,7 +25,7 @@ public:
             
             if (owns_->heap_->InNewArea(*i)) {
                 bool should_promote = reinterpret_cast<Address>(*i) < owns_->promote_level_;
-                *i = owns_->heap_->PromoteObject(*i, should_promote);
+                *i = owns_->heap_->MoveNewSpaceObject(*i, should_promote);
                 if (should_promote) {
                     owns_->promoted_obs_.push_back(*i);
                 }
@@ -51,9 +52,9 @@ public:
                 continue;
             }
             
-            if (owns_->heap_->new_space()->InSuriveArea(reinterpret_cast<Address>(*i))) {
+            if (owns_->heap_->InNewArea(*i)) {
                 bool should_promote = reinterpret_cast<Address>(*i) < owns_->promote_level_;
-                *i = owns_->heap_->PromoteObject(*i, should_promote);
+                *i = owns_->heap_->MoveNewSpaceObject(*i, should_promote);
                 if (should_promote) {
                     owns_->promoted_obs_.push_back(*i);
                 }
@@ -67,7 +68,13 @@ private:
 
 Scavenger::~Scavenger() /*override*/ {}
 
-void Scavenger::Run() /*override*/ {
+void Scavenger::Reset() /*override*/ {
+    ::memset(&histogram_, 0, sizeof(histogram_));
+    promoted_obs_.clear();
+    promote_level_ = nullptr;
+}
+
+void Scavenger::Run(base::AbstractPrinter *logger) /*override*/ {
     Env *env = isolate_->env();
     uint64_t jiffy = env->CurrentTimeMicros();
     size_t available = heap_->new_space()->Available();
@@ -83,6 +90,8 @@ void Scavenger::Run() /*override*/ {
     } else if (latest_remaining_rate > 0.25 /*1/4*/) {
         promote_level_ = survie_area->chunk() + isolate_->gc()->latest_minor_remaining_size();
     }
+    logger->Println("[Minor] Promote Level: %p [%p, %p)", promote_level_, survie_area->chunk(),
+                    survie_area->limit());
     
     promoted_obs_.clear();
     RootVisitorImpl root_visitor(this);
@@ -90,7 +99,9 @@ void Scavenger::Run() /*override*/ {
 
     ObjectVisitorImpl object_visitor(this);
     RememberSet rset = isolate_->gc()->MergeRememberSet(true/*keep_after*/);
+    logger->Println("[Minor] RSet size: %zd", rset.size());
     for (const auto &pair : rset) {
+        //logger->Println("RSet: %s %s", pair.second.host->clazz()->name(), (*pair.second.address)->clazz()->name());
         object_visitor.VisitPointer(pair.second.host, pair.second.address);
     }
     
@@ -100,6 +111,7 @@ void Scavenger::Run() /*override*/ {
         IterateObject(iter.object(), &object_visitor);
     }
 
+    logger->Println("[Minor] Should promoted objects: %zd", promoted_obs_.size());
     while (!promoted_obs_.empty()) {
         Any *object = promoted_obs_.front();
         promoted_obs_.pop_front();
@@ -116,6 +128,10 @@ void Scavenger::Run() /*override*/ {
     
     histogram_.micro_time_cost = env->CurrentTimeMicros() - jiffy;
     histogram_.collected_bytes = heap_->new_space()->Available() - available;
+
+    logger->Println("[Minor] Scavenger done, collected: %zd, cost: %" PRIi64 ,
+                    histogram_.collected_bytes,
+                    histogram_.micro_time_cost);
 }
 
 } // namespace lang

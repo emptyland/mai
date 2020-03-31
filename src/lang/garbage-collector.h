@@ -7,12 +7,15 @@
 #include <atomic>
 
 namespace mai {
-
+namespace base {
+class AbstractPrinter;
+} // namespace base
 namespace lang {
 
 class Isolate;
 class Heap;
 class Any;
+class SafepointScope;
 
 // Remember set record for old-generation -> new-generation
 struct RememberRecord {
@@ -32,26 +35,64 @@ struct GarbageCollectionHistogram {
 
 class GarbageCollector final {
 public:
+    enum State {
+        kIdle,
+        kReady,
+        kMinorCollect,
+        kMajorCollect,
+        kFullCollect,
+        kDone,
+    };
+    
     GarbageCollector(Isolate *isolate): isolate_(isolate) {}
 
     DEF_VAL_PROP_RW(size_t, latest_minor_remaining_size);
     
+    State state() const { return state_.load(std::memory_order_acquire); }
+    void set_state(State state) { state_.store(state, std::memory_order_release); }
+    
+    bool AcquireState(State expect, State state) {
+        return state_.compare_exchange_strong(expect, state);
+    }
+    
     void MinorCollect();
     void MajorCollect();
+    void FullCollect();
 
     uint64_t NextRememberRecordSequanceNumber() { return remember_record_sequance_.fetch_add(1); }
     
     RememberSet MergeRememberSet(bool keep_after);
     
     void InvalidateHeapGuards(Address guard0, Address guard1);
+    
+    friend class SafepointScope;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(GarbageCollector);
 private:
+    void SafepointEnter();
+    void SafepointExit();
+    
     Isolate *const isolate_;
     // Remember set record for old-generation -> new-generation
     // Remember record version number
     std::atomic<uint64_t> remember_record_sequance_ = 0;
     
+    // State of GC progress
+    std::atomic<State> state_ = kIdle;
+
+    // Latest minor GC remaining bytes
     size_t latest_minor_remaining_size_ = 0;
 }; // class GarbageCollector
+
+
+class SafepointScope final {
+public:
+    SafepointScope(GarbageCollector *gc): gc_(gc) { gc_->SafepointEnter(); }
+    ~SafepointScope() { gc_->SafepointExit(); }
+
+    DISALLOW_IMPLICIT_CONSTRUCTORS(SafepointScope);
+private:
+    GarbageCollector *gc_;
+}; // class SafepointScope
 
 
 class GarbageCollectionPolicy {
@@ -65,7 +106,7 @@ public:
     DEF_PTR_GETTER(Heap, heap);
     DEF_VAL_GETTER(GarbageCollectionHistogram, histogram);
     
-    virtual void Run() = 0;
+    virtual void Run(base::AbstractPrinter *logger) = 0;
 
     virtual void Reset() { ::memset(&histogram_, 0, sizeof(histogram_)); }
 

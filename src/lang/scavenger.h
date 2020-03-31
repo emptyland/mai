@@ -14,8 +14,11 @@ class Scavenger final : public GarbageCollectionPolicy {
 public:
     Scavenger(Isolate *isolate, Heap *heap): GarbageCollectionPolicy(isolate, heap) {}
     ~Scavenger() override;
+    
+    DEF_VAL_PROP_RW(bool, force_promote);
 
-    void Run() override;
+    void Run(base::AbstractPrinter *logger) override;
+    void Reset() override;
 private:
     class RootVisitorImpl;
     class ObjectVisitorImpl;

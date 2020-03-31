@@ -158,6 +158,15 @@ void Machine::Entry() {
         if (should_exit) {
             break;
         }
+        if (state() == kStop || owner_->pause_request() > 0) {
+            // GC is ready, should stop the world
+            state_.store(kStop, std::memory_order_relaxed);
+            owner_->PauseMe(this);
+
+            std::unique_lock<std::mutex> lock(mutex_); // Waiting for resume
+            cond_var_.wait(lock);
+            state_.store(kRunning, std::memory_order_relaxed);
+        }
 
         if (co) {
             CallStub<intptr_t(Coroutine *)> trampoline(STATE->metadata_space()->trampoline_code());
@@ -191,10 +200,10 @@ void Machine::Entry() {
 
             state_.store(kIdle, std::memory_order_relaxed);
             owner_->MarkIdle(this);
-            
+
             std::unique_lock<std::mutex> lock(mutex_);
             cond_var_.wait(lock);
-            
+
             state_.store(kRunning, std::memory_order_relaxed);
             owner_->ClearIdle(this);
         }

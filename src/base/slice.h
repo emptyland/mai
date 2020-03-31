@@ -326,6 +326,9 @@ public:
     
     __attribute__ (( __format__ (__printf__, 2, 3)))
     virtual void Printf(const char *fmt, ...);
+    
+    __attribute__ (( __format__ (__printf__, 2, 3)))
+    virtual void Println(const char *fmt, ...);
 
     virtual void VPrintf(const char *fmt, va_list ap) = 0;
 }; // class AbstractPrinter

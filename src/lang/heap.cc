@@ -95,7 +95,7 @@ Heap::TotalMemoryUsage Heap::ApproximateMemoryUsage() const {
     return usage;
 }
 
-Any *Heap::PromoteObject(Any *object, bool promote) {
+Any *Heap::MoveNewSpaceObject(Any *object, bool promote) {
     SemiSpace *original_area = new_space_->original_area();
     DCHECK(original_area->Contains(reinterpret_cast<Address>(object)));
     size_t placed_size = original_area->AllocatedSize(reinterpret_cast<Address>(object));

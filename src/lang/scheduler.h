@@ -29,6 +29,7 @@ public:
     int MarkShuttingDown() { return shutting_down_.fetch_add(1); }
 
     int shutting_down() const { return shutting_down_.load(std::memory_order_acquire); }
+    int pause_request() const { return pause_request_.load(std::memory_order_acquire); }
 
     size_t n_live_coroutines() const { return n_live_coroutines_.load(); }
     size_t n_live_stacks() const { return n_live_stacks_.load(); }
@@ -52,6 +53,15 @@ public:
             all_machines_[i]->Start();
         }
     }
+    
+    // Pause all machines exclude self one
+    void Pause();
+    
+    // Resume all machines exclude self one
+    void Resume();
+
+    // Notify machine has paused
+    void PauseMe(Machine *m) { pause_request_.fetch_sub(1); }
     
     // Balanced post a runnable coroutine to machine
     void PostRunnableBalanced(Coroutine *co, bool now);
@@ -126,7 +136,11 @@ private:
     Machine *machine0_ = nullptr; // Machine No.0 (main thread)
     std::atomic<uint64_t> next_coid_ = 0; // Next coroutine-id
     
+    std::atomic<int> pause_request_ = 0; // Pause request number
     std::atomic<int> shutting_down_ = 0; // Scheduling should shutdown?
+    
+    std::mutex mutex_;
+    std::condition_variable cond_var_; // Condition variable for machines pause
 }; // class Scheduler
 
 inline Stack *Scheduler::NewStack(size_t size) {

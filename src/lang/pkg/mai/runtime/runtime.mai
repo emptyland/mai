@@ -7,3 +7,7 @@ val ENV = "mai-lang v$VERSION"
 native fun currentSourceLine(level: int): int
 
 native fun currentSourceName(level: int): string
+
+//native fun minorGC()
+
+//native fun majorGC()

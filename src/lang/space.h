@@ -75,6 +75,7 @@ private:
         size_t remaining = free_.load(std::memory_order_relaxed) - chunk();
         DbgFillFreeZag(chunk(), remaining);
         free_.store(chunk(), std::memory_order_relaxed);
+        ::memset(bitmap_, 0, sizeof(bitmap_[0]) * bitmap_length_);
         return remaining;
     }
     
@@ -106,7 +107,7 @@ private:
         bitmap()->MarkAllocated(space - chunk_, request_size);
         return space;
     }
-    
+
     const size_t size_;
     const Address limit_;
     const Address chunk_;
@@ -221,8 +222,8 @@ public:
     size_t Available() const { return original_area_->limit() - original_area_->free(); }
     
     size_t Flip(bool reinit) {
+        size_t remaining = original_area_->Purge();
         std::swap(survive_area_, original_area_);
-        size_t remaining = survive_area_->Purge();
         if (reinit) {
             original_area_->Purge();
         }
@@ -276,7 +277,6 @@ private:
     Page *GetOrNewFreePage() {
         Page *free_page = Page::Cast(free_->next());
         if (free_page == free_) { // free list is empty
-            //dbg("Allocate new page", allocated_pages_);
             free_page = Page::New(kind(), Allocator::kRd|Allocator::kWr, lla_);
             allocated_pages_++;
         }

@@ -1,5 +1,6 @@
 #include "lang/runtime.h"
 #include "lang/isolate-inl.h"
+#include "lang/garbage-collector.h"
 #include "lang/channel.h"
 #include "lang/value-inl.h"
 #include "lang/machine.h"
@@ -12,11 +13,13 @@ namespace mai {
 
 namespace lang {
 
+// [Safepoint]
 /*static*/ Any *Runtime::NewObject(const Class *clazz, uint32_t flags) {
     if (!clazz) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
         return nullptr;
     }
+    SafepointScope safepoint(STATE->gc());
     return Machine::This()->NewObject(clazz, flags);
 }
 
@@ -102,11 +105,13 @@ static inline AbstractValue *ValueOf(intptr_t input) {
     return Machine::This()->NewUtf8StringWithFormat(0, "%f", value);
 }
 
-// Safepoint
+// [Safepoint]
 /*static*/ String *Runtime::StringContact(String **parts, String **end) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
     IncrementalStringBuilder builder;
+    SafepointScope safepoint(STATE->gc());
     for (auto i = end - 1; i >= parts; i--) {
+        //printf("%x\n", (*i)->length());
         builder.AppendString(Local<String>(*i));
     }
     return builder.QuickBuild();
@@ -337,8 +342,17 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     return STATE->env()->CurrentTimeMicros();
 }
 
-/*static*/ void Runtime::System_GC(Any *any) {
-    // TODO:
+/*static*/ void Runtime::System_GC(Any */*any*/) {
+    if (!STATE->gc()->AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady)) {
+        Coroutine::This()->RequestYield();
+        return;
+    }
+    STATE->scheduler()->Pause();
+    STATE->gc()->MinorCollect();
+    bool ok = STATE->gc()->AcquireState(GarbageCollector::kDone, GarbageCollector::kIdle);
+    DCHECK(ok);
+    (void)ok;
+    STATE->scheduler()->Resume();
 }
 
 /*static*/ int Runtime::CurrentSourceLine(int level) {

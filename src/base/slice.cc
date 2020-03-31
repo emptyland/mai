@@ -507,6 +507,14 @@ void *Round64BytesFill(const uint64_t zag, void *chunk, size_t n) {
     va_end(ap);
 }
 
+/*virtual*/ void AbstractPrinter::Println(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    VPrintf(fmt, ap);
+    va_end(ap);
+    Append("\n");
+}
+
 } // namespace base
     
 } // namespace mai
