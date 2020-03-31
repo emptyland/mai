@@ -67,6 +67,15 @@ public:
 
     NewSpace *new_space() const { return new_space_.get(); }
     
+    float GetNewSpaceUsedRate() const {
+        return static_cast<float>(new_space_->GetUsedSize()) /
+               static_cast<float>(new_space()->original_area()->size());
+    }
+    
+    size_t GetOldSpaceUsedSize() const {
+        return old_space_->used_size() + large_space_->used_size();
+    }
+    
     DEF_VAL_GETTER(HeapColor, initialize_color);
     DEF_VAL_GETTER(HeapColor, finalize_color);
     

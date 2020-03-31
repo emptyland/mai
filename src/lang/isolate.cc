@@ -135,6 +135,7 @@ void Isolate::Run() {
 
 Isolate::Isolate(const Options &opts)
     : new_space_initial_size_(opts.new_space_initial_size)
+    , old_space_limit_size_(opts.old_space_limit_size)
     , base_pkg_dir_(opts.base_pkg_dir)
     , env_(opts.env)
     , heap_(new Heap(env_->GetLowLevelAllocator()))
@@ -142,7 +143,8 @@ Isolate::Isolate(const Options &opts)
     , scheduler_(new Scheduler(opts.concurrency <= 0 ?
                                env_->GetNumberOfCPUCores() : opts.concurrency,
                                opts.env->GetLowLevelAllocator()))
-    , gc_(new GarbageCollector(this))
+    , gc_(new GarbageCollector(this, opts.new_space_gc_threshold_rate,
+                               opts.old_space_gc_threshold_rate))
     , persistent_dummy_(new GlobalHandleNode{})
     , bytecode_handler_entries_(new Address[kMax_Bytecodes])
     , trampoline_suspend_point_(reinterpret_cast<Address>(BadSuspendPointDummy))

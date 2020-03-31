@@ -34,6 +34,11 @@ struct Options {
     Env *env = Env::Default(); // The base api env pointer
     int concurrency = 2; // How many concrrent running
     size_t new_space_initial_size = 100 * 1024 * 1024; // New space initial size: 100MB
+    size_t old_space_limit_size = 2L * 1024L * 1024L * 1024L; // Old space limit size: 2GB
+    // Minor GC available threshold rate
+    float new_space_gc_threshold_rate = 0.25;
+    // Major GC available threshold rate
+    float old_space_gc_threshold_rate = 0.25;
     std::string base_pkg_dir = "src/lang/pkg"; // Language base pkg path
     std::set<std::string> search_pkg_dir;
 };
@@ -67,6 +72,9 @@ public:
     
     // Get new generation memory size in heap
     size_t new_space_initial_size() const { return new_space_initial_size_; }
+    
+    // Get old generation limit size in heap
+    size_t old_space_limit_size() const { return old_space_limit_size_; }
     
     // Get system base pkg dir
     const std::string &base_pkg_dir() const { return base_pkg_dir_; }
@@ -111,6 +119,7 @@ private:
 
     // New space initial bytes size
     const size_t new_space_initial_size_;
+    const size_t old_space_limit_size_;
     const std::string base_pkg_dir_;
 
     // External linking native functions

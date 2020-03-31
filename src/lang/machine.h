@@ -20,6 +20,7 @@ class HandleScope;
 class Coroutine;
 class RootVisitor;
 class Tracing;
+class SafepointScope;
 
 struct HandleScopeSlot {
     HandleScope     *scope;
@@ -28,6 +29,7 @@ struct HandleScopeSlot {
     Address          end;
     Address          limit;
 };
+
 
 class Machine {
 public:
@@ -67,6 +69,9 @@ public:
         return n_runnable_;
     }
     
+    // Has in safepoint
+    int InSafepoint() const { return safepoint_.load(std::memory_order_relaxed); }
+    
     void PurgeRememberSet() { remember_set_.clear(); }
     
     // Start Machine
@@ -80,6 +85,9 @@ public:
     
     // Touch machine for resume
     void Touch() { cond_var_.notify_one(); }
+    
+    // Make machine is stop and waiting for resume
+    void Park();
 
     // Get current thread machine object
     static Machine *This() { return DCHECK_NOTNULL(TLS_STORAGE->machine); }
@@ -186,6 +194,7 @@ public:
     friend class Isolate;
     friend class Scheduler;
     friend class MachineScope;
+    friend class SafepointScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Machine);
 private:
     ALWAYS_INLINE void AddRememberRecord(Any *host, Any **address) {
@@ -213,6 +222,9 @@ private:
         __tls_storage = nullptr;
     }
     
+    void EnterSafepoint() { safepoint_.fetch_add(1, std::memory_order_relaxed); }
+    void ExitSafepoint() { safepoint_.fetch_sub(1, std::memory_order_relaxed); }
+    
     void AllocationPanic(AllocationResult result) { AllocationPanic(result.result()); }
     
     void AllocationPanic(AllocationResult::Result result);
@@ -229,6 +241,7 @@ private:
     Scheduler *const owner_; // Scheduler
     HandleScopeSlot *top_slot_ = nullptr; // [nested strong ref] Top of handle-scope slot pointer
     std::atomic<State> state_ = kDead; // Current machine state
+    std::atomic<int> safepoint_ = 0; // Has enter safepoint?
     int uncaught_count_ = 0; // Counter of uncaught
     uint64_t exclusion_ = 0; // Exclusion counter if > 0 can not be preempted
     Coroutine *free_dummy_; // Local free coroutines(coroutine pool)
@@ -258,6 +271,23 @@ public:
 private:
     Machine *const owns_;
 }; // class MachineScope
+
+class SafepointScope final {
+public:
+    SafepointScope(GarbageCollector *gc)
+        : gc_(gc) {
+        Machine::This()->EnterSafepoint();
+        ProcessGarbage();
+    }
+
+    ~SafepointScope() { Machine::This()->ExitSafepoint(); }
+
+    DISALLOW_IMPLICIT_CONSTRUCTORS(SafepointScope);
+private:
+    void ProcessGarbage();
+    
+    GarbageCollector *gc_;
+}; // class SafepointScope
 
 } // namespace lang
 

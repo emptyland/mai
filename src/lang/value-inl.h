@@ -78,7 +78,6 @@ inline void Any::set_clazz(const Class *clazz) {
 }
 
 inline Any *Any::forward() const {
-    //DCHECK(is_forward());
     return is_forward() ? reinterpret_cast<Any *>(klass_ & ~1) : nullptr;
 }
 
@@ -89,6 +88,8 @@ inline void Any::set_forward_address(Address addr) {
     DCHECK((word & 1) == 0);
     klass_ = word | 1;
 }
+
+inline int Any::color() const { return tags_ & kColorMask; }
 
 inline uint32_t Any::tags() const { return tags_; }
 

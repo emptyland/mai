@@ -1,6 +1,7 @@
 #include "lang/machine.h"
 #include "lang/scheduler.h"
 #include "lang/coroutine.h"
+#include "lang/garbage-collector.h"
 #include "lang/channel.h"
 #include "lang/value-inl.h"
 #include "lang/stack-frame.h"
@@ -17,6 +18,10 @@ inline uint32_t color_tags() {
     uint32_t tags = STATE->heap()->initialize_color();
     DCHECK(tags & Any::kColorMask);
     return tags;
+}
+
+void SafepointScope::ProcessGarbage() {
+    //gc_->
 }
 
 Machine::Machine(int id, Scheduler *owner)
@@ -160,12 +165,7 @@ void Machine::Entry() {
         }
         if (state() == kStop || owner_->pause_request() > 0) {
             // GC is ready, should stop the world
-            state_.store(kStop, std::memory_order_relaxed);
-            owner_->PauseMe(this);
-
-            std::unique_lock<std::mutex> lock(mutex_); // Waiting for resume
-            cond_var_.wait(lock);
-            state_.store(kRunning, std::memory_order_relaxed);
+            Park();
         }
 
         if (co) {
@@ -210,6 +210,16 @@ void Machine::Entry() {
     }
 
     state_.store(kDead, std::memory_order_relaxed);
+}
+
+void Machine::Park() {
+    State saved_state = state_.load(std::memory_order_relaxed);
+    state_.store(kStop, std::memory_order_relaxed);
+    owner_->PauseMe(this);
+
+    std::unique_lock<std::mutex> lock(mutex_); // Waiting for resume
+    cond_var_.wait(lock);
+    state_.store(saved_state, std::memory_order_relaxed);
 }
 
 void Machine::ExitHandleScope() {

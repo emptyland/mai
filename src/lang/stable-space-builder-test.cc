@@ -88,7 +88,7 @@ TEST_F(StableSpaceBuilderTest, StackSpaceFallbackRef) {
     ASSERT_EQ(off2, stack.ReserveRef());
     ASSERT_EQ(24, stack.level().r);
     stack.FallbackRef(off2);
-    ASSERT_EQ(16, stack.level().r);
+    ASSERT_EQ(0, stack.level().r);
     
     ASSERT_EQ(off2, stack.ReserveRef());
     ASSERT_EQ(24, stack.level().r);

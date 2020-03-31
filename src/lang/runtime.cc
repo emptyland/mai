@@ -344,7 +344,7 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 
 /*static*/ void Runtime::System_GC(Any */*any*/) {
     if (!STATE->gc()->AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady)) {
-        Coroutine::This()->RequestYield();
+        Machine::This()->Park();
         return;
     }
     STATE->scheduler()->Pause();

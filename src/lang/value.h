@@ -39,6 +39,7 @@ public:
     inline Any *forward() const;
     inline void set_forward(Any *addr);
     inline void set_forward_address(uint8_t *addr);
+    inline int color() const;
     inline uint32_t tags() const;
     inline bool QuicklyIs(uint32_t type_id) const;
     
