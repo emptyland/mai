@@ -46,6 +46,7 @@
 		2354C9E724306ADA00E0B9BE /* scavenger.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2354C9E624306ADA00E0B9BE /* scavenger.cc */; };
 		2354C9E92431C92600E0B9BE /* object-visitor.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2354C9E82431C92600E0B9BE /* object-visitor.cc */; };
 		2354C9EB2431D76000E0B9BE /* scavenger-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2354C9EA2431D76000E0B9BE /* scavenger-test.cc */; };
+		2354C9EE2432F30100E0B9BE /* marking-sweep.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2354C9ED2432F30100E0B9BE /* marking-sweep.cc */; };
 		235602A123DDC6DE00A799B9 /* space-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 235602A023DDC6DE00A799B9 /* space-test.cc */; };
 		23565910221E82EC00837F83 /* mai.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DE17F821D0887700479C23 /* mai.framework */; };
 		23599D3923D58DDF00F722D6 /* page.h in Headers */ = {isa = PBXBuildFile; fileRef = 23599D3823D58DDF00F722D6 /* page.h */; };
@@ -372,6 +373,8 @@
 		2354C9E624306ADA00E0B9BE /* scavenger.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = scavenger.cc; sourceTree = "<group>"; };
 		2354C9E82431C92600E0B9BE /* object-visitor.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "object-visitor.cc"; sourceTree = "<group>"; };
 		2354C9EA2431D76000E0B9BE /* scavenger-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "scavenger-test.cc"; sourceTree = "<group>"; };
+		2354C9EC2432F2AC00E0B9BE /* marking-sweep.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "marking-sweep.h"; sourceTree = "<group>"; };
+		2354C9ED2432F30100E0B9BE /* marking-sweep.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "marking-sweep.cc"; sourceTree = "<group>"; };
 		235602A023DDC6DE00A799B9 /* space-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "space-test.cc"; sourceTree = "<group>"; };
 		2356590B221E82EC00837F83 /* mai-tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "mai-tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2356590F221E82EC00837F83 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -749,6 +752,8 @@
 				2354C9E3243048E900E0B9BE /* garbage-collector.cc */,
 				2354C9E524306A7F00E0B9BE /* scavenger.h */,
 				2354C9E624306ADA00E0B9BE /* scavenger.cc */,
+				2354C9EC2432F2AC00E0B9BE /* marking-sweep.h */,
+				2354C9ED2432F30100E0B9BE /* marking-sweep.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1407,6 +1412,7 @@
 				2364B2F321E451F9008519AE /* file-posix.cc in Sources */,
 				2364B2FA21E451F9008519AE /* memory-table.cc in Sources */,
 				2306103F23FFD7CF0024361F /* type-checker.cc in Sources */,
+				2354C9EE2432F30100E0B9BE /* marking-sweep.cc in Sources */,
 				23ECE8A323F9052D00B3C83B /* ast.cc in Sources */,
 				2360F18A2415F9620011898D /* raw_logging.cc in Sources */,
 				236EA78523D6E3100071047C /* isolate.cc in Sources */,

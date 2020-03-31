@@ -39,7 +39,7 @@ TEST_F(SpaceTest, NewSpaceIterator0) {
     auto rv = space->Allocate(1);
     ASSERT_TRUE(rv.ok());
     
-    auto iter = space->GetOriginalIterator();
+    SemiSpace::Iterator iter(space->original_area());
     iter.SeekToFirst();
     ASSERT_TRUE(iter.Valid());
     ASSERT_EQ(rv.address(), iter.address());
@@ -66,10 +66,9 @@ TEST_F(SpaceTest, NewSpaceIterator) {
     ASSERT_EQ(630, n);
     
     n = 0;
-    auto iter = space->GetOriginalIterator();
+    SemiSpace::Iterator iter(space->original_area());
     for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
         ASSERT_EQ(16 * base::kKB, iter.object_size()) << "err on:" << n;
-        //printf("%d\n", n);
         int i;
         ::memcpy(&i, iter.address(), sizeof(i));
         ASSERT_EQ(n++, i);
@@ -121,7 +120,7 @@ TEST_F(SpaceTest, NewSpaceConcurrentAllocation) {
     t3.join();
     
     int records[4] = {0};
-    auto iter = space->GetOriginalIterator();
+    SemiSpace::Iterator iter(space->original_area());
     for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
         switch (iter.object_size()) {
             case 16:
@@ -179,6 +178,46 @@ TEST_F(SpaceTest, OldSpaceFree) {
     ASSERT_TRUE(rv.ok());
     ASSERT_EQ(1, space->allocated_pages());
     ASSERT_EQ(kMinAllocationSize, space->used_size());
+}
+
+TEST_F(SpaceTest, OldSpaceIterate) {
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    
+    auto rv = space->Allocate(1);
+    auto v1 = rv.address();
+    rv = space->Allocate(32);
+    auto v2 = rv.address();
+    rv = space->Allocate(64);
+    auto v3 = rv.address();
+    
+    OldSpace::Iterator iter(space.get());
+    iter.SeekToFirst();
+    ASSERT_TRUE(iter.Valid());
+    ASSERT_EQ(v1, iter.address());
+    
+    iter.Next();
+    ASSERT_TRUE(iter.Valid());
+    ASSERT_EQ(v2, iter.address());
+    
+    iter.Next();
+    ASSERT_TRUE(iter.Valid());
+    ASSERT_EQ(v3, iter.address());
+    
+    iter.Next();
+    ASSERT_FALSE(iter.Valid());
+    
+    space->Free(v2, true);
+    OldSpace::Iterator iter2(space.get());
+    iter2.SeekToFirst();
+    ASSERT_TRUE(iter2.Valid());
+    ASSERT_EQ(v1, iter2.address());
+    
+    iter2.Next();
+    ASSERT_TRUE(iter2.Valid());
+    ASSERT_EQ(v3, iter2.address());
+    
+    iter2.Next();
+    ASSERT_FALSE(iter2.Valid());
 }
 
 }

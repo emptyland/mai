@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MAI_LANG_OBJECT_VISITORS_H_
 #define MAI_LANG_OBJECT_VISITORS_H_
 

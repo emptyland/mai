@@ -67,6 +67,10 @@ public:
 
     NewSpace *new_space() const { return new_space_.get(); }
     
+    OldSpace *old_space() const { return old_space_.get(); }
+    
+    LargeSpace *large_space() const { return large_space_.get(); }
+    
     float GetNewSpaceUsedRate() const {
         return static_cast<float>(new_space_->GetUsedSize()) /
                static_cast<float>(new_space()->original_area()->size());
@@ -82,6 +86,8 @@ public:
     uint32_t initialize_color_tags() const { return static_cast<uint32_t>(initialize_color()); }
     
     uint32_t finalize_color_tags() const { return static_cast<uint32_t>(finalize_color()); }
+    
+    void SwapColors() { std::swap(initialize_color_, finalize_color_); }
     
     Any *MoveNewSpaceObject(Any *object, bool promote);
 

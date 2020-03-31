@@ -8,6 +8,3 @@ native fun currentSourceLine(level: int): int
 
 native fun currentSourceName(level: int): string
 
-//native fun minorGC()
-
-//native fun majorGC()

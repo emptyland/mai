@@ -32,6 +32,8 @@ public:
     
     inline size_t AllocatedSize(ptrdiff_t offset) const;
     
+    inline ptrdiff_t FindNextAllocated(ptrdiff_t offset);
+    
     using ParentType = Base;
 private:
     inline ParentType *base() { return reinterpret_cast<ParentType *>(this); }
@@ -42,15 +44,15 @@ private:
 template<size_t N>
 class FixedAllocationBitmap final : public AllocationBitmap<FixedAllocationBitmap<N>> {
 public:
+    using AllocationBitmap<FixedAllocationBitmap<N>>::kBucketShift;
+    using AllocationBitmap<FixedAllocationBitmap<N>>::kBucketMask;
+    
     static inline FixedAllocationBitmap *FromArray(uint32_t bits[N]) {
         return reinterpret_cast<FixedAllocationBitmap *>(bits);
     }
 
     friend class AllocationBitmap<FixedAllocationBitmap<N>>;
 private:
-    using AllocationBitmap<FixedAllocationBitmap<N>>::kBucketShift;
-    using AllocationBitmap<FixedAllocationBitmap<N>>::kBucketMask;
-    
     inline bool Test(size_t i) const {
         DCHECK_LT(i, N * 32);
         return bits_[i >> kBucketShift] & (1u << (i & kBucketMask));
@@ -65,7 +67,7 @@ private:
         DCHECK_LT(i, N * 32);
         bits_[i >> kBucketShift] &= ~(1u << (i & kBucketMask));
     }
-
+    
     // begins of b
     inline size_t FindNextOne(size_t b) const;
 
@@ -119,6 +121,9 @@ class PageHeader {
 public:
     DEF_VAL_GETTER(SpaceKind, owner_space);
     DEF_VAL_GETTER(uint32_t, available);
+    DEF_VAL_GETTER(uint32_t, maker);
+    DEF_PTR_GETTER(PageHeader, next);
+    DEF_PTR_GETTER(PageHeader, prev);
     
     ALWAYS_INLINE static PageHeader *FromAddress(Address addr) {
         return reinterpret_cast<PageHeader *>(reinterpret_cast<uintptr_t>(addr) & kPageMask);
@@ -137,10 +142,6 @@ protected:
         , prev_(this) {}
     
     static void *AllocatePage(size_t size, int access, Allocator *lla);
-    
-    DEF_VAL_GETTER(uint32_t, maker);
-    DEF_PTR_GETTER(PageHeader, next);
-    DEF_PTR_GETTER(PageHeader, prev);
 
     uint32_t maker_; // Maker for verification
     SpaceKind owner_space_; // Owner space kind
@@ -175,9 +176,30 @@ public:
     
     Address chunk() { return chunk_; }
     Address limit() { return reinterpret_cast<Address>(this) + kPageSize; }
+    Address guard() { return chunk() + (kBitmapSize << (Bitmap::kBucketShift + kPointerShift)); }
     
     bool IsEmpty() { return limit() - chunk() == available_; }
     
+    size_t AllocatedSize(Address addr) {
+        DCHECK_GE(addr, chunk());
+        DCHECK_LT(addr, limit());
+        return bitmap()->AllocatedSize(addr - chunk());
+    }
+    
+    bool HasAllocated(Address addr) {
+        DCHECK_GE(addr, chunk());
+        DCHECK_LT(addr, limit());
+        return bitmap()->HasAllocated(addr - chunk());
+    }
+    
+    Address FindFirstChunk() { return FindNextChunk(chunk()); }
+
+    Address FindNextChunk(Address addr) {
+        DCHECK_GE(addr, chunk());
+        DCHECK_LT(addr, limit());
+        return chunk() + bitmap()->FindNextAllocated(addr - chunk());
+    }
+
     static Page *FromAddress(Address addr) {
         return !addr ? nullptr : Cast(PageHeader::FromAddress(addr));
     }
@@ -191,7 +213,6 @@ public:
     friend class OldSpace;
     // For unit-tests:
     FRIEND_UNITTEST_CASE(PageTest, AllocateNormalPage);
-    
     DISALLOW_IMPLICIT_CONSTRUCTORS(Page);
 private:
     Page(SpaceKind space): PageHeader(space) { Reinitialize(); }
@@ -224,6 +245,23 @@ private:
         return kMaxRegionChunks;
     }
     
+    void RemoveFitRegion(size_t size, Chunk *chunk) {
+        size_t i = FindFitRegion(size);
+        DCHECK_NE(kMaxRegionChunks, i);
+        Chunk dummy{ .next = region(i) };
+        Chunk *prev = &dummy, *p = dummy.next;
+        while (p) {
+            if (p == chunk) {
+                prev->next = p->next;
+                break;
+            }
+            prev = p;
+            p = p->next;
+        }
+        DCHECK(p != nullptr);
+        set_region(i, dummy.next);
+    }
+    
     static size_t FindWantedRegion(size_t size) {
         for (size_t i = 0; i < kMaxRegionChunks; ++i) {
             if (size < kRegionLimitSize[i]) {
@@ -237,6 +275,8 @@ private:
     
     void SubAvailable(size_t n) { available_ -= n; }
     
+    Bitmap *bitmap() { return Bitmap::FromArray(bitmap_); }
+    
     Chunk **regions() const { return reinterpret_cast<Chunk **>(&region_); }
     
     Chunk *region(size_t i) const {
@@ -246,11 +286,9 @@ private:
     
     void set_region(size_t i, Chunk *chunk) {
         DCHECK_LT(i, kMaxRegionChunks);
-        regions()[i] = DCHECK_NOTNULL(chunk);
+        regions()[i] = chunk;
     }
-    
-    Bitmap *bitmap() { return Bitmap::FromArray(bitmap_); }
-    
+
     mutable Region region_; // free regions
 
     uint32_t bitmap_[kBitmapSize]; // usage bitmap
@@ -381,6 +419,14 @@ inline size_t AllocationBitmap<Base>::AllocatedSize(ptrdiff_t offset) const {
     return (j - i + 1) << kPointerShift;
 }
 
+template<class Base>
+inline ptrdiff_t AllocationBitmap<Base>::FindNextAllocated(ptrdiff_t offset) {
+    DCHECK_GE(offset, 0);
+    DCHECK_EQ(0, offset % kPointerSize);
+    size_t i = offset >> kPointerShift;
+    return base()->FindNextOne(i) << kPointerShift;
+}
+
 
 template<size_t N> inline size_t FixedAllocationBitmap<N>::FindNextOne(size_t b) const {
     size_t x = b >> kBucketShift;
@@ -396,8 +442,8 @@ template<size_t N> inline size_t FixedAllocationBitmap<N>::FindNextOne(size_t b)
             return (i << kBucketShift) + base::Bits::FindFirstOne32(bits_[i]);
         }
     }
-    NOREACHED();
-    return 0;
+    //NOREACHED();
+    return N << kBucketShift;
 }
 
 inline size_t RestrictAllocationBitmap::FindNextOne(size_t b) const {
@@ -414,8 +460,8 @@ inline size_t RestrictAllocationBitmap::FindNextOne(size_t b) const {
             return (i << kBucketShift) + base::Bits::FindFirstOne32(bits_[i]);
         }
     }
-    NOREACHED();
-    return 0;
+    //NOREACHED();
+    return length_ << kBucketShift;
 }
 
 } // namespace lang

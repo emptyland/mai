@@ -16,6 +16,9 @@ class NewSpace;
 class OldSpace;
 class LargeSpace;
 class SemiSpace;
+class SemiSpaceIterator;
+class OldSpaceIterator;
+class LargeSpaceIterator;
 
 class Space {
 public:
@@ -31,8 +34,6 @@ protected:
     Allocator *lla_;
 }; // class Space
 
-
-class SemiSpaceIterator;
 
 class SemiSpace final {
 public:
@@ -117,49 +118,6 @@ private:
 }; // class SemiSpace
 
 
-class SemiSpaceIterator final {
-public:
-    SemiSpaceIterator(SemiSpace *owns) : owns_(owns) {}
-    
-    void SeekToFirst() {
-        current_ = owns_->chunk();
-        UpdateSize();
-    }
-
-    bool Valid() const { return current_ != nullptr && current_ < owns_->free() && current_size_ > 0; }
-
-    void Next() {
-        DCHECK(Valid());
-        current_ += current_size_;
-        UpdateSize();
-    }
-    
-    Any *object() const {
-        DCHECK(Valid());
-        return reinterpret_cast<Any *>(address());
-    }
-    
-    Address address() const {
-        DCHECK(Valid());
-        return current_;
-    }
-
-    size_t object_size() const {
-        DCHECK(Valid());
-        return current_size_;
-    }
-    
-private:
-    void UpdateSize() {
-        current_size_ = owns_->bitmap()->AllocatedSize(current_ - owns_->chunk());
-    }
-    
-    SemiSpace *const owns_;
-    Address current_ = nullptr;
-    size_t  current_size_ = 0;
-}; // class SemiSpaceIterator
-
-
 class NewSpace : public Space {
 public:
     NewSpace(Allocator *lla) : Space(kNewSpace, lla) {}
@@ -209,8 +167,6 @@ public:
         return original_area_->bitmap()->AllocatedSize(addr - original_area_->chunk());
     }
     
-    SemiSpace::Iterator GetOriginalIterator() const { return SemiSpace::Iterator(original_area_); }
-    
     Address original_chunk() const { return original_area_->chunk(); }
     
     Address original_limit() const { return original_area_->limit(); }
@@ -236,8 +192,12 @@ private:
     SemiSpace *original_area_ = nullptr; // allocation space
 }; // class NewSpace
 
+
+
 class OldSpace final : public Space {
 public:
+    using Iterator = OldSpaceIterator;
+    
     OldSpace(Allocator *lla, int max_freed_pages = 10)
         : Space(kOldSpace, lla)
         , dummy_(new PageHeader(kDummySpace))
@@ -269,6 +229,7 @@ public:
     }
     
     friend class Heap;
+    friend class OldSpaceIterator;
     DISALLOW_IMPLICIT_CONSTRUCTORS(OldSpace);
 private:
     // Not thread safe:
@@ -308,6 +269,8 @@ private:
 // Large and pinned object space
 class LargeSpace : public Space {
 public:
+    using Iterator = LargeSpaceIterator;
+    
     LargeSpace(Allocator *lla)
         : Space(kLargeSpace, lla)
         , dummy_(new PageHeader(kDummySpace)) {}
@@ -349,6 +312,7 @@ public:
     }
 
     friend class Heap;
+    friend class LargeSpaceIterator;
     DISALLOW_IMPLICIT_CONSTRUCTORS(LargeSpace);
 private:
     // Not thread safe:
@@ -358,7 +322,118 @@ private:
     size_t rss_size_ = 0; // OS Allocated bytes size
     size_t used_size_ = 0; // Allocated bytes size
     std::mutex mutex_; // Allocation mutex
-}; // class OldSpace
+}; // class LargeSpace
+
+
+class SemiSpaceIterator final {
+public:
+    SemiSpaceIterator(SemiSpace *owns) : owns_(owns) {}
+    
+    void SeekToFirst() {
+        current_ = owns_->chunk();
+        UpdateSize();
+    }
+
+    bool Valid() const { return current_ != nullptr && current_ < owns_->free() && current_size_ > 0; }
+
+    void Next() {
+        DCHECK(Valid());
+        current_ += current_size_;
+        UpdateSize();
+    }
+    
+    Any *object() const {
+        DCHECK(Valid());
+        return reinterpret_cast<Any *>(address());
+    }
+    
+    Address address() const {
+        DCHECK(Valid());
+        return current_;
+    }
+
+    size_t object_size() const {
+        DCHECK(Valid());
+        return current_size_;
+    }
+    
+private:
+    void UpdateSize() {
+        current_size_ = owns_->bitmap()->AllocatedSize(current_ - owns_->chunk());
+    }
+    
+    SemiSpace *const owns_;
+    Address current_ = nullptr;
+    size_t  current_size_ = 0;
+}; // class SemiSpaceIterator
+
+class OldSpaceIterator final {
+public:
+    OldSpaceIterator(OldSpace *owns): dummy_(owns->dummy_) {}
+
+    void SeekToFirst() {
+        page_ = Page::Cast(dummy_);
+        MoveToValid();
+    }
+    
+    bool Valid() const {
+        return page_ != dummy_ && current_ != nullptr && current_ < page_->guard() &&
+               current_size_ > 0;
+    }
+    
+    void Next() {
+        DCHECK(Valid());
+        current_ = page_->FindNextChunk(current_ + current_size_);
+        if (current_ < page_->guard()) {
+            UpdateSize();
+        } else {
+            MoveToValid();
+        }
+    }
+    
+    Address address() const { return current_; }
+
+    Any *object() const { return reinterpret_cast<Any *>(current_); }
+
+    size_t object_size() const { return current_size_; }
+
+private:
+    void UpdateSize() { current_size_ = page_->AllocatedSize(current_); }
+    
+    void MoveToValid() {
+        page_ = Page::Cast(page_->next());
+        while (page_ != dummy_) {
+            current_ = page_->FindFirstChunk();
+            if (current_ < page_->guard()) {
+                UpdateSize();
+                break;
+            }
+            page_ = Page::Cast(page_->next());
+        }
+    }
+
+    PageHeader *const dummy_;
+    Page *page_ = nullptr;
+    Address current_ = nullptr;
+    size_t  current_size_ = 0;
+}; // class OldSpaceIterator
+
+class LargeSpaceIterator final {
+public:
+    LargeSpaceIterator(LargeSpace *owns): dummy_(owns->dummy_) {}
+    
+    void SeekToFirst() { page_ = LargePage::Cast(dummy_->next()); }
+    
+    bool Valid() const { return page_ != dummy_; }
+
+    void Next() { page_ = LargePage::Cast(page_->next()); }
+    
+    Any *object() const { return reinterpret_cast<Any *>(page_->chunk()); }
+    size_t object_size() const { return page_->size(); }
+private:
+    PageHeader *const dummy_;
+    LargePage *page_ = nullptr;
+}; // class LargeSpaceIterator
 
 } // namespace lang
 

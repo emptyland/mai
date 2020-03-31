@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MAI_LANG_GARBAGE_COLLECTOR_H_
 #define MAI_LANG_GARBAGE_COLLECTOR_H_
 

@@ -34,12 +34,14 @@ public:
     
     // internal functions:
     inline bool is_forward() const;
+    inline bool is_directly() const;
     inline Class *clazz() const;
     inline void set_clazz(const Class *clazz);
     inline Any *forward() const;
     inline void set_forward(Any *addr);
     inline void set_forward_address(uint8_t *addr);
     inline int color() const;
+    inline void set_color(int color);
     inline uint32_t tags() const;
     inline bool QuicklyIs(uint32_t type_id) const;
     

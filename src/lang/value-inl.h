@@ -67,6 +67,8 @@ static_assert(sizeof(Any) == sizeof(Object), "Incorrect Object size");
 
 inline bool Any::is_forward() const { return klass_ & 1; }
 
+inline bool Any::is_directly() const { return !is_forward(); }
+
 inline Class *Any::clazz() const {
     DCHECK(!is_forward());
     return reinterpret_cast<Class *>(klass_);
@@ -90,6 +92,8 @@ inline void Any::set_forward_address(Address addr) {
 }
 
 inline int Any::color() const { return tags_ & kColorMask; }
+
+inline void Any::set_color(int color) { tags_ = (tags_ & ~kColorMask) | color; }
 
 inline uint32_t Any::tags() const { return tags_; }
 

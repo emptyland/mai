@@ -78,12 +78,12 @@ void OldSpace::Free(Address addr, bool merge) {
     chunk->size = static_cast<uint32_t>(size);
 
     if (merge && addr + size < page->limit()) {
-//        HeapColor slibing_color = GetAddressColor(addr + chunk->size);
-//        if (slibing_color == kColorFreed) {
-//            Page::Chunk *slibing = reinterpret_cast<Page::Chunk *>(addr + size);
-//            chunk->size = static_cast<uint32_t>(size + slibing->size);
-//            page->RemoveFitRegion(slibing->size, slibing);
-//        }
+        bool allocated = page->HasAllocated(addr + chunk->size);
+        if (!allocated) {
+            Page::Chunk *slibing = reinterpret_cast<Page::Chunk *>(addr + size);
+            chunk->size = static_cast<uint32_t>(size + slibing->size);
+            page->RemoveFitRegion(slibing->size, slibing);
+        }
     }
     page->InsertFitRegion(size, chunk);
     page->AddAvailable(size);
@@ -106,6 +106,7 @@ void OldSpace::Free(Address addr, bool merge) {
             QUEUE_REMOVE(page);
             QUEUE_INSERT_HEAD(dummy_, page);
         }
+        page->bitmap()->ClearAllocated(addr - page->chunk());
     }
 }
 
