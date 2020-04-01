@@ -81,7 +81,7 @@ void Page::Reinitialize() {
 
     Chunk *chunk = reinterpret_cast<Chunk *>(align_addr);
     chunk->next = nullptr;
-    chunk->size = static_cast<uint32_t>(limit() - align_addr);
+    chunk->size = static_cast<uint32_t>(guard() - align_addr);
     available_ = chunk->size;
     
     size_t i = FindWantedRegion(chunk->size);

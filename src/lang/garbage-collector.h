@@ -5,6 +5,7 @@
 #include "base/base.h"
 #include <string.h>
 #include <map>
+#include <set>
 #include <atomic>
 
 namespace mai {
@@ -69,7 +70,13 @@ public:
 
     uint64_t NextRememberRecordSequanceNumber() { return remember_record_sequance_.fetch_add(1); }
     
-    RememberSet MergeRememberSet(bool keep_after);
+    const RememberSet &MergeRememberSet();
+
+    void PurgeRememberSet(const std::set<void *> &keys) {
+        for (auto key : keys) {
+            remember_set_.erase(key);
+        }
+    }
     
     void InvalidateHeapGuards(Address guard0, Address guard1);
 
@@ -81,6 +88,9 @@ private:
 
     // Major GC available threshold rate
     const float major_gc_threshold_rate_;
+    
+    // Remember set
+    RememberSet remember_set_;
     
     // Remember set record for old-generation -> new-generation
     // Remember record version number

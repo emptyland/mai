@@ -88,9 +88,11 @@ void MarkingSweep::Run(base::AbstractPrinter *logger) /*override*/ {
     uint64_t jiffy = env->CurrentTimeMicros();
     
     // Marking phase:
+    logger->Println("[Major] Marking phase start, full gc: %d", full_);
     RootVisitorImpl root_visitor(this);
     isolate_->VisitRoot(&root_visitor);
 
+    int count = 0;
     ObjectVisitorImpl object_visitor(this);
     while (!gray_.empty()) {
         Any *obj = gray_.top();
@@ -102,9 +104,13 @@ void MarkingSweep::Run(base::AbstractPrinter *logger) /*override*/ {
         } else {
             DCHECK_EQ(obj->color(), heap_->finalize_color());
         }
+        count++;
     }
+    logger->Println("[Major] Marked %d gray objects", count);
     
     // Sweeping phase:
+    count = 0;
+    logger->Println("[Major] Sweeping phase start");
     if (OldSpace *old_space = heap_->old_space()) {
         OldSpace::Iterator iter(old_space);
         for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
@@ -112,12 +118,15 @@ void MarkingSweep::Run(base::AbstractPrinter *logger) /*override*/ {
             if (obj->color() == heap_->initialize_color()) {
                 histogram_.collected_bytes += iter.object_size();
                 histogram_.collected_objs++;
-                old_space->Free(reinterpret_cast<Address>(obj), true/*should_merge*/);
+                old_space->Free(iter.address(), true/*should_merge*/);
+                count++;
             }
         }
         // TODO: merge chunks
     }
+    logger->Println("[Major] Collected %d old objects", count);
 
+    count = 0;
     if (LargeSpace *large_space = heap_->large_space()) {
         LargeSpace::Iterator iter(large_space);
         for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
@@ -125,23 +134,28 @@ void MarkingSweep::Run(base::AbstractPrinter *logger) /*override*/ {
             if (obj->color() == heap_->initialize_color()) {
                 histogram_.collected_bytes += iter.object_size();
                 histogram_.collected_objs++;
-                large_space->Free(reinterpret_cast<Address>(obj));
+                large_space->Free(iter.address());
+                count++;
             }
         }
     }
+    logger->Println("[Major] Collected %d large objects", count);
 
     if (full_) {
+        count = 0;
         SemiSpace::Iterator iter(heap_->new_space()->original_area());
         for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
             Any *obj = iter.object();
             if (obj->color() == heap_->initialize_color()) {
                 histogram_.collected_bytes += iter.object_size();
                 histogram_.collected_objs++;
+                count++;
             } else {
                 // Keep the lived object
                 heap_->MoveNewSpaceObject(obj, false/*promote*/);
             }
         }
+        logger->Println("[Major] Collected %d new objects", count);
         size_t remaining = heap_->new_space()->Flip(false/*reinit*/);
         // After new space flip, should update all coroutine's heap guards
         SemiSpace *original_area = heap_->new_space()->original_area();
@@ -151,13 +165,23 @@ void MarkingSweep::Run(base::AbstractPrinter *logger) /*override*/ {
     
     // Weak references sweeping:
     WeakVisitorImpl weak_visitor(this);
-    RememberSet rset = isolate_->gc()->MergeRememberSet(false/*keep_after*/);
-    for (const auto &rd : rset) {
-        weak_visitor.VisitPointer(rd.second.host, rd.second.address);
+    const RememberSet &rset = isolate_->gc()->MergeRememberSet();
+    std::set<void *> for_clean;
+    for (auto rd : rset) {
+        weak_visitor.VisitPointer(rd.second.host, &rd.second.host);
+        if (!rd.second.host) { // Should sweep remember entries
+            for_clean.insert(rd.first);
+        }
     }
+    logger->Println("[Major] Purge %zd object in RSet", for_clean.size());
+    isolate_->gc()->PurgeRememberSet(for_clean);
 
     heap_->SwapColors();
     histogram_.micro_time_cost = env->CurrentTimeMicros() - jiffy;
+    
+    logger->Println("[Major] Marking-sweep done, collected: %zd, cost: %" PRIi64 ,
+                    histogram_.collected_bytes,
+                    histogram_.micro_time_cost);
 }
 
 } // namespace lang

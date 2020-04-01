@@ -39,7 +39,7 @@ AllocationResult OldSpace::DoAllocate(size_t size) {
         QUEUE_INSERT_HEAD(dummy_, page);
     }
 
-    size_t fit = page->FindFitRegion(request_size);
+    size_t fit = page->FindFitRegion(request_size, true/*complete*/);
     Page::Chunk *chunk = DCHECK_NOTNULL(page->region(fit));
     Address address = reinterpret_cast<Address>(chunk);
     DCHECK_GE(chunk->size, request_size);
@@ -70,22 +70,22 @@ AllocationResult OldSpace::DoAllocate(size_t size) {
 void OldSpace::Free(Address addr, bool merge) {
     Page *page = Page::FromAddress(addr);
     DCHECK_EQ(kind(), page->owner_space());
-    //DCHECK_NE(kColorFreed, GetAddressColor(addr)) << "Free freed block: " << addr;
 
     const size_t size = page->bitmap()->AllocatedSize(addr - page->chunk());
     DbgFillFreeZag(addr, size);
     Page::Chunk *chunk = reinterpret_cast<Page::Chunk *>(addr);
     chunk->size = static_cast<uint32_t>(size);
 
-    if (merge && addr + size < page->limit()) {
-        bool allocated = page->HasAllocated(addr + chunk->size);
-        if (!allocated) {
+    if (merge && addr + size < page->guard()) {
+        if (!page->HasAllocated(addr + chunk->size)) {
             Page::Chunk *slibing = reinterpret_cast<Page::Chunk *>(addr + size);
-            chunk->size = static_cast<uint32_t>(size + slibing->size);
-            page->RemoveFitRegion(slibing->size, slibing);
+            if (slibing->size > 0) {
+                chunk->size += slibing->size;
+                page->RemoveFitRegion(slibing->size, slibing);
+            }
         }
     }
-    page->InsertFitRegion(size, chunk);
+    page->InsertFitRegion(chunk->size, chunk);
     page->AddAvailable(size);
     used_size_ -= size;
 

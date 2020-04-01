@@ -68,7 +68,7 @@ TEST_F(PageTest, AllocateNormalPage) {
     ASSERT_EQ(0, reinterpret_cast<uintptr_t>(page) % kPageSize);
     
     EXPECT_EQ(kOldSpace, page->owner_space());
-    EXPECT_EQ(1032376, page->available());
+    EXPECT_EQ(page->guard() - page->chunk(), page->available());
     
     auto bmp = page->bitmap();
     ASSERT_NE(nullptr, bmp);

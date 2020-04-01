@@ -2,6 +2,8 @@
 #include "mai/env.h"
 #include "gtest/gtest.h"
 #include <thread>
+#include <random>
+#include <algorithm>
 
 namespace mai {
 
@@ -194,14 +196,17 @@ TEST_F(SpaceTest, OldSpaceIterate) {
     iter.SeekToFirst();
     ASSERT_TRUE(iter.Valid());
     ASSERT_EQ(v1, iter.address());
+    ASSERT_EQ(16, iter.object_size());
     
     iter.Next();
     ASSERT_TRUE(iter.Valid());
     ASSERT_EQ(v2, iter.address());
+    ASSERT_EQ(32, iter.object_size());
     
     iter.Next();
     ASSERT_TRUE(iter.Valid());
     ASSERT_EQ(v3, iter.address());
+    ASSERT_EQ(64, iter.object_size());
     
     iter.Next();
     ASSERT_FALSE(iter.Valid());
@@ -220,6 +225,80 @@ TEST_F(SpaceTest, OldSpaceIterate) {
     ASSERT_FALSE(iter2.Valid());
 }
 
+TEST_F(SpaceTest, OldSpaceEmptyIterate) {
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    OldSpace::Iterator iter1(space.get());
+    iter1.SeekToFirst();
+    ASSERT_FALSE(iter1.Valid());
+    
+    auto rv = space->Allocate(32);
+    OldSpace::Iterator iter2(space.get());
+    iter2.SeekToFirst();
+    ASSERT_TRUE(iter2.Valid());
+    ASSERT_EQ(rv.address(), iter2.address());
+    iter2.Next();
+    ASSERT_FALSE(iter2.Valid());
+    
+    space->Free(rv.address(), false/*merge*/);
+    OldSpace::Iterator iter3(space.get());
+    iter3.SeekToFirst();
+    ASSERT_FALSE(iter3.Valid());
 }
 
+TEST_F(SpaceTest, OldSpaceFuzzyAllocation) {
+    static constexpr int N = 10000;
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    std::vector<Address> chunks;
+    for (int i = 0; i < N; i++) {
+        auto rv = space->Allocate(256 + rand() % 256);
+        ASSERT_TRUE(rv.ok());
+        chunks.push_back(rv.address());
+    }
+    ASSERT_LT(512, space->used_size());
+    ASSERT_LT(1, space->allocated_pages());
+    ASSERT_EQ(0, space->freed_pages());
+    
+    OldSpace::Iterator iter(space.get());
+    int count = 0;
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        ASSERT_LE(256, iter.object_size());
+        count++;
+    }
+    ASSERT_EQ(N, count);
+    
+    for (auto chunk : chunks) {
+        space->Free(chunk, true/*merge*/);
+    }
+    ASSERT_LT(1, space->allocated_pages());
+    ASSERT_EQ(space->allocated_pages(), space->freed_pages());
 }
+
+TEST_F(SpaceTest, OldSpaceFuzzyFree) {
+    static constexpr int N = 100000;
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    std::vector<Address> chunks;
+    for (int i = 0; i < N; i++) {
+        auto rv = space->Allocate(16 + rand() % 4096);
+        ASSERT_TRUE(rv.ok());
+        chunks.push_back(rv.address());
+    }
+
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(chunks.begin(), chunks.end(), g);
+    
+    for (int i = 0; i < N/2; i++) {
+        space->Free(chunks[i], true/*merge*/);
+    }
+    OldSpace::Iterator iter(space.get());
+    int count = 0;
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        ASSERT_LE(16, iter.object_size());
+        count++;
+    }
+    ASSERT_EQ(N/2, count);
+}
+
+} // namespace lang
+
+} // namespace mai

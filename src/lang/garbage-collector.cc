@@ -84,26 +84,19 @@ void GarbageCollector::FullCollect() {
     set_state(kDone);
 }
 
-RememberSet GarbageCollector::MergeRememberSet(bool keep_after) {
-    RememberSet rset;
+const RememberSet &GarbageCollector::MergeRememberSet() {
     for (int i = 0; i < isolate_->scheduler()->concurrency(); i++) {
         Machine *m = isolate_->scheduler()->machine(i);
-        //DCHECK_EQ(Machine::kStop, m->state()); // Must be stop
         for(const auto &pair : m->remember_set()) {
-            auto iter = rset.find(pair.first);
-            if (iter == rset.end() ||
+            auto iter = remember_set_.find(pair.first);
+            if (iter == remember_set_.end() ||
                 pair.second.seuqnce_number > iter->second.seuqnce_number) {
-                rset[pair.first] = pair.second;
+                remember_set_[pair.first] = pair.second;
             }
         }
-        if (!keep_after) {
-            m->PurgeRememberSet();
-        }
+        m->PurgeRememberSet();
     }
-    if (!keep_after) {
-        remember_record_sequance_.store(0, std::memory_order_relaxed);
-    }
-    return rset;
+    return remember_set_;
 }
 
 void GarbageCollector::InvalidateHeapGuards(Address guard0, Address guard1) {

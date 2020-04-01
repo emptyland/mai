@@ -17,7 +17,8 @@ fun main() {
 	val foo = newOldFoo()
 	foo.name = newNewString()
 	bar(foo.name, foo, 0)
-	System.gc()
+	runtime.minorGC()
+	runtime.majorGC()
 	println("name: ${foo.name}")
 	println("${runtime.getMemoryHistogram()}")
 }
@@ -30,6 +31,5 @@ fun bar(s: string, o: Foo, i: int) {
 	val mm0 = "Hello"
 	val mm1 = "World"
 	val l = 100
-	//testVisit()
-	System.gc()
+	runtime.majorGC()
 }

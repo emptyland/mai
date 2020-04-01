@@ -155,6 +155,8 @@ void Scheduler::Resume() {
                 // Ignore
                 break;
             case Machine::kRunning:
+                NOREACHED() << "Running";
+                break;
             default:
                 NOREACHED();
                 break;

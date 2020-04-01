@@ -175,7 +175,7 @@ public:
     Address limit() { return reinterpret_cast<Address>(this) + kPageSize; }
     Address guard() { return chunk() + (kBitmapSize << (Bitmap::kBucketShift + kPointerShift)); }
     
-    bool IsEmpty() { return limit() - chunk() == available_; }
+    bool IsEmpty() { return guard() - chunk() == available_; }
     
     size_t AllocatedSize(Address addr) {
         DCHECK_GE(addr, chunk());
@@ -233,17 +233,26 @@ private:
         set_region(i, chunk);
     }
     
-    size_t FindFitRegion(size_t size) const {
-        for (size_t i = 0; i < kMaxRegionChunks; ++i) {
-            if (size < kRegionLimitSize[i] && region(i)) {
-                return i;
+    size_t FindFitRegion(size_t size, bool complete) const {
+        DCHECK_GT(size, 0);
+        if (complete) {
+            for (size_t i = 0; i < kMaxRegionChunks; ++i) {
+                if (region(i) && size <= region(i)->size) {
+                    return i;
+                }
+            }
+        } else {
+            for (size_t i = 0; i < kMaxRegionChunks; ++i) {
+                if (size < kRegionLimitSize[i] && region(i)) {
+                    return i;
+                }
             }
         }
         return kMaxRegionChunks;
     }
     
     void RemoveFitRegion(size_t size, Chunk *chunk) {
-        size_t i = FindFitRegion(size);
+        size_t i = FindFitRegion(size, false);
         DCHECK_NE(kMaxRegionChunks, i);
         Chunk dummy{ .next = region(i) };
         Chunk *prev = &dummy, *p = dummy.next;
@@ -260,6 +269,7 @@ private:
     }
     
     static size_t FindWantedRegion(size_t size) {
+        DCHECK_GT(size, 0);
         for (size_t i = 0; i < kMaxRegionChunks; ++i) {
             if (size < kRegionLimitSize[i]) {
                 return i;

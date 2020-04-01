@@ -429,6 +429,9 @@ public:
     void Next() { page_ = LargePage::Cast(page_->next()); }
     
     Any *object() const { return reinterpret_cast<Any *>(page_->chunk()); }
+    
+    Address address() const { return page_->chunk(); }
+    
     size_t object_size() const { return page_->size(); }
 private:
     PageHeader *const dummy_;
