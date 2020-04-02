@@ -182,6 +182,7 @@
 		23D48A4823F05D260010A17E /* factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D48A4723F05D260010A17E /* factory.cc */; };
 		23D48A4B23F105EB0010A17E /* channel.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D48A4A23F105EB0010A17E /* channel.cc */; };
 		23DC718D243448B900E5613E /* marking-sweep-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DC718C243448B900E5613E /* marking-sweep-test.cc */; };
+		23DC71902434A28800E5613E /* marking-compact.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DC718F2434A28800E5613E /* marking-compact.cc */; };
 		23DE180F21D088B000479C23 /* write-ahead-log.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231C61F9219AA9CF001A95C1 /* write-ahead-log.cc */; };
 		23DE181021D088B000479C23 /* write-batch.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60601219BBE9600CE12D9 /* write-batch.cc */; };
 		23DE181121D088B000479C23 /* db-impl.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F60605219BC40E00CE12D9 /* db-impl.cc */; };
@@ -539,6 +540,8 @@
 		23D48A4A23F105EB0010A17E /* channel.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = channel.cc; sourceTree = "<group>"; };
 		23D70EEC21A6592E00F6E7FC /* pipeline-queue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "pipeline-queue.h"; sourceTree = "<group>"; };
 		23DC718C243448B900E5613E /* marking-sweep-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "marking-sweep-test.cc"; sourceTree = "<group>"; };
+		23DC718E2434A27200E5613E /* marking-compact.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "marking-compact.h"; sourceTree = "<group>"; };
+		23DC718F2434A28800E5613E /* marking-compact.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "marking-compact.cc"; sourceTree = "<group>"; };
 		23DE17A521D07CD200479C23 /* benchmark */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = benchmark; sourceTree = BUILT_PRODUCTS_DIR; };
 		23DE17F021D07D9400479C23 /* benchmark-main.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "benchmark-main.cc"; sourceTree = "<group>"; };
 		23DE17F821D0887700479C23 /* mai.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = mai.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -756,6 +759,8 @@
 				2354C9E624306ADA00E0B9BE /* scavenger.cc */,
 				2354C9EC2432F2AC00E0B9BE /* marking-sweep.h */,
 				2354C9ED2432F30100E0B9BE /* marking-sweep.cc */,
+				23DC718E2434A27200E5613E /* marking-compact.h */,
+				23DC718F2434A28800E5613E /* marking-compact.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1369,6 +1374,7 @@
 				2364B2B321E451F8008519AE /* optimism-transaction.cc in Sources */,
 				2364B2B521E451F8008519AE /* transaction-base.cc in Sources */,
 				2364B2B721E451F8008519AE /* write-batch-with-index.cc in Sources */,
+				23DC71902434A28800E5613E /* marking-compact.cc in Sources */,
 				2364B2B821E451F8008519AE /* transaction-db.cc in Sources */,
 				2364B2BA21E451F8008519AE /* transaction-lock-mgr.cc in Sources */,
 				2339B3F123E5B48300B07772 /* function-template-x64.cc in Sources */,

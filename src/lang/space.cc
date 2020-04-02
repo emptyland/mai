@@ -4,6 +4,28 @@ namespace mai {
 
 namespace lang {
 
+SemiSpace::SemiSpace(size_t size)
+    : size_(size)
+    , limit_(reinterpret_cast<Address>(this) + size)
+    , chunk_(RoundUp(limit_ - GetChunkSize(), kAligmentSize))
+    , free_(chunk_)
+    , bitmap_length_(static_cast<uint32_t>(GetBitmapLength())) {
+    ::memset(bitmap_, 0, sizeof(bitmap_[0]) * bitmap_length_);
+}
+
+Error NewSpace::Initialize(size_t initial_size) {
+    DCHECK(survive_area_ == nullptr && original_area_ == nullptr);
+    survive_area_ = SemiSpace::New(initial_size, lla_);
+    if (!survive_area_) {
+        return MAI_CORRUPTION("Not enough memory!");
+    }
+    original_area_ = SemiSpace::New(initial_size, lla_);
+    if (!original_area_) {
+        return MAI_CORRUPTION("Not enough memory!");
+    }
+    return Error::OK();
+}
+
 OldSpace::~OldSpace() {
     while (!QUEUE_EMPTY(free_)) {
         auto x = Page::Cast(free_->next_);
@@ -90,24 +112,16 @@ void OldSpace::Free(Address addr, bool merge) {
     used_size_ -= size;
 
     if (page->IsEmpty()) {
-        QUEUE_REMOVE(page);
-        QUEUE_INSERT_HEAD(free_, page);
-        if (freed_pages_ >= max_freed_pages_) {
-            Page *tail = Page::Cast(free_->prev());
-            QUEUE_REMOVE(tail);
-            tail->Dispose(lla_);
-        } else {
-            page->Reinitialize();
-            freed_pages_++;
-        }
-    } else {
-        Page *head = Page::Cast(dummy_->next());
-        if (page != head && page->available() > head->available()) {
-            QUEUE_REMOVE(page);
-            QUEUE_INSERT_HEAD(dummy_, page);
-        }
-        page->bitmap()->ClearAllocated(addr - page->chunk());
+        FreePage(page);
+        return;
     }
+
+    Page *head = Page::Cast(dummy_->next());
+    if (page != head && page->available() > head->available()) {
+        QUEUE_REMOVE(page);
+        QUEUE_INSERT_HEAD(dummy_, page);
+    }
+    page->bitmap()->ClearAllocated(addr - page->chunk());
 }
 
 AllocationResult LargeSpace::DoAllocate(size_t size) {

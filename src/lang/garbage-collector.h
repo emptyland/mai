@@ -7,6 +7,7 @@
 #include <map>
 #include <set>
 #include <atomic>
+#include <stack>
 
 namespace mai {
 namespace base {
@@ -127,6 +128,27 @@ protected:
     Heap *const heap_;
     GarbageCollectionHistogram histogram_;
 }; // class GarbageCollectionPolicy
+
+
+class PartialMarkingPolicy : public GarbageCollectionPolicy {
+public:
+    PartialMarkingPolicy(Isolate *isolate, Heap *heap): GarbageCollectionPolicy(isolate, heap) {}
+    ~PartialMarkingPolicy() override = default;
+    
+    DEF_VAL_PROP_RW(bool, full);
+protected:
+    class RootVisitorImpl;
+    class ObjectVisitorImpl;
+    class WeakVisitorImpl;
+    
+    int UnbreakableMark();
+    int UnbreakableSweepNewSpace();
+    int SweepLargeSpace();
+    int PurgeWeakObjects();
+
+    bool full_ = false; // full gc?
+    std::stack<Any *> gray_;
+}; // class PartialMarkingPolicy
 
 } // namespace lang
 

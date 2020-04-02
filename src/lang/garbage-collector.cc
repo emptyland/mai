@@ -107,6 +107,158 @@ void GarbageCollector::InvalidateHeapGuards(Address guard0, Address guard1) {
     }
 }
 
+
+class PartialMarkingPolicy::RootVisitorImpl final : public RootVisitor {
+public:
+    RootVisitorImpl(PartialMarkingPolicy *owns) : owns_(owns) {}
+    ~RootVisitorImpl() override = default;
+    
+    void VisitRootPointers(Any **begin, Any **end) override {
+        for (Any **i = begin; i < end; i++) {
+            Any *obj = *i;
+            if (!obj) {
+                continue;
+            }
+            
+            DCHECK(obj->is_directly());
+            DCHECK_NE(owns_->heap_->finalize_color(), obj->color());
+            obj->set_color(KColorGray);
+            owns_->gray_.push(obj);
+        }
+    }
+private:
+    PartialMarkingPolicy *const owns_;
+}; // class PartialMarkingPolicy::RootVisitorImpl
+
+
+class PartialMarkingPolicy::ObjectVisitorImpl final : public ObjectVisitor {
+public:
+    ObjectVisitorImpl(PartialMarkingPolicy *owns): owns_(owns) {}
+    ~ObjectVisitorImpl() override = default;
+
+    void VisitPointers(Any *host, Any **begin, Any **end) override {
+        for (Any **i = begin; i < end; i++) {
+            Any *obj = *i;
+            if (!obj) {
+                continue;
+            }
+
+            DCHECK(obj->is_directly());
+            // Transform white to gray
+            if (obj->color() == owns_->heap_->initialize_color()) {
+                obj->set_color(KColorGray);
+                owns_->gray_.push(obj);
+            }
+        }
+    }
+private:
+    PartialMarkingPolicy *const owns_;
+}; // class PartialMarkingPolicy::ObjectVisitorImpl
+
+class PartialMarkingPolicy::WeakVisitorImpl final : public ObjectVisitor {
+public:
+    WeakVisitorImpl(PartialMarkingPolicy *owns): owns_(owns) {}
+    ~WeakVisitorImpl() override = default;
+    
+    void VisitPointers(Any *host, Any **begin, Any **end) override {
+        for (Any **i = begin; i < end; i++) {
+            VisitPointer(host, i);
+        }
+    }
+
+    void VisitPointer(Any *host, Any **p) override {
+        Any *obj = *p;
+        DCHECK(!owns_->full_ || obj->is_directly());
+        if (Any *forward = obj->forward()) {
+            DCHECK_EQ(owns_->heap_->finalize_color(), forward->color());
+            *p = forward;
+        } else if (obj->color() != owns_->heap_->finalize_color()) {
+            DCHECK_NE(KColorGray, obj->color());
+            *p = nullptr;
+        }
+    }
+
+private:
+    PartialMarkingPolicy *const owns_;
+}; // class PartialMarkingPolicy::WeakVisitorImpl
+
+int PartialMarkingPolicy::UnbreakableMark() {
+    RootVisitorImpl root_visitor(this);
+    isolate_->VisitRoot(&root_visitor);
+    
+    int count = 0;
+    ObjectVisitorImpl object_visitor(this);
+    while (!gray_.empty()) {
+        Any *obj = gray_.top();
+        gray_.pop();
+
+        if (obj->color() == KColorGray) {
+            obj->set_color(heap_->finalize_color());
+            IterateObject(obj, &object_visitor);
+        } else {
+            DCHECK_EQ(obj->color(), heap_->finalize_color());
+        }
+        count++;
+    }
+    return count;
+}
+
+int PartialMarkingPolicy::UnbreakableSweepNewSpace() {
+    int count = 0;
+    SemiSpace::Iterator iter(heap_->new_space()->original_area());
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        Any *obj = iter.object();
+        if (obj->color() == heap_->initialize_color()) {
+            histogram_.collected_bytes += iter.object_size();
+            histogram_.collected_objs++;
+            count++;
+        } else {
+            // Keep the lived object
+            heap_->MoveNewSpaceObject(obj, false/*promote*/);
+        }
+    }
+    
+    size_t remaining = heap_->new_space()->Flip(false/*reinit*/);
+    // After new space flip, should update all coroutine's heap guards
+    SemiSpace *original_area = heap_->new_space()->original_area();
+    isolate_->gc()->InvalidateHeapGuards(original_area->chunk(), original_area->limit());
+    isolate_->gc()->set_latest_minor_remaining_size(remaining);
+    return count;
+}
+
+int PartialMarkingPolicy::SweepLargeSpace() {
+    int count = 0;
+    if (LargeSpace *large_space = heap_->large_space()) {
+        LargeSpace::Iterator iter(large_space);
+        for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+            Any *obj = iter.object();
+            if (obj->color() == heap_->initialize_color()) {
+                histogram_.collected_bytes += iter.object_size();
+                histogram_.collected_objs++;
+                large_space->Free(iter.address());
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+int PartialMarkingPolicy::PurgeWeakObjects() {
+    int count = 0;
+    WeakVisitorImpl weak_visitor(this);
+    const RememberSet &rset = isolate_->gc()->MergeRememberSet();
+    std::set<void *> for_clean;
+    for (auto rd : rset) {
+        weak_visitor.VisitPointer(rd.second.host, &rd.second.host);
+        if (!rd.second.host) { // Should sweep remember entries
+            for_clean.insert(rd.first);
+            count++;
+        }
+    }
+    isolate_->gc()->PurgeRememberSet(for_clean);
+    return count;
+}
+
 } // namespace lang
 
 } // namespace mai

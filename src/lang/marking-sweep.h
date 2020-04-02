@@ -11,21 +11,12 @@ namespace lang {
 
 class Any;
 
-class MarkingSweep final : public GarbageCollectionPolicy {
+class MarkingSweep final : public PartialMarkingPolicy {
 public:
-    MarkingSweep(Isolate *isolate, Heap *heap): GarbageCollectionPolicy(isolate, heap) {}
+    MarkingSweep(Isolate *isolate, Heap *heap): PartialMarkingPolicy(isolate, heap) {}
     ~MarkingSweep() override = default;
-    
-    DEF_VAL_PROP_RW(bool, full);
 
     void Run(base::AbstractPrinter *logger) override;
-private:
-    class RootVisitorImpl;
-    class ObjectVisitorImpl;
-    class WeakVisitorImpl;
-
-    bool full_ = false; // full gc?
-    std::stack<Any *> gray_;
 }; // class MarkingSweep
 
 } // namespace lang

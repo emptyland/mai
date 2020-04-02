@@ -60,15 +60,7 @@ public:
     friend class SemiSpaceIterator;
     DISALLOW_IMPLICIT_CONSTRUCTORS(SemiSpace);
 private:
-    SemiSpace(size_t size)
-        : size_(size)
-        , limit_(reinterpret_cast<Address>(this) + size)
-        , chunk_(RoundUp(limit_ - GetChunkSize(), kAligmentSize))
-        , free_(chunk_)
-        , bitmap_length_(static_cast<uint32_t>(GetBitmapLength())) {
-        ::memset(bitmap_, 0, sizeof(bitmap_[0]) * bitmap_length_);
-        //free_.store(RoundUp(limit_ - GetChunkSize(), kAligmentSize));
-    }
+    SemiSpace(size_t size);
     
     void Dispose(Allocator *lla) { lla->Free(this, size_); }
     
@@ -127,18 +119,7 @@ public:
         if (original_area_) { original_area_->Dispose(lla_); }
     }
     
-    Error Initialize(size_t initial_size) {
-        DCHECK(survive_area_ == nullptr && original_area_ == nullptr);
-        survive_area_ = SemiSpace::New(initial_size, lla_);
-        if (!survive_area_) {
-            return MAI_CORRUPTION("Not enough memory!");
-        }
-        original_area_ = SemiSpace::New(initial_size, lla_);
-        if (!original_area_) {
-            return MAI_CORRUPTION("Not enough memory!");
-        }
-        return Error::OK();
-    }
+    Error Initialize(size_t initial_size);
     
     DEF_PTR_GETTER(SemiSpace, survive_area);
     DEF_PTR_GETTER(SemiSpace, original_area);
@@ -148,14 +129,7 @@ public:
     bool InOriginalArea(Address addr) const { return original_area_->Contains(addr); }
     
     // Thread safe:
-    AllocationResult Allocate(size_t size) {
-        DCHECK_GT(size, 0);
-        Address space = DCHECK_NOTNULL(original_area_)->AquireSpace(size);
-        if (!space) {
-            return AllocationResult(AllocationResult::FAIL, nullptr);
-        }
-        return AllocationResult(AllocationResult::OK, space);
-    }
+    inline AllocationResult Allocate(size_t size);
     
     ALWAYS_INLINE bool Contains(Address addr) const {
         return addr >=original_chunk() && addr < original_limit();
@@ -177,21 +151,13 @@ public:
     
     size_t Available() const { return original_area_->limit() - original_area_->free(); }
     
-    size_t Flip(bool reinit) {
-        size_t remaining = original_area_->Purge();
-        std::swap(survive_area_, original_area_);
-        if (reinit) {
-            original_area_->Purge();
-        }
-        return remaining;
-    }
+    inline size_t Flip(bool reinit);
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(NewSpace);
 private:
     SemiSpace *survive_area_ = nullptr; // survive space
     SemiSpace *original_area_ = nullptr; // allocation space
 }; // class NewSpace
-
 
 
 class OldSpace final : public Space {
@@ -209,6 +175,7 @@ public:
     DEF_VAL_GETTER(int, allocated_pages);
     DEF_VAL_GETTER(int, freed_pages);
     DEF_VAL_GETTER(size_t, used_size);
+    DEF_PTR_GETTER(PageHeader, dummy);
     
     size_t GetRSS() const { return kPageSize << allocated_pages_; }
 
@@ -220,13 +187,11 @@ public:
     // Free lock is not need.
     void Free(Address addr, bool merge);
     
-    bool Contains(Address addr) {
-        if (!addr) {
-            return false;
-        }
-        PageHeader *page = PageHeader::FromAddress(addr);
-        return page->maker() == kPageMaker && page->owner_space() == kind();
-    }
+    ALWAYS_INLINE bool Contains(Address addr);
+    
+    inline Page *GetOrNewFreePage();
+
+    inline void FreePage(Page *page);
     
     friend class Heap;
     friend class OldSpaceIterator;
@@ -235,26 +200,7 @@ private:
     // Not thread safe:
     AllocationResult DoAllocate(size_t size);
     
-    Page *GetOrNewFreePage() {
-        Page *free_page = Page::Cast(free_->next());
-        if (free_page == free_) { // free list is empty
-            free_page = Page::New(kind(), Allocator::kRd|Allocator::kWr, lla_);
-            allocated_pages_++;
-        }
-        QUEUE_REMOVE(free_page);
-        return free_page;
-    }
-    
-    void ReclaimFreePages() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        while (!QUEUE_EMPTY(free_)) {
-            auto x = Page::Cast(free_->next());
-            QUEUE_REMOVE(x);
-            x->Dispose(lla_);
-        }
-        allocated_pages_ -= freed_pages_;
-        freed_pages_ = 0;
-    }
+    inline void ReclaimFreePages();
     
     PageHeader *dummy_; // Page double-linked list dummy
     PageHeader *free_;  // Free page double-linked list dummy
@@ -275,25 +221,12 @@ public:
         : Space(kLargeSpace, lla)
         , dummy_(new PageHeader(kDummySpace)) {}
 
-    ~LargeSpace() {
-        while (!QUEUE_EMPTY(dummy_)) {
-            auto x = dummy_->next();
-            QUEUE_REMOVE(x);
-            LargePage::Cast(x)->Dispose(lla_);
-        }
-        delete dummy_;
-    }
+    inline ~LargeSpace();
     
     DEF_VAL_GETTER(size_t, rss_size);
     DEF_VAL_GETTER(size_t, used_size);
     
-    bool Contains(Address addr) {
-        if (!addr) {
-            return false;
-        }
-        PageHeader *page = PageHeader::FromAddress(addr);
-        return page->maker() == kPageMaker && page->owner_space() == kind();
-    }
+    ALWAYS_INLINE bool Contains(Address addr);
 
     AllocationResult Allocate(size_t size) {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -301,15 +234,7 @@ public:
     }
 
     // Free lock is not need.
-    void Free(Address addr) {
-        DCHECK(Contains(addr));
-        LargePage *page = LargePage::FromAddress(addr);
-        DbgFillFreeZag(page->chunk(), page->available());
-        QUEUE_REMOVE(page);
-        rss_size_ -= page->size();
-        used_size_ -= page->size();
-        page->Dispose(lla_);
-    }
+    inline void Free(Address addr);
 
     friend class Heap;
     friend class LargeSpaceIterator;
@@ -325,6 +250,59 @@ private:
 }; // class LargeSpace
 
 
+class PageSpaceIterator final {
+public:
+    PageSpaceIterator(Page *page): page_(page) {}
+
+    void SeekToFirst() { SeekToFirst(page_); }
+
+    inline void SeekToFirst(Page *page);
+
+    bool Valid() const {
+        return current_ != nullptr && current_ < page_->guard() && current_size_ > 0;
+    }
+
+    void Next() {
+        current_ = page_->FindNextChunk(current_ + current_size_);
+        if (current_ < page_->guard()) {
+            UpdateSize();
+        }
+    }
+    
+    Address address() const { return current_; }
+
+    Any *object() const { return reinterpret_cast<Any *>(current_); }
+
+    size_t object_size() const { return current_size_; }
+
+protected:
+    void UpdateSize() { current_size_ = page_->AllocatedSize(current_); }
+    
+private:
+    Page   *page_;
+    Address current_ = nullptr;
+    size_t  current_size_ = 0;
+}; // class PageSpaceIterator
+
+
+class PageIterator {
+public:
+    PageIterator(PageHeader *dummy): dummy_(DCHECK_NOTNULL(dummy)) {}
+    
+    void SeekToFirst() { page_ = dummy_->next(); }
+
+    bool Valid() const { return page_ != dummy_; }
+
+    void Next() { page_ = page_->next(); }
+
+    template<class T>
+    T *page() const { return static_cast<T *>(page_); }
+private:
+    PageHeader *const dummy_;
+    PageHeader *page_ = nullptr;
+}; // class PageIterator
+
+
 class SemiSpaceIterator final {
 public:
     SemiSpaceIterator(SemiSpace *owns) : owns_(owns) {}
@@ -334,7 +312,9 @@ public:
         UpdateSize();
     }
 
-    bool Valid() const { return current_ != nullptr && current_ < owns_->free() && current_size_ > 0; }
+    bool Valid() const {
+        return current_ != nullptr && current_ < owns_->free() && current_size_ > 0;
+    }
 
     void Next() {
         DCHECK(Valid());
@@ -369,74 +349,157 @@ private:
 
 class OldSpaceIterator final {
 public:
-    OldSpaceIterator(OldSpace *owns): dummy_(owns->dummy_) {}
+    OldSpaceIterator(OldSpace *owns)
+        : page_(owns->dummy_)
+        , iter_(nullptr) {}
 
     void SeekToFirst() {
-        page_ = Page::Cast(dummy_);
+        page_.SeekToFirst();
         MoveToValid();
     }
     
-    bool Valid() const {
-        return page_ != dummy_ && current_ != nullptr && current_ < page_->guard() &&
-               current_size_ > 0;
-    }
+    bool Valid() const { return page_.Valid() && iter_.Valid(); }
     
-    void Next() {
-        DCHECK(Valid());
-        current_ = page_->FindNextChunk(current_ + current_size_);
-        if (current_ < page_->guard()) {
-            UpdateSize();
-        } else {
-            MoveToValid();
-        }
-    }
+    inline void Next();
     
-    Address address() const { return current_; }
+    Address address() const { return iter_.address(); }
 
-    Any *object() const { return reinterpret_cast<Any *>(current_); }
+    Any *object() const { return iter_.object(); }
 
-    size_t object_size() const { return current_size_; }
-
+    size_t object_size() const { return iter_.object_size(); }
 private:
-    void UpdateSize() { current_size_ = page_->AllocatedSize(current_); }
-    
-    void MoveToValid() {
-        page_ = Page::Cast(page_->next());
-        while (page_ != dummy_) {
-            current_ = page_->FindFirstChunk();
-            if (current_ < page_->guard()) {
-                UpdateSize();
-                break;
-            }
-            page_ = Page::Cast(page_->next());
-        }
-    }
+    inline void MoveToValid();
 
-    PageHeader *const dummy_;
-    Page *page_ = nullptr;
-    Address current_ = nullptr;
-    size_t  current_size_ = 0;
+    PageIterator page_;
+    PageSpaceIterator iter_;
 }; // class OldSpaceIterator
 
-class LargeSpaceIterator final {
+class LargeSpaceIterator final : public PageIterator {
 public:
-    LargeSpaceIterator(LargeSpace *owns): dummy_(owns->dummy_) {}
+    LargeSpaceIterator(LargeSpace *owns): PageIterator(owns->dummy_) {}
     
-    void SeekToFirst() { page_ = LargePage::Cast(dummy_->next()); }
-    
-    bool Valid() const { return page_ != dummy_; }
+    Any *object() const { return reinterpret_cast<Any *>(address()); }
 
-    void Next() { page_ = LargePage::Cast(page_->next()); }
+    Address address() const { return page<LargePage>()->chunk(); }
     
-    Any *object() const { return reinterpret_cast<Any *>(page_->chunk()); }
-    
-    Address address() const { return page_->chunk(); }
-    
-    size_t object_size() const { return page_->size(); }
-private:
-    PageHeader *const dummy_;
-    LargePage *page_ = nullptr;
+    size_t object_size() const { return page<LargePage>()->size(); }
 }; // class LargeSpaceIterator
+
+
+inline AllocationResult NewSpace::Allocate(size_t size) {
+    DCHECK_GT(size, 0);
+    Address space = DCHECK_NOTNULL(original_area_)->AquireSpace(size);
+    if (!space) {
+        return AllocationResult(AllocationResult::FAIL, nullptr);
+    }
+    return AllocationResult(AllocationResult::OK, space);
+}
+
+inline size_t NewSpace::Flip(bool reinit) {
+    size_t remaining = original_area_->Purge();
+    std::swap(survive_area_, original_area_);
+    if (reinit) {
+        original_area_->Purge();
+    }
+    return remaining;
+}
+
+ALWAYS_INLINE bool OldSpace::Contains(Address addr) {
+    if (!addr) {
+        return false;
+    }
+    PageHeader *page = PageHeader::FromAddress(addr);
+    return page->maker() == kPageMaker && page->owner_space() == kind();
+}
+
+inline Page *OldSpace::GetOrNewFreePage() {
+    Page *free_page = Page::Cast(free_->next());
+    if (free_page == free_) { // free list is empty
+        free_page = Page::New(kind(), Allocator::kRd|Allocator::kWr, lla_);
+        allocated_pages_++;
+    }
+    QUEUE_REMOVE(free_page);
+    return free_page;
+}
+
+inline void OldSpace::FreePage(Page *page) {
+    QUEUE_REMOVE(page);
+    QUEUE_INSERT_HEAD(free_, page);
+    if (freed_pages_ >= max_freed_pages_) {
+        Page *tail = Page::Cast(free_->prev());
+        QUEUE_REMOVE(tail);
+        tail->Dispose(lla_);
+    } else {
+        page->Reinitialize();
+        freed_pages_++;
+    }
+}
+
+inline void OldSpace::ReclaimFreePages() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    while (!QUEUE_EMPTY(free_)) {
+        auto x = Page::Cast(free_->next());
+        QUEUE_REMOVE(x);
+        x->Dispose(lla_);
+    }
+    allocated_pages_ -= freed_pages_;
+    freed_pages_ = 0;
+}
+
+inline LargeSpace::~LargeSpace() {
+    while (!QUEUE_EMPTY(dummy_)) {
+        auto x = dummy_->next();
+        QUEUE_REMOVE(x);
+        LargePage::Cast(x)->Dispose(lla_);
+    }
+    delete dummy_;
+}
+
+ALWAYS_INLINE bool LargeSpace::Contains(Address addr) {
+    if (!addr) {
+        return false;
+    }
+    PageHeader *page = PageHeader::FromAddress(addr);
+    return page->maker() == kPageMaker && page->owner_space() == kind();
+}
+
+inline void LargeSpace::Free(Address addr) {
+    DCHECK(Contains(addr));
+    LargePage *page = LargePage::FromAddress(addr);
+    DbgFillFreeZag(page->chunk(), page->available());
+    QUEUE_REMOVE(page);
+    rss_size_ -= page->size();
+    used_size_ -= page->size();
+    page->Dispose(lla_);
+}
+
+
+inline void PageSpaceIterator::SeekToFirst(Page *page) {
+    page_ = page;
+    current_ = page_->FindFirstChunk();
+    if (current_ < page_->guard()) {
+        UpdateSize();
+    }
+}
+
+inline void OldSpaceIterator::Next() {
+    DCHECK(Valid());
+    iter_.Next();
+    if (!iter_.Valid()) {
+        page_.Next();
+        MoveToValid();
+    }
+}
+
+inline void OldSpaceIterator::MoveToValid() {
+    while (page_.Valid()) {
+        iter_.SeekToFirst(page_.page<Page>());
+        if (iter_.Valid()) {
+            break;
+        }
+        page_.Next();
+    }
+}
 
 } // namespace lang
 
