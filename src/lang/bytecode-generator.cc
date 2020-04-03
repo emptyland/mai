@@ -2427,7 +2427,7 @@ void BytecodeGenerator::GenerateOperation(const Class *clazz, Operator op, int l
             }
             break;
         case kType_i64:
-        case kType_U64:
+        case kType_u64:
             switch (op.kind) {
                 case Operator::kAdd:
                     EMIT(ast, Add<kAdd64>(loff, roff));

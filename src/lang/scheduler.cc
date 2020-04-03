@@ -116,7 +116,6 @@ void Scheduler::Pause() {
                 break;
             case Machine::kRunning:
                 m->RequestSuspend(false/*now*/);
-                //printf("running...!!!\n");
                 break;
             case Machine::kSuspend:
             case Machine::kDead:
@@ -128,10 +127,8 @@ void Scheduler::Pause() {
                 break;
         }
     }
-    //std::unique_lock<std::mutex> lock(mutex_);
     while (pause_request_.load(std::memory_order_acquire) > 1) {
         // Waiting for others machine paused
-        //cond_var_.wait(lock);
         std::this_thread::yield();
     }
     self->set_state(Machine::kSuspend); // Then stop self

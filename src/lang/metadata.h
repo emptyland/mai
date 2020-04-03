@@ -322,7 +322,7 @@ private:
     uint32_t stack_size_ = 0; // Stack size for invoking frame
     uint32_t *stack_bitmap_ = nullptr; // Stack spans bitmap for GC
     uint32_t const_pool_size_ = 0; // Bytes of constants value pool
-    Span32 *const_pool_ = nullptr; // Constants value pool
+    Span32 *const_pool_ = nullptr; // [nested strong ref] Constants value pool
     uint32_t *const_pool_bitmap_ = nullptr; // Constants value pool spans bitmap for GC
     SourceLineInfo *source_line_info_ = nullptr; // Source info for debug and backtrace
     Code *code_ = nullptr; // Native code

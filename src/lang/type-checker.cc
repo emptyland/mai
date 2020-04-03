@@ -1710,6 +1710,7 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
         case Token::kInterface:
         case Token::kRef:
         case Token::kObject:
+        case Token::kClass:
             return CheckClassOrObjectFieldAccess(type, ast);
         default:
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s) to get field",

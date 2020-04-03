@@ -32,6 +32,17 @@ void IterateObject(Any *host, ObjectVisitor *visitor) {
             if (object->captured_var_size() > 0) {
                 object->Iterate(visitor);
             }
+            if (object->is_mai_function()) {
+                Function *fun = object->function();
+                const uint32_t spans_size = fun->const_pool_spans_size();
+                for (uint32_t i = 0; i < spans_size; i++) {
+                    Span32 *span = fun->const_pool() + i;
+                    if (fun->TestConstBitmap(i)) {
+                        visitor->VisitPointers(object, reinterpret_cast<Any **>(span),
+                                               reinterpret_cast<Any **>(span + 1));
+                    }
+                }
+            }
         } break;
         default:
             if (clazz->is_reference()) {

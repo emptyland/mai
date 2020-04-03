@@ -179,13 +179,13 @@ void VisitBytecodeFunctionStackFrame(Address frame_bp, RootVisitor *visitor) {
     
     // Scan Constant Pool
     //printf("const---------------------\n");
-    for (uint32_t i = 0; i < fun->const_pool_spans_size(); i++) {
-        Span32 *span = fun->const_pool() + i;
-        if (fun->TestConstBitmap(i)) {
-            visitor->VisitRootPointers(reinterpret_cast<Any **>(span),
-                                       reinterpret_cast<Any **>(span + 1));
-        }
-    }
+//    for (uint32_t i = 0; i < fun->const_pool_spans_size(); i++) {
+//        Span32 *span = fun->const_pool() + i;
+//        if (fun->TestConstBitmap(i)) {
+//            visitor->VisitRootPointers(reinterpret_cast<Any **>(span),
+//                                       reinterpret_cast<Any **>(span + 1));
+//        }
+//    }
     
     //printf("==========================\n");
 }

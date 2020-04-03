@@ -28,3 +28,11 @@ class MemoryHistogram (
 
 // Get current memory histogram 
 native fun getMemoryHistogram(): MemoryHistogram
+
+implements MemoryHistogram {
+
+	// fun toString(): string {
+	// 	return "Memory:\n  NewSpace: ${self.newSpaceSize/1048576u64}"
+	// }
+
+} // implements MemoryHistogram
