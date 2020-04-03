@@ -95,9 +95,7 @@ void Scheduler::Shutdown() {
 
     for (int i = 1; i < concurrency_; i++) {
         Machine *m = all_machines_[i];
-        if (m->state() == Machine::kIdle) {
-            m->cond_var_.notify_one();
-        }
+        m->Touch();
         m->thread_.join();
         DCHECK_EQ(Machine::kDead, m->state());
     }
@@ -105,7 +103,6 @@ void Scheduler::Shutdown() {
 
 void Scheduler::Pause() {
     Machine *self = Machine::This();
-    //int pause_request = 1;
     pause_request_.store(1, std::memory_order_relaxed);
     for (int i = 1; i < concurrency_; i++) {
         Machine *m = all_machines_[i];
@@ -114,13 +111,14 @@ void Scheduler::Pause() {
         }
         switch (m->state()) {
             case Machine::kIdle:
-                m->set_state(Machine::kStop);
-                m->Touch();
+                m->RequestSuspend(true/*now*/);
+                pause_request_.fetch_add(1, std::memory_order_release);
                 break;
             case Machine::kRunning:
-                pause_request_.fetch_add(1, std::memory_order_relaxed);
+                m->RequestSuspend(false/*now*/);
+                //printf("running...!!!\n");
                 break;
-            case Machine::kStop:
+            case Machine::kSuspend:
             case Machine::kDead:
             case Machine::kPanic:
                 // Ignore
@@ -130,11 +128,13 @@ void Scheduler::Pause() {
                 break;
         }
     }
+    //std::unique_lock<std::mutex> lock(mutex_);
     while (pause_request_.load(std::memory_order_acquire) > 1) {
         // Waiting for others machine paused
+        //cond_var_.wait(lock);
         std::this_thread::yield();
     }
-    self->set_state(Machine::kStop); // Then stop self
+    self->set_state(Machine::kSuspend); // Then stop self
 }
 
 void Scheduler::Resume() {
@@ -146,7 +146,7 @@ void Scheduler::Resume() {
             continue;
         }
         switch (m->state()) {
-            case Machine::kStop:
+            case Machine::kSuspend:
                 m->Touch();
                 break;
             case Machine::kIdle:
@@ -155,7 +155,10 @@ void Scheduler::Resume() {
                 // Ignore
                 break;
             case Machine::kRunning:
-                NOREACHED() << "Running";
+                while (m->state() == Machine::kRunning) {
+                    //printf("span...\n");
+                    std::this_thread::yield();
+                }
                 break;
             default:
                 NOREACHED();

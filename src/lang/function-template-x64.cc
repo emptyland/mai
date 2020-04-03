@@ -94,7 +94,7 @@ private:
 
 /*static*/ Code *FunctionTemplate::MakeStub(const std::vector<uint32_t> &parameters, bool has_vargs,
                                             uint32_t return_type, Address cxx_func_entry) {
-    
+
     StubPrototype context{parameters, has_vargs, return_type};
     StubBuilder builder(STATE);
     builder.Build(context, cxx_func_entry);

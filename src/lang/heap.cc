@@ -119,6 +119,25 @@ Any *Heap::MoveNewSpaceObject(Any *object, bool promote) {
     return reinterpret_cast<Any *>(dest);
 }
 
+Any *Heap::MoveOldSpaceObject(Page *original, Any *object, Page *dest) {
+    DCHECK_EQ(original->owner_space(), dest->owner_space());
+    switch (original->owner_space()) {
+        case kOldSpace: {
+            Address addr = reinterpret_cast<Address>(object);
+            size_t size = original->AllocatedSize(addr);
+            Address result = old_space_->PageAllocate(dest, size);
+            ::memcpy(result, addr, size);
+            object->set_forward_address(result);
+            return reinterpret_cast<Any *>(result);
+        } break;
+            
+        default:
+            NOREACHED();
+            break;
+    }
+    return nullptr;
+}
+
 } // namespace lang
 
 } // namespace mai

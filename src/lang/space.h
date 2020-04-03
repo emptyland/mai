@@ -40,14 +40,7 @@ public:
     using Bitmap = RestrictAllocationBitmap;
     using Iterator = SemiSpaceIterator;
 
-    static SemiSpace *New(size_t size, Allocator *lla) {
-        size_t request_size = RoundUp(size, lla->granularity());
-        void *chunk = lla->Allocate(request_size);
-        if (!chunk) {
-            return nullptr;
-        }
-        return new (chunk) SemiSpace(request_size);
-    }
+    static SemiSpace *New(size_t size, Allocator *lla);
     
     DEF_VAL_GETTER(size_t, size);
     DEF_VAL_GETTER(Address, chunk);
@@ -64,13 +57,7 @@ private:
     
     void Dispose(Allocator *lla) { lla->Free(this, size_); }
     
-    size_t Purge() {
-        size_t remaining = free_.load(std::memory_order_relaxed) - chunk();
-        DbgFillFreeZag(chunk(), remaining);
-        free_.store(chunk(), std::memory_order_relaxed);
-        ::memset(bitmap_, 0, sizeof(bitmap_[0]) * bitmap_length_);
-        return remaining;
-    }
+    inline size_t Purge();
     
     Bitmap *bitmap() { return Bitmap::FromSizeAddress(&bitmap_length_); }
     
@@ -91,15 +78,7 @@ private:
         return bitmap()->AllocatedSize(addr - chunk());
     }
     
-    Address AquireSpace(size_t size) {
-        size_t request_size = GetMinAllocationSize(size);
-        Address space = free_.fetch_add(request_size);
-        if (space + request_size >= limit_) {
-            return nullptr;
-        }
-        bitmap()->MarkAllocated(space - chunk_, request_size);
-        return space;
-    }
+    ALWAYS_INLINE Address AquireSpace(size_t size);
 
     const size_t size_;
     const Address limit_;
@@ -164,12 +143,7 @@ class OldSpace final : public Space {
 public:
     using Iterator = OldSpaceIterator;
     
-    OldSpace(Allocator *lla, int max_freed_pages = 10)
-        : Space(kOldSpace, lla)
-        , dummy_(new PageHeader(kDummySpace))
-        , free_(new PageHeader(kDummySpace))
-        , max_freed_pages_(max_freed_pages) {
-    }
+    OldSpace(Allocator *lla, int max_freed_pages = 10);
     ~OldSpace();
     
     DEF_VAL_GETTER(int, allocated_pages);
@@ -181,7 +155,7 @@ public:
 
     AllocationResult Allocate(size_t size) {
         std::lock_guard<std::mutex> lock(mutex_);
-        return DoAllocate(size);
+        return AllocateLockless(size);
     }
 
     // Free lock is not need.
@@ -189,16 +163,22 @@ public:
     
     ALWAYS_INLINE bool Contains(Address addr);
     
+    inline Address MoveObject(Address addr, size_t n, Page *dest);
+    
     inline Page *GetOrNewFreePage();
 
     inline void FreePage(Page *page);
     
+    inline void Compact(const std::vector<Page *> &pages, size_t used_size);
+
     friend class Heap;
     friend class OldSpaceIterator;
     DISALLOW_IMPLICIT_CONSTRUCTORS(OldSpace);
 private:
     // Not thread safe:
-    AllocationResult DoAllocate(size_t size);
+    AllocationResult AllocateLockless(size_t size);
+    
+    static Address PageAllocate(Page *page, size_t request_size);
     
     inline void ReclaimFreePages();
     
@@ -386,6 +366,24 @@ public:
 }; // class LargeSpaceIterator
 
 
+inline size_t SemiSpace::Purge() {
+    size_t remaining = free_.load(std::memory_order_relaxed) - chunk();
+    DbgFillFreeZag(chunk(), remaining);
+    free_.store(chunk(), std::memory_order_relaxed);
+    ::memset(bitmap_, 0, sizeof(bitmap_[0]) * bitmap_length_);
+    return remaining;
+}
+
+ALWAYS_INLINE Address SemiSpace::AquireSpace(size_t size) {
+    size_t request_size = GetMinAllocationSize(size);
+    Address space = free_.fetch_add(request_size);
+    if (space + request_size >= limit_) {
+        return nullptr;
+    }
+    bitmap()->MarkAllocated(space - chunk_, request_size);
+    return space;
+}
+
 inline AllocationResult NewSpace::Allocate(size_t size) {
     DCHECK_GT(size, 0);
     Address space = DCHECK_NOTNULL(original_area_)->AquireSpace(size);
@@ -402,6 +400,17 @@ inline size_t NewSpace::Flip(bool reinit) {
         original_area_->Purge();
     }
     return remaining;
+}
+
+inline void OldSpace::Compact(const std::vector<Page *> &pages, size_t used_size) {
+    while (!QUEUE_EMPTY(dummy_)) {
+        FreePage(Page::Cast(dummy_->next())); // Free all
+    }
+    for (auto page : pages) {
+        QUEUE_INSERT_HEAD(dummy_, page);
+    }
+    used_size_ = used_size;
+    allocated_pages_ = static_cast<int>(freed_pages_ + pages.size());
 }
 
 ALWAYS_INLINE bool OldSpace::Contains(Address addr) {

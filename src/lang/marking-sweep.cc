@@ -38,13 +38,11 @@ void MarkingSweep::Run(base::AbstractPrinter *logger) /*override*/ {
     // Sweep large objects
     count = SweepLargeSpace();
     logger->Println("[Major] Collected %d large objects", count);
-
     // Sweep new objects
     if (full_) {
         count = UnbreakableSweepNewSpace();
         logger->Println("[Major] Collected %d new objects", count);
     }
-    
     // Weak references sweeping:
     count = PurgeWeakObjects();
     logger->Println("[Major] Purge %d weak objects", count);
@@ -52,8 +50,7 @@ void MarkingSweep::Run(base::AbstractPrinter *logger) /*override*/ {
     heap_->SwapColors();
     histogram_.micro_time_cost = env->CurrentTimeMicros() - jiffy;
     logger->Println("[Major] Marking-sweep done, collected: %zd, cost: %" PRIi64 ,
-                    histogram_.collected_bytes,
-                    histogram_.micro_time_cost);
+                    histogram_.collected_bytes, histogram_.micro_time_cost);
 }
 
 } // namespace lang

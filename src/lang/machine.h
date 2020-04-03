@@ -37,11 +37,12 @@ public:
         kDead,
         kIdle,
         kRunning,
-        kStop, // STW: Stop world
+        kSuspend, // STW: Stop world
         kPanic,
     };
     using TaskFunc = void (*)();
     
+    static const int32_t kOffsetRequestSuspend;
     static constexpr int kMaxFreeCoroutines = 10;
     
     Machine(int id, Scheduler *owner);
@@ -60,6 +61,11 @@ public:
 
     // Set machine state
     void set_state(State state) { state_.store(state, std::memory_order_release); }
+    
+    // Request Suspend
+    void RequestSuspend(bool now);
+    
+    int suspend_request() const { return suspend_request_.load(std::memory_order_acquire); }
 
     // Add counter when some exception uncaught.
     void IncrmentUncaughtCount() { uncaught_count_++; }
@@ -84,7 +90,7 @@ public:
     void PostWaitting(Coroutine *co);
     
     // Touch machine for resume
-    void Touch() { cond_var_.notify_one(); }
+    void Touch() { cond_var_.notify_all(); }
     
     // Make machine is stop and waiting for resume
     void Park();
@@ -242,6 +248,7 @@ private:
     HandleScopeSlot *top_slot_ = nullptr; // [nested strong ref] Top of handle-scope slot pointer
     std::atomic<State> state_ = kDead; // Current machine state
     std::atomic<int> safepoint_ = 0; // Has enter safepoint?
+    std::atomic<int> suspend_request_ = 0; // Suspend request count
     int uncaught_count_ = 0; // Counter of uncaught
     uint64_t exclusion_ = 0; // Exclusion counter if > 0 can not be preempted
     Coroutine *free_dummy_; // Local free coroutines(coroutine pool)
@@ -288,6 +295,7 @@ private:
     
     GarbageCollector *gc_;
 }; // class SafepointScope
+
 
 } // namespace lang
 

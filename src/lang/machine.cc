@@ -163,9 +163,14 @@ void Machine::Entry() {
         if (should_exit) {
             break;
         }
-        if (state() == kStop || owner_->pause_request() > 0) {
+        if (state() == kSuspend || suspend_request() > 0) {
             // GC is ready, should stop the world
             Park();
+            // Double shutting down flags
+            if (owner_->shutting_down()) {
+                break;
+            }
+            span_shift = 1; // Reset span shift count
         }
 
         if (co) {
@@ -198,10 +203,11 @@ void Machine::Entry() {
         if (span_shift >= 1024) {
             span_shift = 1;
 
+            std::unique_lock<std::mutex> lock(mutex_);
+
             state_.store(kIdle, std::memory_order_relaxed);
             owner_->MarkIdle(this);
-
-            std::unique_lock<std::mutex> lock(mutex_);
+            
             cond_var_.wait(lock);
 
             state_.store(kRunning, std::memory_order_relaxed);
@@ -213,13 +219,15 @@ void Machine::Entry() {
 }
 
 void Machine::Park() {
+    std::unique_lock<std::mutex> lock(mutex_);
     State saved_state = state_.load(std::memory_order_relaxed);
-    state_.store(kStop, std::memory_order_relaxed);
+    state_.store(kSuspend, std::memory_order_relaxed);
     owner_->PauseMe(this);
 
-    std::unique_lock<std::mutex> lock(mutex_); // Waiting for resume
+    // Waiting for resume
     cond_var_.wait(lock);
     state_.store(saved_state, std::memory_order_relaxed);
+    suspend_request_.store(0, std::memory_order_release);
 }
 
 void Machine::ExitHandleScope() {
@@ -743,6 +751,14 @@ Coroutine *Machine::TakeFreeCoroutine() {
         return co;
     }
     return nullptr;
+}
+
+void Machine::RequestSuspend(bool now) {
+    suspend_request_.fetch_add(1, std::memory_order_release);
+    if (now) {
+        DCHECK_EQ(kIdle, state());
+        Touch();
+    }
 }
 
 } // namespace lang

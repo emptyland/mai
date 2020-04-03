@@ -13,6 +13,15 @@ SemiSpace::SemiSpace(size_t size)
     ::memset(bitmap_, 0, sizeof(bitmap_[0]) * bitmap_length_);
 }
 
+/*static*/ SemiSpace *SemiSpace::New(size_t size, Allocator *lla) {
+    size_t request_size = RoundUp(size, lla->granularity());
+    void *chunk = lla->Allocate(request_size);
+    if (!chunk) {
+        return nullptr;
+    }
+    return new (chunk) SemiSpace(request_size);
+}
+
 Error NewSpace::Initialize(size_t initial_size) {
     DCHECK(survive_area_ == nullptr && original_area_ == nullptr);
     survive_area_ = SemiSpace::New(initial_size, lla_);
@@ -24,6 +33,13 @@ Error NewSpace::Initialize(size_t initial_size) {
         return MAI_CORRUPTION("Not enough memory!");
     }
     return Error::OK();
+}
+
+OldSpace::OldSpace(Allocator *lla, int max_freed_pages)
+    : Space(kOldSpace, lla)
+    , dummy_(new PageHeader(kDummySpace))
+    , free_(new PageHeader(kDummySpace))
+    , max_freed_pages_(max_freed_pages) {
 }
 
 OldSpace::~OldSpace() {
@@ -42,7 +58,7 @@ OldSpace::~OldSpace() {
     delete dummy_;
 }
 
-AllocationResult OldSpace::DoAllocate(size_t size) {
+AllocationResult OldSpace::AllocateLockless(size_t size) {
     Page *page = Page::Cast(dummy_->next());
     if (page == dummy_) { // empty;
         page = GetOrNewFreePage();
@@ -60,7 +76,11 @@ AllocationResult OldSpace::DoAllocate(size_t size) {
         }
         QUEUE_INSERT_HEAD(dummy_, page);
     }
+    used_size_ += request_size;
+    return AllocationResult(AllocationResult::OK, PageAllocate(page, request_size));
+}
 
+/*static*/ Address OldSpace::PageAllocate(Page *page, size_t request_size) {
     size_t fit = page->FindFitRegion(request_size, true/*complete*/);
     Page::Chunk *chunk = DCHECK_NOTNULL(page->region(fit));
     Address address = reinterpret_cast<Address>(chunk);
@@ -84,9 +104,8 @@ AllocationResult OldSpace::DoAllocate(size_t size) {
         page->set_region(fit, chunk->next);
     }
     
-    used_size_ += request_size;
     page->bitmap()->MarkAllocated(address - page->chunk(), request_size);
-    return AllocationResult(AllocationResult::OK, address);
+    return address;
 }
 
 void OldSpace::Free(Address addr, bool merge) {

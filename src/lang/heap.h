@@ -90,6 +90,7 @@ public:
     void SwapColors() { std::swap(initialize_color_, finalize_color_); }
     
     Any *MoveNewSpaceObject(Any *object, bool promote);
+    Any *MoveOldSpaceObject(Page *original, Any *object, Page *dest);
 
     // TEST functions:
     void TEST_set_trap(AllocationResult::Result trap, int count) {

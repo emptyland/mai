@@ -19,6 +19,9 @@ class Coroutine;
 class Scheduler final {
 public:
     static constexpr int kMaxFreeCoroutines = 80;
+    static constexpr int kBitmapShift = 5;
+    static constexpr int kBitmapBits = 1 << kBitmapShift;
+    static constexpr size_t kBitmapMask = kBitmapBits - 1;
 
     Scheduler(int concurrency, Allocator *lla);
     ~Scheduler();
@@ -30,6 +33,8 @@ public:
 
     int shutting_down() const { return shutting_down_.load(std::memory_order_acquire); }
     int pause_request() const { return pause_request_.load(std::memory_order_acquire); }
+    
+    int AddPauseRequest(int n) { return pause_request_.fetch_add(n, std::memory_order_release); }
 
     size_t n_live_coroutines() const { return n_live_coroutines_.load(); }
     size_t n_live_stacks() const { return n_live_stacks_.load(); }
@@ -65,10 +70,6 @@ public:
     
     // Balanced post a runnable coroutine to machine
     void PostRunnableBalanced(Coroutine *co, bool now);
-    
-    static constexpr int kBitmapShift = 5;
-    static constexpr int kBitmapBits = 1 << kBitmapShift;
-    static constexpr size_t kBitmapMask = kBitmapBits - 1;
     
     // Mark a machine is idle
     void MarkIdle(Machine *m) {

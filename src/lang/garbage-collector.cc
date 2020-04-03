@@ -184,17 +184,21 @@ private:
 
 int PartialMarkingPolicy::UnbreakableMark() {
     RootVisitorImpl root_visitor(this);
-    isolate_->VisitRoot(&root_visitor);
+    ObjectVisitorImpl object_visitor(this);
+    return UnbreakableMark(&root_visitor, &object_visitor);
+}
+
+int PartialMarkingPolicy::UnbreakableMark(RootVisitor *root_visitor, ObjectVisitor *object_visitor) {
+    isolate_->VisitRoot(root_visitor);
     
     int count = 0;
-    ObjectVisitorImpl object_visitor(this);
     while (!gray_.empty()) {
         Any *obj = gray_.top();
         gray_.pop();
 
         if (obj->color() == KColorGray) {
             obj->set_color(heap_->finalize_color());
-            IterateObject(obj, &object_visitor);
+            IterateObject(obj, object_visitor);
         } else {
             DCHECK_EQ(obj->color(), heap_->finalize_color());
         }

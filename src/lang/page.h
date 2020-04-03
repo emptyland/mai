@@ -218,65 +218,15 @@ private:
     
     void Dispose(Allocator *lla) { lla->Free(this, kPageSize); }
     
-    static Page *New(SpaceKind space, int access, Allocator *lla) {
-        void *chunk = AllocatePage(kPageSize, access, lla);
-        if (!chunk) {
-            return nullptr;
-        }
-        return new (chunk) Page(space);
-    }
+    static inline Page *New(SpaceKind space, int access, Allocator *lla);
     
-    void InsertFitRegion(size_t size, Chunk *chunk) {
-        size_t i = FindWantedRegion(size);
-        DCHECK_NE(kMaxRegionChunks, i);
-        chunk->next = region(i);
-        set_region(i, chunk);
-    }
+    inline void InsertFitRegion(size_t size, Chunk *chunk);
     
-    size_t FindFitRegion(size_t size, bool complete) const {
-        DCHECK_GT(size, 0);
-        if (complete) {
-            for (size_t i = 0; i < kMaxRegionChunks; ++i) {
-                if (region(i) && size <= region(i)->size) {
-                    return i;
-                }
-            }
-        } else {
-            for (size_t i = 0; i < kMaxRegionChunks; ++i) {
-                if (size < kRegionLimitSize[i] && region(i)) {
-                    return i;
-                }
-            }
-        }
-        return kMaxRegionChunks;
-    }
+    inline size_t FindFitRegion(size_t size, bool complete) const;
     
-    void RemoveFitRegion(size_t size, Chunk *chunk) {
-        size_t i = FindFitRegion(size, false);
-        DCHECK_NE(kMaxRegionChunks, i);
-        Chunk dummy{ .next = region(i) };
-        Chunk *prev = &dummy, *p = dummy.next;
-        while (p) {
-            if (p == chunk) {
-                prev->next = p->next;
-                break;
-            }
-            prev = p;
-            p = p->next;
-        }
-        DCHECK(p != nullptr);
-        set_region(i, dummy.next);
-    }
+    inline void RemoveFitRegion(size_t size, Chunk *chunk);
     
-    static size_t FindWantedRegion(size_t size) {
-        DCHECK_GT(size, 0);
-        for (size_t i = 0; i < kMaxRegionChunks; ++i) {
-            if (size < kRegionLimitSize[i]) {
-                return i;
-            }
-        }
-        return kMaxRegionChunks;
-    }
+    static inline size_t FindWantedRegion(size_t size);
     
     void AddAvailable(size_t n) { available_ += n; }
 
@@ -333,14 +283,7 @@ private:
 
     void Dispose(Allocator *lla) { lla->Free(this, size_); }
     
-    static LargePage *New(SpaceKind space, int access, size_t size, Allocator *lla) {
-        size_t request_size = RoundUp(sizeof(LargePage) + size, lla->granularity());
-        void *chunk = AllocatePage(request_size, access, lla);
-        if (!chunk) {
-            return nullptr;
-        }
-        return new (chunk) LargePage(space, request_size);
-    }
+    static inline LargePage *New(SpaceKind space, int access, size_t size, Allocator *lla);
 
     size_t size_; // large object size
     uint8_t chunk_[0]; // chunk for allocation
@@ -366,24 +309,9 @@ private:
     
     void Dispose(Allocator *lla) { lla->Free(this, kPageSize); }
     
-    static LinearPage *New(SpaceKind space, int access, Allocator *lla) {
-        void *chunk = lla->Allocate(kPageSize);
-        if (!chunk) {
-            return nullptr;
-        }
-        lla->SetAccess(chunk, kPageSize, access);
-        return new (chunk) LinearPage(space);
-    }
+    static inline LinearPage *New(SpaceKind space, int access, Allocator *lla);
     
-    Address Advance(size_t size) {
-        Address next = RoundUp(free_ + size, kAligmentSize);
-        if (next >= limit()) {
-            return nullptr;
-        }
-        Address chunk = free_;
-        free_ = next;
-        return chunk;
-    }
+    inline Address Advance(size_t size);
 
     Address limit_;
     Address free_;
@@ -469,6 +397,95 @@ inline size_t RestrictAllocationBitmap::FindNextOne(size_t b) const {
     }
     //NOREACHED();
     return length_ << kBucketShift;
+}
+
+/*static*/ inline Page *Page::New(SpaceKind space, int access, Allocator *lla) {
+    void *chunk = AllocatePage(kPageSize, access, lla);
+    if (!chunk) {
+        return nullptr;
+    }
+    return new (chunk) Page(space);
+}
+
+inline void Page::InsertFitRegion(size_t size, Chunk *chunk) {
+    size_t i = FindWantedRegion(size);
+    DCHECK_NE(kMaxRegionChunks, i);
+    chunk->next = region(i);
+    set_region(i, chunk);
+}
+
+inline size_t Page::FindFitRegion(size_t size, bool complete) const {
+    DCHECK_GT(size, 0);
+    if (complete) {
+        for (size_t i = 0; i < kMaxRegionChunks; ++i) {
+            if (region(i) && size <= region(i)->size) {
+                return i;
+            }
+        }
+    } else {
+        for (size_t i = 0; i < kMaxRegionChunks; ++i) {
+            if (size < kRegionLimitSize[i] && region(i)) {
+                return i;
+            }
+        }
+    }
+    return kMaxRegionChunks;
+}
+
+inline void Page::RemoveFitRegion(size_t size, Chunk *chunk) {
+    size_t i = FindFitRegion(size, false);
+    DCHECK_NE(kMaxRegionChunks, i);
+    Chunk dummy{ .next = region(i) };
+    Chunk *prev = &dummy, *p = dummy.next;
+    while (p) {
+        if (p == chunk) {
+            prev->next = p->next;
+            break;
+        }
+        prev = p;
+        p = p->next;
+    }
+    DCHECK(p != nullptr);
+    set_region(i, dummy.next);
+}
+
+/*static*/ inline size_t Page::FindWantedRegion(size_t size) {
+    DCHECK_GT(size, 0);
+    for (size_t i = 0; i < kMaxRegionChunks; ++i) {
+        if (size < kRegionLimitSize[i]) {
+            return i;
+        }
+    }
+    return kMaxRegionChunks;
+}
+
+/*static*/ inline LargePage *LargePage::New(SpaceKind space, int access, size_t size,
+                                            Allocator *lla) {
+    size_t request_size = RoundUp(sizeof(LargePage) + size, lla->granularity());
+    void *chunk = AllocatePage(request_size, access, lla);
+    if (!chunk) {
+        return nullptr;
+    }
+    return new (chunk) LargePage(space, request_size);
+}
+
+/*static*/ inline LinearPage *LinearPage::New(SpaceKind space, int access, Allocator *lla) {
+    void *chunk = lla->Allocate(kPageSize);
+    if (!chunk) {
+        return nullptr;
+    }
+    lla->SetAccess(chunk, kPageSize, access);
+    return new (chunk) LinearPage(space);
+}
+
+inline Address LinearPage::Advance(size_t size) {
+    Address next = RoundUp(free_ + size, kAligmentSize);
+    if (next >= limit()) {
+        return nullptr;
+    }
+    Address chunk = free_;
+    free_ = next;
+    return chunk;
 }
 
 } // namespace lang

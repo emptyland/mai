@@ -19,6 +19,8 @@ class Isolate;
 class Heap;
 class Any;
 class SafepointScope;
+class RootVisitor;
+class ObjectVisitor;
 
 // Remember set record for old-generation -> new-generation
 struct RememberRecord {
@@ -142,6 +144,7 @@ protected:
     class WeakVisitorImpl;
     
     int UnbreakableMark();
+    int UnbreakableMark(RootVisitor *root_visitor, ObjectVisitor *object_visitor);
     int UnbreakableSweepNewSpace();
     int SweepLargeSpace();
     int PurgeWeakObjects();

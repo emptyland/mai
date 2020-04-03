@@ -27,7 +27,7 @@ TEST_F(ScavengerTest, Sanity) {
     String *p1 = *v1, *p2 = *v2;
 
     Scavenger collector(isolate_, isolate_->heap());
-    base::StringBuildingPrinter logger;
+    base::NullPrinter logger;
     collector.Run(&logger);
 
     ASSERT_STREQ("Hello", v1->data());
@@ -44,7 +44,7 @@ TEST_F(ScavengerTest, Promote) {
     Persistent<String> v2 = Persistent<String>::New(String::NewUtf8("World"));
 
     Scavenger collector(isolate_, isolate_->heap());
-    base::StringBuildingPrinter logger;
+    base::NullPrinter logger;
     collector.set_force_promote(true);
     collector.Run(&logger);
 
@@ -64,7 +64,7 @@ TEST_F(ScavengerTest, InternalObjectsMovable) {
     String *oom = STATE->factory()->oom_text();
     
     Scavenger collector(isolate_, isolate_->heap());
-    base::StringBuildingPrinter logger;
+    base::NullPrinter logger;
     collector.Run(&logger);
 
     ASSERT_EQ(empty, STATE->factory()->empty_string());

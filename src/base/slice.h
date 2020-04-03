@@ -334,6 +334,15 @@ public:
 }; // class AbstractPrinter
 
 
+class NullPrinter : public AbstractPrinter {
+public:
+    NullPrinter() = default;
+    ~NullPrinter() override = default;
+
+    void VPrintf(const char *fmt, va_list ap) override {}
+    void Append(const char *s, size_t n) override {}
+}; // class NullPrinter
+
 class StringBuildingPrinter : public AbstractPrinter {
 public:
     StringBuildingPrinter() {}

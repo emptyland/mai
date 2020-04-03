@@ -14,6 +14,7 @@ namespace lang {
 #define MEMBER_OFFSET_OF(field) \
     arch::ObjectTemplate<Coroutine, int32_t>::OffsetOf(&Coroutine :: field)
 
+const int32_t Coroutine::kOffsetOwns = MEMBER_OFFSET_OF(owner_);
 const int32_t Coroutine::kOffsetState = MEMBER_OFFSET_OF(state_);
 const int32_t Coroutine::kOffsetCaught = MEMBER_OFFSET_OF(caught_);
 const int32_t Coroutine::kOffsetSysBP = MEMBER_OFFSET_OF(sys_bp_);

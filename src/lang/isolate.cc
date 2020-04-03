@@ -215,6 +215,9 @@ void Isolate::VisitRoot(RootVisitor *visitor) {
          node = node->next_) {
         visitor->VisitRootPointer(&node->handle);
     }
+    for (auto &pair : external_linkers_) {
+        visitor->VisitRootPointer(reinterpret_cast<Any **>(&pair.second));
+    }
     metadata_space_->VisitRoot(visitor);
     factory_->VisitRoot(visitor);
     scheduler_->VisitRoot(visitor);

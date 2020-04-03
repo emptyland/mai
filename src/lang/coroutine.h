@@ -41,6 +41,7 @@ public:
         kPanic, // Uncaught exception, unable recover
     }; // enum State
     
+    static const int32_t kOffsetOwns;
     static const int32_t kOffsetState;
     static const int32_t kOffsetACC;
     static const int32_t kOffsetFACC;
