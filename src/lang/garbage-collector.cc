@@ -59,6 +59,7 @@ void GarbageCollector::CollectIfNeeded() {
 }
 
 void GarbageCollector::MinorCollect() {
+    tick_.fetch_add(1, std::memory_order_release);
     set_state(kMinorCollect);
     Scavenger scavenger(isolate_, isolate_->heap());
     base::StdFilePrinter printer(stdout);
@@ -67,6 +68,7 @@ void GarbageCollector::MinorCollect() {
 }
 
 void GarbageCollector::MajorCollect() {
+    tick_.fetch_add(1, std::memory_order_release);
     set_state(kMajorCollect);
     MarkingSweep marking_sweep(isolate_, isolate_->heap());
     base::StdFilePrinter printer(stdout);
@@ -76,6 +78,7 @@ void GarbageCollector::MajorCollect() {
 }
 
 void GarbageCollector::FullCollect() {
+    tick_.fetch_add(1, std::memory_order_release);
     set_state(kMajorCollect);
     MarkingSweep marking_sweep(isolate_, isolate_->heap());
     base::StdFilePrinter printer(stdout);

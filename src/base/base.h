@@ -208,10 +208,11 @@ inline MutView<T> MakeMutView(T *z, size_t n) { return MutView<T>{z, n}; }
 #   define MAI_OS_POSIX  1
 #endif
 
+// [[gnu::always_inline]]
 #if defined(DEBUG) || defined(_DEBUG)
 #define ALWAYS_INLINE inline
 #else
-#define ALWAYS_INLINE [[gnu::always_inline]]
+#define ALWAYS_INLINE inline
 #endif // defined(DEBUG) || defined(_DEBUG)
 
 // CPU Arch macros

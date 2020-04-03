@@ -44,10 +44,12 @@ public:
 
     int ReserveRef();
 
+    // [0~15] [16~32]
+    //
     void Fallback(int index, size_t size) {
         DCHECK_EQ(level_.p, index - kSlotBase);
         level_.p -= RoundUp(size, kSizeGranularity);
-        while (level_.p >= kSpanSize && Test(level_.p - kSpanSize)) {
+        while (level_.p >= kSpanSize && Test(level_.p - 1)) {
             DCHECK_EQ(0, level_.p % kSpanSize);
             level_.p -= kSpanSize;
         }
@@ -56,7 +58,7 @@ public:
     void FallbackRef(int index) {
         DCHECK_EQ(level_.r, index - kSlotBase);
         level_.r -= kPointerSize;
-        while (level_.r >= kSpanSize && !Test(level_.r - kSpanSize)) {
+        while (level_.r >= kSpanSize && !Test(level_.r - 1)) {
             DCHECK_EQ(0, level_.r % kSpanSize);
             level_.r -= kSpanSize;
         }

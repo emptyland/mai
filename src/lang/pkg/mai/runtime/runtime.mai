@@ -32,7 +32,7 @@ native fun getMemoryHistogram(): MemoryHistogram
 implements MemoryHistogram {
 
 	// fun toString(): string {
-	// 	return "Memory:\n  NewSpace: ${self.newSpaceSize/1048576u64}"
+	// 	return "Memory:\n  NewSpace: ${self.newSpaceSize/1048576u64}MB/${self.newSpaceRSS/1048576u64}MB"
 	// }
 
 } // implements MemoryHistogram

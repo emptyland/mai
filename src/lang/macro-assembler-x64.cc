@@ -1038,18 +1038,22 @@ public:
     }
     
     void EmitDiv32(MacroAssembler *masm) override {
+        // TODO: Div by zero
         InstrStackABScope instr_scope(masm);
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ xorl(rdx, rdx);
         instr_scope.GetBToRBX();
-        // rax:rdx <- rax * operand
+        // rax:rdx <- rax / operand
         __ divl(Operand(rbp, rbx, times_2, 0));
     }
     
     void EmitDiv64(MacroAssembler *masm) override {
+        // TODO: Div by zero
         InstrStackABScope instr_scope(masm);
         __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        __ xorq(rdx, rdx);
         instr_scope.GetBToRBX();
-        // rax:rdx <- rax * operand
+        // rax:rdx <- rax / operand
         __ divq(Operand(rbp, rbx, times_2, 0));
     }
 
@@ -1068,6 +1072,7 @@ public:
     }
     
     void EmitIDiv32(MacroAssembler *masm) override {
+        // TODO: Div by zero
         InstrStackABScope instr_scope(masm);
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
@@ -1075,6 +1080,7 @@ public:
     }
     
     void EmitIDiv64(MacroAssembler *masm) override {
+        // TODO: Div by zero
         InstrStackABScope instr_scope(masm);
         __ movq(ACC, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
