@@ -16,7 +16,7 @@ bytecode:
     002 StarPtr [BP-72]; (8)
     003 LdaProperty32 [BP+24], @16; (8)
     004 Star32 [BP-116]; (8)
-    005 LdaGlobalPtr [GS+248]; (8)
+    005 LdaGlobalPtr [GS+272]; (8)
     006 CallNativeFunction #0, #4; (8)
     007 StarPtr [BP-80]; (8)
     008 MovePtr [BP-120], [BP-72]; (8)

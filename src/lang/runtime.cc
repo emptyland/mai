@@ -340,20 +340,7 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     return STATE->env()->CurrentTimeMicros();
 }
 
-/*static*/ void Runtime::System_GC(Any */*any*/) {
-    if (!STATE->gc()->AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady)) {
-        Machine::This()->Park();
-        return;
-    }
-    //std::lock_guard<std::mutex> lock(*STATE->scheduler()->mutable_mutex());
-    STATE->scheduler()->Pause();
-    STATE->gc()->MinorCollect();
-    //STATE->gc()->MajorCollect();
-    bool ok = STATE->gc()->AcquireState(GarbageCollector::kDone, GarbageCollector::kIdle);
-    DCHECK(ok);
-    (void)ok;
-    STATE->scheduler()->Resume();
-}
+/*static*/ void Runtime::System_GC(Any */*any*/) { MinorGC(); }
 
 /*static*/ int Runtime::CurrentSourceLine(int level) {
     Address frame_bp = Coroutine::This()->bp1();
@@ -426,12 +413,18 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 }
 
 /*static*/ void Runtime::MinorGC() {
+    if (STATE->scheduler()->shutting_down()) {
+        return;
+    }
     if (!STATE->gc()->AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady)) {
         Machine::This()->Park();
         return;
     }
     //std::lock_guard<std::mutex> lock(*STATE->scheduler()->mutable_mutex());
-    STATE->scheduler()->Pause();
+    if (!STATE->scheduler()->Pause()) {
+        Machine::This()->Park();
+        return;
+    }
     STATE->gc()->MinorCollect();
     bool ok = STATE->gc()->AcquireState(GarbageCollector::kDone, GarbageCollector::kIdle);
     DCHECK(ok);
@@ -440,12 +433,18 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 }
 
 /*static*/ void Runtime::MajorGC() {
+    if (STATE->scheduler()->shutting_down()) {
+        return;
+    }
     if (!STATE->gc()->AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady)) {
         Machine::This()->Park();
         return;
     }
     //std::lock_guard<std::mutex> lock(*STATE->scheduler()->mutable_mutex());
-    STATE->scheduler()->Pause();
+    if (!STATE->scheduler()->Pause()) {
+        Machine::This()->Park();
+        return;
+    }
     STATE->gc()->MajorCollect();
     bool ok = STATE->gc()->AcquireState(GarbageCollector::kDone, GarbageCollector::kIdle);
     DCHECK(ok);

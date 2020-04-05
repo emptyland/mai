@@ -77,7 +77,7 @@ void Machine::PostRunnable(Coroutine *co, bool now) {
     co->set_owner(this);
 
     if (Machine::This() != this) {
-        if (state_.load(std::memory_order_acquire) == kIdle) {
+        if (state() == kIdle) {
             cond_var_.notify_one();
         }
     }
@@ -103,7 +103,7 @@ void Machine::TakeWaittingCoroutine(Coroutine *co) {
 
 void Machine::Start() {
     DCHECK(!thread_.joinable()); // Not running
-    DCHECK_EQ(kDead, state_.load());
+    DCHECK_EQ(kDead, state());
     thread_ = std::thread([this] () {
         MachineScope machine_scope(this);
         Entry();
@@ -140,7 +140,7 @@ void Machine::InvalidateHeapGuards(Address guard0, Address guard1) {
 }
 
 void Machine::Entry() {
-    state_.store(kRunning, std::memory_order_relaxed);
+    set_state(kRunning);
     
     int span_shift = 1;
     while (owner_->shutting_down() <= 0) {
@@ -204,37 +204,39 @@ void Machine::Entry() {
         if (span_shift >= 1024) {
             span_shift = 1;
 
-            state_.store(kIdle, std::memory_order_relaxed);
+//            if (owner_->pause_request()) {
+//                state_.store(kSuspend, std::memory_order_relaxed);
+//            } else {
+//                state_.store(kIdle, std::memory_order_relaxed);
+//            }
+            set_state(kIdle);
             owner_->MarkIdle(this);
             
             std::unique_lock<std::mutex> lock(mutex_);
             cond_var_.wait(lock);
             //printf("weakup2...\n");
 
-            state_.store(kRunning, std::memory_order_relaxed);
+            set_state(kRunning);
             owner_->ClearIdle(this);
         }
     }
 
-    state_.store(kDead, std::memory_order_relaxed);
+    set_state(kDead);
 }
 
 void Machine::Park() {
     
-    State saved_state = state_.load(std::memory_order_relaxed);
-    state_.store(kSuspend, std::memory_order_relaxed);
+    State saved_state = state();
+    set_state(kSuspend);
 
     std::unique_lock<std::mutex> lock(mutex_);
     owner_->PauseMe(this);
     do {
-        
         // Waiting for resume
         cond_var_.wait(lock);
-        //printf("[%d]retry park weakup...\n", id());
     } while (owner_->pause_request() > 0);
-    //printf("[%d]park weakup...\n", id());
     
-    state_.store(saved_state, std::memory_order_relaxed);
+    set_state(saved_state);
     suspend_request_.store(0, std::memory_order_release);
 }
 

@@ -92,7 +92,10 @@ void Scheduler::Schedule() {
 void Scheduler::Shutdown() {
     DCHECK_LE(0, shutting_down_.load());
     shutting_down_.fetch_add(1);
-
+    
+    while (state() == kPause) {
+        std::this_thread::yield();
+    }
     for (int i = 1; i < concurrency_; i++) {
         Machine *m = all_machines_[i];
         do {
@@ -101,110 +104,92 @@ void Scheduler::Shutdown() {
         m->thread_.join();
         DCHECK_EQ(Machine::kDead, m->state());
     }
+    DCHECK_EQ(kRunning, state());
+    State expect = kRunning;
+    bool ok = state_.compare_exchange_strong(expect, kShutdown);
+    DCHECK(ok);
+    (void)ok;
 }
 
-void Scheduler::Pause() {
-//    for (int i = 0; i < concurrency_; i++) {
-//        printf("[%d]%d ", i, all_machines_[i]->state());
-//    }
-//    printf("\n");
-
-    Machine *self = Machine::This();
-//    int request = 1;
-//    for (int i = 0; i < concurrency_; i++) {
-//        Machine *m = all_machines_[i];
-//        if (m == self) {
-//            continue;
-//        }
-//        switch (m->state()) {
-//            case Machine::kIdle:
-//            case Machine::kRunning:
-//                request++;
-//                break;
-//            case Machine::kSuspend:
-//            case Machine::kDead:
-//            case Machine::kPanic:
-//                // Ignore
-//                break;
-//            default:
-//                NOREACHED();
-//                break;
-//        }
-//    }
-//    pause_request_.store(request);
-    pause_request_.store(concurrency_);
-    for (int i = 0; i < concurrency_; i++) {
-        Machine *m = all_machines_[i];
-        if (m == self) {
-            continue;
-        }
-        switch (m->state()) {
-            case Machine::kIdle:
-                //pause_request_.fetch_add(1);
-                m->RequestSuspend(true/*now*/);
-                while (m->state() != Machine::kSuspend && !shutting_down()) {
-                    std::this_thread::yield();
-                }
-                break;
-            case Machine::kRunning:
-                //pause_request_.fetch_add(1);
-                m->RequestSuspend(false/*now*/);
-                while (m->state() != Machine::kSuspend && !shutting_down()) {
-                    std::this_thread::yield();
-                }
-                break;
-            case Machine::kSuspend:
-            case Machine::kDead:
-            case Machine::kPanic:
-                // Ignore
-                break;
-            default:
-                NOREACHED();
-                break;
-        }
+bool Scheduler::Pause() {
+    State expect = kRunning;
+    if (!state_.compare_exchange_strong(expect, kPause)) {
+        return false;
     }
-    //DCHECK_EQ(1, request);
+    Machine *self = Machine::This();
+    pause_request_.store(concurrency_);
+    
     while (pause_request_.load() > 1 && !shutting_down()) {
+        for (int i = 0; i < concurrency_; i++) {
+            Machine *m = all_machines_[i];
+            if (m == self) {
+                continue;
+            }
+            switch (m->state()) {
+                case Machine::kIdle:
+                    m->RequestSuspend(true/*now*/);
+                    break;
+                case Machine::kRunning:
+                    m->RequestSuspend(false/*now*/);
+                    break;
+                case Machine::kSuspend:
+                case Machine::kDead:
+                case Machine::kPanic:
+                    // Ignore
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+        }
         std::this_thread::yield();
     }
     self->set_state(Machine::kSuspend); // Then stop self
-    printf("Suspend: %d\n", concurrency_ - GetNumberOfSuspend());
+    //printf("Suspend: %d\n", concurrency_ - GetNumberOfSuspend());
+    return true;
 }
 
-void Scheduler::Resume() {
+bool Scheduler::Resume() {
+    DCHECK_EQ(kPause, state());
     Machine *self = Machine::This();
     pause_request_.store(0, std::memory_order_release);
-    for (int i = 0; i < concurrency_; i++) {
-        Machine *m = all_machines_[i];
-        if (m == self) {
-            continue;
-        }
-        switch (m->state()) {
-            case Machine::kSuspend:
-                m->Touch();
-                break;
-            case Machine::kIdle:
-                m->Touch();
-                break;
-            case Machine::kDead:
-            case Machine::kPanic:
-                // Ignore
-                break;
-            case Machine::kRunning:
-                while (m->state() == Machine::kRunning && !shutting_down()) {
-                    //printf("span...\n");
-                    std::this_thread::yield();
-                }
-                break;
-            default:
-                NOREACHED();
-                break;
-        }
-    }
-    self->set_state(Machine::kRunning);
+    
     while (GetNumberOfSuspend() > 0 && !shutting_down()) {
+        for (int i = 0; i < concurrency_; i++) {
+            Machine *m = all_machines_[i];
+            if (m == self) {
+                m->set_state(Machine::kRunning);
+                continue;
+            }
+            switch (m->state()) {
+                case Machine::kSuspend:
+                    m->Touch();
+                    break;
+                case Machine::kIdle:
+                    m->Touch();
+                    break;
+                case Machine::kDead:
+                case Machine::kPanic:
+                    // Ignore
+                    break;
+                case Machine::kRunning:
+                    while (m->state() == Machine::kRunning && !shutting_down()) {
+                        //printf("span...\n");
+                        std::this_thread::yield();
+                    }
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+        }
         std::this_thread::yield();
     }
+//    while (GetNumberOfSuspend() > 0 && !shutting_down()) {
+//        std::this_thread::yield();
+//    }
+    State expect = kPause;
+    return state_.compare_exchange_strong(expect, kRunning);
 }
 
 void Scheduler::PostRunnableBalanced(Coroutine *co, bool now) {

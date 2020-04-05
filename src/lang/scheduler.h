@@ -22,6 +22,13 @@ public:
     static constexpr int kBitmapShift = 5;
     static constexpr int kBitmapBits = 1 << kBitmapShift;
     static constexpr size_t kBitmapMask = kBitmapBits - 1;
+    
+    enum State {
+        kRunable,
+        kRunning,
+        kPause,
+        kShutdown,
+    };
 
     Scheduler(int concurrency, Allocator *lla);
     ~Scheduler();
@@ -29,6 +36,8 @@ public:
     DEF_VAL_GETTER(int, concurrency);
     DEF_PTR_GETTER(Machine, machine0);
     DEF_VAL_MUTABLE_GETTER(std::mutex, mutex);
+    
+    State state() const { return state_.load(); }
     
     int MarkShuttingDown() { return shutting_down_.fetch_add(1); }
 
@@ -60,13 +69,17 @@ public:
         for (int i = 1; i < concurrency_; i++) {
             all_machines_[i]->Start();
         }
+        State expect = kRunable;
+        bool ok = state_.compare_exchange_strong(expect, kRunning);
+        DCHECK(ok);
+        (void)ok;
     }
     
     // Pause all machines exclude self one
-    void Pause();
+    bool Pause();
     
     // Resume all machines exclude self one
-    void Resume();
+    bool Resume();
 
     // Notify machine has paused
     void PauseMe(Machine *m) {
@@ -126,6 +139,7 @@ private:
     
     int concurrency_; // Number of machines
     Allocator *const lla_; // Low-Level Allocator
+    std::atomic<State> state_ = kRunable;
     std::unique_ptr<Machine *[]> all_machines_; // All machines(threads)
     
     // The one bits means: Machine is idle
