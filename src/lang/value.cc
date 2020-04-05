@@ -215,7 +215,7 @@ String *IncrementalStringBuilder::Finish() const {
 
 void Object::Iterate(ObjectVisitor *visitor) {
     const Class *type = is_forward() ? forward()->clazz() : clazz();
-    for (uint32_t i = 0; i < type->n_methods(); i++) {
+    for (uint32_t i = 0; i < type->n_fields(); i++) {
         const Field *field = type->field(i);
         if (field->type()->is_reference()) {
             Any **addr = reinterpret_cast<Any **>(GetFieldAddress(field));

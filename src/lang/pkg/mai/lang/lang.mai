@@ -8,9 +8,7 @@ class Exception(val message: string, val cause: Exception)
 
 // System object
 object System {
-	val placeholder = 1
 	val startJiffy = self.microTime()
-	val gcTicks = 0
 }
 
 

@@ -7,19 +7,15 @@ const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0
 exception-table-size: 0
-souce-line-size: 12
+souce-line-size: 8
 souce-file-name: src/lang/pkg/mai/lang/lang.mai
-bytecode-size: 12
+bytecode-size: 8
 bytecode: 
     000 CheckStack; (10)
-    001 LdaSmi32 #1; (11)
-    002 StaProperty32 [BP+24], @16; (11)
-    003 MovePtr [BP-72], [BP+24]; (12)
-    004 MovePtr [BP-88], [BP-72]; (12)
-    005 LdaGlobalPtr [GS+136]; (12)
-    006 CallNativeFunction #0, #8; (12)
-    007 StaProperty64 [BP+24], @20; (12)
-    008 LdaSmi32 #0; (13)
-    009 StaProperty32 [BP+24], @28; (13)
-    010 LdarPtr [BP+24]; (10)
-    011 Return; (10)
+    001 MovePtr [BP-72], [BP+24]; (11)
+    002 MovePtr [BP-88], [BP-72]; (11)
+    003 LdaGlobalPtr [GS+136]; (11)
+    004 CallNativeFunction #0, #8; (11)
+    005 StaProperty64 [BP+24], @16; (11)
+    006 LdarPtr [BP+24]; (10)
+    007 Return; (10)

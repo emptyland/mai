@@ -15,6 +15,15 @@ native fun minorGC()
 // Run major GC once
 native fun majorGC()
 
+// Sleep mills
+native fun sleep(mills: u64)
+
+// Get current machine-id
+native fun currentMachineID(): int
+
+// Get current coroutine-id
+native fun currentCoroutineID(): u64
+
 
 class MemoryHistogram (
 	val newSpaceSize: u64,

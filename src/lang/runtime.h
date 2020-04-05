@@ -57,6 +57,9 @@ class Function;
     V(System_GC, "lang.System::gc") \
     V(CurrentSourceLine, "runtime.currentSourceLine") \
     V(CurrentSourceName, "runtime.currentSourceName") \
+    V(Sleep, "runtime.sleep") \
+    V(CurrentMachineID, "runtime.currentMachineID") \
+    V(CurrentCoroutineID, "runtime.currentCoroutineID") \
     V(MinorGC, "runtime.minorGC") \
     V(MajorGC, "runtime.majorGC") \
     V(GetMemoryHistogram, "runtime.getMemoryHistogram")
@@ -127,6 +130,7 @@ struct Runtime {
     // Panic Object
     static Throwable *NewNilPointerPanic();
     static Throwable *NewStackoverflowPanic();
+    // Arithmetic
     
     // Make current stackstrace
     static Throwable *MakeStacktrace(Throwable *expect);
@@ -150,15 +154,18 @@ struct Runtime {
 
     static int Object_HashCode(Any *any);
     static String *Object_ToString(Any *any);
-    
+
     static void Exception_PrintStackstrace(Any *any);
-    
+
     static int64_t System_CurrentTimeMillis(Any *any);
     static int64_t System_MicroTime(Any *any);
     static void System_GC(Any *any);
     
     static int CurrentSourceLine(int level);
     static String *CurrentSourceName(int level);
+    static void Sleep(uint64_t mills);
+    static int CurrentMachineID();
+    static uint64_t CurrentCoroutineID();
     static void MinorGC();
     static void MajorGC();
     static Any *GetMemoryHistogram();

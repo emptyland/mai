@@ -179,7 +179,7 @@ bytecode:
     165 Star64 [BP-248]; (21)
     166 LdaGlobalPtr [GS+64]; (21)
     167 StarPtr [BP-112]; (21)
-    168 LdaProperty64 [BP-112], @20; (21)
+    168 LdaProperty64 [BP-112], @16; (21)
     169 Star64 [BP-256]; (21)
     170 Sub64 [BP-248], [BP-256]; (21)
     171 Star64 [BP-280]; (21)

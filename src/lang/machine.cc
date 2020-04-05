@@ -63,6 +63,7 @@ Machine::~Machine() {
 }
 
 void Machine::PostRunnable(Coroutine *co, bool now) {
+    //set_state(kRunning);
     DCHECK_EQ(Coroutine::kRunnable, co->state());
     {
         std::lock_guard<std::mutex> lock(runnable_mutex_);
@@ -143,6 +144,16 @@ void Machine::Entry() {
     
     int span_shift = 1;
     while (owner_->shutting_down() <= 0) {
+        if (owner_->pause_request() > 0) {
+            // GC is ready, should stop the world
+            Park();
+            // Double shutting down flags
+            if (owner_->shutting_down()) {
+                break;
+            }
+            span_shift = 1; // Reset span shift count
+        }
+
         Coroutine *co = nullptr;
         bool should_exit = (id_ == 0);
         {
@@ -163,16 +174,6 @@ void Machine::Entry() {
         if (should_exit) {
             break;
         }
-        if (state() == kSuspend || suspend_request() > 0) {
-            // GC is ready, should stop the world
-            Park();
-            // Double shutting down flags
-            if (owner_->shutting_down()) {
-                break;
-            }
-            span_shift = 1; // Reset span shift count
-        }
-
         if (co) {
             CallStub<intptr_t(Coroutine *)> trampoline(STATE->metadata_space()->trampoline_code());
             
@@ -203,12 +204,12 @@ void Machine::Entry() {
         if (span_shift >= 1024) {
             span_shift = 1;
 
-            std::unique_lock<std::mutex> lock(mutex_);
-
             state_.store(kIdle, std::memory_order_relaxed);
             owner_->MarkIdle(this);
             
+            std::unique_lock<std::mutex> lock(mutex_);
             cond_var_.wait(lock);
+            //printf("weakup2...\n");
 
             state_.store(kRunning, std::memory_order_relaxed);
             owner_->ClearIdle(this);
@@ -219,13 +220,20 @@ void Machine::Entry() {
 }
 
 void Machine::Park() {
-    std::unique_lock<std::mutex> lock(mutex_);
+    
     State saved_state = state_.load(std::memory_order_relaxed);
     state_.store(kSuspend, std::memory_order_relaxed);
-    owner_->PauseMe(this);
 
-    // Waiting for resume
-    cond_var_.wait(lock);
+    std::unique_lock<std::mutex> lock(mutex_);
+    owner_->PauseMe(this);
+    do {
+        
+        // Waiting for resume
+        cond_var_.wait(lock);
+        //printf("[%d]retry park weakup...\n", id());
+    } while (owner_->pause_request() > 0);
+    //printf("[%d]park weakup...\n", id());
+    
     state_.store(saved_state, std::memory_order_relaxed);
     suspend_request_.store(0, std::memory_order_release);
 }
@@ -756,7 +764,7 @@ Coroutine *Machine::TakeFreeCoroutine() {
 void Machine::RequestSuspend(bool now) {
     suspend_request_.fetch_add(1, std::memory_order_release);
     if (now) {
-        DCHECK_EQ(kIdle, state());
+        //DCHECK_EQ(kIdle, state());
         Touch();
     }
 }

@@ -479,29 +479,29 @@ public:
     public:
         InstrFABaseScope(MacroAssembler *m): InstrBaseScope(m) {}
         
-        void GetFToRBX() {
-            __ movl(rbx, Operand(BC, 0));
-            __ andl(rbx, BytecodeNode::kFOfFAMask);
-            __ shrl(rbx, 16);
+        void GetFTo(Register dst) {
+            __ movl(dst, Operand(BC, 0));
+            __ andl(dst, BytecodeNode::kFOfFAMask);
+            __ shrl(dst, 16);
         }
         
-        void GetAToRBX() {
-            __ movl(rbx, Operand(BC, 0));
-            __ andl(rbx, BytecodeNode::kAOfFAMask);
+        void GetATo(Register dst) {
+            __ movl(dst, Operand(BC, 0));
+            __ andl(dst, BytecodeNode::kAOfFAMask);
         }
     }; // class InstrFABaseScope
     
     class InstrImmFAScope : public InstrFABaseScope{
     public:
         InstrImmFAScope(MacroAssembler *m): InstrFABaseScope(m) {
-            GetFToRBX();
+            GetFTo(rbx);
         }
     }; // class InstrImmFAScope
     
     class InstrImmAFScope : public InstrFABaseScope{
     public:
         InstrImmAFScope(MacroAssembler *m): InstrFABaseScope(m) {
-            GetAToRBX();
+            GetATo(rbx);
         }
     }; // class InstrImmFAScope
     
@@ -1046,7 +1046,7 @@ public:
         // rax:rdx <- rax / operand
         __ divl(Operand(rbp, rbx, times_2, 0));
     }
-    
+
     void EmitDiv64(MacroAssembler *masm) override {
         // TODO: Div by zero
         InstrStackABScope instr_scope(masm);
@@ -1429,10 +1429,11 @@ public:
         __ addl(rbx, 15); // ebx = ebx + 16 - 1
         __ andl(rbx, 0xfffffff0); // ebx &= -16
         __ movl(Argv_3, rbx); // 'uint32_t params_bytes_size'
-        instr_scope.GetFToRBX();
-        __ movl(Argv_0, rbx); // 'uint32_t flags'
+        instr_scope.GetFTo(Argv_0); // 'uint32_t flags'
+        //__ movl(Argv_0, rbx); // 'uint32_t flags'
         __ movq(Argv_1, ACC); // 'Closure *entry_point' ACC store enter point
         __ movq(Argv_2, rsp); // 'Address params'
+        __ subq(Argv_2, Argv_3);
 
         // Switch and run RunCoroutine
         // Must inline call this function!

@@ -82,6 +82,18 @@ private:
         uint32_t offset;
     };
     
+    struct CallingReceiver {
+        enum Kind {
+            kVtab,
+            kCtor,
+            kNative,
+            kBytecode,
+        };
+        ASTNode *ast;
+        Kind kind;
+        int arguments_size;
+    }; // struct CallingReceiver
+    
     bool PrepareUnit(const std::string &pkg_name, FileUnit *unit);
     bool GenerateUnit(const std::string &pkg_name, FileUnit *unit);
 
@@ -119,7 +131,8 @@ private:
     Result VisitBreakableStatement(BreakableStatement *) override;
     Result VisitTryCatchFinallyBlock(TryCatchFinallyBlock *) override;
     Result VisitAssignmentStatement(AssignmentStatement *) override;
-    //bool SetFunctionPrototype(const FunctionPrototype *proto);
+    Result VisitRunStatement(RunStatement *) override;
+    Result GenerateCalling(CallExpression *ast, CallingReceiver *receiver);
     uint32_t ProcessStructure(StructureDefinition *ast, uint32_t offset, ClassBuilder *builder,
                               std::vector<FieldDesc> *fields_desc);
 
@@ -135,9 +148,9 @@ private:
     bool ProcessStructureInitializer(const std::vector<FieldDesc> &fields_desc, int self_index,
                                      StructureDefinition *ast);
     bool ProcessMethodsPost(Function *ctor, StructureDefinition *ast);
-    Result GenerateRegularCalling(CallExpression *ast);
-    Result GenerateMethodCalling(Value primary, CallExpression *ast);
-    Result GenerateNewObject(const Class *clazz, CallExpression *ast);
+    Result GenerateRegularCalling(CallExpression *ast, CallingReceiver *receiver);
+    Result GenerateMethodCalling(Value primary, CallExpression *ast, CallingReceiver *receiver);
+    Result GenerateNewObject(const Class *clazz, CallExpression *ast, CallingReceiver *receiver);
     int GenerateArguments(const base::ArenaVector<Expression *> &args,
                           const std::vector<const Class *> &params, ASTNode *self_ast, int self_idx,
                           bool vargs);

@@ -399,7 +399,6 @@ namespace {
 #define TOP_REF (current_fun_->stack()->GetTopRef())
 #define EMIT(ast, action) current_fun_->Incoming(ast)->action
 
-
 inline ASTVisitor::Result ResultWith(BValue::Linkage linkage, int type, int index) {
     ASTVisitor::Result rv;
     rv.kind = linkage;
@@ -1054,49 +1053,37 @@ ASTVisitor::Result BytecodeGenerator::VisitLambdaLiteral(LambdaLiteral *ast) /*o
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitCallExpression(CallExpression *ast) /*override*/ {
-    if (!ast->callee()->IsDotExpression()) {
-        return GenerateRegularCalling(ast);
-    }
-
-    DotExpression *dot = DCHECK_NOTNULL(ast->callee()->AsDotExpression());
-    if (!dot->primary()->IsIdentifier()) {
-        auto rv = dot->primary()->Accept(this);
-        if (rv.kind == Value::kError) {
-            return ResultWithError();
-        }
-        const Class *clazz = metadata_space_->type(rv.bundle.type);
-        Value::Linkage linkage = static_cast<Value::Linkage>(rv.kind);
-        return GenerateMethodCalling({linkage, clazz, rv.bundle.index}, ast);
-    }
-
-    Identifier *id = DCHECK_NOTNULL(dot->primary()->AsIdentifier());
-    Value value = current_file_->Find(id->name(), dot->rhs());
-    if (value.linkage != Value::kError) { // Found: pcakgeName.identifer
-        if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
-            return ResultWithError();
-        }
-        return GenerateRegularCalling(ast);
-    }
-
-    auto found = current_->Resolve(id->name());
-    value = std::get<1>(found);
-    if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
+    CallingReceiver receiver;
+    auto rv = GenerateCalling(ast, &receiver);
+    if (rv.kind == Value::kError) {
         return ResultWithError();
     }
-    if (ShouldCaptureVar(std::get<0>(found), value)) {
-        if (auto rv = CaptureVar(id->name()->ToString(), std::get<0>(found), value);
-            rv.kind == Value::kError) {
-            return ResultWithError();
-        } else {
-            value.linkage = static_cast<Value::Linkage>(rv.kind);
-            value.index   = rv.bundle.index;
-            value.flags   = rv.bundle.flags;
-        }
+    
+    switch (receiver.kind) {
+        case CallingReceiver::kCtor:
+            current_fun_->EmitDirectlyCallFunction(receiver.ast, false/*native*/, 0/*slot*/,
+                                                   receiver.arguments_size);
+            break;
+        case CallingReceiver::kVtab:
+            current_fun_->EmitVirtualCallFunction(receiver.ast, 0/*slot*/, receiver.arguments_size);
+            break;
+        case CallingReceiver::kNative:
+            current_fun_->EmitDirectlyCallFunction(receiver.ast, true/*native*/, 0/*slot*/,
+                                                   receiver.arguments_size);
+            break;
+        case CallingReceiver::kBytecode:
+            current_fun_->EmitDirectlyCallFunction(receiver.ast, false/*native*/, 0/*slot*/,
+                                                   receiver.arguments_size);
+            break;
+        default:
+            NOREACHED();
+            break;
     }
-    return GenerateMethodCalling(value, ast);
+    return rv;
 }
 
-ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallExpression *ast) {
+ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallExpression *ast,
+                                                            CallingReceiver *receiver) {
     DotExpression *dot = DCHECK_NOTNULL(ast->callee()->AsDotExpression());
     const Class *clazz = primary.type;
     DCHECK(clazz->is_reference());
@@ -1128,14 +1115,18 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
             kidx = current_fun_->constants()->FindOrInsertString(name);
         }
         EMIT(ast, Add<kLdaVtableFunction>(self, GetConstOffset(kidx)));
-        current_fun_->EmitVirtualCallFunction(ast, 0/*slot*/, arg_size);
+        //current_fun_->EmitVirtualCallFunction(ast, 0/*slot*/, arg_size);
+        receiver->kind = CallingReceiver::kVtab;
     } else {
         std::string name = std::string(owns->name()) + "::" + dot->rhs()->ToString();
         Value value = EnsureFindValue(name);
         DCHECK_EQ(Value::kGlobal, value.linkage);
         LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
-        current_fun_->EmitDirectlyCallFunction(ast, method->is_native(), 0/*slot*/, arg_size);
+        //current_fun_->EmitDirectlyCallFunction(ast, method->is_native(), 0/*slot*/, arg_size);
+        receiver->kind = method->is_native()? CallingReceiver::kNative : CallingReceiver::kBytecode;
     }
+    receiver->arguments_size = arg_size;
+    receiver->ast = ast;
 
     if (auto rv = proto->return_type()->Accept(this); rv.kind == Value::kError) {
         return ResultWithError();
@@ -1341,14 +1332,15 @@ bool BytecodeGenerator::ProcessStructureInitializer(const std::vector<FieldDesc>
     return true;
 }
 
-ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast) {
+ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast,
+                                                             CallingReceiver *receiver) {
     auto rv = ast->callee()->Accept(this);
     if (rv.kind == Value::kError) {
         return ResultWithError();
     }
     if (rv.kind == Value::kMetadata) {
         const Class *clazz = metadata_space_->type(rv.bundle.index);
-        return GenerateNewObject(clazz, ast);
+        return GenerateNewObject(clazz, ast, receiver);
     }
 
     StackSpaceAllocator::Scope stack_scope(current_fun_->stack());
@@ -1384,7 +1376,10 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
     } else {
         LdaIfNeeded(rv, ast->callee());
     }
-    current_fun_->EmitDirectlyCallFunction(ast, native, 0/*slot*/, arg_size);
+    receiver->ast = ast;
+    receiver->kind = native ? CallingReceiver::kNative : CallingReceiver::kBytecode;
+    receiver->arguments_size = arg_size;
+    //current_fun_->EmitDirectlyCallFunction(ast, native, 0/*slot*/, arg_size);
 
     if (rv = proto->return_type()->Accept(this); rv.kind == Value::kError) {
         return ResultWithError();
@@ -1972,6 +1967,75 @@ ASTVisitor::Result BytecodeGenerator::VisitAssignmentStatement(AssignmentStateme
     return ResultWithVoid();
 }
 
+ASTVisitor::Result BytecodeGenerator::VisitRunStatement(RunStatement *ast) /*override*/ {
+    CallingReceiver receiver;
+    auto rv = GenerateCalling(ast->calling(), &receiver);
+    if (rv.kind == Value::kError) {
+        return ResultWithError();
+    }
+
+    switch (receiver.kind) {
+        case CallingReceiver::kCtor:
+            error_feedback_->Printf(FindSourceLocation(ast->calling()),
+                                    "Attempt run class constructor.");
+            return ResultWithError();
+        case CallingReceiver::kNative:
+            error_feedback_->Printf(FindSourceLocation(ast->calling()),
+                                    "Attempt run native function.");
+            return ResultWithError();
+        case CallingReceiver::kVtab:
+        case CallingReceiver::kBytecode:
+            EMIT(ast, Add<kRunCoroutine>(0/*flags*/, receiver.arguments_size));
+            EMIT(ast, Add<kYield>(YIELD_PROPOSE));
+            break;
+    }
+    return ResultWithVoid();
+}
+
+ASTVisitor::Result BytecodeGenerator::GenerateCalling(CallExpression *ast,
+                                                      CallingReceiver *receiver) {
+    if (!ast->callee()->IsDotExpression()) {
+        return GenerateRegularCalling(ast, receiver);
+    }
+
+    DotExpression *dot = DCHECK_NOTNULL(ast->callee()->AsDotExpression());
+    if (!dot->primary()->IsIdentifier()) {
+        auto rv = dot->primary()->Accept(this);
+        if (rv.kind == Value::kError) {
+            return ResultWithError();
+        }
+        const Class *clazz = metadata_space_->type(rv.bundle.type);
+        Value::Linkage linkage = static_cast<Value::Linkage>(rv.kind);
+        return GenerateMethodCalling({linkage, clazz, rv.bundle.index}, ast, receiver);
+    }
+
+    Identifier *id = DCHECK_NOTNULL(dot->primary()->AsIdentifier());
+    Value value = current_file_->Find(id->name(), dot->rhs());
+    if (value.linkage != Value::kError) { // Found: pcakgeName.identifer
+        if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
+            return ResultWithError();
+        }
+        return GenerateRegularCalling(ast, receiver);
+    }
+
+    auto found = current_->Resolve(id->name());
+    value = std::get<1>(found);
+    if (!HasGenerated(value.ast) && !GenerateSymbolDependence(value)) {
+        return ResultWithError();
+    }
+    if (ShouldCaptureVar(std::get<0>(found), value)) {
+        if (auto rv = CaptureVar(id->name()->ToString(), std::get<0>(found), value);
+            rv.kind == Value::kError) {
+            return ResultWithError();
+        } else {
+            value.linkage = static_cast<Value::Linkage>(rv.kind);
+            value.index   = rv.bundle.index;
+            value.flags   = rv.bundle.flags;
+        }
+    }
+    return GenerateMethodCalling(value, ast, receiver);
+}
+
 bool BytecodeGenerator::ShouldCaptureVar(Scope *owns, Value value) {
     if (owns->is_file_scope()) {
         return false;
@@ -2030,7 +2094,8 @@ SourceLocation BytecodeGenerator::FindSourceLocation(const ASTNode *ast) {
     return DCHECK_NOTNULL(current_file_)->file_unit()->FindSourceLocation(ast);
 }
 
-ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, CallExpression *ast) {
+ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, CallExpression *ast,
+                                                        CallingReceiver *receiver) {
     int kidx = current_fun_->constants()->FindOrInsertMetadata(clazz);
     EMIT(ast, Add<kNewObject>(TOP_REF, GetConstOffset(kidx)));
     if (!clazz->init()) {
@@ -2050,7 +2115,10 @@ ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, Call
 
     kidx = current_fun_->constants()->FindOrInsertClosure(clazz->init()->fn());
     LdaConst(metadata_space_->builtin_type(kType_closure), kidx, ast);
-    current_fun_->EmitDirectlyCallFunction(ast, false/*native*/, 0/*slot*/, argument_size);
+    //current_fun_->EmitDirectlyCallFunction(ast, false/*native*/, 0/*slot*/, argument_size);
+    receiver->ast = ast;
+    receiver->kind = CallingReceiver::kCtor;
+    receiver->arguments_size = argument_size;
     
     current_fun_->stack()->FallbackRef(self);
     return ResultWith(Value::kACC, clazz->id(), 0);

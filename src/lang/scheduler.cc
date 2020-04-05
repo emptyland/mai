@@ -95,27 +95,63 @@ void Scheduler::Shutdown() {
 
     for (int i = 1; i < concurrency_; i++) {
         Machine *m = all_machines_[i];
-        m->Touch();
+        do {
+            m->Touch();
+        } while (m->state() != Machine::kDead);
         m->thread_.join();
         DCHECK_EQ(Machine::kDead, m->state());
     }
 }
 
 void Scheduler::Pause() {
+//    for (int i = 0; i < concurrency_; i++) {
+//        printf("[%d]%d ", i, all_machines_[i]->state());
+//    }
+//    printf("\n");
+
     Machine *self = Machine::This();
-    pause_request_.store(1, std::memory_order_relaxed);
-    for (int i = 1; i < concurrency_; i++) {
+//    int request = 1;
+//    for (int i = 0; i < concurrency_; i++) {
+//        Machine *m = all_machines_[i];
+//        if (m == self) {
+//            continue;
+//        }
+//        switch (m->state()) {
+//            case Machine::kIdle:
+//            case Machine::kRunning:
+//                request++;
+//                break;
+//            case Machine::kSuspend:
+//            case Machine::kDead:
+//            case Machine::kPanic:
+//                // Ignore
+//                break;
+//            default:
+//                NOREACHED();
+//                break;
+//        }
+//    }
+//    pause_request_.store(request);
+    pause_request_.store(concurrency_);
+    for (int i = 0; i < concurrency_; i++) {
         Machine *m = all_machines_[i];
         if (m == self) {
             continue;
         }
         switch (m->state()) {
             case Machine::kIdle:
+                //pause_request_.fetch_add(1);
                 m->RequestSuspend(true/*now*/);
-                pause_request_.fetch_add(1, std::memory_order_release);
+                while (m->state() != Machine::kSuspend && !shutting_down()) {
+                    std::this_thread::yield();
+                }
                 break;
             case Machine::kRunning:
+                //pause_request_.fetch_add(1);
                 m->RequestSuspend(false/*now*/);
+                while (m->state() != Machine::kSuspend && !shutting_down()) {
+                    std::this_thread::yield();
+                }
                 break;
             case Machine::kSuspend:
             case Machine::kDead:
@@ -127,17 +163,18 @@ void Scheduler::Pause() {
                 break;
         }
     }
-    while (pause_request_.load(std::memory_order_acquire) > 1) {
-        // Waiting for others machine paused
+    //DCHECK_EQ(1, request);
+    while (pause_request_.load() > 1 && !shutting_down()) {
         std::this_thread::yield();
     }
     self->set_state(Machine::kSuspend); // Then stop self
+    printf("Suspend: %d\n", concurrency_ - GetNumberOfSuspend());
 }
 
 void Scheduler::Resume() {
     Machine *self = Machine::This();
     pause_request_.store(0, std::memory_order_release);
-    for (int i = 1; i < concurrency_; i++) {
+    for (int i = 0; i < concurrency_; i++) {
         Machine *m = all_machines_[i];
         if (m == self) {
             continue;
@@ -147,12 +184,14 @@ void Scheduler::Resume() {
                 m->Touch();
                 break;
             case Machine::kIdle:
+                m->Touch();
+                break;
             case Machine::kDead:
             case Machine::kPanic:
                 // Ignore
                 break;
             case Machine::kRunning:
-                while (m->state() == Machine::kRunning) {
+                while (m->state() == Machine::kRunning && !shutting_down()) {
                     //printf("span...\n");
                     std::this_thread::yield();
                 }
@@ -163,11 +202,15 @@ void Scheduler::Resume() {
         }
     }
     self->set_state(Machine::kRunning);
+    while (GetNumberOfSuspend() > 0 && !shutting_down()) {
+        std::this_thread::yield();
+    }
 }
 
 void Scheduler::PostRunnableBalanced(Coroutine *co, bool now) {
     Machine *target = machine(0);
-    int load = target->GetNumberOfRunnable();
+    int load = target == Machine::This() ? std::numeric_limits<int>::max() :
+        target->GetNumberOfRunnable();
     for (int i = 1; i < concurrency_; i++) {
         Machine *m = all_machines_[i];
         if (int n = m->GetNumberOfRunnable(); n < load) {
@@ -224,6 +267,24 @@ void Scheduler::PurgreCoroutine(Coroutine *co) {
         }
     }
     delete co;
+}
+
+int Scheduler::GetNumberOfSuspend() const {
+    int n = 0;
+    for (int i = 0; i < concurrency_; i++) {
+        if (auto m = machine(i)) {
+            switch (m->state()) {
+                case Machine::kDead:
+                case Machine::kPanic:
+                case Machine::kSuspend:
+                    n++;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    return n;
 }
 
 } // namespace lang

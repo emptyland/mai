@@ -519,6 +519,10 @@ Statement *Parser::ParseStatement(bool *ok) {
             int position = file_unit_->InsertSourceLocation(loc);
             return new (arena_) BreakableStatement(position, BreakableStatement::CONTINUE);
         } break;
+            
+        case Token::kRun:
+        case Token::kRunS:
+            return ParseRunStatement(ok);
 
         default:
             return ParseAssignmentOrExpression(ok);

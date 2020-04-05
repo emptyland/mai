@@ -176,28 +176,34 @@ void VisitBytecodeFunctionStackFrame(Address frame_bp, RootVisitor *visitor) {
             visitor->VisitRootPointer(reinterpret_cast<Any **>(frame_bp + offset));
         }
     }
-    
-    // Scan Constant Pool
-    //printf("const---------------------\n");
-//    for (uint32_t i = 0; i < fun->const_pool_spans_size(); i++) {
-//        Span32 *span = fun->const_pool() + i;
-//        if (fun->TestConstBitmap(i)) {
-//            visitor->VisitRootPointers(reinterpret_cast<Any **>(span),
-//                                       reinterpret_cast<Any **>(span + 1));
-//        }
-//    }
-    
-    //printf("==========================\n");
 }
 
 void Coroutine::VisitRoot(RootVisitor *visitor) {
+    if (state() == kDead || state() == kPanic) {
+        return;
+    }
     if (entry_) {
         visitor->VisitRootPointer(reinterpret_cast<Any **>(&entry_));
     }
     if (exception_) {
         visitor->VisitRootPointer(reinterpret_cast<Any **>(&exception_));
     }
-
+    if (entry_ && reentrant_ == 0) {
+        DCHECK(entry_->is_mai_function());
+        Function *fun = entry_->function();
+        int32_t args_size = static_cast<int32_t>(fun->prototype()->GetParametersPlacedSize());
+        Address frame_bp = stack()->stack_hi() - args_size;
+        int offset = args_size;
+        for (uint32_t i = 0; i < fun->prototype()->parameter_size(); i++) {
+            const Class *type = STATE->metadata_space()->type(fun->prototype()->parameter(i));
+            offset -= RoundUp(type->reference_size(), kStackSizeGranularity);
+            if (type->is_reference()) {
+                visitor->VisitRootPointer(reinterpret_cast<Any **>(frame_bp + offset));
+            }
+        }
+        return;
+    }
+    
     Address frame_bp = state_ == kFallIn ? bp1() : bp0();
     while (frame_bp < stack()->stack_hi()) {
         StackFrame::Maker maker = StackFrame::GetMaker(frame_bp);

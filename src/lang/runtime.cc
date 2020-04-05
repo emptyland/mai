@@ -345,6 +345,7 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
         Machine::This()->Park();
         return;
     }
+    //std::lock_guard<std::mutex> lock(*STATE->scheduler()->mutable_mutex());
     STATE->scheduler()->Pause();
     STATE->gc()->MinorCollect();
     //STATE->gc()->MajorCollect();
@@ -412,11 +413,24 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     return STATE->factory()->empty_string();
 }
 
+/*static*/ void Runtime::Sleep(uint64_t mills) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(mills));
+}
+
+/*static*/ int Runtime::CurrentMachineID() {
+    return Machine::This()->id();
+}
+
+/*static*/ uint64_t Runtime::CurrentCoroutineID() {
+    return Coroutine::This()->coid();
+}
+
 /*static*/ void Runtime::MinorGC() {
     if (!STATE->gc()->AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady)) {
         Machine::This()->Park();
         return;
     }
+    //std::lock_guard<std::mutex> lock(*STATE->scheduler()->mutable_mutex());
     STATE->scheduler()->Pause();
     STATE->gc()->MinorCollect();
     bool ok = STATE->gc()->AcquireState(GarbageCollector::kDone, GarbageCollector::kIdle);
@@ -430,6 +444,7 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
         Machine::This()->Park();
         return;
     }
+    //std::lock_guard<std::mutex> lock(*STATE->scheduler()->mutable_mutex());
     STATE->scheduler()->Pause();
     STATE->gc()->MajorCollect();
     bool ok = STATE->gc()->AcquireState(GarbageCollector::kDone, GarbageCollector::kIdle);

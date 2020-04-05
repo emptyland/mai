@@ -90,7 +90,7 @@ public:
     void PostWaitting(Coroutine *co);
     
     // Touch machine for resume
-    void Touch() { cond_var_.notify_all(); }
+    void Touch() { cond_var_.notify_one(); }
     
     // Make machine is stop and waiting for resume
     void Park();

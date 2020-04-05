@@ -14,22 +14,34 @@ native fun newNewString(): string
 native fun testVisit()
 
 fun main() {
+	run baz("running...", 111)
+	run baz("running...", 112)
+	run baz("running...", 113)
+	//runtime.sleep(100u64)
+
 	val foo = newOldFoo()
 	foo.name = newNewString()
 	bar(foo.name, foo, 0)
-	runtime.minorGC()
-	runtime.majorGC()
+	System.gc()
 	println("name: ${foo.name}")
 	println("${runtime.getMemoryHistogram()}")
 }
 
 fun bar(s: string, o: Foo, i: int) {
-	val foo = o
+	val foo = newOldFoo()
 	val j = 1
 	val msg = s
 	val k = 0.1
 	val mm0 = "Hello"
-	val mm1 = "World"
+	val mm1 = "World$i"
 	val l = 100
+	
+	//runtime.sleep(100u64)
+	//val wg = WaitGroup()
+}
+
+fun baz(s: string, i: int) {
+	println("s:$s,i:$i")
+	println("machine:${runtime.currentMachineID()}, coroutine:${runtime.currentCoroutineID()}")
 	runtime.majorGC()
 }

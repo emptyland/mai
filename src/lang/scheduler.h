@@ -28,6 +28,7 @@ public:
 
     DEF_VAL_GETTER(int, concurrency);
     DEF_PTR_GETTER(Machine, machine0);
+    DEF_VAL_MUTABLE_GETTER(std::mutex, mutex);
     
     int MarkShuttingDown() { return shutting_down_.fetch_add(1); }
 
@@ -45,6 +46,8 @@ public:
         DCHECK_LT(i, concurrency_);
         return all_machines_[i];
     }
+    
+    int GetNumberOfSuspend() const;
 
     // Re-Schedule coroutines with machine
     void Schedule();
@@ -66,7 +69,11 @@ public:
     void Resume();
 
     // Notify machine has paused
-    void PauseMe(Machine *m) { pause_request_.fetch_sub(1); }
+    void PauseMe(Machine *m) {
+        int request = pause_request_.fetch_sub(1);
+        DCHECK_GE(request, 1);
+        (void)request;
+    }
     
     // Balanced post a runnable coroutine to machine
     void PostRunnableBalanced(Coroutine *co, bool now);
