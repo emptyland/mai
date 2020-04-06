@@ -48,13 +48,14 @@ public:
     ImportStatement *ParseImportBlock(bool *ok);
     ImportStatement *ParseImportStatement(SourceLocation *loc, bool *ok);
     VariableDeclaration *ParseVariableDeclaration(bool *ok);
-    FunctionDefinition *ParseFunctionDefinition(bool *ok);
+    FunctionDefinition *ParseFunctionDefinition(uint32_t attributes, bool *ok);
     InterfaceDefinition *ParseInterfaceDefinition(bool *ok);
     ObjectDefinition *ParseObjectDefinition(bool *ok);
     ClassDefinition *ParseClassDefinition(bool *ok);
     ClassImplementsBlock *ParseClassImplementsBlock(bool *ok);
     Statement *ParseStatement(bool *ok);
     StatementBlock *ParseStatementBlock(bool *ok);
+    Statement *ParseStatementWithAttributes(bool *ok);
     WhileLoop *ParseWhileLoop(bool *ok);
     Statement *ParseAssignmentOrExpression(bool *ok);
     TypeSign *ParseTypeSign(bool *ok);
@@ -72,6 +73,7 @@ public:
     IfExpression *ParseIfExpression(bool *ok);
     TryCatchFinallyBlock *ParseTryCatchFinallyBlock(bool *ok);
     RunStatement *ParseRunStatement(bool *ok);
+    uint32_t ParseCompilingAttributes(bool *ok);
 private:
     void *ParseConstructor(IncompleteClassDefinition *def, bool *ok);
     const ASTString *ParseDotName(SourceLocation *loc, bool *ok);

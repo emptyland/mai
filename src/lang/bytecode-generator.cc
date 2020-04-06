@@ -632,13 +632,11 @@ bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit)
                     return false;
                 }
                 int index = global_space_.AppendAny(closure);
-                //printf("%s GS+%d\n", name.c_str(), index);
-                current_->Register(name, {Value::kGlobal, clazz, index, ast, 1/*is_native*/});
+                current_->Register(name, {Value::kGlobal, clazz, index, ast, fun_ast->attributes()});
                 symbol_trace_.insert(ast);
             } else {
                 int index = global_space_.ReserveRef();
-                //printf("%s GS+%d\n", name.c_str(), index);
-                current_->Register(name, {Value::kGlobal, clazz, index, ast, 0/*is_native*/});
+                current_->Register(name, {Value::kGlobal, clazz, index, ast, fun_ast->attributes()});
             }
         }
     }
@@ -1079,6 +1077,9 @@ ASTVisitor::Result BytecodeGenerator::VisitCallExpression(CallExpression *ast) /
             NOREACHED();
             break;
     }
+    if (receiver.attributes & kAttrYield) {
+        EMIT(ast, Add<kYield>(YIELD_PROPOSE));
+    }
     return rv;
 }
 
@@ -1117,6 +1118,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
         EMIT(ast, Add<kLdaVtableFunction>(self, GetConstOffset(kidx)));
         //current_fun_->EmitVirtualCallFunction(ast, 0/*slot*/, arg_size);
         receiver->kind = CallingReceiver::kVtab;
+        receiver->attributes = 0;
     } else {
         std::string name = std::string(owns->name()) + "::" + dot->rhs()->ToString();
         Value value = EnsureFindValue(name);
@@ -1124,6 +1126,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
         LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
         //current_fun_->EmitDirectlyCallFunction(ast, method->is_native(), 0/*slot*/, arg_size);
         receiver->kind = method->is_native()? CallingReceiver::kNative : CallingReceiver::kBytecode;
+        receiver->attributes = value.flags;
     }
     receiver->arguments_size = arg_size;
     receiver->ast = ast;
@@ -1267,7 +1270,18 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
         current_fun_->EmitDirectlyCallFunction(ast, false/*native*/, 0/*slot*/, arg_size);
     }
 
-    if (ast->arguments().empty()) {
+    // $['yield', 'inline', 'uncheck']
+    // native fun foo()
+    FunctionDefinition *init = ast->FindMethodOrNull("init");
+    if (IsMinorConstructor(ast, init)) {
+        std::string name = current_file_->LocalFileFullName(ast->identifier()) + "::init";
+        Value value = EnsureFindValue(name);
+        DCHECK_EQ(Value::kGlobal, value.linkage);
+        MoveToArgumentIfNeeded(ast->clazz(), self.index, self.linkage, kPointerSize, ast);
+        LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
+        current_fun_->EmitDirectlyCallFunction(ast, value.flags & kAttrNative, 0/*slot*/,
+                                               kPointerSize);
+    } else if (ast->arguments().empty()) {
         // return self
         LdaStack(ast->clazz(), self.index, ast);
     }
@@ -1289,6 +1303,7 @@ Function *BytecodeGenerator::GenerateObjectConstructor(const std::vector<FieldDe
         return nullptr;
     }
 
+    // TODO: Minor Constructor
     LdaStack(ast->clazz(), self.index, ast);
     EMIT(ast, Add<kReturn>());
     return BuildFunction("$init", &function_scope);
@@ -1355,8 +1370,12 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
         StaStack(clazz, callee, ast->callee());
     }
 
+    receiver->attributes = 0;
     bool native = false;
-    if (rv.kind == Value::kGlobal) { native = rv.bundle.flags; }
+    if (rv.kind == Value::kGlobal) {
+        native = (rv.bundle.flags & kAttrNative);
+        receiver->attributes = rv.bundle.flags;
+    }
     auto proto = ast->prototype();
     std::vector<const Class *> params;
     for (auto param : proto->parameters()) {
@@ -1379,7 +1398,6 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
     receiver->ast = ast;
     receiver->kind = native ? CallingReceiver::kNative : CallingReceiver::kBytecode;
     receiver->arguments_size = arg_size;
-    //current_fun_->EmitDirectlyCallFunction(ast, native, 0/*slot*/, arg_size);
 
     if (rv = proto->return_type()->Accept(this); rv.kind == Value::kError) {
         return ResultWithError();
@@ -2118,6 +2136,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, Call
     //current_fun_->EmitDirectlyCallFunction(ast, false/*native*/, 0/*slot*/, argument_size);
     receiver->ast = ast;
     receiver->kind = CallingReceiver::kCtor;
+    receiver->attributes = 0;
     receiver->arguments_size = argument_size;
     
     current_fun_->stack()->FallbackRef(self);
@@ -2759,17 +2778,6 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
             LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
             current_fun_->EmitDirectlyCallFunction(ast, method->is_native(), 0/*slot*/,
                                                    kPointerSize/*arg_size*/);
-//            auto method = metadata_space_->FindClassMethodOrNull(clazz, "toString");
-//            if (!method) {
-//                auto object = DCHECK_NOTNULL(metadata_space_->FindClassOrNull("lang.Object"));
-//                method = DCHECK_NOTNULL(metadata_space_->FindClassMethodOrNull(object, "toString"));
-//            }
-//            int argument_offset = kPointerSize;
-//            MoveToArgumentIfNeeded(clazz, index, linkage, argument_offset, ast);
-//            int kidx = current_fun_->constants()->FindOrInsertClosure(method->fn());
-//            LdaConst(method->fn()->clazz(), kidx, ast);
-//            current_fun_->EmitDirectlyCallFunction(ast, method->is_native(), 0/*slot*/,
-//                                                   argument_offset);
         } break;
     }
 }
@@ -3226,6 +3234,21 @@ void BytecodeGenerator::StaProperty(const Class *clazz, int index, int offset, A
             NOREACHED();
             break;
     }
+}
+
+bool BytecodeGenerator::IsMinorConstructor(const StructureDefinition *owns,
+                                           const FunctionDefinition *fun) const {
+    if (!fun) {
+        return false;
+    }
+    if (fun->parameters_size() != 0 || fun->prototype()->vargs()) {
+        return false;
+    }
+    auto tid = fun->prototype()->return_type()->id();
+    if (tid != Token::kClass && tid != Token::kObject && tid != Token::kRef) {
+        return false;
+    }
+    return fun->prototype()->return_type()->structure() == owns;
 }
 
 } // namespace lang

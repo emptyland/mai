@@ -226,6 +226,8 @@ using ASTNumberCastHintTable = std::unordered_map<ASTNumberCastPair, Token::Kind
 
 ASTNumberCastHintTable *ast_number_cast_hint_table = nullptr;
 
+std::unordered_map<std::string, uint32_t> *ast_compiling_attributes_table = nullptr;
+
 } // namespace
 
 void InitializeASTNumberCastHintTable() {
@@ -248,6 +250,27 @@ void FreeASTNumberCastHintTable() {
     DCHECK(ast_number_cast_hint_table != nullptr);
     delete ast_number_cast_hint_table;
     ast_number_cast_hint_table = nullptr;
+}
+
+void InitializeASTCompilingAttributesTable() {
+    DCHECK(ast_compiling_attributes_table == nullptr);
+    ast_compiling_attributes_table = new std::unordered_map<std::string, uint32_t>();
+#define DEFINE_TABLE_ENTRY(name, text, value) \
+    (*ast_compiling_attributes_table)[text] = value;
+    DECLARE_ALL_ATTRIBUTES(DEFINE_TABLE_ENTRY)
+#undef DEFINE_TABLE_ENTRY
+}
+
+void FreeASTCompilingAttributesTable() {
+    DCHECK(ast_compiling_attributes_table != nullptr);
+    delete ast_compiling_attributes_table;
+    ast_compiling_attributes_table = nullptr;
+}
+
+uint32_t FindCompilingAttribute(std::string_view attr) {
+    DCHECK(ast_compiling_attributes_table != nullptr);
+    auto iter = ast_compiling_attributes_table->find(attr.data());
+    return iter == ast_compiling_attributes_table->end() ? 0 : iter->second;
 }
 
 TypeSign::TypeSign(int position, const ASTString *prefix, const ASTString *name)

@@ -19,9 +19,9 @@ struct WaittingRequest {
     Address received; // Received Address
     union {
         intptr_t ixx;
-        Any *any;
-        float f32;
-        double f64;
+        Any     *any;
+        float    f32;
+        double   f64;
     } data;
     
     WaittingRequest(): next_(this), prev_(this) {}

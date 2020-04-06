@@ -25,6 +25,10 @@ native fun currentMachineID(): int
 native fun currentCoroutineID(): u64
 
 
+// May re-schedule
+$['mai:yield']
+native fun schedule()
+
 class MemoryHistogram (
 	val newSpaceSize: u64,
 	val oldSpaceSize: u64,

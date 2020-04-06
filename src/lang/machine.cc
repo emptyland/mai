@@ -20,9 +20,7 @@ inline uint32_t color_tags() {
     return tags;
 }
 
-void SafepointScope::ProcessGarbage() {
-    //gc_->
-}
+void SafepointScope::ProcessGarbage() { gc_->CollectIfNeeded(); }
 
 Machine::Machine(int id, Scheduler *owner)
     : id_(id)

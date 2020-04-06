@@ -218,7 +218,7 @@ TEST_F(ParserTest, NativeFunctionDeclaration) {
     parser_.SwitchInputFile("demos/demo.mai", &file);
 
     bool ok = true;
-    auto ast = parser_.ParseFunctionDefinition(&ok);
+    auto ast = parser_.ParseFunctionDefinition(0, &ok);
     ASSERT_TRUE(ok);
     ASSERT_NE(nullptr, ast);
     
@@ -237,7 +237,7 @@ TEST_F(ParserTest, FunctionDefinition) {
     parser_.SwitchInputFile("demos/demo.mai", &file);
 
     bool ok = true;
-    auto ast = parser_.ParseFunctionDefinition(&ok);
+    auto ast = parser_.ParseFunctionDefinition(0, &ok);
     ASSERT_TRUE(ok);
     ASSERT_NE(nullptr, ast);
     

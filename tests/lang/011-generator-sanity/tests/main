@@ -16,7 +16,7 @@ bytecode:
     002 StarPtr [BP-120]; (9)
     003 LdaConstPtr [KP+40]; (9)
     004 StarPtr [BP-128]; (9)
-    005 LdaGlobalPtr [GS+160]; (9)
+    005 LdaGlobalPtr [GS+192]; (9)
     006 CallBytecodeFunction #0, #16; (9)
     007 NewObject #64, [KP+0]; (10)
     008 StarPtr [BP-72]; (10)

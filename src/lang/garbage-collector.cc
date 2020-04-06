@@ -12,6 +12,9 @@ namespace mai {
 namespace lang {
 
 void GarbageCollector::CollectIfNeeded() {
+    if (isolate_->scheduler()->shutting_down()) {
+        return;
+    }
     Machine *self = Machine::This();
 
     float rate = 1.0 - isolate_->heap()->GetNewSpaceUsedRate();
@@ -32,12 +35,12 @@ void GarbageCollector::CollectIfNeeded() {
     if (kind == kIdle) { // TODO: available is too small
         return;
     }
-    if (!AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady)) {
+    if (!AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady) ||
+        !isolate_->scheduler()->Pause()) {
         self->Park(); // Waitting
         return;
     }
     tick_.fetch_add(1, std::memory_order_release);
-    isolate_->scheduler()->Pause();
     switch (kind) {
         case kMinorCollect:
             MinorCollect();
@@ -54,8 +57,9 @@ void GarbageCollector::CollectIfNeeded() {
     }
     bool ok = AcquireState(GarbageCollector::kDone, GarbageCollector::kIdle);
     DCHECK(ok);
+    ok = isolate_->scheduler()->Resume();
+    DCHECK(ok);
     (void)ok;
-    isolate_->scheduler()->Resume();
 }
 
 void GarbageCollector::MinorCollect() {

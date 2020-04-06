@@ -33,7 +33,7 @@ public:
         const Class *type = nullptr;
         int index = 0;
         Symbolize *ast = nullptr;
-        int flags = 0;
+        uint32_t flags = 0;
     }; // struct BytecodeGenerator::Value
 
     BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback,
@@ -89,8 +89,9 @@ private:
             kNative,
             kBytecode,
         };
-        ASTNode *ast;
         Kind kind;
+        uint32_t attributes;
+        ASTNode *ast;
         int arguments_size;
     }; // struct CallingReceiver
     
@@ -206,6 +207,8 @@ private:
     bool HasGenerated(ASTNode *ast) const {
         return symbol_trace_.find(ast) != symbol_trace_.end();
     }
+    
+    bool IsMinorConstructor(const StructureDefinition *owns, const FunctionDefinition *fun) const;
     
     Isolate *isolate_;
     MetadataSpace *metadata_space_;

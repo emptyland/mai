@@ -55,6 +55,10 @@ class Function;
     V(System_CurrentTimeMillis, "lang.System::currentTimeMillis") \
     V(System_MicroTime, "lang.System::microTime") \
     V(System_GC, "lang.System::gc") \
+    V(WaitGroup_Init, "lang.WaitGroup::init") \
+    V(WaitGroup_Add, "lang.WaitGroup::add") \
+    V(WaitGroup_Done, "lang.WaitGroup::done") \
+    V(WaitGroup_Wait, "lang.WaitGroup::wait") \
     V(CurrentSourceLine, "runtime.currentSourceLine") \
     V(CurrentSourceName, "runtime.currentSourceName") \
     V(Sleep, "runtime.sleep") \
@@ -62,7 +66,8 @@ class Function;
     V(CurrentCoroutineID, "runtime.currentCoroutineID") \
     V(MinorGC, "runtime.minorGC") \
     V(MajorGC, "runtime.majorGC") \
-    V(GetMemoryHistogram, "runtime.getMemoryHistogram")
+    V(GetMemoryHistogram, "runtime.getMemoryHistogram") \
+    V(Schedule, "runtime.schedule")
 
 
 // The runtime functions definition
@@ -161,6 +166,11 @@ struct Runtime {
     static int64_t System_MicroTime(Any *any);
     static void System_GC(Any *any);
     
+    static Any *WaitGroup_Init(Any *any);
+    static void WaitGroup_Add(Any *any, int n);
+    static void WaitGroup_Done(Any *any);
+    static void WaitGroup_Wait(Any *any);
+    
     static int CurrentSourceLine(int level);
     static String *CurrentSourceName(int level);
     static void Sleep(uint64_t mills);
@@ -169,6 +179,7 @@ struct Runtime {
     static void MinorGC();
     static void MajorGC();
     static Any *GetMemoryHistogram();
+    static void Schedule();
 }; // struct Runtime
 
 } // namespace lang

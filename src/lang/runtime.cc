@@ -342,6 +342,22 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 
 /*static*/ void Runtime::System_GC(Any */*any*/) { MinorGC(); }
 
+/*static*/ Any *Runtime::WaitGroup_Init(Any *any) {
+    return any;
+}
+
+/*static*/ void Runtime::WaitGroup_Add(Any *any, int n) {
+    TODO();
+}
+
+/*static*/ void Runtime::WaitGroup_Done(Any *any) {
+    TODO();
+}
+
+/*static*/ void Runtime::WaitGroup_Wait(Any *any) {
+    TODO();
+}
+
 /*static*/ int Runtime::CurrentSourceLine(int level) {
     Address frame_bp = Coroutine::This()->bp1();
     while (frame_bp < Coroutine::This()->stack()->stack_hi()) {
@@ -484,6 +500,8 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     histogram->UnsafeSetField<uint64_t>(field, STATE->gc()->tick());
     return histogram;
 }
+
+/*static*/ void Runtime::Schedule() { Coroutine::This()->RequestYield(); }
 
 } // namespace lang
 

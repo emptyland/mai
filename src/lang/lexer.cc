@@ -116,6 +116,9 @@ Token Lexer::Next() {
             case ';':
                 return MatchOne(Token::kSemi);
                 
+            case '$':
+                return MatchOne(Token::kDollar);
+                
             case '!': {
                 SourceLocation loc{line_, row_};
                 if (ch = MoveNext(); ch == '=') {

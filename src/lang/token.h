@@ -77,6 +77,7 @@ using ASTString = base::ArenaString;
     V(Equal, "==", none) \
     V(NotEqual, "!=", none) \
     V(Assign, "=", none) \
+    V(Dollar, "$", none) \
     DECLARE_KEYWORDS_TOKEN(V)
 
 // Ξ random
@@ -125,6 +126,7 @@ using ASTString = base::ArenaString;
     V(Try, "try", none) \
     V(Catch, "catch", none) \
     V(Finally, "finally", none) \
+    V(Attributes, "attributes", none) \
     DECLARE_BASE_TYPE_TOKEN(V)
 
 #define DECLARE_BASE_TYPE_TOKEN(V) \

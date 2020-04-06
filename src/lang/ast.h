@@ -61,6 +61,14 @@ namespace lang {
 DECLARE_ALL_AST(DEFINE_DECLARE)
 #undef DEFINE_DECLARE
 
+#define DECLARE_ALL_ATTRIBUTES(V) \
+    V(Native, "mai:native", 1u) \
+    V(Yield,  "mai:yield", 1u << 1)
+
+#define DEFINE_CONSTANT(name, text, value) static constexpr uint32_t kAttr##name = (value);
+DECLARE_ALL_ATTRIBUTES(DEFINE_CONSTANT)
+#undef DEFINE_CONSTANT
+
 class ASTNode;
 class Class;
 class Function;
@@ -69,8 +77,8 @@ struct ASTVisitorResult {
     int kind;
     union {
         struct {
-            int flags: 8;
-            int index: 24;
+            uint32_t flags;
+            int index;
             int type;
         } bundle;
         Class *clazz;
@@ -549,19 +557,24 @@ public:
         LITERAL,
     };
     
-    FunctionDefinition(int position, const ASTString *identifier, LambdaLiteral *body)
+    FunctionDefinition(int position, uint32_t attributes, const ASTString *identifier,
+                       LambdaLiteral *body)
         : Definition(position, kFunctionDefinition, identifier)
         , type_(LITERAL)
+        , attributes_(attributes)
         , body_(body) {}
     
-    FunctionDefinition(int position, bool native, const ASTString *identifier, FunctionPrototype *prototype)
+    FunctionDefinition(int position, uint32_t attributes, bool native, const ASTString *identifier,
+                       FunctionPrototype *prototype)
         : Definition(position, kFunctionDefinition, identifier)
         , type_(native ? NATIVE : DECLARE)
+        , attributes_(attributes | (native ? kAttrNative : 0))
         , prototype_(prototype) {}
 
     bool is_native() const { return type_ == NATIVE; }
     bool is_declare() const { return type_ == DECLARE; }
     bool is_literal() const { return type_ == LITERAL; }
+    DEF_VAL_GETTER(uint32_t, attributes);
     DEF_PTR_PROP_RW(LambdaLiteral, body);
     inline size_t parameters_size() const;
     inline FunctionPrototype::Parameter parameter(size_t i) const;
@@ -573,6 +586,7 @@ public:
     DEFINE_AST_NODE(FunctionDefinition);
 private:
     Type type_;
+    uint32_t attributes_;
     union {
         LambdaLiteral *body_;
         FunctionPrototype *prototype_;
@@ -1268,6 +1282,8 @@ public:
     DEFINE_AST_NODE(TypeTestExpression);
 }; // class TypeCastExpression
 
+
+uint32_t FindCompilingAttribute(std::string_view attr);
 
 inline size_t FunctionDefinition::parameters_size() const {
     return prototype()->parameters_size();

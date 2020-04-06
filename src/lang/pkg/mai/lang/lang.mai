@@ -45,3 +45,28 @@ native fun assert(e: bool, s: string)
 native fun abort(message: string)
 
 native fun fatal(message: string)
+
+class WaitGroup(
+private:
+	var numberOfWorks: int
+) {
+private:
+	val requestDummy = 0u64
+	val reserved0 = 0u64
+	val co = 0u64
+	val received = 0u64
+	val data = 0u64
+	val reserved1 = 0u64
+}
+
+implements WaitGroup {
+
+native fun init(): WaitGroup
+
+native fun add(n: int)
+
+native fun done()
+
+native fun wait()
+
+} // implements WaitGroup

@@ -6,7 +6,7 @@ namespace mai {
 
 namespace lang {
 
-#define CHECK_OK ok); if (!*ok) { return nullptr; } ((void)0
+#define CHECK_OK ok); if (!*ok) { return 0; } ((void)0
 
 #define MoveNext() lookahead_ = lexer_->Next()
 
@@ -59,14 +59,26 @@ FileUnit *Parser::Parse(bool *ok) {
                 ClassImplementsBlock *impl = ParseClassImplementsBlock(CHECK_OK);
                 file_unit_->InsertImplement(impl);
             } break;
+                
+            case Token::kDollar: {
+                Statement *stmt = ParseStatementWithAttributes(CHECK_OK);
+                if (stmt->IsObjectDefinition() || stmt->IsClassDefinition() ||
+                    stmt->IsFunctionDefinition()) {
+                    file_unit_->InsertDefinition(static_cast<Definition *>(stmt));
+                } else if (stmt->IsVariableDeclaration()) {
+                    file_unit_->InsertGlobalVariable(static_cast<Declaration *>(stmt));
+                } else {
+                    NOREACHED();
+                }
+            } break;
 
             case Token::kNative: {
-                Definition *def = ParseFunctionDefinition(CHECK_OK);
+                Definition *def = ParseFunctionDefinition(0, CHECK_OK);
                 file_unit_->InsertDefinition(def);
             } break;
 
             case Token::kFun: {
-                Definition *def = ParseFunctionDefinition(CHECK_OK);
+                Definition *def = ParseFunctionDefinition(0, CHECK_OK);
                 file_unit_->InsertDefinition(def);
             } break;
 
@@ -173,8 +185,9 @@ VariableDeclaration *Parser::ParseVariableDeclaration(bool *ok) {
     return new (arena_) VariableDeclaration(position, kind, name, type, init);
 }
 
-FunctionDefinition *Parser::ParseFunctionDefinition(bool *ok) {
+FunctionDefinition *Parser::ParseFunctionDefinition(uint32_t attributes, bool *ok) {
     SourceLocation loc = Peek().source_location();
+
     bool native = Test(Token::kNative);
     Match(Token::kFun, CHECK_OK);
     
@@ -184,12 +197,12 @@ FunctionDefinition *Parser::ParseFunctionDefinition(bool *ok) {
         FunctionPrototype *proto = ParseFunctionPrototype(true, &end, CHECK_OK);
         loc.LinkEnd(end);
         int position = file_unit_->InsertSourceLocation(loc);
-        return new (arena_) FunctionDefinition(position, native, name, proto);
+        return new (arena_) FunctionDefinition(position, attributes, native, name, proto);
     } else {
         LambdaLiteral *body = ParseLambdaLiteral(CHECK_OK);
         loc.LinkEnd(file_unit_->FindSourceLocation(body));
         int position = file_unit_->InsertSourceLocation(loc);
-        return new (arena_) FunctionDefinition(position, name, body);
+        return new (arena_) FunctionDefinition(position, attributes, name, body);
     }
 }
 
@@ -214,8 +227,9 @@ InterfaceDefinition *Parser::ParseInterfaceDefinition(bool *ok) {
         FunctionPrototype *proto = ParseFunctionPrototype(true, &end, CHECK_OK);
         
         int position = file_unit_->InsertSourceLocation(end);
-        FunctionDefinition *fun = new (arena_) FunctionDefinition(position, false/*native*/,
-                                                                  method_name, proto);
+        FunctionDefinition *fun = new (arena_) FunctionDefinition(position, 0/*attributes*/,
+                                                                  false/*native*/, method_name,
+                                                                  proto);
         methods.push_back(fun);
         named_methods[method_name->ToSlice()] = fun;
         loc.LinkEnd(Peek().source_location());
@@ -312,12 +326,18 @@ ClassDefinition *Parser::ParseClassDefinition(bool *ok) {
         while (!Test(Token::kRBrace)) {
             switch (Peek().kind()) {
                 case Token::kPublic:
+                    MoveNext();
+                    Match(Token::kColon, CHECK_OK);
                     incomplete.access = ClassDefinition::kPublic;
                     break;
                 case Token::kProtected:
+                    MoveNext();
+                    Match(Token::kColon, CHECK_OK);
                     incomplete.access = ClassDefinition::kProtected;
                     break;
                 case Token::kPrivate:
+                    MoveNext();
+                    Match(Token::kColon, CHECK_OK);
                     incomplete.access = ClassDefinition::kPrivate;
                     break;
                 case Token::kVal:
@@ -386,7 +406,11 @@ ClassImplementsBlock *Parser::ParseClassImplementsBlock(bool *ok) {
     base::ArenaVector<FunctionDefinition *> methods(arena_);
     Match(Token::kLBrace, CHECK_OK);
     while (!Test(Token::kRBrace)) {
-        FunctionDefinition *fun = ParseFunctionDefinition(CHECK_OK);
+        uint32_t attr = 0;
+        if (Peek().kind() == Token::kDollar) {
+            attr = ParseCompilingAttributes(CHECK_OK);
+        }
+        FunctionDefinition *fun = ParseFunctionDefinition(attr, CHECK_OK);
         methods.push_back(fun);
     }
 
@@ -468,12 +492,15 @@ void *Parser::ParseConstructor(IncompleteClassDefinition *def, bool *ok) {
 Statement *Parser::ParseStatement(bool *ok) {
     SourceLocation loc = Peek().source_location();
     switch (Peek().kind()) {
+        case Token::kDollar:
+            return ParseStatementWithAttributes(ok);
+            
         case Token::kVar:
         case Token::kVal:
             return ParseVariableDeclaration(ok);
 
         case Token::kFun:
-            return ParseFunctionDefinition(ok);
+            return ParseFunctionDefinition(0, ok);
 
         case Token::kLBrace:
             return ParseStatementBlock(ok);
@@ -543,6 +570,25 @@ StatementBlock *Parser::ParseStatementBlock(bool *ok) {
     
     int position = file_unit_->InsertSourceLocation(loc);
     return new (arena_) StatementBlock(position, std::move(stmts));
+}
+
+Statement *Parser::ParseStatementWithAttributes(bool *ok) {
+    uint32_t attributes = ParseCompilingAttributes(CHECK_OK);
+    switch (Peek().kind()) {
+        case Token::kClass:
+            return ParseClassDefinition(ok);
+        case Token::kObject:
+            return ParseObjectDefinition(ok);
+        case Token::kFun:
+        case Token::kNative:
+            return ParseFunctionDefinition(attributes, ok);
+        default:
+            *ok = false;
+            error_feedback_->Printf(Peek().source_location(), "Unexpected definition or declaration,"
+                                    " expected %s", Peek().ToString().c_str());
+            break;
+    }
+    return nullptr;
 }
 
 WhileLoop *Parser::ParseWhileLoop(bool *ok) {
@@ -1380,6 +1426,29 @@ RunStatement *Parser::ParseRunStatement(bool *ok) {
     loc.LinkEnd(file_unit_->FindSourceLocation(calling));
     int position = file_unit_->InsertSourceLocation(loc);
     return new (arena_) RunStatement(position, calling->AsCallExpression());
+}
+
+uint32_t Parser::ParseCompilingAttributes(bool *ok) {
+    Match(Token::kDollar, CHECK_OK);
+    Match(Token::kLBrack, CHECK_OK);
+    uint32_t attr = 0;
+    int n = 0;
+    while (!Test(Token::kRBrack)) {
+        if (n > 0) {
+            Match(Token::kComma, CHECK_OK);
+        }
+        if (Peek().kind() != Token::kStringLine) {
+            error_feedback_->Printf(Peek().source_location(),
+                                    "Unexpected string-literal, expected: %s",
+                                    Peek().ToString().c_str());
+            *ok = false;
+            return 0;
+        }
+        attr |= FindCompilingAttribute(Peek().text_val()->ToSlice());
+        MoveNext();
+        n++;
+    }
+    return attr;
 }
 
 StringTemplateExpression *Parser::ParseStringTemplate(bool *ok) {
