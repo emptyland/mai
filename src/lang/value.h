@@ -45,14 +45,13 @@ public:
     inline uint32_t tags() const;
     inline bool QuicklyIs(uint32_t type_id) const;
     
-    template<class T>
-    inline T UnsafeGetField(const Field *field) const;
+    template<class T> inline T UnsafeGetField(const Field *field) const;
     
-    template<class T>
-    inline void UnsafeSetField(const Field *field, T value);
+    template<class T> inline T *UnsafeAccess(const Field *field);
+    
+    template<class T> inline void UnsafeSetField(const Field *field, T value);
 
-    template<class T>
-    inline bool Is() const { return SlowlyIs(TypeTraits<T>::kType); }
+    template<class T> inline bool Is() const { return SlowlyIs(TypeTraits<T>::kType); }
     
     template<class T>
     inline Local<T> As() {

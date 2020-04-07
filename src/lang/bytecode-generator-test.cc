@@ -346,6 +346,37 @@ TEST_F(BytecodeGeneratorTest, RunWriteBarrierDemo) {
     isolate_->Run();
 }
 
+TEST_F(BytecodeGeneratorTest, MinorInitializer) {
+    Define("017-minor-initializer");
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    
+    auto err = Parse();
+    ASSERT_TRUE(err.ok()) << err.ToString();
+    ASSERT_TRUE(generator_->Prepare());
+    ASSERT_TRUE(generator_->Generate());
+    
+    auto clazz = isolate_->metadata_space()->FindClassOrNull("foo.Foo");
+    ASSERT_NE(nullptr, clazz);
+    Local<Closure> init(clazz->init()->fn());
+    ASSERT_TRUE(init.is_not_empty() && init.is_value_not_null());
+    ASSERT_TRUE(init->is_mai_function());
+    AssertFunction("foo_Foo_init", init->function());
+    
+    clazz = isolate_->metadata_space()->FindClassOrNull("lang.WaitGroup");
+    ASSERT_NE(nullptr, clazz);
+    init = clazz->init()->fn();
+    AssertFunction("lang_WaitGroup_init", init->function());
+}
+
+TEST_F(BytecodeGeneratorTest, RunMinorInitializer) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/017-minor-initializer");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+}
+
 } // namespace lang
 
 } // namespace mai

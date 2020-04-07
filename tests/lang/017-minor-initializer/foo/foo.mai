@@ -1,0 +1,12 @@
+package foo
+
+class Foo(val i: int, val j: string)
+
+implements Foo {
+
+	fun init(): Foo {
+		println("self: $self")
+		return self
+	}
+
+} // implements Foo

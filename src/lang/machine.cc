@@ -75,16 +75,15 @@ void Machine::PostRunnable(Coroutine *co, bool now) {
     co->set_owner(this);
 
     if (Machine::This() != this) {
-        if (state() == kIdle) {
-            cond_var_.notify_one();
-        }
+        //if (state() == kIdle) {
+        cond_var_.notify_one();
+        //}
     }
 }
 
 // Post coroutine to waitting list
 void Machine::PostWaitting(Coroutine *co) {
     std::lock_guard<std::mutex> lock(waitting_mutex_);
-    DCHECK_EQ(Coroutine::kWaitting, co->state());
     QUEUE_INSERT_TAIL(waitting_dummy_, co);
     n_waitting_++;
     co->set_owner(this);
@@ -93,7 +92,7 @@ void Machine::PostWaitting(Coroutine *co) {
 void Machine::TakeWaittingCoroutine(Coroutine *co) {
     std::lock_guard<std::mutex> lock(waitting_mutex_);
     DCHECK_EQ(this, co->owner());
-    DCHECK_EQ(Coroutine::kWaitting, co->state());
+    //DCHECK_EQ(Coroutine::kWaitting, co->state());
     QUEUE_REMOVE(co);
     n_waitting_--;
     co->set_owner(nullptr);
@@ -189,10 +188,10 @@ void Machine::Entry() {
                 // Yield coroutine to re-schedule
                 owner_->Schedule();
             } else {
-                NOREACHED();
+                NOREACHED() << co->state();
             }
         }
-
+    
         int span_count = 0;
         while (span_count++ < span_shift) {
             std::this_thread::yield();
@@ -202,16 +201,11 @@ void Machine::Entry() {
         if (span_shift >= 1024) {
             span_shift = 1;
 
-//            if (owner_->pause_request()) {
-//                state_.store(kSuspend, std::memory_order_relaxed);
-//            } else {
-//                state_.store(kIdle, std::memory_order_relaxed);
-//            }
             set_state(kIdle);
             owner_->MarkIdle(this);
             
             std::unique_lock<std::mutex> lock(mutex_);
-            cond_var_.wait(lock);
+            cond_var_.wait(lock, [this]() { return n_runnable_ == 0 || n_waitting_ == 0;});
             //printf("weakup2...\n");
 
             set_state(kRunning);

@@ -51,6 +51,7 @@ private:
 	var numberOfWorks: int
 ) {
 private:
+	var mutex = 0
 	val requestDummy = 0u64
 	val reserved0 = 0u64
 	val co = 0u64
@@ -67,6 +68,7 @@ native fun add(n: int)
 
 native fun done()
 
+$['mai:yield']
 native fun wait()
 
 } // implements WaitGroup

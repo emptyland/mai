@@ -1,0 +1,4 @@
+package foo
+
+class Bar(val foo: Foo)
+

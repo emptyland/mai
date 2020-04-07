@@ -7,6 +7,7 @@
 #include "lang/coroutine.h"
 #include "lang/scheduler.h"
 #include "lang/stack-frame.h"
+#include "base/spin-locking.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -227,7 +228,7 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     }
     if (STATE->scheduler()->shutting_down() > 0) {
         // Is shutting-donw, Ignore coroutine creation
-        Coroutine::This()->RequestYield();
+        Coroutine::This()->Yield();
         return nullptr;
     }
 
@@ -342,20 +343,83 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 
 /*static*/ void Runtime::System_GC(Any */*any*/) { MinorGC(); }
 
-/*static*/ Any *Runtime::WaitGroup_Init(Any *any) {
-    return any;
+// std::mutex mutex;
+
+/*static*/ Any *Runtime::WaitGroup_Init(Any *self) {
+    DCHECK(!::strcmp("lang.WaitGroup", self->clazz()->name()));
+    const Field *number_of_works = self->clazz()->field(0);
+    DCHECK(!::strcmp("numberOfWorks", number_of_works->name()));
+    const Field *mutex = self->clazz()->field(1);
+    DCHECK(!::strcmp("mutex", mutex->name()));
+    const Field *request = self->clazz()->field(2);
+    DCHECK(!::strcmp("requestDummy", request->name()));
+    WaittingRequest *rq = self->UnsafeAccess<WaittingRequest>(request);
+    rq->next_ = rq;
+    rq->prev_ = rq;
+    return self;
 }
 
-/*static*/ void Runtime::WaitGroup_Add(Any *any, int n) {
-    TODO();
+/*static*/ void Runtime::WaitGroup_Add(Any *self, int n) {
+    DCHECK(!::strcmp("lang.WaitGroup", self->clazz()->name()));
+    const Field *number_of_works_field = self->clazz()->field(0);
+    DCHECK(!::strcmp("numberOfWorks", number_of_works_field->name()));
+    const Field *mutex_field = self->clazz()->field(1);
+    DCHECK(!::strcmp("mutex", mutex_field->name()));
+    base::SpinMutex *mutex = self->UnsafeAccess<base::SpinMutex>(mutex_field);
+    base::SpinLock lock(mutex);
+    int *works = self->UnsafeAccess<int>(number_of_works_field);
+    (*works) += n;
 }
 
-/*static*/ void Runtime::WaitGroup_Done(Any *any) {
-    TODO();
+/*static*/ void Runtime::WaitGroup_Done(Any *self) {
+    DCHECK(!::strcmp("lang.WaitGroup", self->clazz()->name()));
+    const Field *number_of_works_field = self->clazz()->field(0);
+    DCHECK(!::strcmp("numberOfWorks", number_of_works_field->name()));
+    const Field *mutex_field = self->clazz()->field(1);
+    DCHECK(!::strcmp("mutex", mutex_field->name()));
+    base::SpinMutex *mutex = self->UnsafeAccess<base::SpinMutex>(mutex_field);
+    base::SpinLock lock(mutex);
+    int *works = self->UnsafeAccess<int>(number_of_works_field);
+    if (*works == 0) {
+        return; // Ignore
+    }
+    if (--(*works) == 0) {
+        const Field *request = self->clazz()->field(2);
+        DCHECK(!::strcmp("requestDummy", request->name()));
+        WaittingRequest *rq = self->UnsafeAccess<WaittingRequest>(request);
+        if (!rq->co) {
+            return; // No waiter, Ignore
+        }
+
+        while (!rq->co->AcquireState(Coroutine::kWaitting, Coroutine::kRunnable)) {
+            std::this_thread::yield();
+        }
+        Machine *owner = rq->co->owner();
+        owner->TakeWaittingCoroutine(rq->co);
+        owner->PostRunnable(rq->co);
+    }
 }
 
-/*static*/ void Runtime::WaitGroup_Wait(Any *any) {
-    TODO();
+/*static*/ void Runtime::WaitGroup_Wait(Any *self) {
+    DCHECK(!::strcmp("lang.WaitGroup", self->clazz()->name()));
+    const Field *number_of_works_field = self->clazz()->field(0);
+    DCHECK(!::strcmp("numberOfWorks", number_of_works_field->name()));
+    const Field *mutex_field = self->clazz()->field(1);
+    DCHECK(!::strcmp("mutex", mutex_field->name()));
+    base::SpinMutex *mutex = self->UnsafeAccess<base::SpinMutex>(mutex_field);
+    base::SpinLock lock(mutex);
+    //printf("works: %d\n", self->UnsafeGetField<int>(number_of_works_field));
+    if (self->UnsafeGetField<int>(number_of_works_field) > 0) {
+        Coroutine *co = Coroutine::This();
+        const Field *request = self->clazz()->field(2);
+        DCHECK(!::strcmp("requestDummy", request->name()));
+        WaittingRequest *rq = self->UnsafeAccess<WaittingRequest>(request);
+        if (rq->co != nullptr) {
+            // TODO:
+        }
+        rq->co = co;
+        co->Yield(rq);
+    }
 }
 
 /*static*/ int Runtime::CurrentSourceLine(int level) {
@@ -501,7 +565,7 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     return histogram;
 }
 
-/*static*/ void Runtime::Schedule() { Coroutine::This()->RequestYield(); }
+/*static*/ void Runtime::Schedule() { Coroutine::This()->Yield(); }
 
 } // namespace lang
 

@@ -107,6 +107,12 @@ inline T Any::UnsafeGetField(const Field *field) const {
 }
 
 template<class T>
+inline T *Any::UnsafeAccess(const Field *field) {
+    void *addr = reinterpret_cast<Address>(this) + field->offset();
+    return static_cast<T *>(addr);
+}
+
+template<class T>
 inline void Any::UnsafeSetField(const Field *field, T value) {
     void *addr = reinterpret_cast<Address>(this) + field->offset();
     *static_cast<T *>(addr) = value;

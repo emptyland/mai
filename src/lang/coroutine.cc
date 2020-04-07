@@ -15,6 +15,7 @@ namespace lang {
     arch::ObjectTemplate<Coroutine, int32_t>::OffsetOf(&Coroutine :: field)
 
 const int32_t Coroutine::kOffsetOwns = MEMBER_OFFSET_OF(owner_);
+const int32_t Coroutine::kOffsetWaiting = MEMBER_OFFSET_OF(waitting_);
 const int32_t Coroutine::kOffsetState = MEMBER_OFFSET_OF(state_);
 const int32_t Coroutine::kOffsetCaught = MEMBER_OFFSET_OF(caught_);
 const int32_t Coroutine::kOffsetSysBP = MEMBER_OFFSET_OF(sys_bp_);
@@ -44,8 +45,8 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     next_ = this;
     prev_ = this;
 
+    set_state(kDead);
     coid_      = coid;
-    state_     = kDead;
     entry_     = entry;
     waitting_  = nullptr;
     owner_     = nullptr;
@@ -139,7 +140,7 @@ void Coroutine::Uncaught(Throwable *thrown) {
 }
 
 void Coroutine::Suspend(intptr_t /*acc*/, double /*facc*/) {
-    // TODO:
+    //printf("co: %lld %d\n", coid(), state());
 }
 
 
@@ -152,7 +153,7 @@ void VisitBytecodeFunctionStackFrame(Address frame_bp, RootVisitor *visitor) {
     // Scan stack local variables
     //printf("fun %s %08x\n", fun->name(), fun->stack_bitmap()[0]);
     visitor->VisitRootPointer(reinterpret_cast<Any **>(frame_bp + BytecodeStackFrame::kOffsetCallee));
-    
+
     //printf("locals----------------------\n");
     int offset = BytecodeStackFrame::kOffsetHeaderSize;
     DCHECK_GE(stack_ref_top, offset);
@@ -164,7 +165,7 @@ void VisitBytecodeFunctionStackFrame(Address frame_bp, RootVisitor *visitor) {
             offset += sizeof(Span16);
         }
     }
-    
+
     // Scan Arguments
     //printf("args----------------------\n");
     int32_t args_size = static_cast<int32_t>(fun->prototype()->GetParametersPlacedSize());

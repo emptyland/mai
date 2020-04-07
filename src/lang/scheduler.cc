@@ -53,14 +53,14 @@ void Scheduler::Schedule() {
             m->running_ = nullptr;
             TLS_STORAGE->coroutine = nullptr;
         } break;
-            
+
         case Coroutine::kInterrupted: {
-            if (m->running()->waitting()) {
-                m->running()->set_state(Coroutine::kWaitting);
-                Coroutine *co = m->running();
+            DCHECK(m->running()->waitting() != nullptr);
+            if (Coroutine *co = m->running(); co->waitting()) {
                 m->running_ = nullptr;
                 TLS_STORAGE->coroutine = nullptr;
-                m->PostWaitting(co); // Post for waitting
+                m->PostWaitting(co);
+                co->SwitchState(Coroutine::kInterrupted, Coroutine::kWaitting);
                 break;
             }
 

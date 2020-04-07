@@ -1,0 +1,23 @@
+package main
+
+import foo
+import mai.runtime
+
+fun main() {
+	val wg = WaitGroup(3)
+	run entry(wg, "11")
+	run entry(wg, "22")
+	run entry(wg, "AA")
+
+	val a = foo.Foo(1, "Hello")
+	val b = foo.Bar(foo.Foo(2, "World"))
+	println("a=$a, b=$b")
+
+	wg.wait()
+}
+
+fun entry(wg: WaitGroup, s: string) {
+	println("Hello? $s")
+	//runtime.sleep(100u64)
+	wg.done()
+}

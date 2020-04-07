@@ -7,6 +7,7 @@
 #include "lang/mm.h"
 #include "base/base.h"
 #include "glog/logging.h"
+#include <atomic>
 
 namespace mai {
 
@@ -42,6 +43,7 @@ public:
     }; // enum State
     
     static const int32_t kOffsetOwns;
+    static const int32_t kOffsetWaiting;
     static const int32_t kOffsetState;
     static const int32_t kOffsetACC;
     static const int32_t kOffsetFACC;
@@ -85,8 +87,10 @@ public:
     void Dispose();
 
     void VisitRoot(RootVisitor *visitor);
+    
+    State state() const { return state_.load(std::memory_order_acquire); }
+    void set_state(State state) { state_.store(state, std::memory_order_release); }
 
-    DEF_VAL_PROP_RW(State, state);
     DEF_VAL_GETTER(uint64_t, coid);
     DEF_PTR_PROP_RW(Machine, owner);
     DEF_PTR_PROP_RW(Closure, entry);
@@ -129,13 +133,21 @@ public:
     }
 
     void SwitchState(State expected, State want) {
-        DCHECK_EQ(state_, expected);
-        if (state_ == expected) {
-            state_ = want;
-        }
+        bool ok = AcquireState(expected, want);
+        DCHECK(ok);
+        (void)ok;
+    }
+    
+    bool AcquireState(State expected, State want) {
+        return state_.compare_exchange_strong(expected, want);
     }
 
-    int RequestYield() { return yield_++; }
+    int Yield() { return yield_++; }
+
+    int Yield(WaittingRequest *rq) {
+        set_waitting(rq);
+        return yield_++;
+    }
 
     void CopyArgv(void *data, size_t n) {
         DCHECK_EQ(reentrant_, 0);
@@ -181,7 +193,7 @@ private:
     Address heap_guard1_; // New space address guard1 for write barrier
     Address global_guard_; // Global space guard
     size_t  global_length_; // Global space length
-    State state_; // Coroutine current state
+    std::atomic<State> state_; // Coroutine current state
     Throwable *exception_; // [strong ref] Native function thrown exception
     CaughtNode *caught_; // Exception hook for exception caught
     uint32_t yield_; // Yield requests, if yield > 0, need yield

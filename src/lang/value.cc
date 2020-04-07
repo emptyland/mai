@@ -282,7 +282,7 @@ String *Object::ToString() const {
                 builder.AppendFormat("%f", UnsafeGetField<double>(field));
                 break;
             case kType_string:
-                builder.AppendFormat("\"%s\"", UnsafeGetField<String *>(field));
+                builder.AppendFormat("\"%s\"", UnsafeGetField<String *>(field)->data());
                 break;
             case kType_closure:
                 // TODO:

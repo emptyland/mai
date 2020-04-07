@@ -203,13 +203,11 @@ private:
         DCHECK_NE(value.linkage, Value::kError);
         return value;
     }
+
+    bool HasGenerated(ASTNode *ast) const { return symbol_trace_.find(ast) != symbol_trace_.end(); }
     
-    bool HasGenerated(ASTNode *ast) const {
-        return symbol_trace_.find(ast) != symbol_trace_.end();
-    }
-    
-    bool IsMinorConstructor(const StructureDefinition *owns, const FunctionDefinition *fun) const;
-    
+    bool IsMinorInitializer(const StructureDefinition *owns, const FunctionDefinition *fun) const;
+
     Isolate *isolate_;
     MetadataSpace *metadata_space_;
     SyntaxFeedback *error_feedback_;

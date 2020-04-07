@@ -113,9 +113,10 @@ void Channel::AddSendQueue(const void *data, size_t n, Coroutine *co) {
     req->co = co;
     ::memcpy(&req->data, data, n);
     QUEUE_INSERT_TAIL(send_queue(), req);
-    
-    co->set_waitting(req);
-    co->RequestYield();
+  
+    co->Yield(req);
+//    co->set_waitting(req);
+//    co->RequestYield();
 }
 
 void Channel::AddRecvQueue(void *data, size_t n, Coroutine *co) {
@@ -123,9 +124,10 @@ void Channel::AddRecvQueue(void *data, size_t n, Coroutine *co) {
     req->co = co;
     req->received = static_cast<Address>(data);
     QUEUE_INSERT_TAIL(recv_queue(), req);
-    
-    co->set_waitting(req);
-    co->RequestYield();
+  
+    co->Yield(req);
+//    co->set_waitting(req);
+//    co->RequestYield();
 }
 
 void Channel::WakeupRecvQueue(const void *data, size_t n) {

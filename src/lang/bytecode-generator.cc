@@ -655,11 +655,11 @@ bool BytecodeGenerator::PrepareUnit(const std::string &pkg_name, FileUnit *unit)
                     return false;
                 }
                 int index = global_space_.AppendAny(closure);
-                current_->Register(name, {Value::kGlobal, clazz, index, ast, 1/*is_native*/});
+                current_->Register(name, {Value::kGlobal, clazz, index, ast, ast->attributes()});
                 symbol_trace_.insert(ast);
             } else {
                 int index = global_space_.ReserveRef();
-                current_->Register(name, {Value::kGlobal, clazz, index, ast, 0/*is_native*/});
+                current_->Register(name, {Value::kGlobal, clazz, index, ast, ast->attributes()});
             }
         }
     }
@@ -1116,15 +1116,13 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
             kidx = current_fun_->constants()->FindOrInsertString(name);
         }
         EMIT(ast, Add<kLdaVtableFunction>(self, GetConstOffset(kidx)));
-        //current_fun_->EmitVirtualCallFunction(ast, 0/*slot*/, arg_size);
         receiver->kind = CallingReceiver::kVtab;
-        receiver->attributes = 0;
+        receiver->attributes = kAttrYield;
     } else {
         std::string name = std::string(owns->name()) + "::" + dot->rhs()->ToString();
         Value value = EnsureFindValue(name);
         DCHECK_EQ(Value::kGlobal, value.linkage);
         LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
-        //current_fun_->EmitDirectlyCallFunction(ast, method->is_native(), 0/*slot*/, arg_size);
         receiver->kind = method->is_native()? CallingReceiver::kNative : CallingReceiver::kBytecode;
         receiver->attributes = value.flags;
     }
@@ -1273,7 +1271,7 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
     // $['yield', 'inline', 'uncheck']
     // native fun foo()
     FunctionDefinition *init = ast->FindMethodOrNull("init");
-    if (IsMinorConstructor(ast, init)) {
+    if (IsMinorInitializer(ast, init)) {
         std::string name = current_file_->LocalFileFullName(ast->identifier()) + "::init";
         Value value = EnsureFindValue(name);
         DCHECK_EQ(Value::kGlobal, value.linkage);
@@ -3236,7 +3234,7 @@ void BytecodeGenerator::StaProperty(const Class *clazz, int index, int offset, A
     }
 }
 
-bool BytecodeGenerator::IsMinorConstructor(const StructureDefinition *owns,
+bool BytecodeGenerator::IsMinorInitializer(const StructureDefinition *owns,
                                            const FunctionDefinition *fun) const {
     if (!fun) {
         return false;
