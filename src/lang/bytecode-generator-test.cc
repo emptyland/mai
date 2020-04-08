@@ -377,6 +377,33 @@ TEST_F(BytecodeGeneratorTest, RunMinorInitializer) {
     isolate_->Run();
 }
 
+TEST_F(BytecodeGeneratorTest, WhileLoop) {
+    Define("019-while-loop");
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    
+    auto err = Parse();
+    ASSERT_TRUE(err.ok()) << err.ToString();
+    ASSERT_TRUE(generator_->Prepare());
+    ASSERT_TRUE(generator_->Generate());
+    
+    auto value = generator_->FindValue("main.main");
+    Local<Closure> main(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(main.is_value_not_null());
+    ASSERT_TRUE(main->is_mai_function());
+    ASSERT_FALSE(main->is_cxx_function());
+    
+    AssertFunction("main", main->function());
+}
+
+TEST_F(BytecodeGeneratorTest, RunWhileLoop) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/019-while-loop");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+}
+
 } // namespace lang
 
 } // namespace mai

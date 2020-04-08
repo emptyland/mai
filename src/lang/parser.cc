@@ -617,6 +617,84 @@ WhileLoop *Parser::ParseWhileLoop(bool *ok) {
     return new (arena_) WhileLoop(position, condition, std::move(stmts));
 }
 
+bool IsPlaceholder(const ASTString *id) {
+    return id->size() == 1 && id->data()[0] == '_';
+}
+
+// for (i in 0, 1000) {}
+// for (i in <-ch) {}
+// for (k, v in arr) {}
+ForLoop *Parser::ParseForLoop(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    Match(Token::kFor, CHECK_OK);
+    Match(Token::kLParen, CHECK_OK);
+
+    
+    VariableDeclaration *key = nullptr;
+    SourceLocation iter_loc = Peek().source_location();
+    const ASTString *key_id = ParseIdentifier(CHECK_OK);
+    if (!IsPlaceholder(key_id)) {
+        TypeSign *type = nullptr;
+        if (Test(Token::kColon)) {
+            type = ParseTypeSign(CHECK_OK);
+        }
+        iter_loc.LinkEnd(Peek().source_location());
+        int position = file_unit_->InsertSourceLocation(iter_loc);
+        key = new (arena_) VariableDeclaration(position, VariableDeclaration::VAL, key_id, type,
+                                               nullptr/*initializer*/);
+    }
+    VariableDeclaration *value = nullptr;
+    if (Test(Token::kComma)) {
+        iter_loc = Peek().source_location();
+        const ASTString *value_id = ParseIdentifier(CHECK_OK);
+        if (!IsPlaceholder(value_id)) {
+            TypeSign *type = nullptr;
+            if (Test(Token::kColon)) {
+                type = ParseTypeSign(CHECK_OK);
+            }
+            iter_loc.LinkEnd(Peek().source_location());
+            int position = file_unit_->InsertSourceLocation(iter_loc);
+            value = new (arena_) VariableDeclaration(position, VariableDeclaration::VAL, value_id,
+                                                     type, nullptr/*initializer*/);
+        }
+    } else {
+        DCHECK(value == nullptr);
+        value = key;
+        key = nullptr;
+    }
+
+    Match(Token::kIn, CHECK_OK);
+
+    ForLoop::Control type = ForLoop::ITERATE;
+    Expression *subject = ParseExpression(CHECK_OK);
+    if (auto maybe = subject->AsUnaryExpression()) {
+        if (maybe->op().kind == Operator::kRecv) {
+            type = ForLoop::CHANNEL_ITERATE;
+        }
+    }
+
+    Expression *limit = nullptr;
+    if (Test(Token::kComma)) {
+        type = ForLoop::STEP;
+        limit = ParseExpression(CHECK_OK);
+    }
+
+    Match(Token::kRParen, CHECK_OK);
+
+    base::ArenaVector<Statement *> stmts(arena_);
+    Match(Token::kLBrace, CHECK_OK);
+    loc.LinkEnd(Peek().source_location());
+    while (!Test(Token::kRBrace)) {
+        Statement *stmt = ParseStatement(CHECK_OK);
+        stmts.push_back(stmt);
+        loc.LinkEnd(Peek().source_location());
+    }
+
+    loc.LinkEnd(Peek().source_location());
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) ForLoop(position, type, key, value, subject, limit, std::move(stmts));
+}
+
 Statement *Parser::ParseAssignmentOrExpression(bool *ok) {
     SourceLocation loc = Peek().source_location();
     Expression *lval = ParseExpression(CHECK_OK);

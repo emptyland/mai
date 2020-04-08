@@ -90,6 +90,7 @@ private:
     Result VisitClassDefinition(ClassDefinition *) override;
     Result VisitClassImplementsBlock(ClassImplementsBlock *) override;
     Result VisitWhileLoop(WhileLoop *) override;
+    Result VisitForLoop(ForLoop *) override;
     Result VisitIfExpression(IfExpression *) override;
     Result VisitStatementBlock(StatementBlock *) override;
     Result VisitTryCatchFinallyBlock(TryCatchFinallyBlock *) override;
@@ -98,6 +99,9 @@ private:
     bool PrepareClassDefinition(FileUnit *unit);
     bool CheckFileUnit(const std::string &pkg_name, FileUnit *unit);
     
+    Result CheckForStep(ForLoop *ast);
+    Result CheckForIterate(ForLoop *ast);
+    Result CheckForChannel(ForLoop *ast);
     Result CheckDotExpression(TypeSign *type, DotExpression *ast);
     Result CheckClassOrObjectFieldAccess(TypeSign *type, DotExpression *ast);
     Result CheckObjectFieldAccess(ObjectDefinition *object, DotExpression *ast);

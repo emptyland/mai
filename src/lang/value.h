@@ -519,7 +519,7 @@ protected:
     
     static Throwable *NewPanic(int code, String *message);
     
-    static Throwable *NewException(String *message, Exception *cause);
+    //static Throwable *NewException(String *message, Exception *cause);
     
     static Array<String *> *MakeStacktrace(uint8_t *frame_bp);
 

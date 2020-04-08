@@ -105,6 +105,7 @@ using ASTString = base::ArenaString;
     V(Map, "map", none) \
     V(MutableMap, "mutable_map", none) \
     V(Channel, "channel", none) \
+    V(In, "in", none) \
     V(Run, "run", none) \
     V(RunS, "⟲", none) \
     V(Import, "import", none) \

@@ -386,17 +386,17 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     if (--(*works) == 0) {
         const Field *request = self->clazz()->field(2);
         DCHECK(!::strcmp("requestDummy", request->name()));
-        WaittingRequest *rq = self->UnsafeAccess<WaittingRequest>(request);
-        if (!rq->co) {
+        WaittingRequest *req = self->UnsafeAccess<WaittingRequest>(request);
+        if (!req->co) {
             return; // No waiter, Ignore
         }
 
-        while (!rq->co->AcquireState(Coroutine::kWaitting, Coroutine::kRunnable)) {
+        while (!req->co->AcquireState(Coroutine::kWaitting, Coroutine::kRunnable)) {
             std::this_thread::yield();
         }
-        Machine *owner = rq->co->owner();
-        owner->TakeWaittingCoroutine(rq->co);
-        owner->PostRunnable(rq->co);
+        Machine *owner = req->co->owner();
+        owner->TakeWaittingCoroutine(req->co);
+        owner->PostRunnable(req->co);
     }
 }
 
@@ -408,7 +408,7 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     DCHECK(!::strcmp("mutex", mutex_field->name()));
     base::SpinMutex *mutex = self->UnsafeAccess<base::SpinMutex>(mutex_field);
     base::SpinLock lock(mutex);
-    //printf("works: %d\n", self->UnsafeGetField<int>(number_of_works_field));
+
     if (self->UnsafeGetField<int>(number_of_works_field) > 0) {
         Coroutine *co = Coroutine::This();
         const Field *request = self->clazz()->field(2);
@@ -500,7 +500,6 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
         Machine::This()->Park();
         return;
     }
-    //std::lock_guard<std::mutex> lock(*STATE->scheduler()->mutable_mutex());
     if (!STATE->scheduler()->Pause()) {
         Machine::This()->Park();
         return;
@@ -520,7 +519,6 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
         Machine::This()->Park();
         return;
     }
-    //std::lock_guard<std::mutex> lock(*STATE->scheduler()->mutable_mutex());
     if (!STATE->scheduler()->Pause()) {
         Machine::This()->Park();
         return;

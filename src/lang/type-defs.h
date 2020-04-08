@@ -12,7 +12,6 @@ class String;
 class Closure;
 class Panic;
 class Channel;
-class Exception;
 class Throwable;
 template<class T, bool R> class Array;
 template<class T> class Number;

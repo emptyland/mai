@@ -27,6 +27,7 @@ class StatementBlock;
 class TryCatchFinallyBlock;
 class RunStatement;
 class WhileLoop;
+class ForLoop;
 class FunctionPrototype;
 class ArrayInitializer;
 class MapInitializer;
@@ -57,6 +58,7 @@ public:
     StatementBlock *ParseStatementBlock(bool *ok);
     Statement *ParseStatementWithAttributes(bool *ok);
     WhileLoop *ParseWhileLoop(bool *ok);
+    ForLoop *ParseForLoop(bool *ok);
     Statement *ParseAssignmentOrExpression(bool *ok);
     TypeSign *ParseTypeSign(bool *ok);
     FunctionPrototype *ParseFunctionPrototype(bool requrie_param_name, SourceLocation *loc, bool *ok);

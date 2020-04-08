@@ -1,0 +1,9 @@
+package main
+
+fun main() {
+    var i = 0
+    while (i < 100) {
+    	i = i + 1
+    }
+    assert(i == 100, "fail")
+}

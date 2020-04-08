@@ -17,6 +17,7 @@ namespace lang {
     V(StatementBlock) \
     V(ImportStatement) \
     V(WhileLoop) \
+    V(ForLoop) \
     V(VariableDeclaration) \
     V(FunctionDefinition) \
     V(ClassDefinition) \
@@ -464,6 +465,43 @@ private:
 }; // class WhileLoop
 
 
+// for (i in 0, 1000) {}
+// for (i in <-ch) {}
+// for (k, v in arr) {}
+class ForLoop : public Circulation {
+public:
+    enum Control {
+        STEP,
+        ITERATE,
+        CHANNEL_ITERATE,
+    };
+    
+    ForLoop(int position, Control control, VariableDeclaration *key, VariableDeclaration *value,
+            Expression *subject, Expression *limit, base::ArenaVector<Statement *> &&statements)
+        : Circulation(position, kForLoop, std::move(statements))
+        , control_(control)
+        , key_(key)
+        , value_(value)
+        , subject_(subject)
+        , limit_(limit) {}
+
+    DEF_PTR_PROP_RW(VariableDeclaration, key);
+    DEF_PTR_PROP_RW(VariableDeclaration, value);
+    DEF_PTR_PROP_RW(Expression, subject);
+    DEF_PTR_PROP_RW(Expression, limit);
+    DEF_VAL_GETTER(Control, control);
+    
+    DEFINE_AST_NODE(ForLoop);
+private:
+    Control control_;
+    VariableDeclaration *key_ = nullptr;
+    VariableDeclaration *value_ = nullptr;
+    Expression *subject_ = nullptr;
+    Expression *limit_ = nullptr;
+    
+}; // class ForLoop
+
+
 class Expression : public Statement {
 public:
     bool IsExpression() const override { return true; }
@@ -891,6 +929,7 @@ public:
         THROW,
         BREAK,
         CONTINUE,
+        YIELD,
     }; // enum Control
     
     BreakableStatement(int position, Control control, Expression *value = nullptr)
@@ -901,6 +940,7 @@ public:
     bool IsReturn() const { return control_ == RETURN; }
     bool IsBreak() const { return control_ == BREAK; }
     bool IsContinue() const { return control_ == CONTINUE; }
+    bool IsYield() const { return control_ == YIELD; }
 
     DEF_VAL_GETTER(Control, control);
     DEF_PTR_PROP_RW(Expression, value);

@@ -1568,6 +1568,35 @@ ASTVisitor::Result TypeChecker::VisitWhileLoop(WhileLoop *ast) /*override*/ {
     return ResultWithType(kVoid);
 }
 
+ASTVisitor::Result TypeChecker::VisitForLoop(ForLoop *ast) /*override*/ {
+    BlockScope block_scope(Scope::kLoopBlockScope, ast, &current_);
+    
+    Result rv;
+    switch (ast->control()) {
+        case ForLoop::STEP:
+            rv = CheckForStep(ast);
+            break;
+        case ForLoop::ITERATE:
+            rv = CheckForIterate(ast);
+            break;
+        case ForLoop::CHANNEL_ITERATE:
+            rv = CheckForChannel(ast);
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    if (rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    for (auto stmt : ast->statements()) {
+        if (auto rv = stmt->Accept(this); rv.sign == kError) {
+            return ResultWithType(kError);
+        }
+    }
+    return ResultWithType(kVoid);
+}
+
 ASTVisitor::Result TypeChecker::VisitIfExpression(IfExpression *ast) /*override*/ {
     BlockScope block_scope(Scope::kIfBlockScope, ast, &current_);
     TypeSign *type = nullptr;
@@ -1669,6 +1698,127 @@ ASTVisitor::Result TypeChecker::VisitTryCatchFinallyBlock(TryCatchFinallyBlock *
 ASTVisitor::Result TypeChecker::VisitRunStatement(RunStatement *ast) /*override*/ {
     if (auto rv = ast->calling()->Accept(this); rv.sign == kError) {
         return ResultWithType(kError);
+    }
+    return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::CheckForStep(ForLoop *ast) {
+    Result rv;
+    if (rv = ast->subject()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    TypeSign *subject = rv.sign;
+    if (!subject->IsNumber()) {
+        error_feedback_->Printf(FindSourceLocation(ast->subject()), "Incorrect subject type(%s), "
+                                "need number", subject->ToString().c_str());
+        return ResultWithType(kError);
+    }
+    if (rv = ast->limit()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    TypeSign *limit = rv.sign;
+    if (subject->id() != limit->id()) {
+        error_feedback_->Printf(FindSourceLocation(ast->limit()), "Different limit type(%s), but "
+                                "subject is %s", limit->ToString().c_str(),
+                                subject->ToString().c_str());
+        return ResultWithType(kError);
+    }
+    
+    if (ast->value()->type() && ast->value()->type()->id() != subject->id()) {
+        error_feedback_->Printf(FindSourceLocation(ast->limit()), "Different value type(%s), but "
+                                "subject is %s", ast->value()->type()->ToString().c_str(),
+                                subject->ToString().c_str());
+        return ResultWithType(kError);
+    } else {
+        ast->value()->set_type(subject);
+    }
+    return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::CheckForIterate(ForLoop *ast) {
+    Result rv;
+    if (rv = ast->subject()->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    TypeSign *subject = rv.sign;
+    if (subject->id() != Token::kArray && subject->id() != Token::kMutableArray &&
+        subject->id() != Token::kMap && subject->id() != Token::kMutableMap) {
+        error_feedback_->Printf(FindSourceLocation(ast->subject()), "Incorrect subject type(%s), "
+                                "need array/mutable_array/map/mutable_map",
+                                subject->ToString().c_str());
+        return ResultWithType(kError);
+    }
+    
+    if (subject->id() == Token::kArray || subject->id() == Token::kMutableArray) {
+        if (ast->key()) {
+            if (ast->key()->type() && ast->key()->type()->id() != Token::kInt) {
+                error_feedback_->Printf(FindSourceLocation(ast->limit()), "Incorrect index type(%s)"
+                                        ", need int", ast->key()->type()->ToString().c_str());
+                return ResultWithType(kError);
+            } else {
+                ast->key()->set_type(new (arena_) TypeSign(ast->key()->position(),
+                                                           Token::kInt));
+            }
+        }
+        if (ast->value()) {
+            if (ast->value()->type() && !ast->value()->type()->Convertible(subject->parameter(0))) {
+                error_feedback_->Printf(FindSourceLocation(ast->limit()), "Incorrect value type(%s)"
+                                        ", need %s", ast->value()->type()->ToString().c_str(),
+                                        subject->parameter(0)->ToString().c_str());
+                return ResultWithType(kError);
+            } else {
+                ast->value()->set_type(subject->parameter(0));
+            }
+        }
+    } else { // is map
+        if (ast->key()) {
+            if (ast->key()->type() && !ast->key()->type()->Convertible(subject->parameter(0))) {
+                error_feedback_->Printf(FindSourceLocation(ast->limit()), "Incorrect index type(%s)"
+                                        ", need %s", ast->key()->type()->ToString().c_str(),
+                                        subject->parameter(0)->ToString().c_str());
+                return ResultWithType(kError);
+            } else {
+                ast->key()->set_type(subject->parameter(0));
+            }
+        }
+        if (ast->value()) {
+            if (ast->value()->type() && !ast->value()->type()->Convertible(subject->parameter(1))) {
+                error_feedback_->Printf(FindSourceLocation(ast->limit()), "Incorrect value type(%s)"
+                                        ", need %s", ast->value()->type()->ToString().c_str(),
+                                        subject->parameter(0)->ToString().c_str());
+                return ResultWithType(kError);
+            } else {
+                ast->value()->set_type(subject->parameter(1));
+            }
+        }
+    }
+    return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::CheckForChannel(ForLoop *ast) {
+    DCHECK(ast->IsUnaryExpression());
+    Expression *channel_expr = ast->AsUnaryExpression()->operand();
+    DCHECK_EQ(Operator::kRecv, ast->AsUnaryExpression()->op().kind);
+
+    Result rv;
+    if (rv = channel_expr->Accept(this); rv.sign == kError) {
+        return ResultWithType(kError);
+    }
+    TypeSign *channel = rv.sign;
+    if (channel->id() != Token::kChannel) {
+        error_feedback_->Printf(FindSourceLocation(channel_expr), "Incorrect type(%s) for channel "
+                                "recv", channel->ToString().c_str());
+        return ResultWithType(kError);
+    }
+
+    DCHECK(ast->value() != nullptr);
+    if (ast->value()->type() && !ast->value()->type()->Convertible(channel->parameter(0))) {
+        error_feedback_->Printf(FindSourceLocation(ast->limit()), "Incorrect value type(%s)"
+                                ", need %s", ast->value()->type()->ToString().c_str(),
+                                channel->parameter(0)->ToString().c_str());
+        return ResultWithType(kError);
+    } else {
+        ast->value()->set_type(channel->parameter(0));
     }
     return ResultWithType(kVoid);
 }

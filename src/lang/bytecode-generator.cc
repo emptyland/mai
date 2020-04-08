@@ -59,6 +59,18 @@ public:
         return down_cast<FunctionScope>(GetScope(kFunctionScope));
     }
     
+    BlockScope *GetLocalBlockScope(Kind kind) {
+        for (Scope *scope = this; scope != nullptr; scope = scope->prev_) {
+            if (scope->kind_ == kFunctionScope) {
+                break;
+            }
+            if (scope->kind_ == kind) {
+                return down_cast<BlockScope>(scope);
+            }
+        }
+        return nullptr;
+    }
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(Scope);
 protected:
     Scope(Kind kind, Scope **current)
@@ -232,6 +244,9 @@ public:
     inline BlockScope(Kind kind, Scope **current);
     ~BlockScope() override;
     
+    DEF_VAL_PROP_RM(BytecodeLabel, retry_label);
+    DEF_VAL_PROP_RM(BytecodeLabel, exit_label);
+    
     Value Find(const ASTString *name) override {
         if (auto iter = symbols_.find(name->ToString()); iter == symbols_.end()) {
             return {Value::kError};
@@ -249,7 +264,7 @@ public:
 private:
     std::map<std::string, Value> symbols_;
     BytecodeLabel retry_label_;
-    BytecodeLabel out_label_;
+    BytecodeLabel exit_label_;
     StackSpaceAllocator::Level stack_level_{0, 0};
 }; // class BytecodeGenerator::BlockScope
 
@@ -1863,12 +1878,17 @@ ASTVisitor::Result BytecodeGenerator::VisitBreakableStatement(BreakableStatement
                 EMIT(ast, Add<kThrow>());
             }
         } break;
-        case BreakableStatement::BREAK:
-            TODO();
-            break;
-        case BreakableStatement::CONTINUE:
-            TODO();
-            break;
+        case BreakableStatement::BREAK: {
+            BlockScope *block_scope = current_->GetLocalBlockScope(Scope::kLoopBlockScope);
+            EMIT(ast, Goto(DCHECK_NOTNULL(block_scope)->mutable_exit_label(), 0/*slot*/));
+        } break;
+        case BreakableStatement::CONTINUE: {
+            BlockScope *block_scope = current_->GetLocalBlockScope(Scope::kLoopBlockScope);
+            EMIT(ast, Goto(DCHECK_NOTNULL(block_scope)->mutable_retry_label(), 0/*slot*/));
+        } break;
+        case BreakableStatement::YIELD: {
+            EMIT(ast, Add<kYield>(YIELD_RANDOM));
+        } break;
         default:
             NOREACHED();
             break;
@@ -2005,6 +2025,35 @@ ASTVisitor::Result BytecodeGenerator::VisitRunStatement(RunStatement *ast) /*ove
             EMIT(ast, Add<kYield>(YIELD_PROPOSE));
             break;
     }
+    return ResultWithVoid();
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitWhileLoop(WhileLoop *ast) /*override*/ {
+    BlockScope block_scope(Scope::kLoopBlockScope, &current_);
+    
+    // Retry:
+    current_fun_->builder()->Bind(block_scope.mutable_retry_label());
+    Result rv;
+    if (rv = ast->condition()->Accept(this); rv.kind == Value::kError) {
+        return ResultWithError();
+    }
+    DCHECK_EQ(kType_bool, rv.bundle.type);
+    LdaIfNeeded(rv, ast->condition());
+    EMIT(ast->condition(), GotoIfFalse(block_scope.mutable_exit_label(), 0/*slot*/));
+
+    for (auto stmt : ast->statements()) {
+        if (rv = stmt->Accept(this); rv.kind == Value::kError) {
+            return ResultWithError();
+        }
+    }
+
+    EMIT(ast, Goto(block_scope.mutable_retry_label(), 0/*slot*/)); // TODO: Profiling
+    current_fun_->builder()->Bind(block_scope.mutable_exit_label());
+    return ResultWithVoid();
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitForLoop(ForLoop *) /*override*/ {
+    TODO();
     return ResultWithVoid();
 }
 
@@ -2255,11 +2304,11 @@ BytecodeGenerator::GenerateVariableAssignment(const ASTString *name, Value lval,
                                               Operator op, Expression *rhs, ASTNode *ast) {
     Value rval{Value::kError};
     if (!rhs->IsPairExpression()) {
-        auto rv = rhs->Accept(this);
-        if (rv.kind != Value::kError) {
+        Result rv;
+        if (rv = rhs->Accept(this); rv.kind == Value::kError) {
             return ResultWithError();
         }
-        
+
         rval.linkage = static_cast<Value::Linkage>(rv.kind);
         rval.type = metadata_space_->type(rv.bundle.type);
         rval.index = rv.bundle.index;
@@ -2269,7 +2318,7 @@ BytecodeGenerator::GenerateVariableAssignment(const ASTString *name, Value lval,
         if (!HasGenerated(lval.ast) && !GenerateSymbolDependence(lval)) {
             return ResultWithError();
         }
-        DCHECK(HasGenerated(lval.ast));
+        //DCHECK(HasGenerated(lval.ast));
     }
     if (ShouldCaptureVar(owns, lval)) {
         auto rv = CaptureVar(name->ToString(), owns, lval);

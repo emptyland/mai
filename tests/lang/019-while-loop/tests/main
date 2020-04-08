@@ -1,0 +1,35 @@
++------------------------------------------------------------------------------
+| main.main():void
++------------------------------------------------------------------------------
+stack-size: 80
+stack-bitmap: 00000000
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 22
+souce-file-name: tests/lang/019-while-loop/main/main.mai
+bytecode-size: 22
+bytecode: 
+    000 CheckStack; (3)
+    001 LdaSmi32 #0; (4)
+    002 Star32 [BP-68]; (4)
+    003 LdaSmi32 #100; (5)
+    004 Star32 [BP-72]; (5)
+    005 TestLessThan32 [BP-68], [BP-72]; (5)
+    006 GotoIfFalse 0, #12; (5)
+    007 LdaSmi32 #1; (6)
+    008 Star32 [BP-72]; (6)
+    009 Add32 [BP-68], [BP-72]; (6)
+    010 Star32 [BP-68]; (6)
+    011 Goto 0, #3; (5)
+    012 LdaSmi32 #100; (8)
+    013 Star32 [BP-72]; (8)
+    014 TestEqual32 [BP-68], [BP-72]; (8)
+    015 Star32 [BP-72]; (8)
+    016 Move32 [BP-84], [BP-72]; (8)
+    017 LdaConstPtr [KP+32]; (8)
+    018 StarPtr [BP-92]; (8)
+    019 LdaGlobalPtr [GS+120]; (8)
+    020 CallNativeFunction #0, #12; (8)
+    021 Return; (3)

@@ -133,6 +133,8 @@ private:
     Result VisitTryCatchFinallyBlock(TryCatchFinallyBlock *) override;
     Result VisitAssignmentStatement(AssignmentStatement *) override;
     Result VisitRunStatement(RunStatement *) override;
+    Result VisitWhileLoop(WhileLoop *) override;
+    Result VisitForLoop(ForLoop *) override;
     Result GenerateCalling(CallExpression *ast, CallingReceiver *receiver);
     uint32_t ProcessStructure(StructureDefinition *ast, uint32_t offset, ClassBuilder *builder,
                               std::vector<FieldDesc> *fields_desc);

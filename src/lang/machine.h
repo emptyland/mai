@@ -145,9 +145,6 @@ public:
     // New Panic error object
     Throwable *NewPanic(Panic::Level code, String *message, uint32_t flags);
     
-    // New base of Exception object
-    Exception *NewException(uint32_t type, String *message, Exception *cause, uint32_t flags);
-    
     // New channel
     Channel *NewChannel(uint32_t data_type, size_t capacity, uint32_t flags);
     
@@ -264,7 +261,7 @@ private:
     std::condition_variable cond_var_; // Condition variable for scheduling
     std::mutex mutex_; // Total mutex
     std::thread thread_; // Thread object
-    RememberSet remember_set_; // elements [weak ref] Local remember set
+    RememberSet remember_set_; // [nested weak ref] Local remember set
     Tracing *tracing_ = nullptr; // Tracing for PGO
 }; // class Machine
 
