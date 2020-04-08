@@ -170,6 +170,14 @@ Isolate::~Isolate() {
     delete heap_;
 }
 
+int Isolate::GetUncaughtCount() const {
+    int count = 0;
+    for (int i = 0; i < scheduler_->concurrency(); i++) {
+        count += scheduler_->machine(i)->uncaught_count();
+    }
+    return count;
+}
+
 void Isolate::Enter() {
     {
         std::lock_guard<std::mutex> lock(init_mutex);

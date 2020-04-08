@@ -84,9 +84,12 @@ namespace lang {
     DECLARE_TEST_BYTECODE(V) \
     V(Throw, BytecodeType::N) \
     V(Yield, BytecodeType::A, BytecodeParam::kCode) \
-    V(Goto, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
-    V(GotoIfTrue, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
-    V(GotoIfFalse, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
+    V(BackwardJump, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
+    V(ForwardJump, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
+    V(BackwardJumpIfTrue, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
+    V(ForwardJumpIfTrue, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
+    V(BackwardJumpIfFalse, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
+    V(ForwardJumpIfFalse, BytecodeType::AB, BytecodeParam::kCode, BytecodeParam::kImmediate) \
     V(CallBytecodeFunction, BytecodeType::AB, BytecodeParam::kImmediate, \
         BytecodeParam::kImmediate) \
     V(CallNativeFunction, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate) \

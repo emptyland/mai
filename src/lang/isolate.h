@@ -78,6 +78,9 @@ public:
     
     // Get system base pkg dir
     const std::string &base_pkg_dir() const { return base_pkg_dir_; }
+    
+    // Get uncaught exception count
+    int GetUncaughtCount() const;
 
     // Internal functions:
     inline Heap *heap() const;

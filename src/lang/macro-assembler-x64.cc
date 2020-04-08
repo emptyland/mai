@@ -1327,15 +1327,58 @@ public:
         __ Bind(&done);
     }
     
-    void EmitGoto(MacroAssembler *masm) override {
+//    void EmitGoto(MacroAssembler *masm) override {
+//        InstrImmABScope instr_scope(masm);
+//        // TODO A of tracing
+//        instr_scope.GetBTo(rbx);
+//        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+//        __ StartBC();
+//    }
+//    
+//    void EmitGotoIfTrue(MacroAssembler *masm) override {
+//        __ cmpl(ACC, 0);
+//        Label done;
+//        __ j(Equal, &done, false/*is_far*/);
+//
+//        InstrImmABScope instr_scope(masm);
+//        // TODO A of tracing
+//        instr_scope.GetBTo(rbx);
+//        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+//        __ StartBC();
+//        
+//        __ Bind(&done);
+//    }
+//    
+//    void EmitGotoIfFalse(MacroAssembler *masm) override {
+//        __ cmpl(ACC, 0);
+//        Label done;
+//        __ j(NotEqual, &done, false/*is_far*/);
+//
+//        InstrImmABScope instr_scope(masm);
+//        // TODO A of tracing
+//        instr_scope.GetBTo(rbx);
+//        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+//        __ StartBC();
+//        
+//        __ Bind(&done);
+//    }
+    
+    void EmitBackwardJump(MacroAssembler *masm) override {
         InstrImmABScope instr_scope(masm);
         // TODO A of tracing
         instr_scope.GetBTo(rbx);
-        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+        __ subl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+        __ StartBC();
+    }
+
+    void EmitForwardJump(MacroAssembler *masm) override {
+        InstrImmABScope instr_scope(masm);
+        instr_scope.GetBTo(rbx);
+        __ addl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
         __ StartBC();
     }
     
-    void EmitGotoIfTrue(MacroAssembler *masm) override {
+    void EmitBackwardJumpIfTrue(MacroAssembler *masm) override {
         __ cmpl(ACC, 0);
         Label done;
         __ j(Equal, &done, false/*is_far*/);
@@ -1343,13 +1386,26 @@ public:
         InstrImmABScope instr_scope(masm);
         // TODO A of tracing
         instr_scope.GetBTo(rbx);
-        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+        __ subl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
         __ StartBC();
-        
+
         __ Bind(&done);
     }
     
-    void EmitGotoIfFalse(MacroAssembler *masm) override {
+    void EmitForwardJumpIfTrue(MacroAssembler *masm) override {
+        __ cmpl(ACC, 0);
+        Label done;
+        __ j(Equal, &done, false/*is_far*/);
+
+        InstrImmABScope instr_scope(masm);
+        instr_scope.GetBTo(rbx);
+        __ addl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+        __ StartBC();
+
+        __ Bind(&done);
+    }
+    
+    void EmitBackwardJumpIfFalse(MacroAssembler *masm) override {
         __ cmpl(ACC, 0);
         Label done;
         __ j(NotEqual, &done, false/*is_far*/);
@@ -1357,9 +1413,22 @@ public:
         InstrImmABScope instr_scope(masm);
         // TODO A of tracing
         instr_scope.GetBTo(rbx);
-        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+        __ subl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
         __ StartBC();
         
+        __ Bind(&done);
+    }
+    
+    void EmitForwardJumpIfFalse(MacroAssembler *masm) override {
+        __ cmpl(ACC, 0);
+        Label done;
+        __ j(NotEqual, &done, false/*is_far*/);
+
+        InstrImmABScope instr_scope(masm);
+        instr_scope.GetBTo(rbx);
+        __ addl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+        __ StartBC();
+
         __ Bind(&done);
     }
 

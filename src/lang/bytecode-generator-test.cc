@@ -305,6 +305,8 @@ TEST_F(BytecodeGeneratorTest, RunThrowCatchException) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
 
     isolate_->Run();
+    
+    ASSERT_EQ(1, isolate_->GetUncaughtCount());
 }
 
 Any *Demo_NewOldFoo() {
@@ -402,6 +404,8 @@ TEST_F(BytecodeGeneratorTest, RunWhileLoop) {
     ASSERT_TRUE(rs.ok()) << rs.ToString();
 
     isolate_->Run();
+
+    ASSERT_EQ(0, isolate_->GetUncaughtCount());
 }
 
 } // namespace lang

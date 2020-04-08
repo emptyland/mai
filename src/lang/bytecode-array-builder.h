@@ -70,37 +70,68 @@ public:
         nodes_.push_back(node);
         incomplete_.push_back(node);
     }
-    
-    void Goto(BytecodeLabel *label, int slot) {
+
+//    void Goto(BytecodeLabel *label, int slot) {
+//        if (label->is_bind()) {
+//            Add<kGoto>(slot, label->pc());
+//            return;
+//        }
+//        BytecodeNode *node = Bytecodes<kGoto>::New(arena_, slot, pc());
+//        label->Associate(node);
+//        nodes_.push_back(node);
+//    }
+//
+//    void GotoIfTrue(BytecodeLabel *label, int slot) {
+//        if (label->is_bind()) {
+//            Add<kGotoIfTrue>(slot, label->pc());
+//            return;
+//        }
+//        BytecodeNode *node = Bytecodes<kGotoIfTrue>::New(arena_, slot, pc());
+//        label->Associate(node);
+//        nodes_.push_back(node);
+//    }
+//
+//    void GotoIfFalse(BytecodeLabel *label, int slot) {
+//        if (label->is_bind()) {
+//            Add<kGotoIfFalse>(slot, label->pc());
+//            return;
+//        }
+//        BytecodeNode *node = Bytecodes<kGotoIfFalse>::New(arena_, slot, pc());
+//        label->Associate(node);
+//        nodes_.push_back(node);
+//    }
+
+    void Jump(BytecodeLabel *label, int slot) {
         if (label->is_bind()) {
-            Add<kGoto>(slot, label->pc());
+            DCHECK_GT(pc(), label->pc());
+            Add<kBackwardJump>(slot, pc() - label->pc());
             return;
         }
-        BytecodeNode *node = Bytecodes<kGoto>::New(arena_, slot, pc());
+        BytecodeNode *node = Bytecodes<kForwardJump>::New(arena_, slot, pc());
         label->Associate(node);
         nodes_.push_back(node);
     }
-    
-    void GotoIfTrue(BytecodeLabel *label, int slot) {
+
+    void JumpIfTrue(BytecodeLabel *label, int slot) {
         if (label->is_bind()) {
-            Add<kGotoIfTrue>(slot, label->pc());
+            Add<kBackwardJumpIfTrue>(slot, label->pc());
             return;
         }
-        BytecodeNode *node = Bytecodes<kGotoIfTrue>::New(arena_, slot, pc());
+        BytecodeNode *node = Bytecodes<kForwardJumpIfTrue>::New(arena_, slot, pc());
         label->Associate(node);
         nodes_.push_back(node);
     }
-    
-    void GotoIfFalse(BytecodeLabel *label, int slot) {
+
+    void JumpIfFalse(BytecodeLabel *label, int slot) {
         if (label->is_bind()) {
-            Add<kGotoIfFalse>(slot, label->pc());
+            Add<kBackwardJumpIfFalse>(slot, label->pc());
             return;
         }
-        BytecodeNode *node = Bytecodes<kGotoIfFalse>::New(arena_, slot, pc());
+        BytecodeNode *node = Bytecodes<kForwardJumpIfFalse>::New(arena_, slot, pc());
         label->Associate(node);
         nodes_.push_back(node);
     }
-    
+
     void Bind(BytecodeLabel *label) {
         DCHECK(!label->is_bind());
         for (BytecodeNode *node : label->unlinked_nodes()) {
@@ -139,11 +170,12 @@ public:
 private:
     void Link(BytecodeNode *bc, int pc) {
         switch (bc->id()) {
-            case kGoto:
-            case kGotoIfTrue:
-            case kGotoIfFalse:
+            case kForwardJump:
+            case kForwardJumpIfTrue:
+            case kForwardJumpIfFalse:
                 // bc->params_[0]: slot
-                bc->params_[1] = pc;
+                DCHECK_GT(pc, bc->params_[1]);
+                bc->params_[1] = pc - bc->params_[1];
                 break;
             default:
                 NOREACHED();

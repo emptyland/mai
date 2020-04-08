@@ -1647,9 +1647,9 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
             LdaIfNeeded(rv, ast->lhs());
             BytecodeLabel done;
             if (ast->op().kind == Operator::kOr) {
-                EMIT(ast, GotoIfTrue(&done, 0/*slot*/));
+                EMIT(ast, JumpIfTrue(&done, 0/*slot*/));
             } else {
-                EMIT(ast, GotoIfFalse(&done, 0/*slot*/));
+                EMIT(ast, JumpIfFalse(&done, 0/*slot*/));
             }
             
             if (rv = ast->rhs()->Accept(this); rv.kind == Value::kError) {
@@ -1687,7 +1687,7 @@ ASTVisitor::Result BytecodeGenerator::VisitIfExpression(IfExpression *ast) /*ove
     DCHECK_EQ(kType_bool, rv.bundle.type);
     LdaIfNeeded(rv, ast->condition());
     BytecodeLabel br_false;
-    EMIT(ast->condition(), GotoIfFalse(&br_false, 0/*slot*/));
+    EMIT(ast->condition(), JumpIfFalse(&br_false, 0/*slot*/));
     
     if (rv = ast->branch_true()->Accept(this); rv.kind == Value::kError) {
         return ResultWithError();
@@ -1696,7 +1696,8 @@ ASTVisitor::Result BytecodeGenerator::VisitIfExpression(IfExpression *ast) /*ove
         LdaIfNeeded(rv, ast->branch_true());
     }
     BytecodeLabel trunk;
-    current_fun_->Incoming(ast)->Goto(&trunk, 0/*slot*/);
+    //current_fun_->Incoming(ast)->Jump(&trunk, 0/*slot*/);
+    EMIT(ast, Jump(&trunk, 0/*slot*/));
     
     current_fun_->builder()->Bind(&br_false);
     if (ast->branch_false()) {
@@ -1880,11 +1881,11 @@ ASTVisitor::Result BytecodeGenerator::VisitBreakableStatement(BreakableStatement
         } break;
         case BreakableStatement::BREAK: {
             BlockScope *block_scope = current_->GetLocalBlockScope(Scope::kLoopBlockScope);
-            EMIT(ast, Goto(DCHECK_NOTNULL(block_scope)->mutable_exit_label(), 0/*slot*/));
+            EMIT(ast, Jump(DCHECK_NOTNULL(block_scope)->mutable_exit_label(), 0/*slot*/));
         } break;
         case BreakableStatement::CONTINUE: {
             BlockScope *block_scope = current_->GetLocalBlockScope(Scope::kLoopBlockScope);
-            EMIT(ast, Goto(DCHECK_NOTNULL(block_scope)->mutable_retry_label(), 0/*slot*/));
+            EMIT(ast, Jump(DCHECK_NOTNULL(block_scope)->mutable_retry_label(), 0/*slot*/));
         } break;
         case BreakableStatement::YIELD: {
             EMIT(ast, Add<kYield>(YIELD_RANDOM));
@@ -1911,7 +1912,7 @@ ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyB
         }
     }
     intptr_t stop_pc = current_fun_->builder()->pc();
-    EMIT(dummy, Goto(&finally, 0/*slot*/));
+    EMIT(dummy, Jump(&finally, 0/*slot*/));
     
     for (auto block : ast->catch_blocks()) {
         BlockScope block_scope(Scope::kPlainBlockScope, &current_);
@@ -1939,7 +1940,7 @@ ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyB
             }
             dummy = stmt;
         }
-        EMIT(dummy, Goto(&finally, 0/*slot*/));
+        EMIT(dummy, Jump(&finally, 0/*slot*/));
         current_fun_->AddExceptionHandler(clazz, start_pc, stop_pc, handler_pc);
     }
 
@@ -2039,7 +2040,7 @@ ASTVisitor::Result BytecodeGenerator::VisitWhileLoop(WhileLoop *ast) /*override*
     }
     DCHECK_EQ(kType_bool, rv.bundle.type);
     LdaIfNeeded(rv, ast->condition());
-    EMIT(ast->condition(), GotoIfFalse(block_scope.mutable_exit_label(), 0/*slot*/));
+    EMIT(ast->condition(), JumpIfFalse(block_scope.mutable_exit_label(), 0/*slot*/));
 
     for (auto stmt : ast->statements()) {
         if (rv = stmt->Accept(this); rv.kind == Value::kError) {
@@ -2047,7 +2048,7 @@ ASTVisitor::Result BytecodeGenerator::VisitWhileLoop(WhileLoop *ast) /*override*
         }
     }
 
-    EMIT(ast, Goto(block_scope.mutable_retry_label(), 0/*slot*/)); // TODO: Profiling
+    EMIT(ast, Jump(block_scope.mutable_retry_label(), 0/*slot*/)); // TODO: Profiling
     current_fun_->builder()->Bind(block_scope.mutable_exit_label());
     return ResultWithVoid();
 }

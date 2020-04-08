@@ -76,22 +76,22 @@ TEST_F(BytecodeTest, Builder) {
     EXPECT_EQ(4, instrs.size());
 }
 
-TEST_F(BytecodeTest, BuilderGoto) {
+TEST_F(BytecodeTest, BuilderJump) {
     BytecodeArrayBuilder builder(arean_);
     
     builder.Add<kLdar32>(0); // 0
     builder.Add<kLdar32>(1); // 1
     BytecodeLabel label;
-    builder.Goto(&label, 0);    // 2
+    builder.Jump(&label, 0);    // 2
     builder.Add<kAdd32>(0, 1); // 3
     builder.Bind(&label);
     builder.Add<kReturn>(); // 4
     
     auto instrs = builder.Build();
     auto node = BytecodeNode::From(arean_, instrs[2]);
-    ASSERT_EQ(kGoto, node->id());
+    ASSERT_EQ(kForwardJump, node->id());
     ASSERT_EQ(0, node->param(0));
-    ASSERT_EQ(4, node->param(1));
+    ASSERT_EQ(2, node->param(1));
 }
 
 }
