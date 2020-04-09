@@ -6,4 +6,30 @@ fun main() {
     	i = i + 1
     }
     assert(i == 100, "fail")
+    //println("result=${foo(1000000)}")
+    assert(foo(1000000) == 1783293664, "fail")
+
+    val wg = WaitGroup(10000)
+    for (i in 0, 10000) {
+    	run foo1(wg, i, 10000)
+    }
+    wg.wait()
+}
+
+fun foo1(wg: WaitGroup, id: int, max: int): int {
+	var n = 0
+	for (i in 0, max) {
+		n = n + i
+	}
+	println("done $id")
+	wg.done()
+	return n
+}
+
+fun foo(max: int): int {
+	var n = 0
+	for (i in 0, max) {
+		n = n + i
+	}
+	return n
 }

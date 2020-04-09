@@ -508,6 +508,9 @@ Statement *Parser::ParseStatement(bool *ok) {
         case Token::kUnless:
         case Token::kWhile:
             return ParseWhileLoop(ok);
+            
+        case Token::kFor:
+            return ParseForLoop(ok);
 
         case Token::kTry:
             return ParseTryCatchFinallyBlock(ok);
@@ -629,7 +632,6 @@ ForLoop *Parser::ParseForLoop(bool *ok) {
     Match(Token::kFor, CHECK_OK);
     Match(Token::kLParen, CHECK_OK);
 
-    
     VariableDeclaration *key = nullptr;
     SourceLocation iter_loc = Peek().source_location();
     const ASTString *key_id = ParseIdentifier(CHECK_OK);

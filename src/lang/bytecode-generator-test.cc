@@ -393,8 +393,11 @@ TEST_F(BytecodeGeneratorTest, WhileLoop) {
     ASSERT_TRUE(main.is_value_not_null());
     ASSERT_TRUE(main->is_mai_function());
     ASSERT_FALSE(main->is_cxx_function());
-    
     AssertFunction("main", main->function());
+    
+    value = generator_->FindValue("main.foo");
+    Local<Closure> foo(*isolate_->global_offset<Closure *>(value.index));
+    AssertFunction("foo", foo->function());
 }
 
 TEST_F(BytecodeGeneratorTest, RunWhileLoop) {

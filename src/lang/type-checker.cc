@@ -262,6 +262,10 @@ inline SourceLocation TypeChecker::FindSourceLocation(const ASTNode *ast) {
 
 namespace {
 
+#define VISIT_CHECK(node) if (rv = (node)->Accept(this); rv.sign == kError) { \
+        return ResultWithType(kError); \
+    }(void)0
+
 static inline ASTVisitor::Result ResultWithType(TypeSign *type) {
     ASTVisitor::Result rv;
     rv.kind = 0;
@@ -1696,17 +1700,14 @@ ASTVisitor::Result TypeChecker::VisitTryCatchFinallyBlock(TryCatchFinallyBlock *
 }
 
 ASTVisitor::Result TypeChecker::VisitRunStatement(RunStatement *ast) /*override*/ {
-    if (auto rv = ast->calling()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
+    Result rv;
+    VISIT_CHECK(ast->calling());
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::CheckForStep(ForLoop *ast) {
     Result rv;
-    if (rv = ast->subject()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
+    VISIT_CHECK(ast->subject());
     TypeSign *subject = rv.sign;
     if (!subject->IsNumber()) {
         error_feedback_->Printf(FindSourceLocation(ast->subject()), "Incorrect subject type(%s), "
@@ -1732,14 +1733,15 @@ ASTVisitor::Result TypeChecker::CheckForStep(ForLoop *ast) {
     } else {
         ast->value()->set_type(subject);
     }
+    if (ast->value()) {
+        VISIT_CHECK(ast->value());
+    }
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::CheckForIterate(ForLoop *ast) {
     Result rv;
-    if (rv = ast->subject()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
+    VISIT_CHECK(ast->subject());
     TypeSign *subject = rv.sign;
     if (subject->id() != Token::kArray && subject->id() != Token::kMutableArray &&
         subject->id() != Token::kMap && subject->id() != Token::kMutableMap) {
@@ -1792,6 +1794,12 @@ ASTVisitor::Result TypeChecker::CheckForIterate(ForLoop *ast) {
             }
         }
     }
+    if (ast->key()) {
+        VISIT_CHECK(ast->key());
+    }
+    if (ast->value()) {
+        VISIT_CHECK(ast->value());
+    }
     return ResultWithType(kVoid);
 }
 
@@ -1801,9 +1809,7 @@ ASTVisitor::Result TypeChecker::CheckForChannel(ForLoop *ast) {
     DCHECK_EQ(Operator::kRecv, ast->AsUnaryExpression()->op().kind);
 
     Result rv;
-    if (rv = channel_expr->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
+    VISIT_CHECK(channel_expr);
     TypeSign *channel = rv.sign;
     if (channel->id() != Token::kChannel) {
         error_feedback_->Printf(FindSourceLocation(channel_expr), "Incorrect type(%s) for channel "
@@ -1812,7 +1818,7 @@ ASTVisitor::Result TypeChecker::CheckForChannel(ForLoop *ast) {
     }
 
     DCHECK(ast->value() != nullptr);
-    if (ast->value()->type() && !ast->value()->type()->Convertible(channel->parameter(0))) {
+    if (!ast->value()->type()->Convertible(channel->parameter(0))) {
         error_feedback_->Printf(FindSourceLocation(ast->limit()), "Incorrect value type(%s)"
                                 ", need %s", ast->value()->type()->ToString().c_str(),
                                 channel->parameter(0)->ToString().c_str());
@@ -1820,6 +1826,7 @@ ASTVisitor::Result TypeChecker::CheckForChannel(ForLoop *ast) {
     } else {
         ast->value()->set_type(channel->parameter(0));
     }
+    VISIT_CHECK(ast->value());
     return ResultWithType(kVoid);
 }
 

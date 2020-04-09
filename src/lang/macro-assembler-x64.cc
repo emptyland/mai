@@ -473,6 +473,20 @@ public:
         }
         
         void GetBToRBX() { GetBTo(rbx); }
+    }; // class InstrStackImmABScope
+    
+    class InstrStackImmBAScope : public InstrImmABScope {
+    public:
+        InstrStackImmBAScope(MacroAssembler *m)
+            : InstrImmABScope(m) {
+            GetBTo(rbx);
+        }
+        
+        void GetAToRBX() {
+            GetATo(rcx);
+            __ movq(rbx, kStackDelta);
+            __ subq(rbx, rcx);
+        }
     }; // class InstrStackOffsetABScope
     
     class InstrFABaseScope : public InstrBaseScope {
@@ -1194,6 +1208,22 @@ public:
         __ movl(rcx, Operand(rbp, rbx, times_2, 0));
         __ shrq(ACC);
     }
+    
+    void EmitIncrement32(MacroAssembler *masm) override {
+        InstrStackImmBAScope instr_scope(masm);
+        __ movl(SCRATCH, rbx);
+        instr_scope.GetAToRBX();
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ addl(Operand(rbp, rbx, times_2, 0), SCRATCH);
+    }
+    
+    void EmitIncrement64(MacroAssembler *masm) override {
+        InstrStackImmBAScope instr_scope(masm);
+        __ movq(SCRATCH, rbx);
+        instr_scope.GetAToRBX();
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        __ addq(Operand(rbp, rbx, times_2, 0), SCRATCH);
+    }
 
     // Comparation ---------------------------------------------------------------------------------
     void EmitTestEqual32(MacroAssembler *masm) override { EmitCompare32(masm, Equal); }
@@ -1590,6 +1620,7 @@ public:
 private:
     void EmitCompare32(MacroAssembler *masm, Cond cond) {
         InstrStackABScope instr_scope(masm);
+        //__ Breakpoint();
         __ movl(rax, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ cmpl(rax, Operand(rbp, rbx, times_2, 0));

@@ -414,6 +414,10 @@ namespace {
 #define TOP_REF (current_fun_->stack()->GetTopRef())
 #define EMIT(ast, action) current_fun_->Incoming(ast)->action
 
+#define VISIT_CHECK(node) if (rv = (node)->Accept(this); rv.kind == Value::kError) { \
+        return ResultWithError(); \
+    }(void)0
+
 inline ASTVisitor::Result ResultWith(BValue::Linkage linkage, int type, int index) {
     ASTVisitor::Result rv;
     rv.kind = linkage;
@@ -2053,8 +2057,95 @@ ASTVisitor::Result BytecodeGenerator::VisitWhileLoop(WhileLoop *ast) /*override*
     return ResultWithVoid();
 }
 
-ASTVisitor::Result BytecodeGenerator::VisitForLoop(ForLoop *) /*override*/ {
-    TODO();
+ASTVisitor::Result BytecodeGenerator::VisitForLoop(ForLoop *ast) /*override*/ {
+    BlockScope block_scope(Scope::kLoopBlockScope, &current_);
+    switch (ast->control()) {
+        case ForLoop::STEP:
+            return GenerateForStep(ast);
+        case ForLoop::ITERATE:
+            TODO();
+            break;
+        case ForLoop::CHANNEL_ITERATE:
+            TODO();
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    return ResultWithVoid();
+}
+
+ASTVisitor::Result BytecodeGenerator::GenerateForStep(ForLoop *ast) {
+    BlockScope *block_scope = down_cast<BlockScope>(current_);
+    
+    Result rv;
+    VISIT_CHECK(ast->value()->type());
+    const Class *type = metadata_space_->type(rv.bundle.index);
+    Value value{Value::kStack, type, current_fun_->StackReserve(type)};
+    current_->Register(ast->value()->identifier()->ToString(), value);
+
+    VISIT_CHECK(ast->subject());
+    Value iter{Value::kStack, type, current_fun_->StackReserve(type)};
+    current_->Register("$__iter__", iter);
+    MoveToStackIfNeeded(type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), iter.index,
+                        ast->subject());
+
+    VISIT_CHECK(ast->limit());
+    int index = 0;
+    if (rv.kind != Value::kStack) {
+        index = current_fun_->StackReserve(type);
+        MoveToStackIfNeeded(type, index, static_cast<Value::Linkage>(rv.kind), index, ast);
+    } else {
+        index = rv.bundle.index;
+    }
+    Value limit{Value::kStack, type, index};
+    current_->Register("$__limit__", limit);
+
+    // label: retry
+    current_fun_->builder()->Bind(block_scope->mutable_retry_label());
+    GenerateComparation(type, Operators::kGreaterEqual, iter.index, limit.index, ast);
+    EMIT(ast, JumpIfTrue(block_scope->mutable_exit_label(), 0/*slot*/));
+    
+    // value = __iter__
+    MoveToStackIfNeeded(type, iter.index, iter.linkage, value.index, ast);
+    
+    for (auto stmt : ast->statements()) {
+        VISIT_CHECK(stmt);
+    }
+
+    DCHECK(type->IsNumber());
+    if (type->IsFloating()) {
+        switch (type->reference_size()) {
+            case 4: {
+                int kidx = current_fun_->constants()->FindOrInsertF32(1);
+                GenerateOperation(type, Operators::kAdd, iter.index, iter.linkage, kidx,
+                                  Value::kConstant, ast);
+            } break;
+            case 8: {
+                int kidx = current_fun_->constants()->FindOrInsertF64(1);
+                GenerateOperation(type, Operators::kAdd, iter.index, iter.linkage, kidx,
+                                  Value::kConstant, ast);
+            } break;
+            default:
+                NOREACHED();
+                break;
+        }
+    } else {
+        switch (type->reference_size()) {
+            case 1: case 2: case 4:
+                EMIT(ast, Add<kIncrement32>(GetStackOffset(iter.index), 1));
+                break;
+            case 8:
+                EMIT(ast, Add<kIncrement64>(GetStackOffset(iter.index), 1));
+                break;
+            default:
+                NOREACHED();
+                break;
+        }
+    }
+    EMIT(ast, Jump(block_scope->mutable_retry_label(), 0/*slot*/));
+    // label: exit
+    current_fun_->builder()->Bind(block_scope->mutable_exit_label());
     return ResultWithVoid();
 }
 

@@ -107,13 +107,14 @@ static inline AbstractValue *ValueOf(intptr_t input) {
 }
 
 // [Safepoint]
+// 2018846
+// 1269759
+//  521255
 /*static*/ String *Runtime::StringContact(String **parts, String **end) {
-    HandleScope handle_scope(HandleScope::INITIALIZER);
-    IncrementalStringBuilder builder;
     SafepointScope safepoint(STATE->gc());
+    IncrementalStringBuilder builder;
     for (auto i = end - 1; i >= parts; i--) {
-        //printf("%x\n", (*i)->length());
-        builder.AppendString(Local<String>(*i));
+        builder.AppendString(*i);
     }
     return builder.QuickBuild();
 }
