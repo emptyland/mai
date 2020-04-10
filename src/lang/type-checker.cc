@@ -266,6 +266,16 @@ namespace {
         return ResultWithType(kError); \
     }(void)0
 
+#define VISIT_CHECK_GET(type, node) if (auto rv = (node)->Accept(this); rv.sign == kError) { \
+        return ResultWithType(kError); \
+    } else { \
+        type = rv.sign; \
+    }(void)0
+
+#define VISIT_CHECK_JUST(node) if (auto rv = (node)->Accept(this); rv.sign == kError) { \
+        return ResultWithType(kError); \
+    }(void)0
+
 static inline ASTVisitor::Result ResultWithType(TypeSign *type) {
     ASTVisitor::Result rv;
     rv.kind = 0;
@@ -651,16 +661,13 @@ ASTVisitor::Result TypeChecker::VisitLambdaLiteral(LambdaLiteral *ast) /*overrid
     }
     
     FunctionScope function_scope(ast, &current_);
+    Result rv;
     for (auto param : parameters) {
-        if (auto rv = param->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(param);
     }
 
     for (auto stmt : ast->statements()) {
-        if (auto rv = stmt->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(stmt);
     }
     
     if (ast->prototype()->return_type()->id() != Token::kVoid && !function_scope.has_broke()) {
@@ -672,11 +679,7 @@ ASTVisitor::Result TypeChecker::VisitLambdaLiteral(LambdaLiteral *ast) /*overrid
 
 ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*override*/ {
     TypeSign *callee = nullptr;
-    if (auto rv = ast->callee()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    } else {
-        callee = rv.sign;
-    }
+    VISIT_CHECK_GET(callee, ast->callee());
     
     if (callee->id() == Token::kClass) { // Constructor
         if (ast->operands_size() != callee->clazz()->parameters_size()) {
@@ -687,11 +690,7 @@ ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*overr
         
         for (size_t i = 0; i < ast->operands_size(); i++) {
             TypeSign *argument_type = nullptr;
-            if (auto rv = ast->operand(i)->Accept(this); rv.sign == kError) {
-                return ResultWithType(kError);
-            } else {
-                argument_type = rv.sign;
-            }
+            VISIT_CHECK_GET(argument_type, ast->operand(i));
             
             TypeSign *parameter_type = nullptr;
             if (callee->clazz()->parameter(i).field_declaration) {
@@ -726,11 +725,7 @@ ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*overr
         size_t n = std::min(ast->operands_size(), callee->parameters_size());
         for (size_t i = 0; i < n; i++) {
             TypeSign *parameter_type = nullptr;
-            if (auto rv = ast->operand(i)->Accept(this); rv.sign == kError) {
-                return ResultWithType(kError);
-            } else {
-                parameter_type = rv.sign;
-            }
+            VISIT_CHECK_GET(parameter_type, ast->operand(i));
             if (!parameter_type->Convertible(callee->prototype()->parameter(i).type)) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function prototype: "
                                         " %s at parameter[%ld]", callee->ToString().c_str(), i);
@@ -748,34 +743,19 @@ ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*overr
 ASTVisitor::Result TypeChecker::VisitPairExpression(PairExpression *ast) /*override*/ {
     TypeSign *key = nullptr;
     if (!ast->addition_key()) {
-        if (auto rv = ast->key()->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        } else {
-            key = rv.sign;
-        }
+        VISIT_CHECK_GET(key, ast->key());
     }
-    
+
     TypeSign *value = nullptr;
-    if (auto rv = ast->value()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    } else {
-        value = rv.sign;
-    }
-    
+    VISIT_CHECK_GET(value, ast->value());
     return ResultWithType(new (arena_) TypeSign(arena_, ast->position(), Token::kPair, key, value));
 }
 
 ASTVisitor::Result TypeChecker::VisitIndexExpression(IndexExpression *ast) /*override*/ {
-    Result rv = ast->primary()->Accept(this);
-    if (rv.sign == kError) {
-        return ResultWithType(kError);
-    }
-    
-    TypeSign *primary = rv.sign;
-    if (rv = ast->index()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
-    TypeSign *index = rv.sign;
+    TypeSign *primary = nullptr, *index = nullptr;
+    VISIT_CHECK_GET(primary, ast->primary());
+    VISIT_CHECK_GET(index, ast->index());
+
     switch (static_cast<Token::Kind>(primary->id())) {
         case Token::kArray:
         case Token::kMutableArray:
@@ -803,11 +783,8 @@ ASTVisitor::Result TypeChecker::VisitIndexExpression(IndexExpression *ast) /*ove
 }
 
 ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *ast) /*override*/ {
-    Result rv;
-    if (rv = ast->operand()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
-    TypeSign *operand = rv.sign;
+    TypeSign *operand = nullptr;
+    VISIT_CHECK_GET(operand, ast->operand());
     switch (ast->op().kind) {
         case Operator::kNot:
             if (operand->id() != Token::kBool) {
@@ -867,15 +844,9 @@ ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *ast) /*ove
 }
 
 ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*override*/ {
-    Result rv;
-    if (rv = ast->lhs()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
-    TypeSign *lhs = rv.sign;
-    if (rv = ast->rhs()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
-    TypeSign *rhs = rv.sign;
+    TypeSign *lhs = nullptr, *rhs = nullptr;
+    VISIT_CHECK_GET(lhs, ast->lhs());
+    VISIT_CHECK_GET(rhs, ast->rhs());
 
     switch (ast->op().kind) {
         case Operator::kAdd:
@@ -976,14 +947,8 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
 
 ASTVisitor::Result TypeChecker::VisitTypeCastExpression(TypeCastExpression *ast) /*override*/ {
     TypeSign *operand = nullptr;
-    if (auto rv = ast->operand()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    } else {
-        operand = rv.sign;
-    }
-    if (auto rv = ast->type()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
+    VISIT_CHECK_GET(operand, ast->operand());
+    VISIT_CHECK_JUST(ast->type());
     if (!operand->Convertible(ast->type())) {
         error_feedback_->Printf(FindSourceLocation(ast), "Impossible casting");
         return ResultWithType(kError);
@@ -992,26 +957,20 @@ ASTVisitor::Result TypeChecker::VisitTypeCastExpression(TypeCastExpression *ast)
 }
 
 ASTVisitor::Result TypeChecker::VisitTypeTestExpression(TypeTestExpression *ast) /*override*/ {
-    if (auto rv = ast->operand()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
-    if (auto rv = ast->type()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
+    VISIT_CHECK_JUST(ast->operand());
+    VISIT_CHECK_JUST(ast->type());
     return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kBool));
 }
 
 ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*override*/ {
+    Result rv;
     if (ast->reserve()) {
-        if (auto rv = ast->reserve()->Accept(this); rv.sign == kError) {
+        VISIT_CHECK(ast->reserve());
+        if (!rv.sign->IsIntegral()) {
+            error_feedback_->Printf(FindSourceLocation(ast), "Incorrect array constructor "
+                                    "parameter[0] type(%s), need integral number",
+                                    rv.sign->ToString().c_str());
             return ResultWithType(kError);
-        } else {
-            if (!rv.sign->IsIntegral()) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect array constructor "
-                                        "parameter[0] type(%s), need integral number",
-                                        rv.sign->ToString().c_str());
-                return ResultWithType(kError);
-            }
         }
         return ResultWithType(new (arena_) TypeSign(arena_, ast->position(),
                                                     ast->mutable_container()
@@ -1021,10 +980,7 @@ ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*o
 
     TypeSign *defined_element_type = ast->element_type();
     for (auto element : ast->operands()) {
-        auto rv = element->Accept(this);
-        if (rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(element);
         if (rv.sign->id() == Token::kVoid) {
             error_feedback_->Printf(FindSourceLocation(element), "Attempt void type element");
             return ResultWithType(kError);
@@ -1055,11 +1011,9 @@ ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*o
 }
 
 ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*override*/ {
+    Result rv;
     if (ast->reserve()) {
-        Result rv = ast->reserve()->Accept(this);
-        if (rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(ast->reserve());
         if (!rv.sign->IsIntegral()) {
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map constructor "
                                     "parameter[0] type(%s), need integral number",
@@ -1068,9 +1022,7 @@ ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*overr
         }
         
         if (ast->load_factor()) {
-            if (rv = ast->load_factor()->Accept(this); rv.sign == kError) {
-                return ResultWithType(kError);
-            }
+            VISIT_CHECK(ast->load_factor());
             if (!rv.sign->IsFloating()) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map constructor "
                                         "parameter[1] type(%s), need floating number",
@@ -1087,10 +1039,7 @@ ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*overr
     
     TypeSign *defined_key_type = ast->key_type(), *defined_value_type = ast->value_type();
     for (auto pair : ast->operands()) {
-        auto rv = DCHECK_NOTNULL(pair->AsPairExpression())->key()->Accept(this);
-        if (rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(DCHECK_NOTNULL(pair->AsPairExpression())->key());
         if (rv.sign->id() == Token::kVoid) {
             error_feedback_->Printf(FindSourceLocation(pair), "Attempt void type key");
             return ResultWithType(kError);
@@ -1101,11 +1050,8 @@ ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*overr
         if (!defined_key_type->Convertible(rv.sign)) {
             defined_key_type->set_id(Token::kAny);
         }
-        
-        if (rv = DCHECK_NOTNULL(pair->AsPairExpression())->value()->Accept(this);
-            rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+
+        VISIT_CHECK(DCHECK_NOTNULL(pair->AsPairExpression())->value());
         if (rv.sign->id() == Token::kVoid) {
             error_feedback_->Printf(FindSourceLocation(pair), "Attempt void type value");
             return ResultWithType(kError);
@@ -1161,11 +1107,8 @@ ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *ast)
             }
         } break;
         case BreakableStatement::THROW: {
-            Result rv = ast->value()->Accept(this);
-            if (rv.sign == kError) {
-                return ResultWithType(kError);
-            }
-            TypeSign *expect = rv.sign;
+            TypeSign *expect = nullptr;
+            VISIT_CHECK_GET(expect, ast->value());
             if (expect->id() != Token::kRef) {
                 error_feedback_->Printf(FindSourceLocation(ast->value()), "Incorrect throw "
                                         "type(%s)", expect->ToString().c_str());
@@ -1192,11 +1135,7 @@ ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *ast)
             
             TypeSign *ret_type = kVoid;
             if (ast->value()) {
-                if (auto rv = ast->value()->Accept(this); rv.sign == kError) {
-                    return ResultWithType(kError);
-                } else {
-                    ret_type = rv.sign;
-                }
+                VISIT_CHECK_GET(ret_type, ast->value());
                 if (ret_type->id() == Token::kVoid) {
                     error_feedback_->Printf(FindSourceLocation(ast), "Attempt return void type");
                     return ResultWithType(kError);
@@ -1225,16 +1164,8 @@ ASTVisitor::Result TypeChecker::VisitBreakableStatement(BreakableStatement *ast)
 
 ASTVisitor::Result TypeChecker::VisitAssignmentStatement(AssignmentStatement *ast) /*override*/ {
     TypeSign *rval = nullptr, *lval = nullptr;
-    if (auto rv = ast->rval()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    } else {
-        rval = rv.sign;
-    }
-    if (auto rv = ast->lval()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    } else {
-        lval = rv.sign;
-    }
+    VISIT_CHECK_GET(rval, ast->rval());
+    VISIT_CHECK_GET(lval, ast->lval());
     
     if (!CheckModifitionAccess(ast->lval())) {
         return ResultWithType(kError);
@@ -1268,9 +1199,7 @@ ASTVisitor::Result TypeChecker::VisitAssignmentStatement(AssignmentStatement *as
 ASTVisitor::Result TypeChecker::VisitStringTemplateExpression(StringTemplateExpression *ast)
 /*override*/ {
     for (auto operand : ast->operands()) {
-        if (auto rv = operand->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK_JUST(operand);
     }
     return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kString));
 }
@@ -1290,25 +1219,21 @@ ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *as
     }
 
     if (ast->type() && ast->type()->id() == Token::kIdentifier) {
-        if (auto rv = ast->type()->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK_JUST(ast->type());
     }
 
     if (ast->initializer()) {
-        auto rv = ast->initializer()->Accept(this);
-        if (rv.sign == kError) {
-            return rv;
-        }
-        if (rv.sign->id() == Token::kVoid) {
+        TypeSign *init = nullptr;
+        VISIT_CHECK_GET(init, ast->initializer());
+        if (init->id() == Token::kVoid) {
             error_feedback_->Printf(FindSourceLocation(ast), "Void type for variable declaration");
             return ResultWithType(kError);
         }
 
         if (!ast->type()) {
-            ast->set_type(rv.sign);
+            ast->set_type(init);
         } else {
-            if (!ast->type()->Convertible(rv.sign)) {
+            if (!ast->type()->Convertible(init)) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Unconvertible type");
                 return ResultWithType(kError);
             }
@@ -1320,6 +1245,25 @@ ASTVisitor::Result TypeChecker::VisitVariableDeclaration(VariableDeclaration *as
     }
     symbol_trace_.insert(ast);
     return ResultWithType(kVoid);
+}
+
+ASTVisitor::Result TypeChecker::VisitChannelInitializer(ChannelInitializer *ast) /*override*/ {
+    // val ch = channel[int](1)
+    // ch <- 100
+    // ch <- 200
+    Result rv;
+    VISIT_CHECK(ast->value_type());
+    if (ast->buffer_size()) {
+        VISIT_CHECK(ast->buffer_size());
+        if (rv.sign->id() != Token::kInt) {
+            error_feedback_->Printf(FindSourceLocation(ast->buffer_size()), "Unexpected channel "
+                                    "buffer-size type(%s), need int", rv.sign->ToString().c_str());
+            return ResultWithType(kError);
+        }
+    }
+
+    TypeSign *type = new (arena_) TypeSign(arena_, ast->position(), Token::kChannel, ast->value_type());
+    return ResultWithType(type);
 }
 
 ASTVisitor::Result TypeChecker::VisitIdentifier(Identifier *ast) /*override*/ {
@@ -1414,20 +1358,17 @@ ASTVisitor::Result TypeChecker::VisitDotExpression(DotExpression *ast) {
                                 id->name()->data(), ast->rhs()->data());
         return ResultWithType(kError);
     } else {
-        auto rv = ast->primary()->Accept(this);
-        if (rv.sign == kError) {
-            return rv;
-        }
-        return CheckDotExpression(DCHECK_NOTNULL(rv.sign), ast);
+        TypeSign *primary = nullptr;
+        VISIT_CHECK_GET(primary, ast->primary());
+        return CheckDotExpression(DCHECK_NOTNULL(primary), ast);
     }
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::VisitInterfaceDefinition(InterfaceDefinition *ast) /*override*/ {
+    Result rv;
     for (auto method : ast->methods()) {
-        if (auto rv = method->Accept(this); rv.sign == kError) {
-            return ResultWithType(kVoid);
-        }
+        VISIT_CHECK(method);
     }
     return ResultWithType(kVoid);
 }
@@ -1442,10 +1383,9 @@ ASTVisitor::Result TypeChecker::VisitObjectDefinition(ObjectDefinition *ast) /*o
     constructor_scope.Register(self);
     symbol_trace_.insert(self);
     
+    Result rv;
     for (auto field : ast->fields()) {
-        if (auto rv = field.declaration->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(field.declaration);
     }
     symbol_trace_.insert(ast);
     return ResultWithType(kVoid);
@@ -1459,19 +1399,16 @@ ASTVisitor::Result TypeChecker::VisitClassDefinition(ClassDefinition *ast) /*ove
         return ResultWithType(kError);
     }
 
+    Result rv;
     for (auto param : ast->parameters()) {
         if (param.field_declaration) {
             continue;
         }
-        if (auto rv = param.as_parameter->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(param.as_parameter);
     }
     
     for (auto field : ast->fields()) {
-        if (auto rv = field.declaration->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(field.declaration);
     }
     
     if (ast->base()) {
@@ -1484,10 +1421,7 @@ ASTVisitor::Result TypeChecker::VisitClassDefinition(ClassDefinition *ast) /*ove
         }
         
         for (size_t i = 0; i < ast->arguments_size(); i++) {
-            auto rv = ast->argument(i)->Accept(this);
-            if (rv.sign == kError) {
-                return ResultWithType(kError);
-            }
+            VISIT_CHECK(ast->argument(i));
             auto param = ast->base()->parameter(i);
             auto type = param.field_declaration
                 ? ast->base()->field(param.as_field).declaration->type()
@@ -1512,27 +1446,22 @@ ASTVisitor::Result TypeChecker::VisitFunctionDefinition(FunctionDefinition *ast)
         current_->Register(ast);
     }
 
+    Result rv;
     for (size_t i = 0; i < ast->prototype()->parameters_size(); i++) {
         auto param = &ast->prototype()->mutable_parameters()->at(i);
         if (param->type->id() == Token::kIdentifier) {
-            if (auto rv = param->type->Accept(this); rv.sign == kError) {
-                return ResultWithType(kError);
-            }
+            VISIT_CHECK(param->type);
         }
     }
     if (ast->return_type()->id() == Token::kIdentifier) {
-        if (auto rv = ast->return_type()->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(ast->return_type());
     }
 
     if (ast->is_native() || ast->is_declare()) {
         return ResultWithType(kVoid);
     }
 
-    if (auto rv = ast->body()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
+    VISIT_CHECK(ast->body());
     symbol_trace_.insert(ast);
     return ResultWithType(kVoid);
 }
@@ -1544,20 +1473,16 @@ ASTVisitor::Result TypeChecker::VisitClassImplementsBlock(ClassImplementsBlock *
         if (HasSymbolChecked(method)) {
             continue;
         }
-        if (auto rv = method->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK_JUST(method);
     }
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::VisitWhileLoop(WhileLoop *ast) /*override*/ {
     BlockScope block_scope(Scope::kLoopBlockScope, ast, &current_);
+    Result rv;
 
-    Result rv = ast->condition()->Accept(this);
-    if (rv.sign == kError) {
-        return ResultWithType(kError);
-    }
+    VISIT_CHECK(ast->condition());
     if (rv.sign->id() != Token::kBool) {
         error_feedback_->Printf(FindSourceLocation(ast->condition()), "Incorrect condition type, "
                                 "need bool");
@@ -1565,17 +1490,15 @@ ASTVisitor::Result TypeChecker::VisitWhileLoop(WhileLoop *ast) /*override*/ {
     }
 
     for (auto stmt : ast->statements()) {
-        if (auto rv = stmt->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(stmt);
     }
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::VisitForLoop(ForLoop *ast) /*override*/ {
     BlockScope block_scope(Scope::kLoopBlockScope, ast, &current_);
-    
     Result rv;
+
     switch (ast->control()) {
         case ForLoop::STEP:
             rv = CheckForStep(ast);
@@ -1594,9 +1517,7 @@ ASTVisitor::Result TypeChecker::VisitForLoop(ForLoop *ast) /*override*/ {
         return ResultWithType(kError);
     }
     for (auto stmt : ast->statements()) {
-        if (auto rv = stmt->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(stmt);
     }
     return ResultWithType(kVoid);
 }
@@ -1604,17 +1525,13 @@ ASTVisitor::Result TypeChecker::VisitForLoop(ForLoop *ast) /*override*/ {
 ASTVisitor::Result TypeChecker::VisitIfExpression(IfExpression *ast) /*override*/ {
     BlockScope block_scope(Scope::kIfBlockScope, ast, &current_);
     TypeSign *type = nullptr;
+    Result rv;
     do {
         if (ast->extra_statement()) {
-            if (auto rv = ast->extra_statement()->Accept(this); rv.sign == kError) {
-                return ResultWithType(kError);
-            }
+            VISIT_CHECK(ast->extra_statement());
         }
 
-        auto rv = ast->branch_true()->Accept(this);
-        if (rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(ast->branch_true());
         if (!type) {
             type = rv.sign;
         }
@@ -1631,9 +1548,7 @@ ASTVisitor::Result TypeChecker::VisitIfExpression(IfExpression *ast) /*override*
         if (ast->branch_false()) {
             IfExpression *next = ast->branch_false()->AsIfExpression(); // else if
             if (!next) {
-                if (rv = ast->branch_false()->Accept(this); rv.sign == kError) {
-                    return ResultWithType(kError);
-                }
+                VISIT_CHECK(ast->branch_false());
                 if (type->id() == Token::kVoid || rv.sign->id() == Token::kVoid) {
                     type->set_id(Token::kVoid);
                 } else if (!type->Convertible(rv.sign)) {
@@ -1648,28 +1563,25 @@ ASTVisitor::Result TypeChecker::VisitIfExpression(IfExpression *ast) /*override*
 
 ASTVisitor::Result TypeChecker::VisitStatementBlock(StatementBlock *ast) /*override*/ {
     BlockScope block_scope(Scope::kPlainBlockScope, ast, &current_);
+    Result rv;
     for (auto stmt : ast->statements()) {
-        if (auto rv = stmt->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(stmt);
     }
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::VisitTryCatchFinallyBlock(TryCatchFinallyBlock *ast) /*override*/ {
+    Result rv;
     {
         BlockScope block_scope(Scope::kPlainBlockScope, ast, &current_);
         for (auto stmt : ast->try_statements()) {
-            if (auto rv = stmt->Accept(this); rv.sign == kError) {
-                return ResultWithType(kError);
-            }
+            VISIT_CHECK(stmt);
         }
     }
+
     for (auto block : ast->catch_blocks()) {
         BlockScope block_scope(Scope::kPlainBlockScope, ast, &current_);
-        if (auto rv = block->expected_declaration()->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(block->expected_declaration());
         TypeSign *expect = block->expected_declaration()->type();
         if (expect->id() != Token::kRef) {
             error_feedback_->Printf(FindSourceLocation(block->expected_declaration()), "Incorrect "
@@ -1684,40 +1596,32 @@ ASTVisitor::Result TypeChecker::VisitTryCatchFinallyBlock(TryCatchFinallyBlock *
         }
 
         for (auto stmt : block->statements()) {
-            if (auto rv = stmt->Accept(this); rv.sign == kError) {
-                return ResultWithType(kError);
-            }
+            VISIT_CHECK(stmt);
         }
     }
     
     BlockScope block_scope(Scope::kPlainBlockScope, ast, &current_);
     for (auto stmt : ast->finally_statements()) {
-        if (auto rv = stmt->Accept(this); rv.sign == kError) {
-            return ResultWithType(kError);
-        }
+        VISIT_CHECK(stmt);
     }
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::VisitRunStatement(RunStatement *ast) /*override*/ {
-    Result rv;
-    VISIT_CHECK(ast->calling());
+    VISIT_CHECK_JUST(ast->calling());
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::CheckForStep(ForLoop *ast) {
-    Result rv;
-    VISIT_CHECK(ast->subject());
-    TypeSign *subject = rv.sign;
+    TypeSign *subject = nullptr;
+    VISIT_CHECK_GET(subject, ast->subject());
     if (!subject->IsNumber()) {
         error_feedback_->Printf(FindSourceLocation(ast->subject()), "Incorrect subject type(%s), "
                                 "need number", subject->ToString().c_str());
         return ResultWithType(kError);
     }
-    if (rv = ast->limit()->Accept(this); rv.sign == kError) {
-        return ResultWithType(kError);
-    }
-    TypeSign *limit = rv.sign;
+    TypeSign *limit = nullptr;
+    VISIT_CHECK_GET(limit, ast->limit());
     if (subject->id() != limit->id()) {
         error_feedback_->Printf(FindSourceLocation(ast->limit()), "Different limit type(%s), but "
                                 "subject is %s", limit->ToString().c_str(),
@@ -1734,15 +1638,14 @@ ASTVisitor::Result TypeChecker::CheckForStep(ForLoop *ast) {
         ast->value()->set_type(subject);
     }
     if (ast->value()) {
-        VISIT_CHECK(ast->value());
+        VISIT_CHECK_JUST(ast->value());
     }
     return ResultWithType(kVoid);
 }
 
 ASTVisitor::Result TypeChecker::CheckForIterate(ForLoop *ast) {
-    Result rv;
-    VISIT_CHECK(ast->subject());
-    TypeSign *subject = rv.sign;
+    TypeSign *subject = nullptr;
+    VISIT_CHECK_GET(subject, ast->subject());
     if (subject->id() != Token::kArray && subject->id() != Token::kMutableArray &&
         subject->id() != Token::kMap && subject->id() != Token::kMutableMap) {
         error_feedback_->Printf(FindSourceLocation(ast->subject()), "Incorrect subject type(%s), "
@@ -1794,6 +1697,7 @@ ASTVisitor::Result TypeChecker::CheckForIterate(ForLoop *ast) {
             }
         }
     }
+    Result rv;
     if (ast->key()) {
         VISIT_CHECK(ast->key());
     }
@@ -1808,9 +1712,8 @@ ASTVisitor::Result TypeChecker::CheckForChannel(ForLoop *ast) {
     Expression *channel_expr = ast->AsUnaryExpression()->operand();
     DCHECK_EQ(Operator::kRecv, ast->AsUnaryExpression()->op().kind);
 
-    Result rv;
-    VISIT_CHECK(channel_expr);
-    TypeSign *channel = rv.sign;
+    TypeSign *channel = nullptr;
+    VISIT_CHECK_GET(channel, channel_expr);
     if (channel->id() != Token::kChannel) {
         error_feedback_->Printf(FindSourceLocation(channel_expr), "Incorrect type(%s) for channel "
                                 "recv", channel->ToString().c_str());
@@ -1826,7 +1729,7 @@ ASTVisitor::Result TypeChecker::CheckForChannel(ForLoop *ast) {
     } else {
         ast->value()->set_type(channel->parameter(0));
     }
-    VISIT_CHECK(ast->value());
+    VISIT_CHECK_JUST(ast->value());
     return ResultWithType(kVoid);
 }
 

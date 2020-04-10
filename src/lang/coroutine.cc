@@ -84,6 +84,14 @@ void Coroutine::Dispose() {
     }
 }
 
+void Coroutine::Wakeup() {
+    while (!AcquireState(kWaitting, kRunnable)) {
+        std::this_thread::yield();
+    }
+    owner_->TakeWaittingCoroutine(this);
+    owner_->PostRunnable(this);
+}
+
 void Coroutine::Uncaught(Throwable *thrown) {
     DCHECK(thrown->clazz()->IsBaseOf(STATE->builtin_type(kType_Throwable)))
         << "thrown is not Throwable: " << thrown->clazz()->name();
@@ -139,7 +147,7 @@ void Coroutine::Uncaught(Throwable *thrown) {
     }
 }
 
-void Coroutine::Suspend(intptr_t /*acc*/, double /*facc*/) {
+void Coroutine::DidSuspend(intptr_t /*acc*/, double /*facc*/) {
     //printf("co: %lld %d\n", coid(), state());
 }
 

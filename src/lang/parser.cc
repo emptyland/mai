@@ -747,7 +747,7 @@ TypeSign *Parser::ParseTypeSign(bool *ok) {
         }
         DECLARE_BASE_TYPE_TOKEN(DEFINE_TYPE_CASE)
     #undef DEFINE_TYPE_CASE
-            
+
         case Token::kIdentifier: {
             const ASTString *name = ParseIdentifier(CHECK_OK);
             const ASTString *prefix = nullptr;
@@ -771,7 +771,7 @@ TypeSign *Parser::ParseTypeSign(bool *ok) {
             int position = file_unit_->InsertSourceLocation(loc);
             return new (arena_) TypeSign(arena_, position, Token::kArray, elem_type);
         } break;
-        
+
         // mutable_array := `mutable_array' `[' type `]'
         case Token::kMutableArray: {
             MoveNext();
@@ -784,7 +784,7 @@ TypeSign *Parser::ParseTypeSign(bool *ok) {
             int position = file_unit_->InsertSourceLocation(loc);
             return new (arena_) TypeSign(arena_, position, Token::kMutableArray, elem_type);
         } break;
-        
+
         // map := `map' `[' type `,' type `]'
         case Token::kMap: {
             MoveNext();
@@ -799,7 +799,7 @@ TypeSign *Parser::ParseTypeSign(bool *ok) {
             int position = file_unit_->InsertSourceLocation(loc);
             return new (arena_) TypeSign(arena_, position, Token::kMap, key_type, val_type);
         } break;
-        
+
         // mutable := `mutable' `[' type `,' type `]'
         case Token::kMutableMap: {
             MoveNext();
@@ -817,16 +817,14 @@ TypeSign *Parser::ParseTypeSign(bool *ok) {
 
         case Token::kChannel: {
             MoveNext();
-            TypeSign *elem_type = nullptr;
-            if (Test(Token::kLBrack)) {
-                elem_type = ParseTypeSign(CHECK_OK);
-                loc.LinkEnd(Peek().source_location());
-                Match(Token::kRBrack, CHECK_OK);
-            }
+            Match(Token::kLBrack, CHECK_OK);
+            TypeSign *value_type = ParseTypeSign(CHECK_OK);
+            loc.LinkEnd(Peek().source_location());
+            Match(Token::kRBrack, CHECK_OK);
             int position = file_unit_->InsertSourceLocation(loc);
-            return new (arena_) TypeSign(arena_, position, Token::kArray, elem_type);
+            return new (arena_) TypeSign(arena_, position, Token::kChannel, value_type);
         } break;
-            
+
         case Token::kFun: {
             MoveNext();
             SourceLocation end;
@@ -1035,12 +1033,15 @@ Expression *Parser::ParseSimple(bool *ok) {
             int position = file_unit_->InsertSourceLocation(loc);
             return new (arena_) BoolLiteral(position, false);
         } break;
-            
+
         case Token::kIf:
             return ParseIfExpression(ok);
-            
+
         case Token::kLambda:
             return ParseLambdaLiteral(ok);
+
+        case Token::kChannel:
+            return ParseChannelInitializer(ok);
 
         default:
             return ParseSuffixed(ok);
@@ -1351,6 +1352,21 @@ MapInitializer *Parser::ParseMapInitializer(bool *ok) {
     return new (arena_) MapInitializer(position, mut, key_type, value_type, std::move(pairs));
 }
 
+ChannelInitializer *Parser::ParseChannelInitializer(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    Match(Token::kChannel, CHECK_OK);
+    Match(Token::kLBrack, CHECK_OK);
+    TypeSign *value_type = ParseTypeSign(CHECK_OK);
+    Match(Token::kRBrack, CHECK_OK);
+    Match(Token::kLParen, CHECK_OK);
+    Expression *size = ParseExpression(CHECK_OK);
+    
+    loc.LinkEnd(Peek().source_location());
+    Match(Token::kRParen, CHECK_OK);
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) ChannelInitializer(position, value_type, size);
+}
+
 PairExpression *Parser::ParsePairExpression(bool *ok) {
     SourceLocation loc = Peek().source_location();
     Expression *key = ParseExpression(CHECK_OK);
@@ -1374,7 +1390,6 @@ LambdaLiteral *Parser::ParseLambdaLiteral(bool *ok) {
 
     SourceLocation end;
     FunctionPrototype *proto = ParseFunctionPrototype(true, &end, CHECK_OK);
-
     Match(Token::kLBrace, CHECK_OK);
     base::ArenaVector<Statement *> stmts(arena_);
     loc.LinkEnd(Peek().source_location());

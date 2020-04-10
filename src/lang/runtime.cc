@@ -392,12 +392,14 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
             return; // No waiter, Ignore
         }
 
+        //req->co->Wakeup();
         while (!req->co->AcquireState(Coroutine::kWaitting, Coroutine::kRunnable)) {
             std::this_thread::yield();
         }
         Machine *owner = req->co->owner();
         owner->TakeWaittingCoroutine(req->co);
         owner->PostRunnable(req->co);
+        //STATE->scheduler()->PostRunnableBalanced(req->co, true);
     }
 }
 

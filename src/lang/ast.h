@@ -56,7 +56,8 @@ namespace lang {
     V(CallExpression) \
     V(PairExpression) \
     V(ArrayInitializer) \
-    V(MapInitializer)
+    V(MapInitializer) \
+    V(ChannelInitializer)
 
 #define DEFINE_DECLARE(name) class name;
 DECLARE_ALL_AST(DEFINE_DECLARE)
@@ -1263,6 +1264,23 @@ private:
     TypeSign *key_type_;
     TypeSign *value_type_;
 }; // class MapInitializer
+
+
+class ChannelInitializer : public Expression {
+public:
+    ChannelInitializer(int position, TypeSign *value_type, Expression *buffer_size)
+        : Expression(position, kChannelInitializer)
+        , buffer_size_(buffer_size)
+        , value_type_(value_type) {}
+
+    DEF_PTR_PROP_RW(Expression, buffer_size);
+    DEF_PTR_PROP_RW(TypeSign, value_type);
+    
+    DEFINE_AST_NODE(ChannelInitializer);
+private:
+    Expression *buffer_size_;
+    TypeSign *value_type_;
+}; // class ChannelInitializer
 
 
 class IfExpression : public Expression {

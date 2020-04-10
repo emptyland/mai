@@ -31,6 +31,7 @@ class ForLoop;
 class FunctionPrototype;
 class ArrayInitializer;
 class MapInitializer;
+class ChannelInitializer;
 class PairExpression;
 class LambdaLiteral;
 struct IncompleteClassDefinition;
@@ -70,6 +71,7 @@ public:
     StringTemplateExpression *ParseStringTemplate(bool *ok);
     ArrayInitializer *ParseArrayInitializer(bool *ok);
     MapInitializer *ParseMapInitializer(bool *ok);
+    ChannelInitializer *ParseChannelInitializer(bool *ok);
     PairExpression *ParsePairExpression(bool *ok);
     LambdaLiteral *ParseLambdaLiteral(bool *ok);
     IfExpression *ParseIfExpression(bool *ok);

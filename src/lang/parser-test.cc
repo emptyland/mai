@@ -671,6 +671,22 @@ TEST_F(ParserTest, TryCatchFinallyBlock) {
     ASSERT_EQ(1, ast->finally_statements_size());
 }
 
+// val ch = channel[int](1)
+// val n = <-ch
+// ch <- 1
+TEST_F(ParserTest, ChannelInitializer) {
+    MockFile file("channel[int](0)");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseChannelInitializer(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+
+    ASSERT_EQ(Token::kInt, ast->value_type()->id());
+    ASSERT_EQ(0, ast->buffer_size()->AsIntLiteral()->value());
+}
+
 } // namespace lang
 
 } // namespace mai

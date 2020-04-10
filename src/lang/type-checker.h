@@ -82,6 +82,7 @@ private:
     Result VisitAssignmentStatement(AssignmentStatement *) override;
     Result VisitStringTemplateExpression(StringTemplateExpression *) override;
     Result VisitVariableDeclaration(VariableDeclaration *) override;
+    Result VisitChannelInitializer(ChannelInitializer *) override;
     Result VisitIdentifier(Identifier *) override;
     Result VisitDotExpression(DotExpression *) override;
     Result VisitFunctionDefinition(FunctionDefinition *) override;

@@ -249,7 +249,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ movq(Argv_0, CO);
     __ movq(Argv_1, rax);
     // Call co->Suspend(acc, xacc)
-    __ SwitchSystemStackCall(arch::MethodAddress(&Coroutine::Suspend), switch_call);
+    __ SwitchSystemStackCall(arch::MethodAddress(&Coroutine::DidSuspend), switch_call);
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kInterrupted);
     __ jmp(&done, true/*is_far*/);
 

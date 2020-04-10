@@ -108,6 +108,7 @@ using ASTString = base::ArenaString;
     V(In, "in", none) \
     V(Run, "run", none) \
     V(RunS, "⟲", none) \
+    V(Spwan, "spwan", none) \
     V(Import, "import", none) \
     V(Package, "package", none) \
     V(Public, "public", none) \

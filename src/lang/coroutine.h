@@ -148,6 +148,8 @@ public:
         set_waitting(rq);
         return yield_++;
     }
+    
+    void Wakeup();
 
     void CopyArgv(void *data, size_t n) {
         DCHECK_EQ(reentrant_, 0);
@@ -157,7 +159,8 @@ public:
     }
     
     void Uncaught(Throwable *expection);
-    void Suspend(intptr_t acc, double facc);
+
+    void DidSuspend(intptr_t acc, double facc);
 
     void InvalidateHeapGuards(Address guard0, Address guard1) {
         heap_guard0_ = guard0;

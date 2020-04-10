@@ -113,6 +113,7 @@ private:
     Result VisitBinaryExpression(BinaryExpression *) override;
     Result VisitIfExpression(IfExpression *) override;
     Result VisitStatementBlock(StatementBlock *) override;
+    Result VisitChannelInitializer(ChannelInitializer *) override;
     Result VisitIdentifier(Identifier *) override;
     Result VisitBoolLiteral(BoolLiteral *) override;
     Result VisitI8Literal(I8Literal *) override;

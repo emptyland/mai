@@ -1,54 +1,28 @@
 +------------------------------------------------------------------------------
 | main.foo(int):int
 +------------------------------------------------------------------------------
-stack-size: 128
-stack-bitmap: 00000001
+stack-size: 80
+stack-bitmap: 00000000
 const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0
 exception-table-size: 0
-souce-line-size: 41
+souce-line-size: 15
 souce-file-name: tests/lang/019-while-loop/main/main.mai
-bytecode-size: 41
+bytecode-size: 15
 bytecode: 
-    000 CheckStack; (12)
-    001 LdaConstPtr [KP+32]; (13)
-    002 StarPtr [BP-72]; (13)
-    003 Move32 [BP-132], [BP+28]; (13)
-    004 LdaGlobalPtr [GS+296]; (13)
-    005 CallNativeFunction #0, #4; (13)
-    006 StarPtr [BP-80]; (13)
-    007 MovePtr [BP-136], [BP-72]; (13)
-    008 MovePtr [BP-144], [BP-80]; (13)
-    009 Contact #80, #16; (13)
-    010 StarPtr [BP-88]; (13)
-    011 MovePtr [BP-136], [BP-88]; (13)
-    012 LdaGlobalPtr [GS+112]; (13)
-    013 CallNativeFunction #0, #8; (13)
-    014 LdaSmi32 #0; (14)
-    015 Star32 [BP-100]; (14)
-    016 LdaSmi32 #0; (15)
-    017 Star32 [BP-108]; (15)
-    018 LdaSmi32 #100; (15)
-    019 Star32 [BP-112]; (15)
-    020 TestGreaterThanOrEqual32 [BP-108], [BP-112]; (15)
-    021 ForwardJumpIfTrue 0, #17; (15)
-    022 Move32 [BP-104], [BP-108]; (15)
-    023 LdaConstPtr [KP+40]; (16)
-    024 StarPtr [BP-72]; (16)
-    025 Move32 [BP-132], [BP-104]; (16)
-    026 LdaGlobalPtr [GS+296]; (16)
-    027 CallNativeFunction #0, #4; (16)
-    028 StarPtr [BP-80]; (16)
-    029 MovePtr [BP-136], [BP-72]; (16)
-    030 MovePtr [BP-144], [BP-80]; (16)
-    031 Contact #80, #16; (16)
-    032 StarPtr [BP-120]; (16)
-    033 MovePtr [BP-136], [BP-120]; (16)
-    034 LdaGlobalPtr [GS+112]; (16)
-    035 CallNativeFunction #0, #8; (16)
-    036 Increment32 [BP-108], #1; (15)
-    037 BackwardJump 0, #17; (15)
-    038 Ldar32 [BP-100]; (19)
-    039 Return; (19)
-    040 Return; (12)
+    000 CheckStack; (29)
+    001 LdaSmi32 #0; (30)
+    002 Star32 [BP-68]; (30)
+    003 LdaSmi32 #0; (31)
+    004 Star32 [BP-76]; (31)
+    005 TestGreaterThanOrEqual32 [BP-76], [BP+28]; (31)
+    006 ForwardJumpIfTrue 0, #6; (31)
+    007 Move32 [BP-72], [BP-76]; (31)
+    008 Add32 [BP-68], [BP-72]; (32)
+    009 Star32 [BP-68]; (32)
+    010 Increment32 [BP-76], #1; (31)
+    011 BackwardJump 0, #6; (31)
+    012 Ldar32 [BP-68]; (34)
+    013 Return; (34)
+    014 Return; (29)

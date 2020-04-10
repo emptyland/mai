@@ -418,6 +418,10 @@ namespace {
         return ResultWithError(); \
     }(void)0
 
+#define VISIT_CHECK_JUST(node) if (auto rv = (node)->Accept(this); rv.kind == Value::kError) { \
+        return ResultWithError(); \
+    }(void)0
+
 inline ASTVisitor::Result ResultWith(BValue::Linkage linkage, int type, int index) {
     ASTVisitor::Result rv;
     rv.kind = linkage;
@@ -1114,11 +1118,9 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
     
     auto proto = ast->prototype();
     std::vector<const Class *> params;
+    Result rv;
     for (auto param : proto->parameters()) {
-        auto rv = param.type->Accept(this);
-        if (rv.kind == Value::kError) {
-            return ResultWithError();
-        }
+        VISIT_CHECK(param.type);
         params.push_back(metadata_space_->type(rv.bundle.index));
     }
     int arg_size = GenerateArguments(ast->operands(), params, dot->primary(), self, proto->vargs());
@@ -1148,16 +1150,12 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
     receiver->arguments_size = arg_size;
     receiver->ast = ast;
 
-    if (auto rv = proto->return_type()->Accept(this); rv.kind == Value::kError) {
-        return ResultWithError();
-    } else {
-        return ResultWith(Value::kACC, rv.bundle.type, 0);
-    }
+    VISIT_CHECK(proto->return_type());
+    return ResultWith(Value::kACC, rv.bundle.type, 0);
 }
 
 Function *BytecodeGenerator::GenerateLambdaLiteral(const std::string &name, bool is_method,
                                                    LambdaLiteral *ast) {
-    //current_fun_->Incoming(ast)->Add<kCheckStack>();
     EMIT(ast, Add<kCheckStack>());
 
     int param_size = 0;
@@ -1366,10 +1364,8 @@ bool BytecodeGenerator::ProcessStructureInitializer(const std::vector<FieldDesc>
 
 ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast,
                                                              CallingReceiver *receiver) {
-    auto rv = ast->callee()->Accept(this);
-    if (rv.kind == Value::kError) {
-        return ResultWithError();
-    }
+    Result rv;
+    VISIT_CHECK(ast->callee());
     if (rv.kind == Value::kMetadata) {
         const Class *clazz = metadata_space_->type(rv.bundle.index);
         return GenerateNewObject(clazz, ast, receiver);
@@ -1416,9 +1412,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
     receiver->kind = native ? CallingReceiver::kNative : CallingReceiver::kBytecode;
     receiver->arguments_size = arg_size;
 
-    if (rv = proto->return_type()->Accept(this); rv.kind == Value::kError) {
-        return ResultWithError();
-    }
+    VISIT_CHECK(proto->return_type());
     return ResultWith(Value::kACC, rv.bundle.type, 0);
 }
 
@@ -1443,10 +1437,8 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
         return ResultWithVoid();
     }
 
-    Result rv = DCHECK_NOTNULL(ast->type())->Accept(this);
-    if (rv.kind == Value::kError) {
-        return ResultWithError();
-    }
+    Result rv;
+    VISIT_CHECK(DCHECK_NOTNULL(ast->type()));
     DCHECK_EQ(rv.kind, Value::kMetadata);
     const Class *clazz = metadata_space_->type(rv.bundle.index);
     
@@ -1460,20 +1452,16 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
     current_->Register(ast->identifier()->ToString(), local);
 
     StackSpaceScope scope(current_fun_->stack());
-    if (rv = ast->initializer()->Accept(this); rv.kind == Value::kError) {
-        return ResultWithError();
-    }
+    VISIT_CHECK(ast->initializer());
     LdaIfNeeded(rv, ast->initializer());
     StaStack(clazz, local.index, ast);
     return ResultWithVoid();
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitDotExpression(DotExpression *ast) /*override*/ {
+    Result rv;
     if (!ast->primary()->IsIdentifier()) {
-        auto rv = ast->primary()->Accept(this);
-        if (rv.kind == Value::kError) {
-            return ResultWithError();
-        }
+        VISIT_CHECK(ast->primary());
         const Class *clazz = metadata_space_->type(rv.bundle.type);
         return GenerateLoadProperty(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
                                      ast);
@@ -1515,13 +1503,9 @@ ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTempla
             if (literal->value()->empty()) {
                 continue;
             }
-            if (rv = literal->Accept(this); rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+            VISIT_CHECK(literal);
         } else {
-            if (rv = part->Accept(this); rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+            VISIT_CHECK(part);
         }
 
         const Class *clazz = metadata_space_->type(rv.bundle.type);
@@ -1563,10 +1547,8 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
         case Operator::kBitwiseXor:
         case Operator::kBitwiseShl:
         case Operator::kBitwiseShr: {
-            auto rv = ast->lhs()->Accept(this);
-            if (rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+            Result rv;
+            VISIT_CHECK(ast->lhs());
             const Class *type = metadata_space_->type(rv.bundle.type);
             int lhs = rv.bundle.index;
             bool lhs_tmp = false;
@@ -1580,10 +1562,8 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
                 // TODO: array or map +
                 TODO();
             }
-            
-            if (rv = ast->rhs()->Accept(this); rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+
+            VISIT_CHECK(ast->rhs());
             int rhs = rv.bundle.index;
             bool rhs_tmp = false;
             if (rv.kind != Value::kStack) {
@@ -1608,10 +1588,8 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
         case Operator::kLessEqual:
         case Operator::kGreater:
         case Operator::kGreaterEqual: {
-            auto rv = ast->lhs()->Accept(this);
-            if (rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+            Result rv;
+            VISIT_CHECK(ast->lhs());
             const Class *clazz = metadata_space_->type(rv.bundle.type);
             int lhs = rv.bundle.index;
             bool lhs_tmp = false;
@@ -1621,9 +1599,7 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
                 MoveToStackIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
                                     lhs, ast->lhs());
             }
-            if (rv = ast->rhs()->Accept(this); rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+            VISIT_CHECK(ast->rhs());
             int rhs = rv.bundle.index;
             bool rhs_tmp = false;
             if (rv.kind != Value::kStack) {
@@ -1643,10 +1619,8 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
         
         case Operator::kOr:
         case Operator::kAnd: {
-            auto rv = ast->lhs()->Accept(this);
-            if (rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+            Result rv;
+            VISIT_CHECK(ast->lhs());
             DCHECK_EQ(kType_bool, rv.bundle.type);
             LdaIfNeeded(rv, ast->lhs());
             BytecodeLabel done;
@@ -1655,10 +1629,8 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
             } else {
                 EMIT(ast, JumpIfFalse(&done, 0/*slot*/));
             }
-            
-            if (rv = ast->rhs()->Accept(this); rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+
+            VISIT_CHECK(ast->rhs());
             DCHECK_EQ(kType_bool, rv.bundle.type);
             LdaIfNeeded(rv, ast->lhs());
 
@@ -1675,27 +1647,19 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
 
 ASTVisitor::Result BytecodeGenerator::VisitIfExpression(IfExpression *ast) /*override*/ {
     std::unique_ptr<BlockScope> block_scope;
+    Result rv;
     if (ast->extra_statement()) {
         block_scope.reset(new BlockScope(Scope::kPlainBlockScope, &current_));
-        
-        auto rv = ast->extra_statement()->Accept(this);
-        if (rv.kind == Value::kError) {
-            return ResultWithError();
-        }
+        VISIT_CHECK(ast->extra_statement());
     }
 
-    Result rv;
-    if (rv = ast->condition()->Accept(this); rv.kind == Value::kError) {
-        return ResultWithError();
-    }
+    VISIT_CHECK(ast->condition());
     DCHECK_EQ(kType_bool, rv.bundle.type);
     LdaIfNeeded(rv, ast->condition());
     BytecodeLabel br_false;
     EMIT(ast->condition(), JumpIfFalse(&br_false, 0/*slot*/));
-    
-    if (rv = ast->branch_true()->Accept(this); rv.kind == Value::kError) {
-        return ResultWithError();
-    }
+
+    VISIT_CHECK(ast->branch_true());
     if (ast->branch_true()->IsExpression()) {
         LdaIfNeeded(rv, ast->branch_true());
     }
@@ -1705,9 +1669,7 @@ ASTVisitor::Result BytecodeGenerator::VisitIfExpression(IfExpression *ast) /*ove
     
     current_fun_->builder()->Bind(&br_false);
     if (ast->branch_false()) {
-        if (rv = ast->branch_false()->Accept(this); rv.kind == Value::kError) {
-            return ResultWithError();
-        }
+        VISIT_CHECK(ast->branch_false());
         if (ast->branch_false()->IsExpression()) {
             LdaIfNeeded(rv, ast->branch_true());
         }
@@ -1718,12 +1680,16 @@ ASTVisitor::Result BytecodeGenerator::VisitIfExpression(IfExpression *ast) /*ove
 
 ASTVisitor::Result BytecodeGenerator::VisitStatementBlock(StatementBlock *ast) /*override*/ {
     BlockScope block_scope(Scope::kPlainBlockScope, &current_);
+    Result rv;
     for (auto stmt : ast->statements()) {
-        if (auto rv = stmt->Accept(this); rv.kind == Value::kError) {
-            return ResultWithError();
-        }
+        VISIT_CHECK(stmt);
     }
     
+    return ResultWithVoid();
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitChannelInitializer(ChannelInitializer *ast) /*override*/ {
+    TODO();
     return ResultWithVoid();
 }
 
@@ -1872,10 +1838,8 @@ ASTVisitor::Result BytecodeGenerator::VisitBreakableStatement(BreakableStatement
     switch (ast->control()) {
         case BreakableStatement::THROW:
         case BreakableStatement::RETURN: {
-            auto rv = ast->value()->Accept(this);
-            if (rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+            Result rv;
+            VISIT_CHECK(ast->value());
             LdaIfNeeded(rv, ast->value());
             if (ast->IsReturn()) {
                 EMIT(ast, Add<kReturn>());
@@ -1905,13 +1869,12 @@ ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyB
 /*override*/ {
     ASTNode *dummy = ast;
     intptr_t start_pc = current_fun_->builder()->pc();
+    Result rv;
     BytecodeLabel finally;
     if (ast->try_statements_size() > 0) {
         BlockScope block_scope(Scope::kPlainBlockScope, &current_);
         for (auto stmt : ast->try_statements()) {
-            if (auto rv = stmt->Accept(this); rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+            VISIT_CHECK(stmt);
             dummy = stmt;
         }
     }
@@ -1921,11 +1884,8 @@ ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyB
     for (auto block : ast->catch_blocks()) {
         BlockScope block_scope(Scope::kPlainBlockScope, &current_);
         intptr_t handler_pc = current_fun_->builder()->pc();
-        
-        auto rv = block->expected_declaration()->type()->Accept(this);
-        if (rv.kind == Value::kError) {
-            return ResultWithError();
-        }
+
+        VISIT_CHECK(block->expected_declaration()->type());
         const Class *clazz = metadata_space_->type(rv.bundle.type);
         DCHECK(clazz->IsSameOrBaseOf(class_exception_->clazz()));
         Value value {
@@ -1939,9 +1899,7 @@ ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyB
         
         dummy = block->expected_declaration();
         for (auto stmt : block->statements()) {
-            if (auto rv = stmt->Accept(this); rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+            VISIT_CHECK(stmt);
             dummy = stmt;
         }
         EMIT(dummy, Jump(&finally, 0/*slot*/));
@@ -1954,9 +1912,7 @@ ASTVisitor::Result BytecodeGenerator::VisitTryCatchFinallyBlock(TryCatchFinallyB
     if (ast->finally_statements_size() > 0) {
         BlockScope block_scope(Scope::kPlainBlockScope, &current_);
         for (auto stmt : ast->finally_statements()) {
-            if (auto rv = stmt->Accept(this); rv.kind == Value::kError) {
-                return ResultWithError();
-            }
+            VISIT_CHECK(stmt);
         }
     }
     return ResultWithVoid();
@@ -1976,9 +1932,7 @@ ASTVisitor::Result BytecodeGenerator::VisitAssignmentStatement(AssignmentStateme
             DotExpression *dot = ast->lval()->AsDotExpression();
             if (!dot->primary()->IsIdentifier()) {
                 Result rv;
-                if (rv = dot->primary()->Accept(this); rv.kind == Value::kError) {
-                    return ResultWithError();
-                }
+                VISIT_CHECK(dot->primary());
                 Value self {
                     static_cast<Value::Linkage>(rv.kind),
                     metadata_space_->type(rv.bundle.type),
@@ -2039,17 +1993,13 @@ ASTVisitor::Result BytecodeGenerator::VisitWhileLoop(WhileLoop *ast) /*override*
     // Retry:
     current_fun_->builder()->Bind(block_scope.mutable_retry_label());
     Result rv;
-    if (rv = ast->condition()->Accept(this); rv.kind == Value::kError) {
-        return ResultWithError();
-    }
+    VISIT_CHECK(ast->condition());
     DCHECK_EQ(kType_bool, rv.bundle.type);
     LdaIfNeeded(rv, ast->condition());
     EMIT(ast->condition(), JumpIfFalse(block_scope.mutable_exit_label(), 0/*slot*/));
 
     for (auto stmt : ast->statements()) {
-        if (rv = stmt->Accept(this); rv.kind == Value::kError) {
-            return ResultWithError();
-        }
+        VISIT_CHECK(stmt);
     }
 
     EMIT(ast, Jump(block_scope.mutable_retry_label(), 0/*slot*/)); // TODO: Profiling
@@ -2155,12 +2105,10 @@ ASTVisitor::Result BytecodeGenerator::GenerateCalling(CallExpression *ast,
         return GenerateRegularCalling(ast, receiver);
     }
 
+    Result rv;
     DotExpression *dot = DCHECK_NOTNULL(ast->callee()->AsDotExpression());
     if (!dot->primary()->IsIdentifier()) {
-        auto rv = dot->primary()->Accept(this);
-        if (rv.kind == Value::kError) {
-            return ResultWithError();
-        }
+        VISIT_CHECK(dot->primary());
         const Class *clazz = metadata_space_->type(rv.bundle.type);
         Value::Linkage linkage = static_cast<Value::Linkage>(rv.kind);
         return GenerateMethodCalling({linkage, clazz, rv.bundle.index}, ast, receiver);
@@ -2272,7 +2220,6 @@ ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, Call
 
     kidx = current_fun_->constants()->FindOrInsertClosure(clazz->init()->fn());
     LdaConst(metadata_space_->builtin_type(kType_closure), kidx, ast);
-    //current_fun_->EmitDirectlyCallFunction(ast, false/*native*/, 0/*slot*/, argument_size);
     receiver->ast = ast;
     receiver->kind = CallingReceiver::kCtor;
     receiver->attributes = 0;
@@ -2339,11 +2286,8 @@ BytecodeGenerator::GeneratePropertyAssignment(const ASTString *name, Value self,
                                               Operator op, Expression *rhs, DotExpression *ast) {
     Value rval{Value::kError};
     if (!rhs->IsPairExpression()) {
-        auto rv = rhs->Accept(this);
-        if (rv.kind == Value::kError) {
-            return ResultWithError();
-        }
-        
+        Result rv;
+        VISIT_CHECK(rhs);
         rval.linkage = static_cast<Value::Linkage>(rv.kind);
         rval.type = metadata_space_->type(rv.bundle.type);
         rval.index = rv.bundle.index;
@@ -2397,9 +2341,7 @@ BytecodeGenerator::GenerateVariableAssignment(const ASTString *name, Value lval,
     Value rval{Value::kError};
     if (!rhs->IsPairExpression()) {
         Result rv;
-        if (rv = rhs->Accept(this); rv.kind == Value::kError) {
-            return ResultWithError();
-        }
+        VISIT_CHECK(rhs);
 
         rval.linkage = static_cast<Value::Linkage>(rv.kind);
         rval.type = metadata_space_->type(rv.bundle.type);
