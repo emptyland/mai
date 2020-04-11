@@ -115,8 +115,6 @@ void Channel::AddSendQueue(const void *data, size_t n, Coroutine *co) {
     QUEUE_INSERT_TAIL(send_queue(), req);
   
     co->Yield(req);
-//    co->set_waitting(req);
-//    co->RequestYield();
 }
 
 void Channel::AddRecvQueue(void *data, size_t n, Coroutine *co) {
@@ -126,8 +124,6 @@ void Channel::AddRecvQueue(void *data, size_t n, Coroutine *co) {
     QUEUE_INSERT_TAIL(recv_queue(), req);
   
     co->Yield(req);
-//    co->set_waitting(req);
-//    co->RequestYield();
 }
 
 void Channel::WakeupRecvQueue(const void *data, size_t n) {
@@ -139,8 +135,11 @@ void Channel::WakeupRecvQueue(const void *data, size_t n) {
         req->co->SetACC0(data, n);
     }
     Machine *owner = req->co->owner();
+    while (!req->co->AcquireState(Coroutine::kWaitting, Coroutine::kRunnable)) {
+        std::this_thread::yield();
+    }
     owner->TakeWaittingCoroutine(req->co);
-    req->co->SwitchState(Coroutine::kWaitting, Coroutine::kRunnable);
+    //req->co->SwitchState(Coroutine::kWaitting, Coroutine::kRunnable);
     owner->PostRunnable(req->co);
     delete req;
 }
@@ -151,8 +150,11 @@ void Channel::WakeupSendQueue(void *data, size_t n) {
     ::memcpy(data, &req->data, n);
 
     Machine *owner = req->co->owner();
+    while (!req->co->AcquireState(Coroutine::kWaitting, Coroutine::kRunnable)) {
+        std::this_thread::yield();
+    }
     owner->TakeWaittingCoroutine(req->co);
-    req->co->SwitchState(Coroutine::kWaitting, Coroutine::kRunnable);
+    //req->co->SwitchState(Coroutine::kWaitting, Coroutine::kRunnable);
     owner->PostRunnable(req->co);
     delete req;
 }

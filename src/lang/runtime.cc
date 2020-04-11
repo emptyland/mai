@@ -123,7 +123,7 @@ static inline AbstractValue *ValueOf(intptr_t input) {
     return Machine::This()->NewChannel(data_typeid, capacity, 0/*flags*/);
 }
 
-/*static*/ void Runtime::ChannelClose(Channel *chan) {
+/*static*/ void Runtime::CloseChannel(Channel *chan) {
     if (!chan) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
         return;

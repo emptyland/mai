@@ -10,6 +10,7 @@
 #include "lang/syntax.h"
 #include "lang/runtime.h"
 #include "lang/value-inl.h"
+#include "lang/channel.h"
 #include "asm/utils.h"
 #include "base/arenas.h"
 #include "glog/logging.h"

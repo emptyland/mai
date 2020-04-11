@@ -813,6 +813,7 @@ ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *ast) /*ove
                                         " type", operand->ToString().c_str());
                 return ResultWithType(kError);
             }
+            ast->set_hint(operand->parameter(0));
             return ResultWithType(operand->parameter(0));
         case Operator::kIncrement:
         case Operator::kIncrementPost:

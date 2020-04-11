@@ -95,6 +95,16 @@ private:
         int arguments_size;
     }; // struct CallingReceiver
     
+    struct OperandContext {
+        int lhs;
+        bool lhs_tmp;
+        int rhs;
+        bool rhs_tmp;
+        bool rhs_pair;
+        const Class *lhs_type;
+        const Class *rhs_type;
+    }; // struct OperandContext
+    
     bool PrepareUnit(const std::string &pkg_name, FileUnit *unit);
     bool GenerateUnit(const std::string &pkg_name, FileUnit *unit);
 
@@ -176,6 +186,12 @@ private:
                            Value::Linkage lhs_linkage, int rhs_index, Value::Linkage rhs_linkage,
                            ASTNode *ast);
     void GenerateOperation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
+    void GenerateSend(const Class *clazz, int lhs, int rhs, ASTNode *ast);
+    
+    bool GenerateUnaryOperands(OperandContext *receiver, UnaryExpression *ast);
+    bool GenerateBinaryOperands(OperandContext *receiver, BinaryExpression *ast);
+    void CleanupOperands(OperandContext *receiver);
+    
     void ToStringIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
     void InboxIfNeeded(const Class *clazz, int index, Value::Linkage linkage, const Class *lval,
                        ASTNode *ast);

@@ -45,6 +45,18 @@ class Function;
     V(U64ToString, "lang.U64::toString") \
     V(F32ToString, "lang.F32::toString") \
     V(F64ToString, "lang.F64::toString") \
+    V(NewChannel, "lang.newChannel") \
+    V(CloseChannel, "lang.closeChannel") \
+    V(ChannelRecv32, "lang.channelRecv32") \
+    V(ChannelRecv64, "lang.channelRecv64") \
+    V(ChannelRecvPtr, "lang.channelRecvPtr") \
+    V(ChannelRecvF32, "lang.channelRecvF32") \
+    V(ChannelRecvF64, "lang.channelRecvF64") \
+    V(ChannelSend32, "lang.channelSend32") \
+    V(ChannelSend64, "lang.channelSend64") \
+    V(ChannelSendPtr, "lang.channelSendPtr") \
+    V(ChannelSendF32, "lang.channelSendF32") \
+    V(ChannelSendF64, "lang.channelSendF64") \
     V(Println, "lang.println") \
     V(Assert, "lang.assert") \
     V(Abort, "lang.abort") \
@@ -114,8 +126,8 @@ struct Runtime {
     
     // Channel functions:
     static Channel *NewChannel(uint32_t data_typeid, uint32_t capacity);
-    static void ChannelClose(Channel *chan);
-    
+    static void CloseChannel(Channel *chan);
+
     static int32_t ChannelRecv32(Channel *chan);
     static int64_t ChannelRecv64(Channel *chan);
     static Any *ChannelRecvPtr(Channel *chan);

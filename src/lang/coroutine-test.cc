@@ -651,7 +651,7 @@ TEST_F(CoroutineTest, NewChannel) {
 
     Span32 span;
     span.ptr[0].any = *FunctionTemplate::New(&Runtime::NewChannel);
-    span.ptr[1].any = *FunctionTemplate::New(&Runtime::ChannelClose);
+    span.ptr[1].any = *FunctionTemplate::New(&Runtime::CloseChannel);
 
     Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x3}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);

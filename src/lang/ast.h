@@ -1059,14 +1059,13 @@ public:
 
     DEF_VAL_GETTER(Operator, op);
     DEF_PTR_PROP_RW(Expression, operand);
-    
-    //Operator GetOperator() const override { return op(); }
-    
+    DEF_PTR_PROP_RW(TypeSign, hint);
 
     DEFINE_AST_NODE(UnaryExpression);
 private:
     Operator op_;
     Expression *operand_;
+    TypeSign *hint_ = nullptr;
 }; // class UnaryExpression
 
 
