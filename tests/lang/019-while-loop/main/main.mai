@@ -9,9 +9,9 @@ fun main() {
     //println("result=${foo(1000000)}")
     assert(foo(1000000) == 1783293664, "fail")
 
-    val wg = WaitGroup(1000)
-    for (i in 0, 1000) {
-    	run foo1(wg, i, 1000)
+    val wg = WaitGroup(100)
+    for (i in 0, 100) {
+    	run foo1(wg, i, 100)
     }
     wg.wait()
 }

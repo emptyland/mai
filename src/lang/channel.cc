@@ -1,5 +1,6 @@
 #include "lang/channel.h"
 #include "lang/isolate-inl.h"
+#include "lang/scheduler.h"
 #include "lang/machine.h"
 #include "lang/coroutine.h"
 #include "asm/utils.h"
@@ -134,14 +135,8 @@ void Channel::WakeupRecvQueue(const void *data, size_t n) {
     } else {
         req->co->SetACC0(data, n);
     }
-    Machine *owner = req->co->owner();
-    while (!req->co->AcquireState(Coroutine::kWaitting, Coroutine::kRunnable)) {
-        std::this_thread::yield();
-    }
-    owner->TakeWaittingCoroutine(req->co);
-    //req->co->SwitchState(Coroutine::kWaitting, Coroutine::kRunnable);
-    owner->PostRunnable(req->co);
-    delete req;
+
+    Wakeup(req);
 }
 
 void Channel::WakeupSendQueue(void *data, size_t n) {
@@ -149,12 +144,23 @@ void Channel::WakeupSendQueue(void *data, size_t n) {
     QUEUE_REMOVE(req);
     ::memcpy(data, &req->data, n);
 
-    Machine *owner = req->co->owner();
+    Wakeup(req);
+}
+
+void Channel::Wakeup(Request *req) {
+    mutex_.unlock();
     while (!req->co->AcquireState(Coroutine::kWaitting, Coroutine::kRunnable)) {
+//        if (STATE->scheduler()->shutting_down()) {
+//            delete req;
+//            mutex_.lock();
+//            return;
+//        }
         std::this_thread::yield();
     }
+    mutex_.lock();
+
+    Machine *owner = req->co->owner();
     owner->TakeWaittingCoroutine(req->co);
-    //req->co->SwitchState(Coroutine::kWaitting, Coroutine::kRunnable);
     owner->PostRunnable(req->co);
     delete req;
 }

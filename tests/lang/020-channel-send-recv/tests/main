@@ -1,0 +1,53 @@
++------------------------------------------------------------------------------
+| main.main():void
++------------------------------------------------------------------------------
+stack-size: 112
+stack-bitmap: 00000001
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 40
+souce-file-name: tests/lang/020-channel-send-recv/main/main.mai
+bytecode-size: 40
+bytecode: 
+    000 CheckStack; (5)
+    001 LdaSmi32 #8; (6)
+    002 Star32 [BP-116]; (6)
+    003 LdaSmi32 #0; (6)
+    004 Star32 [BP-120]; (6)
+    005 LdaGlobalPtr [GS+304]; (6)
+    006 CallNativeFunction #0, #8; (6)
+    007 StarPtr [BP-72]; (6)
+    008 MovePtr [BP-120], [BP-72]; (7)
+    009 LdaGlobalPtr [GS+200]; (7)
+    010 RunCoroutine 0, #8; (7)
+    011 Yield 2; (7)
+    012 LdaSmi32 #0; (8)
+    013 Star32 [BP-88]; (8)
+    014 LdaSmi32 #1000; (8)
+    015 Star32 [BP-92]; (8)
+    016 TestGreaterThanOrEqual32 [BP-88], [BP-92]; (8)
+    017 ForwardJumpIfTrue 0, #16; (8)
+    018 Move32 [BP-84], [BP-88]; (8)
+    019 MovePtr [BP-120], [BP-72]; (10)
+    020 LdaGlobalPtr [GS+320]; (10)
+    021 CallNativeFunction #0, #8; (10)
+    022 Yield 2; (10)
+    023 Star32 [BP-96]; (10)
+    024 TestEqual32 [BP-84], [BP-96]; (11)
+    025 Star32 [BP-100]; (11)
+    026 Move32 [BP-116], [BP-100]; (11)
+    027 LdaConstPtr [KP+32]; (11)
+    028 StarPtr [BP-124]; (11)
+    029 LdaGlobalPtr [GS+120]; (11)
+    030 CallNativeFunction #0, #12; (11)
+    031 Increment32 [BP-88], #1; (8)
+    032 BackwardJump 0, #16; (8)
+    033 LdaGlobalPtr [GS+280]; (13)
+    034 StarPtr [BP-80]; (13)
+    035 MovePtr [BP-120], [BP-80]; (13)
+    036 LdaGlobalPtr [GS+88]; (13)
+    037 CallNativeFunction #0, #8; (13)
+    038 Yield 2; (13)
+    039 Return; (5)

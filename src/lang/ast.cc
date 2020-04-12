@@ -429,6 +429,8 @@ BuiltinType TypeSign::ToBuiltinType() const {
             return GetMapBuiltinType(true/*is_mutable*/, parameter(0));
         case Token::kFun:
             return kType_closure;
+        case Token::kChannel:
+            return kType_channel;
         case Token::kInterface:
         case Token::kObject:
         case Token::kRef:
@@ -455,6 +457,7 @@ size_t TypeSign::GetReferenceSize() const {
         case Token::kObject:
         case Token::kRef:
         case Token::kFun:
+        case Token::kChannel:
             return kPointerSize;
         case Token::kClass:
         default:

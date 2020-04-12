@@ -1,0 +1,34 @@
++------------------------------------------------------------------------------
+| main.entry(channel):void
++------------------------------------------------------------------------------
+stack-size: 96
+stack-bitmap: 00000002
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 21
+souce-file-name: tests/lang/020-channel-send-recv/main/main.mai
+bytecode-size: 21
+bytecode: 
+    000 CheckStack; (16)
+    001 LdaSmi32 #0; (17)
+    002 Star32 [BP-72]; (17)
+    003 LdaSmi32 #1000; (17)
+    004 Star32 [BP-76]; (17)
+    005 TestGreaterThanOrEqual32 [BP-72], [BP-76]; (17)
+    006 ForwardJumpIfTrue 0, #9; (17)
+    007 Move32 [BP-68], [BP-72]; (17)
+    008 MovePtr [BP-104], [BP+24]; (18)
+    009 Move32 [BP-108], [BP-68]; (18)
+    010 LdaGlobalPtr [GS+312]; (18)
+    011 CallNativeFunction #0, #12; (18)
+    012 Yield 2; (18)
+    013 Increment32 [BP-72], #1; (17)
+    014 BackwardJump 0, #9; (17)
+    015 LdaGlobalPtr [GS+280]; (20)
+    016 StarPtr [BP-88]; (20)
+    017 MovePtr [BP-104], [BP-88]; (20)
+    018 LdaGlobalPtr [GS+80]; (20)
+    019 CallNativeFunction #0, #8; (20)
+    020 Return; (16)

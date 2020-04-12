@@ -81,6 +81,7 @@ private:
     void AddRecvQueue(void *data, size_t n, Coroutine *co);
     void WakeupRecvQueue(const void *data, size_t n);
     void WakeupSendQueue(void *data, size_t n);
+    void Wakeup(Request *req);
     
     Address TakeBufferHead(void *data, size_t n) {
         Address addr = TakeBufferHead();

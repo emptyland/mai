@@ -411,6 +411,38 @@ TEST_F(BytecodeGeneratorTest, RunWhileLoop) {
     ASSERT_EQ(0, isolate_->GetUncaughtCount());
 }
 
+TEST_F(BytecodeGeneratorTest, ChannelSendRecv) {
+    Define("020-channel-send-recv");
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto err = Parse();
+    ASSERT_TRUE(err.ok()) << err.ToString();
+    ASSERT_TRUE(generator_->Prepare());
+    ASSERT_TRUE(generator_->Generate());
+    
+    auto value = generator_->FindValue("main.main");
+    Local<Closure> main(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(main.is_value_not_null());
+    ASSERT_TRUE(main->is_mai_function());
+    ASSERT_FALSE(main->is_cxx_function());
+    AssertFunction("main", main->function());
+    
+    value = generator_->FindValue("main.entry");
+    Local<Closure> entry(*isolate_->global_offset<Closure *>(value.index));
+    AssertFunction("entry", entry->function());
+}
+
+TEST_F(BytecodeGeneratorTest, RunChannelSendRecv) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/020-channel-send-recv");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+
+    ASSERT_EQ(0, isolate_->GetUncaughtCount());
+}
+
 } // namespace lang
 
 } // namespace mai

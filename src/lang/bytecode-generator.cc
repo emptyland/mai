@@ -1553,30 +1553,30 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
         case Operator::kRecv: {
             Result rv;
             VISIT_CHECK(ast->operand());
-            const Class *type = metadata_space_->type(rv.bundle.index);
+            const Class *type = metadata_space_->type(rv.bundle.type);
             MoveToArgumentIfNeeded(type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
                                    kPointerSize, ast);
             VISIT_CHECK(ast->hint());
             type = metadata_space_->type(rv.bundle.index);
             Value value;
             if (type->is_reference()) {
-                value = EnsureFindValue("lang.channelRecvPtr");
+                value = FindOrInsertExternalFunction("lang.channelRecvPtr");
             } else {
                 switch (type->reference_size()) {
                 case 1:
                 case 2:
                 case 4:
                     if (type->IsFloating()) {
-                        value = EnsureFindValue("lang.channelRecvF32");
+                        value = FindOrInsertExternalFunction("lang.channelRecvF32");
                     } else {
-                        value = EnsureFindValue("lang.channelRecv32");
+                        value = FindOrInsertExternalFunction("lang.channelRecv32");
                     }
                     break;
                 case 8:
                     if (type->IsFloating()) {
-                        value = EnsureFindValue("lang.channelRecvF64");
+                        value = FindOrInsertExternalFunction("lang.channelRecvF64");
                     } else {
-                        value = EnsureFindValue("lang.channelRecv64");
+                        value = FindOrInsertExternalFunction("lang.channelRecv64");
                     }
                     break;
                 default:
@@ -1586,8 +1586,9 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
             }
             DCHECK_EQ(Value::kGlobal, value.linkage);
             LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
-            current_fun_->EmitDirectlyCallFunction(ast, value.flags & kAttrNative, 0/*slot*/,
+            current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/,
                                                    kPointerSize/*arg_size*/);
+            EMIT(ast, Add<kYield>(YIELD_PROPOSE));
             return ResultWith(Value::kACC, type->id(), 0);
         } break;
             
@@ -1659,12 +1660,18 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
             
         // val ok = ch <- value
         case Operator::kSend: {
-            OperandContext receiver;
-            if (!GenerateBinaryOperands(&receiver, ast)) {
-                return ResultWithError();
-            }
-            GenerateSend(receiver.rhs_type, receiver.lhs, receiver.rhs, ast);
-            CleanupOperands(&receiver);
+            Result rv;
+            VISIT_CHECK(ast->lhs());
+            const Class *type = metadata_space_->type(rv.bundle.type);
+            int argument_offset = RoundUp(type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                                   argument_offset, ast);
+            VISIT_CHECK(ast->rhs());
+            type = metadata_space_->type(rv.bundle.type);
+            argument_offset += RoundUp(type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                                   argument_offset, ast);
+            GenerateSend(type, 0/*lhs*/, 0/*rhs*/, ast);
         } return ResultWith(Value::kACC, kType_bool, 0);
 
         default:
@@ -1721,28 +1728,28 @@ ASTVisitor::Result BytecodeGenerator::VisitChannelInitializer(ChannelInitializer
     Result rv;
     VISIT_CHECK(ast->value_type());
     
-    const Class *u32 = metadata_space_->builtin_type(kType_u32);
-    int argument_offset = RoundUp(u32->reference_size(), kStackSizeGranularity);
+    const Class *u32_type = metadata_space_->builtin_type(kType_u32);
+    int argument_offset = RoundUp(u32_type->reference_size(), kStackSizeGranularity);
     if (rv.bundle.index <= BytecodeNode::kMaxUSmi32) {
         EMIT(ast, Add<kLdaSmi32>(rv.bundle.index));
-        MoveToArgumentIfNeeded(u32, 0, Value::kACC, argument_offset, ast);
+        MoveToArgumentIfNeeded(u32_type, 0, Value::kACC, argument_offset, ast);
     } else {
         int kidx = current_fun_->constants()->FindOrInsertU32(rv.bundle.index);
-        MoveToArgumentIfNeeded(u32, kidx, Value::kConstant, argument_offset, ast);
+        MoveToArgumentIfNeeded(u32_type, kidx, Value::kConstant, argument_offset, ast);
     }
     
-    const Class *i32 = metadata_space_->builtin_type(kType_i32);
+    const Class *int_type = metadata_space_->builtin_type(kType_int);
     VISIT_CHECK(ast->buffer_size());
-    DCHECK_EQ(i32->id(), rv.bundle.type);
-    argument_offset += RoundUp(i32->reference_size(), kStackSizeGranularity);
-    MoveToArgumentIfNeeded(i32, rv.bundle.index, static_cast<Value::Linkage>(rv.bundle.type),
+    DCHECK_EQ(int_type->id(), rv.bundle.type);
+    argument_offset += RoundUp(int_type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(int_type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
                            argument_offset, ast->buffer_size());
-    
-    Value value = EnsureFindValue("lang.newChannel");
+
+    Value value = FindOrInsertExternalFunction("lang.newChannel");
     LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
-    current_fun_->EmitDirectlyCallFunction(ast, value.flags & kAttrNative, 0/*slot*/,
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/,
                                            argument_offset);
-    return ResultWithVoid();
+    return ResultWith(Value::kACC, kType_channel, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*override*/ {
@@ -2650,26 +2657,27 @@ void BytecodeGenerator::CleanupOperands(OperandContext *receiver) {
 }
 
 void BytecodeGenerator::GenerateSend(const Class *clazz, int lhs, int rhs, ASTNode *ast) {
-    int argument_offset = RoundUp(clazz->reference_size(), kStackSizeGranularity);
+    int argument_offset = RoundUp(kPointerSize, kStackSizeGranularity) +
+                          RoundUp(clazz->reference_size(), kStackSizeGranularity);
     Value value;
     if (clazz->is_reference()) {
-        value = EnsureFindValue("lang.channelSendPtr");
+        value = FindOrInsertExternalFunction("lang.channelSendPtr");
     } else {
         switch (clazz->reference_size()) {
             case 1:
             case 2:
             case 4:
                 if (clazz->IsFloating()) {
-                    value = EnsureFindValue("lang.channelSendF32");
+                    value = FindOrInsertExternalFunction("lang.channelSendF32");
                 } else {
-                    value = EnsureFindValue("lang.channelSend32");
+                    value = FindOrInsertExternalFunction("lang.channelSend32");
                 }
                 break;
             case 8:
                 if (clazz->IsFloating()) {
-                    value = EnsureFindValue("lang.channelSendF64");
+                    value = FindOrInsertExternalFunction("lang.channelSendF64");
                 } else {
-                    value = EnsureFindValue("lang.channelSend64");
+                    value = FindOrInsertExternalFunction("lang.channelSend64");
                 }
                 break;
             default:
@@ -2678,8 +2686,9 @@ void BytecodeGenerator::GenerateSend(const Class *clazz, int lhs, int rhs, ASTNo
         }
     }
     LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
-    current_fun_->EmitDirectlyCallFunction(ast, value.flags & kAttrNative, 0/*slot*/,
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/,
                                            argument_offset);
+    EMIT(ast, Add<kYield>(YIELD_PROPOSE));
 }
 
 void BytecodeGenerator::GenerateOperation(const Class *clazz, Operator op, int lhs, int rhs,

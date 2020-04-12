@@ -1,0 +1,22 @@
+package main
+
+val wg = WaitGroup(1)
+
+fun main() {
+	val ch = channel[int](0)
+	run entry(ch)
+	for (i in 0, 1000) {
+		//println("[$i]recv: ${<-ch}")
+		val v = <-ch
+		assert(i == v, "fail")
+	}
+	wg.wait()
+}
+
+fun entry(ch: channel[int]) {
+	for (i in 0, 1000) {
+		ch <- i
+	}
+	wg.done()
+	//println("done")
+}

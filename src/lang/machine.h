@@ -71,7 +71,8 @@ public:
     void IncrmentUncaughtCount() { uncaught_count_++; }
 
     int GetNumberOfRunnable() const {
-        std::lock_guard<std::mutex> lock(runnable_mutex_);
+        //std::lock_guard<std::mutex> lock(runnable_mutex_);
+        std::lock_guard<std::mutex> lock(mutex_);
         return n_runnable_;
     }
     
@@ -251,15 +252,15 @@ private:
     Coroutine *free_dummy_; // Local free coroutines(coroutine pool)
     Coroutine *runnable_dummy_; // [nested strong ref] Waiting for running coroutines
     Coroutine *waitting_dummy_; // [nested strong ref] Waiting for wakeup coroutines
-    mutable std::mutex runnable_mutex_; // Mutex for runnable_dummy_
-    mutable std::mutex waitting_mutex_; // Mutex for waitting_dummy_
+    //mutable std::mutex runnable_mutex_; // Mutex for runnable_dummy_
+    //mutable std::mutex waitting_mutex_; // Mutex for waitting_dummy_
     int n_free_ = 0; // Number of free coroutine
     int n_runnable_ = 0; // Number of runnable coroutines
     int n_waitting_ = 0; // Number of waitting coroutines
     Coroutine *running_ = nullptr; // [nested strong ref] Current running coroutine
     uint64_t user_time_ = 0; // User time for realy code execution
     std::condition_variable cond_var_; // Condition variable for scheduling
-    std::mutex mutex_; // Total mutex
+    mutable std::mutex mutex_; // Total mutex
     std::thread thread_; // Thread object
     RememberSet remember_set_; // [nested weak ref] Local remember set
     Tracing *tracing_ = nullptr; // Tracing for PGO
