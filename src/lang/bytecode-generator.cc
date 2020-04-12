@@ -1141,7 +1141,10 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
         receiver->attributes = kAttrYield;
     } else {
         std::string name = std::string(owns->name()) + "::" + dot->rhs()->ToString();
-        Value value = EnsureFindValue(name);
+        Value value = FindValue(name);
+        if (value.linkage == Value::kError) {
+            value = FindOrInsertExternalFunction(name);
+        }
         DCHECK_EQ(Value::kGlobal, value.linkage);
         LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
         receiver->kind = method->is_native()? CallingReceiver::kNative : CallingReceiver::kBytecode;
@@ -1464,7 +1467,7 @@ ASTVisitor::Result BytecodeGenerator::VisitDotExpression(DotExpression *ast) /*o
         VISIT_CHECK(ast->primary());
         const Class *clazz = metadata_space_->type(rv.bundle.type);
         return GenerateLoadProperty(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
-                                     ast);
+                                    ast);
     }
     
     Identifier *id = DCHECK_NOTNULL(ast->primary()->AsIdentifier());
@@ -1531,9 +1534,14 @@ ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTempla
 
 ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast) /*override*/ {
     switch (ast->op().kind) {
-        case Operator::kNot:
-            TODO();
-            break;
+        case Operator::kNot: {
+            OperandContext receiver;
+            if (!GenerateUnaryOperands(&receiver, ast)) {
+                return ResultWithError();
+            }
+            EMIT(ast, Add<kNot>(GetStackOffset(receiver.lhs)));
+            CleanupOperands(&receiver);
+        } return ResultWith(Value::kACC, kType_bool, 0);
             
         case Operator::kBitwiseNot:
             TODO();
@@ -3008,7 +3016,6 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
             LdaIfNeeded(clazz, index, linkage, ast);
             break;
         default: {
-            //auto method = metadata_space_->FindClassMethodOrNull(clazz, "toString");
             auto [owns, method] = metadata_space_->FindClassMethod(clazz, "toString");
             MoveToArgumentIfNeeded(clazz, index, linkage, kPointerSize/*arg_offset*/, ast);
             std::string name = std::string(owns->name()) + "::toString";

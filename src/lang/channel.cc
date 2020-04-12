@@ -130,7 +130,7 @@ void Channel::AddRecvQueue(void *data, size_t n, Coroutine *co) {
 void Channel::WakeupRecvQueue(const void *data, size_t n) {
     Request *req = recv_queue()->next_;
     QUEUE_REMOVE(req);
-    if (data_type_->id() == kType_f32 || data_type_->id() == kType_f64) {
+    if (data_type_->IsFloating()) {
         req->co->SetFACC0(data, n);
     } else {
         req->co->SetACC0(data, n);
@@ -150,18 +150,12 @@ void Channel::WakeupSendQueue(void *data, size_t n) {
 void Channel::Wakeup(Request *req) {
     mutex_.unlock();
     while (!req->co->AcquireState(Coroutine::kWaitting, Coroutine::kRunnable)) {
-//        if (STATE->scheduler()->shutting_down()) {
-//            delete req;
-//            mutex_.lock();
-//            return;
-//        }
         std::this_thread::yield();
     }
     mutex_.lock();
 
     Machine *owner = req->co->owner();
-    owner->TakeWaittingCoroutine(req->co);
-    owner->PostRunnable(req->co);
+    owner->Wakeup(req->co, true/*now*/);
     delete req;
 }
 

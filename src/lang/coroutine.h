@@ -118,6 +118,7 @@ public:
 
     void SetACC0(const void *data, size_t n) {
         DCHECK_LE(n, kPointerSize);
+        //printf("[%lld]ACC0: %d\n", coid(), *static_cast<const int *>(data));
         ::memcpy(&saved_state0_[kACCIndex], data, n);
     }
 
@@ -209,6 +210,7 @@ private:
     Address stack_guard0_; // guard0 of stack
     Address stack_guard1_; // guard1 of stack
     Stack *stack_; // [nested strong ref] Coroutine owned calling stack
+    CaughtNode caught_dummy_; // Dummy of caught node
 }; //class Coroutine
 
 } // namespace lang

@@ -240,7 +240,12 @@ namespace lang {
     V(Increment32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(Increment64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(IncrementPost32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
-    V(IncrementPost64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate)
+    V(IncrementPost64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
+    V(UMinus32,  BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(UMinus64,  BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(UMinusf32,  BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(UMinusf64,  BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(Not,  BytecodeType::A, BytecodeParam::kStackOffset)
 
 #define DECLARE_BITWISE_BYTECODE(V) \
     V(BitwiseOr32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
@@ -249,15 +254,16 @@ namespace lang {
     V(BitwiseAnd64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseXor32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseXor64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(BitwiseNot32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(BitwiseNot64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(BitwiseNot32, BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(BitwiseNot64, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(BitwiseShl32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseShl64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseShr32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseShr64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseLogicShr32, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
-    V(BitwiseLogicShr64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset)
+    V(BitwiseLogicShr64, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset)
 
 #define DECLARE_TEST_BYTECODE(V) \
     V(TestEqual32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \

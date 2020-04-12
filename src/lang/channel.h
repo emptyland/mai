@@ -153,6 +153,9 @@ inline void Channel::Iterate(ObjectVisitor *visitor) {
             visitor->VisitPointers(this, elems + end_, elems + capacity_);
         }
     }
+    if (hold_) {
+        visitor->VisitPointer(this, &hold_);
+    }
 }
 
 } // namespace lang

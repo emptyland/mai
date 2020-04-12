@@ -1765,9 +1765,21 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
         case Token::kMutableMap:
             TODO();
             return ResultWithType(kError);
-        case Token::kChannel:
+        case Token::kChannel: {
+            if (!::strncmp("hasClose", ast->rhs()->data(), ast->rhs()->size())) {
+                return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kBool));
+            } else if (!::strncmp("length", ast->rhs()->data(), ast->rhs()->size())) {
+                return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kU32));
+            } else if (!::strncmp("capacity", ast->rhs()->data(), ast->rhs()->size())) {
+                return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kU32));
+            } else if (!::strncmp("close", ast->rhs()->data(), ast->rhs()->size())) {
+                FunctionPrototype *proto = new (arena_) FunctionPrototype(arena_);
+                proto->set_return_type(kVoid);
+                return ResultWithType(new (arena_) TypeSign(ast->position(), proto));
+            }
             TODO();
             return ResultWithType(kError);
+        } break;
         case Token::kInterface:
         case Token::kRef:
         case Token::kObject:

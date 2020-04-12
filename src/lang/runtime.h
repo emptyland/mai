@@ -46,7 +46,7 @@ class Function;
     V(F32ToString, "lang.F32::toString") \
     V(F64ToString, "lang.F64::toString") \
     V(NewChannel, "lang.newChannel") \
-    V(CloseChannel, "lang.closeChannel") \
+    V(CloseChannel, "channel::close") \
     V(ChannelRecv32, "lang.channelRecv32") \
     V(ChannelRecv64, "lang.channelRecv64") \
     V(ChannelRecvPtr, "lang.channelRecvPtr") \

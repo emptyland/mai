@@ -64,7 +64,6 @@ void Machine::PostRunnable(Coroutine *co, bool now) {
     //set_state(kRunning);
     DCHECK_EQ(Coroutine::kRunnable, co->state());
     {
-        //std::lock_guard<std::mutex> lock(runnable_mutex_);
         std::lock_guard<std::mutex> lock(mutex_);
         if (now) {
             QUEUE_INSERT_HEAD(runnable_dummy_, co);
@@ -76,9 +75,7 @@ void Machine::PostRunnable(Coroutine *co, bool now) {
     co->set_owner(this);
 
     if (Machine::This() != this) {
-        //if (state() == kIdle) {
         cond_var_.notify_one();
-        //}
     }
 }
 
@@ -89,6 +86,7 @@ void Machine::PostWaitting(Coroutine *co) {
     QUEUE_INSERT_TAIL(waitting_dummy_, co);
     n_waitting_++;
     co->set_owner(this);
+    //printf("[%d] put waitting %d\n", id(), n_waitting_);
 }
 
 void Machine::TakeWaittingCoroutine(Coroutine *co) {
@@ -99,6 +97,27 @@ void Machine::TakeWaittingCoroutine(Coroutine *co) {
     QUEUE_REMOVE(co);
     n_waitting_--;
     co->set_owner(nullptr);
+    //printf("[%d] take waitting %d\n", id(), n_waitting_);
+}
+
+void Machine::Wakeup(Coroutine *co, bool now) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    DCHECK_EQ(this, co->owner());
+    DCHECK_EQ(Coroutine::kRunnable, co->state());
+    QUEUE_REMOVE(co);
+    n_waitting_--;
+    //co->SwitchState(Coroutine::kWaitting, Coroutine::kRunning);
+    if (now) {
+        QUEUE_INSERT_HEAD(runnable_dummy_, co);
+    } else {
+        QUEUE_INSERT_TAIL(runnable_dummy_, co);
+    }
+    n_runnable_++;
+    co->set_owner(this);
+
+    if (Machine::This() != this) {
+        cond_var_.notify_one();
+    }
 }
 
 void Machine::Start() {
@@ -156,7 +175,6 @@ void Machine::Entry() {
 
         Coroutine *co = nullptr;
         {
-            //std::lock_guard<std::mutex> lock(runnable_mutex_);
             std::lock_guard<std::mutex> lock(mutex_);
             if (id_ == 0 && n_runnable_ == 0 && n_waitting_ == 0) {
                 break;
@@ -168,6 +186,7 @@ void Machine::Entry() {
                 QUEUE_REMOVE(co);
                 n_runnable_--;
             }
+            span_shift = 1;
         }
         if (co) {
             CallStub<intptr_t(Coroutine *)> trampoline(STATE->metadata_space()->trampoline_code());
@@ -190,28 +209,29 @@ void Machine::Entry() {
             }
         }
     
+        set_state(kIdle);
         int span_count = 0;
         while (span_count++ < span_shift) {
             __asm__ ("pause");
         }
         span_shift <<= 1;
 
-        if (span_shift >= 10240) {
+        if (span_shift >= 4096) {
             span_shift = 1;
 
-            set_state(kIdle);
+            
             owner_->MarkIdle(this);
             
             std::unique_lock<std::mutex> lock(mutex_);
             
             // n_runnable_ != 0 && n_waitting_ != 0
-            cond_var_.wait(lock, [this]() { return id_ == 0 || n_runnable_ == 0 || n_waitting_ == 0;});
-            //cond_var_.wait(lock);
+            //cond_var_.wait(lock, [this]() { return n_runnable_ == 0 || n_waitting_ == 0;});
+            cond_var_.wait(lock);
             //printf("weakup2...\n");
 
-            set_state(kRunning);
             owner_->ClearIdle(this);
         }
+        set_state(kRunning);
     }
 
     set_state(kDead);

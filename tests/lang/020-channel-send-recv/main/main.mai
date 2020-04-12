@@ -6,17 +6,23 @@ fun main() {
 	val ch = channel[int](0)
 	run entry(ch)
 	for (i in 0, 1000) {
-		//println("[$i]recv: ${<-ch}")
 		val v = <-ch
-		assert(i == v, "fail")
+		assert(i == v, "fail $i vs $v")
+		//assert(!ch.hasClose, "hasClose")
+		// if (i != v) {
+		// 	println("recv: $i $v ${ch.hasClose}")
+		// }
 	}
 	wg.wait()
+	ch.close()
+	println("${ch.hasClose}, ${ch.length}, ${ch.capacity}")
 }
 
 fun entry(ch: channel[int]) {
 	for (i in 0, 1000) {
 		ch <- i
 	}
+	//ch.close()
 	wg.done()
 	//println("done")
 }

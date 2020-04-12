@@ -95,6 +95,8 @@ public:
     
     // Make machine is stop and waiting for resume
     void Park();
+    
+    void Wakeup(Coroutine *co, bool now);
 
     // Get current thread machine object
     static Machine *This() { return DCHECK_NOTNULL(TLS_STORAGE->machine); }

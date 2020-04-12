@@ -44,6 +44,8 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     // queue header:
     next_ = this;
     prev_ = this;
+    
+    ::memset(&caught_dummy_, 0, sizeof(caught_dummy_));
 
     set_state(kDead);
     coid_      = coid;
@@ -51,7 +53,7 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     waitting_  = nullptr;
     owner_     = nullptr;
     exception_ = nullptr;
-    caught_    = nullptr;
+    caught_    = &caught_dummy_;
     yield_     = 0;
     reentrant_ = 0;
 

@@ -69,8 +69,8 @@ void MacroAssembler::RecoverBytecodeEnv() {
 }
 
 void MacroAssembler::SaveState0(Register scratch) {
-    movq(Operand(CO, Coroutine::kOffsetACC), ACC);
-    movsd(Operand(CO, Coroutine::kOffsetFACC), FACC);
+//    movq(Operand(CO, Coroutine::kOffsetACC), ACC);
+//    movsd(Operand(CO, Coroutine::kOffsetFACC), FACC);
     movl(scratch, Operand(rbp, BytecodeStackFrame::kOffsetPC));
     movq(Operand(CO, Coroutine::kOffsetPC0), scratch);
     movq(Operand(CO, Coroutine::kOffsetBP0), rbp);
@@ -204,8 +204,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ j(Greater, &entry, true/*is_far*/);
 
     // Set root exception handler
-    __ leaq(SCRATCH, Operand(rbp, TrampolineStackFrame::kOffsetCaughtPoint));
-    __ movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH);
+    __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetCaught));
     __ movq(Operand(SCRATCH, kOffsetCaught_Next), static_cast<int32_t>(0));
     __ movq(Operand(SCRATCH, kOffsetCaught_BP), rbp); // caught.bp = system rbp
     __ movq(Operand(SCRATCH, kOffsetCaught_SP), rsp); // caught.sp = system rsp
@@ -266,6 +265,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     // SCRATCH = &bytecodes->instructions
     // [SCRATCH + rbx * 4 + BytecodeArray::kOffsetEntry]
     __ leaq(BC, Operand(SCRATCH, rbx, times_4, BytecodeArray::kOffsetEntry));
+    __ xorq(ACC, ACC);
     __ movq(ACC, Operand(CO, Coroutine::kOffsetACC)); // recover mai ACC
     __ movsd(FACC, Operand(CO, Coroutine::kOffsetFACC)); // recover mai FACC
     __ movl(Operand(CO, Coroutine::kOffsetState), Coroutine::kRunning);
@@ -1117,6 +1117,19 @@ public:
         // rax:rdx <- rax * operand
         __ divq(Operand(rbp, rbx, times_2, 0));
         __ movq(ACC, rdx);
+    }
+    
+    void EmitNot(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ cmpl(Operand(rbp, rbx, times_2, 0), 0);
+        Label br_false;
+        __ j(Equal, &br_false, false/*is_far*/);
+        Label done;
+        __ xorq(ACC, ACC);
+        __ jmp(&done, false/*is_far*/);
+        __ Bind(&br_false);
+        __ movq(ACC, 1);
+        __ Bind(&done);
     }
     
     void EmitBitwiseAnd32(MacroAssembler *masm) override {
