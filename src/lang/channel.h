@@ -4,6 +4,7 @@
 
 #include "lang/value-inl.h"
 #include "lang/mm.h"
+#include "base/spin-locking.h"
 #include "base/queue-macros.h"
 #include <mutex>
 
@@ -41,7 +42,8 @@ public:
     DEF_PTR_GETTER(const Class, data_type);
     DEF_VAL_GETTER(uint32_t, capacity);
     DEF_VAL_GETTER(uint32_t, length);
-    DEF_VAL_MUTABLE_GETTER(std::mutex, mutex);
+//    DEF_VAL_MUTABLE_GETTER(std::mutex, mutex);
+    DEF_VAL_MUTABLE_GETTER(base::SpinMutex, mutex);
     
     bool is_buffered() const { return capacity_ > 0; }
     bool is_not_buffered() const { return !is_buffered(); }
@@ -54,7 +56,8 @@ public:
     void Recv(void *data, size_t n);
     
     void Close() {
-        std::lock_guard<std::mutex> lock(mutex_);
+        //std::unique_lock<std::mutex> lock(mutex_);
+        base::SpinLock lock(&mutex_);
         CloseLockless();
     }
 
@@ -70,11 +73,13 @@ private:
     Channel(const Class *clazz, const Class *data_class, uint32_t capacity, uint32_t tags)
         : Any(clazz, tags)
         , data_type_(DCHECK_NOTNULL(data_class))
-        , capacity_(capacity) {
+        , capacity_(capacity)
+        , send_queue_(new Request())
+        , recv_queue_(new Request()) {
     }
     
-    Request *send_queue() { return &send_queue_; }
-    Request *recv_queue() { return &recv_queue_; }
+    Request *send_queue() { return send_queue_; }
+    Request *recv_queue() { return recv_queue_; }
     Address buffer_base() { return &buffer_[0]; }
     
     void AddSendQueue(const void *data, size_t n, Coroutine *co);
@@ -117,9 +122,10 @@ private:
     }
 
     const Class *const data_type_; // The Type of data
-    Request send_queue_; // Waitting-queue for send
-    Request recv_queue_; // Waitting-queue for recv
-    mutable std::mutex mutex_; // Mutex for read/write
+    Request *send_queue_ = nullptr; // Waitting-queue for send
+    Request *recv_queue_ = nullptr; // Waitting-queue for recv
+    //mutable std::mutex mutex_; // Mutex for read/write
+    base::SpinMutex mutex_ = 0; // Mutex for read/write
     Any *hold_ = nullptr; // [strong ref] Hold heap object
     int32_t close_ = 0; // Has close?
     const uint32_t capacity_; // Capacity of ring-buffer

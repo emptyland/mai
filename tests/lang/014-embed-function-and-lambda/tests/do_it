@@ -21,7 +21,7 @@ bytecode:
     007 StarPtr [BP-80]; (8)
     008 MovePtr [BP-120], [BP-72]; (8)
     009 MovePtr [BP-128], [BP-80]; (8)
-    010 Contact #80, #16; (8)
+    010 Contact #0, #16; (8)
     011 StarPtr [BP-88]; (8)
     012 MovePtr [BP-120], [BP-88]; (8)
     013 LdaGlobalPtr [GS+112]; (8)

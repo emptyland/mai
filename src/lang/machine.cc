@@ -210,14 +210,17 @@ void Machine::Entry() {
         }
     
         std::unique_lock<std::mutex> lock(mutex_);
-        if (n_runnable_ || n_waitting_) {
+        if (n_runnable_ > 0) {
             continue;
         }
-        if (id() == 0) {
+        if (id() == 0 && n_waitting_ == 0) {
             break;
         }
         set_state(kIdle);
         cond_var_.wait(lock);
+        if (id() == 0) {
+            //printf("[%d]notify...\n", id());
+        }
         set_state(kRunning);
     }
 

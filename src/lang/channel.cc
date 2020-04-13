@@ -23,7 +23,8 @@ Address Channel::SendNoBarrier(const void *data, size_t n) {
     const size_t size = std::min(n, static_cast<size_t>(data_type_->reference_size()));
     
     Coroutine *co = Coroutine::This();
-    std::lock_guard<std::mutex> lock(mutex_);
+    //std::unique_lock<std::mutex> lock(mutex_);
+    base::SpinLock lock(&mutex_);
     if (is_not_buffered()) { // No buffered send
         if (QUEUE_EMPTY(recv_queue())) {
             AddSendQueue(data, size, co);
@@ -53,7 +54,8 @@ void Channel::Recv(void *data, size_t n) {
     const size_t size = std::min(n, static_cast<size_t>(data_type_->reference_size()));
     
     Coroutine *co = Coroutine::This();
-    std::lock_guard<std::mutex> lock(mutex_);
+    //std::unique_lock<std::mutex> lock(mutex_);
+    base::SpinLock lock(&mutex_);
     if (is_not_buffered()) { // No buffered send
         if (QUEUE_EMPTY(send_queue())) {
             AddRecvQueue(data, size, co);
@@ -90,6 +92,7 @@ void Channel::CloseLockless() {
         owner->PostRunnable(req->co);
         delete req;
     }
+    delete send_queue_;
     
     while (!QUEUE_EMPTY(recv_queue())) {
         Request *req = recv_queue()->next_;
@@ -98,7 +101,7 @@ void Channel::CloseLockless() {
         Machine *owner = req->co->owner();
         owner->TakeWaittingCoroutine(req->co);
         req->co->SwitchState(Coroutine::kWaitting, Coroutine::kRunnable);
-        if (data_type_->id() == kType_f32 || data_type_->id() == kType_f64) {
+        if (data_type_->IsFloating()) {
             req->co->set_facc0(0);
         } else {
             req->co->set_acc0(0);
@@ -106,6 +109,7 @@ void Channel::CloseLockless() {
         owner->PostRunnable(req->co);
         delete req;
     }
+    delete recv_queue_;
     OfAtmoic(&close_)->store(1, std::memory_order_release);
 }
 
@@ -148,15 +152,16 @@ void Channel::WakeupSendQueue(void *data, size_t n) {
 }
 
 void Channel::Wakeup(Request *req) {
-    mutex_.unlock();
+    //mutex_.unlock();
     while (!req->co->AcquireState(Coroutine::kWaitting, Coroutine::kRunnable)) {
         std::this_thread::yield();
     }
-    mutex_.lock();
 
     Machine *owner = req->co->owner();
     owner->Wakeup(req->co, true/*now*/);
     delete req;
+    
+    //mutex_.lock();
 }
 
 } // namespace lang

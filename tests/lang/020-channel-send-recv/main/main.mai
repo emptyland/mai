@@ -3,6 +3,7 @@ package main
 val wg = WaitGroup(1)
 
 fun main() {
+	val jiffy = System.microTime()
 	val ch = channel[int](0)
 	run entry(ch)
 	for (i in 0, 1000) {
@@ -15,7 +16,7 @@ fun main() {
 	}
 	wg.wait()
 	ch.close()
-	println("${ch.hasClose}, ${ch.length}, ${ch.capacity}")
+	println("${ch.hasClose}, ${ch.length}, ${ch.capacity}, cost=${System.microTime()-jiffy}")
 }
 
 fun entry(ch: channel[int]) {

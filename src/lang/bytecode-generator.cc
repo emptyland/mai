@@ -334,6 +334,16 @@ public:
         }
     }
     
+    void EmitYield(ASTNode *ast, int code) {
+        invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
+        Incoming(ast)->Add<kYield>(code);
+    }
+    
+    void EmitContact(ASTNode *ast, int param_size) {
+        invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
+        Incoming(ast)->Add<kContact>(0, param_size);
+    }
+    
     void EmitDirectlyCallFunction(ASTNode *ast, bool native, int slot, int params_size) {
         if (native) {
             invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
@@ -1101,7 +1111,7 @@ ASTVisitor::Result BytecodeGenerator::VisitCallExpression(CallExpression *ast) /
             break;
     }
     if (receiver.attributes & kAttrYield) {
-        EMIT(ast, Add<kYield>(YIELD_PROPOSE));
+        current_fun_->EmitYield(ast, YIELD_PROPOSE);
     }
     return rv;
 }
@@ -1528,7 +1538,7 @@ ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTempla
         argument_offset += kPointerSize;
         MoveToArgumentIfNeeded(type, part.index, part.linkage, argument_offset, ast);
     }
-    EMIT(ast, Add<kContact>(TOP_REF, argument_offset));
+    current_fun_->EmitContact(ast, argument_offset);
     return ResultWith(Value::kACC, kType_string, 0);
 }
 
@@ -1596,7 +1606,7 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
             LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
             current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/,
                                                    kPointerSize/*arg_size*/);
-            EMIT(ast, Add<kYield>(YIELD_PROPOSE));
+            current_fun_->EmitYield(ast, YIELD_PROPOSE);
             return ResultWith(Value::kACC, type->id(), 0);
         } break;
             
@@ -1923,7 +1933,7 @@ ASTVisitor::Result BytecodeGenerator::VisitBreakableStatement(BreakableStatement
             EMIT(ast, Jump(DCHECK_NOTNULL(block_scope)->mutable_retry_label(), 0/*slot*/));
         } break;
         case BreakableStatement::YIELD: {
-            EMIT(ast, Add<kYield>(YIELD_RANDOM));
+            current_fun_->EmitYield(ast, YIELD_RANDOM);
         } break;
         default:
             NOREACHED();
@@ -2048,7 +2058,7 @@ ASTVisitor::Result BytecodeGenerator::VisitRunStatement(RunStatement *ast) /*ove
         case CallingReceiver::kVtab:
         case CallingReceiver::kBytecode:
             EMIT(ast, Add<kRunCoroutine>(0/*flags*/, receiver.arguments_size));
-            EMIT(ast, Add<kYield>(YIELD_PROPOSE));
+            current_fun_->EmitYield(ast, YIELD_PROPOSE);
             break;
     }
     return ResultWithVoid();
@@ -2696,7 +2706,7 @@ void BytecodeGenerator::GenerateSend(const Class *clazz, int lhs, int rhs, ASTNo
     LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
     current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/,
                                            argument_offset);
-    EMIT(ast, Add<kYield>(YIELD_PROPOSE));
+    current_fun_->EmitYield(ast, YIELD_PROPOSE);
 }
 
 void BytecodeGenerator::GenerateOperation(const Class *clazz, Operator op, int lhs, int rhs,

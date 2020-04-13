@@ -29,7 +29,7 @@ bytecode:
     015 StarPtr [BP-80]; (4)
     016 MovePtr [BP-88], [BP-72]; (4)
     017 MovePtr [BP-96], [BP-80]; (4)
-    018 Contact #80, #16; (4)
+    018 Contact #0, #16; (4)
     019 StaGlobalPtr [GS+328]; (4)
     020 LdaGlobalPtr [GS+192]; (1)
     021 CallBytecodeFunction #0, #0; (1)

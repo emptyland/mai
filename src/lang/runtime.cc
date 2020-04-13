@@ -111,10 +111,23 @@ static inline AbstractValue *ValueOf(intptr_t input) {
 // 1269759
 //  521255
 /*static*/ String *Runtime::StringContact(String **parts, String **end) {
+    //Machine::This()->En
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    const int n = static_cast<int>(end - parts);
+    String **handles = reinterpret_cast<String **>(Machine::This()->AdvanceHandleSlots(n));
+    int k = 0;
+    for (auto i = end - 1; i >= parts; i--) {
+        handles[k++] = *i;
+    }
+    DCHECK_EQ(k, n);
+    
     SafepointScope safepoint(STATE->gc());
     IncrementalStringBuilder builder;
-    for (auto i = end - 1; i >= parts; i--) {
-        builder.AppendString(*i);
+//    for (auto i = end - 1; i >= parts; i--) {
+//        builder.AppendString(*i);
+//    }
+    for (int i = 0; i < n; i++) {
+        builder.AppendString(handles[i]);
     }
     return builder.QuickBuild();
 }
@@ -129,7 +142,8 @@ static inline AbstractValue *ValueOf(intptr_t input) {
         return;
     }
 
-    std::lock_guard<std::mutex> lock(*chan->mutable_mutex());
+    //std::lock_guard<std::mutex> lock(*chan->mutable_mutex());
+    base::SpinLock lock(chan->mutable_mutex());
     if (chan->has_close()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->dup_close_chan_error_text());
         return;
