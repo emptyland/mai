@@ -185,8 +185,8 @@ void Machine::Entry() {
                 co = runnable_dummy_->next();
                 QUEUE_REMOVE(co);
                 n_runnable_--;
+                span_shift = 1;
             }
-            span_shift = 1;
         }
         if (co) {
             CallStub<intptr_t(Coroutine *)> trampoline(STATE->metadata_space()->trampoline_code());
@@ -209,28 +209,15 @@ void Machine::Entry() {
             }
         }
     
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (n_runnable_ || n_waitting_) {
+            continue;
+        }
+        if (id() == 0) {
+            break;
+        }
         set_state(kIdle);
-        int span_count = 0;
-        while (span_count++ < span_shift) {
-            __asm__ ("pause");
-        }
-        span_shift <<= 1;
-
-        if (span_shift >= 4096) {
-            span_shift = 1;
-
-            
-            owner_->MarkIdle(this);
-            
-            std::unique_lock<std::mutex> lock(mutex_);
-            
-            // n_runnable_ != 0 && n_waitting_ != 0
-            //cond_var_.wait(lock, [this]() { return n_runnable_ == 0 || n_waitting_ == 0;});
-            cond_var_.wait(lock);
-            //printf("weakup2...\n");
-
-            owner_->ClearIdle(this);
-        }
+        cond_var_.wait(lock);
         set_state(kRunning);
     }
 

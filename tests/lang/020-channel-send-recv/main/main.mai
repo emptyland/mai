@@ -8,7 +8,7 @@ fun main() {
 	for (i in 0, 1000) {
 		val v = <-ch
 		assert(i == v, "fail $i vs $v")
-		//assert(!ch.hasClose, "hasClose")
+		assert(!ch.hasClose, "hasClose")
 		// if (i != v) {
 		// 	println("recv: $i $v ${ch.hasClose}")
 		// }
