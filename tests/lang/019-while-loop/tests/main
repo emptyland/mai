@@ -47,7 +47,7 @@ bytecode:
     033 StarPtr [BP-124]; (10)
     034 LdaGlobalPtr [GS+120]; (10)
     035 CallNativeFunction #0, #12; (10)
-    036 NewObject #88, [KP+4]; (12)
+    036 NewObject #0, [KP+4]; (12)
     037 StarPtr [BP-96]; (12)
     038 LdaSmi32 #100; (12)
     039 Star32 [BP-72]; (12)

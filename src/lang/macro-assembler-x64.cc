@@ -686,34 +686,34 @@ public:
     void EmitLdaProperty8(MacroAssembler *masm) override {
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
         instr_scope.GetBToRBX();
         __ xorq(ACC, ACC);
-        //__ lfence(); // XXX
         __ movb(ACC, Operand(SCRATCH, rbx, times_1, 0));
     }
     
     void EmitLdaProperty16(MacroAssembler *masm) override {
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
         instr_scope.GetBToRBX();
         __ xorq(ACC, ACC);
-        //__ lfence(); // XXX
         __ movw(ACC, Operand(SCRATCH, rbx, times_1, 0));
     }
 
     void EmitLdaProperty32(MacroAssembler *masm) override {
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
         instr_scope.GetBToRBX();
-        //__ lfence(); // XXX
         __ movl(ACC, Operand(SCRATCH, rbx, times_1, 0));
     }
     
     void EmitLdaProperty64(MacroAssembler *masm) override {
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
         instr_scope.GetBToRBX();
-        //__ lfence(); // XXX
         __ movq(ACC, Operand(SCRATCH, rbx, times_1, 0));
     }
     
@@ -722,17 +722,96 @@ public:
     void EmitLdaPropertyf32(MacroAssembler *masm) override {
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
         instr_scope.GetBToRBX();
-        //__ lfence(); // XXX
         __ movss(FACC, Operand(SCRATCH, rbx, times_1, 0));
     }
 
     void EmitLdaPropertyf64(MacroAssembler *masm) override {
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
         instr_scope.GetBToRBX();
-        //__ lfence(); // XXX
         __ movsd(FACC, Operand(SCRATCH, rbx, times_1, 0));
+    }
+    
+    void EmitLdaArrayAt8(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rdx, rdx);
+        __ movl(rdx, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<int32_t>(masm, SCRATCH, rdx);
+        __ xorl(ACC, ACC);
+        __ movb(ACC, Operand(SCRATCH, rdx, times_1, Array<int8_t>::kOffsetElems));
+    }
+    
+    void EmitLdaArrayAt16(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rdx, rdx);
+        __ movl(rdx, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<int32_t>(masm, SCRATCH, rdx);
+        __ xorl(ACC, ACC);
+        __ movw(ACC, Operand(SCRATCH, rdx, times_2, Array<int16_t>::kOffsetElems));
+    }
+    
+    void EmitLdaArrayAt32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rax, rax);
+        __ movl(rax, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<int32_t>(masm, SCRATCH, rax);
+        __ movl(ACC, Operand(SCRATCH, rax, times_4, Array<int32_t>::kOffsetElems));
+    }
+    
+    void EmitLdaArrayAt64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rax, rax);
+        __ movl(rax, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<int64_t>(masm, SCRATCH, rax);
+        __ movq(ACC, Operand(SCRATCH, rax, times_8, Array<int64_t>::kOffsetElems));
+    }
+    
+    void EmitLdaArrayAtPtr(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rax, rax);
+        __ movl(rax, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<Any *>(masm, SCRATCH, rax);
+        __ movq(ACC, Operand(SCRATCH, rax, times_ptr_size, Array<Any *>::kOffsetElems));
+    }
+    
+    void EmitLdaArrayAtf32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rax, rax);
+        __ movl(rax, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<float>(masm, SCRATCH, rax);
+        __ movss(FACC, Operand(SCRATCH, rax, times_4, Array<float>::kOffsetElems));
+    }
+    
+    void EmitLdaArrayAtf64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rax, rax);
+        __ movl(rax, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<double>(masm, SCRATCH, rax);
+        __ movsd(FACC, Operand(SCRATCH, rax, times_8, Array<double>::kOffsetElems));
     }
     
     void EmitLdaVtableFunction(MacroAssembler *masm) override {
@@ -1566,6 +1645,33 @@ public:
         __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewObject));
         EmitCheckException(masm);
     }
+    
+    void EmitArray(MacroAssembler *masm) override {
+        InstrStackImmABScope instr_scope(masm);
+        __ movl(Argv_1, Operand(rbp, rbx, times_2, 0));
+
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+        instr_scope.GetBTo(rbx);
+        __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArray));
+        EmitCheckException(masm);
+    }
+    
+    void EmitArrayWith(MacroAssembler *masm) override {
+        InstrImmABScope instr_scope(masm);
+        __ xorq(ACC, ACC);
+        __ movl(ACC, rbx); // Save to ACC
+
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+        instr_scope.GetBTo(rbx);
+        __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0));
+        __ movq(Argv_1, rsp);
+        __ subq(Argv_1, ACC);
+        __ movq(Argv_2, rsp);
+
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArrayWith));
+        EmitCheckException(masm);
+    }
 
     // Checking ------------------------------------------------------------------------------------
     void EmitCheckStack(MacroAssembler *masm) override {
@@ -1705,6 +1811,32 @@ private:
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&done);
+    }
+    
+    inline void CheckNotNil(MacroAssembler *masm, Register ptr) {
+        __ cmpq(ptr, 0);
+        Label ok;
+        __ LikelyJ(NotEqual, &ok, false/*is_far*/);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic));
+        __ Throw(SCRATCH, rbx);
+        __ int3();
+        __ Bind(&ok);
+    }
+
+    template<class T>
+    inline void CheckArrayBound(MacroAssembler *masm, Register array, Register index) {
+        __ cmpl(index, 0);
+        Label out_of_bound;
+        __ j(Less, &out_of_bound, false/*is_far*/); // < 0
+        __ cmpl(index, Operand(array, Array<T>::kOffsetLength));
+        __ j(GreaterEqual, &out_of_bound, false/*is_far*/); // >= length
+        Label ok;
+        __ jmp(&ok, false/*is_far*/);
+        __ Bind(&out_of_bound);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewOutOfBoundPanic));
+        __ Throw(SCRATCH, rbx);
+        __ int3();
+        __ Bind(&ok);
     }
 }; // class BytecodeEmitter
 

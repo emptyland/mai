@@ -30,7 +30,7 @@ bytecode:
     013 MovePtr [BP-136], [BP-104]; (11)
     014 LdaGlobalPtr [GS+112]; (11)
     015 CallNativeFunction #0, #8; (11)
-    016 NewObject #72, [KP+0]; (12)
+    016 NewObject #0, [KP+0]; (12)
     017 StarPtr [BP-80]; (12)
     018 MovePtr [BP-136], [BP-80]; (12)
     019 LdaConstPtr [KP+40]; (12)

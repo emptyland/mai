@@ -763,7 +763,8 @@ ASTVisitor::Result TypeChecker::VisitIndexExpression(IndexExpression *ast) /*ove
                                         "index, need integral type", index->ToString().c_str());
                 return ResultWithType(kError);
             }
-            return ResultWithType(primary->parameter(0)->Clone(arena_));
+            ast->set_hint(primary->parameter(0)->Clone(arena_));
+            return ResultWithType(ast->hint());
         case Token::kMap:
         case Token::kMutableMap:
             if (!primary->parameter(0)->Convertible(index)) {
@@ -772,13 +773,14 @@ ASTVisitor::Result TypeChecker::VisitIndexExpression(IndexExpression *ast) /*ove
                                         index->ToString().c_str());
                 return ResultWithType(kError);
             }
-            return ResultWithType(primary->parameter(1)->Clone(arena_));
+            ast->set_hint(primary->parameter(1)->Clone(arena_));
+            return ResultWithType(ast->hint());
         default:
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s) for `[]' operator",
                                     primary->ToString().c_str());
             return ResultWithType(kError);
     }
-    return ResultWithType(kError);
+    //return ResultWithType(kError);
 }
 
 ASTVisitor::Result TypeChecker::VisitUnaryExpression(UnaryExpression *ast) /*override*/ {
@@ -1180,8 +1182,9 @@ ASTVisitor::Result TypeChecker::VisitAssignmentStatement(AssignmentStatement *as
             break;
         case Operator::NOT_OPERATOR: // =
             if (!lval->Convertible(rval)) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type in `=' "
-                                        "expression");
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rval type(%s) in `=' "
+                                        "expression, lval is %s", rval->ToString().c_str(),
+                                        lval->ToString().c_str());
                 return ResultWithType(kError);
             }
             break;

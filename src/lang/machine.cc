@@ -452,8 +452,7 @@ CapturedValue *Machine::NewCapturedValue(const Class *clazz, const void *value, 
 
 AbstractArray *Machine::NewArray(BuiltinType type, size_t length, size_t capacity, uint32_t flags) {
     const Class *clazz = DCHECK_NOTNULL(STATE->builtin_type(type));
-    if (::strstr(clazz->name(), "array") != clazz->name() &&
-        ::strstr(clazz->name(), "mutable_array") != clazz->name()) {
+    if (::strstr(clazz->name(), "array") != clazz->name()) {
         NOREACHED() << "class: " << clazz->name() << " is not array!";
         return nullptr;
     }
@@ -514,8 +513,25 @@ AbstractArray *Machine::NewArrayCopied(const AbstractArray *origin, size_t incre
     return obj;
 }
 
+AbstractArray *Machine::NewArrayAny(Any **init_data, size_t length, size_t capacity, uint32_t flags) {
+    size_t request_size = sizeof(Array<Any *>) * capacity;
+    AllocationResult result = STATE->heap()->Allocate(request_size, flags);
+    if (!result.ok()) {
+        AllocationPanic(result);
+        return nullptr;
+    }
+
+    DCHECK_GE(capacity, length);
+    Array<Any *> *obj = new (result.ptr()) Array<Any *>(STATE->builtin_type(kType_array),
+                                                        static_cast<uint32_t>(capacity),
+                                                        static_cast<uint32_t>(length),
+                                                        color_tags());
+    //obj->Se
+    return obj;
+}
+
 AbstractArray *Machine::NewArray8(const void *init_data, size_t length, size_t capacity,
-                                         uint32_t flags) {
+                                  uint32_t flags) {
     size_t request_size = sizeof(Array<uint8_t>) + 1 * capacity;
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
     if (!result.ok()) {

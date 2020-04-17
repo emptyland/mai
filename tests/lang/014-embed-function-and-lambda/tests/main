@@ -12,7 +12,7 @@ souce-file-name: tests/lang/014-embed-function-and-lambda/main/main.mai
 bytecode-size: 17
 bytecode: 
     000 CheckStack; (19)
-    001 NewObject #72, [KP+0]; (20)
+    001 NewObject #0, [KP+0]; (20)
     002 StarPtr [BP-80]; (20)
     003 LdaSmi32 #100; (20)
     004 Star32 [BP-84]; (20)

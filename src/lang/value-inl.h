@@ -162,6 +162,14 @@ inline void Array<T, true>::quickly_set_nobarrier(size_t i, T value) {
 }
 
 template<class T>
+inline void Array<T, true>::QuicklySetAll(size_t i, T *value, size_t n) {
+    DCHECK_GE(i, 0);
+    DCHECK_LE(i + n, length_);
+    ::memcpy(&elems_[i], value, sizeof(T) * n);
+    WriteBarrier(reinterpret_cast<Any **>(&elems_[i]), n);
+}
+
+template<class T>
 inline T Array<T, true>::quickly_get(size_t i) const {
     DCHECK_GE(i, 0);
     DCHECK_LT(i, length_);

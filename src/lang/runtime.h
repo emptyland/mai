@@ -9,6 +9,7 @@ namespace lang {
 
 template<class T> class Number;
 class AbstractValue;
+class AbstractArray;
 class Channel;
 class Closure;
 class Any;
@@ -140,6 +141,10 @@ struct Runtime {
     static void ChannelSendF32(Channel *chan, float value);
     static void ChannelSendF64(Channel *chan, double value);
     
+    // Array
+    static AbstractArray *NewArray(const Class *element_type, int len);
+    static AbstractArray *NewArrayWith(const Class *element_type, Address begin, Address end);
+
     // WriteBarrier
     static Any *WriteBarrierWithOffset(Any *host, int32_t offset);
     static Any *WriteBarrierWithAddress(Any *host, Any **address);
@@ -147,6 +152,8 @@ struct Runtime {
     // Panic Object
     static Throwable *NewNilPointerPanic();
     static Throwable *NewStackoverflowPanic();
+    static Throwable *NewOutOfBoundPanic();
+    static Throwable *NewArithmeticPanic();
     // Arithmetic
     
     // Make current stackstrace

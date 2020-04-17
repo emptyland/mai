@@ -123,7 +123,9 @@ private:
     Result VisitBinaryExpression(BinaryExpression *) override;
     Result VisitIfExpression(IfExpression *) override;
     Result VisitStatementBlock(StatementBlock *) override;
+    Result VisitArrayInitializer(ArrayInitializer *) override;
     Result VisitChannelInitializer(ChannelInitializer *) override;
+    Result VisitIndexExpression(IndexExpression *) override;
     Result VisitIdentifier(Identifier *) override;
     Result VisitBoolLiteral(BoolLiteral *) override;
     Result VisitI8Literal(I8Literal *) override;
@@ -188,8 +190,8 @@ private:
     void GenerateOperation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
     void GenerateSend(const Class *clazz, int lhs, int rhs, ASTNode *ast);
     
-    bool GenerateUnaryOperands(OperandContext *receiver, UnaryExpression *ast);
-    bool GenerateBinaryOperands(OperandContext *receiver, BinaryExpression *ast);
+    bool GenerateUnaryOperands(OperandContext *receiver, Expression *ast);
+    bool GenerateBinaryOperands(OperandContext *receiver, Expression *lhs, Expression *rhs);
     void CleanupOperands(OperandContext *receiver);
     
     void ToStringIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
@@ -206,6 +208,7 @@ private:
     void LdaGlobal(const Class *clazz, int index, ASTNode *ast);
     void LdaCaptured(const Class *clazz, int index, ASTNode *ast);
     void LdaProperty(const Class *clazz, int index, int offset, ASTNode *ast);
+    void LdaArrayAt(const Class *clazz, int primary, int index, ASTNode *ast);
     void StaIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
     void StaStack(const Class *clazz, int index, ASTNode *ast);
     void StaConst(const Class *clazz, int index, ASTNode *ast);

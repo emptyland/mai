@@ -14,7 +14,7 @@ bytecode:
     000 CheckStack; (0)
     001 LdaGlobalPtr [GS+320]; (12)
     002 StaGlobalPtr [GS+280]; (12)
-    003 NewObject #64, [KP+0]; (10)
+    003 NewObject #0, [KP+0]; (10)
     004 StarPtr [BP-88]; (10)
     005 LdaConstPtr [KP+32]; (10)
     006 CallBytecodeFunction #0, #8; (10)

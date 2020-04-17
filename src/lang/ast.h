@@ -1116,11 +1116,13 @@ public:
 
     DEF_PTR_PROP_RW(Expression, primary);
     DEF_PTR_PROP_RW(Expression, index);
+    DEF_PTR_PROP_RW(TypeSign, hint);
     
     DEFINE_AST_NODE(IndexExpression);
 private:
     Expression *primary_;
     Expression *index_;
+    TypeSign *hint_ = nullptr;
 }; // class IndexExpression
 
 

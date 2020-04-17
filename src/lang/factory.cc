@@ -34,6 +34,10 @@ void Factory::Initialize() {
     oom_text_ = Machine::This()->NewUtf8String(STR_WITH_LEN("Doki Doki Panic: OOM"), Heap::kOld);
     oom_panic_ = static_cast<Panic *>(Machine::This()->NewPanic(Panic::kCrash, oom_text_,
                                                                 Heap::kOld));
+    out_of_bound_error_text_ =
+        Machine::This()->NewUtf8String(STR_WITH_LEN("Out of bound in array"), Heap::kOld);
+    arithmetic_text_ =
+        Machine::This()->NewUtf8String(STR_WITH_LEN("Arithmetic fatal"), Heap::kOld);
     stack_overflow_error_text_ =
         Machine::This()->NewUtf8String(STR_WITH_LEN("Doki Doki Panic: Stackoverflow"), Heap::kOld);
     nil_error_text_ = Machine::This()->NewUtf8String(STR_WITH_LEN("Attempt nil object"), Heap::kOld);

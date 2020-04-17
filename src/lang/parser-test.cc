@@ -416,18 +416,18 @@ TEST_F(ParserTest, ArrayInitializer) {
 TEST_F(ParserTest, MapInitializer) {
     MockFile file("map[string, int](100, 1.2)\n");
     parser_.SwitchInputFile("demos/demo.mai", &file);
-    
+
     bool ok = true;
     auto ast = parser_.ParseMapInitializer(&ok);
     ASSERT_TRUE(ok);
     ASSERT_NE(nullptr, ast);
-    
+
     ASSERT_FALSE(ast->mutable_container());
     ASSERT_EQ(Token::kString, ast->key_type()->id());
     ASSERT_EQ(Token::kInt, ast->value_type()->id());
     ASSERT_EQ(100, ast->reserve()->AsIntLiteral()->value());
     ASSERT_NEAR(1.2, ast->load_factor()->AsF32Literal()->value(), 0.01);
-    
+
     MockFile file1("map{a+b->1, \"ok\"->a/b}\n");
     parser_.SwitchInputFile("demos/demo.mai", &file1);
 

@@ -98,8 +98,10 @@ namespace lang {
     V(Close, BytecodeType::A, BytecodeParam::kConstOffset) \
     V(Return, BytecodeType::N) \
     V(NewObject, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kConstOffset) \
-    V(CheckStack, BytecodeType::N) \
+    V(Array, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kConstOffset) \
+    V(ArrayWith, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kConstOffset) \
     V(AssertNotNull, BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(CheckStack, BytecodeType::N) \
     V(Contact, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate)
 
 #define DECLARE_LDAR_BYTECODE(V) \

@@ -1,0 +1,15 @@
+package main
+
+fun main() {
+	val a = array[int](32)
+	assert(a[0] == 0, 'fail')
+	assert(a[1] == 0, 'fail')
+	assert(a[2] == 0, 'fail')
+
+	val b = array{'1st', '2nd', '3rd'}
+	// assert(b[0] == '1st', 'fail')
+	// assert(b[1] == '2nd', 'fail')
+	// assert(b[2] == '3rd', 'fail')
+	//println("b=$b")
+	println("${b[0]},${b[1]},${b[2]}")
+}

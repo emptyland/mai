@@ -443,6 +443,35 @@ TEST_F(BytecodeGeneratorTest, RunChannelSendRecv) {
     ASSERT_EQ(0, isolate_->GetUncaughtCount());
 }
 
+// 021-array-initiailizer
+TEST_F(BytecodeGeneratorTest, ArrayInitializer) {
+    Define("021-array-initiailizer");
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto err = Parse();
+    ASSERT_TRUE(err.ok()) << err.ToString();
+    ASSERT_TRUE(generator_->Prepare());
+    ASSERT_TRUE(generator_->Generate());
+    
+    auto value = generator_->FindValue("main.main");
+    Local<Closure> main(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(main.is_value_not_null());
+    ASSERT_TRUE(main->is_mai_function());
+    ASSERT_FALSE(main->is_cxx_function());
+    AssertFunction("main", main->function());
+}
+
+TEST_F(BytecodeGeneratorTest, RunArrayInitializer) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/021-array-initiailizer");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+
+    ASSERT_EQ(0, isolate_->GetUncaughtCount());
+}
+
 } // namespace lang
 
 } // namespace mai

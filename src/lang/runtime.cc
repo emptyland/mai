@@ -111,7 +111,6 @@ static inline AbstractValue *ValueOf(intptr_t input) {
 // 1269759
 //  521255
 /*static*/ String *Runtime::StringContact(String **parts, String **end) {
-    //Machine::This()->En
     HandleScope handle_scope(HandleScope::INITIALIZER);
     const int n = static_cast<int>(end - parts);
     String **handles = reinterpret_cast<String **>(Machine::This()->AdvanceHandleSlots(n));
@@ -123,9 +122,6 @@ static inline AbstractValue *ValueOf(intptr_t input) {
     
     SafepointScope safepoint(STATE->gc());
     IncrementalStringBuilder builder;
-//    for (auto i = end - 1; i >= parts; i--) {
-//        builder.AppendString(*i);
-//    }
     for (int i = 0; i < n; i++) {
         builder.AppendString(handles[i]);
     }
@@ -221,6 +217,73 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     InternalChannelSendNoBarrier<double>(chan, value);
 }
 
+BuiltinType GetArrayType(const Class *element_type) {
+    if (element_type->is_reference()) {
+        return kType_array;
+    } else {
+        switch (element_type->reference_size()) {
+            case 1:
+                return kType_array8;
+            case 2:
+                return kType_array16;
+            case 4:
+                return kType_array32;
+            case 8:
+                return kType_array64;
+            default:
+                break;
+        }
+    }
+    NOREACHED();
+    return kType_void;
+}
+
+/*static*/ AbstractArray *Runtime::NewArray(const Class *element_type, int len) {
+    if (len < 0) {
+        len = 0;
+    }
+    int capacity = len < 16 ? len + 16 : len;
+    BuiltinType dest_type = GetArrayType(element_type);
+    SafepointScope safepoint_scope(STATE->gc());
+    return Machine::This()->NewArray(dest_type, len, capacity, 0);
+}
+
+/*static*/ AbstractArray *Runtime::NewArrayWith(const Class *element_type, Address start,
+                                                Address stop) {
+    BuiltinType dest_type = GetArrayType(element_type);
+    if (element_type->is_reference()) {
+        HandleScope handle_scope(HandleScope::INITIALIZER);
+        int length = static_cast<int>((stop - start) >> kPointerShift);
+        Any **handles = reinterpret_cast<Any **>(Machine::This()->AdvanceHandleSlots(length));
+        ::memcpy(handles, start, stop - start);
+//        for (int i = 0; i < length; i++) {
+//            printf("%p %s\n", handles[i], handles[i]->clazz()->name());
+//        }
+
+        SafepointScope safepoint_scope(STATE->gc());
+        
+        int capacity = length < 16 ? length + 16 : length;
+        Array<Any *> *array = static_cast<Array<Any *> *>(Machine::This()->NewArray(dest_type,
+                                                                                    length,
+                                                                                    capacity, 0));
+        array->QuicklySetAll(0, handles, length);
+        return array;
+    } else {
+        SafepointScope safepoint_scope(STATE->gc());
+        
+        int element_size = RoundUp(element_type->reference_size(), kStackSizeGranularity);
+        int length = static_cast<int>((stop - start) / element_size);
+        int capacity = length < 16 ? length + 16 : length;
+        AbstractArray *array = static_cast<AbstractArray *>(Machine::This()->NewArray(dest_type,
+                                                                                      length,
+                                                                                      capacity, 0));
+        const Field *elems_field = array->clazz()->field(2);
+        DCHECK(!::strcmp("elems", elems_field->name()));
+        ::memcpy(reinterpret_cast<Address>(array) + elems_field->offset(), start, stop - start);
+        return array;
+    }
+}
+
 /*static*/ Any *Runtime::WriteBarrierWithOffset(Any *host, int32_t offset) {
     DCHECK(!STATE->heap()->InNewArea(host));
     DCHECK_GE(offset, sizeof(Any));
@@ -268,6 +331,14 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
 /*static*/ Throwable *Runtime::NewStackoverflowPanic() {
     return Machine::This()->NewPanic(Panic::kFatal, STATE->factory()->stack_overflow_error_text(),
                                      0);
+}
+
+/*static*/ Throwable *Runtime::NewOutOfBoundPanic() {
+    return Machine::This()->NewPanic(Panic::kFatal, STATE->factory()->out_of_bound_error_text(), 0);
+}
+
+/*static*/ Throwable *Runtime::NewArithmeticPanic() {
+    return Machine::This()->NewPanic(Panic::kFatal, STATE->factory()->arithmetic_text(), 0);
 }
 
 /*static*/ Throwable *Runtime::MakeStacktrace(Throwable *expect) {
