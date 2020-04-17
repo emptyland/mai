@@ -42,7 +42,6 @@ public:
     DEF_PTR_GETTER(const Class, data_type);
     DEF_VAL_GETTER(uint32_t, capacity);
     DEF_VAL_GETTER(uint32_t, length);
-//    DEF_VAL_MUTABLE_GETTER(std::mutex, mutex);
     DEF_VAL_MUTABLE_GETTER(base::SpinMutex, mutex);
     
     bool is_buffered() const { return capacity_ > 0; }
@@ -124,7 +123,6 @@ private:
     const Class *const data_type_; // The Type of data
     Request *send_queue_ = nullptr; // Waitting-queue for send
     Request *recv_queue_ = nullptr; // Waitting-queue for recv
-    //mutable std::mutex mutex_; // Mutex for read/write
     base::SpinMutex mutex_ = 0; // Mutex for read/write
     Any *hold_ = nullptr; // [strong ref] Hold heap object
     int32_t close_ = 0; // Has close?

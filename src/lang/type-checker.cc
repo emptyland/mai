@@ -758,7 +758,6 @@ ASTVisitor::Result TypeChecker::VisitIndexExpression(IndexExpression *ast) /*ove
 
     switch (static_cast<Token::Kind>(primary->id())) {
         case Token::kArray:
-        case Token::kMutableArray:
             if (!index->IsIntegral()) {
                 error_feedback_->Printf(FindSourceLocation(index), "Incorrect type(%s) for array "
                                         "index, need integral type", index->ToString().c_str());
@@ -973,9 +972,7 @@ ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*o
                                     rv.sign->ToString().c_str());
             return ResultWithType(kError);
         }
-        return ResultWithType(new (arena_) TypeSign(arena_, ast->position(),
-                                                    ast->mutable_container()
-                                                    ? Token::kMutableArray : Token::kArray,
+        return ResultWithType(new (arena_) TypeSign(arena_, ast->position(), Token::kArray,
                                                     ast->element_type()));
     }
 
@@ -1005,9 +1002,7 @@ ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*o
         ast->set_element_type(defined_element_type);
     }
 
-    return ResultWithType(new (arena_) TypeSign(arena_, ast->position(),
-                                                ast->mutable_container()
-                                                ? Token::kMutableArray : Token::kArray,
+    return ResultWithType(new (arena_) TypeSign(arena_, ast->position(), Token::kArray,
                                                 ast->element_type()));
 }
 
@@ -1647,15 +1642,15 @@ ASTVisitor::Result TypeChecker::CheckForStep(ForLoop *ast) {
 ASTVisitor::Result TypeChecker::CheckForIterate(ForLoop *ast) {
     TypeSign *subject = nullptr;
     VISIT_CHECK_GET(subject, ast->subject());
-    if (subject->id() != Token::kArray && subject->id() != Token::kMutableArray &&
-        subject->id() != Token::kMap && subject->id() != Token::kMutableMap) {
+    if (subject->id() != Token::kArray && subject->id() != Token::kMap &&
+        subject->id() != Token::kMutableMap) {
         error_feedback_->Printf(FindSourceLocation(ast->subject()), "Incorrect subject type(%s), "
                                 "need array/mutable_array/map/mutable_map",
                                 subject->ToString().c_str());
         return ResultWithType(kError);
     }
     
-    if (subject->id() == Token::kArray || subject->id() == Token::kMutableArray) {
+    if (subject->id() == Token::kArray) {
         if (ast->key()) {
             if (ast->key()->type() && ast->key()->type()->id() != Token::kInt) {
                 error_feedback_->Printf(FindSourceLocation(ast->limit()), "Incorrect index type(%s)"
@@ -1758,7 +1753,6 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
             return ResultWithType(new (arena_) TypeSign(ast->position(), dest_type));
         } break;
         case Token::kArray:
-        case Token::kMutableArray:
             TODO();
             return ResultWithType(kError);
         case Token::kMap:
@@ -1925,7 +1919,7 @@ bool TypeChecker::CheckModifitionAccess(ASTNode *ast) {
 }
 
 bool TypeChecker::CheckAddExpression(ASTNode *ast, TypeSign *lval, TypeSign *rval) {
-    if (lval->id() == Token::kArray || lval->id() == Token::kMutableArray) {
+    if (lval->id() == Token::kArray) {
         if (rval->id() != Token::kPair) {
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect rhs type, need "
                                     "pair(expr<-expr)");
@@ -1964,7 +1958,7 @@ bool TypeChecker::CheckAddExpression(ASTNode *ast, TypeSign *lval, TypeSign *rva
 }
 
 bool TypeChecker::CheckSubExpression(ASTNode *ast, TypeSign *lval, TypeSign *rval) {
-    if (lval->id() == Token::kArray || lval->id() == Token::kMutableArray) {
+    if (lval->id() == Token::kArray) {
         if (!lval->parameter(0)->Convertible(rval)) {
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect array element type");
             return false;

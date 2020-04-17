@@ -1199,26 +1199,21 @@ private:
 // array{"ok", "no", "over"}
 class ArrayInitializer : public MultiExpression {
 public:
-    ArrayInitializer(int position, bool mutable_container, TypeSign *element_type,
+    ArrayInitializer(int position, TypeSign *element_type,
                      base::ArenaVector<Expression *> &&elements)
         : MultiExpression(position, kArrayInitializer, std::move(elements))
-        , mutable_container_(mutable_container)
         , element_type_(element_type)
         , reserve_(nullptr) {}
-    ArrayInitializer(base::Arena *arena, int position, bool mutable_container,
-                     TypeSign *element_type, Expression *reserve)
+    ArrayInitializer(base::Arena *arena, int position, TypeSign *element_type, Expression *reserve)
         : MultiExpression(arena, position, kArrayInitializer)
-        , mutable_container_(mutable_container)
         , element_type_(element_type)
         , reserve_(reserve) {}
 
-    DEF_VAL_GETTER(bool, mutable_container);
     DEF_PTR_PROP_RW(Expression, reserve);
     DEF_PTR_PROP_RW(TypeSign, element_type);
     
     DEFINE_AST_NODE(ArrayInitializer);
 private:
-    bool mutable_container_;
     Expression *reserve_; // reserve parameter
     TypeSign *element_type_;
 }; // class ArrayInitializer

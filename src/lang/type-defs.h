@@ -54,13 +54,6 @@ template<class T> class Number;
     V(array64, uint64_t) \
     V(array, Any*)
 
-#define DECLARE_MUTABLE_ARRAY_TYPES(V) \
-    V(mutable_array8, uint8_t) \
-    V(mutable_array16, uint16_t) \
-    V(mutable_array32, uint32_t) \
-    V(mutable_array64, uint64_t) \
-    V(mutable_array, Any*)
-
 #define DECLARE_MAP_TYPES(V) \
     V(map8, uint8_t) \
     V(map16, uint16_t) \
@@ -72,8 +65,7 @@ template<class T> class Number;
     V(mutable_map, Any*, Any*)
 
 #define DECLARE_CONTAINER_TYPES(V) \
-    DECLARE_ARRAY_TYPES(V) \
-    DECLARE_MUTABLE_ARRAY_TYPES(V)
+    DECLARE_ARRAY_TYPES(V)
     //DECLARE_MAP_TYPES(V) \
     //DECLARE_MUTABLE_MAP_TYPES(V)
 
@@ -97,6 +89,9 @@ enum BuiltinType: int {
 };
 
 static constexpr uint32_t kUserTypeIdBase = 0x1000;
+
+static constexpr uint32_t kHandleFlag = 0x80000000u;
+static constexpr uint32_t kHandleMask = ~kHandleFlag;
 
 template<class T>
 struct TypeTraits {

@@ -335,7 +335,7 @@ String *Machine::NewUtf8StringWithFormatV(uint32_t flags, const char *fmt, va_li
         return STATE->factory()->empty_string();
     }
     va_list copied;
-    Array<char> *buf = static_cast<Array<char> *>(NewMutableArray8("", 0, len + 12, flags));
+    Array<char> *buf = static_cast<Array<char> *>(NewArray8("", 0, len + 12, flags));
     if (!buf) {
         return nullptr;
     }
@@ -343,7 +343,7 @@ String *Machine::NewUtf8StringWithFormatV(uint32_t flags, const char *fmt, va_li
     do {
         len = rv + 12;
         if (len + 1 > buf->capacity()) {
-            buf = static_cast<Array<char> *>(ResizeMutableArray(buf, len + 1));
+            buf = static_cast<Array<char> *>(ResizeArray(buf, len + 1));
             if (!buf) {
                 return nullptr;
             }
@@ -514,7 +514,7 @@ AbstractArray *Machine::NewArrayCopied(const AbstractArray *origin, size_t incre
     return obj;
 }
 
-AbstractArray *Machine::NewMutableArray8(const void *init_data, size_t length, size_t capacity,
+AbstractArray *Machine::NewArray8(const void *init_data, size_t length, size_t capacity,
                                          uint32_t flags) {
     size_t request_size = sizeof(Array<uint8_t>) + 1 * capacity;
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
@@ -524,7 +524,7 @@ AbstractArray *Machine::NewMutableArray8(const void *init_data, size_t length, s
     }
     
     DCHECK_GE(capacity, length);
-    Array<uint8_t> *obj = new (result.ptr()) Array<uint8_t>(STATE->builtin_type(kType_mutable_array8),
+    Array<uint8_t> *obj = new (result.ptr()) Array<uint8_t>(STATE->builtin_type(kType_array8),
                                                             static_cast<uint32_t>(capacity),
                                                             static_cast<uint32_t>(length),
                                                             color_tags());
@@ -532,7 +532,7 @@ AbstractArray *Machine::NewMutableArray8(const void *init_data, size_t length, s
     return obj;
 }
 
-AbstractArray *Machine::ResizeMutableArray(AbstractArray *origin, size_t new_size) {
+AbstractArray *Machine::ResizeArray(AbstractArray *origin, size_t new_size) {
     if (!origin || origin->capacity() == new_size) {
         return origin;
     }
@@ -561,8 +561,7 @@ AbstractArray *Machine::ResizeMutableArray(AbstractArray *origin, size_t new_siz
 }
 
 String *Machine::Array8ToString(AbstractArray *from) {
-    DCHECK(from->clazz() == STATE->builtin_type(kType_mutable_array8) ||
-           from->clazz() == STATE->builtin_type(kType_array8));
+    DCHECK(from->clazz() == STATE->builtin_type(kType_array8));
     DCHECK_GT(from->capacity(), from->length());
 
     // Fill term zero

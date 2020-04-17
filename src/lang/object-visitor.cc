@@ -15,8 +15,7 @@ void IterateObject(Any *host, ObjectVisitor *visitor) {
 
     const Class *clazz = host->is_forward() ? host->forward()->clazz() : host->clazz();
     switch (static_cast<BuiltinType>(clazz->id())) {
-        case kType_array:
-        case kType_mutable_array: {
+        case kType_array: {
             Array<Any *> *object = static_cast<Array<Any *> *>(host);
             object->Iterate(visitor);
         } break;

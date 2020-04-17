@@ -127,12 +127,9 @@ public:
 
     AbstractArray *NewArrayCopied(const AbstractArray *origin, size_t increment, uint32_t flags);
     
-    // New (mutable) array
-    AbstractArray *NewMutableArray(BuiltinType type, size_t length, size_t capacity, uint32_t flags);
-    
-    AbstractArray *NewMutableArray8(const void *init_data, size_t length, size_t capacity, uint32_t flags);
-    
-    AbstractArray *ResizeMutableArray(AbstractArray *origin, size_t new_size);
+    AbstractArray *NewArray8(const void *init_data, size_t length, size_t capacity, uint32_t flags);
+
+    AbstractArray *ResizeArray(AbstractArray *origin, size_t new_size);
     
     String *Array8ToString(AbstractArray *from);
 

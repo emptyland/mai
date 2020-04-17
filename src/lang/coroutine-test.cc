@@ -1138,6 +1138,16 @@ TEST_F(CoroutineTest, StoreGlobalSpace) {
     ASSERT_STREQ("Hello", s->data());
 }
 
+//TEST_F(CoroutineTest, SystemDeamonDemo) {
+//
+//    int i = 0;
+//    for (;;) {
+//        uint64_t jiffy = isolate_->env()->CurrentTimeMicros();
+//        std::this_thread::sleep_for(std::chrono::microseconds(100));
+//        printf("poll: %d %lld\n", i++, isolate_->env()->CurrentTimeMicros() - jiffy);
+//    }
+//}
+
 } // namespace lang
 
 } // namespace mai

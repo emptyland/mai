@@ -101,7 +101,6 @@ using ASTString = base::ArenaString;
     V(RandomS, "Ξ", none) \
     V(Fun, "fun", none) \
     V(Array, "array", none) \
-    V(MutableArray, "mutable_array", none) \
     V(Map, "map", none) \
     V(MutableMap, "mutable_map", none) \
     V(Channel, "channel", none) \

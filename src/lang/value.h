@@ -637,6 +637,11 @@ public:
     }; // struct ParameterTraits
     
     template<class T>
+    struct ParameterTraits<Handle<T>, true> {
+        static constexpr uint32_t kType = TypeTraits<T>::kType | kHandleFlag; 
+    }; // struct ParameterTraits
+    
+    template<class T>
     struct ParameterTraits<T*, false> {
         static constexpr uint32_t kType = kType_u64;
     }; // struct ParameterTraits

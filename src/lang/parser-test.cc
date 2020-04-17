@@ -409,24 +409,8 @@ TEST_F(ParserTest, ArrayInitializer) {
     ASSERT_TRUE(ok);
     ASSERT_NE(nullptr, ast);
     
-    ASSERT_FALSE(ast->mutable_container());
     ASSERT_EQ(Token::kInt, ast->element_type()->id());
     ASSERT_EQ(100, ast->reserve()->AsIntLiteral()->value());
-    
-    MockFile file1("mutable_array{\"ok\", \"no\", \"over\"}\n");
-    parser_.SwitchInputFile("demos/demo.mai", &file1);
-    
-    ok = true;
-    ast = parser_.ParseArrayInitializer(&ok);
-    ASSERT_TRUE(ok);
-    ASSERT_NE(nullptr, ast);
-    
-    ASSERT_TRUE(ast->mutable_container());
-    ASSERT_EQ(nullptr, ast->element_type());
-    ASSERT_EQ(3, ast->operands_size());
-    ASSERT_STREQ("ok", ast->operand(0)->AsStringLiteral()->value()->data());
-    ASSERT_STREQ("no", ast->operand(1)->AsStringLiteral()->value()->data());
-    ASSERT_STREQ("over", ast->operand(2)->AsStringLiteral()->value()->data());
 }
 
 TEST_F(ParserTest, MapInitializer) {

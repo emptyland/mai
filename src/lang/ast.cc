@@ -387,7 +387,6 @@ bool TypeSign::Convertible(TypeSign *rhs) const {
             return (id() == rhs->id() && prototype()->IsAccept(rhs->prototype())) ||
                    rhs->id() == Token::kNil;
         case Token::kArray:
-        case Token::kMutableArray:
             return (rhs->id() == id() && parameter(0)->Convertible(rhs->parameter(0))) ||
                    rhs->id() == Token::kNil;
         case Token::kMap:
@@ -421,8 +420,6 @@ BuiltinType TypeSign::ToBuiltinType() const {
             return kType_string;
         case Token::kArray:
             return GetArrayBuiltinType(false/*is_mutable*/, parameter(0));
-        case Token::kMutableArray:
-            return GetArrayBuiltinType(true/*is_mutable*/, parameter(0));
         case Token::kMap:
             return GetMapBuiltinType(false/*is_mutable*/, parameter(0));
         case Token::kMutableMap:
@@ -450,7 +447,6 @@ size_t TypeSign::GetReferenceSize() const {
     #undef DEFINE_PRIMITIVE_TYPE
         case Token::kString:
         case Token::kArray:
-        case Token::kMutableArray:
         case Token::kMap:
         case Token::kMutableMap:
         case Token::kInterface:
@@ -471,22 +467,22 @@ size_t TypeSign::GetReferenceSize() const {
         case Token::kBool:
         case Token::kI8:
         case Token::kU8:
-            return is_mutable ? kType_mutable_array8 : kType_array8;
+            return kType_array8;
         case Token::kI16:
         case Token::kU16:
-            return is_mutable ? kType_mutable_array16 : kType_array16;
+            return kType_array16;
         case Token::kI32:
         case Token::kU32:
         case Token::kInt:
         case Token::kUInt:
         case Token::kF32:
-            return is_mutable ? kType_mutable_array32 : kType_array32;
+            return kType_array32;
         case Token::kI64:
         case Token::kU64:
         case Token::kF64:
-            return is_mutable ? kType_mutable_array64 : kType_array64;
+            return kType_array64;
         default:
-            return is_mutable ? kType_mutable_array : kType_array;
+            return kType_array;
     }
 }
 
@@ -555,8 +551,6 @@ std::string TypeSign::ToString() const {
             return base::Sprintf("channel[%s]", parameter(0)->ToString().c_str());
         case Token::kArray:
             return base::Sprintf("array[%s]", parameter(0)->ToString().c_str());
-        case Token::kMutableArray:
-            return base::Sprintf("mutable_array[%s]", parameter(0)->ToString().c_str());
         case Token::kMap:
             return base::Sprintf("map[%s,%s]", parameter(0)->ToString().c_str(),
                                  parameter(1)->ToString().c_str());

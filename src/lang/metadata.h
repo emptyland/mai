@@ -494,7 +494,10 @@ private:
         : return_type_(return_type)
         , parameter_size_(parameter_size)
         , vargs_(vargs) {
-        ::memcpy(parameters_, parameters, parameter_size_ * sizeof(parameters_[0]));
+        //::memcpy(parameters_, parameters, parameter_size_ * sizeof(parameters_[0]));
+        for (int i = 0; i < parameter_size_; i++) {
+            parameters_[i] = parameters[i] & kHandleMask;
+        }
     }
 
     uint32_t return_type_; // Return type id

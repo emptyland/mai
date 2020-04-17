@@ -49,8 +49,15 @@ private:
         // +8 saved bp
         int32_t offset = static_cast<int>(kPointerSize * 2 + args_size);
         for (size_t i = 0; i < ctx.parameters.size(); i++) {
-            const Class *param = space->type(ctx.parameters[i]);
-            if (param->id() == kType_f32 || param->id() == kType_f64) {
+            const Class *param = space->type(ctx.parameters[i] & kHandleMask);
+            if (ctx.parameters[i] & kHandleFlag) { // Process handle
+                DCHECK(param->is_reference());
+                offset -= 8;
+                __ leaq(kRegArgv[argc++], Operand(rbp, offset));
+                continue;
+            }
+
+            if (param->IsFloating()) {
                 // Floating
                 switch (param->reference_size()) {
                     case 4: // 32 bits

@@ -265,7 +265,6 @@ Error MetadataSpace::Initialize() {
     DCHECK_EQ(kType_##literal, clazz->id()) << #literal;
     
     DECLARE_ARRAY_TYPES(DEFINE_BUILTIN_CLASS)
-    DECLARE_MUTABLE_ARRAY_TYPES(DEFINE_BUILTIN_CLASS)
     
 #undef DEFINE_BUILTIN_CLASS
     

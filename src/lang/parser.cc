@@ -772,19 +772,6 @@ TypeSign *Parser::ParseTypeSign(bool *ok) {
             return new (arena_) TypeSign(arena_, position, Token::kArray, elem_type);
         } break;
 
-        // mutable_array := `mutable_array' `[' type `]'
-        case Token::kMutableArray: {
-            MoveNext();
-            TypeSign *elem_type = nullptr;
-            if (Test(Token::kLBrack)) {
-                elem_type = ParseTypeSign(CHECK_OK);
-                loc.LinkEnd(Peek().source_location());
-                Match(Token::kRBrack, CHECK_OK);
-            }
-            int position = file_unit_->InsertSourceLocation(loc);
-            return new (arena_) TypeSign(arena_, position, Token::kMutableArray, elem_type);
-        } break;
-
         // map := `map' `[' type `,' type `]'
         case Token::kMap: {
             MoveNext();
@@ -1242,8 +1229,7 @@ Expression *Parser::ParsePrimary(bool *ok) {
             return ParseStringTemplate(ok);
         } break;
             
-        case Token::kArray:
-        case Token::kMutableArray: {
+        case Token::kArray: {
             return ParseArrayInitializer(ok);
         } break;
             
@@ -1263,12 +1249,7 @@ Expression *Parser::ParsePrimary(bool *ok) {
 
 ArrayInitializer *Parser::ParseArrayInitializer(bool *ok) {
     SourceLocation loc = Peek().source_location();
-    bool mut = true;
-    if (Test(Token::kArray)) {
-        mut = false;
-    } else {
-        Match(Token::kMutableArray, CHECK_OK);
-    }
+    Match(Token::kArray, CHECK_OK);
 
     TypeSign *element_type = nullptr;
     if (Test(Token::kLBrack)) { // `['
@@ -1281,7 +1262,7 @@ ArrayInitializer *Parser::ParseArrayInitializer(bool *ok) {
         loc.LinkEnd(Peek().source_location());
         int position = file_unit_->InsertSourceLocation(loc);
         Match(Token::kRParen, CHECK_OK);
-        return new (arena_) ArrayInitializer(arena_, position, mut, element_type, reserve);
+        return new (arena_) ArrayInitializer(arena_, position, element_type, reserve);
     }
 
     base::ArenaVector<Expression *> elements(arena_);
@@ -1299,7 +1280,7 @@ ArrayInitializer *Parser::ParseArrayInitializer(bool *ok) {
     }
 
     int position = file_unit_->InsertSourceLocation(loc);
-    return new (arena_) ArrayInitializer(position, mut, element_type, std::move(elements));
+    return new (arena_) ArrayInitializer(position, element_type, std::move(elements));
 }
 
 MapInitializer *Parser::ParseMapInitializer(bool *ok) {

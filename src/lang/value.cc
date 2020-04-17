@@ -175,7 +175,7 @@ IncrementalStringBuilder::IncrementalStringBuilder(const char *z, size_t n) {
         length = n;
         capacity = n + kInitSize;
     }
-    AbstractArray *incomplete = Machine::This()->NewMutableArray8(z, length, capacity, 0);
+    AbstractArray *incomplete = Machine::This()->NewArray8(z, length, capacity, 0);
     incomplete_ = reinterpret_cast<Array<char> **>(GlobalHandles::NewHandle(incomplete));
 }
 
@@ -195,7 +195,7 @@ void IncrementalStringBuilder::AppendString(const char *z, size_t n) {
         size_t new_capacity = incomplete()->capacity() ? incomplete()->capacity() << 1 : kInitSize;
         new_capacity += n + 1;
         *incomplete_ =
-            static_cast<Array<char> *>(Machine::This()->ResizeMutableArray(incomplete(),
+            static_cast<Array<char> *>(Machine::This()->ResizeArray(incomplete(),
                                                                            new_capacity));
     }
     incomplete()->QuicklyAppendNoResize(z, n);
