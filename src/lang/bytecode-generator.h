@@ -186,10 +186,23 @@ private:
                                 DotExpression *ast);
     
     void GenerateComparation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
-    void GenerateOperation(const Class *clazz, Operator op, int lhs_index,
-                           Value::Linkage lhs_linkage, int rhs_index, Value::Linkage rhs_linkage,
+    void GenerateOperation(const Operator op, const Class *lhs_type, int lhs_index,
+                           Value::Linkage lhs_linkage, const Class *rhs_type, int rhs_index,
+                           Value::Linkage rhs_linkage, ASTNode *ast);
+    void GenerateOperation(const Operator op, const Class *clazz, int lhs, int rhs, ASTNode *ast);
+    bool GenerateOperation(const Operator op, const Class *lhs_type, int lhs_index,
+                           Value::Linkage lhs_linkage, PairExpression *rhs, ASTNode *ast);
+    void GenerateArrayAppend(const Class *clazz, int lhs_index, Value::Linkage lhs_linkage,
+                             const Class *value, int value_index, Value::Linkage value_linkage,
+                             ASTNode *ast);
+    void GenerateArrayPlus(const Class *clazz, int lhs_index, Value::Linkage lhs_linkage,
+                           const Class *key, int key_index, Value::Linkage key_linkage,
+                           const Class *value, int value_index, Value::Linkage value_linkage,
                            ASTNode *ast);
-    void GenerateOperation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
+    void GenerateArrayMinus(const Class *clazz, int lhs_index, Value::Linkage lhs_linkage,
+                            const Class *key, int key_index, Value::Linkage key_linkage,
+                            ASTNode *ast);
+    
     void GenerateSend(const Class *clazz, int lhs, int rhs, ASTNode *ast);
     
     bool GenerateUnaryOperands(OperandContext *receiver, Expression *ast);

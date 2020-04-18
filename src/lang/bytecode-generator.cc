@@ -1649,10 +1649,11 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
                 return ResultWithError();
             }
             if (receiver.rhs_pair) {
-                // TODO:
-                TODO();
+                GenerateOperation(ast->op(), receiver.lhs_type, receiver.lhs, Value::kStack,
+                                  ast->rhs()->AsPairExpression(), ast);
+            } else {
+                GenerateOperation(ast->op(), receiver.lhs_type, receiver.lhs, receiver.rhs, ast);
             }
-            GenerateOperation(receiver.lhs_type, ast->op(), receiver.lhs, receiver.rhs, ast);
             CleanupOperands(&receiver);
             return ResultWith(Value::kACC, receiver.lhs_type->id(), 0);
         } break;
@@ -1858,23 +1859,16 @@ ASTVisitor::Result BytecodeGenerator::VisitIndexExpression(IndexExpression *ast)
     Result rv;
     VISIT_CHECK(ast->hint());
     const Class *value_type = metadata_space_->type(rv.bundle.index);
-    
+
     OperandContext recevier;
     if (!GenerateBinaryOperands(&recevier, ast->primary(), ast->index())) {
         return ResultWithError();
     }
     const Class *primary_type = recevier.lhs_type;
-    switch (static_cast<BuiltinType>(primary_type->id())) {
-        case kType_array:
-        case kType_array8:
-        case kType_array16:
-        case kType_array32:
-        case kType_array64:
-            LdaArrayAt(value_type, recevier.lhs, recevier.rhs, ast);
-            break;
-        default:
-            NOREACHED();
-            break;
+    if (primary_type->IsArray()) {
+        LdaArrayAt(value_type, recevier.lhs, recevier.rhs, ast);
+    } else {
+        NOREACHED();
     }
 
     CleanupOperands(&recevier);
@@ -2267,13 +2261,13 @@ ASTVisitor::Result BytecodeGenerator::GenerateForStep(ForLoop *ast) {
         switch (type->reference_size()) {
             case 4: {
                 int kidx = current_fun_->constants()->FindOrInsertF32(1);
-                GenerateOperation(type, Operators::kAdd, iter.index, iter.linkage, kidx,
-                                  Value::kConstant, ast);
+                GenerateOperation(Operators::kAdd, iter.type, iter.index, iter.linkage, iter.type,
+                                  kidx, Value::kConstant, ast);
             } break;
             case 8: {
                 int kidx = current_fun_->constants()->FindOrInsertF64(1);
-                GenerateOperation(type, Operators::kAdd, iter.index, iter.linkage, kidx,
-                                  Value::kConstant, ast);
+                GenerateOperation(Operators::kAdd, iter.type, iter.index, iter.linkage, iter.type,
+                                  kidx, Value::kConstant, ast);
             } break;
             default:
                 NOREACHED();
@@ -2496,7 +2490,6 @@ BytecodeGenerator::GeneratePropertyAssignment(const ASTString *name, Value self,
         if (!HasGenerated(self.ast) && !GenerateSymbolDependence(self)) {
             return ResultWithError();
         }
-        //DCHECK(HasGenerated(self.ast));
     }
     
     if (ShouldCaptureVar(owns, self)) {
@@ -2510,13 +2503,28 @@ BytecodeGenerator::GeneratePropertyAssignment(const ASTString *name, Value self,
     switch (op.kind) {
         case Operator::kAdd:
         case Operator::kSub: {
-            if (rhs->IsPairExpression()) {
-                // TODO: map or array putting
-                TODO();
+            bool rval_tmp = (!rhs->IsPairExpression() && rval.linkage != Value::kStack);
+            if (rval_tmp) {
+                int index = current_fun_->StackReserve(rval.type);
+                MoveToStackIfNeeded(rval.type, rval.index, rval.linkage, index, ast);
+                rval.index = index;
+                rval.linkage = Value::kStack;
             }
-            GenerateLoadProperty(self.type, self.index, self.linkage, ast);
-            GenerateOperation(rval.type, op, 0/*lhs_index*/, Value::kACC/*lhs_linkage*/,
-                              rval.index, rval.linkage, ast);
+            auto rv = GenerateLoadProperty(self.type, self.index, self.linkage, ast);
+            if (rv.kind == Value::kError) {
+                return ResultWithError();
+            }
+            const Class *field_type = metadata_space_->type(rv.bundle.type);
+            if (rhs->IsPairExpression()) {
+                GenerateOperation(op, field_type, 0/*lhs_index*/, Value::kACC/*lhs_linkage*/,
+                                  rhs->AsPairExpression(), ast);
+            } else {
+                GenerateOperation(op, field_type, 0/*lhs_index*/, Value::kACC/*lhs_linkage*/,
+                                  rval.type, rval.index, rval.linkage, ast);
+            }
+            if (rval_tmp) {
+                current_fun_->StackFallback(rval.type, rval.index);
+            }
         } break;
         case Operator::NOT_OPERATOR: {
             const Field *field =
@@ -2537,27 +2545,26 @@ BytecodeGenerator::GeneratePropertyAssignment(const ASTString *name, Value self,
 ASTVisitor::Result
 BytecodeGenerator::GenerateIndexAssignment(const Class *type, int primary, int index, Operator op,
                                            Expression *rhs, IndexExpression *ast) {
-//    StackSpaceScope stack_scope(current_fun_->stack());
     Result rv;
     VISIT_CHECK(ast->hint());
     const Class *value_type = metadata_space_->type(rv.bundle.type);
+    Value rval{Value::kError};
+    if (!rhs->IsPairExpression()) {
+        VISIT_CHECK(rhs);
+        rval.linkage = static_cast<Value::Linkage>(rv.kind);
+        rval.type = metadata_space_->type(rv.bundle.type);
+        rval.index = rv.bundle.index;
+    }
 
     switch (op.kind) {
         case Operator::kAdd:
         case Operator::kSub: {
-            if (rhs->IsPairExpression()) {
-                // TODO: map or array putting
-                TODO();
-            }
-
-            VISIT_CHECK(rhs);
-            const Class *rval_type = metadata_space_->type(rv.bundle.type);
-            int rval = rv.bundle.index;
-            bool rval_tmp = (rv.kind != Value::kStack);
+            bool rval_tmp = (!rhs->IsPairExpression() && rval.linkage != Value::kStack);
             if (rval_tmp) {
-                rval = current_fun_->StackReserve(value_type);
-                MoveToStackIfNeeded(rval_type, rv.bundle.index,
-                                    static_cast<Value::Linkage>(rv.kind), rval, rhs);
+                int index = current_fun_->StackReserve(rval.type);
+                MoveToStackIfNeeded(rval.type, rval.index, rval.linkage, index, rhs);
+                rval.index = index;
+                rval.linkage = Value::kStack;
             }
             if (type->IsArray()) {
                 LdaArrayAt(value_type, primary, index, ast);
@@ -2565,22 +2572,25 @@ BytecodeGenerator::GenerateIndexAssignment(const Class *type, int primary, int i
                 // TODO:
                 TODO();
             }
-            GenerateOperation(rval_type, op, 0, Value::kACC, rval, Value::kStack, ast);
+            if (rhs->IsPairExpression()) {
+                GenerateOperation(op, type, 0/*lhs_index*/, Value::kACC/*lhs_linkage*/,
+                                  rhs->AsPairExpression(), ast);
+            } else {
+                GenerateOperation(op, value_type, 0/*lhs_index*/, Value::kACC/*lhs_linkage*/,
+                                  rval.type, rval.index, Value::kStack/*rhs_linkage*/, ast);
+            }
             StaArrayAt(value_type, primary, index, ast);
     
             if (rval_tmp) {
-                current_fun_->StackFallback(rval_type, rval);
+                current_fun_->StackFallback(rval.type, rval.index);
             }
         } return ResultWith(Value::kACC, value_type->id(), 0);
 
         case Operator::NOT_OPERATOR: {
-            VISIT_CHECK(rhs);
-            const Class *rval_type = metadata_space_->type(rv.bundle.type);
-            if (NeedInbox(value_type, rval_type)) {
-                InboxIfNeeded(rval_type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
-                              value_type, ast);
+            if (NeedInbox(value_type, rval.type)) {
+                InboxIfNeeded(rval.type, rval.index, rval.linkage, value_type, ast);
             } else {
-                LdaIfNeeded(rv, ast);
+                LdaIfNeeded(rval.type, rval.index, rval.linkage, ast);
             }
             StaArrayAt(value_type, primary, index, ast);
         } return ResultWithVoid();
@@ -2600,17 +2610,15 @@ BytecodeGenerator::GenerateVariableAssignment(const ASTString *name, Value lval,
     if (!rhs->IsPairExpression()) {
         Result rv;
         VISIT_CHECK(rhs);
-
         rval.linkage = static_cast<Value::Linkage>(rv.kind);
         rval.type = metadata_space_->type(rv.bundle.type);
         rval.index = rv.bundle.index;
     }
-    
+
     if (!owns->is_file_scope()) {
         if (!HasGenerated(lval.ast) && !GenerateSymbolDependence(lval)) {
             return ResultWithError();
         }
-        //DCHECK(HasGenerated(lval.ast));
     }
     if (ShouldCaptureVar(owns, lval)) {
         auto rv = CaptureVar(name->ToString(), owns, lval);
@@ -2623,11 +2631,12 @@ BytecodeGenerator::GenerateVariableAssignment(const ASTString *name, Value lval,
         case Operator::kAdd:
         case Operator::kSub:
             if (rhs->IsPairExpression()) {
-                // TODO: map or array putting
-                TODO();
+                GenerateOperation(op, lval.type, lval.index, lval.linkage, rhs->AsPairExpression(),
+                                  ast);
+            } else {
+                GenerateOperation(op, lval.type, lval.index, lval.linkage, rval.type, rval.index,
+                                  rval.linkage, ast);
             }
-            GenerateOperation(rval.type, op, lval.index, lval.linkage,
-                              rval.index, rval.linkage, ast);
             break;
         case Operator::NOT_OPERATOR:
             if (NeedInbox(lval.type, rval.type)) {
@@ -2761,33 +2770,47 @@ int BytecodeGenerator::LinkGlobalVariable(VariableDeclaration *var) {
     }
 }
 
-void BytecodeGenerator::GenerateOperation(const Class *clazz, Operator op, int lhs_index,
-                                          Value::Linkage lhs_linkage, int rhs_index,
+void BytecodeGenerator::GenerateOperation(const Operator op,
+                                          const Class *lhs_type,
+                                          int lhs_index,
+                                          Value::Linkage lhs_linkage,
+                                          const Class *rhs_type,
+                                          int rhs_index,
                                           Value::Linkage rhs_linkage,
                                           ASTNode *ast) {
+    if (lhs_type->IsArray()) {
+        if (op.kind == Operator::kSub) {
+            GenerateArrayMinus(lhs_type, lhs_index, lhs_linkage, rhs_type, rhs_index, rhs_linkage,
+                               ast);
+        } else {
+            NOREACHED();
+        }
+        return;
+    }
+
     bool has_reserve_lhs = false;
     int lhs = lhs_index;
     if (lhs_linkage != Value::kStack) {
         has_reserve_lhs = true;
-        lhs = current_fun_->StackReserve(clazz);
-        MoveToStackIfNeeded(clazz, lhs_index, lhs_linkage, lhs, ast);
+        lhs = current_fun_->StackReserve(lhs_type);
+        MoveToStackIfNeeded(lhs_type, lhs_index, lhs_linkage, lhs, ast);
     }
     
     bool has_reserve_rhs = false;
     int rhs = rhs_index;
     if (rhs_linkage != Value::kStack) {
         has_reserve_rhs = true;
-        rhs = current_fun_->StackReserve(clazz);
-        MoveToStackIfNeeded(clazz, rhs_index, rhs_linkage, rhs, ast);
+        rhs = current_fun_->StackReserve(rhs_type);
+        MoveToStackIfNeeded(rhs_type, rhs_index, rhs_linkage, rhs, ast);
     }
-    
-    GenerateOperation(clazz, op, lhs, rhs, ast);
+
+    GenerateOperation(op, lhs_type, lhs, rhs, ast);
     
     if (has_reserve_rhs) {
-        current_fun_->StackFallback(clazz, rhs);
+        current_fun_->StackFallback(rhs_type, rhs);
     }
     if (has_reserve_lhs) {
-        current_fun_->StackFallback(clazz, lhs);
+        current_fun_->StackFallback(lhs_type, lhs);
     }
 }
 
@@ -2891,7 +2914,165 @@ void BytecodeGenerator::GenerateSend(const Class *clazz, int lhs, int rhs, ASTNo
     current_fun_->EmitYield(ast, YIELD_PROPOSE);
 }
 
-void BytecodeGenerator::GenerateOperation(const Class *clazz, Operator op, int lhs, int rhs,
+bool BytecodeGenerator::GenerateOperation(const Operator op, const Class *type, int lhs_index,
+                                          Value::Linkage lhs_linkage,
+                                          PairExpression *rhs, ASTNode *ast) {
+    if (type->IsArray()) {
+        OperandContext receiver;
+        bool ok;
+        if (rhs->addition_key()) {
+            ok = GenerateUnaryOperands(&receiver, rhs->value());
+        } else {
+            ok = GenerateBinaryOperands(&receiver, rhs->key(), rhs->value());
+        }
+        if (!ok) {
+            return false;
+        }
+        switch (op.kind) {
+            case Operator::kAdd:
+                if (rhs->addition_key()) {
+                    GenerateArrayAppend(type, lhs_index, lhs_linkage, receiver.lhs_type,
+                                        receiver.lhs, Value::kStack/*lhs_linkage*/, ast);
+                } else {
+                    GenerateArrayPlus(type, lhs_index, lhs_linkage, receiver.lhs_type,
+                                      receiver.lhs, Value::kStack, receiver.rhs_type, receiver.rhs,
+                                      Value::kStack/*lhs_linkage*/, ast);
+                }
+                break;
+            default:
+                NOREACHED();
+                break;
+        }
+        CleanupOperands(&receiver);
+        return true;
+    } else {
+        TODO();
+    }
+    return false;
+}
+
+void BytecodeGenerator::GenerateArrayAppend(const Class *clazz,
+                                            int lhs_index,
+                                            Value::Linkage lhs_linkage,
+                                            const Class *value_type,
+                                            int value_index,
+                                            Value::Linkage value_linkage,
+                                            ASTNode *ast) {
+    int argument_offset = kPointerSize; // array
+    MoveToArgumentIfNeeded(clazz, lhs_index, lhs_linkage, argument_offset, ast);
+    argument_offset += RoundUp(value_type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(value_type, value_index, value_linkage, argument_offset, ast);
+    const char *external_name = nullptr;
+    switch (clazz->id()) {
+        case kType_array:
+            external_name = "lang.array::Append";
+            break;
+        case kType_array8:
+            external_name = "lang.array8::Append";
+            break;
+        case kType_array16:
+            external_name = "lang.array16::Append";
+            break;
+        case kType_array32:
+            external_name = "lang.array32::Append";
+            break;
+        case kType_array64:
+            external_name = "lang.array64::Append";
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    Value fun = FindOrInsertExternalFunction(external_name);
+    DCHECK_EQ(Value::kGlobal, fun.linkage);
+    LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, fun.flags & kAttrNative, 0/*slot*/, argument_offset);
+}
+
+void BytecodeGenerator::GenerateArrayPlus(const Class *clazz,
+                                          int lhs_index,
+                                          Value::Linkage lhs_linkage,
+                                          const Class *key_type,
+                                          int key_index,
+                                          Value::Linkage key_linkage,
+                                          const Class *value_type,
+                                          int value_index,
+                                          Value::Linkage value_linkage,
+                                          ASTNode *ast) {
+    int argument_offset = kPointerSize; // array
+    MoveToArgumentIfNeeded(clazz, lhs_index, lhs_linkage, argument_offset, ast);
+    argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(key_type, key_index, key_linkage, argument_offset, ast);
+    argument_offset += RoundUp(value_type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(value_type, value_index, value_linkage, argument_offset, ast);
+
+    const char *external_name = nullptr;
+    switch (clazz->id()) {
+        case kType_array:
+            external_name = "lang.array::Plus";
+            break;
+        case kType_array8:
+            external_name = "lang.array8::Plus";
+            break;
+        case kType_array16:
+            external_name = "lang.array16::Plus";
+            break;
+        case kType_array32:
+            external_name = "lang.array32::Plus";
+            break;
+        case kType_array64:
+            external_name = "lang.array64::Plus";
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    Value fun = FindOrInsertExternalFunction(external_name);
+    DCHECK_EQ(Value::kGlobal, fun.linkage);
+    LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, fun.flags & kAttrNative, 0/*slot*/, argument_offset);
+}
+
+void BytecodeGenerator::GenerateArrayMinus(const Class *clazz,
+                                           int lhs_index,
+                                           Value::Linkage lhs_linkage,
+                                           const Class *key_type,
+                                           int key_index,
+                                           Value::Linkage key_linkage,
+                                           ASTNode *ast) {
+    int argument_offset = kPointerSize; // array
+    MoveToArgumentIfNeeded(clazz, lhs_index, lhs_linkage, argument_offset, ast);
+    argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(key_type, key_index, key_linkage, argument_offset, ast);
+
+    const char *external_name = nullptr;
+    switch (clazz->id()) {
+        case kType_array:
+            external_name = "lang.array::Minus";
+            break;
+        case kType_array8:
+            external_name = "lang.array8::Minus";
+            break;
+        case kType_array16:
+            external_name = "lang.array16::Minus";
+            break;
+        case kType_array32:
+            external_name = "lang.array32::Minus";
+            break;
+        case kType_array64:
+            external_name = "lang.array64::Minus";
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    Value fun = FindOrInsertExternalFunction(external_name);
+    DCHECK_EQ(Value::kGlobal, fun.linkage);
+    LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, fun.flags & kAttrNative, 0/*slot*/, argument_offset);
+}
+
+void BytecodeGenerator::GenerateOperation(const Operator op, const Class *clazz, int lhs, int rhs,
                                           ASTNode *ast) {
     const int loff = GetStackOffset(lhs);
     const int roff = GetStackOffset(rhs);
