@@ -97,6 +97,8 @@ public:
     inline void set_method_function(uint32_t i, Closure *fn);
     inline void set_init_function(Closure *fn);
     
+    inline bool IsArray() const;
+    
     bool IsSameOrBaseOf(const Class *base) const { return IsSameOf(base) || IsBaseOf(base); }
     bool IsSameOf(const Class *base) const { return this == DCHECK_NOTNULL(base); }
     inline bool IsBaseOf(const Class *base) const;
@@ -534,6 +536,20 @@ inline void Class::set_method_function(uint32_t i, Closure *fn) {
 
 inline void Class::set_init_function(Closure *fn) {
     DCHECK_NOTNULL(init_)->fn_ = DCHECK_NOTNULL(fn);
+}
+
+inline bool Class::IsArray() const {
+    switch (static_cast<BuiltinType>(id())) {
+        case kType_array:
+        case kType_array8:
+        case kType_array16:
+        case kType_array32:
+        case kType_array64:
+            return true;
+            
+        default:
+            return false;
+    }
 }
 
 inline bool Class::IsBaseOf(const Class *base) const {

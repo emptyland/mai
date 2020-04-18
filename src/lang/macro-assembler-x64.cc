@@ -734,7 +734,7 @@ public:
         instr_scope.GetBToRBX();
         __ movsd(FACC, Operand(SCRATCH, rbx, times_1, 0));
     }
-    
+
     void EmitLdaArrayAt8(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
@@ -746,7 +746,7 @@ public:
         __ xorl(ACC, ACC);
         __ movb(ACC, Operand(SCRATCH, rdx, times_1, Array<int8_t>::kOffsetElems));
     }
-    
+   
     void EmitLdaArrayAt16(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
@@ -758,7 +758,7 @@ public:
         __ xorl(ACC, ACC);
         __ movw(ACC, Operand(SCRATCH, rdx, times_2, Array<int16_t>::kOffsetElems));
     }
-    
+
     void EmitLdaArrayAt32(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
@@ -769,7 +769,7 @@ public:
         CheckArrayBound<int32_t>(masm, SCRATCH, rax);
         __ movl(ACC, Operand(SCRATCH, rax, times_4, Array<int32_t>::kOffsetElems));
     }
-    
+
     void EmitLdaArrayAt64(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
@@ -780,7 +780,7 @@ public:
         CheckArrayBound<int64_t>(masm, SCRATCH, rax);
         __ movq(ACC, Operand(SCRATCH, rax, times_8, Array<int64_t>::kOffsetElems));
     }
-    
+
     void EmitLdaArrayAtPtr(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
@@ -791,7 +791,7 @@ public:
         CheckArrayBound<Any *>(masm, SCRATCH, rax);
         __ movq(ACC, Operand(SCRATCH, rax, times_ptr_size, Array<Any *>::kOffsetElems));
     }
-    
+
     void EmitLdaArrayAtf32(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
@@ -802,7 +802,7 @@ public:
         CheckArrayBound<float>(masm, SCRATCH, rax);
         __ movss(FACC, Operand(SCRATCH, rax, times_4, Array<float>::kOffsetElems));
     }
-    
+
     void EmitLdaArrayAtf64(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
@@ -813,7 +813,7 @@ public:
         CheckArrayBound<double>(masm, SCRATCH, rax);
         __ movsd(FACC, Operand(SCRATCH, rax, times_8, Array<double>::kOffsetElems));
     }
-    
+
     void EmitLdaVtableFunction(MacroAssembler *masm) override {
         InstrStackImmABScope instr_scope(masm);
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
@@ -1010,6 +1010,83 @@ public:
         instr_scope.GetBToRBX();
         __ movsd(Operand(SCRATCH, rbx, times_1, 0), FACC);
         //__ sfence(); // XXX
+    }
+
+    void EmitStaArrayAt8(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rdx, rdx);
+        __ movl(rdx, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<int32_t>(masm, SCRATCH, rdx);
+        __ movb(Operand(SCRATCH, rdx, times_1, Array<int8_t>::kOffsetElems), ACC);
+    }
+    
+    void EmitStaArrayAt16(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rdx, rdx);
+        __ movl(rdx, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<int32_t>(masm, SCRATCH, rdx);
+        __ movw(Operand(SCRATCH, rdx, times_2, Array<int16_t>::kOffsetElems), ACC);
+    }
+    
+    void EmitStaArrayAt32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rdx, rdx);
+        __ movl(rdx, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<int32_t>(masm, SCRATCH, rdx);
+        __ movl(Operand(SCRATCH, rdx, times_4, Array<int32_t>::kOffsetElems), ACC);
+    }
+    
+    void EmitStaArrayAt64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rdx, rdx);
+        __ movl(rdx, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<int64_t>(masm, SCRATCH, rdx);
+        __ movq(Operand(SCRATCH, rdx, times_8, Array<int64_t>::kOffsetElems), ACC);
+    }
+    
+    void EmitStaArrayAtPtr(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rdx, rdx);
+        __ movl(rdx, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<Any *>(masm, SCRATCH, rdx);
+        __ movq(Operand(SCRATCH, rdx, times_ptr_size, Array<Any *>::kOffsetElems), ACC);
+    }
+    
+    void EmitStaArrayAtf32(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rdx, rdx);
+        __ movl(rdx, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<float>(masm, SCRATCH, rdx);
+        __ movss(Operand(SCRATCH, rdx, times_4, Array<float>::kOffsetElems), FACC);
+    }
+
+    void EmitStaArrayAtf64(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        instr_scope.GetBToRBX();
+        __ xorq(rdx, rdx);
+        __ movl(rdx, Operand(rbp, rbx, times_2, 0));
+        CheckArrayBound<double>(masm, SCRATCH, rdx);
+        __ movsd(Operand(SCRATCH, rdx, times_8, Array<double>::kOffsetElems), FACC);
     }
 
     // Move from Stack to Stack --------------------------------------------------------------------

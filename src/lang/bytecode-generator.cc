@@ -2138,14 +2138,25 @@ ASTVisitor::Result BytecodeGenerator::VisitAssignmentStatement(AssignmentStateme
             }
             
             auto [owns, self] = current_->Resolve(id->name());
-            return GeneratePropertyAssignment(id->name(), self, current_file_, ast->assignment_op(),
+            return GeneratePropertyAssignment(id->name(), self, owns, ast->assignment_op(),
                                               ast->rval(), dot);
         } break;
 
-        case ASTNode::kIndexExpression:
-            TODO();
+        case ASTNode::kIndexExpression: {
+            IndexExpression *lval = ast->lval()->AsIndexExpression();
+            OperandContext recevier;
+            if (!GenerateBinaryOperands(&recevier, lval->primary(), lval->index())) {
+                return ResultWithError();
+            }
+            Result rv = GenerateIndexAssignment(recevier.lhs_type, recevier.lhs, recevier.rhs,
+                                                ast->assignment_op(), ast->rval(), lval);
+            CleanupOperands(&recevier);
+            return rv;
+        } break;
+
         default:
             NOREACHED();
+            break;
     }
     return ResultWithVoid();
 }
@@ -2485,7 +2496,7 @@ BytecodeGenerator::GeneratePropertyAssignment(const ASTString *name, Value self,
         if (!HasGenerated(self.ast) && !GenerateSymbolDependence(self)) {
             return ResultWithError();
         }
-        DCHECK(HasGenerated(self.ast));
+        //DCHECK(HasGenerated(self.ast));
     }
     
     if (ShouldCaptureVar(owns, self)) {
@@ -2521,6 +2532,65 @@ BytecodeGenerator::GeneratePropertyAssignment(const ASTString *name, Value self,
             break;
     }
     return GenerateStoreProperty(self.type, self.index, self.linkage, ast);
+}
+
+ASTVisitor::Result
+BytecodeGenerator::GenerateIndexAssignment(const Class *type, int primary, int index, Operator op,
+                                           Expression *rhs, IndexExpression *ast) {
+//    StackSpaceScope stack_scope(current_fun_->stack());
+    Result rv;
+    VISIT_CHECK(ast->hint());
+    const Class *value_type = metadata_space_->type(rv.bundle.type);
+
+    switch (op.kind) {
+        case Operator::kAdd:
+        case Operator::kSub: {
+            if (rhs->IsPairExpression()) {
+                // TODO: map or array putting
+                TODO();
+            }
+
+            VISIT_CHECK(rhs);
+            const Class *rval_type = metadata_space_->type(rv.bundle.type);
+            int rval = rv.bundle.index;
+            bool rval_tmp = (rv.kind != Value::kStack);
+            if (rval_tmp) {
+                rval = current_fun_->StackReserve(value_type);
+                MoveToStackIfNeeded(rval_type, rv.bundle.index,
+                                    static_cast<Value::Linkage>(rv.kind), rval, rhs);
+            }
+            if (type->IsArray()) {
+                LdaArrayAt(value_type, primary, index, ast);
+            } else {
+                // TODO:
+                TODO();
+            }
+            GenerateOperation(rval_type, op, 0, Value::kACC, rval, Value::kStack, ast);
+            StaArrayAt(value_type, primary, index, ast);
+    
+            if (rval_tmp) {
+                current_fun_->StackFallback(rval_type, rval);
+            }
+        } return ResultWith(Value::kACC, value_type->id(), 0);
+
+        case Operator::NOT_OPERATOR: {
+            VISIT_CHECK(rhs);
+            const Class *rval_type = metadata_space_->type(rv.bundle.type);
+            if (NeedInbox(value_type, rval_type)) {
+                InboxIfNeeded(rval_type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                              value_type, ast);
+            } else {
+                LdaIfNeeded(rv, ast);
+            }
+            StaArrayAt(value_type, primary, index, ast);
+        } return ResultWithVoid();
+
+        default:
+            NOREACHED();
+            break;
+    }
+
+    return ResultWithError();
 }
 
 ASTVisitor::Result
@@ -3643,6 +3713,42 @@ void BytecodeGenerator::StaProperty(const Class *clazz, int index, int offset, A
                 EMIT(ast, Add<kStaPropertyf64>(index, offset));
             } else {
                 EMIT(ast, Add<kStaProperty64>(index, offset));
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+}
+
+void BytecodeGenerator::StaArrayAt(const Class *clazz, int primary, int index, ASTNode *ast) {
+    primary = GetStackOffset(primary);
+    index = GetStackOffset(index);
+    
+    if (clazz->is_reference()) {
+        EMIT(ast, Add<kStaArrayAtPtr>(primary, index));
+        return;
+    }
+
+    switch (clazz->reference_size()) {
+        case 1:
+            EMIT(ast, Add<kStaArrayAt8>(primary, index));
+            break;
+        case 2:
+            EMIT(ast, Add<kStaArrayAt16>(primary, index));
+            break;
+        case 4:
+            if (clazz->IsFloating()) {
+                EMIT(ast, Add<kStaArrayAtf32>(primary, index));
+            } else {
+                EMIT(ast, Add<kStaArrayAt32>(primary, index));
+            }
+            break;
+        case 8:
+            if (clazz->IsFloating()) {
+                EMIT(ast, Add<kStaArrayAtf64>(primary, index));
+            } else {
+                EMIT(ast, Add<kStaArrayAt64>(primary, index));
             }
             break;
         default:

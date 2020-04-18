@@ -6,6 +6,16 @@ fun main() {
 	assert(a[1] == 0, 'fail')
 	assert(a[2] == 0, 'fail')
 
+	a[0] = 1
+	a[1] = 2
+	assert(a[0] == 1, "fail ${a[0]}")
+	assert(a[1] == 2, 'fail')
+
+	a[2] += 99
+	assert(a[2] == 99, "fail ${a[2]}")
+	a[0] -= 1
+	assert(a[0] == 0, "fail ${a[0]}")
+
 	val b = array{'1st', '2nd', '3rd'}
 	// assert(b[0] == '1st', 'fail')
 	// assert(b[1] == '2nd', 'fail')

@@ -174,6 +174,8 @@ private:
                           bool vargs);
     Result GeneratePropertyAssignment(const ASTString *name, Value self, Scope *owns, Operator op,
                                       Expression *rhs, DotExpression *ast);
+    Result GenerateIndexAssignment(const Class *type, int primary, int index, Operator op,
+                                   Expression *rhs, IndexExpression *ast);
     Result GenerateVariableAssignment(const ASTString *name, Value lval, Scope *owns, Operator op,
                                       Expression *rhs, ASTNode *ast);
     Result GenerateIncrement(const Class *lval_type, int lval_index, Value::Linkage lval_linkage,
@@ -215,6 +217,7 @@ private:
     void StaGlobal(const Class *clazz, int index, ASTNode *ast);
     void StaCaptured(const Class *clazz, int index, ASTNode *ast);
     void StaProperty(const Class *clazz, int index, int offset, ASTNode *ast);
+    void StaArrayAt(const Class *clazz, int primary, int index, ASTNode *ast);
     
     bool GenerateSymbolDependence(Value value);
     bool GenerateSymbolDependence(Symbolize *ast);
