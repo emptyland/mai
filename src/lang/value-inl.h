@@ -140,6 +140,12 @@ inline void Array<T, R>::quickly_set_length(size_t length) {
 }
 
 template<class T, bool R>
+inline void Array<T, R>::QuicklyAppendNoResize(T data) {
+    DCHECK_LE(length_ + 1, capacity_);
+    elems_[length_++] = data;
+}
+
+template<class T, bool R>
 inline void Array<T, R>::QuicklyAppendNoResize(const T *data, size_t n) {
     DCHECK_LT(length_ + n, capacity_);
     ::memcpy(&elems_[length_], data, n);
@@ -147,11 +153,17 @@ inline void Array<T, R>::QuicklyAppendNoResize(const T *data, size_t n) {
 }
 
 template<class T, bool R>
-inline T *Array<T, R>::QuicklyAppendNoResize(size_t n) {
+inline T *Array<T, R>::QuicklyAdvanceNoResize(size_t n) {
     DCHECK_LT(length_ + n, capacity_);
     T *base = &elems_[length_];
     length_ += n;
     return base;
+}
+
+template<class T>
+inline void Array<T, true>::QuicklySet(size_t i, T value) {
+    quickly_set_nobarrier(i, value);
+    WriteBarrier(reinterpret_cast<Any **>(&elems_[i]));
 }
 
 template<class T>
@@ -167,6 +179,14 @@ inline void Array<T, true>::QuicklySetAll(size_t i, T *value, size_t n) {
     DCHECK_LE(i + n, length_);
     ::memcpy(&elems_[i], value, sizeof(T) * n);
     WriteBarrier(reinterpret_cast<Any **>(&elems_[i]), n);
+}
+
+template<class T>
+inline void Array<T, true>::QuicklyAppend(T value) {
+    DCHECK_LE(length_ + 1, capacity_);
+    elems_[length_] = value;
+    WriteBarrier(reinterpret_cast<Any **>(&elems_[length_]));
+    length_++;
 }
 
 template<class T>

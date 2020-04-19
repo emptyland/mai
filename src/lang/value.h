@@ -176,9 +176,9 @@ public:
     inline T quickly_get(size_t i) const;
     inline void quickly_set(size_t i, T value);
     inline void quickly_set_length(size_t length);
-    //inline void QuicklySetAll(size_t i, T *value, size_t n);
+    inline void QuicklyAppendNoResize(T data);
     inline void QuicklyAppendNoResize(const T *data, size_t n);
-    inline T *QuicklyAppendNoResize(size_t n);
+    inline T *QuicklyAdvanceNoResize(size_t n);
 
     friend class Machine;
 protected:
@@ -254,8 +254,10 @@ public:
 
     // Internal functions
     inline T quickly_get(size_t i) const;
+    inline void QuicklySet(size_t i, T value);
     inline void quickly_set_nobarrier(size_t i, T value);
     inline void QuicklySetAll(size_t i, T *value, size_t n);
+    inline void QuicklyAppend(T value);
     inline void Iterate(ObjectVisitor *visitor);
     
     friend class Machine;

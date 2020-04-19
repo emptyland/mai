@@ -349,7 +349,7 @@ String *Machine::NewUtf8StringWithFormatV(uint32_t flags, const char *fmt, va_li
             }
         }
         va_copy(copied, ap);
-        rv = ::vsnprintf(buf->QuicklyAppendNoResize(len), len, fmt, ap);
+        rv = ::vsnprintf(buf->QuicklyAdvanceNoResize(len), len, fmt, ap);
         va_copy(ap, copied);
     } while (rv > len);
     buf->quickly_set_length(rv);
@@ -484,8 +484,8 @@ AbstractArray *Machine::NewArrayCopied(const AbstractArray *origin, size_t incre
         NOREACHED() << "class: " << clazz->name() << " is not array!";
         return nullptr;
     }
-    const Field *elems_field =
-        DCHECK_NOTNULL(STATE->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
+    const Field *elems_field = clazz->field(2);
+    DCHECK(!::strcmp("elems", elems_field->name()));
 
     uint32_t length = static_cast<uint32_t>(origin->length() + increment);
     size_t request_size = sizeof(AbstractArray) + elems_field->type()->reference_size() * length;

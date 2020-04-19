@@ -2986,7 +2986,7 @@ void BytecodeGenerator::GenerateArrayAppend(const Class *clazz,
     Value fun = FindOrInsertExternalFunction(external_name);
     DCHECK_EQ(Value::kGlobal, fun.linkage);
     LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);
-    current_fun_->EmitDirectlyCallFunction(ast, fun.flags & kAttrNative, 0/*slot*/, argument_offset);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
 }
 
 void BytecodeGenerator::GenerateArrayPlus(const Class *clazz,

@@ -22,4 +22,8 @@ fun main() {
 	// assert(b[2] == '3rd', 'fail')
 	//println("b=$b")
 	println("${b[0]},${b[1]},${b[2]}")
+
+	val c = array{1,2,3}
+	val d = c + (.. -> 4)
+	assert(d[3] == 4, "fail ${d[3]}")
 }

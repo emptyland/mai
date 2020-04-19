@@ -256,9 +256,6 @@ BuiltinType GetArrayType(const Class *element_type) {
         int length = static_cast<int>((stop - start) >> kPointerShift);
         Any **handles = reinterpret_cast<Any **>(Machine::This()->AdvanceHandleSlots(length));
         ::memcpy(handles, start, stop - start);
-//        for (int i = 0; i < length; i++) {
-//            printf("%p %s\n", handles[i], handles[i]->clazz()->name());
-//        }
 
         SafepointScope safepoint_scope(STATE->gc());
         
@@ -282,6 +279,57 @@ BuiltinType GetArrayType(const Class *element_type) {
         ::memcpy(reinterpret_cast<Address>(array) + elems_field->offset(), start, stop - start);
         return array;
     }
+}
+
+/*static*/ AbstractArray *Runtime::ArrayAppend(Array<Any *> *array, Any *value) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Local<Array<Any *>> handle(array);
+    Local<Any> append(value);
+    
+    SafepointScope safepoint_scope(STATE->gc());
+    array = static_cast<Array<Any *> *>(Machine::This()->NewArrayCopied(*handle, 1, 0));
+    array->QuicklySet(array->length() - 1, value);
+    return array;
+}
+
+/*static*/ AbstractArray *Runtime::Array8Append(Array<uint8_t> *array, uint8_t value) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Local<Array<uint8_t>> handle(array);
+    
+    SafepointScope safepoint_scope(STATE->gc());
+    array = static_cast<Array<uint8_t> *>(Machine::This()->NewArrayCopied(*handle, 1, 0));
+    array->quickly_set(array->length() - 1, value);
+    return array;
+}
+
+/*static*/ AbstractArray *Runtime::Array16Append(Array<uint16_t> *array, uint16_t value) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Local<Array<uint16_t>> handle(array);
+    
+    SafepointScope safepoint_scope(STATE->gc());
+    array = static_cast<Array<uint16_t> *>(Machine::This()->NewArrayCopied(*handle, 1, 0));
+    array->quickly_set(array->length() - 1, value);
+    return array;
+}
+
+/*static*/ AbstractArray *Runtime::Array32Append(Array<uint32_t> *array, uint32_t value) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Local<Array<uint32_t>> handle(array);
+    
+    SafepointScope safepoint_scope(STATE->gc());
+    array = static_cast<Array<uint32_t> *>(Machine::This()->NewArrayCopied(*handle, 1, 0));
+    array->quickly_set(array->length() - 1, value);
+    return array;
+}
+
+/*static*/ AbstractArray *Runtime::Array64Append(Array<uint64_t> *array, uint64_t value) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Local<Array<uint64_t>> handle(array);
+    
+    SafepointScope safepoint_scope(STATE->gc());
+    array = static_cast<Array<uint64_t> *>(Machine::This()->NewArrayCopied(*handle, 1, 0));
+    array->quickly_set(array->length() - 1, value);
+    return array;
 }
 
 /*static*/ Any *Runtime::WriteBarrierWithOffset(Any *host, int32_t offset) {

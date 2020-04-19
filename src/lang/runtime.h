@@ -8,6 +8,7 @@ namespace mai {
 namespace lang {
 
 template<class T> class Number;
+template<class T, bool R> class Array;
 class AbstractValue;
 class AbstractArray;
 class Channel;
@@ -58,6 +59,11 @@ class Function;
     V(ChannelSendPtr, "lang.channelSendPtr") \
     V(ChannelSendF32, "lang.channelSendF32") \
     V(ChannelSendF64, "lang.channelSendF64") \
+    V(ArrayAppend, "lang.array::Append") \
+    V(Array8Append, "lang.array8::Append") \
+    V(Array16Append, "lang.array16::Append") \
+    V(Array32Append, "lang.array32::Append") \
+    V(Array64Append, "lang.array64::Append") \
     V(Println, "lang.println") \
     V(Assert, "lang.assert") \
     V(Abort, "lang.abort") \
@@ -144,6 +150,12 @@ struct Runtime {
     // Array
     static AbstractArray *NewArray(const Class *element_type, int len);
     static AbstractArray *NewArrayWith(const Class *element_type, Address begin, Address end);
+    
+    static AbstractArray *ArrayAppend(Array<Any *, true> *array, Any *value);
+    static AbstractArray *Array8Append(Array<uint8_t, false> *array, uint8_t value);
+    static AbstractArray *Array16Append(Array<uint16_t, false> *array, uint16_t value);
+    static AbstractArray *Array32Append(Array<uint32_t, false> *array, uint32_t value);
+    static AbstractArray *Array64Append(Array<uint64_t, false> *array, uint64_t value);
 
     // WriteBarrier
     static Any *WriteBarrierWithOffset(Any *host, int32_t offset);
