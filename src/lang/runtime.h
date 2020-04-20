@@ -49,31 +49,36 @@ class Function;
     V(F64ToString, "lang.F64::toString") \
     V(NewChannel, "lang.newChannel") \
     V(CloseChannel, "channel::close") \
-    V(ChannelRecv32, "lang.channelRecv32") \
-    V(ChannelRecv64, "lang.channelRecv64") \
-    V(ChannelRecvPtr, "lang.channelRecvPtr") \
-    V(ChannelRecvF32, "lang.channelRecvF32") \
-    V(ChannelRecvF64, "lang.channelRecvF64") \
-    V(ChannelSend32, "lang.channelSend32") \
-    V(ChannelSend64, "lang.channelSend64") \
-    V(ChannelSendPtr, "lang.channelSendPtr") \
-    V(ChannelSendF32, "lang.channelSendF32") \
-    V(ChannelSendF64, "lang.channelSendF64") \
-    V(ArrayAppend, "lang.array::Append") \
-    V(Array8Append, "lang.array8::Append") \
-    V(Array16Append, "lang.array16::Append") \
-    V(Array32Append, "lang.array32::Append") \
-    V(Array64Append, "lang.array64::Append") \
-    V(ArrayPlus, "lang.array::Plus") \
-    V(Array8Plus, "lang.array8::Plus") \
-    V(Array16Plus, "lang.array16::Plus") \
-    V(Array32Plus, "lang.array32::Plus") \
-    V(Array64Plus, "lang.array64::Plus") \
-    V(ArrayMinus, "lang.array::Minus") \
-    V(Array8Minus, "lang.array8::Minus") \
-    V(Array16Minus, "lang.array16::Minus") \
-    V(Array32Minus, "lang.array32::Minus") \
-    V(Array64Minus, "lang.array64::Minus") \
+    V(ChannelRecv32, "channel::recv32") \
+    V(ChannelRecv64, "channel::recv64") \
+    V(ChannelRecvPtr, "channel::recvPtr") \
+    V(ChannelRecvF32, "channel::recvF32") \
+    V(ChannelRecvF64, "channel::recvF64") \
+    V(ChannelSend32, "channel::send32") \
+    V(ChannelSend64, "channel::send64") \
+    V(ChannelSendPtr, "channel::sendPtr") \
+    V(ChannelSendF32, "channel::sendF32") \
+    V(ChannelSendF64, "channel::sendF64") \
+    V(ArrayAppend, "array::append") \
+    V(Array8Append, "array8::append") \
+    V(Array16Append, "array16::append") \
+    V(Array32Append, "array32::append") \
+    V(Array64Append, "array64::append") \
+    V(ArrayPlus, "array::plus") \
+    V(Array8Plus, "array8::plus") \
+    V(Array16Plus, "array16::plus") \
+    V(Array32Plus, "array32::plus") \
+    V(Array64Plus, "array64::plus") \
+    V(ArrayMinus, "array::minus") \
+    V(Array8Minus, "array8::minus") \
+    V(Array16Minus, "array16::minus") \
+    V(Array32Minus, "array32::minus") \
+    V(Array64Minus, "array64::minus") \
+    V(ArrayResize, "array::resize") \
+    V(Array8Resize, "array8::resize") \
+    V(Array16Resize, "array16::resize") \
+    V(Array32Resize, "array32::resize") \
+    V(Array64Resize, "array64::resize") \
     V(Println, "lang.println") \
     V(Assert, "lang.assert") \
     V(Abort, "lang.abort") \
@@ -178,6 +183,12 @@ struct Runtime {
     static AbstractArray *Array16Minus(Array<uint16_t, false> *array, int index);
     static AbstractArray *Array32Minus(Array<uint32_t, false> *array, int index);
     static AbstractArray *Array64Minus(Array<uint64_t, false> *array, int index);
+    
+    static AbstractArray *ArrayResize(Array<Any *, true> *array, int size);
+    static AbstractArray *Array8Resize(Array<uint8_t, false> *array, int size);
+    static AbstractArray *Array16Resize(Array<uint16_t, false> *array, int size);
+    static AbstractArray *Array32Resize(Array<uint32_t, false> *array, int size);
+    static AbstractArray *Array64Resize(Array<uint64_t, false> *array, int size);
 
     // WriteBarrier
     static Any *WriteBarrierWithOffset(Any *host, int32_t offset);

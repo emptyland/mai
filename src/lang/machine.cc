@@ -452,13 +452,9 @@ CapturedValue *Machine::NewCapturedValue(const Class *clazz, const void *value, 
 
 AbstractArray *Machine::NewArray(BuiltinType type, size_t length, size_t capacity, uint32_t flags) {
     const Class *clazz = DCHECK_NOTNULL(STATE->builtin_type(type));
-    if (::strstr(clazz->name(), "array") != clazz->name()) {
-        NOREACHED() << "class: " << clazz->name() << " is not array!";
-        return nullptr;
-    }
-
-    const Field *elems_field =
-        DCHECK_NOTNULL(STATE->metadata_space()->FindClassFieldOrNull(clazz, "elems"));
+    DCHECK(::strstr(clazz->name(), "array") == clazz->name());
+    const Field *elems_field = clazz->field(2);
+    DCHECK(!::strcmp("elems", elems_field->name()));
 
     DCHECK_LE(length, capacity);
     size_t request_size = sizeof(AbstractArray) + elems_field->type()->reference_size() * capacity;
@@ -480,10 +476,7 @@ AbstractArray *Machine::NewArray(BuiltinType type, size_t length, size_t capacit
 AbstractArray *
 Machine::NewArrayCopied(const AbstractArray *origin, size_t increment, uint32_t flags) {
     const Class *clazz = origin->clazz();
-    if (::strstr(clazz->name(), "array") != clazz->name()){
-        NOREACHED() << "class: " << clazz->name() << " is not array!";
-        return nullptr;
-    }
+    DCHECK(::strstr(clazz->name(), "array") == clazz->name());
     const Field *elems_field = clazz->field(2);
     DCHECK(!::strcmp("elems", elems_field->name()));
 
@@ -511,6 +504,43 @@ Machine::NewArrayCopied(const AbstractArray *origin, size_t increment, uint32_t 
         ::memset(dest, 0, elems_field->type()->reference_size() * increment);
     }
     return obj;
+}
+
+AbstractArray *Machine::ResizeArray(AbstractArray *origin, size_t size, uint32_t flags) {
+    const Class *clazz = origin->clazz();
+    DCHECK(::strstr(clazz->name(), "array") == clazz->name());
+    const Field *elems_field = clazz->field(2);
+    DCHECK(!::strcmp("elems", elems_field->name()));
+
+    AbstractArray *result = origin;
+    if (size > origin->capacity()) {
+        result = NewArray(static_cast<BuiltinType>(clazz->id()), size, size * 2, flags);
+        if (!result) {
+            return nullptr;
+        }
+        
+        Address dest = reinterpret_cast<Address>(result) + elems_field->offset();
+        Address sour = reinterpret_cast<Address>(origin) + elems_field->offset();
+        // Copy data
+        ::memcpy(dest, sour, origin->length() * elems_field->type()->reference_size());
+        if (elems_field->type()->is_reference()) {
+            // Write-Barrier:
+            UpdateRememberRecords(result, reinterpret_cast<Any **>(dest), origin->length());
+        }
+    }
+    bool zeroize = (result != origin);
+    if (!zeroize) {
+        Address dest = reinterpret_cast<Address>(result) + elems_field->offset();
+        if (size < result->length()) {
+            ::memset(dest + size * elems_field->type()->reference_size(), 0,
+                     (result->length() - size) * elems_field->type()->reference_size());
+        } else if (size > result->length()) {
+            ::memset(dest + result->length() * elems_field->type()->reference_size(), 0,
+                     (size - result->length()) * elems_field->type()->reference_size());
+        }
+    }
+    result->length_ = static_cast<uint32_t>(size);
+    return result;
 }
 
 AbstractArray *Machine::NewArrayAny(Any **init_data, size_t length, size_t capacity, uint32_t flags) {

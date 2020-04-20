@@ -472,6 +472,16 @@ TEST_F(BytecodeGeneratorTest, RunArrayInitializer) {
     ASSERT_EQ(0, isolate_->GetUncaughtCount());
 }
 
+TEST_F(BytecodeGeneratorTest, RunArrayOperators) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/022-array-operators");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+
+    ASSERT_EQ(0, isolate_->GetUncaughtCount());
+}
 
 } // namespace lang
 

@@ -127,6 +127,8 @@ public:
 
     AbstractArray *NewArrayCopied(const AbstractArray *origin, size_t increment, uint32_t flags);
     
+    AbstractArray *ResizeArray(AbstractArray *origin, size_t size, uint32_t flags);
+    
     AbstractArray *NewArrayAny(Any **init_data, size_t length, size_t capacity, uint32_t flags);
     
     AbstractArray *NewArray8(const void *init_data, size_t length, size_t capacity, uint32_t flags);

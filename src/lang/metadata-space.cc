@@ -261,6 +261,10 @@ Error MetadataSpace::Initialize() {
             .tag(3) \
             .offset(Array<kind>::kOffsetElems) \
         .End() \
+        .method("resize") \
+            .tags(Method::kNative) \
+            .fn(nullptr) \
+        .End() \
     .Build(this); \
     DCHECK_EQ(kType_##literal, clazz->id()) << #literal;
     

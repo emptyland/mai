@@ -1,0 +1,24 @@
+package main
+
+val g = array{'aaa', 'bbb', 'ccc', 'ddd'}
+
+fun main() {
+	var a = array{0,1,2,3,4,5}
+	assert(a.length == 6u32, 'fail')
+	val b = a + (.. -> 6)
+	assert(b.length == 7u32, 'fail')
+	a += (0 -> 1)
+	assert(a.length == 6u32, 'fail')
+	a += (.. -> 6)
+	assert(a.length == 7u32, 'fail')
+	a -= 0
+	assert(a.length == 6u32, 'fail')
+	a = a.resize(100u32)
+	assert(a.length == 100u32, 'fail')
+	assert(a[99] == 0, 'fail')
+
+	val c = array[f32]{0.1, 0.2, 0.4, 0.8}
+	assert(c[0] == 0.1, 'fail')
+	assert(c[1] == 0.2, 'fail')
+	assert(c[2] == 0.4, 'fail')
+}

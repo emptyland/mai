@@ -325,6 +325,23 @@ static inline AbstractArray *TArrayMinus(Array<T> *array, int index) {
     return *handle->Minus(index);
 }
 
+template<class T>
+static inline AbstractArray *TArrayResize(Array<T> *array, int size) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Local<Array<T>> handle(array);
+    if (handle.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    if (size < 0) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->out_of_bound_error_text());
+        return nullptr;
+    }
+
+    SafepointScope safepoint_scope(STATE->gc());
+    return Machine::This()->ResizeArray(*handle, size, 0/*flags*/);
+}
+
 /*static*/ AbstractArray *Runtime::ArrayAppend(Array<Any *> *array, Any *value) {
     if (!array) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
@@ -405,6 +422,27 @@ static inline AbstractArray *TArrayMinus(Array<T> *array, int index) {
 /*static*/ AbstractArray *Runtime::Array64Minus(Array<uint64_t> *array, int index) {
     return TArrayMinus<uint64_t>(array, index);
 }
+
+/*static*/ AbstractArray *Runtime::ArrayResize(Array<Any *> *array, int size) {
+    return TArrayResize<Any *>(array, size);
+}
+
+/*static*/ AbstractArray *Runtime::Array8Resize(Array<uint8_t> *array, int size) {
+    return TArrayResize<uint8_t>(array, size);
+}
+
+/*static*/ AbstractArray *Runtime::Array16Resize(Array<uint16_t> *array, int size) {
+    return TArrayResize<uint16_t>(array, size);
+}
+
+/*static*/ AbstractArray *Runtime::Array32Resize(Array<uint32_t> *array, int size) {
+    return TArrayResize<uint32_t>(array, size);
+}
+
+/*static*/ AbstractArray *Runtime::Array64Resize(Array<uint64_t> *array, int size) {
+    return TArrayResize<uint64_t>(array, size);
+}
+
 
 /*static*/ Any *Runtime::WriteBarrierWithOffset(Any *host, int32_t offset) {
     DCHECK(!STATE->heap()->InNewArea(host));

@@ -1593,23 +1593,23 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
             type = metadata_space_->type(rv.bundle.index);
             Value value;
             if (type->is_reference()) {
-                value = FindOrInsertExternalFunction("lang.channelRecvPtr");
+                value = FindOrInsertExternalFunction("channel::recvPtr");
             } else {
                 switch (type->reference_size()) {
                 case 1:
                 case 2:
                 case 4:
                     if (type->IsFloating()) {
-                        value = FindOrInsertExternalFunction("lang.channelRecvF32");
+                        value = FindOrInsertExternalFunction("channel::recvF32");
                     } else {
-                        value = FindOrInsertExternalFunction("lang.channelRecv32");
+                        value = FindOrInsertExternalFunction("channel::recv32");
                     }
                     break;
                 case 8:
                     if (type->IsFloating()) {
-                        value = FindOrInsertExternalFunction("lang.channelRecvF64");
+                        value = FindOrInsertExternalFunction("channel::recvF64");
                     } else {
-                        value = FindOrInsertExternalFunction("lang.channelRecv64");
+                        value = FindOrInsertExternalFunction("channel::recv64");
                     }
                     break;
                 default:
@@ -1649,8 +1649,14 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
                 return ResultWithError();
             }
             if (receiver.rhs_pair) {
-                GenerateOperation(ast->op(), receiver.lhs_type, receiver.lhs, Value::kStack,
-                                  ast->rhs()->AsPairExpression(), ast);
+                GenerateOperation(ast->op(), receiver.lhs_type, receiver.lhs,
+                                  /*lhs_linkage*/Value::kStack, ast->rhs()->AsPairExpression(), ast);
+            } else if (receiver.lhs_type->IsArray()) {
+                if (ast->op().kind == Operator::kSub) {
+                    GenerateArrayMinus(receiver.lhs_type, receiver.lhs, /*lhs_linkage*/Value::kStack,
+                                       receiver.rhs_type, receiver.rhs, /*rhs_linkage*/Value::kStack,
+                                       ast);
+                }
             } else {
                 GenerateOperation(ast->op(), receiver.lhs_type, receiver.lhs, receiver.rhs, ast);
             }
@@ -2652,14 +2658,6 @@ BytecodeGenerator::GenerateVariableAssignment(const ASTString *name, Value lval,
 }
 
 ASTVisitor::Result
-BytecodeGenerator::GenerateIncrement(const Class *lval_type, int lval_index,
-                                     Value::Linkage lval_linkage, Operator op) {
-    
-    TODO();
-    return ResultWithError();
-}
-
-ASTVisitor::Result
 BytecodeGenerator::GenerateStoreProperty(const Class *clazz, int index, Value::Linkage linkage,
                                          DotExpression *ast) {
     DCHECK(clazz->is_reference());
@@ -2778,16 +2776,6 @@ void BytecodeGenerator::GenerateOperation(const Operator op,
                                           int rhs_index,
                                           Value::Linkage rhs_linkage,
                                           ASTNode *ast) {
-    if (lhs_type->IsArray()) {
-        if (op.kind == Operator::kSub) {
-            GenerateArrayMinus(lhs_type, lhs_index, lhs_linkage, rhs_type, rhs_index, rhs_linkage,
-                               ast);
-        } else {
-            NOREACHED();
-        }
-        return;
-    }
-
     bool has_reserve_lhs = false;
     int lhs = lhs_index;
     if (lhs_linkage != Value::kStack) {
@@ -2804,7 +2792,16 @@ void BytecodeGenerator::GenerateOperation(const Operator op,
         MoveToStackIfNeeded(rhs_type, rhs_index, rhs_linkage, rhs, ast);
     }
 
-    GenerateOperation(op, lhs_type, lhs, rhs, ast);
+    if (lhs_type->IsArray()) {
+        if (op.kind == Operator::kSub) {
+            GenerateArrayMinus(lhs_type, lhs, Value::kStack/*lhs_linkage*/, rhs_type, rhs,
+                               Value::kStack/*lhs_linkage*/, ast);
+        } else {
+            NOREACHED();
+        }
+    } else {
+        GenerateOperation(op, lhs_type, lhs, rhs, ast);
+    }
     
     if (has_reserve_rhs) {
         current_fun_->StackFallback(rhs_type, rhs);
@@ -2884,23 +2881,23 @@ void BytecodeGenerator::GenerateSend(const Class *clazz, int lhs, int rhs, ASTNo
                           RoundUp(clazz->reference_size(), kStackSizeGranularity);
     Value value;
     if (clazz->is_reference()) {
-        value = FindOrInsertExternalFunction("lang.channelSendPtr");
+        value = FindOrInsertExternalFunction("channel::sendPtr");
     } else {
         switch (clazz->reference_size()) {
             case 1:
             case 2:
             case 4:
                 if (clazz->IsFloating()) {
-                    value = FindOrInsertExternalFunction("lang.channelSendF32");
+                    value = FindOrInsertExternalFunction("channel::sendF32");
                 } else {
-                    value = FindOrInsertExternalFunction("lang.channelSend32");
+                    value = FindOrInsertExternalFunction("channel::send32");
                 }
                 break;
             case 8:
                 if (clazz->IsFloating()) {
-                    value = FindOrInsertExternalFunction("lang.channelSendF64");
+                    value = FindOrInsertExternalFunction("channel::sendF64");
                 } else {
-                    value = FindOrInsertExternalFunction("lang.channelSend64");
+                    value = FindOrInsertExternalFunction("channel::send64");
                 }
                 break;
             default:
@@ -2965,19 +2962,19 @@ void BytecodeGenerator::GenerateArrayAppend(const Class *clazz,
     const char *external_name = nullptr;
     switch (clazz->id()) {
         case kType_array:
-            external_name = "lang.array::Append";
+            external_name = "array::append";
             break;
         case kType_array8:
-            external_name = "lang.array8::Append";
+            external_name = "array8::append";
             break;
         case kType_array16:
-            external_name = "lang.array16::Append";
+            external_name = "array16::append";
             break;
         case kType_array32:
-            external_name = "lang.array32::Append";
+            external_name = "array32::append";
             break;
         case kType_array64:
-            external_name = "lang.array64::Append";
+            external_name = "array64::append";
             break;
         default:
             NOREACHED();
@@ -3009,19 +3006,19 @@ void BytecodeGenerator::GenerateArrayPlus(const Class *clazz,
     const char *external_name = nullptr;
     switch (clazz->id()) {
         case kType_array:
-            external_name = "lang.array::Plus";
+            external_name = "array::plus";
             break;
         case kType_array8:
-            external_name = "lang.array8::Plus";
+            external_name = "array8::plus";
             break;
         case kType_array16:
-            external_name = "lang.array16::Plus";
+            external_name = "array16::plus";
             break;
         case kType_array32:
-            external_name = "lang.array32::Plus";
+            external_name = "array32::plus";
             break;
         case kType_array64:
-            external_name = "lang.array64::Plus";
+            external_name = "array64::plus";
             break;
         default:
             NOREACHED();
@@ -3030,7 +3027,7 @@ void BytecodeGenerator::GenerateArrayPlus(const Class *clazz,
     Value fun = FindOrInsertExternalFunction(external_name);
     DCHECK_EQ(Value::kGlobal, fun.linkage);
     LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);
-    current_fun_->EmitDirectlyCallFunction(ast, fun.flags & kAttrNative, 0/*slot*/, argument_offset);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
 }
 
 void BytecodeGenerator::GenerateArrayMinus(const Class *clazz,
@@ -3048,19 +3045,19 @@ void BytecodeGenerator::GenerateArrayMinus(const Class *clazz,
     const char *external_name = nullptr;
     switch (clazz->id()) {
         case kType_array:
-            external_name = "lang.array::Minus";
+            external_name = "array::minus";
             break;
         case kType_array8:
-            external_name = "lang.array8::Minus";
+            external_name = "array8::minus";
             break;
         case kType_array16:
-            external_name = "lang.array16::Minus";
+            external_name = "array16::minus";
             break;
         case kType_array32:
-            external_name = "lang.array32::Minus";
+            external_name = "array32::minus";
             break;
         case kType_array64:
-            external_name = "lang.array64::Minus";
+            external_name = "array64::minus";
             break;
         default:
             NOREACHED();
@@ -3069,7 +3066,7 @@ void BytecodeGenerator::GenerateArrayMinus(const Class *clazz,
     Value fun = FindOrInsertExternalFunction(external_name);
     DCHECK_EQ(Value::kGlobal, fun.linkage);
     LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);
-    current_fun_->EmitDirectlyCallFunction(ast, fun.flags & kAttrNative, 0/*slot*/, argument_offset);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
 }
 
 void BytecodeGenerator::GenerateOperation(const Operator op, const Class *clazz, int lhs, int rhs,
