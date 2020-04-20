@@ -64,6 +64,16 @@ class Function;
     V(Array16Append, "lang.array16::Append") \
     V(Array32Append, "lang.array32::Append") \
     V(Array64Append, "lang.array64::Append") \
+    V(ArrayPlus, "lang.array::Plus") \
+    V(Array8Plus, "lang.array8::Plus") \
+    V(Array16Plus, "lang.array16::Plus") \
+    V(Array32Plus, "lang.array32::Plus") \
+    V(Array64Plus, "lang.array64::Plus") \
+    V(ArrayMinus, "lang.array::Minus") \
+    V(Array8Minus, "lang.array8::Minus") \
+    V(Array16Minus, "lang.array16::Minus") \
+    V(Array32Minus, "lang.array32::Minus") \
+    V(Array64Minus, "lang.array64::Minus") \
     V(Println, "lang.println") \
     V(Assert, "lang.assert") \
     V(Abort, "lang.abort") \
@@ -156,6 +166,18 @@ struct Runtime {
     static AbstractArray *Array16Append(Array<uint16_t, false> *array, uint16_t value);
     static AbstractArray *Array32Append(Array<uint32_t, false> *array, uint32_t value);
     static AbstractArray *Array64Append(Array<uint64_t, false> *array, uint64_t value);
+
+    static AbstractArray *ArrayPlus(Array<Any *, true> *array, int index, Any *value);
+    static AbstractArray *Array8Plus(Array<uint8_t, false> *array, int index, uint8_t value);
+    static AbstractArray *Array16Plus(Array<uint16_t, false> *array, int index, uint16_t value);
+    static AbstractArray *Array32Plus(Array<uint32_t, false> *array, int index, uint32_t value);
+    static AbstractArray *Array64Plus(Array<uint64_t, false> *array, int index, uint64_t value);
+    
+    static AbstractArray *ArrayMinus(Array<Any *, true> *array, int index);
+    static AbstractArray *Array8Minus(Array<uint8_t, false> *array, int index);
+    static AbstractArray *Array16Minus(Array<uint16_t, false> *array, int index);
+    static AbstractArray *Array32Minus(Array<uint32_t, false> *array, int index);
+    static AbstractArray *Array64Minus(Array<uint64_t, false> *array, int index);
 
     // WriteBarrier
     static Any *WriteBarrierWithOffset(Any *host, int32_t offset);

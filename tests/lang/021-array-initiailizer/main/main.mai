@@ -2,6 +2,7 @@ package main
 
 fun main() {
 	val a = array[int](32)
+    assert(a.length == 32u32, 'fail')
 	assert(a[0] == 0, 'fail')
 	assert(a[1] == 0, 'fail')
 	assert(a[2] == 0, 'fail')

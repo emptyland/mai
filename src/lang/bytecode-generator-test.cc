@@ -472,6 +472,7 @@ TEST_F(BytecodeGeneratorTest, RunArrayInitializer) {
     ASSERT_EQ(0, isolate_->GetUncaughtCount());
 }
 
+
 } // namespace lang
 
 } // namespace mai

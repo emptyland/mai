@@ -161,7 +161,7 @@ inline T *Array<T, R>::QuicklyAdvanceNoResize(size_t n) {
 }
 
 template<class T>
-inline void Array<T, true>::QuicklySet(size_t i, T value) {
+inline void Array<T, true>::quickly_set(size_t i, T value) {
     quickly_set_nobarrier(i, value);
     WriteBarrier(reinterpret_cast<Any **>(&elems_[i]));
 }

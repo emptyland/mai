@@ -1756,6 +1756,16 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
             return ResultWithType(new (arena_) TypeSign(ast->position(), dest_type));
         } break;
         case Token::kArray:
+            if (!::strncmp("length", ast->rhs()->data(), ast->rhs()->size())) {
+                return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kU32));
+            } else if (!::strncmp("capacity", ast->rhs()->data(), ast->rhs()->size())) {
+                return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kU32));
+            } else if (!::strncmp("resize", ast->rhs()->data(), ast->rhs()->size())) {
+                FunctionPrototype *proto = new (arena_) FunctionPrototype(arena_);
+                proto->InsertParameter(nullptr, new (arena_) TypeSign(ast->position(), Token::kU32));
+                proto->set_return_type(type);
+                return ResultWithType(new (arena_) TypeSign(ast->position(), proto));
+            }
             TODO();
             return ResultWithType(kError);
         case Token::kMap:

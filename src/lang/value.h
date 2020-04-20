@@ -243,7 +243,7 @@ public:
     // The - operator:
     Local<Array<T>> Minus(size_t index) const {
         if (index > length_) {
-            return Local<Array<T>>(this);
+            return Local<Array<T>>::Empty();
         }
         Local<Array> copied(NewImmutable(length_ - 1));
         ::memcpy(copied->elems_, elems_, index * sizeof(T));
@@ -254,7 +254,7 @@ public:
 
     // Internal functions
     inline T quickly_get(size_t i) const;
-    inline void QuicklySet(size_t i, T value);
+    inline void quickly_set(size_t i, T value);
     inline void quickly_set_nobarrier(size_t i, T value);
     inline void QuicklySetAll(size_t i, T *value, size_t n);
     inline void QuicklyAppend(T value);

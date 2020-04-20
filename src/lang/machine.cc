@@ -477,8 +477,8 @@ AbstractArray *Machine::NewArray(BuiltinType type, size_t length, size_t capacit
     return obj;
 }
 
-AbstractArray *Machine::NewArrayCopied(const AbstractArray *origin, size_t increment,
-                                           uint32_t flags) {
+AbstractArray *
+Machine::NewArrayCopied(const AbstractArray *origin, size_t increment, uint32_t flags) {
     const Class *clazz = origin->clazz();
     if (::strstr(clazz->name(), "array") != clazz->name()){
         NOREACHED() << "class: " << clazz->name() << " is not array!";

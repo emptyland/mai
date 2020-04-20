@@ -271,9 +271,7 @@ BuiltinType GetArrayType(const Class *element_type) {
         int element_size = RoundUp(element_type->reference_size(), kStackSizeGranularity);
         int length = static_cast<int>((stop - start) / element_size);
         int capacity = length < 16 ? length + 16 : length;
-        AbstractArray *array = static_cast<AbstractArray *>(Machine::This()->NewArray(dest_type,
-                                                                                      length,
-                                                                                      capacity, 0));
+        AbstractArray *array = Machine::This()->NewArray(dest_type, length, capacity, 0);
         const Field *elems_field = array->clazz()->field(2);
         DCHECK(!::strcmp("elems", elems_field->name()));
         ::memcpy(reinterpret_cast<Address>(array) + elems_field->offset(), start, stop - start);
@@ -281,55 +279,131 @@ BuiltinType GetArrayType(const Class *element_type) {
     }
 }
 
+template<class T>
+static inline AbstractArray *TArrayAppend(Array<T> *array, T value) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Local<Array<T>> handle(array);
+    if (handle.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    
+    SafepointScope safepoint_scope(STATE->gc());
+    array = static_cast<Array<T> *>(Machine::This()->NewArrayCopied(*handle, 1/*increment*/,
+                                                                    0/*flags*/));
+    array->quickly_set(array->length() - 1, value);
+    return array;
+}
+
+template<class T>
+static inline AbstractArray *TArrayPlus(Array<T> *array, int index, T value) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Local<Array<T>> handle(array);
+    if (handle.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    
+    SafepointScope safepoint_scope(STATE->gc());
+    return *handle->Plus(index, value);
+}
+
+template<class T>
+static inline AbstractArray *TArrayMinus(Array<T> *array, int index) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Local<Array<T>> handle(array);
+    if (handle.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    if (handle->length() == 0 || index < 0 || index >= handle->length()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->out_of_bound_error_text());
+        return nullptr;
+    }
+
+    SafepointScope safepoint_scope(STATE->gc());
+    return *handle->Minus(index);
+}
+
 /*static*/ AbstractArray *Runtime::ArrayAppend(Array<Any *> *array, Any *value) {
+    if (!array) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
     HandleScope handle_scope(HandleScope::INITIALIZER);
     Local<Array<Any *>> handle(array);
     Local<Any> append(value);
-    
+
     SafepointScope safepoint_scope(STATE->gc());
-    array = static_cast<Array<Any *> *>(Machine::This()->NewArrayCopied(*handle, 1, 0));
-    array->QuicklySet(array->length() - 1, value);
+    array = static_cast<Array<Any *> *>(Machine::This()->NewArrayCopied(*handle, 1/*increment*/,
+                                                                        0/*flags*/));
+    array->quickly_set(array->length() - 1, *append);
     return array;
 }
 
 /*static*/ AbstractArray *Runtime::Array8Append(Array<uint8_t> *array, uint8_t value) {
-    HandleScope handle_scope(HandleScope::INITIALIZER);
-    Local<Array<uint8_t>> handle(array);
-    
-    SafepointScope safepoint_scope(STATE->gc());
-    array = static_cast<Array<uint8_t> *>(Machine::This()->NewArrayCopied(*handle, 1, 0));
-    array->quickly_set(array->length() - 1, value);
-    return array;
+    return TArrayAppend<uint8_t>(array, value);
 }
 
 /*static*/ AbstractArray *Runtime::Array16Append(Array<uint16_t> *array, uint16_t value) {
-    HandleScope handle_scope(HandleScope::INITIALIZER);
-    Local<Array<uint16_t>> handle(array);
-    
-    SafepointScope safepoint_scope(STATE->gc());
-    array = static_cast<Array<uint16_t> *>(Machine::This()->NewArrayCopied(*handle, 1, 0));
-    array->quickly_set(array->length() - 1, value);
-    return array;
+    return TArrayAppend<uint16_t>(array, value);
 }
 
 /*static*/ AbstractArray *Runtime::Array32Append(Array<uint32_t> *array, uint32_t value) {
-    HandleScope handle_scope(HandleScope::INITIALIZER);
-    Local<Array<uint32_t>> handle(array);
-    
-    SafepointScope safepoint_scope(STATE->gc());
-    array = static_cast<Array<uint32_t> *>(Machine::This()->NewArrayCopied(*handle, 1, 0));
-    array->quickly_set(array->length() - 1, value);
-    return array;
+    return TArrayAppend<uint32_t>(array, value);
 }
 
 /*static*/ AbstractArray *Runtime::Array64Append(Array<uint64_t> *array, uint64_t value) {
+    return TArrayAppend<uint64_t>(array, value);
+}
+
+/*static*/ AbstractArray *Runtime::ArrayPlus(Array<Any *> *array, int index, Any *value) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    Local<Array<uint64_t>> handle(array);
+    Local<Array<Any *>> handle(array);
+    if (handle.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    Local<Any> add(value);
     
     SafepointScope safepoint_scope(STATE->gc());
-    array = static_cast<Array<uint64_t> *>(Machine::This()->NewArrayCopied(*handle, 1, 0));
-    array->quickly_set(array->length() - 1, value);
-    return array;
+    return *handle->Plus(index, add);
+}
+
+/*static*/ AbstractArray *Runtime::Array8Plus(Array<uint8_t> *array, int index, uint8_t value) {
+    return TArrayPlus<uint8_t>(array, index, value);
+}
+
+/*static*/ AbstractArray *Runtime::Array16Plus(Array<uint16_t> *array, int index, uint16_t value) {
+    return TArrayPlus<uint16_t>(array, index, value);
+}
+
+/*static*/ AbstractArray *Runtime::Array32Plus(Array<uint32_t> *array, int index, uint32_t value) {
+    return TArrayPlus<uint32_t>(array, index, value);
+}
+
+/*static*/ AbstractArray *Runtime::Array64Plus(Array<uint64_t> *array, int index, uint64_t value) {
+    return TArrayPlus<uint64_t>(array, index, value);
+}
+
+/*static*/ AbstractArray *Runtime::ArrayMinus(Array<Any *> *array, int index) {
+    return TArrayMinus<Any *>(array, index);
+}
+
+/*static*/ AbstractArray *Runtime::Array8Minus(Array<uint8_t> *array, int index) {
+    return TArrayMinus<uint8_t>(array, index);
+}
+
+/*static*/ AbstractArray *Runtime::Array16Minus(Array<uint16_t> *array, int index) {
+    return TArrayMinus<uint16_t>(array, index);
+}
+
+/*static*/ AbstractArray *Runtime::Array32Minus(Array<uint32_t> *array, int index) {
+    return TArrayMinus<uint32_t>(array, index);
+}
+
+/*static*/ AbstractArray *Runtime::Array64Minus(Array<uint64_t> *array, int index) {
+    return TArrayMinus<uint64_t>(array, index);
 }
 
 /*static*/ Any *Runtime::WriteBarrierWithOffset(Any *host, int32_t offset) {
