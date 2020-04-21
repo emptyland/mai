@@ -1458,6 +1458,124 @@ public:
     void EmitTestGreaterThanOrEqualf64(MacroAssembler *masm) override {
         EmitComparef64(masm, GreaterEqual);
     }
+    
+    // Casting -------------------------------------------------------------------------------------
+    void EmitTruncate32To8(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ andl(ACC, 0xff);
+    }
+    
+    void EmitTruncate32To16(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ andl(ACC, 0xffff);
+    }
+    
+    void EmitTruncate64To32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitZeroExtend8To32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ xorl(ACC, ACC);
+        __ movzxb(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitZeroExtend16To32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ xorl(ACC, ACC);
+        __ movzxw(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitZeroExtend32To64(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ xorq(ACC, ACC);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitSignExtend8To32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movsxb(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitSignExtend16To32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movsxw(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitSignExtend32To64(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movsxd(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitF32ToI32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ cvtss2sil(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitF64ToI32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ cvtsd2siq(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitF32ToU32(MacroAssembler *masm) override { EmitF32ToI32(masm); }
+    
+    void EmitF64ToU32(MacroAssembler *masm) override { EmitF64ToI32(masm); }
+    
+    void EmitF32ToI64(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ cvtss2siq(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitF64ToI64(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ cvtsd2siq(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitF32ToU64(MacroAssembler *masm) override { EmitF32ToI64(masm); }
+    
+    void EmitF64ToU64(MacroAssembler *masm) override { EmitF64ToI64(masm); }
+    
+    void EmitI32ToF32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ cvtsi2ssl(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitU32ToF32(MacroAssembler *masm) override { EmitI32ToF32(masm); }
+    
+    void EmitI64ToF32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        //__ Breakpoint();
+        __ cvtsi2ssq(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitU64ToF32(MacroAssembler *masm) override { EmitI64ToF32(masm); }
+    
+    void EmitI32ToF64(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ cvtsi2sdl(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitU32ToF64(MacroAssembler *masm) override { EmitI32ToF64(masm); }
+    
+    void EmitI64ToF64(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ cvtsi2sdq(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitU64ToF64(MacroAssembler *masm) override { EmitI64ToF64(masm); }
+    
+    void EmitF32ToF64(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ cvtss2sd(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+
+    void EmitF64ToF32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ cvtsd2ss(FACC, Operand(rbp, rbx, times_2, 0));
+    }
 
     // Flow Control --------------------------------------------------------------------------------
     void EmitReturn(MacroAssembler *masm) override {
@@ -1525,42 +1643,6 @@ public:
         // Done:
         __ Bind(&done);
     }
-    
-//    void EmitGoto(MacroAssembler *masm) override {
-//        InstrImmABScope instr_scope(masm);
-//        // TODO A of tracing
-//        instr_scope.GetBTo(rbx);
-//        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
-//        __ StartBC();
-//    }
-//    
-//    void EmitGotoIfTrue(MacroAssembler *masm) override {
-//        __ cmpl(ACC, 0);
-//        Label done;
-//        __ j(Equal, &done, false/*is_far*/);
-//
-//        InstrImmABScope instr_scope(masm);
-//        // TODO A of tracing
-//        instr_scope.GetBTo(rbx);
-//        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
-//        __ StartBC();
-//        
-//        __ Bind(&done);
-//    }
-//    
-//    void EmitGotoIfFalse(MacroAssembler *masm) override {
-//        __ cmpl(ACC, 0);
-//        Label done;
-//        __ j(NotEqual, &done, false/*is_far*/);
-//
-//        InstrImmABScope instr_scope(masm);
-//        // TODO A of tracing
-//        instr_scope.GetBTo(rbx);
-//        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
-//        __ StartBC();
-//        
-//        __ Bind(&done);
-//    }
     
     void EmitBackwardJump(MacroAssembler *masm) override {
         InstrImmABScope instr_scope(masm);

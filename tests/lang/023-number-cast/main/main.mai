@@ -1,0 +1,18 @@
+package main
+
+fun main() {
+	val a = 1 .toUInt
+	val b = 2 .toU8
+	val c = 3 .toF32
+	val d = 4 .toF64
+	//println("$a,$b,$c,$d")
+	val e = (-1) .toU8
+	assert(e == 255u8, 'fail')
+	val f = (-1) .toI8
+	//println("$f")
+	val g = 999999 .toU64
+	assert(g == 999999u64, 'fail')
+	val h = g.toF32
+	assert(h == 999999.0, 'fail')
+	//assert(f == -1i8, 'fail')
+}

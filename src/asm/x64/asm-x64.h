@@ -621,6 +621,20 @@ public:
         EmitOperand(dst, src);
     }
     
+    // dword -> qword
+    // Move doubleword to quadword with sign- extension.
+    void movsxd(Register dst, Register src) {
+        EmitRex(dst, src, 8);
+        EmitB(0x63);
+        EmitModRM(dst, src);
+    }
+    
+    void movsxd(Register dst, Operand src) {
+        EmitRex(dst, src, 8);
+        EmitB(0x63);
+        EmitOperand(dst, src);
+    }
+    
     //
     // SSE
     //

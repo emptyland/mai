@@ -341,16 +341,18 @@ String *Machine::NewUtf8StringWithFormatV(uint32_t flags, const char *fmt, va_li
     }
     int rv = len;
     do {
-        len = rv + 12;
+        len = rv + 32;
         if (len + 1 > buf->capacity()) {
             buf = static_cast<Array<char> *>(ResizeArray(buf, len + 1));
             if (!buf) {
                 return nullptr;
             }
         }
-        va_copy(copied, ap);
-        rv = ::vsnprintf(buf->QuicklyAdvanceNoResize(len), len, fmt, ap);
-        va_copy(ap, copied);
+        //if (buf->length() + len <= buf->capacity()) {
+            va_copy(copied, ap);
+            rv = ::vsnprintf(buf->QuicklyAdvanceNoResize(len), len, fmt, ap);
+            va_copy(ap, copied);
+        //}
     } while (rv > len);
     buf->quickly_set_length(rv);
     return static_cast<String *>(buf);

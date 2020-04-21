@@ -184,6 +184,8 @@ private:
                                  DotExpression *ast);
     Result GenerateLoadProperty(const Class *clazz, int index, Value::Linkage linkage,
                                 DotExpression *ast);
+    Result GeneratePropertyCast(const Class *clazz, int index, Value::Linkage linkage,
+                                DotExpression *ast);
     
     void GenerateComparation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
     void GenerateOperation(const Operator op, const Class *lhs_type, int lhs_index,

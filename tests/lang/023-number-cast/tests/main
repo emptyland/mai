@@ -1,0 +1,71 @@
++------------------------------------------------------------------------------
+| main.main():void
++------------------------------------------------------------------------------
+stack-size: 112
+stack-bitmap: 00000000
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 58
+souce-file-name: tests/lang/023-number-cast/main/main.mai
+bytecode-size: 58
+bytecode: 
+    000 CheckStack; (3)
+    001 LdaSmi32 #1; (4)
+    002 Star32 [BP-72]; (4)
+    003 Star32 [BP-68]; (4)
+    004 LdaSmi32 #2; (5)
+    005 Star32 [BP-76]; (5)
+    006 Truncate32To8 [BP-76]; (5)
+    007 Star32 [BP-72]; (5)
+    008 LdaSmi32 #3; (6)
+    009 Star32 [BP-80]; (6)
+    010 I32ToF32 [BP-80]; (6)
+    011 Staf32 [BP-76]; (6)
+    012 LdaSmi32 #4; (7)
+    013 Star32 [BP-92]; (7)
+    014 I32ToF64 [BP-92]; (7)
+    015 Staf64 [BP-88]; (7)
+    016 LdaConst32 [KP+0]; (9)
+    017 Star32 [BP-96]; (9)
+    018 Truncate32To8 [BP-96]; (9)
+    019 Star32 [BP-92]; (9)
+    020 LdaSmi32 #255; (10)
+    021 Star32 [BP-96]; (10)
+    022 TestEqual32 [BP-92], [BP-96]; (10)
+    023 Star32 [BP-96]; (10)
+    024 Move32 [BP-116], [BP-96]; (10)
+    025 LdaConstPtr [KP+32]; (10)
+    026 StarPtr [BP-124]; (10)
+    027 LdaGlobalPtr [GS+120]; (10)
+    028 CallNativeFunction #0, #12; (10)
+    029 LdaConst32 [KP+0]; (11)
+    030 Star32 [BP-100]; (11)
+    031 Truncate32To8 [BP-100]; (11)
+    032 Star32 [BP-96]; (11)
+    033 LdaSmi32 #999999; (13)
+    034 Star32 [BP-108]; (13)
+    035 ZeroExtend32To64 [BP-108]; (13)
+    036 Star64 [BP-104]; (13)
+    037 LdaConst64 [KP+4]; (14)
+    038 Star64 [BP-112]; (14)
+    039 TestEqual64 [BP-104], [BP-112]; (14)
+    040 Star32 [BP-108]; (14)
+    041 Move32 [BP-116], [BP-108]; (14)
+    042 LdaConstPtr [KP+32]; (14)
+    043 StarPtr [BP-124]; (14)
+    044 LdaGlobalPtr [GS+120]; (14)
+    045 CallNativeFunction #0, #12; (14)
+    046 U64ToF32 [BP-104]; (15)
+    047 Staf32 [BP-108]; (15)
+    048 LdaConstf32 [KP+12]; (16)
+    049 Staf32 [BP-112]; (16)
+    050 TestEqualf32 [BP-108], [BP-112]; (16)
+    051 Star32 [BP-112]; (16)
+    052 Move32 [BP-116], [BP-112]; (16)
+    053 LdaConstPtr [KP+32]; (16)
+    054 StarPtr [BP-124]; (16)
+    055 LdaGlobalPtr [GS+120]; (16)
+    056 CallNativeFunction #0, #12; (16)
+    057 Return; (3)
