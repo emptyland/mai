@@ -3711,7 +3711,17 @@ void BytecodeGenerator::GenerateComparation(const Class *clazz, Operator op, int
             }
             break;
         default:
-            NOREACHED();
+            switch (op.kind) {
+                case Operator::kEqual:
+                    EMIT(ast, Add<kTestPtrEqual>(loff, roff));
+                    break;
+                case Operator::kNotEqual:
+                    EMIT(ast, Add<kTestPtrNotEqual>(loff, roff));
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
             break;
     }
 }

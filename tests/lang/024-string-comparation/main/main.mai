@@ -1,0 +1,16 @@
+package main
+
+fun main() {
+	val a = 'Hello'
+	assert(a == 'Hello', "fail $a")
+	val b = '01234567890123456'
+	assert(b == '01234567890123456', "fail $b")
+	assert(b != '0123456789012345', 'fail')
+	val c = 100
+	val d = 'c=100'
+	assert(d == "c=${c}", "fail $d")
+	val e = '01234567890123456789'
+	assert(e == '01234567890123456789', "fail $e")
+	assert(e != '', "fail $e")
+	assert(e != '0123456789012345678a', "fail $e")
+}

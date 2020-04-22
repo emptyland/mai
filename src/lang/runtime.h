@@ -189,6 +189,8 @@ struct Runtime {
     static AbstractArray *Array16Resize(Array<uint16_t, false> *array, int size);
     static AbstractArray *Array32Resize(Array<uint32_t, false> *array, int size);
     static AbstractArray *Array64Resize(Array<uint64_t, false> *array, int size);
+    
+    static int StringCompareFallback(const String *lhs, const String *rhs);
 
     // WriteBarrier
     static Any *WriteBarrierWithOffset(Any *host, int32_t offset);

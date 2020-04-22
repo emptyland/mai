@@ -21,4 +21,9 @@ fun main() {
 	assert(c[0] == 0.1, 'fail')
 	assert(c[1] == 0.2, 'fail')
 	assert(c[2] == 0.4, 'fail')
+
+	assert(g[0] == 'aaa', 'fail')
+	assert(g[1] == 'bbb', 'fail')
+	assert(g[2] == 'ccc', 'fail')
+	assert(g[3] == 'ddd', 'fail')
 }

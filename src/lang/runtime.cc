@@ -443,6 +443,19 @@ static inline AbstractArray *TArrayResize(Array<T> *array, int size) {
     return TArrayResize<uint64_t>(array, size);
 }
 
+/*static*/ int Runtime::StringCompareFallback(const String *lhs, const String *rhs) {
+    const uint32_t min_len = std::min(lhs->length(), rhs->length());
+    int r = ::memcmp(lhs->data(), rhs->data(), min_len);
+    if (r == 0) {
+        if (lhs->length() < rhs->length()) {
+            r = -1;
+        }
+        else if (lhs->length() > rhs->length()) {
+            r = +1;
+        }
+    }
+    return r;
+}
 
 /*static*/ Any *Runtime::WriteBarrierWithOffset(Any *host, int32_t offset) {
     DCHECK(!STATE->heap()->InNewArea(host));

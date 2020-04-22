@@ -1459,6 +1459,18 @@ public:
         EmitComparef64(masm, GreaterEqual);
     }
     
+    void EmitTestPtrEqual(MacroAssembler *masm) override { EmitCompare64(masm, Equal); }
+    
+    void EmitTestPtrNotEqual(MacroAssembler *masm) override { EmitCompare64(masm, NotEqual); }
+    
+    void EmitTestStringEqual(MacroAssembler *masm) override {
+        EmitTestStringEqualOrNot(masm, false);
+    }
+    
+    void EmitTestStringNotEqual(MacroAssembler *masm) override {
+        EmitTestStringEqualOrNot(masm, true);
+    }
+    
     // Casting -------------------------------------------------------------------------------------
     void EmitTruncate32To8(MacroAssembler *masm) override {
         InstrStackAScope instr_scope(masm);
@@ -1896,6 +1908,66 @@ public:
         __ Throw(SCRATCH, rbx);
     }
 private:
+    void EmitTestStringEqualOrNot(MacroAssembler *masm, bool inv) {
+        InstrStackABScope instr_scope(masm);
+        __ movq(rsi, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movq(rdi, Operand(rbp, rbx, times_2, 0));
+
+        Label br_equal;
+        __ movl(rax, Operand(rsi, String::kOffsetLength));
+        __ cmpl(rdx, Operand(rdi, String::kOffsetLength));
+        __ cmovl(Less, rbx, rdx);
+        __ cmovl(GreaterEqual, rbx, Operand(rsi, String::kOffsetLength)); // Get min length to rcx
+
+        __ movq(r8, rbx); // save min length to r8
+        __ andl(rbx, 0xfffffff0);
+        
+        __ movl(rax, 16);
+        __ movl(rdx, 16);
+        Label loop;
+        __ Bind(&loop);
+        Label remain;
+        __ subl(rbx, 16);
+        __ j(Carry, &remain, false/*is_far*/);
+        __ movdqu(xmm0, Operand(rsi, rbx, times_1, String::kOffsetElems));
+        __ pcmpestri(xmm0, Operand(rdi, rbx, times_1, String::kOffsetElems),
+                     PCMP::EqualEach|PCMP::NegativePolarity);
+        Label br_not_equal;
+        __ j(Carry, &br_not_equal, false/*is_far*/);
+        __ jmp(&loop, false/*is_far*/);
+
+        __ Bind(&remain);
+        __ movl(rbx, r8); // len
+        __ andl(rbx, 0xf);
+        __ movl(rax, rbx); // string.1 len
+        __ movl(rdx, rbx); // string.2 len
+
+        __ movl(rbx, r8);
+        __ andl(rbx, 0xfffffff0);
+        __ movdqu(xmm0, Operand(rsi, rbx, times_1, String::kOffsetElems));
+        __ pcmpestri(xmm0, Operand(rdi, rbx, times_1, String::kOffsetElems),
+                     PCMP::EqualEach|PCMP::NegativePolarity);
+        __ j(Carry, &br_not_equal, false/*is_far*/);
+        
+        __ Bind(&br_equal);
+        if (inv) {
+            __ xorq(ACC, ACC);
+        } else {
+            __ movq(ACC, 1);
+        }
+        Label done;
+        __ jmp(&done, false/*is_far*/);
+        
+        __ Bind(&br_not_equal);
+        if (inv) {
+            __ movq(ACC, 1);
+        } else {
+            __ xorq(ACC, ACC);
+        }
+        __ Bind(&done);
+    }
+
     void EmitCompare32(MacroAssembler *masm, Cond cond) {
         InstrStackABScope instr_scope(masm);
         //__ Breakpoint();
