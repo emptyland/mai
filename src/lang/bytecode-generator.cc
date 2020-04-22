@@ -3703,7 +3703,7 @@ void BytecodeGenerator::GenerateComparation(const Class *clazz, Operator op, int
                     EMIT(ast, Add<kTestStringGreaterThan>(loff, roff));
                     break;
                 case Operator::kGreaterEqual:
-                    EMIT(ast, Add<kTestStringLessThanOrEqual>(loff, roff));
+                    EMIT(ast, Add<kTestStringGreaterThanOrEqual>(loff, roff));
                     break;
                 default:
                     NOREACHED();

@@ -9,8 +9,21 @@ fun main() {
 	val c = 100
 	val d = 'c=100'
 	assert(d == "c=${c}", "fail $d")
+	assert(d <= "c=${c}", "fail $d")
+	assert(d >= "c=${c}", "fail $d")
 	val e = '01234567890123456789'
 	assert(e == '01234567890123456789', "fail $e")
 	assert(e != '', "fail $e")
 	assert(e != '0123456789012345678a', "fail $e")
+	val f = ''
+	assert(f == '', "fail $f")
+	val g = '111'
+	assert(g < '222', "fail $g")
+	assert(g < '1111', "fail $g")
+	assert(g <= '1111', "fail $g")
+	assert(g <= '111', "fail $g")
+	assert('222' > g, "fail $g")
+	assert('1111' > g, "fail $g")
+	assert('1111' >= g, "fail $g")
+	assert('111' >= g, "fail $g")
 }

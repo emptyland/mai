@@ -1312,6 +1312,31 @@ public:
         EmitB(code);
     }
     
+    // PCMPISTRI — Packed Compare Implicit Length Strings, Return Index
+    void pcmpistri(XMMRegister lhs, XMMRegister rhs, int8_t code) {
+        // 66 0F 3A 63 /r imm8
+        // PCMPISTRI xmm1, xmm2/m128, imm8
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0x3A);
+        EmitB(0x63);
+        EmitOperand(lhs, rhs);
+        EmitB(code);
+    }
+
+    void pcmpistri(XMMRegister lhs, Operand rhs, int8_t code) {
+        // 66 0F 3A 63 /r imm8
+        // PCMPISTRI xmm1, xmm2/m128, imm8
+        EmitB(0x66);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0x3A);
+        EmitB(0x63);
+        EmitOperand(lhs, rhs);
+        EmitB(code);
+    }
+    
     // PCMPESTRM — Packed Compare Explicit Length Strings, Return Mask
     void pcmpestrm(XMMRegister lhs, XMMRegister rhs, int8_t code) {
         // 66 0F 3A 60 /r imm8

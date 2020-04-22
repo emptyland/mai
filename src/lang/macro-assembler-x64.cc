@@ -1464,11 +1464,29 @@ public:
     void EmitTestPtrNotEqual(MacroAssembler *masm) override { EmitCompare64(masm, NotEqual); }
     
     void EmitTestStringEqual(MacroAssembler *masm) override {
-        EmitTestStringEqualOrNot(masm, false);
+        //EmitTestStringEqualOrNot(masm, false/*inv*/);
+        EmitCompareImplicitLengthString(masm, Equal);
     }
     
     void EmitTestStringNotEqual(MacroAssembler *masm) override {
-        EmitTestStringEqualOrNot(masm, true);
+        //EmitTestStringEqualOrNot(masm, true/*inv*/);
+        EmitCompareImplicitLengthString(masm, NotEqual);
+    }
+    
+    void EmitTestStringLessThan(MacroAssembler *masm) override {
+        EmitCompareImplicitLengthString(masm, Less);
+    }
+    
+    void EmitTestStringLessThanOrEqual(MacroAssembler *masm) override {
+        EmitCompareImplicitLengthString(masm, LessEqual);
+    }
+    
+    void EmitTestStringGreaterThan(MacroAssembler *masm) override {
+        EmitCompareImplicitLengthString(masm, Greater);
+    }
+    
+    void EmitTestStringGreaterThanOrEqual(MacroAssembler *masm) override {
+        EmitCompareImplicitLengthString(masm, GreaterEqual);
     }
     
     // Casting -------------------------------------------------------------------------------------
@@ -1923,8 +1941,8 @@ private:
         __ movq(r8, rbx); // save min length to r8
         __ andl(rbx, 0xfffffff0);
         
-        __ movl(rax, 16);
-        __ movl(rdx, 16);
+        __ movl(rax, 16); // string.1 len
+        __ movl(rdx, 16); // string.2 len
         Label loop;
         __ Bind(&loop);
         Label remain;
@@ -1966,6 +1984,42 @@ private:
             __ xorq(ACC, ACC);
         }
         __ Bind(&done);
+    }
+    
+    void EmitCompareImplicitLengthString(MacroAssembler *masm, Cond cond) {
+        InstrStackABScope instr_scope(masm);
+        __ movq(rsi, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ movq(rdi, Operand(rbp, rbx, times_2, 0));
+        
+        __ leaq(rax, Operand(rsi, String::kOffsetElems));
+        __ leaq(rdx, Operand(rdi, String::kOffsetElems));
+        __ subq(rax, rdx);
+        __ subq(rdx, 16);
+        
+        Label loop;
+        __ Bind(&loop);
+        __ addq(rdx, 16);
+        __ movdqu(xmm0, Operand(rdx, 0));
+        __ pcmpistri(xmm0, Operand(rdx, rax, times_1, 0), PCMP::EqualEach|PCMP::NegativePolarity);
+        __ j(Above, &loop, false/*is_far*/);
+        Label diff;
+        __ j(Carry, &diff, false/*is_far*/);
+        __ xorq(rbx, rbx);
+        Label loop_exit;
+        __ jmp(&loop_exit, false/*is_far*/);
+
+        __ Bind(&diff);
+        __ addq(rax, rdx);
+        __ movzxb(rbx, Operand(rax, rcx, times_1, 0));
+        __ movzxb(rdx, Operand(rdx, rcx, times_1, 0));
+        __ subl(rbx, rdx);
+
+        __ Bind(&loop_exit);
+        __ xorl(ACC, ACC);
+        __ movl(rdx, 1);
+        __ cmpl(rbx, 0);
+        __ cmovl(cond, ACC, rdx);
     }
 
     void EmitCompare32(MacroAssembler *masm, Cond cond) {
