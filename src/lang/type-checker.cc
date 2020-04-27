@@ -950,17 +950,26 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
 ASTVisitor::Result TypeChecker::VisitTypeCastExpression(TypeCastExpression *ast) /*override*/ {
     TypeSign *operand = nullptr;
     VISIT_CHECK_GET(operand, ast->operand());
+    TypeSign *dest = nullptr;
+    VISIT_CHECK_GET(dest, ast->type());
     VISIT_CHECK_JUST(ast->type());
-    if (!operand->Convertible(ast->type())) {
-        error_feedback_->Printf(FindSourceLocation(ast), "Impossible casting");
+    if (!operand->Castable(dest)) {
+        error_feedback_->Printf(FindSourceLocation(ast), "Impossible cast %s to %s",
+                                operand->ToString().c_str(), dest->ToString().c_str());
         return ResultWithType(kError);
     }
-    return ResultWithType(ast->type()->Clone(arena_));
+    return ResultWithType(dest->Clone(arena_));
 }
 
 ASTVisitor::Result TypeChecker::VisitTypeTestExpression(TypeTestExpression *ast) /*override*/ {
-    VISIT_CHECK_JUST(ast->operand());
-    VISIT_CHECK_JUST(ast->type());
+    TypeSign *operand = nullptr;
+    VISIT_CHECK_GET(operand, ast->operand());
+    TypeSign *dest = nullptr;
+    VISIT_CHECK_GET(dest, ast->type());
+    if (operand->IsNumber() || operand->id() == Token::kBool) {
+        error_feedback_->Printf(FindSourceLocation(ast), "Impossible testing");
+        return ResultWithType(kError);
+    }
     return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kBool));
 }
 

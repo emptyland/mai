@@ -1881,6 +1881,544 @@ ASTVisitor::Result BytecodeGenerator::VisitIndexExpression(IndexExpression *ast)
     return ResultWith(Value::kACC, value_type->id(), 0);;
 }
 
+ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression *ast) /*override*/ {
+    Result rv;
+    VISIT_CHECK(ast->operand());
+    const Class *from_type = metadata_space_->type(rv.bundle.type);
+    Value operand{static_cast<Value::Linkage>(rv.kind), from_type, rv.bundle.index};
+    VISIT_CHECK(ast->type());
+    const Class *dest_type = metadata_space_->type(rv.bundle.index);
+    
+    const Class *i32_type = metadata_space_->builtin_type(kType_i32);
+    OperandContext receiver;
+    switch (static_cast<BuiltinType>(operand.type->id())) {
+        case kType_i8: {
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i8:
+                case kType_u8:
+                    return ResultWith(operand.linkage, dest_type->id(), operand.index);
+                case kType_i16:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kSignExtend8To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i16, 0);
+                case kType_u16:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u16, 0);
+                case kType_i32:
+                case kType_int:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kSignExtend8To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_u32:
+                case kType_uint:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kSignExtend8To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kSignExtend32To64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i64, 0);
+                case kType_u64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u64, 0);
+                case kType_f32:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kSignExtend8To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kI32ToF32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f32, 0);
+                case kType_f64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kSignExtend8To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kI64ToF64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f64, 0);
+                default:
+                    NOREACHED();
+                    break;
+            }
+        } break;
+            
+        case kType_u8: {
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i8:
+                case kType_u8:
+                    return ResultWith(operand.linkage, dest_type->id(), operand.index);
+                case kType_i16:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i16, 0);
+                case kType_u16:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u16, 0);
+                case kType_i32:
+                case kType_int:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_u32:
+                case kType_uint:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i64, 0);
+                case kType_u64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u64, 0);
+                case kType_f32:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kU32ToF32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f32, 0);
+                case kType_f64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kU32ToF64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f64, 0);
+                default:
+                    NOREACHED();
+                    break;
+            }
+        } break;
+
+        case kType_i16: {
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i8:
+                case kType_u8:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kTruncate32To8>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i16:
+                case kType_u16:
+                    return ResultWith(operand.linkage, dest_type->id(), operand.index);
+                case kType_i32:
+                case kType_int:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kSignExtend16To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_u32:
+                case kType_uint:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend16To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kSignExtend16To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kSignExtend32To64>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i64, 0);
+                case kType_u64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend16To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u64, 0);
+                case kType_f32:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kSignExtend16To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kI32ToF32>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f32, 0);
+                case kType_f64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kSignExtend16To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kI32ToF64>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f32, 0);
+                default:
+                    NOREACHED();
+                    break;
+            }
+        } break;
+            
+        case kType_u16: {
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i8:
+                case kType_u8:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kTruncate32To8>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i16:
+                case kType_u16:
+                    return ResultWith(operand.linkage, dest_type->id(), operand.index);
+                case kType_i32:
+                case kType_int:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend16To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_u32:
+                case kType_uint:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend16To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend16To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i64, 0);
+                case kType_u64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend16To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u64, 0);
+                case kType_f32:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend16To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kU32ToF32>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f32, 0);
+                case kType_f64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend16To32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kU32ToF64>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f64, 0);
+                default:
+                    NOREACHED();
+                    break;
+            }
+        } break;
+        
+        case kType_i32:
+        case kType_int: {
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i8:
+                case kType_u8:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kTruncate32To8>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i16:
+                case kType_u16:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kTruncate32To16>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i32:
+                case kType_int:
+                case kType_u32:
+                case kType_uint:
+                    return ResultWith(operand.linkage, dest_type->id(), operand.index);
+                case kType_i64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kSignExtend32To64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i64, 0);
+                case kType_u64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u64, 0);
+                case kType_f32:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kI32ToF32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f32, 0);
+                case kType_f64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kI32ToF64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f64, 0);
+                default:
+                    NOREACHED();
+                    break;
+            }
+        } break;
+            
+        case kType_u32:
+        case kType_uint: {
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i8:
+                case kType_u8:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kTruncate32To8>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i16:
+                case kType_u16:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kTruncate32To16>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i32:
+                case kType_int:
+                case kType_u32:
+                case kType_uint:
+                    return ResultWith(operand.linkage, dest_type->id(), operand.index);
+                case kType_i64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i64, 0);
+                case kType_u64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u64, 0);
+                case kType_f32:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kU32ToF32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f32, 0);
+                case kType_f64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kU32ToF64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f64, 0);
+                default:
+                    NOREACHED();
+                    break;
+            }
+        } break;
+            
+        case kType_i64:
+        case kType_u64: {
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i8:
+                case kType_u8:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kTruncate32To8>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i16:
+                case kType_u16:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kTruncate32To16>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i32:
+                case kType_int:
+                case kType_u32:
+                case kType_uint:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kTruncate64To32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i64:
+                case kType_u64:
+                    return ResultWith(operand.linkage, dest_type->id(), operand.index);
+                case kType_f32:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    if (operand.type->IsUnsignedIntegral()) {
+                        EMIT(ast, Add<kU64ToF32>(GetStackOffset(receiver.lhs)));
+                    } else {
+                        EMIT(ast, Add<kI64ToF32>(GetStackOffset(receiver.lhs)));
+                    }
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f32, 0);
+                case kType_f64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    if (operand.type->IsUnsignedIntegral()) {
+                        EMIT(ast, Add<kU64ToF64>(GetStackOffset(receiver.lhs)));
+                    } else {
+                        EMIT(ast, Add<kI64ToF64>(GetStackOffset(receiver.lhs)));
+                    }
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f64, 0);
+                default:
+                    NOREACHED();
+                    break;
+            }
+        } break;
+            
+        case kType_f32: {
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i8:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF32ToI32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kTruncate32To8>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i8, 0);
+                case kType_u8:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF32ToU32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kTruncate32To8>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u8, 0);
+                case kType_i16:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF32ToI32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kTruncate32To16>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i16, 0);
+                case kType_u16:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF32ToU32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kTruncate32To16>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u16, 0);
+                case kType_i32:
+                case kType_int:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF32ToI32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_u32:
+                case kType_uint:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF32ToU32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF32ToI64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i64, 0);
+                case kType_u64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF32ToU64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u64, 0);
+                case kType_f32:
+                    return ResultWith(operand.linkage, dest_type->id(), 0);
+                case kType_f64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF32ToF64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f64, 0);
+                default:
+                    NOREACHED();
+                    break;
+            }
+        } break;
+            
+        case kType_f64: {
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i8:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF64ToI32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kTruncate32To8>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i8, 0);
+                case kType_u8:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF64ToU32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kTruncate32To8>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u8, 0);
+                case kType_i16:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF64ToI32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kTruncate32To16>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i16, 0);
+                case kType_u16:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF64ToU32>(GetStackOffset(receiver.lhs)));
+                    AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kTruncate32To16>(GetStackOffset(receiver.rhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u16, 0);
+                case kType_i32:
+                case kType_int:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF64ToI32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_u32:
+                case kType_uint:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF64ToU32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
+                case kType_i64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF64ToI64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_i64, 0);
+                case kType_u64:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF64ToU64>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_u64, 0);
+                case kType_f32:
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kF64ToF32>(GetStackOffset(receiver.lhs)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, kType_f32, 0);
+                case kType_f64:
+                    return ResultWith(operand.linkage, dest_type->id(), 0);
+                default:
+                    NOREACHED();
+                    break;
+            }
+        } break;
+
+        case kType_string:
+            if (dest_type->id() == kType_array8) {
+                return ResultWith(operand.linkage, dest_type->id(), 0);
+            }
+            NOREACHED();
+            break;
+
+            // TODO:
+        default:
+            NOREACHED();
+            break;
+    }
+    return ResultWithError();
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitTypeTestExpression(TypeTestExpression *ast) /*override*/ {
+    return ResultWithError();
+}
+
 ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*override*/ {
     auto [owns, value] = current_->Resolve(ast->name());
     DCHECK(owns != nullptr && value.linkage != Value::kError);
@@ -3213,6 +3751,30 @@ bool BytecodeGenerator::GenerateBinaryOperands(OperandContext *receiver, Express
                             static_cast<Value::Linkage>(rv.kind), receiver->rhs, rhs);
     }
     return true;
+}
+
+void BytecodeGenerator::AssociateLHSOperand(OperandContext *receiver, const Class *clazz, int index,
+                                            Value::Linkage linkage, ASTNode *ast) {
+    receiver->lhs = index;
+    receiver->lhs_tmp = false;
+    receiver->lhs_type = clazz;
+    if (linkage != Value::kStack) {
+        receiver->lhs = current_fun_->StackReserve(receiver->lhs_type);
+        receiver->lhs_tmp = true;
+        MoveToStackIfNeeded(receiver->lhs_type, index, linkage, receiver->lhs, ast);
+    }
+}
+
+void BytecodeGenerator::AssociateRHSOperand(OperandContext *receiver, const Class *clazz, int index,
+                                            Value::Linkage linkage, ASTNode *ast) {
+    receiver->rhs = index;
+    receiver->rhs_tmp = false;
+    receiver->rhs_type = clazz;
+    if (linkage != Value::kStack) {
+        receiver->rhs = current_fun_->StackReserve(receiver->rhs_type);
+        receiver->rhs_tmp = true;
+        MoveToStackIfNeeded(receiver->rhs_type, index, linkage, receiver->rhs, ast);
+    }
 }
 
 void BytecodeGenerator::CleanupOperands(OperandContext *receiver) {

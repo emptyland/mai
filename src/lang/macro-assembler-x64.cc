@@ -2006,8 +2006,8 @@ private:
         Label diff;
         __ j(Carry, &diff, false/*is_far*/);
         __ xorq(rbx, rbx);
-        Label loop_exit;
-        __ jmp(&loop_exit, false/*is_far*/);
+        Label done;
+        __ jmp(&done, false/*is_far*/);
 
         __ Bind(&diff);
         __ addq(rax, rdx);
@@ -2015,7 +2015,7 @@ private:
         __ movzxb(rdx, Operand(rdx, rcx, times_1, 0));
         __ subl(rbx, rdx);
 
-        __ Bind(&loop_exit);
+        __ Bind(&done);
         __ xorl(ACC, ACC);
         __ movl(rdx, 1);
         __ cmpl(rbx, 0);

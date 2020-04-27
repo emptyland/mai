@@ -365,11 +365,14 @@ bool TypeSign::IsUnsignedIntegral() const {
 
 bool TypeSign::IsFloating() const { return id() == Token::kF32 || id() == Token::kF64; }
 
-bool TypeSign::Convertible(TypeSign *rhs) const {
-    if (id() == Token::kAny) { // Any type!
-        return true;
-    }
+bool TypeSign::Convertible(const TypeSign *rhs) const {
     switch (static_cast<Token::Kind>(id())) {
+        case Token::kNil:
+            return !rhs->IsNumber() && rhs->id() != Token::kString && rhs->id() != Token::kFun;
+        case Token::kAny:
+            return true; // Alaways ok
+        case Token::kString:
+            return rhs->id() == Token::kString;
         case Token::kIdentifier:
             return id() == rhs->id() && ToSymbolString() == rhs->ToSymbolString();
         case Token::kInterface:
@@ -393,12 +396,61 @@ bool TypeSign::Convertible(TypeSign *rhs) const {
         case Token::kMutableMap:
             return (rhs->id() == id() && parameter(0)->Convertible(rhs->parameter(0)) &&
                    parameter(1)->Convertible(rhs->parameter(1))) || rhs->id() == Token::kNil;
+        case Token::kU16:
+            return rhs->id() == Token::kU16 || rhs->id() == Token::kU8;
         case Token::kInt:
+        case Token::kI32:
             return rhs->id() == Token::kInt || rhs->id() == Token::kI32;
         case Token::kUInt:
+        case Token::kU32:
             return rhs->id() == Token::kUInt || rhs->id() == Token::kU32;
+        case Token::kU64:
+            return rhs->id() == Token::kU64 || rhs->id() == Token::kUInt || rhs->id() == Token::kU32;
         default:
             return id() == rhs->id();
+    }
+}
+
+bool TypeSign::Castable(const TypeSign *rhs) const {
+    if (rhs->id() == Token::kAny || rhs->id() == Token::kVoid) {
+        return true;
+    }
+    switch (static_cast<Token::Kind>(id())) {
+        case Token::kNil:
+            return !rhs->IsNumber() && rhs->id() != Token::kString && rhs->id() != Token::kFun;
+        case Token::kAny:
+            return true; // Alaways ok
+        case Token::kString:
+            return rhs->id() == Token::kArray && (rhs->parameter(0)->id() == Token::kU8 ||
+                                                  rhs->parameter(0)->id() == Token::kI8);
+        case Token::kIdentifier:
+            return id() == rhs->id() && ToSymbolString() == rhs->ToSymbolString();
+        case Token::kInterface:
+            if ((id() == rhs->id() && interface_ == rhs->interface_)) {
+                return true;
+            }
+            return (rhs->id() == Token::kObject || rhs->id() == Token::kRef) &&
+                   interface_->HasImplement(rhs->structure());
+        case Token::kObject:
+            return id() == rhs->id() && object_ == rhs->object_;
+        case Token::kRef:
+        case Token::kClass:
+            if (rhs->id() == Token::kRef || rhs->id() == Token::kClass) {
+                return clazz()->SameOrBaseOf(rhs->clazz()) || rhs->clazz()->SameOrBaseOf(clazz());
+            }
+            return false;
+        case Token::kFun:
+            return (id() == rhs->id() && prototype()->IsAccept(rhs->prototype()));
+        case Token::kArray:
+            return (rhs->id() == id() && parameter(0)->Convertible(rhs->parameter(0)));
+        case Token::kMap:
+        case Token::kMutableMap:
+            return (rhs->id() == id() && parameter(0)->Convertible(rhs->parameter(0)) &&
+                    parameter(1)->Convertible(rhs->parameter(1)));
+        case Token::kBool:
+            return rhs->id() == Token::kBool;
+        default:
+            return IsNumber() == rhs->IsNumber();
     }
 }
 

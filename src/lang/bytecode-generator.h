@@ -96,13 +96,13 @@ private:
     }; // struct CallingReceiver
     
     struct OperandContext {
-        int lhs;
-        bool lhs_tmp;
-        int rhs;
-        bool rhs_tmp;
-        bool rhs_pair;
-        const Class *lhs_type;
-        const Class *rhs_type;
+        int lhs = 0;
+        bool lhs_tmp = false;
+        int rhs = 0;
+        bool rhs_tmp = false;
+        bool rhs_pair = false;
+        const Class *lhs_type = nullptr;
+        const Class *rhs_type = nullptr;
     }; // struct OperandContext
     
     bool PrepareUnit(const std::string &pkg_name, FileUnit *unit);
@@ -126,6 +126,8 @@ private:
     Result VisitArrayInitializer(ArrayInitializer *) override;
     Result VisitChannelInitializer(ChannelInitializer *) override;
     Result VisitIndexExpression(IndexExpression *) override;
+    Result VisitTypeCastExpression(TypeCastExpression *) override;
+    Result VisitTypeTestExpression(TypeTestExpression *) override;
     Result VisitIdentifier(Identifier *) override;
     Result VisitBoolLiteral(BoolLiteral *) override;
     Result VisitI8Literal(I8Literal *) override;
@@ -204,11 +206,21 @@ private:
     void GenerateArrayMinus(const Class *clazz, int lhs_index, Value::Linkage lhs_linkage,
                             const Class *key, int key_index, Value::Linkage key_linkage,
                             ASTNode *ast);
-    
     void GenerateSend(const Class *clazz, int lhs, int rhs, ASTNode *ast);
+    //void GenerateTypeCast(const Class *type, int lhs, Value::Linkage, ASTNode *ast)
     
     bool GenerateUnaryOperands(OperandContext *receiver, Expression *ast);
     bool GenerateBinaryOperands(OperandContext *receiver, Expression *lhs, Expression *rhs);
+    void AssociateLHSOperand(OperandContext *receiver, const Value &value, ASTNode *ast) {
+        AssociateLHSOperand(receiver, value.type, value.index, value.linkage, ast);
+    }
+    void AssociateLHSOperand(OperandContext *receiver, const Class *clazz, int index,
+                             Value::Linkage linkage, ASTNode *ast);
+    void AssociateRHSOperand(OperandContext *receiver, const Value &value, ASTNode *ast) {
+        AssociateRHSOperand(receiver, value.type, value.index, value.linkage, ast);
+    }
+    void AssociateRHSOperand(OperandContext *receiver, const Class *clazz, int index,
+                             Value::Linkage linkage, ASTNode *ast);
     void CleanupOperands(OperandContext *receiver);
     
     void ToStringIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);

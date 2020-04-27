@@ -299,7 +299,8 @@ public:
         return parameters_->at(i);
     }
 
-    bool Convertible(TypeSign *type) const;
+    bool Convertible(const TypeSign *type) const;
+    bool Castable(const TypeSign *type) const;
 
     std::string ToSymbolString() const;
     
