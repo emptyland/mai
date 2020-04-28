@@ -37,7 +37,13 @@ struct TrampolineStackFrame : public StackFrame {
 struct StubStackFrame : public StackFrame {
     static constexpr int32_t kMaker = kStub;
     
-    static constexpr int32_t kSize = RoundUp(-kOffsetMaker, kStackAligmentSize);
+    static constexpr int32_t kOffsetCallee = kOffsetMaker - static_cast<int>(kPointerSize);
+
+    static constexpr int32_t kSize = RoundUp(-kOffsetCallee, kStackAligmentSize);
+    
+    static Closure *GetCallee(Address frame_bp) {
+        return *reinterpret_cast<Closure **>(frame_bp + kOffsetCallee);
+    }
 }; // struct StubStackFrame
 
 

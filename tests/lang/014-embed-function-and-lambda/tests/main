@@ -1,8 +1,8 @@
 +------------------------------------------------------------------------------
 | main.main():void
 +------------------------------------------------------------------------------
-stack-size: 96
-stack-bitmap: 00000001
+stack-size: 112
+stack-bitmap: 00000005
 const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0
@@ -13,18 +13,18 @@ bytecode-size: 17
 bytecode: 
     000 CheckStack; (19)
     001 NewObject #0, [KP+0]; (20)
-    002 StarPtr [BP-80]; (20)
+    002 StarPtr [BP-72]; (20)
     003 LdaSmi32 #100; (20)
     004 Star32 [BP-84]; (20)
-    005 MovePtr [BP-104], [BP-80]; (20)
-    006 Move32 [BP-108], [BP-84]; (20)
+    005 MovePtr [BP-120], [BP-72]; (20)
+    006 Move32 [BP-124], [BP-84]; (20)
     007 LdaConstf32 [KP+8]; (20)
-    008 Staf32 [BP-112]; (20)
+    008 Staf32 [BP-128]; (20)
     009 LdaConstPtr [KP+32]; (20)
     010 CallBytecodeFunction #0, #16; (20)
-    011 StarPtr [BP-72]; (20)
-    012 MovePtr [BP-80], [BP-72]; (22)
-    013 MovePtr [BP-104], [BP-80]; (22)
+    011 StarPtr [BP-104]; (20)
+    012 MovePtr [BP-112], [BP-104]; (22)
+    013 MovePtr [BP-120], [BP-112]; (22)
     014 LdaGlobalPtr [GS+216]; (22)
     015 CallBytecodeFunction #0, #8; (22)
     016 Return; (19)

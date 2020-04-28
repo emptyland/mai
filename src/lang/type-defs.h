@@ -90,8 +90,8 @@ enum BuiltinType: int {
 
 static constexpr uint32_t kUserTypeIdBase = 0x1000;
 
-static constexpr uint32_t kHandleFlag = 0x80000000u;
-static constexpr uint32_t kHandleMask = ~kHandleFlag;
+//static constexpr uint32_t kHandleFlag = 0x80000000u;
+//static constexpr uint32_t kHandleMask = ~kHandleFlag;
 
 template<class T>
 struct TypeTraits {

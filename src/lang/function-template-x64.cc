@@ -25,6 +25,7 @@ public:
         __ Reset();
         StackFrameScope frame_scope(&masm_, StubStackFrame::kSize);
         __ movl(Operand(rbp, StubStackFrame::kOffsetMaker), StubStackFrame::kMaker);
+        __ movq(Operand(rbp, StubStackFrame::kOffsetCallee), Argv_0);
 
         SetupArguments(prototype);
         __ InlineSwitchSystemStackCall(cxx_func_entry);
@@ -40,7 +41,7 @@ private:
             args_size += RoundUp(param->reference_size(), kStackSizeGranularity);
         }
         args_size = RoundUp(args_size, kStackAligmentSize);
-        
+
         int argc = 0, fargc = 0;
         // arg0
         // args ...
@@ -49,9 +50,8 @@ private:
         // +8 saved bp
         int32_t offset = static_cast<int>(kPointerSize * 2 + args_size);
         for (size_t i = 0; i < ctx.parameters.size(); i++) {
-            const Class *param = space->type(ctx.parameters[i] & kHandleMask);
-            if (ctx.parameters[i] & kHandleFlag) { // Process handle
-                DCHECK(param->is_reference());
+            const Class *param = space->type(ctx.parameters[i]);
+            if (param->is_reference()) { // Process handle
                 offset -= 8;
                 __ leaq(kRegArgv[argc++], Operand(rbp, offset));
                 continue;

@@ -1,12 +1,14 @@
 #ifndef MAI_LANG_RUNTIME_H_
 #define MAI_LANG_RUNTIME_H_
 
+//#include "lang/handle.h"
 #include "base/base.h"
 
 namespace mai {
 
 namespace lang {
 
+template<class T> class Handle;
 template<class T> class Number;
 template<class T, bool R> class Array;
 class AbstractValue;
@@ -148,47 +150,50 @@ struct Runtime {
     
     // Channel functions:
     static Channel *NewChannel(uint32_t data_typeid, uint32_t capacity);
-    static void CloseChannel(Channel *chan);
+    static void CloseChannel(Handle<Channel> chan);
 
-    static int32_t ChannelRecv32(Channel *chan);
-    static int64_t ChannelRecv64(Channel *chan);
-    static Any *ChannelRecvPtr(Channel *chan);
-    static float ChannelRecvF32(Channel *chan);
-    static double ChannelRecvF64(Channel *chan);
+    static int32_t ChannelRecv32(Handle<Channel> chan);
+    static int64_t ChannelRecv64(Handle<Channel> chan);
+    static Any *ChannelRecvPtr(Handle<Channel> chan);
+    static float ChannelRecvF32(Handle<Channel> chan);
+    static double ChannelRecvF64(Handle<Channel> chan);
 
-    static void ChannelSend32(Channel *chan, int32_t value);
-    static void ChannelSend64(Channel *chan, int64_t value);
-    static void ChannelSendPtr(Channel *chan, Any *value);
-    static void ChannelSendF32(Channel *chan, float value);
-    static void ChannelSendF64(Channel *chan, double value);
+    static void ChannelSend32(Handle<Channel> chan, int32_t value);
+    static void ChannelSend64(Handle<Channel> chan, int64_t value);
+    static void ChannelSendPtr(Handle<Channel> chan, Handle<Any> value);
+    static void ChannelSendF32(Handle<Channel> chan, float value);
+    static void ChannelSendF64(Handle<Channel> chan, double value);
     
     // Array
     static AbstractArray *NewArray(const Class *element_type, int len);
     static AbstractArray *NewArrayWith(const Class *element_type, Address begin, Address end);
     
-    static AbstractArray *ArrayAppend(Array<Any *, true> *array, Any *value);
-    static AbstractArray *Array8Append(Array<uint8_t, false> *array, uint8_t value);
-    static AbstractArray *Array16Append(Array<uint16_t, false> *array, uint16_t value);
-    static AbstractArray *Array32Append(Array<uint32_t, false> *array, uint32_t value);
-    static AbstractArray *Array64Append(Array<uint64_t, false> *array, uint64_t value);
+    static AbstractArray *ArrayAppend(Handle<Array<Any *, true>> array, Handle<Any> value);
+    static AbstractArray *Array8Append(Handle<Array<uint8_t, false>> array, uint8_t value);
+    static AbstractArray *Array16Append(Handle<Array<uint16_t, false>> array, uint16_t value);
+    static AbstractArray *Array32Append(Handle<Array<uint32_t, false>> array, uint32_t value);
+    static AbstractArray *Array64Append(Handle<Array<uint64_t, false>> array, uint64_t value);
 
-    static AbstractArray *ArrayPlus(Array<Any *, true> *array, int index, Any *value);
-    static AbstractArray *Array8Plus(Array<uint8_t, false> *array, int index, uint8_t value);
-    static AbstractArray *Array16Plus(Array<uint16_t, false> *array, int index, uint16_t value);
-    static AbstractArray *Array32Plus(Array<uint32_t, false> *array, int index, uint32_t value);
-    static AbstractArray *Array64Plus(Array<uint64_t, false> *array, int index, uint64_t value);
+    static AbstractArray *ArrayPlus(Handle<Array<Any *, true>> array, int index, Handle<Any> value);
+    static AbstractArray *Array8Plus(Handle<Array<uint8_t, false>> array, int index, uint8_t value);
+    static AbstractArray *Array16Plus(Handle<Array<uint16_t, false>> array, int index,
+                                      uint16_t value);
+    static AbstractArray *Array32Plus(Handle<Array<uint32_t, false>> array, int index,
+                                      uint32_t value);
+    static AbstractArray *Array64Plus(Handle<Array<uint64_t, false>> array, int index,
+                                      uint64_t value);
     
-    static AbstractArray *ArrayMinus(Array<Any *, true> *array, int index);
-    static AbstractArray *Array8Minus(Array<uint8_t, false> *array, int index);
-    static AbstractArray *Array16Minus(Array<uint16_t, false> *array, int index);
-    static AbstractArray *Array32Minus(Array<uint32_t, false> *array, int index);
-    static AbstractArray *Array64Minus(Array<uint64_t, false> *array, int index);
+    static AbstractArray *ArrayMinus(Handle<Array<Any *, true>> array, int index);
+    static AbstractArray *Array8Minus(Handle<Array<uint8_t, false>> array, int index);
+    static AbstractArray *Array16Minus(Handle<Array<uint16_t, false>> array, int index);
+    static AbstractArray *Array32Minus(Handle<Array<uint32_t, false>> array, int index);
+    static AbstractArray *Array64Minus(Handle<Array<uint64_t, false>> array, int index);
     
-    static AbstractArray *ArrayResize(Array<Any *, true> *array, int size);
-    static AbstractArray *Array8Resize(Array<uint8_t, false> *array, int size);
-    static AbstractArray *Array16Resize(Array<uint16_t, false> *array, int size);
-    static AbstractArray *Array32Resize(Array<uint32_t, false> *array, int size);
-    static AbstractArray *Array64Resize(Array<uint64_t, false> *array, int size);
+    static AbstractArray *ArrayResize(Handle<Array<Any *, true>> array, int size);
+    static AbstractArray *Array8Resize(Handle<Array<uint8_t, false>> array, int size);
+    static AbstractArray *Array16Resize(Handle<Array<uint16_t, false>> array, int size);
+    static AbstractArray *Array32Resize(Handle<Array<uint32_t, false>> array, int size);
+    static AbstractArray *Array64Resize(Handle<Array<uint64_t, false>> array, int size);
     
     static int StringCompareFallback(const String *lhs, const String *rhs);
 
@@ -218,24 +223,24 @@ struct Runtime {
     
     
     // Stand library native functions
-    static void Println(String *input);
-    static void Assert(int expect, String *message);
-    static void Abort(String *message);
-    static void Fatal(String *message);
+    static void Println(Handle<String> input);
+    static void Assert(int expect, Handle<String> message);
+    static void Abort(Handle<String> message);
+    static void Fatal(Handle<String> message);
 
-    static int Object_HashCode(Any *any);
-    static String *Object_ToString(Any *any);
+    static int Object_HashCode(Handle<Any> any);
+    static String *Object_ToString(Handle<Any> any);
 
-    static void Exception_PrintStackstrace(Any *any);
+    static void Exception_PrintStackstrace(Handle<Any> any);
 
-    static int64_t System_CurrentTimeMillis(Any *any);
-    static int64_t System_MicroTime(Any *any);
-    static void System_GC(Any *any);
+    static int64_t System_CurrentTimeMillis(Handle<Any> any);
+    static int64_t System_MicroTime(Handle<Any> any);
+    static void System_GC(Handle<Any> any);
     
-    static Any *WaitGroup_Init(Any *any);
-    static void WaitGroup_Add(Any *any, int n);
-    static void WaitGroup_Done(Any *any);
-    static void WaitGroup_Wait(Any *any);
+    static Any *WaitGroup_Init(Handle<Any> any);
+    static void WaitGroup_Add(Handle<Any> any, int n);
+    static void WaitGroup_Done(Handle<Any> any);
+    static void WaitGroup_Wait(Handle<Any> any);
     
     static int CurrentSourceLine(int level);
     static String *CurrentSourceName(int level);

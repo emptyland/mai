@@ -104,8 +104,8 @@ TEST_F(ValueTest, PlusReferenceArray) {
 }
 
 static void Dummy1() {}
-static void Dummy2(String *) {}
-static void Dummy3(int, Array<Any*> *) {}
+static void Dummy2(Handle<String>) {}
+static void Dummy3(int, Handle<Array<Any*>>) {}
 static String *Dummy4(float, int, void *) { return nullptr; }
 
 TEST_F(ValueTest, FunctionTemplate) {

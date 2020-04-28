@@ -153,7 +153,6 @@ void Coroutine::DidSuspend(intptr_t /*acc*/, double /*facc*/) {
     //printf("co: %lld %d\n", coid(), state());
 }
 
-
 void VisitBytecodeFunctionStackFrame(Address frame_bp, RootVisitor *visitor) {
     Closure *callee = BytecodeStackFrame::GetCallee(frame_bp);
     int32_t pc = BytecodeStackFrame::GetPC(frame_bp);
@@ -182,6 +181,26 @@ void VisitBytecodeFunctionStackFrame(Address frame_bp, RootVisitor *visitor) {
     offset = StackFrame::kBaseSize + args_size;
     for (uint32_t i = 0; i < fun->prototype()->parameter_size(); i++) {
         const Class *type = STATE->metadata_space()->type(fun->prototype()->parameter(i));
+        offset -= RoundUp(type->reference_size(), kStackSizeGranularity);
+        if (type->is_reference()) {
+            visitor->VisitRootPointer(reinterpret_cast<Any **>(frame_bp + offset));
+        }
+    }
+}
+
+void VisitStubFunctionStackFrame(Address frame_bp, RootVisitor *visitor) {
+    Closure *callee = StubStackFrame::GetCallee(frame_bp);
+    if (!callee) {
+        return; // NULL callee can be ignore
+    }
+    
+    // Scan stack local variables
+    visitor->VisitRootPointer(reinterpret_cast<Any **>(frame_bp + StubStackFrame::kOffsetCallee));
+    Code *code = callee->code();
+    int32_t args_size = static_cast<int32_t>(code->prototype()->GetParametersPlacedSize());
+    int offset = StackFrame::kBaseSize + args_size;
+    for (uint32_t i = 0; i < code->prototype()->parameter_size(); i++) {
+        const Class *type = STATE->metadata_space()->type(code->prototype()->parameter(i));
         offset -= RoundUp(type->reference_size(), kStackSizeGranularity);
         if (type->is_reference()) {
             visitor->VisitRootPointer(reinterpret_cast<Any **>(frame_bp + offset));
@@ -223,7 +242,7 @@ void Coroutine::VisitRoot(RootVisitor *visitor) {
                 VisitBytecodeFunctionStackFrame(frame_bp, visitor);
                 break;
             case StackFrame::kStub:
-                // Ignore
+                VisitStubFunctionStackFrame(frame_bp, visitor);
                 break;
             case StackFrame::kTrampoline:
                 // Finalize

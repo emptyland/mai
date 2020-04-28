@@ -245,10 +245,10 @@ TEST_F(CoroutineTest, Sanity) {
     }
 }
 
-static void Dummy3(int64_t a, float b, String *c) {
+static void Dummy3(int64_t a, float b, Handle<String> c) {
     dummy_result.i64_1 = a;
     dummy_result.f32_1 = b;
-    dummy_result.any_1 = c;
+    dummy_result.any_1 = *c;
     std::this_thread::sleep_for(std::chrono::milliseconds(0));
 }
 
@@ -752,8 +752,8 @@ TEST_F(CoroutineTest, LoadArgumentToACC) {
     ASSERT_NEAR(3.1415f, dummy_result.f64_1, 0.0001);
 }
 
-static void Dummy15(Any *any) {
-    DummyClass *d = static_cast<DummyClass *>(any);
+static void Dummy15(Handle<Any> any) {
+    DummyClass *d = static_cast<DummyClass *>(*any);
     dummy_result.any_1 = d;
 }
 
@@ -847,10 +847,10 @@ TEST_F(CoroutineTest, LoadPropertyToACC) {
     ASSERT_EQ(641, dummy_result.i64_1);
 }
 
-static void Dummy17(float a, double b, Any *c) {
+static void Dummy17(float a, double b, Handle<Any> c) {
     dummy_result.f32_1 = a;
     dummy_result.f64_1 = b;
-    dummy_result.any_1 = c;
+    dummy_result.any_1 = *c;
 }
 
 TEST_F(CoroutineTest, LoadPropertyToACC2) {

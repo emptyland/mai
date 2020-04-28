@@ -475,6 +475,7 @@ TEST_F(BytecodeGeneratorTest, RunArrayInitializer) {
 TEST_F(BytecodeGeneratorTest, RunArrayOperators) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
 
+    isolate_->set_gc_option(kDebugMinorGCEveryTime);
     auto rs = isolate_->Compile("tests/lang/022-array-operators");
     ASSERT_TRUE(rs.ok()) << rs.ToString();
 

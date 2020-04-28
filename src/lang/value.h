@@ -630,29 +630,34 @@ private:
 // CXX Function template for binding
 class FunctionTemplate {
 public:
-    template<class T, bool Ref = ElementTraits<T>::kIsReferenceType>
+    template<class T>
     struct ParameterTraits {
         static constexpr uint32_t kType = TypeTraits<T>::kType;
     }; // struct ParameterTraits
     
     template<class T>
-    struct ParameterTraits<T*, true> {
-        static constexpr uint32_t kType = TypeTraits<typename std::remove_pointer<T>::type>::kType;
+    struct ParameterTraits<Handle<T>> {
+        static constexpr uint32_t kType = TypeTraits<T>::kType;
     }; // struct ParameterTraits
     
-    template<class T>
-    struct ParameterTraits<Handle<T>, true> {
-        static constexpr uint32_t kType = TypeTraits<T>::kType | kHandleFlag; 
-    }; // struct ParameterTraits
-    
-    template<class T>
-    struct ParameterTraits<T*, false> {
+    template<>
+    struct ParameterTraits<void*> {
         static constexpr uint32_t kType = kType_u64;
     }; // struct ParameterTraits
     
+    template<class T>
+    struct ReturnTraits {
+        static constexpr uint32_t kType = TypeTraits<typename std::remove_pointer<T>::type>::kType;
+    };
+    
+    template<>
+    struct ReturnTraits<void*> {
+        static constexpr uint32_t kType = kType_u64;
+    };
+    
     template<class R>
     static inline Local<Closure> New(R(*func)()) {
-        Code *stub = MakeStub({}/*parametres*/, false/*has_vargs*/, ParameterTraits<R>::kType,
+        Code *stub = MakeStub({}/*parametres*/, false/*has_vargs*/, ReturnTraits<R>::kType,
                               reinterpret_cast<uint8_t *>(func));
         if (!stub) {
             return Local<Closure>::Empty();
@@ -664,7 +669,7 @@ public:
     template<class R, class A>
     static inline Local<Closure> New(R(*func)(A)) {
         Code *stub = MakeStub({ParameterTraits<A>::kType}/*parametres*/, false/*has_vargs*/,
-                              ParameterTraits<R>::kType, reinterpret_cast<uint8_t *>(func));
+                              ReturnTraits<R>::kType, reinterpret_cast<uint8_t *>(func));
         if (!stub) {
             return Local<Closure>::Empty();
         } else {
@@ -675,7 +680,7 @@ public:
     template<class R, class A, class B>
     static inline Local<Closure> New(R(*func)(A, B)) {
         Code *stub = MakeStub({ParameterTraits<A>::kType, ParameterTraits<B>::kType}/*parametres*/,
-                              false/*has_vargs*/, ParameterTraits<R>::kType,
+                              false/*has_vargs*/, ReturnTraits<R>::kType,
                               reinterpret_cast<uint8_t *>(func));
         if (!stub) {
             return Local<Closure>::Empty();
@@ -689,7 +694,7 @@ public:
         Code *stub = MakeStub({ParameterTraits<A>::kType,
                                ParameterTraits<B>::kType,
                                ParameterTraits<C>::kType}/*parametres*/,
-                              false/*has_vargs*/, ParameterTraits<R>::kType,
+                              false/*has_vargs*/, ReturnTraits<R>::kType,
                               reinterpret_cast<uint8_t *>(func));
         if (!stub) {
             return Local<Closure>::Empty();
@@ -704,7 +709,7 @@ public:
                                ParameterTraits<B>::kType,
                                ParameterTraits<C>::kType,
                                ParameterTraits<D>::kType}/*parametres*/,
-                              false/*has_vargs*/, ParameterTraits<R>::kType,
+                              false/*has_vargs*/, ReturnTraits<R>::kType,
                               reinterpret_cast<uint8_t *>(func));
         if (!stub) {
             return Local<Closure>::Empty();
@@ -720,7 +725,7 @@ public:
                                ParameterTraits<C>::kType,
                                ParameterTraits<D>::kType,
                                ParameterTraits<E>::kType}/*parametres*/,
-                              false/*has_vargs*/, ParameterTraits<R>::kType,
+                              false/*has_vargs*/, ReturnTraits<R>::kType,
                               reinterpret_cast<uint8_t *>(func));
         if (!stub) {
             return Local<Closure>::Empty();

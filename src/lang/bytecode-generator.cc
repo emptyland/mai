@@ -355,6 +355,7 @@ public:
     }
     
     void EmitArrayWith(ASTNode *ast, int param_size, int type) {
+        //printf("%d %d\n", builder_.pc(), stack_.GetTopRef());
         invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
         Incoming(ast)->Add<kArrayWith>(param_size, type);
     }
@@ -1469,7 +1470,12 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
     VISIT_CHECK(DCHECK_NOTNULL(ast->type()));
     DCHECK_EQ(rv.kind, Value::kMetadata);
     const Class *clazz = metadata_space_->type(rv.bundle.index);
-    
+    if (clazz) {
+        StackSpaceScope scope(current_fun_->stack());
+        VISIT_CHECK(ast->initializer());
+        LdaIfNeeded(rv, ast->initializer());
+    }
+
     Value local{Value::kStack, clazz};
     if (clazz->is_reference()) {
         local.index = current_fun_->stack()->ReserveRef();
@@ -1479,9 +1485,6 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
     local.ast = ast;
     current_->Register(ast->identifier()->ToString(), local);
 
-    StackSpaceScope scope(current_fun_->stack());
-    VISIT_CHECK(ast->initializer());
-    LdaIfNeeded(rv, ast->initializer());
     StaStack(clazz, local.index, ast);
     return ResultWithVoid();
 }

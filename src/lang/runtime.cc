@@ -132,8 +132,8 @@ static inline AbstractValue *ValueOf(intptr_t input) {
     return Machine::This()->NewChannel(data_typeid, capacity, 0/*flags*/);
 }
 
-/*static*/ void Runtime::CloseChannel(Channel *chan) {
-    if (!chan) {
+/*static*/ void Runtime::CloseChannel(Handle<Channel> chan) {
+    if (chan.is_value_null()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
         return;
     }
@@ -172,49 +172,49 @@ static inline void InternalChannelSendNoBarrier(Channel *chan, T value) {
     }
 }
 
-/*static*/ int32_t Runtime::ChannelRecv32(Channel *chan) {
-    return InternalChannelRecv<int32_t>(chan);
+/*static*/ int32_t Runtime::ChannelRecv32(Handle<Channel> chan) {
+    return InternalChannelRecv<int32_t>(*chan);
 }
 
-/*static*/ int64_t Runtime::ChannelRecv64(Channel *chan) {
-    return InternalChannelRecv<int64_t>(chan);
+/*static*/ int64_t Runtime::ChannelRecv64(Handle<Channel> chan) {
+    return InternalChannelRecv<int64_t>(*chan);
 }
 
-/*static*/ Any *Runtime::ChannelRecvPtr(Channel *chan) {
-    return InternalChannelRecv<Any *>(chan);
+/*static*/ Any *Runtime::ChannelRecvPtr(Handle<Channel> chan) {
+    return InternalChannelRecv<Any *>(*chan);
 }
 
-/*static*/ float Runtime::ChannelRecvF32(Channel *chan) {
-    return InternalChannelRecv<float>(chan);
+/*static*/ float Runtime::ChannelRecvF32(Handle<Channel> chan) {
+    return InternalChannelRecv<float>(*chan);
 }
 
-/*static*/ double Runtime::ChannelRecvF64(Channel *chan) {
-    return InternalChannelRecv<double>(chan);
+/*static*/ double Runtime::ChannelRecvF64(Handle<Channel> chan) {
+    return InternalChannelRecv<double>(*chan);
 }
 
-/*static*/ void Runtime::ChannelSend64(Channel *chan, int64_t value) {
-    InternalChannelSendNoBarrier<int64_t>(chan, value);
+/*static*/ void Runtime::ChannelSend64(Handle<Channel> chan, int64_t value) {
+    InternalChannelSendNoBarrier<int64_t>(*chan, value);
 }
 
-/*static*/ void Runtime::ChannelSend32(Channel *chan, int32_t value) {
-    InternalChannelSendNoBarrier<int32_t>(chan, value);
+/*static*/ void Runtime::ChannelSend32(Handle<Channel> chan, int32_t value) {
+    InternalChannelSendNoBarrier<int32_t>(*chan, value);
 }
 
-/*static*/ void Runtime::ChannelSendPtr(Channel *chan, Any *value) {
-    if (!chan) {
+/*static*/ void Runtime::ChannelSendPtr(Handle<Channel> chan, Handle<Any> value) {
+    if (chan.is_value_null()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
     }
     if (chan->has_close()) {
-        chan->SendAny(value);
+        chan->SendAny(*value);
     }
 }
 
-/*static*/ void Runtime::ChannelSendF32(Channel *chan, float value) {
-    InternalChannelSendNoBarrier<float>(chan, value);
+/*static*/ void Runtime::ChannelSendF32(Handle<Channel> chan, float value) {
+    InternalChannelSendNoBarrier<float>(*chan, value);
 }
 
-/*static*/ void Runtime::ChannelSendF64(Channel *chan, double value) {
-    InternalChannelSendNoBarrier<double>(chan, value);
+/*static*/ void Runtime::ChannelSendF64(Handle<Channel> chan, double value) {
+    InternalChannelSendNoBarrier<double>(*chan, value);
 }
 
 BuiltinType GetArrayType(const Class *element_type) {
@@ -267,7 +267,7 @@ BuiltinType GetArrayType(const Class *element_type) {
         return array;
     } else {
         SafepointScope safepoint_scope(STATE->gc());
-        
+
         int element_size = RoundUp(element_type->reference_size(), kStackSizeGranularity);
         int length = static_cast<int>((stop - start) / element_size);
         int capacity = length < 16 ? length + 16 : length;
@@ -280,56 +280,48 @@ BuiltinType GetArrayType(const Class *element_type) {
 }
 
 template<class T>
-static inline AbstractArray *TArrayAppend(Array<T> *array, T value) {
-    HandleScope handle_scope(HandleScope::INITIALIZER);
-    Local<Array<T>> handle(array);
-    if (handle.is_value_null()) {
+static inline AbstractArray *TArrayAppend(const Handle<Array<T>> &array, T value) {
+    if (array.is_value_null()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
         return nullptr;
     }
     
     SafepointScope safepoint_scope(STATE->gc());
-    array = static_cast<Array<T> *>(Machine::This()->NewArrayCopied(*handle, 1/*increment*/,
-                                                                    0/*flags*/));
-    array->quickly_set(array->length() - 1, value);
-    return array;
+    Array<T> *spwan = static_cast<Array<T> *>(Machine::This()->NewArrayCopied(*array, 1/*increment*/,
+                                                                              0/*flags*/));
+    spwan->quickly_set(array->length(), value);
+    return spwan;
 }
 
 template<class T>
-static inline AbstractArray *TArrayPlus(Array<T> *array, int index, T value) {
-    HandleScope handle_scope(HandleScope::INITIALIZER);
-    Local<Array<T>> handle(array);
-    if (handle.is_value_null()) {
+static inline AbstractArray *TArrayPlus(const Handle<Array<T>> &array, int index, T value) {
+    if (array.is_value_null()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
         return nullptr;
     }
-    
+
     SafepointScope safepoint_scope(STATE->gc());
-    return *handle->Plus(index, value);
+    return *array->Plus(index, value);
 }
 
 template<class T>
-static inline AbstractArray *TArrayMinus(Array<T> *array, int index) {
-    HandleScope handle_scope(HandleScope::INITIALIZER);
-    Local<Array<T>> handle(array);
-    if (handle.is_value_null()) {
+static inline AbstractArray *TArrayMinus(const Handle<Array<T>> &array, int index) {
+    if (array.is_value_null()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
         return nullptr;
     }
-    if (handle->length() == 0 || index < 0 || index >= handle->length()) {
+    if (array->length() == 0 || index < 0 || index >= array->length()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->out_of_bound_error_text());
         return nullptr;
     }
 
     SafepointScope safepoint_scope(STATE->gc());
-    return *handle->Minus(index);
+    return *array->Minus(index);
 }
 
 template<class T>
-static inline AbstractArray *TArrayResize(Array<T> *array, int size) {
-    HandleScope handle_scope(HandleScope::INITIALIZER);
-    Local<Array<T>> handle(array);
-    if (handle.is_value_null()) {
+static inline AbstractArray *TArrayResize(const Handle<Array<T>> &array, int size) {
+    if (array.is_value_null()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
         return nullptr;
     }
@@ -339,107 +331,105 @@ static inline AbstractArray *TArrayResize(Array<T> *array, int size) {
     }
 
     SafepointScope safepoint_scope(STATE->gc());
-    return Machine::This()->ResizeArray(*handle, size, 0/*flags*/);
+    return Machine::This()->ResizeArray(*array, size, 0/*flags*/);
 }
 
-/*static*/ AbstractArray *Runtime::ArrayAppend(Array<Any *> *array, Any *value) {
-    if (!array) {
+/*static*/ AbstractArray *Runtime::ArrayAppend(Handle<Array<Any *>> array, Handle<Any> value) {
+    if (array.is_value_null()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
         return nullptr;
     }
-    HandleScope handle_scope(HandleScope::INITIALIZER);
-    Local<Array<Any *>> handle(array);
-    Local<Any> append(value);
-
     SafepointScope safepoint_scope(STATE->gc());
-    array = static_cast<Array<Any *> *>(Machine::This()->NewArrayCopied(*handle, 1/*increment*/,
-                                                                        0/*flags*/));
-    array->quickly_set(array->length() - 1, *append);
-    return array;
+    Array<Any *> *spawn =
+        static_cast<Array<Any *> *>(Machine::This()->NewArrayCopied(*array, 1/*increment*/,
+                                                                    0/*flags*/));
+    spawn->quickly_set(array->length() - 1, *value);
+    return spawn;
 }
 
-/*static*/ AbstractArray *Runtime::Array8Append(Array<uint8_t> *array, uint8_t value) {
+/*static*/ AbstractArray *Runtime::Array8Append(Handle<Array<uint8_t>> array, uint8_t value) {
     return TArrayAppend<uint8_t>(array, value);
 }
 
-/*static*/ AbstractArray *Runtime::Array16Append(Array<uint16_t> *array, uint16_t value) {
+/*static*/ AbstractArray *Runtime::Array16Append(Handle<Array<uint16_t>> array, uint16_t value) {
     return TArrayAppend<uint16_t>(array, value);
 }
 
-/*static*/ AbstractArray *Runtime::Array32Append(Array<uint32_t> *array, uint32_t value) {
+/*static*/ AbstractArray *Runtime::Array32Append(Handle<Array<uint32_t>> array, uint32_t value) {
     return TArrayAppend<uint32_t>(array, value);
 }
 
-/*static*/ AbstractArray *Runtime::Array64Append(Array<uint64_t> *array, uint64_t value) {
+/*static*/ AbstractArray *Runtime::Array64Append(Handle<Array<uint64_t>> array, uint64_t value) {
     return TArrayAppend<uint64_t>(array, value);
 }
 
-/*static*/ AbstractArray *Runtime::ArrayPlus(Array<Any *> *array, int index, Any *value) {
-    HandleScope handle_scope(HandleScope::INITIALIZER);
-    Local<Array<Any *>> handle(array);
-    if (handle.is_value_null()) {
+/*static*/ AbstractArray *Runtime::ArrayPlus(Handle<Array<Any *>> array, int index,
+                                             Handle<Any> value) {
+    if (array.is_value_null()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
         return nullptr;
     }
-    Local<Any> add(value);
-    
     SafepointScope safepoint_scope(STATE->gc());
-    return *handle->Plus(index, add);
+    return *array->Plus(index, value);
 }
 
-/*static*/ AbstractArray *Runtime::Array8Plus(Array<uint8_t> *array, int index, uint8_t value) {
+/*static*/ AbstractArray *
+Runtime::Array8Plus(Handle<Array<uint8_t>> array, int index, uint8_t value) {
     return TArrayPlus<uint8_t>(array, index, value);
 }
 
-/*static*/ AbstractArray *Runtime::Array16Plus(Array<uint16_t> *array, int index, uint16_t value) {
+/*static*/ AbstractArray *
+Runtime::Array16Plus(Handle<Array<uint16_t>> array, int index, uint16_t value) {
     return TArrayPlus<uint16_t>(array, index, value);
 }
 
-/*static*/ AbstractArray *Runtime::Array32Plus(Array<uint32_t> *array, int index, uint32_t value) {
+/*static*/ AbstractArray *
+Runtime::Array32Plus(Handle<Array<uint32_t>> array, int index, uint32_t value) {
     return TArrayPlus<uint32_t>(array, index, value);
 }
 
-/*static*/ AbstractArray *Runtime::Array64Plus(Array<uint64_t> *array, int index, uint64_t value) {
+/*static*/ AbstractArray *
+Runtime::Array64Plus(Handle<Array<uint64_t>> array, int index, uint64_t value) {
     return TArrayPlus<uint64_t>(array, index, value);
 }
 
-/*static*/ AbstractArray *Runtime::ArrayMinus(Array<Any *> *array, int index) {
+/*static*/ AbstractArray *Runtime::ArrayMinus(Handle<Array<Any *>> array, int index) {
     return TArrayMinus<Any *>(array, index);
 }
 
-/*static*/ AbstractArray *Runtime::Array8Minus(Array<uint8_t> *array, int index) {
+/*static*/ AbstractArray *Runtime::Array8Minus(Handle<Array<uint8_t>> array, int index) {
     return TArrayMinus<uint8_t>(array, index);
 }
 
-/*static*/ AbstractArray *Runtime::Array16Minus(Array<uint16_t> *array, int index) {
+/*static*/ AbstractArray *Runtime::Array16Minus(Handle<Array<uint16_t>> array, int index) {
     return TArrayMinus<uint16_t>(array, index);
 }
 
-/*static*/ AbstractArray *Runtime::Array32Minus(Array<uint32_t> *array, int index) {
+/*static*/ AbstractArray *Runtime::Array32Minus(Handle<Array<uint32_t>> array, int index) {
     return TArrayMinus<uint32_t>(array, index);
 }
 
-/*static*/ AbstractArray *Runtime::Array64Minus(Array<uint64_t> *array, int index) {
+/*static*/ AbstractArray *Runtime::Array64Minus(Handle<Array<uint64_t>> array, int index) {
     return TArrayMinus<uint64_t>(array, index);
 }
 
-/*static*/ AbstractArray *Runtime::ArrayResize(Array<Any *> *array, int size) {
+/*static*/ AbstractArray *Runtime::ArrayResize(Handle<Array<Any *>> array, int size) {
     return TArrayResize<Any *>(array, size);
 }
 
-/*static*/ AbstractArray *Runtime::Array8Resize(Array<uint8_t> *array, int size) {
+/*static*/ AbstractArray *Runtime::Array8Resize(Handle<Array<uint8_t>> array, int size) {
     return TArrayResize<uint8_t>(array, size);
 }
 
-/*static*/ AbstractArray *Runtime::Array16Resize(Array<uint16_t> *array, int size) {
+/*static*/ AbstractArray *Runtime::Array16Resize(Handle<Array<uint16_t>> array, int size) {
     return TArrayResize<uint16_t>(array, size);
 }
 
-/*static*/ AbstractArray *Runtime::Array32Resize(Array<uint32_t> *array, int size) {
+/*static*/ AbstractArray *Runtime::Array32Resize(Handle<Array<uint32_t>> array, int size) {
     return TArrayResize<uint32_t>(array, size);
 }
 
-/*static*/ AbstractArray *Runtime::Array64Resize(Array<uint64_t> *array, int size) {
+/*static*/ AbstractArray *Runtime::Array64Resize(Handle<Array<uint64_t>> array, int size) {
     return TArrayResize<uint64_t>(array, size);
 }
 
@@ -544,67 +534,67 @@ static inline AbstractArray *TArrayResize(Array<T> *array, int size) {
 #endif
 }
 
-/*static*/ void Runtime::Println(String *input) {
+/*static*/ void Runtime::Println(Handle<String> input) {
     // TODO:
     ::fwrite(input->data(), 1, input->length(), stdout);
     ::puts("");
 }
 
-/*static*/ void Runtime::Assert(int expect, String *message) {
+/*static*/ void Runtime::Assert(int expect, Handle<String> message) {
     if (expect) { return; }
     HandleScope handle_scope(HandleScope::INITIALIZER);
     IncrementalStringBuilder builder;
     builder.AppendString("Assert fail: ");
-    if (message) {
-        builder.AppendString(Local<String>(message));
+    if (message.is_value_not_null()) {
+        builder.AppendString(message);
     } else {
         builder.AppendString("\"\"");
     }
     Machine::This()->ThrowPanic(Panic::kFatal, builder.QuickBuild());
 }
 
-/*static*/ void Runtime::Abort(String *message) {
-    Machine::This()->ThrowPanic(Panic::kError, DCHECK_NOTNULL(message));
+/*static*/ void Runtime::Abort(Handle<String> message) {
+    Machine::This()->ThrowPanic(Panic::kError, DCHECK_NOTNULL(*message));
 }
 
-/*static*/ void Runtime::Fatal(String *message) {
-    Machine::This()->ThrowPanic(Panic::kFatal, DCHECK_NOTNULL(message));
+/*static*/ void Runtime::Fatal(Handle<String> message) {
+    Machine::This()->ThrowPanic(Panic::kFatal, DCHECK_NOTNULL(*message));
 }
 
-/*static*/ int Runtime::Object_HashCode(Any *any) {
-    if (!any) {
+/*static*/ int Runtime::Object_HashCode(Handle<Any> any) {
+    if (any.is_value_null()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
         return -1;
     }
-    return static_cast<int>(bit_cast<intptr_t>(any) >> 2) | 0x1;
+    return static_cast<int>(bit_cast<intptr_t>(*any) >> 2) | 0x1;
 }
 
-/*static*/ String *Runtime::Object_ToString(Any *any) {
+/*static*/ String *Runtime::Object_ToString(Handle<Any> any) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
-    if (!any) {
+    if (any.is_value_null()) {
         return Machine::This()->NewUtf8String("nil", 3, 0);
     } else {
-        return static_cast<Object *>(any)->ToString();
+        return static_cast<Object *>(*any)->ToString();
     }
 }
 
-/*static*/ void Runtime::Exception_PrintStackstrace(Any *any) {
+/*static*/ void Runtime::Exception_PrintStackstrace(Handle<Any> /*any*/) {
     // TODO:
 }
 
-/*static*/ int64_t Runtime::System_CurrentTimeMillis(Any */*any*/) {
+/*static*/ int64_t Runtime::System_CurrentTimeMillis(Handle<Any> /*any*/) {
     return STATE->env()->CurrentTimeMicros() / 1000L;
 }
 
-/*static*/ int64_t Runtime::System_MicroTime(Any */*any*/) {
+/*static*/ int64_t Runtime::System_MicroTime(Handle<Any> /*any*/) {
     return STATE->env()->CurrentTimeMicros();
 }
 
-/*static*/ void Runtime::System_GC(Any */*any*/) { MinorGC(); }
+/*static*/ void Runtime::System_GC(Handle<Any> /*any*/) { MinorGC(); }
 
 // std::mutex mutex;
 
-/*static*/ Any *Runtime::WaitGroup_Init(Any *self) {
+/*static*/ Any *Runtime::WaitGroup_Init(Handle<Any> self) {
     DCHECK(!::strcmp("lang.WaitGroup", self->clazz()->name()));
     const Field *number_of_works = self->clazz()->field(0);
     DCHECK(!::strcmp("numberOfWorks", number_of_works->name()));
@@ -615,10 +605,10 @@ static inline AbstractArray *TArrayResize(Array<T> *array, int size) {
     WaittingRequest *rq = self->UnsafeAccess<WaittingRequest>(request);
     rq->next_ = rq;
     rq->prev_ = rq;
-    return self;
+    return *self;
 }
 
-/*static*/ void Runtime::WaitGroup_Add(Any *self, int n) {
+/*static*/ void Runtime::WaitGroup_Add(Handle<Any> self, int n) {
     DCHECK(!::strcmp("lang.WaitGroup", self->clazz()->name()));
     const Field *number_of_works_field = self->clazz()->field(0);
     DCHECK(!::strcmp("numberOfWorks", number_of_works_field->name()));
@@ -630,7 +620,7 @@ static inline AbstractArray *TArrayResize(Array<T> *array, int size) {
     (*works) += n;
 }
 
-/*static*/ void Runtime::WaitGroup_Done(Any *self) {
+/*static*/ void Runtime::WaitGroup_Done(Handle<Any> self) {
     DCHECK(!::strcmp("lang.WaitGroup", self->clazz()->name()));
     const Field *number_of_works_field = self->clazz()->field(0);
     DCHECK(!::strcmp("numberOfWorks", number_of_works_field->name()));
@@ -658,7 +648,7 @@ static inline AbstractArray *TArrayResize(Array<T> *array, int size) {
     }
 }
 
-/*static*/ void Runtime::WaitGroup_Wait(Any *self) {
+/*static*/ void Runtime::WaitGroup_Wait(Handle<Any> self) {
     DCHECK(!::strcmp("lang.WaitGroup", self->clazz()->name()));
     const Field *number_of_works_field = self->clazz()->field(0);
     DCHECK(!::strcmp("numberOfWorks", number_of_works_field->name()));

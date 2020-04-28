@@ -159,6 +159,7 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm) {
 void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
     StackFrameScope frame_scope(masm, StubStackFrame::kSize);
     __ movq(Operand(rbp, StubStackFrame::kOffsetMaker), StubStackFrame::kMaker);
+    __ movq(Operand(rbp, StubStackFrame::kOffsetCallee), 0);
 
     __ SaveBytecodeEnv();
     __ call(r11); // Call real function
@@ -1648,7 +1649,7 @@ public:
         __ j(Equal, &random, true/*is_far*/);
         // Bad bytecode
         __ Abort("Incorrect yield control code.");
-        
+
         // Propose:
         __ Bind(&propose);
         __ cmpl(Operand(CO, Coroutine::kOffsetYield), 0);
@@ -1758,6 +1759,7 @@ public:
         __ andl(rbx, 0xfffffff0); // ebx &= -16
         __ subq(rsp, rbx); // Adjust sp to aligment of 16 bits(2 bytes)
 
+        __ movq(Argv_0, ACC);
         __ movq(SCRATCH, Operand(ACC, Closure::kOffsetCode));
         __ leaq(SCRATCH, Operand(SCRATCH, Code::kOffsetEntry));
         __ call(SCRATCH); // Call stub code

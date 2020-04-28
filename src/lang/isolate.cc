@@ -137,6 +137,7 @@ void Isolate::Run() {
 Isolate::Isolate(const Options &opts)
     : new_space_initial_size_(opts.new_space_initial_size)
     , old_space_limit_size_(opts.old_space_limit_size)
+    , gc_option_(opts.gc_option)
     , base_pkg_dir_(opts.base_pkg_dir)
     , env_(opts.env)
     , heap_(new Heap(env_->GetLowLevelAllocator()))

@@ -30,6 +30,12 @@ struct TLSStorage;
 struct GlobalHandleNode;
 template<class T> class Handle;
 
+enum GCOption {
+    kNormalGC,
+    kDebugMinorGCEveryTime,
+    kDebugFullGCEveryTime,
+};
+
 struct Options {
     Env *env = Env::Default(); // The base api env pointer
     int concurrency = 0; // How many concrrent running
@@ -39,6 +45,8 @@ struct Options {
     float new_space_gc_threshold_rate = 0.25;
     // Major GC available threshold rate
     float old_space_gc_threshold_rate = 0.25;
+    // GC Debug mode
+    GCOption gc_option = kNormalGC;
     std::string base_pkg_dir = "src/lang/pkg"; // Language base pkg path
     std::set<std::string> search_pkg_dir;
 };
@@ -75,6 +83,11 @@ public:
     
     // Get old generation limit size in heap
     size_t old_space_limit_size() const { return old_space_limit_size_; }
+    
+    // Get gc option
+    GCOption gc_option() const { return gc_option_; }
+
+    void set_gc_option(GCOption option) { gc_option_ = option; }
     
     // Get system base pkg dir
     const std::string &base_pkg_dir() const { return base_pkg_dir_; }
@@ -124,6 +137,7 @@ private:
     const size_t new_space_initial_size_;
     const size_t old_space_limit_size_;
     const std::string base_pkg_dir_;
+    GCOption gc_option_;
 
     // External linking native functions
     std::map<std::string, Closure*> external_linkers_;

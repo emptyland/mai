@@ -31,7 +31,16 @@ void GarbageCollector::CollectIfNeeded() {
             kind = kMajorCollect;
         }
     }
-
+    switch (isolate_->gc_option()) {
+        case kDebugFullGCEveryTime:
+            kind = kFullCollect;
+            break;
+        case kDebugMinorGCEveryTime:
+            kind = kMinorCollect;
+            break;
+        default:
+            break;
+    }
     if (kind == kIdle) { // TODO: available is too small
         return;
     }
