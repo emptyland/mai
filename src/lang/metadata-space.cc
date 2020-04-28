@@ -131,13 +131,13 @@ Error MetadataSpace::Initialize() {
             .tag(1)
             .offset(Closure::kOffsetProto)
         .End()
-        .field("captured_var_size")
+        .field("capturedVarSize")
             .type(builtin_type(kType_u32))
             .flags(Field::kPrivate|Field::kRead)
             .tag(2)
             .offset(Closure::kOffsetCapturedVarSize)
         .End()
-        .field("captured_var")
+        .field("capturedVar")
             .type(builtin_type(kType_captured_value))
             .flags(Field::kPrivate|Field::kRead)
             .tag(3)
@@ -243,22 +243,28 @@ Error MetadataSpace::Initialize() {
         .reference_size(kPointerSize) \
         .instrance_size(sizeof(Array<kind>)) \
         .base(builtin_type(kType_any)) \
+        .field("elemType") \
+            .type(builtin_type(kType_u64)) \
+            .flags(Field::kPrivate|Field::kRead) \
+            .tag(1) \
+            .offset(Array<kind>::kOffsetElemType) \
+        .End() \
         .field("capacity") \
             .type(builtin_type(kType_u32)) \
             .flags(Field::kPrivate|Field::kRead) \
-            .tag(1) \
+            .tag(2) \
             .offset(Array<kind>::kOffsetCapacity) \
         .End() \
         .field("length") \
             .type(builtin_type(kType_u32)) \
             .flags(Field::kPublic|Field::kRead) \
-            .tag(2) \
+            .tag(3) \
             .offset(Array<kind>::kOffsetLength) \
         .End() \
         .field("elems") \
             .type(TypeOf<kind>()) \
             .flags(Field::kPublic|Field::kRead|Field::kArray) \
-            .tag(3) \
+            .tag(4) \
             .offset(Array<kind>::kOffsetElems) \
         .End() \
         .method("resize") \

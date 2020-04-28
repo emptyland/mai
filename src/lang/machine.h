@@ -123,15 +123,14 @@ public:
     String *NewUtf8StringWithFormatV(uint32_t flags, const char *fmt, va_list ap);
 
     // New (immutable/mutable) array slowly
-    AbstractArray *NewArray(BuiltinType type, size_t length, size_t capacity, uint32_t flags);
+    AbstractArray *NewArray(uint32_t type, size_t length, size_t capacity, uint32_t flags);
 
     AbstractArray *NewArrayCopied(const AbstractArray *origin, size_t increment, uint32_t flags);
     
     AbstractArray *ResizeArray(AbstractArray *origin, size_t size, uint32_t flags);
     
-    AbstractArray *NewArrayAny(Any **init_data, size_t length, size_t capacity, uint32_t flags);
-    
-    AbstractArray *NewArray8(const void *init_data, size_t length, size_t capacity, uint32_t flags);
+    AbstractArray *NewArray8(uint32_t type, const void *init_data, size_t length, size_t capacity,
+                             uint32_t flags);
 
     AbstractArray *ResizeArray(AbstractArray *origin, size_t new_size);
     

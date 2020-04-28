@@ -69,6 +69,11 @@ size_t PrototypeDesc::GetParametersRealSize(const MetadataSpace *space) const {
     return size;
 }
 
+bool PrototypeDesc::IsSameOf(const PrototypeDesc *proto) const {
+    TODO();
+    return false;
+}
+
 std::string PrototypeDesc::ToString() const {
     return ToString(STATE->metadata_space());
 }

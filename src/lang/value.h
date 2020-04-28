@@ -85,6 +85,7 @@ protected:
 class AbstractArray : public Any {
 public:
     static constexpr size_t kAppendIndex = -1;
+    static const int32_t kOffsetElemType;
     static const int32_t kOffsetCapacity;
     static const int32_t kOffsetLength;
     
@@ -93,11 +94,15 @@ public:
 
     // Number of elements
     uint32_t length() const { return length_; }
+    
+    const Class *elem_type() const { return elem_type_; }
 
     friend class Machine;
 protected:
-    AbstractArray(const Class *clazz, uint32_t capacity, uint32_t length, uint32_t tags)
+    AbstractArray(const Class *clazz, const Class *elem_type, uint32_t capacity, uint32_t length,
+                  uint32_t tags)
         : Any(clazz, tags)
+        , elem_type_(elem_type)
         , capacity_(capacity)
         , length_(length) {
     }
@@ -106,6 +111,7 @@ protected:
 
     static AbstractArray *NewArrayCopied(const AbstractArray *origin, size_t increment);
     
+    const Class *elem_type_;
     uint32_t capacity_;
     uint32_t length_;
 }; // class AbstractArray
@@ -137,7 +143,7 @@ public:
 
     // Create new array with length
     static inline Local<Array<T>> NewImmutable(size_t length) {
-        Local<AbstractArray> abstract(NewArray(TypeTraits<Array<T>>::kType, length));
+        Local<AbstractArray> abstract(NewArray(TypeTraits<T>::kType, length));
         if (abstract.is_empty()) {
             return Local<Array<T>>::Empty();
         }
@@ -182,8 +188,8 @@ public:
 
     friend class Machine;
 protected:
-    Array(const Class *clazz, uint32_t capacity, uint32_t length, uint32_t tags)
-        : AbstractArray(clazz, capacity, length, tags) {
+    Array(const Class *clazz, const Class *elem_type, uint32_t capacity, uint32_t length, uint32_t tags)
+        : AbstractArray(clazz, elem_type, capacity, length, tags) {
         ::memset(elems_, 0, sizeof(T) * length);
     }
 
@@ -211,7 +217,7 @@ public:
 
     // Create new array with length
     static inline Local<Array<T>> NewImmutable(size_t length) {
-        Local<Any> any(NewArray(TypeTraits<Array<T>>::kType, length));
+        Local<Any> any(NewArray(TypeTraits<CoreType>::kType, length));
         if (any.is_empty()) {
             return Local<Array<T>>::Empty();
         }
@@ -262,8 +268,8 @@ public:
     
     friend class Machine;
 protected:
-    Array(const Class *clazz, uint32_t capacity, uint32_t length, uint32_t tags)
-        : AbstractArray(clazz, capacity, length, tags) {
+    Array(const Class *clazz, const Class *elem_type, uint32_t capacity, uint32_t length, uint32_t tags)
+        : AbstractArray(clazz, elem_type, capacity, length, tags) {
         ::memset(elems_, 0, sizeof(T) * length);
     }
 
@@ -289,8 +295,9 @@ public:
 
     friend class Machine;
 private:
-    String(const Class *clazz, uint32_t capacity, const char *utf8_string, uint32_t length, uint32_t tags)
-        : Array<char>(clazz, capacity, length, tags) {
+    String(const Class *clazz, const Class *elem_type, uint32_t capacity, const char *utf8_string,
+           uint32_t length, uint32_t tags)
+        : Array<char>(clazz, elem_type, capacity, length, tags) {
         ::memcpy(elems_, utf8_string, length);
         elems_[length] = '\0'; // for c-style string
     }

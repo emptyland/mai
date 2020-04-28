@@ -314,6 +314,7 @@ String *Machine::NewUtf8String(const char *utf8_string, size_t n, uint32_t flags
         return nullptr;
     }
     String *obj = new (result.ptr()) String(STATE->builtin_type(kType_string),
+                                            STATE->builtin_type(kType_i8),
                                             static_cast<uint32_t>(n + 1),
                                             utf8_string,
                                             static_cast<uint32_t>(n),
@@ -335,7 +336,7 @@ String *Machine::NewUtf8StringWithFormatV(uint32_t flags, const char *fmt, va_li
         return STATE->factory()->empty_string();
     }
     va_list copied;
-    Array<char> *buf = static_cast<Array<char> *>(NewArray8("", 0, len + 12, flags));
+    Array<char> *buf = static_cast<Array<char> *>(NewArray8(kType_i8, "", 0, len + 12, flags));
     if (!buf) {
         return nullptr;
     }
@@ -452,10 +453,30 @@ CapturedValue *Machine::NewCapturedValue(const Class *clazz, const void *value, 
     }
 }
 
-AbstractArray *Machine::NewArray(BuiltinType type, size_t length, size_t capacity, uint32_t flags) {
-    const Class *clazz = DCHECK_NOTNULL(STATE->builtin_type(type));
-    DCHECK(::strstr(clazz->name(), "array") == clazz->name());
-    const Field *elems_field = clazz->field(2);
+AbstractArray *Machine::NewArray(uint32_t type, size_t length, size_t capacity, uint32_t flags) {
+    const Class *elem_type = DCHECK_NOTNULL(STATE->metadata_space()->type(type));
+    const Class *clazz = nullptr;
+    switch (elem_type->reference_size()) {
+        case 1:
+            clazz = STATE->builtin_type(kType_array8);
+            break;
+        case 2:
+            clazz = STATE->builtin_type(kType_array16);
+            break;
+        case 4:
+            clazz = STATE->builtin_type(kType_array32);
+            break;
+        case 8:
+            clazz = STATE->builtin_type(kType_array64);
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    if (elem_type->is_reference()) {
+        clazz = STATE->builtin_type(kType_array);
+    }
+    const Field *elems_field = clazz->field(3);
     DCHECK(!::strcmp("elems", elems_field->name()));
 
     DCHECK_LE(length, capacity);
@@ -465,7 +486,7 @@ AbstractArray *Machine::NewArray(BuiltinType type, size_t length, size_t capacit
         AllocationPanic(result);
         return nullptr;
     }
-    AbstractArray *obj = new (result.ptr()) AbstractArray(clazz,
+    AbstractArray *obj = new (result.ptr()) AbstractArray(clazz, elem_type,
                                                           static_cast<uint32_t>(capacity),
                                                           static_cast<uint32_t>(length),
                                                           color_tags());
@@ -479,7 +500,7 @@ AbstractArray *
 Machine::NewArrayCopied(const AbstractArray *origin, size_t increment, uint32_t flags) {
     const Class *clazz = origin->clazz();
     DCHECK(::strstr(clazz->name(), "array") == clazz->name());
-    const Field *elems_field = clazz->field(2);
+    const Field *elems_field = clazz->field(3);
     DCHECK(!::strcmp("elems", elems_field->name()));
 
     uint32_t length = static_cast<uint32_t>(origin->length() + increment);
@@ -489,7 +510,8 @@ Machine::NewArrayCopied(const AbstractArray *origin, size_t increment, uint32_t 
         AllocationPanic(result);
         return nullptr;
     }
-    AbstractArray *obj = new (result.ptr()) AbstractArray(clazz, length, length, color_tags());
+    AbstractArray *obj = new (result.ptr()) AbstractArray(clazz, origin->elem_type(), length,
+                                                          length, color_tags());
     Address dest = reinterpret_cast<Address>(obj) + elems_field->offset();
     const Byte *sour = reinterpret_cast<const Byte *>(origin) + elems_field->offset();
 
@@ -511,12 +533,12 @@ Machine::NewArrayCopied(const AbstractArray *origin, size_t increment, uint32_t 
 AbstractArray *Machine::ResizeArray(AbstractArray *origin, size_t size, uint32_t flags) {
     const Class *clazz = origin->clazz();
     DCHECK(::strstr(clazz->name(), "array") == clazz->name());
-    const Field *elems_field = clazz->field(2);
+    const Field *elems_field = clazz->field(3);
     DCHECK(!::strcmp("elems", elems_field->name()));
 
     AbstractArray *result = origin;
     if (size > origin->capacity()) {
-        result = NewArray(static_cast<BuiltinType>(clazz->id()), size, size * 2, flags);
+        result = NewArray(origin->elem_type()->id(), size, size * 2, flags);
         if (!result) {
             return nullptr;
         }
@@ -545,24 +567,7 @@ AbstractArray *Machine::ResizeArray(AbstractArray *origin, size_t size, uint32_t
     return result;
 }
 
-AbstractArray *Machine::NewArrayAny(Any **init_data, size_t length, size_t capacity, uint32_t flags) {
-    size_t request_size = sizeof(Array<Any *>) * capacity;
-    AllocationResult result = STATE->heap()->Allocate(request_size, flags);
-    if (!result.ok()) {
-        AllocationPanic(result);
-        return nullptr;
-    }
-
-    DCHECK_GE(capacity, length);
-    Array<Any *> *obj = new (result.ptr()) Array<Any *>(STATE->builtin_type(kType_array),
-                                                        static_cast<uint32_t>(capacity),
-                                                        static_cast<uint32_t>(length),
-                                                        color_tags());
-    //obj->Se
-    return obj;
-}
-
-AbstractArray *Machine::NewArray8(const void *init_data, size_t length, size_t capacity,
+AbstractArray *Machine::NewArray8(uint32_t type, const void *init_data, size_t length, size_t capacity,
                                   uint32_t flags) {
     size_t request_size = sizeof(Array<uint8_t>) + 1 * capacity;
     AllocationResult result = STATE->heap()->Allocate(request_size, flags);
@@ -570,9 +575,12 @@ AbstractArray *Machine::NewArray8(const void *init_data, size_t length, size_t c
         AllocationPanic(result);
         return nullptr;
     }
-    
+
     DCHECK_GE(capacity, length);
+    const Class *elem_type = STATE->metadata_space()->type(type);
+    DCHECK_EQ(1, elem_type->reference_size());
     Array<uint8_t> *obj = new (result.ptr()) Array<uint8_t>(STATE->builtin_type(kType_array8),
+                                                            elem_type,
                                                             static_cast<uint32_t>(capacity),
                                                             static_cast<uint32_t>(length),
                                                             color_tags());
@@ -586,8 +594,8 @@ AbstractArray *Machine::ResizeArray(AbstractArray *origin, size_t new_size) {
     }
     
     const Class *clazz = origin->clazz();
-    AbstractArray *copied = NewArray(static_cast<BuiltinType>(clazz->id()), origin->length(),
-                                     new_size, 0/*flags*/);
+    AbstractArray *copied = NewArray(static_cast<BuiltinType>(origin->elem_type()->id()),
+                                     origin->length(), new_size, 0/*flags*/);
     if (!copied) {
         return nullptr;
     }
@@ -609,7 +617,7 @@ AbstractArray *Machine::ResizeArray(AbstractArray *origin, size_t new_size) {
 }
 
 String *Machine::Array8ToString(AbstractArray *from) {
-    DCHECK(from->clazz() == STATE->builtin_type(kType_array8));
+    DCHECK(from->clazz() == STATE->builtin_type(kType_array8)) << from->clazz()->name();
     DCHECK_GT(from->capacity(), from->length());
 
     // Fill term zero

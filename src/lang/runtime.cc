@@ -278,7 +278,7 @@ BuiltinType GetArrayType(const Class *element_type) {
 
 /*static*/ AbstractArray *Runtime::NewArrayWith(const Class *element_type, Address start,
                                                 Address stop) {
-    BuiltinType dest_type = GetArrayType(element_type);
+    //BuiltinType dest_type = GetArrayType(element_type);
     if (element_type->is_reference()) {
         HandleScope handle_scope(HandleScope::INITIALIZER);
         int length = static_cast<int>((stop - start) >> kPointerShift);
@@ -288,7 +288,7 @@ BuiltinType GetArrayType(const Class *element_type) {
         SafepointScope safepoint_scope(STATE->gc());
         
         int capacity = length < 16 ? length + 16 : length;
-        Array<Any *> *array = static_cast<Array<Any *> *>(Machine::This()->NewArray(dest_type,
+        Array<Any *> *array = static_cast<Array<Any *> *>(Machine::This()->NewArray(element_type->id(),
                                                                                     length,
                                                                                     capacity, 0));
         array->QuicklySetAll(0, handles, length);
@@ -299,8 +299,8 @@ BuiltinType GetArrayType(const Class *element_type) {
         int element_size = RoundUp(element_type->reference_size(), kStackSizeGranularity);
         int length = static_cast<int>((stop - start) / element_size);
         int capacity = length < 16 ? length + 16 : length;
-        AbstractArray *array = Machine::This()->NewArray(dest_type, length, capacity, 0);
-        const Field *elems_field = array->clazz()->field(2);
+        AbstractArray *array = Machine::This()->NewArray(element_type->id(), length, capacity, 0);
+        const Field *elems_field = array->clazz()->field(3);
         DCHECK(!::strcmp("elems", elems_field->name()));
         ::memcpy(reinterpret_cast<Address>(array) + elems_field->offset(), start, stop - start);
         return array;
@@ -459,6 +459,67 @@ Runtime::Array64Plus(Handle<Array<uint64_t>> array, int index, uint64_t value) {
 
 /*static*/ AbstractArray *Runtime::Array64Resize(Handle<Array<uint64_t>> array, int size) {
     return TArrayResize<uint64_t>(array, size);
+}
+
+static bool TestIs(const Class *dest, void *param, Any *any) {
+    switch (static_cast<BuiltinType>(dest->id())) {
+        case kType_array: {
+            if (any->clazz()->id() != kType_array) {
+                return false;
+            }
+            const AbstractArray *array = static_cast<AbstractArray *>(any);
+            const Class *expect = static_cast<const Class *>(param);
+            return array->elem_type()->IsSameOrBaseOf(expect);
+        } break;
+
+        case kType_channel: {
+            if (any->clazz()->id() != kType_channel) {
+                return false;
+            }
+            const Channel *chan = static_cast<Channel *>(any);
+            const Class *expect = static_cast<const Class *>(param);
+            return chan->data_type()->IsSameOrBaseOf(expect);
+        } break;
+
+        case kType_closure: {
+            if (any->clazz()->id() != kType_closure) {
+                return false;
+            }
+            const Closure *fun = static_cast<Closure *>(any);
+            const PrototypeDesc *expect = static_cast<const PrototypeDesc *>(param);
+            const PrototypeDesc *proto = nullptr;
+            if (fun->is_cxx_function()) {
+                proto = fun->code()->prototype();
+            } else {
+                proto = fun->function()->prototype();
+            }
+            return proto->IsSameOf(expect);
+        } break;
+
+        default:
+            NOREACHED();
+            break;
+    }
+    return false;
+}
+
+/*static*/ Any *Runtime::TestAs(Handle<Any> any, void *param1, void *param2) {
+    if (any.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    const Class *dest = static_cast<const Class *>(param1);
+    if (!lang::TestIs(dest, param2, *any)) {
+        String *text =Machine::This()->NewUtf8StringWithFormat(0, "Bad cast from %s to %s",
+                                                               any->clazz()->name(), dest->name());
+        Machine::This()->ThrowPanic(Panic::kError, text);
+        return nullptr;
+    }
+    return *any;
+}
+
+/*static*/ int Runtime::TestIs(Handle<Any> any, void *param1, void *param2) {
+    return lang::TestIs(static_cast<const Class *>(param1), param2, *any);
 }
 
 /*static*/ int Runtime::StringCompareFallback(const String *lhs, const String *rhs) {

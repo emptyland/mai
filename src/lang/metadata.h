@@ -482,6 +482,8 @@ public:
     }
     
     size_t GetParametersRealSize(const MetadataSpace *space) const;
+    
+    bool IsSameOf(const PrototypeDesc *proto) const;
 
     // To readable string
     std::string ToString() const;

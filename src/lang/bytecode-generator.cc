@@ -2538,9 +2538,38 @@ case kType_##dest: \
                 DEFINE_NUMBER_UNBOX(I64, i64, 64);
                 DEFINE_NUMBER_UNBOX(F32, f32, 32);
                 DEFINE_NUMBER_UNBOX(F64, f64, 64);
+
+                case kType_channel:
+                case kType_array: {
+                    int argument_offset = kPointerSize;
+                    MoveToArgumentIfNeeded(operand.type, operand.index, operand.linkage,
+                                           argument_offset, ast);
+                    VISIT_CHECK(ast->type()->parameter(0));
+                    kidx = current_fun_->constants()->FindOrInsertMetadata(dest_type);
+                    const Class *u64_type = metadata_space_->builtin_type(kType_u64);
+                    argument_offset += kPointerSize;
+                    MoveToArgumentIfNeeded(u64_type, kidx, Value::kConstant, argument_offset, ast);
+                    type = metadata_space_->type(rv.bundle.index);
+                    kidx = current_fun_->constants()->FindOrInsertMetadata(type);
+                    argument_offset += kPointerSize;
+                    MoveToArgumentIfNeeded(u64_type, kidx, Value::kConstant, argument_offset, ast);
+                    Value fun = FindOrInsertExternalFunction("lang.testAs");
+                    LdaIfNeeded(fun.type, fun.index, fun.linkage, ast);
+                    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/,
+                                                           argument_offset);
+                } return ResultWith(Value::kACC, dest_type->id(), 0);
+
+                case kType_string:
+                case kType_array8:
+                case kType_array16:
+                case kType_array32:
+                case kType_array64:
                 default:
-                    NOREACHED();
-                    break;
+                    kidx = current_fun_->constants()->FindOrInsertMetadata(dest_type);
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kTestAs>(GetStackOffset(receiver.lhs), GetConstOffset(kidx)));
+                    CleanupOperands(&receiver);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
             }
         } break;
     }

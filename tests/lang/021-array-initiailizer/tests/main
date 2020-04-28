@@ -16,7 +16,7 @@ bytecode:
     002 Star32 [BP-68]; (4)
     003 Array [BP-68], [KP+0]; (4)
     004 StarPtr [BP-88]; (4)
-    005 LdaProperty32 [BP-88], @16; (5)
+    005 LdaProperty32 [BP-88], @28; (5)
     006 Star32 [BP-68]; (5)
     007 LdaSmi32 #32; (5)
     008 Star32 [BP-72]; (5)

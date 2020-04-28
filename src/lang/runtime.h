@@ -81,6 +81,8 @@ class Function;
     V(Array16Resize, "array16::resize") \
     V(Array32Resize, "array32::resize") \
     V(Array64Resize, "array64::resize") \
+    V(TestAs, "lang.testAs") \
+    V(TestIs, "lang.testIs") \
     V(Println, "lang.println") \
     V(Assert, "lang.assert") \
     V(Abort, "lang.abort") \
@@ -195,6 +197,9 @@ struct Runtime {
     static AbstractArray *Array32Resize(Handle<Array<uint32_t, false>> array, int size);
     static AbstractArray *Array64Resize(Handle<Array<uint64_t, false>> array, int size);
     
+    static Any *TestAs(Handle<Any> any, void *param1, void *param2);
+    static int TestIs(Handle<Any> any, void *param1, void *param2);
+
     static int StringCompareFallback(const String *lhs, const String *rhs);
 
     // WriteBarrier
