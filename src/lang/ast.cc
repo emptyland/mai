@@ -484,6 +484,8 @@ BuiltinType TypeSign::ToBuiltinType() const {
         case Token::kObject:
         case Token::kRef:
             return kType_any;
+        case Token::kAny:
+            return kType_any;
         case Token::kClass:
         default:
             NOREACHED() << Token::ToString(static_cast<Token::Kind>(id()));

@@ -1447,22 +1447,8 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
 
 ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclaration *ast)
 /*override*/ {
-    if (current_->is_file_scope()) { // It's global variable
-        Value value = EnsureFindValue(current_file_->LocalFileFullName(ast->identifier()));
-        if (HasGenerated(ast)) {
-            return ResultWithVoid();
-        }
-
-        if (ast->initializer()) {
-            ASTVisitor::Result rv = ast->initializer()->Accept(this);
-            if (rv.kind == Value::kError) {
-                return ResultWithError();
-            }
-            const Class *clazz = metadata_space_->type(rv.bundle.type);
-            LdaIfNeeded(rv, ast->initializer());
-            StaGlobal(clazz, value.index, ast);
-        }
-        symbol_trace_.insert(ast);
+    // It's global variable
+    if (current_->is_file_scope() && HasGenerated(ast)) {
         return ResultWithVoid();
     }
 
@@ -1470,22 +1456,47 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
     VISIT_CHECK(DCHECK_NOTNULL(ast->type()));
     DCHECK_EQ(rv.kind, Value::kMetadata);
     const Class *clazz = metadata_space_->type(rv.bundle.index);
-    if (clazz) {
+    Value init;
+    if (ast->initializer()) {
         StackSpaceScope scope(current_fun_->stack());
         VISIT_CHECK(ast->initializer());
-        LdaIfNeeded(rv, ast->initializer());
+        init.linkage = static_cast<Value::Linkage>(rv.kind);
+        init.index = rv.bundle.index;
+        init.type = metadata_space_->type(rv.bundle.type);
     }
 
-    Value local{Value::kStack, clazz};
-    if (clazz->is_reference()) {
-        local.index = current_fun_->stack()->ReserveRef();
+    Value local{Value::kError, clazz};
+    if (current_->is_file_scope()) {
+        local = EnsureFindValue(current_file_->LocalFileFullName(ast->identifier()));
+        symbol_trace_.insert(ast);
     } else {
-        local.index = current_fun_->stack()->Reserve(clazz->reference_size());
+        local.linkage = Value::kStack;
+        local.index = current_fun_->StackReserve(clazz);
+        local.ast = ast;
+        current_->Register(ast->identifier()->ToString(), local);
     }
-    local.ast = ast;
-    current_->Register(ast->identifier()->ToString(), local);
 
-    StaStack(clazz, local.index, ast);
+    if (ast->initializer()) {
+        if (NeedInbox(clazz, init.type)) {
+            InboxIfNeeded(init.type, init.index, init.linkage, clazz, ast);
+            StaIfNeeded(clazz, local.index, local.linkage, ast);
+        } else if (local.linkage == Value::kStack) {
+            MoveToStackIfNeeded(init.type, init.index, init.linkage, local.index, ast);
+        } else {
+            LdaIfNeeded(init.type, init.index, init.linkage, ast);
+            StaIfNeeded(clazz, local.index, local.linkage, ast);
+        }
+    } else {
+        if (clazz->id() == kType_string) {
+            int kidx =
+                current_fun_->constants()->FindOrInsertString(isolate_->factory()->empty_string());
+            LdaConst(clazz, kidx, ast);
+            StaIfNeeded(clazz, local.index, local.linkage, ast);
+        } else {
+            EMIT(ast, Add<kLdaZero>());
+            StaIfNeeded(clazz, local.index, local.linkage, ast);
+        }
+    }
     return ResultWithVoid();
 }
 
@@ -1950,6 +1961,10 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
                     EMIT(ast, Add<kI64ToF64>(GetStackOffset(receiver.lhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f64, 0);
+                case kType_any:
+                    InboxIfNeeded(operand.type, operand.index, operand.linkage,
+                                  metadata_space_->builtin_type(kType_any), ast);
+                    return ResultWith(Value::kACC, kType_any, 0);
                 default:
                     NOREACHED();
                     break;
@@ -2011,6 +2026,10 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
                     EMIT(ast, Add<kU32ToF64>(GetStackOffset(receiver.lhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f64, 0);
+                case kType_any:
+                    InboxIfNeeded(operand.type, operand.index, operand.linkage,
+                                  metadata_space_->builtin_type(kType_any), ast);
+                    return ResultWith(Value::kACC, kType_any, 0);
                 default:
                     NOREACHED();
                     break;
@@ -2068,6 +2087,10 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
                     EMIT(ast, Add<kI32ToF64>(GetStackOffset(receiver.rhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f32, 0);
+                case kType_any:
+                    InboxIfNeeded(operand.type, operand.index, operand.linkage,
+                                  metadata_space_->builtin_type(kType_any), ast);
+                    return ResultWith(Value::kACC, kType_any, 0);
                 default:
                     NOREACHED();
                     break;
@@ -2125,6 +2148,10 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
                     EMIT(ast, Add<kU32ToF64>(GetStackOffset(receiver.rhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f64, 0);
+                case kType_any:
+                    InboxIfNeeded(operand.type, operand.index, operand.linkage,
+                                  metadata_space_->builtin_type(kType_any), ast);
+                    return ResultWith(Value::kACC, kType_any, 0);
                 default:
                     NOREACHED();
                     break;
@@ -2171,6 +2198,10 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
                     EMIT(ast, Add<kI32ToF64>(GetStackOffset(receiver.lhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f64, 0);
+                case kType_any:
+                    InboxIfNeeded(operand.type, operand.index, operand.linkage,
+                                  metadata_space_->builtin_type(kType_any), ast);
+                    return ResultWith(Value::kACC, kType_any, 0);
                 default:
                     NOREACHED();
                     break;
@@ -2217,6 +2248,10 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
                     EMIT(ast, Add<kU32ToF64>(GetStackOffset(receiver.lhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f64, 0);
+                case kType_any:
+                    InboxIfNeeded(operand.type, operand.index, operand.linkage,
+                                  metadata_space_->builtin_type(kType_any), ast);
+                    return ResultWith(Value::kACC, kType_any, 0);
                 default:
                     NOREACHED();
                     break;
@@ -2267,6 +2302,10 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
                     }
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f64, 0);
+                case kType_any:
+                    InboxIfNeeded(operand.type, operand.index, operand.linkage,
+                                  metadata_space_->builtin_type(kType_any), ast);
+                    return ResultWith(Value::kACC, kType_any, 0);
                 default:
                     NOREACHED();
                     break;
@@ -2332,6 +2371,10 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
                     EMIT(ast, Add<kF32ToF64>(GetStackOffset(receiver.lhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f64, 0);
+                case kType_any:
+                    InboxIfNeeded(operand.type, operand.index, operand.linkage,
+                                  metadata_space_->builtin_type(kType_any), ast);
+                    return ResultWith(Value::kACC, kType_any, 0);
                 default:
                     NOREACHED();
                     break;
@@ -2397,6 +2440,10 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
                     return ResultWith(Value::kACC, kType_f32, 0);
                 case kType_f64:
                     return ResultWith(operand.linkage, dest_type->id(), 0);
+                case kType_any:
+                    InboxIfNeeded(operand.type, operand.index, operand.linkage,
+                                  metadata_space_->builtin_type(kType_any), ast);
+                    return ResultWith(Value::kACC, kType_any, 0);
                 default:
                     NOREACHED();
                     break;
@@ -2404,17 +2451,101 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
         } break;
 
         case kType_string:
-            if (dest_type->id() == kType_array8) {
+            if (dest_type->id() == kType_array8 || dest_type->id() == kType_any) {
                 return ResultWith(operand.linkage, dest_type->id(), 0);
             }
             NOREACHED();
             break;
 
-            // TODO:
-        default:
+        case kType_array:
+            if (dest_type->id() == kType_any) {
+                return ResultWith(operand.linkage, dest_type->id(), 0);
+            }
             NOREACHED();
             break;
+
+        case kType_array8:
+            if (dest_type->id() == kType_array8 || dest_type->id() == kType_any) {
+                return ResultWith(operand.linkage, dest_type->id(), 0);
+            }
+            NOREACHED();
+            break;
+
+        case kType_array16:
+            if (dest_type->id() == kType_array16 || dest_type->id() == kType_any) {
+                return ResultWith(operand.linkage, dest_type->id(), 0);
+            }
+            NOREACHED();
+            break;
+
+        case kType_array32:
+            if (dest_type->id() == kType_array32 || dest_type->id() == kType_any) {
+                return ResultWith(operand.linkage, dest_type->id(), 0);
+            }
+            NOREACHED();
+            break;
+
+        case kType_array64:
+            if (dest_type->id() == kType_array64 || dest_type->id() == kType_any) {
+                return ResultWith(operand.linkage, dest_type->id(), 0);
+            }
+            NOREACHED();
+            break;
+
+        case kType_channel:
+            if (dest_type->id() == kType_any) {
+                return ResultWith(operand.linkage, dest_type->id(), 0);
+            }
+            if (dest_type->id() == kType_channel) {
+                DCHECK_EQ(ast->type()->id(), Token::kChannel);
+                // TODO:
+            }
+            NOREACHED();
+            break;
+
+        case kType_closure:
+            if (dest_type->id() == kType_any) {
+                return ResultWith(operand.linkage, dest_type->id(), 0);
+            }
+            NOREACHED();
+            break;
+            
+#define DEFINE_NUMBER_UNBOX(from, dest, bits) \
+case kType_##dest: \
+    AssociateLHSOperand(&receiver, operand, ast); \
+    type = metadata_space_->builtin_type(kType_##from); \
+    kidx = current_fun_->constants()->FindOrInsertMetadata(type); \
+    EMIT(ast, Add<kTestAs>(GetStackOffset(receiver.lhs), GetConstOffset(kidx))); \
+    AssociateRHSOperand(&receiver, type, 0, Value::kACC, ast); \
+    EMIT(ast, Add<kLdaProperty##bits>(GetStackOffset(receiver.rhs), AbstractValue::kOffsetValue)); \
+    CleanupOperands(&receiver); \
+    return ResultWith(Value::kACC, kType_##dest, 0)
+
+        case kType_any:
+        default: {
+            const Class *type = nullptr;
+            int kidx = 0;
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                DEFINE_NUMBER_UNBOX(Bool, bool, 8);
+                DEFINE_NUMBER_UNBOX(I8, i8, 8);
+                DEFINE_NUMBER_UNBOX(U8, u8, 8);
+                DEFINE_NUMBER_UNBOX(I16, i16, 16);
+                DEFINE_NUMBER_UNBOX(U16, u16, 16);
+                DEFINE_NUMBER_UNBOX(I32, i32, 32);
+                DEFINE_NUMBER_UNBOX(U32, u32, 32);
+                DEFINE_NUMBER_UNBOX(Int, int, 32);
+                DEFINE_NUMBER_UNBOX(UInt, uint, 32);
+                DEFINE_NUMBER_UNBOX(I64, i64, 64);
+                DEFINE_NUMBER_UNBOX(F32, f32, 32);
+                DEFINE_NUMBER_UNBOX(F64, f64, 64);
+                default:
+                    NOREACHED();
+                    break;
+            }
+        } break;
     }
+
+#undef DEFINE_NUMBER_UNBOX
     return ResultWithError();
 }
 
@@ -4307,11 +4438,13 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
         case kType_string:
             LdaIfNeeded(clazz, index, linkage, ast);
             break;
+        case kType_any:
         case kType_array:
         case kType_array8:
         case kType_array16:
         case kType_array32:
-        case kType_array64: {
+        case kType_array64:
+        case kType_channel: {
             MoveToArgumentIfNeeded(clazz, index, linkage, kPointerSize/*arg_offset*/, ast);
             Value value = EnsureFindValue("lang.Object::toString");
             DCHECK_EQ(Value::kGlobal, value.linkage);

@@ -7,9 +7,9 @@ const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0
 exception-table-size: 0
-souce-line-size: 23
+souce-line-size: 25
 souce-file-name: src/lang/pkg/mai/runtime/runtime.mai
-bytecode-size: 23
+bytecode-size: 25
 bytecode: 
     000 CheckStack; (0)
     001 LdaGlobalPtr [GS+320]; (12)
@@ -19,18 +19,20 @@ bytecode:
     005 LdaConstPtr [KP+32]; (10)
     006 CallBytecodeFunction #0, #8; (10)
     007 StaGlobalPtr [GS+104]; (10)
-    008 LdaGlobalPtr [GS+280]; (20)
-    009 StaGlobalPtr [GS+304]; (20)
-    010 LdaGlobalf32 [GS+0]; (21)
-    011 StaGlobalf32 [GS+312]; (21)
-    012 LdaConstPtr [KP+40]; (4)
-    013 StarPtr [BP-72]; (4)
-    014 LdaGlobalPtr [GS+320]; (4)
-    015 StarPtr [BP-80]; (4)
-    016 MovePtr [BP-88], [BP-72]; (4)
-    017 MovePtr [BP-96], [BP-80]; (4)
-    018 Contact #0, #16; (4)
-    019 StaGlobalPtr [GS+328]; (4)
-    020 LdaGlobalPtr [GS+192]; (1)
-    021 CallBytecodeFunction #0, #0; (1)
-    022 Return; (1)
+    008 LdaZero; (6)
+    009 StaGlobalPtr [GS+288]; (6)
+    010 LdaGlobalPtr [GS+280]; (20)
+    011 StaGlobalPtr [GS+304]; (20)
+    012 LdaGlobalf32 [GS+0]; (21)
+    013 StaGlobalf32 [GS+312]; (21)
+    014 LdaConstPtr [KP+40]; (4)
+    015 StarPtr [BP-72]; (4)
+    016 LdaGlobalPtr [GS+320]; (4)
+    017 StarPtr [BP-80]; (4)
+    018 MovePtr [BP-88], [BP-72]; (4)
+    019 MovePtr [BP-96], [BP-80]; (4)
+    020 Contact #0, #16; (4)
+    021 StaGlobalPtr [GS+328]; (4)
+    022 LdaGlobalPtr [GS+192]; (1)
+    023 CallBytecodeFunction #0, #0; (1)
+    024 Return; (1)

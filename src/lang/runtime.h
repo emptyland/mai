@@ -117,30 +117,30 @@ struct Runtime {
     static Any *NewObject(const Class *clazz, uint32_t flags);
 
     // Box in functions
-    static AbstractValue *BoolValueOf(intptr_t value);
-    static AbstractValue *I8ValueOf(intptr_t value);
-    static AbstractValue *U8ValueOf(uintptr_t value);
-    static AbstractValue *I16ValueOf(intptr_t value);
-    static AbstractValue *U16ValueOf(uintptr_t value);
-    static AbstractValue *I32ValueOf(intptr_t value);
-    static AbstractValue *U32ValueOf(uintptr_t value);
-    static AbstractValue *IntValueOf(intptr_t value);
-    static AbstractValue *UIntValueOf(uintptr_t value);
-    static AbstractValue *I64ValueOf(intptr_t value);
-    static AbstractValue *U64ValueOf(uintptr_t value);
+    static AbstractValue *BoolValueOf(int8_t value);
+    static AbstractValue *I8ValueOf(int8_t value);
+    static AbstractValue *U8ValueOf(uint8_t value);
+    static AbstractValue *I16ValueOf(int16_t value);
+    static AbstractValue *U16ValueOf(uint16_t value);
+    static AbstractValue *I32ValueOf(int32_t value);
+    static AbstractValue *U32ValueOf(uint32_t value);
+    static AbstractValue *IntValueOf(int32_t value);
+    static AbstractValue *UIntValueOf(uint32_t value);
+    static AbstractValue *I64ValueOf(int64_t value);
+    static AbstractValue *U64ValueOf(uint64_t value);
     static AbstractValue *F32ValueOf(float value);
     static AbstractValue *F64ValueOf(double value);
 
     // Box out functions
-    static String *BoolToString(int value);
+    static String *BoolToString(int8_t value);
     static String *I8ToString(int8_t value);
     static String *U8ToString(uint8_t value);
     static String *I16ToString(int16_t value);
     static String *U16ToString(uint16_t value);
     static String *I32ToString(int32_t value);
     static String *U32ToString(uint32_t value);
-    static String *IntToString(int value);
-    static String *UIntToString(unsigned value);
+    static String *IntToString(int32_t value);
+    static String *UIntToString(uint32_t value);
     static String *I64ToString(int64_t value);
     static String *U64ToString(uint64_t value);
     static String *F32ToString(float value);
@@ -206,7 +206,7 @@ struct Runtime {
     static Throwable *NewStackoverflowPanic();
     static Throwable *NewOutOfBoundPanic();
     static Throwable *NewArithmeticPanic();
-    // Arithmetic
+    static Throwable *NewBadCastPanic(const Class *lhs, const Class *rhs);
     
     // Make current stackstrace
     static Throwable *MakeStacktrace(Throwable *expect);

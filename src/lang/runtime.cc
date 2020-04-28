@@ -25,26 +25,54 @@ namespace lang {
 }
 
 template<class T>
-static inline AbstractValue *ValueOf(intptr_t input) {
-    T value = static_cast<T>(input);
-    return Machine::This()->ValueOfNumber(TypeTraits<T>::kType, &value, sizeof(value));
+static inline AbstractValue *ValueOf(T input, BuiltinType type) {
+    return Machine::This()->ValueOfNumber(type, &input, sizeof(input));
 }
 
-/*static*/ AbstractValue *Runtime::BoolValueOf(intptr_t input) {
+/*static*/ AbstractValue *Runtime::BoolValueOf(int8_t input) {
     int8_t value = static_cast<int8_t>(input);
     return Machine::This()->ValueOfNumber(kType_bool, &value, sizeof(value));
 }
 
-/*static*/ AbstractValue *Runtime::I8ValueOf(intptr_t value) { return ValueOf<int8_t>(value); }
-/*static*/ AbstractValue *Runtime::U8ValueOf(uintptr_t value) { return ValueOf<uint8_t>(value); }
-/*static*/ AbstractValue *Runtime::I16ValueOf(intptr_t value) { return ValueOf<int16_t>(value); }
-/*static*/ AbstractValue *Runtime::U16ValueOf(uintptr_t value) { return ValueOf<uint16_t>(value); }
-/*static*/ AbstractValue *Runtime::I32ValueOf(intptr_t value) { return ValueOf<int32_t>(value); }
-/*static*/ AbstractValue *Runtime::U32ValueOf(uintptr_t value) { return ValueOf<uint32_t>(value); }
-/*static*/ AbstractValue *Runtime::IntValueOf(intptr_t value) { return ValueOf<int32_t>(value); }
-/*static*/ AbstractValue *Runtime::UIntValueOf(uintptr_t value) { return ValueOf<uint32_t>(value); }
-/*static*/ AbstractValue *Runtime::I64ValueOf(intptr_t value) { return ValueOf<int64_t>(value); }
-/*static*/ AbstractValue *Runtime::U64ValueOf(uintptr_t value) { return ValueOf<uint64_t>(value); }
+/*static*/ AbstractValue *Runtime::I8ValueOf(int8_t value) {
+    return ValueOf<int8_t>(value, kType_i8);
+}
+
+/*static*/ AbstractValue *Runtime::U8ValueOf(uint8_t value) {
+    return ValueOf<uint8_t>(value, kType_u8);
+}
+
+/*static*/ AbstractValue *Runtime::I16ValueOf(int16_t value) {
+    return ValueOf<int16_t>(value, kType_i16);
+}
+
+/*static*/ AbstractValue *Runtime::U16ValueOf(uint16_t value) {
+    return ValueOf<uint16_t>(value, kType_u16);
+}
+
+/*static*/ AbstractValue *Runtime::I32ValueOf(int32_t value) {
+    return ValueOf<int32_t>(value, kType_i32);
+}
+
+/*static*/ AbstractValue *Runtime::U32ValueOf(uint32_t value) {
+    return ValueOf<uint32_t>(value, kType_u32);
+}
+
+/*static*/ AbstractValue *Runtime::IntValueOf(int32_t value) {
+    return ValueOf<int32_t>(value, kType_int);
+}
+
+/*static*/ AbstractValue *Runtime::UIntValueOf(uint32_t value) {
+    return ValueOf<uint32_t>(value, kType_uint);
+}
+
+/*static*/ AbstractValue *Runtime::I64ValueOf(int64_t value) {
+    return ValueOf<int64_t>(value, kType_i64);
+}
+
+/*static*/ AbstractValue *Runtime::U64ValueOf(uint64_t value) {
+    return ValueOf<uint64_t>(value, kType_u64);
+}
 
 /*static*/ AbstractValue *Runtime::F32ValueOf(float value) {
     return Machine::This()->ValueOfNumber(kType_f32, &value, sizeof(value));
@@ -54,7 +82,7 @@ static inline AbstractValue *ValueOf(intptr_t input) {
     return Machine::This()->ValueOfNumber(kType_f64, &value, sizeof(value));
 }
 
-/*static*/ String *Runtime::BoolToString(int value) {
+/*static*/ String *Runtime::BoolToString(int8_t value) {
     return value ? STATE->factory()->true_string() : STATE->factory()->false_string();
 }
 
@@ -502,6 +530,13 @@ Runtime::Array64Plus(Handle<Array<uint64_t>> array, int index, uint64_t value) {
 
 /*static*/ Throwable *Runtime::NewArithmeticPanic() {
     return Machine::This()->NewPanic(Panic::kFatal, STATE->factory()->arithmetic_text(), 0);
+}
+
+/*static*/ Throwable *Runtime::NewBadCastPanic(const Class *lhs, const Class *rhs) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Local<String> text(Machine::This()->NewUtf8StringWithFormat(0, "Bad cast from %s to %s",
+                                                                lhs->name(), rhs->name()));
+    return Machine::This()->NewPanic(Panic::kFatal, *text, 0);
 }
 
 /*static*/ Throwable *Runtime::MakeStacktrace(Throwable *expect) {

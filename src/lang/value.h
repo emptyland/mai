@@ -648,12 +648,12 @@ public:
     template<class T>
     struct ReturnTraits {
         static constexpr uint32_t kType = TypeTraits<typename std::remove_pointer<T>::type>::kType;
-    };
+    }; // struct ReturnTraits
     
     template<>
     struct ReturnTraits<void*> {
         static constexpr uint32_t kType = kType_u64;
-    };
+    }; // struct ReturnTraits
     
     template<class R>
     static inline Local<Closure> New(R(*func)()) {

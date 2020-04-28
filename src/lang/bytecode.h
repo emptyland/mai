@@ -317,7 +317,7 @@ namespace lang {
       BytecodeParam::kStackOffset) \
     V(TestPtrEqual, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestPtrNotEqual, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(TestIn, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(TestAs, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kConstOffset) \
     V(TestIs, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kConstOffset)
 
 class MetadataSpace;
