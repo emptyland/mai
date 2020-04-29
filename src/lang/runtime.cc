@@ -522,6 +522,10 @@ static bool TestIs(const Class *dest, void *param, Any *any) {
     return lang::TestIs(static_cast<const Class *>(param1), param2, *any);
 }
 
+/*static*/ int Runtime::IsSameOrBaseOf(const Any *any, const Class *type) {
+    return DCHECK_NOTNULL(any)->clazz()->IsSameOrBaseOf(type);
+}
+
 /*static*/ int Runtime::StringCompareFallback(const String *lhs, const String *rhs) {
     const uint32_t min_len = std::min(lhs->length(), rhs->length());
     int r = ::memcmp(lhs->data(), rhs->data(), min_len);

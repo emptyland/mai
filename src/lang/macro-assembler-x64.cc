@@ -1498,11 +1498,17 @@ public:
         __ andq(ACC, ~1);
 
         instr_scope.GetBToRBX();
+        __ movq(Argv_0, SCRATCH);
         __ movq(rdx, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
-        __ cmpq(ACC, Operand(rdx, rbx, times_4, 0));
+        __ movq(Argv_1, Operand(rdx, rbx, times_4, 0));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::IsSameOrBaseOf));
+        __ cmpl(rax, 0);
         Label ok;
-        __ j(Equal, &ok, false/*is_far*/);
+        __ j(NotEqual, &ok, false/*is_far*/);
+        __ movq(ACC, Operand(SCRATCH, Any::kOffsetKlass));
+        __ andq(ACC, ~1);
         __ movq(Argv_0, ACC);
+        __ movq(rdx, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movq(Argv_1, Operand(rdx, rbx, times_4, 0));
         __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewBadCastPanic));
         __ Throw(SCRATCH, rbx);
@@ -1512,7 +1518,17 @@ public:
     }
     
     void EmitTestIs(MacroAssembler *masm) override {
-        
+        InstrStackImmABScope instr_scope(masm);
+        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, SCRATCH);
+        __ movq(ACC, Operand(SCRATCH, Any::kOffsetKlass));
+        __ andq(ACC, ~1);
+
+        instr_scope.GetBToRBX();
+        __ movq(Argv_0, SCRATCH);
+        __ movq(rdx, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+        __ movq(Argv_1, Operand(rdx, rbx, times_4, 0));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::IsSameOrBaseOf));
     }
     
     // Casting -------------------------------------------------------------------------------------

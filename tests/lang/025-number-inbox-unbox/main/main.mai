@@ -10,4 +10,14 @@ fun main() {
 	assert((b as f32) == 1.1, "fail $b")
 	val c: any = true
 	assert(c as bool, "fail $c")
+	val d: any = 127 .toI8
+	assert(d as i8 == 127i8, "fail $d")
+	val e: any = 255 .toU8
+	assert(e as u8 == 255u8, "fail $e")
+	val f: any = 1234 .toI16
+	assert(f as i16 == 1234i16, "fail $f")
+	val g: any = 65535 .toU16
+	assert(g as u16 == 65535u16, "fail $g")
+	val h: any = "Hello, World"
+	assert(h as string == "Hello, World", "fail $h")
 }

@@ -200,6 +200,8 @@ struct Runtime {
     static Any *TestAs(Handle<Any> any, void *param1, void *param2);
     static int TestIs(Handle<Any> any, void *param1, void *param2);
 
+    static int IsSameOrBaseOf(const Any *any, const Class *type);
+
     static int StringCompareFallback(const String *lhs, const String *rhs);
 
     // WriteBarrier

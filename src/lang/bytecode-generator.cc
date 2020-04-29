@@ -1900,9 +1900,142 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
     VISIT_CHECK(ast->operand());
     const Class *from_type = metadata_space_->type(rv.bundle.type);
     Value operand{static_cast<Value::Linkage>(rv.kind), from_type, rv.bundle.index};
-    VISIT_CHECK(ast->type());
+    return GenerateTestAs(operand, nullptr, ast->type(), ast);
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitTypeTestExpression(TypeTestExpression *ast) /*override*/ {
+    Result rv;
+    VISIT_CHECK(ast->operand());
+    const Class *from_type = metadata_space_->type(rv.bundle.type);
+    Value operand{static_cast<Value::Linkage>(rv.kind), from_type, rv.bundle.index};
+    return GenerateTestIs(operand, ast->type(), ast);
+}
+
+ASTVisitor::Result BytecodeGenerator::GenerateTestIs(const Value &operand, TypeSign *dest,
+                                                     ASTNode *ast) {
+    Result rv;
+    VISIT_CHECK(dest);
     const Class *dest_type = metadata_space_->type(rv.bundle.index);
     
+    switch (static_cast<BuiltinType>(operand.type->id())) {
+        case kType_i8:
+        case kType_u8:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i8:
+                case kType_u8:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+
+        case kType_i16:
+        case kType_u16:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i16:
+                case kType_u16:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+
+        case kType_i32:
+        case kType_u32:
+        case kType_int:
+        case kType_uint:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i32:
+                case kType_u32:
+                case kType_int:
+                case kType_uint:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+
+        case kType_i64:
+        case kType_u64:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_i64:
+                case kType_u64:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+
+        case kType_f32:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_f32:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+
+        case kType_f64:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_f64:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+            
+        case kType_string:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_string:
+                case kType_array8:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+
+        case kType_array8:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_array8:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+
+        case kType_array:
+        default:
+            break;
+    }
+    return ResultWith(Value::kACC, kType_bool, 0);
+}
+
+ASTVisitor::Result BytecodeGenerator::GenerateTestAs(const Value &operand, const Class *dest_type,
+                                                     TypeSign *dest, ASTNode *ast) {
+    Result rv;
+    if (dest) {
+        DCHECK(dest_type == nullptr);
+        VISIT_CHECK(dest);
+        dest_type = metadata_space_->type(rv.bundle.type);
+    }
+    DCHECK(dest_type != nullptr);
+
     const Class *i32_type = metadata_space_->builtin_type(kType_i32);
     OperandContext receiver;
     switch (static_cast<BuiltinType>(operand.type->id())) {
@@ -2497,7 +2630,7 @@ ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression
                 return ResultWith(operand.linkage, dest_type->id(), 0);
             }
             if (dest_type->id() == kType_channel) {
-                DCHECK_EQ(ast->type()->id(), Token::kChannel);
+                DCHECK_EQ(dest->id(), Token::kChannel);
                 // TODO:
             }
             NOREACHED();
@@ -2544,7 +2677,7 @@ case kType_##dest: \
                     int argument_offset = kPointerSize;
                     MoveToArgumentIfNeeded(operand.type, operand.index, operand.linkage,
                                            argument_offset, ast);
-                    VISIT_CHECK(ast->type()->parameter(0));
+                    VISIT_CHECK(dest->parameter(0));
                     kidx = current_fun_->constants()->FindOrInsertMetadata(dest_type);
                     const Class *u64_type = metadata_space_->builtin_type(kType_u64);
                     argument_offset += kPointerSize;
@@ -2575,10 +2708,7 @@ case kType_##dest: \
     }
 
 #undef DEFINE_NUMBER_UNBOX
-    return ResultWithError();
-}
-
-ASTVisitor::Result BytecodeGenerator::VisitTypeTestExpression(TypeTestExpression *ast) /*override*/ {
+    NOREACHED();
     return ResultWithError();
 }
 
@@ -3432,337 +3562,36 @@ BytecodeGenerator::GenerateLoadProperty(const Class *clazz, int index, Value::Li
 ASTVisitor::Result
 BytecodeGenerator::GeneratePropertyCast(const Class *clazz, int index, Value::Linkage linkage,
                                         DotExpression *ast) {
-    StackSpaceScope stack_scope(current_fun_->stack());
-    int offset = index;
-    if (linkage != Value::kStack) {
-        int dest = current_fun_->StackReserve(clazz);
-        MoveToStackIfNeeded(clazz, index, linkage, dest, ast);
-        offset = dest;
+    BuiltinType dest = kType_void;
+    if (!::strncmp("toU8", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_u8;
+    } else if (!::strncmp("toI8", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_i8;
+    } else if (!::strncmp("toU16", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_u16;
+    } else if (!::strncmp("toI16", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_i16;
+    } else if (!::strncmp("toU32", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_u32;
+    } else if (!::strncmp("toI32", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_i32;
+    } else if (!::strncmp("toUInt", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_uint;
+    } else if (!::strncmp("toInt", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_int;
+    } else if (!::strncmp("toU64", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_u64;
+    } else if (!::strncmp("toI64", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_i64;
+    } else if (!::strncmp("toF32", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_f32;
+    } else if (!::strncmp("toF64", ast->rhs()->data(), ast->rhs()->size())) {
+        dest = kType_f64;
+    } else {
+        NOREACHED();
     }
-    offset = GetStackOffset(offset);
-
-    switch (static_cast<BuiltinType>(clazz->id())) {
-        case kType_u8:
-        case kType_i8:
-            if (!::strncmp("toU8", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_i8, index);
-            } else if (!::strncmp("toI8", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_u8, index);
-            } else if (!::strncmp("toU16", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kZeroExtend8To32>(offset));
-                return ResultWith(Value::kACC, kType_u16, 0);
-            } else if (!::strncmp("toI16", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend8To32>(offset));
-                return ResultWith(Value::kACC, kType_i16, 0);
-            } else if (!::strncmp("toU32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kZeroExtend8To32>(offset));
-                return ResultWith(Value::kACC, kType_u32, 0);
-            } else if (!::strncmp("toI32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend8To32>(offset));
-                return ResultWith(Value::kACC, kType_i32, 0);
-            } else if (!::strncmp("toUInt", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kZeroExtend8To32>(offset));
-                return ResultWith(Value::kACC, kType_uint, 0);
-            } else if (!::strncmp("toInt", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend8To32>(offset));
-                return ResultWith(Value::kACC, kType_int, offset);
-            } else if (!::strncmp("toU64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kZeroExtend8To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kZeroExtend32To64>(offset));
-                return ResultWith(Value::kACC, kType_u64, 0);
-            } else if (!::strncmp("toI64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend8To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kSignExtend32To64>(offset));
-                return ResultWith(Value::kACC, kType_i64, 0);
-            } else if (!::strncmp("toF32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend8To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kI32ToF32>(offset));
-                return ResultWith(Value::kACC, kType_f32, 0);
-            } else if (!::strncmp("toF64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend8To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kI32ToF64>(offset));
-                return ResultWith(Value::kACC, kType_f64, 0);
-            } else {
-                NOREACHED();
-            }
-            break;
-        case kType_u16:
-        case kType_i16:
-            if (!::strncmp("toU8", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate32To8>(offset));
-                return ResultWith(Value::kACC, kType_u8, 0);
-            } else if (!::strncmp("toI8", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate32To8>(offset));
-                return ResultWith(Value::kACC, kType_i8, 0);
-            } else if (!::strncmp("toU16", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_u16, index);
-            } else if (!::strncmp("toI16", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_i16, index);
-            } else if (!::strncmp("toU32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kZeroExtend16To32>(offset));
-                return ResultWith(Value::kACC, kType_u32, 0);
-            } else if (!::strncmp("toI32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend16To32>(offset));
-                return ResultWith(Value::kACC, kType_i32, 0);
-            } else if (!::strncmp("toUInt", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kZeroExtend16To32>(offset));
-                return ResultWith(Value::kACC, kType_uint, 0);
-            } else if (!::strncmp("toInt", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend16To32>(offset));
-                return ResultWith(Value::kACC, kType_int, offset);
-            } else if (!::strncmp("toU64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kZeroExtend16To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kZeroExtend32To64>(offset));
-                return ResultWith(Value::kACC, kType_u64, 0);
-            } else if (!::strncmp("toI64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend16To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kSignExtend32To64>(offset));
-                return ResultWith(Value::kACC, kType_i64, 0);
-            } else if (!::strncmp("toF32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend16To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kI32ToF32>(offset));
-                return ResultWith(Value::kACC, kType_f32, 0);
-            } else if (!::strncmp("toF64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend16To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kI32ToF64>(offset));
-                return ResultWith(Value::kACC, kType_f64, 0);
-            } else {
-                NOREACHED();
-            }
-            break;
-        case kType_u32:
-        case kType_i32:
-        case kType_uint:
-        case kType_int:
-            if (!::strncmp("toU8", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate32To8>(offset));
-                return ResultWith(Value::kACC, kType_u8, 0);
-            } else if (!::strncmp("toI8", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate32To8>(offset));
-                return ResultWith(Value::kACC, kType_i8, 0);
-            } else if (!::strncmp("toU16", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kZeroExtend16To32>(offset));
-                return ResultWith(Value::kACC, kType_u16, 0);
-            } else if (!::strncmp("toI16", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend16To32>(offset));
-                return ResultWith(Value::kACC, kType_i16, 0);
-            } else if (!::strncmp("toU32", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_u32, index);
-            } else if (!::strncmp("toI32", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_i32, index);
-            } else if (!::strncmp("toUInt", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_uint, index);
-            } else if (!::strncmp("toInt", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_int, index);
-            } else if (!::strncmp("toU64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kZeroExtend32To64>(offset));
-                return ResultWith(Value::kACC, kType_u64, 0);
-            } else if (!::strncmp("toI64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kSignExtend32To64>(offset));
-                return ResultWith(Value::kACC, kType_i64, 0);
-            } else if (!::strncmp("toF32", ast->rhs()->data(), ast->rhs()->size())) {
-                if (clazz->IsUnsignedIntegral()) {
-                    EMIT(ast, Add<kU32ToF32>(offset));
-                } else {
-                    EMIT(ast, Add<kI32ToF32>(offset));
-                }
-                return ResultWith(Value::kACC, kType_f32, 0);
-            } else if (!::strncmp("toF64", ast->rhs()->data(), ast->rhs()->size())) {
-                if (clazz->IsUnsignedIntegral()) {
-                    EMIT(ast, Add<kU32ToF64>(offset));
-                } else {
-                    EMIT(ast, Add<kI32ToF64>(offset));
-                }
-                return ResultWith(Value::kACC, kType_f64, 0);
-            } else {
-                NOREACHED();
-            }
-            break;
-        case kType_i64:
-        case kType_u64:
-            if (!::strncmp("toU8", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate64To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To8>(offset));
-                return ResultWith(Value::kACC, kType_u8, 0);
-            } else if (!::strncmp("toI8", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate64To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To8>(offset));
-                return ResultWith(Value::kACC, kType_i8, 0);
-            } else if (!::strncmp("toU16", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate64To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To16>(offset));
-                return ResultWith(Value::kACC, kType_u16, 0);
-            } else if (!::strncmp("toI16", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate64To32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To16>(offset));
-                return ResultWith(Value::kACC, kType_i16, 0);
-            } else if (!::strncmp("toU32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate64To32>(offset));
-                return ResultWith(Value::kACC, kType_u32, 0);
-            } else if (!::strncmp("toI32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate64To32>(offset));
-                return ResultWith(Value::kACC, kType_i32, 0);
-            } else if (!::strncmp("toUInt", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate64To32>(offset));
-                return ResultWith(Value::kACC, kType_uint, 0);
-            } else if (!::strncmp("toInt", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kTruncate64To32>(offset));
-                return ResultWith(Value::kACC, kType_int, 0);
-            } else if (!::strncmp("toU64", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_u64, index);
-            } else if (!::strncmp("toI64", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_i64, index);
-            } else if (!::strncmp("toF32", ast->rhs()->data(), ast->rhs()->size())) {
-                if (clazz->IsUnsignedIntegral()) {
-                    EMIT(ast, Add<kU64ToF32>(offset));
-                } else {
-                    EMIT(ast, Add<kI64ToF32>(offset));
-                }
-                return ResultWith(Value::kACC, kType_f32, 0);
-            } else if (!::strncmp("toF64", ast->rhs()->data(), ast->rhs()->size())) {
-                if (clazz->IsUnsignedIntegral()) {
-                    EMIT(ast, Add<kU64ToF64>(offset));
-                } else {
-                    EMIT(ast, Add<kI64ToF64>(offset));
-                }
-                return ResultWith(Value::kACC, kType_f64, 0);
-            } else {
-                NOREACHED();
-            }
-            break;
-        case kType_f32:
-            if (!::strncmp("toU8", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF32ToU32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To8>(offset));
-                return ResultWith(Value::kACC, kType_u8, 0);
-            } else if (!::strncmp("toI8", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF32ToI32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To8>(offset));
-                return ResultWith(Value::kACC, kType_i8, 0);
-            } else if (!::strncmp("toU16", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF32ToU32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To16>(offset));
-                return ResultWith(Value::kACC, kType_u16, 0);
-            } else if (!::strncmp("toI16", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF32ToI32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To16>(offset));
-                return ResultWith(Value::kACC, kType_i16, 0);
-            } else if (!::strncmp("toU32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF32ToU32>(offset));
-                return ResultWith(Value::kACC, kType_u32, 0);
-            } else if (!::strncmp("toI32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF32ToI32>(offset));
-                return ResultWith(Value::kACC, kType_i32, 0);
-            } else if (!::strncmp("toUInt", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF32ToU32>(offset));
-                return ResultWith(Value::kACC, kType_uint, 0);
-            } else if (!::strncmp("toInt", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF32ToI32>(offset));
-                return ResultWith(Value::kACC, kType_int, 0);
-            } else if (!::strncmp("toU64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF32ToU64>(offset));
-                return ResultWith(Value::kACC, kType_u64, 0);
-            } else if (!::strncmp("toI64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF32ToI64>(offset));
-                return ResultWith(Value::kACC, kType_i64, 0);
-            } else if (!::strncmp("toF32", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_f32, index);
-            } else if (!::strncmp("toF64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF32ToF64>(offset));
-                return ResultWith(Value::kACC, kType_f64, 0);
-            } else {
-                NOREACHED();
-            }
-            break;
-        case kType_f64:
-            if (!::strncmp("toU8", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF64ToU32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To8>(offset));
-                return ResultWith(Value::kACC, kType_u8, 0);
-            } else if (!::strncmp("toI8", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF64ToI32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To8>(offset));
-                return ResultWith(Value::kACC, kType_i8, 0);
-            } else if (!::strncmp("toU16", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF64ToU32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To16>(offset));
-                return ResultWith(Value::kACC, kType_u16, 0);
-            } else if (!::strncmp("toI16", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF64ToI32>(offset));
-                offset = GetStackOffset(current_fun_->stack()->Reserve(4));
-                EMIT(ast, Add<kStar32>(offset));
-                EMIT(ast, Add<kTruncate32To16>(offset));
-                return ResultWith(Value::kACC, kType_i16, 0);
-            } else if (!::strncmp("toU32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF64ToU32>(offset));
-                return ResultWith(Value::kACC, kType_u32, 0);
-            } else if (!::strncmp("toI32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF64ToI32>(offset));
-                return ResultWith(Value::kACC, kType_i32, 0);
-            } else if (!::strncmp("toUInt", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF64ToU32>(offset));
-                return ResultWith(Value::kACC, kType_uint, 0);
-            } else if (!::strncmp("toInt", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF64ToI32>(offset));
-                return ResultWith(Value::kACC, kType_int, 0);
-            } else if (!::strncmp("toU64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF64ToU64>(offset));
-                return ResultWith(Value::kACC, kType_u64, 0);
-            } else if (!::strncmp("toI64", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF64ToI64>(offset));
-                return ResultWith(Value::kACC, kType_i64, 0);
-            } else if (!::strncmp("toF32", ast->rhs()->data(), ast->rhs()->size())) {
-                EMIT(ast, Add<kF64ToF32>(offset));
-                return ResultWith(Value::kACC, kType_f32, 0);
-            } else if (!::strncmp("toF64", ast->rhs()->data(), ast->rhs()->size())) {
-                return ResultWith(linkage, kType_f64, index);
-            } else {
-                NOREACHED();
-            }
-            break;
-        default:
-            NOREACHED();
-            break;
-    }
-    return ResultWithError();
+    Value operand{linkage, clazz, index};
+    return GenerateTestAs(operand, metadata_space_->builtin_type(dest), nullptr, ast);
 }
 
 int BytecodeGenerator::LinkGlobalVariable(VariableDeclaration *var) {

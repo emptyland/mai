@@ -155,6 +155,9 @@ private:
     Result GenerateCalling(CallExpression *ast, CallingReceiver *receiver);
     uint32_t ProcessStructure(StructureDefinition *ast, uint32_t offset, ClassBuilder *builder,
                               std::vector<FieldDesc> *fields_desc);
+    
+    Result GenerateTestIs(const Value &operand, TypeSign *dest, ASTNode *ast);
+    Result GenerateTestAs(const Value &operand, const Class *dest_type, TypeSign *dest, ASTNode *ast);
 
     bool ShouldCaptureVar(Scope *owns, Value value);
     Result CaptureVar(const std::string &name, Scope *owns, Value value);
