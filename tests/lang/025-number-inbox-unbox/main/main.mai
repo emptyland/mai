@@ -3,21 +3,38 @@ package main
 var s: string
 
 fun main() {
+	assert(s is string, 'fail')
 	assert(s == "", "fail $s")
+
 	val a: any = 1
-	assert((a as int) == 1, "fail $a")
+	assert(a is int, 'fail')
+	assert(a as int == 1, "fail $a")
+
 	val b: any = 1.1
-	assert((b as f32) == 1.1, "fail $b")
+	assert(b is f32, 'fail')
+	assert(b as f32 == 1.1, "fail $b")
+
 	val c: any = true
+	assert(c is bool, 'fail')
 	assert(c as bool, "fail $c")
+
 	val d: any = 127 .toI8
+	assert(d is i8, 'fail')
 	assert(d as i8 == 127i8, "fail $d")
+
 	val e: any = 255 .toU8
+	assert(e is u8, 'fail')
 	assert(e as u8 == 255u8, "fail $e")
+
 	val f: any = 1234 .toI16
+	assert(f is i16, 'fail')
 	assert(f as i16 == 1234i16, "fail $f")
+
 	val g: any = 65535 .toU16
+	assert(g is u16, 'fail')
 	assert(g as u16 == 65535u16, "fail $g")
+
 	val h: any = "Hello, World"
+	assert(h is string, 'fail')
 	assert(h as string == "Hello, World", "fail $h")
 }

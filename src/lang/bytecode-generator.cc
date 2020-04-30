@@ -1918,6 +1918,17 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestIs(const Value &operand, TypeS
     const Class *dest_type = metadata_space_->type(rv.bundle.index);
     
     switch (static_cast<BuiltinType>(operand.type->id())) {
+        case kType_bool:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_bool:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+            
         case kType_i8:
         case kType_u8:
             switch (static_cast<BuiltinType>(dest_type->id())) {
@@ -2019,9 +2030,120 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestIs(const Value &operand, TypeS
                     break;
             } break;
 
+        case kType_array16:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_array16:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+
+        case kType_array32:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_array32:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+
+        case kType_array64:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_array64:
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+
         case kType_array:
-        default:
-            break;
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_array: {
+                    VISIT_CHECK(dest);
+                    const Class *type = metadata_space_->type(rv.bundle.index);
+                    GenerateTypeTest(operand, "lang.testIs", dest_type, type, ast);
+                } break;
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+            
+        case kType_channel:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_channel: {
+                    VISIT_CHECK(dest);
+                    const Class *type = metadata_space_->type(rv.bundle.index);
+                    GenerateTypeTest(operand, "lang.testIs", dest_type, type, ast);
+                } break;
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+            
+        case kType_closure:
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+                case kType_closure: {
+                    // TODO:
+                } break;
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                default:
+                    EMIT(ast, Add<kLdaSmi32>(0));
+                    break;
+            } break;
+
+        case kType_any:
+        default: {
+            int kidx = 0;
+            const Class *type = nullptr;
+            OperandContext receiver;
+            switch (static_cast<BuiltinType>(dest_type->id())) {
+            #define DEFINE_BOX_NUMBER_TEST_IS(box, primitive, ...) \
+                case kType_##primitive: \
+                    type = metadata_space_->builtin_type(kType_##box); \
+                    kidx = current_fun_->constants()->FindOrInsertMetadata(type); \
+                    AssociateLHSOperand(&receiver, operand, ast); \
+                    EMIT(ast, Add<kTestIs>(GetStackOffset(receiver.lhs), GetConstOffset(kidx))); \
+                    CleanupOperands(&receiver); \
+                    break;
+            DECLARE_BOX_NUMBER_TYPES(DEFINE_BOX_NUMBER_TEST_IS)
+            #undef DEFINE_BOX_NUMBER_TEST_IS
+                case kType_array8:
+                case kType_array16:
+                case kType_array32:
+                case kType_array64:
+                case kType_array:
+                case kType_closure:
+                    VISIT_CHECK(dest);
+                    type = metadata_space_->type(rv.bundle.index);
+                    GenerateTypeTest(operand, "lang.testIs", dest_type, type, ast);
+                    break;
+                case kType_any:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    break;
+                case kType_string:
+                default:
+                    kidx = current_fun_->constants()->FindOrInsertMetadata(dest_type);
+                    AssociateLHSOperand(&receiver, operand, ast);
+                    EMIT(ast, Add<kTestIs>(GetStackOffset(receiver.lhs), GetConstOffset(kidx)));
+                    CleanupOperands(&receiver);
+                    break;
+            }
+        } break;
     }
     return ResultWith(Value::kACC, kType_bool, 0);
 }
@@ -2046,7 +2168,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestAs(const Value &operand, const
                     return ResultWith(operand.linkage, dest_type->id(), operand.index);
                 case kType_i16:
                     AssociateLHSOperand(&receiver, operand, ast);
-                    EMIT(ast, Add<kSignExtend8To32>(GetStackOffset(receiver.lhs)));
+                    EMIT(ast, Add<kSignExtend8To16>(GetStackOffset(receiver.lhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_i16, 0);
                 case kType_u16:
@@ -2070,28 +2192,28 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestAs(const Value &operand, const
                     AssociateLHSOperand(&receiver, operand, ast);
                     EMIT(ast, Add<kSignExtend8To32>(GetStackOffset(receiver.lhs)));
                     AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
-                    EMIT(ast, Add<kSignExtend32To64>(GetStackOffset(receiver.lhs)));
+                    EMIT(ast, Add<kSignExtend32To64>(GetStackOffset(receiver.rhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_i64, 0);
                 case kType_u64:
                     AssociateLHSOperand(&receiver, operand, ast);
                     EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
                     AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
-                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.lhs)));
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.rhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_u64, 0);
                 case kType_f32:
                     AssociateLHSOperand(&receiver, operand, ast);
                     EMIT(ast, Add<kSignExtend8To32>(GetStackOffset(receiver.lhs)));
                     AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
-                    EMIT(ast, Add<kI32ToF32>(GetStackOffset(receiver.lhs)));
+                    EMIT(ast, Add<kI32ToF32>(GetStackOffset(receiver.rhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f32, 0);
                 case kType_f64:
                     AssociateLHSOperand(&receiver, operand, ast);
                     EMIT(ast, Add<kSignExtend8To32>(GetStackOffset(receiver.lhs)));
                     AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
-                    EMIT(ast, Add<kI64ToF64>(GetStackOffset(receiver.lhs)));
+                    EMIT(ast, Add<kI64ToF64>(GetStackOffset(receiver.rhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f64, 0);
                 case kType_any:
@@ -2135,28 +2257,28 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestAs(const Value &operand, const
                     AssociateLHSOperand(&receiver, operand, ast);
                     EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
                     AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
-                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.lhs)));
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.rhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_i64, 0);
                 case kType_u64:
                     AssociateLHSOperand(&receiver, operand, ast);
                     EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
                     AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
-                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.lhs)));
+                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.rhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_u64, 0);
                 case kType_f32:
                     AssociateLHSOperand(&receiver, operand, ast);
                     EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
                     AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
-                    EMIT(ast, Add<kU32ToF32>(GetStackOffset(receiver.lhs)));
+                    EMIT(ast, Add<kU32ToF32>(GetStackOffset(receiver.rhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f32, 0);
                 case kType_f64:
                     AssociateLHSOperand(&receiver, operand, ast);
                     EMIT(ast, Add<kZeroExtend8To32>(GetStackOffset(receiver.lhs)));
                     AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
-                    EMIT(ast, Add<kU32ToF64>(GetStackOffset(receiver.lhs)));
+                    EMIT(ast, Add<kU32ToF64>(GetStackOffset(receiver.rhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f64, 0);
                 case kType_any:
@@ -2594,6 +2716,13 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestAs(const Value &operand, const
             if (dest_type->id() == kType_any) {
                 return ResultWith(operand.linkage, dest_type->id(), 0);
             }
+            if (dest_type->id() == kType_array) {
+                DCHECK_EQ(dest->id(), Token::kArray);
+                VISIT_CHECK(dest);
+                const Class *type = metadata_space_->type(rv.bundle.index);
+                GenerateTypeTest(operand, "lang.testAs", dest_type, type, ast);
+                return ResultWith(Value::kACC, kType_array, 0);
+            }
             NOREACHED();
             break;
 
@@ -2631,7 +2760,10 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestAs(const Value &operand, const
             }
             if (dest_type->id() == kType_channel) {
                 DCHECK_EQ(dest->id(), Token::kChannel);
-                // TODO:
+                VISIT_CHECK(dest);
+                const Class *type = metadata_space_->type(rv.bundle.index);
+                GenerateTypeTest(operand, "lang.testAs", dest_type, type, ast);
+                return ResultWith(Value::kACC, kType_channel, 0);
             }
             NOREACHED();
             break;
@@ -2673,24 +2805,11 @@ case kType_##dest: \
                 DEFINE_NUMBER_UNBOX(F64, f64, 64);
 
                 case kType_channel:
-                case kType_array: {
-                    int argument_offset = kPointerSize;
-                    MoveToArgumentIfNeeded(operand.type, operand.index, operand.linkage,
-                                           argument_offset, ast);
-                    VISIT_CHECK(dest->parameter(0));
-                    kidx = current_fun_->constants()->FindOrInsertMetadata(dest_type);
-                    const Class *u64_type = metadata_space_->builtin_type(kType_u64);
-                    argument_offset += kPointerSize;
-                    MoveToArgumentIfNeeded(u64_type, kidx, Value::kConstant, argument_offset, ast);
+                case kType_array:
+                    VISIT_CHECK(dest);
                     type = metadata_space_->type(rv.bundle.index);
-                    kidx = current_fun_->constants()->FindOrInsertMetadata(type);
-                    argument_offset += kPointerSize;
-                    MoveToArgumentIfNeeded(u64_type, kidx, Value::kConstant, argument_offset, ast);
-                    Value fun = FindOrInsertExternalFunction("lang.testAs");
-                    LdaIfNeeded(fun.type, fun.index, fun.linkage, ast);
-                    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/,
-                                                           argument_offset);
-                } return ResultWith(Value::kACC, dest_type->id(), 0);
+                    GenerateTypeTest(operand, "lang.testAs", dest_type, type, ast);
+                    return ResultWith(Value::kACC, dest_type->id(), 0);
 
                 case kType_string:
                 case kType_array8:
@@ -2710,6 +2829,28 @@ case kType_##dest: \
 #undef DEFINE_NUMBER_UNBOX
     NOREACHED();
     return ResultWithError();
+}
+
+void BytecodeGenerator::GenerateTypeTest(const Value &operand, const char *external,
+                                         const Class *dest_type, const MetadataObject *extra,
+                                         ASTNode *ast) {
+    const Class *u64_type = metadata_space_->builtin_type(kType_u64);
+
+    int argument_offset = kPointerSize;
+    MoveToArgumentIfNeeded(operand.type, operand.index, operand.linkage,
+                           argument_offset, ast);
+
+    int kidx = current_fun_->constants()->FindOrInsertMetadata(dest_type);
+    argument_offset += kPointerSize;
+    MoveToArgumentIfNeeded(u64_type, kidx, Value::kConstant, argument_offset, ast);
+
+    kidx = current_fun_->constants()->FindOrInsertMetadata(extra);
+    argument_offset += kPointerSize;
+    MoveToArgumentIfNeeded(u64_type, kidx, Value::kConstant, argument_offset, ast);
+
+    Value fun = FindOrInsertExternalFunction(external);
+    LdaIfNeeded(fun.type, fun.index, fun.linkage, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitIdentifier(Identifier *ast) /*override*/ {
@@ -2747,30 +2888,38 @@ ASTVisitor::Result BytecodeGenerator::VisitBoolLiteral(BoolLiteral *ast) /*overr
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitI8Literal(I8Literal *ast) /*override*/ {
-    if (ast->value() < 0) {
-        int kidx = current_fun_->constants()->FindOrInsertI32(ast->value());
-        return ResultWith(Value::kConstant, kType_i8, kidx);
-    } else if (ast->value() > 0) {
-        EMIT(ast, Add<kLdaSmi32>(ast->value()));
-        return ResultWith(Value::kACC, kType_i8, 0);
+    if (ast->value()) {
+        EMIT(ast, Add<kLdaSmi32>(static_cast<uint8_t>(ast->value())));
     } else {
         EMIT(ast, Add<kLdaZero>());
-        return ResultWith(Value::kACC, kType_i8, 0);
     }
+    return ResultWith(Value::kACC, kType_i8, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitU8Literal(U8Literal *ast) /*override*/ {
-    EMIT(ast, Add<kLdaSmi32>(ast->value()));
+    if (ast->value()) {
+        EMIT(ast, Add<kLdaSmi32>(ast->value()));
+    } else {
+        EMIT(ast, Add<kLdaZero>());
+    }
     return ResultWith(Value::kACC, kType_u8, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitI16Literal(I16Literal *ast) /*override*/ {
-    int index = current_fun_->constants()->FindOrInsertI32(ast->value());
-    return ResultWith(Value::kConstant, kType_i16, index);
+    if (ast->value()) {
+        EMIT(ast, Add<kLdaSmi32>(static_cast<uint16_t>(ast->value())));
+    } else {
+        EMIT(ast, Add<kLdaZero>());
+    }
+    return ResultWith(Value::kACC, kType_i16, 0);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitU16Literal(U16Literal *ast) /*override*/ {
-    EMIT(ast, Add<kLdaSmi32>(ast->value()));
+    if (ast->value()) {
+        EMIT(ast, Add<kLdaSmi32>(ast->value()));
+    } else {
+        EMIT(ast, Add<kLdaZero>());
+    }
     return ResultWith(Value::kACC, kType_u16, 0);
 }
 

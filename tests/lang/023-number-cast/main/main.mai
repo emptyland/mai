@@ -1,18 +1,44 @@
 package main
 
 fun main() {
-	val a = 1 .toUInt
-	val b = 2 .toU8
-	val c = 3 .toF32
-	val d = 4 .toF64
-	//println("$a,$b,$c,$d")
-	val e = (-1) .toU8
-	assert(e == 255u8, 'fail')
-	val f = (-1) .toI8
-	//println("$f")
-	val g = 999999 .toU64
-	assert(g == 999999u64, 'fail')
-	val h = g.toF32
-	assert(h == 999999.0, 'fail')
-	//assert(f == -1i8, 'fail')
+	// val a = 1 .toUInt
+	// val b = 2 .toU8
+	// val c = 3 .toF32
+	// val d = 4 .toF64
+	// val e = (-1) .toU8
+	// assert(e == 255u8, 'fail')
+	// val f = (-1) .toI8
+	// val g = 999999 .toU64
+	// assert(g == 999999u64, 'fail')
+	// val h = g.toF32
+	// assert(h == 999999.0, 'fail')
+
+	assertI8Cast()
+	assertU8Cast()
+}
+
+fun assertI8Cast() {
+	val a = -1i8
+	assert(a.toU8 == 255u8,  "unexpected: ${a.toU8}")
+	assert(a.toI16 == -1i16, "unexpected: ${a.toI16}")
+	assert(a.toU16 == 255u16, "unexpected: ${a.toU16}")
+	assert(a.toI32 == -1, "unexpected: ${a.toI32}")
+	assert(a.toU32 == 255u, "unexpected: ${a.toU32}")
+	assert(a.toInt == -1, "unexpected: ${a.toInt}")
+	assert(a.toUInt == 255u, "unexpected: ${a.toUInt}")
+	assert(a.toI64 == -1i64, "unexpected: ${a.toI64}")
+	assert(a.toU64 == 255u64, "unexpected: ${a.toU64}")
+	// assert(a.toF32 == -1.0, "unexpected: ${a.toF32}")
+	// assert(a.toF64 == -1.0d, "unexpected: ${a.toF64}")
+}
+
+fun assertU8Cast() {
+	val a = 255u8
+	assert(a.toI8 == -1i8, "unexpected: ${a.toI8}")
+	assert(a.toI16 == 255i16, "unexpected: ${a.toI16}")
+	assert(a.toU16 == 255u16, "unexpected: ${a.toU16}")
+	assert(a.toI32 == 255, "unexpected: ${a.toI32}")
+	assert(a.toU32 == 255u, "unexpected: ${a.toU32}")
+	assert(a.toInt == 255, "unexpected: ${a.toInt}")
+	assert(a.toUInt == 255u, "unexpected: ${a.toUInt}")
 }

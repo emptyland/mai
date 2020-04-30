@@ -158,6 +158,9 @@ private:
     
     Result GenerateTestIs(const Value &operand, TypeSign *dest, ASTNode *ast);
     Result GenerateTestAs(const Value &operand, const Class *dest_type, TypeSign *dest, ASTNode *ast);
+    
+    void GenerateTypeTest(const Value &operand, const char *external, const Class *dest_type,
+                          const MetadataObject *extra, ASTNode *ast);
 
     bool ShouldCaptureVar(Scope *owns, Value value);
     Result CaptureVar(const std::string &name, Scope *owns, Value value);

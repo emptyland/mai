@@ -6,7 +6,7 @@ fun main() {
 	val jiffy = System.microTime()
 	val ch = channel[int](0)
 	run entry(ch)
-	for (i in 0, 1000) {
+	for (i in 0, 10000) {
 		val v = <-ch
 		assert(i == v, "fail $i vs $v")
 		assert(!ch.hasClose, "hasClose")
@@ -20,7 +20,7 @@ fun main() {
 }
 
 fun entry(ch: channel[int]) {
-	for (i in 0, 1000) {
+	for (i in 0, 10000) {
 		ch <- i
 	}
 	//ch.close()

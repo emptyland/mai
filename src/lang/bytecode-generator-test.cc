@@ -499,6 +499,10 @@ TEST_F(BytecodeGeneratorTest, NumberCast) {
     ASSERT_TRUE(main->is_mai_function());
     ASSERT_FALSE(main->is_cxx_function());
     AssertFunction("main", main->function());
+    
+    value = generator_->FindValue("main.assertI8Cast");
+    Local<Closure> fun(*isolate_->global_offset<Closure *>(value.index));
+    AssertFunction("assertI8Cast", fun->function());
 }
 
 TEST_F(BytecodeGeneratorTest, RunNumberCast) {

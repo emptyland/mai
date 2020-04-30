@@ -194,6 +194,7 @@ namespace lang {
     V(ZeroExtend8To32, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(ZeroExtend16To32, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(ZeroExtend32To64, BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(SignExtend8To16, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(SignExtend8To32, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(SignExtend16To32, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(SignExtend32To64, BytecodeType::A, BytecodeParam::kStackOffset) \

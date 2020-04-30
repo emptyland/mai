@@ -14,7 +14,7 @@ bytecode:
     000 CheckStack; (22)
     001 LdaSmi32 #0; (23)
     002 Star32 [BP-72]; (23)
-    003 LdaSmi32 #1000; (23)
+    003 LdaSmi32 #10000; (23)
     004 Star32 [BP-76]; (23)
     005 TestGreaterThanOrEqual32 [BP-72], [BP-76]; (23)
     006 ForwardJumpIfTrue 0, #9; (23)

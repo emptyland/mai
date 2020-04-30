@@ -31,7 +31,7 @@ bytecode:
     017 Yield 2; (8)
     018 LdaSmi32 #0; (9)
     019 Star32 [BP-96]; (9)
-    020 LdaSmi32 #1000; (9)
+    020 LdaSmi32 #10000; (9)
     021 Star32 [BP-100]; (9)
     022 TestGreaterThanOrEqual32 [BP-96], [BP-100]; (9)
     023 ForwardJumpIfTrue 0, #42; (9)

@@ -1567,6 +1567,12 @@ public:
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
     }
     
+    void EmitSignExtend8To16(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movsxb(ACC, Operand(rbp, rbx, times_2, 0));
+        __ andl(ACC, 0xffff);
+    }
+    
     void EmitSignExtend8To32(MacroAssembler *masm) override {
         InstrStackAScope instr_scope(masm);
         __ movsxb(ACC, Operand(rbp, rbx, times_2, 0));
