@@ -471,8 +471,17 @@ Token Lexer::MatchNumber(int sign, int line, int row) {
                 rv = base::Slice::ParseO64(buf.c_str() + 1, buf.length() - 1, &val);
             } else if (base == 10) {
                 int64_t tmp;
-                rv = base::Slice::ParseI64(buf.c_str(), &tmp);
-                val = tmp;
+                if (type == Token::kI8Val ||
+                    type == Token::kI16Val ||
+                    type == Token::kI32Val ||
+                    type == Token::kIntVal ||
+                    type == Token::kI64Val) {
+                    rv = base::Slice::ParseI64(buf.c_str(), &tmp);
+                    val = tmp;
+                } else {
+                    rv = base::Slice::ParseU64(buf.c_str(), &val);
+                }
+                
             } else if (base == 16) {
                 rv = base::Slice::ParseH64(buf.c_str() + 2, buf.length() - 2, &val);
             }
@@ -485,12 +494,12 @@ Token Lexer::MatchNumber(int sign, int line, int row) {
 
         case Token::kF32Val: {
             float f32 = ::atof(buf.data());
-            return Token(Token::kF32Val, loc).With(f32);
+            return Token(Token::kF32Val, loc).With(sign < 0 ? -f32 : f32);
         } break;
 
         case Token::kF64Val: {
             double f64 = ::atof(buf.data());
-            return Token(Token::kF32Val, loc).With(f64);
+            return Token(Token::kF64Val, loc).With(sign < 0 ? -f64 : f64);
         } break;
             
         default:

@@ -48,8 +48,6 @@ public:
     //
     void Fallback(int index, size_t size) {
         if (index - kSlotBase < level_.p) {
-//            printf("%d\n", (index - kSlotBase));
-//            DCHECK_EQ(kSizeGranularity, level_.p - (index - kSlotBase));
             level_.p = index - kSlotBase;
         }
         DCHECK_EQ(level_.p, index - kSlotBase);

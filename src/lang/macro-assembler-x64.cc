@@ -1590,12 +1590,14 @@ public:
     
     void EmitF32ToI32(MacroAssembler *masm) override {
         InstrStackAScope instr_scope(masm);
+//        __ Breakpoint();
+//        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
         __ cvtss2sil(ACC, Operand(rbp, rbx, times_2, 0));
     }
     
     void EmitF64ToI32(MacroAssembler *masm) override {
         InstrStackAScope instr_scope(masm);
-        __ cvtsd2siq(ACC, Operand(rbp, rbx, times_2, 0));
+        __ cvtsd2sil(ACC, Operand(rbp, rbx, times_2, 0));
     }
     
     void EmitF32ToU32(MacroAssembler *masm) override { EmitF32ToI32(masm); }

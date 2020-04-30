@@ -1,20 +1,18 @@
 package main
 
 fun main() {
-	// val a = 1 .toUInt
-	// val b = 2 .toU8
-	// val c = 3 .toF32
-	// val d = 4 .toF64
-	// val e = (-1) .toU8
-	// assert(e == 255u8, 'fail')
-	// val f = (-1) .toI8
-	// val g = 999999 .toU64
-	// assert(g == 999999u64, 'fail')
-	// val h = g.toF32
-	// assert(h == 999999.0, 'fail')
-
+	//val jiffy = System.microTime()
 	assertI8Cast()
 	assertU8Cast()
+	assertI16Cast()
+	assertU16Cast()
+	assertI32Cast()
+	assertIntCast()
+	assertUIntCast()
+	assertI64Cast()
+	assertU64Cast()
+	assertF32Cast()
+	//println("cost: ${System.microTime() - jiffy}")
 }
 
 fun assertI8Cast() {
@@ -41,4 +39,125 @@ fun assertU8Cast() {
 	assert(a.toU32 == 255u, "unexpected: ${a.toU32}")
 	assert(a.toInt == 255, "unexpected: ${a.toInt}")
 	assert(a.toUInt == 255u, "unexpected: ${a.toUInt}")
+	assert(a.toI64 == 255i64, "unexpected: ${a.toI64}")
+	assert(a.toU64 == 255u64, "unexpected: ${a.toU64}")
 }
+
+fun assertI16Cast() {
+	val a = -1i16
+	assert(a.toI8 == -1i8,  "unexpected: ${a.toI8}")
+	assert(a.toU8 == 255u8,  "unexpected: ${a.toU8}")
+	assert(a.toU16 == 65535u16, "unexpected: ${a.toU16}")
+	assert(a.toI32 == -1, "unexpected: ${a.toI32}")
+	assert(a.toU32 == 65535u, "unexpected: ${a.toU32}")
+	assert(a.toInt == -1, "unexpected: ${a.toInt}")
+	assert(a.toUInt == 65535u, "unexpected: ${a.toUInt}")
+	assert(a.toI64 == -1i64, "unexpected: ${a.toI64}")
+	assert(a.toU64 == 65535u64, "unexpected: ${a.toU64}")
+}
+
+fun assertU16Cast() {
+	val a = 65535u16
+	assert(a.toI8 == -1i8, "unexpected: ${a.toI8}")
+	assert(a.toU8 == 255u8, "unexpected: ${a.toU8}")
+	assert(a.toI16 == -1i16, "unexpected: ${a.toI16}")
+	assert(a.toI32 == 65535, "unexpected: ${a.toI32}")
+	assert(a.toU32 == 65535u, "unexpected: ${a.toU32}")
+	assert(a.toInt == 65535, "unexpected: ${a.toInt}")
+	assert(a.toUInt == 65535u, "unexpected: ${a.toUInt}")
+	assert(a.toI64 == 65535i64, "unexpected: ${a.toI64}")
+	assert(a.toU64 == 65535u64, "unexpected: ${a.toU64}")
+}
+
+fun assertI32Cast() {
+	val a = -1i32
+	assert(a.toI8 == -1i8,  "unexpected: ${a.toI8}")
+	assert(a.toU8 == 255u8,  "unexpected: ${a.toU8}")
+	assert(a.toI16 == -1i16, "unexpected: ${a.toI16}")
+	assert(a.toU16 == 65535u16, "unexpected: ${a.toU16}")
+	assert(a.toU32 == 4294967295u, "unexpected: ${a.toU32}")
+	assert(a.toInt == -1, "unexpected: ${a.toInt}")
+	assert(a.toUInt == 4294967295u, "unexpected: ${a.toUInt}")
+	assert(a.toI64 == -1i64, "unexpected: ${a.toI64}")
+	assert(a.toU64 == 4294967295u64, "unexpected: ${a.toU64}")
+}
+
+fun assertU32Cast() {
+	val a = 4294967295u32
+	assert(a.toI8 == -1i8,  "unexpected: ${a.toI8}")
+	assert(a.toU8 == 255u8,  "unexpected: ${a.toU8}")
+	assert(a.toI16 == -1i16, "unexpected: ${a.toI16}")
+	assert(a.toU16 == 65535u16, "unexpected: ${a.toU16}")
+	assert(a.toI32 == -1, "unexpected: ${a.toI32}")
+	assert(a.toInt == -1, "unexpected: ${a.toInt}")
+	assert(a.toUInt == 4294967295u, "unexpected: ${a.toUInt}")
+	assert(a.toI64 == -1i64, "unexpected: ${a.toI64}")
+	assert(a.toU64 == 4294967295u64, "unexpected: ${a.toU64}")
+}
+
+fun assertIntCast() {
+	val a = -1
+	assert(a.toI8 == -1i8,  "unexpected: ${a.toI8}")
+	assert(a.toU8 == 255u8,  "unexpected: ${a.toU8}")
+	assert(a.toI16 == -1i16, "unexpected: ${a.toI16}")
+	assert(a.toU16 == 65535u16, "unexpected: ${a.toU16}")
+	assert(a.toI32 == -1, "unexpected: ${a.toI32}")
+	assert(a.toU32 == 4294967295u, "unexpected: ${a.toU32}")
+	assert(a.toUInt == 4294967295u, "unexpected: ${a.toUInt}")
+	assert(a.toI64 == -1i64, "unexpected: ${a.toI64}")
+	assert(a.toU64 == 4294967295u64, "unexpected: ${a.toU64}")
+}
+
+fun assertUIntCast() {
+	val a = 4294967295u
+	assert(a.toI8 == -1i8,  "unexpected: ${a.toI8}")
+	assert(a.toU8 == 255u8,  "unexpected: ${a.toU8}")
+	assert(a.toI16 == -1i16, "unexpected: ${a.toI16}")
+	assert(a.toU16 == 65535u16, "unexpected: ${a.toU16}")
+	assert(a.toI32 == -1, "unexpected: ${a.toI32}")
+	assert(a.toU32 == 4294967295u, "unexpected: ${a.toU32}")
+	assert(a.toInt == -1, "unexpected: ${a.toInt}")
+	assert(a.toI64 == -1i64, "unexpected: ${a.toI64}")
+	assert(a.toU64 == 4294967295u64, "unexpected: ${a.toU64}")
+}
+
+fun assertI64Cast() {
+	val a = -1i64
+	assert(a.toI8 == -1i8,  "unexpected: ${a.toI8}")
+	assert(a.toU8 == 255u8,  "unexpected: ${a.toU8}")
+	assert(a.toI16 == -1i16, "unexpected: ${a.toI16}")
+	assert(a.toU16 == 65535u16, "unexpected: ${a.toU16}")
+	assert(a.toI32 == -1, "unexpected: ${a.toI32}")
+	assert(a.toU32 == 4294967295u, "unexpected: ${a.toU32}")
+	assert(a.toInt == -1, "unexpected: ${a.toInt}")
+	assert(a.toUInt == 4294967295u, "unexpected: ${a.toUInt}")
+	assert(a.toU64 == 18446744073709551615u64, "unexpected: ${a.toU64}")
+}
+
+fun assertU64Cast() {
+	val a = 18446744073709551615u64
+	assert(a.toI8 == -1i8,  "unexpected: ${a.toI8}")
+	assert(a.toU8 == 255u8,  "unexpected: ${a.toU8}")
+	assert(a.toI16 == -1i16, "unexpected: ${a.toI16}")
+	assert(a.toU16 == 65535u16, "unexpected: ${a.toU16}")
+	assert(a.toI32 == -1, "unexpected: ${a.toI32}")
+	assert(a.toU32 == 4294967295u, "unexpected: ${a.toU32}")
+	assert(a.toInt == -1, "unexpected: ${a.toInt}")
+	assert(a.toUInt == 4294967295u, "unexpected: ${a.toUInt}")
+	assert(a.toI64 == -1i64, "unexpected: ${a.toI64}")
+}
+
+fun assertF32Cast() {
+	val a = -1.2345
+	assert(a.toI8 == -1i8,  "unexpected: ${a.toI8}")
+	assert(a.toU8 == 255u8,  "unexpected: ${a.toU8}")
+	assert(a.toI16 == -1i16, "unexpected: ${a.toI16}")
+	assert(a.toU16 == 65535u16, "unexpected: ${a.toU16}")
+	assert(a.toI32 == -1, "unexpected: ${a.toI32}")
+	assert(a.toU32 == 4294967295u, "unexpected: ${a.toU32}")
+	assert(a.toInt == -1, "unexpected: ${a.toInt}")
+	assert(a.toUInt == 4294967295u, "unexpected: ${a.toUInt}")
+	assert(a.toI64 == -1i64, "unexpected: ${a.toI64}")
+	assert(a.toU64 == 18446744073709551615u64, "unexpected: ${a.toU64}")
+}
+

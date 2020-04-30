@@ -2485,7 +2485,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestAs(const Value &operand, const
                     return ResultWith(operand.linkage, dest_type->id(), operand.index);
                 case kType_i64:
                     AssociateLHSOperand(&receiver, operand, ast);
-                    EMIT(ast, Add<kZeroExtend32To64>(GetStackOffset(receiver.lhs)));
+                    EMIT(ast, Add<kSignExtend32To64>(GetStackOffset(receiver.lhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_i64, 0);
                 case kType_u64:
