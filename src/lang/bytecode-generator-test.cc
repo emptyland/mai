@@ -503,6 +503,34 @@ TEST_F(BytecodeGeneratorTest, NumberCast) {
     value = generator_->FindValue("main.assertI8Cast");
     Local<Closure> fun(*isolate_->global_offset<Closure *>(value.index));
     AssertFunction("assertI8Cast", fun->function());
+    
+    value = generator_->FindValue("main.assertU8Cast");
+    fun = (*isolate_->global_offset<Closure *>(value.index));
+    AssertFunction("assertU8Cast", fun->function());
+    
+    value = generator_->FindValue("main.assertI16Cast");
+    fun = (*isolate_->global_offset<Closure *>(value.index));
+    AssertFunction("assertI16Cast", fun->function());
+    
+    value = generator_->FindValue("main.assertU16Cast");
+    fun = (*isolate_->global_offset<Closure *>(value.index));
+    AssertFunction("assertU16Cast", fun->function());
+    
+    value = generator_->FindValue("main.assertI32Cast");
+    fun = (*isolate_->global_offset<Closure *>(value.index));
+    AssertFunction("assertI32Cast", fun->function());
+    
+    value = generator_->FindValue("main.assertU32Cast");
+    fun = (*isolate_->global_offset<Closure *>(value.index));
+    AssertFunction("assertU32Cast", fun->function());
+    
+    value = generator_->FindValue("main.assertI64Cast");
+    fun = (*isolate_->global_offset<Closure *>(value.index));
+    AssertFunction("assertI64Cast", fun->function());
+    
+    value = generator_->FindValue("main.assertU64Cast");
+    fun = (*isolate_->global_offset<Closure *>(value.index));
+    AssertFunction("assertU64Cast", fun->function());
 }
 
 TEST_F(BytecodeGeneratorTest, RunNumberCast) {
