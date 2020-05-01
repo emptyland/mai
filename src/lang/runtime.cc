@@ -9,6 +9,7 @@
 #include "lang/stack-frame.h"
 #include "base/spin-locking.h"
 #include "glog/logging.h"
+#include <math.h>
 
 namespace mai {
 
@@ -632,6 +633,14 @@ static bool TestIs(const Class *dest, void *param, Any *any) {
     fprintf(stdout, "‼️ Coroutine ABORT:\n    ☠️M:%dC:%" PRIu64 ":%s", m->id(), coid, message);
     abort();
 #endif
+}
+
+/*static*/ int Runtime::Near32(float a, float b, float abs) {
+    return ::fabs(a - b) <= ::fabs(abs);
+}
+
+/*static*/ int Runtime::Near64(double a, double b, double abs) {
+    return ::fabs(a - b) <= ::fabs(abs);
 }
 
 /*static*/ void Runtime::Println(Handle<String> input) {

@@ -2213,7 +2213,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestAs(const Value &operand, const
                     AssociateLHSOperand(&receiver, operand, ast);
                     EMIT(ast, Add<kSignExtend8To32>(GetStackOffset(receiver.lhs)));
                     AssociateRHSOperand(&receiver, i32_type, 0, Value::kACC, ast);
-                    EMIT(ast, Add<kI64ToF64>(GetStackOffset(receiver.rhs)));
+                    EMIT(ast, Add<kI32ToF64>(GetStackOffset(receiver.rhs)));
                     CleanupOperands(&receiver);
                     return ResultWith(Value::kACC, kType_f64, 0);
                 case kType_any:

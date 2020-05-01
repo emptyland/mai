@@ -1,4 +1,5 @@
 #include "lang/token.h"
+#include "base/lazy-instance.h"
 #include "glog/logging.h"
 #include <atomic>
 #include <thread>
@@ -22,13 +23,32 @@ const KeywordEntry kKeywordEntries[] = {
     {Token::kEOF, nullptr},
 }; // const KeywordEntry kKeywordEntries
 
-std::unordered_map<std::string, Token::Kind> *all_keywords = nullptr;
+//std::unordered_map<std::string, Token::Kind> *all_keywords = nullptr;
+
+class KeyWordTable {
+public:
+    KeyWordTable() {
+        const KeywordEntry *entry = &kKeywordEntries[0];
+        while (entry->kind != Token::kEOF) {
+            table_[entry->literal] = entry->kind;
+            entry++;
+        }
+    }
+    
+    Token::Kind Find(std::string_view text) const {
+        auto iter = table_.find(text);
+        return iter == table_.end() ? Token::kError : iter->second;
+    }
+private:
+    std::unordered_map<std::string_view, Token::Kind> table_;
+}; // class KeyWordTable
+
+base::LazyInstance<KeyWordTable> all_keywords;
 
 } // namespace
 
-/*static*/ Token::Kind Token::IsKeyword(const std::string &text) {
-    auto iter = DCHECK_NOTNULL(all_keywords)->find(text);
-    return iter == all_keywords->end() ? kError : iter->second;
+/*static*/ Token::Kind Token::IsKeyword(std::string_view text) {
+    return all_keywords->Find(text);
 }
 
 Token::NamePair Token::kNameTable[kMax] = {
@@ -36,22 +56,6 @@ Token::NamePair Token::kNameTable[kMax] = {
     DECLARE_ALL_TOKEN(DEFINE_NAME_PAIR)
 #undef DEFINE_NAME_PAIR
 }; // Token::kNameTable[kMax]
-
-void InitializeTokenKeywordTable() {
-    all_keywords = new std::unordered_map<std::string, Token::Kind>();
-
-    const KeywordEntry *entry = &kKeywordEntries[0];
-    while (entry->kind != Token::kEOF) {
-        (*all_keywords)[entry->literal] = entry->kind;
-        entry++;
-    }
-}
-
-void FreeTokenKeywordTable() {
-    delete all_keywords;
-    all_keywords = nullptr;
-}
-
 
 } // namespace lang
 

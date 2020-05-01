@@ -15,7 +15,7 @@ souce-file-name: tests/lang/015-throw-catch-exception/main/main.mai
 bytecode-size: 37
 bytecode: 
     000 CheckStack; (6)
-    001 LdaGlobalPtr [GS+200]; (9)
+    001 LdaGlobalPtr [GS+216]; (9)
     002 CallBytecodeFunction #0, #0; (9)
     003 ForwardJump 0, #29; (9)
     004 StarPtr [BP-72]; (10)

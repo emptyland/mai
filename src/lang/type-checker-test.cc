@@ -19,14 +19,6 @@ public:
         , resolver_(env_, &arena_, &feedback_, {})
         , checker_(&arena_, &feedback_) {}
     
-    void SetUp() override {
-        InitializeSyntaxLibrary();
-    }
-    
-    void TearDown() override {
-        FreeSyntaxLibrary();
-    }
-    
     Error Parse(const std::string &dir) {
         std::vector<std::string> files;
         if (auto rs = Compiler::FindSourceFiles("src/lang/pkg", env_, false, &files); !rs) {

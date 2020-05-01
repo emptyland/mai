@@ -189,7 +189,7 @@ public:
     std::string ToString() const { return ToString(kind_); }
     
     // Test: Is a keyword?
-    static Kind IsKeyword(const std::string &text);
+    static Kind IsKeyword(std::string_view text);
     
     static const NamePair &GetNamePair(Kind kind) {
         DCHECK(static_cast<int>(kind) >= 0 && static_cast<int>(kind) < kMax);

@@ -1590,8 +1590,6 @@ public:
     
     void EmitF32ToI32(MacroAssembler *masm) override {
         InstrStackAScope instr_scope(masm);
-//        __ Breakpoint();
-//        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
         __ cvtss2sil(ACC, Operand(rbp, rbx, times_2, 0));
     }
     
@@ -1623,11 +1621,16 @@ public:
         __ cvtsi2ssl(FACC, Operand(rbp, rbx, times_2, 0));
     }
     
-    void EmitU32ToF32(MacroAssembler *masm) override { EmitI32ToF32(masm); }
+    void EmitU32ToF32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        // Extend to 64 bits
+        __ xorq(ACC, ACC);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ cvtsi2ssq(FACC, ACC);
+    }
     
     void EmitI64ToF32(MacroAssembler *masm) override {
         InstrStackAScope instr_scope(masm);
-        //__ Breakpoint();
         __ cvtsi2ssq(FACC, Operand(rbp, rbx, times_2, 0));
     }
     
@@ -1638,7 +1641,13 @@ public:
         __ cvtsi2sdl(FACC, Operand(rbp, rbx, times_2, 0));
     }
     
-    void EmitU32ToF64(MacroAssembler *masm) override { EmitI32ToF64(masm); }
+    void EmitU32ToF64(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        // Extend to 64 bits
+        __ xorq(ACC, ACC);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ cvtsi2sdq(FACC, ACC);
+    }
     
     void EmitI64ToF64(MacroAssembler *masm) override {
         InstrStackAScope instr_scope(masm);

@@ -6,13 +6,31 @@ const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0
 exception-table-size: 0
-souce-line-size: 6
+souce-line-size: 24
 souce-file-name: tests/lang/023-number-cast/main/main.mai
-bytecode-size: 6
+bytecode-size: 24
 bytecode: 
     000 CheckStack; (3)
-    001 LdaGlobalPtr [GS+200]; (16)
-    002 CallBytecodeFunction #0, #0; (16)
-    003 LdaGlobalPtr [GS+208]; (17)
-    004 CallBytecodeFunction #0, #0; (17)
-    005 Return; (3)
+    001 LdaGlobalPtr [GS+216]; (5)
+    002 CallBytecodeFunction #0, #0; (5)
+    003 LdaGlobalPtr [GS+224]; (6)
+    004 CallBytecodeFunction #0, #0; (6)
+    005 LdaGlobalPtr [GS+232]; (7)
+    006 CallBytecodeFunction #0, #0; (7)
+    007 LdaGlobalPtr [GS+240]; (8)
+    008 CallBytecodeFunction #0, #0; (8)
+    009 LdaGlobalPtr [GS+248]; (9)
+    010 CallBytecodeFunction #0, #0; (9)
+    011 LdaGlobalPtr [GS+264]; (10)
+    012 CallBytecodeFunction #0, #0; (10)
+    013 LdaGlobalPtr [GS+272]; (11)
+    014 CallBytecodeFunction #0, #0; (11)
+    015 LdaGlobalPtr [GS+280]; (12)
+    016 CallBytecodeFunction #0, #0; (12)
+    017 LdaGlobalPtr [GS+288]; (13)
+    018 CallBytecodeFunction #0, #0; (13)
+    019 LdaGlobalPtr [GS+296]; (14)
+    020 CallBytecodeFunction #0, #0; (14)
+    021 LdaGlobalPtr [GS+304]; (15)
+    022 CallBytecodeFunction #0, #0; (15)
+    023 Return; (3)

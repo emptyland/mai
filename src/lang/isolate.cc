@@ -7,7 +7,6 @@
 #include "lang/metadata-space.h"
 #include "lang/factory.h"
 #include "lang/compiler.h"
-#include "lang/syntax.h"
 #include "lang/runtime.h"
 #include "lang/value-inl.h"
 #include "lang/channel.h"
@@ -187,7 +186,6 @@ void Isolate::Enter() {
         __isolate = this;
         DCHECK_EQ(this, __isolate);
     }
-    InitializeSyntaxLibrary();
 
     // Init machine0
     scheduler_->machine0()->Enter();
@@ -200,7 +198,6 @@ void Isolate::Exit() {
     // Exit machine0
     scheduler_->machine0()->Exit();
 
-    FreeSyntaxLibrary();
     {
         std::lock_guard<std::mutex> lock(init_mutex);
         DCHECK_EQ(this, __isolate);

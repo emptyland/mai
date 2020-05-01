@@ -179,6 +179,8 @@
 		23BF17E621D4A96D00A722B9 /* transaction-db.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E421D4A96D00A722B9 /* transaction-db.cc */; };
 		23BF17EB21D4C1D100A722B9 /* delta-amend-iterator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23BF17E921D4C1D100A722B9 /* delta-amend-iterator.cc */; };
 		23CC114F21D71F49001665AC /* transaction-lock-mgr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */; };
+		23CD0DFC245AD2AD00773A2C /* at-exit.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CD0DFB245AD2AD00773A2C /* at-exit.cc */; };
+		23CD0DFD245AD2B600773A2C /* at-exit.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23CD0DFB245AD2AD00773A2C /* at-exit.cc */; };
 		23D48A4823F05D260010A17E /* factory.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D48A4723F05D260010A17E /* factory.cc */; };
 		23D48A4B23F105EB0010A17E /* channel.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23D48A4A23F105EB0010A17E /* channel.cc */; };
 		23DC718D243448B900E5613E /* marking-sweep-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23DC718C243448B900E5613E /* marking-sweep-test.cc */; };
@@ -239,7 +241,6 @@
 		23ECE8A323F9052D00B3C83B /* ast.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE8A223F9052D00B3C83B /* ast.cc */; };
 		23ECE8A623F924F100B3C83B /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE8A523F924F100B3C83B /* parser.cc */; };
 		23ECE8A923F98A1900B3C83B /* parser-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23ECE8A823F98A1900B3C83B /* parser-test.cc */; };
-		23F31A53240955BF00515795 /* syntax.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F31A52240955BF00515795 /* syntax.cc */; };
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
 		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
 /* End PBXBuildFile section */
@@ -535,6 +536,9 @@
 		23C54F9821C8D225001C8262 /* bw-tree-memory-table.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "bw-tree-memory-table.cc"; sourceTree = "<group>"; };
 		23CC114B21D71EB1001665AC /* transaction-lock-mgr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "transaction-lock-mgr.h"; sourceTree = "<group>"; };
 		23CC114D21D71F49001665AC /* transaction-lock-mgr.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-lock-mgr.cc"; sourceTree = "<group>"; };
+		23CD0DFA245AD25000773A2C /* at-exit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "at-exit.h"; sourceTree = "<group>"; };
+		23CD0DFB245AD2AD00773A2C /* at-exit.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "at-exit.cc"; sourceTree = "<group>"; };
+		23CD0DFE245AD8DB00773A2C /* lazy-instance.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lazy-instance.h"; sourceTree = "<group>"; };
 		23D48A4623F05A090010A17E /* factory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = factory.h; sourceTree = "<group>"; };
 		23D48A4723F05D260010A17E /* factory.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = factory.cc; sourceTree = "<group>"; };
 		23D48A4923F105DC0010A17E /* channel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = channel.h; sourceTree = "<group>"; };
@@ -568,7 +572,6 @@
 		23ECE8A723F9898D00B3C83B /* syntax-mock-test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "syntax-mock-test.h"; sourceTree = "<group>"; };
 		23ECE8A823F98A1900B3C83B /* parser-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "parser-test.cc"; sourceTree = "<group>"; };
 		23F0742521D1D209009D8EAA /* transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db-test.cc"; sourceTree = "<group>"; };
-		23F31A52240955BF00515795 /* syntax.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = syntax.cc; sourceTree = "<group>"; };
 		23F60601219BBE9600CE12D9 /* write-batch.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch.cc"; sourceTree = "<group>"; };
 		23F60604219BC3DA00CE12D9 /* db-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-impl.h"; sourceTree = "<group>"; };
 		23F60605219BC40E00CE12D9 /* db-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "db-impl.cc"; sourceTree = "<group>"; };
@@ -736,7 +739,6 @@
 				23ECE89623F57BEC00B3C83B /* token.h */,
 				23ECE89723F57C9800B3C83B /* token.cc */,
 				23ECE89B23F63F7400B3C83B /* syntax.h */,
-				23F31A52240955BF00515795 /* syntax.cc */,
 				23ECE89C23F643B500B3C83B /* lexer.h */,
 				23ECE89D23F643D000B3C83B /* lexer.cc */,
 				23ECE8A123F9050C00B3C83B /* ast.h */,
@@ -820,6 +822,7 @@
 				23344CD721EF0751006BC6E4 /* transaction-db.h */,
 				23344CD321EF0751006BC6E4 /* transaction.h */,
 				23344CDB21EF0751006BC6E4 /* write-batch.h */,
+				23CD0DFA245AD25000773A2C /* at-exit.h */,
 			);
 			path = mai;
 			sourceTree = "<group>";
@@ -967,6 +970,8 @@
 				23DFE03522754CCD005D489C /* big-number.h */,
 				23DFE03622754D29005D489C /* big-number.cc */,
 				23599D3723D58B8100F722D6 /* queue-macros.h */,
+				23CD0DFB245AD2AD00773A2C /* at-exit.cc */,
+				23CD0DFE245AD8DB00773A2C /* lazy-instance.h */,
 			);
 			name = base;
 			path = src/base;
@@ -1403,6 +1408,7 @@
 				2364B2D521E451F9008519AE /* db-iterator.cc in Sources */,
 				2364B2D621E451F9008519AE /* write-batch.cc in Sources */,
 				2364B2D821E451F9008519AE /* table-test.cc in Sources */,
+				23CD0DFC245AD2AD00773A2C /* at-exit.cc in Sources */,
 				236290F624037193004FB689 /* type-checker-test.cc in Sources */,
 				236EA78723D6E3980071047C /* value.cc in Sources */,
 				23ECE89A23F63D5B00B3C83B /* token-test.cc in Sources */,
@@ -1445,7 +1451,6 @@
 				2364B30821E451F9008519AE /* iterator-warpper.cc in Sources */,
 				2354C9E92431C92600E0B9BE /* object-visitor.cc in Sources */,
 				2364B30A21E451F9008519AE /* merging.cc in Sources */,
-				23F31A53240955BF00515795 /* syntax.cc in Sources */,
 				23ECE8A923F98A1900B3C83B /* parser-test.cc in Sources */,
 				2364B30B21E451F9008519AE /* env.cc in Sources */,
 				2364B30C21E451F9008519AE /* error.cc in Sources */,
@@ -1571,6 +1576,7 @@
 				23DE180F21D088B000479C23 /* write-ahead-log.cc in Sources */,
 				23DE181021D088B000479C23 /* write-batch.cc in Sources */,
 				23DFE03822754D29005D489C /* big-number.cc in Sources */,
+				23CD0DFD245AD2B600773A2C /* at-exit.cc in Sources */,
 				23DE181121D088B000479C23 /* db-impl.cc in Sources */,
 				23DE181221D088B000479C23 /* column-family.cc in Sources */,
 				237F505221EB74390069075D /* zone.cc in Sources */,

@@ -1,6 +1,7 @@
 #include "lang/ast.h"
 #include "lang/token.h"
 #include "base/hash.h"
+#include "base/lazy-instance.h"
 #include <unordered_map>
 
 namespace mai {
@@ -204,73 +205,81 @@ const NumberCastHint number_cast_hints[] = {
     }
 }; // const NumberCastHint number_cast_hints
 
-struct ASTNumberCastPair {
-    std::string_view name;
-    Token::Kind dest;
-};
-
-struct ASTNumberCastHash : public std::unary_function<ASTNumberCastPair, size_t> {
-    size_t operator () (ASTNumberCastPair key) const {
-        return base::Hash::Js(key.name.data(), key.name.size()) ^ static_cast<int>(key.dest);
+class ASTNumberCastHintTable {
+public:
+    ASTNumberCastHintTable() {
+        for (size_t i = 0; i < arraysize(number_cast_hints); i++) {
+            size_t j = 0;
+            while (number_cast_hints[i].entries[j].name) {
+                ASTNumberCastPair key;
+                key.name = number_cast_hints[i].entries[j].name;
+                key.dest = number_cast_hints[i].type;
+                DCHECK(table_.find(key) == table_.end());
+                table_[key] = number_cast_hints[i].entries[j].dest;
+                j++;
+            }
+        }
     }
-};
-
-struct ASTNumberCastEqualTo : public std::binary_function<ASTNumberCastPair, ASTNumberCastPair, bool> {
-    bool operator () (ASTNumberCastPair lhs, ASTNumberCastPair rhs) const {
-        return std::equal_to<std::string_view>{}(lhs.name, rhs.name) && lhs.dest == rhs.dest;
+    
+    Token::Kind Find(std::string_view name, Token::Kind kind) const {
+        ASTNumberCastPair key;
+        key.name = name;
+        key.dest = kind;
+        auto iter = table_.find(key);
+        return iter == table_.end() ? Token::kError : iter->second;
     }
-};
+private:
+    struct ASTNumberCastPair {
+        std::string_view name;
+        Token::Kind dest;
+    };
 
-using ASTNumberCastHintTable = std::unordered_map<ASTNumberCastPair, Token::Kind, ASTNumberCastHash,
-                                                  ASTNumberCastEqualTo>;
+    struct ASTNumberCastHash : public std::unary_function<ASTNumberCastPair, size_t> {
+        size_t operator () (ASTNumberCastPair key) const {
+            return base::Hash::Js(key.name.data(), key.name.size()) ^ static_cast<int>(key.dest);
+        }
+    };
 
-ASTNumberCastHintTable *ast_number_cast_hint_table = nullptr;
+    struct ASTNumberCastEqualTo :
+        public std::binary_function<ASTNumberCastPair, ASTNumberCastPair, bool> {
+        bool operator () (ASTNumberCastPair lhs, ASTNumberCastPair rhs) const {
+            return std::equal_to<std::string_view>{}(lhs.name, rhs.name) && lhs.dest == rhs.dest;
+        }
+    };
+    
+    using Table = std::unordered_map<ASTNumberCastPair, Token::Kind, ASTNumberCastHash,
+                                     ASTNumberCastEqualTo>;
+    Table table_;
+}; // class ASTNumberCastHintTable
 
-std::unordered_map<std::string, uint32_t> *ast_compiling_attributes_table = nullptr;
+
+class ASTCompilingAttributesTable {
+public:
+    ASTCompilingAttributesTable() {
+        #define DEFINE_TABLE_ENTRY(name, text, value) \
+            table_[text] = value;
+            DECLARE_ALL_ATTRIBUTES(DEFINE_TABLE_ENTRY)
+        #undef DEFINE_TABLE_ENTRY
+    }
+    
+    uint32_t Find(std::string_view attr) const {
+        auto iter = table_.find(attr);
+        return iter == table_.end() ? 0 : iter->second;
+    }
+
+private:
+    std::unordered_map<std::string_view, uint32_t> table_;
+}; // class ASTCompilingAttributesTable
+
+
+base::LazyInstance<ASTNumberCastHintTable> ast_number_cast_hint_table;
+
+base::LazyInstance<ASTCompilingAttributesTable> ast_compiling_attributes_table;
 
 } // namespace
 
-void InitializeASTNumberCastHintTable() {
-    DCHECK(ast_number_cast_hint_table == nullptr);
-    ast_number_cast_hint_table = new ASTNumberCastHintTable();
-    for (size_t i = 0; i < arraysize(number_cast_hints); i++) {
-        size_t j = 0;
-        while (number_cast_hints[i].entries[j].name) {
-            ASTNumberCastPair key;
-            key.name = number_cast_hints[i].entries[j].name;
-            key.dest = number_cast_hints[i].type;
-            DCHECK(ast_number_cast_hint_table->find(key) == ast_number_cast_hint_table->end());
-            (*ast_number_cast_hint_table)[key] = number_cast_hints[i].entries[j].dest;
-            j++;
-        }
-    }
-}
-
-void FreeASTNumberCastHintTable() {
-    DCHECK(ast_number_cast_hint_table != nullptr);
-    delete ast_number_cast_hint_table;
-    ast_number_cast_hint_table = nullptr;
-}
-
-void InitializeASTCompilingAttributesTable() {
-    DCHECK(ast_compiling_attributes_table == nullptr);
-    ast_compiling_attributes_table = new std::unordered_map<std::string, uint32_t>();
-#define DEFINE_TABLE_ENTRY(name, text, value) \
-    (*ast_compiling_attributes_table)[text] = value;
-    DECLARE_ALL_ATTRIBUTES(DEFINE_TABLE_ENTRY)
-#undef DEFINE_TABLE_ENTRY
-}
-
-void FreeASTCompilingAttributesTable() {
-    DCHECK(ast_compiling_attributes_table != nullptr);
-    delete ast_compiling_attributes_table;
-    ast_compiling_attributes_table = nullptr;
-}
-
 uint32_t FindCompilingAttribute(std::string_view attr) {
-    DCHECK(ast_compiling_attributes_table != nullptr);
-    auto iter = ast_compiling_attributes_table->find(attr.data());
-    return iter == ast_compiling_attributes_table->end() ? 0 : iter->second;
+    return ast_compiling_attributes_table->Find(attr);
 }
 
 TypeSign::TypeSign(int position, const ASTString *prefix, const ASTString *name)
@@ -568,15 +577,7 @@ size_t TypeSign::GetReferenceSize() const {
 }
 
 int TypeSign::FindNumberCastHint(std::string_view name) const {
-    ASTNumberCastPair key;
-    key.name = name;
-    key.dest = static_cast<Token::Kind>(id());
-    if (auto iter = ast_number_cast_hint_table->find(key);
-        iter == ast_number_cast_hint_table->end()) {
-        return Token::kError;
-    } else {
-        return iter->second;
-    }
+    return ast_number_cast_hint_table->Find(name, static_cast<Token::Kind>(id()));
 }
 
 std::string TypeSign::ToString() const {

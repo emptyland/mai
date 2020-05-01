@@ -81,6 +81,8 @@ class Function;
     V(Array16Resize, "array16::resize") \
     V(Array32Resize, "array32::resize") \
     V(Array64Resize, "array64::resize") \
+    V(Near32, "lang.near32") \
+    V(Near64, "lang.near64") \
     V(TestAs, "lang.testAs") \
     V(TestIs, "lang.testIs") \
     V(Println, "lang.println") \
@@ -230,6 +232,9 @@ struct Runtime {
     
     
     // Stand library native functions
+    static int Near32(float a, float b, float abs);
+    static int Near64(double a, double b, double abs);
+    
     static void Println(Handle<String> input);
     static void Assert(int expect, Handle<String> message);
     static void Abort(Handle<String> message);

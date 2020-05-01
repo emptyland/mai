@@ -16,14 +16,6 @@ public:
         : arena_(Env::Default()->GetLowLevelAllocator())
         , env_(Env::Default()) {}
     
-    void SetUp() override {
-        InitializeSyntaxLibrary();
-    }
-    
-    void TearDown() override {
-        FreeSyntaxLibrary();
-    }
-    
     MockFeedback feedback_;
     base::StandaloneArena arena_;
     Env *env_;

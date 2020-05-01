@@ -155,10 +155,6 @@ protected:
 }; // class SyntaxFeedback
 
 
-void InitializeSyntaxLibrary();
-
-void FreeSyntaxLibrary();
-
 } // namespace lang
 
 } // namespace mai

@@ -45,3 +45,7 @@ native fun assert(e: bool, s: string)
 native fun abort(message: string)
 
 native fun fatal(message: string)
+
+native fun near32(a: f32, b: f32, abs: f32): bool
+
+native fun near64(a: f64, b: f64, abs: f64): bool

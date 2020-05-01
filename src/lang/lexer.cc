@@ -371,8 +371,9 @@ Token Lexer::MatchNumber(int sign, int line, int row) {
             }
             MoveNext();
             buf.append(1, ch);
-        } else if ((ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')) {
-            if (base != 16 || type == Token::kF32Val || type == Token::kF64Val) {
+        } else if ((type != Token::kF32Val && type != Token::kF64Val) &&
+                   ((ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F'))) {
+            if (base != 16/* || type == Token::kF32Val || type == Token::kF64Val*/) {
                 return OneCharacterError(line_, row_, "Unexpected number character: %c", ch);
             }
             MoveNext();

@@ -16,14 +16,6 @@ public:
         : arena_(Env::Default()->GetLowLevelAllocator())
         , parser_(&arena_, &feedback_) {}
     
-    void SetUp() override {
-        InitializeSyntaxLibrary();
-    }
-    
-    void TearDown() override {
-        FreeSyntaxLibrary();
-    }
-    
     MockFeedback feedback_;
     base::StandaloneArena arena_;
     Parser parser_;
