@@ -1108,8 +1108,24 @@ public:
     void EmitMovePtr(MacroAssembler *masm) override { EmitMove64(masm); }
     
     // Binary Operation ----------------------------------------------------------------------------
+    void EmitAdd8(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ addb(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitAdd16(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        //__ Breakpoint();
+        __ addw(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
     void EmitAdd32(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
+        //__ Breakpoint();
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ addl(ACC, Operand(rbp, rbx, times_2, 0));
@@ -1134,6 +1150,20 @@ public:
         __ movsd(FACC, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ addsd(FACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitSub8(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ subb(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitSub16(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ subw(ACC, Operand(rbp, rbx, times_2, 0));
     }
 
     void EmitSub32(MacroAssembler *masm) override {
@@ -1163,13 +1193,21 @@ public:
         instr_scope.GetBToRBX();
         __ subsd(FACC, Operand(rbp, rbx, times_2, 0));
     }
+    
+    void EmitMul8(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        // rax:rdx <- rax * operand
+        __ mulb(Operand(rbp, rbx, times_2, 0));
+    }
 
     void EmitMul32(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         // rax:rdx <- rax * operand
-        __ mull(Operand(rbp, rbx, times_2, 0));
+        __ mulw(Operand(rbp, rbx, times_2, 0));
     }
     
     void EmitMul64(MacroAssembler *masm) override {
@@ -1194,13 +1232,27 @@ public:
         __ mulsd(FACC, Operand(rbp, rbx, times_2, 0));
     }
     
+    void EmitIMul8(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ imulb(Operand(rbp, rbx, times_2, 0));
+    }
+    
+    void EmitIMul16(MacroAssembler *masm) override {
+        InstrStackABScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ imulw(ACC, Operand(rbp, rbx, times_2, 0));
+    }
+    
     void EmitIMul32(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ imull(ACC, Operand(rbp, rbx, times_2, 0));
     }
-    
+
     void EmitIMul64(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movq(rax, Operand(rbp, rbx, times_2, 0));
@@ -1246,7 +1298,16 @@ public:
         // TODO: Div by zero
         InstrStackABScope instr_scope(masm);
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+
         instr_scope.GetBToRBX();
+        __ cmpl(Operand(rbp, rbx, times_2, 0), 0);
+        Label ok;
+        __ j(NotEqual, &ok, false/*is_far*/);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArithmeticPanic));
+        __ Throw(SCRATCH, rbx);
+
+        __ Bind(&ok);
+        __ xorl(rdx, rdx);
         __ idivl(Operand(rbp, rbx, times_2, 0));
     }
     
@@ -1254,7 +1315,16 @@ public:
         // TODO: Div by zero
         InstrStackABScope instr_scope(masm);
         __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+
         instr_scope.GetBToRBX();
+        __ cmpq(Operand(rbp, rbx, times_2, 0), 0);
+        Label ok;
+        __ j(NotEqual, &ok, false/*is_far*/);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArithmeticPanic));
+        __ Throw(SCRATCH, rbx);
+
+        __ Bind(&ok);
+        __ xorq(rdx, rdx);
         __ idivq(Operand(rbp, rbx, times_2, 0));
     }
     
@@ -1611,7 +1681,7 @@ public:
         InstrStackAScope instr_scope(masm);
         __ cvtsd2siq(ACC, Operand(rbp, rbx, times_2, 0));
     }
-    
+
     void EmitF32ToU64(MacroAssembler *masm) override { EmitF32ToI64(masm); }
     
     void EmitF64ToU64(MacroAssembler *masm) override { EmitF64ToI64(masm); }

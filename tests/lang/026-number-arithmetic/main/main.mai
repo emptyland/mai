@@ -1,0 +1,44 @@
+package main
+
+fun main() {
+	assertI8Arithmetic()
+	assertI16Arithmetic()
+	assertI32Arithmetic()
+}
+
+fun assertI8Arithmetic() { 
+	var a = -1i8
+	assert(a + 1i8 == 0i8, "fail ${a + 1i8}")
+	a = 0i8
+	assert(a - 1i8 == -1i8, "fail ${a - 1i8}")
+	a = 127i8
+	assert(a + 1i8 == -128i8, "fail ${a + 1i8}")
+	assert(a * 1i8 == 127i8, "fail ${a * 1i8}")
+	assert(a * 2i8 == -2i8, "fail ${a * 2i8}")
+	//assert(a / 1i8 == 127, "fail ${a / 1i8}")	
+}
+
+fun assertI16Arithmetic() { 
+	var a = -1i16
+	assert(a + 1i16 == 0i16, "fail ${a + 1i16}")
+	a = 0i16
+	assert(a - 1i16 == -1i16, "fail ${a - 1i16}")
+	a = 32767i16
+	assert(a + 1i16 == -32768i16, "fail ${a + 1i16}")
+	assert(a * 1i16 == 32767i16, "fail ${a * 1i16}")
+	assert(a * 2i16 == -2i16, "fail ${a * 2i16}")
+}
+
+fun assertI32Arithmetic() {
+	var a = -1i32
+	assert(a + 1 == 0, "fail ${a + 1}")
+	a = 0
+	assert(a - 1 == -1, "fail ${a - 1}")
+	a = 2147483647
+	assert(a + 1 == -2147483648, "fail ${a + 1}")
+	assert(a * 1 == 2147483647, "fail ${a * 1}")
+	assert(a / 1 == 2147483647, "fail ${a / 1}")
+	a = -2147483648
+	assert(a - 1 == 2147483647, "fail ${a - 1}")
+
+}

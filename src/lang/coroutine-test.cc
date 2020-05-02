@@ -201,8 +201,6 @@ static void Dummy2(int64_t a, float b) {
 }
 
 TEST_F(CoroutineTest, Sanity) {
-    printf("Max bytecodes: %d\n", kMax_Bytecodes);
-    
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     Local<Closure> entry(FunctionTemplate::New(Dummy1));
     

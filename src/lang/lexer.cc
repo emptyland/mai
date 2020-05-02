@@ -533,7 +533,9 @@ Token Lexer::MatchNumber(int sign, int line, int row) {
             auto test = sign < 0 ? -static_cast<int64_t>(val) : static_cast<int64_t>(val);
             if (test < std::numeric_limits<int16_t>::min() ||
                 test > std::numeric_limits<int16_t>::max()) {
-                error_feedback_->Printf(loc, "Integral number: %s overflow of i16", buf.data());
+                error_feedback_->Printf(loc, "Integral number: %s overflow of i16[%d, %d]",
+                                        buf.data(), std::numeric_limits<int16_t>::min(),
+                                        std::numeric_limits<int16_t>::max());
                 return Token(Token::kError, loc);
             }
             return Token(type, loc).With(static_cast<int32_t>(test));

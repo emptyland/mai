@@ -1080,12 +1080,54 @@ public:
         EmitOperand(7, divsor);
     }
     
+    void idivb(Register divsor) {
+        EmitB(0xF6);
+        EmitModRM(7, divsor);
+    }
+    
+    void idivb(Operand divsor) {
+        EmitB(0xF6);
+        EmitOperand(7, divsor);
+    }
+    
     void idivl(Register divsor) { idiv(divsor, 4); }
     void idivl(Operand divsor) { idiv(divsor, 4); }
     
     void idivq(Register divsor) { idiv(divsor, 8); }
     void idivq(Operand divsor) { idiv(divsor, 8); }
     
+    // AX← AL ∗ r/m byte.
+    void imulb(Register rhs) {
+        // F6 /5
+        EmitRex(rhs, 1);
+        EmitB(0xF6);
+        EmitModRM(5, rhs);
+    }
+    
+    void imulb(Operand rhs) {
+        // F6 /5
+        EmitRex(rhs, 1);
+        EmitB(0xF6);
+        EmitOperand(5, rhs);
+    }
+
+    void imulw(Register rhs) {
+        EmitB(0x66);
+        EmitRex(rhs, 2);
+        EmitB(0xF7);
+        EmitModRM(5, rhs);
+    }
+    
+    void imulw(Register dst, Register rhs) {
+        EmitB(0x66);
+        imul(dst, rhs, 2);
+    }
+
+    void imulw(Register dst, Operand rhs) {
+        EmitB(0x66);
+        imul(dst, rhs, 2);
+    }
+
     void imull(Register rhs) { imul(rhs, 4); }
     void imull(Operand rhs) { imul(rhs, 4); }
     void imull(Register dst, Register rhs) { imul(dst, rhs, 4); }
@@ -1144,7 +1186,7 @@ public:
         EmitModRM(dst, lhs);
         EmitB(rhs);
     }
-    
+
     void imul(Register dst, Operand lhs, int8_t rhs, int size) {
         // REX.W + 6B /r ib
         EmitRex(dst, lhs, size);
@@ -1152,7 +1194,7 @@ public:
         EmitOperand(dst, lhs);
         EmitB(rhs);
     }
-    
+
     // Quadword register ← r/m64 ∗ immediate doubleword
     void imul(Register dst, Register lhs, int32_t rhs, int size) {
         // REX.W + 69 /r id
@@ -1161,7 +1203,7 @@ public:
         EmitModRM(dst, lhs);
         EmitDW(rhs);
     }
-    
+
     void imul(Register dst, Operand lhs, int32_t rhs, int size) {
         // REX.W + 69 /r id
         EmitRex(dst, lhs, size);
@@ -1169,12 +1211,12 @@ public:
         EmitOperand(dst, lhs);
         EmitDW(rhs);
     }
-    
+
     // Unsigned divide EDX:EAX by r/m32, with result stored in EAX ← Quotient, EDX ←
     // Remainder.
     void divl(Register divsor) { div(divsor, 4); }
     void divl(Operand divsor) { div(divsor, 4); }
-    
+
     // Unsigned divide RDX:RAX by r/m64, with result stored in RAX ← Quotient, RDX ←
     // Remainder.
     void divq(Register divsor) { div(divsor, 8); }
@@ -1192,6 +1234,32 @@ public:
         EmitRex(divsor, size);
         EmitB(0xF7);
         EmitOperand(6, divsor);
+    }
+    
+    // Unsigned multiply (AX ← AL ∗ r/m8).
+    void mulb(Register divsor) {
+        // REX + F6 /4
+        EmitRex(divsor, 1);
+        EmitB(0xF6);
+        EmitModRM(4, divsor);
+    }
+
+    void mulb(Operand divsor) {
+        // REX + F6 /4
+        EmitRex(divsor, 1);
+        EmitB(0xF6);
+        EmitOperand(4, divsor);
+    }
+    
+    // Unsigned multiply (DX:AX ← AX ∗ r/m16).
+    void mulw(Register divsor) {
+        EmitB(0x66);
+        mulb(divsor);
+    }
+
+    void mulw(Operand divsor) {
+        EmitB(0x66);
+        mulb(divsor);
     }
     
     // Unsigned multiply (EDX:EAX ← EAX ∗ r/m32).
@@ -1215,8 +1283,6 @@ public:
         EmitB(0xF7);
         EmitOperand(4, divsor);
     }
-    
-    
 
 #define ARITH_OP_LIST(V) \
     V(add, \
@@ -1246,7 +1312,9 @@ public:
     
 #define DEF_ARITH(name, q_r_r, q_r_i, q_r_o, q_o_r, q_o_i, w_r_r, w_r_i, w_r_o, w_o_r, w_o_i, b_r_r, b_r_i, b_r_o, b_o_r, b_o_i) \
     DEF_ARITH_LONG(name##q,   8, q_r_r, q_r_i, q_r_o, q_o_r, q_o_i) \
-    DEF_ARITH_LONG(name##l,   4, q_r_r, q_r_i, q_r_o, q_o_r, q_o_i)
+    DEF_ARITH_LONG(name##l,   4, q_r_r, q_r_i, q_r_o, q_o_r, q_o_i) \
+    DEF_ARITH_LONG(name##w,   2, w_r_r, w_r_i, w_r_o, w_o_r, w_o_i) \
+    DEF_ARITH_LONG(name##b,   1, b_r_r, b_r_i, b_r_o, b_o_r, b_o_i)
     
 #define DEF_ARITH_LONG(name, size, rr, ri, ro, or, oi) \
     inline void name(Register lhs, Register rhs) { EmitArith(rr, lhs, rhs, size); } \
@@ -1448,6 +1516,9 @@ private:
     }
     
     void EmitArith(uint8_t op, Register lhs, Operand rhs, int size) {
+        if (size == 2) {
+            EmitB(0x66);
+        }
         EmitRex(lhs, rhs, size);
         EmitB(op);
         EmitOperand(lhs, rhs);
@@ -1486,7 +1557,7 @@ private:
         if (size == 8) {
             EmitRex64(dst, src);
         } else {
-            DCHECK_EQ(size, 4);
+            DCHECK_LE(size, 4);
             EmitOptionalRex32(dst, src);
         }
     }
@@ -1496,7 +1567,7 @@ private:
         if (size == 8) {
             EmitRex64(arg);
         } else {
-            DCHECK_EQ(size, 4);
+            DCHECK_LE(size, 4);
             EmitOptionalRex32(arg);
         }
     }

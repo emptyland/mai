@@ -566,6 +566,17 @@ TEST_F(BytecodeGeneratorTest, RunNumberInboxUnbox) {
     ASSERT_EQ(0, isolate_->GetUncaughtCount());
 }
 
+TEST_F(BytecodeGeneratorTest, RunNumberArithmetic) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/026-number-arithmetic");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+
+    ASSERT_EQ(0, isolate_->GetUncaughtCount());
+}
+
 } // namespace lang
 
 } // namespace mai

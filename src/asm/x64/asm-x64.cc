@@ -459,7 +459,9 @@ void Assembler::nop(int n) {
 
 void Assembler::EmitArith(uint8_t op, Register reg, Register rm_reg, int size) {
     DCHECK((op & 0xC6) == 2);
-
+    if (size == 2) {
+        EmitB(0x66);
+    }
     if (rm_reg.lo_bits() == 4) { // Forces SIB byte.
         // Swap reg and rm_reg and change opcode operand order.
         EmitRex(rm_reg, reg, size);
@@ -473,6 +475,9 @@ void Assembler::EmitArith(uint8_t op, Register reg, Register rm_reg, int size) {
 }
 
 void Assembler::EmitArith(uint8_t subcode, Register lhs, int32_t imm, int size) {
+    if (size == 2) {
+        EmitB(0x66);
+    }
     EmitRex(lhs, size);
     if (IsIntN(imm, 8)) {
         EmitB(0x83);
@@ -489,6 +494,9 @@ void Assembler::EmitArith(uint8_t subcode, Register lhs, int32_t imm, int size) 
 }
     
 void Assembler::EmitArith(uint8_t subcode, Operand lhs, int32_t imm, int size) {
+    if (size == 2) {
+        EmitB(0x66);
+    }
     EmitRex(lhs, size);
     if (IsIntN(imm, 8)) {
         EmitB(0x83);

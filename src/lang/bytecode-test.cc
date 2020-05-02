@@ -25,6 +25,8 @@ public:
 };
 
 TEST_F(BytecodeTest, Sanity) {
+    printf("Max bytecodes: %d\n", kMax_Bytecodes);
+    
     auto node = Bytecodes<kLdar64>::New(arean_, 16);
     ASSERT_NE(nullptr, node);
     ASSERT_EQ(BytecodeType::A, node->kind());

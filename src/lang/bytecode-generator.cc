@@ -3631,17 +3631,19 @@ BytecodeGenerator::GenerateVariableAssignment(const ASTString *name, Value lval,
                 GenerateOperation(op, lval.type, lval.index, lval.linkage, rval.type, rval.index,
                                   rval.linkage, ast);
             }
+            StaIfNeeded(lval.type, lval.index, lval.linkage, ast);
             break;
         case Operator::NOT_OPERATOR:
             if (NeedInbox(lval.type, rval.type)) {
                 InboxIfNeeded(rval.type, rval.index, rval.linkage, lval.type, ast);
+            } else {
+                MoveToStackIfNeeded(rval.type, rval.index, rval.linkage, lval.index, ast);
             }
             break;
         default:
             NOREACHED();
             break;
     }
-    StaIfNeeded(lval.type, lval.index, lval.linkage, ast);
     return ResultWith(lval);
 }
 
@@ -4127,8 +4129,104 @@ void BytecodeGenerator::GenerateOperation(const Operator op, const Class *clazz,
     switch (static_cast<BuiltinType>(clazz->id())) {
         case kType_i8:
         case kType_u8:
+            switch (op.kind) {
+                case Operator::kAdd:
+                    EMIT(ast, Add<kAdd8>(loff, roff));
+                    break;
+                case Operator::kSub:
+                    EMIT(ast, Add<kSub8>(loff, roff));
+                    break;
+                case Operator::kMul:
+                    if (clazz->IsUnsignedIntegral()) {
+                        EMIT(ast, Add<kMul8>(loff, roff));
+                    } else {
+                        EMIT(ast, Add<kIMul8>(loff, roff));
+                    }
+                    break;
+                case Operator::kDiv:
+                    if (clazz->IsUnsignedIntegral()) {
+                        EMIT(ast, Add<kDiv8>(loff, roff));
+                    } else {
+                        EMIT(ast, Add<kIDiv8>(loff, roff));
+                    }
+                    break;
+                case Operator::kMod:
+                    EMIT(ast, Add<kMod8>(loff, roff));
+                    break;
+                case Operator::kBitwiseOr:
+                    EMIT(ast, Add<kBitwiseOr32>(loff, roff));
+                    break;
+                case Operator::kBitwiseAnd:
+                    EMIT(ast, Add<kBitwiseAnd32>(loff, roff));
+                    break;
+                case Operator::kBitwiseXor:
+                    EMIT(ast, Add<kBitwiseXor32>(loff, roff));
+                    break;
+                case Operator::kBitwiseShl:
+                    EMIT(ast, Add<kBitwiseShl32>(loff, roff));
+                    break;
+                case Operator::kBitwiseShr:
+                    if (clazz->IsUnsignedIntegral()) {
+                        EMIT(ast, Add<kBitwiseShr32>(loff, roff));
+                    } else {
+                        EMIT(ast, Add<kBitwiseLogicShr32>(loff, roff));
+                    }
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
         case kType_i16:
         case kType_u16:
+            switch (op.kind) {
+                case Operator::kAdd:
+                    EMIT(ast, Add<kAdd16>(loff, roff));
+                    break;
+                case Operator::kSub:
+                    EMIT(ast, Add<kSub16>(loff, roff));
+                    break;
+                case Operator::kMul:
+                    if (clazz->IsUnsignedIntegral()) {
+                        EMIT(ast, Add<kMul16>(loff, roff));
+                    } else {
+                        EMIT(ast, Add<kIMul16>(loff, roff));
+                    }
+                    break;
+                case Operator::kDiv:
+                    if (clazz->IsUnsignedIntegral()) {
+                        EMIT(ast, Add<kDiv16>(loff, roff));
+                    } else {
+                        EMIT(ast, Add<kIDiv16>(loff, roff));
+                    }
+                    break;
+                case Operator::kMod:
+                    EMIT(ast, Add<kMod16>(loff, roff));
+                    break;
+                case Operator::kBitwiseOr:
+                    EMIT(ast, Add<kBitwiseOr32>(loff, roff));
+                    break;
+                case Operator::kBitwiseAnd:
+                    EMIT(ast, Add<kBitwiseAnd32>(loff, roff));
+                    break;
+                case Operator::kBitwiseXor:
+                    EMIT(ast, Add<kBitwiseXor32>(loff, roff));
+                    break;
+                case Operator::kBitwiseShl:
+                    EMIT(ast, Add<kBitwiseShl32>(loff, roff));
+                    break;
+                case Operator::kBitwiseShr:
+                    if (clazz->IsUnsignedIntegral()) {
+                        EMIT(ast, Add<kBitwiseShr32>(loff, roff));
+                    } else {
+                        EMIT(ast, Add<kBitwiseLogicShr32>(loff, roff));
+                    }
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
         case kType_i32:
         case kType_u32:
         case kType_int:

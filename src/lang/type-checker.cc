@@ -943,7 +943,7 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
             NOREACHED();
             break;
     }
-    DCHECK_EQ(lhs->id(), rhs->id());
+    //DCHECK_EQ(lhs->id(), rhs->id());
     return ResultWithType(lhs);
 }
 

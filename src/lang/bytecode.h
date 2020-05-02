@@ -218,32 +218,52 @@ namespace lang {
     V(F32ToF64, BytecodeType::A, BytecodeParam::kStackOffset)
 
 #define DECLARE_ARITH_BYTECODE(V) \
+    V(Add8,   BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(Add16,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Add32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Add64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Addf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Addf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(Sub8,   BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(Sub16,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Sub32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Sub64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Subf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Subf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(Mul8,   BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(Mul16,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Mul32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Mul64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Mulf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Mulf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(IMul8,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(IMul16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(IMul32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(IMul64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(Div8,   BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(Div16,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Div32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Div64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Divf32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Divf64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(IDiv8,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(IDiv16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(IDiv32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(IDiv64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(Mod8,   BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(Mod16,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Mod32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Mod64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(Increment8,   BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
+    V(Increment16,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(Increment32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(Increment64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
+    V(IncrementPost8,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
+    V(IncrementPost16,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(IncrementPost32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(IncrementPost64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
+    V(UMinus8,  BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(UMinus16,  BytecodeType::A, BytecodeParam::kStackOffset) \
     V(UMinus32,  BytecodeType::A, BytecodeParam::kStackOffset) \
     V(UMinus64,  BytecodeType::A, BytecodeParam::kStackOffset) \
     V(UMinusf32,  BytecodeType::A, BytecodeParam::kStackOffset) \
@@ -257,12 +277,22 @@ namespace lang {
     V(BitwiseAnd64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseXor32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseXor64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(BitwiseNot8,  BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(BitwiseNot16, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(BitwiseNot32, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(BitwiseNot64, BytecodeType::A, BytecodeParam::kStackOffset) \
+    V(BitwiseShl8,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(BitwiseShl16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseShl32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseShl64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(BitwiseShr8,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(BitwiseShr16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseShr32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(BitwiseShr64, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(BitwiseLogicShr8, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(BitwiseLogicShr16, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
     V(BitwiseLogicShr32, BytecodeType::AB, BytecodeParam::kStackOffset, \
       BytecodeParam::kStackOffset) \
     V(BitwiseLogicShr64, BytecodeType::AB, BytecodeParam::kStackOffset, \
