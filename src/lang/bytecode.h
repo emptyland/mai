@@ -254,14 +254,8 @@ namespace lang {
     V(Mod16,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Mod32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Mod64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
-    V(Increment8,   BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
-    V(Increment16,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(Increment32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(Increment64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
-    V(IncrementPost8,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
-    V(IncrementPost16,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
-    V(IncrementPost32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
-    V(IncrementPost64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(UMinus8,  BytecodeType::A, BytecodeParam::kStackOffset) \
     V(UMinus16,  BytecodeType::A, BytecodeParam::kStackOffset) \
     V(UMinus32,  BytecodeType::A, BytecodeParam::kStackOffset) \

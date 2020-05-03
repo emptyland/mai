@@ -4163,13 +4163,13 @@ void BytecodeGenerator::GenerateOperation(const Operator op, const Class *clazz,
                     EMIT(ast, Add<kBitwiseXor32>(loff, roff));
                     break;
                 case Operator::kBitwiseShl:
-                    EMIT(ast, Add<kBitwiseShl32>(loff, roff));
+                    EMIT(ast, Add<kBitwiseShl8>(loff, roff));
                     break;
                 case Operator::kBitwiseShr:
                     if (clazz->IsUnsignedIntegral()) {
-                        EMIT(ast, Add<kBitwiseShr32>(loff, roff));
+                        EMIT(ast, Add<kBitwiseLogicShr8>(loff, roff));
                     } else {
-                        EMIT(ast, Add<kBitwiseLogicShr32>(loff, roff));
+                        EMIT(ast, Add<kBitwiseShr8>(loff, roff));
                     }
                     break;
                 default:
@@ -4213,13 +4213,13 @@ void BytecodeGenerator::GenerateOperation(const Operator op, const Class *clazz,
                     EMIT(ast, Add<kBitwiseXor32>(loff, roff));
                     break;
                 case Operator::kBitwiseShl:
-                    EMIT(ast, Add<kBitwiseShl32>(loff, roff));
+                    EMIT(ast, Add<kBitwiseShl16>(loff, roff));
                     break;
                 case Operator::kBitwiseShr:
                     if (clazz->IsUnsignedIntegral()) {
-                        EMIT(ast, Add<kBitwiseShr32>(loff, roff));
+                        EMIT(ast, Add<kBitwiseLogicShr16>(loff, roff));
                     } else {
-                        EMIT(ast, Add<kBitwiseLogicShr32>(loff, roff));
+                        EMIT(ast, Add<kBitwiseShr16>(loff, roff));
                     }
                     break;
                 default:
@@ -4269,9 +4269,9 @@ void BytecodeGenerator::GenerateOperation(const Operator op, const Class *clazz,
                     break;
                 case Operator::kBitwiseShr:
                     if (clazz->IsUnsignedIntegral()) {
-                        EMIT(ast, Add<kBitwiseShr32>(loff, roff));
-                    } else {
                         EMIT(ast, Add<kBitwiseLogicShr32>(loff, roff));
+                    } else {
+                        EMIT(ast, Add<kBitwiseShr32>(loff, roff));
                     }
                     break;
                 default:
@@ -4319,9 +4319,9 @@ void BytecodeGenerator::GenerateOperation(const Operator op, const Class *clazz,
                     break;
                 case Operator::kBitwiseShr:
                     if (clazz->IsUnsignedIntegral()) {
-                        EMIT(ast, Add<kBitwiseShr64>(loff, roff));
-                    } else {
                         EMIT(ast, Add<kBitwiseLogicShr64>(loff, roff));
+                    } else {
+                        EMIT(ast, Add<kBitwiseShr64>(loff, roff));
                     }
                     break;
                 default:

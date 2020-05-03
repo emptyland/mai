@@ -456,6 +456,32 @@ void Assembler::nop(int n) {
     }
 }
 
+void Assembler::EmitShift(Register dst, uint8_t amount, int subcode, int size) {
+    DCHECK(size == sizeof(uint64_t) ? IsUintN(amount, 6) : IsUintN(amount, 5));
+    if (size == 2) {
+        EmitB(0x66);
+    }
+    if (amount == 1) {
+        EmitRex(dst, size);
+        if (size == 1) {
+            EmitB(0xD0);
+        } else {
+            DCHECK(size == 2 || size == 4 || size == 8);
+            EmitB(0xD1);
+        }
+        EmitModRM(subcode, dst);
+    } else {
+        EmitRex(dst, size);
+        if (size == 1) {
+            EmitB(0xC0);
+        } else {
+            DCHECK(size == 2 || size == 4 || size == 8);
+            EmitB(0xC1);
+        }
+        EmitModRM(subcode, dst);
+        EmitB(amount);
+    }
+}
 
 void Assembler::EmitArith(uint8_t op, Register reg, Register rm_reg, int size) {
     DCHECK((op & 0xC6) == 2);

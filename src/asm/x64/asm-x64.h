@@ -925,6 +925,10 @@ public:
     V(sar, 0x7)
     
 #define DEF_SHIFT(name, subcode) \
+    void name##b(Register dst, uint8_t imm8) { EmitShift(dst, imm8, subcode, 1); } \
+    void name##b(Register dst) { EmitShift(dst, subcode, 1); } \
+    void name##w(Register dst, uint8_t imm8) { EmitShift(dst, imm8, subcode, 2); } \
+    void name##w(Register dst) { EmitShift(dst, subcode, 2); } \
     void name##l(Register dst, uint8_t imm8) { EmitShift(dst, imm8, subcode, 4); } \
     void name##l(Register dst) { EmitShift(dst, subcode, 4); } \
     void name##q(Register dst, uint8_t imm8) { EmitShift(dst, imm8, subcode, 8); } \
@@ -1068,6 +1072,37 @@ public:
     }
     
     // IDIV—Signed Divide
+    // Signed divide AX by r/m8, with result stored in: AL ← Quotient, AH ← Remainder.
+    void idivb(Register divsor) {
+        // REX + F6 /7
+        EmitB(0xF6);
+        EmitModRM(7, divsor);
+    }
+    
+    void idivb(Operand divsor) {
+        // REX + F6 /7
+        EmitB(0xF6);
+        EmitOperand(7, divsor);
+    }
+    
+    void idivw(Register divsor) {
+        // F7 /7
+        EmitB(0x66);
+        idiv(divsor, 2);
+    }
+
+    void idivw(Operand divsor) {
+        // F7 /7
+        EmitB(0x66);
+        idiv(divsor, 2);
+    }
+    
+    void idivl(Register divsor) { idiv(divsor, 4); }
+    void idivl(Operand divsor) { idiv(divsor, 4); }
+    
+    void idivq(Register divsor) { idiv(divsor, 8); }
+    void idivq(Operand divsor) { idiv(divsor, 8); }
+    
     void idiv(Register divsor, int size = kDefaultSize) {
         EmitRex(divsor, size);
         EmitB(0xF7);
@@ -1079,22 +1114,6 @@ public:
         EmitB(0xF7);
         EmitOperand(7, divsor);
     }
-    
-    void idivb(Register divsor) {
-        EmitB(0xF6);
-        EmitModRM(7, divsor);
-    }
-    
-    void idivb(Operand divsor) {
-        EmitB(0xF6);
-        EmitOperand(7, divsor);
-    }
-    
-    void idivl(Register divsor) { idiv(divsor, 4); }
-    void idivl(Operand divsor) { idiv(divsor, 4); }
-    
-    void idivq(Register divsor) { idiv(divsor, 8); }
-    void idivq(Operand divsor) { idiv(divsor, 8); }
     
     // AX← AL ∗ r/m byte.
     void imulb(Register rhs) {
@@ -1211,6 +1230,31 @@ public:
         EmitOperand(dst, lhs);
         EmitDW(rhs);
     }
+    
+    // Unsigned divide AX by r/m8, with result stored in AL ← Quotient, AH ← Remainder.
+    void divb(Register divsor) {
+        // REX + F6 /6
+        EmitRex(divsor, 1);
+        EmitB(0xF6);
+        EmitModRM(6, divsor);
+    }
+    
+    void divb(Operand divsor) {
+        EmitRex(divsor, 1);
+        EmitB(0xF6);
+        EmitOperand(6, divsor);
+    }
+    
+    void divw(Register divsor) {
+        // F7 /6
+        EmitB(0x66);
+        div(divsor, 2);
+    }
+    
+    void divw(Operand divsor) {
+        EmitB(0x66);
+        div(divsor, 2);
+    }
 
     // Unsigned divide EDX:EAX by r/m32, with result stored in EAX ← Quotient, EDX ←
     // Remainder.
@@ -1254,12 +1298,12 @@ public:
     // Unsigned multiply (DX:AX ← AX ∗ r/m16).
     void mulw(Register divsor) {
         EmitB(0x66);
-        mulb(divsor);
+        mul(divsor, 2);
     }
 
     void mulw(Operand divsor) {
         EmitB(0x66);
-        mulb(divsor);
+        mul(divsor, 2);
     }
     
     // Unsigned multiply (EDX:EAX ← EAX ∗ r/m32).
@@ -1495,23 +1539,19 @@ public:
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(Assembler);
 private:
-    void EmitShift(Register dst, uint8_t amount, int subcode, int size) {
-        DCHECK(size == sizeof(uint64_t) ? IsUintN(amount, 6) : IsUintN(amount, 5));
-        if (amount == 1) {
-            EmitRex(dst, size);
-            EmitB(0xD1);
-            EmitModRM(subcode, dst);
-        } else {
-            EmitRex(dst, size);
-            EmitB(0xC1);
-            EmitModRM(subcode, dst);
-            EmitB(amount);
-        }
-    }
+    void EmitShift(Register dst, uint8_t amount, int subcode, int size);
 
     void EmitShift(Register dst, int subcode, int size) {
+        if (size == 2) {
+            EmitB(0x66);
+        }
         EmitRex(dst, size);
-        EmitB(0xD3);
+        if (size == 1) {
+            EmitB(0xD2);
+        } else {
+            DCHECK(size == 2 || size == 4 || size == 8);
+            EmitB(0xD3);
+        }
         EmitModRM(subcode, dst);
     }
     
