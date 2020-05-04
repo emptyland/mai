@@ -179,7 +179,7 @@ private:
     Result GenerateNewObject(const Class *clazz, CallExpression *ast, CallingReceiver *receiver);
     int GenerateArguments(const base::ArenaVector<Expression *> &args,
                           const std::vector<const Class *> &params, ASTNode *self_ast, int self_idx,
-                          bool vargs);
+                          bool vargs, ASTNode *ast);
     Result GeneratePropertyAssignment(const ASTString *name, Value self, Scope *owns, Operator op,
                                       Expression *rhs, DotExpression *ast);
     Result GenerateIndexAssignment(const Class *type, int primary, int index, Operator op,

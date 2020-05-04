@@ -293,6 +293,20 @@ namespace lang {
       BytecodeParam::kStackOffset)
 
 #define DECLARE_TEST_BYTECODE(V) \
+    V(TestLessThan8, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(TestLessThanOrEqual8, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThan8, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThanOrEqual8, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestLessThan16, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
+    V(TestLessThanOrEqual16, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThan16, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
+    V(TestGreaterThanOrEqual16, BytecodeType::AB, BytecodeParam::kStackOffset, \
+      BytecodeParam::kStackOffset) \
     V(TestEqual32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestNotEqual32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(TestLessThan32, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \

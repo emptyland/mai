@@ -1591,6 +1591,28 @@ public:
     }
 
     // Comparation ---------------------------------------------------------------------------------
+    void EmitTestLessThan8(MacroAssembler *masm) override { EmitCompare8(masm, Less); }
+    
+    void EmitTestLessThanOrEqual8(MacroAssembler *masm) override { EmitCompare8(masm, LessEqual); }
+    
+    void EmitTestGreaterThan8(MacroAssembler *masm) override { EmitCompare8(masm, Greater); }
+    
+    void EmitTestGreaterThanOrEqual8(MacroAssembler *masm) override {
+        EmitCompare8(masm, GreaterEqual);
+    }
+    
+    void EmitTestLessThan16(MacroAssembler *masm) override { EmitCompare16(masm, Less); }
+    
+    void EmitTestLessThanOrEqual16(MacroAssembler *masm) override {
+        EmitCompare16(masm, LessEqual);
+    }
+    
+    void EmitTestGreaterThan16(MacroAssembler *masm) override { EmitCompare16(masm, Greater); }
+    
+    void EmitTestGreaterThanOrEqual16(MacroAssembler *masm) override {
+        EmitCompare16(masm, GreaterEqual);
+    }
+
     void EmitTestEqual32(MacroAssembler *masm) override { EmitCompare32(masm, Equal); }
     
     void EmitTestNotEqual32(MacroAssembler *masm) override { EmitCompare32(masm, NotEqual); }
@@ -1627,10 +1649,10 @@ public:
     
     void EmitTestNotEqualf32(MacroAssembler *masm) override { EmitComparef32(masm, NotEqual); }
     
-    void EmitTestLessThanf32(MacroAssembler *masm) override { EmitComparef32(masm, Less); }
+    void EmitTestLessThanf32(MacroAssembler *masm) override { EmitComparef32(masm, Below); }
     
     void EmitTestLessThanOrEqualf32(MacroAssembler *masm) override {
-        EmitComparef32(masm, LessEqual);
+        EmitComparef32(masm, BelowEqual);
     }
     
     void EmitTestGreaterThanf32(MacroAssembler *masm) override { EmitComparef32(masm, Greater); }
@@ -1643,10 +1665,10 @@ public:
     
     void EmitTestNotEqualf64(MacroAssembler *masm) override { EmitComparef64(masm, NotEqual); }
     
-    void EmitTestLessThanf64(MacroAssembler *masm) override { EmitComparef64(masm, Less); }
+    void EmitTestLessThanf64(MacroAssembler *masm) override { EmitComparef64(masm, Below); }
     
     void EmitTestLessThanOrEqualf64(MacroAssembler *masm) override {
-        EmitComparef64(masm, LessEqual);
+        EmitComparef64(masm, BelowEqual);
     }
     
     void EmitTestGreaterThanf64(MacroAssembler *masm) override { EmitComparef64(masm, Greater); }
@@ -2272,25 +2294,43 @@ private:
 
         __ Bind(&done);
         __ xorl(ACC, ACC);
-        __ movl(rdx, 1);
         __ cmpl(rbx, 0);
-        __ cmovl(cond, ACC, rdx);
+        __ set(cond, ACC);
+    }
+    
+    void EmitCompare8(MacroAssembler *masm, Cond cond) {
+        InstrStackABScope instr_scope(masm);
+        __ movl(rax, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ cmpb(rax, Operand(rbp, rbx, times_2, 0));
+        __ set(cond, ACC);
+        __ andl(ACC, 0xff);
+    }
+
+    void EmitCompare16(MacroAssembler *masm, Cond cond) {
+        InstrStackABScope instr_scope(masm);
+        __ movl(rax, Operand(rbp, rbx, times_2, 0));
+        instr_scope.GetBToRBX();
+        __ cmpw(rax, Operand(rbp, rbx, times_2, 0));
+        __ set(cond, ACC);
+        __ andl(ACC, 0xff);
     }
 
     void EmitCompare32(MacroAssembler *masm, Cond cond) {
         InstrStackABScope instr_scope(masm);
-        //__ Breakpoint();
         __ movl(rax, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ cmpl(rax, Operand(rbp, rbx, times_2, 0));
-        Label br_true;
-        __ j(cond, &br_true, false/*is_far*/);
-        __ xorq(rax, rax);
-        Label done;
-        __ jmp(&done, false/*is_far*/);
-        __ Bind(&br_true);
-        __ movq(rax, 1);
-        __ Bind(&done);
+        __ set(cond, ACC);
+        __ andl(ACC, 0xff);
+//        Label br_true;
+//        __ j(cond, &br_true, false/*is_far*/);
+//        __ xorq(rax, rax);
+//        Label done;
+//        __ jmp(&done, false/*is_far*/);
+//        __ Bind(&br_true);
+//        __ movq(rax, 1);
+//        __ Bind(&done);
     }
 
     void EmitCompare64(MacroAssembler *masm, Cond cond) {
@@ -2298,29 +2338,34 @@ private:
         __ movq(rax, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ cmpq(rax, Operand(rbp, rbx, times_2, 0));
-        Label br_true;
-        __ j(cond, &br_true, false/*is_far*/);
-        __ xorq(rax, rax);
-        Label done;
-        __ jmp(&done, false/*is_far*/);
-        __ Bind(&br_true);
-        __ movq(rax, 1);
-        __ Bind(&done);
+        __ set(cond, ACC);
+        __ andl(ACC, 0xff);
+//        Label br_true;
+//        __ j(cond, &br_true, false/*is_far*/);
+//        __ xorq(rax, rax);
+//        Label done;
+//        __ jmp(&done, false/*is_far*/);
+//        __ Bind(&br_true);
+//        __ movq(rax, 1);
+//        __ Bind(&done);
     }
     
     void EmitComparef32(MacroAssembler *masm, Cond cond) {
         InstrStackABScope instr_scope(masm);
         __ movss(xmm0, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
+        //__ Breakpoint();
         __ comiss(xmm0, Operand(rbp, rbx, times_2, 0));
-        Label br_true;
-        __ j(cond, &br_true, false/*is_far*/);
-        __ xorq(rax, rax);
-        Label done;
-        __ jmp(&done, false/*is_far*/);
-        __ Bind(&br_true);
-        __ movq(rax, 1);
-        __ Bind(&done);
+        __ set(cond, ACC);
+        __ andl(ACC, 0xff);
+//        Label br_true;
+//        __ j(cond, &br_true, false/*is_far*/);
+//        __ xorq(rax, rax);
+//        Label done;
+//        __ jmp(&done, false/*is_far*/);
+//        __ Bind(&br_true);
+//        __ movq(rax, 1);
+//        __ Bind(&done);
     }
     
     void EmitComparef64(MacroAssembler *masm, Cond cond) {
@@ -2328,14 +2373,16 @@ private:
         __ movsd(xmm0, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ comisd(xmm0, Operand(rbp, rbx, times_2, 0));
-        Label br_true;
-        __ j(cond, &br_true, false/*is_far*/);
-        __ xorq(rax, rax);
-        Label done;
-        __ jmp(&done, false/*is_far*/);
-        __ Bind(&br_true);
-        __ movq(rax, 1);
-        __ Bind(&done);
+        __ set(cond, ACC);
+        __ andl(ACC, 0xff);
+//        Label br_true;
+//        __ j(cond, &br_true, false/*is_far*/);
+//        __ xorq(rax, rax);
+//        Label done;
+//        __ jmp(&done, false/*is_far*/);
+//        __ Bind(&br_true);
+//        __ movq(rax, 1);
+//        __ Bind(&done);
     }
     
     void EmitCheckException(MacroAssembler *masm) {

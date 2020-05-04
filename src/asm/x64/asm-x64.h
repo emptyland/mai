@@ -697,6 +697,21 @@ public:
     void cmovl(Cond cond, Register dst, Register src) { cmov(cond, dst, src, 4); }
     void cmovl(Cond cond, Register dst, Operand src) { cmov(cond, dst, src, 4); }
     
+    // SETcc—Set Byte on Condition
+    void set(Cond cond, Register dst) {
+        EmitRex(dst, 8);
+        EmitB(0x0F);
+        EmitB(0x90 | cond);
+        EmitModRM(0, dst);
+    }
+    
+    void set(Cond cond, Operand dst) {
+        EmitRex(dst, 8);
+        EmitB(0x0F);
+        EmitB(0x90 | cond);
+        EmitOperand(0, dst);
+    }
+
     //----------------------------------------------------------------------------------------------
     // Jmps
     //----------------------------------------------------------------------------------------------
@@ -1075,12 +1090,14 @@ public:
     // Signed divide AX by r/m8, with result stored in: AL ← Quotient, AH ← Remainder.
     void idivb(Register divsor) {
         // REX + F6 /7
+        EmitRex(divsor, 1);
         EmitB(0xF6);
         EmitModRM(7, divsor);
     }
     
     void idivb(Operand divsor) {
         // REX + F6 /7
+        EmitRex(divsor, 1);
         EmitB(0xF6);
         EmitOperand(7, divsor);
     }

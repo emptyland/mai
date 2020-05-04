@@ -1,8 +1,8 @@
 +------------------------------------------------------------------------------
 | init0():void
 +------------------------------------------------------------------------------
-stack-size: 80
-stack-bitmap: 00000001
+stack-size: 96
+stack-bitmap: 00000002
 const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0
@@ -15,7 +15,7 @@ bytecode:
     001 LdaGlobalPtr [GS+332]; (12)
     002 StaGlobalPtr [GS+296]; (12)
     003 NewObject #0, [KP+0]; (10)
-    004 StarPtr [BP-88]; (10)
+    004 StarPtr [BP-104]; (10)
     005 LdaConstPtr [KP+32]; (10)
     006 CallBytecodeFunction #0, #8; (10)
     007 StaGlobalPtr [GS+104]; (10)
@@ -26,11 +26,11 @@ bytecode:
     012 LdaGlobalf32 [GS+0]; (21)
     013 StaGlobalf32 [GS+328]; (21)
     014 LdaConstPtr [KP+40]; (4)
-    015 StarPtr [BP-72]; (4)
+    015 StarPtr [BP-88]; (4)
     016 LdaGlobalPtr [GS+332]; (4)
-    017 StarPtr [BP-80]; (4)
-    018 MovePtr [BP-88], [BP-72]; (4)
-    019 MovePtr [BP-96], [BP-80]; (4)
+    017 StarPtr [BP-96]; (4)
+    018 MovePtr [BP-104], [BP-88]; (4)
+    019 MovePtr [BP-112], [BP-96]; (4)
     020 Contact #0, #16; (4)
     021 StaGlobalPtr [GS+340]; (4)
     022 LdaGlobalPtr [GS+208]; (1)

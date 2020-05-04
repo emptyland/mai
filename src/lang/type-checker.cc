@@ -726,6 +726,9 @@ ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*overr
         for (size_t i = 0; i < n; i++) {
             TypeSign *parameter_type = nullptr;
             VISIT_CHECK_GET(parameter_type, ast->operand(i));
+            if (callee->prototype()->vargs() && i >= callee->prototype()->parameters_size()) {
+                continue;
+            }
             if (!parameter_type->Convertible(callee->prototype()->parameter(i).type)) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function prototype: "
                                         " %s at parameter[%ld]", callee->ToString().c_str(), i);
@@ -924,8 +927,8 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
             } else if (lhs->id() == Token::kString && lhs->Convertible(rhs)) {
                 // ok
             } else {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type(%s), need number "
-                                        "or string", rhs->ToString().c_str());
+                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type: %s vs %s",
+                                        lhs->ToString().c_str(), rhs->ToString().c_str());
                 return ResultWithType(kError);
             }
             return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kBool));
@@ -1461,7 +1464,7 @@ ASTVisitor::Result TypeChecker::VisitFunctionDefinition(FunctionDefinition *ast)
             VISIT_CHECK(param->type);
         }
     }
-    if (ast->return_type()->id() == Token::kIdentifier) {
+    if (DCHECK_NOTNULL(ast->return_type())->id() == Token::kIdentifier) {
         VISIT_CHECK(ast->return_type());
     }
 

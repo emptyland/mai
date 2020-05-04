@@ -1,0 +1,70 @@
+package main
+
+fun main() {
+    assertI8Compare()
+    assertU8Compare()
+    assertI16Compare()
+    assertU16Compare()
+    assertF32Compare()
+}
+
+fun assertI8Compare() {
+    val a = 0i8
+    assert(a < 1i8, "unexpected ${a < 1i8}")
+    assert(a <= 1i8, "unexpected ${a <= 1i8}")
+    assert(a <= 0i8, "unexpected ${a <= 0i8}")
+    assert(a > -1i8, "unexpected ${a > -1i8}")
+    assert(a >= -1i8, "unexpected ${a > -1i8}")
+    assert(a >= 0i8, "unexpected ${a > 0i8}")
+    assert(a == 0i8, "unexpected ${a == 0i8}")
+    assert(a != 1i8, "unexpected ${a != 1i8}")
+}
+
+fun assertU8Compare() {
+    val a = 128u8
+    assert(a < 255u8, "unexpected ${a < 255u8}")
+    assert(a <= 255u8, "unexpected ${a <= 255u8}")
+    assert(a <= 128u8, "unexpected ${a <= 128u8}")
+    assert(a > 0u8, "unexpected ${a > 0u8}")
+    assert(a >= 0u8, "unexpected ${a > 0u8}")
+    assert(a >= 128u8, "unexpected ${a > 128u8}")
+    assert(a == 128u8, "unexpected ${a == 128u8}")
+    assert(a != 1u8, "unexpected ${a != 1u8}")
+}
+
+fun assertI16Compare() {
+    val a = 0i16
+    assert(a < 1i16, "unexpected ${a < 1i16}")
+    assert(a <= 1i16, "unexpected ${a <= 1i16}")
+    assert(a <= 0i16, "unexpected ${a <= 0i16}")
+    assert(a > -1i16, "unexpected ${a > -1i16}")
+    assert(a >= -1i16, "unexpected ${a > -1i16}")
+    assert(a >= 0i16, "unexpected ${a > 0i16}")
+    assert(a == 0i16, "unexpected ${a == 0i16}")
+    assert(a != 1i16, "unexpected ${a != 1i16}")
+}
+
+fun assertU16Compare() {
+    val a = 32768u16
+    assert(a < 65535u16, "unexpected ${a < 65535u16}")
+    assert(a <= 65535u16, "unexpected ${a <= 65535u16}")
+    assert(a <= 32768u16, "unexpected ${a <= 32768u16}")
+    assert(a > 0u16, "unexpected ${a > 0u16}")
+    assert(a >= 0u16, "unexpected ${a > 0u16}")
+    assert(a >= 32768u16, "unexpected ${a > 32768u16}")
+    assert(a == 32768u16, "unexpected ${a == 32768u16}")
+    assert(a != 1u16, "unexpected ${a != 1u16}")
+}
+
+fun assertF32Compare() {
+	val a = 0.0
+	assert(a < 0.1, "unexpected ${a < 0.1}")
+	assert(a <= 0.1, "unexpected ${a <= 0.1}")
+	assert(a <= 0.0, "unexpected ${a <= 0.0}")
+	assert(a > -0.1, "unexpected ${a > -0.1}")
+	assert(a >= -0.1, "unexpected ${a >= -0.1}")
+	assert(a >= 0.0, "unexpected ${a >= 0.0}")
+	assert(a == 0.0, "unexpected ${a == 0.0}")
+	assert(a != 0.1, "unexpected ${a != 0.1}")
+
+}

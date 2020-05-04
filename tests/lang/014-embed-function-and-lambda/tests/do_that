@@ -2,7 +2,7 @@
 | main.Foo::doThat(main.Foo):void
 +------------------------------------------------------------------------------
 stack-size: 96
-stack-bitmap: 00000001
+stack-bitmap: 00000002
 const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0
@@ -13,14 +13,14 @@ bytecode-size: 16
 bytecode: 
     000 CheckStack; (12)
     001 LdaConstPtr [KP+32]; (13)
-    002 StarPtr [BP-72]; (13)
+    002 StarPtr [BP-88]; (13)
     003 LdaPropertyf32 [BP+24], @20; (13)
     004 Staf32 [BP-100]; (13)
     005 LdaGlobalPtr [GS+344]; (13)
     006 CallNativeFunction #0, #4; (13)
-    007 StarPtr [BP-80]; (13)
-    008 MovePtr [BP-104], [BP-72]; (13)
-    009 MovePtr [BP-112], [BP-80]; (13)
+    007 StarPtr [BP-96]; (13)
+    008 MovePtr [BP-104], [BP-88]; (13)
+    009 MovePtr [BP-112], [BP-96]; (13)
     010 Contact #0, #16; (13)
     011 StarPtr [BP-88]; (13)
     012 MovePtr [BP-104], [BP-88]; (13)

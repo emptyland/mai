@@ -1,8 +1,8 @@
 +------------------------------------------------------------------------------
 | main.Foo::doIt(main.Foo):void
 +------------------------------------------------------------------------------
-stack-size: 112
-stack-bitmap: 00000005
+stack-size: 96
+stack-bitmap: 00000002
 const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0
@@ -13,21 +13,21 @@ bytecode-size: 20
 bytecode: 
     000 CheckStack; (7)
     001 LdaConstPtr [KP+32]; (8)
-    002 StarPtr [BP-72]; (8)
+    002 StarPtr [BP-88]; (8)
     003 LdaProperty32 [BP+24], @16; (8)
-    004 Star32 [BP-116]; (8)
+    004 Star32 [BP-100]; (8)
     005 LdaGlobalPtr [GS+336]; (8)
     006 CallNativeFunction #0, #4; (8)
-    007 StarPtr [BP-80]; (8)
-    008 MovePtr [BP-120], [BP-72]; (8)
-    009 MovePtr [BP-128], [BP-80]; (8)
+    007 StarPtr [BP-96]; (8)
+    008 MovePtr [BP-104], [BP-88]; (8)
+    009 MovePtr [BP-112], [BP-96]; (8)
     010 Contact #0, #16; (8)
     011 StarPtr [BP-88]; (8)
-    012 MovePtr [BP-120], [BP-88]; (8)
+    012 MovePtr [BP-104], [BP-88]; (8)
     013 LdaGlobalPtr [GS+112]; (8)
     014 CallNativeFunction #0, #8; (8)
-    015 MovePtr [BP-104], [BP+24]; (9)
-    016 MovePtr [BP-120], [BP-104]; (9)
+    015 MovePtr [BP-88], [BP+24]; (9)
+    016 MovePtr [BP-104], [BP-88]; (9)
     017 LdaGlobalPtr [GS+240]; (9)
     018 CallBytecodeFunction #0, #8; (9)
     019 Return; (7)

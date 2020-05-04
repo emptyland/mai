@@ -5,7 +5,10 @@ namespace mai {
 namespace lang {
 
 int StackSpaceAllocator::Reserve(size_t size) {
-    if (level_.p == 0 && level_.r == 0) {
+//    if (level_.p == 0 && level_.r == 0) {
+//        AdvanceSpan(false/*isref*/);
+//    }
+    if (bitmap_.empty()) {
         AdvanceSpan(false/*isref*/);
     }
     while (Test(level_.p) && level_.p < max_spans_ * kSpanSize) {
@@ -21,8 +24,11 @@ int StackSpaceAllocator::Reserve(size_t size) {
 }
 
 int StackSpaceAllocator::ReserveRef() {
-    if (level_.p == 0 && level_.r == 0) {
-        AdvanceSpan(true/*isref*/);
+//    if (level_.p == 0 && level_.r == 0) {
+//        AdvanceSpan(true/*isref*/);
+//    }
+    if (bitmap_.empty()) {
+        AdvanceSpan(false/*isref*/);
     }
     while (!Test(level_.r) && level_.r < max_spans_ * kSpanSize) {
         DCHECK_EQ(0, level_.r % kSpanSize);

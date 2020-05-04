@@ -1,8 +1,8 @@
 +------------------------------------------------------------------------------
 | $init(lang.System):lang.System
 +------------------------------------------------------------------------------
-stack-size: 80
-stack-bitmap: 00000001
+stack-size: 96
+stack-bitmap: 00000002
 const-pool-bytes: 64
 const-pool-bitmap: 00000002
 captured-var-size: 0
@@ -12,8 +12,8 @@ souce-file-name: src/lang/pkg/mai/lang/lang.mai
 bytecode-size: 8
 bytecode: 
     000 CheckStack; (10)
-    001 MovePtr [BP-72], [BP+24]; (11)
-    002 MovePtr [BP-88], [BP-72]; (11)
+    001 MovePtr [BP-88], [BP+24]; (11)
+    002 MovePtr [BP-104], [BP-88]; (11)
     003 LdaGlobalPtr [GS+192]; (11)
     004 CallNativeFunction #0, #8; (11)
     005 StaProperty64 [BP+24], @16; (11)

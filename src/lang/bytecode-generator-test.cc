@@ -577,6 +577,45 @@ TEST_F(BytecodeGeneratorTest, RunNumberArithmetic) {
     ASSERT_EQ(0, isolate_->GetUncaughtCount());
 }
 
+TEST_F(BytecodeGeneratorTest, RunNumberComparation) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/027-number-comparation");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+
+    ASSERT_EQ(0, isolate_->GetUncaughtCount());
+}
+
+TEST_F(BytecodeGeneratorTest, CallingSanity) {
+    Define("028-calling-sanity");
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto err = Parse();
+    ASSERT_TRUE(err.ok()) << err.ToString();
+    ASSERT_TRUE(generator_->Prepare());
+    ASSERT_TRUE(generator_->Generate());
+
+    auto value = generator_->FindValue("main.main");
+    Local<Closure> main(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(main.is_value_not_null());
+    ASSERT_TRUE(main->is_mai_function());
+    ASSERT_FALSE(main->is_cxx_function());
+    AssertFunction("main", main->function());
+}
+
+TEST_F(BytecodeGeneratorTest, RunCallingSanity) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/028-calling-sanity");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+
+    ASSERT_EQ(0, isolate_->GetUncaughtCount());
+}
+
 } // namespace lang
 
 } // namespace mai

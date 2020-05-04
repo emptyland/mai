@@ -1,0 +1,54 @@
+package main
+
+fun main() {
+	demoVargs(1, 2)
+	demoVargs(1, 2, 3)
+	demoVargs(1, 2, 3, 4)
+	demoVargs(1, 2, 3, 4, 5)
+	demoVargs(demoUnary(1), demoUnary(2))
+	demoVargs(demoUnary(1), demoUnary(2), demoUnary(3))
+	demoVargs(demoUnary(1), demoUnary(2), demoAdd(demoUnary(1), demoUnary(1 + 1)))
+	demoVargs(demoUnary(1), demoAdd(demoUnary(1), demoUnary(1)))
+	demoVargs(demoAdd(demoUnary(0), demoUnary(1)), demoAdd(demoUnary(1), demoUnary(1)))
+
+	demoTypedVargs(0, "hello", 0.1)
+	demoTypedVargs(0, "hello", 0.2)
+
+	val demo = 0
+	//println("$demo")
+}
+
+fun demoVargs(a: int, b: int, ...) {
+	assert(a == 1, "a = $a")
+	assert(b == 2, "b = $b")
+	if (argv.length >= 3u) {
+		assert(argv[2] is int, "argv[2] = ${argv[2]}")
+		assert(argv[2] as int == 5, "argv[2] = ${argv[2]}")
+	}
+	if (argv.length >= 2u) {
+		assert(argv[1] is int, "argv[1] = ${argv[1]}")
+		assert(argv[1] as int == 4, "argv[1] = ${argv[1]}")
+	}
+	if (argv.length >= 1u) {
+		assert(argv[0] is int, "argv[0] = ${argv[0]}")
+		assert(argv[0] as int == 3, "argv[0] = ${argv[0]}")
+	}
+}
+
+fun demoTypedVargs(...) {
+	assert(argv.length == 3u, "$argv")
+	assert(argv[0] is int, "argv[0] = ${argv[0]}")
+	assert(argv[0] as int == 0, "argv[0] = ${argv[0]}")
+	assert(argv[1] is string, "argv[1] = ${argv[1]}")
+	assert(argv[1] as string == "hello", "argv[1] = ${argv[1]}")
+	assert(argv[2] is f32, "argv[2] = ${argv[2]}")
+	assert(argv[2] as f32 < 1.0, "argv[2] = ${argv[2]}")
+}
+
+fun demoUnary(a: int): int {
+	return a
+}
+
+fun demoAdd(a: int, b: int): int {
+	return a + b
+}

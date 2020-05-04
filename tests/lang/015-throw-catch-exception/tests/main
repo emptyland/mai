@@ -1,8 +1,8 @@
 +------------------------------------------------------------------------------
 | main.main():void
 +------------------------------------------------------------------------------
-stack-size: 128
-stack-bitmap: 0000000b
+stack-size: 112
+stack-bitmap: 00000006
 const-pool-bytes: 96
 const-pool-bitmap: 00000006
 captured-var-size: 0
@@ -18,36 +18,36 @@ bytecode:
     001 LdaGlobalPtr [GS+216]; (9)
     002 CallBytecodeFunction #0, #0; (9)
     003 ForwardJump 0, #29; (9)
-    004 StarPtr [BP-72]; (10)
+    004 StarPtr [BP-88]; (10)
     005 LdaConstPtr [KP+32]; (11)
-    006 StarPtr [BP-80]; (11)
-    007 LdaPropertyPtr [BP-72], @24; (11)
-    008 StarPtr [BP-88]; (11)
-    009 MovePtr [BP-136], [BP-80]; (11)
-    010 MovePtr [BP-144], [BP-88]; (11)
+    006 StarPtr [BP-96]; (11)
+    007 LdaPropertyPtr [BP-88], @24; (11)
+    008 StarPtr [BP-104]; (11)
+    009 MovePtr [BP-120], [BP-96]; (11)
+    010 MovePtr [BP-128], [BP-104]; (11)
     011 Contact #0, #16; (11)
-    012 StarPtr [BP-104]; (11)
-    013 MovePtr [BP-136], [BP-104]; (11)
+    012 StarPtr [BP-96]; (11)
+    013 MovePtr [BP-120], [BP-96]; (11)
     014 LdaGlobalPtr [GS+112]; (11)
     015 CallNativeFunction #0, #8; (11)
     016 NewObject #0, [KP+0]; (12)
-    017 StarPtr [BP-80]; (12)
-    018 MovePtr [BP-136], [BP-80]; (12)
+    017 StarPtr [BP-96]; (12)
+    018 MovePtr [BP-120], [BP-96]; (12)
     019 LdaConstPtr [KP+40]; (12)
-    020 StarPtr [BP-144]; (12)
-    021 MovePtr [BP-152], [BP-72]; (12)
+    020 StarPtr [BP-128]; (12)
+    021 MovePtr [BP-136], [BP-88]; (12)
     022 LdaConstPtr [KP+48]; (12)
     023 CallBytecodeFunction #0, #24; (12)
     024 Throw; (12)
     025 ForwardJump 0, #7; (12)
-    026 StarPtr [BP-120]; (13)
+    026 StarPtr [BP-88]; (13)
     027 LdaConstPtr [KP+56]; (14)
-    028 StarPtr [BP-136]; (14)
+    028 StarPtr [BP-120]; (14)
     029 LdaGlobalPtr [GS+112]; (14)
     030 CallNativeFunction #0, #8; (14)
     031 ForwardJump 0, #1; (14)
     032 LdaConstPtr [KP+64]; (16)
-    033 StarPtr [BP-136]; (16)
+    033 StarPtr [BP-120]; (16)
     034 LdaGlobalPtr [GS+112]; (16)
     035 CallNativeFunction #0, #8; (16)
     036 Return; (6)

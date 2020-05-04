@@ -1149,7 +1149,8 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
         VISIT_CHECK(param.type);
         params.push_back(metadata_space_->type(rv.bundle.index));
     }
-    int arg_size = GenerateArguments(ast->operands(), params, dot->primary(), self, proto->vargs());
+    int arg_size = GenerateArguments(ast->operands(), params, dot->primary(), self, proto->vargs(),
+                                     ast);
     if (arg_size < 0) {
         return ResultWithError();
     }
@@ -1307,7 +1308,8 @@ Function *BytecodeGenerator::GenerateClassConstructor(const std::vector<FieldDes
             }
             params.push_back(metadata_space_->type(rv.bundle.index));
         }
-        int arg_size = GenerateArguments(ast->arguments(), params, ast, self.index, false/*vargs*/);
+        int arg_size = GenerateArguments(ast->arguments(), params, ast, self.index, false/*vargs*/,
+                                         ast);
         Closure *ctor = DCHECK_NOTNULL(DCHECK_NOTNULL(base->init())->fn());
         int kidx = current_fun_->constants()->FindOrInsertClosure(ctor);
         EMIT(ast, Add<kLdaConstPtr>(GetConstOffset(kidx)));
@@ -1428,7 +1430,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateRegularCalling(CallExpression *ast
         params.push_back(metadata_space_->type(param_rv.bundle.index));
     }
     int arg_size = GenerateArguments(ast->operands(), params, nullptr/*callee*/, 0/*self*/,
-                                     proto->vargs());
+                                     proto->vargs(), ast);
     if (arg_size < 0) {
         return ResultWithError();
     }
@@ -3400,7 +3402,8 @@ ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, Call
     StaStack(clazz, self, ast);
 
     int argument_size = 0;
-    if (argument_size = GenerateArguments(ast->operands(), {}, ast->callee(), self, false);
+    if (argument_size = GenerateArguments(ast->operands(), {}, ast->callee(), self, false/*vargs*/,
+                                          ast);
         argument_size < 0) {
         return ResultWithError();
     }
@@ -3412,27 +3415,69 @@ ASTVisitor::Result BytecodeGenerator::GenerateNewObject(const Class *clazz, Call
     receiver->attributes = 0;
     receiver->arguments_size = argument_size;
     
-    current_fun_->stack()->FallbackRef(self);
+    //current_fun_->stack()->FallbackRef(self);
     return ResultWith(Value::kACC, clazz->id(), 0);
 }
 
 int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &operands,
                                          const std::vector<const Class *> &params,
-                                         ASTNode *callee, int self, bool vargs) {
+                                         ASTNode *callee, int self, bool is_vargs, ASTNode *ast) {
     std::vector<Value> args;
-    for (size_t i = 0; i < operands.size(); i++) {
+    const size_t none_vargs_size = is_vargs ? std::min(params.size(), operands.size()) : operands.size();
+    for (size_t i = 0; i < none_vargs_size; i++) {
         Result rv = operands[i]->Accept(this);
         if (rv.kind == Value::kError) {
             return -1;
         }
         const Class *type = metadata_space_->type(rv.bundle.type);
         if (rv.kind == Value::kACC) {
-            int idx = current_fun_->stack()->Reserve(type->reference_size());
+            int idx = current_fun_->StackReserve(type);
             StaStack(type, idx, operands[i]);
             args.push_back({Value::kStack, type, idx});
         } else {
             args.push_back({static_cast<Value::Linkage>(rv.kind), type, rv.bundle.index});
         }
+    }
+    if (is_vargs) {
+        DCHECK_GE(operands.size(), params.size());
+        std::vector<Value> vargs;
+        for (size_t i = params.size(); i < operands.size(); i++) {
+            Result rv = operands[i]->Accept(this);
+            if (rv.kind == Value::kError) {
+                return -1;
+            }
+            const Class *type = metadata_space_->type(rv.bundle.type);
+            if (NeedInbox(metadata_space_->type(kType_any), type)) {
+                InboxIfNeeded(type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
+                              metadata_space_->type(kType_any), operands[i]);
+                rv.kind = Value::kACC;
+                type = metadata_space_->builtin_type(kType_any);
+            }
+            if (rv.kind == Value::kACC) {
+                int idx = current_fun_->StackReserve(type);
+                //printf("inbox: %d\n", idx);
+                StaStack(type, idx, operands[i]);
+                vargs.push_back({Value::kStack, type, idx});
+            } else {
+                vargs.push_back({static_cast<Value::Linkage>(rv.kind), type, rv.bundle.index});
+            }
+        }
+
+        int argument_offset = 0;
+        for (int64_t i = vargs.size() - 1; i >= 0; i--) {
+            ASTNode *arg = operands[i + params.size()];
+            Value value = vargs[i];
+
+            argument_offset += RoundUp(value.type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(value.type, value.index, value.linkage, argument_offset, arg);
+        }
+        const Class *type = metadata_space_->builtin_type(kType_any);
+        int kidx = current_fun_->constants()->FindOrInsertMetadata(type);
+        current_fun_->EmitArrayWith(ast, argument_offset, GetConstOffset(kidx));
+        type = metadata_space_->type(kType_array);
+        int idx = current_fun_->StackReserve(type);
+        StaStack(type, idx, ast);
+        args.push_back({Value::kStack, type, idx});
     }
     int argument_offset = 0;
     if (callee) {
@@ -3440,12 +3485,12 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
         EMIT(callee, Incomplete<kMovePtr>(-argument_offset, GetStackOffset(self)));
     }
 
-    for (size_t i = 0; i < operands.size(); i++) {
+    for (size_t i = 0; i < none_vargs_size; i++) {
         Expression *arg = operands[i];
         Value value = args[i];
         
-        argument_offset += RoundUp(value.type->reference_size(), kStackSizeGranularity);
         if (value.type->is_reference()) {
+            argument_offset += RoundUp(value.type->reference_size(), kStackSizeGranularity);
             if (value.linkage == Value::kStack) {
                 EMIT(arg, Incomplete<kMovePtr>(-argument_offset, GetStackOffset(value.index)));
             } else {
@@ -3455,15 +3500,20 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
             continue;
         }
         if (i < params.size() && NeedInbox(params[i], value.type)) {
+            argument_offset += RoundUp(kPointerSize, kStackSizeGranularity);
             InboxIfNeeded(value.type, value.index, value.linkage, params[i], arg);
+            EMIT(arg, Incomplete<kStarPtr>(-argument_offset));
             continue;
         }
+
+        argument_offset += RoundUp(value.type->reference_size(), kStackSizeGranularity);
         MoveToArgumentIfNeeded(value.type, value.index, value.linkage, argument_offset, arg);
     }
     
-    if (vargs) {
-        // TODO:
-        TODO();
+    if (is_vargs) {
+        Value vargs = args.back();
+        argument_offset += RoundUp(vargs.type->reference_size(), kStackSizeGranularity);
+        MoveToArgumentIfNeeded(vargs.type, vargs.index, vargs.linkage, argument_offset, ast);
     }
     return argument_offset;
 }
@@ -4379,8 +4429,56 @@ void BytecodeGenerator::GenerateComparation(const Class *clazz, Operator op, int
     const int roff = GetStackOffset(rhs);
     switch (static_cast<BuiltinType>(clazz->id())) {
         case kType_i8:
-        case kType_u8:
+            switch (op.kind) {
+                case Operator::kEqual:
+                    EMIT(ast, Add<kTestEqual32>(loff, roff));
+                    break;
+                case Operator::kNotEqual:
+                    EMIT(ast, Add<kTestNotEqual32>(loff, roff));
+                    break;
+                case Operator::kLess:
+                    EMIT(ast, Add<kTestLessThan8>(loff, roff));
+                    break;
+                case Operator::kLessEqual:
+                    EMIT(ast, Add<kTestLessThanOrEqual8>(loff, roff));
+                    break;
+                case Operator::kGreater:
+                    EMIT(ast, Add<kTestGreaterThan8>(loff, roff));
+                    break;
+                case Operator::kGreaterEqual:
+                    EMIT(ast, Add<kTestGreaterThanOrEqual8>(loff, roff));
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
         case kType_i16:
+            switch (op.kind) {
+                case Operator::kEqual:
+                    EMIT(ast, Add<kTestEqual32>(loff, roff));
+                    break;
+                case Operator::kNotEqual:
+                    EMIT(ast, Add<kTestNotEqual32>(loff, roff));
+                    break;
+                case Operator::kLess:
+                    EMIT(ast, Add<kTestLessThan16>(loff, roff));
+                    break;
+                case Operator::kLessEqual:
+                    EMIT(ast, Add<kTestLessThanOrEqual16>(loff, roff));
+                    break;
+                case Operator::kGreater:
+                    EMIT(ast, Add<kTestGreaterThan16>(loff, roff));
+                    break;
+                case Operator::kGreaterEqual:
+                    EMIT(ast, Add<kTestGreaterThanOrEqual16>(loff, roff));
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
+        case kType_u8:
         case kType_u16:
         case kType_i32:
         case kType_u32:

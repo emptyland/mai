@@ -846,7 +846,7 @@ FunctionPrototype *Parser::ParseFunctionPrototype(bool requrie_param_name, Sourc
                 proto->set_return_type(type);
                 *loc = file_unit_->FindSourceLocation(type);
             }
-            return proto;
+            goto done;
         }
 
         if (requrie_param_name) {
@@ -872,6 +872,7 @@ FunctionPrototype *Parser::ParseFunctionPrototype(bool requrie_param_name, Sourc
         Match(Token::kRParen, CHECK_OK);
     }
 
+done:
     if (Test(Token::kColon)) {
         TypeSign *type = ParseTypeSign(CHECK_OK);
         proto->set_return_type(type);
