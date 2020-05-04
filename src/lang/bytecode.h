@@ -256,6 +256,8 @@ namespace lang {
     V(Mod64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kStackOffset) \
     V(Increment32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(Increment64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
+    V(Decrement32,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
+    V(Decrement64,  BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(UMinus8,  BytecodeType::A, BytecodeParam::kStackOffset) \
     V(UMinus16,  BytecodeType::A, BytecodeParam::kStackOffset) \
     V(UMinus32,  BytecodeType::A, BytecodeParam::kStackOffset) \

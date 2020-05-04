@@ -1426,16 +1426,58 @@ public:
     void EmitNot(MacroAssembler *masm) override {
         InstrStackAScope instr_scope(masm);
         __ cmpl(Operand(rbp, rbx, times_2, 0), 0);
-        Label br_false;
-        __ j(Equal, &br_false, false/*is_far*/);
-        Label done;
-        __ xorq(ACC, ACC);
-        __ jmp(&done, false/*is_far*/);
-        __ Bind(&br_false);
-        __ movq(ACC, 1);
-        __ Bind(&done);
+        __ set(Equal, ACC);
+        __ andl(ACC, 0xff);
     }
     
+    void EmitUMinus8(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ negb(ACC);
+    }
+    
+    void EmitUMinus16(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ negw(ACC);
+    }
+    
+    void EmitUMinus32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ negl(ACC);
+    }
+    
+    void EmitUMinus64(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        __ negq(ACC);
+    }
+    
+    void EmitBitwiseNot8(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ notb(ACC);
+    }
+    
+    void EmitBitwiseNot16(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ notw(ACC);
+    }
+
+    void EmitBitwiseNot32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movl(ACC, Operand(rbp, rbx, times_2, 0));
+        __ notl(ACC);
+    }
+
+    void EmitBitwiseNot64(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ movq(ACC, Operand(rbp, rbx, times_2, 0));
+        __ notq(ACC);
+    }
+
     void EmitBitwiseAnd32(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
@@ -1654,13 +1696,13 @@ public:
     void EmitTestLessThanOrEqualf32(MacroAssembler *masm) override {
         EmitComparef32(masm, BelowEqual);
     }
-    
+
     void EmitTestGreaterThanf32(MacroAssembler *masm) override { EmitComparef32(masm, Greater); }
     
     void EmitTestGreaterThanOrEqualf32(MacroAssembler *masm) override {
         EmitComparef32(masm, GreaterEqual);
     }
-    
+
     void EmitTestEqualf64(MacroAssembler *masm) override { EmitComparef64(masm, Equal); }
     
     void EmitTestNotEqualf64(MacroAssembler *masm) override { EmitComparef64(masm, NotEqual); }

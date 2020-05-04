@@ -892,7 +892,33 @@ public:
     //----------------------------------------------------------------------------------------------
     // Neg/Not/Shift
     //----------------------------------------------------------------------------------------------
-    // Neg
+    // NEG—Two's Complement Negation
+    void negb(Register dst) {
+        // REX + F6 /3
+        EmitRex(dst, 1);
+        EmitB(0xF6);
+        EmitModRM(0x3, dst);
+    }
+
+    void negb(Operand dst) {
+        // REX + F6 /3
+        EmitRex(dst, 1);
+        EmitB(0xF6);
+        EmitOperand(0x3, dst);
+    }
+    
+    void negw(Register dst) {
+        // F7 /3
+        EmitB(0x66);
+        neg(dst, 2);
+    }
+
+    void negw(Operand dst) {
+        // F7 /3
+        EmitB(0x66);
+        neg(dst, 2);
+    }
+    
     void negl(Register dst) { neg(dst, 4); }
     void negl(Operand dst) { neg(dst, 4); }
     void negq(Register dst) { neg(dst, 8); }
@@ -908,6 +934,31 @@ public:
         EmitRex(dst, size);
         EmitB(0xF7);
         EmitOperand(0x3, dst);
+    }
+
+    // NOT—One's Complement Negation
+    void notb(Register dst) {
+        // REX + F6 /2
+        EmitRex(dst, 1);
+        EmitB(0xF6);
+        EmitModRM(0x2, dst);
+    }
+    
+    void notb(Operand dst) {
+        // REX + F6 /2
+        EmitRex(dst, 1);
+        EmitB(0xF6);
+        EmitOperand(0x2, dst);
+    }
+    
+    void notw(Register dst) {
+        EmitB(0x66);
+        not_(dst, 2);
+    }
+
+    void notw(Operand dst) {
+        EmitB(0x66);
+        not_(dst, 2);
     }
     
     void notl(Register dst) { not_(dst, 4); }

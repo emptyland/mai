@@ -1584,21 +1584,214 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
             CleanupOperands(&receiver);
         } return ResultWith(Value::kACC, kType_bool, 0);
             
-        case Operator::kBitwiseNot:
-            TODO();
-            break;
+        case Operator::kBitwiseNot: {
+            OperandContext receiver;
+            if (!GenerateUnaryOperands(&receiver, ast->operand())) {
+                return ResultWithError();
+            }
+            switch (receiver.lhs_type->reference_size()) {
+                case 1:
+                    EMIT(ast, Add<kBitwiseNot8>(GetStackOffset(receiver.lhs)));
+                    break;
+                case 2:
+                    EMIT(ast, Add<kBitwiseNot16>(GetStackOffset(receiver.lhs)));
+                    break;
+                case 4:
+                    EMIT(ast, Add<kBitwiseNot32>(GetStackOffset(receiver.lhs)));
+                    break;
+                case 8:
+                    EMIT(ast, Add<kBitwiseNot64>(GetStackOffset(receiver.lhs)));
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            CleanupOperands(&receiver);
+            return ResultWith(Value::kACC, receiver.lhs_type->id(), 0);
+        } break;
             
-        case Operator::kMinus:
-            TODO();
-            break;
-            
+        case Operator::kMinus: {
+            OperandContext receiver;
+            if (!GenerateUnaryOperands(&receiver, ast->operand())) {
+                return ResultWithError();
+            }
+            switch (receiver.lhs_type->reference_size()) {
+                case 1:
+                    EMIT(ast, Add<kUMinus8>(GetStackOffset(receiver.lhs)));
+                    break;
+                case 2:
+                    EMIT(ast, Add<kUMinus16>(GetStackOffset(receiver.lhs)));
+                    break;
+                case 4:
+                    if (receiver.lhs_type->IsFloating()) {
+                        EMIT(ast, Add<kUMinusf32>(GetStackOffset(receiver.lhs)));
+                    } else {
+                        EMIT(ast, Add<kUMinus32>(GetStackOffset(receiver.lhs)));
+                    }
+                    break;
+                case 8:
+                    if (receiver.lhs_type->IsFloating()) {
+                        EMIT(ast, Add<kUMinusf64>(GetStackOffset(receiver.lhs)));
+                    } else {
+                        EMIT(ast, Add<kUMinus64>(GetStackOffset(receiver.lhs)));
+                    }
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            CleanupOperands(&receiver);
+            return ResultWith(Value::kACC, receiver.lhs_type->id(), 0);
+        } break;
+
         case Operator::kIncrement:
-        case Operator::kIncrementPost:
-        case Operator::kDecrement:
-        case Operator::kDecrementPost:
-            TODO();
-            break;
+        case Operator::kIncrementPost: {
+            Result rv;
+            VISIT_CHECK(ast->operand());
+            Value operand{
+                static_cast<Value::Linkage>(rv.kind),
+                metadata_space_->type(rv.bundle.type),
+                rv.bundle.index
+            };
             
+            OperandContext receiver;
+            if (ast->op().kind == Operator::kIncrementPost) {
+                LdaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                AssociateLHSOperand(&receiver, operand.type, 0, Value::kACC, ast);
+            } else {
+                AssociateLHSOperand(&receiver, operand, ast);
+            }
+            DCHECK(receiver.lhs_type->IsIntegral());
+            switch (receiver.lhs_type->reference_size()) {
+                case 1:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    AssociateRHSOperand(&receiver, receiver.lhs_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
+                    EMIT(ast, Add<kAdd8>(GetStackOffset(receiver.lhs),
+                                         GetStackOffset(receiver.rhs)));
+                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    break;
+                case 2:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    AssociateRHSOperand(&receiver, receiver.lhs_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
+                    EMIT(ast, Add<kAdd16>(GetStackOffset(receiver.lhs),
+                                          GetStackOffset(receiver.rhs)));
+                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    break;
+                case 4:
+                    if (ast->op().kind == Operator::kIncrement &&
+                        operand.linkage == Value::kStack) {
+                        EMIT(ast, Add<kIncrement32>(GetStackOffset(receiver.lhs), 1));
+                        break;
+                    }
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    AssociateRHSOperand(&receiver, receiver.lhs_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
+                    EMIT(ast, Add<kAdd32>(GetStackOffset(receiver.lhs),
+                                          GetStackOffset(receiver.rhs)));
+                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    break;
+                case 8:
+                    if (ast->op().kind == Operator::kIncrement &&
+                        operand.linkage == Value::kStack) {
+                        EMIT(ast, Add<kIncrement64>(GetStackOffset(receiver.lhs), 1));
+                        break;
+                    }
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    AssociateRHSOperand(&receiver, receiver.lhs_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kStar64>(GetStackOffset(receiver.rhs)));
+                    EMIT(ast, Add<kAdd64>(GetStackOffset(receiver.lhs),
+                                          GetStackOffset(receiver.rhs)));
+                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            CleanupOperands(&receiver);
+            if (ast->op().kind == Operator::kIncrement) {
+                return ResultWith(operand);
+            } else {
+                LdaStack(receiver.lhs_type, receiver.lhs, ast);
+                return ResultWith(Value::kACC, operand.type->id(), 0);
+            }
+        } break;
+
+        case Operator::kDecrement:
+        case Operator::kDecrementPost: {
+            Result rv;
+            VISIT_CHECK(ast->operand());
+            Value operand{
+                static_cast<Value::Linkage>(rv.kind),
+                metadata_space_->type(rv.bundle.type),
+                rv.bundle.index
+            };
+            
+            OperandContext receiver;
+            if (ast->op().kind == Operator::kDecrementPost) {
+                LdaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                AssociateLHSOperand(&receiver, operand.type, 0, Value::kACC, ast);
+            } else {
+                AssociateLHSOperand(&receiver, operand, ast);
+            }
+            DCHECK(receiver.lhs_type->IsIntegral());
+            switch (receiver.lhs_type->reference_size()) {
+                case 1:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    AssociateRHSOperand(&receiver, receiver.lhs_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
+                    EMIT(ast, Add<kSub8>(GetStackOffset(receiver.lhs),
+                                         GetStackOffset(receiver.rhs)));
+                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    break;
+                case 2:
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    AssociateRHSOperand(&receiver, receiver.lhs_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
+                    EMIT(ast, Add<kSub16>(GetStackOffset(receiver.lhs),
+                                          GetStackOffset(receiver.rhs)));
+                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    break;
+                case 4:
+                    if (ast->op().kind == Operator::kDecrement &&
+                        operand.linkage == Value::kStack) {
+                        EMIT(ast, Add<kDecrement32>(GetStackOffset(receiver.lhs), 1));
+                        break;
+                    }
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    AssociateRHSOperand(&receiver, receiver.lhs_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
+                    EMIT(ast, Add<kSub32>(GetStackOffset(receiver.lhs),
+                                          GetStackOffset(receiver.rhs)));
+                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    break;
+                case 8:
+                    if (ast->op().kind == Operator::kDecrement &&
+                        operand.linkage == Value::kStack) {
+                        EMIT(ast, Add<kDecrement64>(GetStackOffset(receiver.lhs), 1));
+                        break;
+                    }
+                    EMIT(ast, Add<kLdaSmi32>(1));
+                    AssociateRHSOperand(&receiver, receiver.lhs_type, 0, Value::kACC, ast);
+                    EMIT(ast, Add<kStar64>(GetStackOffset(receiver.rhs)));
+                    EMIT(ast, Add<kSub64>(GetStackOffset(receiver.lhs),
+                                          GetStackOffset(receiver.rhs)));
+                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            CleanupOperands(&receiver);
+            if (ast->op().kind == Operator::kDecrement) {
+                return ResultWith(operand);
+            } else {
+                LdaStack(receiver.lhs_type, receiver.lhs, ast);
+                return ResultWith(Value::kACC, operand.type->id(), 0);
+            }
+        } break;
+
         case Operator::kRecv: {
             Result rv;
             VISIT_CHECK(ast->operand());
@@ -1612,9 +1805,7 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
                 value = FindOrInsertExternalFunction("channel::recvPtr");
             } else {
                 switch (type->reference_size()) {
-                case 1:
-                case 2:
-                case 4:
+                case 1: case 2: case 4:
                     if (type->IsFloating()) {
                         value = FindOrInsertExternalFunction("channel::recvF32");
                     } else {

@@ -10,16 +10,27 @@ fun main() {
 
 fun assertI8Arithmetic() { 
 	var a = -1i8
+	assert((-a) == 1i8, "fail ${-a}")
 	assert(a + 1i8 == 0i8, "fail ${a + 1i8}")
 	a = 0i8
 	assert(a - 1i8 == -1i8, "fail ${a - 1i8}")
 	a = 127i8
+	assert((-a) == -127i8, "fail ${-a}")
 	assert(a + 1i8 == -128i8, "fail ${a + 1i8}")
 	assert(a * 1i8 == 127i8, "fail ${a * 1i8}")
 	assert(a * 2i8 == -2i8, "fail ${a * 2i8}")
 	assert(a / 2i8 == 63i8, "fail ${a / 2i8}")
 	assert(a % 10i8 == 7i8, "fail ${a % 10i8}")
+	assert(a++ == 127i8, "fail ${a - 1i8}")
+	assert(a == -128i8, "fail $a")
+	assert((++a) == -127i8, "fail ${a - 1i8}")
+	assert(a == -127i8, "fail $a")
+	assert(a-- == -127i8, "fail ${a + 1i8}")
+	assert(a == -128i8, "fail $a")
+	assert((--a) == 127i8, "fail ${a + 1i8}")
+	assert(a == 127i8, "fail $a")
 	a = -128i8
+	assert((-a) == -128i8, "fail ${-a}")
 	assert(a << 1 == 0i8, "fail ${a << 1}")
 	assert(a >> 1 == -64i8, "fail ${a >> 1}")
 }
@@ -30,28 +41,42 @@ fun assertU8Arithmetic() {
 	a = 0u8
 	assert(a - 1u8 == 255u8, "fail ${a - 1u8}")
 	a = 127u8
+	assert((-a) == 129u8, "fail ${-a}")
 	assert(a + 1u8 == 128u8, "fail ${a + 1u8}")
 	assert(a * 1u8 == 127u8, "fail ${a * 1u8}")
 	assert(a * 2u8 == 254u8, "fail ${a * 2u8}")
 	assert(a / 2u8 == 63u8, "fail ${a / 2u8}")
 	assert(a % 10u8 == 7u8, "fail ${a % 10u8}")
+	assert(a++ == 127u8, "fail ${a - 1u8}")
+	assert(a == 128u8, "fail $a")
+	assert((++a) == 129u8, "fail ${a - 1u8}")
+	assert(a == 129u8, "fail $a")
+	assert(a-- == 129u8, "fail ${a + 1u8}")
+	assert(a == 128u8, "fail $a")
+	assert((--a) == 127u8, "fail ${a + 1u8}")
+	assert(a == 127u8, "fail $a")
 	a = 128u8
+	assert((-a) == 128u8, "fail ${-a}")
 	assert(a << 1 == 0u8, "fail ${a << 1}")
 	assert(a >> 1 == 64u8, "fail ${a >> 1}")
 }
 
 fun assertI16Arithmetic() { 
 	var a = -1i16
+	assert((-a) == 1i16, "fail ${-a}")
 	assert(a + 1i16 == 0i16, "fail ${a + 1i16}")
 	a = 0i16
+	assert((-a) == 0i16, "fail ${-a}")
 	assert(a - 1i16 == -1i16, "fail ${a - 1i16}")
 	a = 32767i16
+	assert((-a) == -32767i16, "fail ${-a}")
 	assert(a + 1i16 == -32768i16, "fail ${a + 1i16}")
 	assert(a * 1i16 == 32767i16, "fail ${a * 1i16}")
 	assert(a * 2i16 == -2i16, "fail ${a * 2i16}")
 	assert(a / 2i16 == 16383i16, "fail ${a / 2i16}")
 	assert(a % 10i16 == 7i16, "fail ${a % 10i16}")
 	a = -32768i16
+	assert((-a) == -32768i16, "fail ${-a}")
 	assert(a << 1 == 0i16, "fail ${a << 1}")
 	assert(a >> 1 == -16384i16, "fail ${a >> 1}")
 }
@@ -74,14 +99,18 @@ fun assertU16Arithmetic() {
 
 fun assertI32Arithmetic() {
 	var a = -1i32
+	assert((-a) == 1, "fail ${-a}")
 	assert(a + 1 == 0, "fail ${a + 1}")
 	a = 0
+	assert((-a) == 0, "fail ${-a}")
 	assert(a - 1 == -1, "fail ${a - 1}")
 	a = 2147483647
+	assert((-a) == -2147483647, "fail ${-a}")
 	assert(a + 1 == -2147483648, "fail ${a + 1}")
 	assert(a * 1 == 2147483647, "fail ${a * 1}")
 	assert(a / 1 == 2147483647, "fail ${a / 1}")
 	a = -2147483648
+	assert((-a) == -2147483648, "fail ${-a}")
 	assert(a - 1 == 2147483647, "fail ${a - 1}")
 
 }
