@@ -25,6 +25,6 @@ bytecode:
     011 StarPtr [BP-88]; (20)
     012 MovePtr [BP-96], [BP-88]; (22)
     013 MovePtr [BP-104], [BP-96]; (22)
-    014 LdaGlobalPtr [GS+232]; (22)
+    014 LdaGlobalPtr [GS+272]; (22)
     015 CallBytecodeFunction #0, #8; (22)
     016 Return; (19)

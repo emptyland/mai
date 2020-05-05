@@ -229,8 +229,13 @@ void Object::Iterate(ObjectVisitor *visitor) {
 String *Object::ToString() const {
     IncrementalStringBuilder builder;
     const Class *klass = clazz();
+
     builder.AppendFormat("%s(", klass->name());
-    
+    if (klass->id() == kType_string) {
+        const String *s = reinterpret_cast<const String *>(this);
+        builder.AppendFormat("\"%s\")", s->data());
+        return builder.QuickBuild();
+    }
     for (uint32_t i = 0; i <klass->n_fields(); i++) {
         if (i > 0) {
             builder.AppendString(", ");

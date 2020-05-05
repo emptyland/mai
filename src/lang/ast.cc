@@ -508,6 +508,7 @@ size_t TypeSign::GetReferenceSize() const {
         return sizeof(kind);
         DECLARE_BOX_NUMBER_TYPES(DEFINE_PRIMITIVE_TYPE)
     #undef DEFINE_PRIMITIVE_TYPE
+        case Token::kAny:
         case Token::kString:
         case Token::kArray:
         case Token::kMap:
@@ -520,7 +521,7 @@ size_t TypeSign::GetReferenceSize() const {
             return kPointerSize;
         case Token::kClass:
         default:
-            NOREACHED();
+            NOREACHED() << Token::ToString(static_cast<Token::Kind>(id()));
             return 0;
     }
 }

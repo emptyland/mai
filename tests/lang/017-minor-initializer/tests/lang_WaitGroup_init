@@ -28,6 +28,6 @@ bytecode:
     015 LdaZero; (14)
     016 StaProperty64 [BP+24], @64; (14)
     017 MovePtr [BP-72], [BP+24]; (3)
-    018 LdaGlobalPtr [GS+72]; (3)
+    018 LdaGlobalPtr [GS+112]; (3)
     019 CallNativeFunction #0, #8; (3)
     020 Return; (3)

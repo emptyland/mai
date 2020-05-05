@@ -14,7 +14,7 @@ bytecode:
     000 CheckStack; (10)
     001 MovePtr [BP-88], [BP+24]; (11)
     002 MovePtr [BP-104], [BP-88]; (11)
-    003 LdaGlobalPtr [GS+192]; (11)
+    003 LdaGlobalPtr [GS+232]; (11)
     004 CallNativeFunction #0, #8; (11)
     005 StaProperty64 [BP+24], @16; (11)
     006 LdarPtr [BP+24]; (10)

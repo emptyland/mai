@@ -1139,7 +1139,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
     DCHECK(clazz->is_reference());
     StackSpaceAllocator::Scope stack_scope(current_fun_->stack());
     
-    int self = current_fun_->stack()->ReserveRef();
+    int self = current_fun_->StackReserve(primary.type);
     MoveToStackIfNeeded(clazz, primary.index, primary.linkage, self, dot);
     
     auto proto = ast->prototype();
@@ -3620,14 +3620,22 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
         if (rv.kind == Value::kError) {
             return -1;
         }
-        const Class *type = metadata_space_->type(rv.bundle.type);
-        if (rv.kind == Value::kACC) {
-            int idx = current_fun_->StackReserve(type);
-            StaStack(type, idx, operands[i]);
-            args.push_back({Value::kStack, type, idx});
-        } else {
-            args.push_back({static_cast<Value::Linkage>(rv.kind), type, rv.bundle.index});
+        Value arg{
+            static_cast<Value::Linkage>(rv.kind),
+            metadata_space_->type(rv.bundle.type),
+            rv.bundle.index,
+        };
+        if (i < params.size() && NeedInbox(params[i], arg.type)) {
+            arg.type = InboxIfNeeded(arg.type, arg.index, arg.linkage, params[i], operands[i]);
+            arg.linkage = Value::kACC;
+            arg.index = 0;
         }
+        if (arg.linkage == Value::kACC) {
+            arg.linkage = Value::kStack;
+            arg.index = current_fun_->StackReserve(arg.type);
+            StaStack(arg.type, arg.index, operands[i]);
+        }
+        args.push_back(arg);
     }
     if (is_vargs) {
         DCHECK_GE(operands.size(), params.size());
@@ -3690,13 +3698,6 @@ int BytecodeGenerator::GenerateArguments(const base::ArenaVector<Expression *> &
             }
             continue;
         }
-        if (i < params.size() && NeedInbox(params[i], value.type)) {
-            argument_offset += RoundUp(kPointerSize, kStackSizeGranularity);
-            InboxIfNeeded(value.type, value.index, value.linkage, params[i], arg);
-            EMIT(arg, Incomplete<kStarPtr>(-argument_offset));
-            continue;
-        }
-
         argument_offset += RoundUp(value.type->reference_size(), kStackSizeGranularity);
         MoveToArgumentIfNeeded(value.type, value.index, value.linkage, argument_offset, arg);
     }
@@ -4859,8 +4860,8 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
     }
 }
 
-void BytecodeGenerator::InboxIfNeeded(const Class *clazz, int index, Value::Linkage linkage,
-                                      const Class *lval, ASTNode *ast) {
+const Class *BytecodeGenerator::InboxIfNeeded(const Class *clazz, int index, Value::Linkage linkage,
+                                              const Class *lval, ASTNode *ast) {
     switch (static_cast<BuiltinType>(clazz->id())) {
 #define DEFINE_INBOX_PRIMITIVE(dest, name, ...) \
         case kType_##name: { \
@@ -4869,11 +4870,11 @@ void BytecodeGenerator::InboxIfNeeded(const Class *clazz, int index, Value::Link
             Value value = FindOrInsertExternalFunction("lang." #dest "::valueOf"); \
             LdaGlobal(value.type, value.index, ast); \
             current_fun_->EmitDirectlyCallFunction(ast, true, 0, args_size); \
-        } break;
+        } return metadata_space_->builtin_type(kType_##dest);
         DECLARE_BOX_NUMBER_TYPES(DEFINE_INBOX_PRIMITIVE)
 #undef DEFINE_INBOX_PRIMITIVE
         default:
-            break;
+            return clazz;
     }
 }
 

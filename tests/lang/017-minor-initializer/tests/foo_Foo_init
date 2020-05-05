@@ -16,6 +16,6 @@ bytecode:
     003 LdarPtr [BP+28]; (3)
     004 StaPropertyPtr [BP+40], @20; (3)
     005 MovePtr [BP-72], [BP+40]; (3)
-    006 LdaGlobalPtr [GS+64]; (3)
+    006 LdaGlobalPtr [GS+104]; (3)
     007 CallBytecodeFunction #0, #8; (3)
     008 Return; (3)

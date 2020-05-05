@@ -230,8 +230,8 @@ private:
     void CleanupOperands(OperandContext *receiver);
     
     void ToStringIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
-    void InboxIfNeeded(const Class *clazz, int index, Value::Linkage linkage, const Class *lval,
-                       ASTNode *ast);
+    const Class *InboxIfNeeded(const Class *clazz, int index, Value::Linkage linkage,
+                               const Class *lval, ASTNode *ast);
     void MoveToStackIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest,
                              ASTNode *ast);
     void MoveToArgumentIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest,

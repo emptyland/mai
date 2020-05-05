@@ -1,0 +1,61 @@
+package assertion
+
+class Assert(
+	val expectValue: any,
+	val desc: string
+)
+
+class AssertFailException(message: string, cause: Exception): Exception(message, cause)
+
+implements Assert {
+
+fun isEqualTo(actualValue: any): Assert {
+	val code = "equalTo"
+    if (self.expectValue is int) {
+    	self.assertValue(actualValue is int, actualValue, code)
+    	self.assertValue(self.expectValue as int == actualValue as int, actualValue, code)
+    }
+    if (self.expectValue is string) {
+    	self.assertValue(actualValue is string, actualValue, code)
+    	self.assertValue(self.expectValue as string == actualValue as string, actualValue, code)
+    }
+    return self
+}
+
+fun isLessThan(actualValue: any): Assert {
+	val code = "lessThan"
+	if (self.expectValue is int) {
+    	self.assertValue(actualValue is int, actualValue, code)
+    	self.assertValue(self.expectValue as int < actualValue as int, actualValue, code)
+    }
+	if (self.expectValue is string) {
+        self.assertValue(actualValue is string, actualValue, code)
+        self.assertValue(self.expectValue as string < actualValue as string, actualValue, code)
+    }
+	return self
+}
+
+fun isGreaterThan(actualValue: any): Assert {
+	val code = "lessThan"
+	if (self.expectValue is int) {
+    	self.assertValue(actualValue is int, actualValue, code)
+    	self.assertValue(self.expectValue as int > actualValue as int, actualValue, code)
+    }
+	if (self.expectValue is string) {
+        self.assertValue(actualValue is string, actualValue, code)
+        self.assertValue(self.expectValue as string > actualValue as string, actualValue, code)
+    }
+	return self
+}
+
+fun assertValue(ok: bool, actualValue: any, message: string) {
+	if (!ok) {
+		throw AssertFailException("[FAIL] $message: unexpected ${self.expectValue}, actual is $actualValue", nil)
+	}
+}
+
+} // implements Assert
+
+fun assertThat(expectValue: any): Assert {
+    return Assert(expectValue, "")
+}

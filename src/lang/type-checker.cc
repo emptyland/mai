@@ -729,7 +729,7 @@ ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*overr
             if (callee->prototype()->vargs() && i >= callee->prototype()->parameters_size()) {
                 continue;
             }
-            if (!parameter_type->Convertible(callee->prototype()->parameter(i).type)) {
+            if (!callee->prototype()->parameter(i).type->Convertible(parameter_type)) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function prototype: "
                                         " %s at parameter[%ld]", callee->ToString().c_str(), i);
                 return ResultWithType(kError);
@@ -1430,16 +1430,19 @@ ASTVisitor::Result TypeChecker::VisitClassDefinition(ClassDefinition *ast) /*ove
                                     "expected %ld parameters", ast->arguments_size());
             return ResultWithType(kError);
         }
-        
+
         for (size_t i = 0; i < ast->arguments_size(); i++) {
-            VISIT_CHECK(ast->argument(i));
+            TypeSign *arg_type = nullptr;
+            VISIT_CHECK_GET(arg_type, ast->argument(i));
             auto param = ast->base()->parameter(i);
-            auto type = param.field_declaration
+            auto param_type = param.field_declaration
                 ? ast->base()->field(param.as_field).declaration->type()
                 : param.as_parameter->type();
-            if (!type->Convertible(rv.sign)) {
+            VISIT_CHECK(param_type);
+            if (!param_type->Convertible(arg_type)) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Unexpected base class "
-                                        "constructor");
+                                        "constructor, parameter[%zd] %s vs %s", i,
+                                        param_type->ToString().c_str(), rv.sign->ToString().c_str());
                 return ResultWithType(kError);
             }
         }

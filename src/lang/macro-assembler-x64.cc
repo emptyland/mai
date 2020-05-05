@@ -712,6 +712,7 @@ public:
     
     void EmitLdaProperty64(MacroAssembler *masm) override {
         InstrStackImmABScope instr_scope(masm);
+        //__ Breakpoint();
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         CheckNotNil(masm, SCRATCH);
         instr_scope.GetBToRBX();

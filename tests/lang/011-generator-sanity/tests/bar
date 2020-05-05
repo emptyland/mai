@@ -12,9 +12,9 @@ bytecode-size: 8
 bytecode: 
     000 CheckStack; (14)
     001 MovePtr [BP-72], [BP+24]; (15)
-    002 LdaGlobalPtr [GS+112]; (15)
+    002 LdaGlobalPtr [GS+152]; (15)
     003 CallNativeFunction #0, #8; (15)
     004 MovePtr [BP-72], [BP+16]; (16)
-    005 LdaGlobalPtr [GS+112]; (16)
+    005 LdaGlobalPtr [GS+152]; (16)
     006 CallNativeFunction #0, #8; (16)
     007 Return; (14)
