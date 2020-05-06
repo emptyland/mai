@@ -551,23 +551,40 @@ bool TypeChecker::CheckFileUnit(const std::string &pkg_name, FileUnit *unit) {
 }
 
 ASTVisitor::Result TypeChecker::VisitTypeSign(TypeSign *ast) /*override*/ {
-    if (ast->id() == Token::kIdentifier) {
-        Symbolize *sym = current_->GetFileScope()->FindOrNull(ast->prefix(), ast->name());
+    switch (static_cast<Token::Kind>(ast->id())) {
+        case Token::kIdentifier: {
+            Symbolize *sym = current_->GetFileScope()->FindOrNull(ast->prefix(), ast->name());
 
-        if (auto clazz = sym->AsClassDefinition()) {
-            ast->set_id(Token::kClass);
-            ast->set_clazz(clazz);
-        } else if (auto object = sym->AsObjectDefinition()) {
-            ast->set_id(Token::kObject);
-            ast->set_object(object);
-        } else if (auto interf = sym->AsInterfaceDefinition()) {
-            ast->set_id(Token::kInterface);
-            ast->set_interface(interf);
-        } else {
-            error_feedback_->Printf(FindSourceLocation(ast), "Type name: %s not found",
-                                    ast->ToSymbolString().c_str());
-            return ResultWithType(kError);
+            if (auto clazz = sym->AsClassDefinition()) {
+                ast->set_id(Token::kClass);
+                ast->set_clazz(clazz);
+            } else if (auto object = sym->AsObjectDefinition()) {
+                ast->set_id(Token::kObject);
+                ast->set_object(object);
+            } else if (auto interf = sym->AsInterfaceDefinition()) {
+                ast->set_id(Token::kInterface);
+                ast->set_interface(interf);
+            } else {
+                error_feedback_->Printf(FindSourceLocation(ast), "Type name: %s not found",
+                                        ast->ToSymbolString().c_str());
+                return ResultWithType(kError);
+            }
+        } break;
+        case Token::kArray:
+        case Token::kMap:
+        case Token::kChannel:
+            for (size_t i = 0; i < ast->parameters_size(); i++) {
+                VISIT_CHECK_JUST(ast->parameter(i));
+            }
+            break;
+        case Token::kFun: {
+            VISIT_CHECK_JUST(ast->prototype()->return_type());
+            for (auto param : ast->prototype()->parameters()) {
+                VISIT_CHECK_JUST(param.type);
+            }
         }
+        default:
+            break;
     }
     return ResultWithType(ast);
 }
@@ -680,7 +697,7 @@ ASTVisitor::Result TypeChecker::VisitLambdaLiteral(LambdaLiteral *ast) /*overrid
 ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*override*/ {
     TypeSign *callee = nullptr;
     VISIT_CHECK_GET(callee, ast->callee());
-    
+
     if (callee->id() == Token::kClass) { // Constructor
         if (ast->operands_size() != callee->clazz()->parameters_size()) {
             error_feedback_->Printf(FindSourceLocation(ast), "Unexpected class contructor: %s",
@@ -721,15 +738,17 @@ ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*overr
                 return ResultWithType(kError);
             }
         }
-        
+
         size_t n = std::min(ast->operands_size(), callee->parameters_size());
         for (size_t i = 0; i < n; i++) {
-            TypeSign *parameter_type = nullptr;
-            VISIT_CHECK_GET(parameter_type, ast->operand(i));
+            TypeSign *argument_type = nullptr;
+            VISIT_CHECK_GET(argument_type, ast->operand(i));
             if (callee->prototype()->vargs() && i >= callee->prototype()->parameters_size()) {
                 continue;
             }
-            if (!callee->prototype()->parameter(i).type->Convertible(parameter_type)) {
+            TypeSign *parameter_type = nullptr;
+            VISIT_CHECK_GET(parameter_type, callee->prototype()->parameter(i).type);
+            if (!parameter_type->Convertible(argument_type)) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function prototype: "
                                         " %s at parameter[%ld]", callee->ToString().c_str(), i);
                 return ResultWithType(kError);
@@ -955,7 +974,7 @@ ASTVisitor::Result TypeChecker::VisitTypeCastExpression(TypeCastExpression *ast)
     VISIT_CHECK_GET(operand, ast->operand());
     TypeSign *dest = nullptr;
     VISIT_CHECK_GET(dest, ast->type());
-    VISIT_CHECK_JUST(ast->type());
+    //VISIT_CHECK_JUST(ast->type());
     if (!operand->Castable(dest)) {
         error_feedback_->Printf(FindSourceLocation(ast), "Impossible cast %s to %s",
                                 operand->ToString().c_str(), dest->ToString().c_str());
@@ -979,6 +998,7 @@ ASTVisitor::Result TypeChecker::VisitTypeTestExpression(TypeTestExpression *ast)
 ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*override*/ {
     Result rv;
     if (ast->reserve()) {
+        VISIT_CHECK(ast->element_type());
         VISIT_CHECK(ast->reserve());
         if (!rv.sign->IsIntegral()) {
             error_feedback_->Printf(FindSourceLocation(ast), "Incorrect array constructor "
@@ -1004,7 +1024,7 @@ ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*o
             defined_element_type->set_id(Token::kAny);
         }
     }
-    
+
     if (ast->element_type()) {
         if (!ast->element_type()->Convertible(defined_element_type)) {
             error_feedback_->Printf(FindSourceLocation(ast), "Attempt unconvertible element type, "
@@ -1016,6 +1036,7 @@ ASTVisitor::Result TypeChecker::VisitArrayInitializer(ArrayInitializer *ast) /*o
         ast->set_element_type(defined_element_type);
     }
 
+    VISIT_CHECK(ast->element_type());
     return ResultWithType(new (arena_) TypeSign(arena_, ast->position(), Token::kArray,
                                                 ast->element_type()));
 }

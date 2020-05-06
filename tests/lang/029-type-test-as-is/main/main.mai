@@ -1,0 +1,123 @@
+package main
+
+class Foo(val id: int)
+
+fun main() {
+    assertTypeTestSanity()
+    assertArray8TypeTest()
+    assertArray16TypeTest()
+    assertArray32TypeTest()
+    assertArray64TypeTest()
+    assertFunctionTypeTest()
+}
+
+fun assertArray8TypeTest() {
+    val a: any = array[i8](0)
+    assert(a is array[i8], "fail $a")
+    assert(!(a is array[u8]), "fail $a")
+    a as array[i8]
+    a as array[u8]
+
+    val b: any = array[u8](0)
+    assert(b is array[u8], "fail $b")
+    assert(!(b is array[i8]), "fail $b")
+    b as array[u8]
+    b as array[i8]
+}
+
+fun assertArray16TypeTest() {
+    val a: any = array[i16](0)
+    assert(a is array[i16], "fail $a")
+    assert(!(a is array[u16]), "fail $a")
+    a as array[i16]
+    a as array[u16]
+
+    val b: any = array[u16](0)
+    assert(b is array[u16], "fail $b")
+    assert(!(b is array[i16]), "fail $b")
+    b as array[u16]
+    b as array[i16]
+}
+
+fun assertArray32TypeTest() {
+    val a: any = array{1,2,3,4}
+    assert(a is array[int], "fail $a")
+    assert(!(a is array[uint]), "fail $a")
+    assert(!(a is array[u32]), "fail $a")
+    assert(!(a is array[i32]), "fail $a")
+    a as array[int]
+    a as array[uint]
+    a as array[i32]
+    a as array[u32]
+
+    val b: any = array[uint](1)
+    assert(b is array[uint], "fail $b")
+    assert(!(b is array[int]), "fail $b")
+    assert(!(b is array[i32]), "fail $b")
+    assert(!(b is array[u32]), "fail $b")
+    b as array[int]
+    b as array[uint]
+    b as array[i32]
+    b as array[u32]
+
+    val c: any = array[f32](1)
+    assert(c is array[f32], "fail $c")
+    assert(!(c is array[int]), "fail $c")
+    assert(!(c is array[uint]), "fail $c")
+    assert(!(c is array[i32]), "fail $c")
+    assert(!(c is array[u32]), "fail $c")
+    c as array[f32]
+}
+
+fun assertArray64TypeTest() {
+    val a: any = array[i64](1)
+    assert(a is array[i64], "fail $a")
+    assert(!(a is array[u64]), "fail $a")
+    a as array[i64]
+    a as array[u64]
+
+    val b: any = array[u64](1)
+    assert(b is array[u64], "fail $b")
+    assert(!(b is array[i64]), "fail $b")
+    b as array[i64]
+    b as array[u64]
+
+    val c: any = array[f64](1)
+    assert(c is array[f64], "fail $c")
+    assert((!c is array[i64]), "fail $c")
+    assert((!c is array[u64]), "fail $c")
+    c as array[f64]
+}
+
+fun assertFunctionTypeTest() {
+    val a: any = lambda (a:int, b:int): int { return a + b }
+    assert(a is fun(int, int):int, "fail $a")
+    val f = a as fun(int, int):int
+    assert(f(1,1) == 2, "fail $f")
+    val b: any = lambda (a:int, b:Foo): int { return a + b.id }
+    assert(b is fun(int, Foo):int, "fail $b")
+    val c = (b as fun(int, Foo):int)(1, Foo(2))
+    assert(c == 3, "fail $c")
+}
+
+fun assertTypeTestSanity() {
+    val a: any = array[int](1)
+    assert(a is array[int], "fail $a")
+    assert(!(a is array[Foo]), "fail $a")
+    a as array[int]
+
+    val b: any = array[Foo](1)
+    assert(b is array[Foo], "fail $b")
+    assert(!(b is array[int]), "fail $b")
+    b as array[Foo]
+
+    val c: any = array{1.0, 2.0, 3.0}
+    assert(c is array[f32], "fail $c")
+    assert(!(c is array[int]), "fail $c")
+    c as array[f32]
+
+    val d: any = channel[int](0)
+    assert(d is channel[int], "fail $d")
+    assert(!(d is channel[f32]), "fail $d")
+    d as channel[int]
+}

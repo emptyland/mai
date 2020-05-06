@@ -616,6 +616,17 @@ TEST_F(BytecodeGeneratorTest, RunCallingSanity) {
     ASSERT_EQ(0, isolate_->GetUncaughtCount());
 }
 
+TEST_F(BytecodeGeneratorTest, RunTestAsIs) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/029-type-test-as-is");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+
+    ASSERT_EQ(0, isolate_->GetUncaughtCount());
+}
+
 } // namespace lang
 
 } // namespace mai

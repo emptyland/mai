@@ -272,9 +272,8 @@ BuiltinType GetArrayType(const Class *element_type) {
         len = 0;
     }
     int capacity = len < 16 ? len + 16 : len;
-    BuiltinType dest_type = GetArrayType(element_type);
     SafepointScope safepoint_scope(STATE->gc());
-    return Machine::This()->NewArray(dest_type, len, capacity, 0);
+    return Machine::This()->NewArray(element_type->id(), len, capacity, 0);
 }
 
 /*static*/ AbstractArray *Runtime::NewArrayWith(const Class *element_type, Address start,
@@ -462,14 +461,29 @@ Runtime::Array64Plus(Handle<Array<uint64_t>> array, int index, uint64_t value) {
     return TArrayResize<uint64_t>(array, size);
 }
 
-static bool TestIs(const Class *dest, void *param, Any *any) {
+static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
     switch (static_cast<BuiltinType>(dest->id())) {
-        case kType_array: {
-            if (any->clazz()->id() != kType_array) {
+        case kType_array:
+        case kType_array8:
+        case kType_array16:
+        case kType_array32:
+        case kType_array64: {
+            if (!any->clazz()->IsArray()) {
                 return false;
             }
             const AbstractArray *array = static_cast<AbstractArray *>(any);
             const Class *expect = static_cast<const Class *>(param);
+            if (strict) {
+                return array->elem_type()->IsSameOrBaseOf(expect);
+            }
+            if (expect->IsIntegral()) {
+                return array->elem_type()->IsIntegral() &&
+                       array->elem_type()->reference_size() == expect->reference_size();
+            }
+            if (expect->IsFloating()) {
+                return array->elem_type()->IsFloating() &&
+                       array->elem_type()->reference_size() == expect->reference_size();
+            }
             return array->elem_type()->IsSameOrBaseOf(expect);
         } break;
 
@@ -494,11 +508,11 @@ static bool TestIs(const Class *dest, void *param, Any *any) {
             } else {
                 proto = fun->function()->prototype();
             }
-            return proto->IsSameOf(expect);
+            return proto == expect;
         } break;
 
         default:
-            NOREACHED();
+            NOREACHED() << dest->name();
             break;
     }
     return false;
@@ -510,7 +524,7 @@ static bool TestIs(const Class *dest, void *param, Any *any) {
         return nullptr;
     }
     const Class *dest = static_cast<const Class *>(param1);
-    if (!lang::TestIs(dest, param2, *any)) {
+    if (!lang::TestIs(dest, param2, *any, false/*strict*/)) {
         String *text =Machine::This()->NewUtf8StringWithFormat(0, "Bad cast from %s to %s",
                                                                any->clazz()->name(), dest->name());
         Machine::This()->ThrowPanic(Panic::kError, text);
@@ -520,7 +534,7 @@ static bool TestIs(const Class *dest, void *param, Any *any) {
 }
 
 /*static*/ int Runtime::TestIs(Handle<Any> any, void *param1, void *param2) {
-    return lang::TestIs(static_cast<const Class *>(param1), param2, *any);
+    return lang::TestIs(static_cast<const Class *>(param1), param2, *any, true/*strict*/);
 }
 
 /*static*/ int Runtime::IsSameOrBaseOf(const Any *any, const Class *type) {

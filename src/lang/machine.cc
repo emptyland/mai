@@ -717,7 +717,7 @@ Channel *Machine::NewChannel(uint32_t data_typeid, size_t capacity, uint32_t fla
         return nullptr;
     }
     
-    return new (result.ptr()) Channel(data_type, data_type,
+    return new (result.ptr()) Channel(STATE->builtin_type(kType_channel), data_type,
                                       static_cast<uint32_t>(capacity),
                                       color_tags());
 }

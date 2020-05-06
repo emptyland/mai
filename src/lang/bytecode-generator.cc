@@ -741,6 +741,23 @@ bool BytecodeGenerator::GenerateUnit(const std::string &pkg_name, FileUnit *unit
     return true;
 }
 
+PrototypeDesc *BytecodeGenerator::GenerateFunctionPrototype(FunctionPrototype *ast) {
+    std::vector<uint32_t> desc;
+    for (auto param : ast->parameters()) {
+        if (auto rv = param.type->Accept(this); rv.kind == Value::kError) {
+            return nullptr;
+        } else {
+            desc.push_back(rv.bundle.index);
+        }
+    }
+    Result rv;
+    if (rv = ast->return_type()->Accept(this); rv.kind == Value::kError) {
+        return nullptr;
+    }
+    desc.push_back(rv.bundle.index);
+    return metadata_space_->NewPrototypeDesc(desc, ast->vargs());
+}
+
 bool BytecodeGenerator::GenerateSymbolDependence(Value value) {
     if (Value::kGlobal != value.linkage && Value::kMetadata != value.linkage) {
         return true;
@@ -2288,9 +2305,13 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestIs(const Value &operand, TypeS
             
         case kType_closure:
             switch (static_cast<BuiltinType>(dest_type->id())) {
-                case kType_closure: {
-                    // TODO:
-                } break;
+                case kType_closure:
+                    if (auto proto = GenerateFunctionPrototype(dest->prototype()); !proto) {
+                        return ResultWithError();
+                    } else {
+                        GenerateTypeTest(operand, "lang.testIs", dest_type, proto, ast);
+                    }
+                    break;
                 case kType_any:
                     EMIT(ast, Add<kLdaSmi32>(1));
                     break;
@@ -2302,7 +2323,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestIs(const Value &operand, TypeS
         case kType_any:
         default: {
             int kidx = 0;
-            const Class *type = nullptr;
+            const MetadataObject *type = nullptr;
             OperandContext receiver;
             switch (static_cast<BuiltinType>(dest_type->id())) {
             #define DEFINE_BOX_NUMBER_TEST_IS(box, primitive, ...) \
@@ -2320,10 +2341,17 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestIs(const Value &operand, TypeS
                 case kType_array32:
                 case kType_array64:
                 case kType_array:
-                case kType_closure:
-                    VISIT_CHECK(dest);
+                case kType_channel:
+                    VISIT_CHECK(dest->parameter(0));
                     type = metadata_space_->type(rv.bundle.index);
                     GenerateTypeTest(operand, "lang.testIs", dest_type, type, ast);
+                    break;
+                case kType_closure:
+                    if (auto proto = GenerateFunctionPrototype(dest->prototype()); !proto) {
+                        return ResultWithError();
+                    } else {
+                        GenerateTypeTest(operand, "lang.testIs", dest_type, proto, ast);
+                    }
                     break;
                 case kType_any:
                     EMIT(ast, Add<kLdaSmi32>(1));
@@ -2911,7 +2939,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateTestAs(const Value &operand, const
             }
             if (dest_type->id() == kType_array) {
                 DCHECK_EQ(dest->id(), Token::kArray);
-                VISIT_CHECK(dest);
+                VISIT_CHECK(dest->parameter(0));
                 const Class *type = metadata_space_->type(rv.bundle.index);
                 GenerateTypeTest(operand, "lang.testAs", dest_type, type, ast);
                 return ResultWith(Value::kACC, kType_array, 0);
@@ -2998,17 +3026,17 @@ case kType_##dest: \
                 DEFINE_NUMBER_UNBOX(F64, f64, 64);
 
                 case kType_channel:
+                case kType_array8:
+                case kType_array16:
+                case kType_array32:
+                case kType_array64:
                 case kType_array:
-                    VISIT_CHECK(dest);
+                    VISIT_CHECK(dest->parameter(0));
                     type = metadata_space_->type(rv.bundle.index);
                     GenerateTypeTest(operand, "lang.testAs", dest_type, type, ast);
                     return ResultWith(Value::kACC, dest_type->id(), 0);
 
                 case kType_string:
-                case kType_array8:
-                case kType_array16:
-                case kType_array32:
-                case kType_array64:
                 default:
                     kidx = current_fun_->constants()->FindOrInsertMetadata(dest_type);
                     AssociateLHSOperand(&receiver, operand, ast);
@@ -4839,7 +4867,8 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
         case kType_array16:
         case kType_array32:
         case kType_array64:
-        case kType_channel: {
+        case kType_channel:
+        case kType_closure: {
             MoveToArgumentIfNeeded(clazz, index, linkage, kPointerSize/*arg_offset*/, ast);
             Value value = EnsureFindValue("lang.Object::toString");
             DCHECK_EQ(Value::kGlobal, value.linkage);

@@ -56,6 +56,10 @@ public:
     bool IsUnsignedIntegral() const;
     bool IsSignedIntegral() const;
     bool IsFloating() const { return id_ == kType_f32 || id_ == kType_f64; }
+    bool IsArray() const {
+        return id_ == kType_array8 || id_ == kType_array16 || id_ == kType_array32 ||
+               id_ == kType_array64 || id_ == kType_array;
+    }
 
     DEF_VAL_GETTER(uint32_t, n_fields);
     DEF_VAL_GETTER(uint32_t, id);
@@ -483,7 +487,11 @@ public:
     
     size_t GetParametersRealSize(const MetadataSpace *space) const;
     
+    uint32_t HashCode() const;
+    
     bool IsSameOf(const PrototypeDesc *proto) const;
+    
+    bool IsEqualOf(const PrototypeDesc *proto) const;
 
     // To readable string
     std::string ToString() const;

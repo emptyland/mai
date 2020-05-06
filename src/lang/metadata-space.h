@@ -107,8 +107,8 @@ public:
         return NewPrototypeDesc(&desc[0], desc.size() - 1, has_vargs, desc.back());
     }
     
-    inline PrototypeDesc *NewPrototypeDesc(const uint32_t *parameters, size_t n, bool has_vargs,
-                                           uint32_t return_type);
+    PrototypeDesc *NewPrototypeDesc(const uint32_t *parameters, size_t n, bool has_vargs,
+                                    uint32_t return_type);
     
     // mark all pages to readonly
     void MarkReadonly(bool readonly) {
@@ -168,6 +168,10 @@ private:
         const Class *owns;
         const Method *method;
     }; // struct ClassMethodPair
+    
+    struct PrototypeKey {
+        const PrototypeDesc *desc;
+    }; // struct PrototypeKey
 
     struct ClassFieldHash : public std::unary_function<ClassFieldKey, size_t> {
         size_t operator () (ClassFieldKey key) const {
@@ -181,6 +185,16 @@ private:
             return lhs.clazz == rhs.clazz && lhs.name.compare(rhs.name) == 0;
         }
     }; // struct ClassFieldEqualTo
+    
+    struct PrototypeHash : public std::unary_function<PrototypeKey, size_t> {
+        size_t operator () (PrototypeKey key) const { return key.desc->HashCode(); }
+    }; // struct PrototypeHash
+
+    struct PrototypeEqualTo : public std::binary_function<PrototypeKey, PrototypeKey, bool> {
+        bool operator () (PrototypeKey lhs, PrototypeKey rhs) const {
+            return lhs.desc->IsEqualOf(rhs.desc);
+        }
+    }; // struct PrototypeEqualTo
 
     template<class T> inline T *NewArray(size_t n);
 
@@ -217,8 +231,11 @@ private:
         ClassFieldEqualTo>;
     using ClassMethodMap = std::unordered_map<ClassFieldKey, ClassMethodPair, ClassFieldHash,
         ClassFieldEqualTo>;
+    using PrototypeMap = std::unordered_map<PrototypeKey, PrototypeDesc *, PrototypeHash,
+        PrototypeEqualTo>;
     ClassFieldMap named_class_fields_;
     ClassMethodMap named_class_methods_;
+    PrototypeMap unique_prototype_;
     std::shared_mutex class_fields_mutex_;
     std::shared_mutex class_methods_mutex_;
     
@@ -587,16 +604,6 @@ inline SourceLineInfo *MetadataSpace::NewSourceLineInfo(const char *file_name, c
         return nullptr;
     }
     return new (result.ptr()) SourceLineInfo(md_file_name, lines, n);
-}
-
-inline PrototypeDesc *MetadataSpace::NewPrototypeDesc(const uint32_t *parameters, size_t n,
-                                                      bool has_vargs, uint32_t return_type) {
-    auto result = Allocate(sizeof(PrototypeDesc) + n *sizeof(parameters[0]), false/*exec*/);
-    if (!result.ok()) {
-        return nullptr;
-    }
-    return new (result.ptr()) PrototypeDesc(parameters, static_cast<uint32_t>(n), has_vargs,
-                                            return_type);
 }
 
 template<class T>

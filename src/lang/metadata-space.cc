@@ -453,6 +453,33 @@ const Field *MetadataSpace::FindClassFieldOrNull(const Class *clazz, const char 
     return field;
 }
 
+PrototypeDesc *MetadataSpace::NewPrototypeDesc(const uint32_t *parameters, size_t n, bool has_vargs,
+                                               uint32_t return_type) {
+    char stack[sizeof(PrototypeDesc) + 5 * sizeof(uint32_t)];
+    std::unique_ptr<char []> heap;
+    const size_t required_size = sizeof(PrototypeDesc) + n *sizeof(parameters[0]);
+    PrototypeKey key;
+    void *buf = stack;
+    if (n > 5) {
+        heap.reset(new char[required_size]);
+        buf = heap.get();
+    }
+    key.desc = new (buf) PrototypeDesc(parameters, static_cast<uint32_t>(n), has_vargs, return_type);
+    if (auto iter = unique_prototype_.find(key); iter != unique_prototype_.end()) {
+        return iter->second;
+    }
+    
+    auto result = Allocate(required_size, false/*exec*/);
+    if (!result.ok()) {
+        return nullptr;
+    }
+    PrototypeDesc *value = new (result.ptr()) PrototypeDesc(parameters, static_cast<uint32_t>(n),
+                                                            has_vargs, return_type);
+    key.desc = value;
+    unique_prototype_[key] = value;
+    return value;
+}
+
 std::tuple<const Class *, const Method *>
 MetadataSpace::FindClassMethod(const Class *clazz, const char *method_name) {
     ClassFieldKey key{clazz, method_name};

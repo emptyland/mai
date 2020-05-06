@@ -69,9 +69,30 @@ size_t PrototypeDesc::GetParametersRealSize(const MetadataSpace *space) const {
     return size;
 }
 
+uint32_t PrototypeDesc::HashCode() const {
+    uint32_t h = 0x12345678;
+    for (uint32_t i = 0; i < parameter_size(); i++) {
+        h = ((h + parameter(i)) << 3) * return_type_;
+    }
+    h += vargs_ ? 1 : 0;
+    return h;
+}
+
 bool PrototypeDesc::IsSameOf(const PrototypeDesc *proto) const {
     TODO();
     return false;
+}
+
+bool PrototypeDesc::IsEqualOf(const PrototypeDesc *proto) const {
+    if (proto->return_type_ != return_type_ || proto->parameter_size_ != parameter_size_) {
+        return false;
+    }
+    for (uint32_t i = 0; i < parameter_size(); i++) {
+        if (proto->parameter(i) != parameter(i)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 std::string PrototypeDesc::ToString() const {

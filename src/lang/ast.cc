@@ -497,7 +497,7 @@ BuiltinType TypeSign::ToBuiltinType() const {
             return kType_any;
         case Token::kClass:
         default:
-            NOREACHED() << Token::ToString(static_cast<Token::Kind>(id()));
+            NOREACHED() << ToString();
             return static_cast<BuiltinType>(-1);
     }
 }

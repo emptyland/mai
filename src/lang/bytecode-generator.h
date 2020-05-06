@@ -252,6 +252,8 @@ private:
     void StaProperty(const Class *clazz, int index, int offset, ASTNode *ast);
     void StaArrayAt(const Class *clazz, int primary, int index, ASTNode *ast);
     
+    PrototypeDesc *GenerateFunctionPrototype(FunctionPrototype *ast);
+    
     bool GenerateSymbolDependence(Value value);
     bool GenerateSymbolDependence(Symbolize *ast);
     

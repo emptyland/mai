@@ -117,6 +117,7 @@ using ASTString = base::ArenaString;
     V(As, "as", none) \
     V(If, "if", none) \
     V(Else, "else", none) \
+    V(When, "when", none) \
     V(While, "while", none) \
     V(Unless, "unless", none) \
     V(For, "for", none) \
