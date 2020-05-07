@@ -92,6 +92,7 @@ private:
     Result VisitClassImplementsBlock(ClassImplementsBlock *) override;
     Result VisitWhileLoop(WhileLoop *) override;
     Result VisitForLoop(ForLoop *) override;
+    Result VisitWhenExpression(WhenExpression *) override;
     Result VisitIfExpression(IfExpression *) override;
     Result VisitStatementBlock(StatementBlock *) override;
     Result VisitTryCatchFinallyBlock(TryCatchFinallyBlock *) override;

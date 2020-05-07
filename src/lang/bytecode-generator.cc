@@ -12,6 +12,17 @@ namespace mai {
 
 namespace lang {
 
+/*static*/ BytecodeGenerator::Value
+BytecodeGenerator::Value::Of(const Result &rv, BytecodeGenerator *g) {
+    return {
+        static_cast<Value::Linkage>(rv.kind),
+        g->metadata_space_->type(rv.bundle.type),
+        rv.bundle.index,
+        nullptr,
+        rv.bundle.flags,
+    };
+}
+
 class BytecodeGenerator::Scope : public AbstractScope {
 public:
     enum Kind {
@@ -758,7 +769,7 @@ PrototypeDesc *BytecodeGenerator::GenerateFunctionPrototype(FunctionPrototype *a
     return metadata_space_->NewPrototypeDesc(desc, ast->vargs());
 }
 
-bool BytecodeGenerator::GenerateSymbolDependence(Value value) {
+bool BytecodeGenerator::GenerateSymbolDependence(const Value &value) {
     if (Value::kGlobal != value.linkage && Value::kMetadata != value.linkage) {
         return true;
     }
@@ -1398,12 +1409,11 @@ bool BytecodeGenerator::ProcessStructureInitializer(const std::vector<FieldDesc>
             return false;
         }
         
-        const Class *clazz = metadata_space_->type(rv.bundle.type);
-        if (NeedInbox(field_type, clazz)) {
-            InboxIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), field_type,
-                          field.declaration);
+        Value init = Value::Of(rv, this);
+        if (NeedInbox(field_type, init.type)) {
+            InboxIfNeeded(init, field_type, field.declaration);
         } else {
-            LdaIfNeeded(rv, field.declaration);
+            LdaIfNeeded(init, field.declaration);
         }
         StaProperty(field_type, self_index, fields_desc[i].offset, field.declaration);
     }
@@ -1479,9 +1489,7 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
     if (ast->initializer()) {
         StackSpaceScope scope(current_fun_->stack());
         VISIT_CHECK(ast->initializer());
-        init.linkage = static_cast<Value::Linkage>(rv.kind);
-        init.index = rv.bundle.index;
-        init.type = metadata_space_->type(rv.bundle.type);
+        init = Value::Of(rv, this);
     }
 
     Value local{Value::kError, clazz};
@@ -1497,23 +1505,23 @@ ASTVisitor::Result BytecodeGenerator::VisitVariableDeclaration(VariableDeclarati
 
     if (ast->initializer()) {
         if (NeedInbox(clazz, init.type)) {
-            InboxIfNeeded(init.type, init.index, init.linkage, clazz, ast);
-            StaIfNeeded(clazz, local.index, local.linkage, ast);
+            InboxIfNeeded(init, clazz, ast);
+            StaIfNeeded(local, ast);
         } else if (local.linkage == Value::kStack) {
-            MoveToStackIfNeeded(init.type, init.index, init.linkage, local.index, ast);
+            MoveToStackIfNeeded(init, local.index, ast);
         } else {
-            LdaIfNeeded(init.type, init.index, init.linkage, ast);
-            StaIfNeeded(clazz, local.index, local.linkage, ast);
+            LdaIfNeeded(init, ast);
+            StaIfNeeded(local, ast);
         }
     } else {
         if (clazz->id() == kType_string) {
             int kidx =
                 current_fun_->constants()->FindOrInsertString(isolate_->factory()->empty_string());
             LdaConst(clazz, kidx, ast);
-            StaIfNeeded(clazz, local.index, local.linkage, ast);
+            StaIfNeeded(local, ast);
         } else {
             EMIT(ast, Add<kLdaZero>());
-            StaIfNeeded(clazz, local.index, local.linkage, ast);
+            StaIfNeeded(local, ast);
         }
     }
     return ResultWithVoid();
@@ -1523,9 +1531,7 @@ ASTVisitor::Result BytecodeGenerator::VisitDotExpression(DotExpression *ast) /*o
     Result rv;
     if (!ast->primary()->IsIdentifier()) {
         VISIT_CHECK(ast->primary());
-        const Class *clazz = metadata_space_->type(rv.bundle.type);
-        return GenerateLoadProperty(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
-                                    ast);
+        return GenerateLoadProperty(Value::Of(rv, this), ast);
     }
     
     Identifier *id = DCHECK_NOTNULL(ast->primary()->AsIdentifier());
@@ -1545,18 +1551,16 @@ ASTVisitor::Result BytecodeGenerator::VisitDotExpression(DotExpression *ast) /*o
     if (ShouldCaptureVar(std::get<0>(found), value)) {
         auto rv = CaptureVar(id->name()->ToString(), std::get<0>(found), value);
         DCHECK_NE(Value::kError, rv.kind);
-        value.linkage = static_cast<Value::Linkage>(rv.kind);
         DCHECK_EQ(rv.bundle.type, value.type->id());
-        value.index = rv.bundle.index;
+        value = Value::Of(rv, this);
     }
-    return GenerateLoadProperty(value.type, value.index, value.linkage, ast);
+    return GenerateLoadProperty(value, ast);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTemplateExpression *ast)
 /*override*/ {
     StackSpaceAllocator::Scope stack_scope(current_fun_->stack());
-    
-    const Class *type = metadata_space_->builtin_type(kType_string);
+
     std::vector<Value> parts;
     for (auto part : ast->operands()) {
         Result rv;
@@ -1569,22 +1573,22 @@ ASTVisitor::Result BytecodeGenerator::VisitStringTemplateExpression(StringTempla
             VISIT_CHECK(part);
         }
 
-        const Class *clazz = metadata_space_->type(rv.bundle.type);
-        Value value{Value::kStack, clazz, current_fun_->stack()->ReserveRef()};
-        if (clazz->id() == kType_string) {
-            MoveToStackIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
-                                value.index, part);
+        Value value = Value::Of(rv, this);
+        Value dest{Value::kStack, value.type, current_fun_->stack()->ReserveRef()};
+        if (value.type->id() == kType_string) {
+            MoveToStackIfNeeded(value, dest.index, part);
         } else {
-            ToStringIfNeeded(clazz, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), part);
-            StaStack(type, value.index, part);
+            ToStringIfNeeded(value, part);
+            dest.type = metadata_space_->builtin_type(kType_string);
+            StaStack(dest.type, dest.index, part);
         }
-        parts.push_back(value);
+        parts.push_back(dest);
     }
 
     int argument_offset = 0;
     for (auto part : parts) {
         argument_offset += kPointerSize;
-        MoveToArgumentIfNeeded(type, part.index, part.linkage, argument_offset, ast);
+        MoveToArgumentIfNeeded(part, argument_offset, ast);
     }
     current_fun_->EmitContact(ast, argument_offset);
     return ResultWith(Value::kACC, kType_string, 0);
@@ -1665,15 +1669,11 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
         case Operator::kIncrementPost: {
             Result rv;
             VISIT_CHECK(ast->operand());
-            Value operand{
-                static_cast<Value::Linkage>(rv.kind),
-                metadata_space_->type(rv.bundle.type),
-                rv.bundle.index
-            };
-            
+            Value operand = Value::Of(rv, this);
+
             OperandContext receiver;
             if (ast->op().kind == Operator::kIncrementPost) {
-                LdaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                LdaIfNeeded(operand, ast);
                 AssociateLHSOperand(&receiver, operand.type, 0, Value::kACC, ast);
             } else {
                 AssociateLHSOperand(&receiver, operand, ast);
@@ -1686,7 +1686,7 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
                     EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
                     EMIT(ast, Add<kAdd8>(GetStackOffset(receiver.lhs),
                                          GetStackOffset(receiver.rhs)));
-                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    StaIfNeeded(operand, ast);
                     break;
                 case 2:
                     EMIT(ast, Add<kLdaSmi32>(1));
@@ -1694,7 +1694,7 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
                     EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
                     EMIT(ast, Add<kAdd16>(GetStackOffset(receiver.lhs),
                                           GetStackOffset(receiver.rhs)));
-                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    StaIfNeeded(operand, ast);
                     break;
                 case 4:
                     if (ast->op().kind == Operator::kIncrement &&
@@ -1707,7 +1707,7 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
                     EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
                     EMIT(ast, Add<kAdd32>(GetStackOffset(receiver.lhs),
                                           GetStackOffset(receiver.rhs)));
-                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    StaIfNeeded(operand, ast);
                     break;
                 case 8:
                     if (ast->op().kind == Operator::kIncrement &&
@@ -1720,7 +1720,7 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
                     EMIT(ast, Add<kStar64>(GetStackOffset(receiver.rhs)));
                     EMIT(ast, Add<kAdd64>(GetStackOffset(receiver.lhs),
                                           GetStackOffset(receiver.rhs)));
-                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    StaIfNeeded(operand, ast);
                     break;
                 default:
                     NOREACHED();
@@ -1739,15 +1739,11 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
         case Operator::kDecrementPost: {
             Result rv;
             VISIT_CHECK(ast->operand());
-            Value operand{
-                static_cast<Value::Linkage>(rv.kind),
-                metadata_space_->type(rv.bundle.type),
-                rv.bundle.index
-            };
+            Value operand = Value::Of(rv, this);
             
             OperandContext receiver;
             if (ast->op().kind == Operator::kDecrementPost) {
-                LdaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                LdaIfNeeded(operand, ast);
                 AssociateLHSOperand(&receiver, operand.type, 0, Value::kACC, ast);
             } else {
                 AssociateLHSOperand(&receiver, operand, ast);
@@ -1760,7 +1756,7 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
                     EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
                     EMIT(ast, Add<kSub8>(GetStackOffset(receiver.lhs),
                                          GetStackOffset(receiver.rhs)));
-                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    StaIfNeeded(operand, ast);
                     break;
                 case 2:
                     EMIT(ast, Add<kLdaSmi32>(1));
@@ -1768,7 +1764,7 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
                     EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
                     EMIT(ast, Add<kSub16>(GetStackOffset(receiver.lhs),
                                           GetStackOffset(receiver.rhs)));
-                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    StaIfNeeded(operand, ast);
                     break;
                 case 4:
                     if (ast->op().kind == Operator::kDecrement &&
@@ -1781,7 +1777,7 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
                     EMIT(ast, Add<kStar32>(GetStackOffset(receiver.rhs)));
                     EMIT(ast, Add<kSub32>(GetStackOffset(receiver.lhs),
                                           GetStackOffset(receiver.rhs)));
-                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    StaIfNeeded(operand, ast);
                     break;
                 case 8:
                     if (ast->op().kind == Operator::kDecrement &&
@@ -1794,7 +1790,7 @@ ASTVisitor::Result BytecodeGenerator::VisitUnaryExpression(UnaryExpression *ast)
                     EMIT(ast, Add<kStar64>(GetStackOffset(receiver.rhs)));
                     EMIT(ast, Add<kSub64>(GetStackOffset(receiver.lhs),
                                           GetStackOffset(receiver.rhs)));
-                    StaIfNeeded(operand.type, operand.index, operand.linkage, ast);
+                    StaIfNeeded(operand, ast);
                     break;
                 default:
                     NOREACHED();
@@ -1907,7 +1903,8 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
             Result rv;
             VISIT_CHECK(ast->lhs());
             DCHECK_EQ(kType_bool, rv.bundle.type);
-            LdaIfNeeded(rv, ast->lhs());
+            Value lhs = Value::Of(rv, this);
+            LdaIfNeeded(lhs, ast->lhs());
             BytecodeLabel done;
             if (ast->op().kind == Operator::kOr) {
                 EMIT(ast, JumpIfTrue(&done, 0/*slot*/));
@@ -1917,7 +1914,8 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
 
             VISIT_CHECK(ast->rhs());
             DCHECK_EQ(kType_bool, rv.bundle.type);
-            LdaIfNeeded(rv, ast->lhs());
+            Value rhs = Value::Of(rv, this);
+            LdaIfNeeded(rhs, ast->rhs());
 
             current_fun_->builder()->Bind(&done);
         } return ResultWith(Value::kACC, kType_bool, 0);
@@ -1926,16 +1924,16 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
         case Operator::kSend: {
             Result rv;
             VISIT_CHECK(ast->lhs());
-            const Class *type = metadata_space_->type(rv.bundle.type);
-            int argument_offset = RoundUp(type->reference_size(), kStackSizeGranularity);
-            MoveToArgumentIfNeeded(type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
-                                   argument_offset, ast);
+            Value lhs = Value::Of(rv, this);
+            int argument_offset = RoundUp(lhs.type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(lhs, argument_offset, ast);
+
             VISIT_CHECK(ast->rhs());
-            type = metadata_space_->type(rv.bundle.type);
-            argument_offset += RoundUp(type->reference_size(), kStackSizeGranularity);
-            MoveToArgumentIfNeeded(type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
-                                   argument_offset, ast);
-            GenerateSend(type, 0/*lhs*/, 0/*rhs*/, ast);
+            Value rhs = Value::Of(rv, this);
+            argument_offset += RoundUp(rhs.type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(rhs, argument_offset, ast);
+
+            GenerateSend(rhs.type, 0/*lhs*/, 0/*rhs*/, ast);
         } return ResultWith(Value::kACC, kType_bool, 0);
 
         default:
@@ -1943,6 +1941,97 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
             break;
     }
     return ResultWithError();
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitWhenExpression(WhenExpression *ast) /*override*/ {
+    std::unique_ptr<BlockScope> block_scope;
+    Result rv;
+    VISIT_CHECK(ast->hint());
+    const Class *type = metadata_space_->type(rv.bundle.index);
+    
+    OperandContext recevier;
+    Value primary{Value::kError};
+    if (ast->primary()) {
+        if (auto decl = ast->primary()->AsVariableDeclaration()) {
+            block_scope.reset(new BlockScope(Scope::kPlainBlockScope, &current_));
+            VISIT_CHECK(decl);
+            primary = block_scope->Find(decl->identifier());
+        } else {
+            VISIT_CHECK(ast->primary());
+            primary = Value::Of(rv, this);
+        }
+    }
+    if (primary.linkage == Value::kACC) {
+        AssociateLHSOperand(&recevier, primary, ast->primary());
+        primary.linkage = Value::kStack;
+        primary.index = recevier.lhs;
+    }
+
+    int i = 0;
+    BytecodeLabel exit;
+    BytecodeLabel next;
+    for (auto [expect, stmt] : ast->clauses()) {
+        if (i++ > 0) {
+            current_fun_->builder()->Bind(&next);
+            next.Clear();
+        }
+        if (auto decl = expect->AsVariableDeclaration()) {
+            DCHECK_NE(Value::kError, primary.linkage);
+            GenerateTestIs(primary, decl->type(), expect);
+            EMIT(expect, JumpIfFalse(&next, 0/*slot*/));
+            VISIT_CHECK(decl->type());
+            Value var{Value::kStack, metadata_space_->type(rv.bundle.type)};
+            GenerateTestAs(primary, var.type, decl->type(), expect);
+
+            BlockScope clause_scope(Scope::kPlainBlockScope, &current_);
+            var.index = current_fun_->StackReserve(var.type);
+            clause_scope.Register(decl->identifier()->ToString(), var);
+            StaStack(var.type, var.index, expect);
+        } else if (ast->primary()) {
+            VISIT_CHECK(expect);
+            Value rhs = Value::Of(rv, this);
+            AssociateRHSOperand(&recevier, rhs, expect);
+            GenerateComparation(primary.type, Operators::kEqual, recevier.lhs, recevier.rhs, expect);
+            EMIT(expect, JumpIfFalse(&next, 0/*slot*/));
+        } else {
+            DCHECK(!ast->primary());
+            VISIT_CHECK(expect);
+            DCHECK_EQ(rv.bundle.type, kType_bool);
+            LdaIfNeeded(rv, expect);
+            EMIT(expect, JumpIfFalse(&next, 0/*slot*/));
+        }
+
+        VISIT_CHECK(stmt);
+        if (type->id() != kType_void) {
+            Value result = Value::Of(rv, this);
+            if (NeedInbox(type, result.type)) {
+                InboxIfNeeded(result, type, stmt);
+            } else {
+                LdaIfNeeded(result, stmt);
+            }
+        }
+        EMIT(stmt, Jump(&exit, 0/*slot*/));
+    }
+
+    DCHECK(ast->else_clause() != nullptr);
+    current_fun_->builder()->Bind(&next);
+    VISIT_CHECK(ast->else_clause());
+    if (type->id() != kType_void) {
+        Value result = Value::Of(rv, this);
+        if (NeedInbox(type, result.type)) {
+            InboxIfNeeded(result, type, ast->else_clause());
+        } else {
+            LdaIfNeeded(result, ast->else_clause());
+        }
+    }
+
+    current_fun_->builder()->Bind(&exit);
+    CleanupOperands(&recevier);
+    if (type->id() == kType_void) {
+        return ResultWithVoid();
+    } else {
+        return ResultWith(Value::kACC, type->id(), 0);
+    }
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitIfExpression(IfExpression *ast) /*override*/ {
@@ -2016,41 +2105,32 @@ ASTVisitor::Result BytecodeGenerator::VisitArrayInitializer(ArrayInitializer *as
     }
     int kidx = current_fun_->constants()->FindOrInsertMetadata(element_type);
     if (ast->reserve()) {
-        VISIT_CHECK(ast->reserve());
-        const Class *reserve_type = metadata_space_->type(rv.bundle.type);
-        bool reserve_tmp = (rv.kind != Value::kStack);
-        int reserve = rv.bundle.index;
-        if (reserve_tmp) {
-            reserve = current_fun_->StackReserve(reserve_type);
-            MoveToStackIfNeeded(reserve_type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind),
-                                reserve, ast);
+        OperandContext receiver;
+        if (!GenerateUnaryOperands(&receiver, ast->reserve())) {
+            return ResultWithError();
         }
-        current_fun_->EmitArray(ast, GetStackOffset(reserve), GetConstOffset(kidx));
-        if (reserve_tmp) {
-            current_fun_->StackFallback(reserve_type, reserve);
-        }
+        current_fun_->EmitArray(ast, GetStackOffset(receiver.lhs), GetConstOffset(kidx));
+        CleanupOperands(&receiver);
     } else {
         StackSpaceScope stack_scope(current_fun_->stack());
         std::vector<Value> elements;
         for (auto element : ast->operands()) {
             VISIT_CHECK(element);
-            Value value{Value::kStack};
-            if (rv.kind != Value::kStack) {
-                value.index = current_fun_->StackReserve(element_type);
-                MoveToStackIfNeeded(element_type, rv.bundle.index,
-                                    static_cast<Value::Linkage>(rv.kind), value.index, element);
-            } else {
-                value.index = rv.bundle.index;
+            Value value = Value::Of(rv, this);
+            if (value.linkage == Value::kACC) {
+                int dest = current_fun_->StackReserve(value.type);
+                MoveToStackIfNeeded(value, dest, element);
+                value.linkage = Value::kStack;
+                value.index = dest;
             }
-            value.linkage = Value::kStack;
+            DCHECK_EQ(element_type->reference_size(), value.type->reference_size());
             elements.push_back(value);
         }
         int argument_offset = 0;
-        for (ssize_t i = elements.size() - 1; i >= 0 ;i--) {
+        for (int64_t i = elements.size() - 1; i >= 0 ;i--) {
             const Value &element = elements[i];
             argument_offset += RoundUp(element_type->reference_size(), kStackSizeGranularity);
-            MoveToArgumentIfNeeded(element_type, element.index, element.linkage, argument_offset,
-                                   ast);
+            MoveToArgumentIfNeeded(element, argument_offset, ast);
         }
         current_fun_->EmitArrayWith(ast, argument_offset, GetConstOffset(kidx));
     }
@@ -2108,17 +2188,13 @@ ASTVisitor::Result BytecodeGenerator::VisitIndexExpression(IndexExpression *ast)
 ASTVisitor::Result BytecodeGenerator::VisitTypeCastExpression(TypeCastExpression *ast) /*override*/ {
     Result rv;
     VISIT_CHECK(ast->operand());
-    const Class *from_type = metadata_space_->type(rv.bundle.type);
-    Value operand{static_cast<Value::Linkage>(rv.kind), from_type, rv.bundle.index};
-    return GenerateTestAs(operand, nullptr, ast->type(), ast);
+    return GenerateTestAs(Value::Of(rv, this), nullptr, ast->type(), ast);
 }
 
 ASTVisitor::Result BytecodeGenerator::VisitTypeTestExpression(TypeTestExpression *ast) /*override*/ {
     Result rv;
     VISIT_CHECK(ast->operand());
-    const Class *from_type = metadata_space_->type(rv.bundle.type);
-    Value operand{static_cast<Value::Linkage>(rv.kind), from_type, rv.bundle.index};
-    return GenerateTestIs(operand, ast->type(), ast);
+    return GenerateTestIs(Value::Of(rv, this), ast->type(), ast);
 }
 
 ASTVisitor::Result BytecodeGenerator::GenerateTestIs(const Value &operand, TypeSign *dest,
@@ -3233,16 +3309,27 @@ ASTVisitor::Result BytecodeGenerator::VisitStringLiteral(StringLiteral *ast) /*o
 ASTVisitor::Result BytecodeGenerator::VisitBreakableStatement(BreakableStatement *ast)
 /*override*/ {
     switch (ast->control()) {
-        case BreakableStatement::THROW:
         case BreakableStatement::RETURN: {
+            if (!ast->value()) {
+                EMIT(ast, Add<kReturn>());
+                break;
+            }
+            Result rv;
+            VISIT_CHECK(ast->value());
+            Value value = Value::Of(rv, this);
+            const Class *accept = metadata_space_->type(current_fun_->proto_ret_type());
+            if (NeedInbox(accept, value.type)) {
+                InboxIfNeeded(value, accept, ast);
+            } else {
+                LdaIfNeeded(value, ast->value());
+            }
+            EMIT(ast, Add<kReturn>());
+        } break;
+        case BreakableStatement::THROW: {
             Result rv;
             VISIT_CHECK(ast->value());
             LdaIfNeeded(rv, ast->value());
-            if (ast->IsReturn()) {
-                EMIT(ast, Add<kReturn>());
-            } else {
-                EMIT(ast, Add<kThrow>());
-            }
+            EMIT(ast, Add<kThrow>());
         } break;
         case BreakableStatement::BREAK: {
             BlockScope *block_scope = current_->GetLocalBlockScope(Scope::kLoopBlockScope);
@@ -3330,11 +3417,7 @@ ASTVisitor::Result BytecodeGenerator::VisitAssignmentStatement(AssignmentStateme
             if (!dot->primary()->IsIdentifier()) {
                 Result rv;
                 VISIT_CHECK(dot->primary());
-                Value self {
-                    static_cast<Value::Linkage>(rv.kind),
-                    metadata_space_->type(rv.bundle.type),
-                    rv.bundle.index,
-                };
+                Value self = Value::Of(rv, this);
                 return GeneratePropertyAssignment(nullptr/*name*/, self, current_file_,
                                                   ast->assignment_op(), ast->rval(), dot);
             }
@@ -3443,20 +3526,20 @@ ASTVisitor::Result BytecodeGenerator::GenerateForStep(ForLoop *ast) {
     current_->Register(ast->value()->identifier()->ToString(), value);
 
     VISIT_CHECK(ast->subject());
+    Value subject = Value::Of(rv, this);
     Value iter{Value::kStack, type, current_fun_->StackReserve(type)};
     current_->Register("$__iter__", iter);
-    MoveToStackIfNeeded(type, rv.bundle.index, static_cast<Value::Linkage>(rv.kind), iter.index,
-                        ast->subject());
+    DCHECK_EQ(type, subject.type);
+    MoveToStackIfNeeded(subject, iter.index, ast->subject());
 
     VISIT_CHECK(ast->limit());
-    int index = 0;
+    Value limit = Value::Of(rv, this);
     if (rv.kind != Value::kStack) {
-        index = current_fun_->StackReserve(type);
-        MoveToStackIfNeeded(type, index, static_cast<Value::Linkage>(rv.kind), index, ast);
-    } else {
-        index = rv.bundle.index;
+        int dest = current_fun_->StackReserve(type);
+        MoveToStackIfNeeded(limit, dest, ast);
+        limit.linkage = Value::kStack;
+        limit.index = dest;
     }
-    Value limit{Value::kStack, type, index};
     current_->Register("$__limit__", limit);
 
     // label: retry
@@ -3465,7 +3548,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateForStep(ForLoop *ast) {
     EMIT(ast, JumpIfTrue(block_scope->mutable_exit_label(), 0/*slot*/));
     
     // value = __iter__
-    MoveToStackIfNeeded(type, iter.index, iter.linkage, value.index, ast);
+    MoveToStackIfNeeded(iter, value.index, ast);
     
     for (auto stmt : ast->statements()) {
         VISIT_CHECK(stmt);
@@ -3490,7 +3573,25 @@ ASTVisitor::Result BytecodeGenerator::GenerateForStep(ForLoop *ast) {
         }
     } else {
         switch (type->reference_size()) {
-            case 1: case 2: case 4:
+            case 1: {
+                OperandContext recevier;
+                int kidx = current_fun_->constants()->FindOrInsertI32(1);
+                AssociateLHSOperand(&recevier, iter, ast);
+                AssociateRHSOperand(&recevier, type, kidx, Value::kConstant, ast);
+                EMIT(ast, Add<kAdd8>(GetStackOffset(recevier.lhs), GetStackOffset(recevier.rhs)));
+                StaStack(iter.type, iter.index, ast);
+                CleanupOperands(&recevier);
+            } break;
+            case 2: {
+                OperandContext recevier;
+                int kidx = current_fun_->constants()->FindOrInsertI32(1);
+                AssociateLHSOperand(&recevier, iter, ast);
+                AssociateRHSOperand(&recevier, type, kidx, Value::kConstant, ast);
+                EMIT(ast, Add<kAdd16>(GetStackOffset(recevier.lhs), GetStackOffset(recevier.rhs)));
+                StaStack(iter.type, iter.index, ast);
+                CleanupOperands(&recevier);
+            } break;
+            case 4:
                 EMIT(ast, Add<kIncrement32>(GetStackOffset(iter.index), 1));
                 break;
             case 8:
@@ -4207,9 +4308,7 @@ void BytecodeGenerator::GenerateSend(const Class *clazz, int lhs, int rhs, ASTNo
         value = FindOrInsertExternalFunction("channel::sendPtr");
     } else {
         switch (clazz->reference_size()) {
-            case 1:
-            case 2:
-            case 4:
+            case 1: case 2: case 4:
                 if (clazz->IsFloating()) {
                     value = FindOrInsertExternalFunction("channel::sendF32");
                 } else {

@@ -663,6 +663,113 @@ TEST_F(ParserTest, ChannelInitializer) {
     ASSERT_EQ(0, ast->buffer_size()->AsIntLiteral()->value());
 }
 
+TEST_F(ParserTest, TypeCastWhenExpression) {
+    MockFile file("when(a) {\n"
+                  "    b: int -> b + 1\n"
+                  "    b: uint -> b + 1u\n"
+                  "    b: string -> \"b=$b\"\n"
+                  "    else -> nil\n"
+                  "}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseWhenExpression(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+
+    ASSERT_NE(nullptr, ast->primary());
+    ASSERT_TRUE(ast->primary()->IsIdentifier());
+    ASSERT_STREQ("a", ast->primary()->AsIdentifier()->name()->data());
+    ASSERT_EQ(3, ast->clauses_size());
+    ASSERT_NE(nullptr, ast->else_clause());
+    ASSERT_TRUE(ast->else_clause()->IsNilLiteral());
+    
+    auto var = std::get<0>(ast->clause(0));
+    ASSERT_TRUE(var->IsVariableDeclaration());
+    ASSERT_STREQ("b", var->AsVariableDeclaration()->identifier()->data());
+    ASSERT_EQ(Token::kInt, var->AsVariableDeclaration()->type()->id());
+    ASSERT_NE(nullptr, std::get<1>(ast->clause(0)));
+    
+    var = std::get<0>(ast->clause(1));
+    ASSERT_TRUE(var->IsVariableDeclaration());
+    ASSERT_STREQ("b", var->AsVariableDeclaration()->identifier()->data());
+    ASSERT_EQ(Token::kUInt, var->AsVariableDeclaration()->type()->id());
+    ASSERT_NE(nullptr, std::get<1>(ast->clause(1)));
+}
+
+TEST_F(ParserTest, SwitchWhenExpression) {
+    MockFile file("when(a) {\n"
+                  "    1 -> 'byte'\n"
+                  "    2 -> 'word'\n"
+                  "    4 -> 'dword'\n"
+                  "    else -> 'unknown'\n"
+                  "}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+
+    bool ok = true;
+    auto ast = parser_.ParseWhenExpression(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+
+    ASSERT_NE(nullptr, ast->primary());
+    ASSERT_TRUE(ast->primary()->IsIdentifier());
+    ASSERT_STREQ("a", ast->primary()->AsIdentifier()->name()->data());
+    
+    ASSERT_EQ(3, ast->clauses_size());
+    auto expect = std::get<0>(ast->clause(0));
+    ASSERT_TRUE(expect->IsIntLiteral());
+    ASSERT_EQ(1, expect->AsIntLiteral()->value());
+    auto value = std::get<1>(ast->clause(0));
+    ASSERT_TRUE(value->IsStringLiteral());
+    ASSERT_STREQ("byte", value->AsStringLiteral()->value()->data());
+    
+    expect = std::get<0>(ast->clause(1));
+    ASSERT_TRUE(expect->IsIntLiteral());
+    ASSERT_EQ(2, expect->AsIntLiteral()->value());
+    value = std::get<1>(ast->clause(1));
+    ASSERT_TRUE(value->IsStringLiteral());
+    ASSERT_STREQ("word", value->AsStringLiteral()->value()->data());
+    
+    expect = std::get<0>(ast->clause(2));
+    ASSERT_TRUE(expect->IsIntLiteral());
+    ASSERT_EQ(4, expect->AsIntLiteral()->value());
+    value = std::get<1>(ast->clause(2));
+    ASSERT_TRUE(value->IsStringLiteral());
+    ASSERT_STREQ("dword", value->AsStringLiteral()->value()->data());
+}
+
+TEST_F(ParserTest, ConditionWhenExpression) {
+    MockFile file("when {\n"
+                  "    a > 1 -> 'greater'\n"
+                  "    a < 1 -> 'less'\n"
+                  "    a == 1 -> 'equal'\n"
+                  "    else -> 'unknown'\n"
+                  "}\n");
+    parser_.SwitchInputFile("demos/demo.mai", &file);
+    
+    bool ok = true;
+    auto ast = parser_.ParseWhenExpression(&ok);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(nullptr, ast);
+    
+    ASSERT_EQ(nullptr, ast->primary());
+    ASSERT_EQ(3, ast->clauses_size());
+    
+    auto cond = std::get<0>(ast->clause(0));
+    ASSERT_TRUE(cond->IsBinaryExpression());
+    ASSERT_EQ(Operator::kGreater, cond->AsBinaryExpression()->op().kind);
+    auto value = std::get<1>(ast->clause(0));
+    ASSERT_TRUE(value->IsStringLiteral());
+    ASSERT_STREQ("greater", value->AsStringLiteral()->value()->data());
+    
+    cond = std::get<0>(ast->clause(1));
+    ASSERT_TRUE(cond->IsBinaryExpression());
+    ASSERT_EQ(Operator::kLess, cond->AsBinaryExpression()->op().kind);
+    value = std::get<1>(ast->clause(1));
+    ASSERT_TRUE(value->IsStringLiteral());
+    ASSERT_STREQ("less", value->AsStringLiteral()->value()->data());
+}
+
 } // namespace lang
 
 } // namespace mai

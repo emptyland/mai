@@ -28,6 +28,7 @@ namespace lang {
     V(AssignmentStatement) \
     V(BreakableStatement) \
     V(RunStatement) \
+    V(WhenExpression) \
     V(IfExpression) \
     V(TypeCastExpression) \
     V(TypeTestExpression) \
@@ -1279,6 +1280,30 @@ private:
     TypeSign *value_type_;
 }; // class ChannelInitializer
 
+
+class WhenExpression : public Expression {
+public:
+    using Clause = std::tuple<Statement*, Statement*>;
+    
+    WhenExpression(int position, Statement *primary, base::ArenaVector<Clause> &&clauses,
+                   Statement *else_clause)
+        : Expression(position, kWhenExpression)
+        , primary_(primary)
+        , clauses_(std::move(clauses))
+        , else_clause_(DCHECK_NOTNULL(else_clause)) {}
+
+    DEF_PTR_PROP_RW(Statement, primary);
+    DEF_ARENA_VECTOR_GETTER(Clause, clause);
+    DEF_PTR_PROP_RW(Statement, else_clause);
+    DEF_PTR_PROP_RW(TypeSign, hint);
+
+    DEFINE_AST_NODE(WhenExpression);
+private:
+    Statement *primary_;
+    base::ArenaVector<Clause> clauses_;
+    Statement *else_clause_;
+    TypeSign *hint_ = nullptr;
+}; // class WhenExpression
 
 class IfExpression : public Expression {
 public:

@@ -26,6 +26,12 @@ public:
         unlinked_nodes_.clear();
         is_bind_ = true;
     }
+    
+    void Clear() {
+        pc_ = -1;
+        is_bind_ = false;
+        unlinked_nodes_.clear();
+    }
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(BytecodeLabel);
 private:

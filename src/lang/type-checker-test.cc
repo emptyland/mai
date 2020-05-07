@@ -301,6 +301,18 @@ TEST_F(TypeCheckerTest, LambdaExpression) {
     ASSERT_TRUE(checker_.Check());
 }
 
+TEST_F(TypeCheckerTest, WhenExpression) {
+    auto rs = Parse("tests/lang/030-type-checker-when-expression");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+    ASSERT_TRUE(checker_.Prepare());
+    ASSERT_TRUE(checker_.Check());
+    
+    auto sym = checker_.FindSymbolOrNull("main.a");
+    ASSERT_NE(nullptr, sym);
+    ASSERT_TRUE(sym->IsVariableDeclaration());
+    ASSERT_EQ(Token::kString, sym->AsVariableDeclaration()->type()->id());
+}
+
 } // namespace lang
 
 } // namespace mai

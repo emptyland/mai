@@ -1024,6 +1024,9 @@ Expression *Parser::ParseSimple(bool *ok) {
 
         case Token::kIf:
             return ParseIfExpression(ok);
+            
+        case Token::kWhen:
+            return ParseWhenExpression(ok);
 
         case Token::kLambda:
             return ParseLambdaLiteral(ok);
@@ -1383,6 +1386,98 @@ LambdaLiteral *Parser::ParseLambdaLiteral(bool *ok) {
 
     int position = file_unit_->InsertSourceLocation(loc);
     return new (arena_) LambdaLiteral(position, proto, std::move(stmts));
+}
+
+//  `when' [ `(' expression | variable_declaration `)' ] `{' clauses `else' `->' statement `}'
+// identifier `:' type `->' statement
+// expression `->' statement
+WhenExpression *Parser::ParseWhenExpression(bool *ok) {
+    SourceLocation loc = Peek().source_location();
+    Match(Token::kWhen, CHECK_OK);
+    
+    Statement *primary = nullptr;
+    if (Test(Token::kLParen)) { // `('
+        if (Peek().kind() == Token::kVal || Peek().kind() == Token::kVar) {
+            primary = ParseVariableDeclaration(CHECK_OK);
+        } else {
+            primary = ParseExpression(CHECK_OK);
+        }
+        Match(Token::kRParen, CHECK_OK);
+    }
+    
+    base::ArenaVector<WhenExpression::Clause> clauses(arena_);
+    Statement *else_clause = nullptr;
+    
+    Match(Token::kLBrace, CHECK_OK);
+    while (!Test(Token::kRBrace)) {
+        loc.LinkEnd(Peek().source_location());
+        switch (Peek().kind()) {
+            case Token::kElse:
+                MoveNext();
+                Match(Token::kRArrow, CHECK_OK);
+                if (else_clause) {
+                    *ok = false;
+                    error_feedback_->Printf(Peek().source_location(), "Duplicated else cluase in "
+                                            "when expression");
+                    return nullptr;
+                }
+                else_clause = ParseStatement(CHECK_OK);
+                break;
+                
+            case Token::kIdentifier: {
+                SourceLocation sub = Peek().source_location();
+                Expression *maybe = ParseExpression(CHECK_OK);
+                if (Peek().kind() == Token::kColon) {
+                    MoveNext();
+                    if (!maybe->IsIdentifier()) {
+                        *ok = false;
+                        error_feedback_->Printf(Peek().source_location(), "Unexpected type test "
+                                                "clause in when expression");
+                        return nullptr;
+                    }
+                    if (!primary) {
+                        *ok = false;
+                        error_feedback_->Printf(Peek().source_location(), "Miss primary statement "
+                                                "in when expression");
+                        return nullptr;
+                    }
+                    TypeSign *type = ParseTypeSign(CHECK_OK);
+                    Match(Token::kRArrow, CHECK_OK);
+                    Statement *body = ParseStatement(CHECK_OK);
+                    sub.LinkEnd(file_unit_->FindSourceLocation(body));
+                    int position = file_unit_->InsertSourceLocation(sub);
+                    VariableDeclaration *decl = new (arena_)
+                        VariableDeclaration(position, VariableDeclaration::VAL,
+                                            maybe->AsIdentifier()->name(), type, nullptr);
+                    clauses.push_back(std::make_tuple(decl, body));
+                } else {
+                    Match(Token::kRArrow, CHECK_OK);
+                    Statement *body = ParseStatement(CHECK_OK);
+                    clauses.push_back(std::make_tuple(maybe, body));
+                }
+            } break;
+                
+            default: {
+                Expression *expr = ParseExpression(CHECK_OK);
+                Match(Token::kRArrow, CHECK_OK);
+                Statement *body = ParseStatement(CHECK_OK);
+                clauses.push_back(std::make_tuple(expr, body));
+            } break;
+        }
+    }
+    if (!else_clause) {
+        *ok = false;
+        error_feedback_->Printf(Peek().source_location(), "Miss else clause in when expression");
+        return nullptr;
+    }
+    if (clauses.empty()) {
+        *ok = false;
+        error_feedback_->Printf(Peek().source_location(), "Only else clause in when expression");
+        return nullptr;
+    }
+
+    int position = file_unit_->InsertSourceLocation(loc);
+    return new (arena_) WhenExpression(position, primary, std::move(clauses), else_clause);
 }
 
 IfExpression *Parser::ParseIfExpression(bool *ok) {

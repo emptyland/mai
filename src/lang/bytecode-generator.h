@@ -34,6 +34,8 @@ public:
         int index = 0;
         Symbolize *ast = nullptr;
         uint32_t flags = 0;
+        
+        static Value Of(const Result &rv, BytecodeGenerator *g);
     }; // struct BytecodeGenerator::Value
 
     BytecodeGenerator(Isolate *isolate, SyntaxFeedback *feedback,
@@ -121,6 +123,7 @@ private:
     Result VisitStringTemplateExpression(StringTemplateExpression *) override;
     Result VisitUnaryExpression(UnaryExpression *) override;
     Result VisitBinaryExpression(BinaryExpression *) override;
+    Result VisitWhenExpression(WhenExpression *) override;
     Result VisitIfExpression(IfExpression *) override;
     Result VisitStatementBlock(StatementBlock *) override;
     Result VisitArrayInitializer(ArrayInitializer *) override;
@@ -190,12 +193,19 @@ private:
                              Operator op);
     Result GenerateStoreProperty(const Class *clazz, int index, Value::Linkage linkage,
                                  DotExpression *ast);
+    Result GenerateLoadProperty(const Value &value, DotExpression *ast){
+        return GenerateLoadProperty(value.type, value.index, value.linkage, ast);
+    }
     Result GenerateLoadProperty(const Class *clazz, int index, Value::Linkage linkage,
                                 DotExpression *ast);
     Result GeneratePropertyCast(const Class *clazz, int index, Value::Linkage linkage,
                                 DotExpression *ast);
     
     void GenerateComparation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
+//    void GenerateOperation(const Operator op, const Value &lhs, const Value &rhs, ASTNode *ast) {
+//        GenerateOperation(op, lhs.type, lhs.index, lhs.linkage, rhs.type, rhs.index, rhs.linkage,
+//                          ast);
+//    }
     void GenerateOperation(const Operator op, const Class *lhs_type, int lhs_index,
                            Value::Linkage lhs_linkage, const Class *rhs_type, int rhs_index,
                            Value::Linkage rhs_linkage, ASTNode *ast);
@@ -228,14 +238,30 @@ private:
     void AssociateRHSOperand(OperandContext *receiver, const Class *clazz, int index,
                              Value::Linkage linkage, ASTNode *ast);
     void CleanupOperands(OperandContext *receiver);
-    
+
+    void ToStringIfNeeded(const Value &value, ASTNode *ast) {
+        ToStringIfNeeded(value.type, value.index, value.linkage, ast);
+    }
     void ToStringIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
+    const Class *InboxIfNeeded(const Value &value, const Class *lval, ASTNode *ast) {
+        return InboxIfNeeded(value.type, value.index, value.linkage, lval, ast);
+    }
     const Class *InboxIfNeeded(const Class *clazz, int index, Value::Linkage linkage,
                                const Class *lval, ASTNode *ast);
+    void MoveToStackIfNeeded(const Value &value, int dest, ASTNode *ast){
+        MoveToStackIfNeeded(value.type, value.index, value.linkage, dest, ast);
+    }
     void MoveToStackIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest,
                              ASTNode *ast);
+    void MoveToArgumentIfNeeded(const Value &value, int dest, ASTNode *ast) {
+        MoveToArgumentIfNeeded(value.type, value.index, value.linkage, dest, ast);
+    }
     void MoveToArgumentIfNeeded(const Class *clazz, int index, Value::Linkage linkage, int dest,
                                 ASTNode *ast);
+    
+    void LdaIfNeeded(const Value &value, ASTNode *ast) {
+        LdaIfNeeded(value.type, value.index, value.linkage, ast);
+    }
     void LdaIfNeeded(const Result &rv, ASTNode *ast);
     void LdaIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
     void LdaStack(const Class *clazz, int index, ASTNode *ast);
@@ -244,6 +270,10 @@ private:
     void LdaCaptured(const Class *clazz, int index, ASTNode *ast);
     void LdaProperty(const Class *clazz, int index, int offset, ASTNode *ast);
     void LdaArrayAt(const Class *clazz, int primary, int index, ASTNode *ast);
+    
+    void StaIfNeeded(const Value &value, ASTNode *ast) {
+        StaIfNeeded(value.type, value.index, value.linkage, ast);
+    }
     void StaIfNeeded(const Class *clazz, int index, Value::Linkage linkage, ASTNode *ast);
     void StaStack(const Class *clazz, int index, ASTNode *ast);
     void StaConst(const Class *clazz, int index, ASTNode *ast);
@@ -254,7 +284,7 @@ private:
     
     PrototypeDesc *GenerateFunctionPrototype(FunctionPrototype *ast);
     
-    bool GenerateSymbolDependence(Value value);
+    bool GenerateSymbolDependence(const Value &value);
     bool GenerateSymbolDependence(Symbolize *ast);
     
     int LinkGlobalVariable(VariableDeclaration *var);

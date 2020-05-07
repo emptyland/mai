@@ -1557,6 +1557,78 @@ ASTVisitor::Result TypeChecker::VisitForLoop(ForLoop *ast) /*override*/ {
     return ResultWithType(kVoid);
 }
 
+ASTVisitor::Result TypeChecker::VisitWhenExpression(WhenExpression *ast) /*override*/ {
+    std::unique_ptr<BlockScope> block_scope;
+    TypeSign *type = nullptr, *primary = nullptr;
+    Result rv;
+    if (ast->primary()) {
+        if (ast->primary()->IsVariableDeclaration()) {
+            block_scope.reset(new BlockScope(Scope::kPlainBlockScope, ast, &current_));
+            VISIT_CHECK(ast->primary());
+            primary = ast->primary()->AsVariableDeclaration()->type();
+        } else {
+            VISIT_CHECK(ast->primary());
+            primary = rv.sign;
+        }
+    }
+
+    for (auto [expect, stmt] : ast->clauses()) {
+        if (auto decl = expect->AsVariableDeclaration()) {
+            if (!primary) {
+                error_feedback_->Printf(FindSourceLocation(expect), "Invalid type cast case, miss "
+                                        "primary expression");
+                return ResultWithType(kError);
+            }
+            
+            VISIT_CHECK(decl->type());
+            if (!primary->Castable(decl->type())) {
+                error_feedback_->Printf(FindSourceLocation(expect), "Invalid type cast case, "
+                                        "impossible cast %s to %s", primary->ToString().c_str(),
+                                        decl->type()->ToString().c_str());
+                return ResultWithType(kError);
+            }
+            BlockScope clause_scope(Scope::kPlainBlockScope, stmt, &current_);
+            clause_scope.Register(decl);
+        } else {
+            VISIT_CHECK(expect);
+            if (primary) {
+                if (!primary->Convertible(rv.sign)) {
+                    error_feedback_->Printf(FindSourceLocation(expect), "Invalid when case, "
+                                            "incorrect type %s vs %s", primary->ToString().c_str(),
+                                            rv.sign->ToString().c_str());
+                    return ResultWithType(kError);
+                }
+            } else {
+                if (rv.sign->id() != Token::kBool) {
+                    error_feedback_->Printf(FindSourceLocation(expect), "Invalid condition case"
+                                            "unexpected bool type, expected %s",
+                                            rv.sign->ToString().c_str());
+                    return ResultWithType(kError);
+                }
+            }
+        }
+        VISIT_CHECK(stmt);
+        if (!type) {
+            type = rv.sign;
+        }
+        if (rv.sign->id() == Token::kVoid) {
+            type->set_id(Token::kVoid);
+        } else if (!type->Convertible(rv.sign)) {
+            type->set_id(Token::kAny);
+        }
+    }
+    
+    VISIT_CHECK(DCHECK_NOTNULL(ast->else_clause()));
+    DCHECK(type != nullptr);
+    if (rv.sign->id() == Token::kVoid) {
+        type->set_id(Token::kVoid);
+    } else if (!type->Convertible(rv.sign)) {
+        type->set_id(Token::kAny);
+    }
+    ast->set_hint(type);
+    return ResultWithType(type);
+}
+
 ASTVisitor::Result TypeChecker::VisitIfExpression(IfExpression *ast) /*override*/ {
     BlockScope block_scope(Scope::kIfBlockScope, ast, &current_);
     TypeSign *type = nullptr;

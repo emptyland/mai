@@ -21,6 +21,7 @@ class ClassImplementsBlock;
 class TypeSign;
 class StringTemplateExpression;
 class Expression;
+class WhenExpression;
 class IfExpression;
 class Statement;
 class StatementBlock;
@@ -74,6 +75,7 @@ public:
     ChannelInitializer *ParseChannelInitializer(bool *ok);
     PairExpression *ParsePairExpression(bool *ok);
     LambdaLiteral *ParseLambdaLiteral(bool *ok);
+    WhenExpression *ParseWhenExpression(bool *ok);
     IfExpression *ParseIfExpression(bool *ok);
     TryCatchFinallyBlock *ParseTryCatchFinallyBlock(bool *ok);
     RunStatement *ParseRunStatement(bool *ok);

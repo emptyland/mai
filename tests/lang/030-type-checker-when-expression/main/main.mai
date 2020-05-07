@@ -1,0 +1,28 @@
+package main
+
+val a = when(getValue()) {
+    i: int -> 'int'
+    i: uint -> 'uint'
+    s: string -> 'string'
+    else -> ''
+}
+
+val b = 0
+val c = 2
+
+val d = when {
+    b > 0 -> 'greater'
+    b < 0 -> 'less'
+    else -> 'equal'
+}
+
+fun main() {
+    when (d) {
+        'greater' -> println('>')
+        'less' -> println('<')
+        'equal' -> println('=')
+        else -> println('')
+    }
+}
+
+native fun getValue(): any
