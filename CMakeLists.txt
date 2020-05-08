@@ -49,6 +49,7 @@ set(BASE_SOURCES
     ${BASE_SOURCE_DIR}/spin-locking.cc
     ${BASE_SOURCE_DIR}/varint-encoding.cc
     ${BASE_SOURCE_DIR}/zone.cc
+    ${BASE_SOURCE_DIR}/at-exit.cc
     ${CORE_SOURCE_DIR}/bw-tree-memory-table.cc
     ${CORE_SOURCE_DIR}/bytewise-comparator.cc
     ${CORE_SOURCE_DIR}/decimal-test-v2.cc
@@ -119,10 +120,14 @@ set(BASE_SOURCES
     ${LANG_SOURCE_DIR}/scheduler.cc
     ${LANG_SOURCE_DIR}/space.cc
     ${LANG_SOURCE_DIR}/stable-space-builder.cc
-    ${LANG_SOURCE_DIR}/syntax.cc
     ${LANG_SOURCE_DIR}/token.cc
     ${LANG_SOURCE_DIR}/type-checker.cc
     ${LANG_SOURCE_DIR}/value.cc
+    ${LANG_SOURCE_DIR}/garbage-collector.cc
+    ${LANG_SOURCE_DIR}/scavenger.cc
+    ${LANG_SOURCE_DIR}/marking-sweep.cc
+    ${LANG_SOURCE_DIR}/marking-compact.cc
+    ${LANG_SOURCE_DIR}/object-visitor.cc
     ${ASM_SOURCE_DIR}/x64/asm-x64.cc
     )
 

@@ -684,17 +684,17 @@ TEST_F(ParserTest, TypeCastWhenExpression) {
     ASSERT_NE(nullptr, ast->else_clause());
     ASSERT_TRUE(ast->else_clause()->IsNilLiteral());
     
-    auto var = std::get<0>(ast->clause(0));
-    ASSERT_TRUE(var->IsVariableDeclaration());
-    ASSERT_STREQ("b", var->AsVariableDeclaration()->identifier()->data());
-    ASSERT_EQ(Token::kInt, var->AsVariableDeclaration()->type()->id());
-    ASSERT_NE(nullptr, std::get<1>(ast->clause(0)));
+    auto clause = ast->clause(0);
+    ASSERT_TRUE(clause.single_case->IsVariableDeclaration());
+    ASSERT_STREQ("b", clause.single_case->AsVariableDeclaration()->identifier()->data());
+    ASSERT_EQ(Token::kInt, clause.single_case->AsVariableDeclaration()->type()->id());
+    ASSERT_NE(nullptr, clause.body);
     
-    var = std::get<0>(ast->clause(1));
-    ASSERT_TRUE(var->IsVariableDeclaration());
-    ASSERT_STREQ("b", var->AsVariableDeclaration()->identifier()->data());
-    ASSERT_EQ(Token::kUInt, var->AsVariableDeclaration()->type()->id());
-    ASSERT_NE(nullptr, std::get<1>(ast->clause(1)));
+    clause = ast->clause(1);
+    ASSERT_TRUE(clause.single_case->IsVariableDeclaration());
+    ASSERT_STREQ("b", clause.single_case->AsVariableDeclaration()->identifier()->data());
+    ASSERT_EQ(Token::kUInt, clause.single_case->AsVariableDeclaration()->type()->id());
+    ASSERT_NE(nullptr, clause.body);
 }
 
 TEST_F(ParserTest, SwitchWhenExpression) {
@@ -702,6 +702,7 @@ TEST_F(ParserTest, SwitchWhenExpression) {
                   "    1 -> 'byte'\n"
                   "    2 -> 'word'\n"
                   "    4 -> 'dword'\n"
+                  "    5,6,7 -> 'huge'\n"
                   "    else -> 'unknown'\n"
                   "}\n");
     parser_.SwitchInputFile("demos/demo.mai", &file);
@@ -715,27 +716,37 @@ TEST_F(ParserTest, SwitchWhenExpression) {
     ASSERT_TRUE(ast->primary()->IsIdentifier());
     ASSERT_STREQ("a", ast->primary()->AsIdentifier()->name()->data());
     
-    ASSERT_EQ(3, ast->clauses_size());
-    auto expect = std::get<0>(ast->clause(0));
+    ASSERT_EQ(4, ast->clauses_size());
+    
+    ASSERT_FALSE(ast->clause(0).is_multi);
+    auto expect = ast->clause(0).single_case;
     ASSERT_TRUE(expect->IsIntLiteral());
     ASSERT_EQ(1, expect->AsIntLiteral()->value());
-    auto value = std::get<1>(ast->clause(0));
+    auto value = ast->clause(0).body;
     ASSERT_TRUE(value->IsStringLiteral());
     ASSERT_STREQ("byte", value->AsStringLiteral()->value()->data());
     
-    expect = std::get<0>(ast->clause(1));
+    ASSERT_FALSE(ast->clause(1).is_multi);
+    expect = ast->clause(1).single_case;
     ASSERT_TRUE(expect->IsIntLiteral());
     ASSERT_EQ(2, expect->AsIntLiteral()->value());
-    value = std::get<1>(ast->clause(1));
+    value = ast->clause(1).body;
     ASSERT_TRUE(value->IsStringLiteral());
     ASSERT_STREQ("word", value->AsStringLiteral()->value()->data());
     
-    expect = std::get<0>(ast->clause(2));
+    ASSERT_FALSE(ast->clause(2).is_multi);
+    expect = ast->clause(2).single_case;
     ASSERT_TRUE(expect->IsIntLiteral());
     ASSERT_EQ(4, expect->AsIntLiteral()->value());
-    value = std::get<1>(ast->clause(2));
+    value = ast->clause(2).body;
     ASSERT_TRUE(value->IsStringLiteral());
     ASSERT_STREQ("dword", value->AsStringLiteral()->value()->data());
+    
+    ASSERT_TRUE(ast->clause(3).is_multi);
+    ASSERT_EQ(3, ast->clause(3).multi_cases->size());
+    value = ast->clause(3).body;
+    ASSERT_TRUE(value->IsStringLiteral());
+    ASSERT_STREQ("huge", value->AsStringLiteral()->value()->data());
 }
 
 TEST_F(ParserTest, ConditionWhenExpression) {
@@ -755,17 +766,17 @@ TEST_F(ParserTest, ConditionWhenExpression) {
     ASSERT_EQ(nullptr, ast->primary());
     ASSERT_EQ(3, ast->clauses_size());
     
-    auto cond = std::get<0>(ast->clause(0));
+    auto cond = ast->clause(0).single_case;
     ASSERT_TRUE(cond->IsBinaryExpression());
     ASSERT_EQ(Operator::kGreater, cond->AsBinaryExpression()->op().kind);
-    auto value = std::get<1>(ast->clause(0));
+    auto value = ast->clause(0).body;
     ASSERT_TRUE(value->IsStringLiteral());
     ASSERT_STREQ("greater", value->AsStringLiteral()->value()->data());
     
-    cond = std::get<0>(ast->clause(1));
+    cond = ast->clause(1).single_case;
     ASSERT_TRUE(cond->IsBinaryExpression());
     ASSERT_EQ(Operator::kLess, cond->AsBinaryExpression()->op().kind);
-    value = std::get<1>(ast->clause(1));
+    value = ast->clause(1).body;
     ASSERT_TRUE(value->IsStringLiteral());
     ASSERT_STREQ("less", value->AsStringLiteral()->value()->data());
 }

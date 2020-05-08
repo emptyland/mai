@@ -627,6 +627,41 @@ TEST_F(BytecodeGeneratorTest, RunTestAsIs) {
     ASSERT_EQ(0, isolate_->GetUncaughtCount());
 }
 
+TEST_F(BytecodeGeneratorTest, WhenExpression) {
+    Define("031-when-expression");
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto err = Parse();
+    ASSERT_TRUE(err.ok()) << err.ToString();
+    ASSERT_TRUE(generator_->Prepare());
+    ASSERT_TRUE(generator_->Generate());
+
+    auto value = generator_->FindValue("main.switchType");
+    Local<Closure> fun(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(fun.is_value_not_null());
+    ASSERT_TRUE(fun->is_mai_function());
+    ASSERT_FALSE(fun->is_cxx_function());
+    AssertFunction("switchType", fun->function());
+    
+    value = generator_->FindValue("main.switchSize");
+    fun = *isolate_->global_offset<Closure *>(value.index);
+    ASSERT_TRUE(fun.is_value_not_null());
+    ASSERT_TRUE(fun->is_mai_function());
+    ASSERT_FALSE(fun->is_cxx_function());
+    AssertFunction("switchSize", fun->function());
+}
+
+TEST_F(BytecodeGeneratorTest, RunWhenExpression) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/031-when-expression");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+
+    ASSERT_EQ(0, isolate_->GetUncaughtCount());
+}
+
 } // namespace lang
 
 } // namespace mai

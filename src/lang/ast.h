@@ -1283,7 +1283,14 @@ private:
 
 class WhenExpression : public Expression {
 public:
-    using Clause = std::tuple<Statement*, Statement*>;
+    struct Clause {
+        bool is_multi;
+        union {
+            Statement *single_case;
+            base::ArenaVector<Expression *> *multi_cases;
+        };
+        Statement *body;
+    }; // struct Clause
     
     WhenExpression(int position, Statement *primary, base::ArenaVector<Clause> &&clauses,
                    Statement *else_clause)

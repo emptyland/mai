@@ -1961,56 +1961,80 @@ ASTVisitor::Result BytecodeGenerator::VisitWhenExpression(WhenExpression *ast) /
             primary = Value::Of(rv, this);
         }
     }
-    if (primary.linkage == Value::kACC) {
-        AssociateLHSOperand(&recevier, primary, ast->primary());
-        primary.linkage = Value::kStack;
-        primary.index = recevier.lhs;
-    }
+    AssociateLHSOperand(&recevier, primary, ast->primary());
+    primary.linkage = Value::kStack;
+    primary.index = recevier.lhs;
 
     int i = 0;
     BytecodeLabel exit;
     BytecodeLabel next;
-    for (auto [expect, stmt] : ast->clauses()) {
+    for (const auto &clause : ast->clauses()) {
         if (i++ > 0) {
             current_fun_->builder()->Bind(&next);
             next.Clear();
         }
-        if (auto decl = expect->AsVariableDeclaration()) {
+        BlockScope clause_scope(Scope::kPlainBlockScope, &current_);
+        if (!clause.is_multi && clause.single_case->IsVariableDeclaration()) {
+            auto decl = clause.single_case->AsVariableDeclaration();
             DCHECK_NE(Value::kError, primary.linkage);
-            GenerateTestIs(primary, decl->type(), expect);
-            EMIT(expect, JumpIfFalse(&next, 0/*slot*/));
+            GenerateTestIs(primary, decl->type(), clause.single_case);
+            EMIT(decl, JumpIfFalse(&next, 0/*slot*/));
             VISIT_CHECK(decl->type());
-            Value var{Value::kStack, metadata_space_->type(rv.bundle.type)};
-            GenerateTestAs(primary, var.type, decl->type(), expect);
+            if (rv = GenerateTestAs(primary, nullptr, decl->type(), decl); rv.kind == Value::kError) {
+                return ResultWithError();
+            }
 
-            BlockScope clause_scope(Scope::kPlainBlockScope, &current_);
-            var.index = current_fun_->StackReserve(var.type);
+            Value var{
+                Value::kStack,
+                metadata_space_->type(rv.bundle.type),
+                current_fun_->StackReserve(var.type)
+            };
             clause_scope.Register(decl->identifier()->ToString(), var);
-            StaStack(var.type, var.index, expect);
+            MoveToStackIfNeeded(Value::Of(rv, this), var.index, ast);
         } else if (ast->primary()) {
-            VISIT_CHECK(expect);
-            Value rhs = Value::Of(rv, this);
-            AssociateRHSOperand(&recevier, rhs, expect);
-            GenerateComparation(primary.type, Operators::kEqual, recevier.lhs, recevier.rhs, expect);
-            EMIT(expect, JumpIfFalse(&next, 0/*slot*/));
+            if (clause.is_multi) {
+                BytecodeLabel ok;
+                for (auto expect : *clause.multi_cases) {
+                    OperandContext sender;
+                    VISIT_CHECK(expect);
+                    Value rhs = Value::Of(rv, this);
+                    AssociateRHSOperand(&sender, rhs, expect);
+                    GenerateComparation(primary.type, Operators::kEqual, recevier.lhs, sender.rhs,
+                                        expect);
+                    EMIT(expect, JumpIfTrue(&ok, 0/*slot*/));
+                    CleanupOperands(&sender);
+                }
+                EMIT(clause.body, Jump(&next, 0/*slot*/));
+                current_fun_->builder()->Bind(&ok);
+            } else {
+                OperandContext sender;
+                VISIT_CHECK(clause.single_case);
+                Value rhs = Value::Of(rv, this);
+                AssociateRHSOperand(&sender, rhs, clause.single_case);
+                GenerateComparation(primary.type, Operators::kEqual, recevier.lhs, sender.rhs,
+                                    clause.single_case);
+                EMIT(clause.single_case, JumpIfFalse(&next, 0/*slot*/));
+                CleanupOperands(&sender);
+            }
         } else {
             DCHECK(!ast->primary());
-            VISIT_CHECK(expect);
+            DCHECK(!clause.is_multi);
+            VISIT_CHECK(clause.single_case);
             DCHECK_EQ(rv.bundle.type, kType_bool);
-            LdaIfNeeded(rv, expect);
-            EMIT(expect, JumpIfFalse(&next, 0/*slot*/));
+            LdaIfNeeded(rv, clause.single_case);
+            EMIT(clause.single_case, JumpIfFalse(&next, 0/*slot*/));
         }
 
-        VISIT_CHECK(stmt);
+        VISIT_CHECK(clause.body);
         if (type->id() != kType_void) {
             Value result = Value::Of(rv, this);
             if (NeedInbox(type, result.type)) {
-                InboxIfNeeded(result, type, stmt);
+                InboxIfNeeded(result, type, clause.body);
             } else {
-                LdaIfNeeded(result, stmt);
+                LdaIfNeeded(result, clause.body);
             }
         }
-        EMIT(stmt, Jump(&exit, 0/*slot*/));
+        EMIT(clause.body, Jump(&exit, 0/*slot*/));
     }
 
     DCHECK(ast->else_clause() != nullptr);

@@ -1411,6 +1411,8 @@ WhenExpression *Parser::ParseWhenExpression(bool *ok) {
     Match(Token::kLBrace, CHECK_OK);
     while (!Test(Token::kRBrace)) {
         loc.LinkEnd(Peek().source_location());
+        
+        WhenExpression::Clause clause;
         switch (Peek().kind()) {
             case Token::kElse:
                 MoveNext();
@@ -1441,27 +1443,59 @@ WhenExpression *Parser::ParseWhenExpression(bool *ok) {
                                                 "in when expression");
                         return nullptr;
                     }
+                    clause.is_multi = false;
                     TypeSign *type = ParseTypeSign(CHECK_OK);
                     Match(Token::kRArrow, CHECK_OK);
-                    Statement *body = ParseStatement(CHECK_OK);
-                    sub.LinkEnd(file_unit_->FindSourceLocation(body));
+                    clause.body = ParseStatement(CHECK_OK);
+                    sub.LinkEnd(file_unit_->FindSourceLocation(clause.body));
                     int position = file_unit_->InsertSourceLocation(sub);
-                    VariableDeclaration *decl = new (arena_)
+                    clause.single_case = new (arena_)
                         VariableDeclaration(position, VariableDeclaration::VAL,
                                             maybe->AsIdentifier()->name(), type, nullptr);
-                    clauses.push_back(std::make_tuple(decl, body));
+                    clauses.push_back(clause);
                 } else {
+                    if (Peek().kind() == Token::kComma) {
+                        clause.is_multi = true;
+                        clause.multi_cases = new (arena_) base::ArenaVector<Expression *>(arena_);
+                        clause.multi_cases->push_back(maybe);
+                        while (Test(Token::kComma)) {
+                            Expression *expr = ParseExpression(CHECK_OK);
+                            clause.multi_cases->push_back(expr);
+                        }
+                    } else {
+                        clause.is_multi = false;
+                        clause.single_case = maybe;
+                    }
                     Match(Token::kRArrow, CHECK_OK);
-                    Statement *body = ParseStatement(CHECK_OK);
-                    clauses.push_back(std::make_tuple(maybe, body));
+                    clause.body = ParseStatement(CHECK_OK);
+                    clauses.push_back(clause);
                 }
             } break;
                 
             default: {
                 Expression *expr = ParseExpression(CHECK_OK);
+                if (Peek().kind() == Token::kComma) {
+                    if (!primary) {
+                        *ok = false;
+                        error_feedback_->Printf(Peek().source_location(), "Unexpected `->' ,"
+                                                "expected `,'");
+                        return nullptr;
+                    }
+
+                    clause.is_multi = true;
+                    clause.multi_cases = new (arena_) base::ArenaVector<Expression *>(arena_);
+                    clause.multi_cases->push_back(expr);
+                    while (Test(Token::kComma)) {
+                        expr = ParseExpression(CHECK_OK);
+                        clause.multi_cases->push_back(expr);
+                    }
+                } else {
+                    clause.is_multi = false;
+                    clause.single_case = expr;
+                }
                 Match(Token::kRArrow, CHECK_OK);
-                Statement *body = ParseStatement(CHECK_OK);
-                clauses.push_back(std::make_tuple(expr, body));
+                clause.body = ParseStatement(CHECK_OK);
+                clauses.push_back(clause);
             } break;
         }
     }

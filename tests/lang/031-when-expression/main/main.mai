@@ -1,0 +1,52 @@
+package main
+
+fun main() {
+    assertSwitchType()
+    assertSwitchSize()
+}
+
+fun assertSwitchType() {
+    assert(switchType(1) == "int:1", "fail")
+    assert(switchType(2u) == "uint:2", "fail")
+    assert(switchType(8i8) == "i8:8", "fail")
+    assert(switchType(8u8) == "u8:8", "fail")
+    assert(switchType(System) == "unknown", "fail")
+}
+
+fun assertSwitchSize() {
+    assert(switchSize(1) == 'BYTE', "fail ${switchSize(1)}")
+    assert(switchSize(2) == 'WORD', "fail")
+    assert(switchSize(16) == 'VECTOR16/32', "fail")
+    assert(switchSize(32) == 'VECTOR16/32', "fail")
+    assert(switchSize(3) == 'UNKNOWN', "fail")
+}
+
+fun switchType(a: any): string {
+    return when(a) {
+        i: i8 -> "i8:$i"
+        i: u8 -> "u8:$i"
+        i: i16 -> "i16:$i"
+        i: u16 -> "u16:$i"
+        i: i32 -> "i32:$i"
+        i: u32 -> "u32:$i"
+        i: int -> "int:$i"
+        i: uint -> "uint:$i"
+        i: i64 -> "i64:$i"
+        i: u64 -> "u64:$i"
+        i: f32 -> "f32:$i"
+        i: f64 -> "f64:$i"
+        i: string -> "string:$i"
+        else -> "unknown"
+    }
+}
+
+fun switchSize(a: int): string {
+    return when (a) {
+        1 -> 'BYTE'
+        2 -> 'WORD'
+        4 -> 'DWORD'
+        8 -> 'QWORD'
+        16, 32 -> 'VECTOR16/32'
+        else -> 'UNKNOWN'
+    }
+}

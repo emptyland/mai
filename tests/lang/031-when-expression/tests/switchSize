@@ -1,0 +1,52 @@
++------------------------------------------------------------------------------
+| main.switchSize(int):string
++------------------------------------------------------------------------------
+stack-size: 80
+stack-bitmap: 00000000
+const-pool-bytes: 96
+const-pool-bitmap: 00000006
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 39
+souce-file-name: tests/lang/031-when-expression/main/main.mai
+bytecode-size: 39
+bytecode: 
+    000 CheckStack; (43)
+    001 LdaSmi32 #1; (45)
+    002 Star32 [BP-68]; (45)
+    003 TestEqual32 [BP+28], [BP-68]; (45)
+    004 ForwardJumpIfFalse 0, #3; (45)
+    005 LdaConstPtr [KP+32]; (45)
+    006 ForwardJump 0, #31; (45)
+    007 LdaSmi32 #2; (46)
+    008 Star32 [BP-68]; (46)
+    009 TestEqual32 [BP+28], [BP-68]; (46)
+    010 ForwardJumpIfFalse 0, #3; (46)
+    011 LdaConstPtr [KP+40]; (46)
+    012 ForwardJump 0, #25; (46)
+    013 LdaSmi32 #4; (47)
+    014 Star32 [BP-68]; (47)
+    015 TestEqual32 [BP+28], [BP-68]; (47)
+    016 ForwardJumpIfFalse 0, #3; (47)
+    017 LdaConstPtr [KP+48]; (47)
+    018 ForwardJump 0, #19; (47)
+    019 LdaSmi32 #8; (48)
+    020 Star32 [BP-68]; (48)
+    021 TestEqual32 [BP+28], [BP-68]; (48)
+    022 ForwardJumpIfFalse 0, #3; (48)
+    023 LdaConstPtr [KP+56]; (48)
+    024 ForwardJump 0, #13; (48)
+    025 LdaSmi32 #16; (49)
+    026 Star32 [BP-68]; (49)
+    027 TestEqual32 [BP+28], [BP-68]; (49)
+    028 ForwardJumpIfTrue 0, #6; (49)
+    029 LdaSmi32 #32; (49)
+    030 Star32 [BP-68]; (49)
+    031 TestEqual32 [BP+28], [BP-68]; (49)
+    032 ForwardJumpIfTrue 0, #2; (49)
+    033 ForwardJump 0, #3; (49)
+    034 LdaConstPtr [KP+64]; (49)
+    035 ForwardJump 0, #2; (49)
+    036 LdaConstPtr [KP+72]; (50)
+    037 Return; (44)
+    038 Return; (43)

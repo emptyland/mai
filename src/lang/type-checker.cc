@@ -1572,42 +1572,58 @@ ASTVisitor::Result TypeChecker::VisitWhenExpression(WhenExpression *ast) /*overr
         }
     }
 
-    for (auto [expect, stmt] : ast->clauses()) {
-        if (auto decl = expect->AsVariableDeclaration()) {
+    for (const auto &clause : ast->clauses()) {
+        VariableDeclaration *decl = nullptr;
+        if (!clause.is_multi && clause.single_case->IsVariableDeclaration()) {
+            decl = clause.single_case->AsVariableDeclaration();
             if (!primary) {
-                error_feedback_->Printf(FindSourceLocation(expect), "Invalid type cast case, miss "
+                error_feedback_->Printf(FindSourceLocation(decl), "Invalid type cast case, miss "
                                         "primary expression");
                 return ResultWithType(kError);
             }
             
             VISIT_CHECK(decl->type());
             if (!primary->Castable(decl->type())) {
-                error_feedback_->Printf(FindSourceLocation(expect), "Invalid type cast case, "
+                error_feedback_->Printf(FindSourceLocation(decl), "Invalid type cast case, "
                                         "impossible cast %s to %s", primary->ToString().c_str(),
                                         decl->type()->ToString().c_str());
                 return ResultWithType(kError);
             }
-            BlockScope clause_scope(Scope::kPlainBlockScope, stmt, &current_);
-            clause_scope.Register(decl);
         } else {
-            VISIT_CHECK(expect);
-            if (primary) {
-                if (!primary->Convertible(rv.sign)) {
-                    error_feedback_->Printf(FindSourceLocation(expect), "Invalid when case, "
-                                            "incorrect type %s vs %s", primary->ToString().c_str(),
-                                            rv.sign->ToString().c_str());
-                    return ResultWithType(kError);
+            //VISIT_CHECK(expect);
+#define CHECK_EXPECT(expect) \
+            if (primary) { \
+                if (!primary->Convertible(rv.sign)) { \
+                    error_feedback_->Printf(FindSourceLocation(expect), "Invalid when case, " \
+                                            "incorrect type %s vs %s", primary->ToString().c_str(), \
+                                            rv.sign->ToString().c_str()); \
+                    return ResultWithType(kError); \
+                } \
+            } else { \
+                if (rv.sign->id() != Token::kBool) { \
+                    error_feedback_->Printf(FindSourceLocation(expect), "Invalid condition case" \
+                                            "unexpected bool type, expected %s", \
+                                            rv.sign->ToString().c_str()); \
+                    return ResultWithType(kError); \
+                } \
+            } (void)0
+            
+            if (clause.is_multi) {
+                for (auto expect : *clause.multi_cases) {
+                    VISIT_CHECK(expect);
+                    CHECK_EXPECT(expect);
                 }
             } else {
-                if (rv.sign->id() != Token::kBool) {
-                    error_feedback_->Printf(FindSourceLocation(expect), "Invalid condition case"
-                                            "unexpected bool type, expected %s",
-                                            rv.sign->ToString().c_str());
-                    return ResultWithType(kError);
-                }
+                VISIT_CHECK(clause.single_case);
+                CHECK_EXPECT(clause.single_case);
             }
         }
-        VISIT_CHECK(stmt);
+        BlockScope clause_scope(Scope::kPlainBlockScope, clause.body, &current_);
+        if (decl) {
+            clause_scope.Register(decl);
+            symbol_trace_.insert(decl);
+        }
+        VISIT_CHECK(clause.body);
         if (!type) {
             type = rv.sign;
         }
