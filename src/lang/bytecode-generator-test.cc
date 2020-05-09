@@ -649,6 +649,13 @@ TEST_F(BytecodeGeneratorTest, WhenExpression) {
     ASSERT_TRUE(fun->is_mai_function());
     ASSERT_FALSE(fun->is_cxx_function());
     AssertFunction("switchSize", fun->function());
+    
+    value = generator_->FindValue("main.switchCondition");
+    fun = *isolate_->global_offset<Closure *>(value.index);
+    ASSERT_TRUE(fun.is_value_not_null());
+    ASSERT_TRUE(fun->is_mai_function());
+    ASSERT_FALSE(fun->is_cxx_function());
+    AssertFunction("switchCondition", fun->function());
 }
 
 TEST_F(BytecodeGeneratorTest, RunWhenExpression) {

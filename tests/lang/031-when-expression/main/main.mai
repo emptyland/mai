@@ -3,6 +3,7 @@ package main
 fun main() {
     assertSwitchType()
     assertSwitchSize()
+    assertSwitchCondition()
 }
 
 fun assertSwitchType() {
@@ -19,6 +20,12 @@ fun assertSwitchSize() {
     assert(switchSize(16) == 'VECTOR16/32', "fail")
     assert(switchSize(32) == 'VECTOR16/32', "fail")
     assert(switchSize(3) == 'UNKNOWN', "fail")
+}
+
+fun assertSwitchCondition() {
+    assert(switchCondition(1.0) == 'greater', "fail")
+    assert(switchCondition(-1.0) == 'less', "fail ${switchCondition(-1.0)}")
+    assert(switchCondition(0.0) == 'equal', "fail")
 }
 
 fun switchType(a: any): string {
@@ -48,5 +55,13 @@ fun switchSize(a: int): string {
         8 -> 'QWORD'
         16, 32 -> 'VECTOR16/32'
         else -> 'UNKNOWN'
+    }
+}
+
+fun switchCondition(a: f32): string {
+    return when {
+        a > 0.0 -> 'greater'
+        a < 0.0 -> 'less'
+        else -> 'equal'
     }
 }

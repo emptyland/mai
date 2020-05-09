@@ -1961,9 +1961,11 @@ ASTVisitor::Result BytecodeGenerator::VisitWhenExpression(WhenExpression *ast) /
             primary = Value::Of(rv, this);
         }
     }
-    AssociateLHSOperand(&recevier, primary, ast->primary());
-    primary.linkage = Value::kStack;
-    primary.index = recevier.lhs;
+    if (primary.linkage != Value::kError) {
+        AssociateLHSOperand(&recevier, primary, ast->primary());
+        primary.linkage = Value::kStack;
+        primary.index = recevier.lhs;
+    }
 
     int i = 0;
     BytecodeLabel exit;

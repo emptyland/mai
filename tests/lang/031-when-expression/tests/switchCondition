@@ -1,0 +1,29 @@
++------------------------------------------------------------------------------
+| main.switchCondition(f32):string
++------------------------------------------------------------------------------
+stack-size: 80
+stack-bitmap: 00000000
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 16
+souce-file-name: tests/lang/031-when-expression/main/main.mai
+bytecode-size: 16
+bytecode: 
+    000 CheckStack; (61)
+    001 LdaConstf32 [KP+0]; (63)
+    002 Staf32 [BP-68]; (63)
+    003 TestGreaterThanf32 [BP+28], [BP-68]; (63)
+    004 ForwardJumpIfFalse 0, #3; (63)
+    005 LdaConstPtr [KP+32]; (63)
+    006 ForwardJump 0, #8; (63)
+    007 LdaConstf32 [KP+4]; (64)
+    008 Staf32 [BP-68]; (64)
+    009 TestLessThanf32 [BP+28], [BP-68]; (64)
+    010 ForwardJumpIfFalse 0, #3; (64)
+    011 LdaConstPtr [KP+40]; (64)
+    012 ForwardJump 0, #2; (64)
+    013 LdaConstPtr [KP+48]; (65)
+    014 Return; (62)
+    015 Return; (61)

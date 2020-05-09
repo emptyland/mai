@@ -869,6 +869,27 @@ public:
         EmitB(precision);
     }
     
+    // CMPSS—Compare Scalar Single-Precision Floating-Point Value
+    void cmpss(XMMRegister lhs, XMMRegister rhs, int8_t precision) {
+        // F3 0F C2 /r ib
+        EmitB(0xF3);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0xC2);
+        EmitOperand(lhs, rhs); // RMI
+        EmitB(precision);
+    }
+    
+    void cmpss(XMMRegister lhs, Operand rhs, int8_t precision) {
+        // F3 0F C2 /r ib
+        EmitB(0xF3);
+        EmitOptionalRex32(lhs, rhs);
+        EmitB(0x0F);
+        EmitB(0xC2);
+        EmitOperand(lhs, rhs); // RMI
+        EmitB(precision);
+    }
+
     // Compare Scalar Ordered Double-Precision Floating-Point Values and Set EFLAGS
     // 66 0F 2F /r
     void comisd(XMMRegister lhs, XMMRegister rhs) { EmitSSEArith(0x66, 0x2F, lhs, rhs); }

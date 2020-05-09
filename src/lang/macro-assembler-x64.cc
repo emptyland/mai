@@ -1692,10 +1692,10 @@ public:
     
     void EmitTestNotEqualf32(MacroAssembler *masm) override { EmitComparef32(masm, NotEqual); }
     
-    void EmitTestLessThanf32(MacroAssembler *masm) override { EmitComparef32(masm, Below); }
+    void EmitTestLessThanf32(MacroAssembler *masm) override { EmitComparef32(masm, Less); }
     
     void EmitTestLessThanOrEqualf32(MacroAssembler *masm) override {
-        EmitComparef32(masm, BelowEqual);
+        EmitComparef32(masm, LessEqual);
     }
 
     void EmitTestGreaterThanf32(MacroAssembler *masm) override { EmitComparef32(masm, Greater); }
@@ -1708,10 +1708,10 @@ public:
     
     void EmitTestNotEqualf64(MacroAssembler *masm) override { EmitComparef64(masm, NotEqual); }
     
-    void EmitTestLessThanf64(MacroAssembler *masm) override { EmitComparef64(masm, Below); }
+    void EmitTestLessThanf64(MacroAssembler *masm) override { EmitComparef64(masm, Less); }
     
     void EmitTestLessThanOrEqualf64(MacroAssembler *masm) override {
-        EmitComparef64(masm, BelowEqual);
+        EmitComparef64(masm, LessEqual);
     }
     
     void EmitTestGreaterThanf64(MacroAssembler *masm) override { EmitComparef64(masm, Greater); }
@@ -2366,14 +2366,6 @@ private:
         __ cmpl(rax, Operand(rbp, rbx, times_2, 0));
         __ set(cond, ACC);
         __ andl(ACC, 0xff);
-//        Label br_true;
-//        __ j(cond, &br_true, false/*is_far*/);
-//        __ xorq(rax, rax);
-//        Label done;
-//        __ jmp(&done, false/*is_far*/);
-//        __ Bind(&br_true);
-//        __ movq(rax, 1);
-//        __ Bind(&done);
     }
 
     void EmitCompare64(MacroAssembler *masm, Cond cond) {
@@ -2383,49 +2375,127 @@ private:
         __ cmpq(rax, Operand(rbp, rbx, times_2, 0));
         __ set(cond, ACC);
         __ andl(ACC, 0xff);
-//        Label br_true;
-//        __ j(cond, &br_true, false/*is_far*/);
-//        __ xorq(rax, rax);
-//        Label done;
-//        __ jmp(&done, false/*is_far*/);
-//        __ Bind(&br_true);
-//        __ movq(rax, 1);
-//        __ Bind(&done);
     }
     
+    /*
+     UNORDERED: ZF,PF,CF111; GREATER_THAN: ZF,PF,CF000; LESS_THAN: ZF,PF,CF001; EQUAL: ZF,PF,CF100;
+     */
     void EmitComparef32(MacroAssembler *masm, Cond cond) {
         InstrStackABScope instr_scope(masm);
         __ movss(xmm0, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
-        //__ Breakpoint();
-        __ comiss(xmm0, Operand(rbp, rbx, times_2, 0));
-        __ set(cond, ACC);
-        __ andl(ACC, 0xff);
-//        Label br_true;
-//        __ j(cond, &br_true, false/*is_far*/);
-//        __ xorq(rax, rax);
-//        Label done;
-//        __ jmp(&done, false/*is_far*/);
-//        __ Bind(&br_true);
-//        __ movq(rax, 1);
-//        __ Bind(&done);
+        __ movss(xmm1, Operand(rbp, rbx, times_2, 0));
+        // <= jbe
+        // < jb
+        // != jne jp
+        switch (cond) {
+            case x64::Equal: {
+                Label ok;
+                __ ucomiss(xmm0, xmm1);
+                __ j(NotEqual, &ok, false/*is_far*/);
+                __ j(ParityEven, &ok, false/*is_far*/);
+                __ movl(ACC, 1);
+                Label done;
+                __ jmp(&done, false/*is_far*/);
+                __ Bind(&ok);
+                __ xorq(ACC, ACC);
+                __ Bind(&done);
+            } break;
+            case x64::NotEqual: {
+                Label ok;
+                __ ucomiss(xmm0, xmm1);
+                __ j(NotEqual, &ok, false/*is_far*/);
+                __ j(ParityEven, &ok, false/*is_far*/);
+                __ xorq(ACC, ACC);
+                Label done;
+                __ jmp(&done, false/*is_far*/);
+                __ Bind(&ok);
+                __ movl(ACC, 1);
+                __ Bind(&done);
+            } break;
+            case x64::Less:
+                __ ucomiss(xmm0, xmm1);
+                __ set(Below, ACC);
+                __ andl(ACC, 0xff);
+                break;
+            case x64::LessEqual:
+                __ ucomiss(xmm0, xmm1);
+                __ set(BelowEqual, ACC);
+                __ andl(ACC, 0xff);
+                break;
+            case x64::Greater:
+                __ ucomiss(xmm1, xmm0);
+                __ set(Below, ACC);
+                __ andl(ACC, 0xff);
+                break;
+            case x64::GreaterEqual:
+                __ ucomiss(xmm1, xmm0);
+                __ set(BelowEqual, ACC);
+                __ andl(ACC, 0xff);
+                break;
+            default:
+                NOREACHED();
+                break;
+        }
     }
     
     void EmitComparef64(MacroAssembler *masm, Cond cond) {
         InstrStackABScope instr_scope(masm);
         __ movsd(xmm0, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
-        __ comisd(xmm0, Operand(rbp, rbx, times_2, 0));
-        __ set(cond, ACC);
-        __ andl(ACC, 0xff);
-//        Label br_true;
-//        __ j(cond, &br_true, false/*is_far*/);
-//        __ xorq(rax, rax);
-//        Label done;
-//        __ jmp(&done, false/*is_far*/);
-//        __ Bind(&br_true);
-//        __ movq(rax, 1);
-//        __ Bind(&done);
+        __ movsd(xmm1, Operand(rbp, rbx, times_2, 0));
+        // <= jbe
+        // < jb
+        // != jne jp
+        switch (cond) {
+            case x64::Equal: {
+                Label ok;
+                __ ucomisd(xmm0, xmm1);
+                __ j(NotEqual, &ok, false/*is_far*/);
+                __ j(ParityEven, &ok, false/*is_far*/);
+                __ movl(ACC, 1);
+                Label done;
+                __ jmp(&done, false/*is_far*/);
+                __ Bind(&ok);
+                __ xorq(ACC, ACC);
+                __ Bind(&done);
+            } break;
+            case x64::NotEqual: {
+                Label ok;
+                __ ucomisd(xmm0, xmm1);
+                __ j(NotEqual, &ok, false/*is_far*/);
+                __ j(ParityEven, &ok, false/*is_far*/);
+                __ xorq(ACC, ACC);
+                Label done;
+                __ jmp(&done, false/*is_far*/);
+                __ Bind(&ok);
+                __ movl(ACC, 1);
+                __ Bind(&done);
+            } break;
+            case x64::Less:
+                __ ucomisd(xmm0, xmm1);
+                __ set(Below, ACC);
+                __ andl(ACC, 0xff);
+                break;
+            case x64::LessEqual:
+                __ ucomisd(xmm0, xmm1);
+                __ set(BelowEqual, ACC);
+                __ andl(ACC, 0xff);
+                break;
+            case x64::Greater:
+                __ ucomisd(xmm1, xmm0);
+                __ set(Below, ACC);
+                __ andl(ACC, 0xff);
+                break;
+            case x64::GreaterEqual:
+                __ ucomisd(xmm1, xmm0);
+                __ set(BelowEqual, ACC);
+                __ andl(ACC, 0xff);
+                break;
+            default:
+                NOREACHED();
+                break;
+        }
     }
     
     void EmitCheckException(MacroAssembler *masm) {
