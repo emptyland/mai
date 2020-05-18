@@ -3529,16 +3529,86 @@ ASTVisitor::Result BytecodeGenerator::VisitForLoop(ForLoop *ast) /*override*/ {
     switch (ast->control()) {
         case ForLoop::STEP:
             return GenerateForStep(ast);
-        case ForLoop::ITERATE:
-            TODO();
-            break;
-        case ForLoop::CHANNEL_ITERATE:
-            TODO();
-            break;
+        case ForLoop::EACH:
+            return GenerateForEach(ast);
         default:
             NOREACHED();
             break;
     }
+    return ResultWithVoid();
+}
+
+ASTVisitor::Result BytecodeGenerator::GenerateForEach(ForLoop *ast) {
+    BlockScope *block_scope = down_cast<BlockScope>(current_);
+    DCHECK(block_scope != nullptr);
+    
+    Result rv;
+    VISIT_CHECK(ast->subject());
+    Value subject = Value::Of(rv, this);
+    if (subject.linkage != Value::kStack) {
+        int dest = current_fun_->StackReserve(subject.type);
+        MoveToStackIfNeeded(subject, dest, ast->subject());
+        subject.linkage = Value::kStack;
+        subject.index = dest;
+    }
+    
+    if (subject.type->IsArray()) {
+        Value index {
+            Value::kStack,
+            metadata_space_->builtin_type(kType_int),
+            current_fun_->StackReserve(metadata_space_->builtin_type(kType_int)),
+        };
+        current_->Register("$__index__", index);
+        EMIT(ast, Add<kLdaZero>());
+        StaIfNeeded(index, ast);
+        if (ast->key()) {
+            current_->Register(ast->key()->identifier()->ToString(), index);
+        }
+        
+        VISIT_CHECK(ast->value()->type());
+        Value value {
+            Value::kStack,
+            metadata_space_->type(rv.bundle.index),
+            current_fun_->StackReserve(metadata_space_->type(rv.bundle.index)),
+        };
+        current_->Register(ast->value()->identifier()->ToString(), value);
+        
+        const Field *length_field = subject.type->field(2);
+        DCHECK(!::strcmp("length", length_field->name()));
+        Value limit {
+            Value::kStack,
+            length_field->type(),
+            current_fun_->StackReserve(length_field->type())
+        };
+        current_->Register("$__limit__", limit);
+        LdaProperty(limit.type, subject.index, length_field->offset(), ast);
+        StaIfNeeded(limit, ast);
+
+        // label: retry
+        current_fun_->builder()->Bind(block_scope->mutable_retry_label());
+        GenerateComparation(index.type, Operators::kGreaterEqual, index.index, limit.index, ast);
+        EMIT(ast, JumpIfTrue(block_scope->mutable_exit_label(), 0/*slot*/));
+        LdaArrayAt(value.type, subject.index, index.index, ast->value());
+        StaStack(value.type, value.index, ast->value());
+
+        // Body
+        for (auto stmt : ast->statements()) {
+            VISIT_CHECK(stmt);
+        }
+
+        EMIT(ast, Add<kIncrement32>(GetStackOffset(index.index), 1));
+        StaStack(index.type, index.index, ast);
+    } else if (subject.type->id() == kType_channel) {
+        // TODO:
+        TODO();
+    } else {
+        // TODO:
+        TODO();
+    }
+    
+    EMIT(ast, Jump(block_scope->mutable_retry_label(), 0/*slot*/));
+    // label: exit
+    current_fun_->builder()->Bind(block_scope->mutable_exit_label());
     return ResultWithVoid();
 }
 

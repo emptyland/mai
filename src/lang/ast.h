@@ -475,8 +475,7 @@ class ForLoop : public Circulation {
 public:
     enum Control {
         STEP,
-        ITERATE,
-        CHANNEL_ITERATE,
+        EACH,
     };
     
     ForLoop(int position, Control control, VariableDeclaration *key, VariableDeclaration *value,

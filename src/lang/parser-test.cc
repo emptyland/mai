@@ -592,24 +592,6 @@ TEST_F(ParserTest, ForStepLoop) {
     ASSERT_EQ(1000, ast->limit()->AsIntLiteral()->value());
 }
 
-TEST_F(ParserTest, ForChannelIterateLoop) {
-    MockFile file("for (value in <-ch) {}\n");
-    parser_.SwitchInputFile("demos/demo.mai", &file);
-
-    bool ok = true;
-    auto ast = parser_.ParseForLoop(&ok);
-    ASSERT_TRUE(ok);
-    ASSERT_NE(nullptr, ast);
-    ASSERT_EQ(ForLoop::CHANNEL_ITERATE, ast->control());
-    ASSERT_EQ(nullptr, ast->key());
-    ASSERT_NE(nullptr, ast->value());
-    ASSERT_STREQ("value", ast->value()->identifier()->data());
-    
-    ASSERT_TRUE(ast->subject()->IsUnaryExpression());
-    auto expr = ast->subject()->AsUnaryExpression();
-    ASSERT_EQ(Operator::kRecv, expr->op().kind);
-}
-
 TEST_F(ParserTest, ForContainerIterateLoop) {
     MockFile file("for (key, value in arr) {}\n");
     parser_.SwitchInputFile("demos/demo.mai", &file);
@@ -618,7 +600,7 @@ TEST_F(ParserTest, ForContainerIterateLoop) {
     auto ast = parser_.ParseForLoop(&ok);
     ASSERT_TRUE(ok);
     ASSERT_NE(nullptr, ast);
-    ASSERT_EQ(ForLoop::ITERATE, ast->control());
+    ASSERT_EQ(ForLoop::EACH, ast->control());
     ASSERT_NE(nullptr, ast->key());
     ASSERT_NE(nullptr, ast->value());
     ASSERT_STREQ("key", ast->key()->identifier()->data());

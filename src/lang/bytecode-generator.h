@@ -155,6 +155,7 @@ private:
     Result VisitForLoop(ForLoop *) override;
     
     Result GenerateForStep(ForLoop *ast);
+    Result GenerateForEach(ForLoop *ast);
     Result GenerateCalling(CallExpression *ast, CallingReceiver *receiver);
     uint32_t ProcessStructure(StructureDefinition *ast, uint32_t offset, ClassBuilder *builder,
                               std::vector<FieldDesc> *fields_desc);

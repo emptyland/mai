@@ -1538,11 +1538,8 @@ ASTVisitor::Result TypeChecker::VisitForLoop(ForLoop *ast) /*override*/ {
         case ForLoop::STEP:
             rv = CheckForStep(ast);
             break;
-        case ForLoop::ITERATE:
-            rv = CheckForIterate(ast);
-            break;
-        case ForLoop::CHANNEL_ITERATE:
-            rv = CheckForChannel(ast);
+        case ForLoop::EACH:
+            rv = CheckForeach(ast);
             break;
         default:
             NOREACHED();
@@ -1766,7 +1763,7 @@ ASTVisitor::Result TypeChecker::CheckForStep(ForLoop *ast) {
     return ResultWithType(kVoid);
 }
 
-ASTVisitor::Result TypeChecker::CheckForIterate(ForLoop *ast) {
+ASTVisitor::Result TypeChecker::CheckForeach(ForLoop *ast) {
     TypeSign *subject = nullptr;
     VISIT_CHECK_GET(subject, ast->subject());
     if (subject->id() != Token::kArray && subject->id() != Token::kMap &&
@@ -1798,6 +1795,9 @@ ASTVisitor::Result TypeChecker::CheckForIterate(ForLoop *ast) {
                 ast->value()->set_type(subject->parameter(0));
             }
         }
+    } else if (subject->id() == Token::kChannel) {
+        // TODO:
+        TODO();
     } else { // is map
         if (ast->key()) {
             if (ast->key()->type() && !ast->key()->type()->Convertible(subject->parameter(0))) {
@@ -1827,32 +1827,6 @@ ASTVisitor::Result TypeChecker::CheckForIterate(ForLoop *ast) {
     if (ast->value()) {
         VISIT_CHECK(ast->value());
     }
-    return ResultWithType(kVoid);
-}
-
-ASTVisitor::Result TypeChecker::CheckForChannel(ForLoop *ast) {
-    DCHECK(ast->IsUnaryExpression());
-    Expression *channel_expr = ast->AsUnaryExpression()->operand();
-    DCHECK_EQ(Operator::kRecv, ast->AsUnaryExpression()->op().kind);
-
-    TypeSign *channel = nullptr;
-    VISIT_CHECK_GET(channel, channel_expr);
-    if (channel->id() != Token::kChannel) {
-        error_feedback_->Printf(FindSourceLocation(channel_expr), "Incorrect type(%s) for channel "
-                                "recv", channel->ToString().c_str());
-        return ResultWithType(kError);
-    }
-
-    DCHECK(ast->value() != nullptr);
-    if (!ast->value()->type()->Convertible(channel->parameter(0))) {
-        error_feedback_->Printf(FindSourceLocation(ast->limit()), "Incorrect value type(%s)"
-                                ", need %s", ast->value()->type()->ToString().c_str(),
-                                channel->parameter(0)->ToString().c_str());
-        return ResultWithType(kError);
-    } else {
-        ast->value()->set_type(channel->parameter(0));
-    }
-    VISIT_CHECK_JUST(ast->value());
     return ResultWithType(kVoid);
 }
 

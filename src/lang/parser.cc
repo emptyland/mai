@@ -667,14 +667,8 @@ ForLoop *Parser::ParseForLoop(bool *ok) {
 
     Match(Token::kIn, CHECK_OK);
 
-    ForLoop::Control type = ForLoop::ITERATE;
+    ForLoop::Control type = ForLoop::EACH;
     Expression *subject = ParseExpression(CHECK_OK);
-    if (auto maybe = subject->AsUnaryExpression()) {
-        if (maybe->op().kind == Operator::kRecv) {
-            type = ForLoop::CHANNEL_ITERATE;
-        }
-    }
-
     Expression *limit = nullptr;
     if (Test(Token::kComma)) {
         type = ForLoop::STEP;
@@ -1471,7 +1465,7 @@ WhenExpression *Parser::ParseWhenExpression(bool *ok) {
                     clauses.push_back(clause);
                 }
             } break;
-                
+
             default: {
                 Expression *expr = ParseExpression(CHECK_OK);
                 if (Peek().kind() == Token::kComma) {

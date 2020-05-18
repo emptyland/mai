@@ -102,7 +102,7 @@ private:
     bool CheckFileUnit(const std::string &pkg_name, FileUnit *unit);
     
     Result CheckForStep(ForLoop *ast);
-    Result CheckForIterate(ForLoop *ast);
+    Result CheckForeach(ForLoop *ast);
     Result CheckForChannel(ForLoop *ast);
     Result CheckDotExpression(TypeSign *type, DotExpression *ast);
     Result CheckClassOrObjectFieldAccess(TypeSign *type, DotExpression *ast);
