@@ -1,0 +1,25 @@
+package main
+
+fun main() {
+    assertForeachArraySanity()
+    assertForeachArrayIndexed()
+}
+
+fun assertForeachArraySanity() {
+    val a = array{-1,1,-1,1}
+    var v = 0
+    for (value in a) {
+        v += value
+    }
+    assert(v == 0, "fail $v")
+}
+
+fun assertForeachArrayIndexed() {
+    val a = array{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17}
+    var i = 0
+    for (index, value in a) {
+        assert(index == value, "fail [$index] $value")
+        assert(i == index, "fail $index")
+        i++
+    }
+}

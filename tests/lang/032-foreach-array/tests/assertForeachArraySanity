@@ -1,0 +1,59 @@
++------------------------------------------------------------------------------
+| main.assertForeachArraySanity():void
++------------------------------------------------------------------------------
+stack-size: 112
+stack-bitmap: 00000006
+const-pool-bytes: 64
+const-pool-bitmap: 00000002
+captured-var-size: 0
+exception-table-size: 0
+souce-line-size: 46
+souce-file-name: tests/lang/032-foreach-array/main/main.mai
+bytecode-size: 46
+bytecode: 
+    000 CheckStack; (8)
+    001 LdaSmi32 #1; (9)
+    002 Star32 [BP-68]; (9)
+    003 LdaSmi32 #1; (9)
+    004 Star32 [BP-72]; (9)
+    005 Move32 [BP-116], [BP-72]; (9)
+    006 LdaConst32 [KP+8]; (9)
+    007 Star32 [BP-120]; (9)
+    008 Move32 [BP-124], [BP-68]; (9)
+    009 LdaConst32 [KP+8]; (9)
+    010 Star32 [BP-128]; (9)
+    011 ArrayWith #16, [KP+0]; (9)
+    012 StarPtr [BP-88]; (9)
+    013 LdaSmi32 #0; (10)
+    014 Star32 [BP-68]; (10)
+    015 LdaZero; (11)
+    016 Star32 [BP-72]; (11)
+    017 LdaProperty32 [BP-88], @28; (11)
+    018 Star32 [BP-80]; (11)
+    019 TestGreaterThanOrEqual32 [BP-72], [BP-80]; (11)
+    020 ForwardJumpIfTrue 0, #7; (11)
+    021 LdaArrayAt32 [BP-88], [BP-72]; (11)
+    022 Star32 [BP-76]; (11)
+    023 Add32 [BP-68], [BP-76]; (12)
+    024 Star32 [BP-68]; (12)
+    025 Increment32 [BP-72], #1; (11)
+    026 BackwardJump 0, #7; (11)
+    027 LdaSmi32 #0; (14)
+    028 Star32 [BP-72]; (14)
+    029 TestEqual32 [BP-68], [BP-72]; (14)
+    030 Star32 [BP-72]; (14)
+    031 LdaConstPtr [KP+32]; (14)
+    032 StarPtr [BP-96]; (14)
+    033 Move32 [BP-116], [BP-68]; (14)
+    034 LdaGlobalPtr [GS+360]; (14)
+    035 CallNativeFunction #0, #4; (14)
+    036 StarPtr [BP-104]; (14)
+    037 MovePtr [BP-120], [BP-96]; (14)
+    038 MovePtr [BP-128], [BP-104]; (14)
+    039 Contact #0, #16; (14)
+    040 StarPtr [BP-96]; (14)
+    041 Move32 [BP-116], [BP-72]; (14)
+    042 MovePtr [BP-124], [BP-96]; (14)
+    043 LdaGlobalPtr [GS+160]; (14)
+    044 CallNativeFunction #0, #12; (14)
+    045 Return; (8)

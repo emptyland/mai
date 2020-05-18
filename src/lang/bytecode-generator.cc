@@ -3586,7 +3586,8 @@ ASTVisitor::Result BytecodeGenerator::GenerateForEach(ForLoop *ast) {
 
         // label: retry
         current_fun_->builder()->Bind(block_scope->mutable_retry_label());
-        GenerateComparation(index.type, Operators::kGreaterEqual, index.index, limit.index, ast);
+        GenerateComparation(index.type, Operators::kGreaterEqual, index.index, limit.index,
+                            ast->value());
         EMIT(ast, JumpIfTrue(block_scope->mutable_exit_label(), 0/*slot*/));
         LdaArrayAt(value.type, subject.index, index.index, ast->value());
         StaStack(value.type, value.index, ast->value());
@@ -3597,7 +3598,6 @@ ASTVisitor::Result BytecodeGenerator::GenerateForEach(ForLoop *ast) {
         }
 
         EMIT(ast, Add<kIncrement32>(GetStackOffset(index.index), 1));
-        StaStack(index.type, index.index, ast);
     } else if (subject.type->id() == kType_channel) {
         // TODO:
         TODO();
