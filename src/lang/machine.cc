@@ -627,6 +627,39 @@ String *Machine::Array8ToString(AbstractArray *from) {
     return reinterpret_cast<String *>(from);
 }
 
+AbstractMap *Machine::NewMap(uint32_t key, uint32_t value, uint32_t bucket_size,
+                             uint32_t random_seed, uint32_t flags) {
+    const Class *key_type = DCHECK_NOTNULL(STATE->metadata_space()->type(key));
+    int bucket_shift = 1;
+    for (;(1u << bucket_shift) < bucket_size; bucket_shift++) {
+    }
+    const Class *value_type = DCHECK_NOTNULL(STATE->metadata_space()->type(value));
+    const Class *type = nullptr;
+    if (key_type->is_reference()) {
+        type = STATE->builtin_type(kType_map);
+        return NewMap<Any *>(type, key_type, value_type, bucket_shift, random_seed, flags);
+    } else {
+        switch (key_type->reference_size()) {
+            case 1:
+                type = STATE->builtin_type(kType_map8);
+                return NewMap<uint8_t>(type, key_type, value_type, bucket_shift, random_seed, flags);
+            case 2:
+                type = STATE->builtin_type(kType_map16);
+                return NewMap<uint16_t>(type, key_type, value_type, bucket_shift, random_seed, flags);
+            case 4:
+                type = STATE->builtin_type(kType_map32);
+                return NewMap<uint32_t>(type, key_type, value_type, bucket_shift, random_seed, flags);
+            case 8:
+                type = STATE->builtin_type(kType_map64);
+                return NewMap<uint64_t>(type, key_type, value_type, bucket_shift, random_seed, flags);
+            default:
+                NOREACHED();
+                break;
+        }
+    }
+    return nullptr;
+}
+
 Closure *Machine::NewClosure(Code *code, size_t captured_var_size, uint32_t flags) {
     DCHECK_EQ(0, captured_var_size % kPointerSize);
     size_t request_size = sizeof(Closure) + captured_var_size * sizeof(Closure::CapturedVar);

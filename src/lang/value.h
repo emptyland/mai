@@ -6,6 +6,7 @@
 #include "lang/handle.h"
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 #include <vector>
 #include <type_traits>
 #include <string_view>
@@ -127,7 +128,7 @@ struct ElementTraits {
 
 
 // The Array's header
-template<class T, bool R = ElementTraits<T>::kIsReferenceType >
+template<class T, bool R = ElementTraits<T>::kIsReferenceType>
 class Array : public AbstractArray {
 public:
     static constexpr int32_t kOffsetElems = offsetof(Array, elems_);
@@ -307,82 +308,506 @@ private:
     }
 }; // class String
 
-// The Map's header
-template<class T>
-class Map : public Any {
+
+class AbstractMap : public Any {
 public:
-    static constexpr int32_t kOffsetBucketSize = offsetof(Map, bucket_shift_);
-    static constexpr int32_t kOffsetLength = offsetof(Map, length_);
-    static constexpr int32_t kOffsetRandomSeed = offsetof(Map, random_seed_);
-    static constexpr int32_t kOffsetEntries = offsetof(Map, entries_);
+    const Class *key_type() const { return key_type_; }
+    const Class *value_type() const { return value_type_; }
     
+    // Number of buckets
     uint32_t bucket_size() const { return 1u << bucket_shift_; }
-private:
-    static constexpr size_t kPaddingSize = sizeof(T) % 4;
     
-    inline Map(const Class *clazz, uint32_t initial_bucket_shift, uint32_t random_seed)
-        : Any(clazz, 0)
+    // Number of all entries
+    uint32_t capacity() const { return 1u << (bucket_shift_ + 1); }
+
+    uint32_t random_seed() const { return random_seed_; }
+    
+    uint32_t length() const { return length_; }
+    
+protected:
+    AbstractMap(const Class *clazz, const Class *key, const Class *value,
+                uint32_t initial_bucket_shift, uint32_t random_seed, uint32_t tags)
+        : Any(clazz, tags)
+        , key_type_(key)
+        , value_type_(value)
         , bucket_shift_(initial_bucket_shift)
-        , length_(0)
         , random_seed_(random_seed)
-        , free_(1u << initial_bucket_shift) {
-        ::memset(entries_, 0, sizeof(Entry) * (1u << (initial_bucket_shift + 1)));
+        , free_((1u << (initial_bucket_shift + 1)) - 1) {
     }
     
-    enum EntryKind {
-        kFree,
-        kHead,
-        kNode,
-    };
-    
+    static AbstractMap *NewMap(BuiltinType key, BuiltinType value, uint32_t bucket_size);
+    AbstractMap *NewMap(uint32_t bucket_size);
+    bool IsKeyReferenceType() const;
+    bool IsValueReferenceType() const;
+
+    const Class *key_type_;
+    const Class *value_type_;
+    const uint32_t bucket_shift_;
+    const uint32_t random_seed_;
+    uint32_t free_;
+    uint32_t length_ = 0;
+}; // class AbstractMap
+
+
+template<class T> struct Hash {
+    uint32_t operator () (T value) const { return 0; }
+    bool operator () (T lhs, T rhs) const { return lhs == rhs; }
+};
+
+template<> struct Hash<int8_t> {
+    uint32_t operator () (int8_t value) const { return static_cast<uint32_t>(value); }
+    bool operator () (int8_t lhs, int8_t rhs) const { return lhs == rhs; }
+};
+
+template<> struct Hash<uint8_t> {
+    uint32_t operator () (uint8_t value) const { return static_cast<uint32_t>(value); }
+    bool operator () (uint8_t lhs, uint8_t rhs) const { return lhs == rhs; }
+};
+
+template<> struct Hash<int32_t> {
+    uint32_t operator () (int32_t value) const { return static_cast<uint32_t>(value); }
+    bool operator () (int32_t lhs, int32_t rhs) const { return lhs == rhs; }
+};
+
+template<> struct Hash<uint32_t> {
+    uint32_t operator () (uint32_t value) const { return static_cast<uint32_t>(value); }
+    bool operator () (uint32_t lhs, uint32_t rhs) const { return lhs == rhs; }
+};
+
+template<> struct Hash<int64_t> {
+    uint32_t operator () (int64_t value) const {
+        return static_cast<uint32_t>(value * value >> 16);
+    }
+    bool operator () (int64_t lhs, int64_t rhs) const { return lhs == rhs; }
+};
+
+template<> struct Hash<uint64_t> {
+    uint32_t operator () (uint64_t value) const {
+        return static_cast<uint32_t>(value * value >> 16);
+    }
+    bool operator () (uint64_t lhs, uint64_t rhs) const { return lhs == rhs; }
+};
+
+template<> struct Hash<float> {
+    uint32_t operator () (float value) const {
+        uint32_t h = *reinterpret_cast<uint32_t *>(&value);
+        return h * h | 1;
+    }
+
+    bool operator () (float lhs, float rhs) const {
+        return ::fabs(lhs - rhs) <= 0.00001f;
+    }
+};
+
+template<> struct Hash<double> {
+    uint32_t operator () (double value) const {
+        uint64_t h = *reinterpret_cast<uint64_t *>(&value);
+        return static_cast<uint32_t>(((h * h) >> 16) | 1);
+    }
+
+    bool operator () (double lhs, double rhs) const {
+        return ::fabs(lhs - rhs) <= 0.00001f;
+    }
+};
+
+template<> struct Hash<String*> {
+    uint32_t operator () (String *value) const;
+    bool operator () (String *lhs, String *rhs) const;
+};
+
+
+// The Map's header
+template<class K>
+class ImplementMap : public AbstractMap {
+public:
     struct Entry {
-        uint32_t hash;
-        uint32_t next;
-        EntryKind kind;
-        T        key;
-        uint8_t  padding[kPaddingSize];
-        Any     *value; // [strong ref]
+        enum Kind {
+            kFree,
+            kBucket,
+            kNode,
+        };
+        uint32_t  next;
+        Kind      kind;
+        uintptr_t value;
+        K         key;
     }; // struct Entry
     
-    uint32_t bucket_shift_;
-    uint32_t length_;
-    uint32_t random_seed_;
-    uint32_t free_;
-    Entry entries_[0];
-}; // template<class T> class Map
-
-
-class MutableMapEntry : public Any {
-public:    
-    static const int32_t kOffsetNext;
-    static const int32_t kOffsetHash;
-    static const int32_t kOffsetKey;
-    static const int32_t kOffsetValue;
+    static constexpr int32_t kOffsetKeyType = offsetof(ImplementMap, key_type_);
+    static constexpr int32_t kOffsetValueType = offsetof(ImplementMap, value_type_);
+    static constexpr int32_t kOffsetRandomSeed = offsetof(ImplementMap, random_seed_);
+    static constexpr int32_t kOffsetLength = offsetof(ImplementMap, length_);
+    static constexpr int32_t kOffsetEntries = offsetof(ImplementMap, entries_);
     
-    friend class MutableMap;
-private:
-    MutableMapEntry();
+    static inline size_t RequiredSize(uint32_t bucket_size) {
+        return sizeof(ImplementMap<K>) + (sizeof(Entry) * bucket_size * 2);
+    }
     
-    MutableMapEntry *next_; // [strong ref]
-    uint32_t hash_;
-    uint32_t padding0_;
-    Any *key_; // [strong ref]
-    Any *value_; // [strong ref]
-}; // class MapEntry
+    friend class Machine;
+protected:
+    inline ImplementMap(const Class *clazz, const Class *key, const Class *value,
+               uint32_t initial_bucket_shift, uint32_t random_seed, uint32_t tags)
+        : AbstractMap(clazz, key, value, initial_bucket_shift, random_seed, tags) {
+        ::memset(entries_, 0, sizeof(Entry) * (capacity() + 1));
+    }
+    
+    inline Entry *FindOrMakeRoom(K key, ImplementMap<K> **receiver) {
+        ImplementMap<K> *dest = this;
+        Entry *room = dest->FindForPut(key);
+        while (!room) {
+            dest = static_cast<ImplementMap<K> *>(dest->NewMap(bucket_size() * 2));
+            if (!dest) {
+                return nullptr;
+            }
+            // Rehash
+            for (int i = 1; i < capacity() + 1; i++) {
+                if (entries_[i].kind != Entry::kFree) {
+                    Entry *entry = dest->FindForPut(entries_[i].key);
+                    entry->key = entries_[i].key;
+                    if (ElementTraits<K>::kIsReferenceType) {
+                        dest->WriteBarrier(reinterpret_cast<Any **>(&entry->key));
+                    }
+                    entry->value = entries_[i].value;
+                    if (IsValueReferenceType()) {
+                        dest->WriteBarrier(reinterpret_cast<Any **>(&entry->value));
+                    }
+                }
+            }
+            room = dest->FindForPut(key);
+        }
+        *receiver = dest;
+        return room;
+    }
+
+    inline Entry *FindForPut(K key) {
+        Entry *slot = GetSlot(key);
+        if (slot->kind == Entry::kFree) {
+            slot->kind = Entry::kBucket;
+            slot->next = 0;
+            length_++;
+            return slot;
+        }
+        Entry *node = slot;
+        while (node != &entries_[0]) {
+            if (Hash<K>{}(key, node->key)) {
+                return node;
+            }
+            node = &entries_[node->next];
+        }
+        uint32_t index = AllocateRoom();
+        if (index == 0){
+            return nullptr;
+        }
+        node = &entries_[index];
+        node->kind = Entry::kNode;
+        node->next = slot->next;
+        slot->next = index;
+        length_++;
+        return node;
+    }
+    
+    inline Entry *FindForGet(K key) {
+        Entry *slot = GetSlot(key);
+        if (slot->kind == Entry::kFree) {
+            return nullptr;
+        }
+        Entry *node = slot;
+        while (node != &entries_[0]) {
+            if (Hash<K>{}(key, node->key)) {
+                return node;
+            }
+            node = &entries_[node->next];
+        }
+        return nullptr;
+    }
+    
+    inline Entry *Delete(K key) {
+        Entry *slot = GetSlot(key);
+        if (slot->kind == Entry::kFree) {
+            return nullptr;
+        }
+        if (Hash<K>{}(key, slot->key)) {
+            ::memcpy(slot, &entries_[slot->next], sizeof(*slot));
+            length_--;
+            return slot;
+        }
+        Entry *prev = slot;
+        Entry *node = &entries_[slot->next];
+        while (node != &entries_[0]) {
+            if (Hash<K>{}(key, node->key)) {
+                FreeRoom(prev->next);
+                prev->next = node->next;
+                ::memset(node, 0, sizeof(*node));
+                length_--;
+                return node;
+            }
+            prev = node;
+            node = &entries_[node->next];
+        }
+        return nullptr;
+    }
+    
+    inline uint32_t AllocateRoom() {
+        while (entries_[1 + free_].kind != Entry::kFree && free_ >= bucket_size()) {
+            free_--;
+        }
+        return free_ < bucket_size() ? 0 : (free_-- + 1);
+    }
+    
+    inline void FreeRoom(uint32_t index) {
+        if (index - 1 > free_) { free_ = index - 1; }
+    }
+    
+    inline Entry *GetSlot(K key) {
+        uint32_t slot = (Hash<K>{}(key) ^ random_seed_) & ((1u << bucket_shift_) - 1);
+        return &entries_[1 + slot]; // Skip index:0
+    }
+
+    Entry entries_[1];
+}; // template<class T> class ImplementMap
 
 
-class MutableMap : public Any {
+template<class K, class V,
+    bool KT = ElementTraits<K>::kIsReferenceType,
+    bool VT = ElementTraits<V>::kIsReferenceType>
+class Map : public ImplementMap<K> {
 public:
-    using Entry = MutableMapEntry;
+    using AbstractMap::NewMap;
+    using Entry = typename ImplementMap<K>::Entry;
+    using ImplementMap<K>::FindOrMakeRoom;
+    using ImplementMap<K>::FindForPut;
+    using ImplementMap<K>::FindForGet;
+    using ImplementMap<K>::Delete;
+
+    static inline Local<Map<K,V>> New(uint32_t bucket_size = 16) {
+        Local<Map<K,V>> map(static_cast<Map<K,V> *>(NewMap(TypeTraits<K>::kType,
+                                                           TypeTraits<V>::kType, bucket_size)));
+        return map;
+    }
     
-private:
-    MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32_t random_seed);
+    void Put(K key, V value, Local<Map<K,V>> *handle) {
+        ImplementMap<K> *dummy = nullptr;
+        Entry *room = FindOrMakeRoom(key, &dummy);
+        if (!room) {
+            *handle = nullptr;
+            return;
+        }
+        room->key = key;
+        *reinterpret_cast<V *>(&room->value) = value;
+        *handle = static_cast<Map<K,V> *>(dummy);
+    }
     
-    uint32_t bucket_shift_;
-    uint32_t length_;
-    uint32_t random_seed_;
-    Array<Entry*> *bucket_; // [strong ref]
-}; // class MutableMap
+    inline void Set(K key, V value) {
+        if (Entry *room = FindForPut(key)) {
+            room->key = key;
+            *reinterpret_cast<V *>(&room->value) = value;
+        }
+    }
+    
+    inline void Erase(K key) { Delete(key); }
+    
+    inline bool Get(K key, V *receiver) {
+        Entry *room = FindForGet(key);
+        if (!room) {
+            return false;
+        }
+        if (receiver) {
+            *receiver = *reinterpret_cast<V *>(&room->value);
+        }
+        return true;
+    }
+}; // class Map
+
+
+template<class K, class V>
+class Map<K, V, true, false> : public ImplementMap<K> {
+public:
+    using CoreKeyType = typename ElementTraits<K>::CoreType;
+    using Entry = typename ImplementMap<K>::Entry;
+    using AbstractMap::NewMap;
+    using Any::WriteBarrier;
+    using ImplementMap<K>::FindOrMakeRoom;
+    using ImplementMap<K>::FindForPut;
+    using ImplementMap<K>::FindForGet;
+    using ImplementMap<K>::Delete;
+
+    static inline Local<Map<K,V>> New(uint32_t bucket_size = 16) {
+        Local<Map<K,V>> map(static_cast<Map<K,V> *>(NewMap(TypeTraits<CoreKeyType>::kType,
+                                                           TypeTraits<V>::kType,
+                                                           bucket_size)));
+        return map;
+    }
+    
+    void Put(const Handle<CoreKeyType> &key, V value, Local<Map<K,V>> *handle) {
+        ImplementMap<K> *dummy = nullptr;
+        Entry *room = FindOrMakeRoom(*key, &dummy);
+        if (!room) {
+            *handle = nullptr;
+            return;
+        }
+        if (room->key != *key) {
+            room->key = *key;
+            WriteBarrier(reinterpret_cast<Any **>(&room->key));
+        }
+        *reinterpret_cast<V *>(&room->value) = value;
+        *handle = static_cast<Map<K,V> *>(dummy);
+    }
+
+    inline void Set(const Handle<CoreKeyType> &key, V value) {
+        if (Entry *room = FindForPut(*key)) {
+            if (room->key != *key) {
+                room->key = *key;
+                WriteBarrier(reinterpret_cast<Any **>(&room->key));
+            }
+            *reinterpret_cast<V *>(&room->value) = value;
+        }
+    }
+
+    inline void Erase(const Handle<CoreKeyType> &key) {
+        if (Entry *room = Delete(*key)) {
+            WriteBarrier(reinterpret_cast<Any **>(&room->key));
+        }
+    }
+    
+    inline bool Get(const Handle<CoreKeyType> &key, V *receiver) {
+        Entry *room = FindForGet(*key);
+        if (!room) {
+            return false;
+        }
+        if (receiver) {
+            *receiver = *reinterpret_cast<V *>(&room->value);
+        }
+        return true;
+    }
+}; // class Map<K, V, true, false>
+
+template<class K, class V>
+class Map<K, V, true, true> : public ImplementMap<K> {
+public:
+    using CoreKeyType = typename ElementTraits<K>::CoreType;
+    using CoreValueType = typename ElementTraits<V>::CoreType;
+    using Entry = typename ImplementMap<K>::Entry;
+    using AbstractMap::NewMap;
+    using Any::WriteBarrier;
+    using ImplementMap<K>::FindOrMakeRoom;
+    using ImplementMap<K>::FindForPut;
+    using ImplementMap<K>::FindForGet;
+    using ImplementMap<K>::Delete;
+
+    static inline Local<Map<K,V>> New(uint32_t bucket_size = 16) {
+        Local<Map<K,V>> map(static_cast<Map<K,V> *>(NewMap(TypeTraits<CoreKeyType>::kType,
+                                                           TypeTraits<CoreValueType>::kType,
+                                                           bucket_size)));
+        return map;
+    }
+    
+    Local<Map<K,V>> Put(const Handle<CoreKeyType> &key, const Handle<CoreValueType> &value,
+                        Local<Map<K,V>> *handle) {
+        ImplementMap<K> *dummy = nullptr;
+        Entry *room = FindOrMakeRoom(*key, &dummy);
+        if (!room) {
+            *handle = nullptr;
+            return;
+        }
+        if (room->key != *key) {
+            room->key = *key;
+            WriteBarrier(reinterpret_cast<Any **>(&room->key));
+        }
+        if (reinterpret_cast<CoreValueType *>(room->value) != *value) {
+            room->value = reinterpret_cast<uintptr_t>(*value);
+            WriteBarrier(reinterpret_cast<Any **>(&room->value));
+        }
+        *handle = static_cast<Map<K,V> *>(dummy);
+    }
+
+    inline void Set(const Handle<CoreKeyType> &key, const Handle<CoreValueType> &value) {
+        if (Entry *room = FindForPut(*key)) {
+            if (room->key != *key) {
+                room->key = *key;
+                WriteBarrier(reinterpret_cast<Any **>(&room->key));
+            }
+            if (reinterpret_cast<CoreValueType *>(room->value) != *value) {
+                room->value = reinterpret_cast<uintptr_t>(*value);
+                WriteBarrier(reinterpret_cast<Any **>(&room->value));
+            }
+        }
+    }
+    
+    inline void Erase(const Handle<CoreKeyType> &key) {
+        if (Entry *room = Delete(key)) {
+            WriteBarrier(reinterpret_cast<Any **>(&room->key));
+            WriteBarrier(reinterpret_cast<Any **>(&room->value));
+        }
+    }
+    
+    inline Local<CoreValueType> Get(const Handle<CoreKeyType> &key) {
+        Entry *room = FindForGet(*key);
+        if (!room) {
+            return Local<CoreValueType>::Empty();
+        }
+        return Local<CoreValueType>(reinterpret_cast<CoreValueType *>(room->value));
+    }
+}; // class Map<K, V, true, true>
+
+template<class K, class V>
+class Map<K, V, false, true> : public ImplementMap<K> {
+public:
+    using CoreValueType = typename ElementTraits<V>::CoreType;
+    using Entry = typename ImplementMap<K>::Entry;
+    using AbstractMap::NewMap;
+    using Any::WriteBarrier;
+    using ImplementMap<K>::FindOrMakeRoom;
+    using ImplementMap<K>::FindForPut;
+    using ImplementMap<K>::FindForGet;
+    using ImplementMap<K>::Delete;
+
+    static inline Local<Map<K,V>> New(uint32_t bucket_size = 16) {
+        Local<Map<K,V>> map(static_cast<Map<K,V> *>(NewMap(TypeTraits<K>::kType,
+                                                           TypeTraits<CoreValueType>::kType,
+                                                           bucket_size)));
+        return map;
+    }
+    
+    void Put(K key, const Handle<CoreValueType> &value, Local<Map<K,V>> *handle) {
+        ImplementMap<K> *dummy = nullptr;
+        Entry *room = FindOrMakeRoom(key, &dummy);
+        if (!room) {
+            *handle = nullptr;
+            return;
+        }
+        room->key = key;
+        if (reinterpret_cast<CoreValueType *>(room->value) != *value) {
+            room->value = reinterpret_cast<uintptr_t>(*value);
+            WriteBarrier(reinterpret_cast<Any **>(&room->value));
+        }
+        *handle = static_cast<Map<K,V> *>(dummy);
+    }
+
+    inline void Set(K key, const Handle<CoreValueType> &value) {
+        Entry *room = FindForPut(key);
+        if (room) {
+            room->key = key;
+            if (reinterpret_cast<CoreValueType *>(room->value) != *value) {
+                room->value = reinterpret_cast<uintptr_t>(*value);
+                WriteBarrier(reinterpret_cast<Any **>(&room->value));
+            }
+        }
+    }
+    
+    inline void Erase(K key) {
+        Entry *room = Delete(key);
+        if (room) {
+            WriteBarrier(reinterpret_cast<Any **>(&room->value));
+        }
+    }
+    
+    inline Local<CoreValueType> Get(K key) {
+        Entry *room = FindForGet(key);
+        if (!room) {
+            return Local<CoreValueType>::Empty();
+        }
+        return Local<CoreValueType>(reinterpret_cast<CoreValueType *>(room->value));
+    }
+}; // class Map<K, V, false, true>
 
 
 // Value Base Class
@@ -747,8 +1172,6 @@ public:
     FunctionTemplate() = delete;
     ~FunctionTemplate() = delete;
 private:
-    //static uint32_t GetTypeId(const Any *object);
-    
     static Code *MakeStub(const std::vector<uint32_t> &parameters, bool has_vargs,
                           uint32_t return_type, uint8_t *cxx_func_entry);
 }; // class FunctionTemplate

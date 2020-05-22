@@ -13,8 +13,9 @@ class Closure;
 class Panic;
 class Channel;
 class Throwable;
-template<class T, bool R> class Array;
 template<class T> class Number;
+template<class T, bool R> class Array;
+template<class K, class V, bool KT, bool VT> class Map;
 
 // primitive
 #define DECLARE_PRIMITIVE_TYPES(V) \
@@ -61,13 +62,9 @@ template<class T> class Number;
     V(map64, uint64_t) \
     V(map, Any*)
 
-#define DECLARE_MUTABLE_MAP_TYPES(V) \
-    V(mutable_map, Any*, Any*)
-
 #define DECLARE_CONTAINER_TYPES(V) \
-    DECLARE_ARRAY_TYPES(V)
-    //DECLARE_MAP_TYPES(V) \
-    //DECLARE_MUTABLE_MAP_TYPES(V)
+    DECLARE_ARRAY_TYPES(V) \
+    DECLARE_MAP_TYPES(V)
 
 enum BuiltinType: int {
     kType_void,
@@ -79,7 +76,6 @@ enum BuiltinType: int {
     kType_closure,
     kType_string,
     kType_channel,
-    kType_mutable_map_entry,
     DECLARE_CONTAINER_TYPES(DEFINE_ENUM)
     kType_Throwable,
     kType_Panic,
@@ -90,8 +86,6 @@ enum BuiltinType: int {
 
 static constexpr uint32_t kUserTypeIdBase = 0x1000;
 
-//static constexpr uint32_t kHandleFlag = 0x80000000u;
-//static constexpr uint32_t kHandleMask = ~kHandleFlag;
 
 template<class T>
 struct TypeTraits {

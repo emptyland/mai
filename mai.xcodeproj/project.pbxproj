@@ -1304,7 +1304,7 @@
 			isa = PBXProject;
 			attributes = {
 				DefaultBuildSystemTypeForWorkspace = Original;
-				LastUpgradeCheck = 1140;
+				LastUpgradeCheck = 1150;
 				ORGANIZATIONNAME = Niko;
 				TargetAttributes = {
 					2356590A221E82EC00837F83 = {

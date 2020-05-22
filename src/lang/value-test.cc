@@ -181,6 +181,128 @@ TEST_F(ValueTest, StringBuilder) {
     ASSERT_STREQ("Hello, World! 101", handle->data());
 }
 
+TEST_F(ValueTest, MapSanity) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    Local<Map<int, int>> mm = Map<int, int>::New();
+    ASSERT_TRUE(mm.is_not_empty());
+    ASSERT_TRUE(mm.is_value_not_null());
+    
+    ASSERT_EQ(kType_i32, mm->key_type()->id()) << mm->key_type()->name();
+    ASSERT_EQ(kType_i32, mm->value_type()->id()) << mm->value_type()->name();
+    
+    ASSERT_EQ(16, mm->bucket_size());
+    ASSERT_EQ(32, mm->capacity());
+    
+    mm->Set(0, 0);
+    mm->Set(1, 100);
+    mm->Set(2, 200);
+    mm->Set(18, 1800);
+    ASSERT_EQ(4, mm->length());
+    
+    int value;
+    ASSERT_TRUE(mm->Get(18, &value));
+    ASSERT_EQ(1800, value);
+    
+    mm->Set(18, 1811);
+    ASSERT_EQ(4, mm->length());
+    ASSERT_TRUE(mm->Get(18, &value));
+    ASSERT_EQ(1811, value);
+    
+    mm->Erase(18);
+    ASSERT_EQ(3, mm->length());
+    ASSERT_FALSE(mm->Get(18, &value));
+    
+    mm->Erase(1);
+    ASSERT_EQ(2, mm->length());
+    ASSERT_FALSE(mm->Get(1, &value));
+    
+    mm->Erase(0);
+    ASSERT_EQ(1, mm->length());
+    ASSERT_FALSE(mm->Get(0, &value));
+}
+
+TEST_F(ValueTest, MapReferenceValue) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    Local<Map<int, String *>> mm = Map<int, String *>::New();
+    ASSERT_TRUE(mm.is_not_empty());
+    ASSERT_TRUE(mm.is_value_not_null());
+    
+    ASSERT_EQ(kType_i32, mm->key_type()->id()) << mm->key_type()->name();
+    ASSERT_EQ(kType_string, mm->value_type()->id()) << mm->value_type()->name();
+    
+    Local<String> name(String::NewUtf8("Hello"));
+    mm->Set(100, name);
+    name = String::NewUtf8("World");
+    mm->Set(200, name);
+    
+    ASSERT_STREQ("Hello", mm->Get(100)->data());
+    ASSERT_STREQ("World", mm->Get(200)->data());
+    
+    mm->Erase(100);
+    ASSERT_EQ(1, mm->length());
+    ASSERT_TRUE(mm->Get(100).is_empty());
+    
+    mm->Erase(200);
+    ASSERT_EQ(0, mm->length());
+    ASSERT_TRUE(mm->Get(200).is_empty());
+}
+
+TEST_F(ValueTest, MapReferenceKey) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+
+    Local<Map<String *, int>> mm = Map<String *, int>::New();
+    ASSERT_TRUE(mm.is_not_empty());
+    ASSERT_TRUE(mm.is_value_not_null());
+    
+    Local<String> name(String::NewUtf8("1st"));
+    mm->Set(name, 1);
+    name = String::NewUtf8("2nd");
+    mm->Set(name, 2);
+    name = String::NewUtf8("3rd");
+    mm->Set(name, 3);
+    
+    int value;
+    ASSERT_TRUE(mm->Get(String::NewUtf8("1st"), &value));
+    ASSERT_EQ(1, value);
+    ASSERT_TRUE(mm->Get(String::NewUtf8("2nd"), &value));
+    ASSERT_EQ(2, value);
+    ASSERT_TRUE(mm->Get(String::NewUtf8("3rd"), &value));
+    ASSERT_EQ(3, value);
+    
+    mm->Erase(String::NewUtf8("2nd"));
+    ASSERT_EQ(2, mm->length());
+    ASSERT_FALSE(mm->Get(String::NewUtf8("2nd"), &value));
+}
+
+TEST_F(ValueTest, MapRehash) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    Local<Map<int, int>> mm = Map<int, int>::New();
+    ASSERT_TRUE(mm.is_not_empty());
+    ASSERT_TRUE(mm.is_value_not_null());
+    
+    int rehash_count = 0;
+    for (int i = 0; i < 128; i++) {
+        Map<int, int> *old = *mm;
+        mm->Put(i, i * 100, &mm);
+        if (*mm != old) {
+            rehash_count++;
+        }
+        ASSERT_TRUE(mm.is_value_not_null());
+    }
+    
+    ASSERT_EQ(2, rehash_count);
+    ASSERT_EQ(128, mm->length());
+    
+    for (int i = 0; i < 128; i++) {
+        int value = 0;
+        ASSERT_TRUE(mm->Get(i, &value));
+        ASSERT_EQ(i * 100, value);
+    }
+}
+
 }
 
 }

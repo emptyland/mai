@@ -135,6 +135,10 @@ public:
     AbstractArray *ResizeArray(AbstractArray *origin, size_t new_size);
     
     String *Array8ToString(AbstractArray *from);
+    
+    // New (immutable) map slowly
+    AbstractMap *NewMap(uint32_t key, uint32_t value, uint32_t bucket_size, uint32_t random_seed,
+                        uint32_t flags);
 
     // New native closure
     Closure *NewClosure(Code *code, size_t captured_var_size, uint32_t flags);
@@ -203,6 +207,20 @@ public:
     friend class SafepointScope;
     DISALLOW_IMPLICIT_CONSTRUCTORS(Machine);
 private:
+    template<class K>
+    inline ImplementMap<K> *NewMap(const Class *type, const Class *key, const Class *value,
+                                   uint32_t bucket_shift, uint32_t random_seed, uint32_t flags) {
+        size_t request_size = Map<Any *, Any *>::RequiredSize(1u << bucket_shift);
+        AllocationResult result = STATE->heap()->Allocate(request_size, flags);
+        if (!result.ok()) {
+            AllocationPanic(result);
+            return nullptr;
+        }
+        ImplementMap<K> *obj = new (result.ptr())
+            ImplementMap<K>(type, key, value, bucket_shift, random_seed, flags);
+        return obj;
+    }
+    
     ALWAYS_INLINE void AddRememberRecord(Any *host, Any **address) {
         DCHECK(ShouldRemember(host, *address));
         RememberRecord rd {
@@ -254,8 +272,6 @@ private:
     Coroutine *free_dummy_; // Local free coroutines(coroutine pool)
     Coroutine *runnable_dummy_; // [nested strong ref] Waiting for running coroutines
     Coroutine *waitting_dummy_; // [nested strong ref] Waiting for wakeup coroutines
-    //mutable std::mutex runnable_mutex_; // Mutex for runnable_dummy_
-    //mutable std::mutex waitting_mutex_; // Mutex for waitting_dummy_
     int n_free_ = 0; // Number of free coroutine
     int n_runnable_ = 0; // Number of runnable coroutines
     int n_waitting_ = 0; // Number of waitting coroutines

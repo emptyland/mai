@@ -6,6 +6,7 @@
 #include "lang/stack-frame.h"
 #include "asm/utils.h"
 #include "base/slice.h"
+#include "base/hash.h"
 #include <stdarg.h>
 
 namespace mai {
@@ -22,11 +23,6 @@ const int32_t AbstractArray::kOffsetElemType = MEMBER_OFFSET_OF(AbstractArray, e
 const int32_t AbstractArray::kOffsetCapacity = MEMBER_OFFSET_OF(AbstractArray, capacity_);
 const int32_t AbstractArray::kOffsetLength = MEMBER_OFFSET_OF(AbstractArray, length_);
 
-const int32_t MutableMapEntry::kOffsetNext = MEMBER_OFFSET_OF(MutableMapEntry, next_);
-const int32_t MutableMapEntry::kOffsetHash = MEMBER_OFFSET_OF(MutableMapEntry, hash_);
-const int32_t MutableMapEntry::kOffsetKey = MEMBER_OFFSET_OF(MutableMapEntry, key_);
-const int32_t MutableMapEntry::kOffsetValue = MEMBER_OFFSET_OF(MutableMapEntry, value_);
-
 const int32_t AbstractValue::kOffsetValue = MEMBER_OFFSET_OF(AbstractValue, value_);
 
 const int32_t Closure::kOffsetProto = MEMBER_OFFSET_OF(Closure, mai_fn_);
@@ -38,6 +34,15 @@ const int32_t Throwable::kOffsetStacktrace = MEMBER_OFFSET_OF(Throwable, stacktr
 
 const int32_t Panic::kOffsetCode = MEMBER_OFFSET_OF(Panic, code_);
 const int32_t Panic::kOffsetMessage = MEMBER_OFFSET_OF(Panic, message_);
+
+uint32_t Hash<String*>::operator () (String *value) const {
+    DCHECK(value != nullptr);
+    return base::Hash::Js(value->data(), value->length());
+}
+
+bool Hash<String*>::operator () (String *lhs, String *rhs) const {
+    return lhs->length() == rhs->length() && !::strncmp(lhs->data(), rhs->data(), lhs->length());
+}
 
 // Use function call, it's slowly calling...
 bool Any::SlowlyIs(uint32_t type_id) const { return QuicklyIs(type_id); }
@@ -73,10 +78,28 @@ int Any::WriteBarrier(Any **address, size_t n) {
     return Local<String>(Machine::This()->NewUtf8String(utf8_string, n, 0/*flags*/));
 }
 
-MutableMap::MutableMap(const Class *clazz, uint32_t initial_bucket_shift, uint32_t random_seed)
-    : Any(clazz, 0) {
-    TODO();
+/*static*/
+AbstractMap *AbstractMap::NewMap(BuiltinType key, BuiltinType value, uint32_t bucket_size) {
+#if defined(DEBUG) || defined(_DEBUG)
+    uint32_t seed = 0;
+#else
+    uint32_t seed = ::rand();
+#endif
+    return Machine::This()->NewMap(key, value, bucket_size, seed, 0);
 }
+
+AbstractMap *AbstractMap::NewMap(uint32_t bucket_size) {
+#if defined(DEBUG) || defined(_DEBUG)
+    uint32_t seed = 0;
+#else
+    uint32_t seed = ::rand();
+#endif
+    return Machine::This()->NewMap(key_type_->id(), value_type_->id(), bucket_size, seed, 0);
+}
+
+bool AbstractMap::IsKeyReferenceType() const { return key_type_->is_reference(); }
+
+bool AbstractMap::IsValueReferenceType() const { return value_type_->is_reference(); }
 
 /*static*/ Local<Closure> Closure::New(Code *stub, uint32_t captured_var_size) {
     return Local<Closure>(Machine::This()->NewClosure(stub, captured_var_size, Heap::kOld));

@@ -684,7 +684,7 @@ TEST_F(BytecodeGeneratorTest, ForeachArray) {
     ASSERT_TRUE(fun->is_mai_function());
     ASSERT_FALSE(fun->is_cxx_function());
     AssertFunction("assertForeachArraySanity", fun->function());
-    
+
     value = generator_->FindValue("main.assertForeachArrayIndexed");
     fun = *isolate_->global_offset<Closure *>(value.index);
     ASSERT_TRUE(fun.is_value_not_null());

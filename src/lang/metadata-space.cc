@@ -203,40 +203,6 @@ Error MetadataSpace::Initialize() {
     .Build(this);
     DCHECK_EQ(kType_channel, clazz->id()) << "channel";
 
-    // MutableMap::Entry
-    clazz = ClassBuilder("mutable_map.entry")
-        .tags(Type::kBuiltinTag|Type::kReferenceTag)
-        .reference_size(kPointerSize)
-        .instrance_size(sizeof(MutableMapEntry))
-        .base(builtin_type(kType_any))
-        .field("next")
-            .type(builtin_type(kType_i8))
-            .flags(Field::kPublic|Field::kRead)
-            .tag(1)
-            .offset(MutableMapEntry::kOffsetNext)
-        .End()
-        .field("hash")
-            .type(builtin_type(kType_u32))
-            .flags(Field::kPublic|Field::kRead)
-            .tag(2)
-            .offset(MutableMapEntry::kOffsetHash)
-        .End()
-        .field("key")
-            .type(builtin_type(kType_any))
-            .flags(Field::kPublic|Field::kRdWr)
-            .tag(3)
-            .offset(MutableMapEntry::kOffsetKey)
-        .End()
-        .field("value")
-            .type(builtin_type(kType_any))
-            .flags(Field::kPublic|Field::kRdWr)
-            .tag(4)
-            .offset(MutableMapEntry::kOffsetValue)
-        .End()
-    .Build(this);
-    DCHECK_EQ(kType_mutable_map_entry, clazz->id());
-    clazz->fields_[0].type_ = clazz; // Fix self type
-
 #define DEFINE_BUILTIN_CLASS(literal, kind, ...) \
     clazz = ClassBuilder(#literal) \
         .tags(Type::kBuiltinTag|Type::kReferenceTag) \
@@ -278,7 +244,36 @@ Error MetadataSpace::Initialize() {
     
 #undef DEFINE_BUILTIN_CLASS
     
-    // TODO: maps
+#define DEFINE_BUILTIN_CLASS(literal, kind, ...) \
+    clazz = ClassBuilder(#literal) \
+        .tags(Type::kBuiltinTag|Type::kReferenceTag) \
+        .reference_size(kPointerSize) \
+        .instrance_size(sizeof(Map<kind, Any *>)) \
+        .base(builtin_type(kType_any)) \
+        .field("length") \
+            .type(builtin_type(kType_u32)) \
+            .flags(Field::kPublic|Field::kRead) \
+            .tag(1) \
+            .offset(Map<kind, Any *>::kOffsetLength) \
+        .End() \
+        .field("randomSeed") \
+            .type(builtin_type(kType_u32)) \
+            .flags(Field::kPublic|Field::kRead) \
+            .tag(2) \
+            .offset(Map<kind, Any *>::kOffsetRandomSeed) \
+        .End() \
+        .field("entries") \
+            .type(TypeOf<kind>()) \
+            .flags(Field::kPublic|Field::kRead|Field::kArray) \
+            .tag(3) \
+            .offset(Map<kind, Any *>::kOffsetEntries) \
+        .End() \
+    .Build(this); \
+    DCHECK_EQ(kType_##literal, clazz->id()) << #literal;
+
+    DECLARE_MAP_TYPES(DEFINE_BUILTIN_CLASS)
+
+#undef DEFINE_BUILTIN_CLASS
 
     clazz = ClassBuilder("Throwable")
         .tags(Type::kBuiltinTag|Type::kReferenceTag)
