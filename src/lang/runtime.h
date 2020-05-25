@@ -84,6 +84,21 @@ class Function;
     V(Array32Resize, "array32::resize") \
     V(Array64Resize, "array64::resize") \
     V(NewMap, "lang.newMap") \
+    V(MapGet, "map::get") \
+    V(MapGetF32, "map::getF32") \
+    V(MapGetF64, "map::getF64") \
+    V(Map8Get, "map8::get") \
+    V(Map8GetF32, "map8::getF32") \
+    V(Map8GetF64, "map8::getF64") \
+    V(Map16Get, "map16::get") \
+    V(Map16GetF32, "map16::getF32") \
+    V(Map16GetF64, "map16::getF64") \
+    V(Map32Get, "map32::get") \
+    V(Map32GetF32, "map32::getF32") \
+    V(Map32GetF64, "map32::getF64") \
+    V(Map64Get, "map64::get") \
+    V(Map64GetF32, "map64::getF32") \
+    V(Map64GetF64, "map64::getF64") \
     V(Near32, "lang.near32") \
     V(Near64, "lang.near64") \
     V(TestAs, "lang.testAs") \
@@ -204,33 +219,44 @@ struct Runtime {
     
     static AbstractMap *NewMap(const Class *key_type, const Class *value_type, uint32_t random_seed,
                                uint32_t bucket_size);
-    static AbstractMap *MapPutAll(Handle<AbstractMap> map, Address begin, Address end);
+    static AbstractMap *MapPutAll(AbstractMap *map, Address begin, Address end);
     
 //    static AbstractMap *MapPut(Handle<ImplementMap<Any *>> map, Handle<Any> key, uintptr_t value);
 //    static AbstractMap *Map8Put(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value);
 //    static AbstractMap *Map16Put(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t value);
 //    static AbstractMap *Map32Put(Handle<ImplementMap<uint32_t>> map, uint32_t key, uintptr_t value);
 //    static AbstractMap *Map64Put(Handle<ImplementMap<uint64_t>> map, uint64_t key, uintptr_t value);
-//    
+//
 //    static AbstractMap *MapPutPtr(Handle<ImplementMap<Any *>> map, Handle<Any> key, Handle<Any> value);
 //    static AbstractMap *Map8PutPtr(Handle<ImplementMap<uint8_t>> map, uint8_t key, Handle<Any> value);
 //    static AbstractMap *Map16PutPtr(Handle<ImplementMap<uint16_t>> map, uint16_t key, Handle<Any> value);
 //    static AbstractMap *Map32PutPtr(Handle<ImplementMap<uint32_t>> map, uint32_t key, Handle<Any> value);
 //    static AbstractMap *Map64PutPtr(Handle<ImplementMap<uint64_t>> map, uint64_t key, Handle<Any> value);
 
-    static uintptr_t MapGet(Handle<ImplementMap<Any *>> map, Handle<Any> key);
-    static uintptr_t Map8Get(Handle<ImplementMap<uint8_t>> map, uint8_t key);
-    static uintptr_t Map16Get(Handle<ImplementMap<uint16_t>> map, uint16_t key);
-    static uintptr_t Map32Get(Handle<ImplementMap<uint32_t>> map, uint32_t key);
-    static uintptr_t Map64Get(Handle<ImplementMap<uint64_t>> map, uint64_t key);
+    static uintptr_t MapGet(Handle<AbstractMap> map, Handle<Any> key);
+    static float MapGetF32(Handle<AbstractMap> map, Handle<Any> key);
+    static double MapGetF64(Handle<AbstractMap> map, Handle<Any> key);
     
+    static uintptr_t Map8Get(Handle<ImplementMap<uint8_t>> map, uint8_t key);
     static float Map8GetF32(Handle<ImplementMap<uint8_t>> map, uint8_t key);
     static double Map8GetF64(Handle<ImplementMap<uint8_t>> map, uint8_t key);
+    
+    static uintptr_t Map16Get(Handle<ImplementMap<uint16_t>> map, uint16_t key);
+    static float Map16GetF32(Handle<ImplementMap<uint16_t>> map, uint16_t key);
+    static double Map16GetF64(Handle<ImplementMap<uint16_t>> map, uint16_t key);
+    
+    static uintptr_t Map32Get(Handle<AbstractMap> map, uint32_t key);
+    static float Map32GetF32(Handle<AbstractMap> map, uint32_t key);
+    static double Map32GetF64(Handle<AbstractMap> map, uint32_t key);
+    
+    static uintptr_t Map64Get(Handle<AbstractMap> map, uint64_t key);
+    static float Map64GetF32(Handle<AbstractMap> map, uint64_t key);
+    static double Map64GetF64(Handle<AbstractMap> map, uint64_t key);
 
-    static AbstractMap *Map8Remove(Handle<ImplementMap<uint8_t>> map, uint8_t key);
-    static AbstractMap *Map8Plus(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value);
-    static AbstractMap *Map8PlusPtr(Handle<ImplementMap<uint8_t>> map, uint8_t key, Handle<Any> value);
-    static AbstractMap *Map8Minus(Handle<ImplementMap<uint8_t>> map, uint8_t key);
+//    static AbstractMap *Map8Remove(Handle<ImplementMap<uint8_t>> map, uint8_t key);
+//    static AbstractMap *Map8Plus(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value);
+//    static AbstractMap *Map8PlusPtr(Handle<ImplementMap<uint8_t>> map, uint8_t key, Handle<Any> value);
+//    static AbstractMap *Map8Minus(Handle<ImplementMap<uint8_t>> map, uint8_t key);
     
     static Any *TestAs(Handle<Any> any, void *param1, void *param2);
     static int TestIs(Handle<Any> any, void *param1, void *param2);

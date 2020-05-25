@@ -254,19 +254,31 @@ Error MetadataSpace::Initialize() {
             .type(builtin_type(kType_u32)) \
             .flags(Field::kPublic|Field::kRead) \
             .tag(1) \
-            .offset(Map<kind, Any *>::kOffsetLength) \
+            .offset(AbstractMap::kOffsetLength) \
         .End() \
         .field("randomSeed") \
             .type(builtin_type(kType_u32)) \
             .flags(Field::kPublic|Field::kRead) \
             .tag(2) \
-            .offset(Map<kind, Any *>::kOffsetRandomSeed) \
+            .offset(AbstractMap::kOffsetRandomSeed) \
         .End() \
         .field("entries") \
             .type(TypeOf<kind>()) \
             .flags(Field::kPublic|Field::kRead|Field::kArray) \
             .tag(3) \
-            .offset(Map<kind, Any *>::kOffsetEntries) \
+            .offset(ImplementMap<kind>::kOffsetEntries) \
+        .End() \
+        .method("put") \
+            .tags(Method::kNative) \
+            .fn(nullptr) \
+        .End() \
+        .method("remove") \
+            .tags(Method::kNative) \
+            .fn(nullptr) \
+        .End() \
+        .method("containsKey") \
+            .tags(Method::kNative) \
+            .fn(nullptr) \
         .End() \
     .Build(this); \
     DCHECK_EQ(kType_##literal, clazz->id()) << #literal;

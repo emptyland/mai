@@ -314,6 +314,11 @@ public:
     static constexpr uint32_t kInitialBucketShift = 4;
     static constexpr uint32_t kInitialBucketSize = 1u << kInitialBucketShift;
     
+    static const int32_t kOffsetKeyType;
+    static const int32_t kOffsetValueType;
+    static const int32_t kOffsetRandomSeed;
+    static const int32_t kOffsetLength;
+    
     const Class *key_type() const { return key_type_; }
     const Class *value_type() const { return value_type_; }
     
@@ -472,11 +477,7 @@ public:
         uint32_t bucket_ = 0;
         uint32_t index_ = 0;
     }; // class Iterator
-    
-    static constexpr int32_t kOffsetKeyType = offsetof(ImplementMap, key_type_);
-    static constexpr int32_t kOffsetValueType = offsetof(ImplementMap, value_type_);
-    static constexpr int32_t kOffsetRandomSeed = offsetof(ImplementMap, random_seed_);
-    static constexpr int32_t kOffsetLength = offsetof(ImplementMap, length_);
+
     static constexpr int32_t kOffsetEntries = offsetof(ImplementMap, entries_);
     
     static inline size_t RequiredSize(uint32_t bucket_size) {
@@ -484,8 +485,8 @@ public:
     }
 
     // Internal Interfaces
-    template<class V>
-    inline ImplementMap *UnsafePut(K key, V value);
+    template<class V> inline ImplementMap *UnsafePut(K key, V value);
+    template<class V> V UnsafeGet(K key);
     
     friend class Machine;
 protected:

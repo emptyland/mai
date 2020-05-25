@@ -14,6 +14,8 @@ class Panic;
 class Channel;
 class Throwable;
 class Class;
+class AbstractMap;
+template<class T> class ImplementMap;
 template<class T> class Number;
 template<class T, bool R> class Array;
 template<class K, class V, bool KT, bool VT> class Map;
@@ -357,6 +359,156 @@ template<class T>
 struct TypeTraits<Array<T, true>> {
     static constexpr BuiltinType kType = kType_array;
     static constexpr char kName[] = "array";
+};
+
+template<>
+struct TypeTraits<AbstractMap> {
+    static constexpr BuiltinType kType = kType_any;
+    static constexpr char kName[] = "any";
+};
+
+template<>
+struct TypeTraits<ImplementMap<bool>> {
+    static constexpr BuiltinType kType = kType_map8;
+    static constexpr char kName[] = "map8";
+};
+
+template<>
+struct TypeTraits<ImplementMap<int8_t>> {
+    static constexpr BuiltinType kType = kType_map8;
+    static constexpr char kName[] = "map8";
+};
+
+template<>
+struct TypeTraits<ImplementMap<uint8_t>> {
+    static constexpr BuiltinType kType = kType_map8;
+    static constexpr char kName[] = "map8";
+};
+
+template<>
+struct TypeTraits<ImplementMap<int16_t>> {
+    static constexpr BuiltinType kType = kType_map16;
+    static constexpr char kName[] = "map16";
+};
+
+template<>
+struct TypeTraits<ImplementMap<uint16_t>> {
+    static constexpr BuiltinType kType = kType_map16;
+    static constexpr char kName[] = "map16";
+};
+
+template<>
+struct TypeTraits<ImplementMap<int32_t>> {
+    static constexpr BuiltinType kType = kType_map32;
+    static constexpr char kName[] = "map32";
+};
+
+template<>
+struct TypeTraits<ImplementMap<uint32_t>> {
+    static constexpr BuiltinType kType = kType_map32;
+    static constexpr char kName[] = "map32";
+};
+
+template<>
+struct TypeTraits<ImplementMap<float>> {
+    static constexpr BuiltinType kType = kType_map32;
+    static constexpr char kName[] = "map32";
+};
+
+template<>
+struct TypeTraits<ImplementMap<int64_t>> {
+    static constexpr BuiltinType kType = kType_map64;
+    static constexpr char kName[] = "map32";
+};
+
+template<>
+struct TypeTraits<ImplementMap<uint64_t>> {
+    static constexpr BuiltinType kType = kType_map64;
+    static constexpr char kName[] = "map64";
+};
+
+template<>
+struct TypeTraits<ImplementMap<double>> {
+    static constexpr BuiltinType kType = kType_map64;
+    static constexpr char kName[] = "map64";
+};
+
+template<class T>
+struct TypeTraits<ImplementMap<T>> {
+    static constexpr BuiltinType kType = kType_map;
+    static constexpr char kName[] = "map";
+};
+
+template<class V, bool S>
+struct TypeTraits<Map<bool, V, false, S>> {
+    static constexpr BuiltinType kType = kType_map8;
+    static constexpr char kName[] = "map8";
+};
+
+template<class V, bool S>
+struct TypeTraits<Map<int8_t, V, false, S>> {
+    static constexpr BuiltinType kType = kType_map8;
+    static constexpr char kName[] = "map8";
+};
+
+template<class V, bool S>
+struct TypeTraits<Map<uint8_t, V, false, S>> {
+    static constexpr BuiltinType kType = kType_map8;
+    static constexpr char kName[] = "map8";
+};
+
+template<class V, bool S>
+struct TypeTraits<Map<int16_t, V, false, S>> {
+    static constexpr BuiltinType kType = kType_map16;
+    static constexpr char kName[] = "map16";
+};
+
+template<class V, bool S>
+struct TypeTraits<Map<uint16_t, V, false, S>> {
+    static constexpr BuiltinType kType = kType_map16;
+    static constexpr char kName[] = "map16";
+};
+
+template<class V, bool S>
+struct TypeTraits<Map<int32_t, V, false, S>> {
+    static constexpr BuiltinType kType = kType_map32;
+    static constexpr char kName[] = "map32";
+};
+
+template<class V, bool S>
+struct TypeTraits<Map<uint32_t, V, false, S>> {
+    static constexpr BuiltinType kType = kType_map32;
+    static constexpr char kName[] = "map32";
+};
+
+template<class V, bool S>
+struct TypeTraits<Map<float, V, false, S>> {
+    static constexpr BuiltinType kType = kType_map32;
+    static constexpr char kName[] = "map32";
+};
+
+template<class V, bool S>
+struct TypeTraits<Map<int64_t, V, false, S>> {
+    static constexpr BuiltinType kType = kType_map64;
+    static constexpr char kName[] = "map64";
+};
+
+template<class V, bool S>
+struct TypeTraits<Map<uint64_t, V, false, S>> {
+    static constexpr BuiltinType kType = kType_map64;
+    static constexpr char kName[] = "map64";
+};
+
+template<class V, bool S>
+struct TypeTraits<Map<double, V, false, S>> {
+    static constexpr BuiltinType kType = kType_map64;
+    static constexpr char kName[] = "map64";
+};
+
+template<class K, class V, bool T, bool S>
+struct TypeTraits<Map<K, V, T, S>> {
+    static constexpr BuiltinType kType = kType_map;
+    static constexpr char kName[] = "map";
 };
 
 template<>

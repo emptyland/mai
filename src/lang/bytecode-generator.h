@@ -221,6 +221,9 @@ private:
                             const Class *key, int key_index, Value::Linkage key_linkage,
                             ASTNode *ast);
     void GenerateSend(const Class *clazz, int lhs, int rhs, ASTNode *ast);
+    
+    void GenerateMapGet(const Class *clazz, int primary, const Class *key_type, int key,
+                        const Class *value_type, ASTNode *ast);
 
     bool GenerateUnaryOperands(OperandContext *receiver, Expression *ast);
     bool GenerateBinaryOperands(OperandContext *receiver, Expression *lhs, Expression *rhs);

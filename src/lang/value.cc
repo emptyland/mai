@@ -23,6 +23,11 @@ const int32_t AbstractArray::kOffsetElemType = MEMBER_OFFSET_OF(AbstractArray, e
 const int32_t AbstractArray::kOffsetCapacity = MEMBER_OFFSET_OF(AbstractArray, capacity_);
 const int32_t AbstractArray::kOffsetLength = MEMBER_OFFSET_OF(AbstractArray, length_);
 
+const int32_t AbstractMap::kOffsetKeyType = MEMBER_OFFSET_OF(AbstractMap, key_type_);
+const int32_t AbstractMap::kOffsetValueType = MEMBER_OFFSET_OF(AbstractMap, value_type_);
+const int32_t AbstractMap::kOffsetRandomSeed = MEMBER_OFFSET_OF(AbstractMap, random_seed_);
+const int32_t AbstractMap::kOffsetLength = MEMBER_OFFSET_OF(AbstractMap, length_);
+
 const int32_t AbstractValue::kOffsetValue = MEMBER_OFFSET_OF(AbstractValue, value_);
 
 const int32_t Closure::kOffsetProto = MEMBER_OFFSET_OF(Closure, mai_fn_);

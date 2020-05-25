@@ -2329,7 +2329,7 @@ ASTVisitor::Result BytecodeGenerator::VisitIndexExpression(IndexExpression *ast)
     if (primary_type->IsArray()) {
         LdaArrayAt(value_type, recevier.lhs, recevier.rhs, ast);
     } else {
-        NOREACHED();
+        GenerateMapGet(primary_type, recevier.lhs, recevier.rhs_type, recevier.rhs, value_type, ast);
     }
 
     CleanupOperands(&recevier);
@@ -4552,6 +4552,103 @@ void BytecodeGenerator::GenerateSend(const Class *clazz, int lhs, int rhs, ASTNo
     current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/,
                                            argument_offset);
     current_fun_->EmitYield(ast, YIELD_PROPOSE);
+}
+
+void BytecodeGenerator::GenerateMapGet(const Class *clazz, int primary, const Class *key_type,
+                                       int key, const Class *value_type, ASTNode *ast) {
+    int argument_offset = RoundUp(clazz->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(clazz, primary, Value::kStack, argument_offset, ast);
+    
+    Value fun;
+    switch (static_cast<BuiltinType>(clazz->id())) {
+        case kType_map:
+            if (NeedInbox(metadata_space_->builtin_type(kType_any), key_type)) {
+                const Class *inbox = InboxIfNeeded(key_type, key, Value::kStack,
+                                                   metadata_space_->builtin_type(kType_any), ast);
+                argument_offset += RoundUp(inbox->reference_size(), kStackSizeGranularity);
+                MoveToArgumentIfNeeded(inbox, 0, Value::kACC, argument_offset, ast);
+            } else {
+                argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+                MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            }
+            switch (value_type->id()) {
+                case kType_f32:
+                    fun = FindOrInsertExternalFunction("map::getF32");
+                    break;
+                case kType_f64:
+                    fun = FindOrInsertExternalFunction("map::getF64");
+                    break;
+                default:
+                    fun = FindOrInsertExternalFunction("map::get");
+                    break;
+            }
+            break;
+        case kType_map8:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            switch (value_type->id()) {
+                case kType_f32:
+                    fun = FindOrInsertExternalFunction("map8::getF32");
+                    break;
+                case kType_f64:
+                    fun = FindOrInsertExternalFunction("map8::getF64");
+                    break;
+                default:
+                    fun = FindOrInsertExternalFunction("map8::get");
+                    break;
+            }
+            break;
+        case kType_map16:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            switch (value_type->id()) {
+                case kType_f32:
+                    fun = FindOrInsertExternalFunction("map16::getF32");
+                    break;
+                case kType_f64:
+                    fun = FindOrInsertExternalFunction("map16::getF64");
+                    break;
+                default:
+                    fun = FindOrInsertExternalFunction("map16::get");
+                    break;
+            }
+            break;
+        case kType_map32:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            switch (value_type->id()) {
+                case kType_f32:
+                    fun = FindOrInsertExternalFunction("map32::getF32");
+                    break;
+                case kType_f64:
+                    fun = FindOrInsertExternalFunction("map32::getF64");
+                    break;
+                default:
+                    fun = FindOrInsertExternalFunction("map32::get");
+                    break;
+            }
+            break;
+        case kType_map64:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            switch (value_type->id()) {
+                case kType_f32:
+                    fun = FindOrInsertExternalFunction("map64::getF32");
+                    break;
+                case kType_f64:
+                    fun = FindOrInsertExternalFunction("map64::getF64");
+                    break;
+                default:
+                    fun = FindOrInsertExternalFunction("map64::get");
+                    break;
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    LdaIfNeeded(fun, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
 }
 
 bool BytecodeGenerator::GenerateOperation(const Operator op, const Class *type, int lhs_index,

@@ -551,30 +551,27 @@ size_t TypeSign::GetReferenceSize() const {
 }
 
 /*static*/ BuiltinType TypeSign::GetMapBuiltinType(bool is_mutable, TypeSign *key) {
-//    switch (static_cast<Token::Kind>(key->id())) {
-//        case Token::kBool:
-//        case Token::kI8:
-//        case Token::kU8:
-//            return is_mutable ? kType_mutable_map : kType_map8;
-//        case Token::kI16:
-//        case Token::kU16:
-//            return is_mutable ? kType_mutable_array16 : kType_array16;
-//        case Token::kI32:
-//        case Token::kU32:
-//        case Token::kInt:
-//        case Token::kUInt:
-//        case Token::kF32:
-//            return is_mutable ? kType_mutable_array32 : kType_array32;
-//        case Token::kI64:
-//        case Token::kU64:
-//        case Token::kF64:
-//            return is_mutable ? kType_mutable_array64 : kType_array64;
-//        default:
-//            return is_mutable ? kType_mutable_array : kType_array;
-//    }
-    // TODO:
-    TODO();
-    return kType_any;
+    switch (static_cast<Token::Kind>(key->id())) {
+        case Token::kBool:
+        case Token::kI8:
+        case Token::kU8:
+            return kType_map8;
+        case Token::kI16:
+        case Token::kU16:
+            return kType_map16;
+        case Token::kI32:
+        case Token::kU32:
+        case Token::kInt:
+        case Token::kUInt:
+        case Token::kF32:
+            return kType_map32;
+        case Token::kI64:
+        case Token::kU64:
+        case Token::kF64:
+            return kType_map64;
+        default:
+            return kType_map;
+    }
 }
 
 int TypeSign::FindNumberCastHint(std::string_view name) const {

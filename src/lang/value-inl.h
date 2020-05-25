@@ -201,7 +201,6 @@ inline void Array<T, true>::Iterate(ObjectVisitor *visitor) {
     visitor->VisitPointers(this, &elems_[0], &elems_[length_]);
 }
 
-//template<class V>
 template<class K>
 template<class V>
 inline ImplementMap<K> *ImplementMap<K>::UnsafePut(K key, V value) {
@@ -219,6 +218,13 @@ inline ImplementMap<K> *ImplementMap<K>::UnsafePut(K key, V value) {
         WriteBarrier(reinterpret_cast<Any **>(&room->value));
     }
     return dummy;
+}
+
+template<class K>
+template<class V>
+inline V ImplementMap<K>::UnsafeGet(K key) {
+    Entry *room = FindForGet(key);
+    return !room ? V(0) : *reinterpret_cast<V *>(&room->value);
 }
 
 inline bool Closure::is_cxx_function() const { return (tags_ & kClosureMask) == kCxxFunction; }

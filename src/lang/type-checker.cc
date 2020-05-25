@@ -1057,7 +1057,7 @@ ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*overr
                                               DCHECK_NOTNULL(ast->value_type()));
         return ResultWithType(map);
     }
-    
+
     TypeSign *defined_key_type = ast->key_type(), *defined_value_type = ast->value_type();
     for (auto pair : ast->operands()) {
         VISIT_CHECK(DCHECK_NOTNULL(pair->AsPairExpression())->key());
@@ -1857,7 +1857,24 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
             TODO();
             return ResultWithType(kError);
         case Token::kMap:
-        case Token::kMutableMap:
+            if (!::strncmp("length", ast->rhs()->data(), ast->rhs()->size())) {
+                return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kU32));
+            } else if (!::strncmp("put", ast->rhs()->data(), ast->rhs()->size())) {
+                FunctionPrototype *proto = new (arena_) FunctionPrototype(arena_);
+                proto->InsertParameter(nullptr, type->parameter(0));
+                proto->set_return_type(type->parameter(1));
+                return ResultWithType(new (arena_) TypeSign(ast->position(), proto));
+            } else if (!::strncmp("remove", ast->rhs()->data(), ast->rhs()->size())) {
+                FunctionPrototype *proto = new (arena_) FunctionPrototype(arena_);
+                proto->InsertParameter(nullptr, type->parameter(0));
+                proto->set_return_type(kVoid);
+                return ResultWithType(new (arena_) TypeSign(ast->position(), proto));
+            } else if (!::strncmp("containsKey", ast->rhs()->data(), ast->rhs()->size())) {
+                FunctionPrototype *proto = new (arena_) FunctionPrototype(arena_);
+                proto->InsertParameter(nullptr, type->parameter(0));
+                proto->set_return_type(new (arena_) TypeSign(ast->position(), Token::kBool));
+                return ResultWithType(new (arena_) TypeSign(ast->position(), proto));
+            }
             TODO();
             return ResultWithType(kError);
         case Token::kChannel: {
