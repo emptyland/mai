@@ -1231,8 +1231,7 @@ Expression *Parser::ParsePrimary(bool *ok) {
             return ParseArrayInitializer(ok);
         } break;
             
-        case Token::kMap:
-        case Token::kMutableMap: {
+        case Token::kMap: {
             return ParseMapInitializer(ok);
         } break;
 
@@ -1298,19 +1297,13 @@ MapInitializer *Parser::ParseMapInitializer(bool *ok) {
         Match(Token::kRBrack, CHECK_OK);
     }
     
-    // map[string, int](128, 1.2)
+    // map[string, int](128)
     if (Test(Token::kLParen)) { // `('
         Expression *reserve = ParseExpression(CHECK_OK);
-        Expression *load_factor = nullptr;
-        if (Test(Token::kComma)) {
-            load_factor = ParseExpression(CHECK_OK);
-        }
-
         loc.LinkEnd(Peek().source_location());
         int position = file_unit_->InsertSourceLocation(loc);
         Match(Token::kRParen, CHECK_OK);
-        return new (arena_) MapInitializer(arena_, position, mut, key_type, value_type, reserve,
-                                           load_factor);
+        return new (arena_) MapInitializer(arena_, position, mut, key_type, value_type, reserve);
     }
 
     base::ArenaVector<Expression *> pairs(arena_);

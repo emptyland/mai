@@ -127,6 +127,7 @@ private:
     Result VisitIfExpression(IfExpression *) override;
     Result VisitStatementBlock(StatementBlock *) override;
     Result VisitArrayInitializer(ArrayInitializer *) override;
+    Result VisitMapInitializer(MapInitializer *) override;
     Result VisitChannelInitializer(ChannelInitializer *) override;
     Result VisitIndexExpression(IndexExpression *) override;
     Result VisitTypeCastExpression(TypeCastExpression *) override;
@@ -203,10 +204,6 @@ private:
                                 DotExpression *ast);
     
     void GenerateComparation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
-//    void GenerateOperation(const Operator op, const Value &lhs, const Value &rhs, ASTNode *ast) {
-//        GenerateOperation(op, lhs.type, lhs.index, lhs.linkage, rhs.type, rhs.index, rhs.linkage,
-//                          ast);
-//    }
     void GenerateOperation(const Operator op, const Class *lhs_type, int lhs_index,
                            Value::Linkage lhs_linkage, const Class *rhs_type, int rhs_index,
                            Value::Linkage rhs_linkage, ASTNode *ast);
@@ -224,8 +221,7 @@ private:
                             const Class *key, int key_index, Value::Linkage key_linkage,
                             ASTNode *ast);
     void GenerateSend(const Class *clazz, int lhs, int rhs, ASTNode *ast);
-    //void GenerateTypeCast(const Class *type, int lhs, Value::Linkage, ASTNode *ast)
-    
+
     bool GenerateUnaryOperands(OperandContext *receiver, Expression *ast);
     bool GenerateBinaryOperands(OperandContext *receiver, Expression *lhs, Expression *rhs);
     void AssociateLHSOperand(OperandContext *receiver, const Value &value, ASTNode *ast) {

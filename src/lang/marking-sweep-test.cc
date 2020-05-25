@@ -35,7 +35,7 @@ TEST_F(MarkingSweepTest, NestedMarking) {
         String::NewUtf8("Doom"),
         String::NewUtf8("Owns"),
     };
-    Local<Array<String *>> local(Array<String *>::NewImmutable(elems, 5));
+    Local<Array<String *>> local(Array<String *>::New(elems, 5));
     
     MarkingSweep marking_sweep(isolate_, isolate_->heap());
     base::StdFilePrinter printer(stdout);

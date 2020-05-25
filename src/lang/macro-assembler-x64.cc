@@ -88,7 +88,7 @@ void MacroAssembler::Abort(const char *message) {
     movq(Operand(CO, Coroutine::kOffsetACC), rax);
     movsd(Operand(CO, Coroutine::kOffsetFACC), xmm0);
 
-    movq(Argv_0, bit_cast<Address>(message));
+    movq(Argv_0, reinterpret_cast<Address>(const_cast<char *>(message)));
     movq(rax, arch::FuncAddress(&Runtime::DebugAbort));
     call(rax);
     int3(); // Never goto here
@@ -2180,6 +2180,24 @@ public:
 
         __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArrayWith));
         EmitCheckException(masm);
+    }
+    
+    void EmitPutAll(MacroAssembler *masm) override {
+        InstrStackImmABScope instr_scope(masm);
+        __ movq(Argv_0, Operand(rbp, rbx, times_2, 0));
+        
+        instr_scope.GetBToRBX();
+        __ movq(Argv_1, rsp);
+        __ subq(Argv_1, rbx);
+        __ movq(Argv_2, rsp);
+        
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::MapPutAll));
+        EmitCheckException(masm);
+    }
+    
+    void EmitRandom(MacroAssembler *masm) override {
+        InstrBaseScope instr_scope(masm);
+        __ rdrand(ACC);
     }
 
     // Checking ------------------------------------------------------------------------------------

@@ -1051,16 +1051,6 @@ ASTVisitor::Result TypeChecker::VisitMapInitializer(MapInitializer *ast) /*overr
                                     rv.sign->ToString().c_str());
             return ResultWithType(kError);
         }
-        
-        if (ast->load_factor()) {
-            VISIT_CHECK(ast->load_factor());
-            if (!rv.sign->IsFloating()) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Incorrect map constructor "
-                                        "parameter[1] type(%s), need floating number",
-                                        rv.sign->ToString().c_str());
-                return ResultWithType(kError);
-            }
-        }
         TypeSign *map = new (arena_) TypeSign(arena_, ast->position(), ast->mutable_container()
                                               ? Token::kMutableMap : Token::kMap,
                                               DCHECK_NOTNULL(ast->key_type()),

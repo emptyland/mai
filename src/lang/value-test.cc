@@ -3,6 +3,7 @@
 #include "lang/metadata.h"
 #include "test/isolate-initializer.h"
 #include "gtest/gtest.h"
+#include <random>
 
 namespace mai {
 
@@ -23,7 +24,7 @@ TEST_F(ValueTest, PrimitiveArray) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     int init[4] = {111, 222, 333, 444};
     
-    Local<Array<int>> handle(Array<int>::NewImmutable(init, arraysize(init)));
+    Local<Array<int>> handle(Array<int>::New(init, arraysize(init)));
     ASSERT_TRUE(handle.is_not_empty());
     ASSERT_EQ(4, handle->length());
     ASSERT_EQ(4, handle->capacity());
@@ -35,7 +36,7 @@ TEST_F(ValueTest, PrimitiveArray) {
 
 TEST_F(ValueTest, PlusPrimitiveArray) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    Local<Array<int>> handle(Array<int>::NewImmutable(0));
+    Local<Array<int>> handle(Array<int>::New(0));
     ASSERT_TRUE(handle.is_not_empty());
     ASSERT_EQ(0, handle->length());
     ASSERT_EQ(0, handle->capacity());
@@ -58,7 +59,7 @@ TEST_F(ValueTest, MinusPrimitiveArray) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     
     int init_data[4] = {0, 1, 2, 3};
-    Local<Array<int>> handle(Array<int>::NewImmutable(init_data, arraysize(init_data)));
+    Local<Array<int>> handle(Array<int>::New(init_data, arraysize(init_data)));
     ASSERT_EQ(4, handle->length());
     ASSERT_EQ(4, handle->capacity());
     
@@ -81,7 +82,7 @@ TEST_F(ValueTest, MinusPrimitiveArray) {
 
 TEST_F(ValueTest, PlusReferenceArray) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
-    Local<Array<String *>> handle(Array<String *>::NewImmutable(0));
+    Local<Array<String *>> handle(Array<String *>::New(0));
     
     handle = handle->Plus(-1, String::NewUtf8("1st"));
     ASSERT_EQ(1, handle->length());
@@ -276,7 +277,7 @@ TEST_F(ValueTest, MapReferenceKey) {
     ASSERT_FALSE(mm->Get(String::NewUtf8("2nd"), &value));
 }
 
-TEST_F(ValueTest, MapRehash) {
+TEST_F(ValueTest, MapPutRehash) {
     HandleScope handle_scpoe(HandleScope::INITIALIZER);
     
     Local<Map<int, int>> mm = Map<int, int>::New();
@@ -300,6 +301,167 @@ TEST_F(ValueTest, MapRehash) {
         int value = 0;
         ASSERT_TRUE(mm->Get(i, &value));
         ASSERT_EQ(i * 100, value);
+    }
+}
+
+TEST_F(ValueTest, MapRemoveRehash) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+
+    Local<Map<int, int>> mm = Map<int, int>::New();
+    ASSERT_TRUE(mm.is_not_empty());
+    ASSERT_TRUE(mm.is_value_not_null());
+    
+    int rehash_count = 0;
+    for (int i = 0; i < 128; i++) {
+        Map<int, int> *old = *mm;
+        mm->Put(i, i * 100, &mm);
+        if (*mm != old) {
+            rehash_count++;
+        }
+        ASSERT_TRUE(mm.is_value_not_null());
+    }
+    
+    ASSERT_EQ(2, rehash_count);
+    ASSERT_EQ(128, mm->length());
+    
+    rehash_count = 0;
+    for (int i = 0; i < 128; i++) {
+        Map<int, int> *old = *mm;
+        mm->Remove(i, &mm);
+        if (*mm != old) {
+            rehash_count++;
+        }
+        ASSERT_TRUE(mm.is_value_not_null());
+    }
+    
+    ASSERT_EQ(3, rehash_count);
+    ASSERT_EQ(0, mm->length());
+    
+    mm->Put(996, 700, &mm);
+    ASSERT_EQ(1, mm->length());
+    int value = 0;
+    ASSERT_TRUE(mm->Get(996, &value));
+    ASSERT_EQ(700, value);
+}
+
+TEST_F(ValueTest, MapFuzzyRehash) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+
+    Local<Map<int, int>> mm = Map<int, int>::New();
+    ASSERT_TRUE(mm.is_not_empty());
+    ASSERT_TRUE(mm.is_value_not_null());
+    
+    std::vector<int> nums;
+    for (int i = 0; i < 10000; i++) {
+        nums.push_back(i);
+    }
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(nums.begin(), nums.end(), g);
+    
+    for (auto i : nums) { mm->Put(i, -i, &mm); }
+    ASSERT_EQ(10000, mm->length());
+    ASSERT_EQ(8192, mm->bucket_size());
+    
+    for (int i = 0; i < 5000; i++) {
+        mm->Remove(i, &mm);
+    }
+    ASSERT_EQ(5000, mm->length());
+    for (int i = 0; i < 5000; i++) {
+        mm->Put(i, -i, &mm);
+    }
+    ASSERT_EQ(10000, mm->length());
+    
+    for (int i = 0; i < 10000; i++) {
+        int value = 0;
+        ASSERT_TRUE(mm->Get(i, &value));
+        ASSERT_EQ(-i, value);
+    }
+}
+
+TEST_F(ValueTest, MapBaseIterator) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+
+    Local<Map<int, int>> mm = Map<int, int>::New();
+    ASSERT_TRUE(mm.is_not_empty());
+    ASSERT_TRUE(mm.is_value_not_null());
+    
+    std::set<int> nums;
+    for (int i = 0; i < 10000; i++) {
+        nums.insert(i);
+        mm->Put(i, -i, &mm);
+    }
+    
+    do {
+        ImplementMap<int>::Iterator iter(*mm);
+        for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+            nums.erase(iter->key);
+        }
+        ASSERT_TRUE(nums.empty());
+    } while (0);
+    
+    do {
+        int count = 0;
+        Map<int, int>::Iterator iter(mm);
+        for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+            ASSERT_EQ(iter.key(), -iter.value());
+            count++;
+        }
+        ASSERT_EQ(10000, count);
+    } while (0);
+}
+
+TEST_F(ValueTest, MapReferenceKeyIterator) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+
+    Local<Map<String *, int>> mm = Map<String *, int>::New();
+    ASSERT_TRUE(mm.is_not_empty());
+    ASSERT_TRUE(mm.is_value_not_null());
+    
+    std::set<std::string> names {
+        "1st",
+        "2nd",
+        "3rd",
+        "4th",
+        "aaa",
+        "bbb",
+        "ccc",
+    };
+    for (auto name : names) {
+        mm->Put(String::NewUtf8(name.data(), name.size()), 110, &mm);
+    }
+    Map<String *, int>::Iterator iter(mm);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        ASSERT_EQ(110, iter.value());
+        names.erase(iter.key()->data());
+    }
+    ASSERT_TRUE(names.empty());
+}
+
+TEST_F(ValueTest, MapPlusAndMinus) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+
+    Local<Map<int, int>> mm = Map<int, int>::New();
+    ASSERT_TRUE(mm.is_not_empty());
+    ASSERT_TRUE(mm.is_value_not_null());
+    
+    mm = mm->Plus(1, 100);
+    ASSERT_EQ(1, mm->length());
+    int value;
+    ASSERT_TRUE(mm->Get(1, &value));
+    ASSERT_EQ(100, value);
+
+    mm = mm->Minus(1);
+    ASSERT_EQ(0, mm->length());
+    
+    for (int i = 0; i < 1000; i++) {
+        mm = mm->Plus(i, -i);
+    }
+    ASSERT_EQ(1000, mm->length());
+    for (int i = 0; i < 1000; i++) {
+        int value;
+        ASSERT_TRUE(mm->Get(i, &value));
+        ASSERT_EQ(i, -value);
     }
 }
 

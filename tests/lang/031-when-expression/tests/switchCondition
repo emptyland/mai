@@ -18,7 +18,7 @@ bytecode:
     004 ForwardJumpIfFalse 0, #3; (63)
     005 LdaConstPtr [KP+32]; (63)
     006 ForwardJump 0, #8; (63)
-    007 LdaConstf32 [KP+4]; (64)
+    007 LdaConstf32 [KP+0]; (64)
     008 Staf32 [BP-68]; (64)
     009 TestLessThanf32 [BP+28], [BP-68]; (64)
     010 ForwardJumpIfFalse 0, #3; (64)

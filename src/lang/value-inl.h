@@ -201,6 +201,26 @@ inline void Array<T, true>::Iterate(ObjectVisitor *visitor) {
     visitor->VisitPointers(this, &elems_[0], &elems_[length_]);
 }
 
+//template<class V>
+template<class K>
+template<class V>
+inline ImplementMap<K> *ImplementMap<K>::UnsafePut(K key, V value) {
+    ImplementMap<K> *dummy = nullptr;
+    Entry *room = FindOrMakeRoom(key, &dummy);
+    if (!room) {
+        return nullptr;
+    }
+    room->key = key;
+    if (ElementTraits<K>::kIsReferenceType) {
+        WriteBarrier(reinterpret_cast<Any **>(&room->key));
+    }
+    *reinterpret_cast<V *>(&room->value) = value;
+    if (ElementTraits<V>::kIsReferenceType) {
+        WriteBarrier(reinterpret_cast<Any **>(&room->value));
+    }
+    return dummy;
+}
+
 inline bool Closure::is_cxx_function() const { return (tags_ & kClosureMask) == kCxxFunction; }
 
 inline bool Closure::is_mai_function() const { return (tags_ & kClosureMask) == kMaiFunction; }

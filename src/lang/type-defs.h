@@ -13,6 +13,7 @@ class Closure;
 class Panic;
 class Channel;
 class Throwable;
+class Class;
 template<class T> class Number;
 template<class T, bool R> class Array;
 template<class K, class V, bool KT, bool VT> class Map;
@@ -181,6 +182,13 @@ template<>
 struct TypeTraits<double> {
     static constexpr BuiltinType kType = kType_f64;
     static constexpr char kName[] = "f64";
+};
+
+
+template<>
+struct TypeTraits<Class> {
+    static constexpr BuiltinType kType = kType_u64;
+    static constexpr char kName[] = "class";
 };
 
 template<>

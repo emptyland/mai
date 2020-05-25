@@ -461,6 +461,109 @@ Runtime::Array64Plus(Handle<Array<uint64_t>> array, int index, uint64_t value) {
     return TArrayResize<uint64_t>(array, size);
 }
 
+/*static*/ AbstractMap *Runtime::NewMap(const Class *key_type, const Class *value_type,
+                                        uint32_t random_seed, uint32_t bucket_size) {
+    SafepointScope safepoint_scope(STATE->gc());
+    return Machine::This()->NewMap(key_type->id(), value_type->id(), bucket_size, random_seed, 0);
+}
+
+template<class T>
+ImplementMap<T> *TMapPutAll(AbstractMap *map, Address start, Address stop) {
+    const uint32_t key_size = RoundUp(map->key_type()->reference_size(), kStackSizeGranularity);
+    const uint32_t value_size = RoundUp(map->value_type()->reference_size(), kStackSizeGranularity);
+    const int length = static_cast<int>(stop - start) / (key_size + value_size);
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    Any **keys = nullptr, **values = nullptr;
+
+    if (map->key_type()->is_reference()) {
+        keys = reinterpret_cast<Any **>(Machine::This()->AdvanceHandleSlots(length));
+        for (int i = 0; i < length; i++) {
+            keys[i] = *reinterpret_cast<Any **>(start + i * (key_size + value_size) + value_size);
+        }
+    }
+    if (map->value_type()->is_reference()) {
+        values = reinterpret_cast<Any **>(Machine::This()->AdvanceHandleSlots(length));
+        for (int i = 0; i < length; i++) {
+            values[i] = *reinterpret_cast<Any **>(start + i * (key_size + value_size));
+        }
+    }
+    
+    Local<ImplementMap<T>> impl(static_cast<ImplementMap<T> *>(map));
+    if (map->value_type()->is_reference()) {
+        for (int i = 0; i < length; i++) {
+            SafepointScope safepoint_scope(STATE->gc());
+            if (ElementTraits<T>::kIsReferenceType) {
+                impl = impl->UnsafePut(bit_cast<T>(keys[i]), values[i]);
+            } else {
+                T key = *reinterpret_cast<T *>(start + i * (key_size + value_size) + value_size);
+                impl = impl->UnsafePut(key, values[i]);
+            }
+        }
+    } else if (value_size == 4) {
+        for (int i = 0; i < length; i++) {
+            SafepointScope safepoint_scope(STATE->gc());
+            uint32_t value = *reinterpret_cast<uint32_t *>(start + i * (key_size + value_size));
+            if (ElementTraits<T>::kIsReferenceType) {
+                impl = impl->UnsafePut(bit_cast<T>(keys[i]), values[i]);
+            } else {
+                T key = *reinterpret_cast<T *>(start + i * (key_size + value_size) + value_size);
+                impl = impl->UnsafePut(key, value);
+            }
+        }
+    } else {
+        DCHECK_EQ(8, value_size);
+        for (int i = 0; i < length; i++) {
+            SafepointScope safepoint_scope(STATE->gc());
+            uint64_t value = *reinterpret_cast<uint64_t *>(start + i * (key_size + value_size));
+            if (ElementTraits<T>::kIsReferenceType) {
+                impl = impl->UnsafePut(bit_cast<T>(keys[i]), values[i]);
+            } else {
+                T key = *reinterpret_cast<T *>(start + i * (key_size + value_size) + value_size);
+                impl = impl->UnsafePut(key, value);
+            }
+        }
+    }
+    return *impl;
+}
+
+/*static*/ AbstractMap *Runtime::MapPutAll(Handle<AbstractMap> map, Address start, Address stop) {
+    if (map.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    if (map->key_type()->is_reference()) {
+        if (map->key_type()->id() == kType_string) {
+            return TMapPutAll<String *>(*map, start, stop);
+        } else {
+            return TMapPutAll<Any *>(*map, start, stop);
+        }
+    }
+    switch (map->key_type()->reference_size()) {
+        case 1:
+            return TMapPutAll<uint8_t>(*map, start, stop);
+        case 2:
+            return TMapPutAll<uint16_t>(*map, start, stop);
+        case 4:
+            if (map->key_type()->IsFloating()) {
+                return TMapPutAll<float>(*map, start, stop);
+            } else {
+                return TMapPutAll<uint32_t>(*map, start, stop);
+            }
+            break;
+        case 8:
+            if (map->key_type()->IsFloating()) {
+                return TMapPutAll<double>(*map, start, stop);
+            } else {
+                return TMapPutAll<uint64_t>(*map, start, stop);
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    return nullptr;
+}
+
 static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
     switch (static_cast<BuiltinType>(dest->id())) {
         case kType_array:

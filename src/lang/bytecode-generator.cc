@@ -366,9 +366,13 @@ public:
     }
     
     void EmitArrayWith(ASTNode *ast, int param_size, int type) {
-        //printf("%d %d\n", builder_.pc(), stack_.GetTopRef());
         invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
         Incoming(ast)->Add<kArrayWith>(param_size, type);
+    }
+    
+    void EmitPutAll(ASTNode *ast, int map, int param_size) {
+        invoking_hint_.push_back({builder_.pc(), 0, stack_.GetTopRef()});
+        Incoming(ast)->Add<kPutAll>(map, param_size);
     }
 
     void EmitDirectlyCallFunction(ASTNode *ast, bool native, int slot, int params_size) {
@@ -2159,6 +2163,127 @@ ASTVisitor::Result BytecodeGenerator::VisitArrayInitializer(ArrayInitializer *as
             MoveToArgumentIfNeeded(element, argument_offset, ast);
         }
         current_fun_->EmitArrayWith(ast, argument_offset, GetConstOffset(kidx));
+    }
+    return ResultWith(Value::kACC, type->id(), 0);
+}
+
+ASTVisitor::Result BytecodeGenerator::VisitMapInitializer(MapInitializer *ast) /*override*/ {
+    Result rv;
+    VISIT_CHECK(ast->key_type());
+    const Class *key_type = metadata_space_->type(rv.bundle.index);
+    const Class *type = nullptr;
+    if (key_type->is_reference()) {
+        type = metadata_space_->type(kType_map);
+    } else {
+        switch (key_type->reference_size()) {
+            case 1:
+                type = metadata_space_->type(kType_map8);
+                break;
+            case 2:
+                type = metadata_space_->type(kType_map16);
+                break;
+            case 4:
+                type = metadata_space_->type(kType_map32);
+                break;
+            case 8:
+                type = metadata_space_->type(kType_map64);
+                break;
+            default:
+                NOREACHED();
+                break;
+        }
+    }
+    VISIT_CHECK(ast->value_type());
+    const Class *value_type = metadata_space_->type(rv.bundle.index);
+    int kidx = current_fun_->constants()->FindOrInsertMetadata(key_type);
+    int vidx = current_fun_->constants()->FindOrInsertMetadata(value_type);
+    
+    OperandContext receiver;
+    if (ast->reserve()) {
+        if (!GenerateUnaryOperands(&receiver, ast->reserve())) {
+            return ResultWithError();
+        }
+    }
+    const Class *u64 = metadata_space_->type(kType_u64);
+    const Class *u32 = metadata_space_->type(kType_u32);
+
+    // argv[0] key_type
+    int argument_offset = RoundUp(u64->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(u64, kidx, Value::kConstant, argument_offset, ast);
+
+    // argv[1] value_type
+    argument_offset += RoundUp(u64->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(u64, vidx, Value::kConstant, argument_offset, ast);
+
+    // argv[2] random_seed
+    EMIT(ast, Add<kRandom>());
+    argument_offset += RoundUp(u32->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(u32, 0, Value::kACC, argument_offset, ast);
+
+    // argv[3] bucket_size
+    argument_offset += RoundUp(u32->reference_size(), kStackSizeGranularity);
+    if (ast->reserve()) {
+        MoveToArgumentIfNeeded(receiver.lhs_type, receiver.lhs, Value::kStack, argument_offset, ast);
+    } else {
+        EMIT(ast, Add<kLdaSmi32>(AbstractMap::kInitialBucketSize));
+        MoveToArgumentIfNeeded(u32, 0, Value::kACC, argument_offset, ast);
+    }
+    
+    Value fun = FindOrInsertExternalFunction("lang.newMap");
+    LdaGlobal(metadata_space_->builtin_type(kType_closure), fun.index, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
+    CleanupOperands(&receiver);
+
+    if (ast->operands_size() > 0) {
+        StackSpaceScope stack_scope(current_fun_->stack());
+        Value map{
+            Value::kStack,
+            type,
+            current_fun_->StackReserve(type)
+        };
+        StaStack(type, map.index, ast);
+        
+        std::vector<Value> keys, values;
+        for (auto expr : ast->operands()) {
+            DCHECK(expr->IsPairExpression());
+            auto pair = expr->AsPairExpression();
+            VISIT_CHECK(pair->key());
+            Value key = Value::Of(rv, this);
+            if (NeedInbox(key_type, key.type)) {
+                InboxIfNeeded(key, key_type, expr);
+                key.linkage = Value::kACC;
+                key.type = key_type;
+            }
+            if (key.linkage == Value::kACC) {
+                key.linkage = Value::kStack;
+                key.index = current_fun_->StackReserve(key.type);
+                StaStack(key.type, key.index, expr);
+            }
+            keys.push_back(key);
+            
+            VISIT_CHECK(pair->value());
+            Value value = Value::Of(rv, this);
+            if (NeedInbox(value_type, value.type)) {
+                InboxIfNeeded(value, value_type, expr);
+                value.linkage = Value::kACC;
+                value.type = key_type;
+            }
+            if (value.linkage == Value::kACC) {
+                value.linkage = Value::kStack;
+                value.index = current_fun_->StackReserve(value.type);
+                StaStack(value.type, value.index, expr);
+            }
+            values.push_back(value);
+        }
+        
+        argument_offset = 0;
+        for (size_t i = 0; i < ast->operands_size(); i++) {
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(keys[i], argument_offset, ast->operand(i));
+            argument_offset += RoundUp(value_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(values[i], argument_offset, ast->operand(i));
+        }
+        current_fun_->EmitPutAll(ast, GetStackOffset(map.index), argument_offset);
     }
     return ResultWith(Value::kACC, type->id(), 0);
 }

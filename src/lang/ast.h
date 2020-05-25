@@ -1228,7 +1228,6 @@ public:
         : MultiExpression(position, kArrayInitializer, std::move(elements))
         , mutable_container_(mutable_container)
         , reserve_(nullptr)
-        , load_factor_(nullptr)
         , key_type_(key_type)
         , value_type_(value_type) {
     #if defined(DEBUG) || defined(_DEBUG)
@@ -1239,17 +1238,15 @@ public:
     }
 
     MapInitializer(base::Arena *arena, int position, bool mutable_container, TypeSign *key_type,
-                   TypeSign *value_type, Expression *reserve, Expression *load_factor)
+                   TypeSign *value_type, Expression *reserve)
         : MultiExpression(arena, position, kArrayInitializer)
         , mutable_container_(mutable_container)
         , reserve_(reserve)
-        , load_factor_(load_factor)
         , key_type_(key_type)
         , value_type_(value_type) {}
 
     DEF_VAL_GETTER(bool, mutable_container);
     DEF_PTR_PROP_RW(Expression, reserve);
-    DEF_PTR_PROP_RW(Expression, load_factor);
     DEF_PTR_PROP_RW(TypeSign, key_type);
     DEF_PTR_PROP_RW(TypeSign, value_type);
     
@@ -1257,7 +1254,6 @@ public:
 private:
     bool mutable_container_;
     Expression *reserve_; // reserve parameter
-    Expression *load_factor_; // factor for hash map
     TypeSign *key_type_;
     TypeSign *value_type_;
 }; // class MapInitializer

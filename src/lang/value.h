@@ -134,8 +134,8 @@ public:
     static constexpr int32_t kOffsetElems = offsetof(Array, elems_);
     
     // Create new array with initialize-elements and length
-    static inline Local<Array<T>> NewImmutable(const T *elems, size_t length) {
-        Local<Array<T>> array(NewImmutable(length));
+    static inline Local<Array<T>> New(const T *elems, size_t length) {
+        Local<Array<T>> array(New(length));
         for (size_t i = 0; i < length; i++) {
             array->elems_[i] = elems[i];
         }
@@ -143,7 +143,7 @@ public:
     }
 
     // Create new array with length
-    static inline Local<Array<T>> NewImmutable(size_t length) {
+    static inline Local<Array<T>> New(size_t length) {
         Local<AbstractArray> abstract(NewArray(TypeTraits<T>::kType, length));
         if (abstract.is_empty()) {
             return Local<Array<T>>::Empty();
@@ -173,7 +173,7 @@ public:
         if (index > length_) {
             return Local<Array<T>>(const_cast<Array<T> *>(this));
         }
-        Local<Array<T>> copied(NewImmutable(length() - 1));
+        Local<Array<T>> copied(New(length() - 1));
         ::memcpy(copied->elems_, elems_, index * sizeof(T));
         ::memcpy(copied->elems_ + index, elems_ + index + 1, (length_ - 1 - index) * sizeof(T));
         return copied;
@@ -207,8 +207,8 @@ public:
     static constexpr int32_t kOffsetElems = offsetof(Array, elems_);
 
     // Create new array with initialize-elements and length
-    static inline Local<Array<T>> NewImmutable(Handle<CoreType> elems[], size_t length) {
-        Local<Array<T>> array(NewImmutable(length));
+    static inline Local<Array<T>> New(Handle<CoreType> elems[], size_t length) {
+        Local<Array<T>> array(New(length));
         for (size_t i = 0; i < length; i++) {
             array->elems_[i] = *elems[i];
         }
@@ -217,7 +217,7 @@ public:
     }
 
     // Create new array with length
-    static inline Local<Array<T>> NewImmutable(size_t length) {
+    static inline Local<Array<T>> New(size_t length) {
         Local<Any> any(NewArray(TypeTraits<CoreType>::kType, length));
         if (any.is_empty()) {
             return Local<Array<T>>::Empty();
@@ -252,7 +252,7 @@ public:
         if (index > length_) {
             return Local<Array<T>>::Empty();
         }
-        Local<Array> copied(NewImmutable(length_ - 1));
+        Local<Array> copied(New(length_ - 1));
         ::memcpy(copied->elems_, elems_, index * sizeof(T));
         ::memcpy(copied->elems_ + index, elems_ + index + 1, (length_ - 1 - index) * sizeof(T));
         copied->WriteBarrier(reinterpret_cast<Any **>(copied->elems_), copied->length_);
@@ -311,6 +311,9 @@ private:
 
 class AbstractMap : public Any {
 public:
+    static constexpr uint32_t kInitialBucketShift = 4;
+    static constexpr uint32_t kInitialBucketSize = 1u << kInitialBucketShift;
+    
     const Class *key_type() const { return key_type_; }
     const Class *value_type() const { return value_type_; }
     
@@ -415,6 +418,11 @@ template<> struct Hash<String*> {
     bool operator () (String *lhs, String *rhs) const;
 };
 
+template<> struct Hash<Any*> {
+    uint32_t operator () (Any *value) const;
+    bool operator () (Any *lhs, Any *rhs) const;
+};
+
 
 // The Map's header
 template<class K>
@@ -432,6 +440,39 @@ public:
         K         key;
     }; // struct Entry
     
+    class Iterator {
+    public:
+        inline Iterator(ImplementMap *owns): owns_(owns) {}
+        inline void SeekToFirst() { NextBucket(1); }
+        inline void Next() {
+            if (!Valid()) {
+                return;
+            }
+            if (index_ = owns_->entries_[index_].next; !index_) {
+                NextBucket(bucket_ + 1);
+            }
+        }
+        inline bool Valid() const { return index_ != 0; }
+
+        inline Entry *operator -> () const { return entry(); }
+        inline Entry *entry() const { return !index_ ? nullptr : &owns_->entries_[index_]; }
+    private:
+        inline void NextBucket(uint32_t begin) {
+            for (bucket_ = begin; bucket_ < owns_->bucket_size() + 1; bucket_++) {
+                if (owns_->entries_[bucket_].kind == Entry::kBucket) {
+                    break;
+                }
+            }
+            if (bucket_ < owns_->bucket_size() + 1) {
+                index_ = bucket_;
+            }
+        }
+        
+        ImplementMap *const owns_;
+        uint32_t bucket_ = 0;
+        uint32_t index_ = 0;
+    }; // class Iterator
+    
     static constexpr int32_t kOffsetKeyType = offsetof(ImplementMap, key_type_);
     static constexpr int32_t kOffsetValueType = offsetof(ImplementMap, value_type_);
     static constexpr int32_t kOffsetRandomSeed = offsetof(ImplementMap, random_seed_);
@@ -441,6 +482,10 @@ public:
     static inline size_t RequiredSize(uint32_t bucket_size) {
         return sizeof(ImplementMap<K>) + (sizeof(Entry) * bucket_size * 2);
     }
+
+    // Internal Interfaces
+    template<class V>
+    inline ImplementMap *UnsafePut(K key, V value);
     
     friend class Machine;
 protected:
@@ -450,32 +495,94 @@ protected:
         ::memset(entries_, 0, sizeof(Entry) * (capacity() + 1));
     }
     
+    ImplementMap<K> *Clone(int incr_wanted) {
+        uint32_t wanted = length() + incr_wanted;
+        if (!wanted) {
+            return static_cast<ImplementMap<K> *>(NewMap(0));
+        }
+        uint32_t request_bucket_shift = bucket_shift_;
+        if (wanted >= bucket_size() * 1.8) {
+            request_bucket_shift++;
+        } else if (wanted < bucket_size() - 4 && bucket_size() >= kInitialBucketSize * 2) {
+            request_bucket_shift--;
+        }
+        
+        ImplementMap<K> *dest = nullptr;
+        for (;;) {
+            dest = static_cast<ImplementMap<K> *>(NewMap(1u << request_bucket_shift));
+            if (!dest) {
+                return nullptr;
+            }
+            if (Rehash(dest)) {
+                break;
+            }
+            request_bucket_shift++;
+        }
+        return dest;
+    }
+    
     inline Entry *FindOrMakeRoom(K key, ImplementMap<K> **receiver) {
         ImplementMap<K> *dest = this;
         Entry *room = dest->FindForPut(key);
         while (!room) {
-            dest = static_cast<ImplementMap<K> *>(dest->NewMap(bucket_size() * 2));
+            uint32_t request_size = !dest->bucket_size() ? 16 : dest->bucket_size() * 2;
+            dest = static_cast<ImplementMap<K> *>(dest->NewMap(request_size));
             if (!dest) {
                 return nullptr;
             }
-            // Rehash
-            for (int i = 1; i < capacity() + 1; i++) {
-                if (entries_[i].kind != Entry::kFree) {
-                    Entry *entry = dest->FindForPut(entries_[i].key);
-                    entry->key = entries_[i].key;
-                    if (ElementTraits<K>::kIsReferenceType) {
-                        dest->WriteBarrier(reinterpret_cast<Any **>(&entry->key));
-                    }
-                    entry->value = entries_[i].value;
-                    if (IsValueReferenceType()) {
-                        dest->WriteBarrier(reinterpret_cast<Any **>(&entry->value));
-                    }
-                }
+            if (!Rehash(dest)) {
+                continue;
             }
             room = dest->FindForPut(key);
         }
         *receiver = dest;
         return room;
+    }
+
+    inline void RemoveRoom(K key, ImplementMap<K> **receiver) {
+        Entry *room = Delete(key);
+        if (!room) {
+            *receiver = this;
+            return;
+        }
+        if (ElementTraits<K>::kIsReferenceType) {
+            WriteBarrier(reinterpret_cast<Any **>(&room->key));
+        }
+        if (length() == 0) {
+            *receiver = static_cast<ImplementMap<K> *>(NewMap(0));
+            return;
+        }
+        ImplementMap<K> *dest = this;
+        if (length() < capacity() / 2 - 4 && bucket_size() >= kInitialBucketSize * 2) {
+            dest = static_cast<ImplementMap<K> *>(dest->NewMap(dest->bucket_size() / 2));
+            if (!dest) {
+                *receiver = nullptr;
+                return;
+            }
+            if (!Rehash(dest)) {
+                return;
+            }
+        }
+        *receiver = dest;
+    }
+    
+    inline bool Rehash(ImplementMap<K> *dest) {
+        Iterator iter(this);
+        for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+            Entry *entry = dest->FindForPut(iter->key);
+            if (!entry) {
+                return false;
+            }
+            entry->key = iter->key;
+            if (ElementTraits<K>::kIsReferenceType) {
+                dest->WriteBarrier(reinterpret_cast<Any **>(&entry->key));
+            }
+            entry->value = iter->value;
+            if (IsValueReferenceType()) {
+                dest->WriteBarrier(reinterpret_cast<Any **>(&entry->value));
+            }
+        }
+        return true;
     }
 
     inline Entry *FindForPut(K key) {
@@ -526,7 +633,13 @@ protected:
             return nullptr;
         }
         if (Hash<K>{}(key, slot->key)) {
-            ::memcpy(slot, &entries_[slot->next], sizeof(*slot));
+            uint32_t next = slot->next;
+            ::memcpy(slot, &entries_[next], sizeof(*slot));
+            FreeRoom(next);
+            if (slot->kind == Entry::kNode) {
+                slot->kind = Entry::kBucket;
+                ::memset(&entries_[next], 0, sizeof(Entry));
+            }
             length_--;
             return slot;
         }
@@ -545,7 +658,7 @@ protected:
         }
         return nullptr;
     }
-    
+
     inline uint32_t AllocateRoom() {
         while (entries_[1 + free_].kind != Entry::kFree && free_ >= bucket_size()) {
             free_--;
@@ -571,20 +684,50 @@ template<class K, class V,
     bool VT = ElementTraits<V>::kIsReferenceType>
 class Map : public ImplementMap<K> {
 public:
-    using AbstractMap::NewMap;
     using Entry = typename ImplementMap<K>::Entry;
-    using ImplementMap<K>::FindOrMakeRoom;
-    using ImplementMap<K>::FindForPut;
-    using ImplementMap<K>::FindForGet;
-    using ImplementMap<K>::Delete;
+    
+    class Iterator {
+    public:
+        inline Iterator(const Handle<Map> &owns): core_(*owns) {}
+        inline Iterator(Map *owns): core_(owns) {}
+        inline void SeekToFirst() { core_.SeekToFirst(); }
+        inline void Next() { core_.Next(); }
+        inline bool Valid() const { return core_.Valid(); }
+        inline K key() const { return !core_.Valid() ? K(0) : core_->key; }
+        inline V value() const {
+            return !core_.Valid() ? V(0) : *reinterpret_cast<V *>(&core_->value);
+        }
+    private:
+        typename ImplementMap<K>::Iterator core_;
+    }; // class Iterator
 
-    static inline Local<Map<K,V>> New(uint32_t bucket_size = 16) {
+    static inline Local<Map<K,V>> New(uint32_t bucket_size = AbstractMap::kInitialBucketSize) {
         Local<Map<K,V>> map(static_cast<Map<K,V> *>(NewMap(TypeTraits<K>::kType,
                                                            TypeTraits<V>::kType, bucket_size)));
         return map;
     }
     
-    void Put(K key, V value, Local<Map<K,V>> *handle) {
+    inline Local<Map<K,V>> Plus(K key, V value) {
+        Local<Map<K,V>> map(static_cast<Map<K,V> *>(Clone(1)));
+        if (map.is_value_null()) {
+            return map;
+        }
+        map->Put(key, value, &map);
+        return map;
+    }
+    
+    inline Local<Map<K,V>> Minus(K key) {
+        Local<Map<K,V>> map(static_cast<Map<K,V> *>(Clone(-1)));
+        if (map.is_value_null()) {
+            return map;
+        }
+        if (map->length() > 0) {
+            map->Erase(key);
+        }
+        return map;
+    }
+    
+    inline void Put(K key, V value, Local<Map<K,V>> *handle) {
         ImplementMap<K> *dummy = nullptr;
         Entry *room = FindOrMakeRoom(key, &dummy);
         if (!room) {
@@ -603,6 +746,12 @@ public:
         }
     }
     
+    inline void Remove(K key, Local<Map<K, V>> *handle) {
+        ImplementMap<K> *dummy = nullptr;
+        RemoveRoom(key, &dummy);
+        *handle = static_cast<Map<K,V> *>(dummy);
+    }
+
     inline void Erase(K key) { Delete(key); }
     
     inline bool Get(K key, V *receiver) {
@@ -615,6 +764,15 @@ public:
         }
         return true;
     }
+    
+private:
+    using AbstractMap::NewMap;
+    using ImplementMap<K>::FindOrMakeRoom;
+    using ImplementMap<K>::FindForPut;
+    using ImplementMap<K>::FindForGet;
+    using ImplementMap<K>::RemoveRoom;
+    using ImplementMap<K>::Delete;
+    using ImplementMap<K>::Clone;
 }; // class Map
 
 
@@ -623,12 +781,23 @@ class Map<K, V, true, false> : public ImplementMap<K> {
 public:
     using CoreKeyType = typename ElementTraits<K>::CoreType;
     using Entry = typename ImplementMap<K>::Entry;
-    using AbstractMap::NewMap;
-    using Any::WriteBarrier;
-    using ImplementMap<K>::FindOrMakeRoom;
-    using ImplementMap<K>::FindForPut;
-    using ImplementMap<K>::FindForGet;
-    using ImplementMap<K>::Delete;
+
+    class Iterator {
+    public:
+        inline Iterator(const Handle<Map> &owns): core_(*owns) {}
+        inline Iterator(Map *owns): core_(owns) {}
+        inline void SeekToFirst() { core_.SeekToFirst(); }
+        inline void Next() { core_.Next(); }
+        inline bool Valid() const { return core_.Valid(); }
+        inline Local<CoreKeyType> key() const {
+            return !core_.Valid() ? Local<CoreKeyType>::Empty() : Local<CoreKeyType>(core_->key);
+        }
+        inline V value() const {
+            return !core_.Valid() ? V(0) : *reinterpret_cast<V*>(&core_->value);
+        }
+    private:
+        typename ImplementMap<K>::Iterator core_;
+    }; // class Iterator
 
     static inline Local<Map<K,V>> New(uint32_t bucket_size = 16) {
         Local<Map<K,V>> map(static_cast<Map<K,V> *>(NewMap(TypeTraits<CoreKeyType>::kType,
@@ -662,6 +831,12 @@ public:
         }
     }
 
+    inline void Remove(K key, Local<Map<K, V>> *handle) {
+        ImplementMap<K> *dummy = nullptr;
+        RemoveRoom(key, &dummy);
+        *handle = static_cast<Map<K,V> *>(dummy);
+    }
+
     inline void Erase(const Handle<CoreKeyType> &key) {
         if (Entry *room = Delete(*key)) {
             WriteBarrier(reinterpret_cast<Any **>(&room->key));
@@ -678,6 +853,15 @@ public:
         }
         return true;
     }
+
+private:
+    using AbstractMap::NewMap;
+    using Any::WriteBarrier;
+    using ImplementMap<K>::FindOrMakeRoom;
+    using ImplementMap<K>::FindForPut;
+    using ImplementMap<K>::FindForGet;
+    using ImplementMap<K>::RemoveRoom;
+    using ImplementMap<K>::Delete;
 }; // class Map<K, V, true, false>
 
 template<class K, class V>
@@ -686,12 +870,24 @@ public:
     using CoreKeyType = typename ElementTraits<K>::CoreType;
     using CoreValueType = typename ElementTraits<V>::CoreType;
     using Entry = typename ImplementMap<K>::Entry;
-    using AbstractMap::NewMap;
-    using Any::WriteBarrier;
-    using ImplementMap<K>::FindOrMakeRoom;
-    using ImplementMap<K>::FindForPut;
-    using ImplementMap<K>::FindForGet;
-    using ImplementMap<K>::Delete;
+    
+    class Iterator {
+    public:
+        inline Iterator(const Handle<Map> &owns): core_(*owns) {}
+        inline Iterator(Map *owns): core_(owns) {}
+        inline void SeekToFirst() { core_.SeekToFirst(); }
+        inline void Next() { core_.Next(); }
+        inline bool Valid() const { return core_.Valid(); }
+        inline Local<CoreKeyType> key() const {
+            return !core_.Valid() ? Local<CoreKeyType>::Empty() : Local<CoreKeyType>(core_->key);
+        }
+        inline Local<CoreValueType> value() const {
+            return !core_.Valid() ? Local<CoreValueType>::Empty()
+                : Local<CoreValueType>(reinterpret_cast<V>(core_->value));
+        }
+    private:
+        typename ImplementMap<K>::Iterator core_;
+    }; // class Iterator
 
     static inline Local<Map<K,V>> New(uint32_t bucket_size = 16) {
         Local<Map<K,V>> map(static_cast<Map<K,V> *>(NewMap(TypeTraits<CoreKeyType>::kType,
@@ -700,8 +896,8 @@ public:
         return map;
     }
     
-    Local<Map<K,V>> Put(const Handle<CoreKeyType> &key, const Handle<CoreValueType> &value,
-                        Local<Map<K,V>> *handle) {
+    inline void Put(const Handle<CoreKeyType> &key, const Handle<CoreValueType> &value,
+                    Local<Map<K,V>> *handle) {
         ImplementMap<K> *dummy = nullptr;
         Entry *room = FindOrMakeRoom(*key, &dummy);
         if (!room) {
@@ -731,6 +927,12 @@ public:
             }
         }
     }
+
+    inline void Remove(K key, Local<Map<K, V>> *handle) {
+        ImplementMap<K> *dummy = nullptr;
+        RemoveRoom(key, &dummy);
+        *handle = static_cast<Map<K,V> *>(dummy);
+    }
     
     inline void Erase(const Handle<CoreKeyType> &key) {
         if (Entry *room = Delete(key)) {
@@ -746,6 +948,15 @@ public:
         }
         return Local<CoreValueType>(reinterpret_cast<CoreValueType *>(room->value));
     }
+    
+private:
+    using Any::WriteBarrier;
+    using AbstractMap::NewMap;
+    using ImplementMap<K>::FindOrMakeRoom;
+    using ImplementMap<K>::FindForPut;
+    using ImplementMap<K>::FindForGet;
+    using ImplementMap<K>::RemoveRoom;
+    using ImplementMap<K>::Delete;
 }; // class Map<K, V, true, true>
 
 template<class K, class V>
@@ -753,12 +964,22 @@ class Map<K, V, false, true> : public ImplementMap<K> {
 public:
     using CoreValueType = typename ElementTraits<V>::CoreType;
     using Entry = typename ImplementMap<K>::Entry;
-    using AbstractMap::NewMap;
-    using Any::WriteBarrier;
-    using ImplementMap<K>::FindOrMakeRoom;
-    using ImplementMap<K>::FindForPut;
-    using ImplementMap<K>::FindForGet;
-    using ImplementMap<K>::Delete;
+    
+    class Iterator {
+    public:
+        inline Iterator(const Handle<Map> &owns): core_(*owns) {}
+        inline Iterator(Map *owns): core_(owns) {}
+        inline void SeekToFirst() { core_.SeekToFirst(); }
+        inline void Next() { core_.Next(); }
+        inline bool Valid() const { return core_.Valid(); }
+        inline K key() const { return !core_.Valid() ? K(0) : core_->key; }
+        inline Local<CoreValueType> value() const {
+            return !core_.Valid() ? Local<CoreValueType>::Empty()
+                : Local<CoreValueType>(reinterpret_cast<V>(core_->value));
+        }
+    private:
+        typename ImplementMap<K>::Iterator core_;
+    }; // class Iterator
 
     static inline Local<Map<K,V>> New(uint32_t bucket_size = 16) {
         Local<Map<K,V>> map(static_cast<Map<K,V> *>(NewMap(TypeTraits<K>::kType,
@@ -767,7 +988,7 @@ public:
         return map;
     }
     
-    void Put(K key, const Handle<CoreValueType> &value, Local<Map<K,V>> *handle) {
+    inline void Put(K key, const Handle<CoreValueType> &value, Local<Map<K,V>> *handle) {
         ImplementMap<K> *dummy = nullptr;
         Entry *room = FindOrMakeRoom(key, &dummy);
         if (!room) {
@@ -792,7 +1013,13 @@ public:
             }
         }
     }
-    
+
+    inline void Remove(K key, Local<Map<K, V>> *handle) {
+        ImplementMap<K> *dummy = nullptr;
+        RemoveRoom(key, &dummy);
+        *handle = static_cast<Map<K,V> *>(dummy);
+    }
+
     inline void Erase(K key) {
         Entry *room = Delete(key);
         if (room) {
@@ -807,6 +1034,14 @@ public:
         }
         return Local<CoreValueType>(reinterpret_cast<CoreValueType *>(room->value));
     }
+private:
+    using Any::WriteBarrier;
+    using AbstractMap::NewMap;
+    using ImplementMap<K>::FindOrMakeRoom;
+    using ImplementMap<K>::FindForPut;
+    using ImplementMap<K>::FindForGet;
+    using ImplementMap<K>::RemoveRoom;
+    using ImplementMap<K>::Delete;
 }; // class Map<K, V, false, true>
 
 
@@ -1074,6 +1309,11 @@ public:
     
     template<>
     struct ParameterTraits<void*> {
+        static constexpr uint32_t kType = kType_u64;
+    }; // struct ParameterTraits
+    
+    template<>
+    struct ParameterTraits<const Class *> {
         static constexpr uint32_t kType = kType_u64;
     }; // struct ParameterTraits
     

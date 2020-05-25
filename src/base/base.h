@@ -1,6 +1,7 @@
 #ifndef MAI_BASE_BASE_H_
 #define MAI_BASE_BASE_H_
 
+#include <type_traits>
 #include <stddef.h>
 #include <assert.h>
 
@@ -50,15 +51,20 @@ inline T *down_cast(F *from) {
     return static_cast<T *>(from);
 }
 
-template<class T, class F>
-inline T bit_cast(F from) {
-    static_assert(sizeof(T) >= sizeof(F), "Incorrect T and F size!");
+template<class T, class S>
+inline T bit_cast(S from) {
+    return *reinterpret_cast<const T *>(&from);
+}
+
+template<class T, class S>
+inline T uninterpret_cast(S from) {
+    static_assert(sizeof(T) >= sizeof(S), "incorrect cast");
     union {
-        T as_to;
-        F as_from;
+        S s;
+        T t;
     };
-    as_from = from;
-    return as_to;
+    s = from;
+    return t;
 }
 
 #define IS_POWER_OF_TWO(x) (((x) & ((x) - 1)) == 0)

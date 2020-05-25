@@ -57,7 +57,7 @@ TEST_F(HandleTest, TypeTraitsDummy) {
 TEST_F(HandleTest, ArrayHandle) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
     int data[4] = {1, 2, 3, 4};
-    Local<Array<int32_t>> handle = Array<int32_t>::NewImmutable(data, arraysize(data));
+    Local<Array<int32_t>> handle = Array<int32_t>::New(data, arraysize(data));
     ASSERT_TRUE(handle.is_not_empty());
     ASSERT_TRUE(handle.is_value_not_null());
     ASSERT_EQ(4, handle->length());
@@ -76,7 +76,7 @@ TEST_F(HandleTest, ReferenceArrayHandle) {
         String::NewUtf8("3rd"),
         String::NewUtf8("4th"),
     };
-    Local<Array<String *>> handle = Array<String *>::NewImmutable(&init[0], arraysize(init));
+    Local<Array<String *>> handle = Array<String *>::New(&init[0], arraysize(init));
     ASSERT_EQ(4, handle->length());
     ASSERT_EQ(4, handle->capacity());
     ASSERT_EQ(STATE->builtin_type(kType_array), handle->clazz());

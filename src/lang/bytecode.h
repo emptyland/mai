@@ -100,9 +100,11 @@ namespace lang {
     V(NewObject, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kConstOffset) \
     V(Array, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kConstOffset) \
     V(ArrayWith, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kConstOffset) \
+    V(PutAll, BytecodeType::AB, BytecodeParam::kStackOffset, BytecodeParam::kImmediate) \
     V(AssertNotNull, BytecodeType::A, BytecodeParam::kStackOffset) \
     V(CheckStack, BytecodeType::N) \
-    V(Contact, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate)
+    V(Contact, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate) \
+    V(Random, BytecodeType::N)
 
 #define DECLARE_LDAR_BYTECODE(V) \
     V(Ldar32, BytecodeType::A, BytecodeParam::kStackOffset) \

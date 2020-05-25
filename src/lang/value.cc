@@ -44,6 +44,34 @@ bool Hash<String*>::operator () (String *lhs, String *rhs) const {
     return lhs->length() == rhs->length() && !::strncmp(lhs->data(), rhs->data(), lhs->length());
 }
 
+uint32_t Hash<Any*>::operator () (Any *value) const {
+    DCHECK(value != nullptr);
+    if (!value) {
+        return 0;
+    }
+    if (value->clazz()->id() == kType_string) {
+        String *s = static_cast<String *>(value);
+        return base::Hash::Js(s->data(), s->length());
+    }
+    uintptr_t h = reinterpret_cast<uintptr_t>(value);
+    return static_cast<uint32_t>(h * h >> 16);
+}
+
+bool Hash<Any*>::operator () (Any *lhs, Any *rhs) const {
+    if (!lhs || !rhs) {
+        return false;
+    }
+    if (lhs->clazz() != rhs->clazz()) {
+        return false;
+    }
+    if (lhs->clazz()->id() == kType_string) {
+        String *l = static_cast<String *>(lhs);
+        String *r = static_cast<String *>(rhs);
+        return l->length() == r->length() && !::strncmp(l->data(), r->data(), l->length());
+    }
+    return lhs == rhs;
+}
+
 // Use function call, it's slowly calling...
 bool Any::SlowlyIs(uint32_t type_id) const { return QuicklyIs(type_id); }
 
