@@ -483,11 +483,14 @@ public:
     static inline size_t RequiredSize(uint32_t bucket_size) {
         return sizeof(ImplementMap<K>) + (sizeof(Entry) * bucket_size * 2);
     }
+    
+    inline bool ContainsKey(K key) { return FindForGet(key) != nullptr; }
 
     // Internal Interfaces
     template<class V> inline ImplementMap *UnsafePut(K key, V value);
-    template<class V> V UnsafeGet(K key);
-    
+    template<class V> inline V UnsafeGet(K key);
+    inline void UnsafeSet(K key, uintptr_t value);
+
     friend class Machine;
 protected:
     inline ImplementMap(const Class *clazz, const Class *key, const Class *value,

@@ -187,8 +187,8 @@ private:
                           bool vargs, ASTNode *ast);
     Result GeneratePropertyAssignment(const ASTString *name, Value self, Scope *owns, Operator op,
                                       Expression *rhs, DotExpression *ast);
-    Result GenerateIndexAssignment(const Class *type, int primary, int index, Operator op,
-                                   Expression *rhs, IndexExpression *ast);
+    Result GenerateIndexAssignment(const Class *type, int primary, const Class *index_type,
+                                   int index, Operator op, Expression *rhs, IndexExpression *ast);
     Result GenerateVariableAssignment(const ASTString *name, Value lval, Scope *owns, Operator op,
                                       Expression *rhs, ASTNode *ast);
     Result GenerateIncrement(const Class *lval_type, int lval_index, Value::Linkage lval_linkage,
@@ -221,9 +221,6 @@ private:
                             const Class *key, int key_index, Value::Linkage key_linkage,
                             ASTNode *ast);
     void GenerateSend(const Class *clazz, int lhs, int rhs, ASTNode *ast);
-    
-    void GenerateMapGet(const Class *clazz, int primary, const Class *key_type, int key,
-                        const Class *value_type, ASTNode *ast);
 
     bool GenerateUnaryOperands(OperandContext *receiver, Expression *ast);
     bool GenerateBinaryOperands(OperandContext *receiver, Expression *lhs, Expression *rhs);
@@ -281,6 +278,11 @@ private:
     void StaCaptured(const Class *clazz, int index, ASTNode *ast);
     void StaProperty(const Class *clazz, int index, int offset, ASTNode *ast);
     void StaArrayAt(const Class *clazz, int primary, int index, ASTNode *ast);
+    
+    void LdaMapGet(const Class *clazz, int primary, const Class *key_type, int key,
+                   const Class *value_type, ASTNode *ast);
+    void StaMapSet(const Class *clazz, int primary, const Class *key_type, int key,
+                   const Class *value_type, ASTNode *ast);
     
     PrototypeDesc *GenerateFunctionPrototype(FunctionPrototype *ast);
     

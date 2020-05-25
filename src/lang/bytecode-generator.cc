@@ -2329,7 +2329,7 @@ ASTVisitor::Result BytecodeGenerator::VisitIndexExpression(IndexExpression *ast)
     if (primary_type->IsArray()) {
         LdaArrayAt(value_type, recevier.lhs, recevier.rhs, ast);
     } else {
-        GenerateMapGet(primary_type, recevier.lhs, recevier.rhs_type, recevier.rhs, value_type, ast);
+        LdaMapGet(primary_type, recevier.lhs, recevier.rhs_type, recevier.rhs, value_type, ast);
     }
 
     CleanupOperands(&recevier);
@@ -3591,8 +3591,9 @@ ASTVisitor::Result BytecodeGenerator::VisitAssignmentStatement(AssignmentStateme
             if (!GenerateBinaryOperands(&recevier, lval->primary(), lval->index())) {
                 return ResultWithError();
             }
-            Result rv = GenerateIndexAssignment(recevier.lhs_type, recevier.lhs, recevier.rhs,
-                                                ast->assignment_op(), ast->rval(), lval);
+            Result rv = GenerateIndexAssignment(recevier.lhs_type, recevier.lhs, recevier.rhs_type,
+                                                recevier.rhs, ast->assignment_op(), ast->rval(),
+                                                lval);
             CleanupOperands(&recevier);
             return rv;
         } break;
@@ -4129,8 +4130,9 @@ BytecodeGenerator::GeneratePropertyAssignment(const ASTString *name, Value self,
 }
 
 ASTVisitor::Result
-BytecodeGenerator::GenerateIndexAssignment(const Class *type, int primary, int index, Operator op,
-                                           Expression *rhs, IndexExpression *ast) {
+BytecodeGenerator::GenerateIndexAssignment(const Class *type, int primary, const Class *index_type,
+                                           int index, Operator op, Expression *rhs,
+                                           IndexExpression *ast) {
     Result rv;
     VISIT_CHECK(ast->hint());
     const Class *value_type = metadata_space_->type(rv.bundle.type);
@@ -4155,8 +4157,7 @@ BytecodeGenerator::GenerateIndexAssignment(const Class *type, int primary, int i
             if (type->IsArray()) {
                 LdaArrayAt(value_type, primary, index, ast);
             } else {
-                // TODO:
-                TODO();
+                LdaMapGet(type, primary, index_type, index, value_type, ast);
             }
             if (rhs->IsPairExpression()) {
                 GenerateOperation(op, type, 0/*lhs_index*/, Value::kACC/*lhs_linkage*/,
@@ -4165,8 +4166,11 @@ BytecodeGenerator::GenerateIndexAssignment(const Class *type, int primary, int i
                 GenerateOperation(op, value_type, 0/*lhs_index*/, Value::kACC/*lhs_linkage*/,
                                   rval.type, rval.index, Value::kStack/*rhs_linkage*/, ast);
             }
-            StaArrayAt(value_type, primary, index, ast);
-    
+            if (type->IsArray()) {
+                StaArrayAt(value_type, primary, index, ast);
+            } else {
+                StaMapSet(type, primary, index_type, index, value_type, ast);
+            }
             if (rval_tmp) {
                 current_fun_->StackFallback(rval.type, rval.index);
             }
@@ -4178,7 +4182,11 @@ BytecodeGenerator::GenerateIndexAssignment(const Class *type, int primary, int i
             } else {
                 LdaIfNeeded(rval.type, rval.index, rval.linkage, ast);
             }
-            StaArrayAt(value_type, primary, index, ast);
+            if (type->IsArray()) {
+                StaArrayAt(value_type, primary, index, ast);
+            } else {
+                StaMapSet(type, primary, index_type, index, value_type, ast);
+            }
         } return ResultWithVoid();
 
         default:
@@ -4552,103 +4560,6 @@ void BytecodeGenerator::GenerateSend(const Class *clazz, int lhs, int rhs, ASTNo
     current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/,
                                            argument_offset);
     current_fun_->EmitYield(ast, YIELD_PROPOSE);
-}
-
-void BytecodeGenerator::GenerateMapGet(const Class *clazz, int primary, const Class *key_type,
-                                       int key, const Class *value_type, ASTNode *ast) {
-    int argument_offset = RoundUp(clazz->reference_size(), kStackSizeGranularity);
-    MoveToArgumentIfNeeded(clazz, primary, Value::kStack, argument_offset, ast);
-    
-    Value fun;
-    switch (static_cast<BuiltinType>(clazz->id())) {
-        case kType_map:
-            if (NeedInbox(metadata_space_->builtin_type(kType_any), key_type)) {
-                const Class *inbox = InboxIfNeeded(key_type, key, Value::kStack,
-                                                   metadata_space_->builtin_type(kType_any), ast);
-                argument_offset += RoundUp(inbox->reference_size(), kStackSizeGranularity);
-                MoveToArgumentIfNeeded(inbox, 0, Value::kACC, argument_offset, ast);
-            } else {
-                argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
-                MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-            }
-            switch (value_type->id()) {
-                case kType_f32:
-                    fun = FindOrInsertExternalFunction("map::getF32");
-                    break;
-                case kType_f64:
-                    fun = FindOrInsertExternalFunction("map::getF64");
-                    break;
-                default:
-                    fun = FindOrInsertExternalFunction("map::get");
-                    break;
-            }
-            break;
-        case kType_map8:
-            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
-            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-            switch (value_type->id()) {
-                case kType_f32:
-                    fun = FindOrInsertExternalFunction("map8::getF32");
-                    break;
-                case kType_f64:
-                    fun = FindOrInsertExternalFunction("map8::getF64");
-                    break;
-                default:
-                    fun = FindOrInsertExternalFunction("map8::get");
-                    break;
-            }
-            break;
-        case kType_map16:
-            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
-            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-            switch (value_type->id()) {
-                case kType_f32:
-                    fun = FindOrInsertExternalFunction("map16::getF32");
-                    break;
-                case kType_f64:
-                    fun = FindOrInsertExternalFunction("map16::getF64");
-                    break;
-                default:
-                    fun = FindOrInsertExternalFunction("map16::get");
-                    break;
-            }
-            break;
-        case kType_map32:
-            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
-            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-            switch (value_type->id()) {
-                case kType_f32:
-                    fun = FindOrInsertExternalFunction("map32::getF32");
-                    break;
-                case kType_f64:
-                    fun = FindOrInsertExternalFunction("map32::getF64");
-                    break;
-                default:
-                    fun = FindOrInsertExternalFunction("map32::get");
-                    break;
-            }
-            break;
-        case kType_map64:
-            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
-            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-            switch (value_type->id()) {
-                case kType_f32:
-                    fun = FindOrInsertExternalFunction("map64::getF32");
-                    break;
-                case kType_f64:
-                    fun = FindOrInsertExternalFunction("map64::getF64");
-                    break;
-                default:
-                    fun = FindOrInsertExternalFunction("map64::get");
-                    break;
-            }
-            break;
-        default:
-            NOREACHED();
-            break;
-    }
-    LdaIfNeeded(fun, ast);
-    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
 }
 
 bool BytecodeGenerator::GenerateOperation(const Operator op, const Class *type, int lhs_index,
@@ -5675,6 +5586,178 @@ void BytecodeGenerator::StaIfNeeded(const Class *clazz, int index, Value::Linkag
             NOREACHED();
             break;
     }
+}
+
+void BytecodeGenerator::LdaMapGet(const Class *clazz, int primary, const Class *key_type,
+                                  int key, const Class *value_type, ASTNode *ast) {
+    int argument_offset = RoundUp(clazz->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(clazz, primary, Value::kStack, argument_offset, ast);
+    
+    Value fun;
+    switch (static_cast<BuiltinType>(clazz->id())) {
+        case kType_map:
+            if (key_type->is_primitive()) {
+                const Class *inbox = InboxIfNeeded(key_type, key, Value::kStack,
+                                                   metadata_space_->builtin_type(kType_any), ast);
+                argument_offset += RoundUp(inbox->reference_size(), kStackSizeGranularity);
+                MoveToArgumentIfNeeded(inbox, 0, Value::kACC, argument_offset, ast);
+            } else {
+                argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+                MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            }
+            switch (value_type->id()) {
+                case kType_f32:
+                    fun = FindOrInsertExternalFunction("map::getF32");
+                    break;
+                case kType_f64:
+                    fun = FindOrInsertExternalFunction("map::getF64");
+                    break;
+                default:
+                    fun = FindOrInsertExternalFunction("map::get");
+                    break;
+            }
+            break;
+        case kType_map8:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            switch (value_type->id()) {
+                case kType_f32:
+                    fun = FindOrInsertExternalFunction("map8::getF32");
+                    break;
+                case kType_f64:
+                    fun = FindOrInsertExternalFunction("map8::getF64");
+                    break;
+                default:
+                    fun = FindOrInsertExternalFunction("map8::get");
+                    break;
+            }
+            break;
+        case kType_map16:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            switch (value_type->id()) {
+                case kType_f32:
+                    fun = FindOrInsertExternalFunction("map16::getF32");
+                    break;
+                case kType_f64:
+                    fun = FindOrInsertExternalFunction("map16::getF64");
+                    break;
+                default:
+                    fun = FindOrInsertExternalFunction("map16::get");
+                    break;
+            }
+            break;
+        case kType_map32:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            switch (value_type->id()) {
+                case kType_f32:
+                    fun = FindOrInsertExternalFunction("map32::getF32");
+                    break;
+                case kType_f64:
+                    fun = FindOrInsertExternalFunction("map32::getF64");
+                    break;
+                default:
+                    fun = FindOrInsertExternalFunction("map32::get");
+                    break;
+            }
+            break;
+        case kType_map64:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            switch (value_type->id()) {
+                case kType_f32:
+                    fun = FindOrInsertExternalFunction("map64::getF32");
+                    break;
+                case kType_f64:
+                    fun = FindOrInsertExternalFunction("map64::getF64");
+                    break;
+                default:
+                    fun = FindOrInsertExternalFunction("map64::get");
+                    break;
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    LdaIfNeeded(fun, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
+}
+
+void BytecodeGenerator::StaMapSet(const Class *clazz, int primary, const Class *key_type,
+                                  int key, const Class *value_type, ASTNode *ast) {
+    OperandContext receiver;
+    AssociateLHSOperand(&receiver, value_type, 0, Value::kACC, ast);
+    
+    int argument_offset = RoundUp(clazz->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(clazz, primary, Value::kStack, argument_offset, ast);
+
+    Value fun;
+    switch (static_cast<BuiltinType>(clazz->id())) {
+        case kType_map:
+            if (key_type->is_primitive()) {
+                const Class *any = metadata_space_->builtin_type(kType_any);
+                const Class *inbox = InboxIfNeeded(key_type, key, Value::kStack, any, ast);
+                argument_offset += RoundUp(inbox->reference_size(), kStackSizeGranularity);
+                MoveToArgumentIfNeeded(inbox, 0, Value::kACC, argument_offset, ast);
+            } else {
+                argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+                MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            }
+            if (value_type->is_reference()) {
+                fun = FindOrInsertExternalFunction("map::setAny");
+            } else {
+                fun = FindOrInsertExternalFunction("map::set");
+            }
+            break;
+        case kType_map8:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            if (value_type->is_reference()) {
+                fun = FindOrInsertExternalFunction("map8::setAny");
+            } else {
+                fun = FindOrInsertExternalFunction("map8::set");
+            }
+            break;
+        case kType_map16:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            if (value_type->is_reference()) {
+                fun = FindOrInsertExternalFunction("map16::setAny");
+            } else {
+                fun = FindOrInsertExternalFunction("map16::set");
+            }
+            break;
+        case kType_map32:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            if (value_type->is_reference()) {
+                fun = FindOrInsertExternalFunction("map32::setAny");
+            } else {
+                fun = FindOrInsertExternalFunction("map32::set");
+            }
+            break;
+        case kType_map64:
+            argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+            MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
+            if (value_type->is_reference()) {
+                fun = FindOrInsertExternalFunction("map64::setAny");
+            } else {
+                fun = FindOrInsertExternalFunction("map64::set");
+            }
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    // NOTICE: Alignment to uintptr_t
+    argument_offset += RoundUp(value_type->reference_size(), kPointerSize);
+    MoveToArgumentIfNeeded(value_type, receiver.lhs, Value::kStack, argument_offset, ast);
+    
+    LdaIfNeeded(fun, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
+    CleanupOperands(&receiver);
 }
 
 void BytecodeGenerator::StaStack(const Class *clazz, int index, ASTNode *ast) {

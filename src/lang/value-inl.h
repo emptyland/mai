@@ -227,6 +227,20 @@ inline V ImplementMap<K>::UnsafeGet(K key) {
     return !room ? V(0) : *reinterpret_cast<V *>(&room->value);
 }
 
+template<class K>
+inline void ImplementMap<K>::UnsafeSet(K key, uintptr_t value) {
+    if (Entry *room = FindForPut(key)) {
+        room->key = key;
+        if (ElementTraits<K>::kIsReferenceType) {
+            WriteBarrier(reinterpret_cast<Any **>(&room->key));
+        }
+        room->value = value;
+        if (IsValueReferenceType()) {
+            WriteBarrier(reinterpret_cast<Any **>(&room->value));
+        }
+    }
+}
+
 inline bool Closure::is_cxx_function() const { return (tags_ & kClosureMask) == kCxxFunction; }
 
 inline bool Closure::is_mai_function() const { return (tags_ & kClosureMask) == kMaiFunction; }

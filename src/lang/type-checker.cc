@@ -1983,12 +1983,6 @@ bool TypeChecker::CheckModifitionAccess(ASTNode *ast) {
             } else {
                 primary = rv.sign;
             }
-
-            if (primary->id() == Token::kMap) {
-                error_feedback_->Printf(FindSourceLocation(ast), "Attempt modify immutable "
-                                        "containtor");
-                return false;
-            }
         } break;
 
         case ASTNode::kDotExpression: {

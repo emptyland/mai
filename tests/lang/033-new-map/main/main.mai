@@ -4,6 +4,7 @@ fun main() {
     newMapSanity()
     newStringKeyMap()
     newF32KeyMap()
+    newStringKeyIntValueMap()
 }
 
 fun newMapSanity() {
@@ -32,4 +33,20 @@ fun newF32KeyMap() {
     assert(m.length == 4u, "fail ${m.length}")
     assert(m[1.0] == '1st', "fail ${m[1.0]}")
     assert(m[4.44] == '4th', "fail ${m[4.44]}")
+    assert(!m.containsKey(5.5), "fail")
+}
+
+fun newStringKeyIntValueMap() {
+    val m = map {
+        'aaa' -> 1,
+        'bbb' -> 2,
+        'bbc' -> 3,
+        'aac' -> 4,
+        'bilibili' -> 5,
+        'ccc' -> 6
+    }
+    assert(m.length == 6u, "fail ${m.length}")
+    assert(m['bilibili'] == 5, "fail ${m['bilibili']}")
+    m['bilibili'] = -1
+    assert(m['bilibili'] == -1, "fail ${m['bilibili']}")
 }
