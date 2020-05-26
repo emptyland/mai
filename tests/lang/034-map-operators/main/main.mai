@@ -1,0 +1,35 @@
+package main
+
+fun main() {
+    //assertI8KeyMap()
+    //assertStringKeyMap()
+    assertFuzzyPut()
+}
+
+fun assertI8KeyMap() {
+    var m = map[u8, string](16)
+    for (i in 0, 255) {
+        m = m.put(i.toU8, "v=$i")
+    }
+    assert(m.length == 255u, "fail ${m.length}")
+    for (i in 0, 255) {
+        assert(m.containsKey(i.toU8), "fail key=$i")
+    }
+}
+
+fun assertFuzzyPut() {
+    var m = map[int, string](16)
+    for (i in 0, 100000) {
+        m = m.put(i, "v=$i")
+    }
+}
+
+fun assertStringKeyMap() {
+    var m = map[string, int](16)
+    m = m.put('1st', 100)
+    assert(m.length == 1u, "fail")
+    assert(m.containsKey('1st'), "fail")
+    m = m.put('2nd', 200)
+    assert(m.length == 2u, "fail")
+    assert(m.containsKey('2nd'), "fail")
+}

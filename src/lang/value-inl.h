@@ -211,11 +211,11 @@ inline ImplementMap<K> *ImplementMap<K>::UnsafePut(K key, V value) {
     }
     room->key = key;
     if (ElementTraits<K>::kIsReferenceType) {
-        WriteBarrier(reinterpret_cast<Any **>(&room->key));
+        dummy->WriteBarrier(reinterpret_cast<Any **>(&room->key));
     }
     *reinterpret_cast<V *>(&room->value) = value;
-    if (ElementTraits<V>::kIsReferenceType) {
-        WriteBarrier(reinterpret_cast<Any **>(&room->value));
+    if (IsValueReferenceType()) {
+        dummy->WriteBarrier(reinterpret_cast<Any **>(&room->value));
     }
     return dummy;
 }
@@ -238,6 +238,32 @@ inline void ImplementMap<K>::UnsafeSet(K key, uintptr_t value) {
         if (IsValueReferenceType()) {
             WriteBarrier(reinterpret_cast<Any **>(&room->value));
         }
+    }
+}
+
+template<class K, class V>
+inline void Map<K, V, false, true>::Iterate(ObjectVisitor *visitor) {
+    typename ImplementMap<K>::Iterator iter(this);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        //printf("value: %p\n", iter->value);
+        visitor->VisitPointer(this, reinterpret_cast<Any **>(&iter->value));
+    }
+}
+
+template<class K, class V>
+inline void Map<K, V, true, true>::Iterate(ObjectVisitor *visitor) {
+    typename ImplementMap<K>::Iterator iter(this);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        visitor->VisitPointer(this, reinterpret_cast<Any **>(&iter->key));
+        visitor->VisitPointer(this, reinterpret_cast<Any **>(&iter->value));
+    }
+}
+
+template<class K, class V>
+inline void Map<K, V, true, false>::Iterate(ObjectVisitor *visitor) {
+    typename ImplementMap<K>::Iterator iter(this);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        visitor->VisitPointer(this, reinterpret_cast<Any **>(&iter->key));
     }
 }
 

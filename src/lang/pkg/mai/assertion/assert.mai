@@ -11,40 +11,57 @@ implements Assert {
 
 fun isEqualTo(actualValue: any): Assert {
 	val code = "equalTo"
-    if (self.expectValue is int) {
-    	self.assertValue(actualValue is int, actualValue, code)
-    	self.assertValue(self.expectValue as int == actualValue as int, actualValue, code)
-    }
-    if (self.expectValue is string) {
-    	self.assertValue(actualValue is string, actualValue, code)
-    	self.assertValue(self.expectValue as string == actualValue as string, actualValue, code)
-    }
+	when (self.expectValue) {
+		value: i8 -> {
+			self.assertValue(actualValue is i8, actualValue, code)
+    		self.assertValue(value == actualValue as i8, actualValue, code)			
+		}
+		value: u8 -> {
+			self.assertValue(actualValue is u8, actualValue, code)
+    		self.assertValue(value == actualValue as u8, actualValue, code)			
+		}
+		value: int -> {
+			self.assertValue(actualValue is int, actualValue, code)
+    		self.assertValue(value == actualValue as int, actualValue, code)
+		}
+		value: string -> {
+			self.assertValue(actualValue is string, actualValue, code)
+    		self.assertValue(value == actualValue as string, actualValue, code)
+		}
+		else -> {}
+	}
     return self
 }
 
 fun isLessThan(actualValue: any): Assert {
 	val code = "lessThan"
-	if (self.expectValue is int) {
-    	self.assertValue(actualValue is int, actualValue, code)
-    	self.assertValue(self.expectValue as int < actualValue as int, actualValue, code)
-    }
-	if (self.expectValue is string) {
-        self.assertValue(actualValue is string, actualValue, code)
-        self.assertValue(self.expectValue as string < actualValue as string, actualValue, code)
-    }
+	when (self.expectValue) {
+		value: int -> {
+			self.assertValue(actualValue is int, actualValue, code)
+    		self.assertValue(value < actualValue as int, actualValue, code)
+		}
+		value: string -> {
+			self.assertValue(actualValue is string, actualValue, code)
+    		self.assertValue(value < actualValue as string, actualValue, code)
+		}
+		else -> {}
+	}
 	return self
 }
 
 fun isGreaterThan(actualValue: any): Assert {
-	val code = "lessThan"
-	if (self.expectValue is int) {
-    	self.assertValue(actualValue is int, actualValue, code)
-    	self.assertValue(self.expectValue as int > actualValue as int, actualValue, code)
-    }
-	if (self.expectValue is string) {
-        self.assertValue(actualValue is string, actualValue, code)
-        self.assertValue(self.expectValue as string > actualValue as string, actualValue, code)
-    }
+	val code = "greaterThan"
+	when (self.expectValue) {
+		value: int -> {
+			self.assertValue(actualValue is int, actualValue, code)
+    		self.assertValue(value > actualValue as int, actualValue, code)
+		}
+		value: string -> {
+			self.assertValue(actualValue is string, actualValue, code)
+    		self.assertValue(value > actualValue as string, actualValue, code)
+		}
+		else -> {}
+	}
 	return self
 }
 

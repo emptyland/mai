@@ -750,7 +750,8 @@ ASTVisitor::Result TypeChecker::VisitCallExpression(CallExpression *ast) /*overr
             VISIT_CHECK_GET(parameter_type, callee->prototype()->parameter(i).type);
             if (!parameter_type->Convertible(argument_type)) {
                 error_feedback_->Printf(FindSourceLocation(ast), "Unexpected function prototype: "
-                                        " %s at parameter[%ld]", callee->ToString().c_str(), i);
+                                        " %s at parameter[%ld]: %s", callee->ToString().c_str(), i,
+                                        argument_type->ToString().c_str());
                 return ResultWithType(kError);
             }
         }
@@ -1862,7 +1863,8 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
             } else if (!::strncmp("put", ast->rhs()->data(), ast->rhs()->size())) {
                 FunctionPrototype *proto = new (arena_) FunctionPrototype(arena_);
                 proto->InsertParameter(nullptr, type->parameter(0));
-                proto->set_return_type(type->parameter(1));
+                proto->InsertParameter(nullptr, type->parameter(1));
+                proto->set_return_type(type);
                 return ResultWithType(new (arena_) TypeSign(ast->position(), proto));
             } else if (!::strncmp("remove", ast->rhs()->data(), ast->rhs()->size())) {
                 FunctionPrototype *proto = new (arena_) FunctionPrototype(arena_);

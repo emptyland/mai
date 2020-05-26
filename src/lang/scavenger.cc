@@ -98,7 +98,7 @@ void Scavenger::Run(base::AbstractPrinter *logger) /*override*/ {
     isolate_->VisitRoot(&root_visitor);
 
     ObjectVisitorImpl object_visitor(this);
-    const RememberSet &rset = isolate_->gc()->MergeRememberSet();
+    RememberSet rset = isolate_->gc()->MergeRememberSet();
     logger->Println("[Minor] RSet size: %zd", rset.size());
     for (const auto &pair : rset) {
         object_visitor.VisitPointer(pair.second.host, pair.second.address);

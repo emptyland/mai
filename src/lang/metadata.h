@@ -60,6 +60,10 @@ public:
         return id_ == kType_array8 || id_ == kType_array16 || id_ == kType_array32 ||
                id_ == kType_array64 || id_ == kType_array;
     }
+    bool IsMap() const {
+        return id_ == kType_map8 || id_ == kType_map16 || id_ == kType_map32 || id_ == kType_map64
+            || id_ == kType_map;
+    }
 
     DEF_VAL_GETTER(uint32_t, n_fields);
     DEF_VAL_GETTER(uint32_t, id);

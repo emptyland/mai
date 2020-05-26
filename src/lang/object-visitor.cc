@@ -19,7 +19,38 @@ void IterateObject(Any *host, ObjectVisitor *visitor) {
             Array<Any *> *object = static_cast<Array<Any *> *>(host);
             object->Iterate(visitor);
         } break;
-        // TODO: map
+        case kType_map: {
+            AbstractMap *abs = static_cast<AbstractMap *>(host);
+            if (abs->value_type()->is_reference()) {
+                static_cast<Map<Any*, Any*>*>(abs)->Iterate(visitor);
+            } else {
+                static_cast<Map<Any*, uintptr_t>*>(abs)->Iterate(visitor);
+            }
+        } break;
+        case kType_map8: {
+            AbstractMap *abs = static_cast<AbstractMap *>(host);
+            if (abs->value_type()->is_reference()) {
+                static_cast<Map<uint8_t, Any*>*>(abs)->Iterate(visitor);
+            }
+        } break;
+        case kType_map16: {
+            AbstractMap *abs = static_cast<AbstractMap *>(host);
+            if (abs->value_type()->is_reference()) {
+                static_cast<Map<uint16_t, Any*>*>(abs)->Iterate(visitor);
+            }
+        } break;
+        case kType_map32: {
+            AbstractMap *abs = static_cast<AbstractMap *>(host);
+            if (abs->value_type()->is_reference()) {
+                static_cast<Map<uint32_t, Any*>*>(abs)->Iterate(visitor);
+            }
+        } break;
+        case kType_map64: {
+            AbstractMap *abs = static_cast<AbstractMap *>(host);
+            if (abs->value_type()->is_reference()) {
+                static_cast<Map<uint64_t, Any*>*>(abs)->Iterate(visitor);
+            }
+        } break;
         case kType_channel: {
             Channel *object = static_cast<Channel *>(host);
             if (object->data_type()->is_reference() && object->length() > 0) {

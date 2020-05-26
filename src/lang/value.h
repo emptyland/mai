@@ -490,6 +490,7 @@ public:
     template<class V> inline ImplementMap *UnsafePut(K key, V value);
     template<class V> inline V UnsafeGet(K key);
     inline void UnsafeSet(K key, uintptr_t value);
+    inline bool WriteBarrier(Any **address) { return Any::WriteBarrier(address); }
 
     friend class Machine;
 protected:
@@ -819,7 +820,7 @@ public:
         }
         if (room->key != *key) {
             room->key = *key;
-            WriteBarrier(reinterpret_cast<Any **>(&room->key));
+            dummy->WriteBarrier(reinterpret_cast<Any **>(&room->key));
         }
         *reinterpret_cast<V *>(&room->value) = value;
         *handle = static_cast<Map<K,V> *>(dummy);
@@ -858,9 +859,11 @@ public:
         return true;
     }
 
+    inline void Iterate(ObjectVisitor *visitor);
 private:
     using AbstractMap::NewMap;
     using Any::WriteBarrier;
+    //using ImplementMap<K>::WriteBarrier;
     using ImplementMap<K>::FindOrMakeRoom;
     using ImplementMap<K>::FindForPut;
     using ImplementMap<K>::FindForGet;
@@ -910,11 +913,11 @@ public:
         }
         if (room->key != *key) {
             room->key = *key;
-            WriteBarrier(reinterpret_cast<Any **>(&room->key));
+            dummy->WriteBarrier(reinterpret_cast<Any **>(&room->key));
         }
         if (reinterpret_cast<CoreValueType *>(room->value) != *value) {
             room->value = reinterpret_cast<uintptr_t>(*value);
-            WriteBarrier(reinterpret_cast<Any **>(&room->value));
+            dummy->WriteBarrier(reinterpret_cast<Any **>(&room->value));
         }
         *handle = static_cast<Map<K,V> *>(dummy);
     }
@@ -953,6 +956,7 @@ public:
         return Local<CoreValueType>(reinterpret_cast<CoreValueType *>(room->value));
     }
     
+    inline void Iterate(ObjectVisitor *visitor);
 private:
     using Any::WriteBarrier;
     using AbstractMap::NewMap;
@@ -1002,7 +1006,7 @@ public:
         room->key = key;
         if (reinterpret_cast<CoreValueType *>(room->value) != *value) {
             room->value = reinterpret_cast<uintptr_t>(*value);
-            WriteBarrier(reinterpret_cast<Any **>(&room->value));
+            dummy->WriteBarrier(reinterpret_cast<Any **>(&room->value));
         }
         *handle = static_cast<Map<K,V> *>(dummy);
     }
@@ -1038,6 +1042,8 @@ public:
         }
         return Local<CoreValueType>(reinterpret_cast<CoreValueType *>(room->value));
     }
+    
+    inline void Iterate(ObjectVisitor *visitor);
 private:
     using Any::WriteBarrier;
     using AbstractMap::NewMap;

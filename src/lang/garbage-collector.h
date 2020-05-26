@@ -73,13 +73,16 @@ public:
 
     uint64_t NextRememberRecordSequanceNumber() { return remember_record_sequance_.fetch_add(1); }
     
-    const RememberSet &MergeRememberSet();
+    //const RememberSet &MergeRememberSet();
+    RememberSet MergeRememberSet();
 
-    void PurgeRememberSet(const std::set<void *> &keys) {
-        for (auto key : keys) {
-            remember_set_.erase(key);
-        }
-    }
+    void PurgeRememberSet(const std::set<void *> &keys);
+
+//    void PurgeRememberSet(const std::set<void *> &keys) {
+//        for (auto key : keys) {
+//            remember_set_.erase(key);
+//        }
+//    }
     
     void InvalidateHeapGuards(Address guard0, Address guard1);
 
@@ -93,7 +96,7 @@ private:
     const float major_gc_threshold_rate_;
     
     // Remember set
-    RememberSet remember_set_;
+    //RememberSet remember_set_;
     
     // Remember set record for old-generation -> new-generation
     // Remember record version number
@@ -107,6 +110,9 @@ private:
 
     // Latest minor GC remaining bytes
     size_t latest_minor_remaining_size_ = 0;
+    
+    // Latest remember set size
+    size_t latest_remember_set_size_ = 0;
 }; // class GarbageCollector
 
 class GarbageCollectionPolicy {

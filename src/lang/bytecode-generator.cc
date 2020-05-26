@@ -5257,9 +5257,7 @@ void BytecodeGenerator::MoveToStackIfNeeded(const Class *clazz, int index, Value
             return;
         }
         switch (clazz->reference_size()) {
-            case 1:
-            case 2:
-            case 4:
+            case 1: case 2: case 4:
                 EMIT(ast, Add<kMove32>(GetStackOffset(dest), GetStackOffset(index)));
                 return;
             case 8:
@@ -5278,9 +5276,7 @@ void BytecodeGenerator::MoveToStackIfNeeded(const Class *clazz, int index, Value
         return;
     }
     switch (clazz->reference_size()) {
-        case 1:
-        case 2:
-        case 4:
+        case 1: case 2: case 4:
             if (clazz->id() == kType_f32) {
                 EMIT(ast, Add<kStaf32>(GetStackOffset(dest)));
             } else {
@@ -5308,9 +5304,7 @@ void BytecodeGenerator::MoveToArgumentIfNeeded(const Class *clazz, int index,
             return;
         }
         switch (clazz->reference_size()) {
-            case 1:
-            case 2:
-            case 4:
+            case 1: case 2: case 4:
                 EMIT(ast, Incomplete<kMove32>(-dest, GetStackOffset(index)));
                 return;
             case 8:
@@ -5329,9 +5323,7 @@ void BytecodeGenerator::MoveToArgumentIfNeeded(const Class *clazz, int index,
         return;
     }
     switch (clazz->reference_size()) {
-        case 1:
-        case 2:
-        case 4:
+        case 1: case 2: case 4:
             if (clazz->id() == kType_f32) {
                 EMIT(ast, Incomplete<kStaf32>(-dest));
             } else {
@@ -5389,9 +5381,7 @@ void BytecodeGenerator::LdaStack(const Class *clazz, int index, ASTNode *ast) {
         return;
     }
     switch (clazz->reference_size()) {
-        case 1:
-        case 2:
-        case 4:
+        case 1: case 2: case 4:
             if (clazz->id() == kType_f32) {
                 EMIT(ast, Add<kLdaf32>(offset));
             } else {
@@ -5418,9 +5408,7 @@ void BytecodeGenerator::LdaConst(const Class *clazz, int index, ASTNode *ast) {
         return;
     }
     switch (clazz->reference_size()) {
-        case 1:
-        case 2:
-        case 4:
+        case 1: case 2: case 4:
             if (clazz->id() == kType_f32) {
                 EMIT(ast, Add<kLdaConstf32>(offset));
             } else {
@@ -5447,9 +5435,7 @@ void BytecodeGenerator::LdaGlobal(const Class *clazz, int index, ASTNode *ast) {
         return;
     }
     switch (clazz->reference_size()) {
-        case 1:
-        case 2:
-        case 4:
+        case 1: case 2: case 4:
             if (clazz->id() == kType_f32) {
                 EMIT(ast, Add<kLdaGlobalf32>(offset));
             } else {
@@ -5475,9 +5461,7 @@ void BytecodeGenerator::LdaCaptured(const Class *clazz, int index, ASTNode *ast)
         return;
     }
     switch (clazz->reference_size()) {
-        case 1:
-        case 2:
-        case 4:
+        case 1: case 2: case 4:
             if (clazz->id() == kType_f32) {
                 EMIT(ast, Add<kLdaCapturedf32>(index));
             } else {
@@ -5705,47 +5689,52 @@ void BytecodeGenerator::StaMapSet(const Class *clazz, int primary, const Class *
                 argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
                 MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
             }
-            if (value_type->is_reference()) {
-                fun = FindOrInsertExternalFunction("map::setAny");
-            } else {
-                fun = FindOrInsertExternalFunction("map::set");
-            }
+//            if (value_type->is_reference()) {
+//                fun = FindOrInsertExternalFunction("map::setAny");
+//            } else {
+//                fun = FindOrInsertExternalFunction("map::set");
+//            }
+            fun = FindOrInsertExternalFunction("map::set");
             break;
         case kType_map8:
             argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
             MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-            if (value_type->is_reference()) {
-                fun = FindOrInsertExternalFunction("map8::setAny");
-            } else {
-                fun = FindOrInsertExternalFunction("map8::set");
-            }
+//            if (value_type->is_reference()) {
+//                fun = FindOrInsertExternalFunction("map8::setAny");
+//            } else {
+//                fun = FindOrInsertExternalFunction("map8::set");
+//            }
+            fun = FindOrInsertExternalFunction("map8::set");
             break;
         case kType_map16:
             argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
             MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-            if (value_type->is_reference()) {
-                fun = FindOrInsertExternalFunction("map16::setAny");
-            } else {
-                fun = FindOrInsertExternalFunction("map16::set");
-            }
+//            if (value_type->is_reference()) {
+//                fun = FindOrInsertExternalFunction("map16::setAny");
+//            } else {
+//                fun = FindOrInsertExternalFunction("map16::set");
+//            }
+            fun = FindOrInsertExternalFunction("map16::set");
             break;
         case kType_map32:
             argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
             MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-            if (value_type->is_reference()) {
-                fun = FindOrInsertExternalFunction("map32::setAny");
-            } else {
-                fun = FindOrInsertExternalFunction("map32::set");
-            }
+//            if (value_type->is_reference()) {
+//                fun = FindOrInsertExternalFunction("map32::setAny");
+//            } else {
+//                fun = FindOrInsertExternalFunction("map32::set");
+//            }
+            fun = FindOrInsertExternalFunction("map32::set");
             break;
         case kType_map64:
             argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
             MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-            if (value_type->is_reference()) {
-                fun = FindOrInsertExternalFunction("map64::setAny");
-            } else {
-                fun = FindOrInsertExternalFunction("map64::set");
-            }
+//            if (value_type->is_reference()) {
+//                fun = FindOrInsertExternalFunction("map64::setAny");
+//            } else {
+//                fun = FindOrInsertExternalFunction("map64::set");
+//            }
+            fun = FindOrInsertExternalFunction("map64::set");
             break;
         default:
             NOREACHED();
@@ -5767,9 +5756,7 @@ void BytecodeGenerator::StaStack(const Class *clazz, int index, ASTNode *ast) {
         return;
     }
     switch (clazz->reference_size()) {
-        case 1:
-        case 2:
-        case 4:
+        case 1: case 2: case 4:
             if (clazz->id() == kType_f32) {
                 EMIT(ast, Add<kStaf32>(offset));
             } else {
@@ -5796,9 +5783,7 @@ void BytecodeGenerator::StaGlobal(const Class *clazz, int index, ASTNode *ast) {
         return;
     }
     switch (clazz->reference_size()) {
-        case 1:
-        case 2:
-        case 4:
+        case 1: case 2: case 4:
             if (clazz->id() == kType_f32) {
                 EMIT(ast, Add<kStaGlobalf32>(offset));
             } else {
@@ -5824,9 +5809,7 @@ void BytecodeGenerator::StaCaptured(const Class *clazz, int index, ASTNode *ast)
         return;
     }
     switch (clazz->reference_size()) {
-        case 1:
-        case 2:
-        case 4:
+        case 1: case 2: case 4:
             if (clazz->id() == kType_f32) {
                 EMIT(ast, Add<kStaCapturedf32>(index));
             } else {

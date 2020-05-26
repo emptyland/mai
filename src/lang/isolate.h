@@ -39,10 +39,10 @@ enum GCOption {
 struct Options {
     Env *env = Env::Default(); // The base api env pointer
     int concurrency = 0; // How many concrrent running
-    size_t new_space_initial_size = 100 * 1024 * 1024; // New space initial size: 100MB
+    size_t new_space_initial_size = 20 * 1024 * 1024; // New space initial size: 20MB
     size_t old_space_limit_size = 2L * 1024L * 1024L * 1024L; // Old space limit size: 2GB
     // Minor GC available threshold rate
-    float new_space_gc_threshold_rate = 0.25;
+    float new_space_gc_threshold_rate = 0.75;
     // Major GC available threshold rate
     float old_space_gc_threshold_rate = 0.25;
     // GC Debug mode

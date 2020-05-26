@@ -696,7 +696,7 @@ static inline int TMapContainsKey(ImplementMap<T> *map, T key) {
 }
 
 /*static*/ int Runtime::MapContainsKey(Handle<AbstractMap> map, Handle<Any> key) {
-    if (key.is_value_not_null()) {
+    if (key.is_value_null()) {
         return 0;
     }
     if (map->key_type()->id() == kType_string) {
@@ -738,22 +738,10 @@ static inline void TMapSet(ImplementMap<K> *map, K key, V value) {
         return;
     }
     uintptr_t data = 0;
-    switch (map->value_type()->reference_size()) {
-        case 1:
-            data = bit_cast<uintptr_t>(value) & 0xff;
-            break;
-        case 2:
-            data = bit_cast<uintptr_t>(value) & 0xffff;
-            break;
-        case 4:
-            data = bit_cast<uintptr_t>(value) & 0xffffffff;
-            break;
-        case 8:
-            data = bit_cast<uintptr_t>(value);
-            break;
-        default:
-            NOREACHED();
-            break;
+    if (map->value_type()->reference_size() < 8) {
+        data = reinterpret_cast<uintptr_t>(value) & 0xffffffff;
+    } else {
+        data = reinterpret_cast<uintptr_t>(value);
     }
     map->UnsafeSet(key, data);
 }
@@ -769,24 +757,8 @@ static inline void TMapSet(ImplementMap<K> *map, K key, V value) {
     }
 }
 
-/*static*/ void Runtime::MapSetAny(Handle<AbstractMap> map, Handle<Any> key, Handle<Any> value) {
-    if (key.is_value_null()) {
-        return;
-    }
-    if (map.is_value_not_null() && map->value_type()->id() == kType_string) {
-        TMapSet(static_cast<ImplementMap<String *> *>(*map), static_cast<String *>(*key), *value);
-    } else {
-        TMapSet(static_cast<ImplementMap<Any *> *>(*map), *key, *value);
-    }
-}
-
 /*static*/ void Runtime::Map8Set(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value) {
     TMapSet(*map, key, value);
-}
-
-/*static*/
-void Runtime::Map8SetAny(Handle<ImplementMap<uint8_t>> map, uint8_t key, Handle<Any> value) {
-    TMapSet(*map, key, *value);
 }
 
 /*static*/
@@ -794,24 +766,11 @@ void Runtime::Map16Set(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr
     TMapSet(*map, key, value);
 }
 
-/*static*/
-void Runtime::Map16SetAny(Handle<ImplementMap<uint16_t>> map, uint16_t key, Handle<Any> value) {
-    TMapSet(*map, key, *value);
-}
-
 /*static*/ void Runtime::Map32Set(Handle<AbstractMap> map, uint32_t key, uintptr_t value) {
     if (map->key_type()->IsFloating()) {
         TMapSet(static_cast<ImplementMap<float> *>(*map), bit_cast<float>(key), value);
     } else {
         TMapSet(static_cast<ImplementMap<uint32_t> *>(*map), key, value);
-    }
-}
-
-/*static*/ void Runtime::Map32SetAny(Handle<AbstractMap> map, uint32_t key, Handle<Any> value) {
-    if (map->key_type()->IsFloating()) {
-        TMapSet(static_cast<ImplementMap<float> *>(*map), bit_cast<float>(key), *value);
-    } else {
-        TMapSet(static_cast<ImplementMap<uint32_t> *>(*map), key, *value);
     }
 }
 
@@ -823,13 +782,88 @@ void Runtime::Map16SetAny(Handle<ImplementMap<uint16_t>> map, uint16_t key, Hand
     }
 }
 
-/*static*/ void Runtime::Map64SetAny(Handle<AbstractMap> map, uint64_t key, Handle<Any> value) {
-    if (map->key_type()->IsFloating()) {
-        TMapSet(static_cast<ImplementMap<double> *>(*map), bit_cast<double>(key), *value);
+template<class K>
+static inline ImplementMap<K> *TMapPut(const Handle<ImplementMap<K>> &map, K key, uintptr_t value) {
+    if (map.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+
+    if (map->value_type()->is_reference()) {
+        HandleScope handle_scope(HandleScope::INITIALIZER);
+        Local<Any> handle(reinterpret_cast<Any *>(value));
+
+        SafepointScope safepoint_scope(STATE->gc());
+        return map->UnsafePut(key, *handle);
     } else {
-        TMapSet(static_cast<ImplementMap<uint64_t> *>(*map), key, *value);
+        SafepointScope safepoint_scope(STATE->gc());
+        if (map->value_type()->reference_size() < 8) {
+            value = (value & 0xffffffff00000000ul) >> 32;
+        }
+        return map->UnsafePut(key, value);
     }
 }
+
+/*static*/ AbstractMap *Runtime::MapPut(Handle<AbstractMap> map, Handle<Any> key, uintptr_t value) {
+    if (map.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    if (key.is_value_null()) {
+        return *map;
+    }
+
+    if (map->value_type()->is_reference()) {
+        HandleScope handle_scope(HandleScope::INITIALIZER);
+        Local<Any> handle(reinterpret_cast<Any *>(value));
+
+        SafepointScope safepoint_scope(STATE->gc());
+        if (map->key_type()->id() == kType_string) {
+            return Handle<ImplementMap<String *>>::Cast(map)->UnsafePut(static_cast<String *>(*key),
+                                                                        *handle);
+        } else {
+            return Handle<ImplementMap<Any *>>::Cast(map)->UnsafePut(*key, *handle);
+        }
+    } else {
+        SafepointScope safepoint_scope(STATE->gc());
+        if (map->value_type()->reference_size() < 8) {
+            value = (value & 0xffffffff00000000ul) >> 32;
+        }
+        if (map->key_type()->id() == kType_string) {
+            return Handle<ImplementMap<String *>>::Cast(map)->UnsafePut(static_cast<String *>(*key),
+                                                                        value);
+        } else {
+            return Handle<ImplementMap<Any *>>::Cast(map)->UnsafePut(*key, value);
+        }
+    }
+}
+
+/*static*/ AbstractMap *
+Runtime::Map8Put(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value) {
+    return TMapPut(map, key, value);
+}
+
+/*static*/ AbstractMap *
+Runtime::Map16Put(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t value) {
+    return TMapPut(map, key, value);
+}
+
+/*static*/ AbstractMap *Runtime::Map32Put(Handle<AbstractMap> map, uint32_t key, uintptr_t value) {
+    if (map.is_value_not_null() && map->key_type()->IsFloating()) {
+        return TMapPut(Handle<ImplementMap<float>>::Cast(map), bit_cast<float>(key), value);
+    } else {
+        return TMapPut(Handle<ImplementMap<uint32_t>>::Cast(map), key, value);
+    }
+}
+
+/*static*/ AbstractMap *Runtime::Map64Put(Handle<AbstractMap> map, uint64_t key, uintptr_t value) {
+    if (map.is_value_not_null() && map->key_type()->IsFloating()) {
+        return TMapPut(Handle<ImplementMap<double>>::Cast(map), bit_cast<double>(key), value);
+    } else {
+        return TMapPut(Handle<ImplementMap<uint64_t>>::Cast(map), key, value);
+    }
+}
+
 
 static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
     switch (static_cast<BuiltinType>(dest->id())) {

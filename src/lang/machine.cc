@@ -14,12 +14,6 @@ namespace mai {
 
 namespace lang {
 
-inline uint32_t color_tags() {
-    uint32_t tags = STATE->heap()->initialize_color();
-    DCHECK(tags & Any::kColorMask);
-    return tags;
-}
-
 void SafepointScope::ProcessGarbage() { gc_->CollectIfNeeded(); }
 
 Machine::Machine(int id, Scheduler *owner)

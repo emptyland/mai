@@ -24,12 +24,15 @@ void GarbageCollector::CollectIfNeeded() {
     }
     rate = 1.0 - static_cast<float>(isolate_->heap()->GetOldSpaceUsedSize()) /
                  static_cast<float>(isolate_->old_space_limit_size());
-    if (rate < major_gc_threshold_rate_ || remember_record_sequance_.load() > 10240) {
+    if (rate < major_gc_threshold_rate_) {
         if (kind == kMinorCollect) {
             kind = kFullCollect;
         } else {
             kind = kMajorCollect;
         }
+    }
+    if (latest_remember_set_size_ > 10240) {
+        kind = kFullCollect;
     }
     switch (isolate_->gc_option()) {
         case kDebugFullGCEveryTime:
@@ -100,19 +103,46 @@ void GarbageCollector::FullCollect() {
     set_state(kDone);
 }
 
-const RememberSet &GarbageCollector::MergeRememberSet() {
+//const RememberSet &GarbageCollector::MergeRememberSet() {
+//    remember_set_.clear();
+//    for (int i = 0; i < isolate_->scheduler()->concurrency(); i++) {
+//        Machine *m = isolate_->scheduler()->machine(i);
+//        for(const auto &pair : m->remember_set()) {
+//            auto iter = remember_set_.find(pair.first);
+//            if (iter == remember_set_.end() ||
+//                pair.second.seuqnce_number > iter->second.seuqnce_number) {
+//                remember_set_[pair.first] = pair.second;
+//            }
+//        }
+//        //m->PurgeRememberSet();
+//    }
+//    latest_remember_set_size_ = remember_set_.size();
+//    return remember_set_;
+//}
+
+RememberSet GarbageCollector::MergeRememberSet() {
+    RememberSet remember_set;
     for (int i = 0; i < isolate_->scheduler()->concurrency(); i++) {
         Machine *m = isolate_->scheduler()->machine(i);
         for(const auto &pair : m->remember_set()) {
-            auto iter = remember_set_.find(pair.first);
-            if (iter == remember_set_.end() ||
+            auto iter = remember_set.find(pair.first);
+            if (iter == remember_set.end() ||
                 pair.second.seuqnce_number > iter->second.seuqnce_number) {
-                remember_set_[pair.first] = pair.second;
+                remember_set[pair.first] = pair.second;
             }
         }
-        m->PurgeRememberSet();
     }
-    return remember_set_;
+    latest_remember_set_size_ = remember_set.size();
+    return remember_set;
+}
+
+void GarbageCollector::PurgeRememberSet(const std::set<void *> &keys) {
+    for (void *key : keys) {
+        for (int i = 0; i < isolate_->scheduler()->concurrency(); i++) {
+            Machine *m = isolate_->scheduler()->machine(i);
+            m->mutable_remember_set()->erase(key);
+        }
+    }
 }
 
 void GarbageCollector::InvalidateHeapGuards(Address guard0, Address guard1) {
@@ -135,7 +165,8 @@ public:
             if (!obj) {
                 continue;
             }
-            
+
+            DCHECK_NE(kFreeZag, *bit_cast<uint32_t *>(obj)) << "Double free!";
             DCHECK(obj->is_directly());
             DCHECK_NE(owns_->heap_->finalize_color(), obj->color());
             obj->set_color(KColorGray);
@@ -159,6 +190,7 @@ public:
                 continue;
             }
 
+            DCHECK_NE(kFreeZag, *bit_cast<uint32_t *>(obj)) << "Double free!";
             DCHECK(obj->is_directly());
             // Transform white to gray
             if (obj->color() == owns_->heap_->initialize_color()) {
@@ -184,6 +216,7 @@ public:
 
     void VisitPointer(Any *host, Any **p) override {
         Any *obj = *p;
+        DCHECK_NE(kFreeZag, *bit_cast<uint32_t *>(obj)) << "Double free!";
         DCHECK(!owns_->full_ || obj->is_directly());
         if (Any *forward = obj->forward()) {
             DCHECK_EQ(owns_->heap_->finalize_color(), forward->color());
@@ -206,7 +239,7 @@ int PartialMarkingPolicy::UnbreakableMark() {
 
 int PartialMarkingPolicy::UnbreakableMark(RootVisitor *root_visitor, ObjectVisitor *object_visitor) {
     isolate_->VisitRoot(root_visitor);
-    
+
     int count = 0;
     while (!gray_.empty()) {
         Any *obj = gray_.top();
@@ -266,7 +299,7 @@ int PartialMarkingPolicy::SweepLargeSpace() {
 int PartialMarkingPolicy::PurgeWeakObjects() {
     int count = 0;
     WeakVisitorImpl weak_visitor(this);
-    const RememberSet &rset = isolate_->gc()->MergeRememberSet();
+    RememberSet rset = isolate_->gc()->MergeRememberSet();
     std::set<void *> for_clean;
     for (auto rd : rset) {
         weak_visitor.VisitPointer(rd.second.host, &rd.second.host);

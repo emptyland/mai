@@ -98,6 +98,12 @@ public:
     // Test handle address is null or not
     inline bool is_empty() const { return location_ == nullptr; }
     inline bool is_not_empty() const { return !is_empty(); }
+    
+    template<class S> static inline Handle<T> Cast(const Handle<S> &other) {
+        T *dummy = static_cast<T *>(*other);
+        (void)dummy;
+        return Handle<T>(reinterpret_cast<T **>(other.location()));
+    }
 protected:
     // Raw initialize handle
     inline Handle(T **location) : location_(location) {}

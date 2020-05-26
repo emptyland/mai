@@ -105,15 +105,15 @@ class Function;
     V(Map32ContainsKey, "map32::containsKey") \
     V(Map64ContainsKey, "map64::containsKey") \
     V(MapSet, "map::set") \
-    V(MapSetAny, "map::setAny") \
     V(Map8Set, "map8::set") \
-    V(Map8SetAny, "map8::setAny") \
     V(Map16Set, "map16::set") \
-    V(Map16SetAny, "map16::setAny") \
     V(Map32Set, "map32::set") \
-    V(Map32SetAny, "map32::setAny") \
     V(Map64Set, "map64::set") \
-    V(Map64SetAny, "map64::setAny") \
+    V(MapPut, "map::put") \
+    V(Map8Put, "map8::put") \
+    V(Map16Put, "map16::put") \
+    V(Map32Put, "map32::put") \
+    V(Map64Put, "map64::put") \
     V(Near32, "lang.near32") \
     V(Near64, "lang.near64") \
     V(TestAs, "lang.testAs") \
@@ -235,18 +235,6 @@ struct Runtime {
     static AbstractMap *NewMap(const Class *key_type, const Class *value_type, uint32_t random_seed,
                                uint32_t bucket_size);
     static AbstractMap *MapPutAll(AbstractMap *map, Address begin, Address end);
-    
-//    static AbstractMap *MapPut(Handle<ImplementMap<Any *>> map, Handle<Any> key, uintptr_t value);
-//    static AbstractMap *Map8Put(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value);
-//    static AbstractMap *Map16Put(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t value);
-//    static AbstractMap *Map32Put(Handle<ImplementMap<uint32_t>> map, uint32_t key, uintptr_t value);
-//    static AbstractMap *Map64Put(Handle<ImplementMap<uint64_t>> map, uint64_t key, uintptr_t value);
-//
-//    static AbstractMap *MapPutPtr(Handle<ImplementMap<Any *>> map, Handle<Any> key, Handle<Any> value);
-//    static AbstractMap *Map8PutPtr(Handle<ImplementMap<uint8_t>> map, uint8_t key, Handle<Any> value);
-//    static AbstractMap *Map16PutPtr(Handle<ImplementMap<uint16_t>> map, uint16_t key, Handle<Any> value);
-//    static AbstractMap *Map32PutPtr(Handle<ImplementMap<uint32_t>> map, uint32_t key, Handle<Any> value);
-//    static AbstractMap *Map64PutPtr(Handle<ImplementMap<uint64_t>> map, uint64_t key, Handle<Any> value);
 
     static uintptr_t MapGet(Handle<AbstractMap> map, Handle<Any> key);
     static float MapGetF32(Handle<AbstractMap> map, Handle<Any> key);
@@ -271,15 +259,16 @@ struct Runtime {
     static int Map64ContainsKey(Handle<AbstractMap> map, uint64_t key);
     
     static void MapSet(Handle<AbstractMap> map, Handle<Any> key, uintptr_t value);
-    static void MapSetAny(Handle<AbstractMap> map, Handle<Any> key, Handle<Any> value);
     static void Map8Set(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value);
-    static void Map8SetAny(Handle<ImplementMap<uint8_t>> map, uint8_t key, Handle<Any> value);
     static void Map16Set(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t value);
-    static void Map16SetAny(Handle<ImplementMap<uint16_t>> map, uint16_t key, Handle<Any> value);
     static void Map32Set(Handle<AbstractMap> map, uint32_t key, uintptr_t value);
-    static void Map32SetAny(Handle<AbstractMap> map, uint32_t key, Handle<Any> value);
     static void Map64Set(Handle<AbstractMap> map, uint64_t key, uintptr_t value);
-    static void Map64SetAny(Handle<AbstractMap> map, uint64_t key, Handle<Any> value);
+
+    static AbstractMap *MapPut(Handle<AbstractMap> map, Handle<Any> key, uintptr_t value);
+    static AbstractMap *Map8Put(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value);
+    static AbstractMap *Map16Put(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t value);
+    static AbstractMap *Map32Put(Handle<AbstractMap> map, uint32_t key, uintptr_t value);
+    static AbstractMap *Map64Put(Handle<AbstractMap> map, uint64_t key, uintptr_t value);
 
     static Any *TestAs(Handle<Any> any, void *param1, void *param2);
     static int TestIs(Handle<Any> any, void *param1, void *param2);

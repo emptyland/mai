@@ -30,6 +30,11 @@ struct HandleScopeSlot {
     Address          limit;
 };
 
+inline uint32_t color_tags() {
+    uint32_t tags = STATE->heap()->initialize_color();
+    DCHECK(tags & Any::kColorMask);
+    return tags;
+}
 
 class Machine {
 public:
@@ -53,7 +58,7 @@ public:
     DEF_PTR_GETTER(Coroutine, running);
     DEF_VAL_GETTER(uint64_t, user_time);
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
-    DEF_VAL_GETTER(RememberSet, remember_set);
+    DEF_VAL_PROP_RM(RememberSet, remember_set);
     DEF_VAL_GETTER(int, uncaught_count);
 
     // Get machine state
@@ -175,7 +180,7 @@ public:
     Address AdvanceHandleSlots(int n_slots);
 
     HandleScope *top_handle_scope() const { return !top_slot_ ? nullptr : top_slot_->scope; }
-    
+
     // Update local remember-set record
     ALWAYS_INLINE int UpdateRememberRecords(Any *host, Any **address, size_t n) {
         int count = 0;
@@ -190,15 +195,15 @@ public:
         }
         return count;
     }
-    
+
     ALWAYS_INLINE static bool ShouldRemember(Any *host, Any *val) {
         return STATE->heap()->InOldArea(host) && val != nullptr && STATE->heap()->InNewArea(val);
     }
-    
+
     void TakeWaittingCoroutine(Coroutine *co);
-    
+
     void VisitRoot(RootVisitor *visitor);
-    
+
     void InvalidateHeapGuards(Address guard0, Address guard1);
 
     friend class Isolate;
@@ -217,10 +222,10 @@ private:
             return nullptr;
         }
         ImplementMap<K> *obj = new (result.ptr())
-            ImplementMap<K>(type, key, value, bucket_shift, random_seed, flags);
+            ImplementMap<K>(type, key, value, bucket_shift, random_seed, color_tags());
         return obj;
     }
-    
+
     ALWAYS_INLINE void AddRememberRecord(Any *host, Any **address) {
         DCHECK(ShouldRemember(host, *address));
         RememberRecord rd {
@@ -230,7 +235,7 @@ private:
         };
         remember_set_[address] = rd;
     }
-    
+
     void Entry(); // Machine entry point
 
     void Enter() {
