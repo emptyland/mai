@@ -77,12 +77,7 @@ public:
     RememberSet MergeRememberSet();
 
     void PurgeRememberSet(const std::set<void *> &keys);
-
-//    void PurgeRememberSet(const std::set<void *> &keys) {
-//        for (auto key : keys) {
-//            remember_set_.erase(key);
-//        }
-//    }
+    void PurgeRememberSet();
     
     void InvalidateHeapGuards(Address guard0, Address guard1);
 

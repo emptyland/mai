@@ -78,7 +78,11 @@ void GarbageCollector::MinorCollect() {
     tick_.fetch_add(1, std::memory_order_release);
     set_state(kMinorCollect);
     Scavenger scavenger(isolate_, isolate_->heap());
+#if defined(DEBUG) || defined(_DEBUG)
     base::StdFilePrinter printer(stdout);
+#else // !defined(DEBUG) && !defined(_DEBUG)
+    base::NullPrinter printer;
+#endif // defined(DEBUG) || defined(_DEBUG)
     scavenger.Run(&printer);
     set_state(kDone);
 }
@@ -87,7 +91,11 @@ void GarbageCollector::MajorCollect() {
     tick_.fetch_add(1, std::memory_order_release);
     set_state(kMajorCollect);
     MarkingSweep marking_sweep(isolate_, isolate_->heap());
-    base::StdFilePrinter printer(stdout);
+    #if defined(DEBUG) || defined(_DEBUG)
+        base::StdFilePrinter printer(stdout);
+    #else // !defined(DEBUG) && !defined(_DEBUG)
+        base::NullPrinter printer;
+    #endif // defined(DEBUG) || defined(_DEBUG)
     marking_sweep.set_full(false);
     marking_sweep.Run(&printer);
     set_state(kDone);
@@ -95,30 +103,23 @@ void GarbageCollector::MajorCollect() {
 
 void GarbageCollector::FullCollect() {
     tick_.fetch_add(1, std::memory_order_release);
-    set_state(kMajorCollect);
+    set_state(kFullCollect);
+    
+    #if defined(DEBUG) || defined(_DEBUG)
+        base::StdFilePrinter printer(stdout);
+    #else // !defined(DEBUG) && !defined(_DEBUG)
+        base::NullPrinter printer;
+    #endif // defined(DEBUG) || defined(_DEBUG)
+    
+    Scavenger scavenger(isolate_, isolate_->heap());
+    scavenger.Run(&printer);
+    
     MarkingSweep marking_sweep(isolate_, isolate_->heap());
-    base::StdFilePrinter printer(stdout);
     marking_sweep.set_full(true);
     marking_sweep.Run(&printer);
+
     set_state(kDone);
 }
-
-//const RememberSet &GarbageCollector::MergeRememberSet() {
-//    remember_set_.clear();
-//    for (int i = 0; i < isolate_->scheduler()->concurrency(); i++) {
-//        Machine *m = isolate_->scheduler()->machine(i);
-//        for(const auto &pair : m->remember_set()) {
-//            auto iter = remember_set_.find(pair.first);
-//            if (iter == remember_set_.end() ||
-//                pair.second.seuqnce_number > iter->second.seuqnce_number) {
-//                remember_set_[pair.first] = pair.second;
-//            }
-//        }
-//        //m->PurgeRememberSet();
-//    }
-//    latest_remember_set_size_ = remember_set_.size();
-//    return remember_set_;
-//}
 
 RememberSet GarbageCollector::MergeRememberSet() {
     RememberSet remember_set;
@@ -142,6 +143,13 @@ void GarbageCollector::PurgeRememberSet(const std::set<void *> &keys) {
             Machine *m = isolate_->scheduler()->machine(i);
             m->mutable_remember_set()->erase(key);
         }
+    }
+}
+
+void GarbageCollector::PurgeRememberSet() {
+    for (int i = 0; i < isolate_->scheduler()->concurrency(); i++) {
+        Machine *m = isolate_->scheduler()->machine(i);
+        m->PurgeRememberSet();
     }
 }
 
@@ -282,15 +290,21 @@ int PartialMarkingPolicy::UnbreakableSweepNewSpace() {
 int PartialMarkingPolicy::SweepLargeSpace() {
     int count = 0;
     if (LargeSpace *large_space = heap_->large_space()) {
+        std::vector<std::tuple<Any *, size_t>> purgred;
+        
         LargeSpace::Iterator iter(large_space);
         for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
             Any *obj = iter.object();
             if (obj->color() == heap_->initialize_color()) {
-                histogram_.collected_bytes += iter.object_size();
-                histogram_.collected_objs++;
-                large_space->Free(iter.address());
-                count++;
+                purgred.push_back({obj, iter.object_size()});
             }
+        }
+        
+        for (auto [obj, size] : purgred) {
+            histogram_.collected_bytes += size;
+            histogram_.collected_objs++;
+            large_space->Free(reinterpret_cast<Address>(obj));
+            count++;
         }
     }
     return count;
@@ -300,6 +314,7 @@ int PartialMarkingPolicy::PurgeWeakObjects() {
     int count = 0;
     WeakVisitorImpl weak_visitor(this);
     RememberSet rset = isolate_->gc()->MergeRememberSet();
+
     std::set<void *> for_clean;
     for (auto rd : rset) {
         weak_visitor.VisitPointer(rd.second.host, &rd.second.host);

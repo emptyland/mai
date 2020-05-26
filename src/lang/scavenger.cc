@@ -101,8 +101,18 @@ void Scavenger::Run(base::AbstractPrinter *logger) /*override*/ {
     RememberSet rset = isolate_->gc()->MergeRememberSet();
     logger->Println("[Minor] RSet size: %zd", rset.size());
     for (const auto &pair : rset) {
-        object_visitor.VisitPointer(pair.second.host, pair.second.address);
+        //object_visitor.VisitPointer(pair.second.host, pair.second.address);
+        Any **addr = pair.second.address;
+        Any *obj = DCHECK_NOTNULL(*addr);
+        //DCHECK(heap_->InNewArea(obj));
+        if (Any *forward = obj->forward()) {
+            *addr = forward;
+        } else if (heap_->InNewArea(obj)) {
+            *addr = heap_->MoveNewSpaceObject(obj, true/*promote*/);
+            promoted_obs_.push_back(*addr);
+        }
     }
+    isolate_->gc()->PurgeRememberSet();
     
     SemiSpace *original_area = heap_->new_space()->original_area();
     SemiSpaceIterator iter(original_area);
