@@ -238,7 +238,6 @@ void Machine::Park() {
 }
 
 void Machine::ExitHandleScope() {
-    //auto lla = STATE->env_->GetLowLevelAllocator();
     auto slot = top_slot_;
     DCHECK(slot->prev || slot->prev->end == slot->base);
     top_slot_ = slot->prev;

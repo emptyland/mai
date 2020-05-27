@@ -587,7 +587,7 @@ protected:
                 dest->WriteBarrier(reinterpret_cast<Any **>(&entry->key));
             }
             entry->value = iter->value;
-            if (IsValueReferenceType()) {
+            if (dest->IsValueReferenceType()) {
                 dest->WriteBarrier(reinterpret_cast<Any **>(&entry->value));
             }
         }
@@ -635,7 +635,7 @@ protected:
         }
         return nullptr;
     }
-    
+
     inline Entry *Delete(K key) {
         Entry *slot = GetSlot(key);
         if (slot->kind == Entry::kFree) {
@@ -648,6 +648,12 @@ protected:
             if (slot->kind == Entry::kNode) {
                 slot->kind = Entry::kBucket;
                 ::memset(&entries_[next], 0, sizeof(Entry));
+                if (ElementTraits<K>::kIsReferenceType) {
+                    WriteBarrier(reinterpret_cast<Any **>(&entries_[next].key));
+                }
+                if (IsValueReferenceType()) {
+                    WriteBarrier(reinterpret_cast<Any **>(&entries_[next].value));
+                }
             }
             length_--;
             return slot;

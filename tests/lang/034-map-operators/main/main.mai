@@ -2,8 +2,8 @@ package main
 
 fun main() {
     assertFuzzyPut()
-    assertI8KeyMap()
-    assertStringKeyMap()
+    // assertI8KeyMap()
+    // assertStringKeyMap()
 }
 
 fun assertI8KeyMap() {
@@ -26,10 +26,10 @@ fun assertFuzzyPut() {
         assert(m[i] == "v=$i", "fail ${m[i]}")
     }
     assert(m.length == 100000u, "fail ${m.length}")
-    for (i in 0, 100000) {
-        m = m.remove(i)
-    }
-    assert(m.length == 0u, "fail ${m.length}")
+    // for (i in 0, 100000) {
+    //     m = m.remove(i)
+    // }
+    // assert(m.length == 0u, "fail ${m.length}")
 }
 
 fun assertStringKeyMap() {

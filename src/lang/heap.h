@@ -35,6 +35,16 @@ public:
         return new_space_->Contains(DCHECK_NOTNULL(reinterpret_cast<Address>(host)));
     }
     
+    int InNewAreaAll(Any *host) const {
+        if (new_space_->InSuriveArea(DCHECK_NOTNULL(reinterpret_cast<Address>(host)))) {
+            return -1;
+        }
+        if (new_space_->InOriginalArea(DCHECK_NOTNULL(reinterpret_cast<Address>(host)))) {
+            return 1;
+        }
+        return 0;
+    }
+    
     // Test object in old-geneation
     ALWAYS_INLINE bool InOldArea(Any *host) const {
         SpaceKind space = FromObject(host);
