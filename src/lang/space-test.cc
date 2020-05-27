@@ -269,6 +269,7 @@ TEST_F(SpaceTest, OldSpaceFuzzyAllocation) {
     for (auto chunk : chunks) {
         space->Free(chunk, true/*merge*/);
     }
+    space->PurgeIfNeeded();
     ASSERT_LT(1, space->allocated_pages());
     ASSERT_EQ(space->allocated_pages(), space->freed_pages());
 }

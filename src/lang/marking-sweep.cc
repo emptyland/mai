@@ -32,6 +32,7 @@ void MarkingSweep::Run(base::AbstractPrinter *logger) /*override*/ {
             }
         }
         // TODO: merge chunks
+        old_space->PurgeIfNeeded();
     }
     logger->Println("[Major] Collected %d old objects", count);
 

@@ -161,6 +161,8 @@ public:
     // Free lock is not need.
     void Free(Address addr, bool merge);
     
+    inline void PurgeIfNeeded();
+    
     ALWAYS_INLINE bool Contains(Address addr);
     
     inline Address MoveObject(Address addr, size_t n, Page *dest);
@@ -400,6 +402,20 @@ inline size_t NewSpace::Flip(bool reinit) {
         original_area_->Purge();
     }
     return remaining;
+}
+
+inline void OldSpace::PurgeIfNeeded() {
+    Page *prev = Page::Cast(dummy_);
+    Page *page = Page::Cast(dummy_->next());
+    while (page != dummy_) {
+        if (page->IsEmpty()) {
+            FreePage(page);
+            page = Page::Cast(prev->next());
+        } else {
+            prev = page;
+            page = Page::Cast(page->next());
+        }
+    }
 }
 
 inline void OldSpace::Compact(const std::vector<Page *> &pages, size_t used_size) {

@@ -130,16 +130,6 @@ void OldSpace::Free(Address addr, bool merge) {
     page->AddAvailable(size);
     used_size_ -= size;
 
-    if (page->IsEmpty()) {
-        FreePage(page);
-        return;
-    }
-
-    Page *head = Page::Cast(dummy_->next());
-    if (page != head && page->available() > head->available()) {
-        QUEUE_REMOVE(page);
-        QUEUE_INSERT_HEAD(dummy_, page);
-    }
     page->bitmap()->ClearAllocated(addr - page->chunk());
 }
 
