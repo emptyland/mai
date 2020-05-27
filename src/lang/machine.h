@@ -49,6 +49,7 @@ public:
     
     static const int32_t kOffsetRequestSuspend;
     static constexpr int kMaxFreeCoroutines = 10;
+    static constexpr size_t kHandleBufferSize = 1024;
     
     Machine(int id, Scheduler *owner);
     ~Machine();

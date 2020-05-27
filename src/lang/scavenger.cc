@@ -104,7 +104,7 @@ void Scavenger::Run(base::AbstractPrinter *logger) /*override*/ {
         //object_visitor.VisitPointer(pair.second.host, pair.second.address);
         Any **addr = pair.second.address;
         Any *obj = DCHECK_NOTNULL(*addr);
-        //DCHECK(heap_->InNewArea(obj));
+
         if (Any *forward = obj->forward()) {
             *addr = forward;
         } else if (heap_->InNewArea(obj)) {

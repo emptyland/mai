@@ -4593,8 +4593,26 @@ bool BytecodeGenerator::GenerateOperation(const Operator op, const Class *type, 
         }
         CleanupOperands(&receiver);
         return true;
+    } else if (type->IsMap()) {
+        OperandContext receiver;
+        DCHECK(!rhs->addition_key());
+        
+        if (!GenerateBinaryOperands(&receiver, rhs->key(), rhs->value())) {
+            return false;
+        }
+        switch (op.kind) {
+            case Operator::kAdd:
+                TODO();
+                break;
+            default:
+                NOREACHED();
+                break;
+        }
+
+        CleanupOperands(&receiver);
+        return true;
     } else {
-        TODO();
+        NOREACHED();
     }
     return false;
 }
@@ -5689,59 +5707,33 @@ void BytecodeGenerator::StaMapSet(const Class *clazz, int primary, const Class *
                 argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
                 MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
             }
-//            if (value_type->is_reference()) {
-//                fun = FindOrInsertExternalFunction("map::setAny");
-//            } else {
-//                fun = FindOrInsertExternalFunction("map::set");
-//            }
             fun = FindOrInsertExternalFunction("map::set");
             break;
         case kType_map8:
             argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
             MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-//            if (value_type->is_reference()) {
-//                fun = FindOrInsertExternalFunction("map8::setAny");
-//            } else {
-//                fun = FindOrInsertExternalFunction("map8::set");
-//            }
             fun = FindOrInsertExternalFunction("map8::set");
             break;
         case kType_map16:
             argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
             MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-//            if (value_type->is_reference()) {
-//                fun = FindOrInsertExternalFunction("map16::setAny");
-//            } else {
-//                fun = FindOrInsertExternalFunction("map16::set");
-//            }
             fun = FindOrInsertExternalFunction("map16::set");
             break;
         case kType_map32:
             argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
             MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-//            if (value_type->is_reference()) {
-//                fun = FindOrInsertExternalFunction("map32::setAny");
-//            } else {
-//                fun = FindOrInsertExternalFunction("map32::set");
-//            }
             fun = FindOrInsertExternalFunction("map32::set");
             break;
         case kType_map64:
             argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
             MoveToArgumentIfNeeded(key_type, key, Value::kStack, argument_offset, ast);
-//            if (value_type->is_reference()) {
-//                fun = FindOrInsertExternalFunction("map64::setAny");
-//            } else {
-//                fun = FindOrInsertExternalFunction("map64::set");
-//            }
             fun = FindOrInsertExternalFunction("map64::set");
             break;
         default:
             NOREACHED();
             break;
     }
-    // NOTICE: Alignment to uintptr_t
-    argument_offset += RoundUp(value_type->reference_size(), kPointerSize);
+    argument_offset += RoundUp(value_type->reference_size(), kStackSizeGranularity);
     MoveToArgumentIfNeeded(value_type, receiver.lhs, Value::kStack, argument_offset, ast);
     
     LdaIfNeeded(fun, ast);

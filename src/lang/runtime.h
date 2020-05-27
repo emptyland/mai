@@ -114,6 +114,11 @@ class Function;
     V(Map16Put, "map16::put") \
     V(Map32Put, "map32::put") \
     V(Map64Put, "map64::put") \
+    V(MapRemove, "map::remove") \
+    V(Map8Remove, "map8::remove") \
+    V(Map16Remove, "map16::remove") \
+    V(Map32Remove, "map32::remove") \
+    V(Map64Remove, "map64::remove") \
     V(Near32, "lang.near32") \
     V(Near64, "lang.near64") \
     V(TestAs, "lang.testAs") \
@@ -269,6 +274,24 @@ struct Runtime {
     static AbstractMap *Map16Put(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t value);
     static AbstractMap *Map32Put(Handle<AbstractMap> map, uint32_t key, uintptr_t value);
     static AbstractMap *Map64Put(Handle<AbstractMap> map, uint64_t key, uintptr_t value);
+
+    static AbstractMap *MapRemove(Handle<AbstractMap> map, Handle<Any> key);
+    static AbstractMap *Map8Remove(Handle<ImplementMap<uint8_t>> map, uint8_t key);
+    static AbstractMap *Map16Remove(Handle<ImplementMap<uint16_t>> map, uint16_t key);
+    static AbstractMap *Map32Remove(Handle<AbstractMap> map, uint32_t key);
+    static AbstractMap *Map64Remove(Handle<AbstractMap> map, uint64_t key);
+   
+    static AbstractMap *MapPlus(Handle<AbstractMap> map, Handle<Any> key, uintptr_t value);
+    static AbstractMap *Map8Plus(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value);
+    static AbstractMap *Map16Plus(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t value);
+    static AbstractMap *Map32Plus(Handle<AbstractMap> map, uint32_t key, uintptr_t value);
+    static AbstractMap *Map64Plus(Handle<AbstractMap> map, uint64_t key, uintptr_t value);
+
+    static AbstractMap *MapMinus(Handle<AbstractMap> map, Handle<Any> key);
+    static AbstractMap *Map8Minus(Handle<ImplementMap<uint8_t>> map, uint8_t key);
+    static AbstractMap *Map16Minus(Handle<ImplementMap<uint16_t>> map, uint16_t key);
+    static AbstractMap *Map32Minus(Handle<AbstractMap> map, uint32_t key);
+    static AbstractMap *Map64Minus(Handle<AbstractMap> map, uint64_t key);
 
     static Any *TestAs(Handle<Any> any, void *param1, void *param2);
     static int TestIs(Handle<Any> any, void *param1, void *param2);

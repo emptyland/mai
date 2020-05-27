@@ -241,6 +241,13 @@ inline void ImplementMap<K>::UnsafeSet(K key, uintptr_t value) {
     }
 }
 
+template<class K>
+inline ImplementMap<K> *ImplementMap<K>::UnsafeRemove(K key) {
+    ImplementMap<K> *dummy = nullptr;
+    RemoveRoom(key, &dummy);
+    return dummy;
+}
+
 template<class K, class V>
 inline void Map<K, V, false, true>::Iterate(ObjectVisitor *visitor) {
     typename ImplementMap<K>::Iterator iter(this);

@@ -141,6 +141,15 @@ static inline AbstractValue *ValueOf(T input, BuiltinType type) {
 //  521255
 /*static*/ String *Runtime::StringContact(String **parts, String **end) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
+    
+    if (auto kind = STATE->gc()->ShouldCollect(); kind == GarbageCollector::kIdle) {
+        IncrementalStringBuilder builder;
+        for (auto i = end - 1; i >= parts; i--) {
+            builder.AppendString(*i);
+        }
+        return builder.QuickBuild();
+    }
+    
     const int n = static_cast<int>(end - parts);
     String **handles = reinterpret_cast<String **>(Machine::This()->AdvanceHandleSlots(n));
     int k = 0;
@@ -739,7 +748,8 @@ static inline void TMapSet(ImplementMap<K> *map, K key, V value) {
     }
     uintptr_t data = 0;
     if (map->value_type()->reference_size() < 8) {
-        data = reinterpret_cast<uintptr_t>(value) & 0xffffffff;
+        data = (reinterpret_cast<uintptr_t>(value) & 0xffffffff00000000ul) >> 32;
+        
     } else {
         data = reinterpret_cast<uintptr_t>(value);
     }
@@ -864,6 +874,89 @@ Runtime::Map16Put(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t va
     }
 }
 
+/*static*/ AbstractMap *Runtime::MapRemove(Handle<AbstractMap> map, Handle<Any> key) {
+    if (map.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    if (key.is_value_null()) {
+        return *map;
+    }
+    
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->key_type()->id() == kType_string) {
+        return static_cast<ImplementMap<String *> *>(*map)->UnsafeRemove(static_cast<String *>(*key));
+    } else {
+        return static_cast<ImplementMap<Any *> *>(*map)->UnsafeRemove(*key);
+    }
+}
+
+/*static*/ AbstractMap *Runtime::Map8Remove(Handle<ImplementMap<uint8_t>> map, uint8_t key) {
+    if (map.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    SafepointScope safepoint_scope(STATE->gc());
+    return map->UnsafeRemove(key);
+}
+
+/*static*/ AbstractMap *Runtime::Map16Remove(Handle<ImplementMap<uint16_t>> map, uint16_t key) {
+    if (map.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    SafepointScope safepoint_scope(STATE->gc());
+    return map->UnsafeRemove(key);
+}
+
+/*static*/ AbstractMap *Runtime::Map32Remove(Handle<AbstractMap> map, uint32_t key) {
+    if (map.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->key_type()->IsFloating()) {
+        return static_cast<ImplementMap<float> *>(*map)->UnsafeRemove(bit_cast<float>(key));
+    } else {
+        return static_cast<ImplementMap<uint32_t> *>(*map)->UnsafeRemove(key);
+    }
+}
+
+/*static*/ AbstractMap *Runtime::Map64Remove(Handle<AbstractMap> map, uint64_t key) {
+    if (map.is_value_null()) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->key_type()->IsFloating()) {
+        return static_cast<ImplementMap<double> *>(*map)->UnsafeRemove(bit_cast<double>(key));
+    } else {
+        return static_cast<ImplementMap<uint64_t> *>(*map)->UnsafeRemove(key);
+    }
+}
+
+/*static*/
+AbstractMap *Runtime::MapPlus(Handle<AbstractMap> map, Handle<Any> key, uintptr_t value) {
+    return nullptr;
+}
+
+/*static*/
+AbstractMap *Runtime::Map8Plus(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value) {
+    return nullptr;
+}
+
+/*static*/
+AbstractMap *Runtime::Map16Plus(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t value) {
+    return nullptr;
+}
+
+/*static*/ AbstractMap *Runtime::Map32Plus(Handle<AbstractMap> map, uint32_t key, uintptr_t value) {
+    return nullptr;
+}
+
+/*static*/ AbstractMap *Runtime::Map64Plus(Handle<AbstractMap> map, uint64_t key, uintptr_t value) {
+    return nullptr;
+}
 
 static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
     switch (static_cast<BuiltinType>(dest->id())) {

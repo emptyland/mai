@@ -238,19 +238,18 @@ void Machine::Park() {
 }
 
 void Machine::ExitHandleScope() {
-    auto lla = STATE->env_->GetLowLevelAllocator();
+    //auto lla = STATE->env_->GetLowLevelAllocator();
     auto slot = top_slot_;
     DCHECK(slot->prev || slot->prev->end == slot->base);
     top_slot_ = slot->prev;
     if (slot->prev->limit != slot->limit &&
-        (slot->limit - slot->base) % lla->granularity() == 0) {
-        lla->Free(slot->base, slot->limit - slot->base);
+        (slot->limit - slot->base) % kHandleBufferSize == 0) {
+        ::free(slot->base);
     }
     delete slot;
 }
 
 Address Machine::AdvanceHandleSlots(int n_slots) {
-    auto lla = STATE->env_->GetLowLevelAllocator();
     auto slot = top_slot_;
     DCHECK_GE(n_slots, 0);
     if (!n_slots) {
@@ -260,9 +259,9 @@ Address Machine::AdvanceHandleSlots(int n_slots) {
     auto size = n_slots * sizeof(Any **);
     if (slot->end + size >= slot->limit) {
         auto backup = slot->base;
-        auto growed_size = RoundUp((slot->limit - slot->base), lla->granularity())
-            + lla->granularity();
-        slot->base = static_cast<Address>(lla->Allocate(growed_size, lla->granularity()));
+        auto growed_size = RoundUp((slot->limit - slot->base), kHandleBufferSize)
+            + kHandleBufferSize;
+        slot->base = static_cast<Address>(::malloc(growed_size));
         slot->limit = slot->base + growed_size;
         ::memcpy(slot->base, backup, slot->end - backup);
         slot->end = slot->base + (slot->end - backup);

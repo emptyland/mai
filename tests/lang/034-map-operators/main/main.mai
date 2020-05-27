@@ -1,9 +1,9 @@
 package main
 
 fun main() {
+    assertFuzzyPut()
     assertI8KeyMap()
     assertStringKeyMap()
-    assertFuzzyPut()
 }
 
 fun assertI8KeyMap() {
@@ -19,10 +19,17 @@ fun assertI8KeyMap() {
 
 fun assertFuzzyPut() {
     var m = map[int, string](16)
-    for (i in 0, 10000) {
+    for (i in 0, 100000) {
         m = m.put(i, "v=$i")
-        //m = m.put(i, 1)
     }
+    for (i in 0, 100000) {
+        assert(m[i] == "v=$i", "fail ${m[i]}")
+    }
+    assert(m.length == 100000u, "fail ${m.length}")
+    for (i in 0, 100000) {
+        m = m.remove(i)
+    }
+    assert(m.length == 0u, "fail ${m.length}")
 }
 
 fun assertStringKeyMap() {

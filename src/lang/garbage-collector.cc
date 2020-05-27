@@ -11,12 +11,7 @@ namespace mai {
 
 namespace lang {
 
-void GarbageCollector::CollectIfNeeded() {
-    if (isolate_->scheduler()->shutting_down()) {
-        return;
-    }
-    Machine *self = Machine::This();
-
+GarbageCollector::State GarbageCollector::ShouldCollect() {
     float rate = 1.0 - isolate_->heap()->GetNewSpaceUsedRate();
     State kind = kIdle;
     if (rate < minor_gc_threshold_rate_) {
@@ -44,6 +39,43 @@ void GarbageCollector::CollectIfNeeded() {
         default:
             break;
     }
+    return kind;
+}
+
+void GarbageCollector::CollectIfNeeded() {
+    if (isolate_->scheduler()->shutting_down()) {
+        return;
+    }
+    Machine *self = Machine::This();
+
+    State kind = ShouldCollect();
+//    float rate = 1.0 - isolate_->heap()->GetNewSpaceUsedRate();
+//    State kind = kIdle;
+//    if (rate < minor_gc_threshold_rate_) {
+//        kind = kMinorCollect;
+//    }
+//    rate = 1.0 - static_cast<float>(isolate_->heap()->GetOldSpaceUsedSize()) /
+//                 static_cast<float>(isolate_->old_space_limit_size());
+//    if (rate < major_gc_threshold_rate_) {
+//        if (kind == kMinorCollect) {
+//            kind = kFullCollect;
+//        } else {
+//            kind = kMajorCollect;
+//        }
+//    }
+//    if (latest_remember_set_size_ > 10240) {
+//        kind = kFullCollect;
+//    }
+//    switch (isolate_->gc_option()) {
+//        case kDebugFullGCEveryTime:
+//            kind = kFullCollect;
+//            break;
+//        case kDebugMinorGCEveryTime:
+//            kind = kMinorCollect;
+//            break;
+//        default:
+//            break;
+//    }
     if (kind == kIdle) { // TODO: available is too small
         return;
     }

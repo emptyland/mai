@@ -65,6 +65,8 @@ public:
         return state_.compare_exchange_strong(expect, state);
     }
     
+    State ShouldCollect();
+    
     void CollectIfNeeded();
 
     void MinorCollect();

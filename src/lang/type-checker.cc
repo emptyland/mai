@@ -1854,9 +1854,12 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
                 proto->InsertParameter(nullptr, new (arena_) TypeSign(ast->position(), Token::kU32));
                 proto->set_return_type(type);
                 return ResultWithType(new (arena_) TypeSign(ast->position(), proto));
+            } else {
+                error_feedback_->Printf(FindSourceLocation(ast), "No field/method named %s in %s",
+                                        ast->rhs()->data(), type->ToString().c_str());
+                return ResultWithType(kError);
             }
-            TODO();
-            return ResultWithType(kError);
+            break;
         case Token::kMap:
             if (!::strncmp("length", ast->rhs()->data(), ast->rhs()->size())) {
                 return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kU32));
@@ -1869,16 +1872,19 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
             } else if (!::strncmp("remove", ast->rhs()->data(), ast->rhs()->size())) {
                 FunctionPrototype *proto = new (arena_) FunctionPrototype(arena_);
                 proto->InsertParameter(nullptr, type->parameter(0));
-                proto->set_return_type(kVoid);
+                proto->set_return_type(type);
                 return ResultWithType(new (arena_) TypeSign(ast->position(), proto));
             } else if (!::strncmp("containsKey", ast->rhs()->data(), ast->rhs()->size())) {
                 FunctionPrototype *proto = new (arena_) FunctionPrototype(arena_);
                 proto->InsertParameter(nullptr, type->parameter(0));
                 proto->set_return_type(new (arena_) TypeSign(ast->position(), Token::kBool));
                 return ResultWithType(new (arena_) TypeSign(ast->position(), proto));
+            } else {
+                error_feedback_->Printf(FindSourceLocation(ast), "No field/method named %s in %s",
+                                        ast->rhs()->data(), type->ToString().c_str());
+                return ResultWithType(kError);
             }
-            TODO();
-            return ResultWithType(kError);
+            break;
         case Token::kChannel: {
             if (!::strncmp("hasClose", ast->rhs()->data(), ast->rhs()->size())) {
                 return ResultWithType(new (arena_) TypeSign(ast->position(), Token::kBool));
@@ -1890,9 +1896,11 @@ ASTVisitor::Result TypeChecker::CheckDotExpression(TypeSign *type, DotExpression
                 FunctionPrototype *proto = new (arena_) FunctionPrototype(arena_);
                 proto->set_return_type(kVoid);
                 return ResultWithType(new (arena_) TypeSign(ast->position(), proto));
+            } else {
+                error_feedback_->Printf(FindSourceLocation(ast), "No field/method named %s in %s",
+                                       ast->rhs()->data(), type->ToString().c_str());
+                return ResultWithType(kError);
             }
-            TODO();
-            return ResultWithType(kError);
         } break;
         case Token::kInterface:
         case Token::kRef:

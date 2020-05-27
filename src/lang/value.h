@@ -490,6 +490,7 @@ public:
     template<class V> inline ImplementMap *UnsafePut(K key, V value);
     template<class V> inline V UnsafeGet(K key);
     inline void UnsafeSet(K key, uintptr_t value);
+    inline ImplementMap *UnsafeRemove(K key);
     inline bool WriteBarrier(Any **address) { return Any::WriteBarrier(address); }
 
     friend class Machine;
@@ -552,6 +553,9 @@ protected:
         }
         if (ElementTraits<K>::kIsReferenceType) {
             WriteBarrier(reinterpret_cast<Any **>(&room->key));
+        }
+        if (IsValueReferenceType()) {
+            WriteBarrier(reinterpret_cast<Any **>(&room->value));
         }
         if (length() == 0) {
             *receiver = static_cast<ImplementMap<K> *>(NewMap(0));
