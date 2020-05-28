@@ -2,6 +2,7 @@
 #ifndef MAI_LANG_GARBAGE_COLLECTOR_H_
 #define MAI_LANG_GARBAGE_COLLECTOR_H_
 
+#include "base/arenas.h"
 #include "base/base.h"
 #include <string.h>
 #include <map>
@@ -21,6 +22,7 @@ class Any;
 class SafepointScope;
 class RootVisitor;
 class ObjectVisitor;
+class RememberSet;
 
 // Remember set record for old-generation -> new-generation
 struct RememberRecord {
@@ -29,7 +31,7 @@ struct RememberRecord {
     Any **address; // Write to address
 }; //struct RememberRecord
 
-using RememberSet = std::map<void *, RememberRecord>;
+using RememberMap = std::map<void *, RememberRecord>;
 
 struct GarbageCollectionHistogram {
     size_t collected_bytes  = 0;
@@ -76,7 +78,7 @@ public:
     uint64_t NextRememberRecordSequanceNumber() { return remember_record_sequance_.fetch_add(1); }
     
     //const RememberSet &MergeRememberSet();
-    RememberSet MergeRememberSet();
+    RememberMap MergeRememberSet();
 
     void PurgeRememberSet(const std::set<void *> &keys);
     void PurgeRememberSet();
@@ -111,6 +113,119 @@ private:
     // Latest remember set size
     size_t latest_remember_set_size_ = 0;
 }; // class GarbageCollector
+
+class RememberSet {
+public:
+    enum Tag {
+        kBucket,
+        kRecord,
+        kDeletion,
+    };
+    
+    struct RememberNode {
+        RememberRecord record;
+        Tag tag;
+        std::atomic<RememberNode *> next[1];
+        
+        RememberNode *barrier_next(int i) const {
+            return next[i].load(std::memory_order_acquire);
+        }
+        void barrier_set_next(int i, RememberNode *node) {
+            next[i].store(node, std::memory_order_release);
+        }
+        RememberNode *nobarrier_next(int i) const {
+            return next[i].load(std::memory_order_relaxed);
+        }
+        void nobarrier_set_next(int i, RememberNode *node) {
+            next[i].store(node, std::memory_order_relaxed);
+        }
+    }; // struct RememberNode
+    
+    class Iterator {
+    public:
+        Iterator(const RememberSet *owns): owns_(owns) {}
+        inline void SeekToFirst();
+        inline void Next();
+        bool Valid() const { return bucket_ < owns_->buckets_size() && node_ != nullptr; }
+        RememberRecord *operator -> () const { return record(); }
+        RememberRecord *record() const { return &DCHECK_NOTNULL(node_)->record; }
+        Tag tag() const { return DCHECK_NOTNULL(node_)->tag; }
+        bool is_bucket() const { return tag() == kBucket; }
+        bool is_record() const { return tag() == kRecord; }
+        bool is_deletion() const { return tag() == kDeletion; }
+    private:
+        const RememberSet *const owns_;
+        size_t bucket_ = 0;
+        RememberNode *node_ = nullptr;
+    }; // class Iterator
+    
+    static const int kMaxHeight = 12;
+    static const int kBranching = 4;
+
+    RememberSet(Allocator *lla, size_t n_buckets);
+    
+    void Put(Any *host, Any **address) { Append(host, address, kRecord); }
+
+    void Delete(Any **address) { Append(nullptr, address, kDeletion); }
+
+    size_t size() const { return size_.load(std::memory_order_acquire); }
+    
+    size_t buckets_size() const { return 1u <<  buckets_shift_; }
+
+    DISALLOW_IMPLICIT_CONSTRUCTORS(RememberSet);
+private:
+    uintptr_t HashCode(Any **address) const {
+        return (reinterpret_cast<uintptr_t>(address) >> 2) & ((1u << buckets_shift_) - 1);
+    }
+    
+    void Append(Any *host, Any **address, Tag tag);
+    
+    int Compare(const RememberRecord &lhs, const RememberRecord &rhs) const;
+    
+    RememberNode *NewNode(const RememberRecord &key, Tag tag, int height);
+    
+    RememberNode *NewBucket(int height);
+    
+    RememberNode *FindGreaterOrEqual(const RememberRecord &key, RememberNode** prev,
+                                     RememberNode *head) const;
+    
+    bool Equal(const RememberRecord &lhs, const RememberRecord &rhs) const {
+        return Compare(lhs, rhs) == 0;
+    }
+    
+    bool KeyIsAfterNode(const RememberRecord &key, RememberNode *n) const {
+        // NULL n is considered infinite
+        return (n != nullptr) && (Compare(n->record, key) < 0);
+    }
+    
+    int RandomHeight() {
+        int height = 1;
+        while (height < kMaxHeight && ::rand() % 16 == 0) {
+            height++;
+        }
+        DCHECK_GT(height, 0);
+        DCHECK_LE(height, kMaxHeight);
+        return height;
+    }
+    
+    int max_height() const { return max_height_.load(std::memory_order_relaxed); }
+    
+    base::StandaloneArena arena_;
+    
+    // Remember set record for old-generation -> new-generation
+    // Remember record version number
+    std::atomic<uint64_t> record_sequance_ = 0;
+
+    // Size of records
+    std::atomic<size_t> size_ = 0;
+    
+    // Max Height for skip list
+    std::atomic<int> max_height_ = 1;
+
+    // Bucket array
+    RememberNode **buckets_;
+    int buckets_shift_;
+}; // class RememberSet
 
 class GarbageCollectionPolicy {
 public:
@@ -155,6 +270,29 @@ protected:
     bool full_ = false; // full gc?
     std::stack<Any *> gray_;
 }; // class PartialMarkingPolicy
+
+
+inline void RememberSet::Iterator::SeekToFirst() {
+    for (size_t i = 0; i < owns_->buckets_size(); i++) {
+        if (owns_->buckets_[i]->next[0]) {
+            node_ = owns_->buckets_[i]->next[0];
+            bucket_ = i;
+            break;
+        }
+    }
+}
+
+inline void RememberSet::Iterator::Next() {
+    node_ = node_->next[0];
+    if (!node_) {
+        while (++bucket_ < owns_->buckets_size()) {
+            if (owns_->buckets_[bucket_]->next[0]) {
+                node_ = owns_->buckets_[bucket_]->next[0];
+                break;
+            }
+        }
+    }
+}
 
 } // namespace lang
 

@@ -59,7 +59,7 @@ public:
     DEF_PTR_GETTER(Coroutine, running);
     DEF_VAL_GETTER(uint64_t, user_time);
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
-    DEF_VAL_PROP_RM(RememberSet, remember_set);
+    DEF_VAL_PROP_RM(RememberMap, remember_set);
     DEF_VAL_GETTER(int, uncaught_count);
 
     // Get machine state
@@ -286,7 +286,7 @@ private:
     std::condition_variable cond_var_; // Condition variable for scheduling
     mutable std::mutex mutex_; // Total mutex
     std::thread thread_; // Thread object
-    RememberSet remember_set_; // [nested weak ref] Local remember set
+    RememberMap remember_set_; // [nested weak ref] Local remember set
     Tracing *tracing_ = nullptr; // Tracing for PGO
 }; // class Machine
 

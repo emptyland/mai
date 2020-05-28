@@ -102,7 +102,7 @@ void Scavenger::Run(base::AbstractPrinter *logger) /*override*/ {
     isolate_->VisitRoot(&root_visitor);
 
     ObjectVisitorImpl object_visitor(this);
-    RememberSet rset = isolate_->gc()->MergeRememberSet();
+    RememberMap rset = isolate_->gc()->MergeRememberSet();
     logger->Println("[Minor] RSet size: %zd", rset.size());
     for (const auto &pair : rset) {
         DCHECK(heap_->InOldArea(pair.second.host));
