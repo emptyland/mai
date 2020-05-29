@@ -102,24 +102,33 @@ void Scavenger::Run(base::AbstractPrinter *logger) /*override*/ {
     isolate_->VisitRoot(&root_visitor);
 
     ObjectVisitorImpl object_visitor(this);
-    RememberMap rset = isolate_->gc()->MergeRememberSet();
-    logger->Println("[Minor] RSet size: %zd", rset.size());
-    for (const auto &pair : rset) {
-        DCHECK(heap_->InOldArea(pair.second.host));
-        Any **addr = pair.second.address;
-        Any *obj = DCHECK_NOTNULL(*addr);
-        if (Any *forward = obj->forward()) {
-            *addr = forward;
-        } else {
-            DCHECK(heap_->InNewArea(obj));
-            *addr = heap_->MoveNewSpaceObject(obj, true/*promote*/);
-            // printf("[%p] host: %s promote: %p -> %p\n", pair.second.host,
-            // pair.second.host->clazz()->name(), obj, *addr);
-            promoted_obs_.push_back(*addr);
+    if (RememberSet *rset = isolate_->gc()->remember_set()) {
+        logger->Println("[Minor] RSet size: %zd", rset->size());
+        RememberSet::Iterator iter(rset);
+        Any **key = nullptr;
+        for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+            if (key == iter->address) {
+                continue;
+            }
+            key = iter->address;
+            if (iter.is_deletion()) {
+                continue;
+            }
+            DCHECK(iter.is_record());
+            Any *obj = DCHECK_NOTNULL(*key);
+            if (Any *forward = obj->forward()) {
+                *key = forward;
+            } else {
+                DCHECK(heap_->InNewArea(obj));
+                *key = heap_->MoveNewSpaceObject(obj, true/*promote*/);
+                // printf("[%p] host: %s promote: %p -> %p\n", pair.second.host,
+                // pair.second.host->clazz()->name(), obj, *addr);
+                promoted_obs_.push_back(*key);
+            }
         }
+        isolate_->gc()->PurgeRememberSet();
     }
-    isolate_->gc()->PurgeRememberSet();
-    
+
     //SemiSpace *survive_area = heap_->new_space()->survive_area();
     SemiSpaceIterator iter(survive_area);
     for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {

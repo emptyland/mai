@@ -11,6 +11,15 @@ namespace mai {
 
 namespace lang {
 
+GarbageCollector::GarbageCollector(Isolate *isolate, float minor_gc_threshold_rate,
+                                   float major_gc_threshold_rate)
+    : isolate_(isolate)
+    , remember_set_(new RememberSet(1024))
+    , minor_gc_threshold_rate_(minor_gc_threshold_rate)
+    , major_gc_threshold_rate_(major_gc_threshold_rate) {}
+
+GarbageCollector::~GarbageCollector() {}
+
 GarbageCollector::State GarbageCollector::ShouldCollect() {
     float rate = 1.0 - isolate_->heap()->GetNewSpaceUsedRate();
     State kind = kIdle;
@@ -126,38 +135,6 @@ void GarbageCollector::FullCollect() {
     set_state(kDone);
 }
 
-RememberMap GarbageCollector::MergeRememberSet() {
-    RememberMap remember_set;
-    for (int i = 0; i < isolate_->scheduler()->concurrency(); i++) {
-        Machine *m = isolate_->scheduler()->machine(i);
-        for(const auto &pair : m->remember_set()) {
-            auto iter = remember_set.find(pair.first);
-            if (iter == remember_set.end() ||
-                pair.second.seuqnce_number > iter->second.seuqnce_number) {
-                remember_set[pair.first] = pair.second;
-            }
-        }
-    }
-    latest_remember_set_size_ = remember_set.size();
-    return remember_set;
-}
-
-void GarbageCollector::PurgeRememberSet(const std::set<void *> &keys) {
-    for (void *key : keys) {
-        for (int i = 0; i < isolate_->scheduler()->concurrency(); i++) {
-            Machine *m = isolate_->scheduler()->machine(i);
-            m->mutable_remember_set()->erase(key);
-        }
-    }
-}
-
-void GarbageCollector::PurgeRememberSet() {
-    for (int i = 0; i < isolate_->scheduler()->concurrency(); i++) {
-        Machine *m = isolate_->scheduler()->machine(i);
-        m->PurgeRememberSet();
-    }
-}
-
 void GarbageCollector::InvalidateHeapGuards(Address guard0, Address guard1) {
     for (int i = 0; i < isolate_->scheduler()->concurrency(); i++) {
         Machine *m = isolate_->scheduler()->machine(i);
@@ -206,6 +183,15 @@ void RememberSet::Insert(Any *host, Any **address, Tag tag) {
         prev[i]->next[i] = x;
     }
     size_.fetch_add(1);
+}
+
+void RememberSet::Purge(size_t n_buckets) {
+    arena_.Purge(true);
+    for (buckets_shift_ = 1; (1u << buckets_shift_) < n_buckets; buckets_shift_++) {}
+    buckets_ = static_cast<Bucket *>(arena_.Allocate(sizeof(Bucket) * buckets_size()));
+    ::memset(buckets_, 0, sizeof(Bucket) * buckets_size());
+    record_sequance_ = 0;
+    size_ = 0;
 }
 
 int RememberSet::Compare(const RememberRecord &lhs, const RememberRecord &rhs) const {
@@ -409,13 +395,24 @@ int PartialMarkingPolicy::SweepLargeSpace() {
 int PartialMarkingPolicy::PurgeWeakObjects() {
     int count = 0;
     WeakVisitorImpl weak_visitor(this);
-    RememberMap rset = isolate_->gc()->MergeRememberSet();
+    RememberSet::Iterator iter(isolate_->gc()->remember_set());
 
-    std::set<void *> for_clean;
-    for (auto rd : rset) {
-        weak_visitor.VisitPointer(rd.second.host, &rd.second.host);
-        if (!rd.second.host) { // Should sweep remember entries
-            for_clean.insert(rd.first);
+    std::set<Any **> for_clean;
+    Any **latest_key = nullptr;
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        if (latest_key == iter->address) {
+            continue;
+        }
+        latest_key = iter->address;
+        if (iter.is_deletion()) {
+            continue;
+        }
+        DCHECK(iter.is_record());
+
+        Any *host = iter->host;
+        weak_visitor.VisitPointer(host, &host); // Should sweep remember entries
+        if (!host) {
+            for_clean.insert(iter->address);
             count++;
         }
     }

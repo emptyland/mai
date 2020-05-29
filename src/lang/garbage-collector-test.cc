@@ -100,18 +100,22 @@ TEST_F(GarbageCollectorTest, RememberSetLargeInsertion) {
     std::set<Any **> unique_keys;
     
     Any *host = bit_cast<Any *>(1);
-    for (int i = 0; i < 10000; i++) {
+    for (int i = 0; i < 40000; i++) {
         auto key = bit_cast<Any **>(i * 4UL);
         rset.Put(host, key);
         unique_keys.insert(key);
     }
-    ASSERT_EQ(10000, rset.size());
+    ASSERT_EQ(40000, rset.size());
     
     RememberSet::Iterator iter(&rset);
     for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
         unique_keys.erase(iter->address);
     }
     ASSERT_TRUE(unique_keys.empty());
+    
+    rset.Purge(32);
+    ASSERT_EQ(32, rset.buckets_size());
+    ASSERT_EQ(0, rset.size());
 }
 
 TEST_F(GarbageCollectorTest, RememberSetMultiThreading) {
