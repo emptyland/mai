@@ -13,8 +13,7 @@ namespace lang {
 class ParserTest : public ::testing::Test {
 public:
     ParserTest()
-        : arena_(Env::Default()->GetLowLevelAllocator())
-        , parser_(&arena_, &feedback_) {}
+        : parser_(&arena_, &feedback_) {}
     
     MockFeedback feedback_;
     base::StandaloneArena arena_;

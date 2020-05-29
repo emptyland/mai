@@ -12,8 +12,7 @@ namespace txn {
 TransactionBase::TransactionBase(const WriteOptions &opts,
                                  TransactionDB *db)
     : write_opts_(opts)
-    , db_(DCHECK_NOTNULL(db))
-    , write_batch_(impl()->env()->GetLowLevelAllocator()) {
+    , db_(DCHECK_NOTNULL(db)) {
     start_time_ = impl()->env()->CurrentTimeMicros();
 }
 

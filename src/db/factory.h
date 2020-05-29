@@ -29,8 +29,8 @@ public:
     virtual ~Factory() {}
     
     virtual core::MemoryTable *
-    NewMemoryTable(const core::InternalKeyComparator *ikcmp,
-                   Allocator *allocator, bool unordered, size_t initial_slots) = 0;
+    NewMemoryTable(const core::InternalKeyComparator *ikcmp, bool unordered,
+                   size_t initial_slots) = 0;
     
     virtual Error
     NewTableReader(const std::string &name,

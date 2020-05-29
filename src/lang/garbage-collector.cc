@@ -167,37 +167,43 @@ void GarbageCollector::InvalidateHeapGuards(Address guard0, Address guard1) {
 }
 
 
-RememberSet::RememberSet(Allocator *lla, size_t n_buckets)
-    : arena_(lla) {
+RememberSet::RememberSet(size_t n_buckets) {
     buckets_shift_ = 1;
     for (;(1u << buckets_shift_) < n_buckets; buckets_shift_++) {}
-    buckets_ = static_cast<RememberNode **>(arena_.Allocate(sizeof(RememberNode*) * buckets_size()));
-    for (size_t i = 0; i < buckets_size(); i++) {
-        buckets_[i] = NewBucket(kMaxHeight);
-    }
+    buckets_ = static_cast<Bucket *>(arena_.Allocate(sizeof(Bucket) * buckets_size()));
+    ::memset(buckets_, 0, sizeof(Bucket) * buckets_size());
 }
 
-void RememberSet::Append(Any *host, Any **address, Tag tag) {
-    RememberNode *prev[kMaxHeight];
-    RememberNode *bucket = buckets_[HashCode(address)];
+void RememberSet::Insert(Any *host, Any **address, Tag tag) {
+    Node *prev[kMaxHeight];
+#if defined(DEBUG) || defined(_DEBUG)
+    ::memset(prev, 0, sizeof(prev));
+#endif // defined(DEBUG) || defined(_DEBUG)
     RememberRecord key{ record_sequance_.fetch_add(1), host, address };
-    RememberNode *x = FindGreaterOrEqual(key, prev, bucket);
+
+    Bucket *bucket = &buckets_[HashCode(address)];
+    base::SpinLock lock(&bucket->mutex);
+    if (bucket->max_height == 0) {
+        bucket->max_height = 1;
+    }
+
+    Node *x = FindGreaterOrEqual(key, prev, bucket);
     
     // Our data structure does not allow duplicate insertion
     DCHECK(x == NULL || !Equal(key, x->record));
 
     int height = RandomHeight();
-    if (height > max_height()) {
-        for (int i = max_height(); i < height; i++) {
-            prev[i] = bucket;
+    if (height > bucket->max_height) {
+        for (int i = bucket->max_height; i < height; i++) {
+            prev[i] = &bucket->head;
         }
-        max_height_.store(height, std::memory_order_relaxed);
+        bucket->max_height = height;
     }
 
     x = NewNode(key, tag, height);
     for (int i = 0; i < height; i++) {
-        x->nobarrier_set_next(i, prev[i]->nobarrier_next(i));
-        prev[i]->barrier_set_next(i, x);
+        x->next[i] = DCHECK_NOTNULL(prev[i])->next[i];
+        prev[i]->next[i] = x;
     }
     size_.fetch_add(1);
 }
@@ -220,32 +226,21 @@ int RememberSet::Compare(const RememberRecord &lhs, const RememberRecord &rhs) c
     return 0;
 }
 
-RememberSet::RememberNode *RememberSet::NewNode(const RememberRecord &key, Tag tag, int height) {
-    size_t request_size = sizeof(RememberNode) + sizeof(std::atomic<RememberNode *>) * (height - 1);
-    RememberNode *node = static_cast<RememberNode *>(arena_.Allocate(request_size));
+RememberSet::Node *RememberSet::NewNode(const RememberRecord &key, Tag tag, int height) {
+    size_t request_size = sizeof(Node) + sizeof(std::atomic<Node *>) * (height - 1);
+    Node *node = static_cast<Node *>(arena_.Allocate(request_size));
     node->record = key;
     node->tag = tag;
     return node;
 }
 
-RememberSet::RememberNode *RememberSet::NewBucket(int height) {
-    size_t request_size = sizeof(RememberNode) + sizeof(std::atomic<RememberNode *>) * (height - 1);
-    RememberNode *node = static_cast<RememberNode *>(arena_.Allocate(request_size));
-    ::memset(&node->record, 0, sizeof(node->record));
-    node->tag = kBucket;
-    for (int i = 0; i < height; i++) {
-        node->barrier_set_next(i, nullptr);
-    }
-    return node;
-}
-
-RememberSet::RememberNode *
-RememberSet::FindGreaterOrEqual(const RememberRecord &key, RememberNode** prev,
-                                RememberNode *head) const {
-    auto x = head;
-    int level = max_height() - 1;
+RememberSet::Node *
+RememberSet::FindGreaterOrEqual(const RememberRecord &key, Node** prev,
+                                Bucket *bucket) const {
+    auto x = &bucket->head;
+    int level = bucket->max_height - 1;
     while (true) {
-        RememberNode* next = x->barrier_next(level);
+        Node* next = x->next[level];
         if (KeyIsAfterNode(key, next)) {
             // Keep searching in this list
             x = next;

@@ -32,16 +32,18 @@ void StandaloneArena::Purge(bool reinit) {
 #if defined(DEBUG) || defined(_DEBUG)
         Round32BytesFill(kFreeZag, x, kPageSize);
 #endif
-        ll_allocator_->Free(x, kPageSize);
+        //ll_allocator_->Free(x, kPageSize);
+        ::free(x);
     }
     while (large_) {
         PageHead *x = large_;
         large_ = x->next.load(std::memory_order_relaxed);
-        size_t page_size = x->u.size;
 #if defined(DEBUG) || defined(_DEBUG)
+        size_t page_size = x->u.size;
         Round32BytesFill(kFreeZag, x, page_size);
 #endif
-        ll_allocator_->Free(x, page_size);
+        //ll_allocator_->Free(x, page_size);
+        ::free(x);
     }
     if (reinit) {
         current_.store(NewPage(kPageSize), std::memory_order_relaxed);

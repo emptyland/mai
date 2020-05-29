@@ -18,12 +18,10 @@ public:
     InternalKeyComparator ikcmp_;
     
     Env *env_ = Env::Default();
-    Allocator *ll_allocator_ = Env::Default()->GetLowLevelAllocator();
 };
     
 TEST_F(BwTreeMemoryTableTest, Sanity) {
-    base::intrusive_ptr<MemoryTable> table(new BwTreeMemoryTable(&ikcmp_, env_,
-                                                                 ll_allocator_));
+    base::intrusive_ptr<MemoryTable> table(new BwTreeMemoryTable(&ikcmp_, env_));
     table->Put("aaa", "v1", 1, Tag::kFlagValue);
     table->Put("aaa", "v2", 2, Tag::kFlagValue);
     
@@ -50,8 +48,7 @@ TEST_F(BwTreeMemoryTableTest, Put) {
         "aab", "v4",
         "bbb", "v5",
     };
-    base::intrusive_ptr<MemoryTable> table(new BwTreeMemoryTable(&ikcmp_, env_,
-                                                                 ll_allocator_));
+    base::intrusive_ptr<MemoryTable> table(new BwTreeMemoryTable(&ikcmp_, env_));
     
     SequenceNumber sn = 1;
     for (int i = 0; i < arraysize(kv); i += 2) {
@@ -92,8 +89,7 @@ TEST_F(BwTreeMemoryTableTest, Put) {
 TEST_F(BwTreeMemoryTableTest, BatchPut) {
     static const int kN = 10000;
     
-    base::intrusive_ptr<MemoryTable> table(new BwTreeMemoryTable(&ikcmp_, env_,
-                                                                 ll_allocator_));
+    base::intrusive_ptr<MemoryTable> table(new BwTreeMemoryTable(&ikcmp_, env_));
     
     SequenceNumber sn = 1;
     auto jiffy = env_->CurrentTimeMicros();

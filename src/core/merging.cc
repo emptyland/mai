@@ -167,11 +167,9 @@ private:
 /*static*/ Iterator *
 Merging::NewUnorderedMergingIterator(const InternalKeyComparator *ikcmp,
                                      int tmp_initial_slots,
-                                     Iterator **children, size_t n,
-                                     Allocator *low_level_allocator) {
+                                     Iterator **children, size_t n) {
     base::intrusive_ptr<MemoryTable>
-    tmp_table(new UnorderedMemoryTable(ikcmp, tmp_initial_slots,
-                                       low_level_allocator));
+    tmp_table(new UnorderedMemoryTable(ikcmp, tmp_initial_slots));
     return NewTempTableMergingIteraotr(tmp_table.get(), children, n);
 }
     

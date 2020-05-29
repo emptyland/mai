@@ -10,9 +10,7 @@ namespace core {
 
 class HashMapV2Test : public ::testing::Test {
 public:
-    HashMapV2Test() : arena_(Env::Default()->GetLowLevelAllocator()) {
-        
-    }
+    HashMapV2Test() {}
     
     struct IntCmp {
         int operator () (int a, int b) const {

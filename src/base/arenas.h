@@ -19,9 +19,8 @@ public:
     static const int kPageSize = 16 * base::kKB;
     static const int kAlignment = sizeof(void *);
     
-    StandaloneArena(Allocator *ll_allocator)
-        : ll_allocator_(DCHECK_NOTNULL(ll_allocator))
-        , current_(NewPage(kPageSize))
+    StandaloneArena()
+        : current_(NewPage(kPageSize))
         , large_(nullptr)
         , memory_usage_(kPageSize) /* The initialize size is one page.*/ {
     }
@@ -54,7 +53,7 @@ public:
     
     void GetUsageStatistics(std::vector<Statistics> *normal, std::vector<Statistics> *large) const;
     
-    Allocator *ll_allocator() const { return ll_allocator_; }
+    //Allocator *ll_allocator() const { return ll_allocator_; }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(StandaloneArena);
 private:
@@ -74,7 +73,7 @@ private:
     }
 
     PageHead *NewPage(size_t page_size) {
-        PageHead *page = static_cast<PageHead *>(ll_allocator_->Allocate(page_size, kAlignment));
+        PageHead *page = static_cast<PageHead *>(::malloc(page_size));
         page->next = nullptr;
         page->u.free = reinterpret_cast<char *>(page + 1);
         return page;
@@ -89,7 +88,7 @@ private:
         }
     }
     
-    Allocator *const ll_allocator_;
+    //Allocator *const ll_allocator_;
     std::atomic<PageHead*> current_;
     std::atomic<PageHead*> large_;
     std::atomic<size_t> memory_usage_;

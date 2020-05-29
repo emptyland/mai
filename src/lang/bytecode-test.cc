@@ -13,7 +13,7 @@ public:
     // Dummy
     void SetUp() override {
         test::IsolateInitializer::SetUp();
-        arean_ = new base::StandaloneArena(isolate_->env()->GetLowLevelAllocator());
+        arean_ = new base::StandaloneArena;
     }
     
     void TearDown() override {

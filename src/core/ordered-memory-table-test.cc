@@ -25,7 +25,7 @@ public:
 };
 
 TEST_F(OrderedMemoryTableTest, Sanity) {
-    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_, ll_allocator_));
+    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_));
     h1->Put("aaaa", "v1", 1, Tag::kFlagValue);
     h1->Put("aaab", "v2", 2, Tag::kFlagValue);
     h1->Put("aaac", "v3", 3, Tag::kFlagValue);
@@ -57,7 +57,7 @@ TEST_F(OrderedMemoryTableTest, IterateFarward) {
         "aaae", "v5",
         "aaaf", "v6",
     };
-    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_, ll_allocator_));
+    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_));
     for (size_t i = 0; i < arraysize(kv) / 2; i += 2) {
         h1->Put(kv[i], kv[i + 1], i / 2 + 1, Tag::kFlagValue);
     }
@@ -85,7 +85,7 @@ TEST_F(OrderedMemoryTableTest, IterateReserve) {
         "aaae", "v5",
         "aaaf", "v6",
     };
-    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_, ll_allocator_));
+    auto h1 = base::MakeRef(new OrderedMemoryTable(&ikcmp_));
     for (size_t i = 0; i < arraysize(kv) / 2; i += 2) {
         h1->Put(kv[i], kv[i + 1], i / 2 + 1, Tag::kFlagValue);
     }
@@ -110,7 +110,7 @@ TEST_F(OrderedMemoryTableTest, ConcurrentPutting) {
     std::atomic<core::SequenceNumber> sn(1);
     std::mutex mutex;
     
-    auto table = base::MakeRef(new OrderedMemoryTable(&ikcmp_, ll_allocator_));
+    auto table = base::MakeRef(new OrderedMemoryTable(&ikcmp_));
     for (int i = 0; i < arraysize(worker_thrds); ++i) {
         worker_thrds[i] = std::thread([&](auto slot) {
             for (int j = 0; j < kN; ++j) {
@@ -148,7 +148,7 @@ TEST_F(OrderedMemoryTableTest, BatchPut) {
     static const int kN = 10000;
     
     base::intrusive_ptr<MemoryTable>
-        table(new OrderedMemoryTable(&ikcmp_, ll_allocator_));
+        table(new OrderedMemoryTable(&ikcmp_));
     
     SequenceNumber sn = 1;
     auto jiffy = env_->CurrentTimeMicros();

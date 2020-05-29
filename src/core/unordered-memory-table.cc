@@ -49,12 +49,9 @@ private:
 }; // class UnorderedMemoryTable::IteratorImpl
     
 
-UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
-                                           int initial_slot,
-                                           Allocator *low_level_allocator)
+UnorderedMemoryTable::UnorderedMemoryTable(const InternalKeyComparator *ikcmp, int initial_slot)
     : ikcmp_(DCHECK_NOTNULL(ikcmp))
     , mem_usage_(sizeof(*this))
-    , arena_(DCHECK_NOTNULL(low_level_allocator))
     , table_(initial_slot, KeyComparator{ikcmp}, &arena_) {
 }
 

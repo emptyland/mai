@@ -36,7 +36,7 @@ public:
         : ikcmp_(new core::InternalKeyComparator(Comparator::Bytewise())) {}
     
     void SetUp() override {
-        arena_ = new base::StandaloneArena(env_->GetLowLevelAllocator());
+        arena_ = new base::StandaloneArena;
     }
     
     void TearDown() override {
@@ -74,7 +74,7 @@ TEST_F(UnorderedMemoryTableTest, KeyBoundleMap) {
 }
     
 TEST_F(UnorderedMemoryTableTest, MemoryTable) {
-    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13, arena_));
+    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
     table->Put("k1", "v1", 1, Tag::kFlagValue);
     table->Put("k1", "v3", 3, Tag::kFlagValue);
     table->Put("k1", "v5", 5, Tag::kFlagValue);
@@ -93,7 +93,7 @@ TEST_F(UnorderedMemoryTableTest, MemoryTable) {
 }
     
 TEST_F(UnorderedMemoryTableTest, Iterate) {
-    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13, arena_));
+    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
     table->Put("k1", "v1", 1, Tag::kFlagValue);
     table->Put("k1", "v3", 3, Tag::kFlagValue);
     table->Put("k1", "v5", 5, Tag::kFlagValue);
@@ -125,7 +125,7 @@ TEST_F(UnorderedMemoryTableTest, Iterate) {
 }
 
 TEST_F(UnorderedMemoryTableTest, Deletion) {
-    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13, arena_));
+    auto table = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
     table->Put("k1", "v1", 1, Tag::kFlagValue);
     table->Put("k1", "v3", 3, Tag::kFlagValue);
     table->Put("k1", "v5", 5, Tag::kFlagValue);

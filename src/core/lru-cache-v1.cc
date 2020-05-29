@@ -61,8 +61,7 @@ struct LRUCacheShard::LookupHandle final {
 LRUCacheShard::LRUCacheShard(Allocator *low_level_allocator, size_t capacity,
                              base::LockGroup *locks)
     : cmp_(Comparator::Bytewise())
-    , boundle_(new TableBoundle(low_level_allocator, kMinLRUTableSlots,
-                                KeyComparator{cmp_}))
+    , boundle_(new TableBoundle(kMinLRUTableSlots, KeyComparator{cmp_}))
     , capacity_(capacity)
     , locks_(!locks ? new base::LockGroup(16) : locks)
     , locks_ownership_(locks == nullptr) {
@@ -273,9 +272,7 @@ void LRUCacheShard::PurgeIfNeeded(bool force) {
             new_slots = kMinLRUTableSlots;
         }
         
-        TableBoundle *new_boundle =
-            new TableBoundle(boundle->arena.ll_allocator(), new_slots,
-                             KeyComparator{cmp_});
+        TableBoundle *new_boundle = new TableBoundle(new_slots, KeyComparator{cmp_});
 
         LRUTable::Iterator iter(&boundle->table);
         for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {

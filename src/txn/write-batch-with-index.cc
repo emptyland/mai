@@ -132,8 +132,7 @@ int WriteBatchWithIndex::KeyComparator::operator () (const WriteBatchEntry *lhs,
     return cmp->Compare(a, b);
 }
     
-WriteBatchWithIndex::WriteBatchWithIndex(Allocator *ll_allocator)
-    : arena_(DCHECK_NOTNULL(ll_allocator)) {
+WriteBatchWithIndex::WriteBatchWithIndex() {
 }
 
 WriteBatchWithIndex::~WriteBatchWithIndex() {

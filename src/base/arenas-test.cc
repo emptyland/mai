@@ -23,14 +23,14 @@ TEST_F(ArenaTest, Sanity) {
     memset(raw, 0xcc, 4096);
     allocator->Free(raw, 4096);
     
-    StandaloneArena arena(allocator);
+    StandaloneArena arena;
     
     ASSERT_NE(nullptr, arena.Allocate(1024, 4));
     ASSERT_NE(nullptr, arena.Allocate(1024, 4));
 }
     
 TEST_F(ArenaTest, FuzzAllocation) {
-    StandaloneArena arena(env_->GetLowLevelAllocator());
+    StandaloneArena arena;
     for (int i = 0; i < 10240; ++i) {
         size_t size = abs(::rand()) % base::kKB;
         arena.Allocate(size, 4);
@@ -38,7 +38,7 @@ TEST_F(ArenaTest, FuzzAllocation) {
 }
     
 TEST_F(ArenaTest, ConcurrentLargeAllocation) {
-    StandaloneArena arena(env_->GetLowLevelAllocator());
+    StandaloneArena arena;
     
     std::thread worker_thrds[4];
     
@@ -55,7 +55,7 @@ TEST_F(ArenaTest, ConcurrentLargeAllocation) {
 }
     
 TEST_F(ArenaTest, ConcurrentNormalAllocation) {
-    StandaloneArena arena(env_->GetLowLevelAllocator());
+    StandaloneArena arena;
     
     std::thread worker_thrds[4];
     
@@ -72,7 +72,7 @@ TEST_F(ArenaTest, ConcurrentNormalAllocation) {
 }
     
 TEST_F(ArenaTest, CocurrentFuzzAllocation) {
-    StandaloneArena arena(env_->GetLowLevelAllocator());
+    StandaloneArena arena;
     
     std::thread worker_thrds[8];
     

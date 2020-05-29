@@ -12,7 +12,7 @@ namespace v2 {
 
 class DecimalV2Test : public ::testing::Test {
 public:
-    DecimalV2Test() : arena_(env_->GetLowLevelAllocator()) {}
+    DecimalV2Test() {}
     
     Env *env_ = Env::Default();
     base::StandaloneArena arena_;

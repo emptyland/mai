@@ -54,7 +54,7 @@ public:
         test::IsolateInitializer::SetUp();
         scheduler_ = isolate_->scheduler();
         metadata_ = isolate_->metadata_space();
-        arena_ = new base::StandaloneArena(isolate_->env()->GetLowLevelAllocator());
+        arena_ = new base::StandaloneArena;
         ::memset(&dummy_result, 0, sizeof(dummy_result));
     }
     

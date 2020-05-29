@@ -151,7 +151,7 @@ private:
     int RandomHeight() {
         int height = 1;
 
-        while (height < kMaxHeight && rand_() == 0) {
+        while (height < kMaxHeight && (rand_() % kBranching) == 0) {
             height++;
         }
 

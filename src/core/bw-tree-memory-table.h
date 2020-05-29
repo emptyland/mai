@@ -12,8 +12,7 @@ namespace core {
     
 class BwTreeMemoryTable final : public MemoryTable {
 public:
-    BwTreeMemoryTable(const InternalKeyComparator *ikcmp, Env *env,
-                      Allocator *ll_allocator);
+    BwTreeMemoryTable(const InternalKeyComparator *ikcmp, Env *env);
     virtual ~BwTreeMemoryTable();
     
     virtual void Put(std::string_view key, std::string_view value,

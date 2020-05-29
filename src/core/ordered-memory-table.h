@@ -15,8 +15,7 @@ class InternalKeyComparator;
 
 class OrderedMemoryTable final : public MemoryTable {
 public:
-    OrderedMemoryTable(const InternalKeyComparator *ikcmp,
-                       Allocator *low_level_alloc);
+    OrderedMemoryTable(const InternalKeyComparator *ikcmp);
     virtual ~OrderedMemoryTable();
     
     virtual void Put(std::string_view key, std::string_view value,

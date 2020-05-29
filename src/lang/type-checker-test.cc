@@ -14,8 +14,7 @@ namespace lang {
 class TypeCheckerTest : public ::testing::Test {
 public:
     TypeCheckerTest()
-        : arena_(Env::Default()->GetLowLevelAllocator())
-        , env_(Env::Default())
+        : env_(Env::Default())
         , resolver_(env_, &arena_, &feedback_, {})
         , checker_(&arena_, &feedback_) {}
     

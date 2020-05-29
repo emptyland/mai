@@ -18,7 +18,7 @@ namespace txn {
     
 class WriteBatchWithIndex final : public WriteBatch {
 public:
-    WriteBatchWithIndex(Allocator *ll_allocator);
+    WriteBatchWithIndex();
     ~WriteBatchWithIndex();
     
     void Clear();

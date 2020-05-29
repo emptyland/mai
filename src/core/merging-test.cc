@@ -27,21 +27,19 @@ TEST_F(MergingTest, UnorderedMerging) {
     using ::mai::core::Tag;
     using ::mai::core::KeyBoundle;
     
-    auto t1 = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13, env_->GetLowLevelAllocator()));
+    auto t1 = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
     t1->Put("k1", "v1", 1, Tag::kFlagValue);
     t1->Put("k1", "v2", 2, Tag::kFlagValue);
     t1->Put("k1", "v3", 3, Tag::kFlagValue);
     
-    auto t2 = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13, env_->GetLowLevelAllocator()));
+    auto t2 = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
     t2->Put("k1", "v4", 4, Tag::kFlagValue);
     t2->Put("k2", "v5", 5, Tag::kFlagValue);
     t2->Put("k3", "v6", 6, Tag::kFlagValue);
     
     Iterator *children[2] = {t1->NewIterator(), t2->NewIterator()};
     std::unique_ptr<Iterator>
-    merger(Merging::NewUnorderedMergingIterator(ikcmp_.get(), 13, children,
-                                                arraysize(children),
-                                                env_->GetLowLevelAllocator()));
+    merger(Merging::NewUnorderedMergingIterator(ikcmp_.get(), 13, children, arraysize(children)));
 
     int n = 0;
     for (merger->SeekToFirst(); merger->Valid(); merger->Next()) {
@@ -70,12 +68,12 @@ TEST_F(MergingTest, UnorderedToMergingIterator) {
     using ::mai::core::Tag;
     using ::mai::core::KeyBoundle;
     
-    auto t1 = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13, env_->GetLowLevelAllocator()));
+    auto t1 = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
     t1->Put("k1", "v1", 1, Tag::kFlagValue);
     t1->Put("k1", "v2", 2, Tag::kFlagValue);
     t1->Put("k1", "v3", 3, Tag::kFlagValue);
     
-    auto t2 = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13, env_->GetLowLevelAllocator()));
+    auto t2 = base::MakeRef(new UnorderedMemoryTable(ikcmp_.get(), 13));
     t2->Put("k1", "v4", 4, Tag::kFlagValue);
     t2->Put("k2", "v5", 5, Tag::kFlagValue);
     t2->Put("k3", "v6", 6, Tag::kFlagValue);
@@ -83,8 +81,7 @@ TEST_F(MergingTest, UnorderedToMergingIterator) {
     Iterator *children[2] = {t1->NewIterator(), t2->NewIterator()};
     
     std::unique_ptr<Iterator>
-    merger(Merging::NewMergingIterator(ikcmp_.get(), children,
-                                       arraysize(children)));
+    merger(Merging::NewMergingIterator(ikcmp_.get(), children, arraysize(children)));
 
     int n = 0;
     for (merger->SeekToFirst(); merger->Valid(); merger->Next()) {

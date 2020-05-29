@@ -16,8 +16,7 @@ struct Merging final {
     
     static Iterator *NewUnorderedMergingIterator(const InternalKeyComparator *ikmp,
                                                  int tmp_initial_slots,
-                                                 Iterator **children, size_t n,
-                                                 Allocator *low_level_allocator);
+                                                 Iterator **children, size_t n);
     
     static Iterator *NewTempTableMergingIteraotr(MemoryTable *tmp_table,
                                                  Iterator **children, size_t n);

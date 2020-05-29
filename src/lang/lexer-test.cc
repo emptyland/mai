@@ -10,9 +10,7 @@ namespace lang {
 
 class LexerTest : public ::testing::Test {
 public:
-    LexerTest()
-        : arena_(Env::Default()->GetLowLevelAllocator())
-        , lexer_(&arena_, &feedback_) {}
+    LexerTest(): lexer_(&arena_, &feedback_) {}
     
     MockFeedback feedback_;
     base::StandaloneArena arena_;

@@ -32,7 +32,7 @@ public:
 using ::mai::core::Tag;
     
 TEST_F(WriteBatchWithIndexTest, AddOrUpdate) {
-    WriteBatchWithIndex batch(env_->GetLowLevelAllocator());
+    WriteBatchWithIndex batch;
     
     batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaaa", "bbbb");
     batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaab", "bbbb");
@@ -47,7 +47,7 @@ TEST_F(WriteBatchWithIndexTest, AddOrUpdate) {
 }
     
 TEST_F(WriteBatchWithIndexTest, DeletionEntries) {
-    WriteBatchWithIndex batch(env_->GetLowLevelAllocator());
+    WriteBatchWithIndex batch;
     
     batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaaa", "bbbb");
     batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaab", "bbbb");
@@ -70,7 +70,7 @@ TEST_F(WriteBatchWithIndexTest, DeletionEntries) {
 }
     
 TEST_F(WriteBatchWithIndexTest, Iterate) {
-    WriteBatchWithIndex batch(env_->GetLowLevelAllocator());
+    WriteBatchWithIndex batch;
     
     batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaaa", "bbbb");
     batch.AddOrUpdate(mock_cf0_, Tag::kFlagValue, "aaab", "bbbb");

@@ -110,7 +110,7 @@ Error Isolate::Compile(const std::string &dir) {
     
     Function *init0_fun = nullptr;
     ErrorFeedback feedback;
-    base::StandaloneArena arena(env_->GetLowLevelAllocator());
+    base::StandaloneArena arena;
     if (auto rs = Compiler::CompileInterpretion(this, dir, &feedback, &init0_fun, &arena); !rs) {
         return rs;
     }

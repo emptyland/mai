@@ -125,13 +125,10 @@ void ColumnFamilyImpl::MakeImmutablePipeline(Factory *factory,
                                     mutable_->ApproximateConflictFactor(),
                                     Config::kLimitMinNumberSlots);
     DCHECK_GE(new_num_slots, Config::kLimitMinNumberSlots);
-    mutable_ = factory->NewMemoryTable(&ikcmp_,
-                                       owns_->env()->GetLowLevelAllocator(),
-                                       options_.use_unordered_table,
-                                       new_num_slots);
+    mutable_ = factory->NewMemoryTable(&ikcmp_, options_.use_unordered_table, new_num_slots);
     last_num_slots_ = new_num_slots;
 }
-    
+
 void ColumnFamilyImpl::Append(Version *version) {
     // add linked list
     version->next_ = dummy_versions_;
@@ -230,9 +227,7 @@ void ColumnFamilyImpl::SetupOtherInputs(CompactionContext *ctx) {
 
 Error ColumnFamilyImpl::Install(Factory *factory) {
     // TODO:
-    mutable_ = factory->NewMemoryTable(&ikcmp_,
-                                       owns_->env()->GetLowLevelAllocator(),
-                                       options_.use_unordered_table,
+    mutable_ = factory->NewMemoryTable(&ikcmp_, options_.use_unordered_table,
                                        options_.number_of_hash_slots);
     std::string cfdir = GetDir();
     Error rs = owns_->env()->MakeDirectory(cfdir, false);

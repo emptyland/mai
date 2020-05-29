@@ -20,8 +20,7 @@ namespace lang {
 class BytecodeGeneratorTest : public test::IsolateInitializer {
 public:
     BytecodeGeneratorTest()
-        : arena_(Env::Default()->GetLowLevelAllocator())
-        , env_(Env::Default())
+        : env_(Env::Default())
         , resolver_(env_, &arena_, &feedback_, {})
         , checker_(&arena_, &feedback_) {}
     

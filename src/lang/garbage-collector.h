@@ -2,6 +2,7 @@
 #ifndef MAI_LANG_GARBAGE_COLLECTOR_H_
 #define MAI_LANG_GARBAGE_COLLECTOR_H_
 
+#include "base/spin-locking.h"
 #include "base/arenas.h"
 #include "base/base.h"
 #include <string.h>
@@ -122,25 +123,24 @@ public:
         kDeletion,
     };
     
-    struct RememberNode {
+    static const int kMaxHeight = 12;
+    static const int kBranching = 4;
+    
+    struct Node {
         RememberRecord record;
         Tag tag;
-        std::atomic<RememberNode *> next[1];
-        
-        RememberNode *barrier_next(int i) const {
-            return next[i].load(std::memory_order_acquire);
-        }
-        void barrier_set_next(int i, RememberNode *node) {
-            next[i].store(node, std::memory_order_release);
-        }
-        RememberNode *nobarrier_next(int i) const {
-            return next[i].load(std::memory_order_relaxed);
-        }
-        void nobarrier_set_next(int i, RememberNode *node) {
-            next[i].store(node, std::memory_order_relaxed);
-        }
-    }; // struct RememberNode
+        Node *next[1];
+    }; // struct Node
     
+    struct Bucket {
+        base::SpinMutex mutex;
+        int max_height;
+        union {
+            Node head;
+            char dummy[sizeof(Node) + sizeof(Node*) * kMaxHeight];
+        }; // union
+    }; // struct Bucket
+
     class Iterator {
     public:
         Iterator(const RememberSet *owns): owns_(owns) {}
@@ -156,17 +156,15 @@ public:
     private:
         const RememberSet *const owns_;
         size_t bucket_ = 0;
-        RememberNode *node_ = nullptr;
+        Node *node_ = nullptr;
     }; // class Iterator
-    
-    static const int kMaxHeight = 12;
-    static const int kBranching = 4;
 
-    RememberSet(Allocator *lla, size_t n_buckets);
-    
-    void Put(Any *host, Any **address) { Append(host, address, kRecord); }
 
-    void Delete(Any **address) { Append(nullptr, address, kDeletion); }
+    RememberSet(size_t n_buckets);
+    
+    void Put(Any *host, Any **address) { Insert(host, address, kRecord); }
+
+    void Delete(Any **address) { Insert(nullptr, address, kDeletion); }
 
     size_t size() const { return size_.load(std::memory_order_acquire); }
     
@@ -178,38 +176,33 @@ private:
         return (reinterpret_cast<uintptr_t>(address) >> 2) & ((1u << buckets_shift_) - 1);
     }
     
-    void Append(Any *host, Any **address, Tag tag);
+    void Insert(Any *host, Any **address, Tag tag);
     
     int Compare(const RememberRecord &lhs, const RememberRecord &rhs) const;
     
-    RememberNode *NewNode(const RememberRecord &key, Tag tag, int height);
-    
-    RememberNode *NewBucket(int height);
-    
-    RememberNode *FindGreaterOrEqual(const RememberRecord &key, RememberNode** prev,
-                                     RememberNode *head) const;
+    Node *NewNode(const RememberRecord &key, Tag tag, int height);
+
+    Node *FindGreaterOrEqual(const RememberRecord &key, Node** prev, Bucket *bucket) const;
     
     bool Equal(const RememberRecord &lhs, const RememberRecord &rhs) const {
         return Compare(lhs, rhs) == 0;
     }
     
-    bool KeyIsAfterNode(const RememberRecord &key, RememberNode *n) const {
+    bool KeyIsAfterNode(const RememberRecord &key, Node *n) const {
         // NULL n is considered infinite
         return (n != nullptr) && (Compare(n->record, key) < 0);
     }
     
     int RandomHeight() {
         int height = 1;
-        while (height < kMaxHeight && ::rand() % 16 == 0) {
+        while (height < kMaxHeight && (::rand() % kBranching) == 0) {
             height++;
         }
         DCHECK_GT(height, 0);
         DCHECK_LE(height, kMaxHeight);
         return height;
     }
-    
-    int max_height() const { return max_height_.load(std::memory_order_relaxed); }
-    
+
     base::StandaloneArena arena_;
     
     // Remember set record for old-generation -> new-generation
@@ -218,12 +211,9 @@ private:
 
     // Size of records
     std::atomic<size_t> size_ = 0;
-    
-    // Max Height for skip list
-    std::atomic<int> max_height_ = 1;
 
     // Bucket array
-    RememberNode **buckets_;
+    Bucket *buckets_;
     int buckets_shift_;
 }; // class RememberSet
 
@@ -274,8 +264,8 @@ protected:
 
 inline void RememberSet::Iterator::SeekToFirst() {
     for (size_t i = 0; i < owns_->buckets_size(); i++) {
-        if (owns_->buckets_[i]->next[0]) {
-            node_ = owns_->buckets_[i]->next[0];
+        if (owns_->buckets_[i].head.next[0]) {
+            node_ = owns_->buckets_[i].head.next[0];
             bucket_ = i;
             break;
         }
@@ -286,8 +276,8 @@ inline void RememberSet::Iterator::Next() {
     node_ = node_->next[0];
     if (!node_) {
         while (++bucket_ < owns_->buckets_size()) {
-            if (owns_->buckets_[bucket_]->next[0]) {
-                node_ = owns_->buckets_[bucket_]->next[0];
+            if (owns_->buckets_[bucket_].head.next[0]) {
+                node_ = owns_->buckets_[bucket_].head.next[0];
                 break;
             }
         }

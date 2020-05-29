@@ -17,9 +17,7 @@ class InternalKeyComparator;
     
 class UnorderedMemoryTable final : public MemoryTable {
 public:
-    UnorderedMemoryTable(const InternalKeyComparator *ikcmp,
-                         int initial_slot,
-                         Allocator *low_level_alloc);
+    UnorderedMemoryTable(const InternalKeyComparator *ikcmp, int initial_slot);
     virtual ~UnorderedMemoryTable();
     
     virtual void Put(std::string_view key, std::string_view value,

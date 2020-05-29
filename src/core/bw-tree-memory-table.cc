@@ -44,10 +44,8 @@ private:
     Error error_;
 }; // class BwTreeMemoryTable::IteratorImpl
     
-BwTreeMemoryTable::BwTreeMemoryTable(const InternalKeyComparator *ikcmp, Env *env,
-                                     Allocator *ll_allocator)
+BwTreeMemoryTable::BwTreeMemoryTable(const InternalKeyComparator *ikcmp, Env *env)
     : n_entries_(0)
-    , arena_(ll_allocator)
     , table_(KeyComparator{ikcmp}, 10, 31, env) {
 }
 

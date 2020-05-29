@@ -3,6 +3,7 @@
 #include "test/isolate-initializer.h"
 #include "base/slice.h"
 #include "gtest/gtest.h"
+#include <thread>
 
 namespace mai {
 
@@ -22,7 +23,7 @@ public:
 
 
 TEST_F(GarbageCollectorTest, RememberSetSanity) {
-    RememberSet rset(isolate_->env()->GetLowLevelAllocator(), 16);
+    RememberSet rset(16);
     ASSERT_EQ(16, rset.buckets_size());
     ASSERT_EQ(0, rset.size());
     
@@ -60,7 +61,7 @@ TEST_F(GarbageCollectorTest, RememberSetSanity) {
 }
 
 TEST_F(GarbageCollectorTest, RememberSetMultiVersions) {
-    RememberSet rset(isolate_->env()->GetLowLevelAllocator(), 16);
+    RememberSet rset(16);
     ASSERT_EQ(16, rset.buckets_size());
     ASSERT_EQ(0, rset.size());
     
@@ -89,6 +90,69 @@ TEST_F(GarbageCollectorTest, RememberSetMultiVersions) {
     ASSERT_EQ(bit_cast<Any **>(1UL * 4), iter->address);
     ASSERT_EQ(0, iter->seuqnce_number);
     ASSERT_TRUE(iter.is_record());
+}
+
+TEST_F(GarbageCollectorTest, RememberSetLargeInsertion) {
+    RememberSet rset(16);
+    ASSERT_EQ(16, rset.buckets_size());
+    ASSERT_EQ(0, rset.size());
+    
+    std::set<Any **> unique_keys;
+    
+    Any *host = bit_cast<Any *>(1);
+    for (int i = 0; i < 10000; i++) {
+        auto key = bit_cast<Any **>(i * 4UL);
+        rset.Put(host, key);
+        unique_keys.insert(key);
+    }
+    ASSERT_EQ(10000, rset.size());
+    
+    RememberSet::Iterator iter(&rset);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        unique_keys.erase(iter->address);
+    }
+    ASSERT_TRUE(unique_keys.empty());
+}
+
+TEST_F(GarbageCollectorTest, RememberSetMultiThreading) {
+    RememberSet rset(16);
+    Any *host = bit_cast<Any *>(1);
+    
+    std::thread th1([&rset, host] () {
+        for (int i = 0; i < 10000; i++) {
+            rset.Put(host, bit_cast<Any **>(i * 4UL));
+        }
+    });
+    std::thread th2([&rset, host] () {
+        for (int i = 10000; i < 20000; i++) {
+            rset.Put(host, bit_cast<Any **>(i * 4UL));
+        }
+    });
+    std::thread th3([&rset, host] () {
+        for (int i = 20000; i < 30000; i++) {
+            rset.Put(host, bit_cast<Any **>(i * 4UL));
+        }
+    });
+    std::thread th4([&rset, host] () {
+        for (int i = 30000; i < 40000; i++) {
+            rset.Put(host, bit_cast<Any **>(i * 4UL));
+        }
+    });
+    th1.join();
+    th2.join();
+    th3.join();
+    th4.join();
+    ASSERT_EQ(40000, rset.size());
+    
+    std::set<Any **> unique_keys;
+    for (int i = 0; i < 40000; i++) {
+        unique_keys.insert(bit_cast<Any **>(i * 4UL));
+    }
+    RememberSet::Iterator iter(&rset);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        unique_keys.erase(iter->address);
+    }
+    ASSERT_TRUE(unique_keys.empty());
 }
 
 } // namespace lang

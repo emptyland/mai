@@ -48,10 +48,8 @@ private:
     Error error_;
 }; // class UnorderedMemoryTable::IteratorImpl
     
-OrderedMemoryTable::OrderedMemoryTable(const InternalKeyComparator *ikcmp,
-                                       Allocator *ll_allocator)
-    : arena_(ll_allocator)
-    , table_(KeyComparator{ikcmp}, &arena_)
+OrderedMemoryTable::OrderedMemoryTable(const InternalKeyComparator *ikcmp)
+    : table_(KeyComparator{ikcmp}, &arena_)
     , n_entries_(0) {
 }
 

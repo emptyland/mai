@@ -18,7 +18,7 @@ public:
     using IntSkipList = SkipList<int, std::function<int (int, int)>>;
     
     void SetUp() override {
-        arena_.reset(new base::StandaloneArena(Env::Default()->GetLowLevelAllocator()));
+        arena_.reset(new base::StandaloneArena);
     }
 
     void Fill(int k, IntSkipList *list) {

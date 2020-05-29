@@ -93,10 +93,8 @@ private:
     using StandaloneArena = ::mai::base::StandaloneArena;
     
     struct TableBoundle : public base::ReferenceCounted<TableBoundle> {
-        TableBoundle(Allocator *low_level_allocator,
-                     size_t slots, KeyComparator cmp)
-            : arena(low_level_allocator)
-            , table(slots, cmp, &arena) {}
+        TableBoundle(size_t slots, KeyComparator cmp)
+            : table(slots, cmp, &arena) {}
         float conflict_factor() const {
             return static_cast<float>(table.n_entries()) /
                    static_cast<float>(table.n_slots());

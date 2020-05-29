@@ -20,15 +20,12 @@ public:
     virtual ~FactoryImpl() {}
     
     virtual core::MemoryTable *
-    NewMemoryTable(const core::InternalKeyComparator *ikcmp,
-                   Allocator *allocator, bool unordered,
+    NewMemoryTable(const core::InternalKeyComparator *ikcmp, bool unordered,
                    size_t initial_slots) override {
         if (unordered) {
-            return new core::UnorderedMemoryTable(ikcmp,
-                                                  static_cast<int>(initial_slots),
-                                                  allocator);
+            return new core::UnorderedMemoryTable(ikcmp, static_cast<int>(initial_slots));
         } else {
-            return new core::OrderedMemoryTable(ikcmp, allocator);
+            return new core::OrderedMemoryTable(ikcmp);
         }
     }
     

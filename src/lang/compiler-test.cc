@@ -12,9 +12,7 @@ namespace lang {
 
 class CompilerTest : public ::testing::Test {
 public:
-    CompilerTest()
-        : arena_(Env::Default()->GetLowLevelAllocator())
-        , env_(Env::Default()) {}
+    CompilerTest(): env_(Env::Default()) {}
     
     MockFeedback feedback_;
     base::StandaloneArena arena_;

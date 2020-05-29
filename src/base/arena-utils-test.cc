@@ -9,8 +9,7 @@ namespace base {
     
 class ArenaUtilsTest : public ::testing::Test {
 public:
-    ArenaUtilsTest()
-        : arena_(env_->GetLowLevelAllocator()) {}
+    ArenaUtilsTest() {}
     
     Env *env_ = Env::Default();
     base::StandaloneArena arena_;
