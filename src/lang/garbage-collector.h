@@ -32,8 +32,6 @@ struct RememberRecord {
     Any **address; // Write to address
 }; //struct RememberRecord
 
-using RememberMap = std::map<void *, RememberRecord>;
-
 struct GarbageCollectionHistogram {
     size_t collected_bytes  = 0;
     size_t collected_objs   = 0;
@@ -52,10 +50,8 @@ public:
         kDone,
     };
     
-    GarbageCollector(Isolate *isolate, float minor_gc_threshold_rate, float major_gc_threshold_rate)
-        : isolate_(isolate)
-        , minor_gc_threshold_rate_(minor_gc_threshold_rate)
-        , major_gc_threshold_rate_(major_gc_threshold_rate) {}
+    GarbageCollector(Isolate *isolate, float minor_gc_threshold_rate, float major_gc_threshold_rate);
+    ~GarbageCollector();
 
     DEF_VAL_PROP_RW(size_t, latest_minor_remaining_size);
     
@@ -63,6 +59,8 @@ public:
     void set_state(State state) { state_.store(state, std::memory_order_release); }
     
     uint64_t tick() const { return tick_.load(std::memory_order_acquire); }
+
+    RememberSet *remember_set() const { return remember_set_.get(); }
     
     bool AcquireState(State expect, State state) {
         return state_.compare_exchange_strong(expect, state);
@@ -76,13 +74,8 @@ public:
     void MajorCollect();
     void FullCollect();
 
-    uint64_t NextRememberRecordSequanceNumber() { return remember_record_sequance_.fetch_add(1); }
-    
-    //const RememberSet &MergeRememberSet();
-    RememberMap MergeRememberSet();
-
-    void PurgeRememberSet(const std::set<void *> &keys);
-    void PurgeRememberSet();
+    inline void PurgeRememberSet(const std::set<Any **> &keys);
+    inline void PurgeRememberSet();
     
     void InvalidateHeapGuards(Address guard0, Address guard1);
 
@@ -96,11 +89,7 @@ private:
     const float major_gc_threshold_rate_;
     
     // Remember set
-    //RememberSet remember_set_;
-    
-    // Remember set record for old-generation -> new-generation
-    // Remember record version number
-    std::atomic<uint64_t> remember_record_sequance_ = 0;
+    std::unique_ptr<RememberSet> remember_set_;
     
     // State of GC progress
     std::atomic<State> state_ = kIdle;
@@ -110,9 +99,6 @@ private:
 
     // Latest minor GC remaining bytes
     size_t latest_minor_remaining_size_ = 0;
-    
-    // Latest remember set size
-    size_t latest_remember_set_size_ = 0;
 }; // class GarbageCollector
 
 class RememberSet {
@@ -165,6 +151,8 @@ public:
     void Put(Any *host, Any **address) { Insert(host, address, kRecord); }
 
     void Delete(Any **address) { Insert(nullptr, address, kDeletion); }
+    
+    void Purge(size_t n_buckets);
 
     size_t size() const { return size_.load(std::memory_order_acquire); }
     
@@ -178,7 +166,12 @@ private:
     
     void Insert(Any *host, Any **address, Tag tag);
     
-    int Compare(const RememberRecord &lhs, const RememberRecord &rhs) const;
+    intptr_t Compare(const RememberRecord &lhs, const RememberRecord &rhs) const {
+        intptr_t diff = reinterpret_cast<intptr_t>(lhs.address) -
+                        reinterpret_cast<intptr_t>(rhs.address);
+        return !diff ? static_cast<intptr_t>(rhs.seuqnce_number) -
+                       static_cast<intptr_t>(lhs.seuqnce_number) : diff;
+    }
     
     Node *NewNode(const RememberRecord &key, Tag tag, int height);
 
@@ -261,6 +254,13 @@ protected:
     std::stack<Any *> gray_;
 }; // class PartialMarkingPolicy
 
+inline void GarbageCollector::PurgeRememberSet(const std::set<Any **> &keys) {
+    for (Any **key : keys) { remember_set_->Delete(key); }
+}
+
+inline void GarbageCollector::PurgeRememberSet() {
+    remember_set_->Purge(remember_set_->buckets_size());
+}
 
 inline void RememberSet::Iterator::SeekToFirst() {
     for (size_t i = 0; i < owns_->buckets_size(); i++) {

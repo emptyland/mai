@@ -59,7 +59,6 @@ public:
     DEF_PTR_GETTER(Coroutine, running);
     DEF_VAL_GETTER(uint64_t, user_time);
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
-    DEF_VAL_PROP_RM(RememberMap, remember_set);
     DEF_VAL_GETTER(int, uncaught_count);
 
     // Get machine state
@@ -84,9 +83,7 @@ public:
     
     // Has in safepoint
     int InSafepoint() const { return safepoint_.load(std::memory_order_relaxed); }
-    
-    void PurgeRememberSet() { remember_set_.clear(); }
-    
+
     // Start Machine
     void Start();
     
@@ -188,9 +185,9 @@ public:
         for (size_t i = 0; i < n; i++) {
             if (STATE->heap()->InOldArea(host)) {
                 if (*address == nullptr) {
-                    remember_set_.erase(address);
+                    STATE->gc()->remember_set()->Delete(address);
                 } else if (STATE->heap()->InNewArea(*address)) {
-                    AddRememberRecord(host, address);
+                    STATE->gc()->remember_set()->Put(host, address);
                 }
             }
         }
@@ -225,16 +222,6 @@ private:
         ImplementMap<K> *obj = new (result.ptr())
             ImplementMap<K>(type, key, value, bucket_shift, random_seed, color_tags());
         return obj;
-    }
-
-    ALWAYS_INLINE void AddRememberRecord(Any *host, Any **address) {
-        DCHECK(ShouldRemember(host, *address));
-        RememberRecord rd {
-            STATE->gc()->NextRememberRecordSequanceNumber(),
-            host,
-            address,
-        };
-        remember_set_[address] = rd;
     }
 
     void Entry(); // Machine entry point
@@ -286,7 +273,6 @@ private:
     std::condition_variable cond_var_; // Condition variable for scheduling
     mutable std::mutex mutex_; // Total mutex
     std::thread thread_; // Thread object
-    RememberMap remember_set_; // [nested weak ref] Local remember set
     Tracing *tracing_ = nullptr; // Tracing for PGO
 }; // class Machine
 
