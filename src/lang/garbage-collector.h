@@ -99,9 +99,6 @@ private:
 
     // Latest minor GC remaining bytes
     size_t latest_minor_remaining_size_ = 0;
-    
-    // Latest remember set size
-    size_t latest_remember_set_size_ = 0;
 }; // class GarbageCollector
 
 class RememberSet {
@@ -169,7 +166,12 @@ private:
     
     void Insert(Any *host, Any **address, Tag tag);
     
-    int Compare(const RememberRecord &lhs, const RememberRecord &rhs) const;
+    intptr_t Compare(const RememberRecord &lhs, const RememberRecord &rhs) const {
+        intptr_t diff = reinterpret_cast<intptr_t>(lhs.address) -
+                        reinterpret_cast<intptr_t>(rhs.address);
+        return !diff ? static_cast<intptr_t>(rhs.seuqnce_number) -
+                       static_cast<intptr_t>(lhs.seuqnce_number) : diff;
+    }
     
     Node *NewNode(const RememberRecord &key, Tag tag, int height);
 

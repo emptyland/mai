@@ -35,7 +35,7 @@ GarbageCollector::State GarbageCollector::ShouldCollect() {
             kind = kMajorCollect;
         }
     }
-    if (latest_remember_set_size_ > 10240) {
+    if (remember_set_->size() > 10240) {
         kind = kFullCollect;
     }
     switch (isolate_->gc_option()) {
@@ -194,23 +194,23 @@ void RememberSet::Purge(size_t n_buckets) {
     size_ = 0;
 }
 
-int RememberSet::Compare(const RememberRecord &lhs, const RememberRecord &rhs) const {
-    int rv = 0;
-    if (lhs.address < rhs.address) {
-        rv = -1;
-    } else if (lhs.address > rhs.address) {
-        rv = 1;
-    }
-    if (rv != 0) {
-        return rv;
-    }
-    if (lhs.seuqnce_number < rhs.seuqnce_number) {
-        return 1;
-    } else if (lhs.seuqnce_number > rhs.seuqnce_number) {
-        return -1;
-    }
-    return 0;
-}
+//int RememberSet::Compare(const RememberRecord &lhs, const RememberRecord &rhs) const {
+//    int rv = 0;
+//    if (lhs.address < rhs.address) {
+//        rv = -1;
+//    } else if (lhs.address > rhs.address) {
+//        rv = 1;
+//    }
+//    if (rv != 0) {
+//        return rv;
+//    }
+//    if (lhs.seuqnce_number < rhs.seuqnce_number) {
+//        return 1;
+//    } else if (lhs.seuqnce_number > rhs.seuqnce_number) {
+//        return -1;
+//    }
+//    return 0;
+//}
 
 RememberSet::Node *RememberSet::NewNode(const RememberRecord &key, Tag tag, int height) {
     size_t request_size = sizeof(Node) + sizeof(std::atomic<Node *>) * (height - 1);
