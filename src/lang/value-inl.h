@@ -248,6 +248,19 @@ inline ImplementMap<K> *ImplementMap<K>::UnsafeRemove(K key) {
     return dummy;
 }
 
+template<class K>
+template<class V>
+inline ImplementMap<K> *ImplementMap<K>::UnsafePlus(K key, V value) {
+    ImplementMap<K> *copied = Clone(1);
+    return copied->UnsafePut(key, value);
+}
+
+template<class K>
+inline ImplementMap<K> *ImplementMap<K>::UnsafeMinus(K key) {
+    ImplementMap<K> *copied = Clone(-1);
+    return copied->UnsafeRemove(key);
+}
+
 template<class K, class V>
 inline void Map<K, V, false, true>::Iterate(ObjectVisitor *visitor) {
     typename ImplementMap<K>::Iterator iter(this);
