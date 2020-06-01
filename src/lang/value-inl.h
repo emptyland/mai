@@ -59,6 +59,10 @@ public:
     void Iterate(ObjectVisitor *visitor);
 
     String *ToString() const;
+    
+    uint32_t HashCode() const;
+
+    bool Equal(const Object *other) const;
 private:
     Address GetFieldAddress(const Field *field) {
         return reinterpret_cast<Address>(this) + field->offset();

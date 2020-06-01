@@ -202,7 +202,7 @@ private:
                                 DotExpression *ast);
     Result GeneratePropertyCast(const Class *clazz, int index, Value::Linkage linkage,
                                 DotExpression *ast);
-    
+
     void GenerateComparation(const Class *clazz, Operator op, int lhs, int rhs, ASTNode *ast);
     void GenerateOperation(const Operator op, const Class *lhs_type, int lhs_index,
                            Value::Linkage lhs_linkage, const Class *rhs_type, int rhs_index,
@@ -220,6 +220,13 @@ private:
     void GenerateArrayMinus(const Class *clazz, int lhs_index, Value::Linkage lhs_linkage,
                             const Class *key, int key_index, Value::Linkage key_linkage,
                             ASTNode *ast);
+    void GenerateMapPlus(const Class *clazz, int lhs_index, Value::Linkage lhs_linkage,
+                         const Class *key, int key_index, Value::Linkage key_linkage,
+                         const Class *value, int value_index, Value::Linkage value_linkage,
+                         ASTNode *ast);
+    void GenerateMapMinus(const Class *clazz, int lhs_index, Value::Linkage lhs_linkage,
+                          const Class *key, int key_index, Value::Linkage key_linkage,
+                          ASTNode *ast);
     void GenerateSend(const Class *clazz, int lhs, int rhs, ASTNode *ast);
 
     bool GenerateUnaryOperands(OperandContext *receiver, Expression *ast);

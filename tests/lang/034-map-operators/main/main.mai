@@ -2,8 +2,9 @@ package main
 
 fun main() {
     assertFuzzyPut()
-    // assertI8KeyMap()
-    // assertStringKeyMap()
+    assertI8KeyMap()
+    assertI16KeyMap()
+    assertStringKeyMap()
 }
 
 fun assertI8KeyMap() {
@@ -15,6 +16,59 @@ fun assertI8KeyMap() {
     for (i in 0, 255) {
         assert(m.containsKey(i.toU8), "fail key=$i")
     }
+
+    m[0u8] = 'hello'
+    assert(m.length == 255u, "fail ${m.length}")
+    assert(m[0u8] == 'hello', "fail ${m[0u8]}")
+
+    m += (0u8 -> 'world')
+    assert(m.length == 255u, "fail ${m.length}")
+    assert(m[0u8] == 'world', "fail ${m[0u8]}")
+
+    m -= 1u8
+    assert(m.length == 254u, "fail ${m.length}")
+    assert(!m.containsKey(1u8), "fail")
+}
+
+fun assertI16KeyMap() {
+    var m = map[u16, string](16)
+
+    m += (1u16 -> '1')
+    m += (2u16 -> '2')
+    assert(m.length == 2u, "fail ${m.length}")
+    assert(m[1u16] == '1', "fail")
+    assert(m[2u16] == '2', "fail")
+
+    m += (300u16 -> '300')
+    assert(m.length == 3u, "fail ${m.length}")
+    assert(m[300u16] == '300', "faiil")
+
+    m -= 3u16
+    assert(m.length == 3u, "fail ${m.length}")
+}
+
+fun assertStringKeyMap() {
+    var m = map[string, int](16)
+
+    m = m.put('1st', 100)
+    assert(m.length == 1u, "fail")
+    assert(m.containsKey('1st'), "fail")
+
+    m = m.put('2nd', 200)
+    assert(m.length == 2u, "fail")
+    assert(m.containsKey('2nd'), "fail")
+
+    m += ('3rd' -> 300)
+    assert(m.length == 3u, "fail")
+    assert(m.containsKey('3rd'), "fail")
+
+    m += ('4th' -> 400)
+    assert(m.length == 4u, "fail")
+    assert(m.containsKey('4th'), "fail")
+
+    m -= '1st'
+    assert(m.length == 3u, "fail")
+    assert(!m.containsKey('1st'), "fail")
 }
 
 fun assertFuzzyPut() {
@@ -30,14 +84,4 @@ fun assertFuzzyPut() {
         m = m.remove(i)
     }
     assert(m.length == 0u, "fail ${m.length}")
-}
-
-fun assertStringKeyMap() {
-    var m = map[string, int](16)
-    m = m.put('1st', 100)
-    assert(m.length == 1u, "fail")
-    assert(m.containsKey('1st'), "fail")
-    m = m.put('2nd', 200)
-    assert(m.length == 2u, "fail")
-    assert(m.containsKey('2nd'), "fail")
 }

@@ -1874,12 +1874,18 @@ ASTVisitor::Result BytecodeGenerator::VisitBinaryExpression(BinaryExpression *as
             }
             if (receiver.rhs_pair) {
                 GenerateOperation(ast->op(), receiver.lhs_type, receiver.lhs,
-                                  /*lhs_linkage*/Value::kStack, ast->rhs()->AsPairExpression(), ast);
+                                  Value::kStack/*lhs_linkage*/, ast->rhs()->AsPairExpression(), ast);
             } else if (receiver.lhs_type->IsArray()) {
                 if (ast->op().kind == Operator::kSub) {
-                    GenerateArrayMinus(receiver.lhs_type, receiver.lhs, /*lhs_linkage*/Value::kStack,
-                                       receiver.rhs_type, receiver.rhs, /*rhs_linkage*/Value::kStack,
+                    GenerateArrayMinus(receiver.lhs_type, receiver.lhs, Value::kStack/*lhs_linkage*/,
+                                       receiver.rhs_type, receiver.rhs, Value::kStack/*rhs_linkage*/,
                                        ast);
+                }
+            } else if (receiver.lhs_type->IsMap()) {
+                if (ast->op().kind == Operator::kSub) {
+                    GenerateMapMinus(receiver.lhs_type, receiver.lhs, Value::kStack/*lhs_linkage*/,
+                                     receiver.rhs_type, receiver.rhs, Value::kStack/*rhs_linkage*/,
+                                     ast);
                 }
             } else {
                 GenerateOperation(ast->op(), receiver.lhs_type, receiver.lhs, receiver.rhs, ast);
@@ -4428,6 +4434,13 @@ void BytecodeGenerator::GenerateOperation(const Operator op,
         } else {
             NOREACHED();
         }
+    } else if (lhs_type->IsMap()) {
+        if (op.kind == Operator::kSub) {
+            GenerateMapMinus(lhs_type, lhs, Value::kStack/*lhs_linkage*/, rhs_type, rhs,
+                             Value::kStack/*lhs_linkage*/, ast);
+        } else {
+            NOREACHED();
+        }
     } else {
         GenerateOperation(op, lhs_type, lhs, rhs, ast);
     }
@@ -4602,7 +4615,9 @@ bool BytecodeGenerator::GenerateOperation(const Operator op, const Class *type, 
         }
         switch (op.kind) {
             case Operator::kAdd:
-                TODO();
+                GenerateMapPlus(type, lhs_index, lhs_linkage, receiver.lhs_type, receiver.lhs,
+                                Value::kStack/*lhs_linkage*/, receiver.rhs_type, receiver.rhs,
+                                Value::kStack/*rhs_linkage*/, ast);
                 break;
             default:
                 NOREACHED();
@@ -4624,30 +4639,21 @@ void BytecodeGenerator::GenerateArrayAppend(const Class *clazz,
                                             int value_index,
                                             Value::Linkage value_linkage,
                                             ASTNode *ast) {
-    int argument_offset = kPointerSize; // array
+    int argument_offset = RoundUp(clazz->reference_size(), kStackSizeGranularity);
     MoveToArgumentIfNeeded(clazz, lhs_index, lhs_linkage, argument_offset, ast);
     argument_offset += RoundUp(value_type->reference_size(), kStackSizeGranularity);
     MoveToArgumentIfNeeded(value_type, value_index, value_linkage, argument_offset, ast);
     const char *external_name = nullptr;
     switch (clazz->id()) {
-        case kType_array:
-            external_name = "array::append";
+    #define DEFINE_FUN_NAME(name, ...) \
+        case kType_##name: \
+            external_name = #name "::append"; \
             break;
-        case kType_array8:
-            external_name = "array8::append";
-            break;
-        case kType_array16:
-            external_name = "array16::append";
-            break;
-        case kType_array32:
-            external_name = "array32::append";
-            break;
-        case kType_array64:
-            external_name = "array64::append";
-            break;
+        DECLARE_ARRAY_TYPES(DEFINE_FUN_NAME)
         default:
             NOREACHED();
             break;
+    #undef DEFINE_FUN_NAME
     }
     Value fun = FindOrInsertExternalFunction(external_name);
     DCHECK_EQ(Value::kGlobal, fun.linkage);
@@ -4665,7 +4671,7 @@ void BytecodeGenerator::GenerateArrayPlus(const Class *clazz,
                                           int value_index,
                                           Value::Linkage value_linkage,
                                           ASTNode *ast) {
-    int argument_offset = kPointerSize; // array
+    int argument_offset = RoundUp(clazz->reference_size(), kStackSizeGranularity);
     MoveToArgumentIfNeeded(clazz, lhs_index, lhs_linkage, argument_offset, ast);
     argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
     MoveToArgumentIfNeeded(key_type, key_index, key_linkage, argument_offset, ast);
@@ -4674,24 +4680,15 @@ void BytecodeGenerator::GenerateArrayPlus(const Class *clazz,
 
     const char *external_name = nullptr;
     switch (clazz->id()) {
-        case kType_array:
-            external_name = "array::plus";
+    #define DEFINE_FUN_NAME(name, ...) \
+        case kType_##name: \
+            external_name = #name "::plus"; \
             break;
-        case kType_array8:
-            external_name = "array8::plus";
-            break;
-        case kType_array16:
-            external_name = "array16::plus";
-            break;
-        case kType_array32:
-            external_name = "array32::plus";
-            break;
-        case kType_array64:
-            external_name = "array64::plus";
-            break;
+        DECLARE_ARRAY_TYPES(DEFINE_FUN_NAME)
         default:
             NOREACHED();
             break;
+    #undef DEFINE_FUN_NAME
     }
     Value fun = FindOrInsertExternalFunction(external_name);
     DCHECK_EQ(Value::kGlobal, fun.linkage);
@@ -4706,32 +4703,104 @@ void BytecodeGenerator::GenerateArrayMinus(const Class *clazz,
                                            int key_index,
                                            Value::Linkage key_linkage,
                                            ASTNode *ast) {
-    int argument_offset = kPointerSize; // array
+    int argument_offset = RoundUp(clazz->reference_size(), kStackSizeGranularity);
     MoveToArgumentIfNeeded(clazz, lhs_index, lhs_linkage, argument_offset, ast);
     argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
     MoveToArgumentIfNeeded(key_type, key_index, key_linkage, argument_offset, ast);
 
     const char *external_name = nullptr;
     switch (clazz->id()) {
-        case kType_array:
-            external_name = "array::minus";
+    #define DEFINE_FUN_NAME(name, ...) \
+        case kType_##name: \
+            external_name = #name "::minus"; \
             break;
-        case kType_array8:
-            external_name = "array8::minus";
-            break;
-        case kType_array16:
-            external_name = "array16::minus";
-            break;
-        case kType_array32:
-            external_name = "array32::minus";
-            break;
-        case kType_array64:
-            external_name = "array64::minus";
-            break;
+        DECLARE_ARRAY_TYPES(DEFINE_FUN_NAME)
         default:
             NOREACHED();
             break;
+    #undef DEFINE_FUN_NAME
     }
+    Value fun = FindOrInsertExternalFunction(external_name);
+    DCHECK_EQ(Value::kGlobal, fun.linkage);
+    LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
+}
+
+void BytecodeGenerator::GenerateMapPlus(const Class *clazz,
+                                        int lhs_index,
+                                        Value::Linkage lhs_linkage,
+                                        const Class *key_type,
+                                        int key_index,
+                                        Value::Linkage key_linkage,
+                                        const Class *value_type,
+                                        int value_index,
+                                        Value::Linkage value_linkage,
+                                        ASTNode *ast) {
+    int argument_offset = RoundUp(clazz->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(clazz, lhs_index, lhs_linkage, argument_offset, ast);
+    argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(key_type, key_index, key_linkage, argument_offset, ast);
+    argument_offset += RoundUp(value_type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(value_type, value_index, value_linkage, argument_offset, ast);
+    
+    const char *external_name = nullptr;
+    if (value_type->is_reference()) {
+        switch (clazz->id()) {
+        #define DEFINE_FUN_NAME(name, ...) \
+            case kType_##name: \
+                external_name = #name "::plusAny"; \
+                break;
+            DECLARE_MAP_TYPES(DEFINE_FUN_NAME)
+            default:
+                NOREACHED();
+                break;
+        #undef DEFINE_FUN_NAME
+        }
+    } else {
+        switch (clazz->id()) {
+        #define DEFINE_FUN_NAME(name, ...) \
+            case kType_##name: \
+                external_name = #name "::plus"; \
+                break;
+            DECLARE_MAP_TYPES(DEFINE_FUN_NAME)
+            default:
+                NOREACHED();
+                break;
+        #undef DEFINE_FUN_NAME
+        }
+    }
+    
+    Value fun = FindOrInsertExternalFunction(external_name);
+    DCHECK_EQ(Value::kGlobal, fun.linkage);
+    LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
+}
+
+void BytecodeGenerator::GenerateMapMinus(const Class *clazz,
+                                         int lhs_index,
+                                         Value::Linkage lhs_linkage,
+                                         const Class *key_type,
+                                         int key_index,
+                                         Value::Linkage key_linkage,
+                                         ASTNode *ast) {
+    int argument_offset = RoundUp(clazz->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(clazz, lhs_index, lhs_linkage, argument_offset, ast);
+    argument_offset += RoundUp(key_type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(key_type, key_index, key_linkage, argument_offset, ast);
+    
+    const char *external_name = nullptr;
+    switch (clazz->id()) {
+    #define DEFINE_FUN_NAME(name, ...) \
+        case kType_##name: \
+            external_name = #name "::minus"; \
+            break;
+        DECLARE_MAP_TYPES(DEFINE_FUN_NAME)
+        default:
+            NOREACHED();
+            break;
+    #undef DEFINE_FUN_NAME
+    }
+    
     Value fun = FindOrInsertExternalFunction(external_name);
     DCHECK_EQ(Value::kGlobal, fun.linkage);
     LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);

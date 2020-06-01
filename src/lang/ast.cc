@@ -374,6 +374,10 @@ bool TypeSign::IsUnsignedIntegral() const {
 
 bool TypeSign::IsFloating() const { return id() == Token::kF32 || id() == Token::kF64; }
 
+bool TypeSign::IsReference() const {
+    return !IsNumber() && id() != Token::kBool && id() != Token::kVoid;
+}
+
 bool TypeSign::Convertible(const TypeSign *rhs) const {
     switch (static_cast<Token::Kind>(id())) {
         case Token::kNil:

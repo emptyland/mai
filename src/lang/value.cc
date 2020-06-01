@@ -40,15 +40,6 @@ const int32_t Throwable::kOffsetStacktrace = MEMBER_OFFSET_OF(Throwable, stacktr
 const int32_t Panic::kOffsetCode = MEMBER_OFFSET_OF(Panic, code_);
 const int32_t Panic::kOffsetMessage = MEMBER_OFFSET_OF(Panic, message_);
 
-uint32_t Hash<String*>::operator () (String *value) const {
-    DCHECK(value != nullptr);
-    return base::Hash::Js(value->data(), value->length());
-}
-
-bool Hash<String*>::operator () (String *lhs, String *rhs) const {
-    return lhs->length() == rhs->length() && !::strncmp(lhs->data(), rhs->data(), lhs->length());
-}
-
 uint32_t Hash<Any*>::operator () (Any *value) const {
     DCHECK(value != nullptr);
     if (!value) {

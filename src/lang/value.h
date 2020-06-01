@@ -419,8 +419,18 @@ template<> struct Hash<double> {
 };
 
 template<> struct Hash<String*> {
-    uint32_t operator () (String *value) const;
-    bool operator () (String *lhs, String *rhs) const;
+    uint32_t operator () (String *value) const {
+        int hash = 1315423911;
+        for (auto s = value->data(); s < value->data() + value->length(); s++) {
+            hash ^= ((hash << 5) + (*s) + (hash >> 2));
+        }
+        return hash;
+    }
+
+    bool operator () (String *lhs, String *rhs) const {
+        return lhs->length() == rhs->length() && !::strncmp(lhs->data(), rhs->data(),
+                                                            lhs->length());
+    }
 };
 
 template<> struct Hash<Any*> {

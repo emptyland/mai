@@ -943,9 +943,9 @@ ASTVisitor::Result TypeChecker::VisitBinaryExpression(BinaryExpression *ast) /*o
         case Operator::kGreater:
         case Operator::kGreaterEqual:
             if (lhs->IsNumber() && lhs->Convertible(rhs)) {
-                // ok
+                // Number is ok
             } else if (lhs->id() == Token::kString && lhs->Convertible(rhs)) {
-                // ok
+                // String is ok
             } else {
                 error_feedback_->Printf(FindSourceLocation(ast), "Incorrect type: %s vs %s",
                                         lhs->ToString().c_str(), rhs->ToString().c_str());

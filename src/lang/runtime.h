@@ -119,6 +119,21 @@ class Function;
     V(Map16Remove, "map16::remove") \
     V(Map32Remove, "map32::remove") \
     V(Map64Remove, "map64::remove") \
+    V(MapPlus, "map::plus") \
+    V(Map8Plus, "map8::plus") \
+    V(Map16Plus, "map16::plus") \
+    V(Map32Plus, "map32::plus") \
+    V(Map64Plus, "map64::plus") \
+    V(MapPlusAny, "map::plusAny") \
+    V(Map8PlusAny, "map8::plusAny") \
+    V(Map16PlusAny, "map16::plusAny") \
+    V(Map32PlusAny, "map32::plusAny") \
+    V(Map64PlusAny, "map64::plusAny") \
+    V(MapMinus, "map::minus") \
+    V(Map8Minus, "map8::minus") \
+    V(Map16Minus, "map16::minus") \
+    V(Map32Minus, "map32::minus") \
+    V(Map64Minus, "map64::minus") \
     V(Near32, "lang.near32") \
     V(Near64, "lang.near64") \
     V(TestAs, "lang.testAs") \
@@ -286,6 +301,14 @@ struct Runtime {
     static AbstractMap *Map16Plus(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t value);
     static AbstractMap *Map32Plus(Handle<AbstractMap> map, uint32_t key, uintptr_t value);
     static AbstractMap *Map64Plus(Handle<AbstractMap> map, uint64_t key, uintptr_t value);
+
+    static AbstractMap *MapPlusAny(Handle<AbstractMap> map, Handle<Any> key, Handle<Any> value);
+    static AbstractMap *Map8PlusAny(Handle<ImplementMap<uint8_t>> map, uint8_t key,
+                                    Handle<Any> value);
+    static AbstractMap *Map16PlusAny(Handle<ImplementMap<uint16_t>> map, uint16_t key,
+                                     Handle<Any> value);
+    static AbstractMap *Map32PlusAny(Handle<AbstractMap> map, uint32_t key, Handle<Any> value);
+    static AbstractMap *Map64PlusAny(Handle<AbstractMap> map, uint64_t key, Handle<Any> value);
 
     static AbstractMap *MapMinus(Handle<AbstractMap> map, Handle<Any> key);
     static AbstractMap *Map8Minus(Handle<ImplementMap<uint8_t>> map, uint8_t key);

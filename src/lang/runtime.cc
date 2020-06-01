@@ -819,22 +819,6 @@ static inline ImplementMap<K> *TMapPut(const Handle<ImplementMap<K>> &map, K key
     });
 }
 
-template<class K>
-static inline ImplementMap<K> *
-TMapPlus(const Handle<ImplementMap<K>> &map, K key, uintptr_t value) {
-    return TMapOops(map, key, value, [](const auto &map, K key, uintptr_t value) {
-        return map->UnsafePlus(key, value);
-    });
-}
-
-//template<class K>
-//static inline ImplementMap<K> *
-//TMapPlus(const Handle<ImplementMap<K *>> &map, const Handle<K> &key, uintptr_t value) {
-//    return TMapOops(map, key, value, [](const auto &map, const auto &key, uintptr_t value) {
-//        return map->UnsafePlus(*key, value);
-//    });
-//}
-
 /*static*/ AbstractMap *Runtime::MapPut(Handle<AbstractMap> map, Handle<Any> key, uintptr_t value) {
     if (map.is_value_null()) {
         Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
@@ -896,14 +880,10 @@ Runtime::Map16Put(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t va
 }
 
 /*static*/ AbstractMap *Runtime::MapRemove(Handle<AbstractMap> map, Handle<Any> key) {
-    if (map.is_value_null()) {
-        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
-        return nullptr;
-    }
     if (key.is_value_null()) {
         return *map;
     }
-    
+
     SafepointScope safepoint_scope(STATE->gc());
     if (map->key_type()->id() == kType_string) {
         return static_cast<ImplementMap<String *> *>(*map)->UnsafeRemove(static_cast<String *>(*key));
@@ -962,58 +942,140 @@ AbstractMap *Runtime::MapPlus(Handle<AbstractMap> map, Handle<Any> key, uintptr_
     if (key.is_value_null()) {
         return *map;
     }
-
-    if (map->value_type()->is_reference()) {
-        HandleScope handle_scope(HandleScope::INITIALIZER);
-        Local<Any> handle(reinterpret_cast<Any *>(value));
-
-        SafepointScope safepoint_scope(STATE->gc());
-        if (map->key_type()->id() == kType_string) {
-            return Handle<ImplementMap<String *>>::Cast(map)->UnsafePlus(
-                static_cast<String *>(*key), *handle);
-        } else {
-            return Handle<ImplementMap<Any *>>::Cast(map)->UnsafePlus(*key, *handle);
-        }
-    } else {
-        SafepointScope safepoint_scope(STATE->gc());
-        if (map->key_type()->id() == kType_string) {
-            return Handle<ImplementMap<String *>>::Cast(map)->UnsafePlus(
-                static_cast<String *>(*key), value);
-        } else {
-            return Handle<ImplementMap<Any *>>::Cast(map)->UnsafePlus(*key, value);
-        }
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->value_type()->reference_size() < kPointerSize) {
+        value = (value & 0xffffffff00000000ul) >> 32;
     }
-    return nullptr;
-//    if (map->key_type()->id() == kType_string) {
-//        return TMapPlus(Handle<ImplementMap<String *>>::Cast(map), Handle<String>::Cast(key), value);
-//    } else {
-//        return TMapPlus(Handle<ImplementMap<Any *>>::Cast(map), key, value);
-//    }
+    if (map->key_type()->id() == kType_string) {
+        return Handle<ImplementMap<String *>>::Cast(map)->UnsafePlus(static_cast<String *>(*key),
+                                                                     value);
+    } else {
+        return Handle<ImplementMap<Any *>>::Cast(map)->UnsafePlus(*key, value);
+    }
 }
 
 /*static*/
 AbstractMap *Runtime::Map8Plus(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value) {
-    return TMapPlus(map, key, value);
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->value_type()->reference_size() < kPointerSize) {
+        value = (value & 0xffffffff00000000ul) >> 32;
+    }
+    return map->UnsafePlus(key, value);
 }
 
 /*static*/
 AbstractMap *Runtime::Map16Plus(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t value) {
-    return TMapPlus(map, key, value);
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->value_type()->reference_size() < kPointerSize) {
+        value = (value & 0xffffffff00000000ul) >> 32;
+    }
+    return map->UnsafePlus(key, value);
 }
 
 /*static*/ AbstractMap *Runtime::Map32Plus(Handle<AbstractMap> map, uint32_t key, uintptr_t value) {
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->value_type()->reference_size() < kPointerSize) {
+        value = (value & 0xffffffff00000000ul) >> 32;
+    }
     if (map->key_type()->IsFloating()) {
-        return TMapPlus(Handle<ImplementMap<float>>::Cast(map), bit_cast<float>(key), value);
+        return Handle<ImplementMap<float>>::Cast(map)->UnsafePlus(bit_cast<float>(key), value);
     } else {
-        return TMapPlus(Handle<ImplementMap<uint32_t>>::Cast(map), key, value);
+        return Handle<ImplementMap<uint32_t>>::Cast(map)->UnsafePlus(key, value);
     }
 }
 
 /*static*/ AbstractMap *Runtime::Map64Plus(Handle<AbstractMap> map, uint64_t key, uintptr_t value) {
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->value_type()->reference_size() < kPointerSize) {
+        value = (value & 0xffffffff00000000ul) >> 32;
+    }
     if (map->key_type()->IsFloating()) {
-        return TMapPlus(Handle<ImplementMap<double>>::Cast(map), bit_cast<double>(key), value);
+        return Handle<ImplementMap<double>>::Cast(map)->UnsafePlus(bit_cast<double>(key), value);
     } else {
-        return TMapPlus(Handle<ImplementMap<uint64_t>>::Cast(map), key, value);
+        return Handle<ImplementMap<uint64_t>>::Cast(map)->UnsafePlus(key, value);
+    }
+}
+
+/*static*/ AbstractMap *Runtime::MapPlusAny(Handle<AbstractMap> map, Handle<Any> key,
+                                            Handle<Any> value) {
+    if (key.is_value_null()) {
+        return *map;
+    }
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->key_type()->id() == kType_string) {
+        return Handle<ImplementMap<String *>>::Cast(map)->UnsafePlus(static_cast<String *>(*key),
+                                                                     *value);
+    } else {
+        return Handle<ImplementMap<Any *>>::Cast(map)->UnsafePlus(*key, *value);
+    }
+}
+
+/*static*/ AbstractMap *Runtime::Map8PlusAny(Handle<ImplementMap<uint8_t>> map, uint8_t key,
+                                             Handle<Any> value) {
+    SafepointScope safepoint_scope(STATE->gc());
+    return map->UnsafePlus(key, *value);
+}
+
+/*static*/ AbstractMap *Runtime::Map16PlusAny(Handle<ImplementMap<uint16_t>> map, uint16_t key,
+                                              Handle<Any> value) {
+    SafepointScope safepoint_scope(STATE->gc());
+    return map->UnsafePlus(key, *value);
+}
+
+/*static*/ AbstractMap *Runtime::Map32PlusAny(Handle<AbstractMap> map, uint32_t key,
+                                              Handle<Any> value) {
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->key_type()->IsFloating()) {
+        return Handle<ImplementMap<float>>::Cast(map)->UnsafePlus(bit_cast<float>(key), *value);
+    } else {
+        return Handle<ImplementMap<uint32_t>>::Cast(map)->UnsafePlus(key, *value);
+    }
+}
+
+/*static*/ AbstractMap *Runtime::Map64PlusAny(Handle<AbstractMap> map, uint64_t key,
+                                              Handle<Any> value) {
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->key_type()->IsFloating()) {
+        return Handle<ImplementMap<double>>::Cast(map)->UnsafePlus(bit_cast<double>(key), *value);
+    } else {
+        return Handle<ImplementMap<uint64_t>>::Cast(map)->UnsafePlus(key, *value);
+    }
+}
+
+/*static*/ AbstractMap *Runtime::MapMinus(Handle<AbstractMap> map, Handle<Any> key) {
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->key_type()->id() == kType_string) {
+        return Handle<ImplementMap<String *>>::Cast(map)->UnsafeMinus(static_cast<String *>(*key));
+    } else {
+        return Handle<ImplementMap<Any *>>::Cast(map)->UnsafeMinus(*key);
+    }
+}
+
+/*static*/ AbstractMap *Runtime::Map8Minus(Handle<ImplementMap<uint8_t>> map, uint8_t key) {
+    SafepointScope safepoint_scope(STATE->gc());
+    return map->UnsafeMinus(key);
+}
+
+/*static*/ AbstractMap *Runtime::Map16Minus(Handle<ImplementMap<uint16_t>> map, uint16_t key) {
+    SafepointScope safepoint_scope(STATE->gc());
+    return map->UnsafeMinus(key);
+}
+
+/*static*/ AbstractMap *Runtime::Map32Minus(Handle<AbstractMap> map, uint32_t key) {
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->key_type()->id() == kType_string) {
+        return Handle<ImplementMap<float>>::Cast(map)->UnsafeMinus(bit_cast<float>(key));
+    } else {
+        return Handle<ImplementMap<uint32_t>>::Cast(map)->UnsafeMinus(key);
+    }
+}
+
+/*static*/ AbstractMap *Runtime::Map64Minus(Handle<AbstractMap> map, uint64_t key) {
+    SafepointScope safepoint_scope(STATE->gc());
+    if (map->key_type()->id() == kType_string) {
+        return Handle<ImplementMap<double>>::Cast(map)->UnsafeMinus(bit_cast<double>(key));
+    } else {
+        return Handle<ImplementMap<uint64_t>>::Cast(map)->UnsafeMinus(key);
     }
 }
 

@@ -285,6 +285,7 @@ public:
     bool IsSignedIntegral() const;
     bool IsUnsignedIntegral() const;
     bool IsFloating() const;
+    bool IsReference() const;
     
 #if defined(DEBUG) || defined(_DEBUG)
     StructureDefinition *structure() const;
