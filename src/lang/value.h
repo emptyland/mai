@@ -491,6 +491,8 @@ public:
     template<class V> inline V UnsafeGet(K key);
     inline void UnsafeSet(K key, uintptr_t value);
     inline ImplementMap *UnsafeRemove(K key);
+    template<class V> inline ImplementMap *UnsafePlus(K key, V value);
+    inline ImplementMap *UnsafeMinus(K key);
     inline bool WriteBarrier(Any **address) { return Any::WriteBarrier(address); }
 
     friend class Machine;
