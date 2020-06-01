@@ -153,7 +153,6 @@ RememberSet::RememberSet(size_t n_buckets) {
 void RememberSet::Insert(Any *host, Any **address, Tag tag) {
     Node *bucket = &buckets_[HashCode(address)];
 
-    
     RememberRecord key{ record_sequance_.fetch_add(1), host, address };
     Node *node = NewNode(key, tag);
     
