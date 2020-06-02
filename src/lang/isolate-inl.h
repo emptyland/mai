@@ -2,11 +2,11 @@
 #ifndef MAI_LANG_ISOLATE_INL_H_
 #define MAI_LANG_ISOLATE_INL_H_
 
-#include "lang/isolate.h"
 #include "lang/factory.h"
-#include "lang/type-defs.h"
 #include "lang/metadata-space.h"
 #include "base/queue-macros.h"
+#include "mai/isolate.h"
+#include "mai/type-defs.h"
 #include "glog/logging.h"
 
 namespace mai {

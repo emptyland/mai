@@ -738,6 +738,30 @@ TEST_F(BytecodeGeneratorTest, RunNewMap) {
     ASSERT_EQ(0, isolate_->GetUncaughtCount());
 }
 
+TEST_F(BytecodeGeneratorTest, MapOperators) {
+    Define("034-map-operators");
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto err = Parse();
+    ASSERT_TRUE(err.ok()) << err.ToString();
+    ASSERT_TRUE(generator_->Prepare());
+    ASSERT_TRUE(generator_->Generate());
+    
+    auto value = generator_->FindValue("main.assertFuzzyBugfix1");
+    Local<Closure> fun(*isolate_->global_offset<Closure *>(value.index));
+    ASSERT_TRUE(fun.is_value_not_null());
+    ASSERT_TRUE(fun->is_mai_function());
+    ASSERT_FALSE(fun->is_cxx_function());
+    AssertFunction("assertFuzzyBugfix1", fun->function());
+    
+//    value = generator_->FindValue("main.newStringKeyMap");
+//    fun = *isolate_->global_offset<Closure *>(value.index);
+//    ASSERT_TRUE(fun.is_value_not_null());
+//    ASSERT_TRUE(fun->is_mai_function());
+//    ASSERT_FALSE(fun->is_cxx_function());
+//    AssertFunction("newStringKeyMap", fun->function());
+}
+
 TEST_F(BytecodeGeneratorTest, RunMapOperators) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
 

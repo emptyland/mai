@@ -1209,6 +1209,11 @@ ASTVisitor::Result BytecodeGenerator::GenerateMethodCalling(Value primary, CallE
         receiver->kind = method->is_native()? CallingReceiver::kNative : CallingReceiver::kBytecode;
         receiver->attributes = value.flags;
     }
+    if (method && method->should_tail_align()) {
+        DCHECK(!params.empty());
+        // Must Aligment to pointer size
+        arg_size += (kPointerSize - RoundUp(params.back()->reference_size(), kStackSizeGranularity));
+    }
     receiver->arguments_size = arg_size;
     receiver->ast = ast;
 
@@ -4743,6 +4748,8 @@ void BytecodeGenerator::GenerateMapPlus(const Class *clazz,
     argument_offset += RoundUp(value_type->reference_size(), kStackSizeGranularity);
     MoveToArgumentIfNeeded(value_type, value_index, value_linkage, argument_offset, ast);
     
+    // Alignment to pointer size
+    argument_offset += kPointerSize - RoundUp(value_type->reference_size(), kStackSizeGranularity);
     const char *external_name = nullptr;
     if (value_type->is_reference()) {
         switch (clazz->id()) {
@@ -5802,8 +5809,12 @@ void BytecodeGenerator::StaMapSet(const Class *clazz, int primary, const Class *
             NOREACHED();
             break;
     }
+
     argument_offset += RoundUp(value_type->reference_size(), kStackSizeGranularity);
     MoveToArgumentIfNeeded(value_type, receiver.lhs, Value::kStack, argument_offset, ast);
+    
+    // Must alignment to pointer
+    argument_offset += kPointerSize - RoundUp(value_type->reference_size(), kStackSizeGranularity);
     
     LdaIfNeeded(fun, ast);
     current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);

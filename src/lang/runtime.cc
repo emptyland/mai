@@ -742,14 +742,9 @@ static inline int TMapContainsKey(ImplementMap<T> *map, T key) {
 
 template<class K, class V>
 static inline void TMapSet(ImplementMap<K> *map, K key, V value) {
-    if (!map) {
-        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
-        return;
-    }
     uintptr_t data = 0;
     if (map->value_type()->reference_size() < 8) {
-        data = (reinterpret_cast<uintptr_t>(value) & 0xffffffff00000000ul) >> 32;
-        
+        data = reinterpret_cast<uintptr_t>(value) >> 32;
     } else {
         data = reinterpret_cast<uintptr_t>(value);
     }
@@ -760,7 +755,7 @@ static inline void TMapSet(ImplementMap<K> *map, K key, V value) {
     if (key.is_value_null()) {
         return;
     }
-    if (map.is_value_not_null() && map->value_type()->id() == kType_string) {
+    if (map->key_type()->id() == kType_string) {
         TMapSet(static_cast<ImplementMap<String *> *>(*map), static_cast<String *>(*key), value);
     } else {
         TMapSet(static_cast<ImplementMap<Any *> *>(*map), *key, value);
@@ -806,7 +801,7 @@ static inline ImplementMap<K> *TMapOops(const Handle<ImplementMap<K>> &map, K ke
     } else {
         SafepointScope safepoint_scope(STATE->gc());
         if (map->value_type()->reference_size() < 8) {
-            value = (value & 0xffffffff00000000ul) >> 32;
+            value >>= 32;
         }
         return oops(map, key, value);
     }
@@ -842,7 +837,7 @@ static inline ImplementMap<K> *TMapPut(const Handle<ImplementMap<K>> &map, K key
     } else {
         SafepointScope safepoint_scope(STATE->gc());
         if (map->value_type()->reference_size() < 8) {
-            value = (value & 0xffffffff00000000ul) >> 32;
+            value >>= 32;
         }
         if (map->key_type()->id() == kType_string) {
             return Handle<ImplementMap<String *>>::Cast(map)->UnsafePut(static_cast<String *>(*key),
@@ -864,7 +859,7 @@ Runtime::Map16Put(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t va
 }
 
 /*static*/ AbstractMap *Runtime::Map32Put(Handle<AbstractMap> map, uint32_t key, uintptr_t value) {
-    if (map.is_value_not_null() && map->key_type()->IsFloating()) {
+    if (map->key_type()->IsFloating()) {
         return TMapPut(Handle<ImplementMap<float>>::Cast(map), bit_cast<float>(key), value);
     } else {
         return TMapPut(Handle<ImplementMap<uint32_t>>::Cast(map), key, value);
@@ -872,7 +867,7 @@ Runtime::Map16Put(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t va
 }
 
 /*static*/ AbstractMap *Runtime::Map64Put(Handle<AbstractMap> map, uint64_t key, uintptr_t value) {
-    if (map.is_value_not_null() && map->key_type()->IsFloating()) {
+    if (map->key_type()->IsFloating()) {
         return TMapPut(Handle<ImplementMap<double>>::Cast(map), bit_cast<double>(key), value);
     } else {
         return TMapPut(Handle<ImplementMap<uint64_t>>::Cast(map), key, value);
@@ -944,7 +939,7 @@ AbstractMap *Runtime::MapPlus(Handle<AbstractMap> map, Handle<Any> key, uintptr_
     }
     SafepointScope safepoint_scope(STATE->gc());
     if (map->value_type()->reference_size() < kPointerSize) {
-        value = (value & 0xffffffff00000000ul) >> 32;
+        value >>= 32;
     }
     if (map->key_type()->id() == kType_string) {
         return Handle<ImplementMap<String *>>::Cast(map)->UnsafePlus(static_cast<String *>(*key),
@@ -958,7 +953,7 @@ AbstractMap *Runtime::MapPlus(Handle<AbstractMap> map, Handle<Any> key, uintptr_
 AbstractMap *Runtime::Map8Plus(Handle<ImplementMap<uint8_t>> map, uint8_t key, uintptr_t value) {
     SafepointScope safepoint_scope(STATE->gc());
     if (map->value_type()->reference_size() < kPointerSize) {
-        value = (value & 0xffffffff00000000ul) >> 32;
+        value >>= 32;
     }
     return map->UnsafePlus(key, value);
 }
@@ -967,7 +962,7 @@ AbstractMap *Runtime::Map8Plus(Handle<ImplementMap<uint8_t>> map, uint8_t key, u
 AbstractMap *Runtime::Map16Plus(Handle<ImplementMap<uint16_t>> map, uint16_t key, uintptr_t value) {
     SafepointScope safepoint_scope(STATE->gc());
     if (map->value_type()->reference_size() < kPointerSize) {
-        value = (value & 0xffffffff00000000ul) >> 32;
+        value >>= 32;
     }
     return map->UnsafePlus(key, value);
 }
@@ -975,7 +970,7 @@ AbstractMap *Runtime::Map16Plus(Handle<ImplementMap<uint16_t>> map, uint16_t key
 /*static*/ AbstractMap *Runtime::Map32Plus(Handle<AbstractMap> map, uint32_t key, uintptr_t value) {
     SafepointScope safepoint_scope(STATE->gc());
     if (map->value_type()->reference_size() < kPointerSize) {
-        value = (value & 0xffffffff00000000ul) >> 32;
+        value >>= 32;
     }
     if (map->key_type()->IsFloating()) {
         return Handle<ImplementMap<float>>::Cast(map)->UnsafePlus(bit_cast<float>(key), value);
@@ -987,7 +982,7 @@ AbstractMap *Runtime::Map16Plus(Handle<ImplementMap<uint16_t>> map, uint16_t key
 /*static*/ AbstractMap *Runtime::Map64Plus(Handle<AbstractMap> map, uint64_t key, uintptr_t value) {
     SafepointScope safepoint_scope(STATE->gc());
     if (map->value_type()->reference_size() < kPointerSize) {
-        value = (value & 0xffffffff00000000ul) >> 32;
+        value >>= 32;
     }
     if (map->key_type()->IsFloating()) {
         return Handle<ImplementMap<double>>::Cast(map)->UnsafePlus(bit_cast<double>(key), value);

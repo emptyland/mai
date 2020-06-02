@@ -2,10 +2,10 @@
 #ifndef MAI_LANG_VALUE_INL_H_
 #define MAI_LANG_VALUE_INL_H_
 
-#include "lang/value.h"
 #include "lang/metadata.h"
 #include "lang/object-visitor.h"
 #include "base/base.h"
+#include "mai/value.h"
 #include "glog/logging.h"
 
 namespace mai {

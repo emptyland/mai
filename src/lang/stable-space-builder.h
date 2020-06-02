@@ -5,8 +5,8 @@
 #include "lang/stack-frame.h"
 #include "lang/value-inl.h"
 #include "lang/mm.h"
-#include "lang/type-defs.h"
 #include "base/hash.h"
+#include "mai/type-defs.h"
 #include <type_traits>
 #include <unordered_map>
 

@@ -1,7 +1,7 @@
 #ifndef MAI_LANG_ISOLATE_H_
 #define MAI_LANG_ISOLATE_H_
 
-#include "lang/type-defs.h"
+#include "mai/type-defs.h"
 #include "mai/env.h"
 #include "mai/error.h"
 #include <memory>

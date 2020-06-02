@@ -1101,6 +1101,7 @@ public:
 
     void EmitMove64(MacroAssembler *masm) override {
         InstrStackBAScope instr_scope(masm);
+        //__ Breakpoint();
         __ movq(rax, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetAToRBX();
         __ movq(Operand(rbp, rbx, times_2, 0), rax);

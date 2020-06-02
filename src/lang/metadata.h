@@ -2,9 +2,9 @@
 #ifndef MAI_LANG_METADATA_H_
 #define MAI_LANG_METADATA_H_
 
-#include "lang/type-defs.h"
 #include "lang/mm.h"
 #include "base/base.h"
+#include "mai/type-defs.h"
 #include "glog/logging.h"
 
 namespace mai {
@@ -178,6 +178,7 @@ public:
     static constexpr uint32_t kKindMask = 3;
     static constexpr uint32_t kNative = 1;
     static constexpr uint32_t kBytecode = 0;
+    static constexpr uint32_t kTailAlignBit = 4; // Should alignment tail argument?
     
     DEF_VAL_GETTER(MDStr, name);
     DEF_VAL_GETTER(uint32_t, tags);
@@ -185,6 +186,7 @@ public:
     
     bool is_native() const { return (tags_ & kKindMask) == kNative; }
     bool is_bytecode() const { return (tags_ & kKindMask) == kBytecode; }
+    bool should_tail_align() const { return tags_ & kTailAlignBit; }
     
     friend class Class;
     friend class ClassBuilder;

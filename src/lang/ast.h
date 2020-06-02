@@ -4,8 +4,8 @@
 
 #include "lang/syntax.h"
 #include "lang/mm.h"
-#include "lang/type-defs.h"
 #include "base/arena-utils.h"
+#include "mai/type-defs.h"
 
 namespace mai {
 

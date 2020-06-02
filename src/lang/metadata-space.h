@@ -5,8 +5,8 @@
 #include "lang/metadata.h"
 #include "lang/bytecode.h"
 #include "lang/space.h"
-#include "lang/type-defs.h"
 #include "base/hash.h"
+#include "mai/type-defs.h"
 #include <map>
 #include <shared_mutex>
 #include <unordered_map>

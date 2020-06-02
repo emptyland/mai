@@ -9,6 +9,11 @@
 			<key>orderHint</key>
 			<integer>2</integer>
 		</dict>
+		<key>mai-lang.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>4</integer>
+		</dict>
 		<key>mai-tests.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
@@ -43,6 +48,11 @@
 			<true/>
 		</dict>
 		<key>23DE17A421D07CD200479C23</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>23EF3A072484D51B00B55F88</key>
 		<dict>
 			<key>primary</key>
 			<true/>

@@ -2,11 +2,12 @@
 #ifndef MAI_LANG_VALUE_H_
 #define MAI_LANG_VALUE_H_
 
-#include "lang/type-defs.h"
-#include "lang/handle.h"
+#include "mai/type-defs.h"
+#include "mai/handle.h"
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
+#include <stddef.h>
 #include <vector>
 #include <type_traits>
 #include <string_view>
@@ -308,6 +309,7 @@ private:
     }
 }; // class String
 
+static_assert(sizeof(String) == sizeof(Array<char>), "incorrect size of String");
 
 class AbstractMap : public Any {
 public:
@@ -1250,7 +1252,7 @@ public:
     Local<String> message() const { return Local<String>(quickly_message()); }
 
     // Internal functions
-    inline String *quickly_message() const;
+    /*inline*/ String *quickly_message() const;
 
     // New a panic
     static Local<Panic> New(int code, Handle<String> message) {

@@ -269,7 +269,7 @@ Error MetadataSpace::Initialize() {
             .offset(ImplementMap<kind>::kOffsetEntries) \
         .End() \
         .method("put") \
-            .tags(Method::kNative) \
+            .tags(Method::kNative|Method::kTailAlignBit) \
             .fn(nullptr) \
         .End() \
         .method("remove") \

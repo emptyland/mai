@@ -1,7 +1,7 @@
 #include "lang/channel.h"
 #include "lang/value-inl.h"
-#include "lang/handle.h"
 #include "lang/machine.h"
+#include "mai/handle.h"
 #include "test/isolate-initializer.h"
 #include "gtest/gtest.h"
 

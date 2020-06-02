@@ -5,7 +5,8 @@ enable_language(CXX)
 enable_language(C)
 enable_language(ASM)
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -O0 -DDEBUG -D_DEBUG")
+#set(CMAKE_CXX_FLAGS "-std=c++17 -O0 -DDEBUG -D_DEBUG")
+set(CMAKE_CXX_FLAGS "-std=c++17 -O2")
 
 include_directories(
     include
@@ -195,6 +196,9 @@ set(UNIT_TEST_SOURCES
 set(DB_BENCHMARK_SOURCES
     ${PROJECT_SOURCE_DIR}/benchmark/benchmark-main.cc)
 
+set(LANG_DRIVER_SOURCES
+    ${PROJECT_SOURCE_DIR}/src/lang/main.cc)
+
 # libraries:
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build)
 set(BASE_LIB_NAME mai_base)
@@ -210,3 +214,7 @@ target_link_libraries(all-tests pthread dl ${BASE_LIB_NAME})
 # db-benchmark
 add_executable(db-benchmark ${DB_BENCHMARK_SOURCES})
 target_link_libraries(db-benchmark pthread dl ${BASE_LIB_NAME})
+
+# lang-driver
+add_executable(mai ${LANG_DRIVER_SOURCES})
+target_link_libraries(mai pthread dl ${BASE_LIB_NAME})
