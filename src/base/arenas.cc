@@ -50,25 +50,22 @@ void StandaloneArena::Purge(bool reinit) {
 }
     
 void *StandaloneArena::NewNormal(size_t size, size_t alignment) {
-    PageHead *page;
-    while ((page = current_.load(std::memory_order_acquire)) == kBusyFlag) {
-        std::this_thread::yield();
-    }
+    PageHead *page = current_.load(std::memory_order_acquire);
     size_t alloc_size = RoundUp(size, alignment);
     const char *const limit = reinterpret_cast<const char *>(page) + kPageSize;
     char *result = page->u.free.fetch_add(alloc_size);
     if (result + alloc_size > limit) {
-        current_.store(kBusyFlag, std::memory_order_release);
-        PageHead *root = page;
+        PageHead *head = page;
         page = NewPage(kPageSize);
         if (!page) {
             return nullptr;
         }
-        page->next = root;
         result = page->u.free.fetch_add(alloc_size);
-        current_.store(page, std::memory_order_relaxed);
-        root->u.free -= alloc_size;
-        
+        head->u.free -= alloc_size;
+        page->next.store(head, std::memory_order_relaxed);
+        while (!current_.compare_exchange_strong(head, page)) {
+            page->next.store(head, std::memory_order_relaxed);
+        }
         memory_usage_.fetch_add(kPageSize);
     }
     return result;

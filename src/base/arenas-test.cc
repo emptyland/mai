@@ -61,10 +61,11 @@ TEST_F(ArenaTest, ConcurrentNormalAllocation) {
     
     for (int i = 0; i < arraysize(worker_thrds); ++i) {
         worker_thrds[i] = std::thread([&](){
-            for (int j = 0; j < 1024; j++) {
+            for (int j = 0; j < 102400; j++) {
                 arena.NewNormal(1024, 4);
             }
         });
+        //std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     for (int i = 0; i < arraysize(worker_thrds); ++i) {
         worker_thrds[i].join();

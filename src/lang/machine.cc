@@ -25,16 +25,20 @@ Machine::Machine(int id, Scheduler *owner)
     top_slot_ = new HandleScopeSlot;
     top_slot_->scope = nullptr;
     top_slot_->prev  = nullptr;
-    top_slot_->base  = nullptr;
+    top_slot_->base  = static_cast<Address>(::malloc(kHandleBufferSize));
     top_slot_->end   = top_slot_->base;
-    top_slot_->limit = top_slot_->end;
+    top_slot_->limit = top_slot_->base + kHandleBufferSize;
 }
 
 Machine::~Machine() {
-    // TODO:
+    DCHECK(top_slot_->prev == nullptr);
+    ::free(top_slot_->base);
+    delete top_slot_;
+    
     while (!QUEUE_EMPTY(waitting_dummy_)) {
         auto x = waitting_dummy_->next();
         QUEUE_REMOVE(x);
+        x->set_state(Coroutine::kDead);
         delete x;
     }
     Coroutine::DeleteDummy(waitting_dummy_);
@@ -42,6 +46,7 @@ Machine::~Machine() {
     while (!QUEUE_EMPTY(runnable_dummy_)) {
         auto x = runnable_dummy_->next();
         QUEUE_REMOVE(x);
+        x->set_state(Coroutine::kDead);
         delete x;
     }
     Coroutine::DeleteDummy(runnable_dummy_);
