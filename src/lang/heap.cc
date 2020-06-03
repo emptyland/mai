@@ -106,7 +106,7 @@ Any *Heap::MoveNewSpaceObject(Any *object, bool promote) {
         if (!rv.ok()) {
             return nullptr;
         }
-        dest = rv.address();
+        dest = DCHECK_NOTNULL(rv.address());
     } else {
         SemiSpace *survie_area = new_space_->survive_area();
         dest = survie_area->AquireSpace(placed_size);

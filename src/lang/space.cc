@@ -77,11 +77,23 @@ AllocationResult OldSpace::AllocateLockless(size_t size) {
         QUEUE_INSERT_HEAD(dummy_, page);
     }
     used_size_ += request_size;
-    return AllocationResult(AllocationResult::OK, PageAllocate(page, request_size));
+    Address chunk = PageAllocate(page, request_size);
+    while (!chunk) {
+        page = GetOrNewFreePage();
+        if (!page) {
+            return AllocationResult(AllocationResult::OOM, nullptr);
+        }
+        QUEUE_INSERT_HEAD(dummy_, page);
+        chunk = PageAllocate(page, request_size);
+    }
+    return AllocationResult(AllocationResult::OK, chunk);
 }
 
 /*static*/ Address OldSpace::PageAllocate(Page *page, size_t request_size) {
     size_t fit = page->FindFitRegion(request_size, true/*complete*/);
+    if (fit >= Page::kMaxRegionChunks) {
+        return nullptr;
+    }
     Page::Chunk *chunk = DCHECK_NOTNULL(page->region(fit));
     Address address = reinterpret_cast<Address>(chunk);
     DCHECK_GE(chunk->size, request_size);

@@ -143,7 +143,7 @@ class OldSpace final : public Space {
 public:
     using Iterator = OldSpaceIterator;
     
-    OldSpace(Allocator *lla, int max_freed_pages = 10);
+    OldSpace(Allocator *lla, int max_freed_pages = 4);
     ~OldSpace();
     
     DEF_VAL_GETTER(int, allocated_pages);

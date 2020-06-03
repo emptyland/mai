@@ -227,12 +227,9 @@ void Machine::Park() {
     set_state(kSuspend);
 
     std::unique_lock<std::mutex> lock(mutex_);
-    owner_->PauseMe(this);
-    do {
-        // Waiting for resume
-        cond_var_.wait(lock);
-    } while (owner_->pause_request() > 0);
-    
+    // Waiting for resume
+    cond_var_.wait(lock);
+
     set_state(saved_state);
     suspend_request_.store(0, std::memory_order_release);
 }
@@ -246,6 +243,8 @@ void Machine::ExitHandleScope() {
         ::free(slot->base);
     }
     delete slot;
+    
+    //printf("[%d]exit: %p\n", id(), slot);
 }
 
 Address Machine::AdvanceHandleSlots(int n_slots) {

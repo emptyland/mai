@@ -8,9 +8,7 @@ namespace base {
 /*static*/ StandaloneArena::PageHead *const StandaloneArena::kBusyFlag
     = reinterpret_cast<StandaloneArena::PageHead *>(0x1);
     
-/*virtual*/ StandaloneArena::~StandaloneArena() {
-    Purge(false);
-}
+/*virtual*/ StandaloneArena::~StandaloneArena() { Purge(false); }
 
 /*virtual*/ void *StandaloneArena::Allocate(size_t size, size_t alignment) {
     void *chunk;

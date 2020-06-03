@@ -1,0 +1,20 @@
+package main
+
+fun main() {
+    val wg = WaitGroup(4)
+    for (i in 0, 4) {
+        run sanitizer(i, wg)
+    }
+    wg.wait()
+}
+
+fun sanitizer(id: int, wg: WaitGroup) {
+    println("[$id] coroutine run...")
+    var m = map[int, string](16)
+    for (i in 0, 100000) {
+        m = m.put(i, "v=$i")
+    }
+    println("[$id] done")
+    wg.done()
+}
+

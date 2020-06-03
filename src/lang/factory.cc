@@ -24,6 +24,10 @@ Factory::Factory()
 }
 
 Factory::~Factory() {
+    for (int i = NumberValueSlot::kIndexUnused + 2; i < NumberValueSlot::kMaxSlots; i++) {
+        delete[] cached_number_slots_[i].values;
+    }
+    delete[] cached_number_slots_[NumberValueSlot::kIndex_bool].values;
 }
 
 void Factory::Initialize() {

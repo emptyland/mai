@@ -753,19 +753,23 @@ TEST_F(BytecodeGeneratorTest, MapOperators) {
     ASSERT_TRUE(fun->is_mai_function());
     ASSERT_FALSE(fun->is_cxx_function());
     AssertFunction("assertFuzzyBugfix1", fun->function());
-    
-//    value = generator_->FindValue("main.newStringKeyMap");
-//    fun = *isolate_->global_offset<Closure *>(value.index);
-//    ASSERT_TRUE(fun.is_value_not_null());
-//    ASSERT_TRUE(fun->is_mai_function());
-//    ASSERT_FALSE(fun->is_cxx_function());
-//    AssertFunction("newStringKeyMap", fun->function());
 }
 
 TEST_F(BytecodeGeneratorTest, RunMapOperators) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
 
     auto rs = isolate_->Compile("tests/lang/034-map-operators");
+    ASSERT_TRUE(rs.ok()) << rs.ToString();
+
+    isolate_->Run();
+
+    ASSERT_EQ(0, isolate_->GetUncaughtCount());
+}
+
+TEST_F(BytecodeGeneratorTest, RunGCSanitizer) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+
+    auto rs = isolate_->Compile("tests/lang/035-gc-sanitizer");
     ASSERT_TRUE(rs.ok()) << rs.ToString();
 
     isolate_->Run();

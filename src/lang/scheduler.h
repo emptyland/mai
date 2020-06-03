@@ -83,9 +83,10 @@ public:
 
     // Notify machine has paused
     void PauseMe(Machine *m) {
-        int request = pause_request_.fetch_sub(1);
-        DCHECK_GE(request, 0);
-        (void)request;
+//        int request = pause_request_.fetch_sub(1);
+//        DCHECK_GE(request, 0);
+//        (void)request;
+        pause_request_.fetch_sub(1);
     }
     
     // Balanced post a runnable coroutine to machine

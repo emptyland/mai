@@ -94,7 +94,7 @@ public:
     void PostWaitting(Coroutine *co);
     
     // Touch machine for resume
-    void Touch() { cond_var_.notify_one(); }
+    void Touch() { cond_var_.notify_all(); }
     
     // Make machine is stop and waiting for resume
     void Park();
@@ -169,6 +169,7 @@ public:
         slot->end   = slot->base;
         slot->limit = prev_slot->limit;
         top_slot_ = slot;
+        //printf("[%d] enter: %p\n", id(), slot);
     }
 
     // Handle scope exit

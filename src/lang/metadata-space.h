@@ -346,6 +346,9 @@ public:
         for (auto field : fields_) {
             delete field;
         }
+        for (auto pair : named_methods_) {
+            delete pair.second;
+        }
     }
     
     ClassBuilder &init(Closure *value) {

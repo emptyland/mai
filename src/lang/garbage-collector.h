@@ -137,6 +137,7 @@ public:
     }; // class Iterator
 
     RememberSet(size_t n_buckets);
+    ~RememberSet() = default;
     
     void Put(Any *host, Any **address) { Insert(host, address, kRecord); }
 

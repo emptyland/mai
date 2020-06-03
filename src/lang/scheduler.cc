@@ -118,11 +118,13 @@ bool Scheduler::Pause() {
     }
     Machine *self = Machine::This();
     pause_request_.store(concurrency_);
-    
-    while (pause_request_.load() > 1 && !shutting_down()) {
+    int pause_count = 0;
+    while (pause_count < concurrency_ && !shutting_down()) {
+        pause_count = 0;
         for (int i = 0; i < concurrency_; i++) {
             Machine *m = all_machines_[i];
             if (m == self) {
+                pause_count++;
                 continue;
             }
             switch (m->state()) {
@@ -133,6 +135,8 @@ bool Scheduler::Pause() {
                     m->RequestSuspend(false/*now*/);
                     break;
                 case Machine::kSuspend:
+                    pause_count++;
+                    break;
                 case Machine::kDead:
                 case Machine::kPanic:
                     // Ignore
@@ -145,7 +149,6 @@ bool Scheduler::Pause() {
         std::this_thread::yield();
     }
     self->set_state(Machine::kSuspend); // Then stop self
-    //printf("Suspend: %d\n", concurrency_ - GetNumberOfSuspend());
     return true;
 }
 
@@ -183,11 +186,10 @@ bool Scheduler::Resume() {
                     break;
             }
         }
+        //printf("paused: %d\n", GetNumberOfSuspend());
         std::this_thread::yield();
     }
-//    while (GetNumberOfSuspend() > 0 && !shutting_down()) {
-//        std::this_thread::yield();
-//    }
+    //DCHECK_EQ(0, GetNumberOfSuspend());
     State expect = kPause;
     return state_.compare_exchange_strong(expect, kRunning);
 }
@@ -259,6 +261,7 @@ int Scheduler::GetNumberOfSuspend() const {
     for (int i = 0; i < concurrency_; i++) {
         if (auto m = machine(i)) {
             switch (m->state()) {
+                //case Machine::kIdle:
                 case Machine::kDead:
                 case Machine::kPanic:
                 case Machine::kSuspend:

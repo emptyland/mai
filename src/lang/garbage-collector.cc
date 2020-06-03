@@ -61,12 +61,21 @@ void GarbageCollector::CollectIfNeeded() {
     if (kind == kIdle) { // TODO: available is too small
         return;
     }
-    if (!AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady) ||
-        !isolate_->scheduler()->Pause()) {
+    
+    if (!isolate_->scheduler()->Pause()) {
         self->Park(); // Waitting
         return;
     }
+    AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady);
+
+//    if (!AcquireState(GarbageCollector::kIdle, GarbageCollector::kReady) ||
+//        !isolate_->scheduler()->Pause()) {
+//        self->Park(); // Waitting
+//        return;
+//    }
+
     tick_.fetch_add(1, std::memory_order_release);
+    DCHECK_EQ(STATE->scheduler()->GetNumberOfSuspend(), STATE->scheduler()->concurrency());
     switch (kind) {
         case kMinorCollect:
             MinorCollect();
@@ -97,6 +106,7 @@ void GarbageCollector::MinorCollect() {
 #else // !defined(DEBUG) && !defined(_DEBUG)
     base::NullPrinter printer;
 #endif // defined(DEBUG) || defined(_DEBUG)
+    printer.Printf("GC starter: %d\n", Machine::This()->id());
     scavenger.Run(&printer);
     set_state(kDone);
 }
@@ -110,6 +120,7 @@ void GarbageCollector::MajorCollect() {
     #else // !defined(DEBUG) && !defined(_DEBUG)
         base::NullPrinter printer;
     #endif // defined(DEBUG) || defined(_DEBUG)
+    printer.Printf("GC starter: %d\n", Machine::This()->id());
     marking_sweep.set_full(false);
     marking_sweep.Run(&printer);
     set_state(kDone);
@@ -124,7 +135,7 @@ void GarbageCollector::FullCollect() {
     #else // !defined(DEBUG) && !defined(_DEBUG)
         base::NullPrinter printer;
     #endif // defined(DEBUG) || defined(_DEBUG)
-    
+    printer.Printf("GC starter: %d\n", Machine::This()->id());
     Scavenger scavenger(isolate_, isolate_->heap());
     scavenger.Run(&printer);
     

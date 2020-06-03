@@ -140,8 +140,6 @@ static inline AbstractValue *ValueOf(T input, BuiltinType type) {
 // 1269759
 //  521255
 /*static*/ String *Runtime::StringContact(String **parts, String **end) {
-    HandleScope handle_scope(HandleScope::INITIALIZER);
-    
     if (auto kind = STATE->gc()->ShouldCollect(); kind == GarbageCollector::kIdle) {
         IncrementalStringBuilder builder;
         for (auto i = end - 1; i >= parts; i--) {
@@ -150,6 +148,7 @@ static inline AbstractValue *ValueOf(T input, BuiltinType type) {
         return builder.QuickBuild();
     }
     
+    HandleScope handle_scope(HandleScope::INITIALIZER);
     const int n = static_cast<int>(end - parts);
     String **handles = reinterpret_cast<String **>(Machine::This()->AdvanceHandleSlots(n));
     int k = 0;
@@ -157,7 +156,7 @@ static inline AbstractValue *ValueOf(T input, BuiltinType type) {
         handles[k++] = *i;
     }
     DCHECK_EQ(k, n);
-    
+
     SafepointScope safepoint(STATE->gc());
     IncrementalStringBuilder builder;
     for (int i = 0; i < n; i++) {

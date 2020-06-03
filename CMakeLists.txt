@@ -6,7 +6,7 @@ enable_language(C)
 enable_language(ASM)
 
 #set(CMAKE_CXX_FLAGS "-std=c++17 -O0 -DDEBUG -D_DEBUG")
-set(CMAKE_CXX_FLAGS "-std=c++17 -O2")
+set(CMAKE_CXX_FLAGS "-std=c++17 -O2 -DNDEBUG -D_NDEBUG")
 
 include_directories(
     include

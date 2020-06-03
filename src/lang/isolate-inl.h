@@ -87,6 +87,7 @@ inline GlobalHandleNode *Isolate::NewGlobalHandle(const void *pointer) {
 inline void Isolate::DeleteGlobalHandle(GlobalHandleNode *node) {
     std::lock_guard<std::mutex> lock(persistent_mutex_);
     QUEUE_REMOVE(node);
+    delete node;
     n_global_handles_--;
 }
 
