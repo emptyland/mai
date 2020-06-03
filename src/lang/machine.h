@@ -53,6 +53,7 @@ public:
     
     Machine(int id, Scheduler *owner);
     ~Machine();
+    void Finalize();
     
     DEF_VAL_GETTER(int, id);
     DEF_VAL_GETTER(int, n_free);
@@ -60,6 +61,8 @@ public:
     DEF_VAL_GETTER(uint64_t, user_time);
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
     DEF_VAL_GETTER(int, uncaught_count);
+    
+    Scheduler *scheduler() const { return owner_; }
 
     // Get machine state
     State state() const { return state_.load(std::memory_order_acquire); }

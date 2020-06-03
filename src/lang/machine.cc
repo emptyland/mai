@@ -34,29 +34,30 @@ Machine::~Machine() {
     DCHECK(top_slot_->prev == nullptr);
     ::free(top_slot_->base);
     delete top_slot_;
-    
+
+    Coroutine::DeleteDummy(waitting_dummy_);
+    Coroutine::DeleteDummy(runnable_dummy_);
+    Coroutine::DeleteDummy(free_dummy_);
+}
+
+void Machine::Finalize() {
     while (!QUEUE_EMPTY(waitting_dummy_)) {
         auto x = waitting_dummy_->next();
         QUEUE_REMOVE(x);
-        x->set_state(Coroutine::kDead);
-        delete x;
+        owner_->PurgreCoroutine(this, x);
     }
-    Coroutine::DeleteDummy(waitting_dummy_);
-    
+
     while (!QUEUE_EMPTY(runnable_dummy_)) {
         auto x = runnable_dummy_->next();
         QUEUE_REMOVE(x);
-        x->set_state(Coroutine::kDead);
-        delete x;
+        owner_->PurgreCoroutine(this, x);
     }
-    Coroutine::DeleteDummy(runnable_dummy_);
-    
+
     while (!QUEUE_EMPTY(free_dummy_)) {
         auto x = free_dummy_->next();
         QUEUE_REMOVE(x);
-        delete x;
+        owner_->PurgreCoroutine(this, x);
     }
-    Coroutine::DeleteDummy(free_dummy_);
 }
 
 void Machine::PostRunnable(Coroutine *co, bool now) {

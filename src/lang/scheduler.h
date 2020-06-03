@@ -43,8 +43,6 @@ public:
 
     int shutting_down() const { return shutting_down_.load(std::memory_order_acquire); }
     int pause_request() const { return pause_request_.load(std::memory_order_acquire); }
-    
-    int AddPauseRequest(int n) { return pause_request_.fetch_add(n, std::memory_order_release); }
 
     size_t n_live_coroutines() const { return n_live_coroutines_.load(); }
     size_t n_live_stacks() const { return n_live_stacks_.load(); }
@@ -80,14 +78,6 @@ public:
     
     // Resume all machines exclude self one
     bool Resume();
-
-    // Notify machine has paused
-    void PauseMe(Machine *m) {
-//        int request = pause_request_.fetch_sub(1);
-//        DCHECK_GE(request, 0);
-//        (void)request;
-        pause_request_.fetch_sub(1);
-    }
     
     // Balanced post a runnable coroutine to machine
     void PostRunnableBalanced(Coroutine *co, bool now);
@@ -108,7 +98,8 @@ public:
     }
 
     Coroutine *NewCoroutine(Closure *entry, bool co0);
-    void PurgreCoroutine(Coroutine *co);
+    void PurgreCoroutine(Machine *m, Coroutine *co);
+    void PurgreCoroutine(Coroutine *co) { PurgreCoroutine(Machine::This(), co); }
 
     inline Stack *NewStack(size_t size);
     inline bool PurgreStack(Stack *stack);

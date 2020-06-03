@@ -24,7 +24,10 @@ Scheduler::Scheduler(int concurrency, Allocator *lla)
 }
 
 Scheduler::~Scheduler() {
-    // TODO:
+    for (int i = 0; i < concurrency_; i++) {
+        all_machines_[i]->Finalize();
+    }
+    
     while (!QUEUE_EMPTY(free_dummy_)) {
         auto x = free_dummy_->next();
         QUEUE_REMOVE(x);
@@ -38,6 +41,10 @@ Scheduler::~Scheduler() {
         x->Dispose(lla_);
     }
     Stack::DeleteDummy(stack_pool_);
+    
+    for (int i = 0; i < concurrency_; i++) {
+        delete all_machines_[i];
+    }
 }
 
 void Scheduler::Schedule() {
@@ -235,11 +242,10 @@ Coroutine *Scheduler::NewCoroutine(Closure *entry, bool co0) {
     return new Coroutine(next_coid_.fetch_add(1), entry, stack);
 }
 
-void Scheduler::PurgreCoroutine(Coroutine *co) {
+void Scheduler::PurgreCoroutine(Machine *m, Coroutine *co) {
     co->Dispose();
     n_live_coroutines_.fetch_sub(1);
-    
-    Machine *m = Machine::This();
+
     if (m->n_free() + 1 <= Machine::kMaxFreeCoroutines) {
         m->InsertFreeCoroutine(co);
         return;

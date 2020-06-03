@@ -81,7 +81,11 @@ void Coroutine::Dispose() {
     DCHECK_EQ(kDead, state_);
     // Free stack
     if (stack_) {
-        STATE->scheduler()->PurgreStack(stack_);
+        if (__isolate) {
+            STATE->scheduler()->PurgreStack(stack_);
+        } else {
+            //TODO: stack_->Dispose(<#Allocator *lla#>);
+        }
         stack_ = nullptr;
     }
 }
