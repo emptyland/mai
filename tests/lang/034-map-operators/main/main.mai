@@ -6,6 +6,7 @@ fun main() {
     assertI8KeyMap()
     assertI16KeyMap()
     assertStringKeyMap()
+    assertForeachSanity()
 }
 
 fun assertI8KeyMap() {
@@ -106,4 +107,14 @@ fun assertFuzzyBugfix1() {
         m = m.remove(i)
     }
     assert(m.length == 0u, "fail ${m.length}")
+}
+
+fun assertForeachSanity() {
+    var m = map{1->1, 2->2, 3->3, 4->4, 5->5, 6->6}
+    var i = 0
+    for (k, v in m) {
+        i++
+        assert(k == v, "fail key: $k value: $v")
+    }
+    assert(i == 6, "fail $i")
 }

@@ -227,6 +227,9 @@ private:
     void GenerateMapMinus(const Class *clazz, int lhs_index, Value::Linkage lhs_linkage,
                           const Class *key, int key_index, Value::Linkage key_linkage,
                           ASTNode *ast);
+    void GenerateMapNext(const Value &map, const Value &iter, ASTNode *ast);
+    void GenerateMapKey(const Value &map, const Value &iter, const Class *key, ASTNode *ast);
+    void GenerateMapValue(const Value &map, const Value &iter, const Class *value, ASTNode *ast);
     void GenerateSend(const Class *clazz, int lhs, int rhs, ASTNode *ast);
 
     bool GenerateUnaryOperands(OperandContext *receiver, Expression *ast);

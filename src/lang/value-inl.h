@@ -265,6 +265,35 @@ inline ImplementMap<K> *ImplementMap<K>::UnsafeMinus(K key) {
     return copied->UnsafeRemove(key);
 }
 
+template<class K>
+inline bool ImplementMap<K>::FindNextBucket(uint32_t *bucket, uint32_t *iter) const {
+    for (int i = *bucket; i < bucket_size() + 1; i++) {
+        if (entries_[i].kind == Entry::kBucket) {
+            *bucket = i;
+            *iter = i;
+            return true;
+        }
+    }
+    *bucket = 0;
+    *iter = 0;
+    return false;
+}
+
+template<class K>
+inline bool ImplementMap<K>::FindNextEntry(uint32_t *bucket, uint32_t *iter) const {
+    if (*iter = entries_[*iter].next; !*iter) {
+        (*bucket)++;
+        return FindNextBucket(bucket, iter);
+    }
+    return true;
+}
+
+template<class K>
+inline const typename ImplementMap<K>::Entry *ImplementMap<K>::GetEntry(uint32_t iter) const {
+    DCHECK_LT(iter, capacity());
+    return iter == 0 ? nullptr : &entries_[iter];
+}
+
 template<class K, class V>
 inline void Map<K, V, false, true>::Iterate(ObjectVisitor *visitor) {
     typename ImplementMap<K>::Iterator iter(this);

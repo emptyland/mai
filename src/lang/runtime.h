@@ -134,6 +134,17 @@ class Function;
     V(Map16Minus, "map16::minus") \
     V(Map32Minus, "map32::minus") \
     V(Map64Minus, "map64::minus") \
+    V(MapNext, "map::next") \
+    V(Map8Next, "map8::next") \
+    V(Map16Next, "map16::next") \
+    V(Map32Next, "map32::next") \
+    V(Map64Next, "map64::next") \
+    V(MapKey, "map::key") \
+    V(MapKeyF32, "map::keyF32") \
+    V(MapKeyF64, "map::keyF64") \
+    V(MapValue, "map::value") \
+    V(MapValueF32, "map::valueF32") \
+    V(MapValueF64, "map::valueF64") \
     V(Near32, "lang.near32") \
     V(Near64, "lang.near64") \
     V(TestAs, "lang.testAs") \
@@ -315,6 +326,20 @@ struct Runtime {
     static AbstractMap *Map16Minus(Handle<ImplementMap<uint16_t>> map, uint16_t key);
     static AbstractMap *Map32Minus(Handle<AbstractMap> map, uint32_t key);
     static AbstractMap *Map64Minus(Handle<AbstractMap> map, uint64_t key);
+
+    static uint64_t MapNext(Handle<ImplementMap<Any*>> map, uint64_t iter);
+    static uint64_t Map8Next(Handle<ImplementMap<uint8_t>> map, uint64_t iter);
+    static uint64_t Map16Next(Handle<ImplementMap<uint16_t>> map, uint64_t iter);
+    static uint64_t Map32Next(Handle<ImplementMap<uint32_t>> map, uint64_t iter);
+    static uint64_t Map64Next(Handle<ImplementMap<uint64_t>> map, uint64_t iter);
+
+    static uintptr_t MapKey(Handle<AbstractMap> map, uint64_t iter);
+    static float MapKeyF32(Handle<ImplementMap<float>> map, uint64_t iter);
+    static double MapKeyF64(Handle<ImplementMap<double>> map, uint64_t iter);
+    
+    static uintptr_t MapValue(Handle<AbstractMap> map, uint64_t iter);
+    static float MapValueF32(Handle<AbstractMap> map, uint64_t iter);
+    static double MapValueF64(Handle<AbstractMap> map, uint64_t iter);
 
     static Any *TestAs(Handle<Any> any, void *param1, void *param2);
     static int TestIs(Handle<Any> any, void *param1, void *param2);

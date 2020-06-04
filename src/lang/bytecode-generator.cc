@@ -3701,7 +3701,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateForEach(ForLoop *ast) {
         if (ast->key()) {
             current_->Register(ast->key()->identifier()->ToString(), index);
         }
-        
+
         VISIT_CHECK(ast->value()->type());
         Value value {
             Value::kStack,
@@ -3739,8 +3739,52 @@ ASTVisitor::Result BytecodeGenerator::GenerateForEach(ForLoop *ast) {
         // TODO:
         TODO();
     } else {
-        // TODO:
-        TODO();
+        DCHECK(subject.type->IsMap());
+        
+        // Initialize iterator variable
+        const Class *iter_type = metadata_space_->builtin_type(kType_u64);
+        Value iter {
+            Value::kStack,
+            iter_type,
+            current_fun_->StackReserve(iter_type),
+        };
+        current_->Register("$__iter__", iter);
+        
+        Value key {Value::kError};
+        if (ast->key()) {
+            VISIT_CHECK(ast->key()->type());
+            key.linkage = Value::kStack;
+            key.type = metadata_space_->type(rv.bundle.index);
+            key.index = current_fun_->StackReserve(key.type);
+            current_->Register(ast->key()->identifier()->ToString(), key);
+        }
+        
+        VISIT_CHECK(ast->value()->type());
+        Value value {Value::kStack};
+        value.type = metadata_space_->type(rv.bundle.index);
+        value.index = current_fun_->StackReserve(value.type);
+        current_->Register(ast->value()->identifier()->ToString(), value);
+        
+        EMIT(ast, Add<kLdaZero>());
+        StaIfNeeded(iter, ast);
+        
+        // label: retry
+        current_fun_->builder()->Bind(block_scope->mutable_retry_label());
+        GenerateMapNext(subject, iter, ast);
+        EMIT(ast, JumpIfFalse(block_scope->mutable_exit_label(), 0/*slot*/));
+        StaIfNeeded(iter, ast);
+        
+        if (ast->key()) {
+            GenerateMapKey(subject, iter, key.type, ast);
+            StaIfNeeded(key, ast);
+        }
+        GenerateMapValue(subject, iter, value.type, ast);
+        StaIfNeeded(value, ast);
+
+        // Body
+        for (auto stmt : ast->statements()) {
+            VISIT_CHECK(stmt);
+        }
     }
     
     EMIT(ast, Jump(block_scope->mutable_retry_label(), 0/*slot*/));
@@ -4808,6 +4852,83 @@ void BytecodeGenerator::GenerateMapMinus(const Class *clazz,
     #undef DEFINE_FUN_NAME
     }
     
+    Value fun = FindOrInsertExternalFunction(external_name);
+    DCHECK_EQ(Value::kGlobal, fun.linkage);
+    LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
+}
+
+void BytecodeGenerator::GenerateMapNext(const Value &map, const Value &iter, ASTNode *ast) {
+    int argument_offset = RoundUp(map.type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(map, argument_offset, ast);
+    argument_offset += RoundUp(iter.type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(iter, argument_offset, ast);
+    
+    const char *external_name = nullptr;
+    switch (map.type->id()) {
+    #define DEFINE_FUN_NAME(name, ...) \
+        case kType_##name: \
+            external_name = #name "::next"; \
+            break;
+        DECLARE_MAP_TYPES(DEFINE_FUN_NAME)
+        default:
+            NOREACHED();
+            break;
+    #undef DEFINE_FUN_NAME
+    }
+
+    Value fun = FindOrInsertExternalFunction(external_name);
+    DCHECK_EQ(Value::kGlobal, fun.linkage);
+    LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
+}
+
+void BytecodeGenerator::GenerateMapKey(const Value &map, const Value &iter, const Class *key,
+                                       ASTNode *ast) {
+    int argument_offset = RoundUp(map.type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(map, argument_offset, ast);
+    argument_offset += RoundUp(iter.type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(iter, argument_offset, ast);
+    
+    const char *external_name = nullptr;
+    switch (static_cast<BuiltinType>(key->id())) {
+        case kType_f32:
+            external_name = "map::keyF32";
+            break;
+        case kType_f64:
+            external_name = "map::keyF64";
+            break;
+        default:
+            external_name = "map::key";
+            break;
+    }
+
+    Value fun = FindOrInsertExternalFunction(external_name);
+    DCHECK_EQ(Value::kGlobal, fun.linkage);
+    LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
+}
+
+void BytecodeGenerator::GenerateMapValue(const Value &map, const Value &iter, const Class *value,
+                                         ASTNode *ast) {
+    int argument_offset = RoundUp(map.type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(map, argument_offset, ast);
+    argument_offset += RoundUp(iter.type->reference_size(), kStackSizeGranularity);
+    MoveToArgumentIfNeeded(iter, argument_offset, ast);
+    
+    const char *external_name = nullptr;
+    switch (static_cast<BuiltinType>(value->id())) {
+        case kType_f32:
+            external_name = "map::valueF32";
+            break;
+        case kType_f64:
+            external_name = "map::valueF64";
+            break;
+        default:
+            external_name = "map::value";
+            break;
+    }
+
     Value fun = FindOrInsertExternalFunction(external_name);
     DCHECK_EQ(Value::kGlobal, fun.linkage);
     LdaGlobal(metadata_space_->type(kType_closure), fun.index, ast);

@@ -506,6 +506,9 @@ public:
     template<class V> inline ImplementMap *UnsafePlus(K key, V value);
     inline ImplementMap *UnsafeMinus(K key);
     inline bool WriteBarrier(Any **address) { return Any::WriteBarrier(address); }
+    inline bool FindNextBucket(uint32_t *bucket, uint32_t *iter) const;
+    inline bool FindNextEntry(uint32_t *bucket, uint32_t *iter) const;
+    inline const Entry *GetEntry(uint32_t iter) const;
 
     friend class Machine;
 protected:

@@ -1073,6 +1073,109 @@ AbstractMap *Runtime::Map16Plus(Handle<ImplementMap<uint16_t>> map, uint16_t key
     }
 }
 
+union EntryStruct {
+    uint64_t packed;
+    struct {
+        uint32_t lo;
+        uint32_t hi;
+    } unpacked;
+};
+
+template<class T>
+uint64_t TMapNext(const Handle<ImplementMap<T>> &map, uint64_t iter) {
+    EntryStruct entry;
+    if (iter != 0) {
+        entry.packed = iter;
+        map->FindNextEntry(&entry.unpacked.hi, &entry.unpacked.lo);
+        return entry.packed;
+    }
+    
+    entry.unpacked.hi = 1;
+    entry.unpacked.lo = 0;
+    map->FindNextBucket(&entry.unpacked.hi, &entry.unpacked.lo);
+    return entry.packed;
+}
+
+/*static*/ uint64_t Runtime::MapNext(Handle<ImplementMap<Any*>> map, uint64_t iter) {
+    return TMapNext<Any*>(map, iter);
+}
+
+/*static*/ uint64_t Runtime::Map8Next(Handle<ImplementMap<uint8_t>> map, uint64_t iter) {
+    return TMapNext<uint8_t>(map, iter);
+}
+
+/*static*/ uint64_t Runtime::Map16Next(Handle<ImplementMap<uint16_t>> map, uint64_t iter) {
+    return TMapNext<uint16_t>(map, iter);
+}
+
+/*static*/ uint64_t Runtime::Map32Next(Handle<ImplementMap<uint32_t>> map, uint64_t iter) {
+    return TMapNext<uint32_t>(map, iter);
+}
+
+/*static*/ uint64_t Runtime::Map64Next(Handle<ImplementMap<uint64_t>> map, uint64_t iter) {
+    return TMapNext<uint64_t>(map, iter);
+}
+
+static inline const uintptr_t TMapValue(const Handle<AbstractMap> &map, uint64_t iter) {
+    EntryStruct entry;
+    entry.packed = iter;
+    switch (map->key_type()->reference_size()) {
+        case 1:
+            return Handle<ImplementMap<uint8_t>>::Cast(map)->GetEntry(entry.unpacked.lo)->value;
+        case 2:
+            return Handle<ImplementMap<uint16_t>>::Cast(map)->GetEntry(entry.unpacked.lo)->value;
+        case 4:
+            return Handle<ImplementMap<uint32_t>>::Cast(map)->GetEntry(entry.unpacked.lo)->value;
+        case 8:
+            return Handle<ImplementMap<uint64_t>>::Cast(map)->GetEntry(entry.unpacked.lo)->value;
+        default:
+            NOREACHED();
+            return 0;
+    }
+}
+
+/*static*/ uintptr_t Runtime::MapValue(Handle<AbstractMap> map, uint64_t iter) {
+    return TMapValue(map, iter);
+}
+
+/*static*/ float Runtime::MapValueF32(Handle<AbstractMap> map, uint64_t iter) {
+    return bit_cast<float>(TMapValue(map, iter));
+}
+
+/*static*/ double Runtime::MapValueF64(Handle<AbstractMap> map, uint64_t iter) {
+    return bit_cast<double>(TMapValue(map, iter));
+}
+
+/*static*/ uintptr_t Runtime::MapKey(Handle<AbstractMap> map, uint64_t iter) {
+    EntryStruct entry;
+    entry.packed = iter;
+    switch (map->key_type()->reference_size()) {
+        case 1:
+            return Handle<ImplementMap<uint8_t>>::Cast(map)->GetEntry(entry.unpacked.lo)->key;
+        case 2:
+            return Handle<ImplementMap<uint16_t>>::Cast(map)->GetEntry(entry.unpacked.lo)->key;
+        case 4:
+            return Handle<ImplementMap<uint32_t>>::Cast(map)->GetEntry(entry.unpacked.lo)->key;
+        case 8:
+            return Handle<ImplementMap<uint64_t>>::Cast(map)->GetEntry(entry.unpacked.lo)->key;
+        default:
+            NOREACHED();
+            return 0;
+    }
+}
+
+/*static*/ float Runtime::MapKeyF32(Handle<ImplementMap<float>> map, uint64_t iter) {
+    EntryStruct entry;
+    entry.packed = iter;
+    return map->GetEntry(entry.unpacked.lo)->key;
+}
+
+/*static*/ double Runtime::MapKeyF64(Handle<ImplementMap<double>> map, uint64_t iter) {
+    EntryStruct entry;
+    entry.packed = iter;
+    return map->GetEntry(entry.unpacked.lo)->key;
+}
+
 static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
     switch (static_cast<BuiltinType>(dest->id())) {
         case kType_array:
