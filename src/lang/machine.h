@@ -19,7 +19,7 @@ class Scheduler;
 class HandleScope;
 class Coroutine;
 class RootVisitor;
-class Tracing;
+class Tracer;
 class SafepointScope;
 
 struct HandleScopeSlot {
@@ -277,7 +277,7 @@ private:
     std::condition_variable cond_var_; // Condition variable for scheduling
     mutable std::mutex mutex_; // Total mutex
     std::thread thread_; // Thread object
-    Tracing *tracing_ = nullptr; // Tracing for PGO
+    Tracer *tracing_ = nullptr; // Tracing for PGO
 }; // class Machine
 
 

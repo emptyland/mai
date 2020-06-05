@@ -37,7 +37,7 @@ bytecode:
     023 Add32 [BP-68], [BP-76]; (12)
     024 Star32 [BP-68]; (12)
     025 Increment32 [BP-72], #1; (11)
-    026 BackwardJump 0, #7; (11)
+    026 BackwardJump 1, #7; (11)
     027 LdaSmi32 #0; (14)
     028 Star32 [BP-72]; (14)
     029 TestEqual32 [BP-68], [BP-72]; (14)

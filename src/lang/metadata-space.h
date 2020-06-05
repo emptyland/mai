@@ -16,6 +16,7 @@ namespace mai {
 namespace lang {
 
 class RootVisitor;
+class Isolate;
 
 class MetadataSpace final : public Space {
 public:
@@ -23,7 +24,7 @@ public:
     ~MetadataSpace();
     
     // Init builtin types
-    Error Initialize();
+    Error Initialize(bool enable_debug = false, bool enable_jit = false);
     
     void VisitRoot(RootVisitor *visitor);
     
@@ -155,9 +156,9 @@ public:
     friend class FunctionBuilder;
     DISALLOW_IMPLICIT_CONSTRUCTORS(MetadataSpace);
 private:
-    Error GenerateBuiltinCode();
+    Error GenerateBuiltinCode(bool enable_debug, bool enable_jit);
     
-    Error GenerateBytecodeHandlerCode();
+    Error GenerateBytecodeHandlerCode(bool enable_debug, bool enable_jit);
     
     struct ClassFieldKey {
         const Class *clazz;

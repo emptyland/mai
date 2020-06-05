@@ -8,6 +8,7 @@
 #include "lang/bytecode-array-builder.h"
 #include "lang/stack-frame.h"
 #include "lang/stable-space-builder.h"
+#include "lang/pgo.h"
 #include "asm/utils.h"
 #include "test/isolate-initializer.h"
 #include "base/arenas.h"
@@ -56,6 +57,12 @@ public:
         metadata_ = isolate_->metadata_space();
         arena_ = new base::StandaloneArena;
         ::memset(&dummy_result, 0, sizeof(dummy_result));
+        bytecode_handler_entries_ = isolate_->bytecode_handler_entries();
+        for (int i = 0; i < 256; i++) {
+            isolate_->profiler()->NextHotCountSlot();
+        }
+        isolate_->profiler()->Reset();
+        hot_count_slots_ = isolate_->profiler()->hot_count_slots();
     }
     
     void TearDown() override {
@@ -187,6 +194,8 @@ public:
     Scheduler *scheduler_ = nullptr;
     MetadataSpace *metadata_ = nullptr;
     base::Arena *arena_ = nullptr;
+    Address *bytecode_handler_entries_ = nullptr;
+    int *hot_count_slots_ = nullptr;
 };
 
 static void Dummy1(int a, int b, int c) {
@@ -313,7 +322,7 @@ TEST_F(CoroutineTest, RunBytecodeFunctionSanity) {
 
     Local<Closure> entry(BuildDummyClosure(builder.Build()));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
-    CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
+    TrampolineStub trampoline(metadata_->trampoline_code());
 
     co->set_state(Coroutine::kRunnable);;
     trampoline.entry()(co);
@@ -347,7 +356,7 @@ TEST_F(CoroutineTest, BytecodeCallNativeFunction) {
 
     Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
-    CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
+    TrampolineStub trampoline(metadata_->trampoline_code());
     
     co->set_state(Coroutine::kRunnable);
     trampoline.entry()(co);
@@ -391,7 +400,7 @@ TEST_F(CoroutineTest, BytecodeCallNativeFunctionWithArguments) {
 
     Local<Closure> entry(BuildDummyClosure(builder.Build(), {span[0], span[1]}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
-    CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
+    TrampolineStub trampoline(metadata_->trampoline_code());
     
     co->set_state(Coroutine::kRunnable);
     trampoline.entry()(co);
@@ -424,7 +433,7 @@ TEST_F(CoroutineTest, BytecodeYield) {
 
     Local<Closure> entry(BuildDummyClosure(builder.Build(), {span}, {0x1}));
     Coroutine *co = scheduler_->NewCoroutine(*entry, true/*co0*/);
-    CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
+    TrampolineStub trampoline(metadata_->trampoline_code());
 
     co->set_state(Coroutine::kRunnable);
     trampoline.entry()(co);
@@ -479,7 +488,7 @@ TEST_F(CoroutineTest, BytecodeCallBytecodeFunction) {
     }
 
     Coroutine *co = scheduler_->NewCoroutine(*caller, false/*co0*/);
-    CallStub<intptr_t(Coroutine *)> trampoline(metadata_->trampoline_code());
+    TrampolineStub trampoline(metadata_->trampoline_code());
 
     co->set_state(Coroutine::kRunnable);
     trampoline.entry()(co);

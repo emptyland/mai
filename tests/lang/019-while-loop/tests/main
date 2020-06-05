@@ -72,7 +72,7 @@ bytecode:
     058 RunCoroutine 0, #16; (14)
     059 Yield 2; (14)
     060 Increment32 [BP-76], #1; (13)
-    061 BackwardJump 0, #12; (13)
+    061 BackwardJump 3, #12; (13)
     062 MovePtr [BP-96], [BP-88]; (16)
     063 MovePtr [BP-120], [BP-96]; (16)
     064 LdaGlobalPtr [GS+128]; (16)

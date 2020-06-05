@@ -6,6 +6,7 @@
 #include "lang/value-inl.h"
 #include "lang/stack-frame.h"
 #include "lang/object-visitor.h"
+#include "lang/pgo.h"
 #include "mai/allocator.h"
 #include <stdarg.h>
 #include <memory>
@@ -44,12 +45,14 @@ void Machine::Finalize() {
     while (!QUEUE_EMPTY(waitting_dummy_)) {
         auto x = waitting_dummy_->next();
         QUEUE_REMOVE(x);
+        x->set_state(Coroutine::kDead);
         owner_->PurgreCoroutine(this, x);
     }
 
     while (!QUEUE_EMPTY(runnable_dummy_)) {
         auto x = runnable_dummy_->next();
         QUEUE_REMOVE(x);
+        x->set_state(Coroutine::kDead);
         owner_->PurgreCoroutine(this, x);
     }
 
@@ -189,8 +192,8 @@ void Machine::Entry() {
             }
         }
         if (co) {
-            CallStub<intptr_t(Coroutine *)> trampoline(STATE->metadata_space()->trampoline_code());
-            
+            TrampolineStub trampoline(STATE->metadata_space()->trampoline_code());
+
             DCHECK_EQ(Coroutine::kRunnable, co->state());
             running_ = co;
             TLS_STORAGE->coroutine = co;

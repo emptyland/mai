@@ -44,7 +44,7 @@ void MacroAssembler::Throw(Register scratch0, Register scratch1) {
     int3(); // Never goto there
 }
 
-void MacroAssembler::SaveBytecodeEnv() {
+void MacroAssembler::SaveBytecodeEnv(bool enable_jit) {
     movq(Operand(CO, Coroutine::kOffsetBP1), rbp);
     movq(Operand(CO, Coroutine::kOffsetSP1), rsp);
     movq(rbp, Operand(CO, Coroutine::kOffsetSysBP)); // recover system bp
@@ -55,9 +55,17 @@ void MacroAssembler::SaveBytecodeEnv() {
     pushq(CO);
     pushq(BC);
     pushq(BC_ARRAY);
+    if (enable_jit) {
+        pushq(PROFILER);
+        pushq(TRACER);
+    }
 }
 
-void MacroAssembler::RecoverBytecodeEnv() {
+void MacroAssembler::RecoverBytecodeEnv(bool enable_jit) {
+    if (enable_jit) {
+        popq(TRACER);
+        popq(PROFILER);
+    }
     popq(BC_ARRAY); // Switch back to mai stack
     popq(BC);
     popq(CO);
@@ -156,18 +164,18 @@ void Generate_FunctionTemplateTestDummy(MacroAssembler *masm) {
 }
 
 // Switch to system stack and call
-void Generate_SwitchSystemStackCall(MacroAssembler *masm) {
+void Generate_SwitchSystemStackCall(MacroAssembler *masm, bool enable_jit) {
     StackFrameScope frame_scope(masm, StubStackFrame::kSize);
     __ movq(Operand(rbp, StubStackFrame::kOffsetMaker), StubStackFrame::kMaker);
     __ movq(Operand(rbp, StubStackFrame::kOffsetCallee), 0);
 
-    __ SaveBytecodeEnv();
-    __ call(r11); // Call real function
-    __ RecoverBytecodeEnv();
+    __ SaveBytecodeEnv(enable_jit);
+    __ call(r10); // Call real function
+    __ RecoverBytecodeEnv(enable_jit);
 }
 
 // Prototype: void Trampoline(Coroutine *co)
-void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump,
+void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump, bool enable_jit,
                          int *suspend_point_pc) {
     StackFrameScope frame_scope(masm, TrampolineStackFrame::kSize);
     //==============================================================================================
@@ -175,7 +183,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     // =============================================================================================
     __ SaveCxxCallerRegisters();
     // =============================================================================================
-    
+
     // Setup stack maker
     __ movl(Operand(rbp, StackFrame::kOffsetMaker), TrampolineStackFrame::kMaker);
 
@@ -188,6 +196,10 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
     __ movq(SCRATCH, reinterpret_cast<Address>(&__isolate));
     __ movq(SCRATCH, Operand(SCRATCH, 0));
     __ movq(BC_ARRAY, Operand(SCRATCH, Isolate::kOffsetBytecodeHandlerEntries));
+    if (enable_jit) {
+        //__ Breakpoint();
+        __ movq(PROFILER, Operand(SCRATCH, Isolate::kOffsetHotCountSlots));
+    }
     __ movq(rax, Operand(SCRATCH, Isolate::kOffsetTrampolineSuspendPoint));
     __ movq(Operand(CO, Coroutine::kOffsetSysPC), rax); // Setup suspend point
     
@@ -284,7 +296,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
 
 // Prototype: InterpreterPump(Closure *callee)
 // make a interpreter env
-void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
+void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call, bool enable_jit) {
     __ pushq(rbp);
     __ movq(rbp, rsp);
 
@@ -328,7 +340,7 @@ void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call) {
     __ movq(Argv_1, SCRATCH); // argv[1] = exception
     __ movl(Argv_2, Operand(rbp, BytecodeStackFrame::kOffsetPC)); // argv[2] = pc
     // Switch system stack and call a c++ function
-    __ InlineSwitchSystemStackCall(arch::MethodAddress(&Function::DispatchException));
+    __ InlineSwitchSystemStackCall(arch::MethodAddress(&Function::DispatchException), enable_jit);
     __ cmpl(rax, 0); // if (retval < 0)
     Label throw_again;
     __ j(Less, &throw_again, true/*is_far*/);
@@ -520,7 +532,10 @@ public:
         }
     }; // class InstrImmFAScope
     
-    BytecodeEmitter(MetadataSpace *space): PartialBytecodeEmitter(DCHECK_NOTNULL(space)) {}
+    BytecodeEmitter(MetadataSpace *space, bool generated_debug_code, bool generated_profiling_code)
+        : PartialBytecodeEmitter(DCHECK_NOTNULL(space))
+        , enable_debug(generated_debug_code)
+        , enable_jit(generated_profiling_code) {}
     ~BytecodeEmitter() override {}
 
     // Load to ACC ---------------------------------------------------------------------------------
@@ -893,7 +908,8 @@ public:
         __ Bind(&host_is_old); // Host ensure is old-generation
         __ movq(Argv_0, SCRATCH); // argv[0] = host
         __ leaq(Argv_1, Operand(SCRATCH, CapturedValue::kOffsetValue)); // argv[1] = address
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::WriteBarrierWithAddress));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::WriteBarrierWithAddress),
+                                       enable_jit);
 
         __ Bind(&store_free);
     }
@@ -993,7 +1009,7 @@ public:
         __ Bind(&host_is_old); // Host ensure is old-generation
         __ movq(Argv_0, SCRATCH); // argv[0] = host
         __ movl(Argv_1, rbx); // argv[1] = offset
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::WriteBarrierWithOffset));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::WriteBarrierWithOffset), enable_jit);
 
         __ Bind(&store_free);
     }
@@ -1762,7 +1778,7 @@ public:
         __ movq(Argv_0, SCRATCH);
         __ movq(rdx, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movq(Argv_1, Operand(rdx, rbx, times_4, 0));
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::IsSameOrBaseOf));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::IsSameOrBaseOf), enable_jit);
         __ cmpl(rax, 0);
         Label ok;
         __ j(NotEqual, &ok, false/*is_far*/);
@@ -1771,7 +1787,7 @@ public:
         __ movq(Argv_0, ACC);
         __ movq(rdx, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movq(Argv_1, Operand(rdx, rbx, times_4, 0));
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewBadCastPanic));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewBadCastPanic), enable_jit);
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&ok);
@@ -1789,7 +1805,7 @@ public:
         __ movq(Argv_0, SCRATCH);
         __ movq(rdx, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movq(Argv_1, Operand(rdx, rbx, times_4, 0));
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::IsSameOrBaseOf));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::IsSameOrBaseOf), enable_jit);
     }
     
     // Casting -------------------------------------------------------------------------------------
@@ -1996,7 +2012,12 @@ public:
     
     void EmitBackwardJump(MacroAssembler *masm) override {
         InstrImmABScope instr_scope(masm);
-        // TODO A of tracing
+        // Profiling
+        if (enable_jit) {
+            __ decl(Operand(PROFILER, rbx, times_4, 0));
+            // TODO:
+        }
+
         instr_scope.GetBTo(rbx);
         __ subl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
         __ StartBC();
@@ -2138,7 +2159,7 @@ public:
 
         // Switch and run RunCoroutine
         // Must inline call this function!
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::RunCoroutine));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::RunCoroutine), enable_jit);
         EmitCheckException(masm);
     }
     
@@ -2152,7 +2173,7 @@ public:
         __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0));
         __ movq(Argv_1, 0);
     
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewObject));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewObject), enable_jit);
         EmitCheckException(masm);
     }
     
@@ -2163,7 +2184,7 @@ public:
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         instr_scope.GetBTo(rbx);
         __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0));
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArray));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArray), enable_jit);
         EmitCheckException(masm);
     }
     
@@ -2179,7 +2200,7 @@ public:
         __ subq(Argv_1, ACC);
         __ movq(Argv_2, rsp);
 
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArrayWith));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArrayWith), enable_jit);
         EmitCheckException(masm);
     }
     
@@ -2192,7 +2213,7 @@ public:
         __ subq(Argv_1, rbx);
         __ movq(Argv_2, rsp);
         
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::MapPutAll));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::MapPutAll), enable_jit);
         EmitCheckException(masm);
     }
     
@@ -2206,7 +2227,7 @@ public:
         __ cmpq(rsp, Operand(CO, Coroutine::kOffsetStackGuard0));
         Label ok;
         __ j(GreaterEqual, &ok, false/*is_far*/);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewStackoverflowPanic));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewStackoverflowPanic), enable_jit);
         __ Throw(SCRATCH, rbx);
         __ Bind(&ok);
         __ JumpNextBC();
@@ -2217,7 +2238,7 @@ public:
         __ cmpq(Operand(rbp, rbx, times_2, 0), 0);
         Label ok;
         __ LikelyJ(NotEqual, &ok, false/*is_far*/);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic), enable_jit);
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&ok);
@@ -2229,7 +2250,7 @@ public:
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0)); // func
         __ movl(Argv_1, 0); // flags
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::CloseFunction));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::CloseFunction), enable_jit);
     }
 
     void EmitContact(MacroAssembler *masm) override {
@@ -2240,7 +2261,7 @@ public:
         __ movq(Argv_0, rsp);
         __ subq(Argv_0, rbx);
         __ movq(Argv_1, rsp);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::StringContact));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::StringContact), enable_jit);
     }
 
     void EmitThrow(MacroAssembler *masm) override {
@@ -2248,12 +2269,12 @@ public:
         __ cmpq(ACC, 0);
         Label ok;
         __ j(NotEqual, &ok, false/*is_far*/);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic), enable_jit);
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&ok);
         __ movq(Argv_0, ACC);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::MakeStacktrace));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::MakeStacktrace), enable_jit);
         __ cmpq(ACC, 0);
         Label done;
         __ j(NotEqual, &done, false/*is_far*/);
@@ -2552,7 +2573,7 @@ private:
         }
         Label ok;
         __ j(NotEqual, &ok, false/*is_far*/);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArithmeticPanic));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArithmeticPanic), enable_jit);
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&ok);
@@ -2562,7 +2583,7 @@ private:
         __ cmpq(ptr, 0);
         Label ok;
         __ LikelyJ(NotEqual, &ok, false/*is_far*/);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic), enable_jit);
         __ Throw(SCRATCH, rbx);
         __ int3();
         __ Bind(&ok);
@@ -2578,16 +2599,21 @@ private:
         Label ok;
         __ jmp(&ok, false/*is_far*/);
         __ Bind(&out_of_bound);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewOutOfBoundPanic));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewOutOfBoundPanic), enable_jit);
         __ Throw(SCRATCH, rbx);
         __ int3();
         __ Bind(&ok);
     }
+    
+    const bool enable_debug;
+    const bool enable_jit;
 }; // class BytecodeEmitter
 
 
-/*static*/ AbstractBytecodeEmitter *AbstractBytecodeEmitter::New(MetadataSpace *space) {
-    return new BytecodeEmitter(space);
+/*static*/ AbstractBytecodeEmitter *AbstractBytecodeEmitter::New(MetadataSpace *space,
+                                                                 bool generated_debug_code,
+                                                                 bool generated_profiling_code) {
+    return new BytecodeEmitter(space, generated_debug_code, generated_profiling_code);
 }
 
 } // namespace lang

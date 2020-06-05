@@ -21,10 +21,14 @@ class Isolate;
 //ACC = rax
 //XACC = xmm0
 
+static constexpr Register PROFILER = r11;
+static constexpr Register TRACER = r11;
+
 static constexpr Register SCRATCH = r12;
 static constexpr Register BC = r13;
 static constexpr Register BC_ARRAY = r14;
 static constexpr Register CO = r15;
+
 static constexpr Register ACC = rax;
 static constexpr XMMRegister FACC = xmm0;
 
@@ -66,21 +70,21 @@ public:
     }
 
     void SwitchSystemStackCall(Address cxx_func_entry, Address switch_sys_stack) {
-        movq(r11, cxx_func_entry);
+        movq(r10, cxx_func_entry);
         movq(rax, switch_sys_stack);
         call(rax);
     }
     
-    void InlineSwitchSystemStackCall(Address cxx_func_entry) {
-        SaveBytecodeEnv();
+    void InlineSwitchSystemStackCall(Address cxx_func_entry, bool enable_jit) {
+        SaveBytecodeEnv(enable_jit);
         movq(rax, cxx_func_entry);
         call(rax); // Call real function
-        RecoverBytecodeEnv();
+        RecoverBytecodeEnv(enable_jit);
     }
     
-    void SaveBytecodeEnv();
+    void SaveBytecodeEnv(bool enable_jit);
     
-    void RecoverBytecodeEnv();
+    void RecoverBytecodeEnv(bool enable_jit);
     
     void SaveState0(Register scratch);
     
@@ -128,10 +132,10 @@ private:
 
 void Generate_SanityTestStub(MacroAssembler *masm);
 void Generate_FunctionTemplateTestDummy(MacroAssembler *masm);
-void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump,
+void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump, bool enable_jit,
                          int *suspend_point_pc);
-void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call);
-void Generate_SwitchSystemStackCall(MacroAssembler *masm);
+void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call, bool enable_jit);
+void Generate_SwitchSystemStackCall(MacroAssembler *masm, bool enable_jit);
 
 } // namespace lang
 

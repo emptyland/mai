@@ -10,6 +10,7 @@
 #include "lang/runtime.h"
 #include "lang/value-inl.h"
 #include "lang/channel.h"
+#include "lang/pgo.h"
 #include "asm/utils.h"
 #include "base/arenas.h"
 #include "glog/logging.h"
@@ -32,6 +33,7 @@ const ptrdiff_t GlobalHandleNode::kOffsetHandle = offsetof(GlobalHandleNode, han
 
 const int32_t Isolate::kOffsetBytecodeHandlerEntries = MEMBER_OFFSET_OF(bytecode_handler_entries_);
 const int32_t Isolate::kOffsetTrampolineSuspendPoint = MEMBER_OFFSET_OF(trampoline_suspend_point_);
+const int32_t Isolate::kOffsetHotCountSlots = MEMBER_OFFSET_OF(hot_count_slots_);
 
 class ErrorFeedback : public SyntaxFeedback {
 public:
@@ -66,7 +68,7 @@ Error Isolate::Initialize() {
         return err;
     }
 
-    if (auto err = metadata_space_->Initialize(); err.fail()) {
+    if (auto err = metadata_space_->Initialize(false/*enable_debug*/, enable_jit_); err.fail()) {
         return err;
     }
     
@@ -114,6 +116,11 @@ Error Isolate::Compile(const std::string &dir) {
     if (auto rs = Compiler::CompileInterpretion(this, dir, &feedback, &init0_fun, &arena); !rs) {
         return rs;
     }
+    if (enable_jit_) {
+        profiler_->Reset();
+        hot_count_slots_ = profiler_->hot_count_slots();
+    }
+    
     Closure *init0 = scheduler_->machine0()->NewClosure(init0_fun, 0, Heap::kOld);
     Coroutine *co = scheduler_->NewCoroutine(init0, true/*co0*/);
     co->SwitchState(Coroutine::kDead, Coroutine::kRunnable);
@@ -146,6 +153,8 @@ Isolate::Isolate(const Options &opts)
                                opts.env->GetLowLevelAllocator()))
     , gc_(new GarbageCollector(this, opts.new_space_gc_threshold_rate,
                                opts.old_space_gc_threshold_rate))
+    , enable_jit_(opts.enable_jit)
+    , profiler_(new Profiler(opts.hot_point_threshold))
     , persistent_dummy_(new GlobalHandleNode{})
     , bytecode_handler_entries_(new Address[kMax_Bytecodes])
     , trampoline_suspend_point_(reinterpret_cast<Address>(BadSuspendPointDummy))
@@ -169,6 +178,7 @@ Isolate::~Isolate() {
     delete metadata_space_;
     delete scheduler_;
     delete heap_;
+    delete profiler_;
 }
 
 int Isolate::GetUncaughtCount() const {

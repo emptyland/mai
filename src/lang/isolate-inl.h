@@ -134,6 +134,8 @@ inline void Isolate::SetGlobalSpace(Span64 *spans, uint32_t *bitmap, size_t capa
     global_space_length_ = length;
 }
 
+inline Profiler *Isolate::profiler() const { return profiler_; }
+
 } // namespace lang
 
 } // namespace mai

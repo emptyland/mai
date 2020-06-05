@@ -22,7 +22,7 @@ bytecode:
     008 Add32 [BP-68], [BP-72]; (32)
     009 Star32 [BP-68]; (32)
     010 Increment32 [BP-76], #1; (31)
-    011 BackwardJump 0, #6; (31)
+    011 BackwardJump 1, #6; (31)
     012 Ldar32 [BP-68]; (34)
     013 Return; (34)
     014 Return; (29)

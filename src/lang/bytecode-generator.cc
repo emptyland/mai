@@ -6,6 +6,7 @@
 #include "lang/metadata-space.h"
 #include "lang/metadata.h"
 #include "lang/stack-frame.h"
+#include "lang/pgo.h"
 #include "base/arenas.h"
 
 namespace mai {
@@ -454,6 +455,7 @@ namespace {
 
 #define TOP_REF (current_fun_->stack()->GetTopRef())
 #define EMIT(ast, action) current_fun_->Incoming(ast)->action
+#define HOT_SLOT (isolate_->profiler()->NextHotCountSlot())
 
 #define VISIT_CHECK(node) if (rv = (node)->Accept(this); rv.kind == Value::kError) { \
         return ResultWithError(); \
@@ -1137,7 +1139,7 @@ ASTVisitor::Result BytecodeGenerator::VisitCallExpression(CallExpression *ast) /
     if (rv.kind == Value::kError) {
         return ResultWithError();
     }
-    
+
     switch (receiver.kind) {
         case CallingReceiver::kCtor:
             current_fun_->EmitDirectlyCallFunction(receiver.ast, false/*native*/, 0/*slot*/,
@@ -2322,8 +2324,7 @@ ASTVisitor::Result BytecodeGenerator::VisitChannelInitializer(ChannelInitializer
 
     Value value = FindOrInsertExternalFunction("lang.newChannel");
     LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
-    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/,
-                                           argument_offset);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
     return ResultWith(Value::kACC, kType_channel, 0);
 }
 
@@ -3787,7 +3788,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateForEach(ForLoop *ast) {
         }
     }
     
-    EMIT(ast, Jump(block_scope->mutable_retry_label(), 0/*slot*/));
+    EMIT(ast, Jump(block_scope->mutable_retry_label(), HOT_SLOT));
     // label: exit
     current_fun_->builder()->Bind(block_scope->mutable_exit_label());
     return ResultWithVoid();
@@ -3879,7 +3880,7 @@ ASTVisitor::Result BytecodeGenerator::GenerateForStep(ForLoop *ast) {
                 break;
         }
     }
-    EMIT(ast, Jump(block_scope->mutable_retry_label(), 0/*slot*/));
+    EMIT(ast, Jump(block_scope->mutable_retry_label(), HOT_SLOT));
     // label: exit
     current_fun_->builder()->Bind(block_scope->mutable_exit_label());
     return ResultWithVoid();
@@ -4619,8 +4620,7 @@ void BytecodeGenerator::GenerateSend(const Class *clazz, int lhs, int rhs, ASTNo
         }
     }
     LdaGlobal(metadata_space_->builtin_type(kType_closure), value.index, ast);
-    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/,
-                                           argument_offset);
+    current_fun_->EmitDirectlyCallFunction(ast, true/*native*/, 0/*slot*/, argument_offset);
     current_fun_->EmitYield(ast, YIELD_PROPOSE);
 }
 
@@ -5397,7 +5397,7 @@ void BytecodeGenerator::ToStringIfNeeded(const Class *clazz, int index, Value::L
             MoveToArgumentIfNeeded(clazz, index, linkage, args_size, ast); \
             Value value = FindOrInsertExternalFunction("lang." #dest "::toString"); \
             LdaGlobal(value.type, value.index, ast); \
-            current_fun_->EmitDirectlyCallFunction(ast, true, 0, args_size); \
+            current_fun_->EmitDirectlyCallFunction(ast, true, 0/*slot*/, args_size); \
         } break;
         DECLARE_BOX_NUMBER_TYPES(DEFINE_TO_STRING)
 #undef DEFINE_TO_STRING
@@ -5441,7 +5441,7 @@ const Class *BytecodeGenerator::InboxIfNeeded(const Class *clazz, int index, Val
             MoveToArgumentIfNeeded(clazz, index, linkage, args_size, ast); \
             Value value = FindOrInsertExternalFunction("lang." #dest "::valueOf"); \
             LdaGlobal(value.type, value.index, ast); \
-            current_fun_->EmitDirectlyCallFunction(ast, true, 0, args_size); \
+            current_fun_->EmitDirectlyCallFunction(ast, true, 0/*slot*/, args_size); \
         } return metadata_space_->builtin_type(kType_##dest);
         DECLARE_BOX_NUMBER_TYPES(DEFINE_INBOX_PRIMITIVE)
 #undef DEFINE_INBOX_PRIMITIVE

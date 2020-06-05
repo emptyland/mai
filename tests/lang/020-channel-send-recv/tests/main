@@ -75,7 +75,7 @@ bytecode:
     061 LdaGlobalPtr [GS+160]; (12)
     062 CallNativeFunction #0, #12; (12)
     063 Increment32 [BP-80], #1; (9)
-    064 BackwardJump 0, #42; (9)
+    064 BackwardJump 2, #42; (9)
     065 LdaGlobalPtr [GS+336]; (17)
     066 StarPtr [BP-96]; (17)
     067 MovePtr [BP-168], [BP-96]; (17)

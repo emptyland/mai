@@ -561,7 +561,9 @@ public:
     DECLARE_ALL_BYTECODE(DEFINE_METHOD)
 #undef DEFINE_METHOD
     
-    static AbstractBytecodeEmitter *New(MetadataSpace *space);
+    static AbstractBytecodeEmitter *New(MetadataSpace *space,
+                                        bool generated_debug_code,
+                                        bool generated_profiling_code);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(AbstractBytecodeEmitter);
 }; // class AbstractBytecodeEmitter

@@ -532,6 +532,10 @@ private:
     Code *const code_;
 };
 
+class Coroutine;
+
+using TrampolineStub = CallStub<intptr_t(Coroutine *)>;
+
 inline const Field *Type::field(uint32_t i) const {
     DCHECK_LT(i, n_fields_);
     return fields_ + i;

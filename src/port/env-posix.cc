@@ -1,6 +1,7 @@
 #include "port/file-posix.h"
 #include "port/tls-posix.h"
 #include "base/io-utils.h"
+#include "base/lazy-instance.h"
 #include "mai/allocator.h"
 #include <chrono>
 #include <sys/mman.h>
@@ -315,8 +316,8 @@ private:
 } // namespace port
 
 /*static*/ Env *Env::Default() {
-    static ::mai::port::PosixEnv env;
-    return &env;
+    static ::mai::base::LazyInstance<::mai::port::PosixEnv> env;
+    return env.Get();
 }
     
 } // namespace mai

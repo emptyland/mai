@@ -25,6 +25,7 @@ class Class;
 class AbstractValue;
 class RootVisitor;
 class GarbageCollector;
+class Profiler;
 struct NumberValueSlot;
 struct TLSStorage;
 struct GlobalHandleNode;
@@ -49,6 +50,8 @@ struct Options {
     GCOption gc_option = kNormalGC;
     std::string base_pkg_dir = "src/lang/pkg"; // Language base pkg path
     std::set<std::string> search_pkg_dir;
+    bool enable_jit = true;
+    int hot_point_threshold = 100;
 };
 
 // The virtual machine isolate object:
@@ -56,6 +59,7 @@ class Isolate final {
 public:
     static const int32_t kOffsetBytecodeHandlerEntries;
     static const int32_t kOffsetTrampolineSuspendPoint;
+    static const int32_t kOffsetHotCountSlots;
     
     static Isolate *New(const Options &);
     void Dispose();
@@ -89,6 +93,8 @@ public:
 
     void set_gc_option(GCOption option) { gc_option_ = option; }
     
+    bool enable_jit() const { return enable_jit_; }
+    
     // Get system base pkg dir
     const std::string &base_pkg_dir() const { return base_pkg_dir_; }
     
@@ -111,6 +117,7 @@ public:
     inline void SetGlobalSpace(Span64 *spans, uint32_t *bitmap, size_t capacity, size_t length);
     template<class T>
     inline T* global_offset(int location) const;
+    inline Profiler *profiler() const;
 
     void VisitRoot(RootVisitor *visitor);
 
@@ -137,6 +144,7 @@ private:
     const size_t new_space_initial_size_;
     const size_t old_space_limit_size_;
     const std::string base_pkg_dir_;
+    const bool enable_jit_;
     GCOption gc_option_;
 
     // External linking native functions
@@ -148,6 +156,7 @@ private:
     Factory *factory_; // Some Heap object collection
     Scheduler *scheduler_; // Scheduler
     GarbageCollector *gc_; // Garbage Collector
+    Profiler *profiler_; // Profiler for hot point profiiling
     
     Span64 *global_space_ = nullptr; // [nested strong ref] Global space
     uint32_t *global_space_bitmap_ = nullptr; // Bitmap of global space
@@ -161,6 +170,7 @@ private:
     uint8_t **bytecode_handler_entries_; // Entry address of all bytecode handlers
     uint8_t *trampoline_suspend_point_; // Entry address of suspend
 
+    int *hot_count_slots_ = nullptr; // Hot count profiling slots
     bool initialized_ = false;
 }; // class Isolate
 

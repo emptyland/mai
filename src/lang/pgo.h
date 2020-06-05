@@ -16,11 +16,12 @@ class Machine;
 class Profiler {
 public:
     Profiler(int hot_threshold): hot_threshold_(hot_threshold) {}
-
     ~Profiler() { delete [] hot_count_slots_; }
     
-    int NextHotCountSlot() { return max_hot_count_slots_++; }
+    DEF_PTR_GETTER(int, hot_count_slots);
     
+    int NextHotCountSlot() { return max_hot_count_slots_++; }
+
     void Reset() {
         delete [] hot_count_slots_;
         hot_count_slots_ = new int[max_hot_count_slots_];
@@ -34,7 +35,7 @@ private:
 }; // class Profiler
 
 
-class Tracing {
+class Tracer {
 public:
     enum State {
         kIdle,
@@ -45,13 +46,13 @@ public:
     
     static constexpr size_t kDummySize = 128;
     
-    Tracing(Machine *owns)
+    Tracer(Machine *owns)
         : owns_(owns)
         , path_(&dummy_[0]) {
         ::memset(dummy_, 0, sizeof(dummy_[0]) * kDummySize);
     }
 
-    ~Tracing() {
+    ~Tracer() {
         if (path_ != dummy_) { delete [] path_; }
     }
 

@@ -3,7 +3,9 @@
 #include "lang/value-inl.h"
 #include "lang/stack.h"
 #include "lang/object-visitor.h"
+#include "lang/isolate-inl.h"
 #include "lang/macro-assembler-x64.h"
+
 
 namespace mai {
 
@@ -42,7 +44,7 @@ MetadataSpace::~MetadataSpace() {
 }
 
 // Init builtin types
-Error MetadataSpace::Initialize() {
+Error MetadataSpace::Initialize(bool enable_debug, bool enable_jit) {
     // Void type
     Class *clazz = New<Class>();
     clazz->id_ = NextTypeId();
@@ -325,10 +327,10 @@ Error MetadataSpace::Initialize() {
     DCHECK_LT(next_type_id_, kUserTypeIdBase);
     next_type_id_ = kUserTypeIdBase;
     
-    if (Error err = GenerateBuiltinCode(); err.fail()) {
+    if (Error err = GenerateBuiltinCode(enable_debug, enable_jit); err.fail()) {
         return err;
     }
-    if (Error err = GenerateBytecodeHandlerCode(); err.fail()) {
+    if (Error err = GenerateBytecodeHandlerCode(enable_debug, enable_jit); err.fail()) {
         return err;
     }
     return Error::OK();
@@ -347,7 +349,7 @@ void MetadataSpace::VisitRoot(RootVisitor *visitor) {
     }
 }
 
-Error MetadataSpace::GenerateBuiltinCode() {
+Error MetadataSpace::GenerateBuiltinCode(bool enable_debug, bool enable_jit) {
     MacroAssembler masm;
 
     Generate_SanityTestStub(&masm);
@@ -363,7 +365,7 @@ Error MetadataSpace::GenerateBuiltinCode() {
         return MAI_CORRUPTION("Incorrect code generator");
     }
 
-    Generate_SwitchSystemStackCall(&masm);
+    Generate_SwitchSystemStackCall(&masm, enable_jit);
     if (!(switch_system_stack_call_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr))) {
         return MAI_CORRUPTION("OOM by generate code");
     }
@@ -377,7 +379,7 @@ Error MetadataSpace::GenerateBuiltinCode() {
     masm.AligmentPatch();
     masm.Reset();
     
-    Generate_InterpreterPump(&masm, switch_system_stack_call_code_->entry());
+    Generate_InterpreterPump(&masm, switch_system_stack_call_code_->entry(), enable_jit);
     if (!(interpreter_pump_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr))) {
         return MAI_CORRUPTION("OOM by generate code");
     }
@@ -386,7 +388,7 @@ Error MetadataSpace::GenerateBuiltinCode() {
 
     int pc = 0;
     Generate_Trampoline(&masm, switch_system_stack_call_code_->entry(),
-                        interpreter_pump_code_->entry(), &pc);
+                        interpreter_pump_code_->entry(), enable_jit, &pc);
     if (!(trampoline_code_ = NewCode(Code::BUILTIN, masm.buf(), nullptr))) {
         return MAI_CORRUPTION("OOM by generate code");
     }
@@ -397,9 +399,10 @@ Error MetadataSpace::GenerateBuiltinCode() {
     return Error::OK();
 }
 
-Error MetadataSpace::GenerateBytecodeHandlerCode() {
+Error MetadataSpace::GenerateBytecodeHandlerCode(bool enable_debug, bool enable_jit) {
     MacroAssembler masm;
-    std::unique_ptr<AbstractBytecodeEmitter> builder(AbstractBytecodeEmitter::New(this));
+    std::unique_ptr<AbstractBytecodeEmitter>
+    builder(AbstractBytecodeEmitter::New(this, enable_debug, enable_jit));
 
 #define DEFINE_BYTECODE_EMIT(name, kind, ...) \
     builder->Emit##name(&masm); \

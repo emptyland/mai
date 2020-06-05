@@ -28,7 +28,7 @@ public:
         __ movq(Operand(rbp, StubStackFrame::kOffsetCallee), Argv_0);
 
         SetupArguments(prototype);
-        __ InlineSwitchSystemStackCall(cxx_func_entry);
+        __ InlineSwitchSystemStackCall(cxx_func_entry, isolate_->enable_jit());
     }
 
     const std::string &GetInstructionsBuf() const { return masm_.buf(); }

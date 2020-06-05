@@ -127,5 +127,5 @@ bytecode:
     113 Star32 [BP-68]; (23)
     114 Ldar32 [BP-84]; (23)
     115 Increment32 [BP-72], #1; (20)
-    116 BackwardJump 0, #53; (20)
+    116 BackwardJump 2, #53; (20)
     117 Return; (17)

@@ -25,7 +25,7 @@ bytecode:
     011 CallNativeFunction #0, #12; (24)
     012 Yield 2; (24)
     013 Increment32 [BP-72], #1; (23)
-    014 BackwardJump 0, #9; (23)
+    014 BackwardJump 1, #9; (23)
     015 LdaGlobalPtr [GS+336]; (27)
     016 StarPtr [BP-88]; (27)
     017 MovePtr [BP-104], [BP-88]; (27)
