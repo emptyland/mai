@@ -51,7 +51,7 @@ struct Options {
     std::string base_pkg_dir = "src/lang/pkg"; // Language base pkg path
     std::set<std::string> search_pkg_dir;
     bool enable_jit = true;
-    int hot_point_threshold = 100;
+    int hot_point_threshold = 10000;
 };
 
 // The virtual machine isolate object:
@@ -107,6 +107,7 @@ public:
     inline Scheduler *scheduler() const;
     inline const Class *builtin_type(BuiltinType type) const;
     inline uint8_t **bytecode_handler_entries() const;
+    inline uint8_t **tracing_handler_entries() const;
     inline std::atomic<AbstractValue *> *cached_number_value(int slot, int64_t index);
     inline Factory *factory() const;
     inline GarbageCollector *gc() const;
@@ -168,6 +169,7 @@ private:
     mutable std::mutex persistent_mutex_; // Mutex for persistent_dummy_
     
     uint8_t **bytecode_handler_entries_; // Entry address of all bytecode handlers
+    uint8_t **tracing_handler_entries_; // Entry address of all tracing handlers
     uint8_t *trampoline_suspend_point_; // Entry address of suspend
 
     int *hot_count_slots_ = nullptr; // Hot count profiling slots

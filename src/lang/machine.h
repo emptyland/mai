@@ -51,7 +51,7 @@ public:
     static constexpr int kMaxFreeCoroutines = 10;
     static constexpr size_t kHandleBufferSize = 1024;
     
-    Machine(int id, Scheduler *owner);
+    Machine(int id, Scheduler *owner, bool enable_jit);
     ~Machine();
     void Finalize();
     
@@ -61,6 +61,7 @@ public:
     DEF_VAL_GETTER(uint64_t, user_time);
     DEF_PTR_GETTER(HandleScopeSlot, top_slot);
     DEF_VAL_GETTER(int, uncaught_count);
+    DEF_PTR_GETTER(Tracer, tracing);
     
     Scheduler *scheduler() const { return owner_; }
 
@@ -79,7 +80,6 @@ public:
     void IncrmentUncaughtCount() { uncaught_count_++; }
 
     int GetNumberOfRunnable() const {
-        //std::lock_guard<std::mutex> lock(runnable_mutex_);
         std::lock_guard<std::mutex> lock(mutex_);
         return n_runnable_;
     }
@@ -172,7 +172,6 @@ public:
         slot->end   = slot->base;
         slot->limit = prev_slot->limit;
         top_slot_ = slot;
-        //printf("[%d] enter: %p\n", id(), slot);
     }
 
     // Handle scope exit
@@ -277,7 +276,7 @@ private:
     std::condition_variable cond_var_; // Condition variable for scheduling
     mutable std::mutex mutex_; // Total mutex
     std::thread thread_; // Thread object
-    Tracer *tracing_ = nullptr; // Tracing for PGO
+    Tracer *tracing_; // Tracing for PGO
 }; // class Machine
 
 

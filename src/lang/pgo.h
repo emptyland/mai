@@ -3,14 +3,17 @@
 #define MAI_LANG_PROFILER_H_
 
 #include "lang/bytecode.h"
+#include "lang/mm.h"
 #include "base/slice.h"
 #include "base/base.h"
+#include "glog/logging.h"
 
 namespace mai {
 
 namespace lang {
 
 class Machine;
+class Function;
 
 // The profiler for PGO(Profiling Guide Optimization)
 class Profiler {
@@ -21,6 +24,12 @@ public:
     DEF_PTR_GETTER(int, hot_count_slots);
     
     int NextHotCountSlot() { return max_hot_count_slots_++; }
+    
+    void Restore(int slot, int factor) {
+        DCHECK_GE(slot, 0);
+        DCHECK_LT(slot, max_hot_count_slots_);
+        OfAtmoic(hot_count_slots_ + slot)->store(hot_threshold_ * factor);
+    }
 
     void Reset() {
         delete [] hot_count_slots_;
@@ -39,13 +48,20 @@ class Tracer {
 public:
     enum State {
         kIdle,
-        kStart,
+        kPending,
         kEnd,
         kError,
     }; // enum State
     
     static constexpr size_t kDummySize = 128;
     
+    static const int32_t kOffsetState;
+    static const int32_t kOffsetPath;
+    static const int32_t kOffsetPathSize;
+    static const int32_t kOffsetPathCapacity;
+    static const int32_t kOffsetLimitSize;
+    static const int32_t kOffsetGuardSlot;
+
     Tracer(Machine *owns)
         : owns_(owns)
         , path_(&dummy_[0]) {
@@ -55,10 +71,32 @@ public:
     ~Tracer() {
         if (path_ != dummy_) { delete [] path_; }
     }
+    
+    void Start(Function *fun, int slot, int pc);
+    
+    void Abort() {
+        DCHECK_EQ(state_, kPending);
+        if (path_ != dummy_) {
+            delete[] path_;
+            path_capacity_ = kDummySize;
+        }
+        path_size_ = 0;
+        state_ = kError;
+    }
+    
+    void Finalize() {
+        DCHECK_EQ(state_, kPending);
+        state_ = kEnd;
+    }
 
+    void GrowTracingPath();
+
+    DEF_VAL_GETTER(State, state);
     DEF_VAL_GETTER(size_t, path_size);
     DEF_VAL_GETTER(size_t, path_capacity);
-    
+    DEF_VAL_GETTER(int, guard_slot);
+    DEF_VAL_GETTER(int, guard_pc);
+
     BytecodeInstruction path(size_t i) const {
         DCHECK_LT(i, path_size_);
         return path_[i];
@@ -66,9 +104,13 @@ public:
 private:
     Machine *owns_;
     State state_ = kIdle;
-    BytecodeInstruction *path_ = nullptr;
+    BytecodeInstruction *path_;
     size_t path_size_ = 0;
-    size_t path_capacity_ = 0;
+    size_t path_capacity_ = kDummySize;
+    size_t limit_size_ = 1024;
+    Function *guard_fun_ = nullptr;
+    int guard_slot_ = 0;
+    int guard_pc_ = 0;
     BytecodeInstruction dummy_[kDummySize];
 }; // class Tracing
 

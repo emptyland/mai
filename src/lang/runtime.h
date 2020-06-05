@@ -23,6 +23,7 @@ class Throwable;
 class String;
 class Class;
 class Function;
+class Tracer;
 
 #define DECLARE_RUNTIME_FUNCTIONS(V) \
     V(BoolValueOf, "lang.Bool::valueOf") \
@@ -347,6 +348,13 @@ struct Runtime {
     static int IsSameOrBaseOf(const Any *any, const Class *type);
 
     static int StringCompareFallback(const String *lhs, const String *rhs);
+    
+    // Profiling & Tracing
+    static Address *TryTracing(Function *fun, int32_t slot, int32_t pc, Tracer **tracer);
+    static Address *FinalizeTracing(int **slots);
+    static Address *AbortTracing(int **slots);
+    static Tracer *GrowTracingPath();
+    
 
     // WriteBarrier
     static Any *WriteBarrierWithOffset(Any *host, int32_t offset);

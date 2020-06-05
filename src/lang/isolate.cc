@@ -73,7 +73,12 @@ Error Isolate::Initialize() {
     }
     
     for (int i = 0; i < kMax_Bytecodes; i++) {
-        bytecode_handler_entries_[i] = DCHECK_NOTNULL(metadata_space_->bytecode_handlers()[i])->entry();
+        bytecode_handler_entries_[i] =
+            DCHECK_NOTNULL(metadata_space_->bytecode_handlers()[i])->entry();
+        if (enable_jit_) {
+            tracing_handler_entries_[i] =
+                DCHECK_NOTNULL(metadata_space_->tracing_handlers()[i])->entry();
+        }
     }
     trampoline_suspend_point_ = metadata_space_->trampoline_suspend_point();
 
@@ -150,13 +155,14 @@ Isolate::Isolate(const Options &opts)
     , metadata_space_(new MetadataSpace(env_->GetLowLevelAllocator()))
     , scheduler_(new Scheduler(opts.concurrency <= 0 ?
                                env_->GetNumberOfCPUCores() : opts.concurrency,
-                               opts.env->GetLowLevelAllocator()))
+                               opts.env->GetLowLevelAllocator(), opts.enable_jit))
     , gc_(new GarbageCollector(this, opts.new_space_gc_threshold_rate,
                                opts.old_space_gc_threshold_rate))
     , enable_jit_(opts.enable_jit)
     , profiler_(new Profiler(opts.hot_point_threshold))
     , persistent_dummy_(new GlobalHandleNode{})
     , bytecode_handler_entries_(new Address[kMax_Bytecodes])
+    , tracing_handler_entries_(opts.enable_jit ? new Address[kMax_Bytecodes] : nullptr)
     , trampoline_suspend_point_(reinterpret_cast<Address>(BadSuspendPointDummy))
     , factory_(new Factory()) {
 }

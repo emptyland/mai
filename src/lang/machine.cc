@@ -17,12 +17,13 @@ namespace lang {
 
 void SafepointScope::ProcessGarbage() { gc_->CollectIfNeeded(); }
 
-Machine::Machine(int id, Scheduler *owner)
+Machine::Machine(int id, Scheduler *owner, bool enable_jit)
     : id_(id)
     , owner_(owner)
     , free_dummy_(Coroutine::NewDummy())
     , runnable_dummy_(Coroutine::NewDummy())
-    , waitting_dummy_(Coroutine::NewDummy()) {
+    , waitting_dummy_(Coroutine::NewDummy())
+    , tracing_(enable_jit ? new Tracer(this) : nullptr) {
     top_slot_ = new HandleScopeSlot;
     top_slot_->scope = nullptr;
     top_slot_->prev  = nullptr;

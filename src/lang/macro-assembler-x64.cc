@@ -3,6 +3,7 @@
 #include "lang/coroutine.h"
 #include "lang/runtime.h"
 #include "lang/isolate-inl.h"
+#include "lang/pgo.h"
 #include "lang/bytecode.h"
 #include "asm/utils.h"
 
@@ -179,7 +180,7 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
                          int *suspend_point_pc) {
     StackFrameScope frame_scope(masm, TrampolineStackFrame::kSize);
     //==============================================================================================
-    // NOTICE: The fucking clang++ optimizer will proecte: r12~r15 and rbx registers.
+    // NOTICE: The fucking clang++ optimizer should proecte: r12~r15 and rbx registers.
     // =============================================================================================
     __ SaveCxxCallerRegisters();
     // =============================================================================================
@@ -365,6 +366,47 @@ void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call, bool en
     __ Bind(&start);
     __ StartBC();
     // Never goto this
+}
+
+void Patch_Tracing(MacroAssembler *masm) {
+    //__ Breakpoint();
+    __ movq(rbx, Operand(TRACER, Tracer::kOffsetPathSize));
+    __ cmpq(rbx, Operand(TRACER, Tracer::kOffsetLimitSize));
+    Label abort;
+    __ j(GreaterEqual, &abort, false/*is_far*/);
+    __ cmpq(rbx, Operand(TRACER, Tracer::kOffsetPathCapacity));
+    Label trace;
+    __ j(Less, &trace, false/*is_far*/);
+    
+    // Resize path
+    __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::GrowTracingPath), true);
+    __ movq(TRACER, rax);
+    __ movq(rbx, Operand(TRACER, Tracer::kOffsetPathSize));
+    
+    // Label: trace
+    __ Bind(&trace);
+    __ movq(SCRATCH, Operand(TRACER, Tracer::kOffsetPath));
+    __ movl(rcx, Operand(BC, 0)); // current byte-code
+    __ movl(Operand(SCRATCH, rbx, times_4, 0), rcx);
+    
+    __ incq(Operand(TRACER, Tracer::kOffsetPathSize));
+    Label exit;
+    __ jmp(&exit, false/*is_far*/);
+    
+    // Label: abort
+    __ Bind(&abort);
+    // Address *FinalizeTracing(int **slots)
+    __ subq(rsp, kStackAligmentSize);
+    __ leaq(Argv_0, Operand(rsp, 0));
+    __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::AbortTracing), true);
+    __ movq(BC_ARRAY, rax);
+    __ movq(PROFILER, Operand(rsp, 0));
+    __ addq(rsp, kStackAligmentSize);
+
+    __ Bind(&exit);
+    __ nop();
+    __ nop();
+    __ nop();
 }
 
 class PartialBytecodeEmitter : public AbstractBytecodeEmitter {
@@ -2014,10 +2056,52 @@ public:
         InstrImmABScope instr_scope(masm);
         // Profiling
         if (enable_jit) {
+            __ PrefixLock();
             __ decl(Operand(PROFILER, rbx, times_4, 0));
-            // TODO:
+            Label try_tracing;
+            __ j(Negative, &try_tracing, false/*is_far*/);
+            Label exit;
+            __ jmp(&exit, false/*is_far*/);
+            
+            // Label: try tracing
+            __ Bind(&try_tracing);
+            
+            // Address *TryTracing(Function *fun, int32_t slot, int32_t pc, Tracer **)
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+            __ movq(Argv_0, Operand(SCRATCH, Closure::kOffsetProto));
+            __ movl(Argv_1, rbx);
+            __ movl(Argv_2, Operand(rbp, BytecodeStackFrame::kOffsetPC));
+            __ subq(rsp, kStackAligmentSize);
+            __ leaq(Argv_3, Operand(rsp, 0));
+            __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::TryTracing), enable_jit);
+            __ movq(BC_ARRAY, rax);
+            __ movq(TRACER, Operand(rsp, 0));
+            __ addq(rsp, kStackAligmentSize);
+            // Label: exit
+            __ Bind(&exit);
         }
 
+        instr_scope.GetBTo(rbx);
+        __ subl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
+        __ StartBC();
+    }
+    
+    static void TracingBackwardJump(MacroAssembler *masm) {
+        InstrImmABScope instr_scope(masm);
+        __ cmpl(rbx, Operand(TRACER, Tracer::kOffsetGuardSlot));
+        Label exit;
+        __ j(NotEqual, &exit, false/*is_far*/);
+        
+        // Address *FinalizeTracing(int **slots)
+        __ subq(rsp, kStackAligmentSize);
+        __ leaq(Argv_0, Operand(rsp, 0));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::FinalizeTracing), true);
+        __ movq(BC_ARRAY, rax);
+        __ movq(PROFILER, Operand(rsp, 0));
+        __ addq(rsp, kStackAligmentSize);
+        
+        // Label: Exit
+        __ Bind(&exit);
         instr_scope.GetBTo(rbx);
         __ subl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rbx);
         __ StartBC();
@@ -2609,6 +2693,9 @@ private:
     const bool enable_jit;
 }; // class BytecodeEmitter
 
+void Patch_BackwardJump(MacroAssembler *masm) {
+    BytecodeEmitter::TracingBackwardJump(masm);
+}
 
 /*static*/ AbstractBytecodeEmitter *AbstractBytecodeEmitter::New(MetadataSpace *space,
                                                                  bool generated_debug_code,

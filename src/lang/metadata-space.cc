@@ -17,7 +17,7 @@ MetadataSpace::MetadataSpace(Allocator *lla)
     , code_dummy_(new PageHeader(kDummySpace))
     , large_dummy_(new PageHeader(kDummySpace)) {
     ::memset(bytecode_handlers_, 0, sizeof(bytecode_handlers_[0]) * kMax_Bytecodes);
-    ::memset(tracing_proxies_, 0, sizeof(tracing_proxies_[0]) * kMax_Bytecodes);
+    ::memset(tracing_handlers_, 0, sizeof(tracing_handlers_[0]) * kMax_Bytecodes);
 }
 
 MetadataSpace::~MetadataSpace() {
@@ -418,6 +418,30 @@ Error MetadataSpace::GenerateBytecodeHandlerCode(bool enable_debug, bool enable_
     
 #undef DEFINE_BYTECODE_EMIT
     
+    if (!enable_jit) {
+        return Error::OK();
+    }
+
+#define DEFINE_BYTECODE_EMIT(name, kind, ...) \
+    Patch_Tracing(&masm); \
+    builder->Emit##name(&masm); \
+    masm.int3(); \
+    masm.AligmentPatch(); \
+    tracing_handlers_[k##name] = NewCode(Code::HANDLER, masm.buf(), nullptr); \
+    if (!tracing_handlers_[k##name]) { \
+        return MAI_CORRUPTION("OOM by generate code"); \
+    } \
+    masm.Reset();
+
+    DECLARE_ALL_BYTECODE(DEFINE_BYTECODE_EMIT)
+        
+#undef DEFINE_BYTECODE_EMIT
+    
+    Patch_Tracing(&masm);
+    Patch_BackwardJump(&masm);
+    masm.int3();
+    masm.AligmentPatch();
+    tracing_handlers_[kBackwardJump] = NewCode(Code::HANDLER, masm.buf(), nullptr);
     return Error::OK();
 }
 

@@ -7,6 +7,7 @@
 #include "lang/coroutine.h"
 #include "lang/scheduler.h"
 #include "lang/stack-frame.h"
+#include "lang/pgo.h"
 #include "base/spin-locking.h"
 #include "glog/logging.h"
 #include <math.h>
@@ -1268,6 +1269,46 @@ static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
         }
     }
     return r;
+}
+
+/*static*/ Address *Runtime::TryTracing(Function *fun, int32_t slot, int32_t pc, Tracer **receiver) {
+    DCHECK(fun != nullptr);
+    DCHECK_GE(slot, 0);
+    DCHECK_GE(pc, 0);
+    
+    Tracer *tracer = DCHECK_NOTNULL(Machine::This()->tracing());
+    tracer->Start(fun, slot, pc);
+
+    STATE->profiler()->Restore(slot, 2);
+    
+    *receiver = tracer;
+    return STATE->tracing_handler_entries();
+}
+
+/*static*/ Address *Runtime::FinalizeTracing(int **slots) {
+    Tracer *tracer = DCHECK_NOTNULL(Machine::This()->tracing());
+    DCHECK_EQ(tracer->state(), Tracer::kPending);
+    STATE->profiler()->Restore(tracer->guard_slot(), 2);
+    tracer->Finalize();
+
+    // TODO:
+
+    *slots = STATE->profiler()->hot_count_slots();
+    return STATE->bytecode_handler_entries();
+}
+
+/*static*/ Address *Runtime::AbortTracing(int **slots) {
+    Tracer *tracer = Machine::This()->tracing();
+    DCHECK_NOTNULL(tracer)->Abort();
+    *slots = STATE->profiler()->hot_count_slots();
+    return STATE->bytecode_handler_entries();
+}
+
+/*static*/ Tracer *Runtime::GrowTracingPath() {
+    DCHECK(STATE->enable_jit());
+    Tracer *tracer = Machine::This()->tracing();
+    DCHECK_NOTNULL(tracer)->GrowTracingPath();
+    return tracer;
 }
 
 /*static*/ Any *Runtime::WriteBarrierWithOffset(Any *host, int32_t offset) {

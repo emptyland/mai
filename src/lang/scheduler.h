@@ -30,7 +30,7 @@ public:
         kShutdown,
     };
 
-    Scheduler(int concurrency, Allocator *lla);
+    Scheduler(int concurrency, Allocator *lla, bool enable_jit);
     ~Scheduler();
 
     DEF_VAL_GETTER(int, concurrency);

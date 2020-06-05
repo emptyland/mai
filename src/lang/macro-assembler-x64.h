@@ -137,6 +137,9 @@ void Generate_Trampoline(MacroAssembler *masm, Address switch_call, Address pump
 void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call, bool enable_jit);
 void Generate_SwitchSystemStackCall(MacroAssembler *masm, bool enable_jit);
 
+void Patch_Tracing(MacroAssembler *masm);
+void Patch_BackwardJump(MacroAssembler *masm);
+
 } // namespace lang
 
 } // namespace mai

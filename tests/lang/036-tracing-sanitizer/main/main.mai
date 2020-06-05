@@ -1,0 +1,19 @@
+package main
+
+fun main() {
+    var n = 0
+    for (i in 0, 1000) {
+        //println("loop: $i")
+        n += foo(i)
+    }
+    println("n = $n")
+}
+
+fun foo(i :int): int {
+    if (i > 100) {
+        return i * 2
+    } else {
+        return i + 2
+    }
+    return 0
+}

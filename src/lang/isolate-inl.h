@@ -65,6 +65,10 @@ inline uint8_t **Isolate::bytecode_handler_entries() const {
     return DCHECK_NOTNULL(bytecode_handler_entries_);
 }
 
+inline uint8_t **Isolate::tracing_handler_entries() const {
+    return DCHECK_NOTNULL(tracing_handler_entries_);
+}
+
 inline NumberValueSlot *Isolate::cached_number_slot(int index) {
     return factory_->cached_number_slot(index);
 }
