@@ -353,6 +353,8 @@ struct Runtime {
     static Address *TryTracing(Function *fun, int32_t slot, int32_t pc, Tracer **tracer);
     static Address *FinalizeTracing(int **slots);
     static Address *AbortTracing(int **slots);
+    static void RepeatTracing();
+    static void TraceInvoke(Function *fun, int32_t slot);
     static Tracer *GrowTracingPath();
     
 

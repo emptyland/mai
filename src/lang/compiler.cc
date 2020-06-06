@@ -5,6 +5,7 @@
 #include "lang/parser.h"
 #include "lang/ast.h"
 #include "lang/lexer.h"
+#include "base/arenas.h"
 
 namespace mai {
 
@@ -61,6 +62,30 @@ Error SourceFileResolve::ParseAll(const std::vector<std::string> &source_files,
         return MAI_CORRUPTION("Compile fail!");
     }
     return Error::OK();
+}
+
+
+void CompilationInfo::Print(base::AbstractPrinter *printer) const {
+    printer->Println("---- [start] [%s] ----", start_fun_->name());
+    
+    int layout = 0;
+    base::StandaloneArena arena;
+    for (size_t i = 0; i < linear_path_.size(); i++) {
+        BytecodeNode *node = BytecodeNode::From(&arena, linear_path_[i]);
+        if (node->id() == kCheckStack) {
+            DCHECK_LT(layout + 1, invoke_info_.size());
+            const Function *fun = invoke_info_[++layout].fun;
+            printer->Println("---- [%d] [%s] ----", layout, fun->name());
+        }
+        printer->Printf("    [%03d] ", associated_pc_[i]);
+        node->Print(printer);
+        printer->Append("\n");
+        if (node->id() == kReturn) {
+            DCHECK_GE(layout - 1, 0);
+            const Function *fun = invoke_info_[--layout].fun;
+            printer->Println("---- [%d] [%s] ----", layout, fun->name());
+        }
+    }
 }
 
 

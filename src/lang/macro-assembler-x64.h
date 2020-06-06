@@ -139,6 +139,7 @@ void Generate_SwitchSystemStackCall(MacroAssembler *masm, bool enable_jit);
 
 void Patch_Tracing(MacroAssembler *masm);
 void Patch_BackwardJump(MacroAssembler *masm);
+void Patch_CheckStack(MacroAssembler *masm);
 
 } // namespace lang
 

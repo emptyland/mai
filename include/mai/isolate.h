@@ -51,7 +51,7 @@ struct Options {
     std::string base_pkg_dir = "src/lang/pkg"; // Language base pkg path
     std::set<std::string> search_pkg_dir;
     bool enable_jit = true;
-    int hot_point_threshold = 10000;
+    int hot_point_threshold = 100;
 };
 
 // The virtual machine isolate object:

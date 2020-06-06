@@ -442,6 +442,14 @@ Error MetadataSpace::GenerateBytecodeHandlerCode(bool enable_debug, bool enable_
     masm.int3();
     masm.AligmentPatch();
     tracing_handlers_[kBackwardJump] = NewCode(Code::HANDLER, masm.buf(), nullptr);
+    masm.Reset();
+    
+    Patch_Tracing(&masm);
+    Patch_CheckStack(&masm);
+    masm.int3();
+    masm.AligmentPatch();
+    tracing_handlers_[kCheckStack] = NewCode(Code::HANDLER, masm.buf(), nullptr);
+    masm.Reset();
     return Error::OK();
 }
 

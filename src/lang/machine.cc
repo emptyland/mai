@@ -204,8 +204,16 @@ void Machine::Entry() {
             user_time_ += STATE->env()->CurrentTimeMicros() - delta;
 
             if (co->state() == Coroutine::kDead || co->state() == Coroutine::kPanic) {
+                // Abort tracing first
+                if (tracing_ && tracing_->state() == Tracer::kPending) {
+                    tracing_->Abort();
+                }
                 owner_->Schedule();
             } else if (co->state() == Coroutine::kInterrupted) {
+                // Abort tracing first
+                if (tracing_ && tracing_->state() == Tracer::kPending) {
+                    tracing_->Abort();
+                }
                 // Yield coroutine to re-schedule
                 owner_->Schedule();
             } else {

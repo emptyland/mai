@@ -13,7 +13,9 @@ namespace mai {
 namespace lang {
 
 class Machine;
+class Coroutine;
 class Function;
+class CompilationInfo;
 
 // The profiler for PGO(Profiling Guide Optimization)
 class Profiler {
@@ -53,43 +55,62 @@ public:
         kError,
     }; // enum State
     
+    struct InvokeInfo {
+        Function *fun;
+        int slot;
+        size_t position;
+    };
+    
+    // Size of static dummy buffer
     static constexpr size_t kDummySize = 128;
+    
+    // How many repeated tracing
+    static constexpr int kRepeatedCount = 5;
     
     static const int32_t kOffsetState;
     static const int32_t kOffsetPath;
+    static const int32_t kOffsetPC;
     static const int32_t kOffsetPathSize;
     static const int32_t kOffsetPathCapacity;
+    static const int32_t kOffsetRepeatedCount;
     static const int32_t kOffsetLimitSize;
     static const int32_t kOffsetGuardSlot;
 
     Tracer(Machine *owns)
         : owns_(owns)
-        , path_(&dummy_[0]) {
-        ::memset(dummy_, 0, sizeof(dummy_[0]) * kDummySize);
+        , path_(&dummy_path_[0])
+        , pc_(&dummy_pc_[0]){
+        ::memset(dummy_path_, 0, sizeof(dummy_path_[0]) * kDummySize);
+        ::memset(dummy_pc_, 0, sizeof(dummy_pc_[0]) * kDummySize);
     }
 
     ~Tracer() {
-        if (path_ != dummy_) { delete [] path_; }
+        if (path_ != dummy_path_) { delete [] path_; }
+        if (pc_ != dummy_pc_) { delete [] pc_; }
     }
     
     void Start(Function *fun, int slot, int pc);
     
-    void Abort() {
-        DCHECK_EQ(state_, kPending);
-        if (path_ != dummy_) {
-            delete[] path_;
-            path_capacity_ = kDummySize;
-        }
-        path_size_ = 0;
-        state_ = kError;
-    }
+    void Abort();
     
     void Finalize() {
         DCHECK_EQ(state_, kPending);
         state_ = kEnd;
     }
 
+    void Invoke(Function *fun, int slot) {
+        DCHECK_GT(path_size_, 1);
+        invoke_info_.push_back({fun, slot, path_size_ - 1});
+    }
+    
+    void Repeat() {
+        path_size_ = 0;
+        invoke_info_.clear();
+    }
+    
     void GrowTracingPath();
+    
+    CompilationInfo *MakeCompilationInfo(Machine *mach, Coroutine *owns) const;
 
     DEF_VAL_GETTER(State, state);
     DEF_VAL_GETTER(size_t, path_size);
@@ -101,18 +122,28 @@ public:
         DCHECK_LT(i, path_size_);
         return path_[i];
     }
+    
+    uint32_t pc(size_t i) const {
+        DCHECK_LT(i, path_size_);
+        return pc_[i];
+    }
 private:
     Machine *owns_;
     State state_ = kIdle;
     BytecodeInstruction *path_;
-    size_t path_size_ = 0;
+    uint32_t *pc_;
     size_t path_capacity_ = kDummySize;
     size_t limit_size_ = 1024;
     Function *guard_fun_ = nullptr;
     int guard_slot_ = 0;
     int guard_pc_ = 0;
-    BytecodeInstruction dummy_[kDummySize];
+    int repeated_count_ = kRepeatedCount;
+    size_t path_size_ = 0;
+    std::vector<InvokeInfo> invoke_info_;
+    BytecodeInstruction dummy_path_[kDummySize];
+    uint32_t dummy_pc_[kDummySize];
 }; // class Tracing
+
 
 } // namespace lang
 

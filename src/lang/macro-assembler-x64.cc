@@ -373,7 +373,7 @@ void Patch_Tracing(MacroAssembler *masm) {
     __ movq(rbx, Operand(TRACER, Tracer::kOffsetPathSize));
     __ cmpq(rbx, Operand(TRACER, Tracer::kOffsetLimitSize));
     Label abort;
-    __ j(GreaterEqual, &abort, false/*is_far*/);
+    __ j(GreaterEqual, &abort, true/*is_far*/);
     __ cmpq(rbx, Operand(TRACER, Tracer::kOffsetPathCapacity));
     Label trace;
     __ j(Less, &trace, false/*is_far*/);
@@ -387,6 +387,10 @@ void Patch_Tracing(MacroAssembler *masm) {
     __ Bind(&trace);
     __ movq(SCRATCH, Operand(TRACER, Tracer::kOffsetPath));
     __ movl(rcx, Operand(BC, 0)); // current byte-code
+    __ movl(Operand(SCRATCH, rbx, times_4, 0), rcx);
+
+    __ movq(SCRATCH, Operand(TRACER, Tracer::kOffsetPC));
+    __ movl(rcx, Operand(rbp, BytecodeStackFrame::kOffsetPC)); // current PC
     __ movl(Operand(SCRATCH, rbx, times_4, 0), rcx);
     
     __ incq(Operand(TRACER, Tracer::kOffsetPathSize));
@@ -2090,11 +2094,19 @@ public:
         InstrImmABScope instr_scope(masm);
         __ cmpl(rbx, Operand(TRACER, Tracer::kOffsetGuardSlot));
         Label exit;
-        __ j(NotEqual, &exit, false/*is_far*/);
+        __ j(NotEqual, &exit, true/*is_far*/);
         
-        // Address *FinalizeTracing(int **slots)
+        __ decl(Operand(TRACER, Tracer::kOffsetRepeatedCount));
+        Label finalize;
+        __ j(Negative, &finalize, false/*is_far*/);
+        // void RepeatTracing()
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::RepeatTracing), true);
+        __ jmp(&exit, true/*is_far*/);
+        
+        __ Bind(&finalize);
         __ subq(rsp, kStackAligmentSize);
         __ leaq(Argv_0, Operand(rsp, 0));
+        // Address *FinalizeTracing(int **slots)
         __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::FinalizeTracing), true);
         __ movq(BC_ARRAY, rax);
         __ movq(PROFILER, Operand(rsp, 0));
@@ -2314,6 +2326,24 @@ public:
         __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewStackoverflowPanic), enable_jit);
         __ Throw(SCRATCH, rbx);
         __ Bind(&ok);
+        __ JumpNextBC();
+    }
+    
+    
+    static void TracingCheckStack(MacroAssembler *masm) {
+        __ cmpq(rsp, Operand(CO, Coroutine::kOffsetStackGuard0));
+        Label ok;
+        __ j(GreaterEqual, &ok, false/*is_far*/);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewStackoverflowPanic), true);
+        __ Throw(SCRATCH, rbx);
+        __ Bind(&ok);
+
+        // void Runtime::TraceInvoke(Function *fun, int32_t slot)
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+        __ movq(Argv_0, Operand(SCRATCH, Closure::kOffsetProto));
+        __ movl(Argv_1, 0);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::TraceInvoke), true);
+        
         __ JumpNextBC();
     }
     
@@ -2695,6 +2725,10 @@ private:
 
 void Patch_BackwardJump(MacroAssembler *masm) {
     BytecodeEmitter::TracingBackwardJump(masm);
+}
+
+void Patch_CheckStack(MacroAssembler *masm) {
+    BytecodeEmitter::TracingCheckStack(masm);
 }
 
 /*static*/ AbstractBytecodeEmitter *AbstractBytecodeEmitter::New(MetadataSpace *space,

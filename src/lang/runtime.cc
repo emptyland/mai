@@ -8,7 +8,9 @@
 #include "lang/scheduler.h"
 #include "lang/stack-frame.h"
 #include "lang/pgo.h"
+#include "lang/compiler.h"
 #include "base/spin-locking.h"
+#include "base/slice.h"
 #include "glog/logging.h"
 #include <math.h>
 
@@ -1292,22 +1294,33 @@ static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
     tracer->Finalize();
 
     // TODO:
+//    std::unique_ptr<CompilationInfo> info(tracer->MakeCompilationInfo(Machine::This(),
+//                                                                      Coroutine::This()));
+//    base::StdFilePrinter printer(stdout);
+//    info->Print(&printer);
 
     *slots = STATE->profiler()->hot_count_slots();
     return STATE->bytecode_handler_entries();
 }
 
 /*static*/ Address *Runtime::AbortTracing(int **slots) {
-    Tracer *tracer = Machine::This()->tracing();
-    DCHECK_NOTNULL(tracer)->Abort();
+    DCHECK_NOTNULL(Machine::This()->tracing())->Abort();
     *slots = STATE->profiler()->hot_count_slots();
     return STATE->bytecode_handler_entries();
 }
 
+/*static*/ void Runtime::RepeatTracing() {
+    DCHECK_NOTNULL(Machine::This()->tracing())->Repeat();
+}
+
+/*static*/ void Runtime::TraceInvoke(Function *fun, int32_t slot) {
+    DCHECK_NOTNULL(Machine::This()->tracing())->Invoke(fun, slot);
+}
+
 /*static*/ Tracer *Runtime::GrowTracingPath() {
     DCHECK(STATE->enable_jit());
-    Tracer *tracer = Machine::This()->tracing();
-    DCHECK_NOTNULL(tracer)->GrowTracingPath();
+    Tracer *tracer = DCHECK_NOTNULL(Machine::This()->tracing());
+    tracer->GrowTracingPath();
     return tracer;
 }
 
