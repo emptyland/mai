@@ -26,6 +26,7 @@ class AbstractValue;
 class RootVisitor;
 class GarbageCollector;
 class Profiler;
+class TracingHook;
 struct NumberValueSlot;
 struct TLSStorage;
 struct GlobalHandleNode;
@@ -51,7 +52,7 @@ struct Options {
     std::string base_pkg_dir = "src/lang/pkg"; // Language base pkg path
     std::set<std::string> search_pkg_dir;
     bool enable_jit = true;
-    int hot_point_threshold = 100;
+    int hot_spot_threshold = 10000;
 };
 
 // The virtual machine isolate object:
@@ -119,6 +120,7 @@ public:
     template<class T>
     inline T* global_offset(int location) const;
     inline Profiler *profiler() const;
+    inline TracingHook *tracing_hook() const;
 
     void VisitRoot(RootVisitor *visitor);
 
@@ -147,6 +149,9 @@ private:
     const std::string base_pkg_dir_;
     const bool enable_jit_;
     GCOption gc_option_;
+    
+    // The hook of tracing
+    TracingHook *tracing_hook_ = nullptr;
 
     // External linking native functions
     std::map<std::string, Closure*> external_linkers_;

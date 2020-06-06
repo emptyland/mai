@@ -127,6 +127,8 @@ public:
         DCHECK_LT(i, path_size_);
         return pc_[i];
     }
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Tracer)
 private:
     Machine *owns_;
     State state_ = kIdle;
@@ -142,8 +144,20 @@ private:
     std::vector<InvokeInfo> invoke_info_;
     BytecodeInstruction dummy_path_[kDummySize];
     uint32_t dummy_pc_[kDummySize];
-}; // class Tracing
+}; // class Tracer
 
+class TracingHook {
+public:
+    TracingHook() = default;
+    virtual ~TracingHook() = default;
+    
+    virtual void DidStart(Tracer *sender) = 0;
+    virtual void DidAbort(Tracer *sender) = 0;
+    virtual void DidRepeat(Tracer *sender) = 0;
+    virtual void DidFinailize(Tracer *sender, CompilationInfo *) = 0;
+    
+    DISALLOW_IMPLICIT_CONSTRUCTORS(TracingHook)
+}; // class TracingHook
 
 } // namespace lang
 

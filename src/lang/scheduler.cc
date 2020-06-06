@@ -185,7 +185,8 @@ bool Scheduler::Resume() {
                 case Machine::kRunning:
                     while (m->state() == Machine::kRunning && !shutting_down()) {
                         //printf("span...\n");
-                        std::this_thread::yield();
+                        //std::this_thread::yield();
+                        __asm__ ("pause");
                     }
                     break;
                 default:
@@ -194,7 +195,8 @@ bool Scheduler::Resume() {
             }
         }
         //printf("paused: %d\n", GetNumberOfSuspend());
-        std::this_thread::yield();
+        //std::this_thread::yield();
+        __asm__ ("pause");
     }
     //DCHECK_EQ(0, GetNumberOfSuspend());
     State expect = kPause;

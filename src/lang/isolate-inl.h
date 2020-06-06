@@ -140,6 +140,8 @@ inline void Isolate::SetGlobalSpace(Span64 *spans, uint32_t *bitmap, size_t capa
 
 inline Profiler *Isolate::profiler() const { return profiler_; }
 
+inline TracingHook *Isolate::tracing_hook() const { return tracing_hook_; }
+
 } // namespace lang
 
 } // namespace mai

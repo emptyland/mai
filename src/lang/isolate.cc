@@ -159,7 +159,7 @@ Isolate::Isolate(const Options &opts)
     , gc_(new GarbageCollector(this, opts.new_space_gc_threshold_rate,
                                opts.old_space_gc_threshold_rate))
     , enable_jit_(opts.enable_jit)
-    , profiler_(new Profiler(opts.hot_point_threshold))
+    , profiler_(new Profiler(opts.hot_spot_threshold))
     , persistent_dummy_(new GlobalHandleNode{})
     , bytecode_handler_entries_(new Address[kMax_Bytecodes])
     , tracing_handler_entries_(opts.enable_jit ? new Address[kMax_Bytecodes] : nullptr)

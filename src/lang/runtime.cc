@@ -1280,7 +1280,10 @@ static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
     
     Tracer *tracer = DCHECK_NOTNULL(Machine::This()->tracing());
     tracer->Start(fun, slot, pc);
-
+    if (TracingHook *hook = STATE->tracing_hook()) {
+        hook->DidStart(tracer);
+    }
+    
     STATE->profiler()->Restore(slot, 2);
     
     *receiver = tracer;
@@ -1293,9 +1296,13 @@ static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
     STATE->profiler()->Restore(tracer->guard_slot(), 2);
     tracer->Finalize();
 
+    std::unique_ptr<CompilationInfo> info(tracer->MakeCompilationInfo(Machine::This(),
+                                                                      Coroutine::This()));
+    if (TracingHook *hook = STATE->tracing_hook()) {
+        hook->DidFinailize(tracer, info.get());
+    }
+    
     // TODO:
-//    std::unique_ptr<CompilationInfo> info(tracer->MakeCompilationInfo(Machine::This(),
-//                                                                      Coroutine::This()));
 //    base::StdFilePrinter printer(stdout);
 //    info->Print(&printer);
 
@@ -1304,13 +1311,22 @@ static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
 }
 
 /*static*/ Address *Runtime::AbortTracing(int **slots) {
-    DCHECK_NOTNULL(Machine::This()->tracing())->Abort();
+    Tracer *tracer = DCHECK_NOTNULL(Machine::This()->tracing());
+    tracer->Abort();
+    if (TracingHook *hook = STATE->tracing_hook()) {
+        hook->DidAbort(tracer);
+    }
+
     *slots = STATE->profiler()->hot_count_slots();
     return STATE->bytecode_handler_entries();
 }
 
 /*static*/ void Runtime::RepeatTracing() {
-    DCHECK_NOTNULL(Machine::This()->tracing())->Repeat();
+    Tracer *tracer = DCHECK_NOTNULL(Machine::This()->tracing());
+    tracer->Repeat();
+    if (TracingHook *hook = STATE->tracing_hook()) {
+        hook->DidRepeat(tracer);
+    }
 }
 
 /*static*/ void Runtime::TraceInvoke(Function *fun, int32_t slot) {
