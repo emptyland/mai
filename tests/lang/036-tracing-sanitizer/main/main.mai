@@ -2,7 +2,7 @@ package main
 
 fun main() {
     var n = 0
-    for (i in 0, 1000) {
+    for (i in 0, 11000) {
         //println("loop: $i")
         n += foo(i)
     }
@@ -10,7 +10,7 @@ fun main() {
 }
 
 fun foo(i :int): int {
-    if (i > 100) {
+    if (i > 10000) {
         return i * 2
     } else {
         return i + 2

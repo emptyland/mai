@@ -142,6 +142,8 @@ inline Profiler *Isolate::profiler() const { return profiler_; }
 
 inline TracingHook *Isolate::tracing_hook() const { return tracing_hook_; }
 
+inline void Isolate::set_tracing_hook(TracingHook *hook) { tracing_hook_ = hook; }
+
 } // namespace lang
 
 } // namespace mai

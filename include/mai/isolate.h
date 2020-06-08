@@ -120,6 +120,7 @@ public:
     template<class T>
     inline T* global_offset(int location) const;
     inline Profiler *profiler() const;
+    inline void set_tracing_hook(TracingHook *hook);
     inline TracingHook *tracing_hook() const;
 
     void VisitRoot(RootVisitor *visitor);

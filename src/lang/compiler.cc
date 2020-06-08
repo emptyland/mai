@@ -68,22 +68,24 @@ Error SourceFileResolve::ParseAll(const std::vector<std::string> &source_files,
 void CompilationInfo::Print(base::AbstractPrinter *printer) const {
     printer->Println("---- [start] [%s] ----", start_fun_->name());
     
-    int layout = 0;
+    std::stack<const Function *> frames;
+    frames.push(invoke_info_.find(0)->second.fun);
+
     base::StandaloneArena arena;
     for (size_t i = 0; i < linear_path_.size(); i++) {
         BytecodeNode *node = BytecodeNode::From(&arena, linear_path_[i]);
         if (node->id() == kCheckStack) {
-            DCHECK_LT(layout + 1, invoke_info_.size());
-            const Function *fun = invoke_info_[++layout].fun;
-            printer->Println("---- [%d] [%s] ----", layout, fun->name());
+            const Function *fun = invoke_info_.find(i)->second.fun;
+            frames.push(fun);
+            printer->Println("---- [%zd] [%s] ----", frames.size(), fun->name());
         }
         printer->Printf("    [%03d] ", associated_pc_[i]);
         node->Print(printer);
         printer->Append("\n");
         if (node->id() == kReturn) {
-            DCHECK_GE(layout - 1, 0);
-            const Function *fun = invoke_info_[--layout].fun;
-            printer->Println("---- [%d] [%s] ----", layout, fun->name());
+            frames.pop();
+            const Function *fun = frames.top();
+            printer->Println("---- [%zd] [%s] ----", frames.size(), fun->name());
         }
     }
 }

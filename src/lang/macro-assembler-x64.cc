@@ -386,13 +386,12 @@ void Patch_Tracing(MacroAssembler *masm) {
     // Label: trace
     __ Bind(&trace);
     __ movq(SCRATCH, Operand(TRACER, Tracer::kOffsetPath));
-    __ movl(rcx, Operand(BC, 0)); // current byte-code
-    __ movl(Operand(SCRATCH, rbx, times_4, 0), rcx);
-
-    __ movq(SCRATCH, Operand(TRACER, Tracer::kOffsetPC));
     __ movl(rcx, Operand(rbp, BytecodeStackFrame::kOffsetPC)); // current PC
-    __ movl(Operand(SCRATCH, rbx, times_4, 0), rcx);
-    
+    __ shlq(rcx, 32);
+    __ movl(rdx, Operand(BC, 0)); // current byte-code
+    __ orq(rcx, rdx);
+    __ movq(Operand(SCRATCH, rbx, times_8, 0), rcx);
+
     __ incq(Operand(TRACER, Tracer::kOffsetPathSize));
     Label exit;
     __ jmp(&exit, false/*is_far*/);

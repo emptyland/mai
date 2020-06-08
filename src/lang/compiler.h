@@ -6,6 +6,7 @@
 #include "lang/bytecode.h"
 #include "base/base.h"
 #include "mai/error.h"
+#include <map>
 #include <set>
 
 namespace mai {
@@ -57,7 +58,7 @@ public:
                     int start_pc,
                     std::vector<BytecodeInstruction> &&linear_path,
                     std::vector<uint32_t> &&associated_pc,
-                    std::vector<InvokeInfo> &&invoke_info)
+                    std::map<size_t, InvokeInfo> &&invoke_info)
         : mach_(mach)
         , owns_(owns)
         , start_fun_(start_fun)
@@ -74,7 +75,7 @@ public:
     DEF_PTR_GETTER(const Function, start_fun);
     DEF_VAL_GETTER(std::vector<BytecodeInstruction>, linear_path);
     DEF_VAL_GETTER(std::vector<uint32_t>, associated_pc);
-    DEF_VAL_GETTER(std::vector<InvokeInfo>, invoke_info);
+    const std::map<size_t, InvokeInfo> &invoke_info() const { return invoke_info_; }
 
     void Print(base::AbstractPrinter *printer) const;
 private:
@@ -92,7 +93,7 @@ private:
     // PCs of associated to linear_path_
     const std::vector<uint32_t> associated_pc_;
     // Invoke functions info
-    const std::vector<InvokeInfo> invoke_info_;
+    const std::map<size_t, InvokeInfo> invoke_info_;
 };
 
 struct Compiler {

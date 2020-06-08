@@ -61,6 +61,12 @@ public:
         size_t position;
     };
     
+    struct PathEntry {
+        BytecodeInstruction instr;
+        uint32_t pc;
+    };
+    static_assert(sizeof(PathEntry) == 8, "entry is too big");
+    
     // Size of static dummy buffer
     static constexpr size_t kDummySize = 128;
     
@@ -69,7 +75,6 @@ public:
     
     static const int32_t kOffsetState;
     static const int32_t kOffsetPath;
-    static const int32_t kOffsetPC;
     static const int32_t kOffsetPathSize;
     static const int32_t kOffsetPathCapacity;
     static const int32_t kOffsetRepeatedCount;
@@ -78,15 +83,12 @@ public:
 
     Tracer(Machine *owns)
         : owns_(owns)
-        , path_(&dummy_path_[0])
-        , pc_(&dummy_pc_[0]){
+        , path_(&dummy_path_[0]) {
         ::memset(dummy_path_, 0, sizeof(dummy_path_[0]) * kDummySize);
-        ::memset(dummy_pc_, 0, sizeof(dummy_pc_[0]) * kDummySize);
     }
 
     ~Tracer() {
         if (path_ != dummy_path_) { delete [] path_; }
-        if (pc_ != dummy_pc_) { delete [] pc_; }
     }
     
     void Start(Function *fun, int slot, int pc);
@@ -117,23 +119,12 @@ public:
     DEF_VAL_GETTER(size_t, path_capacity);
     DEF_VAL_GETTER(int, guard_slot);
     DEF_VAL_GETTER(int, guard_pc);
-
-    BytecodeInstruction path(size_t i) const {
-        DCHECK_LT(i, path_size_);
-        return path_[i];
-    }
-    
-    uint32_t pc(size_t i) const {
-        DCHECK_LT(i, path_size_);
-        return pc_[i];
-    }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(Tracer)
 private:
     Machine *owns_;
     State state_ = kIdle;
-    BytecodeInstruction *path_;
-    uint32_t *pc_;
+    PathEntry *path_;
     size_t path_capacity_ = kDummySize;
     size_t limit_size_ = 1024;
     Function *guard_fun_ = nullptr;
@@ -142,8 +133,7 @@ private:
     int repeated_count_ = kRepeatedCount;
     size_t path_size_ = 0;
     std::vector<InvokeInfo> invoke_info_;
-    BytecodeInstruction dummy_path_[kDummySize];
-    uint32_t dummy_pc_[kDummySize];
+    PathEntry dummy_path_[kDummySize];
 }; // class Tracer
 
 class TracingHook {
