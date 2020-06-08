@@ -19,6 +19,7 @@
 		2306103A23FFB4710024361F /* compiler.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2306103923FFB4710024361F /* compiler.cc */; };
 		2306103C23FFBADF0024361F /* compiler-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2306103B23FFBADF0024361F /* compiler-test.cc */; };
 		2306103F23FFD7CF0024361F /* type-checker.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2306103E23FFD7CF0024361F /* type-checker.cc */; };
+		23098D92248E6DA40074634B /* hir-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23098D91248E6DA40074634B /* hir-test.cc */; };
 		231ECF5C23E6FFC500B41869 /* scheduler-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF5B23E6FFC500B41869 /* scheduler-test.cc */; };
 		231ECF5E23E7AE2B00B41869 /* coroutine-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF5D23E7AE2B00B41869 /* coroutine-test.cc */; };
 		231ECF6123E84C9E00B41869 /* bytecode.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF6023E84C9E00B41869 /* bytecode.cc */; };
@@ -163,6 +164,8 @@
 		2373EFD623EBA2C400B5CD88 /* runtime.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2373EFD523EBA2C400B5CD88 /* runtime.cc */; };
 		2379A24F23E2B8E9003067E6 /* value-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2379A24E23E2B8E9003067E6 /* value-test.cc */; };
 		2379A25223E31A1F003067E6 /* coroutine.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2379A25123E31A1F003067E6 /* coroutine.cc */; };
+		237D442F248E1F9300D46F99 /* hir.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237D442E248E1F9300D46F99 /* hir.cc */; };
+		237D4430248E1F9300D46F99 /* hir.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237D442E248E1F9300D46F99 /* hir.cc */; };
 		237F504D21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
 		237F504E21EB72C90069075D /* arena.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F504C21EB72C90069075D /* arena.cc */; };
 		237F505121EB74390069075D /* zone.cc in Sources */ = {isa = PBXBuildFile; fileRef = 237F505021EB74390069075D /* zone.cc */; };
@@ -426,6 +429,7 @@
 		2306103B23FFBADF0024361F /* compiler-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "compiler-test.cc"; sourceTree = "<group>"; };
 		2306103D23FFD7B40024361F /* type-checker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "type-checker.h"; sourceTree = "<group>"; };
 		2306103E23FFD7CF0024361F /* type-checker.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "type-checker.cc"; sourceTree = "<group>"; };
+		23098D91248E6DA40074634B /* hir-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-test.cc"; sourceTree = "<group>"; };
 		230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map-v2.h"; sourceTree = "<group>"; };
 		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
 		231C61F2219A6D54001A95C1 /* block-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-iterator.cc"; sourceTree = "<group>"; };
@@ -555,6 +559,8 @@
 		237CE4BF2192EABD004FB9BF /* iterator-warpper.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "iterator-warpper.cc"; sourceTree = "<group>"; };
 		237CE4C22192EDE4004FB9BF /* merging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = merging.h; sourceTree = "<group>"; };
 		237CE4C32192EE17004FB9BF /* merging.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = merging.cc; sourceTree = "<group>"; };
+		237D442D248E1F5800D46F99 /* hir.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = hir.h; sourceTree = "<group>"; };
+		237D442E248E1F9300D46F99 /* hir.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = hir.cc; sourceTree = "<group>"; };
 		237F504A21EB6DA90069075D /* arena.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arena.h; sourceTree = "<group>"; };
 		237F504C21EB72C90069075D /* arena.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = arena.cc; sourceTree = "<group>"; };
 		237F504F21EB73BE0069075D /* zone.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = zone.h; sourceTree = "<group>"; };
@@ -890,6 +896,8 @@
 				23DC718E2434A27200E5613E /* marking-compact.h */,
 				23DC718F2434A28800E5613E /* marking-compact.cc */,
 				23EF3A0F2484D55600B55F88 /* main.cc */,
+				237D442D248E1F5800D46F99 /* hir.h */,
+				237D442E248E1F9300D46F99 /* hir.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -920,6 +928,7 @@
 				23DC718C243448B900E5613E /* marking-sweep-test.cc */,
 				23DC71912435D9DA00E5613E /* marking-compact-test.cc */,
 				23EF3A02247F6E9500B55F88 /* garbage-collector-test.cc */,
+				23098D91248E6DA40074634B /* hir-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1647,6 +1656,7 @@
 				2364B33821E451F9008519AE /* bw-tree-memory-table-test.cc in Sources */,
 				230510BB23DF368900B89A7C /* scheduler.cc in Sources */,
 				2379A25223E31A1F003067E6 /* coroutine.cc in Sources */,
+				237D442F248E1F9300D46F99 /* hir.cc in Sources */,
 				2364B33921E451F9008519AE /* error-test.cc in Sources */,
 				2364B33A21E451F9008519AE /* hash-map-v1-test.cc in Sources */,
 				2364B33B21E451F9008519AE /* key-boundle-test.cc in Sources */,
@@ -1689,6 +1699,7 @@
 				2364B35121E451F9008519AE /* config-test.cc in Sources */,
 				231ECF6123E84C9E00B41869 /* bytecode.cc in Sources */,
 				2364B35221E451F9008519AE /* compaction-test.cc in Sources */,
+				23098D92248E6DA40074634B /* hir-test.cc in Sources */,
 				23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */,
 				2364B35321E451F9008519AE /* files-test.cc in Sources */,
 				2364B35421E451F9008519AE /* version-test.cc in Sources */,
@@ -1862,6 +1873,7 @@
 				23EF3A1C2484D5D600B55F88 /* scheduler.cc in Sources */,
 				23EF3A1D2484D5D600B55F88 /* runtime.cc in Sources */,
 				23EF3A1E2484D5D600B55F88 /* handle.cc in Sources */,
+				237D4430248E1F9300D46F99 /* hir.cc in Sources */,
 				23EF3A1F2484D5D600B55F88 /* bytecode.cc in Sources */,
 				23EF3A202484D5D600B55F88 /* bytecode-array-builder.cc in Sources */,
 				23EF3A212484D5D600B55F88 /* function-template-x64.cc in Sources */,
