@@ -77,7 +77,7 @@ void IterateObject(Any *host, ObjectVisitor *visitor) {
         case kType_Code: {
             Kode *object = static_cast<Kode *>(host);
             if (object->source_line_info()) {
-                
+                object->Iterate(visitor);
             }
         } break;
         default:

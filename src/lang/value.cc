@@ -267,16 +267,18 @@ String *IncrementalStringBuilder::Finish() const {
 }
 
 Kode::Kode(const Class *clazz, Code::Kind kind, int32_t optimization_level, uint32_t size,
-           Address instr, Array<uint32_t> *source_line_info, uint32_t tags)
+           const uint8_t *instr, uint32_t tags)
     : Any(clazz, tags)
     , kind_(kind)
     , optimization_level_(optimization_level)
-    , size_(size)
-    , source_line_info_(source_line_info) {
-    if (source_line_info) {
-        WriteBarrier(reinterpret_cast<Any **>(&source_line_info_));
-    }
+    , size_(size) {
     ::memcpy(instructions_, instr, size_);
+}
+
+/*static*/ Local<Kode> Kode::New(Code::Kind kind, int32_t optimization_level, uint32_t size,
+                                 const uint8_t *instr) {
+    Kode *code = Machine::This()->NewCode(kind, optimization_level, size, instr, 0);
+    return Local<Kode>(code);
 }
 
 void Object::Iterate(ObjectVisitor *visitor) {

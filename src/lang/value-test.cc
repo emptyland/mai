@@ -1,5 +1,8 @@
 #include "lang/value-inl.h"
 #include "lang/metadata.h"
+#if defined(MAI_ARCH_X64)
+#include "lang/macro-assembler-x64.h"
+#endif // defined(MAI_ARCH_X64)
 #include "test/isolate-initializer.h"
 #include "mai/handle.h"
 #include "gtest/gtest.h"
@@ -463,6 +466,20 @@ TEST_F(ValueTest, MapPlusAndMinus) {
         ASSERT_TRUE(mm->Get(i, &value));
         ASSERT_EQ(i, -value);
     }
+}
+
+TEST_F(ValueTest, CodeExecutable) {
+    HandleScope handle_scpoe(HandleScope::INITIALIZER);
+    
+    MacroAssembler masm;
+    Generate_SanityTestStub(&masm);
+    Local<Kode> code = Kode::New(Code::STUB, 0, masm.buf());
+    CallStub<int(int, int), Kode> call_stub(*code);
+    ASSERT_EQ(3, call_stub.entry()(1, 2));
+    
+    EXPECT_EQ(Code::STUB, code->kind());
+    EXPECT_EQ(0, code->optimization_level());
+    EXPECT_EQ(nullptr, code->source_line_info());
 }
 
 }

@@ -2460,18 +2460,18 @@ private:
         }
         __ Bind(&done);
     }
-    
+
     void EmitCompareImplicitLengthString(MacroAssembler *masm, Cond cond) {
         InstrStackABScope instr_scope(masm);
         __ movq(rsi, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movq(rdi, Operand(rbp, rbx, times_2, 0));
-        
+
         __ leaq(rax, Operand(rsi, String::kOffsetElems));
         __ leaq(rdx, Operand(rdi, String::kOffsetElems));
         __ subq(rax, rdx);
         __ subq(rdx, 16);
-        
+
         Label loop;
         __ Bind(&loop);
         __ addq(rdx, 16);
@@ -2495,7 +2495,7 @@ private:
         __ cmpl(rbx, 0);
         __ set(cond, ACC);
     }
-    
+
     void EmitCompare8(MacroAssembler *masm, Cond cond) {
         InstrStackABScope instr_scope(masm);
         __ movl(rax, Operand(rbp, rbx, times_2, 0));

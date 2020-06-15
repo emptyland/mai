@@ -67,6 +67,21 @@ public:
     DEF_PTR_GETTER(Array<uint32_t>, source_line_info);
     Address entry() { return instructions_; }
     
+    void SetSourceLineInfo(Array<uint32_t> *value) {
+        source_line_info_ = value;
+        if (value) {
+            WriteBarrier(reinterpret_cast<Any **>(&source_line_info_));
+        }
+    }
+
+    static Local<Kode> New(Code::Kind kind, int32_t optimization_level, uint32_t size,
+                           const uint8_t *instr);
+
+    static Local<Kode> New(Code::Kind kind, int32_t optimization_level, const std::string &instr) {
+        return New(kind, optimization_level, static_cast<uint32_t>(instr.size()),
+                   reinterpret_cast<const uint8_t *>(instr.data()));
+    }
+    
     void Iterate(ObjectVisitor *visitor) {
         visitor->VisitPointer(this, reinterpret_cast<Any **>(&source_line_info_));
     }
@@ -77,7 +92,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(Kode);
 private:
     Kode(const Class *clazz, Code::Kind kind, int32_t optimization_level, uint32_t size,
-         Address instr, Array<uint32_t> *source_line_info, uint32_t tags);
+         const uint8_t *instr, uint32_t tags);
     
     // Kind of code
     Code::Kind kind_;

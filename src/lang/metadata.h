@@ -356,6 +356,7 @@ public:
         STUB,
         BUILTIN,
         HANDLER,
+        OPTIMIZATION,
     };
     
     static const int32_t kOffsetEntry;

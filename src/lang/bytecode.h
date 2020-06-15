@@ -2,6 +2,7 @@
 #ifndef MAI_LANG_BYTECODE_H_
 #define MAI_LANG_BYTECODE_H_
 
+#include "lang/mm.h"
 #include "base/arena.h"
 #include "base/base.h"
 #include "glog/logging.h"
@@ -429,6 +430,17 @@ struct BytecodeTraits {
     static constexpr char kName[] = "";
 }; // struct BytecodeTraits
 
+inline constexpr int ParseStackOffset(int param) {
+    return static_cast<int>(param * kStackOffsetGranularity - kParameterSpaceOffset);
+}
+
+inline constexpr int ParseConstPoolOffset(int param) {
+    return static_cast<int>(param * kConstPoolOffsetGranularity);
+}
+
+inline constexpr int ParseGlobalSpaceOffset(int param) {
+    return static_cast<int>(param * kGlobalSpaceOffsetGranularity);
+}
 
 #define DEFINE_BYTECODE_TRAITS(name, kind, ...) \
     template<> \

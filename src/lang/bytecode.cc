@@ -133,7 +133,8 @@ void BytecodeNode::PrintSimple(base::AbstractPrinter *output) const {
 void BytecodeNode::PrintParam(base::AbstractPrinter *output, BytecodeParam::Kind kind, int param) const {
     switch (kind) {
         case BytecodeParam::kStackOffset: {
-            int idx = static_cast<int>(param * kStackOffsetGranularity - kParameterSpaceOffset);
+            // static_cast<int>(param * kStackOffsetGranularity - kParameterSpaceOffset);
+            int idx = ParseStackOffset(param);
             if (idx >= 0) {
                 output->Printf("[BP-%d]", idx);
             } else {
@@ -141,10 +142,12 @@ void BytecodeNode::PrintParam(base::AbstractPrinter *output, BytecodeParam::Kind
             }
         } break;
         case BytecodeParam::kConstOffset:
-            output->Printf("[KP+%d]", static_cast<int>(param * kConstPoolOffsetGranularity));
+            //output->Printf("[KP+%d]", static_cast<int>(param * kConstPoolOffsetGranularity));
+            output->Printf("[KP+%d]", ParseConstPoolOffset(param));
             break;
         case BytecodeParam::kGlobalOffset:
-            output->Printf("[GS+%d]", static_cast<int>(param * kGlobalSpaceOffsetGranularity));
+            //output->Printf("[GS+%d]", static_cast<int>(param * kGlobalSpaceOffsetGranularity));
+            output->Printf("[GS+%d]", ParseGlobalSpaceOffset(param));
             break;
         case BytecodeParam::kCapturedVarIndex:
             output->Printf("UP[%d]", param);
