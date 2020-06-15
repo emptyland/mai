@@ -18,6 +18,7 @@ public:
     static constexpr uint32_t kLarge    = 0x1;
     static constexpr uint32_t kOld      = 1u << 1;
     static constexpr uint32_t kMetadata = 1u << 2;
+    static constexpr uint32_t kExecutable = 1u << 3;
 
     // Create a Heap object
     Heap(Allocator *lla);
@@ -48,7 +49,7 @@ public:
     // Test object in old-geneation
     ALWAYS_INLINE bool InOldArea(Any *host) const {
         SpaceKind space = FromObject(host);
-        return space == kOldSpace || space == kLargeSpace;
+        return space == kOldSpace || space == kCodeSpace || space == kLargeSpace;
     }
     
     // Test object's generation
@@ -78,6 +79,8 @@ public:
     NewSpace *new_space() const { return new_space_.get(); }
     
     OldSpace *old_space() const { return old_space_.get(); }
+    
+    OldSpace *code_space() const { return code_space_.get(); }
     
     LargeSpace *large_space() const { return large_space_.get(); }
     
@@ -111,7 +114,8 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(Heap);
 private:
     std::unique_ptr<NewSpace> new_space_; // New generation space
-    std::unique_ptr<OldSpace> old_space_; // Old generation space
+    std::unique_ptr<OldSpace> old_space_; // Old(Normal) generation space
+    std::unique_ptr<OldSpace> code_space_; // Old(Executable) generation space
     std::unique_ptr<LargeSpace> large_space_; // Large object area(Old-Generation)
     std::mutex mutex_; // mutex
     

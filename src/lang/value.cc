@@ -35,6 +35,12 @@ const int32_t Closure::kOffsetCode = MEMBER_OFFSET_OF(Closure, cxx_fn_);
 const int32_t Closure::kOffsetCapturedVarSize = MEMBER_OFFSET_OF(Closure, captured_var_size_);
 const int32_t Closure::kOffsetCapturedVar = MEMBER_OFFSET_OF(Closure, captured_var_);
 
+const int32_t Kode::kOffsetKind = MEMBER_OFFSET_OF(Kode, kind_);
+const int32_t Kode::kOffsetSize = MEMBER_OFFSET_OF(Kode, size_);
+const int32_t Kode::kOffsetOptimizationLevel = MEMBER_OFFSET_OF(Kode, optimization_level_);
+const int32_t Kode::kOffsetSourceLineInfo = MEMBER_OFFSET_OF(Kode, source_line_info_);
+const int32_t Kode::kOffsetInstructions = MEMBER_OFFSET_OF(Kode, instructions_);
+
 const int32_t Throwable::kOffsetStacktrace = MEMBER_OFFSET_OF(Throwable, stacktrace_);
 
 const int32_t Panic::kOffsetCode = MEMBER_OFFSET_OF(Panic, code_);
@@ -258,6 +264,19 @@ String *IncrementalStringBuilder::Finish() const {
     String *result = Machine::This()->Array8ToString(incomplete());
     *incomplete_ = nullptr;
     return result;
+}
+
+Kode::Kode(const Class *clazz, Code::Kind kind, int32_t optimization_level, uint32_t size,
+           Address instr, Array<uint32_t> *source_line_info, uint32_t tags)
+    : Any(clazz, tags)
+    , kind_(kind)
+    , optimization_level_(optimization_level)
+    , size_(size)
+    , source_line_info_(source_line_info) {
+    if (source_line_info) {
+        WriteBarrier(reinterpret_cast<Any **>(&source_line_info_));
+    }
+    ::memcpy(instructions_, instr, size_);
 }
 
 void Object::Iterate(ObjectVisitor *visitor) {

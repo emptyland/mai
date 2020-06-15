@@ -18,6 +18,7 @@ enum SpaceKind : int {
     kSemiSpace, // Semi space: the part of new space
     kNewSpace, // New space: Has two semi-spaces, survive area and original area
     kOldSpace, // Old space: For old object
+    kCodeSpace, // Code space: For executable object
     kLargeSpace, // Large space: Large object allocated in this
     kMetadataSpace, // Metadata storage
 };

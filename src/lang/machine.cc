@@ -760,8 +760,19 @@ Channel *Machine::NewChannel(uint32_t data_typeid, size_t capacity, uint32_t fla
     }
     
     return new (result.ptr()) Channel(STATE->builtin_type(kType_channel), data_type,
-                                      static_cast<uint32_t>(capacity),
-                                      color_tags());
+                                      static_cast<uint32_t>(capacity), color_tags());
+}
+
+Kode *Machine::NewCode(Code::Kind kind, int32_t optimization_level, uint32_t size, Address instr,
+                       Array<uint32_t> *source_line_info, uint32_t flags) {
+    AllocationResult result = STATE->heap()->Allocate(Kode::RequiredSize(size),
+                                                      flags | Heap::kExecutable); // Must executalbe
+    if (!result.ok()) {
+        AllocationPanic(result);
+        return nullptr;
+    }
+    return new (result.ptr()) Kode(STATE->builtin_type(kType_Code), kind, optimization_level, size,
+                                   instr, source_line_info, color_tags());
 }
 
 void Machine::ThrowPanic(Panic::Level level, String *message) {

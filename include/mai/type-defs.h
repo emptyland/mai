@@ -10,6 +10,7 @@ namespace lang {
 class Any;
 class String;
 class Closure;
+class Kode;
 class Panic;
 class Channel;
 class Throwable;
@@ -80,6 +81,7 @@ enum BuiltinType: int {
     kType_string,
     kType_channel,
     DECLARE_CONTAINER_TYPES(DEFINE_ENUM)
+    kType_Code,
     kType_Throwable,
     kType_Panic,
 
@@ -209,6 +211,12 @@ template<>
 struct TypeTraits<Channel> {
     static constexpr BuiltinType kType = kType_channel;
     static constexpr char kName[] = "channel";
+};
+
+template<>
+struct TypeTraits<Kode> {
+    static constexpr BuiltinType kType = kType_Code;
+    static constexpr char kName[] = "code";
 };
 
 template<>

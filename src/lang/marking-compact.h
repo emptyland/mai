@@ -27,6 +27,8 @@ private:
 
     std::vector<Page *> old_survivors_;
     size_t old_used_ = 0;
+    std::vector<Page *> code_survivors_;
+    size_t code_used_ = 0;
 }; // class MarkingSweep
 
 

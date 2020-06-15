@@ -7,7 +7,8 @@ namespace lang {
 
 Heap::Heap(Allocator *lla)
     : new_space_(new NewSpace(lla))
-    , old_space_(new OldSpace(lla))
+    , old_space_(new OldSpace(lla, false/*executable*/))
+    , code_space_(new OldSpace(lla, true/*executable*/))
     , large_space_(new LargeSpace(lla)) {
     // TODO:
 }
@@ -55,7 +56,7 @@ AllocationResult Heap::Allocate(size_t size, uint32_t flags) {
     }
     
     if (flags & kLarge) {
-        auto result = large_space_->Allocate(size);
+        auto result = large_space_->Allocate(size, flags & kExecutable);
         if (result.ok()) {
             DbgFillInitZag(result.address(), size);
         }
@@ -64,6 +65,14 @@ AllocationResult Heap::Allocate(size_t size, uint32_t flags) {
 
     if (flags & (kOld | kMetadata)) {
         AllocationResult result = old_space_->Allocate(size);
+        if (result.ok()) {
+            DbgFillInitZag(result.address(), size);
+        }
+        return result;
+    }
+    
+    if (flags & kExecutable) {
+        AllocationResult result = code_space_->Allocate(size);
         if (result.ok()) {
             DbgFillInitZag(result.address(), size);
         }
@@ -126,6 +135,15 @@ Any *Heap::MoveOldSpaceObject(Page *original, Any *object, Page *dest) {
             Address addr = reinterpret_cast<Address>(object);
             size_t size = original->AllocatedSize(addr);
             Address result = old_space_->PageAllocate(dest, size);
+            ::memcpy(result, addr, size);
+            object->set_forward_address(result);
+            return reinterpret_cast<Any *>(result);
+        } break;
+            
+        case kCodeSpace: {
+            Address addr = reinterpret_cast<Address>(object);
+            size_t size = original->AllocatedSize(addr);
+            Address result = code_space_->PageAllocate(dest, size);
             ::memcpy(result, addr, size);
             object->set_forward_address(result);
             return reinterpret_cast<Any *>(result);

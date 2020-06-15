@@ -52,6 +52,49 @@ private:
     }
 }; // class CapturedValue
 
+// Code for machine instruction
+class Kode : public Any {
+public:
+    static const int32_t kOffsetKind;
+    static const int32_t kOffsetSize;
+    static const int32_t kOffsetOptimizationLevel;
+    static const int32_t kOffsetSourceLineInfo;
+    static const int32_t kOffsetInstructions;
+    
+    DEF_VAL_GETTER(Code::Kind, kind);
+    DEF_VAL_GETTER(uint32_t, size);
+    DEF_VAL_GETTER(int32_t, optimization_level);
+    DEF_PTR_GETTER(Array<uint32_t>, source_line_info);
+    Address entry() { return instructions_; }
+    
+    void Iterate(ObjectVisitor *visitor) {
+        visitor->VisitPointer(this, reinterpret_cast<Any **>(&source_line_info_));
+    }
+
+    static size_t RequiredSize(uint32_t instr_size) { return sizeof(Kode) + instr_size; }
+    
+    friend class Machine;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Kode);
+private:
+    Kode(const Class *clazz, Code::Kind kind, int32_t optimization_level, uint32_t size,
+         Address instr, Array<uint32_t> *source_line_info, uint32_t tags);
+    
+    // Kind of code
+    Code::Kind kind_;
+    
+    // The Level of compiler optimization, 1 of base optimization
+    int32_t optimization_level_;
+    
+    // Bytes size of instructions
+    uint32_t size_;
+    
+    // Source line information array
+    Array<uint32_t> *source_line_info_ = nullptr; // [strong ref]
+    
+    // Base address of native instructions
+    uint8_t instructions_[0];
+}; // class Kode
+
 // The stub class for user-defined-object
 // Support some useful method.
 class Object : public Any {

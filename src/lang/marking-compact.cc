@@ -86,6 +86,10 @@ void MarkingCompact::Run(base::AbstractPrinter *logger) {
     // Compacting phase:
     histogram_.collected_bytes += (heap_->old_space()->used_size() - old_used_);
     heap_->old_space()->Compact(old_survivors_, old_used_);
+    
+    histogram_.collected_bytes += (heap_->code_space()->used_size() - code_used_);
+    heap_->code_space()->Compact(code_survivors_, code_used_);
+    
     // Sweep large objects
     count = SweepLargeSpace();
     logger->Println("[Major] Collected %d large objects", count);
@@ -127,6 +131,20 @@ void MarkingCompact::CompactObject(Any **address) {
             }
             *address = heap_->MoveOldSpaceObject(original, obj, survivor);
             old_used_ += object_size;
+        } break;
+            
+        case kCodeSpace: {
+            OldSpace *code_space = heap_->code_space();
+            Page *original = Page::Cast(header);
+            Page *survivor = code_survivors_.empty() ? nullptr : code_survivors_.back();
+            size_t object_size = original->AllocatedSize(reinterpret_cast<Address>(obj));
+            DCHECK_GT(object_size, kPointerSize);
+            if (survivor == nullptr || object_size > survivor->available()) {
+                survivor = code_space->GetOrNewFreePage();
+                code_survivors_.push_back(survivor);
+            }
+            *address = heap_->MoveOldSpaceObject(original, obj, survivor);
+            code_used_ += object_size;
         } break;
 
         case kLargeSpace:

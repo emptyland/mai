@@ -10,6 +10,7 @@ namespace mai {
 namespace lang {
 
 class Any;
+class OldSpace;
 
 class MarkingSweep final : public PartialMarkingPolicy {
 public:
@@ -17,6 +18,9 @@ public:
     ~MarkingSweep() override = default;
 
     void Run(base::AbstractPrinter *logger) override;
+
+private:
+    int SweepOldSpace(OldSpace *old_space, int count);
 }; // class MarkingSweep
 
 } // namespace lang

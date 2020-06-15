@@ -35,10 +35,11 @@ Error NewSpace::Initialize(size_t initial_size) {
     return Error::OK();
 }
 
-OldSpace::OldSpace(Allocator *lla, int max_freed_pages)
+OldSpace::OldSpace(Allocator *lla, bool executable, int max_freed_pages)
     : Space(kOldSpace, lla)
     , dummy_(new PageHeader(kDummySpace))
     , free_(new PageHeader(kDummySpace))
+    , executable_(executable)
     , max_freed_pages_(max_freed_pages) {
 }
 
@@ -145,11 +146,12 @@ void OldSpace::Free(Address addr, bool merge) {
     page->bitmap()->ClearAllocated(addr - page->chunk());
 }
 
-AllocationResult LargeSpace::DoAllocate(size_t size) {
+AllocationResult LargeSpace::DoAllocate(size_t size, bool executable) {
     if (size == 0) {
         return AllocationResult(AllocationResult::NOTHING, nullptr);
     }
-    LargePage *page = LargePage::New(kind(), Allocator::kRdWr, size, lla_);
+    uint32_t access = Allocator::kRdWr | (executable ? Allocator::kEx : 0);
+    LargePage *page = LargePage::New(kind(), access, size, lla_);
     if (!page) {
         return AllocationResult(AllocationResult::OOM, nullptr);
     }

@@ -153,7 +153,7 @@ TEST_F(SpaceTest, NewSpaceConcurrentAllocation) {
 
 
 TEST_F(SpaceTest, OldSpaceAllocation) {
-    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_, false/*executable*/));
     ASSERT_EQ(0, space->allocated_pages());
     ASSERT_EQ(0, space->used_size());
     
@@ -165,7 +165,7 @@ TEST_F(SpaceTest, OldSpaceAllocation) {
 }
 
 TEST_F(SpaceTest, OldSpaceFree) {
-    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_, false/*executable*/));
     
     auto rv = space->Allocate(1);
     ASSERT_TRUE(rv.ok());
@@ -183,7 +183,7 @@ TEST_F(SpaceTest, OldSpaceFree) {
 }
 
 TEST_F(SpaceTest, OldSpaceIterate) {
-    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_, false/*executable*/));
     
     auto rv = space->Allocate(1);
     auto v1 = rv.address();
@@ -226,7 +226,7 @@ TEST_F(SpaceTest, OldSpaceIterate) {
 }
 
 TEST_F(SpaceTest, OldSpaceEmptyIterate) {
-    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_, false/*executable*/));
     OldSpace::Iterator iter1(space.get());
     iter1.SeekToFirst();
     ASSERT_FALSE(iter1.Valid());
@@ -247,7 +247,7 @@ TEST_F(SpaceTest, OldSpaceEmptyIterate) {
 
 TEST_F(SpaceTest, OldSpaceFuzzyAllocation) {
     static constexpr int N = 10000;
-    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_, false/*executable*/));
     std::vector<Address> chunks;
     for (int i = 0; i < N; i++) {
         auto rv = space->Allocate(256 + rand() % 256);
@@ -276,7 +276,7 @@ TEST_F(SpaceTest, OldSpaceFuzzyAllocation) {
 
 TEST_F(SpaceTest, OldSpaceFuzzyFree) {
     static constexpr int N = 100000;
-    std::unique_ptr<OldSpace> space(new OldSpace(lla_));
+    std::unique_ptr<OldSpace> space(new OldSpace(lla_, false/*executable*/));
     std::vector<Address> chunks;
     for (int i = 0; i < N; i++) {
         auto rv = space->Allocate(16 + rand() % 4096);

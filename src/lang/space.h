@@ -143,9 +143,10 @@ class OldSpace final : public Space {
 public:
     using Iterator = OldSpaceIterator;
     
-    OldSpace(Allocator *lla, int max_freed_pages = 4);
+    OldSpace(Allocator *lla, bool executable, int max_freed_pages = 4);
     ~OldSpace();
     
+    DEF_VAL_GETTER(bool, executable);
     DEF_VAL_GETTER(int, allocated_pages);
     DEF_VAL_GETTER(int, freed_pages);
     DEF_VAL_GETTER(size_t, used_size);
@@ -186,6 +187,7 @@ private:
     
     PageHeader *dummy_; // Page double-linked list dummy
     PageHeader *free_;  // Free page double-linked list dummy
+    const bool executable_; // Executable memory?
     const int max_freed_pages_; // Limit of freed pages
     int allocated_pages_ = 0; // Number of allocated pages
     int freed_pages_ = 0; // Number of free pages
@@ -210,9 +212,9 @@ public:
     
     ALWAYS_INLINE bool Contains(Address addr);
 
-    AllocationResult Allocate(size_t size) {
+    AllocationResult Allocate(size_t size, bool executable = false) {
         std::lock_guard<std::mutex> lock(mutex_);
-        return DoAllocate(size);
+        return DoAllocate(size, executable);
     }
 
     // Free lock is not need.
@@ -223,7 +225,7 @@ public:
     DISALLOW_IMPLICIT_CONSTRUCTORS(LargeSpace);
 private:
     // Not thread safe:
-    AllocationResult DoAllocate(size_t size);
+    AllocationResult DoAllocate(size_t size, bool executable);
     
     PageHeader *dummy_; // Page double-linked list dummy
     size_t rss_size_ = 0; // OS Allocated bytes size
@@ -440,7 +442,8 @@ ALWAYS_INLINE bool OldSpace::Contains(Address addr) {
 inline Page *OldSpace::GetOrNewFreePage() {
     Page *free_page = Page::Cast(free_->next());
     if (free_page == free_) { // free list is empty
-        free_page = Page::New(kind(), Allocator::kRd|Allocator::kWr, lla_);
+        uint32_t access = Allocator::kRdWr | (executable() ? Allocator::kEx : 0);
+        free_page = Page::New(kind(), access, lla_);
         allocated_pages_++;
     }
     QUEUE_REMOVE(free_page);

@@ -522,14 +522,14 @@ private:
 }; // class PrototypeDesc
 
 
-template <class T>
+template <class T, class E = Code>
 class CallStub {
 public:
-    CallStub(Code *code): code_(DCHECK_NOTNULL(code)) {}
+    CallStub(E *code): code_(DCHECK_NOTNULL(code)) {}
     
     T *entry() const { return reinterpret_cast<T *>(code_->entry()); }
 private:
-    Code *const code_;
+    E *const code_;
 };
 
 class Coroutine;

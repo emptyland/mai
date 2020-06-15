@@ -20,20 +20,25 @@ void MarkingSweep::Run(base::AbstractPrinter *logger) /*override*/ {
     // Sweeping phase:
     count = 0;
     logger->Println("[Major] Sweeping phase start");
-    if (OldSpace *old_space = heap_->old_space()) {
-        OldSpace::Iterator iter(old_space);
-        for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
-            Any *obj = iter.object();
-            if (obj->color() == heap_->initialize_color()) {
-                histogram_.collected_bytes += iter.object_size();
-                histogram_.collected_objs++;
-                old_space->Free(iter.address(), true/*should_merge*/);
-                count++;
-            }
-        }
-        // TODO: merge chunks
-        old_space->PurgeIfNeeded();
-    }
+    count = SweepOldSpace(heap()->old_space(), count);
+    count = SweepOldSpace(heap()->code_space(), count);
+    
+//    if (OldSpace *old_space = heap_->old_space()) {
+//        OldSpace::Iterator iter(old_space);
+//        for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+//            Any *obj = iter.object();
+//            if (obj->color() == heap_->initialize_color()) {
+//                histogram_.collected_bytes += iter.object_size();
+//                histogram_.collected_objs++;
+//                old_space->Free(iter.address(), true/*should_merge*/);
+//                count++;
+//            }
+//        }
+//        // TODO: merge chunks
+//        old_space->PurgeIfNeeded();
+//    }
+    
+    
     logger->Println("[Major] Collected %d old objects", count);
 
     // Sweep large objects
@@ -48,6 +53,22 @@ void MarkingSweep::Run(base::AbstractPrinter *logger) /*override*/ {
     histogram_.micro_time_cost = env->CurrentTimeMicros() - jiffy;
     logger->Println("[Major] Marking-sweep done, collected: %zd, cost: %" PRIi64 ,
                     histogram_.collected_bytes, histogram_.micro_time_cost);
+}
+
+int MarkingSweep::SweepOldSpace(OldSpace *old_space, int count) {
+    OldSpace::Iterator iter(old_space);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        Any *obj = iter.object();
+        if (obj->color() == heap_->initialize_color()) {
+            histogram_.collected_bytes += iter.object_size();
+            histogram_.collected_objs++;
+            old_space->Free(iter.address(), true/*should_merge*/);
+            count++;
+        }
+    }
+    // TODO: merge chunks
+    old_space->PurgeIfNeeded();
+    return count;
 }
 
 } // namespace lang

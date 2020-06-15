@@ -161,6 +161,10 @@ public:
     // New channel
     Channel *NewChannel(uint32_t data_type, size_t capacity, uint32_t flags);
     
+    // New executable code
+    Kode *NewCode(Code::Kind, int32_t optimization_level, uint32_t size, Address instr,
+                  Array<uint32_t> *source_line_info, uint32_t flags);
+    
     // Throw a panic
     void ThrowPanic(Panic::Level level, String *message);
     

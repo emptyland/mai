@@ -108,8 +108,10 @@ void MacroAssembler::Abort(const char *message) {
 // For code valid testing
 void Generate_SanityTestStub(MacroAssembler *masm) {
     StackFrameScope frame_scope(masm, StubStackFrame::kSize);
+    __ SaveCxxCallerRegisters();
     __ movq(rax, Argv_0);
     __ addq(rax, Argv_1);
+    __ RecoverCxxCallerRegisters();
 }
 
 // For function template testing
