@@ -32,6 +32,11 @@ public:
 private:
     virtual void Free(const void */*chunk*/, size_t /*size*/) override {}
 }; // class Arena
+
+class ArenaObject {
+public:
+    void *operator new (size_t n, Arena *arena) { return arena->Allocate(n); }
+}; // class ArenaObject
     
 } // namespace base
     

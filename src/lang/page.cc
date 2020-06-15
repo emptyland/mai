@@ -65,10 +65,11 @@ static void *PageAllocate(size_t size, size_t alignment, Allocator *lla) {
 }
 
 const size_t Page::kRegionLimitSize[kMaxRegionChunks] = {
+    32,
     64,
-    512,
-    1024,
-    4096,
+    128, //512,
+    512, //1024,
+    1024, //4096,
     SIZE_T_MAX,
 };
 

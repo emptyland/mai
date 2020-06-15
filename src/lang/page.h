@@ -156,10 +156,11 @@ public:
     }; // struct Chunk
     
     struct Region {
-        Chunk *tiny;   // [0, 64) bytes
-        Chunk *small;  // [64, 512) bytes
-        Chunk *medium; // [512, 1024) bytes
-        Chunk *normal; // [1024, 4096) bytes
+        Chunk *b32;    // [0, 32) bytes
+        Chunk *b64;    // [32, 64) bytes
+        Chunk *b128;   // [64, 512) bytes
+        Chunk *b512;   // [512, 1024) bytes
+        Chunk *b1024;  // [1024, 4096) bytes
         Chunk *big;    // >= 4096 bytes
     }; // struct Region
     
@@ -168,7 +169,7 @@ public:
     
     using Bitmap = FixedAllocationBitmap<kBitmapSize>;
 
-    static constexpr size_t kMaxRegionChunks = 5;
+    static constexpr size_t kMaxRegionChunks = 6;
     static const size_t kRegionLimitSize[kMaxRegionChunks];
     
     Address chunk() { return chunk_; }

@@ -1303,8 +1303,8 @@ static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
     }
     
     // TODO:
-    base::StdFilePrinter printer(stdout);
-    info->Print(&printer);
+//    base::StdFilePrinter printer(stdout);
+//    info->Print(&printer);
 
     *slots = STATE->profiler()->hot_count_slots();
     return STATE->bytecode_handler_entries();

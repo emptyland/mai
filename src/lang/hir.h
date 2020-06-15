@@ -9,6 +9,7 @@ namespace mai {
 
 namespace lang {
 
+class CompilationInfo;
 class HOperatorFactory;
 class HOperator;
 class HValue;
@@ -16,6 +17,7 @@ class HNode;
 class Used;
 
 #define DECLARE_HIR_TYPES(V) \
+    V(Void,    0, 0) \
     V(Word8,   8, HType::kNumberBit) \
     V(Word16,  16, HType::kNumberBit) \
     V(Word32,  32, HType::kNumberBit) \
@@ -74,11 +76,16 @@ struct HTypes {
 };
 
 #define DECLARE_HIR_OPCODES(V) \
+    V(Start) \
+    V(End) \
+    V(Merge) \
+    V(FrameState) \
     V(Phi) \
     V(Guard) \
     V(Constant) \
     V(Argument) \
     V(Branch) \
+    V(CheckStack) \
     DECLARE_HIR_COMPAROR(V) \
     DECLARE_HIR_CALLING(V)
 
@@ -109,7 +116,7 @@ enum HOperatorCode {
     HMaxOpcode,
 };
 
-class HOperator {
+class HOperator : public base::ArenaObject {
 public:
     using Value = HOperatorCode;
     
@@ -143,11 +150,19 @@ public:
     
     const char *name() const { return kNames[value_]; }
     
-    void *operator new(size_t n, base::Arena *arena) { return arena->Allocate(n); }
-    
+    static void UpdateControlIn(const HOperator *op, int value) {
+        const_cast<HOperator *>(op)->control_in_ = value;
+    }
+    static void UpdateEffectIn(const HOperator *op, int value) {
+        const_cast<HOperator *>(op)->effect_in_ = value;
+    }
+    static void UpdateValueIn(const HOperator *op, int value) {
+        const_cast<HOperator *>(op)->value_in_ = value;
+    }
+
     friend class HOperatorFactory;
     DISALLOW_IMPLICIT_CONSTRUCTORS(HOperator);
-private:
+protected:
     HOperator(Value value, uint64_t properties, int control_in, int effect_in, int value_in,
               int control_out, int effect_out, int value_out)
         : value_(value)
@@ -171,6 +186,33 @@ private:
     static const char *kNames[HMaxOpcode];
 }; // class HOperator
 
+
+template<class T>
+class HOperatorWith : public HOperator {
+public:
+    T data() const { return data_; }
+    
+    static inline T Data(const HNode *node);
+    
+    static inline T Data(const HOperator *op) { return DCHECK_NOTNULL(Cast(op))->data(); }
+    
+    static inline const HOperatorWith *Cast(const HOperator *op) {
+        return static_cast<const HOperatorWith *>(op);
+    }
+
+    friend class HOperatorFactory;
+    DISALLOW_IMPLICIT_CONSTRUCTORS(HOperatorWith);
+protected:
+    inline HOperatorWith(Value value, uint64_t properties, int control_in, int effect_in,
+                         int value_in, int control_out, int effect_out, int value_out, T data)
+    : HOperator(value, properties, control_in, effect_in, value_in,
+                control_out, effect_out, value_out)
+    , data_(data) {}
+    
+private:
+    T data_;
+}; // template<class T> class HOperatorWith
+
 class HOperatorFactory final {
 public:
     HOperatorFactory(base::Arena *arena)
@@ -178,26 +220,38 @@ public:
         ::memset(cache_, 0, sizeof(cache_[0]) * HMaxOpcode);
         Initialize();
     }
+    
+    const HOperator *Start() {
+        return new (arena_) HOperator(HStart, 0, 0, 0, 0, 0, 0, 0);
+    }
+    
+    const HOperator *End(int control_in) {
+        return new (arena_) HOperator(HEnd, 0, 0, control_in, 0, 0, 0, 0);
+    }
+    
+    const HOperator *CheckStack() {
+        return new (arena_) HOperator(HCheckStack, 0, 0, 0, 0, 0, 0, 0);
+    }
 
-    const HOperator *Phi(int value_in) {
-        return new (arena_) HOperator(HPhi, 0, 0, 0, value_in, 0, 0, 1);
+    const HOperator *Phi(int control_in, int value_in) {
+        return new (arena_) HOperator(HPhi, 0, control_in, 0, value_in, 0, 0, 0);
     }
 
     const HOperator *Guard(uint64_t hint) {
         return new (arena_) HOperator(HGuard, hint, 0, 0, 0, 0, 0, 0);
     }
 
-    const HOperator *Constant(uint64_t hint) {
-        return new (arena_) HOperator(HConstant, hint, 0, 0, 0, 0, 0, 1);
+    const HOperator *ConstantWord32(uint32_t data) {
+        return new (arena_) HOperatorWith<uint32_t>(HConstant, 0, 0, 0, 0, 0, 0, 0, data);
+    }
+    
+    const HOperator *ConstantWord64(uint64_t data) {
+        return new (arena_) HOperatorWith<uint64_t>(HConstant, 0, 0, 0, 0, 0, 0, 0, data);
     }
 
     const HOperator *Argument(uint64_t hint) {
         return new (arena_) HOperator(HArgument, hint, 0, 0, 0, 0, 0, 1);
     }
-    
-//    const HOperator *Branch() {
-//        
-//    }
 
     const HOperator *Equal(uint64_t hint) {
         return new (arena_) HOperator(HEqual, hint, 0, 0, 2, 0, 0, 1);
@@ -259,68 +313,160 @@ struct Used {
     HNode *user;
 }; // struct Used
 
+
 class HNode : public HValue {
 public:
-    static inline HNode *New(base::Arena *arena, int vid, int hint, HType type, const HOperator *op,
-                             HNode **inputs, int inputs_size) {
-        size_t request_size = sizeof(HNode) + sizeof(*inputs) * inputs_size;
+    static inline HNode *New(base::Arena *arena, int vid, HType type, const HOperator *op,
+                             int inputs_capacity, int inputs_size, HNode **inputs) {
+        DCHECK_GE(inputs_size, 0);
+        DCHECK_GE(inputs_capacity, inputs_size);
+        size_t request_size = sizeof(HNode) + sizeof(*inputs) * inputs_capacity;
         void *chunk = arena->Allocate(request_size);
-        return new (chunk) HNode(arena, vid, hint, type, op, inputs_size, inputs);
+        return new (chunk) HNode(arena, vid, 0, type, op, inputs_capacity, inputs_size, inputs);
     }
     
+    static HNode *Clone(base::Arena *arena, HNode *src, int inputs_capacity) {
+        for (int i = 0; i < src->inputs_size(); i++) {
+            src->input(i)->Unused(src);
+        }
+        HNode *dest = New(arena, src->vid(), src->type(), src->op(), inputs_capacity,
+                          src->inputs_size(), src->inputs_);
+        dest->used_ = src->used_;
+        return dest;
+    }
+
     DEF_PTR_GETTER(const HOperator, op);
     HOperator::Value opcode() const { return op_->value(); }
-    
+
+    DEF_VAL_GETTER(int, inputs_capacity);
     DEF_VAL_GETTER(int, inputs_size);
 
     HNode *input(int i) const {
         DCHECK_GE(i, 0);
         DCHECK_LT(i, inputs_size());
-        return inputs_[i];
+        return DCHECK_NOTNULL(inputs_[i]);
     }
     
     HNode *lhs() const {
-        DCHECK_EQ(op_->value_in(), 2);
+        DCHECK_EQ(inputs_size(), 2);
         return input(0);
     }
     
     HNode *rhs() const {
-        DCHECK_EQ(op_->value_in(), 2);
+        DCHECK_EQ(inputs_size(), 2);
         return input(1);
     }
     
-    Used *BeUsed(base::Arena *arena, HNode *user) {
-        Used *used = new (arena) Used{};
-        used->next_ = used;
-        used->prev_ = used;
-        used->user  = user;
-        QUEUE_INSERT_TAIL(&used_, used);
-        return used;
+    void ReplaceInput(base::Arena *arena, int i, HNode *node) {
+        HNode *old = input(i);
+        inputs_[i] = node;
+        BeUsed(arena, node);
+        old->Unused(this);
     }
+
+    HNode *AppendInput(base::Arena *arena, HNode *node) {
+        HNode *n = this;
+        if (n->inputs_size() + 1 > n->inputs_capacity()) {
+            n = Clone(arena, n, n->inputs_capacity() << 1);
+        }
+        n->inputs_[n->inputs_size_++] = node;
+        n->BeUsed(arena, node);
+        return n;
+    }
+
+    Used *BeUsed(base::Arena *arena, HNode *used);
+    
+    Used *FindUsed(HNode *user) const {
+        for (Used *u = DCHECK_NOTNULL(used_)->next_; u != used_; u = u->next_) {
+            if (u->user == user) {
+                return u;
+            }
+        }
+        return nullptr;
+    }
+
+    void Unused(HNode *user) {
+        Used *u = DCHECK_NOTNULL(FindUsed(user));
+        QUEUE_REMOVE(u);
+    }
+    
+    int UsedCount() {
+        int n = 0;
+        UsedIterator iter(this);
+        for (iter.SeekToFirst(); iter.Valid(); iter.Next())  {
+            n++;
+        }
+        return n;
+    }
+    
+    class UsedIterator {
+    public:
+        UsedIterator(HNode *owns): owns_(owns) {}
+        void SeekToFirst() { used_ = !owns_->used_ ? nullptr : owns_->used_->next_; }
+        void SeekToLast() { used_ = !owns_->used_ ? nullptr : owns_->used_->prev_; }
+        void Next() {
+            DCHECK(Valid());
+            used_ = used_->next_;
+        }
+        void Prev() {
+            DCHECK(Valid());
+            used_ = used_->prev_;
+        }
+        void Remove() {
+            DCHECK(Valid());
+            QUEUE_REMOVE(used_);
+        }
+        bool Valid() const { return used_ && used_ != owns_->used_; }
+        HNode *operator *() { return user(); }
+        HNode *operator -> () { return user(); }
+        HNode *user() const {
+            DCHECK(Valid());
+            return used_->user;
+        }
+    private:
+        HNode *const owns_;
+        Used *used_ = nullptr;
+    }; // class UsedIterator
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(HNode);
 private:
-    HNode(base::Arena *arena, int vid, int hint, HType type, const HOperator *op, int inputs_size,
-          HNode **inputs)
-        : HValue(vid, hint, type)
-        , op_(op)
-        , inputs_size_(inputs_size) {
-        used_.next_ = &used_;
-        used_.prev_ = &used_;
-        for (int i = 0; i < inputs_size_; i++) {
-            inputs_[i] = inputs[i];
-            BeUsed(arena, inputs_[i]);
-        }
-    }
-    
+    HNode(base::Arena *arena, int vid, int hint, HType type, const HOperator *op,
+          int inputs_capacity, int inputs_size, HNode **inputs);
+
     const HOperator *op_;
-    Used used_;
+    int inputs_capacity_;
     int inputs_size_;
+    Used *used_ = nullptr;
     HNode *inputs_[0];
 }; // class HNode
 
 
+class HGraph final : public base::ArenaObject {
+public:
+    HGraph(base::Arena *arena): arena_(arena) {}
+    
+    DEF_PTR_GETTER(base::Arena, arena);
+    DEF_PTR_PROP_RW(HNode, start);
+    DEF_PTR_PROP_RW(HNode, end);
+    DEF_VAL_GETTER(int, next_node_id);
+    
+    int NextNodeId() { return next_node_id_++; }
 
+private:
+    base::Arena *const arena_;
+    HNode *start_ = nullptr;
+    HNode *end_ = nullptr;
+    int next_node_id_ = 0;
+}; // class HGraph
+
+
+template<class T>
+/*static*/ inline T HOperatorWith<T>::Data(const HNode *node) {
+    return Data(DCHECK_NOTNULL(node)->op());
+}
+
+// Export functions:
+HGraph *GenerateHIRGraph(const CompilationInfo *compilation_info, base::Arena *arena);
 
 } // namespace lang
 

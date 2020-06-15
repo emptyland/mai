@@ -23,7 +23,7 @@ public:
 
 TEST_F(PageTest, Sanity) {
     ASSERT_EQ(1024*1024, kPageSize);
-    ASSERT_EQ(1032373, Page::kChunkSize);
+    ASSERT_EQ(1032365, Page::kChunkSize);
     ASSERT_EQ(4032, Page::kBitmapSize);
 }
 

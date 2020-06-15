@@ -20,6 +20,8 @@
 		2306103C23FFBADF0024361F /* compiler-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2306103B23FFBADF0024361F /* compiler-test.cc */; };
 		2306103F23FFD7CF0024361F /* type-checker.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2306103E23FFD7CF0024361F /* type-checker.cc */; };
 		23098D92248E6DA40074634B /* hir-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23098D91248E6DA40074634B /* hir-test.cc */; };
+		23098D942492321F0074634B /* hir-graph-generator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23098D932492321F0074634B /* hir-graph-generator.cc */; };
+		23098D952492321F0074634B /* hir-graph-generator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23098D932492321F0074634B /* hir-graph-generator.cc */; };
 		231ECF5C23E6FFC500B41869 /* scheduler-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF5B23E6FFC500B41869 /* scheduler-test.cc */; };
 		231ECF5E23E7AE2B00B41869 /* coroutine-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF5D23E7AE2B00B41869 /* coroutine-test.cc */; };
 		231ECF6123E84C9E00B41869 /* bytecode.cc in Sources */ = {isa = PBXBuildFile; fileRef = 231ECF6023E84C9E00B41869 /* bytecode.cc */; };
@@ -430,6 +432,7 @@
 		2306103D23FFD7B40024361F /* type-checker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "type-checker.h"; sourceTree = "<group>"; };
 		2306103E23FFD7CF0024361F /* type-checker.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "type-checker.cc"; sourceTree = "<group>"; };
 		23098D91248E6DA40074634B /* hir-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-test.cc"; sourceTree = "<group>"; };
+		23098D932492321F0074634B /* hir-graph-generator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-graph-generator.cc"; sourceTree = "<group>"; };
 		230DDD2F21B00B4600A5CC2A /* hash-map-v2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hash-map-v2.h"; sourceTree = "<group>"; };
 		231C61F1219A6D0A001A95C1 /* block-iterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "block-iterator.h"; sourceTree = "<group>"; };
 		231C61F2219A6D54001A95C1 /* block-iterator.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "block-iterator.cc"; sourceTree = "<group>"; };
@@ -898,6 +901,7 @@
 				23EF3A0F2484D55600B55F88 /* main.cc */,
 				237D442D248E1F5800D46F99 /* hir.h */,
 				237D442E248E1F9300D46F99 /* hir.cc */,
+				23098D932492321F0074634B /* hir-graph-generator.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1663,6 +1667,7 @@
 				2364B33C21E451F9008519AE /* merging-test.cc in Sources */,
 				23599D3B23D58E3700F722D6 /* page.cc in Sources */,
 				2364B33D21E451F9008519AE /* ordered-memory-table-test.cc in Sources */,
+				23098D942492321F0074634B /* hir-graph-generator.cc in Sources */,
 				2364B33E21E451F9008519AE /* pipeline-queue-test.cc in Sources */,
 				23804A0F228ABADB0079C95C /* asm-x64-test.cc in Sources */,
 				2306103C23FFBADF0024361F /* compiler-test.cc in Sources */,
@@ -1846,6 +1851,7 @@
 				23EF3A3D2484D5FF00B55F88 /* files.cc in Sources */,
 				23EF3A3E2484D5FF00B55F88 /* factory.cc in Sources */,
 				23EF3A3F2484D5FF00B55F88 /* table-cache.cc in Sources */,
+				23098D952492321F0074634B /* hir-graph-generator.cc in Sources */,
 				23EF3A402484D5FF00B55F88 /* config.cc in Sources */,
 				23EF3A412484D5FF00B55F88 /* compaction-impl.cc in Sources */,
 				23EF3A422484D5FF00B55F88 /* db-iterator.cc in Sources */,

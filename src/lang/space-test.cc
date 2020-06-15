@@ -171,7 +171,7 @@ TEST_F(SpaceTest, OldSpaceFree) {
     ASSERT_TRUE(rv.ok());
     ASSERT_EQ(1, space->allocated_pages());
     ASSERT_EQ(kMinAllocationSize, space->used_size());
-    
+
     space->Free(rv.address(), true);
     ASSERT_EQ(1, space->allocated_pages());
     ASSERT_EQ(0, space->used_size());
