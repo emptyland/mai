@@ -97,6 +97,10 @@ public:
     void JumpNextBC();
 
     void Throw(Register scratch0, Register scratch1);
+    
+    void InstallCaughtHandler(bool enable_jit);
+    
+    void UninstallCaughtHandler();
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(MacroAssembler);
 }; // class MacroAssemblerX64

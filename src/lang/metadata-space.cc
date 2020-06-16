@@ -456,6 +456,9 @@ Error MetadataSpace::GenerateBytecodeHandlerCode(bool enable_debug, bool enable_
     
 #undef DEFINE_BYTECODE_EMIT
     
+    // Set up CallBytecodeFunction return address
+    call_bytecode_return_address_ = bytecode_handlers_[kCallBytecodeFunction]->entry() +
+        builder->call_bytecode_return_point();
     if (!enable_jit) {
         return Error::OK();
     }

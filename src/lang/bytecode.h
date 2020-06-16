@@ -573,11 +573,17 @@ public:
     DECLARE_ALL_BYTECODE(DEFINE_METHOD)
 #undef DEFINE_METHOD
     
+    DEF_VAL_PROP_RW(size_t, call_bytecode_return_point);
+    DEF_VAL_PROP_RW(size_t, call_virtual_return_point);
+    
     static AbstractBytecodeEmitter *New(MetadataSpace *space,
                                         bool generated_debug_code,
                                         bool generated_profiling_code);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(AbstractBytecodeEmitter);
+private:
+    size_t call_bytecode_return_point_ = 0;
+    size_t call_virtual_return_point_ = 0;
 }; // class AbstractBytecodeEmitter
 
 } // namespace lang

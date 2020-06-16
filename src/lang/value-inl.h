@@ -65,7 +65,15 @@ public:
     DEF_VAL_GETTER(uint32_t, size);
     DEF_VAL_GETTER(int32_t, optimization_level);
     DEF_PTR_GETTER(Array<uint32_t>, source_line_info);
+    DEF_PTR_GETTER(Array<uint8_t>, extra_associated_info);
     Address entry() { return instructions_; }
+    
+    void SetExtraAssociatedInfo(Array<uint8_t> *value) {
+        extra_associated_info_ = value;
+        if (value) {
+            WriteBarrier(reinterpret_cast<Any **>(&extra_associated_info_));
+        }
+    }
     
     void SetSourceLineInfo(Array<uint32_t> *value) {
         source_line_info_ = value;
@@ -83,6 +91,7 @@ public:
     }
     
     void Iterate(ObjectVisitor *visitor) {
+        visitor->VisitPointer(this, reinterpret_cast<Any **>(&extra_associated_info_));
         visitor->VisitPointer(this, reinterpret_cast<Any **>(&source_line_info_));
     }
 
@@ -102,6 +111,9 @@ private:
     
     // Bytes size of instructions
     uint32_t size_;
+    
+    // External info (serialized)
+    Array<uint8_t> *extra_associated_info_ = nullptr; // [strong ref]
     
     // Source line information array
     Array<uint32_t> *source_line_info_ = nullptr; // [strong ref]

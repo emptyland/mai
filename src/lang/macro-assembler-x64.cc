@@ -103,6 +103,60 @@ void MacroAssembler::Abort(const char *message) {
     int3(); // Never goto here
 }
 
+void MacroAssembler::InstallCaughtHandler(bool enable_jit) {
+    // install_caught_handler: -----------------------------------------------------------------
+    leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtPoint));
+    movq(rax, Operand(CO, Coroutine::kOffsetCaught)); // rax = next caught
+    movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH); // coroutine.caught = &caught
+    movq(Operand(SCRATCH, kOffsetCaught_Next), rax); // caught.next = coroutine.caught
+    movq(Operand(SCRATCH, kOffsetCaught_BP), rbp); // caught.bp = system rbp
+    movq(Operand(SCRATCH, kOffsetCaught_SP), rsp); // caught.sp = system rsp
+    leaq(rax, Operand(rip, 20));
+    movq(Operand(SCRATCH, kOffsetCaught_PC), rax); // caught.pc = @exception_dispatch
+    Label next;
+    jmp(&next, true/*is_far*/);
+    LandingPatch(20);
+
+    // exception_dispatch: ---------------------------------------------------------------------
+    movq(SCRATCH, Operand(CO, Coroutine::kOffsetCaught));
+    movq(rbp, Operand(SCRATCH, kOffsetCaught_BP));
+    movq(rsp, Operand(SCRATCH, kOffsetCaught_SP)); // Recover BP and SP first
+    movq(SCRATCH, rax); // SCRATCH will be protectd by SwitchSystemStackCall
+    movq(Argv_0, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+    movq(Argv_0, Operand(Argv_0, Closure::kOffsetProto));
+    movq(Argv_1, SCRATCH); // argv[1] = exception
+    movl(Argv_2, Operand(rbp, BytecodeStackFrame::kOffsetPC)); // argv[2] = pc
+    // Switch system stack and call a c++ function
+    InlineSwitchSystemStackCall(arch::MethodAddress(&Function::DispatchException), enable_jit);
+    cmpl(rax, 0); // if (retval < 0)
+    Label throw_again;
+    j(Less, &throw_again, true/*is_far*/);
+    // Do dispatch: rax is destination pc
+    movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rax); // Update PC
+    movq(rax, SCRATCH); // Recover saved exception
+    StartBC();
+
+    // throw_again: ----------------------------------------------------------------------------
+    // Uncaught exception, should throw again
+    Bind(&throw_again);
+    movq(rbx, Operand(CO, Coroutine::kOffsetCaught));
+    movq(rax, Operand(rbx, kOffsetCaught_Next));
+    movq(Operand(CO, Coroutine::kOffsetCaught), rax); // coroutine.caught = coroutine.caught.next
+    movq(rbx, Operand(rax, kOffsetCaught_PC));
+    movq(rax, SCRATCH); // SCRATCH is saved to rax: current exception
+    jmp(rbx); // throw again to prev handler
+    
+    Bind(&next);
+}
+
+void MacroAssembler::UninstallCaughtHandler() {
+    // Uninstall caught handle
+    movq(SCRATCH, Operand(CO, Coroutine::kOffsetCaught));
+    movq(SCRATCH, Operand(SCRATCH, kOffsetCaught_Next));
+    // coroutine.caught = coroutine.caught.next
+    movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH);
+}
+
 #define __ masm->
 
 // For code valid testing
@@ -321,46 +375,7 @@ void Generate_InterpreterPump(MacroAssembler *masm, Address switch_call, bool en
     // if (mai_fn->has_execption_handle())
     __ j(Equal, &start, true/*is_far*/);
 
-    // install_caught_handler: ---------------------------------------------------------------------
-    __ leaq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCaughtPoint));
-    __ movq(rax, Operand(CO, Coroutine::kOffsetCaught)); // rax = next caught
-    __ movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH); // coroutine.caught = &caught
-    __ movq(Operand(SCRATCH, kOffsetCaught_Next), rax); // caught.next = coroutine.caught
-    __ movq(Operand(SCRATCH, kOffsetCaught_BP), rbp); // caught.bp = system rbp
-    __ movq(Operand(SCRATCH, kOffsetCaught_SP), rsp); // caught.sp = system rsp
-    __ leaq(rax, Operand(rip, 20));
-    __ movq(Operand(SCRATCH, kOffsetCaught_PC), rax); // caught.pc = @exception_dispatch
-    __ jmp(&start, true/*is_far*/);
-    __ LandingPatch(20);
-
-    // exception_dispatch: -------------------------------------------------------------------------
-    __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetCaught));
-    __ movq(rbp, Operand(SCRATCH, kOffsetCaught_BP));
-    __ movq(rsp, Operand(SCRATCH, kOffsetCaught_SP)); // Recover BP and SP first
-    __ movq(SCRATCH, rax); // SCRATCH will be protectd by SwitchSystemStackCall
-    __ movq(Argv_0, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
-    __ movq(Argv_0, Operand(Argv_0, Closure::kOffsetProto));
-    __ movq(Argv_1, SCRATCH); // argv[1] = exception
-    __ movl(Argv_2, Operand(rbp, BytecodeStackFrame::kOffsetPC)); // argv[2] = pc
-    // Switch system stack and call a c++ function
-    __ InlineSwitchSystemStackCall(arch::MethodAddress(&Function::DispatchException), enable_jit);
-    __ cmpl(rax, 0); // if (retval < 0)
-    Label throw_again;
-    __ j(Less, &throw_again, true/*is_far*/);
-    // Do dispatch: rax is destination pc
-    __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), rax); // Update PC
-    __ movq(rax, SCRATCH); // Recover saved exception
-    __ StartBC();
-
-    // throw_again: --------------------------------------------------------------------------------
-    // Uncaught exception, should throw again
-    __ Bind(&throw_again);
-    __ movq(rbx, Operand(CO, Coroutine::kOffsetCaught));
-    __ movq(rax, Operand(rbx, kOffsetCaught_Next));
-    __ movq(Operand(CO, Coroutine::kOffsetCaught), rax); // coroutine.caught = coroutine.caught.next
-    __ movq(rbx, Operand(rax, kOffsetCaught_PC));
-    __ movq(rax, SCRATCH); // SCRATCH is saved to rax: current exception
-    __ jmp(rbx); // throw again to prev handler
+    __ InstallCaughtHandler(enable_jit);
 
     // start: --------------------------------------------------------------------------------------
     // Goto first bytecode handler
@@ -2000,11 +2015,7 @@ public:
         Label done;
         __ j(Equal, &done, true/*is far*/);
 
-        // Uninstall caught handle
-        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetCaught));
-        __ movq(SCRATCH, Operand(SCRATCH, kOffsetCaught_Next));
-        // coroutine.caught = coroutine.caught.next
-        __ movq(Operand(CO, Coroutine::kOffsetCaught), SCRATCH);
+        __ UninstallCaughtHandler();
 
         __ Bind(&done);
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
@@ -2224,6 +2235,8 @@ public:
         __ movq(Argv_0, ACC);
         __ movq(SCRATCH, space_->interpreter_pump_code()->entry());
         __ call(SCRATCH);
+        
+        set_call_bytecode_return_point(masm->pc());
         
         // Recover BC Register
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetBytecodeArray));

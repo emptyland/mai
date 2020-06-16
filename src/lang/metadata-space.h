@@ -72,6 +72,7 @@ public:
     DEF_PTR_GETTER_NOTNULL(Code, trampoline_code);
     DEF_VAL_GETTER(Address, trampoline_suspend_point);
     DEF_PTR_GETTER_NOTNULL(Code, interpreter_pump_code);
+    DEF_VAL_GETTER(Address, call_bytecode_return_address);
 
     Code **bytecode_handlers() { return bytecode_handlers_; }
     Code **tracing_handlers() { return tracing_handlers_; }
@@ -250,6 +251,9 @@ private:
     Code *tracing_handlers_[kMax_Bytecodes]; // Tracing Proxies for bytecode handler array
     
     Code *sanity_test_stub_code_ = nullptr; // For code sanity testing
+    
+    // CallBytecodeFunction deoptimization point
+    Address call_bytecode_return_address_ = nullptr;
 
     // For enter mai execution env
     // Prototype: Trampoline(Coroutine *co);

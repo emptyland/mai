@@ -183,9 +183,9 @@ template <> struct ArenaEqualTo<const ArenaString *>
 }; // template <> struct ArenaEqualTo<const ArenaString *>
 
 
-////////////////////////////////////////////////////////////////////////////////
-/// std::vector warpper from ArenaContainer
-////////////////////////////////////////////////////////////////////////////////
+//==================================================================================================
+// std::vector warpper from ArenaContainer
+//==================================================================================================
 
 template <class T>
 class ArenaVector : public std::vector<T, ArenaAllocator<T>> {
@@ -216,14 +216,49 @@ public:
     : std::vector<T, ArenaAllocator<T>>(first, last, ArenaAllocator<T>(zone)) {}
     
     void *operator new (size_t n, Arena *arena) { return arena->Allocate(n); }
-}; // class ZoneVector
+}; // class ArenaVector
 
-////////////////////////////////////////////////////////////////////////////////
-/// std::map warpper from ArenaContainer
-///
-///     A wrapper subclass for std::map to make it easy to construct one that
-///     users a zone allocator.
-////////////////////////////////////////////////////////////////////////////////
+//==================================================================================================
+// std::deque warpper from ArenaContainer
+//==================================================================================================
+
+template <class T>
+class ArenaDeque : public std::deque<T, ArenaAllocator<T>> {
+public:
+    // Constructs an empty vector.
+    explicit ArenaDeque(Arena* zone)
+    : std::deque<T, ArenaAllocator<T>>(ArenaAllocator<T>(zone)) {}
+    
+    // Constructs a new vector and fills it with {size} elements, each
+    // constructed via the default constructor.
+    ArenaDeque(size_t size, Arena* zone)
+    : std::deque<T, ArenaAllocator<T>>(size, T(), ArenaAllocator<T>(zone)) {}
+    
+    // Constructs a new vector and fills it with {size} elements, each
+    // having the value {def}.
+    ArenaDeque(size_t size, T def, Arena* zone)
+    : std::deque<T, ArenaAllocator<T>>(size, def, ArenaAllocator<T>(zone)) {}
+    
+    // Constructs a new vector and fills it with the contents of the given
+    // initializer list.
+    ArenaDeque(std::initializer_list<T> list, Arena* zone)
+    : std::deque<T, ArenaAllocator<T>>(list, ArenaAllocator<T>(zone)) {}
+    
+    // Constructs a new vector and fills it with the contents of the range
+    // [first, last).
+    template <class InputIt>
+    ArenaDeque(InputIt first, InputIt last, Arena* zone)
+    : std::deque<T, ArenaAllocator<T>>(first, last, ArenaAllocator<T>(zone)) {}
+    
+    void *operator new (size_t n, Arena *arena) { return arena->Allocate(n); }
+}; // class ArenaVector
+
+//==================================================================================================
+// std::map warpper from ArenaContainer
+//
+//     A wrapper subclass for std::map to make it easy to construct one that
+//     users a zone allocator.
+//==================================================================================================
 template <class K, class V, class Compare = ArenaLess<K>>
 class ArenaMap
 : public std::map<K, V, Compare, ArenaAllocator<std::pair<const K, V>>> {
@@ -234,12 +269,12 @@ public:
               Compare(), ArenaAllocator<std::pair<const K, V>>(zone)) {}
 }; // class ZoneMap
 
-////////////////////////////////////////////////////////////////////////////////
-/// std::unordered_map warpper from ArenaContainer
-///
-///     A wrapper subclass for std::unordered_map to make it easy to construct
-///     one that uses a zone allocator.
-////////////////////////////////////////////////////////////////////////////////
+//==================================================================================================
+// std::unordered_map warpper from ArenaContainer
+//
+//     A wrapper subclass for std::unordered_map to make it easy to construct
+//     one that uses a zone allocator.
+//==================================================================================================
 template <class K, class V, class Hash = ArenaHash<K>,
 class KeyEqual = std::equal_to<K>>
 class ArenaUnorderedMap

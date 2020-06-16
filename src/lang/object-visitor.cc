@@ -76,9 +76,7 @@ void IterateObject(Any *host, ObjectVisitor *visitor) {
         } break;
         case kType_Code: {
             Kode *object = static_cast<Kode *>(host);
-            if (object->source_line_info()) {
-                object->Iterate(visitor);
-            }
+            object->Iterate(visitor);
         } break;
         default:
             if (clazz->is_reference()) {
