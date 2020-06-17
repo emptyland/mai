@@ -2075,7 +2075,7 @@ public:
             __ PrefixLock();
             __ decl(Operand(PROFILER, rbx, times_4, 0));
             Label try_tracing;
-            __ j(Negative, &try_tracing, false/*is_far*/);
+            __ j(Zero, &try_tracing, false/*is_far*/);
             Label exit;
             __ jmp(&exit, false/*is_far*/);
             
@@ -2110,7 +2110,7 @@ public:
         
         __ decl(Operand(TRACER, Tracer::kOffsetRepeatedCount));
         Label finalize;
-        __ j(Negative, &finalize, false/*is_far*/);
+        __ j(Zero, &finalize, false/*is_far*/);
         // void RepeatTracing()
         __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::RepeatTracing), true);
         __ jmp(&exit, true/*is_far*/);

@@ -251,13 +251,13 @@ void X64SimplifiedCodeGenerator::Initialize() {
     env.push_back(compilation_info_->start_fun());
     
     for (size_t i = 0; i < compilation_info_->linear_path().size(); i++) {
-        if (bc()->id() == kCheckStack) {
-            auto iter = compilation_info_->invoke_info().find(position_);
+        if (bc_[i]->id() == kCheckStack) {
+            auto iter = compilation_info_->invoke_info().find(i);
             DCHECK(iter != compilation_info_->invoke_info().end());
 
             env.push_back(iter->second.fun);
         }
-        
+
         auto iter = function_linear_pc_.find(env.back());
         if (iter == function_linear_pc_.end()) {
             base::ArenaVector<uint32_t> linear_pc(arena_);
@@ -267,7 +267,7 @@ void X64SimplifiedCodeGenerator::Initialize() {
             iter->second.push_back(compilation_info_->associated_pc()[i]);
         }
 
-        if (bc()->id() == kReturn) {
+        if (bc_[i]->id() == kReturn) {
             env.pop_back();
         }
     }

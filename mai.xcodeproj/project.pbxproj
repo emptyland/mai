@@ -159,6 +159,9 @@
 		2364B35A21E451F9008519AE /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163721AFED5E00DE7321 /* test-main.cc */; };
 		236C7E0A24970AC200D03042 /* simplified-code-generator-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236C7E0924970AC200D03042 /* simplified-code-generator-x64.cc */; };
 		236C7E0C2499B5FB00D03042 /* simplified-code-generator-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236C7E0B2499B5FB00D03042 /* simplified-code-generator-test.cc */; };
+		236C7E10249A56A600D03042 /* compilation-worker.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236C7E0F249A56A600D03042 /* compilation-worker.cc */; };
+		236C7E11249A56A600D03042 /* compilation-worker.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236C7E0F249A56A600D03042 /* compilation-worker.cc */; };
+		236C7E13249A659400D03042 /* compilation-worker-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236C7E12249A659400D03042 /* compilation-worker-test.cc */; };
 		236EA78123D69A760071047C /* space.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA78023D69A760071047C /* space.cc */; };
 		236EA78523D6E3100071047C /* isolate.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA78423D6E3100071047C /* isolate.cc */; };
 		236EA78723D6E3980071047C /* value.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA78623D6E3980071047C /* value.cc */; };
@@ -540,6 +543,9 @@
 		236C7E0924970AC200D03042 /* simplified-code-generator-x64.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "simplified-code-generator-x64.cc"; sourceTree = "<group>"; };
 		236C7E0B2499B5FB00D03042 /* simplified-code-generator-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "simplified-code-generator-test.cc"; sourceTree = "<group>"; };
 		236C7E0D2499BF4800D03042 /* simplified-code-generator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "simplified-code-generator.h"; sourceTree = "<group>"; };
+		236C7E0E249A557400D03042 /* compilation-worker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "compilation-worker.h"; sourceTree = "<group>"; };
+		236C7E0F249A56A600D03042 /* compilation-worker.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "compilation-worker.cc"; sourceTree = "<group>"; };
+		236C7E12249A659400D03042 /* compilation-worker-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "compilation-worker-test.cc"; sourceTree = "<group>"; };
 		236EA77E23D691E20071047C /* mm.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mm.h; sourceTree = "<group>"; };
 		236EA77F23D69A370071047C /* space.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = space.h; sourceTree = "<group>"; };
 		236EA78023D69A760071047C /* space.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = space.cc; sourceTree = "<group>"; };
@@ -887,6 +893,8 @@
 				23ECE8A523F924F100B3C83B /* parser.cc */,
 				2306103823FFB4610024361F /* compiler.h */,
 				2306103923FFB4710024361F /* compiler.cc */,
+				236C7E0E249A557400D03042 /* compilation-worker.h */,
+				236C7E0F249A56A600D03042 /* compilation-worker.cc */,
 				2306103D23FFD7B40024361F /* type-checker.h */,
 				2306103E23FFD7CF0024361F /* type-checker.cc */,
 				2304844F240CBADE00480C15 /* bytecode-generator.h */,
@@ -941,6 +949,7 @@
 				23EF3A02247F6E9500B55F88 /* garbage-collector-test.cc */,
 				23098D91248E6DA40074634B /* hir-test.cc */,
 				236C7E0B2499B5FB00D03042 /* simplified-code-generator-test.cc */,
+				236C7E12249A659400D03042 /* compilation-worker-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1656,11 +1665,13 @@
 				23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */,
 				2373EFD623EBA2C400B5CD88 /* runtime.cc in Sources */,
 				2360F18E2415F9620011898D /* vlog_is_on.cc in Sources */,
+				236C7E10249A56A600D03042 /* compilation-worker.cc in Sources */,
 				2364B33021E451F9008519AE /* arena-utils.cc in Sources */,
 				2364B33121E451F9008519AE /* arenas.cc in Sources */,
 				2364B33321E451F9008519AE /* ebr.cc in Sources */,
 				2354C9E4243048E900E0B9BE /* garbage-collector.cc in Sources */,
 				230510C223E0831F00B89A7C /* isolate-test.cc in Sources */,
+				236C7E13249A659400D03042 /* compilation-worker-test.cc in Sources */,
 				23DFE03722754D29005D489C /* big-number.cc in Sources */,
 				2364B33521E451F9008519AE /* lock-group.cc in Sources */,
 				2379A24F23E2B8E9003067E6 /* value-test.cc in Sources */,
@@ -1846,6 +1857,7 @@
 				23EF3A452484D61A00B55F88 /* sst-table-reader.cc in Sources */,
 				23EF3A462484D61A00B55F88 /* s1-table-builder.cc in Sources */,
 				23EF3A472484D61A00B55F88 /* s1-table-reader.cc in Sources */,
+				236C7E11249A56A600D03042 /* compilation-worker.cc in Sources */,
 				23EF3A482484D61A00B55F88 /* data-block-builder.cc in Sources */,
 				23EF3A492484D61A00B55F88 /* table.cc in Sources */,
 				23EF3A4A2484D61A00B55F88 /* key-bloom-filter.cc in Sources */,

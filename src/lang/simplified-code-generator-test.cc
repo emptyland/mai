@@ -75,8 +75,8 @@ public:
         /*[8]*/ builder.Jump(&lable, 0);
         
         auto bytecodes = builder.Build();
-        Function *start = BuildFunction("start", std::vector<Span32>(0), bytecodes, 88);
-        Function *inner = BuildFunction("inner", std::vector<Span32>(0), bytecodes, 64);
+        Function *start = BuildFunction("start", std::vector<Span32>(1), bytecodes, 88);
+        Function *inner = BuildFunction("inner", std::vector<Span32>(1), bytecodes, 64);
         
         std::map<size_t, CompilationInfo::InvokeInfo> invoke_info =
             {std::make_pair(4, CompilationInfo::InvokeInfo{inner, 0, 4})};
@@ -159,6 +159,19 @@ TEST_F(SimplifiedCodeGeneratorTest, ComparationOps) {
     
     std::unique_ptr<CompilationInfo> info;
     MakeComparationOps(&info);
+
+    Local<Kode> code(GenerateSimplifiedCode(info.get(), false, true, &arena_));
+    ASSERT_TRUE(code.is_value_not_null());
+    ASSERT_EQ(1, code->optimization_level());
+    ASSERT_EQ(Code::OPTIMIZATION, code->kind());
+    EXPECT_GT(code->size(), 0);
+}
+
+TEST_F(SimplifiedCodeGeneratorTest, InlineCallingSanity) {
+    HandleScope handle_scope(HandleScope::INITIALIZER);
+    
+    std::unique_ptr<CompilationInfo> info;
+    MakeInlineCallingSanity(&info);
 
     Local<Kode> code(GenerateSimplifiedCode(info.get(), false, true, &arena_));
     ASSERT_TRUE(code.is_value_not_null());
