@@ -143,11 +143,11 @@ void BytecodeNode::PrintParam(base::AbstractPrinter *output, BytecodeParam::Kind
         } break;
         case BytecodeParam::kConstOffset:
             //output->Printf("[KP+%d]", static_cast<int>(param * kConstPoolOffsetGranularity));
-            output->Printf("[KP+%d]", ParseConstPoolOffset(param));
+            output->Printf("[KP+%d]", ParseConstOffset(param));
             break;
         case BytecodeParam::kGlobalOffset:
             //output->Printf("[GS+%d]", static_cast<int>(param * kGlobalSpaceOffsetGranularity));
-            output->Printf("[GS+%d]", ParseGlobalSpaceOffset(param));
+            output->Printf("[GS+%d]", ParseGlobalOffset(param));
             break;
         case BytecodeParam::kCapturedVarIndex:
             output->Printf("UP[%d]", param);

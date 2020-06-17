@@ -496,34 +496,6 @@ inline int GetParameterOffset(int param_size, int index) {
     return -(param_size - index) - kPointerSize * 2;
 }
 
-// off = -idx - k = -(idx + k)
-// -off = idx + k
-// -off -k
-inline int GetStackOffset(int off) {
-    if (off < 0) {
-        off = -off - kPointerSize * 2;
-        DCHECK_LT(off, kParameterSpaceOffset - kPointerSize * 2);
-        DCHECK_EQ(0, off % kStackOffsetGranularity);
-        return (kParameterSpaceOffset - off - kPointerSize * 2) / kStackOffsetGranularity;
-    } else {
-        DCHECK_LT(off, 0x1000 - kParameterSpaceOffset);
-        DCHECK_EQ(0, off % kStackOffsetGranularity);
-        return (kParameterSpaceOffset + off) / kStackOffsetGranularity;
-    }
-}
-
-inline int GetConstOffset(int off) {
-    DCHECK_GE(off, 0);
-    DCHECK_EQ(0, off % kConstPoolOffsetGranularity);
-    return off / kConstPoolOffsetGranularity;
-}
-
-inline int GetGlobalOffset(int off) {
-    DCHECK_GE(off, 0);
-    DCHECK_EQ(0, off % kGlobalSpaceOffsetGranularity);
-    return off / kGlobalSpaceOffsetGranularity;
-}
-
 inline bool NeedInbox(const Class *lval, const Class *rval) {
     switch (static_cast<BuiltinType>(rval->id())) {
         case kType_bool:

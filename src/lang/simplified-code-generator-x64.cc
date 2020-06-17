@@ -1,3 +1,4 @@
+#include "lang/simplified-code-generator.h"
 #include "lang/macro-assembler-x64.h"
 #include "lang/compiler.h"
 #include "lang/bytecode.h"
@@ -128,11 +129,11 @@ private:
     }
 
     Operand ConstOperand(Register scratch, int index) const {
-        return Operand(scratch, ParseConstPoolOffset(bc()->param(index)));
+        return Operand(scratch, ParseConstOffset(bc()->param(index)));
     }
     
     Operand GlobalOperand(Register scratch, int index) const {
-        return Operand(scratch, ParseGlobalSpaceOffset(bc()->param(index)));
+        return Operand(scratch, ParseGlobalOffset(bc()->param(index)));
     }
     
     template<class T>
@@ -144,6 +145,12 @@ private:
     template<class T>
     inline void Call(T *fun) {
         __ InlineSwitchSystemStackCall(arch::FuncAddress(fun), enable_jit_);
+    }
+    
+    void MakeExitGuard() {
+        uint32_t last_pc = DCHECK_NOTNULL(env_)->largest_pc();
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), last_pc + 1); // to next pc
+        __ StartBC();
     }
     
     void CallBytecodeFunction();
@@ -218,6 +225,8 @@ X64SimplifiedCodeGenerator::Environment::Environment(X64SimplifiedCodeGenerator 
     for (auto pc : iter->second) {
         AddLinearPC(pc);
     }
+
+    std::sort(linear_pc_.begin(), linear_pc_.end());
 }
 
 
@@ -237,31 +246,33 @@ void X64SimplifiedCodeGenerator::Initialize() {
     for (size_t i = 0; i < compilation_info_->linear_path().size(); i++) {
         bc_[i] = BytecodeNode::From(arena_, compilation_info_->linear_path()[i]);
     }
+
+    base::ArenaDeque<const Function *> env(arena_);
+    env.push_back(compilation_info_->start_fun());
     
-    (void)new (arena_) Environment(this, compilation_info_->start_fun());
     for (size_t i = 0; i < compilation_info_->linear_path().size(); i++) {
         if (bc()->id() == kCheckStack) {
             auto iter = compilation_info_->invoke_info().find(position_);
             DCHECK(iter != compilation_info_->invoke_info().end());
 
-            (void)new (arena_) Environment(this, iter->second.fun);
+            env.push_back(iter->second.fun);
         }
         
-        auto iter = function_linear_pc_.find(function());
+        auto iter = function_linear_pc_.find(env.back());
         if (iter == function_linear_pc_.end()) {
             base::ArenaVector<uint32_t> linear_pc(arena_);
             linear_pc.push_back(compilation_info_->associated_pc()[i]);
-            function_linear_pc_.insert(std::make_pair(function(), std::move(linear_pc)));
+            function_linear_pc_.insert(std::make_pair(env.back(), std::move(linear_pc)));
         } else {
             iter->second.push_back(compilation_info_->associated_pc()[i]);
         }
 
         if (bc()->id() == kReturn) {
-            env_->~Environment();
+            env.pop_back();
         }
     }
 
-    env_->~Environment();
+    DCHECK_EQ(1, env.size());
 }
 
 void X64SimplifiedCodeGenerator::Generate() {
@@ -282,6 +293,7 @@ void X64SimplifiedCodeGenerator::Generate() {
             env_->~Environment();
         }
     }
+    MakeExitGuard();
 }
 
 void X64SimplifiedCodeGenerator::Select() {
@@ -418,7 +430,27 @@ void X64SimplifiedCodeGenerator::Select() {
             CheckNotNil(SCRATCH);
             __ movsd(FACC, Operand(SCRATCH, bc()->param(1)));
             break;
-            
+
+        // -----------------------------------------------------------------------------------------
+        // Star
+        // -----------------------------------------------------------------------------------------
+        case kStar32:
+            __ movl(StackOperand(0), ACC);
+            break;
+
+        case kStar64:
+        case kStarPtr:
+            __ movq(StackOperand(0), ACC);
+            break;
+
+        case kStaf32:
+            __ movss(StackOperand(0), FACC);
+            break;
+
+        case kStaf64:
+            __ movsd(StackOperand(0), FACC);
+            break;
+
         // -----------------------------------------------------------------------------------------
         // Move
         // -----------------------------------------------------------------------------------------
@@ -835,9 +867,13 @@ void X64SimplifiedCodeGenerator::Select() {
             __ Bind(&ok);
         } break;
             
-        default:
-            NOREACHED();
-            break;
+        default: {
+        #if defined(DEBUG) || defined(_DEBUG)
+            base::StringBuildingPrinter printer;
+            bc()->Print(&printer);
+            NOREACHED() << printer.buffer();
+        #endif
+        } break;
     }
 }
 

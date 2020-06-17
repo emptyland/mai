@@ -434,12 +434,40 @@ inline constexpr int ParseStackOffset(int param) {
     return static_cast<int>(param * kStackOffsetGranularity - kParameterSpaceOffset);
 }
 
-inline constexpr int ParseConstPoolOffset(int param) {
+inline constexpr int ParseConstOffset(int param) {
     return static_cast<int>(param * kConstPoolOffsetGranularity);
 }
 
-inline constexpr int ParseGlobalSpaceOffset(int param) {
+inline constexpr int ParseGlobalOffset(int param) {
     return static_cast<int>(param * kGlobalSpaceOffsetGranularity);
+}
+
+// off = -idx - k = -(idx + k)
+// -off = idx + k
+// -off -k
+inline int GetStackOffset(int off) {
+    if (off < 0) {
+        off = -off - kPointerSize * 2;
+        DCHECK_LT(off, kParameterSpaceOffset - kPointerSize * 2);
+        DCHECK_EQ(0, off % kStackOffsetGranularity);
+        return (kParameterSpaceOffset - off - kPointerSize * 2) / kStackOffsetGranularity;
+    } else {
+        DCHECK_LT(off, 0x1000 - kParameterSpaceOffset);
+        DCHECK_EQ(0, off % kStackOffsetGranularity);
+        return (kParameterSpaceOffset + off) / kStackOffsetGranularity;
+    }
+}
+
+inline int GetConstOffset(int off) {
+    DCHECK_GE(off, 0);
+    DCHECK_EQ(0, off % kConstPoolOffsetGranularity);
+    return off / kConstPoolOffsetGranularity;
+}
+
+inline int GetGlobalOffset(int off) {
+    DCHECK_GE(off, 0);
+    DCHECK_EQ(0, off % kGlobalSpaceOffsetGranularity);
+    return off / kGlobalSpaceOffsetGranularity;
 }
 
 #define DEFINE_BYTECODE_TRAITS(name, kind, ...) \

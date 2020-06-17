@@ -158,6 +158,7 @@
 		2364B35821E451F9008519AE /* pessimistic-transaction-db-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B7155821DDEEBB0054FCB0 /* pessimistic-transaction-db-test.cc */; };
 		2364B35A21E451F9008519AE /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163721AFED5E00DE7321 /* test-main.cc */; };
 		236C7E0A24970AC200D03042 /* simplified-code-generator-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236C7E0924970AC200D03042 /* simplified-code-generator-x64.cc */; };
+		236C7E0C2499B5FB00D03042 /* simplified-code-generator-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236C7E0B2499B5FB00D03042 /* simplified-code-generator-test.cc */; };
 		236EA78123D69A760071047C /* space.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA78023D69A760071047C /* space.cc */; };
 		236EA78523D6E3100071047C /* isolate.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA78423D6E3100071047C /* isolate.cc */; };
 		236EA78723D6E3980071047C /* value.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236EA78623D6E3980071047C /* value.cc */; };
@@ -537,6 +538,8 @@
 		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
 		236AC67921B769900069A17B /* lru-cache-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-test.cc"; sourceTree = "<group>"; };
 		236C7E0924970AC200D03042 /* simplified-code-generator-x64.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "simplified-code-generator-x64.cc"; sourceTree = "<group>"; };
+		236C7E0B2499B5FB00D03042 /* simplified-code-generator-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "simplified-code-generator-test.cc"; sourceTree = "<group>"; };
+		236C7E0D2499BF4800D03042 /* simplified-code-generator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "simplified-code-generator.h"; sourceTree = "<group>"; };
 		236EA77E23D691E20071047C /* mm.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mm.h; sourceTree = "<group>"; };
 		236EA77F23D69A370071047C /* space.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = space.h; sourceTree = "<group>"; };
 		236EA78023D69A760071047C /* space.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = space.cc; sourceTree = "<group>"; };
@@ -871,6 +874,7 @@
 				2339B3F023E5B48300B07772 /* function-template-x64.cc */,
 				2339B3F223E5B62000B07772 /* macro-assembler-x64.h */,
 				2339B3F323E5B90700B07772 /* macro-assembler-x64.cc */,
+				236C7E0D2499BF4800D03042 /* simplified-code-generator.h */,
 				236C7E0924970AC200D03042 /* simplified-code-generator-x64.cc */,
 				23ECE89623F57BEC00B3C83B /* token.h */,
 				23ECE89723F57C9800B3C83B /* token.cc */,
@@ -936,6 +940,7 @@
 				23DC71912435D9DA00E5613E /* marking-compact-test.cc */,
 				23EF3A02247F6E9500B55F88 /* garbage-collector-test.cc */,
 				23098D91248E6DA40074634B /* hir-test.cc */,
+				236C7E0B2499B5FB00D03042 /* simplified-code-generator-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1618,6 +1623,7 @@
 				2364B2FC21E451F9008519AE /* bw-tree-memory-table.cc in Sources */,
 				230510B823DF318100B89A7C /* machine.cc in Sources */,
 				2364B2FE21E451F9008519AE /* ordered-memory-table.cc in Sources */,
+				236C7E0C2499B5FB00D03042 /* simplified-code-generator-test.cc in Sources */,
 				2354C9E724306ADA00E0B9BE /* scavenger.cc in Sources */,
 				2364B30021E451F9008519AE /* unordered-memory-table.cc in Sources */,
 				2364B30121E451F9008519AE /* bytewise-comparator.cc in Sources */,
