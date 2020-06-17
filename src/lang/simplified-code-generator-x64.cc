@@ -55,10 +55,38 @@ public:
     
     void Generate();
     
-    const BytecodeNode *bc() const { return bc_[position_]; }
-    uint32_t pc() const { return compilation_info_->associated_pc()[position_]; }
-    const Function *function() const { return fun_env_.back(); }
     MacroAssembler *masm() { return &masm_; }
+    
+    class Environment : public base::ArenaObject {
+    public:
+        Environment(X64SimplifiedCodeGenerator *owns, const Function *fun);
+        
+        ~Environment() {
+            DCHECK_EQ(owns_->env_, this);
+            owns_->env_ = prev_;
+        }
+        
+        DEF_PTR_GETTER(const Function, fun);
+        bool is_top() const { return prev_ == nullptr; }
+        
+        void AddLinearPC(uint32_t pc) { linear_pc_.push_back(pc); }
+        void AddAsmPC(uint32_t pc, int32_t asm_pc) { asm_offset_[pc] = asm_pc; }
+        
+        int32_t FindAsmPC(uint32_t pc) {
+            auto iter = asm_offset_.find(pc);
+            DCHECK(iter != asm_offset_.end());
+            return iter->second;
+        }
+        
+        uint32_t smallest_pc() const { return linear_pc_.front(); }
+        uint32_t largest_pc() const { return linear_pc_.back(); }
+    private:
+        X64SimplifiedCodeGenerator *const owns_;
+        const Function *const fun_;
+        base::ArenaVector<uint32_t> linear_pc_;
+        base::ArenaMap<uint32_t, int32_t> asm_offset_;
+        Environment *prev_ = nullptr;
+    }; // class Environment
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(X64SimplifiedCodeGenerator);
 private:
@@ -92,9 +120,7 @@ private:
     }
     
     bool IsPCInBound(uint32_t pc) const {
-        auto iter = function_linear_pc_.find(function());
-        DCHECK(iter != function_linear_pc_.end());
-        return pc >= iter->second.front() && pc <= iter->second.back();
+        return pc >= env_->smallest_pc() && pc <= env_->largest_pc();
     }
     
     Operand StackOperand(int index) const {
@@ -156,8 +182,14 @@ private:
     }
     
     void ForwardJumpIf(bool cond);
+    
+    void BackwardJumpIf(bool cond);
 
     void CompareImplicitLengthString(Cond cond);
+    
+    const BytecodeNode *bc() const { return bc_[position_]; }
+    uint32_t pc() const { return compilation_info_->associated_pc()[position_]; }
+    const Function *function() const { return env_->fun(); }
 
     const CompilationInfo *const compilation_info_;
     const bool enable_debug_;
@@ -166,9 +198,27 @@ private:
     base::ArenaMap<const Function *, base::ArenaVector<uint32_t>> function_linear_pc_;
     BytecodeNode **bc_ = nullptr;
     size_t position_ = 0;
-    base::ArenaDeque<const Function *> fun_env_;
+    Environment *env_ = nullptr;
+    //base::ArenaDeque<const Function *> fun_env_;
     MacroAssembler masm_;
 }; // class X64SimplifiedCodeGenerator
+
+
+X64SimplifiedCodeGenerator::Environment::Environment(X64SimplifiedCodeGenerator *owns,
+                                                     const Function *fun)
+    : owns_(owns)
+    , fun_(fun)
+    , linear_pc_(owns->arena_)
+    , asm_offset_(owns->arena_) {
+    prev_ = owns_->env_;
+    owns_->env_ = this;
+
+    auto iter = owns_->function_linear_pc_.find(fun);
+    DCHECK(iter != owns_->function_linear_pc_.end());
+    for (auto pc : iter->second) {
+        AddLinearPC(pc);
+    }
+}
 
 
 X64SimplifiedCodeGenerator::X64SimplifiedCodeGenerator(const CompilationInfo *compilation_info,
@@ -178,56 +228,58 @@ X64SimplifiedCodeGenerator::X64SimplifiedCodeGenerator(const CompilationInfo *co
     , enable_debug_(enable_debug)
     , enable_jit_(enable_jit)
     , arena_(arena)
-    , function_linear_pc_(arena)
-    , fun_env_(arena) {}
+    , function_linear_pc_(arena) {
+}
 
 
 void X64SimplifiedCodeGenerator::Initialize() {
-    function_linear_pc_.emplace(compilation_info_->start_fun(),
-                                base::ArenaVector<uint32_t>(arena_));
-    fun_env_.push_back(compilation_info_->start_fun());
-    
     bc_ = arena_->NewArray<BytecodeNode *>(compilation_info_->linear_path().size());
     for (size_t i = 0; i < compilation_info_->linear_path().size(); i++) {
         bc_[i] = BytecodeNode::From(arena_, compilation_info_->linear_path()[i]);
-        if (bc_[i]->id() == kCheckStack) {
-            auto iter = compilation_info_->invoke_info().find(i);
+    }
+    
+    (void)new (arena_) Environment(this, compilation_info_->start_fun());
+    for (size_t i = 0; i < compilation_info_->linear_path().size(); i++) {
+        if (bc()->id() == kCheckStack) {
+            auto iter = compilation_info_->invoke_info().find(position_);
             DCHECK(iter != compilation_info_->invoke_info().end());
-            fun_env_.push_back(iter->second.fun);
+
+            (void)new (arena_) Environment(this, iter->second.fun);
         }
         
-        if (bc_[i]->id() == kReturn) {
-            fun_env_.pop_back();
-        }
-        
-        DCHECK(!fun_env_.empty());
-        
-        if (auto iter = function_linear_pc_.find(fun_env_.back());
-            iter == function_linear_pc_.end()) {
+        auto iter = function_linear_pc_.find(function());
+        if (iter == function_linear_pc_.end()) {
             base::ArenaVector<uint32_t> linear_pc(arena_);
             linear_pc.push_back(compilation_info_->associated_pc()[i]);
-            function_linear_pc_.insert(std::make_pair(fun_env_.back(), std::move(linear_pc)));
+            function_linear_pc_.insert(std::make_pair(function(), std::move(linear_pc)));
         } else {
             iter->second.push_back(compilation_info_->associated_pc()[i]);
         }
+
+        if (bc()->id() == kReturn) {
+            env_->~Environment();
+        }
     }
 
-    //fun_env_.pop();
-    DCHECK(!fun_env_.empty());
+    env_->~Environment();
 }
 
 void X64SimplifiedCodeGenerator::Generate() {
+    (void)new (arena_) Environment(this, compilation_info_->start_fun());
+    
     for (position_ = 0; position_ < compilation_info_->linear_path().size(); position_++) {
         if (bc()->id() == kCheckStack) {
             auto iter = compilation_info_->invoke_info().find(position_);
             DCHECK(iter != compilation_info_->invoke_info().end());
-            fun_env_.push_back(iter->second.fun);
+
+            (void)new (arena_) Environment(this, iter->second.fun);
         }
-        
+
+        env_->AddAsmPC(pc(), masm()->pc());
         Select();
 
         if (bc()->id() == kReturn) {
-            fun_env_.pop_back();
+            env_->~Environment();
         }
     }
 }
@@ -680,8 +732,7 @@ void X64SimplifiedCodeGenerator::Select() {
             int dest = pc() + delta;
             
             if (IsPCOutOfBound(dest)) {
-                UpdatePC();
-                __ andl(Operand(rbp, BytecodeStackFrame::kOffsetPC), delta);
+                __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), dest);
                 __ StartBC();
             }
             DCHECK_EQ(GetNextPC(), dest);
@@ -695,12 +746,31 @@ void X64SimplifiedCodeGenerator::Select() {
             ForwardJumpIf(false);
             break;
 
-        case kBackwardJump:
-        case kBackwardJumpIfTrue:
-        case kBackwardJumpIfFalse:
-            TODO();
-            break;
+        case kBackwardJump: {
+            int slot = bc()->param(0);
+            (void)slot;
+            int delta = bc()->param(1);
+            DCHECK_GE(delta, 0);
+            int dest = pc() - delta;
+            DCHECK_GE(dest, 0);
             
+            if (IsPCOutOfBound(dest)) {
+                __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), dest);
+                __ StartBC();
+            } else {
+                int32_t asm_pc = env_->FindAsmPC(dest);
+                __ jmp(asm_pc);
+            }
+        } break;
+
+        case kBackwardJumpIfTrue:
+            BackwardJumpIf(true);
+            break;
+
+        case kBackwardJumpIfFalse:
+            BackwardJumpIf(false);
+            break;
+
         // -----------------------------------------------------------------------------------------
         // Calling
         // -----------------------------------------------------------------------------------------
@@ -737,12 +807,11 @@ void X64SimplifiedCodeGenerator::Select() {
             if (function()->exception_table_size() > 0) {
                 __ UninstallCaughtHandler();
             }
-            if (fun_env_.size() == 1) { // TOP calling
+            if (env_->is_top()) { // TOP calling
                 __ addq(rsp, function()->stack_size()); // Recover stack
                 __ popq(rbp);
                 __ ret(0);
             } else {
-                DCHECK_GT(fun_env_.size(), 1);
                 // Inline return
                 __ addq(rsp, function()->stack_size()); // Recover stack
                 __ popq(rbp);
@@ -776,7 +845,9 @@ void X64SimplifiedCodeGenerator::ForwardJumpIf(bool cond) {
     int slot = bc()->param(0);
     (void)slot;
     int delta = bc()->param(1);
+    DCHECK_GE(delta, 0);
     int dest = pc() + delta;
+    DCHECK_GE(dest, 0);
     
     if (IsPCOutOfBound(dest)) {
         // False Guard
@@ -788,8 +859,7 @@ void X64SimplifiedCodeGenerator::ForwardJumpIf(bool cond) {
             __ j(NotEqual, &guard, false/*is_far*/);
         }
         
-        UpdatePC();
-        __ andl(Operand(rbp, BytecodeStackFrame::kOffsetPC), delta);
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), dest);
         __ StartBC();
         
         __ Bind(&guard);
@@ -805,12 +875,40 @@ void X64SimplifiedCodeGenerator::ForwardJumpIf(bool cond) {
             __ j(Equal, &guard, false/*is_far*/);
         }
 
-        UpdatePC();
-        __ andl(Operand(rbp, BytecodeStackFrame::kOffsetPC), delta);
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), dest);
         __ StartBC();
 
         __ Bind(&guard);
     }
+}
+
+void X64SimplifiedCodeGenerator::BackwardJumpIf(bool cond) {
+    int slot = bc()->param(0);
+    (void)slot;
+    int delta = bc()->param(1);
+    DCHECK_GE(delta, 0);
+    int dest = pc() - delta;
+    DCHECK_GE(dest, 0);
+    
+    __ cmpl(ACC, 0);
+    Label guard;
+    if (cond) {
+        __ j(Equal, &guard, false/*is_far*/);
+    } else {
+        __ j(NotEqual, &guard, false/*is_far*/);
+    }
+
+    // True branch
+    if (IsPCInBound(dest)) {
+        int32_t asm_pc = env_->FindAsmPC(dest);
+        __ jmp(asm_pc);
+    } else {
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), dest);
+        __ StartBC();
+    }
+
+    // False branch
+    __ Bind(&guard);
 }
 
 void X64SimplifiedCodeGenerator::CompareImplicitLengthString(Cond cond) {

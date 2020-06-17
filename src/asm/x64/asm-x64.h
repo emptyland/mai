@@ -746,6 +746,21 @@ public:
     
     // Jumping
     void jmp(Label *l, bool is_far);
+    
+    void jmp(int dest) {
+        int off = dest - pc() - 1;
+        DCHECK_LE(off, 0);
+
+        if (IsIntN(off - 1, 8)) {
+            // 1110 1011 #8-bit disp
+            EmitB(0xEB);
+            EmitB((off - 1) & 0xFF);
+        } else {
+            // 1110 1001 #32-bit disp
+            EmitB(0xE9);
+            EmitDW(off - 4);
+        }
+    }
 
     void jmp(Address addr); // always near jmp
     
