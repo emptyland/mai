@@ -45,6 +45,32 @@ namespace lang {
     __ set(cond, ACC); \
     __ andl(ACC, 0xff)
 
+#define EMIT_SIMPLE_ARITHMETIC(bc, op) \
+    case k##bc##8: \
+        __ movl(ACC, StackOperand(0)); \
+        __ op##b(ACC, StackOperand(1)); \
+        break; \
+    case k##bc##16: \
+        __ movl(ACC, StackOperand(0)); \
+        __ op##w(ACC, StackOperand(1)); \
+        break; \
+    case k##bc##32: \
+        __ movl(ACC, StackOperand(0)); \
+        __ op##l(ACC, StackOperand(1)); \
+        break; \
+    case k##bc##64: \
+        __ movq(ACC, StackOperand(0)); \
+        __ op##q(ACC, StackOperand(1)); \
+        break; \
+    case k##bc##f32: \
+        __ movss(FACC, StackOperand(0)); \
+        __ op##ss(FACC, StackOperand(1)); \
+        break; \
+    case k##bc##f64: \
+        __ movsd(FACC, StackOperand(0)); \
+        __ op##sd(FACC, StackOperand(1)); \
+        break
+
 // For Base-line JIT Compiler
 // Generator simplified machhine code
 class X64SimplifiedCodeGenerator final {
@@ -159,14 +185,12 @@ private:
     
     void UpdatePC() {
         __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), pc());
-        //__ movq(BC, reinterpret_cast<Address>(function()->bytecode()->entry() + pc()));
     }
     
     void CheckNotNil(Register dest) {
         __ cmpq(dest, 0);
         Label ok;
         __ LikelyJ(NotEqual, &ok, false/*is_far*/);
-        //__ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic), enable_jit_);
         BreakableCall(Runtime::NewNilPointerPanic);
         __ Throw(SCRATCH, rbx);
         __ int3();
@@ -186,6 +210,48 @@ private:
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&done);
+    }
+    
+    template<class T>
+    void CheckArithmetic(int index) {
+        switch (sizeof(T)) {
+            case sizeof(int8_t):
+                __ cmpb(StackOperand(index), 0);
+                break;
+            case sizeof(int16_t):
+                __ cmpw(StackOperand(index), 0);
+                break;
+            case sizeof(int32_t):
+                __ cmpl(StackOperand(index), 0);
+                break;
+            case sizeof(int64_t):
+                __ cmpq(StackOperand(index), 0);
+                break;
+            default:
+                NOREACHED();
+                break;
+        }
+        Label ok;
+        __ j(NotEqual, &ok, false/*is_far*/);
+        BreakableCall(Runtime::NewArithmeticPanic);
+        __ Throw(SCRATCH, rbx);
+        __ Bind(&ok);
+    }
+    
+    template<class T>
+    inline void CheckArrayBound(Register array, Register index) {
+        __ cmpl(index, 0);
+        Label out_of_bound;
+        __ j(Less, &out_of_bound, false/*is_far*/); // < 0
+        __ cmpl(index, Operand(array, Array<T>::kOffsetLength));
+        __ j(GreaterEqual, &out_of_bound, false/*is_far*/); // >= length
+        Label ok;
+        __ jmp(&ok, false/*is_far*/);
+        __ Bind(&out_of_bound);
+        BreakableCall(Runtime::NewOutOfBoundPanic);
+        __ Throw(SCRATCH, rbx);
+        __ int3();
+        __ Bind(&ok);
     }
     
     void Deoptimize(uint32_t pc) {
@@ -445,6 +511,60 @@ void X64SimplifiedCodeGenerator::Select() {
             CheckNotNil(SCRATCH);
             __ movsd(FACC, Operand(SCRATCH, bc()->param(1)));
             break;
+            
+        // -----------------------------------------------------------------------------------------
+        // LdaArray
+        // -----------------------------------------------------------------------------------------
+        case kLdaArrayAt8:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<int8_t>(SCRATCH/*array*/, rdx/*index*/);
+            __ xorl(ACC, ACC);
+            __ movb(ACC, Operand(SCRATCH, rdx, times_1, Array<int8_t>::kOffsetElems));
+            break;
+
+        case kLdaArrayAt16:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<int16_t>(SCRATCH/*array*/, rdx/*index*/);
+            __ xorl(ACC, ACC);
+            __ movw(ACC, Operand(SCRATCH, rdx, times_2, Array<int16_t>::kOffsetElems));
+            break;
+
+        case kLdaArrayAt32:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<int32_t>(SCRATCH/*array*/, rdx/*index*/);
+            __ movl(ACC, Operand(SCRATCH, rdx, times_4, Array<int32_t>::kOffsetElems));
+            break;
+
+        case kLdaArrayAt64:
+        case kLdaArrayAtPtr:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<int64_t>(SCRATCH/*array*/, rdx/*index*/);
+            __ movq(ACC, Operand(SCRATCH, rdx, times_8, Array<int64_t>::kOffsetElems));
+            break;
+
+        case kLdaArrayAtf32:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<float>(SCRATCH/*array*/, rdx/*index*/);
+            __ movss(FACC, Operand(SCRATCH, rdx, times_4, Array<float>::kOffsetElems));
+            break;
+
+        case kLdaArrayAtf64:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<double>(SCRATCH/*array*/, rdx/*index*/);
+            __ movsd(FACC, Operand(SCRATCH, rdx, times_8, Array<double>::kOffsetElems));
+            break;
 
         // -----------------------------------------------------------------------------------------
         // Star
@@ -506,14 +626,159 @@ void X64SimplifiedCodeGenerator::Select() {
         // -----------------------------------------------------------------------------------------
         // Arithmetic
         // -----------------------------------------------------------------------------------------
-        case kAdd32:
-            __ movl(ACC, StackOperand(0));
-            __ addl(ACC, StackOperand(1));
-            break;
+        EMIT_SIMPLE_ARITHMETIC(Add, add);
+        EMIT_SIMPLE_ARITHMETIC(Sub, sub);
 
+        case kMul8:
+            __ movl(ACC, StackOperand(0));
+            __ mulb(StackOperand(1));
+            break;
+        
+        case kMul16:
+            __ movl(ACC, StackOperand(0));
+            __ mulw(StackOperand(1));
+            break;
+            
+        case kMul32:
+            __ movl(ACC, StackOperand(0));
+            __ mull(StackOperand(1));
+            break;
+            
+        case kMul64:
+            __ movq(ACC, StackOperand(0));
+            __ mulq(StackOperand(1));
+            break;
+            
+        case kMulf32:
+            __ movss(FACC, StackOperand(0));
+            __ mulss(FACC, StackOperand(1));
+            break;
+            
+        case kMulf64:
+            __ movsd(FACC, StackOperand(0));
+            __ mulsd(FACC, StackOperand(1));
+            break;
+        
+        case kIMul8:
+            __ movl(ACC, StackOperand(0));
+            __ imulb(StackOperand(1));
+            break;
+            
+        case kIMul16:
+            __ movl(ACC, StackOperand(0));
+            __ imulw(ACC, StackOperand(1));
+            break;
+        
         case kIMul32:
             __ movl(ACC, StackOperand(0));
             __ imull(ACC, StackOperand(1));
+            break;
+            
+        case kIMul64:
+            __ movq(ACC, StackOperand(0));
+            __ imulq(ACC, StackOperand(1));
+            break;
+            
+        case kDiv8:
+            __ movl(ACC, StackOperand(0));
+            CheckArithmetic<uint8_t>(1/*index*/);
+            __ divb(StackOperand(1));
+            __ andl(ACC, 0xff);
+            break;
+            
+        case kDiv16:
+            __ movl(ACC, StackOperand(0));
+            CheckArithmetic<uint16_t>(1/*index*/);
+            __ xorl(rdx, rdx);
+            __ divw(StackOperand(1));
+            __ andl(ACC, 0xffff);
+            break;
+            
+        case kDiv32:
+            __ movl(ACC, StackOperand(0));
+            CheckArithmetic<uint32_t>(1/*index*/);
+            __ xorl(rdx, rdx);
+            __ divl(StackOperand(1));
+            break;
+            
+        case kDiv64:
+            __ movl(ACC, StackOperand(0));
+            CheckArithmetic<uint8_t>(1/*index*/);
+            __ xorq(rdx, rdx);
+            __ divq(StackOperand(1));
+            break;
+
+        case kDivf32:
+            __ movss(FACC, StackOperand(0));
+            __ divss(FACC, StackOperand(1));
+            break;
+
+        case kDivf64:
+            __ movsd(FACC, StackOperand(0));
+            __ divsd(FACC, StackOperand(1));
+            break;
+            
+        case kIDiv8:
+            __ movl(ACC, StackOperand(0));
+            CheckArithmetic<int8_t>(1/*index*/);
+            __ idivb(StackOperand(1));
+            __ andl(ACC, 0xff);
+            break;
+            
+        case kIDiv16:
+            __ movl(ACC, StackOperand(0));
+            CheckArithmetic<int16_t>(1/*index*/);
+            __ xorl(rdx, rdx);
+            __ idivw(StackOperand(1));
+            break;
+            
+        case kIDiv32:
+            __ movl(ACC, StackOperand(0));
+            CheckArithmetic<int32_t>(1/*index*/);
+            __ xorl(rdx, rdx);
+            __ idivl(StackOperand(1));
+            break;
+            
+        case kIDiv64:
+            __ movl(ACC, StackOperand(0));
+            CheckArithmetic<int64_t>(1/*index*/);
+            __ xorq(rdx, rdx);
+            __ idivq(StackOperand(1));
+            break;
+
+        case kMod8:
+            __ movl(ACC, StackOperand(0));
+            CheckArithmetic<uint8_t>(1/*index*/);
+            // al <- ax / operand
+            // ah <- remainder
+            __ divb(StackOperand(1));
+            __ shrl(ACC, 8);
+            __ andl(ACC, 0xff);
+            break;
+
+        case kMod16:
+            __ movl(ACC, StackOperand(0));
+            CheckArithmetic<uint16_t>(1/*index*/);
+            // ax:dx <- ax / operand
+            __ xorl(rdx, rdx);
+            __ divw(StackOperand(1));
+            __ movl(ACC, rdx);
+            break;
+
+        case kMod32:
+            __ movl(ACC, StackOperand(0));
+            CheckArithmetic<uint32_t>(1/*index*/);
+            // rax:rdx <- rax / operand
+            __ divl(StackOperand(1));
+            __ movl(ACC, rdx);
+            break;
+
+        case kMod64:
+            __ movq(ACC, StackOperand(0));
+            CheckArithmetic<uint64_t>(1/*index*/);
+            // rax:rdx <- rax / operand
+            __ divq(StackOperand(1));
+            __ movq(ACC, rdx);
             break;
 
         // -----------------------------------------------------------------------------------------

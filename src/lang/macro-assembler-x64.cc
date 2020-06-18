@@ -821,7 +821,7 @@ public:
         instr_scope.GetBToRBX();
         __ xorq(rdx, rdx);
         __ movl(rdx, Operand(rbp, rbx, times_2, 0));
-        CheckArrayBound<int32_t>(masm, SCRATCH, rdx);
+        CheckArrayBound<int8_t>(masm, SCRATCH, rdx);
         __ xorl(ACC, ACC);
         __ movb(ACC, Operand(SCRATCH, rdx, times_1, Array<int8_t>::kOffsetElems));
     }
@@ -833,7 +833,7 @@ public:
         instr_scope.GetBToRBX();
         __ xorq(rdx, rdx);
         __ movl(rdx, Operand(rbp, rbx, times_2, 0));
-        CheckArrayBound<int32_t>(masm, SCRATCH, rdx);
+        CheckArrayBound<int16_t>(masm, SCRATCH, rdx);
         __ xorl(ACC, ACC);
         __ movw(ACC, Operand(SCRATCH, rdx, times_2, Array<int16_t>::kOffsetElems));
     }
@@ -1413,7 +1413,7 @@ public:
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
 
         instr_scope.GetBToRBX();
-        CheckArithmetic(masm, rbx, 4/*size*/);
+        CheckArithmetic(masm, rbx, 1/*size*/);
 
         __ idivb(Operand(rbp, rbx, times_2, 0));
         __ andl(ACC, 0xff);
@@ -1424,7 +1424,7 @@ public:
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
 
         instr_scope.GetBToRBX();
-        CheckArithmetic(masm, rbx, 4/*size*/);
+        CheckArithmetic(masm, rbx, 2/*size*/);
 
         __ xorl(rdx, rdx);
         __ idivw(Operand(rbp, rbx, times_2, 0));
@@ -1457,7 +1457,7 @@ public:
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
 
         instr_scope.GetBToRBX();
-        CheckArithmetic(masm, rbx, 4/*size*/);
+        CheckArithmetic(masm, rbx, 1/*size*/);
 
         // al <- ax / operand
         // ah <- remainder
@@ -1471,14 +1471,14 @@ public:
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
 
         instr_scope.GetBToRBX();
-        CheckArithmetic(masm, rbx, 4/*size*/);
+        CheckArithmetic(masm, rbx, 2/*size*/);
 
-        // ax:dx <- ax * operand
+        // ax:dx <- ax / operand
         __ xorl(rdx, rdx);
         __ divw(Operand(rbp, rbx, times_2, 0));
         __ movl(ACC, rdx);
     }
-    
+
     void EmitMod32(MacroAssembler *masm) override {
         InstrStackABScope instr_scope(masm);
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
@@ -1486,7 +1486,7 @@ public:
         instr_scope.GetBToRBX();
         CheckArithmetic(masm, rbx, 4/*size*/);
 
-        // rax:rdx <- rax * operand
+        // rax:rdx <- rax / operand
         __ divl(Operand(rbp, rbx, times_2, 0));
         __ movl(ACC, rdx);
     }
