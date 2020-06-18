@@ -125,7 +125,7 @@ private:
     }
     
     Operand StackOperand(int index) const {
-        return Operand(rbp, ParseStackOffset(bc()->param(index)));
+        return Operand(rbp, -ParseStackOffset(bc()->param(index)));
     }
 
     Operand ConstOperand(Register scratch, int index) const {
@@ -159,7 +159,7 @@ private:
     
     void UpdatePC() {
         __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), pc());
-        __ movq(BC, reinterpret_cast<Address>(function()->bytecode()->entry() + pc()));
+        //__ movq(BC, reinterpret_cast<Address>(function()->bytecode()->entry() + pc()));
     }
     
     void CheckNotNil(Register dest) {
@@ -487,6 +487,19 @@ void X64SimplifiedCodeGenerator::Select() {
             __ movq(ACC, StackOperand(0));
             __ subq(StackOperand(0), bc()->param(1));
             break;
+            
+        // -----------------------------------------------------------------------------------------
+        // Arithmetic
+        // -----------------------------------------------------------------------------------------
+        case kAdd32:
+            __ movl(ACC, StackOperand(0));
+            __ addl(ACC, StackOperand(1));
+            break;
+
+        case kIMul32:
+            __ movl(ACC, StackOperand(0));
+            __ imull(ACC, StackOperand(1));
+            break;
 
         // -----------------------------------------------------------------------------------------
         // Test
@@ -775,6 +788,7 @@ void X64SimplifiedCodeGenerator::Select() {
             break;
 
         case kForwardJumpIfFalse:
+            //__ Breakpoint();
             ForwardJumpIf(false);
             break;
 
@@ -791,6 +805,7 @@ void X64SimplifiedCodeGenerator::Select() {
                 __ StartBC();
             } else {
                 int32_t asm_pc = env_->FindAsmPC(dest);
+                //__ Breakpoint();
                 __ jmp(asm_pc);
             }
         } break;
@@ -836,6 +851,7 @@ void X64SimplifiedCodeGenerator::Select() {
             break;
             
         case kReturn: {
+            //__ Breakpoint();
             if (function()->exception_table_size() > 0) {
                 __ UninstallCaughtHandler();
             }
@@ -981,6 +997,7 @@ void X64SimplifiedCodeGenerator::CompareImplicitLengthString(Cond cond) {
 }
 
 void X64SimplifiedCodeGenerator::CallBytecodeFunction() {
+    //__ Breakpoint();
     UpdatePC(); // Update current PC first
 
     // Adjust Caller Stack
@@ -998,11 +1015,12 @@ void X64SimplifiedCodeGenerator::CallBytecodeFunction() {
 }
 
 void X64SimplifiedCodeGenerator::MakeInlineStackFrame(const Function *fun) {
+    //__ Breakpoint();
     __ pushq(rbp);
     __ movq(rbp, rsp);
     __ subq(rsp, fun->stack_size());
     
-    __ movl(Operand(rbp, BytecodeStackFrame::kMaker), BytecodeStackFrame::kMaker);
+    __ movl(Operand(rbp, BytecodeStackFrame::kOffsetMaker), BytecodeStackFrame::kMaker);
     // Set up pc = 0
     __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), 0);
     // Set up callee
@@ -1024,9 +1042,12 @@ Kode *GenerateSimplifiedCode(const CompilationInfo *compilation_info, bool enabl
     X64SimplifiedCodeGenerator g(compilation_info, enable_debug, enable_jit, arena);
     g.Initialize();
     g.Generate();
-    return Machine::This()->NewCode(Code::OPTIMIZATION, 1,
-                                    static_cast<uint32_t>(g.masm()->buf().size()),
-                                    reinterpret_cast<const uint8_t *>(&g.masm()->buf()[0]), 0);
+    Kode *code =
+        compilation_info->mach()->NewCode(Code::OPTIMIZATION, 1,
+                                          static_cast<uint32_t>(g.masm()->buf().size()),
+                                          reinterpret_cast<const uint8_t *>(&g.masm()->buf()[0]), 0);
+    code->set_slot(compilation_info->start_slot());
+    return code;
 }
 
 } // namespace lang

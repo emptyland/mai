@@ -16,6 +16,7 @@ class Machine;
 class Coroutine;
 class Function;
 class CompilationInfo;
+class Kode;
 
 // The profiler for PGO(Profiling Guide Optimization)
 class Profiler {

@@ -67,6 +67,7 @@ public:
     static const int32_t kOffsetException;
     static const int32_t kOffsetGlobalGuard;
     static const int32_t kOffsetGlobalLength;
+    static const int32_t kOffsetHotPath;
   
     enum SavedStateIndex {
         kBPIndex, // Mai frame pointer
@@ -142,6 +143,9 @@ public:
     bool AcquireState(State expected, State want) {
         return state_.compare_exchange_strong(expected, want);
     }
+    
+    Kode *hot_path() const { return hot_path_.load(std::memory_order_acquire); }
+    void set_hot_path(Kode *code) { hot_path_.store(code, std::memory_order_release); }
 
     int Yield() { return yield_++; }
 
@@ -209,6 +213,7 @@ private:
     uintptr_t saved_state1_[kMaxSavedState]; // Secondare saved state
     Address stack_guard0_; // guard0 of stack
     Address stack_guard1_; // guard1 of stack
+    std::atomic<Kode *> hot_path_; // [strong ref] hot path code
     Stack *stack_; // [nested strong ref] Coroutine owned calling stack
     CaughtNode caught_dummy_; // Dummy of caught node
 }; //class Coroutine

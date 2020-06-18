@@ -56,6 +56,7 @@ private:
 class Kode : public Any {
 public:
     static const int32_t kOffsetKind;
+    static const int32_t kOffsetSlot;
     static const int32_t kOffsetSize;
     static const int32_t kOffsetOptimizationLevel;
     static const int32_t kOffsetSourceLineInfo;
@@ -63,6 +64,7 @@ public:
     
     DEF_VAL_GETTER(Code::Kind, kind);
     DEF_VAL_GETTER(uint32_t, size);
+    DEF_VAL_PROP_RW(int32_t, slot);
     DEF_VAL_GETTER(int32_t, optimization_level);
     DEF_PTR_GETTER(Array<uint32_t>, source_line_info);
     DEF_PTR_GETTER(Array<uint8_t>, extra_associated_info);
@@ -105,6 +107,9 @@ private:
     
     // Kind of code
     Code::Kind kind_;
+    
+    // Tracing slot
+    int32_t slot_ = -1;
     
     // The Level of compiler optimization, 1 of base optimization
     int32_t optimization_level_;

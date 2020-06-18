@@ -110,6 +110,12 @@ struct Compiler {
                                      Function **init0,
                                      base::Arena *arena);
     
+    static Error PostTracingBasedJob(Isolate *isolate,
+                                     const CompilationInfo *compilation_info,
+                                     int optimition_level,
+                                     bool enable_debug,
+                                     bool enable_jit);
+    
 }; // struct Compiler
 
 } // namespace lang

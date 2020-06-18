@@ -5,6 +5,10 @@
 #include "lang/parser.h"
 #include "lang/ast.h"
 #include "lang/lexer.h"
+#include "lang/compilation-worker.h"
+#include "lang/machine.h"
+#include "lang/coroutine.h"
+#include "lang/simplified-code-generator.h"
 #include "base/arenas.h"
 
 namespace mai {
@@ -170,6 +174,57 @@ void CompilationInfo::Print(base::AbstractPrinter *printer) const {
     return Error::OK();
 }
 
+class SimplifiedCodeGenerationJob : public CompilationJob {
+public:
+    SimplifiedCodeGenerationJob(const CompilationInfo *compilation_info,
+                                bool enable_debug,
+                                bool enable_jit)
+        : compilation_info_(compilation_info)
+        , enable_debug_(enable_debug)
+        , enable_jit_(enable_jit) {
+    }
+    
+    virtual ~SimplifiedCodeGenerationJob() override {
+        delete compilation_info_;
+    }
+
+    void Run() override {
+        base::StandaloneArena arena;
+        Kode *code = GenerateSimplifiedCode(compilation_info_, enable_debug_, enable_jit_, &arena);
+        if (compilation_info_->mach()->running() == compilation_info_->owns()) {
+            compilation_info_->owns()->set_hot_path(code);
+        }
+    }
+
+    void Dispose() override {
+
+    }
+
+    DISALLOW_IMPLICIT_CONSTRUCTORS(SimplifiedCodeGenerationJob);
+private:
+    const CompilationInfo *const compilation_info_;
+    const bool enable_debug_;
+    const bool enable_jit_;
+    Kode *code_;
+}; // class SimplifiedCodeGenerationJob
+
+/*static*/ Error Compiler::PostTracingBasedJob(Isolate *isolate,
+                                               const CompilationInfo *compilation_info,
+                                               int optimition_level,
+                                               bool enable_debug,
+                                               bool enable_jit) {
+    switch (optimition_level) {
+        case 1: {
+            CompilationWorker *worker = DCHECK_NOTNULL(STATE->compilation_worker());
+            worker->Commit(new SimplifiedCodeGenerationJob(compilation_info, enable_debug,
+                                                           enable_jit));
+        } break;
+
+        default:
+            return MAI_NOT_SUPPORTED("Not supported others level");
+    }
+    return Error::OK();
+}
 
 } // namespace lang
 

@@ -18,6 +18,7 @@ namespace lang {
 union Span64;
 class Heap;
 class MetadataSpace;
+class CompilationWorker;
 class Factory;
 class Scheduler;
 class Machine;
@@ -51,8 +52,12 @@ struct Options {
     GCOption gc_option = kNormalGC;
     std::string base_pkg_dir = "src/lang/pkg"; // Language base pkg path
     std::set<std::string> search_pkg_dir;
+    // Enable Just-in-time compiler
     bool enable_jit = true;
+    // JIT compilation hot spot threshold
     int hot_spot_threshold = 10000;
+    // Max number of threads for background JIT compiler worker
+    int max_jit_compiling_workers = 4;
 };
 
 // The virtual machine isolate object:
@@ -122,6 +127,7 @@ public:
     inline Profiler *profiler() const;
     inline void set_tracing_hook(TracingHook *hook);
     inline TracingHook *tracing_hook() const;
+    inline CompilationWorker *compilation_worker() const;
 
     void VisitRoot(RootVisitor *visitor);
 
@@ -164,13 +170,15 @@ private:
     Scheduler *scheduler_; // Scheduler
     GarbageCollector *gc_; // Garbage Collector
     Profiler *profiler_; // Profiler for hot point profiiling
+    CompilationWorker *compilation_worker_; // Background compiling worker
     
     Span64 *global_space_ = nullptr; // [nested strong ref] Global space
     uint32_t *global_space_bitmap_ = nullptr; // Bitmap of global space
     size_t global_space_capacity_ = 0; // Capacity of global space
     size_t global_space_length_ = 0; // Length of global space
     
-    GlobalHandleNode *persistent_dummy_; // [nested strong ref] Global handle double-linked list dummy
+    // [nested strong ref] Global handle double-linked list dummy
+    GlobalHandleNode *persistent_dummy_;
     int n_global_handles_ = 0; // Number of global handles
     mutable std::mutex persistent_mutex_; // Mutex for persistent_dummy_
     

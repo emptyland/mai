@@ -2072,6 +2072,17 @@ public:
         InstrImmABScope instr_scope(masm);
         // Profiling
         if (enable_jit) {
+            __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetHotPath));
+            __ cmpq(SCRATCH, 0);
+            Label tracing;
+            __ j(Equal, &tracing, false/*is_far*/);
+            __ cmpl(Operand(SCRATCH, Kode::kOffsetSlot), rbx);
+            __ j(NotEqual, &tracing, false/*is_far*/);
+            //__ Breakpoint();
+            __ leaq(rbx, Operand(SCRATCH, Kode::kOffsetInstructions));
+            __ jmp(rbx);
+            
+            __ Bind(&tracing);
             __ PrefixLock();
             __ decl(Operand(PROFILER, rbx, times_4, 0));
             Label try_tracing;
@@ -2196,7 +2207,7 @@ public:
     void EmitCallFunction(MacroAssembler *masm) override {
         __ Abort("TODO:");
     }
-    
+
     void EmitCallNativeFunction(MacroAssembler *masm) override {
         InstrImmABScope instr_scope(masm);
         // TODO: slot

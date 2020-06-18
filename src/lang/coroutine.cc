@@ -39,6 +39,7 @@ const int32_t Coroutine::kOffsetEntry = MEMBER_OFFSET_OF(entry_);
 const int32_t Coroutine::kOffsetException = MEMBER_OFFSET_OF(exception_);
 const int32_t Coroutine::kOffsetGlobalGuard = MEMBER_OFFSET_OF(global_guard_);
 const int32_t Coroutine::kOffsetGlobalLength = MEMBER_OFFSET_OF(global_length_);
+const int32_t Coroutine::kOffsetHotPath = MEMBER_OFFSET_OF(hot_path_);
 
 void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
     // queue header:
@@ -73,6 +74,7 @@ void Coroutine::Reinitialize(uint64_t coid, Closure *entry, Stack *stack) {
 
     // TODO:
     stack_ = DCHECK_NOTNULL(stack);
+    hot_path_ = nullptr;
     stack_guard0_ = stack->guard0();
     stack_guard1_ = stack->guard1();
 }
@@ -221,6 +223,9 @@ void Coroutine::VisitRoot(RootVisitor *visitor) {
     }
     if (exception_) {
         visitor->VisitRootPointer(reinterpret_cast<Any **>(&exception_));
+    }
+    if (hot_path_.load(std::memory_order_relaxed)) {
+        visitor->VisitRootPointer(reinterpret_cast<Any **>(&hot_path_));
     }
     if (entry_ && reentrant_ == 0) {
         DCHECK(entry_->is_mai_function());

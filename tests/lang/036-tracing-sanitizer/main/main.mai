@@ -2,7 +2,7 @@ package main
 
 fun main() {
     var n = 0
-    for (i in 0, 11000) {
+    for (i in 0, 10000000) {
         //println("loop: $i")
         n += foo(i)
     }

@@ -11,6 +11,7 @@
 #include "lang/value-inl.h"
 #include "lang/channel.h"
 #include "lang/pgo.h"
+#include "lang/compilation-worker.h"
 #include "asm/utils.h"
 #include "base/arenas.h"
 #include "glog/logging.h"
@@ -62,6 +63,9 @@ void Isolate::Dispose() {
 Error Isolate::Initialize() {
     if (new_space_initial_size_ < 10 * base::kMB) {
         return MAI_CORRUPTION("new_space_initial_size too small(least than 10MB)");
+    }
+    if (enable_jit_ && compilation_worker_->max_workers() <= 0) {
+        return MAI_CORRUPTION("no wokers for JIT compiler");
     }
 
     if (auto err = heap_->Initialize(new_space_initial_size_); err.fail()) {
@@ -140,6 +144,9 @@ void Isolate::Run() {
     // Run main thread
     scheduler_->machine0()->Entry();
 
+    // Shutdown background works first
+    compilation_worker_->Shutdown();
+    
     // Main thread finished
     // Should shutdown others worker threads
     scheduler_->Shutdown();
@@ -160,6 +167,7 @@ Isolate::Isolate(const Options &opts)
                                opts.old_space_gc_threshold_rate))
     , enable_jit_(opts.enable_jit)
     , profiler_(new Profiler(opts.hot_spot_threshold))
+    , compilation_worker_(new CompilationWorker(opts.max_jit_compiling_workers))
     , persistent_dummy_(new GlobalHandleNode{})
     , bytecode_handler_entries_(new Address[kMax_Bytecodes])
     , tracing_handler_entries_(opts.enable_jit ? new Address[kMax_Bytecodes] : nullptr)
@@ -180,6 +188,7 @@ Isolate::~Isolate() {
     }
     delete persistent_dummy_;
 
+    delete compilation_worker_;
     delete gc_;
     delete metadata_space_;
     delete scheduler_;

@@ -27,12 +27,13 @@ public:
     CompilationWorker(int max_workers);
     ~CompilationWorker();
     
+    int shutting_down() const { return shutting_down_.load(std::memory_order_acquire); }
+    int running_workers() const { return running_workers_.load(std::memory_order_acquire); }
+    DEF_VAL_GETTER(int, max_workers);
+    
     void Commit(CompilationJob *job);
     
     size_t Shutdown();
-    
-    int shutting_down() const { return shutting_down_.load(std::memory_order_acquire); }
-    int running_workers() const { return running_workers_.load(std::memory_order_acquire); }
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(CompilationWorker);
 private:

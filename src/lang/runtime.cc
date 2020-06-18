@@ -1302,9 +1302,11 @@ static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
         hook->DidFinailize(tracer, info.get());
     }
     
-    // TODO:
 //    base::StdFilePrinter printer(stdout);
 //    info->Print(&printer);
+    
+    Compiler::PostTracingBasedJob(STATE, info.release(), 1, false/*enable_debug*/,
+                                  true/*enable_jit*/);
 
     *slots = STATE->profiler()->hot_count_slots();
     return STATE->bytecode_handler_entries();

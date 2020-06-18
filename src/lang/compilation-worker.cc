@@ -123,6 +123,7 @@ void CompilationWorker::Work(Worker *worker, CompilationJob *job) {
     if (job) {
         job->Run();
         job->Dispose();
+        delete job;
     }
     
     job = nullptr;
@@ -145,7 +146,7 @@ void CompilationWorker::Work(Worker *worker, CompilationJob *job) {
         
         DCHECK_NOTNULL(job)->Run();
         job->Dispose();
-        //delete job;
+        delete job;
     }
 
     running_workers_.fetch_sub(1);

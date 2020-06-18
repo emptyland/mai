@@ -36,6 +36,7 @@ const int32_t Closure::kOffsetCapturedVarSize = MEMBER_OFFSET_OF(Closure, captur
 const int32_t Closure::kOffsetCapturedVar = MEMBER_OFFSET_OF(Closure, captured_var_);
 
 const int32_t Kode::kOffsetKind = MEMBER_OFFSET_OF(Kode, kind_);
+const int32_t Kode::kOffsetSlot = MEMBER_OFFSET_OF(Kode, slot_);
 const int32_t Kode::kOffsetSize = MEMBER_OFFSET_OF(Kode, size_);
 const int32_t Kode::kOffsetOptimizationLevel = MEMBER_OFFSET_OF(Kode, optimization_level_);
 const int32_t Kode::kOffsetSourceLineInfo = MEMBER_OFFSET_OF(Kode, source_line_info_);
