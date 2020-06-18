@@ -748,7 +748,7 @@ public:
     void jmp(Label *l, bool is_far);
     
     void jmp(int dest) {
-        int off = dest - pc();
+        int off = dest - pc() - 1;
         DCHECK_LE(off, 0);
 
         if (IsIntN(off - 1, 8)) {

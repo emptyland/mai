@@ -53,7 +53,7 @@ struct Options {
     std::string base_pkg_dir = "src/lang/pkg"; // Language base pkg path
     std::set<std::string> search_pkg_dir;
     // Enable Just-in-time compiler
-    bool enable_jit = true;
+    bool enable_jit = false;
     // JIT compilation hot spot threshold
     int hot_spot_threshold = 10000;
     // Max number of threads for background JIT compiler worker

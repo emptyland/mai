@@ -997,7 +997,6 @@ void X64SimplifiedCodeGenerator::CompareImplicitLengthString(Cond cond) {
 }
 
 void X64SimplifiedCodeGenerator::CallBytecodeFunction() {
-    //__ Breakpoint();
     UpdatePC(); // Update current PC first
 
     // Adjust Caller Stack
