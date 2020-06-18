@@ -149,8 +149,8 @@ private:
     
     void MakeExitGuard() {
         uint32_t last_pc = DCHECK_NOTNULL(env_)->largest_pc();
-        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), last_pc + 1); // to next pc
-        __ StartBC();
+        // to next pc
+        Deoptimize(last_pc + 1);
     }
     
     void CallBytecodeFunction();
@@ -186,6 +186,21 @@ private:
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&done);
+    }
+    
+    void Deoptimize(uint32_t pc) {
+        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetHotPath));
+        __ cmpq(SCRATCH, 0);
+        Label exit;
+        __ j(Equal, &exit, false/*is_far*/);
+        __ cmpl(Operand(SCRATCH, Kode::kOffsetSlot), compilation_info_->start_slot());
+        __ j(NotEqual, &exit, false/*is_far*/);
+        __ movq(Operand(SCRATCH, Kode::kOffsetSlot), 0);
+        __ mfence();
+
+        __ Bind(&exit);
+        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), pc);
+        __ StartBC();
     }
     
     void ForwardJumpIf(bool cond);
@@ -777,8 +792,7 @@ void X64SimplifiedCodeGenerator::Select() {
             int dest = pc() + delta;
             
             if (IsPCOutOfBound(dest)) {
-                __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), dest);
-                __ StartBC();
+                Deoptimize(dest);
             }
             DCHECK_EQ(GetNextPC(), dest);
         } break;
@@ -801,8 +815,7 @@ void X64SimplifiedCodeGenerator::Select() {
             DCHECK_GE(dest, 0);
             
             if (IsPCOutOfBound(dest)) {
-                __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), dest);
-                __ StartBC();
+                Deoptimize(dest);
             } else {
                 int32_t asm_pc = env_->FindAsmPC(dest);
                 //__ Breakpoint();
@@ -900,7 +913,7 @@ void X64SimplifiedCodeGenerator::ForwardJumpIf(bool cond) {
     DCHECK_GE(delta, 0);
     int dest = pc() + delta;
     DCHECK_GE(dest, 0);
-    
+
     if (IsPCOutOfBound(dest)) {
         // False Guard
         __ cmpl(ACC, 0);
@@ -910,10 +923,8 @@ void X64SimplifiedCodeGenerator::ForwardJumpIf(bool cond) {
         } else {
             __ j(NotEqual, &guard, false/*is_far*/);
         }
-        
-        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), dest);
-        __ StartBC();
-        
+
+        Deoptimize(dest);
         __ Bind(&guard);
     } else {
         DCHECK_EQ(GetNextPC(), dest);
@@ -927,9 +938,7 @@ void X64SimplifiedCodeGenerator::ForwardJumpIf(bool cond) {
             __ j(Equal, &guard, false/*is_far*/);
         }
 
-        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), dest);
-        __ StartBC();
-
+        Deoptimize(dest);
         __ Bind(&guard);
     }
 }
@@ -955,8 +964,7 @@ void X64SimplifiedCodeGenerator::BackwardJumpIf(bool cond) {
         int32_t asm_pc = env_->FindAsmPC(dest);
         __ jmp(asm_pc);
     } else {
-        __ movl(Operand(rbp, BytecodeStackFrame::kOffsetPC), dest);
-        __ StartBC();
+        Deoptimize(dest);
     }
 
     // False branch

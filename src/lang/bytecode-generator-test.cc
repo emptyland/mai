@@ -784,6 +784,8 @@ TEST_F(BytecodeGeneratorTest, RunGCSanitizer) {
     ASSERT_EQ(0, isolate_->GetUncaughtCount());
 }
 
+// disable jit: 335ms
+//  enable jit: 53ms
 TEST_F(BytecodeGeneratorTest, RunTracingSanitizer) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
 
