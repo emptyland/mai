@@ -65,8 +65,9 @@ DECLARE_ALL_AST(DEFINE_DECLARE)
 #undef DEFINE_DECLARE
 
 #define DECLARE_ALL_ATTRIBUTES(V) \
-    V(Native, "mai:native", 1u) \
-    V(Yield,  "mai:yield", 1u << 1)
+    V(Native,  "mai:native",  1u) \
+    V(Yield,   "mai:yield",   1u << 1) \
+    V(Preheat, "mai:preheat", 1u << 2)
 
 #define DEFINE_CONSTANT(name, text, value) static constexpr uint32_t kAttr##name = (value);
 DECLARE_ALL_ATTRIBUTES(DEFINE_CONSTANT)
@@ -146,9 +147,13 @@ public:
     
 #define DEFINE_TYPE_CHECKER(name) \
     inline bool Is##name() const { return kind() == k##name; } \
-    inline name *As##name() { return !this || !Is##name() ? nullptr : reinterpret_cast<name *>(this); } \
-    inline const name *As##name() const { return !this || !Is##name() ? nullptr : reinterpret_cast<const name *>(this); }
-    
+    inline name *As##name() { \
+        return !this || !Is##name() ? nullptr : reinterpret_cast<name *>(this); \
+    } \
+    inline const name *As##name() const { \
+        return !this || !Is##name() ? nullptr : reinterpret_cast<const name *>(this); \
+    }
+
     DECLARE_ALL_AST(DEFINE_TYPE_CHECKER)
     
 #undef DEFINE_TYPE_CHECKER

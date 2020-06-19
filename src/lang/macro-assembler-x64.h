@@ -95,6 +95,16 @@ public:
     void StartBC();
 
     void JumpNextBC();
+    
+    void WriteBarrier(Register host, Register index, bool enable_jit) {
+        WriteBarrier(host, Operand(host, index, times_1, 0), enable_jit);
+    }
+
+    void WriteBarrier(Register host, int32_t offset, bool enable_jit) {
+        WriteBarrier(host, Operand(host, offset), enable_jit);
+    }
+    
+    void WriteBarrier(Register host, Operand address, bool enable_jit);
 
     void Throw(Register scratch0, Register scratch1);
     

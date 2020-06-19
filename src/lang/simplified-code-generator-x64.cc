@@ -71,6 +71,17 @@ namespace lang {
         __ op##sd(FACC, StackOperand(1)); \
         break
 
+#if defined(DEBUG) || defined(_DEBUG)
+#define CHECK_CAPTURED_VAR_INDEX(callee, index) \
+    __ cmpl(Operand(callee, Closure::kOffsetCapturedVarSize), index); \
+    Label ok1; \
+    __ j(Greater, &ok1, false); \
+    __ Abort("CapturedVarIndex out of bound!"); \
+    __ Bind(&ok1)
+#else
+#define CHECK_CAPTURED_VAR_INDEX(callee, index) (void)0
+#endif // defined(DEBUG) || defined(_DEBUG)
+
 // For Base-line JIT Compiler
 // Generator simplified machhine code
 class X64SimplifiedCodeGenerator final {
@@ -162,6 +173,12 @@ private:
         return Operand(scratch, ParseGlobalOffset(bc()->param(index)));
     }
     
+    Operand CapturedSlotOperand(Register scratch, int index) const {
+        int32_t offset = Closure::kOffsetCapturedVar
+                       + bc()->param(index) * sizeof(Closure::CapturedVar);
+        return Operand(scratch, offset);
+    }
+
     template<class T>
     inline void BreakableCall(T *fun) {
         UpdatePC();
@@ -215,16 +232,16 @@ private:
     template<class T>
     void CheckArithmetic(int index) {
         switch (sizeof(T)) {
-            case sizeof(int8_t):
+            case 1:
                 __ cmpb(StackOperand(index), 0);
                 break;
-            case sizeof(int16_t):
+            case 2:
                 __ cmpw(StackOperand(index), 0);
                 break;
-            case sizeof(int32_t):
+            case 4:
                 __ cmpl(StackOperand(index), 0);
                 break;
-            case sizeof(int64_t):
+            case 8:
                 __ cmpq(StackOperand(index), 0);
                 break;
             default:
@@ -567,6 +584,38 @@ void X64SimplifiedCodeGenerator::Select() {
             break;
 
         // -----------------------------------------------------------------------------------------
+        // LdaCaptured
+        // -----------------------------------------------------------------------------------------
+        case kLdaCaptured32: {
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+            CHECK_CAPTURED_VAR_INDEX(SCRATCH, bc()->param(0));
+            __ movq(SCRATCH, CapturedSlotOperand(SCRATCH, 0));
+            __ movl(ACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
+        } break;
+
+        case kLdaCaptured64:
+        case kLdaCapturedPtr: {
+               __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+               CHECK_CAPTURED_VAR_INDEX(SCRATCH, bc()->param(0));
+               __ movq(SCRATCH, CapturedSlotOperand(SCRATCH, 0));
+               __ movq(ACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
+           } break;
+
+        case kLdaCapturedf32: {
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+            CHECK_CAPTURED_VAR_INDEX(SCRATCH, bc()->param(0));
+            __ movq(SCRATCH, CapturedSlotOperand(SCRATCH, 0));
+            __ movss(FACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
+        } break;
+
+        case kLdaCapturedf64: {
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+            CHECK_CAPTURED_VAR_INDEX(SCRATCH, bc()->param(0));
+            __ movq(SCRATCH, CapturedSlotOperand(SCRATCH, 0));
+            __ movsd(FACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
+        } break;
+            
+        // -----------------------------------------------------------------------------------------
         // Star
         // -----------------------------------------------------------------------------------------
         case kStar32:
@@ -585,6 +634,178 @@ void X64SimplifiedCodeGenerator::Select() {
         case kStaf64:
             __ movsd(StackOperand(0), FACC);
             break;
+
+        // -----------------------------------------------------------------------------------------
+        // StaGlobal
+        // -----------------------------------------------------------------------------------------
+        case kStaGlobal32:
+            // Hard inline address
+            __ movq(SCRATCH, reinterpret_cast<Address>(STATE->global_space()));
+            __ movl(GlobalOperand(SCRATCH, 0), ACC);
+            break;
+
+        case kStaGlobal64:
+        case kStaGlobalPtr:
+            __ movq(SCRATCH, reinterpret_cast<Address>(STATE->global_space()));
+            __ movq(GlobalOperand(SCRATCH, 0), ACC);
+            break;
+
+        case kStaGlobalf32:
+            __ movq(SCRATCH, reinterpret_cast<Address>(STATE->global_space()));
+            __ movss(GlobalOperand(SCRATCH, 0), FACC);
+            break;
+
+        case kStaGlobalf64:
+            __ movq(SCRATCH, reinterpret_cast<Address>(STATE->global_space()));
+            __ movsd(GlobalOperand(SCRATCH, 0), FACC);
+            break;
+
+        // -----------------------------------------------------------------------------------------
+        // StaProperty
+        // -----------------------------------------------------------------------------------------
+        case kStaProperty8:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movb(Operand(SCRATCH, bc()->param(1)), ACC);
+            break;
+
+        case kStaProperty16:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movw(Operand(SCRATCH, bc()->param(1)), ACC);
+            break;
+
+        case kStaProperty32:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(Operand(SCRATCH, bc()->param(1)), ACC);
+            break;
+
+        case kStaProperty64:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movq(Operand(SCRATCH, bc()->param(1)), ACC);
+            break;
+
+        case kStaPropertyPtr:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movq(Operand(SCRATCH, bc()->param(1)), ACC);
+            __ WriteBarrier(SCRATCH, bc()->param(1), enable_jit_);
+            break;
+
+        case kStaPropertyf32:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movss(Operand(SCRATCH, bc()->param(1)), FACC);
+            break;
+            
+        case kStaPropertyf64:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movsd(Operand(SCRATCH, bc()->param(1)), FACC);
+            break;
+            
+        // -----------------------------------------------------------------------------------------
+        // StaArray
+        // -----------------------------------------------------------------------------------------
+        case kStaArrayAt8:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<int8_t>(SCRATCH, rdx);
+            __ movb(Operand(SCRATCH, rdx, times_1, Array<int8_t>::kOffsetElems), ACC);
+            break;
+
+        case kStaArrayAt16:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<int16_t>(SCRATCH, rdx);
+            __ movw(Operand(SCRATCH, rdx, times_2, Array<int16_t>::kOffsetElems), ACC);
+            break;
+
+        case kStaArrayAt32:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<int32_t>(SCRATCH, rdx);
+            __ movl(Operand(SCRATCH, rdx, times_4, Array<int32_t>::kOffsetElems), ACC);
+            break;
+
+        case kStaArrayAt64:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<int64_t>(SCRATCH, rdx);
+            __ movq(Operand(SCRATCH, rdx, times_8, Array<int64_t>::kOffsetElems), ACC);
+            break;
+
+        case kStaArrayAtPtr: {
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<Any *>(SCRATCH, rdx);
+
+            Operand address(SCRATCH, rdx, times_ptr_size, Array<Any *>::kOffsetElems);
+            __ movq(address, ACC);
+            __ WriteBarrier(SCRATCH, address, enable_jit_);
+        } break;
+
+        case kStaArrayAtf32:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<float>(SCRATCH, rdx);
+            __ movl(Operand(SCRATCH, rdx, times_4, Array<float>::kOffsetElems), ACC);
+            break;
+
+        case kStaArrayAtf64:
+            __ movq(SCRATCH, StackOperand(0));
+            CheckNotNil(SCRATCH);
+            __ movl(rdx, StackOperand(1));
+            CheckArrayBound<double>(SCRATCH, rdx);
+            __ movl(Operand(SCRATCH, rdx, times_8, Array<double>::kOffsetElems), ACC);
+            break;
+            
+        // -----------------------------------------------------------------------------------------
+        // StaCaptured
+        // -----------------------------------------------------------------------------------------
+        case kStaCaptured32: {
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+            CHECK_CAPTURED_VAR_INDEX(SCRATCH, bc()->param(0));
+            __ movq(SCRATCH, CapturedSlotOperand(SCRATCH, 0));
+            __ movl(Operand(SCRATCH, CapturedValue::kOffsetValue), ACC);
+        } break;
+
+        case kStaCaptured64: {
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+            CHECK_CAPTURED_VAR_INDEX(SCRATCH, bc()->param(0));
+            __ movq(SCRATCH, CapturedSlotOperand(SCRATCH, 0));
+            __ movq(Operand(SCRATCH, CapturedValue::kOffsetValue), ACC);
+        } break;
+
+        case kStaCapturedPtr: {
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+            CHECK_CAPTURED_VAR_INDEX(SCRATCH, bc()->param(0));
+            __ movq(SCRATCH, CapturedSlotOperand(SCRATCH, 0));
+            __ movq(Operand(SCRATCH, CapturedValue::kOffsetValue), ACC);
+            __ WriteBarrier(SCRATCH, CapturedValue::kOffsetValue, enable_jit_);
+        } break;
+
+        case kStaCapturedf32: {
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+            CHECK_CAPTURED_VAR_INDEX(SCRATCH, bc()->param(0));
+            __ movq(SCRATCH, CapturedSlotOperand(SCRATCH, 0));
+            __ movss(Operand(SCRATCH, CapturedValue::kOffsetValue), FACC);
+        } break;
+            
+        case kStaCapturedf64: {
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetCallee));
+            CHECK_CAPTURED_VAR_INDEX(SCRATCH, bc()->param(0));
+            __ movq(SCRATCH, CapturedSlotOperand(SCRATCH, 0));
+            __ movsd(Operand(SCRATCH, CapturedValue::kOffsetValue), FACC);
+        } break;
 
         // -----------------------------------------------------------------------------------------
         // Move

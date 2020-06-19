@@ -38,6 +38,25 @@ void MacroAssembler::JumpNextBC() {
     jmp(Operand(BC_ARRAY, rbx, times_8, 0)); // [BC_ARRAY + rbx * 8]
 }
 
+void MacroAssembler::WriteBarrier(Register host, Operand address, bool enable_jit) {
+    // Write Barrier
+    // Check host is new-generation ?
+    cmpq(host, Operand(CO, Coroutine::kOffsetHeapGuard0));
+    Label host_is_old;
+    j(Less, &host_is_old, false/*is_far*/);
+    cmpq(host, Operand(CO, Coroutine::kOffsetHeapGuard1));
+    j(GreaterEqual, &host_is_old, false/*is_far*/);
+    Label store_free;
+    jmp(&store_free, false/*is_far*/);
+
+    Bind(&host_is_old); // Host ensure is old-generation
+    movq(Argv_0, host); // argv[0] = host
+    leaq(Argv_1, address); // argv[1] = address
+    InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::WriteBarrierWithAddress), enable_jit);
+
+    Bind(&store_free);
+}
+
 void MacroAssembler::Throw(Register scratch0, Register scratch1) {
     movq(scratch0, Operand(CO, Coroutine::kOffsetCaught));
     movq(scratch1, Operand(scratch0, kOffsetCaught_PC));
@@ -596,8 +615,8 @@ public:
     
     BytecodeEmitter(MetadataSpace *space, bool generated_debug_code, bool generated_profiling_code)
         : PartialBytecodeEmitter(DCHECK_NOTNULL(space))
-        , enable_debug(generated_debug_code)
-        , enable_jit(generated_profiling_code) {}
+        , enable_debug_(generated_debug_code)
+        , enable_jit_(generated_profiling_code) {}
     ~BytecodeEmitter() override {}
 
     // Load to ACC ---------------------------------------------------------------------------------
@@ -665,13 +684,11 @@ public:
 
     void EmitLdaCaptured32(MacroAssembler *masm) override {
         InstrCapturedVarScope instr_scope(masm);
-        __ lfence();
         __ movl(ACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
     }
     
     void EmitLdaCaptured64(MacroAssembler *masm) override {
         InstrCapturedVarScope instr_scope(masm);
-        __ lfence();
         __ movq(ACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
     }
     
@@ -679,13 +696,11 @@ public:
     
     void EmitLdaCapturedf32(MacroAssembler *masm) override {
         InstrCapturedVarScope instr_scope(masm);
-        __ lfence();
         __ movss(FACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
     }
     
     void EmitLdaCapturedf64(MacroAssembler *masm) override {
         InstrCapturedVarScope instr_scope(masm);
-        __ lfence();
         __ movsd(FACC, Operand(SCRATCH, CapturedValue::kOffsetValue));
     }
 
@@ -942,50 +957,27 @@ public:
     void EmitStaCaptured32(MacroAssembler *masm) override {
         InstrCapturedVarScope instr_scope(masm);
         __ movl(Operand(SCRATCH, CapturedValue::kOffsetValue), ACC);
-        __ sfence();
     }
     
     void EmitStaCaptured64(MacroAssembler *masm) override {
         InstrCapturedVarScope instr_scope(masm);
         __ movq(Operand(SCRATCH, CapturedValue::kOffsetValue), ACC);
-        __ sfence();
     }
     
     void EmitStaCapturedPtr(MacroAssembler *masm) override {
-        //__ Abort("TODO: Write barrier");
         InstrCapturedVarScope instr_scope(masm);
         __ movq(Operand(SCRATCH, CapturedValue::kOffsetValue), ACC);
-        __ sfence();
-        
-        // Write Barrier
-        // Check host is new-generation ?
-        __ cmpq(SCRATCH, Operand(CO, Coroutine::kOffsetHeapGuard0));
-        Label host_is_old;
-        __ j(Less, &host_is_old, false/*is_far*/);
-        __ cmpq(SCRATCH, Operand(CO, Coroutine::kOffsetHeapGuard1));
-        __ j(GreaterEqual, &host_is_old, false/*is_far*/);
-        Label store_free;
-        __ jmp(&store_free, false/*is_far*/);
-
-        __ Bind(&host_is_old); // Host ensure is old-generation
-        __ movq(Argv_0, SCRATCH); // argv[0] = host
-        __ leaq(Argv_1, Operand(SCRATCH, CapturedValue::kOffsetValue)); // argv[1] = address
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::WriteBarrierWithAddress),
-                                       enable_jit);
-
-        __ Bind(&store_free);
+        __ WriteBarrier(SCRATCH, CapturedValue::kOffsetValue, enable_jit_);
     }
     
     void EmitStaCapturedf32(MacroAssembler *masm) override {
         InstrCapturedVarScope instr_scope(masm);
         __ movss(Operand(SCRATCH, CapturedValue::kOffsetValue), FACC);
-        __ sfence();
     }
     
     void EmitStaCapturedf64(MacroAssembler *masm) override {
         InstrCapturedVarScope instr_scope(masm);
         __ movsd(Operand(SCRATCH, CapturedValue::kOffsetValue), FACC);
-        __ sfence();
     }
     
     // Store Global
@@ -1025,7 +1017,6 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movb(Operand(SCRATCH, rbx, times_1, 0), ACC);
-        //__ sfence(); // XXX
     }
     
     void EmitStaProperty16(MacroAssembler *masm) override {
@@ -1033,7 +1024,6 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movw(Operand(SCRATCH, rbx, times_1, 0), ACC);
-        //__ sfence(); // XXX
     }
 
     void EmitStaProperty32(MacroAssembler *masm) override {
@@ -1041,7 +1031,6 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movl(Operand(SCRATCH, rbx, times_1, 0), ACC);
-        //__ sfence(); // XXX
     }
     
     void EmitStaProperty64(MacroAssembler *masm) override {
@@ -1049,7 +1038,6 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movq(Operand(SCRATCH, rbx, times_1, 0), ACC);
-        //__ sfence(); // XXX
     }
     
     void EmitStaPropertyPtr(MacroAssembler *masm) override {
@@ -1057,23 +1045,8 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movq(Operand(SCRATCH, rbx, times_1, 0), ACC);
-        
-        // Write Barrier
-        // Check host is new-generation ?
-        __ cmpq(SCRATCH, Operand(CO, Coroutine::kOffsetHeapGuard0));
-        Label host_is_old;
-        __ j(Less, &host_is_old, false/*is_far*/);
-        __ cmpq(SCRATCH, Operand(CO, Coroutine::kOffsetHeapGuard1));
-        __ j(GreaterEqual, &host_is_old, false/*is_far*/);
-        Label store_free;
-        __ jmp(&store_free, false/*is_far*/);
-
-        __ Bind(&host_is_old); // Host ensure is old-generation
-        __ movq(Argv_0, SCRATCH); // argv[0] = host
-        __ movl(Argv_1, rbx); // argv[1] = offset
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::WriteBarrierWithOffset), enable_jit);
-
-        __ Bind(&store_free);
+  
+        __ WriteBarrier(SCRATCH, rbx, enable_jit_);
     }
     
     void EmitStaPropertyf32(MacroAssembler *masm) override {
@@ -1081,7 +1054,6 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movss(Operand(SCRATCH, rbx, times_1, 0), FACC);
-        //__ sfence(); // XXX
     }
 
     void EmitStaPropertyf64(MacroAssembler *masm) override {
@@ -1089,7 +1061,6 @@ public:
         __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
         instr_scope.GetBToRBX();
         __ movsd(Operand(SCRATCH, rbx, times_1, 0), FACC);
-        //__ sfence(); // XXX
     }
 
     void EmitStaArrayAt8(MacroAssembler *masm) override {
@@ -1099,7 +1070,7 @@ public:
         instr_scope.GetBToRBX();
         __ xorq(rdx, rdx);
         __ movl(rdx, Operand(rbp, rbx, times_2, 0));
-        CheckArrayBound<int32_t>(masm, SCRATCH, rdx);
+        CheckArrayBound<int8_t>(masm, SCRATCH, rdx);
         __ movb(Operand(SCRATCH, rdx, times_1, Array<int8_t>::kOffsetElems), ACC);
     }
     
@@ -1110,7 +1081,7 @@ public:
         instr_scope.GetBToRBX();
         __ xorq(rdx, rdx);
         __ movl(rdx, Operand(rbp, rbx, times_2, 0));
-        CheckArrayBound<int32_t>(masm, SCRATCH, rdx);
+        CheckArrayBound<int16_t>(masm, SCRATCH, rdx);
         __ movw(Operand(SCRATCH, rdx, times_2, Array<int16_t>::kOffsetElems), ACC);
     }
     
@@ -1144,7 +1115,10 @@ public:
         __ xorq(rdx, rdx);
         __ movl(rdx, Operand(rbp, rbx, times_2, 0));
         CheckArrayBound<Any *>(masm, SCRATCH, rdx);
-        __ movq(Operand(SCRATCH, rdx, times_ptr_size, Array<Any *>::kOffsetElems), ACC);
+
+        Operand address(SCRATCH, rdx, times_ptr_size, Array<Any *>::kOffsetElems);
+        __ movq(address, ACC);
+        __ WriteBarrier(SCRATCH, address, enable_jit_);
     }
     
     void EmitStaArrayAtf32(MacroAssembler *masm) override {
@@ -1840,7 +1814,7 @@ public:
         __ movq(Argv_0, SCRATCH);
         __ movq(rdx, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movq(Argv_1, Operand(rdx, rbx, times_4, 0));
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::IsSameOrBaseOf), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::IsSameOrBaseOf), enable_jit_);
         __ cmpl(rax, 0);
         Label ok;
         __ j(NotEqual, &ok, false/*is_far*/);
@@ -1849,7 +1823,7 @@ public:
         __ movq(Argv_0, ACC);
         __ movq(rdx, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movq(Argv_1, Operand(rdx, rbx, times_4, 0));
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewBadCastPanic), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewBadCastPanic), enable_jit_);
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&ok);
@@ -1867,7 +1841,7 @@ public:
         __ movq(Argv_0, SCRATCH);
         __ movq(rdx, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movq(Argv_1, Operand(rdx, rbx, times_4, 0));
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::IsSameOrBaseOf), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::IsSameOrBaseOf), enable_jit_);
     }
     
     // Casting -------------------------------------------------------------------------------------
@@ -2071,7 +2045,7 @@ public:
     void EmitBackwardJump(MacroAssembler *masm) override {
         InstrImmABScope instr_scope(masm);
         // Profiling
-        if (enable_jit) {
+        if (enable_jit_) {
             __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetHotPath));
             __ cmpq(SCRATCH, 0);
             Label tracing;
@@ -2100,7 +2074,7 @@ public:
             __ movl(Argv_2, Operand(rbp, BytecodeStackFrame::kOffsetPC));
             __ subq(rsp, kStackAligmentSize);
             __ leaq(Argv_3, Operand(rsp, 0));
-            __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::TryTracing), enable_jit);
+            __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::TryTracing), enable_jit_);
             __ movq(BC_ARRAY, rax);
             __ movq(TRACER, Operand(rsp, 0));
             __ addq(rsp, kStackAligmentSize);
@@ -2280,7 +2254,7 @@ public:
 
         // Switch and run RunCoroutine
         // Must inline call this function!
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::RunCoroutine), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::RunCoroutine), enable_jit_);
         EmitCheckException(masm);
     }
     
@@ -2294,7 +2268,7 @@ public:
         __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0));
         __ movq(Argv_1, 0);
     
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewObject), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewObject), enable_jit_);
         EmitCheckException(masm);
     }
     
@@ -2305,7 +2279,7 @@ public:
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         instr_scope.GetBTo(rbx);
         __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0));
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArray), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArray), enable_jit_);
         EmitCheckException(masm);
     }
     
@@ -2321,7 +2295,7 @@ public:
         __ subq(Argv_1, ACC);
         __ movq(Argv_2, rsp);
 
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArrayWith), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArrayWith), enable_jit_);
         EmitCheckException(masm);
     }
     
@@ -2334,7 +2308,7 @@ public:
         __ subq(Argv_1, rbx);
         __ movq(Argv_2, rsp);
         
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::MapPutAll), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::MapPutAll), enable_jit_);
         EmitCheckException(masm);
     }
     
@@ -2348,7 +2322,7 @@ public:
         __ cmpq(rsp, Operand(CO, Coroutine::kOffsetStackGuard0));
         Label ok;
         __ j(GreaterEqual, &ok, false/*is_far*/);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewStackoverflowPanic), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewStackoverflowPanic), enable_jit_);
         __ Throw(SCRATCH, rbx);
         __ Bind(&ok);
         __ JumpNextBC();
@@ -2377,7 +2351,7 @@ public:
         __ cmpq(Operand(rbp, rbx, times_2, 0), 0);
         Label ok;
         __ LikelyJ(NotEqual, &ok, false/*is_far*/);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic), enable_jit_);
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&ok);
@@ -2389,7 +2363,7 @@ public:
         __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
         __ movq(Argv_0, Operand(SCRATCH, rbx, times_4, 0)); // func
         __ movl(Argv_1, 0); // flags
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::CloseFunction), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::CloseFunction), enable_jit_);
     }
 
     void EmitContact(MacroAssembler *masm) override {
@@ -2400,7 +2374,7 @@ public:
         __ movq(Argv_0, rsp);
         __ subq(Argv_0, rbx);
         __ movq(Argv_1, rsp);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::StringContact), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::StringContact), enable_jit_);
     }
 
     void EmitThrow(MacroAssembler *masm) override {
@@ -2408,12 +2382,12 @@ public:
         __ cmpq(ACC, 0);
         Label ok;
         __ j(NotEqual, &ok, false/*is_far*/);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic), enable_jit_);
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&ok);
         __ movq(Argv_0, ACC);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::MakeStacktrace), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::MakeStacktrace), enable_jit_);
         __ cmpq(ACC, 0);
         Label done;
         __ j(NotEqual, &done, false/*is_far*/);
@@ -2712,7 +2686,7 @@ private:
         }
         Label ok;
         __ j(NotEqual, &ok, false/*is_far*/);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArithmeticPanic), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewArithmeticPanic), enable_jit_);
         __ Throw(SCRATCH, rbx);
 
         __ Bind(&ok);
@@ -2722,7 +2696,7 @@ private:
         __ cmpq(ptr, 0);
         Label ok;
         __ LikelyJ(NotEqual, &ok, false/*is_far*/);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewNilPointerPanic), enable_jit_);
         __ Throw(SCRATCH, rbx);
         __ int3();
         __ Bind(&ok);
@@ -2738,14 +2712,14 @@ private:
         Label ok;
         __ jmp(&ok, false/*is_far*/);
         __ Bind(&out_of_bound);
-        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewOutOfBoundPanic), enable_jit);
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::NewOutOfBoundPanic), enable_jit_);
         __ Throw(SCRATCH, rbx);
         __ int3();
         __ Bind(&ok);
     }
     
-    const bool enable_debug;
-    const bool enable_jit;
+    const bool enable_debug_;
+    const bool enable_jit_;
 }; // class BytecodeEmitter
 
 void Patch_BackwardJump(MacroAssembler *masm) {
