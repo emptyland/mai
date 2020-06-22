@@ -762,6 +762,8 @@ TEST_F(BytecodeGeneratorTest, MapOperators) {
     AssertFunction("assertForeachSanity", fun->function());
 }
 
+// disable jit: 371ms
+//  enable jit: 349ms
 TEST_F(BytecodeGeneratorTest, RunMapOperators) {
     HandleScope handle_scope(HandleScope::INITIALIZER);
 

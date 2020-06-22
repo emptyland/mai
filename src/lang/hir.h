@@ -116,6 +116,7 @@ enum HOperatorCode {
     HMaxOpcode,
 };
 
+// graphviz for Graph output
 class HOperator : public base::ArenaObject {
 public:
     using Value = HOperatorCode;

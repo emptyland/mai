@@ -15,6 +15,7 @@ namespace mai {
 namespace lang {
 
 class Coroutine;
+class CompilationWorker;
 
 class Scheduler final {
 public:
@@ -30,7 +31,8 @@ public:
         kShutdown,
     };
 
-    Scheduler(int concurrency, Allocator *lla, bool enable_jit);
+    Scheduler(int concurrency, Allocator *lla, CompilationWorker *compilation_worker,
+              bool enable_jit);
     ~Scheduler();
 
     DEF_VAL_GETTER(int, concurrency);
@@ -47,6 +49,8 @@ public:
     size_t n_live_coroutines() const { return n_live_coroutines_.load(); }
     size_t n_live_stacks() const { return n_live_stacks_.load(); }
     size_t stack_pool_rss() const { return stack_pool_rss_.load(); }
+    
+    CompilationWorker *compilation_worker() const { return compilation_worker_.get(); }
     
     Machine *machine(int i) const {
         DCHECK_GE(i, 0);
@@ -72,13 +76,13 @@ public:
         DCHECK(ok);
         (void)ok;
     }
-    
+
     // Pause all machines exclude self one
     bool Pause();
-    
+
     // Resume all machines exclude self one
     bool Resume();
-    
+
     // Balanced post a runnable coroutine to machine
     void PostRunnableBalanced(Coroutine *co, bool now);
     
@@ -133,6 +137,8 @@ private:
     Allocator *const lla_; // Low-Level Allocator
     std::atomic<State> state_ = kRunable;
     std::unique_ptr<Machine *[]> all_machines_; // All machines(threads)
+    
+    std::unique_ptr<CompilationWorker> compilation_worker_;
     
     // The one bits means: Machine is idle
     // The zero bits means: Machine is running

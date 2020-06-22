@@ -18,7 +18,6 @@ namespace lang {
 union Span64;
 class Heap;
 class MetadataSpace;
-class CompilationWorker;
 class Factory;
 class Scheduler;
 class Machine;
@@ -53,7 +52,7 @@ struct Options {
     std::string base_pkg_dir = "src/lang/pkg"; // Language base pkg path
     std::set<std::string> search_pkg_dir;
     // Enable Just-in-time compiler
-    bool enable_jit = false;
+    bool enable_jit = true;
     // JIT compilation hot spot threshold
     int hot_spot_threshold = 10000;
     // Max number of threads for background JIT compiler worker
@@ -127,7 +126,6 @@ public:
     inline Profiler *profiler() const;
     inline void set_tracing_hook(TracingHook *hook);
     inline TracingHook *tracing_hook() const;
-    inline CompilationWorker *compilation_worker() const;
 
     void VisitRoot(RootVisitor *visitor);
 
@@ -170,7 +168,6 @@ private:
     Scheduler *scheduler_; // Scheduler
     GarbageCollector *gc_; // Garbage Collector
     Profiler *profiler_; // Profiler for hot point profiiling
-    CompilationWorker *compilation_worker_; // Background compiling worker
     
     Span64 *global_space_ = nullptr; // [nested strong ref] Global space
     uint32_t *global_space_bitmap_ = nullptr; // Bitmap of global space

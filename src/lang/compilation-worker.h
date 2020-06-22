@@ -34,6 +34,10 @@ public:
     void Commit(CompilationJob *job);
     
     size_t Shutdown();
+
+    void Pause();
+
+    void Resume();
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(CompilationWorker);
 private:

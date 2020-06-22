@@ -1,13 +1,16 @@
 #include "lang/scheduler.h"
 #include "lang/coroutine.h"
+#include "lang/compilation-worker.h"
 
 namespace mai {
 
 namespace lang {
 
-Scheduler::Scheduler(int concurrency, Allocator *lla, bool enable_jit)
+Scheduler::Scheduler(int concurrency, Allocator *lla, CompilationWorker *compilation_worker,
+                     bool enable_jit)
     : concurrency_(concurrency)
     , lla_(DCHECK_NOTNULL(lla))
+    , compilation_worker_(compilation_worker)
     , all_machines_(new Machine*[concurrency])
     , machine_bitmap_(new std::atomic<uint32_t>[(concurrency + 31)/32])
     , free_dummy_(Coroutine::NewDummy())
@@ -97,6 +100,8 @@ void Scheduler::Schedule() {
 }
 
 void Scheduler::Shutdown() {
+    compilation_worker_->Shutdown();
+    
     DCHECK_LE(0, shutting_down_.load());
     shutting_down_.fetch_add(1);
     
@@ -123,6 +128,8 @@ bool Scheduler::Pause() {
     if (!state_.compare_exchange_strong(expect, kPause)) {
         return false;
     }
+    compilation_worker_->Pause();
+    
     Machine *self = Machine::This();
     pause_request_.store(concurrency_);
     int pause_count = 0;
@@ -198,7 +205,8 @@ bool Scheduler::Resume() {
         //std::this_thread::yield();
         __asm__ ("pause");
     }
-    //DCHECK_EQ(0, GetNumberOfSuspend());
+    compilation_worker_->Resume();
+    
     State expect = kPause;
     return state_.compare_exchange_strong(expect, kRunning);
 }

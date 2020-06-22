@@ -71,6 +71,28 @@ namespace lang {
         __ op##sd(FACC, StackOperand(1)); \
         break
 
+#define EMIT_SHIFIT(name, op) \
+    case kBitwise##name##8: \
+        __ movl(ACC, StackOperand(0)); \
+        __ movl(rcx, StackOperand(1)); \
+        __ op##b(ACC); \
+        break; \
+    case kBitwise##name##16: \
+        __ movl(ACC, StackOperand(0)); \
+        __ movl(rcx, StackOperand(1)); \
+        __ op##w(ACC); \
+        break; \
+    case kBitwise##name##32: \
+        __ movl(ACC, StackOperand(0)); \
+        __ movl(rcx, StackOperand(1)); \
+        __ op##l(ACC); \
+        break; \
+    case kBitwise##name##64: \
+        __ movq(ACC, StackOperand(0)); \
+        __ movq(rcx, StackOperand(1)); \
+        __ op##q(ACC); \
+        break
+
 #if defined(DEBUG) || defined(_DEBUG)
 #define CHECK_CAPTURED_VAR_INDEX(callee, index) \
     __ cmpl(Operand(callee, Closure::kOffsetCapturedVarSize), index); \
@@ -938,14 +960,14 @@ void X64SimplifiedCodeGenerator::Select() {
             __ movsd(FACC, StackOperand(0));
             __ divsd(FACC, StackOperand(1));
             break;
-            
+
         case kIDiv8:
             __ movl(ACC, StackOperand(0));
             CheckArithmetic<int8_t>(1/*index*/);
             __ idivb(StackOperand(1));
             __ andl(ACC, 0xff);
             break;
-            
+
         case kIDiv16:
             __ movl(ACC, StackOperand(0));
             CheckArithmetic<int16_t>(1/*index*/);
@@ -1000,6 +1022,207 @@ void X64SimplifiedCodeGenerator::Select() {
             // rax:rdx <- rax / operand
             __ divq(StackOperand(1));
             __ movq(ACC, rdx);
+            break;
+
+        case kUMinus8:
+            __ movl(ACC, StackOperand(0));
+            __ negb(ACC);
+            break;
+
+        case kUMinus16:
+            __ movl(ACC, StackOperand(0));
+            __ negw(ACC);
+            break;
+
+        case kUMinus32:
+            __ movl(ACC, StackOperand(0));
+            __ negl(ACC);
+            break;
+
+        case kUMinus64:
+            __ movq(ACC, StackOperand(0));
+            __ negq(ACC);
+            break;
+
+        case kUMinusf32:
+            __ movss(xmm1, StackOperand(0));
+            __ subss(FACC, xmm1);
+            break;
+
+        case kUMinusf64:
+            __ movsd(xmm1, StackOperand(0));
+            __ subsd(FACC, xmm1);
+            break;
+
+        case kNot:
+            __ movl(ACC, StackOperand(0));
+            __ xorl(ACC, 0x1);
+            break;
+
+        // -----------------------------------------------------------------------------------------
+        // Bitwise Ops
+        // -----------------------------------------------------------------------------------------
+        case kBitwiseAnd32:
+            __ movl(ACC, StackOperand(0));
+            __ andl(ACC, StackOperand(1));
+            break;
+
+        case kBitwiseAnd64:
+            __ movq(ACC, StackOperand(0));
+            __ andq(ACC, StackOperand(1));
+            break;
+
+        case kBitwiseOr32:
+            __ movl(ACC, StackOperand(0));
+            __ orl(ACC, StackOperand(1));
+            break;
+
+        case kBitwiseOr64:
+            __ movq(ACC, StackOperand(0));
+            __ orq(ACC, StackOperand(1));
+            break;
+
+        case kBitwiseXor32:
+            __ movl(ACC, StackOperand(0));
+            __ xorl(ACC, StackOperand(1));
+            break;
+
+        case kBitwiseXor64:
+            __ movq(ACC, StackOperand(0));
+            __ xorq(ACC, StackOperand(1));
+            break;
+            
+        case kBitwiseNot8:
+            __ movl(ACC, StackOperand(0));
+            __ notb(ACC);
+            break;
+
+        case kBitwiseNot16:
+            __ movl(ACC, StackOperand(0));
+            __ notw(ACC);
+            break;
+            
+        case kBitwiseNot32:
+            __ movl(ACC, StackOperand(0));
+            __ notl(ACC);
+            break;
+            
+        case kBitwiseNot64:
+            __ movq(ACC, StackOperand(0));
+            __ notq(ACC);
+            break;
+
+        EMIT_SHIFIT(Shl,      shl);
+        EMIT_SHIFIT(Shr,      sar);
+        EMIT_SHIFIT(LogicShr, shr);
+            
+        // -----------------------------------------------------------------------------------------
+        // Casting
+        // -----------------------------------------------------------------------------------------
+        case kTruncate32To8:
+            __ movl(ACC, StackOperand(0));
+            __ andl(ACC, 0xff);
+            break;
+
+        case kTruncate32To16:
+            __ movl(ACC, StackOperand(0));
+            __ andl(ACC, 0xffff);
+            break;
+
+        case kTruncate64To32:
+            __ movl(ACC, StackOperand(0));
+            break;
+
+        case kZeroExtend8To32:
+            __ xorl(ACC, ACC);
+            __ movzxb(ACC, StackOperand(0));
+            break;
+            
+        case kZeroExtend16To32:
+            __ xorl(ACC, ACC);
+            __ movzxw(ACC, StackOperand(0));
+            break;
+
+        case kZeroExtend32To64:
+            __ xorq(ACC, ACC);
+            __ movl(ACC, StackOperand(0));
+            break;
+
+        case kSignExtend8To16:
+            __ movsxb(ACC, StackOperand(0));
+            __ andl(ACC, 0xffff);
+            break;
+
+        case kSignExtend8To32:
+            __ movsxb(ACC, StackOperand(0));
+            break;
+
+        case kSignExtend16To32:
+            __ movsxw(ACC, StackOperand(0));
+            break;
+            
+        case kSignExtend32To64:
+            __ movsxd(ACC, StackOperand(0));
+            break;
+            
+        case kF32ToI32:
+        case kF32ToU32:
+            __ cvtss2sil(ACC, StackOperand(0));
+            break;
+
+        case kF64ToI32:
+        case kF64ToU32:
+            __ cvtsd2sil(ACC, StackOperand(0));
+            break;
+
+        case kF32ToI64:
+        case kF32ToU64:
+            __ cvtss2siq(ACC, StackOperand(0));
+            break;
+
+        case kF64ToI64:
+        case kF64ToU64:
+            __ cvtsd2siq(ACC, StackOperand(0));
+            break;
+
+        case kI32ToF32:
+            __ cvtsi2ssl(FACC, StackOperand(0));
+            break;
+
+        case kU32ToF32:
+            // Extend to 64 bits
+            __ xorq(ACC, ACC);
+            __ movl(ACC, StackOperand(0));
+            __ cvtsi2ssq(FACC, ACC);
+            break;
+
+        case kI64ToF32:
+        case kU64ToF32:
+            __ cvtsi2ssq(FACC, StackOperand(0));
+            break;
+
+        case kI32ToF64:
+            __ cvtsi2sdl(FACC, StackOperand(0));
+            break;
+
+        case kU32ToF64:
+            // Extend to 64 bits
+            __ xorq(ACC, ACC);
+            __ movl(ACC, StackOperand(0));
+            __ cvtsi2sdq(FACC, ACC);
+            break;
+            
+        case kI64ToF64:
+        case kU64ToF64:
+            __ cvtsi2sdq(FACC, StackOperand(0));
+            break;
+            
+        case kF64ToF32:
+            __ cvtsd2ss(FACC, StackOperand(0));
+            break;
+            
+        case kF32ToF64:
+            __ cvtss2sd(FACC, StackOperand(0));
             break;
 
         // -----------------------------------------------------------------------------------------
@@ -1369,6 +1592,16 @@ void X64SimplifiedCodeGenerator::Select() {
                         static_cast<int32_t>(function()->prototype()->GetParametersPlacedSize()));
             }
         } break;
+            
+        // -----------------------------------------------------------------------------------------
+        // Builtin Object Ops
+        // -----------------------------------------------------------------------------------------
+        case kContact:
+            __ movq(Argv_0, rsp);
+            __ subq(Argv_0, bc()->param(1));
+            __ movq(Argv_1, rsp);
+            BreakableCall(Runtime::StringContact);
+            break;
         
         // -----------------------------------------------------------------------------------------
         // Others
@@ -1381,6 +1614,39 @@ void X64SimplifiedCodeGenerator::Select() {
             __ Throw(SCRATCH, rbx);
             __ Bind(&ok);
         } break;
+            
+        case kYield:
+            switch (bc()->param(0)) {
+                case YIELD_FORCE:
+                    __ Yield(SCRATCH);
+                    break;
+                case YIELD_RANDOM: {
+                    __ rdrand(rbx);
+                    __ andl(rbx, 0xfffffff0);
+                    __ cmpl(rbx, 0);
+                    Label yield;
+                    __ j(Equal, &yield, false/*is_far*/);
+                    Label exit;
+                    __ jmp(&exit, false/*is_far*/);
+                    __ Bind(&yield);
+                    __ Yield(SCRATCH);
+                    __ Bind(&exit);
+                } break;
+                case YIELD_PROPOSE: {
+                    __ cmpl(Operand(CO, Coroutine::kOffsetYield), 0);
+                    Label yield;
+                    __ j(Greater, &yield, false/*is_far*/);
+                    Label exit;
+                    __ jmp(&exit, false/*is_far*/);
+                    __ Bind(&yield);
+                    __ Yield(SCRATCH);
+                    __ Bind(&exit);
+                } break;
+                default:
+                    NOREACHED();
+                    break;
+            }
+            break;
             
         default: {
         #if defined(DEBUG) || defined(_DEBUG)
@@ -1491,6 +1757,7 @@ void X64SimplifiedCodeGenerator::CompareImplicitLengthString(Cond cond) {
 }
 
 void X64SimplifiedCodeGenerator::CallBytecodeFunction() {
+    // FIXME: Add Guard for calling
     UpdatePC(); // Update current PC first
 
     // Adjust Caller Stack

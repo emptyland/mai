@@ -64,6 +64,14 @@ void MacroAssembler::Throw(Register scratch0, Register scratch1) {
     int3(); // Never goto there
 }
 
+void MacroAssembler::Yield(Register scratch) {
+    // Save ACC, FACC, rsp, rbp, pc then jump to resume point
+    SaveState0(scratch);
+    // SCRATCH = suspend point
+    movq(scratch, Operand(CO, Coroutine::kOffsetSysPC));
+    jmp(scratch); // Jump to suspend point
+}
+
 void MacroAssembler::SaveBytecodeEnv(bool enable_jit) {
     movq(Operand(CO, Coroutine::kOffsetBP1), rbp);
     movq(Operand(CO, Coroutine::kOffsetSP1), rsp);
@@ -963,7 +971,7 @@ public:
         InstrCapturedVarScope instr_scope(masm);
         __ movq(Operand(SCRATCH, CapturedValue::kOffsetValue), ACC);
     }
-    
+
     void EmitStaCapturedPtr(MacroAssembler *masm) override {
         InstrCapturedVarScope instr_scope(masm);
         __ movq(Operand(SCRATCH, CapturedValue::kOffsetValue), ACC);
@@ -1508,6 +1516,20 @@ public:
         __ negq(ACC);
     }
     
+    void EmitUMinusf32(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ xorss(FACC, FACC);
+        __ movss(xmm1, Operand(rbp, rbx, times_2, 0));
+        __ subss(FACC, xmm1);
+    }
+    
+    void EmitUMinusf64(MacroAssembler *masm) override {
+        InstrStackAScope instr_scope(masm);
+        __ xorsd(FACC, FACC);
+        __ movsd(xmm1, Operand(rbp, rbx, times_2, 0));
+        __ subsd(FACC, xmm1);
+    }
+    
     void EmitBitwiseNot8(MacroAssembler *masm) override {
         InstrStackAScope instr_scope(masm);
         __ movl(ACC, Operand(rbp, rbx, times_2, 0));
@@ -2021,8 +2043,8 @@ public:
         __ Bind(&propose);
         __ cmpl(Operand(CO, Coroutine::kOffsetYield), 0);
         __ j(Greater, &force, true/*is_far*/);
-        Label done;
-        __ jmp(&done, true/*is_far*/);
+        Label exit;
+        __ jmp(&exit, true/*is_far*/);
 
         // Random:
         __ Bind(&random);
@@ -2030,16 +2052,11 @@ public:
         __ andl(rbx, 0xfffffff0);
         __ cmpl(rbx, 0);
         __ j(Equal, &force, false/*is_far*/);
-        __ jmp(&done, false/*is_far*/);
+        __ jmp(&exit, false/*is_far*/);
 
-        // Save ACC, FACC, rsp, rbp, pc then jump to resume point
         __ Bind(&force);
-        __ SaveState0(SCRATCH);
-        __ movq(SCRATCH, Operand(CO, Coroutine::kOffsetSysPC)); // SCRATCH = suspend point
-        __ jmp(SCRATCH); // Jump to suspend point
-
-        // Done:
-        __ Bind(&done);
+        __ Yield(SCRATCH);
+        __ Bind(&exit);
     }
     
     void EmitBackwardJump(MacroAssembler *masm) override {
@@ -2369,7 +2386,7 @@ public:
     void EmitContact(MacroAssembler *masm) override {
         InstrImmABScope instr_scope(masm);
         // TODO: slot
-        
+
         instr_scope.GetBTo(rbx);
         __ movq(Argv_0, rsp);
         __ subq(Argv_0, rbx);

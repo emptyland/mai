@@ -93,6 +93,19 @@ void CompilationWorker::Commit(CompilationJob *job) {
 }
 
 size_t CompilationWorker::Shutdown() {
+    Pause();
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    size_t drops = queue_.size();
+    for (auto job : queue_) {
+        job->Dispose();
+        delete job;
+    }
+    queue_.clear();
+    return drops;
+}
+
+void CompilationWorker::Pause() {
     shutting_down_.fetch_add(1);
 
     do {
@@ -104,17 +117,22 @@ size_t CompilationWorker::Shutdown() {
             }
         }
     } while (running_workers() > 0);
+}
 
+void CompilationWorker::Resume() {
+    shutting_down_.store(0, std::memory_order_release);
     mutex_.lock();
-    size_t drops = queue_.size();
-    for (auto job : queue_) {
-        job->Dispose();
-        delete job;
-    }
-    queue_.clear();
+    bool not_empty = !queue_.empty();
     mutex_.unlock();
     
-    return drops;
+    if (not_empty) {
+        for (int i = 0; i < max_workers_; i++) {
+            if (workers_[i].TestAndSetState(Worker::kDead, Worker::kRunnable)) {
+                workers_[i].Run(this, nullptr);
+                return;
+            }
+        }
+    }
 }
 
 void CompilationWorker::Work(Worker *worker, CompilationJob *job) {

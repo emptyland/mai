@@ -64,7 +64,7 @@ Error Isolate::Initialize() {
     if (new_space_initial_size_ < 10 * base::kMB) {
         return MAI_CORRUPTION("new_space_initial_size too small(least than 10MB)");
     }
-    if (enable_jit_ && compilation_worker_->max_workers() <= 0) {
+    if (enable_jit_ && scheduler_->compilation_worker()->max_workers() <= 0) {
         return MAI_CORRUPTION("no wokers for JIT compiler");
     }
 
@@ -75,7 +75,7 @@ Error Isolate::Initialize() {
     if (auto err = metadata_space_->Initialize(false/*enable_debug*/, enable_jit_); err.fail()) {
         return err;
     }
-    
+
     for (int i = 0; i < kMax_Bytecodes; i++) {
         bytecode_handler_entries_[i] =
             DCHECK_NOTNULL(metadata_space_->bytecode_handlers()[i])->entry();
@@ -143,9 +143,6 @@ void Isolate::Run() {
     
     // Run main thread
     scheduler_->machine0()->Entry();
-
-    // Shutdown background works first
-    compilation_worker_->Shutdown();
     
     // Main thread finished
     // Should shutdown others worker threads
@@ -162,12 +159,13 @@ Isolate::Isolate(const Options &opts)
     , metadata_space_(new MetadataSpace(env_->GetLowLevelAllocator()))
     , scheduler_(new Scheduler(opts.concurrency <= 0 ?
                                env_->GetNumberOfCPUCores() : opts.concurrency,
-                               opts.env->GetLowLevelAllocator(), opts.enable_jit))
+                               opts.env->GetLowLevelAllocator(),
+                               new CompilationWorker(opts.max_jit_compiling_workers),
+                               opts.enable_jit))
     , gc_(new GarbageCollector(this, opts.new_space_gc_threshold_rate,
                                opts.old_space_gc_threshold_rate))
     , enable_jit_(opts.enable_jit)
     , profiler_(new Profiler(opts.hot_spot_threshold))
-    , compilation_worker_(new CompilationWorker(opts.max_jit_compiling_workers))
     , persistent_dummy_(new GlobalHandleNode{})
     , bytecode_handler_entries_(new Address[kMax_Bytecodes])
     , tracing_handler_entries_(opts.enable_jit ? new Address[kMax_Bytecodes] : nullptr)
@@ -188,7 +186,6 @@ Isolate::~Isolate() {
     }
     delete persistent_dummy_;
 
-    delete compilation_worker_;
     delete gc_;
     delete metadata_space_;
     delete scheduler_;

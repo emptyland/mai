@@ -108,6 +108,8 @@ public:
 
     void Throw(Register scratch0, Register scratch1);
     
+    void Yield(Register scratch);
+    
     void InstallCaughtHandler(bool enable_jit);
     
     void UninstallCaughtHandler();

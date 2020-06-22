@@ -144,8 +144,6 @@ inline TracingHook *Isolate::tracing_hook() const { return tracing_hook_; }
 
 inline void Isolate::set_tracing_hook(TracingHook *hook) { tracing_hook_ = hook; }
 
-inline CompilationWorker *Isolate::compilation_worker() const { return compilation_worker_; }
-
 } // namespace lang
 
 } // namespace mai

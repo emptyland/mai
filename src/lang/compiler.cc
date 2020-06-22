@@ -2,6 +2,7 @@
 #include "lang/type-checker.h"
 #include "lang/bytecode-generator.h"
 #include "lang/isolate-inl.h"
+#include "lang/scheduler.h"
 #include "lang/parser.h"
 #include "lang/ast.h"
 #include "lang/lexer.h"
@@ -215,7 +216,7 @@ private:
                                                bool enable_jit) {
     switch (optimition_level) {
         case 1: {
-            CompilationWorker *worker = DCHECK_NOTNULL(STATE->compilation_worker());
+            CompilationWorker *worker = DCHECK_NOTNULL(STATE->scheduler()->compilation_worker());
             worker->Commit(new SimplifiedCodeGenerationJob(compilation_info, enable_debug,
                                                            enable_jit));
         } break;
