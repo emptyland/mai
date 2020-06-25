@@ -357,6 +357,8 @@ struct Runtime {
     static void TraceInvoke(Function *fun, int32_t slot);
     static Tracer *GrowTracingPath();
     
+    // Vtab function
+    static Closure *LoadVtableFunction(Any *host, String *name);
 
     // WriteBarrier
     static Any *WriteBarrierWithOffset(Any *host, int32_t offset);

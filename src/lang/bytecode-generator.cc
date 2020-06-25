@@ -396,9 +396,9 @@ public:
         }
     }
 
-    void EmitVirtualCallFunction(ASTNode *ast, int slot, int params_size) {
+    void EmitUnkindCallFunction(ASTNode *ast, int slot, int params_size) {
         invoking_hint_.push_back({builder_.pc(), 2, stack_.GetTopRef()});
-        Incoming(ast)->Add<kCallFunction>(slot, params_size);
+        Incoming(ast)->Add<kCallUnkindFunction>(slot, params_size);
     }
 
     BytecodeArrayBuilder *Incoming(ASTNode *ast) {
@@ -1118,7 +1118,7 @@ ASTVisitor::Result BytecodeGenerator::VisitCallExpression(CallExpression *ast) /
                                                    receiver.arguments_size);
             break;
         case CallingReceiver::kVtab:
-            current_fun_->EmitVirtualCallFunction(receiver.ast, 0/*slot*/, receiver.arguments_size);
+            current_fun_->EmitUnkindCallFunction(receiver.ast, 0/*slot*/, receiver.arguments_size);
             break;
         case CallingReceiver::kNative:
             current_fun_->EmitDirectlyCallFunction(receiver.ast, true/*native*/, 0/*slot*/,

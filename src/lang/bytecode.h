@@ -94,7 +94,7 @@ namespace lang {
     V(CallBytecodeFunction, BytecodeType::AB, BytecodeParam::kImmediate, \
         BytecodeParam::kImmediate) \
     V(CallNativeFunction, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate) \
-    V(CallFunction, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate) \
+    V(CallUnkindFunction, BytecodeType::AB, BytecodeParam::kImmediate, BytecodeParam::kImmediate) \
     V(RunCoroutine, BytecodeType::FA, BytecodeParam::kCode, BytecodeParam::kImmediate) \
     V(Close, BytecodeType::A, BytecodeParam::kConstOffset) \
     V(Return, BytecodeType::N) \

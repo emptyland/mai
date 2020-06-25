@@ -1335,6 +1335,19 @@ static bool TestIs(const Class *dest, void *param, Any *any, bool strict) {
     DCHECK_NOTNULL(Machine::This()->tracing())->Invoke(fun, slot);
 }
 
+/*static*/ Closure *Runtime::LoadVtableFunction(Any *host, String *name) {
+    if (!host) {
+        Machine::This()->ThrowPanic(Panic::kError, STATE->factory()->nil_error_text());
+        return nullptr;
+    }
+    DCHECK(name != nullptr);
+    DCHECK_EQ(name->clazz(), STATE->builtin_type(kType_string));
+    // TODO: Inline cache
+
+    auto [clazz, method] = STATE->metadata_space()->FindClassMethod(host->clazz(), name->data());
+    return !method ? nullptr : method->fn();
+}
+
 /*static*/ Tracer *Runtime::GrowTracingPath() {
     DCHECK(STATE->enable_jit());
     Tracer *tracer = DCHECK_NOTNULL(Machine::This()->tracing());

@@ -918,25 +918,13 @@ public:
 
     void EmitLdaVtableFunction(MacroAssembler *masm) override {
         InstrStackImmABScope instr_scope(masm);
-        __ movq(SCRATCH, Operand(rbp, rbx, times_2, 0));
-        __ cmpq(SCRATCH, 0);
-        
-        __ movq(SCRATCH, Operand(SCRATCH, Any::kOffsetKlass));
-        __ andq(SCRATCH, ~1); // SCRATCH = class
-    #if defined(DEBUG) || defined(_DEBUG)
-        __ cmpq(SCRATCH, 0);
-        Label ok1;
-        __ j(NotEqual, &ok1, false/*is_far*/);
-        __ Abort("nil kclass field!");
-        __ Bind(&ok1);
-    #endif // defined(DEBUG) || defined(_DEBUG)
-
-        __ movq(SCRATCH, Operand(SCRATCH, Class::kOffsetMethods));
+        __ movq(Argv_0, Operand(rbp, rbx, times_2, 0));
+        CheckNotNil(masm, Argv_0);
         instr_scope.GetBToRBX();
-        __ movq(rax, static_cast<int32_t>(sizeof(Method)));
-        __ mulq(rbx); // rax = rax * rbx;
-        __ leaq(SCRATCH, Operand(SCRATCH, rax, times_1, 0));
-        __ movq(rax, Operand(SCRATCH, Method::kOffsetFunction));
+        __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+        __ movq(Argv_1, Operand(SCRATCH, rbx, times_4, 0));
+        __ InlineSwitchSystemStackCall(arch::FuncAddress(Runtime::LoadVtableFunction), enable_jit_);
+        EmitCheckException(masm);
     }
 
     // Store from ACC ------------------------------------------------------------------------------
@@ -2166,7 +2154,7 @@ public:
 
         __ Bind(&done);
     }
-    
+
     void EmitBackwardJumpIfFalse(MacroAssembler *masm) override {
         __ cmpl(ACC, 0);
         Label done;
@@ -2195,7 +2183,7 @@ public:
     }
 
     // Calling -------------------------------------------------------------------------------------
-    void EmitCallFunction(MacroAssembler *masm) override {
+    void EmitCallUnkindFunction(MacroAssembler *masm) override {
         __ Abort("TODO:");
     }
 

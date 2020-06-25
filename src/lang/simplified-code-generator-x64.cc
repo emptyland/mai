@@ -218,7 +218,35 @@ private:
         Deoptimize(last_pc + 1);
     }
     
-    void CallBytecodeFunction();
+    void CallNativeFunction(int stack_size) {
+        // Adjust Caller Stack
+        // Adjust sp to aligment of 16 bits(2 bytes)
+        __ subq(rsp, RoundUp(stack_size, kStackAligmentSize));
+
+        __ movq(Argv_0, ACC);
+        __ movq(SCRATCH, Operand(ACC, Closure::kOffsetCode));
+        __ leaq(SCRATCH, Operand(SCRATCH, Code::kOffsetEntry));
+        __ call(SCRATCH); // Call stub code
+        // The stub code should switch to system stack and call real function.
+
+        // Recover Caller Stack
+        // Adjust sp to aligment of 16 bits(2 bytes)
+        __ addq(rsp, RoundUp(stack_size, kStackAligmentSize));
+
+        CheckException();
+    }
+    
+    void CallBytecodeFunction(int stack_size) {
+        // Adjust Caller Stack
+        __ subq(rsp, RoundUp(stack_size, kStackAligmentSize));
+
+        const Function *fun = DCHECK_NOTNULL(GetNextFunctionOrNull());
+        __ movq(Argv_0, ACC);
+
+        __ movq(rbx, STATE->metadata_space()->call_bytecode_return_address());
+        __ pushq(rbx); // Dummy return address
+        MakeInlineStackFrame(fun);
+    }
     
     void MakeInlineStackFrame(const Function *fun);
     
@@ -1543,33 +1571,37 @@ void X64SimplifiedCodeGenerator::Select() {
         // -----------------------------------------------------------------------------------------
         // Calling
         // -----------------------------------------------------------------------------------------
-        case kCallFunction:
-            TODO();
-            break;
-            
-        case kCallNativeFunction: {
+        case kCallUnkindFunction: {
             // Update current PC
             UpdatePC();
+            CheckNotNil(ACC);
 
-            // Adjust Caller Stack
-            // Adjust sp to aligment of 16 bits(2 bytes)
-            __ subq(rsp, RoundUp(bc()->param(1), kStackAligmentSize));
+            __ movl(rbx, Operand(ACC, Any::kOffsetTags));
+            __ andl(rbx, Operand(ACC, Any::kClosureMask));
+            __ cmpl(rbx, Closure::kCxxFunction);
+            Label native_fun;
+            __ j(Equal, &native_fun, true/*is_far*/);
 
-            __ movq(Argv_0, ACC);
-            __ movq(SCRATCH, Operand(ACC, Closure::kOffsetCode));
-            __ leaq(SCRATCH, Operand(SCRATCH, Code::kOffsetEntry));
-            __ call(SCRATCH); // Call stub code
-            // The stub code should switch to system stack and call real function.
-
-            // Recover Caller Stack
-            // Adjust sp to aligment of 16 bits(2 bytes)
-            __ addq(rsp, RoundUp(bc()->param(1), kStackAligmentSize));
-
-            CheckException();
+            CallBytecodeFunction(bc()->param(1));
+            Label exit;
+            __ jmp(&exit, true/*is_far*/);
+            
+            __ Bind(&native_fun);
+            CallNativeFunction(bc()->param(1));
+    
+            __ Bind(&exit);
         } break;
+            
+        case kCallNativeFunction:
+            // Update current PC
+            UpdatePC();
+            CallNativeFunction(bc()->param(1));
+            break;
 
         case kCallBytecodeFunction:
-            CallBytecodeFunction();
+            // Update current PC
+            UpdatePC();
+            CallBytecodeFunction(bc()->param(1));
             break;
             
         case kReturn: {
@@ -1646,6 +1678,94 @@ void X64SimplifiedCodeGenerator::Select() {
                     NOREACHED();
                     break;
             }
+            break;
+            
+        case kArray:
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+            __ movq(Argv_0, ConstOperand(SCRATCH, 1));
+            __ movl(Argv_1, StackOperand(0));
+            BreakableCall(Runtime::NewArray);
+            CheckException();
+            break;
+            
+        case kArrayWith:
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+            __ movq(Argv_0, ConstOperand(SCRATCH, 1));
+            __ movq(Argv_1, rsp);
+            __ subq(Argv_1, bc()->param(0));
+            __ movq(Argv_2, rsp);
+            BreakableCall(Runtime::NewArrayWith);
+            CheckException();
+            break;
+            
+        case kPutAll:
+            __ movq(Argv_0, StackOperand(0));
+            __ movq(Argv_1, rsp);
+            __ subq(Argv_1, bc()->param(1));
+            __ movq(Argv_2, rsp);
+            BreakableCall(Runtime::MapPutAll);
+            CheckException();
+            break;
+
+        case kClose:
+            break;
+
+        case kThrow: {
+            __ cmpq(ACC, 0);
+            Label ok;
+            __ j(NotEqual, &ok, false/*is_far*/);
+            BreakableCall(Runtime::NewNilPointerPanic);
+            __ Throw(SCRATCH, rbx);
+
+            __ Bind(&ok);
+            __ movq(Argv_0, ACC);
+            BreakableCall(Runtime::MakeStacktrace);
+            __ cmpq(ACC, 0);
+            Label done;
+            __ j(NotEqual, &done, false/*is_far*/);
+
+            // TODO: OOM
+            __ nop();
+
+            __ Bind(&done);
+            __ Throw(SCRATCH, rbx);
+        } break;
+
+        case kRandom:
+            __ rdrand(ACC);
+            break;
+
+        case kNewObject:
+            // Load class pointer
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+            __ movq(Argv_0, ConstOperand(SCRATCH, 1));
+            __ movq(Argv_1, 0);
+        
+            BreakableCall(Runtime::NewObject);
+            CheckException();
+            break;
+
+        case kRunCoroutine:
+            // 'uint32_t params_bytes_size'
+            __ movl(Argv_3, RoundUp(bc()->param(1), kStackAligmentSize));
+            __ movl(Argv_0, bc()->param(0));
+            __ movq(Argv_1, ACC); // 'Closure *entry_point' ACC store enter point
+            __ movq(Argv_2, rsp); // 'Address params'
+            __ subq(Argv_2, Argv_3);
+
+            // Switch and run RunCoroutine
+            BreakableCall(Runtime::RunCoroutine);
+            CheckException();
+            break;
+
+        // class CallUnkindFunction
+        case kLdaVtableFunction:
+            __ movq(Argv_0, StackOperand(0));
+            CheckNotNil(Argv_0);
+            __ movq(SCRATCH, Operand(rbp, BytecodeStackFrame::kOffsetConstPool));
+            __ movq(Argv_1, ConstOperand(SCRATCH, 1));
+            BreakableCall(Runtime::LoadVtableFunction);
+            CheckException();
             break;
             
         default: {
@@ -1756,23 +1876,23 @@ void X64SimplifiedCodeGenerator::CompareImplicitLengthString(Cond cond) {
     __ set(cond, ACC);
 }
 
-void X64SimplifiedCodeGenerator::CallBytecodeFunction() {
-    // FIXME: Add Guard for calling
-    UpdatePC(); // Update current PC first
-
-    // Adjust Caller Stack
-    __ subq(rsp, RoundUp(bc()->param(1), kStackAligmentSize));
-
-    const Function *fun = DCHECK_NOTNULL(GetNextFunctionOrNull());
-    __ movq(Argv_0, ACC);
-
-    __ movq(rbx, STATE->metadata_space()->call_bytecode_return_address());
-    __ pushq(rbx); // Dummy return address
-    MakeInlineStackFrame(fun);
-    
-    // Recover Caller Stack
-    // __ addq(rsp, RoundUp(bc()->param(1), kStackAligmentSize));
-}
+//void X64SimplifiedCodeGenerator::CallBytecodeFunction() {
+//    // FIXME: Add Guard for calling
+//    UpdatePC(); // Update current PC first
+//
+//    // Adjust Caller Stack
+//    __ subq(rsp, RoundUp(bc()->param(1), kStackAligmentSize));
+//
+//    const Function *fun = DCHECK_NOTNULL(GetNextFunctionOrNull());
+//    __ movq(Argv_0, ACC);
+//
+//    __ movq(rbx, STATE->metadata_space()->call_bytecode_return_address());
+//    __ pushq(rbx); // Dummy return address
+//    MakeInlineStackFrame(fun);
+//    
+//    // Recover Caller Stack
+//    // __ addq(rsp, RoundUp(bc()->param(1), kStackAligmentSize));
+//}
 
 void X64SimplifiedCodeGenerator::MakeInlineStackFrame(const Function *fun) {
     //__ Breakpoint();
