@@ -137,7 +137,7 @@ HIRGraphGenerator::HIRGraphGenerator(const CompilationInfo *compilation_info, ba
 }
 
 void HIRGraphGenerator::Generate() {
-    HNode *start = NewNode(ops_.Start(), HTypes::Void);
+    HNode *start = NewNode(ops_.Begin(), HTypes::Void);
     graph_->set_start(start);
 
     Environment env(this, start);

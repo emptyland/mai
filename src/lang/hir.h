@@ -1,6 +1,7 @@
 #ifndef MAI_LANG_HIR_H_
 #define MAI_LANG_HIR_H_
 
+#include "base/arena-utils.h"
 #include "base/arenas.h"
 #include "base/queue-macros.h"
 #include "base/base.h"
@@ -76,18 +77,30 @@ struct HTypes {
 };
 
 #define DECLARE_HIR_OPCODES(V) \
-    V(Start) \
+    V(Begin) \
     V(End) \
+    V(Branch) \
+    V(IfTrue) \
+    V(IfFalse) \
     V(Merge) \
     V(FrameState) \
     V(Phi) \
     V(Guard) \
     V(Constant) \
     V(Argument) \
-    V(Branch) \
+    V(Parameter) \
     V(CheckStack) \
+    DECLARE_HIR_ARITHMETIC(V) \
     DECLARE_HIR_COMPAROR(V) \
     DECLARE_HIR_CALLING(V)
+
+#define DECLARE_HIR_ARITHMETIC(V) \
+    V(Add8) \
+    V(Add16) \
+    V(Add32) \
+    V(Add64) \
+    V(FAdd32) \
+    V(FAdd64)
 
 #define DECLARE_HIR_COMPAROR(V) \
     V(Equal) \
@@ -164,25 +177,25 @@ public:
     friend class HOperatorFactory;
     DISALLOW_IMPLICIT_CONSTRUCTORS(HOperator);
 protected:
-    HOperator(Value value, uint64_t properties, int control_in, int effect_in, int value_in,
-              int control_out, int effect_out, int value_out)
+    HOperator(Value value, uint64_t properties, int control_in, int value_in, int effect_in,
+              int control_out, int value_out, int effect_out)
         : value_(value)
         , properties_(properties)
         , control_in_(control_in)
-        , effect_in_(effect_in)
         , value_in_(value_in)
+        , effect_in_(effect_in)
         , control_out_(control_out)
-        , effect_out_(effect_out)
-        , value_out_(value_out) {}
+        , value_out_(value_out)
+        , effect_out_(effect_out) {}
 
     Value value_;
     uint64_t properties_;
     int control_in_;
-    int effect_in_;
     int value_in_;
+    int effect_in_;
     int control_out_;
-    int effect_out_;
     int value_out_;
+    int effect_out_;
     
     static const char *kNames[HMaxOpcode];
 }; // class HOperator
@@ -204,10 +217,10 @@ public:
     friend class HOperatorFactory;
     DISALLOW_IMPLICIT_CONSTRUCTORS(HOperatorWith);
 protected:
-    inline HOperatorWith(Value value, uint64_t properties, int control_in, int effect_in,
-                         int value_in, int control_out, int effect_out, int value_out, T data)
-    : HOperator(value, properties, control_in, effect_in, value_in,
-                control_out, effect_out, value_out)
+    inline HOperatorWith(Value value, uint64_t properties, int control_in, int value_in,
+                         int effect_in, int control_out, int value_out, int effect_out, T data)
+    : HOperator(value, properties, control_in, value_in, effect_in,
+                control_out, value_out, effect_out)
     , data_(data) {}
     
 private:
@@ -222,14 +235,14 @@ public:
         Initialize();
     }
     
-    const HOperator *Start() {
-        return new (arena_) HOperator(HStart, 0, 0, 0, 0, 0, 0, 0);
+    const HOperator *Begin() {
+        return new (arena_) HOperator(HBegin, 0, 0, 0, 0, 0, 0, 0);
     }
-    
+
     const HOperator *End(int control_in) {
-        return new (arena_) HOperator(HEnd, 0, 0, control_in, 0, 0, 0, 0);
+        return new (arena_) HOperator(HEnd, 0, control_in, 0, 0, 0, 0, 0);
     }
-    
+
     const HOperator *CheckStack() {
         return new (arena_) HOperator(HCheckStack, 0, 0, 0, 0, 0, 0, 0);
     }
@@ -240,6 +253,10 @@ public:
 
     const HOperator *Guard(uint64_t hint) {
         return new (arena_) HOperator(HGuard, hint, 0, 0, 0, 0, 0, 0);
+    }
+    
+    const HOperator *Parameter(int index) {
+        return new (arena_) HOperatorWith<int>(HParameter, 0, 0, 0, 0, 0, 0, 0, index);
     }
 
     const HOperator *ConstantWord32(uint32_t data) {
@@ -252,6 +269,15 @@ public:
 
     const HOperator *Argument(uint64_t hint) {
         return new (arena_) HOperator(HArgument, hint, 0, 0, 0, 0, 0, 1);
+    }
+
+    // TODO:
+    const HOperator *Add8() {
+        return new (arena_) HOperator(HAdd8, 0, 0, 2, 0, 0, 0, 0);
+    }
+    
+    const HOperator *Add32() {
+        return new (arena_) HOperator(HAdd32, 0, 0, 2, 0, 0, 0, 0);
     }
 
     const HOperator *Equal(uint64_t hint) {
@@ -323,29 +349,56 @@ public:
         DCHECK_GE(inputs_capacity, inputs_size);
         size_t request_size = sizeof(HNode) + sizeof(*inputs) * inputs_capacity;
         void *chunk = arena->Allocate(request_size);
-        return new (chunk) HNode(arena, vid, 0, type, op, inputs_capacity, inputs_size, inputs);
+        return new (chunk) HNode(arena, vid, type, op, inputs_capacity, inputs_size, inputs);
     }
     
     static HNode *Clone(base::Arena *arena, HNode *src, int inputs_capacity) {
-        for (int i = 0; i < src->inputs_size(); i++) {
+        for (int i = 0; i < src->inputs_size_; i++) {
             src->input(i)->Unused(src);
         }
         HNode *dest = New(arena, src->vid(), src->type(), src->op(), inputs_capacity,
-                          src->inputs_size(), src->inputs_);
+                          src->inputs_size_, src->inputs());
         dest->used_ = src->used_;
         return dest;
+    }
+    
+    HNode *GetControlInput(int index) const {
+        DCHECK_GE(index, 0);
+        DCHECK_LT(index, op()->control_in());
+        return input(index);
+    }
+    
+    HNode *GetValueInput(int index) const {
+        DCHECK_GE(index, 0);
+        DCHECK_LT(index, op()->value_in());
+        return input(op()->control_in() + index);
     }
 
     DEF_PTR_GETTER(const HOperator, op);
     HOperator::Value opcode() const { return op_->value(); }
-
-    DEF_VAL_GETTER(int, inputs_capacity);
-    DEF_VAL_GETTER(int, inputs_size);
+    
+    HNode **inputs() {
+        return is_inline_inputs_ ? inline_inputs_ : out_of_line_inputs_->inputs_;
+    }
+    
+    HNode *const * inputs() const {
+        return is_inline_inputs_ ? inline_inputs_ : out_of_line_inputs_->inputs_;
+    }
+    
+    bool is_inline_inputs() const { return is_inline_inputs_; }
+    
+    int inputs_size() const {
+        return is_inline_inputs_ ? inputs_size_ : out_of_line_inputs_->inputs_size_;
+    }
+    
+    int inputs_capacity() const {
+        return is_inline_inputs_ ? inputs_capacity_ : out_of_line_inputs_->inputs_capacity_;
+    }
 
     HNode *input(int i) const {
         DCHECK_GE(i, 0);
         DCHECK_LT(i, inputs_size());
-        return DCHECK_NOTNULL(inputs_[i]);
+        return DCHECK_NOTNULL(inputs()[i]);
     }
     
     HNode *lhs() const {
@@ -360,20 +413,12 @@ public:
     
     void ReplaceInput(base::Arena *arena, int i, HNode *node) {
         HNode *old = input(i);
-        inputs_[i] = node;
+        inputs()[i] = node;
         BeUsed(arena, node);
         old->Unused(this);
     }
 
-    HNode *AppendInput(base::Arena *arena, HNode *node) {
-        HNode *n = this;
-        if (n->inputs_size() + 1 > n->inputs_capacity()) {
-            n = Clone(arena, n, n->inputs_capacity() << 1);
-        }
-        n->inputs_[n->inputs_size_++] = node;
-        n->BeUsed(arena, node);
-        return n;
-    }
+    void AppendInput(base::Arena *arena, HNode *node);
 
     Used *BeUsed(base::Arena *arena, HNode *used);
     
@@ -431,32 +476,101 @@ public:
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(HNode);
 private:
-    HNode(base::Arena *arena, int vid, int hint, HType type, const HOperator *op,
-          int inputs_capacity, int inputs_size, HNode **inputs);
+    struct OutOfLineInputs {
+        HNode *owns_;
+        int inputs_capacity_;
+        int inputs_size_;
+        HNode *inputs_[0];
+        
+        static OutOfLineInputs *New(base::Arena *arena, HNode *owns, uint32_t inputs_capacity,
+                                    uint32_t inputs_size, HNode **inputs) {
+            size_t request_size = sizeof(OutOfLineInputs) + sizeof(HNode *) * inputs_capacity;
+            OutOfLineInputs *ool = static_cast<OutOfLineInputs *>(arena->Allocate(request_size));
+            ool->owns_ = owns;
+            ool->inputs_capacity_ = inputs_capacity;
+            ool->inputs_size_ = inputs_size;
+            ::memcpy(ool->inputs_, inputs, sizeof(HNode *) * inputs_size);
+            return ool;
+        }
+    };
+    
+    HNode(base::Arena *arena, int vid, HType type, const HOperator *op, uint32_t inputs_capacity,
+          uint32_t inputs_size, HNode **inputs);
 
     const HOperator *op_;
-    int inputs_capacity_;
-    int inputs_size_;
+    uint32_t is_inline_inputs_ : 1;
+    uint32_t padding0_         : 3;
+    uint32_t inputs_capacity_  : 14;
+    uint32_t inputs_size_      : 14;
     Used *used_ = nullptr;
-    HNode *inputs_[0];
+    union {
+        OutOfLineInputs *out_of_line_inputs_;
+        HNode *inline_inputs_[1];
+    }; // Tail
 }; // class HNode
 
 
+class HGraphDecorator {
+public:
+    HGraphDecorator() = default;
+    virtual ~HGraphDecorator() = default;
+    
+    virtual void Decorate(HNode *node) = 0;
+
+    DISALLOW_IMPLICIT_CONSTRUCTORS(HGraphDecorator);
+}; // class HGraphDecorator
+
 class HGraph final : public base::ArenaObject {
 public:
-    HGraph(base::Arena *arena): arena_(arena) {}
-    
+    HGraph(base::Arena *arena)
+        : arena_(arena)
+        , decorators_(arena) {}
+
     DEF_PTR_GETTER(base::Arena, arena);
     DEF_PTR_PROP_RW(HNode, start);
     DEF_PTR_PROP_RW(HNode, end);
     DEF_VAL_GETTER(int, next_node_id);
     
+    HNode *NewNode(const HOperator *op, HType type) {
+        return NewNode(op, type, 0, nullptr);
+    }
+    
+    HNode *NewNode(const HOperator *op, HType type, HNode *input0) {
+        HNode *inputs[] = {input0};
+        return NewNode(op, type, arraysize(inputs), inputs);
+    }
+    
+    HNode *NewNode(const HOperator *op, HType type, HNode *input0, HNode *input1) {
+        HNode *inputs[] = {input0, input1};
+        return NewNode(op, type, arraysize(inputs), inputs);
+    }
+    
+    HNode *NewNode(const HOperator *op, HType type, int size, HNode **inputs) {
+        HNode *node = HNode::New(arena_, NextNodeId(), type, op, size, size, inputs);
+        Decorate(node);
+        return node;
+    }
+    
+    HNode *NewNode(const HOperator *op, HType type, int inputs_capacity) {
+        HNode *node = HNode::New(arena_, NextNodeId(), type, op, inputs_capacity, 0, nullptr);
+        Decorate(node);
+        return node;
+    }
+
     int NextNodeId() { return next_node_id_++; }
 
+    void AddDecorator(HGraphDecorator *decorator) { decorators_.push_back(decorator); }
 private:
+    void Decorate(HNode *node) {
+        for (HGraphDecorator *decorator : decorators_) {
+            decorator->Decorate(node);
+        }
+    }
+    
     base::Arena *const arena_;
     HNode *start_ = nullptr;
     HNode *end_ = nullptr;
+    base::ArenaVector<HGraphDecorator *> decorators_;
     int next_node_id_ = 0;
 }; // class HGraph
 
