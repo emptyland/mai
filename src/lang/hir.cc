@@ -50,7 +50,7 @@ void HNode::AppendInput(base::Arena *arena, HNode *node) {
     BeUsed(arena, node);
 }
 
-Used *HNode::BeUsed(base::Arena *arena, HNode *use) {
+HNode::Used *HNode::BeUsed(base::Arena *arena, HNode *use) {
     if (!use->used_) {
         use->used_ = new (arena) Used{};
         use->used_->next_ = use->used_;
@@ -67,7 +67,11 @@ Used *HNode::BeUsed(base::Arena *arena, HNode *use) {
 }
 
 void HOperatorFactory::Initialize() {
-    // TODO:
+#define DEFINE_BINARY_OP(name) \
+    cache_[H##name] = new (arena_) HOperator(H##name, 0, 0, 2, 0, 0, 1, 0);
+    DECLARE_HIR_BINARY_ARITHMETIC(DEFINE_BINARY_OP)
+    DECLARE_HIR_COMPAROR(DEFINE_BINARY_OP);
+#undef  DEFINE_BINARY_OPS
 }
 
 } // namespace lang

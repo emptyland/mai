@@ -249,6 +249,7 @@ namespace base {
 static constexpr int kKB = 1024;
 static constexpr int kMB = 1024 * kKB;
 static constexpr int kGB = 1024 * kMB;
+
 } // namespace base
 
 } // namespace mai

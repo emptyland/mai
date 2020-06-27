@@ -156,7 +156,7 @@ void HIRGraphGenerator::Generate() {
     
     int exit_control_in = static_cast<int>(exit_control_.size());
     HNode **exit_control = &exit_control_[0];
-    HNode *end = NewNode(ops_.End(exit_control_in), HTypes::Void, exit_control, exit_control_in);
+    HNode *end = NewNode(ops_.End(exit_control_in, 0), HTypes::Void, exit_control, exit_control_in);
     graph_->set_end(end);
 }
 

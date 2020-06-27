@@ -5,6 +5,7 @@
 #include "base/arenas.h"
 #include "base/queue-macros.h"
 #include "base/base.h"
+#include <type_traits>
 
 namespace mai {
 
@@ -79,6 +80,9 @@ struct HTypes {
 #define DECLARE_HIR_OPCODES(V) \
     V(Begin) \
     V(End) \
+    V(Return) \
+    V(Loop) \
+    V(LoopExit) \
     V(Branch) \
     V(IfTrue) \
     V(IfFalse) \
@@ -90,25 +94,85 @@ struct HTypes {
     V(Argument) \
     V(Parameter) \
     V(CheckStack) \
-    DECLARE_HIR_ARITHMETIC(V) \
+    DECLARE_HIR_BINARY_ARITHMETIC(V) \
     DECLARE_HIR_COMPAROR(V) \
     DECLARE_HIR_CALLING(V)
 
-#define DECLARE_HIR_ARITHMETIC(V) \
+#define DECLARE_HIR_BINARY_ARITHMETIC(V) \
     V(Add8) \
     V(Add16) \
     V(Add32) \
     V(Add64) \
     V(FAdd32) \
-    V(FAdd64)
+    V(FAdd64) \
+    V(Sub8) \
+    V(Sub16) \
+    V(Sub32) \
+    V(Sub64) \
+    V(FSub32) \
+    V(FSub64) \
+    V(Mul8) \
+    V(Mul16) \
+    V(Mul32) \
+    V(Mul64) \
+    V(IMul8) \
+    V(IMul16) \
+    V(IMul32) \
+    V(IMul64) \
+    V(FMul32) \
+    V(FMul64) \
+    V(Div8) \
+    V(Div16) \
+    V(Div32) \
+    V(Div64) \
+    V(IDiv8) \
+    V(IDiv16) \
+    V(IDiv32) \
+    V(IDiv64) \
+    V(FDiv32) \
+    V(FDiv64) \
+    V(Mod8) \
+    V(Mod16) \
+    V(Mod32) \
+    V(Mod64)
 
 #define DECLARE_HIR_COMPAROR(V) \
-    V(Equal) \
-    V(NotEqual) \
-    V(LessThan) \
-    V(LessOrEqual) \
-    V(GreaterThan) \
-    V(GreaterOrEqual) \
+    V(Equal8) \
+    V(NotEqual8) \
+    V(LessThan8) \
+    V(LessOrEqual8) \
+    V(GreaterThan8) \
+    V(GreaterOrEqual8) \
+    V(Equal16) \
+    V(NotEqual16) \
+    V(LessThan16) \
+    V(LessOrEqual16) \
+    V(GreaterThan16) \
+    V(GreaterOrEqual16) \
+    V(Equal32) \
+    V(NotEqual32) \
+    V(LessThan32) \
+    V(LessOrEqual32) \
+    V(GreaterThan32) \
+    V(GreaterOrEqual32) \
+    V(Equal64) \
+    V(NotEqual64) \
+    V(LessThan64) \
+    V(LessOrEqual64) \
+    V(GreaterThan64) \
+    V(GreaterOrEqual64) \
+    V(FEqual32) \
+    V(FNotEqual32) \
+    V(FLessThan32) \
+    V(FLessOrEqual32) \
+    V(FGreaterThan32) \
+    V(FGreaterOrEqual32) \
+    V(FEqual64) \
+    V(FNotEqual64) \
+    V(FLessThan64) \
+    V(FLessOrEqual64) \
+    V(FGreaterThan64) \
+    V(FGreaterOrEqual64) \
     V(StringEQ) \
     V(StringNE) \
     V(StringLT) \
@@ -239,16 +303,44 @@ public:
         return new (arena_) HOperator(HBegin, 0, 0, 0, 0, 0, 0, 0);
     }
 
-    const HOperator *End(int control_in) {
-        return new (arena_) HOperator(HEnd, 0, control_in, 0, 0, 0, 0, 0);
+    const HOperator *End(int control_in, int value_in) {
+        return new (arena_) HOperator(HEnd, 0, control_in, value_in, 0, 0, 0, 0);
     }
 
     const HOperator *CheckStack() {
         return new (arena_) HOperator(HCheckStack, 0, 0, 0, 0, 0, 0, 0);
     }
 
+    const HOperator *Branch(int control_in, int value_in) {
+        return new (arena_) HOperator(HBranch, 0, control_in, value_in, 0, 0, 0, 0);
+    }
+    
+    const HOperator *IfTrue(int hint) {
+        return new (arena_) HOperator(HIfTrue, hint, 1, 0, 0, 0, 0, 0);
+    }
+    
+    const HOperator *IfFalse(int hint) {
+        return new (arena_) HOperator(HIfFalse, hint, 1, 0, 0, 0, 0, 0);
+    }
+    
+    const HOperator *Merge(int control_in) {
+        return new (arena_) HOperator(HMerge, 0, control_in, 0, 0, 0, 0, 0);
+    }
+
     const HOperator *Phi(int control_in, int value_in) {
-        return new (arena_) HOperator(HPhi, 0, control_in, 0, value_in, 0, 0, 0);
+        return new (arena_) HOperator(HPhi, 0, control_in, value_in, 0, 0, 0, 0);
+    }
+    
+    const HOperator *Return(int control_in, int value_in) {
+        return new (arena_) HOperator(HReturn, 0, control_in, value_in, 0, 0, 0, 0);
+    }
+    
+    const HOperator *Loop() {
+        return new (arena_) HOperator(HLoop, 0, 1, 0, 0, 0, 0, 0);
+    }
+    
+    const HOperator *LoopExit(int control_in) {
+        return new (arena_) HOperator(HLoop, 0, control_in, 0, 0, 0, 0, 0);
     }
 
     const HOperator *Guard(uint64_t hint) {
@@ -271,39 +363,10 @@ public:
         return new (arena_) HOperator(HArgument, hint, 0, 0, 0, 0, 0, 1);
     }
 
-    // TODO:
-    const HOperator *Add8() {
-        return new (arena_) HOperator(HAdd8, 0, 0, 2, 0, 0, 0, 0);
-    }
-    
-    const HOperator *Add32() {
-        return new (arena_) HOperator(HAdd32, 0, 0, 2, 0, 0, 0, 0);
-    }
-
-    const HOperator *Equal(uint64_t hint) {
-        return new (arena_) HOperator(HEqual, hint, 0, 0, 2, 0, 0, 1);
-    }
-    
-    const HOperator *NotEqual(uint64_t hint) {
-        return new (arena_) HOperator(HNotEqual, hint, 0, 0, 2, 0, 0, 1);
-    }
-    
-    const HOperator *LessThan(uint64_t hint) {
-        return new (arena_) HOperator(HLessThan, hint, 0, 0, 2, 0, 0, 1);
-    }
-    
-    const HOperator *LessOrEqual(uint64_t hint) {
-        return new (arena_) HOperator(HLessOrEqual, hint, 0, 0, 2, 0, 0, 1);
-    }
-    
-    const HOperator *GreaterThan(uint64_t hint) {
-        return new (arena_) HOperator(HGreaterThan, hint, 0, 0, 2, 0, 0, 1);
-    }
-    
-    const HOperator *GreaterOrEqual(uint64_t hint) {
-        return new (arena_) HOperator(HGreaterOrEqual, hint, 0, 0, 2, 0, 0, 1);
-    }
-    
+#define DEFINE_CACHED_OP(name) const HOperator *name() { return cache_[H##name]; }
+    DECLARE_HIR_BINARY_ARITHMETIC(DEFINE_CACHED_OP)
+    DECLARE_HIR_COMPAROR(DEFINE_CACHED_OP);
+#undef DEFINE_CACHED_OP
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(HOperatorFactory);
 private:
@@ -332,17 +395,14 @@ protected:
 }; // class HValue
 
 
-struct Used {
-    void *operator new(size_t n, base::Arena *arena) { return arena->Allocate(n); }
-
-    Used *next_;
-    Used *prev_;
-    HNode *user;
-}; // struct Used
-
-
 class HNode : public HValue {
 public:
+    struct Used  : public base::ArenaObject {
+        Used *next_;
+        Used *prev_;
+        HNode *user;
+    }; // struct Used
+
     static inline HNode *New(base::Arena *arena, int vid, HType type, const HOperator *op,
                              int inputs_capacity, int inputs_size, HNode **inputs) {
         DCHECK_GE(inputs_size, 0);
@@ -362,6 +422,10 @@ public:
         return dest;
     }
     
+    bool IsDead() const { return inputs_size() > 0 && inputs()[0] == nullptr; }
+    
+    void Kill() { ::memset(inputs(), 0, sizeof(*inputs()) * inputs_size()); }
+    
     HNode *GetControlInput(int index) const {
         DCHECK_GE(index, 0);
         DCHECK_LT(index, op()->control_in());
@@ -372,6 +436,12 @@ public:
         DCHECK_GE(index, 0);
         DCHECK_LT(index, op()->value_in());
         return input(op()->control_in() + index);
+    }
+    
+    HNode *GetEffectInput(int index) const {
+        DCHECK_GE(index, 0);
+        DCHECK_LT(index, op()->effect_in());
+        return input(op()->control_in() + op()->effect_in() + index);
     }
 
     DEF_PTR_GETTER(const HOperator, op);
@@ -384,9 +454,9 @@ public:
     HNode *const * inputs() const {
         return is_inline_inputs_ ? inline_inputs_ : out_of_line_inputs_->inputs_;
     }
-    
+
     bool is_inline_inputs() const { return is_inline_inputs_; }
-    
+
     int inputs_size() const {
         return is_inline_inputs_ ? inputs_size_ : out_of_line_inputs_->inputs_size_;
     }
@@ -410,6 +480,8 @@ public:
         DCHECK_EQ(inputs_size(), 2);
         return input(1);
     }
+
+    void AppendInput(base::Arena *arena, HNode *node);
     
     void ReplaceInput(base::Arena *arena, int i, HNode *node) {
         HNode *old = input(i);
@@ -417,8 +489,11 @@ public:
         BeUsed(arena, node);
         old->Unused(this);
     }
-
-    void AppendInput(base::Arena *arena, HNode *node);
+    
+    void InsertInput(base::Arena *arena, int after, HNode *node);
+    
+    // TODO:
+    bool Verify() { return true; }
 
     Used *BeUsed(base::Arena *arena, HNode *used);
     
@@ -531,27 +606,27 @@ public:
     DEF_PTR_PROP_RW(HNode, end);
     DEF_VAL_GETTER(int, next_node_id);
     
+    HNode *NewNode(const HOperator *op) {
+        return NewNodeWithInputs(op, HTypes::Void, 0, nullptr);
+    }
+    
     HNode *NewNode(const HOperator *op, HType type) {
-        return NewNode(op, type, 0, nullptr);
+        return NewNodeWithInputs(op, type, 0, nullptr);
+    }
+
+    template<class ...Nodes>
+    inline HNode *NewNode(const HOperator *op, HType type, Nodes... nodes) {
+        HNode *inputs[] = {CheckNode(nodes)...};
+        return NewNodeWithInputs(op, type, arraysize(inputs), inputs);
     }
     
-    HNode *NewNode(const HOperator *op, HType type, HNode *input0) {
-        HNode *inputs[] = {input0};
-        return NewNode(op, type, arraysize(inputs), inputs);
-    }
-    
-    HNode *NewNode(const HOperator *op, HType type, HNode *input0, HNode *input1) {
-        HNode *inputs[] = {input0, input1};
-        return NewNode(op, type, arraysize(inputs), inputs);
-    }
-    
-    HNode *NewNode(const HOperator *op, HType type, int size, HNode **inputs) {
+    HNode *NewNodeWithInputs(const HOperator *op, HType type, int size, HNode **inputs) {
         HNode *node = HNode::New(arena_, NextNodeId(), type, op, size, size, inputs);
         Decorate(node);
         return node;
     }
     
-    HNode *NewNode(const HOperator *op, HType type, int inputs_capacity) {
+    HNode *NewNodeReserved(const HOperator *op, HType type, int inputs_capacity) {
         HNode *node = HNode::New(arena_, NextNodeId(), type, op, inputs_capacity, 0, nullptr);
         Decorate(node);
         return node;
@@ -561,6 +636,8 @@ public:
 
     void AddDecorator(HGraphDecorator *decorator) { decorators_.push_back(decorator); }
 private:
+    HNode *CheckNode(HNode *node) { return DCHECK_NOTNULL(node); }
+    
     void Decorate(HNode *node) {
         for (HGraphDecorator *decorator : decorators_) {
             decorator->Decorate(node);
