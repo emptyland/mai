@@ -74,6 +74,20 @@ void HOperatorFactory::Initialize() {
 #undef  DEFINE_BINARY_OPS
 }
 
+/*static*/ bool NodeOps::IsConstant(const HNode *node) {
+    switch (node->opcode()) {
+        case HConstant32:
+        case HConstant64:
+        case HFConstant32:
+        case HFConstant64:
+        case HConstantString:
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
 } // namespace lang
 
 } // namespace mai

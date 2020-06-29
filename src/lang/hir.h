@@ -90,13 +90,21 @@ struct HTypes {
     V(FrameState) \
     V(Phi) \
     V(Guard) \
-    V(Constant) \
     V(Argument) \
     V(Parameter) \
     V(CheckStack) \
+    DECLARE_HIR_CONSTANT(V) \
+    DECLARE_HIR_LOAD_STORE(V) \
     DECLARE_HIR_BINARY_ARITHMETIC(V) \
     DECLARE_HIR_COMPAROR(V) \
     DECLARE_HIR_CALLING(V)
+
+#define DECLARE_HIR_CONSTANT(V) \
+    V(Constant32) \
+    V(Constant64) \
+    V(ConstantString) \
+    V(FConstant32) \
+    V(FConstant64)
 
 #define DECLARE_HIR_BINARY_ARITHMETIC(V) \
     V(Add8) \
@@ -179,6 +187,18 @@ struct HTypes {
     V(StringLE) \
     V(StringGT) \
     V(StringGE) \
+
+#define DECLARE_HIR_LOAD_STORE(V) \
+    V(LoadField) \
+    V(LoadField8) \
+    V(LoadField16) \
+    V(LoadField32) \
+    V(LoadField64) \
+    V(StoreField) \
+    V(StoreField8) \
+    V(StoreField16) \
+    V(StoreField32) \
+    V(StoreField64)
 
 #define DECLARE_HIR_CALLING(V) \
     V(CallInline) \
@@ -264,6 +284,11 @@ protected:
     static const char *kNames[HMaxOpcode];
 }; // class HOperator
 
+
+struct FrameState {
+    int32_t  bci;
+    int32_t  offset;
+}; // struct FrameState
 
 template<class T>
 class HOperatorWith : public HOperator {
@@ -351,17 +376,40 @@ public:
         return new (arena_) HOperatorWith<int>(HParameter, 0, 0, 0, 0, 0, 0, 0, index);
     }
 
-    const HOperator *ConstantWord32(uint32_t data) {
-        return new (arena_) HOperatorWith<uint32_t>(HConstant, 0, 0, 0, 0, 0, 0, 0, data);
+    const HOperator *Constant32(uint32_t data) {
+        return new (arena_) HOperatorWith<uint32_t>(HConstant32, 0, 0, 0, 0, 0, 0, 0, data);
     }
     
-    const HOperator *ConstantWord64(uint64_t data) {
-        return new (arena_) HOperatorWith<uint64_t>(HConstant, 0, 0, 0, 0, 0, 0, 0, data);
+    const HOperator *Constant64(uint64_t data) {
+        return new (arena_) HOperatorWith<uint64_t>(HConstant64, 0, 0, 0, 0, 0, 0, 0, data);
+    }
+    
+    const HOperator *FConstant32(float data) {
+        return new (arena_) HOperatorWith<float>(HFConstant32, 0, 0, 0, 0, 0, 0, 0, data);
+    }
+    
+    const HOperator *FConstant64(double data) {
+        return new (arena_) HOperatorWith<double>(HFConstant64, 0, 0, 0, 0, 0, 0, 0, data);
     }
 
     const HOperator *Argument(uint64_t hint) {
         return new (arena_) HOperator(HArgument, hint, 0, 0, 0, 0, 0, 1);
     }
+
+    const HOperator *FrameState(int control_in, int value_in, int32_t bci, int32_t offset) {
+        return new (arena_) HOperatorWith<struct FrameState>(HFrameState, 0, control_in,
+                                                             value_in, 0, 0, 1, 0,
+                                                             {bci, offset});
+    }
+
+#define DEFINE_LOAD_STORE_FIELD(name) \
+    const HOperator *name(int control_in, int value_in, int32_t offset) { \
+        return new (arena_) HOperatorWith<int32_t>(H##name, 0, control_in, value_in, 0, 0, 1, 0, \
+                                                   offset); \
+    }
+    DECLARE_HIR_LOAD_STORE(DEFINE_LOAD_STORE_FIELD)
+#undef DEFINE_LOAD_STORE_FIELD
+    
 
 #define DEFINE_CACHED_OP(name) const HOperator *name() { return cache_[H##name]; }
     DECLARE_HIR_BINARY_ARITHMETIC(DEFINE_CACHED_OP)
@@ -703,6 +751,8 @@ public:
 
 struct NodeOps {
     
+    static bool IsConstant(const HNode *node);
+
     static HNode *GetControlInput(const HNode *node, int index) {
         DCHECK_GE(index, 0);
         DCHECK_LT(index, node->op()->control_in());

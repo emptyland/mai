@@ -1,3 +1,4 @@
+#include "lang/hir-reducers.h"
 #include "lang/hir-reducer.h"
 #include "base/arenas.h"
 #include "gtest/gtest.h"
@@ -73,8 +74,8 @@ TEST_F(HIRReducerTest, BranchSequence) {
     HNode *if_true = graph->NewNode(factory_.IfTrue(0), HTypes::Void, branch);
     HNode *if_false = graph->NewNode(factory_.IfFalse(0), HTypes::Void, branch);
     HNode *merge = graph->NewNode(factory_.Merge(2), HTypes::Void, if_true, if_false);
-    HNode *k1 = graph->NewNode(factory_.ConstantWord32(1), HTypes::Word32);
-    HNode *k2 = graph->NewNode(factory_.ConstantWord32(2), HTypes::Word32);
+    HNode *k1 = graph->NewNode(factory_.Constant32(1), HTypes::Word32);
+    HNode *k2 = graph->NewNode(factory_.Constant32(2), HTypes::Word32);
     HNode *phi = graph->NewNode(factory_.Phi(1, 2), HTypes::Word32, branch, k1, k2);
     HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, merge, phi);
 
@@ -100,8 +101,8 @@ TEST_F(HIRReducerTest, ForLoopSequence) {
     HNode *begin = graph->NewNode(factory_.Begin());
     HNode *loop = graph->NewNode(factory_.Loop(), HTypes::Void, begin);
     HNode *n = graph->NewNode(factory_.Parameter(0), HTypes::Int32);
-    HNode *zero = graph->NewNode(factory_.ConstantWord32(0), HTypes::Int32);
-    HNode *one = graph->NewNode(factory_.ConstantWord32(1), HTypes::Int32);
+    HNode *zero = graph->NewNode(factory_.Constant32(0), HTypes::Int32);
+    HNode *one = graph->NewNode(factory_.Constant32(1), HTypes::Int32);
     HNode *phi = graph->NewNodeReserved(factory_.Phi(1, 2), HTypes::Int32, 4);
     HNode *add = graph->NewNode(factory_.Add32(), HTypes::Int32, phi, one);
     phi->AppendInput(&arena_, loop);
@@ -118,6 +119,74 @@ TEST_F(HIRReducerTest, ForLoopSequence) {
     graph->set_end(end);
     
     auto seq = ReduceSequence(graph);
+}
+
+TEST_F(HIRReducerTest, LoadStoreFieldAndFrameState) {
+    HGraph *graph = new (&arena_) HGraph(&arena_);
+    HNode *begin = graph->NewNode(factory_.Begin());
+    HNode *k1 = graph->NewNode(factory_.Constant32(1));
+    HNode *frame_state = graph->NewNode(factory_.FrameState(0, 1, 1/*bci*/, 64/*offset*/),
+                                        HTypes::Void, k1);
+    HNode *p1 = graph->NewNode(factory_.Parameter(0), HTypes::Any);
+    HNode *store_field = graph->NewNode(factory_.StoreField32(1, 1, 32), HTypes::Void, begin, p1, k1, frame_state);
+    HNode *end = graph->NewNode(factory_.End(1, 0), HTypes::Void, store_field);
+    
+    graph->set_start(begin);
+    graph->set_end(end);
+    
+    auto seq = ReduceSequence(graph);
+    EXPECT_EQ(begin,       seq[0]);
+    EXPECT_EQ(p1,          seq[1]);
+    EXPECT_EQ(k1,          seq[2]);
+    EXPECT_EQ(frame_state, seq[3]);
+    EXPECT_EQ(store_field, seq[4]);
+    EXPECT_EQ(end,         seq[5]);
+}
+
+TEST_F(HIRReducerTest, ConstantFloding) {
+    HGraph *graph = new (&arena_) HGraph(&arena_);
+    
+    HNode *begin = graph->NewNode(factory_.Begin());
+    HNode *two = graph->NewNode(factory_.Constant32(2), HTypes::Int32);
+    HNode *one = graph->NewNode(factory_.Constant32(1), HTypes::Int32);
+    HNode *add = graph->NewNode(factory_.Add8(), HTypes::Int8, two, one);
+    HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, begin, add);
+    
+    graph->set_start(begin);
+    graph->set_end(end);
+    
+    GraphReducer graph_reducer(&arena_, graph);
+    SimplifiedElimination reducer(&graph_reducer, graph, &factory_);
+
+    graph_reducer.AddReducer(&reducer);
+    graph_reducer.ReduceGraph();
+
+    EXPECT_EQ(3, HOperatorWith<int32_t>::Data(end->input(1)));
+    EXPECT_EQ(begin, end->input(0));
+}
+
+TEST_F(HIRReducerTest, ConstantFloding2) {
+    HGraph *graph = new (&arena_) HGraph(&arena_);
+    
+    HNode *begin = graph->NewNode(factory_.Begin());
+    HNode *two = graph->NewNode(factory_.Constant32(2), HTypes::Int32);
+    HNode *one = graph->NewNode(factory_.Constant32(1), HTypes::Int32);
+    HNode *tree = graph->NewNode(factory_.Add32(), HTypes::Int32, two, one);
+    HNode *add = graph->NewNode(factory_.Add32(), HTypes::Int32, two, tree);
+    HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, begin, add);
+    
+    graph->set_start(begin);
+    graph->set_end(end);
+    
+    GraphReducer graph_reducer(&arena_, graph);
+    SimplifiedElimination reducer(&graph_reducer, graph, &factory_);
+
+    graph_reducer.AddReducer(&reducer);
+    graph_reducer.ReduceGraph();
+    
+    EXPECT_EQ(HConstant32, end->input(1)->opcode());
+    EXPECT_EQ(5, HOperatorWith<int32_t>::Data(end->input(1)));
+    EXPECT_EQ(begin, end->input(0));
 }
 
 } // namespace lang

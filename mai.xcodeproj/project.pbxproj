@@ -363,6 +363,9 @@
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
 		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
 		23F9273A24A9CD360054CAF4 /* hir-reducer-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F9273924A9CD360054CAF4 /* hir-reducer-test.cc */; };
+		23F9273D24A9DE9E0054CAF4 /* hir-reducers.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F9273C24A9DE9E0054CAF4 /* hir-reducers.cc */; };
+		23F9273E24A9DE9E0054CAF4 /* hir-reducers.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F9273C24A9DE9E0054CAF4 /* hir-reducers.cc */; };
+		23F9273F24A9DE9E0054CAF4 /* hir-reducers.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F9273C24A9DE9E0054CAF4 /* hir-reducers.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -733,6 +736,7 @@
 		23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-test-v2.cc"; sourceTree = "<group>"; };
 		23F9273924A9CD360054CAF4 /* hir-reducer-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-reducer-test.cc"; sourceTree = "<group>"; };
 		23F9273B24A9D62C0054CAF4 /* hir-reducers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hir-reducers.h"; sourceTree = "<group>"; };
+		23F9273C24A9DE9E0054CAF4 /* hir-reducers.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-reducers.cc"; sourceTree = "<group>"; };
 		23FB4B502195708900B2829B /* table-test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-test.h"; sourceTree = "<group>"; };
 		23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "sst-table-builder-test.cc"; sourceTree = "<group>"; };
 		23FB4B5321957CDF00B2829B /* key-filter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-filter.h"; sourceTree = "<group>"; };
@@ -929,6 +933,7 @@
 				2342F20324A83B7400DCD9C9 /* hir-reducer.cc */,
 				23098D932492321F0074634B /* hir-graph-generator.cc */,
 				23F9273B24A9D62C0054CAF4 /* hir-reducers.h */,
+				23F9273C24A9DE9E0054CAF4 /* hir-reducers.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1718,6 +1723,7 @@
 				2342F20424A83B7400DCD9C9 /* hir-reducer.cc in Sources */,
 				2364B34521E451F9008519AE /* sst-table-reader-test.cc in Sources */,
 				236EA78D23D6FC620071047C /* metadata.cc in Sources */,
+				23F9273D24A9DE9E0054CAF4 /* hir-reducers.cc in Sources */,
 				2349FDF522A4BA76001861E0 /* sha256.c in Sources */,
 				2364B34621E451F9008519AE /* s1-table-builder-test.cc in Sources */,
 				2364B34721E451F9008519AE /* s1-table-reader-test.cc in Sources */,
@@ -1821,6 +1827,7 @@
 				23DE182121D088B000479C23 /* block-iterator.cc in Sources */,
 				237F504E21EB72C90069075D /* arena.cc in Sources */,
 				23DE182221D088B000479C23 /* block-cache.cc in Sources */,
+				23F9273E24A9DE9E0054CAF4 /* hir-reducers.cc in Sources */,
 				23DE182321D088B000479C23 /* plain-block-builder.cc in Sources */,
 				23DE182421D088B000479C23 /* env-posix.cc in Sources */,
 				23DE182521D088B000479C23 /* file-posix.cc in Sources */,
@@ -1860,6 +1867,7 @@
 				23EF3A5E2484D62900B55F88 /* delta-amend-iterator.cc in Sources */,
 				23EF3A5F2484D62900B55F88 /* varint-encoding.cc in Sources */,
 				23EF3A602484D62900B55F88 /* spin-locking.cc in Sources */,
+				23F9273F24A9DE9E0054CAF4 /* hir-reducers.cc in Sources */,
 				23EF3A612484D62900B55F88 /* slice.cc in Sources */,
 				23EF3A622484D62900B55F88 /* hash.cc in Sources */,
 				23EF3A632484D62900B55F88 /* arenas.cc in Sources */,

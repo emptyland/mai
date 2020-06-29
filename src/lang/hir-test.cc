@@ -26,12 +26,12 @@ TEST_F(HIRTest, Operators) {
 }
 
 TEST_F(HIRTest, UsedChain) {
-    const HOperator *op = factory_.ConstantWord32(1);
+    const HOperator *op = factory_.Constant32(1);
     HNode *k1 = HNode::New(&arena_, 0, HTypes::Word32, op, 0, 0, nullptr);
-    ASSERT_EQ(HConstant, k1->opcode());
-    op = factory_.ConstantWord32(2);
+    ASSERT_EQ(HConstant32, k1->opcode());
+    op = factory_.Constant32(2);
     HNode *k2 = HNode::New(&arena_, 0, HTypes::Word32, op, 0, 0, nullptr);
-    ASSERT_EQ(HConstant, k2->opcode());
+    ASSERT_EQ(HConstant32, k2->opcode());
     
     ASSERT_EQ(0, k1->UseCount());
     ASSERT_EQ(0, k2->UseCount());
@@ -40,9 +40,9 @@ TEST_F(HIRTest, UsedChain) {
     HNode *inputs[] = {k1, k2};
     HNode *phi = HNode::New(&arena_, 0, HTypes::Word32, op, 8, 2, inputs);
     ASSERT_EQ(HPhi, phi->opcode());
-    ASSERT_EQ(HConstant, phi->input(0)->opcode());
+    ASSERT_EQ(HConstant32, phi->input(0)->opcode());
     EXPECT_EQ(1, HOperatorWith<uint32_t>::Data(phi->input(0)));
-    ASSERT_EQ(HConstant, phi->input(1)->opcode());
+    ASSERT_EQ(HConstant32, phi->input(1)->opcode());
     EXPECT_EQ(2, HOperatorWith<uint32_t>::Data(phi->input(1)));
     
     {
@@ -60,7 +60,7 @@ TEST_F(HIRTest, AppendInput) {
     const HOperator *op = factory_.Phi(0/*control_in*/, 6/*value_in*/);
     HNode *phi = HNode::New(&arena_, 0, HTypes::Word32, op, 4, 0, nullptr);
     for (int i = 0; i < phi->inputs_capacity(); i++) {
-        op = factory_.ConstantWord32(i);
+        op = factory_.Constant32(i);
         HNode *input = HNode::New(&arena_, 0, HTypes::Word32, op, 0, 0, nullptr);
         phi->AppendInput(&arena_, input);
     }
@@ -68,7 +68,7 @@ TEST_F(HIRTest, AppendInput) {
     ASSERT_EQ(4, phi->inputs_capacity());
     ASSERT_EQ(4, phi->inputs_size());
     
-    op = factory_.ConstantWord32(999);
+    op = factory_.Constant32(999);
     HNode *input = HNode::New(&arena_, 0, HTypes::Word32, op, 0, 0, nullptr);
     phi->AppendInput(&arena_, input);
     ASSERT_EQ(8, phi->inputs_capacity());
@@ -83,7 +83,7 @@ TEST_F(HIRTest, AppendInput) {
 TEST_F(HIRTest, HGraphSanity) {
     HGraph *graph = new (&arena_) HGraph(&arena_);
     HNode *begin = graph->NewNode(factory_.Begin(), HTypes::Void);
-    HNode *value = graph->NewNode(factory_.ConstantWord32(1), HTypes::Word32);
+    HNode *value = graph->NewNode(factory_.Constant32(1), HTypes::Word32);
     HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, begin, value);
     //HOperator::UpdateValueIn(end->op(), 1);
 
@@ -117,8 +117,8 @@ TEST_F(HIRTest, HGraphSimpleBranch) {
     HNode *if_true = graph->NewNode(factory_.IfTrue(0), HTypes::Void, branch);
     HNode *if_false = graph->NewNode(factory_.IfFalse(0), HTypes::Void, branch);
     HNode *merge = graph->NewNode(factory_.Merge(2), HTypes::Void, if_true, if_false);
-    HNode *k1 = graph->NewNode(factory_.ConstantWord32(1), HTypes::Word32);
-    HNode *k2 = graph->NewNode(factory_.ConstantWord32(2), HTypes::Word32);
+    HNode *k1 = graph->NewNode(factory_.Constant32(1), HTypes::Word32);
+    HNode *k2 = graph->NewNode(factory_.Constant32(2), HTypes::Word32);
     HNode *phi = graph->NewNode(factory_.Phi(1, 2), HTypes::Word32, branch, k1, k2);
     HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, merge, phi);
  
@@ -142,8 +142,8 @@ TEST_F(HIRTest, HGraphSimpleForLoop) {
     HNode *begin = graph->NewNode(factory_.Begin());
     HNode *loop = graph->NewNode(factory_.Loop(), HTypes::Void, begin);
     HNode *n = graph->NewNode(factory_.Parameter(0), HTypes::Int32);
-    HNode *zero = graph->NewNode(factory_.ConstantWord32(0), HTypes::Int32);
-    HNode *one = graph->NewNode(factory_.ConstantWord32(1), HTypes::Int32);
+    HNode *zero = graph->NewNode(factory_.Constant32(0), HTypes::Int32);
+    HNode *one = graph->NewNode(factory_.Constant32(1), HTypes::Int32);
     HNode *phi = graph->NewNodeReserved(factory_.Phi(1, 2), HTypes::Int32, 4);
     HNode *add = graph->NewNode(factory_.Add32(), HTypes::Int32, phi, one);
     phi->AppendInput(&arena_, loop);
@@ -193,6 +193,19 @@ TEST_F(HIRTest, HGraphSimpleForLoop) {
 
     EXPECT_EQ(1, loop->op()->control_in());
     EXPECT_EQ(begin, loop->input(0));
+}
+
+TEST_F(HIRTest, LoadStoreFieldAndFrameState) {
+    HGraph *graph = new (&arena_) HGraph(&arena_);
+    HNode *begin = graph->NewNode(factory_.Begin());
+    HNode *k1 = graph->NewNode(factory_.Constant32(1));
+    HNode *frame_state = graph->NewNode(factory_.FrameState(0, 1, 1, 64), HTypes::Void, k1);
+    HNode *p1 = graph->NewNode(factory_.Parameter(0), HTypes::Any);
+    HNode *store_field = graph->NewNode(factory_.StoreField32(1, 1, 32), HTypes::Void, begin, p1, frame_state);
+    HNode *end = graph->NewNode(factory_.End(1, 0), HTypes::Void, store_field);
+    
+    graph->set_start(begin);
+    graph->set_end(end);
 }
 
 } // namespace lang
