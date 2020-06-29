@@ -33,8 +33,8 @@ TEST_F(HIRTest, UsedChain) {
     HNode *k2 = HNode::New(&arena_, 0, HTypes::Word32, op, 0, 0, nullptr);
     ASSERT_EQ(HConstant, k2->opcode());
     
-    ASSERT_EQ(0, k1->UsedCount());
-    ASSERT_EQ(0, k2->UsedCount());
+    ASSERT_EQ(0, k1->UseCount());
+    ASSERT_EQ(0, k2->UseCount());
     
     op = factory_.Phi(0/*control_in*/, 2/*value_in*/);
     HNode *inputs[] = {k1, k2};
@@ -46,11 +46,11 @@ TEST_F(HIRTest, UsedChain) {
     EXPECT_EQ(2, HOperatorWith<uint32_t>::Data(phi->input(1)));
     
     {
-        HNode::UsedIterator iter(k1);
+        HNode::UseIterator iter(k1);
         iter.SeekToFirst();
         ASSERT_EQ(phi, *iter);
     } {
-        HNode::UsedIterator iter(k2);
+        HNode::UseIterator iter(k2);
         iter.SeekToFirst();
         ASSERT_EQ(phi, *iter);
     }
@@ -74,7 +74,7 @@ TEST_F(HIRTest, AppendInput) {
     ASSERT_EQ(8, phi->inputs_capacity());
     ASSERT_EQ(5, phi->inputs_size());
     
-    HNode::UsedIterator iter(phi->input(0));
+    HNode::UseIterator iter(phi->input(0));
     iter.SeekToFirst();
     ASSERT_TRUE(iter.Valid());
     EXPECT_EQ(phi, *iter);
@@ -102,8 +102,8 @@ TEST_F(HIRTest, HGraphSimpleAdd) {
     graph->set_start(begin);
     graph->set_end(end);
 
-    ASSERT_EQ(begin, end->GetControlInput(0));
-    ASSERT_EQ(add, end->GetValueInput(0));
+    ASSERT_EQ(begin, NodeOps::GetControlInput(end, 0));
+    ASSERT_EQ(add, NodeOps::GetControlInput(end, 0));
     ASSERT_EQ(2, add->op()->value_in());
     ASSERT_EQ(0, add->op()->control_in());
 }

@@ -43,6 +43,10 @@
 		23347C81225791B400ABAB3F /* thread-pool-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23347C80225791B400ABAB3F /* thread-pool-test.cc */; };
 		2339B3F123E5B48300B07772 /* function-template-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2339B3F023E5B48300B07772 /* function-template-x64.cc */; };
 		2339B3F423E5B90700B07772 /* macro-assembler-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2339B3F323E5B90700B07772 /* macro-assembler-x64.cc */; };
+		2342F20224A83B5A00DCD9C9 /* hir-reducer.h in Headers */ = {isa = PBXBuildFile; fileRef = 2342F20124A83B5A00DCD9C9 /* hir-reducer.h */; };
+		2342F20424A83B7400DCD9C9 /* hir-reducer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2342F20324A83B7400DCD9C9 /* hir-reducer.cc */; };
+		2342F20524A83B7400DCD9C9 /* hir-reducer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2342F20324A83B7400DCD9C9 /* hir-reducer.cc */; };
+		2342F20624A83B7400DCD9C9 /* hir-reducer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2342F20324A83B7400DCD9C9 /* hir-reducer.cc */; };
 		2349FDF522A4BA76001861E0 /* sha256.c in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF422A4BA76001861E0 /* sha256.c */; };
 		2349FDF722A4BAA0001861E0 /* sha256-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2349FDF622A4BAA0001861E0 /* sha256-test.cc */; };
 		2354C9E4243048E900E0B9BE /* garbage-collector.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2354C9E3243048E900E0B9BE /* garbage-collector.cc */; };
@@ -358,6 +362,7 @@
 		23EF3A7C2484DCDD00B55F88 /* gflags_completions.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23EF3A792484DCDD00B55F88 /* gflags_completions.cc */; };
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
 		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
+		23F9273A24A9CD360054CAF4 /* hir-reducer-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F9273924A9CD360054CAF4 /* hir-reducer-test.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -493,6 +498,8 @@
 		2339B3F223E5B62000B07772 /* macro-assembler-x64.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "macro-assembler-x64.h"; sourceTree = "<group>"; };
 		2339B3F323E5B90700B07772 /* macro-assembler-x64.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "macro-assembler-x64.cc"; sourceTree = "<group>"; };
 		2339B3F523E5BC2A00B07772 /* stack-frame.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "stack-frame.h"; sourceTree = "<group>"; };
+		2342F20124A83B5A00DCD9C9 /* hir-reducer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hir-reducer.h"; sourceTree = "<group>"; };
+		2342F20324A83B7400DCD9C9 /* hir-reducer.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-reducer.cc"; sourceTree = "<group>"; };
 		234372C921998C0A00427E83 /* write-ahead-log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "write-ahead-log.h"; sourceTree = "<group>"; };
 		2349FDF322A4BA76001861E0 /* sha256.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sha256.h; sourceTree = "<group>"; };
 		2349FDF422A4BA76001861E0 /* sha256.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sha256.c; sourceTree = "<group>"; };
@@ -724,6 +731,8 @@
 		23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-v2.cc"; sourceTree = "<group>"; };
 		23F6A02F22266E1A00AE5DB6 /* decimal-v2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "decimal-v2.h"; sourceTree = "<group>"; };
 		23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "decimal-test-v2.cc"; sourceTree = "<group>"; };
+		23F9273924A9CD360054CAF4 /* hir-reducer-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-reducer-test.cc"; sourceTree = "<group>"; };
+		23F9273B24A9D62C0054CAF4 /* hir-reducers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hir-reducers.h"; sourceTree = "<group>"; };
 		23FB4B502195708900B2829B /* table-test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "table-test.h"; sourceTree = "<group>"; };
 		23FB4B51219570CD00B2829B /* sst-table-builder-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "sst-table-builder-test.cc"; sourceTree = "<group>"; };
 		23FB4B5321957CDF00B2829B /* key-filter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "key-filter.h"; sourceTree = "<group>"; };
@@ -916,7 +925,10 @@
 				23EF3A0F2484D55600B55F88 /* main.cc */,
 				237D442D248E1F5800D46F99 /* hir.h */,
 				237D442E248E1F9300D46F99 /* hir.cc */,
+				2342F20124A83B5A00DCD9C9 /* hir-reducer.h */,
+				2342F20324A83B7400DCD9C9 /* hir-reducer.cc */,
 				23098D932492321F0074634B /* hir-graph-generator.cc */,
+				23F9273B24A9D62C0054CAF4 /* hir-reducers.h */,
 			);
 			name = lang;
 			path = src/lang;
@@ -948,6 +960,7 @@
 				23DC71912435D9DA00E5613E /* marking-compact-test.cc */,
 				23EF3A02247F6E9500B55F88 /* garbage-collector-test.cc */,
 				23098D91248E6DA40074634B /* hir-test.cc */,
+				23F9273924A9CD360054CAF4 /* hir-reducer-test.cc */,
 				236C7E0B2499B5FB00D03042 /* simplified-code-generator-test.cc */,
 				236C7E12249A659400D03042 /* compilation-worker-test.cc */,
 			);
@@ -1386,6 +1399,7 @@
 				23344CDF21EF0764006BC6E4 /* env.h in Headers */,
 				23344CE021EF0764006BC6E4 /* error.h in Headers */,
 				23344CE121EF0764006BC6E4 /* helper.h in Headers */,
+				2342F20224A83B5A00DCD9C9 /* hir-reducer.h in Headers */,
 				23344CE221EF0764006BC6E4 /* iterator.h in Headers */,
 				23344CE321EF0764006BC6E4 /* options.h in Headers */,
 				23344CE421EF0764006BC6E4 /* proxied-db.h in Headers */,
@@ -1682,6 +1696,7 @@
 				230510BB23DF368900B89A7C /* scheduler.cc in Sources */,
 				2379A25223E31A1F003067E6 /* coroutine.cc in Sources */,
 				237D442F248E1F9300D46F99 /* hir.cc in Sources */,
+				23F9273A24A9CD360054CAF4 /* hir-reducer-test.cc in Sources */,
 				2364B33921E451F9008519AE /* error-test.cc in Sources */,
 				2364B33A21E451F9008519AE /* hash-map-v1-test.cc in Sources */,
 				2364B33B21E451F9008519AE /* key-boundle-test.cc in Sources */,
@@ -1700,6 +1715,7 @@
 				23219F0523E9B021006CF83B /* bytecode-array-builder.cc in Sources */,
 				2364B34321E451F9008519AE /* filter-block-builder-test.cc in Sources */,
 				2364B34421E451F9008519AE /* sst-table-builder-test.cc in Sources */,
+				2342F20424A83B7400DCD9C9 /* hir-reducer.cc in Sources */,
 				2364B34521E451F9008519AE /* sst-table-reader-test.cc in Sources */,
 				236EA78D23D6FC620071047C /* metadata.cc in Sources */,
 				2349FDF522A4BA76001861E0 /* sha256.c in Sources */,
@@ -1753,6 +1769,7 @@
 				235C1CDC21D223BF0070A049 /* write-batch-with-index.cc in Sources */,
 				23DE183321D088D000479C23 /* varint-encoding.cc in Sources */,
 				23DE183421D088D000479C23 /* spin-locking.cc in Sources */,
+				2342F20524A83B7400DCD9C9 /* hir-reducer.cc in Sources */,
 				23DE183621D088D000479C23 /* slice.cc in Sources */,
 				23DE183721D088D000479C23 /* hash.cc in Sources */,
 				23DE183821D088D000479C23 /* arenas.cc in Sources */,
@@ -1914,6 +1931,7 @@
 				23EF3A282484D5D600B55F88 /* type-checker.cc in Sources */,
 				23EF3A292484D5D600B55F88 /* bytecode-generator.cc in Sources */,
 				23EF3A2A2484D5D600B55F88 /* stable-space-builder.cc in Sources */,
+				2342F20624A83B7400DCD9C9 /* hir-reducer.cc in Sources */,
 				23EF3A2B2484D5D600B55F88 /* object-visitor.cc in Sources */,
 				23EF3A2C2484D5D600B55F88 /* pgo.cc in Sources */,
 				23EF3A2D2484D5D600B55F88 /* garbage-collector.cc in Sources */,

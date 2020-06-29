@@ -13,14 +13,16 @@ namespace lang {
 
 HNode::HNode(base::Arena *arena, int vid, HType type, const HOperator *op,
              uint32_t inputs_capacity, uint32_t inputs_size, HNode **inputs)
-    : HValue(vid, 0, type)
+    : HValue(vid, type)
     , op_(op)
     , is_inline_inputs_(1)
     , inputs_capacity_(inputs_capacity)
     , inputs_size_(inputs_size) {
+    use_.next_ = &use_;
+    use_.prev_ = &use_;
     for (int i = 0; i < inputs_size_; i++) {
         inline_inputs_[i] = inputs[i];
-        BeUsed(arena, inline_inputs_[i]);
+        inputs[i]->AppendUser(arena, i, this);
     }
 }
 
@@ -43,27 +45,25 @@ void HNode::AppendInput(base::Arena *arena, HNode *node) {
     }
     
     if (is_inline_inputs_) {
+        node->AppendUser(arena, inputs_size_, this);
         inline_inputs_[inputs_size_++] = node;
     } else {
+        node->AppendUser(arena, out_of_line_inputs_->inputs_size_, this);
         out_of_line_inputs_->inputs_[out_of_line_inputs_->inputs_size_++] = node;
     }
-    BeUsed(arena, node);
+    
 }
 
-HNode::Used *HNode::BeUsed(base::Arena *arena, HNode *use) {
-    if (!use->used_) {
-        use->used_ = new (arena) Used{};
-        use->used_->next_ = use->used_;
-        use->used_->prev_ = use->used_;
-    }
-    if (Used *u = use->FindUsed(this)) {
+HNode::Use *HNode::AppendUser(base::Arena *arena, int input_index, HNode *user) {
+    if (Use *u = FindUse(user)) {
         return u;
     }
 
-    Used *used = new (arena) Used{};
-    used->user  = this;
-    QUEUE_INSERT_TAIL(use->used_, used);
-    return used;
+    Use *use = new (arena) Use{};
+    use->user        = user;
+    use->input_index = input_index;
+    QUEUE_INSERT_TAIL(&use_, use);
+    return use;
 }
 
 void HOperatorFactory::Initialize() {

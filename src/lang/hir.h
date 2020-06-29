@@ -340,7 +340,7 @@ public:
     }
     
     const HOperator *LoopExit(int control_in) {
-        return new (arena_) HOperator(HLoop, 0, control_in, 0, 0, 0, 0, 0);
+        return new (arena_) HOperator(HLoopExit, 0, control_in, 0, 0, 0, 0, 0);
     }
 
     const HOperator *Guard(uint64_t hint) {
@@ -379,28 +379,28 @@ private:
 class HValue {
 public:
     DEF_VAL_GETTER(int, vid);
-    DEF_VAL_GETTER(int, hint);
     DEF_VAL_GETTER(HType, type);
+    DEF_VAL_PROP_RW(uint32_t, mark);
 
     DISALLOW_IMPLICIT_CONSTRUCTORS(HValue);
 protected:
-    HValue(int vid, int hint, HType type)
+    HValue(int vid, HType type)
         : vid_(vid)
-        , hint_(hint)
         , type_(type) {}
 
     int vid_;
-    int hint_;
     HType type_;
+    uint32_t mark_ = 0;
 }; // class HValue
 
 
 class HNode : public HValue {
 public:
-    struct Used  : public base::ArenaObject {
-        Used *next_;
-        Used *prev_;
+    struct Use : public base::ArenaObject {
+        Use *next_;
+        Use *prev_;
         HNode *user;
+        int input_index;
     }; // struct Used
 
     static inline HNode *New(base::Arena *arena, int vid, HType type, const HOperator *op,
@@ -414,38 +414,22 @@ public:
     
     static HNode *Clone(base::Arena *arena, HNode *src, int inputs_capacity) {
         for (int i = 0; i < src->inputs_size_; i++) {
-            src->input(i)->Unused(src);
+            src->input(i)->RemoveUser(src);
         }
         HNode *dest = New(arena, src->vid(), src->type(), src->op(), inputs_capacity,
                           src->inputs_size_, src->inputs());
-        dest->used_ = src->used_;
+        dest->use_ = src->use_;
         return dest;
     }
     
     bool IsDead() const { return inputs_size() > 0 && inputs()[0] == nullptr; }
     
     void Kill() { ::memset(inputs(), 0, sizeof(*inputs()) * inputs_size()); }
-    
-    HNode *GetControlInput(int index) const {
-        DCHECK_GE(index, 0);
-        DCHECK_LT(index, op()->control_in());
-        return input(index);
-    }
-    
-    HNode *GetValueInput(int index) const {
-        DCHECK_GE(index, 0);
-        DCHECK_LT(index, op()->value_in());
-        return input(op()->control_in() + index);
-    }
-    
-    HNode *GetEffectInput(int index) const {
-        DCHECK_GE(index, 0);
-        DCHECK_LT(index, op()->effect_in());
-        return input(op()->control_in() + op()->effect_in() + index);
-    }
 
     DEF_PTR_GETTER(const HOperator, op);
     HOperator::Value opcode() const { return op_->value(); }
+    
+    View<HNode*> inputs_view() const { return {inputs(), static_cast<size_t>(inputs_size())}; }
     
     HNode **inputs() {
         return is_inline_inputs_ ? inline_inputs_ : out_of_line_inputs_->inputs_;
@@ -485,68 +469,111 @@ public:
     
     void ReplaceInput(base::Arena *arena, int i, HNode *node) {
         HNode *old = input(i);
+        if (old == node) {
+            return;
+        }
+        Use *use = DCHECK_NOTNULL(old->FindUse(this));
+        old->RemoveUse(use);
         inputs()[i] = node;
-        BeUsed(arena, node);
-        old->Unused(this);
+        DCHECK_EQ(i, use->input_index);
+        DCHECK_EQ(this, use->user);
+        node->AppendUse(use);
     }
     
     void InsertInput(base::Arena *arena, int after, HNode *node);
     
     // TODO:
     bool Verify() { return true; }
-
-    Used *BeUsed(base::Arena *arena, HNode *used);
     
-    Used *FindUsed(HNode *user) const {
-        for (Used *u = DCHECK_NOTNULL(used_)->next_; u != used_; u = u->next_) {
+    void AppendUse(Use *use) { QUEUE_INSERT_TAIL(&use_, use); }
+    
+    void RemoveUse(Use *use) {
+        use = DCHECK_NOTNULL(FindUse(use));
+        QUEUE_REMOVE(use);
+    }
+
+    Use *AppendUser(base::Arena *arena, int input_index, HNode *used);
+    
+    void RemoveUser(HNode *user) {
+        Use *u = DCHECK_NOTNULL(FindUse(user));
+        QUEUE_REMOVE(u);
+    }
+    
+    Use *FindUse(HNode *user) const {
+        for (Use *u = use_.next_; u != &use_; u = u->next_) {
             if (u->user == user) {
                 return u;
             }
         }
         return nullptr;
     }
-
-    void Unused(HNode *user) {
-        Used *u = DCHECK_NOTNULL(FindUsed(user));
-        QUEUE_REMOVE(u);
-    }
     
-    int UsedCount() {
+    Use *FindUse(Use *use) const {
+        for (Use *u = use_.next_; u != &use_; u = u->next_) {
+            if (u == use) {
+                return u;
+            }
+        }
+        return nullptr;
+    }
+
+    int UseCount() {
         int n = 0;
-        UsedIterator iter(this);
+        UseIterator iter(this);
         for (iter.SeekToFirst(); iter.Valid(); iter.Next())  {
             n++;
         }
         return n;
     }
     
-    class UsedIterator {
+    class UseIterator {
     public:
-        UsedIterator(HNode *owns): owns_(owns) {}
-        void SeekToFirst() { used_ = !owns_->used_ ? nullptr : owns_->used_->next_; }
-        void SeekToLast() { used_ = !owns_->used_ ? nullptr : owns_->used_->prev_; }
+        UseIterator(HNode *owns): owns_(owns) {}
+        void SeekToFirst() { use_ = owns_->use_.next_; }
+        void SeekToLast() { use_ = owns_->use_.prev_; }
         void Next() {
             DCHECK(Valid());
-            used_ = used_->next_;
+            use_ = use_->next_;
         }
         void Prev() {
             DCHECK(Valid());
-            used_ = used_->prev_;
+            use_ = use_->prev_;
         }
         void Remove() {
             DCHECK(Valid());
-            QUEUE_REMOVE(used_);
+            QUEUE_REMOVE(use_);
         }
-        bool Valid() const { return used_ && used_ != owns_->used_; }
+        bool Valid() const { return use_ && use_ != &owns_->use_; }
         HNode *operator *() { return user(); }
         HNode *operator -> () { return user(); }
         HNode *user() const {
             DCHECK(Valid());
-            return used_->user;
+            return use_->user;
+        }
+        HNode *from() const { return user(); }
+        HNode *to() const { return use_->user->input(use_->input_index); }
+        
+        void set_to(HNode *new_to) { use_->user->inputs()[use_->input_index] = new_to; }
+        
+        bool UpdateTo(HNode *new_to) {
+            DCHECK(Valid());
+            HNode *old_to = to();
+            if (old_to != new_to) {
+                Use *next = use_->next_;
+                if (old_to) {
+                    old_to->RemoveUse(use_);
+                }
+                set_to(new_to);
+                if (new_to) {
+                    new_to->AppendUse(use_);
+                }
+                use_ = next;
+            }
+            return old_to != new_to;
         }
     private:
         HNode *const owns_;
-        Used *used_ = nullptr;
+        Use *use_ = nullptr;
     }; // class UsedIterator
     
     DISALLOW_IMPLICIT_CONSTRUCTORS(HNode);
@@ -577,7 +604,7 @@ private:
     uint32_t padding0_         : 3;
     uint32_t inputs_capacity_  : 14;
     uint32_t inputs_size_      : 14;
-    Used *used_ = nullptr;
+    Use use_;
     union {
         OutOfLineInputs *out_of_line_inputs_;
         HNode *inline_inputs_[1];
@@ -605,6 +632,8 @@ public:
     DEF_PTR_PROP_RW(HNode, start);
     DEF_PTR_PROP_RW(HNode, end);
     DEF_VAL_GETTER(int, next_node_id);
+
+    int node_count() const { return next_node_id_; }
     
     HNode *NewNode(const HOperator *op) {
         return NewNodeWithInputs(op, HTypes::Void, 0, nullptr);
@@ -651,6 +680,57 @@ private:
     int next_node_id_ = 0;
 }; // class HGraph
 
+
+// 0, 4
+template<class T, int M, int N>
+class HNodeState final {
+public:
+    static constexpr uint32_t kMask = ((1u << N) - 1) << M;
+    
+    static_assert(M < N && M < 32 && N < 32, "incorrect M and N");
+    
+    inline HNodeState() = default;
+    
+    inline void Set(HNode *node, T state) const {
+        node->set_mark((node->mark() & ~kMask) | (static_cast<uint32_t>(state) << M));
+    }
+    
+    inline T Get(const HNode *node) const { return static_cast<T>(GetU32(node)); }
+    
+    inline uint32_t GetU32(const HNode *node) const { return (node->mark() & kMask) >> M; }
+}; // class HNodeState
+
+
+struct NodeOps {
+    
+    static HNode *GetControlInput(const HNode *node, int index) {
+        DCHECK_GE(index, 0);
+        DCHECK_LT(index, node->op()->control_in());
+        return node->input(GetControlIndex(node) + index);
+    }
+    
+    static HNode *GetValueInput(const HNode *node, int index) {
+        DCHECK_GE(index, 0);
+        DCHECK_LT(index, node->op()->value_in());
+        return node->input(GetValueIndex(node) + index);
+    }
+    
+    static HNode *GetEffectInput(const HNode *node, int index) {
+        DCHECK_GE(index, 0);
+        DCHECK_LT(index, node->op()->effect_in());
+        return node->input(GetEffectIndex(node) + index);
+    }
+    
+    static int GetControlIndex(const HNode *node) { return 0; }
+    
+    static int GetValueIndex(const HNode *node) { return node->op()->control_in(); }
+    
+    static int GetEffectIndex(const HNode *node) {
+        return GetValueIndex(node) + node->op()->value_in();
+    }
+    
+    DISALLOW_ALL_CONSTRUCTORS(NodeOps);
+};
 
 template<class T>
 /*static*/ inline T HOperatorWith<T>::Data(const HNode *node) {
