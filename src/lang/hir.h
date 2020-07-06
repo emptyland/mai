@@ -11,6 +11,7 @@ namespace mai {
 
 namespace lang {
 
+class Class;
 class CompilationInfo;
 class HOperatorFactory;
 class HOperator;
@@ -78,6 +79,14 @@ struct HTypes {
 };
 
 #define DECLARE_HIR_OPCODES(V) \
+    DECLARE_HIR_CONTROL(V) \
+    DECLARE_HIR_CONSTANT(V) \
+    DECLARE_HIR_LOAD_STORE(V) \
+    DECLARE_HIR_BINARY_ARITHMETIC(V) \
+    DECLARE_HIR_COMPAROR(V) \
+    DECLARE_HIR_CALLING(V)
+
+#define DECLARE_HIR_CONTROL(V) \
     V(Begin) \
     V(End) \
     V(Return) \
@@ -92,119 +101,146 @@ struct HTypes {
     V(Guard) \
     V(Argument) \
     V(Parameter) \
-    V(CheckStack) \
-    DECLARE_HIR_CONSTANT(V) \
-    DECLARE_HIR_LOAD_STORE(V) \
-    DECLARE_HIR_BINARY_ARITHMETIC(V) \
-    DECLARE_HIR_COMPAROR(V) \
-    DECLARE_HIR_CALLING(V)
+    V(CheckStack)
 
 #define DECLARE_HIR_CONSTANT(V) \
-    V(Constant32) \
-    V(Constant64) \
-    V(ConstantString) \
-    V(FConstant32) \
-    V(FConstant64)
+    V(Word32Constant) \
+    V(Word64Constant) \
+    V(StringConstant) \
+    V(Float32Constant) \
+    V(Float64Constant)
 
 #define DECLARE_HIR_BINARY_ARITHMETIC(V) \
-    V(Add8) \
-    V(Add16) \
-    V(Add32) \
-    V(Add64) \
-    V(FAdd32) \
-    V(FAdd64) \
-    V(Sub8) \
-    V(Sub16) \
-    V(Sub32) \
-    V(Sub64) \
-    V(FSub32) \
-    V(FSub64) \
-    V(Mul8) \
-    V(Mul16) \
-    V(Mul32) \
-    V(Mul64) \
-    V(IMul8) \
-    V(IMul16) \
-    V(IMul32) \
-    V(IMul64) \
-    V(FMul32) \
-    V(FMul64) \
-    V(Div8) \
-    V(Div16) \
-    V(Div32) \
-    V(Div64) \
-    V(IDiv8) \
-    V(IDiv16) \
-    V(IDiv32) \
-    V(IDiv64) \
-    V(FDiv32) \
-    V(FDiv64) \
-    V(Mod8) \
-    V(Mod16) \
-    V(Mod32) \
-    V(Mod64)
+    V(Word8Add) \
+    V(Word16Add) \
+    V(Word32Add) \
+    V(Word64Add) \
+    V(Float32Add) \
+    V(Float64Add) \
+    V(Word8Sub) \
+    V(Word16Sub) \
+    V(Word32Sub) \
+    V(Word64Sub) \
+    V(Float32Sub) \
+    V(Float64Sub) \
+    V(Int8Mul) \
+    V(Int16Mul) \
+    V(Int32Mul) \
+    V(Int64Mul) \
+    V(UInt8Mul) \
+    V(UInt16Mul) \
+    V(UInt32Mul) \
+    V(UInt64Mul) \
+    V(Float32Mul) \
+    V(Float64Mul) \
+    V(Int8Div) \
+    V(Int16Div) \
+    V(Int32Div) \
+    V(Int64Div) \
+    V(UInt8Div) \
+    V(UInt16Div) \
+    V(UInt32Div) \
+    V(UInt64Div) \
+    V(Float32Div) \
+    V(Float64Div) \
+    V(Word8Mod) \
+    V(Word16Mod) \
+    V(Word32Mod) \
+    V(Word64Mod)
 
 #define DECLARE_HIR_COMPAROR(V) \
-    V(Equal8) \
-    V(NotEqual8) \
-    V(LessThan8) \
-    V(LessOrEqual8) \
-    V(GreaterThan8) \
-    V(GreaterOrEqual8) \
-    V(Equal16) \
-    V(NotEqual16) \
-    V(LessThan16) \
-    V(LessOrEqual16) \
-    V(GreaterThan16) \
-    V(GreaterOrEqual16) \
-    V(Equal32) \
-    V(NotEqual32) \
-    V(LessThan32) \
-    V(LessOrEqual32) \
-    V(GreaterThan32) \
-    V(GreaterOrEqual32) \
-    V(Equal64) \
-    V(NotEqual64) \
-    V(LessThan64) \
-    V(LessOrEqual64) \
-    V(GreaterThan64) \
-    V(GreaterOrEqual64) \
-    V(FEqual32) \
-    V(FNotEqual32) \
-    V(FLessThan32) \
-    V(FLessOrEqual32) \
-    V(FGreaterThan32) \
-    V(FGreaterOrEqual32) \
-    V(FEqual64) \
-    V(FNotEqual64) \
-    V(FLessThan64) \
-    V(FLessOrEqual64) \
-    V(FGreaterThan64) \
-    V(FGreaterOrEqual64) \
+    V(Word8Equal) \
+    V(Word8NotEqual) \
+    V(Word8LessThan) \
+    V(Word8LessOrEqual) \
+    V(Word8GreaterThan) \
+    V(Word8GreaterOrEqual) \
+    V(Word16Equal) \
+    V(Word16NotEqual) \
+    V(Word16LessThan) \
+    V(Word16LessOrEqual) \
+    V(Word16GreaterThan) \
+    V(Word16GreaterOrEqual) \
+    V(Word32Equal) \
+    V(Word32NotEqual) \
+    V(Word32LessThan) \
+    V(Word32LessOrEqual) \
+    V(Word32GreaterThan) \
+    V(Word32GreaterOrEqual) \
+    V(Word64Equal) \
+    V(Word64NotEqual) \
+    V(Word64LessThan) \
+    V(Word64LessOrEqual) \
+    V(Word64GreaterThan) \
+    V(Word64GreaterOrEqual) \
+    V(Float32Equal) \
+    V(Float32NotEqual) \
+    V(Float32LessThan) \
+    V(Float32LessOrEqual) \
+    V(Float32GreaterThan) \
+    V(Float32GreaterOrEqual) \
+    V(Float64Equal) \
+    V(Float64NotEqual) \
+    V(Float64LessThan) \
+    V(Float64LessOrEqual) \
+    V(Float64GreaterThan) \
+    V(Float64GreaterOrEqual) \
     V(StringEQ) \
     V(StringNE) \
     V(StringLT) \
     V(StringLE) \
     V(StringGT) \
-    V(StringGE) \
+    V(StringGE)
+
 
 #define DECLARE_HIR_LOAD_STORE(V) \
     V(LoadField) \
-    V(LoadField8) \
-    V(LoadField16) \
-    V(LoadField32) \
-    V(LoadField64) \
+    V(LoadWord8Field) \
+    V(LoadWord16Field) \
+    V(LoadWord32Field) \
+    V(LoadWord64Field) \
+    V(UncheckedLoadField) \
+    V(UncheckedLoadWord8Field) \
+    V(UncheckedLoadWord16Field) \
+    V(UncheckedLoadWord32Field) \
+    V(UncheckedLoadWord64Field) \
     V(StoreField) \
-    V(StoreField8) \
-    V(StoreField16) \
-    V(StoreField32) \
-    V(StoreField64)
+    V(StoreWord8Field) \
+    V(StoreWord16Field) \
+    V(StoreWord32Field) \
+    V(StoreWord64Field) \
+    V(UncheckedStoreField) \
+    V(UncheckedStoreWord8Field) \
+    V(UncheckedStoreWord16Field) \
+    V(UncheckedStoreWord32Field) \
+    V(UncheckedStoreWord64Field) \
+    V(LoadArrayAt) \
+    V(LoadWord8ArrayAt) \
+    V(LoadWord16ArrayAt) \
+    V(LoadWord32ArrayAt) \
+    V(LoadWord64ArrayAt) \
+    V(UncheckedLoadArrayAt) \
+    V(UncheckedLoadWord8ArrayAt) \
+    V(UncheckedLoadWord16ArrayAt) \
+    V(UncheckedLoadWord32ArrayAt) \
+    V(UncheckedLoadWord64ArrayAt) \
+    V(StoreArrayAt) \
+    V(StoreWord8ArrayAt) \
+    V(StoreWord16ArrayAt) \
+    V(StoreWord32ArrayAt) \
+    V(StoreWord64ArrayAt) \
+    V(UncheckedStoreArrayAt) \
+    V(UncheckedStoreWord8ArrayAt) \
+    V(UncheckedStoreWord16ArrayAt) \
+    V(UncheckedStoreWord32ArrayAt) \
+    V(UncheckedStoreWord64ArrayAt)
 
 #define DECLARE_HIR_CALLING(V) \
     V(CallInline) \
     V(CallBytecode) \
     V(CallVtab) \
-    V(CallNative)
+    V(CallNative) \
+    V(NewObject)
 
 enum HOperatorCode {
 #define DEFINE_CODE(name, ...) H##name,
@@ -218,16 +254,6 @@ class HOperator : public base::ArenaObject {
 public:
     using Value = HOperatorCode;
     
-    static constexpr uint64_t kWordBits = 1;
-    static constexpr uint64_t kSignedBits = 2;
-    static constexpr uint64_t kUnsignedBits = 3;
-    static constexpr uint64_t kFloatingBits = 4;
-    static constexpr uint64_t kSimpledMask = 0xf;
-    
-    static constexpr uint64_t kLikelyBits = 0x10;
-    static constexpr uint64_t kUnlikelyBits = 0x20;
-    static constexpr uint64_t kConditionMask = 0xf0;
-    
     DEF_VAL_GETTER(Value, value);
     DEF_VAL_GETTER(int, control_in);
     DEF_VAL_GETTER(int, effect_in);
@@ -235,16 +261,6 @@ public:
     DEF_VAL_GETTER(int, control_out);
     DEF_VAL_GETTER(int, effect_out);
     DEF_VAL_GETTER(int, value_out);
-    
-    bool WordHint() const { return (properties_ & kSimpledMask) == kWordBits; }
-    bool SignedHint() const { return (properties_ & kSimpledMask) == kSignedBits; }
-    bool UnsignedHint() const { return (properties_ & kSimpledMask) == kUnsignedBits; }
-    bool FloatingHint() const { return (properties_ & kSimpledMask) == kFloatingBits; }
-    
-    bool LikelyHint() const { return ConditionHint() == kLikelyBits; }
-    bool UnlikelyHint() const { return ConditionHint() == kUnlikelyBits; }
-    
-    uint64_t ConditionHint() const { return (properties_ & kConditionMask) >> 4; }
     
     const char *name() const { return kNames[value_]; }
     
@@ -376,20 +392,20 @@ public:
         return new (arena_) HOperatorWith<int>(HParameter, 0, 0, 0, 0, 0, 0, 0, index);
     }
 
-    const HOperator *Constant32(uint32_t data) {
-        return new (arena_) HOperatorWith<uint32_t>(HConstant32, 0, 0, 0, 0, 0, 0, 0, data);
+    const HOperator *Word32Constant(uint32_t data) {
+        return new (arena_) HOperatorWith<uint32_t>(HWord32Constant, 0, 0, 0, 0, 0, 0, 0, data);
     }
     
-    const HOperator *Constant64(uint64_t data) {
-        return new (arena_) HOperatorWith<uint64_t>(HConstant64, 0, 0, 0, 0, 0, 0, 0, data);
+    const HOperator *Word64Constant(uint64_t data) {
+        return new (arena_) HOperatorWith<uint64_t>(HWord64Constant, 0, 0, 0, 0, 0, 0, 0, data);
     }
     
-    const HOperator *FConstant32(float data) {
-        return new (arena_) HOperatorWith<float>(HFConstant32, 0, 0, 0, 0, 0, 0, 0, data);
+    const HOperator *Float32Constant(float data) {
+        return new (arena_) HOperatorWith<float>(HFloat32Constant, 0, 0, 0, 0, 0, 0, 0, data);
     }
     
-    const HOperator *FConstant64(double data) {
-        return new (arena_) HOperatorWith<double>(HFConstant64, 0, 0, 0, 0, 0, 0, 0, data);
+    const HOperator *Float64Constant(double data) {
+        return new (arena_) HOperatorWith<double>(HFloat64Constant, 0, 0, 0, 0, 0, 0, 0, data);
     }
 
     const HOperator *Argument(uint64_t hint) {
@@ -400,6 +416,11 @@ public:
         return new (arena_) HOperatorWith<struct FrameState>(HFrameState, 0, control_in,
                                                              value_in, 0, 0, 1, 0,
                                                              {bci, offset});
+    }
+    
+    const HOperator *NewObject(int control_in, int value_in, const Class *clazz) {
+        return new (arena_) HOperatorWith<const Class *>(HNewObject, 0, control_in, value_in, 0, 0,
+                                                         1, 0, clazz);
     }
 
 #define DEFINE_LOAD_STORE_FIELD(name) \

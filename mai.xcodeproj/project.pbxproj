@@ -964,10 +964,10 @@
 				23DC718C243448B900E5613E /* marking-sweep-test.cc */,
 				23DC71912435D9DA00E5613E /* marking-compact-test.cc */,
 				23EF3A02247F6E9500B55F88 /* garbage-collector-test.cc */,
-				23098D91248E6DA40074634B /* hir-test.cc */,
-				23F9273924A9CD360054CAF4 /* hir-reducer-test.cc */,
 				236C7E0B2499B5FB00D03042 /* simplified-code-generator-test.cc */,
 				236C7E12249A659400D03042 /* compilation-worker-test.cc */,
+				23098D91248E6DA40074634B /* hir-test.cc */,
+				23F9273924A9CD360054CAF4 /* hir-reducer-test.cc */,
 			);
 			name = lang;
 			path = src/lang;

@@ -76,11 +76,11 @@ void HOperatorFactory::Initialize() {
 
 /*static*/ bool NodeOps::IsConstant(const HNode *node) {
     switch (node->opcode()) {
-        case HConstant32:
-        case HConstant64:
-        case HFConstant32:
-        case HFConstant64:
-        case HConstantString:
+        case HWord32Constant:
+        case HWord64Constant:
+        case HFloat32Constant:
+        case HFloat64Constant:
+        case HStringConstant:
             return true;
         default:
             break;

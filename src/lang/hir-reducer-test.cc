@@ -51,7 +51,7 @@ TEST_F(HIRReducerTest, Sanity) {
     HNode *begin = graph->NewNode(factory_.Begin(), HTypes::Void);
     HNode *lhs = graph->NewNode(factory_.Parameter(0), HTypes::Word32);
     HNode *rhs = graph->NewNode(factory_.Parameter(1), HTypes::Word32);
-    HNode *add = graph->NewNode(factory_.Add32(), HTypes::Word32, lhs, rhs);
+    HNode *add = graph->NewNode(factory_.Word32Add(), HTypes::Word32, lhs, rhs);
     HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, begin, add);
     
     graph->set_start(begin);
@@ -74,8 +74,8 @@ TEST_F(HIRReducerTest, BranchSequence) {
     HNode *if_true = graph->NewNode(factory_.IfTrue(0), HTypes::Void, branch);
     HNode *if_false = graph->NewNode(factory_.IfFalse(0), HTypes::Void, branch);
     HNode *merge = graph->NewNode(factory_.Merge(2), HTypes::Void, if_true, if_false);
-    HNode *k1 = graph->NewNode(factory_.Constant32(1), HTypes::Word32);
-    HNode *k2 = graph->NewNode(factory_.Constant32(2), HTypes::Word32);
+    HNode *k1 = graph->NewNode(factory_.Word32Constant(1), HTypes::Word32);
+    HNode *k2 = graph->NewNode(factory_.Word32Constant(2), HTypes::Word32);
     HNode *phi = graph->NewNode(factory_.Phi(1, 2), HTypes::Word32, branch, k1, k2);
     HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, merge, phi);
 
@@ -101,14 +101,14 @@ TEST_F(HIRReducerTest, ForLoopSequence) {
     HNode *begin = graph->NewNode(factory_.Begin());
     HNode *loop = graph->NewNode(factory_.Loop(), HTypes::Void, begin);
     HNode *n = graph->NewNode(factory_.Parameter(0), HTypes::Int32);
-    HNode *zero = graph->NewNode(factory_.Constant32(0), HTypes::Int32);
-    HNode *one = graph->NewNode(factory_.Constant32(1), HTypes::Int32);
+    HNode *zero = graph->NewNode(factory_.Word32Constant(0), HTypes::Int32);
+    HNode *one = graph->NewNode(factory_.Word32Constant(1), HTypes::Int32);
     HNode *phi = graph->NewNodeReserved(factory_.Phi(1, 2), HTypes::Int32, 4);
-    HNode *add = graph->NewNode(factory_.Add32(), HTypes::Int32, phi, one);
+    HNode *add = graph->NewNode(factory_.Word32Add(), HTypes::Int32, phi, one);
     phi->AppendInput(&arena_, loop);
     phi->AppendInput(&arena_, zero);
     phi->AppendInput(&arena_, add);
-    HNode *less_than = graph->NewNode(factory_.LessThan32(), HTypes::Word8, phi, n);
+    HNode *less_than = graph->NewNode(factory_.Word32LessThan(), HTypes::Word8, phi, n);
     HNode *branch = graph->NewNode(factory_.Branch(1, 1), HTypes::Void, loop, less_than);
     HNode *if_true = graph->NewNode(factory_.IfTrue(0), HTypes::Void, branch);
     HNode *if_false = graph->NewNode(factory_.IfFalse(0), HTypes::Void, branch);
@@ -124,11 +124,12 @@ TEST_F(HIRReducerTest, ForLoopSequence) {
 TEST_F(HIRReducerTest, LoadStoreFieldAndFrameState) {
     HGraph *graph = new (&arena_) HGraph(&arena_);
     HNode *begin = graph->NewNode(factory_.Begin());
-    HNode *k1 = graph->NewNode(factory_.Constant32(1));
+    HNode *k1 = graph->NewNode(factory_.Word32Constant(1));
     HNode *frame_state = graph->NewNode(factory_.FrameState(0, 1, 1/*bci*/, 64/*offset*/),
                                         HTypes::Void, k1);
     HNode *p1 = graph->NewNode(factory_.Parameter(0), HTypes::Any);
-    HNode *store_field = graph->NewNode(factory_.StoreField32(1, 1, 32), HTypes::Void, begin, p1, k1, frame_state);
+    HNode *store_field = graph->NewNode(factory_.StoreWord32Field(1, 1, 32), HTypes::Void, begin,
+                                        p1, k1, frame_state);
     HNode *end = graph->NewNode(factory_.End(1, 0), HTypes::Void, store_field);
     
     graph->set_start(begin);
@@ -147,9 +148,9 @@ TEST_F(HIRReducerTest, ConstantFloding) {
     HGraph *graph = new (&arena_) HGraph(&arena_);
     
     HNode *begin = graph->NewNode(factory_.Begin());
-    HNode *two = graph->NewNode(factory_.Constant32(2), HTypes::Int32);
-    HNode *one = graph->NewNode(factory_.Constant32(1), HTypes::Int32);
-    HNode *add = graph->NewNode(factory_.Add8(), HTypes::Int8, two, one);
+    HNode *two = graph->NewNode(factory_.Word32Constant(2), HTypes::Int32);
+    HNode *one = graph->NewNode(factory_.Word32Constant(1), HTypes::Int32);
+    HNode *add = graph->NewNode(factory_.Word8Add(), HTypes::Int8, two, one);
     HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, begin, add);
     
     graph->set_start(begin);
@@ -169,10 +170,10 @@ TEST_F(HIRReducerTest, ConstantFloding2) {
     HGraph *graph = new (&arena_) HGraph(&arena_);
     
     HNode *begin = graph->NewNode(factory_.Begin());
-    HNode *two = graph->NewNode(factory_.Constant32(2), HTypes::Int32);
-    HNode *one = graph->NewNode(factory_.Constant32(1), HTypes::Int32);
-    HNode *tree = graph->NewNode(factory_.Add32(), HTypes::Int32, two, one);
-    HNode *add = graph->NewNode(factory_.Add32(), HTypes::Int32, two, tree);
+    HNode *two = graph->NewNode(factory_.Word32Constant(2), HTypes::Int32);
+    HNode *one = graph->NewNode(factory_.Word32Constant(1), HTypes::Int32);
+    HNode *tree = graph->NewNode(factory_.Word32Add(), HTypes::Int32, two, one);
+    HNode *add = graph->NewNode(factory_.Word32Add(), HTypes::Int32, two, tree);
     HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, begin, add);
     
     graph->set_start(begin);
@@ -184,7 +185,7 @@ TEST_F(HIRReducerTest, ConstantFloding2) {
     graph_reducer.AddReducer(&reducer);
     graph_reducer.ReduceGraph();
     
-    EXPECT_EQ(HConstant32, end->input(1)->opcode());
+    EXPECT_EQ(HWord32Constant, end->input(1)->opcode());
     EXPECT_EQ(5, HOperatorWith<int32_t>::Data(end->input(1)));
     EXPECT_EQ(begin, end->input(0));
 }

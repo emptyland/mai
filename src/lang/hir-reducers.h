@@ -10,7 +10,7 @@ namespace lang {
 
 class SimplifiedElimination final : public AdvancedReducer {
 public:
-    explicit SimplifiedElimination(Editor *editor, HGraph *graph, HOperatorFactory *ops)
+    SimplifiedElimination(Editor *editor, HGraph *graph, HOperatorFactory *ops)
         : AdvancedReducer(editor)
         , graph_(graph)
         , ops_(ops) {}
@@ -23,6 +23,28 @@ private:
     HGraph *const graph_;
     HOperatorFactory *const ops_;
 }; // class SimplifiedElimination
+
+class NilUncheckedLowering final : public AdvancedReducer {
+    NilUncheckedLowering(Editor *editor, HGraph *graph, HOperatorFactory *ops);
+    ~NilUncheckedLowering() override;
+private:
+    const char *GetReducerName() const final { return "nil-unchecked-lowering"; }
+    Reduction Reduce(HNode *node) final;
+    void Finalize() final;
+    
+    bool CanUncheckNil(const HNode *node) {
+        auto iter = checked_record_.find(node->vid());
+        if (iter == checked_record_.end()) {
+            checked_record_[node->vid()] = 0;
+            return false;
+        }
+        return iter->second++ > 0;
+    }
+
+    HGraph *const graph_;
+    HOperatorFactory *const ops_;
+    base::ArenaMap<int, int> checked_record_;
+}; // class NilUncheckedLowering
 
 } // namespace lang
 

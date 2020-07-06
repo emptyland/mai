@@ -167,19 +167,19 @@ void HIRGraphGenerator::VisitBytecode() {
             break;
         
         case kLdaTrue: {
-            const HOperator *op = ops_.Constant32(1);
+            const HOperator *op = ops_.Word32Constant(1);
             HNode *node = NewNode(op, HTypes::Word32);
             env_->SetAccumulator(node);
         } break;
 
         case kLdaFalse: {
-            const HOperator *op = ops_.Constant32(0);
+            const HOperator *op = ops_.Word32Constant(0);
             HNode *node = NewNode(op, HTypes::Word32);
             env_->SetAccumulator(node);
         } break;
             
         case kLdaZero: {
-            const HOperator *op = ops_.Constant64(0);
+            const HOperator *op = ops_.Word32Constant(0);
             HNode *node = NewNode(op, HTypes::Word64);
             env_->SetAccumulator(node);
         } break;
