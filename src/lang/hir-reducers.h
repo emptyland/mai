@@ -25,6 +25,7 @@ private:
 }; // class SimplifiedElimination
 
 class NilUncheckedLowering final : public AdvancedReducer {
+public:
     NilUncheckedLowering(Editor *editor, HGraph *graph, HOperatorFactory *ops);
     ~NilUncheckedLowering() override;
 private:
@@ -32,18 +33,12 @@ private:
     Reduction Reduce(HNode *node) final;
     void Finalize() final;
     
-    bool CanUncheckNil(const HNode *node) {
-        auto iter = checked_record_.find(node->vid());
-        if (iter == checked_record_.end()) {
-            checked_record_[node->vid()] = 0;
-            return false;
-        }
-        return iter->second++ > 0;
-    }
+    bool CanUncheckNil(const HNode *node);
+    bool IsNilCheckedOperator(const HOperator *op) const;
 
     HGraph *const graph_;
     HOperatorFactory *const ops_;
-    base::ArenaMap<int, int> checked_record_;
+    base::ArenaMap<int, HNode *> checked_record_;
 }; // class NilUncheckedLowering
 
 } // namespace lang

@@ -52,17 +52,17 @@ TEST_F(HIRReducerTest, Sanity) {
     HNode *lhs = graph->NewNode(factory_.Parameter(0), HTypes::Word32);
     HNode *rhs = graph->NewNode(factory_.Parameter(1), HTypes::Word32);
     HNode *add = graph->NewNode(factory_.Word32Add(), HTypes::Word32, lhs, rhs);
-    HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, begin, add);
+    HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, add, begin);
     
     graph->set_start(begin);
     graph->set_end(end);
     
     auto seq = ReduceSequence(graph);
-    EXPECT_EQ(begin, seq[0]);
-    EXPECT_EQ(lhs, seq[1]);
-    EXPECT_EQ(rhs, seq[2]);
-    EXPECT_EQ(add, seq[3]);
-    EXPECT_EQ(end, seq[4]);
+    EXPECT_EQ(lhs,   seq[0]);
+    EXPECT_EQ(rhs,   seq[1]);
+    EXPECT_EQ(add,   seq[2]);
+    EXPECT_EQ(begin, seq[3]);
+    EXPECT_EQ(end,   seq[4]);
 }
 
 TEST_F(HIRReducerTest, BranchSequence) {
@@ -70,28 +70,28 @@ TEST_F(HIRReducerTest, BranchSequence) {
    
     HNode *begin = graph->NewNode(factory_.Begin());
     HNode *x = graph->NewNode(factory_.Parameter(0), HTypes::Word8);
-    HNode *branch = graph->NewNode(factory_.Branch(1, 1), HTypes::Void, begin, x);
+    HNode *branch = graph->NewNode(factory_.Branch(1, 1), HTypes::Void, x, begin);
     HNode *if_true = graph->NewNode(factory_.IfTrue(0), HTypes::Void, branch);
     HNode *if_false = graph->NewNode(factory_.IfFalse(0), HTypes::Void, branch);
     HNode *merge = graph->NewNode(factory_.Merge(2), HTypes::Void, if_true, if_false);
     HNode *k1 = graph->NewNode(factory_.Word32Constant(1), HTypes::Word32);
     HNode *k2 = graph->NewNode(factory_.Word32Constant(2), HTypes::Word32);
-    HNode *phi = graph->NewNode(factory_.Phi(1, 2), HTypes::Word32, branch, k1, k2);
-    HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, merge, phi);
+    HNode *phi = graph->NewNode(factory_.Phi(1, 2), HTypes::Word32, k1, k2, branch);
+    HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, phi, merge);
 
     graph->set_start(begin);
     graph->set_end(end);
     
     auto seq = ReduceSequence(graph);
-    EXPECT_EQ(begin,    seq[0]);
-    EXPECT_EQ(x,        seq[1]);
-    EXPECT_EQ(branch,   seq[2]);
-    EXPECT_EQ(if_true,  seq[3]);
-    EXPECT_EQ(if_false, seq[4]);
-    EXPECT_EQ(merge,    seq[5]);
-    EXPECT_EQ(k1,       seq[6]);
-    EXPECT_EQ(k2,       seq[7]);
-    EXPECT_EQ(phi,      seq[8]);
+    EXPECT_EQ(k1,       seq[0]);
+    EXPECT_EQ(k2,       seq[1]);
+    EXPECT_EQ(x,        seq[2]);
+    EXPECT_EQ(begin,    seq[3]);
+    EXPECT_EQ(branch,   seq[4]);
+    EXPECT_EQ(phi,      seq[5]);
+    EXPECT_EQ(if_true,  seq[6]);
+    EXPECT_EQ(if_false, seq[7]);
+    EXPECT_EQ(merge,    seq[8]);
     EXPECT_EQ(end,      seq[9]);
 }
 
@@ -105,11 +105,11 @@ TEST_F(HIRReducerTest, ForLoopSequence) {
     HNode *one = graph->NewNode(factory_.Word32Constant(1), HTypes::Int32);
     HNode *phi = graph->NewNodeReserved(factory_.Phi(1, 2), HTypes::Int32, 4);
     HNode *add = graph->NewNode(factory_.Word32Add(), HTypes::Int32, phi, one);
-    phi->AppendInput(&arena_, loop);
     phi->AppendInput(&arena_, zero);
     phi->AppendInput(&arena_, add);
+    phi->AppendInput(&arena_, loop);
     HNode *less_than = graph->NewNode(factory_.Word32LessThan(), HTypes::Word8, phi, n);
-    HNode *branch = graph->NewNode(factory_.Branch(1, 1), HTypes::Void, loop, less_than);
+    HNode *branch = graph->NewNode(factory_.Branch(1, 1), HTypes::Void, less_than, loop);
     HNode *if_true = graph->NewNode(factory_.IfTrue(0), HTypes::Void, branch);
     HNode *if_false = graph->NewNode(factory_.IfFalse(0), HTypes::Void, branch);
     HNode *loop_exit = graph->NewNode(factory_.LoopExit(2), HTypes::Void, if_true, loop);
@@ -119,6 +119,19 @@ TEST_F(HIRReducerTest, ForLoopSequence) {
     graph->set_end(end);
     
     auto seq = ReduceSequence(graph);
+    EXPECT_EQ(zero,      seq[0]);
+    EXPECT_EQ(one,       seq[1]);
+    EXPECT_EQ(add,       seq[2]);
+    EXPECT_EQ(begin,     seq[3]);
+    EXPECT_EQ(loop,      seq[4]);
+    EXPECT_EQ(phi,       seq[5]);
+    EXPECT_EQ(n,         seq[6]);
+    EXPECT_EQ(less_than, seq[7]);
+    EXPECT_EQ(branch,    seq[8]);
+    EXPECT_EQ(if_false,  seq[9]);
+    EXPECT_EQ(if_true,   seq[10]);
+    EXPECT_EQ(loop_exit, seq[11]);
+    EXPECT_EQ(end,       seq[12]);
 }
 
 TEST_F(HIRReducerTest, LoadStoreFieldAndFrameState) {
@@ -128,18 +141,18 @@ TEST_F(HIRReducerTest, LoadStoreFieldAndFrameState) {
     HNode *frame_state = graph->NewNode(factory_.FrameState(0, 1, 1/*bci*/, 64/*offset*/),
                                         HTypes::Void, k1);
     HNode *p1 = graph->NewNode(factory_.Parameter(0), HTypes::Any);
-    HNode *store_field = graph->NewNode(factory_.StoreWord32Field(1, 1, 32), HTypes::Void, begin,
-                                        p1, k1, frame_state);
+    HNode *store_field = graph->NewNode(factory_.StoreWord32Field(1, 3, 32), HTypes::Void,
+                                        p1, k1, frame_state, begin);
     HNode *end = graph->NewNode(factory_.End(1, 0), HTypes::Void, store_field);
     
     graph->set_start(begin);
     graph->set_end(end);
     
     auto seq = ReduceSequence(graph);
-    EXPECT_EQ(begin,       seq[0]);
-    EXPECT_EQ(p1,          seq[1]);
-    EXPECT_EQ(k1,          seq[2]);
-    EXPECT_EQ(frame_state, seq[3]);
+    EXPECT_EQ(p1,          seq[0]);
+    EXPECT_EQ(k1,          seq[1]);
+    EXPECT_EQ(frame_state, seq[2]);
+    EXPECT_EQ(begin,       seq[3]);
     EXPECT_EQ(store_field, seq[4]);
     EXPECT_EQ(end,         seq[5]);
 }
@@ -188,6 +201,52 @@ TEST_F(HIRReducerTest, ConstantFloding2) {
     EXPECT_EQ(HWord32Constant, end->input(1)->opcode());
     EXPECT_EQ(5, HOperatorWith<int32_t>::Data(end->input(1)));
     EXPECT_EQ(begin, end->input(0));
+}
+
+TEST_F(HIRReducerTest, UncheckedLoadField) {
+    HGraph *graph = new (&arena_) HGraph(&arena_);
+    
+    HNode *begin = graph->NewNode(factory_.Begin());
+    HNode *obj = graph->NewNode(factory_.NewObject(0, 0, nullptr));
+    HNode *load_field = graph->NewNode(factory_.LoadField(0, 1, 64), HTypes::Any, obj);
+    HNode *end = graph->NewNode(factory_.End(1, 1), HTypes::Void, load_field, begin);
+    
+    graph->set_start(begin);
+    graph->set_end(end);
+    
+    GraphReducer graph_reducer(&arena_, graph);
+    NilUncheckedLowering reducer(&graph_reducer, graph, &factory_);
+    
+    graph_reducer.AddReducer(&reducer);
+    graph_reducer.ReduceGraph();
+
+    EXPECT_EQ(HUncheckedLoadField, end->input(0)->opcode());
+}
+
+TEST_F(HIRReducerTest, UncheckedStoreField) {
+    HGraph *graph = new (&arena_) HGraph(&arena_);
+    
+    HNode *begin = graph->NewNode(factory_.Begin());
+    HNode *obj = graph->NewNode(factory_.Parameter(0), HTypes::Any);
+    HNode *p1 = graph->NewNode(factory_.Parameter(1), HTypes::Any);
+    HNode *p2 = graph->NewNode(factory_.Parameter(2), HTypes::Any);
+    HNode *store_field1 = graph->NewNode(factory_.StoreField(1, 2, 64), HTypes::Void, obj, p1, begin);
+    HNode *store_field2 = graph->NewNode(factory_.StoreField(1, 2, 64), HTypes::Void, obj, p2, store_field1);
+    HNode *end = graph->NewNode(factory_.End(1, 0), HTypes::Void, store_field2);
+    
+    graph->set_start(begin);
+    graph->set_end(end);
+    
+    GraphReducer graph_reducer(&arena_, graph);
+    NilUncheckedLowering reducer(&graph_reducer, graph, &factory_);
+    
+    graph_reducer.AddReducer(&reducer);
+    graph_reducer.ReduceGraph();
+ 
+    store_field2 = end->input(0);
+    EXPECT_EQ(HUncheckedStoreField, store_field2->opcode());
+    store_field1 = NodeOps::GetControlInput(store_field2, 0);
+    EXPECT_EQ(HStoreField, store_field1->opcode());
 }
 
 } // namespace lang

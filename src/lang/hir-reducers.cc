@@ -93,32 +93,99 @@ NilUncheckedLowering::~NilUncheckedLowering() /*override*/ = default;
     V(StoreWord8Field) \
     V(StoreWord16Field) \
     V(StoreWord32Field) \
-    V(StoreWord64Field) \
+    V(StoreWord64Field)
+
+#define DECLARE_LOAD_STORE_ARRAY_AT(V) \
+    V(LoadArrayAt) \
+    V(LoadWord8ArrayAt) \
+    V(LoadWord16ArrayAt) \
+    V(LoadWord32ArrayAt) \
+    V(LoadWord64ArrayAt) \
+    V(StoreArrayAt) \
+    V(StoreWord8ArrayAt) \
+    V(StoreWord16ArrayAt) \
+    V(StoreWord32ArrayAt) \
+    V(StoreWord64ArrayAt)
 
 Reduction NilUncheckedLowering::Reduce(HNode *node) /*final*/ {
+    if (auto iter = checked_record_.find(node->vid()); iter != checked_record_.end()) {
+        DCHECK_EQ(iter->second, node);
+        
+        switch (node->opcode()) {
+                
+        #define DEFINE_NIL_CHECKED_CASE(name) \
+            case H##name: { \
+                const HOperator *op = ops_->Unchecked##name(node->op()->control_in(), \
+                                                            node->op()->value_in(), \
+                                                            HOperatorWith<int32_t>::Data(node)); \
+                return Replace(graph_->NewNodeWithInputs(op, node->type(), node->inputs_size(), \
+                                                         node->inputs())); \
+            } break;
+                
+            DECLARE_LOAD_STORE_FIELD(DEFINE_NIL_CHECKED_CASE)
+
+        #undef DEFINE_NIL_CHECKED_CASE
+        
+        #define DEFINE_NIL_CHECKED_CASE(name) \
+            case H##name: { \
+                const HOperator *op = ops_->Unchecked##name(node->op()->control_in(), \
+                                                            node->op()->value_in()); \
+                return Replace(graph_->NewNodeWithInputs(op, node->type(), node->inputs_size(), \
+                                                         node->inputs())); \
+            } break;
+                
+            DECLARE_LOAD_STORE_ARRAY_AT(DEFINE_NIL_CHECKED_CASE)
+
+        #undef DEFINE_NIL_CHECKED_CASE
+                
+            default:
+                NOREACHED();
+                break;
+        }
+        return NoChange();
+    }
     
     switch (node->opcode()) {
 
-        case HNewObject:
-            checked_record_[node->vid()] = 0;
-            break;
-
-#define DEFINE_UNCHECKED_CASE(name) \
-    case H##name: \
-        if (CanUncheckNil(node)) { \
-            const HOperator *op = ops_->Unchecked##name(node->op()->control_in(), \
-                                                        node->op()->value_in(), \
-                                                        HOperatorWith<int32_t>::Data(node)); \
-            return Replace(graph_->NewNodeWithInputs(op, node->type(), node->inputs_size(), \
-                                                     node->inputs())); \
+        case HNewObject: {
+            HNode::UseIterator iter(node);
+            for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+               if (IsNilCheckedOperator(iter.user()->op())) {
+                   checked_record_[iter.user()->vid()] = iter.user();
+               }
+            }
         } break;
-        DECLARE_LOAD_STORE_FIELD(DEFINE_UNCHECKED_CASE)
-#undef DEFINE_UNCHECKED_CASE
+            
+    #define DEFINE_NIL_CHECKED_CASE(name) case H##name:
+        DECLARE_LOAD_STORE_FIELD(DEFINE_NIL_CHECKED_CASE)
+        DECLARE_LOAD_STORE_ARRAY_AT(DEFINE_NIL_CHECKED_CASE) {
+            HNode *first = NodeOps::GetValueInput(node, 0);
+            HNode::UseIterator iter(first);
+            for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+                if (iter.user() != node && IsNilCheckedOperator(iter.user()->op())) {
+                    checked_record_[iter.user()->vid()] = iter.user();
+                }
+            }
+        } break;
+    #undef DEFINE_NIL_CHECKED_CASE
 
         default:
             break;
     }
     return NoChange();
+}
+
+bool NilUncheckedLowering::IsNilCheckedOperator(const HOperator *op) const {
+    switch (op->value()) {
+    #define DEFINE_NIL_CHECKED_CASE(name) case H##name:
+        DECLARE_LOAD_STORE_FIELD(DEFINE_NIL_CHECKED_CASE)
+        DECLARE_LOAD_STORE_ARRAY_AT(DEFINE_NIL_CHECKED_CASE)
+    #undef DEFINE_NIL_CHECKED_CASE
+            return true;
+        default:
+            break;
+    }
+    return false;
 }
 
 void NilUncheckedLowering::Finalize() /*final*/ {

@@ -19,6 +19,9 @@ class HValue;
 class HNode;
 class Used;
 
+struct OperatorOps;
+struct NodeOps;
+
 #define DECLARE_HIR_TYPES(V) \
     V(Void,    0, 0) \
     V(Word8,   8, HType::kNumberBit) \
@@ -81,7 +84,8 @@ struct HTypes {
 #define DECLARE_HIR_OPCODES(V) \
     DECLARE_HIR_CONTROL(V) \
     DECLARE_HIR_CONSTANT(V) \
-    DECLARE_HIR_LOAD_STORE(V) \
+    DECLARE_HIR_LOAD_STORE_FIELD(V) \
+    DECLARE_HIR_LOAD_STORE_ARRAY_AT(V) \
     DECLARE_HIR_BINARY_ARITHMETIC(V) \
     DECLARE_HIR_COMPAROR(V) \
     DECLARE_HIR_CALLING(V)
@@ -193,7 +197,7 @@ struct HTypes {
     V(StringGE)
 
 
-#define DECLARE_HIR_LOAD_STORE(V) \
+#define DECLARE_HIR_LOAD_STORE_FIELD(V) \
     V(LoadField) \
     V(LoadWord8Field) \
     V(LoadWord16Field) \
@@ -213,7 +217,9 @@ struct HTypes {
     V(UncheckedStoreWord8Field) \
     V(UncheckedStoreWord16Field) \
     V(UncheckedStoreWord32Field) \
-    V(UncheckedStoreWord64Field) \
+    V(UncheckedStoreWord64Field)
+
+#define DECLARE_HIR_LOAD_STORE_ARRAY_AT(V) \
     V(LoadArrayAt) \
     V(LoadWord8ArrayAt) \
     V(LoadWord16ArrayAt) \
@@ -264,38 +270,30 @@ public:
     
     const char *name() const { return kNames[value_]; }
     
-    static void UpdateControlIn(const HOperator *op, int value) {
-        const_cast<HOperator *>(op)->control_in_ = value;
-    }
-    static void UpdateEffectIn(const HOperator *op, int value) {
-        const_cast<HOperator *>(op)->effect_in_ = value;
-    }
-    static void UpdateValueIn(const HOperator *op, int value) {
-        const_cast<HOperator *>(op)->value_in_ = value;
-    }
-
+    friend struct OperatorOps;
     friend class HOperatorFactory;
     DISALLOW_IMPLICIT_CONSTRUCTORS(HOperator);
 protected:
-    HOperator(Value value, uint64_t properties, int control_in, int value_in, int effect_in,
-              int control_out, int value_out, int effect_out)
+    HOperator(Value value, uint64_t properties, int value_in, int effect_in, int control_in,
+              int value_out, int effect_out, int control_out)
         : value_(value)
         , properties_(properties)
-        , control_in_(control_in)
         , value_in_(value_in)
         , effect_in_(effect_in)
-        , control_out_(control_out)
+        , control_in_(control_in)
         , value_out_(value_out)
-        , effect_out_(effect_out) {}
+        , effect_out_(effect_out)
+        , control_out_(control_out) {}
 
     Value value_;
     uint64_t properties_;
-    int control_in_;
+
     int value_in_;
     int effect_in_;
-    int control_out_;
+    int control_in_;
     int value_out_;
     int effect_out_;
+    int control_out_;
     
     static const char *kNames[HMaxOpcode];
 }; // class HOperator
@@ -322,10 +320,11 @@ public:
     friend class HOperatorFactory;
     DISALLOW_IMPLICIT_CONSTRUCTORS(HOperatorWith);
 protected:
-    inline HOperatorWith(Value value, uint64_t properties, int control_in, int value_in,
-                         int effect_in, int control_out, int value_out, int effect_out, T data)
-    : HOperator(value, properties, control_in, value_in, effect_in,
-                control_out, value_out, effect_out)
+    inline HOperatorWith(Value value, uint64_t properties,
+                         int value_in,  int effect_in,  int control_in,
+                         int value_out, int effect_out, int control_out, T data)
+    : HOperator(value, properties, value_in, effect_in, control_in,
+                value_out, effect_out, control_out)
     , data_(data) {}
     
 private:
@@ -345,7 +344,7 @@ public:
     }
 
     const HOperator *End(int control_in, int value_in) {
-        return new (arena_) HOperator(HEnd, 0, control_in, value_in, 0, 0, 0, 0);
+        return new (arena_) HOperator(HEnd, 0, value_in, 0, control_in, 0, 0, 0);
     }
 
     const HOperator *CheckStack() {
@@ -353,35 +352,35 @@ public:
     }
 
     const HOperator *Branch(int control_in, int value_in) {
-        return new (arena_) HOperator(HBranch, 0, control_in, value_in, 0, 0, 0, 0);
+        return new (arena_) HOperator(HBranch, 0, value_in, 0, control_in, 0, 0, 0);
     }
     
     const HOperator *IfTrue(int hint) {
-        return new (arena_) HOperator(HIfTrue, hint, 1, 0, 0, 0, 0, 0);
+        return new (arena_) HOperator(HIfTrue, hint, 0, 0, 1, 0, 0, 0);
     }
     
     const HOperator *IfFalse(int hint) {
-        return new (arena_) HOperator(HIfFalse, hint, 1, 0, 0, 0, 0, 0);
+        return new (arena_) HOperator(HIfFalse, hint, 0, 0, 1, 0, 0, 0);
     }
     
     const HOperator *Merge(int control_in) {
-        return new (arena_) HOperator(HMerge, 0, control_in, 0, 0, 0, 0, 0);
+        return new (arena_) HOperator(HMerge, 0, 0, 0, control_in, 0, 0, 0);
     }
 
     const HOperator *Phi(int control_in, int value_in) {
-        return new (arena_) HOperator(HPhi, 0, control_in, value_in, 0, 0, 0, 0);
+        return new (arena_) HOperator(HPhi, 0, value_in, 0, control_in, 0, 0, 0);
     }
     
     const HOperator *Return(int control_in, int value_in) {
-        return new (arena_) HOperator(HReturn, 0, control_in, value_in, 0, 0, 0, 0);
+        return new (arena_) HOperator(HReturn, 0, value_in, 0, control_in, 0, 0, 0);
     }
     
     const HOperator *Loop() {
-        return new (arena_) HOperator(HLoop, 0, 1, 0, 0, 0, 0, 0);
+        return new (arena_) HOperator(HLoop, 0, 0, 0, 1, 0, 0, 0);
     }
     
     const HOperator *LoopExit(int control_in) {
-        return new (arena_) HOperator(HLoopExit, 0, control_in, 0, 0, 0, 0, 0);
+        return new (arena_) HOperator(HLoopExit, 0, 0, 0, control_in, 0, 0, 0);
     }
 
     const HOperator *Guard(uint64_t hint) {
@@ -413,24 +412,30 @@ public:
     }
 
     const HOperator *FrameState(int control_in, int value_in, int32_t bci, int32_t offset) {
-        return new (arena_) HOperatorWith<struct FrameState>(HFrameState, 0, control_in,
-                                                             value_in, 0, 0, 1, 0,
+        return new (arena_) HOperatorWith<struct FrameState>(HFrameState, 0,
+                                                             value_in, 0, control_in, 0, 0, 1,
                                                              {bci, offset});
     }
     
     const HOperator *NewObject(int control_in, int value_in, const Class *clazz) {
-        return new (arena_) HOperatorWith<const Class *>(HNewObject, 0, control_in, value_in, 0, 0,
-                                                         1, 0, clazz);
+        return new (arena_) HOperatorWith<const Class *>(HNewObject, 0, value_in, 0, control_in, 0,
+                                                         0, 1, clazz);
     }
 
 #define DEFINE_LOAD_STORE_FIELD(name) \
     const HOperator *name(int control_in, int value_in, int32_t offset) { \
-        return new (arena_) HOperatorWith<int32_t>(H##name, 0, control_in, value_in, 0, 0, 1, 0, \
+        return new (arena_) HOperatorWith<int32_t>(H##name, 0, value_in, 0, control_in, 0, 0, 0, \
                                                    offset); \
     }
-    DECLARE_HIR_LOAD_STORE(DEFINE_LOAD_STORE_FIELD)
+    DECLARE_HIR_LOAD_STORE_FIELD(DEFINE_LOAD_STORE_FIELD)
 #undef DEFINE_LOAD_STORE_FIELD
-    
+
+#define DEFINE_LOAD_STORE_ARRAY_AT(name) \
+    const HOperator *name(int control_in, int value_in) { \
+        return new (arena_) HOperator(H##name, 0, value_in, 0, control_in, 0, 0, 0); \
+    }
+    DECLARE_HIR_LOAD_STORE_ARRAY_AT(DEFINE_LOAD_STORE_ARRAY_AT)
+#undef DEFINE_LOAD_STORE_ARRAY_AT
 
 #define DEFINE_CACHED_OP(name) const HOperator *name() { return cache_[H##name]; }
     DECLARE_HIR_BINARY_ARITHMETIC(DEFINE_CACHED_OP)
@@ -770,6 +775,30 @@ public:
 }; // class HNodeState
 
 
+struct OperatorOps {
+    
+    static bool IsNilChecked(const HOperator *op);
+    
+    static void UpdateControlIn(const HOperator *op, int value) {
+        const_cast<HOperator *>(op)->control_in_ = value;
+    }
+
+    static void UpdateEffectIn(const HOperator *op, int value) {
+        const_cast<HOperator *>(op)->effect_in_ = value;
+    }
+
+    static void UpdateValueIn(const HOperator *op, int value) {
+        const_cast<HOperator *>(op)->value_in_ = value;
+    }
+
+    static void UpdateValue(const HOperator *op, HOperator::Value code) {
+        const_cast<HOperator *>(op)->value_ = code;
+    }
+    
+    DISALLOW_ALL_CONSTRUCTORS(OperatorOps);
+}; // struct OperatorOps
+
+
 struct NodeOps {
     
     static bool IsConstant(const HNode *node);
@@ -792,12 +821,14 @@ struct NodeOps {
         return node->input(GetEffectIndex(node) + index);
     }
     
-    static int GetControlIndex(const HNode *node) { return 0; }
-    
-    static int GetValueIndex(const HNode *node) { return node->op()->control_in(); }
+    static int GetValueIndex(const HNode *node) { return 0; }
     
     static int GetEffectIndex(const HNode *node) {
         return GetValueIndex(node) + node->op()->value_in();
+    }
+    
+    static int GetControlIndex(const HNode *node) {
+        return GetEffectIndex(node) + node->op()->effect_in();
     }
     
     DISALLOW_ALL_CONSTRUCTORS(NodeOps);

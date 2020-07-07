@@ -68,7 +68,7 @@ HNode::Use *HNode::AppendUser(base::Arena *arena, int input_index, HNode *user) 
 
 void HOperatorFactory::Initialize() {
 #define DEFINE_BINARY_OP(name) \
-    cache_[H##name] = new (arena_) HOperator(H##name, 0, 0, 2, 0, 0, 1, 0);
+    cache_[H##name] = new (arena_) HOperator(H##name, 0, 2, 0, 0, 1, 0, 0);
     DECLARE_HIR_BINARY_ARITHMETIC(DEFINE_BINARY_OP)
     DECLARE_HIR_COMPAROR(DEFINE_BINARY_OP);
 #undef  DEFINE_BINARY_OPS
