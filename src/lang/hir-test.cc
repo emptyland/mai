@@ -48,11 +48,11 @@ TEST_F(HIRTest, UsedChain) {
     {
         HNode::UseIterator iter(k1);
         iter.SeekToFirst();
-        ASSERT_EQ(phi, *iter);
+        ASSERT_EQ(phi, iter.user());
     } {
         HNode::UseIterator iter(k2);
         iter.SeekToFirst();
-        ASSERT_EQ(phi, *iter);
+        ASSERT_EQ(phi, iter.user());
     }
 }
 
@@ -77,7 +77,7 @@ TEST_F(HIRTest, AppendInput) {
     HNode::UseIterator iter(phi->input(0));
     iter.SeekToFirst();
     ASSERT_TRUE(iter.Valid());
-    EXPECT_EQ(phi, *iter);
+    EXPECT_EQ(phi, iter.user());
 }
 
 TEST_F(HIRTest, HGraphSanity) {

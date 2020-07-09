@@ -83,6 +83,7 @@ struct HTypes {
 
 #define DECLARE_HIR_OPCODES(V) \
     DECLARE_HIR_CONTROL(V) \
+    DECLARE_HIR_INNER(V) \
     DECLARE_HIR_CONSTANT(V) \
     DECLARE_HIR_LOAD_STORE_FIELD(V) \
     DECLARE_HIR_LOAD_STORE_ARRAY_AT(V) \
@@ -94,18 +95,26 @@ struct HTypes {
     V(Begin) \
     V(End) \
     V(Return) \
+    V(Throw) \
     V(Loop) \
     V(LoopExit) \
+    V(TailCall) \
     V(Branch) \
     V(IfTrue) \
     V(IfFalse) \
     V(Merge) \
+    V(CheckStack) \
+    V(Deoptimize) \
+    V(DeoptimizeIf) \
+    V(DeoptimizeUnless) \
+    V(Terminate)
+
+#define DECLARE_HIR_INNER(V) \
     V(FrameState) \
     V(Phi) \
     V(Guard) \
     V(Argument) \
-    V(Parameter) \
-    V(CheckStack)
+    V(Parameter)
 
 #define DECLARE_HIR_CONSTANT(V) \
     V(Word32Constant) \
@@ -541,18 +550,9 @@ public:
 
     void AppendInput(base::Arena *arena, HNode *node);
     
-    void ReplaceInput(base::Arena *arena, int i, HNode *node) {
-        HNode *old = input(i);
-        if (old == node) {
-            return;
-        }
-        Use *use = DCHECK_NOTNULL(old->FindUse(this));
-        old->RemoveUse(use);
-        inputs()[i] = node;
-        DCHECK_EQ(i, use->input_index);
-        DCHECK_EQ(this, use->user);
-        node->AppendUse(use);
-    }
+    void ReplaceInput(base::Arena *arena, int i, HNode *that);
+    
+    void ReplaceUses(HNode *that);
     
     void InsertInput(base::Arena *arena, int after, HNode *node);
     
@@ -618,33 +618,20 @@ public:
             QUEUE_REMOVE(use_);
         }
         bool Valid() const { return use_ && use_ != &owns_->use_; }
-        HNode *operator *() { return user(); }
-        HNode *operator -> () { return user(); }
+        Use *operator *() { return use_; }
+        Use *operator -> () { return use_; }
         HNode *user() const {
             DCHECK(Valid());
             return use_->user;
         }
         HNode *from() const { return user(); }
+        int index() const { return use_->input_index; }
         HNode *to() const { return use_->user->input(use_->input_index); }
         
+        void set_from(HNode *new_from) { use_->user = new_from; }
         void set_to(HNode *new_to) { use_->user->inputs()[use_->input_index] = new_to; }
         
-        bool UpdateTo(HNode *new_to) {
-            DCHECK(Valid());
-            HNode *old_to = to();
-            if (old_to != new_to) {
-                Use *next = use_->next_;
-                if (old_to) {
-                    old_to->RemoveUse(use_);
-                }
-                set_to(new_to);
-                if (new_to) {
-                    new_to->AppendUse(use_);
-                }
-                use_ = next;
-            }
-            return old_to != new_to;
-        }
+        bool UpdateTo(HNode *new_to);
     private:
         HNode *const owns_;
         Use *use_ = nullptr;
@@ -830,6 +817,17 @@ struct NodeOps {
     static int GetControlIndex(const HNode *node) {
         return GetEffectIndex(node) + node->op()->effect_in();
     }
+    
+    static bool IsControlEdge(const HNode::UseIterator &edge) {
+        HNode *user = edge.user();
+        if (user->op()->control_in() == 0) {
+            return false;
+        }
+        int max = GetControlIndex(user) + user->op()->control_in();
+        return edge.index() >= GetControlIndex(user) && edge.index() < max;
+    }
+    
+    static void CollectControlProjections(HNode *node, HNode **projections, size_t count);
     
     DISALLOW_ALL_CONSTRUCTORS(NodeOps);
 };

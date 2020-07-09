@@ -11,6 +11,23 @@ namespace lang {
 #undef DEFINE_CODE
 };
 
+bool HNode::UseIterator::UpdateTo(HNode *new_to) {
+    DCHECK(Valid());
+    HNode *old_to = to();
+    if (old_to != new_to) {
+        Use *next = use_->next_;
+        if (old_to) {
+            old_to->RemoveUse(use_);
+        }
+        set_to(new_to);
+        if (new_to) {
+            new_to->AppendUse(use_);
+        }
+        use_ = next;
+    }
+    return old_to != new_to;
+}
+
 HNode::HNode(base::Arena *arena, int vid, HType type, const HOperator *op,
              uint32_t inputs_capacity, uint32_t inputs_size, HNode **inputs)
     : HValue(vid, type)
@@ -24,6 +41,43 @@ HNode::HNode(base::Arena *arena, int vid, HType type, const HOperator *op,
         inline_inputs_[i] = inputs[i];
         inputs[i]->AppendUser(arena, i, this);
     }
+}
+
+void HNode::ReplaceInput(base::Arena *arena, int i, HNode *node) {
+    HNode *old = input(i);
+    if (old == node) {
+        return;
+    }
+    Use *use = DCHECK_NOTNULL(old->FindUse(this));
+    old->RemoveUse(use);
+    inputs()[i] = node;
+    DCHECK_EQ(i, use->input_index);
+    DCHECK_EQ(this, use->user);
+    node->AppendUse(use);
+}
+
+void HNode::ReplaceUses(HNode *that) {
+//    DCHECK(this->use_.next_ == &this->use_ || this->use_.next_->prev_ == &this->use_);
+//    DCHECK(that->use_.next_ == &that->use_ || that->use_.next_->prev_ == &that->use_);
+
+    Use *last_use = nullptr;
+    UseIterator iter(this);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        iter.set_to(that);
+        last_use = *iter;
+    }
+    
+    if (last_use) {
+        while (use_.next_ != &use_) {
+            Use *use = use_.next_;
+            QUEUE_REMOVE(use);
+            QUEUE_INSERT_TAIL(&that->use_, use);
+        }
+    }
+    
+    // Clear uses list
+    use_.next_ = &use_;
+    use_.prev_ = &use_;
 }
 
 void HNode::AppendInput(base::Arena *arena, HNode *node) {
@@ -51,7 +105,6 @@ void HNode::AppendInput(base::Arena *arena, HNode *node) {
         node->AppendUser(arena, out_of_line_inputs_->inputs_size_, this);
         out_of_line_inputs_->inputs_[out_of_line_inputs_->inputs_size_++] = node;
     }
-    
 }
 
 HNode::Use *HNode::AppendUser(base::Arena *arena, int input_index, HNode *user) {
@@ -86,6 +139,43 @@ void HOperatorFactory::Initialize() {
             break;
     }
     return false;
+}
+
+/*static*/
+void NodeOps::CollectControlProjections(HNode *node, HNode **projections, size_t count) {
+    DCHECK_LE(count, node->UseCount());
+#if defined(DEBUG) || defined(_DEBUG)
+    ::memset(projections, 0, sizeof(*projections) * count);
+#endif
+    HNode::UseIterator iter(node);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next()) {
+        if (!IsControlEdge(iter)) {
+            continue;
+        }
+        size_t index = 0;
+        HNode *user = iter.user();
+        switch (user->opcode()) {
+            case HIfTrue:
+                DCHECK_EQ(HBranch, node->opcode());
+                index = 0;
+                break;
+            case HIfFalse:
+                DCHECK_EQ(HBranch, node->opcode());
+                index = 1;
+                break;
+            // TODO:
+            default:
+                continue;
+        }
+        DCHECK_LT(index, count);
+        DCHECK(projections[index] == nullptr);
+        projections[index] = user;
+    }
+#if defined(DEBUG) || defined(_DEBUG)
+    for (size_t i = 0; i < count; i++) {
+        DCHECK(projections[i] != nullptr);
+    }
+#endif
 }
 
 } // namespace lang

@@ -161,6 +161,9 @@
 		2364B35721E451F9008519AE /* transaction-db-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F0742521D1D209009D8EAA /* transaction-db-test.cc */; };
 		2364B35821E451F9008519AE /* pessimistic-transaction-db-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23B7155821DDEEBB0054FCB0 /* pessimistic-transaction-db-test.cc */; };
 		2364B35A21E451F9008519AE /* test-main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23C1163721AFED5E00DE7321 /* test-main.cc */; };
+		2368F42C24B419FA00E1AE18 /* hir-schedule.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2368F42B24B419FA00E1AE18 /* hir-schedule.cc */; };
+		2368F42D24B419FA00E1AE18 /* hir-schedule.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2368F42B24B419FA00E1AE18 /* hir-schedule.cc */; };
+		2368F42E24B419FA00E1AE18 /* hir-schedule.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2368F42B24B419FA00E1AE18 /* hir-schedule.cc */; };
 		236C7E0A24970AC200D03042 /* simplified-code-generator-x64.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236C7E0924970AC200D03042 /* simplified-code-generator-x64.cc */; };
 		236C7E0C2499B5FB00D03042 /* simplified-code-generator-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236C7E0B2499B5FB00D03042 /* simplified-code-generator-test.cc */; };
 		236C7E10249A56A600D03042 /* compilation-worker.cc in Sources */ = {isa = PBXBuildFile; fileRef = 236C7E0F249A56A600D03042 /* compilation-worker.cc */; };
@@ -547,6 +550,8 @@
 		2360F1862415F9610011898D /* stacktrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = stacktrace.h; path = "third-party/glog/stacktrace.h"; sourceTree = SOURCE_ROOT; };
 		2360F1872415F9610011898D /* vlog_is_on.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vlog_is_on.cc; path = "third-party/glog/vlog_is_on.cc"; sourceTree = SOURCE_ROOT; };
 		236290F524037193004FB689 /* type-checker-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "type-checker-test.cc"; sourceTree = "<group>"; };
+		2368F42A24B419E700E1AE18 /* hir-schedule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "hir-schedule.h"; sourceTree = "<group>"; };
+		2368F42B24B419FA00E1AE18 /* hir-schedule.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-schedule.cc"; sourceTree = "<group>"; };
 		236AC67521B768E60069A17B /* lru-cache-v1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lru-cache-v1.h"; sourceTree = "<group>"; };
 		236AC67621B7692B0069A17B /* lru-cache-v1.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-v1.cc"; sourceTree = "<group>"; };
 		236AC67921B769900069A17B /* lru-cache-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "lru-cache-test.cc"; sourceTree = "<group>"; };
@@ -934,6 +939,8 @@
 				23098D932492321F0074634B /* hir-graph-generator.cc */,
 				23F9273B24A9D62C0054CAF4 /* hir-reducers.h */,
 				23F9273C24A9DE9E0054CAF4 /* hir-reducers.cc */,
+				2368F42A24B419E700E1AE18 /* hir-schedule.h */,
+				2368F42B24B419FA00E1AE18 /* hir-schedule.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1673,6 +1680,7 @@
 				230510C023E06A1F00B89A7C /* handle.cc in Sources */,
 				237F505121EB74390069075D /* zone.cc in Sources */,
 				236C7E0A24970AC200D03042 /* simplified-code-generator-x64.cc in Sources */,
+				2368F42C24B419FA00E1AE18 /* hir-schedule.cc in Sources */,
 				2364B31F21E451F9008519AE /* varint-encoding.cc in Sources */,
 				236EA78A23D6E3C80071047C /* heap.cc in Sources */,
 				235602A123DDC6DE00A799B9 /* space-test.cc in Sources */,
@@ -1781,6 +1789,7 @@
 				23DE183821D088D000479C23 /* arenas.cc in Sources */,
 				23DE183921D088D000479C23 /* ebr.cc in Sources */,
 				23DE182621D088C300479C23 /* memory-table.cc in Sources */,
+				2368F42D24B419FA00E1AE18 /* hir-schedule.cc in Sources */,
 				23DE182721D088C300479C23 /* bw-tree-memory-table.cc in Sources */,
 				23DE182821D088C300479C23 /* ordered-memory-table.cc in Sources */,
 				23DE182921D088C300479C23 /* unordered-memory-table.cc in Sources */,
@@ -1934,6 +1943,7 @@
 				23EF3A232484D5D600B55F88 /* token.cc in Sources */,
 				23EF3A242484D5D600B55F88 /* lexer.cc in Sources */,
 				23EF3A252484D5D600B55F88 /* ast.cc in Sources */,
+				2368F42E24B419FA00E1AE18 /* hir-schedule.cc in Sources */,
 				23EF3A262484D5D600B55F88 /* parser.cc in Sources */,
 				23EF3A272484D5D600B55F88 /* compiler.cc in Sources */,
 				23EF3A282484D5D600B55F88 /* type-checker.cc in Sources */,
