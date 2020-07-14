@@ -37,7 +37,7 @@ public:
     private:
         explicit Id(size_t index): index_(index) {}
         size_t index_;
-    };
+    }; // class Id
     
     HBasicBlock(base::Arena *arena, Id id);
 

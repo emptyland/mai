@@ -276,6 +276,7 @@ public:
     DEF_VAL_GETTER(int, control_out);
     DEF_VAL_GETTER(int, effect_out);
     DEF_VAL_GETTER(int, value_out);
+    DEF_VAL_GETTER(uint64_t, properties);
     
     const char *name() const { return kNames[value_]; }
     
@@ -340,6 +341,20 @@ private:
     T data_;
 }; // template<class T> class HOperatorWith
 
+
+struct BranchHint final {
+    enum Code {
+        kNone,
+        kLikely,
+        kUnlikely,
+    };
+    
+    static Code Of(const HOperator *op) { return static_cast<Code>(op->properties()); }
+  
+    DISALLOW_ALL_CONSTRUCTORS(BranchHint);
+};
+
+
 class HOperatorFactory final {
 public:
     HOperatorFactory(base::Arena *arena)
@@ -360,8 +375,8 @@ public:
         return new (arena_) HOperator(HCheckStack, 0, 0, 0, 0, 0, 0, 0);
     }
 
-    const HOperator *Branch(int control_in, int value_in) {
-        return new (arena_) HOperator(HBranch, 0, value_in, 0, control_in, 0, 0, 0);
+    const HOperator *Branch(int control_in, int value_in, BranchHint::Code hint = BranchHint::kNone) {
+        return new (arena_) HOperator(HBranch, hint, value_in, 0, control_in, 0, 0, 0);
     }
     
     const HOperator *IfTrue(int hint) {
@@ -383,7 +398,7 @@ public:
     const HOperator *Return(int control_in, int value_in) {
         return new (arena_) HOperator(HReturn, 0, value_in, 0, control_in, 0, 0, 0);
     }
-    
+
     const HOperator *Loop() {
         return new (arena_) HOperator(HLoop, 0, 0, 0, 1, 0, 0, 0);
     }

@@ -18,7 +18,7 @@ public:
     
     Reduction Reduce(HNode *node) final {
         sequence_.push_back(node);
-        printf("[%d] %s\n", node->vid(), node->op()->name());
+        //printf("[%d] %s\n", node->vid(), node->op()->name());
         return NoChange();
     }
 

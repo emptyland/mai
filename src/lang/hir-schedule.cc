@@ -437,6 +437,20 @@ void HScheduler::CFGBuilder::ConnectBranch(HNode *branch) {
     blocks[0] = schedule_->block(projections[0]);
     blocks[1] = schedule_->block(projections[1]);
     
+    switch (BranchHint::Of(branch->op())) {
+        case BranchHint::kLikely:
+            blocks[1]->set_deferred(true);
+            break;
+        case BranchHint::kUnlikely:
+            blocks[0]->set_deferred(true);
+            break;
+        case BranchHint::kNone:
+            break;
+        default:
+            NOREACHED();
+            break;
+    }
+    
     if (branch == component_entry_) {
         schedule_->InsertBranch(component_start_, component_end_, branch, blocks[0], blocks[1]);
     } else {

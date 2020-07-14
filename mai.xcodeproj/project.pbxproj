@@ -363,6 +363,7 @@
 		23EF3A7A2484DCDD00B55F88 /* gflags_reporting.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23EF3A762484DCDD00B55F88 /* gflags_reporting.cc */; };
 		23EF3A7B2484DCDD00B55F88 /* gflags.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23EF3A782484DCDD00B55F88 /* gflags.cc */; };
 		23EF3A7C2484DCDD00B55F88 /* gflags_completions.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23EF3A792484DCDD00B55F88 /* gflags_completions.cc */; };
+		23F47AD824B9774B00BC14D9 /* hir-schedule-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F47AD724B9774B00BC14D9 /* hir-schedule-test.cc */; };
 		23F6A03022266E1A00AE5DB6 /* decimal-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A02C22266E1900AE5DB6 /* decimal-v2.cc */; };
 		23F6A03522266E7700AE5DB6 /* decimal-test-v2.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F6A03322266E7700AE5DB6 /* decimal-test-v2.cc */; };
 		23F9273A24A9CD360054CAF4 /* hir-reducer-test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 23F9273924A9CD360054CAF4 /* hir-reducer-test.cc */; };
@@ -727,6 +728,7 @@
 		23EF3A782484DCDD00B55F88 /* gflags.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gflags.cc; sourceTree = "<group>"; };
 		23EF3A792484DCDD00B55F88 /* gflags_completions.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gflags_completions.cc; sourceTree = "<group>"; };
 		23F0742521D1D209009D8EAA /* transaction-db-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "transaction-db-test.cc"; sourceTree = "<group>"; };
+		23F47AD724B9774B00BC14D9 /* hir-schedule-test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "hir-schedule-test.cc"; sourceTree = "<group>"; };
 		23F60601219BBE9600CE12D9 /* write-batch.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "write-batch.cc"; sourceTree = "<group>"; };
 		23F60604219BC3DA00CE12D9 /* db-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "db-impl.h"; sourceTree = "<group>"; };
 		23F60605219BC40E00CE12D9 /* db-impl.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "db-impl.cc"; sourceTree = "<group>"; };
@@ -975,6 +977,7 @@
 				236C7E12249A659400D03042 /* compilation-worker-test.cc */,
 				23098D91248E6DA40074634B /* hir-test.cc */,
 				23F9273924A9CD360054CAF4 /* hir-reducer-test.cc */,
+				23F47AD724B9774B00BC14D9 /* hir-schedule-test.cc */,
 			);
 			name = lang;
 			path = src/lang;
@@ -1640,6 +1643,7 @@
 				2364B2E121E451F9008519AE /* s1-table-reader.cc in Sources */,
 				2364B2E321E451F9008519AE /* data-block-builder.cc in Sources */,
 				23048456240D08D800480C15 /* stable-space-builder-test.cc in Sources */,
+				23F47AD824B9774B00BC14D9 /* hir-schedule-test.cc in Sources */,
 				2364B2E821E451F9008519AE /* table.cc in Sources */,
 				2364B2EA21E451F9008519AE /* key-bloom-filter.cc in Sources */,
 				2364B2EC21E451F9008519AE /* block-iterator.cc in Sources */,
